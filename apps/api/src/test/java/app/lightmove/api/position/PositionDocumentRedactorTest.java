@@ -5,8 +5,8 @@ import static org.assertj.core.api.Assertions.assertThat;
 import app.lightmove.api.core.config.LightMoveProperties;
 import app.lightmove.api.core.config.PositionExtractionSettings;
 import app.lightmove.api.core.config.PositionSettings;
-import app.lightmove.api.core.llm.service.TextPseudonymiser;
 import app.lightmove.api.core.llm.service.TextPseudonymiser.Redaction;
+import app.lightmove.api.core.llm.service.TextPseudonymiser;
 import app.lightmove.api.position.service.PositionDocumentRedactor;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -81,7 +81,8 @@ class PositionDocumentRedactorTest {
         PositionExtractionSettings settings =
                 new PositionExtractionSettings(true, 40_000, 60, false, redactContactDetails);
         LightMoveProperties properties = new LightMoveProperties(null, null, null, null,
-                new PositionSettings(null, settings), null, null, null, null, null, null, null, null);
+                new PositionSettings(null, settings, null), null, null, null, null, null, null, null,
+                null, null);
         return new PositionDocumentRedactor(new TextPseudonymiser(), null, properties);
     }
 }

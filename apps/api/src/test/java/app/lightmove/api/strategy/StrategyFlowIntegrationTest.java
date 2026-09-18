@@ -12,6 +12,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import app.lightmove.api.ApolloUniverse;
 import app.lightmove.api.FlowTestSupport;
 import app.lightmove.api.IntegrationTest;
+import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -350,6 +351,38 @@ class StrategyFlowIntegrationTest extends FlowTestSupport {
                 .andExpect(jsonPath("$.companies.length()").value(2))
                 .andExpect(jsonPath("$.companies[*].companyName")
                         .value(containsInAnyOrder("ACWA Power", "Energy Two")));
+    }
+
+    @Test
+    @DisplayName("a mandate with a few hundred triaged companies still excludes every one of them")
+    void manyTriagedCompaniesAreExcluded() throws Exception {
+        // Issue #385: the exclusion used to be an inlined NOT IN over every triaged id, bound twice
+        // per request and growing with the mandate's own history. This pins the behaviour the rewrite
+        // (a correlated NOT EXISTS the triagecompany-owned adapter builds) must hold in place at a
+        // scale the id-list form was already measurably slow at.
+        String admin = adminOf("Strategy Scale Firm");
+        String projectId = project(admin);
+        int total = 300;
+        int triagedCount = 250;
+        for (int i = 0; i < total; i++) {
+            universe.company("s" + i, "Scale Co " + i).industry("oil & energy").employees(10).insert();
+        }
+        UUID projectUuid = UUID.fromString(projectId);
+        UUID userId = db.queryForObject(
+                "SELECT id FROM app_lm_user WHERE email = ?", UUID.class, "alok@" + domain);
+        for (int i = 0; i < triagedCount; i++) {
+            db.update("""
+                    INSERT INTO app_lm_project_triage_company
+                        (project_id, apollo_account_id, status, company_name, added_by)
+                    VALUES (?, ?, 'IN_UNIVERSE', ?, ?)
+                    """, projectUuid, "s" + i, "Scale Co " + i, userId);
+        }
+
+        mvc.perform(get(companiesUrl(projectId)).header("Authorization", "Bearer " + admin)
+                        .param("size", "100"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.totalCount").value(total - triagedCount))
+                .andExpect(jsonPath("$.companies.length()").value(50));
     }
 
     @Test

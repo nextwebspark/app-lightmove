@@ -37,6 +37,7 @@ const yasmin: Candidate = {
   locationCountry: "UAE",
   locationCity: "Dubai",
   nationality: "Egyptian",
+  gender: "female",
   yearsExperience: 18,
   summary: null,
   note: null,
@@ -96,6 +97,19 @@ const renderDrawer = (
       </ToastProvider>
     </QueryClientProvider>,
   );
+
+/** The brief's currency is read beside the grid, so it can land after the panel is already open. */
+function BriefArrivesLate(props: Parameters<typeof CandidateDrawer>[0]) {
+  const [defaultCurrency, setDefaultCurrency] = useState<string | undefined>(undefined);
+  return (
+    <>
+      <button type="button" onClick={() => setDefaultCurrency("SAR")}>
+        brief read
+      </button>
+      <CandidateDrawer {...props} defaultCurrency={defaultCurrency} />
+    </>
+  );
+}
 
 /**
  * What the page does with a save's answer: shows it. The panel renders whatever it is handed, so a
@@ -269,6 +283,96 @@ describe("CandidateDrawer", () => {
     expect(currency).toHaveValue("INR");
     expect(within(currency).getByRole("option", { name: "AED" })).toBeInTheDocument();
     expect(within(currency).getByRole("option", { name: "Not set" })).toBeInTheDocument();
+  });
+
+  it("offers the five notice periods, and keeps a stored period the picker does not carry", async () => {
+    vi.mocked(candidatesApi.updateCandidate).mockResolvedValue(yasmin);
+    renderDrawer({
+      candidate: { ...yasmin, compensation: { ...yasmin.compensation, noticePeriod: "6 weeks" } },
+      company: null,
+    });
+
+    await userEvent.click(screen.getByRole("button", { name: /Edit compensation/i }));
+    const notice = screen.getByLabelText(/^Notice period$/i);
+    expect(notice).toHaveValue("6 weeks");
+    expect(within(notice).getByRole("option", { name: "6 weeks (as recorded)" })).toBeInTheDocument();
+    // "Not established" is the blank every sibling picker carries; None is a claim, not an absence.
+    expect(within(notice).getByRole("option", { name: "Not established" })).toBeInTheDocument();
+
+    await userEvent.selectOptions(notice, "3 months");
+    await userEvent.click(screen.getByRole("button", { name: /^Save$/i }));
+
+    await waitFor(() => expect(candidatesApi.updateCandidate).toHaveBeenCalled());
+    expect(vi.mocked(candidatesApi.updateCandidate).mock.calls[0][2].compensation?.noticePeriod)
+      .toBe("3 months");
+  });
+
+  it("offers a new executive the mandate's currency, and never overwrites one already picked", async () => {
+    renderDrawer({}, BriefArrivesLate);
+
+    const currency = () => screen.getByLabelText(/^Currency$/i);
+    expect(currency()).toHaveValue("");
+
+    await userEvent.selectOptions(currency(), "QAR");
+    await userEvent.click(screen.getByRole("button", { name: /brief read/i }));
+
+    // A consultant who already picked one is stating this package is quoted in another.
+    expect(currency()).toHaveValue("QAR");
+  });
+
+  it("opens a new executive on the mandate's currency when the brief is already read", async () => {
+    renderDrawer({ defaultCurrency: "SAR" });
+
+    expect(screen.getByLabelText(/^Currency$/i)).toHaveValue("SAR");
+  });
+
+  it("records a gender only where one is picked, and reads an unrecorded one as nothing", async () => {
+    vi.mocked(candidatesApi.updateCandidate).mockResolvedValue({ ...yasmin, gender: "male" });
+    renderDrawer({ candidate: { ...yasmin, gender: null }, company: null });
+
+    await userEvent.click(screen.getByRole("button", { name: /Edit background/i }));
+    const gender = screen.getByLabelText(/^Gender/i);
+    // Not recorded is the absence of a value, never a fourth gender.
+    expect(gender).toHaveValue("");
+    expect(within(gender).getByRole("option", { name: "Not recorded" })).toBeInTheDocument();
+
+    await userEvent.selectOptions(gender, "Male");
+    await userEvent.click(screen.getByRole("button", { name: /^Save$/i }));
+
+    await waitFor(() => expect(candidatesApi.updateCandidate).toHaveBeenCalled());
+    expect(vi.mocked(candidatesApi.updateCandidate).mock.calls[0][2].gender).toBe("male");
+  });
+
+  it("offers nationality as the nine groups, and saves the one picked", async () => {
+    vi.mocked(candidatesApi.updateCandidate).mockResolvedValue({ ...yasmin, nationality: "Emirati" });
+    renderDrawer({ candidate: { ...yasmin, nationality: null }, company: null });
+
+    await userEvent.click(screen.getByRole("button", { name: /Edit background/i }));
+    const nationality = screen.getByLabelText(/^Nationality/i);
+    expect(nationality).toHaveValue("");
+    expect(within(nationality).getAllByRole("option")).toHaveLength(10);
+
+    await userEvent.selectOptions(nationality, "Emirati");
+    await userEvent.click(screen.getByRole("button", { name: /^Save$/i }));
+
+    await waitFor(() => expect(candidatesApi.updateCandidate).toHaveBeenCalled());
+    expect(vi.mocked(candidatesApi.updateCandidate).mock.calls[0][2].nationality).toBe("Emirati");
+  });
+
+  it("keeps a stored nationality the nine do not carry", async () => {
+    vi.mocked(candidatesApi.updateCandidate).mockResolvedValue(yasmin);
+    renderDrawer({ candidate: yasmin, company: null });
+
+    await userEvent.click(screen.getByRole("button", { name: /Edit background/i }));
+    const nationality = screen.getByLabelText(/^Nationality/i);
+    expect(nationality).toHaveValue("Egyptian");
+    expect(within(nationality).getByRole("option", { name: "Egyptian (as recorded)" })).toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole("button", { name: /^Save$/i }));
+
+    // Saving the section without touching the field says the stored value again, not a blank.
+    await waitFor(() => expect(candidatesApi.updateCandidate).toHaveBeenCalled());
+    expect(vi.mocked(candidatesApi.updateCandidate).mock.calls[0][2].nationality).toBe("Egyptian");
   });
 
   it("saves the note on its own, the moment it differs from what is stored", async () => {

@@ -1,6 +1,12 @@
-import { useCallback, useMemo } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { FIELD_LIMITS, cappedAt } from "../../api/fieldLimits";
 import type { SaveCandidateRequest } from "../../api/types";
+import {
+  CANDIDATE_CAPTURE_STATUSES,
+  CANDIDATE_CAPTURE_STATUS_LABELS,
+  DEFAULT_CANDIDATE_STATUS,
+  type CandidateCaptureStatus,
+} from "../../domain/candidateStatus";
 import type { ExtractedPerson } from "../../content/pageReader/extractedPerson";
 import { DetectedFieldInput } from "../components/DetectedFieldInput";
 import { PageReadNote } from "../components/PageReadNote";
@@ -44,6 +50,12 @@ export function CapturePersonScreen({ page, projects }: CaptureScreenProps) {
   const isNameLocked = Boolean(page.person?.fullName) && !hasBeenEdited;
   const { value: note, edit: editNote } = useSeededField(null, page.pageKey);
 
+  // A status is a judgement about the person on screen, so it goes when they do: nobody files the next
+  // profile as off-limits because the last one was. "Capture another" re-reads the same page, which is
+  // not a new `pageKey`, so it resets the status itself.
+  const [status, setStatus] = useState<CandidateCaptureStatus>(DEFAULT_CANDIDATE_STATUS);
+  useEffect(() => setStatus(DEFAULT_CANDIDATE_STATUS), [page.pageKey]);
+
   // A name and a mandate. That is what the API requires, and the popup should not invent more.
   const canSave = useMemo(
     () => Boolean(fullName.trim()) && Boolean(projects.selectedProjectId),
@@ -56,14 +68,15 @@ export function CapturePersonScreen({ page, projects }: CaptureScreenProps) {
     }
     capture.save({
       projectId: projects.selectedProjectId,
-      candidate: toCandidate(fullName, note, page.person, page.sourceUrl),
+      candidate: toCandidate({ fullName, note, status, person: page.person, sourceUrl: page.sourceUrl }),
     });
-  }, [capture, fullName, note, page.person, page.sourceUrl, projects.selectedProjectId]);
+  }, [capture, fullName, note, status, page.person, page.sourceUrl, projects.selectedProjectId]);
 
   const handleCaptureAnother = () => {
     capture.reset();
     undo.reset();
     editNote("");
+    setStatus(DEFAULT_CANDIDATE_STATUS);
     void page.rescan();
   };
 
@@ -113,6 +126,20 @@ export function CapturePersonScreen({ page, projects }: CaptureScreenProps) {
           onChange={(event) => editNote(event.target.value)}
           className="w-full resize-y rounded-[7px] border border-line bg-panel2 px-2.5 py-2 text-[12.5px] leading-[1.55] text-text outline-none focus:border-sky"
         />
+
+        <SectionLabel className="mb-2 mt-[18px]">Status</SectionLabel>
+        <select
+          value={status}
+          aria-label="Status"
+          onChange={(event) => setStatus(event.target.value as CandidateCaptureStatus)}
+          className="w-full rounded-[7px] border border-line bg-panel2 px-2.5 py-[7px] font-mono text-[12px] text-text outline-none focus:border-sky"
+        >
+          {CANDIDATE_CAPTURE_STATUSES.map((value) => (
+            <option key={value} value={value}>
+              {CANDIDATE_CAPTURE_STATUS_LABELS[value]}
+            </option>
+          ))}
+        </select>
       </div>
 
       <div className="flex flex-col gap-[9px] border-t border-line-soft px-3.5 py-[11px]">
@@ -153,18 +180,27 @@ function RefusalNote({ refusal }: { refusal: CaptureRefusal }) {
   );
 }
 
-/** The save: the name and note as edited, and the URLs the page cannot lie about, sent unshown. */
-function toCandidate(
-  fullName: string,
-  note: string,
-  person: ExtractedPerson | null,
-  sourceUrl: string | null,
-): SaveCandidateRequest {
+interface PersonCapture {
+  fullName: string;
+  note: string;
+  status: CandidateCaptureStatus;
+  person: ExtractedPerson | null;
+  sourceUrl: string | null;
+}
+
+/**
+ * The save: the name, note and status as chosen, and the URLs the page cannot lie about, sent unshown.
+ *
+ * Named rather than positional because a status is assignable to the two strings beside it, so a
+ * transposed argument would typecheck and file the wrong thing.
+ */
+function toCandidate({ fullName, note, status, person, sourceUrl }: PersonCapture): SaveCandidateRequest {
   return {
     fullName: cappedAt(fullName, FIELD_LIMITS.fullName) ?? "",
     linkedinUrl: cappedAt(person?.linkedinUrl, FIELD_LIMITS.linkedinUrl),
     note: cappedAt(note, FIELD_LIMITS.note),
     source: "extension",
+    status,
     sourceUrl: cappedAt(sourceUrl, FIELD_LIMITS.sourceUrl),
   };
 }

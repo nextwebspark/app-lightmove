@@ -21,6 +21,7 @@ export function CandidateDrawer({
   company,
   customColumns,
   canWrite,
+  defaultCurrency,
   onClose,
   onSaved,
   onDelete,
@@ -35,6 +36,8 @@ export function CandidateDrawer({
   customColumns: readonly CustomColumn[];
   /** False for a client representative, who reads a mandate's people and changes nothing about them. */
   canWrite: boolean;
+  /** The brief's currency, offered to a new executive's package. Absent leaves the picker unset. */
+  defaultCurrency?: string | null;
   onClose: () => void;
   /** Every write's answer, so the caller keeps this panel on what the server now holds. */
   onSaved: (saved: Candidate) => void;
@@ -60,6 +63,7 @@ export function CandidateDrawer({
           projectId={projectId}
           company={company}
           customColumns={customColumns}
+          defaultCurrency={defaultCurrency}
           onClose={onClose}
           onSaved={onSaved}
         />

@@ -5,6 +5,7 @@ import { Icon, ICONS } from "../../../components/layout/Icon";
 import { Button, FormError, useToast } from "../../../components/ui";
 import { cn } from "../../../lib/cn";
 import { codeOf, messageFor } from "../../../lib/errorCodes";
+import { useSubmitShortcut } from "../../../lib/useSubmitShortcut";
 import type { Candidate, SaveCandidatePayload } from "../api/types";
 import {
   formOf,
@@ -76,6 +77,8 @@ export function ProfileSectionForm({
     form.current?.querySelector<HTMLElement>("input, select, textarea")?.focus();
   }, []);
 
+  const handleSubmitShortcut = useSubmitShortcut(() => form.current?.requestSubmit());
+
   const handleKeyDown = (event: KeyboardEvent<HTMLFormElement>) => {
     if (event.key === "Escape") {
       event.stopPropagation();
@@ -83,10 +86,7 @@ export function ProfileSectionForm({
       onCancel();
       return;
     }
-    if (event.key === "Enter" && (event.metaKey || event.ctrlKey)) {
-      event.preventDefault();
-      event.currentTarget.requestSubmit();
-    }
+    handleSubmitShortcut(event);
   };
 
   return (

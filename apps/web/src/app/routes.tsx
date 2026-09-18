@@ -5,6 +5,7 @@ import { SettingsLayout } from "../components/layout/SettingsLayout";
 import { WorkspaceLayout } from "../components/layout/WorkspaceLayout";
 import { Logo } from "../components/ui";
 import { useAuth } from "../features/auth/AuthProvider";
+import type { PlatformAction } from "../features/auth/api/types";
 import { homeFor } from "../features/auth/homeFor";
 import { AcceptInvitePage } from "../features/auth/pages/AcceptInvitePage";
 import { ForgotPasswordPage } from "../features/auth/pages/ForgotPasswordPage";
@@ -22,6 +23,7 @@ import { ExtensionConnectPage } from "../features/extension/pages/ExtensionConne
 import { PositionPage } from "../features/position/pages/PositionPage";
 import { ProjectPlaceholderPage } from "../features/position/pages/ProjectPlaceholderPage";
 import { ProjectsPage } from "../features/projects/pages/ProjectsPage";
+import { ReportsPage } from "../features/reports/pages/ReportsPage";
 import { TeamAccessPage } from "../features/projects/pages/TeamAccessPage";
 import { SettingsGeneralPage } from "../features/settings/pages/SettingsGeneralPage";
 import { SettingsMembersPage } from "../features/settings/pages/SettingsMembersPage";
@@ -29,6 +31,8 @@ import { SettingsProfilePage } from "../features/settings/pages/SettingsProfileP
 import { SettingsSecurityPage } from "../features/settings/pages/SettingsSecurityPage";
 import { TriageStagePage } from "../features/triage/pages/TriageStagePage";
 import { StrategyPage } from "../features/strategy/pages/StrategyPage";
+import { TemplateEditorPage } from "../features/templates/pages/TemplateEditorPage";
+import { TemplateListPage } from "../features/templates/pages/TemplateListPage";
 import { TeamPage } from "../features/workspace/pages/TeamPage";
 import { NotFoundPage } from "./NotFoundPage";
 
@@ -112,7 +116,7 @@ export function AppRoutes() {
         />
         <Route path="/projects/:projectId/candidates" element={<ProjectPlaceholderPage title="Candidates" icon="candidates" />} />
         <Route path="/projects/:projectId/outreach" element={<ProjectPlaceholderPage title="Outreach" icon="outreach" />} />
-        <Route path="/projects/:projectId/reports" element={<ProjectPlaceholderPage title="Reports" icon="reports" />} />
+        <Route path="/projects/:projectId/reports" element={<ReportsPage />} />
         <Route path="/projects/:projectId/team" element={<TeamAccessPage />} />
       </Route>
 
@@ -127,6 +131,14 @@ export function AppRoutes() {
         <Route element={<RequireAdmin><Outlet /></RequireAdmin>}>
           <Route path="/settings/general" element={<SettingsGeneralPage />} />
           <Route path="/settings/members" element={<SettingsMembersPage />} />
+          <Route path="/settings/templates" element={<TemplateListPage scope="workspace" />} />
+          <Route path="/settings/templates/new" element={<TemplateEditorPage scope="workspace" />} />
+          <Route path="/settings/templates/:code" element={<TemplateEditorPage scope="workspace" />} />
+        </Route>
+        <Route element={<RequirePlatformAction action="TEMPLATE_LIBRARY_MANAGE"><Outlet /></RequirePlatformAction>}>
+          <Route path="/settings/template-library" element={<TemplateListPage scope="library" />} />
+          <Route path="/settings/template-library/new" element={<TemplateEditorPage scope="library" />} />
+          <Route path="/settings/template-library/:code" element={<TemplateEditorPage scope="library" />} />
         </Route>
       </Route>
 
@@ -228,6 +240,17 @@ function RequireAdmin({ children }: { children: ReactNode }) {
   if (loading) return <Booting />;
   if (!user) return <Navigate to="/login" replace />;
   if (!user.workspace?.roles.includes("ADMIN")) return <Navigate to="/" replace />;
+
+  return <>{children}</>;
+}
+
+/** The Platform settings, for LightMove staff. UX only — every platform endpoint re-reads the grant. */
+function RequirePlatformAction({ action, children }: { action: PlatformAction; children: ReactNode }) {
+  const { user, loading } = useAuth();
+
+  if (loading) return <Booting />;
+  if (!user) return <Navigate to="/login" replace />;
+  if (!user.platformActions.includes(action)) return <Navigate to="/" replace />;
 
   return <>{children}</>;
 }

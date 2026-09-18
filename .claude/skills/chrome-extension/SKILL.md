@@ -130,6 +130,14 @@ flaky and was **removed**. This matches the mature tools (Clockwork, Lusha): cap
 the extension, enrich server-side later. Do not re-grow page-side field extraction; a new captured
 field is an enrichment story, not an extractor.
 
+A person capture also carries a **status**, and that one is *chosen rather than read*, so it grows no
+extractor and breaks nothing above. `domain/candidateStatus.ts` offers four of the API's seven
+`CandidateStatus` tokens — identified, contacted, off-limits, out of scope — defaulting to identified,
+which is exactly what `CandidateService.resolveStatus` assumes of a capture that says nothing. The
+other three describe the outcome of a conversation and stay with the drawer, the same reasoning that
+keeps `declined` out of the company destinations. It needed no server change: the Add-executive drawer
+already offers the field, which is the rule a captured field has to satisfy.
+
 How the two fields are read (`background/activePage.ts:readActivePage`, no scrolling):
 
 - On `linkedin.com/in/<slug>` and `/company/<slug>` the URL decides the subject and the captured

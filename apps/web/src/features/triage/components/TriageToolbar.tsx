@@ -86,16 +86,21 @@ export function TriageToolbar({
 
   return (
     <div className="flex min-h-[44px] flex-none flex-wrap items-center gap-x-3.5 gap-y-2 border-b border-line-soft bg-panel2 px-3 py-2 sm:px-5 sm:py-1.5">
-      <div className="order-last flex w-full min-w-[180px] items-center gap-2 rounded-[6px] border border-line px-3 py-2 sm:order-none sm:w-[240px] sm:flex-none">
-        <Icon d={ICONS.search} size={14} className="flex-none text-text3" />
-        <input
-          value={query}
-          onChange={(event) => onQuery(event.target.value)}
-          placeholder={view === "map" ? "Filter companies and executives..." : "Search companies..."}
-          aria-label={view === "map" ? "Filter companies and executives" : "Search companies"}
-          className="w-full bg-transparent font-sans text-[13px] text-text outline-none placeholder:text-text3"
-        />
-      </div>
+      {/* Table view narrows by the grid's own Company and Executive header filters instead — one box
+          doing the same job a few inches away would just be a second, confusing way to ask. Map view
+          has no grid headers to attach a filter to, so it keeps this one. */}
+      {view === "map" && (
+        <div className="order-last flex w-full min-w-[180px] items-center gap-2 rounded-[6px] border border-line px-3 py-2 sm:order-none sm:w-[240px] sm:flex-none">
+          <Icon d={ICONS.search} size={14} className="flex-none text-text3" />
+          <input
+            value={query}
+            onChange={(event) => onQuery(event.target.value)}
+            placeholder="Filter companies and executives..."
+            aria-label="Filter companies and executives"
+            className="w-full bg-transparent font-sans text-[13px] text-text outline-none placeholder:text-text3"
+          />
+        </div>
+      )}
 
       {onViewChange && (
         <SegmentedControl

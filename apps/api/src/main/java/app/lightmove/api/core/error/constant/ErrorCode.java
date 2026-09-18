@@ -199,6 +199,22 @@ public enum ErrorCode {
     CUSTOM_COLUMN_LIMIT_REACHED(HttpStatus.CONFLICT,
             "This mandate has as many custom columns as it can hold"),
 
+    /** A template save carrying an older version than the row's: someone else saved it first. */
+    TEMPLATE_STALE(HttpStatus.CONFLICT,
+            "Someone saved this template after you opened it. Reload to see their version"),
+
+    /** The template an unrecognised role title is drafted from; without it a mandate starts blank. */
+    TEMPLATE_FALLBACK_REQUIRED(HttpStatus.CONFLICT,
+            "The fallback template cannot be archived or hidden"),
+
+    /** Not JSON, not the template format, or more than one import may carry. */
+    TEMPLATE_FILE_UNREADABLE(HttpStatus.BAD_REQUEST,
+            "That file is not a LightMove template file"),
+
+    /** Committing a file the preview marked invalid. All or nothing: no template in it is written. */
+    TEMPLATE_IMPORT_INVALID(HttpStatus.BAD_REQUEST,
+            "Some templates in that file are invalid, so none were imported"),
+
     /**
      * A position description that could not be read as text — encrypted, no text layer, a legacy
      * {@code .doc}, or a format nobody recognises. Distinct from {@link #IMPORT_FILE_UNREADABLE}:

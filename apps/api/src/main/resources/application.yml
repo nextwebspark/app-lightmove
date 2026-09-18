@@ -155,6 +155,23 @@ server:
   error:
     include-message: never    # Error bodies are built in GlobalExceptionHandler, not leaked by the container.
   forward-headers-strategy: native
+  # Cloud Run passes the container's bytes through untouched — it does not gzip on our behalf — so
+  # without this every response leaves raw, the SPA entry chunk and /companies/facets worst of all.
+  compression:
+    enabled: true
+    # An allowlist, not a denylist, and that is load-bearing: text/event-stream is absent, so Tomcat
+    # never buffers a ProjectStreamController emitter waiting for a block to compress. RFC 9457 error
+    # bodies (application/problem+json) fall outside it too — Tomcat matches the type exactly.
+    mime-types: application/json,application/javascript,text/html,text/css,text/plain,image/svg+xml
+    # Below this, the CPU and the Content-Encoding header cost more than the saving.
+    min-response-size: 1024
+    # Deliberately blanket, /api/v1/auth/** included. BREACH needs three things in ONE response:
+    # compression, a secret, and attacker-chosen text reflected back. The third leg is missing
+    # everywhere it would matter — /auth/refresh answers a cookie with an access token and the
+    # caller's own profile, echoing nothing the request supplied, and the vague uniform auth errors
+    # carry no secret to steal (and are problem+json, so uncompressed regardless). Excluding those
+    # paths would also cost more than it reads: Spring Boot filters compression by mime type only,
+    # so a path exclusion means a hand-written filter standing in front of the auth chain forever.
 
 lightmove:
   auth:
@@ -361,6 +378,14 @@ lightmove:
         - application/msword
         - application/vnd.openxmlformats-officedocument.wordprocessingml.document
         - text/plain
+    template:
+      # A role-template JSON file imported in Settings → Templates or Template library. Held whole in
+      # memory while it is parsed; an export of the whole library is a few hundred KB. Must stay at or
+      # below spring.servlet.multipart.max-file-size, which rejects the upload before it ever arrives.
+      max-import-file-size-bytes: ${POSITION_TEMPLATE_IMPORT_MAX_BYTES:1048576}
+      # Refused whole rather than truncated, like a spreadsheet's rows. position-templates.schema.json
+      # publishes 100 as its maxItems; raise both together.
+      max-import-templates: ${POSITION_TEMPLATE_IMPORT_MAX_TEMPLATES:100}
     extraction:
       # ON. Reading the attached document into step-one proposals is billed model time behind
       # PROJECT_EDIT, degrading to a heuristic reading with no Vertex credentials at all — off leaves
@@ -440,6 +465,18 @@ lightmove:
     # its second half still looks like a complete file, which is the one thing an export must not do.
     max-companies: ${EXPORT_MAX_COMPANIES:5000}
     max-candidates: ${EXPORT_MAX_CANDIDATES:10000}
+
+  # The talent mapping report reads every company and executive of a mandate in one pass, so the two
+  # row caps play the pager's part and the response says when it hit one. The category caps bound how
+  # many sectors, hubs and nationalities a chapter names before the tail folds into "Other".
+  report:
+    max-companies: ${REPORT_MAX_COMPANIES:2000}
+    max-candidates: ${REPORT_MAX_CANDIDATES:5000}
+    max-sectors: ${REPORT_MAX_SECTORS:6}
+    max-hubs: ${REPORT_MAX_HUBS:8}
+    max-nationalities: ${REPORT_MAX_NATIONALITIES:9}
+    max-employers-per-hub: ${REPORT_MAX_EMPLOYERS_PER_HUB:3}
+    max-executives-per-slice: ${REPORT_MAX_EXECUTIVES_PER_SLICE:12}
 
 # What /actuator/info reports. APP_VERSION is baked into the image by the Dockerfile's build arg, so
 # this is the same release the SPA bundle was built with — one input, and nothing at runtime can move

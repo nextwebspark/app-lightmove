@@ -7,6 +7,7 @@ import app.lightmove.api.candidate.constant.ContactChannel;
 import app.lightmove.api.candidate.constant.ContactKind;
 import app.lightmove.api.candidate.constant.ContactSource;
 import app.lightmove.api.candidate.constant.EnrichmentVendor;
+import app.lightmove.api.candidate.constant.Gender;
 import app.lightmove.api.core.persistence.model.BaseEntity;
 import app.lightmove.api.customcolumn.model.CustomFieldValues;
 import jakarta.persistence.CollectionTable;
@@ -44,8 +45,8 @@ import org.hibernate.type.SqlTypes;
  * {@code ON DELETE SET NULL} is the other half of that pair: removing a company from a mandate must
  * not silently delete the people mapped at it.
  *
- * <p>{@code status}, {@code seniorityLevel} and {@code source} are stored as enum names, matching
- * V36's CHECK constraints — {@code N-1} is not a legal identifier.
+ * <p>{@code status}, {@code seniorityLevel}, {@code gender} and {@code source} are stored as enum
+ * names, matching their CHECK constraints — {@code N-1} is not a legal identifier.
  */
 @Entity
 @Table(name = "app_lm_project_candidate")
@@ -88,6 +89,10 @@ public class Candidate extends BaseEntity {
 
     @Column(name = "nationality")
     private String nationality;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "gender", length = 16)
+    private Gender gender;
 
     @Column(name = "years_experience")
     private Integer yearsExperience;
@@ -147,11 +152,13 @@ public class Candidate extends BaseEntity {
     /**
      * Every email and phone known for this person, whatever door it came through — V54's ledger.
      * A bag the aggregate rewrites from its own methods, the way a position owns its lists; nothing
-     * outside this class adds a row.
+     * outside this class adds a row. Batched at 500 rather than the usual 50 because the talent map
+     * reads every mapped person in one unpaged pass, up to {@code talentmap.max-candidates}, and
+     * every one of them is answered with its contacts.
      */
     @ElementCollection(fetch = FetchType.LAZY)
     @CollectionTable(name = "app_lm_candidate_contact", joinColumns = @JoinColumn(name = "candidate_id"))
-    @BatchSize(size = 50)
+    @BatchSize(size = 500)
     private List<CandidateContact> contacts = new ArrayList<>();
 
     /**
@@ -196,6 +203,7 @@ public class Candidate extends BaseEntity {
         this.locationCountry = details.locationCountry();
         this.locationCity = details.locationCity();
         this.nationality = details.nationality();
+        this.gender = details.gender();
         this.yearsExperience = details.yearsExperience();
         this.summary = details.summary();
         this.note = details.note();

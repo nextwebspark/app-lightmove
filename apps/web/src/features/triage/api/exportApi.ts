@@ -1,5 +1,5 @@
 import { requestBlob } from "../../../lib/apiClient";
-import { fileNameOf, saveBlob } from "../../../lib/download";
+import { saveBlob } from "../../../lib/saveBlob";
 import type { TriageCompanyStatus } from "./types";
 
 /**
@@ -19,7 +19,16 @@ export async function saveCompaniesCsv(
   if (query.trim()) params.set("q", query.trim());
 
   const blob = await requestBlob(`/projects/${projectId}/export/companies?${params}`);
-  saveBlob(blob, fileNameOf(["uncava", ...fileNameParts, today()], "csv"));
+  saveBlob(blob, fileNameOf(["uncava", ...fileNameParts, today()]));
+}
+
+/** A name a browser and a file system will both take: anything but a letter or digit becomes a dash. */
+function fileNameOf(parts: readonly string[]): string {
+  const slug = parts
+    .map((part) => part.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, ""))
+    .filter((part) => part.length > 0)
+    .join("-");
+  return `${slug || "uncava"}.csv`;
 }
 
 /** Dated, because a mandate's universe is a moving thing and two exports are two snapshots. */

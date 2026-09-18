@@ -1,5 +1,5 @@
 import { request, requestBlob } from "../../../lib/apiClient";
-import { saveBlob } from "../../../lib/download";
+import { saveBlob } from "../../../lib/saveBlob";
 import type { ImportPreview, ImportSummary, ProposedColumnMapping } from "./importTypes";
 
 /**

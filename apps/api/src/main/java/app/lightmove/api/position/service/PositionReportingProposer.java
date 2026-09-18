@@ -1,22 +1,24 @@
 package app.lightmove.api.position.service;
 
+import app.lightmove.api.common.constant.NoticePeriod;
+import app.lightmove.api.common.constant.NoticeUnit;
 import app.lightmove.api.core.llm.model.BlockedAnswer;
-import app.lightmove.api.core.llm.model.Pseudonyms;
 import app.lightmove.api.core.llm.model.PromptGuardSpec;
+import app.lightmove.api.core.llm.model.Pseudonyms;
 import app.lightmove.api.core.llm.service.LlmCallPolicy;
 import app.lightmove.api.core.llm.service.TextPseudonymiser.Redaction;
 import app.lightmove.api.core.ratelimit.service.LlmBudget;
 import app.lightmove.api.core.ratelimit.service.LlmBudgetGuard;
 import app.lightmove.api.position.constant.ExtractionSource;
-import app.lightmove.api.position.constant.NoticeUnit;
 import app.lightmove.api.position.constant.ProposalConfidence;
 import app.lightmove.api.position.constant.ProposalOrigin;
 import app.lightmove.api.position.model.ExtractedField;
-import app.lightmove.api.position.model.ModelReportingAnswer;
 import app.lightmove.api.position.model.ModelReportingAnswer.ModelDirectReport;
-import app.lightmove.api.position.model.PositionTemplate;
-import app.lightmove.api.position.model.PositionTemplateBody;
+import app.lightmove.api.position.model.ModelReportingAnswer;
 import app.lightmove.api.position.model.ProposedReportingStructure;
+import app.lightmove.api.positiontemplate.model.PositionTemplate;
+import app.lightmove.api.positiontemplate.model.PositionTemplateBody;
+import app.lightmove.api.positiontemplate.service.PositionTemplateService;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -178,12 +180,34 @@ public class PositionReportingProposer {
 
         fieldReader.fieldFrom(LABEL, "teamSize", answered.teamSize(), answered.teamSizeSnippet(), pseudonyms,
                 haystack).ifPresent(fields::add);
-        nonNegativeIntFieldFrom("noticeValue", answered.noticeValue(), answered.noticeValueSnippet(),
-                pseudonyms, haystack).ifPresent(fields::add);
-        fieldReader.enumFieldFrom(LABEL, "noticeUnit", NoticeUnit.class, answered.noticeUnit(),
-                answered.noticeUnitSnippet(), pseudonyms, haystack).ifPresent(fields::add);
+        noticePeriodFieldFrom(answered, pseudonyms, haystack).ifPresent(fields::add);
 
         return new ProposedReportingStructure(ExtractionSource.MODEL, fields);
+    }
+
+    /**
+     * The count and the unit the model read, folded into the one period step three offers for them.
+     *
+     * <p>The prompt still asks for a number and a unit, because that is what a document states and
+     * asking for one of five would make the model bucket rather than read. The fold happens here
+     * instead, and a pair that names no option on offer is dropped the way an unparsable count and
+     * an unrecognised unit already are — a proposal nobody can accept is worse than none.
+     */
+    private Optional<ExtractedField> noticePeriodFieldFrom(ModelReportingAnswer answered, Pseudonyms pseudonyms,
+                                                           String haystack) {
+        Optional<ExtractedField> count = nonNegativeIntFieldFrom("noticePeriod", answered.noticeValue(),
+                answered.noticeValueSnippet(), pseudonyms, haystack);
+        Optional<ExtractedField> unit = fieldReader.enumFieldFrom(LABEL, "noticePeriod", NoticeUnit.class,
+                answered.noticeUnit(), answered.noticeUnitSnippet(), pseudonyms, haystack);
+        if (count.isEmpty() || unit.isEmpty()) {
+            return Optional.empty();
+        }
+        NoticePeriod period = NoticePeriod.ofPair(Integer.valueOf(count.get().value()),
+                NoticeUnit.valueOf(unit.get().value()));
+        return period == null
+                ? Optional.empty()
+                : Optional.of(new ExtractedField("noticePeriod", period.value(), count.get().confidence(),
+                        count.get().snippet(), count.get().origin()));
     }
 
     /** Parsed as a non-negative whole number; unparsable or negative is dropped, never clamped to zero. */
@@ -209,8 +233,8 @@ public class PositionReportingProposer {
     }
 
     /**
-     * Proposes the matched template's own {@code reportsTo}, {@code directReports}, {@code
-     * noticeValue} and {@code noticeUnit} for whichever the document said nothing about — never {@code
+     * Proposes the matched template's own {@code reportsTo}, {@code directReports} and {@code
+     * noticePeriod} for whichever the document said nothing about — never {@code
      * teamSize}, which no template carries, the same rule compensation's salary numbers follow. Needs
      * the mandate's own persisted role title, since unlike step one this proposer never reads one out
      * of the document itself. {@code directReportTitle} is group-checked like step one's {@code
@@ -231,10 +255,8 @@ public class PositionReportingProposer {
 
         List<ExtractedField> backfilled = new ArrayList<>(fields);
         addIfMissing(backfilled, present, "reportsToTitle", body.reportsTo());
-        addIfMissing(backfilled, present, "noticeValue",
-                body.noticeValue() == null ? null : body.noticeValue().toString());
-        addIfMissing(backfilled, present, "noticeUnit",
-                body.noticeUnit() == null ? null : body.noticeUnit().name());
+        NoticePeriod templatePeriod = NoticePeriod.ofPair(body.noticeValue(), body.noticeUnit());
+        addIfMissing(backfilled, present, "noticePeriod", templatePeriod == null ? null : templatePeriod.value());
         if (!present.contains("directReportTitle")) {
             body.directReports().stream()
                     .filter(text -> text != null && !text.isBlank())

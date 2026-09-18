@@ -64,6 +64,30 @@ class CandidateFlowIntegrationTest extends FlowTestSupport {
     }
 
     @Test
+    @DisplayName("mapping an executive clears a company's no-executive-found flag")
+    void mappingClearsNoExecutiveFound() throws Exception {
+        String projectId = mandate("Clears Flag Firm");
+        String companyId = captureCompany(projectId, "Al Rawabi Dairy");
+
+        mvc.perform(patch("/api/v1/projects/" + projectId + "/triage/" + companyId)
+                        .header("Authorization", "Bearer " + admin())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"noExecutiveFound":true}"""))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.noExecutiveFound").value(true));
+
+        mapTo(projectId, companyId, "Yasmin El-Sayed");
+
+        JsonNode company = body(mvc.perform(get("/api/v1/projects/" + projectId + "/triage")
+                        .header("Authorization", "Bearer " + admin()))
+                .andExpect(status().isOk())
+                .andReturn()).get("companies").get(0);
+        assertThat(company.get("id").asText()).isEqualTo(companyId);
+        assertThat(company.get("noExecutiveFound").asBoolean()).isFalse();
+    }
+
+    @Test
     @DisplayName("an executive whose employer is not in the universe is mapped to the project alone")
     void unmappedExecutiveKeepsTheirTypedEmployer() throws Exception {
         String projectId = mandate("Unmapped Executive Firm");
@@ -122,6 +146,30 @@ class CandidateFlowIntegrationTest extends FlowTestSupport {
         assertThat(read.get("languages")).hasSize(2);
         // A bare host is a relative href inside the SPA, so it is promoted rather than stored as typed.
         assertThat(read.get("linkedinUrl").asText()).isEqualTo("https://linkedin.com/in/yasmin");
+    }
+
+    @Test
+    @DisplayName("a notice period the drawer does not offer is stored as stated, never refused")
+    void anUnofferedNoticePeriodIsKept() throws Exception {
+        String projectId = mandate("Notice Period Firm");
+
+        mvc.perform(post(candidatesUrl(projectId))
+                        .header("Authorization", "Bearer " + admin())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"fullName":"Omar Haddad","companyName":"A Firm",
+                                 "compensation":{"noticePeriod":"6 weeks, negotiable"}}"""))
+                .andExpect(status().isCreated());
+
+        JsonNode read = body(mvc.perform(get(candidatesUrl(projectId))
+                        .header("Authorization", "Bearer " + admin()))
+                .andExpect(status().isOk())
+                .andReturn()).get("candidates").get(0);
+
+        // The picker offers five periods; the column is not narrowed to them. A row stating something
+        // else is a fact somebody entered, and every save replays the whole compensation object — so
+        // refusing it here would refuse to save a package nobody had touched.
+        assertThat(read.at("/compensation/noticePeriod").asText()).isEqualTo("6 weeks, negotiable");
     }
 
     @Test
@@ -336,6 +384,71 @@ class CandidateFlowIntegrationTest extends FlowTestSupport {
                 .andReturn());
         assertThat(unmapped.get("triageCompanyId").isNull()).isTrue();
         assertThat(unmapped.get("companyName").asText()).isEqualTo("An Unlisted Holding");
+    }
+
+    @Test
+    @DisplayName("remapping an executive onto a company clears its no-executive-found flag")
+    void remappingClearsNoExecutiveFound() throws Exception {
+        String projectId = mandate("Remap Clears Flag Firm");
+        String almarai = captureCompany(projectId, "Almarai");
+        String nadec = captureCompany(projectId, "NADEC");
+        String candidateId = mapTo(projectId, almarai, "Omar Haddad");
+
+        mvc.perform(patch("/api/v1/projects/" + projectId + "/triage/" + nadec)
+                        .header("Authorization", "Bearer " + admin())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"noExecutiveFound":true}"""))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.noExecutiveFound").value(true));
+
+        mvc.perform(put(candidatesUrl(projectId) + "/" + candidateId)
+                        .header("Authorization", "Bearer " + admin())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"triageCompanyId":"%s","fullName":"Omar Haddad"}
+                                """.formatted(nadec)))
+                .andExpect(status().isOk());
+
+        // Newest first: NADEC was captured after Almarai, so it is the first row.
+        JsonNode company = body(mvc.perform(get("/api/v1/projects/" + projectId + "/triage")
+                        .header("Authorization", "Bearer " + admin()))
+                .andExpect(status().isOk())
+                .andReturn()).get("companies").get(0);
+        assertThat(company.get("id").asText()).isEqualTo(nadec);
+        assertThat(company.get("noExecutiveFound").asBoolean()).isFalse();
+    }
+
+    @Test
+    @DisplayName("editing an already-mapped executive's own fields leaves the company's flag alone")
+    void unrelatedEditDoesNotReviveNoExecutiveFound() throws Exception {
+        String projectId = mandate("Unrelated Edit Firm");
+        String companyId = captureCompany(projectId, "Al Rawabi Dairy");
+        String candidateId = mapTo(projectId, companyId, "Yasmin El-Sayed");
+
+        mvc.perform(patch("/api/v1/projects/" + projectId + "/triage/" + companyId)
+                        .header("Authorization", "Bearer " + admin())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"noExecutiveFound":true}"""))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.noExecutiveFound").value(true));
+
+        // Same company, same candidate: this only changes the title, not who is mapped where.
+        mvc.perform(put(candidatesUrl(projectId) + "/" + candidateId)
+                        .header("Authorization", "Bearer " + admin())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"triageCompanyId":"%s","fullName":"Yasmin El-Sayed","title":"CFO"}
+                                """.formatted(companyId)))
+                .andExpect(status().isOk());
+
+        JsonNode company = body(mvc.perform(get("/api/v1/projects/" + projectId + "/triage")
+                        .header("Authorization", "Bearer " + admin()))
+                .andExpect(status().isOk())
+                .andReturn()).get("companies").get(0);
+        assertThat(company.get("id").asText()).isEqualTo(companyId);
+        assertThat(company.get("noExecutiveFound").asBoolean()).isTrue();
     }
 
     @Test

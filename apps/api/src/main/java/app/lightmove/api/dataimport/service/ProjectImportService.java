@@ -389,6 +389,8 @@ public class ProjectImportService {
                         held == null ? null : held.locationCity()),
                 firstOf(RowValues.text(fields.field(ImportTargetField.CANDIDATE_NATIONALITY), 100),
                         held == null ? null : held.nationality()),
+                firstOf(RowValues.gender(fields.field(ImportTargetField.CANDIDATE_GENDER)),
+                        held == null ? null : held.gender()),
                 firstOf(yearsExperienceOf(fields), held == null ? null : held.yearsExperience()),
                 firstOf(RowValues.text(fields.field(ImportTargetField.CANDIDATE_SUMMARY), 4000),
                         held == null ? null : held.summary()),
@@ -416,7 +418,7 @@ public class ProjectImportService {
                         stored == null ? null : stored.allowances()),
                 firstOf(RowValues.number(fields.field(ImportTargetField.CANDIDATE_LONG_TERM_INCENTIVE)),
                         stored == null ? null : stored.longTermIncentive()),
-                firstOf(RowValues.text(fields.field(ImportTargetField.CANDIDATE_NOTICE_PERIOD), 100),
+                firstOf(RowValues.noticePeriod(fields.field(ImportTargetField.CANDIDATE_NOTICE_PERIOD)),
                         stored == null ? null : stored.noticePeriod()));
     }
 

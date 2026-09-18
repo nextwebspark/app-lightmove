@@ -1,0 +1,125 @@
+{
+  "name": "UNCAVA",
+  "version": "1.0.0",
+  "mode": "dark-first",
+  "type": {
+    "ui": "Geist",
+    "numerals": "JetBrains Mono",
+    "brand": "Montserrat 200 (wordmark only)",
+    "scale": {
+      "display": "600 36/40 -0.03em",
+      "section": "500 20/26 -0.01em",
+      "title": "500 16/22",
+      "body": "400 14/22",
+      "dense": "400 13/18",
+      "meta": "mono 400 11/16",
+      "eyebrow": "600 10 +0.12em uppercase",
+      "figure": "mono 500 28 -0.02em"
+    }
+  },
+  "radius": {
+    "control": 6,
+    "chip": 8,
+    "card": 12,
+    "modal": 16,
+    "pill": 999
+  },
+  "space": [
+    4,
+    8,
+    12,
+    16,
+    24,
+    32,
+    48
+  ],
+  "chrome": {
+    "rail": 48,
+    "topbar": 44,
+    "panel": {
+      "min": 320,
+      "max": 700,
+      "default": 384
+    }
+  },
+  "motion": {
+    "hover": "120ms ease-out",
+    "enter": "180ms cubic-bezier(.2,.8,.2,1) y8 stagger40",
+    "panel": "240ms cubic-bezier(.2,.8,.2,1)",
+    "overshoot": "cubic-bezier(.34,1.56,.64,1)"
+  },
+  "dark": {
+    "bg": "#08090B",
+    "surface": "#0E1013",
+    "raised": "#15181D",
+    "sunken": "#1D2128",
+    "border": "rgba(255,255,255,.07)",
+    "borderStrong": "rgba(255,255,255,.14)",
+    "text": "#F4F6F8",
+    "text2": "#A6ADBB",
+    "text3": "#7C8493",
+    "accent": "#6E79F2",
+    "accentSolid": "#4A56D6",
+    "accentTint": "rgba(110,121,242,.14)",
+    "signal": "#D4855C",
+    "direct": "#3ECF8E",
+    "adjacent": "#5AA9FF",
+    "inferred": "#B07CF5",
+    "offLimits": "#F2626B",
+    "chart": [
+      "#6E79F2",
+      "#3ECF8E",
+      "#D4855C",
+      "#B07CF5",
+      "#4FC3D9",
+      "#F2626B"
+    ],
+    "sequential": [
+      "#1E2440",
+      "#2E3878",
+      "#4A56D6",
+      "#6E79F2",
+      "#A3A9FA"
+    ]
+  },
+  "light": {
+    "bg": "#FFFFFF",
+    "surface": "#F7F8FA",
+    "raised": "#ECEFF3",
+    "sunken": "#E4E8EE",
+    "border": "rgba(3,7,18,.09)",
+    "borderStrong": "rgba(3,7,18,.16)",
+    "text": "#0B0D12",
+    "text2": "#4C5462",
+    "text3": "#6B7382",
+    "accent": "#4A56D6",
+    "accentSolid": "#4A56D6",
+    "accentTint": "rgba(74,86,214,.09)",
+    "signal": "#A8602F",
+    "direct": "#0F9D6B",
+    "adjacent": "#1F72D4",
+    "inferred": "#8244D6",
+    "offLimits": "#D93A45",
+    "chart": [
+      "#4A56D6",
+      "#0F9D6B",
+      "#A8602F",
+      "#8244D6",
+      "#1E8FA8",
+      "#D93A45"
+    ],
+    "sequential": [
+      "#E4E8F6",
+      "#B9C0EE",
+      "#8189F7",
+      "#4A56D6",
+      "#2E3878"
+    ]
+  },
+  "roles": {
+    "accent": "anything interactive — links, icons, focus, primary action, chart series 1",
+    "accentSolid": "filled primary buttons only; the one indigo stop that takes a white label",
+    "signal": "selection on the map, org-hierarchy connectors, snap targets, warnings. Never in a chart.",
+    "inferred": "every machine-generated field, enrichment and thinking state"
+  }
+}

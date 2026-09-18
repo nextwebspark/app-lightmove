@@ -1,9 +1,9 @@
 package app.lightmove.api.strategy.service;
 
+import app.lightmove.api.strategy.model.CompanyExclusion;
 import app.lightmove.api.strategy.model.CompanyScope;
 import app.lightmove.api.strategy.model.Strategy;
 import app.lightmove.api.strategy.model.StrategyFilter;
-import java.util.List;
 
 /**
  * Translates a mandate's saved {@link Strategy} into the universe scope it defines.
@@ -30,16 +30,16 @@ public final class StrategyScope {
 
     /** The same scope, narrowed by a caller's name filter. */
     public static CompanyScope of(Strategy strategy, String nameQuery) {
-        return of(strategy, nameQuery, List.of());
+        return of(strategy, nameQuery, CompanyExclusion.NONE);
     }
 
     /**
-     * The same scope again, additionally excluding a set of ids the caller already holds — the
-     * Strategy search's own use, so a company the mandate has already triaged stops reappearing in
+     * The same scope again, additionally excluding whatever a caller-supplied predicate rules out —
+     * the Strategy search's own use, so a company the mandate has already triaged stops reappearing in
      * later searches. See {@link app.lightmove.api.strategy.model.CompanyScope}'s doc for why every
-     * other caller leaves this empty.
+     * other caller leaves this at {@link CompanyExclusion#NONE}.
      */
-    public static CompanyScope of(Strategy strategy, String nameQuery, List<String> triagedAccountIds) {
+    public static CompanyScope of(Strategy strategy, String nameQuery, CompanyExclusion triagedExclusion) {
         StrategyFilter filter = strategy.getFilter();
         return new CompanyScope(
                 filter.industries(),
@@ -51,7 +51,7 @@ public final class StrategyScope {
                 filter.employeeRange(),
                 filter.revenueRange(),
                 strategy.offLimitsAccountIds(),
-                triagedAccountIds,
+                triagedExclusion,
                 nameQuery);
     }
 }

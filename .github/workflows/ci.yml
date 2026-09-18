@@ -20,6 +20,38 @@ jobs:
     steps:
       - uses: actions/checkout@v7
 
+      # Flyway applies migrations in version order and refuses a pending version below the highest one
+      # already applied, so a version is only safe if it is above everything main already carries. A PR
+      # that was numbered correctly when it opened stops being correct the moment a higher-numbered PR
+      # merges ahead of it — which is how V51 reached main after V56 had already shipped. That is caught
+      # here rather than at deploy, and it runs on the merge-queue branch too, which is the only gate
+      # that sees the batch in the order it will actually land. A step of the API job on purpose: the
+      # ruleset already requires this check, and a separate job would report without blocking.
+      - name: Migration versions are above main's
+        if: github.event_name != 'push'
+        run: |
+          git fetch --depth=1 origin main
+          # Empty for anything that is not a versioned migration, so a stray file in the directory is
+          # skipped rather than compared as an integer.
+          version() { basename "$1" | sed -nE 's/^V([0-9]+)__.*\.sql$/\1/p'; }
+          base=0
+          for f in $(git ls-tree -r --name-only FETCH_HEAD apps/api/src/main/resources/db/migration); do
+            v=$(version "$f"); [ -n "$v" ] || continue
+            [ "$v" -gt "$base" ] && base=$v
+          done
+          echo "main's highest applied-or-merged migration: V${base}"
+          failed=0
+          # --no-renames: renumbering a migration is a rename, and a rename carrying a bad version is
+          # exactly what this checks. Without it git reports R and the new version is never looked at.
+          for f in $(git diff --no-renames --diff-filter=A --name-only FETCH_HEAD HEAD -- apps/api/src/main/resources/db/migration); do
+            v=$(version "$f"); [ -n "$v" ] || continue
+            if [ "$v" -le "$base" ]; then
+              echo "::error file=${f}::V${v} is not above main's V${base}. Renumber it above V${base} — Flyway will refuse it at deploy otherwise."
+              failed=1
+            fi
+          done
+          exit $failed
+
       - uses: actions/setup-java@v6
         with:
           java-version: '21'

@@ -1,14 +1,15 @@
-import { useMutation } from "@tanstack/react-query";
-import { useRef, useState, type KeyboardEvent, type ReactNode } from "react";
-import { NetworkMark } from "../../../components/ui/NetworkMark";
+import { useMutation, useQuery } from "@tanstack/react-query";
+import { useRef, useState, type ReactNode } from "react";
 import { Button, Select, TextArea, useToast } from "../../../components/ui";
 import { CollapsibleSection } from "../../../components/ui/CollapsibleSection";
 import { DetailGrid, DetailPill, DetailTile } from "../../../components/ui/DetailList";
 import { DrawerCloseButton } from "../../../components/ui/Drawer";
+import { NetworkMark } from "../../../components/ui/NetworkMark";
 import { messageFor } from "../../../lib/errorCodes";
 import { formatInstantDate, formatNumber } from "../../../lib/format";
+import { noticeSummaryOf } from "../../../lib/noticePeriod";
 import { toBrowsableUrl } from "../../../lib/url";
-import { useQuery } from "@tanstack/react-query";
+import { useSubmitShortcut } from "../../../lib/useSubmitShortcut";
 import * as contactLookupApi from "../../contactlookup/api/contactLookupApi";
 import { ContactPanel } from "../../contactlookup/components/ContactPanel";
 import type { CustomColumn, CustomFieldValues } from "../../customcolumns/api/types";
@@ -17,12 +18,14 @@ import * as candidatesApi from "../api/candidatesApi";
 import type { Candidate, CandidateStatus, SaveCandidatePayload } from "../api/types";
 import { patchOf, replayOf, type ProfileFormSection } from "../lib/candidateForm";
 import {
+  candidateGenderLabel,
   candidateStatusStyle,
   CANDIDATE_SOURCE_STYLES,
   CANDIDATE_STATUSES,
 } from "../lib/candidateVocabulary";
 import { careerSummary } from "../lib/careerTimeline";
 import { packageOf } from "../lib/compensation";
+import { useChangeCandidateStatus } from "../lib/useChangeCandidateStatus";
 import { useProfileSections, type ProfileSection } from "../lib/useProfileSections";
 import { CandidateAvatar } from "./CandidateAvatar";
 import {
@@ -79,7 +82,6 @@ export function CandidateProfile({
   /** Absent for a reader who may not write. */
   onRemove?: (candidate: Candidate) => void;
 }) {
-  const toast = useToast();
   const sections = useProfileSections();
   /**
    * Whether this deployment looks contacts up. A deployment fact, not a row one, so it is read once
@@ -101,15 +103,7 @@ export function CandidateProfile({
     onSaved(saved);
   };
 
-  const changeStatus = useMutation({
-    mutationFn: (status: CandidateStatus) =>
-      candidatesApi.changeCandidateStatus(projectId, candidate.id, status),
-    onSuccess: (saved) => {
-      onSaved(saved);
-      toast(`${saved.fullName} is now ${candidateStatusStyle(saved.status).label.toLowerCase()}`);
-    },
-    onError: (error) => toast(messageFor(error)),
-  });
+  const changeStatus = useChangeCandidateStatus(projectId, onSaved);
 
   const startEditing = (section: EditableSection) => {
     setEditing(section);
@@ -171,7 +165,12 @@ export function CandidateProfile({
                   value={candidate.status}
                   aria-label="Status"
                   disabled={changeStatus.isPending}
-                  onChange={(event) => changeStatus.mutate(event.target.value as CandidateStatus)}
+                  onChange={(event) =>
+                    changeStatus.mutate({
+                      candidateId: candidate.id,
+                      status: event.target.value as CandidateStatus,
+                    })
+                  }
                   className="w-auto px-2 py-1 text-[12px]"
                 >
                   {CANDIDATE_STATUSES.map((status) => (
@@ -307,7 +306,7 @@ export function CandidateProfile({
           title="Compensation"
           summary={joinFacts([
             total > 0 ? `${currency} ${formatNumber(total)}`.trim() : null,
-            compensation.noticePeriod ? `${compensation.noticePeriod} notice` : null,
+            noticeSummaryOf(compensation.noticePeriod),
           ])}
           action={pencil("compensation", "compensation")}
         >
@@ -327,6 +326,7 @@ export function CandidateProfile({
                   watch={form.watch}
                   setValue={form.setValue}
                   storedCurrency={compensation.currency}
+                  storedNoticePeriod={compensation.noticePeriod}
                 />
               )}
             </SectionEditor>
@@ -354,12 +354,19 @@ export function CandidateProfile({
               onDone={finish}
               onCancel={() => setEditing(null)}
             >
-              {(form) => <BackgroundFields register={form.register} errors={form.formState.errors} />}
+              {(form) => (
+                <BackgroundFields
+                  register={form.register}
+                  errors={form.formState.errors}
+                  storedNationality={candidate.nationality}
+                />
+              )}
             </SectionEditor>
           ) : (
             <>
               <DetailGrid>
                 <DetailTile label="Nationality" value={candidate.nationality} />
+                <DetailTile label="Gender" value={candidateGenderLabel(candidate.gender)} />
                 <DetailTile
                   label="Experience"
                   value={candidate.yearsExperience ? `${candidate.yearsExperience} years` : null}
@@ -509,12 +516,7 @@ function NoteSection({
     onError: (error) => toast(messageFor(error)),
   });
 
-  const handleKeyDown = (event: KeyboardEvent<HTMLTextAreaElement>) => {
-    if (event.key === "Enter" && (event.metaKey || event.ctrlKey) && dirty) {
-      event.preventDefault();
-      saving.mutate(note);
-    }
-  };
+  const handleKeyDown = useSubmitShortcut(() => dirty && saving.mutate(note));
 
   return (
     <CollapsibleSection

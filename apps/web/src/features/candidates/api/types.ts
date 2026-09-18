@@ -24,6 +24,12 @@ export type CandidateStatus =
 /** The shared ladder's wire token — see lib/seniority.ts. This contract speaks the label. */
 export type CandidateSeniority = SeniorityToken;
 
+/**
+ * Gender as a researcher recorded it, for the report's diversity chapter. Never inferred from a
+ * name, and `null` — nobody recorded it — is a different fact from `other`, which somebody did.
+ */
+export type CandidateGender = "female" | "male" | "other";
+
 /** Which door a profile came through. Only `manual` is reachable today. */
 export type CandidateSource = "manual" | "csv" | "extension";
 
@@ -73,6 +79,7 @@ export interface Candidate {
   locationCountry: string | null;
   locationCity: string | null;
   nationality: string | null;
+  gender: CandidateGender | null;
   yearsExperience: number | null;
   summary: string | null;
   note: string | null;
@@ -174,6 +181,7 @@ export interface SaveCandidatePayload {
   locationCountry?: string;
   locationCity?: string;
   nationality?: string;
+  gender?: CandidateGender;
   yearsExperience?: number;
   summary?: string;
   note?: string;

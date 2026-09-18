@@ -47,6 +47,7 @@ describe("ResetPasswordPage", () => {
       hasPassword: true,
       timezone: "Asia/Dubai",
       locale: "en",
+      platformActions: [],
       pendingInvitation: null,
       workspace: null,
       ...overrides,

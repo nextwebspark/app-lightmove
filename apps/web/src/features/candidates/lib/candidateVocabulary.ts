@@ -1,5 +1,5 @@
 import { SENIORITY_TOKENS } from "../../../lib/seniority";
-import type { CandidateSeniority, CandidateSource, CandidateStatus } from "../api/types";
+import type { CandidateGender, CandidateSeniority, CandidateSource, CandidateStatus } from "../api/types";
 
 /**
  * How a mandate's research on a person reads on screen, in one place — the grid's Status pill and the
@@ -35,6 +35,44 @@ export function candidateStatusStyle(status: CandidateStatus) {
  * shared with the position brief — see lib/seniority.ts.
  */
 export const CANDIDATE_SENIORITIES: CandidateSeniority[] = SENIORITY_TOKENS;
+
+/**
+ * The five periods a mandate offers, shared with the brief's own — see lib/noticePeriod.ts. The
+ * label is the stored value; a row may hold something else, which the drawer keeps offered as
+ * recorded rather than clearing.
+ */
+export { NOTICE_PERIODS as CANDIDATE_NOTICE_PERIODS } from "../../../lib/noticePeriod";
+
+/**
+ * The nine groups a mandate counts nationality in, in the order the firm lists them. The label is
+ * the stored value. A row may still hold something else — a spreadsheet states whatever it states —
+ * and the report folds that into one of these when it reads it.
+ */
+export const CANDIDATE_NATIONALITIES: string[] = [
+  "Western expat",
+  "South Asian",
+  "Arab expat, non-GCC",
+  "Saudi",
+  "Emirati",
+  "Qatari",
+  "Kuwaiti",
+  "Omani",
+  "Bahraini",
+];
+
+/**
+ * Gender as it reads on screen. Absent is not a fourth value: a profile with nothing recorded shows
+ * no gender at all rather than "Unknown", because the report counts those rows as unmeasured.
+ */
+export const CANDIDATE_GENDERS: { value: CandidateGender; label: string }[] = [
+  { value: "female", label: "Female" },
+  { value: "male", label: "Male" },
+  { value: "other", label: "Other" },
+];
+
+export function candidateGenderLabel(gender: CandidateGender | null): string | null {
+  return CANDIDATE_GENDERS.find((option) => option.value === gender)?.label ?? null;
+}
 
 /** Which door a profile came through, in the colours the Companies grid gives the same three sources. */
 export const CANDIDATE_SOURCE_STYLES: Record<CandidateSource, { label: string; className: string }> = {

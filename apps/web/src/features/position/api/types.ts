@@ -1,3 +1,4 @@
+import type { NoticeUnit } from "../../../lib/noticePeriod";
 import type { SeniorityTier } from "../../../lib/seniority";
 
 /** The position-brief API contract, hand-mirrored from the records in the position dto package. */
@@ -21,7 +22,8 @@ export type EmploymentType =
 /** The shared ladder — see lib/seniority.ts. Aliased so this feature's payloads read in one place. */
 export type PositionSeniority = SeniorityTier;
 
-export type NoticeUnit = "DAYS" | "WEEKS" | "MONTHS";
+/** Both halves of a mandate plan in one vocabulary — see lib/noticePeriod.ts. */
+export type { NoticeUnit };
 
 export type BaseSalaryMode = "ANNUAL" | "MONTHLY";
 

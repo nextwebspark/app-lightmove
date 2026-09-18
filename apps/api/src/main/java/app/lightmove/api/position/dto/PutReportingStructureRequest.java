@@ -1,6 +1,6 @@
 package app.lightmove.api.position.dto;
 
-import app.lightmove.api.position.constant.NoticeUnit;
+import app.lightmove.api.common.constant.NoticeUnit;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotEmpty;

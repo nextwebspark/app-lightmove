@@ -1,6 +1,7 @@
-import { useEffect, type ReactNode } from "react";
+import type { ReactNode } from "react";
 import { Icon, ICONS } from "../layout/Icon";
 import { cn } from "../../lib/cn";
+import { useEscapeKey } from "../../lib/useEscapeKey";
 
 /**
  * The dismiss control every panel puts in the same corner. Positioned absolutely, so the header it
@@ -40,14 +41,7 @@ export function Drawer({
   wide?: boolean;
   children: ReactNode;
 }) {
-  useEffect(() => {
-    if (!open) return;
-    const onKey = (event: KeyboardEvent) => {
-      if (event.key === "Escape") onClose();
-    };
-    document.addEventListener("keydown", onKey);
-    return () => document.removeEventListener("keydown", onKey);
-  }, [open, onClose]);
+  useEscapeKey(open, onClose);
 
   if (!open) return null;
 

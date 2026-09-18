@@ -68,7 +68,7 @@ public class ApolloCompanyQueryService {
     /** How many companies the scope matches. An empty scope is the whole universe, not nothing. */
     public long count(CompanyScope scope) {
         WhereClause where = buildWhere(scope);
-        return bind(jdbc.sql("SELECT count(*) FROM app_lm_apollo_companies WHERE " + where.sql()),
+        return bind(jdbc.sql("SELECT count(*) FROM app_lm_apollo_companies a WHERE " + where.sql()),
                 where.params()).query(Long.class).single();
     }
 
@@ -82,7 +82,7 @@ public class ApolloCompanyQueryService {
         Map<String, Object> params = new LinkedHashMap<>(where.params());
         String sql = """
                 SELECT %s
-                FROM app_lm_apollo_companies
+                FROM app_lm_apollo_companies a
                 WHERE %s
                 ORDER BY %s, apollo_account_id
                 LIMIT :size OFFSET :offset
@@ -286,7 +286,7 @@ public class ApolloCompanyQueryService {
         params.put("groupLimit", limit);
         String sql = """
                 SELECT %s AS label, count(*) AS count
-                FROM app_lm_apollo_companies
+                FROM app_lm_apollo_companies a
                 WHERE %s AND %s
                 GROUP BY 1
                 ORDER BY count(*) DESC, 1
@@ -338,9 +338,9 @@ public class ApolloCompanyQueryService {
             clauses.add("apollo_account_id NOT IN (:offLimitsIds)");
             params.put("offLimitsIds", scope.offLimitsAccountIds());
         }
-        if (!scope.triagedAccountIds().isEmpty()) {
-            clauses.add("apollo_account_id NOT IN (:triagedIds)");
-            params.put("triagedIds", scope.triagedAccountIds());
+        if (scope.triagedExclusion().isPresent()) {
+            clauses.add(scope.triagedExclusion().sql());
+            params.putAll(scope.triagedExclusion().params());
         }
         if (scope.nameQuery() != null) {
             clauses.add("company_name ILIKE :nameQuery ESCAPE '\\'");

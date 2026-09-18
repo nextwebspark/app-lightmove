@@ -59,6 +59,7 @@ const user = {
   hasPassword: true,
   timezone: "Asia/Dubai",
   locale: "en",
+  platformActions: [],
   pendingInvitation: null,
   workspace: { ...workspace, roles: ["ADMIN"] as ("ADMIN" | "MEMBER")[] },
 };
@@ -1026,6 +1027,66 @@ describe("PositionPage", () => {
     await user.click(await screen.findByRole("button", { name: /Accept$/ }));
 
     expect(await screen.findByRole("status")).toHaveTextContent(/60-seat limit/);
+    expect(positionApi.putReporting).not.toHaveBeenCalled();
+  });
+
+  it("offers five notice periods, and keeps a brief already stating another", async () => {
+    vi.mocked(positionApi.getPosition).mockResolvedValue({
+      ...seeded,
+      reporting: { ...seeded.reporting, noticeValue: 6, noticeUnit: "WEEKS" },
+    });
+    renderPage();
+    const user = userEvent.setup();
+
+    const rail = await screen.findByRole("complementary");
+    await user.click(within(rail).getByRole("button", { name: /Reporting/ }));
+
+    const notice = await screen.findByLabelText("Notice period");
+    expect(notice).toHaveValue("6 weeks");
+    expect(within(notice).getByRole("option", { name: "6 weeks (as recorded)" })).toBeInTheDocument();
+
+    await user.selectOptions(notice, "3 months");
+
+    await waitFor(() => expect(positionApi.putReporting).toHaveBeenCalled());
+    const sent = vi.mocked(positionApi.putReporting).mock.calls.at(-1)![1];
+    expect(sent).toMatchObject({ noticeValue: 3, noticeUnit: "MONTHS" });
+    // Mocks are not reset between tests in this file, and the two below assert this one is never
+    // called — an autosave left on the counter would fail them instead.
+    vi.mocked(positionApi.putReporting).mockClear();
+  });
+
+  it("says why a retyped notice period was not applied rather than dropping it in silence", async () => {
+    vi.mocked(positionApi.getPosition).mockResolvedValue({
+      ...seeded,
+      document: {
+        fileName: "CFO Position Description.pdf",
+        contentType: "application/pdf",
+        fileSize: 254_000,
+        uploadedAt: "2026-08-27T10:00:00Z",
+      },
+    });
+    const extracted: PositionExtraction = {
+      extractionSource: "model",
+      suggestedTemplate: null,
+      fields: [
+        { id: 0, fieldKey: "noticePeriod", value: "3 months", confidence: "high", snippet: null, origin: "document" },
+      ],
+    };
+    vi.mocked(positionApi.extractReporting).mockResolvedValue(extracted);
+    renderPage();
+    const user = userEvent.setup();
+
+    const rail = await screen.findByRole("complementary");
+    await user.click(within(rail).getByRole("button", { name: /Reporting/ }));
+    await user.click(await screen.findByRole("button", { name: "Read from document" }));
+
+    // The proposal itself is always one of the five; the row is editable before it is accepted.
+    const proposed = await screen.findByDisplayValue("3 months");
+    await user.clear(proposed);
+    await user.type(proposed, "seven months");
+    await user.click(await screen.findByRole("button", { name: /Accept$/ }));
+
+    expect(await screen.findByRole("status")).toHaveTextContent(/None, 1, 2, 3 or 6 months/);
     expect(positionApi.putReporting).not.toHaveBeenCalled();
   });
 
