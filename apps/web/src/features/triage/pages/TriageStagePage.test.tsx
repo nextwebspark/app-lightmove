@@ -9,6 +9,8 @@ import * as candidatesApi from "../../candidates/api/candidatesApi";
 import type { Candidate, CandidatesPage } from "../../candidates/api/types";
 import * as customColumnsApi from "../../customcolumns/api/customColumnsApi";
 import type { CustomColumn } from "../../customcolumns/api/types";
+import * as positionApi from "../../position/api/positionApi";
+import type { Compensation } from "../../position/api/types";
 import type { Project } from "../../projects/api/types";
 import * as companiesApi from "../../strategy/api/companiesApi";
 import * as talentMapApi from "../../talentmap/api/talentMapApi";
@@ -35,6 +37,11 @@ vi.mock("../../customcolumns/api/customColumnsApi", async (importOriginal) => ({
   // Keys are real; only the calls are mocked.
   ...(await importOriginal<typeof customColumnsApi>()),
   getCustomColumns: vi.fn(),
+}));
+vi.mock("../../position/api/positionApi", async (importOriginal) => ({
+  // Keys are real; only the call is mocked.
+  ...(await importOriginal<typeof positionApi>()),
+  getBriefCompensation: vi.fn(),
 }));
 vi.mock("../api/importApi", async (importOriginal) => ({
   ...(await importOriginal<typeof import("../api/importApi")>()),
@@ -280,6 +287,20 @@ const mapPageOf = (): TalentMapPage => ({
   geocodingPending: 0,
 });
 
+/** Only the currency is read off it: the brief states what this mandate's packages are quoted in. */
+const BRIEF_PACKAGE = {
+  currency: "SAR",
+  salaryMin: null,
+  salaryMax: null,
+  baseSalaryMode: "ANNUAL",
+  bonusValue: null,
+  bonusBasis: null,
+  incentiveType: null,
+  incentiveAmount: null,
+  incentiveVesting: null,
+  benefits: [],
+} as Compensation;
+
 /** The page reads the project from ProjectLayout's outlet — a bare shell stands in for the layout. */
 const stageTree = (slug: string, proj: Project) => (
   <MemoryRouter initialEntries={[`/projects/${proj.id}/companies/${slug}`]}>
@@ -316,6 +337,7 @@ describe("TriageStagePage", () => {
     vi.mocked(companiesApi.searchCompanies).mockResolvedValue({ companies: [] });
     vi.mocked(companiesApi.getCompany).mockResolvedValue(marketAcwa);
     vi.mocked(customColumnsApi.getCustomColumns).mockResolvedValue({ columns: [] });
+    vi.mocked(positionApi.getBriefCompensation).mockResolvedValue(BRIEF_PACKAGE);
     vi.mocked(talentMapApi.getTalentMapConfig).mockResolvedValue({ enabled: false, publicToken: null });
     vi.mocked(talentMapApi.getTalentMap).mockResolvedValue(mapPageOf());
     streamListeners.length = 0;
@@ -771,6 +793,26 @@ describe("TriageStagePage", () => {
     renderStage();
 
     expect(await screen.findByText(/No companies in the universe yet/i)).toBeInTheDocument();
+  });
+
+  it("opens a new executive on the currency the brief is quoted in", async () => {
+    renderStage();
+    await screen.findByText("ACWA Power");
+
+    await userEvent.click(await screen.findByRole("button", { name: "Add executive" }));
+
+    expect(await screen.findByLabelText(/^Currency$/i)).toHaveValue("SAR");
+  });
+
+  it("never asks a client representative's page view for the brief", async () => {
+    const authApi = await import("../../auth/api/authApi");
+    vi.mocked(authApi.me).mockResolvedValue(representative);
+    renderStage("universe");
+
+    expect(await screen.findByText("ACWA Power")).toBeInTheDocument();
+    // Reading the brief drafts and saves one for a mandate that has none, and a seat that cannot add
+    // an executive has nothing to default a currency for.
+    await waitFor(() => expect(positionApi.getBriefCompensation).not.toHaveBeenCalled());
   });
 
   it("gives a client representative the grid and none of the writes", async () => {

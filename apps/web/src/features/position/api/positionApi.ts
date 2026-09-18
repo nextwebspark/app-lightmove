@@ -31,6 +31,18 @@ export function getPosition(projectId: string, signal?: AbortSignal): Promise<Po
   return request<Position>(base(projectId), { signal });
 }
 
+/** Not keyed by project's brief: the same mandate, one figure off it. See {@link getBriefCompensation}. */
+export const POSITION_COMPENSATION_KEY = (projectId: string) => ["position", projectId, "compensation"] as const;
+
+/**
+ * What the brief pays, without drafting one. {@link getPosition} writes: it drafts and saves a brief
+ * for a mandate that has none, so a screen that only wants the mandate's currency — the Companies
+ * grid, offering it to a new executive — asks for this instead and leaves the brief undrafted.
+ */
+export function getBriefCompensation(projectId: string, signal?: AbortSignal): Promise<Compensation> {
+  return request<Compensation>(`${base(projectId)}/compensation`, { signal });
+}
+
 export function listTemplates(signal?: AbortSignal): Promise<PositionTemplate[]> {
   return request<PositionTemplate[]>("/position-templates", { signal });
 }

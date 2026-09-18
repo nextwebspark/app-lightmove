@@ -2,6 +2,7 @@ package app.lightmove.api.position.controller;
 
 import app.lightmove.api.core.security.model.AuthPrincipal;
 import app.lightmove.api.position.dto.ApplyPositionTemplateRequest;
+import app.lightmove.api.position.dto.CompensationDto;
 import app.lightmove.api.position.dto.PositionResponse;
 import app.lightmove.api.position.dto.PutCompensationRequest;
 import app.lightmove.api.position.dto.PutCompetenciesRequest;
@@ -52,6 +53,19 @@ public class PositionController {
     public ResponseEntity<PositionResponse> get(@AuthenticationPrincipal AuthPrincipal principal,
                                                 @PathVariable UUID projectId) {
         return ResponseEntity.ok(position.get(principal.requireWorkspaceId(), projectId));
+    }
+
+    /**
+     * What the brief pays, for a screen that wants one figure off it — the executive drawer, which
+     * offers the mandate's currency to a new person. Deliberately not {@link #get}: that drafts and
+     * saves a brief for a mandate that has none, and a grid nobody asked for a brief on would then
+     * write a row on every page view.
+     */
+    @GetMapping("/compensation")
+    @PreAuthorize("@projectAuthorizer.can(principal, #projectId, 'WORK_VIEW')")
+    public ResponseEntity<CompensationDto> getCompensation(@AuthenticationPrincipal AuthPrincipal principal,
+                                                           @PathVariable UUID projectId) {
+        return ResponseEntity.ok(position.compensationOf(principal.requireWorkspaceId(), projectId));
     }
 
     @PutMapping("/details")

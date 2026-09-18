@@ -24,6 +24,7 @@ import { CANDIDATE_STATUSES } from "../../candidates/lib/candidateVocabulary";
 import { useChangeCandidateStatus } from "../../candidates/lib/useChangeCandidateStatus";
 import * as customColumnsApi from "../../customcolumns/api/customColumnsApi";
 import type { CustomColumn } from "../../customcolumns/api/types";
+import * as positionApi from "../../position/api/positionApi";
 import { canExecuteProjectWork } from "../../projects/lib/access";
 import * as talentMapApi from "../../talentmap/api/talentMapApi";
 import type * as talentMapTypes from "../../talentmap/api/types";
@@ -161,6 +162,18 @@ function TriageStage() {
   const mapOffered =
     stage.status === "inUniverse" && mapConfig.data?.enabled === true && !!mapConfig.data.publicToken;
   const view = mapOffered ? mapPreferences.view : "table";
+
+  /**
+   * The mandate's currency, offered to a new executive's package so a consultant stops picking it on
+   * every person. Only for a seat that can add one: this is a read that persists nothing, and a
+   * client seat has no Add executive button to default anything for.
+   */
+  const briefCompensation = useQuery({
+    queryKey: positionApi.POSITION_COMPENSATION_KEY(project.id),
+    queryFn: ({ signal }) => positionApi.getBriefCompensation(project.id, signal),
+    enabled: canWrite,
+    staleTime: Infinity,
+  });
 
   /**
    * The mandate's own extra columns. Read once for the screen and shared by the grid, the toolbar's
@@ -738,6 +751,7 @@ function TriageStage() {
         company={profile?.company ?? null}
         customColumns={candidateColumns}
         canWrite={canWrite}
+        defaultCurrency={briefCompensation.data?.currency}
         onClose={() => setProfile(null)}
         // The panel stays open on what the server answered: a corrected figure shows corrected
         // before the grid has refetched, and an add moves straight on to the profile it made.
