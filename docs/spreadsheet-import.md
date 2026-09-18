@@ -187,6 +187,20 @@ file's own — and each now says what to do about it rather than only what went 
   now keyed `columns[i]` — the index the mapping step renders its rows by — so the dialog marks the row
   and the user changes that one thing.
 
+### A value with a closed vocabulary
+
+Gender, seniority and the notice period are not free text on the screens, so they are not written as
+free text by an import either: `RowValues` folds however the file spelled one onto the value the
+drawer offers, and answers null for anything else. A cell nobody can read is not somebody stating a
+fact — filing "prefer not to say" as *other*, or "negotiable" as *3 months*, would put a figure in a
+consultant's report that nobody ever stated.
+
+The notice period folds only exact equivalents — ninety days is three months, six weeks is nothing on
+offer — and `NoticePeriod.ofPair` owns that arithmetic so the importer and the position extractor
+cannot disagree about it. A bare number is dropped rather than read as months: the column heading may
+say weeks, and the cell alone cannot say which. A row whose cell is dropped keeps whatever it already
+held, the same rule every other field follows.
+
 ### The sample file
 
 `GET /projects/{projectId}/import/template` returns a blank CSV: the twelve fields people actually
