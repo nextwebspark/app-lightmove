@@ -31,9 +31,6 @@ export const MANDATE_REASON_LABELS: Record<MandateReason, string> = {
   GROWTH_EXPANSION: "Growth / expansion",
 };
 
-// Nor is a notice period: the brief and the executive drawer offer one set of periods.
-export { NOTICE_UNIT_LABELS } from "../../../lib/noticePeriod";
-
 export const BASE_SALARY_MODE_LABELS: Record<BaseSalaryMode, string> = {
   ANNUAL: "Annual",
   MONTHLY: "Monthly",

@@ -41,24 +41,8 @@ public enum NoticePeriod {
         return label;
     }
 
-    public int months() {
-        return months;
-    }
-
-    public static NoticePeriod fromValue(String value) {
-        if (value == null) {
-            return null;
-        }
-        for (NoticePeriod period : values()) {
-            if (period.label.equalsIgnoreCase(value.trim())) {
-                return period;
-            }
-        }
-        return null;
-    }
-
     /** The option a whole number of months names, or null where the screens offer no such option. */
-    public static NoticePeriod ofMonths(Integer months) {
+    private static NoticePeriod ofMonths(Integer months) {
         if (months == null) {
             return null;
         }
