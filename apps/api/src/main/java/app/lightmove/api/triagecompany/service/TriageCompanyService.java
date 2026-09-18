@@ -129,19 +129,25 @@ public class TriageCompanyService {
     }
 
     /**
-     * The whole of one stage, unpaged — the seam {@code talentmap} reads companies through, because a
-     * globe with a page two is no globe. Takes a cap the caller states and answers the total, so a
-     * mandate past it is told rather than shown a map that looks complete.
+     * The whole of one stage, unpaged — the seam {@code talentmap} and {@code dataexport} read
+     * companies through, because neither a globe nor a file has a page two. Takes a cap the caller
+     * states and answers the total, so a caller past it can tell rather than quietly showing less.
+     *
+     * <p>{@code nameQuery} narrows it exactly as the paged read does, for an export that must carry
+     * what the screen's search box narrowed the grid to. Null or blank is the whole stage.
      *
      * <p>Name order, not newest first: a stable order keeps the cut at the cap deterministic.
      */
     @Transactional(readOnly = true)
     public TriageCompaniesResponse listAllOfStage(UUID workspaceId, UUID projectId,
-                                                  TriageCompanyStatus status, int cap) {
+                                                  TriageCompanyStatus status, String nameQuery, int cap) {
         requireProject(projectId, workspaceId);
         PageRequest wholeStage = PageRequest.of(0, cap, Sort.by(Sort.Direction.ASC, "companyName")
                 .and(NEWEST_FIRST));
-        Page<TriageCompany> found = triaged.findByProjectIdAndStatus(projectId, status, wholeStage);
+        Page<TriageCompany> found = nameQuery == null || nameQuery.isBlank()
+                ? triaged.findByProjectIdAndStatus(projectId, status, wholeStage)
+                : triaged.findByProjectIdAndStatusAndCompanyNameContainingIgnoreCase(
+                        projectId, status, nameQuery.trim(), wholeStage);
         return new TriageCompaniesResponse(
                 found.getContent().stream().map(TriageCompanyService::toDto).toList(),
                 found.getTotalElements(), 0, cap, countsFor(projectId));

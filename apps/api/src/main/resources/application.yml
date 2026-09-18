@@ -435,6 +435,12 @@ lightmove:
     max-candidates: ${TALENT_MAP_MAX_CANDIDATES:5000}
     geocodes-per-read: ${TALENT_MAP_GEOCODES_PER_READ:50}
 
+  export:
+    # A Companies-grid export. Refused whole rather than truncated past either ceiling: a file missing
+    # its second half still looks like a complete file, which is the one thing an export must not do.
+    max-companies: ${EXPORT_MAX_COMPANIES:5000}
+    max-candidates: ${EXPORT_MAX_CANDIDATES:10000}
+
 # What /actuator/info reports. APP_VERSION is baked into the image by the Dockerfile's build arg, so
 # this is the same release the SPA bundle was built with — one input, and nothing at runtime can move
 # one half without the other.

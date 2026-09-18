@@ -82,7 +82,7 @@ public class TalentMapService {
     private Placement place(UUID workspaceId, UUID projectId, String statusToken) {
         TriageCompanyStatus status = resolveStatus(statusToken);
         TriageCompaniesResponse companies =
-                triage.listAllOfStage(workspaceId, projectId, status, caps.maxCompanies());
+                triage.listAllOfStage(workspaceId, projectId, status, null, caps.maxCompanies());
         CandidatesResponse everyone = candidates.listAllOfProject(workspaceId, projectId, caps.maxCandidates());
 
         // The people at this stage's companies, plus — on the universe alone, as the grid does — the
