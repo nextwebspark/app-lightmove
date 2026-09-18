@@ -5,7 +5,6 @@ import type {
   EmploymentType,
   IncentiveType,
   MandateReason,
-  NoticeUnit,
 } from "../api/types";
 
 /**
@@ -32,11 +31,8 @@ export const MANDATE_REASON_LABELS: Record<MandateReason, string> = {
   GROWTH_EXPANSION: "Growth / expansion",
 };
 
-export const NOTICE_UNIT_LABELS: Record<NoticeUnit, string> = {
-  MONTHS: "Months",
-  WEEKS: "Weeks",
-  DAYS: "Days",
-};
+// Nor is a notice period: the brief and the executive drawer offer one set of periods.
+export { NOTICE_UNIT_LABELS } from "../../../lib/noticePeriod";
 
 export const BASE_SALARY_MODE_LABELS: Record<BaseSalaryMode, string> = {
   ANNUAL: "Annual",
