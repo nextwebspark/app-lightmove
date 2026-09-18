@@ -30,7 +30,11 @@ final class Packages {
         return compensation != null && compensation.baseSalary() != null;
     }
 
-    /** A package recorded without a currency is taken to be in the brief's: the drawer offers no other default. */
+    /**
+     * A package recorded without a currency is taken to be in the brief's. The drawer now offers the
+     * brief's currency to a new executive, so a blank one means a consultant cleared it, or the row
+     * came in through the importer or the plugin — neither of which states a currency of its own.
+     */
     static boolean isInCurrency(CandidateCompensationDto compensation, String currency) {
         return compensation.currency() == null || compensation.currency().equalsIgnoreCase(currency);
     }

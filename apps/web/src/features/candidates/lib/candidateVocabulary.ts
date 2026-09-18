@@ -37,6 +37,13 @@ export function candidateStatusStyle(status: CandidateStatus) {
 export const CANDIDATE_SENIORITIES: CandidateSeniority[] = SENIORITY_TOKENS;
 
 /**
+ * The five periods a mandate offers, shared with the brief's own — see lib/noticePeriod.ts. The
+ * label is the stored value; a row may hold something else, which the drawer keeps offered as
+ * recorded rather than clearing.
+ */
+export { NOTICE_PERIODS as CANDIDATE_NOTICE_PERIODS } from "../../../lib/noticePeriod";
+
+/**
  * The nine groups a mandate counts nationality in, in the order the firm lists them. The label is
  * the stored value. A row may still hold something else — a spreadsheet states whatever it states —
  * and the report folds that into one of these when it reads it.

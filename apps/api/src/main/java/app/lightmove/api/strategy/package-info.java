@@ -6,9 +6,11 @@
  *
  * <p>{@code triagecompany} reads this package's scope to bulk-add from it. The one exception to
  * "never the reverse": the Strategy search excludes a project's already-triaged companies, so they
- * stop reappearing once filed. That needs an id list only {@code triagecompany} holds, bridged
- * through {@link app.lightmove.api.strategy.service.TriagedCompanyLookup} — an interface this
- * package owns and declares, which {@code triagecompany} implements. The compile-time dependency
- * stays one-way; only a bean satisfying the interface crosses back.
+ * stop reappearing once filed. That needs a predicate only {@code triagecompany} can build — it owns
+ * the table the exclusion tests — bridged through
+ * {@link app.lightmove.api.strategy.service.TriagedCompanyLookup} — an interface this package owns
+ * and declares, answered as an opaque {@link app.lightmove.api.strategy.model.CompanyExclusion} this
+ * package composes into its own query without ever naming {@code triagecompany}'s table. The
+ * compile-time dependency stays one-way; only a bean satisfying the interface crosses back.
  */
 package app.lightmove.api.strategy;

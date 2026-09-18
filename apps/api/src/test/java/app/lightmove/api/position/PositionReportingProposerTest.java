@@ -235,11 +235,11 @@ class PositionReportingProposerTest extends FlowTestSupport {
         ProposedReportingStructure proposed = proposerWith(model)
                 .propose(UUID.randomUUID(), DOCUMENT_TEXT, f.clientId(), f.workspaceId(), null);
 
-        assertThat(fieldNamed(proposed, "noticeValue")).isEmpty();
+        assertThat(fieldNamed(proposed, "noticePeriod")).isEmpty();
     }
 
     @Test
-    @DisplayName("a well-formed notice value and unit are proposed together")
+    @DisplayName("a notice value and unit are proposed as the one period step three offers for them")
     void proposesANoticePeriod() throws Exception {
         Fixture f = fixture("Reporting Notice Fit Firm", "Acme Holdings Group", "acme.example");
         RecordingChatModel model = new RecordingChatModel("""
@@ -249,8 +249,30 @@ class PositionReportingProposerTest extends FlowTestSupport {
         ProposedReportingStructure proposed = proposerWith(model)
                 .propose(UUID.randomUUID(), DOCUMENT_TEXT, f.clientId(), f.workspaceId(), null);
 
-        assertThat(valueOf(proposed, "noticeValue")).isEqualTo("3");
-        assertThat(valueOf(proposed, "noticeUnit")).isEqualTo("MONTHS");
+        assertThat(valueOf(proposed, "noticePeriod")).isEqualTo("3 months");
+    }
+
+    @Test
+    @DisplayName("a period stated in another unit folds only where it is an exact equivalent")
+    void foldsAnExactEquivalentAndDropsTheRest() throws Exception {
+        Fixture f = fixture("Reporting Notice Fold Firm", "Acme Holdings Group", "acme.example");
+        RecordingChatModel ninetyDays = new RecordingChatModel("""
+                {"reportsToTitle":"Group Chief Executive Officer","noticeValue":"90","noticeUnit":"DAYS"}
+                """);
+
+        ProposedReportingStructure folded = proposerWith(ninetyDays)
+                .propose(UUID.randomUUID(), DOCUMENT_TEXT, f.clientId(), f.workspaceId(), null);
+
+        assertThat(valueOf(folded, "noticePeriod")).isEqualTo("3 months");
+
+        RecordingChatModel sixWeeks = new RecordingChatModel("""
+                {"reportsToTitle":"Group Chief Executive Officer","noticeValue":"6","noticeUnit":"WEEKS"}
+                """);
+
+        ProposedReportingStructure dropped = proposerWith(sixWeeks)
+                .propose(UUID.randomUUID(), DOCUMENT_TEXT, f.clientId(), f.workspaceId(), null);
+
+        assertThat(fieldNamed(dropped, "noticePeriod")).isEmpty();
     }
 
     @Test
@@ -264,7 +286,7 @@ class PositionReportingProposerTest extends FlowTestSupport {
         ProposedReportingStructure proposed = proposerWith(model)
                 .propose(UUID.randomUUID(), DOCUMENT_TEXT, f.clientId(), f.workspaceId(), null);
 
-        assertThat(fieldNamed(proposed, "noticeUnit")).isEmpty();
+        assertThat(fieldNamed(proposed, "noticePeriod")).isEmpty();
     }
 
     @Test
@@ -309,8 +331,7 @@ class PositionReportingProposerTest extends FlowTestSupport {
                 .propose(UUID.randomUUID(), DOCUMENT_TEXT, f.clientId(), f.workspaceId(), "CFO");
 
         assertThat(valueOf(proposed, "reportsToTitle")).isEqualTo("Group CEO");
-        assertThat(valueOf(proposed, "noticeValue")).isEqualTo("3");
-        assertThat(valueOf(proposed, "noticeUnit")).isEqualTo("MONTHS");
+        assertThat(valueOf(proposed, "noticePeriod")).isEqualTo("3 months");
         List<ExtractedField> directReports = fieldsNamed(proposed, "directReportTitle");
         assertThat(directReports).extracting(ExtractedField::value).containsExactly(
                 "Financial Controller", "Head of Treasury", "Head of FP&A", "Head of Investor Relations");

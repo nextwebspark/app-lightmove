@@ -78,7 +78,13 @@ the executives who have one on file, not by the headcount, so a mandate nobody h
 unmeasured rather than as a pool of one gender. **Nationality is counted in nine groups** — the Gulf six by name,
 and everyone else as Western expat, South Asian or Arab expat, non-GCC: the drawer offers exactly those
 nine and stores the label, while a spreadsheet's "Egyptian" is folded into its group by `report` at read
-time and never rewritten. The two **cross-mandate benchmarks** the chapters
+time and never rewritten. **A notice period is one of five** — None, 1, 2, 3 or 6 months — on both halves
+of a mandate: the brief keeps the months as its own `noticeValue`/`noticeUnit` pair and an executive keeps
+the option's label, neither column narrowed to them, so a brief already stating ninety days and a row
+imported as "negotiable" stay offered as recorded rather than being cleared. An import that cannot fold a
+cell onto one of the five (`RowValues.noticePeriod`) writes nothing rather than rounding it, and the new
+executive's currency arrives from the brief (`GET …/position/compensation`, which unlike the brief's own
+read drafts nothing). The two **cross-mandate benchmarks** the chapters
 name but cannot yet derive say so on the page rather than leaving a hole: marked not built, with no
 fabricated progress count. The mockup's relevance mix is not drawn at all — nothing records how a
 company was reached (V30 dropped `app_lm_strategy_sector.kind`), and an illustrative bar on a
