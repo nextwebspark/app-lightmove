@@ -53,7 +53,13 @@ export interface Feasibility {
   byLevel: { level: SeniorityLevel; count: number; isInScope: boolean }[];
 }
 
-/** How many mapped executives a client's nationality requirement can actually draw from. */
+/**
+ * How many mapped executives a client's nationality requirement can actually draw from.
+ *
+ * <p>Only the levels somebody is mapped at are listed. A level with nobody on it at all says
+ * nothing — five rows of "none mapped" read as a fault rather than as an answer. A level that holds
+ * people but none of the required nationality stays, because that zero <i>is</i> the answer.
+ */
 export function feasibility(diversity: ReportDiversity, stats: DiversityStats, filter: FeasibilityFilter): Feasibility {
   const rows = diversity.nationalities.filter((row) =>
     filter.nationality === ALL_NATIONALITIES_FILTER
@@ -63,14 +69,14 @@ export function feasibility(diversity: ReportDiversity, stats: DiversityStats, f
         : row.nationality === filter.nationality,
   );
   const isInScope = (level: SeniorityLevel) => filter.level === ALL_LEVELS_FILTER || filter.level === level;
-  const byLevel = diversity.levels.map((level) => ({
+  const byLevel = mappedLevels(diversity, stats).map((level) => ({
     level,
     count: rows.reduce((sum, row) => sum + (row.byLevel.find((l) => l.level === level)?.count ?? 0), 0),
     isInScope: isInScope(level),
   }));
   return {
     qualifying: byLevel.filter((l) => l.isInScope).reduce((sum, l) => sum + l.count, 0),
-    scope: diversity.levels.filter(isInScope).reduce((sum, level) => sum + stats.levelTotals[level], 0),
+    scope: mappedLevels(diversity, stats).filter(isInScope).reduce((sum, level) => sum + stats.levelTotals[level], 0),
     byLevel,
   };
 }
@@ -83,8 +89,14 @@ export function nationalityFilterOptions(diversity: ReportDiversity): string[] {
   ];
 }
 
-export function levelFilterOptions(diversity: ReportDiversity): string[] {
-  return [ALL_LEVELS_FILTER, ...diversity.levels];
+/** The levels this mandate has somebody at — the checker's rows, and the levels it offers to filter by. */
+function mappedLevels(diversity: ReportDiversity, stats: DiversityStats): SeniorityLevel[] {
+  return diversity.levels.filter((level) => stats.levelTotals[level] > 0);
+}
+
+/** Offering a level nobody is mapped at would only ever answer zero. */
+export function levelFilterOptions(diversity: ReportDiversity, stats: DiversityStats): string[] {
+  return [ALL_LEVELS_FILTER, ...mappedLevels(diversity, stats)];
 }
 
 export interface GenderLevel {

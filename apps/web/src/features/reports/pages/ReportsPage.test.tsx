@@ -252,6 +252,27 @@ describe("ReportsPage", () => {
     expect(await screen.findByText(/Cross-mandate diversity benchmark/)).toBeInTheDocument();
   });
 
+  it("draws only the pockets a sparse mandate has reached, not a field of hatching", async () => {
+    vi.mocked(reportApi.getReport).mockResolvedValue({
+      ...SAMPLE_REPORT,
+      market: {
+        ...SAMPLE_REPORT.market,
+        cells: SAMPLE_REPORT.market.cells.map((cell) =>
+          cell.sector === "FMCG" && cell.level === "C-Suite" ? { ...cell, count: 1 } : { ...cell, count: 0 },
+        ),
+      },
+    });
+
+    renderPage("market");
+    await screen.findByText("Sector × seniority");
+
+    // One executive at one pocket: one row, one column, and no Board or N-2 row of hatching.
+    const matrix = screen.getByRole("button", { name: "FMCG · C-Suite: 1 executives" });
+    expect(matrix).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /Board: 0 executives/ })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /F&B/ })).not.toBeInTheDocument();
+  });
+
   it("draws the sector universe as a treemap, each tile sized by its share", async () => {
     vi.mocked(reportApi.getReport).mockResolvedValue(SAMPLE_REPORT);
 

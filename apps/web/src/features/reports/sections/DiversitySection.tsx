@@ -140,7 +140,7 @@ export function DiversitySection({ diversity }: { diversity: ReportDiversity }) 
               ))}
             </ReportSelect>
             <ReportSelect aria-label="Seniority level" value={level} onChange={(e) => setLevel(e.target.value)}>
-              {levelFilterOptions(diversity).map((l) => (
+              {levelFilterOptions(diversity, stats).map((l) => (
                 <option key={l} value={l}>
                   {l}
                 </option>
@@ -170,10 +170,16 @@ export function DiversitySection({ diversity }: { diversity: ReportDiversity }) 
             sub={`of ${level === ALL_LEVELS_FILTER ? "everyone with a level on file" : `${level} executives`}`}
           />
         </KpiTileRow>
-        <div className="mb-3 mt-5 text-xs text-u-text3">
-          {nationality} — where they sit by level · one square per executive
-        </div>
-        <NationalityDots feasibility={fit} />
+        {fit.byLevel.length === 0 ? (
+          <ChartEmpty>No executive with a nationality on file has a seniority level yet.</ChartEmpty>
+        ) : (
+          <>
+            <div className="mb-3 mt-5 text-xs text-u-text3">
+              {nationality} — where they sit by level · one square per executive
+            </div>
+            <NationalityDots feasibility={fit} />
+          </>
+        )}
       </ReportCard>
 
       <ReportCard

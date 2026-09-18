@@ -104,10 +104,14 @@ export function MarketSection({
           ) : undefined
         }
       >
-        {market.sectors.length > 0 ? (
-          <SectorSeniorityHeatmap sectors={market.sectors} rows={stats.rows} onSelect={handleCell} />
+        {stats.rows.length > 0 ? (
+          <SectorSeniorityHeatmap sectors={stats.sectors} rows={stats.rows} onSelect={handleCell} />
         ) : (
-          <ChartEmpty>No executive is mapped at a universe company yet.</ChartEmpty>
+          <ChartEmpty>
+            {market.sectors.length === 0
+              ? "No executive is mapped at a universe company yet."
+              : "No executive mapped at a universe company has a seniority on file yet."}
+          </ChartEmpty>
         )}
       </ReportCard>
 
