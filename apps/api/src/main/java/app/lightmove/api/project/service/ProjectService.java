@@ -2,6 +2,7 @@ package app.lightmove.api.project.service;
 
 import app.lightmove.api.core.audit.constant.ProjectEventType;
 import app.lightmove.api.core.audit.service.AuditService;
+import app.lightmove.api.core.config.LightMoveProperties;
 import app.lightmove.api.core.email.service.EmailSender;
 import app.lightmove.api.core.email.service.EmailTemplates;
 import app.lightmove.api.core.error.constant.ErrorCode;
@@ -77,6 +78,7 @@ public class ProjectService {
     private final AuditService audit;
     private final EmailSender emailSender;
     private final EmailTemplates templates;
+    private final LightMoveProperties properties;
 
     @Transactional(readOnly = true)
     public List<ProjectResponse> list(UUID userId, UUID workspaceId) {
@@ -161,7 +163,7 @@ public class ProjectService {
     public ProjectResponse putMember(UUID userId, UUID workspaceId, UUID projectId, UUID memberId,
                                      ProjectRole role, HttpServletRequest httpRequest) {
         Project project = requireProject(projectId, workspaceId);
-        access.requireStaffRow(memberId, workspaceId);
+        WorkspaceMember membership = access.requireStaffRow(memberId, workspaceId);
 
         // Clients are attached via attachRepresentative, never seated here.
         if (role == ProjectRole.CLIENT) {
@@ -174,8 +176,13 @@ public class ProjectService {
         if (seat == null) {
             seats.save(ProjectMember.of(projectId, memberId, Set.of(rbac.role(role)), userId));
             auditTeamChange(userId, workspaceId, projectId, memberId, "add", httpRequest);
+            notifySeated(userId, project, membership, role, true);
             return toResponse(project, assemblyFor(workspaceId, List.of(project)));
         }
+
+        // A seat carrying only CLIENT belongs to a representative who is now being staffed: they are
+        // joining the team, not moving within it, and the notice below says so.
+        boolean heldStaffRole = seat.getRoles().stream().anyMatch(held -> !held.is(ProjectRole.CLIENT));
 
         // The staff role is replaced; a CLIENT role the seat already carries survives, so staffing a
         // client's representative does not revoke the read access they were granted separately.
@@ -190,6 +197,7 @@ public class ProjectService {
             }
             seat.changeRoles(granted);
             auditTeamChange(userId, workspaceId, projectId, memberId, "roles", httpRequest);
+            notifySeated(userId, project, membership, role, !heldStaffRole);
         }
 
         return toResponse(project, assemblyFor(workspaceId, List.of(project)));
@@ -355,6 +363,43 @@ public class ProjectService {
         emailSender.send(templates.buildAttachedToMandateEmail(
                 representative.getEmail(), representative.getFullName(), adderName, clientName,
                 project.getPositionTitle()));
+    }
+
+    /**
+     * Tells a staff member they were put on a mandate, or that their role on one changed — the only
+     * signal either gives, since neither touches their workspace membership and nothing is sent when
+     * they next sign in.
+     *
+     * <p>Never sent to the person who made the change: a lead who seats themselves at project
+     * creation, or hands the mandate over by demoting their own seat, does not need telling.
+     *
+     * <p>Sent inline and last, for {@link #notifyRepresentativeAttached}'s reason — mail is the one
+     * side effect a rollback cannot undo, so the ordering is the discipline, not a deferred send.
+     *
+     * @param firstSeat true when they are joining the mandate, false when they already staffed it and
+     *                  only their role moved — the difference between the two notices.
+     */
+    private void notifySeated(UUID actorId, Project project, WorkspaceMember membership,
+                              ProjectRole role, boolean firstSeat) {
+        if (actorId.equals(membership.getUserId())) {
+            return;
+        }
+        // A membership always names a user. If that ever stops being true there is nobody left to
+        // tell, and a seat change must not fail over the notice it could not send.
+        User recipient = users.findById(membership.getUserId()).orElse(null);
+        if (recipient == null) {
+            return;
+        }
+        String actorName = users.findById(actorId).map(User::getFullName).orElse("A colleague");
+        String clientName = clients.findByIdAndWorkspaceId(project.getClientId(), project.getWorkspaceId())
+                .map(Client::getName).orElse("your client");
+        String link = "%s/projects/%s".formatted(properties.web().baseUrl(), project.getId());
+
+        emailSender.send(firstSeat
+                ? templates.buildAddedToProjectEmail(recipient.getEmail(), recipient.getFullName(),
+                        actorName, project.getPositionTitle(), clientName, role.name(), link)
+                : templates.buildProjectRoleChangedEmail(recipient.getEmail(), recipient.getFullName(),
+                        actorName, project.getPositionTitle(), clientName, role.name(), link));
     }
 
     /** Seats (or extends) the membership with the CLIENT role. Returns whether anything changed. */

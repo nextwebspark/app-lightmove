@@ -210,7 +210,13 @@ export function AppIcon({ className }: { className?: string }) {
   );
 }
 
-/** The Uncava lockup that heads every unauthenticated screen, at the size the boot splash wants. */
+/**
+ * The Uncava lockup that heads every unauthenticated screen, at the size the boot splash wants.
+ *
+ * <p>It draws `AppIcon` rather than a mark of its own. The tiled `BrandMark` it used to draw carried
+ * an older geometry — a rhombus over a hexagon — which is how the boot splash came to show a
+ * different logo from the login screen behind it. One source for the mark is what keeps them equal.
+ */
 export function Logo() {
   return (
     <div className="flex animate-fade-up items-center gap-3.5">

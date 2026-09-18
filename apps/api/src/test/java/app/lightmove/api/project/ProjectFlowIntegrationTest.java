@@ -11,6 +11,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 import app.lightmove.api.FlowTestSupport;
 import app.lightmove.api.IntegrationTest;
+import app.lightmove.api.core.email.model.EmailMessage;
 import java.time.LocalDate;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -324,6 +325,40 @@ class ProjectFlowIntegrationTest extends FlowTestSupport {
                         .content("{%s\"fullName\":\"%s\"%s}"
                                 .formatted(companyClause, fullName, statusClause)))
                 .andExpect(status().isCreated());
+    }
+
+    @Test
+    @DisplayName("being seated is mailed, so is a role change, and a PUT that changes nothing is not")
+    void seatingIsAnnounced() throws Exception {
+        String alok = "alok@" + domain;
+        String sara = "sara@" + domain;
+        String admin = adminOf("Announcing Firm", alok);
+        inviteAndAccept(admin, "Sara Al-Mansour", sara, "MEMBER");
+        String projectId = createProject(admin, createClient(admin, "Meridian Energy"), "Group CFO");
+
+        // Creating the mandate seats its creator as lead, and tells nobody: it was their own doing.
+        assertThat(email.subjectsFor(alok)).noneMatch(subject -> subject.contains("search"));
+
+        seat(admin, projectId, memberIdOf(admin, sara), "RESEARCHER");
+        assertThat(latestTo(sara).subject()).isEqualTo("You were added to the Group CFO search on Uncava");
+        assertThat(latestTo(sara).textBody())
+                .contains("Meridian Energy")
+                .contains("as a researcher")
+                .doesNotContain("token=");
+
+        seat(admin, projectId, memberIdOf(admin, sara), "LEAD");
+        assertThat(latestTo(sara).subject()).isEqualTo("Your role on the Group CFO search changed");
+
+        // A PUT of the role they already hold changes nothing, in mail as in the response.
+        int before = email.subjectsFor(sara).size();
+        seat(admin, projectId, memberIdOf(admin, sara), "LEAD");
+        assertThat(email.subjectsFor(sara)).hasSize(before);
+    }
+
+    private EmailMessage latestTo(String recipient) {
+        return email.sent().reversed().stream()
+                .filter(message -> recipient.equalsIgnoreCase(message.to()))
+                .findFirst().orElseThrow();
     }
 
     private void seat(String leadToken, String projectId, String memberId, String role)
