@@ -226,6 +226,10 @@ geocoding/                 # a city+country pair becomes a point, once — globa
 
 talentmap/                 # composes triagecompany + candidate + geocoding into one read; owns nothing
   dto/(TalentMapResponse, MapLocationDto, TalentMapConfigResponse)  service/(TalentMapService)  controller/
+
+dataexport/                # the Companies grid as a CSV — composes the same seams; owns nothing
+  constant/(ExportColumn)  model/(ExportRow)
+  service/(CompaniesCsvWriter, ProjectExportService)  controller/(ProjectExportController)
 ```
 
 **`enrichment/` is the one feature with a subject split above the type split.** People and companies
@@ -322,6 +326,12 @@ method plus the records it returns — never another feature's internals:
   itself, so `triagecompany` still never learns that people exist. `GeocodingService.resolve` is
   the third seam, taking bare city/country pairs — which company or person asked never reaches
   `geocoding` or the vendor.
+- `dataexport` reads through the same two, plus `CustomColumnService.list`, and pairs them into grid
+  rows the same way — the mirror of `dataimport`, which writes through those features rather than
+  reading. `listAllOfStage` takes a name query for it, so an export carries what the screen's search
+  box narrowed the grid to. Its controller is the one **read** in the codebase that records an audit
+  event: a whole mandate leaving as a file is not the same act as reading a page of it, and
+  `WORK_VIEW` means a client representative can do it.
 - `position`'s `PositionService` reads `project`'s repositories for the mandate a brief belongs to,
   the same way `CandidateService` does — a brief cannot be scoped, titled or dated without it — and
   `project`'s `ProjectService.create` seeds the new mandate's brief through one call taking primitives

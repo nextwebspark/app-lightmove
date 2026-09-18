@@ -58,9 +58,17 @@ nothing itself — it builds the same requests the Companies drawer posts and ha
 `triagecompany` and `candidate`, so every scope check, duplicate rule and audit event stays where it
 already lives. **An imported row is never resolved against the market and never researched** — a file
 states its own figures and arrives a thousand rows at once, so the two things a one-at-a-time capture
-affords are exactly the two it cannot. The In-universe page also reads as a **map**: a Table | Map
-toggle on its toolbar (offered only where a Mapbox public token is configured) swaps the grid for a
-mapping panel (country → company → executives) beside a Mapbox globe, with a pin per company and
+affords are exactly the two it cannot.
+A stage also leaves as a file: **Export** on the Companies toolbar downloads the whole stage —
+every row, not the page on screen, narrowed by the search box when one is in force — carrying every
+column the grid draws and every custom column the mandate added, with the two Links icons spelled
+out as Website and Company LinkedIn. It is `WORK_VIEW`, the gate that reads the grid, so a client
+representative may take the mandate they can already read; unlike every other read it records an
+audit event, because a mandate leaving as a file is not the same act as reading a page of it. Past
+`lightmove.export.*` it refuses rather than truncating.
+The In-universe page also reads as a **map**: a Table | Map toggle on its toolbar (offered only
+where a Mapbox public token is configured) swaps the grid for a mapping panel (country → company →
+executives) beside a Mapbox globe, with a pin per company and
 per executive and the same two drawers opened from a pin's popup or a panel row. Nothing carries a
 coordinate, so `geocoding` resolves each distinct city + country once through Mapbox and keeps it in
 `app_lm_geocoded_place`; `talentmap` composes the stage's companies, people and points into one
@@ -98,7 +106,7 @@ the mockups: if a screen isn't being built this session, its tables and entities
 
 | Path | What |
 |---|---|
-| `apps/api` | Spring Boot 4.1 (Java 21, Maven). Features: `core`, `common`, `workspace`, `project`, `position`, `strategy`, `triagecompany`, `candidate`, `enrichment`, `customcolumn`, `dataimport`, `geocoding`, `talentmap` |
+| `apps/api` | Spring Boot 4.1 (Java 21, Maven). Features: `core`, `common`, `workspace`, `project`, `position`, `strategy`, `triagecompany`, `candidate`, `enrichment`, `customcolumn`, `dataimport`, `dataexport`, `geocoding`, `talentmap` |
 | `apps/web` | React 19 SPA (Vite 8, TypeScript, Tailwind v4) |
 | `apps/extension` | LightMove Capture — the Chrome extension (Manifest V3, React 19, Vite 8). Its own workspace; shares no code with `apps/web`. |
 | `claude-design/` | HTML mockups — **the source of truth for all UI**. Read the relevant `*.dc.html` before building a screen. |
@@ -127,8 +135,10 @@ method (`applyTo`) that decides what a row may store in them, since the bag is o
 stands between it and arbitrary caller-chosen keys. `triagecompany` and `candidate` depend on it; it
 depends on neither and knows nothing about companies or people. **`dataimport` is the spreadsheet** —
 read the file, work out what its columns mean, and write what it carries through the doors that
-already exist. It depends on those three and none of them depends back. Details in
-`java-spring-development`.
+already exist. It depends on those three and none of them depends back. **`dataexport` is the same
+three doors outward** — one stage of the Companies grid, composed and written as a CSV, reading
+through the seams `talentmap` already uses; it depends on the same three and on nothing else. Details
+in `java-spring-development`.
 
 ## Commands
 
