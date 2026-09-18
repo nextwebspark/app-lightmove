@@ -47,7 +47,9 @@ public enum ProjectEventType implements AuditEventType {
     CUSTOM_COLUMN_REORDERED,
     CUSTOM_COLUMN_REMOVED,
 
-    SPREADSHEET_IMPORTED;
+    SPREADSHEET_IMPORTED,
+
+    COMPANIES_EXPORTED;
 
     @Override
     public String code() {
