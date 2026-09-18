@@ -149,7 +149,7 @@ public class StrategyService {
         Strategy strategy = strategies.findByProjectId(projectId)
                 .orElseGet(() -> Strategy.forProject(projectId));
         CompanyScope scope = StrategyScope.of(strategy, normaliseQuery(query),
-                triagedLookup.accountIdsFor(projectId));
+                triagedLookup.exclusionFor(projectId));
 
         List<CompanyRow> rows = companies.search(scope, sort, direction, page, size);
         return new StrategyCompaniesResponse(

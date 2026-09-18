@@ -67,15 +67,6 @@ public interface TriageCompanyRepository extends JpaRepository<TriageCompany, UU
     Optional<TriageCompany> findByProjectIdAndApolloAccountId(UUID projectId, String apolloAccountId);
 
     /**
-     * Every id this project has already taken out of the market, at any stage — what
-     * {@code TriagedCompanyLookupAdapter} answers {@code strategy}'s search with, so a triaged company
-     * stops reappearing in later searches. Excludes mandate-supplied rows, which never had one.
-     */
-    @Query("select t.apolloAccountId from TriageCompany t "
-            + "where t.projectId = :projectId and t.apolloAccountId is not null")
-    List<String> findApolloAccountIdsByProjectId(@Param("projectId") UUID projectId);
-
-    /**
      * The duplicate guard behind a capture, wider than the partial unique index V34 adds: that index
      * can only see the manual rows, so a company typed in under a name already taken out of Apollo
      * would pass it.
