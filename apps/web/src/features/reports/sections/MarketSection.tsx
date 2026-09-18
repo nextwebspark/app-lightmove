@@ -11,19 +11,18 @@ import { MarketSliceDrawer, type SliceSelection } from "../components/MarketSlic
 import { ReportCard } from "../components/ReportCard";
 import { ReportSection } from "../components/ReportSection";
 import { SectorSeniorityHeatmap } from "../components/SectorSeniorityHeatmap";
+import { SectorTreemap } from "../components/SectorTreemap";
 import { percent } from "../lib/figures";
 import { marketStats, TOP_HUBS } from "../lib/marketStats";
 
 /** Where does the universe actually sit? Sector by seniority, then by country. */
 export function MarketSection({
-  eyebrow,
   market,
   universeCount,
   executivesMapped,
   currency,
   projectId,
 }: {
-  eyebrow: string;
   market: ReportMarket;
   universeCount: number;
   executivesMapped: number;
@@ -55,7 +54,6 @@ export function MarketSection({
 
   return (
     <ReportSection
-      eyebrow={eyebrow}
       question="Where does the universe actually sit?"
       lede={
         stats.deepest ? (
@@ -106,10 +104,14 @@ export function MarketSection({
           ) : undefined
         }
       >
-        {market.sectors.length > 0 ? (
-          <SectorSeniorityHeatmap sectors={market.sectors} rows={stats.rows} onSelect={handleCell} />
+        {stats.rows.length > 0 ? (
+          <SectorSeniorityHeatmap sectors={stats.sectors} rows={stats.rows} onSelect={handleCell} />
         ) : (
-          <ChartEmpty>No executive is mapped at a universe company yet.</ChartEmpty>
+          <ChartEmpty>
+            {market.sectors.length === 0
+              ? "No executive is mapped at a universe company yet."
+              : "No executive mapped at a universe company has a seniority on file yet."}
+          </ChartEmpty>
         )}
       </ReportCard>
 
@@ -145,11 +147,7 @@ export function MarketSection({
         </div>
       </ReportCard>
 
-      <ReportCard title="Companies by sector" caption={`target universe, n=${universeCount}`}>
-        <div className="mt-3.5">
-          <BarList rows={market.companiesBySector.map((b) => ({ key: b.label, label: b.label, count: b.count }))} />
-        </div>
-      </ReportCard>
+      <SectorTreemap rows={market.companiesBySector} universeCount={universeCount} />
 
       <MarketSliceDrawer selection={slice} projectId={projectId} onClose={() => setSlice(null)} />
       <HubDrawer

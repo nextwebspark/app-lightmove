@@ -72,7 +72,7 @@ class ReportIntegrationTest extends FlowTestSupport {
                 .andExpect(jsonPath("$.head.truncated").value(false))
                 .andExpect(jsonPath("$.progress.companiesCumulative").isArray())
                 .andExpect(jsonPath("$.progress.companiesCumulative[0]").value(0))
-                .andExpect(jsonPath("$.progress.daysSinceLastCompany").doesNotExist())
+                .andExpect(jsonPath("$.progress.daysSinceLastExecutive").doesNotExist())
                 .andExpect(jsonPath("$.market.sectors").isEmpty())
                 .andExpect(jsonPath("$.remuneration.fixedBand").doesNotExist())
                 .andExpect(jsonPath("$.remuneration.disclosures").isEmpty())
@@ -126,7 +126,7 @@ class ReportIntegrationTest extends FlowTestSupport {
         assertThat(progress.at("/companiesCumulative/0").asInt()).isEqualTo(1);
         assertThat(progress.at("/weekly/0/identified").asInt()).isEqualTo(3);
         assertThat(progress.get("daily")).hasSize(1);
-        assertThat(progress.get("daysSinceLastCompany").asInt()).isZero();
+        assertThat(progress.get("daysSinceLastExecutive").asInt()).isZero();
 
         // Market: sector comes from the company, so Lina, mapped at none, has no sector.
         JsonNode market = report.get("market");

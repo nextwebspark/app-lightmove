@@ -11,7 +11,7 @@ import { ProgressSection } from "./ProgressSection";
  */
 describe("ProgressSection", () => {
   function show(progress: Partial<ReportProgress>) {
-    render(<ProgressSection eyebrow="Chapter 1" progress={{ ...SAMPLE_REPORT.progress, ...progress }} />);
+    render(<ProgressSection progress={{ ...SAMPLE_REPORT.progress, ...progress }} />);
   }
 
   const basisToggle = () => screen.queryByRole("radiogroup", { name: "Projection basis" });
@@ -25,7 +25,7 @@ describe("ProgressSection", () => {
   });
 
   it("states that nothing is scoped rather than reporting a covered universe of none", () => {
-    show({ asOf: "2026-07-21", targetCompanies: 0, companiesCumulative: [0], daysSinceLastCompany: null });
+    show({ asOf: "2026-07-21", targetCompanies: 0, companiesCumulative: [0], daysSinceLastExecutive: null });
 
     expect(screen.getByText("No companies scoped to this mandate yet.")).toBeInTheDocument();
     expect(screen.queryByText(/coverage is complete/)).not.toBeInTheDocument();
@@ -34,7 +34,7 @@ describe("ProgressSection", () => {
   });
 
   it("names the missing history instead of printing a pace of zero", () => {
-    show({ asOf: "2026-07-22", companiesCumulative: [2], daysSinceLastCompany: 0 });
+    show({ asOf: "2026-07-22", companiesCumulative: [2], daysSinceLastExecutive: 0 });
 
     expect(screen.getByText("Coverage so far")).toBeInTheDocument();
     expect(screen.getByText(/Nothing to project yet/)).toBeInTheDocument();
@@ -46,7 +46,7 @@ describe("ProgressSection", () => {
   });
 
   it("calls a covered universe covered, without naming a date for it", () => {
-    show({ asOf: "2026-07-21", targetCompanies: 2, companiesCumulative: [2], daysSinceLastCompany: 0 });
+    show({ asOf: "2026-07-21", targetCompanies: 2, companiesCumulative: [2], daysSinceLastExecutive: 0 });
 
     expect(screen.getByText(/coverage is complete/)).toBeInTheDocument();
     expect(screen.getByText("cumulative companies mapped · from 21 Jul")).toBeInTheDocument();

@@ -33,13 +33,14 @@ const LEDE = (
 );
 
 /** Are we going to hit the deadline? Projected from actual recent pace, not the plan. */
-export function ProgressSection({ eyebrow, progress }: { eyebrow: string; progress: ReportProgress }) {
+export function ProgressSection({ progress }: { progress: ReportProgress }) {
   const [basis, setBasis] = useState<ProjectionBasis>("recent");
   const [momentum, setMomentum] = useState<MomentumView>("weeks");
   const projection = projectCoverage(progress, basis);
   const pace = weeklyPace(progress, projection.completeWeeks);
   const covered = projection.covered;
   const target = progress.targetDate ? formatShortDate(progress.targetDate) : null;
+  const gap = progress.daysSinceLastExecutive;
   const projects = projection.status === "projected";
   // Stalled keeps the toggle: a mandate that moved early and stopped has no recent pace but a real
   // full-mandate one, and comparing the two is the whole point of the control.
@@ -52,7 +53,7 @@ export function ProgressSection({ eyebrow, progress }: { eyebrow: string; progre
   // measure rather than a mandate at zero percent of its scope.
   if (projection.status === "no-universe") {
     return (
-      <ReportSection eyebrow={eyebrow} question="Are we going to hit the deadline?" lede={LEDE}>
+      <ReportSection question="Are we going to hit the deadline?" lede={LEDE}>
         <ReportGap icon={ICONS.searchX} title="No companies scoped to this mandate yet.">
           <p className="mx-auto max-w-[520px] text-[13px] leading-[1.65] text-u-text2">
             Coverage, pace and a completion date are all measured against the mandate's universe. Add companies from
@@ -65,7 +66,6 @@ export function ProgressSection({ eyebrow, progress }: { eyebrow: string; progre
 
   return (
     <ReportSection
-      eyebrow={eyebrow}
       question="Are we going to hit the deadline?"
       lede={LEDE}
       findingLabel="At the current pace"
@@ -99,10 +99,10 @@ export function ProgressSection({ eyebrow, progress }: { eyebrow: string; progre
         )}
         <KpiTile
           tone="alarm"
-          label="Since last new company"
-          value={progress.daysSinceLastCompany ?? "—"}
-          unit={progress.daysSinceLastCompany === null ? undefined : "d"}
-          sub={progress.daysSinceLastCompany === null ? "no company mapped yet" : "gap since the last first executive"}
+          label="Since last new executive"
+          value={gap ?? "—"}
+          unit={gap === null ? undefined : "d"}
+          sub={gap === null ? "no executive mapped yet" : "gap since the last one filed"}
         />
       </KpiTileRow>
 

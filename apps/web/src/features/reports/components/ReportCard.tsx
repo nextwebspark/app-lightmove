@@ -1,17 +1,30 @@
 import type { ReactNode } from "react";
 import { cn } from "../../../lib/cn";
 
-/** The surface every card of the report sits on. Dashed marks a card that names something not built. */
-export function ReportPanel({ dashed, children }: { dashed?: boolean; children: ReactNode }) {
+/**
+ * The surface every card of the report sits on. Its fill is the whole frame — no outline, so a
+ * chapter reads as figures on a page rather than as a stack of fenced boxes. The dashed border is
+ * the one exception: it marks a card that names something not built, which is a meaning.
+ */
+export function ReportPanel({
+  as: Tag = "div",
+  dashed,
+  children,
+}: {
+  /** `figure` where the card is one chart with its own caption, so the pairing is in the markup. */
+  as?: "div" | "figure";
+  dashed?: boolean;
+  children: ReactNode;
+}) {
   return (
-    <div
+    <Tag
       className={cn(
-        "mt-4 rounded-[11px] border border-u-border bg-u-surface px-4 py-[18px] shadow-u-e1 sm:px-6 sm:py-[22px]",
-        dashed && "border-dashed",
+        "mt-4 rounded-[11px] bg-u-surface px-4 py-[18px] shadow-u-e1 sm:px-6 sm:py-[22px]",
+        dashed && "border border-dashed border-u-border",
       )}
     >
       {children}
-    </div>
+    </Tag>
   );
 }
 

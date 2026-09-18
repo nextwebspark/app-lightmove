@@ -35,7 +35,7 @@ const STATUS_LEGEND = Object.values(STATUS_TONES).map((tone) => ({
 }));
 
 /** Are we underpaying, against what the market has actually disclosed rather than an estimate? */
-export function RemunerationSection({ eyebrow, remuneration }: { eyebrow: string; remuneration: ReportRemuneration }) {
+export function RemunerationSection({ remuneration }: { remuneration: ReportRemuneration }) {
   const [measure, setMeasure] = useState<CompensationMeasure>("package");
   const [country, setCountry] = useState(ALL_COUNTRIES);
   const [nationality, setNationality] = useState(ALL_NATIONALITIES);
@@ -55,7 +55,6 @@ export function RemunerationSection({ eyebrow, remuneration }: { eyebrow: string
 
   return (
     <ReportSection
-      eyebrow={eyebrow}
       question="Are we underpaying — against real evidence, not an estimate?"
       findingLabel="At these settings"
       finding={
