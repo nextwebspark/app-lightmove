@@ -382,6 +382,33 @@ describe("TriageStagePage", () => {
     expect(screen.getAllByText("ACWA Power")).toHaveLength(1);
   });
 
+  it("typing an executive's name hides a kept company's other executives, not just the ones with no match at all", async () => {
+    // Same shape as the Status case above: the server's Executive-name filter is also company-level
+    // (EXISTS: does ACWA have *an* executive named "Alok"), so the company stays on the page for Alok
+    // alone — the grid must not then also draw Ambrish's row just because he happens to work there too.
+    vi.mocked(candidatesApi.getCandidates).mockImplementation(async (_project, scope) =>
+      peopleOf(
+        scope.unmapped
+          ? []
+          : [yasmin, { ...yasmin, id: "c2", fullName: "Ambrish Rao" }, { ...yasmin, id: "c3", fullName: "Alok Kumar" }],
+      ),
+    );
+    renderStage();
+    const grid = await screen.findByRole("table", { name: /In universe companies/i });
+    expect(await screen.findByText("Yasmin El-Sayed")).toBeInTheDocument();
+    expect(screen.getByText("Ambrish Rao")).toBeInTheDocument();
+    expect(screen.getByText("Alok Kumar")).toBeInTheDocument();
+
+    await userEvent.click(within(grid).getByRole("button", { name: "Executive column menu" }));
+    await userEvent.type(screen.getByRole("textbox", { name: "Filter by executive name" }), "Alok");
+
+    await waitFor(() => expect(screen.queryByText("Yasmin El-Sayed")).not.toBeInTheDocument());
+    expect(screen.queryByText("Ambrish Rao")).not.toBeInTheDocument();
+    expect(screen.getByText("Alok Kumar")).toBeInTheDocument();
+    // Alok's row is the company's only remaining line, not one of three alongside the others.
+    expect(screen.getAllByText("ACWA Power")).toHaveLength(1);
+  });
+
   it("offers no Status checkbox at all when the grid holds at most one status", async () => {
     vi.mocked(candidatesApi.getCandidates).mockImplementation(async (_project, scope) =>
       peopleOf(scope.unmapped ? [] : [yasmin]),
