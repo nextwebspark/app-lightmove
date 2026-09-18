@@ -335,65 +335,83 @@ function TriageStage() {
    * or answer nothing, and both are wrong for a page that does not exist yet.
    *
    * <p>No size is named. The server sizes a company-filtered read at its own ceiling, which is a
-   * number this side must not try to guess — see {@link candidatesApi.getCandidates}.
+   * number this side must not try to guess — see {@link candidatesApi.getCandidates}. The
+   * Executive-name filter goes with it for the same reason: matched on the arrived page alone, a
+   * company whose only match sat past that ceiling would draw the "no executive mapped" slot over
+   * someone it has.
    */
+  const executiveName = debouncedExecutiveQuery.trim();
+  const mappedScope = { triageCompanyIds: companyIds, query: executiveName };
   const mappedPeople = useQuery({
-    queryKey: candidatesApi.CANDIDATES_KEY(project.id, { triageCompanyIds: companyIds }),
-    queryFn: ({ signal }) =>
-      candidatesApi.getCandidates(project.id, { triageCompanyIds: companyIds }, signal),
+    queryKey: candidatesApi.CANDIDATES_KEY(project.id, mappedScope),
+    queryFn: ({ signal }) => candidatesApi.getCandidates(project.id, mappedScope, signal),
     enabled: view === "table" && companyIds.length > 0,
     placeholderData: keepPreviousData,
     refetchInterval: researchPoll,
   });
 
+  /**
+   * What each read is entitled to show. `enabled` stops a fetch and never the cache behind it, and
+   * `keepPreviousData` hands an uncached key the last page outright — so a gate that lives on the
+   * query alone leaks a stale page into a view that asked for nothing like it.
+   */
+  const mappedPage = companyIds.length > 0 ? mappedPeople.data : undefined;
+
   const totalCount = companies.data?.totalCount;
   const lastPage = Math.max(0, Math.ceil((totalCount ?? 0) / pageSize) - 1);
+
+  /**
+   * Whether this render carries the employer-less executives at all — one flag for the read <i>and</i>
+   * the merge below, because `enabled` stops the fetch and not the data: gated only there, the cached
+   * page kept being merged into every filtered view. A company-name filter hides them; the Executive
+   * and Status filters narrow them.
+   */
+  const showsUnmappedPeople =
+    view === "table" && stage.status === "inUniverse" && !debouncedQuery.trim() && page === lastPage;
 
   /**
    * Executives whose employer is not in the mandate's universe at all. They belong to the mandate
    * rather than to any company, so they sit after the companies on the universe's last page — the one
    * place a reader reaches by scrolling to the end of the mapping. Grouping the grid by company is
    * where they eventually get a heading of their own; until then, invisible would be worse.
+   *
+   * <p>The name filter goes to the server: the read is capped there, so matching it on the arrived
+   * page alone would miss everyone past the cap.
    */
+  const unmappedScope = { unmapped: true, query: executiveName };
   const unmappedPeople = useQuery({
-    queryKey: candidatesApi.CANDIDATES_KEY(project.id, { unmapped: true }),
-    queryFn: ({ signal }) =>
-      candidatesApi.getCandidates(project.id, { unmapped: true }, signal),
-    enabled:
-      view === "table" &&
-      stage.status === "inUniverse" &&
-      !debouncedQuery &&
-      !debouncedExecutiveQuery &&
-      executiveStatuses.length === 0 &&
-      page === lastPage,
+    queryKey: candidatesApi.CANDIDATES_KEY(project.id, unmappedScope),
+    queryFn: ({ signal }) => candidatesApi.getCandidates(project.id, unmappedScope, signal),
+    enabled: showsUnmappedPeople,
+    placeholderData: keepPreviousData,
     refetchInterval: researchPoll,
   });
+  const unmappedPage = showsUnmappedPeople ? unmappedPeople.data : undefined;
 
   visiblePeople.current = [
-    ...(mappedPeople.data?.candidates ?? []),
-    ...(unmappedPeople.data?.candidates ?? []),
+    ...(mappedPage?.candidates ?? []),
+    ...(unmappedPage?.candidates ?? []),
   ];
 
   /**
    * Which Status values the Status column's header menu offers — only the ones actually borne by an
    * executive the mandate has mapped, so a mandate with just Identified and Contacted people never
    * sees the other five sitting there unusable. Learned only from an unfiltered read (the component
-   * remounts fresh per project and stage, so the first page is always one): once the status filter
-   * itself narrows what loads, that narrower set must not overwrite the true one the checkboxes
-   * describe.
+   * remounts fresh per project and stage, so the first page is always one): once either header filter
+   * narrows what loads, that narrower set must not overwrite the true one the checkboxes describe.
    */
   const [seenExecutiveStatuses, setSeenExecutiveStatuses] = useState<Set<CandidateStatus>>(
     () => new Set(),
   );
   useEffect(() => {
-    if (executiveStatuses.length > 0 || visiblePeople.current.length === 0) return;
+    if (executiveStatuses.length > 0 || executiveName || visiblePeople.current.length === 0) return;
     setSeenExecutiveStatuses((current) => {
       const next = new Set(current);
       for (const candidate of visiblePeople.current) next.add(candidate.status);
       return next.size === current.size ? current : next;
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [mappedPeople.data, unmappedPeople.data, executiveStatuses.length]);
+  }, [mappedPage, unmappedPage, executiveStatuses.length, executiveName]);
   const executiveStatusOptions = useMemo(
     () =>
       CANDIDATE_STATUSES.filter((status) => seenExecutiveStatuses.has(status.value)).map(
@@ -444,14 +462,16 @@ function TriageStage() {
     // person among several. The grid's own rows are people, not companies, so each ticked/typed
     // filter also narrows which of a kept company's executives get a line — otherwise searching
     // "Alok" would still draw an unrelated colleague's row beneath theirs.
-    const normalisedQuery = debouncedExecutiveQuery.trim().toLowerCase();
-    const people = (mappedPeople.data?.candidates ?? []).filter((candidate) => {
+    const normalisedQuery = executiveName.toLowerCase();
+    const matchesExecutiveFilters = (candidate: Candidate) => {
       if (executiveStatuses.length > 0 && !executiveStatuses.includes(candidate.status)) return false;
       if (normalisedQuery && !candidate.fullName.toLowerCase().includes(normalisedQuery)) return false;
       return true;
-    });
-    return toTriageRows(companies.data?.companies ?? [], people, unmappedPeople.data?.candidates ?? []);
-  }, [companies.data, mappedPeople.data, unmappedPeople.data, executiveStatuses, debouncedExecutiveQuery]);
+    };
+    const people = (mappedPage?.candidates ?? []).filter(matchesExecutiveFilters);
+    const unmapped = (unmappedPage?.candidates ?? []).filter(matchesExecutiveFilters);
+    return toTriageRows(companies.data?.companies ?? [], people, unmapped);
+  }, [companies.data, mappedPage, unmappedPage, executiveStatuses, executiveName]);
 
   /**
    * What the two people reads could not fit. Both are capped by the server, and a mapping that ran
@@ -462,8 +482,8 @@ function TriageStage() {
    * has not read yet.
    */
   const unlisted = [
-    peopleNotShown(mappedPeople.data, "at these companies"),
-    peopleNotShown(unmappedPeople.data, "with no company in this mandate"),
+    peopleNotShown(mappedPage, "at these companies"),
+    peopleNotShown(unmappedPage, "with no company in this mandate"),
   ].filter((line): line is string => line !== null);
 
   const move = useMutation({
