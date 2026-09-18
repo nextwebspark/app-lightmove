@@ -189,6 +189,14 @@ set `from-address` on that domain, then `provider: resend` plus the key. A faile
 the signup, but the verification token is stored **hashed**, so a link that fails to send is
 unrecoverable — use `/auth/verify/resend`.
 
+Every email is one layout — `EmailRenderer` — and each template states only what it says, so the HTML
+and plain-text halves are rendered from the same sentence rather than written twice. The header's mark
+is `apps/web/public/brand/uncava-mark-email-v1.png`, fetched over `lightmove.web.base-url`: mail clients
+do not render SVG, so it is a Chromium screenshot of the same paths the app draws, produced the way the
+OG card is ("Link previews" below) and for the same reason. Its filename carries a version because Gmail
+proxies and caches every image it fetches, so a mark redrawn in place would leave the old one in
+circulation. The wordmark beside it is text, which is what a reader who blocks images sees.
+
 **Google sign-in** is not configured: `GET /api/v1/auth/providers` returns `{"google": false}` and the SPA
 hides the button, because a button leading to a 404 is worse than no button. To enable it, create an OAuth
 client with redirect URI `http://localhost:8080/login/oauth2/code/google` and put the id and secret in
