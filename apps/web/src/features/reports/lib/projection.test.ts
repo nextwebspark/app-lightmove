@@ -52,6 +52,11 @@ describe("projectCoverage", () => {
     expect(projection.lastWeek).toBe(0);
     expect(projection.remaining).toBe(42);
     expect(projection.projectedDate).toBeNull();
+    // Seven weeks in with nothing covered is a stall, not a mandate too young to read. Counting
+    // complete weeks off the array's length instead of the calendar called this "insufficient",
+    // which the note then rendered as "too little history — this mandate is 49 days old".
+    expect(projection.status).toBe("stalled");
+    expect(projection.completeWeeks).toBe(1);
   });
 
   it("has nothing to measure before a full week has passed, and says so rather than reading zero", () => {
@@ -134,7 +139,7 @@ describe("projectCoverage", () => {
 
 describe("weeklyPace", () => {
   it("splits the complete weeks into the first month and the last three", () => {
-    const pace = weeklyPace(SAMPLE_REPORT.progress, 7);
+    const pace = weeklyPace(SAMPLE_REPORT.progress);
 
     // The total is a tally of every week, the week in progress included; the averages are rates and
     // read complete weeks only.
@@ -142,14 +147,19 @@ describe("weeklyPace", () => {
     expect(pace.firstMonth).toBeCloseTo(18, 5);
     expect(pace.recent).toBeCloseTo(40 / 3, 5);
     expect(pace.average).toBeCloseTo(16, 5);
+    expect(pace.completeWeeks).toBe(7);
   });
 
-  it("claims no average at all before a week is complete", () => {
-    const pace = weeklyPace(SAMPLE_REPORT.progress, 0);
+  it("answers null, not zero, before a week is complete", () => {
+    const pace = weeklyPace({ ...SAMPLE_REPORT.progress, asOf: "2026-07-21" });
 
-    expect(pace.firstMonth).toBe(0);
-    expect(pace.recent).toBe(0);
+    // Zero here was the same conflation the projection's own pace stopped making: no rate to state
+    // is not a rate of none.
+    expect(pace.average).toBeNull();
+    expect(pace.firstMonth).toBeNull();
+    expect(pace.recent).toBeNull();
     expect(pace.total).toBe(116);
+    expect(pace.completeWeeks).toBe(0);
   });
 });
 

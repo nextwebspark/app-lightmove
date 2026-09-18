@@ -25,9 +25,12 @@ export function WeeklyMomentumChart({
   return (
     <div className="mt-5 flex h-40 items-end gap-3 px-1" role="img" aria-label="Executives identified per week">
       {progress.weekly.map((week, index) => {
-        const unjudged = average === null || index >= completeWeeks;
-        const isBelow = !unjudged && week.identified < (average as number);
-        const inProgress = index >= completeWeeks;
+        const incomplete = index >= completeWeeks;
+        // The server sends at most one bucket past the complete weeks, and it is the last. Naming
+        // only that one "this week" keeps the label true of exactly one bar.
+        const inProgress = incomplete && index === progress.weekly.length - 1;
+        const unjudged = average === null || incomplete;
+        const isBelow = average !== null && !incomplete && week.identified < average;
         return (
           <div
             key={week.weekEnding}

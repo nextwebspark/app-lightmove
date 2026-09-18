@@ -1,4 +1,5 @@
 import { render, screen } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { describe, expect, it } from "vitest";
 import { SAMPLE_REPORT } from "../../../test/sampleReport";
 import type { ReportProgress } from "../api/types";
@@ -52,6 +53,42 @@ describe("ProgressSection", () => {
     expect(screen.getByText("cumulative companies mapped · from 21 Jul")).toBeInTheDocument();
     expect(screen.queryByText(/– projected/)).not.toBeInTheDocument();
     expect(basisToggle()).not.toBeInTheDocument();
+  });
+
+  it("compares the first month with recently only once the two spans stop overlapping", () => {
+    // Four complete weeks: "the first four" and "the last three" are largely the same weeks, and at
+    // one week they were the same week — the sentence read "from ~8/week … to ~8/week".
+    show({
+      asOf: "2026-08-17",
+      companiesCumulative: [0, 5, 11, 17],
+      weekly: SAMPLE_REPORT.progress.weekly.slice(0, 4),
+    });
+
+    expect(screen.queryByText(/Weekly pace has gone from/)).not.toBeInTheDocument();
+  });
+
+  it("states the comparison once seven complete weeks stand behind it", () => {
+    show({});
+
+    expect(screen.getByText(/Weekly pace has gone from/)).toBeInTheDocument();
+  });
+
+  it("names the basis the pace tile is actually showing", async () => {
+    const user = userEvent.setup();
+    show({});
+
+    expect(screen.getByText("Recent pace")).toBeInTheDocument();
+    await user.click(screen.getByRole("radio", { name: "Full-mandate avg" }));
+
+    // The figure follows the toggle; the label used to say "Recent" over the full-mandate average.
+    expect(screen.getByText("Full-mandate pace")).toBeInTheDocument();
+    expect(screen.queryByText("Recent pace")).not.toBeInTheDocument();
+  });
+
+  it("keys the week in progress in the momentum legend, since it is drawn a third colour", () => {
+    show({});
+
+    expect(screen.getByText("Week in progress")).toBeInTheDocument();
   });
 
   it("keeps the basis toggle on a stall, where the other basis is the comparison worth making", () => {

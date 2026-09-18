@@ -10,7 +10,15 @@ import { ReportCard } from "../components/ReportCard";
 import { ReportGap } from "../components/ReportGap";
 import { Figure, ReportSection } from "../components/ReportSection";
 import { formatShortDate, percent } from "../lib/figures";
-import { type Projection, type ProjectionBasis, projectCoverage, type WeeklyPace, weeklyPace } from "../lib/projection";
+import {
+  FIRST_MONTH_WEEKS,
+  type Projection,
+  type ProjectionBasis,
+  projectCoverage,
+  RECENT_WEEKS,
+  type WeeklyPace,
+  weeklyPace,
+} from "../lib/projection";
 
 type MomentumView = "weeks" | "days";
 
@@ -37,7 +45,7 @@ export function ProgressSection({ progress }: { progress: ReportProgress }) {
   const [basis, setBasis] = useState<ProjectionBasis>("recent");
   const [momentum, setMomentum] = useState<MomentumView>("weeks");
   const projection = projectCoverage(progress, basis);
-  const pace = weeklyPace(progress, projection.completeWeeks);
+  const pace = weeklyPace(progress);
   const covered = projection.covered;
   const target = progress.targetDate ? formatShortDate(progress.targetDate) : null;
   const gap = progress.daysSinceLastExecutive;
@@ -48,6 +56,9 @@ export function ProgressSection({ progress }: { progress: ReportProgress }) {
   // One complete week's average is that week, and two weeks' is just which of the two was bigger.
   // Below three, a bar drawn red or green would be reporting the data back as a judgement of it.
   const average = projection.completeWeeks >= JUDGEABLE_WEEKS ? pace.average : null;
+  // The figure follows the toggle, so the label has to as well: it was reading "Recent pace" over
+  // the full-mandate average the moment anyone switched.
+  const paceLabel = basis === "recent" ? "Recent pace" : "Full-mandate pace";
 
   // Every figure in this chapter is measured against the universe, so with none there is nothing to
   // measure rather than a mandate at zero percent of its scope.
@@ -87,11 +98,11 @@ export function ProgressSection({ progress }: { progress: ReportProgress }) {
         {projection.pace === null ? (
           // An unmeasured pace is not a risk, so it does not wear the alarm tone. "0.0/wk" here read
           // as a stall the rows never recorded.
-          <KpiTile label="Recent pace" value="—" sub="needs a full week of history" />
+          <KpiTile label={paceLabel} value="—" sub="needs a full week of history" />
         ) : (
           <KpiTile
             tone="alarm"
-            label="Recent pace"
+            label={paceLabel}
             value={projection.pace.toFixed(1)}
             unit="/wk"
             sub={projection.targetPace !== null ? `vs ${projection.targetPace.toFixed(1)}/wk needed` : "no target date set"}
@@ -153,14 +164,17 @@ export function ProgressSection({ progress }: { progress: ReportProgress }) {
           <>
             <Legend
               className="mb-1 mt-2.5"
-              items={
-                average === null
+              items={[
+                ...(average === null
                   ? [{ label: "Executives identified", swatchClass: "bg-u-accent", shape: "dot" as const }]
                   : [
                       { label: "At or above average", swatchClass: "bg-u-direct", shape: "dot" as const },
                       { label: `Below average (${Math.round(average)}/wk)`, swatchClass: "bg-u-offlimits", shape: "dot" as const },
-                    ]
-              }
+                    ]),
+                ...(average !== null && progress.weekly.length > projection.completeWeeks
+                  ? [{ label: "Week in progress", swatchClass: "bg-u-accent", shape: "dot" as const }]
+                  : []),
+              ]}
             />
             <WeeklyMomentumChart progress={progress} average={average} completeWeeks={projection.completeWeeks} />
           </>
@@ -215,7 +229,7 @@ function CoverageNote({ projection, basis }: { projection: Projection; basis: Pr
       </>
     );
   }
-  if (projection.pace === null || projection.pace === 0) {
+  if (projection.pace === null || projection.status === "stalled") {
     return (
       <>
         The line stops at today because <b>nothing has been added across {paceWindow(projection)}</b> — a dashed
@@ -246,8 +260,12 @@ function ProgressFinding({
   pace: WeeklyPace;
   target: string | null;
 }) {
+  // "From the first month to recently" is a comparison, so it needs two spans that do not overlap:
+  // the first four complete weeks and the last three are the same weeks until there are seven. Below
+  // that it printed one week's average as both halves — "from ~8/week … to ~8/week".
+  const comparable = pace.completeWeeks >= FIRST_MONTH_WEEKS + RECENT_WEEKS;
   const momentum =
-    pace.firstMonth > 0 ? (
+    comparable && pace.firstMonth !== null && pace.recent !== null ? (
       <>
         Weekly pace has gone from <Figure>~{Math.round(pace.firstMonth)}/week</Figure> in the first month to{" "}
         <Figure>~{Math.round(pace.recent)}/week</Figure> recently.{" "}
@@ -279,9 +297,9 @@ function ProgressFinding({
       </>
     );
   }
-  // Past here the status is "projected", so both the pace and the date are real.
-  const paceFigure = <Figure>{(projection.pace as number).toFixed(1)} companies/week</Figure>;
-  const projectedDate = <Figure>{formatShortDate(projection.projectedDate as string)}</Figure>;
+  if (projection.status !== "projected") return null;
+  const paceFigure = <Figure>{projection.pace.toFixed(1)} companies/week</Figure>;
+  const projectedDate = <Figure>{formatShortDate(projection.projectedDate)}</Figure>;
   if (target === null || projection.daysLate === null) {
     return (
       <>

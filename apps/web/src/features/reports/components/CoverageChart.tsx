@@ -12,6 +12,12 @@ const PAD_BOTTOM = 36;
 const PLOT_H = H - PAD_TOP - PAD_BOTTOM;
 const WEEKS_OF_HEADROOM = 4;
 const LABEL = "text-[10px] font-semibold tracking-[0.04em]";
+/** Roughly how wide "FULL COVERAGE (42)" sets, and how tall the two-line projected label stands. */
+const FULL_LABEL_WIDTH = 90;
+const LABEL_ROW_HEIGHT = 16;
+/** How far the label steps aside, and how much room "today" needs before the kickoff tick fits. */
+const LABEL_DODGE = 26;
+const KICKOFF_TICK_CLEARANCE = 40;
 
 /**
  * Cumulative companies covered, the target as a vertical rule where the mandate has one, and the
@@ -51,12 +57,17 @@ export function CoverageChart({ progress, projection }: { progress: ReportProgre
   // One bucket is a reading, not a series: the line collapses to nothing and the area to a spike
   // under the marker. The marker alone says what is known.
   const hasSeries = cum.length > 1;
-  // A mandate covered in its first days puts the marker exactly where this label starts.
-  const fullLabelX = todayX - PAD_LEFT < 90 && Math.abs(todayY - fullY) < 16 ? PAD_LEFT + 26 : PAD_LEFT;
   // An end-anchored label on a projection left of centre runs off the canvas and is clipped.
   const labelAnchor = projectedX !== null && projectedX > W / 2 ? "end" : "start";
+  // Two marks can land on this label: the today marker on a mandate covered in its first days, and
+  // a start-anchored projected date, which sets from projectedX along the same row.
+  const sitsOnFullLabel = (markX: number, markY: number) =>
+    markX - PAD_LEFT < FULL_LABEL_WIDTH && Math.abs(markY - fullY) < LABEL_ROW_HEIGHT;
+  const fullLabelClash =
+    sitsOnFullLabel(todayX, todayY) || (projectedX !== null && labelAnchor === "start" && sitsOnFullLabel(projectedX, fullY));
+  const fullLabelX = fullLabelClash ? PAD_LEFT + LABEL_DODGE : PAD_LEFT;
   // On a young mandate "today" sits on the kickoff tick and the two labels overprint each other.
-  const showsKickoffTick = todayX - PAD_LEFT > 40;
+  const showsKickoffTick = todayX - PAD_LEFT > KICKOFF_TICK_CLEARANCE;
 
   return (
     <div className="overflow-x-auto">
