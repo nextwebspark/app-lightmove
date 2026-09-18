@@ -900,7 +900,7 @@ describe("TriageStagePage", () => {
     await waitFor(() =>
       expect(candidatesApi.getCandidates).toHaveBeenCalledWith(
         "p1",
-        { triageCompanyIds: ["u1"] },
+        { triageCompanyIds: ["u1"], query: "" },
         expect.anything(),
       ),
     );
@@ -955,6 +955,129 @@ describe("TriageStagePage", () => {
     // The row says where they work and that it is not a company this screen can act on.
     expect(screen.getByText("An Unlisted Holding")).toBeInTheDocument();
     expect(screen.getByText(/Not in universe/i)).toBeInTheDocument();
+  });
+
+  /** The unmapped read as the server answers it: a name filter narrows it like any other list. */
+  const unmappedByName = async (_project: string, scope: candidatesApi.CandidateQuery) => {
+    if (!scope.unmapped) return peopleOf([]);
+    const name = scope.query?.toLowerCase() ?? "";
+    return peopleOf(unlistedExec.fullName.toLowerCase().includes(name) ? [unlistedExec] : []);
+  };
+
+  it("drops an employer-less executive from a search that does not name them", async () => {
+    vi.mocked(candidatesApi.getCandidates).mockImplementation(unmappedByName);
+    renderStage();
+    const grid = await screen.findByRole("table", { name: /In universe companies/i });
+    expect(await screen.findByText("Wei Ling Tan")).toBeInTheDocument();
+
+    await userEvent.click(within(grid).getByRole("button", { name: "Executive column menu" }));
+    await userEvent.type(screen.getByRole("textbox", { name: "Filter by executive name" }), "Alok");
+
+    await waitFor(() => expect(screen.queryByText("Wei Ling Tan")).not.toBeInTheDocument());
+  });
+
+  it("finds an employer-less executive by name, asking the server rather than the arrived page", async () => {
+    vi.mocked(candidatesApi.getCandidates).mockImplementation(unmappedByName);
+    renderStage();
+    const grid = await screen.findByRole("table", { name: /In universe companies/i });
+    await screen.findByText("Wei Ling Tan");
+
+    await userEvent.click(within(grid).getByRole("button", { name: "Executive column menu" }));
+    await userEvent.type(screen.getByRole("textbox", { name: "Filter by executive name" }), "Wei");
+
+    await waitFor(() =>
+      expect(candidatesApi.getCandidates).toHaveBeenCalledWith(
+        "p1",
+        { unmapped: true, query: "Wei" },
+        expect.anything(),
+      ),
+    );
+    expect(screen.getByText("Wei Ling Tan")).toBeInTheDocument();
+  });
+
+  it("hides the employer-less executives outright when the company filter is used", async () => {
+    vi.mocked(candidatesApi.getCandidates).mockImplementation(unmappedByName);
+    renderStage();
+    const grid = await screen.findByRole("table", { name: /In universe companies/i });
+    await screen.findByText("Wei Ling Tan");
+
+    await userEvent.click(within(grid).getByRole("button", { name: "Company column menu" }));
+    await userEvent.type(screen.getByRole("textbox", { name: "Filter by company name" }), "ACWA");
+
+    await waitFor(() => expect(screen.queryByText("Wei Ling Tan")).not.toBeInTheDocument());
+    expect(within(grid).getByText("ACWA Power")).toBeInTheDocument();
+  });
+
+  it("keeps them when the company filter holds nothing but whitespace", async () => {
+    vi.mocked(candidatesApi.getCandidates).mockImplementation(unmappedByName);
+    renderStage();
+    const grid = await screen.findByRole("table", { name: /In universe companies/i });
+    await screen.findByText("Wei Ling Tan");
+
+    await userEvent.click(within(grid).getByRole("button", { name: "Company column menu" }));
+    await userEvent.type(screen.getByRole("textbox", { name: "Filter by company name" }), "  ");
+
+    // The server trims it to no filter at all and answers the same companies; the grid must agree.
+    await waitFor(() => expect(screen.getByText("Wei Ling Tan")).toBeInTheDocument());
+  });
+
+  it("asks the server for the executives at these companies by name, not just the employer-less ones", async () => {
+    vi.mocked(candidatesApi.getCandidates).mockImplementation(async (_project, scope) =>
+      peopleOf(scope.unmapped ? [] : [yasmin]),
+    );
+    renderStage();
+    const grid = await screen.findByRole("table", { name: /In universe companies/i });
+    await screen.findByText("Yasmin El-Sayed");
+
+    await userEvent.click(within(grid).getByRole("button", { name: "Executive column menu" }));
+    await userEvent.type(screen.getByRole("textbox", { name: "Filter by executive name" }), "Alok");
+
+    // The read is capped: a company whose only match sits past the cap would otherwise draw the
+    // "no executive mapped" slot over someone it has.
+    await waitFor(() =>
+      expect(candidatesApi.getCandidates).toHaveBeenCalledWith(
+        "p1",
+        { triageCompanyIds: ["u1"], query: "Alok" },
+        expect.anything(),
+      ),
+    );
+  });
+
+  it("drops the capped-read line when the company filter leaves no companies to count it over", async () => {
+    vi.mocked(triageApi.getTriageCompanies).mockImplementation(async (_project, _status, _page, _size, q) =>
+      q
+        ? pageOf({ companies: [], totalCount: 0, counts: { inUniverse: 0, shortlisted: 0, declined: 0 } })
+        : pageOf(),
+    );
+    vi.mocked(candidatesApi.getCandidates).mockImplementation(async (_project, scope) =>
+      scope.unmapped ? peopleOf([]) : { candidates: [yasmin], totalCount: 4, page: 0, size: 25 },
+    );
+    renderStage();
+    const grid = await screen.findByRole("table", { name: /In universe companies/i });
+    expect(await screen.findByText(/Showing 1 of 4 executives at these companies/i)).toBeInTheDocument();
+
+    await userEvent.click(within(grid).getByRole("button", { name: "Company column menu" }));
+    await userEvent.type(screen.getByRole("textbox", { name: "Filter by company name" }), "Zzz");
+
+    await waitFor(() =>
+      expect(screen.queryByText(/Showing 1 of 4 executives/i)).not.toBeInTheDocument(),
+    );
+  });
+
+  it("narrows the employer-less executives by the Status filter too", async () => {
+    vi.mocked(candidatesApi.getCandidates).mockImplementation(async (_project, scope) =>
+      peopleOf(
+        scope.unmapped ? [unlistedExec] : [yasmin, { ...yasmin, id: "c2", status: "contacted" }],
+      ),
+    );
+    renderStage();
+    const grid = await screen.findByRole("table", { name: /In universe companies/i });
+    await screen.findByText("Wei Ling Tan");
+
+    await userEvent.click(within(grid).getByRole("button", { name: "Status column menu" }));
+    await userEvent.click(screen.getByRole("checkbox", { name: "Contacted" }));
+
+    await waitFor(() => expect(screen.queryByText("Wei Ling Tan")).not.toBeInTheDocument());
   });
 
   it("lets an executive with no company in the universe be removed from the row", async () => {
@@ -1013,7 +1136,7 @@ describe("TriageStagePage", () => {
     await waitFor(() =>
       expect(candidatesApi.getCandidates).toHaveBeenCalledWith(
         "p1",
-        { triageCompanyIds: ["u1"] },
+        { triageCompanyIds: ["u1"], query: "" },
         expect.anything(),
       ),
     );
