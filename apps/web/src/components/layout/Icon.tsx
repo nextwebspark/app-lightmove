@@ -114,4 +114,8 @@ export const ICONS = {
   copy: "M9 9h11a1 1 0 0 1 1 1v10a1 1 0 0 1-1 1H9a1 1 0 0 1-1-1V10a1 1 0 0 1 1-1ZM5 15H4a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1h10a1 1 0 0 1 1 1v1",
   /** A box with an arrow leaving it — opens somewhere else. */
   externalLink: "M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6M15 3h6v6M10 14 21 3",
+  /** A line climbing to an arrowhead — the report's mapping progress. */
+  trendingUp: "m3 17 6-6 4 4 8-8M15 7h6v6",
+  /** A struck S — the report's remuneration chapter. */
+  currency: "M12 2v20M17 6.5C17 4.6 14.8 3.5 12 3.5S7 4.6 7 6.5s2.2 3 5 3.5 5 1.6 5 3.5-2.2 3-5 3-5-1.1-5-3",
 } as const;

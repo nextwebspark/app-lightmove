@@ -9,16 +9,16 @@ import { cn } from "../../../lib/cn";
 export type KpiTone = "lead" | "plain" | "alarm" | "positive";
 
 const TONE: Record<KpiTone, { surface: string; label: string; figure: string; sub: string }> = {
-  lead: { surface: "border-u-border-strong bg-u-raised", label: "text-u-text3", figure: "text-u-accent", sub: "text-u-text2" },
-  plain: { surface: "border-u-border bg-u-surface", label: "text-u-text3", figure: "text-u-text", sub: "text-u-text2" },
+  lead: { surface: "bg-u-raised", label: "text-u-text3", figure: "text-u-accent", sub: "text-u-text2" },
+  plain: { surface: "bg-u-surface", label: "text-u-text3", figure: "text-u-text", sub: "text-u-text2" },
   alarm: {
-    surface: "border-u-signal/30 bg-u-signal-tint",
+    surface: "bg-u-signal-tint",
     label: "text-u-signal",
     figure: "text-u-signal",
     sub: "text-[color:color-mix(in_srgb,var(--color-u-signal)_80%,var(--color-u-text2))]",
   },
   positive: {
-    surface: "border-u-direct/30 bg-u-direct-tint",
+    surface: "bg-u-direct-tint",
     label: "text-u-direct",
     figure: "text-u-direct",
     sub: "text-[color:color-mix(in_srgb,var(--color-u-direct)_80%,var(--color-u-text2))]",
@@ -37,8 +37,8 @@ export interface KpiTileProps {
 export function KpiTile({ label, value, unit, sub, tone = "plain" }: KpiTileProps) {
   const style = TONE[tone];
   return (
-    <div className={cn("min-w-0 rounded-[10px] border px-[18px] py-4", style.surface)}>
-      <div className={cn("text-[9.5px] font-bold uppercase tracking-[0.07em]", style.label)}>{label}</div>
+    <div className={cn("min-w-0 rounded-[10px] px-[18px] py-4", style.surface)}>
+      <div className={cn("min-h-[24px] text-[9.5px] font-bold uppercase leading-[1.25] tracking-[0.07em]", style.label)}>{label}</div>
       <div
         className={cn(
           "mt-2 break-words font-u-num text-[22px] font-extrabold leading-[1.2] tracking-[-0.01em] sm:text-[27px]",

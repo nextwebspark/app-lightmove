@@ -10,7 +10,7 @@ import java.util.List;
  *
  * <p>Every series is indexed from kickoff — week 0 and day 0 are the kickoff's own — up to
  * {@code asOf}, so the screen can project from them without asking when each one started.
- * {@code daysSinceLastCompany} is null while no company has an executive yet.
+ * {@code daysSinceLastExecutive} is null while no executive is mapped yet.
  */
 public record MappingProgressDto(
         LocalDate kickoff,
@@ -20,5 +20,5 @@ public record MappingProgressDto(
         List<Integer> companiesCumulative,
         List<WeeklyCountDto> weekly,
         List<Integer> daily,
-        Integer daysSinceLastCompany
+        Integer daysSinceLastExecutive
 ) {}
