@@ -155,7 +155,7 @@ thing you need to know about any file here.
 | `src/content/` | injected into a page | the page reader — never a credential |
 | `src/popup/` | a document destroyed on close | React; asks the worker for everything |
 | `src/api/` | (imported by the worker) | the only code that knows the API exists |
-| `src/domain/` | anywhere | domain normalisation, the two destinations |
+| `src/domain/` | anywhere | domain normalisation, the two destinations, the statuses a capture may file |
 
 ## What a capture reads, and why so little
 
@@ -222,7 +222,9 @@ rather than a nicety: `canSave` gates on the name, so a page the extractor misse
 panel gave up on past its settle deadline — would otherwise be a row nobody could file. A name typed
 into a blank field stays the consultant's: a read landing late fills a blank, never an edit.
 
-The note is the one field that is always written. And a name locked in wrong (the title parser splits
+The note and the status are the two fields that are always written rather than read. The status is a
+choice — four of the drawer's seven, defaulting to identified and returning to it on every new profile,
+because a judgement about one person must not carry across to the next. And a name locked in wrong (the title parser splits
 on dashes, so "Amira Haddad - MBA" can lose its suffix) is still editable afterwards in the web app's
 `CandidateDrawer` — the panel is not a one-way door.
 
