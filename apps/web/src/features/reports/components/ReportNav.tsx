@@ -1,18 +1,25 @@
 import type { ReactNode } from "react";
 import { Link } from "react-router-dom";
+import { Icon, type ICONS } from "../../../components/layout/Icon";
 import { cn } from "../../../lib/cn";
 
 export interface ReportChapterLink {
   key: string;
   label: string;
+  icon: (typeof ICONS)[keyof typeof ICONS];
 }
 
 /**
- * The report's step rail: one numbered step per chapter, and where the figures came from. A column
- * beside the chapter at `lg` and a strip above it below that, because the rail is the only way
- * between chapters and cannot be hidden on a phone.
+ * The report's chapter menu, and where the figures came from. A column beside the chapter at `lg`
+ * and a strip above it below that, because the menu is the only way between chapters and cannot be
+ * hidden on a phone.
  *
- * <p>Steps are links, not buttons: the chapter lives in the URL, so a reader can send someone
+ * <p>Built like the app's own rail — an icon, a label, and the active row in a filled pill — so the
+ * report reads as a screen of the product rather than as a second navigation idiom. It is the app's
+ * `Sidebar` structure in the report's UNCAVA tokens, not that component: the two palettes differ,
+ * and the rail's collapse, groups and theme row have nothing to do with a chapter list.
+ *
+ * <p>Chapters are links, not buttons: the chapter lives in the URL, so a reader can send someone
  * straight to Remuneration and the back button walks the chapters.
  *
  * <p>No Export or Share buttons: neither is built, and a button that cannot work is worse than no
@@ -31,27 +38,22 @@ export function ReportNav({
     <aside className="flex-none border-b border-u-border lg:w-[258px] lg:border-b-0 lg:border-r">
       <div className="px-4 py-3.5 lg:sticky lg:top-0 lg:px-[22px] lg:py-[30px]">
         <nav aria-label="Report chapters" className="flex gap-0.5 overflow-x-auto lg:flex-col lg:overflow-visible">
-          {chapters.map((chapter, index) => {
+          {chapters.map((chapter) => {
             const isActive = chapter.key === activeKey;
             return (
               <Link
                 key={chapter.key}
                 to={{ search: `?chapter=${chapter.key}` }}
-                aria-current={isActive ? "step" : undefined}
+                aria-current={isActive ? "page" : undefined}
                 className={cn(
-                  "flex flex-none items-center gap-[11px] whitespace-nowrap rounded-[8px] px-2.5 py-2 transition",
-                  isActive ? "bg-u-accent-tint shadow-[inset_2px_0_0_var(--color-u-accent)]" : "hover:bg-u-raised",
+                  "flex flex-none items-center gap-2.5 whitespace-nowrap rounded-[8px] px-2.5 py-2 text-[13px] transition",
+                  isActive
+                    ? "bg-u-accent-tint font-semibold text-u-accent"
+                    : "text-u-text2 hover:bg-u-raised hover:text-u-text",
                 )}
               >
-                <span
-                  className={cn(
-                    "grid size-[22px] flex-none place-items-center rounded-full text-[11px] font-bold",
-                    isActive ? "bg-u-accent-solid text-white" : "border border-u-border-strong bg-u-raised text-u-text2",
-                  )}
-                >
-                  {index + 1}
-                </span>
-                <span className={cn("text-[13px]", isActive && "font-semibold")}>{chapter.label}</span>
+                <Icon d={chapter.icon} className="flex-none" />
+                <span>{chapter.label}</span>
               </Link>
             );
           })}

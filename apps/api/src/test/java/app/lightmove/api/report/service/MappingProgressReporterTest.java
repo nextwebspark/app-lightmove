@@ -46,17 +46,19 @@ class MappingProgressReporterTest {
         assertThat(List.of(progress.daily().get(1), progress.daily().get(9), progress.daily().get(10),
                 progress.daily().get(16), progress.daily().get(17))).containsOnly(1);
         assertThat(progress.daily().stream().mapToInt(Integer::intValue).sum()).isEqualTo(5);
-        assertThat(progress.daysSinceLastCompany()).isEqualTo(10);
+        // Three days, not ten: the gap runs to the last executive filed — one mapped at no company at
+        // all — where the last company to gain its first was a week earlier.
+        assertThat(progress.daysSinceLastExecutive()).isEqualTo(3);
     }
 
     @Test
-    @DisplayName("a mandate nobody has mapped yet has flat curves and no last company to count from")
+    @DisplayName("a mandate nobody has mapped yet has flat curves and no last executive to count from")
     void nothingMapped() {
         MappingProgressDto progress = new MappingProgressReporter()
                 .report(sources(List.of(company("Almarai", null)), List.of()), THREE_WEEKS);
 
         assertThat(progress.companiesCumulative()).containsExactly(0, 0, 0);
-        assertThat(progress.daysSinceLastCompany()).isNull();
+        assertThat(progress.daysSinceLastExecutive()).isNull();
     }
 
     private static Instant at(String date) {
