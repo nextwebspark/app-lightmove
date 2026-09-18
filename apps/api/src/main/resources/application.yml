@@ -360,9 +360,10 @@ lightmove:
     facets:
       # How long the filter sidebar's counts may describe the load before last. They are the shape of
       # the universe — identical for every workspace, changed only when the pipeline reloads — so this
-      # is the same trade V33 makes for the keyword vocabulary. The browser's max-age is derived from
-      # this one value, so the two cannot drift. Zero switches both off.
-      cache-ttl: ${COMPANY_FACETS_CACHE_TTL:30m}
+      # is the same trade V33 makes for the keyword vocabulary. An hour against a daily load: never
+      # more than an hour behind one, and a working session costs the database nothing. The browser's
+      # max-age is derived from this one value, so the two cannot drift. Zero switches both off.
+      cache-ttl: ${COMPANY_FACETS_CACHE_TTL:1h}
     list:
       # Rows per page when the request names no explicit size.
       default-page-size: ${COMPANY_LIST_DEFAULT_PAGE_SIZE:25}

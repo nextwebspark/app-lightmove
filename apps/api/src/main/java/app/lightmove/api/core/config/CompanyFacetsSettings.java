@@ -12,12 +12,17 @@ import org.springframework.boot.context.properties.bind.DefaultValue;
  * vocabulary, on the grounds that a stale <i>offer</i> narrows honestly; a chip counting the previous
  * load is the same bargain.
  *
+ * <p>An hour, against a pipeline that loads daily. Well short of a load, so a count is never more than
+ * an hour behind one, and long enough that a consultant's working session costs the database nothing.
+ * Matching the load interval would save marginally more and put a whole day between a load and the
+ * sidebar agreeing with it; the hour is the cheaper half of that trade.
+ *
  * <p>One knob rather than two, because the browser's {@code max-age} is derived from it: a browser can
  * then never hold a figure staler than the server's own window. Zero switches both off, which is what
  * the test profile does — the suite reseeds the universe between tests and every call must re-read it.
  */
 public record CompanyFacetsSettings(
-        @DefaultValue("30m") Duration cacheTtl
+        @DefaultValue("1h") Duration cacheTtl
 ) {
 
     public CompanyFacetsSettings {
