@@ -86,7 +86,7 @@ describe("ReportsPage", () => {
     const client = new QueryClient({ defaultOptions: { queries: { retry: false, staleTime: 30_000 } } });
 
     const firstVisit = renderPage(undefined, client);
-    await screen.findByText("36 days");
+    await screen.findByText("26 days");
     firstVisit.unmount();
     renderPage(undefined, client);
 
@@ -105,7 +105,7 @@ describe("ReportsPage", () => {
     expect(within(rail).getByRole("link", { name: /Remuneration/ })).toBeInTheDocument();
     expect(within(rail).getByRole("link", { name: /Diversity & DEI/ })).toBeInTheDocument();
     // The finding is computed from the cumulative coverage, not typed.
-    expect(screen.getByText("36 days")).toBeInTheDocument();
+    expect(screen.getByText("26 days")).toBeInTheDocument();
     // One chapter at a time: the others' figures are not on the page.
     expect(screen.queryByText("38th percentile")).not.toBeInTheDocument();
   });
@@ -115,13 +115,13 @@ describe("ReportsPage", () => {
     const user = userEvent.setup();
 
     renderPage();
-    await screen.findByText("36 days");
+    await screen.findByText("26 days");
 
     await user.click(screen.getByRole("link", { name: /Remuneration/ }));
 
     expect(screen.getByRole("heading", { level: 1, name: /Are we underpaying/ })).toBeInTheDocument();
     expect(screen.getByText("38th percentile")).toBeInTheDocument();
-    expect(screen.queryByText("36 days")).not.toBeInTheDocument();
+    expect(screen.queryByText("26 days")).not.toBeInTheDocument();
     expect(screen.getByLabelText("location")).toHaveTextContent("?chapter=comp");
   });
 
@@ -141,11 +141,15 @@ describe("ReportsPage", () => {
     const user = userEvent.setup();
 
     renderPage();
-    await screen.findByText("36 days");
+    await screen.findByText("26 days");
+
+    // Both bases land on the same date here — once the week in progress is out of the recent one,
+    // this mandate's two readings agree. The pace they read is what separates them.
+    expect(screen.getByText("4.0")).toBeInTheDocument();
 
     await user.click(screen.getByRole("radio", { name: "Full-mandate avg" }));
 
-    expect(screen.getByText("24 days")).toBeInTheDocument();
+    expect(screen.getByText("4.1")).toBeInTheDocument();
   });
 
   it("opens a heat-matrix cell as a market slice with its executives", async () => {
@@ -307,7 +311,7 @@ describe("ReportsPage", () => {
     vi.mocked(reportApi.getReport).mockResolvedValue(SAMPLE_REPORT);
 
     renderPage();
-    await screen.findByText("36 days");
+    await screen.findByText("26 days");
 
     expect(screen.queryByText(/^Screen \d/)).not.toBeInTheDocument();
   });
