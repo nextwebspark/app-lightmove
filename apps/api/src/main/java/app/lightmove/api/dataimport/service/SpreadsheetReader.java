@@ -47,6 +47,13 @@ import org.springframework.web.multipart.MultipartFile;
 @Service
 public class SpreadsheetReader {
 
+    /**
+     * The characters a spreadsheet would read as the start of a formula. Must stay in step with
+     * {@code CompaniesCsvWriter}'s set of the same name: our own export guards every one of these,
+     * and a character guarded there but not undone here comes back with the apostrophe still on it.
+     */
+    private static final String FORMULA_STARTERS = "=+-@\t\r";
+
     /** ZIP local-file header — every .xlsx is a zip, and .xls is the older OLE2 compound file. */
     private static final byte[] XLSX_SIGNATURE = {0x50, 0x4B, 0x03, 0x04};
     private static final byte[] XLS_SIGNATURE =
@@ -194,6 +201,20 @@ public class SpreadsheetReader {
         }
     }
 
+    /**
+     * Drops the apostrophe a spreadsheet puts in front of a cell it is keeping out of the formula
+     * parser — Excel writes one on "Save as CSV", and so does our own exporter
+     * ({@code CompaniesCsvWriter}), which is why a phone number that left as {@code +966 …} must not
+     * come back as {@code '+966 …}. Only ahead of a character that would have been read as a formula:
+     * an apostrophe anywhere else is somebody's data.
+     */
+    private static String unescapedFormulaGuard(String value) {
+        return value.length() > 1 && value.charAt(0) == '\''
+                && FORMULA_STARTERS.indexOf(value.charAt(1)) >= 0
+                ? value.substring(1)
+                : value;
+    }
+
     /** A UTF-8 BOM would otherwise become part of the first header, so the first column matches nothing. */
     private static byte[] stripByteOrderMark(byte[] content) {
         if (content.length >= 3
@@ -259,7 +280,7 @@ public class SpreadsheetReader {
             List<String> padded = new ArrayList<>(headers.size());
             for (int column = 0; column < headers.size(); column++) {
                 String value = column < source.size() ? source.get(column) : null;
-                padded.add(value == null ? "" : value.trim());
+                padded.add(value == null ? "" : unescapedFormulaGuard(value.trim()));
             }
             rows.add(padded);
             if (rows.size() > settings.maxRows()) {

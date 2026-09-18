@@ -81,7 +81,8 @@ class PositionDocumentRedactorTest {
         PositionExtractionSettings settings =
                 new PositionExtractionSettings(true, 40_000, 60, false, redactContactDetails);
         LightMoveProperties properties = new LightMoveProperties(null, null, null, null,
-                new PositionSettings(null, settings, null), null, null, null, null, null, null, null, null);
+                new PositionSettings(null, settings, null), null, null, null, null, null, null, null,
+                null, null);
         return new PositionDocumentRedactor(new TextPseudonymiser(), null, properties);
     }
 }

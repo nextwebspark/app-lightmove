@@ -33,6 +33,7 @@ import app.lightmove.api.triagecompany.dto.TriageCountsDto;
 import app.lightmove.api.triagecompany.dto.UpdateTriageCompanyRequest;
 import app.lightmove.api.triagecompany.model.CapturedCompanyDetails;
 import app.lightmove.api.triagecompany.model.TriageCompany;
+import app.lightmove.api.triagecompany.model.TriageCompanyFilters;
 import app.lightmove.api.triagecompany.model.TriageCompanyCapturedEvent;
 import app.lightmove.api.triagecompany.repository.TriageCompanyRepository;
 import app.lightmove.api.triagecompany.repository.TriageCompanyWriter;
@@ -268,19 +269,26 @@ public class TriageCompanyService {
     }
 
     /**
-     * The whole of one stage, unpaged — the seam {@code talentmap} reads companies through, because a
-     * globe with a page two is no globe. Takes a cap the caller states and answers the total, so a
-     * mandate past it is told rather than shown a map that looks complete.
+     * The whole of one stage, unpaged — the seam {@code talentmap} and {@code dataexport} read
+     * companies through, because neither a globe nor a file has a page two. Takes a cap the caller
+     * states and answers the total, so a caller past it can tell rather than quietly showing less.
+     *
+     * <p>{@code filters} narrows it through the same three header filters the paged read honours, for
+     * an export that must carry what the screen was showing rather than more than it.
+     * {@link TriageCompanyFilters#none()} is the whole stage.
      *
      * <p>Name order, not newest first: a stable order keeps the cut at the cap deterministic.
      */
     @Transactional(readOnly = true)
     public TriageCompaniesResponse listAllOfStage(UUID workspaceId, UUID projectId,
-                                                  TriageCompanyStatus status, int cap) {
+                                                  TriageCompanyStatus status,
+                                                  TriageCompanyFilters filters, int cap) {
         requireProject(projectId, workspaceId);
         PageRequest wholeStage = PageRequest.of(0, cap, Sort.by(Sort.Direction.ASC, "companyName")
                 .and(NEWEST_FIRST));
-        Page<TriageCompany> found = triaged.findByProjectIdAndStatus(projectId, status, wholeStage);
+        Page<TriageCompany> found = findWithFilters(projectId, status,
+                blankToNull(filters.companyName()), blankToNull(filters.executiveName()),
+                resolveExecutiveStatuses(filters.executiveStatuses()), wholeStage);
         return new TriageCompaniesResponse(
                 found.getContent().stream().map(TriageCompanyService::toDto).toList(),
                 found.getTotalElements(), 0, cap, countsFor(projectId));
