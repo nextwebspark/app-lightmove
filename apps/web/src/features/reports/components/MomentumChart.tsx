@@ -7,29 +7,53 @@ import { rollingAverage } from "../lib/projection";
  * Executives identified per week — not cumulative, which is the point: a cumulative line keeps
  * climbing through a slowdown. A week below the run's average is drawn in red, one at or above it
  * in green.
+ *
+ * <p>Two weeks are never judged. A null average is a mandate with too little history to have one —
+ * one week's average is that week, so every bar clears a bar it set itself — and the last week is
+ * the one in progress, which would read below any average simply for not having finished.
  */
-export function WeeklyMomentumChart({ progress, average }: { progress: ReportProgress; average: number }) {
+export function WeeklyMomentumChart({
+  progress,
+  average,
+  completeWeeks,
+}: {
+  progress: ReportProgress;
+  average: number | null;
+  completeWeeks: number;
+}) {
   const max = Math.max(...progress.weekly.map((w) => w.identified), 1);
   return (
     <div className="mt-5 flex h-40 items-end gap-3 px-1" role="img" aria-label="Executives identified per week">
-      {progress.weekly.map((week) => {
-        const isBelow = week.identified < average;
+      {progress.weekly.map((week, index) => {
+        const unjudged = average === null || index >= completeWeeks;
+        const isBelow = !unjudged && week.identified < (average as number);
+        const inProgress = index >= completeWeeks;
         return (
           <div
             key={week.weekEnding}
-            className="flex h-full min-w-0 flex-1 flex-col items-center justify-end gap-[7px]"
-            title={`${week.identified} executives in the week ending ${formatShortDate(week.weekEnding)}`}
+            className="flex h-full min-w-0 max-w-[120px] flex-1 flex-col items-center justify-end gap-[7px]"
+            title={`${week.identified} executives in the week ending ${formatShortDate(week.weekEnding)}${inProgress ? " (in progress)" : ""}`}
           >
-            <span className={cn("font-u-num text-[13px] font-bold", isBelow ? "text-u-offlimits" : "text-u-direct")}>
+            <span
+              className={cn(
+                "font-u-num text-[13px] font-bold",
+                unjudged ? "text-u-text2" : isBelow ? "text-u-offlimits" : "text-u-direct",
+              )}
+            >
               {week.identified}
             </span>
             <div className="flex h-full w-full items-end">
               <div
-                className={cn("w-full rounded-b-[3px] rounded-t-[5px]", isBelow ? "bg-u-offlimits" : "bg-u-direct")}
+                className={cn(
+                  "w-full rounded-b-[3px] rounded-t-[5px]",
+                  unjudged ? "bg-u-accent" : isBelow ? "bg-u-offlimits" : "bg-u-direct",
+                )}
                 style={{ height: `${Math.max((week.identified / max) * 100, 5)}%` }}
               />
             </div>
-            <span className="whitespace-nowrap font-u-num text-[10px] text-u-text3">{formatShortDate(week.weekEnding)}</span>
+            <span className="whitespace-nowrap font-u-num text-[10px] text-u-text3">
+              {inProgress ? "this week" : formatShortDate(week.weekEnding)}
+            </span>
           </div>
         );
       })}
