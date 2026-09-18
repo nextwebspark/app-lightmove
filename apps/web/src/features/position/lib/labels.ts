@@ -5,7 +5,6 @@ import type {
   EmploymentType,
   IncentiveType,
   MandateReason,
-  NoticeUnit,
 } from "../api/types";
 
 /**
@@ -30,12 +29,6 @@ export const MANDATE_REASON_LABELS: Record<MandateReason, string> = {
   RESTRUCTURING: "Restructure",
   SUCCESSION: "Succession plan",
   GROWTH_EXPANSION: "Growth / expansion",
-};
-
-export const NOTICE_UNIT_LABELS: Record<NoticeUnit, string> = {
-  MONTHS: "Months",
-  WEEKS: "Weeks",
-  DAYS: "Days",
 };
 
 export const BASE_SALARY_MODE_LABELS: Record<BaseSalaryMode, string> = {

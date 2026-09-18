@@ -1,6 +1,6 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useMutation } from "@tanstack/react-query";
-import { useRef, useState, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { FormProvider, useForm } from "react-hook-form";
 import { Button, FormError, useToast } from "../../../components/ui";
 import { DrawerCloseButton } from "../../../components/ui/Drawer";
@@ -50,6 +50,7 @@ export function AddCandidateForm({
   projectId,
   company,
   customColumns,
+  defaultCurrency,
   onClose,
   onSaved,
 }: {
@@ -57,6 +58,8 @@ export function AddCandidateForm({
   company: CandidateCompanyContext | null;
   /** This mandate's own person columns, filled in the same save as the fields above them. */
   customColumns: readonly CustomColumn[];
+  /** The brief's currency, which a package is quoted in until somebody says otherwise. */
+  defaultCurrency?: string | null;
   onClose: () => void;
   /** The created profile — the panel moves on to reading it. */
   onSaved: (saved: Candidate) => void;
@@ -69,9 +72,21 @@ export function AddCandidateForm({
 
   const form = useForm<CandidateForm, unknown, ParsedCandidateForm>({
     resolver: zodResolver(candidateSchema),
-    defaultValues: { ...EMPTY_FORM, employerName: company?.companyName ?? "" },
+    defaultValues: {
+      ...EMPTY_FORM,
+      employerName: company?.companyName ?? "",
+      currency: defaultCurrency ?? "",
+    },
   });
   const { register, formState } = form;
+
+  // The brief's currency can arrive after the panel opened, and only an untouched field may take it:
+  // a consultant who has already picked one is stating this package is quoted in another.
+  useEffect(() => {
+    if (defaultCurrency && !form.getFieldState("currency").isDirty) {
+      form.setValue("currency", defaultCurrency);
+    }
+  }, [defaultCurrency, form]);
   const formEl = useRef<HTMLFormElement>(null);
   const handleSubmitShortcut = useSubmitShortcut(() => formEl.current?.requestSubmit());
 
@@ -164,6 +179,7 @@ export function AddCandidateForm({
               errors={formState.errors}
               watch={form.watch}
               setValue={form.setValue}
+              storedCurrency={defaultCurrency}
             />
           </Section>
 

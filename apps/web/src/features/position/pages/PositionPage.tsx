@@ -35,6 +35,7 @@ import {
   toggle,
   type IdentifiedCompetency,
 } from "../lib/competencyRows";
+import { pairOfNoticePeriod } from "../../../lib/noticePeriod";
 import { appendDirectReport, applyReportsToTitle, MAX_ORG_CHART_SEATS, type ChartMergeBlock } from "../lib/orgChart";
 import { StepRail } from "../components/StepRail";
 import { AssessmentStep } from "../components/steps/AssessmentStep";
@@ -46,6 +47,9 @@ import { ReviewStep } from "../components/steps/ReviewStep";
 import { EMPLOYMENT_TYPE_LABELS } from "../lib/labels";
 import { POSITION_STEPS, stepIndexOf, type StepKey } from "../lib/steps";
 import { SENIORITY_TIERS } from "../../../lib/seniority";
+
+/** A chart merge that declined, or a notice period nobody offers — both are a proposal left on screen. */
+type ReportingBlock = ChartMergeBlock | "noticeNotOffered";
 
 const EMPLOYMENT_TYPES: readonly string[] = Object.keys(EMPLOYMENT_TYPE_LABELS);
 
@@ -780,8 +784,8 @@ function PositionWizard({ projectId, position }: { projectId: string; position: 
       current ? { ...current, fields: current.fields.filter((row) => row !== field) } : current,
     );
 
-  /** Why a chart-merging case in {@link patchForReporting} below declined to apply, in words a toast can use. */
-  const chartBlockMessage = (blocked: ChartMergeBlock): string => {
+  /** Why a case in {@link patchForReporting} below declined to apply, in words a toast can use. */
+  const reportingBlockMessage = (blocked: ReportingBlock): string => {
     switch (blocked) {
       case "full":
         return `That chart is already at the ${MAX_ORG_CHART_SEATS}-seat limit.`;
@@ -789,6 +793,8 @@ function PositionWizard({ projectId, position }: { projectId: string; position: 
         return "That title is already a direct report on this chart.";
       case "noMandateSeat":
         return "This mandate has no seat on its chart yet.";
+      case "noticeNotOffered":
+        return "A notice period is None, 1, 2, 3 or 6 months.";
     }
   };
 
@@ -806,7 +812,7 @@ function PositionWizard({ projectId, position }: { projectId: string; position: 
   const patchForReporting = (
     field: ProposedField,
     value: string,
-  ): { patch: Partial<ReportingStructure>; blocked: ChartMergeBlock | null } | null => {
+  ): { patch: Partial<ReportingStructure>; blocked: ReportingBlock | null } | null => {
     switch (field.fieldKey) {
       case "reportsToTitle": {
         const result = applyReportsToTitle(reporting.orgChart, value);
@@ -818,10 +824,12 @@ function PositionWizard({ projectId, position }: { projectId: string; position: 
       }
       case "teamSize":
         return { patch: { teamSize: value }, blocked: null };
-      case "noticeValue":
-        return { patch: { noticeValue: Number(value) }, blocked: null };
-      case "noticeUnit":
-        return { patch: { noticeUnit: value as ReportingStructure["noticeUnit"] }, blocked: null };
+      case "noticePeriod": {
+        // The proposal itself is always one of the five — the server folds it — but this row is
+        // editable before it is accepted, so a retyped period needs an answer rather than silence.
+        const pair = pairOfNoticePeriod(value);
+        return pair ? { patch: pair, blocked: null } : { patch: {}, blocked: "noticeNotOffered" };
+      }
       default:
         return null;
     }
@@ -831,7 +839,7 @@ function PositionWizard({ projectId, position }: { projectId: string; position: 
     const result = patchForReporting(field, value);
     if (!result) return;
     if (result.blocked) {
-      toast(chartBlockMessage(result.blocked));
+      toast(reportingBlockMessage(result.blocked));
       return;
     }
     changeReporting(result.patch, true);
@@ -877,8 +885,7 @@ function PositionWizard({ projectId, position }: { projectId: string; position: 
     const patch: Partial<ReportingStructure> = { orgChart };
     for (const field of reportingExtraction.fields) {
       if (field.fieldKey === "teamSize") patch.teamSize = field.value;
-      if (field.fieldKey === "noticeValue") patch.noticeValue = Number(field.value);
-      if (field.fieldKey === "noticeUnit") patch.noticeUnit = field.value as ReportingStructure["noticeUnit"];
+      if (field.fieldKey === "noticePeriod") Object.assign(patch, pairOfNoticePeriod(field.value) ?? {});
     }
     changeReporting(patch, true);
     setReportingExtraction(null);

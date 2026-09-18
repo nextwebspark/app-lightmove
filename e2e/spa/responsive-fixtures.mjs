@@ -508,6 +508,8 @@ export function payloadFor(pathname, search = "") {
       counts: TRIAGE_COUNTS,
     };
   if (/\/projects\/[^/]+\/report/.test(pathname)) return REPORT;
+  // The Companies grid asks only for the brief's package, to offer its currency to a new executive.
+  if (/\/projects\/[^/]+\/position\/compensation$/.test(pathname)) return POSITION.compensation;
   if (/\/projects\/[^/]+\/position/.test(pathname)) return POSITION;
   if (/\/projects\/[^/]+$/.test(pathname)) {
     const id = pathname.split("/").pop();

@@ -50,6 +50,5 @@ export const EXTRACTION_FIELD_LABELS: Record<string, string> = {
   reportsToTitle: "Reports to",
   directReportTitle: "Direct report",
   teamSize: "Total team size",
-  noticeValue: "Notice period",
-  noticeUnit: "Notice period unit",
+  noticePeriod: "Notice period",
 };

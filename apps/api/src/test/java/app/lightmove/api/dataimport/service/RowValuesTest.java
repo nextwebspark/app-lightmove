@@ -28,4 +28,24 @@ class RowValuesTest {
         assertThat(RowValues.gender("   ")).isNull();
         assertThat(RowValues.gender(null)).isNull();
     }
+
+    @Test
+    @DisplayName("a notice period folds onto the option the pickers offer, however the file spelled it")
+    void noticePeriodSpellingsFold() {
+        assertThat(RowValues.noticePeriod("3 Months")).isEqualTo("3 months");
+        assertThat(RowValues.noticePeriod(" 3m ")).isEqualTo("3 months");
+        assertThat(RowValues.noticePeriod("90 days")).isEqualTo("3 months");
+        assertThat(RowValues.noticePeriod("one month")).isEqualTo("1 month");
+        assertThat(RowValues.noticePeriod("26 weeks")).isEqualTo("6 months");
+        assertThat(RowValues.noticePeriod("Immediate")).isEqualTo("None");
+    }
+
+    @Test
+    @DisplayName("a period the pickers do not offer states nothing — it is never rounded to the nearest")
+    void unofferedNoticePeriodIsNotRecorded() {
+        assertThat(RowValues.noticePeriod("6 weeks")).isNull();
+        assertThat(RowValues.noticePeriod("negotiable")).isNull();
+        assertThat(RowValues.noticePeriod("   ")).isNull();
+        assertThat(RowValues.noticePeriod(null)).isNull();
+    }
 }

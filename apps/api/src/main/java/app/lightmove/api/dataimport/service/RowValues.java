@@ -1,9 +1,14 @@
 package app.lightmove.api.dataimport.service;
 
 import app.lightmove.api.candidate.constant.Gender;
+import app.lightmove.api.common.constant.NoticePeriod;
+import app.lightmove.api.common.constant.NoticeUnit;
 import app.lightmove.api.common.constant.Seniority;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Set;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 /**
  * Turns a spreadsheet cell into the value a typed field wants.
@@ -113,6 +118,60 @@ final class RowValues {
         }
         return GENDER_SPELLINGS.get(trimmed.toLowerCase(Locale.ROOT).replaceAll("[^a-z0-9]", ""));
     }
+
+    /**
+     * A notice period as the pickers spell it, from however the file stated it.
+     *
+     * <p>Only an exact equivalent folds — {@link NoticePeriod#ofPair} owns that arithmetic, so the
+     * importer and the position extractor agree on what ninety days is. A period the pickers do not
+     * offer, six weeks or "negotiable", answers null: the row keeps whatever it already held rather
+     * than gaining a figure nobody stated.
+     */
+    static String noticePeriod(String value) {
+        String trimmed = text(value);
+        if (trimmed == null) {
+            return null;
+        }
+        String key = trimmed.toLowerCase(Locale.ROOT).replaceAll("[^a-z0-9]", "");
+        if (NO_NOTICE_SPELLINGS.contains(key)) {
+            return NoticePeriod.NONE.value();
+        }
+        Matcher stated = STATED_PERIOD.matcher(key);
+        if (!stated.matches()) {
+            return null;
+        }
+        Integer count = COUNT_WORDS.get(stated.group(1));
+        NoticePeriod period = NoticePeriod.ofPair(
+                count != null ? count : Integer.valueOf(stated.group(1)), NOTICE_UNITS.get(stated.group(2)));
+        return period == null ? null : period.value();
+    }
+
+    private static final Set<String> NO_NOTICE_SPELLINGS = Set.of("none", "nil", "nonotice", "nonoticeperiod",
+            "immediate", "immediately", "availableimmediately", "asap", "0");
+
+    private static final Pattern STATED_PERIOD = Pattern.compile(
+            "^(\\d{1,3}|one|two|three|four|six|eight|twelve|thirty|sixty|ninety)"
+                    + "(m|mo|mos|mth|mths|month|months|w|wk|wks|week|weeks|d|day|days)$");
+
+    private static final Map<String, Integer> COUNT_WORDS = Map.of("one", 1, "two", 2, "three", 3, "four", 4,
+            "six", 6, "eight", 8, "twelve", 12, "thirty", 30, "sixty", 60, "ninety", 90);
+
+    private static final Map<String, NoticeUnit> NOTICE_UNITS = Map.ofEntries(
+            Map.entry("m", NoticeUnit.MONTHS),
+            Map.entry("mo", NoticeUnit.MONTHS),
+            Map.entry("mos", NoticeUnit.MONTHS),
+            Map.entry("mth", NoticeUnit.MONTHS),
+            Map.entry("mths", NoticeUnit.MONTHS),
+            Map.entry("month", NoticeUnit.MONTHS),
+            Map.entry("months", NoticeUnit.MONTHS),
+            Map.entry("w", NoticeUnit.WEEKS),
+            Map.entry("wk", NoticeUnit.WEEKS),
+            Map.entry("wks", NoticeUnit.WEEKS),
+            Map.entry("week", NoticeUnit.WEEKS),
+            Map.entry("weeks", NoticeUnit.WEEKS),
+            Map.entry("d", NoticeUnit.DAYS),
+            Map.entry("day", NoticeUnit.DAYS),
+            Map.entry("days", NoticeUnit.DAYS));
 
     private static final Map<String, String> GENDER_SPELLINGS = Map.ofEntries(
             Map.entry("f", Gender.FEMALE.value()),
