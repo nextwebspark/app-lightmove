@@ -1,83 +1,54 @@
 package app.lightmove.api.core.email.service;
-import app.lightmove.api.core.email.model.EmailMessage;
 
+import static app.lightmove.api.core.email.render.EmailPhrase.plain;
+import static app.lightmove.api.core.email.render.EmailPhrase.strong;
+
+import app.lightmove.api.core.config.LightMoveProperties;
+import app.lightmove.api.core.email.model.EmailMessage;
+import app.lightmove.api.core.email.render.EmailAction;
+import app.lightmove.api.core.email.render.EmailContent;
+import app.lightmove.api.core.email.render.EmailNote;
+import app.lightmove.api.core.email.render.EmailParagraph;
+import app.lightmove.api.core.email.render.EmailRenderer;
 import org.springframework.stereotype.Component;
-import org.springframework.web.util.HtmlUtils;
 
 /**
- * Builds the transactional emails. Hand-built rather than templated: there are a handful of them, and
- * a template engine would add a rendering step to debug for no gain.
+ * What each transactional email says. How it looks is {@link EmailRenderer}'s, and nothing here knows
+ * a colour or a tag: a template names a subject, a heading and its blocks, and the renderer produces
+ * the HTML and the plain text from that one statement of the content.
  *
- * <p>Every interpolated value is HTML-escaped. Names and workspace names come from users, and a user
- * called {@code <script>…} must not become script in a colleague's inbox.
+ * <p>Values a user typed travel as {@code EmailPhrase}, which is what escapes them for the HTML half
+ * and leaves them intact for the text half. A workspace called {@code <script>…} is a name here and
+ * text in a colleague's inbox.
  */
 @Component
 public class EmailTemplates {
 
+    private final EmailRenderer renderer;
+
+    public EmailTemplates(LightMoveProperties properties) {
+        this.renderer = new EmailRenderer(properties.web().baseUrl());
+    }
+
     public EmailMessage buildVerificationEmail(String recipient, String recipientName, String verifyLink) {
-        String name = HtmlUtils.htmlEscape(firstName(recipientName));
-        String link = HtmlUtils.htmlEscape(verifyLink);
-
-        String html = wrap("""
-                <h1 style="margin:0 0 16px;font:600 20px/1.3 -apple-system,system-ui,sans-serif;color:#1b2230">
-                  Confirm your email
-                </h1>
-                <p style="margin:0 0 24px;font:400 14px/1.6 -apple-system,system-ui,sans-serif;color:#5a6474">
-                  Hi %s — confirm this address to carry on setting up your Uncava account. You will
-                  be signed in and taken straight to the next step.
-                </p>
-                %s
-                <p style="margin:24px 0 0;font:400 12px/1.6 -apple-system,system-ui,sans-serif;color:#98a1b3">
-                  This link expires in 24 hours. If you didn't create a Uncava account, ignore this
-                  email — no account will be activated.
-                </p>
-                """.formatted(name, button("Confirm email", link)));
-
-        String text = """
-                Confirm your email
-
-                Hi %s — confirm this address to carry on setting up your Uncava account. You will be
-                signed in and taken straight to the next step:
-
-                %s
-
-                This link expires in 24 hours. If you didn't create a Uncava account, ignore this
-                email — no account will be activated.
-                """.formatted(firstName(recipientName), verifyLink);
-
-        return new EmailMessage(recipient, "Confirm your Uncava email", html, text);
+        return renderer.render(recipient, "Confirm your Uncava email", EmailContent.of(
+                "Confirm your email",
+                EmailParagraph.of("Hi %s — confirm this address to carry on setting up your Uncava "
+                                + "account. You will be signed in and taken straight to the next step.",
+                        plain(firstName(recipientName))),
+                new EmailAction("Confirm email", verifyLink),
+                EmailNote.of("This link expires in 24 hours. If you didn't create a Uncava account, "
+                        + "ignore this email — no account will be activated.")));
     }
 
     public EmailMessage buildPasswordResetEmail(String recipient, String recipientName, String resetLink) {
-        String name = HtmlUtils.htmlEscape(firstName(recipientName));
-        String link = HtmlUtils.htmlEscape(resetLink);
-
-        String html = wrap("""
-                <h1 style="margin:0 0 16px;font:600 20px/1.3 -apple-system,system-ui,sans-serif;color:#1b2230">
-                  Reset your password
-                </h1>
-                <p style="margin:0 0 24px;font:400 14px/1.6 -apple-system,system-ui,sans-serif;color:#5a6474">
-                  Hi %s — we received a request to reset your Uncava password.
-                </p>
-                %s
-                <p style="margin:24px 0 0;font:400 12px/1.6 -apple-system,system-ui,sans-serif;color:#98a1b3">
-                  This link expires in 30 minutes and can be used once. If you didn't request this,
-                  ignore this email — your password is unchanged.
-                </p>
-                """.formatted(name, button("Reset password", link)));
-
-        String text = """
-                Reset your password
-
-                Hi %s — we received a request to reset your Uncava password:
-
-                %s
-
-                This link expires in 30 minutes and can be used once. If you didn't request this,
-                ignore this email — your password is unchanged.
-                """.formatted(firstName(recipientName), resetLink);
-
-        return new EmailMessage(recipient, "Reset your Uncava password", html, text);
+        return renderer.render(recipient, "Reset your Uncava password", EmailContent.of(
+                "Reset your password",
+                EmailParagraph.of("Hi %s — we received a request to reset your Uncava password.",
+                        plain(firstName(recipientName))),
+                new EmailAction("Reset password", resetLink),
+                EmailNote.of("This link expires in 30 minutes and can be used once. If you didn't "
+                        + "request this, ignore this email — your password is unchanged.")));
     }
 
     /**
@@ -88,34 +59,15 @@ public class EmailTemplates {
      * explanation. This is the explanation, sent where only they can read it. No link, no token.
      */
     public EmailMessage buildAccountLockedEmail(String recipient, String recipientName, String lockedUntil) {
-        String name = HtmlUtils.htmlEscape(firstName(recipientName));
-        String until = HtmlUtils.htmlEscape(lockedUntil);
-
-        String html = wrap("""
-                <h1 style="margin:0 0 16px;font:600 20px/1.3 -apple-system,system-ui,sans-serif;color:#1b2230">
-                  Your account is temporarily locked
-                </h1>
-                <p style="margin:0 0 24px;font:400 14px/1.6 -apple-system,system-ui,sans-serif;color:#5a6474">
-                  Hi %s — too many sign-in attempts failed, so we locked your Uncava account until
-                  <strong>%s</strong>. Signing in before then will be refused even with the right password.
-                </p>
-                <p style="margin:24px 0 0;font:400 12px/1.6 -apple-system,system-ui,sans-serif;color:#98a1b3">
-                  Resetting your password lifts the lock immediately. If none of these attempts were
-                  yours, reset it anyway — somebody knows your address and is guessing.
-                </p>
-                """.formatted(name, until));
-
-        String text = """
-                Your account is temporarily locked
-
-                Hi %s — too many sign-in attempts failed, so we locked your Uncava account until %s.
-                Signing in before then will be refused even with the right password.
-
-                Resetting your password lifts the lock immediately. If none of these attempts were yours,
-                reset it anyway — somebody knows your address and is guessing.
-                """.formatted(firstName(recipientName), lockedUntil);
-
-        return new EmailMessage(recipient, "Your Uncava account is temporarily locked", html, text);
+        return renderer.render(recipient, "Your Uncava account is temporarily locked", EmailContent.of(
+                "Your account is temporarily locked",
+                EmailParagraph.of("Hi %s — too many sign-in attempts failed, so we locked your Uncava "
+                                + "account until %s. Signing in before then will be refused even with "
+                                + "the right password.",
+                        plain(firstName(recipientName)), strong(lockedUntil)),
+                EmailNote.of("Resetting your password lifts the lock immediately. If none of these "
+                        + "attempts were yours, reset it anyway — somebody knows your address and is "
+                        + "guessing.")));
     }
 
     /**
@@ -123,71 +75,25 @@ public class EmailTemplates {
      * does not control. The reset link is the recovery route if the change was not theirs.
      */
     public EmailMessage buildPasswordChangedEmail(String recipient, String recipientName, String resetLink) {
-        String name = HtmlUtils.htmlEscape(firstName(recipientName));
-        String link = HtmlUtils.htmlEscape(resetLink);
-
-        String html = wrap("""
-                <h1 style="margin:0 0 16px;font:600 20px/1.3 -apple-system,system-ui,sans-serif;color:#1b2230">
-                  Your password was changed
-                </h1>
-                <p style="margin:0 0 24px;font:400 14px/1.6 -apple-system,system-ui,sans-serif;color:#5a6474">
-                  Hi %s — your Uncava password was just changed, and every other signed-in device was
-                  signed out.
-                </p>
-                %s
-                <p style="margin:24px 0 0;font:400 12px/1.6 -apple-system,system-ui,sans-serif;color:#98a1b3">
-                  If this was you, nothing more to do. If it was not, reset your password now and tell
-                  your workspace admin.
-                </p>
-                """.formatted(name, button("Reset your password", link)));
-
-        String text = """
-                Your password was changed
-
-                Hi %s — your Uncava password was just changed, and every other signed-in device was
-                signed out.
-
-                If this was you, nothing more to do. If it was not, reset your password now and tell your
-                workspace admin:
-
-                %s
-                """.formatted(firstName(recipientName), resetLink);
-
-        return new EmailMessage(recipient, "Your Uncava password was changed", html, text);
+        return renderer.render(recipient, "Your Uncava password was changed", EmailContent.of(
+                "Your password was changed",
+                EmailParagraph.of("Hi %s — your Uncava password was just changed, and every other "
+                        + "signed-in device was signed out.", plain(firstName(recipientName))),
+                new EmailAction("Reset your password", resetLink),
+                EmailNote.of("If this was you, nothing more to do. If it was not, reset your password "
+                        + "now and tell your workspace admin.")));
     }
 
     public EmailMessage buildInvitationEmail(String recipient, String inviterName, String workspaceName,
-                                   String role, String acceptLink) {
-        String inviter = HtmlUtils.htmlEscape(inviterName);
-        String workspace = HtmlUtils.htmlEscape(workspaceName);
-        String link = HtmlUtils.htmlEscape(acceptLink);
-
-        String html = wrap("""
-                <h1 style="margin:0 0 16px;font:600 20px/1.3 -apple-system,system-ui,sans-serif;color:#1b2230">
-                  %s invited you to %s
-                </h1>
-                <p style="margin:0 0 24px;font:400 14px/1.6 -apple-system,system-ui,sans-serif;color:#5a6474">
-                  You've been invited to join the <strong>%s</strong> workspace on Uncava as a %s.
-                </p>
-                %s
-                <p style="margin:24px 0 0;font:400 12px/1.6 -apple-system,system-ui,sans-serif;color:#98a1b3">
-                  This invitation expires in 7 days.
-                </p>
-                """.formatted(inviter, workspace, workspace,
-                HtmlUtils.htmlEscape(role.toLowerCase()), button("Accept invitation", link)));
-
-        String text = """
-                %s invited you to %s
-
-                You've been invited to join the %s workspace on Uncava as a %s.
-
-                %s
-
-                This invitation expires in 7 days.
-                """.formatted(inviterName, workspaceName, workspaceName, role.toLowerCase(), acceptLink);
-
-        return new EmailMessage(recipient, "%s invited you to %s on Uncava".formatted(inviterName, workspaceName),
-                html, text);
+                                             String role, String acceptLink) {
+        return renderer.render(recipient,
+                "%s invited you to %s on Uncava".formatted(inviterName, workspaceName),
+                EmailContent.of(
+                        "%s invited you to %s".formatted(inviterName, workspaceName),
+                        EmailParagraph.of("You've been invited to join the %s workspace on Uncava as a %s.",
+                                strong(workspaceName), plain(role.toLowerCase())),
+                        new EmailAction("Accept invitation", acceptLink),
+                        EmailNote.of("This invitation expires in 7 days.")));
     }
 
     /**
@@ -196,38 +102,16 @@ public class EmailTemplates {
      */
     public EmailMessage buildClientInvitationEmail(String recipient, String inviterName, String workspaceName,
                                                    String clientName, String acceptLink) {
-        String inviter = HtmlUtils.htmlEscape(inviterName);
-        String workspace = HtmlUtils.htmlEscape(workspaceName);
-        String client = HtmlUtils.htmlEscape(clientName);
-        String link = HtmlUtils.htmlEscape(acceptLink);
-
-        String html = wrap("""
-                <h1 style="margin:0 0 16px;font:600 20px/1.3 -apple-system,system-ui,sans-serif;color:#1b2230">
-                  %s invited you to the %s portal
-                </h1>
-                <p style="margin:0 0 24px;font:400 14px/1.6 -apple-system,system-ui,sans-serif;color:#5a6474">
-                  %s works with <strong>%s</strong> on Uncava and has invited you to follow the searches
-                  they are running for you. Set a password to open your portal.
-                </p>
-                %s
-                <p style="margin:24px 0 0;font:400 12px/1.6 -apple-system,system-ui,sans-serif;color:#98a1b3">
-                  This invitation expires in 7 days.
-                </p>
-                """.formatted(inviter, client, workspace, client, button("Open your portal", link)));
-
-        String text = """
-                %s invited you to the %s portal
-
-                %s works with %s on Uncava and has invited you to follow the searches they are
-                running for you. Set a password to open your portal:
-
-                %s
-
-                This invitation expires in 7 days.
-                """.formatted(inviterName, clientName, workspaceName, clientName, acceptLink);
-
-        return new EmailMessage(recipient,
-                "%s invited you to the %s portal on Uncava".formatted(inviterName, clientName), html, text);
+        return renderer.render(recipient,
+                "%s invited you to the %s portal on Uncava".formatted(inviterName, clientName),
+                EmailContent.of(
+                        "%s invited you to the %s portal".formatted(inviterName, clientName),
+                        EmailParagraph.of("%s works with %s on Uncava and has invited you to follow the "
+                                        + "searches they are running for you. Set a password to open "
+                                        + "your portal.",
+                                plain(workspaceName), strong(clientName)),
+                        new EmailAction("Open your portal", acceptLink),
+                        EmailNote.of("This invitation expires in 7 days.")));
     }
 
     /**
@@ -237,32 +121,15 @@ public class EmailTemplates {
     public EmailMessage buildRepresentativeAddedEmail(String recipient, String recipientName,
                                                       String adderName, String workspaceName,
                                                       String clientName) {
-        String name = HtmlUtils.htmlEscape(firstName(recipientName));
-        String adder = HtmlUtils.htmlEscape(adderName);
-        String workspace = HtmlUtils.htmlEscape(workspaceName);
-        String client = HtmlUtils.htmlEscape(clientName);
-
-        String html = wrap("""
-                <h1 style="margin:0 0 16px;font:600 20px/1.3 -apple-system,system-ui,sans-serif;color:#1b2230">
-                  You now represent %s
-                </h1>
-                <p style="margin:0 0 8px;font:400 14px/1.6 -apple-system,system-ui,sans-serif;color:#5a6474">
-                  Hi %s — %s added you as a representative for <strong>%s</strong> in the %s workspace on
-                  Uncava. You'll see the mandates you're given access to next time you sign in. Nothing
-                  to do — your existing login already works.
-                </p>
-                """.formatted(client, name, adder, client, workspace));
-
-        String text = """
-                You now represent %s
-
-                Hi %s — %s added you as a representative for %s in the %s workspace on Uncava. You'll
-                see the mandates you're given access to next time you sign in. Nothing to do — your
-                existing login already works.
-                """.formatted(clientName, firstName(recipientName), adderName, clientName, workspaceName);
-
-        return new EmailMessage(recipient, "You now represent %s on Uncava".formatted(clientName),
-                html, text);
+        return renderer.render(recipient, "You now represent %s on Uncava".formatted(clientName),
+                EmailContent.of(
+                        "You now represent %s".formatted(clientName),
+                        EmailParagraph.of("Hi %s — %s added you as a representative for %s in the %s "
+                                        + "workspace on Uncava. You'll see the mandates you're given "
+                                        + "access to next time you sign in. Nothing to do — your "
+                                        + "existing login already works.",
+                                plain(firstName(recipientName)), plain(adderName), strong(clientName),
+                                plain(workspaceName))));
     }
 
     /**
@@ -273,58 +140,48 @@ public class EmailTemplates {
     public EmailMessage buildAttachedToMandateEmail(String recipient, String recipientName,
                                                     String adderName, String clientName,
                                                     String positionTitle) {
-        String name = HtmlUtils.htmlEscape(firstName(recipientName));
-        String adder = HtmlUtils.htmlEscape(adderName);
-        String client = HtmlUtils.htmlEscape(clientName);
-        String position = HtmlUtils.htmlEscape(positionTitle);
-
-        String html = wrap("""
-                <h1 style="margin:0 0 16px;font:600 20px/1.3 -apple-system,system-ui,sans-serif;color:#1b2230">
-                  A search was shared with you
-                </h1>
-                <p style="margin:0 0 8px;font:400 14px/1.6 -apple-system,system-ui,sans-serif;color:#5a6474">
-                  Hi %s — %s gave you access to the <strong>%s</strong> search for <strong>%s</strong> on
-                  Uncava. You'll find it in your portal next time you sign in. Nothing to do — your
-                  existing login already works.
-                </p>
-                """.formatted(name, adder, position, client));
-
-        String text = """
-                A search was shared with you
-
-                Hi %s — %s gave you access to the %s search for %s on Uncava. You'll find it in
-                your portal next time you sign in. Nothing to do — your existing login already works.
-                """.formatted(firstName(recipientName), adderName, positionTitle, clientName);
-
-        return new EmailMessage(recipient,
-                "The %s search was shared with you on Uncava".formatted(positionTitle), html, text);
+        return renderer.render(recipient,
+                "The %s search was shared with you on Uncava".formatted(positionTitle),
+                EmailContent.of(
+                        "A search was shared with you",
+                        EmailParagraph.of("Hi %s — %s gave you access to the %s search for %s on Uncava. "
+                                        + "You'll find it in your portal next time you sign in. Nothing "
+                                        + "to do — your existing login already works.",
+                                plain(firstName(recipientName)), plain(adderName), strong(positionTitle),
+                                strong(clientName))));
     }
 
-    /** The amber call-to-action from the mockups. Table-based because Outlook still ignores flexbox. */
-    private static String button(String label, String href) {
-        return """
-                <table cellpadding="0" cellspacing="0" role="presentation"><tr>
-                  <td style="border-radius:8px;background:#f0b429">
-                    <a href="%s" style="display:inline-block;padding:11px 20px;font:600 14px -apple-system,system-ui,sans-serif;color:#141414;text-decoration:none">%s</a>
-                  </td>
-                </tr></table>
-                """.formatted(href, label);
+    /**
+     * Told to a staff member seated on a mandate. The workspace invitation says someone may work here;
+     * this says which search is theirs, which is the thing that actually hands them work.
+     */
+    public EmailMessage buildAddedToProjectEmail(String recipient, String recipientName, String adderName,
+                                                 String positionTitle, String clientName, String role,
+                                                 String projectLink) {
+        return renderer.render(recipient,
+                "You were added to the %s search on Uncava".formatted(positionTitle),
+                EmailContent.of(
+                        "You were added to a search",
+                        EmailParagraph.of("Hi %s — %s added you to the %s search for %s as a %s.",
+                                plain(firstName(recipientName)), plain(adderName), strong(positionTitle),
+                                strong(clientName), plain(role.toLowerCase())),
+                        new EmailAction("Open the search", projectLink),
+                        EmailNote.of("You'll also find it under your projects next time you sign in.")));
     }
 
-    private static String wrap(String content) {
-        return """
-                <!DOCTYPE html>
-                <html><body style="margin:0;padding:32px 16px;background:#f4f5f8">
-                  <table cellpadding="0" cellspacing="0" role="presentation" width="100%%" style="max-width:480px;margin:0 auto">
-                    <tr><td style="padding:0 0 24px">
-                      <span style="font:400 15px -apple-system,system-ui,sans-serif;letter-spacing:0.32em;color:#16181c">UNCAVA</span>
-                    </td></tr>
-                    <tr><td style="padding:32px;background:#ffffff;border:1px solid #e3e6ee;border-radius:14px">
-                      %s
-                    </td></tr>
-                  </table>
-                </body></html>
-                """.formatted(content);
+    /** Told to a staff member whose seat changed hands — a lead handing over, a researcher promoted. */
+    public EmailMessage buildProjectRoleChangedEmail(String recipient, String recipientName, String actorName,
+                                                     String positionTitle, String clientName, String role,
+                                                     String projectLink) {
+        return renderer.render(recipient,
+                "Your role on the %s search changed".formatted(positionTitle),
+                EmailContent.of(
+                        "Your role on a search changed",
+                        EmailParagraph.of("Hi %s — %s changed your role on the %s search for %s. "
+                                        + "You are now a %s on it.",
+                                plain(firstName(recipientName)), plain(actorName), strong(positionTitle),
+                                strong(clientName), strong(role.toLowerCase())),
+                        new EmailAction("Open the search", projectLink)));
     }
 
     private static String firstName(String fullName) {
