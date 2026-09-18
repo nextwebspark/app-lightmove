@@ -241,6 +241,22 @@ describe("ReportsPage", () => {
     expect(screen.queryByText(/of the recorded pool/)).not.toBeInTheDocument();
   });
 
+  it("states a missing nationality the way it states a missing gender, rather than drawing a blank ring", async () => {
+    vi.mocked(reportApi.getReport).mockResolvedValue({
+      ...SAMPLE_REPORT,
+      diversity: { ...SAMPLE_REPORT.diversity, nationalities: [], gccNationals: 0, unknownNationality: 116 },
+    });
+
+    renderPage("dei");
+
+    // Both the checker and the mix say it, in the gender card's words.
+    expect(await screen.findAllByText("Nobody on this mandate has a nationality recorded.")).toHaveLength(2);
+    // And nothing claims to have measured it: no 0-of-0 scope, no 0% GCC share, no filters to set.
+    expect(screen.queryByText(/of the 0 executives mapped in that scope/)).not.toBeInTheDocument();
+    expect(screen.queryByRole("combobox", { name: "Nationality requirement" })).not.toBeInTheDocument();
+    expect(screen.getByText("no nationality recorded yet")).toBeInTheDocument();
+  });
+
   it("names the cross-mandate benchmarks it does not have rather than leaving a silent gap", async () => {
     vi.mocked(reportApi.getReport).mockResolvedValue(SAMPLE_REPORT);
 

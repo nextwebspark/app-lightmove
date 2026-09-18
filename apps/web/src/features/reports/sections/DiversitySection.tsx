@@ -39,6 +39,8 @@ export function DiversitySection({ diversity }: { diversity: ReportDiversity }) 
         ? "any nationality"
         : memberOf(nationality);
   const levelLabel = level === ALL_LEVELS_FILTER ? "any level" : level;
+  // Nothing to check a requirement against: the card states the gap rather than measuring zero of zero.
+  const nothingRecorded = stats.total === 0;
 
   return (
     <ReportSection
@@ -121,9 +123,13 @@ export function DiversitySection({ diversity }: { diversity: ReportDiversity }) 
         <KpiTile
           tone="positive"
           label="GCC nationals, overall"
-          value={stats.gccPct}
-          unit="%"
-          sub={`${diversity.gccNationals} of ${stats.total} with a nationality on file`}
+          value={nothingRecorded ? "—" : stats.gccPct}
+          unit={nothingRecorded ? undefined : "%"}
+          sub={
+            nothingRecorded
+              ? "no nationality recorded yet"
+              : `${diversity.gccNationals} of ${stats.total} with a nationality on file`
+          }
         />
       </KpiTileRow>
 
@@ -131,6 +137,7 @@ export function DiversitySection({ diversity }: { diversity: ReportDiversity }) 
         title="Nationality feasibility checker"
         caption="how many mapped executives qualify against a nationality requirement"
         action={
+          nothingRecorded ? undefined : (
           <>
             <ReportSelect aria-label="Nationality requirement" value={nationality} onChange={(e) => setNationality(e.target.value)}>
               {nationalityFilterOptions(diversity).map((n) => (
@@ -147,14 +154,26 @@ export function DiversitySection({ diversity }: { diversity: ReportDiversity }) 
               ))}
             </ReportSelect>
           </>
+          )
         }
         note={
-          <>
-            A client requiring <b>{requirement}</b> at {levelLabel} can realistically draw from <b>{fit.qualifying}</b> of
-            the {fit.scope} executives mapped in that scope.
-          </>
+          nothingRecorded ? (
+            <>
+              A requirement can only be checked against nationalities somebody recorded. Record them on
+              the executives already mapped and this answers a client's question directly.
+            </>
+          ) : (
+            <>
+              A client requiring <b>{requirement}</b> at {levelLabel} can realistically draw from <b>{fit.qualifying}</b> of
+              the {fit.scope} executives mapped in that scope.
+            </>
+          )
         }
       >
+        {nothingRecorded ? (
+          <ChartEmpty>Nobody on this mandate has a nationality recorded.</ChartEmpty>
+        ) : (
+          <>
         <KpiTileRow columns={2} className="mt-3.5">
           <KpiTile
             tone="lead"
@@ -180,19 +199,36 @@ export function DiversitySection({ diversity }: { diversity: ReportDiversity }) 
             <NationalityDots feasibility={fit} />
           </>
         )}
+          </>
+        )}
       </ReportCard>
 
       <ReportCard
         title="Nationality mix"
-        caption={`full breakdown, n=${stats.total} with a nationality on file`}
+        caption={
+          stats.total === 0
+            ? "no nationality recorded on this mandate yet"
+            : `full breakdown, n=${stats.total} with a nationality on file`
+        }
         note={
-          <>
-            GCC nationals are {diversity.gccNationals} of {stats.total} ({stats.gccPct}%) — the figure a localisation
-            quota is measured against, not the lens this view leads with.
-          </>
+          stats.total === 0 ? (
+            <>
+              Nationality is recorded on an executive's profile, so this ring stays empty until
+              somebody records one. Set it in the Background section of a profile and this fills in.
+            </>
+          ) : (
+            <>
+              GCC nationals are {diversity.gccNationals} of {stats.total} ({stats.gccPct}%) — the figure a localisation
+              quota is measured against, not the lens this view leads with.
+            </>
+          )
         }
       >
-        <NationalityDonut rows={diversity.nationalities} total={stats.total} largest={stats.largest} />
+        {stats.total === 0 ? (
+          <ChartEmpty>Nobody on this mandate has a nationality recorded.</ChartEmpty>
+        ) : (
+          <NationalityDonut rows={diversity.nationalities} total={stats.total} largest={stats.largest} />
+        )}
       </ReportCard>
 
       <ReportCard
