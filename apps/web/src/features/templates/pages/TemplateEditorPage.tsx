@@ -7,6 +7,12 @@ import { ApiRequestError } from "../../../lib/apiClient";
 import { cn } from "../../../lib/cn";
 import { codeOf, messageFor } from "../../../lib/errorCodes";
 import { formatInstantDate } from "../../../lib/format";
+import {
+  noticePairLabel,
+  noticePeriodOfPair,
+  NOTICE_PERIODS,
+  pairOfNoticePeriod,
+} from "../../../lib/noticePeriod";
 import { SENIORITY_LABELS, SENIORITY_TIERS } from "../../../lib/seniority";
 import { POSITION_TEMPLATES_KEY } from "../../position/api/positionApi";
 import type {
@@ -14,7 +20,6 @@ import type {
   BonusBasis,
   EmploymentType,
   IncentiveType,
-  NoticeUnit,
   PositionDiscipline,
   PositionSeniority,
 } from "../../position/api/types";
@@ -28,7 +33,6 @@ import {
   CURRENCIES,
   EMPLOYMENT_TYPE_LABELS,
   INCENTIVE_TYPE_LABELS,
-  NOTICE_UNIT_LABELS,
 } from "../../position/lib/labels";
 import * as templateApi from "../api/templateAdminApi";
 import type { TemplateDetail, TemplateScope } from "../api/types";
@@ -202,6 +206,14 @@ function TemplateEditor({ scope, code }: { scope: TemplateScope; code: string | 
     return <p className="font-mono text-xs text-text3">Loading template…</p>;
   }
 
+  const noticePeriod = noticePeriodOfPair(draft.noticeValue, draft.noticeUnit);
+  // A template written outside the app, or before step three offered five periods, keeps saying what
+  // it says: the exchange schema is deliberately wider than this picker.
+  const noticeAsRecorded =
+    !noticePeriod && draft.noticeValue != null && draft.noticeUnit != null
+      ? noticePairLabel(draft.noticeValue, draft.noticeUnit)
+      : null;
+
   const problems = draftProblems(draft);
   const lifecycleAction = code === null || !detail ? null : lifecycleOf(scope, detail);
   const banner = bannerOf(scope, detail);
@@ -366,29 +378,28 @@ function TemplateEditor({ scope, code }: { scope: TemplateScope; code: string | 
             <Input value={draft.reportsTo} maxLength={160} onChange={(e) => update({ reportsTo: e.target.value })} className="!bg-panel" />
           </Field>
           <Field label="Notice period">
-            <span className="flex gap-2">
-              <Input
-                type="number"
-                min={0}
-                max={999}
-                value={draft.noticeValue ?? ""}
-                onChange={(e) => update({ noticeValue: numberOrNull(e.target.value) })}
-                className="w-20 flex-none !bg-panel"
-              />
-              <Select
-                value={draft.noticeUnit ?? ""}
-                aria-label="Notice unit"
-                onChange={(e) => update({ noticeUnit: (e.target.value || null) as NoticeUnit | null })}
-                className="!bg-panel"
-              >
-                <option value="">Not set</option>
-                {Object.entries(NOTICE_UNIT_LABELS).map(([value, label]) => (
-                  <option key={value} value={value}>
-                    {label}
-                  </option>
-                ))}
-              </Select>
-            </span>
+            <Select
+              value={noticePeriod ?? noticeAsRecorded ?? ""}
+              aria-label="Notice period"
+              onChange={(e) =>
+                update(
+                  e.target.value === noticeAsRecorded
+                    ? {}
+                    : (pairOfNoticePeriod(e.target.value) ?? { noticeValue: null, noticeUnit: null }),
+                )
+              }
+              className="!bg-panel"
+            >
+              <option value="">Not set</option>
+              {NOTICE_PERIODS.map((period) => (
+                <option key={period.label} value={period.label}>
+                  {period.label}
+                </option>
+              ))}
+              {noticeAsRecorded && (
+                <option value={noticeAsRecorded}>{noticeAsRecorded} (as recorded)</option>
+              )}
+            </Select>
           </Field>
         </div>
         <ChipListField
