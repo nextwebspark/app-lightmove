@@ -19,6 +19,7 @@ import app.lightmove.api.talentmap.dto.TalentMapLocationsResponse;
 import app.lightmove.api.talentmap.dto.TalentMapResponse;
 import app.lightmove.api.triagecompany.constant.TriageCompanyStatus;
 import app.lightmove.api.triagecompany.dto.TriageCompaniesResponse;
+import app.lightmove.api.triagecompany.model.TriageCompanyFilters;
 import app.lightmove.api.triagecompany.dto.TriageCompanyResponse;
 import app.lightmove.api.triagecompany.service.TriageCompanyService;
 import java.util.HashMap;
@@ -82,7 +83,8 @@ public class TalentMapService {
     private Placement place(UUID workspaceId, UUID projectId, String statusToken) {
         TriageCompanyStatus status = resolveStatus(statusToken);
         TriageCompaniesResponse companies =
-                triage.listAllOfStage(workspaceId, projectId, status, null, caps.maxCompanies());
+                triage.listAllOfStage(workspaceId, projectId, status, TriageCompanyFilters.none(),
+                        caps.maxCompanies());
         CandidatesResponse everyone = candidates.listAllOfProject(workspaceId, projectId, caps.maxCandidates());
 
         // The people at this stage's companies, plus — on the universe alone, as the grid does — the

@@ -60,7 +60,8 @@ already lives. **An imported row is never resolved against the market and never 
 states its own figures and arrives a thousand rows at once, so the two things a one-at-a-time capture
 affords are exactly the two it cannot.
 A stage also leaves as a file: **Export** on the Companies toolbar downloads the whole stage —
-every row, not the page on screen, narrowed by the search box when one is in force — carrying every
+every row, not the page on screen, narrowed by whichever of the grid's three header filters are in
+force, rows as well as companies, so the file is what the screen was showing — carrying every
 column the grid draws and every custom column the mandate added, with the two Links icons spelled
 out as Website and Company LinkedIn. It is `WORK_VIEW`, the gate that reads the grid, so a client
 representative may take the mandate they can already read; unlike every other read it records an

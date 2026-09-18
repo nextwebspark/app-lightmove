@@ -525,7 +525,10 @@ function TriageStage() {
   const exportCsv = useMutation({
     // The debounced term, not the keystroke: the file is what the grid is showing, and for 300ms
     // after a keypress those are two different things.
-    mutationFn: () => exportApi.saveCompaniesCsv(project.id, stage.status, debouncedQuery,
+    // The debounced terms, not the keystrokes: the file is what the grid is showing, and for 300ms
+    // after a keypress those are two different things.
+    mutationFn: () => exportApi.saveCompaniesCsv(project.id, stage.status,
+      { query: debouncedQuery, executiveQuery: debouncedExecutiveQuery, executiveStatuses },
       [project.clientName, project.positionTitle, stage.label]),
     onError: (error) => toast(messageFor(error)),
   });

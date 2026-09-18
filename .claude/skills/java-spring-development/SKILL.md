@@ -334,8 +334,10 @@ method plus the records it returns — never another feature's internals:
   `geocoding` or the vendor.
 - `dataexport` reads through the same two, plus `CustomColumnService.list`, and pairs them into grid
   rows the same way — the mirror of `dataimport`, which writes through those features rather than
-  reading. `listAllOfStage` takes a name query for it, so an export carries what the screen's search
-  box narrowed the grid to. Its controller is the one **read** in the codebase that records an audit
+  reading. `listAllOfStage` takes a `TriageCompanyFilters` for it, so an export carries what the
+  grid's three header filters narrowed it to; the two executive ones are applied again when pairing,
+  because the query's are company-level and a kept company would otherwise draw every colleague of
+  the one person who matched — the same double application `TriageStagePage` does. Its controller is the one **read** in the codebase that records an audit
   event: a whole mandate leaving as a file is not the same act as reading a page of it, and
   `WORK_VIEW` means a client representative can do it.
 

@@ -184,75 +184,68 @@ class CompaniesCsvWriterTest {
 
     private static CompanyBuilder company(String name) {
         return new CompanyBuilder(new TriageCompanyResponse(UUID.randomUUID(), null, "manual",
-                "inUniverse", null, name, null, null, null, null, null, null, null, null, null, null,
-                null, Map.of(), null));
+                "inUniverse", null, false, name, null, null, null, null, null, null, null, null, null,
+                null, null, Map.of(), null));
     }
 
     private static PersonBuilder person(String name) {
         return new PersonBuilder(new CandidateResponse(UUID.randomUUID(), null, null, name, null, null,
-                "identified", null, null, null, null, null, null, null, null, List.of(), List.of(),
+                "identified", null, null, null, null, null, null, null, null, null, List.of(), List.of(),
                 List.of(), List.of(), "manual", null, Map.of(), null, null,
                 new CandidateContactsDto(List.of(), List.of(), null, null, null)));
     }
 
     /**
-     * Wrappers rather than a raw record literal per case: the two DTOs have eighteen and twenty-five
-     * components, and a test that has to count commas to change a city tests nothing well.
+     * Wrappers rather than a raw record literal per case: these two DTOs carry twenty and twenty-six
+     * components, and a test that has to count commas to change a city tests nothing well. Each
+     * builder funnels through one {@code with} so a new component on either record is one edit here,
+     * not one per case.
      */
     private record CompanyBuilder(TriageCompanyResponse response) {
 
         CompanyBuilder at(String country, String city) {
-            return new CompanyBuilder(new TriageCompanyResponse(response.id(), response.apolloAccountId(),
-                    response.source(), response.status(), response.note(), response.companyName(),
-                    response.industry(), country, city, response.numEmployees(), response.annualRevenue(),
-                    response.website(), response.companyLinkedinUrl(), response.foundedYear(),
-                    response.shortDescription(), response.sourceUrl(), response.logoUrl(),
-                    response.customFields(), response.addedAt()));
+            return with(country, city, response.numEmployees(), response.annualRevenue(),
+                    response.foundedYear(), response.source(), response.note(), response.addedAt(),
+                    response.customFields());
         }
 
         CompanyBuilder sized(Integer employees, Long revenue, Integer founded) {
-            return new CompanyBuilder(new TriageCompanyResponse(response.id(), response.apolloAccountId(),
-                    response.source(), response.status(), response.note(), response.companyName(),
-                    response.industry(), response.companyCountry(), response.companyCity(), employees,
-                    revenue, response.website(), response.companyLinkedinUrl(), founded,
-                    response.shortDescription(), response.sourceUrl(), response.logoUrl(),
-                    response.customFields(), response.addedAt()));
+            return with(response.companyCountry(), response.companyCity(), employees, revenue, founded,
+                    response.source(), response.note(), response.addedAt(), response.customFields());
         }
 
         CompanyBuilder from(String source) {
-            return new CompanyBuilder(new TriageCompanyResponse(response.id(), response.apolloAccountId(),
-                    source, response.status(), response.note(), response.companyName(),
-                    response.industry(), response.companyCountry(), response.companyCity(),
-                    response.numEmployees(), response.annualRevenue(), response.website(),
-                    response.companyLinkedinUrl(), response.foundedYear(), response.shortDescription(),
-                    response.sourceUrl(), response.logoUrl(), response.customFields(), response.addedAt()));
+            return with(response.companyCountry(), response.companyCity(), response.numEmployees(),
+                    response.annualRevenue(), response.foundedYear(), source, response.note(),
+                    response.addedAt(), response.customFields());
         }
 
         CompanyBuilder noted(String note) {
-            return new CompanyBuilder(new TriageCompanyResponse(response.id(), response.apolloAccountId(),
-                    response.source(), response.status(), note, response.companyName(),
-                    response.industry(), response.companyCountry(), response.companyCity(),
-                    response.numEmployees(), response.annualRevenue(), response.website(),
-                    response.companyLinkedinUrl(), response.foundedYear(), response.shortDescription(),
-                    response.sourceUrl(), response.logoUrl(), response.customFields(), response.addedAt()));
+            return with(response.companyCountry(), response.companyCity(), response.numEmployees(),
+                    response.annualRevenue(), response.foundedYear(), response.source(), note,
+                    response.addedAt(), response.customFields());
         }
 
         CompanyBuilder added(Instant addedAt) {
-            return new CompanyBuilder(new TriageCompanyResponse(response.id(), response.apolloAccountId(),
-                    response.source(), response.status(), response.note(), response.companyName(),
-                    response.industry(), response.companyCountry(), response.companyCity(),
-                    response.numEmployees(), response.annualRevenue(), response.website(),
-                    response.companyLinkedinUrl(), response.foundedYear(), response.shortDescription(),
-                    response.sourceUrl(), response.logoUrl(), response.customFields(), addedAt));
+            return with(response.companyCountry(), response.companyCity(), response.numEmployees(),
+                    response.annualRevenue(), response.foundedYear(), response.source(),
+                    response.note(), addedAt, response.customFields());
         }
 
         CompanyBuilder withCustom(Map<String, String> customFields) {
+            return with(response.companyCountry(), response.companyCity(), response.numEmployees(),
+                    response.annualRevenue(), response.foundedYear(), response.source(),
+                    response.note(), response.addedAt(), customFields);
+        }
+
+        private CompanyBuilder with(String country, String city, Integer employees, Long revenue,
+                                    Integer founded, String source, String note, Instant addedAt,
+                                    Map<String, String> customFields) {
             return new CompanyBuilder(new TriageCompanyResponse(response.id(), response.apolloAccountId(),
-                    response.source(), response.status(), response.note(), response.companyName(),
-                    response.industry(), response.companyCountry(), response.companyCity(),
-                    response.numEmployees(), response.annualRevenue(), response.website(),
-                    response.companyLinkedinUrl(), response.foundedYear(), response.shortDescription(),
-                    response.sourceUrl(), response.logoUrl(), customFields, response.addedAt()));
+                    source, response.status(), note, response.noExecutiveFound(), response.companyName(),
+                    response.industry(), country, city, employees, revenue, response.website(),
+                    response.companyLinkedinUrl(), founded, response.shortDescription(),
+                    response.sourceUrl(), response.logoUrl(), customFields, addedAt));
         }
     }
 
@@ -300,7 +293,7 @@ class CompaniesCsvWriterTest {
                                    Map<String, String> customFields, CandidateContactsDto contacts) {
             return new PersonBuilder(new CandidateResponse(response.id(), response.triageCompanyId(),
                     companyName, response.fullName(), response.title(), response.seniority(), status,
-                    response.linkedinUrl(), country, city, response.nationality(),
+                    response.linkedinUrl(), country, city, response.nationality(), response.gender(),
                     response.yearsExperience(), response.summary(), response.note(),
                     response.compensation(), response.career(), response.languages(),
                     response.education(), response.skills(), response.source(), response.sourceUrl(),

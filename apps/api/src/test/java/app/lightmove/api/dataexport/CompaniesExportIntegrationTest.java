@@ -112,6 +112,36 @@ class CompaniesExportIntegrationTest extends FlowTestSupport {
     }
 
     @Test
+    @DisplayName("the Executive and Status header filters narrow the file, rows as well as companies")
+    void honoursTheExecutiveHeaderFilters() throws Exception {
+        String admin = adminOf("Export Executive Filter Firm");
+        String projectId = project(admin);
+        String companyId = capture(admin, projectId, "ACWA Power");
+        map(admin, projectId, companyId, "Layla Haddad", "contacted");
+        map(admin, projectId, companyId, "Omar Said", "identified");
+
+        // The server's filter is company-level — does this company hold a matching executive at all —
+        // so a file that stopped there would keep the company and draw Omar's line beside Layla's.
+        List<List<String>> contacted = rowsOf(exportFiltered(admin, projectId, null, null, "contacted"));
+        assertThat(contacted).singleElement()
+                .satisfies(row -> assertThat(row.get(4)).isEqualTo("Layla Haddad"));
+
+        List<List<String>> named = rowsOf(exportFiltered(admin, projectId, "omar", null, null));
+        assertThat(named).singleElement()
+                .satisfies(row -> assertThat(row.get(4)).isEqualTo("Omar Said"));
+    }
+
+    @Test
+    @DisplayName("an unknown executive status is refused rather than quietly ignored")
+    void refusesAnUnknownExecutiveStatus() throws Exception {
+        String admin = adminOf("Export Bad Status Firm");
+
+        mvc.perform(get(exportUrl(project(admin))).param("executiveStatuses", "pending")
+                        .header("Authorization", "Bearer " + admin))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
     @DisplayName("carries every page of the stage, not the one the grid is showing")
     void carriesTheWholeStage() throws Exception {
         String admin = adminOf("Export Whole Stage Firm");
@@ -266,6 +296,24 @@ class CompaniesExportIntegrationTest extends FlowTestSupport {
                 .andReturn().getResponse().getContentAsString(StandardCharsets.UTF_8);
     }
 
+    private String exportFiltered(String token, String projectId, String executiveQuery,
+                                  String query, String executiveStatus) throws Exception {
+        MockHttpServletRequestBuilder request = get(exportUrl(projectId))
+                .header("Authorization", "Bearer " + token);
+        if (query != null) {
+            request = request.param("q", query);
+        }
+        if (executiveQuery != null) {
+            request = request.param("executiveQuery", executiveQuery);
+        }
+        if (executiveStatus != null) {
+            request = request.param("executiveStatuses", executiveStatus);
+        }
+        return mvc.perform(request)
+                .andExpect(status().isOk())
+                .andReturn().getResponse().getContentAsString(StandardCharsets.UTF_8);
+    }
+
     private String adminOf(String firmName) throws Exception {
         String alok = "alok@" + domain;
         createWorkspace(verifiedUser("Alok Kumar", alok), firmName);
@@ -310,12 +358,17 @@ class CompaniesExportIntegrationTest extends FlowTestSupport {
     }
 
     private void map(String token, String projectId, String companyId, String fullName) throws Exception {
+        map(token, projectId, companyId, fullName, "identified");
+    }
+
+    private void map(String token, String projectId, String companyId, String fullName, String status)
+            throws Exception {
         mvc.perform(post("/api/v1/projects/" + projectId + "/candidates")
                         .header("Authorization", "Bearer " + token)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
-                                {"triageCompanyId":"%s","fullName":"%s"}"""
-                                .formatted(companyId, fullName)))
+                                {"triageCompanyId":"%s","fullName":"%s","status":"%s"}"""
+                                .formatted(companyId, fullName, status)))
                 .andExpect(status().isCreated());
     }
 

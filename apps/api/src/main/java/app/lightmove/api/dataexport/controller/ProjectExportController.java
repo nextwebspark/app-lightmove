@@ -2,8 +2,10 @@ package app.lightmove.api.dataexport.controller;
 
 import app.lightmove.api.core.security.model.AuthPrincipal;
 import app.lightmove.api.dataexport.service.ProjectExportService;
+import app.lightmove.api.triagecompany.model.TriageCompanyFilters;
 import jakarta.servlet.http.HttpServletRequest;
 import java.nio.charset.StandardCharsets;
+import java.util.List;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ContentDisposition;
@@ -47,10 +49,13 @@ public class ProjectExportController {
                                             @PathVariable UUID projectId,
                                             @RequestParam(required = false) String status,
                                             @RequestParam(required = false) String q,
+                                            @RequestParam(required = false) String executiveQuery,
+                                            @RequestParam(required = false) List<String> executiveStatuses,
                                             HttpServletRequest httpRequest) {
+        TriageCompanyFilters filters = new TriageCompanyFilters(q, executiveQuery, executiveStatuses);
         byte[] csv = exports
-                .companies(principal.userId(), principal.requireWorkspaceId(), projectId, status, q,
-                        httpRequest)
+                .companies(principal.userId(), principal.requireWorkspaceId(), projectId, status,
+                        filters, httpRequest)
                 .getBytes(StandardCharsets.UTF_8);
         return ResponseEntity.ok()
                 .contentType(new MediaType("text", "csv", StandardCharsets.UTF_8))

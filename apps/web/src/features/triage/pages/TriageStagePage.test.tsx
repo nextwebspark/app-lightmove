@@ -839,8 +839,10 @@ describe("TriageStagePage", () => {
   it("exports the stage on screen, narrowed by whatever the search box holds", async () => {
     renderStage("shortlisted");
 
+    const grid = await screen.findByRole("table", { name: /Shortlisted companies/i });
     await screen.findByText("ACWA Power");
-    await userEvent.type(screen.getByRole("textbox", { name: /Search companies/i }), "acwa");
+    await userEvent.click(within(grid).getByRole("button", { name: "Company column menu" }));
+    await userEvent.type(screen.getByRole("textbox", { name: "Filter by company name" }), "acwa");
     // The grid searches on a 300ms debounce; the export carries the same term, so the press has to
     // come after the grid itself has caught up.
     await waitFor(() =>
@@ -851,7 +853,9 @@ describe("TriageStagePage", () => {
     // file is the whole stage rather than one page of it.
     await waitFor(() =>
       expect(exportApi.saveCompaniesCsv).toHaveBeenCalledWith(
-        "p1", "shortlisted", "acwa", ["Acme Corp", "CFO", "Shortlisted"]),
+        "p1", "shortlisted",
+        { query: "acwa", executiveQuery: "", executiveStatuses: [] },
+        ["Acme Corp", "CFO", "Shortlisted"]),
     );
   });
 
