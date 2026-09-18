@@ -2,6 +2,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import type { ReactNode } from "react";
 import { afterAll, beforeEach, describe, expect, it, vi } from "vitest";
+import type { SaveCandidateRequest } from "../../api/types";
 import { installChromeStub } from "../../test/chromeStub";
 import type { ActivePage } from "../hooks/useActivePage";
 import type { ProjectSelection } from "../hooks/useProjectSelection";
@@ -38,14 +39,31 @@ function renderScreen(page: ActivePage) {
   const view = render(<CapturePersonScreen page={page} projects={PROJECTS} />, { wrapper });
   return {
     fullName: () => screen.getByLabelText("Full name") as HTMLInputElement,
+    status: () => screen.getByLabelText("Status") as HTMLSelectElement,
+    save: () => fireEvent.click(screen.getByRole("button", { name: "Save to project" })),
     rerenderWith: (next: ActivePage) => view.rerender(<CapturePersonScreen page={next} projects={PROJECTS} />),
   };
 }
 
 describe("the person the panel offers to capture", () => {
+  let captured: { projectId: string; candidate: SaveCandidateRequest }[] = [];
+
   beforeEach(() => {
+    captured = [];
     const chrome = installChromeStub();
-    chrome.answer(() => ({ ok: true, value: { closesAfterSave: false, isPageTypeDetected: true } }));
+    // Per kind, not one answer for everything: a capture handed back the settings payload would render
+    // a saved screen for nobody rather than fail.
+    chrome.answer((request) => {
+      if (request.kind !== "captureCandidate") {
+        return { ok: true, value: { closesAfterSave: false, isPageTypeDetected: true } };
+      }
+      const attempt = request as unknown as { projectId: string; candidate: SaveCandidateRequest };
+      captured.push(attempt);
+      return {
+        ok: true,
+        value: { id: "c1", fullName: attempt.candidate.fullName, companyName: null, triageCompanyId: null },
+      };
+    });
   });
 
   afterAll(() => vi.unstubAllGlobals());
@@ -131,5 +149,53 @@ describe("the person the panel offers to capture", () => {
 
     expect(view.fullName()).toBeTruthy();
     expect((screen.getByLabelText("Notes") as HTMLTextAreaElement).value).toBe("Met at the summit");
+  });
+
+  it("offers the statuses a capture can assert, and none of the ones it cannot", () => {
+    const view = renderScreen(pageRead());
+
+    expect(view.status().value).toBe("identified");
+    expect(screen.getByRole("option", { name: "Off-limits" })).toBeTruthy();
+    // An outcome of a conversation is the drawer's to record, with the whole mandate in view.
+    expect(screen.queryByRole("option", { name: "Engaged" })).toBeNull();
+  });
+
+  it("states identified on the wire rather than leaving the API to assume it", async () => {
+    const view = renderScreen(pageRead());
+
+    view.save();
+
+    await waitFor(() => expect(captured).toHaveLength(1));
+    expect(captured[0].candidate.status).toBe("identified");
+  });
+
+  it("sends the status the consultant chose, in the spelling the API accepts", async () => {
+    const view = renderScreen(pageRead());
+    fireEvent.change(view.status(), { target: { value: "offLimits" } });
+
+    view.save();
+
+    await waitFor(() => expect(captured).toHaveLength(1));
+    expect(captured[0].candidate.status).toBe("offLimits");
+  });
+
+  it("returns to identified when the panel moves to another profile", async () => {
+    const view = renderScreen(pageRead());
+    fireEvent.change(view.status(), { target: { value: "contacted" } });
+
+    view.rerenderWith(
+      pageRead({ pageKey: "person:bilal-nasser", person: { fullName: "Bilal Nasser", linkedinUrl: null } }),
+    );
+
+    await waitFor(() => expect(view.status().value).toBe("identified"));
+  });
+
+  it("keeps a chosen status while the same page is read again", () => {
+    const view = renderScreen(pageRead());
+    fireEvent.change(view.status(), { target: { value: "contacted" } });
+
+    view.rerenderWith(pageRead({ isReading: true }));
+
+    expect(view.status().value).toBe("contacted");
   });
 });
