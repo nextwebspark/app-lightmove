@@ -92,7 +92,7 @@ export const SAMPLE_REPORT: Report = {
       (weekEnding, week) => ({ weekEnding, identified: WEEKLY[week] }),
     ),
     daily: dailyFrom(WEEKLY, 50),
-    daysSinceLastCompany: 6,
+    daysSinceLastExecutive: 6,
   },
 
   market: {

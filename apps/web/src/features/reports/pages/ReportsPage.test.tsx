@@ -15,7 +15,7 @@ vi.mock("../api/reportApi", async (importOriginal) => ({
 }));
 
 /**
- * The Reports tab: one chapter at a time behind a step rail, the figures that move when a reader
+ * The Reports tab: one chapter at a time behind a chapter menu, the figures that move when a reader
  * changes the basis or the filter, the drill-in drawers, and — the one that matters — a refused read
  * never rendering as a report full of zeros.
  */
@@ -35,6 +35,10 @@ describe("ReportsPage", () => {
     candidates: 0,
     createdAt: "2026-07-21T10:00:00Z",
   };
+
+  /** A tile's share of the treemap, in percent — what its area says about its sector. */
+  const areaOf = (tile: HTMLElement) =>
+    (parseFloat(tile.style.width) * parseFloat(tile.style.height)) / 100;
 
   function LocationProbe() {
     return <output aria-label="location">{useLocation().search}</output>;
@@ -89,14 +93,14 @@ describe("ReportsPage", () => {
     await waitFor(() => expect(reportApi.getReport).toHaveBeenCalledTimes(2));
   });
 
-  it("opens on mapping progress, beside a rail of the four chapters", async () => {
+  it("opens on mapping progress, beside a menu of the four chapters", async () => {
     vi.mocked(reportApi.getReport).mockResolvedValue(SAMPLE_REPORT);
 
     renderPage();
 
     expect(await screen.findByRole("heading", { level: 1, name: "Are we going to hit the deadline?" })).toBeInTheDocument();
     const rail = screen.getByRole("navigation", { name: "Report chapters" });
-    expect(within(rail).getByRole("link", { name: /Mapping progress/ })).toHaveAttribute("aria-current", "step");
+    expect(within(rail).getByRole("link", { name: /Mapping progress/ })).toHaveAttribute("aria-current", "page");
     expect(within(rail).getByRole("link", { name: /Shape of the market/ })).toBeInTheDocument();
     expect(within(rail).getByRole("link", { name: /Remuneration/ })).toBeInTheDocument();
     expect(within(rail).getByRole("link", { name: /Diversity & DEI/ })).toBeInTheDocument();
@@ -246,6 +250,29 @@ describe("ReportsPage", () => {
 
     renderPage("dei");
     expect(await screen.findByText(/Cross-mandate diversity benchmark/)).toBeInTheDocument();
+  });
+
+  it("draws the sector universe as a treemap, each tile sized by its share", async () => {
+    vi.mocked(reportApi.getReport).mockResolvedValue(SAMPLE_REPORT);
+
+    renderPage("market");
+    await screen.findByText("Companies by sector");
+
+    expect(screen.getByText("n=42")).toBeInTheDocument();
+    // Area, not length, is what a treemap states: 14 of the 42 sectored companies is a third of it.
+    const leader = screen.getByTitle("FMCG — 14 companies, 33.3% of the sectored universe");
+    expect(areaOf(leader)).toBeCloseTo(33.3, 1);
+    expect(within(leader).getByText("33.3%")).toBeInTheDocument();
+    expect(areaOf(screen.getByTitle("Other — 2 companies, 4.8% of the sectored universe"))).toBeCloseTo(4.8, 1);
+  });
+
+  it("heads a chapter with its question alone, not with a screen counter", async () => {
+    vi.mocked(reportApi.getReport).mockResolvedValue(SAMPLE_REPORT);
+
+    renderPage();
+    await screen.findByText("36 days");
+
+    expect(screen.queryByText(/^Screen \d/)).not.toBeInTheDocument();
   });
 
   it("falls back to the country bars alone where no map is configured", async () => {

@@ -11,19 +11,18 @@ import { MarketSliceDrawer, type SliceSelection } from "../components/MarketSlic
 import { ReportCard } from "../components/ReportCard";
 import { ReportSection } from "../components/ReportSection";
 import { SectorSeniorityHeatmap } from "../components/SectorSeniorityHeatmap";
+import { SectorTreemap } from "../components/SectorTreemap";
 import { percent } from "../lib/figures";
 import { marketStats, TOP_HUBS } from "../lib/marketStats";
 
 /** Where does the universe actually sit? Sector by seniority, then by country. */
 export function MarketSection({
-  eyebrow,
   market,
   universeCount,
   executivesMapped,
   currency,
   projectId,
 }: {
-  eyebrow: string;
   market: ReportMarket;
   universeCount: number;
   executivesMapped: number;
@@ -55,7 +54,6 @@ export function MarketSection({
 
   return (
     <ReportSection
-      eyebrow={eyebrow}
       question="Where does the universe actually sit?"
       lede={
         stats.deepest ? (
@@ -145,11 +143,7 @@ export function MarketSection({
         </div>
       </ReportCard>
 
-      <ReportCard title="Companies by sector" caption={`target universe, n=${universeCount}`}>
-        <div className="mt-3.5">
-          <BarList rows={market.companiesBySector.map((b) => ({ key: b.label, label: b.label, count: b.count }))} />
-        </div>
-      </ReportCard>
+      <SectorTreemap rows={market.companiesBySector} universeCount={universeCount} />
 
       <MarketSliceDrawer selection={slice} projectId={projectId} onClose={() => setSlice(null)} />
       <HubDrawer

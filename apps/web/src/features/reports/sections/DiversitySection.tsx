@@ -24,7 +24,7 @@ import { memberOf } from "../lib/nationalityWording";
 import { useCountUp } from "../lib/useCountUp";
 
 /** Who is in the mapped pool, by nationality and by gender where one was recorded. */
-export function DiversitySection({ eyebrow, diversity }: { eyebrow: string; diversity: ReportDiversity }) {
+export function DiversitySection({ diversity }: { diversity: ReportDiversity }) {
   const [nationality, setNationality] = useState(ALL_NATIONALITIES_FILTER);
   const [level, setLevel] = useState(ALL_LEVELS_FILTER);
   const stats = diversityStats(diversity);
@@ -42,7 +42,6 @@ export function DiversitySection({ eyebrow, diversity }: { eyebrow: string; dive
 
   return (
     <ReportSection
-      eyebrow={eyebrow}
       question="What does the mapped talent pool actually look like?"
       findingLabel="At these settings"
       finding={

@@ -22,17 +22,17 @@ const MOMENTUM_OPTIONS = [
 ];
 
 /** Are we going to hit the deadline? Projected from actual recent pace, not the plan. */
-export function ProgressSection({ eyebrow, progress }: { eyebrow: string; progress: ReportProgress }) {
+export function ProgressSection({ progress }: { progress: ReportProgress }) {
   const [basis, setBasis] = useState<ProjectionBasis>("recent");
   const [momentum, setMomentum] = useState<MomentumView>("weeks");
   const projection = projectCoverage(progress, basis);
   const pace = weeklyPace(progress);
   const covered = projection.covered;
   const target = progress.targetDate ? formatShortDate(progress.targetDate) : null;
+  const gap = progress.daysSinceLastExecutive;
 
   return (
     <ReportSection
-      eyebrow={eyebrow}
       question="Are we going to hit the deadline?"
       lede={
         <>
@@ -61,10 +61,10 @@ export function ProgressSection({ eyebrow, progress }: { eyebrow: string; progre
         />
         <KpiTile
           tone="alarm"
-          label="Since last new company"
-          value={progress.daysSinceLastCompany ?? "—"}
-          unit={progress.daysSinceLastCompany === null ? undefined : "d"}
-          sub={progress.daysSinceLastCompany === null ? "no company mapped yet" : "gap since the last first executive"}
+          label="Since last new executive"
+          value={gap ?? "—"}
+          unit={gap === null ? undefined : "d"}
+          sub={gap === null ? "no executive mapped yet" : "gap since the last one filed"}
         />
       </KpiTileRow>
 
