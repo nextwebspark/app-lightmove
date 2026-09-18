@@ -13,6 +13,7 @@ import app.lightmove.api.report.model.ExecutiveRow;
 import app.lightmove.api.report.model.ReportSources;
 import app.lightmove.api.triagecompany.constant.TriageCompanyStatus;
 import app.lightmove.api.triagecompany.dto.TriageCompaniesResponse;
+import app.lightmove.api.triagecompany.model.TriageCompanyFilters;
 import app.lightmove.api.triagecompany.dto.TriageCompanyResponse;
 import app.lightmove.api.triagecompany.service.TriageCompanyService;
 import java.util.ArrayList;
@@ -75,7 +76,7 @@ class ReportSourceLoader {
      * A page cannot be empty, so a spent budget still reads one row — for the stage's total — and keeps none.
      */
     private TriageCompaniesResponse stage(UUID workspaceId, UUID projectId, TriageCompanyStatus status, int cap) {
-        return triage.listAllOfStage(workspaceId, projectId, status, cap);
+        return triage.listAllOfStage(workspaceId, projectId, status, TriageCompanyFilters.none(), cap);
     }
 
     private static List<ExecutiveRow> pair(CandidatesResponse people, List<TriageCompanyResponse> universe) {
