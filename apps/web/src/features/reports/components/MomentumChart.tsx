@@ -17,7 +17,8 @@ export function WeeklyMomentumChart({ progress, average }: { progress: ReportPro
         return (
           <div
             key={week.weekEnding}
-            className="flex h-full min-w-0 flex-1 flex-col items-center justify-end gap-[7px]"
+            // Capped, so a mandate two weeks old draws two bars rather than two slabs across the card.
+            className="flex h-full min-w-0 max-w-[96px] flex-1 flex-col items-center justify-end gap-[7px]"
             title={`${week.identified} executives in the week ending ${formatShortDate(week.weekEnding)}`}
           >
             <span className={cn("font-u-num text-[13px] font-bold", isBelow ? "text-u-offlimits" : "text-u-direct")}>

@@ -148,6 +148,70 @@ describe("ReportsPage", () => {
     expect(screen.getByText("24 days")).toBeInTheDocument();
   });
 
+  /** A mandate days old, which is where the chart has a point and no line to draw through it. */
+  const firstWeek = (over: Partial<typeof SAMPLE_REPORT.progress>) => ({
+    ...SAMPLE_REPORT,
+    progress: {
+      ...SAMPLE_REPORT.progress,
+      kickoff: "2026-09-17",
+      asOf: "2026-09-18",
+      targetDate: "2026-09-26",
+      targetCompanies: 12,
+      companiesCumulative: [1],
+      weekly: [{ weekEnding: "2026-09-23", identified: 1 }],
+      daily: [0, 1],
+      ...over,
+    },
+  });
+
+  it("says a first week has no line rather than drawing a projection onto today", async () => {
+    vi.mocked(reportApi.getReport).mockResolvedValue(firstWeek({}));
+
+    renderPage();
+
+    expect(await screen.findByText(/Only the kickoff week has closed/)).toBeInTheDocument();
+    expect(screen.getByText("Too early to project")).toBeInTheDocument();
+    expect(screen.getByText(/A pace needs a second week/)).toBeInTheDocument();
+    // Nothing to project from, so neither the basis control nor a projected date is offered.
+    expect(screen.queryByRole("radio", { name: "Full-mandate avg" })).not.toBeInTheDocument();
+    expect(screen.queryByText(/projected 17 Sept/)).not.toBeInTheDocument();
+    expect(screen.queryByText("Projected")).not.toBeInTheDocument();
+  });
+
+  it("reads a universe covered inside the kickoff week as complete, not as a projection", async () => {
+    vi.mocked(reportApi.getReport).mockResolvedValue(firstWeek({ targetCompanies: 2, companiesCumulative: [2] }));
+
+    renderPage();
+
+    expect(await screen.findByText(/already has an executive mapped, inside the kickoff week/)).toBeInTheDocument();
+    expect(screen.queryByText("Projected")).not.toBeInTheDocument();
+  });
+
+  it("drops the projection once every company is covered, and keeps the line", async () => {
+    vi.mocked(reportApi.getReport).mockResolvedValue({
+      ...SAMPLE_REPORT,
+      progress: { ...SAMPLE_REPORT.progress, companiesCumulative: [0, 20, 42] },
+    });
+
+    renderPage();
+
+    expect(await screen.findByText(/there is nothing left to project/)).toBeInTheDocument();
+    expect(screen.getByText("Actual")).toBeInTheDocument();
+    expect(screen.queryByText("Projected")).not.toBeInTheDocument();
+  });
+
+  it("names a stalled mandate as unprojectable instead of projecting from a zero pace", async () => {
+    vi.mocked(reportApi.getReport).mockResolvedValue({
+      ...SAMPLE_REPORT,
+      progress: { ...SAMPLE_REPORT.progress, companiesCumulative: [0, 10, 10, 10, 10] },
+    });
+
+    renderPage();
+
+    expect(await screen.findByText(/no new company at all/)).toBeInTheDocument();
+    expect(screen.queryByText("Projected")).not.toBeInTheDocument();
+  });
+
   it("opens a heat-matrix cell as a market slice with its executives", async () => {
     vi.mocked(reportApi.getReport).mockResolvedValue(SAMPLE_REPORT);
     const user = userEvent.setup();
