@@ -42,14 +42,16 @@ export function squarify<T extends TreemapRow>(rows: readonly T[], aspect = 1): 
     const side = alongWidth ? free.width * aspect : free.height;
     const areaFree = free.width * aspect * free.height;
 
-    // Take rows into the strip while doing so improves its worst aspect ratio.
+    // Take rows into the strip while doing so improves its worst aspect ratio. `ordered` runs
+    // largest first, so the strip's extremes are its first row and the one just added.
+    const largest = ordered[index].value;
     let taken = 1;
-    let takenValue = ordered[index].value;
-    let worst = worstRatio(side, areaFree * (takenValue / remaining), [ordered[index].value], takenValue);
+    let takenValue = largest;
+    let worst = worstRatio(side, areaFree * (takenValue / remaining), largest, largest, takenValue);
     while (index + taken < ordered.length) {
-      const nextValue = takenValue + ordered[index + taken].value;
-      const values = ordered.slice(index, index + taken + 1).map((row) => row.value);
-      const nextWorst = worstRatio(side, areaFree * (nextValue / remaining), values, nextValue);
+      const smallest = ordered[index + taken].value;
+      const nextValue = takenValue + smallest;
+      const nextWorst = worstRatio(side, areaFree * (nextValue / remaining), largest, smallest, nextValue);
       if (nextWorst > worst) break;
       worst = nextWorst;
       takenValue = nextValue;
@@ -88,14 +90,14 @@ export function squarify<T extends TreemapRow>(rows: readonly T[], aspect = 1): 
   return tiles;
 }
 
-/** The worst side ratio a strip of this area laid along `side` would give any of its tiles. */
-function worstRatio(side: number, area: number, values: number[], total: number): number {
+/**
+ * The worst side ratio a strip of this area laid along `side` would give any of its tiles. A tile's
+ * length grows with its value, so only the strip's largest and smallest members can be the worst.
+ */
+function worstRatio(side: number, area: number, largest: number, smallest: number, total: number): number {
   if (area === 0) return Infinity;
   const depth = area / side;
-  return Math.max(
-    ...values.map((value) => {
-      const length = (side * value) / total;
-      return Math.max(length / depth, depth / length);
-    }),
-  );
+  const longest = (side * largest) / total;
+  const shortest = (side * smallest) / total;
+  return Math.max(longest / depth, depth / shortest);
 }

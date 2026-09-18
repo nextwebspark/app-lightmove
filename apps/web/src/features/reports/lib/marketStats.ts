@@ -31,15 +31,12 @@ export function marketStats(market: ReportMarket): MarketStats {
   const countOf = (sector: string, level: SeniorityLevel) =>
     market.cells.find((c) => c.sector === sector && c.level === level)?.count ?? 0;
   const maxCell = Math.max(...market.cells.map((c) => c.count), 1);
-  // Both axes carry only what somebody is placed at. Board to N-2 used to be drawn whatever the
-  // mandate held, so an empty Board row would read as the gap it is — but a mandate with two
-  // executives drew four rows of hatching, which reads as a rendering fault rather than as a gap.
-  // A hatched cell still means "nobody in this pocket yet"; a whole row or column of them meant
-  // nothing.
-  const holdsSomebody = (of: (cell: MarketCell) => string, key: string) =>
-    market.cells.some((cell) => of(cell) === key && cell.count > 0);
-  const levels = market.levels.filter((level) => holdsSomebody((cell) => cell.level, level));
-  const sectors = market.sectors.filter((sector) => holdsSomebody((cell) => cell.sector, sector));
+  // Both axes carry only what somebody is placed at: a single hatched cell says "nobody in this
+  // pocket yet", but a whole row or column of them says nothing.
+  const holdsSomebody = (key: string, axisOf: (cell: MarketCell) => string) =>
+    market.cells.some((cell) => axisOf(cell) === key && cell.count > 0);
+  const levels = market.levels.filter((level) => holdsSomebody(level, (cell) => cell.level));
+  const sectors = market.sectors.filter((sector) => holdsSomebody(sector, (cell) => cell.sector));
   const rows: HeatRow[] = levels.map((level) => ({
     level,
     cells: sectors.map((sector) => {

@@ -14,6 +14,7 @@ import {
   ALL_NATIONALITIES_FILTER,
   diversityStats,
   feasibility,
+  type Feasibility,
   genderStats,
   GCC_NATIONALS_FILTER,
   levelFilterOptions,
@@ -30,8 +31,6 @@ export function DiversitySection({ diversity }: { diversity: ReportDiversity }) 
   const stats = diversityStats(diversity);
   const gender = genderStats(diversity);
   const fit = feasibility(diversity, stats, { nationality, level });
-  const qualifying = useCountUp(fit.qualifying);
-  const share = useCountUp(percent(fit.qualifying, fit.scope));
   const requirement =
     nationality === GCC_NATIONALS_FILTER
       ? "a GCC national"
@@ -138,22 +137,22 @@ export function DiversitySection({ diversity }: { diversity: ReportDiversity }) 
         caption="how many mapped executives qualify against a nationality requirement"
         action={
           nothingRecorded ? undefined : (
-          <>
-            <ReportSelect aria-label="Nationality requirement" value={nationality} onChange={(e) => setNationality(e.target.value)}>
-              {nationalityFilterOptions(diversity).map((n) => (
-                <option key={n} value={n}>
-                  {n}
-                </option>
-              ))}
-            </ReportSelect>
-            <ReportSelect aria-label="Seniority level" value={level} onChange={(e) => setLevel(e.target.value)}>
-              {levelFilterOptions(diversity, stats).map((l) => (
-                <option key={l} value={l}>
-                  {l}
-                </option>
-              ))}
-            </ReportSelect>
-          </>
+            <>
+              <ReportSelect aria-label="Nationality requirement" value={nationality} onChange={(e) => setNationality(e.target.value)}>
+                {nationalityFilterOptions(diversity).map((n) => (
+                  <option key={n} value={n}>
+                    {n}
+                  </option>
+                ))}
+              </ReportSelect>
+              <ReportSelect aria-label="Seniority level" value={level} onChange={(e) => setLevel(e.target.value)}>
+                {levelFilterOptions(diversity, stats).map((l) => (
+                  <option key={l} value={l}>
+                    {l}
+                  </option>
+                ))}
+              </ReportSelect>
+            </>
           )
         }
         note={
@@ -173,45 +172,19 @@ export function DiversitySection({ diversity }: { diversity: ReportDiversity }) 
         {nothingRecorded ? (
           <ChartEmpty>Nobody on this mandate has a nationality recorded.</ChartEmpty>
         ) : (
-          <>
-        <KpiTileRow columns={2} className="mt-3.5">
-          <KpiTile
-            tone="lead"
-            label="Qualifying executives"
-            value={Math.round(qualifying)}
-            unit={`/${fit.scope}`}
-            sub={`${nationality} · ${level === ALL_LEVELS_FILTER ? "all levels" : level}`}
-          />
-          <KpiTile
-            label="Share of this scope"
-            value={Math.round(share)}
-            unit="%"
-            sub={`of ${level === ALL_LEVELS_FILTER ? "everyone with a level on file" : `${level} executives`}`}
-          />
-        </KpiTileRow>
-        {fit.byLevel.length === 0 ? (
-          <ChartEmpty>No executive with a nationality on file has a seniority level yet.</ChartEmpty>
-        ) : (
-          <>
-            <div className="mb-3 mt-5 text-xs text-u-text3">
-              {nationality} — where they sit by level · one square per executive
-            </div>
-            <NationalityDots feasibility={fit} />
-          </>
-        )}
-          </>
+          <FeasibilityBody fit={fit} nationality={nationality} level={level} />
         )}
       </ReportCard>
 
       <ReportCard
         title="Nationality mix"
         caption={
-          stats.total === 0
+          nothingRecorded
             ? "no nationality recorded on this mandate yet"
             : `full breakdown, n=${stats.total} with a nationality on file`
         }
         note={
-          stats.total === 0 ? (
+          nothingRecorded ? (
             <>
               Nationality is recorded on an executive's profile, so this ring stays empty until
               somebody records one. Set it in the Background section of a profile and this fills in.
@@ -224,7 +197,7 @@ export function DiversitySection({ diversity }: { diversity: ReportDiversity }) 
           )
         }
       >
-        {stats.total === 0 ? (
+        {nothingRecorded ? (
           <ChartEmpty>Nobody on this mandate has a nationality recorded.</ChartEmpty>
         ) : (
           <NationalityDonut rows={diversity.nationalities} total={stats.total} largest={stats.largest} />
@@ -272,5 +245,42 @@ export function DiversitySection({ diversity }: { diversity: ReportDiversity }) 
         sector and seniority. Comparing across mandates is a later piece of work.
       </LockedBenchmarkCard>
     </ReportSection>
+  );
+}
+
+/** The checker's figures and squares. Its own component so the counters only run when it is drawn. */
+function FeasibilityBody({ fit, nationality, level }: { fit: Feasibility; nationality: string; level: string }) {
+  const qualifying = useCountUp(fit.qualifying);
+  const share = useCountUp(percent(fit.qualifying, fit.scope));
+  const scopeLabel = level === ALL_LEVELS_FILTER ? "all levels" : level;
+
+  return (
+    <>
+      <KpiTileRow columns={2} className="mt-3.5">
+        <KpiTile
+          tone="lead"
+          label="Qualifying executives"
+          value={Math.round(qualifying)}
+          unit={`/${fit.scope}`}
+          sub={`${nationality} · ${scopeLabel}`}
+        />
+        <KpiTile
+          label="Share of this scope"
+          value={Math.round(share)}
+          unit="%"
+          sub={`of ${level === ALL_LEVELS_FILTER ? "everyone with a level on file" : `${level} executives`}`}
+        />
+      </KpiTileRow>
+      {fit.byLevel.length === 0 ? (
+        <ChartEmpty>No executive with a nationality on file has a seniority level yet.</ChartEmpty>
+      ) : (
+        <>
+          <div className="mb-3 mt-5 text-xs text-u-text3">
+            {nationality} — where they sit by level · one square per executive
+          </div>
+          <NationalityDots feasibility={fit} />
+        </>
+      )}
+    </>
   );
 }

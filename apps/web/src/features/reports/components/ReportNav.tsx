@@ -1,12 +1,12 @@
 import type { ReactNode } from "react";
 import { Link } from "react-router-dom";
-import { Icon } from "../../../components/layout/Icon";
+import { Icon, type ICONS } from "../../../components/layout/Icon";
 import { cn } from "../../../lib/cn";
 
 export interface ReportChapterLink {
   key: string;
   label: string;
-  icon: string;
+  icon: (typeof ICONS)[keyof typeof ICONS];
 }
 
 /**

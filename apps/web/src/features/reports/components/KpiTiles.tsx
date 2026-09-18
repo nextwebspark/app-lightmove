@@ -3,8 +3,7 @@ import { cn } from "../../../lib/cn";
 
 /**
  * What kind of figure a tile holds: the chapter's lead stat, a supporting one, a risk to watch, or a
- * strength. A tone is a fill and an ink, never an outline — the tiles carry no stroke. The kind, not
- * the state — a risk tile stays copper on a healthy mandate, so the row
+ * strength. The kind, not the state — a risk tile stays copper on a healthy mandate, so the row
  * reads the same from one report to the next and the figure itself carries the news.
  */
 export type KpiTone = "lead" | "plain" | "alarm" | "positive";
@@ -39,7 +38,6 @@ export function KpiTile({ label, value, unit, sub, tone = "plain" }: KpiTileProp
   const style = TONE[tone];
   return (
     <div className={cn("min-w-0 rounded-[10px] px-[18px] py-4", style.surface)}>
-      {/* Two lines of room whatever the label needs, so the figures line up across a row. */}
       <div className={cn("min-h-[24px] text-[9.5px] font-bold uppercase leading-[1.25] tracking-[0.07em]", style.label)}>{label}</div>
       <div
         className={cn(

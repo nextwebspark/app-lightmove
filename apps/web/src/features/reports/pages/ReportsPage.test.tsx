@@ -297,10 +297,10 @@ describe("ReportsPage", () => {
 
     expect(screen.getByText("n=42")).toBeInTheDocument();
     // Area, not length, is what a treemap states: 14 of the 42 sectored companies is a third of it.
-    const leader = screen.getByTitle("FMCG — 14 companies, 33.3% of the sectored universe");
+    const leader = screen.getByRole("img", { name: "FMCG — 14 companies, 33.3% of the sectored universe" });
     expect(areaOf(leader)).toBeCloseTo(33.3, 1);
     expect(within(leader).getByText("33.3%")).toBeInTheDocument();
-    expect(areaOf(screen.getByTitle("Other — 2 companies, 4.8% of the sectored universe"))).toBeCloseTo(4.8, 1);
+    expect(areaOf(screen.getByRole("img", { name: "Other — 2 companies, 4.8% of the sectored universe" }))).toBeCloseTo(4.8, 1);
   });
 
   it("heads a chapter with its question alone, not with a screen counter", async () => {

@@ -69,14 +69,15 @@ export function feasibility(diversity: ReportDiversity, stats: DiversityStats, f
         : row.nationality === filter.nationality,
   );
   const isInScope = (level: SeniorityLevel) => filter.level === ALL_LEVELS_FILTER || filter.level === level;
-  const byLevel = mappedLevels(diversity, stats).map((level) => ({
+  const levels = levelsWithNationalityOnFile(diversity, stats);
+  const byLevel = levels.map((level) => ({
     level,
     count: rows.reduce((sum, row) => sum + (row.byLevel.find((l) => l.level === level)?.count ?? 0), 0),
     isInScope: isInScope(level),
   }));
   return {
     qualifying: byLevel.filter((l) => l.isInScope).reduce((sum, l) => sum + l.count, 0),
-    scope: mappedLevels(diversity, stats).filter(isInScope).reduce((sum, level) => sum + stats.levelTotals[level], 0),
+    scope: levels.filter(isInScope).reduce((sum, level) => sum + stats.levelTotals[level], 0),
     byLevel,
   };
 }
@@ -89,14 +90,18 @@ export function nationalityFilterOptions(diversity: ReportDiversity): string[] {
   ];
 }
 
-/** The levels this mandate has somebody at — the checker's rows, and the levels it offers to filter by. */
-function mappedLevels(diversity: ReportDiversity, stats: DiversityStats): SeniorityLevel[] {
+/**
+ * The levels holding somebody the checker can count — `levelTotals` sums the nationality rows, so a
+ * level whose executives have no nationality recorded is not one of them. That is this card's scope,
+ * not a statement about where the mandate has mapped people.
+ */
+function levelsWithNationalityOnFile(diversity: ReportDiversity, stats: DiversityStats): SeniorityLevel[] {
   return diversity.levels.filter((level) => stats.levelTotals[level] > 0);
 }
 
-/** Offering a level nobody is mapped at would only ever answer zero. */
+/** Offering a level the checker cannot count would only ever answer zero. */
 export function levelFilterOptions(diversity: ReportDiversity, stats: DiversityStats): string[] {
-  return [ALL_LEVELS_FILTER, ...mappedLevels(diversity, stats)];
+  return [ALL_LEVELS_FILTER, ...levelsWithNationalityOnFile(diversity, stats)];
 }
 
 export interface GenderLevel {

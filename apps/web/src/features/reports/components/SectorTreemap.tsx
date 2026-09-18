@@ -3,6 +3,7 @@ import type { Breakdown } from "../api/types";
 import { RAMP_BG, RAMP_GROUND_LABEL_FROM, rampStop } from "../lib/ramp";
 import { squarify } from "../lib/treemap";
 import { ChartEmpty } from "./ChartEmpty";
+import { ReportPanel } from "./ReportCard";
 
 /** The block's shape: wide enough that a row of sectors reads, short enough to sit in a chapter. */
 const ASPECT = 16 / 9;
@@ -24,8 +25,9 @@ const LABEL_FROM_AREA = 0.7;
  * uses, so the two heat surfaces on this chapter cannot be read as two different scales, and the
  * block is right in both themes because the ramp itself is defined per theme.
  *
- * <p>It carries its own header rather than sitting in a {@code ReportCard}: the universe it counts
- * is named beside the title, where a card would bury it in a caption.
+ * <p>It carries its own header rather than taking {@code ReportCard}'s: the universe it counts is
+ * named beside the title, where a caption would bury it. The surface underneath is still the
+ * report's own.
  */
 export function SectorTreemap({ rows, universeCount }: { rows: Breakdown[]; universeCount: number }) {
   const tiles = squarify(
@@ -36,7 +38,7 @@ export function SectorTreemap({ rows, universeCount }: { rows: Breakdown[]; univ
   const counted = rows.reduce((sum, row) => sum + row.count, 0);
 
   return (
-    <figure className="mt-4 rounded-[11px] bg-u-surface px-4 py-[18px] shadow-u-e1 sm:px-6 sm:py-[22px]">
+    <ReportPanel as="figure">
       <figcaption className="mb-3.5">
         <div className="flex items-baseline justify-between gap-3 text-[9.5px] font-bold uppercase tracking-[0.1em] text-u-text3">
           <span>Intelligence universe</span>
@@ -56,10 +58,15 @@ export function SectorTreemap({ rows, universeCount }: { rows: Breakdown[]; univ
             const stop = rampStop(tile.row.value, fullest);
             // The tile's percentage of the block is its percentage of the total, by construction.
             const share = tile.width * tile.height * 0.01;
+            // A tail tile draws neither figure, so without this it would carry no text at all — and
+            // `title` alone reaches no screen reader, no keyboard and no touch.
+            const description = `${tile.row.key} — ${tile.row.value} companies, ${share1(tile.row.value, counted)}% of the sectored universe`;
             return (
               <div
                 key={tile.row.key}
-                title={`${tile.row.key} — ${tile.row.value} companies, ${share1(tile.row.value, counted)}% of the sectored universe`}
+                role="img"
+                aria-label={description}
+                title={description}
                 className={cn(
                   "absolute overflow-hidden rounded-[5px] p-2.5 sm:p-3",
                   RAMP_BG[stop],
@@ -90,7 +97,7 @@ export function SectorTreemap({ rows, universeCount }: { rows: Breakdown[]; univ
           })}
         </div>
       )}
-    </figure>
+    </ReportPanel>
   );
 }
 
