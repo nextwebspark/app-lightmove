@@ -7,6 +7,7 @@ import { DrawerCloseButton } from "../../../components/ui/Drawer";
 import { NetworkMark } from "../../../components/ui/NetworkMark";
 import { messageFor } from "../../../lib/errorCodes";
 import { formatInstantDate, formatNumber } from "../../../lib/format";
+import { noticeSummaryOf } from "../../../lib/noticePeriod";
 import { toBrowsableUrl } from "../../../lib/url";
 import { useSubmitShortcut } from "../../../lib/useSubmitShortcut";
 import * as contactLookupApi from "../../contactlookup/api/contactLookupApi";
@@ -305,7 +306,7 @@ export function CandidateProfile({
           title="Compensation"
           summary={joinFacts([
             total > 0 ? `${currency} ${formatNumber(total)}`.trim() : null,
-            compensation.noticePeriod ? `${compensation.noticePeriod} notice` : null,
+            noticeSummaryOf(compensation.noticePeriod),
           ])}
           action={pencil("compensation", "compensation")}
         >
@@ -325,6 +326,7 @@ export function CandidateProfile({
                   watch={form.watch}
                   setValue={form.setValue}
                   storedCurrency={compensation.currency}
+                  storedNoticePeriod={compensation.noticePeriod}
                 />
               )}
             </SectionEditor>

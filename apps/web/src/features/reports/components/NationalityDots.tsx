@@ -8,6 +8,9 @@ const MAX_DELAY_MS = 300;
  * One square per qualifying executive, grouped by level. Countable rather than abstract: "23 of 51
  * at C-Suite" becomes twenty-three squares a reader can see, not a bar they have to measure. Levels
  * outside the chosen scope are drawn but recede.
+ *
+ * <p>Every row here holds somebody, so an empty one means the requirement excluded them all rather
+ * than that the level is unmapped — {@link feasibility} leaves an unmapped level out entirely.
  */
 export function NationalityDots({ feasibility }: { feasibility: Feasibility }) {
   return (
@@ -20,7 +23,7 @@ export function NationalityDots({ feasibility }: { feasibility: Feasibility }) {
           </div>
           <div className="flex min-h-3.5 flex-wrap gap-1" aria-label={`${row.count} at ${row.level}`}>
             {row.count === 0 ? (
-              <span className="text-[10.5px] italic text-u-text3">none mapped</span>
+              <span className="text-[10.5px] italic text-u-text3">none qualifying</span>
             ) : (
               Array.from({ length: row.count }, (_, i) => (
                 <span

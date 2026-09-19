@@ -10,8 +10,17 @@ const PAD_RIGHT = 20;
 const PAD_TOP = 30;
 const PAD_BOTTOM = 36;
 const PLOT_H = H - PAD_TOP - PAD_BOTTOM;
-const WEEKS_OF_HEADROOM = 4;
+// The frame ends a little past the furthest mark on it rather than a fixed month past today: a
+// mandate a fortnight old was drawing its whole line into the left fifth of an otherwise empty grid.
+const HEADROOM_FRACTION = 0.12;
+const MIN_HEADROOM_WEEKS = 0.6;
 const LABEL = "text-[10px] font-semibold tracking-[0.04em]";
+// Rendered widths of the three labels that share the top line, measured at their own type sizes: SVG
+// text cannot reflow, so the only way to keep them apart is to reserve the room they take.
+const FULL_COVERAGE_LABEL_W = 132;
+const PROJECTED_LABEL_W = 92;
+const TARGET_LABEL_HALF_W = 30;
+const KICKOFF_LABEL_W = 46;
 
 /**
  * Cumulative companies covered, the target as a vertical rule where the mandate has one, and the
@@ -21,12 +30,12 @@ const LABEL = "text-[10px] font-semibold tracking-[0.04em]";
  */
 export function CoverageChart({ progress, projection }: { progress: ReportProgress; projection: Projection }) {
   const cum = projection.coverage;
-  const hasProjection = Number.isFinite(projection.projectedWeek) && projection.projectedDate !== null;
-  const xMax = Math.max(
-    projection.lastWeek + WEEKS_OF_HEADROOM,
-    hasProjection ? projection.projectedWeek + 0.6 : 0,
-    projection.targetWeek !== null ? projection.targetWeek + 1 : 0,
-  );
+  // A covered universe projects onto today itself, which would stack a completion marker on the
+  // "today" one and on the full-coverage caption. There is nothing to project once nothing remains.
+  const hasProjection =
+    Number.isFinite(projection.projectedWeek) && projection.projectedDate !== null && projection.remaining > 0;
+  const horizon = Math.max(projection.lastWeek, hasProjection ? projection.projectedWeek : 0, projection.targetWeek ?? 0);
+  const xMax = horizon + Math.max(MIN_HEADROOM_WEEKS, horizon * HEADROOM_FRACTION);
   const x = (week: number) => PAD_LEFT + (week / xMax) * (W - PAD_LEFT - PAD_RIGHT);
   const y = (count: number) => PAD_TOP + (1 - count / Math.max(progress.targetCompanies, 1)) * PLOT_H;
   const point = (week: number, count: number) => `${x(week).toFixed(1)},${y(count).toFixed(1)}`;
@@ -38,6 +47,7 @@ export function CoverageChart({ progress, projection }: { progress: ReportProgre
   const fullY = y(progress.targetCompanies);
   const targetX = projection.targetWeek === null ? null : x(projection.targetWeek);
   const projectedX = hasProjection ? x(projection.projectedWeek) : null;
+  const projectedLabel = projectedX === null ? null : placeProjectedLabel(projectedX, progress.targetDate ? targetX : null, fullY);
   // A universe of zero or one has fewer than three distinct ticks; drawn once each, they neither
   // overlap nor share a key.
   const ticks = [...new Set([0, Math.round(progress.targetCompanies / 2), progress.targetCompanies])];
@@ -92,7 +102,7 @@ export function CoverageChart({ progress, projection }: { progress: ReportProgre
           <circle key={week} cx={x(week)} cy={y(count)} r={2.8} className="fill-u-accent" />
         ))}
 
-        {projectedX !== null && projection.projectedDate && (
+        {projectedX !== null && projectedLabel && projection.projectedDate && (
           <>
             <polyline
               points={`${point(projection.lastWeek, cum[projection.lastWeek])} ${point(projection.projectedWeek, progress.targetCompanies)}`}
@@ -103,10 +113,20 @@ export function CoverageChart({ progress, projection }: { progress: ReportProgre
               strokeLinecap="round"
             />
             <circle cx={projectedX} cy={fullY} r={4.5} className="fill-u-offlimits" />
-            <text x={projectedX} y={fullY - 20} textAnchor="end" className="fill-u-offlimits text-[10px] font-bold tracking-[0.04em]">
+            <text
+              x={projectedLabel.x}
+              y={projectedLabel.y}
+              textAnchor={projectedLabel.anchor}
+              className="fill-u-offlimits text-[10px] font-bold tracking-[0.04em]"
+            >
               PROJECTED
             </text>
-            <text x={projectedX} y={fullY - 7} textAnchor="end" className="fill-u-offlimits font-u-num text-[13.5px] font-bold">
+            <text
+              x={projectedLabel.x}
+              y={projectedLabel.y + 13}
+              textAnchor={projectedLabel.anchor}
+              className="fill-u-offlimits font-u-num text-[13.5px] font-bold"
+            >
               {formatShortDate(projection.projectedDate)}
             </text>
           </>
@@ -120,10 +140,31 @@ export function CoverageChart({ progress, projection }: { progress: ReportProgre
         <text x={todayX} y={H - PAD_BOTTOM + 30} textAnchor="middle" className="fill-u-text3 text-[9.5px]">
           {formatShortDate(progress.asOf)}
         </text>
-        <text x={PAD_LEFT} y={H - PAD_BOTTOM + 18} className="fill-u-text3 text-[10.5px]">
-          {formatShortDate(progress.kickoff)}
-        </text>
+        {todayX - PAD_LEFT > KICKOFF_LABEL_W && (
+          <text x={PAD_LEFT} y={H - PAD_BOTTOM + 18} className="fill-u-text3 text-[10.5px]">
+            {formatShortDate(progress.kickoff)}
+          </text>
+        )}
       </svg>
     </div>
   );
+}
+
+/**
+ * Where the completion marker's two lines can be written. Full coverage is always the top gridline,
+ * so the coverage caption and the target column's own date already sit on that line: a projection
+ * landing near either would be drawn straight through it, or off the frame's left edge.
+ */
+function placeProjectedLabel(projectedX: number, targetX: number | null, fullY: number) {
+  let aboveX = projectedX;
+  if (targetX !== null && projectedX > targetX - TARGET_LABEL_HALF_W && projectedX - PROJECTED_LABEL_W < targetX + TARGET_LABEL_HALF_W) {
+    aboveX = targetX - TARGET_LABEL_HALF_W;
+  }
+  if (aboveX - PROJECTED_LABEL_W >= PAD_LEFT + FULL_COVERAGE_LABEL_W) {
+    return { anchor: "end", x: aboveX, y: fullY - 20 } as const;
+  }
+  // Nothing free on the top line, so the label drops under it — and to the right of the point where
+  // the frame allows, because the dashed projection climbs into that point from the left.
+  const rightFits = projectedX + PROJECTED_LABEL_W <= W - PAD_RIGHT;
+  return { anchor: rightFits ? "start" : "end", x: projectedX + (rightFits ? 8 : -8), y: fullY + 18 } as const;
 }

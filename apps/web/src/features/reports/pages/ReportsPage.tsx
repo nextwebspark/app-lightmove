@@ -17,10 +17,10 @@ import { RemunerationSection } from "../sections/RemunerationSection";
 const CHAPTER_PARAM = "chapter";
 
 const CHAPTERS = [
-  { key: "progress", label: "Mapping progress", short: "Progress" },
-  { key: "market", label: "Shape of the market", short: "Market" },
-  { key: "comp", label: "Remuneration", short: "Compensation" },
-  { key: "dei", label: "Diversity & DEI", short: "Diversity" },
+  { key: "progress", label: "Mapping progress", icon: ICONS.trendingUp },
+  { key: "market", label: "Shape of the market", icon: ICONS.globe },
+  { key: "comp", label: "Remuneration", icon: ICONS.currency },
+  { key: "dei", label: "Diversity & DEI", icon: ICONS.team },
 ] as const;
 
 type ChapterKey = (typeof CHAPTERS)[number]["key"];
@@ -70,12 +70,7 @@ export function ReportsPage() {
 function ReportBody({ project, report }: { project: Project; report: Report }) {
   const [searchParams] = useSearchParams();
   const requested = searchParams.get(CHAPTER_PARAM);
-  const activeIndex = Math.max(
-    CHAPTERS.findIndex((chapter) => chapter.key === requested),
-    0,
-  );
-  const active = CHAPTERS[activeIndex];
-  const eyebrow = `Screen ${activeIndex + 1} · ${active.short}`;
+  const active = CHAPTERS[Math.max(CHAPTERS.findIndex((chapter) => chapter.key === requested), 0)];
 
   return (
     <div className={`${GROUND} flex-col lg:flex-row`}>
@@ -92,7 +87,7 @@ function ReportBody({ project, report }: { project: Project; report: Report }) {
       />
       <div className="min-w-0 flex-1">
         <div className="max-w-[900px] px-4 pb-[100px] pt-[34px] sm:px-10">
-          <Chapter chapterKey={active.key} eyebrow={eyebrow} project={project} report={report} />
+          <Chapter chapterKey={active.key} project={project} report={report} />
         </div>
       </div>
     </div>
@@ -101,22 +96,19 @@ function ReportBody({ project, report }: { project: Project; report: Report }) {
 
 function Chapter({
   chapterKey,
-  eyebrow,
   project,
   report,
 }: {
   chapterKey: ChapterKey;
-  eyebrow: string;
   project: Project;
   report: Report;
 }) {
   switch (chapterKey) {
     case "progress":
-      return <ProgressSection eyebrow={eyebrow} progress={report.progress} />;
+      return <ProgressSection progress={report.progress} />;
     case "market":
       return (
         <MarketSection
-          eyebrow={eyebrow}
           market={report.market}
           universeCount={report.head.universeCount}
           executivesMapped={report.head.executivesMapped}
@@ -125,8 +117,8 @@ function Chapter({
         />
       );
     case "comp":
-      return <RemunerationSection eyebrow={eyebrow} remuneration={report.remuneration} />;
+      return <RemunerationSection remuneration={report.remuneration} />;
     case "dei":
-      return <DiversitySection eyebrow={eyebrow} diversity={report.diversity} />;
+      return <DiversitySection diversity={report.diversity} />;
   }
 }

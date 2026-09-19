@@ -197,7 +197,7 @@ const REPORT = {
       (weekEnding, i) => ({ weekEnding, identified: [3, 7, 8, 6, 7, 5, 3, 2][i] }),
     ),
     daily: Array.from({ length: 50 }, (_, i) => (i % 7 < 5 ? 1 : 0)),
-    daysSinceLastCompany: 4,
+    daysSinceLastExecutive: 4,
   },
   market: {
     sectors: ["Oil & Energy", "Industrial Manufacturing", "Logistics"],
@@ -508,6 +508,8 @@ export function payloadFor(pathname, search = "") {
       counts: TRIAGE_COUNTS,
     };
   if (/\/projects\/[^/]+\/report/.test(pathname)) return REPORT;
+  // The Companies grid asks only for the brief's package, to offer its currency to a new executive.
+  if (/\/projects\/[^/]+\/position\/compensation$/.test(pathname)) return POSITION.compensation;
   if (/\/projects\/[^/]+\/position/.test(pathname)) return POSITION;
   if (/\/projects\/[^/]+$/.test(pathname)) {
     const id = pathname.split("/").pop();

@@ -58,9 +58,18 @@ nothing itself — it builds the same requests the Companies drawer posts and ha
 `triagecompany` and `candidate`, so every scope check, duplicate rule and audit event stays where it
 already lives. **An imported row is never resolved against the market and never researched** — a file
 states its own figures and arrives a thousand rows at once, so the two things a one-at-a-time capture
-affords are exactly the two it cannot. The In-universe page also reads as a **map**: a Table | Map
-toggle on its toolbar (offered only where a Mapbox public token is configured) swaps the grid for a
-mapping panel (country → company → executives) beside a Mapbox globe, with a pin per company and
+affords are exactly the two it cannot.
+A stage also leaves as a file: **Export** on the Companies toolbar downloads the whole stage —
+every row, not the page on screen, narrowed by whichever of the grid's three header filters are in
+force, rows as well as companies, so the file is what the screen was showing — carrying every
+column the grid draws and every custom column the mandate added, with the two Links icons spelled
+out as Website and Company LinkedIn. It is `WORK_VIEW`, the gate that reads the grid, so a client
+representative may take the mandate they can already read; unlike every other read it records an
+audit event, because a mandate leaving as a file is not the same act as reading a page of it. Past
+`lightmove.export.*` it refuses rather than truncating.
+The In-universe page also reads as a **map**: a Table | Map toggle on its toolbar (offered only
+where a Mapbox public token is configured) swaps the grid for a mapping panel (country → company →
+executives) beside a Mapbox globe, with a pin per company and
 per executive and the same two drawers opened from a pin's popup or a panel row. Nothing carries a
 coordinate, so `geocoding` resolves each distinct city + country once through Mapbox and keeps it in
 `app_lm_geocoded_place`; `talentmap` composes the stage's companies, people and points into one
@@ -78,7 +87,13 @@ the executives who have one on file, not by the headcount, so a mandate nobody h
 unmeasured rather than as a pool of one gender. **Nationality is counted in nine groups** — the Gulf six by name,
 and everyone else as Western expat, South Asian or Arab expat, non-GCC: the drawer offers exactly those
 nine and stores the label, while a spreadsheet's "Egyptian" is folded into its group by `report` at read
-time and never rewritten. The two **cross-mandate benchmarks** the chapters
+time and never rewritten. **A notice period is one of five** — None, 1, 2, 3 or 6 months — on both halves
+of a mandate: the brief keeps the months as its own `noticeValue`/`noticeUnit` pair and an executive keeps
+the option's label, neither column narrowed to them, so a brief already stating ninety days and a row
+imported as "negotiable" stay offered as recorded rather than being cleared. An import that cannot fold a
+cell onto one of the five (`RowValues.noticePeriod`) writes nothing rather than rounding it, and the new
+executive's currency arrives from the brief (`GET …/position/compensation`, which unlike the brief's own
+read drafts nothing). The two **cross-mandate benchmarks** the chapters
 name but cannot yet derive say so on the page rather than leaving a hole: marked not built, with no
 fabricated progress count. The mockup's relevance mix is not drawn at all — nothing records how a
 company was reached (V30 dropped `app_lm_strategy_sector.kind`), and an illustrative bar on a
@@ -109,8 +124,10 @@ already have; nothing is written until a row is accepted, and a run with no Vert
 proposes from the document's own headings, honestly labelled. `Position.dc.html`'s dropzone promises a
 **silent** auto-fill on drop — review-then-accept is a deliberate, correct deviation from that mockup,
 not a bug to fix later. **The product is Uncava**: the mark is the rhombus over an isometric cube
-in `claude-design/logo` (`favicon.svg`, the extension's `BrandMark` and its icons are drawn from that
-geometry) and every user-facing string says Uncava, while the mockups still draw the
+in `apps/web/public/brand` (`favicon.svg`, the SPA's `AppIcon`, the extension's `BrandMark` and icons,
+and the email's `uncava-mark-email-v1.png` are drawn from that one geometry) and every user-facing
+string says Uncava,
+while the mockups still draw the
 amber "L" tile and the code, packages, persisted keys and JWT issuer keep the `lightmove` name — a
 deliberate split, not drift. It is served at `https://beta.uncava.com` (Cloud Run domain mapping,
 Cloudflare DNS with the proxy off; README, "Custom domain"), and a link to it pasted into a chat app
@@ -123,7 +140,7 @@ the mockups: if a screen isn't being built this session, its tables and entities
 
 | Path | What |
 |---|---|
-| `apps/api` | Spring Boot 4.1 (Java 21, Maven). Features: `core`, `common`, `workspace`, `project`, `position`, `positiontemplate`, `strategy`, `triagecompany`, `candidate`, `enrichment`, `customcolumn`, `dataimport`, `geocoding`, `talentmap`, `report` |
+| `apps/api` | Spring Boot 4.1 (Java 21, Maven). Features: `core`, `common`, `workspace`, `project`, `position`, `positiontemplate`, `strategy`, `triagecompany`, `candidate`, `enrichment`, `customcolumn`, `dataimport`, `dataexport`, `geocoding`, `talentmap`, `report` |
 | `apps/web` | React 19 SPA (Vite 8, TypeScript, Tailwind v4) |
 | `apps/extension` | LightMove Capture — the Chrome extension (Manifest V3, React 19, Vite 8). Its own workspace; shares no code with `apps/web`. |
 | `claude-design/` | HTML mockups — **the source of truth for all UI**. Read the relevant `*.dc.html` before building a screen. |
@@ -159,8 +176,10 @@ method (`applyTo`) that decides what a row may store in them, since the bag is o
 stands between it and arbitrary caller-chosen keys. `triagecompany` and `candidate` depend on it; it
 depends on neither and knows nothing about companies or people. **`dataimport` is the spreadsheet** —
 read the file, work out what its columns mean, and write what it carries through the doors that
-already exist. It depends on those three and none of them depends back. Details in
-`java-spring-development`.
+already exist. It depends on those three and none of them depends back. **`dataexport` is the same
+three doors outward** — one stage of the Companies grid, composed and written as a CSV, reading
+through the seams `talentmap` already uses; it depends on the same three and on nothing else. Details
+in `java-spring-development`.
 
 ## Commands
 

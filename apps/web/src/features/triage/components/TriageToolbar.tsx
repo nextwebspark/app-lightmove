@@ -46,6 +46,8 @@ export function TriageToolbar({
   onAddCompany,
   onAddExecutive,
   onImport,
+  onExport,
+  exporting,
   onManageColumns,
   canWrite,
   canImport,
@@ -62,6 +64,9 @@ export function TriageToolbar({
   onAddCompany: () => void;
   onAddExecutive: () => void;
   onImport: () => void;
+  onExport: () => void;
+  /** The file is composed server-side, so the press has to say it is doing something. */
+  exporting: boolean;
   onManageColumns: () => void;
   /** False for a client representative, who reads these grids and writes nothing. */
   canWrite: boolean;
@@ -116,6 +121,17 @@ export function TriageToolbar({
             onResetLayout={onResetLayout}
           />
         )}
+
+        {/* Outside the write gate: a client representative reads this grid, so they may take it. */}
+        <button
+          type="button"
+          onClick={onExport}
+          disabled={exporting}
+          className={`${TOOLBAR_BUTTON} disabled:opacity-50`}
+        >
+          <Icon d={ICONS.download} size={14} className="flex-none" />
+          {exporting ? "Exporting…" : "Export"}
+        </button>
 
         {canWrite && (
           <>

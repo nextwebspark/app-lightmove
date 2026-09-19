@@ -15,7 +15,7 @@ vi.mock("../api/reportApi", async (importOriginal) => ({
 }));
 
 /**
- * The Reports tab: one chapter at a time behind a step rail, the figures that move when a reader
+ * The Reports tab: one chapter at a time behind a chapter menu, the figures that move when a reader
  * changes the basis or the filter, the drill-in drawers, and — the one that matters — a refused read
  * never rendering as a report full of zeros.
  */
@@ -35,6 +35,10 @@ describe("ReportsPage", () => {
     candidates: 0,
     createdAt: "2026-07-21T10:00:00Z",
   };
+
+  /** A tile's share of the treemap, in percent — what its area says about its sector. */
+  const areaOf = (tile: HTMLElement) =>
+    (parseFloat(tile.style.width) * parseFloat(tile.style.height)) / 100;
 
   function LocationProbe() {
     return <output aria-label="location">{useLocation().search}</output>;
@@ -89,14 +93,14 @@ describe("ReportsPage", () => {
     await waitFor(() => expect(reportApi.getReport).toHaveBeenCalledTimes(2));
   });
 
-  it("opens on mapping progress, beside a rail of the four chapters", async () => {
+  it("opens on mapping progress, beside a menu of the four chapters", async () => {
     vi.mocked(reportApi.getReport).mockResolvedValue(SAMPLE_REPORT);
 
     renderPage();
 
     expect(await screen.findByRole("heading", { level: 1, name: "Are we going to hit the deadline?" })).toBeInTheDocument();
     const rail = screen.getByRole("navigation", { name: "Report chapters" });
-    expect(within(rail).getByRole("link", { name: /Mapping progress/ })).toHaveAttribute("aria-current", "step");
+    expect(within(rail).getByRole("link", { name: /Mapping progress/ })).toHaveAttribute("aria-current", "page");
     expect(within(rail).getByRole("link", { name: /Shape of the market/ })).toBeInTheDocument();
     expect(within(rail).getByRole("link", { name: /Remuneration/ })).toBeInTheDocument();
     expect(within(rail).getByRole("link", { name: /Diversity & DEI/ })).toBeInTheDocument();
@@ -142,6 +146,70 @@ describe("ReportsPage", () => {
     await user.click(screen.getByRole("radio", { name: "Full-mandate avg" }));
 
     expect(screen.getByText("24 days")).toBeInTheDocument();
+  });
+
+  /** A mandate days old, which is where the chart has a point and no line to draw through it. */
+  const firstWeek = (over: Partial<typeof SAMPLE_REPORT.progress>) => ({
+    ...SAMPLE_REPORT,
+    progress: {
+      ...SAMPLE_REPORT.progress,
+      kickoff: "2026-09-17",
+      asOf: "2026-09-18",
+      targetDate: "2026-09-26",
+      targetCompanies: 12,
+      companiesCumulative: [1],
+      weekly: [{ weekEnding: "2026-09-23", identified: 1 }],
+      daily: [0, 1],
+      ...over,
+    },
+  });
+
+  it("says a first week has no line rather than drawing a projection onto today", async () => {
+    vi.mocked(reportApi.getReport).mockResolvedValue(firstWeek({}));
+
+    renderPage();
+
+    expect(await screen.findByText(/Only the kickoff week has closed/)).toBeInTheDocument();
+    expect(screen.getByText("Too early to project")).toBeInTheDocument();
+    expect(screen.getByText(/A pace needs a second week/)).toBeInTheDocument();
+    // Nothing to project from, so neither the basis control nor a projected date is offered.
+    expect(screen.queryByRole("radio", { name: "Full-mandate avg" })).not.toBeInTheDocument();
+    expect(screen.queryByText(/projected 17 Sept/)).not.toBeInTheDocument();
+    expect(screen.queryByText("Projected")).not.toBeInTheDocument();
+  });
+
+  it("reads a universe covered inside the kickoff week as complete, not as a projection", async () => {
+    vi.mocked(reportApi.getReport).mockResolvedValue(firstWeek({ targetCompanies: 2, companiesCumulative: [2] }));
+
+    renderPage();
+
+    expect(await screen.findByText(/already has an executive mapped, inside the kickoff week/)).toBeInTheDocument();
+    expect(screen.queryByText("Projected")).not.toBeInTheDocument();
+  });
+
+  it("drops the projection once every company is covered, and keeps the line", async () => {
+    vi.mocked(reportApi.getReport).mockResolvedValue({
+      ...SAMPLE_REPORT,
+      progress: { ...SAMPLE_REPORT.progress, companiesCumulative: [0, 20, 42] },
+    });
+
+    renderPage();
+
+    expect(await screen.findByText(/there is nothing left to project/)).toBeInTheDocument();
+    expect(screen.getByText("Actual")).toBeInTheDocument();
+    expect(screen.queryByText("Projected")).not.toBeInTheDocument();
+  });
+
+  it("names a stalled mandate as unprojectable instead of projecting from a zero pace", async () => {
+    vi.mocked(reportApi.getReport).mockResolvedValue({
+      ...SAMPLE_REPORT,
+      progress: { ...SAMPLE_REPORT.progress, companiesCumulative: [0, 10, 10, 10, 10] },
+    });
+
+    renderPage();
+
+    expect(await screen.findByText(/no new company at all/)).toBeInTheDocument();
+    expect(screen.queryByText("Projected")).not.toBeInTheDocument();
   });
 
   it("opens a heat-matrix cell as a market slice with its executives", async () => {
@@ -237,6 +305,22 @@ describe("ReportsPage", () => {
     expect(screen.queryByText(/of the recorded pool/)).not.toBeInTheDocument();
   });
 
+  it("states a missing nationality the way it states a missing gender, rather than drawing a blank ring", async () => {
+    vi.mocked(reportApi.getReport).mockResolvedValue({
+      ...SAMPLE_REPORT,
+      diversity: { ...SAMPLE_REPORT.diversity, nationalities: [], gccNationals: 0, unknownNationality: 116 },
+    });
+
+    renderPage("dei");
+
+    // Both the checker and the mix say it, in the gender card's words.
+    expect(await screen.findAllByText("Nobody on this mandate has a nationality recorded.")).toHaveLength(2);
+    // And nothing claims to have measured it: no 0-of-0 scope, no 0% GCC share, no filters to set.
+    expect(screen.queryByText(/of the 0 executives mapped in that scope/)).not.toBeInTheDocument();
+    expect(screen.queryByRole("combobox", { name: "Nationality requirement" })).not.toBeInTheDocument();
+    expect(screen.getByText("no nationality recorded yet")).toBeInTheDocument();
+  });
+
   it("names the cross-mandate benchmarks it does not have rather than leaving a silent gap", async () => {
     vi.mocked(reportApi.getReport).mockResolvedValue(SAMPLE_REPORT);
 
@@ -246,6 +330,50 @@ describe("ReportsPage", () => {
 
     renderPage("dei");
     expect(await screen.findByText(/Cross-mandate diversity benchmark/)).toBeInTheDocument();
+  });
+
+  it("draws only the pockets a sparse mandate has reached, not a field of hatching", async () => {
+    vi.mocked(reportApi.getReport).mockResolvedValue({
+      ...SAMPLE_REPORT,
+      market: {
+        ...SAMPLE_REPORT.market,
+        cells: SAMPLE_REPORT.market.cells.map((cell) =>
+          cell.sector === "FMCG" && cell.level === "C-Suite" ? { ...cell, count: 1 } : { ...cell, count: 0 },
+        ),
+      },
+    });
+
+    renderPage("market");
+    await screen.findByText("Sector × seniority");
+
+    // One executive at one pocket: one row, one column, and no Board or N-2 row of hatching.
+    const matrix = screen.getByRole("button", { name: "FMCG · C-Suite: 1 executives" });
+    expect(matrix).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /Board: 0 executives/ })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /F&B/ })).not.toBeInTheDocument();
+  });
+
+  it("draws the sector universe as a treemap, each tile sized by its share", async () => {
+    vi.mocked(reportApi.getReport).mockResolvedValue(SAMPLE_REPORT);
+
+    renderPage("market");
+    await screen.findByText("Companies by sector");
+
+    expect(screen.getByText("n=42")).toBeInTheDocument();
+    // Area, not length, is what a treemap states: 14 of the 42 sectored companies is a third of it.
+    const leader = screen.getByRole("img", { name: "FMCG — 14 companies, 33.3% of the sectored universe" });
+    expect(areaOf(leader)).toBeCloseTo(33.3, 1);
+    expect(within(leader).getByText("33.3%")).toBeInTheDocument();
+    expect(areaOf(screen.getByRole("img", { name: "Other — 2 companies, 4.8% of the sectored universe" }))).toBeCloseTo(4.8, 1);
+  });
+
+  it("heads a chapter with its question alone, not with a screen counter", async () => {
+    vi.mocked(reportApi.getReport).mockResolvedValue(SAMPLE_REPORT);
+
+    renderPage();
+    await screen.findByText("36 days");
+
+    expect(screen.queryByText(/^Screen \d/)).not.toBeInTheDocument();
   });
 
   it("falls back to the country bars alone where no map is configured", async () => {

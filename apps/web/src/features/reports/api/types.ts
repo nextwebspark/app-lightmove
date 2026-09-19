@@ -33,7 +33,7 @@ export interface ReportProgress {
   weekly: WeeklyCount[];
   /** Executives identified per day from the kickoff day (index 0) to `asOf`. */
   daily: number[];
-  daysSinceLastCompany: number | null;
+  daysSinceLastExecutive: number | null;
 }
 
 export interface MarketCell {

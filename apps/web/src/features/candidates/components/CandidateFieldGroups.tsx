@@ -16,6 +16,7 @@ import { CountryField } from "../../../components/ui/CountryField";
 import { cn } from "../../../lib/cn";
 import { CURRENCIES } from "../../../lib/currencies";
 import { formatNumber } from "../../../lib/format";
+import { NOTICE_PERIODS } from "../../../lib/noticePeriod";
 import { toReadableUrl } from "../../../lib/url";
 import { amountTyped } from "../lib/compensation";
 import { EMPTY_CONTACT_LINE, type CandidateForm, type ContactEntryForm } from "../lib/candidateForm";
@@ -215,7 +216,9 @@ const AMOUNTS: { name: "baseSalary" | "bonus" | "allowances" | "longTermIncentiv
  *
  * <p>A currency the list does not carry — one stored before the picker existed, or by an import —
  * stays offered as an option: a select whose value matches no option posts blank, and that would
- * clear a fact nobody touched.
+ * clear a fact nobody touched. The notice period, which was a text box until the five became the
+ * vocabulary, is kept the same way; "Not established" above them is the blank every sibling picker
+ * carries, and is not "None" — see lib/noticePeriod.ts.
  */
 export function CompensationFields({
   register,
@@ -223,10 +226,12 @@ export function CompensationFields({
   watch,
   setValue,
   storedCurrency,
+  storedNoticePeriod,
 }: FieldGroupProps & {
   watch: UseFormWatch<CandidateForm>;
   setValue: UseFormSetValue<CandidateForm>;
   storedCurrency?: string | null;
+  storedNoticePeriod?: string | null;
 }) {
   const [currency, base, bonus, allowances, longTermIncentive] = watch([
     "currency",
@@ -239,6 +244,10 @@ export function CompensationFields({
     storedCurrency && !(CURRENCIES as readonly string[]).includes(storedCurrency)
       ? [storedCurrency, ...CURRENCIES]
       : [...CURRENCIES];
+  const offVocabularyNotice =
+    storedNoticePeriod && !NOTICE_PERIODS.some((period) => period.label === storedNoticePeriod)
+      ? storedNoticePeriod
+      : null;
 
   return (
     <>
@@ -254,7 +263,17 @@ export function CompensationFields({
           </Select>
         </Field>
         <Field label="Notice period" error={errors.noticePeriod?.message}>
-          <Input {...register("noticePeriod")} placeholder="3 months" />
+          <Select {...register("noticePeriod")} invalid={Boolean(errors.noticePeriod)}>
+            <option value="">Not established</option>
+            {NOTICE_PERIODS.map((period) => (
+              <option key={period.label} value={period.label}>
+                {period.label}
+              </option>
+            ))}
+            {offVocabularyNotice && (
+              <option value={offVocabularyNotice}>{offVocabularyNotice} (as recorded)</option>
+            )}
+          </Select>
         </Field>
         {AMOUNTS.map((amount) => (
           <AmountField

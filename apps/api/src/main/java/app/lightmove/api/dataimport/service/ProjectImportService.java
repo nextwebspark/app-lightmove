@@ -418,7 +418,7 @@ public class ProjectImportService {
                         stored == null ? null : stored.allowances()),
                 firstOf(RowValues.number(fields.field(ImportTargetField.CANDIDATE_LONG_TERM_INCENTIVE)),
                         stored == null ? null : stored.longTermIncentive()),
-                firstOf(RowValues.text(fields.field(ImportTargetField.CANDIDATE_NOTICE_PERIOD), 100),
+                firstOf(RowValues.noticePeriod(fields.field(ImportTargetField.CANDIDATE_NOTICE_PERIOD)),
                         stored == null ? null : stored.noticePeriod()));
     }
 

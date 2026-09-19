@@ -189,6 +189,14 @@ set `from-address` on that domain, then `provider: resend` plus the key. A faile
 the signup, but the verification token is stored **hashed**, so a link that fails to send is
 unrecoverable — use `/auth/verify/resend`.
 
+Every email is one layout — `EmailRenderer` — and each template states only what it says, so the HTML
+and plain-text halves are rendered from the same sentence rather than written twice. The header's mark
+is `apps/web/public/brand/uncava-mark-email-v1.png`, fetched over `lightmove.web.base-url`: mail clients
+do not render SVG, so it is a Chromium screenshot of the same paths the app draws, produced the way the
+OG card is ("Link previews" below) and for the same reason. Its filename carries a version because Gmail
+proxies and caches every image it fetches, so a mark redrawn in place would leave the old one in
+circulation. The wordmark beside it is text, which is what a reader who blocks images sees.
+
 **Google sign-in** is not configured: `GET /api/v1/auth/providers` returns `{"google": false}` and the SPA
 hides the button, because a button leading to a 404 is worse than no button. To enable it, create an OAuth
 client with redirect URI `http://localhost:8080/login/oauth2/code/google` and put the id and secret in
@@ -381,6 +389,22 @@ Transactional mail is sent as `noreply@uncava.com`, which means `uncava.com` ver
 DKIM and SPF records and a `_dmarc` TXT live in Cloudflare next to the CNAME, and the `EMAIL_FROM`
 variable names the address.
 
+### Warm hours
+
+The service scales to zero, and the first load after ~15 minutes idle pays a JVM boot. Testing happens
+in Dubai hours, so two Cloud Scheduler jobs hold one instance warm only then: minimum instances go to 1
+at 06:45 and back to 0 at 22:00, `Asia/Dubai`, every day.
+
+```bash
+./ops/gcp/schedule-warm-hours.sh    # API, service account, both jobs — idempotent, re-run freely
+gcloud scheduler jobs pause lightmove-warm-up --location us-central1    # stop paying for it
+```
+
+They set the **service-level** minimum, which changes in place with no new revision. The deploy passes
+no `--min-instances` and must not: that flag is the *revision-level* minimum, the larger of the two
+wins, and every change to it ships a revision — the cold start the schedule exists to remove. A release
+during the window leaves the instance warm.
+
 ### Link previews
 
 Pasting a link to the app into WhatsApp, Slack, LinkedIn, iMessage or X draws a card: the title, one
@@ -409,7 +433,7 @@ two drift apart.
 
 | | |
 |---|---|
-| `min-instances 0` | $0 idle. The price is a cold start — measured at **~5s**, not the 15s a Spring Boot app usually costs |
+| `min-instances` | **Not set by the deploy.** It is the *service-level* minimum, owned by `ops/gcp/schedule-warm-hours.sh` ("Warm hours" above): 1 from 06:45 to 22:00 Asia/Dubai, 0 overnight, about $2–4 a month at the idle rate. A deploy leaves it alone. Outside the window the price is a cold start — measured at **~5s**, not the 15s a Spring Boot app usually costs |
 | `max-instances 2` | **Not** the default of 100. 2 × `DB_POOL_MAX=5` = 10 connections, under the `db-f1-micro`'s ~25 — which the `brightdata` ETL also draws on. Raise this and you can take down the neighbours |
 | Version | One `--build-arg` (`APP_VERSION`, the release tag) feeds both halves of the image: vite freezes it into the bundle, where the left rail renders it, and Spring reports it at `/actuator/info`. Baked, never set on the service — an image must not be able to disagree with itself. Every local build reads `dev` |
 | Image tag | The release version **and** the git SHA, never `latest`. The version is what you ask for; the SHA still answers which commit is serving if a tag is ever moved |
@@ -439,7 +463,7 @@ set the variable and assert it with a test.
 | `claude-design/` | HTML mockups — **the source of truth for all UI** |
 | `ops/dev/` | `db.sh` (the local Docker Postgres) and `api.sh` (the API pointed at it) — what `npm run dev` runs |
 | `ops/cloudsql/` | Database bootstrap, hardening, the `lm_migrate` role, and `psql.sh` |
-| `ops/gcp/` | `bootstrap.sh` — everything on GCP the first deploy needs, idempotent |
+| `ops/gcp/` | `bootstrap.sh` — everything on GCP the first deploy needs, idempotent; `schedule-warm-hours.sh` — the Dubai-hours minimum-instance schedule |
 | `.github/workflows/` | `ci.yml` gates; `release.yml` tags and releases; `deploy.yml` builds, migrates, deploys, smoke-tests |
 | `docs/` | [Login & authentication](docs/login-and-authentication.md) — every signup/login/invite scenario, end to end |
 

@@ -149,6 +149,30 @@ class CandidateFlowIntegrationTest extends FlowTestSupport {
     }
 
     @Test
+    @DisplayName("a notice period the drawer does not offer is stored as stated, never refused")
+    void anUnofferedNoticePeriodIsKept() throws Exception {
+        String projectId = mandate("Notice Period Firm");
+
+        mvc.perform(post(candidatesUrl(projectId))
+                        .header("Authorization", "Bearer " + admin())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"fullName":"Omar Haddad","companyName":"A Firm",
+                                 "compensation":{"noticePeriod":"6 weeks, negotiable"}}"""))
+                .andExpect(status().isCreated());
+
+        JsonNode read = body(mvc.perform(get(candidatesUrl(projectId))
+                        .header("Authorization", "Bearer " + admin()))
+                .andExpect(status().isOk())
+                .andReturn()).get("candidates").get(0);
+
+        // The picker offers five periods; the column is not narrowed to them. A row stating something
+        // else is a fact somebody entered, and every save replays the whole compensation object — so
+        // refusing it here would refuse to save a package nobody had touched.
+        assertThat(read.at("/compensation/noticePeriod").asText()).isEqualTo("6 weeks, negotiable");
+    }
+
+    @Test
     @DisplayName("a profile URL that is not http(s) is dropped rather than stored")
     void aHostileProfileUrlIsDropped() throws Exception {
         String projectId = mandate("Profile Url Firm");

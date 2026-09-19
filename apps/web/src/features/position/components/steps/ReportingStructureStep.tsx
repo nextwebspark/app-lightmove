@@ -6,12 +6,13 @@ import type {
   ProposedField,
   ReportingStructure,
 } from "../../api/types";
-import { NOTICE_UNIT_LABELS, SENIORITY_LABELS } from "../../lib/labels";
+import { SENIORITY_LABELS } from "../../lib/labels";
 import { directReportsOf, labelOfNode, managerOf } from "../../lib/orgChart";
 import { OrgChartCanvas } from "../OrgChartCanvas";
 import { StepExtraction } from "../StepExtraction";
 import { formatDate } from "../../../../lib/format";
-import { ColumnLabel, NumberInput, StepField } from "../fields";
+import { noticePairLabel, noticePeriodOfPair, NOTICE_PERIODS, pairOfNoticePeriod } from "../../../../lib/noticePeriod";
+import { ColumnLabel, StepField } from "../fields";
 
 /**
  * Step three: the shape of the org around the seat.
@@ -21,6 +22,11 @@ import { ColumnLabel, NumberInput, StepField } from "../fields";
  * and a second set of inputs over the same structure is a second place for them to disagree. A proposed
  * reports-to or direct-report title is folded into this same chart by `onAcceptProposal` — see
  * `orgChart.ts`'s `applyReportsToTitle`/`appendDirectReport` — never replaced by one of its own.
+ *
+ * The notice period is one of five rather than the free count and unit Position.dc.html draws: a
+ * mandate plans in whole months, and a brief stating ninety days where an executive's profile said
+ * three months was one fact written two ways. A pair already stored outside the five stays offered —
+ * see `lib/noticePeriod.ts`.
  */
 export function ReportingStructureStep({
   roleTitle,
@@ -51,6 +57,18 @@ export function ReportingStructureStep({
 }) {
   const manager = labelOfNode(managerOf(reporting.orgChart));
   const reports = directReportsOf(reporting.orgChart);
+  const noticePeriod = noticePeriodOfPair(reporting.noticeValue, reporting.noticeUnit);
+  // A brief that already states a period nobody offers — ninety days, six weeks — keeps stating it
+  // until somebody picks another: a select whose value matches no option posts blank.
+  const asRecorded =
+    !noticePeriod && reporting.noticeValue != null && reporting.noticeUnit != null
+      ? noticePairLabel(reporting.noticeValue, reporting.noticeUnit)
+      : null;
+
+  const reportingPatchOf = (chosen: string): Partial<ReportingStructure> => {
+    if (chosen === asRecorded) return {};
+    return pairOfNoticePeriod(chosen) ?? { noticeValue: null, noticeUnit: null };
+  };
 
   return (
     <div className="flex flex-col gap-5">
@@ -109,31 +127,19 @@ export function ReportingStructureStep({
           </div>
         </StepField>
         <StepField label="Notice period to plan for">
-          <div className="flex gap-2">
-            <div className="min-w-0 flex-1 rounded-lg border border-line bg-panel2 px-3 py-1.5">
-              <NumberInput
-                value={reporting.noticeValue}
-                aria-label="Notice period"
-                placeholder="3"
-                max={365}
-                onChange={(noticeValue) => onChange({ noticeValue })}
-              />
-            </div>
-            <Select
-              aria-label="Notice period unit"
-              value={reporting.noticeUnit ?? "MONTHS"}
-              onChange={(event) =>
-                onChange({ noticeUnit: event.target.value as ReportingStructure["noticeUnit"] }, true)
-              }
-              className="w-[130px] flex-none"
-            >
-              {Object.entries(NOTICE_UNIT_LABELS).map(([value, label]) => (
-                <option key={value} value={value}>
-                  {label}
-                </option>
-              ))}
-            </Select>
-          </div>
+          <Select
+            aria-label="Notice period"
+            value={noticePeriod ?? asRecorded ?? ""}
+            onChange={(event) => onChange(reportingPatchOf(event.target.value), true)}
+          >
+            <option value="">Not stated</option>
+            {NOTICE_PERIODS.map((period) => (
+              <option key={period.label} value={period.label}>
+                {period.label}
+              </option>
+            ))}
+            {asRecorded && <option value={asRecorded}>{asRecorded} (as recorded)</option>}
+          </Select>
         </StepField>
       </div>
     </div>
