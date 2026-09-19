@@ -116,8 +116,9 @@ class CompanyCaptureResolutionIntegrationTest extends FlowTestSupport {
                 .andExpect(status().isOk())
                 .andReturn()).get("companies").get(0);
 
-        // Research filled the blanks; the consultant's own typed country stood its ground.
-        assertThat(researched.get("industry").asText()).isEqualTo("Software Development");
+        // Research filled the blanks; the consultant's own typed country stood its ground. The
+        // vendor's V2 industry lands as the universe's own label, so the report counts it once.
+        assertThat(researched.get("industry").asText()).isEqualTo("computer software");
         assertThat(researched.get("companyCity").asText()).isEqualTo("Dublin");
         assertThat(researched.get("companyCountry").asText()).isEqualTo("Éire");
         assertThat(researched.get("numEmployees").asInt()).isEqualTo(841);

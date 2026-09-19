@@ -288,6 +288,13 @@ number three ways. A miss is not a row — it is `emails_looked_up_at` / `phones
 candidate with nothing from the provider beside it. V54 moved the old `profile.contacts` jsonb into
 the table and V55 dropped the row's `email` and `phone` columns: the ledger is the only store, the
 importer matches a person on any address they hold, and the grid lists them all.
+V61 is the industry catch-up, V50's shape for a second column: the universe publishes LinkedIn's
+**legacy V1** vocabulary and Bright Data answers in **V2**, so `industry` held both until `Industries`
+(`common/industry`, static for `Countries`' reason) began canonicalising in `CapturedCompanyDetails`'
+compact constructor. `data/industry-map.json` is keyed on LinkedIn's industry id — V2 renamed V1's
+industries in place at the same ids, which is what makes the map derivable rather than guessed — and
+`ops/industry-map/build.py` rebuilds it (`--check` in CI would catch a hand edit). Its one trap is id
+25: V2 gave it to the `Manufacturing` root where V1 had it as `Consumer Goods`.
 V56 adds `app_lm_project_candidate.gender` (`FEMALE | MALE | OTHER`), nullable with no default:
 NULL is "nobody recorded it" and is deliberately not a fourth value, because "not recorded" and
 "recorded as other" are different facts and the report counts them apart.
