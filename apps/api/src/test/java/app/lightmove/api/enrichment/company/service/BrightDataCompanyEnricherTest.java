@@ -24,7 +24,9 @@ class BrightDataCompanyEnricherTest {
         CapturedCompanyDetails details = BrightDataCompanyEnricher.toDetails(fixtureCompany()).orElseThrow();
 
         assertThat(details.companyName()).isEqualTo("SampleCo");
-        assertThat(details.industry()).isEqualTo("Software Development");
+        // The dataset answers in LinkedIn's V2 vocabulary and the universe publishes V1's, so the
+        // record files "Software Development" under the label the Strategy filter can ask for.
+        assertThat(details.industry()).isEqualTo("computer software");
         assertThat(details.companyCity()).isEqualTo("Dublin");
         // The dataset speaks ISO-2; the Country column speaks names, as the Apollo rows do.
         assertThat(details.companyCountry()).isEqualTo("Ireland");
