@@ -1,0 +1,641 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700;900&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    :root{--bg:#f8f9fb;--panel:#ffffff;--panel2:#f3f4f6;--line:#e2e4e9;--line-soft:#edeef2;--text:#111113;--text2:#475569;--text3:#64748b;--amber:#a67c2e;--amber-btn:#e2b65c;--amber-dim:rgba(226,182,92,.14);--sky:#2563eb;--sky-dim:rgba(37,99,235,.10);--red:#dc2626;--red-dim:rgba(220,38,38,.08);--green:#059669;--green-dim:rgba(5,150,105,.10);--shadow:0 8px 28px rgba(15,23,42,.10);--mono:'Geist','Inter',system-ui,sans-serif;--sans:'Geist','Inter',system-ui,sans-serif;--ai:#6366f1;--ai2:#3b82f6;--ai-line:#4f46e5;--ai-dim:rgba(99,102,241,.10);--ai-soft:rgba(99,102,241,.06)}
+    body.dark{--bg:#0c0d0e;--panel:#16171a;--panel2:#131316;--line:#2a2a2e;--line-soft:#212326;--text:#f8fafc;--text2:#cbd5e1;--text3:#94a3b8;--amber:#e2b65c;--amber-dim:rgba(226,182,92,.16);--sky:#60a5fa;--sky-dim:rgba(96,165,250,.16);--red:#f87171;--red-dim:rgba(248,113,113,.14);--green:#34d399;--green-dim:rgba(52,211,153,.16);--shadow:0 8px 28px rgba(0,0,0,.5);--ai:#818cf8;--ai2:#60a5fa;--ai-line:#6366f1;--ai-dim:rgba(129,140,248,.16);--ai-soft:rgba(129,140,248,.09)}
+    *{box-sizing:border-box}
+    html,body{height:100%;margin:0}
+    body{background:var(--bg);color:var(--text);font:400 14px/1.45 var(--sans);-webkit-font-smoothing:antialiased}
+    a{color:var(--sky);text-decoration:none}
+    a:hover{text-decoration:underline}
+    input::placeholder,textarea::placeholder{color:var(--text3)}
+    @keyframes fadeUp{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+    @keyframes slideIn{from{opacity:0;transform:translateX(16px)}to{opacity:1;transform:none}}
+    @keyframes blink{0%,45%{opacity:1}50%,95%{opacity:.15}100%{opacity:1}}
+    @keyframes spin{to{transform:rotate(360deg)}}
+    @media (prefers-reduced-motion:reduce){*{animation:none !important}}
+  </style>
+</helmet>
+
+<!--
+  Assistant.dc.html — the Uncava Assistant, mocked over Strategy.
+
+  Two decisions this mockup settles (see issue #437):
+
+  1. PALETTE. The panel uses the ORDINARY tokens, not UNCAVA (--color-u-*). It opens on every
+     screen, and every screen but Reports is on the ordinary palette. On Reports it will read as
+     slightly foreign — the same deliberate seam tokens.css already documents, and it closes when
+     the rest of the app migrates. The one addition is --ai / --ai2, the indigo already used for
+     Strategy's AI Research CTA, kept as the assistant's own accent so the button and the thing it
+     opens are visibly the same feature.
+
+  2. NON-MODAL. There is no scrim. The page keeps its own width and stays clickable while the
+     panel is open — the grid behind is live, and that is the point: you watch a proposal arrive
+     and tick rows beside it. The panel is a docked column, not an overlay.
+-->
+
+<div style="height:100vh;display:flex;overflow:hidden">
+
+  <!-- ─────────────── nav rail (abbreviated; see Strategy.dc.html for the full one) ─────────────── -->
+  <nav style="width:240px;flex:none;padding:14px 10px;display:flex;flex-direction:column;overflow-y:auto;overflow-x:hidden">
+    <div style="display:flex;align-items:center;gap:8px;padding:4px 6px 4px 4px;margin:0 2px 12px">
+      <span style="width:24px;height:24px;border-radius:6px;background:#e2b65c;color:#1a1712;display:grid;place-items:center;font:700 12px var(--sans);flex:none">L</span>
+      <span style="font:700 14px var(--sans);letter-spacing:.01em;white-space:nowrap">LightMove</span>
+    </div>
+    <a href="Workspace.dc.html" style="display:flex;align-items:center;gap:10px;width:100%;padding:8px 10px;border-radius:7px;font:500 13px var(--sans);color:var(--text2);text-decoration:none;margin-bottom:6px" style-hover="background:var(--panel2);color:var(--text);text-decoration:none">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex:none"><path d="M19 12H5M12 19l-7-7 7-7"></path></svg>
+      <span style="white-space:nowrap">All projects</span>
+    </a>
+    <div style="height:1px;background:var(--line-soft);margin:0 4px 10px"></div>
+    <span style="display:inline-flex;align-items:center;gap:5px;padding:3px 9px;border-radius:6px;font:600 10px var(--mono);letter-spacing:.05em;text-transform:uppercase;color:var(--amber);background:var(--amber-dim);margin:0 10px 12px;align-self:flex-start">
+      <span style="width:6px;height:6px;border-radius:50%;background:currentColor"></span>Mapping
+    </span>
+    <sc-for list="{{ navGroups }}" as="g" hint-placeholder-count="3">
+      <div style="font:600 10px var(--mono);letter-spacing:.14em;text-transform:uppercase;color:var(--text3);padding:10px 10px 6px">{{ g.group }}</div>
+      <sc-for list="{{ g.items }}" as="it" hint-placeholder-count="2">
+        <a href="{{ it.href }}" style="display:flex;align-items:center;gap:10px;width:100%;padding:8px 10px;border-radius:7px;font:400 13.5px var(--sans);color:{{ it.color }};background:{{ it.bg }};text-decoration:none" style-hover="background:var(--panel2);color:var(--text);text-decoration:none">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex:none;color:{{ it.iconColor }}"><path d="{{ it.icon }}"></path></svg>
+          <span style="white-space:nowrap">{{ it.label }}</span>
+        </a>
+      </sc-for>
+    </sc-for>
+    <div style="margin-top:auto;padding-top:12px;border-top:1px solid var(--line-soft)">
+      <button onClick="{{ toggleTheme }}" style="display:flex;align-items:center;gap:10px;width:100%;padding:8px 10px;border-radius:7px;font:400 13.5px var(--sans);color:var(--text2);background:none;border:none;text-align:left;cursor:pointer" style-hover="background:var(--panel2);color:var(--text)">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex:none"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79Z"></path></svg>
+        <span style="white-space:nowrap">{{ themeLabel }}</span>
+      </button>
+    </div>
+  </nav>
+
+  <!-- ─────────────── the page + the docked panel, side by side ─────────────── -->
+  <div style="flex:1;display:flex;min-width:0;padding:10px 10px 10px 0;gap:{{ dockGap }}">
+
+    <main data-screen-label="Strategy" style="flex:1;min-height:0;min-width:0;background:var(--panel);border:1px solid var(--line);border-radius:15px;display:flex;flex-direction:column;overflow:hidden">
+
+      <div style="flex:none;display:flex;align-items:center;gap:18px;padding:16px 32px 14px;border-bottom:1px solid var(--line)">
+        <div style="min-width:0">
+          <div style="font:400 12px var(--mono);color:var(--text3);margin-bottom:3px">Projects / <span style="color:var(--amber)">&#9679;</span> Meridian Energy Group</div>
+          <div style="font:700 19px var(--sans);letter-spacing:-.01em">Chief Financial Officer</div>
+        </div>
+        <span style="margin-left:auto;display:flex;align-items:center">
+          <span style="width:26px;height:26px;border-radius:50%;display:grid;place-items:center;font:600 10px var(--mono);background:var(--sky-dim);color:var(--sky);border:2px solid var(--panel)">YH</span>
+          <span style="width:26px;height:26px;border-radius:50%;display:grid;place-items:center;font:600 10px var(--mono);background:var(--amber-dim);color:var(--amber);border:2px solid var(--panel);margin-left:-8px">YI</span>
+        </span>
+      </div>
+
+      <div style="flex:none;display:flex;align-items:center;gap:14px;padding:6px 20px;min-height:44px;background:var(--panel2);border-bottom:1px solid var(--line-soft)">
+        <button style="display:inline-flex;align-items:center;gap:6px;background:none;border:none;cursor:pointer;font:400 13px var(--sans);color:var(--text3);padding:4px 0;white-space:nowrap" style-hover="color:var(--text)">Save Search</button>
+        <button style="display:inline-flex;align-items:center;gap:6px;background:none;border:none;cursor:pointer;font:400 13px var(--sans);color:var(--text3);padding:8px;border-radius:6px;white-space:nowrap" style-hover="color:var(--text);background:var(--panel)">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex:none"><path d="M3 4h18l-7 8v6l-4 2v-8L3 4Z"></path></svg>
+          Hide Filters
+          <span style="font:700 10px var(--sans);color:var(--sky);background:var(--sky-dim);border-radius:4px;padding:2px 5px">4</span>
+        </button>
+        <!-- The CTA that opens the panel. Pressed state while the panel is open, so the button and
+             the panel read as one feature rather than two. -->
+        <button onClick="{{ togglePanel }}" style="display:inline-flex;align-items:center;gap:8px;padding:8px 16px;border-radius:6px;border:1px solid var(--ai-line);background:{{ ctaBg }};color:{{ ctaColor }};font:600 13px var(--sans);cursor:pointer;white-space:nowrap;box-shadow:{{ ctaShadow }}" style-hover="filter:brightness(1.07)">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex:none"><path d="M9.9 2.6 11 5.9a2 2 0 0 0 1.3 1.3l3.3 1.1-3.3 1.1a2 2 0 0 0-1.3 1.3L9.9 14l-1.1-3.3a2 2 0 0 0-1.3-1.3L4.2 8.3l3.3-1.1a2 2 0 0 0 1.3-1.3ZM18 14l.6 1.8 1.8.6-1.8.6-.6 1.8-.6-1.8-1.8-.6 1.8-.6Z"></path></svg>
+          AI Research
+        </button>
+        <div style="margin-left:auto;font:400 12px var(--mono);color:var(--text3)">{{ resultCount }} companies</div>
+      </div>
+
+      <!-- The grid stays live while the panel is open — no scrim, no inert. Rows still tick. -->
+      <div style="flex:1;min-height:0;overflow:auto;padding:16px 20px">
+        <div style="border:1px solid var(--line);border-radius:10px;overflow:hidden;min-width:520px">
+          <div style="display:grid;grid-template-columns:28px minmax(150px,1.6fr) minmax(96px,1fr) minmax(110px,1.1fr) 84px;gap:0;background:var(--panel2);border-bottom:1px solid var(--line);font:600 10px var(--mono);letter-spacing:.09em;text-transform:uppercase;color:var(--text3)">
+            <div style="padding:9px 8px"></div>
+            <div style="padding:9px 10px">Company</div>
+            <div style="padding:9px 10px">Country</div>
+            <div style="padding:9px 10px">Sector</div>
+            <div style="padding:9px 10px">Staff</div>
+          </div>
+          <sc-for list="{{ gridRows }}" as="r" hint-placeholder-count="6">
+            <div onClick="{{ tickRow }}" data-name="{{ r.name }}" role="button" style="display:grid;grid-template-columns:28px minmax(150px,1.6fr) minmax(96px,1fr) minmax(110px,1.1fr) 84px;border-bottom:1px solid var(--line-soft);cursor:pointer;background:{{ r.bg }}" style-hover="background:var(--panel2)">
+              <div style="padding:10px 8px;display:grid;place-items:center">
+                <span style="width:14px;height:14px;border-radius:3px;border:1.5px solid {{ r.tickBorder }};background:{{ r.tickBg }};display:grid;place-items:center">
+                  <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3.4" style="display:{{ r.tickDisp }}"><path d="M20 6 9 17l-5-5"></path></svg>
+                </span>
+              </div>
+              <div style="padding:10px;font:500 13px var(--sans);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ r.name }}</div>
+              <div style="padding:10px;font:400 13px var(--sans);color:var(--text2)">{{ r.country }}</div>
+              <div style="padding:10px;font:400 13px var(--sans);color:var(--text2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ r.sector }}</div>
+              <div style="padding:10px;font:400 13px var(--mono);color:var(--text2)">{{ r.staff }}</div>
+            </div>
+          </sc-for>
+        </div>
+        <div style="margin-top:14px;font:400 12px var(--mono);color:var(--text3)">{{ tickedLabel }}</div>
+      </div>
+    </main>
+
+    <!-- ─────────────── the assistant panel — docked, non-modal ─────────────── -->
+    <sc-if value="{{ panelOpen }}" hint-placeholder-val="{{ true }}">
+      <aside role="complementary" aria-label="Uncava Assistant" style="width:400px;flex:none;min-height:0;background:var(--panel);border:1px solid var(--line);border-radius:15px;display:flex;flex-direction:column;overflow:hidden;animation:slideIn .18s ease both">
+
+        <!-- header -->
+        <div style="flex:none;padding:12px 14px 10px;border-bottom:1px solid var(--line)">
+          <div style="display:flex;align-items:center;gap:9px">
+            <span style="width:22px;height:22px;border-radius:6px;background:linear-gradient(135deg,var(--ai),var(--ai2));display:grid;place-items:center;flex:none">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.2"><path d="M9.9 2.6 11 5.9a2 2 0 0 0 1.3 1.3l3.3 1.1-3.3 1.1a2 2 0 0 0-1.3 1.3L9.9 14l-1.1-3.3a2 2 0 0 0-1.3-1.3L4.2 8.3l3.3-1.1a2 2 0 0 0 1.3-1.3Z"></path></svg>
+            </span>
+            <span style="font:700 13.5px var(--sans);letter-spacing:-.01em">Assistant</span>
+            <div style="margin-left:auto;display:flex;align-items:center;gap:2px">
+              <button onClick="{{ newChat }}" title="New chat" style="width:28px;height:28px;display:grid;place-items:center;border-radius:6px;background:none;border:none;cursor:pointer;color:var(--text3)" style-hover="background:var(--panel2);color:var(--text)">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"></path></svg>
+              </button>
+              <button onClick="{{ toggleView }}" title="{{ viewToggleTitle }}" style="width:28px;height:28px;display:grid;place-items:center;border-radius:6px;background:{{ histBg }};border:none;cursor:pointer;color:{{ histColor }}" style-hover="background:var(--panel2);color:var(--text)">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12a9 9 0 1 0 3-6.7L3 8M3 3v5h5M12 7v5l3 2"></path></svg>
+              </button>
+              <button onClick="{{ togglePanel }}" title="Close" style="width:28px;height:28px;display:grid;place-items:center;border-radius:6px;background:none;border:none;cursor:pointer;color:var(--text3)" style-hover="background:var(--panel2);color:var(--text)">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6 6 18M6 6l12 12"></path></svg>
+              </button>
+            </div>
+          </div>
+          <!-- Context pill: which mandate the thread is asking about. On a workspace screen this
+               reads "Workspace" instead, and a thread reopened elsewhere keeps the context it was
+               asked in. -->
+          <div style="display:flex;align-items:center;gap:6px;margin-top:9px;padding:4px 8px;border-radius:6px;background:var(--panel2);font:400 11px var(--mono);color:var(--text3);width:fit-content;max-width:100%">
+            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="var(--amber)" stroke-width="2.2" style="flex:none"><path d="M12 2 3 7l9 5 9-5-9-5Z"></path></svg>
+            <span style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ contextLabel }}</span>
+          </div>
+        </div>
+
+        <!-- ── history view ── -->
+        <sc-if value="{{ showHistory }}" hint-placeholder-val="{{ false }}">
+          <div style="flex:1;min-height:0;overflow-y:auto;padding:8px">
+            <div style="font:600 10px var(--mono);letter-spacing:.13em;text-transform:uppercase;color:var(--text3);padding:8px 8px 6px">Recent</div>
+            <sc-for list="{{ threads }}" as="t" hint-placeholder-count="5">
+              <button onClick="{{ openThread }}" data-id="{{ t.id }}" style="display:block;width:100%;text-align:left;padding:9px 10px;border-radius:8px;background:{{ t.bg }};border:none;cursor:pointer;margin-bottom:2px" style-hover="background:var(--panel2)">
+                <div style="display:flex;align-items:baseline;gap:8px">
+                  <span style="font:500 13px var(--sans);color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;flex:1">{{ t.title }}</span>
+                  <span style="font:400 10px var(--mono);color:var(--text3);flex:none">{{ t.when }}</span>
+                </div>
+                <div style="font:400 11.5px var(--sans);color:var(--text3);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ t.snippet }}</div>
+                <div style="font:400 10px var(--mono);color:var(--text3);margin-top:4px;opacity:.8">{{ t.context }}</div>
+              </button>
+            </sc-for>
+          </div>
+        </sc-if>
+
+        <!-- ── thread view ── -->
+        <sc-if value="{{ showThread }}" hint-placeholder-val="{{ true }}">
+          <div style="flex:1;min-height:0;overflow-y:auto;padding:14px">
+
+            <!-- empty state -->
+            <sc-if value="{{ isEmpty }}" hint-placeholder-val="{{ false }}">
+              <div style="padding:26px 6px;text-align:center">
+                <div style="font:600 14px var(--sans);margin-bottom:6px">Ask about this market</div>
+                <div style="font:400 12.5px var(--sans);color:var(--text3);line-height:1.6;margin-bottom:16px">I can search the universe you already hold, and go wider when it does not have the answer.</div>
+                <sc-for list="{{ starters }}" as="s" hint-placeholder-count="3">
+                  <button onClick="{{ runStarter }}" data-q="{{ s.q }}" style="display:block;width:100%;text-align:left;padding:9px 11px;margin-bottom:6px;border-radius:8px;border:1px solid var(--line);background:none;cursor:pointer;font:400 12.5px var(--sans);color:var(--text2)" style-hover="border-color:var(--ai);color:var(--text);background:var(--ai-soft)">{{ s.q }}</button>
+                </sc-for>
+              </div>
+            </sc-if>
+
+            <sc-if value="{{ hasTurn }}" hint-placeholder-val="{{ true }}">
+
+              <!-- user message -->
+              <div style="display:flex;justify-content:flex-end;margin-bottom:14px">
+                <div style="max-width:86%;padding:8px 12px;border-radius:12px 12px 3px 12px;background:var(--panel2);font:400 13px var(--sans);line-height:1.5">{{ userMessage }}</div>
+              </div>
+
+              <!-- tool trace. This is the cost cascade made visible: every step says what it cost,
+                   and "free" is stated as loudly as a spend. A consultant should be able to see
+                   that we looked at our own data first. -->
+              <div style="border:1px solid var(--line-soft);border-radius:9px;background:var(--panel2);padding:4px;margin-bottom:12px">
+                <button onClick="{{ toggleTrace }}" style="display:flex;align-items:center;gap:7px;width:100%;padding:5px 7px;background:none;border:none;cursor:pointer;text-align:left">
+                  <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="var(--text3)" stroke-width="2.6" style="flex:none;transform:rotate({{ traceRot }});transition:transform .15s ease"><path d="m9 18 6-6-6-6"></path></svg>
+                  <span style="font:600 11px var(--mono);color:var(--text2)">{{ traceSummary }}</span>
+                  <span style="margin-left:auto;font:400 10px var(--mono);color:var(--text3)">{{ traceCost }}</span>
+                </button>
+                <sc-if value="{{ traceOpen }}" hint-placeholder-val="{{ true }}">
+                  <div style="padding:2px 7px 6px">
+                    <sc-for list="{{ trace }}" as="s" hint-placeholder-count="4">
+                      <div style="display:flex;align-items:flex-start;gap:8px;padding:5px 0">
+                        <span style="width:13px;height:13px;flex:none;margin-top:1px;display:grid;place-items:center">
+                          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="{{ s.iconColor }}" stroke-width="2.6" style="display:{{ s.doneDisp }}"><path d="M20 6 9 17l-5-5"></path></svg>
+                          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="var(--ai)" stroke-width="2.4" style="display:{{ s.runDisp }};animation:spin .9s linear infinite"><path d="M21 12a9 9 0 1 1-6.2-8.6"></path></svg>
+                        </span>
+                        <span style="font:400 11.5px var(--sans);color:var(--text2);line-height:1.45;flex:1">{{ s.label }}</span>
+                        <span style="font:400 10px var(--mono);color:{{ s.costColor }};flex:none;white-space:nowrap">{{ s.cost }}</span>
+                      </div>
+                    </sc-for>
+                  </div>
+                </sc-if>
+              </div>
+
+              <!-- degraded banner -->
+              <sc-if value="{{ isDegraded }}" hint-placeholder-val="{{ false }}">
+                <div style="display:flex;gap:9px;padding:9px 11px;border-radius:9px;background:var(--amber-dim);border:1px solid rgba(226,182,92,.4);margin-bottom:12px">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--amber)" stroke-width="2.2" style="flex:none;margin-top:1px"><path d="M12 9v4m0 4h.01M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0Z"></path></svg>
+                  <div style="font:400 11.5px var(--sans);color:var(--text2);line-height:1.5">Bright Data could not be reached, so four companies are listed from the open web only and are <strong style="font-weight:600">unverified</strong>. Nothing was charged.</div>
+                </div>
+              </sc-if>
+
+              <!-- assistant prose -->
+              <div style="font:400 13px var(--sans);line-height:1.6;color:var(--text);margin-bottom:12px">
+                {{ assistantText }}<span style="display:{{ caretDisp }};width:2px;height:14px;background:var(--ai);vertical-align:-2px;margin-left:1px;animation:blink 1s step-end infinite"></span>
+              </div>
+
+              <!-- ── proposal card ── -->
+              <sc-if value="{{ hasProposal }}" hint-placeholder-val="{{ true }}">
+                <div style="border:1px solid var(--ai-line);border-radius:11px;overflow:hidden;background:var(--panel);box-shadow:var(--shadow)">
+                  <div style="padding:10px 12px;background:var(--ai-soft);border-bottom:1px solid var(--line-soft)">
+                    <div style="font:600 12.5px var(--sans);color:var(--text)">{{ proposalTitle }}</div>
+                    <div style="font:400 11px var(--mono);color:var(--text3);margin-top:3px">{{ proposalSub }}</div>
+                  </div>
+
+                  <div style="max-height:258px;overflow-y:auto">
+                    <sc-for list="{{ proposal }}" as="p" hint-placeholder-count="5">
+                      <div style="display:flex;align-items:center;gap:9px;padding:9px 12px;border-bottom:1px solid var(--line-soft);background:{{ p.rowBg }}">
+                        <button onClick="{{ toggleProposalRow }}" data-id="{{ p.id }}" title="{{ p.tickTitle }}" style="width:16px;height:16px;flex:none;border-radius:4px;border:1.5px solid {{ p.tickBorder }};background:{{ p.tickBg }};cursor:pointer;display:grid;place-items:center;padding:0">
+                          <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3.4" style="display:{{ p.tickDisp }}"><path d="M20 6 9 17l-5-5"></path></svg>
+                        </button>
+                        <span style="width:22px;height:22px;flex:none;border-radius:5px;background:var(--panel2);display:grid;place-items:center;font:700 9px var(--mono);color:var(--text3)">{{ p.initials }}</span>
+                        <div style="flex:1;min-width:0">
+                          <div style="font:500 12.5px var(--sans);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;opacity:{{ p.nameOpacity }}">{{ p.name }}</div>
+                          <div style="font:400 10.5px var(--mono);color:var(--text3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ p.meta }}</div>
+                        </div>
+                        <!-- Provenance is on every row, always. Green = we already held it (free),
+                             amber = we bought it, grey = open web, discovery only, unverified. -->
+                        <span title="{{ p.sourceTitle }}" style="flex:none;font:600 9px var(--mono);letter-spacing:.04em;text-transform:uppercase;padding:2px 6px;border-radius:4px;color:{{ p.sourceColor }};background:{{ p.sourceBg }}">{{ p.source }}</span>
+                      </div>
+                    </sc-for>
+                  </div>
+
+                  <!-- Accept bar. Three stages, same vocabulary and tones as the grid's own
+                       selection bar, and it files through the endpoint that already exists. -->
+                  <div style="padding:9px 12px;background:var(--panel2);border-top:1px solid var(--line-soft)">
+                    <div style="font:400 11px var(--mono);color:var(--text3);margin-bottom:7px">{{ acceptCountLabel }}</div>
+                    <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">
+                      <button onClick="{{ fileProposal }}" data-stage="universe" style="display:inline-flex;align-items:center;gap:5px;padding:6px 10px;border-radius:6px;border:1px solid var(--line);background:var(--panel);font:500 11.5px var(--sans);color:var(--text2);cursor:pointer" style-hover="color:var(--text);border-color:var(--ai)">
+                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M12 5v14M5 12h14"></path></svg>Universe
+                      </button>
+                      <button onClick="{{ fileProposal }}" data-stage="shortlist" style="display:inline-flex;align-items:center;gap:5px;padding:6px 10px;border-radius:6px;border:1px solid var(--line);background:var(--panel);font:500 11.5px var(--sans);color:var(--text2);cursor:pointer" style-hover="color:var(--text);border-color:var(--ai)">
+                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="m12 17.3-6.2 3.7 1.6-7L2 9.2l7.1-.6L12 2l2.9 6.6 7.1.6-5.4 4.8 1.6 7Z"></path></svg>Shortlist
+                      </button>
+                      <button onClick="{{ fileProposal }}" data-stage="declined" style="display:inline-flex;align-items:center;gap:5px;padding:6px 10px;border-radius:6px;border:1px solid var(--line);background:var(--panel);font:500 11.5px var(--sans);color:var(--red);cursor:pointer" style-hover="border-color:var(--red)">
+                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M18 6 6 18M6 6l12 12"></path></svg>Decline
+                      </button>
+                      <button onClick="{{ dismissProposal }}" style="margin-left:auto;background:none;border:none;cursor:pointer;font:400 11.5px var(--sans);color:var(--text3)" style-hover="color:var(--text)">Dismiss</button>
+                    </div>
+                  </div>
+                </div>
+              </sc-if>
+
+              <!-- follow-up suggestions — iteration 3, drawn here so the shape is agreed early -->
+              <sc-if value="{{ hasSuggestions }}" hint-placeholder-val="{{ true }}">
+                <div style="margin-top:14px">
+                  <div style="font:600 10px var(--mono);letter-spacing:.13em;text-transform:uppercase;color:var(--text3);margin-bottom:6px">Next</div>
+                  <sc-for list="{{ suggestions }}" as="s" hint-placeholder-count="2">
+                    <button onClick="{{ runStarter }}" data-q="{{ s.q }}" style="display:block;width:100%;text-align:left;padding:8px 10px;margin-bottom:5px;border-radius:8px;border:1px dashed var(--line);background:none;cursor:pointer;font:400 12px var(--sans);color:var(--text2)" style-hover="border-style:solid;border-color:var(--ai);color:var(--text);background:var(--ai-soft)">{{ s.q }}</button>
+                  </sc-for>
+                </div>
+              </sc-if>
+
+            </sc-if>
+          </div>
+
+          <!-- composer -->
+          <div style="flex:none;padding:10px 12px 12px;border-top:1px solid var(--line)">
+            <div style="border:1px solid {{ composerBorder }};border-radius:10px;padding:8px 10px;background:var(--panel2)">
+              <textarea value="{{ draft }}" onInput="{{ onDraft }}" onFocus="{{ focusComposer }}" onBlur="{{ blurComposer }}" placeholder="Ask about this market..." rows="2" style="width:100%;background:none;border:none;outline:none;resize:none;font:400 13px/1.5 var(--sans);color:var(--text)"></textarea>
+              <div style="display:flex;align-items:center;gap:8px;margin-top:4px">
+                <span style="font:400 10px var(--mono);color:var(--text3)">{{ composerHint }}</span>
+                <button onClick="{{ send }}" title="Send" style="margin-left:auto;width:26px;height:26px;display:grid;place-items:center;border-radius:6px;border:none;background:linear-gradient(135deg,var(--ai),var(--ai2));cursor:pointer;opacity:{{ sendOpacity }}">
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.4"><path d="M12 19V5M5 12l7-7 7 7"></path></svg>
+                </button>
+              </div>
+            </div>
+          </div>
+        </sc-if>
+      </aside>
+    </sc-if>
+  </div>
+
+  <!-- ─────────────── launcher — bottom right, clear of the bottom-centre toast ─────────────── -->
+  <sc-if value="{{ launcherVisible }}" hint-placeholder-val="{{ true }}">
+    <button onClick="{{ togglePanel }}" title="Ask the assistant" style="position:fixed;right:20px;bottom:20px;z-index:110;display:inline-flex;align-items:center;gap:9px;height:44px;padding:0 17px 0 14px;border-radius:22px;border:1px solid var(--ai-line);background:linear-gradient(135deg,var(--ai),var(--ai2));color:#fff;font:600 13px var(--sans);cursor:pointer;box-shadow:0 8px 24px -6px rgba(79,70,229,.5)" style-hover="filter:brightness(1.08)">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex:none"><path d="M9.9 2.6 11 5.9a2 2 0 0 0 1.3 1.3l3.3 1.1-3.3 1.1a2 2 0 0 0-1.3 1.3L9.9 14l-1.1-3.3a2 2 0 0 0-1.3-1.3L4.2 8.3l3.3-1.1a2 2 0 0 0 1.3-1.3ZM18 14l.6 1.8 1.8.6-1.8.6-.6 1.8-.6-1.8-1.8-.6 1.8-.6Z"></path></svg>
+      Ask
+      <sc-if value="{{ hasUnread }}" hint-placeholder-val="{{ false }}">
+        <span style="width:7px;height:7px;border-radius:50%;background:#fff;box-shadow:0 0 0 2px rgba(255,255,255,.35)"></span>
+      </sc-if>
+    </button>
+  </sc-if>
+
+  <!-- toast keeps bottom-centre; the launcher sits clear of it at bottom-right -->
+  <sc-if value="{{ toastVisible }}" hint-placeholder-val="{{ false }}">
+    <div style="position:fixed;bottom:22px;left:50%;transform:translateX(-50%);background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:9px 16px;font:500 12px var(--mono);color:var(--text2);box-shadow:var(--shadow);z-index:170;animation:fadeUp .2s ease both">{{ toastMsg }}</div>
+  </sc-if>
+
+</div>
+<template id="__bundler_thumbnail"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><rect width="100" height="100" fill="#16171a"></rect><text x="50" y="50" fill="#818cf8" font-family="Geist,sans-serif" font-size="26" font-weight="700" text-anchor="middle" dominant-baseline="central">AI</text></svg></template>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;panelOpen&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:true,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;Panel&quot;},&quot;panelView&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;default&quot;:&quot;thread&quot;,&quot;options&quot;:[&quot;thread&quot;,&quot;history&quot;],&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;Panel&quot;},&quot;turnState&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;default&quot;:&quot;proposal&quot;,&quot;options&quot;:[&quot;empty&quot;,&quot;streaming&quot;,&quot;proposal&quot;,&quot;degraded&quot;],&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;Panel&quot;}}">
+class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+
+    this.GRID = [
+      { name: 'ACWA Power', country: 'Saudi Arabia', sector: 'Energy & Utilities', staff: '1,800' },
+      { name: 'Masdar', country: 'UAE', sector: 'Energy & Utilities', staff: '1,200' },
+      { name: 'TAQA', country: 'UAE', sector: 'Energy & Utilities', staff: '7,400' },
+      { name: 'Nebras Power', country: 'Qatar', sector: 'Energy & Utilities', staff: '380' },
+      { name: 'Alfanar Energy', country: 'Saudi Arabia', sector: 'Manufacturing', staff: '6,100' },
+      { name: 'Empower', country: 'UAE', sector: 'Energy & Utilities', staff: '820' },
+    ];
+
+    // Provenance drives the colour, and the colour carries the cost story:
+    //   held  → we already had it, free
+    //   bought→ a vendor lookup was spent on it
+    //   web   → named by open-web discovery, unverified, never a source of facts
+    this.PROPOSAL = [
+      { id: 1, name: 'Saudi Electricity Company', meta: 'Saudi Arabia · 32,000 staff', source: 'held', on: true },
+      { id: 2, name: 'Marafiq', meta: 'Saudi Arabia · 2,400 staff', source: 'held', on: true },
+      { id: 3, name: 'Jinko Power Middle East', meta: 'UAE · 410 staff', source: 'bought', on: true },
+      { id: 4, name: 'Aljomaih Energy & Water', meta: 'Saudi Arabia · 260 staff', source: 'bought', on: true },
+      { id: 5, name: 'Desert Technologies', meta: 'Saudi Arabia · unknown', source: 'web', on: false },
+      { id: 6, name: 'Zahid Renewables', meta: 'Saudi Arabia · unknown', source: 'web', on: false },
+    ];
+
+    this.THREADS = [
+      { id: 't1', title: 'Top IPPs in Saudi Arabia', when: '2m', snippet: 'Six companies proposed, four filed to universe', context: 'Meridian Energy Group · Strategy' },
+      { id: 't2', title: 'Who runs finance at TAQA', when: '1h', snippet: 'Three executives mapped against the shortlist', context: 'Meridian Energy Group · Companies' },
+      { id: 't3', title: 'District cooling adjacency', when: 'Yesterday', snippet: 'Suggested Empower, Tabreed and two others', context: 'Meridian Energy Group · Strategy' },
+      { id: 't4', title: 'Gender split across the shortlist', when: '2d', snippet: 'Eleven of thirty-one executives have a gender on file', context: 'Meridian Energy Group · Reports' },
+      { id: 't5', title: 'CFO comp benchmarks, GCC utilities', when: '4d', snippet: 'Answered from the mandate own rows only', context: 'Workspace' },
+    ];
+
+    this.STARTERS = [
+      'Top 10 IPP operators in Saudi Arabia',
+      'Which companies in my universe have no executives mapped?',
+      'Show the market by country for this filter',
+    ];
+
+    this.SUGGESTIONS = [
+      'District cooling is adjacent to this filter — want me to look there?',
+      'Nine companies in your universe have no executives mapped yet',
+    ];
+
+    this.state = {
+      dark: false,
+      toast: '',
+      open: props.panelOpen ?? true,
+      view: props.panelView || 'thread',
+      turn: props.turnState || 'proposal',
+      traceOpen: true,
+      draft: '',
+      composerFocused: false,
+      ticked: ['ACWA Power'],
+      accepted: this.PROPOSAL.filter(p => p.on).map(p => p.id),
+      proposalLive: true,
+    };
+  }
+
+  componentDidMount() {
+    try {
+      if (localStorage.getItem('lm-theme') !== 'light') { document.body.classList.add('dark'); this.setState({ dark: true }); }
+    } catch (e) {}
+  }
+
+  showToast(msg) {
+    this.setState({ toast: msg });
+    clearTimeout(this._tx);
+    this._tx = setTimeout(() => this.setState({ toast: '' }), 2200);
+  }
+
+  navVals() {
+    const CURRENT = 'strategy';
+    const item = (key, label, icon, href) => ({
+      key, label, icon, href,
+      color: CURRENT === key ? 'var(--text)' : 'var(--text2)',
+      bg: CURRENT === key ? 'var(--panel2)' : 'transparent',
+      iconColor: CURRENT === key ? 'var(--amber)' : 'currentColor',
+    });
+    return {
+      navGroups: [
+        { group: 'Mandate', items: [
+          item('position', 'Position', 'M12 2 3 7l9 5 9-5-9-5ZM3 12l9 5 9-5M3 17l9 5 9-5', 'Position.dc.html'),
+          item('strategy', 'Strategy', 'M12 20V10M18 20V4M6 20v-4', 'Strategy.dc.html'),
+        ] },
+        { group: 'Companies', items: [
+          item('sourcing', 'Companies', 'M21 21l-4.3-4.3m1.8-5.2a7 7 0 1 1-14 0 7 7 0 0 1 14 0Z', 'Project.dc.html?page=sourcing'),
+        ] },
+        { group: 'Project', items: [
+          item('reports', 'Reports', 'M9 12h6m-6 4h6M9 8h1M5 21h14a2 2 0 0 0 2-2V7l-5-5H5a2 2 0 0 0-2 2v15a2 2 0 0 0 2 2Z', 'report/talent-map-uncava-light.html'),
+        ] },
+      ],
+      themeLabel: this.state.dark ? 'Light mode' : 'Dark mode',
+      toggleTheme: () => {
+        const dark = !this.state.dark;
+        document.body.classList.toggle('dark', dark);
+        try { localStorage.setItem('lm-theme', dark ? 'dark' : 'light'); } catch (e) {}
+        this.setState({ dark });
+      },
+    };
+  }
+
+  traceFor(turn) {
+    const done = (label, cost, free) => ({
+      label, cost,
+      doneDisp: 'block', runDisp: 'none',
+      iconColor: 'var(--green)',
+      costColor: free ? 'var(--text3)' : 'var(--amber)',
+    });
+    const running = (label) => ({
+      label, cost: '',
+      doneDisp: 'none', runDisp: 'block',
+      iconColor: 'var(--text3)', costColor: 'var(--text3)',
+    });
+
+    if (turn === 'streaming') {
+      return [
+        done('Searched your universe for energy companies in Saudi Arabia — 1,284 matched', 'free', true),
+        done('Narrowed to independent power producers — 38 companies', 'free', true),
+        running('Looking up four companies the universe does not carry'),
+      ];
+    }
+    if (turn === 'degraded') {
+      return [
+        done('Searched your universe for energy companies in Saudi Arabia — 1,284 matched', 'free', true),
+        done('Narrowed to independent power producers — 38 companies', 'free', true),
+        done('Found six more names on the open web', 'free', true),
+        { label: 'Bright Data did not answer — four companies left unverified', cost: 'not charged',
+          doneDisp: 'block', runDisp: 'none', iconColor: 'var(--amber)', costColor: 'var(--text3)' },
+      ];
+    }
+    return [
+      done('Searched your universe for energy companies in Saudi Arabia — 1,284 matched', 'free', true),
+      done('Narrowed to independent power producers — 38 companies', 'free', true),
+      done('Found six more names on the open web', 'free', true),
+      done('Matched two of them to companies you already hold', 'free', true),
+      done('Looked up the remaining four with Bright Data — two found', '2 lookups', false),
+    ];
+  }
+
+  renderVals() {
+    const st = this.state;
+    const turn = st.turn;
+    const isEmpty = turn === 'empty';
+    const isStreaming = turn === 'streaming';
+    const isDegraded = turn === 'degraded';
+    const showProposal = (turn === 'proposal' || isDegraded) && st.proposalLive;
+
+    const SOURCE = {
+      held: { label: 'universe', color: 'var(--green)', bg: 'var(--green-dim)', title: 'Already in your universe — nothing was spent' },
+      bought: { label: 'bright data', color: 'var(--amber)', bg: 'var(--amber-dim)', title: 'Bought from Bright Data and kept, so it is never bought again' },
+      web: { label: 'web', color: 'var(--text3)', bg: 'var(--panel2)', title: 'Named by an open-web search and not verified against any dataset' },
+    };
+
+    const rows = this.PROPOSAL.map(p => {
+      const on = st.accepted.includes(p.id);
+      const src = SOURCE[p.source];
+      return {
+        id: String(p.id), name: p.name, meta: p.meta,
+        initials: p.name.split(' ').slice(0, 2).map(w => w[0]).join(''),
+        source: src.label, sourceColor: src.color, sourceBg: src.bg, sourceTitle: src.title,
+        tickBorder: on ? 'var(--ai-line)' : 'var(--line)',
+        tickBg: on ? 'var(--ai-line)' : 'transparent',
+        tickDisp: on ? 'block' : 'none',
+        tickTitle: on ? 'Do not file this one' : 'File this one',
+        rowBg: on ? 'var(--ai-soft)' : 'transparent',
+        nameOpacity: on ? '1' : '.55',
+      };
+    });
+
+    const acceptedCount = st.accepted.length;
+    const trace = this.traceFor(turn);
+
+    const prose = isStreaming
+      ? 'Thirty-eight independent power producers match your filter. Six more turned up on the open web, and I have'
+      : (isDegraded
+        ? 'Thirty-eight IPPs match your filter, and six more turned up on the open web. Two of those you already hold. I could not verify the other four, so they are listed below as web-only — check them before filing.'
+        : 'Thirty-eight independent power producers match your filter. Six more turned up on the open web: two you already hold, two I verified with Bright Data, and two I could not verify. Here are the six that are not yet in your universe.');
+
+    const gridRows = this.GRID.map(r => {
+      const on = st.ticked.includes(r.name);
+      return {
+        ...r,
+        bg: on ? 'var(--sky-dim)' : 'transparent',
+        tickBorder: on ? 'var(--sky)' : 'var(--line)',
+        tickBg: on ? 'var(--sky)' : 'transparent',
+        tickDisp: on ? 'block' : 'none',
+      };
+    });
+
+    return {
+      ...this.navVals(),
+
+      // page behind
+      gridRows,
+      resultCount: '1,284',
+      tickedLabel: st.ticked.length
+        ? st.ticked.length + ' selected — the grid is still live while the assistant is open'
+        : 'The grid is still live while the assistant is open — try ticking a row',
+      tickRow: (e) => {
+        const n = e.currentTarget.dataset.name;
+        this.setState(s => ({ ticked: s.ticked.includes(n) ? s.ticked.filter(x => x !== n) : s.ticked.concat(n) }));
+      },
+
+      // panel chrome
+      panelOpen: st.open,
+      launcherVisible: !st.open,
+      hasUnread: false,
+      dockGap: st.open ? '10px' : '0px',
+      togglePanel: () => this.setState(s => ({ open: !s.open })),
+      ctaBg: st.open ? 'var(--ai-dim)' : 'linear-gradient(90deg,#6366f1,#3b82f6)',
+      ctaColor: st.open ? 'var(--ai)' : '#fff',
+      ctaShadow: st.open ? 'none' : '0 4px 12px -2px rgba(0,0,0,.15)',
+      contextLabel: 'Meridian Energy Group · Strategy',
+
+      showHistory: st.view === 'history',
+      showThread: st.view === 'thread',
+      histBg: st.view === 'history' ? 'var(--panel2)' : 'transparent',
+      histColor: st.view === 'history' ? 'var(--text)' : 'var(--text3)',
+      viewToggleTitle: st.view === 'history' ? 'Back to chat' : 'Previous chats',
+      toggleView: () => this.setState(s => ({ view: s.view === 'history' ? 'thread' : 'history' })),
+      newChat: () => { this.setState({ view: 'thread', turn: 'empty', proposalLive: true }); this.showToast('New chat'); },
+
+      // history
+      threads: this.THREADS.map((t, i) => ({ ...t, bg: i === 0 ? 'var(--panel2)' : 'transparent' })),
+      openThread: (e) => { this.setState({ view: 'thread', turn: 'proposal', proposalLive: true }); this.showToast('Opened chat'); },
+
+      // thread
+      isEmpty,
+      hasTurn: !isEmpty,
+      starters: this.STARTERS.map(q => ({ q })),
+      userMessage: 'Give me the top IPP operators in Saudi Arabia for this mandate',
+      assistantText: prose,
+      caretDisp: isStreaming ? 'inline-block' : 'none',
+      isDegraded,
+
+      // trace
+      trace,
+      traceOpen: st.traceOpen,
+      traceRot: st.traceOpen ? '90deg' : '0deg',
+      traceSummary: isStreaming ? 'Working — step ' + trace.length + ' of 3' : trace.length + ' steps',
+      traceCost: isDegraded ? 'nothing charged' : (isStreaming ? '' : '2 lookups'),
+      toggleTrace: () => this.setState(s => ({ traceOpen: !s.traceOpen })),
+
+      // proposal
+      hasProposal: showProposal,
+      proposal: rows,
+      proposalTitle: '6 companies not yet in your universe',
+      proposalSub: '2 already held · 2 verified · 2 from the web',
+      acceptCountLabel: acceptedCount === 0
+        ? 'Nothing selected'
+        : 'File ' + acceptedCount + (acceptedCount === 1 ? ' company as' : ' companies as'),
+      toggleProposalRow: (e) => {
+        const id = Number(e.currentTarget.dataset.id);
+        this.setState(s => ({ accepted: s.accepted.includes(id) ? s.accepted.filter(x => x !== id) : s.accepted.concat(id) }));
+      },
+      fileProposal: (e) => {
+        const stage = e.currentTarget.dataset.stage;
+        const n = this.state.accepted.length;
+        if (!n) { this.showToast('Nothing selected'); return; }
+        const word = { universe: 'universe', shortlist: 'shortlist', declined: 'declined' }[stage];
+        this.setState({ proposalLive: false });
+        this.showToast(n + (n === 1 ? ' company' : ' companies') + ' filed to ' + word);
+      },
+      dismissProposal: () => { this.setState({ proposalLive: false }); this.showToast('Proposal dismissed'); },
+
+      // suggestions
+      hasSuggestions: turn === 'proposal' && !st.proposalLive,
+      suggestions: this.SUGGESTIONS.map(q => ({ q })),
+
+      // composer
+      draft: st.draft,
+      onDraft: (e) => this.setState({ draft: e.target.value }),
+      focusComposer: () => this.setState({ composerFocused: true }),
+      blurComposer: () => this.setState({ composerFocused: false }),
+      composerBorder: st.composerFocused ? 'var(--ai)' : 'var(--line)',
+      composerHint: 'Enter to send · Shift+Enter for a new line',
+      sendOpacity: st.draft.trim() ? '1' : '.4',
+      send: () => {
+        if (!this.state.draft.trim()) return;
+        this.setState({ draft: '', turn: 'streaming' });
+        this.showToast('Asking...');
+      },
+      runStarter: (e) => {
+        this.setState({ turn: 'streaming' });
+        this.showToast('Asking: ' + e.currentTarget.dataset.q);
+      },
+
+      toastVisible: !!st.toast,
+      toastMsg: st.toast,
+    };
+  }
+}
+</script>
+</body>
+</html>
