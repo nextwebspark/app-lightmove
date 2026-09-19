@@ -58,6 +58,11 @@ lightmove:
     bcrypt-strength: 4
 
   company:
+    # Off. One Spring context serves the whole JVM and the facet tests reseed the universe between
+    # cases, so a held response would answer the next test with the previous one's counts.
+    # CompanyFacetsCacheIntegrationTest turns it back on for itself.
+    facets:
+      cache-ttl: 0
     list:
       # Small so the refusal path is reachable. At the production 200 a test would have to seed 201
       # companies to trip it, and the behaviour under test is the limit rather than the number.

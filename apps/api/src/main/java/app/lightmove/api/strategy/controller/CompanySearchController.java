@@ -1,5 +1,6 @@
 package app.lightmove.api.strategy.controller;
 
+import app.lightmove.api.core.config.CompanyFacetsSettings;
 import app.lightmove.api.core.config.CompanySearchSettings;
 import app.lightmove.api.core.config.LightMoveProperties;
 import app.lightmove.api.core.error.constant.ErrorCode;
@@ -11,8 +12,9 @@ import app.lightmove.api.strategy.dto.FacetsResponse;
 import app.lightmove.api.strategy.dto.KeywordSuggestionsResponse;
 import app.lightmove.api.strategy.model.CompanyRow;
 import app.lightmove.api.strategy.service.ApolloCompanyQueryService;
-import app.lightmove.api.strategy.service.IndustryAdjacency;
+import app.lightmove.api.strategy.service.CompanyFacetsService;
 import java.util.List;
+import org.springframework.http.CacheControl;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -36,26 +38,42 @@ import org.springframework.web.bind.annotation.RestController;
 public class CompanySearchController {
 
     private final ApolloCompanyQueryService companies;
-    private final IndustryAdjacency adjacency;
+    private final CompanyFacetsService facets;
     private final CompanySearchSettings searchConfig;
+    private final CompanyFacetsSettings facetsConfig;
 
-    public CompanySearchController(ApolloCompanyQueryService companies, IndustryAdjacency adjacency,
+    public CompanySearchController(ApolloCompanyQueryService companies, CompanyFacetsService facets,
                                    LightMoveProperties properties) {
         this.companies = companies;
-        this.adjacency = adjacency;
+        this.facets = facets;
         this.searchConfig = properties.company().search();
+        this.facetsConfig = properties.company().facets();
     }
 
-    /** Everything the filter accordions count over the whole universe — Location is not counted. */
+    /**
+     * Everything the filter accordions count over the whole universe — Location is not counted.
+     *
+     * <p>Held server-side and repeated to the browser, off the one TTL, so the two cannot drift.
+     */
     @GetMapping("/facets")
     @PreAuthorize("@workspaceAuthorizer.can(principal, 'PROJECT_BROWSE')")
     public ResponseEntity<FacetsResponse> facets() {
-        return ResponseEntity.ok(new FacetsResponse(
-                companies.sectorGroups(),
-                adjacency.neighbours(),
-                companies.marketSegmentFacets(),
-                companies.employeeBandFacets(),
-                companies.revenueBandFacets()));
+        return ResponseEntity.ok().cacheControl(facetsCacheControl()).body(facets.facets());
+    }
+
+    /**
+     * <b>Private, never public.</b> This endpoint is behind {@code PROJECT_BROWSE}, and a shared cache
+     * in front of an authenticated endpoint is how one tenant's response reaches another. That the
+     * counts happen to be tenant-independent is not the point — the header states the gate, not the
+     * payload.
+     */
+    private CacheControl facetsCacheControl() {
+        if (!facetsConfig.isEnabled()) {
+            return CacheControl.noStore();
+        }
+        return CacheControl.maxAge(facetsConfig.cacheTtl())
+                .cachePrivate()
+                .staleWhileRevalidate(facetsConfig.cacheTtl());
     }
 
     /**
