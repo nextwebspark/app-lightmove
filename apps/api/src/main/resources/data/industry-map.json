@@ -1,0 +1,1085 @@
+{
+  "1": {
+    "apollo": "defense & space",
+    "aliases": [
+      "Defense and Space Manufacturing"
+    ]
+  },
+  "3": {
+    "apollo": "computer hardware",
+    "aliases": [
+      "Accessible Hardware Manufacturing",
+      "Computer Hardware Manufacturing"
+    ]
+  },
+  "4": {
+    "apollo": "computer software",
+    "aliases": [
+      "Data Security Software Products",
+      "Desktop Computing Software Products",
+      "Embedded Software Products",
+      "Mobile Computing Software Products",
+      "Software Development"
+    ]
+  },
+  "5": {
+    "apollo": "computer networking",
+    "aliases": [
+      "Computer Networking Products"
+    ]
+  },
+  "6": {
+    "apollo": "internet",
+    "aliases": [
+      "Blockchain Services",
+      "Blogs",
+      "Business Intelligence Platforms",
+      "Climate Data and Analytics",
+      "Data Infrastructure and Analytics",
+      "Internet Marketplace Platforms",
+      "Social Networking Platforms",
+      "Technology, Information and Internet"
+    ]
+  },
+  "7": {
+    "apollo": "semiconductors",
+    "aliases": [
+      "Semiconductor Manufacturing"
+    ]
+  },
+  "8": {
+    "apollo": "telecommunications",
+    "aliases": [
+      "Media & Telecommunications",
+      "Satellite Telecommunications",
+      "Telecommunications Carriers"
+    ],
+    "curated": true
+  },
+  "9": {
+    "apollo": "law practice"
+  },
+  "10": {
+    "apollo": "legal services"
+  },
+  "11": {
+    "apollo": "management consulting",
+    "aliases": [
+      "Business Consulting and Services",
+      "Operations Consulting",
+      "Professional Services"
+    ],
+    "curated": true
+  },
+  "12": {
+    "apollo": "biotechnology",
+    "aliases": [
+      "Biotechnology Research"
+    ]
+  },
+  "13": {
+    "apollo": "medical practice",
+    "aliases": [
+      "Ambulance Services",
+      "Chiropractors",
+      "Dentists",
+      "Family Planning Centers",
+      "Home Health Care Services",
+      "Medical Practices",
+      "Medical and Diagnostic Laboratories",
+      "Optometrists",
+      "Outpatient Care Centers",
+      "Physical, Occupational and Speech Therapists",
+      "Physicians"
+    ]
+  },
+  "14": {
+    "apollo": "hospital & health care",
+    "aliases": [
+      "Hospitals",
+      "Hospitals and Health Care",
+      "Nursing Homes and Residential Care Facilities"
+    ]
+  },
+  "15": {
+    "apollo": "pharmaceuticals",
+    "aliases": [
+      "Pharmaceutical Manufacturing"
+    ]
+  },
+  "16": {
+    "apollo": "veterinary",
+    "aliases": [
+      "Veterinary Services"
+    ]
+  },
+  "17": {
+    "apollo": "medical devices",
+    "aliases": [
+      "Medical Equipment Manufacturing"
+    ]
+  },
+  "18": {
+    "apollo": "cosmetics",
+    "aliases": [
+      "Personal Care Product Manufacturing"
+    ]
+  },
+  "19": {
+    "apollo": "apparel & fashion",
+    "aliases": [
+      "Apparel Manufacturing",
+      "Fashion Accessories Manufacturing",
+      "Footwear Manufacturing",
+      "Leather Product Manufacturing",
+      "Retail Apparel and Fashion",
+      "Women's Handbag Manufacturing"
+    ],
+    "curated": true
+  },
+  "20": {
+    "apollo": "sporting goods",
+    "aliases": [
+      "Sporting Goods Manufacturing"
+    ]
+  },
+  "21": {
+    "apollo": "tobacco",
+    "aliases": [
+      "Tobacco Manufacturing"
+    ]
+  },
+  "22": {
+    "apollo": "supermarkets",
+    "aliases": [
+      "Retail Groceries"
+    ]
+  },
+  "23": {
+    "apollo": "food production",
+    "aliases": [
+      "Animal Feed Manufacturing",
+      "Baked Goods Manufacturing",
+      "Food and Beverage Manufacturing",
+      "Fruit and Vegetable Preserves Manufacturing",
+      "Meat Products Manufacturing",
+      "Seafood Product Manufacturing",
+      "Sugar and Confectionery Product Manufacturing"
+    ]
+  },
+  "24": {
+    "apollo": "consumer electronics",
+    "aliases": [
+      "Audio and Video Equipment Manufacturing",
+      "Communications Equipment Manufacturing",
+      "Computers and Electronics Manufacturing",
+      "Magnetic and Optical Media Manufacturing",
+      "Measuring and Control Instrument Manufacturing",
+      "Smart Meter Manufacturing"
+    ]
+  },
+  "25": {
+    "apollo": "consumer goods",
+    "aliases": [
+      "Manufacturing"
+    ]
+  },
+  "26": {
+    "apollo": "furniture",
+    "aliases": [
+      "Furniture and Home Furnishings Manufacturing",
+      "Household and Institutional Furniture Manufacturing",
+      "Mattress and Blinds Manufacturing",
+      "Office Furniture and Fixtures Manufacturing"
+    ]
+  },
+  "27": {
+    "apollo": "retail",
+    "aliases": [
+      "Food and Beverage Retail",
+      "Online and Mail Order Retail",
+      "Retail Appliances, Electrical, and Electronic Equipment",
+      "Retail Art Dealers",
+      "Retail Books and Printed News",
+      "Retail Building Materials and Garden Equipment",
+      "Retail Florists",
+      "Retail Furniture and Home Furnishings",
+      "Retail Gasoline",
+      "Retail Health and Personal Care Products",
+      "Retail Motor Vehicles",
+      "Retail Musical Instruments",
+      "Retail Office Supplies and Gifts",
+      "Retail Pharmacies",
+      "Retail Recyclable Materials & Used Merchandise"
+    ]
+  },
+  "28": {
+    "apollo": "entertainment",
+    "aliases": [
+      "Circuses and Magic Shows",
+      "Dance Companies",
+      "Entertainment Providers",
+      "Performing Arts and Spectator Sports",
+      "Theater Companies"
+    ]
+  },
+  "29": {
+    "apollo": "gambling & casinos",
+    "aliases": [
+      "Gambling Facilities and Casinos"
+    ]
+  },
+  "30": {
+    "apollo": "leisure, travel & tourism",
+    "aliases": [
+      "Travel Arrangements"
+    ]
+  },
+  "31": {
+    "apollo": "hospitality",
+    "aliases": [
+      "Accommodation Services",
+      "Bed-and-Breakfasts, Hostels, Homestays",
+      "Hotels and Motels"
+    ],
+    "curated": true
+  },
+  "32": {
+    "apollo": "restaurants"
+  },
+  "33": {
+    "apollo": "sports",
+    "aliases": [
+      "Racetracks",
+      "Spectator Sports",
+      "Sports Teams and Clubs"
+    ]
+  },
+  "34": {
+    "apollo": "food & beverages",
+    "aliases": [
+      "Bars, Taverns, and Nightclubs",
+      "Caterers",
+      "Food and Beverage Services",
+      "Mobile Food Services"
+    ]
+  },
+  "35": {
+    "apollo": "motion pictures & film",
+    "aliases": [
+      "Movies and Sound Recording",
+      "Movies, Videos and Sound",
+      "Sheet Music Publishing",
+      "Sound Recording"
+    ]
+  },
+  "36": {
+    "apollo": "broadcast media",
+    "aliases": [
+      "Broadcast Media Production and Distribution",
+      "Cable and Satellite Programming",
+      "Radio and Television Broadcasting"
+    ]
+  },
+  "37": {
+    "apollo": "museums & institutions",
+    "aliases": [
+      "Historical Sites",
+      "Museums",
+      "Museums, Historical Sites, and Zoos",
+      "Zoos and Botanical Gardens"
+    ]
+  },
+  "38": {
+    "apollo": "fine art",
+    "aliases": [
+      "Artists and Writers"
+    ]
+  },
+  "39": {
+    "apollo": "performing arts"
+  },
+  "40": {
+    "apollo": "recreational facilities & services",
+    "aliases": [
+      "Amusement Parks and Arcades",
+      "Golf Courses and Country Clubs",
+      "Recreational Facilities",
+      "Skiing Facilities"
+    ]
+  },
+  "41": {
+    "apollo": "banking"
+  },
+  "42": {
+    "apollo": "insurance",
+    "aliases": [
+      "Claims Adjusting, Actuarial Services",
+      "Insurance Agencies and Brokerages",
+      "Insurance Carriers"
+    ]
+  },
+  "43": {
+    "apollo": "financial services",
+    "aliases": [
+      "Collection Agencies",
+      "Credit Intermediation",
+      "Funds and Trusts",
+      "Insurance and Employee Benefit Funds",
+      "Loan Brokers",
+      "Pension Funds",
+      "Savings Institutions",
+      "Trusts and Estates"
+    ],
+    "curated": true
+  },
+  "44": {
+    "apollo": "real estate",
+    "aliases": [
+      "Leasing Residential Real Estate",
+      "Real Estate Agents and Brokers",
+      "Real Estate and Equipment Rental Services"
+    ],
+    "curated": true
+  },
+  "45": {
+    "apollo": "investment banking"
+  },
+  "46": {
+    "apollo": "investment management",
+    "aliases": [
+      "Holding Companies"
+    ],
+    "curated": true
+  },
+  "47": {
+    "apollo": "accounting"
+  },
+  "48": {
+    "apollo": "construction",
+    "aliases": [
+      "Building Construction",
+      "Building Equipment Contractors",
+      "Building Finishing Contractors",
+      "Building Structure and Exterior Contractors",
+      "Nonresidential Building Construction",
+      "Residential Building Construction",
+      "Specialty Trade Contractors"
+    ]
+  },
+  "49": {
+    "apollo": "building materials",
+    "aliases": [
+      "Wholesale Building Materials"
+    ]
+  },
+  "50": {
+    "apollo": "architecture & planning",
+    "aliases": [
+      "Accessible Architecture and Design"
+    ]
+  },
+  "51": {
+    "apollo": "civil engineering",
+    "aliases": [
+      "Highway, Street, and Bridge Construction",
+      "Subdivision of Land",
+      "Surveying and Mapping Services",
+      "Utility System Construction"
+    ],
+    "curated": true
+  },
+  "52": {
+    "apollo": "aviation & aerospace",
+    "aliases": [
+      "Aviation and Aerospace Component Manufacturing"
+    ]
+  },
+  "53": {
+    "apollo": "automotive",
+    "aliases": [
+      "Alternative Fuel Vehicle Manufacturing",
+      "Motor Vehicle Manufacturing",
+      "Motor Vehicle Parts Manufacturing",
+      "Transportation Equipment Manufacturing"
+    ],
+    "curated": true
+  },
+  "54": {
+    "apollo": "chemicals",
+    "aliases": [
+      "Agricultural Chemical Manufacturing",
+      "Artificial Rubber and Synthetic Fiber Manufacturing",
+      "Chemical Manufacturing",
+      "Chemical Raw Materials Manufacturing",
+      "Paint, Coating, and Adhesive Manufacturing",
+      "Soap and Cleaning Product Manufacturing"
+    ]
+  },
+  "55": {
+    "apollo": "machinery",
+    "aliases": [
+      "Agriculture, Construction, Mining Machinery Manufacturing",
+      "Commercial and Industrial Equipment Rental",
+      "Commercial and Service Industry Machinery Manufacturing",
+      "Engines and Power Transmission Equipment Manufacturing",
+      "Equipment Rental Services",
+      "HVAC and Refrigeration Equipment Manufacturing",
+      "Machinery Manufacturing",
+      "Metalworking Machinery Manufacturing",
+      "Renewable Energy Equipment Manufacturing"
+    ],
+    "curated": true
+  },
+  "56": {
+    "apollo": "mining & metals",
+    "aliases": [
+      "Architectural and Structural Metal Manufacturing",
+      "Boilers, Tanks, and Shipping Container Manufacturing",
+      "Coal Mining",
+      "Construction Hardware Manufacturing",
+      "Cutlery and Handtool Manufacturing",
+      "Fabricated Metal Products",
+      "Metal Ore Mining",
+      "Metal Treatments",
+      "Metal Valve, Ball, and Roller Manufacturing",
+      "Mining",
+      "Nonmetallic Mineral Mining",
+      "Primary Metal Manufacturing",
+      "Spring and Wire Product Manufacturing",
+      "Turned Products and Fastener Manufacturing"
+    ],
+    "curated": true
+  },
+  "57": {
+    "apollo": "oil & energy",
+    "aliases": [
+      "Natural Gas Extraction",
+      "Oil Extraction",
+      "Oil and Coal Product Manufacturing",
+      "Oil and Gas",
+      "Oil, Gas, and Mining"
+    ],
+    "curated": true
+  },
+  "58": {
+    "apollo": "shipbuilding"
+  },
+  "59": {
+    "apollo": "utilities",
+    "aliases": [
+      "Biomass Electric Power Generation",
+      "Electric Power Generation",
+      "Electric Power Transmission, Control, and Distribution",
+      "Fossil Fuel Electric Power Generation",
+      "Geothermal Electric Power Generation",
+      "Hydroelectric Power Generation",
+      "Natural Gas Distribution",
+      "Nuclear Electric Power Generation",
+      "Renewable Energy Power Generation",
+      "Solar Electric Power Generation",
+      "Steam and Air-Conditioning Supply",
+      "Waste Collection",
+      "Waste Treatment and Disposal",
+      "Water Supply and Irrigation Systems",
+      "Water, Waste, Steam, and Air Conditioning Services",
+      "Wind Electric Power Generation"
+    ]
+  },
+  "60": {
+    "apollo": "textiles",
+    "aliases": [
+      "Textile Manufacturing"
+    ]
+  },
+  "61": {
+    "apollo": "paper & forest products",
+    "aliases": [
+      "Forestry and Logging",
+      "Paper and Forest Product Manufacturing",
+      "Wood Product Manufacturing"
+    ],
+    "curated": true
+  },
+  "62": {
+    "apollo": "railroad manufacture",
+    "aliases": [
+      "Railroad Equipment Manufacturing"
+    ]
+  },
+  "63": {
+    "apollo": "farming",
+    "aliases": [
+      "Farming, Ranching, Forestry",
+      "Horticulture"
+    ],
+    "curated": true
+  },
+  "64": {
+    "apollo": "ranching",
+    "aliases": [
+      "Ranching and Fisheries"
+    ],
+    "curated": true
+  },
+  "65": {
+    "apollo": "dairy",
+    "aliases": [
+      "Dairy Product Manufacturing"
+    ]
+  },
+  "66": {
+    "apollo": "fishery",
+    "aliases": [
+      "Fisheries"
+    ]
+  },
+  "67": {
+    "apollo": "primary/secondary education"
+  },
+  "68": {
+    "apollo": "higher education"
+  },
+  "69": {
+    "apollo": "education management",
+    "aliases": [
+      "Cosmetology and Barber Schools",
+      "Education",
+      "Education Administration Programs",
+      "Fine Arts Schools",
+      "Language Schools",
+      "Secretarial Schools"
+    ],
+    "curated": true
+  },
+  "70": {
+    "apollo": "research",
+    "aliases": [
+      "Research Services"
+    ]
+  },
+  "71": {
+    "apollo": "military",
+    "aliases": [
+      "Armed Forces"
+    ]
+  },
+  "72": {
+    "apollo": "legislative office",
+    "aliases": [
+      "Legislative Offices"
+    ]
+  },
+  "73": {
+    "apollo": "judiciary",
+    "aliases": [
+      "Administration of Justice",
+      "Correctional Institutions",
+      "Courts of Law",
+      "Fire Protection"
+    ]
+  },
+  "74": {
+    "apollo": "international affairs"
+  },
+  "75": {
+    "apollo": "government administration",
+    "aliases": [
+      "Air, Water, and Waste Program Management",
+      "Community Development and Urban Planning",
+      "Conservation Programs",
+      "Economic Programs",
+      "Environmental Quality Programs",
+      "Health and Human Services",
+      "Housing Programs",
+      "Housing and Community Development",
+      "Military and International Affairs",
+      "Public Assistance Programs",
+      "Public Health",
+      "Space Research and Technology",
+      "Transportation Programs",
+      "Utilities Administration"
+    ]
+  },
+  "76": {
+    "apollo": "executive office",
+    "aliases": [
+      "Executive Offices"
+    ]
+  },
+  "77": {
+    "apollo": "law enforcement"
+  },
+  "78": {
+    "apollo": "public safety"
+  },
+  "79": {
+    "apollo": "public policy",
+    "aliases": [
+      "Public Policy Offices"
+    ]
+  },
+  "80": {
+    "apollo": "marketing & advertising",
+    "aliases": [
+      "Advertising Services",
+      "Marketing Services"
+    ],
+    "curated": true
+  },
+  "81": {
+    "apollo": "newspapers",
+    "aliases": [
+      "Newspaper Publishing"
+    ]
+  },
+  "82": {
+    "apollo": "publishing",
+    "aliases": [
+      "Book Publishing",
+      "Book and Periodical Publishing",
+      "Periodical Publishing"
+    ]
+  },
+  "83": {
+    "apollo": "printing",
+    "aliases": [
+      "Printing Services"
+    ]
+  },
+  "84": {
+    "apollo": "information services",
+    "aliases": [
+      "Business Content",
+      "Internet Publishing"
+    ]
+  },
+  "85": {
+    "apollo": "libraries"
+  },
+  "86": {
+    "apollo": "environmental services"
+  },
+  "87": {
+    "apollo": "package/freight delivery",
+    "aliases": [
+      "Freight and Package Transportation"
+    ]
+  },
+  "88": {
+    "apollo": "individual & family services",
+    "aliases": [
+      "Child Day Care Services",
+      "Community Services",
+      "Emergency and Relief Services",
+      "Services for the Elderly and Disabled",
+      "Vocational Rehabilitation Services"
+    ],
+    "curated": true
+  },
+  "89": {
+    "apollo": "religious institutions"
+  },
+  "90": {
+    "apollo": "civic & social organization",
+    "aliases": [
+      "Civic and Social Organizations",
+      "Industry Associations",
+      "Professional Organizations"
+    ]
+  },
+  "91": {
+    "apollo": "consumer services",
+    "aliases": [
+      "Commercial and Industrial Machinery Maintenance",
+      "Consumer Goods Rental",
+      "Electronic and Precision Equipment Maintenance",
+      "Footwear and Leather Goods Repair",
+      "Household Services",
+      "Laundry and Drycleaning Services",
+      "Personal Care Services",
+      "Personal and Laundry Services",
+      "Pet Services",
+      "Repair and Maintenance",
+      "Reupholstery and Furniture Repair",
+      "Vehicle Repair and Maintenance"
+    ],
+    "curated": true
+  },
+  "92": {
+    "apollo": "transportation/trucking/railroad",
+    "aliases": [
+      "Truck Transportation"
+    ]
+  },
+  "93": {
+    "apollo": "warehousing",
+    "aliases": [
+      "Warehousing and Storage"
+    ]
+  },
+  "94": {
+    "apollo": "airlines/aviation"
+  },
+  "95": {
+    "apollo": "maritime",
+    "aliases": [
+      "Maritime Transportation"
+    ]
+  },
+  "96": {
+    "apollo": "information technology & services",
+    "aliases": [
+      "Digital Accessibility Services",
+      "IT Services and IT Consulting",
+      "IT System Custom Software Development",
+      "IT System Data Services",
+      "IT System Design Services",
+      "IT System Installation and Disposal",
+      "IT System Operations and Maintenance",
+      "IT System Testing and Evaluation",
+      "IT System Training and Support",
+      "Technology, Information and Media"
+    ],
+    "curated": true
+  },
+  "97": {
+    "apollo": "market research"
+  },
+  "98": {
+    "apollo": "public relations & communications",
+    "aliases": [
+      "Public Relations and Communications Services"
+    ]
+  },
+  "99": {
+    "apollo": "design",
+    "aliases": [
+      "Design Services",
+      "Interior Design",
+      "Regenerative Design"
+    ]
+  },
+  "100": {
+    "apollo": "nonprofit organization management",
+    "aliases": [
+      "Non-profit Organizations"
+    ]
+  },
+  "101": {
+    "apollo": "fund-raising"
+  },
+  "102": {
+    "apollo": "program development",
+    "aliases": [
+      "Strategic Management Services"
+    ]
+  },
+  "103": {
+    "apollo": "writing & editing"
+  },
+  "104": {
+    "apollo": "staffing & recruiting",
+    "aliases": [
+      "Executive Search Services",
+      "Temporary Help Services"
+    ]
+  },
+  "105": {
+    "apollo": "professional training & coaching",
+    "aliases": [
+      "Flight Training",
+      "Sports and Recreation Instruction",
+      "Technical and Vocational Training"
+    ],
+    "curated": true
+  },
+  "106": {
+    "apollo": "venture capital & private equity",
+    "aliases": [
+      "Venture Capital and Private Equity Principals"
+    ]
+  },
+  "107": {
+    "apollo": "political organization",
+    "aliases": [
+      "Political Organizations"
+    ]
+  },
+  "108": {
+    "apollo": "translation & localization"
+  },
+  "109": {
+    "apollo": "computer games",
+    "aliases": [
+      "Mobile Gaming Apps"
+    ]
+  },
+  "110": {
+    "apollo": "events services"
+  },
+  "111": {
+    "apollo": "arts & crafts",
+    "aliases": [
+      "Retail Art Supplies"
+    ]
+  },
+  "112": {
+    "apollo": "electrical/electronic manufacturing",
+    "aliases": [
+      "Appliances, Electrical, and Electronics Manufacturing",
+      "Electric Lighting Equipment Manufacturing",
+      "Electrical Equipment Manufacturing",
+      "Fuel Cell Manufacturing",
+      "Household Appliance Manufacturing"
+    ]
+  },
+  "113": {
+    "apollo": "online media",
+    "aliases": [
+      "Internet News",
+      "Online Audio and Video Media"
+    ]
+  },
+  "114": {
+    "apollo": "nanotechnology",
+    "aliases": [
+      "Nanotechnology Research"
+    ]
+  },
+  "115": {
+    "apollo": "music",
+    "aliases": [
+      "Musicians"
+    ]
+  },
+  "116": {
+    "apollo": "logistics & supply chain",
+    "aliases": [
+      "Ground Passenger Transportation",
+      "Interurban and Rural Bus Services",
+      "Pipeline Transportation",
+      "Postal Services",
+      "Rail Transportation",
+      "School and Employee Bus Services",
+      "Shuttles and Special Needs Transportation Services",
+      "Sightseeing Transportation",
+      "Taxi and Limousine Services",
+      "Transportation, Logistics, Supply Chain and Storage",
+      "Urban Transit Services"
+    ]
+  },
+  "117": {
+    "apollo": "plastics",
+    "aliases": [
+      "Plastics Manufacturing",
+      "Plastics and Rubber Product Manufacturing",
+      "Rubber Products Manufacturing"
+    ],
+    "curated": true
+  },
+  "118": {
+    "apollo": "computer & network security"
+  },
+  "119": {
+    "apollo": "wireless",
+    "aliases": [
+      "Wireless Services"
+    ]
+  },
+  "120": {
+    "apollo": "alternative dispute resolution"
+  },
+  "121": {
+    "apollo": "security & investigations",
+    "aliases": [
+      "Security Guards and Patrol Services",
+      "Security Systems Services"
+    ]
+  },
+  "122": {
+    "apollo": "facilities services",
+    "aliases": [
+      "Administrative and Support Services",
+      "Janitorial Services",
+      "Landscaping Services",
+      "Office Administration"
+    ],
+    "curated": true
+  },
+  "123": {
+    "apollo": "outsourcing/offshoring",
+    "aliases": [
+      "Outsourcing and Offshoring Consulting",
+      "Telephone Call Centers"
+    ],
+    "curated": true
+  },
+  "124": {
+    "apollo": "health, wellness & fitness",
+    "aliases": [
+      "Wellness and Fitness Services"
+    ]
+  },
+  "125": {
+    "apollo": "alternative medicine"
+  },
+  "126": {
+    "apollo": "media production"
+  },
+  "127": {
+    "apollo": "animation",
+    "aliases": [
+      "Animation and Post-production"
+    ]
+  },
+  "128": {
+    "apollo": "commercial real estate",
+    "aliases": [
+      "Leasing Non-residential Real Estate"
+    ]
+  },
+  "129": {
+    "apollo": "capital markets",
+    "aliases": [
+      "Investment Advice",
+      "Securities and Commodity Exchanges"
+    ]
+  },
+  "130": {
+    "apollo": "think tanks"
+  },
+  "131": {
+    "apollo": "philanthropy",
+    "aliases": [
+      "Philanthropic Fundraising Services"
+    ]
+  },
+  "132": {
+    "apollo": "e-learning",
+    "aliases": [
+      "E-Learning Providers"
+    ]
+  },
+  "133": {
+    "apollo": "wholesale",
+    "aliases": [
+      "Wholesale Alcoholic Beverages",
+      "Wholesale Apparel and Sewing Supplies",
+      "Wholesale Appliances, Electrical, and Electronics",
+      "Wholesale Chemical and Allied Products",
+      "Wholesale Computer Equipment",
+      "Wholesale Drugs and Sundries",
+      "Wholesale Food and Beverage",
+      "Wholesale Footwear",
+      "Wholesale Furniture and Home Furnishings",
+      "Wholesale Hardware, Plumbing, Heating Equipment",
+      "Wholesale Luxury Goods and Jewelry",
+      "Wholesale Machinery",
+      "Wholesale Metals and Minerals",
+      "Wholesale Motor Vehicles and Parts",
+      "Wholesale Paper Products",
+      "Wholesale Petroleum and Petroleum Products",
+      "Wholesale Photography Equipment and Supplies",
+      "Wholesale Raw Farm Products",
+      "Wholesale Recyclable Materials"
+    ]
+  },
+  "134": {
+    "apollo": "import & export",
+    "aliases": [
+      "Wholesale Import and Export"
+    ]
+  },
+  "135": {
+    "apollo": "mechanical or industrial engineering",
+    "aliases": [
+      "Engineering Services",
+      "Industrial Machinery Manufacturing"
+    ],
+    "curated": true
+  },
+  "136": {
+    "apollo": "photography"
+  },
+  "137": {
+    "apollo": "human resources",
+    "aliases": [
+      "Human Resources Services"
+    ]
+  },
+  "138": {
+    "apollo": "business supplies & equipment",
+    "aliases": [
+      "Retail Office Equipment"
+    ]
+  },
+  "139": {
+    "apollo": "mental health care"
+  },
+  "140": {
+    "apollo": "graphic design"
+  },
+  "141": {
+    "apollo": "international trade & development"
+  },
+  "142": {
+    "apollo": "wine & spirits",
+    "aliases": [
+      "Beverage Manufacturing",
+      "Breweries",
+      "Distilleries",
+      "Wineries"
+    ],
+    "curated": true
+  },
+  "143": {
+    "apollo": "luxury goods & jewelry",
+    "aliases": [
+      "Retail Luxury Goods and Jewelry"
+    ]
+  },
+  "144": {
+    "apollo": "renewables & environment",
+    "aliases": [
+      "Climate Technology Product Manufacturing",
+      "Renewable Energy Semiconductor Manufacturing",
+      "Services for Renewable Energy"
+    ],
+    "curated": true
+  },
+  "145": {
+    "apollo": "glass, ceramics & concrete",
+    "aliases": [
+      "Abrasives and Nonmetallic Minerals Manufacturing",
+      "Clay and Refractory Products Manufacturing",
+      "Glass Product Manufacturing",
+      "Glass, Ceramics and Concrete Manufacturing",
+      "Lime and Gypsum Products Manufacturing"
+    ]
+  },
+  "146": {
+    "apollo": "packaging & containers",
+    "aliases": [
+      "Packaging and Containers Manufacturing"
+    ]
+  },
+  "147": {
+    "apollo": "industrial automation",
+    "aliases": [
+      "Automation Machinery Manufacturing",
+      "Robot Manufacturing",
+      "Robotics Engineering"
+    ],
+    "curated": true
+  },
+  "148": {
+    "apollo": "government relations",
+    "aliases": [
+      "Government Relations Services"
+    ]
+  },
+  "apollo:agriculture": {
+    "apollo": "agriculture"
+  }
+}
