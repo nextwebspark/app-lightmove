@@ -13,17 +13,22 @@ export interface ReviewField {
  * One section of the brief read back: its name, whether it is complete, a few of its facts, and the
  * way in. A section that is not done says why in its own words, in the copper UNCAVA keeps for a
  * warning, and wears that colour on its frame so the eye finds it before reading.
+ *
+ * <p>A published brief reads back with no way in at all until Edit position is pressed: offering a
+ * link into a section the rail is calling settled would be the card contradicting the rail.
  */
 export function ReviewCard({
   step,
   done,
   attention,
   fields,
+  canEdit,
 }: {
   step: PositionStep;
   done: boolean;
   attention: string | null;
   fields: ReviewField[];
+  canEdit: boolean;
 }) {
   return (
     <section
@@ -37,13 +42,15 @@ export function ReviewCard({
         <Icon d={step.icon} size={16} className="flex-none text-u-text2" />
         <span className="text-[15px] font-semibold text-u-text">{step.name}</span>
         <StatusBadge tone={done ? "complete" : "attention"}>{done ? "Complete" : "Needs attention"}</StatusBadge>
-        <Link
-          to={{ search: `?${STEP_PARAM}=${step.key}` }}
-          className="ms-auto inline-flex items-center gap-1.5 text-[13px] font-medium text-u-accent hover:underline"
-        >
-          Edit section
-          <Icon d={ICONS.pencil} size={13} />
-        </Link>
+        {canEdit && (
+          <Link
+            to={{ search: `?${STEP_PARAM}=${step.key}` }}
+            className="ms-auto inline-flex items-center gap-1.5 text-[13px] font-medium text-u-accent hover:underline"
+          >
+            Edit section
+            <Icon d={ICONS.pencil} size={13} />
+          </Link>
+        )}
       </div>
 
       <dl className="mt-4 grid grid-cols-1 gap-x-6 gap-y-3 sm:grid-cols-2 lg:grid-cols-4">

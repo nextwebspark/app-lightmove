@@ -13,20 +13,28 @@ const STEP_LINKS = POSITION_STEPS.map((step) => ({ key: step.key, label: step.na
  * <p>The column is given the viewport's height so the buttons sit at its foot whatever the step
  * beside them measures; an auto-height box would leave Publish at the page bottom on a long step.
  * Below `lg` the steps are a strip above the step and the buttons a row under it.
+ *
+ * <p>A published brief that nobody has reopened offers <b>Edit position</b> instead, and no draft to
+ * save: the brief on screen is the published one, so saving it again would record nothing.
  */
 export function BriefRail({
   position,
   activeKey,
   saveStatus,
   publishing,
+  readBack,
   onPublish,
+  onEditPosition,
   onSaveDraft,
 }: {
   position: Position;
   activeKey: StepKey;
   saveStatus: SaveStatus;
   publishing: boolean;
+  /** Published and not reopened: the brief reads back and the rail offers the way in. */
+  readBack: boolean;
   onPublish: () => void;
+  onEditPosition: () => void;
   onSaveDraft: () => void;
 }) {
   const published = Boolean(position.publication.publishedAt);
@@ -40,10 +48,19 @@ export function BriefRail({
           <span aria-live="polite" className="text-[11px] text-u-text3 lg:mb-1 lg:text-center">
             {saveStatus === "saving" ? "Saving…" : saveStatus === "saved" ? "Saved" : " "}
           </span>
-          <BriefButton onClick={onPublish} loading={publishing} className="lg:w-full">
-            {published ? "Publish changes" : "Publish profile"}
+          <BriefButton
+            onClick={readBack ? onEditPosition : onPublish}
+            loading={publishing}
+            className="lg:w-full"
+          >
+            {readBack ? "Edit position" : published ? "Publish changes" : "Publish profile"}
           </BriefButton>
-          <BriefButton variant="outline" onClick={onSaveDraft} className="lg:mt-2 lg:w-full">
+          <BriefButton
+            variant="outline"
+            onClick={onSaveDraft}
+            disabled={readBack}
+            className="lg:mt-2 lg:w-full"
+          >
             Save draft
           </BriefButton>
         </div>

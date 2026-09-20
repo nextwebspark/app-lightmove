@@ -150,6 +150,7 @@ const renderPage = (path = "/") =>
             <Route element={<Outlet context={{ project }} />}>
               <Route path="/" element={<PositionPage />} />
             </Route>
+            <Route path="/projects/:projectId/strategy" element={<h1>Strategy</h1>} />
           </Routes>
         </ToastProvider>
       </QueryClientProvider>
@@ -196,13 +197,17 @@ describe("PositionPage", () => {
       expect(within(rail()).getByRole("link", { name: /Assessment Criteria/ })).toHaveAttribute("href", "/?step=assessment");
     });
 
-    it("opens a published brief on its own review, for whoever comes back to it", async () => {
+    it("opens a published brief on its own review, reading back rather than offering edits", async () => {
       vi.mocked(positionApi.getPosition).mockResolvedValue(published);
       renderPage();
 
       expect(await screen.findByRole("heading", { name: "Review & publish" })).toBeInTheDocument();
       expect(screen.getByText(/Position profile published by Alok Kumar · 27 Aug 2026/)).toBeInTheDocument();
-      expect(within(rail()).getByRole("button", { name: "Publish changes" })).toBeInTheDocument();
+      expect(within(rail()).getByRole("button", { name: "Edit position" })).toBeInTheDocument();
+      // Saving a draft of the published brief would record nothing, and no section offers a way in.
+      expect(within(rail()).getByRole("button", { name: "Save draft" })).toBeDisabled();
+      expect(screen.queryByRole("link", { name: /Edit section/ })).not.toBeInTheDocument();
+      expect(screen.queryByRole("button", { name: "Withdraw publication" })).not.toBeInTheDocument();
     });
 
     it("shows a refusal rather than an empty brief when the read fails", async () => {
@@ -556,13 +561,55 @@ describe("PositionPage", () => {
       expect(screen.getByRole("combobox", { name: "Role title" })).toBeEnabled();
     });
 
-    it("withdraws a publication from the review", async () => {
+    it("reopens a published brief, and publishing the changes closes it back up", async () => {
+      vi.mocked(positionApi.getPosition).mockResolvedValue(published);
+      renderPage();
+      const person = userEvent.setup();
+
+      await screen.findByRole("heading", { name: "Review & publish" });
+      await person.click(within(rail()).getByRole("button", { name: "Edit position" }));
+
+      expect(within(rail()).getByRole("button", { name: "Publish changes" })).toBeInTheDocument();
+      expect(within(rail()).getByRole("button", { name: "Save draft" })).toBeEnabled();
+      expect(screen.getAllByRole("link", { name: /Edit section/ })).toHaveLength(4);
+      // Leading on belongs to the foot of the last page, changes in flight or not.
+      expect(screen.getByRole("button", { name: "Move to Strategy" })).toBeInTheDocument();
+
+      // Saying the brief is ready again is the way out of editing it, not a second way to save.
+      await person.click(within(rail()).getByRole("button", { name: "Publish changes" }));
+
+      expect(await within(rail()).findByRole("button", { name: "Edit position" })).toBeInTheDocument();
+      expect(within(rail()).getByRole("button", { name: "Save draft" })).toBeDisabled();
+      expect(screen.queryByRole("link", { name: /Edit section/ })).not.toBeInTheDocument();
+    });
+
+    it("counts landing on a live step as reopening it, so the rail stops claiming a read-back", async () => {
+      vi.mocked(positionApi.getPosition).mockResolvedValue(published);
+      renderPage("/?step=compensation");
+
+      expect(await screen.findByRole("heading", { name: "Compensation Package" })).toBeInTheDocument();
+      expect(within(rail()).getByRole("button", { name: "Publish changes" })).toBeInTheDocument();
+    });
+
+    it("sends a published brief on to the mandate's own market", async () => {
+      vi.mocked(positionApi.getPosition).mockResolvedValue(published);
+      renderPage();
+      const person = userEvent.setup();
+
+      await person.click(await screen.findByRole("button", { name: "Move to Strategy" }));
+
+      expect(await screen.findByRole("heading", { name: "Strategy" })).toBeInTheDocument();
+    });
+
+    it("withdraws a publication once the brief has been reopened", async () => {
       vi.mocked(positionApi.getPosition).mockResolvedValue(published);
       vi.mocked(positionApi.withdrawPublication).mockResolvedValue(seeded);
       renderPage();
       const person = userEvent.setup();
 
-      await person.click(await screen.findByRole("button", { name: "Withdraw publication" }));
+      await screen.findByRole("heading", { name: "Review & publish" });
+      await person.click(within(rail()).getByRole("button", { name: "Edit position" }));
+      await person.click(screen.getByRole("button", { name: "Withdraw publication" }));
 
       expect(await within(rail()).findByRole("button", { name: "Publish profile" })).toBeInTheDocument();
     });

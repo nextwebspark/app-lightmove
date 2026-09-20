@@ -16,17 +16,22 @@ import { ReviewCard, type ReviewField } from "../ReviewCard";
  * Step five: the brief read back before it is called ready. The checks report; they gate nothing —
  * V38 retired the readiness gate along with the lock, so publishing stays available whatever they
  * say, and an unfinished brief can still be declared ready by someone who means it.
+ *
+ * <p>Publishing is the rail's act on every step, so the foot carries only what belongs to this page:
+ * the way back, and — once the brief has been declared ready — the mandate's market, which is what is
+ * left to do. Repeating the rail's two buttons here bought nothing but a second place to look.
  */
 export function ReviewStep({
   position,
-  publishing,
-  onPublish,
+  readBack,
   onWithdraw,
+  onGoToStrategy,
 }: {
   position: Position;
-  publishing: boolean;
-  onPublish: () => void;
+  /** Published and not reopened: no section offers a way in, and neither does the banner. */
+  readBack: boolean;
   onWithdraw: () => void;
+  onGoToStrategy: () => void;
 }) {
   const published = position.publication.publishedAt;
 
@@ -40,13 +45,15 @@ export function ReviewStep({
             {position.publication.publishedBy ? ` by ${position.publication.publishedBy}` : ""} ·{" "}
             {formatInstantDate(published)} · the brief stays editable
           </span>
-          <button
-            type="button"
-            onClick={onWithdraw}
-            className="ms-auto text-[12px] font-semibold text-u-text3 hover:text-u-offlimits hover:underline"
-          >
-            Withdraw publication
-          </button>
+          {!readBack && (
+            <button
+              type="button"
+              onClick={onWithdraw}
+              className="ms-auto text-[12px] font-semibold text-u-text3 hover:text-u-offlimits hover:underline"
+            >
+              Withdraw publication
+            </button>
+          )}
         </div>
       )}
 
@@ -59,6 +66,7 @@ export function ReviewStep({
           done={step.isDone(position)}
           attention={step.attention(position)}
           fields={fieldsOf(step.key, position)}
+          canEdit={!readBack}
         />
       ))}
 
@@ -95,9 +103,7 @@ export function ReviewStep({
         >
           Back to Assessment
         </Link>
-        <BriefButton onClick={onPublish} loading={publishing}>
-          {published ? "Publish changes" : "Publish profile"}
-        </BriefButton>
+        {published && <BriefButton onClick={onGoToStrategy}>Move to Strategy</BriefButton>}
       </div>
     </div>
   );

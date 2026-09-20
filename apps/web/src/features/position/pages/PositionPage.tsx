@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useState, type ReactNode } from "react";
-import { useOutletContext, useSearchParams } from "react-router-dom";
+import { useEffect, useState } from "react";
+import { useNavigate, useOutletContext, useSearchParams } from "react-router-dom";
 import type { ProjectOutletContext } from "../../../components/layout/ProjectLayout";
 import { Spinner, useToast } from "../../../components/ui";
 import { messageFor } from "../../../lib/errorCodes";
@@ -17,7 +17,6 @@ import type {
   PositionTemplate,
   ReportingStructure,
 } from "../api/types";
-import { BriefButton } from "../components/BriefFields";
 import { BriefRail } from "../components/BriefRail";
 import { AssessmentStep, type CompetencyPanelKey } from "../components/steps/AssessmentStep";
 import { CompensationStep } from "../components/steps/CompensationStep";
@@ -76,10 +75,21 @@ export function PositionPage() {
 function PositionBrief({ projectId, position }: { projectId: string; position: Position }) {
   const queryClient = useQueryClient();
   const toast = useToast();
+  const navigate = useNavigate();
   const key = positionApi.POSITION_KEY(projectId);
   const [searchParams] = useSearchParams();
   const [openedOn] = useState(() => openingStepOf(position));
   const step = stepOf(searchParams.get(STEP_PARAM), openedOn);
+
+  /**
+   * A published brief reads back until someone says they are editing it — and publishing is how they
+   * say they are done, which closes it back up. Opening any step but the review is the same statement
+   * as pressing Edit position: those screens are live fields, and nothing there is a read-back.
+   */
+  const [reopened, setReopened] = useState(false);
+  useEffect(() => {
+    if (step.key !== "review") setReopened(true);
+  }, [step.key]);
 
   const [details, setDetails] = useState<PositionDetails>(position.details);
   const [context, setContext] = useState<MandateContext>(position.context);
@@ -268,6 +278,7 @@ function PositionBrief({ projectId, position }: { projectId: string; position: P
     },
     onSuccess: (saved) => {
       queryClient.setQueryData(key, saved);
+      setReopened(false);
       toast("Position profile published");
     },
     onError: (error) => toast(messageFor(error)),
@@ -293,6 +304,7 @@ function PositionBrief({ projectId, position }: { projectId: string; position: P
       return;
     }
     await flushAll();
+    setReopened(false);
     toast("Changes published");
   };
 
@@ -300,6 +312,9 @@ function PositionBrief({ projectId, position }: { projectId: string; position: P
     await flushAll();
     toast("Draft saved");
   };
+
+  /** Where a published brief leads: the mandate's own market, which is the next thing to be done. */
+  const goToStrategy = () => navigate(`/projects/${projectId}/strategy`);
 
   const attachDocument = useMutation({
     mutationFn: (file: File) => positionApi.attachDocument(projectId, file),
@@ -349,6 +364,10 @@ function PositionBrief({ projectId, position }: { projectId: string; position: P
     },
   };
 
+  // Only the review reads back. The rail stands beside every step, so without the step the brief
+  // would go on offering "Edit position" next to a Compensation form that is live and taking input.
+  const readBack = Boolean(drafted.publication.publishedAt) && !reopened && step.key === "review";
+
   return (
     <div className={`${GROUND} flex-col lg:flex-row`}>
       <BriefRail
@@ -356,27 +375,15 @@ function PositionBrief({ projectId, position }: { projectId: string; position: P
         activeKey={step.key}
         saveStatus={saveStatus}
         publishing={publish.isPending}
+        readBack={readBack}
         onPublish={() => void publishNow()}
+        onEditPosition={() => setReopened(true)}
         onSaveDraft={() => void saveDraft()}
       />
 
       <div className="min-w-0 flex-1">
-        <div className="max-w-[940px] px-4 pb-[100px] pt-[30px] sm:px-10">
-          <StepHeader
-            step={step}
-            action={
-              step.key === "review" ? (
-                <div className="flex items-center gap-2">
-                  <BriefButton variant="outline" onClick={() => void saveDraft()}>
-                    Save draft
-                  </BriefButton>
-                  <BriefButton onClick={() => void publishNow()} loading={publish.isPending}>
-                    {drafted.publication.publishedAt ? "Publish changes" : "Publish profile"}
-                  </BriefButton>
-                </div>
-              ) : undefined
-            }
-          />
+        <div className="px-4 pb-[100px] pt-[30px] sm:px-10">
+          <StepHeader step={step} />
 
           {step.key === "brief" && (
             <RoleBriefStep
@@ -426,9 +433,9 @@ function PositionBrief({ projectId, position }: { projectId: string; position: P
           {step.key === "review" && (
             <ReviewStep
               position={drafted}
-              publishing={publish.isPending}
-              onPublish={() => void publishNow()}
+              readBack={readBack}
               onWithdraw={() => withdraw.mutate()}
+              onGoToStrategy={goToStrategy}
             />
           )}
         </div>
@@ -437,15 +444,12 @@ function PositionBrief({ projectId, position }: { projectId: string; position: P
   );
 }
 
-/** The step's question and a line under it, with the review's own two buttons at its other end. */
-function StepHeader({ step, action }: { step: PositionStep; action?: ReactNode }) {
+/** The step's question and a line under it. The acts are the rail's and the page foot's, not this. */
+function StepHeader({ step }: { step: PositionStep }) {
   return (
-    <div className="mb-7 flex flex-wrap items-start justify-between gap-4">
-      <div className="min-w-0">
-        <h1 className="text-[23px] font-bold leading-[1.25] tracking-[-0.01em] sm:text-[26px]">{step.heading}</h1>
-        <p className="mt-1.5 max-w-[620px] text-[14px] leading-[1.6] text-u-text2">{step.lede}</p>
-      </div>
-      {action}
+    <div className="mb-7 min-w-0">
+      <h1 className="text-[23px] font-bold leading-[1.25] tracking-[-0.01em] sm:text-[26px]">{step.heading}</h1>
+      <p className="mt-1.5 max-w-[620px] text-[14px] leading-[1.6] text-u-text2">{step.lede}</p>
     </div>
   );
 }

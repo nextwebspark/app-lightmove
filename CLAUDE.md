@@ -131,7 +131,14 @@ weighted panels. The Role Brief attaches the position description and keeps it w
 have no caller in the SPA, the review-then-accept panel having gone with the old wizard — and epic
 #393 brings the silent fill (fill on attach, provenance markers, undo) to this screen.
 `Position.dc.html` is superseded and kept as a record. Publishing stays ungated: the review's
-checklist reports, it does not gate. **The product is Uncava**: the mark is the rhombus over an isometric cube
+checklist reports, it does not gate. A published brief then **reads back** rather than locking —
+the rail offers **Edit position** in place of Publish and no draft to save, the review's sections
+drop their "Edit section" link, and the page foot offers **Move to Strategy**, the mandate's market
+being what is left to do. **Publishing the changes is the way back out**, closing the review up
+again. Opening any step but the review is the same statement as pressing Edit position, because
+those screens are live fields; nothing is frozen server-side (V38). The brief's two acts live in the
+rail on every step and the page's own in the foot of the review — the mockup's third copy of the
+pair, at the review's top right, is deliberately not drawn. **The product is Uncava**: the mark is the rhombus over an isometric cube
 in `apps/web/public/brand` (`favicon.svg`, the SPA's `AppIcon`, the extension's `BrandMark` and icons,
 and the email's `uncava-mark-email-v1.png` are drawn from that one geometry) and every user-facing
 string says Uncava,
