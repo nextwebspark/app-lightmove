@@ -2,6 +2,7 @@ package app.lightmove.api.triagecompany;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import app.lightmove.api.ApolloUniverse;
@@ -70,6 +71,34 @@ class RowIndustryFormsIntegrationTest extends FlowTestSupport {
         // Written by TriageCompanyWriter's one multi-row INSERT, not by the entity — the path that
         // would silently skip the derived columns if they were set anywhere but Industries.resolve.
         assertFiledAs(projectId, "ACWA Power", "oil & energy", 57, "Oil and Gas", "Energy & Utilities");
+    }
+
+    @Test
+    @DisplayName("the off-limits list derives the same forms as the triage row")
+    void anOffLimitsEntryCarriesEveryForm() throws Exception {
+        String projectId = mandate("Off Limits Forms Firm");
+        universe.company("a2", "Saudi Aramco").industry("oil & energy").employees(70000).insert();
+
+        mvc.perform(put("/api/v1/projects/" + projectId + "/strategy/off-limits")
+                        .header("Authorization", "Bearer " + adminToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"apolloAccountIds":["a2"]}"""))
+                .andExpect(status().isOk());
+
+        // The third writer, StrategyCompanyRef.of — a different table and different code from the
+        // two above, which is the only reason it is worth its own assertion.
+        assertThat(db.queryForMap("""
+                SELECT barred.industry, barred.industry_v2_code, barred.industry_v2_label,
+                       barred.sector_group
+                FROM app_lm_strategy_off_limits_company AS barred
+                JOIN app_lm_strategy AS strategy ON strategy.id = barred.strategy_id
+                WHERE strategy.project_id = ?::uuid
+                """, projectId))
+                .containsEntry("industry", "oil & energy")
+                .containsEntry("industry_v2_code", 57)
+                .containsEntry("industry_v2_label", "Oil and Gas")
+                .containsEntry("sector_group", "Energy & Utilities");
     }
 
     @Test

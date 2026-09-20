@@ -1,11 +1,11 @@
 package app.lightmove.api.triagecompany.model;
 
-import app.lightmove.api.triagecompany.constant.TriageCompanySource;
-import app.lightmove.api.triagecompany.constant.TriageCompanyStatus;
 import app.lightmove.api.common.industry.model.ResolvedIndustry;
 import app.lightmove.api.common.industry.service.Industries;
 import app.lightmove.api.core.persistence.model.BaseEntity;
 import app.lightmove.api.customcolumn.model.CustomFieldValues;
+import app.lightmove.api.triagecompany.constant.TriageCompanySource;
+import app.lightmove.api.triagecompany.constant.TriageCompanyStatus;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;

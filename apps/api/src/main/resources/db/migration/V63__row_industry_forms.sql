@@ -32,6 +32,9 @@ ALTER TABLE app_lm_strategy_off_limits_company
 COMMENT ON COLUMN app_lm_project_triage_company.industry_v2_label IS
     'LinkedIn V2''s name for this industry. On an Apollo-backed row this is V1 renamed, not finer data.';
 
+COMMENT ON COLUMN app_lm_strategy_off_limits_company.industry_v2_label IS
+    'LinkedIn V2''s name for this industry. Every row here comes from the universe, so it is always V1 renamed.';
+
 -- The catch-up for rows written before the columns existed. Joined rather than snapshotted inline,
 -- unlike V61: app_lm_industry landed one migration ago and is the authority for exactly this.
 UPDATE app_lm_project_triage_company AS target
