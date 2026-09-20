@@ -10,7 +10,8 @@ import app.lightmove.api.ApolloUniverse;
 import app.lightmove.api.FlowTestSupport;
 import app.lightmove.api.IntegrationTest;
 import app.lightmove.api.RecordingCompanyEnricher;
-import app.lightmove.api.triagecompany.model.CapturedCompanyDetails;
+import app.lightmove.api.enrichment.company.model.VendorCompanyRecord;
+import java.util.List;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -94,11 +95,11 @@ class CompanyCaptureResolutionIntegrationTest extends FlowTestSupport {
     @DisplayName("a company the market misses is researched in place, keeping what was typed")
     void aMarketMissIsResearchedInPlace() throws Exception {
         String projectId = mandate("Researched Capture Firm");
-        companyEnricher.answerWith(new CapturedCompanyDetails("SampleCo", "Software Development",
-                "Ireland", "Dublin", 841, null, "https://www.sampleco.example/",
+        companyEnricher.answerWith(new VendorCompanyRecord("sampleco", "SampleCo",
+                "Software Development", "Ireland", "Dublin", 841, "https://www.sampleco.example/",
                 "https://www.linkedin.com/company/sampleco", 1993,
                 "SampleCo is a leading provider of core systems.",
-                "https://media.example.com/sampleco-logo.png", null, null));
+                "https://media.example.com/sampleco-logo.png", List.of("insurance software"), null));
 
         mvc.perform(post(captureUrl(projectId))
                         .header("Authorization", "Bearer " + adminToken)

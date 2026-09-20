@@ -9,6 +9,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 import org.junit.jupiter.api.BeforeEach;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.MediaType;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
 import tools.jackson.databind.JsonNode;
@@ -30,6 +31,7 @@ public abstract class FlowTestSupport {
     @Autowired private RecordingProfileEnricher profileEnricher;
     @Autowired private RecordingCompanyEnricher companyEnricher;
     @Autowired private StubGeocoder geocoder;
+    @Autowired private JdbcTemplate vendorCache;
 
     protected String domain;
 
@@ -41,6 +43,9 @@ public abstract class FlowTestSupport {
         profileEnricher.clear();
         companyEnricher.clear();
         geocoder.clear();
+        // The vendor company cache is global by design (V64), so a slug one class's capture
+        // remembered would answer the next class's — and its enricher would never be asked.
+        vendorCache.update("DELETE FROM app_lm_company");
         domain = "firm%d-%s.example".formatted(RUN.incrementAndGet(),
                 getClass().getSimpleName().toLowerCase());
     }

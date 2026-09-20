@@ -305,6 +305,19 @@ off-limits rows, so the report can group without a query per company. All four c
 `Industries.resolve` call through one method per table (`TriageCompany.fileUnder`,
 `StrategyCompanyRef.of`, `TriageCompanyWriter.rowPlaceholders`) — **that single writer is the whole
 guarantee they agree**, and a label nobody can resolve keeps itself and leaves the other three null.
+`app_lm_company` (V64) is the vendor company cache: one row per LinkedIn slug ever researched, holding
+what a provider said about that page — its own V2 industry leaf (the one place in the schema where
+`industry_v2_*` is finer data rather than V1 renamed), the V1 label and sector group `Industries`
+resolves it to, its specialties as lower-cased `keywords`, and the raw payload, which is what makes a
+row re-mappable when the industry map improves instead of re-billed. `found = false` is a stored miss,
+for V49's reason. **Vendor-sourced only, and that is a tenant boundary** — a hand-typed or spreadsheet
+row is one firm's own research and stays in `app_lm_project_triage_company`; this table carries no
+`workspace_id`, `project_id` or `added_by`, and who captured a company is in the audit trail.
+`CompanyResearch` reads it before calling the vendor and writes it after, so
+`TriageCompanyService.applyEnrichment` is unchanged: a cache hit fills the same `CapturedCompanyDetails`
+a fresh call would. A row is re-asked after `lightmove.enrichment.company-cache-ttl`, and a LinkedIn
+*search* URL never reaches the table — `LinkedInUrls.companySlugOrNull` answers null and there is
+nothing to key it on.
 V56 adds `app_lm_project_candidate.gender` (`FEMALE | MALE | OTHER`), nullable with no default:
 NULL is "nobody recorded it" and is deliberately not a fourth value, because "not recorded" and
 "recorded as other" are different facts and the report counts them apart.

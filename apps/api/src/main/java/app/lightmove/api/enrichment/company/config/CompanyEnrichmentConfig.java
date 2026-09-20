@@ -14,6 +14,7 @@ import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.web.client.RestClient;
+import tools.jackson.databind.ObjectMapper;
 
 /**
  * Picks the {@link LinkedInCompanyEnricher} from config. Company research rides the Bright Data key
@@ -33,14 +34,15 @@ public class CompanyEnrichmentConfig {
     BrightDataCompanyEnricher brightDataCompanyEnricher(LightMoveProperties properties,
                                                         VendorClientFactory clientFactory,
                                                         VendorRateLimiter rateLimiter,
-                                                        VendorCallGuard guard) {
+                                                        VendorCallGuard guard,
+                                                        ObjectMapper json) {
         EnrichmentSettings config = properties.enrichment();
         String apiKey = config.brightdata().apiKey();
         if (!"brightdata".equalsIgnoreCase(config.provider()) || apiKey == null || apiKey.isBlank()) {
             return null;
         }
         return new BrightDataCompanyEnricher(config.brightdata(), clientFactory, rateLimiter, guard,
-                RestClient.builder());
+                RestClient.builder(), json);
     }
 
     @Bean
