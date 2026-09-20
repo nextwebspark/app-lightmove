@@ -295,6 +295,11 @@ compact constructor. `data/industry-map.json` is keyed on LinkedIn's industry id
 industries in place at the same ids, which is what makes the map derivable rather than guessed — and
 `ops/industry-map/build.py` rebuilds it (`--check` in CI would catch a hand edit). Its one trap is id
 25: V2 gave it to the `Manufacturing` root where V1 had it as `Consumer Goods`.
+`app_lm_industry` and `app_lm_industry_v2` (V62) are that file as data — 148 labels with their V2 name
+and sector group, and 434 V2 industries each resolved to the universe label covering it, which is what
+a V2 selection expands from. Emitted by the same script (`--sql`), **not** tenant-scoped for V49's
+reason, and never read at runtime: the JSON stays the authority because `Industries` is static, so
+`IndustryVocabularyIntegrationTest` asserts the table answers as the resolver does for all 434.
 V56 adds `app_lm_project_candidate.gender` (`FEMALE | MALE | OTHER`), nullable with no default:
 NULL is "nobody recorded it" and is deliberately not a fourth value, because "not recorded" and
 "recorded as other" are different facts and the report counts them apart.
