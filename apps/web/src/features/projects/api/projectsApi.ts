@@ -23,6 +23,14 @@ export function createProject(payload: {
 }
 
 /**
+ * The one project field editable after creation. The brief's Role Brief step edits it from there:
+ * the mandate keeps one target date, on the project, and the brief only ever reads it back.
+ */
+export function updateProject(projectId: string, payload: { targetDate: string }): Promise<Project> {
+  return request<Project>(`/projects/${projectId}`, { method: "PATCH", body: payload });
+}
+
+/**
  * Seats the member with this staff role, or moves an existing seat to it. One role per seat; a CLIENT
  * role the seat already carries survives, so staffing a client contact never revokes their read access.
  */

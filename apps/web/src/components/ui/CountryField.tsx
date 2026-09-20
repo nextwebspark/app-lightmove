@@ -1,6 +1,6 @@
 import { useCountries } from "../../lib/countries";
 import { Input } from "./index";
-import { FacetCombobox } from "./FacetCombobox";
+import { FacetCombobox, type FacetComboboxVariant } from "./FacetCombobox";
 
 /**
  * The country box, wherever one is asked for — a company's, an executive's, a client's.
@@ -19,6 +19,7 @@ export function CountryField({
   value,
   invalid,
   placeholder,
+  variant = "default",
   onChange,
 }: {
   /** Unique per rendered field — it wires the input to its own listbox for assistive tech. */
@@ -26,6 +27,7 @@ export function CountryField({
   value: string;
   invalid?: boolean;
   placeholder?: string;
+  variant?: FacetComboboxVariant;
   onChange: (country: string) => void;
 }) {
   const { options, isError } = useCountries();
@@ -40,6 +42,11 @@ export function CountryField({
         invalid={invalid}
         placeholder={placeholder ?? "United Arab Emirates"}
         onChange={(event) => onChange(event.target.value)}
+        className={
+          variant === "uncava"
+            ? "rounded-none border-0 border-b border-u-border bg-transparent px-0 py-2 font-sans text-[15px] text-u-text focus:border-u-accent"
+            : undefined
+        }
       />
     );
   }
@@ -53,6 +60,7 @@ export function CountryField({
       allowFreeText
       invalid={invalid}
       placeholder={placeholder}
+      variant={variant}
       onChange={onChange}
     />
   );

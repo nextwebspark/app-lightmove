@@ -118,3 +118,18 @@ describe("bandReadings", () => {
     expect(bandReadings(compensation({ salaryMax: null })).mid).toBeNull();
   });
 });
+
+describe("a bonus stated as a fixed amount", () => {
+  it("is the same money on both edges of the band, whatever the base", () => {
+    const total = packageTotal(
+      compensation({ baseSalaryMode: "ANNUAL", bonusValue: 150_000, bonusBasis: "FIXED_AMOUNT" }),
+    );
+    expect(total.bonus).toEqual({ min: 150_000, max: 150_000 });
+    expect(total.min).toBe(240_000);
+  });
+
+  it("is stated even before a band is entered, where a share of base would be nothing", () => {
+    expect(bonusOn(compensation({ bonusValue: 150_000, bonusBasis: "FIXED_AMOUNT" }), 0)).toBe(150_000);
+    expect(bonusOn(compensation({ bonusValue: 40, bonusBasis: "PERCENT_OF_BASE" }), 0)).toBe(0);
+  });
+});

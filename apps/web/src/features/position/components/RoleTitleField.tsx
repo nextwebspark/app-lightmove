@@ -1,34 +1,31 @@
+import { cn } from "../../../lib/cn";
 import { useComboboxList } from "../../../lib/useComboboxList";
 import type { PositionTemplate } from "../api/types";
 import { SENIORITY_LABELS } from "../lib/labels";
 import { suggestionsFor } from "../lib/roleTitleSuggestions";
-import { CheckedInput } from "./CheckedInput";
+import { UnderlineField } from "./BriefFields";
+
+const LIST_ID = "brief-role-title-suggestions";
 
 /**
- * The role title: a free-text field that suggests the templates the brief can be drafted from.
+ * The role title on the brief: free text on a hairline that suggests the templates the brief can be
+ * drafted from — the New-project modal's `RoleTitleCombobox`, in the brief's own skin.
  *
  * Free text is the point. A mandate is titled "Group CFO – Energy Division" as often as it is titled
- * "Chief Financial Officer", and the title is what the whole workspace calls this search — so the
- * seventeen templates are offered, never imposed. Nothing is highlighted until somebody arrows into
- * the list or hovers it, which is what keeps Enter on a typed title from committing the suggestion
- * sitting underneath it.
- *
- * Picking one does two things, and they are separate on purpose: the title becomes the template's,
- * through the ordinary details write, and the brief is redrafted from that template.
+ * "Chief Financial Officer", so the seventeen templates are offered, never imposed: nothing is
+ * highlighted until somebody arrows into the list, which keeps Enter on a typed title from committing
+ * the suggestion sitting underneath it. Picking one renames the search and redrafts the brief.
  */
-export function RoleTitleCombobox({
+export function RoleTitleField({
   value,
   templates,
   busy,
-  invalid,
   onChange,
   onPick,
 }: {
   value: string;
   templates: PositionTemplate[];
   busy: boolean;
-  /** Marks the typed title as rejected — a red border, and no green check claiming otherwise. */
-  invalid?: boolean;
   onChange: (roleTitle: string) => void;
   onPick: (template: PositionTemplate) => void;
 }) {
@@ -47,15 +44,13 @@ export function RoleTitleCombobox({
 
   return (
     <div className="relative">
-      <CheckedInput
+      <UnderlineField
         role="combobox"
-        invalid={invalid}
+        aria-label="Role title"
         aria-expanded={showList}
-        aria-controls="role-title-suggestions"
+        aria-controls={LIST_ID}
         aria-autocomplete="list"
-        aria-activedescendant={
-          showList && list.active >= 0 ? `role-title-suggestions-${list.active}` : undefined
-        }
+        aria-activedescendant={showList && list.active >= 0 ? `${LIST_ID}-${list.active}` : undefined}
         aria-busy={busy}
         autoComplete="off"
         value={value}
@@ -66,31 +61,31 @@ export function RoleTitleCombobox({
           list.setOpen(true);
         }}
         {...list.inputHandlers}
+        className="text-[17px] font-medium"
       />
 
       {showList && (
         <ul
-          id="role-title-suggestions"
+          id={LIST_ID}
           role="listbox"
           aria-label="Role templates"
-          className="absolute z-10 mt-1 max-h-72 w-full overflow-auto rounded-[10px] border border-line bg-panel py-1 shadow-panel"
+          className="absolute z-10 mt-1 max-h-72 w-full overflow-auto rounded-[10px] border border-u-border bg-u-bg py-1 shadow-u-e3"
         >
           {matches.map((template, index) => (
             <li
               key={template.id}
-              id={`role-title-suggestions-${index}`}
+              id={`${LIST_ID}-${index}`}
               role="option"
               aria-selected={index === list.active}
               onMouseDown={(event) => list.commitFromPointer(event, index)}
               onMouseEnter={() => list.setActive(index)}
-              className={`flex cursor-pointer items-baseline gap-2.5 px-3 py-[7px] ${
-                index === list.active ? "bg-panel2 text-text" : "text-text2"
-              }`}
+              className={cn(
+                "flex cursor-pointer items-baseline gap-2.5 px-3 py-[7px]",
+                index === list.active ? "bg-u-accent-tint" : "",
+              )}
             >
-              <span className="truncate font-sans text-[13px] font-medium text-text">
-                {template.title}
-              </span>
-              <span className="min-w-0 flex-1 truncate text-right font-mono text-[10.5px] text-text3">
+              <span className="truncate text-[13px] font-medium text-u-text">{template.title}</span>
+              <span className="min-w-0 flex-1 truncate text-right text-[11px] text-u-text3">
                 {SENIORITY_LABELS[template.seniority]}
                 {template.shared ? "" : " · yours"}
               </span>

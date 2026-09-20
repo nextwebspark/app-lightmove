@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Input } from "../../../components/ui";
 import { cn } from "../../../lib/cn";
-import { AddRowButton, RemoveRowButton } from "../../position/components/fields";
+import { AddRowButton, RemoveRowButton } from "./fields";
 
 const LABEL = "mb-1.5 block font-mono text-[10px] font-semibold uppercase tracking-[0.12em] text-text3";
 

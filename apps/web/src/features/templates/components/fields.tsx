@@ -1,4 +1,4 @@
-import type { InputHTMLAttributes, ReactNode, SelectHTMLAttributes } from "react";
+import type { InputHTMLAttributes, ReactNode } from "react";
 import { cn } from "../../../lib/cn";
 import { Icon, ICONS } from "../../../components/layout/Icon";
 
@@ -6,7 +6,12 @@ const INLINE =
   "w-full border-b border-transparent bg-transparent py-1 font-mono text-[13.5px] font-medium text-text outline-none transition " +
   "hover:border-line focus:border-sky";
 
-/** The section heading pattern the Position mockup repeats: 15px title + a quiet mono aside. */
+/**
+ * The template editor's field kit — what the Position wizard's own kit left behind when the brief
+ * moved to the UNCAVA palette. The editor keeps the app's amber tokens, as every Settings screen does.
+ */
+
+/** The section heading pattern the editor repeats: 15px title + a quiet mono aside. */
 export function SectionHeading({ title, aside }: { title: string; aside?: string }) {
   return (
     <div className="mb-3 flex items-baseline gap-2">
@@ -16,174 +21,12 @@ export function SectionHeading({ title, aside }: { title: string; aside?: string
   );
 }
 
-/** The mockup's uppercase micro-label over inline fields. */
-export function MicroLabel({ children }: { children: ReactNode }) {
-  return (
-    <span className="mb-1.5 block font-mono text-[10px] font-semibold uppercase tracking-[0.1em] text-text3">
-      {children}
-    </span>
-  );
-}
-
-/**
- * The mockup's underline-on-hover inline input — borderless until pointed at, sky underline when
- * focused. The Position screen's org and package grids are made of these.
- */
+/** The underline-on-hover inline input — borderless until pointed at, sky underline when focused. */
 export function InlineInput({ className, ...rest }: InputHTMLAttributes<HTMLInputElement>) {
   return <input {...rest} className={cn(INLINE, className)} />;
 }
 
-/** The select twin of {@link InlineInput} — same borderless, underline-on-hover treatment. */
-export function InlineSelect({
-  className,
-  children,
-  ...rest
-}: SelectHTMLAttributes<HTMLSelectElement>) {
-  return (
-    <select {...rest} className={cn(INLINE, className)}>
-      {children}
-    </select>
-  );
-}
-
-/**
- * The plain-number sibling of {@link InlineInput}: digits only, no thousands separator (that is
- * {@code MoneyField}'s job). Used for counts and the bonus percentage. A blank field means null.
- */
-export function NumberInput({
-  value,
-  onChange,
-  max,
-  suffix,
-  className,
-  ...rest
-}: {
-  value: number | null;
-  onChange: (value: number | null) => void;
-  max?: number;
-  suffix?: string;
-} & Omit<InputHTMLAttributes<HTMLInputElement>, "value" | "onChange" | "max">) {
-  const field = (
-    <input
-      {...rest}
-      inputMode="numeric"
-      value={value === null ? "" : String(value)}
-      onChange={(e) => {
-        const digits = e.target.value.replace(/[^\d]/g, "");
-        if (!digits) return onChange(null);
-        const n = Number(digits);
-        onChange(max !== undefined ? Math.min(n, max) : n);
-      }}
-      className={cn(INLINE, suffix ? "flex-1" : "", className)}
-    />
-  );
-  if (!suffix) return field;
-  return (
-    <span className="flex items-center gap-1">
-      {field}
-      <span className="font-mono text-[13.5px] text-text3">{suffix}</span>
-    </span>
-  );
-}
-
-/**
- * The money sibling of {@link NumberInput}: grouped with thousands separators as it is typed, because
- * a seven-figure salary typed as a bare run of digits cannot be checked by eye. A blank field is null.
- */
-export function MoneyInput({
-  value,
-  onChange,
-  className,
-  ...rest
-}: {
-  value: number | null;
-  onChange: (value: number | null) => void;
-} & Omit<InputHTMLAttributes<HTMLInputElement>, "value" | "onChange">) {
-  return (
-    <input
-      {...rest}
-      inputMode="numeric"
-      value={value === null ? "" : value.toLocaleString("en-GB")}
-      onChange={(e) => {
-        const digits = e.target.value.replace(/[^\d]/g, "");
-        onChange(digits ? Number(digits) : null);
-      }}
-      className={cn(INLINE, className)}
-    />
-  );
-}
-
-/**
- * The wizard's field label — 12px sans, uppercase, over a bordered control. Distinct from the shared
- * {@code Field} in components/ui, which wears the auth screens' smaller mono micro-label; both are
- * transcriptions of their own mockup and neither is the other one scaled.
- */
-export function StepField({
-  label,
-  hint,
-  children,
-  className,
-}: {
-  label: string;
-  hint?: string;
-  children: ReactNode;
-  className?: string;
-}) {
-  return (
-    <label className={cn("block min-w-0", className)}>
-      <span className="mb-1.5 block text-xs font-semibold uppercase tracking-[0.02em] text-text2">
-        {label}
-      </span>
-      {children}
-      {hint && <span className="mt-1.5 block font-mono text-[11px] text-text3">{hint}</span>}
-    </label>
-  );
-}
-
-/**
- * The step-one input that shows a green check once it holds something — withheld when `invalid`,
- * where a tick reading "this is fine" would contradict the error message under the field.
- */
-export function CheckedInput({
-  invalid,
-  value,
-  ...rest
-}: InputHTMLAttributes<HTMLInputElement> & { invalid?: boolean }) {
-  const filled = typeof value === "string" && value.trim().length > 0;
-  return (
-    <span className="relative block">
-      <input
-        {...rest}
-        value={value}
-        aria-invalid={invalid}
-        className={cn(
-          "w-full rounded-lg border bg-panel2 py-2.5 pl-3 pr-9 text-[13.5px] font-medium",
-          invalid ? "border-red" : "border-line",
-          "text-text outline-none transition focus:border-sky",
-        )}
-      />
-      <Icon
-        d={ICONS.checkCircle}
-        size={16}
-        className={cn(
-          "pointer-events-none absolute end-3 top-3 transition-colors",
-          filled && !invalid ? "text-green" : "text-line",
-        )}
-      />
-    </span>
-  );
-}
-
-/** The mockup's sub-card: a quiet panel a step groups a table or a chip list inside. */
-export function SubCard({ children, className }: { children: ReactNode; className?: string }) {
-  return (
-    <div className={cn("rounded-[10px] border border-line-soft bg-panel2 px-[18px] py-4", className)}>
-      {children}
-    </div>
-  );
-}
-
-/** The uppercase column heading the wizard's grid tables use. */
+/** The uppercase column heading the editor's grid tables use. */
 export function ColumnLabel({ children, className }: { children: ReactNode; className?: string }) {
   return (
     <span
@@ -198,7 +41,7 @@ export function ColumnLabel({ children, className }: { children: ReactNode; clas
 }
 
 /**
- * The segmented button group the wizard uses wherever a choice is short and worth seeing all of at
+ * The segmented button group the editor uses wherever a choice is short and worth seeing all of at
  * once — annual/monthly, required/preferred, monthly/yearly.
  */
 export function SegmentedControl<T extends string>({
@@ -247,7 +90,7 @@ export function SegmentedControl<T extends string>({
   );
 }
 
-/** The dashed "add another" affordance every list on the wizard ends with. */
+/** The dashed "add another" affordance every list in the editor ends with. */
 export function AddRowButton({
   children,
   onClick,

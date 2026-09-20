@@ -1,12 +1,23 @@
 import { describe, expect, it } from "vitest";
 import type { Position } from "../api/types";
-import { POSITION_STEPS, completion, doneSteps, panelTotal, stepIndexOf } from "./steps";
+import {
+  POSITION_STEPS,
+  completion,
+  doneSteps,
+  openingStepOf,
+  placeLineOf,
+  readinessOf,
+  stepIndexOf,
+  stepOf,
+  type StepKey,
+} from "./steps";
 
 const blank: Position = {
   details: {
     roleTitle: "Chief Financial Officer",
     department: null,
-    location: null,
+    locationCity: null,
+    locationCountry: null,
     employmentType: null,
     seniority: null,
     responsibilities: [],
@@ -21,15 +32,7 @@ const blank: Position = {
   },
   reporting: {
     orgChart: [
-      {
-        nodeId: "n-seat",
-        parentNodeId: null,
-        title: null,
-        name: null,
-        mandateSeat: true,
-        canvasX: null,
-        canvasY: null,
-      },
+      { nodeId: "n-seat", parentNodeId: null, title: null, name: null, mandateSeat: true, canvasX: null, canvasY: null },
     ],
     teamSize: null,
     targetStart: null,
@@ -37,7 +40,7 @@ const blank: Position = {
     noticeUnit: null,
   },
   compensation: {
-    currency: "AED",
+    currency: "SAR",
     salaryMin: null,
     salaryMax: null,
     baseSalaryMode: "ANNUAL",
@@ -48,143 +51,125 @@ const blank: Position = {
     incentiveVesting: null,
     benefits: [],
   },
-  assessment: { criteria: [], technical: [], behavioural: [] },
+  assessment: { criteria: [], technical: [], behavioural: [], technicalShare: 50 },
   publication: { publishedAt: null, publishedBy: null },
   document: null,
 };
 
-const stepNamed = (key: string) => POSITION_STEPS[stepIndexOf(key as never)];
+const charted: Position = {
+  ...blank,
+  reporting: {
+    ...blank.reporting,
+    orgChart: [
+      { nodeId: "n-manager", parentNodeId: null, title: "Group CEO", name: "Mohammed Rashed", mandateSeat: false, canvasX: null, canvasY: null },
+      { nodeId: "n-seat", parentNodeId: "n-manager", title: null, name: null, mandateSeat: true, canvasX: null, canvasY: null },
+      { nodeId: "n-report", parentNodeId: "n-seat", title: "HR Analyst", name: null, mandateSeat: false, canvasX: null, canvasY: null },
+    ],
+  },
+};
 
-describe("step completion", () => {
-  it("counts step one done only once the role is placed as well as titled", () => {
-    const details = stepNamed("details");
-    expect(details.isDone(blank)).toBe(false);
-    expect(
-      details.isDone({
-        ...blank,
-        details: { ...blank.details, department: "Group Finance", location: "Abu Dhabi" },
-      }),
-    ).toBe(true);
+const step = (key: StepKey) => POSITION_STEPS[stepIndexOf(key)];
+
+describe("the five steps", () => {
+  it("counts the brief done once the role is titled and placed, city or country", () => {
+    expect(step("brief").isDone(blank)).toBe(false);
+    expect(step("brief").attention(blank)).toBe("No location yet — name the city or the country.");
+    const placed = { ...blank, details: { ...blank.details, locationCountry: "Saudi Arabia" } };
+    expect(step("brief").isDone(placed)).toBe(true);
+    expect(step("brief").attention(placed)).toBeNull();
   });
 
-  it("counts the reporting step done only when a manager and at least one report are on the chart", () => {
-    const reporting = stepNamed("reporting");
-    const seat = blank.reporting.orgChart[0];
-    const manager = {
-      nodeId: "n-manager",
-      parentNodeId: null,
-      title: "Group CEO",
-      name: null,
-      mandateSeat: false,
-      canvasX: null,
-      canvasY: null,
-    };
-    const withManager = {
-      ...blank,
-      reporting: {
-        ...blank.reporting,
-        orgChart: [manager, { ...seat, parentNodeId: manager.nodeId }],
-      },
-    };
-    expect(reporting.isDone(withManager)).toBe(false);
-
-    const report = {
-      nodeId: "n-report",
-      parentNodeId: seat.nodeId,
-      title: "Financial Controller",
-      name: null,
-      mandateSeat: false,
-      canvasX: null,
-      canvasY: null,
-    };
+  it("reads the brief's line as the title and the city, falling back to the country", () => {
+    expect(step("brief").summary(blank)).toBe("Chief Financial Officer · No location");
     expect(
-      reporting.isDone({
-        ...withManager,
-        reporting: {
-          ...withManager.reporting,
-          orgChart: [...withManager.reporting.orgChart, report],
-        },
-      }),
-    ).toBe(true);
+      step("brief").summary({ ...blank, details: { ...blank.details, locationCity: "Riyadh", locationCountry: "Saudi Arabia" } }),
+    ).toBe("Chief Financial Officer · Riyadh");
+    expect(step("brief").summary({ ...blank, details: { ...blank.details, locationCountry: "Saudi Arabia" } })).toBe(
+      "Chief Financial Officer · Saudi Arabia",
+    );
   });
 
-  it("counts the assessment step done only when both panels total exactly 100", () => {
-    const assessment = stepNamed("assessment");
-    const ninety = {
+  it("wants a named manager and at least one report before reporting is done", () => {
+    expect(step("reporting").isDone(blank)).toBe(false);
+    expect(step("reporting").attention(blank)).toBe("Nobody is named as the manager yet.");
+    expect(step("reporting").isDone(charted)).toBe(true);
+    expect(step("reporting").summary({ ...charted, details: { ...charted.details, seniority: "N_MINUS_2" } })).toBe(
+      "Mohammed Rashed · N-2",
+    );
+  });
+
+  it("calls compensation done only with a band and every allowance quantified", () => {
+    const banded = { ...blank, compensation: { ...blank.compensation, salaryMin: 32_000, salaryMax: 37_000, baseSalaryMode: "MONTHLY" as const } };
+    expect(step("compensation").isDone(banded)).toBe(true);
+    expect(step("compensation").summary(banded)).toBe("SAR 384K – 444K");
+
+    const unquantified = {
+      ...banded,
+      compensation: { ...banded.compensation, benefits: [{ name: "Housing allowance", amount: null, frequency: "YEARLY" as const }] },
+    };
+    expect(step("compensation").isDone(unquantified)).toBe(false);
+    expect(step("compensation").attention(unquantified)).toBe(
+      "Allowances not fully quantified — give every benefit a figure.",
+    );
+    expect(step("compensation").attention(blank)).toBe("No base salary band yet.");
+  });
+
+  it("reads the assessment as its split, and is done when both panels total 100", () => {
+    const weighted = {
       ...blank,
       assessment: {
         criteria: [],
-        technical: [{ name: "T", description: null, weight: 90 }],
-        behavioural: [{ name: "B", description: null, weight: 100 }],
+        technical: [{ name: "Treasury", description: null, weight: 60 }, { name: "Controls", description: null, weight: 40 }],
+        behavioural: [{ name: "Leadership", description: null, weight: 90 }],
+        technicalShare: 60,
       },
     };
-    expect(assessment.isDone(ninety)).toBe(false);
-    expect(panelTotal(ninety, "technical")).toBe(90);
-    expect(
-      assessment.isDone({
-        ...ninety,
-        assessment: {
-          ...ninety.assessment,
-          technical: [{ name: "T", description: null, weight: 100 }],
-        },
-      }),
-    ).toBe(true);
+    expect(step("assessment").summary(weighted)).toBe("Technical 60% · Behavioural 40%");
+    expect(step("assessment").isDone(weighted)).toBe(false);
+    expect(step("assessment").attention(weighted)).toBe("Behavioural weights total 90%, not 100%.");
   });
 
-  it("counts the last step done only once the brief is published", () => {
-    const review = stepNamed("review");
-    expect(review.isDone(blank)).toBe(false);
-    expect(
-      review.isDone({
-        ...blank,
-        publication: { publishedAt: "2026-08-27T10:00:00Z", publishedBy: "Alok Kumar" },
-      }),
-    ).toBe(true);
+  it("reads publication as the review's own state", () => {
+    expect(step("review").summary(blank)).toBe("Not yet published");
+    expect(step("review").isDone(blank)).toBe(false);
+    const published = { ...blank, publication: { publishedAt: "2026-09-09T10:00:00Z", publishedBy: "Alok Kumar" } };
+    expect(step("review").summary(published)).toBe("Published 09 Sept 2026");
+    expect(step("review").isDone(published)).toBe(true);
+  });
+});
+
+describe("where the brief opens", () => {
+  it("opens on the step the URL names, else where the screen opened", () => {
+    expect(stepOf("compensation", "brief").key).toBe("compensation");
+    expect(stepOf(null, "brief").key).toBe("brief");
+    expect(stepOf("nowhere", "review").key).toBe("review");
+  });
+
+  it("opens a published brief on its review, and anything else on the Role Brief", () => {
+    expect(openingStepOf(blank)).toBe("brief");
+    expect(openingStepOf({ ...blank, publication: { publishedAt: "2026-09-09T10:00:00Z", publishedBy: null } })).toBe(
+      "review",
+    );
   });
 });
 
 describe("completion", () => {
-  const placed: Position = {
-    ...blank,
-    details: { ...blank.details, department: "Group Finance", location: "Abu Dhabi" },
-  };
-
-  it("is done steps out of six", () => {
-    expect(completion(blank, "review")).toBe(0);
-    expect(completion(placed, "review")).toBe(17);
+  it("counts done steps out of five", () => {
+    expect(doneSteps(blank)).toEqual([false, false, false, false, false]);
+    expect(completion(blank)).toBe(0);
+    expect(completion(charted)).toBe(20);
   });
 
-  it("counts nothing past the furthest step reached, however complete the seed left it", () => {
-    // The role template balances both panels to 100%, so step five's own rule holds from the day the
-    // brief is created — and the rail used to tick it while somebody was still on step two.
-    const seeded: Position = {
-      ...placed,
-      assessment: {
-        criteria: [],
-        technical: [{ name: "Financial Reporting", description: null, weight: 100 }],
-        behavioural: [{ name: "Strategic Leadership", description: null, weight: 100 }],
-      },
-    };
-    expect(completion(seeded, "review")).toBe(33);
-    expect(completion(seeded, "context")).toBe(17);
-    expect(doneSteps(seeded, "context")).toEqual([true, false, false, false, false, false]);
-  });
-});
-
-describe("rail readings", () => {
-  it("says what step four holds, or that it is still waiting", () => {
-    const compensation = stepNamed("compensation");
-    expect(compensation.summary(blank)).toBe("Awaiting package input");
-    expect(
-      compensation.summary({
-        ...blank,
-        compensation: { ...blank.compensation, salaryMin: 1_200_000, salaryMax: 1_500_000 },
-      }),
-    ).toBe("AED 1,200K – AED 1,500K");
+  it("reports the three publication checks without gating anything", () => {
+    const checks = readinessOf(blank);
+    expect(checks.map((check) => check.met)).toEqual([false, false, false]);
+    expect(checks[1].label).toBe("Compensation package captured with allowances fully quantified");
   });
 
-  it("names an untitled role rather than rendering an empty line", () => {
-    expect(stepNamed("details").summary({ ...blank, details: { ...blank.details, roleTitle: " " } }))
-      .toBe("Untitled role");
+  it("joins the two halves of the place into one line", () => {
+    expect(placeLineOf(blank)).toBeNull();
+    expect(placeLineOf({ ...blank, details: { ...blank.details, locationCity: "Riyadh", locationCountry: "Saudi Arabia" } })).toBe(
+      "Riyadh, Saudi Arabia",
+    );
   });
 });
