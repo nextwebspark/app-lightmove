@@ -31,12 +31,6 @@
             "command": "bash \"$CLAUDE_PROJECT_DIR/.claude/hooks/gcp-mutation-ask.sh\"",
             "timeout": 10,
             "statusMessage": "Checking GCP command"
-          },
-          {
-            "type": "command",
-            "command": "bash \"$CLAUDE_PROJECT_DIR/.claude/hooks/git-write-ask.sh\"",
-            "timeout": 10,
-            "statusMessage": "Checking git command"
           }
         ]
       }
