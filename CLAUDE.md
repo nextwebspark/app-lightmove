@@ -118,14 +118,14 @@ workspace admin customises, hides, adds, exports and imports the firm's own. A f
 the library template of the same `code`, so a library edit reaches every firm that never customised
 it; neither ever touches a brief already drafted. The file format is JSON with a published schema, so
 a template can be written outside the app, AI included, and previewed before anything is written.
-The Role Brief's location is two halves (V65: `location_city` and `location_country`, the country
+The Role Brief's location is two halves (V66: `location_city` and `location_country`, the country
 settled by the same catalog every other country box reads), its target start is the project's own
 date written through `PATCH /projects/{id}`, and its notice period is the reporting section's —
 one screen over four writes. Reporting is an editable React Flow org chart — add, rename, re-parent
 and drag any seat; only the role's own seat is fixed — and its team size is the seat's children,
 counted rather than typed. Compensation states a bonus as a share of base or a **fixed amount**
-(`BonusBasis.FIXED_AMOUNT`, V65 widened `bonus_value` to hold money), and the assessment carries a
-**technical share** (V65 `technical_share`; the behavioural panel takes the rest) beside its two
+(`BonusBasis.FIXED_AMOUNT`, V66 widened `bonus_value` to hold money), and the assessment carries a
+**technical share** (V66 `technical_share`; the behavioural panel takes the rest) beside its two
 weighted panels. The Role Brief attaches the position description and keeps it with the mandate;
 **nothing reads it yet** — the five `…/position/document/extract/*` routes exist server-side and
 have no caller in the SPA, the review-then-accept panel having gone with the old wizard — and epic
@@ -275,7 +275,7 @@ left in place rather than dropped. A mandate's whole filter is one `jsonb` colum
 removing a company from a mandate unmaps its executives rather than deleting them; career history and
 languages are one `profile` jsonb column for V30's reasons. `app_lm_position` and its six owned-list
 tables are the brief (V7, grown by V39): every list a step edits is a child table replaced wholesale by
-its step's write, so the aggregate keeps one idiom rather than mixing rows and jsonb. V65 splits its
+its step's write, so the aggregate keeps one idiom rather than mixing rows and jsonb. V66 splits its
 `location` into `location_city` + `location_country` (backfilled from the one line; a comma-less value
 counts as a country only where a dedicated country column already holds that spelling), widens
 `bonus_value` to `numeric(14, 2)` for a fixed-amount bonus, and adds `technical_share` — seeded at 50

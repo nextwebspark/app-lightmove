@@ -19,13 +19,13 @@ import org.testcontainers.postgresql.PostgreSQLContainer;
 import org.testcontainers.utility.DockerImageName;
 
 /**
- * V65's location backfill, run against rows written the way the application wrote them before it: a
+ * V66's location backfill, run against rows written the way the application wrote them before it: a
  * "city, country" line, two cities before a country, a bare country seeded from the client's HQ,
  * free text, and nothing at all.
  *
  * <p>The ordinary integration suite migrates an empty schema, so this is the one place the UPDATE
  * statements meet data. It takes its own container and its own Flyway run — stopped at V64 to seed,
- * then carried on to V65 — rather than the shared context, whose schema is already past the split.
+ * then carried on to V66 — rather than the shared context, whose schema is already past the split.
  */
 class PositionLocationBackfillMigrationTest {
 
@@ -41,7 +41,7 @@ class PositionLocationBackfillMigrationTest {
     private static final UUID NOTHING = UUID.fromString("00000000-0000-0000-0000-000000000006");
 
     @Test
-    @DisplayName("V65 reads each stored line back into the two halves the application now keeps")
+    @DisplayName("V66 reads each stored line back into the two halves the application now keeps")
     void backfillsTheHalvesFromTheOneLine() throws Exception {
         try (PostgreSQLContainer postgres = new PostgreSQLContainer(DockerImageName.parse("postgres:16-alpine"))) {
             postgres.start();
@@ -50,7 +50,7 @@ class PositionLocationBackfillMigrationTest {
                 seedMandates(connection);
             }
 
-            migrateTo(postgres, "65");
+            migrateTo(postgres, "66");
 
             try (Connection connection = connect(postgres)) {
                 assertThat(halvesOf(connection, CITY_AND_COUNTRY)).containsExactly("Riyadh", "Saudi Arabia");
