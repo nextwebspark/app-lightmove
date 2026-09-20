@@ -1,5 +1,6 @@
 package app.lightmove.api.common.industry.service;
 
+import app.lightmove.api.common.industry.model.ResolvedIndustry;
 import java.io.IOException;
 import java.io.InputStream;
 import java.text.Normalizer;
@@ -36,8 +37,8 @@ import tools.jackson.databind.ObjectMapper;
  *
  * <p>The file is keyed on LinkedIn's industry id because V2 renamed V1's industries <i>in place, at
  * the same ids</i>, which is what makes the map derivable rather than guessed. Two things about it
- * are worth knowing before editing: the key is documentation only, never read at runtime — lookup is
- * by folded spelling — and <b>id 25 is the one place the id-stability rule breaks</b>, because V2
+ * are worth knowing before editing: the key is that shared id, and is what {@link #resolve} answers
+ * with — lookup is still by folded spelling — and <b>id 25 is the one place the rule breaks</b>, because V2
  * gave it to the {@code Manufacturing} root while V1 had it as {@code Consumer Goods}. Entries
  * carrying {@code "curated": true} are the placements no rule could make.
  */
@@ -46,9 +47,11 @@ public final class Industries {
     private static final String RESOURCE = "data/industry-map.json";
 
     private static final Map<String, String> INDUSTRY_BY_SPELLING;
+    private static final Map<String, ResolvedIndustry> RESOLVED_BY_INDUSTRY;
 
     static {
         Map<String, String> bySpelling = new HashMap<>();
+        Map<String, ResolvedIndustry> byIndustry = new HashMap<>();
         read().forEach((code, entry) -> {
             for (String spelling : entry.spellings()) {
                 String previous = bySpelling.put(fold(spelling), entry.apollo());
@@ -59,8 +62,19 @@ public final class Industries {
                             .formatted(RESOURCE, spelling, previous, entry.apollo()));
                 }
             }
+            byIndustry.put(entry.apollo(), new ResolvedIndustry(
+                    entry.apollo(), linkedInCode(code), entry.v2Label(), entry.sectorGroup()));
         });
         INDUSTRY_BY_SPELLING = Map.copyOf(bySpelling);
+        RESOLVED_BY_INDUSTRY = Map.copyOf(byIndustry);
+    }
+
+    /**
+     * The key is LinkedIn's industry id, which V1 and V2 share. One entry is Apollo's own label,
+     * which LinkedIn never had, so it is keyed by name and has no code.
+     */
+    private static Integer linkedInCode(String key) {
+        return key.chars().allMatch(Character::isDigit) ? Integer.valueOf(key) : null;
     }
 
     private Industries() {
@@ -77,6 +91,23 @@ public final class Industries {
         }
         String known = INDUSTRY_BY_SPELLING.get(fold(trimmed));
         return known == null ? trimmed : known;
+    }
+
+    /**
+     * Every form of one industry at once — the label to store, LinkedIn's id, its V2 name and its
+     * sector — so a row carrying all four gets them from a single call and they cannot disagree.
+     *
+     * <p>A spelling the map does not carry answers with the caller's own text and nothing else, the
+     * same way {@link #nameOf} keeps it: null in the derived fields is "nobody could resolve this",
+     * which is a different fact from any group it might have been filed under.
+     */
+    public static ResolvedIndustry resolve(String spelling) {
+        String label = nameOf(spelling);
+        if (label == null) {
+            return null;
+        }
+        ResolvedIndustry known = RESOLVED_BY_INDUSTRY.get(label);
+        return known != null ? known : new ResolvedIndustry(label, null, null, null);
     }
 
     /** Whether the universe publishes this industry, however it is spelled. */
@@ -123,10 +154,14 @@ public final class Industries {
      * the record has to accept it or the file fails to parse. Boxed because it is absent from most
      * entries, and Jackson has no value to give a missing primitive.
      */
-    private record Entry(String apollo, List<String> aliases, Boolean curated) {
+    private record Entry(String apollo, String v2Label, String sectorGroup, List<String> aliases,
+                         Boolean curated) {
         Entry {
             if (apollo == null || apollo.isBlank()) {
                 throw new IllegalStateException(RESOURCE + " has an entry with no apollo label");
+            }
+            if (sectorGroup == null || sectorGroup.isBlank()) {
+                throw new IllegalStateException(RESOURCE + " gives '" + apollo + "' no sector");
             }
             aliases = aliases == null ? List.of() : List.copyOf(aliases);
         }

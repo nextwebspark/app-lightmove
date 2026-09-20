@@ -170,13 +170,16 @@ def build(local_v2=None):
 
     built = {}
     for code in sorted(label_by_id, key=int):
-        entry = {"apollo": label_by_id[code]}
+        entry = {"apollo": label_by_id[code],
+                 "v2Label": placed[code][0] if code in placed else None,
+                 "sectorGroup": group_by_label[label_by_id[code]]}
         if aliases[code]:
             entry["aliases"] = sorted(aliases[code])
         if code in curated:
             entry["curated"] = True
         built[code] = entry
-    built.update({code: {"apollo": label} for code, label in APOLLO_ONLY.items()})
+    built.update({code: {"apollo": label, "v2Label": None, "sectorGroup": group_by_label[label]}
+                  for code, label in APOLLO_ONLY.items()})
 
     claimed = {}
     for code, entry in built.items():

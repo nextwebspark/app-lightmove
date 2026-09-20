@@ -3,6 +3,7 @@ package app.lightmove.api.common.industry;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import app.lightmove.api.IntegrationTest;
+import app.lightmove.api.common.industry.model.ResolvedIndustry;
 import app.lightmove.api.common.industry.service.Industries;
 import app.lightmove.api.strategy.service.SectorTaxonomy;
 import java.io.IOException;
@@ -40,6 +41,18 @@ class IndustryVocabularyIntegrationTest {
                 db.queryForList("SELECT v1_label FROM app_lm_industry", String.class));
 
         assertThat(inTable).isEqualTo(inFile);
+    }
+
+    @Test
+    @DisplayName("every row's V2 name and sector are the ones the resolver answers with")
+    void industryTableMatchesTheResolver() {
+        // The table is the map's projection, and the map is what the application writes rows from.
+        // Drift here would have SQL grouping companies one way and the grid filing them another.
+        db.queryForList("SELECT v1_label, v2_label, sector_group FROM app_lm_industry")
+                .forEach(row -> assertThat(Industries.resolve((String) row.get("v1_label")))
+                        .as("resolved '%s'", row.get("v1_label"))
+                        .extracting(ResolvedIndustry::v2Label, ResolvedIndustry::sectorGroup)
+                        .containsExactly(row.get("v2_label"), row.get("sector_group")));
     }
 
     @Test
