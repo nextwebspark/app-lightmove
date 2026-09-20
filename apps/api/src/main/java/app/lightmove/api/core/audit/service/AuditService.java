@@ -97,6 +97,22 @@ public class AuditService {
         }
 
         /**
+         * A detail that may legitimately be absent — a token count nobody measured, a model name the
+         * provider did not name.
+         *
+         * <p>Not the same as passing null to {@link #detail}: {@code record()} seals the map with
+         * {@code Map.copyOf}, which rejects null values, so an absent detail passed there throws a
+         * {@code NullPointerException} from inside the caller's own request — long after the work it
+         * was recording succeeded.
+         */
+        public Builder detailIfPresent(String key, Object value) {
+            if (value != null) {
+                this.metadata.put(key, value);
+            }
+            return this;
+        }
+
+        /**
          * The IP is resolved by {@link ClientIpResolver}, not read off {@code X-Forwarded-For} here.
          * An audit log an attacker can write the "from" address of is worse than none — it is evidence
          * that points wherever they chose.
