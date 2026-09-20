@@ -94,7 +94,7 @@ export function RoleBriefStep({
   const addResponsibility = () => {
     const text = responsibility.trim();
     if (!text) return;
-    onChangeDetails({ responsibilities: [...details.responsibilities, text] });
+    onChangeDetails({ responsibilities: [...details.responsibilities, { text, source: "MANUAL" }] });
     setResponsibility("");
   };
 
@@ -200,10 +200,10 @@ export function RoleBriefStep({
       <FieldBlock label="Key responsibilities">
         {details.responsibilities.length > 0 && (
           <div className="mb-3 flex flex-wrap gap-2">
-            {details.responsibilities.map((text, index) => (
+            {details.responsibilities.map((responsibility, index) => (
               <TokenChip
-                key={`${text}-${index}`}
-                label={text}
+                key={`${responsibility.text}-${index}`}
+                label={responsibility.text}
                 onRemove={() =>
                   onChangeDetails({ responsibilities: details.responsibilities.filter((_, i) => i !== index) })
                 }

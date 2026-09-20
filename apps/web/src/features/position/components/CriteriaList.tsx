@@ -27,7 +27,7 @@ export function CriteriaList({
   const add = () => {
     const text = draft.trim();
     if (!text) return;
-    onChange([...criteria, { text, mode: "REQUIRED", fromBrief: false }]);
+    onChange([...criteria, { text, mode: "REQUIRED", source: "MANUAL" }]);
     setDraft("");
   };
 
@@ -41,7 +41,7 @@ export function CriteriaList({
             onChange={(event) => patch(index, { text: event.target.value })}
             className="min-w-[160px] flex-1 bg-transparent text-[14px] text-u-text outline-none"
           />
-          {criterion.fromBrief && (
+          {criterion.source === "TEMPLATE" && (
             <span className="flex-none rounded-[4px] bg-u-accent-tint px-1.5 py-0.5 text-[9.5px] font-bold uppercase tracking-[0.06em] text-u-accent">
               From brief
             </span>

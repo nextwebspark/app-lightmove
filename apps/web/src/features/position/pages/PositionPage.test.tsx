@@ -58,8 +58,9 @@ const seeded: Position = {
     locationCountry: "United Arab Emirates",
     employmentType: "FULL_TIME_PERMANENT",
     seniority: "C_SUITE",
-    responsibilities: ["Group P&L stewardship"],
+    responsibilities: [{ text: "Group P&L stewardship", source: "MANUAL" }],
     narrative: "A hands-on CFO.",
+    fieldSources: {},
   },
   context: {
     mandateReason: "NEW_ROLE",
@@ -67,6 +68,7 @@ const seeded: Position = {
     strategicPriorities: [{ name: "Capital discipline", selected: false }],
     confidential: false,
     internalContext: null,
+    fieldSources: {},
   },
   reporting: {
     orgChart: [
@@ -77,6 +79,7 @@ const seeded: Position = {
     targetStart: null,
     noticeValue: null,
     noticeUnit: null,
+    fieldSources: {},
   },
   compensation: {
     currency: "USD",
@@ -91,7 +94,7 @@ const seeded: Position = {
     benefits: [],
   },
   assessment: {
-    criteria: [{ text: "Board reporting experience", mode: "REQUIRED", fromBrief: true }],
+    criteria: [{ text: "Board reporting experience", mode: "REQUIRED", source: "TEMPLATE" }],
     technical: [
       { name: "Treasury", description: "Debt and liquidity", weight: 60 },
       { name: "Controls", description: null, weight: 40 },
@@ -132,9 +135,13 @@ const catalog: PositionTemplate[] = [
 /** What the compliance template redraws the brief into. */
 const redrafted: Position = {
   ...seeded,
-  details: { ...seeded.details, department: "Compliance", responsibilities: ["Group compliance framework"] },
+  details: {
+    ...seeded.details,
+    department: "Compliance",
+    responsibilities: [{ text: "Group compliance framework", source: "TEMPLATE" }],
+  },
   assessment: {
-    criteria: [{ text: "Led compliance for a regulated entity", mode: "REQUIRED", fromBrief: true }],
+    criteria: [{ text: "Led compliance for a regulated entity", mode: "REQUIRED", source: "TEMPLATE" }],
     technical: [{ name: "Regulatory Framework & Licensing", description: null, weight: 100 }],
     behavioural: [{ name: "Independence & Objectivity", description: null, weight: 100 }],
     technicalShare: 50,
@@ -335,12 +342,19 @@ describe("PositionPage", () => {
       await person.type(await screen.findByRole("textbox", { name: "Add a responsibility" }), "Treasury{Enter}");
       await waitFor(() =>
         expect(lastCall(positionApi.putDetails)[1]).toMatchObject({
-          responsibilities: ["Group P&L stewardship", "Treasury"],
+          responsibilities: [
+            { text: "Group P&L stewardship", source: "MANUAL" },
+            { text: "Treasury", source: "MANUAL" },
+          ],
         }),
       );
 
       await person.click(screen.getByRole("button", { name: "Remove Group P&L stewardship" }));
-      await waitFor(() => expect(lastCall(positionApi.putDetails)[1]).toMatchObject({ responsibilities: ["Treasury"] }));
+      await waitFor(() =>
+        expect(lastCall(positionApi.putDetails)[1]).toMatchObject({
+          responsibilities: [{ text: "Treasury", source: "MANUAL" }],
+        }),
+      );
     });
 
     it("edits the ideal profile in place", async () => {
@@ -477,8 +491,8 @@ describe("PositionPage", () => {
       await person.type(await screen.findByRole("textbox", { name: "Add a criterion" }), "Arabic language skills{Enter}");
       await waitFor(() =>
         expect(lastCall(positionApi.putCriteria)[1]).toEqual([
-          { text: "Board reporting experience", mode: "REQUIRED", fromBrief: true },
-          { text: "Arabic language skills", mode: "REQUIRED", fromBrief: false },
+          { text: "Board reporting experience", mode: "REQUIRED", source: "TEMPLATE" },
+          { text: "Arabic language skills", mode: "REQUIRED", source: "MANUAL" },
         ]),
       );
 
