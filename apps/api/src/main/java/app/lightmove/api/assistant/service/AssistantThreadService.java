@@ -108,9 +108,12 @@ public class AssistantThreadService {
                 .from(httpRequest)
                 .detail("turnId", started.turnId())
                 .detail("status", settled.getStatus().name())
-                .detail("model", settled.getModel())
-                .detail("inputTokens", settled.getInputTokens())
-                .detail("outputTokens", settled.getOutputTokens())
+                // All three are absent on a failed turn, and the token counts are absent on a
+                // successful one the provider did not meter. detail() would seal a null into the
+                // map and throw out of a request whose answer is already stored.
+                .detailIfPresent("model", settled.getModel())
+                .detailIfPresent("inputTokens", settled.getInputTokens())
+                .detailIfPresent("outputTokens", settled.getOutputTokens())
                 .record();
 
         return AssistantTurnResponse.of(settled);

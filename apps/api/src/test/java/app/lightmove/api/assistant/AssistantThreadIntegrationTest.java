@@ -7,7 +7,6 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 import app.lightmove.api.FlowTestSupport;
 import app.lightmove.api.IntegrationTest;
-import tools.jackson.databind.JsonNode;
 import java.util.UUID;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -15,6 +14,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.MediaType;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.web.servlet.MvcResult;
+import tools.jackson.databind.JsonNode;
 
 /**
  * A thread is one person's, and that is the whole authorisation.
@@ -25,6 +25,9 @@ import org.springframework.test.web.servlet.MvcResult;
  */
 @IntegrationTest
 class AssistantThreadIntegrationTest extends FlowTestSupport {
+
+    /** Set explicitly: MockMvc sends no User-Agent, and the turn is meant to record the real one. */
+    private static final String USER_AGENT = "Mozilla/5.0 (assistant-integration-test)";
 
     @Autowired
     private JdbcTemplate db;
@@ -41,8 +44,7 @@ class AssistantThreadIntegrationTest extends FlowTestSupport {
         assertThat(answered.get("status").asText()).isEqualTo("SUCCEEDED");
         assertThat(answered.get("answer").isNull()).isFalse();
 
-        JsonNode threads = body(mvc.perform(get("/api/v1/assistant/threads").header("Authorization", owner))
-                .andExpect(status().isOk()).andReturn());
+        JsonNode threads = body(threads(owner));
         assertThat(threads).hasSize(1);
         assertThat(threads.get(0).get("title").asText())
                 .isEqualTo("Who are the top IPP operators in Saudi Arabia?");
@@ -57,7 +59,7 @@ class AssistantThreadIntegrationTest extends FlowTestSupport {
         ask(owner, "second question", threadId);
 
         JsonNode thread = body(mvc.perform(get("/api/v1/assistant/threads/" + threadId)
-                        .header("Authorization", owner))
+                        .header("Authorization", "Bearer " + owner))
                 .andExpect(status().isOk()).andReturn());
 
         JsonNode turns = thread.get("turns");
@@ -73,11 +75,12 @@ class AssistantThreadIntegrationTest extends FlowTestSupport {
         String colleague = secondStaffTokenIn(owner);
         String threadId = body(ask(owner, "my private question", null)).get("threadId").asText();
 
-        mvc.perform(get("/api/v1/assistant/threads/" + threadId).header("Authorization", colleague))
+        mvc.perform(get("/api/v1/assistant/threads/" + threadId)
+                        .header("Authorization", "Bearer " + colleague))
                 .andExpect(status().isNotFound());
 
         mvc.perform(post("/api/v1/assistant/threads/" + threadId + "/ask")
-                        .header("Authorization", colleague)
+                        .header("Authorization", "Bearer " + colleague)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"question\":\"let me in\"}"))
                 .andExpect(status().isNotFound());
@@ -92,10 +95,8 @@ class AssistantThreadIntegrationTest extends FlowTestSupport {
         ask(owner, "mine", null);
         ask(colleague, "theirs", null);
 
-        assertThat(body(mvc.perform(get("/api/v1/assistant/threads").header("Authorization", owner))
-                .andReturn())).hasSize(1);
-        assertThat(body(mvc.perform(get("/api/v1/assistant/threads").header("Authorization", colleague))
-                .andReturn())).hasSize(1);
+        assertThat(body(threads(owner))).hasSize(1);
+        assertThat(body(threads(colleague))).hasSize(1);
     }
 
     @Test
@@ -112,15 +113,31 @@ class AssistantThreadIntegrationTest extends FlowTestSupport {
         assertThat(row.get("finished_at")).as("V65 ties finished_at to a terminal status").isNotNull();
         assertThat(row.get("started_at")).as("set in Java, not left to the column default").isNotNull();
         assertThat(row.get("ip_address")).isNotNull();
-        assertThat(row.get("user_agent")).isNotNull();
+        assertThat(row.get("user_agent")).isEqualTo(USER_AGENT);
     }
 
+    /**
+     * A pure client reaches the assistant, and only {@code member(principal)} would let them.
+     *
+     * <p>Built through the client registry rather than {@code inviteAndAccept}, because the workspace
+     * CLIENT role is not invitable — {@code InvitationService} refuses it by name, since a client is
+     * invited to a project and never to the tenant. That refusal is the reason this fixture is long.
+     */
     @Test
     @DisplayName("a client representative may hold a thread — the tool surface is what limits them")
     void aClientMayUseTheAssistant() throws Exception {
         String admin = staffToken();
-        inviteAndAccept(admin, "Clara Client", "clara@" + domain, "CLIENT");
-        String client = login("clara@" + domain);
+        String clientId = createCustomClient(admin, "Acme Corp");
+        String project = createProject(admin, clientId, "CFO Search");
+
+        String repEmail = "clara@client-" + domain;
+        String representativeId = inviteRepresentative(admin, clientId, "Clara Client", "Chair", repEmail);
+        String client = acceptAsNewUser(email.latestTokenFor(repEmail), "Clara Client");
+        attachRepresentative(admin, project, representativeId);
+
+        // Staff surfaces stay shut, which is what makes the next line worth asserting.
+        mvc.perform(get("/api/v1/members").header("Authorization", "Bearer " + client))
+                .andExpect(status().isForbidden());
 
         JsonNode answered = body(ask(client, "how is my search going?", null));
 
@@ -133,15 +150,14 @@ class AssistantThreadIntegrationTest extends FlowTestSupport {
         String owner = staffToken();
 
         mvc.perform(post("/api/v1/assistant/ask")
-                        .header("Authorization", owner)
+                        .header("Authorization", "Bearer " + owner)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"question\":\"   \"}"))
                 .andExpect(status().isBadRequest());
 
         // Asked of this caller's own history rather than of the table: nothing in this suite rolls
         // back, so every other test's threads are still sitting there.
-        assertThat(body(mvc.perform(get("/api/v1/assistant/threads").header("Authorization", owner))
-                .andReturn())).isEmpty();
+        assertThat(body(threads(owner))).isEmpty();
     }
 
     private MvcResult ask(String token, String question, String threadId) throws Exception {
@@ -149,10 +165,17 @@ class AssistantThreadIntegrationTest extends FlowTestSupport {
                 ? "/api/v1/assistant/ask"
                 : "/api/v1/assistant/threads/" + threadId + "/ask";
         return mvc.perform(post(path)
-                        .header("Authorization", token)
+                        .header("Authorization", "Bearer " + token)
+                        .header("User-Agent", USER_AGENT)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(json.writeValueAsString(new AskBody(question))))
                 .andExpect(status().isCreated())
+                .andReturn();
+    }
+
+    private MvcResult threads(String token) throws Exception {
+        return mvc.perform(get("/api/v1/assistant/threads").header("Authorization", "Bearer " + token))
+                .andExpect(status().isOk())
                 .andReturn();
     }
 
@@ -165,6 +188,54 @@ class AssistantThreadIntegrationTest extends FlowTestSupport {
     private String secondStaffTokenIn(String adminToken) throws Exception {
         inviteAndAccept(adminToken, "Rob Researcher", "rob@" + domain, "MEMBER");
         return login("rob@" + domain);
+    }
+
+    private String createCustomClient(String adminToken, String name) throws Exception {
+        return body(mvc.perform(post("/api/v1/clients")
+                        .header("Authorization", "Bearer " + adminToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"customName\":\"%s\"}".formatted(name)))
+                .andExpect(status().isCreated())
+                .andReturn()).get("id").asText();
+    }
+
+    private String createProject(String adminToken, String clientId, String positionTitle) throws Exception {
+        return body(mvc.perform(post("/api/v1/projects")
+                        .header("Authorization", "Bearer " + adminToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"clientId\":\"%s\",\"positionTitle\":\"%s\"}"
+                                .formatted(clientId, positionTitle)))
+                .andExpect(status().isCreated())
+                .andReturn()).get("id").asText();
+    }
+
+    private String inviteRepresentative(String adminToken, String clientId, String fullName,
+                                        String position, String repEmail) throws Exception {
+        return body(mvc.perform(post("/api/v1/clients/" + clientId + "/representatives")
+                        .header("Authorization", "Bearer " + adminToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"fullName\":\"%s\",\"position\":\"%s\",\"email\":\"%s\"}"
+                                .formatted(fullName, position, repEmail)))
+                .andExpect(status().isCreated())
+                .andReturn()).get("id").asText();
+    }
+
+    private void attachRepresentative(String adminToken, String projectId, String representativeId)
+            throws Exception {
+        mvc.perform(post("/api/v1/projects/" + projectId + "/representatives")
+                        .header("Authorization", "Bearer " + adminToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"representativeId\":\"%s\"}".formatted(representativeId)))
+                .andExpect(status().isOk());
+    }
+
+    private String acceptAsNewUser(String token, String fullName) throws Exception {
+        return body(mvc.perform(post("/api/v1/onboarding/accept-invitation-signup")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"token\":\"%s\",\"fullName\":\"%s\",\"password\":\"%s\"}"
+                                .formatted(token, fullName, PASSWORD)))
+                .andExpect(status().isCreated())
+                .andReturn()).get("accessToken").asText();
     }
 
     private record AskBody(String question) {}
