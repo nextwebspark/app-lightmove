@@ -2,6 +2,8 @@ package app.lightmove.api.triagecompany.model;
 
 import app.lightmove.api.triagecompany.constant.TriageCompanySource;
 import app.lightmove.api.triagecompany.constant.TriageCompanyStatus;
+import app.lightmove.api.common.industry.model.ResolvedIndustry;
+import app.lightmove.api.common.industry.service.Industries;
 import app.lightmove.api.core.persistence.model.BaseEntity;
 import app.lightmove.api.customcolumn.model.CustomFieldValues;
 import jakarta.persistence.Column;
@@ -68,6 +70,20 @@ public class TriageCompany extends BaseEntity {
     @Column(name = "industry")
     private String industry;
 
+    /**
+     * Derived from {@link #industry} and written with it by {@link #fileUnder}, never separately.
+     * {@code industryV2Label} on an Apollo-backed row is V1 renamed rather than a finer fact — the
+     * universe never recorded the leaf.
+     */
+    @Column(name = "industry_v2_code")
+    private Integer industryV2Code;
+
+    @Column(name = "industry_v2_label")
+    private String industryV2Label;
+
+    @Column(name = "sector_group")
+    private String sectorGroup;
+
     @Column(name = "company_country")
     private String companyCountry;
 
@@ -123,7 +139,7 @@ public class TriageCompany extends BaseEntity {
         company.source = source;
         company.status = status;
         company.companyName = details.companyName();
-        company.industry = details.industry();
+        company.fileUnder(details.industry());
         company.companyCountry = details.companyCountry();
         company.companyCity = details.companyCity();
         company.numEmployees = details.numEmployees();
@@ -144,7 +160,7 @@ public class TriageCompany extends BaseEntity {
      */
     public void enrichFacts(CapturedCompanyDetails details) {
         if (industry == null) {
-            industry = details.industry();
+            fileUnder(details.industry());
         }
         if (companyCountry == null) {
             companyCountry = details.companyCountry();
@@ -182,7 +198,7 @@ public class TriageCompany extends BaseEntity {
      */
     public void describe(CapturedCompanyDetails details) {
         this.companyName = details.companyName();
-        this.industry = details.industry();
+        fileUnder(details.industry());
         this.companyCountry = details.companyCountry();
         this.companyCity = details.companyCity();
         this.numEmployees = details.numEmployees();
@@ -191,6 +207,19 @@ public class TriageCompany extends BaseEntity {
         this.companyLinkedinUrl = details.companyLinkedinUrl();
         this.foundedYear = details.foundedYear();
         this.shortDescription = details.shortDescription();
+    }
+
+    /**
+     * The one place the industry and the three forms derived from it are written, so a row can never
+     * hold a sector that disagrees with its own industry. A label nobody can resolve keeps itself and
+     * leaves the rest null.
+     */
+    private void fileUnder(String suppliedIndustry) {
+        ResolvedIndustry resolved = Industries.resolve(suppliedIndustry);
+        this.industry = resolved == null ? null : resolved.label();
+        this.industryV2Code = resolved == null ? null : resolved.linkedInCode();
+        this.industryV2Label = resolved == null ? null : resolved.v2Label();
+        this.sectorGroup = resolved == null ? null : resolved.sectorGroup();
     }
 
     /**
