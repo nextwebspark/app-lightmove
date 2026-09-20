@@ -24,6 +24,7 @@ import type {
   ReportingStructure,
   StrategicPriority,
 } from "../api/types";
+import { markManual } from "../lib/provenance";
 import { StepNavigation } from "../components/StepNavigation";
 import type { CompetencyPanelKey } from "../components/steps/AssessmentStep";
 import {
@@ -209,8 +210,14 @@ function PositionWizard({ projectId, position }: { projectId: string; position: 
       ? "saved"
       : "idle";
 
+  /** The scalar keys `changeDetails` tracks provenance for — everything `fieldSources` covers on this step. */
+  const DETAILS_FIELD_KEYS = ["department", "location", "employmentType", "seniority", "narrative"] as const;
+  const CONTEXT_FIELD_KEYS = ["mandateReason", "businessDriver"] as const;
+  const REPORTING_FIELD_KEYS = ["teamSize", "noticeValue", "noticeUnit"] as const;
+
   const changeDetails = (patch: Partial<PositionDetails>, immediate = false) => {
-    const next = { ...details, ...patch };
+    const touched = DETAILS_FIELD_KEYS.filter((key) => key in patch);
+    const next = { ...details, ...patch, fieldSources: markManual(details.fieldSources, touched) };
     setDetails(next);
     // The mandate cannot be untitled, so a blank title is held back rather than sent and refused.
     if (!next.roleTitle.trim()) return;
@@ -218,13 +225,15 @@ function PositionWizard({ projectId, position }: { projectId: string; position: 
     if (immediate) void detailsSave.flush();
   };
   const changeContext = (patch: Partial<MandateContext>, immediate = false) => {
-    const next = { ...context, ...patch };
+    const touched = CONTEXT_FIELD_KEYS.filter((key) => key in patch);
+    const next = { ...context, ...patch, fieldSources: markManual(context.fieldSources, touched) };
     setContext(next);
     contextSave.schedule(next);
     if (immediate) void contextSave.flush();
   };
   const changeReporting = (patch: Partial<ReportingStructure>, immediate = false) => {
-    const next = { ...reporting, ...patch };
+    const touched = REPORTING_FIELD_KEYS.filter((key) => key in patch);
+    const next = { ...reporting, ...patch, fieldSources: markManual(reporting.fieldSources, touched) };
     setReporting(next);
     reportingSave.schedule(next);
     if (immediate) void reportingSave.flush();
@@ -520,7 +529,7 @@ function PositionWizard({ projectId, position }: { projectId: string; position: 
       case "narrative":
         return { narrative: value || null };
       case "responsibility":
-        return { responsibilities: [...details.responsibilities, value] };
+        return { responsibilities: [...details.responsibilities, { text: value, source: "MANUAL" }] };
       default:
         return null;
     }
@@ -549,7 +558,7 @@ function PositionWizard({ projectId, position }: { projectId: string; position: 
     const valueOf = (field: ProposedField) => edits[field.id] ?? field.value;
     const responsibilities = detailsExtraction.fields
         .filter((field) => field.fieldKey === "responsibility")
-        .map(valueOf);
+        .map((field) => ({ text: valueOf(field), source: "MANUAL" as const }));
     const combined = detailsExtraction.fields
         .filter((field) => field.fieldKey !== "responsibility")
         .reduce<Partial<PositionDetails>>((patch, field) => {
@@ -702,10 +711,12 @@ function PositionWizard({ projectId, position }: { projectId: string; position: 
    * — those ceilings are per brief, not per proposal, so a brief already near one can still not take
    * everything an "Accept all" offers.
    *
-   * A criterion built from an accepted proposal is written `fromBrief: false`, exactly like one typed
-   * by hand into `CriteriaCard` — never `true`. `fromBrief` marks a row a template redraft is free to
-   * delete and replace (`PositionTemplateApplier.draftedCriteria`); a criterion a person read out of
-   * the client's own document and accepted is not the template's to discard on the next re-apply.
+   * A criterion built from an accepted proposal is written `source: "MANUAL"`, exactly like one typed
+   * by hand into `CriteriaCard` — never `"TEMPLATE"`. `source` marks a row a template redraft is free
+   * to delete and replace (`PositionTemplateApplier.draftedCriteria`); a criterion a person read out of
+   * the client's own document and accepted is not the template's to discard on the next re-apply. (The
+   * fill engine landing in #396 is what starts writing `"DOCUMENT"` here — this panel is retired before
+   * that ships, so it never needs to.)
    */
   const patchForAssessment = (
     field: ProposedField,
@@ -716,11 +727,11 @@ function PositionWizard({ projectId, position }: { projectId: string; position: 
       case "requiredCriterion":
         return acc.criteria.length >= CRITERIA_MAX_COUNT
           ? acc
-          : { ...acc, criteria: [...acc.criteria, { text: value, mode: "REQUIRED", fromBrief: false }] };
+          : { ...acc, criteria: [...acc.criteria, { text: value, mode: "REQUIRED", source: "MANUAL" }] };
       case "preferredCriterion":
         return acc.criteria.length >= CRITERIA_MAX_COUNT
           ? acc
-          : { ...acc, criteria: [...acc.criteria, { text: value, mode: "PREFERRED", fromBrief: false }] };
+          : { ...acc, criteria: [...acc.criteria, { text: value, mode: "PREFERRED", source: "MANUAL" }] };
       case "technicalCompetency":
         return acc.technical.length >= COMPETENCY_MAX_COUNT_PER_PANEL
           ? acc

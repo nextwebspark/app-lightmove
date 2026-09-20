@@ -307,10 +307,10 @@ class PositionExtractionIntegrationTest extends FlowTestSupport {
     }
 
     // AC4 ("an accepted criterion survives a later template re-apply") is proved generically by
-    // PositionTemplateIntegrationTest#applyingATemplateKeepsWhatSomebodyTyped: it PUTs a fromBrief:false
-    // criterion — the exact shape an accepted assessment proposal is written as — then applies a
-    // different template, and asserts that criterion survives while the template-drafted one does not.
-    // Not duplicated here since the mechanism is the write path, not the extraction call.
+    // PositionTemplateIntegrationTest#applyingATemplateKeepsWhatSomebodyTyped: it PUTs source:MANUAL
+    // and source:DOCUMENT criteria — the shapes a typed or an accepted assessment proposal are written
+    // as — then applies a different template, and asserts both survive while the template-drafted one
+    // does not. Not duplicated here since the mechanism is the write path, not the extraction call.
 
     // ── helpers ──────────────────────────────────────────────────────────────
 

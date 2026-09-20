@@ -2,9 +2,12 @@ package app.lightmove.api.position.dto;
 
 import app.lightmove.api.common.constant.EmploymentType;
 import app.lightmove.api.common.constant.Seniority;
+import app.lightmove.api.position.constant.FieldSource;
+import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
 import java.util.List;
+import java.util.Map;
 
 /**
  * Snapshot PUT of step one. The role title is required because the mandate cannot be untitled — it is
@@ -21,9 +24,11 @@ public record PutPositionDetailsRequest(
         Seniority seniority,
 
         @Size(max = 20, message = "That is too many responsibilities")
-        List<@NotBlank(message = "Enter the responsibility")
-             @Size(max = 200, message = "That responsibility is too long") String> responsibilities,
+        List<@Valid ResponsibilityDto> responsibilities,
 
         @Size(max = 4000, message = "That narrative is too long")
-        String narrative
+        String narrative,
+
+        /** Null defaults every key of this step to {@code MANUAL}. */
+        Map<String, FieldSource> fieldSources
 ) {}

@@ -1,10 +1,12 @@
 package app.lightmove.api.position.dto;
 
+import app.lightmove.api.position.constant.FieldSource;
 import app.lightmove.api.position.constant.MandateReason;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
 import java.util.List;
+import java.util.Map;
 
 /** Snapshot PUT of step two. */
 public record PutMandateContextRequest(
@@ -20,5 +22,8 @@ public record PutMandateContextRequest(
         boolean confidential,
 
         @Size(max = 4000, message = "That context note is too long")
-        String internalContext
+        String internalContext,
+
+        /** Null defaults every key of this step to {@code MANUAL}. */
+        Map<String, FieldSource> fieldSources
 ) {}

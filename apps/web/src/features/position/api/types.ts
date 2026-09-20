@@ -34,6 +34,13 @@ export type IncentiveType = "LTIP_CASH" | "RSU" | "OPTIONS" | "PHANTOM_EQUITY";
 export type BenefitFrequency = "MONTHLY" | "YEARLY";
 
 /**
+ * Where a field's current value came from: the matched role template, a document reading, or a
+ * person typing it in. Distinct from `ProposalOrigin` below, which labels an unaccepted "Read from
+ * document" proposal rather than a value already saved to the brief.
+ */
+export type FieldSource = "TEMPLATE" | "DOCUMENT" | "MANUAL";
+
+/**
  * One seat in the org chart. Exactly one node carries `mandateSeat` — the role being searched for —
  * and everything else reads off it: the manager is that seat's parent, the direct reports are its
  * children. `canvasX`/`canvasY` are where the box was dragged, absent until it has been.
@@ -46,6 +53,7 @@ export interface OrgNode {
   mandateSeat: boolean;
   canvasX: number | null;
   canvasY: number | null;
+  source?: FieldSource;
 }
 
 export interface Benefit {
@@ -53,19 +61,26 @@ export interface Benefit {
   /** Absent when the package names the allowance without quantifying it, which is common. */
   amount: number | null;
   frequency: BenefitFrequency;
+  source?: FieldSource;
 }
 
 export interface Criterion {
   text: string;
   mode: CriterionMode;
-  /** Seeded from the brief (the template library today, an AI drafter later). */
-  fromBrief: boolean;
+  source: FieldSource;
 }
 
 export interface Competency {
   name: string;
   description: string | null;
   weight: number;
+  source?: FieldSource;
+}
+
+/** One line of a brief's responsibilities: the text, and where it came from. */
+export interface Responsibility {
+  text: string;
+  source: FieldSource;
 }
 
 /** Step 1. `roleTitle` is the mandate's own title, edited here and stored on the project. */
@@ -75,8 +90,10 @@ export interface PositionDetails {
   location: string | null;
   employmentType: EmploymentType | null;
   seniority: PositionSeniority | null;
-  responsibilities: string[];
+  responsibilities: Responsibility[];
   narrative: string | null;
+  /** Provenance of department, location, employmentType, seniority and narrative. */
+  fieldSources: Record<string, FieldSource>;
 }
 
 export type PositionDiscipline =
@@ -110,6 +127,7 @@ export interface PositionTemplate {
 export interface StrategicPriority {
   name: string;
   selected: boolean;
+  source?: FieldSource;
 }
 
 /** Step 2. The priorities are the mandate's own, in the order the brief lists them. */
@@ -119,6 +137,8 @@ export interface MandateContext {
   strategicPriorities: StrategicPriority[];
   confidential: boolean;
   internalContext: string | null;
+  /** Provenance of mandateReason and businessDriver. */
+  fieldSources: Record<string, FieldSource>;
 }
 
 /**
@@ -134,6 +154,8 @@ export interface ReportingStructure {
   targetStart: string | null;
   noticeValue: number | null;
   noticeUnit: NoticeUnit | null;
+  /** Provenance of teamSize, noticeValue and noticeUnit. Each org seat carries its own `source`. */
+  fieldSources: Record<string, FieldSource>;
 }
 
 /** Step 4. Every figure travels with the unit it is quoted in. */

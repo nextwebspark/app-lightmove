@@ -34,7 +34,7 @@ export function CriteriaCard({
               onChange={(e) => patch(index, { text: e.target.value })}
               className="min-w-0 flex-1 border-b border-transparent bg-transparent py-1 text-[13px] font-medium text-text outline-none transition hover:border-line focus:border-sky"
             />
-            {criterion.fromBrief && (
+            {criterion.source === "TEMPLATE" && (
               <span className="flex-none rounded-[5px] border border-line px-[7px] py-0.5 font-mono text-[9.5px] font-medium uppercase tracking-[0.04em] text-text3">
                 From brief
               </span>
@@ -85,7 +85,7 @@ export function CriteriaCard({
   function add() {
     const text = draft.trim();
     if (!text) return;
-    onChange([...criteria, { text, mode: "REQUIRED", fromBrief: false }]);
+    onChange([...criteria, { text, mode: "REQUIRED", source: "MANUAL" }]);
     setDraft("");
   }
 }

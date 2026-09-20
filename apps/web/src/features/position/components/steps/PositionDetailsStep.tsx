@@ -60,7 +60,7 @@ export function PositionDetailsStep({
   const addResponsibility = () => {
     const text = draft.trim();
     if (!text) return;
-    onChange({ responsibilities: [...details.responsibilities, text] });
+    onChange({ responsibilities: [...details.responsibilities, { text, source: "MANUAL" }] });
     setDraft("");
   };
 
@@ -158,12 +158,12 @@ export function PositionDetailsStep({
             <div className="flex flex-wrap gap-2">
               {details.responsibilities.map((responsibility, index) => (
                 <span
-                  key={`${responsibility}-${index}`}
+                  key={`${responsibility.text}-${index}`}
                   className="inline-flex items-center gap-[7px] rounded border border-line bg-panel py-1.5 pe-2 ps-2.5 text-xs font-semibold text-text2"
                 >
-                  {responsibility}
+                  {responsibility.text}
                   <RemoveRowButton
-                    label={`Remove ${responsibility}`}
+                    label={`Remove ${responsibility.text}`}
                     onClick={() =>
                       onChange({
                         responsibilities: details.responsibilities.filter((_, i) => i !== index),

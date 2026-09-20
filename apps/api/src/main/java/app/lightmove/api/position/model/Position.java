@@ -7,6 +7,7 @@ import app.lightmove.api.common.constant.IncentiveType;
 import app.lightmove.api.common.constant.NoticeUnit;
 import app.lightmove.api.common.constant.Seniority;
 import app.lightmove.api.core.persistence.model.BaseEntity;
+import app.lightmove.api.position.constant.FieldSource;
 import app.lightmove.api.position.constant.MandateReason;
 import jakarta.persistence.CollectionTable;
 import jakarta.persistence.Column;
@@ -22,13 +23,17 @@ import java.math.BigDecimal;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.stream.Stream;
 import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
 
 /**
  * The position brief — the mandate's role definition, 1:1 with its project. Seeded from the template
@@ -69,11 +74,20 @@ public class Position extends BaseEntity {
     @CollectionTable(name = "app_lm_position_responsibility",
             joinColumns = @JoinColumn(name = "position_id"))
     @OrderColumn(name = "sort_order")
-    @Column(name = "text", nullable = false, length = 200)
-    private List<String> responsibilities = new ArrayList<>();
+    private List<PositionResponsibility> responsibilities = new ArrayList<>();
 
     @Column(name = "narrative")
     private String narrative;
+
+    /**
+     * Provenance of the ten scalars a template or a document reading can claim, keyed by wire field
+     * name. An absent key means nobody has claimed the field yet — it is still fillable. The
+     * compensation figures and the role title are deliberately never in here: neither is ever
+     * auto-filled.
+     */
+    @JdbcTypeCode(SqlTypes.JSON)
+    @Column(name = "field_sources", nullable = false)
+    private Map<String, FieldSource> fieldSources = Map.of();
 
     // Step 2 · Mandate context
 
@@ -192,6 +206,7 @@ public class Position extends BaseEntity {
         this.seniority = details.seniority();
         this.narrative = details.narrative();
         replace(this.responsibilities, details.responsibilities());
+        mergeFieldSources(details.fieldSources());
     }
 
     public void applyContext(MandateContext context) {
@@ -200,6 +215,7 @@ public class Position extends BaseEntity {
         this.confidential = context.confidential();
         this.internalContext = context.internalContext();
         replace(this.strategicPriorities, context.strategicPriorities());
+        mergeFieldSources(context.fieldSources());
     }
 
     public void applyReporting(ReportingStructure reporting) {
@@ -207,6 +223,18 @@ public class Position extends BaseEntity {
         this.noticeValue = reporting.noticeValue();
         this.noticeUnit = reporting.noticeUnit();
         replace(this.orgChart, mandateSeatFirst(reporting.orgChart()));
+        mergeFieldSources(reporting.fieldSources());
+    }
+
+    /**
+     * Replaces only the step's own key slice — {@code applyDetails}, {@code applyContext} and
+     * {@code applyReporting} each write a disjoint set of keys, so a wholesale replace here would
+     * erase what the other two steps have already claimed.
+     */
+    private void mergeFieldSources(Map<String, FieldSource> slice) {
+        Map<String, FieldSource> merged = new LinkedHashMap<>(this.fieldSources);
+        merged.putAll(slice);
+        this.fieldSources = Map.copyOf(merged);
     }
 
     /**

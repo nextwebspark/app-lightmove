@@ -5,6 +5,8 @@ import app.lightmove.api.core.audit.constant.ProjectEventType;
 import app.lightmove.api.core.audit.service.AuditService;
 import app.lightmove.api.core.error.constant.ErrorCode;
 import app.lightmove.api.core.error.model.ApiException;
+import app.lightmove.api.position.constant.FieldSource;
+import app.lightmove.api.position.constant.PositionFieldKeys;
 import app.lightmove.api.position.dto.CompensationDto;
 import app.lightmove.api.position.dto.PositionResponse;
 import app.lightmove.api.position.dto.PutCompensationRequest;
@@ -13,6 +15,7 @@ import app.lightmove.api.position.dto.PutCriteriaRequest;
 import app.lightmove.api.position.dto.PutMandateContextRequest;
 import app.lightmove.api.position.dto.PutPositionDetailsRequest;
 import app.lightmove.api.position.dto.PutReportingStructureRequest;
+import app.lightmove.api.position.dto.ResponsibilityDto;
 import app.lightmove.api.position.dto.StrategicPriorityDto;
 import app.lightmove.api.position.model.CompensationPackage;
 import app.lightmove.api.position.model.MandateContext;
@@ -23,12 +26,15 @@ import app.lightmove.api.position.model.PositionCriterion;
 import app.lightmove.api.position.model.PositionDetails;
 import app.lightmove.api.position.model.PositionOrgNode;
 import app.lightmove.api.position.model.PositionPriority;
+import app.lightmove.api.position.model.PositionResponsibility;
 import app.lightmove.api.position.model.ReportingStructure;
 import app.lightmove.api.positiontemplate.model.PositionTemplate;
 import app.lightmove.api.positiontemplate.service.PositionTemplateService;
 import jakarta.servlet.http.HttpServletRequest;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 import java.util.stream.Stream;
 import lombok.RequiredArgsConstructor;
@@ -81,7 +87,8 @@ public class PositionService {
         PositionBrief brief = briefs.require(workspaceId, projectId);
         brief.position().applyDetails(new PositionDetails(
                 request.department(), request.location(), request.employmentType(),
-                request.seniority(), orEmpty(request.responsibilities()), request.narrative()));
+                request.seniority(), responsibilitiesOf(request.responsibilities()), request.narrative(),
+                fieldSourcesOf(request.fieldSources(), PositionFieldKeys.DETAILS)));
         // The mandate keeps one role title, on the project — the step's "Role title" writes it there.
         brief.project().rename(request.roleTitle());
         return saved(brief, userId, workspaceId, projectId, "details", httpRequest);
@@ -94,7 +101,8 @@ public class PositionService {
         brief.position().applyContext(new MandateContext(
                 request.mandateReason(), request.businessDriver(),
                 prioritiesOf(request.strategicPriorities()),
-                request.confidential(), request.internalContext()));
+                request.confidential(), request.internalContext(),
+                fieldSourcesOf(request.fieldSources(), PositionFieldKeys.CONTEXT)));
         return saved(brief, userId, workspaceId, projectId, "context", httpRequest);
     }
 
@@ -107,9 +115,10 @@ public class PositionService {
                 OrgChartRules.withoutUnnamedLeaves(request.orgChart()).stream()
                         .map(node -> PositionOrgNode.of(node.nodeId(), node.parentNodeId(),
                                 node.title(), node.name(), node.mandateSeat(),
-                                node.canvasX(), node.canvasY()))
+                                node.canvasX(), node.canvasY(), FieldSource.orManual(node.source())))
                         .toList(),
-                request.teamSize(), request.noticeValue(), request.noticeUnit()));
+                request.teamSize(), request.noticeValue(), request.noticeUnit(),
+                fieldSourcesOf(request.fieldSources(), PositionFieldKeys.REPORTING)));
         return saved(brief, userId, workspaceId, projectId, "reporting", httpRequest);
     }
 
@@ -122,8 +131,8 @@ public class PositionService {
                 request.bonusValue(), request.bonusBasis(),
                 request.incentiveType(), request.incentiveAmount(), request.incentiveVesting(),
                 orEmpty(request.benefits()).stream()
-                        .map(benefit -> PositionBenefit.of(
-                                benefit.name(), benefit.amount(), benefit.frequency()))
+                        .map(benefit -> PositionBenefit.of(benefit.name(), benefit.amount(),
+                                benefit.frequency(), FieldSource.orManual(benefit.source())))
                         .toList()));
         return saved(brief, userId, workspaceId, projectId, "compensation", httpRequest);
     }
@@ -134,7 +143,7 @@ public class PositionService {
         PositionBrief brief = briefs.require(workspaceId, projectId);
         brief.position().replaceCriteria(request.criteria().stream()
                 .map(criterion -> PositionCriterion.of(
-                        criterion.text(), criterion.mode(), criterion.fromBrief()))
+                        criterion.text(), criterion.mode(), FieldSource.orManual(criterion.source())))
                 .toList());
         return saved(brief, userId, workspaceId, projectId, "criteria", httpRequest);
     }
@@ -146,10 +155,12 @@ public class PositionService {
         brief.position().replaceCompetencies(Stream.concat(
                         request.technical().stream()
                                 .map(competency -> PositionCompetency.of(CompetencyPanel.TECHNICAL,
-                                        competency.name(), competency.description(), competency.weight())),
+                                        competency.name(), competency.description(), competency.weight(),
+                                        FieldSource.orManual(competency.source()))),
                         request.behavioural().stream()
                                 .map(competency -> PositionCompetency.of(CompetencyPanel.BEHAVIOURAL,
-                                        competency.name(), competency.description(), competency.weight())))
+                                        competency.name(), competency.description(), competency.weight(),
+                                        FieldSource.orManual(competency.source()))))
                 .toList());
         return saved(brief, userId, workspaceId, projectId, "competencies", httpRequest);
     }
@@ -239,7 +250,8 @@ public class PositionService {
      */
     private static List<PositionPriority> prioritiesOf(List<StrategicPriorityDto> sent) {
         List<PositionPriority> priorities = orEmpty(sent).stream()
-                .map(priority -> PositionPriority.of(priority.name(), priority.selected()))
+                .map(priority -> PositionPriority.of(priority.name(), priority.selected(),
+                        FieldSource.orManual(priority.source())))
                 .toList();
         long distinct = priorities.stream()
                 .map(priority -> priority.getName().toLowerCase(Locale.ROOT))
@@ -250,6 +262,27 @@ public class PositionService {
                     "Two strategic priorities share a name");
         }
         return priorities;
+    }
+
+    private static List<PositionResponsibility> responsibilitiesOf(List<ResponsibilityDto> sent) {
+        return orEmpty(sent).stream()
+                .map(responsibility -> PositionResponsibility.of(
+                        responsibility.text(), FieldSource.orManual(responsibility.source())))
+                .toList();
+    }
+
+    /**
+     * A step's provenance as sent, or — when the caller sends no {@code fieldSources} at all —
+     * every one of that step's keys stamped {@code MANUAL}: a client saying nothing about
+     * provenance is read as a person having typed the whole step.
+     */
+    private static Map<String, FieldSource> fieldSourcesOf(Map<String, FieldSource> sent,
+                                                            Set<String> allowedKeys) {
+        if (sent == null) {
+            return PositionFieldKeys.allManual(allowedKeys);
+        }
+        PositionFieldKeys.requireKnown(sent, allowedKeys);
+        return sent;
     }
 
     private static <T> List<T> orEmpty(List<T> values) {

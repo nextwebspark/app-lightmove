@@ -11,6 +11,7 @@ const blank: Position = {
     seniority: null,
     responsibilities: [],
     narrative: null,
+    fieldSources: {},
   },
   context: {
     mandateReason: "NEW_ROLE",
@@ -18,6 +19,7 @@ const blank: Position = {
     strategicPriorities: [],
     confidential: false,
     internalContext: null,
+    fieldSources: {},
   },
   reporting: {
     orgChart: [
@@ -35,6 +37,7 @@ const blank: Position = {
     targetStart: null,
     noticeValue: null,
     noticeUnit: null,
+    fieldSources: {},
   },
   compensation: {
     currency: "AED",

@@ -1,6 +1,7 @@
 package app.lightmove.api.position.dto;
 
 import app.lightmove.api.common.constant.CriterionMode;
+import app.lightmove.api.position.constant.FieldSource;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
@@ -14,5 +15,6 @@ public record CriterionRequest(
         @NotNull(message = "Choose Required or Preferred")
         CriterionMode mode,
 
-        boolean fromBrief
+        /** Null defaults to {@code MANUAL} — a person typed it. */
+        FieldSource source
 ) {}

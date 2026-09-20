@@ -1,7 +1,10 @@
 package app.lightmove.api.position.model;
 
+import app.lightmove.api.position.constant.FieldSource;
 import jakarta.persistence.Column;
 import jakarta.persistence.Embeddable;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
 import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
@@ -22,10 +25,15 @@ public class PositionPriority {
     @Column(name = "selected", nullable = false)
     private boolean selected;
 
-    public static PositionPriority of(String name, boolean selected) {
+    @Enumerated(EnumType.STRING)
+    @Column(name = "source", nullable = false, length = 16)
+    private FieldSource source;
+
+    public static PositionPriority of(String name, boolean selected, FieldSource source) {
         PositionPriority priority = new PositionPriority();
         priority.name = name.trim();
         priority.selected = selected;
+        priority.source = source;
         return priority;
     }
 }

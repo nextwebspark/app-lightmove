@@ -87,8 +87,9 @@ const seeded: Position = {
     location: "Abu Dhabi, UAE",
     employmentType: "FULL_TIME_PERMANENT",
     seniority: "C_SUITE",
-    responsibilities: ["Group P&L stewardship"],
+    responsibilities: [{ text: "Group P&L stewardship", source: "TEMPLATE" }],
     narrative: "A hands-on CFO.",
+    fieldSources: { department: "TEMPLATE" },
   },
   context: {
     mandateReason: "NEW_ROLE",
@@ -99,6 +100,7 @@ const seeded: Position = {
     ],
     confidential: false,
     internalContext: null,
+    fieldSources: {},
   },
   reporting: {
     orgChart: [
@@ -109,6 +111,7 @@ const seeded: Position = {
     targetStart: null,
     noticeValue: null,
     noticeUnit: null,
+    fieldSources: {},
   },
   compensation: {
     currency: "USD",
@@ -123,7 +126,7 @@ const seeded: Position = {
     benefits: [],
   },
   assessment: {
-    criteria: [{ text: "Board reporting experience", mode: "REQUIRED", fromBrief: true }],
+    criteria: [{ text: "Board reporting experience", mode: "REQUIRED", source: "TEMPLATE" }],
     technical: [
       { name: "Treasury", description: "Debt and liquidity", weight: 60 },
       { name: "Controls", description: null, weight: 40 },
@@ -171,10 +174,10 @@ const redrafted: Position = {
     ...seeded.details,
     roleTitle: "Chief Financial Officer",
     department: "Compliance",
-    responsibilities: ["Group compliance framework and policy"],
+    responsibilities: [{ text: "Group compliance framework and policy", source: "TEMPLATE" }],
   },
   assessment: {
-    criteria: [{ text: "Led compliance for a regulated entity", mode: "REQUIRED", fromBrief: true }],
+    criteria: [{ text: "Led compliance for a regulated entity", mode: "REQUIRED", source: "TEMPLATE" }],
     technical: [{ name: "Regulatory Framework & Licensing", description: null, weight: 100 }],
     behavioural: [{ name: "Independence & Objectivity", description: null, weight: 100 }],
   },
@@ -285,13 +288,13 @@ describe("PositionPage", () => {
       vi.mocked(positionApi.putContext).mock.calls.at(-1)?.[1].strategicPriorities,
     ).toEqual([
       { name: "Capital discipline", selected: false },
-      { name: "Portfolio growth", selected: true },
+      { name: "Portfolio growth", selected: true, source: "MANUAL" },
     ]);
 
     await user.click(screen.getByRole("button", { name: "Remove Capital discipline" }));
     expect(
       vi.mocked(positionApi.putContext).mock.calls.at(-1)?.[1].strategicPriorities,
-    ).toEqual([{ name: "Portfolio growth", selected: true }]);
+    ).toEqual([{ name: "Portfolio growth", selected: true, source: "MANUAL" }]);
 
     // Anything the palette does not offer is typed in, and arrives lit — adding one is choosing it.
     await user.click(screen.getByRole("button", { name: "+ Add priority" }));
@@ -299,8 +302,8 @@ describe("PositionPage", () => {
     expect(
       vi.mocked(positionApi.putContext).mock.calls.at(-1)?.[1].strategicPriorities,
     ).toEqual([
-      { name: "Portfolio growth", selected: true },
-      { name: "Lender confidence", selected: true },
+      { name: "Portfolio growth", selected: true, source: "MANUAL" },
+      { name: "Lender confidence", selected: true, source: "MANUAL" },
     ]);
   });
 
@@ -423,7 +426,12 @@ describe("PositionPage", () => {
     );
     const [, technicalSent, behaviouralSent] =
       vi.mocked(positionApi.putCompetencies).mock.calls.at(-1)!;
-    expect(technicalSent.at(-1)).toEqual({ name: "New competency", description: null, weight: 0 });
+    expect(technicalSent.at(-1)).toEqual({
+      name: "New competency",
+      description: null,
+      weight: 0,
+      source: "MANUAL",
+    });
     expect(behaviouralSent).toHaveLength(1);
   });
 

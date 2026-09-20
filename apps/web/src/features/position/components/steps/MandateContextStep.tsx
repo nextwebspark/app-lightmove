@@ -50,7 +50,7 @@ export function MandateContextStep({
       (each) => each.name.toLowerCase() === name.toLowerCase(),
     );
     if (known) return;
-    replacePriorities([...context.strategicPriorities, { name, selected: true }]);
+    replacePriorities([...context.strategicPriorities, { name, selected: true, source: "MANUAL" }]);
   };
 
   return (
@@ -87,7 +87,7 @@ export function MandateContextStep({
               onToggle={() =>
                 replacePriorities(
                   context.strategicPriorities.map((each, at) =>
-                    at === index ? { ...each, selected: !each.selected } : each,
+                    at === index ? { ...each, selected: !each.selected, source: "MANUAL" } : each,
                   ),
                 )
               }
