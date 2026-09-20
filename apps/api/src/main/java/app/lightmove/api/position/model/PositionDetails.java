@@ -2,7 +2,7 @@ package app.lightmove.api.position.model;
 
 import app.lightmove.api.common.constant.EmploymentType;
 import app.lightmove.api.common.constant.Seniority;
-import app.lightmove.api.common.location.model.LocationLine;
+import app.lightmove.api.common.location.service.Countries;
 import java.util.List;
 
 /**
@@ -13,7 +13,8 @@ import java.util.List;
  */
 public record PositionDetails(
         String department,
-        String location,
+        String locationCity,
+        String locationCountry,
         EmploymentType employmentType,
         Seniority seniority,
         List<String> responsibilities,
@@ -21,17 +22,10 @@ public record PositionDetails(
 ) {
 
     public PositionDetails {
-        // Free text on purpose — a role can be "Remote" or name two cities, and a picker cannot say
-        // either. Only the country half is settled, so a brief and the mandate's companies spell one
-        // country the same way.
-        location = canonicalLocation(location);
-    }
-
-    private static String canonicalLocation(String location) {
-        LocationLine line = LocationLine.of(location);
-        if (line.country() == null) {
-            return line.city();
-        }
-        return line.city() == null ? line.country() : line.city() + ", " + line.country();
+        // Each half settled on its own, free text surviving in both: the country to the catalog's
+        // spelling, so a brief and the mandate's companies spell one country the same way; the city
+        // to the catalog's casing, keeping a spelling the catalog has never met.
+        locationCity = Countries.cityOf(locationCity);
+        locationCountry = Countries.nameOf(locationCountry);
     }
 }

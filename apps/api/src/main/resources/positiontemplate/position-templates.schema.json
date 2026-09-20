@@ -52,7 +52,7 @@
       "additionalProperties": false,
       "properties": {
         "department": { "type": ["string", "null"], "maxLength": 160 },
-        "employmentType": { "enum": ["FULL_TIME_PERMANENT", "FIXED_TERM_CONTRACT", "PART_TIME", "INTERIM", "RETAINED_ADVISORY", null] },
+        "employmentType": { "enum": ["FULL_TIME_PERMANENT", "FIXED_TERM_CONTRACT", "PART_TIME", "TEMPORARY", "INTERIM", "RETAINED_ADVISORY", null] },
         "narrative": { "type": ["string", "null"], "maxLength": 4000, "description": "The ideal-profile paragraph a consultant starts the brief from." },
         "responsibilities": { "type": "array", "maxItems": 20, "items": { "type": "string", "minLength": 1, "maxLength": 200 } },
         "reportsTo": { "type": ["string", "null"], "maxLength": 160, "description": "The seat the role reports to; the root of the brief's org chart." },
@@ -63,8 +63,8 @@
         "noticeUnit": { "enum": ["DAYS", "WEEKS", "MONTHS", null] },
         "currency": { "type": ["string", "null"], "pattern": "^[A-Z]{3}$", "description": "ISO 4217 code. Defaults to USD." },
         "baseSalaryMode": { "enum": ["ANNUAL", "MONTHLY", null], "description": "The period a salary band is quoted over. Defaults to ANNUAL." },
-        "bonusValue": { "type": ["number", "null"], "minimum": 0, "maximum": 9999.99, "description": "The target bonus, read against bonusBasis. At most two decimal places." },
-        "bonusBasis": { "enum": ["PERCENT_OF_BASE", "PERCENT_OF_TOTAL_FIXED", "MONTHS_OF_BASE", null] },
+        "bonusValue": { "type": ["number", "null"], "minimum": 0, "maximum": 999999999999.99, "description": "The target bonus, read against bonusBasis — a proportion, or money for FIXED_AMOUNT. At most two decimal places." },
+        "bonusBasis": { "enum": ["PERCENT_OF_BASE", "PERCENT_OF_TOTAL_FIXED", "MONTHS_OF_BASE", "FIXED_AMOUNT", null] },
         "incentiveType": { "enum": ["LTIP_CASH", "RSU", "OPTIONS", "PHANTOM_EQUITY", null] },
         "incentiveVesting": { "type": ["string", "null"], "maxLength": 200 },
         "benefits": {

@@ -80,7 +80,7 @@ public class PositionService {
                                        PutPositionDetailsRequest request, HttpServletRequest httpRequest) {
         PositionBrief brief = briefs.require(workspaceId, projectId);
         brief.position().applyDetails(new PositionDetails(
-                request.department(), request.location(), request.employmentType(),
+                request.department(), request.locationCity(), request.locationCountry(), request.employmentType(),
                 request.seniority(), orEmpty(request.responsibilities()), request.narrative()));
         // The mandate keeps one role title, on the project — the step's "Role title" writes it there.
         brief.project().rename(request.roleTitle());
@@ -150,7 +150,7 @@ public class PositionService {
                         request.behavioural().stream()
                                 .map(competency -> PositionCompetency.of(CompetencyPanel.BEHAVIOURAL,
                                         competency.name(), competency.description(), competency.weight())))
-                .toList());
+                .toList(), request.technicalShare());
         return saved(brief, userId, workspaceId, projectId, "competencies", httpRequest);
     }
 
@@ -210,8 +210,8 @@ public class PositionService {
      * part of its catalog.
      */
     @Transactional
-    public Position seedFor(UUID workspaceId, UUID projectId, String positionTitle, String location) {
-        return briefs.draft(workspaceId, projectId, positionTitle, location);
+    public Position seedFor(UUID workspaceId, UUID projectId, String positionTitle, String hqCountry) {
+        return briefs.draft(workspaceId, projectId, positionTitle, hqCountry);
     }
 
     private PositionResponse saved(PositionBrief brief, UUID userId, UUID workspaceId, UUID projectId,

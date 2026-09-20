@@ -42,8 +42,10 @@ class PositionFlowIntegrationTest extends FlowTestSupport {
         mvc.perform(get(positionUrl(projectId)).header("Authorization", "Bearer " + admin))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.details.roleTitle").value("Chief Financial Officer"))
-                // The brief opens at the client's HQ country, canonicalised on the client's own write.
-                .andExpect(jsonPath("$.details.location").value("United Arab Emirates"))
+                // The brief opens at the client's HQ country, canonicalised on the client's own write,
+                // and names no city: a template has never met the client, and neither has the seed.
+                .andExpect(jsonPath("$.details.locationCountry").value("United Arab Emirates"))
+                .andExpect(jsonPath("$.details.locationCity").isEmpty())
                 .andExpect(jsonPath("$.details.seniority").value("C_SUITE"))
                 .andExpect(jsonPath("$.details.employmentType").value("FULL_TIME_PERMANENT"))
                 .andExpect(jsonPath("$.details.responsibilities[0]").value("Group P&L stewardship"))
@@ -83,7 +85,7 @@ class PositionFlowIntegrationTest extends FlowTestSupport {
                 "Head of Alchemy");
 
         JsonNode brief = readBrief(admin, projectId);
-        assertThat(brief.get("details").get("location").isNull()).isTrue();
+        assertThat(brief.get("details").get("locationCountry").isNull()).isTrue();
         assertThat(sum(brief.get("assessment").get("technical"))).isEqualTo(100);
         assertThat(sum(brief.get("assessment").get("behavioural"))).isEqualTo(100);
         assertThat(brief.get("assessment").get("criteria").size()).isGreaterThan(0);
@@ -97,10 +99,16 @@ class PositionFlowIntegrationTest extends FlowTestSupport {
 
         putStep(admin, projectId, "details", """
                 {"roleTitle":"Group Chief Financial Officer","department":"Group Finance",
-                 "location":"Abu Dhabi, UAE","employmentType":"FIXED_TERM_CONTRACT","seniority":"N_MINUS_1",
+                 "locationCity":"abu dhabi","locationCountry":"UAE",
+                 "employmentType":"TEMPORARY","seniority":"N_MINUS_1",
                  "responsibilities":["Group P&L stewardship","Capital structure & treasury"],
                  "narrative":"A hands-on CFO."}""")
                 .andExpect(jsonPath("$.details.department").value("Group Finance"))
+                // Each half of the location is settled on its own: the country to the catalog's
+                // spelling, the city to its casing, so the brief spells both as the mandate's companies do.
+                .andExpect(jsonPath("$.details.locationCity").value("Abu Dhabi"))
+                .andExpect(jsonPath("$.details.locationCountry").value("United Arab Emirates"))
+                .andExpect(jsonPath("$.details.employmentType").value("TEMPORARY"))
                 .andExpect(jsonPath("$.details.seniority").value("N_MINUS_1"))
                 .andExpect(jsonPath("$.details.responsibilities.length()").value(2));
 
@@ -119,8 +127,9 @@ class PositionFlowIntegrationTest extends FlowTestSupport {
         // executive line is named rather than numbered — the same ladder the candidate side records.
         for (String tier : List.of("BOARD", "C_SUITE", "N_MINUS_1", "N_MINUS_2", "N_MINUS_3")) {
             putStep(admin, projectId, "details", """
-                    {"roleTitle":"CFO","department":null,"location":null,"employmentType":null,
-                     "seniority":"%s","responsibilities":[],"narrative":null}""".formatted(tier))
+                    {"roleTitle":"CFO","department":null,"locationCity":null,"locationCountry":null,
+                     "employmentType":null,"seniority":"%s","responsibilities":[],"narrative":null}"""
+                    .formatted(tier))
                     .andExpect(jsonPath("$.details.seniority").value(tier));
         }
     }
@@ -326,7 +335,41 @@ class PositionFlowIntegrationTest extends FlowTestSupport {
                 .andExpect(jsonPath("$.assessment.technical[0].name").value("Treasury"))
                 .andExpect(jsonPath("$.assessment.technical[0].description").value("Debt and liquidity"))
                 .andExpect(jsonPath("$.assessment.technical[1].weight").value(30))
-                .andExpect(jsonPath("$.assessment.behavioural.length()").value(1));
+                .andExpect(jsonPath("$.assessment.behavioural.length()").value(1))
+                // A write that names no split leaves the seeded even one standing.
+                .andExpect(jsonPath("$.assessment.technicalShare").value(50));
+    }
+
+    @Test
+    @DisplayName("the competency split round-trips, and a write that names none keeps the stored one")
+    void competencySplitRoundTripsAndAnAbsentShareKeepsTheStoredOne() throws Exception {
+        String admin = adminOf("Split Firm");
+        String projectId = createProject(admin, createClient(admin, "Savola", "KSA"), "CFO");
+
+        putStep(admin, projectId, "competencies", """
+                {"technical":[{"name":"Treasury","description":null,"weight":100}],
+                 "behavioural":[{"name":"Leadership","description":null,"weight":100}],
+                 "technicalShare":70}""")
+                .andExpect(jsonPath("$.assessment.technicalShare").value(70));
+
+        putStep(admin, projectId, "competencies", """
+                {"technical":[{"name":"Treasury","description":null,"weight":100}],
+                 "behavioural":[{"name":"Leadership","description":null,"weight":100}]}""")
+                .andExpect(jsonPath("$.assessment.technicalShare").value(70));
+    }
+
+    @Test
+    @DisplayName("a bonus stated as a fixed amount round-trips as money, not as a percentage")
+    void fixedAmountBonusRoundTripsAsMoney() throws Exception {
+        String admin = adminOf("Fixed Bonus Firm");
+        String projectId = createProject(admin, createClient(admin, "Almarai", "KSA"), "CFO");
+
+        putStep(admin, projectId, "compensation", """
+                {"currency":"SAR","salaryMin":32000,"salaryMax":37000,"baseSalaryMode":"MONTHLY",
+                 "bonusValue":150000,"bonusBasis":"FIXED_AMOUNT",
+                 "incentiveType":null,"incentiveAmount":null,"incentiveVesting":null,"benefits":[]}""")
+                .andExpect(jsonPath("$.compensation.bonusValue").value(150000.0))
+                .andExpect(jsonPath("$.compensation.bonusBasis").value("FIXED_AMOUNT"));
     }
 
     @Test
@@ -349,8 +392,8 @@ class PositionFlowIntegrationTest extends FlowTestSupport {
 
         // V38 retired the lock, and it does not come back: a published brief still accepts every write.
         putStep(admin, projectId, "details", """
-                {"roleTitle":"CFO","department":"Finance","location":"Dubai","employmentType":null,
-                 "seniority":"C_SUITE","responsibilities":[],"narrative":null}""")
+                {"roleTitle":"CFO","department":"Finance","locationCity":"Dubai","locationCountry":null,
+                 "employmentType":null,"seniority":"C_SUITE","responsibilities":[],"narrative":null}""")
                 .andExpect(jsonPath("$.details.department").value("Finance"))
                 .andExpect(jsonPath("$.publication.publishedAt").value(stampedAt));
 
@@ -443,7 +486,7 @@ class PositionFlowIntegrationTest extends FlowTestSupport {
 
         mvc.perform(get(positionUrl(projectId)).header("Authorization", "Bearer " + admin))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.details.location").value("Jordan"))
+                .andExpect(jsonPath("$.details.locationCountry").value("Jordan"))
                 .andExpect(jsonPath("$.assessment.criteria.length()").value(4))
                 // Seeded lazily through the same catalog: a CEO answers to the board.
                 .andExpect(jsonPath("$.reporting.orgChart[1].title").value("Board of Directors"));
@@ -475,8 +518,9 @@ class PositionFlowIntegrationTest extends FlowTestSupport {
 
     private static String detailsWithNarrative(String narrative) {
         return """
-                {"roleTitle":"CFO","department":null,"location":null,"employmentType":null,
-                 "seniority":null,"responsibilities":[],"narrative":"%s"}""".formatted(narrative);
+                {"roleTitle":"CFO","department":null,"locationCity":null,"locationCountry":null,
+                 "employmentType":null,"seniority":null,"responsibilities":[],"narrative":"%s"}"""
+                .formatted(narrative);
     }
 
     private static String contextWith(String businessDriver, String internalContext) {
