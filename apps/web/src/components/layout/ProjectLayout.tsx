@@ -29,7 +29,8 @@ const VIEWPORT_FILLING_TABS = ["/companies/", "/strategy"];
  * the data.
  *
  * <p>Reports is here for a different reason: it paints its own ground in the Uncava palette, and a
- * gutter of the shell's panel colour around it would frame the report in the wrong theme.
+ * gutter of the shell's panel colour around it would frame the report in the wrong theme. The brief
+ * (the mandate's index route, matched exactly below) is full-bleed for the same reason.
  */
 const FULL_BLEED_TABS = ["/companies/", "/strategy", "/reports"];
 
@@ -47,7 +48,8 @@ export function ProjectLayout() {
   // so matching only the tail would drop all three back to the gutter-and-cap layout that leaves a
   // wide grid ending in mid-air.
   const fillsViewport = VIEWPORT_FILLING_TABS.some((tab) => pathname.includes(tab));
-  const fullBleed = FULL_BLEED_TABS.some((tab) => pathname.includes(tab));
+  const isBriefTab = pathname.replace(/\/$/, "") === `/projects/${projectId}`;
+  const fullBleed = isBriefTab || FULL_BLEED_TABS.some((tab) => pathname.includes(tab));
 
   const { data: projects, isPending } = useQuery({
     queryKey: projectsApi.PROJECTS_KEY,

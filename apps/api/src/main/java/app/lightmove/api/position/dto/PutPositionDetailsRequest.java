@@ -19,7 +19,8 @@ public record PutPositionDetailsRequest(
         String roleTitle,
 
         @Size(max = 160, message = "That department name is too long") String department,
-        @Size(max = 120, message = "That location is too long") String location,
+        @Size(max = 120, message = "That city name is too long") String locationCity,
+        @Size(max = 120, message = "That country name is too long") String locationCountry,
         EmploymentType employmentType,
         Seniority seniority,
 

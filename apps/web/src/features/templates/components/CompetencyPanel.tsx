@@ -17,8 +17,8 @@ import {
 import { CSS } from "@dnd-kit/utilities";
 import { Icon, ICONS } from "../../../components/layout/Icon";
 import { cn } from "../../../lib/cn";
-import type { IdentifiedCompetency } from "../lib/competencyRows";
-import { rebalance } from "../lib/rebalance";
+import type { IdentifiedCompetency } from "../../position/lib/competencyRows";
+import { rebalance } from "../../position/lib/rebalance";
 import { AddRowButton, ColumnLabel, RemoveRowButton } from "./fields";
 
 /**

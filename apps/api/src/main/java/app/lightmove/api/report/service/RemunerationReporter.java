@@ -71,8 +71,8 @@ class RemunerationReporter {
     }
 
     /**
-     * The target bonus on one edge of the band, in the unit the brief quoted it: a share of base, or
-     * months of it.
+     * The target bonus on one edge of the band, in the unit the brief quoted it: a share of base,
+     * months of it, or a stated amount, which is the same on both edges.
      *
      * <p>A share of <i>total fixed</i> is computed on base alone, because the brief states no allowance
      * figure to add — its benefits are a list of named items, not a sum. The day the brief carries one,
@@ -88,6 +88,7 @@ class RemunerationReporter {
         BigDecimal bonus = switch (basis) {
             case PERCENT_OF_BASE, PERCENT_OF_TOTAL_FIXED -> base.multiply(value).divide(HUNDRED, RoundingMode.HALF_UP);
             case MONTHS_OF_BASE -> base.multiply(value).divide(BigDecimal.valueOf(MONTHS_PER_YEAR), RoundingMode.HALF_UP);
+            case FIXED_AMOUNT -> value;
         };
         return bonus.setScale(0, RoundingMode.HALF_UP).longValueExact();
     }

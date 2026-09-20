@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Button, Input } from "../../../components/ui";
-import type { Criterion, CriterionMode } from "../api/types";
+import type { Criterion, CriterionMode } from "../../position/api/types";
 import { SectionHeading } from "./fields";
 
 /** The candidate criteria list: inline edit, Required/Preferred segmented toggle, add and remove. */

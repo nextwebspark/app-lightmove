@@ -1,6 +1,5 @@
 import { request, requestBlob } from "../../../lib/apiClient";
 import { saveBlob } from "../../../lib/saveBlob";
-import type { StepKey } from "../lib/steps";
 import type {
   Compensation,
   Competency,
@@ -8,14 +7,14 @@ import type {
   MandateContext,
   Position,
   PositionDetails,
-  PositionExtraction,
   PositionTemplate,
   ReportingStructure,
 } from "./types";
 
 /**
- * Every call the Position screen makes. One read, one snapshot PUT per wizard step, and the three
- * operations that are not a step: publish, withdraw, and the attached position description.
+ * Every call the Position screen makes. One read, one snapshot PUT per section of the brief, and the
+ * operations that are not a section: publish, withdraw, the template redraft and the attached
+ * position description. The document's extract routes have no caller here until #393 lands.
  *
  * Every write answers with the whole brief, so a caller only ever replaces its cached copy.
  */
@@ -91,10 +90,11 @@ export function putCompetencies(
   projectId: string,
   technical: Competency[],
   behavioural: Competency[],
+  technicalShare: number,
 ): Promise<Position> {
   return request<Position>(`${base(projectId)}/competencies`, {
     method: "PUT",
-    body: { technical, behavioural },
+    body: { technical, behavioural, technicalShare },
   });
 }
 
@@ -116,51 +116,6 @@ export function attachDocument(projectId: string, file: File): Promise<Position>
   form.append("file", file);
   return request<Position>(`${base(projectId)}/document`, { method: "POST", body: form });
 }
-
-/**
- * Reads the already-attached document into step-one proposals. No file travels with this call — the
- * document is already server-side — and nothing is written until a proposal is accepted through
- * {@link putDetails}.
- */
-export function extractDetails(projectId: string): Promise<PositionExtraction> {
-  return request<PositionExtraction>(`${base(projectId)}/document/extract/details`, { method: "POST" });
-}
-
-/** Reads the already-attached document into step-two proposals. See {@link extractDetails}. */
-export function extractContext(projectId: string): Promise<PositionExtraction> {
-  return request<PositionExtraction>(`${base(projectId)}/document/extract/context`, { method: "POST" });
-}
-
-/** Reads the already-attached document into step-four proposals. See {@link extractDetails}. */
-export function extractCompensation(projectId: string): Promise<PositionExtraction> {
-  return request<PositionExtraction>(`${base(projectId)}/document/extract/compensation`, { method: "POST" });
-}
-
-/** Reads the already-attached document into step-five proposals. See {@link extractDetails}. */
-export function extractAssessment(projectId: string): Promise<PositionExtraction> {
-  return request<PositionExtraction>(`${base(projectId)}/document/extract/assessment`, { method: "POST" });
-}
-
-/**
- * Reads the already-attached document into step-three proposals. See {@link extractDetails}.
- *
- * <p>These proposals are titles, never a chart — merging one into the existing org chart is
- * {@code orgChart.ts}'s {@code applyReportsToTitle}/{@code appendDirectReport}, not this call.
- */
-export function extractReporting(projectId: string): Promise<PositionExtraction> {
-  return request<PositionExtraction>(`${base(projectId)}/document/extract/reporting`, { method: "POST" });
-}
-
-/**
- * One of the five sections "Read the whole document" fans out — every wizard step but Review,
- * which has nothing to extract. The fan-out itself lives in {@code PositionPage.tsx}: it calls
- * {@link extractDetails}/{@link extractContext}/etc. directly rather than through a helper here, so
- * each call is independently mockable in tests exactly the way every other extraction call already
- * is — a helper that closed over these functions itself would call the real implementations
- * regardless of what a test replaces the named exports with, since a same-module function
- * reference is bound to its own closure, not to whatever a caller later substitutes for the export.
- */
-export type ExtractionSectionKey = Exclude<StepKey, "review">;
 
 /** Fetches the stored position description and hands it to the browser to save. */
 export async function saveDocument(projectId: string, fileName: string): Promise<void> {

@@ -1,124 +1,97 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useState } from "react";
-import { useNavigate, useOutletContext } from "react-router-dom";
+import { useEffect, useState } from "react";
+import { useNavigate, useOutletContext, useSearchParams } from "react-router-dom";
 import type { ProjectOutletContext } from "../../../components/layout/ProjectLayout";
 import { Spinner, useToast } from "../../../components/ui";
-import { cn } from "../../../lib/cn";
 import { messageFor } from "../../../lib/errorCodes";
 import { useAutosave } from "../../../lib/useAutosave";
 import * as projectsApi from "../../projects/api/projectsApi";
 import * as positionApi from "../api/positionApi";
-import type { ExtractionSectionKey } from "../api/positionApi";
 import type {
-  Benefit,
-  BenefitFrequency,
   Compensation,
   Competency,
   Criterion,
   MandateContext,
   Position,
   PositionDetails,
-  PositionExtraction,
   PositionTemplate,
-  ProposedField,
   ReportingStructure,
-  StrategicPriority,
 } from "../api/types";
-import { markManual } from "../lib/provenance";
-import { StepNavigation } from "../components/StepNavigation";
-import type { CompetencyPanelKey } from "../components/steps/AssessmentStep";
-import {
-  competencyFrom,
-  forWire,
-  identify,
-  moveRow,
-  PACK_SEPARATOR,
-  toggle,
-  type IdentifiedCompetency,
-} from "../lib/competencyRows";
-import { pairOfNoticePeriod } from "../../../lib/noticePeriod";
-import { appendDirectReport, applyReportsToTitle, MAX_ORG_CHART_SEATS, type ChartMergeBlock } from "../lib/orgChart";
-import { StepRail } from "../components/StepRail";
-import { AssessmentStep } from "../components/steps/AssessmentStep";
+import { BriefRail } from "../components/BriefRail";
+import { AssessmentStep, type CompetencyPanelKey } from "../components/steps/AssessmentStep";
 import { CompensationStep } from "../components/steps/CompensationStep";
-import { MandateContextStep, MandateReasonField } from "../components/steps/MandateContextStep";
-import { PositionDetailsStep } from "../components/steps/PositionDetailsStep";
-import { ReportingStructureStep } from "../components/steps/ReportingStructureStep";
+import { ReportingStep } from "../components/steps/ReportingStep";
+import { StepFooter } from "../components/StepFooter";
 import { ReviewStep } from "../components/steps/ReviewStep";
-import { EMPLOYMENT_TYPE_LABELS } from "../lib/labels";
-import { POSITION_STEPS, stepIndexOf, type StepKey } from "../lib/steps";
-import { SENIORITY_TIERS } from "../../../lib/seniority";
+import { RoleBriefStep } from "../components/steps/RoleBriefStep";
+import { forWire, identify, moveRow, toggle, type IdentifiedCompetency } from "../lib/competencyRows";
+import { STEP_PARAM, openingStepOf, stepOf, type PositionStep } from "../lib/steps";
 
-/** A chart merge that declined, or a notice period nobody offers — both are a proposal left on screen. */
-type ReportingBlock = ChartMergeBlock | "noticeNotOffered";
+const GROUND = "flex flex-1 bg-u-bg text-u-text";
 
-const EMPLOYMENT_TYPES: readonly string[] = Object.keys(EMPLOYMENT_TYPE_LABELS);
-
-/** Mirrors `PutCriteriaRequest`'s and `PutCompetenciesRequest`'s own per-brief ceilings. */
-const CRITERIA_MAX_COUNT = 30;
-const COMPETENCY_MAX_COUNT_PER_PANEL = 10;
-
-interface AssessmentAccumulator {
-  criteria: Criterion[];
-  technical: IdentifiedCompetency[];
-  behavioural: IdentifiedCompetency[];
-}
-
-function isEmploymentType(value: string): value is NonNullable<PositionDetails["employmentType"]> {
-  return EMPLOYMENT_TYPES.includes(value);
-}
-
-function isSeniority(value: string): value is NonNullable<PositionDetails["seniority"]> {
-  return (SENIORITY_TIERS as readonly string[]).includes(value);
-}
-
-/** The Position tab: loads the brief, then hands the wizard a snapshot to draft against. */
+/** The Position tab: loads the brief, then hands the editor a snapshot to draft against. */
 export function PositionPage() {
   const { project } = useOutletContext<ProjectOutletContext>();
-  const { data: position } = useQuery({
+  const { data: position, isPending, isError } = useQuery({
     queryKey: positionApi.POSITION_KEY(project.id),
     queryFn: ({ signal }) => positionApi.getPosition(project.id, signal),
   });
 
-  if (!position) {
+  if (isPending) {
     return (
-      <div className="flex justify-center pt-24">
+      <div className={`${GROUND} justify-center pt-24 text-u-text3`}>
         <Spinner />
       </div>
     );
   }
 
-  return <PositionWizard key={project.id} projectId={project.id} position={position} />;
+  // A refused read must not fall through to an editor: a blank brief drawn for a 403 reads as a
+  // mandate nobody has briefed, and its first keystroke would try to write it.
+  if (isError) {
+    return (
+      <div className={`${GROUND} items-start justify-center px-4 pt-16`}>
+        <div className="max-w-[440px] rounded-[11px] bg-u-surface px-5 py-4 text-[13px] leading-[1.6] text-u-text2 shadow-u-e1">
+          <span className="mb-1 block text-[15px] font-semibold text-u-text">Couldn't load this brief</span>
+          You may no longer have access to this mandate, or the request failed. Reload the page, and ask the
+          project lead if it keeps happening.
+        </div>
+      </div>
+    );
+  }
+
+  return <PositionBrief key={project.id} projectId={project.id} position={position} />;
 }
 
 /**
- * The brief editor (Position.dc.html): six steps, a summary rail and a Back/Next footer.
+ * The brief editor (claude-design/position): five steps behind a rail, the step kept in the URL.
  *
- * There is no Save button. Each step's draft autosaves as a snapshot PUT of that step alone, and the
- * write answers with the whole brief, so the cache always holds a complete document rather than
- * something stitched together client-side. "Save draft" flushes whatever is pending — it is a way to
- * stop waiting out the debounce, not a second way to save.
+ * There is no Save button. Each section's draft autosaves as a snapshot PUT of that section alone, and
+ * the write answers with the whole brief, so the cache always holds a complete document rather than
+ * something stitched together client-side. "Save draft" flushes whatever is pending — a way to stop
+ * waiting out the debounce, not a second way to save.
  *
- * The step in view is local state rather than a route: the mockup has no per-step URL, and a step is
- * a place in a form rather than a resource anyone would link to.
+ * Six channels for five screens: the Role Brief edits the details, the mandate context and the
+ * notice period at once, each through its own write, so one screen never rewrites another's row.
  */
-function PositionWizard({ projectId, position }: { projectId: string; position: Position }) {
+function PositionBrief({ projectId, position }: { projectId: string; position: Position }) {
   const queryClient = useQueryClient();
-  const navigate = useNavigate();
   const toast = useToast();
+  const navigate = useNavigate();
   const key = positionApi.POSITION_KEY(projectId);
+  const [searchParams] = useSearchParams();
+  const [openedOn] = useState(() => openingStepOf(position));
+  const step = stepOf(searchParams.get(STEP_PARAM), openedOn);
 
-  // A published brief opens on its own review: somebody coming back to a finished mandate — its
-  // author, a colleague, the same person after a logout — is looking at what was published rather
-  // than starting the wizard again.
-  const opensOn: StepKey = position.publication.publishedAt ? "review" : "details";
-  const [currentStep, setCurrentStep] = useState<StepKey>(opensOn);
-  // Somebody has said they mean to change a published brief. It opens the review's section links
-  // rather than unlocking anything: nothing here was ever locked.
-  const [editingPublished, setEditingPublished] = useState(false);
-  // The furthest step reached this sitting, which is what the rail is allowed to call done — see
-  // doneSteps in lib/steps, which reads publication first.
-  const [furthestStep, setFurthestStep] = useState<StepKey>(opensOn);
+  /**
+   * A published brief reads back until someone says they are editing it — and publishing is how they
+   * say they are done, which closes it back up. Opening any step but the review is the same statement
+   * as pressing Edit position: those screens are live fields, and nothing there is a read-back.
+   */
+  const [reopened, setReopened] = useState(false);
+  useEffect(() => {
+    if (step.key !== "review") setReopened(true);
+  }, [step.key]);
+
   const [details, setDetails] = useState<PositionDetails>(position.details);
   const [context, setContext] = useState<MandateContext>(position.context);
   const [reporting, setReporting] = useState<ReportingStructure>(position.reporting);
@@ -132,23 +105,10 @@ function PositionWizard({ projectId, position }: { projectId: string; position: 
   const [behavioural, setBehavioural] = useState<IdentifiedCompetency[]>(() =>
     identify(position.assessment.behavioural),
   );
-  // Locks live here rather than in the panel: step panels unmount when you visit another step, which
+  const [technicalShare, setTechnicalShare] = useState(position.assessment.technicalShare);
+  // Locks live here rather than in the table: step panels unmount when you visit another step, which
   // is exactly when somebody would have left one set.
   const [lockedCompetencies, setLockedCompetencies] = useState<ReadonlySet<string>>(new Set());
-  // "Read from document"'s proposals. Local state, never the query cache: a proposal is a transient
-  // read, not a fact about the mandate, and nothing here is written until a row is accepted.
-  // One slot per step, not one shared slot: a reading on step two must survive visiting step four
-  // and back, the same reason contextSave/compensationSave are already separate autosave channels.
-  const [detailsExtraction, setDetailsExtraction] = useState<PositionExtraction | null>(null);
-  const [contextExtraction, setContextExtraction] = useState<PositionExtraction | null>(null);
-  const [reportingExtraction, setReportingExtraction] = useState<PositionExtraction | null>(null);
-  const [compensationExtraction, setCompensationExtraction] = useState<PositionExtraction | null>(null);
-  const [assessmentExtraction, setAssessmentExtraction] = useState<PositionExtraction | null>(null);
-  // Which section's own slot in the last "read the whole document" fan-out failed, and why —
-  // extractAll bypasses the five mutations below (it calls positionApi.extractX directly), so their
-  // own isError/error never reflect a fan-out failure; only a section's own retry click does.
-  const [extractionFailures, setExtractionFailures] =
-    useState<Partial<Record<ExtractionSectionKey, unknown>>>({});
 
   // The picker's options. A failed read leaves the type-ahead with nothing to offer, which is the
   // right degradation: the title is free text and stays typeable.
@@ -172,7 +132,7 @@ function PositionWizard({ projectId, position }: { projectId: string; position: 
     };
 
   const detailsSave = useAutosave(
-    // Step one writes the mandate's own role title, so the projects list's Role column goes stale.
+    // The Role Brief writes the mandate's own role title, so the projects list's Role column goes stale.
     persist((next: PositionDetails) => positionApi.putDetails(projectId, next), () => {
       void queryClient.invalidateQueries({ queryKey: projectsApi.PROJECTS_KEY });
     }),
@@ -190,34 +150,28 @@ function PositionWizard({ projectId, position }: { projectId: string; position: 
     persist((next: Criterion[]) => positionApi.putCriteria(projectId, next)),
   );
   const competenciesSave = useAutosave(
-    persist((panels: { technical: Competency[]; behavioural: Competency[] }) =>
-      positionApi.putCompetencies(projectId, panels.technical, panels.behavioural),
+    persist((panels: { technical: Competency[]; behavioural: Competency[]; technicalShare: number }) =>
+      positionApi.putCompetencies(projectId, panels.technical, panels.behavioural, panels.technicalShare),
     ),
   );
 
-  const channels = [
-    detailsSave,
-    contextSave,
-    reportingSave,
-    compensationSave,
-    criteriaSave,
-    competenciesSave,
-  ];
+  const channels = [detailsSave, contextSave, reportingSave, compensationSave, criteriaSave, competenciesSave];
   const statuses = channels.map((channel) => channel.status);
-  const saveStatus = statuses.includes("saving")
-    ? "saving"
-    : statuses.includes("saved")
-      ? "saved"
-      : "idle";
+  const saveStatus = statuses.includes("saving") ? "saving" : statuses.includes("saved") ? "saved" : "idle";
 
-  /** The scalar keys `changeDetails` tracks provenance for — everything `fieldSources` covers on this step. */
-  const DETAILS_FIELD_KEYS = ["department", "location", "employmentType", "seniority", "narrative"] as const;
-  const CONTEXT_FIELD_KEYS = ["mandateReason", "businessDriver"] as const;
-  const REPORTING_FIELD_KEYS = ["teamSize", "noticeValue", "noticeUnit"] as const;
+  /**
+   * Drains every channel, one after another. `BaseEntity` carries `@Version` and every section PUT
+   * rewrites the same row, so two flushes racing each other is an optimistic-lock 409 — the hook
+   * serialises within a channel only.
+   */
+  const flushAll = async () => {
+    for (const channel of channels) {
+      await channel.flush();
+    }
+  };
 
   const changeDetails = (patch: Partial<PositionDetails>, immediate = false) => {
-    const touched = DETAILS_FIELD_KEYS.filter((key) => key in patch);
-    const next = { ...details, ...patch, fieldSources: markManual(details.fieldSources, touched) };
+    const next = { ...details, ...patch };
     setDetails(next);
     // The mandate cannot be untitled, so a blank title is held back rather than sent and refused.
     if (!next.roleTitle.trim()) return;
@@ -225,15 +179,13 @@ function PositionWizard({ projectId, position }: { projectId: string; position: 
     if (immediate) void detailsSave.flush();
   };
   const changeContext = (patch: Partial<MandateContext>, immediate = false) => {
-    const touched = CONTEXT_FIELD_KEYS.filter((key) => key in patch);
-    const next = { ...context, ...patch, fieldSources: markManual(context.fieldSources, touched) };
+    const next = { ...context, ...patch };
     setContext(next);
     contextSave.schedule(next);
     if (immediate) void contextSave.flush();
   };
   const changeReporting = (patch: Partial<ReportingStructure>, immediate = false) => {
-    const touched = REPORTING_FIELD_KEYS.filter((key) => key in patch);
-    const next = { ...reporting, ...patch, fieldSources: markManual(reporting.fieldSources, touched) };
+    const next = { ...reporting, ...patch };
     setReporting(next);
     reportingSave.schedule(next);
     if (immediate) void reportingSave.flush();
@@ -244,12 +196,45 @@ function PositionWizard({ projectId, position }: { projectId: string; position: 
     compensationSave.schedule(next);
     if (immediate) void compensationSave.flush();
   };
+  const changeCriteria = (next: Criterion[]) => {
+    setCriteria(next);
+    criteriaSave.schedule(next);
+  };
+
   /**
-   * Replaces every step's draft with a brief the server has just rewritten.
-   *
-   * Each step holds its own local copy, so a write that changes all six — only applying a template
-   * does — has to reseat all of them. Skip one and its next autosave would put the old draft back
-   * over the new brief, a step at a time.
+   * The one place the assessment's weighting is ever written, so two panels and the split can be
+   * updated in one handler without any write reading another's stale, pre-update value from this
+   * closure — the hazard three separate setters fired from separate calls run straight into.
+   */
+  const changeAssessment = (
+    next: { technical?: IdentifiedCompetency[]; behavioural?: IdentifiedCompetency[]; technicalShare?: number },
+    immediate = false,
+  ) => {
+    const nextTechnical = next.technical ?? technical;
+    const nextBehavioural = next.behavioural ?? behavioural;
+    const nextShare = next.technicalShare ?? technicalShare;
+    setTechnical(nextTechnical);
+    setBehavioural(nextBehavioural);
+    setTechnicalShare(nextShare);
+    competenciesSave.schedule({
+      technical: forWire(nextTechnical),
+      behavioural: forWire(nextBehavioural),
+      technicalShare: nextShare,
+    });
+    if (immediate) void competenciesSave.flush();
+  };
+  const changePanel = (panel: CompetencyPanelKey) => (rows: IdentifiedCompetency[]) =>
+    changeAssessment(panel === "technical" ? { technical: rows } : { behavioural: rows });
+  /** Reordering is the ranking, and a decision rather than typing — so it saves at once. */
+  const reorderPanel = (panel: CompetencyPanelKey) => (fromId: string, toId: string) => {
+    const rows = moveRow(panel === "technical" ? technical : behavioural, fromId, toId);
+    changeAssessment(panel === "technical" ? { technical: rows } : { behavioural: rows }, true);
+  };
+
+  /**
+   * Replaces every section's draft with a brief the server has just rewritten. Each section holds its
+   * own local copy, so a write that changes all of them — only applying a template does — has to
+   * reseat all of them. Skip one and its next autosave would put the old draft back over the new brief.
    */
   const adoptBrief = (brief: Position) => {
     queryClient.setQueryData(key, brief);
@@ -260,20 +245,19 @@ function PositionWizard({ projectId, position }: { projectId: string; position: 
     setCriteria(brief.assessment.criteria);
     setTechnical(identify(brief.assessment.technical));
     setBehavioural(identify(brief.assessment.behavioural));
+    setTechnicalShare(brief.assessment.technicalShare);
     setLockedCompetencies(new Set());
   };
 
   /**
-   * Draft this brief as the picked role, and take its title while we are at it.
-   *
-   * Pending edits go first: a title still inside the autosave debounce would otherwise land after
-   * the redraft and reinstate the step it replaced. The title is then written through the ordinary
-   * details save rather than by the template — the server keeps the two apart deliberately, and the
-   * person who picked the row is the one renaming the search.
+   * Draft this brief as the picked role, and take its title while we are at it. Pending edits go
+   * first: a title still inside the autosave debounce would otherwise land after the redraft and
+   * reinstate the section it replaced. The title is then written through the ordinary details save
+   * rather than by the template — the server keeps the two apart deliberately.
    */
   const applyTemplate = useMutation({
     mutationFn: async (template: PositionTemplate) => {
-      await Promise.all(channels.map((channel) => channel.flush()));
+      await flushAll();
       const drafted = await positionApi.applyTemplate(projectId, template.id);
       const titled = { ...drafted.details, roleTitle: template.title };
       return { brief: { ...drafted, details: titled }, titled };
@@ -283,83 +267,19 @@ function PositionWizard({ projectId, position }: { projectId: string; position: 
       detailsSave.schedule(titled);
       void detailsSave.flush();
       void queryClient.invalidateQueries({ queryKey: projectsApi.PROJECTS_KEY });
-      // A template redraft touches fields across every step, so a proposal still open anywhere
-      // could now point at a value the redraft already replaced. Cleared rather than reconciled —
-      // and re-read, since the brief just changed under whatever was already proposed.
-      setDetailsExtraction(null);
-      setContextExtraction(null);
-      setReportingExtraction(null);
-      setCompensationExtraction(null);
-      setAssessmentExtraction(null);
-      setExtractionFailures({});
-      if (brief.document) extractAll.mutate();
       toast(`Brief drafted from the ${template.title} template.`);
     },
     onError: (error) => toast(messageFor(error)),
   });
 
-  const changeCriteria = (next: Criterion[]) => {
-    setCriteria(next);
-    criteriaSave.schedule(next);
-  };
-  /**
-   * The one place both competency panels are ever written, so two panels can be updated in the same
-   * handler without either write reading the other's stale, pre-update value from this closure — the
-   * hazard a `setTechnical` and a `setBehavioural` fired from two separate calls run straight into.
-   */
-  const changeCompetencyPanels = (
-    nextTechnical: IdentifiedCompetency[],
-    nextBehavioural: IdentifiedCompetency[],
-    immediate = false,
-  ) => {
-    setTechnical(nextTechnical);
-    setBehavioural(nextBehavioural);
-    competenciesSave.schedule({
-      technical: forWire(nextTechnical),
-      behavioural: forWire(nextBehavioural),
-    });
-    if (immediate) void competenciesSave.flush();
-  };
-  const changePanel =
-    (panel: CompetencyPanelKey, immediate = false) =>
-    (rows: IdentifiedCompetency[]) =>
-      changeCompetencyPanels(
-        panel === "technical" ? rows : technical,
-        panel === "behavioural" ? rows : behavioural,
-        immediate,
-      );
-
-  /** Where a published brief leads: the mandate's own market, which is the next thing to be done. */
-  const goToStrategy = () => navigate(`/projects/${projectId}/strategy`);
-
-  const selectStep = (key: StepKey) => {
-    // Opening a step of a published brief is the same statement as "Edit position": the fields are
-    // right there and live. Anything else would leave the rail claiming a read-back it is not doing.
-    if (position.publication.publishedAt && key !== "review") setEditingPublished(true);
-    setCurrentStep(key);
-    setFurthestStep((furthest) =>
-      stepIndexOf(key) > stepIndexOf(furthest) ? key : furthest,
-    );
-  };
-
-  const publishNow = () =>
-    position.publication.publishedAt ? void publishChanges() : publish.mutate();
-
-  const editPosition = () => {
-    setEditingPublished(true);
-    selectStep("review");
-  };
-
-  /** Reordering is the ranking, and a decision rather than typing — so it saves at once. */
-  const reorderPanel = (panel: CompetencyPanelKey) => (fromId: string, toId: string) => {
-    const rows = panel === "technical" ? technical : behavioural;
-    changePanel(panel, true)(moveRow(rows, fromId, toId));
-  };
-
   const publish = useMutation({
-    mutationFn: () => positionApi.publish(projectId),
+    mutationFn: async () => {
+      await flushAll();
+      return positionApi.publish(projectId);
+    },
     onSuccess: (saved) => {
       queryClient.setQueryData(key, saved);
+      setReopened(false);
       toast("Position profile published");
     },
     onError: (error) => toast(messageFor(error)),
@@ -369,7 +289,6 @@ function PositionWizard({ projectId, position }: { projectId: string; position: 
     mutationFn: () => positionApi.withdrawPublication(projectId),
     onSuccess: (saved) => {
       queryClient.setQueryData(key, saved);
-      setEditingPublished(false);
       toast("Publication withdrawn");
     },
     onError: (error) => toast(messageFor(error)),
@@ -377,42 +296,35 @@ function PositionWizard({ projectId, position }: { projectId: string; position: 
 
   /**
    * Publishing a brief that is already published. The stamp does not move — it records when the
-   * brief was first called ready and a second click must not rewrite it — so what this does is flush
-   * what the edits left in flight and close the review back up. It is the same act from where the
-   * consultant sits: they said it was ready, and they are saying it again.
+   * brief was first called ready — so what this does is flush what the edits left in flight. It is
+   * the same act from where the consultant sits: they said it was ready, and they are saying it again.
    */
-  const publishChanges = async () => {
-    await flushEverything();
-    setEditingPublished(false);
+  const publishNow = async () => {
+    if (!position.publication.publishedAt) {
+      publish.mutate();
+      return;
+    }
+    await flushAll();
+    setReopened(false);
     toast("Changes published");
   };
 
+  const saveDraft = async () => {
+    await flushAll();
+    toast("Draft saved");
+  };
+
+  /** Where a published brief leads: the mandate's own market, which is the next thing to be done. */
+  const goToStrategy = () => navigate(`/projects/${projectId}/strategy`);
+
   const attachDocument = useMutation({
     mutationFn: (file: File) => positionApi.attachDocument(projectId, file),
-    // A proposal against a document that has just been replaced is confusing, so it does not survive
-    // on any step.
-    onSuccess: (saved) => {
-      queryClient.setQueryData(key, saved);
-      setDetailsExtraction(null);
-      setContextExtraction(null);
-      setReportingExtraction(null);
-      setCompensationExtraction(null);
-      setAssessmentExtraction(null);
-      setExtractionFailures({});
-    },
+    onSuccess: (saved) => queryClient.setQueryData(key, saved),
     onError: (error) => toast(messageFor(error)),
   });
   const removeDocument = useMutation({
     mutationFn: () => positionApi.removeDocument(projectId),
-    onSuccess: (saved) => {
-      queryClient.setQueryData(key, saved);
-      setDetailsExtraction(null);
-      setContextExtraction(null);
-      setReportingExtraction(null);
-      setCompensationExtraction(null);
-      setAssessmentExtraction(null);
-      setExtractionFailures({});
-    },
+    onSuccess: (saved) => queryClient.setQueryData(key, saved),
     onError: (error) => toast(messageFor(error)),
   });
   const downloadDocument = useMutation({
@@ -420,500 +332,22 @@ function PositionWizard({ projectId, position }: { projectId: string; position: 
       positionApi.saveDocument(projectId, position.document?.fileName ?? "position-description"),
     onError: (error) => toast(messageFor(error)),
   });
-  /** Clears a section's own recorded fan-out failure once its own retry succeeds. */
-  const clearedFailure = (section: ExtractionSectionKey) =>
-    setExtractionFailures((current) => {
-      if (!(section in current)) return current;
-      const { [section]: _removed, ...rest } = current;
-      return rest;
-    });
-
-  const extractContext = useMutation({
-    mutationFn: () => positionApi.extractContext(projectId),
-    onSuccess: (data) => {
-      setContextExtraction(data);
-      clearedFailure("context");
-    },
-    onError: (error) => toast(messageFor(error)),
-  });
-  const extractReporting = useMutation({
-    mutationFn: () => positionApi.extractReporting(projectId),
-    onSuccess: (data) => {
-      setReportingExtraction(data);
-      clearedFailure("reporting");
-    },
-    onError: (error) => toast(messageFor(error)),
-  });
-  const extractCompensation = useMutation({
-    mutationFn: () => positionApi.extractCompensation(projectId),
-    onSuccess: (data) => {
-      setCompensationExtraction(data);
-      clearedFailure("compensation");
-    },
-    onError: (error) => toast(messageFor(error)),
-  });
-  const extractAssessment = useMutation({
-    mutationFn: () => positionApi.extractAssessment(projectId),
-    onSuccess: (data) => {
-      setAssessmentExtraction(data);
-      clearedFailure("assessment");
-    },
-    onError: (error) => toast(messageFor(error)),
-  });
-
-  const extractionSetters: Record<ExtractionSectionKey, (data: PositionExtraction) => void> = {
-    details: setDetailsExtraction,
-    context: setContextExtraction,
-    reporting: setReportingExtraction,
-    compensation: setCompensationExtraction,
-    assessment: setAssessmentExtraction,
-  };
-
-  // The five endpoints, called directly through the namespaced `positionApi` import so each one
-  // stays independently mockable in tests — the same seam every other mutation below already goes
-  // through, rather than a positionApi-level helper that would close over the real implementations
-  // regardless of what a test replaces the named exports with.
-  const extractionSections: { key: ExtractionSectionKey; run: () => Promise<PositionExtraction> }[] = [
-    { key: "details", run: () => positionApi.extractDetails(projectId) },
-    { key: "context", run: () => positionApi.extractContext(projectId) },
-    { key: "reporting", run: () => positionApi.extractReporting(projectId) },
-    { key: "compensation", run: () => positionApi.extractCompensation(projectId) },
-    { key: "assessment", run: () => positionApi.extractAssessment(projectId) },
-  ];
 
   /**
-   * "Read the whole document": fans out all five section reads and settles them independently
-   * (`Promise.allSettled`, not `Promise.all`) so one section's own failure never clears — or blocks
-   * rendering — the other four. A fresh run replaces every section's proposals and failures rather
-   * than merging with whatever a previous run left.
+   * The target date is the project's, so it is written there and read back into the brief — the
+   * reporting PUT strips it on the way out, and this is the one write that carries it.
    */
-  const extractAll = useMutation({
-    mutationFn: async () => {
-      const settled = await Promise.allSettled(extractionSections.map((section) => section.run()));
-      return settled.map((result, index) => ({ section: extractionSections[index].key, result }));
-    },
-    onSuccess: (results) => {
-      const failures: Partial<Record<ExtractionSectionKey, unknown>> = {};
-      for (const { section, result } of results) {
-        if (result.status === "fulfilled") {
-          extractionSetters[section](result.value);
-        } else {
-          failures[section] = result.reason;
-        }
-      }
-      setExtractionFailures(failures);
-    },
-    onError: (error) => toast(messageFor(error)),
-  });
-
-  /** Removed by object identity, never by index — a row's identity must not shift under a disclosure
-   * left open while another row is accepted or dismissed beside it. */
-  const removeDetailsProposal = (field: ProposedField) =>
-    setDetailsExtraction((current) =>
-      current ? { ...current, fields: current.fields.filter((row) => row !== field) } : current,
-    );
-
-  /** Null for a fieldKey this step doesn't have a slot for — the caller must not treat that as "saved". */
-  const patchForDetails = (field: ProposedField, value: string): Partial<PositionDetails> | null => {
-    switch (field.fieldKey) {
-      case "roleTitle":
-        return { roleTitle: value };
-      case "department":
-        return { department: value || null };
-      case "location":
-        return { location: value || null };
-      case "employmentType":
-        return isEmploymentType(value) ? { employmentType: value } : null;
-      case "seniority":
-        return isSeniority(value) ? { seniority: value } : null;
-      case "narrative":
-        return { narrative: value || null };
-      case "responsibility":
-        return { responsibilities: [...details.responsibilities, { text: value, source: "MANUAL" }] };
-      default:
-        return null;
-    }
-  };
-
-  const acceptDetailsProposal = (field: ProposedField, value: string) => {
-    const patch = patchForDetails(field, value);
-    if (!patch) return;
-    // Renaming the mandate is a decision, like every other immediate-flagged edit in this file — every
-    // other field stays on the ordinary debounce a typed edit would get.
-    changeDetails(patch, field.fieldKey === "roleTitle");
-    removeDetailsProposal(field);
-  };
-
-  /**
-   * One combined patch rather than one `changeDetails` call per field: `changeDetails` reads `details`
-   * from this closure rather than a functional updater, so several calls fired synchronously in the
-   * same handler would each start from the same stale snapshot and the later ones would silently
-   * discard the earlier ones' edits.
-   *
-   * `edits` is the panel's own per-row corrections, keyed by field id — reading `field.value` alone
-   * here would silently drop everything a user had typed before pressing Accept all.
-   */
-  const acceptAllDetailsProposals = (edits: Record<number, string>) => {
-    if (!detailsExtraction) return;
-    const valueOf = (field: ProposedField) => edits[field.id] ?? field.value;
-    const responsibilities = detailsExtraction.fields
-        .filter((field) => field.fieldKey === "responsibility")
-        .map((field) => ({ text: valueOf(field), source: "MANUAL" as const }));
-    const combined = detailsExtraction.fields
-        .filter((field) => field.fieldKey !== "responsibility")
-        .reduce<Partial<PositionDetails>>((patch, field) => {
-          const fieldPatch = patchForDetails(field, valueOf(field));
-          return fieldPatch ? { ...patch, ...fieldPatch } : patch;
-        }, {});
-    changeDetails(
-      { ...combined, responsibilities: [...details.responsibilities, ...responsibilities] },
-      true,
-    );
-    setDetailsExtraction(null);
-  };
-
-  const removeContextProposal = (field: ProposedField) =>
-    setContextExtraction((current) =>
-      current ? { ...current, fields: current.fields.filter((row) => row !== field) } : current,
-    );
-
-  /** A name that case-insensitively matches one already on the brief is merged in place, never appended. */
-  const mergePriorities = (existing: StrategicPriority[], names: string[]): StrategicPriority[] => {
-    const merged = [...existing];
-    for (const name of names) {
-      const alreadyPresent = merged.some(
-        (priority) => priority.name.toLowerCase() === name.toLowerCase(),
+  const updateTargetDate = useMutation({
+    mutationFn: (targetDate: string) => projectsApi.updateProject(projectId, { targetDate }),
+    onSuccess: (saved) => {
+      setReporting((current) => ({ ...current, targetStart: saved.targetDate }));
+      queryClient.setQueryData<Position>(key, (current) =>
+        current ? { ...current, reporting: { ...current.reporting, targetStart: saved.targetDate } } : current,
       );
-      if (!alreadyPresent) merged.push({ name, selected: true });
-    }
-    return merged;
-  };
-
-  const patchForContext = (field: ProposedField, value: string): Partial<MandateContext> => {
-    switch (field.fieldKey) {
-      case "mandateReason":
-        return { mandateReason: value as MandateContext["mandateReason"] };
-      case "businessDriver":
-        return { businessDriver: value || null };
-      case "strategicPriority":
-        return { strategicPriorities: mergePriorities(context.strategicPriorities, [value]) };
-      default:
-        return {};
-    }
-  };
-
-  const acceptContextProposal = (field: ProposedField, value: string) => {
-    changeContext(patchForContext(field, value));
-    removeContextProposal(field);
-  };
-
-  const acceptAllContextProposals = () => {
-    if (!contextExtraction) return;
-    const priorityNames = contextExtraction.fields
-        .filter((field) => field.fieldKey === "strategicPriority")
-        .map((field) => field.value);
-    const combined = contextExtraction.fields
-        .filter((field) => field.fieldKey !== "strategicPriority")
-        .reduce<Partial<MandateContext>>(
-          (patch, field) => ({ ...patch, ...patchForContext(field, field.value) }),
-          {},
-        );
-    changeContext(
-      { ...combined, strategicPriorities: mergePriorities(context.strategicPriorities, priorityNames) },
-      true,
-    );
-    setContextExtraction(null);
-  };
-
-  const removeCompensationProposal = (field: ProposedField) =>
-    setCompensationExtraction((current) =>
-      current ? { ...current, fields: current.fields.filter((row) => row !== field) } : current,
-    );
-
-  /**
-   * A proposed benefit's `value` is `"<name>"`, or `"<name> — <frequency>"` when the document's own
-   * wording gave the proposer a frequency it could resolve — see `PositionCompensationProposer`. The
-   * amount is never proposed, so it always lands `null`, exactly like a manually added benefit row.
-   *
-   * Anchored to the end of the string and to the two literal tokens the backend ever appends, so a
-   * benefit name that itself contains " — " in the middle is never mistaken for the appended suffix —
-   * only an exact, backend-appended trailing " — monthly"/" — yearly" is split off.
-   */
-  const benefitFrom = (value: string): Benefit => {
-    const suffix = value.match(new RegExp(`^(.*)${PACK_SEPARATOR}(monthly|yearly)$`, "i"));
-    if (!suffix) {
-      return { name: value, amount: null, frequency: "MONTHLY" };
-    }
-    const frequency: BenefitFrequency = suffix[2].toUpperCase() === "YEARLY" ? "YEARLY" : "MONTHLY";
-    return { name: suffix[1], amount: null, frequency };
-  };
-
-  const patchForCompensation = (field: ProposedField, value: string): Partial<Compensation> => {
-    switch (field.fieldKey) {
-      case "currency":
-        return { currency: value };
-      case "salaryMin":
-        return { salaryMin: Number(value) };
-      case "salaryMax":
-        return { salaryMax: Number(value) };
-      case "baseSalaryMode":
-        return { baseSalaryMode: value as Compensation["baseSalaryMode"] };
-      case "bonusValue":
-        return { bonusValue: Number(value) };
-      case "bonusBasis":
-        return { bonusBasis: value as Compensation["bonusBasis"] };
-      case "incentiveType":
-        return { incentiveType: value as Compensation["incentiveType"] };
-      case "incentiveAmount":
-        return { incentiveAmount: Number(value) };
-      case "incentiveVesting":
-        return { incentiveVesting: value || null };
-      case "benefit":
-        return { benefits: [...compensation.benefits, benefitFrom(value)] };
-      default:
-        return {};
-    }
-  };
-
-  const acceptCompensationProposal = (field: ProposedField, value: string) => {
-    changeCompensation(patchForCompensation(field, value));
-    removeCompensationProposal(field);
-  };
-
-  const acceptAllCompensationProposals = () => {
-    if (!compensationExtraction) return;
-    const benefits = compensationExtraction.fields
-        .filter((field) => field.fieldKey === "benefit")
-        .map((field) => benefitFrom(field.value));
-    const combined = compensationExtraction.fields
-        .filter((field) => field.fieldKey !== "benefit")
-        .reduce<Partial<Compensation>>(
-          (patch, field) => ({ ...patch, ...patchForCompensation(field, field.value) }),
-          {},
-        );
-    changeCompensation(
-      { ...combined, benefits: [...compensation.benefits, ...benefits] },
-      true,
-    );
-    setCompensationExtraction(null);
-  };
-
-  const removeAssessmentProposal = (field: ProposedField) =>
-    setAssessmentExtraction((current) =>
-      current ? { ...current, fields: current.fields.filter((row) => row !== field) } : current,
-    );
-
-  /**
-   * Folds one proposed field into an assessment accumulator — the one place the fieldKey → state-slot
-   * mapping lives, so `acceptAssessmentProposal` and `acceptAllAssessmentProposals` read it the same
-   * way instead of each keeping their own copy. Returns `acc` unchanged, rather than over-filling it,
-   * once a group is already at `PutCriteriaRequest`'s/`PutCompetenciesRequest`'s own per-brief ceiling
-   * — those ceilings are per brief, not per proposal, so a brief already near one can still not take
-   * everything an "Accept all" offers.
-   *
-   * A criterion built from an accepted proposal is written `source: "MANUAL"`, exactly like one typed
-   * by hand into `CriteriaCard` — never `"TEMPLATE"`. `source` marks a row a template redraft is free
-   * to delete and replace (`PositionTemplateApplier.draftedCriteria`); a criterion a person read out of
-   * the client's own document and accepted is not the template's to discard on the next re-apply. (The
-   * fill engine landing in #396 is what starts writing `"DOCUMENT"` here — this panel is retired before
-   * that ships, so it never needs to.)
-   */
-  const patchForAssessment = (
-    field: ProposedField,
-    value: string,
-    acc: AssessmentAccumulator,
-  ): AssessmentAccumulator => {
-    switch (field.fieldKey) {
-      case "requiredCriterion":
-        return acc.criteria.length >= CRITERIA_MAX_COUNT
-          ? acc
-          : { ...acc, criteria: [...acc.criteria, { text: value, mode: "REQUIRED", source: "MANUAL" }] };
-      case "preferredCriterion":
-        return acc.criteria.length >= CRITERIA_MAX_COUNT
-          ? acc
-          : { ...acc, criteria: [...acc.criteria, { text: value, mode: "PREFERRED", source: "MANUAL" }] };
-      case "technicalCompetency":
-        return acc.technical.length >= COMPETENCY_MAX_COUNT_PER_PANEL
-          ? acc
-          : { ...acc, technical: [...acc.technical, { ...competencyFrom(value), id: crypto.randomUUID() }] };
-      case "behaviouralCompetency":
-        return acc.behavioural.length >= COMPETENCY_MAX_COUNT_PER_PANEL
-          ? acc
-          : { ...acc, behavioural: [...acc.behavioural, { ...competencyFrom(value), id: crypto.randomUUID() }] };
-      default:
-        return acc;
-    }
-  };
-
-  /** Writes whichever of `after`'s three slots actually changed from `before`, in one combined write
-   *  per channel — `changeCriteria`/`changeCompetencyPanels` read their current arrays from this
-   *  closure rather than a functional updater, so this must be the only call each makes. */
-  const writeAssessmentAccumulator = (before: AssessmentAccumulator, after: AssessmentAccumulator) => {
-    if (after.criteria !== before.criteria) changeCriteria(after.criteria);
-    if (after.technical !== before.technical || after.behavioural !== before.behavioural) {
-      changeCompetencyPanels(after.technical, after.behavioural, true);
-    }
-  };
-
-  const acceptAssessmentProposal = (field: ProposedField, value: string) => {
-    const before: AssessmentAccumulator = { criteria, technical, behavioural };
-    const after = patchForAssessment(field, value, before);
-    if (after === before) {
-      toast("This brief is already at its limit for that — remove something first.");
-      return;
-    }
-    writeAssessmentAccumulator(before, after);
-    removeAssessmentProposal(field);
-  };
-
-  const dismissAssessmentProposal = (field: ProposedField) => removeAssessmentProposal(field);
-
-  const acceptAllAssessmentProposals = (edits: Record<number, string>) => {
-    if (!assessmentExtraction) return;
-    const valueOf = (field: ProposedField) => edits[field.id] ?? field.value;
-    const before: AssessmentAccumulator = { criteria, technical, behavioural };
-    const after = assessmentExtraction.fields.reduce(
-      (acc, field) => patchForAssessment(field, valueOf(field), acc),
-      before,
-    );
-    writeAssessmentAccumulator(before, after);
-    const added =
-      (after.criteria.length - before.criteria.length) +
-      (after.technical.length - before.technical.length) +
-      (after.behavioural.length - before.behavioural.length);
-    if (added < assessmentExtraction.fields.length) {
-      toast(
-        `${assessmentExtraction.fields.length - added} of ${assessmentExtraction.fields.length} ` +
-          "proposals could not be added — the brief is already at its limit.",
-      );
-    }
-    setAssessmentExtraction(null);
-  };
-
-  const removeReportingProposal = (field: ProposedField) =>
-    setReportingExtraction((current) =>
-      current ? { ...current, fields: current.fields.filter((row) => row !== field) } : current,
-    );
-
-  /** Why a case in {@link patchForReporting} below declined to apply, in words a toast can use. */
-  const reportingBlockMessage = (blocked: ReportingBlock): string => {
-    switch (blocked) {
-      case "full":
-        return `That chart is already at the ${MAX_ORG_CHART_SEATS}-seat limit.`;
-      case "duplicate":
-        return "That title is already a direct report on this chart.";
-      case "noMandateSeat":
-        return "This mandate has no seat on its chart yet.";
-      case "noticeNotOffered":
-        return "A notice period is None, 1, 2, 3 or 6 months.";
-    }
-  };
-
-  /**
-   * Unlike every other step's proposals, a "reportsToTitle" or "directReportTitle" proposal does not
-   * become a flat field — it is folded into the existing org chart (renaming or minting the manager,
-   * appending a direct report), never a chart of its own. See `orgChart.ts`'s
-   * `applyReportsToTitle`/`appendDirectReport` and the class doc on `PositionReportingProposer` for why.
-   *
-   * `null` for a fieldKey this step doesn't have a slot for — the caller must not treat that as
-   * "saved", the same convention `patchForDetails` uses. `blocked` is reported separately from that:
-   * a chart-merge helper declining to apply is a real outcome with something to tell the user, not the
-   * same "nothing to do" as an unrecognised key.
-   */
-  const patchForReporting = (
-    field: ProposedField,
-    value: string,
-  ): { patch: Partial<ReportingStructure>; blocked: ReportingBlock | null } | null => {
-    switch (field.fieldKey) {
-      case "reportsToTitle": {
-        const result = applyReportsToTitle(reporting.orgChart, value);
-        return { patch: { orgChart: result.chart }, blocked: result.blocked };
-      }
-      case "directReportTitle": {
-        const result = appendDirectReport(reporting.orgChart, value);
-        return { patch: { orgChart: result.chart }, blocked: result.blocked };
-      }
-      case "teamSize":
-        return { patch: { teamSize: value }, blocked: null };
-      case "noticePeriod": {
-        // The proposal itself is always one of the five — the server folds it — but this row is
-        // editable before it is accepted, so a retyped period needs an answer rather than silence.
-        const pair = pairOfNoticePeriod(value);
-        return pair ? { patch: pair, blocked: null } : { patch: {}, blocked: "noticeNotOffered" };
-      }
-      default:
-        return null;
-    }
-  };
-
-  const acceptReportingProposal = (field: ProposedField, value: string) => {
-    const result = patchForReporting(field, value);
-    if (!result) return;
-    if (result.blocked) {
-      toast(reportingBlockMessage(result.blocked));
-      return;
-    }
-    changeReporting(result.patch, true);
-    removeReportingProposal(field);
-  };
-
-  const dismissReportingProposal = (field: ProposedField) => removeReportingProposal(field);
-
-  /**
-   * Threads one evolving chart through every accepted proposal in turn — reports-to first, then each
-   * direct report in order — rather than starting each from the same `reporting.orgChart` snapshot the
-   * way `acceptAllCompensationProposals` folds its flat fields: two direct-report accepts applied
-   * independently would each append onto the chart this render started with and the second would
-   * silently discard the first.
-   */
-  const acceptAllReportingProposals = () => {
-    if (!reportingExtraction) return;
-    let orgChart = reporting.orgChart;
-    let blockedCount = 0;
-
-    const reportsTo = reportingExtraction.fields.find((field) => field.fieldKey === "reportsToTitle");
-    if (reportsTo) {
-      const result = applyReportsToTitle(orgChart, reportsTo.value);
-      if (result.blocked) blockedCount++;
-      orgChart = result.chart;
-    }
-    for (const field of reportingExtraction.fields) {
-      if (field.fieldKey !== "directReportTitle") continue;
-      const result = appendDirectReport(orgChart, field.value);
-      // A duplicate is specific to this one proposal — later ones may still have headroom — but a
-      // full chart blocks every proposal after it, so only that reason stops the loop.
-      if (result.blocked === "full") {
-        blockedCount++;
-        break;
-      }
-      if (result.blocked === "duplicate") {
-        blockedCount++;
-        continue;
-      }
-      orgChart = result.chart;
-    }
-
-    const patch: Partial<ReportingStructure> = { orgChart };
-    for (const field of reportingExtraction.fields) {
-      if (field.fieldKey === "teamSize") patch.teamSize = field.value;
-      if (field.fieldKey === "noticePeriod") Object.assign(patch, pairOfNoticePeriod(field.value) ?? {});
-    }
-    changeReporting(patch, true);
-    setReportingExtraction(null);
-    if (blockedCount > 0) {
-      toast(
-        `${blockedCount} of the proposed reporting changes could not be applied — the chart reached ` +
-          `its ${MAX_ORG_CHART_SEATS}-seat limit or already held that report.`,
-      );
-    }
-  };
-
-  const flushEverything = () => Promise.allSettled(channels.map((channel) => channel.flush()));
-
-  const saveDraft = async () => {
-    await flushEverything();
-    toast("Draft saved");
-  };
+      void queryClient.invalidateQueries({ queryKey: projectsApi.PROJECTS_KEY });
+    },
+    onError: (error) => toast(messageFor(error)),
+  });
 
   // The rail and the review cards read a brief, not six drafts, so the edits in flight are folded
   // over the last saved snapshot — otherwise a step reads as untouched until its debounce fires.
@@ -927,188 +361,97 @@ function PositionWizard({ projectId, position }: { projectId: string; position: 
       criteria,
       technical: forWire(technical),
       behavioural: forWire(behavioural),
+      technicalShare,
     },
   };
-  const step = POSITION_STEPS[stepIndexOf(currentStep)];
 
-  // Badge counts for the rail: each slot already drops a row the moment it is accepted or
-  // dismissed, so its length is already "how many are still unaccepted" with no extra bookkeeping.
-  const proposalCounts: Partial<Record<StepKey, number>> = {
-    details: detailsExtraction?.fields.length,
-    context: contextExtraction?.fields.length,
-    reporting: reportingExtraction?.fields.length,
-    compensation: compensationExtraction?.fields.length,
-    assessment: assessmentExtraction?.fields.length,
-  };
+  // Only the review reads back. The rail stands beside every step, so without the step the brief
+  // would go on offering "Edit position" next to a Compensation form that is live and taking input.
+  const readBack = Boolean(drafted.publication.publishedAt) && !reopened && step.key === "review";
 
   return (
-    <div className="animate-fade-up">
-      <div className="mb-[18px] flex items-center justify-end gap-2">
-        <button
-          type="button"
-          title="Click to toggle confidentiality"
-          onClick={() => changeContext({ confidential: !context.confidential }, true)}
-          className={cn(
-            "rounded-md border px-[11px] py-[5px] font-mono text-[10.5px] font-semibold uppercase tracking-[0.05em] transition",
-            context.confidential
-              ? "border-red bg-red-dim text-red"
-              : "border-line bg-panel text-text3 hover:border-text3",
-          )}
-        >
-          {context.confidential ? "Confidential" : "Standard"}
-        </button>
-        <span
-          className={cn(
-            "rounded-md border px-[11px] py-[5px] font-mono text-[10.5px] font-semibold uppercase tracking-[0.06em]",
-            drafted.publication.publishedAt
-              ? "border-transparent bg-green-dim text-green"
-              : "border-line bg-panel text-text2",
-          )}
-        >
-          {drafted.publication.publishedAt ? "✓ Published" : "Draft"}
-        </span>
-        <span aria-live="polite" className="w-14 text-end font-mono text-[11px] text-text3">
-          {saveStatus === "saving" ? "Saving…" : saveStatus === "saved" ? "Saved" : ""}
-        </span>
-      </div>
+    <div className={`${GROUND} flex-col lg:flex-row`}>
+      <BriefRail
+        position={drafted}
+        activeKey={step.key}
+        saveStatus={saveStatus}
+        publishing={publish.isPending}
+        readBack={readBack}
+        onPublish={() => void publishNow()}
+        onEditPosition={() => setReopened(true)}
+        onSaveDraft={() => void saveDraft()}
+      />
 
-      <div className="flex flex-wrap items-start gap-[22px]">
-        <div className="order-2 min-w-0 flex-[2_1_460px] md:order-1">
-          <div className="mb-[22px] flex flex-wrap items-end justify-between gap-x-6 gap-y-3">
-            {/* flex-1 with a floor, so the blurb gives way to the field beside it rather than taking
-                the whole row and pushing it onto the next one. */}
-            <div className="min-w-[240px] flex-1">
-              <h2 className="text-[19px] font-bold tracking-[-0.01em] text-text">{step.heading}</h2>
-              <p className="mt-[5px] max-w-[62ch] text-[13px] text-text3">{step.subheading}</p>
-            </div>
-            {currentStep === "context" && (
-              <MandateReasonField
-                value={context.mandateReason}
-                onChange={(mandateReason) => changeContext({ mandateReason }, true)}
-              />
-            )}
-          </div>
+      <div className="min-w-0 flex-1">
+        <div className="px-4 pb-[100px] pt-[30px] sm:px-10">
+          <StepHeader step={step} />
 
-          {currentStep === "details" && (
-            <PositionDetailsStep
+          {step.key === "brief" && (
+            <RoleBriefStep
               details={details}
+              context={context}
+              reporting={reporting}
               document={drafted.document}
               templates={templates}
               applyingTemplate={applyTemplate.isPending}
               uploading={attachDocument.isPending || removeDocument.isPending}
-              extraction={detailsExtraction}
-              extracting={extractAll.isPending}
-              extractionError={extractionFailures.details}
-              onDownload={() => downloadDocument.mutate()}
-              onChange={changeDetails}
+              savingTargetDate={updateTargetDate.isPending}
+              onChangeDetails={changeDetails}
+              onChangeContext={changeContext}
+              onChangeReporting={changeReporting}
+              onChangeTargetDate={(isoDate) => updateTargetDate.mutate(isoDate)}
               onPickTemplate={(template) => applyTemplate.mutate(template)}
               onAttachDocument={(file) => attachDocument.mutate(file)}
               onRemoveDocument={() => removeDocument.mutate()}
-              onExtract={() => extractAll.mutate()}
-              onAcceptProposal={acceptDetailsProposal}
-              onDismissProposal={removeDetailsProposal}
-              onAcceptAllProposals={acceptAllDetailsProposals}
-              onApplySuggestedTemplate={(template) => applyTemplate.mutate(template)}
-              applyingSuggestedTemplate={applyTemplate.isPending}
+              onDownloadDocument={() => downloadDocument.mutate()}
             />
           )}
-          {currentStep === "context" && (
-            <MandateContextStep
-              context={context}
-              document={drafted.document}
-              extraction={contextExtraction}
-              extracting={extractContext.isPending}
-              extractionError={extractionFailures.context}
-              onChange={changeContext}
-              onExtract={() => extractContext.mutate()}
-              onAcceptProposal={acceptContextProposal}
-              onDismissProposal={removeContextProposal}
-              onAcceptAllProposals={acceptAllContextProposals}
-            />
-          )}
-          {currentStep === "reporting" && (
-            <ReportingStructureStep
+          {step.key === "reporting" && (
+            <ReportingStep
               roleTitle={details.roleTitle}
               seniority={details.seniority}
               reporting={reporting}
-              document={drafted.document}
-              extraction={reportingExtraction}
-              extracting={extractReporting.isPending}
-              extractionError={extractionFailures.reporting}
               onChange={changeReporting}
-              onExtract={() => extractReporting.mutate()}
-              onAcceptProposal={acceptReportingProposal}
-              onDismissProposal={dismissReportingProposal}
-              onAcceptAllProposals={acceptAllReportingProposals}
             />
           )}
-          {currentStep === "compensation" && (
-            <CompensationStep
-              compensation={compensation}
-              document={drafted.document}
-              extraction={compensationExtraction}
-              extracting={extractCompensation.isPending}
-              extractionError={extractionFailures.compensation}
-              onChange={changeCompensation}
-              onExtract={() => extractCompensation.mutate()}
-              onAcceptProposal={acceptCompensationProposal}
-              onDismissProposal={removeCompensationProposal}
-              onAcceptAllProposals={acceptAllCompensationProposals}
-            />
+          {step.key === "compensation" && (
+            <CompensationStep compensation={compensation} onChange={changeCompensation} />
           )}
-          {currentStep === "assessment" && (
+          {step.key === "assessment" && (
             <AssessmentStep
               criteria={criteria}
               technical={technical}
               behavioural={behavioural}
+              technicalShare={technicalShare}
               locked={lockedCompetencies}
-              document={drafted.document}
-              extraction={assessmentExtraction}
-              extracting={extractAssessment.isPending}
-              extractionError={extractionFailures.assessment}
               onCriteria={changeCriteria}
               onPanel={changePanel}
+              onShare={(share) => changeAssessment({ technicalShare: share })}
               onToggleLock={(id) => setLockedCompetencies((current) => toggle(current, id))}
               onReorder={reorderPanel}
-              onExtract={() => extractAssessment.mutate()}
-              onAcceptProposal={acceptAssessmentProposal}
-              onDismissProposal={dismissAssessmentProposal}
-              onAcceptAllProposals={acceptAllAssessmentProposals}
             />
           )}
-          {currentStep === "review" && (
-            <ReviewStep
-              position={drafted}
-              canEdit={!drafted.publication.publishedAt || editingPublished}
-              onEditStep={selectStep}
-              onWithdraw={editingPublished ? () => withdraw.mutate() : null}
-            />
+          {step.key === "review" && (
+            <ReviewStep position={drafted} readBack={readBack} onWithdraw={() => withdraw.mutate()} />
           )}
 
-          <StepNavigation
-            currentStep={currentStep}
-            onSelectStep={selectStep}
-            onPublish={publishNow}
-            onGoToStrategy={goToStrategy}
-            publishing={publish.isPending}
+          <StepFooter
+            activeKey={step.key}
             published={Boolean(drafted.publication.publishedAt)}
+            onGoToStrategy={goToStrategy}
           />
         </div>
-
-        <StepRail
-          position={drafted}
-          currentStep={currentStep}
-          furthestStep={furthestStep}
-          onSelectStep={selectStep}
-          onPublish={publishNow}
-          onSaveDraft={() => void saveDraft()}
-          onGoToStrategy={goToStrategy}
-          onEditPosition={editPosition}
-          editing={editingPublished}
-          publishing={publish.isPending}
-          proposalCounts={proposalCounts}
-        />
       </div>
+    </div>
+  );
+}
+
+/** The step's question and a line under it. The acts are the rail's and the page foot's, not this. */
+function StepHeader({ step }: { step: PositionStep }) {
+  return (
+    <div className="mb-7 min-w-0">
+      <h1 className="text-[23px] font-bold leading-[1.25] tracking-[-0.01em] sm:text-[26px]">{step.heading}</h1>
+      <p className="mt-1.5 max-w-[620px] text-[14px] leading-[1.6] text-u-text2">{step.lede}</p>
     </div>
   );
 }

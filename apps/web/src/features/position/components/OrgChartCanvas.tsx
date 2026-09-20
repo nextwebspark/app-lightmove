@@ -16,6 +16,7 @@ import {
   branchHoldsMandateSeat,
   childrenOf,
   layoutChart,
+  MAX_ORG_CHART_SEATS,
   removeBranch,
   removeSeat,
 } from "../lib/orgChart";
@@ -64,7 +65,8 @@ function OrgChart({ chart, roleTitle, onChange }: OrgChartCanvasProps) {
   );
 
   const addChild = useCallback(
-    (parentNodeId: string) =>
+    (parentNodeId: string) => {
+      if (chart.length >= MAX_ORG_CHART_SEATS) return;
       onChange(
         [
           ...chart,
@@ -80,13 +82,15 @@ function OrgChart({ chart, roleTitle, onChange }: OrgChartCanvasProps) {
           },
         ],
         true,
-      ),
+      );
+    },
     [chart, onChange],
   );
 
   /** A new seat above a root becomes that root's parent, so the chart grows upward as one tree. */
   const addParent = useCallback(
     (childNodeId: string) => {
+      if (chart.length >= MAX_ORG_CHART_SEATS) return;
       const nodeId = crypto.randomUUID();
       onChange(
         [
@@ -194,7 +198,7 @@ function OrgChart({ chart, roleTitle, onChange }: OrgChartCanvasProps) {
   );
 
   return (
-    <div className="h-[380px] overflow-hidden rounded-[10px] border border-line-soft bg-panel2">
+    <div className="h-[420px] overflow-hidden rounded-[11px] bg-u-surface shadow-u-e1">
       <ReactFlow
         nodes={nodes}
         edges={edges}
@@ -209,8 +213,12 @@ function OrgChart({ chart, roleTitle, onChange }: OrgChartCanvasProps) {
         aria-label="Org chart"
         className="[&_.react-flow__attribution]:hidden"
       >
-        <Background gap={18} size={1} className="text-line" />
-        <Controls showInteractive={false} className="!shadow-none" />
+        <Background gap={18} size={1} className="text-u-border-strong" />
+        <Controls
+          position="bottom-left"
+          showInteractive={false}
+          className="!rounded-[8px] !border !border-u-border !bg-u-bg !shadow-u-e1 [&>button]:!border-u-border [&>button]:!bg-u-bg [&>button]:!fill-u-text2 [&>button:hover]:!bg-u-raised"
+        />
       </ReactFlow>
     </div>
   );

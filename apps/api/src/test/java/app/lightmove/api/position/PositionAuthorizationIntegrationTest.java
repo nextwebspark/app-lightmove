@@ -107,8 +107,8 @@ class PositionAuthorizationIntegrationTest extends FlowTestSupport {
     }
 
     private static final String DETAILS_STEP = """
-            {"roleTitle":"CFO","department":null,"location":null,"employmentType":null,
-             "seniority":null,"responsibilities":[],"narrative":null}""";
+            {"roleTitle":"CFO","department":null,"locationCity":null,"locationCountry":null,
+             "employmentType":null,"seniority":null,"responsibilities":[],"narrative":null}""";
 
     private static String positionUrl(String projectId) {
         return "/api/v1/projects/" + projectId + "/position";

@@ -63,7 +63,8 @@ class PositionResponseAssembler {
         return new PositionDetailsDto(
                 brief.project().getPositionTitle(),
                 position.getDepartment(),
-                position.getLocation(),
+                position.getLocationCity(),
+                position.getLocationCountry(),
                 position.getEmploymentType(),
                 position.getSeniority(),
                 position.getResponsibilities().stream()
@@ -129,7 +130,8 @@ class PositionResponseAssembler {
                                 criterion.getText(), criterion.getMode(), criterion.getSource()))
                         .toList(),
                 panel(position, CompetencyPanel.TECHNICAL),
-                panel(position, CompetencyPanel.BEHAVIOURAL));
+                panel(position, CompetencyPanel.BEHAVIOURAL),
+                position.getTechnicalShare());
     }
 
     private PublicationDto publicationOf(Position position) {

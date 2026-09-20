@@ -16,6 +16,7 @@ export type EmploymentType =
   | "FULL_TIME_PERMANENT"
   | "FIXED_TERM_CONTRACT"
   | "PART_TIME"
+  | "TEMPORARY"
   | "INTERIM"
   | "RETAINED_ADVISORY";
 
@@ -27,7 +28,8 @@ export type { NoticeUnit };
 
 export type BaseSalaryMode = "ANNUAL" | "MONTHLY";
 
-export type BonusBasis = "PERCENT_OF_BASE" | "PERCENT_OF_TOTAL_FIXED" | "MONTHS_OF_BASE";
+/** `FIXED_AMOUNT` is the one basis where the figure is money in the package's currency. */
+export type BonusBasis = "PERCENT_OF_BASE" | "PERCENT_OF_TOTAL_FIXED" | "MONTHS_OF_BASE" | "FIXED_AMOUNT";
 
 export type IncentiveType = "LTIP_CASH" | "RSU" | "OPTIONS" | "PHANTOM_EQUITY";
 
@@ -83,11 +85,16 @@ export interface Responsibility {
   source: FieldSource;
 }
 
-/** Step 1. `roleTitle` is the mandate's own title, edited here and stored on the project. */
+/**
+ * Step 1. `roleTitle` is the mandate's own title, edited here and stored on the project. The location
+ * is two halves the server settles on their own — the country to the catalog's spelling, the city to
+ * its casing — so a brief and the mandate's companies spell one place the same way.
+ */
 export interface PositionDetails {
   roleTitle: string;
   department: string | null;
-  location: string | null;
+  locationCity: string | null;
+  locationCountry: string | null;
   employmentType: EmploymentType | null;
   seniority: PositionSeniority | null;
   responsibilities: Responsibility[];
@@ -172,11 +179,16 @@ export interface Compensation {
   benefits: Benefit[];
 }
 
-/** Step 5. Stored as one ordered list; the API splits the panels because the screen draws two. */
+/**
+ * Step 5. Stored as one ordered list; the API splits the panels because the screen draws two.
+ * `technicalShare` is how much of the assessment the technical panel carries, 0–100; the behavioural
+ * panel carries the rest.
+ */
 export interface Assessment {
   criteria: Criterion[];
   technical: Competency[];
   behavioural: Competency[];
+  technicalShare: number;
 }
 
 /** Step 6. Publishing is a stamp, not a lock — a published brief stays editable. */

@@ -23,9 +23,9 @@ import type {
   PositionDiscipline,
   PositionSeniority,
 } from "../../position/api/types";
-import { CompetencyPanel } from "../../position/components/CompetencyPanel";
-import { CriteriaCard } from "../../position/components/CriteriaCard";
-import { SegmentedControl } from "../../position/components/fields";
+import { CompetencyPanel } from "../components/CompetencyPanel";
+import { CriteriaCard } from "../components/CriteriaCard";
+import { SegmentedControl } from "../components/fields";
 import { moveRow, toggle } from "../../position/lib/competencyRows";
 import {
   BASE_SALARY_MODE_LABELS,

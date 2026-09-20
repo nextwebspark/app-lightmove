@@ -1,3 +1,4 @@
+import { formatNumber } from "../../../lib/format";
 import type { Compensation } from "../api/types";
 
 /**
@@ -46,11 +47,14 @@ export function annualisedAllowances(compensation: Compensation): number {
 
 /**
  * The bonus in money, for a given annualised base. A percentage basis scales with the base; months
- * of base is that many months of it, which is why the base's own period cannot be ignored.
+ * of base is that many months of it, which is why the base's own period cannot be ignored; a fixed
+ * amount is the same money on either edge of the band, and needs no base at all.
  */
 export function bonusOn(compensation: Compensation, annualBase: number): number {
   const value = compensation.bonusValue ?? 0;
-  if (value <= 0 || annualBase <= 0) return 0;
+  if (value <= 0) return 0;
+  if (compensation.bonusBasis === "FIXED_AMOUNT") return value;
+  if (annualBase <= 0) return 0;
   switch (compensation.bonusBasis) {
     case "MONTHS_OF_BASE":
       return (annualBase / MONTHS_PER_YEAR) * value;
@@ -107,4 +111,9 @@ export function bandReadings(compensation: Compensation): {
   const { salaryMin, salaryMax } = compensation;
   if (salaryMin === null || salaryMax === null) return { min: salaryMin, mid: null, max: salaryMax };
   return { min: salaryMin, mid: Math.round((salaryMin + salaryMax) / 2), max: salaryMax };
+}
+
+/** "SAR 566,200" — a figure with the currency it is quoted in, rounded to the unit. */
+export function formatAmount(currency: string, amount: number): string {
+  return `${currency} ${formatNumber(Math.round(amount))}`;
 }

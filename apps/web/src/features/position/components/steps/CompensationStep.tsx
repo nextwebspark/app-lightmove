@@ -1,370 +1,189 @@
-import { useState } from "react";
-import { Input, Select } from "../../../../components/ui";
-import { formatNumber } from "../../../../lib/format";
-import type {
-  Benefit,
-  Compensation,
-  PositionDocument,
-  PositionExtraction,
-  ProposedField,
-} from "../../api/types";
-import { bandReadings, packageMix, packageTotal } from "../../lib/compensation";
-import { BENEFIT_PRESETS } from "../../lib/benefits";
+import { SegmentedControl, type SegmentedOption } from "../../../../components/ui/SegmentedControl";
+import type { BaseSalaryMode, BonusBasis, Compensation, IncentiveType } from "../../api/types";
+import { formatAmount, packageTotal } from "../../lib/compensation";
 import {
   BASE_SALARY_MODE_LABELS,
-  BENEFIT_FREQUENCY_LABELS,
   BONUS_BASIS_LABELS,
   CURRENCIES,
   INCENTIVE_TYPE_LABELS,
+  OFFERED_BONUS_BASES,
+  OFFERED_INCENTIVE_TYPES,
 } from "../../lib/labels";
-import { StepExtraction } from "../StepExtraction";
-import {
-  AddRowButton,
-  ColumnLabel,
-  MoneyInput,
-  NumberInput,
-  RemoveRowButton,
-  SegmentedControl,
-  StepField,
-  SubCard,
-} from "../fields";
+import { BenefitsTable } from "../BenefitsTable";
+import { BriefPanel, ChipGroup, Eyebrow, FieldBlock, FigureInput, UnderlineField, withRecorded, type ChipOption } from "../BriefFields";
+import { PackageSummary } from "../PackageSummary";
 
-/** Step four: what the seat pays, and what that adds up to over a year. */
+const PERIOD_OPTIONS: SegmentedOption<BaseSalaryMode>[] = (
+  Object.entries(BASE_SALARY_MODE_LABELS) as [BaseSalaryMode, string][]
+).map(([value, label]) => ({ value, label }));
+
+const BONUS_OPTIONS: ChipOption<BonusBasis>[] = OFFERED_BONUS_BASES.map((value) => ({
+  value,
+  label: BONUS_BASIS_LABELS[value],
+}));
+
+/** "None" is the absence of an incentive, which the wire spells as null rather than a fourth kind. */
+type IncentiveChoice = IncentiveType | "NONE";
+
+const INCENTIVE_OPTIONS: ChipOption<IncentiveChoice>[] = [
+  ...OFFERED_INCENTIVE_TYPES.map((value) => ({ value, label: INCENTIVE_TYPE_LABELS[value] })),
+  { value: "NONE", label: "None" },
+];
+
+const BONUS_CAPTIONS: Record<BonusBasis, string> = {
+  PERCENT_OF_BASE: "of base salary",
+  FIXED_AMOUNT: "per year",
+  PERCENT_OF_TOTAL_FIXED: "of total fixed",
+  MONTHS_OF_BASE: "months of base",
+};
+
+/** Step three: what the seat pays, and what that adds up to over a year. */
 export function CompensationStep({
   compensation,
-  document,
-  extraction,
-  extracting,
-  extractionError,
   onChange,
-  onExtract,
-  onAcceptProposal,
-  onDismissProposal,
-  onAcceptAllProposals,
 }: {
   compensation: Compensation;
-  document: PositionDocument | null;
-  extraction: PositionExtraction | null;
-  extracting: boolean;
-  extractionError?: unknown;
   onChange: (patch: Partial<Compensation>, immediate?: boolean) => void;
-  onExtract: () => void;
-  onAcceptProposal: (field: ProposedField, value: string) => void;
-  onDismissProposal: (field: ProposedField) => void;
-  onAcceptAllProposals: () => void;
 }) {
-  const [draft, setDraft] = useState<Benefit>({ name: "", amount: null, frequency: "MONTHLY" });
+  const { currency } = compensation;
+  const isFixed = compensation.bonusBasis === "FIXED_AMOUNT";
   const total = packageTotal(compensation);
-  const band = bandReadings(compensation);
-  const money = (amount: number | null) =>
-    amount === null ? "—" : `${compensation.currency} ${formatNumber(Math.round(amount))}`;
+  const incentiveChoice: IncentiveChoice = compensation.incentiveType ?? "NONE";
 
-  const addBenefit = () => {
-    const name = draft.name.trim();
-    if (!name) return;
-    onChange({ benefits: [...compensation.benefits, { ...draft, name }] }, true);
-    setDraft({ name: "", amount: null, frequency: "MONTHLY" });
-  };
-  const patchBenefit = (index: number, changes: Partial<Benefit>) =>
-    onChange({
-      benefits: compensation.benefits.map((benefit, i) =>
-        i === index ? { ...benefit, ...changes } : benefit,
-      ),
-    });
+  const calculatedBonus =
+    total.bonus.max <= 0
+      ? "—"
+      : isFixed
+        ? formatAmount(currency, total.bonus.max)
+        : `${formatAmount(currency, total.bonus.min)} – ${formatAmount(currency, total.bonus.max)}`;
 
   return (
     <div className="flex flex-col gap-5">
-      <StepExtraction
-        positionDocument={document}
-        extraction={extraction}
-        extracting={extracting}
-        error={extractionError}
-        onExtract={onExtract}
-        onAcceptProposal={onAcceptProposal}
-        onDismissProposal={onDismissProposal}
-        onAcceptAllProposals={onAcceptAllProposals}
-      />
-
-      <div>
-        <span className="mb-1.5 block text-xs font-semibold uppercase tracking-[0.02em] text-text2">
-          Base salary
-        </span>
-        <SubCard>
-          <div className="flex flex-wrap items-center gap-2">
-            <Select
-              aria-label="Currency"
-              value={compensation.currency}
-              onChange={(event) => onChange({ currency: event.target.value }, true)}
-              className="w-[92px] flex-none bg-panel"
-            >
-              {CURRENCIES.map((currency) => (
-                <option key={currency} value={currency}>
-                  {currency}
-                </option>
-              ))}
-            </Select>
-            <div className="min-w-[110px] flex-1 rounded-lg border border-line bg-panel px-3 py-1.5">
-              <MoneyInput
-                value={compensation.salaryMin}
-                aria-label="Minimum base salary"
-                placeholder="90,000"
-                onChange={(salaryMin) => onChange({ salaryMin })}
-              />
-            </div>
-            <span className="font-mono text-[13px] text-text3">–</span>
-            <div className="min-w-[110px] flex-1 rounded-lg border border-line bg-panel px-3 py-1.5">
-              <MoneyInput
-                value={compensation.salaryMax}
-                aria-label="Maximum base salary"
-                placeholder="120,000"
-                onChange={(salaryMax) => onChange({ salaryMax })}
-              />
-            </div>
-            <SegmentedControl
-              label="Base salary period"
-              className="flex-none"
-              value={compensation.baseSalaryMode}
-              onChange={(baseSalaryMode) => onChange({ baseSalaryMode }, true)}
-              options={Object.entries(BASE_SALARY_MODE_LABELS).map(([value, label]) => ({
-                value: value as Compensation["baseSalaryMode"],
-                label,
-              }))}
-            />
-          </div>
-
-          <div className="mt-4">
-            <div className="h-[3px] rounded-full bg-gradient-to-r from-line via-sky to-line" />
-            <div className="mt-2 flex justify-between font-mono text-[11px] text-text3">
-              <span>Min {money(band.min)}</span>
-              <span className="text-sky">Mid {money(band.mid)}</span>
-              <span>Max {money(band.max)}</span>
-            </div>
-          </div>
-        </SubCard>
-      </div>
-
-      <div className="grid grid-cols-1 gap-4 md:grid-cols-2 md:gap-x-[18px]">
-        <StepField label="Annual bonus target" hint={bonusHint(total, compensation.currency)}>
-          <div className="flex gap-2">
-            <div className="min-w-0 flex-1 rounded-lg border border-line bg-panel2 px-3 py-1.5">
-              <NumberInput
-                value={compensation.bonusValue}
-                aria-label="Bonus target"
-                placeholder="40"
-                onChange={(bonusValue) => onChange({ bonusValue })}
-              />
-            </div>
-            <Select
-              aria-label="Bonus basis"
-              value={compensation.bonusBasis ?? ""}
-              onChange={(event) =>
-                onChange(
-                  { bonusBasis: (event.target.value || null) as Compensation["bonusBasis"] },
-                  true,
-                )
-              }
-              className="w-[190px] flex-none"
-            >
-              <option value="">Not set</option>
-              {Object.entries(BONUS_BASIS_LABELS).map(([value, label]) => (
-                <option key={value} value={value}>
-                  {label}
-                </option>
-              ))}
-            </Select>
-          </div>
-        </StepField>
-
-        <StepField label="Long-term incentive">
-          <div className="flex flex-wrap gap-2">
-            <Select
-              aria-label="Incentive type"
-              value={compensation.incentiveType ?? ""}
-              onChange={(event) =>
-                onChange(
-                  { incentiveType: (event.target.value || null) as Compensation["incentiveType"] },
-                  true,
-                )
-              }
-              className="w-[150px] flex-none"
-            >
-              <option value="">Not set</option>
-              {Object.entries(INCENTIVE_TYPE_LABELS).map(([value, label]) => (
-                <option key={value} value={value}>
-                  {label}
-                </option>
-              ))}
-            </Select>
-            <div className="min-w-[110px] flex-1 rounded-lg border border-line bg-panel2 px-3 py-1.5">
-              <MoneyInput
-                value={compensation.incentiveAmount}
-                aria-label="Incentive amount"
-                placeholder="600,000"
-                onChange={(incentiveAmount) => onChange({ incentiveAmount })}
-              />
-            </div>
-          </div>
-          <Input
-            value={compensation.incentiveVesting ?? ""}
-            aria-label="Vesting schedule"
-            placeholder="Vesting schedule"
-            onChange={(event) => onChange({ incentiveVesting: event.target.value || null })}
-            className="mt-2"
+      <BriefPanel>
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <Eyebrow>Base salary</Eyebrow>
+          <SegmentedControl
+            variant="uncava"
+            label="Base salary period"
+            options={PERIOD_OPTIONS}
+            value={compensation.baseSalaryMode}
+            onChange={(baseSalaryMode) => onChange({ baseSalaryMode }, true)}
           />
-        </StepField>
-      </div>
-
-      <div>
-        <span className="mb-1.5 block text-xs font-semibold uppercase tracking-[0.02em] text-text2">
-          Benefits &amp; allowances
-        </span>
-        <div className="overflow-x-auto rounded-[10px] border border-line-soft bg-panel2">
-          <div className="min-w-[560px]">
-            <div className="grid grid-cols-[minmax(0,1fr)_130px_150px_30px] gap-2.5 border-b border-line-soft px-3.5 py-[9px]">
-              <ColumnLabel>Benefit</ColumnLabel>
-              <ColumnLabel>Amount</ColumnLabel>
-              <ColumnLabel>Frequency</ColumnLabel>
-              <span />
-            </div>
-            {compensation.benefits.map((benefit, index) => (
-              <div
-                key={index}
-                className="grid grid-cols-[minmax(0,1fr)_130px_150px_30px] items-center gap-2.5 border-b border-line-soft px-3.5 py-2"
-              >
-                <input
-                  value={benefit.name}
-                  aria-label={`Benefit ${index + 1} name`}
-                  onChange={(event) => patchBenefit(index, { name: event.target.value })}
-                  className="min-w-0 bg-transparent text-[13px] font-medium text-text outline-none"
-                />
-                <MoneyInput
-                  value={benefit.amount}
-                  aria-label={`${benefit.name} amount`}
-                  placeholder="—"
-                  onChange={(amount) => patchBenefit(index, { amount })}
-                />
-                <SegmentedControl
-                  size="sm"
-                  label={`${benefit.name} frequency`}
-                  value={benefit.frequency}
-                  onChange={(frequency) => patchBenefit(index, { frequency })}
-                  options={Object.entries(BENEFIT_FREQUENCY_LABELS).map(([value, label]) => ({
-                    value: value as Benefit["frequency"],
-                    label,
-                  }))}
-                />
-                <RemoveRowButton
-                  label={`Remove ${benefit.name}`}
-                  onClick={() =>
-                    onChange(
-                      { benefits: compensation.benefits.filter((_, i) => i !== index) },
-                      true,
-                    )
-                  }
-                />
-              </div>
-            ))}
-            <div className="grid grid-cols-[minmax(0,1fr)_130px_150px_30px] items-center gap-2.5 px-3.5 py-2.5">
-              <Input
-                value={draft.name}
-                list="position-benefit-presets"
-                aria-label="New benefit name"
-                placeholder="e.g. Housing allowance"
-                onChange={(event) => setDraft({ ...draft, name: event.target.value })}
-                onKeyDown={(event) => {
-                  if (event.key !== "Enter") return;
-                  event.preventDefault();
-                  addBenefit();
-                }}
-                className="bg-panel"
-              />
-              <div className="rounded-lg border border-line bg-panel px-3 py-1.5">
-                <MoneyInput
-                  value={draft.amount}
-                  aria-label="New benefit amount"
-                  placeholder="Amount"
-                  onChange={(amount) => setDraft({ ...draft, amount })}
-                />
-              </div>
-              <Select
-                aria-label="New benefit frequency"
-                value={draft.frequency}
-                onChange={(event) =>
-                  setDraft({ ...draft, frequency: event.target.value as Benefit["frequency"] })
-                }
-                className="bg-panel"
-              >
-                {Object.entries(BENEFIT_FREQUENCY_LABELS).map(([value, label]) => (
-                  <option key={value} value={value}>
-                    {label}
-                  </option>
-                ))}
-              </Select>
-              <AddRowButton onClick={addBenefit} className="px-2 py-1.5 text-[11px]">
-                Add
-              </AddRowButton>
-            </div>
-            <datalist id="position-benefit-presets">
-              {BENEFIT_PRESETS.map((preset) => (
-                <option key={preset} value={preset} />
-              ))}
-            </datalist>
-          </div>
         </div>
-      </div>
-
-      <PackageTotalPanel compensation={compensation} />
-    </div>
-  );
-}
-
-/** The amber panel: the annual total and what it is made of. */
-function PackageTotalPanel({ compensation }: { compensation: Compensation }) {
-  const total = packageTotal(compensation);
-  const mix = packageMix(total);
-  const money = (amount: number) =>
-    `${compensation.currency} ${formatNumber(Math.round(amount))}`;
-
-  return (
-    <div className="rounded-[10px] border border-amber-btn/35 bg-amber-dim/40 px-[18px] py-4">
-      <div className="flex flex-wrap items-center gap-2.5">
-        <ColumnLabel className="tracking-[0.12em]">Total target annual package</ColumnLabel>
-      </div>
-      <div className="mt-2 text-[21px] font-bold text-text">
-        {total.min === null || total.max === null
-          ? "—"
-          : `${money(total.min)} – ${money(total.max)}`}
-      </div>
-
-      <div className="mt-3.5 flex h-2 overflow-hidden rounded-full bg-line">
-        {mix.map((row, index) => (
-          <span
-            key={row.label}
-            style={{ width: `${row.percent}%` }}
-            className={index === 0 ? "bg-sky" : index === 1 ? "bg-amber-btn" : "bg-green"}
-            aria-hidden="true"
+        <div className="mt-4 flex flex-wrap items-center gap-4">
+          <select
+            aria-label="Currency"
+            value={currency}
+            onChange={(event) => onChange({ currency: event.target.value }, true)}
+            className="rounded-[6px] bg-u-raised px-2.5 py-1.5 text-[12px] font-semibold text-u-text outline-none"
+          >
+            {CURRENCIES.map((code) => (
+              <option key={code} value={code}>
+                {code}
+              </option>
+            ))}
+          </select>
+          <FigureInput
+            grouped
+            value={compensation.salaryMin}
+            aria-label="Minimum base salary"
+            placeholder="90,000"
+            onChange={(salaryMin) => onChange({ salaryMin })}
+            className="w-[140px]"
           />
-        ))}
-      </div>
-      <div className="mt-2.5 flex flex-wrap gap-x-4 gap-y-1">
-        {mix.map((row, index) => (
-          <span key={row.label} className="flex items-center gap-1.5 font-mono text-[11px] text-text3">
-            <span
-              className={`size-2 rounded-full ${
-                index === 0 ? "bg-sky" : index === 1 ? "bg-amber-btn" : "bg-green"
-              }`}
+          <span className="text-u-text3">–</span>
+          <FigureInput
+            grouped
+            value={compensation.salaryMax}
+            aria-label="Maximum base salary"
+            placeholder="120,000"
+            onChange={(salaryMax) => onChange({ salaryMax })}
+            className="w-[140px]"
+          />
+        </div>
+      </BriefPanel>
+
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+        <BriefPanel>
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <Eyebrow>Annual bonus target</Eyebrow>
+            <ChipGroup
+              size="sm"
+              label="Bonus basis"
+              options={withRecorded(BONUS_OPTIONS, compensation.bonusBasis, (basis) => BONUS_BASIS_LABELS[basis])}
+              value={compensation.bonusBasis}
+              onChange={(bonusBasis) => onChange({ bonusBasis }, true)}
+              className="flex-nowrap"
             />
-            {row.label} · {money(row.amount)}
+          </div>
+          <div className="mt-3 flex items-baseline gap-2">
+            {isFixed && <span className="font-u-num text-[18px] text-u-text2">{currency}</span>}
+            <FigureInput
+              size="lg"
+              grouped={isFixed}
+              value={compensation.bonusValue}
+              aria-label="Bonus target"
+              placeholder={isFixed ? "150,000" : "30"}
+              onChange={(bonusValue) => onChange({ bonusValue })}
+              className={isFixed ? "w-full max-w-[240px]" : "w-[4ch]"}
+            />
+            {!isFixed && <span className="font-u-num text-[22px] text-u-text2">%</span>}
+          </div>
+          <span className="mt-1 block text-[12.5px] text-u-text3">
+            {compensation.bonusBasis ? BONUS_CAPTIONS[compensation.bonusBasis] : "choose what the figure is read against"}
           </span>
-        ))}
+          <div className="mt-4 border-t border-u-border pt-3 text-[12.5px] text-u-text2">
+            Calculated: <span className="font-u-num">{calculatedBonus}</span>
+          </div>
+        </BriefPanel>
+
+        <BriefPanel>
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <Eyebrow>LTIP</Eyebrow>
+            <ChipGroup
+              size="sm"
+              label="Long-term incentive"
+              options={withRecorded(INCENTIVE_OPTIONS, incentiveChoice, (choice) =>
+                choice === "NONE" ? "None" : INCENTIVE_TYPE_LABELS[choice],
+              )}
+              value={incentiveChoice}
+              onChange={(choice) => onChange({ incentiveType: choice === null || choice === "NONE" ? null : choice }, true)}
+              className="flex-nowrap"
+            />
+          </div>
+          <div className="mt-3 flex items-baseline gap-2">
+            <span className="font-u-num text-[18px] text-u-text2">{currency}</span>
+            <FigureInput
+              size="lg"
+              grouped
+              value={compensation.incentiveAmount}
+              aria-label="Incentive amount"
+              placeholder="600,000"
+              onChange={(incentiveAmount) => onChange({ incentiveAmount })}
+              className="w-full max-w-[240px]"
+            />
+          </div>
+          <span className="mt-1 block text-[12.5px] text-u-text3">total value</span>
+          <div className="mt-4 border-t border-u-border pt-2">
+            <UnderlineField
+              value={compensation.incentiveVesting ?? ""}
+              aria-label="Vesting schedule"
+              placeholder="Vesting schedule, e.g. 4-year vesting"
+              onChange={(event) => onChange({ incentiveVesting: event.target.value || null })}
+              className="border-transparent text-[13px] text-u-text2 focus:border-u-accent"
+            />
+          </div>
+        </BriefPanel>
       </div>
+
+      <FieldBlock label="Benefits & allowances">
+        <BenefitsTable
+          benefits={compensation.benefits}
+          onChange={(benefits, immediate) => onChange({ benefits }, immediate)}
+        />
+      </FieldBlock>
+
+      <PackageSummary compensation={compensation} />
     </div>
   );
-}
-
-function bonusHint(total: ReturnType<typeof packageTotal>, currency: string): string | undefined {
-  if (total.bonus.max <= 0) return undefined;
-  return `${currency} ${formatNumber(Math.round(total.bonus.min))} – ${currency} ${formatNumber(
-    Math.round(total.bonus.max),
-  )}`;
 }

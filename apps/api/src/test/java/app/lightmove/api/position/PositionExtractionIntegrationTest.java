@@ -82,7 +82,8 @@ class PositionExtractionIntegrationTest extends FlowTestSupport {
         assertThat(updatedAtOf(projectId)).isEqualTo(beforeUpdatedAt);
         JsonNode brief = readBrief(admin, projectId);
         assertThat(brief.get("details").get("roleTitle").asText()).isEqualTo("CFO");
-        assertThat(brief.get("details").get("location").asText()).isEqualTo("United Arab Emirates");
+        assertThat(brief.get("details").get("locationCountry").asText()).isEqualTo("United Arab Emirates");
+        assertThat(brief.get("details").get("locationCity").isNull()).isTrue();
 
         // "General Manager" matches no seeded template keyword, so the suggestion stays silent
         // rather than offering the generic-executive fallback as though it were a real match.
@@ -138,9 +139,9 @@ class PositionExtractionIntegrationTest extends FlowTestSupport {
                         .header("Authorization", "Bearer " + admin)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
-                                {"roleTitle":"%s","department":null,"location":null,
-                                 "employmentType":null,"seniority":null,"responsibilities":[],
-                                 "narrative":null}""".formatted(proposedTitle)))
+                                {"roleTitle":"%s","department":null,"locationCity":null,
+                                 "locationCountry":null,"employmentType":null,"seniority":null,
+                                 "responsibilities":[],"narrative":null}""".formatted(proposedTitle)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.details.roleTitle").value(proposedTitle));
 
