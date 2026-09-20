@@ -258,6 +258,24 @@ lightmove:
       embed-requests-per-minute: ${LLM_EMBED_REQUESTS_PER_MINUTE:20}
       default-requests-per-minute: ${LLM_DEFAULT_REQUESTS_PER_MINUTE:10}
 
+
+  # The Uncava Assistant's own model call. Beside lightmove.llm rather than inside it, and beside
+  # spring.ai.google.genai.chat.model rather than taking it: the extraction prompts classify and a
+  # Flash-tier model answers them well, while a turn plans over a wide tool surface and wants a Pro
+  # one. Two workloads, two models, and neither should move because the other needed to.
+  assistant:
+    # Confirm this id is served in spring.ai.google.genai.location before deploying to a new region;
+    # gemini-3.1-pro-preview is the preview variant of the same tier.
+    model: ${ASSISTANT_MODEL:gemini-3.1-pro}
+    # Low, because a turn's job is to choose correctly rather than to write well: the same question
+    # twice should reach for the same tools.
+    temperature: ${ASSISTANT_TEMPERATURE:0.2}
+    # Not zero, which is what the extraction prompts use — they classify, this one plans.
+    thinking-budget: ${ASSISTANT_THINKING_BUDGET:2048}
+    # Earlier exchanges sent with a question. A window, not the thread: Gemini has no server-side
+    # compaction, so an unbounded history is an unbounded bill.
+    history-window: ${ASSISTANT_HISTORY_WINDOW:12}
+
   email:
     provider: ${EMAIL_PROVIDER:resend}
     from-name: Uncava
