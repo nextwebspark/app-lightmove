@@ -1,4 +1,3 @@
-import { Link } from "react-router-dom";
 import { Icon, ICONS } from "../../../../components/layout/Icon";
 import { cn } from "../../../../lib/cn";
 import { formatDate, formatInstantDate } from "../../../../lib/format";
@@ -7,8 +6,8 @@ import type { Position } from "../../api/types";
 import { annualisedBase, formatAmount, packageTotal } from "../../lib/compensation";
 import { BONUS_BASIS_LABELS, labelOf } from "../../lib/labels";
 import { directReportsOf, labelOfNode, managerOf } from "../../lib/orgChart";
-import { REVIEWABLE_STEPS, STEP_PARAM, placeLineOf, readinessOf, type StepKey } from "../../lib/steps";
-import { BriefButton, BriefPanel } from "../BriefFields";
+import { REVIEWABLE_STEPS, placeLineOf, readinessOf, type StepKey } from "../../lib/steps";
+import { BriefPanel } from "../BriefFields";
 import { ReadinessBar } from "../ReadinessBar";
 import { ReviewCard, type ReviewField } from "../ReviewCard";
 
@@ -17,21 +16,18 @@ import { ReviewCard, type ReviewField } from "../ReviewCard";
  * V38 retired the readiness gate along with the lock, so publishing stays available whatever they
  * say, and an unfinished brief can still be declared ready by someone who means it.
  *
- * <p>Publishing is the rail's act on every step, so the foot carries only what belongs to this page:
- * the way back, and — once the brief has been declared ready — the mandate's market, which is what is
- * left to do. Repeating the rail's two buttons here bought nothing but a second place to look.
+ * <p>Publishing is the rail's act on every step and walking is `StepFooter`'s, so this step draws
+ * neither. Repeating the rail's two buttons here bought nothing but a second place to look.
  */
 export function ReviewStep({
   position,
   readBack,
   onWithdraw,
-  onGoToStrategy,
 }: {
   position: Position;
   /** Published and not reopened: no section offers a way in, and neither does the banner. */
   readBack: boolean;
   onWithdraw: () => void;
-  onGoToStrategy: () => void;
 }) {
   const published = position.publication.publishedAt;
 
@@ -95,16 +91,6 @@ export function ReviewStep({
           These checks report. Publishing records that the brief is ready and freezes nothing.
         </p>
       </BriefPanel>
-
-      <div className="flex flex-wrap items-center justify-between gap-3 pt-2">
-        <Link
-          to={{ search: `?${STEP_PARAM}=assessment` }}
-          className="inline-flex items-center gap-2 rounded-[8px] border border-u-border-strong px-4 py-2.5 text-[13px] font-semibold text-u-text2 transition hover:bg-u-raised hover:text-u-text"
-        >
-          Back to Assessment
-        </Link>
-        {published && <BriefButton onClick={onGoToStrategy}>Move to Strategy</BriefButton>}
-      </div>
     </div>
   );
 }

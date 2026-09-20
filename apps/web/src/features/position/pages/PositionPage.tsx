@@ -21,6 +21,7 @@ import { BriefRail } from "../components/BriefRail";
 import { AssessmentStep, type CompetencyPanelKey } from "../components/steps/AssessmentStep";
 import { CompensationStep } from "../components/steps/CompensationStep";
 import { ReportingStep } from "../components/steps/ReportingStep";
+import { StepFooter } from "../components/StepFooter";
 import { ReviewStep } from "../components/steps/ReviewStep";
 import { RoleBriefStep } from "../components/steps/RoleBriefStep";
 import { forWire, identify, moveRow, toggle, type IdentifiedCompetency } from "../lib/competencyRows";
@@ -431,13 +432,14 @@ function PositionBrief({ projectId, position }: { projectId: string; position: P
             />
           )}
           {step.key === "review" && (
-            <ReviewStep
-              position={drafted}
-              readBack={readBack}
-              onWithdraw={() => withdraw.mutate()}
-              onGoToStrategy={goToStrategy}
-            />
+            <ReviewStep position={drafted} readBack={readBack} onWithdraw={() => withdraw.mutate()} />
           )}
+
+          <StepFooter
+            activeKey={step.key}
+            published={Boolean(drafted.publication.publishedAt)}
+            onGoToStrategy={goToStrategy}
+          />
         </div>
       </div>
     </div>

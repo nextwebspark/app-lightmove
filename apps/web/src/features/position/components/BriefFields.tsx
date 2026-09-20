@@ -263,6 +263,8 @@ export function BriefPanel({
 
 type BriefButtonVariant = "primary" | "outline" | "link";
 
+const BUTTON_BASE = "inline-flex items-center justify-center gap-2 text-[13px] font-semibold transition";
+
 const BUTTON_CLASS: Record<BriefButtonVariant, string> = {
   primary:
     "rounded-[8px] border border-transparent bg-u-accent-solid px-4 py-2.5 text-white hover:brightness-110",
@@ -270,6 +272,13 @@ const BUTTON_CLASS: Record<BriefButtonVariant, string> = {
     "rounded-[8px] border border-u-border-strong bg-transparent px-4 py-2.5 text-u-text2 hover:bg-u-raised hover:text-u-text",
   link: "border-transparent px-1 py-1 text-u-accent hover:underline",
 };
+
+/**
+ * The outline button's own classes, for the controls that are links rather than buttons — walking
+ * between steps is navigation, so it belongs in the URL. Shared rather than copied: a second spelling
+ * of the same button is a second thing to keep in step with the palette.
+ */
+export const OUTLINE_LINK_CLASS = cn(BUTTON_BASE, BUTTON_CLASS.outline);
 
 /** The brief's button: one filled per screen, outlines beside it, links for the small acts. */
 export function BriefButton({
@@ -285,7 +294,7 @@ export function BriefButton({
       {...rest}
       disabled={disabled || loading}
       className={cn(
-        "inline-flex items-center justify-center gap-2 text-[13px] font-semibold transition",
+        BUTTON_BASE,
         "disabled:cursor-not-allowed disabled:opacity-50",
         BUTTON_CLASS[variant],
         className,

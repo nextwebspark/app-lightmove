@@ -197,6 +197,29 @@ describe("PositionPage", () => {
       expect(within(rail()).getByRole("link", { name: /Assessment Criteria/ })).toHaveAttribute("href", "/?step=assessment");
     });
 
+    it("walks the steps from the foot of each one, forwards and back", async () => {
+      renderPage();
+      const person = userEvent.setup();
+
+      // The first step has nothing behind it, and the last nothing ahead.
+      await screen.findByRole("heading", { name: "Role Brief" });
+      expect(screen.queryByRole("link", { name: /^Back to/ })).not.toBeInTheDocument();
+
+      await person.click(screen.getByRole("link", { name: "Next: Reporting" }));
+      expect(screen.getByRole("heading", { name: "Reporting Structure" })).toBeInTheDocument();
+
+      await person.click(screen.getByRole("link", { name: "Back to Role Brief" }));
+      expect(screen.getByRole("heading", { name: "Role Brief" })).toBeInTheDocument();
+    });
+
+    it("offers no next step past the review, and nothing onward until it is published", async () => {
+      renderPage("/?step=review");
+
+      expect(await screen.findByRole("link", { name: "Back to Assessment Criteria" })).toBeInTheDocument();
+      expect(screen.queryByRole("link", { name: /^Next:/ })).not.toBeInTheDocument();
+      expect(screen.queryByRole("button", { name: "Move to Strategy" })).not.toBeInTheDocument();
+    });
+
     it("opens a published brief on its own review, reading back rather than offering edits", async () => {
       vi.mocked(positionApi.getPosition).mockResolvedValue(published);
       renderPage();
