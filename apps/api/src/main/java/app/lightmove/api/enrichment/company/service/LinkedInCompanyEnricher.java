@@ -1,6 +1,6 @@
 package app.lightmove.api.enrichment.company.service;
 
-import app.lightmove.api.triagecompany.model.CapturedCompanyDetails;
+import app.lightmove.api.enrichment.company.model.VendorCompanyRecord;
 import java.util.Optional;
 
 /**
@@ -11,5 +11,17 @@ import java.util.Optional;
  */
 public interface LinkedInCompanyEnricher {
 
-    Optional<CapturedCompanyDetails> fetch(String linkedinSlug);
+    Optional<VendorCompanyRecord> fetch(String linkedinSlug);
+
+    /** Who answered. Stored beside every cached record, a miss included, so a row names its source. */
+    String provider();
+
+    /**
+     * False for the stand-in that runs with no vendor configured. Its silence is not an answer:
+     * {@code CompanyResearch} would otherwise remember a miss for every slug captured before a key is
+     * set, and keep answering with it for the cache's whole TTL afterwards.
+     */
+    default boolean isEnabled() {
+        return true;
+    }
 }

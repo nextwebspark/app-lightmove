@@ -22,14 +22,14 @@ import org.springframework.transaction.event.TransactionalEventListener;
 @Slf4j
 class CompanyEnrichmentWorker {
 
-    private final LinkedInCompanyEnricher enricher;
+    private final CompanyResearch research;
     private final TriageCompanyService companies;
 
     @Async
     @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
     void enrich(TriageCompanyCapturedEvent event) {
         try {
-            enricher.fetch(event.linkedinSlug()).ifPresentOrElse(
+            research.of(event.linkedinSlug()).ifPresentOrElse(
                     details -> companies.applyEnrichment(event.projectId(), event.companyId(), details),
                     () -> log.info("No research found for company {}", event.companyId()));
         } catch (RuntimeException ex) {
