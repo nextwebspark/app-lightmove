@@ -11,6 +11,8 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import app.lightmove.api.FlowTestSupport;
 import app.lightmove.api.IntegrationTest;
 import app.lightmove.api.RecordingEmailSender;
+import java.util.ArrayList;
+import java.util.List;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -37,7 +39,7 @@ class PositionExtractionIntegrationTest extends FlowTestSupport {
     @Autowired JdbcTemplate db;
 
     @Test
-    @DisplayName("the GM-IT fixture proposes a title, location, department and 5+ responsibilities, "
+    @DisplayName("the GM-IT fixture proposes a title, location, department and 5 responsibilities, "
             + "labelled documentHeadings, and writes nothing")
     void extractsFromTheGmItFixtureAndWritesNothing() throws Exception {
         String admin = adminOf("Extraction Firm");
@@ -64,8 +66,10 @@ class PositionExtractionIntegrationTest extends FlowTestSupport {
         assertThat(location).isNotNull();
         assertThat(location.get("value").asText()).contains("Dubai");
 
+        // The cap is exactly 5 — the fixture's heuristic reading finds more than that, and
+        // truncateToCeilings cuts it down rather than the heuristic itself limiting the count.
         long responsibilityCount = countFields(fields, "responsibility");
-        assertThat(responsibilityCount).isGreaterThanOrEqualTo(5);
+        assertThat(responsibilityCount).isEqualTo(5);
         fields.forEach(field -> {
             if (field.get("fieldKey").asText().equals("responsibility")) {
                 assertThat(field.get("snippet").asText()).isNotBlank();
@@ -204,8 +208,8 @@ class PositionExtractionIntegrationTest extends FlowTestSupport {
     }
 
     @Test
-    @DisplayName("step two, step three, step four and step five extract routes exist, are gated the "
-            + "same way, and write nothing")
+    @DisplayName("step two, step three and step five extract routes exist, are gated the same way, "
+            + "and write nothing")
     void extractsContextAndCompensationWithoutWriting() throws Exception {
         String admin = adminOf("Context Compensation Extraction Firm");
         String clientId = createClient(admin, "Meridian Holdings", "UAE");
@@ -214,10 +218,6 @@ class PositionExtractionIntegrationTest extends FlowTestSupport {
         String beforeUpdatedAt = updatedAtOf(projectId);
 
         mvc.perform(post(positionUrl(projectId) + "/document/extract/context")
-                        .header("Authorization", "Bearer " + admin))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.extractionSource").exists());
-        mvc.perform(post(positionUrl(projectId) + "/document/extract/compensation")
                         .header("Authorization", "Bearer " + admin))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.extractionSource").exists());
@@ -234,15 +234,28 @@ class PositionExtractionIntegrationTest extends FlowTestSupport {
     }
 
     @Test
-    @DisplayName("nothing to read on step two, step three, step four or step five without a document")
+    @DisplayName("the compensation route is gone, document attached or not")
+    void compensationRouteIsGone() throws Exception {
+        String admin = adminOf("Compensation Retired Firm");
+        String projectId = createProject(admin, createClient(admin, "Aldar", "UAE"), "CFO");
+
+        mvc.perform(post(positionUrl(projectId) + "/document/extract/compensation")
+                        .header("Authorization", "Bearer " + admin))
+                .andExpect(status().isNotFound());
+
+        attach(admin, projectId, gmItFixture()).andExpect(status().isOk());
+        mvc.perform(post(positionUrl(projectId) + "/document/extract/compensation")
+                        .header("Authorization", "Bearer " + admin))
+                .andExpect(status().isNotFound());
+    }
+
+    @Test
+    @DisplayName("nothing to read on step two, step three or step five without a document")
     void refusesContextAndCompensationWithoutADocument() throws Exception {
         String admin = adminOf("No Document Context Compensation Firm");
         String projectId = createProject(admin, createClient(admin, "Aldar", "UAE"), "CFO");
 
         mvc.perform(post(positionUrl(projectId) + "/document/extract/context")
-                        .header("Authorization", "Bearer " + admin))
-                .andExpect(status().isBadRequest());
-        mvc.perform(post(positionUrl(projectId) + "/document/extract/compensation")
                         .header("Authorization", "Bearer " + admin))
                 .andExpect(status().isBadRequest());
         mvc.perform(post(positionUrl(projectId) + "/document/extract/assessment")
@@ -254,7 +267,7 @@ class PositionExtractionIntegrationTest extends FlowTestSupport {
     }
 
     @Test
-    @DisplayName("PROJECT_EDIT is required for step two, step three, step four and step five too")
+    @DisplayName("PROJECT_EDIT is required for step two, step three and step five too")
     void researcherCannotExtractContextOrCompensation() throws Exception {
         String admin = adminOf("Researcher Context Compensation Firm");
         String sara = "sara@" + domain;
@@ -271,9 +284,6 @@ class PositionExtractionIntegrationTest extends FlowTestSupport {
         mvc.perform(post(positionUrl(projectId) + "/document/extract/context")
                         .header("Authorization", "Bearer " + login(sara)))
                 .andExpect(status().isForbidden());
-        mvc.perform(post(positionUrl(projectId) + "/document/extract/compensation")
-                        .header("Authorization", "Bearer " + login(sara)))
-                .andExpect(status().isForbidden());
         mvc.perform(post(positionUrl(projectId) + "/document/extract/assessment")
                         .header("Authorization", "Bearer " + login(sara)))
                 .andExpect(status().isForbidden());
@@ -283,8 +293,7 @@ class PositionExtractionIntegrationTest extends FlowTestSupport {
     }
 
     @Test
-    @DisplayName("another workspace's project is not found for step two, step three, step four or step "
-            + "five either")
+    @DisplayName("another workspace's project is not found for step two, step three or step five either")
     void refusesContextAndCompensationOutsideTheCallersWorkspace() throws Exception {
         String owner = adminOf("Extraction Tenant Context Compensation Firm");
         String projectId = createProject(owner, createClient(owner, "Aldar", "UAE"), "CFO");
@@ -295,15 +304,73 @@ class PositionExtractionIntegrationTest extends FlowTestSupport {
         mvc.perform(post(positionUrl(projectId) + "/document/extract/context")
                         .header("Authorization", "Bearer " + outsider))
                 .andExpect(status().isNotFound());
-        mvc.perform(post(positionUrl(projectId) + "/document/extract/compensation")
-                        .header("Authorization", "Bearer " + outsider))
-                .andExpect(status().isNotFound());
         mvc.perform(post(positionUrl(projectId) + "/document/extract/assessment")
                         .header("Authorization", "Bearer " + outsider))
                 .andExpect(status().isNotFound());
         mvc.perform(post(positionUrl(projectId) + "/document/extract/reporting")
                         .header("Authorization", "Bearer " + outsider))
                 .andExpect(status().isNotFound());
+    }
+
+    @Test
+    @DisplayName("a title matching a template proposes nothing beyond what the document itself states")
+    void detailsNeverProposesFromTheTemplate() throws Exception {
+        String admin = adminOf("No Backfill Firm");
+        String projectId = createProject(admin, createClient(admin, "Meridian Holdings", "UAE"), "CFO");
+        attach(admin, projectId, new MockMultipartFile("file", "brief.txt", "text/plain",
+                        "Job Title: Chief Financial Officer\n".getBytes()))
+                .andExpect(status().isOk());
+
+        JsonNode response = body(mvc.perform(post(extractUrl(projectId))
+                        .header("Authorization", "Bearer " + admin))
+                .andExpect(status().isOk())
+                .andReturn());
+
+        // "Chief Financial Officer" matches a seeded template that would once have backfilled
+        // department, employmentType, narrative and responsibilities — none of that is proposed now.
+        JsonNode fields = response.get("fields");
+        assertThat(fieldNamed(fields, "roleTitle")).isNotNull();
+        assertThat(fieldNamed(fields, "department")).isNull();
+        assertThat(fieldNamed(fields, "employmentType")).isNull();
+        assertThat(fieldNamed(fields, "narrative")).isNull();
+        assertThat(fieldNamed(fields, "responsibility")).isNull();
+        assertThat(response.get("suggestedTemplate").get("code").asText()).isEqualTo("chief-financial-officer");
+    }
+
+    @Test
+    @DisplayName("the reporting reading carries the matched template's usual direct reports")
+    void reportingCarriesTheMatchedTemplatesUsualDirectReports() throws Exception {
+        String admin = adminOf("Usual Direct Reports Firm");
+        String projectId = createProject(admin, createClient(admin, "Aldar", "UAE"), "Chief Financial Officer");
+        attach(admin, projectId, gmItFixture()).andExpect(status().isOk());
+
+        JsonNode response = body(mvc.perform(post(positionUrl(projectId) + "/document/extract/reporting")
+                        .header("Authorization", "Bearer " + admin))
+                .andExpect(status().isOk())
+                .andReturn());
+
+        JsonNode usualDirectReports = response.get("usualDirectReports");
+        assertThat(usualDirectReports.isNull()).isFalse();
+        List<String> reports = new ArrayList<>();
+        usualDirectReports.forEach(node -> reports.add(node.asText()));
+        assertThat(reports).containsExactly(
+                "Financial Controller", "Head of Treasury", "Head of FP&A", "Head of Investor Relations");
+    }
+
+    @Test
+    @DisplayName("a title matching no template carries null usualDirectReports")
+    void reportingCarriesNoUsualDirectReportsForAnUnmatchedTitle() throws Exception {
+        String admin = adminOf("No Usual Direct Reports Firm");
+        String projectId = createProject(admin, createClient(admin, "Aldar", "UAE"),
+                "Underwater Basket Weaving Specialist");
+        attach(admin, projectId, gmItFixture()).andExpect(status().isOk());
+
+        JsonNode response = body(mvc.perform(post(positionUrl(projectId) + "/document/extract/reporting")
+                        .header("Authorization", "Bearer " + admin))
+                .andExpect(status().isOk())
+                .andReturn());
+
+        assertThat(response.get("usualDirectReports").isNull()).isTrue();
     }
 
     // AC4 ("an accepted criterion survives a later template re-apply") is proved generically by

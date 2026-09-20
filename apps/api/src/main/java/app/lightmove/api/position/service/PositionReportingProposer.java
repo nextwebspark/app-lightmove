@@ -10,23 +10,16 @@ import app.lightmove.api.core.llm.service.TextPseudonymiser.Redaction;
 import app.lightmove.api.core.ratelimit.service.LlmBudget;
 import app.lightmove.api.core.ratelimit.service.LlmBudgetGuard;
 import app.lightmove.api.position.constant.ExtractionSource;
-import app.lightmove.api.position.constant.ProposalConfidence;
-import app.lightmove.api.position.constant.ProposalOrigin;
 import app.lightmove.api.position.model.ExtractedField;
 import app.lightmove.api.position.model.ModelReportingAnswer.ModelDirectReport;
 import app.lightmove.api.position.model.ModelReportingAnswer;
 import app.lightmove.api.position.model.ProposedReportingStructure;
-import app.lightmove.api.positiontemplate.model.PositionTemplate;
-import app.lightmove.api.positiontemplate.model.PositionTemplateBody;
-import app.lightmove.api.positiontemplate.service.PositionTemplateService;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.Set;
 import java.util.UUID;
 import java.util.function.Consumer;
-import java.util.stream.Collectors;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.ai.google.genai.GoogleGenAiChatOptions;
@@ -35,9 +28,8 @@ import org.springframework.core.io.Resource;
 import org.springframework.stereotype.Service;
 
 /**
- * Asks the model to read a position description into step-three proposals — the structural twin of
- * {@link PositionCompensationProposer}: no heuristic reader backs this one up, and any failure
- * degrades to an honest empty reading rather than a guess.
+ * Asks the model to read a position description into step-three proposals — no heuristic reader backs
+ * this one up, and any failure degrades to an honest empty reading rather than a guess.
  *
  * <p><b>This proposer never answers with an org chart.</b> The chart already on the brief carries
  * consultant-dragged canvas positions and exactly one seat flagged {@code mandateSeat}, and a proposal
@@ -52,9 +44,12 @@ import org.springframework.stereotype.Service;
  * names one alongside their title ("Reporting to Ahmed Al-Mansoori, Group CEO") — the prompt is
  * explicit about this, and {@code name} is never populated by an accepted proposal.
  *
- * <p>A field neither the document nor the model found is, last, offered from the mandate's matched
- * brief template, exactly as {@link PositionDetailsProposer#finish} does for step one — see
- * {@link #backfillFromTemplate}.
+ * <p>A field neither the document nor the model found stays unproposed. Earlier drafts backfilled
+ * reports-to, direct reports and notice period from the mandate's matched brief template — dead weight
+ * once a mandate is already seeded from that same template, the same reasoning
+ * {@link PositionDetailsProposer}'s class doc gives. {@code PositionExtractionService} separately
+ * offers the matched template's usual direct reports as {@code usualDirectReports}, an explicit opt-in
+ * rather than a silent proposal.
  */
 @Service
 @Slf4j
@@ -85,7 +80,6 @@ public class PositionReportingProposer {
 
     private final ChatClient chatClient;
     private final PositionDocumentRedactor redactor;
-    private final PositionTemplateService templates;
     private final ExtractedFieldReader fieldReader;
     private final Resource systemPrompt;
     private final Consumer<ChatClient.AdvisorSpec> guarded;
@@ -95,7 +89,6 @@ public class PositionReportingProposer {
     // parameter with @Value, matching every other proposer's own exemption.
     public PositionReportingProposer(ChatClient chatClient,
                                      PositionDocumentRedactor redactor,
-                                     PositionTemplateService templates,
                                      ExtractedFieldReader fieldReader,
                                      @Value("classpath:prompts/position-extract-reporting-system.st") Resource systemPrompt,
                                      @Value("classpath:prompts/position-extract-reporting-schema.json") Resource answerSchema,
@@ -103,15 +96,13 @@ public class PositionReportingProposer {
                                      LlmBudgetGuard llmBudget) {
         this.chatClient = chatClient;
         this.redactor = redactor;
-        this.templates = templates;
         this.fieldReader = fieldReader;
         this.systemPrompt = systemPrompt;
         this.guarded = llmCalls.forPrompt(PromptGuardSpec.structured(PROMPT_ID, answerSchema, BLOCKED));
         this.llmBudget = llmBudget;
     }
 
-    public ProposedReportingStructure propose(UUID userId, String documentText, UUID clientId, UUID workspaceId,
-                                              String roleTitle) {
+    public ProposedReportingStructure propose(UUID userId, String documentText, UUID clientId, UUID workspaceId) {
         llmBudget.require(LlmBudget.REPORTING_EXTRACT, userId);
 
         try {
@@ -122,12 +113,12 @@ public class PositionReportingProposer {
                     log.warn("Reporting extraction blocked before reaching the model: the document "
                             + "matched the injection word list.");
                 }
-                return finish(empty(), workspaceId, roleTitle);
+                return finish(empty());
             }
-            return finish(reconcile(answered, redaction.pseudonyms(), documentText), workspaceId, roleTitle);
+            return finish(reconcile(answered, redaction.pseudonyms(), documentText));
         } catch (RuntimeException e) {
             log.warn("Reporting extraction found nothing to propose: {}", e.toString());
-            return finish(empty(), workspaceId, roleTitle);
+            return finish(empty());
         }
     }
 
@@ -226,52 +217,8 @@ public class PositionReportingProposer {
         });
     }
 
-    private ProposedReportingStructure finish(ProposedReportingStructure proposed, UUID workspaceId,
-                                              String roleTitle) {
-        List<ExtractedField> withTemplateBackfill = backfillFromTemplate(proposed.fields(), workspaceId, roleTitle);
-        return new ProposedReportingStructure(proposed.source(), truncateToCeilings(withTemplateBackfill));
-    }
-
-    /**
-     * Proposes the matched template's own {@code reportsTo}, {@code directReports} and {@code
-     * noticePeriod} for whichever the document said nothing about — never {@code
-     * teamSize}, which no template carries, the same rule compensation's salary numbers follow. Needs
-     * the mandate's own persisted role title, since unlike step one this proposer never reads one out
-     * of the document itself. {@code directReportTitle} is group-checked like step one's {@code
-     * responsibility}: one document-sourced report suppresses the whole template list rather than
-     * topping it up.
-     */
-    private List<ExtractedField> backfillFromTemplate(List<ExtractedField> fields, UUID workspaceId,
-                                                       String roleTitle) {
-        if (roleTitle == null || roleTitle.isBlank()) {
-            return fields;
-        }
-        Optional<PositionTemplate> matched = templates.matching(workspaceId, roleTitle);
-        if (matched.isEmpty()) {
-            return fields;
-        }
-        PositionTemplateBody body = matched.get().getBody();
-        Set<String> present = fields.stream().map(ExtractedField::fieldKey).collect(Collectors.toSet());
-
-        List<ExtractedField> backfilled = new ArrayList<>(fields);
-        addIfMissing(backfilled, present, "reportsToTitle", body.reportsTo());
-        NoticePeriod templatePeriod = NoticePeriod.ofPair(body.noticeValue(), body.noticeUnit());
-        addIfMissing(backfilled, present, "noticePeriod", templatePeriod == null ? null : templatePeriod.value());
-        if (!present.contains("directReportTitle")) {
-            body.directReports().stream()
-                    .filter(text -> text != null && !text.isBlank())
-                    .forEach(text -> backfilled.add(new ExtractedField("directReportTitle", text,
-                            ProposalConfidence.LOW, null, ProposalOrigin.TEMPLATE)));
-        }
-        return backfilled;
-    }
-
-    private static void addIfMissing(List<ExtractedField> fields, Set<String> present, String fieldKey,
-                                     String value) {
-        if (present.contains(fieldKey) || value == null || value.isBlank()) {
-            return;
-        }
-        fields.add(new ExtractedField(fieldKey, value, ProposalConfidence.LOW, null, ProposalOrigin.TEMPLATE));
+    private ProposedReportingStructure finish(ProposedReportingStructure proposed) {
+        return new ProposedReportingStructure(proposed.source(), truncateToCeilings(proposed.fields()));
     }
 
     /**
@@ -279,7 +226,7 @@ public class PositionReportingProposer {
      * ceilings, so accepting a proposal — and the client-side chart merge it feeds — can never 400 the
      * autosave it is handed to. {@code directReportTitle} is already bounded to
      * {@link #DIRECT_REPORT_MAX_COUNT} before {@link #reconcile} runs; the count here is defence in
-     * depth against a template backfill topping it back up, not the load-bearing cap.
+     * depth, not the load-bearing cap.
      */
     private List<ExtractedField> truncateToCeilings(List<ExtractedField> fields) {
         List<ExtractedField> truncated = new ArrayList<>();

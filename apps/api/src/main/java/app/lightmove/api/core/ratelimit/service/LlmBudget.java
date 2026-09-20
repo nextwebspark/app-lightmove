@@ -26,9 +26,6 @@ public enum LlmBudget {
     /** Step two's "Read from document" — mandate context extraction. */
     CONTEXT_EXTRACT("context-extract", LlmRateLimitSettings::defaultRequestsPerMinute),
 
-    /** Step four's "Read from document" — compensation extraction. */
-    COMPENSATION_EXTRACT("compensation-extract", LlmRateLimitSettings::defaultRequestsPerMinute),
-
     /** Step five's "Read from document" — assessment criteria and competency extraction. */
     ASSESSMENT_EXTRACT("assessment-extract", LlmRateLimitSettings::defaultRequestsPerMinute),
 

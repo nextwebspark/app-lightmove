@@ -1,17 +1,20 @@
 package app.lightmove.api.position.constant;
 
 /**
- * What a step-one proposal's <b>value</b> was drawn from — distinct from {@link ExtractionSource},
- * which says how the whole document was read. A field can come straight from the document (or the
- * model's reading of it) or, when the document said nothing about it, from the role title's
- * matched brief template.
+ * What a proposal's <b>value</b> was drawn from — distinct from {@link ExtractionSource}, which says
+ * how the whole document was read. Every proposal answers {@link #DOCUMENT} today: template backfill,
+ * which once produced {@link #TEMPLATE} for a field the document said nothing about, was retired as
+ * dead weight under auto-fill — a mandate is already seeded from its matched template, so proposing
+ * that same value back stamped {@code TEMPLATE} would be a no-op, and stamping it {@code DOCUMENT}
+ * would draw a marker over a value with no snippet to point at. {@link #TEMPLATE} stays on the wire
+ * for now rather than being deleted outright.
  */
 public enum ProposalOrigin {
 
-    /** Read from the document itself, by the model or the heuristic fallback alike. */
+    /** Read from the document itself, by the model or, on step one, the heuristic fallback. */
     DOCUMENT("document"),
 
-    /** The document said nothing about this field; the value is the matched template's own. */
+    /** No longer produced by any proposer — see the class doc. */
     TEMPLATE("template");
 
     private final String wireToken;

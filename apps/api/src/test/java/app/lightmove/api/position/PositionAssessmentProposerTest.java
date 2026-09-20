@@ -13,8 +13,6 @@ import app.lightmove.api.core.config.LlmRateLimitSettings;
 import app.lightmove.api.core.config.LlmSettings;
 import app.lightmove.api.core.ratelimit.service.LlmBudgetGuard;
 import app.lightmove.api.position.constant.ExtractionSource;
-import app.lightmove.api.position.constant.ProposalConfidence;
-import app.lightmove.api.position.constant.ProposalOrigin;
 import app.lightmove.api.position.model.ExtractedField;
 import app.lightmove.api.position.model.ProposedAssessment;
 import app.lightmove.api.position.service.ExtractedFieldReader;
@@ -22,6 +20,7 @@ import app.lightmove.api.position.service.PositionAssessmentProposer;
 import app.lightmove.api.position.service.PositionDocumentRedactor;
 import app.lightmove.api.position.service.PositionDocumentTextReader;
 import app.lightmove.api.positiontemplate.service.PositionTemplateService;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -46,8 +45,7 @@ import org.springframework.http.MediaType;
 import org.springframework.util.StreamUtils;
 
 /**
- * The model call behind step five's "Read from document" — the assessment twin of {@code
- * PositionCompensationProposerTest}. Every test here, like that one, runs against a hand-built
+ * The model call behind step five's "Read from document". Every test here runs against a hand-built
  * {@link ChatModel} rather than live Vertex credentials, so what these prove is the reconciliation
  * pipeline around the model's answer — required/preferred classification, competency-name pass-through,
  * ceilings, dropped-vs-defaulted weights — not the model's own judgement.
@@ -213,11 +211,11 @@ class PositionAssessmentProposerTest extends FlowTestSupport {
     }
 
     @Test
-    @DisplayName("criteria are capped at 30 combined and each text at 300 characters")
+    @DisplayName("criteria are capped at 5 combined and each text at 300 characters")
     void enforcesCriteriaCeilings() throws Exception {
         Fixture f = fixture("Assessment Criteria Ceiling Firm", "Acme Holdings Group", "acme.example");
         StringBuilder body = new StringBuilder("{\"criteria\":[");
-        for (int i = 0; i < 40; i++) {
+        for (int i = 0; i < 15; i++) {
             if (i > 0) {
                 body.append(',');
             }
@@ -230,12 +228,12 @@ class PositionAssessmentProposerTest extends FlowTestSupport {
         ProposedAssessment proposed = proposerWith(model)
                 .propose(UUID.randomUUID(), DOCUMENT_TEXT, f.clientId(), f.workspaceId(), null);
 
-        assertThat(proposed.fields()).hasSizeLessThanOrEqualTo(30);
+        assertThat(proposed.fields()).hasSizeLessThanOrEqualTo(5);
         proposed.fields().forEach(field -> assertThat(field.value().length()).isLessThanOrEqualTo(300));
     }
 
     @Test
-    @DisplayName("each competency panel is capped at 10 rows independently")
+    @DisplayName("each competency panel is capped at 5 rows independently")
     void enforcesCompetencyCountCeilingPerPanel() throws Exception {
         Fixture f = fixture("Assessment Competency Ceiling Firm", "Acme Holdings Group", "acme.example");
         StringBuilder technical = new StringBuilder();
@@ -253,7 +251,18 @@ class PositionAssessmentProposerTest extends FlowTestSupport {
 
         List<ExtractedField> technicalFields = proposed.fields().stream()
                 .filter(field -> field.fieldKey().equals("technicalCompetency")).toList();
-        assertThat(technicalFields).hasSizeLessThanOrEqualTo(10);
+        assertThat(technicalFields).hasSizeLessThanOrEqualTo(5);
+    }
+
+    @Test
+    @DisplayName("the prompt states the five-criteria and five-per-panel caps and that they are the "
+            + "document's most important, not its first")
+    void promptStatesTheCeilings() throws Exception {
+        String text = StreamUtils.copyToString(
+                new ClassPathResource("prompts/position-extract-assessment-system.st").getInputStream(),
+                StandardCharsets.UTF_8);
+        assertThat(text).contains("at most 5 criteria").contains("at most 5 technical")
+                .contains("never simply the first");
     }
 
     @Test
@@ -314,69 +323,6 @@ class PositionAssessmentProposerTest extends FlowTestSupport {
                 .propose(UUID.randomUUID(), DOCUMENT_TEXT, f.clientId(), f.workspaceId(), null);
 
         assertThat(fieldNamed(proposed, "technicalCompetency")).isEmpty();
-    }
-
-    @Test
-    @DisplayName("AC5 Priority 2: criteria the document said nothing about are backfilled from the "
-            + "matched template, each carrying the matched mode")
-    void backfillsCriteriaFromTheMatchedTemplateWhenTheModelFoundNone() throws Exception {
-        Fixture f = fixture("Assessment Criteria Backfill Firm", "Acme Holdings Group", "acme.example");
-        RecordingChatModel model = new RecordingChatModel("""
-                {"criteria":[]}
-                """);
-
-        ProposedAssessment proposed = proposerWith(model)
-                .propose(UUID.randomUUID(), DOCUMENT_TEXT, f.clientId(), f.workspaceId(), "CFO");
-
-        List<ExtractedField> required = fieldsNamed(proposed, "requiredCriterion");
-        List<ExtractedField> preferred = fieldsNamed(proposed, "preferredCriterion");
-        assertThat(required).hasSize(3);
-        assertThat(preferred).hasSize(1);
-        assertThat(required).allSatisfy(field -> {
-            assertThat(field.origin()).isEqualTo(ProposalOrigin.TEMPLATE);
-            assertThat(field.confidence()).isEqualTo(ProposalConfidence.LOW);
-            assertThat(field.snippet()).isNull();
-        });
-        assertThat(preferred.get(0).value())
-                .isEqualTo("Sector experience relevant to the client's core business");
-    }
-
-    @Test
-    @DisplayName("AC5 Priority 2: each competency panel is backfilled from the matched template "
-            + "independently, and a panel the document did answer is left alone")
-    void backfillsOnlyTheAbsentCompetencyPanel() throws Exception {
-        Fixture f = fixture("Assessment Competency Backfill Firm", "Acme Holdings Group", "acme.example");
-        RecordingChatModel model = new RecordingChatModel("""
-                {"criteria":[{"text":"Some criterion the document itself named","mode":"REQUIRED"}],
-                 "behavioural":[{"name":"Own Behavioural Read","weight":"40"}]}
-                """);
-
-        ProposedAssessment proposed = proposerWith(model)
-                .propose(UUID.randomUUID(), DOCUMENT_TEXT, f.clientId(), f.workspaceId(), "CFO");
-
-        assertThat(fieldsNamed(proposed, "requiredCriterion")).hasSize(1);
-        assertThat(fieldsNamed(proposed, "technicalCompetency")).hasSize(4)
-                .allSatisfy(field -> assertThat(field.origin()).isEqualTo(ProposalOrigin.TEMPLATE));
-        List<ExtractedField> behavioural = fieldsNamed(proposed, "behaviouralCompetency");
-        assertThat(behavioural).hasSize(1);
-        assertThat(behavioural.get(0).origin()).isEqualTo(ProposalOrigin.DOCUMENT);
-        assertThat(behavioural.get(0).value()).startsWith("Own Behavioural Read");
-    }
-
-    @Test
-    @DisplayName("AC5 Priority 1 beats Priority 2: a partial criteria list from the document is never "
-            + "topped up from the template")
-    void neverTopsUpAPartialCriteriaListFromTheTemplate() throws Exception {
-        Fixture f = fixture("Assessment No Top Up Firm", "Acme Holdings Group", "acme.example");
-        RecordingChatModel model = new RecordingChatModel("""
-                {"criteria":[{"text":"The one thing this document said","mode":"REQUIRED"}]}
-                """);
-
-        ProposedAssessment proposed = proposerWith(model)
-                .propose(UUID.randomUUID(), DOCUMENT_TEXT, f.clientId(), f.workspaceId(), "CFO");
-
-        assertThat(fieldsNamed(proposed, "requiredCriterion")).hasSize(1);
-        assertThat(fieldsNamed(proposed, "preferredCriterion")).isEmpty();
     }
 
     @Test
@@ -446,7 +392,7 @@ class PositionAssessmentProposerTest extends FlowTestSupport {
         return new Fixture(UUID.fromString(workspaceId), UUID.fromString(clientId));
     }
 
-    /** Answers a fixed reply and keeps what it was asked, mirroring {@code PositionCompensationProposerTest}'s. */
+    /** Answers a fixed reply and keeps what it was asked, mirroring {@code PositionDetailsProposerTest}'s. */
     private static final class RecordingChatModel implements ChatModel {
 
         private final String reply;

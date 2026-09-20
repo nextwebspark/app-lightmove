@@ -203,24 +203,25 @@ export interface Position {
 }
 
 /**
- * What produced a proposal, and how far it is worth trusting. `"none"` is step two and step four's
- * own — they have no heuristic fallback the way step one does, so a failed, blocked or unresolving
- * model call has nothing else to try and lands here instead of a degraded reading.
+ * What produced a proposal, and how far it is worth trusting. `"none"` is step two, step three and
+ * step five's own — they have no heuristic fallback the way step one does, so a failed, blocked or
+ * unresolving model call has nothing else to try and lands here instead of a degraded reading. Step
+ * four (compensation) is no longer read at all.
  */
 export type ExtractionSource = "model" | "documentHeadings" | "none";
 
 export type ProposalConfidence = "high" | "medium" | "low";
 
-/** Whether a proposed value came from the document itself, or — for a field the document said
- * nothing about — from the matched role-title template. */
+/** Where a proposed value came from. Always `"document"` today — `"template"` was retired along with
+ * template backfill, since a value the document said nothing about now stays unproposed rather than
+ * drawing on the mandate's already-seeded template. */
 export type ProposalOrigin = "document" | "template";
 
 /**
- * One proposed field from "Read from document". `id` is a per-response sequence number — the stable
- * identity a row is keyed and matched on, since two responsibility rows share `fieldKey` and array
- * index shifts when a row is removed. `fieldKey` is one of `PositionDetails`'s own keys, or
- * `"responsibility"` — one row per responsibility line rather than a list, so each carries its own
- * snippet and can be accepted or dismissed on its own.
+ * One proposed field from "Read from document", for any of steps one, two, three or five. `id` is a
+ * per-response sequence number — the stable identity a row is keyed and matched on, since a repeatable
+ * field key (a responsibility, a priority, a direct report, a criterion, a competency) can appear more
+ * than once and array index shifts when a row is removed.
  */
 export interface ProposedField {
   id: number;
@@ -231,7 +232,7 @@ export interface ProposedField {
   origin: ProposalOrigin;
 }
 
-/** A reading of the attached document's step-one fields. Writes nothing on its own. */
+/** A reading of the attached document's fields for one wizard step. Writes nothing on its own. */
 export interface PositionExtraction {
   extractionSource: ExtractionSource;
   fields: ProposedField[];
@@ -239,4 +240,9 @@ export interface PositionExtraction {
    * and null there too when nothing but the generic fallback would match. Offered as a separate,
    * explicit opt-in; never applied automatically. */
   suggestedTemplate: PositionTemplate | null;
+  /** The matched template's own direct reports, for the reporting step's Suggested seats row (#398)
+   * — null on every response but step three's, and null there too when the mandate's title matches
+   * no template. Optional here rather than required: #398 is what starts reading it, and marking it
+   * required now would force every existing test fixture to supply a value it does not yet use. */
+  usualDirectReports?: string[] | null;
 }

@@ -24,8 +24,9 @@ class ExtractionDocumentLoader {
     private final PositionBriefLoader briefs;
     private final PositionDocumentRepository documents;
 
-    /** {@code roleTitle} is the mandate's persisted title — the match key step two and four's
-     * template backfill need, since neither extracts a title of its own the way step one does. */
+    /** {@code roleTitle} is the mandate's persisted title — the match key step five's controlled
+     * vocabulary and step three's usual-direct-reports both need, since neither extracts a title of
+     * its own the way step one does. */
     record LoadedDocument(byte[] content, UUID clientId, String roleTitle) {}
 
     @Transactional(readOnly = true)
