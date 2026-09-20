@@ -118,4 +118,12 @@ export const ICONS = {
   trendingUp: "m3 17 6-6 4 4 8-8M15 7h6v6",
   /** A struck S — the report's remuneration chapter. */
   currency: "M12 2v20M17 6.5C17 4.6 14.8 3.5 12 3.5S7 4.6 7 6.5s2.2 3 5 3.5 5 1.6 5 3.5-2.2 3-5 3-5-1.1-5-3",
+  /** One seat over two — the brief's reporting structure. */
+  orgChart: "M9 3h6v4H9zM4 17h6v4H4zM14 17h6v4h-6zM12 7v7M7 14h10M7 14v3M17 14v3",
+  /** A clipboard with a tick — the brief's assessment criteria. */
+  clipboard:
+    "M9 5H7a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2M9 5a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-2a2 2 0 0 1-2-2zM9 14l2 2 4-4",
+  /** A rocket — review and publish. */
+  rocket:
+    "M4.5 16.5c-1.5 1.3-2 5-2 5s3.7-.5 5-2c.7-.8.7-2 0-2.8-.8-.7-2-.7-2.8 0zM12 15l-3-3 5-6c1.5-1.5 4-2 6-2 0 2-.5 4.5-2 6l-6 5zM9 12H5l3-3M12 15v4l3-3",
 } as const;

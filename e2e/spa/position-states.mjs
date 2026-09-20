@@ -4,6 +4,7 @@
  *   node e2e/spa/position-states.mjs [baseUrl]
  *
  * Stubs `/api/v1` like the responsive sweep, so it needs `npm run dev -w apps/web` and nothing else.
+ * The step lives in the URL (`?step=`), so each shot is a navigation rather than a click.
  */
 
 import { mkdirSync } from "node:fs";
@@ -35,7 +36,7 @@ async function stubApi(context, { published }) {
   });
 }
 
-async function shoot(browser, { published, name, act }) {
+async function shoot(browser, { published, name, step }) {
   const context = await browser.newContext({ viewport: { width: 1440, height: 1000 } });
   await stubApi(context, { published });
   const page = await context.newPage();
@@ -43,45 +44,27 @@ async function shoot(browser, { published, name, act }) {
   page.on("console", (message) => {
     if (message.type() === "error") console.log(`  console: ${message.text()}`);
   });
-  await page.goto(`${WEB}/projects/proj-1`, { waitUntil: "networkidle" });
+  const query = step ? `?step=${step}` : "";
+  await page.goto(`${WEB}/projects/proj-1${query}`, { waitUntil: "networkidle" });
   await page.waitForSelector("aside");
-  if (act) await act(page);
   await page.waitForTimeout(250);
   await page.screenshot({ path: `${SHOTS}${name}.png`, fullPage: false });
   const rail = page.locator("aside");
+  const steps = await rail.getByRole("link").allInnerTexts();
   const buttons = await rail.getByRole("button").allInnerTexts();
-  console.log(`${name}\n  rail: ${buttons.filter(Boolean).join(" | ")}`);
+  console.log(`${name}\n  steps: ${steps.map((text) => text.replace(/\s+/g, " ").trim()).join(" | ")}\n  buttons: ${buttons.filter(Boolean).join(" | ")}`);
   await context.close();
 }
 
 mkdirSync(SHOTS, { recursive: true });
 const browser = await chromium.launch(EXECUTABLE_PATH ? { executablePath: EXECUTABLE_PATH } : {});
 
-await shoot(browser, { published: false, name: "1-draft-step-one" });
-await shoot(browser, {
-  published: false,
-  name: "2-draft-review",
-  act: (page) => page.getByRole("button", { name: /Review & publish/ }).click(),
-});
-await shoot(browser, { published: true, name: "3-published-read-back" });
-await shoot(browser, {
-  published: true,
-  name: "4-published-editing",
-  act: (page) => page.getByRole("button", { name: "Edit position" }).click(),
-});
-await shoot(browser, {
-  published: true,
-  name: "5-published-editing-section",
-  act: async (page) => {
-    await page.getByRole("button", { name: "Edit position" }).click();
-    await page.getByRole("button", { name: "Edit" }).nth(1).click();
-  },
-});
-await shoot(browser, {
-  published: false,
-  name: "6-draft-assessment",
-  act: (page) => page.getByRole("button", { name: /Assessment criteria/ }).click(),
-});
+await shoot(browser, { published: false, name: "1-draft-role-brief" });
+await shoot(browser, { published: false, name: "2-draft-reporting", step: "reporting" });
+await shoot(browser, { published: false, name: "3-draft-compensation", step: "compensation" });
+await shoot(browser, { published: false, name: "4-draft-assessment", step: "assessment" });
+await shoot(browser, { published: false, name: "5-draft-review", step: "review" });
+await shoot(browser, { published: true, name: "6-published-opens-on-review" });
 
 await browser.close();
 console.log(`\nshots in ${SHOTS}`);

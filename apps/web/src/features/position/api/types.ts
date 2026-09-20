@@ -16,6 +16,7 @@ export type EmploymentType =
   | "FULL_TIME_PERMANENT"
   | "FIXED_TERM_CONTRACT"
   | "PART_TIME"
+  | "TEMPORARY"
   | "INTERIM"
   | "RETAINED_ADVISORY";
 
@@ -27,7 +28,8 @@ export type { NoticeUnit };
 
 export type BaseSalaryMode = "ANNUAL" | "MONTHLY";
 
-export type BonusBasis = "PERCENT_OF_BASE" | "PERCENT_OF_TOTAL_FIXED" | "MONTHS_OF_BASE";
+/** `FIXED_AMOUNT` is the one basis where the figure is money in the package's currency. */
+export type BonusBasis = "PERCENT_OF_BASE" | "PERCENT_OF_TOTAL_FIXED" | "MONTHS_OF_BASE" | "FIXED_AMOUNT";
 
 export type IncentiveType = "LTIP_CASH" | "RSU" | "OPTIONS" | "PHANTOM_EQUITY";
 
@@ -68,11 +70,16 @@ export interface Competency {
   weight: number;
 }
 
-/** Step 1. `roleTitle` is the mandate's own title, edited here and stored on the project. */
+/**
+ * Step 1. `roleTitle` is the mandate's own title, edited here and stored on the project. The location
+ * is two halves the server settles on their own — the country to the catalog's spelling, the city to
+ * its casing — so a brief and the mandate's companies spell one place the same way.
+ */
 export interface PositionDetails {
   roleTitle: string;
   department: string | null;
-  location: string | null;
+  locationCity: string | null;
+  locationCountry: string | null;
   employmentType: EmploymentType | null;
   seniority: PositionSeniority | null;
   responsibilities: string[];
@@ -150,11 +157,16 @@ export interface Compensation {
   benefits: Benefit[];
 }
 
-/** Step 5. Stored as one ordered list; the API splits the panels because the screen draws two. */
+/**
+ * Step 5. Stored as one ordered list; the API splits the panels because the screen draws two.
+ * `technicalShare` is how much of the assessment the technical panel carries, 0–100; the behavioural
+ * panel carries the rest.
+ */
 export interface Assessment {
   criteria: Criterion[];
   technical: Competency[];
   behavioural: Competency[];
+  technicalShare: number;
 }
 
 /** Step 6. Publishing is a stamp, not a lock — a published brief stays editable. */
@@ -178,43 +190,4 @@ export interface Position {
   assessment: Assessment;
   publication: Publication;
   document: PositionDocument | null;
-}
-
-/**
- * What produced a proposal, and how far it is worth trusting. `"none"` is step two and step four's
- * own — they have no heuristic fallback the way step one does, so a failed, blocked or unresolving
- * model call has nothing else to try and lands here instead of a degraded reading.
- */
-export type ExtractionSource = "model" | "documentHeadings" | "none";
-
-export type ProposalConfidence = "high" | "medium" | "low";
-
-/** Whether a proposed value came from the document itself, or — for a field the document said
- * nothing about — from the matched role-title template. */
-export type ProposalOrigin = "document" | "template";
-
-/**
- * One proposed field from "Read from document". `id` is a per-response sequence number — the stable
- * identity a row is keyed and matched on, since two responsibility rows share `fieldKey` and array
- * index shifts when a row is removed. `fieldKey` is one of `PositionDetails`'s own keys, or
- * `"responsibility"` — one row per responsibility line rather than a list, so each carries its own
- * snippet and can be accepted or dismissed on its own.
- */
-export interface ProposedField {
-  id: number;
-  fieldKey: string;
-  value: string;
-  confidence: ProposalConfidence;
-  snippet: string | null;
-  origin: ProposalOrigin;
-}
-
-/** A reading of the attached document's step-one fields. Writes nothing on its own. */
-export interface PositionExtraction {
-  extractionSource: ExtractionSource;
-  fields: ProposedField[];
-  /** The brief template the extracted role title matches — null on every response but step one's,
-   * and null there too when nothing but the generic fallback would match. Offered as a separate,
-   * explicit opt-in; never applied automatically. */
-  suggestedTemplate: PositionTemplate | null;
 }

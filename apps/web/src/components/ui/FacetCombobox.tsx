@@ -23,6 +23,44 @@ export interface ComboboxOption {
  * a page publishes, so a company can hold a sector Apollo never named — clearing it silently because
  * this list has no row for it would lose a fact nobody touched.
  */
+/** `uncava` is the brief's skin: a hairline under the text, the list on the UNCAVA ground. */
+export type FacetComboboxVariant = "default" | "uncava";
+
+const BOX_CLASS: Record<FacetComboboxVariant, { base: string; invalid: string; open: string; idle: string }> = {
+  default: {
+    base: "flex h-[42px] items-center gap-2 rounded-lg border bg-panel2 px-3",
+    invalid: "border-red",
+    open: "border-sky",
+    idle: "border-line",
+  },
+  uncava: {
+    base: "flex items-center gap-2 border-b bg-transparent py-2 text-u-text",
+    invalid: "border-u-offlimits",
+    open: "border-u-accent",
+    idle: "border-u-border",
+  },
+};
+
+const INPUT_CLASS: Record<FacetComboboxVariant, string> = {
+  default: "w-full bg-transparent font-mono text-[13px] text-text outline-none placeholder:text-text3",
+  uncava: "w-full bg-transparent text-[15px] text-u-text outline-none placeholder:text-u-text3",
+};
+
+const LIST_CLASS: Record<FacetComboboxVariant, { list: string; active: string; check: string; empty: string }> = {
+  default: {
+    list: "rounded-lg border border-line bg-panel py-1 shadow-panel",
+    active: "bg-panel2",
+    check: "text-amber",
+    empty: "rounded-lg border border-line bg-panel px-3 py-2 font-mono text-[12px] text-text3 shadow-panel",
+  },
+  uncava: {
+    list: "rounded-[10px] border border-u-border bg-u-bg py-1 text-u-text shadow-u-e3",
+    active: "bg-u-accent-tint",
+    check: "text-u-accent",
+    empty: "rounded-[10px] border border-u-border bg-u-bg px-3 py-2 text-[12px] text-u-text3 shadow-u-e3",
+  },
+};
+
 export function FacetCombobox({
   listId,
   noun,
@@ -31,6 +69,7 @@ export function FacetCombobox({
   allowFreeText,
   invalid,
   placeholder,
+  variant = "default",
   onChange,
 }: {
   listId: string;
@@ -48,6 +87,7 @@ export function FacetCombobox({
   invalid?: boolean;
   /** Replaces the generic "Search {noun}…" where a form has a better example to give. */
   placeholder?: string;
+  variant?: FacetComboboxVariant;
   onChange: (value: string) => void;
 }) {
   // Null is "showing what is chosen"; a string is what the consultant is typing over it. Two states
@@ -78,8 +118,8 @@ export function FacetCombobox({
     <div className="relative">
       <div
         className={cn(
-          "flex h-[42px] items-center gap-2 rounded-lg border bg-panel2 px-3",
-          invalid ? "border-red" : list.open ? "border-sky" : "border-line",
+          BOX_CLASS[variant].base,
+          invalid ? BOX_CLASS[variant].invalid : list.open ? BOX_CLASS[variant].open : BOX_CLASS[variant].idle,
         )}
       >
         <input
@@ -124,7 +164,7 @@ export function FacetCombobox({
             }
             setQuery(null);
           }}
-          className="w-full bg-transparent font-mono text-[13px] text-text outline-none placeholder:text-text3"
+          className={INPUT_CLASS[variant]}
         />
 
         {value !== "" && (
@@ -137,7 +177,7 @@ export function FacetCombobox({
               onChange("");
               setQuery(null);
             }}
-            className="flex-none text-text3 transition hover:text-text"
+            className={variant === "uncava" ? "flex-none text-u-text3 transition hover:text-u-text" : "flex-none text-text3 transition hover:text-text"}
           >
             <Icon d={ICONS.close} size={12} />
           </button>
@@ -152,7 +192,7 @@ export function FacetCombobox({
             list.cancelBlur();
             list.setOpen(!list.open);
           }}
-          className="flex-none text-text3 transition hover:text-text"
+          className={variant === "uncava" ? "flex-none text-u-text3 transition hover:text-u-text" : "flex-none text-text3 transition hover:text-text"}
         >
           <Icon
             d={ICONS.chevronDown}
@@ -166,7 +206,7 @@ export function FacetCombobox({
         <ul
           id={listId}
           role="listbox"
-          className="absolute z-20 mt-1 max-h-56 w-full overflow-auto rounded-lg border border-line bg-panel py-1 shadow-panel"
+          className={cn("absolute z-20 mt-1 max-h-56 w-full overflow-auto", LIST_CLASS[variant].list)}
         >
           {matches.map((option, index) => (
             <li
@@ -178,14 +218,14 @@ export function FacetCombobox({
               onMouseEnter={() => list.setActive(index)}
               className={cn(
                 "flex cursor-pointer items-center gap-2 px-3 py-[7px]",
-                index === list.active ? "bg-panel2" : "",
+                index === list.active ? LIST_CLASS[variant].active : "",
               )}
             >
-              <span className="truncate font-sans text-[13px] font-medium text-text">
+              <span className={cn("truncate font-sans text-[13px] font-medium", variant === "uncava" ? "text-u-text" : "text-text")}>
                 {option.label}
               </span>
               {option.value === value && (
-                <Icon d={ICONS.check} size={12} className="ms-auto flex-none text-amber" />
+                <Icon d={ICONS.check} size={12} className={cn("ms-auto flex-none", LIST_CLASS[variant].check)} />
               )}
             </li>
           ))}
@@ -194,7 +234,7 @@ export function FacetCombobox({
       {showEmpty && (
         <div
           aria-live="polite"
-          className="absolute z-20 mt-1 w-full rounded-lg border border-line bg-panel px-3 py-2 font-mono text-[12px] text-text3 shadow-panel"
+          className={cn("absolute z-20 mt-1 w-full", LIST_CLASS[variant].empty)}
         >
           No {noun} match that.
         </div>

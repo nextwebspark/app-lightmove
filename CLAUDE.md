@@ -102,11 +102,13 @@ market chapter's hubs carry a point from `geocoding` — asked only for the hand
 — so it draws a small map beside the bars where a Mapbox token is configured, and the bars alone
 where none is. The standalone
 Candidates screen, and the pipeline and outreach tables, don't exist yet. The **Position**
-screen is the mandate's brief, edited as a six-step wizard (details, mandate context, reporting,
-compensation, assessment, review) that autosaves one step at a time. It opens drafted rather than
+screen is the mandate's brief, drawn from `claude-design/position/*.png` (issue #442) in the UNCAVA
+palette like Reports — the second screen on that seam — as five steps behind a rail (Role Brief,
+Reporting, Compensation, Assessment Criteria, Review & Publish), the step kept in the URL (`?step=`)
+and each section autosaving through its own write. It opens drafted rather than
 blank: a **role-template library** of seventeen briefs (twelve C-suite, four functional heads, one
-generic fallback) lives in the database, matched against the mandate's role title at creation. Step
-one's **Role title is a combobox**: free text — a mandate is titled "Group CFO – Energy Division" as
+generic fallback) lives in the database, matched against the mandate's role title at creation. The
+Role Brief's **Role title is a combobox**: free text — a mandate is titled "Group CFO – Energy Division" as
 often as it is titled "Chief Financial Officer" — that type-aheads the seventeen titles, and picking
 one takes that title and redrafts the brief from its template (`GET /position-templates` +
 `POST .../position/template`). Templates are edited in Settings (V57/V58; **Settings → Templates** for a
@@ -115,15 +117,29 @@ firm's admin, **Settings → Template library** for a super admin): a LightMove 
 workspace admin customises, hides, adds, exports and imports the firm's own. A firm's copy **shadows**
 the library template of the same `code`, so a library edit reaches every firm that never customised
 it; neither ever touches a brief already drafted. The file format is JSON with a published schema, so
-a template can be written outside the app, AI included, and previewed before anything is written. Step three is an editable
-React Flow org chart — add, rename, re-parent and drag any seat; only the role's own seat is fixed.
-Step one attaches the position
-description and can read it on request — **Read from document** proposes step-one fields (value,
-confidence, source snippet) reviewed and accepted one at a time through the same autosave the fields
-already have; nothing is written until a row is accepted, and a run with no Vertex credentials still
-proposes from the document's own headings, honestly labelled. `Position.dc.html`'s dropzone promises a
-**silent** auto-fill on drop — review-then-accept is a deliberate, correct deviation from that mockup,
-not a bug to fix later. **The product is Uncava**: the mark is the rhombus over an isometric cube
+a template can be written outside the app, AI included, and previewed before anything is written.
+The Role Brief's location is two halves (V66: `location_city` and `location_country`, the country
+settled by the same catalog every other country box reads), its target start is the project's own
+date written through `PATCH /projects/{id}`, and its notice period is the reporting section's —
+one screen over four writes. Reporting is an editable React Flow org chart — add, rename, re-parent
+and drag any seat; only the role's own seat is fixed — and its team size is the seat's children,
+counted rather than typed. Compensation states a bonus as a share of base or a **fixed amount**
+(`BonusBasis.FIXED_AMOUNT`, V66 widened `bonus_value` to hold money), and the assessment carries a
+**technical share** (V66 `technical_share`; the behavioural panel takes the rest) beside its two
+weighted panels. The Role Brief attaches the position description and keeps it with the mandate;
+**nothing reads it yet** — the five `…/position/document/extract/*` routes exist server-side and
+have no caller in the SPA, the review-then-accept panel having gone with the old wizard — and epic
+#393 brings the silent fill (fill on attach, provenance markers, undo) to this screen.
+`Position.dc.html` is superseded and kept as a record. Publishing stays ungated: the review's
+checklist reports, it does not gate. A published brief then **reads back** rather than locking —
+the rail offers **Edit position** in place of Publish and no draft to save, and the review's sections
+drop their "Edit section" link. **Publishing the changes is the way back out**, closing the review
+up again. Opening any step but the review is the same statement as pressing Edit position, because
+those screens are live fields; nothing is frozen server-side (V38). Every step's foot walks the
+brief — the step before on one side, the step after on the other — and the review, having no step
+after it, offers **Move to Strategy** there once published, the mandate's market being what is left
+to do. Nothing in that row is filled: the brief's two acts are the rail's, on every step, and the
+mockup's third copy of the pair at the review's top right is deliberately not drawn. **The product is Uncava**: the mark is the rhombus over an isometric cube
 in `apps/web/public/brand` (`favicon.svg`, the SPA's `AppIcon`, the extension's `BrandMark` and icons,
 and the email's `uncava-mark-email-v1.png` are drawn from that one geometry) and every user-facing
 string says Uncava,
@@ -259,7 +275,11 @@ left in place rather than dropped. A mandate's whole filter is one `jsonb` colum
 removing a company from a mandate unmaps its executives rather than deleting them; career history and
 languages are one `profile` jsonb column for V30's reasons. `app_lm_position` and its six owned-list
 tables are the brief (V7, grown by V39): every list a step edits is a child table replaced wholesale by
-its step's write, so the aggregate keeps one idiom rather than mixing rows and jsonb.
+its step's write, so the aggregate keeps one idiom rather than mixing rows and jsonb. V66 splits its
+`location` into `location_city` + `location_country` (backfilled from the one line; a comma-less value
+counts as a country only where a dedicated country column already holds that spelling), widens
+`bonus_value` to `numeric(14, 2)` for a fixed-amount bonus, and adds `technical_share` — seeded at 50
+and written explicitly from there (V40's idiom).
 `app_lm_position_org_node` is the org chart — a tree of seats with exactly one flagged
 `mandate_seat`, so "reports to" is that seat's parent and "direct reports" are its children, both
 derived rather than stored twice.

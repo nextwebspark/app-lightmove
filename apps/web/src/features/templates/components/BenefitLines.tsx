@@ -1,6 +1,6 @@
 import { Select } from "../../../components/ui";
 import type { BenefitFrequency } from "../../position/api/types";
-import { AddRowButton, InlineInput, RemoveRowButton } from "../../position/components/fields";
+import { AddRowButton, InlineInput, RemoveRowButton } from "./fields";
 import { BENEFIT_FREQUENCY_LABELS } from "../../position/lib/labels";
 import type { DraftBenefit } from "../lib/templateDraft";
 

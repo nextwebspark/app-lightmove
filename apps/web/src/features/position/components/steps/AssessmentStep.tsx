@@ -1,89 +1,74 @@
-import type { Criterion, PositionDocument, PositionExtraction, ProposedField } from "../../api/types";
+import type { Criterion } from "../../api/types";
 import type { IdentifiedCompetency } from "../../lib/competencyRows";
-import { CompetencyPanel } from "../CompetencyPanel";
-import { CriteriaCard } from "../CriteriaCard";
-import { StepExtraction } from "../StepExtraction";
-import { SectionHeading } from "../fields";
+import { FieldBlock } from "../BriefFields";
+import { CompetencySplit } from "../CompetencySplit";
+import { CompetencyTable } from "../CompetencyTable";
+import { CriteriaList } from "../CriteriaList";
 
 export type CompetencyPanelKey = "technical" | "behavioural";
 
-/** Step five: what a candidate is scored against, how much each part counts, and in what order. */
+/** Step four: the gates a candidate passes, how the assessment divides, and what it scores. */
 export function AssessmentStep({
   criteria,
   technical,
   behavioural,
+  technicalShare,
   locked,
-  document,
-  extraction,
-  extracting,
-  extractionError,
   onCriteria,
   onPanel,
+  onShare,
   onToggleLock,
   onReorder,
-  onExtract,
-  onAcceptProposal,
-  onDismissProposal,
-  onAcceptAllProposals,
 }: {
   criteria: Criterion[];
   technical: IdentifiedCompetency[];
   behavioural: IdentifiedCompetency[];
+  technicalShare: number;
   locked: ReadonlySet<string>;
-  document: PositionDocument | null;
-  extraction: PositionExtraction | null;
-  extracting: boolean;
-  extractionError?: unknown;
   onCriteria: (criteria: Criterion[]) => void;
   onPanel: (panel: CompetencyPanelKey) => (rows: IdentifiedCompetency[]) => void;
+  onShare: (technicalShare: number) => void;
   onToggleLock: (id: string) => void;
   onReorder: (panel: CompetencyPanelKey) => (fromId: string, toId: string) => void;
-  onExtract: () => void;
-  onAcceptProposal: (field: ProposedField, value: string) => void;
-  onDismissProposal: (field: ProposedField) => void;
-  onAcceptAllProposals: (edits: Record<number, string>) => void;
 }) {
   return (
-    <div className="flex flex-col gap-5">
-      <StepExtraction
-        positionDocument={document}
-        extraction={extraction}
-        extracting={extracting}
-        error={extractionError}
-        onExtract={onExtract}
-        onAcceptProposal={onAcceptProposal}
-        onDismissProposal={onDismissProposal}
-        onAcceptAllProposals={onAcceptAllProposals}
+    <div className="flex flex-col gap-8">
+      <FieldBlock
+        label={
+          <>
+            Screening criteria
+            <span className="ms-2 normal-case tracking-normal text-u-text3">
+              · Required narrows the field · Preferred breaks ties
+            </span>
+          </>
+        }
+      >
+        <CriteriaList criteria={criteria} onChange={onCriteria} />
+      </FieldBlock>
+
+      <FieldBlock label="Competency split">
+        <CompetencySplit technicalShare={technicalShare} onChange={onShare} />
+      </FieldBlock>
+
+      <CompetencyTable
+        title="Technical competencies"
+        tone="technical"
+        rows={technical}
+        locked={locked}
+        onChange={onPanel("technical")}
+        onToggleLock={onToggleLock}
+        onReorder={onReorder("technical")}
       />
 
-      <div>
-        <SectionHeading
-          title="Competency weighting"
-          aside="drag to rank · lock a weight to hold it"
-        />
-        <div className="flex flex-col gap-5">
-          <CompetencyPanel
-            title="Technical Competencies"
-            accent="sky"
-            rows={technical}
-            locked={locked}
-            onChange={onPanel("technical")}
-            onToggleLock={onToggleLock}
-            onReorder={onReorder("technical")}
-          />
-          <CompetencyPanel
-            title="Behavioural Competencies"
-            accent="amber"
-            rows={behavioural}
-            locked={locked}
-            onChange={onPanel("behavioural")}
-            onToggleLock={onToggleLock}
-            onReorder={onReorder("behavioural")}
-          />
-        </div>
-      </div>
-
-      <CriteriaCard criteria={criteria} onChange={onCriteria} />
+      <CompetencyTable
+        title="Behavioural competencies"
+        tone="behavioural"
+        rows={behavioural}
+        locked={locked}
+        onChange={onPanel("behavioural")}
+        onToggleLock={onToggleLock}
+        onReorder={onReorder("behavioural")}
+      />
     </div>
   );
 }

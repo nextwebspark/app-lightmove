@@ -29,7 +29,7 @@ public record PutCompensationRequest(
         BaseSalaryMode baseSalaryMode,
 
         @DecimalMin(value = "0", message = "A bonus cannot be negative")
-        @Digits(integer = 4, fraction = 2, message = "That bonus figure is too precise")
+        @Digits(integer = 12, fraction = 2, message = "That bonus figure is too precise")
         BigDecimal bonusValue,
         BonusBasis bonusBasis,
 

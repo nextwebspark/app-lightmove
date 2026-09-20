@@ -30,7 +30,8 @@ import org.springframework.stereotype.Component;
 class PositionTemplateValidator {
 
     private static final Pattern CURRENCY = Pattern.compile("[A-Z]{3}");
-    private static final BigDecimal MAX_BONUS = new BigDecimal("9999.99");
+    /** Wide enough for a fixed amount — the same ceiling the brief's own write accepts. */
+    private static final BigDecimal MAX_BONUS = new BigDecimal("999999999999.99");
     private static final int MAX_COMPETENCIES_PER_PANEL = 10;
 
     /** Normalises the draft and refuses it with every problem at once, keyed by field. */
@@ -94,7 +95,7 @@ class PositionTemplateValidator {
         BigDecimal bonus = body.bonusValue();
         if (bonus != null && (bonus.signum() < 0 || bonus.compareTo(MAX_BONUS) > 0
                 || bonus.stripTrailingZeros().scale() > 2)) {
-            problems.put("body.bonusValue", "A bonus is between 0 and 9999.99, to two decimal places");
+            problems.put("body.bonusValue", "A bonus is a non-negative figure of at most two decimal places");
         }
         tooLong(problems, "body.incentiveVesting", body.incentiveVesting(), 200,
                 "That vesting schedule is too long");

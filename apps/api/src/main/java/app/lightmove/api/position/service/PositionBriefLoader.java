@@ -53,14 +53,14 @@ class PositionBriefLoader {
 
     /**
      * The seeded brief a new mandate starts from: the template its role title matches in the
-     * workspace's catalog, with the client's home country pre-filled as the location.
+     * workspace's catalog, with the client's home country pre-filled as the location's country half.
      *
-     * <p>The location is written after the template rather than through it: a template has never met
+     * <p>The country is written after the template rather than through it: a template has never met
      * this client. A catalog with nothing in it drafts a blank brief rather than failing project
      * creation.
      */
-    Position draft(UUID workspaceId, UUID projectId, String positionTitle, String location) {
-        Position position = Position.forProject(projectId, location);
+    Position draft(UUID workspaceId, UUID projectId, String positionTitle, String hqCountry) {
+        Position position = Position.forProject(projectId, hqCountry);
         templates.matching(workspaceId, positionTitle)
                 .ifPresent(template -> PositionTemplateApplier.applyTo(position, template));
         return positions.save(position);
