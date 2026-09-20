@@ -13,9 +13,5 @@ public enum AssistantTurnStatus {
     FAILED,
 
     /** Abandoned rather than failed — the caller went away, or a sweep reclaimed a stranded turn. */
-    CANCELLED;
-
-    public boolean isFinished() {
-        return this != RUNNING;
-    }
+    CANCELLED
 }

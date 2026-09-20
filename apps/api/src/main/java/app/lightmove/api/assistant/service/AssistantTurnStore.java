@@ -79,8 +79,7 @@ public class AssistantTurnStore {
      * Someone else's thread answers 404, never 403 — telling a colleague that a row exists is what a
      * private tier prevents. {@code StrategySearchService} settles the same question the same way.
      */
-    @Transactional(readOnly = true)
-    public AssistantThread requireOwnThread(UUID threadId, UUID workspaceId, UUID userId) {
+    private AssistantThread requireOwnThread(UUID threadId, UUID workspaceId, UUID userId) {
         return threads.findByIdAndWorkspaceIdAndUserId(threadId, workspaceId, userId)
                 .orElseThrow(() -> ApiException.of(ErrorCode.NOT_FOUND));
     }

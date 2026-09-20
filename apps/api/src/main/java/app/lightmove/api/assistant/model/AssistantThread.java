@@ -48,14 +48,4 @@ public class AssistantThread extends BaseEntity {
         thread.title = title;
         return thread;
     }
-
-    /**
-     * Someone else's thread does not exist as far as they are concerned.
-     *
-     * <p>Answered as a 404 rather than a 403 for {@code StrategySearch}'s reason: telling a colleague
-     * that a row exists is precisely what a private tier prevents.
-     */
-    public boolean isHiddenFrom(UUID readerId) {
-        return !userId.equals(readerId);
-    }
 }

@@ -118,9 +118,4 @@ public class AssistantTurn extends BaseEntity {
         this.errorCode = code;
         this.finishedAt = Instant.now();
     }
-
-    public void cancel() {
-        this.status = AssistantTurnStatus.CANCELLED;
-        this.finishedAt = Instant.now();
-    }
 }
