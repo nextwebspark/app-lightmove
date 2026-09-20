@@ -69,7 +69,7 @@ class VendorCompanyCacheIntegrationTest extends FlowTestSupport {
         Map<String, Object> cached = db.queryForMap("""
                 SELECT provider, found, company_name, industry_v2_code, industry_v2_label,
                        industry_v1, sector_group, employees_linkedin, keywords, raw
-                FROM app_lm_company WHERE linkedin_slug = 'sampleco'
+                FROM app_lm_vendor_company WHERE linkedin_slug = 'sampleco'
                 """);
         assertThat(cached).containsEntry("provider", "recording").containsEntry("found", true);
         // The one place in the schema where industry_v2_* is finer data rather than V1 renamed.
@@ -80,7 +80,7 @@ class VendorCompanyCacheIntegrationTest extends FlowTestSupport {
         // Not num_employees: this counts profiles claiming the employer.
         assertThat(cached).containsEntry("employees_linkedin", 841);
         String[] keywords = db.queryForObject(
-                "SELECT keywords FROM app_lm_company WHERE linkedin_slug = 'sampleco'",
+                "SELECT keywords FROM app_lm_vendor_company WHERE linkedin_slug = 'sampleco'",
                 (row, number) -> (String[]) row.getArray(1).getArray());
         assertThat(keywords).containsExactly("insurance software", "insurance platform");
         // jsonb reads back as a PGobject, so the payload is compared as the text Postgres holds.
@@ -100,7 +100,7 @@ class VendorCompanyCacheIntegrationTest extends FlowTestSupport {
         assertThat(companyEnricher.fetchedSlugs()).containsExactly("ghost-holding");
         // Stored as a miss and nothing else: without the row, every mandate re-buys the same nothing.
         assertThat(db.queryForMap("""
-                SELECT found, company_name FROM app_lm_company WHERE linkedin_slug = 'ghost-holding'
+                SELECT found, company_name FROM app_lm_vendor_company WHERE linkedin_slug = 'ghost-holding'
                 """)).containsEntry("found", false).containsEntry("company_name", null);
     }
 
@@ -114,7 +114,7 @@ class VendorCompanyCacheIntegrationTest extends FlowTestSupport {
                 "https://www.linkedin.com/search/results/all/?keywords=Al+Fahim+Group");
 
         assertThat(companyEnricher.fetchedSlugs()).isEmpty();
-        assertThat(db.queryForObject("SELECT count(*) FROM app_lm_company", Integer.class)).isZero();
+        assertThat(db.queryForObject("SELECT count(*) FROM app_lm_vendor_company", Integer.class)).isZero();
     }
 
     @Test
@@ -124,7 +124,7 @@ class VendorCompanyCacheIntegrationTest extends FlowTestSupport {
         // put one firm's research in a table every other firm reads.
         assertThat(db.queryForList("""
                 SELECT column_name FROM information_schema.columns
-                WHERE table_name = 'app_lm_company'
+                WHERE table_name = 'app_lm_vendor_company'
                 """, String.class))
                 .isNotEmpty()
                 .noneMatch(column -> column.contains("workspace") || column.contains("project")

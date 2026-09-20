@@ -23,7 +23,7 @@ public record EnrichmentSettings(
         ContactOutSettings contactout,
 
         /**
-         * How long a row of {@code app_lm_company} answers for a slug before the provider is asked
+         * How long a row of {@code app_lm_vendor_company} answers for a slug before the provider is asked
          * again. Mapbox's terms are why {@code lightmove.mapbox.cache-ttl} exists; Bright Data's own
          * terms are the thing to check before raising this, not this default.
          */

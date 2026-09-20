@@ -306,7 +306,7 @@ lightmove:
       api-key: ${HARVESTAPI_API_KEY:}
       read-timeout: ${HARVESTAPI_READ_TIMEOUT:60s}
 
-    # How long app_lm_company answers for a LinkedIn slug before the provider is asked again (V64).
+    # How long app_lm_vendor_company answers for a LinkedIn slug before the provider is asked again (V64).
     # A company captured in a second mandate inside this window costs nothing, and so does a slug the
     # provider does not carry — the miss is a row too. Check Bright Data's own terms on holding a
     # result before raising it; they are not Mapbox's, and this default is only the cautious one.

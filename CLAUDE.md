@@ -305,8 +305,9 @@ off-limits rows, so the report can group without a query per company. All four c
 `Industries.resolve` call through one method per table (`TriageCompany.fileUnder`,
 `StrategyCompanyRef.of`, `TriageCompanyWriter.rowPlaceholders`) — **that single writer is the whole
 guarantee they agree**, and a label nobody can resolve keeps itself and leaves the other three null.
-`app_lm_company` (V64) is the vendor company cache: one row per LinkedIn slug ever researched, holding
-what a provider said about that page — its own V2 industry leaf (the one place in the schema where
+`app_lm_vendor_company` (V64) is the vendor company cache — named well clear of `app_lm_companies`
+above, because two live company tables one letter apart is a typo nobody catches. One row per
+LinkedIn slug ever researched, holding what a provider said about that page — its own V2 industry leaf (the one place in the schema where
 `industry_v2_*` is finer data rather than V1 renamed), the V1 label and sector group `Industries`
 resolves it to, its specialties as lower-cased `keywords`, and the raw payload, which is what makes a
 row re-mappable when the industry map improves instead of re-billed. `found = false` is a stored miss,

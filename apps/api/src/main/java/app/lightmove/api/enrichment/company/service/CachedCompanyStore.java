@@ -39,7 +39,7 @@ public class CachedCompanyStore {
             SELECT provider, fetched_at, found, company_name, industry_v2_label, company_country,
                    company_city, employees_linkedin, website, linkedin_url, founded_year, about,
                    logo_url, keywords, raw
-            FROM app_lm_company
+            FROM app_lm_vendor_company
             WHERE linkedin_slug = ?
             """;
 
@@ -49,7 +49,7 @@ public class CachedCompanyStore {
      * any of the 434 — can only come from {@code app_lm_industry_v2}.
      */
     private static final String UPSERT = """
-            INSERT INTO app_lm_company (
+            INSERT INTO app_lm_vendor_company (
                 linkedin_slug, provider, fetched_at, found, company_name,
                 industry_v2_code,
                 industry_v2_label, industry_v1, sector_group, company_country, company_city,
@@ -87,7 +87,7 @@ public class CachedCompanyStore {
                 linkedinSlug);
     }
 
-    /** Remembers an answer — including no answer, so a slug the provider does not carry is not re-bought. */
+    /** Remembers an answer — no answer included, so a slug the provider lacks is not re-bought. */
     @Transactional(propagation = Propagation.REQUIRES_NEW)
     public void remember(String linkedinSlug, String provider, Optional<VendorCompanyRecord> answer) {
         VendorCompanyRecord record = answer.orElse(null);

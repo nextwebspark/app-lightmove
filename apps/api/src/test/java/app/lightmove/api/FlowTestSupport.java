@@ -45,7 +45,7 @@ public abstract class FlowTestSupport {
         geocoder.clear();
         // The vendor company cache is global by design (V64), so a slug one class's capture
         // remembered would answer the next class's — and its enricher would never be asked.
-        vendorCache.update("DELETE FROM app_lm_company");
+        vendorCache.update("DELETE FROM app_lm_vendor_company");
         domain = "firm%d-%s.example".formatted(RUN.incrementAndGet(),
                 getClass().getSimpleName().toLowerCase());
     }

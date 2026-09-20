@@ -18,8 +18,12 @@
 -- found = false is a stored miss. Without it, every slug the provider does not carry is re-bought on
 -- every capture in every mandate, forever. fetched_at is what lets an answer age out
 -- (lightmove.enrichment.company-cache-ttl).
+--
+-- Named app_lm_vendor_company and not app_lm_company on purpose: app_lm_companies (V3) is the retired
+-- brightdata copy, still sitting in the schema and read-only since harden.sql. Two live company
+-- tables one letter apart is a typo that silently answers from the wrong one.
 
-CREATE TABLE app_lm_company (
+CREATE TABLE app_lm_vendor_company (
     -- The lowercased /company/<slug> LinkedInUrls resolved. A numeric slug such as '79475146' is a
     -- real LinkedIn company id and belongs here; a /search/results/… URL resolves to null and never
     -- reaches this table, because there is nothing to key it on.
@@ -75,9 +79,9 @@ CREATE TABLE app_lm_company (
     CONSTRAINT app_lm_company_miss_chk CHECK (found OR company_name IS NULL)
 );
 
-COMMENT ON TABLE app_lm_company IS
+COMMENT ON TABLE app_lm_vendor_company IS
     'Vendor company cache: one row per LinkedIn slug ever researched. Global, not tenant data; found = false is a stored miss.';
-COMMENT ON COLUMN app_lm_company.industry_v2_label IS
+COMMENT ON COLUMN app_lm_vendor_company.industry_v2_label IS
     'The provider''s own V2 leaf. Unlike every other industry_v2_label in this schema, this is finer data and not V1 renamed.';
-COMMENT ON COLUMN app_lm_company.employees_linkedin IS
+COMMENT ON COLUMN app_lm_vendor_company.employees_linkedin IS
     'Profiles claiming this employer on LinkedIn. Not the same measurement as app_lm_apollo_companies.num_employees.';

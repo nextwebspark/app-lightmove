@@ -29,7 +29,7 @@ import tools.jackson.databind.annotation.JsonNaming;
  * shares the people lookup's timeout and retry budget because it shares the endpoint that got slow.
  *
  * <p>The response is read as a tree and converted, rather than bound straight to the record: the hit
- * is kept verbatim so {@code app_lm_company.raw} can be re-mapped when the industry map improves,
+ * is kept verbatim so {@code app_lm_vendor_company.raw} can be re-mapped when the industry map improves,
  * instead of the company being bought a second time.
  */
 @Slf4j
