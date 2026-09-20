@@ -15,5 +15,19 @@
  * and a status, and abstracting below it would force every implementation down to the intersection
  * of what all of them can do, losing the provider-specific controls (caching, thinking depth,
  * effort) that are most of the reason to choose one.
+ *
+ * <p><b>Do not inject Spring AI's {@code ChatMemory}.</b> A bean of it is already in the context —
+ * {@code spring-ai-starter-model-google-genai} pulls {@code spring-ai-autoconfigure-model-chat-memory}
+ * transitively, and that autoconfiguration registers a {@code MessageWindowChatMemory} over an
+ * {@code InMemoryChatMemoryRepository}. Nothing injects it, which is the only reason it is harmless:
+ * it is per-instance and in-heap, so on Cloud Run two instances hold two different conversations,
+ * and it is keyed on one opaque string with no workspace scoping at all.
+ *
+ * <p>Conversation state belongs to {@code app_lm_assistant_turn} (V65), which carries the status,
+ * actor, audit and token columns a message list cannot. Adopting the native repository was costed
+ * and rejected: {@code MessageChatMemoryAdvisor} writes to memory in {@code before()}, i.e. before
+ * the model is called, so an adapter over our tables would have to lie about
+ * {@code saveAll} — and because our RUNNING turn row already holds the question at accept time, the
+ * advisor would send that question to the model twice.
  */
 package app.lightmove.api.assistant;
