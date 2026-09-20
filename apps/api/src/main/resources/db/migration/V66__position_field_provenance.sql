@@ -121,7 +121,8 @@ SET field_sources = (
         (CASE WHEN notice_unit IS NOT NULL THEN jsonb_build_object('noticeUnit', 'TEMPLATE') ELSE '{}' END)
     ELSE
         (CASE WHEN department IS NOT NULL THEN jsonb_build_object('department', 'MANUAL') ELSE '{}' END) ||
-        (CASE WHEN location IS NOT NULL THEN jsonb_build_object('location', 'MANUAL') ELSE '{}' END) ||
+        (CASE WHEN location_city IS NOT NULL OR location_country IS NOT NULL
+              THEN jsonb_build_object('location', 'MANUAL') ELSE '{}' END) ||
         (CASE WHEN employment_type IS NOT NULL THEN jsonb_build_object('employmentType', 'MANUAL') ELSE '{}' END) ||
         (CASE WHEN seniority IS NOT NULL THEN jsonb_build_object('seniority', 'MANUAL') ELSE '{}' END) ||
         (CASE WHEN narrative IS NOT NULL THEN jsonb_build_object('narrative', 'MANUAL') ELSE '{}' END) ||
