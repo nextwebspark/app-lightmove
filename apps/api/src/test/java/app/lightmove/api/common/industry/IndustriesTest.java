@@ -2,6 +2,7 @@ package app.lightmove.api.common.industry;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import app.lightmove.api.common.industry.model.ResolvedIndustry;
 import app.lightmove.api.common.industry.service.Industries;
 import app.lightmove.api.strategy.service.SectorTaxonomy;
 import java.io.IOException;
@@ -75,6 +76,31 @@ class IndustriesTest {
         assertThat(Industries.isKnown("competitive underwater basket weaving")).isFalse();
         assertThat(Industries.nameOf(null)).isNull();
         assertThat(Industries.nameOf("   ")).isNull();
+    }
+
+    @Test
+    @DisplayName("one call answers every form a row stores")
+    void resolveAnswersAllForms() {
+        // The vendor's spelling in, the row's four columns out — one lookup, so a sector can never
+        // disagree with the industry beside it.
+        assertThat(Industries.resolve("Software Development"))
+                .isEqualTo(new ResolvedIndustry("computer software", 4, "Software Development", "Technology"));
+        assertThat(Industries.resolve("oil & energy"))
+                .isEqualTo(new ResolvedIndustry("oil & energy", 57, "Oil and Gas", "Energy & Utilities"));
+        // Apollo publishes this one and LinkedIn never had it, so it has a sector and no id.
+        assertThat(Industries.resolve("agriculture"))
+                .isEqualTo(new ResolvedIndustry("agriculture", null, null, "Agriculture"));
+    }
+
+    @Test
+    @DisplayName("an unresolvable industry keeps itself and derives nothing")
+    void resolveLeavesUnknownsAlone() {
+        // Null here is "nobody could resolve this", which the report counts apart from any sector it
+        // might otherwise have been filed under.
+        assertThat(Industries.resolve(" regional majlis catering "))
+                .isEqualTo(new ResolvedIndustry("regional majlis catering", null, null, null));
+        assertThat(Industries.resolve(null)).isNull();
+        assertThat(Industries.resolve("  ")).isNull();
     }
 
     @Test

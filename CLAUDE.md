@@ -300,6 +300,11 @@ and sector group, and 434 V2 industries each resolved to the universe label cove
 a V2 selection expands from. Emitted by the same script (`--sql`), **not** tenant-scoped for V49's
 reason, and never read at runtime: the JSON stays the authority because `Industries` is static, so
 `IndustryVocabularyIntegrationTest` asserts the table answers as the resolver does for all 434.
+V63 puts `industry_v2_code`, `industry_v2_label` and `sector_group` beside `industry` on the triage and
+off-limits rows, so the report can group without a query per company. All four come from one
+`Industries.resolve` call through one method per table (`TriageCompany.fileUnder`,
+`StrategyCompanyRef.of`, `TriageCompanyWriter.rowPlaceholders`) — **that single writer is the whole
+guarantee they agree**, and a label nobody can resolve keeps itself and leaves the other three null.
 V56 adds `app_lm_project_candidate.gender` (`FEMALE | MALE | OTHER`), nullable with no default:
 NULL is "nobody recorded it" and is deliberately not a fourth value, because "not recorded" and
 "recorded as other" are different facts and the report counts them apart.

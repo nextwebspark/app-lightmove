@@ -1,5 +1,7 @@
 package app.lightmove.api.triagecompany.repository;
 
+import app.lightmove.api.common.industry.model.ResolvedIndustry;
+import app.lightmove.api.common.industry.service.Industries;
 import app.lightmove.api.strategy.model.CompanyRow;
 import app.lightmove.api.triagecompany.constant.TriageCompanySource;
 import app.lightmove.api.triagecompany.constant.TriageCompanyStatus;
@@ -26,6 +28,7 @@ public class TriageCompanyWriter {
     private static final String INSERT_HEAD = """
             INSERT INTO app_lm_project_triage_company (
                 project_id, apollo_account_id, source, status, note, company_name, industry,
+                industry_v2_code, industry_v2_label, sector_group,
                 company_country, company_city, num_employees, annual_revenue, website,
                 company_linkedin_url, founded_year, short_description, logo_url, source_url, added_by)
             VALUES
@@ -75,6 +78,7 @@ public class TriageCompanyWriter {
 
     private static final String ROW_PLACEHOLDERS =
             "(:projectId, :accountId%1$d, :source, :status, :note, :companyName%1$d, :industry%1$d, "
+                    + ":industryV2Code%1$d, :industryV2Label%1$d, :sectorGroup%1$d, "
                     + ":companyCountry%1$d, :companyCity%1$d, :numEmployees%1$d, :annualRevenue%1$d, "
                     + ":website%1$d, :companyLinkedinUrl%1$d, :foundedYear%1$d, "
                     + ":shortDescription%1$d, :logoUrl%1$d, :sourceUrl, :addedBy)";
@@ -82,7 +86,14 @@ public class TriageCompanyWriter {
     private static String rowPlaceholders(int index, CompanyRow row, Map<String, Object> params) {
         params.put("accountId" + index, row.apolloAccountId());
         params.put("companyName" + index, row.companyName());
-        params.put("industry" + index, row.industry());
+        // The universe's own label is already canonical, so this resolves rather than rewrites — but
+        // the three derived columns have to come from the same call the entity uses, or a bulk add and
+        // a capture of one company would file it under two sectors.
+        ResolvedIndustry industry = Industries.resolve(row.industry());
+        params.put("industry" + index, industry == null ? null : industry.label());
+        params.put("industryV2Code" + index, industry == null ? null : industry.linkedInCode());
+        params.put("industryV2Label" + index, industry == null ? null : industry.v2Label());
+        params.put("sectorGroup" + index, industry == null ? null : industry.sectorGroup());
         params.put("companyCountry" + index, row.companyCountry());
         params.put("companyCity" + index, row.companyCity());
         params.put("numEmployees" + index, row.numEmployees());
