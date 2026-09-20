@@ -170,16 +170,19 @@ describe("PositionPage", () => {
   });
 
   describe("the rail and the step in the URL", () => {
-    it("opens on the Role Brief and reads every step back in the rail", async () => {
+    it("opens on the Role Brief, with the five steps in the rail and that one current", async () => {
       renderPage();
 
       expect(await screen.findByRole("heading", { name: "Role Brief" })).toBeInTheDocument();
-      expect(within(rail()).getByText("Chief Financial Officer · Abu Dhabi")).toBeInTheDocument();
-      expect(within(rail()).getByText("Group CEO · C-Suite")).toBeInTheDocument();
-      expect(within(rail()).getByText("Awaiting package input")).toBeInTheDocument();
-      expect(within(rail()).getByText("Technical 60% · Behavioural 40%")).toBeInTheDocument();
-      expect(within(rail()).getByText("Not yet published")).toBeInTheDocument();
-      expect(within(rail()).getByRole("link", { name: /Role Brief/ })).toHaveAttribute("aria-current", "page");
+      expect(within(rail()).getAllByRole("link").map((link) => link.textContent)).toEqual([
+        "Role Brief",
+        "Reporting",
+        "Compensation",
+        "Assessment Criteria",
+        "Review & Publish",
+      ]);
+      expect(within(rail()).getByRole("link", { name: "Role Brief" })).toHaveAttribute("aria-current", "page");
+      expect(within(rail()).getByRole("button", { name: "Publish profile" })).toBeInTheDocument();
     });
 
     it("opens the step the URL names, and the rail's links walk between them", async () => {
@@ -198,8 +201,8 @@ describe("PositionPage", () => {
       renderPage();
 
       expect(await screen.findByRole("heading", { name: "Review & publish" })).toBeInTheDocument();
-      expect(screen.getByText(/Position profile published by Alok Kumar/)).toBeInTheDocument();
-      expect(within(rail()).getByText("Published 27 Aug 2026")).toBeInTheDocument();
+      expect(screen.getByText(/Position profile published by Alok Kumar · 27 Aug 2026/)).toBeInTheDocument();
+      expect(within(rail()).getByRole("button", { name: "Publish changes" })).toBeInTheDocument();
     });
 
     it("shows a refusal rather than an empty brief when the read fails", async () => {
@@ -470,7 +473,6 @@ describe("PositionPage", () => {
 
       await waitFor(() => expect(lastCall(positionApi.putCompetencies)[3]).toBe(70));
       expect(screen.getByRole("textbox", { name: "Behavioural share" })).toHaveValue("30");
-      expect(within(rail()).getByText("Technical 70% · Behavioural 30%")).toBeInTheDocument();
     });
 
     it("adds a competency to the panel it was asked for and no other", async () => {
@@ -549,8 +551,7 @@ describe("PositionPage", () => {
       await screen.findByRole("heading", { name: "Role Brief" });
       await person.click(within(rail()).getByRole("button", { name: "Publish profile" }));
 
-      expect(await within(rail()).findByText("Published 27 Aug 2026")).toBeInTheDocument();
-      expect(within(rail()).getByRole("button", { name: "Publish changes" })).toBeInTheDocument();
+      expect(await within(rail()).findByRole("button", { name: "Publish changes" })).toBeInTheDocument();
       // Publishing is a stamp, not a lock: the fields keep accepting input.
       expect(screen.getByRole("combobox", { name: "Role title" })).toBeEnabled();
     });
@@ -563,7 +564,7 @@ describe("PositionPage", () => {
 
       await person.click(await screen.findByRole("button", { name: "Withdraw publication" }));
 
-      expect(await within(rail()).findByText("Not yet published")).toBeInTheDocument();
+      expect(await within(rail()).findByRole("button", { name: "Publish profile" })).toBeInTheDocument();
     });
   });
 });

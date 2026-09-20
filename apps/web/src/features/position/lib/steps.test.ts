@@ -79,29 +79,17 @@ describe("the five steps", () => {
     expect(step("brief").attention(placed)).toBeNull();
   });
 
-  it("reads the brief's line as the title and the city, falling back to the country", () => {
-    expect(step("brief").summary(blank)).toBe("Chief Financial Officer · No location");
-    expect(
-      step("brief").summary({ ...blank, details: { ...blank.details, locationCity: "Riyadh", locationCountry: "Saudi Arabia" } }),
-    ).toBe("Chief Financial Officer · Riyadh");
-    expect(step("brief").summary({ ...blank, details: { ...blank.details, locationCountry: "Saudi Arabia" } })).toBe(
-      "Chief Financial Officer · Saudi Arabia",
-    );
-  });
-
   it("wants a named manager and at least one report before reporting is done", () => {
     expect(step("reporting").isDone(blank)).toBe(false);
     expect(step("reporting").attention(blank)).toBe("Nobody is named as the manager yet.");
     expect(step("reporting").isDone(charted)).toBe(true);
-    expect(step("reporting").summary({ ...charted, details: { ...charted.details, seniority: "N_MINUS_2" } })).toBe(
-      "Mohammed Rashed · N-2",
-    );
+    expect(step("reporting").attention(charted)).toBeNull();
   });
 
   it("calls compensation done only with a band and every allowance quantified", () => {
     const banded = { ...blank, compensation: { ...blank.compensation, salaryMin: 32_000, salaryMax: 37_000, baseSalaryMode: "MONTHLY" as const } };
     expect(step("compensation").isDone(banded)).toBe(true);
-    expect(step("compensation").summary(banded)).toBe("SAR 384K – 444K");
+    expect(step("compensation").attention(banded)).toBeNull();
 
     const unquantified = {
       ...banded,
@@ -114,7 +102,7 @@ describe("the five steps", () => {
     expect(step("compensation").attention(blank)).toBe("No base salary band yet.");
   });
 
-  it("reads the assessment as its split, and is done when both panels total 100", () => {
+  it("is done when both panels total 100, and says which does not", () => {
     const weighted = {
       ...blank,
       assessment: {
@@ -124,16 +112,14 @@ describe("the five steps", () => {
         technicalShare: 60,
       },
     };
-    expect(step("assessment").summary(weighted)).toBe("Technical 60% · Behavioural 40%");
     expect(step("assessment").isDone(weighted)).toBe(false);
     expect(step("assessment").attention(weighted)).toBe("Behavioural weights total 90%, not 100%.");
   });
 
   it("reads publication as the review's own state", () => {
-    expect(step("review").summary(blank)).toBe("Not yet published");
     expect(step("review").isDone(blank)).toBe(false);
+    expect(step("review").attention(blank)).toBeNull();
     const published = { ...blank, publication: { publishedAt: "2026-09-09T10:00:00Z", publishedBy: "Alok Kumar" } };
-    expect(step("review").summary(published)).toBe("Published 09 Sept 2026");
     expect(step("review").isDone(published)).toBe(true);
   });
 });

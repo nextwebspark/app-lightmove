@@ -1,9 +1,6 @@
 import { ICONS } from "../../../components/layout/Icon";
-import { formatInstantDate } from "../../../lib/format";
 import type { Position } from "../api/types";
-import { packageTotal } from "./compensation";
 import { directReportsOf, labelOfNode, managerOf } from "./orgChart";
-import { SENIORITY_LABELS, labelOf } from "./labels";
 
 /**
  * The five screens of the brief, in one array.
@@ -27,8 +24,6 @@ export interface PositionStep {
   heading: string;
   lede: string;
   icon: string;
-  /** The rail's one-line reading of what this step currently holds. */
-  summary: (position: Position) => string;
   isDone: (position: Position) => boolean;
   /** Why the step is not done, in the words its review card wears — null once it is. */
   attention: (position: Position) => string | null;
@@ -41,7 +36,6 @@ export const POSITION_STEPS: PositionStep[] = [
     heading: "Role Brief",
     lede: "Define the role and why it exists. Attach the position description to keep it with the mandate.",
     icon: ICONS.file,
-    summary: (p) => `${p.details.roleTitle.trim() || "Untitled role"} · ${placeOf(p) ?? "No location"}`,
     isDone: (p) => Boolean(p.details.roleTitle.trim() && placeOf(p)),
     attention: (p) => {
       if (!p.details.roleTitle.trim()) return "The role has no title yet.";
@@ -55,10 +49,6 @@ export const POSITION_STEPS: PositionStep[] = [
     heading: "Reporting Structure",
     lede: "Define who this role reports to and the team it will lead.",
     icon: ICONS.orgChart,
-    summary: (p) =>
-      [labelOfNode(managerOf(p.reporting.orgChart)) ?? "No manager", labelOf(SENIORITY_LABELS, p.details.seniority)]
-        .filter(Boolean)
-        .join(" · "),
     isDone: (p) =>
       Boolean(labelOfNode(managerOf(p.reporting.orgChart))) && directReportsOf(p.reporting.orgChart).length > 0,
     attention: (p) => {
@@ -73,11 +63,6 @@ export const POSITION_STEPS: PositionStep[] = [
     heading: "Compensation Package",
     lede: "Define base, bonus, long-term incentive and allowances for this role.",
     icon: ICONS.currency,
-    summary: (p) => {
-      const total = packageTotal(p.compensation);
-      if (total.min === null || total.max === null) return "Awaiting package input";
-      return `${p.compensation.currency} ${thousands(total.min)} – ${thousands(total.max)}`;
-    },
     isDone: (p) => hasBand(p) && allowancesQuantified(p),
     attention: (p) => {
       if (!hasBand(p)) return "No base salary band yet.";
@@ -91,8 +76,6 @@ export const POSITION_STEPS: PositionStep[] = [
     heading: "Assessment Criteria",
     lede: "Define the screening gates and competency weights used to evaluate candidates.",
     icon: ICONS.clipboard,
-    summary: (p) =>
-      `Technical ${p.assessment.technicalShare}% · Behavioural ${100 - p.assessment.technicalShare}%`,
     isDone: (p) => panelTotal(p, "technical") === 100 && panelTotal(p, "behavioural") === 100,
     attention: (p) => {
       const technical = panelTotal(p, "technical");
@@ -108,8 +91,6 @@ export const POSITION_STEPS: PositionStep[] = [
     heading: "Review & publish",
     lede: "Review every section before publishing the position profile.",
     icon: ICONS.rocket,
-    summary: (p) =>
-      p.publication.publishedAt ? `Published ${formatInstantDate(p.publication.publishedAt)}` : "Not yet published",
     isDone: (p) => Boolean(p.publication.publishedAt),
     attention: () => null,
   },
@@ -197,6 +178,3 @@ function allowancesQuantified(position: Position): boolean {
   return position.compensation.benefits.every((benefit) => benefit.amount !== null);
 }
 
-function thousands(amount: number): string {
-  return `${Math.round(amount / 1000).toLocaleString()}K`;
-}
