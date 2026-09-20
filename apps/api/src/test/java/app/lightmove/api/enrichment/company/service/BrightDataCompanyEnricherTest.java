@@ -45,6 +45,10 @@ class BrightDataCompanyEnricherTest {
         // The dataset answers in LinkedIn's V2 vocabulary and the universe publishes V1's, so the
         // row files "Software Development" under the label the Strategy filter can ask for.
         assertThat(details.industry()).isEqualTo("computer software");
+        // employeesInLinkedin lands in numEmployees, which on a triaged row is the column Apollo's
+        // headcount estimate also fills. Two measurements, one column — asserted here so the mapping
+        // is never quietly changed; the cache keeps them apart under its own name.
+        assertThat(details.numEmployees()).isEqualTo(841);
         assertThat(details.website()).isEqualTo("https://www.sampleco.example/");
         assertThat(details.companyLinkedinUrl()).isEqualTo("https://www.linkedin.com/company/sampleco");
         assertThat(details.shortDescription()).startsWith("SampleCo is a leading provider");
