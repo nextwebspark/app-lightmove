@@ -18,7 +18,7 @@
 -- is context rather than ownership — a thread started on Strategy still reads back when the user is
 -- on the roster.
 CREATE TABLE app_lm_assistant_thread (
-    id           uuid        PRIMARY KEY,
+    id           uuid        PRIMARY KEY DEFAULT gen_random_uuid(),
 
     -- Tenant isolation is by this column and AuthPrincipal.requireWorkspaceId(), never by a
     -- request parameter. user_id is here too because a thread is one person's, not the firm's:
@@ -54,7 +54,7 @@ CREATE TRIGGER app_lm_assistant_thread_touch BEFORE UPDATE ON app_lm_assistant_t
 -- 55s SSE cycle that ProjectStreamRegistry works within. Everything the worker cannot look up for
 -- itself is therefore resolved at accept time and written here.
 CREATE TABLE app_lm_assistant_turn (
-    id             uuid        PRIMARY KEY,
+    id             uuid        PRIMARY KEY DEFAULT gen_random_uuid(),
     thread_id      uuid        NOT NULL REFERENCES app_lm_assistant_thread (id) ON DELETE CASCADE,
 
     status         varchar(16) NOT NULL
@@ -65,6 +65,12 @@ CREATE TABLE app_lm_assistant_turn (
 
     -- Null until the turn ends. The streamed deltas are events; this is the settled text, so a
     -- reload renders the conversation without replaying an event log.
+    --
+    -- Deliberately NOT tied to status by a constraint, unlike finished_at below. A turn must always
+    -- be able to reach a terminal state: one that succeeded having only emitted a proposal has no
+    -- prose to store, and one that died on an exception nobody mapped has no ErrorCode to name. The
+    -- worst failure here is a turn stuck RUNNING forever while the SPA reconnects every 55s, and a
+    -- CHECK that can refuse the row recording the end is how you get one.
     answer         text,
 
     -- The ErrorCode a failed turn ended on, not a message: the SPA switches on `code`, never on
@@ -107,7 +113,13 @@ CREATE TABLE app_lm_assistant_turn (
     -- terminal status without stamping the clock, which would otherwise only show up as a turn that
     -- looks finished and can never be aged out.
     CONSTRAINT app_lm_assistant_turn_finished_chk
-        CHECK ((status = 'RUNNING') = (finished_at IS NULL))
+        CHECK ((status = 'RUNNING') = (finished_at IS NULL)),
+
+    -- The one direction that is safe to forbid. Requiring an error_code on FAILED, or an answer on
+    -- SUCCEEDED, could refuse the write that ends a turn; refusing an error_code on a turn that
+    -- succeeded cannot, because there is no honest reason to set one.
+    CONSTRAINT app_lm_assistant_turn_succeeded_chk
+        CHECK (status <> 'SUCCEEDED' OR error_code IS NULL)
 );
 
 -- The conversation, in order, for one thread.
@@ -159,6 +171,26 @@ CREATE TABLE app_lm_assistant_event (
 
     CONSTRAINT app_lm_assistant_event_seq_uk UNIQUE (turn_id, seq)
 );
+
+-- Immutable once written, enforced rather than assumed: `seq` is the SSE replay cursor, so a writer
+-- that edits an event in place does not corrupt one row, it silently reorders a conversation for
+-- every reader still catching up.
+--
+-- UPDATE only, which is where this parts company with app_lm_audit_event's append-only trigger
+-- (V1) that the `kind` column above borrows from. That table is the permanent audit trail and
+-- refuses DELETE and TRUNCATE too. This one is a replay buffer: the FK above is ON DELETE CASCADE
+-- so removing a thread removes its events, and a retention sweep of turns long finished is expected
+-- rather than forbidden. Blocking DELETE here would break both.
+CREATE OR REPLACE FUNCTION app_lm_assistant_event_is_immutable() RETURNS trigger AS $$
+BEGIN
+    RAISE EXCEPTION 'app_lm_assistant_event is immutable once written (attempted %)', TG_OP
+        USING ERRCODE = 'insufficient_privilege';
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER app_lm_assistant_event_immutable
+    BEFORE UPDATE ON app_lm_assistant_event
+    FOR EACH STATEMENT EXECUTE FUNCTION app_lm_assistant_event_is_immutable();
 
 COMMENT ON TABLE app_lm_assistant_thread IS
     'One assistant conversation, owned by the user who started it. project_id is the mandate it was asked about, not its owner.';
