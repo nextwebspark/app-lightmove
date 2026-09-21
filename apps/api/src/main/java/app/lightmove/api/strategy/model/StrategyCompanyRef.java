@@ -1,5 +1,7 @@
 package app.lightmove.api.strategy.model;
 
+import app.lightmove.api.common.industry.model.ResolvedIndustry;
+import app.lightmove.api.common.industry.service.Industries;
 import app.lightmove.api.common.location.service.Countries;
 import jakarta.persistence.Column;
 import jakarta.persistence.Embeddable;
@@ -30,6 +32,16 @@ public class StrategyCompanyRef {
     @Column(name = "industry")
     private String industry;
 
+    /** Derived from {@link #industry} and written with it, never separately. */
+    @Column(name = "industry_v2_code")
+    private Integer industryV2Code;
+
+    @Column(name = "industry_v2_label")
+    private String industryV2Label;
+
+    @Column(name = "sector_group")
+    private String sectorGroup;
+
     @Column(name = "company_city")
     private String companyCity;
 
@@ -43,7 +55,11 @@ public class StrategyCompanyRef {
         StrategyCompanyRef ref = new StrategyCompanyRef();
         ref.apolloAccountId = row.apolloAccountId();
         ref.companyName = row.companyName();
-        ref.industry = row.industry();
+        ResolvedIndustry industry = Industries.resolve(row.industry());
+        ref.industry = industry == null ? null : industry.label();
+        ref.industryV2Code = industry == null ? null : industry.linkedInCode();
+        ref.industryV2Label = industry == null ? null : industry.v2Label();
+        ref.sectorGroup = industry == null ? null : industry.sectorGroup();
         ref.companyCity = Countries.cityOf(row.companyCity());
         ref.companyCountry = Countries.nameOf(row.companyCountry());
         ref.logoUrl = row.logoUrl();

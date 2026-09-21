@@ -42,6 +42,8 @@ export const ICONS = {
   /** A check inside a circle — the Position wizard's "this field now holds something" affordance. */
   checkCircle: "M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18M8.5 12.2l2.3 2.3 4.7-4.7",
   uploadCloud: "M12 13v8m0-8-3 3m3-3 3 3M20 16.7A4.5 4.5 0 0 0 17.5 8h-1.8A7 7 0 1 0 4 14.9",
+  /** An arrow dropping into a tray — Export, the mirror of `uploadCloud`. */
+  download: "M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3",
   /** A page with its corner turned — the attached position description. */
   file: "M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8zM14 2v6h6",
   lock: "M19 11H5a2 2 0 0 0-2 2v6a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-6a2 2 0 0 0-2-2ZM7 11V7a5 5 0 0 1 10 0v4",
@@ -112,4 +114,16 @@ export const ICONS = {
   copy: "M9 9h11a1 1 0 0 1 1 1v10a1 1 0 0 1-1 1H9a1 1 0 0 1-1-1V10a1 1 0 0 1 1-1ZM5 15H4a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1h10a1 1 0 0 1 1 1v1",
   /** A box with an arrow leaving it — opens somewhere else. */
   externalLink: "M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6M15 3h6v6M10 14 21 3",
+  /** A line climbing to an arrowhead — the report's mapping progress. */
+  trendingUp: "m3 17 6-6 4 4 8-8M15 7h6v6",
+  /** A struck S — the report's remuneration chapter. */
+  currency: "M12 2v20M17 6.5C17 4.6 14.8 3.5 12 3.5S7 4.6 7 6.5s2.2 3 5 3.5 5 1.6 5 3.5-2.2 3-5 3-5-1.1-5-3",
+  /** One seat over two — the brief's reporting structure. */
+  orgChart: "M9 3h6v4H9zM4 17h6v4H4zM14 17h6v4h-6zM12 7v7M7 14h10M7 14v3M17 14v3",
+  /** A clipboard with a tick — the brief's assessment criteria. */
+  clipboard:
+    "M9 5H7a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2M9 5a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-2a2 2 0 0 1-2-2zM9 14l2 2 4-4",
+  /** A rocket — review and publish. */
+  rocket:
+    "M4.5 16.5c-1.5 1.3-2 5-2 5s3.7-.5 5-2c.7-.8.7-2 0-2.8-.8-.7-2-.7-2.8 0zM12 15l-3-3 5-6c1.5-1.5 4-2 6-2 0 2-.5 4.5-2 6l-6 5zM9 12H5l3-3M12 15v4l3-3",
 } as const;

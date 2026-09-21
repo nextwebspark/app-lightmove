@@ -54,6 +54,18 @@ class RemunerationReporterTest {
     }
 
     @Test
+    @DisplayName("a bonus stated as a fixed amount adds the same money on both edges of the band")
+    void fixedAmountBonusIsAddedAsStated() {
+        CompensationDto brief = brief(200_000L, 260_000L, BaseSalaryMode.ANNUAL,
+                BigDecimal.valueOf(150_000), BonusBasis.FIXED_AMOUNT, null);
+
+        CompensationBandDto totalPackage = RemunerationReporter.packageBandOf(brief,
+                RemunerationReporter.fixedBandOf(brief));
+
+        assertThat(totalPackage).isEqualTo(new CompensationBandDto(350_000, 410_000));
+    }
+
+    @Test
     @DisplayName("a band with one edge is that edge twice, and a brief with none states no band")
     void partialAndAbsentBands() {
         assertThat(RemunerationReporter.fixedBandOf(brief(null, 90_000L, BaseSalaryMode.ANNUAL, null, null, null)))

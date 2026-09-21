@@ -1,9 +1,8 @@
 import { useComboboxList } from "../../../lib/useComboboxList";
 import type { PositionTemplate } from "../api/types";
 import { SENIORITY_LABELS } from "../lib/labels";
-import { CheckedInput } from "./fields";
-
-const MAX_SUGGESTIONS = 8;
+import { suggestionsFor } from "../lib/roleTitleSuggestions";
+import { CheckedInput } from "./CheckedInput";
 
 /**
  * The role title: a free-text field that suggests the templates the brief can be drafted from.
@@ -101,21 +100,4 @@ export function RoleTitleCombobox({
       )}
     </div>
   );
-}
-
-/**
- * What the box offers: everything when it is empty — seventeen titles is a menu, not a search — and
- * the substring matches once somebody types, titles first so "chief" does not lead with a summary
- * that happens to mention it.
- */
-function suggestionsFor(templates: PositionTemplate[], typed: string): PositionTemplate[] {
-  const needle = typed.trim().toLowerCase();
-  if (!needle) return templates.slice(0, MAX_SUGGESTIONS);
-
-  const byTitle = templates.filter((template) => template.title.toLowerCase().includes(needle));
-  const bySummary = templates.filter(
-    (template) =>
-      !byTitle.includes(template) && (template.summary ?? "").toLowerCase().includes(needle),
-  );
-  return [...byTitle, ...bySummary].slice(0, MAX_SUGGESTIONS);
 }

@@ -8,7 +8,8 @@ import java.util.List;
 public record PositionDetailsDto(
         String roleTitle,
         String department,
-        String location,
+        String locationCity,
+        String locationCountry,
         EmploymentType employmentType,
         Seniority seniority,
         List<String> responsibilities,

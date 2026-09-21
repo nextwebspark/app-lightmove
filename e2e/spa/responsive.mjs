@@ -36,6 +36,12 @@ const ROUTES = [
   { path: "/settings/general", name: "settings-general" },
   { path: "/settings/members", name: "settings-members" },
   { path: "/projects/proj-1", name: "project-position" },
+  // One step of the brief renders at a time, so each is its own sweep: the org chart and the
+  // weighting tables live past the first.
+  { path: "/projects/proj-1?step=reporting", name: "project-position-reporting" },
+  { path: "/projects/proj-1?step=compensation", name: "project-position-compensation" },
+  { path: "/projects/proj-1?step=assessment", name: "project-position-assessment" },
+  { path: "/projects/proj-1?step=review", name: "project-position-review" },
   { path: "/projects/proj-1/strategy", name: "project-strategy" },
   { path: "/projects/proj-1/companies/universe", name: "project-companies-universe" },
   { path: "/projects/proj-1/companies/shortlisted", name: "project-companies-shortlisted" },

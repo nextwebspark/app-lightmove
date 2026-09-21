@@ -54,8 +54,11 @@ public class Position extends BaseEntity {
     @Column(name = "department", length = 160)
     private String department;
 
-    @Column(name = "location", length = 120)
-    private String location;
+    @Column(name = "location_city", length = 120)
+    private String locationCity;
+
+    @Column(name = "location_country", length = 120)
+    private String locationCountry;
 
     @Enumerated(EnumType.STRING)
     @Column(name = "employment_type", length = 80)
@@ -129,7 +132,7 @@ public class Position extends BaseEntity {
     @Column(name = "base_salary_mode", nullable = false, length = 16)
     private BaseSalaryMode baseSalaryMode = BaseSalaryMode.ANNUAL;
 
-    @Column(name = "bonus_value", precision = 6, scale = 2)
+    @Column(name = "bonus_value", precision = 14, scale = 2)
     private BigDecimal bonusValue;
 
     @Enumerated(EnumType.STRING)
@@ -166,6 +169,10 @@ public class Position extends BaseEntity {
     @OrderColumn(name = "sort_order")
     private List<PositionCompetency> competencies = new ArrayList<>();
 
+    /** How much of the assessment the technical panel carries; the behavioural panel carries the rest. */
+    @Column(name = "technical_share", nullable = false)
+    private int technicalShare = 50;
+
     // Step 6 · Publication
 
     @Column(name = "published_at")
@@ -175,19 +182,20 @@ public class Position extends BaseEntity {
     private UUID publishedBy;
 
     /**
-     * A blank brief, opened at the client's home country. The location is a constructor argument
+     * A blank brief, opened at the client's home country. The country is a constructor argument
      * because a role template has never met the client, so applying one must leave it alone.
      */
-    public static Position forProject(UUID projectId, String location) {
+    public static Position forProject(UUID projectId, String country) {
         Position position = new Position();
         position.projectId = projectId;
-        position.location = location;
+        position.locationCountry = country;
         return position;
     }
 
     public void applyDetails(PositionDetails details) {
         this.department = details.department();
-        this.location = details.location();
+        this.locationCity = details.locationCity();
+        this.locationCountry = details.locationCountry();
         this.employmentType = details.employmentType();
         this.seniority = details.seniority();
         this.narrative = details.narrative();
@@ -248,8 +256,12 @@ public class Position extends BaseEntity {
         replace(this.criteria, newCriteria);
     }
 
-    public void replaceCompetencies(List<PositionCompetency> newCompetencies) {
+    /** A null share keeps the stored one: a write that names no split is not revising it. */
+    public void replaceCompetencies(List<PositionCompetency> newCompetencies, Integer technicalShare) {
         replace(this.competencies, newCompetencies);
+        if (technicalShare != null) {
+            this.technicalShare = technicalShare;
+        }
     }
 
     /**

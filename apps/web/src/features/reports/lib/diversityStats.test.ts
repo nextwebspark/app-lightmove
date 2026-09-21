@@ -7,6 +7,7 @@ import {
   feasibility,
   GCC_NATIONALS_FILTER,
   genderStats,
+  levelFilterOptions,
   nationalityFilterOptions,
 } from "./diversityStats";
 
@@ -64,6 +65,27 @@ describe("feasibility", () => {
 
     expect(fit.qualifying).toBe(0);
     expect(fit.scope).toBe(5);
+    // The level holds five people, so the zero is the requirement's answer and the row stays.
+    expect(fit.byLevel.find((l) => l.level === "Board")?.count).toBe(0);
+  });
+
+  it("leaves out a level nobody is mapped at, rather than listing it as none", () => {
+    const fit = feasibility(diversity, stats, { nationality: ALL_NATIONALITIES_FILTER, level: ALL_LEVELS_FILTER });
+
+    // Nobody is at N-3 on this mandate, so the checker does not draw it or offer it.
+    expect(fit.byLevel.map((l) => l.level)).toEqual(["Board", "C-Suite", "N-1", "N-2"]);
+    expect(levelFilterOptions(diversity, stats)).toEqual([ALL_LEVELS_FILTER, "Board", "C-Suite", "N-1", "N-2"]);
+  });
+
+  it("has no levels to list when nobody with a nationality carries one", () => {
+    const unplaced = { ...diversity, nationalities: diversity.nationalities.map((row) => ({ ...row, byLevel: [] })) };
+    const fit = feasibility(unplaced, diversityStats(unplaced), {
+      nationality: ALL_NATIONALITIES_FILTER,
+      level: ALL_LEVELS_FILTER,
+    });
+
+    expect(fit.byLevel).toEqual([]);
+    expect(fit.scope).toBe(0);
   });
 });
 

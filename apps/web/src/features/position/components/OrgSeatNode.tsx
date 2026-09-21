@@ -6,7 +6,7 @@ import { NODE_HEIGHT, NODE_WIDTH } from "../lib/orgChart";
 
 export interface OrgSeatData extends Record<string, unknown> {
   seat: OrgNode;
-  /** The mandate's own seat is drawn from step one's role title rather than holding its own. */
+  /** The mandate's own seat is drawn from the Role Brief's title rather than holding its own. */
   roleTitle: string;
   childCount: number;
   isRoot: boolean;
@@ -21,8 +21,8 @@ export interface OrgSeatData extends Record<string, unknown> {
  * One box on the canvas: a title, a name, and the handles that connect it.
  *
  * Edited in place rather than through a side panel — the whole point of the canvas is that the chart
- * is the form. The mandate's own seat shows the role title from step one and cannot be renamed here
- * or removed, because it is the mandate rather than a seat somebody drew.
+ * is the form. The mandate's own seat shows the role title from the Role Brief and cannot be renamed
+ * here or removed, because it is the mandate rather than a seat somebody drew.
  */
 export function OrgSeatNode({ data }: NodeProps<Node<OrgSeatData>>) {
   const { seat, roleTitle, childCount, isRoot, canRemove } = data;
@@ -32,18 +32,20 @@ export function OrgSeatNode({ data }: NodeProps<Node<OrgSeatData>>) {
     <div
       style={{ width: NODE_WIDTH, minHeight: NODE_HEIGHT }}
       className={cn(
-        "group relative rounded-lg border px-3 py-2 shadow-sm transition",
-        isMandate ? "border-sky bg-sky-dim" : "border-line bg-panel hover:border-text3",
+        "group relative rounded-[10px] border px-3.5 py-2.5 transition",
+        isMandate
+          ? "border-u-accent bg-u-accent-tint shadow-u-e1"
+          : "border-u-border bg-u-bg shadow-u-e1 hover:border-u-text3",
       )}
     >
-      <Handle type="target" position={Position.Top} className="!size-2 !border-line !bg-panel2" />
+      <Handle type="target" position={Position.Top} className="!size-2 !border-u-border-strong !bg-u-bg" />
 
       {isMandate ? (
         <>
-          <span className="block truncate text-[13px] font-semibold text-sky">
+          <span className="block truncate text-[13.5px] font-semibold text-u-accent">
             {roleTitle.trim() || "Untitled role"}
           </span>
-          <span className="mt-px block font-mono text-[10.5px] uppercase tracking-[0.06em] text-text3">
+          <span className="mt-1 inline-block rounded-[4px] bg-u-accent-solid px-1.5 py-0.5 text-[8.5px] font-bold uppercase tracking-[0.08em] text-white">
             This position
           </span>
         </>
@@ -54,14 +56,14 @@ export function OrgSeatNode({ data }: NodeProps<Node<OrgSeatData>>) {
             aria-label="Seat title"
             placeholder="Title"
             onChange={(event) => data.onPatch(seat.nodeId, { title: event.target.value || null })}
-            className="w-full bg-transparent text-[13px] font-semibold text-text outline-none placeholder:font-normal placeholder:text-text3"
+            className="w-full bg-transparent text-[13.5px] font-semibold text-u-text outline-none placeholder:font-normal placeholder:text-u-text3"
           />
           <input
             value={seat.name ?? ""}
             aria-label="Seat holder name"
             placeholder="Name"
             onChange={(event) => data.onPatch(seat.nodeId, { name: event.target.value || null })}
-            className="w-full bg-transparent font-mono text-[11px] text-text3 outline-none placeholder:text-text3/60"
+            className="w-full bg-transparent text-[12px] text-u-text2 outline-none placeholder:text-u-text3/70"
           />
         </>
       )}
@@ -81,7 +83,7 @@ export function OrgSeatNode({ data }: NodeProps<Node<OrgSeatData>>) {
           <SeatActionButton
             label="Remove this seat"
             icon={ICONS.close}
-            tone="red"
+            tone="offlimits"
             onClick={() => data.onRemove(seat.nodeId)}
           />
         )}
@@ -104,7 +106,7 @@ export function OrgSeatNode({ data }: NodeProps<Node<OrgSeatData>>) {
         </span>
       )}
 
-      <Handle type="source" position={Position.Bottom} className="!size-2 !border-line !bg-panel2" />
+      <Handle type="source" position={Position.Bottom} className="!size-2 !border-u-border-strong !bg-u-bg" />
     </div>
   );
 }
@@ -113,12 +115,12 @@ export function OrgSeatNode({ data }: NodeProps<Node<OrgSeatData>>) {
 function SeatActionButton({
   label,
   icon,
-  tone = "sky",
+  tone = "accent",
   onClick,
 }: {
   label: string;
   icon: string;
-  tone?: "sky" | "red";
+  tone?: "accent" | "offlimits";
   onClick: () => void;
 }) {
   return (
@@ -128,10 +130,10 @@ function SeatActionButton({
       title={label}
       onClick={onClick}
       className={cn(
-        "grid size-5 place-items-center rounded-full border bg-panel transition",
-        tone === "red"
-          ? "border-line text-text3 hover:border-red hover:text-red"
-          : "border-line text-text3 hover:border-sky hover:text-sky",
+        "grid size-5 place-items-center rounded-full border bg-u-bg text-u-text3 transition",
+        tone === "offlimits"
+          ? "border-u-border hover:border-u-offlimits hover:text-u-offlimits"
+          : "border-u-border hover:border-u-accent hover:text-u-accent",
       )}
     >
       <Icon d={icon} size={11} />

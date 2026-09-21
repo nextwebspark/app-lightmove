@@ -59,6 +59,41 @@ class SpreadsheetReaderTest {
     }
 
     @Test
+    @DisplayName("drops the apostrophe a spreadsheet writes in front of a cell it kept out of the formula parser")
+    void stripsTheFormulaGuard() {
+        // Excel writes one on "Save as CSV", and so does our own exporter — a phone that left as
+        // "+966 50 123 4567" must not come back with an apostrophe welded to the front of it.
+        ParsedSheet sheet = reader.read(csv("""
+                Company,Phone,Note
+                ACWA Power,'+966 50 123 4567,'=HYPERLINK("http://x")
+                """));
+
+        assertThat(sheet.rows().getFirst())
+                .containsExactly("ACWA Power", "+966 50 123 4567", "=HYPERLINK(\"http://x\")");
+    }
+
+    @Test
+    @DisplayName("undoes the guard on a leading tab too, which is how the naive check is bypassed")
+    void stripsTheFormulaGuardAheadOfWhitespace() {
+        // Our exporter guards a leading tab or CR as well as =+-@, so the reader has to undo the
+        // same set or a cell that left as "\tfoo" comes back with an apostrophe welded on.
+        ParsedSheet sheet = reader.read(csv("Company,Note\nACWA Power,\"'\t=1+1\"\n"));
+
+        assertThat(sheet.rows().getFirst()).containsExactly("ACWA Power", "\t=1+1");
+    }
+
+    @Test
+    @DisplayName("leaves an apostrophe that is somebody's data alone")
+    void keepsAnOrdinaryApostrophe() {
+        ParsedSheet sheet = reader.read(csv("""
+                Company,Name
+                'Round Midnight Ltd,O'Brien
+                """));
+
+        assertThat(sheet.rows().getFirst()).containsExactly("'Round Midnight Ltd", "O'Brien");
+    }
+
+    @Test
     @DisplayName("sniffs a semicolon delimiter rather than reading the file as one wide column")
     void sniffsSemicolonDelimiter() {
         // What Excel's "Save as CSV" produces in every locale with a decimal comma.
@@ -246,6 +281,6 @@ class SpreadsheetReaderTest {
         return new LightMoveProperties(null, null, null, null, null, null, null, null, null,
                 new SpreadsheetImportSettings(10_485_760L, maxRows, false,
                         List.of("text/csv", "text/plain",
-                                "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")), null, null, null);
+                                "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")), null, null, null, null, null);
     }
 }

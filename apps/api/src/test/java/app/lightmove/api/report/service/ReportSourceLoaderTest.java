@@ -19,6 +19,7 @@ import app.lightmove.api.project.repository.ProjectRepository;
 import app.lightmove.api.report.model.ReportSources;
 import app.lightmove.api.triagecompany.constant.TriageCompanyStatus;
 import app.lightmove.api.triagecompany.dto.TriageCompaniesResponse;
+import app.lightmove.api.triagecompany.model.TriageCompanyFilters;
 import app.lightmove.api.triagecompany.dto.TriageCompanyResponse;
 import app.lightmove.api.triagecompany.service.TriageCompanyService;
 import java.util.List;
@@ -71,7 +72,8 @@ class ReportSourceLoaderTest {
         assertThat(sources.universe()).hasSize(2);
         assertThat(sources.universeTotal()).isEqualTo(13);
         assertThat(sources.isTruncated()).isTrue();
-        verify(triage).listAllOfStage(WORKSPACE, PROJECT, TriageCompanyStatus.IN_UNIVERSE, 1);
+        verify(triage).listAllOfStage(WORKSPACE, PROJECT, TriageCompanyStatus.IN_UNIVERSE,
+                TriageCompanyFilters.none(), 1);
     }
 
     @Test
@@ -104,7 +106,7 @@ class ReportSourceLoaderTest {
     }
 
     private void stage(TriageCompanyStatus status, int askedCap, List<TriageCompanyResponse> answered, long total) {
-        when(triage.listAllOfStage(WORKSPACE, PROJECT, status, askedCap))
+        when(triage.listAllOfStage(WORKSPACE, PROJECT, status, TriageCompanyFilters.none(), askedCap))
                 .thenReturn(new TriageCompaniesResponse(answered, total, 0, askedCap, null));
     }
 

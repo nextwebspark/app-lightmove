@@ -8,27 +8,37 @@ import type {
 } from "../api/types";
 
 /**
- * Every enum the Position screen renders, spelled the way Position.dc.html spells it. One place, so
- * a step's select, the summary rail and the review cards can never disagree about a value's name.
+ * Every enum the Position screen renders, spelled the way the brief's mockups spell it. One place, so
+ * a step's chips, the rail and the review cards can never disagree about a value's name.
  */
 
 export const EMPLOYMENT_TYPE_LABELS: Record<EmploymentType, string> = {
-  FULL_TIME_PERMANENT: "Full-time, permanent",
-  FIXED_TERM_CONTRACT: "Full-time, fixed-term",
+  FULL_TIME_PERMANENT: "Full-time",
   PART_TIME: "Part-time",
-  INTERIM: "Interim / contract",
+  FIXED_TERM_CONTRACT: "Contract",
+  TEMPORARY: "Temporary",
+  INTERIM: "Interim",
   RETAINED_ADVISORY: "Advisory",
 };
+
+/** The five the Role Brief offers, in its order; a stored `RETAINED_ADVISORY` is shown as recorded. */
+export const OFFERED_EMPLOYMENT_TYPES: readonly EmploymentType[] = [
+  "FULL_TIME_PERMANENT",
+  "PART_TIME",
+  "FIXED_TERM_CONTRACT",
+  "TEMPORARY",
+  "INTERIM",
+];
 
 // Seniority is not this screen's to define: a brief and a candidate are written in one ladder.
 export { SENIORITY_LABELS } from "../../../lib/seniority";
 
 export const MANDATE_REASON_LABELS: Record<MandateReason, string> = {
-  NEW_ROLE: "New role",
-  BACKFILL: "Backfill",
-  RESTRUCTURING: "Restructure",
   SUCCESSION: "Succession plan",
-  GROWTH_EXPANSION: "Growth / expansion",
+  NEW_ROLE: "New position",
+  BACKFILL: "Replacement",
+  GROWTH_EXPANSION: "Growth",
+  RESTRUCTURING: "Restructure",
 };
 
 export const BASE_SALARY_MODE_LABELS: Record<BaseSalaryMode, string> = {
@@ -37,17 +47,24 @@ export const BASE_SALARY_MODE_LABELS: Record<BaseSalaryMode, string> = {
 };
 
 export const BONUS_BASIS_LABELS: Record<BonusBasis, string> = {
-  PERCENT_OF_BASE: "% of base salary",
+  PERCENT_OF_BASE: "% of base",
+  FIXED_AMOUNT: "Fixed amount",
   PERCENT_OF_TOTAL_FIXED: "% of total fixed",
-  MONTHS_OF_BASE: "Months of base salary",
+  MONTHS_OF_BASE: "Months of base",
 };
 
+/** The two the Compensation step offers; the other two bases are shown only where already stored. */
+export const OFFERED_BONUS_BASES: readonly BonusBasis[] = ["PERCENT_OF_BASE", "FIXED_AMOUNT"];
+
 export const INCENTIVE_TYPE_LABELS: Record<IncentiveType, string> = {
-  LTIP_CASH: "LTIP cash",
+  OPTIONS: "Stock Options",
   RSU: "RSUs",
-  OPTIONS: "Options",
+  LTIP_CASH: "Cash",
   PHANTOM_EQUITY: "Phantom equity",
 };
+
+/** The three the Compensation step offers beside None; phantom equity is shown only where stored. */
+export const OFFERED_INCENTIVE_TYPES: readonly IncentiveType[] = ["OPTIONS", "RSU", "LTIP_CASH"];
 
 export const BENEFIT_FREQUENCY_LABELS: Record<BenefitFrequency, string> = {
   MONTHLY: "Monthly",

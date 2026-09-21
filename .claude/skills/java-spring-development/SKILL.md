@@ -227,6 +227,10 @@ geocoding/                 # a city+country pair becomes a point, once — globa
 talentmap/                 # composes triagecompany + candidate + geocoding into one read; owns nothing
   dto/(TalentMapResponse, MapLocationDto, TalentMapConfigResponse)  service/(TalentMapService)  controller/
 
+dataexport/                # the Companies grid as a CSV — composes the same seams; owns nothing
+  constant/(ExportColumn)  model/(ExportRow)
+  service/(CompaniesCsvWriter, ProjectExportService)  controller/(ProjectExportController)
+
 report/                    # the mandate's talent mapping report — four chapters over one read; owns nothing
   model/(ReportSources, ExecutiveRow, ReportCalendar)
   dto/(ReportResponse + one record per chapter and per row of it)
@@ -328,6 +332,15 @@ method plus the records it returns — never another feature's internals:
   itself, so `triagecompany` still never learns that people exist. `GeocodingService.resolve` is
   the third seam, taking bare city/country pairs — which company or person asked never reaches
   `geocoding` or the vendor.
+- `dataexport` reads through the same two, plus `CustomColumnService.list`, and pairs them into grid
+  rows the same way — the mirror of `dataimport`, which writes through those features rather than
+  reading. `listAllOfStage` takes a `TriageCompanyFilters` for it, so an export carries what the
+  grid's three header filters narrowed it to; the two executive ones are applied again when pairing,
+  because the query's are company-level and a kept company would otherwise draw every colleague of
+  the one person who matched — the same double application `TriageStagePage` does. Its controller is the one **read** in the codebase that records an audit
+  event: a whole mandate leaving as a file is not the same act as reading a page of it, and
+  `WORK_VIEW` means a client representative can do it.
+
 - `report` reads through the same two seams as `talentmap` (`listAllOfStage` for the universe and
   the shortlist, `listAllOfProject` for every executive), `PositionService.compensationOf` for the brief's band
   (never `get`, which drafts and saves a brief — a read-only client seat can open the report),

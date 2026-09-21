@@ -26,5 +26,7 @@ public record LightMoveProperties(
         SpreadsheetImportSettings spreadsheetImport,
         MapboxSettings mapbox,
         TalentMapSettings talentMap,
-        ReportSettings report
+        ExportSettings export,
+        ReportSettings report,
+        AssistantSettings assistant
 ) {}

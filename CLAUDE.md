@@ -58,9 +58,18 @@ nothing itself — it builds the same requests the Companies drawer posts and ha
 `triagecompany` and `candidate`, so every scope check, duplicate rule and audit event stays where it
 already lives. **An imported row is never resolved against the market and never researched** — a file
 states its own figures and arrives a thousand rows at once, so the two things a one-at-a-time capture
-affords are exactly the two it cannot. The In-universe page also reads as a **map**: a Table | Map
-toggle on its toolbar (offered only where a Mapbox public token is configured) swaps the grid for a
-mapping panel (country → company → executives) beside a Mapbox globe, with a pin per company and
+affords are exactly the two it cannot.
+A stage also leaves as a file: **Export** on the Companies toolbar downloads the whole stage —
+every row, not the page on screen, narrowed by whichever of the grid's three header filters are in
+force, rows as well as companies, so the file is what the screen was showing — carrying every
+column the grid draws and every custom column the mandate added, with the two Links icons spelled
+out as Website and Company LinkedIn. It is `WORK_VIEW`, the gate that reads the grid, so a client
+representative may take the mandate they can already read; unlike every other read it records an
+audit event, because a mandate leaving as a file is not the same act as reading a page of it. Past
+`lightmove.export.*` it refuses rather than truncating.
+The In-universe page also reads as a **map**: a Table | Map toggle on its toolbar (offered only
+where a Mapbox public token is configured) swaps the grid for a mapping panel (country → company →
+executives) beside a Mapbox globe, with a pin per company and
 per executive and the same two drawers opened from a pin's popup or a panel row. Nothing carries a
 coordinate, so `geocoding` resolves each distinct city + country once through Mapbox and keeps it in
 `app_lm_geocoded_place`; `talentmap` composes the stage's companies, people and points into one
@@ -93,11 +102,13 @@ market chapter's hubs carry a point from `geocoding` — asked only for the hand
 — so it draws a small map beside the bars where a Mapbox token is configured, and the bars alone
 where none is. The standalone
 Candidates screen, and the pipeline and outreach tables, don't exist yet. The **Position**
-screen is the mandate's brief, edited as a six-step wizard (details, mandate context, reporting,
-compensation, assessment, review) that autosaves one step at a time. It opens drafted rather than
+screen is the mandate's brief, drawn from `claude-design/position/*.png` (issue #442) in the UNCAVA
+palette like Reports — the second screen on that seam — as five steps behind a rail (Role Brief,
+Reporting, Compensation, Assessment Criteria, Review & Publish), the step kept in the URL (`?step=`)
+and each section autosaving through its own write. It opens drafted rather than
 blank: a **role-template library** of seventeen briefs (twelve C-suite, four functional heads, one
-generic fallback) lives in the database, matched against the mandate's role title at creation. Step
-one's **Role title is a combobox**: free text — a mandate is titled "Group CFO – Energy Division" as
+generic fallback) lives in the database, matched against the mandate's role title at creation. The
+Role Brief's **Role title is a combobox**: free text — a mandate is titled "Group CFO – Energy Division" as
 often as it is titled "Chief Financial Officer" — that type-aheads the seventeen titles, and picking
 one takes that title and redrafts the brief from its template (`GET /position-templates` +
 `POST .../position/template`). Templates are edited in Settings (V57/V58; **Settings → Templates** for a
@@ -106,17 +117,33 @@ firm's admin, **Settings → Template library** for a super admin): a LightMove 
 workspace admin customises, hides, adds, exports and imports the firm's own. A firm's copy **shadows**
 the library template of the same `code`, so a library edit reaches every firm that never customised
 it; neither ever touches a brief already drafted. The file format is JSON with a published schema, so
-a template can be written outside the app, AI included, and previewed before anything is written. Step three is an editable
-React Flow org chart — add, rename, re-parent and drag any seat; only the role's own seat is fixed.
-Step one attaches the position
-description and can read it on request — **Read from document** proposes step-one fields (value,
-confidence, source snippet) reviewed and accepted one at a time through the same autosave the fields
-already have; nothing is written until a row is accepted, and a run with no Vertex credentials still
-proposes from the document's own headings, honestly labelled. `Position.dc.html`'s dropzone promises a
-**silent** auto-fill on drop — review-then-accept is a deliberate, correct deviation from that mockup,
-not a bug to fix later. **The product is Uncava**: the mark is the rhombus over an isometric cube
-in `claude-design/logo` (`favicon.svg`, the extension's `BrandMark` and its icons are drawn from that
-geometry) and every user-facing string says Uncava, while the mockups still draw the
+a template can be written outside the app, AI included, and previewed before anything is written.
+The Role Brief's location is two halves (V66: `location_city` and `location_country`, the country
+settled by the same catalog every other country box reads), its target start is the project's own
+date written through `PATCH /projects/{id}`, and its notice period is the reporting section's —
+one screen over four writes. Reporting is an editable React Flow org chart — add, rename, re-parent
+and drag any seat; only the role's own seat is fixed — and its team size is the seat's children,
+counted rather than typed. Compensation states a bonus as a share of base or a **fixed amount**
+(`BonusBasis.FIXED_AMOUNT`, V66 widened `bonus_value` to hold money), and the assessment carries a
+**technical share** (V66 `technical_share`; the behavioural panel takes the rest) beside its two
+weighted panels. The Role Brief attaches the position description and keeps it with the mandate;
+**nothing reads it yet** — the five `…/position/document/extract/*` routes exist server-side and
+have no caller in the SPA, the review-then-accept panel having gone with the old wizard — and epic
+#393 brings the silent fill (fill on attach, provenance markers, undo) to this screen.
+`Position.dc.html` is superseded and kept as a record. Publishing stays ungated: the review's
+checklist reports, it does not gate. A published brief then **reads back** rather than locking —
+the rail offers **Edit position** in place of Publish and no draft to save, and the review's sections
+drop their "Edit section" link. **Publishing the changes is the way back out**, closing the review
+up again. Opening any step but the review is the same statement as pressing Edit position, because
+those screens are live fields; nothing is frozen server-side (V38). Every step's foot walks the
+brief — the step before on one side, the step after on the other — and the review, having no step
+after it, offers **Move to Strategy** there once published, the mandate's market being what is left
+to do. Nothing in that row is filled: the brief's two acts are the rail's, on every step, and the
+mockup's third copy of the pair at the review's top right is deliberately not drawn. **The product is Uncava**: the mark is the rhombus over an isometric cube
+in `apps/web/public/brand` (`favicon.svg`, the SPA's `AppIcon`, the extension's `BrandMark` and icons,
+and the email's `uncava-mark-email-v1.png` are drawn from that one geometry) and every user-facing
+string says Uncava,
+while the mockups still draw the
 amber "L" tile and the code, packages, persisted keys and JWT issuer keep the `lightmove` name — a
 deliberate split, not drift. It is served at `https://beta.uncava.com` (Cloud Run domain mapping,
 Cloudflare DNS with the proxy off; README, "Custom domain"), and a link to it pasted into a chat app
@@ -129,7 +156,7 @@ the mockups: if a screen isn't being built this session, its tables and entities
 
 | Path | What |
 |---|---|
-| `apps/api` | Spring Boot 4.1 (Java 21, Maven). Features: `core`, `common`, `workspace`, `project`, `position`, `positiontemplate`, `strategy`, `triagecompany`, `candidate`, `enrichment`, `customcolumn`, `dataimport`, `geocoding`, `talentmap`, `report` |
+| `apps/api` | Spring Boot 4.1 (Java 21, Maven). Features: `core`, `common`, `workspace`, `project`, `position`, `positiontemplate`, `strategy`, `triagecompany`, `candidate`, `enrichment`, `customcolumn`, `dataimport`, `dataexport`, `geocoding`, `talentmap`, `report` |
 | `apps/web` | React 19 SPA (Vite 8, TypeScript, Tailwind v4) |
 | `apps/extension` | LightMove Capture — the Chrome extension (Manifest V3, React 19, Vite 8). Its own workspace; shares no code with `apps/web`. |
 | `claude-design/` | HTML mockups — **the source of truth for all UI**. Read the relevant `*.dc.html` before building a screen. |
@@ -165,8 +192,10 @@ method (`applyTo`) that decides what a row may store in them, since the bag is o
 stands between it and arbitrary caller-chosen keys. `triagecompany` and `candidate` depend on it; it
 depends on neither and knows nothing about companies or people. **`dataimport` is the spreadsheet** —
 read the file, work out what its columns mean, and write what it carries through the doors that
-already exist. It depends on those three and none of them depends back. Details in
-`java-spring-development`.
+already exist. It depends on those three and none of them depends back. **`dataexport` is the same
+three doors outward** — one stage of the Companies grid, composed and written as a CSV, reading
+through the seams `talentmap` already uses; it depends on the same three and on nothing else. Details
+in `java-spring-development`.
 
 ## Commands
 
@@ -246,7 +275,11 @@ left in place rather than dropped. A mandate's whole filter is one `jsonb` colum
 removing a company from a mandate unmaps its executives rather than deleting them; career history and
 languages are one `profile` jsonb column for V30's reasons. `app_lm_position` and its six owned-list
 tables are the brief (V7, grown by V39): every list a step edits is a child table replaced wholesale by
-its step's write, so the aggregate keeps one idiom rather than mixing rows and jsonb.
+its step's write, so the aggregate keeps one idiom rather than mixing rows and jsonb. V66 splits its
+`location` into `location_city` + `location_country` (backfilled from the one line; a comma-less value
+counts as a country only where a dedicated country column already holds that spelling), widens
+`bonus_value` to `numeric(14, 2)` for a fixed-amount bonus, and adds `technical_share` — seeded at 50
+and written explicitly from there (V40's idiom).
 `app_lm_position_org_node` is the org chart — a tree of seats with exactly one flagged
 `mandate_seat`, so "reports to" is that seat's parent and "direct reports" are its children, both
 derived rather than stored twice.
@@ -275,6 +308,37 @@ number three ways. A miss is not a row — it is `emails_looked_up_at` / `phones
 candidate with nothing from the provider beside it. V54 moved the old `profile.contacts` jsonb into
 the table and V55 dropped the row's `email` and `phone` columns: the ledger is the only store, the
 importer matches a person on any address they hold, and the grid lists them all.
+V61 is the industry catch-up, V50's shape for a second column: the universe publishes LinkedIn's
+**legacy V1** vocabulary and Bright Data answers in **V2**, so `industry` held both until `Industries`
+(`common/industry`, static for `Countries`' reason) began canonicalising in `CapturedCompanyDetails`'
+compact constructor. `data/industry-map.json` is keyed on LinkedIn's industry id — V2 renamed V1's
+industries in place at the same ids, which is what makes the map derivable rather than guessed — and
+`ops/industry-map/build.py` rebuilds it (`--check` in CI would catch a hand edit). Its one trap is id
+25: V2 gave it to the `Manufacturing` root where V1 had it as `Consumer Goods`.
+`app_lm_industry` and `app_lm_industry_v2` (V62) are that file as data — 148 labels with their V2 name
+and sector group, and 434 V2 industries each resolved to the universe label covering it, which is what
+a V2 selection expands from. Emitted by the same script (`--sql`), **not** tenant-scoped for V49's
+reason, and never read at runtime: the JSON stays the authority because `Industries` is static, so
+`IndustryVocabularyIntegrationTest` asserts the table answers as the resolver does for all 434.
+V63 puts `industry_v2_code`, `industry_v2_label` and `sector_group` beside `industry` on the triage and
+off-limits rows, so the report can group without a query per company. All four come from one
+`Industries.resolve` call through one method per table (`TriageCompany.fileUnder`,
+`StrategyCompanyRef.of`, `TriageCompanyWriter.rowPlaceholders`) — **that single writer is the whole
+guarantee they agree**, and a label nobody can resolve keeps itself and leaves the other three null.
+`app_lm_vendor_company` (V64) is the vendor company cache — named well clear of `app_lm_companies`
+above, because two live company tables one letter apart is a typo nobody catches. One row per
+LinkedIn slug ever researched, holding what a provider said about that page — its own V2 industry leaf (the one place in the schema where
+`industry_v2_*` is finer data rather than V1 renamed), the V1 label and sector group `Industries`
+resolves it to, its specialties as lower-cased `keywords`, and the raw payload, which is what makes a
+row re-mappable when the industry map improves instead of re-billed. `found = false` is a stored miss,
+for V49's reason. **Vendor-sourced only, and that is a tenant boundary** — a hand-typed or spreadsheet
+row is one firm's own research and stays in `app_lm_project_triage_company`; this table carries no
+`workspace_id`, `project_id` or `added_by`, and who captured a company is in the audit trail.
+`CompanyResearch` reads it before calling the vendor and writes it after, so
+`TriageCompanyService.applyEnrichment` is unchanged: a cache hit fills the same `CapturedCompanyDetails`
+a fresh call would. A row is re-asked after `lightmove.enrichment.company-cache-ttl`, and a LinkedIn
+*search* URL never reaches the table — `LinkedInUrls.companySlugOrNull` answers null and there is
+nothing to key it on.
 V56 adds `app_lm_project_candidate.gender` (`FEMALE | MALE | OTHER`), nullable with no default:
 NULL is "nobody recorded it" and is deliberately not a fourth value, because "not recorded" and
 "recorded as other" are different facts and the report counts them apart.

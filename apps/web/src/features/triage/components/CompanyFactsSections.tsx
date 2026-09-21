@@ -1,4 +1,5 @@
 import { DetailGrid, DetailTile, DrawerSection } from "../../../components/ui/DetailList";
+import { ExpandableText } from "../../../components/ui/ExpandableText";
 import { formatMoney } from "../../../lib/format";
 
 /**
@@ -36,9 +37,7 @@ export function CompanyFactsSections({
   return (
     <>
       <DrawerSection title="About">
-        <p className="text-[13px]/[1.6] text-text2">
-          {company.shortDescription ?? emptyDescription}
-        </p>
+        <ExpandableText text={company.shortDescription ?? emptyDescription} />
       </DrawerSection>
 
       <DrawerSection title="Scale snapshot">

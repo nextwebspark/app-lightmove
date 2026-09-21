@@ -14,6 +14,7 @@ import {
   ALL_NATIONALITIES_FILTER,
   diversityStats,
   feasibility,
+  type Feasibility,
   genderStats,
   GCC_NATIONALS_FILTER,
   levelFilterOptions,
@@ -24,14 +25,12 @@ import { memberOf } from "../lib/nationalityWording";
 import { useCountUp } from "../lib/useCountUp";
 
 /** Who is in the mapped pool, by nationality and by gender where one was recorded. */
-export function DiversitySection({ eyebrow, diversity }: { eyebrow: string; diversity: ReportDiversity }) {
+export function DiversitySection({ diversity }: { diversity: ReportDiversity }) {
   const [nationality, setNationality] = useState(ALL_NATIONALITIES_FILTER);
   const [level, setLevel] = useState(ALL_LEVELS_FILTER);
   const stats = diversityStats(diversity);
   const gender = genderStats(diversity);
   const fit = feasibility(diversity, stats, { nationality, level });
-  const qualifying = useCountUp(fit.qualifying);
-  const share = useCountUp(percent(fit.qualifying, fit.scope));
   const requirement =
     nationality === GCC_NATIONALS_FILTER
       ? "a GCC national"
@@ -39,10 +38,11 @@ export function DiversitySection({ eyebrow, diversity }: { eyebrow: string; dive
         ? "any nationality"
         : memberOf(nationality);
   const levelLabel = level === ALL_LEVELS_FILTER ? "any level" : level;
+  // Nothing to check a requirement against: the card states the gap rather than measuring zero of zero.
+  const nothingRecorded = stats.total === 0;
 
   return (
     <ReportSection
-      eyebrow={eyebrow}
       question="What does the mapped talent pool actually look like?"
       findingLabel="At these settings"
       finding={
@@ -122,9 +122,13 @@ export function DiversitySection({ eyebrow, diversity }: { eyebrow: string; dive
         <KpiTile
           tone="positive"
           label="GCC nationals, overall"
-          value={stats.gccPct}
-          unit="%"
-          sub={`${diversity.gccNationals} of ${stats.total} with a nationality on file`}
+          value={nothingRecorded ? "—" : stats.gccPct}
+          unit={nothingRecorded ? undefined : "%"}
+          sub={
+            nothingRecorded
+              ? "no nationality recorded yet"
+              : `${diversity.gccNationals} of ${stats.total} with a nationality on file`
+          }
         />
       </KpiTileRow>
 
@@ -132,62 +136,72 @@ export function DiversitySection({ eyebrow, diversity }: { eyebrow: string; dive
         title="Nationality feasibility checker"
         caption="how many mapped executives qualify against a nationality requirement"
         action={
-          <>
-            <ReportSelect aria-label="Nationality requirement" value={nationality} onChange={(e) => setNationality(e.target.value)}>
-              {nationalityFilterOptions(diversity).map((n) => (
-                <option key={n} value={n}>
-                  {n}
-                </option>
-              ))}
-            </ReportSelect>
-            <ReportSelect aria-label="Seniority level" value={level} onChange={(e) => setLevel(e.target.value)}>
-              {levelFilterOptions(diversity).map((l) => (
-                <option key={l} value={l}>
-                  {l}
-                </option>
-              ))}
-            </ReportSelect>
-          </>
+          nothingRecorded ? undefined : (
+            <>
+              <ReportSelect aria-label="Nationality requirement" value={nationality} onChange={(e) => setNationality(e.target.value)}>
+                {nationalityFilterOptions(diversity).map((n) => (
+                  <option key={n} value={n}>
+                    {n}
+                  </option>
+                ))}
+              </ReportSelect>
+              <ReportSelect aria-label="Seniority level" value={level} onChange={(e) => setLevel(e.target.value)}>
+                {levelFilterOptions(diversity, stats).map((l) => (
+                  <option key={l} value={l}>
+                    {l}
+                  </option>
+                ))}
+              </ReportSelect>
+            </>
+          )
         }
         note={
-          <>
-            A client requiring <b>{requirement}</b> at {levelLabel} can realistically draw from <b>{fit.qualifying}</b> of
-            the {fit.scope} executives mapped in that scope.
-          </>
+          nothingRecorded ? (
+            <>
+              A requirement can only be checked against nationalities somebody recorded. Record them on
+              the executives already mapped and this answers a client's question directly.
+            </>
+          ) : (
+            <>
+              A client requiring <b>{requirement}</b> at {levelLabel} can realistically draw from <b>{fit.qualifying}</b> of
+              the {fit.scope} executives mapped in that scope.
+            </>
+          )
         }
       >
-        <KpiTileRow columns={2} className="mt-3.5">
-          <KpiTile
-            tone="lead"
-            label="Qualifying executives"
-            value={Math.round(qualifying)}
-            unit={`/${fit.scope}`}
-            sub={`${nationality} · ${level === ALL_LEVELS_FILTER ? "all levels" : level}`}
-          />
-          <KpiTile
-            label="Share of this scope"
-            value={Math.round(share)}
-            unit="%"
-            sub={`of ${level === ALL_LEVELS_FILTER ? "everyone with a level on file" : `${level} executives`}`}
-          />
-        </KpiTileRow>
-        <div className="mb-3 mt-5 text-xs text-u-text3">
-          {nationality} — where they sit by level · one square per executive
-        </div>
-        <NationalityDots feasibility={fit} />
+        {nothingRecorded ? (
+          <ChartEmpty>Nobody on this mandate has a nationality recorded.</ChartEmpty>
+        ) : (
+          <FeasibilityBody fit={fit} nationality={nationality} level={level} />
+        )}
       </ReportCard>
 
       <ReportCard
         title="Nationality mix"
-        caption={`full breakdown, n=${stats.total} with a nationality on file`}
+        caption={
+          nothingRecorded
+            ? "no nationality recorded on this mandate yet"
+            : `full breakdown, n=${stats.total} with a nationality on file`
+        }
         note={
-          <>
-            GCC nationals are {diversity.gccNationals} of {stats.total} ({stats.gccPct}%) — the figure a localisation
-            quota is measured against, not the lens this view leads with.
-          </>
+          nothingRecorded ? (
+            <>
+              Nationality is recorded on an executive's profile, so this ring stays empty until
+              somebody records one. Set it in the Background section of a profile and this fills in.
+            </>
+          ) : (
+            <>
+              GCC nationals are {diversity.gccNationals} of {stats.total} ({stats.gccPct}%) — the figure a localisation
+              quota is measured against, not the lens this view leads with.
+            </>
+          )
         }
       >
-        <NationalityDonut rows={diversity.nationalities} total={stats.total} largest={stats.largest} />
+        {nothingRecorded ? (
+          <ChartEmpty>Nobody on this mandate has a nationality recorded.</ChartEmpty>
+        ) : (
+          <NationalityDonut rows={diversity.nationalities} total={stats.total} largest={stats.largest} />
+        )}
       </ReportCard>
 
       <ReportCard
@@ -231,5 +245,42 @@ export function DiversitySection({ eyebrow, diversity }: { eyebrow: string; dive
         sector and seniority. Comparing across mandates is a later piece of work.
       </LockedBenchmarkCard>
     </ReportSection>
+  );
+}
+
+/** The checker's figures and squares. Its own component so the counters only run when it is drawn. */
+function FeasibilityBody({ fit, nationality, level }: { fit: Feasibility; nationality: string; level: string }) {
+  const qualifying = useCountUp(fit.qualifying);
+  const share = useCountUp(percent(fit.qualifying, fit.scope));
+  const scopeLabel = level === ALL_LEVELS_FILTER ? "all levels" : level;
+
+  return (
+    <>
+      <KpiTileRow columns={2} className="mt-3.5">
+        <KpiTile
+          tone="lead"
+          label="Qualifying executives"
+          value={Math.round(qualifying)}
+          unit={`/${fit.scope}`}
+          sub={`${nationality} · ${scopeLabel}`}
+        />
+        <KpiTile
+          label="Share of this scope"
+          value={Math.round(share)}
+          unit="%"
+          sub={`of ${level === ALL_LEVELS_FILTER ? "everyone with a level on file" : `${level} executives`}`}
+        />
+      </KpiTileRow>
+      {fit.byLevel.length === 0 ? (
+        <ChartEmpty>No executive with a nationality on file has a seniority level yet.</ChartEmpty>
+      ) : (
+        <>
+          <div className="mb-3 mt-5 text-xs text-u-text3">
+            {nationality} — where they sit by level · one square per executive
+          </div>
+          <NationalityDots feasibility={fit} />
+        </>
+      )}
+    </>
   );
 }

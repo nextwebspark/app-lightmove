@@ -19,6 +19,7 @@ export function FileDropzone({
   title,
   hint,
   disabled = false,
+  variant = "default",
   onFile,
 }: {
   /** The input's `accept` list. A filter in the picker, never a check — the server decides. */
@@ -28,8 +29,11 @@ export function FileDropzone({
   title: ReactNode;
   hint: ReactNode;
   disabled?: boolean;
+  /** `uncava` draws the zone on the brief's ground, in its accent. */
+  variant?: "default" | "uncava";
   onFile: (file: File) => void;
 }) {
+  const skin = DROPZONE_SKINS[variant];
   const input = useRef<HTMLInputElement>(null);
   const [dragging, setDragging] = useState(false);
 
@@ -66,18 +70,37 @@ export function FileDropzone({
           setDragging(false);
           if (!disabled) take(event.dataTransfer.files);
         }}
-        className={`flex min-h-[140px] w-full flex-col items-center justify-center gap-3 rounded-xl border-[1.5px] border-dashed bg-panel2 p-6 text-center transition disabled:opacity-50 ${
-          dragging ? "border-sky brightness-105" : "border-sky/70 hover:brightness-105"
-        }`}
+        className={`flex min-h-[140px] w-full flex-col items-center justify-center gap-3 rounded-xl border-[1.5px] border-dashed p-6 text-center transition disabled:opacity-50 ${
+          skin.zone
+        } ${dragging ? skin.dragging : skin.idle}`}
       >
-        <span className="grid size-10 flex-none place-items-center rounded-full bg-sky-dim text-sky">
+        <span className={`grid size-10 flex-none place-items-center rounded-full ${skin.badge}`}>
           <Icon d={ICONS.uploadCloud} size={20} />
         </span>
         <span className="flex flex-col gap-1">
-          <span className="text-[15px] font-semibold text-sky">{title}</span>
-          <span className="text-xs text-text3">{hint}</span>
+          <span className={`text-[15px] font-semibold ${skin.title}`}>{title}</span>
+          <span className={`text-xs ${skin.hint}`}>{hint}</span>
         </span>
       </button>
     </>
   );
 }
+
+const DROPZONE_SKINS = {
+  default: {
+    zone: "bg-panel2",
+    dragging: "border-sky brightness-105",
+    idle: "border-sky/70 hover:brightness-105",
+    badge: "bg-sky-dim text-sky",
+    title: "text-sky",
+    hint: "text-text3",
+  },
+  uncava: {
+    zone: "bg-u-surface",
+    dragging: "border-u-accent",
+    idle: "border-u-border-strong hover:border-u-accent",
+    badge: "bg-u-accent-tint text-u-accent",
+    title: "text-u-accent",
+    hint: "text-u-text3",
+  },
+} as const;

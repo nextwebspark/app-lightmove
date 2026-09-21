@@ -21,6 +21,10 @@ import org.springframework.stereotype.Component;
  * momentum, and the earliest filing per company gives the day that company became mapped, which the
  * cumulative coverage climbs by. A company is mapped by its first executive, not by being triaged —
  * a universe of forty companies nobody has researched is forty companies still to map.
+ *
+ * <p>The gap the chapter leads with is measured from the last executive filed, not from the last
+ * company that gained its first: companies fill up early and then stop being news, so a mandate that
+ * had researched nobody for a fortnight was reading as current.
  */
 @Component
 class MappingProgressReporter {
@@ -36,13 +40,13 @@ class MappingProgressReporter {
         List<WeeklyCountDto> weekly = IntStream.range(0, identifiedPerWeek.length)
                 .mapToObj(week -> new WeeklyCountDto(calendar.endOfWeek(week), identifiedPerWeek[week]))
                 .toList();
-        Integer daysSinceLastCompany = firstMappedAt.stream().max(Instant::compareTo)
+        Integer daysSinceLastExecutive = mappedAt.stream().max(Instant::compareTo)
                 .map(latest -> calendar.daysBetween(latest, calendar.asOf()))
                 .orElse(null);
 
         return new MappingProgressDto(calendar.kickoff(), calendar.targetDate(), calendar.asOf(),
                 sources.universeTotal(), boxed(cumulative(companiesPerWeek)), weekly, boxed(identifiedPerDay),
-                daysSinceLastCompany);
+                daysSinceLastExecutive);
     }
 
     private static Map<UUID, Instant> firstMappingPerCompany(List<ExecutiveRow> executives) {

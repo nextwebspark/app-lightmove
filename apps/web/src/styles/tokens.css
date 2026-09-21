@@ -51,10 +51,10 @@
 
   /* ── UNCAVA (claude-design/color-pallate) ───────────────────────────────────
    *
-   * A second palette, beside the first rather than replacing it. Only the Reports chapters read
-   * these; every other screen keeps the tokens above, so adopting Uncava app-wide later is a rename
-   * and not a rewrite. That does mean the Reports tab carries a different accent from the nav around
-   * it until that happens — a known, deliberate seam.
+   * A second palette, beside the first rather than replacing it. Only the Reports chapters and the
+   * Position brief read these; every other screen keeps the tokens above, so adopting Uncava app-wide
+   * later is a rename and not a rewrite. That does mean those two tabs carry a different accent from
+   * the nav around them until that happens — a known, deliberate seam.
    *
    * THE LIGHT AND DARK SETS ARE SWAPPED RELATIVE TO THEIR SOURCE, AND THAT IS NOT A MISTAKE.
    * Uncava is dark-first: its `:root` holds the DARK values and `[data-theme="light"]` the light
@@ -93,6 +93,10 @@
   --color-u-direct-tint: rgba(15, 157, 107, 0.1);
   --color-u-adjacent: #1f72d4;
   --color-u-adjacent-tint: rgba(31, 114, 212, 0.1);
+
+  /* Machine-made: what a template drafted or a model read, never a person's own words. */
+  --color-u-inferred: #8244d6;
+  --color-u-inferred-tint: rgba(130, 68, 214, 0.1);
 
   /* Categorical series. The first palette has none, which is why the charts improvised. */
   --color-u-chart-1: #4a56d6;
@@ -173,6 +177,8 @@
   --color-u-direct-tint: rgba(62, 207, 142, 0.12);
   --color-u-adjacent: #5aa9ff;
   --color-u-adjacent-tint: rgba(90, 169, 255, 0.12);
+  --color-u-inferred: #b07cf5;
+  --color-u-inferred-tint: rgba(176, 124, 245, 0.12);
 
   --color-u-chart-1: #6e79f2;
   --color-u-chart-2: #3ecf8e;

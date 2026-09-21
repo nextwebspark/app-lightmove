@@ -399,7 +399,7 @@ class PositionCompensationProposerTest extends FlowTestSupport {
         return new LlmBudgetGuard((key, limit, window) -> true,
                 new LightMoveProperties(null, null, null, null, null,
                         new LlmSettings(new LlmRateLimitSettings(true, 10, 20, 10), 20_000, 1, List.of()),
-                        null, null, null, null, null, null, null));
+                        null, null, null, null, null, null, null, null, null));
     }
 
     private static Optional<ExtractedField> fieldNamed(ProposedCompensation proposed, String key) {

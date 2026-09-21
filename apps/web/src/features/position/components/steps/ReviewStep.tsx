@@ -1,61 +1,51 @@
 import { Icon, ICONS } from "../../../../components/layout/Icon";
 import { cn } from "../../../../lib/cn";
-import { formatInstantDate } from "../../../../lib/format";
+import { formatDate, formatInstantDate } from "../../../../lib/format";
+import { SENIORITY_LABELS } from "../../../../lib/seniority";
 import type { Position } from "../../api/types";
-import { labelOfNode, managerOf } from "../../lib/orgChart";
-import { REVIEWABLE_STEPS, panelTotal, type StepKey } from "../../lib/steps";
+import { annualisedBase, formatAmount, packageTotal } from "../../lib/compensation";
+import { BONUS_BASIS_LABELS, labelOf } from "../../lib/labels";
+import { directReportsOf, labelOfNode, managerOf } from "../../lib/orgChart";
+import { REVIEWABLE_STEPS, placeLineOf, readinessOf, type StepKey } from "../../lib/steps";
+import { BriefPanel } from "../BriefFields";
+import { ReadinessBar } from "../ReadinessBar";
+import { ReviewCard, type ReviewField } from "../ReviewCard";
 
 /**
- * Step six: read the brief back before calling it ready.
+ * Step five: the brief read back before it is called ready. The checks report; they gate nothing —
+ * V38 retired the readiness gate along with the lock, so publishing stays available whatever they
+ * say, and an unfinished brief can still be declared ready by someone who means it.
  *
- * The checklist reports readiness; it does not gate anything. V38 retired the readiness gate along
- * with the lock, so publishing is available whatever the checklist says and an unfinished brief can
- * still be declared ready by someone who means it.
+ * <p>Publishing is the rail's act on every step and walking is `StepFooter`'s, so this step draws
+ * neither. Repeating the rail's two buttons here bought nothing but a second place to look.
  */
 export function ReviewStep({
   position,
-  canEdit,
-  onEditStep,
+  readBack,
   onWithdraw,
 }: {
   position: Position;
-  /**
-   * Whether each section offers its way in. A published brief reads back rather than invites edits
-   * until somebody says they mean to change it — see the rail's "Edit position". Not a lock: the
-   * fields themselves never stop accepting input, and V38 retired the one that did.
-   */
-  canEdit: boolean;
-  onEditStep: (key: StepKey) => void;
-  /**
-   * Taking the publication back, offered only while the brief is being changed — it is the one
-   * moment somebody is asking what publishing means, and a control this consequential should not sit
-   * under the reader's cursor the rest of the time. Absent when there is nothing to withdraw.
-   */
-  onWithdraw: (() => void) | null;
+  /** Published and not reopened: no section offers a way in, and neither does the banner. */
+  readBack: boolean;
+  onWithdraw: () => void;
 }) {
   const published = position.publication.publishedAt;
 
   return (
-    <div className="flex flex-col gap-5">
+    <div className="flex flex-col gap-4">
       {published && (
-        <div className="flex flex-wrap items-center gap-3 rounded-[10px] border border-green/40 bg-green-dim px-[18px] py-3.5">
-          <Icon d={ICONS.checkCircle} size={18} className="flex-none text-green" />
+        <div className="flex flex-wrap items-center gap-3 rounded-[10px] bg-u-direct-tint px-4 py-3 text-[13px] text-u-direct">
+          <Icon d={ICONS.checkCircle} size={16} className="flex-none" />
           <span className="min-w-0">
-            <span className="block text-[13px] font-semibold text-green">
-              Position profile published
-            </span>
-            <span className="mt-px block font-mono text-[11.5px] text-text3">
-              {position.publication.publishedBy
-                ? `${position.publication.publishedBy} · ${formatInstantDate(published)}`
-                : formatInstantDate(published)}
-              {canEdit ? " · the brief stays editable" : " · Edit position to change it"}
-            </span>
+            Position profile published
+            {position.publication.publishedBy ? ` by ${position.publication.publishedBy}` : ""} ·{" "}
+            {formatInstantDate(published)} · the brief stays editable
           </span>
-          {onWithdraw && (
+          {!readBack && (
             <button
               type="button"
               onClick={onWithdraw}
-              className="ms-auto text-[11.5px] font-semibold text-text3 hover:text-red hover:underline"
+              className="ms-auto text-[12px] font-semibold text-u-text3 hover:text-u-offlimits hover:underline"
             >
               Withdraw publication
             </button>
@@ -63,83 +53,98 @@ export function ReviewStep({
         </div>
       )}
 
-      <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
-        {REVIEWABLE_STEPS.map((step, index) => (
-          <div
-            key={step.key}
-            className="rounded-[10px] border border-line-soft bg-panel2 px-[18px] py-4"
-          >
-            <div className="flex items-center gap-2">
-              <span className="font-mono text-[10px] font-bold uppercase tracking-[0.1em] text-text3">
-                {index + 1}. {step.name}
-              </span>
-              {canEdit && (
-                <button
-                  type="button"
-                  onClick={() => onEditStep(step.key)}
-                  className="ms-auto text-[11.5px] font-semibold text-amber hover:underline"
-                >
-                  Edit
-                </button>
-              )}
-            </div>
-            <span className="mt-2 block truncate text-[13px] font-semibold text-text">
-              {step.summary(position)}
-            </span>
-            <span className="mt-0.5 block truncate font-mono text-[11.5px] text-text3">
-              {step.detail(position)}
-            </span>
-          </div>
-        ))}
-      </div>
+      <ReadinessBar position={position} />
 
-      <div className="rounded-[10px] border border-line-soft bg-panel2 px-[18px] py-4">
-        <span className="font-mono text-[10px] font-bold uppercase tracking-[0.1em] text-text3">
-          Readiness
+      {REVIEWABLE_STEPS.map((step) => (
+        <ReviewCard
+          key={step.key}
+          step={step}
+          done={step.isDone(position)}
+          attention={step.attention(position)}
+          fields={fieldsOf(step.key, position)}
+          canEdit={!readBack}
+        />
+      ))}
+
+      <BriefPanel className="px-6 py-5">
+        <span className="block text-[15px] font-semibold text-u-text">Publication readiness</span>
+        <span className="mt-0.5 block text-[12.5px] text-u-text3">
+          What a complete brief states, so a client reads a position and not a draft.
         </span>
-        <div className="mt-3 flex flex-col gap-2.5">
+        <ul className="mt-4 flex flex-col gap-3">
           {readinessOf(position).map((item) => (
-            <span key={item.label} className="flex items-start gap-2.5">
+            <li key={item.label} className="flex items-start gap-3">
               <span
                 className={cn(
                   "mt-px grid size-[18px] flex-none place-items-center rounded-full",
-                  item.met ? "bg-green-dim text-green" : "bg-panel text-text3",
+                  item.met ? "bg-u-direct-tint text-u-direct" : "bg-u-signal-tint text-u-signal",
                 )}
               >
-                {item.met ? <Icon d={ICONS.check} size={11} /> : <span className="text-[10px]">!</span>}
+                <Icon d={item.met ? ICONS.check : ICONS.warning} size={11} />
               </span>
-              <span className={cn("text-[13px]", item.met ? "text-text2" : "text-text3")}>
-                {item.label}
-              </span>
-            </span>
+              <span className={cn("text-[13.5px]", item.met ? "text-u-text" : "text-u-text2")}>{item.label}</span>
+            </li>
           ))}
-        </div>
-      </div>
+        </ul>
+        <p className="mt-4 flex items-center gap-2 border-t border-u-border pt-3.5 text-[12px] text-u-text3">
+          <Icon d={ICONS.info} size={13} className="flex-none" />
+          These checks report. Publishing records that the brief is ready and freezes nothing.
+        </p>
+      </BriefPanel>
     </div>
   );
 }
 
-function readinessOf(position: Position): { label: string; met: boolean }[] {
-  return [
-    {
-      label: "Role parameters, mandate context and reporting lines specified",
-      met: Boolean(
-        position.details.roleTitle.trim() &&
-          position.details.location?.trim() &&
-          position.context.businessDriver?.trim() &&
-          labelOfNode(managerOf(position.reporting.orgChart)),
-      ),
-    },
-    {
-      label: "Compensation package captured with allowances quantified",
-      met:
-        position.compensation.salaryMin !== null &&
-        position.compensation.salaryMax !== null &&
-        position.compensation.benefits.every((benefit) => benefit.amount !== null),
-    },
-    {
-      label: "Technical and behavioural weighting totals exactly 100%",
-      met: panelTotal(position, "technical") === 100 && panelTotal(position, "behavioural") === 100,
-    },
-  ];
+/** The few facts each card reads back — what a reader checks before saying the section is right. */
+function fieldsOf(key: StepKey, position: Position): ReviewField[] {
+  const dash = (value: string | null | undefined) => (value?.trim() ? value : "—");
+  switch (key) {
+    case "brief":
+      return [
+        { label: "Role title", value: dash(position.details.roleTitle) },
+        { label: "Department", value: dash(position.details.department) },
+        { label: "Location", value: dash(placeLineOf(position)) },
+      ];
+    case "reporting": {
+      const reports = directReportsOf(position.reporting.orgChart).length;
+      return [
+        { label: "Reports to", value: dash(labelOfNode(managerOf(position.reporting.orgChart))) },
+        { label: "Direct reports", value: `${reports} direct report${reports === 1 ? "" : "s"}` },
+        { label: "Org level", value: dash(labelOf(SENIORITY_LABELS, position.details.seniority)) },
+        { label: "Effective date", value: formatDate(position.reporting.targetStart) },
+      ];
+    }
+    case "compensation": {
+      const { compensation } = position;
+      const total = packageTotal(compensation);
+      const base = annualisedBase(compensation);
+      const range = (min: number | null, max: number | null) =>
+        min === null || max === null
+          ? "—"
+          : `${formatAmount(compensation.currency, min)} to ${formatAmount(compensation.currency, max)}`;
+      return [
+        { label: "Total package target", value: range(total.min, total.max) },
+        { label: "Base salary", value: total.min === null ? "—" : range(base.min, base.max) },
+        { label: "Annual bonus target", value: bonusOf(position) },
+      ];
+    }
+    case "assessment": {
+      const rules = position.assessment.criteria.length;
+      return [
+        { label: "Technical competencies", value: `${position.assessment.technicalShare}% weighting` },
+        { label: "Behavioural competencies", value: `${100 - position.assessment.technicalShare}% weighting` },
+        { label: "Screening criteria", value: `${rules} rule${rules === 1 ? "" : "s"} active` },
+      ];
+    }
+    case "review":
+    default:
+      return [];
+  }
+}
+
+function bonusOf(position: Position): string {
+  const { bonusValue, bonusBasis, currency } = position.compensation;
+  if (bonusValue === null || bonusBasis === null) return "—";
+  if (bonusBasis === "FIXED_AMOUNT") return `${formatAmount(currency, bonusValue)} fixed`;
+  return `${bonusValue}${bonusBasis === "MONTHS_OF_BASE" ? " " : "% "}${BONUS_BASIS_LABELS[bonusBasis].replace(/^% /, "").toLowerCase()}`;
 }

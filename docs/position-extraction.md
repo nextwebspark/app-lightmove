@@ -182,7 +182,11 @@ up a billed model call.
 
 ### The screen
 
-`PositionDocumentDropzone` grows a **Read from document** button beside Replace/Remove, shown only
+> **Superseded (2026-09-20).** The renewed Position screen (#442) draws no review panel: the five
+> extract routes below still exist and behave as described, but the SPA has no caller for them until
+> epic #393 lands its silent fill on the new screen. What follows describes the panel as it shipped.
+
+`PositionDocumentDropzone` grew a **Read from document** button beside Replace/Remove, shown only
 once a document is attached. `PositionExtractionPanel` renders one row per proposal — an
 inline-editable value, a confidence pill (`SOURCE_STYLES`/`DetailPill`'s pattern from
 `triageVocabulary.ts`, not plain text), a disclosure for the source snippet, Accept/Dismiss, and

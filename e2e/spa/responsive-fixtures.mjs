@@ -23,6 +23,7 @@ export const USER = {
   avatarUrl: null,
   emailVerified: true,
   hasPassword: true,
+  platformActions: [],
   timezone: "Asia/Dubai",
   locale: "en",
   workspace: WORKSPACE,
@@ -197,7 +198,7 @@ const REPORT = {
       (weekEnding, i) => ({ weekEnding, identified: [3, 7, 8, 6, 7, 5, 3, 2][i] }),
     ),
     daily: Array.from({ length: 50 }, (_, i) => (i % 7 < 5 ? 1 : 0)),
-    daysSinceLastCompany: 4,
+    daysSinceLastExecutive: 4,
   },
   market: {
     sectors: ["Oil & Energy", "Industrial Manufacturing", "Logistics"],
@@ -341,7 +342,8 @@ const POSITION = {
   details: {
     roleTitle: "Chief Operating Officer, Downstream Manufacturing",
     department: "Group Operations",
-    location: "Abu Dhabi, United Arab Emirates",
+    locationCity: "Abu Dhabi",
+    locationCountry: "United Arab Emirates",
     employmentType: "FULL_TIME_PERMANENT",
     seniority: "N_MINUS_1",
     responsibilities: [
@@ -440,6 +442,7 @@ const POSITION = {
       { name: "Executive presence", description: null, weight: 50 },
       { name: "Change leadership", description: null, weight: 50 },
     ],
+    technicalShare: 60,
   },
   publication: { publishedAt: null, publishedBy: null },
   document: null,

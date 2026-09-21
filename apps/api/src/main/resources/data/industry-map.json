@@ -1,0 +1,1381 @@
+{
+  "1": {
+    "apollo": "defense & space",
+    "v2Label": "Defense and Space Manufacturing",
+    "sectorGroup": "Aerospace & Defense",
+    "aliases": [
+      "Defense and Space Manufacturing"
+    ]
+  },
+  "3": {
+    "apollo": "computer hardware",
+    "v2Label": "Computer Hardware Manufacturing",
+    "sectorGroup": "Technology",
+    "aliases": [
+      "Accessible Hardware Manufacturing",
+      "Computer Hardware Manufacturing"
+    ]
+  },
+  "4": {
+    "apollo": "computer software",
+    "v2Label": "Software Development",
+    "sectorGroup": "Technology",
+    "aliases": [
+      "Data Security Software Products",
+      "Desktop Computing Software Products",
+      "Embedded Software Products",
+      "Mobile Computing Software Products",
+      "Software Development"
+    ]
+  },
+  "5": {
+    "apollo": "computer networking",
+    "v2Label": "Computer Networking Products",
+    "sectorGroup": "Technology",
+    "aliases": [
+      "Computer Networking Products"
+    ]
+  },
+  "6": {
+    "apollo": "internet",
+    "v2Label": "Technology, Information and Internet",
+    "sectorGroup": "Technology",
+    "aliases": [
+      "Blockchain Services",
+      "Blogs",
+      "Business Intelligence Platforms",
+      "Climate Data and Analytics",
+      "Data Infrastructure and Analytics",
+      "Internet Marketplace Platforms",
+      "Social Networking Platforms",
+      "Technology, Information and Internet"
+    ]
+  },
+  "7": {
+    "apollo": "semiconductors",
+    "v2Label": "Semiconductor Manufacturing",
+    "sectorGroup": "Technology",
+    "aliases": [
+      "Semiconductor Manufacturing"
+    ]
+  },
+  "8": {
+    "apollo": "telecommunications",
+    "v2Label": "Telecommunications",
+    "sectorGroup": "Telecommunications",
+    "aliases": [
+      "Media & Telecommunications",
+      "Satellite Telecommunications",
+      "Telecommunications Carriers"
+    ],
+    "curated": true
+  },
+  "9": {
+    "apollo": "law practice",
+    "v2Label": "Law Practice",
+    "sectorGroup": "Professional Services"
+  },
+  "10": {
+    "apollo": "legal services",
+    "v2Label": "Legal Services",
+    "sectorGroup": "Professional Services"
+  },
+  "11": {
+    "apollo": "management consulting",
+    "v2Label": "Business Consulting and Services",
+    "sectorGroup": "Professional Services",
+    "aliases": [
+      "Business Consulting and Services",
+      "Operations Consulting",
+      "Professional Services"
+    ],
+    "curated": true
+  },
+  "12": {
+    "apollo": "biotechnology",
+    "v2Label": "Biotechnology Research",
+    "sectorGroup": "Healthcare",
+    "aliases": [
+      "Biotechnology Research"
+    ]
+  },
+  "13": {
+    "apollo": "medical practice",
+    "v2Label": "Medical Practices",
+    "sectorGroup": "Healthcare",
+    "aliases": [
+      "Ambulance Services",
+      "Chiropractors",
+      "Dentists",
+      "Family Planning Centers",
+      "Home Health Care Services",
+      "Medical Practices",
+      "Medical and Diagnostic Laboratories",
+      "Optometrists",
+      "Outpatient Care Centers",
+      "Physical, Occupational and Speech Therapists",
+      "Physicians"
+    ]
+  },
+  "14": {
+    "apollo": "hospital & health care",
+    "v2Label": "Hospitals and Health Care",
+    "sectorGroup": "Healthcare",
+    "aliases": [
+      "Hospitals",
+      "Hospitals and Health Care",
+      "Nursing Homes and Residential Care Facilities"
+    ]
+  },
+  "15": {
+    "apollo": "pharmaceuticals",
+    "v2Label": "Pharmaceutical Manufacturing",
+    "sectorGroup": "Healthcare",
+    "aliases": [
+      "Pharmaceutical Manufacturing"
+    ]
+  },
+  "16": {
+    "apollo": "veterinary",
+    "v2Label": "Veterinary Services",
+    "sectorGroup": "Healthcare",
+    "aliases": [
+      "Veterinary Services"
+    ]
+  },
+  "17": {
+    "apollo": "medical devices",
+    "v2Label": "Medical Equipment Manufacturing",
+    "sectorGroup": "Healthcare",
+    "aliases": [
+      "Medical Equipment Manufacturing"
+    ]
+  },
+  "18": {
+    "apollo": "cosmetics",
+    "v2Label": "Personal Care Product Manufacturing",
+    "sectorGroup": "Retail & Consumer",
+    "aliases": [
+      "Personal Care Product Manufacturing"
+    ]
+  },
+  "19": {
+    "apollo": "apparel & fashion",
+    "v2Label": "Retail Apparel and Fashion",
+    "sectorGroup": "Retail & Consumer",
+    "aliases": [
+      "Apparel Manufacturing",
+      "Fashion Accessories Manufacturing",
+      "Footwear Manufacturing",
+      "Leather Product Manufacturing",
+      "Retail Apparel and Fashion",
+      "Women's Handbag Manufacturing"
+    ],
+    "curated": true
+  },
+  "20": {
+    "apollo": "sporting goods",
+    "v2Label": "Sporting Goods Manufacturing",
+    "sectorGroup": "Retail & Consumer",
+    "aliases": [
+      "Sporting Goods Manufacturing"
+    ]
+  },
+  "21": {
+    "apollo": "tobacco",
+    "v2Label": "Tobacco Manufacturing",
+    "sectorGroup": "Retail & Consumer",
+    "aliases": [
+      "Tobacco Manufacturing"
+    ]
+  },
+  "22": {
+    "apollo": "supermarkets",
+    "v2Label": "Retail Groceries",
+    "sectorGroup": "Retail & Consumer",
+    "aliases": [
+      "Retail Groceries"
+    ]
+  },
+  "23": {
+    "apollo": "food production",
+    "v2Label": "Food and Beverage Manufacturing",
+    "sectorGroup": "Food & Beverage",
+    "aliases": [
+      "Animal Feed Manufacturing",
+      "Baked Goods Manufacturing",
+      "Food and Beverage Manufacturing",
+      "Fruit and Vegetable Preserves Manufacturing",
+      "Meat Products Manufacturing",
+      "Seafood Product Manufacturing",
+      "Sugar and Confectionery Product Manufacturing"
+    ]
+  },
+  "24": {
+    "apollo": "consumer electronics",
+    "v2Label": "Computers and Electronics Manufacturing",
+    "sectorGroup": "Retail & Consumer",
+    "aliases": [
+      "Audio and Video Equipment Manufacturing",
+      "Communications Equipment Manufacturing",
+      "Computers and Electronics Manufacturing",
+      "Magnetic and Optical Media Manufacturing",
+      "Measuring and Control Instrument Manufacturing",
+      "Smart Meter Manufacturing"
+    ]
+  },
+  "25": {
+    "apollo": "consumer goods",
+    "v2Label": "Manufacturing",
+    "sectorGroup": "Retail & Consumer",
+    "aliases": [
+      "Manufacturing"
+    ]
+  },
+  "26": {
+    "apollo": "furniture",
+    "v2Label": "Furniture and Home Furnishings Manufacturing",
+    "sectorGroup": "Retail & Consumer",
+    "aliases": [
+      "Furniture and Home Furnishings Manufacturing",
+      "Household and Institutional Furniture Manufacturing",
+      "Mattress and Blinds Manufacturing",
+      "Office Furniture and Fixtures Manufacturing"
+    ]
+  },
+  "27": {
+    "apollo": "retail",
+    "v2Label": "Retail",
+    "sectorGroup": "Retail & Consumer",
+    "aliases": [
+      "Food and Beverage Retail",
+      "Online and Mail Order Retail",
+      "Retail Appliances, Electrical, and Electronic Equipment",
+      "Retail Art Dealers",
+      "Retail Books and Printed News",
+      "Retail Building Materials and Garden Equipment",
+      "Retail Florists",
+      "Retail Furniture and Home Furnishings",
+      "Retail Gasoline",
+      "Retail Health and Personal Care Products",
+      "Retail Motor Vehicles",
+      "Retail Musical Instruments",
+      "Retail Office Supplies and Gifts",
+      "Retail Pharmacies",
+      "Retail Recyclable Materials & Used Merchandise"
+    ]
+  },
+  "28": {
+    "apollo": "entertainment",
+    "v2Label": "Entertainment Providers",
+    "sectorGroup": "Media & Entertainment",
+    "aliases": [
+      "Circuses and Magic Shows",
+      "Dance Companies",
+      "Entertainment Providers",
+      "Performing Arts and Spectator Sports",
+      "Theater Companies"
+    ]
+  },
+  "29": {
+    "apollo": "gambling & casinos",
+    "v2Label": "Gambling Facilities and Casinos",
+    "sectorGroup": "Hospitality & Tourism",
+    "aliases": [
+      "Gambling Facilities and Casinos"
+    ]
+  },
+  "30": {
+    "apollo": "leisure, travel & tourism",
+    "v2Label": "Travel Arrangements",
+    "sectorGroup": "Hospitality & Tourism",
+    "aliases": [
+      "Travel Arrangements"
+    ]
+  },
+  "31": {
+    "apollo": "hospitality",
+    "v2Label": "Hospitality",
+    "sectorGroup": "Hospitality & Tourism",
+    "aliases": [
+      "Accommodation Services",
+      "Bed-and-Breakfasts, Hostels, Homestays",
+      "Hotels and Motels"
+    ],
+    "curated": true
+  },
+  "32": {
+    "apollo": "restaurants",
+    "v2Label": "Restaurants",
+    "sectorGroup": "Food & Beverage"
+  },
+  "33": {
+    "apollo": "sports",
+    "v2Label": "Spectator Sports",
+    "sectorGroup": "Hospitality & Tourism",
+    "aliases": [
+      "Racetracks",
+      "Spectator Sports",
+      "Sports Teams and Clubs"
+    ]
+  },
+  "34": {
+    "apollo": "food & beverages",
+    "v2Label": "Food and Beverage Services",
+    "sectorGroup": "Food & Beverage",
+    "aliases": [
+      "Bars, Taverns, and Nightclubs",
+      "Caterers",
+      "Food and Beverage Services",
+      "Mobile Food Services"
+    ]
+  },
+  "35": {
+    "apollo": "motion pictures & film",
+    "v2Label": "Movies, Videos and Sound",
+    "sectorGroup": "Media & Entertainment",
+    "aliases": [
+      "Movies and Sound Recording",
+      "Movies, Videos and Sound",
+      "Sheet Music Publishing",
+      "Sound Recording"
+    ]
+  },
+  "36": {
+    "apollo": "broadcast media",
+    "v2Label": "Broadcast Media Production and Distribution",
+    "sectorGroup": "Media & Entertainment",
+    "aliases": [
+      "Broadcast Media Production and Distribution",
+      "Cable and Satellite Programming",
+      "Radio and Television Broadcasting"
+    ]
+  },
+  "37": {
+    "apollo": "museums & institutions",
+    "v2Label": "Museums, Historical Sites, and Zoos",
+    "sectorGroup": "Nonprofit & Social",
+    "aliases": [
+      "Historical Sites",
+      "Museums",
+      "Museums, Historical Sites, and Zoos",
+      "Zoos and Botanical Gardens"
+    ]
+  },
+  "38": {
+    "apollo": "fine art",
+    "v2Label": "Artists and Writers",
+    "sectorGroup": "Media & Entertainment",
+    "aliases": [
+      "Artists and Writers"
+    ]
+  },
+  "39": {
+    "apollo": "performing arts",
+    "v2Label": "Performing Arts",
+    "sectorGroup": "Media & Entertainment"
+  },
+  "40": {
+    "apollo": "recreational facilities & services",
+    "v2Label": "Recreational Facilities",
+    "sectorGroup": "Hospitality & Tourism",
+    "aliases": [
+      "Amusement Parks and Arcades",
+      "Golf Courses and Country Clubs",
+      "Recreational Facilities",
+      "Skiing Facilities"
+    ]
+  },
+  "41": {
+    "apollo": "banking",
+    "v2Label": "Banking",
+    "sectorGroup": "Financial Services"
+  },
+  "42": {
+    "apollo": "insurance",
+    "v2Label": "Insurance",
+    "sectorGroup": "Financial Services",
+    "aliases": [
+      "Claims Adjusting, Actuarial Services",
+      "Insurance Agencies and Brokerages",
+      "Insurance Carriers"
+    ]
+  },
+  "43": {
+    "apollo": "financial services",
+    "v2Label": "Financial Services",
+    "sectorGroup": "Financial Services",
+    "aliases": [
+      "Collection Agencies",
+      "Credit Intermediation",
+      "Funds and Trusts",
+      "Insurance and Employee Benefit Funds",
+      "Loan Brokers",
+      "Pension Funds",
+      "Savings Institutions",
+      "Trusts and Estates"
+    ],
+    "curated": true
+  },
+  "44": {
+    "apollo": "real estate",
+    "v2Label": "Real Estate",
+    "sectorGroup": "Real Estate",
+    "aliases": [
+      "Leasing Residential Real Estate",
+      "Real Estate Agents and Brokers",
+      "Real Estate and Equipment Rental Services"
+    ],
+    "curated": true
+  },
+  "45": {
+    "apollo": "investment banking",
+    "v2Label": "Investment Banking",
+    "sectorGroup": "Financial Services"
+  },
+  "46": {
+    "apollo": "investment management",
+    "v2Label": "Investment Management",
+    "sectorGroup": "Financial Services",
+    "aliases": [
+      "Holding Companies"
+    ],
+    "curated": true
+  },
+  "47": {
+    "apollo": "accounting",
+    "v2Label": "Accounting",
+    "sectorGroup": "Financial Services"
+  },
+  "48": {
+    "apollo": "construction",
+    "v2Label": "Construction",
+    "sectorGroup": "Construction",
+    "aliases": [
+      "Building Construction",
+      "Building Equipment Contractors",
+      "Building Finishing Contractors",
+      "Building Structure and Exterior Contractors",
+      "Nonresidential Building Construction",
+      "Residential Building Construction",
+      "Specialty Trade Contractors"
+    ]
+  },
+  "49": {
+    "apollo": "building materials",
+    "v2Label": "Wholesale Building Materials",
+    "sectorGroup": "Construction",
+    "aliases": [
+      "Wholesale Building Materials"
+    ]
+  },
+  "50": {
+    "apollo": "architecture & planning",
+    "v2Label": "Architecture and Planning",
+    "sectorGroup": "Real Estate",
+    "aliases": [
+      "Accessible Architecture and Design"
+    ]
+  },
+  "51": {
+    "apollo": "civil engineering",
+    "v2Label": "Civil Engineering",
+    "sectorGroup": "Construction",
+    "aliases": [
+      "Highway, Street, and Bridge Construction",
+      "Subdivision of Land",
+      "Surveying and Mapping Services",
+      "Utility System Construction"
+    ],
+    "curated": true
+  },
+  "52": {
+    "apollo": "aviation & aerospace",
+    "v2Label": "Aviation and Aerospace Component Manufacturing",
+    "sectorGroup": "Aerospace & Defense",
+    "aliases": [
+      "Aviation and Aerospace Component Manufacturing"
+    ]
+  },
+  "53": {
+    "apollo": "automotive",
+    "v2Label": "Motor Vehicle Manufacturing",
+    "sectorGroup": "Automotive",
+    "aliases": [
+      "Alternative Fuel Vehicle Manufacturing",
+      "Motor Vehicle Manufacturing",
+      "Motor Vehicle Parts Manufacturing",
+      "Transportation Equipment Manufacturing"
+    ],
+    "curated": true
+  },
+  "54": {
+    "apollo": "chemicals",
+    "v2Label": "Chemical Manufacturing",
+    "sectorGroup": "Manufacturing",
+    "aliases": [
+      "Agricultural Chemical Manufacturing",
+      "Artificial Rubber and Synthetic Fiber Manufacturing",
+      "Chemical Manufacturing",
+      "Chemical Raw Materials Manufacturing",
+      "Paint, Coating, and Adhesive Manufacturing",
+      "Soap and Cleaning Product Manufacturing"
+    ]
+  },
+  "55": {
+    "apollo": "machinery",
+    "v2Label": "Machinery Manufacturing",
+    "sectorGroup": "Manufacturing",
+    "aliases": [
+      "Agriculture, Construction, Mining Machinery Manufacturing",
+      "Commercial and Industrial Equipment Rental",
+      "Commercial and Service Industry Machinery Manufacturing",
+      "Engines and Power Transmission Equipment Manufacturing",
+      "Equipment Rental Services",
+      "HVAC and Refrigeration Equipment Manufacturing",
+      "Machinery Manufacturing",
+      "Metalworking Machinery Manufacturing",
+      "Renewable Energy Equipment Manufacturing"
+    ],
+    "curated": true
+  },
+  "56": {
+    "apollo": "mining & metals",
+    "v2Label": "Mining",
+    "sectorGroup": "Energy & Utilities",
+    "aliases": [
+      "Architectural and Structural Metal Manufacturing",
+      "Boilers, Tanks, and Shipping Container Manufacturing",
+      "Coal Mining",
+      "Construction Hardware Manufacturing",
+      "Cutlery and Handtool Manufacturing",
+      "Fabricated Metal Products",
+      "Metal Ore Mining",
+      "Metal Treatments",
+      "Metal Valve, Ball, and Roller Manufacturing",
+      "Mining",
+      "Nonmetallic Mineral Mining",
+      "Primary Metal Manufacturing",
+      "Spring and Wire Product Manufacturing",
+      "Turned Products and Fastener Manufacturing"
+    ],
+    "curated": true
+  },
+  "57": {
+    "apollo": "oil & energy",
+    "v2Label": "Oil and Gas",
+    "sectorGroup": "Energy & Utilities",
+    "aliases": [
+      "Natural Gas Extraction",
+      "Oil Extraction",
+      "Oil and Coal Product Manufacturing",
+      "Oil and Gas",
+      "Oil, Gas, and Mining"
+    ],
+    "curated": true
+  },
+  "58": {
+    "apollo": "shipbuilding",
+    "v2Label": "Shipbuilding",
+    "sectorGroup": "Manufacturing"
+  },
+  "59": {
+    "apollo": "utilities",
+    "v2Label": "Utilities",
+    "sectorGroup": "Energy & Utilities",
+    "aliases": [
+      "Biomass Electric Power Generation",
+      "Electric Power Generation",
+      "Electric Power Transmission, Control, and Distribution",
+      "Fossil Fuel Electric Power Generation",
+      "Geothermal Electric Power Generation",
+      "Hydroelectric Power Generation",
+      "Natural Gas Distribution",
+      "Nuclear Electric Power Generation",
+      "Renewable Energy Power Generation",
+      "Solar Electric Power Generation",
+      "Steam and Air-Conditioning Supply",
+      "Waste Collection",
+      "Waste Treatment and Disposal",
+      "Water Supply and Irrigation Systems",
+      "Water, Waste, Steam, and Air Conditioning Services",
+      "Wind Electric Power Generation"
+    ]
+  },
+  "60": {
+    "apollo": "textiles",
+    "v2Label": "Textile Manufacturing",
+    "sectorGroup": "Retail & Consumer",
+    "aliases": [
+      "Textile Manufacturing"
+    ]
+  },
+  "61": {
+    "apollo": "paper & forest products",
+    "v2Label": "Paper and Forest Product Manufacturing",
+    "sectorGroup": "Manufacturing",
+    "aliases": [
+      "Forestry and Logging",
+      "Paper and Forest Product Manufacturing",
+      "Wood Product Manufacturing"
+    ],
+    "curated": true
+  },
+  "62": {
+    "apollo": "railroad manufacture",
+    "v2Label": "Railroad Equipment Manufacturing",
+    "sectorGroup": "Manufacturing",
+    "aliases": [
+      "Railroad Equipment Manufacturing"
+    ]
+  },
+  "63": {
+    "apollo": "farming",
+    "v2Label": "Farming",
+    "sectorGroup": "Agriculture",
+    "aliases": [
+      "Farming, Ranching, Forestry",
+      "Horticulture"
+    ],
+    "curated": true
+  },
+  "64": {
+    "apollo": "ranching",
+    "v2Label": "Ranching",
+    "sectorGroup": "Agriculture",
+    "aliases": [
+      "Ranching and Fisheries"
+    ],
+    "curated": true
+  },
+  "65": {
+    "apollo": "dairy",
+    "v2Label": "Dairy Product Manufacturing",
+    "sectorGroup": "Agriculture",
+    "aliases": [
+      "Dairy Product Manufacturing"
+    ]
+  },
+  "66": {
+    "apollo": "fishery",
+    "v2Label": "Fisheries",
+    "sectorGroup": "Agriculture",
+    "aliases": [
+      "Fisheries"
+    ]
+  },
+  "67": {
+    "apollo": "primary/secondary education",
+    "v2Label": "Primary and Secondary Education",
+    "sectorGroup": "Education"
+  },
+  "68": {
+    "apollo": "higher education",
+    "v2Label": "Higher Education",
+    "sectorGroup": "Education"
+  },
+  "69": {
+    "apollo": "education management",
+    "v2Label": "Education Administration Programs",
+    "sectorGroup": "Education",
+    "aliases": [
+      "Cosmetology and Barber Schools",
+      "Education",
+      "Education Administration Programs",
+      "Fine Arts Schools",
+      "Language Schools",
+      "Secretarial Schools"
+    ],
+    "curated": true
+  },
+  "70": {
+    "apollo": "research",
+    "v2Label": "Research Services",
+    "sectorGroup": "Professional Services",
+    "aliases": [
+      "Research Services"
+    ]
+  },
+  "71": {
+    "apollo": "military",
+    "v2Label": "Armed Forces",
+    "sectorGroup": "Government & Public Sector",
+    "aliases": [
+      "Armed Forces"
+    ]
+  },
+  "72": {
+    "apollo": "legislative office",
+    "v2Label": "Legislative Offices",
+    "sectorGroup": "Government & Public Sector",
+    "aliases": [
+      "Legislative Offices"
+    ]
+  },
+  "73": {
+    "apollo": "judiciary",
+    "v2Label": "Administration of Justice",
+    "sectorGroup": "Government & Public Sector",
+    "aliases": [
+      "Administration of Justice",
+      "Correctional Institutions",
+      "Courts of Law",
+      "Fire Protection"
+    ]
+  },
+  "74": {
+    "apollo": "international affairs",
+    "v2Label": "International Affairs",
+    "sectorGroup": "Government & Public Sector"
+  },
+  "75": {
+    "apollo": "government administration",
+    "v2Label": "Government Administration",
+    "sectorGroup": "Government & Public Sector",
+    "aliases": [
+      "Air, Water, and Waste Program Management",
+      "Community Development and Urban Planning",
+      "Conservation Programs",
+      "Economic Programs",
+      "Environmental Quality Programs",
+      "Health and Human Services",
+      "Housing Programs",
+      "Housing and Community Development",
+      "Military and International Affairs",
+      "Public Assistance Programs",
+      "Public Health",
+      "Space Research and Technology",
+      "Transportation Programs",
+      "Utilities Administration"
+    ]
+  },
+  "76": {
+    "apollo": "executive office",
+    "v2Label": "Executive Offices",
+    "sectorGroup": "Government & Public Sector",
+    "aliases": [
+      "Executive Offices"
+    ]
+  },
+  "77": {
+    "apollo": "law enforcement",
+    "v2Label": "Law Enforcement",
+    "sectorGroup": "Government & Public Sector"
+  },
+  "78": {
+    "apollo": "public safety",
+    "v2Label": "Public Safety",
+    "sectorGroup": "Government & Public Sector"
+  },
+  "79": {
+    "apollo": "public policy",
+    "v2Label": "Public Policy Offices",
+    "sectorGroup": "Government & Public Sector",
+    "aliases": [
+      "Public Policy Offices"
+    ]
+  },
+  "80": {
+    "apollo": "marketing & advertising",
+    "v2Label": "Advertising Services",
+    "sectorGroup": "Professional Services",
+    "aliases": [
+      "Advertising Services",
+      "Marketing Services"
+    ],
+    "curated": true
+  },
+  "81": {
+    "apollo": "newspapers",
+    "v2Label": "Newspaper Publishing",
+    "sectorGroup": "Media & Entertainment",
+    "aliases": [
+      "Newspaper Publishing"
+    ]
+  },
+  "82": {
+    "apollo": "publishing",
+    "v2Label": "Book and Periodical Publishing",
+    "sectorGroup": "Media & Entertainment",
+    "aliases": [
+      "Book Publishing",
+      "Book and Periodical Publishing",
+      "Periodical Publishing"
+    ]
+  },
+  "83": {
+    "apollo": "printing",
+    "v2Label": "Printing Services",
+    "sectorGroup": "Manufacturing",
+    "aliases": [
+      "Printing Services"
+    ]
+  },
+  "84": {
+    "apollo": "information services",
+    "v2Label": "Information Services",
+    "sectorGroup": "Technology",
+    "aliases": [
+      "Business Content",
+      "Internet Publishing"
+    ]
+  },
+  "85": {
+    "apollo": "libraries",
+    "v2Label": "Libraries",
+    "sectorGroup": "Education"
+  },
+  "86": {
+    "apollo": "environmental services",
+    "v2Label": "Environmental Services",
+    "sectorGroup": "Energy & Utilities"
+  },
+  "87": {
+    "apollo": "package/freight delivery",
+    "v2Label": "Freight and Package Transportation",
+    "sectorGroup": "Transportation",
+    "aliases": [
+      "Freight and Package Transportation"
+    ]
+  },
+  "88": {
+    "apollo": "individual & family services",
+    "v2Label": "Individual and Family Services",
+    "sectorGroup": "Nonprofit & Social",
+    "aliases": [
+      "Child Day Care Services",
+      "Community Services",
+      "Emergency and Relief Services",
+      "Services for the Elderly and Disabled",
+      "Vocational Rehabilitation Services"
+    ],
+    "curated": true
+  },
+  "89": {
+    "apollo": "religious institutions",
+    "v2Label": "Religious Institutions",
+    "sectorGroup": "Nonprofit & Social"
+  },
+  "90": {
+    "apollo": "civic & social organization",
+    "v2Label": "Civic and Social Organizations",
+    "sectorGroup": "Nonprofit & Social",
+    "aliases": [
+      "Civic and Social Organizations",
+      "Industry Associations",
+      "Professional Organizations"
+    ]
+  },
+  "91": {
+    "apollo": "consumer services",
+    "v2Label": "Consumer Services",
+    "sectorGroup": "Retail & Consumer",
+    "aliases": [
+      "Commercial and Industrial Machinery Maintenance",
+      "Consumer Goods Rental",
+      "Electronic and Precision Equipment Maintenance",
+      "Footwear and Leather Goods Repair",
+      "Household Services",
+      "Laundry and Drycleaning Services",
+      "Personal Care Services",
+      "Personal and Laundry Services",
+      "Pet Services",
+      "Repair and Maintenance",
+      "Reupholstery and Furniture Repair",
+      "Vehicle Repair and Maintenance"
+    ],
+    "curated": true
+  },
+  "92": {
+    "apollo": "transportation/trucking/railroad",
+    "v2Label": "Truck Transportation",
+    "sectorGroup": "Transportation",
+    "aliases": [
+      "Truck Transportation"
+    ]
+  },
+  "93": {
+    "apollo": "warehousing",
+    "v2Label": "Warehousing and Storage",
+    "sectorGroup": "Transportation",
+    "aliases": [
+      "Warehousing and Storage"
+    ]
+  },
+  "94": {
+    "apollo": "airlines/aviation",
+    "v2Label": "Airlines and Aviation",
+    "sectorGroup": "Transportation"
+  },
+  "95": {
+    "apollo": "maritime",
+    "v2Label": "Maritime Transportation",
+    "sectorGroup": "Transportation",
+    "aliases": [
+      "Maritime Transportation"
+    ]
+  },
+  "96": {
+    "apollo": "information technology & services",
+    "v2Label": "IT Services and IT Consulting",
+    "sectorGroup": "Technology",
+    "aliases": [
+      "Digital Accessibility Services",
+      "IT Services and IT Consulting",
+      "IT System Custom Software Development",
+      "IT System Data Services",
+      "IT System Design Services",
+      "IT System Installation and Disposal",
+      "IT System Operations and Maintenance",
+      "IT System Testing and Evaluation",
+      "IT System Training and Support",
+      "Technology, Information and Media"
+    ],
+    "curated": true
+  },
+  "97": {
+    "apollo": "market research",
+    "v2Label": "Market Research",
+    "sectorGroup": "Professional Services"
+  },
+  "98": {
+    "apollo": "public relations & communications",
+    "v2Label": "Public Relations and Communications Services",
+    "sectorGroup": "Professional Services",
+    "aliases": [
+      "Public Relations and Communications Services"
+    ]
+  },
+  "99": {
+    "apollo": "design",
+    "v2Label": "Design Services",
+    "sectorGroup": "Professional Services",
+    "aliases": [
+      "Design Services",
+      "Interior Design",
+      "Regenerative Design"
+    ]
+  },
+  "100": {
+    "apollo": "nonprofit organization management",
+    "v2Label": "Non-profit Organizations",
+    "sectorGroup": "Nonprofit & Social",
+    "aliases": [
+      "Non-profit Organizations"
+    ]
+  },
+  "101": {
+    "apollo": "fund-raising",
+    "v2Label": "Fundraising",
+    "sectorGroup": "Nonprofit & Social"
+  },
+  "102": {
+    "apollo": "program development",
+    "v2Label": "Strategic Management Services",
+    "sectorGroup": "Technology",
+    "aliases": [
+      "Strategic Management Services"
+    ]
+  },
+  "103": {
+    "apollo": "writing & editing",
+    "v2Label": "Writing and Editing",
+    "sectorGroup": "Professional Services"
+  },
+  "104": {
+    "apollo": "staffing & recruiting",
+    "v2Label": "Staffing and Recruiting",
+    "sectorGroup": "Professional Services",
+    "aliases": [
+      "Executive Search Services",
+      "Temporary Help Services"
+    ]
+  },
+  "105": {
+    "apollo": "professional training & coaching",
+    "v2Label": "Professional Training and Coaching",
+    "sectorGroup": "Professional Services",
+    "aliases": [
+      "Flight Training",
+      "Sports and Recreation Instruction",
+      "Technical and Vocational Training"
+    ],
+    "curated": true
+  },
+  "106": {
+    "apollo": "venture capital & private equity",
+    "v2Label": "Venture Capital and Private Equity Principals",
+    "sectorGroup": "Financial Services",
+    "aliases": [
+      "Venture Capital and Private Equity Principals"
+    ]
+  },
+  "107": {
+    "apollo": "political organization",
+    "v2Label": "Political Organizations",
+    "sectorGroup": "Government & Public Sector",
+    "aliases": [
+      "Political Organizations"
+    ]
+  },
+  "108": {
+    "apollo": "translation & localization",
+    "v2Label": "Translation and Localization",
+    "sectorGroup": "Professional Services"
+  },
+  "109": {
+    "apollo": "computer games",
+    "v2Label": "Computer Games",
+    "sectorGroup": "Technology",
+    "aliases": [
+      "Mobile Gaming Apps"
+    ]
+  },
+  "110": {
+    "apollo": "events services",
+    "v2Label": "Events Services",
+    "sectorGroup": "Hospitality & Tourism"
+  },
+  "111": {
+    "apollo": "arts & crafts",
+    "v2Label": "Retail Art Supplies",
+    "sectorGroup": "Retail & Consumer",
+    "aliases": [
+      "Retail Art Supplies"
+    ]
+  },
+  "112": {
+    "apollo": "electrical/electronic manufacturing",
+    "v2Label": "Appliances, Electrical, and Electronics Manufacturing",
+    "sectorGroup": "Manufacturing",
+    "aliases": [
+      "Appliances, Electrical, and Electronics Manufacturing",
+      "Electric Lighting Equipment Manufacturing",
+      "Electrical Equipment Manufacturing",
+      "Fuel Cell Manufacturing",
+      "Household Appliance Manufacturing"
+    ]
+  },
+  "113": {
+    "apollo": "online media",
+    "v2Label": "Online Audio and Video Media",
+    "sectorGroup": "Media & Entertainment",
+    "aliases": [
+      "Internet News",
+      "Online Audio and Video Media"
+    ]
+  },
+  "114": {
+    "apollo": "nanotechnology",
+    "v2Label": "Nanotechnology Research",
+    "sectorGroup": "Technology",
+    "aliases": [
+      "Nanotechnology Research"
+    ]
+  },
+  "115": {
+    "apollo": "music",
+    "v2Label": "Musicians",
+    "sectorGroup": "Media & Entertainment",
+    "aliases": [
+      "Musicians"
+    ]
+  },
+  "116": {
+    "apollo": "logistics & supply chain",
+    "v2Label": "Transportation, Logistics, Supply Chain and Storage",
+    "sectorGroup": "Transportation",
+    "aliases": [
+      "Ground Passenger Transportation",
+      "Interurban and Rural Bus Services",
+      "Pipeline Transportation",
+      "Postal Services",
+      "Rail Transportation",
+      "School and Employee Bus Services",
+      "Shuttles and Special Needs Transportation Services",
+      "Sightseeing Transportation",
+      "Taxi and Limousine Services",
+      "Transportation, Logistics, Supply Chain and Storage",
+      "Urban Transit Services"
+    ]
+  },
+  "117": {
+    "apollo": "plastics",
+    "v2Label": "Plastics Manufacturing",
+    "sectorGroup": "Manufacturing",
+    "aliases": [
+      "Plastics Manufacturing",
+      "Plastics and Rubber Product Manufacturing",
+      "Rubber Products Manufacturing"
+    ],
+    "curated": true
+  },
+  "118": {
+    "apollo": "computer & network security",
+    "v2Label": "Computer and Network Security",
+    "sectorGroup": "Technology"
+  },
+  "119": {
+    "apollo": "wireless",
+    "v2Label": "Wireless Services",
+    "sectorGroup": "Telecommunications",
+    "aliases": [
+      "Wireless Services"
+    ]
+  },
+  "120": {
+    "apollo": "alternative dispute resolution",
+    "v2Label": "Alternative Dispute Resolution",
+    "sectorGroup": "Professional Services"
+  },
+  "121": {
+    "apollo": "security & investigations",
+    "v2Label": "Security and Investigations",
+    "sectorGroup": "Professional Services",
+    "aliases": [
+      "Security Guards and Patrol Services",
+      "Security Systems Services"
+    ]
+  },
+  "122": {
+    "apollo": "facilities services",
+    "v2Label": "Facilities Services",
+    "sectorGroup": "Professional Services",
+    "aliases": [
+      "Administrative and Support Services",
+      "Janitorial Services",
+      "Landscaping Services",
+      "Office Administration"
+    ],
+    "curated": true
+  },
+  "123": {
+    "apollo": "outsourcing/offshoring",
+    "v2Label": "Outsourcing and Offshoring Consulting",
+    "sectorGroup": "Professional Services",
+    "aliases": [
+      "Outsourcing and Offshoring Consulting",
+      "Telephone Call Centers"
+    ],
+    "curated": true
+  },
+  "124": {
+    "apollo": "health, wellness & fitness",
+    "v2Label": "Wellness and Fitness Services",
+    "sectorGroup": "Healthcare",
+    "aliases": [
+      "Wellness and Fitness Services"
+    ]
+  },
+  "125": {
+    "apollo": "alternative medicine",
+    "v2Label": "Alternative Medicine",
+    "sectorGroup": "Healthcare"
+  },
+  "126": {
+    "apollo": "media production",
+    "v2Label": "Media Production",
+    "sectorGroup": "Media & Entertainment"
+  },
+  "127": {
+    "apollo": "animation",
+    "v2Label": "Animation and Post-production",
+    "sectorGroup": "Media & Entertainment",
+    "aliases": [
+      "Animation and Post-production"
+    ]
+  },
+  "128": {
+    "apollo": "commercial real estate",
+    "v2Label": "Leasing Non-residential Real Estate",
+    "sectorGroup": "Real Estate",
+    "aliases": [
+      "Leasing Non-residential Real Estate"
+    ]
+  },
+  "129": {
+    "apollo": "capital markets",
+    "v2Label": "Capital Markets",
+    "sectorGroup": "Financial Services",
+    "aliases": [
+      "Investment Advice",
+      "Securities and Commodity Exchanges"
+    ]
+  },
+  "130": {
+    "apollo": "think tanks",
+    "v2Label": "Think Tanks",
+    "sectorGroup": "Nonprofit & Social"
+  },
+  "131": {
+    "apollo": "philanthropy",
+    "v2Label": "Philanthropic Fundraising Services",
+    "sectorGroup": "Nonprofit & Social",
+    "aliases": [
+      "Philanthropic Fundraising Services"
+    ]
+  },
+  "132": {
+    "apollo": "e-learning",
+    "v2Label": "E-Learning Providers",
+    "sectorGroup": "Education",
+    "aliases": [
+      "E-Learning Providers"
+    ]
+  },
+  "133": {
+    "apollo": "wholesale",
+    "v2Label": "Wholesale",
+    "sectorGroup": "Professional Services",
+    "aliases": [
+      "Wholesale Alcoholic Beverages",
+      "Wholesale Apparel and Sewing Supplies",
+      "Wholesale Appliances, Electrical, and Electronics",
+      "Wholesale Chemical and Allied Products",
+      "Wholesale Computer Equipment",
+      "Wholesale Drugs and Sundries",
+      "Wholesale Food and Beverage",
+      "Wholesale Footwear",
+      "Wholesale Furniture and Home Furnishings",
+      "Wholesale Hardware, Plumbing, Heating Equipment",
+      "Wholesale Luxury Goods and Jewelry",
+      "Wholesale Machinery",
+      "Wholesale Metals and Minerals",
+      "Wholesale Motor Vehicles and Parts",
+      "Wholesale Paper Products",
+      "Wholesale Petroleum and Petroleum Products",
+      "Wholesale Photography Equipment and Supplies",
+      "Wholesale Raw Farm Products",
+      "Wholesale Recyclable Materials"
+    ]
+  },
+  "134": {
+    "apollo": "import & export",
+    "v2Label": "Wholesale Import and Export",
+    "sectorGroup": "Professional Services",
+    "aliases": [
+      "Wholesale Import and Export"
+    ]
+  },
+  "135": {
+    "apollo": "mechanical or industrial engineering",
+    "v2Label": "Industrial Machinery Manufacturing",
+    "sectorGroup": "Manufacturing",
+    "aliases": [
+      "Engineering Services",
+      "Industrial Machinery Manufacturing"
+    ],
+    "curated": true
+  },
+  "136": {
+    "apollo": "photography",
+    "v2Label": "Photography",
+    "sectorGroup": "Professional Services"
+  },
+  "137": {
+    "apollo": "human resources",
+    "v2Label": "Human Resources Services",
+    "sectorGroup": "Professional Services",
+    "aliases": [
+      "Human Resources Services"
+    ]
+  },
+  "138": {
+    "apollo": "business supplies & equipment",
+    "v2Label": "Retail Office Equipment",
+    "sectorGroup": "Manufacturing",
+    "aliases": [
+      "Retail Office Equipment"
+    ]
+  },
+  "139": {
+    "apollo": "mental health care",
+    "v2Label": "Mental Health Care",
+    "sectorGroup": "Healthcare"
+  },
+  "140": {
+    "apollo": "graphic design",
+    "v2Label": "Graphic Design",
+    "sectorGroup": "Professional Services"
+  },
+  "141": {
+    "apollo": "international trade & development",
+    "v2Label": "International Trade and Development",
+    "sectorGroup": "Professional Services"
+  },
+  "142": {
+    "apollo": "wine & spirits",
+    "v2Label": "Beverage Manufacturing",
+    "sectorGroup": "Food & Beverage",
+    "aliases": [
+      "Beverage Manufacturing",
+      "Breweries",
+      "Distilleries",
+      "Wineries"
+    ],
+    "curated": true
+  },
+  "143": {
+    "apollo": "luxury goods & jewelry",
+    "v2Label": "Retail Luxury Goods and Jewelry",
+    "sectorGroup": "Retail & Consumer",
+    "aliases": [
+      "Retail Luxury Goods and Jewelry"
+    ]
+  },
+  "144": {
+    "apollo": "renewables & environment",
+    "v2Label": "Renewable Energy Semiconductor Manufacturing",
+    "sectorGroup": "Energy & Utilities",
+    "aliases": [
+      "Climate Technology Product Manufacturing",
+      "Renewable Energy Semiconductor Manufacturing",
+      "Services for Renewable Energy"
+    ],
+    "curated": true
+  },
+  "145": {
+    "apollo": "glass, ceramics & concrete",
+    "v2Label": "Glass, Ceramics and Concrete Manufacturing",
+    "sectorGroup": "Construction",
+    "aliases": [
+      "Abrasives and Nonmetallic Minerals Manufacturing",
+      "Clay and Refractory Products Manufacturing",
+      "Glass Product Manufacturing",
+      "Glass, Ceramics and Concrete Manufacturing",
+      "Lime and Gypsum Products Manufacturing"
+    ]
+  },
+  "146": {
+    "apollo": "packaging & containers",
+    "v2Label": "Packaging and Containers Manufacturing",
+    "sectorGroup": "Manufacturing",
+    "aliases": [
+      "Packaging and Containers Manufacturing"
+    ]
+  },
+  "147": {
+    "apollo": "industrial automation",
+    "v2Label": "Automation Machinery Manufacturing",
+    "sectorGroup": "Manufacturing",
+    "aliases": [
+      "Automation Machinery Manufacturing",
+      "Robot Manufacturing",
+      "Robotics Engineering"
+    ],
+    "curated": true
+  },
+  "148": {
+    "apollo": "government relations",
+    "v2Label": "Government Relations Services",
+    "sectorGroup": "Government & Public Sector",
+    "aliases": [
+      "Government Relations Services"
+    ]
+  },
+  "apollo:agriculture": {
+    "apollo": "agriculture",
+    "v2Label": null,
+    "sectorGroup": "Agriculture"
+  }
+}

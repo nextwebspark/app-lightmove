@@ -1,5 +1,6 @@
 package app.lightmove.api.core.config;
 
+import java.time.Duration;
 import org.springframework.boot.context.properties.bind.DefaultValue;
 
 /**
@@ -19,5 +20,12 @@ public record EnrichmentSettings(
         @DefaultValue("off") String provider,
         BrightDataSettings brightdata,
         HarvestApiSettings harvestapi,
-        ContactOutSettings contactout
+        ContactOutSettings contactout,
+
+        /**
+         * How long a row of {@code app_lm_vendor_company} answers for a slug before the provider is asked
+         * again. Mapbox's terms are why {@code lightmove.mapbox.cache-ttl} exists; Bright Data's own
+         * terms are the thing to check before raising this, not this default.
+         */
+        @DefaultValue("30d") Duration companyCacheTtl
 ) {}

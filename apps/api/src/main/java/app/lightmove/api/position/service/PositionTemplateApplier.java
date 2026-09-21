@@ -45,7 +45,7 @@ final class PositionTemplateApplier {
         PositionTemplateBody body = template.getBody();
 
         position.applyDetails(new PositionDetails(
-                body.department(), position.getLocation(), body.employmentType(),
+                body.department(), position.getLocationCity(), position.getLocationCountry(), body.employmentType(),
                 template.getSeniority(), body.responsibilities(), body.narrative()));
 
         position.applyContext(new MandateContext(
@@ -65,7 +65,7 @@ final class PositionTemplateApplier {
         position.replaceCompetencies(body.competencies().stream()
                 .map(competency -> PositionCompetency.of(competency.panel(), competency.name(),
                         competency.description(), competency.weight()))
-                .toList());
+                .toList(), null);
     }
 
     /** The benefit lines as the brief stores them — the amount is the mandate's to fill in. */
