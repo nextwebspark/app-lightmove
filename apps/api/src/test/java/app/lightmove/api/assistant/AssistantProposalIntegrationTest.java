@@ -17,7 +17,6 @@ import app.lightmove.api.assistant.model.ProposalOrigin;
 import app.lightmove.api.assistant.model.ProposedCompany;
 import app.lightmove.api.assistant.repository.AssistantEventRepository;
 import tools.jackson.databind.JsonNode;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -66,7 +65,8 @@ class AssistantProposalIntegrationTest extends FlowTestSupport {
         String projectId = project(admin);
         universe.company("a1", "ACWA Power").industry("oil & energy").employees(4_000).insert();
         universe.company("a2", "Marafiq").industry("oil & energy").employees(2_400).insert();
-        UUID turnId = turnWithProposal(admin, projectId, "a1", "a2");
+        UUID turnId = turnWithProposal(admin, projectId, proposed("c1", "a1", "ACWA Power"),
+                proposed("c2", "a2", "Marafiq"));
 
         mvc.perform(accept(admin, turnId, """
                         {"refs":["c1"],"status":"shortlisted"}"""))
@@ -98,7 +98,7 @@ class AssistantProposalIntegrationTest extends FlowTestSupport {
         acceptAsNewUser(email.latestTokenFor(repEmail), "Clara Client");
         attachRepresentative(admin, projectId, representativeId);
         String rep = login(repEmail);
-        UUID turnId = turnWithProposal(rep, projectId, "a1");
+        UUID turnId = turnWithProposal(rep, projectId, proposed("c1", "a1", "ACWA Power"));
 
         // The seat that reads a mandate is not the seat that works it, which is the whole reason
         // the proposing tool declares WORK_EXECUTE too: a card whose buttons all refuse is worse
@@ -114,7 +114,7 @@ class AssistantProposalIntegrationTest extends FlowTestSupport {
         String admin = adminOf("Proposal Privacy Firm");
         String projectId = project(admin);
         universe.company("a1", "ACWA Power").industry("oil & energy").employees(4_000).insert();
-        UUID turnId = turnWithProposal(admin, projectId, "a1");
+        UUID turnId = turnWithProposal(admin, projectId, proposed("c1", "a1", "ACWA Power"));
         inviteAndAccept(admin, "Rob Researcher", "rob@" + domain, "MEMBER");
 
         mvc.perform(accept(login("rob@" + domain), turnId, """
@@ -128,7 +128,7 @@ class AssistantProposalIntegrationTest extends FlowTestSupport {
         String admin = adminOf("Proposal Twice Firm");
         String projectId = project(admin);
         universe.company("a1", "ACWA Power").industry("oil & energy").employees(4_000).insert();
-        UUID turnId = turnWithProposal(admin, projectId, "a1");
+        UUID turnId = turnWithProposal(admin, projectId, proposed("c1", "a1", "ACWA Power"));
 
         mvc.perform(accept(admin, turnId, """
                         {"refs":["c1"]}""")).andExpect(status().isOk());
@@ -144,7 +144,7 @@ class AssistantProposalIntegrationTest extends FlowTestSupport {
         String admin = adminOf("Proposal Off Limits Firm");
         String projectId = project(admin);
         universe.company("a1", "ACWA Power").industry("oil & energy").employees(4_000).insert();
-        UUID turnId = turnWithProposal(admin, projectId, "a1");
+        UUID turnId = turnWithProposal(admin, projectId, proposed("c1", "a1", "ACWA Power"));
 
         mvc.perform(put("/api/v1/projects/" + projectId + "/strategy/off-limits")
                         .header("Authorization", "Bearer " + admin)
@@ -166,7 +166,7 @@ class AssistantProposalIntegrationTest extends FlowTestSupport {
         String admin = adminOf("Proposal Refresh Firm");
         String projectId = project(admin);
         universe.company("a1", "ACWA Power").industry("oil & energy").employees(4_000).insert();
-        UUID turnId = turnWithProposal(admin, projectId, "a1");
+        UUID turnId = turnWithProposal(admin, projectId, proposed("c1", "a1", "ACWA Power"));
         UUID threadId = threadOf(turnId);
 
         mvc.perform(get("/api/v1/assistant/threads/" + threadId)
@@ -201,7 +201,7 @@ class AssistantProposalIntegrationTest extends FlowTestSupport {
      * still emitting would race it onto V65's unique index — a flake that would only ever appear in
      * CI.
      */
-    private UUID turnWithProposal(String token, String projectId, String... apolloAccountIds)
+    private UUID turnWithProposal(String token, String projectId, ProposedCompany... companies)
             throws Exception {
         JsonNode accepted = body(mvc.perform(post("/api/v1/assistant/ask")
                         .header("Authorization", "Bearer " + token)
@@ -214,19 +214,19 @@ class AssistantProposalIntegrationTest extends FlowTestSupport {
         String turnId = accepted.get("id").asText();
         awaitTurnSettled(token, accepted.get("threadId").asText(), turnId);
 
-        List<ProposedCompany> companies = new ArrayList<>();
-        for (int index = 0; index < apolloAccountIds.length; index++) {
-            companies.add(new ProposedCompany("c" + (index + 1), ProposalOrigin.UNIVERSE,
-                    apolloAccountIds[index], "Proposed " + apolloAccountIds[index], "Saudi Arabia",
-                    400));
-        }
         AssistantProposal proposal = new AssistantProposal(UUID.fromString(projectId), "Six IPPs",
-                companies);
+                List.of(companies));
         UUID turn = UUID.fromString(turnId);
         events.save(AssistantEvent.of(turn, events.maxSeq(turn) + 1, AssistantEventKind.PROPOSAL,
                 json.convertValue(proposal, new TypeReference<Map<String, Object>>() {
                 })));
         return turn;
+    }
+
+    /** A universe row as the tool would have resolved it — the name is the market's, as it must be. */
+    private static ProposedCompany proposed(String ref, String apolloAccountId, String companyName) {
+        return new ProposedCompany(ref, ProposalOrigin.UNIVERSE, apolloAccountId, companyName,
+                "Saudi Arabia", 400);
     }
 
     private UUID threadOf(UUID turnId) {
