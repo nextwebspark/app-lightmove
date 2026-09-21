@@ -81,7 +81,11 @@ export function useProjectStream(
       if (disposed || document.visibilityState === "hidden") {
         return;
       }
-      controller = new AbortController();
+      // Aborted and captured per attempt: visibility can flap faster than a stream settles, so a
+      // reconnect must not simply overwrite the reference and abandon a live request.
+      controller?.abort();
+      const attempt = new AbortController();
+      controller = attempt;
       // The server greets every stream with a `connected` event, so a healthy connection always
       // hears something — which is what separates its ordinary cyclic close (reconnect at once)
       // from a proxy answering 200 and hanging up (back off, or this would be a request storm).
@@ -96,10 +100,10 @@ export function useProjectStream(
             announceChange(kindsOf(event.data));
           }
         },
-        controller.signal,
+        attempt.signal,
       ).then(
         () => {
-          if (disposed) {
+          if (disposed || attempt.signal.aborted) {
             return;
           }
           if (heardTheServer) {
@@ -111,7 +115,10 @@ export function useProjectStream(
           schedule(Math.min(MAX_RETRY_MS, 1_000 * 2 ** failures));
         },
         () => {
-          if (disposed || controller?.signal.aborted) {
+          // `attempt`, never the shared `controller`: this runs asynchronously, and by then that
+          // reference may point at a newer, live stream — reconnecting on a dead attempt's behalf
+          // would orphan it for its whole cycle.
+          if (disposed || attempt.signal.aborted) {
             return;
           }
           setLive(false);

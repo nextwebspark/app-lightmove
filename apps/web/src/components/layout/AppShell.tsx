@@ -17,6 +17,7 @@ export function AppShell({
   breadcrumb,
   contentClassName,
   assistantContext = "Workspace",
+  assistantProjectId = null,
   children,
 }: {
   navGroups: SidebarGroup[];
@@ -26,6 +27,7 @@ export function AppShell({
   contentClassName?: string;
   /** Which mandate the assistant is asking about here. A workspace screen has none. */
   assistantContext?: string;
+  assistantProjectId?: string | null;
   children: ReactNode;
 }) {
   const { pathname } = useLocation();
@@ -68,7 +70,7 @@ export function AppShell({
 
         {/* Docked, not overlaid: main is flex-1, so this narrows it and covers nothing. The mockup
             draws it this way because the grid has to stay tickable while the assistant is open. */}
-        <AssistantPanel contextLabel={assistantContext} />
+        <AssistantPanel contextLabel={assistantContext} projectId={assistantProjectId} />
       </div>
     </div>
   );

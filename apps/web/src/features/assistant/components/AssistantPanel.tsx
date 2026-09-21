@@ -1,7 +1,12 @@
+import { useMutation } from "@tanstack/react-query";
 import { useEffect, useRef, useState } from "react";
 import { Icon, ICONS } from "../../../components/layout/Icon";
+import { messageFor } from "../../../lib/errorCodes";
 import { useEscapeKey } from "../../../lib/useEscapeKey";
+import * as assistantApi from "../api/assistantApi";
 import { useAssistant } from "../AssistantProvider";
+import { useAssistantTurn } from "../lib/useAssistantTurn";
+import { AssistantTurnView } from "./AssistantTurnView";
 
 const STARTERS = [
   "Top 10 IPP operators in Saudi Arabia",
@@ -21,10 +26,36 @@ const STARTERS = [
  * <p>It holds no state worth keeping — {@link AssistantProvider} does — so remounting it as the
  * user crosses between layouts costs nothing.
  */
-export function AssistantPanel({ contextLabel }: { contextLabel: string }) {
-  const { open, toggledByUser, closeAssistant } = useAssistant();
+export function AssistantPanel({
+  contextLabel,
+  projectId,
+}: {
+  contextLabel: string;
+  projectId: string | null;
+}) {
+  const { open, toggledByUser, closeAssistant, threadId, turnId, question, startedTurn } =
+    useAssistant();
   const [draft, setDraft] = useState("");
+  const [failure, setFailure] = useState<string | null>(null);
   const composer = useRef<HTMLTextAreaElement>(null);
+
+  const progress = useAssistantTurn(turnId);
+  const running = Boolean(turnId) && progress.status === "RUNNING";
+
+  const asking = useMutation({
+    mutationFn: (asked: string) =>
+      threadId ? assistantApi.askIn(threadId, asked) : assistantApi.ask(asked, projectId),
+    onSuccess: (turn) => startedTurn({ id: turn.id, threadId: turn.threadId, question: turn.question }),
+    onError: (error) => setFailure(messageFor(error)),
+  });
+
+  const handleSend = () => {
+    const asked = draft.trim();
+    if (!asked || running || asking.isPending) return;
+    setFailure(null);
+    setDraft("");
+    asking.mutate(asked);
+  };
 
   useEscapeKey(open, closeAssistant);
 
@@ -67,25 +98,34 @@ export function AssistantPanel({ contextLabel }: { contextLabel: string }) {
         </div>
       </div>
 
-      <div className="flex min-h-0 flex-1 flex-col justify-center gap-4 overflow-y-auto px-3 py-4">
-        <div className="text-center">
-          <p className="font-sans text-[13px] text-text2">Ask about this market.</p>
-          <p className="mt-1 font-mono text-[11px] text-text3">
-            It reads the company universe and this mandate&apos;s own rows.
+      <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto px-3 py-4">
+        {turnId ? (
+          <AssistantTurnView question={question} progress={progress} />
+        ) : (
+          <div className="my-auto">
+            <div className="mb-4 text-center">
+              <p className="font-sans text-[13px] text-text2">Ask about this market.</p>
+              <p className="mt-1 font-mono text-[11px] text-text3">
+                It reads the company universe and this mandate&apos;s own rows.
+              </p>
+            </div>
+            {STARTERS.map((starter) => (
+              <button
+                key={starter}
+                type="button"
+                onClick={() => setDraft(starter)}
+                className="mb-1.5 block w-full rounded-lg border border-dashed border-line px-2.5 py-2 text-start font-sans text-xs text-text2 transition hover:border-solid hover:border-ai hover:bg-ai-soft hover:text-text"
+              >
+                {starter}
+              </button>
+            ))}
+          </div>
+        )}
+        {failure && (
+          <p role="alert" className="font-sans text-[11.5px] text-red">
+            {failure}
           </p>
-        </div>
-        <div>
-          {STARTERS.map((starter) => (
-            <button
-              key={starter}
-              type="button"
-              onClick={() => setDraft(starter)}
-              className="mb-1.5 block w-full rounded-lg border border-dashed border-line px-2.5 py-2 text-start font-sans text-xs text-text2 transition hover:border-solid hover:border-ai hover:bg-ai-soft hover:text-text"
-            >
-              {starter}
-            </button>
-          ))}
-        </div>
+        )}
       </div>
 
       <div className="flex-none border-t border-line px-3 pb-3 pt-2.5">
@@ -94,18 +134,30 @@ export function AssistantPanel({ contextLabel }: { contextLabel: string }) {
             ref={composer}
             value={draft}
             onChange={(event) => setDraft(event.target.value)}
+            onKeyDown={(event) => {
+              // Enter sends, Shift+Enter breaks the line — a question is usually one line, and a
+              // composer that needs a mouse to send reads as a form rather than a conversation.
+              if (event.key === "Enter" && !event.shiftKey) {
+                event.preventDefault();
+                handleSend();
+              }
+            }}
             placeholder="Ask about this market..."
             rows={2}
             aria-label="Ask the assistant"
             className="w-full resize-none border-none bg-transparent font-sans text-[13px] leading-[1.5] text-text outline-none"
           />
           <div className="mt-1 flex items-center gap-2">
-            <span className="font-mono text-[10px] text-text3">Answers arrive next</span>
+            <span className="font-mono text-[10px] text-text3">
+              {running ? "Answering…" : "Enter to send"}
+            </span>
             <button
               type="button"
-              disabled
-              title="Asking arrives with the next change"
-              className="ms-auto grid h-[26px] w-[26px] place-items-center rounded-md border-none bg-[linear-gradient(135deg,var(--color-ai),var(--color-ai2))] opacity-40"
+              onClick={handleSend}
+              disabled={!draft.trim() || running || asking.isPending}
+              aria-label="Send"
+              title={running ? "Wait for the current answer" : "Send"}
+              className="ms-auto grid h-[26px] w-[26px] place-items-center rounded-md border-none bg-[linear-gradient(135deg,var(--color-ai),var(--color-ai2))] transition disabled:opacity-40"
             >
               <Icon d={ICONS.arrowUp} size={13} className="text-white" />
             </button>
