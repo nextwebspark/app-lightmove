@@ -16,6 +16,7 @@ import java.util.UUID;
 import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
+import org.hibernate.annotations.Immutable;
 
 /**
  * One immutable line in the security ledger.
@@ -23,9 +24,20 @@ import lombok.NoArgsConstructor;
  * <p>There are no setters and no update path — the row is written once and never touched again. The
  * database enforces the same thing with a trigger, because an audit trail the application can edit
  * proves nothing about the application.
+ *
+ * <p><b>{@code @Immutable} is load-bearing, and it was missing.</b> Having no setters stops the
+ * application changing a row; it does not stop Hibernate deciding one is dirty and flushing an
+ * {@code UPDATE} of its own accord, which {@code metadata} makes possible — a {@code jsonb} map is
+ * compared through a round trip, and what comes back is not always the object that went in. That
+ * {@code UPDATE} hits the append-only trigger at commit, long after {@code AuditEventWriter} has
+ * returned and outside the try/catch that exists so a lost audit row never fails the work it
+ * records. The annotation removes the possibility rather than the symptom: nothing dirty-checks
+ * these rows at all. {@code AssistantEvent} and {@code GeocodedPlace} carry it for the same reason;
+ * inserts are unaffected, so it composes with {@code IDENTITY}.
  */
 @Entity
 @Table(name = "app_lm_audit_event")
+@Immutable
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class AuditEvent {

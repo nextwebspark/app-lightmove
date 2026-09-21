@@ -20,6 +20,14 @@ import { AssistantProposalCard, outcomeLine } from "./AssistantProposalCard";
  * <p><b>This is where the proposal is written, and the card is not.</b> The card hands up the refs
  * a person ticked and the stage they pressed; everything with a consequence — the request, the
  * toast, and the reads that go stale — happens here.
+ *
+ * <p><b>Dismissing is this reader's, and only for as long as they are looking.</b> It is component
+ * state, so it survives neither a reload nor a remount — and the panel remounts on crossing between
+ * the three layouts, so dismissing a card and walking from Strategy to Clients brings it back. That
+ * is the accepted answer rather than an oversight: nothing server-side records a dismissal, and
+ * making one durable means first deciding whether dismissing is a fact about the mandate or about
+ * the person reading it. The case that matters is already durable — once the proposal is *filed*,
+ * its outcome is a stored event and the card never offers its buttons again.
  */
 export function AssistantTurnView({
   turnId,

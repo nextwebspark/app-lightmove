@@ -63,6 +63,14 @@ describe("the assistant's proposal card", () => {
     expect(screen.getByText("Saudi Arabia · unknown")).toBeInTheDocument();
   });
 
+  // Zero is a figure, not a blank. CaptureCompanyRequest already says so — "a headcount, not a
+  // population" — naming a holding company and a newly incorporated entity.
+  it("reports a zero headcount as zero, not as unmeasured", () => {
+    mount({ proposal: proposal({ companies: [company({ ref: "c1", employees: 0 })] }) });
+
+    expect(screen.getByText("Saudi Arabia · 0 staff")).toBeInTheDocument();
+  });
+
   // A resolved row is ours and starts in; an unverified one has to be somebody's decision rather
   // than something they failed to undo. Every row is UNIVERSE today, so this is what #464 inherits.
   it("starts a resolved row ticked and an unverified one not", () => {

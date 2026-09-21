@@ -199,9 +199,10 @@ export function outcomeLine(accepted: NonNullable<AssistantProposal["accepted"]>
 
 /** An accept that named no stage filed in universe, and the server stores that as an empty string. */
 function stageLabel(status: string): string {
-  return (
-    TRIAGE_STAGES.find((stage) => stage.status === status)?.label ?? TRIAGE_STAGES[0].label
-  );
+  // Named rather than TRIAGE_STAGES[0]: a reorder of that array must not quietly change what the
+  // outcome line and the toast claim was done with somebody's companies.
+  const wanted = status || "inUniverse";
+  return TRIAGE_STAGES.find((stage) => stage.status === wanted)?.label ?? wanted;
 }
 
 function composition(companies: ProposedCompany[]): string {
@@ -212,10 +213,15 @@ function composition(companies: ProposedCompany[]): string {
   return counted.join(" · ");
 }
 
+/**
+ * `!= null`, not a truthiness check: **zero is a legitimate headcount** and the repo already says so
+ * — {@code CaptureCompanyRequest} calls it "a headcount, not a population" and names a holding
+ * company and a newly incorporated entity. A falsy test renders those as unmeasured.
+ */
 function meta(company: ProposedCompany): string {
-  return [company.country, company.employees ? `${formatNumber(company.employees)} staff` : "unknown"]
-    .filter(Boolean)
-    .join(" · ");
+  const staff =
+    company.employees != null ? `${formatNumber(company.employees)} staff` : "unknown";
+  return [company.country, staff].filter(Boolean).join(" · ");
 }
 
 function acceptCountLabel(count: number): string {
