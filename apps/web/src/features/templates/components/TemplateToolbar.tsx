@@ -78,11 +78,11 @@ export function TemplateToolbar({
         </div>
 
         <button type="button" onClick={onImport} className={TOOLBAR_BUTTON}>
-          <Icon d={ICONS.uploadCloud} size={14} className="flex-none" />
+          <Icon d={ICONS.importInto} size={14} className="flex-none" />
           Import
         </button>
         <button type="button" onClick={onExport} disabled={exporting} className={TOOLBAR_BUTTON}>
-          <Icon d={ICONS.file} size={14} className="flex-none" />
+          <Icon d={ICONS.exportOut} size={14} className="flex-none" />
           Export
         </button>
         <button type="button" onClick={onNew} className={TOOLBAR_BUTTON}>
