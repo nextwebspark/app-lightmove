@@ -23,7 +23,18 @@ public enum TriageCompanySource {
      * the Source badge can say a figure came out of an export rather than being checked by hand.
      * V47 added it to the column's CHECK; V36 had reserved the spelling on the candidate side.
      */
-    CSV("csv");
+    CSV("csv"),
+
+    /**
+     * Filed by accepting a proposal the assistant made. V65's CHECK already permitted the spelling;
+     * only this constant was missing.
+     *
+     * <p>Distinct from {@link #STRATEGY} although the row it files may have come out of the same
+     * universe, because {@code source} records the <i>door</i>, and a consultant asking a question in
+     * a chat panel is not a consultant ticking a row on the Strategy grid. It is also the only badge
+     * that says a machine chose the company and a person only agreed.
+     */
+    ASSISTANT("assistant");
 
     private final String wireToken;
 

@@ -1,5 +1,7 @@
 package app.lightmove.api.assistant.service;
 
+import java.util.Map;
+
 /**
  * Where a running turn reports progress.
  *
@@ -36,5 +38,16 @@ public interface AssistantEventSink {
 
     /** What the tool answered, a refusal included. */
     default void toolResult(String toolName, String result) {
+    }
+
+    /**
+     * Companies the assistant is offering to file, already resolved.
+     *
+     * <p>Through the sink rather than the appender, and that is not a style choice: the appender
+     * allocates {@code max(seq) + 1} and the worker's sink is what serialises a turn's writers.
+     * A tool reaching the appender directly would race the answer text draining on the worker thread
+     * and lose a turn to V65's unique index.
+     */
+    default void proposal(Map<String, Object> payload) {
     }
 }

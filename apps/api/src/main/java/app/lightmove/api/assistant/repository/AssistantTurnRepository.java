@@ -4,6 +4,7 @@ import app.lightmove.api.assistant.constant.AssistantTurnStatus;
 import app.lightmove.api.assistant.model.AssistantTurn;
 import java.time.Instant;
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -27,6 +28,16 @@ public interface AssistantTurnRepository extends JpaRepository<AssistantTurn, UU
      * answer to that question is wanted.
      */
     boolean existsByIdAndWorkspaceIdAndActorUserId(UUID id, UUID workspaceId, UUID actorUserId);
+
+    /**
+     * The same check, when the caller also needs the turn's status.
+     *
+     * <p>One read rather than an {@code exists} and a fetch: accepting a proposal has to know both
+     * whether the turn is the caller's and whether it has stopped writing, and two queries could
+     * disagree across the gap.
+     */
+    Optional<AssistantTurn> findByIdAndWorkspaceIdAndActorUserId(UUID id, UUID workspaceId,
+                                                                 UUID actorUserId);
 
     /**
      * Whether this thread already has a turn in flight. Served by V65's

@@ -116,8 +116,11 @@ tier is the whole gate. `PROJECT_BROWSE` is ADMIN and MEMBER only (V6), which is
 client representative off the market side while the mandate they are attached to still answers —
 `WORK_VIEW` is their seat's own grant.
 
-`WORK_EXECUTE` has no tools yet. When it gets them: a write tool declares `WORK_EXECUTE` and never
-`WORK_VIEW`, because CLIENT holds `WORK_VIEW` (V15).
+`WORK_EXECUTE` has one tool, and it writes nothing. `proposeCompanies` declares it anyway, because
+the rule is about what a tool is *for* rather than what it touches: a proposal's only purpose is to
+be accepted, and CLIENT holds `WORK_VIEW` (V15), so declaring that would offer a client
+representative a card whose every button refuses them. Both halves of the act — the proposal and the
+accept — declare the same action and agree.
 
 `WorkspaceAuthorizer.member()` is the trap rather than `can()`. It admits pure clients deliberately,
 which is right for the assistant's own endpoints — a client may hold a conversation — and wrong for
@@ -133,6 +136,7 @@ anything reading market data. Tools gate on named actions only.
 | `listMandateCompanies` | `WORK_VIEW` | the companies a mandate has filed at one triage stage, and how many it holds |
 | `listMandateExecutives` | `WORK_VIEW` | the people a mandate has mapped — name, title, employer, status — and how many it has mapped |
 | `mandateCompensation` | `WORK_VIEW` | what the mandate's brief says the role pays |
+| `proposeCompanies` | `WORK_EXECUTE` | offers companies for a person to file — and writes nothing |
 
 **Every capped answer says how much it is capping.** `Assistant.dc.html` writes the line itself —
 *"Searched your universe for energy companies in Saudi Arabia — 1,284 matched"* — and it is right
@@ -209,6 +213,81 @@ every read; handing a model a whole report is both the largest answer in the set
 a screen that already exists. Worth its own decision once there is a question it is the only way to
 answer.
 
+
+## Proposing, and who writes
+
+**The assistant never writes on its own initiative.** It emits a proposal — companies and nothing
+else — and a person accepts it. That is the third time this codebase has made the same call
+deliberately: the importer "writes nothing itself" and is confirmed by a person before anything is
+written, and `Position.dc.html`'s dropzone promised a silent auto-fill that shipped as
+review-then-accept, recorded as "a correct deviation from that mockup, not a bug to fix later". The
+reason scales with the actor — an agent filing forty companies into a client's mandate unprompted is
+that same mistake at forty times the scale.
+
+`proposeCompanies` therefore has no write path at all. Its whole effect is one `proposal` event, and
+the rows live in that payload until `POST /api/v1/assistant/turns/{turnId}/proposal/accept` files
+them.
+
+**A proposal names what, never where.** The mockup's accept bar offers Universe, Shortlist and
+Decline against one card, so a proposal that already chose the stage would be answering a question
+nobody asked it. It is also refusable in part: accepting eight of ten is the common case, and the
+refs the request carries are the subset.
+
+**A row is not keyed on an Apollo id**, and that is what makes this a foundation rather than
+something the grounded search has to tear up. Each row carries a proposal-local `ref` and an
+`origin` naming the door it files through — and both doors already exist, both `WORK_EXECUTE`:
+
+| origin | row carries | files through |
+|---|---|---|
+| `UNIVERSE` | an `apolloAccountId` | `addSelected`, one statement for the batch |
+| `RESEARCHED` / `WEB` | a resolved snapshot | `capture`, which is documented as exactly that mirror image |
+
+Only `UNIVERSE` rows exist today, because only the universe tools produce them. `origin` is never
+the model's to set — it follows from which tool resolved the row, so a guess cannot be dressed up as
+a universe hit, which is what the mockup's green/amber/grey badge is *for*.
+
+**Everything the accept authorises against is server-stored.** The request names a turn and some
+refs and nothing else: the mandate comes out of the proposal event, which the proposing tool call
+was already authorised against, and the company fields come from the same place. There is
+deliberately no project id in that path — one would be a second claim about what the caller may
+touch, which is the thing the tool guard exists to refuse. The action is re-checked at accept time,
+because membership moves.
+
+**Off-limits is filtered at both ends.** `addSelected` already drops an off-limits company silently;
+proposing one and then dropping it on the way in is the dishonest count this issue exists to avoid,
+so the tool filters before the event is written. One ruled out *between* the two shows up in
+`skipped`, which is the honest answer.
+
+**A proposal is accepted once, and not while its turn is still answering.** Both rules exist
+because `AssistantEventAppender` allocates `max(seq) + 1` and is safe only while a turn has one
+writer, and the accept is a *second* writer — on a Tomcat thread, appending to a log the worker may
+still own.
+
+That window is the ordinary case, not a corner of one. `proposeCompanies` runs inside the tool loop,
+its event reaches the browser over SSE immediately, and the card renders there and then — while the
+model is still generating, `sink.delta` still appending and `store.succeed` yet to write the answer.
+A consultant who ticks and accepts before the answer finishes would put both threads on that
+allocation together, and whichever lost V65's unique index would either 500 the accept or, worse,
+roll back `store.succeed` and end a perfectly good answer as a `FAILED` turn. So an accept on a
+`RUNNING` turn is refused with `ASSISTANT_TURN_STILL_ANSWERING`, which leaves one writer again.
+
+Accepted-once is then a read followed by an act, so two accepts arriving together both pass the
+check. The rows survive that — `addSelected` ignores held companies and `capture` answers
+`TRIAGE_COMPANY_ALREADY_HELD`, counted as a skip — so nothing is filed twice and exactly one event
+lands. The loser collides on the unique index, and that collision is translated into the
+`ASSISTANT_PROPOSAL_ALREADY_ACCEPTED` written for it rather than surfacing as a 500. Caught outside
+the appender's own transaction, which is the distinction its javadoc draws.
+
+Beyond the race, accepted-once matches the mockup — it files the ticked rows and puts the card away
+— and a second accept could only ever report "added 0", which reads as a failure to someone who just
+watched the first one work. So "these eight to universe, those two declined" is two proposals rather
+than one accept twice.
+
+**The outcome is a second event, not an edit.** `AssistantEvent` is `@Immutable` behind a
+`BEFORE UPDATE` trigger, so `proposal.accepted` is appended beside the proposal and read alongside
+it. A thread read carries both, in one batched query rather than one per turn, because a refresh
+reads the thread and not the stream — a finished turn's events are otherwise reachable only by
+reopening one.
 
 ## What the model is told, and in what order
 
@@ -323,6 +402,18 @@ Checked against the 2.0.1 jars rather than the documentation.
   pass.
 - `MandateListToolsTest` — a mandate holding sixty executives answers `matched` 60 with `showing` 25,
   and the same for a triage stage.
+- `ProposalToolsTest` — every field on a proposed row comes from the resolved market row and not
+  from anything the model said; an off-limits company never reaches the card; an id the universe no
+  longer carries is dropped and counted; the set is capped at the row limit; the model's title is
+  flattened to one line; and a proposal names no stage.
+- `AssistantProposalRoutingTest` — each row files through the door its origin names and the two sum
+  to one honest `{added, skipped}`; a company the mandate already holds is a skip rather than a
+  failed batch; only the ticked refs are filed; a ref the proposal never offered is refused with
+  nothing written; the mandate authorised against is the stored one; a second accept is refused; and
+  another person's turn is a 404.
+- `AssistantProposalIntegrationTest` — the same against real membership rows, including the one that
+  cannot be proved anywhere else: **a client representative seated on the mandate is refused**,
+  because `WORK_VIEW` is not `WORK_EXECUTE`.
 - `StrategyFlowIntegrationTest.untriagedScopeLeavesOutWhatTheMandateHasAlreadyFiled` — the two scopes
   differ in exactly one thing, against real rows: `scopeOf` keeps a triaged company for the bulk
   writers, `untriagedScopeOf` drops it.

@@ -32,6 +32,18 @@ public interface AssistantEventRepository extends JpaRepository<AssistantEvent, 
     List<AssistantEvent> findByTurnIdAndSeqGreaterThanOrderBySeqAsc(UUID turnId, int afterSeq,
                                                                     Pageable page);
 
+    /**
+     * One turn's events of the given kinds, oldest first.
+     *
+     * <p>Kinds as wire strings because that is what the column stores — {@link AssistantEvent} keeps
+     * the {@code kind} unparsed so the stream can hand it to the browser verbatim, and a finder that
+     * took the enum would have to reintroduce the parsing that decision exists to avoid.
+     */
+    List<AssistantEvent> findByTurnIdAndKindInOrderBySeqAsc(UUID turnId, List<String> kinds);
+
+    /** The same across a thread's turns in one query, so rendering a thread is not a query per turn. */
+    List<AssistantEvent> findByTurnIdInAndKindInOrderBySeqAsc(List<UUID> turnIds, List<String> kinds);
+
     /** The last seq allocated for this turn, or 0 when it has none yet. */
     @Query("select coalesce(max(e.seq), 0) from AssistantEvent e where e.turnId = :turnId")
     int maxSeq(@Param("turnId") UUID turnId);

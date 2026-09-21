@@ -7,9 +7,11 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import app.lightmove.api.FlowTestSupport;
 import app.lightmove.api.IntegrationTest;
 import app.lightmove.api.assistant.service.AssistantEventSink;
+import app.lightmove.api.core.security.rbac.ProjectAction;
 import java.util.Arrays;
 import java.util.List;
 import java.util.UUID;
+import java.util.stream.Stream;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.ai.chat.model.ToolContext;
@@ -41,15 +43,29 @@ class AssistantToolAuthorisationIntegrationTest extends FlowTestSupport {
     /**
      * Read off the toolset rather than listed, so a tool added at the mandate tier joins every case
      * below without anyone remembering to put it here.
+     *
+     * <p>By action and not merely by tier, because the two are not interchangeable to a client
+     * representative: their seat grants {@code WORK_VIEW} and never {@code WORK_EXECUTE}. A blanket
+     * "a client reaches every mandate tool" held only while every one of them read, and this is what
+     * caught the first that did not.
      */
-    private List<String> mandateTools() {
+    private List<String> mandateTools(ProjectAction action) {
         List<String> tools = toolset.permissions().toolNames().stream()
                 .filter(name -> toolset.permissions().requiredBy(name)
-                        instanceof ToolPermission.ProjectActionRequired)
+                        instanceof ToolPermission.ProjectActionRequired required
+                        && required.action() == action)
                 .sorted()
                 .toList();
-        assertThat(tools).as("an empty mandate tier would pass every case below vacuously").isNotEmpty();
+        assertThat(tools).as(action + " must have tools, or its cases below pass vacuously")
+                .isNotEmpty();
         return tools;
+    }
+
+    /** Every mandate-tier tool whatever it requires — for the cases that refuse all of them. */
+    private List<String> allMandateTools() {
+        return Stream.of(ProjectAction.WORK_VIEW, ProjectAction.WORK_EXECUTE)
+                .flatMap(action -> mandateTools(action).stream())
+                .toList();
     }
 
     @Test
@@ -62,7 +78,7 @@ class AssistantToolAuthorisationIntegrationTest extends FlowTestSupport {
 
         assertThat(call(caller, MARKET_TOOL, "{\"companyName\":\"Acme\"}"))
                 .isNotEqualTo(AuthorisingToolCallback.REFUSED);
-        for (String tool : mandateTools()) {
+        for (String tool : allMandateTools()) {
             assertThat(call(caller, tool, mandateArguments(tool, project)))
                     .as(tool + " answers a lead on their own mandate")
                     .isNotEqualTo(AuthorisingToolCallback.REFUSED);
@@ -70,7 +86,7 @@ class AssistantToolAuthorisationIntegrationTest extends FlowTestSupport {
     }
 
     @Test
-    @DisplayName("a pure client is refused the market but keeps the mandate they are attached to")
+    @DisplayName("a pure client may read the mandate they are attached to, and work neither it nor the market")
     void aPureClientIsHeldToTheirMandate() throws Exception {
         String admin = staffToken();
         String clientId = createCustomClient(admin, "Acme Corp");
@@ -86,10 +102,15 @@ class AssistantToolAuthorisationIntegrationTest extends FlowTestSupport {
         assertThat(call(client, MARKET_TOOL, "{\"companyName\":\"Acme\"}"))
                 .as("PROJECT_BROWSE is ADMIN and MEMBER only, so the market side is shut to a client")
                 .isEqualTo(AuthorisingToolCallback.REFUSED);
-        for (String tool : mandateTools()) {
+        for (String tool : mandateTools(ProjectAction.WORK_VIEW)) {
             assertThat(call(client, tool, mandateArguments(tool, project)))
                     .as("WORK_VIEW is the client seat's own grant, and it is what " + tool + " reads")
                     .isNotEqualTo(AuthorisingToolCallback.REFUSED);
+        }
+        for (String tool : mandateTools(ProjectAction.WORK_EXECUTE)) {
+            assertThat(call(client, tool, mandateArguments(tool, project)))
+                    .as(tool + " works the mandate, which a client representative never may")
+                    .isEqualTo(AuthorisingToolCallback.REFUSED);
         }
     }
 
@@ -102,7 +123,7 @@ class AssistantToolAuthorisationIntegrationTest extends FlowTestSupport {
 
         AssistantToolCaller unseated = callerFor("rob@" + domain);
 
-        for (String tool : mandateTools()) {
+        for (String tool : allMandateTools()) {
             String realMandate = call(unseated, tool, mandateArguments(tool, project));
             String fiction = call(unseated, tool,
                     mandateArguments(tool, UUID.randomUUID().toString()));
@@ -125,7 +146,7 @@ class AssistantToolAuthorisationIntegrationTest extends FlowTestSupport {
         createWorkspace(outsider, "Other Firm");
         AssistantToolCaller elsewhere = callerFor("otto@other-" + domain);
 
-        for (String tool : mandateTools()) {
+        for (String tool : allMandateTools()) {
             assertThat(call(elsewhere, tool, mandateArguments(tool, project)))
                     .as(tool + " is shut to another workspace's member")
                     .isEqualTo(AuthorisingToolCallback.REFUSED);
@@ -148,7 +169,7 @@ class AssistantToolAuthorisationIntegrationTest extends FlowTestSupport {
                 .filter(candidate -> candidate.getToolDefinition().name().equals(toolName))
                 .findFirst()
                 .orElseThrow(() -> new AssertionError("no tool named " + toolName));
-        return tool.call(arguments, new ToolContext(ToolCallerContext.of(caller)));
+        return tool.call(arguments, new ToolContext(ToolCallerContext.of(caller, noTrace())));
     }
 
     /** The one mandate tool taking a second required argument; every other is named by its id alone. */
