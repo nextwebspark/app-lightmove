@@ -12,14 +12,12 @@ import { Topbar } from "./Topbar";
 export function AppShell({
   navGroups,
   navBackLink,
-  navHeader,
   breadcrumb,
   contentClassName,
   children,
 }: {
   navGroups: SidebarGroup[];
   navBackLink?: SidebarItem;
-  navHeader?: ReactNode;
   breadcrumb?: ReactNode;
   contentClassName?: string;
   children: ReactNode;
@@ -53,7 +51,6 @@ export function AppShell({
         <Sidebar
           groups={navGroups}
           backLink={navBackLink}
-          header={navHeader}
           open={navOpen}
           onClose={() => setNavOpen(false)}
         />
