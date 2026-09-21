@@ -211,7 +211,7 @@ state, schedules the autosave channels the changed screens own, and flushes them
 makes two concurrent writes to the same row an optimistic-lock 409.
 
 **Merge policy** is source-aware, not "overwrite everything": a scalar already marked `MANUAL`
-(V60's persisted provenance) is left untouched; anything else (`TEMPLATE`, a previous reading's own
+(V67's persisted provenance) is left untouched; anything else (`TEMPLATE`, a previous reading's own
 `DOCUMENT`, or unset) is replaced and stamped `DOCUMENT`. A repeatable list — responsibilities,
 priorities, criteria, both competency panels — keeps every `MANUAL` row, drops everything else
 (`TEMPLATE` and the previous reading's `DOCUMENT` rows), and appends the new reading's rows up to the
@@ -219,7 +219,7 @@ brief's own per-field ceiling. The org chart gets its own merge (`lib/orgChart.t
 a manager with no name yet is minted, a `MANUAL` manager is left exactly as typed, and a direct report
 with children of its own is never dropped even if it isn't `MANUAL` — dropping it would orphan its own
 children. **One trap already found and fixed here:** the document proposer still answers `location` as
-one free-text field while the brief itself stores two (`locationCity`/`locationCountry`, V65) — the
+one free-text field while the brief itself stores two (`locationCity`/`locationCountry`, V66) — the
 fill writes the whole value to `locationCity` only, and the generic undo path has to special-case that
 same key mismatch (see `undoScalar`'s `"location"` branch) rather than writing a stray `location`
 property that nothing reads.
@@ -234,7 +234,7 @@ dismissed) the popover degrades to "From the document" alone — no confidence, 
 because the value really did come from a document even once the session has forgotten the details.
 
 **Session versus persisted state** is the whole of what a reload loses: `source` (`TEMPLATE` /
-`DOCUMENT` / `MANUAL`) is the one thing V60 persists, and it is what the sparkle itself is drawn from.
+`DOCUMENT` / `MANUAL`) is the one thing V67 persists, and it is what the sparkle itself is drawn from.
 Everything else — the confidence, the snippet, the exact Undo, the per-screen strip's count, the
 rail's "N filled" badge — lives only in `PositionPage.tsx`'s `receipts` state for the running session,
 cleared on a reload or when the strip is dismissed. A brief finished a month ago never nags about

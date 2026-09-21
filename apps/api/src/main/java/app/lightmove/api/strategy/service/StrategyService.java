@@ -21,6 +21,7 @@ import app.lightmove.api.strategy.dto.StrategyCompaniesResponse;
 import app.lightmove.api.strategy.dto.NumericRangeDto;
 import app.lightmove.api.strategy.dto.StrategyFilterDto;
 import app.lightmove.api.strategy.dto.StrategyResponse;
+import app.lightmove.api.strategy.model.CompanyExclusion;
 import app.lightmove.api.strategy.model.CompanyRow;
 import app.lightmove.api.strategy.model.CompanyScope;
 import app.lightmove.api.strategy.model.Strategy;
@@ -161,8 +162,23 @@ public class StrategyService {
     @Transactional(readOnly = true)
     public CompanyScope scopeOf(UUID workspaceId, UUID projectId) {
         requireProject(projectId, workspaceId);
+        return savedScopeOf(projectId, CompanyExclusion.NONE);
+    }
+
+    /**
+     * The same scope with everything this mandate has already triaged left out — what
+     * {@link #companies} itself reads, so a caller asking what is still out there gets the Strategy
+     * screen's own answer rather than one padded with companies the mandate has already decided on.
+     */
+    @Transactional(readOnly = true)
+    public CompanyScope untriagedScopeOf(UUID workspaceId, UUID projectId) {
+        requireProject(projectId, workspaceId);
+        return savedScopeOf(projectId, triagedLookup.exclusionFor(projectId));
+    }
+
+    private CompanyScope savedScopeOf(UUID projectId, CompanyExclusion triagedExclusion) {
         return StrategyScope.of(strategies.findByProjectId(projectId)
-                .orElseGet(() -> Strategy.forProject(projectId)));
+                .orElseGet(() -> Strategy.forProject(projectId)), null, triagedExclusion);
     }
 
     /**

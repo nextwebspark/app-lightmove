@@ -315,7 +315,7 @@ const DEPARTMENT_LENS: ScalarLens<PositionDetails, string | null> = {
 };
 /**
  * The document proposer still reads location as one free-text field (`PositionDetailsProposer` has not
- * split it), while the brief itself has since split the column in two (V65). The whole value goes to
+ * split it), while the brief itself has since split the column in two (V66). The whole value goes to
  * `locationCity`, the free-text half — writing it to `locationCountry`, a picker over a controlled
  * vocabulary, would as often as not fail to match anything the document actually said. `locationCountry`
  * is left exactly as recorded; a person fills it in from the picker if the document named one.

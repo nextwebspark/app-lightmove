@@ -118,26 +118,27 @@ workspace admin customises, hides, adds, exports and imports the firm's own. A f
 the library template of the same `code`, so a library edit reaches every firm that never customised
 it; neither ever touches a brief already drafted. The file format is JSON with a published schema, so
 a template can be written outside the app, AI included, and previewed before anything is written.
-The Role Brief's location is two halves (V65: `location_city` and `location_country`, the country
+The Role Brief's location is two halves (V66: `location_city` and `location_country`, the country
 settled by the same catalog every other country box reads), its target start is the project's own
 date written through `PATCH /projects/{id}`, and its notice period is the reporting section's —
 one screen over four writes. Reporting is an editable React Flow org chart — add, rename, re-parent
 and drag any seat; only the role's own seat is fixed — and its team size is the seat's children,
 counted rather than typed. Compensation states a bonus as a share of base or a **fixed amount**
-(`BonusBasis.FIXED_AMOUNT`, V65 widened `bonus_value` to hold money), and the assessment carries a
-**technical share** (V65 `technical_share`; the behavioural panel takes the rest) beside its two
+(`BonusBasis.FIXED_AMOUNT`, V66 widened `bonus_value` to hold money), and the assessment carries a
+**technical share** (V66 `technical_share`; the behavioural panel takes the rest) beside its two
 weighted panels. The Role Brief attaches the position description and keeps it with the mandate.
 Attaching it **reads it silently** (epic #393): the four `…/position/document/extract/*` routes —
 compensation is never read, most descriptions state no figure — fan out into `lib/documentFill.ts`'s
 `fillBrief`, which folds every scalar and repeatable list into the brief field-by-field, source-aware
-(`TEMPLATE | DOCUMENT | MANUAL`, V60): a `DOCUMENT` value is replaced by a fresh reading, a `MANUAL`
+(`TEMPLATE | DOCUMENT | MANUAL`, V67): a `DOCUMENT` value is replaced by a fresh reading, a `MANUAL`
 one never is. There is no review-then-accept panel — the old wizard's went with it — a filled field
 wears a small sparkle (`ProvenanceMarker`) instead, whose popover carries the snippet and an Undo; a
 per-screen strip summarises the last reading with an Undo all, and the rail badges a step `N filled`
-for the session. **Extract with AI** on the file card reads again; the Reporting and Assessment steps
-carry **Read from document** in their own header, Compensation none. The reporting reading also
-offers the matched template's usual direct reports as **Suggested seats** under the chart, and a role
-title the document suggests a different template for surfaces as a one-line banner with an Apply.
+for the session. **Extract with AI** on the file card reads again, and a section that failed to
+read offers **Read again** from its own screen's strip; Compensation is never read at all. The
+reporting reading also offers the matched template's usual direct reports as **Suggested seats**
+under the chart, and a role title the document suggests a different template for surfaces as a
+one-line banner with an Apply.
 Everything a reading leaves behind — confidence, snippet, Undo, the rail badge — is session state,
 never persisted; only `source` survives a reload.
 `Position.dc.html` is superseded and kept as a record. Publishing stays ungated: the review's
@@ -166,7 +167,7 @@ the mockups: if a screen isn't being built this session, its tables and entities
 
 | Path | What |
 |---|---|
-| `apps/api` | Spring Boot 4.1 (Java 21, Maven). Features: `core`, `common`, `workspace`, `project`, `position`, `positiontemplate`, `strategy`, `triagecompany`, `candidate`, `enrichment`, `customcolumn`, `dataimport`, `dataexport`, `geocoding`, `talentmap`, `report` |
+| `apps/api` | Spring Boot 4.1 (Java 21, Maven). Features: `core`, `common`, `workspace`, `project`, `position`, `positiontemplate`, `strategy`, `triagecompany`, `candidate`, `enrichment`, `customcolumn`, `dataimport`, `dataexport`, `geocoding`, `talentmap`, `report`, `assistant` |
 | `apps/web` | React 19 SPA (Vite 8, TypeScript, Tailwind v4) |
 | `apps/extension` | LightMove Capture — the Chrome extension (Manifest V3, React 19, Vite 8). Its own workspace; shares no code with `apps/web`. |
 | `claude-design/` | HTML mockups — **the source of truth for all UI**. Read the relevant `*.dc.html` before building a screen. |
@@ -285,11 +286,17 @@ left in place rather than dropped. A mandate's whole filter is one `jsonb` colum
 removing a company from a mandate unmaps its executives rather than deleting them; career history and
 languages are one `profile` jsonb column for V30's reasons. `app_lm_position` and its six owned-list
 tables are the brief (V7, grown by V39): every list a step edits is a child table replaced wholesale by
-its step's write, so the aggregate keeps one idiom rather than mixing rows and jsonb. V65 splits its
+its step's write, so the aggregate keeps one idiom rather than mixing rows and jsonb. V66 splits its
 `location` into `location_city` + `location_country` (backfilled from the one line; a comma-less value
 counts as a country only where a dedicated country column already holds that spelling), widens
 `bonus_value` to `numeric(14, 2)` for a fixed-amount bonus, and adds `technical_share` — seeded at 50
-and written explicitly from there (V40's idiom).
+and written explicitly from there (V40's idiom). V67 records where every field came from: a
+`source` column (`TEMPLATE | DOCUMENT | MANUAL`, V34's CHECK idiom) on each of the six owned-list tables,
+and one `field_sources` jsonb map on the brief for the ten scalars a reading can claim — the
+compensation figures and the role title are deliberately absent, having nothing to claim. The
+criterion's `from_brief` boolean folds into that same column. Backfill keys on `version`: a brief
+nobody has saved is the template's, a saved one is somebody's, so nothing anybody typed is ever
+read back as a template default.
 `app_lm_position_org_node` is the org chart — a tree of seats with exactly one flagged
 `mandate_seat`, so "reports to" is that seat's parent and "direct reports" are its children, both
 derived rather than stored twice.

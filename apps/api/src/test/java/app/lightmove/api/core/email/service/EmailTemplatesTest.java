@@ -25,7 +25,7 @@ class EmailTemplatesTest {
 
     private final EmailTemplates templates = new EmailTemplates(new LightMoveProperties(
             null, null, new WebSettings(BASE_URL, List.of(), "/auth/callback", 0),
-            null, null, null, null, null, null, null, null, null, null, null));
+            null, null, null, null, null, null, null, null, null, null, null, null));
 
     @Test
     @DisplayName("every one renders, subject and both bodies, under one brand")

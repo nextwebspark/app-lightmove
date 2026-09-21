@@ -97,6 +97,37 @@ public class AuditService {
         }
 
         /**
+         * A detail that may legitimately be absent — a token count nobody measured, a model name the
+         * provider did not name.
+         *
+         * <p>Not the same as passing null to {@link #detail}: {@code record()} seals the map with
+         * {@code Map.copyOf}, which rejects null values, so an absent detail passed there throws a
+         * {@code NullPointerException} from inside the caller's own request — long after the work it
+         * was recording succeeded.
+         */
+        public Builder detailIfPresent(String key, Object value) {
+            if (value != null) {
+                this.metadata.put(key, value);
+            }
+            return this;
+        }
+
+        /**
+         * The origin of a request that has already ended.
+         *
+         * <p>For a background worker, which has no {@code HttpServletRequest} — Tomcat recycles it
+         * as soon as the response is written. The values come from columns the accepting request
+         * stored, where {@link ClientIpResolver} had already decided what was trustworthy; they must
+         * never be taken from a header on the worker's side, because there is no request to have a
+         * header and anything supplied there would be the caller's own choice.
+         */
+        public Builder origin(String ipAddress, String userAgent) {
+            this.ipAddress = ipAddress;
+            this.userAgent = truncate(userAgent, 512);
+            return this;
+        }
+
+        /**
          * The IP is resolved by {@link ClientIpResolver}, not read off {@code X-Forwarded-For} here.
          * An audit log an attacker can write the "from" address of is worse than none — it is evidence
          * that points wherever they chose.

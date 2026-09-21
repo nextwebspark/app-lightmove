@@ -27,5 +27,6 @@ public record LightMoveProperties(
         MapboxSettings mapbox,
         TalentMapSettings talentMap,
         ExportSettings export,
-        ReportSettings report
+        ReportSettings report,
+        AssistantSettings assistant
 ) {}

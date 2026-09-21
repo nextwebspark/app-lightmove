@@ -18,16 +18,10 @@ import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 @Slf4j
 public class ProjectStreamRegistry {
 
-    /**
-     * Just under Cloud Run's 60s request timeout, so the server ends every stream cleanly and the
-     * browser reconnects on a normal close instead of a mid-air network error.
-     */
-    public static final long STREAM_TIMEOUT_MS = 55_000;
-
     private final Map<UUID, Set<SseEmitter>> streams = new ConcurrentHashMap<>();
 
     public SseEmitter subscribe(UUID projectId) {
-        SseEmitter emitter = new SseEmitter(STREAM_TIMEOUT_MS);
+        SseEmitter emitter = new SseEmitter(SseStreams.STREAM_TIMEOUT_MS);
         streams.computeIfAbsent(projectId, id -> ConcurrentHashMap.newKeySet()).add(emitter);
         emitter.onCompletion(() -> drop(projectId, emitter));
         emitter.onTimeout(emitter::complete);

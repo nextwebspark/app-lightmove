@@ -261,6 +261,42 @@ public enum ErrorCode {
     CANDIDATE_PROFILE_URL_LOCKED(HttpStatus.CONFLICT,
             "This profile was captured from LinkedIn; its URL is not editable"),
 
+    /**
+     * A second question while the first is still running. Refused rather than queued: every turn
+     * spends real money against the firm's Vertex account, and a thread that answers two questions
+     * at once reads as interleaved nonsense. It also happens to kill the panel's double-submit.
+     */
+    ASSISTANT_TURN_IN_PROGRESS(HttpStatus.CONFLICT,
+            "Wait for the current answer before asking again"),
+
+    /**
+     * Every turn slot on this instance is taken. A 503 rather than a 429: the caller has done
+     * nothing wrong and the same request will work shortly, which is what distinguishes capacity
+     * from a rate limit.
+     */
+    ASSISTANT_BUSY(HttpStatus.SERVICE_UNAVAILABLE,
+            "The assistant is busy. Try again in a moment"),
+
+    /**
+     * A proposal cannot be filed while its own turn is still answering.
+     *
+     * <p>Not a policy so much as arithmetic. {@code AssistantEventAppender} allocates
+     * {@code max(seq) + 1} and is safe because a turn has one writer at a time; the card renders the
+     * moment the {@code proposal} event reaches the browser, which is mid-stream, so an accept
+     * arriving then would put a request thread and the worker on that allocation together. One of
+     * them loses V65's unique index — and if it is the worker, a good answer ends as a FAILED turn.
+     */
+    ASSISTANT_TURN_STILL_ANSWERING(HttpStatus.CONFLICT,
+            "Wait for the answer to finish before filing these"),
+
+    /**
+     * The proposal on this turn has already been filed. A conflict rather than a quiet re-run: the
+     * rows would be deduplicated anyway, so a second accept could only ever report "added 0", which
+     * reads as a failure to a person who just watched the first one work.
+     */
+    ASSISTANT_PROPOSAL_ALREADY_ACCEPTED(HttpStatus.CONFLICT,
+            "This proposal has already been filed"),
+
     INTERNAL_ERROR(HttpStatus.INTERNAL_SERVER_ERROR, "Something went wrong on our end");
 
     private final HttpStatus status;

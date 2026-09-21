@@ -12,6 +12,13 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import app.lightmove.api.ApolloUniverse;
 import app.lightmove.api.FlowTestSupport;
 import app.lightmove.api.IntegrationTest;
+import app.lightmove.api.strategy.constant.CompanySortField;
+import app.lightmove.api.strategy.constant.SortDirection;
+import app.lightmove.api.strategy.model.CompanyRow;
+import app.lightmove.api.strategy.model.CompanyScope;
+import app.lightmove.api.strategy.service.ApolloCompanyQueryService;
+import app.lightmove.api.strategy.service.StrategyService;
+import java.util.List;
 import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -34,6 +41,10 @@ import org.springframework.test.web.servlet.MvcResult;
 class StrategyFlowIntegrationTest extends FlowTestSupport {
 
     @Autowired JdbcTemplate db;
+
+    @Autowired StrategyService strategies;
+
+    @Autowired ApolloCompanyQueryService companies;
 
     private ApolloUniverse universe;
 
@@ -638,6 +649,44 @@ class StrategyFlowIntegrationTest extends FlowTestSupport {
 
     private static String triageUrl(String projectId) {
         return "/api/v1/projects/" + projectId + "/triage";
+    }
+
+    @Test
+    @DisplayName("the two scopes differ only in whether the mandate's own triage is excluded")
+    void untriagedScopeLeavesOutWhatTheMandateHasAlreadyFiled() throws Exception {
+        String admin = adminOf("Strategy Scope Firm");
+        String projectId = project(admin);
+        universe.company("a1", "ACWA Power").industry("oil & energy").employees(10).insert();
+        universe.company("a2", "Masdar").industry("oil & energy").employees(10).insert();
+        mvc.perform(post(triageUrl(projectId))
+                        .header("Authorization", "Bearer " + admin)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"apolloAccountId":"a2","status":"declined"}"""))
+                .andExpect(status().isCreated());
+
+        UUID workspaceId = workspaceOf("alok@" + domain);
+        UUID project = UUID.fromString(projectId);
+
+        // The bulk-write callers read scopeOf and dedupe for themselves, so it must keep a triaged
+        // company; a caller asking what is still out there reads the other one.
+        assertThat(matching(strategies.scopeOf(workspaceId, project)))
+                .containsExactlyInAnyOrder("ACWA Power", "Masdar");
+        assertThat(matching(strategies.untriagedScopeOf(workspaceId, project)))
+                .containsExactly("ACWA Power");
+    }
+
+    private List<String> matching(CompanyScope scope) {
+        return companies.search(scope, CompanySortField.NAME, SortDirection.ASC, 0, 50).stream()
+                .map(CompanyRow::companyName)
+                .toList();
+    }
+
+    private UUID workspaceOf(String emailAddress) {
+        return db.queryForObject("""
+                SELECT m.workspace_id FROM app_lm_workspace_member m
+                JOIN app_lm_user u ON u.id = m.user_id
+                WHERE lower(u.email) = lower(?) AND m.status = 'ACTIVE'""", UUID.class, emailAddress);
     }
 
     private String adminOf(String workspaceName) throws Exception {

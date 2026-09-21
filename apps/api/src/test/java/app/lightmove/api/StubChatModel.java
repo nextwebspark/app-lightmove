@@ -8,6 +8,7 @@ import org.springframework.ai.chat.model.Generation;
 import org.springframework.ai.chat.prompt.Prompt;
 import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.context.annotation.Bean;
+import reactor.core.publisher.Flux;
 
 /**
  * A {@link ChatModel} that answers every prompt with a fixed reply, so the whole application
@@ -18,9 +19,26 @@ import org.springframework.context.annotation.Bean;
  */
 public class StubChatModel implements ChatModel {
 
+    private static final String REPLY = "stubbed response";
+
     @Override
     public ChatResponse call(Prompt prompt) {
-        return new ChatResponse(List.of(new Generation(new AssistantMessage("stubbed response"))));
+        return chunk(REPLY);
+    }
+
+    /**
+     * The assistant runner streams, and {@code ChatModel}'s default {@code stream} throws
+     * {@code UnsupportedOperationException} — so this has to be implemented, not inherited. Two
+     * chunks rather than one, so a turn's text genuinely arrives in pieces and is reassembled the way
+     * a real provider's would be.
+     */
+    @Override
+    public Flux<ChatResponse> stream(Prompt prompt) {
+        return Flux.just(chunk("stubbed "), chunk("response"));
+    }
+
+    private static ChatResponse chunk(String text) {
+        return new ChatResponse(List.of(new Generation(new AssistantMessage(text))));
     }
 
     @TestConfiguration(proxyBeanMethods = false)
