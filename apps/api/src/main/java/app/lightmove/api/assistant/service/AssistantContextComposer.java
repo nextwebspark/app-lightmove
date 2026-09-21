@@ -33,8 +33,12 @@ public class AssistantContextComposer {
      */
     @Transactional(readOnly = true)
     public AssistantContext compose(UUID userId, UUID workspaceId, UUID projectId) {
+        // filter, not just orElse: a user row with a blank full name maps to Optional.of("") and
+        // would reach AssistantContext's constructor, which refuses it — turning a cosmetic gap in
+        // somebody's profile into a failed turn.
         String consultant = users.findById(userId)
                 .map(User::getFullName)
+                .filter(fullName -> !fullName.isBlank())
                 .orElse("a consultant");
         return new AssistantContext(consultant,
                 projectId == null ? null : projects.factsOf(workspaceId, projectId).orElse(null));

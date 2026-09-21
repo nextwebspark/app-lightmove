@@ -73,6 +73,19 @@ class AssistantContextComposerTest {
     }
 
     @Test
+    @DisplayName("a blank full name falls back rather than failing the turn")
+    void survivesABlankName() {
+        givenConsultant("   ");
+
+        AssistantContext context = composer.compose(USER, WORKSPACE, null);
+
+        // map() yields Optional.of("") for a present-but-blank name, so orElse never fires and the
+        // blank would reach AssistantContext's constructor, which refuses it — a gap in somebody's
+        // profile becoming a failed turn.
+        assertThat(context.consultant()).isEqualTo("a consultant");
+    }
+
+    @Test
     @DisplayName("a user whose row has gone still yields a usable context")
     void survivesAMissingUser() {
         when(users.findById(USER)).thenReturn(Optional.empty());

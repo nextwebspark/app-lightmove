@@ -94,12 +94,17 @@ public class AssistantThreadService {
         StartedTurn started = store.begin(userId, workspaceId, threadId, request.projectId(),
                 question, origin);
 
-        // The thread's mandate rather than the request's: a continued thread keeps what it was
-        // started about, and store.begin has already decided which that is.
-        String systemPrompt = prompts.assemble(
-                context.compose(userId, workspaceId, started.projectId()));
-
+        // Everything between begin and the hand-off is inside the try, not only the hand-off. begin
+        // has committed a RUNNING row by now, so anything that throws here and is not settled leaves
+        // a turn no worker owns: the caller sees a 500 and the row sits RUNNING until the sweep
+        // reclaims it five minutes later. That window used to hold nothing that could throw; the
+        // context pack put two calls and three queries in it.
         try {
+            // The thread's mandate rather than the request's: a continued thread keeps what it was
+            // started about, and store.begin has already decided which that is.
+            String systemPrompt = prompts.assemble(
+                    context.compose(userId, workspaceId, started.projectId()));
+
             worker.run(new TurnWork(started.turnId(), started.threadId(), userId, workspaceId,
                     systemPrompt, started.history(), question,
                     origin.ipAddress(), origin.userAgent()), origin.correlationId());
@@ -110,9 +115,28 @@ public class AssistantThreadService {
             log.warn("Refused assistant turn {}: every slot is taken", started.turnId());
             store.fail(started.turnId(), ErrorCode.ASSISTANT_BUSY);
             throw ApiException.of(ErrorCode.ASSISTANT_BUSY);
+        } catch (RuntimeException failed) {
+            log.error("Assistant turn {} never reached a worker", started.turnId(), failed);
+            settleUnstarted(started.turnId());
+            throw failed;
         }
 
         return started.accepted();
+    }
+
+    /**
+     * Marks a turn that was committed and then never handed off.
+     *
+     * <p>Swallows its own failure rather than replacing the exception that got here: what the caller
+     * needs to know is why their turn did not start, and the sweep is the backstop for the row.
+     */
+    private void settleUnstarted(UUID turnId) {
+        try {
+            store.fail(turnId, ErrorCode.INTERNAL_ERROR);
+        } catch (RuntimeException unsettlable) {
+            log.error("Could not settle assistant turn {}; leaving it to the sweep", turnId,
+                    unsettlable);
+        }
     }
 
     /**

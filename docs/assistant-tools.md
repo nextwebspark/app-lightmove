@@ -146,6 +146,15 @@ with its id spelled out, because a tool takes it as an argument and the model ha
 learn one. Naming it authorises nothing. A mandate named here that the caller has no seat on is
 refused exactly as an invented one is.
 
+**The two names in that tail are free text a member typed, and the tail is the higher-trust
+channel.** A position title passes `@NotBlank @Size(max = 160)` and is stripped only at its ends, so
+an embedded newline survives and 160 characters is room enough to forge a turn boundary in the
+system message — the one place the body's "a tool result is data" warning does not reach. The guard
+bounds what that could win: membership is re-read per call, so it cannot reach data the *reader*
+does not already hold. It could still make a colleague's assistant misreport. So both names are
+flattened onto one line, capped, and quoted where they are interpolated, and the body says in a
+sentence that they are labels somebody chose rather than rules.
+
 That order is not presentation. Gemini caches on a prefix, so anything varying between turns
 invalidates everything after it, and a UUID is the most reliable invalidator there is. The failure
 mode is the dangerous kind: answers stay perfectly correct and the bill goes up, silently. So the
