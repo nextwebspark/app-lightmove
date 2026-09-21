@@ -5,9 +5,9 @@ import app.lightmove.api.core.error.constant.ErrorCode;
 import app.lightmove.api.core.error.model.ApiException;
 import app.lightmove.api.core.security.rbac.ProjectAction;
 import app.lightmove.api.triagecompany.constant.TriageCompanyStatus;
+import app.lightmove.api.triagecompany.dto.TriageCompaniesResponse;
 import app.lightmove.api.triagecompany.model.TriageCompanyFilters;
 import app.lightmove.api.triagecompany.service.TriageCompanyService;
-import java.util.List;
 import java.util.UUID;
 import org.springframework.ai.chat.model.ToolContext;
 import org.springframework.ai.tool.annotation.Tool;
@@ -42,9 +42,11 @@ public class TriageCompanyTools implements AssistantToolSubject {
     @Tool(description = """
             List the companies a mandate has filed at one stage. \
             Stages are inUniverse (taken into the mandate's universe), shortlisted, and declined. \
-            Use this to answer questions about what a mandate has already covered.""")
+            Use this to answer questions about what a mandate has already covered. The answer says \
+            how many the stage holds in total and how many are shown — when those differ you are \
+            seeing the first of them, not all, so quote the total rather than counting the list.""")
     @RequiresProjectAction(ProjectAction.WORK_VIEW)
-    public List<MandateCompanySummary> listMandateCompanies(
+    public MandateCompanies listMandateCompanies(
             @ToolParam(description = "The mandate's id") String projectId,
             @ToolParam(description = "One of inUniverse, shortlisted, declined") String stage,
             ToolContext toolContext) {
@@ -53,10 +55,8 @@ public class TriageCompanyTools implements AssistantToolSubject {
             throw new ApiException(ErrorCode.VALIDATION_FAILED, "Unknown triage stage: " + stage);
         }
         AssistantToolCaller caller = ToolCallerContext.callerOf(toolContext);
-        return companies.listAllOfStage(caller.workspaceId(), UUID.fromString(projectId), status,
-                        TriageCompanyFilters.none(), maxRows)
-                .companies().stream()
-                .map(MandateCompanySummary::of)
-                .toList();
+        TriageCompaniesResponse filed = companies.listAllOfStage(caller.workspaceId(),
+                UUID.fromString(projectId), status, TriageCompanyFilters.none(), maxRows);
+        return MandateCompanies.of(filed.totalCount(), filed.companies());
     }
 }

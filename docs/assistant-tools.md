@@ -12,8 +12,8 @@ application to read a mandate's data, with arguments the **model** chose, on a t
 `SecurityContext`, for a user who is not on the other end of a request any more. Every assumption
 `@PreAuthorize` rests on is gone.
 
-So the guard came before the tools, which is why this document exists before there is much of a tool
-surface to describe.
+So the guard came first and the tools followed it, which is the order this document is written in:
+the rule, then the surface it holds.
 
 ## The rule
 
@@ -123,6 +123,93 @@ client representative off the market side while the mandate they are attached to
 which is right for the assistant's own endpoints — a client may hold a conversation — and wrong for
 anything reading market data. Tools gate on named actions only.
 
+## The surface
+
+| Tool | Tier | Answers |
+|---|---|---|
+| `describeMarket` | `PROJECT_BROWSE` | the universe's industries, sectors, countries, segments and bands, each with a count |
+| `searchCompanyUniverse` | `PROJECT_BROWSE` | the largest companies matching a country, an industry, a keyword, a name and a headcount range |
+| `searchMandateFilter` | `WORK_VIEW` | the same market through one mandate's saved filter, minus its off-limits and everything it has already filed |
+| `listMandateCompanies` | `WORK_VIEW` | the companies a mandate has filed at one triage stage, and how many it holds |
+| `listMandateExecutives` | `WORK_VIEW` | the people a mandate has mapped — name, title, employer, status — and how many it has mapped |
+| `mandateCompensation` | `WORK_VIEW` | what the mandate's brief says the role pays |
+
+**Every capped answer says how much it is capping.** `Assistant.dc.html` writes the line itself —
+*"Searched your universe for energy companies in Saudi Arabia — 1,284 matched"* — and it is right
+to. A model handed twenty-five rows and no count reasons as though those are the market: it totals
+them, calls them "the" operators, and a client-facing sentence inherits the mistake. So every search
+runs `count` beside `search` and answers `{matched, showing, companies}`. The second query is the
+price of the model knowing what it is not looking at.
+
+The same holds for the two lists of a mandate's own rows, and there it costs nothing at all:
+`CandidateService.listAllOfProject` and `TriageCompanyService.listAllOfStage` both already return
+the total beside the page, so `MandateExecutives` and `MandateCompanies` carry what the read had
+computed and the tools used to discard. It matters most there, because "how many executives have we
+mapped?" is a number a consultant quotes to a client — and a mandate holding sixty used to answer
+twenty-five. A tool description saying truncation is *possible* is not the same statement as an
+answer saying it *happened*.
+
+**The model is given numbers, not band slugs.** `EmployeeBand` has eleven of them and `RevenueBand`
+its own set — a vocabulary the model would have to be taught and would get subtly wrong.
+`CompanyScope` settles it: a `NumericRange` takes precedence over its axis's band list when set, so
+`minEmployees` / `maxEmployees` are not a workaround for the bands but the other supported way of
+saying the same thing.
+
+**The vocabulary is a tool rather than a prompt.** The universe carries 148 lower-cased industry
+labels and spells countries out in full ("United Arab Emirates", never "AE"), and a search matches
+the exact spelling. Neither list can be guessed. Putting both in the system prompt would bury a long
+constant in the cached prefix for the sake of every turn that never asks a market question, so
+`describeMarket` reports them when the model needs to know what it may say.
+
+**And it is sized by `vocabularyLimit`, not `toolRowLimit`.** The two are different kinds of number.
+The row limit is a budget for *result* rows, where a page of the largest is a fair answer and the
+total beside it says what was left out; a vocabulary has no such consolation. `countByCountry` is
+the one axis of a `MarketShape` that goes through a `LIMIT` — the sectors, the segments and both
+band sets are closed lists — and it is `ORDER BY count(*) DESC`, so the row limit made it the top
+twenty-five countries by company count while both search descriptions called its spellings
+authoritative. A country ranked twenty-sixth was then unreachable: the model could not learn its
+spelling, and the wrong spelling matches nothing and says nothing about why. In a global universe
+that is how Bahrain, Oman, Qatar and Kuwait — the Gulf markets the report counts by name — go
+missing. The default is 250, chosen to exceed the number of countries that exist rather than
+measured against the universe; it stays a settings key so a universe carrying junk values can be
+capped without a release.
+
+**Off-limits belongs to the mandate, not to the market.** The workspace-tier search reads the
+universe as it is — a strategy company is a row of the market that belongs to nobody, and there is
+no mandate at that tier to hold an exclusion. `searchMandateFilter` goes through
+`StrategyService.untriagedScopeOf`, which carries the saved axes, the off-limits list *and* the
+mandate's own triage history, and `MarketQuery.narrow` may only tighten what comes back: there is no
+argument in which the model could widen an axis or drop an exclusion. A company a client ruled out
+does not return because the question was asked a second way.
+
+`untriagedScopeOf` is new beside `scopeOf` rather than replacing it, because the two callers want
+opposite things. The bulk triage writes read `scopeOf` and dedupe for themselves — `CompanyScope`'s
+own doc explains why pre-filtering there would silently zero their "already there" count. A question
+is the other case: a company the mandate has already filed is not something else that is out there,
+and proposing it back is how an assistant talks a consultant into work they have already done. So
+the tool reads the Strategy screen's own list, and `listMandateCompanies` answers what was taken.
+
+**Executives are named but not contactable.** `MandateExecutiveSummary` is four fields. The contact
+ledger is what the mandate *bought*, one ContactOut lookup at a time, and no question about who has
+been mapped is answered any better by having it in the context window; the note and the compensation
+reading are left out for the same reason — they are a researcher's words about a person, not a fact
+about the map.
+
+**The brief is read through `compensationOf`, never `get`.** The brief's own read drafts and saves a
+position for a mandate that has none. A question must not write, least of all one asked under a
+read-only client seat, and `compensationOf` falls back to an unsaved `Position.forProject` instead.
+
+Two tools read the same market, so the capped, counted read is `MarketSearch` rather than a method
+on either tool class: one cap, one order, and neither tool class depending on the other. The tool
+classes themselves hold prompt text and nothing else, which is why they live in `assistant` and not
+in `strategy` — a description is tuned against how the model behaves, not against the domain.
+
+**The report chapters are deliberately not here.** `ReportService` aggregates four of them live on
+every read; handing a model a whole report is both the largest answer in the set and a duplicate of
+a screen that already exists. Worth its own decision once there is a question it is the only way to
+answer.
+
+
 ## What the model is told, and in what order
 
 A guarded tool the model has been told not to use is not a capability. Until #428 the system prompt
@@ -225,7 +312,20 @@ Checked against the 2.0.1 jars rather than the documentation.
   collected tool declares a permission, and the toolset hands out only guarded callbacks.
 - `AssistantToolAuthorisationIntegrationTest` — the same rules against real membership rows: a pure
   client is refused the market and keeps their mandate, an unseated member cannot tell a real mandate
-  from a fictional one, and another workspace's is refused.
+  from a fictional one, and another workspace's is refused. It reads the mandate-tier tools off the
+  toolset rather than listing them, so a tool added there joins every case without being remembered.
+- `MarketQueryTest` — a named country and industry land on their own axes, a headcount becomes a
+  `NumericRange` with no band slug invented for it, an omitted or blank argument constrains nothing,
+  and narrowing a mandate's filter keeps its axes and its off-limits list.
+- `MarketSearchTest` — the total reported is the market's and not the page's; the page asked for is
+  the biggest first, capped at the assistant's own row limit; and the country vocabulary is asked
+  for at the vocabulary limit, with the two numbers deliberately unequal so a swapped pair cannot
+  pass.
+- `MandateListToolsTest` — a mandate holding sixty executives answers `matched` 60 with `showing` 25,
+  and the same for a triage stage.
+- `StrategyFlowIntegrationTest.untriagedScopeLeavesOutWhatTheMandateHasAlreadyFiled` — the two scopes
+  differ in exactly one thing, against real rows: `scopeOf` keeps a triaged company for the bulk
+  writers, `untriagedScopeOf` drops it.
 - `AssistantPromptAssemblerTest` — the body carries no UUID and no placeholder; two turns differing
   only in their mandate share it as a common prefix; a mandate is named with the id a tool asks for;
   no mandate is a state rather than a failure; an unreadable prompt fails the application at startup.

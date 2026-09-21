@@ -177,7 +177,7 @@ class GeminiAssistantTurnRunnerTest {
     private static GeminiAssistantTurnRunner runnerWith(ChatModel model, int historyWindow) {
         LightMoveProperties properties = new LightMoveProperties(null, null, null, null, null, null,
                 null, null, null, null, null, null, null, null,
-                new AssistantSettings("gemini-3.1-pro", 0.2, 2048, historyWindow, 25, 2, 8, true,
+                new AssistantSettings("gemini-3.1-pro", 0.2, 2048, historyWindow, 25, 250, 2, 8, true,
                         Duration.ofMinutes(5), Duration.ofMinutes(1)));
         // No tool subjects: what a turn sends and makes of the answer is this test's subject, and the
         // guard around a tool call has its own. An empty toolset still proves the turn attaches one.
