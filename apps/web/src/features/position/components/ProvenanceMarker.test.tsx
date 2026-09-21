@@ -22,11 +22,12 @@ describe("ProvenanceMarker", () => {
     );
     const person = userEvent.setup();
 
-    expect(screen.queryByRole("tooltip")).not.toBeInTheDocument();
+    expect(screen.queryByRole("group", { name: "Document provenance" })).not.toBeInTheDocument();
 
     await person.tab();
     expect(screen.getByRole("button", { name: "Read from the document" })).toHaveFocus();
-    expect(screen.getByRole("tooltip")).toHaveTextContent("From the document · High");
+    const panel = screen.getByRole("group", { name: "Document provenance" });
+    expect(panel).toHaveTextContent("From the document · High");
     expect(screen.getByText("Leads the finance function", { exact: false })).toBeInTheDocument();
 
     const undo = screen.getByRole("button", { name: "Undo" });
@@ -34,7 +35,24 @@ describe("ProvenanceMarker", () => {
     expect(onUndo).toHaveBeenCalledTimes(1);
 
     await person.keyboard("{Escape}");
-    expect(screen.queryByRole("tooltip")).not.toBeInTheDocument();
+    expect(screen.queryByRole("group", { name: "Document provenance" })).not.toBeInTheDocument();
+  });
+
+  it("keeps the popover open when Tab moves focus from the trigger to Undo inside it", async () => {
+    const onUndo = vi.fn();
+    render(<ProvenanceMarker source="DOCUMENT" onUndo={onUndo} />);
+    const person = userEvent.setup();
+
+    await person.tab();
+    expect(screen.getByRole("button", { name: "Read from the document" })).toHaveFocus();
+
+    await person.tab();
+    const undo = screen.getByRole("button", { name: "Undo" });
+    expect(undo).toHaveFocus();
+    expect(screen.getByRole("group", { name: "Document provenance" })).toBeInTheDocument();
+
+    await person.keyboard("{Enter}");
+    expect(onUndo).toHaveBeenCalledTimes(1);
   });
 
   it("degrades to the glyph alone once the session has no receipt for the field", async () => {
@@ -42,9 +60,9 @@ describe("ProvenanceMarker", () => {
     const person = userEvent.setup();
 
     await person.tab();
-    const tooltip = screen.getByRole("tooltip");
-    expect(tooltip).toHaveTextContent("From the document");
-    expect(tooltip).not.toHaveTextContent("·");
+    const panel = screen.getByRole("group", { name: "Document provenance" });
+    expect(panel).toHaveTextContent("From the document");
+    expect(panel).not.toHaveTextContent("·");
     expect(screen.queryByRole("button", { name: "Undo" })).not.toBeInTheDocument();
   });
 

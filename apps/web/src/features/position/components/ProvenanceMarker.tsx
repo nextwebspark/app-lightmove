@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useId, useState } from "react";
 import { Icon, ICONS } from "../../../components/layout/Icon";
 import { cn } from "../../../lib/cn";
 import type { FieldSource, ProposalConfidence } from "../api/types";
@@ -33,26 +33,32 @@ export function ProvenanceMarker({
   className?: string;
 }) {
   const [open, setOpen] = useState(false);
+  const panelId = useId();
   if (source !== "DOCUMENT") return null;
 
   return (
-    // Hover is tracked on this wrapper, not the button alone: the popover panel is the button's
-    // sibling, not its descendant, so leaving the button to move the pointer down into the panel
-    // would otherwise fire the button's own mouseleave first and close it before Undo is reachable.
+    // Hover and focus are both tracked on this wrapper, not the button alone: the popover panel is the
+    // button's sibling, not its descendant, so a wrapper-level `onBlur` is what lets focus move from
+    // the trigger to the Undo button inside without the popover closing first — `relatedTarget` is only
+    // outside the wrapper once focus has actually left both.
     <span
       className={cn("relative inline-flex", className)}
       onMouseEnter={() => setOpen(true)}
       onMouseLeave={() => setOpen(false)}
+      onFocus={() => setOpen(true)}
+      onBlur={(event) => {
+        if (!event.currentTarget.contains(event.relatedTarget as Node | null)) setOpen(false);
+      }}
+      onKeyDown={(event) => {
+        if (event.key === "Escape") setOpen(false);
+      }}
     >
       <button
         type="button"
         aria-label="Read from the document"
         aria-expanded={open}
-        onFocus={() => setOpen(true)}
-        onBlur={() => setOpen(false)}
-        onKeyDown={(event) => {
-          if (event.key === "Escape") setOpen(false);
-        }}
+        aria-controls={panelId}
+        aria-describedby={panelId}
         className={cn(
           "grid size-4 flex-none place-items-center rounded-full transition",
           confidence === "low" ? "text-u-signal" : "text-u-inferred",
@@ -63,7 +69,9 @@ export function ProvenanceMarker({
 
       {open && (
         <div
-          role="tooltip"
+          id={panelId}
+          role="group"
+          aria-label="Document provenance"
           className="absolute start-1/2 top-full z-20 mt-1.5 w-max max-w-[240px] -translate-x-1/2 rounded-[8px] bg-u-text px-3 py-2 text-[11.5px] leading-[1.5] text-u-bg shadow-u-e3"
         >
           <span className="block font-semibold">
