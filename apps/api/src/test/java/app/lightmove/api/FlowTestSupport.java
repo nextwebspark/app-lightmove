@@ -6,7 +6,10 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.request;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import java.time.Duration;
+import java.util.Objects;
 import java.util.concurrent.atomic.AtomicInteger;
+import org.awaitility.Awaitility;
 import org.junit.jupiter.api.BeforeEach;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.MediaType;
@@ -160,25 +163,25 @@ public abstract class FlowTestSupport {
      * {@code finished_at} has to wait for the worker. Polling the caller's own read rather than the
      * table keeps the wait inside what the API actually exposes.
      */
-    protected JsonNode awaitTurnSettled(String bearerToken, String threadId, String turnId)
+    protected JsonNode awaitTurnSettled(String bearerToken, String threadId, String turnId) {
+        return Awaitility.await()
+                .atMost(Duration.ofMillis(STREAM_WAIT_MS))
+                .pollInterval(Duration.ofMillis(50))
+                .until(() -> settledTurn(bearerToken, threadId, turnId), Objects::nonNull);
+    }
+
+    private JsonNode settledTurn(String bearerToken, String threadId, String turnId)
             throws Exception {
-        long deadline = System.currentTimeMillis() + STREAM_WAIT_MS;
-        JsonNode last = null;
-        while (System.currentTimeMillis() < deadline) {
-            JsonNode thread = body(mvc.perform(get("/api/v1/assistant/threads/" + threadId)
-                            .header("Authorization", "Bearer " + bearerToken))
-                    .andReturn());
-            for (JsonNode turn : thread.get("turns")) {
-                if (turn.get("id").asText().equals(turnId)) {
-                    last = turn;
-                    if (!turn.get("status").asText().equals("RUNNING")) {
-                        return turn;
-                    }
-                }
+        JsonNode thread = body(mvc.perform(get("/api/v1/assistant/threads/" + threadId)
+                        .header("Authorization", "Bearer " + bearerToken))
+                .andReturn());
+        for (JsonNode turn : thread.get("turns")) {
+            if (turn.get("id").asText().equals(turnId)
+                    && !turn.get("status").asText().equals("RUNNING")) {
+                return turn;
             }
-            Thread.sleep(50);
         }
-        throw new AssertionError("Turn " + turnId + " never settled; last seen: " + last);
+        return null;
     }
 
     /**
@@ -198,18 +201,15 @@ public abstract class FlowTestSupport {
     /**
      * Waits for a stream to contain something, then asserts it.
      *
-     * <p>Asserting after the loop rather than failing on the timeout is deliberate: the failure
-     * message then shows what the stream <i>did</i> say, which is the difference between a
-     * debuggable failure and "timed out".
+     * <p>{@code untilAsserted} rather than {@code until}, so a timeout fails on the assertion and the
+     * message shows what the stream <i>did</i> say — the difference between a debuggable failure and
+     * "condition was not fulfilled".
      */
-    protected void awaitContent(MvcResult stream, String expected) throws Exception {
-        long deadline = System.currentTimeMillis() + STREAM_WAIT_MS;
-        while (System.currentTimeMillis() < deadline) {
-            if (stream.getResponse().getContentAsString().contains(expected)) {
-                return;
-            }
-            Thread.sleep(100);
-        }
-        assertThat(stream.getResponse().getContentAsString()).contains(expected);
+    protected void awaitContent(MvcResult stream, String expected) {
+        Awaitility.await()
+                .atMost(Duration.ofMillis(STREAM_WAIT_MS))
+                .pollInterval(Duration.ofMillis(100))
+                .untilAsserted(() ->
+                        assertThat(stream.getResponse().getContentAsString()).contains(expected));
     }
 }
