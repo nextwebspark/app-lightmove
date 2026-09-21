@@ -35,24 +35,14 @@ import org.springframework.transaction.annotation.Transactional;
  * short transaction on {@link AssistantTurnStore} or {@link AssistantEventAppender}, and the model
  * call sits inside none of them.
  *
- * <p>The turn still runs <b>with no tools</b> — nothing reachable from here touches a mandate's
- * data, which is what makes cross-project isolation a non-question until #425 introduces the tool
- * surface and the guard that authorises each call against its own arguments.
+ * <p>A turn runs with tools, and cross-project isolation is decided per tool call against that
+ * call's own arguments — not here. What this class contributes is the context those arguments are
+ * chosen from: the thread's mandate, named so the model can ask about it, authorising nothing.
  */
 @Service
 @RequiredArgsConstructor
 @Slf4j
 public class AssistantThreadService {
-
-    /**
-     * Placeholder until #428 assembles a real one. It says what the assistant is and nothing about
-     * the caller or the mandate, because with no tools there is nothing it could usefully be told.
-     */
-    private static final String SYSTEM_PROMPT = """
-            You are Uncava's research assistant, helping an executive search consultant.
-            Answer concisely. You have no access to the firm's data yet, so if a question needs it,
-            say plainly that you cannot look it up rather than guessing at names or figures.
-            """;
 
     private static final int MAX_THREADS_LISTED = 50;
 
@@ -60,6 +50,8 @@ public class AssistantThreadService {
     private final AssistantTurnRepository turns;
     private final AssistantTurnStore store;
     private final AssistantTurnWorker worker;
+    private final AssistantContextComposer context;
+    private final AssistantPromptAssembler prompts;
     private final ClientIpResolver clientIps;
 
     @Transactional(readOnly = true)
@@ -102,9 +94,14 @@ public class AssistantThreadService {
         StartedTurn started = store.begin(userId, workspaceId, threadId, request.projectId(),
                 question, origin);
 
+        // The thread's mandate rather than the request's: a continued thread keeps what it was
+        // started about, and store.begin has already decided which that is.
+        String systemPrompt = prompts.assemble(
+                context.compose(userId, workspaceId, started.projectId()));
+
         try {
             worker.run(new TurnWork(started.turnId(), started.threadId(), userId, workspaceId,
-                    SYSTEM_PROMPT, started.history(), question,
+                    systemPrompt, started.history(), question,
                     origin.ipAddress(), origin.userAgent()), origin.correlationId());
         } catch (TaskRejectedException full) {
             // Visible here precisely because the hand-off is a direct @Async call rather than an
