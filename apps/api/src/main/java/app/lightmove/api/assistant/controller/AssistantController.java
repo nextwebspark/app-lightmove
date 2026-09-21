@@ -61,8 +61,9 @@ public class AssistantController {
     /**
      * Starts a conversation, titled from the question.
      *
-     * <p><b>202, not 201.</b> The body is the accepted turn — RUNNING, with no answer yet — and the
-     * answer arrives on the stream the {@code Location} header names, or on a refetch of the thread.
+     * <p><b>202, not 201.</b> The body is the turn as accepted — RUNNING, with no answer yet, built
+     * inside the transaction that wrote it rather than re-read afterwards — and the answer arrives on
+     * the stream the {@code Location} header names, or on a refetch of the thread.
      * A turn with tools runs 30–180s, which no single response can hold against a 55s stream cycle.
      */
     @PostMapping("/ask")

@@ -50,6 +50,11 @@ public class AssistantTurnSweeper {
     /**
      * The flag is checked here rather than on the bean, so the bean still exists when it is off: the
      * integration test that drives {@link #sweep(Instant)} directly has to be able to inject it.
+     *
+     * <p>The interval is a placeholder rather than {@code settings.sweepInterval()} because
+     * {@code @Scheduled} is resolved before any bean exists. The same key is a component of
+     * {@code AssistantSettings}, which is what makes it known to the binder and validated — see its
+     * javadoc.
      */
     @Scheduled(fixedDelayString = "${lightmove.assistant.sweep-interval:PT1M}")
     void sweepStranded() {

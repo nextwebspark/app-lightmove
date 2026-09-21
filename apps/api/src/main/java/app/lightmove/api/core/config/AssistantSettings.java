@@ -1,5 +1,6 @@
 package app.lightmove.api.core.config;
 
+import java.time.Duration;
 import org.springframework.boot.context.properties.bind.DefaultValue;
 
 /** Tunables for the Uncava Assistant — {@code lightmove.assistant.*}. */
@@ -73,7 +74,18 @@ public record AssistantSettings(
          * leaving a genuinely dead one a few minutes longer costs a reconnecting panel and nothing
          * else.
          */
-        @DefaultValue("5m") java.time.Duration turnTimeout
+        @DefaultValue("5m") Duration turnTimeout,
+
+        /**
+         * How often the sweep looks for stranded turns.
+         *
+         * <p>Declared here although {@code @Scheduled(fixedDelayString = …)} reads the same key
+         * through a placeholder — it is resolved before any bean exists, so it cannot take this
+         * value. The record's job is to make the key <b>known to the binder and validated</b>:
+         * {@code sweepEnabled}'s javadoc above warns that an unrecognised property under a bound
+         * namespace is a trap for whoever turns on strict binding, and this key was that trap.
+         */
+        @DefaultValue("1m") Duration sweepInterval
 ) {
 
     public AssistantSettings {
@@ -100,6 +112,10 @@ public record AssistantSettings(
         if (turnTimeout == null || turnTimeout.isZero() || turnTimeout.isNegative()) {
             throw new IllegalArgumentException(
                     "lightmove.assistant.turn-timeout must be positive, but was " + turnTimeout);
+        }
+        if (sweepInterval == null || sweepInterval.isZero() || sweepInterval.isNegative()) {
+            throw new IllegalArgumentException(
+                    "lightmove.assistant.sweep-interval must be positive, but was " + sweepInterval);
         }
         if (queueCapacity < 0) {
             throw new IllegalArgumentException(

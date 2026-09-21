@@ -9,6 +9,7 @@ import app.lightmove.api.assistant.model.AssistantTurnPrompt;
 import app.lightmove.api.assistant.service.GeminiAssistantTurnRunner;
 import app.lightmove.api.core.config.AssistantSettings;
 import app.lightmove.api.core.config.LightMoveProperties;
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -18,6 +19,10 @@ import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.ai.chat.messages.AssistantMessage;
 import org.springframework.ai.chat.messages.Message;
 import org.springframework.ai.chat.messages.MessageType;
+import org.springframework.ai.chat.metadata.ChatGenerationMetadata;
+import org.springframework.ai.chat.metadata.ChatResponseMetadata;
+import org.springframework.ai.chat.metadata.DefaultUsage;
+import org.springframework.ai.chat.metadata.Usage;
 import org.springframework.ai.chat.model.ChatModel;
 import org.springframework.ai.chat.model.ChatResponse;
 import org.springframework.ai.chat.model.Generation;
@@ -139,19 +144,34 @@ class GeminiAssistantTurnRunnerTest {
     }
 
     @Test
-    @DisplayName("an empty answer with no usage is a failure, not a turn that said nothing")
-    void anEmptyAnswerWithNoUsageIsAFailure() {
+    @DisplayName("no text is a failure whether or not the provider billed for it")
+    void noTextIsAFailure() {
         assertThatThrownBy(() -> runnerWith(new RecordingChatModel(""), 12)
                 .run(new AssistantTurnPrompt("sys", List.of(), "q"), deltas::add))
                 .isInstanceOf(IllegalStateException.class)
                 .hasMessageContaining("assistant-turn");
     }
 
+    @Test
+    @DisplayName("a billed turn that returned no text fails, and says which finish reason ended it")
+    void aBilledTurnWithNoTextFailsAndNamesTheReason() {
+        // The shape that actually occurs: a safety block, or a MAX_TOKENS finish where the thinking
+        // budget ate the output. It reports usage and returns nothing, and used to settle SUCCEEDED
+        // with a blank answer and no record of why.
+        RecordingChatModel blocked = new RecordingChatModel("");
+        blocked.finishingWith("SAFETY", new DefaultUsage(120, 0));
+
+        assertThatThrownBy(() -> runnerWith(blocked, 12)
+                .run(new AssistantTurnPrompt("sys", List.of(), "q"), deltas::add))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("SAFETY");
+    }
+
     private static GeminiAssistantTurnRunner runnerWith(ChatModel model, int historyWindow) {
         LightMoveProperties properties = new LightMoveProperties(null, null, null, null, null, null,
                 null, null, null, null, null, null, null, null,
                 new AssistantSettings("gemini-3.1-pro", 0.2, 2048, historyWindow, 2, 8, true,
-                        java.time.Duration.ofMinutes(5)));
+                        Duration.ofMinutes(5), Duration.ofMinutes(1)));
         return new GeminiAssistantTurnRunner(ChatClient.builder(model).build(), properties);
     }
 
@@ -161,6 +181,14 @@ class GeminiAssistantTurnRunnerTest {
         private final String reply;
         private final List<List<String>> conversations = new ArrayList<>();
         private final List<ChatOptions> options = new ArrayList<>();
+        private String finishReason;
+        private Usage usage;
+
+        /** Scripts the metadata a real provider attaches when it stops early. */
+        void finishingWith(String finishReason, Usage usage) {
+            this.finishReason = finishReason;
+            this.usage = usage;
+        }
 
         private RecordingChatModel(String reply) {
             this.reply = reply;
@@ -212,8 +240,15 @@ class GeminiAssistantTurnRunnerTest {
             options.add(prompt.getOptions());
         }
 
-        private static ChatResponse chunk(String text) {
-            return new ChatResponse(List.of(new Generation(new AssistantMessage(text))));
+        private ChatResponse chunk(String text) {
+            Generation generation = finishReason == null
+                    ? new Generation(new AssistantMessage(text))
+                    : new Generation(new AssistantMessage(text),
+                            ChatGenerationMetadata.builder().finishReason(finishReason).build());
+            return usage == null
+                    ? new ChatResponse(List.of(generation))
+                    : new ChatResponse(List.of(generation),
+                            ChatResponseMetadata.builder().usage(usage).build());
         }
 
         List<String> lastConversation() {

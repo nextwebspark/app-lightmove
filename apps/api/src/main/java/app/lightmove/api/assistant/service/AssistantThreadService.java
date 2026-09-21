@@ -115,7 +115,7 @@ public class AssistantThreadService {
             throw ApiException.of(ErrorCode.ASSISTANT_BUSY);
         }
 
-        return AssistantTurnResponse.of(store.require(started.turnId()));
+        return started.accepted();
     }
 
     /**

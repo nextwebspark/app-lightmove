@@ -117,6 +117,10 @@ spring:
       #
       # The test profile hides this: SynchronousAuditWrites supplies an AsyncConfigurer, which wins
       # for unqualified @Async there. So a green suite is not evidence either way — this comment is.
+      #
+      # It IS checkable after a deploy, and worth one look: AuditEventWriter's threads should read
+      # task-N in the logs. SimpleAsyncTaskExecutor-N means this setting stopped working and every
+      # unqualified @Async is running unbounded.
       mode: force
 
   ai:

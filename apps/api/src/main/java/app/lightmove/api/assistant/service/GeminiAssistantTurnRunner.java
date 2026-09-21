@@ -34,14 +34,6 @@ public class GeminiAssistantTurnRunner implements AssistantTurnRunner {
     /** Log attribution, and the label Vertex bills this workload under. */
     static final String PROMPT_ID = "assistant-turn";
 
-    private final ChatClient chatClient;
-    private final AssistantSettings settings;
-
-    public GeminiAssistantTurnRunner(ChatClient chatClient, LightMoveProperties properties) {
-        this.chatClient = chatClient;
-        this.settings = properties.assistant();
-    }
-
     /**
      * How many chunks one batch may hold before it is flushed regardless of the clock. Gemini emits
      * small chunks, so the window almost always fires first; this only bounds a burst.
@@ -57,6 +49,14 @@ public class GeminiAssistantTurnRunner implements AssistantTurnRunner {
      * hundred milliseconds reads as typing and survives a reload, which is the trade this makes.
      */
     private static final Duration BATCH_WINDOW = Duration.ofMillis(400);
+
+    private final ChatClient chatClient;
+    private final AssistantSettings settings;
+
+    public GeminiAssistantTurnRunner(ChatClient chatClient, LightMoveProperties properties) {
+        this.chatClient = chatClient;
+        this.settings = properties.assistant();
+    }
 
     @Override
     public AssistantAnswer run(AssistantTurnPrompt prompt, AssistantEventSink sink) {
@@ -102,6 +102,7 @@ public class GeminiAssistantTurnRunner implements AssistantTurnRunner {
         StringBuilder answer = new StringBuilder();
         ChatResponse lastMeasured = null;
         String model = null;
+        String finishReason = null;
 
         for (List<ChatResponse> batch : chunks.bufferTimeout(BATCH_MAX_CHUNKS, BATCH_WINDOW)
                 .toIterable()) {
@@ -117,6 +118,10 @@ public class GeminiAssistantTurnRunner implements AssistantTurnRunner {
                 if (model == null) {
                     model = modelOf(response);
                 }
+                String reason = finishReasonOf(response);
+                if (reason != null) {
+                    finishReason = reason;
+                }
             }
             if (slice.length() > 0) {
                 answer.append(slice);
@@ -124,8 +129,13 @@ public class GeminiAssistantTurnRunner implements AssistantTurnRunner {
             }
         }
 
-        if (answer.isEmpty() && lastMeasured == null) {
-            throw new IllegalStateException("prompt " + PROMPT_ID + " answered with nothing");
+        // No text is a failed turn whether or not the provider billed for it. The case that actually
+        // happens is the billed one: a safety block, or a MAX_TOKENS finish where the thinking budget
+        // ate the output. Treating that as SUCCEEDED stores a blank answer and records nothing about
+        // why, so the turn reads as though the assistant simply had nothing to say.
+        if (answer.isEmpty()) {
+            throw new IllegalStateException("prompt " + PROMPT_ID + " produced no text"
+                    + (finishReason == null ? "" : ", finish reason " + finishReason));
         }
         return new AssistantAnswer(answer.toString(), model,
                 promptTokens(lastMeasured), completionTokens(lastMeasured));
@@ -153,6 +163,16 @@ public class GeminiAssistantTurnRunner implements AssistantTurnRunner {
         }
         messages.add(new UserMessage(prompt.question()));
         return messages;
+    }
+
+    /** Why the provider stopped — {@code STOP}, {@code MAX_TOKENS}, {@code SAFETY}. */
+    private static String finishReasonOf(ChatResponse response) {
+        if (response == null || response.getResult() == null
+                || response.getResult().getMetadata() == null) {
+            return null;
+        }
+        String reason = response.getResult().getMetadata().getFinishReason();
+        return reason == null || reason.isBlank() ? null : reason;
     }
 
     private static String modelOf(ChatResponse response) {

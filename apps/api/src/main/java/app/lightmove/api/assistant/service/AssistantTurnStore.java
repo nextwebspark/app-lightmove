@@ -2,6 +2,7 @@ package app.lightmove.api.assistant.service;
 
 import app.lightmove.api.assistant.constant.AssistantEventKind;
 import app.lightmove.api.assistant.constant.AssistantTurnStatus;
+import app.lightmove.api.assistant.dto.AssistantTurnResponse;
 import app.lightmove.api.assistant.model.AssistantAnswer;
 import app.lightmove.api.assistant.model.AssistantExchange;
 import app.lightmove.api.assistant.model.AssistantThread;
@@ -76,7 +77,10 @@ public class AssistantTurnStore {
         // without its opening event.
         events.append(turn.getId(), AssistantEventKind.TURN_STARTED, Map.of("question", question));
 
-        return new StartedTurn(thread.getId(), turn.getId(), history);
+        // The response is built here, inside the transaction that wrote the row, rather than by
+        // re-reading after the worker is submitted. A re-read races a fast turn, so the 202 body
+        // could say SUCCEEDED while the controller javadoc promised RUNNING — and it costs a query.
+        return new StartedTurn(thread.getId(), turn.getId(), history, AssistantTurnResponse.of(turn));
     }
 
     /**
@@ -167,9 +171,7 @@ public class AssistantTurnStore {
         return true;
     }
 
-    /** The turn as stored. Used by the accept path to build its 202 from the committed row. */
-    @Transactional(readOnly = true)
-    public AssistantTurn require(UUID turnId) {
+    private AssistantTurn require(UUID turnId) {
         return turns.findById(turnId).orElseThrow(() -> ApiException.of(ErrorCode.NOT_FOUND));
     }
 
@@ -181,5 +183,11 @@ public class AssistantTurnStore {
     /** What the request thread knew and the worker cannot look up: see V65's columns for why. */
     public record TurnOrigin(String ipAddress, String userAgent, String correlationId) {}
 
-    public record StartedTurn(UUID threadId, UUID turnId, List<AssistantExchange> history) {}
+    /**
+     * What the accept path needs. {@code accepted} is the turn as it was written — RUNNING, no answer
+     * — and is the 202 body; nothing may re-read the row to build it, because by then the worker may
+     * have settled it.
+     */
+    public record StartedTurn(UUID threadId, UUID turnId, List<AssistantExchange> history,
+                              AssistantTurnResponse accepted) {}
 }
