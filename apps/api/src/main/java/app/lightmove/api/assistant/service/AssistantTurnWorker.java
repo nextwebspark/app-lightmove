@@ -115,6 +115,11 @@ public class AssistantTurnWorker {
                 events.append(turnId, AssistantEventKind.TOOL_RESULT,
                         Map.of("tool", toolName, "result", result));
             }
+
+            @Override
+            public synchronized void proposal(Map<String, Object> payload) {
+                events.append(turnId, AssistantEventKind.PROPOSAL, payload);
+            }
         };
     }
 

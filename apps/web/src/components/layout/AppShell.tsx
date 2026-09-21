@@ -1,6 +1,7 @@
 import { useEffect, useState, type ReactNode } from "react";
 import { useLocation } from "react-router-dom";
 import { cn } from "../../lib/cn";
+import { AssistantPanel } from "../../features/assistant/components/AssistantPanel";
 import { Sidebar, type SidebarGroup, type SidebarItem } from "./Sidebar";
 import { Topbar } from "./Topbar";
 
@@ -14,12 +15,17 @@ export function AppShell({
   navBackLink,
   breadcrumb,
   contentClassName,
+  assistantContext = "Workspace",
+  assistantProjectId = null,
   children,
 }: {
   navGroups: SidebarGroup[];
   navBackLink?: SidebarItem;
   breadcrumb?: ReactNode;
   contentClassName?: string;
+  /** Which mandate the assistant is asking about here. A workspace screen has none. */
+  assistantContext?: string;
+  assistantProjectId?: string | null;
   children: ReactNode;
 }) {
   const { pathname } = useLocation();
@@ -58,6 +64,10 @@ export function AppShell({
         <main className="min-w-0 flex-1 overflow-y-auto rounded-[10px] border border-line bg-panel">
           <div className={cn(contentClassName)}>{children}</div>
         </main>
+
+        {/* Docked, not overlaid: main is flex-1, so this narrows it and covers nothing. The mockup
+            draws it this way because the grid has to stay tickable while the assistant is open. */}
+        <AssistantPanel contextLabel={assistantContext} projectId={assistantProjectId} />
       </div>
     </div>
   );

@@ -69,7 +69,8 @@ public class TriageCompanyService {
 
     /** The doors a caller may supply a company through. {@code STRATEGY} is the server's to write. */
     private static final Set<TriageCompanySource> CAPTURABLE_SOURCES =
-            Set.of(TriageCompanySource.MANUAL, TriageCompanySource.EXTENSION, TriageCompanySource.CSV);
+            Set.of(TriageCompanySource.MANUAL, TriageCompanySource.EXTENSION, TriageCompanySource.CSV,
+                    TriageCompanySource.ASSISTANT);
 
     /** The doors that come one company at a time, so resolving and researching each is affordable. */
     private static final Set<TriageCompanySource> SUPPLIED_ONE_AT_A_TIME =
@@ -613,6 +614,22 @@ public class TriageCompanyService {
     public TriageBulkAddResponse addSelected(UUID userId, UUID workspaceId, UUID projectId,
                                              AddSelectedTriageCompaniesRequest request,
                                              HttpServletRequest httpRequest) {
+        return addSelected(userId, workspaceId, projectId, request, TriageCompanySource.STRATEGY,
+                httpRequest);
+    }
+
+    /**
+     * The same write, badged with the door it came through.
+     *
+     * <p>Overloaded rather than parameterised at the existing call site, so the Strategy screen keeps
+     * saying {@code STRATEGY} by construction: {@code source} is provenance, and a caller that had to
+     * remember to pass it would eventually forget.
+     */
+    @Transactional
+    public TriageBulkAddResponse addSelected(UUID userId, UUID workspaceId, UUID projectId,
+                                             AddSelectedTriageCompaniesRequest request,
+                                             TriageCompanySource source,
+                                             HttpServletRequest httpRequest) {
         TriageCompanyStatus landingStatus = resolveStatus(request.status());
         // Distinct and ordered: a duplicate id in the request would bind two placeholder sets for one
         // company, and ON CONFLICT DO NOTHING cannot deduplicate rows inside the statement writing them.
@@ -630,13 +647,14 @@ public class TriageCompanyService {
                 .filter(row -> !scope.offLimitsAccountIds().contains(row.apolloAccountId()))
                 .toList();
 
-        int added = writer.insertIgnoringHeld(projectId, userId, rows,
-                TriageCompanySource.STRATEGY, landingStatus, null, null);
+        int added = writer.insertIgnoringHeld(projectId, userId, rows, source, landingStatus,
+                null, null);
 
         audit.event(ProjectEventType.TRIAGE_BULK_ADDED)
                 .actor(userId).workspace(workspaceId).target("project", projectId).from(httpRequest)
                 .detail("added", String.valueOf(added))
                 .detail("status", landingStatus.name())
+                .detail("source", source.name())
                 .record();
         return new TriageBulkAddResponse(added, accountIds.size() - added);
     }

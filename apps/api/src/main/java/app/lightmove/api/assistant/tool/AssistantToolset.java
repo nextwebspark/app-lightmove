@@ -4,6 +4,7 @@ import app.lightmove.api.assistant.service.AssistantEventSink;
 import app.lightmove.api.core.audit.service.AuditService;
 import app.lightmove.api.core.logging.service.CorrelationId;
 import java.util.Arrays;
+import java.util.Comparator;
 import java.util.List;
 import org.springframework.ai.tool.ToolCallback;
 import org.springframework.ai.tool.method.MethodToolCallbackProvider;
@@ -36,10 +37,15 @@ public class AssistantToolset {
         // Permissions first: Spring AI's own builder also rejects a duplicate tool name, and whichever
         // runs first owns the message. Ours names the class and method; theirs names neither.
         this.permissions = new ToolPermissions(toolObjects);
-        this.undecorated = MethodToolCallbackProvider.builder()
-                .toolObjects(toolObjects.toArray())
-                .build()
-                .getToolCallbacks();
+        // Sorted by name, because the tool list is the head of the cacheable prefix and the order
+        // Spring hands these beans in is not contractual across restarts. A prefix that reshuffles
+        // costs a cache miss per turn and says nothing about it; the bill is where it shows up.
+        this.undecorated = Arrays.stream(MethodToolCallbackProvider.builder()
+                        .toolObjects(toolObjects.toArray())
+                        .build()
+                        .getToolCallbacks())
+                .sorted(Comparator.comparing(tool -> tool.getToolDefinition().name()))
+                .toArray(ToolCallback[]::new);
         this.authoriser = authoriser;
         this.audit = audit;
     }

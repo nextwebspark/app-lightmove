@@ -90,7 +90,7 @@ public class GeminiAssistantTurnRunner implements AssistantTurnRunner {
                 // and already guarded. The context is how the caller reaches them — it is read back
                 // out inside the decorator and is never shown to the model.
                 .toolCallbacks(tools.forTurn(caller, sink))
-                .toolContext(ToolCallerContext.of(caller))
+                .toolContext(ToolCallerContext.of(caller, sink))
                 .system(windowed.systemPrompt() == null ? "" : windowed.systemPrompt())
                 .messages(conversation(windowed))
                 .stream()

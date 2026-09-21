@@ -80,7 +80,8 @@ public class AssistantTurnStore {
         // The response is built here, inside the transaction that wrote the row, rather than by
         // re-reading after the worker is submitted. A re-read races a fast turn, so the 202 body
         // could say SUCCEEDED while the controller javadoc promised RUNNING — and it costs a query.
-        return new StartedTurn(thread.getId(), turn.getId(), history, AssistantTurnResponse.of(turn));
+        return new StartedTurn(thread.getId(), turn.getId(), thread.getProjectId(), history,
+                AssistantTurnResponse.of(turn));
     }
 
     /**
@@ -187,7 +188,14 @@ public class AssistantTurnStore {
      * What the accept path needs. {@code accepted} is the turn as it was written — RUNNING, no answer
      * — and is the 202 body; nothing may re-read the row to build it, because by then the worker may
      * have settled it.
+     *
+     * <p>{@code projectId} is the <b>thread's</b>, which on a continued thread is not necessarily the
+     * one the request named: {@code AssistantThread.projectId} is write-once, so a thread keeps the
+     * mandate it was started about and a later request naming a different one is ignored. Returning
+     * it here is what lets the caller describe that mandate to the model without reading the row
+     * again.
      */
-    public record StartedTurn(UUID threadId, UUID turnId, List<AssistantExchange> history,
+    public record StartedTurn(UUID threadId, UUID turnId, UUID projectId,
+                              List<AssistantExchange> history,
                               AssistantTurnResponse accepted) {}
 }

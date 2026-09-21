@@ -3,8 +3,10 @@ package app.lightmove.api.assistant.service;
 import app.lightmove.api.assistant.dto.AskRequest;
 import app.lightmove.api.assistant.dto.AssistantThreadResponse;
 import app.lightmove.api.assistant.dto.AssistantThreadSummary;
+import app.lightmove.api.assistant.dto.AssistantProposalDto;
 import app.lightmove.api.assistant.dto.AssistantTurnResponse;
 import app.lightmove.api.assistant.model.AssistantThread;
+import app.lightmove.api.assistant.model.AssistantTurn;
 import app.lightmove.api.assistant.repository.AssistantThreadRepository;
 import app.lightmove.api.assistant.repository.AssistantTurnRepository;
 import app.lightmove.api.assistant.service.AssistantTurnStore.StartedTurn;
@@ -16,6 +18,7 @@ import app.lightmove.api.core.logging.service.CorrelationId;
 import app.lightmove.api.core.security.service.ClientIpResolver;
 import jakarta.servlet.http.HttpServletRequest;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -35,24 +38,14 @@ import org.springframework.transaction.annotation.Transactional;
  * short transaction on {@link AssistantTurnStore} or {@link AssistantEventAppender}, and the model
  * call sits inside none of them.
  *
- * <p>The turn still runs <b>with no tools</b> — nothing reachable from here touches a mandate's
- * data, which is what makes cross-project isolation a non-question until #425 introduces the tool
- * surface and the guard that authorises each call against its own arguments.
+ * <p>A turn runs with tools, and cross-project isolation is decided per tool call against that
+ * call's own arguments — not here. What this class contributes is the context those arguments are
+ * chosen from: the thread's mandate, named so the model can ask about it, authorising nothing.
  */
 @Service
 @RequiredArgsConstructor
 @Slf4j
 public class AssistantThreadService {
-
-    /**
-     * Placeholder until #428 assembles a real one. It says what the assistant is and nothing about
-     * the caller or the mandate, because with no tools there is nothing it could usefully be told.
-     */
-    private static final String SYSTEM_PROMPT = """
-            You are Uncava's research assistant, helping an executive search consultant.
-            Answer concisely. You have no access to the firm's data yet, so if a question needs it,
-            say plainly that you cannot look it up rather than guessing at names or figures.
-            """;
 
     private static final int MAX_THREADS_LISTED = 50;
 
@@ -60,7 +53,10 @@ public class AssistantThreadService {
     private final AssistantTurnRepository turns;
     private final AssistantTurnStore store;
     private final AssistantTurnWorker worker;
+    private final AssistantContextComposer context;
+    private final AssistantPromptAssembler prompts;
     private final ClientIpResolver clientIps;
+    private final AssistantProposalService proposals;
 
     @Transactional(readOnly = true)
     public List<AssistantThreadSummary> list(UUID userId, UUID workspaceId) {
@@ -76,9 +72,13 @@ public class AssistantThreadService {
     public AssistantThreadResponse get(UUID threadId, UUID userId, UUID workspaceId) {
         AssistantThread thread = threads.findByIdAndWorkspaceIdAndUserId(threadId, workspaceId, userId)
                 .orElseThrow(() -> ApiException.of(ErrorCode.NOT_FOUND));
-        List<AssistantTurnResponse> answered = turns.findByThreadIdOrderByCreatedAtAsc(thread.getId())
-                .stream()
-                .map(AssistantTurnResponse::of)
+        List<AssistantTurn> found = turns.findByThreadIdOrderByCreatedAtAsc(thread.getId());
+        // One query for the whole thread's proposals rather than one per turn: a long conversation
+        // would otherwise pay a round trip for every exchange that never made one.
+        Map<UUID, AssistantProposalDto> proposals =
+                this.proposals.byTurn(found.stream().map(AssistantTurn::getId).toList());
+        List<AssistantTurnResponse> answered = found.stream()
+                .map(turn -> AssistantTurnResponse.of(turn, proposals.get(turn.getId())))
                 .toList();
         return new AssistantThreadResponse(thread.getId(), thread.getTitle(), thread.getProjectId(),
                 thread.getCreatedAt(), thread.getUpdatedAt(), answered);
@@ -102,9 +102,19 @@ public class AssistantThreadService {
         StartedTurn started = store.begin(userId, workspaceId, threadId, request.projectId(),
                 question, origin);
 
+        // Everything between begin and the hand-off is inside the try, not only the hand-off. begin
+        // has committed a RUNNING row by now, so anything that throws here and is not settled leaves
+        // a turn no worker owns: the caller sees a 500 and the row sits RUNNING until the sweep
+        // reclaims it five minutes later. That window used to hold nothing that could throw; the
+        // context pack put two calls and three queries in it.
         try {
+            // The thread's mandate rather than the request's: a continued thread keeps what it was
+            // started about, and store.begin has already decided which that is.
+            String systemPrompt = prompts.assemble(
+                    context.compose(userId, workspaceId, started.projectId()));
+
             worker.run(new TurnWork(started.turnId(), started.threadId(), userId, workspaceId,
-                    SYSTEM_PROMPT, started.history(), question,
+                    systemPrompt, started.history(), question,
                     origin.ipAddress(), origin.userAgent()), origin.correlationId());
         } catch (TaskRejectedException full) {
             // Visible here precisely because the hand-off is a direct @Async call rather than an
@@ -113,9 +123,28 @@ public class AssistantThreadService {
             log.warn("Refused assistant turn {}: every slot is taken", started.turnId());
             store.fail(started.turnId(), ErrorCode.ASSISTANT_BUSY);
             throw ApiException.of(ErrorCode.ASSISTANT_BUSY);
+        } catch (RuntimeException failed) {
+            log.error("Assistant turn {} never reached a worker", started.turnId(), failed);
+            settleUnstarted(started.turnId());
+            throw failed;
         }
 
         return started.accepted();
+    }
+
+    /**
+     * Marks a turn that was committed and then never handed off.
+     *
+     * <p>Swallows its own failure rather than replacing the exception that got here: what the caller
+     * needs to know is why their turn did not start, and the sweep is the backstop for the row.
+     */
+    private void settleUnstarted(UUID turnId) {
+        try {
+            store.fail(turnId, ErrorCode.INTERNAL_ERROR);
+        } catch (RuntimeException unsettlable) {
+            log.error("Could not settle assistant turn {}; leaving it to the sweep", turnId,
+                    unsettlable);
+        }
     }
 
     /**

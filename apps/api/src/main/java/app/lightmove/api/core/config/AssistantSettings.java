@@ -50,6 +50,20 @@ public record AssistantSettings(
         @DefaultValue("25") int toolRowLimit,
 
         /**
+         * How many entries one vocabulary answer may carry.
+         *
+         * <p>Separate from {@link #toolRowLimit} because they are different kinds of number. That one
+         * is a budget for <i>result</i> rows, where a page of the largest is a fair answer and the
+         * total beside it says what was left out. A vocabulary has no such consolation: the model is
+         * told a country must be spelled exactly as it was reported, so a spelling it never saw is a
+         * search matching nothing with nothing to say about why. This is therefore sized to be
+         * <b>complete</b> rather than affordable — roughly two hundred countries exist and each is a
+         * short string. It stays a key rather than a constant so a universe carrying junk values can
+         * be capped without a release.
+         */
+        @DefaultValue("250") int vocabularyLimit,
+
+        /**
          * Turns this instance will run at once, and therefore the spend cap.
          *
          * <p>Two against {@code --max-instances 2} is four concurrent Vertex calls fleet-wide, which
@@ -113,6 +127,10 @@ public record AssistantSettings(
         if (toolRowLimit < 1) {
             throw new IllegalArgumentException(
                     "lightmove.assistant.tool-row-limit must be at least 1, but was " + toolRowLimit);
+        }
+        if (vocabularyLimit < 1) {
+            throw new IllegalArgumentException(
+                    "lightmove.assistant.vocabulary-limit must be at least 1, but was " + vocabularyLimit);
         }
         if (historyWindow < 0) {
             throw new IllegalArgumentException(

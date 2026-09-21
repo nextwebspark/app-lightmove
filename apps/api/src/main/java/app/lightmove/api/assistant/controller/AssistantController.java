@@ -1,11 +1,14 @@
 package app.lightmove.api.assistant.controller;
 
+import app.lightmove.api.assistant.dto.AcceptProposalRequest;
 import app.lightmove.api.assistant.dto.AskRequest;
 import app.lightmove.api.assistant.dto.AssistantThreadResponse;
 import app.lightmove.api.assistant.dto.AssistantThreadSummary;
 import app.lightmove.api.assistant.dto.AssistantTurnResponse;
+import app.lightmove.api.assistant.service.AssistantProposalService;
 import app.lightmove.api.assistant.service.AssistantThreadService;
 import app.lightmove.api.core.security.model.AuthPrincipal;
+import app.lightmove.api.triagecompany.dto.TriageBulkAddResponse;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import java.util.List;
@@ -42,6 +45,7 @@ import org.springframework.web.bind.annotation.RestController;
 public class AssistantController {
 
     private final AssistantThreadService assistant;
+    private final AssistantProposalService proposals;
 
     @GetMapping("/threads")
     @PreAuthorize("@workspaceAuthorizer.member(principal)")
@@ -86,6 +90,25 @@ public class AssistantController {
         AssistantTurnResponse accepted = assistant.ask(
                 principal.userId(), principal.requireWorkspaceId(), threadId, request, httpRequest);
         return accepted(accepted);
+    }
+
+    /**
+     * Files some of what a turn proposed.
+     *
+     * <p>The guard here is {@code member(principal)} like every other route on this controller, and
+     * the real gate is inside: {@code WORK_EXECUTE} against the mandate <b>the stored proposal
+     * names</b>. There is deliberately no project id in this path — one would be a second claim about
+     * what the caller may touch, which is the thing the tool guard exists to refuse.
+     */
+    @PostMapping("/turns/{turnId}/proposal/accept")
+    @PreAuthorize("@workspaceAuthorizer.member(principal)")
+    public ResponseEntity<TriageBulkAddResponse> acceptProposal(
+            @AuthenticationPrincipal AuthPrincipal principal,
+            @PathVariable UUID turnId,
+            @Valid @RequestBody AcceptProposalRequest request,
+            HttpServletRequest httpRequest) {
+        return ResponseEntity.ok(proposals.accept(turnId, principal.userId(),
+                principal.requireWorkspaceId(), request, httpRequest));
     }
 
     /** Where to watch it happen. The one part of a 202 that tells a client what to do next. */

@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import app.lightmove.api.assistant.service.AssistantEventSink;
 import app.lightmove.api.core.audit.service.AuditService;
+import app.lightmove.api.core.security.rbac.WorkspaceAction;
 import java.security.CodeSource;
 import java.util.Arrays;
 import java.util.List;
@@ -54,6 +55,29 @@ class AssistantToolRegistrationTest {
                 noTrace());
 
         assertThat(callbacks).isNotEmpty().allMatch(AuthorisingToolCallback.class::isInstance);
+    }
+
+    @Test
+    @DisplayName("the tool order is stable whatever order Spring hands the subjects in")
+    void ordersToolsStably() {
+        AssistantToolSubject zebra = new ZebraTools();
+        AssistantToolSubject alpha = new AlphaTools();
+
+        List<String> oneWay = toolNamesOf(List.of(zebra, alpha));
+        List<String> theOther = toolNamesOf(List.of(alpha, zebra));
+
+        // The tool list is the head of the cacheable prefix. Spring's injection order is not
+        // contractual across restarts, and a prefix that reshuffles costs a cache miss per turn
+        // while answering perfectly correctly — so nothing but this notices.
+        assertThat(oneWay).isEqualTo(theOther).isSorted();
+    }
+
+    private static List<String> toolNamesOf(List<AssistantToolSubject> subjects) {
+        return Arrays.stream(new AssistantToolset(subjects, null, mockAudit())
+                        .forTurn(new AssistantToolCaller(UUID.randomUUID(), UUID.randomUUID(),
+                                UUID.randomUUID()), noTrace()))
+                .map(tool -> tool.getToolDefinition().name())
+                .toList();
     }
 
     @Test
@@ -126,6 +150,25 @@ class AssistantToolRegistrationTest {
                     }
                 })
                 .orElseGet(() -> (Object) org.mockito.Mockito.mock(subject));
+    }
+
+    /** Named so an unsorted list would come back in subject order and give the game away. */
+    static class ZebraTools implements AssistantToolSubject {
+
+        @Tool(description = "zebra")
+        @RequiresWorkspaceAction(WorkspaceAction.PROJECT_BROWSE)
+        public String zebraTool(String query) {
+            return query;
+        }
+    }
+
+    static class AlphaTools implements AssistantToolSubject {
+
+        @Tool(description = "alpha")
+        @RequiresWorkspaceAction(WorkspaceAction.PROJECT_BROWSE)
+        public String alphaTool(String query) {
+            return query;
+        }
     }
 
     private static AuditService mockAudit() {
