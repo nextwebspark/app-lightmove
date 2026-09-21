@@ -15,6 +15,12 @@ import { TRIAGE_KEY_PREFIX } from "../features/triage/api/triageApi";
  * the mandate on screen. So the knowledge has to live somewhere above every feature, named for the
  * fact rather than for the caller.
  *
+ * <p><b>This is the panel's four imports, relocated — the option #435 called "the obvious thing and
+ * the wrong thing".</b> Worth saying plainly, because it also makes this the first module here to
+ * import feature *runtime* code, where {@code apiClient.ts} imports only a feature type. What earns
+ * it is the move itself: named for the fact rather than for its caller, so {@code TriageStagePage}
+ * uses it too, and testable without mounting anything.
+ *
  * <p>A registry each feature opts into was the alternative and is worse: registration would happen
  * at import time, so a feature the session has not navigated to yet would silently not register —
  * a bug that only shows up on the page nobody was looking at.
