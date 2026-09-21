@@ -4,16 +4,12 @@ import app.lightmove.api.assistant.dto.AskRequest;
 import app.lightmove.api.assistant.dto.AssistantThreadResponse;
 import app.lightmove.api.assistant.dto.AssistantThreadSummary;
 import app.lightmove.api.assistant.dto.AssistantTurnResponse;
-import app.lightmove.api.assistant.model.AssistantAnswer;
 import app.lightmove.api.assistant.model.AssistantThread;
-import app.lightmove.api.assistant.model.AssistantTurn;
-import app.lightmove.api.assistant.model.AssistantTurnPrompt;
 import app.lightmove.api.assistant.repository.AssistantThreadRepository;
 import app.lightmove.api.assistant.repository.AssistantTurnRepository;
 import app.lightmove.api.assistant.service.AssistantTurnStore.StartedTurn;
 import app.lightmove.api.assistant.service.AssistantTurnStore.TurnOrigin;
-import app.lightmove.api.core.audit.constant.WorkspaceEventType;
-import app.lightmove.api.core.audit.service.AuditService;
+import app.lightmove.api.assistant.service.AssistantTurnWorker.TurnWork;
 import app.lightmove.api.core.error.constant.ErrorCode;
 import app.lightmove.api.core.error.model.ApiException;
 import app.lightmove.api.core.logging.service.CorrelationId;
@@ -23,6 +19,7 @@ import java.util.List;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.core.task.TaskRejectedException;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -34,11 +31,13 @@ import org.springframework.transaction.annotation.Transactional;
  * permission on it — the {@code (workspaceId, userId)} pair is the whole authorisation, so every
  * read is scoped on both and someone else's thread is answered as a 404.
  *
- * <p>{@code ask} is deliberately <b>not</b> {@code @Transactional}: the model call must not hold a
- * database connection, so the writes either side of it are two short transactions on
- * {@link AssistantTurnStore}. It also runs the turn <b>with no tools</b> — nothing here can reach a
- * mandate's data, which is what makes cross-project isolation a non-question until #425 introduces
- * the tool surface and the guard that authorises each call against its own arguments.
+ * <p>{@code ask} accepts and hands off; {@link AssistantTurnWorker} runs the turn. Every write is a
+ * short transaction on {@link AssistantTurnStore} or {@link AssistantEventAppender}, and the model
+ * call sits inside none of them.
+ *
+ * <p>The turn still runs <b>with no tools</b> — nothing reachable from here touches a mandate's
+ * data, which is what makes cross-project isolation a non-question until #425 introduces the tool
+ * surface and the guard that authorises each call against its own arguments.
  */
 @Service
 @RequiredArgsConstructor
@@ -60,9 +59,8 @@ public class AssistantThreadService {
     private final AssistantThreadRepository threads;
     private final AssistantTurnRepository turns;
     private final AssistantTurnStore store;
-    private final AssistantTurnRunner runner;
+    private final AssistantTurnWorker worker;
     private final ClientIpResolver clientIps;
-    private final AuditService audit;
 
     @Transactional(readOnly = true)
     public List<AssistantThreadSummary> list(UUID userId, UUID workspaceId) {
@@ -87,57 +85,37 @@ public class AssistantThreadService {
     }
 
     /**
-     * Asks one question and waits for the answer.
+     * Accepts one question and hands it to a worker.
      *
-     * <p>Synchronous on purpose, and only for now: a turn with tools will outlive the 55s the SSE
-     * cycle allows, which is what #427 replaces this with. Until then the shape is worth having —
-     * the turn is recorded before the model is called and settled after it, so a turn that fails
-     * still leaves the question on the record rather than vanishing.
+     * <p>Answers 202 with a RUNNING turn. The answer arrives on
+     * {@code GET /api/v1/assistant/turns/{id}/stream}, or on a refetch of the thread — a turn with
+     * tools runs 30–180s and no single HTTP response can hold that against a 55s stream cycle.
+     *
+     * <p><b>Must stay non-{@code @Transactional}</b>, now for two reasons. The model call must not
+     * hold a connection, and {@code begin} must have <i>committed</i> before the worker reads the
+     * turn on another thread — wrapping this method would put that race back.
      */
     public AssistantTurnResponse ask(UUID userId, UUID workspaceId, UUID threadId, AskRequest request,
                                      HttpServletRequest httpRequest) {
+        String question = request.question().strip();
+        TurnOrigin origin = originOf(httpRequest);
         StartedTurn started = store.begin(userId, workspaceId, threadId, request.projectId(),
-                request.question().strip(), originOf(httpRequest));
+                question, origin);
 
-        AssistantTurn settled = runAndSettle(started, request.question().strip());
-
-        audit.event(WorkspaceEventType.ASSISTANT_TURN_RAN)
-                .actor(userId)
-                .workspace(workspaceId)
-                .target("assistantThread", started.threadId())
-                .from(httpRequest)
-                .detail("turnId", started.turnId())
-                .detail("status", settled.getStatus().name())
-                // All three are absent on a failed turn, and the token counts are absent on a
-                // successful one the provider did not meter. detail() would seal a null into the
-                // map and throw out of a request whose answer is already stored.
-                .detailIfPresent("model", settled.getModel())
-                .detailIfPresent("inputTokens", settled.getInputTokens())
-                .detailIfPresent("outputTokens", settled.getOutputTokens())
-                .record();
-
-        return AssistantTurnResponse.of(settled);
-    }
-
-    /**
-     * The model call, outside any transaction, with both endings written.
-     *
-     * <p>A broad catch because anything escaping here would leave the turn RUNNING for ever — the
-     * SPA would poll a turn that is never going to finish, and V65's partial index on RUNNING turns
-     * would fill with rows no sweep could distinguish from live ones.
-     */
-    private AssistantTurn runAndSettle(StartedTurn started, String question) {
         try {
-            AssistantAnswer answer = runner.run(
-                    new AssistantTurnPrompt(SYSTEM_PROMPT, started.history(), question));
-            return store.succeed(started.turnId(), answer);
-        } catch (ApiException failed) {
-            log.warn("Assistant turn {} failed: {}", started.turnId(), failed.getCode());
-            return store.fail(started.turnId(), failed.getCode());
-        } catch (RuntimeException failed) {
-            log.error("Assistant turn {} failed", started.turnId(), failed);
-            return store.fail(started.turnId(), ErrorCode.INTERNAL_ERROR);
+            worker.run(new TurnWork(started.turnId(), started.threadId(), userId, workspaceId,
+                    SYSTEM_PROMPT, started.history(), question,
+                    origin.ipAddress(), origin.userAgent()), origin.correlationId());
+        } catch (TaskRejectedException full) {
+            // Visible here precisely because the hand-off is a direct @Async call rather than an
+            // after-commit event: a rejection buried in a transaction callback would leave this turn
+            // RUNNING for ever. Settled honestly instead, so the row says what happened.
+            log.warn("Refused assistant turn {}: every slot is taken", started.turnId());
+            store.fail(started.turnId(), ErrorCode.ASSISTANT_BUSY);
+            throw ApiException.of(ErrorCode.ASSISTANT_BUSY);
         }
+
+        return AssistantTurnResponse.of(store.require(started.turnId()));
     }
 
     /**

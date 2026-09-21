@@ -102,6 +102,23 @@ spring:
     virtual:
       enabled: true           # Java 21 virtual threads: auth endpoints are IO-bound (DB, DNS, email).
 
+  task:
+    execution:
+      # FORCE, and this is load-bearing rather than tuning.
+      #
+      # Boot only auto-configures `applicationTaskExecutor` when the context defines no Executor bean
+      # of its own (TaskExecutorConfigurations.OnExecutorCondition). AssistantExecutorConfig defines
+      # two — deliberately bounded, platform-threaded pools for turns and for SSE drains — which
+      # under the default AUTO would suppress it. Every unqualified @Async in the application
+      # (AuditEventWriter, CandidateEnrichmentWorker, CompanyEnrichmentWorker) resolves to that bean;
+      # without it they fall back to an unbounded SimpleAsyncTaskExecutor with a log line nobody
+      # reads. FORCE keeps it, so the assistant's pools sit beside the default rather than replacing
+      # it.
+      #
+      # The test profile hides this: SynchronousAuditWrites supplies an AsyncConfigurer, which wins
+      # for unqualified @Async there. So a green suite is not evidence either way — this comment is.
+      mode: force
+
   ai:
     # spring-ai-autoconfigure-retry is on the classpath (transitive via the GenAI starter) and is
     # gated only by @ConditionalOnClass, so its RetryTemplate is ALREADY active and
@@ -160,7 +177,9 @@ server:
   compression:
     enabled: true
     # An allowlist, not a denylist, and that is load-bearing: text/event-stream is absent, so Tomcat
-    # never buffers a ProjectStreamController emitter waiting for a block to compress. RFC 9457 error
+    # never buffers an SSE emitter waiting for a block to compress — neither
+    # ProjectStreamController's nor AssistantTurnStreamController's, where a buffered frame would
+    # mean an answer that arrives only once the turn is over. RFC 9457 error
     # bodies (application/problem+json) fall outside it too — Tomcat matches the type exactly.
     mime-types: application/json,application/javascript,text/html,text/css,text/plain,image/svg+xml
     # Below this, the CPU and the Content-Encoding header cost more than the saving.
@@ -275,6 +294,17 @@ lightmove:
     # Earlier exchanges sent with a question. A window, not the thread: Gemini has no server-side
     # compaction, so an unbounded history is an unbounded bill.
     history-window: ${ASSISTANT_HISTORY_WINDOW:12}
+    # Turns one instance runs at once, and therefore the spend cap: 2 here against --max-instances 2
+    # is four concurrent Vertex calls fleet-wide. Also sits inside DB_POOL_MAX of 5 once the event
+    # appender's short writes are counted — raise it with the database tier, not on its own.
+    max-concurrent-turns: ${ASSISTANT_MAX_CONCURRENT_TURNS:2}
+    # Shallow on purpose: a deep queue turns a capacity problem into a latency one, and a user who
+    # waited a minute for a slot has already given up.
+    queue-capacity: ${ASSISTANT_QUEUE_CAPACITY:8}
+    # How long a RUNNING turn may go untouched before the sweep calls it stranded. Generous against a
+    # 30-180s turn, because cancelling a live one throws away an answer already paid for.
+    turn-timeout: ${ASSISTANT_TURN_TIMEOUT:PT5M}
+    sweep-interval: ${ASSISTANT_SWEEP_INTERVAL:PT1M}
 
   email:
     provider: ${EMAIL_PROVIDER:resend}

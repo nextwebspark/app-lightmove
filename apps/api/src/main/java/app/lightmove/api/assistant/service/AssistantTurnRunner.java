@@ -14,5 +14,5 @@ import app.lightmove.api.assistant.model.AssistantTurnPrompt;
  */
 public interface AssistantTurnRunner {
 
-    AssistantAnswer run(AssistantTurnPrompt prompt);
+    AssistantAnswer run(AssistantTurnPrompt prompt, AssistantEventSink sink);
 }

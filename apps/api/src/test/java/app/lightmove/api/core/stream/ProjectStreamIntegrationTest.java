@@ -29,8 +29,6 @@ import org.springframework.transaction.support.TransactionTemplate;
 @IntegrationTest
 class ProjectStreamIntegrationTest extends FlowTestSupport {
 
-    private static final long STREAM_WAIT_MS = 10_000;
-
     @Autowired private ProjectStreamPublisher publisher;
     @Autowired private PlatformTransactionManager transactions;
 
@@ -40,7 +38,7 @@ class ProjectStreamIntegrationTest extends FlowTestSupport {
     @DisplayName("a committed publish reaches the mandate's open stream")
     void aCommittedPublishReachesTheStream() throws Exception {
         String projectId = mandate("Streamed Firm");
-        MvcResult stream = openStream(projectId, adminToken);
+        MvcResult stream = openStream(streamUrl(projectId), adminToken);
         awaitContent(stream, "event:connected");
 
         inTransaction(() -> publisher.publish(UUID.fromString(projectId),
@@ -55,8 +53,8 @@ class ProjectStreamIntegrationTest extends FlowTestSupport {
     void aRollbackAndAnotherMandateStaySilent() throws Exception {
         String projectId = mandate("Rolled Back Firm");
         String otherProjectId = projectFor(adminToken, "Second Mandate Client");
-        MvcResult stream = openStream(projectId, adminToken);
-        MvcResult otherStream = openStream(otherProjectId, adminToken);
+        MvcResult stream = openStream(streamUrl(projectId), adminToken);
+        MvcResult otherStream = openStream(streamUrl(otherProjectId), adminToken);
 
         // Rolled back: Postgres drops the notification with the transaction.
         TransactionTemplate transaction = new TransactionTemplate(transactions);
@@ -78,7 +76,7 @@ class ProjectStreamIntegrationTest extends FlowTestSupport {
     @DisplayName("adding a candidate announces itself on the stream")
     void addingACandidateAnnouncesItself() throws Exception {
         String projectId = mandate("Announcing Firm");
-        MvcResult stream = openStream(projectId, adminToken);
+        MvcResult stream = openStream(streamUrl(projectId), adminToken);
 
         mvc.perform(post("/api/v1/projects/" + projectId + "/candidates")
                         .header("Authorization", "Bearer " + adminToken)
@@ -125,24 +123,6 @@ class ProjectStreamIntegrationTest extends FlowTestSupport {
         mvc.perform(get(streamUrl(projectId))
                         .header("Authorization", "Bearer " + login(colleague)))
                 .andExpect(status().isForbidden());
-    }
-
-    private MvcResult openStream(String projectId, String token) throws Exception {
-        return mvc.perform(get(streamUrl(projectId)).header("Authorization", "Bearer " + token))
-                .andExpect(request().asyncStarted())
-                .andReturn();
-    }
-
-    /** The listener hands events over from its own thread; the response fills in shortly after. */
-    private void awaitContent(MvcResult stream, String expected) throws Exception {
-        long deadline = System.currentTimeMillis() + STREAM_WAIT_MS;
-        while (System.currentTimeMillis() < deadline) {
-            if (stream.getResponse().getContentAsString().contains(expected)) {
-                return;
-            }
-            Thread.sleep(100);
-        }
-        assertThat(stream.getResponse().getContentAsString()).contains(expected);
     }
 
     private void inTransaction(Runnable work) {

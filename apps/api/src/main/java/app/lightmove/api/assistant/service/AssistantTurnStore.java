@@ -1,5 +1,7 @@
 package app.lightmove.api.assistant.service;
 
+import app.lightmove.api.assistant.constant.AssistantEventKind;
+import app.lightmove.api.assistant.constant.AssistantTurnStatus;
 import app.lightmove.api.assistant.model.AssistantAnswer;
 import app.lightmove.api.assistant.model.AssistantExchange;
 import app.lightmove.api.assistant.model.AssistantThread;
@@ -10,8 +12,10 @@ import app.lightmove.api.core.error.constant.ErrorCode;
 import app.lightmove.api.core.error.model.ApiException;
 import java.time.Instant;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -27,6 +31,7 @@ import org.springframework.transaction.annotation.Transactional;
  */
 @Component
 @RequiredArgsConstructor
+@Slf4j
 public class AssistantTurnStore {
 
     /** Enough of the question to recognise the thread in a list; the full text is on the turn. */
@@ -34,6 +39,7 @@ public class AssistantTurnStore {
 
     private final AssistantThreadRepository threads;
     private final AssistantTurnRepository turns;
+    private final AssistantEventAppender events;
 
     /**
      * Opens a turn: resolves or creates its thread, reads what has been said so far, and writes the
@@ -49,6 +55,15 @@ public class AssistantTurnStore {
                 ? threads.save(AssistantThread.of(workspaceId, userId, projectId, titleFrom(question)))
                 : requireOwnThread(threadId, workspaceId, userId);
 
+        // Checked inside this transaction, so two requests racing cannot both get through. A second
+        // question while the first is still running is refused rather than queued: every turn spends
+        // real money, and a thread answering two at once reads as interleaved nonsense. A brand new
+        // thread cannot have one, so this only ever costs an index hit on a continued conversation.
+        if (threadId != null
+                && turns.existsByThreadIdAndStatus(thread.getId(), AssistantTurnStatus.RUNNING)) {
+            throw ApiException.of(ErrorCode.ASSISTANT_TURN_IN_PROGRESS);
+        }
+
         List<AssistantExchange> history = turns.findByThreadIdOrderByCreatedAtAsc(thread.getId()).stream()
                 .map(turn -> new AssistantExchange(turn.getQuestion(), turn.getAnswer()))
                 .toList();
@@ -56,22 +71,50 @@ public class AssistantTurnStore {
         AssistantTurn turn = turns.save(AssistantTurn.running(thread.getId(), userId, workspaceId, question,
                 origin.ipAddress(), origin.userAgent(), origin.correlationId()));
 
+        // Same transaction as the row, so the turn, its first event and the NOTIFY announcing it all
+        // become visible together. A stream opened on this turn can therefore never see it exist
+        // without its opening event.
+        events.append(turn.getId(), AssistantEventKind.TURN_STARTED, Map.of("question", question));
+
         return new StartedTurn(thread.getId(), turn.getId(), history);
     }
 
+    /**
+     * Settles the turn and says so on the stream, <b>in one transaction</b>.
+     *
+     * <p>They must not be split. Announce first and a client that refetches on the event reads a
+     * RUNNING turn with no answer; settle first and lose the insert, and the stream never says
+     * "done" so the panel reconnects forever. No model call is inside this, so the rule that keeps
+     * Vertex out of a transaction is untouched.
+     *
+     * <p>The answer text is emitted as its own event rather than folded into the terminal one: a
+     * client replaying from a cursor should receive the answer as content, and the two payloads then
+     * stay small enough that neither is tempted toward the NOTIFY size limit.
+     */
     @Transactional
     public AssistantTurn succeed(UUID turnId, AssistantAnswer answer) {
         AssistantTurn turn = require(turnId);
+        if (alreadySettled(turn)) {
+            return turn;
+        }
         turn.succeed(answer.text(), answer.model(), answer.inputTokens(), answer.outputTokens());
         threads.touch(turn.getThreadId(), Instant.now());
+        events.append(turnId, AssistantEventKind.ANSWER, Map.of("text", answer.text()));
+        events.append(turnId, AssistantEventKind.TURN_FINISHED,
+                Map.of("status", turn.getStatus().name()));
         return turn;
     }
 
     @Transactional
     public AssistantTurn fail(UUID turnId, ErrorCode code) {
         AssistantTurn turn = require(turnId);
+        if (alreadySettled(turn)) {
+            return turn;
+        }
         turn.fail(code.name());
         threads.touch(turn.getThreadId(), Instant.now());
+        events.append(turnId, AssistantEventKind.TURN_FINISHED,
+                Map.of("status", turn.getStatus().name(), "code", code.name()));
         return turn;
     }
 
@@ -84,7 +127,49 @@ public class AssistantTurnStore {
                 .orElseThrow(() -> ApiException.of(ErrorCode.NOT_FOUND));
     }
 
-    private AssistantTurn require(UUID turnId) {
+    /**
+     * Whether someone else got there first.
+     *
+     * <p>The race is real and one-directional: the sweep can cancel a turn whose worker is merely
+     * slow — throttled by Cloud Run, or waiting on a vendor — and that worker then comes back with an
+     * answer. Writing it would resurrect a turn every reader has already been told is over, and would
+     * append events after the terminal one, which is precisely the reordering {@code seq}'s
+     * immutability exists to prevent. The answer is dropped instead, and the log says so.
+     */
+    private boolean alreadySettled(AssistantTurn turn) {
+        if (turn.getStatus() == AssistantTurnStatus.RUNNING) {
+            return false;
+        }
+        log.warn("Assistant turn {} came back after being settled as {}; discarding the result",
+                turn.getId(), turn.getStatus());
+        return true;
+    }
+
+    /**
+     * Cancels a stranded turn, but only if it is still running.
+     *
+     * <p>Conditional because both instances sweep: the loser sees a settled row, changes nothing and
+     * announces nothing. {@code CANCELLED} rather than {@code FAILED} because nothing went wrong with
+     * the question — the process running it went away.
+     *
+     * @return whether this call was the one that settled it
+     */
+    @Transactional
+    public boolean cancelIfRunning(UUID turnId) {
+        AssistantTurn turn = require(turnId);
+        if (turn.getStatus() != AssistantTurnStatus.RUNNING) {
+            return false;
+        }
+        turn.cancel();
+        threads.touch(turn.getThreadId(), Instant.now());
+        events.append(turnId, AssistantEventKind.TURN_FINISHED,
+                Map.of("status", turn.getStatus().name(), "code", "ASSISTANT_TURN_STRANDED"));
+        return true;
+    }
+
+    /** The turn as stored. Used by the accept path to build its 202 from the committed row. */
+    @Transactional(readOnly = true)
+    public AssistantTurn require(UUID turnId) {
         return turns.findById(turnId).orElseThrow(() -> ApiException.of(ErrorCode.NOT_FOUND));
     }
 

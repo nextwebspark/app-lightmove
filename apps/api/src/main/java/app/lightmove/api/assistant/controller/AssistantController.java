@@ -11,6 +11,7 @@ import jakarta.validation.Valid;
 import java.util.List;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -57,26 +58,39 @@ public class AssistantController {
                 assistant.get(threadId, principal.userId(), principal.requireWorkspaceId()));
     }
 
-    /** Starts a conversation, titled from the question. */
+    /**
+     * Starts a conversation, titled from the question.
+     *
+     * <p><b>202, not 201.</b> The body is the accepted turn — RUNNING, with no answer yet — and the
+     * answer arrives on the stream the {@code Location} header names, or on a refetch of the thread.
+     * A turn with tools runs 30–180s, which no single response can hold against a 55s stream cycle.
+     */
     @PostMapping("/ask")
     @PreAuthorize("@workspaceAuthorizer.member(principal)")
     public ResponseEntity<AssistantTurnResponse> ask(@AuthenticationPrincipal AuthPrincipal principal,
                                                      @Valid @RequestBody AskRequest request,
                                                      HttpServletRequest httpRequest) {
-        AssistantTurnResponse answered = assistant.ask(
+        AssistantTurnResponse accepted = assistant.ask(
                 principal.userId(), principal.requireWorkspaceId(), null, request, httpRequest);
-        return ResponseEntity.status(HttpStatus.CREATED).body(answered);
+        return accepted(accepted);
     }
 
-    /** Continues one. A thread that is not the caller's answers 404, never 403. */
+    /** Continues one, also 202. A thread that is not the caller's answers 404, never 403. */
     @PostMapping("/threads/{threadId}/ask")
     @PreAuthorize("@workspaceAuthorizer.member(principal)")
     public ResponseEntity<AssistantTurnResponse> askIn(@AuthenticationPrincipal AuthPrincipal principal,
                                                        @PathVariable UUID threadId,
                                                        @Valid @RequestBody AskRequest request,
                                                        HttpServletRequest httpRequest) {
-        AssistantTurnResponse answered = assistant.ask(
+        AssistantTurnResponse accepted = assistant.ask(
                 principal.userId(), principal.requireWorkspaceId(), threadId, request, httpRequest);
-        return ResponseEntity.status(HttpStatus.CREATED).body(answered);
+        return accepted(accepted);
+    }
+
+    /** Where to watch it happen. The one part of a 202 that tells a client what to do next. */
+    private static ResponseEntity<AssistantTurnResponse> accepted(AssistantTurnResponse turn) {
+        return ResponseEntity.status(HttpStatus.ACCEPTED)
+                .header(HttpHeaders.LOCATION, "/api/v1/assistant/turns/" + turn.id() + "/stream")
+                .body(turn);
     }
 }

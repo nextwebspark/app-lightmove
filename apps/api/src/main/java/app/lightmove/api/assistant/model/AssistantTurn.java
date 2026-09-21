@@ -112,6 +112,15 @@ public class AssistantTurn extends BaseEntity {
         this.finishedAt = Instant.now();
     }
 
+    /**
+     * Abandoned rather than failed: the process running it went away, so nothing is known about the
+     * question's merits. Written only by the sweep.
+     */
+    public void cancel() {
+        this.status = AssistantTurnStatus.CANCELLED;
+        this.finishedAt = Instant.now();
+    }
+
     /** The question stays. A turn nobody could answer is still a turn that was asked. */
     public void fail(String code) {
         this.status = AssistantTurnStatus.FAILED;

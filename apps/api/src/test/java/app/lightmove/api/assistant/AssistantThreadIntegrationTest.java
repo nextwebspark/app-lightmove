@@ -7,6 +7,9 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 import app.lightmove.api.FlowTestSupport;
 import app.lightmove.api.IntegrationTest;
+import app.lightmove.api.assistant.service.AssistantTurnSweeper;
+import java.time.Duration;
+import java.time.Instant;
 import java.util.UUID;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -32,17 +35,27 @@ class AssistantThreadIntegrationTest extends FlowTestSupport {
     @Autowired
     private JdbcTemplate db;
 
+    @Autowired
+    private AssistantTurnSweeper sweeper;
+
     @Test
     @DisplayName("asking starts a thread titled from the question, and records the turn")
     void askingStartsAThread() throws Exception {
         String owner = staffToken();
 
-        JsonNode answered = body(ask(owner, "Who are the top IPP operators in Saudi Arabia?", null));
+        JsonNode accepted = body(ask(owner, "Who are the top IPP operators in Saudi Arabia?", null));
 
-        assertThat(answered.get("question").asText())
+        // The 202 body is deterministic: it is built from the committed row before the worker is
+        // handed anything, so it always reads RUNNING with no answer yet.
+        assertThat(accepted.get("question").asText())
                 .isEqualTo("Who are the top IPP operators in Saudi Arabia?");
-        assertThat(answered.get("status").asText()).isEqualTo("SUCCEEDED");
-        assertThat(answered.get("answer").isNull()).isFalse();
+        assertThat(accepted.get("status").asText()).isEqualTo("RUNNING");
+        assertThat(accepted.get("answer").isNull()).isTrue();
+
+        JsonNode settled = awaitTurnSettled(owner, accepted.get("threadId").asText(),
+                accepted.get("id").asText());
+        assertThat(settled.get("status").asText()).isEqualTo("SUCCEEDED");
+        assertThat(settled.get("answer").isNull()).isFalse();
 
         JsonNode threads = body(threads(owner));
         assertThat(threads).hasSize(1);
@@ -54,7 +67,9 @@ class AssistantThreadIntegrationTest extends FlowTestSupport {
     @DisplayName("a second question continues the same thread and reads back in order")
     void aSecondQuestionContinuesTheThread() throws Exception {
         String owner = staffToken();
-        String threadId = body(ask(owner, "first question", null)).get("threadId").asText();
+        JsonNode first = body(ask(owner, "first question", null));
+        String threadId = first.get("threadId").asText();
+        awaitTurnSettled(owner, threadId, first.get("id").asText());
 
         ask(owner, "second question", threadId);
 
@@ -103,7 +118,9 @@ class AssistantThreadIntegrationTest extends FlowTestSupport {
     @DisplayName("the turn carries the audit context a background worker could not resolve later")
     void theTurnCarriesItsOrigin() throws Exception {
         String owner = staffToken();
-        String turnId = body(ask(owner, "what is recorded?", null)).get("id").asText();
+        JsonNode accepted = body(ask(owner, "what is recorded?", null));
+        String turnId = accepted.get("id").asText();
+        awaitTurnSettled(owner, accepted.get("threadId").asText(), turnId);
 
         var row = db.queryForMap(
                 "SELECT status, finished_at, ip_address, user_agent, started_at FROM app_lm_assistant_turn"
@@ -139,9 +156,75 @@ class AssistantThreadIntegrationTest extends FlowTestSupport {
         mvc.perform(get("/api/v1/members").header("Authorization", "Bearer " + client))
                 .andExpect(status().isForbidden());
 
-        JsonNode answered = body(ask(client, "how is my search going?", null));
+        JsonNode accepted = body(ask(client, "how is my search going?", null));
 
-        assertThat(answered.get("status").asText()).isEqualTo("SUCCEEDED");
+        assertThat(awaitTurnSettled(client, accepted.get("threadId").asText(),
+                accepted.get("id").asText()).get("status").asText()).isEqualTo("SUCCEEDED");
+    }
+
+    @Test
+    @DisplayName("a second question while one is running is refused, not queued")
+    void aSecondQuestionWhileOneIsRunningIsRefused() throws Exception {
+        String owner = staffToken();
+        assistantRunner.gate();
+
+        String threadId = body(ask(owner, "first", null)).get("threadId").asText();
+
+        // Every turn spends real money, and a thread answering two at once reads as interleaved
+        // nonsense. This also kills the panel's double-submit.
+        mvc.perform(post("/api/v1/assistant/threads/" + threadId + "/ask")
+                        .header("Authorization", "Bearer " + owner)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"question\":\"second\"}"))
+                .andExpect(status().isConflict());
+
+        assistantRunner.release();
+    }
+
+    @Test
+    @DisplayName("a turn that fails keeps its question, its code and the text it had produced")
+    void aFailedTurnKeepsWhatItHad() throws Exception {
+        String owner = staffToken();
+        assistantRunner.answering("half an ans");
+        assistantRunner.failingWith(new IllegalStateException("vendor exploded"));
+
+        JsonNode accepted = body(ask(owner, "what breaks?", null));
+        JsonNode settled = awaitTurnSettled(owner, accepted.get("threadId").asText(),
+                accepted.get("id").asText());
+
+        assertThat(settled.get("status").asText()).isEqualTo("FAILED");
+        assertThat(settled.get("errorCode").asText()).isEqualTo("INTERNAL_ERROR");
+        assertThat(settled.get("question").asText())
+                .as("a turn nobody could answer is still a turn that was asked")
+                .isEqualTo("what breaks?");
+
+        var row = db.queryForMap(
+                "SELECT finished_at, answer FROM app_lm_assistant_turn WHERE id = ?",
+                UUID.fromString(accepted.get("id").asText()));
+        assertThat(row.get("finished_at"))
+                .as("V65 ties a terminal status to finished_at; the worker must set both")
+                .isNotNull();
+    }
+
+    @Test
+    @DisplayName("a stranded turn is reclaimed as CANCELLED rather than sitting RUNNING for ever")
+    void aStrandedTurnIsReclaimed() throws Exception {
+        String owner = staffToken();
+        assistantRunner.gate();
+        String turnId = body(ask(owner, "abandoned", null)).get("id").asText();
+
+        // Back-dated so the sweep's cut-off cannot match any other suite's fresh rows — nothing
+        // rolls back here, so a sweep using now() would reclaim its neighbours' work.
+        db.update("UPDATE app_lm_assistant_turn SET started_at = now() - interval '2 hours'"
+                + " WHERE id = ?", UUID.fromString(turnId));
+
+        assertThat(sweeper.sweep(Instant.now().minus(Duration.ofHours(1)))).isPositive();
+
+        assertThat(db.queryForObject(
+                "SELECT status FROM app_lm_assistant_turn WHERE id = ?", String.class,
+                UUID.fromString(turnId))).isEqualTo("CANCELLED");
+
+        assistantRunner.release();
     }
 
     @Test
@@ -169,7 +252,7 @@ class AssistantThreadIntegrationTest extends FlowTestSupport {
                         .header("User-Agent", USER_AGENT)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(json.writeValueAsString(new AskBody(question))))
-                .andExpect(status().isCreated())
+                .andExpect(status().isAccepted())
                 .andReturn();
     }
 

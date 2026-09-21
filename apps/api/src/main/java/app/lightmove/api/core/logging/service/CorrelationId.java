@@ -27,6 +27,26 @@ public final class CorrelationId {
         MDC.put(MDC_KEY, value);
     }
 
+    /**
+     * Takes on an id resolved elsewhere, for a thread that has no request of its own.
+     *
+     * <p>A background worker's log lines and audit row would otherwise read {@code "none"}, because
+     * {@code current()} answers from MDC and the filter that populates it never ran. The id is read
+     * back from the row the accepting request wrote, so it stays the caller's own rather than being
+     * invented. Always paired with {@link #release()} in a finally block: these threads are pooled,
+     * so an id left behind is attributed to whatever runs next.
+     */
+    public static void adopt(String correlationId) {
+        if (correlationId != null && !correlationId.isBlank()) {
+            set(correlationId);
+        }
+    }
+
+    /** Hands back an adopted id. See {@link #adopt(String)} for why this is not optional. */
+    public static void release() {
+        clear();
+    }
+
     static void clear() {
         MDC.remove(MDC_KEY);
     }

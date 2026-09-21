@@ -1,6 +1,7 @@
 package app.lightmove.api.assistant;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import app.lightmove.api.assistant.model.AssistantAnswer;
 import app.lightmove.api.assistant.model.AssistantExchange;
@@ -23,6 +24,7 @@ import org.springframework.ai.chat.model.Generation;
 import org.springframework.ai.chat.prompt.ChatOptions;
 import org.springframework.ai.chat.prompt.Prompt;
 import org.springframework.ai.google.genai.GoogleGenAiChatOptions;
+import reactor.core.publisher.Flux;
 
 /**
  * What one turn actually sends, and what it makes of what comes back.
@@ -33,12 +35,16 @@ import org.springframework.ai.google.genai.GoogleGenAiChatOptions;
  */
 class GeminiAssistantTurnRunnerTest {
 
+    /** What the turn streamed, in order. A turn's text now arrives through the sink, not only as a
+     * return value, so every case here asserts the sink saw it too. */
+    private final List<String> deltas = new ArrayList<>();
+
     @Test
     @DisplayName("pins its own model and thinking budget rather than taking the application's")
     void pinsItsOwnModel() {
         RecordingChatModel model = new RecordingChatModel("six companies");
 
-        runnerWith(model, 12).run(new AssistantTurnPrompt("You are Uncava.", List.of(), "top IPPs?"));
+        runnerWith(model, 12).run(new AssistantTurnPrompt("You are Uncava.", List.of(), "top IPPs?"), deltas::add);
 
         ChatOptions sent = model.lastOptions();
         assertThat(sent.getModel())
@@ -53,7 +59,7 @@ class GeminiAssistantTurnRunnerTest {
     void labelsTheCall() {
         RecordingChatModel model = new RecordingChatModel("ok");
 
-        runnerWith(model, 12).run(new AssistantTurnPrompt("sys", List.of(), "q"));
+        runnerWith(model, 12).run(new AssistantTurnPrompt("sys", List.of(), "q"), deltas::add);
 
         assertThat(((GoogleGenAiChatOptions) model.lastOptions()).getLabels())
                 .containsEntry("prompt", "assistant-turn");
@@ -65,7 +71,8 @@ class GeminiAssistantTurnRunnerTest {
         RecordingChatModel model = new RecordingChatModel("ok");
 
         runnerWith(model, 12).run(new AssistantTurnPrompt("sys",
-                List.of(new AssistantExchange("who runs TAQA?", "Ahmed Ali")), "and Masdar?"));
+                List.of(new AssistantExchange("who runs TAQA?", "Ahmed Ali")), "and Masdar?"),
+                deltas::add);
 
         assertThat(model.lastConversation()).containsExactly(
                 "USER:who runs TAQA?", "ASSISTANT:Ahmed Ali", "USER:and Masdar?");
@@ -80,7 +87,7 @@ class GeminiAssistantTurnRunnerTest {
                 new AssistantExchange("second", "2"),
                 new AssistantExchange("third", "3"));
 
-        runnerWith(model, 2).run(new AssistantTurnPrompt("sys", longThread, "fourth"));
+        runnerWith(model, 2).run(new AssistantTurnPrompt("sys", longThread, "fourth"), deltas::add);
 
         assertThat(model.lastConversation())
                 .as("the window keeps the most recent exchanges, not the first ones")
@@ -95,7 +102,8 @@ class GeminiAssistantTurnRunnerTest {
         RecordingChatModel model = new RecordingChatModel("ok");
 
         runnerWith(model, 12).run(new AssistantTurnPrompt("sys",
-                List.of(new AssistantExchange("what failed?", null)), "again?"));
+                List.of(new AssistantExchange("what failed?", null)), "again?"),
+                deltas::add);
 
         assertThat(model.lastConversation()).containsExactly("USER:what failed?", "USER:again?");
     }
@@ -108,17 +116,42 @@ class GeminiAssistantTurnRunnerTest {
         RecordingChatModel model = new RecordingChatModel("ok");
 
         AssistantAnswer answer = runnerWith(model, 12)
-                .run(new AssistantTurnPrompt("sys", List.of(), "q"));
+                .run(new AssistantTurnPrompt("sys", List.of(), "q"), deltas::add);
 
         assertThat(answer.text()).isEqualTo("ok");
         assertThat(answer.inputTokens()).isNull();
         assertThat(answer.outputTokens()).isNull();
     }
 
+    @Test
+    @DisplayName("the answer reaches the sink as well as the return value")
+    void theAnswerReachesTheSink() {
+        RecordingChatModel model = new RecordingChatModel("six companies");
+
+        AssistantAnswer answer = runnerWith(model, 12)
+                .run(new AssistantTurnPrompt("sys", List.of(), "q"), deltas::add);
+
+        // A non-streaming ChatModel gets ChatModel's default stream(), which is one chunk — so the
+        // whole answer arrives as a single delta. A real provider emits many; either way the sink
+        // sees every character exactly once, which is what the panel renders.
+        assertThat(String.join("", deltas)).isEqualTo("six companies");
+        assertThat(answer.text()).isEqualTo("six companies");
+    }
+
+    @Test
+    @DisplayName("an empty answer with no usage is a failure, not a turn that said nothing")
+    void anEmptyAnswerWithNoUsageIsAFailure() {
+        assertThatThrownBy(() -> runnerWith(new RecordingChatModel(""), 12)
+                .run(new AssistantTurnPrompt("sys", List.of(), "q"), deltas::add))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("assistant-turn");
+    }
+
     private static GeminiAssistantTurnRunner runnerWith(ChatModel model, int historyWindow) {
         LightMoveProperties properties = new LightMoveProperties(null, null, null, null, null, null,
                 null, null, null, null, null, null, null, null,
-                new AssistantSettings("gemini-3.1-pro", 0.2, 2048, historyWindow));
+                new AssistantSettings("gemini-3.1-pro", 0.2, 2048, historyWindow, 2, 8, true,
+                        java.time.Duration.ofMinutes(5)));
         return new GeminiAssistantTurnRunner(ChatClient.builder(model).build(), properties);
     }
 
@@ -145,6 +178,30 @@ class GeminiAssistantTurnRunnerTest {
 
         @Override
         public ChatResponse call(Prompt prompt) {
+            record(prompt);
+            return chunk(reply);
+        }
+
+        /**
+         * The runner streams, and {@code ChatModel}'s default {@code stream} throws — so a double
+         * that only implements {@code call} would fail every test with "streaming is not supported".
+         * Splits the reply across several chunks, because emitting it whole would let a runner that
+         * dropped everything but the last chunk pass.
+         */
+        @Override
+        public Flux<ChatResponse> stream(Prompt prompt) {
+            record(prompt);
+            if (reply.isEmpty()) {
+                return Flux.just(chunk(""));
+            }
+            List<ChatResponse> chunks = new ArrayList<>();
+            for (int at = 0; at < reply.length(); at += 3) {
+                chunks.add(chunk(reply.substring(at, Math.min(at + 3, reply.length()))));
+            }
+            return Flux.fromIterable(chunks);
+        }
+
+        private void record(Prompt prompt) {
             List<String> conversation = new ArrayList<>();
             for (Message message : prompt.getInstructions()) {
                 if (message.getMessageType() != MessageType.SYSTEM) {
@@ -153,7 +210,10 @@ class GeminiAssistantTurnRunnerTest {
             }
             conversations.add(conversation);
             options.add(prompt.getOptions());
-            return new ChatResponse(List.of(new Generation(new AssistantMessage(reply))));
+        }
+
+        private static ChatResponse chunk(String text) {
+            return new ChatResponse(List.of(new Generation(new AssistantMessage(text))));
         }
 
         List<String> lastConversation() {
