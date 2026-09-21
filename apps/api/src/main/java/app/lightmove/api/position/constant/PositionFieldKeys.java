@@ -7,7 +7,7 @@ import java.util.Map;
 import java.util.Set;
 
 /**
- * The ten scalars {@code Position.fieldSources} may name, one allow-list per wizard step. Nothing else
+ * The eleven scalars {@code Position.fieldSources} may name, one allow-list per wizard step. Nothing else
  * validates a {@code fieldSources} key, so without this gate a caller could stamp provenance on a wire
  * name that means nothing — the compensation figures and the role title are deliberately not here,
  * because neither is ever auto-filled.
@@ -15,7 +15,7 @@ import java.util.Set;
 public final class PositionFieldKeys {
 
     public static final Set<String> DETAILS =
-            Set.of("department", "location", "employmentType", "seniority", "narrative");
+            Set.of("department", "locationCity", "locationCountry", "employmentType", "seniority", "narrative");
 
     public static final Set<String> CONTEXT = Set.of("mandateReason", "businessDriver");
 

@@ -24,8 +24,11 @@ Fields:
     Title", "Position" or "Role".
   - department: the function or division the role sits in, if named.
   - location: the city, country or region the role is based in, if named.
-  - employmentType: one of FULL_TIME_PERMANENT, FIXED_TERM_CONTRACT, PART_TIME, INTERIM,
+  - employmentType: one of FULL_TIME_PERMANENT, FIXED_TERM_CONTRACT, PART_TIME, TEMPORARY, INTERIM,
     RETAINED_ADVISORY — only when the document's wording clearly means one of these; otherwise null.
+    TEMPORARY is short-term cover with no stated end date; FIXED_TERM_CONTRACT is an engagement the
+    document gives a length or an end date to; INTERIM is a senior placeholder holding the seat until
+    a permanent appointment is made.
   - seniority: one of BOARD, C_SUITE, N_MINUS_1, N_MINUS_2, N_MINUS_3, describing how far the role
     sits from the chief executive — only when the document gives you enough to place it; otherwise
     null.

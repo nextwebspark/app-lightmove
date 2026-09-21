@@ -313,17 +313,19 @@ const DEPARTMENT_LENS: ScalarLens<PositionDetails, string | null> = {
   set: (d, value) => ({ ...d, department: value }),
   parse: (raw) => raw || null,
 };
-/**
- * The document proposer still reads location as one free-text field (`PositionDetailsProposer` has not
- * split it), while the brief itself has since split the column in two (V66). The whole value goes to
- * `locationCity`, the free-text half — writing it to `locationCountry`, a picker over a controlled
- * vocabulary, would as often as not fail to match anything the document actually said. `locationCountry`
- * is left exactly as recorded; a person fills it in from the picker if the document named one.
- */
-const LOCATION_LENS: ScalarLens<PositionDetails, string | null> = {
-  key: "location",
+// A document writes where a role sits on one line; `LocationLine` splits it server-side into these two
+// proposals, so each half fills, marks and undoes on its own. The country arrives already spelled as
+// the catalog spells it, which is what the picker beside it reads.
+const LOCATION_CITY_LENS: ScalarLens<PositionDetails, string | null> = {
+  key: "locationCity",
   get: (d) => d.locationCity,
   set: (d, value) => ({ ...d, locationCity: value }),
+  parse: (raw) => raw || null,
+};
+const LOCATION_COUNTRY_LENS: ScalarLens<PositionDetails, string | null> = {
+  key: "locationCountry",
+  get: (d) => d.locationCountry,
+  set: (d, value) => ({ ...d, locationCountry: value }),
   parse: (raw) => raw || null,
 };
 const EMPLOYMENT_TYPE_LENS: ScalarLens<PositionDetails, PositionDetails["employmentType"]> = {
@@ -585,7 +587,8 @@ function fillDetails(
 
   // roleTitle is never filled — the document's title only ever drives the template suggestion.
   applyLens(DEPARTMENT_LENS);
-  applyLens(LOCATION_LENS);
+  applyLens(LOCATION_CITY_LENS);
+  applyLens(LOCATION_COUNTRY_LENS);
   applyLens(EMPLOYMENT_TYPE_LENS);
   applyLens(SENIORITY_LENS);
   applyLens(NARRATIVE_LENS);
@@ -681,19 +684,6 @@ export function undoScalar<D extends { fieldSources: Record<string, FieldSource>
       noticeValue: previous.noticeValue,
       noticeUnit: previous.noticeUnit,
       fieldSources: { ...step.fieldSources, noticeValue: restoredSource, noticeUnit: restoredSource },
-    };
-  }
-
-  // `LOCATION_LENS` fills `locationCity` under the receipt key "location" (see its own comment above):
-  // the one scalar whose wire field key does not match the draft's property name. Writing `[fieldKey]`
-  // directly, as the general case below does, would set a stray `location` property and leave
-  // `locationCity` exactly as the fill left it.
-  if (fieldKey === "location") {
-    if (step.fieldSources.location !== "DOCUMENT") return step;
-    return {
-      ...step,
-      locationCity: scalar.previousValue,
-      fieldSources: { ...step.fieldSources, location: scalar.previousSource ?? "MANUAL" },
     };
   }
 

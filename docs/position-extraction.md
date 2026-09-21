@@ -218,11 +218,15 @@ priorities, criteria, both competency panels — keeps every `MANUAL` row, drops
 brief's own per-field ceiling. The org chart gets its own merge (`lib/orgChart.ts#mergeReportingProposals`):
 a manager with no name yet is minted, a `MANUAL` manager is left exactly as typed, and a direct report
 with children of its own is never dropped even if it isn't `MANUAL` — dropping it would orphan its own
-children. **One trap already found and fixed here:** the document proposer still answers `location` as
-one free-text field while the brief itself stores two (`locationCity`/`locationCountry`, V66) — the
-fill writes the whole value to `locationCity` only, and the generic undo path has to special-case that
-same key mismatch (see `undoScalar`'s `"location"` branch) rather than writing a stray `location`
-property that nothing reads.
+children. **The location line is split server-side**, because the reader answers one line of prose
+("Abu Dhabi, United Arab Emirates") and the brief stores two halves (`locationCity`/`locationCountry`,
+V66). `LocationLine` does it in `PositionDetailsProposer#finish` — the one seam the model path and the
+heuristic path both pass through — so each half arrives as its own proposal and fills, marks and undoes
+on its own. **The catalog decides, never the comma:** a tail `Countries.resolveSpelling` cannot place
+keeps the whole line as the city, since "Chicago, IL" is one place a person will finish rather than a
+city in Israel, and that method refuses a bare alpha-2 code for exactly that reason. A line naming only
+a country proposes only the country, and the country arrives spelled as the catalog spells it — which
+is what the picker beside it reads.
 
 **The marker** (`components/ProvenanceMarker.tsx`) is the only visible provenance UI: a small sparkle
 on a `DOCUMENT` value, nothing on `TEMPLATE` or `MANUAL`. Hover or focus opens a small hand-rolled

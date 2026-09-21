@@ -8,7 +8,8 @@ import app.lightmove.api.position.constant.ProposalOrigin;
  * sentence it came from.
  *
  * @param fieldKey   one of a step's own field names — {@code roleTitle}, {@code department},
- *                   {@code location}, {@code employmentType}, {@code seniority}, {@code narrative} or
+ *                   {@code locationCity}, {@code locationCountry}, {@code employmentType},
+ *                   {@code seniority}, {@code narrative} or
  *                   {@code responsibility} for step one; {@code mandateReason}, {@code businessDriver}
  *                   or {@code strategicPriority} for step two; {@code reportsToTitle},
  *                   {@code directReportTitle}, {@code teamSize} or {@code noticePeriod} for step

@@ -62,9 +62,12 @@ class PositionExtractionIntegrationTest extends FlowTestSupport {
         assertThat(roleTitle.get("value").asText()).contains("General Manager");
         assertThat(roleTitle.get("snippet").asText()).isNotBlank();
 
-        JsonNode location = fieldNamed(fields, "location");
-        assertThat(location).isNotNull();
-        assertThat(location.get("value").asText()).contains("Dubai");
+        // The one line the reader finds arrives already split into the two halves the brief stores,
+        // each proposed on its own so each fills, marks and undoes on its own.
+        JsonNode city = fieldNamed(fields, "locationCity");
+        assertThat(city).isNotNull();
+        assertThat(city.get("value").asText()).contains("Dubai");
+        assertThat(fieldNamed(fields, "location")).isNull();
 
         // The cap is exactly 5 — the fixture's heuristic reading finds more than that, and
         // truncateToCeilings cuts it down rather than the heuristic itself limiting the count.

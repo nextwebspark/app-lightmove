@@ -6,7 +6,7 @@
 -- eventually touch needs somewhere to record it first.
 --
 -- Two mechanisms. Owned-list rows (responsibilities, priorities, org seats, competencies, criteria,
--- benefits) each carry their own `source` column, the V34/V54 CHECK idiom. The ten scalars a brief
+-- benefits) each carry their own `source` column, the V34/V54 CHECK idiom. The eleven scalars a brief
 -- holds outside those lists — the ones a document reading or a template can plausibly claim — are
 -- tracked in one jsonb map on the position row itself, `field_sources`, keyed by wire field name. An
 -- absent key means nobody has claimed that field; it stays fillable. Compensation and the role title
@@ -106,13 +106,13 @@ ALTER TABLE app_lm_position_criterion DROP COLUMN from_brief;
 COMMENT ON COLUMN app_lm_position_criterion.source IS
     'Where this criterion came from: TEMPLATE, DOCUMENT, or MANUAL (typed). Replaces the old from_brief boolean.';
 
--- ── app_lm_position.field_sources: the ten scalars a template or a document can claim ───────────
+-- ── app_lm_position.field_sources: the eleven scalars a template or a document can claim ──────
 
 UPDATE app_lm_position
 SET field_sources = (
     CASE WHEN version = 0 THEN
-        -- Only what PositionTemplateApplier actually writes today — never location, mandate_reason,
-        -- business_driver or team_size, which it always leaves exactly as it found them.
+        -- Only what PositionTemplateApplier actually writes today — never either location half,
+        -- mandate_reason, business_driver or team_size, which it always leaves as it found them.
         (CASE WHEN department IS NOT NULL THEN jsonb_build_object('department', 'TEMPLATE') ELSE '{}' END) ||
         (CASE WHEN employment_type IS NOT NULL THEN jsonb_build_object('employmentType', 'TEMPLATE') ELSE '{}' END) ||
         (CASE WHEN seniority IS NOT NULL THEN jsonb_build_object('seniority', 'TEMPLATE') ELSE '{}' END) ||
@@ -121,8 +121,8 @@ SET field_sources = (
         (CASE WHEN notice_unit IS NOT NULL THEN jsonb_build_object('noticeUnit', 'TEMPLATE') ELSE '{}' END)
     ELSE
         (CASE WHEN department IS NOT NULL THEN jsonb_build_object('department', 'MANUAL') ELSE '{}' END) ||
-        (CASE WHEN location_city IS NOT NULL OR location_country IS NOT NULL
-              THEN jsonb_build_object('location', 'MANUAL') ELSE '{}' END) ||
+        (CASE WHEN location_city IS NOT NULL THEN jsonb_build_object('locationCity', 'MANUAL') ELSE '{}' END) ||
+        (CASE WHEN location_country IS NOT NULL THEN jsonb_build_object('locationCountry', 'MANUAL') ELSE '{}' END) ||
         (CASE WHEN employment_type IS NOT NULL THEN jsonb_build_object('employmentType', 'MANUAL') ELSE '{}' END) ||
         (CASE WHEN seniority IS NOT NULL THEN jsonb_build_object('seniority', 'MANUAL') ELSE '{}' END) ||
         (CASE WHEN narrative IS NOT NULL THEN jsonb_build_object('narrative', 'MANUAL') ELSE '{}' END) ||
@@ -137,4 +137,4 @@ SET field_sources = (
 ALTER TABLE app_lm_position ALTER COLUMN field_sources DROP DEFAULT;
 
 COMMENT ON COLUMN app_lm_position.field_sources IS
-    'Provenance of the ten scalars a template or a document reading can claim, keyed by wire field name. An absent key means nobody has claimed the field yet.';
+    'Provenance of the eleven scalars a template or a document reading can claim, keyed by wire field name. An absent key means nobody has claimed the field yet.';

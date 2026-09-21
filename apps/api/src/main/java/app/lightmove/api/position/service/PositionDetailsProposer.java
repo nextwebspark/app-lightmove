@@ -12,6 +12,7 @@ import app.lightmove.api.core.ratelimit.service.LlmBudgetGuard;
 import app.lightmove.api.position.constant.ExtractionSource;
 import app.lightmove.api.position.constant.ProposalConfidence;
 import app.lightmove.api.position.model.ExtractedField;
+import app.lightmove.api.position.model.LocationLine;
 import app.lightmove.api.position.model.ModelDetailsAnswer.ModelResponsibility;
 import app.lightmove.api.position.model.ModelDetailsAnswer;
 import app.lightmove.api.position.model.ProposedPositionDetails;
@@ -207,7 +208,37 @@ public class PositionDetailsProposer {
     }
 
     private ProposedPositionDetails finish(ProposedPositionDetails proposed) {
-        return new ProposedPositionDetails(proposed.source(), truncateToCeilings(proposed.fields()));
+        return new ProposedPositionDetails(proposed.source(), truncateToCeilings(splitLocation(proposed.fields())));
+    }
+
+    /**
+     * The model and the heuristic both read where a role sits as one line of prose, because that is how
+     * a document writes it. The brief stores two halves (V66), so the line is split here — the one seam
+     * both paths pass through — and each half is proposed, filled and marked on its own. A line naming
+     * only a country proposes only the country; a tail the catalog cannot place stays whole as the city.
+     */
+    private static List<ExtractedField> splitLocation(List<ExtractedField> fields) {
+        List<ExtractedField> split = new ArrayList<>();
+        for (ExtractedField field : fields) {
+            if (!field.fieldKey().equals("location")) {
+                split.add(field);
+                continue;
+            }
+            LocationLine line = LocationLine.of(field.value());
+            if (line.isEmpty()) {
+                continue;
+            }
+            // Both halves came from the same sentence, so both carry its snippet and its confidence.
+            if (line.city() != null) {
+                split.add(new ExtractedField("locationCity", line.city(), field.confidence(),
+                        field.snippet(), field.origin()));
+            }
+            if (line.country() != null) {
+                split.add(new ExtractedField("locationCountry", line.country(), field.confidence(),
+                        field.snippet(), field.origin()));
+            }
+        }
+        return split;
     }
 
     /**
@@ -221,7 +252,8 @@ public class PositionDetailsProposer {
             switch (field.fieldKey()) {
                 case "roleTitle" -> truncated.add(fieldReader.capped(field, ROLE_TITLE_MAX_LENGTH));
                 case "department" -> truncated.add(fieldReader.capped(field, DEPARTMENT_MAX_LENGTH));
-                case "location" -> truncated.add(fieldReader.capped(field, LOCATION_MAX_LENGTH));
+                case "locationCity", "locationCountry" ->
+                        truncated.add(fieldReader.capped(field, LOCATION_MAX_LENGTH));
                 case "narrative" -> truncated.add(fieldReader.capped(field, NARRATIVE_MAX_LENGTH));
                 case "responsibility" -> {
                     if (responsibilityCount < RESPONSIBILITY_MAX_COUNT) {

@@ -452,6 +452,41 @@ describe("PositionPage", () => {
       expect(positionApi.extractAssessment).toHaveBeenCalledTimes(1);
     });
 
+    it("reads again from the Reporting and Assessment step headers, without walking back to step one", async () => {
+      vi.mocked(positionApi.getPosition).mockResolvedValue(attached);
+      vi.mocked(positionApi.putReporting).mockResolvedValue(attached);
+      noReading();
+      renderPage();
+      const person = userEvent.setup();
+
+      // A plain read of an already-attached brief reads nothing, so the count below is this press alone.
+      await screen.findByRole("button", { name: "CFO-brief.pdf" });
+      await person.click(within(rail()).getByRole("link", { name: "Reporting" }));
+      await person.click(await screen.findByRole("button", { name: /Read from document/ }));
+      await waitFor(() => expect(positionApi.extractReporting).toHaveBeenCalledTimes(1));
+      // One press reads every section, exactly as Extract with AI does — the screens share one reading.
+      expect(positionApi.extractDetails).toHaveBeenCalledTimes(1);
+
+      await person.click(within(rail()).getByRole("link", { name: "Assessment Criteria" }));
+      expect(await screen.findByRole("button", { name: /Read from document/ })).toBeInTheDocument();
+    });
+
+    it("offers no read control with nothing attached, nor on Compensation once there is", async () => {
+      noReading();
+      renderPage();
+      const person = userEvent.setup();
+
+      await screen.findByText("Attach the position description");
+      await person.click(within(rail()).getByRole("link", { name: "Reporting" }));
+      expect(await screen.findByRole("heading", { name: "Reporting Structure" })).toBeInTheDocument();
+      expect(screen.queryByRole("button", { name: /Read from document/ })).not.toBeInTheDocument();
+
+      vi.mocked(positionApi.getPosition).mockResolvedValue(attached);
+      await person.click(within(rail()).getByRole("link", { name: "Compensation" }));
+      expect(screen.queryByRole("button", { name: /Read from document/ })).not.toBeInTheDocument();
+      expect(screen.queryByRole("button", { name: /Extract with AI/ })).not.toBeInTheDocument();
+    });
+
     it("downloads and removes the attached file", async () => {
       vi.mocked(positionApi.getPosition).mockResolvedValue(attached);
       vi.mocked(positionApi.saveDocument).mockResolvedValue(undefined);
@@ -479,7 +514,7 @@ describe("PositionPage", () => {
         extractionSource: "model",
         fields: [
           { id: 1, fieldKey: "department", value: "Group Treasury", confidence: "high", snippet: "leads Group Treasury", origin: "document" },
-          { id: 2, fieldKey: "location", value: "Dubai", confidence: "medium", snippet: "based in Dubai", origin: "document" },
+          { id: 2, fieldKey: "locationCity", value: "Dubai", confidence: "medium", snippet: "based in Dubai", origin: "document" },
         ],
         suggestedTemplate: null,
         usualDirectReports: null,
@@ -499,7 +534,7 @@ describe("PositionPage", () => {
       expect(lastCall(positionApi.putDetails)[1]).toMatchObject({
         department: "Group Finance",
         locationCity: "Dubai",
-        fieldSources: expect.objectContaining({ department: "MANUAL", location: "DOCUMENT" }),
+        fieldSources: expect.objectContaining({ department: "MANUAL", locationCity: "DOCUMENT" }),
       });
       // The department stayed MANUAL, so only the city counts toward the strip's own receipt.
       expect(await screen.findByText("1 field")).toBeInTheDocument();
@@ -509,7 +544,7 @@ describe("PositionPage", () => {
       vi.mocked(positionApi.attachDocument).mockResolvedValue(attached);
       vi.mocked(positionApi.extractDetails).mockResolvedValue({
         extractionSource: "model",
-        fields: [{ id: 1, fieldKey: "location", value: "Dubai", confidence: "medium", snippet: "based in Dubai", origin: "document" }],
+        fields: [{ id: 1, fieldKey: "locationCity", value: "Dubai", confidence: "medium", snippet: "based in Dubai", origin: "document" }],
         suggestedTemplate: null,
         usualDirectReports: null,
       });

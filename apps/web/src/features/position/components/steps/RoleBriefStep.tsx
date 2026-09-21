@@ -207,7 +207,8 @@ export function RoleBriefStep({
       <LocationFields
         city={details.locationCity}
         country={details.locationCountry}
-        marker={markerFor(details.fieldSources, "location", () => onUndoDetail("location"))}
+        cityMarker={markerFor(details.fieldSources, "locationCity", () => onUndoDetail("locationCity"))}
+        countryMarker={markerFor(details.fieldSources, "locationCountry", () => onUndoDetail("locationCountry"))}
         onChange={onChangeDetails}
       />
 

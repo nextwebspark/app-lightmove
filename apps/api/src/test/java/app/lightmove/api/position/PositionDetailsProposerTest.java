@@ -12,6 +12,7 @@ import app.lightmove.api.core.config.LightMoveProperties;
 import app.lightmove.api.core.config.LlmRateLimitSettings;
 import app.lightmove.api.core.config.LlmSettings;
 import app.lightmove.api.core.ratelimit.service.LlmBudgetGuard;
+import app.lightmove.api.common.constant.EmploymentType;
 import app.lightmove.api.position.constant.ExtractionSource;
 import app.lightmove.api.position.constant.ProposalConfidence;
 import app.lightmove.api.position.model.ExtractedField;
@@ -206,6 +207,43 @@ class PositionDetailsProposerTest extends FlowTestSupport {
         assertThat(responsibilityFields).hasSizeLessThanOrEqualTo(5);
         responsibilityFields.forEach(field -> assertThat(field.value().length()).isLessThanOrEqualTo(200));
         assertThat(valueOf(proposed, "narrative").length()).isLessThanOrEqualTo(4000);
+    }
+
+    @Test
+    @DisplayName("splits the one location line into the two halves the brief stores, on the model path "
+            + "and the heuristic one alike")
+    void splitsTheLocationLine() throws Exception {
+        Fixture f = fixture("Extraction Location Firm", "Acme Holdings Group", "acme.example");
+        RecordingChatModel model = new RecordingChatModel("""
+                {"roleTitle":"CFO","location":"Abu Dhabi, United Arab Emirates",
+                 "locationSnippet":"Location: Abu Dhabi, United Arab Emirates"}
+                """);
+
+        ProposedPositionDetails fromModel = proposerWith(model)
+                .propose(UUID.randomUUID(), DOCUMENT_TEXT, f.clientId(), f.workspaceId());
+
+        assertThat(valueOf(fromModel, "locationCity")).isEqualTo("Abu Dhabi");
+        assertThat(valueOf(fromModel, "locationCountry")).isEqualTo("United Arab Emirates");
+        assertThat(fromModel.fields()).noneMatch(field -> field.fieldKey().equals("location"));
+
+        // The heuristic answers the same one line, so it is split at the same seam rather than
+        // reaching the screen as a field the brief has no column for.
+        ProposedPositionDetails fromHeuristic = proposerWith(new ThrowingChatModel())
+                .propose(UUID.randomUUID(), DOCUMENT_TEXT, f.clientId(), f.workspaceId());
+
+        assertThat(valueOf(fromHeuristic, "locationCity")).isEqualTo("Dubai");
+        assertThat(valueOf(fromHeuristic, "locationCountry")).isEqualTo("United Arab Emirates");
+    }
+
+    @Test
+    @DisplayName("the prompt offers every employment type the brief can hold, TEMPORARY included")
+    void promptOffersEveryEmploymentType() throws Exception {
+        String text = StreamUtils.copyToString(
+                new ClassPathResource("prompts/position-extract-details-system.st").getInputStream(),
+                StandardCharsets.UTF_8);
+        for (EmploymentType type : EmploymentType.values()) {
+            assertThat(text).contains(type.name());
+        }
     }
 
     @Test

@@ -134,11 +134,11 @@ compensation is never read, most descriptions state no figure — fan out into `
 one never is. There is no review-then-accept panel — the old wizard's went with it — a filled field
 wears a small sparkle (`ProvenanceMarker`) instead, whose popover carries the snippet and an Undo; a
 per-screen strip summarises the last reading with an Undo all, and the rail badges a step `N filled`
-for the session. **Extract with AI** on the file card reads again, and a section that failed to
-read offers **Read again** from its own screen's strip; Compensation is never read at all. The
-reporting reading also offers the matched template's usual direct reports as **Suggested seats**
-under the chart, and a role title the document suggests a different template for surfaces as a
-one-line banner with an Apply.
+for the session. **Extract with AI** on the file card reads again; the Reporting and Assessment
+steps carry **Read from document** in their own header, Compensation none. The reporting reading
+also offers the matched template's usual direct reports as **Suggested seats** under the chart,
+and a role title the document suggests a different template for surfaces as a one-line banner
+with an Apply.
 Everything a reading leaves behind — confidence, snippet, Undo, the rail badge — is session state,
 never persisted; only `source` survives a reload.
 `Position.dc.html` is superseded and kept as a record. Publishing stays ungated: the review's

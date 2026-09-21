@@ -157,16 +157,37 @@ describe("scalar fill — keep, replace, ignore", () => {
     expect(outcome.next.details.roleTitle).toBe("Untitled");
   });
 
-  it("fills the free-text location proposal onto locationCity, leaving locationCountry as recorded", () => {
-    const snapshot = snapshotOf({ details: details({ locationCountry: "United Arab Emirates" }) });
+  it("fills each half of the location the server split, marking them apart", () => {
+    const snapshot = snapshotOf();
     const outcome = fillBrief(
       snapshot,
-      { details: extraction([field("location", "Abu Dhabi, UAE")]) },
+      {
+        details: extraction([
+          field("locationCity", "Abu Dhabi"),
+          field("locationCountry", "United Arab Emirates"),
+        ]),
+      },
       FILE_NAME,
     );
-    expect(outcome.next.details.locationCity).toBe("Abu Dhabi, UAE");
+    expect(outcome.next.details.locationCity).toBe("Abu Dhabi");
     expect(outcome.next.details.locationCountry).toBe("United Arab Emirates");
-    expect(outcome.next.details.fieldSources.location).toBe("DOCUMENT");
+    expect(outcome.next.details.fieldSources.locationCity).toBe("DOCUMENT");
+    expect(outcome.next.details.fieldSources.locationCountry).toBe("DOCUMENT");
+  });
+
+  it("fills the country half alone when the document named no city, leaving a typed city alone", () => {
+    const snapshot = snapshotOf({
+      details: details({ locationCity: "Jubail", fieldSources: { locationCity: "MANUAL" } }),
+    });
+    const outcome = fillBrief(
+      snapshot,
+      { details: extraction([field("locationCountry", "Saudi Arabia")]) },
+      FILE_NAME,
+    );
+    expect(outcome.next.details.locationCity).toBe("Jubail");
+    expect(outcome.next.details.fieldSources.locationCity).toBe("MANUAL");
+    expect(outcome.next.details.locationCountry).toBe("Saudi Arabia");
+    expect(outcome.next.details.fieldSources.locationCountry).toBe("DOCUMENT");
   });
 
   it("drops an employment type or seniority the guard does not recognise", () => {
@@ -465,12 +486,17 @@ describe("undo", () => {
     expect(restored).toBe(draft);
   });
 
-  it("restores locationCity for the 'location' receipt key, not a stray 'location' property", () => {
-    const draft = details({ locationCity: "Dubai", fieldSources: { location: "DOCUMENT" } });
-    const restored = undoScalar(draft, "location", receiptFor("location"));
+  it("undoes one half of the location without disturbing the other", () => {
+    const draft = details({
+      locationCity: "Dubai",
+      locationCountry: "United Arab Emirates",
+      fieldSources: { locationCity: "DOCUMENT", locationCountry: "DOCUMENT" },
+    });
+    const restored = undoScalar(draft, "locationCity", receiptFor("locationCity"));
     expect(restored.locationCity).toBe("Old value");
-    expect(restored.fieldSources.location).toBe("TEMPLATE");
-    expect(restored).not.toHaveProperty("location");
+    expect(restored.fieldSources.locationCity).toBe("TEMPLATE");
+    expect(restored.locationCountry).toBe("United Arab Emirates");
+    expect(restored.fieldSources.locationCountry).toBe("DOCUMENT");
   });
 
   it("removes one DOCUMENT list item by its text", () => {
