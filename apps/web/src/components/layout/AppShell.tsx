@@ -13,7 +13,6 @@ import { Topbar } from "./Topbar";
 export function AppShell({
   navGroups,
   navBackLink,
-  navHeader,
   breadcrumb,
   contentClassName,
   assistantContext = "Workspace",
@@ -22,7 +21,6 @@ export function AppShell({
 }: {
   navGroups: SidebarGroup[];
   navBackLink?: SidebarItem;
-  navHeader?: ReactNode;
   breadcrumb?: ReactNode;
   contentClassName?: string;
   /** Which mandate the assistant is asking about here. A workspace screen has none. */
@@ -59,7 +57,6 @@ export function AppShell({
         <Sidebar
           groups={navGroups}
           backLink={navBackLink}
-          header={navHeader}
           open={navOpen}
           onClose={() => setNavOpen(false)}
         />
