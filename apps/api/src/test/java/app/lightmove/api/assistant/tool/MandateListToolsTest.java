@@ -71,7 +71,9 @@ class MandateListToolsTest {
     /** The guard has already run by the time a body executes; here it only has to be present. */
     private static ToolContext callerContext() {
         return new ToolContext(ToolCallerContext.of(
-                new AssistantToolCaller(UUID.randomUUID(), UUID.randomUUID(), UUID.randomUUID())));
+                new AssistantToolCaller(UUID.randomUUID(), UUID.randomUUID(), UUID.randomUUID()),
+                text -> {
+                }));
     }
 
     private static List<CandidateResponse> executives(int count) {

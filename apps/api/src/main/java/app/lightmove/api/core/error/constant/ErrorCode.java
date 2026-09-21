@@ -277,6 +277,14 @@ public enum ErrorCode {
     ASSISTANT_BUSY(HttpStatus.SERVICE_UNAVAILABLE,
             "The assistant is busy. Try again in a moment"),
 
+    /**
+     * The proposal on this turn has already been filed. A conflict rather than a quiet re-run: the
+     * rows would be deduplicated anyway, so a second accept could only ever report "added 0", which
+     * reads as a failure to a person who just watched the first one work.
+     */
+    ASSISTANT_PROPOSAL_ALREADY_ACCEPTED(HttpStatus.CONFLICT,
+            "This proposal has already been filed"),
+
     INTERNAL_ERROR(HttpStatus.INTERNAL_SERVER_ERROR, "Something went wrong on our end");
 
     private final HttpStatus status;

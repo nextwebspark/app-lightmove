@@ -203,7 +203,8 @@ class AuthorisingToolCallbackTest {
     }
 
     private static ToolContext contextOf(AssistantToolCaller caller) {
-        return new ToolContext(Map.copyOf(ToolCallerContext.of(caller)));
+        return new ToolContext(Map.copyOf(ToolCallerContext.of(caller, text -> {
+        })));
     }
 
     /** The two tiers, so the guard has something real to look up. Bodies are never reached here. */

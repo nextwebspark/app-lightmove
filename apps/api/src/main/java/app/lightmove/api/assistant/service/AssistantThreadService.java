@@ -3,8 +3,10 @@ package app.lightmove.api.assistant.service;
 import app.lightmove.api.assistant.dto.AskRequest;
 import app.lightmove.api.assistant.dto.AssistantThreadResponse;
 import app.lightmove.api.assistant.dto.AssistantThreadSummary;
+import app.lightmove.api.assistant.dto.AssistantProposalDto;
 import app.lightmove.api.assistant.dto.AssistantTurnResponse;
 import app.lightmove.api.assistant.model.AssistantThread;
+import app.lightmove.api.assistant.model.AssistantTurn;
 import app.lightmove.api.assistant.repository.AssistantThreadRepository;
 import app.lightmove.api.assistant.repository.AssistantTurnRepository;
 import app.lightmove.api.assistant.service.AssistantTurnStore.StartedTurn;
@@ -16,6 +18,7 @@ import app.lightmove.api.core.logging.service.CorrelationId;
 import app.lightmove.api.core.security.service.ClientIpResolver;
 import jakarta.servlet.http.HttpServletRequest;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -53,6 +56,7 @@ public class AssistantThreadService {
     private final AssistantContextComposer context;
     private final AssistantPromptAssembler prompts;
     private final ClientIpResolver clientIps;
+    private final AssistantProposalService proposals;
 
     @Transactional(readOnly = true)
     public List<AssistantThreadSummary> list(UUID userId, UUID workspaceId) {
@@ -68,9 +72,13 @@ public class AssistantThreadService {
     public AssistantThreadResponse get(UUID threadId, UUID userId, UUID workspaceId) {
         AssistantThread thread = threads.findByIdAndWorkspaceIdAndUserId(threadId, workspaceId, userId)
                 .orElseThrow(() -> ApiException.of(ErrorCode.NOT_FOUND));
-        List<AssistantTurnResponse> answered = turns.findByThreadIdOrderByCreatedAtAsc(thread.getId())
-                .stream()
-                .map(AssistantTurnResponse::of)
+        List<AssistantTurn> found = turns.findByThreadIdOrderByCreatedAtAsc(thread.getId());
+        // One query for the whole thread's proposals rather than one per turn: a long conversation
+        // would otherwise pay a round trip for every exchange that never made one.
+        Map<UUID, AssistantProposalDto> proposals =
+                this.proposals.byTurn(found.stream().map(AssistantTurn::getId).toList());
+        List<AssistantTurnResponse> answered = found.stream()
+                .map(turn -> AssistantTurnResponse.of(turn, proposals.get(turn.getId())))
                 .toList();
         return new AssistantThreadResponse(thread.getId(), thread.getTitle(), thread.getProjectId(),
                 thread.getCreatedAt(), thread.getUpdatedAt(), answered);

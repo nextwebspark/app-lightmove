@@ -31,7 +31,14 @@ public enum WorkspaceEventType implements AuditEventType {
      * money against the firm's account on a named person's behalf, and the cost has to be
      * attributable after the fact.
      */
-    ASSISTANT_TURN_RAN;
+    ASSISTANT_TURN_RAN,
+
+    /**
+     * A person filed companies the assistant proposed. Beside the {@code TRIAGE_BULK_ADDED} the write
+     * itself records, because the two are different facts: that one says rows were written, this one
+     * says a proposal was why — and names the turn that made it.
+     */
+    ASSISTANT_PROPOSAL_ACCEPTED;
 
     @Override
     public String code() {

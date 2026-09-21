@@ -148,7 +148,7 @@ class AssistantToolAuthorisationIntegrationTest extends FlowTestSupport {
                 .filter(candidate -> candidate.getToolDefinition().name().equals(toolName))
                 .findFirst()
                 .orElseThrow(() -> new AssertionError("no tool named " + toolName));
-        return tool.call(arguments, new ToolContext(ToolCallerContext.of(caller)));
+        return tool.call(arguments, new ToolContext(ToolCallerContext.of(caller, noTrace())));
     }
 
     /** The one mandate tool taking a second required argument; every other is named by its id alone. */

@@ -47,6 +47,25 @@ public enum AssistantEventKind {
      */
     TOOL_RESULT,
 
+    /**
+     * Companies the assistant is offering to file, and the stage is not among them — a proposal
+     * names what, never where. It writes nothing: the rows exist only in this payload until a person
+     * accepts them.
+     *
+     * <p>Carries the {@code projectId} the proposing tool call was <b>authorised against</b> rather
+     * than the thread's, which is nullable and which the model does not have to name. The accept
+     * re-authorises against this one, so it is the only mandate a proposal can ever reach.
+     */
+    PROPOSAL,
+
+    /**
+     * A person filed some of a proposal, with what was actually written.
+     *
+     * <p>Appended by the accept request rather than by a turn, and that is safe for the reason the
+     * appender documents: the turn finished long ago, so it has one writer again.
+     */
+    PROPOSAL_ACCEPTED,
+
     /** The turn reached a terminal status. The stream completes after sending this. */
     TURN_FINISHED;
 
