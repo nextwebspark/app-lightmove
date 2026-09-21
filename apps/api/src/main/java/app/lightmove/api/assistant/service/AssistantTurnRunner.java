@@ -2,6 +2,7 @@ package app.lightmove.api.assistant.service;
 
 import app.lightmove.api.assistant.model.AssistantAnswer;
 import app.lightmove.api.assistant.model.AssistantTurnPrompt;
+import app.lightmove.api.assistant.tool.AssistantToolCaller;
 
 /**
  * Runs one assistant turn against a model.
@@ -14,5 +15,11 @@ import app.lightmove.api.assistant.model.AssistantTurnPrompt;
  */
 public interface AssistantTurnRunner {
 
-    AssistantAnswer run(AssistantTurnPrompt prompt, AssistantEventSink sink);
+    /**
+     * @param caller who the turn's tool calls are authorised as. Beside the prompt rather than
+     *               inside it: identity is not something the model is told, and a runner that read
+     *               it off the prompt would invite a caller to put it in front of the model
+     */
+    AssistantAnswer run(AssistantTurnPrompt prompt, AssistantToolCaller caller,
+                        AssistantEventSink sink);
 }

@@ -5,6 +5,7 @@ import app.lightmove.api.assistant.model.AssistantAnswer;
 import app.lightmove.api.assistant.model.AssistantExchange;
 import app.lightmove.api.assistant.model.AssistantTurn;
 import app.lightmove.api.assistant.model.AssistantTurnPrompt;
+import app.lightmove.api.assistant.tool.AssistantToolCaller;
 import app.lightmove.api.core.audit.constant.WorkspaceEventType;
 import app.lightmove.api.core.audit.service.AuditService;
 import app.lightmove.api.core.error.constant.ErrorCode;
@@ -67,8 +68,10 @@ public class AssistantTurnWorker {
         try {
             AssistantAnswer answer = runner.run(
                     new AssistantTurnPrompt(work.systemPrompt(), work.history(), work.question()),
-                    text -> events.append(work.turnId(), AssistantEventKind.MESSAGE_DELTA,
-                            Map.of("text", text)));
+                    // Identity rebuilt from the turn row, which is why V65 stores it: this thread has
+                    // no SecurityContext, and the guard beans still re-read the database per call.
+                    new AssistantToolCaller(work.actorUserId(), work.workspaceId(), work.turnId()),
+                    sinkFor(work.turnId()));
             settled = store.succeed(work.turnId(), answer);
         } catch (ApiException failed) {
             log.warn("Assistant turn {} failed: {}", work.turnId(), failed.getCode());
@@ -80,6 +83,39 @@ public class AssistantTurnWorker {
         if (settled != null) {
             recordSpend(work, settled);
         }
+    }
+
+    /**
+     * Every kind a running turn emits, each one row through the appender's own short transaction.
+     *
+     * <p><b>Synchronised, and not defensively.</b> The appender allocates {@code max(seq) + 1} and
+     * leans on a turn having one writer, which used to be this thread alone. It is not any more:
+     * answer text is drained here while a tool's own events are emitted from inside
+     * {@code ToolCallingAdvisor}'s chain, on whichever thread that is. Two appends reading the same
+     * max would fail loudly on V65's {@code app_lm_assistant_event_seq_uk} — correct, and still a
+     * turn lost to a collision nothing forced. One sink per turn, so this serialises that turn and
+     * contends with nothing else.
+     */
+    private AssistantEventSink sinkFor(UUID turnId) {
+        return new AssistantEventSink() {
+
+            @Override
+            public synchronized void delta(String text) {
+                events.append(turnId, AssistantEventKind.MESSAGE_DELTA, Map.of("text", text));
+            }
+
+            @Override
+            public synchronized void toolCalled(String toolName, String arguments) {
+                events.append(turnId, AssistantEventKind.TOOL_CALLED,
+                        Map.of("tool", toolName, "arguments", arguments));
+            }
+
+            @Override
+            public synchronized void toolResult(String toolName, String result) {
+                events.append(turnId, AssistantEventKind.TOOL_RESULT,
+                        Map.of("tool", toolName, "result", result));
+            }
+        };
     }
 
     /**

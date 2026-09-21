@@ -27,6 +27,9 @@ import org.springframework.ai.chat.model.ChatModel;
 import org.springframework.ai.chat.model.ChatResponse;
 import org.springframework.ai.chat.model.Generation;
 import org.springframework.ai.chat.prompt.ChatOptions;
+import app.lightmove.api.assistant.tool.AssistantToolCaller;
+import app.lightmove.api.assistant.tool.AssistantToolset;
+import java.util.UUID;
 import org.springframework.ai.chat.prompt.Prompt;
 import org.springframework.ai.google.genai.GoogleGenAiChatOptions;
 import reactor.core.publisher.Flux;
@@ -44,12 +47,16 @@ class GeminiAssistantTurnRunnerTest {
      * return value, so every case here asserts the sink saw it too. */
     private final List<String> deltas = new ArrayList<>();
 
+    /** Identity a turn authorises its tool calls as; irrelevant to every case here but the signature. */
+    private static final AssistantToolCaller CALLER =
+            new AssistantToolCaller(UUID.randomUUID(), UUID.randomUUID(), UUID.randomUUID());
+
     @Test
     @DisplayName("pins its own model and thinking budget rather than taking the application's")
     void pinsItsOwnModel() {
         RecordingChatModel model = new RecordingChatModel("six companies");
 
-        runnerWith(model, 12).run(new AssistantTurnPrompt("You are Uncava.", List.of(), "top IPPs?"), deltas::add);
+        runnerWith(model, 12).run(new AssistantTurnPrompt("You are Uncava.", List.of(), "top IPPs?"), CALLER, deltas::add);
 
         ChatOptions sent = model.lastOptions();
         assertThat(sent.getModel())
@@ -64,7 +71,7 @@ class GeminiAssistantTurnRunnerTest {
     void labelsTheCall() {
         RecordingChatModel model = new RecordingChatModel("ok");
 
-        runnerWith(model, 12).run(new AssistantTurnPrompt("sys", List.of(), "q"), deltas::add);
+        runnerWith(model, 12).run(new AssistantTurnPrompt("sys", List.of(), "q"), CALLER, deltas::add);
 
         assertThat(((GoogleGenAiChatOptions) model.lastOptions()).getLabels())
                 .containsEntry("prompt", "assistant-turn");
@@ -77,7 +84,7 @@ class GeminiAssistantTurnRunnerTest {
 
         runnerWith(model, 12).run(new AssistantTurnPrompt("sys",
                 List.of(new AssistantExchange("who runs TAQA?", "Ahmed Ali")), "and Masdar?"),
-                deltas::add);
+                CALLER, deltas::add);
 
         assertThat(model.lastConversation()).containsExactly(
                 "USER:who runs TAQA?", "ASSISTANT:Ahmed Ali", "USER:and Masdar?");
@@ -92,7 +99,7 @@ class GeminiAssistantTurnRunnerTest {
                 new AssistantExchange("second", "2"),
                 new AssistantExchange("third", "3"));
 
-        runnerWith(model, 2).run(new AssistantTurnPrompt("sys", longThread, "fourth"), deltas::add);
+        runnerWith(model, 2).run(new AssistantTurnPrompt("sys", longThread, "fourth"), CALLER, deltas::add);
 
         assertThat(model.lastConversation())
                 .as("the window keeps the most recent exchanges, not the first ones")
@@ -108,7 +115,7 @@ class GeminiAssistantTurnRunnerTest {
 
         runnerWith(model, 12).run(new AssistantTurnPrompt("sys",
                 List.of(new AssistantExchange("what failed?", null)), "again?"),
-                deltas::add);
+                CALLER, deltas::add);
 
         assertThat(model.lastConversation()).containsExactly("USER:what failed?", "USER:again?");
     }
@@ -121,7 +128,7 @@ class GeminiAssistantTurnRunnerTest {
         RecordingChatModel model = new RecordingChatModel("ok");
 
         AssistantAnswer answer = runnerWith(model, 12)
-                .run(new AssistantTurnPrompt("sys", List.of(), "q"), deltas::add);
+                .run(new AssistantTurnPrompt("sys", List.of(), "q"), CALLER, deltas::add);
 
         assertThat(answer.text()).isEqualTo("ok");
         assertThat(answer.inputTokens()).isNull();
@@ -134,7 +141,7 @@ class GeminiAssistantTurnRunnerTest {
         RecordingChatModel model = new RecordingChatModel("six companies");
 
         AssistantAnswer answer = runnerWith(model, 12)
-                .run(new AssistantTurnPrompt("sys", List.of(), "q"), deltas::add);
+                .run(new AssistantTurnPrompt("sys", List.of(), "q"), CALLER, deltas::add);
 
         // A non-streaming ChatModel gets ChatModel's default stream(), which is one chunk — so the
         // whole answer arrives as a single delta. A real provider emits many; either way the sink
@@ -147,7 +154,7 @@ class GeminiAssistantTurnRunnerTest {
     @DisplayName("no text is a failure whether or not the provider billed for it")
     void noTextIsAFailure() {
         assertThatThrownBy(() -> runnerWith(new RecordingChatModel(""), 12)
-                .run(new AssistantTurnPrompt("sys", List.of(), "q"), deltas::add))
+                .run(new AssistantTurnPrompt("sys", List.of(), "q"), CALLER, deltas::add))
                 .isInstanceOf(IllegalStateException.class)
                 .hasMessageContaining("assistant-turn");
     }
@@ -162,7 +169,7 @@ class GeminiAssistantTurnRunnerTest {
         blocked.finishingWith("SAFETY", new DefaultUsage(120, 0));
 
         assertThatThrownBy(() -> runnerWith(blocked, 12)
-                .run(new AssistantTurnPrompt("sys", List.of(), "q"), deltas::add))
+                .run(new AssistantTurnPrompt("sys", List.of(), "q"), CALLER, deltas::add))
                 .isInstanceOf(IllegalStateException.class)
                 .hasMessageContaining("SAFETY");
     }
@@ -170,9 +177,12 @@ class GeminiAssistantTurnRunnerTest {
     private static GeminiAssistantTurnRunner runnerWith(ChatModel model, int historyWindow) {
         LightMoveProperties properties = new LightMoveProperties(null, null, null, null, null, null,
                 null, null, null, null, null, null, null, null,
-                new AssistantSettings("gemini-3.1-pro", 0.2, 2048, historyWindow, 2, 8, true,
+                new AssistantSettings("gemini-3.1-pro", 0.2, 2048, historyWindow, 25, 2, 8, true,
                         Duration.ofMinutes(5), Duration.ofMinutes(1)));
-        return new GeminiAssistantTurnRunner(ChatClient.builder(model).build(), properties);
+        // No tool subjects: what a turn sends and makes of the answer is this test's subject, and the
+        // guard around a tool call has its own. An empty toolset still proves the turn attaches one.
+        AssistantToolset tools = new AssistantToolset(List.of(), null, null);
+        return new GeminiAssistantTurnRunner(ChatClient.builder(model).build(), tools, properties);
     }
 
     /** As {@code ColumnMappingProposerTest} does it, but recording roles as well as text. */
