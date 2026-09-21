@@ -261,6 +261,22 @@ public enum ErrorCode {
     CANDIDATE_PROFILE_URL_LOCKED(HttpStatus.CONFLICT,
             "This profile was captured from LinkedIn; its URL is not editable"),
 
+    /**
+     * A second question while the first is still running. Refused rather than queued: every turn
+     * spends real money against the firm's Vertex account, and a thread that answers two questions
+     * at once reads as interleaved nonsense. It also happens to kill the panel's double-submit.
+     */
+    ASSISTANT_TURN_IN_PROGRESS(HttpStatus.CONFLICT,
+            "Wait for the current answer before asking again"),
+
+    /**
+     * Every turn slot on this instance is taken. A 503 rather than a 429: the caller has done
+     * nothing wrong and the same request will work shortly, which is what distinguishes capacity
+     * from a rate limit.
+     */
+    ASSISTANT_BUSY(HttpStatus.SERVICE_UNAVAILABLE,
+            "The assistant is busy. Try again in a moment"),
+
     INTERNAL_ERROR(HttpStatus.INTERNAL_SERVER_ERROR, "Something went wrong on our end");
 
     private final HttpStatus status;

@@ -113,6 +113,21 @@ public class AuditService {
         }
 
         /**
+         * The origin of a request that has already ended.
+         *
+         * <p>For a background worker, which has no {@code HttpServletRequest} — Tomcat recycles it
+         * as soon as the response is written. The values come from columns the accepting request
+         * stored, where {@link ClientIpResolver} had already decided what was trustworthy; they must
+         * never be taken from a header on the worker's side, because there is no request to have a
+         * header and anything supplied there would be the caller's own choice.
+         */
+        public Builder origin(String ipAddress, String userAgent) {
+            this.ipAddress = ipAddress;
+            this.userAgent = truncate(userAgent, 512);
+            return this;
+        }
+
+        /**
          * The IP is resolved by {@link ClientIpResolver}, not read off {@code X-Forwarded-For} here.
          * An audit log an attacker can write the "from" address of is worse than none — it is evidence
          * that points wherever they chose.
