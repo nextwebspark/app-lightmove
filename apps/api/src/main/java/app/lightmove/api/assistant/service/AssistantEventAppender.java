@@ -35,8 +35,11 @@ public class AssistantEventAppender {
     /**
      * Writes the next event and announces it.
      *
-     * <p>{@code max(seq) + 1} is safe because a turn has exactly one writer by construction: accept
-     * writes seq 1 and commits, and the worker owns the turn from then on. Two writers racing would
+     * <p>{@code max(seq) + 1} is safe because a turn has exactly one writer <b>at a time</b>: accept
+     * writes seq 1 and commits, and the worker owns the turn from then on. Since the tool surface
+     * landed that is no longer one thread — answer text is drained on the worker while a tool's own
+     * events are emitted from inside the advisor's chain — so the worker serialises its own sink
+     * (see {@code AssistantTurnWorker.sinkFor}) rather than relying on the two never overlapping. Two writers racing would
      * both read the same max and the second insert would die on V65's
      * {@code app_lm_assistant_event_seq_uk} — <b>which is the correct outcome.</b> A retry or an
      * {@code ON CONFLICT} would silently renumber, and {@code seq} is the replay cursor, so

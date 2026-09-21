@@ -136,18 +136,52 @@ class AuthorisingToolCallbackTest {
     }
 
     @Test
-    @DisplayName("a failure inside the tool propagates rather than being disguised as a refusal")
-    void doesNotDisguiseABodyFailure() {
-        ToolCallback exploding = new RecordingToolCallback("marketTool", null) {
+    @DisplayName("a failure inside the tool never reaches the model as its own message")
+    void keepsABodyFailureOffTheConversation() {
+        ToolCallback exploding = exploding("marketTool",
+                new ApiException(ErrorCode.NOT_FOUND, "no project 6f21 in workspace 9c04"));
+
+        String answer = guarded(exploding).call("{}", contextOf(CALLER));
+
+        // Letting it propagate reads as the safer choice and is not: MethodToolCallback wraps it,
+        // throw-exception-on-error defaults to false, and the processor hands the cause's message
+        // back as the tool result. ApiException's detail is licensed to quote the request because it
+        // never leaves the server, which inside a tool body stopped being true.
+        assertThat(answer)
+                .isEqualTo(AuthorisingToolCallback.FAILED)
+                .doesNotContain("6f21")
+                .doesNotContain("9c04");
+    }
+
+    @Test
+    @DisplayName("a failure and a refusal are different answers, and neither says why")
+    void tellsAFailureFromARefusal() {
+        doThrow(new ApiException(ErrorCode.FORBIDDEN, "Requires the PROJECT_BROWSE action"))
+                .when(workspaceAccess).requireAction(any(), any(), any());
+        String refusal = guarded("marketTool").call("{}", contextOf(CALLER));
+
+        assertThat(refusal).isEqualTo(AuthorisingToolCallback.REFUSED)
+                .isNotEqualTo(AuthorisingToolCallback.FAILED);
+    }
+
+    @Test
+    @DisplayName("a tool that blows up is traced as a result, not left with a call and no answer")
+    void tracesAFailureAsAResult() {
+        ToolCallback exploding = exploding("marketTool", new IllegalStateException("the database is down"));
+
+        guarded(exploding).call("{}", contextOf(CALLER));
+
+        assertThat(sink.calls).containsExactly("marketTool:{}");
+        assertThat(sink.results).containsExactly("marketTool:" + AuthorisingToolCallback.FAILED);
+    }
+
+    private static ToolCallback exploding(String toolName, RuntimeException failure) {
+        return new RecordingToolCallback(toolName, null) {
             @Override
             public String call(String toolInput, ToolContext toolContext) {
-                throw new IllegalStateException("the database is down");
+                throw failure;
             }
         };
-
-        assertThatThrownBy(() -> guarded(exploding).call("{}", contextOf(CALLER)))
-                .isInstanceOf(IllegalStateException.class)
-                .hasMessageContaining("the database is down");
     }
 
     private String refusalFor(ApiException denial) {
@@ -155,7 +189,7 @@ class AuthorisingToolCallbackTest {
         doThrow(denial).when(denying).requireAction(any(), any(), any(), eq(ProjectAction.WORK_VIEW));
         ToolAuthoriser strict = new ToolAuthoriser(workspaceAccess, denying, new ObjectMapper());
         return new AuthorisingToolCallback(new RecordingToolCallback("mandateTool", "rows"),
-                permissions, strict, CALLER, audit, sink)
+                permissions, strict, CALLER, audit, sink, "corr-1")
                 .call("{\"projectId\":\"" + PROJECT + "\"}", contextOf(CALLER));
     }
 
@@ -164,7 +198,8 @@ class AuthorisingToolCallbackTest {
     }
 
     private AuthorisingToolCallback guarded(ToolCallback delegate) {
-        return new AuthorisingToolCallback(delegate, permissions, authoriser, CALLER, audit, sink);
+        return new AuthorisingToolCallback(delegate, permissions, authoriser, CALLER, audit, sink,
+                "corr-1");
     }
 
     private static ToolContext contextOf(AssistantToolCaller caller) {

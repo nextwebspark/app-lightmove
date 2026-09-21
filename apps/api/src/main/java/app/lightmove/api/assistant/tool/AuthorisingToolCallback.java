@@ -4,6 +4,7 @@ import app.lightmove.api.assistant.service.AssistantEventSink;
 import app.lightmove.api.core.audit.constant.SecurityEventType;
 import app.lightmove.api.core.audit.service.AuditService;
 import app.lightmove.api.core.error.model.ApiException;
+import app.lightmove.api.core.logging.service.CorrelationId;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.ai.chat.model.ToolContext;
@@ -33,6 +34,24 @@ public class AuthorisingToolCallback implements ToolCallback {
      */
     static final String REFUSED = "Refused: you do not have access to that.";
 
+    /**
+     * What the model is told when the tool itself failed, whatever went wrong inside it.
+     *
+     * <p>Letting the exception propagate reads as the safer choice and is not.
+     * {@code MethodToolCallback} wraps whatever a tool body throws in a
+     * {@code ToolExecutionException}, and {@code spring.ai.tools.throw-exception-on-error} defaults
+     * to false, so {@code DefaultToolExecutionExceptionProcessor} hands the <b>cause's message</b>
+     * back as the tool result and the model reads it. {@code ApiException} licenses its internal
+     * detail to quote a column or a rejected value precisely because it never leaves the server,
+     * and inside a tool body that stopped being true.
+     *
+     * <p>Distinct from {@link #REFUSED} because the two are different answers and the model should
+     * act on them differently — retry a failure, do not retry a refusal. Neither leaks why: a
+     * refusal is uniform across its causes and so is this, and reaching this one only tells a
+     * caller the guard let them through, which they already knew.
+     */
+    static final String FAILED = "That did not work. The tool could not answer.";
+
     private final ToolCallback delegate;
     private final ToolPermissions permissions;
     private final ToolAuthoriser authoriser;
@@ -45,6 +64,12 @@ public class AuthorisingToolCallback implements ToolCallback {
      * appears in the response stream the runner consumes and a result never appears at all.
      */
     private final AssistantEventSink sink;
+
+    /**
+     * The turn's, captured on the worker thread that adopted it. A tool runs wherever the advisor's
+     * chain does, and the MDC there is empty.
+     */
+    private final String correlationId;
 
     @Override
     public ToolDefinition getToolDefinition() {
@@ -95,9 +120,25 @@ public class AuthorisingToolCallback implements ToolCallback {
             sink.toolResult(toolName, REFUSED);
             return REFUSED;
         }
-        String result = delegate.call(toolInput, toolContext);
+        String result = answerFrom(toolName, toolInput, toolContext);
         sink.toolResult(toolName, result);
         return result;
+    }
+
+    /**
+     * The tool's own answer, or a fixed sentence when it could not give one.
+     *
+     * <p>The catch is broad because the leak is: any message reaching the model is one the server
+     * wrote for the server. What went wrong stays in the log, where it is a bug report rather than
+     * a sentence a conversation can quote back to whoever asked.
+     */
+    private String answerFrom(String toolName, String toolInput, ToolContext toolContext) {
+        try {
+            return delegate.call(toolInput, toolContext);
+        } catch (RuntimeException failed) {
+            log.error("Assistant turn {} failed inside tool {}", caller.turnId(), toolName, failed);
+            return FAILED;
+        }
     }
 
     /**
@@ -112,13 +153,18 @@ public class AuthorisingToolCallback implements ToolCallback {
     private void recordDenial(AssistantToolCaller calling, ApiException denied) {
         log.warn("Assistant turn {} was refused tool {}: {}", calling.turnId(),
                 getToolDefinition().name(), denied.getCode());
-        audit.event(SecurityEventType.ASSISTANT_TOOL_DENIED)
-                .actor(calling.userId())
-                .workspace(calling.workspaceId())
-                .target("assistantTurn", calling.turnId())
-                .failed()
-                .reason(denied.getCode().name())
-                .detail("tool", getToolDefinition().name())
-                .record();
+        CorrelationId.adopt(correlationId);
+        try {
+            audit.event(SecurityEventType.ASSISTANT_TOOL_DENIED)
+                    .actor(calling.userId())
+                    .workspace(calling.workspaceId())
+                    .target("assistantTurn", calling.turnId())
+                    .failed()
+                    .reason(denied.getCode().name())
+                    .detail("tool", getToolDefinition().name())
+                    .record();
+        } finally {
+            CorrelationId.release();
+        }
     }
 }

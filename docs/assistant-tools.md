@@ -71,10 +71,19 @@ client representative, for whom the existence of another mandate is not public a
 So the decorator catches `ApiException` and returns a constant. The reason goes to the log and to
 `SecurityEventType.ASSISTANT_TOOL_DENIED`, and nowhere near the conversation.
 
-**A refusal is not an exception, and a failure is not a refusal.** Throwing would hand the reason
-back anyway: Spring AI passes a failed tool call to `ToolExecutionExceptionProcessor`, whose answer
-*becomes the tool result*, and an `ApiException`'s internal detail is allowed to quote the request.
-A genuine failure — the database down, a bug — is not disguised as a refusal; it propagates.
+**A failure inside the tool is contained too, and for the same reason.** Letting it propagate reads
+as the safer choice and is not. `MethodToolCallback` wraps whatever a body throws in a
+`ToolExecutionException`, `spring.ai.tools.throw-exception-on-error` defaults to false, and
+`DefaultToolExecutionExceptionProcessor` hands the **cause's message** back as the tool result — so
+the model reads it and may quote it to whoever asked. `ApiException` licenses its internal detail to
+name a column or a rejected value *precisely because it never leaves the server*, and inside a tool
+body that stopped being true. So the decorator catches it and answers a second constant.
+
+Two constants rather than one, because a refusal and a failure are different answers and the model
+should act on them differently — retry a failure, do not retry a refusal. Neither says why, and
+reaching the failure one tells a caller only that the guard let them through, which they already
+knew. What went wrong stays in the log, where it is a bug report rather than a sentence a
+conversation can repeat.
 
 ## Identity off the request thread
 
@@ -124,6 +133,12 @@ They are written by the decorator, because it is the only thing that sees both h
 runs inside Spring AI's `ToolCallingAdvisor`, so a tool call never appears in the response stream the
 runner consumes and a result never appears anywhere at all.
 
+That also means a turn no longer has one writing **thread**: answer text is drained on the worker
+while a tool's events come from inside the advisor's chain. `AssistantEventAppender` allocates
+`max(seq) + 1` and a collision would fail loudly on V65's unique index — correct, and still a turn
+lost to a race nothing forced — so the worker's sink serialises its own appends. One sink per turn,
+so it contends with nothing else.
+
 The arguments are recorded verbatim — that is the point of a trace — so nothing reading the log may
 treat them as having been authorised. A refused call records its refusal; *why* is in the audit
 trail.
@@ -136,6 +151,8 @@ Checked against the 2.0.1 jars rather than the documentation.
   `Function<ChatResponse, Boolean>` and answers "should the loop run at all for this response". It
   cannot see a tool name or an argument, so it cannot approve one call and refuse another. Building
   authorisation on it would be a hole.
+- **A tool's exception text is a channel to the model**, per the constants above:
+  `throw-exception-on-error` is false by default and the processor returns the cause's message.
 - **`GoogleGenAiChatModel` does not execute tools.** It calls `ToolCallingManager.resolveToolDefinitions`
   and never `executeToolCalls`, so it declares the tools and hands back the model's calls unrun.
 - **The loop is `ToolCallingAdvisor`**, which implements `CallAdvisor` *and* `StreamAdvisor` and is
@@ -155,7 +172,9 @@ Checked against the 2.0.1 jars rather than the documentation.
 - `AuthorisingToolCallbackTest` — `call(String)` always refuses; another turn's caller is refused; an
   authorised call delegates once with the input unchanged and both halves reach the trace; **an
   absent mandate and one the caller is not on produce the byte-identical refusal**; a call naming no
-  mandate is refused rather than authorised against null; a failure inside the tool propagates.
+  mandate is refused rather than authorised against null; a failure inside the tool answers the
+  fixed sentence with none of the exception's own text in it, is traced as a result rather than
+  leaving a call with no answer, and stays distinguishable from a refusal.
 - `AssistantToolRegistrationTest` — every `@Tool` in the application is on a collected subject, every
   collected tool declares a permission, and the toolset hands out only guarded callbacks.
 - `AssistantToolAuthorisationIntegrationTest` — the same rules against real membership rows: a pure

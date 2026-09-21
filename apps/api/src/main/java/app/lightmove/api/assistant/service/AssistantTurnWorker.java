@@ -85,23 +85,33 @@ public class AssistantTurnWorker {
         }
     }
 
-    /** Every kind a running turn emits, each one row through the appender's own short transaction. */
+    /**
+     * Every kind a running turn emits, each one row through the appender's own short transaction.
+     *
+     * <p><b>Synchronised, and not defensively.</b> The appender allocates {@code max(seq) + 1} and
+     * leans on a turn having one writer, which used to be this thread alone. It is not any more:
+     * answer text is drained here while a tool's own events are emitted from inside
+     * {@code ToolCallingAdvisor}'s chain, on whichever thread that is. Two appends reading the same
+     * max would fail loudly on V65's {@code app_lm_assistant_event_seq_uk} — correct, and still a
+     * turn lost to a collision nothing forced. One sink per turn, so this serialises that turn and
+     * contends with nothing else.
+     */
     private AssistantEventSink sinkFor(UUID turnId) {
         return new AssistantEventSink() {
 
             @Override
-            public void delta(String text) {
+            public synchronized void delta(String text) {
                 events.append(turnId, AssistantEventKind.MESSAGE_DELTA, Map.of("text", text));
             }
 
             @Override
-            public void toolCalled(String toolName, String arguments) {
+            public synchronized void toolCalled(String toolName, String arguments) {
                 events.append(turnId, AssistantEventKind.TOOL_CALLED,
                         Map.of("tool", toolName, "arguments", arguments));
             }
 
             @Override
-            public void toolResult(String toolName, String result) {
+            public synchronized void toolResult(String toolName, String result) {
                 events.append(turnId, AssistantEventKind.TOOL_RESULT,
                         Map.of("tool", toolName, "result", result));
             }
