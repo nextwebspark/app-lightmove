@@ -1,9 +1,9 @@
 package app.lightmove.api.assistant.tool;
 
+import app.lightmove.api.candidate.dto.CandidatesResponse;
 import app.lightmove.api.candidate.service.CandidateService;
 import app.lightmove.api.core.config.LightMoveProperties;
 import app.lightmove.api.core.security.rbac.ProjectAction;
-import java.util.List;
 import java.util.UUID;
 import org.springframework.ai.chat.model.ToolContext;
 import org.springframework.ai.tool.annotation.Tool;
@@ -30,16 +30,16 @@ public class CandidateTools implements AssistantToolSubject {
     @Tool(description = """
             List the executives a mandate has mapped, with the company each was mapped at and where \
             they stand. Use this to answer who has already been covered. Contact details are not \
-            returned. Only the first executives are listed when a mandate has mapped more than fit \
-            in one answer.""")
+            returned. The answer says how many the mandate has mapped in total and how many are \
+            shown — when those differ you are seeing the first of them, not all, so quote the total \
+            rather than counting the list.""")
     @RequiresProjectAction(ProjectAction.WORK_VIEW)
-    public List<MandateExecutiveSummary> listMandateExecutives(
+    public MandateExecutives listMandateExecutives(
             @ToolParam(description = "The mandate's id") String projectId,
             ToolContext toolContext) {
         AssistantToolCaller caller = ToolCallerContext.callerOf(toolContext);
-        return candidates.listAllOfProject(caller.workspaceId(), UUID.fromString(projectId), maxRows)
-                .candidates().stream()
-                .map(MandateExecutiveSummary::of)
-                .toList();
+        CandidatesResponse mapped = candidates.listAllOfProject(caller.workspaceId(),
+                UUID.fromString(projectId), maxRows);
+        return MandateExecutives.of(mapped.totalCount(), mapped.candidates());
     }
 }

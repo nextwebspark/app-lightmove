@@ -130,16 +130,24 @@ anything reading market data. Tools gate on named actions only.
 | `describeMarket` | `PROJECT_BROWSE` | the universe's industries, sectors, countries, segments and bands, each with a count |
 | `searchCompanyUniverse` | `PROJECT_BROWSE` | the largest companies matching a country, an industry, a keyword, a name and a headcount range |
 | `searchMandateFilter` | `WORK_VIEW` | the same market through one mandate's saved filter, minus its off-limits and everything it has already filed |
-| `listMandateCompanies` | `WORK_VIEW` | the companies a mandate has filed at one triage stage |
-| `listMandateExecutives` | `WORK_VIEW` | the people a mandate has mapped — name, title, employer, status |
+| `listMandateCompanies` | `WORK_VIEW` | the companies a mandate has filed at one triage stage, and how many it holds |
+| `listMandateExecutives` | `WORK_VIEW` | the people a mandate has mapped — name, title, employer, status — and how many it has mapped |
 | `mandateCompensation` | `WORK_VIEW` | what the mandate's brief says the role pays |
 
-**A search answers with the total, not just the page.** `Assistant.dc.html` writes the line itself —
+**Every capped answer says how much it is capping.** `Assistant.dc.html` writes the line itself —
 *"Searched your universe for energy companies in Saudi Arabia — 1,284 matched"* — and it is right
 to. A model handed twenty-five rows and no count reasons as though those are the market: it totals
 them, calls them "the" operators, and a client-facing sentence inherits the mistake. So every search
 runs `count` beside `search` and answers `{matched, showing, companies}`. The second query is the
 price of the model knowing what it is not looking at.
+
+The same holds for the two lists of a mandate's own rows, and there it costs nothing at all:
+`CandidateService.listAllOfProject` and `TriageCompanyService.listAllOfStage` both already return
+the total beside the page, so `MandateExecutives` and `MandateCompanies` carry what the read had
+computed and the tools used to discard. It matters most there, because "how many executives have we
+mapped?" is a number a consultant quotes to a client — and a mandate holding sixty used to answer
+twenty-five. A tool description saying truncation is *possible* is not the same statement as an
+answer saying it *happened*.
 
 **The model is given numbers, not band slugs.** `EmployeeBand` has eleven of them and `RevenueBand`
 its own set — a vocabulary the model would have to be taught and would get subtly wrong.
@@ -152,6 +160,19 @@ labels and spells countries out in full ("United Arab Emirates", never "AE"), an
 the exact spelling. Neither list can be guessed. Putting both in the system prompt would bury a long
 constant in the cached prefix for the sake of every turn that never asks a market question, so
 `describeMarket` reports them when the model needs to know what it may say.
+
+**And it is sized by `vocabularyLimit`, not `toolRowLimit`.** The two are different kinds of number.
+The row limit is a budget for *result* rows, where a page of the largest is a fair answer and the
+total beside it says what was left out; a vocabulary has no such consolation. `countByCountry` is
+the one axis of a `MarketShape` that goes through a `LIMIT` — the sectors, the segments and both
+band sets are closed lists — and it is `ORDER BY count(*) DESC`, so the row limit made it the top
+twenty-five countries by company count while both search descriptions called its spellings
+authoritative. A country ranked twenty-sixth was then unreachable: the model could not learn its
+spelling, and the wrong spelling matches nothing and says nothing about why. In a global universe
+that is how Bahrain, Oman, Qatar and Kuwait — the Gulf markets the report counts by name — go
+missing. The default is 250, chosen to exceed the number of countries that exist rather than
+measured against the universe; it stays a settings key so a universe carrying junk values can be
+capped without a release.
 
 **Off-limits belongs to the mandate, not to the market.** The workspace-tier search reads the
 universe as it is — a strategy company is a row of the market that belongs to nobody, and there is
@@ -296,8 +317,12 @@ Checked against the 2.0.1 jars rather than the documentation.
 - `MarketQueryTest` — a named country and industry land on their own axes, a headcount becomes a
   `NumericRange` with no band slug invented for it, an omitted or blank argument constrains nothing,
   and narrowing a mandate's filter keeps its axes and its off-limits list.
-- `MarketSearchTest` — the total reported is the market's and not the page's, and the page asked for
-  is the biggest first, capped at the assistant's own row limit.
+- `MarketSearchTest` — the total reported is the market's and not the page's; the page asked for is
+  the biggest first, capped at the assistant's own row limit; and the country vocabulary is asked
+  for at the vocabulary limit, with the two numbers deliberately unequal so a swapped pair cannot
+  pass.
+- `MandateListToolsTest` — a mandate holding sixty executives answers `matched` 60 with `showing` 25,
+  and the same for a triage stage.
 - `StrategyFlowIntegrationTest.untriagedScopeLeavesOutWhatTheMandateHasAlreadyFiled` — the two scopes
   differ in exactly one thing, against real rows: `scopeOf` keeps a triaged company for the bulk
   writers, `untriagedScopeOf` drops it.

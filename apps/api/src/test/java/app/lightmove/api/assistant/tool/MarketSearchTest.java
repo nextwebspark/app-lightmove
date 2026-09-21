@@ -25,6 +25,9 @@ class MarketSearchTest {
 
     private static final int CAP = 25;
 
+    /** Deliberately unequal to CAP: a test where the two agree cannot tell them apart. */
+    private static final int VOCABULARY = 250;
+
     private final ApolloCompanyQueryService companies = mock(ApolloCompanyQueryService.class);
 
     @Test
@@ -64,11 +67,26 @@ class MarketSearchTest {
                 eq(SortDirection.DESC), eq(0), eq(CAP));
     }
 
+    @Test
+    @DisplayName("the country vocabulary takes the vocabulary limit, not the row limit")
+    void asksForTheWholeCountryVocabulary() {
+        MarketSearch search = searchOver(0L, List.of());
+
+        search.shape();
+
+        // Every other axis in a MarketShape is a closed list; countries go through a
+        // "ORDER BY count(*) DESC LIMIT", so the row limit would quietly make this the top 25 by
+        // company count while both search tools call its spellings authoritative — and a country the
+        // model never saw spelled is a search that matches nothing and says nothing about why.
+        verify(companies).countByCountry(any(), eq(VOCABULARY));
+    }
+
     private MarketSearch searchOver(long matched, List<CompanyRow> page) {
         when(companies.count(any())).thenReturn(matched);
         when(companies.search(any(), any(), any(), anyInt(), anyInt())).thenReturn(page);
         LightMoveProperties properties = mock(LightMoveProperties.class, RETURNS_DEEP_STUBS);
         when(properties.assistant().toolRowLimit()).thenReturn(CAP);
+        when(properties.assistant().vocabularyLimit()).thenReturn(VOCABULARY);
         return new MarketSearch(companies, properties);
     }
 
