@@ -180,31 +180,81 @@ exposes `POST
 `WORK_VIEW` like the document's own download, because a read-only client seat must not be able to run
 up a billed model call.
 
-### The screen
+### The screen (superseded, kept as a record)
 
-> **Superseded (2026-09-20).** The renewed Position screen (#442) draws no review panel: the five
-> extract routes below still exist and behave as described, but the SPA has no caller for them until
-> epic #393 lands its silent fill on the new screen. What follows describes the panel as it shipped.
+> **2026-09-20.** The renewed Position screen (#442) draws no review panel, and the compensation route
+> was retired with it (#395). The section below describes the review-then-accept panel exactly as it
+> first shipped, against the old five-field wizard — it is no longer built. **The second slice below
+> ("Fill, markers, undo") describes what replaced it.**
 
 `PositionDocumentDropzone` grew a **Read from document** button beside Replace/Remove, shown only
-once a document is attached. `PositionExtractionPanel` renders one row per proposal — an
-inline-editable value, a confidence pill (`SOURCE_STYLES`/`DetailPill`'s pattern from
-`triageVocabulary.ts`, not plain text), a disclosure for the source snippet, Accept/Dismiss, and
-Accept all. A banner above the rows says plainly when the reading is `documentHeadings` — "the
-assistant could not be reached... so check these" — the same "say which of the paths produced it"
-idiom the import's mapping step already uses.
+once a document is attached. `PositionExtractionPanel` rendered one row per proposal — an
+inline-editable value, a confidence pill, a disclosure for the source snippet, Accept/Dismiss, and
+Accept all — none of which exists on the new screen.
 
-Acceptance goes through the **existing** `changeDetails`/`detailsSave` autosave channel, one field at
-a time — never a new write path, never `queryClient.setQueryData(POSITION_KEY, …)` from the extraction
-response. That distinction is load-bearing: the 700ms autosave debounce would otherwise race a
-whole-brief overwrite from a call that never persisted anything. `PositionPage` holds the extraction
-result in local `useState`, exactly as the import dialog's own preview/commit split keeps a preview in
-local state rather than the query cache — a proposal is a transient read, not a fact about the
-mandate. Accepting the role title flushes **immediately**, like every other decision-shaped edit on
-this screen; everything else stays on the ordinary typing debounce. "Accept all" folds every field's
-patch into **one** combined object before calling `changeDetails` once — calling it once per field in
-a tight loop would have each call read `details` from the same stale closure and silently discard the
-earlier ones.
+## The second slice: fill, markers, undo (epic #393, PRs #397/#398)
+
+The review panel earned its keep on nothing here: every field on the new five-step brief is already an
+autosaved draft with a text box beside it, so the cheapest undo already existed, and thirty clicks to
+accept thirty rows was the wrong price for that. The replacement is **fill → mark → undo**: attaching
+the document (or pressing **Extract with AI** on the file card, or **Read from document** on the
+Reporting/Assessment step header) reads all four sections at once and writes the result straight into
+the brief's own fields — through the ordinary autosave channels a keystroke uses, never a second write
+path.
+
+**The fill engine** (`apps/web/src/features/position/lib/documentFill.ts`, PR #396) is a pure library —
+a snapshot of the six drafts and the four settled section readings in, the next snapshot plus a set of
+changed screens and a *receipt* per screen out. Nothing in it renders or schedules a save; that is
+`PositionPage.tsx`'s `readDocument` mutation (PR #397), which folds `fillBrief`'s result into local
+state, schedules the autosave channels the changed screens own, and flushes them **sequentially** —
+`PUT /context` is never sent before `PUT /details` has resolved, because `BaseEntity`'s `@Version`
+makes two concurrent writes to the same row an optimistic-lock 409.
+
+**Merge policy** is source-aware, not "overwrite everything": a scalar already marked `MANUAL`
+(V67's persisted provenance) is left untouched; anything else (`TEMPLATE`, a previous reading's own
+`DOCUMENT`, or unset) is replaced and stamped `DOCUMENT`. A repeatable list — responsibilities,
+priorities, criteria, both competency panels — keeps every `MANUAL` row, drops everything else
+(`TEMPLATE` and the previous reading's `DOCUMENT` rows), and appends the new reading's rows up to the
+brief's own per-field ceiling. The org chart gets its own merge (`lib/orgChart.ts#mergeReportingProposals`):
+a manager with no name yet is minted, a `MANUAL` manager is left exactly as typed, and a direct report
+with children of its own is never dropped even if it isn't `MANUAL` — dropping it would orphan its own
+children. **The location line is split server-side**, because the reader answers one line of prose
+("Abu Dhabi, United Arab Emirates") and the brief stores two halves (`locationCity`/`locationCountry`,
+V66). `LocationLine` does it in `PositionDetailsProposer#finish` — the one seam the model path and the
+heuristic path both pass through — so each half arrives as its own proposal and fills, marks and undoes
+on its own. **The catalog decides, never the comma:** a tail `Countries.resolveSpelling` cannot place
+keeps the whole line as the city, since "Chicago, IL" is one place a person will finish rather than a
+city in Israel, and that method refuses a bare alpha-2 code for exactly that reason. A line naming only
+a country proposes only the country, and the country arrives spelled as the catalog spells it — which
+is what the picker beside it reads.
+
+**The marker** (`components/ProvenanceMarker.tsx`) is the only visible provenance UI: a small sparkle
+on a `DOCUMENT` value, nothing on `TEMPLATE` or `MANUAL`. Hover or focus opens a small hand-rolled
+popover — no library — with the confidence, the quoted snippet, and an Undo; hovering has to be
+tracked on the wrapper around both the glyph *and* the popover panel together, not the glyph alone, or
+moving the pointer from one to the other fires the glyph's own `mouseleave` first and closes the
+popover before Undo is reachable. With no receipt for the field (a reload, or the per-screen strip
+dismissed) the popover degrades to "From the document" alone — no confidence, no snippet, no Undo —
+because the value really did come from a document even once the session has forgotten the details.
+
+**Session versus persisted state** is the whole of what a reload loses: `source` (`TEMPLATE` /
+`DOCUMENT` / `MANUAL`) is the one thing V67 persists, and it is what the sparkle itself is drawn from.
+Everything else — the confidence, the snippet, the exact Undo, the per-screen strip's count, the
+rail's "N filled" badge — lives only in `PositionPage.tsx`'s `receipts` state for the running session,
+cleared on a reload or when the strip is dismissed. A brief finished a month ago never nags about
+fields nobody has re-read since.
+
+**Undo** reverses one field (`undoScalar`/`undoListItem`) or a whole screen's reading at once
+(`undoStep`, or — for the Role Brief, whose one receipt spans three draft objects — a per-field walk
+that calls `undoScalar`/`undoListItem` against whichever object owns each key). Every undo function is
+a no-op once the field no longer reads `DOCUMENT`: a person's own edit since the fill always wins.
+
+The **Suggested seats** row under the org chart offers the matched template's own usual direct reports
+the chart does not already carry (`lib/orgChart.ts#suggestedSeats`); a click adds it as `MANUAL` — a
+person chose it, so a later re-read must not drop it. The **suggested-template banner** under the file
+card offers to draft from a template the document's role reads like when the brief was not already
+drafted from it; applying it redrafts the brief first and re-reads the document after, so the reading's
+own values still win over whatever the template just seeded.
 
 ## Traps worth keeping in mind
 
@@ -268,8 +318,16 @@ cd apps/web && npm run build && npx vitest
   model (proving the degraded path is also the useful one), the writes-nothing assertion, 400 with no
   document attached, 400 on a legacy `.doc`, 403 for a seat without `PROJECT_EDIT`, 404 for a foreign
   project.
-- `PositionPage.test.tsx` — reading a document renders the degraded banner honestly; accepting a
-  proposal issues exactly one `PUT /details` carrying only that field; dismissing issues none.
+- `lib/documentFill.test.ts` (#396) — the scalar keep/replace matrix, list drop/keep/append/de-dupe/
+  ceilings, competency weight balancing, undo one/all/after-edit, the `location`→`locationCity` undo
+  key mismatch, NaN-guarded notice parsing.
+- `lib/orgChart.test.ts` (#396) — the reporting merge (manager mint/rename, direct-report drop/keep/
+  de-dupe, coordinates preserved), `suggestedSeats`/`addSuggestedSeat`.
+- `PositionPage.test.tsx` (#397/#398) — attaching fires the four reads and PUTs each changed step in
+  order; a `MANUAL` field survives a fill; Undo restores a field's previous value; a suggested seat
+  adds as `MANUAL`; the suggested-template banner applies and re-reads.
+- `ProvenanceMarker.test.tsx` (#398) — keyboard open/close, the no-receipt degradation, the low-
+  confidence colour.
 
 All 661 backend tests and the full frontend suite pass with this change; regexes and the block-based
 redaction logic were validated against a real `PDFTextStripper` run over all four sample fixtures, not

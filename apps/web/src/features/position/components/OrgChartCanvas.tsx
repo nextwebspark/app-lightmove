@@ -56,7 +56,9 @@ function OrgChart({ chart, roleTitle, onChange }: OrgChartCanvasProps) {
   const patch = useCallback(
     (nodeId: string, changes: Partial<OrgNode>, immediate = false) =>
       onChange(
-        chart.map((node) => (node.nodeId === nodeId ? { ...node, ...changes } : node)),
+        chart.map((node) =>
+          node.nodeId === nodeId ? { ...node, ...changes, source: "MANUAL" } : node,
+        ),
         immediate,
       ),
     [chart, onChange],
@@ -76,6 +78,7 @@ function OrgChart({ chart, roleTitle, onChange }: OrgChartCanvasProps) {
             mandateSeat: false,
             canvasX: null,
             canvasY: null,
+            source: "MANUAL",
           },
         ],
         true,
@@ -102,6 +105,7 @@ function OrgChart({ chart, roleTitle, onChange }: OrgChartCanvasProps) {
             mandateSeat: false,
             canvasX: null,
             canvasY: null,
+            source: "MANUAL",
           },
         ],
         true,

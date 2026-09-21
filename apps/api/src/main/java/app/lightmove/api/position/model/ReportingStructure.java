@@ -1,7 +1,9 @@
 package app.lightmove.api.position.model;
 
 import app.lightmove.api.common.constant.NoticeUnit;
+import app.lightmove.api.position.constant.FieldSource;
 import java.util.List;
+import java.util.Map;
 
 /**
  * Step three of the brief: the shape of the org around the seat.
@@ -12,11 +14,16 @@ import java.util.List;
  *
  * <p>{@code teamSize} is free text rather than a count: what a consultant writes is "38 across the
  * finance function", and V9's integer kept the 38 and discarded the meaning.
+ *
+ * <p>{@code fieldSources} is this step's own slice — teamSize, noticeValue, noticeUnit — of
+ * {@code Position.fieldSources}. Each org seat carries its own {@code source} instead; the chart is
+ * not part of this map.
  */
 public record ReportingStructure(
         List<PositionOrgNode> orgChart,
         String teamSize,
         Integer noticeValue,
-        NoticeUnit noticeUnit
+        NoticeUnit noticeUnit,
+        Map<String, FieldSource> fieldSources
 ) {
 }

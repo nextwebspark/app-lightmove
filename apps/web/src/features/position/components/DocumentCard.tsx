@@ -10,21 +10,26 @@ const ACCEPT = ".pdf,.doc,.docx,.txt";
 
 /**
  * The position description attached to a brief: a card naming the file once one is held, a dropzone
- * until then. The file is kept with the mandate and read back by its own download; nothing here reads
- * it into the fields — that is #393's, and lands on this card as its own button.
+ * until then. The file is kept with the mandate and read back by its own download; attaching one reads
+ * it into the fields silently, and **Extract with AI** is that read's manual twin — the retry once a
+ * reading has already run, or a way to read a document nothing has read yet.
  */
 export function DocumentCard({
   document,
   uploading,
+  extracting,
   onAttach,
   onRemove,
   onDownload,
+  onExtract,
 }: {
   document: PositionDocument | null;
   uploading: boolean;
+  extracting: boolean;
   onAttach: (file: File) => void;
   onRemove: () => void;
   onDownload: () => void;
+  onExtract: () => void;
 }) {
   const input = useRef<HTMLInputElement>(null);
 
@@ -65,7 +70,17 @@ export function DocumentCard({
               {fileSizeOf(document.fileSize)} · added {formatInstantDate(document.uploadedAt)}
             </span>
           </div>
-          <div className="ms-auto flex flex-none items-center gap-1">
+          <div className="ms-auto flex flex-none items-center gap-2">
+            <BriefButton
+              variant="outline"
+              onClick={onExtract}
+              loading={extracting}
+              disabled={uploading}
+              className="text-u-inferred"
+            >
+              <Icon d={ICONS.sparkle} size={13} />
+              Extract with AI
+            </BriefButton>
             <BriefButton variant="link" onClick={() => input.current?.click()} disabled={uploading} className="text-u-text2">
               Replace
             </BriefButton>
@@ -80,7 +95,7 @@ export function DocumentCard({
           accept={ACCEPT}
           label="Position description file"
           title="Attach the position description"
-          hint="Kept with the mandate, so the brief and the document it came from stay together."
+          hint="Read once to fill the brief, then kept with the mandate."
           disabled={uploading}
           onFile={onAttach}
         />

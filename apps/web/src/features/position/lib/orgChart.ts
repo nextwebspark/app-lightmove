@@ -125,6 +125,165 @@ export function layoutChart(chart: OrgNode[]): Map<string, { x: number; y: numbe
   return placed;
 }
 
+/**
+ * Why a merge helper below declined to change the chart — `null` means it applied cleanly. The caller
+ * reads this instead of comparing the returned chart by reference, since more than one reason can
+ * produce the same "chart came back unchanged" outcome.
+ */
+export type ChartMergeBlock = "noMandateSeat" | "full" | "duplicate";
+
+export interface ChartMergeResult {
+  chart: OrgNode[];
+  blocked: ChartMergeBlock | null;
+}
+
+/**
+ * Folds a whole reporting-section reading into the chart in one pass — a reports-to title and every
+ * proposed direct report together, never a chart of its own. Source-aware throughout, so a fill can be
+ * run again after somebody has started editing without clobbering what they typed.
+ *
+ * **Manager.** No manager yet → mint `{ title, source: "DOCUMENT" }` and re-parent the mandate seat
+ * under it (refused past the seat ceiling). A `MANUAL` manager — a person's own — is left exactly as
+ * typed. Anything else (`TEMPLATE`, a previous reading's `DOCUMENT`, or unmarked legacy data) is
+ * renamed and stamped `DOCUMENT`. The rename never touches `name`: the proposal is title-only (see
+ * `PositionReportingProposer`'s class doc), and a manager somebody had already named keeps that name
+ * paired with the new title. Canvas coordinates are never touched either.
+ *
+ * **Direct reports**, only attempted when at least one is proposed: the mandate seat's non-`MANUAL`
+ * children with no reports of their own are dropped first — a seat somebody built under stays, since
+ * dropping it would orphan its own children and 400 on `requireParentsResolve` — then every proposed
+ * title is de-duplicated case-insensitively against what is kept and appended as `DOCUMENT`, up to the
+ * seat ceiling.
+ */
+export function mergeReportingProposals(
+  chart: OrgNode[],
+  reportsTo: string | null | undefined,
+  directReports: readonly string[],
+): ChartMergeResult {
+  const seat = mandateSeatOf(chart);
+  if (!seat) return { chart, blocked: "noMandateSeat" };
+
+  let next = chart;
+  let blocked: ChartMergeBlock | null = null;
+  const title = reportsTo?.trim();
+
+  if (title) {
+    const manager = managerOf(next);
+    if (!manager) {
+      if (next.length >= MAX_ORG_CHART_SEATS) {
+        blocked = "full";
+      } else {
+        const nodeId = crypto.randomUUID();
+        next = [
+          ...next.map((node) => (node.nodeId === seat.nodeId ? { ...node, parentNodeId: nodeId } : node)),
+          {
+            nodeId,
+            parentNodeId: null,
+            title,
+            name: null,
+            mandateSeat: false,
+            canvasX: null,
+            canvasY: null,
+            source: "DOCUMENT",
+          },
+        ];
+      }
+    } else if (manager.source !== "MANUAL") {
+      next = next.map((node) =>
+        node.nodeId === manager.nodeId ? { ...node, title, source: "DOCUMENT" } : node,
+      );
+    }
+  }
+
+  if (directReports.length > 0) {
+    const seatNow = mandateSeatOf(next)!;
+    const currentChildren = childrenOf(next, seatNow.nodeId);
+    const keptChildren = currentChildren.filter(
+      // Absent provenance is treated as protected here, unlike the manager rename above: dropping a
+      // seat is destructive and unrecoverable, so a seat of unknown origin is kept rather than guessed
+      // at — only an explicit DOCUMENT or TEMPLATE stamp makes one eligible to be replaced.
+      (child) => (child.source ?? "MANUAL") === "MANUAL" || childrenOf(next, child.nodeId).length > 0,
+    );
+    const droppedIds = new Set(
+      currentChildren.filter((child) => !keptChildren.includes(child)).map((child) => child.nodeId),
+    );
+    const base = droppedIds.size > 0 ? next.filter((node) => !droppedIds.has(node.nodeId)) : next;
+    const keptTitles = new Set(
+      keptChildren.map((child) => (child.title ?? "").trim().toLowerCase()).filter(Boolean),
+    );
+
+    const toAppend: OrgNode[] = [];
+    let total = base.length;
+    for (const reportTitle of directReports) {
+      const normalised = reportTitle.trim().toLowerCase();
+      if (!normalised || keptTitles.has(normalised)) continue;
+      if (total >= MAX_ORG_CHART_SEATS) {
+        blocked = blocked ?? "full";
+        break;
+      }
+      keptTitles.add(normalised);
+      toAppend.push({
+        nodeId: crypto.randomUUID(),
+        parentNodeId: seatNow.nodeId,
+        title: reportTitle.trim(),
+        name: null,
+        mandateSeat: false,
+        canvasX: null,
+        canvasY: null,
+        source: "DOCUMENT",
+      });
+      total++;
+    }
+    next = toAppend.length > 0 ? [...base, ...toAppend] : base;
+  }
+
+  return { chart: next, blocked };
+}
+
+/**
+ * The matched template's own usual direct reports the chart does not already carry — the row #398
+ * draws under "Suggested seats". Case-insensitive against every current child, not just the kept ones
+ * a merge would keep: an offer somebody can add by hand should not repeat a report already on screen
+ * for any reason.
+ */
+export function suggestedSeats(chart: OrgNode[], usualDirectReports: readonly string[]): string[] {
+  const existing = new Set(
+    directReportsOf(chart).map((node) => (node.title ?? "").trim().toLowerCase()),
+  );
+  return usualDirectReports.filter((title) => !existing.has(title.trim().toLowerCase()));
+}
+
+/**
+ * Adds one suggested seat as a person's own choice — `source: "MANUAL"`, never `"DOCUMENT"`. A later
+ * fill drops every non-`MANUAL` childless direct report before re-proposing; stamping this `DOCUMENT`
+ * would make a seat somebody just clicked to add vanish the next time the document is read again.
+ */
+export function addSuggestedSeat(chart: OrgNode[], title: string): ChartMergeResult {
+  const seat = mandateSeatOf(chart);
+  if (!seat) return { chart, blocked: "noMandateSeat" };
+  const duplicate = childrenOf(chart, seat.nodeId).some(
+    (node) => node.title?.trim().toLowerCase() === title.trim().toLowerCase(),
+  );
+  if (duplicate) return { chart, blocked: "duplicate" };
+  if (chart.length >= MAX_ORG_CHART_SEATS) return { chart, blocked: "full" };
+  return {
+    chart: [
+      ...chart,
+      {
+        nodeId: crypto.randomUUID(),
+        parentNodeId: seat.nodeId,
+        title,
+        name: null,
+        mandateSeat: false,
+        canvasX: null,
+        canvasY: null,
+        source: "MANUAL",
+      },
+    ],
+    blocked: null,
+  };
+}
+
 /** Depth from the chart's root, so every tier lines up even across separate branches. */
 function depthsOf(chart: OrgNode[]): Map<string, number> {
   const byId = new Map(chart.map((node) => [node.nodeId, node]));

@@ -1,8 +1,10 @@
 package app.lightmove.api.position.dto;
 
 import app.lightmove.api.common.constant.NoticeUnit;
+import app.lightmove.api.position.constant.FieldSource;
 import java.time.LocalDate;
 import java.util.List;
+import java.util.Map;
 
 /**
  * Step three as the brief returns it.
@@ -17,5 +19,8 @@ public record ReportingStructureDto(
         /** The mandate's one target date, read from the project. This screen shows it, never sets it. */
         LocalDate targetStart,
         Integer noticeValue,
-        NoticeUnit noticeUnit
+        NoticeUnit noticeUnit,
+
+        /** Provenance of teamSize, noticeValue and noticeUnit. Each org seat carries its own source. */
+        Map<String, FieldSource> fieldSources
 ) {}

@@ -7,7 +7,7 @@ import { ToastProvider } from "../../../components/ui";
 import * as projectsApi from "../../projects/api/projectsApi";
 import type { Project } from "../../projects/api/types";
 import * as positionApi from "../api/positionApi";
-import type { Position, PositionTemplate } from "../api/types";
+import type { Position, PositionExtraction, PositionTemplate } from "../api/types";
 import { PositionPage } from "./PositionPage";
 
 vi.mock("../../../lib/countries", () => import("../../../test/countries"));
@@ -28,6 +28,10 @@ vi.mock("../api/positionApi", async (importOriginal) => ({
   attachDocument: vi.fn(),
   removeDocument: vi.fn(),
   saveDocument: vi.fn(),
+  extractDetails: vi.fn(),
+  extractContext: vi.fn(),
+  extractReporting: vi.fn(),
+  extractAssessment: vi.fn(),
 }));
 vi.mock("../../projects/api/projectsApi", async (importOriginal) => ({
   ...(await importOriginal<typeof import("../../projects/api/projectsApi")>()),
@@ -58,8 +62,9 @@ const seeded: Position = {
     locationCountry: "United Arab Emirates",
     employmentType: "FULL_TIME_PERMANENT",
     seniority: "C_SUITE",
-    responsibilities: ["Group P&L stewardship"],
+    responsibilities: [{ text: "Group P&L stewardship", source: "MANUAL" }],
     narrative: "A hands-on CFO.",
+    fieldSources: {},
   },
   context: {
     mandateReason: "NEW_ROLE",
@@ -67,6 +72,7 @@ const seeded: Position = {
     strategicPriorities: [{ name: "Capital discipline", selected: false }],
     confidential: false,
     internalContext: null,
+    fieldSources: {},
   },
   reporting: {
     orgChart: [
@@ -77,6 +83,7 @@ const seeded: Position = {
     targetStart: null,
     noticeValue: null,
     noticeUnit: null,
+    fieldSources: {},
   },
   compensation: {
     currency: "USD",
@@ -91,7 +98,7 @@ const seeded: Position = {
     benefits: [],
   },
   assessment: {
-    criteria: [{ text: "Board reporting experience", mode: "REQUIRED", fromBrief: true }],
+    criteria: [{ text: "Board reporting experience", mode: "REQUIRED", source: "TEMPLATE" }],
     technical: [
       { name: "Treasury", description: "Debt and liquidity", weight: 60 },
       { name: "Controls", description: null, weight: 40 },
@@ -132,9 +139,13 @@ const catalog: PositionTemplate[] = [
 /** What the compliance template redraws the brief into. */
 const redrafted: Position = {
   ...seeded,
-  details: { ...seeded.details, department: "Compliance", responsibilities: ["Group compliance framework"] },
+  details: {
+    ...seeded.details,
+    department: "Compliance",
+    responsibilities: [{ text: "Group compliance framework", source: "TEMPLATE" }],
+  },
   assessment: {
-    criteria: [{ text: "Led compliance for a regulated entity", mode: "REQUIRED", fromBrief: true }],
+    criteria: [{ text: "Led compliance for a regulated entity", mode: "REQUIRED", source: "TEMPLATE" }],
     technical: [{ name: "Regulatory Framework & Licensing", description: null, weight: 100 }],
     behavioural: [{ name: "Independence & Objectivity", description: null, weight: 100 }],
     technicalShare: 50,
@@ -335,12 +346,19 @@ describe("PositionPage", () => {
       await person.type(await screen.findByRole("textbox", { name: "Add a responsibility" }), "Treasury{Enter}");
       await waitFor(() =>
         expect(lastCall(positionApi.putDetails)[1]).toMatchObject({
-          responsibilities: ["Group P&L stewardship", "Treasury"],
+          responsibilities: [
+            { text: "Group P&L stewardship", source: "MANUAL" },
+            { text: "Treasury", source: "MANUAL" },
+          ],
         }),
       );
 
       await person.click(screen.getByRole("button", { name: "Remove Group P&L stewardship" }));
-      await waitFor(() => expect(lastCall(positionApi.putDetails)[1]).toMatchObject({ responsibilities: ["Treasury"] }));
+      await waitFor(() =>
+        expect(lastCall(positionApi.putDetails)[1]).toMatchObject({
+          responsibilities: [{ text: "Treasury", source: "MANUAL" }],
+        }),
+      );
     });
 
     it("edits the ideal profile in place", async () => {
@@ -402,9 +420,22 @@ describe("PositionPage", () => {
       ...seeded,
       document: { fileName: "CFO-brief.pdf", contentType: "application/pdf", fileSize: 798_720, uploadedAt: "2026-09-07T09:00:00Z" },
     };
+    const emptyExtraction: PositionExtraction = {
+      extractionSource: "none",
+      fields: [],
+      suggestedTemplate: null,
+      usualDirectReports: null,
+    };
+    const noReading = () => {
+      vi.mocked(positionApi.extractDetails).mockResolvedValue(emptyExtraction);
+      vi.mocked(positionApi.extractContext).mockResolvedValue(emptyExtraction);
+      vi.mocked(positionApi.extractReporting).mockResolvedValue(emptyExtraction);
+      vi.mocked(positionApi.extractAssessment).mockResolvedValue(emptyExtraction);
+    };
 
-    it("attaches a file and then shows it as the card, with no extract control", async () => {
+    it("attaches a file and then shows it as the card, with Extract with AI to read it again", async () => {
       vi.mocked(positionApi.attachDocument).mockResolvedValue(attached);
+      noReading();
       renderPage();
       const person = userEvent.setup();
 
@@ -413,7 +444,47 @@ describe("PositionPage", () => {
 
       expect(await screen.findByRole("button", { name: "CFO-brief.pdf" })).toBeInTheDocument();
       expect(screen.getByText("780 KB · added 07 Sept 2026")).toBeInTheDocument();
-      expect(screen.queryByRole("button", { name: /Extract|Read from document/ })).not.toBeInTheDocument();
+      expect(screen.getByRole("button", { name: /Extract with AI/ })).toBeInTheDocument();
+      // Attaching already read it once — the four section calls fire without a second press.
+      await waitFor(() => expect(positionApi.extractDetails).toHaveBeenCalledTimes(1));
+      expect(positionApi.extractContext).toHaveBeenCalledTimes(1);
+      expect(positionApi.extractReporting).toHaveBeenCalledTimes(1);
+      expect(positionApi.extractAssessment).toHaveBeenCalledTimes(1);
+    });
+
+    it("reads again from the Reporting and Assessment step headers, without walking back to step one", async () => {
+      vi.mocked(positionApi.getPosition).mockResolvedValue(attached);
+      vi.mocked(positionApi.putReporting).mockResolvedValue(attached);
+      noReading();
+      renderPage();
+      const person = userEvent.setup();
+
+      // A plain read of an already-attached brief reads nothing, so the count below is this press alone.
+      await screen.findByRole("button", { name: "CFO-brief.pdf" });
+      await person.click(within(rail()).getByRole("link", { name: "Reporting" }));
+      await person.click(await screen.findByRole("button", { name: /Read from document/ }));
+      await waitFor(() => expect(positionApi.extractReporting).toHaveBeenCalledTimes(1));
+      // One press reads every section, exactly as Extract with AI does — the screens share one reading.
+      expect(positionApi.extractDetails).toHaveBeenCalledTimes(1);
+
+      await person.click(within(rail()).getByRole("link", { name: "Assessment Criteria" }));
+      expect(await screen.findByRole("button", { name: /Read from document/ })).toBeInTheDocument();
+    });
+
+    it("offers no read control with nothing attached, nor on Compensation once there is", async () => {
+      noReading();
+      renderPage();
+      const person = userEvent.setup();
+
+      await screen.findByText("Attach the position description");
+      await person.click(within(rail()).getByRole("link", { name: "Reporting" }));
+      expect(await screen.findByRole("heading", { name: "Reporting Structure" })).toBeInTheDocument();
+      expect(screen.queryByRole("button", { name: /Read from document/ })).not.toBeInTheDocument();
+
+      vi.mocked(positionApi.getPosition).mockResolvedValue(attached);
+      await person.click(within(rail()).getByRole("link", { name: "Compensation" }));
+      expect(screen.queryByRole("button", { name: /Read from document/ })).not.toBeInTheDocument();
+      expect(screen.queryByRole("button", { name: /Extract with AI/ })).not.toBeInTheDocument();
     });
 
     it("downloads and removes the attached file", async () => {
@@ -425,9 +496,166 @@ describe("PositionPage", () => {
 
       await person.click(await screen.findByRole("button", { name: "CFO-brief.pdf" }));
       expect(positionApi.saveDocument).toHaveBeenCalledWith("p1", "CFO-brief.pdf");
+      // Reading a document nobody attached this session must never happen off a plain read of the brief.
+      expect(positionApi.extractDetails).not.toHaveBeenCalled();
 
       await person.click(screen.getByRole("button", { name: "Remove" }));
       expect(await screen.findByText("Attach the position description")).toBeInTheDocument();
+    });
+
+    it("reads a document on attach, fills what nobody typed over, and leaves a MANUAL field alone", async () => {
+      const withManualDepartment: Position = {
+        ...seeded,
+        details: { ...seeded.details, fieldSources: { department: "MANUAL" } },
+      };
+      vi.mocked(positionApi.getPosition).mockResolvedValue(withManualDepartment);
+      vi.mocked(positionApi.attachDocument).mockResolvedValue({ ...withManualDepartment, document: attached.document });
+      vi.mocked(positionApi.extractDetails).mockResolvedValue({
+        extractionSource: "model",
+        fields: [
+          { id: 1, fieldKey: "department", value: "Group Treasury", confidence: "high", snippet: "leads Group Treasury", origin: "document" },
+          { id: 2, fieldKey: "locationCity", value: "Dubai", confidence: "medium", snippet: "based in Dubai", origin: "document" },
+        ],
+        suggestedTemplate: null,
+        usualDirectReports: null,
+      });
+      vi.mocked(positionApi.extractContext).mockResolvedValue(emptyExtraction);
+      vi.mocked(positionApi.extractReporting).mockResolvedValue(emptyExtraction);
+      vi.mocked(positionApi.extractAssessment).mockResolvedValue(emptyExtraction);
+      vi.mocked(positionApi.putDetails).mockResolvedValue(withManualDepartment);
+      renderPage();
+      const person = userEvent.setup();
+
+      const input = await screen.findByLabelText("Position description file");
+      await person.upload(input, new File(["%PDF-1.4"], "CFO-brief.pdf", { type: "application/pdf" }));
+
+      await waitFor(() => expect(screen.getByRole("textbox", { name: "City" })).toHaveValue("Dubai"));
+      await waitFor(() => expect(positionApi.putDetails).toHaveBeenCalled());
+      expect(lastCall(positionApi.putDetails)[1]).toMatchObject({
+        department: "Group Finance",
+        locationCity: "Dubai",
+        fieldSources: expect.objectContaining({ department: "MANUAL", locationCity: "DOCUMENT" }),
+      });
+      // The department stayed MANUAL, so only the city counts toward the strip's own receipt.
+      expect(await screen.findByText("1 field")).toBeInTheDocument();
+    });
+
+    it("typing over a document-filled field makes it MANUAL, so a later autosave never claims DOCUMENT for it", async () => {
+      vi.mocked(positionApi.attachDocument).mockResolvedValue(attached);
+      vi.mocked(positionApi.extractDetails).mockResolvedValue({
+        extractionSource: "model",
+        fields: [{ id: 1, fieldKey: "locationCity", value: "Dubai", confidence: "medium", snippet: "based in Dubai", origin: "document" }],
+        suggestedTemplate: null,
+        usualDirectReports: null,
+      });
+      vi.mocked(positionApi.extractContext).mockResolvedValue(emptyExtraction);
+      vi.mocked(positionApi.extractReporting).mockResolvedValue(emptyExtraction);
+      vi.mocked(positionApi.extractAssessment).mockResolvedValue(emptyExtraction);
+      vi.mocked(positionApi.putDetails).mockResolvedValue(seeded);
+      renderPage();
+      const person = userEvent.setup();
+
+      const input = await screen.findByLabelText("Position description file");
+      await person.upload(input, new File(["%PDF-1.4"], "CFO-brief.pdf", { type: "application/pdf" }));
+      await waitFor(() => expect(screen.getByRole("textbox", { name: "City" })).toHaveValue("Dubai"));
+      expect(screen.getByRole("button", { name: "Read from the document" })).toBeInTheDocument();
+
+      const city = screen.getByRole("textbox", { name: "City" });
+      await person.clear(city);
+      await person.type(city, "Abu Dhabi");
+
+      await waitFor(() =>
+        expect(lastCall(positionApi.putDetails)[1]).toMatchObject({
+          locationCity: "Abu Dhabi",
+          fieldSources: expect.objectContaining({ locationCity: "MANUAL" }),
+        }),
+      );
+      // The correction is the person's own now — the sparkle (and the Undo it offers) is gone.
+      expect(screen.queryByRole("button", { name: "Read from the document" })).not.toBeInTheDocument();
+    });
+
+    it("undoes a field a reading filled, restoring what was there before", async () => {
+      vi.mocked(positionApi.attachDocument).mockResolvedValue(attached);
+      vi.mocked(positionApi.extractDetails).mockResolvedValue({
+        extractionSource: "model",
+        fields: [{ id: 1, fieldKey: "locationCity", value: "Dubai", confidence: "medium", snippet: "based in Dubai", origin: "document" }],
+        suggestedTemplate: null,
+        usualDirectReports: null,
+      });
+      vi.mocked(positionApi.extractContext).mockResolvedValue(emptyExtraction);
+      vi.mocked(positionApi.extractReporting).mockResolvedValue(emptyExtraction);
+      vi.mocked(positionApi.extractAssessment).mockResolvedValue(emptyExtraction);
+      vi.mocked(positionApi.putDetails).mockResolvedValue(seeded);
+      renderPage();
+      const person = userEvent.setup();
+
+      const input = await screen.findByLabelText("Position description file");
+      await person.upload(input, new File(["%PDF-1.4"], "CFO-brief.pdf", { type: "application/pdf" }));
+      await waitFor(() => expect(screen.getByRole("textbox", { name: "City" })).toHaveValue("Dubai"));
+
+      // fireEvent rather than userEvent.click: two clicks in a row make userEvent move the simulated
+      // pointer from the marker to the popover, which fires the marker's own leave/blur before the
+      // popover's click lands — real only for a mouse path crossing two separate elements, not for a
+      // press-and-release in place.
+      fireEvent.focus(screen.getByRole("button", { name: "Read from the document" }));
+      fireEvent.click(await screen.findByRole("button", { name: "Undo" }));
+
+      await waitFor(() => expect(screen.getByRole("textbox", { name: "City" })).toHaveValue("Abu Dhabi"));
+    });
+
+    it("offers the matched template's usual direct reports as suggested seats after a reading", async () => {
+      vi.mocked(positionApi.attachDocument).mockResolvedValue(attached);
+      vi.mocked(positionApi.extractDetails).mockResolvedValue(emptyExtraction);
+      vi.mocked(positionApi.extractContext).mockResolvedValue(emptyExtraction);
+      vi.mocked(positionApi.extractReporting).mockResolvedValue({
+        extractionSource: "none",
+        fields: [],
+        suggestedTemplate: null,
+        usualDirectReports: ["Head of Treasury"],
+      });
+      vi.mocked(positionApi.extractAssessment).mockResolvedValue(emptyExtraction);
+      vi.mocked(positionApi.putReporting).mockResolvedValue(seeded);
+      renderPage();
+      const person = userEvent.setup();
+
+      const input = await screen.findByLabelText("Position description file");
+      await person.upload(input, new File(["%PDF-1.4"], "CFO-brief.pdf", { type: "application/pdf" }));
+      await waitFor(() => expect(positionApi.extractReporting).toHaveBeenCalled());
+
+      await person.click(within(rail()).getByRole("link", { name: "Reporting" }));
+      await person.click(await screen.findByRole("button", { name: /Head of Treasury/ }));
+
+      await waitFor(() =>
+        expect((lastCall(positionApi.putReporting)[1] as { orgChart: unknown[] }).orgChart).toEqual(
+          expect.arrayContaining([expect.objectContaining({ title: "Head of Treasury", source: "MANUAL" })]),
+        ),
+      );
+    });
+
+    it("offers to draft from a template the document reads like, and re-reads once applied", async () => {
+      vi.mocked(positionApi.attachDocument).mockResolvedValue(attached);
+      vi.mocked(positionApi.extractDetails).mockResolvedValue({
+        ...emptyExtraction,
+        suggestedTemplate: catalog[1],
+      });
+      vi.mocked(positionApi.extractContext).mockResolvedValue(emptyExtraction);
+      vi.mocked(positionApi.extractReporting).mockResolvedValue(emptyExtraction);
+      vi.mocked(positionApi.extractAssessment).mockResolvedValue(emptyExtraction);
+      // The document stays attached across a template redraft — real API responses carry it; the shared
+      // `redrafted` fixture doesn't, since the test it was built for never attaches one first.
+      vi.mocked(positionApi.applyTemplate).mockResolvedValue({ ...redrafted, document: attached.document });
+      renderPage();
+      const person = userEvent.setup();
+
+      const input = await screen.findByLabelText("Position description file");
+      await person.upload(input, new File(["%PDF-1.4"], "CFO-brief.pdf", { type: "application/pdf" }));
+
+      expect(await screen.findByText(/Chief Compliance Officer/)).toBeInTheDocument();
+      await person.click(screen.getByRole("button", { name: "Apply" }));
+
+      await waitFor(() => expect(positionApi.applyTemplate).toHaveBeenCalledWith("p1", "t-cco"));
+      // Re-reads after applying: the second read is on top of the one attaching already fired.
+      await waitFor(() => expect(positionApi.extractDetails).toHaveBeenCalledTimes(2));
     });
   });
 
@@ -477,8 +705,8 @@ describe("PositionPage", () => {
       await person.type(await screen.findByRole("textbox", { name: "Add a criterion" }), "Arabic language skills{Enter}");
       await waitFor(() =>
         expect(lastCall(positionApi.putCriteria)[1]).toEqual([
-          { text: "Board reporting experience", mode: "REQUIRED", fromBrief: true },
-          { text: "Arabic language skills", mode: "REQUIRED", fromBrief: false },
+          { text: "Board reporting experience", mode: "REQUIRED", source: "TEMPLATE" },
+          { text: "Arabic language skills", mode: "REQUIRED", source: "MANUAL" },
         ]),
       );
 
@@ -513,7 +741,12 @@ describe("PositionPage", () => {
 
       await waitFor(() => expect(lastCall(positionApi.putCompetencies)[1]).toHaveLength(3));
       const [, technicalSent, behaviouralSent, share] = lastCall(positionApi.putCompetencies);
-      expect((technicalSent as unknown[]).at(-1)).toEqual({ name: "New competency", description: null, weight: 0 });
+      expect((technicalSent as unknown[]).at(-1)).toEqual({
+        name: "New competency",
+        description: null,
+        weight: 0,
+        source: "MANUAL",
+      });
       expect(behaviouralSent).toHaveLength(1);
       expect(share).toBe(60);
     });

@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useEffect, useState } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { useNavigate, useOutletContext, useSearchParams } from "react-router-dom";
+import { Icon, ICONS } from "../../../components/layout/Icon";
 import type { ProjectOutletContext } from "../../../components/layout/ProjectLayout";
 import { Spinner, useToast } from "../../../components/ui";
 import { messageFor } from "../../../lib/errorCodes";
@@ -17,6 +18,7 @@ import type {
   PositionTemplate,
   ReportingStructure,
 } from "../api/types";
+import { BriefButton } from "../components/BriefFields";
 import { BriefRail } from "../components/BriefRail";
 import { AssessmentStep, type CompetencyPanelKey } from "../components/steps/AssessmentStep";
 import { CompensationStep } from "../components/steps/CompensationStep";
@@ -25,7 +27,25 @@ import { StepFooter } from "../components/StepFooter";
 import { ReviewStep } from "../components/steps/ReviewStep";
 import { RoleBriefStep } from "../components/steps/RoleBriefStep";
 import { forWire, identify, moveRow, toggle, type IdentifiedCompetency } from "../lib/competencyRows";
-import { STEP_PARAM, openingStepOf, stepOf, type PositionStep } from "../lib/steps";
+import {
+  fieldCountOf,
+  fillBrief,
+  undoListItem,
+  undoScalar,
+  undoStep,
+  type ExtractionSection,
+  type FillResults,
+  type PositionSnapshot,
+  type Receipts,
+} from "../lib/documentFill";
+import { addSuggestedSeat } from "../lib/orgChart";
+import {
+  CONTEXT_FIELD_KEYS,
+  DETAILS_FIELD_KEYS,
+  markManualFrom,
+  REPORTING_FIELD_KEYS,
+} from "../lib/provenance";
+import { STEP_PARAM, openingStepOf, stepOf, type PositionStep, type StepKey } from "../lib/steps";
 
 const GROUND = "flex flex-1 bg-u-bg text-u-text";
 
@@ -110,6 +130,14 @@ function PositionBrief({ projectId, position }: { projectId: string; position: P
   // is exactly when somebody would have left one set.
   const [lockedCompetencies, setLockedCompetencies] = useState<ReadonlySet<string>>(new Set());
 
+  // "Read from document" state — session-only, never persisted. `receipts` is what a screen's strip and
+  // a field's marker read for the snippet and Undo; a reload or a dismissed strip loses it, but the
+  // `source` a fill stamped on the brief itself survives (see lib/documentFill.ts).
+  const [receipts, setReceipts] = useState<Receipts>({});
+  const [sectionErrors, setSectionErrors] = useState<ReadonlySet<ExtractionSection>>(new Set());
+  const [suggestedTemplate, setSuggestedTemplate] = useState<PositionTemplate | null>(null);
+  const [usualDirectReports, setUsualDirectReports] = useState<string[] | null>(null);
+
   // The picker's options. A failed read leaves the type-ahead with nothing to offer, which is the
   // right degradation: the title is free text and stays typeable.
   const { data: templates = [] } = useQuery({
@@ -170,8 +198,35 @@ function PositionBrief({ projectId, position }: { projectId: string; position: P
     }
   };
 
+  /**
+   * The narrower drain a document fill uses: only the channels the screens `fillBrief` actually
+   * touched, in the same fixed order as `flushAll` — so `PUT /context` still never races ahead of
+   * `PUT /details`, but a fill that only touched assessment does not also flush an untouched
+   * compensation channel with nothing pending (a no-op `flush()`, but still a call worth skipping).
+   */
+  const flushDocumentFill = async (changed: ReadonlySet<StepKey>) => {
+    const toFlush = new Set<(typeof channels)[number]>();
+    if (changed.has("brief")) {
+      toFlush.add(detailsSave);
+      toFlush.add(contextSave);
+      toFlush.add(reportingSave);
+    }
+    if (changed.has("reporting")) toFlush.add(reportingSave);
+    if (changed.has("assessment")) {
+      toFlush.add(criteriaSave);
+      toFlush.add(competenciesSave);
+    }
+    for (const channel of channels) {
+      if (toFlush.has(channel)) await channel.flush();
+    }
+  };
+
   const changeDetails = (patch: Partial<PositionDetails>, immediate = false) => {
-    const next = { ...details, ...patch };
+    const next = {
+      ...details,
+      ...patch,
+      fieldSources: markManualFrom(details.fieldSources, patch, DETAILS_FIELD_KEYS),
+    };
     setDetails(next);
     // The mandate cannot be untitled, so a blank title is held back rather than sent and refused.
     if (!next.roleTitle.trim()) return;
@@ -179,13 +234,21 @@ function PositionBrief({ projectId, position }: { projectId: string; position: P
     if (immediate) void detailsSave.flush();
   };
   const changeContext = (patch: Partial<MandateContext>, immediate = false) => {
-    const next = { ...context, ...patch };
+    const next = {
+      ...context,
+      ...patch,
+      fieldSources: markManualFrom(context.fieldSources, patch, CONTEXT_FIELD_KEYS),
+    };
     setContext(next);
     contextSave.schedule(next);
     if (immediate) void contextSave.flush();
   };
   const changeReporting = (patch: Partial<ReportingStructure>, immediate = false) => {
-    const next = { ...reporting, ...patch };
+    const next = {
+      ...reporting,
+      ...patch,
+      fieldSources: markManualFrom(reporting.fieldSources, patch, REPORTING_FIELD_KEYS),
+    };
     setReporting(next);
     reportingSave.schedule(next);
     if (immediate) void reportingSave.flush();
@@ -247,6 +310,154 @@ function PositionBrief({ projectId, position }: { projectId: string; position: P
     setBehavioural(identify(brief.assessment.behavioural));
     setTechnicalShare(brief.assessment.technicalShare);
     setLockedCompetencies(new Set());
+  };
+
+  // -----------------------------------------------------------------------------------------------
+  // Undo — reverses one field a document reading filled, through lib/documentFill.ts's pure undo
+  // functions. Each handler is a no-op once nothing is left to undo: undoScalar and undoListItem both
+  // guard on the field still reading DOCUMENT / still being in the receipt, so a stale popover calling
+  // one twice, or after somebody has since typed over the field, changes nothing.
+  // -----------------------------------------------------------------------------------------------
+
+  const dismissReceipt = (stepKey: StepKey) =>
+    setReceipts((current) => {
+      const next = { ...current };
+      delete next[stepKey];
+      return next;
+    });
+
+  const undoDetailField = (fieldKey: string) => {
+    const receipt = receipts.brief;
+    if (!receipt) return;
+    const next = undoScalar(details, fieldKey, receipt);
+    if (next === details) return;
+    setDetails(next);
+    detailsSave.schedule(next);
+  };
+  const undoContextField = (fieldKey: string) => {
+    const receipt = receipts.brief;
+    if (!receipt) return;
+    const next = undoScalar(context, fieldKey, receipt);
+    if (next === context) return;
+    setContext(next);
+    contextSave.schedule(next);
+  };
+  const undoNoticePeriod = () => {
+    const receipt = receipts.brief;
+    if (!receipt) return;
+    const next = undoScalar(reporting, "noticePeriod", receipt);
+    if (next === reporting) return;
+    setReporting(next);
+    reportingSave.schedule(next);
+  };
+  const undoResponsibility = (text: string) => {
+    const receipt = receipts.brief;
+    if (!receipt) return;
+    const next = undoListItem(details, "responsibilities", text, receipt);
+    setDetails(next);
+    detailsSave.schedule(next);
+  };
+  /**
+   * The Role Brief's receipt spans three draft objects (details, context and the reporting notice
+   * pair), so its "Undo all" cannot be the single-object `undoStep` — it walks each field to the
+   * object that owns it, exactly as the individual handlers above do.
+   */
+  const undoBriefAll = () => {
+    const receipt = receipts.brief;
+    if (!receipt) return;
+    let nextDetails = details;
+    let nextContext = context;
+    let nextReporting = reporting;
+
+    for (const fieldKey of Object.keys(receipt.scalars)) {
+      if (fieldKey === "noticePeriod") nextReporting = undoScalar(nextReporting, fieldKey, receipt);
+      else if (fieldKey === "mandateReason" || fieldKey === "businessDriver") {
+        nextContext = undoScalar(nextContext, fieldKey, receipt);
+      } else nextDetails = undoScalar(nextDetails, fieldKey, receipt);
+    }
+    for (const text of Object.keys(receipt.lists.responsibilities?.appended ?? {})) {
+      nextDetails = undoListItem(nextDetails, "responsibilities", text, receipt);
+    }
+    for (const text of Object.keys(receipt.lists.strategicPriorities?.appended ?? {})) {
+      nextContext = undoListItem(nextContext, "strategicPriorities", text, receipt);
+    }
+
+    setDetails(nextDetails);
+    setContext(nextContext);
+    setReporting(nextReporting);
+    if (nextDetails !== details) detailsSave.schedule(nextDetails);
+    if (nextContext !== context) contextSave.schedule(nextContext);
+    if (nextReporting !== reporting) reportingSave.schedule(nextReporting);
+    dismissReceipt("brief");
+  };
+
+  const undoTeamSize = () => {
+    const receipt = receipts.reporting;
+    if (!receipt) return;
+    const next = undoScalar(reporting, "teamSize", receipt);
+    if (next === reporting) return;
+    setReporting(next);
+    reportingSave.schedule(next);
+  };
+  /** The Reporting screen drafts one object, so its own receipt undoes in one call. */
+  const undoReportingAll = () => {
+    const receipt = receipts.reporting;
+    if (!receipt) return;
+    const next = undoStep(reporting, receipt);
+    setReporting(next);
+    if (next !== reporting) reportingSave.schedule(next);
+    dismissReceipt("reporting");
+  };
+
+  const undoCriterion = (text: string) => {
+    const receipt = receipts.assessment;
+    if (!receipt) return;
+    const next = undoListItem({ criteria }, "criteria", text, receipt).criteria;
+    setCriteria(next);
+    criteriaSave.schedule(next);
+  };
+  const undoCompetency = (panel: CompetencyPanelKey, name: string) => {
+    const receipt = receipts.assessment;
+    if (!receipt) return;
+    if (panel === "technical") {
+      const nextWire = undoListItem({ technical: forWire(technical) }, "technical", name, receipt).technical;
+      const next = identify(nextWire);
+      setTechnical(next);
+      competenciesSave.schedule({ technical: nextWire, behavioural: forWire(behavioural), technicalShare });
+    } else {
+      const nextWire = undoListItem({ behavioural: forWire(behavioural) }, "behavioural", name, receipt).behavioural;
+      const next = identify(nextWire);
+      setBehavioural(next);
+      competenciesSave.schedule({ technical: forWire(technical), behavioural: nextWire, technicalShare });
+    }
+  };
+  /**
+   * The assessment receipt never carries a scalar (technicalShare is never read), so unlike Reporting
+   * this cannot lean on the single-object `undoStep` either — `criteria`, `technical` and `behavioural`
+   * are three separate draft arrays here, not fields of one object.
+   */
+  const undoAssessmentAll = () => {
+    const receipt = receipts.assessment;
+    if (!receipt) return;
+    let nextCriteria = criteria;
+    for (const text of Object.keys(receipt.lists.criteria?.appended ?? {})) {
+      nextCriteria = undoListItem({ criteria: nextCriteria }, "criteria", text, receipt).criteria;
+    }
+    let nextTechnicalWire = forWire(technical);
+    for (const name of Object.keys(receipt.lists.technical?.appended ?? {})) {
+      nextTechnicalWire = undoListItem({ technical: nextTechnicalWire }, "technical", name, receipt).technical;
+    }
+    let nextBehaviouralWire = forWire(behavioural);
+    for (const name of Object.keys(receipt.lists.behavioural?.appended ?? {})) {
+      nextBehaviouralWire = undoListItem({ behavioural: nextBehaviouralWire }, "behavioural", name, receipt).behavioural;
+    }
+
+    setCriteria(nextCriteria);
+    setTechnical(identify(nextTechnicalWire));
+    setBehavioural(identify(nextBehaviouralWire));
+    criteriaSave.schedule(nextCriteria);
+    competenciesSave.schedule({ technical: nextTechnicalWire, behavioural: nextBehaviouralWire, technicalShare });
+    dismissReceipt("assessment");
   };
 
   /**
@@ -317,14 +528,141 @@ function PositionBrief({ projectId, position }: { projectId: string; position: P
   /** Where a published brief leads: the mandate's own market, which is the next thing to be done. */
   const goToStrategy = () => navigate(`/projects/${projectId}/strategy`);
 
+  /**
+   * "Read from document": the four section reads, fanned out and settled independently — one section
+   * failing must leave the other three filled, per epic #393 — then folded into the brief in one pass
+   * by `fillBrief`. `mutate`'s variable is the file name a receipt is stamped with, not read back off
+   * `position`/`drafted`: the prop is a stale closure at the moment an attach's `onSuccess` fires this.
+   */
+  const readDocument = useMutation({
+    mutationFn: async (fileName: string) => {
+      const [detailsResult, contextResult, reportingResult, assessmentResult] = await Promise.allSettled([
+        positionApi.extractDetails(projectId),
+        positionApi.extractContext(projectId),
+        positionApi.extractReporting(projectId),
+        positionApi.extractAssessment(projectId),
+      ]);
+      return { fileName, detailsResult, contextResult, reportingResult, assessmentResult };
+    },
+    onSuccess: ({ fileName, detailsResult, contextResult, reportingResult, assessmentResult }) => {
+      const results: FillResults = {};
+      const failed = new Set<ExtractionSection>();
+      if (detailsResult.status === "fulfilled") results.details = detailsResult.value;
+      else failed.add("details");
+      if (contextResult.status === "fulfilled") results.context = contextResult.value;
+      else failed.add("context");
+      if (reportingResult.status === "fulfilled") results.reporting = reportingResult.value;
+      else failed.add("reporting");
+      if (assessmentResult.status === "fulfilled") results.assessment = assessmentResult.value;
+      else failed.add("assessment");
+
+      const snapshot: PositionSnapshot = {
+        details,
+        context,
+        reporting,
+        criteria,
+        technical: forWire(technical),
+        behavioural: forWire(behavioural),
+        technicalShare,
+      };
+      const outcome = fillBrief(snapshot, results, fileName);
+
+      setDetails(outcome.next.details);
+      setContext(outcome.next.context);
+      setReporting(outcome.next.reporting);
+      setCriteria(outcome.next.criteria);
+      setTechnical(identify(outcome.next.technical));
+      setBehavioural(identify(outcome.next.behavioural));
+      setReceipts((current) => ({ ...current, ...outcome.receipts }));
+      setSectionErrors(failed);
+      setSuggestedTemplate(results.details?.suggestedTemplate ?? null);
+      setUsualDirectReports(results.reporting?.usualDirectReports ?? null);
+
+      if (outcome.changed.has("brief") || outcome.changed.has("reporting")) {
+        reportingSave.schedule(outcome.next.reporting);
+      }
+      if (outcome.changed.has("brief")) {
+        detailsSave.schedule(outcome.next.details);
+        contextSave.schedule(outcome.next.context);
+      }
+      if (outcome.changed.has("assessment")) {
+        criteriaSave.schedule(outcome.next.criteria);
+        competenciesSave.schedule({
+          technical: outcome.next.technical,
+          behavioural: outcome.next.behavioural,
+          technicalShare: outcome.next.technicalShare,
+        });
+      }
+      void flushDocumentFill(outcome.changed);
+
+      const filled = Object.values(outcome.receipts).reduce((sum, receipt) => sum + fieldCountOf(receipt), 0);
+      // The org chart merge can decline a proposed manager or direct report with zero other signal —
+      // this is the one place a reading's own success toast can still say so.
+      const orgChartSkip = outcome.skipped.find((field) => field.fieldKey === "orgChart");
+      if (orgChartSkip) {
+        const reason =
+          orgChartSkip.reason === "full"
+            ? "the org chart is at its seat limit"
+            : "this mandate has no seat yet";
+        toast(
+          filled > 0
+            ? `Read ${filled} field${filled === 1 ? "" : "s"} from ${fileName} — some reporting lines didn't fit because ${reason}.`
+            : `Reporting lines from ${fileName} didn't fit because ${reason}.`,
+        );
+      } else if (filled > 0) toast(`Read ${filled} field${filled === 1 ? "" : "s"} from ${fileName}`);
+      else if (failed.size === 0) toast("Nothing new to read from this document");
+    },
+    onError: (error) => toast(messageFor(error)),
+  });
+
+  /** A read already in flight is not started again — Extract with AI, Read again and the per-step
+   *  action all funnel through this one guard. */
+  const startReading = (fileName: string) => {
+    if (readDocument.isPending) return;
+    readDocument.mutate(fileName);
+  };
+  const onExtractDocument = () => {
+    if (drafted.document) startReading(drafted.document.fileName);
+  };
+
+  /**
+   * Applying the banner's suggested template redrafts the brief from it first — the ordinary
+   * `applyTemplate` mutation, unchanged — and then re-reads the document, so the reading's own values
+   * still win over whatever the template just seeded.
+   */
+  const applySuggestedTemplate = () => {
+    if (!suggestedTemplate) return;
+    const template = suggestedTemplate;
+    applyTemplate.mutate(template, {
+      onSuccess: () => {
+        setSuggestedTemplate(null);
+        if (drafted.document) startReading(drafted.document.fileName);
+      },
+    });
+  };
+
   const attachDocument = useMutation({
     mutationFn: (file: File) => positionApi.attachDocument(projectId, file),
-    onSuccess: (saved) => queryClient.setQueryData(key, saved),
+    onSuccess: (saved) => {
+      queryClient.setQueryData(key, saved);
+      // A new document is a different reading — nothing the last one left behind still applies.
+      setReceipts({});
+      setSectionErrors(new Set());
+      setSuggestedTemplate(null);
+      setUsualDirectReports(null);
+      if (saved.document) startReading(saved.document.fileName);
+    },
     onError: (error) => toast(messageFor(error)),
   });
   const removeDocument = useMutation({
     mutationFn: () => positionApi.removeDocument(projectId),
-    onSuccess: (saved) => queryClient.setQueryData(key, saved),
+    onSuccess: (saved) => {
+      queryClient.setQueryData(key, saved);
+      setReceipts({});
+      setSectionErrors(new Set());
+      setSuggestedTemplate(null);
+      setUsualDirectReports(null);
+    },
     onError: (error) => toast(messageFor(error)),
   });
   const downloadDocument = useMutation({
@@ -369,6 +707,30 @@ function PositionBrief({ projectId, position }: { projectId: string; position: P
   // would go on offering "Edit position" next to a Compensation form that is live and taking input.
   const readBack = Boolean(drafted.publication.publishedAt) && !reopened && step.key === "review";
 
+  const readAction =
+    (step.key === "reporting" || step.key === "assessment") && drafted.document ? (
+      <BriefButton
+        variant="outline"
+        onClick={onExtractDocument}
+        loading={readDocument.isPending}
+        className="flex-none text-u-inferred"
+      >
+        <Icon d={ICONS.sparkle} size={13} />
+        Read from document
+      </BriefButton>
+    ) : undefined;
+
+  const briefStripError =
+    sectionErrors.has("details") || sectionErrors.has("context")
+      ? "Couldn't read this section from the document."
+      : undefined;
+  const reportingStripError = sectionErrors.has("reporting")
+    ? "Couldn't read this section from the document."
+    : undefined;
+  const assessmentStripError = sectionErrors.has("assessment")
+    ? "Couldn't read this section from the document."
+    : undefined;
+
   return (
     <div className={`${GROUND} flex-col lg:flex-row`}>
       <BriefRail
@@ -377,6 +739,7 @@ function PositionBrief({ projectId, position }: { projectId: string; position: P
         saveStatus={saveStatus}
         publishing={publish.isPending}
         readBack={readBack}
+        receipts={receipts}
         onPublish={() => void publishNow()}
         onEditPosition={() => setReopened(true)}
         onSaveDraft={() => void saveDraft()}
@@ -384,7 +747,7 @@ function PositionBrief({ projectId, position }: { projectId: string; position: P
 
       <div className="min-w-0 flex-1">
         <div className="px-4 pb-[100px] pt-[30px] sm:px-10">
-          <StepHeader step={step} />
+          <StepHeader step={step} action={readAction} />
 
           {step.key === "brief" && (
             <RoleBriefStep
@@ -395,7 +758,11 @@ function PositionBrief({ projectId, position }: { projectId: string; position: P
               templates={templates}
               applyingTemplate={applyTemplate.isPending}
               uploading={attachDocument.isPending || removeDocument.isPending}
+              extracting={readDocument.isPending}
               savingTargetDate={updateTargetDate.isPending}
+              receipt={receipts.brief}
+              stripError={briefStripError}
+              suggestedTemplate={suggestedTemplate}
               onChangeDetails={changeDetails}
               onChangeContext={changeContext}
               onChangeReporting={changeReporting}
@@ -404,6 +771,15 @@ function PositionBrief({ projectId, position }: { projectId: string; position: P
               onAttachDocument={(file) => attachDocument.mutate(file)}
               onRemoveDocument={() => removeDocument.mutate()}
               onDownloadDocument={() => downloadDocument.mutate()}
+              onExtractDocument={onExtractDocument}
+              onApplySuggestedTemplate={applySuggestedTemplate}
+              onDismissSuggestedTemplate={() => setSuggestedTemplate(null)}
+              onUndoAll={undoBriefAll}
+              onDismissStrip={() => dismissReceipt("brief")}
+              onUndoDetail={undoDetailField}
+              onUndoContext={undoContextField}
+              onUndoNotice={undoNoticePeriod}
+              onUndoResponsibility={undoResponsibility}
             />
           )}
           {step.key === "reporting" && (
@@ -411,7 +787,20 @@ function PositionBrief({ projectId, position }: { projectId: string; position: P
               roleTitle={details.roleTitle}
               seniority={details.seniority}
               reporting={reporting}
+              receipt={receipts.reporting}
+              stripError={reportingStripError}
+              extracting={readDocument.isPending}
+              usualDirectReports={usualDirectReports}
               onChange={changeReporting}
+              onExtractDocument={onExtractDocument}
+              onUndoAll={undoReportingAll}
+              onDismissStrip={() => dismissReceipt("reporting")}
+              onUndoTeamSize={undoTeamSize}
+              onAddSuggestedSeat={(title) => {
+                const result = addSuggestedSeat(reporting.orgChart, title);
+                if (result.blocked) return;
+                changeReporting({ orgChart: result.chart }, true);
+              }}
             />
           )}
           {step.key === "compensation" && (
@@ -424,11 +813,19 @@ function PositionBrief({ projectId, position }: { projectId: string; position: P
               behavioural={behavioural}
               technicalShare={technicalShare}
               locked={lockedCompetencies}
+              receipt={receipts.assessment}
+              stripError={assessmentStripError}
+              extracting={readDocument.isPending}
               onCriteria={changeCriteria}
               onPanel={changePanel}
               onShare={(share) => changeAssessment({ technicalShare: share })}
               onToggleLock={(id) => setLockedCompetencies((current) => toggle(current, id))}
               onReorder={reorderPanel}
+              onExtractDocument={onExtractDocument}
+              onUndoAll={undoAssessmentAll}
+              onDismissStrip={() => dismissReceipt("assessment")}
+              onUndoCriterion={undoCriterion}
+              onUndoCompetency={undoCompetency}
             />
           )}
           {step.key === "review" && (
@@ -446,12 +843,20 @@ function PositionBrief({ projectId, position }: { projectId: string; position: P
   );
 }
 
-/** The step's question and a line under it. The acts are the rail's and the page foot's, not this. */
-function StepHeader({ step }: { step: PositionStep }) {
+/**
+ * The step's question and a line under it. The acts are the rail's and the page foot's, not this —
+ * `action` is the one exception, "Read from document" on the Reporting and Assessment steps only: the
+ * Role Brief already carries its own read control on the file card, Compensation is never read, and
+ * the review has nothing left to read.
+ */
+function StepHeader({ step, action }: { step: PositionStep; action?: ReactNode }) {
   return (
-    <div className="mb-7 min-w-0">
-      <h1 className="text-[23px] font-bold leading-[1.25] tracking-[-0.01em] sm:text-[26px]">{step.heading}</h1>
-      <p className="mt-1.5 max-w-[620px] text-[14px] leading-[1.6] text-u-text2">{step.lede}</p>
+    <div className="mb-7 flex flex-wrap items-start justify-between gap-4 min-w-0">
+      <div className="min-w-0">
+        <h1 className="text-[23px] font-bold leading-[1.25] tracking-[-0.01em] sm:text-[26px]">{step.heading}</h1>
+        <p className="mt-1.5 max-w-[620px] text-[14px] leading-[1.6] text-u-text2">{step.lede}</p>
+      </div>
+      {action}
     </div>
   );
 }

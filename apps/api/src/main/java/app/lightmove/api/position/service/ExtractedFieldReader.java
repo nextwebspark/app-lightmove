@@ -13,7 +13,7 @@ import org.springframework.stereotype.Service;
 /**
  * The re-hydration, verification and truncation logic every extraction proposer needs to turn one raw
  * model-answered value into an {@link ExtractedField} — pulled out once {@link
- * PositionDetailsProposer}, {@link PositionContextProposer}, {@link PositionCompensationProposer} and
+ * PositionDetailsProposer}, {@link PositionContextProposer}, {@link PositionReportingProposer} and
  * {@link PositionAssessmentProposer} had each grown their own byte-identical copy.
  *
  * <p>{@code haystack} is always the caller's whole document, already {@link #haystackOf normalised and

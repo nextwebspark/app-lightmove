@@ -1,5 +1,6 @@
 package app.lightmove.api.position.dto;
 
+import app.lightmove.api.position.constant.FieldSource;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
 import java.util.UUID;
@@ -26,5 +27,8 @@ public record OrgNodeDto(
 
         /** Where the box was dragged to. Absent until it has been, and then laid out from the tree. */
         Float canvasX,
-        Float canvasY
+        Float canvasY,
+
+        /** Null on a write defaults to {@code MANUAL} — a person typed it. */
+        FieldSource source
 ) {}

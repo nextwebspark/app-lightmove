@@ -266,6 +266,10 @@ public class HeuristicBriefReader {
             type = EmploymentType.FULL_TIME_PERMANENT;
         } else if (lower.contains("part time") || lower.contains("part-time")) {
             type = EmploymentType.PART_TIME;
+        // Ahead of "contract" for the same reason "permanent" is: a "temporary contract" is what the
+        // document called it, and the bare word "contract" is the weakest signal in this chain.
+        } else if (lower.contains("temporary")) {
+            type = EmploymentType.TEMPORARY;
         } else if (lower.contains("fixed term") || lower.contains("fixed-term") || lower.contains("contract")) {
             type = EmploymentType.FIXED_TERM_CONTRACT;
         } else if (lower.contains("interim")) {

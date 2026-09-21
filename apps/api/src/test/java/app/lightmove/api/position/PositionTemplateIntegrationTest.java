@@ -68,6 +68,10 @@ class PositionTemplateIntegrationTest extends FlowTestSupport {
                     .describedAs(template.get("code").asString()).isEqualTo(100);
             assertThat(brief.get("assessment").get("criteria").size()).isGreaterThan(0);
             assertThat(brief.get("details").get("responsibilities").size()).isGreaterThan(0);
+            assertThat(brief.get("assessment").get("criteria").get(0).get("source").asString())
+                    .describedAs(template.get("code").asString()).isEqualTo("TEMPLATE");
+            assertThat(brief.get("details").get("responsibilities").get(0).get("source").asString())
+                    .describedAs(template.get("code").asString()).isEqualTo("TEMPLATE");
         }
     }
 
@@ -112,8 +116,9 @@ class PositionTemplateIntegrationTest extends FlowTestSupport {
                  "bonusValue":null,"bonusBasis":null,"incentiveType":null,"incentiveAmount":750000,
                  "incentiveVesting":null,"benefits":[]}""");
         putStep(admin, projectId, "criteria", """
-                {"criteria":[{"text":"Arabic language skills","mode":"PREFERRED","fromBrief":false},
-                             {"text":"Drafted by the old template","mode":"REQUIRED","fromBrief":true}]}""");
+                {"criteria":[{"text":"Arabic language skills","mode":"PREFERRED","source":"MANUAL"},
+                             {"text":"Read from the attached JD","mode":"REQUIRED","source":"DOCUMENT"},
+                             {"text":"Drafted by the old template","mode":"REQUIRED","source":"TEMPLATE"}]}""");
         putStep(admin, projectId, "reporting", """
                 {"orgChart":[{"nodeId":"22222222-2222-4222-8222-222222222222","parentNodeId":null,
                               "title":null,"name":null,"mandateSeat":true,"canvasX":null,"canvasY":null}],
@@ -133,12 +138,13 @@ class PositionTemplateIntegrationTest extends FlowTestSupport {
         assertThat(brief.get("reporting").get("teamSize").asString())
                 .isEqualTo("38 across the finance function");
 
-        // A criterion somebody wrote themselves survives; the one the old template drafted does not.
+        // A criterion somebody wrote, and one a document reading filled in, both survive; the one the
+        // old template drafted does not.
         List<String> criteria = new ArrayList<>();
         for (JsonNode criterion : brief.get("assessment").get("criteria")) {
             criteria.add(criterion.get("text").asString());
         }
-        assertThat(criteria).contains("Arabic language skills")
+        assertThat(criteria).contains("Arabic language skills", "Read from the attached JD")
                 .doesNotContain("Drafted by the old template");
 
         // The palette becomes the new role's, keeping what was lit and the chip nobody offered.

@@ -3,6 +3,8 @@ package app.lightmove.api.position.service;
 import app.lightmove.api.common.constant.CompetencyPanel;
 import app.lightmove.api.core.security.model.User;
 import app.lightmove.api.core.security.repository.UserRepository;
+import app.lightmove.api.position.constant.FieldSource;
+import app.lightmove.api.position.constant.PositionFieldKeys;
 import app.lightmove.api.position.dto.AssessmentDto;
 import app.lightmove.api.position.dto.BenefitDto;
 import app.lightmove.api.position.dto.CompensationDto;
@@ -15,13 +17,17 @@ import app.lightmove.api.position.dto.PositionDocumentDto;
 import app.lightmove.api.position.dto.PositionResponse;
 import app.lightmove.api.position.dto.PublicationDto;
 import app.lightmove.api.position.dto.ReportingStructureDto;
+import app.lightmove.api.position.dto.ResponsibilityDto;
 import app.lightmove.api.position.dto.StrategicPriorityDto;
 import app.lightmove.api.position.model.Position;
 import app.lightmove.api.position.model.PositionDocumentSummary;
 import app.lightmove.api.position.repository.PositionDocumentRepository;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
+import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 
@@ -61,8 +67,12 @@ class PositionResponseAssembler {
                 position.getLocationCountry(),
                 position.getEmploymentType(),
                 position.getSeniority(),
-                List.copyOf(position.getResponsibilities()),
-                position.getNarrative());
+                position.getResponsibilities().stream()
+                        .map(responsibility -> new ResponsibilityDto(
+                                responsibility.getText(), responsibility.getSource()))
+                        .toList(),
+                position.getNarrative(),
+                sliceOf(position.getFieldSources(), PositionFieldKeys.DETAILS));
     }
 
     private MandateContextDto contextOf(Position position) {
@@ -70,10 +80,12 @@ class PositionResponseAssembler {
                 position.getMandateReason(),
                 position.getBusinessDriver(),
                 position.getStrategicPriorities().stream()
-                        .map(priority -> new StrategicPriorityDto(priority.getName(), priority.isSelected()))
+                        .map(priority -> new StrategicPriorityDto(
+                                priority.getName(), priority.isSelected(), priority.getSource()))
                         .toList(),
                 position.isConfidential(),
-                position.getInternalContext());
+                position.getInternalContext(),
+                sliceOf(position.getFieldSources(), PositionFieldKeys.CONTEXT));
     }
 
     private ReportingStructureDto reportingOf(PositionBrief brief) {
@@ -82,12 +94,19 @@ class PositionResponseAssembler {
                 position.getOrgChart().stream()
                         .map(node -> new OrgNodeDto(node.getNodeId(), node.getParentNodeId(),
                                 node.getTitle(), node.getName(), node.isMandateSeat(),
-                                node.getCanvasX(), node.getCanvasY()))
+                                node.getCanvasX(), node.getCanvasY(), node.getSource()))
                         .toList(),
                 position.getTeamSize(),
                 brief.project().getTargetDate(),
                 position.getNoticeValue(),
-                position.getNoticeUnit());
+                position.getNoticeUnit(),
+                sliceOf(position.getFieldSources(), PositionFieldKeys.REPORTING));
+    }
+
+    private static Map<String, FieldSource> sliceOf(Map<String, FieldSource> fieldSources, Set<String> keys) {
+        return fieldSources.entrySet().stream()
+                .filter(entry -> keys.contains(entry.getKey()))
+                .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
     }
 
     CompensationDto compensationOf(Position position) {
@@ -101,17 +120,14 @@ class PositionResponseAssembler {
                 position.getIncentiveType(),
                 position.getIncentiveAmount(),
                 position.getIncentiveVesting(),
-                position.getBenefits().stream()
-                        .map(benefit -> new BenefitDto(
-                                benefit.getName(), benefit.getAmount(), benefit.getFrequency()))
-                        .toList());
+                benefitsOf(position));
     }
 
     private AssessmentDto assessmentOf(Position position) {
         return new AssessmentDto(
                 position.getCriteria().stream()
                         .map(criterion -> new CriterionResponse(
-                                criterion.getText(), criterion.getMode(), criterion.isFromBrief()))
+                                criterion.getText(), criterion.getMode(), criterion.getSource()))
                         .toList(),
                 panel(position, CompetencyPanel.TECHNICAL),
                 panel(position, CompetencyPanel.BEHAVIOURAL),
@@ -126,6 +142,13 @@ class PositionResponseAssembler {
         return documents.findSummaryByPositionId(position.getId())
                 .map(PositionResponseAssembler::toDocumentDto)
                 .orElse(null);
+    }
+
+    private static List<BenefitDto> benefitsOf(Position position) {
+        return position.getBenefits().stream()
+                .map(benefit -> new BenefitDto(
+                        benefit.getName(), benefit.getAmount(), benefit.getFrequency(), benefit.getSource()))
+                .toList();
     }
 
     /**
@@ -148,8 +171,8 @@ class PositionResponseAssembler {
     private static List<CompetencyDto> panel(Position position, CompetencyPanel panel) {
         return position.getCompetencies().stream()
                 .filter(competency -> competency.getPanel() == panel)
-                .map(competency -> new CompetencyDto(
-                        competency.getName(), competency.getDescription(), competency.getWeight()))
+                .map(competency -> new CompetencyDto(competency.getName(), competency.getDescription(),
+                        competency.getWeight(), competency.getSource()))
                 .toList();
     }
 }

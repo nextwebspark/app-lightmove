@@ -1,11 +1,13 @@
 package app.lightmove.api.position.dto;
 
 import app.lightmove.api.common.constant.NoticeUnit;
+import app.lightmove.api.position.constant.FieldSource;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotEmpty;
 import jakarta.validation.constraints.Size;
 import java.util.List;
+import java.util.Map;
 
 /**
  * Snapshot PUT of step three, the org chart included.
@@ -27,5 +29,8 @@ public record PutReportingStructureRequest(
         String teamSize,
 
         @Min(value = 0, message = "Notice cannot be negative") Integer noticeValue,
-        NoticeUnit noticeUnit
+        NoticeUnit noticeUnit,
+
+        /** Null defaults every key of this step to {@code MANUAL}. */
+        Map<String, FieldSource> fieldSources
 ) {}

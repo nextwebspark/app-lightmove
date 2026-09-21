@@ -8,6 +8,7 @@
     "businessDriverSnippet": { "type": ["string", "null"] },
     "strategicPriorities": {
       "type": "array",
+      "maxItems": 5,
       "items": {
         "type": "object",
         "properties": {

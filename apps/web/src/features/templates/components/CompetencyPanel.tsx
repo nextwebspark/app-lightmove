@@ -92,7 +92,7 @@ export function CompetencyPanel({
   );
 
   const patch = (index: number, changes: Partial<IdentifiedCompetency>) =>
-    onChange(rows.map((row, i) => (i === index ? { ...row, ...changes } : row)));
+    onChange(rows.map((row, i) => (i === index ? { ...row, ...changes, source: "MANUAL" } : row)));
 
   /** The maths is index-based; the locks are by id, because indices move when rows do. */
   const lockedIndices = new Set(
@@ -102,7 +102,7 @@ export function CompetencyPanel({
   const handleAddRow = () =>
     onChange([
       ...rows,
-      { id: crypto.randomUUID(), name: "New competency", description: null, weight: 0 },
+      { id: crypto.randomUUID(), name: "New competency", description: null, weight: 0, source: "MANUAL" },
     ]);
 
   const handleDragEnd = (event: DragEndEvent) => {
