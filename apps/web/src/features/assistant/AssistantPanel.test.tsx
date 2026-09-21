@@ -1,3 +1,4 @@
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it } from "vitest";
@@ -12,12 +13,15 @@ import { AssistantPanel } from "./components/AssistantPanel";
  * keeps ticking rows in the grid beside it, and `Drawer`'s `aria-modal` would tell a screen reader
  * the rest of the page is gone.
  */
+/** A fresh client per test, so one test's in-flight mutation cannot answer the next one's. */
 function mount() {
   return render(
-    <AssistantProvider>
-      <AssistantLauncher />
-      <AssistantPanel contextLabel="Meridian Energy Group · CFO" />
-    </AssistantProvider>,
+    <QueryClientProvider client={new QueryClient()}>
+      <AssistantProvider>
+        <AssistantLauncher />
+        <AssistantPanel contextLabel="Meridian Energy Group · CFO" projectId="p1" />
+      </AssistantProvider>
+    </QueryClientProvider>,
   );
 }
 

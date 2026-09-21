@@ -14,6 +14,11 @@ import { createContext, useCallback, useContext, useMemo, useState, type ReactNo
  */
 type AssistantState = {
   open: boolean;
+  /** The conversation in progress. Held here for the reason the open state is: navigation. */
+  threadId: string | null;
+  turnId: string | null;
+  question: string;
+  startedTurn: (turn: { id: string; threadId: string; question: string }) => void;
   /**
    * Whether the panel's current state came from somebody pressing something, rather than from the
    * remembered one being restored. Focus follows a person's action and must not follow a page load:
@@ -30,6 +35,10 @@ const OPEN_KEY = "lm.assistant.open";
 
 const AssistantContext = createContext<AssistantState>({
   open: false,
+  threadId: null,
+  turnId: null,
+  question: "",
+  startedTurn: () => {},
   toggledByUser: false,
   openAssistant: () => {},
   closeAssistant: () => {},
@@ -43,6 +52,9 @@ export function useAssistant(): AssistantState {
 export function AssistantProvider({ children }: { children: ReactNode }) {
   const [open, setOpen] = useState(readStoredOpen);
   const [toggledByUser, setToggledByUser] = useState(false);
+  // Deliberately not persisted, unlike the open state: a turn's stream is live and a thread id
+  // restored from a previous session would open a stream on a conversation nobody is having.
+  const [turn, setTurn] = useState<{ id: string; threadId: string; question: string } | null>(null);
 
   const remember = useCallback((next: boolean) => {
     setOpen(next);
@@ -57,12 +69,16 @@ export function AssistantProvider({ children }: { children: ReactNode }) {
   const value = useMemo<AssistantState>(
     () => ({
       open,
+      threadId: turn?.threadId ?? null,
+      turnId: turn?.id ?? null,
+      question: turn?.question ?? "",
+      startedTurn: setTurn,
       toggledByUser,
       openAssistant: () => remember(true),
       closeAssistant: () => remember(false),
       toggleAssistant: () => remember(!open),
     }),
-    [open, toggledByUser, remember],
+    [open, turn, toggledByUser, remember],
   );
 
   return <AssistantContext.Provider value={value}>{children}</AssistantContext.Provider>;
