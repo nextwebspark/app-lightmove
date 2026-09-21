@@ -446,6 +446,30 @@ describe("reporting: team size, notice period and the org chart", () => {
     expect(outcome.changed.has("brief")).toBe(false);
   });
 
+  it("threads a blocked org-chart merge into skipped, rather than reporting a full chart as a silent success", () => {
+    // A chart already at the seat ceiling, so proposing a manager cannot mint one.
+    const fullChart: OrgNode[] = [
+      mandateSeat,
+      ...Array.from({ length: 59 }, (_, i) => ({
+        nodeId: `seat-${i}`,
+        parentNodeId: mandateSeat.nodeId,
+        title: `Seat ${i}`,
+        name: null,
+        mandateSeat: false,
+        canvasX: null,
+        canvasY: null,
+      })),
+    ];
+    const snapshot = snapshotOf({ reporting: reporting({ orgChart: fullChart }) });
+    const outcome = fillBrief(
+      snapshot,
+      { reporting: extraction([field("reportsToTitle", "Group CEO")]) },
+      FILE_NAME,
+    );
+    expect(outcome.next.reporting.orgChart).toHaveLength(60);
+    expect(outcome.skipped).toContainEqual({ step: "reporting", fieldKey: "orgChart", reason: "full" });
+  });
+
   it("names both the Role Brief and the Reporting screens when a reading touches notice and the chart together", () => {
     const snapshot = snapshotOf();
     const outcome = fillBrief(

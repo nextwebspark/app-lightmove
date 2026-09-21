@@ -13,7 +13,7 @@ import type {
   ReportingStructure,
 } from "../api/types";
 import { EMPLOYMENT_TYPE_LABELS } from "./labels";
-import { mergeReportingProposals } from "./orgChart";
+import { mergeReportingProposals, type ChartMergeBlock } from "./orgChart";
 import type { StepKey } from "./steps";
 
 /**
@@ -99,7 +99,7 @@ export interface StepReceipt {
  */
 export type Receipts = Partial<Record<StepKey, StepReceipt>>;
 
-export type SkipReason = "manual" | "invalid";
+export type SkipReason = "manual" | "invalid" | ChartMergeBlock;
 
 export interface SkippedField {
   step: ExtractionSection;
@@ -182,6 +182,12 @@ export function fillBrief(snapshot: PositionSnapshot, results: FillResults, file
     if (merged.chart !== reporting.orgChart) {
       orgChartChanged = true;
       reporting = { ...reporting, orgChart: merged.chart };
+    }
+    // A chart at/near its seat cap can decline the proposed manager, the proposed direct reports, or
+    // both — "mark what filled it" applies here too, so a caller can say a document read didn't fully
+    // land rather than reporting `changed` alone as a silent success.
+    if (merged.blocked) {
+      skipped.push({ step: "reporting", fieldKey: "orgChart", reason: merged.blocked });
     }
   }
 
