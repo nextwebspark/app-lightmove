@@ -28,8 +28,12 @@ export function CriteriaList({
 }) {
   const [draft, setDraft] = useState("");
 
+  // A hand edit always makes the row theirs — a corrected DOCUMENT/TEMPLATE row must stop wearing that
+  // sparkle, or a later "Read again" would silently overwrite what was just typed.
   const patch = (index: number, changes: Partial<Criterion>) =>
-    onChange(criteria.map((criterion, i) => (i === index ? { ...criterion, ...changes } : criterion)));
+    onChange(
+      criteria.map((criterion, i) => (i === index ? { ...criterion, ...changes, source: "MANUAL" } : criterion)),
+    );
 
   const add = () => {
     const text = draft.trim();

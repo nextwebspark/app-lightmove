@@ -77,8 +77,12 @@ export function CompetencyTable({
     useSensor(KeyboardSensor, KEYBOARD_SENSOR),
   );
 
+  // A hand edit always makes the row theirs — see the sibling fix in CriteriaList.tsx and
+  // templates/components/CompetencyPanel.tsx's own `patch`/`handleAddRow` for the same reason. Beyond
+  // the sparkle and Undo, this also keeps `documentFill.ts#balancePanelWeights`'s `isStated` check from
+  // treating a hand-set weight as unstated and sweeping it into the next reading's even-split rebalance.
   const patch = (index: number, changes: Partial<IdentifiedCompetency>) =>
-    onChange(rows.map((row, i) => (i === index ? { ...row, ...changes } : row)));
+    onChange(rows.map((row, i) => (i === index ? { ...row, ...changes, source: "MANUAL" } : row)));
 
   /** The maths is index-based; the locks are by id, because indices move when rows do. */
   const lockedIndices = new Set(
@@ -86,7 +90,10 @@ export function CompetencyTable({
   );
 
   const handleAddRow = () =>
-    onChange([...rows, { id: crypto.randomUUID(), name: "New competency", description: null, weight: 0 }]);
+    onChange([
+      ...rows,
+      { id: crypto.randomUUID(), name: "New competency", description: null, weight: 0, source: "MANUAL" },
+    ]);
 
   const handleDragEnd = (event: DragEndEvent) => {
     const { active, over } = event;
@@ -137,7 +144,17 @@ export function CompetencyTable({
                     locked={locked.has(row.id)}
                     marker={receipt?.appended[row.name]}
                     onPatch={(changes) => patch(index, changes)}
-                    onCommitWeight={(weight) => onChange(rebalance(rows, index, weight, lockedIndices))}
+                    // Committing a typed weight is a hand edit too, even though it goes through
+                    // `rebalance` rather than `patch` — the one row a person actually set is stamped
+                    // MANUAL so `balancePanelWeights`'s `isStated` check never sweeps it back into the
+                    // next reading's even split.
+                    onCommitWeight={(weight) =>
+                      onChange(
+                        rebalance(rows, index, weight, lockedIndices).map((row, i) =>
+                          i === index ? { ...row, source: "MANUAL" } : row,
+                        ),
+                      )
+                    }
                     onToggleLock={() => onToggleLock(row.id)}
                     onRemove={() => onChange(rows.filter((_, i) => i !== index))}
                     onUndo={onUndo ? () => onUndo(row.name) : undefined}
