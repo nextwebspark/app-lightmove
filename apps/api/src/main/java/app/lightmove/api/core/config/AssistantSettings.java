@@ -40,6 +40,16 @@ public record AssistantSettings(
         @DefaultValue("12") int historyWindow,
 
         /**
+         * How many rows one tool call may put in front of the model.
+         *
+         * <p>The assistant's number rather than the market's: a tool answer is spent twice, once in
+         * the context window and again on the bill, and a mandate with four hundred companies is a
+         * grid's worth of rows and not an answer's. A question needing more than this is one the
+         * model should narrow and ask again.
+         */
+        @DefaultValue("25") int toolRowLimit,
+
+        /**
          * Turns this instance will run at once, and therefore the spend cap.
          *
          * <p>Two against {@code --max-instances 2} is four concurrent Vertex calls fleet-wide, which
@@ -99,6 +109,10 @@ public record AssistantSettings(
         if (thinkingBudget < 0) {
             throw new IllegalArgumentException(
                     "lightmove.assistant.thinking-budget must not be negative, but was " + thinkingBudget);
+        }
+        if (toolRowLimit < 1) {
+            throw new IllegalArgumentException(
+                    "lightmove.assistant.tool-row-limit must be at least 1, but was " + toolRowLimit);
         }
         if (historyWindow < 0) {
             throw new IllegalArgumentException(

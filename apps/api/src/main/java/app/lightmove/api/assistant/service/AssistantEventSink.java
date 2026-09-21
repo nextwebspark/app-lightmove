@@ -8,10 +8,9 @@ package app.lightmove.api.assistant.service;
  * whatever the sink chooses to do with them — so a unit test can watch a turn stream without a
  * database.
  *
- * <p>It will grow when the tool surface lands: a tool round needs {@code toolCalled} and
- * {@code toolResult} interleaved with the text. The port is shaped now, with one implementation and
- * one caller, because that is the cheapest moment to get it right — and V65 gives {@code kind} no
- * CHECK precisely so those additions need no migration.
+ * <p>The tool pair below arrived with the tool surface, as this port said it would, and cost no
+ * migration: V65 gives {@code kind} no CHECK precisely so a new kind is a constant rather than a
+ * schema change.
  */
 public interface AssistantEventSink {
 
@@ -22,4 +21,20 @@ public interface AssistantEventSink {
      * the runner does the batching so the sink never has to decide whether a chunk is worth a row.
      */
     void delta(String text);
+
+    /**
+     * The model asked for a tool, before the tool runs.
+     *
+     * <p>Default rather than abstract so the two lambdas that predate the tool surface — the worker's
+     * own sink and the runner's unit test — keep compiling. A sink that only wants the text is a
+     * legitimate sink, and one that silently dropped a call it meant to record would be worse.
+     *
+     * @param arguments the model's own JSON, recorded as sent and never as authorised
+     */
+    default void toolCalled(String toolName, String arguments) {
+    }
+
+    /** What the tool answered, a refusal included. */
+    default void toolResult(String toolName, String result) {
+    }
 }

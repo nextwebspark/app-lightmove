@@ -4,6 +4,7 @@ import app.lightmove.api.assistant.model.AssistantAnswer;
 import app.lightmove.api.assistant.model.AssistantTurnPrompt;
 import app.lightmove.api.assistant.service.AssistantEventSink;
 import app.lightmove.api.assistant.service.AssistantTurnRunner;
+import app.lightmove.api.assistant.tool.AssistantToolCaller;
 import java.util.List;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.CountDownLatch;
@@ -24,6 +25,7 @@ import org.springframework.context.annotation.Primary;
 public class RecordingAssistantTurnRunner implements AssistantTurnRunner {
 
     private final List<String> questions = new CopyOnWriteArrayList<>();
+    private final List<AssistantToolCaller> callers = new CopyOnWriteArrayList<>();
 
     private volatile List<String> deltas = List.of("stubbed response");
     private volatile RuntimeException failure;
@@ -59,8 +61,14 @@ public class RecordingAssistantTurnRunner implements AssistantTurnRunner {
         return questions;
     }
 
+    /** Who each turn was to authorise its tools as, so a test can pin the rebuilt identity. */
+    public List<AssistantToolCaller> callers() {
+        return callers;
+    }
+
     public void clear() {
         questions.clear();
+        callers.clear();
         deltas = List.of("stubbed response");
         failure = null;
         release();
@@ -68,8 +76,10 @@ public class RecordingAssistantTurnRunner implements AssistantTurnRunner {
     }
 
     @Override
-    public AssistantAnswer run(AssistantTurnPrompt prompt, AssistantEventSink sink) {
+    public AssistantAnswer run(AssistantTurnPrompt prompt, AssistantToolCaller caller,
+                               AssistantEventSink sink) {
         questions.add(prompt.question());
+        callers.add(caller);
         await();
         if (failure != null) {
             // Emitted before throwing on purpose: a turn that dies halfway should read back as the

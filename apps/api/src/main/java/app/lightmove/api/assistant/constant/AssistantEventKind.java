@@ -29,13 +29,31 @@ public enum AssistantEventKind {
     /** The settled answer in full, so a replay does not have to reassemble the deltas. */
     ANSWER,
 
+    /**
+     * The model asked for a tool, with the tool's name and the arguments it chose.
+     *
+     * <p>Written before the tool runs, so a turn that dies inside one still says what it reached
+     * for. The arguments are the model's own and are recorded verbatim — that is the point of the
+     * trace — so nothing reading this log may treat them as having been authorised.
+     */
+    TOOL_CALLED,
+
+    /**
+     * What the tool answered, including a refusal.
+     *
+     * <p>A refused call is a result and not an error: the turn carries on, and the panel should show
+     * that the assistant asked and was told no. Why it was refused is deliberately not here — the
+     * audit trail has that, and the model is told only that it may not.
+     */
+    TOOL_RESULT,
+
     /** The turn reached a terminal status. The stream completes after sending this. */
     TURN_FINISHED;
 
     /**
      * The form stored in the column and sent to the browser: {@code turn.started}. Dots rather than
-     * the project stream's hyphens, because these kinds are namespaced by subject and will grow a
-     * {@code tool.called} / {@code tool.result} pair.
+     * the project stream's hyphens, because these kinds are namespaced by subject — which is what
+     * {@code tool.called} and {@code tool.result} above are named for.
      *
      * <p>{@code Locale.ROOT} for {@code ProjectStreamKind}'s reason: the default locale is the JVM's,
      * and a Turkish one lowercases {@code I} to {@code ı}. No name here contains one today, which is

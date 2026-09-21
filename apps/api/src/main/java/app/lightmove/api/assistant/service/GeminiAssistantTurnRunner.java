@@ -3,6 +3,9 @@ package app.lightmove.api.assistant.service;
 import app.lightmove.api.assistant.model.AssistantAnswer;
 import app.lightmove.api.assistant.model.AssistantExchange;
 import app.lightmove.api.assistant.model.AssistantTurnPrompt;
+import app.lightmove.api.assistant.tool.AssistantToolCaller;
+import app.lightmove.api.assistant.tool.AssistantToolset;
+import app.lightmove.api.assistant.tool.ToolCallerContext;
 import app.lightmove.api.core.config.AssistantSettings;
 import app.lightmove.api.core.config.LightMoveProperties;
 import app.lightmove.api.core.llm.service.ChatCallLog;
@@ -51,15 +54,19 @@ public class GeminiAssistantTurnRunner implements AssistantTurnRunner {
     private static final Duration BATCH_WINDOW = Duration.ofMillis(400);
 
     private final ChatClient chatClient;
+    private final AssistantToolset tools;
     private final AssistantSettings settings;
 
-    public GeminiAssistantTurnRunner(ChatClient chatClient, LightMoveProperties properties) {
+    public GeminiAssistantTurnRunner(ChatClient chatClient, AssistantToolset tools,
+                                     LightMoveProperties properties) {
         this.chatClient = chatClient;
+        this.tools = tools;
         this.settings = properties.assistant();
     }
 
     @Override
-    public AssistantAnswer run(AssistantTurnPrompt prompt, AssistantEventSink sink) {
+    public AssistantAnswer run(AssistantTurnPrompt prompt, AssistantToolCaller caller,
+                               AssistantEventSink sink) {
         AssistantTurnPrompt windowed = prompt.withHistoryWindow(settings.historyWindow());
 
         // Deliberately not LlmCallPolicy.forPrompt. Its SafeGuardAdvisor refuses text matching a
@@ -78,6 +85,12 @@ public class GeminiAssistantTurnRunner implements AssistantTurnRunner {
                         .temperature(settings.temperature())
                         .thinkingBudget(settings.thinkingBudget())
                         .labels(Map.of("prompt", PROMPT_ID)))
+                // Callbacks rather than tool names: a name would be resolved through Spring AI's
+                // shared registry, which holds undecorated callbacks, and these are built per turn
+                // and already guarded. The context is how the caller reaches them — it is read back
+                // out inside the decorator and is never shown to the model.
+                .toolCallbacks(tools.forTurn(caller, sink))
+                .toolContext(ToolCallerContext.of(caller))
                 .system(windowed.systemPrompt() == null ? "" : windowed.systemPrompt())
                 .messages(conversation(windowed))
                 .stream()
@@ -94,9 +107,11 @@ public class GeminiAssistantTurnRunner implements AssistantTurnRunner {
      * somewhere less obvious.
      *
      * <p>Usage is taken from the <b>last</b> chunk that reports any, not summed. Gemini reports a
-     * running total per chunk, so adding them up would multiply the bill by the chunk count.
-     * {@code UsageAccumulator} is not the tool for this either — it aggregates across tool
-     * <i>rounds</i>, and there is exactly one round until the tool surface lands.
+     * running total per chunk, so adding them up would multiply the bill by the chunk count. That
+     * still holds now a turn may run several tool rounds: the provider accumulates across them
+     * itself through {@code UsageCalculator.getCumulativeUsage}, and Spring AI's own
+     * {@code UsageAccumulator} inside {@code ToolCallingAdvisor} does the same one layer up, so the
+     * last reported total is the turn's total and not the final round's.
      */
     private static AssistantAnswer consume(Flux<ChatResponse> chunks, AssistantEventSink sink) {
         StringBuilder answer = new StringBuilder();
@@ -133,6 +148,10 @@ public class GeminiAssistantTurnRunner implements AssistantTurnRunner {
         // happens is the billed one: a safety block, or a MAX_TOKENS finish where the thinking budget
         // ate the output. Treating that as SUCCEEDED stores a blank answer and records nothing about
         // why, so the turn reads as though the assistant simply had nothing to say.
+        //
+        // This is the whole turn and not one round. A round that emits only tool calls contributes no
+        // text and must not fail here — the loop runs inside ToolCallingAdvisor, so what this drains
+        // is already every round's text end to end.
         if (answer.isEmpty()) {
             throw new IllegalStateException("prompt " + PROMPT_ID + " produced no text"
                     + (finishReason == null ? "" : ", finish reason " + finishReason));

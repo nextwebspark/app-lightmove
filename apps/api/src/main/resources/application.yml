@@ -298,6 +298,9 @@ lightmove:
     # Earlier exchanges sent with a question. A window, not the thread: Gemini has no server-side
     # compaction, so an unbounded history is an unbounded bill.
     history-window: ${ASSISTANT_HISTORY_WINDOW:12}
+    # Rows one tool call may put in front of the model. A tool answer is spent twice — the context
+    # window and the bill — so a mandate's four hundred companies are a grid's worth, not an answer's.
+    tool-row-limit: ${ASSISTANT_TOOL_ROW_LIMIT:25}
     # Turns one instance runs at once, and therefore the spend cap: 2 here against --max-instances 2
     # is four concurrent Vertex calls fleet-wide. Also sits inside DB_POOL_MAX of 5 once the event
     # appender's short writes are counted — raise it with the database tier, not on its own.

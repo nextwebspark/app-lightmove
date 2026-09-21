@@ -5,6 +5,7 @@ import app.lightmove.api.assistant.model.AssistantAnswer;
 import app.lightmove.api.assistant.model.AssistantExchange;
 import app.lightmove.api.assistant.model.AssistantTurn;
 import app.lightmove.api.assistant.model.AssistantTurnPrompt;
+import app.lightmove.api.assistant.tool.AssistantToolCaller;
 import app.lightmove.api.core.audit.constant.WorkspaceEventType;
 import app.lightmove.api.core.audit.service.AuditService;
 import app.lightmove.api.core.error.constant.ErrorCode;
@@ -67,8 +68,10 @@ public class AssistantTurnWorker {
         try {
             AssistantAnswer answer = runner.run(
                     new AssistantTurnPrompt(work.systemPrompt(), work.history(), work.question()),
-                    text -> events.append(work.turnId(), AssistantEventKind.MESSAGE_DELTA,
-                            Map.of("text", text)));
+                    // Identity rebuilt from the turn row, which is why V65 stores it: this thread has
+                    // no SecurityContext, and the guard beans still re-read the database per call.
+                    new AssistantToolCaller(work.actorUserId(), work.workspaceId(), work.turnId()),
+                    sinkFor(work.turnId()));
             settled = store.succeed(work.turnId(), answer);
         } catch (ApiException failed) {
             log.warn("Assistant turn {} failed: {}", work.turnId(), failed.getCode());
@@ -80,6 +83,29 @@ public class AssistantTurnWorker {
         if (settled != null) {
             recordSpend(work, settled);
         }
+    }
+
+    /** Every kind a running turn emits, each one row through the appender's own short transaction. */
+    private AssistantEventSink sinkFor(UUID turnId) {
+        return new AssistantEventSink() {
+
+            @Override
+            public void delta(String text) {
+                events.append(turnId, AssistantEventKind.MESSAGE_DELTA, Map.of("text", text));
+            }
+
+            @Override
+            public void toolCalled(String toolName, String arguments) {
+                events.append(turnId, AssistantEventKind.TOOL_CALLED,
+                        Map.of("tool", toolName, "arguments", arguments));
+            }
+
+            @Override
+            public void toolResult(String toolName, String result) {
+                events.append(turnId, AssistantEventKind.TOOL_RESULT,
+                        Map.of("tool", toolName, "result", result));
+            }
+        };
     }
 
     /**
