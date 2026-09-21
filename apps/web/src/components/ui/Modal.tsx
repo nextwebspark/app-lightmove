@@ -1,5 +1,6 @@
-import { useEffect, type ReactNode } from "react";
+import { type ReactNode } from "react";
 import { cn } from "../../lib/cn";
+import { useEscapeKey } from "../../lib/useEscapeKey";
 
 /**
  * The mockups' centered dialog: dim overlay, 440px card, Escape and overlay-click to close.
@@ -18,14 +19,9 @@ export function Modal({
   children: ReactNode;
   className?: string;
 }) {
-  useEffect(() => {
-    if (!open) return;
-    const onKey = (event: KeyboardEvent) => {
-      if (event.key === "Escape") onClose();
-    };
-    document.addEventListener("keydown", onKey);
-    return () => document.removeEventListener("keydown", onKey);
-  }, [open, onClose]);
+  // Through the shared stack rather than its own listener: a modal opened over a drawer or the
+  // assistant panel must take Escape from it, not fire alongside it.
+  useEscapeKey(open, onClose);
 
   if (!open) return null;
 

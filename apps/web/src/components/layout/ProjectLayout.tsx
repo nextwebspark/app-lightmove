@@ -127,6 +127,7 @@ export function ProjectLayout() {
       navGroups={groups}
       navBackLink={{ to: "/", label: "All projects", icon: ICONS.back }}
       navHeader={<StagePill stage={project.stage} />}
+      assistantContext={`${project.clientName} · ${project.positionTitle}`}
       /* Wider than the mockups' 1160px on purpose — see WorkspaceLayout for the reasoning. */
       contentClassName={cn(
         fullBleed ? "flex min-h-full w-full flex-col" : "mx-auto max-w-[1440px] px-4 pb-[60px] pt-5 sm:px-7 sm:pt-7",

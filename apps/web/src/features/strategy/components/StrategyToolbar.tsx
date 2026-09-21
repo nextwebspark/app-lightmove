@@ -112,11 +112,14 @@ export function StrategyToolbar({
       </button>
 
       {/* The only filled CTA in the toolbar, and the mockup's gradient is the whole point of it —
-          it is the affordance the screen is selling. No endpoint behind it yet. */}
+          it is the affordance the screen is selling.
+
+          Hidden below `lg` with the panel it opens: the assistant has no layout on a phone or a
+          tablet yet, so here it would set the open flag and show nothing at all. */}
       <button
         type="button"
         onClick={onAiResearch}
-        className="inline-flex items-center gap-2 whitespace-nowrap rounded-[6px] border border-[#4f46e5] bg-[linear-gradient(90deg,#6366f1,#3b82f6)] px-4 py-2 font-sans text-[13px] font-semibold text-white shadow-[0_4px_12px_-2px_rgba(0,0,0,.15)] transition hover:brightness-105"
+        className="hidden items-center gap-2 lg:inline-flex whitespace-nowrap rounded-[6px] border border-[#4f46e5] bg-[linear-gradient(90deg,#6366f1,#3b82f6)] px-4 py-2 font-sans text-[13px] font-semibold text-white shadow-[0_4px_12px_-2px_rgba(0,0,0,.15)] transition hover:brightness-105"
       >
         <Icon
           d="M9.9 2.6 11 5.9a2 2 0 0 0 1.3 1.3l3.3 1.1-3.3 1.1a2 2 0 0 0-1.3 1.3L9.9 14l-1.1-3.3a2 2 0 0 0-1.3-1.3L4.2 8.3l3.3-1.1a2 2 0 0 0 1.3-1.3ZM18 14l.6 1.8 1.8.6-1.8.6-.6 1.8-.6-1.8-1.8-.6 1.8-.6Z"

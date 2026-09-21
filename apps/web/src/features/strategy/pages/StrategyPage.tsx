@@ -5,6 +5,7 @@ import { useOutletContext } from "react-router-dom";
 import type { ProjectOutletContext } from "../../../components/layout/ProjectLayout";
 import { FullscreenButton } from "../../../components/ui";
 import { useToast } from "../../../components/ui/Toast";
+import { useAssistant } from "../../assistant/AssistantProvider";
 import { useAuth } from "../../auth/AuthProvider";
 import { cn } from "../../../lib/cn";
 import { messageFor } from "../../../lib/errorCodes";
@@ -74,6 +75,7 @@ function StrategyEditor() {
   const { project } = useOutletContext<ProjectOutletContext>();
   const queryClient = useQueryClient();
   const toast = useToast();
+  const { openAssistant } = useAssistant();
   // Whose searches are "Mine" in the dropdown. The list already excludes other people's private ones,
   // so this only splits what arrived, never widens it.
   const { user } = useAuth();
@@ -387,7 +389,7 @@ function StrategyEditor() {
         onOverwriteSearch={(searchId) => overwriteSearch.mutate(searchId)}
         onDeleteSearch={(searchId) => deleteSearch.mutate(searchId)}
         onAddAll={() => addAll.mutate()}
-        onAiResearch={() => toast("AI research is not available yet")}
+        onAiResearch={openAssistant}
         columnVisibility={columnVisibility}
         onColumnVisibilityChange={setColumnVisibility}
         onResetLayout={() => setLayout(EMPTY_GRID_LAYOUT)}
