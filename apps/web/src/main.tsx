@@ -4,6 +4,8 @@ import { createRoot } from "react-dom/client";
 import { BrowserRouter } from "react-router-dom";
 import { AppRoutes } from "./app/routes";
 import { ToastProvider } from "./components/ui";
+import { AssistantProvider } from "./features/assistant/AssistantProvider";
+import { AssistantLauncher } from "./features/assistant/components/AssistantLauncher";
 import { AuthProvider } from "./features/auth/AuthProvider";
 import { applyStoredTheme } from "./features/theme/useTheme";
 import { redrawFaviconOnColorSchemeChange } from "./lib/favicon";
@@ -32,7 +34,12 @@ createRoot(document.getElementById("root")!).render(
         {/* Inside the router, because AuthProvider's children navigate. */}
         <AuthProvider>
           <ToastProvider>
-            <AppRoutes />
+            {/* Above the routes, because the three layouts are siblings and anything below them is
+                reset by crossing from a project screen to a workspace one. */}
+            <AssistantProvider>
+              <AppRoutes />
+              <AssistantLauncher />
+            </AssistantProvider>
           </ToastProvider>
         </AuthProvider>
       </BrowserRouter>
