@@ -62,14 +62,34 @@ describe("the assistant panel", () => {
     expect(screen.getByText("Meridian Energy Group · CFO")).toBeInTheDocument();
   });
 
-  it("closes on Escape and gives the launcher back", async () => {
+  it("closes on Escape and gives the launcher back, focused", async () => {
     mount();
     await userEvent.click(screen.getByRole("button", { name: /ask/i }));
 
     await userEvent.keyboard("{Escape}");
 
     expect(screen.queryByRole("complementary", { name: "Uncava Assistant" })).not.toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /ask/i })).toBeInTheDocument();
+    // Focus, not merely presence: without it a keyboard user is dropped on <body> and has the whole
+    // nav rail to tab back through.
+    expect(screen.getByRole("button", { name: /ask/i })).toHaveFocus();
+  });
+
+  it("puts the caret in the composer when a person opens it", async () => {
+    mount();
+
+    await userEvent.click(screen.getByRole("button", { name: /ask/i }));
+
+    expect(screen.getByRole("textbox", { name: "Ask the assistant" })).toHaveFocus();
+  });
+
+  it("does not steal focus when a remembered panel is restored", () => {
+    localStorage.setItem("lm.assistant.open", "1");
+
+    mount();
+
+    // Landing on a screen and having the caret yanked into a panel nobody just opened is its own bug.
+    expect(screen.getByRole("complementary", { name: "Uncava Assistant" })).toBeInTheDocument();
+    expect(screen.getByRole("textbox", { name: "Ask the assistant" })).not.toHaveFocus();
   });
 
   it("remembers being open across a remount, because the layouts are siblings", async () => {

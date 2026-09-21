@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Icon, ICONS } from "../../../components/layout/Icon";
 import { useEscapeKey } from "../../../lib/useEscapeKey";
 import { useAssistant } from "../AssistantProvider";
@@ -22,10 +22,17 @@ const STARTERS = [
  * user crosses between layouts costs nothing.
  */
 export function AssistantPanel({ contextLabel }: { contextLabel: string }) {
-  const { open, closeAssistant } = useAssistant();
+  const { open, toggledByUser, closeAssistant } = useAssistant();
   const [draft, setDraft] = useState("");
+  const composer = useRef<HTMLTextAreaElement>(null);
 
   useEscapeKey(open, closeAssistant);
+
+  // The composer rather than the close button: somebody who just pressed "AI Research" wants to
+  // type. Guarded on the toggle so restoring a remembered panel never steals the caret.
+  useEffect(() => {
+    if (open && toggledByUser) composer.current?.focus();
+  }, [open, toggledByUser]);
 
   if (!open) return null;
 
@@ -84,6 +91,7 @@ export function AssistantPanel({ contextLabel }: { contextLabel: string }) {
       <div className="flex-none border-t border-line px-3 pb-3 pt-2.5">
         <div className="rounded-[10px] border border-line bg-panel2 px-2.5 py-2">
           <textarea
+            ref={composer}
             value={draft}
             onChange={(event) => setDraft(event.target.value)}
             placeholder="Ask about this market..."

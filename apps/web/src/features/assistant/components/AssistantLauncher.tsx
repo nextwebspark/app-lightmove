@@ -1,3 +1,4 @@
+import { useEffect, useRef } from "react";
 import { Icon, ICONS } from "../../../components/layout/Icon";
 import { useAssistant } from "../AssistantProvider";
 
@@ -12,12 +13,20 @@ import { useAssistant } from "../AssistantProvider";
  * there yet — and a button that opens nothing is worse than no button.
  */
 export function AssistantLauncher() {
-  const { open, openAssistant } = useAssistant();
+  const { open, toggledByUser, openAssistant } = useAssistant();
+  const button = useRef<HTMLButtonElement>(null);
+
+  // Closing the panel unmounts it, so without this focus falls to <body> and a keyboard user is left
+  // at the top of the document with the whole nav rail to tab through.
+  useEffect(() => {
+    if (!open && toggledByUser) button.current?.focus();
+  }, [open, toggledByUser]);
 
   if (open) return null;
 
   return (
     <button
+      ref={button}
       type="button"
       onClick={openAssistant}
       title="Ask the assistant"
