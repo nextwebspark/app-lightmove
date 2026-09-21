@@ -18,9 +18,12 @@ import { CSS } from "@dnd-kit/utilities";
 import { useState } from "react";
 import { Icon, ICONS } from "../../../components/layout/Icon";
 import { cn } from "../../../lib/cn";
+import type { ProposalConfidence } from "../api/types";
 import type { IdentifiedCompetency } from "../lib/competencyRows";
+import type { ListReceipt } from "../lib/documentFill";
 import { rebalance } from "../lib/rebalance";
 import { BriefButton, ColumnHead, Eyebrow, RemoveDot, StatusBadge } from "./BriefFields";
+import { ProvenanceMarker } from "./ProvenanceMarker";
 
 /** A few pixels before a drag starts, so a click on the handle is still a click. */
 const POINTER_SENSOR = { activationConstraint: { distance: 4 } };
@@ -30,7 +33,7 @@ const DRAG_MODIFIERS = [restrictToVerticalAxis, restrictToParentElement];
 const MAX_ROWS = 10;
 
 // Header strip and rows share one template so their columns cannot drift apart.
-const ROW_GRID = "grid grid-cols-[20px_minmax(0,1.2fr)_minmax(0,1.6fr)_72px_22px_22px] items-center gap-x-3 px-4";
+const ROW_GRID = "grid grid-cols-[20px_minmax(0,1.2fr)_minmax(0,1.6fr)_72px_18px_22px_22px] items-center gap-x-3 px-4";
 
 /**
  * One weighting panel, technical or behavioural: the competencies in rank order, what each measures,
@@ -47,17 +50,22 @@ export function CompetencyTable({
   tone,
   rows,
   locked,
+  receipt,
   onChange,
   onToggleLock,
   onReorder,
+  onUndo,
 }: {
   title: string;
   tone: "technical" | "behavioural";
   rows: IdentifiedCompetency[];
   locked: ReadonlySet<string>;
+  /** This panel's own slice of the assessment-screen receipt, for a filled row's snippet and Undo. */
+  receipt?: ListReceipt;
   onChange: (rows: IdentifiedCompetency[]) => void;
   onToggleLock: (id: string) => void;
   onReorder: (fromId: string, toId: string) => void;
+  onUndo?: (name: string) => void;
 }) {
   const total = rows.reduce((sum, row) => sum + row.weight, 0);
 
@@ -106,6 +114,7 @@ export function CompetencyTable({
               <ColumnHead className="text-end">Weight</ColumnHead>
               <span />
               <span />
+              <span />
             </div>
           )}
 
@@ -126,10 +135,12 @@ export function CompetencyTable({
                     index={index}
                     panelTitle={title}
                     locked={locked.has(row.id)}
+                    marker={receipt?.appended[row.name]}
                     onPatch={(changes) => patch(index, changes)}
                     onCommitWeight={(weight) => onChange(rebalance(rows, index, weight, lockedIndices))}
                     onToggleLock={() => onToggleLock(row.id)}
                     onRemove={() => onChange(rows.filter((_, i) => i !== index))}
+                    onUndo={onUndo ? () => onUndo(row.name) : undefined}
                   />
                 ))}
               </SortableContext>
@@ -156,19 +167,23 @@ function CompetencyRow({
   index,
   panelTitle,
   locked,
+  marker,
   onPatch,
   onCommitWeight,
   onToggleLock,
   onRemove,
+  onUndo,
 }: {
   row: IdentifiedCompetency;
   index: number;
   panelTitle: string;
   locked: boolean;
+  marker?: { confidence: ProposalConfidence; snippet: string | null };
   onPatch: (changes: Partial<IdentifiedCompetency>) => void;
   onCommitWeight: (weight: number) => void;
   onToggleLock: () => void;
   onRemove: () => void;
+  onUndo?: () => void;
 }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id: row.id,
@@ -242,6 +257,13 @@ function CompetencyRow({
           className="w-9 border-b border-transparent bg-transparent text-end font-u-num text-[14px] text-u-text outline-none transition focus:border-u-accent disabled:opacity-60"
         />
         <span className="font-u-num text-[13px] text-u-text3">%</span>
+      </span>
+
+      {/* Its own grid cell, always rendered, even though the marker inside renders nothing for a row
+          that was not read: the row's later columns are placed by DOM order, and a child that
+          sometimes renders null would shift the lock button and the remove dot left when it does. */}
+      <span className="flex items-center justify-center">
+        <ProvenanceMarker source={row.source} confidence={marker?.confidence} snippet={marker?.snippet} onUndo={onUndo} />
       </span>
 
       <button

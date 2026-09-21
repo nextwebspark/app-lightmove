@@ -465,6 +465,14 @@ describe("undo", () => {
     expect(restored).toBe(draft);
   });
 
+  it("restores locationCity for the 'location' receipt key, not a stray 'location' property", () => {
+    const draft = details({ locationCity: "Dubai", fieldSources: { location: "DOCUMENT" } });
+    const restored = undoScalar(draft, "location", receiptFor("location"));
+    expect(restored.locationCity).toBe("Old value");
+    expect(restored.fieldSources.location).toBe("TEMPLATE");
+    expect(restored).not.toHaveProperty("location");
+  });
+
   it("removes one DOCUMENT list item by its text", () => {
     const receipt: StepReceipt = {
       fileName: FILE_NAME,

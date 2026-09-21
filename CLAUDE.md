@@ -126,10 +126,20 @@ and drag any seat; only the role's own seat is fixed — and its team size is th
 counted rather than typed. Compensation states a bonus as a share of base or a **fixed amount**
 (`BonusBasis.FIXED_AMOUNT`, V65 widened `bonus_value` to hold money), and the assessment carries a
 **technical share** (V65 `technical_share`; the behavioural panel takes the rest) beside its two
-weighted panels. The Role Brief attaches the position description and keeps it with the mandate;
-**nothing reads it yet** — the five `…/position/document/extract/*` routes exist server-side and
-have no caller in the SPA, the review-then-accept panel having gone with the old wizard — and epic
-#393 brings the silent fill (fill on attach, provenance markers, undo) to this screen.
+weighted panels. The Role Brief attaches the position description and keeps it with the mandate.
+Attaching it **reads it silently** (epic #393): the four `…/position/document/extract/*` routes —
+compensation is never read, most descriptions state no figure — fan out into `lib/documentFill.ts`'s
+`fillBrief`, which folds every scalar and repeatable list into the brief field-by-field, source-aware
+(`TEMPLATE | DOCUMENT | MANUAL`, V60): a `DOCUMENT` value is replaced by a fresh reading, a `MANUAL`
+one never is. There is no review-then-accept panel — the old wizard's went with it — a filled field
+wears a small sparkle (`ProvenanceMarker`) instead, whose popover carries the snippet and an Undo; a
+per-screen strip summarises the last reading with an Undo all, and the rail badges a step `N filled`
+for the session. **Extract with AI** on the file card reads again; the Reporting and Assessment steps
+carry **Read from document** in their own header, Compensation none. The reporting reading also
+offers the matched template's usual direct reports as **Suggested seats** under the chart, and a role
+title the document suggests a different template for surfaces as a one-line banner with an Apply.
+Everything a reading leaves behind — confidence, snippet, Undo, the rail badge — is session state,
+never persisted; only `source` survives a reload.
 `Position.dc.html` is superseded and kept as a record. Publishing stays ungated: the review's
 checklist reports, it does not gate. A published brief then **reads back** rather than locking —
 the rail offers **Edit position** in place of Publish and no draft to save, and the review's sections

@@ -9,6 +9,7 @@ import {
 import { SENIORITY_LABELS, SENIORITY_TIERS, type SeniorityTier } from "../../../../lib/seniority";
 import type {
   EmploymentType,
+  FieldSource,
   MandateContext,
   MandateReason,
   PositionDetails,
@@ -16,6 +17,7 @@ import type {
   PositionTemplate,
   ReportingStructure,
 } from "../../api/types";
+import { fieldCountOf, type StepReceipt } from "../../lib/documentFill";
 import {
   EMPLOYMENT_TYPE_LABELS,
   MANDATE_REASON_LABELS,
@@ -23,9 +25,12 @@ import {
 } from "../../lib/labels";
 import { ChipGroup, ChoiceCard, FieldBlock, TokenChip, withRecorded, type ChipOption } from "../BriefFields";
 import { DocumentCard } from "../DocumentCard";
+import { DocumentFillStrip } from "../DocumentFillStrip";
 import { IdealProfileField } from "../IdealProfileField";
 import { LocationFields } from "../LocationFields";
+import { ProvenanceMarker } from "../ProvenanceMarker";
 import { RoleTitleField } from "../RoleTitleField";
+import { SuggestedTemplateBanner } from "../SuggestedTemplateBanner";
 
 const EMPLOYMENT_OPTIONS: ChipOption<EmploymentType>[] = OFFERED_EMPLOYMENT_TYPES.map((value) => ({
   value,
@@ -62,7 +67,11 @@ export function RoleBriefStep({
   templates,
   applyingTemplate,
   uploading,
+  extracting,
   savingTargetDate,
+  receipt,
+  stripError,
+  suggestedTemplate,
   onChangeDetails,
   onChangeContext,
   onChangeReporting,
@@ -71,6 +80,15 @@ export function RoleBriefStep({
   onAttachDocument,
   onRemoveDocument,
   onDownloadDocument,
+  onExtractDocument,
+  onApplySuggestedTemplate,
+  onDismissSuggestedTemplate,
+  onUndoAll,
+  onDismissStrip,
+  onUndoDetail,
+  onUndoContext,
+  onUndoNotice,
+  onUndoResponsibility,
 }: {
   details: PositionDetails;
   context: MandateContext;
@@ -79,7 +97,14 @@ export function RoleBriefStep({
   templates: PositionTemplate[];
   applyingTemplate: boolean;
   uploading: boolean;
+  /** A "Read from document" is in flight — disables Extract with AI and lets the strip retry. */
+  extracting: boolean;
   savingTargetDate: boolean;
+  /** This session's Role Brief receipt — details, context and the reporting notice pair. */
+  receipt?: StepReceipt;
+  /** Set when details or context failed to read this session — shown on the strip instead of a count. */
+  stripError?: string;
+  suggestedTemplate?: PositionTemplate | null;
   onChangeDetails: (patch: Partial<PositionDetails>) => void;
   onChangeContext: (patch: Partial<MandateContext>, immediate?: boolean) => void;
   onChangeReporting: (patch: Partial<ReportingStructure>, immediate?: boolean) => void;
@@ -88,6 +113,15 @@ export function RoleBriefStep({
   onAttachDocument: (file: File) => void;
   onRemoveDocument: () => void;
   onDownloadDocument: () => void;
+  onExtractDocument: () => void;
+  onApplySuggestedTemplate: () => void;
+  onDismissSuggestedTemplate: () => void;
+  onUndoAll: () => void;
+  onDismissStrip: () => void;
+  onUndoDetail: (fieldKey: string) => void;
+  onUndoContext: (fieldKey: string) => void;
+  onUndoNotice: () => void;
+  onUndoResponsibility: (text: string) => void;
 }) {
   const [responsibility, setResponsibility] = useState("");
 
@@ -113,15 +147,52 @@ export function RoleBriefStep({
     onChangeReporting(chosen === null ? { noticeValue: null, noticeUnit: null } : (pairOfNoticePeriod(chosen) ?? {}), true);
   };
 
+  /** A scalar's marker: its glyph when its value came from a reading, backed by this screen's receipt
+   *  for the snippet and Undo — degraded to the glyph alone once the receipt is gone (a reload, or the
+   *  strip dismissed). */
+  const markerFor = (fieldSources: Record<string, FieldSource>, key: string, onUndo: () => void) => {
+    const info = receipt?.scalars[key];
+    return (
+      <ProvenanceMarker
+        source={fieldSources[key]}
+        confidence={info?.confidence}
+        snippet={info?.snippet}
+        onUndo={info ? onUndo : undefined}
+      />
+    );
+  };
+  const noticeInfo = receipt?.scalars.noticePeriod;
+
   return (
     <div className="flex flex-col gap-8">
+      <DocumentFillStrip
+        fileName={receipt?.fileName ?? ""}
+        count={fieldCountOf(receipt)}
+        error={stripError}
+        onRetry={onExtractDocument}
+        retrying={extracting}
+        onUndoAll={onUndoAll}
+        onDismiss={onDismissStrip}
+      />
+
       <DocumentCard
         document={document}
         uploading={uploading}
+        extracting={extracting}
         onAttach={onAttachDocument}
         onRemove={onRemoveDocument}
         onDownload={onDownloadDocument}
+        onExtract={onExtractDocument}
       />
+
+      {suggestedTemplate && (
+        <SuggestedTemplateBanner
+          template={suggestedTemplate}
+          applying={applyingTemplate}
+          onApply={onApplySuggestedTemplate}
+          onDismiss={onDismissSuggestedTemplate}
+        />
+      )}
 
       <FieldBlock label="Role title">
         <RoleTitleField
@@ -133,9 +204,14 @@ export function RoleBriefStep({
         />
       </FieldBlock>
 
-      <LocationFields city={details.locationCity} country={details.locationCountry} onChange={onChangeDetails} />
+      <LocationFields
+        city={details.locationCity}
+        country={details.locationCountry}
+        marker={markerFor(details.fieldSources, "location", () => onUndoDetail("location"))}
+        onChange={onChangeDetails}
+      />
 
-      <FieldBlock label="Employment type">
+      <FieldBlock label="Employment type" aside={markerFor(details.fieldSources, "employmentType", () => onUndoDetail("employmentType"))}>
         <ChipGroup
           label="Employment type"
           options={withRecorded(EMPLOYMENT_OPTIONS, details.employmentType, (value) => EMPLOYMENT_TYPE_LABELS[value])}
@@ -145,7 +221,7 @@ export function RoleBriefStep({
         />
       </FieldBlock>
 
-      <FieldBlock label="Seniority">
+      <FieldBlock label="Seniority" aside={markerFor(details.fieldSources, "seniority", () => onUndoDetail("seniority"))}>
         <ChipGroup
           label="Seniority"
           options={SENIORITY_OPTIONS}
@@ -155,7 +231,7 @@ export function RoleBriefStep({
         />
       </FieldBlock>
 
-      <FieldBlock label="Reason for hire">
+      <FieldBlock label="Reason for hire" aside={markerFor(context.fieldSources, "mandateReason", () => onUndoContext("mandateReason"))}>
         <ChipGroup
           label="Reason for hire"
           options={REASON_OPTIONS}
@@ -193,22 +269,43 @@ export function RoleBriefStep({
         />
       </FieldBlock>
 
-      <FieldBlock label="Notice period to plan for">
+      <FieldBlock
+        label="Notice period to plan for"
+        aside={
+          <ProvenanceMarker
+            source={reporting.fieldSources.noticeValue}
+            confidence={noticeInfo?.confidence}
+            snippet={noticeInfo?.snippet}
+            onUndo={noticeInfo ? onUndoNotice : undefined}
+          />
+        }
+      >
         <ChipGroup label="Notice period" options={noticeOptions} value={noticeValue} allowClear onChange={changeNotice} />
       </FieldBlock>
 
       <FieldBlock label="Key responsibilities">
         {details.responsibilities.length > 0 && (
           <div className="mb-3 flex flex-wrap gap-2">
-            {details.responsibilities.map((responsibility, index) => (
-              <TokenChip
-                key={`${responsibility.text}-${index}`}
-                label={responsibility.text}
-                onRemove={() =>
-                  onChangeDetails({ responsibilities: details.responsibilities.filter((_, i) => i !== index) })
-                }
-              />
-            ))}
+            {details.responsibilities.map((responsibility, index) => {
+              const info = receipt?.lists.responsibilities?.appended[responsibility.text];
+              return (
+                <TokenChip
+                  key={`${responsibility.text}-${index}`}
+                  label={responsibility.text}
+                  marker={
+                    <ProvenanceMarker
+                      source={responsibility.source}
+                      confidence={info?.confidence}
+                      snippet={info?.snippet}
+                      onUndo={info ? () => onUndoResponsibility(responsibility.text) : undefined}
+                    />
+                  }
+                  onRemove={() =>
+                    onChangeDetails({ responsibilities: details.responsibilities.filter((_, i) => i !== index) })
+                  }
+                />
+              );
+            })}
           </div>
         )}
         <input
@@ -225,7 +322,11 @@ export function RoleBriefStep({
         />
       </FieldBlock>
 
-      <IdealProfileField value={details.narrative} onChange={(narrative) => onChangeDetails({ narrative })} />
+      <IdealProfileField
+        value={details.narrative}
+        marker={markerFor(details.fieldSources, "narrative", () => onUndoDetail("narrative"))}
+        onChange={(narrative) => onChangeDetails({ narrative })}
+      />
     </div>
   );
 }

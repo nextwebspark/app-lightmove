@@ -1,6 +1,8 @@
 import { useState } from "react";
 import type { Criterion, CriterionMode } from "../api/types";
+import type { StepReceipt } from "../lib/documentFill";
 import { BriefButton, ChipGroup, RemoveDot, type ChipOption } from "./BriefFields";
+import { ProvenanceMarker } from "./ProvenanceMarker";
 
 const MODE_OPTIONS: ChipOption<CriterionMode>[] = [
   { value: "REQUIRED", label: "Required", tone: "offlimits" },
@@ -14,10 +16,15 @@ const MODE_OPTIONS: ChipOption<CriterionMode>[] = [
  */
 export function CriteriaList({
   criteria,
+  receipt,
   onChange,
+  onUndo,
 }: {
   criteria: Criterion[];
+  /** This session's assessment-screen receipt, for a filled row's snippet and Undo. */
+  receipt?: StepReceipt;
   onChange: (criteria: Criterion[]) => void;
+  onUndo?: (text: string) => void;
 }) {
   const [draft, setDraft] = useState("");
 
@@ -46,6 +53,12 @@ export function CriteriaList({
               From brief
             </span>
           )}
+          <ProvenanceMarker
+            source={criterion.source}
+            confidence={receipt?.lists.criteria?.appended[criterion.text]?.confidence}
+            snippet={receipt?.lists.criteria?.appended[criterion.text]?.snippet}
+            onUndo={onUndo ? () => onUndo(criterion.text) : undefined}
+          />
           <ChipGroup
             size="sm"
             label={`Criterion ${index + 1} mode`}

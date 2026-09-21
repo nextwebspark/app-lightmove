@@ -7,7 +7,7 @@ import { ToastProvider } from "../../../components/ui";
 import * as projectsApi from "../../projects/api/projectsApi";
 import type { Project } from "../../projects/api/types";
 import * as positionApi from "../api/positionApi";
-import type { Position, PositionTemplate } from "../api/types";
+import type { Position, PositionExtraction, PositionTemplate } from "../api/types";
 import { PositionPage } from "./PositionPage";
 
 vi.mock("../../../lib/countries", () => import("../../../test/countries"));
@@ -28,6 +28,10 @@ vi.mock("../api/positionApi", async (importOriginal) => ({
   attachDocument: vi.fn(),
   removeDocument: vi.fn(),
   saveDocument: vi.fn(),
+  extractDetails: vi.fn(),
+  extractContext: vi.fn(),
+  extractReporting: vi.fn(),
+  extractAssessment: vi.fn(),
 }));
 vi.mock("../../projects/api/projectsApi", async (importOriginal) => ({
   ...(await importOriginal<typeof import("../../projects/api/projectsApi")>()),
@@ -416,9 +420,22 @@ describe("PositionPage", () => {
       ...seeded,
       document: { fileName: "CFO-brief.pdf", contentType: "application/pdf", fileSize: 798_720, uploadedAt: "2026-09-07T09:00:00Z" },
     };
+    const emptyExtraction: PositionExtraction = {
+      extractionSource: "none",
+      fields: [],
+      suggestedTemplate: null,
+      usualDirectReports: null,
+    };
+    const noReading = () => {
+      vi.mocked(positionApi.extractDetails).mockResolvedValue(emptyExtraction);
+      vi.mocked(positionApi.extractContext).mockResolvedValue(emptyExtraction);
+      vi.mocked(positionApi.extractReporting).mockResolvedValue(emptyExtraction);
+      vi.mocked(positionApi.extractAssessment).mockResolvedValue(emptyExtraction);
+    };
 
-    it("attaches a file and then shows it as the card, with no extract control", async () => {
+    it("attaches a file and then shows it as the card, with Extract with AI to read it again", async () => {
       vi.mocked(positionApi.attachDocument).mockResolvedValue(attached);
+      noReading();
       renderPage();
       const person = userEvent.setup();
 
@@ -427,7 +444,12 @@ describe("PositionPage", () => {
 
       expect(await screen.findByRole("button", { name: "CFO-brief.pdf" })).toBeInTheDocument();
       expect(screen.getByText("780 KB · added 07 Sept 2026")).toBeInTheDocument();
-      expect(screen.queryByRole("button", { name: /Extract|Read from document/ })).not.toBeInTheDocument();
+      expect(screen.getByRole("button", { name: /Extract with AI/ })).toBeInTheDocument();
+      // Attaching already read it once — the four section calls fire without a second press.
+      await waitFor(() => expect(positionApi.extractDetails).toHaveBeenCalledTimes(1));
+      expect(positionApi.extractContext).toHaveBeenCalledTimes(1);
+      expect(positionApi.extractReporting).toHaveBeenCalledTimes(1);
+      expect(positionApi.extractAssessment).toHaveBeenCalledTimes(1);
     });
 
     it("downloads and removes the attached file", async () => {
@@ -439,9 +461,132 @@ describe("PositionPage", () => {
 
       await person.click(await screen.findByRole("button", { name: "CFO-brief.pdf" }));
       expect(positionApi.saveDocument).toHaveBeenCalledWith("p1", "CFO-brief.pdf");
+      // Reading a document nobody attached this session must never happen off a plain read of the brief.
+      expect(positionApi.extractDetails).not.toHaveBeenCalled();
 
       await person.click(screen.getByRole("button", { name: "Remove" }));
       expect(await screen.findByText("Attach the position description")).toBeInTheDocument();
+    });
+
+    it("reads a document on attach, fills what nobody typed over, and leaves a MANUAL field alone", async () => {
+      const withManualDepartment: Position = {
+        ...seeded,
+        details: { ...seeded.details, fieldSources: { department: "MANUAL" } },
+      };
+      vi.mocked(positionApi.getPosition).mockResolvedValue(withManualDepartment);
+      vi.mocked(positionApi.attachDocument).mockResolvedValue({ ...withManualDepartment, document: attached.document });
+      vi.mocked(positionApi.extractDetails).mockResolvedValue({
+        extractionSource: "model",
+        fields: [
+          { id: 1, fieldKey: "department", value: "Group Treasury", confidence: "high", snippet: "leads Group Treasury", origin: "document" },
+          { id: 2, fieldKey: "location", value: "Dubai", confidence: "medium", snippet: "based in Dubai", origin: "document" },
+        ],
+        suggestedTemplate: null,
+        usualDirectReports: null,
+      });
+      vi.mocked(positionApi.extractContext).mockResolvedValue(emptyExtraction);
+      vi.mocked(positionApi.extractReporting).mockResolvedValue(emptyExtraction);
+      vi.mocked(positionApi.extractAssessment).mockResolvedValue(emptyExtraction);
+      vi.mocked(positionApi.putDetails).mockResolvedValue(withManualDepartment);
+      renderPage();
+      const person = userEvent.setup();
+
+      const input = await screen.findByLabelText("Position description file");
+      await person.upload(input, new File(["%PDF-1.4"], "CFO-brief.pdf", { type: "application/pdf" }));
+
+      await waitFor(() => expect(screen.getByRole("textbox", { name: "City" })).toHaveValue("Dubai"));
+      await waitFor(() => expect(positionApi.putDetails).toHaveBeenCalled());
+      expect(lastCall(positionApi.putDetails)[1]).toMatchObject({
+        department: "Group Finance",
+        locationCity: "Dubai",
+        fieldSources: expect.objectContaining({ department: "MANUAL", location: "DOCUMENT" }),
+      });
+      // The department stayed MANUAL, so only the city counts toward the strip's own receipt.
+      expect(await screen.findByText("1 field")).toBeInTheDocument();
+    });
+
+    it("undoes a field a reading filled, restoring what was there before", async () => {
+      vi.mocked(positionApi.attachDocument).mockResolvedValue(attached);
+      vi.mocked(positionApi.extractDetails).mockResolvedValue({
+        extractionSource: "model",
+        fields: [{ id: 1, fieldKey: "location", value: "Dubai", confidence: "medium", snippet: "based in Dubai", origin: "document" }],
+        suggestedTemplate: null,
+        usualDirectReports: null,
+      });
+      vi.mocked(positionApi.extractContext).mockResolvedValue(emptyExtraction);
+      vi.mocked(positionApi.extractReporting).mockResolvedValue(emptyExtraction);
+      vi.mocked(positionApi.extractAssessment).mockResolvedValue(emptyExtraction);
+      vi.mocked(positionApi.putDetails).mockResolvedValue(seeded);
+      renderPage();
+      const person = userEvent.setup();
+
+      const input = await screen.findByLabelText("Position description file");
+      await person.upload(input, new File(["%PDF-1.4"], "CFO-brief.pdf", { type: "application/pdf" }));
+      await waitFor(() => expect(screen.getByRole("textbox", { name: "City" })).toHaveValue("Dubai"));
+
+      // fireEvent rather than userEvent.click: two clicks in a row make userEvent move the simulated
+      // pointer from the marker to the popover, which fires the marker's own leave/blur before the
+      // popover's click lands — real only for a mouse path crossing two separate elements, not for a
+      // press-and-release in place.
+      fireEvent.focus(screen.getByRole("button", { name: "Read from the document" }));
+      fireEvent.click(await screen.findByRole("button", { name: "Undo" }));
+
+      await waitFor(() => expect(screen.getByRole("textbox", { name: "City" })).toHaveValue("Abu Dhabi"));
+    });
+
+    it("offers the matched template's usual direct reports as suggested seats after a reading", async () => {
+      vi.mocked(positionApi.attachDocument).mockResolvedValue(attached);
+      vi.mocked(positionApi.extractDetails).mockResolvedValue(emptyExtraction);
+      vi.mocked(positionApi.extractContext).mockResolvedValue(emptyExtraction);
+      vi.mocked(positionApi.extractReporting).mockResolvedValue({
+        extractionSource: "none",
+        fields: [],
+        suggestedTemplate: null,
+        usualDirectReports: ["Head of Treasury"],
+      });
+      vi.mocked(positionApi.extractAssessment).mockResolvedValue(emptyExtraction);
+      vi.mocked(positionApi.putReporting).mockResolvedValue(seeded);
+      renderPage();
+      const person = userEvent.setup();
+
+      const input = await screen.findByLabelText("Position description file");
+      await person.upload(input, new File(["%PDF-1.4"], "CFO-brief.pdf", { type: "application/pdf" }));
+      await waitFor(() => expect(positionApi.extractReporting).toHaveBeenCalled());
+
+      await person.click(within(rail()).getByRole("link", { name: "Reporting" }));
+      await person.click(await screen.findByRole("button", { name: /Head of Treasury/ }));
+
+      await waitFor(() =>
+        expect((lastCall(positionApi.putReporting)[1] as { orgChart: unknown[] }).orgChart).toEqual(
+          expect.arrayContaining([expect.objectContaining({ title: "Head of Treasury", source: "MANUAL" })]),
+        ),
+      );
+    });
+
+    it("offers to draft from a template the document reads like, and re-reads once applied", async () => {
+      vi.mocked(positionApi.attachDocument).mockResolvedValue(attached);
+      vi.mocked(positionApi.extractDetails).mockResolvedValue({
+        ...emptyExtraction,
+        suggestedTemplate: catalog[1],
+      });
+      vi.mocked(positionApi.extractContext).mockResolvedValue(emptyExtraction);
+      vi.mocked(positionApi.extractReporting).mockResolvedValue(emptyExtraction);
+      vi.mocked(positionApi.extractAssessment).mockResolvedValue(emptyExtraction);
+      // The document stays attached across a template redraft — real API responses carry it; the shared
+      // `redrafted` fixture doesn't, since the test it was built for never attaches one first.
+      vi.mocked(positionApi.applyTemplate).mockResolvedValue({ ...redrafted, document: attached.document });
+      renderPage();
+      const person = userEvent.setup();
+
+      const input = await screen.findByLabelText("Position description file");
+      await person.upload(input, new File(["%PDF-1.4"], "CFO-brief.pdf", { type: "application/pdf" }));
+
+      expect(await screen.findByText(/Chief Compliance Officer/)).toBeInTheDocument();
+      await person.click(screen.getByRole("button", { name: "Apply" }));
+
+      await waitFor(() => expect(positionApi.applyTemplate).toHaveBeenCalledWith("p1", "t-cco"));
+      // Re-reads after applying: the second read is on top of the one attaching already fired.
+      await waitFor(() => expect(positionApi.extractDetails).toHaveBeenCalledTimes(2));
     });
   });
 

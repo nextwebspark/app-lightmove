@@ -359,7 +359,10 @@ method plus the records it returns — never another feature's internals:
   `PositionTemplateApplier`. **`positiontemplate` never depends on `position`** — the admin-curated
   library knows nothing about briefs — which is why the enums both speak (`EmploymentType`,
   `BenefitFrequency`, `CompetencyPanel`, `CriterionMode`, …) live in `common/constant` beside
-  `Seniority` rather than in either feature.
+  `Seniority` rather than in either feature. The reporting extraction's `usualDirectReports` also rides
+  this seam: `PositionExtractionService.extractReporting` matches the brief's own role title through
+  `matchingByTitle` and carries that template's `directReports` back on the response, for the SPA's
+  Suggested seats row — one more read, never a write, so the boundary above still holds.
 - `project`'s `ClientService` calls `ApolloCompanyQueryService` to resolve the company a new client
   record names.
 - The projects list's two pipeline numbers run the same inversion as `TriagedCompanyLookup` above, and

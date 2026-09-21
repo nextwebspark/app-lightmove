@@ -6,6 +6,8 @@ export interface RailNavItem {
   key: string;
   label: string;
   icon: string;
+  /** A small trailing note — the brief's "N filled" after a document reading. Absent everywhere else. */
+  badge?: string;
 }
 
 /**
@@ -51,7 +53,12 @@ export function UncavaRailNav({
             )}
           >
             <Icon d={item.icon} className="flex-none" />
-            <span>{item.label}</span>
+            <span className="flex-1">{item.label}</span>
+            {item.badge && (
+              <span className="flex-none rounded-full bg-u-inferred-tint px-1.5 py-0.5 text-[10px] font-semibold text-u-inferred">
+                {item.badge}
+              </span>
+            )}
           </Link>
         );
       })}

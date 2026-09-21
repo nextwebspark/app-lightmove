@@ -116,6 +116,17 @@ export interface FillOutcome {
   skipped: SkippedField[];
 }
 
+/** How many fields one screen's receipt filled — the rail badge's `N filled` and the strip's own count. */
+export function fieldCountOf(receipt: StepReceipt | undefined): number {
+  if (!receipt) return 0;
+  const scalarCount = Object.keys(receipt.scalars).length;
+  const listCount = Object.values(receipt.lists).reduce(
+    (sum, list) => sum + (list ? Object.keys(list.appended).length : 0),
+    0,
+  );
+  return scalarCount + listCount;
+}
+
 /**
  * Reads a whole document reading into the brief: every scalar and repeatable list a section proposed,
  * folded source-aware over the current drafts, plus the reporting section's org-chart merge. Nothing
@@ -670,6 +681,19 @@ export function undoScalar<D extends { fieldSources: Record<string, FieldSource>
       noticeValue: previous.noticeValue,
       noticeUnit: previous.noticeUnit,
       fieldSources: { ...step.fieldSources, noticeValue: restoredSource, noticeUnit: restoredSource },
+    };
+  }
+
+  // `LOCATION_LENS` fills `locationCity` under the receipt key "location" (see its own comment above):
+  // the one scalar whose wire field key does not match the draft's property name. Writing `[fieldKey]`
+  // directly, as the general case below does, would set a stray `location` property and leave
+  // `locationCity` exactly as the fill left it.
+  if (fieldKey === "location") {
+    if (step.fieldSources.location !== "DOCUMENT") return step;
+    return {
+      ...step,
+      locationCity: scalar.previousValue,
+      fieldSources: { ...step.fieldSources, location: scalar.previousSource ?? "MANUAL" },
     };
   }
 
