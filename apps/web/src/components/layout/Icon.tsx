@@ -35,7 +35,7 @@ export const ICONS = {
   collapse: "m11 17-5-5 5-5M18 17l-5-5 5-5",
   expand: "m13 17 5-5-5-5M6 17l5-5-5-5",
   plus: "M12 5v14M5 12h14",
-  /** The assistant's mark — a large four-point star with a small one, as every AI surface draws it. */
+  /** The AI mark — the assistant's launcher, and a brief value a document reading filled. */
   sparkle:
     "M9.9 2.6 11 5.9a2 2 0 0 0 1.3 1.3l3.3 1.1-3.3 1.1a2 2 0 0 0-1.3 1.3L9.9 14l-1.1-3.3a2 2 0 0 0-1.3-1.3L4.2 8.3l3.3-1.1a2 2 0 0 0 1.3-1.3ZM18 14l.6 1.8 1.8.6-1.8.6-.6 1.8-.6-1.8-1.8-.6 1.8-.6Z",
   arrowRight: "M5 12h14M13 6l6 6-6 6",

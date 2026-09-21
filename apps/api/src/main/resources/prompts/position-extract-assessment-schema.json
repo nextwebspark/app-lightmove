@@ -4,6 +4,7 @@
   "properties": {
     "criteria": {
       "type": "array",
+      "maxItems": 5,
       "items": {
         "type": "object",
         "properties": {
@@ -16,6 +17,7 @@
     },
     "technical": {
       "type": "array",
+      "maxItems": 5,
       "items": {
         "type": "object",
         "properties": {
@@ -29,6 +31,7 @@
     },
     "behavioural": {
       "type": "array",
+      "maxItems": 5,
       "items": {
         "type": "object",
         "properties": {

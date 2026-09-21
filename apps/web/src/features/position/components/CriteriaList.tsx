@@ -1,6 +1,8 @@
 import { useState } from "react";
 import type { Criterion, CriterionMode } from "../api/types";
+import type { StepReceipt } from "../lib/documentFill";
 import { BriefButton, ChipGroup, RemoveDot, type ChipOption } from "./BriefFields";
+import { ProvenanceMarker } from "./ProvenanceMarker";
 
 const MODE_OPTIONS: ChipOption<CriterionMode>[] = [
   { value: "REQUIRED", label: "Required", tone: "offlimits" },
@@ -14,20 +16,29 @@ const MODE_OPTIONS: ChipOption<CriterionMode>[] = [
  */
 export function CriteriaList({
   criteria,
+  receipt,
   onChange,
+  onUndo,
 }: {
   criteria: Criterion[];
+  /** This session's assessment-screen receipt, for a filled row's snippet and Undo. */
+  receipt?: StepReceipt;
   onChange: (criteria: Criterion[]) => void;
+  onUndo?: (text: string) => void;
 }) {
   const [draft, setDraft] = useState("");
 
+  // A hand edit always makes the row theirs — a corrected DOCUMENT/TEMPLATE row must stop wearing that
+  // sparkle, or a later "Read again" would silently overwrite what was just typed.
   const patch = (index: number, changes: Partial<Criterion>) =>
-    onChange(criteria.map((criterion, i) => (i === index ? { ...criterion, ...changes } : criterion)));
+    onChange(
+      criteria.map((criterion, i) => (i === index ? { ...criterion, ...changes, source: "MANUAL" } : criterion)),
+    );
 
   const add = () => {
     const text = draft.trim();
     if (!text) return;
-    onChange([...criteria, { text, mode: "REQUIRED", fromBrief: false }]);
+    onChange([...criteria, { text, mode: "REQUIRED", source: "MANUAL" }]);
     setDraft("");
   };
 
@@ -41,11 +52,17 @@ export function CriteriaList({
             onChange={(event) => patch(index, { text: event.target.value })}
             className="min-w-[160px] flex-1 bg-transparent text-[14px] text-u-text outline-none"
           />
-          {criterion.fromBrief && (
+          {criterion.source === "TEMPLATE" && (
             <span className="flex-none rounded-[4px] bg-u-accent-tint px-1.5 py-0.5 text-[9.5px] font-bold uppercase tracking-[0.06em] text-u-accent">
               From brief
             </span>
           )}
+          <ProvenanceMarker
+            source={criterion.source}
+            confidence={receipt?.lists.criteria?.appended[criterion.text]?.confidence}
+            snippet={receipt?.lists.criteria?.appended[criterion.text]?.snippet}
+            onUndo={onUndo ? () => onUndo(criterion.text) : undefined}
+          />
           <ChipGroup
             size="sm"
             label={`Criterion ${index + 1} mode`}

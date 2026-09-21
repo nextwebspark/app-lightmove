@@ -5,7 +5,7 @@ import java.util.List;
 
 /**
  * A proposed reading of step five, and what produced it — the assessment twin of
- * {@link ProposedCompensation}.
+ * {@link ProposedPositionDetails}.
  */
 public record ProposedAssessment(ExtractionSource source, List<ExtractedField> fields) {
 

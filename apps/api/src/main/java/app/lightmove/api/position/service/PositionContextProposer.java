@@ -9,24 +9,18 @@ import app.lightmove.api.core.ratelimit.service.LlmBudget;
 import app.lightmove.api.core.ratelimit.service.LlmBudgetGuard;
 import app.lightmove.api.position.constant.ExtractionSource;
 import app.lightmove.api.position.constant.MandateReason;
-import app.lightmove.api.position.constant.ProposalConfidence;
-import app.lightmove.api.position.constant.ProposalOrigin;
 import app.lightmove.api.position.model.ExtractedField;
 import app.lightmove.api.position.model.ModelContextAnswer.ModelStrategicPriority;
 import app.lightmove.api.position.model.ModelContextAnswer;
 import app.lightmove.api.position.model.ProposedMandateContext;
-import app.lightmove.api.positiontemplate.model.PositionTemplate;
-import app.lightmove.api.positiontemplate.service.PositionTemplateService;
 import java.util.ArrayList;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
-import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
 import java.util.function.Consumer;
-import java.util.stream.Collectors;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.ai.google.genai.GoogleGenAiChatOptions;
@@ -47,9 +41,10 @@ import org.springframework.stereotype.Service;
  * <p>The document is redacted before it is sent and re-hydrated after, exactly as
  * {@link PositionDetailsProposer} does — see {@link PositionDocumentRedactor}.
  *
- * <p>A field neither the document nor the model found is, last, offered from the mandate's matched
- * brief template, exactly as {@link PositionDetailsProposer#finish} does for step one — see
- * {@link #backfillFromTemplate}.
+ * <p>A field neither the document nor the model found stays unproposed. Earlier drafts backfilled
+ * strategic priorities from the mandate's matched brief template — dead weight once a mandate is
+ * already seeded from that same template, the same reasoning {@link PositionDetailsProposer}'s class
+ * doc gives.
  */
 @Service
 @Slf4j
@@ -65,12 +60,11 @@ public class PositionContextProposer {
 
     private static final int BUSINESS_DRIVER_MAX_LENGTH = 1000;
     private static final int PRIORITY_NAME_MAX_LENGTH = 120;
-    private static final int PRIORITY_MAX_COUNT = 20;
+    private static final int PRIORITY_MAX_COUNT = 5;
     private static final String LABEL = "Mandate context extraction";
 
     private final ChatClient chatClient;
     private final PositionDocumentRedactor redactor;
-    private final PositionTemplateService templates;
     private final ExtractedFieldReader fieldReader;
     private final Resource systemPrompt;
     private final Consumer<ChatClient.AdvisorSpec> guarded;
@@ -80,7 +74,6 @@ public class PositionContextProposer {
     // parameter with @Value, matching PositionDetailsProposer's own exemption.
     public PositionContextProposer(ChatClient chatClient,
                                    PositionDocumentRedactor redactor,
-                                   PositionTemplateService templates,
                                    ExtractedFieldReader fieldReader,
                                    @Value("classpath:prompts/position-extract-context-system.st") Resource systemPrompt,
                                    @Value("classpath:prompts/position-extract-context-schema.json") Resource answerSchema,
@@ -88,15 +81,13 @@ public class PositionContextProposer {
                                    LlmBudgetGuard llmBudget) {
         this.chatClient = chatClient;
         this.redactor = redactor;
-        this.templates = templates;
         this.fieldReader = fieldReader;
         this.systemPrompt = systemPrompt;
         this.guarded = llmCalls.forPrompt(PromptGuardSpec.structured(PROMPT_ID, answerSchema, BLOCKED));
         this.llmBudget = llmBudget;
     }
 
-    public ProposedMandateContext propose(UUID userId, String documentText, UUID clientId, UUID workspaceId,
-                                          String roleTitle) {
+    public ProposedMandateContext propose(UUID userId, String documentText, UUID clientId, UUID workspaceId) {
         llmBudget.require(LlmBudget.CONTEXT_EXTRACT, userId);
 
         try {
@@ -107,14 +98,14 @@ public class PositionContextProposer {
                     log.warn("Mandate context extraction blocked before reaching the model: the "
                             + "document matched the injection word list.");
                 }
-                return finish(empty(), workspaceId, roleTitle);
+                return finish(empty());
             }
-            return finish(reconcile(answered, redaction.pseudonyms(), documentText), workspaceId, roleTitle);
+            return finish(reconcile(answered, redaction.pseudonyms(), documentText));
         } catch (RuntimeException e) {
             // Deliberately broad and deliberately quiet, exactly as PositionDetailsProposer's catch
             // is: every way this call can fail has the same right answer, an honest empty reading.
             log.warn("Mandate context extraction found nothing to propose", e);
-            return finish(empty(), workspaceId, roleTitle);
+            return finish(empty());
         }
     }
 
@@ -174,44 +165,8 @@ public class PositionContextProposer {
         return new ProposedMandateContext(ExtractionSource.MODEL, fields);
     }
 
-    private ProposedMandateContext finish(ProposedMandateContext proposed, UUID workspaceId, String roleTitle) {
-        List<ExtractedField> withTemplateBackfill = backfillFromTemplate(proposed.fields(), workspaceId, roleTitle);
-        return new ProposedMandateContext(proposed.source(), truncateToCeilings(withTemplateBackfill));
-    }
-
-    /**
-     * Proposes the matched template's own strategic priorities when the document named none at all —
-     * the only field {@link app.lightmove.api.positiontemplate.model.PositionTemplateBody} carries for this
-     * step. {@code mandateReason} and {@code businessDriver} have no template equivalent: they are
-     * specific to why this client is running this search, not generic to a role shape, so a template
-     * never backfills them. Never tops up a partial list — only fires when no priority was found at
-     * all — and needs the mandate's own persisted role title, since unlike step one this proposer
-     * never reads one out of the document itself.
-     */
-    private List<ExtractedField> backfillFromTemplate(List<ExtractedField> fields, UUID workspaceId,
-                                                       String roleTitle) {
-        if (roleTitle == null || roleTitle.isBlank()) {
-            return fields;
-        }
-        Set<String> present = fields.stream().map(ExtractedField::fieldKey).collect(Collectors.toSet());
-        if (present.contains("strategicPriority")) {
-            return fields;
-        }
-        Optional<PositionTemplate> matched = templates.matching(workspaceId, roleTitle);
-        if (matched.isEmpty()) {
-            return fields;
-        }
-        List<ExtractedField> backfilled = new ArrayList<>(fields);
-        Set<String> seenCaseInsensitive = new LinkedHashSet<>();
-        matched.get().getBody().strategicPriorities().stream()
-                .filter(text -> text != null && !text.isBlank())
-                .forEach(text -> {
-                    if (seenCaseInsensitive.add(text.trim().toLowerCase(Locale.ROOT))) {
-                        backfilled.add(new ExtractedField("strategicPriority", text, ProposalConfidence.LOW,
-                                null, ProposalOrigin.TEMPLATE));
-                    }
-                });
-        return backfilled;
+    private ProposedMandateContext finish(ProposedMandateContext proposed) {
+        return new ProposedMandateContext(proposed.source(), truncateToCeilings(proposed.fields()));
     }
 
     /**

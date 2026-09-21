@@ -1,5 +1,6 @@
 package app.lightmove.api.position.dto;
 
+import app.lightmove.api.position.constant.FieldSource;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
 
@@ -9,5 +10,8 @@ public record StrategicPriorityDto(
         @Size(max = 120, message = "That priority is too long")
         String name,
 
-        boolean selected
+        boolean selected,
+
+        /** Null on a write defaults to {@code MANUAL} — a person typed it. */
+        FieldSource source
 ) {}

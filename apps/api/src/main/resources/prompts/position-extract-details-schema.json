@@ -14,6 +14,7 @@
     "senioritySnippet": { "type": ["string", "null"] },
     "responsibilities": {
       "type": "array",
+      "maxItems": 5,
       "items": {
         "type": "object",
         "properties": {

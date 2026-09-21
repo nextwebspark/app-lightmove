@@ -88,7 +88,7 @@ export function draftOf(detail: TemplateDetail): TemplateDraft {
     criteria: body.criteria.map((criterion) => ({
       text: criterion.text,
       mode: criterion.mode ?? "REQUIRED",
-      fromBrief: false,
+      source: "MANUAL",
     })),
     technical: panel("TECHNICAL"),
     behavioural: panel("BEHAVIOURAL"),

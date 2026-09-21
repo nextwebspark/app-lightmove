@@ -1,6 +1,7 @@
 package app.lightmove.api.position.model;
 
 import app.lightmove.api.common.constant.CriterionMode;
+import app.lightmove.api.position.constant.FieldSource;
 import jakarta.persistence.Column;
 import jakarta.persistence.Embeddable;
 import jakarta.persistence.EnumType;
@@ -25,15 +26,21 @@ public class PositionCriterion {
     @Column(name = "mode", nullable = false, length = 16)
     private CriterionMode mode;
 
-    /** True when seeded from the brief (today: the template library; later: the AI drafter). */
-    @Column(name = "from_brief", nullable = false)
-    private boolean fromBrief;
+    /** Where this criterion came from: the template library, a document reading, or typed by hand. */
+    @Enumerated(EnumType.STRING)
+    @Column(name = "source", nullable = false, length = 16)
+    private FieldSource source;
 
-    public static PositionCriterion of(String text, CriterionMode mode, boolean fromBrief) {
+    public static PositionCriterion of(String text, CriterionMode mode, FieldSource source) {
         PositionCriterion criterion = new PositionCriterion();
         criterion.text = text.trim();
         criterion.mode = mode;
-        criterion.fromBrief = fromBrief;
+        criterion.source = source;
         return criterion;
+    }
+
+    /** A row a template redraft is free to delete and replace on its next apply. */
+    public boolean isTemplateDrafted() {
+        return source == FieldSource.TEMPLATE;
     }
 }

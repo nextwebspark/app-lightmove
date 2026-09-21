@@ -3,6 +3,7 @@ import { Icon, ICONS } from "../../../components/layout/Icon";
 import { cn } from "../../../lib/cn";
 import type { OrgNode } from "../api/types";
 import { NODE_HEIGHT, NODE_WIDTH } from "../lib/orgChart";
+import { ProvenanceMarker } from "./ProvenanceMarker";
 
 export interface OrgSeatData extends Record<string, unknown> {
   seat: OrgNode;
@@ -27,6 +28,8 @@ export interface OrgSeatData extends Record<string, unknown> {
 export function OrgSeatNode({ data }: NodeProps<Node<OrgSeatData>>) {
   const { seat, roleTitle, childCount, isRoot, canRemove } = data;
   const isMandate = seat.mandateSeat;
+  // Never on the mandate seat: it is the role being searched for, not a value a reading proposed.
+  const filled = !isMandate && seat.source === "DOCUMENT";
 
   return (
     <div
@@ -36,8 +39,14 @@ export function OrgSeatNode({ data }: NodeProps<Node<OrgSeatData>>) {
         isMandate
           ? "border-u-accent bg-u-accent-tint shadow-u-e1"
           : "border-u-border bg-u-bg shadow-u-e1 hover:border-u-text3",
+        filled && "border-s-2 border-s-u-inferred/60 bg-u-inferred-tint",
       )}
     >
+      {filled && (
+        <span className="absolute -top-1.5 end-1.5">
+          <ProvenanceMarker source={seat.source} />
+        </span>
+      )}
       <Handle type="target" position={Position.Top} className="!size-2 !border-u-border-strong !bg-u-bg" />
 
       {isMandate ? (

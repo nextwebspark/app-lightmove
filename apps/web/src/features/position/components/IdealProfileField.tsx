@@ -1,4 +1,4 @@
-import { useLayoutEffect, useRef, useState, type CSSProperties } from "react";
+import { useLayoutEffect, useRef, useState, type CSSProperties, type ReactNode } from "react";
 import { Icon, ICONS } from "../../../components/layout/Icon";
 import { BriefPanel, FieldBlock } from "./BriefFields";
 
@@ -19,9 +19,11 @@ const CLAMP: CSSProperties = {
  */
 export function IdealProfileField({
   value,
+  marker,
   onChange,
 }: {
   value: string | null;
+  marker?: ReactNode;
   onChange: (narrative: string | null) => void;
 }) {
   const [editing, setEditing] = useState(false);
@@ -41,6 +43,7 @@ export function IdealProfileField({
   return (
     <FieldBlock
       tone="inferred"
+      aside={marker}
       label={
         <>
           Ideal profile — drafted from the brief <span aria-hidden="true">✦</span>

@@ -227,11 +227,20 @@ export function RemoveDot({
   );
 }
 
-/** A responsibility, a priority — short text as a removable token. */
-export function TokenChip({ label, onRemove }: { label: string; onRemove: () => void }) {
+/** A responsibility, a priority — short text as a removable token. `marker` sits before the ✕. */
+export function TokenChip({
+  label,
+  marker,
+  onRemove,
+}: {
+  label: string;
+  marker?: ReactNode;
+  onRemove: () => void;
+}) {
   return (
     <span className="inline-flex items-center gap-2 rounded-[6px] bg-u-raised py-1.5 pe-2 ps-3 text-[12.5px] font-medium text-u-text">
       {label}
+      {marker}
       <RemoveDot label={`Remove ${label}`} onClick={onRemove} />
     </span>
   );

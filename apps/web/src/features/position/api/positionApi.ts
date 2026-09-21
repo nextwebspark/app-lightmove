@@ -7,14 +7,16 @@ import type {
   MandateContext,
   Position,
   PositionDetails,
+  PositionExtraction,
   PositionTemplate,
   ReportingStructure,
 } from "./types";
 
 /**
- * Every call the Position screen makes. One read, one snapshot PUT per section of the brief, and the
- * operations that are not a section: publish, withdraw, the template redraft and the attached
- * position description. The document's extract routes have no caller here until #393 lands.
+ * Every call the Position screen makes. One read, one snapshot PUT per section of the brief, the
+ * operations that are not a section — publish, withdraw, the template redraft, the attached position
+ * description — and the four "Read from document" calls the fill engine (lib/documentFill.ts) folds
+ * into the brief.
  *
  * Every write answers with the whole brief, so a caller only ever replaces its cached copy.
  */
@@ -121,3 +123,16 @@ export function attachDocument(projectId: string, file: File): Promise<Position>
 export async function saveDocument(projectId: string, fileName: string): Promise<void> {
   saveBlob(await requestBlob(`${base(projectId)}/document`), fileName);
 }
+
+const extract = (projectId: string, section: string): Promise<PositionExtraction> =>
+  request<PositionExtraction>(`${base(projectId)}/document/extract/${section}`, { method: "POST" });
+
+/**
+ * The four sections a document reading is read for — no compensation route, #395's retirement of that
+ * read. Each spends a billed model call, so nothing calls these but an explicit "Read from document" —
+ * never upload, never the ordinary GET of the brief.
+ */
+export const extractDetails = (projectId: string): Promise<PositionExtraction> => extract(projectId, "details");
+export const extractContext = (projectId: string): Promise<PositionExtraction> => extract(projectId, "context");
+export const extractReporting = (projectId: string): Promise<PositionExtraction> => extract(projectId, "reporting");
+export const extractAssessment = (projectId: string): Promise<PositionExtraction> => extract(projectId, "assessment");

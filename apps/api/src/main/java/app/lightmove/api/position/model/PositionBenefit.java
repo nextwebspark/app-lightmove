@@ -1,6 +1,7 @@
 package app.lightmove.api.position.model;
 
 import app.lightmove.api.common.constant.BenefitFrequency;
+import app.lightmove.api.position.constant.FieldSource;
 import jakarta.persistence.Column;
 import jakarta.persistence.Embeddable;
 import jakarta.persistence.EnumType;
@@ -28,11 +29,16 @@ public class PositionBenefit {
     @Column(name = "frequency", nullable = false, length = 16)
     private BenefitFrequency frequency;
 
-    public static PositionBenefit of(String name, Long amount, BenefitFrequency frequency) {
+    @Enumerated(EnumType.STRING)
+    @Column(name = "source", nullable = false, length = 16)
+    private FieldSource source;
+
+    public static PositionBenefit of(String name, Long amount, BenefitFrequency frequency, FieldSource source) {
         PositionBenefit benefit = new PositionBenefit();
         benefit.name = name.trim();
         benefit.amount = amount;
         benefit.frequency = frequency;
+        benefit.source = source;
         return benefit;
     }
 }

@@ -126,10 +126,21 @@ and drag any seat; only the role's own seat is fixed — and its team size is th
 counted rather than typed. Compensation states a bonus as a share of base or a **fixed amount**
 (`BonusBasis.FIXED_AMOUNT`, V66 widened `bonus_value` to hold money), and the assessment carries a
 **technical share** (V66 `technical_share`; the behavioural panel takes the rest) beside its two
-weighted panels. The Role Brief attaches the position description and keeps it with the mandate;
-**nothing reads it yet** — the five `…/position/document/extract/*` routes exist server-side and
-have no caller in the SPA, the review-then-accept panel having gone with the old wizard — and epic
-#393 brings the silent fill (fill on attach, provenance markers, undo) to this screen.
+weighted panels. The Role Brief attaches the position description and keeps it with the mandate.
+Attaching it **reads it silently** (epic #393): the four `…/position/document/extract/*` routes —
+compensation is never read, most descriptions state no figure — fan out into `lib/documentFill.ts`'s
+`fillBrief`, which folds every scalar and repeatable list into the brief field-by-field, source-aware
+(`TEMPLATE | DOCUMENT | MANUAL`, V67): a `DOCUMENT` value is replaced by a fresh reading, a `MANUAL`
+one never is. There is no review-then-accept panel — the old wizard's went with it — a filled field
+wears a small sparkle (`ProvenanceMarker`) instead, whose popover carries the snippet and an Undo; a
+per-screen strip summarises the last reading with an Undo all, and the rail badges a step `N filled`
+for the session. **Extract with AI** on the file card reads again; the Reporting and Assessment
+steps carry **Read from document** in their own header, Compensation none. The reporting reading
+also offers the matched template's usual direct reports as **Suggested seats** under the chart,
+and a role title the document suggests a different template for surfaces as a one-line banner
+with an Apply.
+Everything a reading leaves behind — confidence, snippet, Undo, the rail badge — is session state,
+never persisted; only `source` survives a reload.
 `Position.dc.html` is superseded and kept as a record. Publishing stays ungated: the review's
 checklist reports, it does not gate. A published brief then **reads back** rather than locking —
 the rail offers **Edit position** in place of Publish and no draft to save, and the review's sections
@@ -279,7 +290,13 @@ its step's write, so the aggregate keeps one idiom rather than mixing rows and j
 `location` into `location_city` + `location_country` (backfilled from the one line; a comma-less value
 counts as a country only where a dedicated country column already holds that spelling), widens
 `bonus_value` to `numeric(14, 2)` for a fixed-amount bonus, and adds `technical_share` — seeded at 50
-and written explicitly from there (V40's idiom).
+and written explicitly from there (V40's idiom). V67 records where every field came from: a
+`source` column (`TEMPLATE | DOCUMENT | MANUAL`, V34's CHECK idiom) on each of the six owned-list tables,
+and one `field_sources` jsonb map on the brief for the ten scalars a reading can claim — the
+compensation figures and the role title are deliberately absent, having nothing to claim. The
+criterion's `from_brief` boolean folds into that same column. Backfill keys on `version`: a brief
+nobody has saved is the template's, a saved one is somebody's, so nothing anybody typed is ever
+read back as a template default.
 `app_lm_position_org_node` is the org chart — a tree of seats with exactly one flagged
 `mandate_seat`, so "reports to" is that seat's parent and "direct reports" are its children, both
 derived rather than stored twice.

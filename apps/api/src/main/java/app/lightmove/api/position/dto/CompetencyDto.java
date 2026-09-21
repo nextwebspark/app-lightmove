@@ -1,5 +1,6 @@
 package app.lightmove.api.position.dto;
 
+import app.lightmove.api.position.constant.FieldSource;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
@@ -16,5 +17,8 @@ public record CompetencyDto(
 
         @Min(value = 0, message = "Weights are between 0 and 100")
         @Max(value = 100, message = "Weights are between 0 and 100")
-        int weight
+        int weight,
+
+        /** Null on a write defaults to {@code MANUAL} — a person typed it. */
+        FieldSource source
 ) {}
