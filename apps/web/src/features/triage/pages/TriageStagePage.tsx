@@ -8,6 +8,7 @@ import { useToast } from "../../../components/ui/Toast";
 import { cn } from "../../../lib/cn";
 import { messageFor } from "../../../lib/errorCodes";
 import { DEFAULT_PAGE_SIZE } from "../../../lib/paging";
+import { useProjectRowsChanged } from "../../../lib/projectRows";
 import { useColumnVisibility } from "../../../lib/useColumnVisibility";
 import { EMPTY_GRID_LAYOUT, layoutColumnsOf, useGridLayout } from "../../../lib/useGridLayout";
 import { FULLSCREEN_PANEL, useFullscreen } from "../../../lib/useFullscreen";
@@ -108,6 +109,7 @@ function TriageStage() {
   const { project } = useOutletContext<ProjectOutletContext>();
   const { user } = useAuth();
   const queryClient = useQueryClient();
+  const rowsChanged = useProjectRowsChanged();
   const toast = useToast();
 
   const stage = stageBySlug(stageSlug!)!;
@@ -254,17 +256,16 @@ function TriageStage() {
 
   /**
    * Removing a company unmaps its people rather than deleting them, and adding one changes which
-   * people the grid should be asking about — so the two caches move together on every write. The
-   * columns move with them because an import defines new ones: refreshing the rows without their
-   * headers leaves the imported values in columns the grid does not yet know how to render.
+   * people the grid should be asking about — so the two caches move together on every write, which
+   * is what {@link useProjectRowsChanged} is. The columns are not part of that and stay here: only
+   * an import defines one, and refreshing rows without their headers leaves the imported values in
+   * columns the grid does not yet know how to render.
    */
   const refreshEverything = () => {
-    refreshEveryStage();
-    refreshPeople();
+    void rowsChanged(project.id);
     void queryClient.invalidateQueries({
       queryKey: customColumnsApi.CUSTOM_COLUMNS_KEY(project.id),
     });
-    refreshMap();
   };
 
   /**

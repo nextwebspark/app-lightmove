@@ -39,6 +39,8 @@ export type ApiErrorCode =
   | "TRIAGE_COMPANY_NOT_EDITABLE"
   | "CANDIDATE_ALREADY_MAPPED"
   | "STRATEGY_SEARCH_NAME_TAKEN"
+  | "ASSISTANT_TURN_STILL_ANSWERING"
+  | "ASSISTANT_PROPOSAL_ALREADY_ACCEPTED"
   | "FILE_TOO_LARGE"
   | "UNSUPPORTED_FILE_TYPE"
   | "IMPORT_FILE_UNREADABLE"
@@ -72,6 +74,8 @@ export type ApiErrorCode =
 // — each names its configured ceiling, and the ceiling is the part the reader needs.
 // TEMPLATE_FILE_UNREADABLE likewise: its detail may name the template limit or the format version.
 const MESSAGES: Partial<Record<ApiErrorCode, string>> = {
+  ASSISTANT_TURN_STILL_ANSWERING: "Wait for the answer to finish before filing what it found.",
+  ASSISTANT_PROPOSAL_ALREADY_ACCEPTED: "These companies have already been filed.",
   TEMPLATE_STALE: "Someone saved this template after you opened it. Reload to see their version.",
   TEMPLATE_FALLBACK_REQUIRED:
     "The fallback template can't be archived or hidden — a title nothing else matches is drafted from it.",
