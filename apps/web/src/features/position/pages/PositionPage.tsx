@@ -39,6 +39,12 @@ import {
   type Receipts,
 } from "../lib/documentFill";
 import { addSuggestedSeat } from "../lib/orgChart";
+import {
+  CONTEXT_FIELD_KEYS,
+  DETAILS_FIELD_KEYS,
+  markManualFrom,
+  REPORTING_FIELD_KEYS,
+} from "../lib/provenance";
 import { STEP_PARAM, openingStepOf, stepOf, type PositionStep, type StepKey } from "../lib/steps";
 
 const GROUND = "flex flex-1 bg-u-bg text-u-text";
@@ -216,7 +222,11 @@ function PositionBrief({ projectId, position }: { projectId: string; position: P
   };
 
   const changeDetails = (patch: Partial<PositionDetails>, immediate = false) => {
-    const next = { ...details, ...patch };
+    const next = {
+      ...details,
+      ...patch,
+      fieldSources: markManualFrom(details.fieldSources, patch, DETAILS_FIELD_KEYS),
+    };
     setDetails(next);
     // The mandate cannot be untitled, so a blank title is held back rather than sent and refused.
     if (!next.roleTitle.trim()) return;
@@ -224,13 +234,21 @@ function PositionBrief({ projectId, position }: { projectId: string; position: P
     if (immediate) void detailsSave.flush();
   };
   const changeContext = (patch: Partial<MandateContext>, immediate = false) => {
-    const next = { ...context, ...patch };
+    const next = {
+      ...context,
+      ...patch,
+      fieldSources: markManualFrom(context.fieldSources, patch, CONTEXT_FIELD_KEYS),
+    };
     setContext(next);
     contextSave.schedule(next);
     if (immediate) void contextSave.flush();
   };
   const changeReporting = (patch: Partial<ReportingStructure>, immediate = false) => {
-    const next = { ...reporting, ...patch };
+    const next = {
+      ...reporting,
+      ...patch,
+      fieldSources: markManualFrom(reporting.fieldSources, patch, REPORTING_FIELD_KEYS),
+    };
     setReporting(next);
     reportingSave.schedule(next);
     if (immediate) void reportingSave.flush();
@@ -578,7 +596,20 @@ function PositionBrief({ projectId, position }: { projectId: string; position: P
       void flushDocumentFill(outcome.changed);
 
       const filled = Object.values(outcome.receipts).reduce((sum, receipt) => sum + fieldCountOf(receipt), 0);
-      if (filled > 0) toast(`Read ${filled} field${filled === 1 ? "" : "s"} from ${fileName}`);
+      // The org chart merge can decline a proposed manager or direct report with zero other signal —
+      // this is the one place a reading's own success toast can still say so.
+      const orgChartSkip = outcome.skipped.find((field) => field.fieldKey === "orgChart");
+      if (orgChartSkip) {
+        const reason =
+          orgChartSkip.reason === "full"
+            ? "the org chart is at its seat limit"
+            : "this mandate has no seat yet";
+        toast(
+          filled > 0
+            ? `Read ${filled} field${filled === 1 ? "" : "s"} from ${fileName} — some reporting lines didn't fit because ${reason}.`
+            : `Reporting lines from ${fileName} didn't fit because ${reason}.`,
+        );
+      } else if (filled > 0) toast(`Read ${filled} field${filled === 1 ? "" : "s"} from ${fileName}`);
       else if (failed.size === 0) toast("Nothing new to read from this document");
     },
     onError: (error) => toast(messageFor(error)),

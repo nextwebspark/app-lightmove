@@ -540,6 +540,40 @@ describe("PositionPage", () => {
       expect(await screen.findByText("1 field")).toBeInTheDocument();
     });
 
+    it("typing over a document-filled field makes it MANUAL, so a later autosave never claims DOCUMENT for it", async () => {
+      vi.mocked(positionApi.attachDocument).mockResolvedValue(attached);
+      vi.mocked(positionApi.extractDetails).mockResolvedValue({
+        extractionSource: "model",
+        fields: [{ id: 1, fieldKey: "locationCity", value: "Dubai", confidence: "medium", snippet: "based in Dubai", origin: "document" }],
+        suggestedTemplate: null,
+        usualDirectReports: null,
+      });
+      vi.mocked(positionApi.extractContext).mockResolvedValue(emptyExtraction);
+      vi.mocked(positionApi.extractReporting).mockResolvedValue(emptyExtraction);
+      vi.mocked(positionApi.extractAssessment).mockResolvedValue(emptyExtraction);
+      vi.mocked(positionApi.putDetails).mockResolvedValue(seeded);
+      renderPage();
+      const person = userEvent.setup();
+
+      const input = await screen.findByLabelText("Position description file");
+      await person.upload(input, new File(["%PDF-1.4"], "CFO-brief.pdf", { type: "application/pdf" }));
+      await waitFor(() => expect(screen.getByRole("textbox", { name: "City" })).toHaveValue("Dubai"));
+      expect(screen.getByRole("button", { name: "Read from the document" })).toBeInTheDocument();
+
+      const city = screen.getByRole("textbox", { name: "City" });
+      await person.clear(city);
+      await person.type(city, "Abu Dhabi");
+
+      await waitFor(() =>
+        expect(lastCall(positionApi.putDetails)[1]).toMatchObject({
+          locationCity: "Abu Dhabi",
+          fieldSources: expect.objectContaining({ locationCity: "MANUAL" }),
+        }),
+      );
+      // The correction is the person's own now — the sparkle (and the Undo it offers) is gone.
+      expect(screen.queryByRole("button", { name: "Read from the document" })).not.toBeInTheDocument();
+    });
+
     it("undoes a field a reading filled, restoring what was there before", async () => {
       vi.mocked(positionApi.attachDocument).mockResolvedValue(attached);
       vi.mocked(positionApi.extractDetails).mockResolvedValue({
@@ -707,7 +741,12 @@ describe("PositionPage", () => {
 
       await waitFor(() => expect(lastCall(positionApi.putCompetencies)[1]).toHaveLength(3));
       const [, technicalSent, behaviouralSent, share] = lastCall(positionApi.putCompetencies);
-      expect((technicalSent as unknown[]).at(-1)).toEqual({ name: "New competency", description: null, weight: 0 });
+      expect((technicalSent as unknown[]).at(-1)).toEqual({
+        name: "New competency",
+        description: null,
+        weight: 0,
+        source: "MANUAL",
+      });
       expect(behaviouralSent).toHaveLength(1);
       expect(share).toBe(60);
     });
