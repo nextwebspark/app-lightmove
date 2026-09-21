@@ -18,6 +18,7 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.jdbc.BadSqlGrammarException;
 import org.springframework.http.MediaType;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.web.servlet.MvcResult;
@@ -161,7 +162,12 @@ class AssistantTurnStreamIntegrationTest extends FlowTestSupport {
 
         assertThatThrownBy(() -> db.update(
                 "UPDATE app_lm_assistant_event SET kind = 'tampered' WHERE turn_id = ?", turnId))
-                .hasMessageContaining("immutable");
+                // The trigger raises with ERRCODE insufficient_privilege, so SQLSTATE class 42 lands
+                // Spring on BadSqlGrammarException — whose own message is only the SQL it refused.
+                // The trigger's own words are on the cause, which is where this has to look.
+                .isInstanceOf(BadSqlGrammarException.class)
+                .rootCause()
+                .hasMessageContaining("immutable once written");
     }
 
     /** @return the turn id, once the worker has settled it, so its log is complete. */
