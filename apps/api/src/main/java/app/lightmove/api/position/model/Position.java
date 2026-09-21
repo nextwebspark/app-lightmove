@@ -9,6 +9,7 @@ import app.lightmove.api.common.constant.Seniority;
 import app.lightmove.api.core.persistence.model.BaseEntity;
 import app.lightmove.api.position.constant.FieldSource;
 import app.lightmove.api.position.constant.MandateReason;
+import app.lightmove.api.position.constant.PositionFieldKeys;
 import jakarta.persistence.CollectionTable;
 import jakarta.persistence.Column;
 import jakarta.persistence.ElementCollection;
@@ -27,6 +28,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
 import java.util.stream.Stream;
 import lombok.AccessLevel;
@@ -214,7 +216,7 @@ public class Position extends BaseEntity {
         this.seniority = details.seniority();
         this.narrative = details.narrative();
         replace(this.responsibilities, details.responsibilities());
-        mergeFieldSources(details.fieldSources());
+        mergeFieldSources(PositionFieldKeys.DETAILS, details.fieldSources());
     }
 
     public void applyContext(MandateContext context) {
@@ -223,7 +225,7 @@ public class Position extends BaseEntity {
         this.confidential = context.confidential();
         this.internalContext = context.internalContext();
         replace(this.strategicPriorities, context.strategicPriorities());
-        mergeFieldSources(context.fieldSources());
+        mergeFieldSources(PositionFieldKeys.CONTEXT, context.fieldSources());
     }
 
     public void applyReporting(ReportingStructure reporting) {
@@ -231,17 +233,36 @@ public class Position extends BaseEntity {
         this.noticeValue = reporting.noticeValue();
         this.noticeUnit = reporting.noticeUnit();
         replace(this.orgChart, mandateSeatFirst(reporting.orgChart()));
-        mergeFieldSources(reporting.fieldSources());
+        mergeFieldSources(PositionFieldKeys.REPORTING, reporting.fieldSources());
     }
 
     /**
-     * Replaces only the step's own key slice — {@code applyDetails}, {@code applyContext} and
-     * {@code applyReporting} each write a disjoint set of keys, so a wholesale replace here would
-     * erase what the other two steps have already claimed.
+     * Replaces the step's own key slice — {@code applyDetails}, {@code applyContext} and
+     * {@code applyReporting} each own a disjoint set of keys ({@code stepKeys}), so this never touches
+     * what the other two steps have claimed. Two guards a blind {@code putAll} did not have:
+     * <ul>
+     *   <li>a key of {@code stepKeys} that {@code slice} does not mention is removed rather than left
+     *       stale — a template reapply that stops claiming a scalar (the generic fallback has no
+     *       {@code department}) must not leave that key's old {@code TEMPLATE}/{@code MANUAL} tag
+     *       describing a field {@code applyDetails} just nulled;</li>
+     *   <li>an incoming {@code DOCUMENT} never moves a key off {@code MANUAL} — a person's own
+     *       correction is never quietly reclaimed by a stale or buggy client PUT. A template's own
+     *       redraft is unaffected: it claims {@code TEMPLATE}, never {@code DOCUMENT}.</li>
+     * </ul>
      */
-    private void mergeFieldSources(Map<String, FieldSource> slice) {
+    private void mergeFieldSources(Set<String> stepKeys, Map<String, FieldSource> slice) {
         Map<String, FieldSource> merged = new LinkedHashMap<>(this.fieldSources);
-        merged.putAll(slice);
+        for (String key : stepKeys) {
+            FieldSource incoming = slice.get(key);
+            if (merged.get(key) == FieldSource.MANUAL && incoming == FieldSource.DOCUMENT) {
+                continue;
+            }
+            if (incoming == null) {
+                merged.remove(key);
+            } else {
+                merged.put(key, incoming);
+            }
+        }
         this.fieldSources = Map.copyOf(merged);
     }
 
