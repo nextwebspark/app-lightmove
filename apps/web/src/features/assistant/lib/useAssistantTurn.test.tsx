@@ -7,28 +7,38 @@ vi.mock("../../../lib/apiClient", () => ({ streamEvents }));
 
 type Emit = (name: string, data: string) => void;
 
-/** One connection the test drives: it hands back the emitter and the path that was asked for. */
+/** Every attempt the hook made, so a test can prove an earlier one was abandoned properly. */
+type Attempt = { path: string; signal: AbortSignal; settle: () => void };
+
+/** One connection the test drives: it hands back the emitter and every attempt that was opened. */
 function connection() {
-  const opened: string[] = [];
+  const attempts: Attempt[] = [];
   let emit: Emit = () => {};
-  let close: () => void = () => {};
 
   streamEvents.mockImplementation(
-    (path: string, onEvent: (event: { name: string; data: string }) => void) => {
-      opened.push(path);
+    (path: string, onEvent: (event: { name: string; data: string }) => void, signal: AbortSignal) => {
       emit = (name, data) => onEvent({ name, data });
       return new Promise<void>((resolve) => {
-        close = resolve;
+        attempts.push({ path, signal, settle: resolve });
       });
     },
   );
 
   return {
-    opened,
+    attempts,
+    get opened() {
+      return attempts.map((attempt) => attempt.path);
+    },
     frame: (seq: number, kind: string, payload: Record<string, unknown> = {}) =>
       emit("assistant", JSON.stringify({ seq, kind, payload, occurredAt: "2026-01-01T00:00:00Z" })),
-    close: () => close(),
+    close: () => attempts.at(-1)?.settle(),
   };
+}
+
+/** Drives `document.visibilityState`, which jsdom leaves read-only otherwise. */
+function setVisibility(state: "visible" | "hidden") {
+  Object.defineProperty(document, "visibilityState", { value: state, configurable: true });
+  document.dispatchEvent(new Event("visibilitychange"));
 }
 
 describe("useAssistantTurn", () => {
@@ -128,6 +138,47 @@ describe("useAssistantTurn", () => {
     stream.frame(2, "something.newer", { text: "not rendered raw" });
 
     await waitFor(() => expect(result.current.answer).toBe("kept"));
+  });
+
+  it("never leaves a stream running when it reconnects", async () => {
+    const stream = connection();
+    renderHook(() => useAssistantTurn("t1"));
+    await waitFor(() => expect(stream.attempts).toHaveLength(1));
+    const first = stream.attempts[0];
+    // The attempt has to have heard something, or it settles into the backoff branch and the race
+    // never runs — which is what made the first version of this test pass against the bug.
+    stream.frame(1, "message.delta", { text: "heard" });
+
+    // Visibility can flap faster than a stream settles. The abandoned attempt then settles, tests
+    // the *shared* controller — which now points at a live stream — and reconnects on its behalf,
+    // orphaning a request for its whole ~55s against --max-instances 2.
+    setVisibility("hidden");
+    setVisibility("visible");
+    await waitFor(() => expect(stream.attempts).toHaveLength(2));
+    first.settle();
+    await vi.advanceTimersByTimeAsync(100);
+
+    expect(first.signal.aborted).toBe(true);
+    const live = stream.attempts.filter((attempt) => !attempt.signal.aborted);
+    expect(live).toHaveLength(1);
+  });
+
+  it("ticks off the step for the tool that answered, not one that shares its label", async () => {
+    const stream = connection();
+    const { result } = renderHook(() => useAssistantTurn("t1"));
+
+    // Neither is in TOOL_LABELS, so both render the same fallback sentence. Matching a result back
+    // to its call by label would finish the wrong one.
+    stream.frame(1, "tool.called", { tool: "somethingNew" });
+    stream.frame(2, "tool.called", { tool: "somethingElse" });
+    await waitFor(() => expect(result.current.steps).toHaveLength(2));
+
+    // The *first* one answers. Matching by label takes the last running step with that label, so it
+    // would tick the second one off and leave this one spinning for ever.
+    stream.frame(3, "tool.result", { tool: "somethingNew" });
+
+    await waitFor(() => expect(result.current.steps[0].running).toBe(false));
+    expect(result.current.steps[1].running).toBe(true);
   });
 
   it("opens nothing at all without a turn", () => {

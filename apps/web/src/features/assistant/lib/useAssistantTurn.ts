@@ -16,9 +16,16 @@ const MAX_RETRY_MS = 15_000;
  */
 const HEALTHY_MS = 1_000;
 
-/** One step of the turn's trace, as the panel draws it. */
+/**
+ * One step of the turn's trace, as the panel draws it.
+ *
+ * <p>Carries the tool as well as the sentence, because the sentence is lossy: every tool this build
+ * does not know renders as the same fallback, so matching a result back to its call by label would
+ * let one unknown tool's result tick a different one's spinner off.
+ */
 export type TurnStep = {
   seq: number;
+  tool: string;
   label: string;
   running: boolean;
 };
@@ -66,7 +73,12 @@ export function useAssistantTurn(turnId: string | null): TurnProgress {
     const connect = () => {
       if (disposed || finished || document.visibilityState === "hidden") return;
 
-      controller = new AbortController();
+      // Never leave one running. Visibility can flap faster than a stream settles, so without this
+      // a reconnect would simply overwrite the reference and abandon a live request — which is the
+      // cost the visibility abort below exists to avoid in the first place.
+      controller?.abort();
+      const attempt = new AbortController();
+      controller = attempt;
       const openedAt = Date.now();
       let heardAnything = false;
 
@@ -82,11 +94,14 @@ export function useAssistantTurn(turnId: string | null): TurnProgress {
           if (frame.kind === "turn.finished") finished = true;
           setProgress((current) => applyFrame(current, frame));
         },
-        controller.signal,
+        attempt.signal,
       ).then(settled, settled);
 
+      // `attempt`, never the outer `controller`: this runs asynchronously, and by then the shared
+      // reference may point at a newer, live stream. Testing that one would read "not aborted",
+      // reconnect on this dead attempt's behalf, and orphan the live one for its whole ~55s.
       function settled() {
-        if (disposed || finished || controller?.signal.aborted) return;
+        if (disposed || finished || attempt.signal.aborted) return;
         if (heardAnything || Date.now() - openedAt >= HEALTHY_MS) {
           schedule(0);
           return;
@@ -160,13 +175,13 @@ function applyFrame(current: TurnProgress, frame: AssistantFrame): TurnProgress 
 }
 
 function startedStep(frame: AssistantFrame): TurnStep {
-  return { seq: frame.seq, label: labelFor(text(frame.payload.tool)), running: true };
+  const tool = text(frame.payload.tool);
+  return { seq: frame.seq, tool, label: labelFor(tool), running: true };
 }
 
 /** The most recent running step for that tool: one turn can call the same tool more than once. */
 function finishStep(steps: TurnStep[], tool: string): TurnStep[] {
-  const label = labelFor(tool);
-  const index = steps.map((step) => step.running && step.label === label).lastIndexOf(true);
+  const index = steps.map((step) => step.running && step.tool === tool).lastIndexOf(true);
   if (index < 0) return steps;
   return steps.map((step, at) => (at === index ? { ...step, running: false } : step));
 }
