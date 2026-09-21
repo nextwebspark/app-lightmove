@@ -1,6 +1,12 @@
 import { useEffect, useRef, useState } from "react";
 import { streamEvents } from "../../../lib/apiClient";
-import type { AssistantFrame, AssistantTurnStatus } from "../api/types";
+import type {
+  AssistantFrame,
+  AssistantProposal,
+  AssistantTurn,
+  AssistantTurnStatus,
+  ProposedCompany,
+} from "../api/types";
 
 /** Failures back off exponentially to this; the server's ordinary cyclic close reconnects at once. */
 const MAX_RETRY_MS = 15_000;
@@ -35,9 +41,33 @@ export type TurnProgress = {
   steps: TurnStep[];
   status: AssistantTurnStatus;
   errorCode: string | null;
+  proposal: AssistantProposal | null;
 };
 
-const IDLE: TurnProgress = { answer: "", steps: [], status: "RUNNING", errorCode: null };
+const IDLE: TurnProgress = {
+  answer: "",
+  steps: [],
+  status: "RUNNING",
+  errorCode: null,
+  proposal: null,
+};
+
+/**
+ * A turn the thread read returned, in the shape the live one has.
+ *
+ * <p>The panel draws a finished exchange and a running one with the same component, so the two
+ * sources meet here rather than in the view. The trace is empty and stays that way: `tool.called`
+ * and `tool.result` reach no DTO, and a finished turn's steps described work that is over.
+ */
+export function progressOf(turn: AssistantTurn): TurnProgress {
+  return {
+    answer: turn.answer ?? "",
+    steps: [],
+    status: turn.status,
+    errorCode: turn.errorCode,
+    proposal: turn.proposal,
+  };
+}
 
 /**
  * Renders one turn as it happens, and resumes correctly across the server's ~55s close, a tab going
@@ -161,6 +191,16 @@ function applyFrame(current: TurnProgress, frame: AssistantFrame): TurnProgress 
       return { ...current, steps: [...current.steps, startedStep(frame)] };
     case "tool.result":
       return { ...current, steps: finishStep(current.steps, text(frame.payload.tool)) };
+    case "proposal": {
+      const proposal = parseProposal(frame.payload);
+      return proposal ? { ...current, proposal } : current;
+    }
+    case "proposal.accepted":
+      // Only ever alongside the proposal it belongs to: the server writes one after the other, and
+      // an outcome with no card to attach it to is nothing this panel can draw.
+      return current.proposal
+        ? { ...current, proposal: { ...current.proposal, accepted: parseAccepted(frame.payload) } }
+        : current;
     case "turn.finished":
       return {
         ...current,
@@ -172,6 +212,45 @@ function applyFrame(current: TurnProgress, frame: AssistantFrame): TurnProgress 
     default:
       return current;
   }
+}
+
+/**
+ * The card, or nothing — never a half-built one.
+ *
+ * <p>A row with no `ref` cannot be accepted, because the accept names refs and the server refuses
+ * any it did not offer. Dropping such a row is the only honest thing to do with it: rendering it
+ * would put a tick box in front of a consultant that files nothing when they press it.
+ */
+function parseProposal(payload: Record<string, unknown>): AssistantProposal | null {
+  const projectId = text(payload.projectId);
+  const { companies } = payload;
+  if (!projectId || !Array.isArray(companies)) {
+    return null;
+  }
+  return {
+    projectId,
+    title: text(payload.title),
+    companies: companies.filter(isProposedCompany),
+    accepted: null,
+  };
+}
+
+function isProposedCompany(row: unknown): row is ProposedCompany {
+  const company = row as ProposedCompany | null;
+  return Boolean(company?.ref) && Boolean(company?.companyName);
+}
+
+function parseAccepted(payload: Record<string, unknown>): AssistantProposal["accepted"] {
+  return {
+    status: text(payload.status),
+    refs: Array.isArray(payload.refs) ? payload.refs.filter((ref) => typeof ref === "string") : [],
+    added: count(payload.added),
+    skipped: count(payload.skipped),
+  };
+}
+
+function count(value: unknown): number {
+  return typeof value === "number" ? value : 0;
 }
 
 function startedStep(frame: AssistantFrame): TurnStep {

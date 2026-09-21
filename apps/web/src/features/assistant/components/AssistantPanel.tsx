@@ -1,11 +1,11 @@
-import { useMutation } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useRef, useState } from "react";
 import { Icon, ICONS } from "../../../components/layout/Icon";
 import { messageFor } from "../../../lib/errorCodes";
 import { useEscapeKey } from "../../../lib/useEscapeKey";
 import * as assistantApi from "../api/assistantApi";
 import { useAssistant } from "../AssistantProvider";
-import { useAssistantTurn } from "../lib/useAssistantTurn";
+import { progressOf, useAssistantTurn } from "../lib/useAssistantTurn";
 import { AssistantTurnView } from "./AssistantTurnView";
 
 const STARTERS = [
@@ -33,14 +33,25 @@ export function AssistantPanel({
   contextLabel: string;
   projectId: string | null;
 }) {
-  const { open, toggledByUser, closeAssistant, threadId, turnId, question, startedTurn } =
+  const { open, toggledByUser, closeAssistant, threadId, turnId, question, startedTurn, forgetThread } =
     useAssistant();
   const [draft, setDraft] = useState("");
   const [failure, setFailure] = useState<string | null>(null);
   const composer = useRef<HTMLTextAreaElement>(null);
+  const transcript = useRef<HTMLDivElement>(null);
+  const queryClient = useQueryClient();
 
   const progress = useAssistantTurn(turnId);
   const running = Boolean(turnId) && progress.status === "RUNNING";
+
+  // The conversation already open, which is what stops a second question replacing the first. The
+  // live turn is drawn from the stream instead, so it appears without waiting for this to refetch.
+  const thread = useQuery({
+    queryKey: assistantApi.ASSISTANT_THREAD_KEY(threadId ?? ""),
+    queryFn: () => assistantApi.getThread(threadId!),
+    enabled: Boolean(threadId),
+  });
+  const past = (thread.data?.turns ?? []).filter((turn) => turn.id !== turnId);
 
   const asking = useMutation({
     mutationFn: (asked: string) =>
@@ -58,6 +69,25 @@ export function AssistantPanel({
   };
 
   useEscapeKey(open, closeAssistant);
+
+  // A remembered thread the server will not open is one this user can no longer reach — deleted,
+  // or left behind in a workspace they have moved out of. Falling back to the starters is the whole
+  // recovery; keeping a thread id that 404s would fail every question asked into it.
+  useEffect(() => {
+    if (thread.isError && !turnId) forgetThread();
+  }, [thread.isError, turnId, forgetThread]);
+
+  // A finished turn stops being the stream's and becomes the thread's, carrying its answer and its
+  // proposal with it. Nothing on screen changes; the source underneath it does.
+  useEffect(() => {
+    if (!threadId || !turnId || progress.status === "RUNNING") return;
+    void queryClient.invalidateQueries({ queryKey: assistantApi.ASSISTANT_THREAD_KEY(threadId) });
+  }, [threadId, turnId, progress.status, queryClient]);
+
+  // A new question that appears above the fold reads as nothing having happened.
+  useEffect(() => {
+    if (transcript.current) transcript.current.scrollTop = transcript.current.scrollHeight;
+  }, [turnId]);
 
   // The composer rather than the close button: somebody who just pressed "AI Research" wants to
   // type. Guarded on the toggle so restoring a remembered panel never steals the caret.
@@ -98,9 +128,27 @@ export function AssistantPanel({
         </div>
       </div>
 
-      <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto px-3 py-4">
-        {turnId ? (
-          <AssistantTurnView question={question} progress={progress} />
+      <div ref={transcript} className="flex min-h-0 flex-1 flex-col gap-5 overflow-y-auto px-3 py-4">
+        {threadId ? (
+          <>
+            {past.map((turn) => (
+              <AssistantTurnView
+                key={turn.id}
+                turnId={turn.id}
+                threadId={turn.threadId}
+                question={turn.question}
+                progress={progressOf(turn)}
+              />
+            ))}
+            {turnId && (
+              <AssistantTurnView
+                turnId={turnId}
+                threadId={threadId}
+                question={question}
+                progress={progress}
+              />
+            )}
+          </>
         ) : (
           <div className="my-auto">
             <div className="mb-4 text-center">

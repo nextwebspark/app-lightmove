@@ -1,6 +1,7 @@
 import { renderHook, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { useAssistantTurn } from "./useAssistantTurn";
+import type { AssistantTurn } from "../api/types";
+import { progressOf, useAssistantTurn } from "./useAssistantTurn";
 
 const streamEvents = vi.hoisted(() => vi.fn());
 vi.mock("../../../lib/apiClient", () => ({ streamEvents }));
@@ -181,10 +182,125 @@ describe("useAssistantTurn", () => {
     expect(result.current.steps[1].running).toBe(true);
   });
 
+  it("carries the card the assistant put forward", async () => {
+    const stream = connection();
+    const { result } = renderHook(() => useAssistantTurn("t1"));
+
+    stream.frame(1, "proposal", {
+      projectId: "p1",
+      title: "6 companies not yet in your universe",
+      companies: [
+        { ref: "c1", origin: "UNIVERSE", apolloAccountId: "a1", companyName: "Marafiq",
+          country: "Saudi Arabia", employees: 2400 },
+      ],
+    });
+
+    await waitFor(() => expect(result.current.proposal?.title).toBe(
+      "6 companies not yet in your universe",
+    ));
+    expect(result.current.proposal?.companies).toHaveLength(1);
+    expect(result.current.proposal?.accepted).toBeNull();
+  });
+
+  // A card is a set of tick boxes. One drawn from a payload this build cannot read would file
+  // nothing when pressed, which is worse than never offering it.
+  it("ignores a proposal it cannot read rather than drawing half of one", async () => {
+    const stream = connection();
+    const { result } = renderHook(() => useAssistantTurn("t1"));
+
+    stream.frame(1, "proposal", { projectId: "p1", title: "Six companies" });
+    stream.frame(2, "message.delta", { text: "done" });
+
+    await waitFor(() => expect(result.current.answer).toBe("done"));
+    expect(result.current.proposal).toBeNull();
+  });
+
+  it("drops a row with no ref, because the accept names refs", async () => {
+    const stream = connection();
+    const { result } = renderHook(() => useAssistantTurn("t1"));
+
+    stream.frame(1, "proposal", {
+      projectId: "p1",
+      title: "Two companies",
+      companies: [
+        { ref: "c1", origin: "UNIVERSE", companyName: "Marafiq" },
+        { origin: "UNIVERSE", companyName: "Nothing can file this" },
+      ],
+    });
+
+    await waitFor(() => expect(result.current.proposal?.companies).toHaveLength(1));
+    expect(result.current.proposal?.companies[0].ref).toBe("c1");
+  });
+
+  it("puts the outcome on the card it belongs to", async () => {
+    const stream = connection();
+    const { result } = renderHook(() => useAssistantTurn("t1"));
+
+    stream.frame(1, "proposal", {
+      projectId: "p1",
+      title: "Two companies",
+      companies: [{ ref: "c1", origin: "UNIVERSE", companyName: "Marafiq" }],
+    });
+    stream.frame(2, "proposal.accepted", {
+      status: "shortlisted",
+      refs: ["c1"],
+      added: 1,
+      skipped: 0,
+    });
+
+    await waitFor(() => expect(result.current.proposal?.accepted).toEqual({
+      status: "shortlisted",
+      refs: ["c1"],
+      added: 1,
+      skipped: 0,
+    }));
+  });
+
   it("opens nothing at all without a turn", () => {
     connection();
     renderHook(() => useAssistantTurn(null));
 
     expect(streamEvents).not.toHaveBeenCalled();
+  });
+});
+
+describe("progressOf", () => {
+  // A finished turn and a running one are drawn by the same component, so they arrive in one shape.
+  it("reads a stored turn as a turn with nothing left running", () => {
+    const turn = {
+      id: "t1",
+      threadId: "th1",
+      status: "SUCCEEDED",
+      question: "Top IPPs in Saudi Arabia",
+      answer: "Thirty-eight match your filter.",
+      errorCode: null,
+      proposal: { projectId: "p1", title: "Six companies", companies: [], accepted: null },
+      createdAt: "2026-01-01T00:00:00Z",
+      finishedAt: "2026-01-01T00:01:00Z",
+    } satisfies AssistantTurn;
+
+    expect(progressOf(turn)).toEqual({
+      answer: "Thirty-eight match your filter.",
+      // Empty and staying empty: tool events reach no DTO, and a finished turn's steps described
+      // work that is over.
+      steps: [],
+      status: "SUCCEEDED",
+      errorCode: null,
+      proposal: turn.proposal,
+    });
+  });
+
+  it("reads an unanswered turn as empty prose rather than the word null", () => {
+    expect(progressOf({
+      id: "t1",
+      threadId: "th1",
+      status: "RUNNING",
+      question: "q",
+      answer: null,
+      errorCode: null,
+      proposal: null,
+      createdAt: "2026-01-01T00:00:00Z",
+      finishedAt: null,
+    }).answer).toBe("");
   });
 });
