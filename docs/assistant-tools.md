@@ -258,11 +258,30 @@ proposing one and then dropping it on the way in is the dishonest count this iss
 so the tool filters before the event is written. One ruled out *between* the two shows up in
 `skipped`, which is the honest answer.
 
-**A proposal is accepted once.** The mockup files the ticked rows and puts the card away, and
-matching that removes a double-click race — two appends allocating the same `seq` would fail on
-V65's unique index — while a second accept could only ever report "added 0", which reads as a
-failure to someone who just watched the first one work. So "these eight to universe, those two
-declined" is two proposals rather than one accept twice.
+**A proposal is accepted once, and not while its turn is still answering.** Both rules exist
+because `AssistantEventAppender` allocates `max(seq) + 1` and is safe only while a turn has one
+writer, and the accept is a *second* writer — on a Tomcat thread, appending to a log the worker may
+still own.
+
+That window is the ordinary case, not a corner of one. `proposeCompanies` runs inside the tool loop,
+its event reaches the browser over SSE immediately, and the card renders there and then — while the
+model is still generating, `sink.delta` still appending and `store.succeed` yet to write the answer.
+A consultant who ticks and accepts before the answer finishes would put both threads on that
+allocation together, and whichever lost V65's unique index would either 500 the accept or, worse,
+roll back `store.succeed` and end a perfectly good answer as a `FAILED` turn. So an accept on a
+`RUNNING` turn is refused with `ASSISTANT_TURN_STILL_ANSWERING`, which leaves one writer again.
+
+Accepted-once is then a read followed by an act, so two accepts arriving together both pass the
+check. The rows survive that — `addSelected` ignores held companies and `capture` answers
+`TRIAGE_COMPANY_ALREADY_HELD`, counted as a skip — so nothing is filed twice and exactly one event
+lands. The loser collides on the unique index, and that collision is translated into the
+`ASSISTANT_PROPOSAL_ALREADY_ACCEPTED` written for it rather than surfacing as a 500. Caught outside
+the appender's own transaction, which is the distinction its javadoc draws.
+
+Beyond the race, accepted-once matches the mockup — it files the ticked rows and puts the card away
+— and a second accept could only ever report "added 0", which reads as a failure to someone who just
+watched the first one work. So "these eight to universe, those two declined" is two proposals rather
+than one accept twice.
 
 **The outcome is a second event, not an edit.** `AssistantEvent` is `@Immutable` behind a
 `BEFORE UPDATE` trigger, so `proposal.accepted` is appended beside the proposal and read alongside

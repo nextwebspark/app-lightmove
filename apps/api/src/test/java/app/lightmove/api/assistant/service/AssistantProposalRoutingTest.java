@@ -12,9 +12,11 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import app.lightmove.api.assistant.constant.AssistantEventKind;
+import app.lightmove.api.assistant.constant.AssistantTurnStatus;
 import app.lightmove.api.assistant.dto.AcceptProposalRequest;
 import app.lightmove.api.assistant.model.AssistantEvent;
 import app.lightmove.api.assistant.model.AssistantProposal;
+import app.lightmove.api.assistant.model.AssistantTurn;
 import app.lightmove.api.assistant.model.ProposalOrigin;
 import app.lightmove.api.assistant.model.ProposedCompany;
 import app.lightmove.api.assistant.repository.AssistantEventRepository;
@@ -30,10 +32,12 @@ import app.lightmove.api.triagecompany.dto.TriageBulkAddResponse;
 import app.lightmove.api.triagecompany.service.TriageCompanyService;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.UUID;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
+import org.springframework.dao.DataIntegrityViolationException;
 import tools.jackson.core.type.TypeReference;
 import tools.jackson.databind.ObjectMapper;
 
@@ -160,9 +164,57 @@ class AssistantProposalRoutingTest {
     }
 
     @Test
+    @DisplayName("a turn still answering is refused, because its worker is still allocating seqs")
+    void refusesWhileTheTurnIsStillWriting() {
+        proposalOf(AssistantTurnStatus.RUNNING, universe("c1", "a1"));
+
+        assertThatThrownBy(() -> service.accept(TURN, USER, WORKSPACE,
+                new AcceptProposalRequest(List.of("c1"), null), null))
+                .isInstanceOf(ApiException.class)
+                .extracting("code").isEqualTo(ErrorCode.ASSISTANT_TURN_STILL_ANSWERING);
+
+        // The card is live from the moment the proposal event reaches the browser, which is
+        // mid-stream — so this is the ordinary path, not a corner of one.
+        verify(triage, never()).addSelected(any(), any(), any(), any(), any(), any());
+    }
+
+    @Test
+    @DisplayName("an accept that loses the race to another gets the 409, not the collision")
+    void answersALostRaceWithTheConflictWrittenForIt() {
+        proposalOf(universe("c1", "a1"));
+        when(triage.addSelected(any(), any(), any(), any(), any(), any()))
+                .thenReturn(new TriageBulkAddResponse(1, 0));
+        when(appender.append(any(), any(), any()))
+                .thenThrow(new DataIntegrityViolationException("app_lm_assistant_event_seq_uk"));
+        when(events.findByTurnIdAndKindInOrderBySeqAsc(eq(TURN), anyList()))
+                .thenReturn(List.of(proposalEvent(universe("c1", "a1"))))
+                .thenReturn(List.of(proposalEvent(universe("c1", "a1")), acceptedEvent()));
+
+        assertThatThrownBy(() -> service.accept(TURN, USER, WORKSPACE,
+                new AcceptProposalRequest(List.of("c1"), null), null))
+                .isInstanceOf(ApiException.class)
+                .extracting("code").isEqualTo(ErrorCode.ASSISTANT_PROPOSAL_ALREADY_ACCEPTED);
+    }
+
+    @Test
+    @DisplayName("a collision with no accepted event behind it is not disguised as a conflict")
+    void rethrowsACollisionThatIsNotADoubleAccept() {
+        proposalOf(universe("c1", "a1"));
+        when(triage.addSelected(any(), any(), any(), any(), any(), any()))
+                .thenReturn(new TriageBulkAddResponse(1, 0));
+        when(appender.append(any(), any(), any()))
+                .thenThrow(new DataIntegrityViolationException("something else entirely"));
+
+        assertThatThrownBy(() -> service.accept(TURN, USER, WORKSPACE,
+                new AcceptProposalRequest(List.of("c1"), null), null))
+                .isInstanceOf(DataIntegrityViolationException.class);
+    }
+
+    @Test
     @DisplayName("someone else's turn answers 404, never 403")
     void hidesAnotherPersonsTurn() {
-        when(turns.existsByIdAndWorkspaceIdAndActorUserId(any(), any(), any())).thenReturn(false);
+        when(turns.findByIdAndWorkspaceIdAndActorUserId(any(), any(), any()))
+                .thenReturn(Optional.empty());
 
         assertThatThrownBy(() -> service.accept(TURN, USER, WORKSPACE,
                 new AcceptProposalRequest(List.of("c1"), null), null))
@@ -171,7 +223,14 @@ class AssistantProposalRoutingTest {
     }
 
     private void proposalOf(ProposedCompany... companies) {
-        when(turns.existsByIdAndWorkspaceIdAndActorUserId(TURN, WORKSPACE, USER)).thenReturn(true);
+        proposalOf(AssistantTurnStatus.SUCCEEDED, companies);
+    }
+
+    private void proposalOf(AssistantTurnStatus status, ProposedCompany... companies) {
+        AssistantTurn turn = mock(AssistantTurn.class);
+        when(turn.getStatus()).thenReturn(status);
+        when(turns.findByIdAndWorkspaceIdAndActorUserId(TURN, WORKSPACE, USER))
+                .thenReturn(Optional.of(turn));
         when(events.findByTurnIdAndKindInOrderBySeqAsc(eq(TURN), anyList()))
                 .thenReturn(List.of(proposalEvent(companies)));
     }

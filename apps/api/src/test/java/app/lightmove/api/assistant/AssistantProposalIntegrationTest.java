@@ -109,6 +109,34 @@ class AssistantProposalIntegrationTest extends FlowTestSupport {
     }
 
     @Test
+    @DisplayName("a proposal on a turn still answering is refused, not filed")
+    void refusesWhileTheTurnIsStillAnswering() throws Exception {
+        String admin = adminOf("Proposal Racing Firm");
+        String projectId = project(admin);
+        universe.company("a1", "ACWA Power").industry("oil & energy").employees(4_000).insert();
+
+        assistantRunner.gate();
+        try {
+            UUID turnId = runningTurnWithProposal(admin, projectId,
+                    proposed("c1", "a1", "ACWA Power"));
+
+            // The worker is still allocating seqs on this turn's log. Accepting here would put a
+            // Tomcat thread on max(seq) + 1 beside it, and whichever lost V65's unique index would
+            // either 500 the accept or end a good answer as a FAILED turn.
+            mvc.perform(accept(admin, turnId, """
+                            {"refs":["c1"]}"""))
+                    .andExpect(status().isConflict())
+                    .andExpect(jsonPath("$.code").value("ASSISTANT_TURN_STILL_ANSWERING"));
+        } finally {
+            assistantRunner.release();
+        }
+
+        assertThat(db.queryForObject(
+                "SELECT count(*) FROM app_lm_project_triage_company WHERE project_id = ?",
+                Integer.class, UUID.fromString(projectId))).isZero();
+    }
+
+    @Test
     @DisplayName("another person's turn is a 404, and tells them nothing else")
     void hidesAnotherPersonsTurn() throws Exception {
         String admin = adminOf("Proposal Privacy Firm");
@@ -214,19 +242,38 @@ class AssistantProposalIntegrationTest extends FlowTestSupport {
         String turnId = accepted.get("id").asText();
         awaitTurnSettled(token, accepted.get("threadId").asText(), turnId);
 
+        UUID turn = UUID.fromString(turnId);
+        appendProposal(turn, projectId, companies);
+        return turn;
+    }
+
+    private void appendProposal(UUID turnId, String projectId, ProposedCompany... companies) {
         AssistantProposal proposal = new AssistantProposal(UUID.fromString(projectId), "Six IPPs",
                 List.of(companies));
-        UUID turn = UUID.fromString(turnId);
-        events.save(AssistantEvent.of(turn, events.maxSeq(turn) + 1, AssistantEventKind.PROPOSAL,
+        events.save(AssistantEvent.of(turnId, events.maxSeq(turnId) + 1, AssistantEventKind.PROPOSAL,
                 json.convertValue(proposal, new TypeReference<Map<String, Object>>() {
                 })));
-        return turn;
     }
 
     /** A universe row as the tool would have resolved it — the name is the market's, as it must be. */
     private static ProposedCompany proposed(String ref, String apolloAccountId, String companyName) {
         return new ProposedCompany(ref, ProposalOrigin.UNIVERSE, apolloAccountId, companyName,
                 "Saudi Arabia", 400);
+    }
+
+    /** A turn held open by the gated runner, with a proposal already on its log. */
+    private UUID runningTurnWithProposal(String token, String projectId, ProposedCompany... companies)
+            throws Exception {
+        UUID turnId = UUID.fromString(body(mvc.perform(post("/api/v1/assistant/ask")
+                        .header("Authorization", "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"question":"Top IPPs in Saudi Arabia","projectId":"%s"}"""
+                                .formatted(projectId)))
+                .andExpect(status().isAccepted())
+                .andReturn()).get("id").asText());
+        appendProposal(turnId, projectId, companies);
+        return turnId;
     }
 
     private UUID threadOf(UUID turnId) {

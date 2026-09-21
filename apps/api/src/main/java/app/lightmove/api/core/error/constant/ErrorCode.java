@@ -278,6 +278,18 @@ public enum ErrorCode {
             "The assistant is busy. Try again in a moment"),
 
     /**
+     * A proposal cannot be filed while its own turn is still answering.
+     *
+     * <p>Not a policy so much as arithmetic. {@code AssistantEventAppender} allocates
+     * {@code max(seq) + 1} and is safe because a turn has one writer at a time; the card renders the
+     * moment the {@code proposal} event reaches the browser, which is mid-stream, so an accept
+     * arriving then would put a request thread and the worker on that allocation together. One of
+     * them loses V65's unique index — and if it is the worker, a good answer ends as a FAILED turn.
+     */
+    ASSISTANT_TURN_STILL_ANSWERING(HttpStatus.CONFLICT,
+            "Wait for the answer to finish before filing these"),
+
+    /**
      * The proposal on this turn has already been filed. A conflict rather than a quiet re-run: the
      * rows would be deduplicated anyway, so a second accept could only ever report "added 0", which
      * reads as a failure to a person who just watched the first one work.
