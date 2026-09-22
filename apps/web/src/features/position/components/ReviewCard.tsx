@@ -40,12 +40,12 @@ export function ReviewCard({
     >
       <div className="flex flex-wrap items-center gap-2.5">
         <Icon d={step.icon} size={16} className="flex-none text-u-text2" />
-        <span className="text-[15px] font-semibold text-u-text">{step.name}</span>
+        <span className="text-lead font-semibold text-u-text">{step.name}</span>
         <StatusBadge tone={done ? "complete" : "attention"}>{done ? "Complete" : "Needs attention"}</StatusBadge>
         {canEdit && (
           <Link
             to={{ search: `?${STEP_PARAM}=${step.key}` }}
-            className="ms-auto inline-flex items-center gap-1.5 text-[13px] font-medium text-u-accent hover:underline"
+            className="ms-auto inline-flex items-center gap-1.5 text-body font-medium text-u-accent hover:underline"
           >
             Edit section
             <Icon d={ICONS.pencil} size={13} />
@@ -59,13 +59,13 @@ export function ReviewCard({
             <dt>
               <Eyebrow>{field.label}</Eyebrow>
             </dt>
-            <dd className="mt-1 truncate text-[14px] text-u-text">{field.value}</dd>
+            <dd className="mt-1 truncate text-body text-u-text">{field.value}</dd>
           </div>
         ))}
       </dl>
 
       {attention && (
-        <div className="mt-4 flex items-center gap-2.5 rounded-[8px] bg-u-signal-tint px-3.5 py-2.5 text-[12.5px] text-u-signal">
+        <div className="mt-4 flex items-center gap-2.5 rounded-[8px] bg-u-signal-tint px-3.5 py-2.5 text-note text-u-signal">
           <Icon d={ICONS.warning} size={14} className="flex-none" />
           {attention}
         </div>

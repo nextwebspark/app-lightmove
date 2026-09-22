@@ -58,7 +58,7 @@ export function IdealProfileField({
           rows={6}
           onChange={(event) => onChange(event.target.value || null)}
           onBlur={() => setEditing(false)}
-          className="w-full resize-y rounded-[11px] border border-u-accent bg-u-surface px-4 py-3.5 text-[14px] leading-[1.7] text-u-text outline-none"
+          className="w-full resize-y rounded-[11px] border border-u-accent bg-u-surface px-4 py-3.5 text-body leading-[1.7] text-u-text outline-none"
         />
       ) : (
         <BriefPanel className="px-4 py-3.5">
@@ -66,7 +66,7 @@ export function IdealProfileField({
             ref={prose}
             style={expanded ? undefined : CLAMP}
             onClick={() => setEditing(true)}
-            className={text ? "cursor-text text-[14px] leading-[1.7] text-u-text2" : "cursor-text text-[14px] leading-[1.7] text-u-text3"}
+            className={text ? "cursor-text text-body leading-[1.7] text-u-text2" : "cursor-text text-body leading-[1.7] text-u-text3"}
           >
             {text || "Describe the ideal profile — the person this mandate is looking for."}
           </p>
@@ -75,7 +75,7 @@ export function IdealProfileField({
               <button
                 type="button"
                 onClick={() => setExpanded((current) => !current)}
-                className="text-[13px] font-semibold text-u-accent hover:underline"
+                className="text-body font-semibold text-u-accent hover:underline"
               >
                 {expanded ? "Show less" : "Show more"}
               </button>
@@ -83,7 +83,7 @@ export function IdealProfileField({
             <button
               type="button"
               onClick={() => setEditing(true)}
-              className="ms-auto inline-flex items-center gap-1.5 text-[12px] font-medium text-u-text3 hover:text-u-text"
+              className="ms-auto inline-flex items-center gap-1.5 text-note font-medium text-u-text3 hover:text-u-text"
             >
               <Icon d={ICONS.pencil} size={12} />
               Edit

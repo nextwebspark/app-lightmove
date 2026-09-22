@@ -51,6 +51,7 @@ export function CompetencyTable({
   rows,
   locked,
   receipt,
+  fileName,
   onChange,
   onToggleLock,
   onReorder,
@@ -62,6 +63,8 @@ export function CompetencyTable({
   locked: ReadonlySet<string>;
   /** This panel's own slice of the assessment-screen receipt, for a filled row's snippet and Undo. */
   receipt?: ListReceipt;
+  /** The document that receipt was read from, which the row's popover names. */
+  fileName?: string;
   onChange: (rows: IdentifiedCompetency[]) => void;
   onToggleLock: (id: string) => void;
   onReorder: (fromId: string, toId: string) => void;
@@ -143,6 +146,7 @@ export function CompetencyTable({
                     panelTitle={title}
                     locked={locked.has(row.id)}
                     marker={receipt?.appended[row.name]}
+                    fileName={fileName}
                     onPatch={(changes) => patch(index, changes)}
                     // Committing a typed weight is a hand edit too, even though it goes through
                     // `rebalance` rather than `patch` — the one row a person actually set is stamped
@@ -165,7 +169,7 @@ export function CompetencyTable({
           </DndContext>
 
           {rows.length === 0 && (
-            <p className="px-4 py-3 text-[12.5px] text-u-text3">No competencies yet.</p>
+            <p className="px-4 py-3 text-note text-u-text3">No competencies yet.</p>
           )}
         </div>
       </div>
@@ -185,6 +189,7 @@ function CompetencyRow({
   panelTitle,
   locked,
   marker,
+  fileName,
   onPatch,
   onCommitWeight,
   onToggleLock,
@@ -196,6 +201,7 @@ function CompetencyRow({
   panelTitle: string;
   locked: boolean;
   marker?: { confidence: ProposalConfidence; snippet: string | null };
+  fileName?: string;
   onPatch: (changes: Partial<IdentifiedCompetency>) => void;
   onCommitWeight: (weight: number) => void;
   onToggleLock: () => void;
@@ -247,7 +253,7 @@ function CompetencyRow({
         value={row.name}
         aria-label={`${panelTitle} competency ${index + 1} name`}
         onChange={(event) => onPatch({ name: event.target.value })}
-        className="min-w-0 bg-transparent text-[14px] font-medium text-u-text outline-none"
+        className="min-w-0 bg-transparent text-body font-medium text-u-text outline-none"
       />
 
       <input
@@ -255,7 +261,7 @@ function CompetencyRow({
         aria-label={`${named} description`}
         placeholder="What this measures…"
         onChange={(event) => onPatch({ description: event.target.value || null })}
-        className="min-w-0 bg-transparent text-[13px] text-u-text2 outline-none placeholder:text-u-text3/70"
+        className="min-w-0 bg-transparent text-body text-u-text2 outline-none placeholder:text-u-text3/70"
       />
 
       <span className="flex items-center justify-end gap-0.5">
@@ -271,16 +277,22 @@ function CompetencyRow({
             event.preventDefault();
             commitWeight();
           }}
-          className="w-9 border-b border-transparent bg-transparent text-end font-u-num text-[14px] text-u-text outline-none transition focus:border-u-accent disabled:opacity-60"
+          className="w-9 border-b border-transparent bg-transparent text-end font-u-num text-body text-u-text outline-none transition focus:border-u-accent disabled:opacity-60"
         />
-        <span className="font-u-num text-[13px] text-u-text3">%</span>
+        <span className="font-u-num text-body text-u-text3">%</span>
       </span>
 
       {/* Its own grid cell, always rendered, even though the marker inside renders nothing for a row
           that was not read: the row's later columns are placed by DOM order, and a child that
           sometimes renders null would shift the lock button and the remove dot left when it does. */}
       <span className="flex items-center justify-center">
-        <ProvenanceMarker source={row.source} confidence={marker?.confidence} snippet={marker?.snippet} onUndo={onUndo} />
+        <ProvenanceMarker
+          source={row.source}
+          confidence={marker?.confidence}
+          snippet={marker?.snippet}
+          fileName={marker && fileName}
+          onUndo={onUndo}
+        />
       </span>
 
       <button

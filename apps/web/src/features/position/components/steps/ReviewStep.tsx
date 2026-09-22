@@ -34,7 +34,7 @@ export function ReviewStep({
   return (
     <div className="flex flex-col gap-4">
       {published && (
-        <div className="flex flex-wrap items-center gap-3 rounded-[10px] bg-u-direct-tint px-4 py-3 text-[13px] text-u-direct">
+        <div className="flex flex-wrap items-center gap-3 rounded-[10px] bg-u-direct-tint px-4 py-3 text-body text-u-direct">
           <Icon d={ICONS.checkCircle} size={16} className="flex-none" />
           <span className="min-w-0">
             Position profile published
@@ -45,7 +45,7 @@ export function ReviewStep({
             <button
               type="button"
               onClick={onWithdraw}
-              className="ms-auto text-[12px] font-semibold text-u-text3 hover:text-u-offlimits hover:underline"
+              className="ms-auto text-note font-semibold text-u-text3 hover:text-u-offlimits hover:underline"
             >
               Withdraw publication
             </button>
@@ -67,8 +67,8 @@ export function ReviewStep({
       ))}
 
       <BriefPanel className="px-6 py-5">
-        <span className="block text-[15px] font-semibold text-u-text">Publication readiness</span>
-        <span className="mt-0.5 block text-[12.5px] text-u-text3">
+        <span className="block text-lead font-semibold text-u-text">Publication readiness</span>
+        <span className="mt-0.5 block text-note text-u-text3">
           What a complete brief states, so a client reads a position and not a draft.
         </span>
         <ul className="mt-4 flex flex-col gap-3">
@@ -82,11 +82,11 @@ export function ReviewStep({
               >
                 <Icon d={item.met ? ICONS.check : ICONS.warning} size={11} />
               </span>
-              <span className={cn("text-[13.5px]", item.met ? "text-u-text" : "text-u-text2")}>{item.label}</span>
+              <span className={cn("text-body", item.met ? "text-u-text" : "text-u-text2")}>{item.label}</span>
             </li>
           ))}
         </ul>
-        <p className="mt-4 flex items-center gap-2 border-t border-u-border pt-3.5 text-[12px] text-u-text3">
+        <p className="mt-4 flex items-center gap-2 border-t border-u-border pt-3.5 text-note text-u-text3">
           <Icon d={ICONS.info} size={13} className="flex-none" />
           These checks report. Publishing records that the brief is ready and freezes nothing.
         </p>

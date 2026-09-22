@@ -46,7 +46,7 @@ function ShareCard({
 }) {
   return (
     <BriefPanel className="px-5 py-4">
-      <span className="flex items-center gap-2 text-[13px] font-medium text-u-text">
+      <span className="flex items-center gap-2 text-body font-medium text-u-text">
         <span className={cn("size-2 rounded-full", tone === "accent" ? "bg-u-accent" : "bg-u-signal")} />
         {label}
       </span>
@@ -59,7 +59,7 @@ function ShareCard({
           onChange={(value) => onChange(value ?? 0)}
           className="w-[4.5ch] border-transparent focus:border-u-accent"
         />
-        <span className="font-u-num text-[22px] text-u-text2">%</span>
+        <span className="font-u-num text-subhead text-u-text2">%</span>
       </span>
     </BriefPanel>
   );

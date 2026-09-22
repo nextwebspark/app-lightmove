@@ -56,7 +56,7 @@ export function BenefitsTable({
               value={benefit.name}
               aria-label={`Benefit ${index + 1} name`}
               onChange={(event) => patch(index, { name: event.target.value })}
-              className="min-w-0 bg-transparent text-[14px] text-u-text outline-none"
+              className="min-w-0 bg-transparent text-body text-u-text outline-none"
             />
             <FigureInput
               grouped
@@ -64,7 +64,7 @@ export function BenefitsTable({
               aria-label={`${benefit.name} amount`}
               placeholder="–"
               onChange={(amount) => patch(index, { amount })}
-              className="border-transparent text-center text-[14px] focus:border-u-accent"
+              className="border-transparent text-center text-body focus:border-u-accent"
             />
             <ChipGroup
               size="sm"
@@ -95,7 +95,7 @@ export function BenefitsTable({
                 event.preventDefault();
                 add();
               }}
-              className="min-w-0 flex-1 bg-transparent text-[14px] text-u-text outline-none placeholder:text-u-text3"
+              className="min-w-0 flex-1 bg-transparent text-body text-u-text outline-none placeholder:text-u-text3"
             />
           </div>
           <FigureInput
@@ -104,7 +104,7 @@ export function BenefitsTable({
             aria-label="New benefit amount"
             placeholder="–"
             onChange={(amount) => setDraft({ ...draft, amount })}
-            className="border-transparent text-center text-[14px] focus:border-u-accent"
+            className="border-transparent text-center text-body focus:border-u-accent"
           />
           <ChipGroup
             size="sm"
@@ -114,7 +114,7 @@ export function BenefitsTable({
             onChange={(frequency) => frequency && setDraft({ ...draft, frequency })}
             className="flex-nowrap justify-center"
           />
-          <BriefButton variant="link" onClick={add} aria-label="Add benefit" className="px-0 text-[12px]">
+          <BriefButton variant="link" onClick={add} aria-label="Add benefit" className="px-0 text-note">
             Add
           </BriefButton>
         </div>

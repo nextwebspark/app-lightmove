@@ -15,7 +15,7 @@ export function PackageSummary({ compensation }: { compensation: Compensation })
   return (
     <BriefPanel tone="accent" className="px-6 py-5">
       <Eyebrow>Total target annual package</Eyebrow>
-      <div className="mt-3 font-u-num text-[26px] font-medium tracking-[-0.02em] text-u-text sm:text-[30px]">
+      <div className="mt-3 font-u-num text-figure font-medium tracking-[-0.02em] text-u-text">
         {total.min === null || total.max === null
           ? "—"
           : `${formatAmount(currency, total.min)} – ${formatAmount(currency, total.max)}`}
@@ -36,8 +36,8 @@ export function PackageSummary({ compensation }: { compensation: Compensation })
       <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-3">
         {mix.map((row) => (
           <div key={row.label} className="rounded-[8px] border border-u-border bg-u-bg px-3.5 py-3">
-            <span className="block text-[12px] text-u-text2">{row.label}</span>
-            <span className="mt-1 block font-u-num text-[15px] font-medium text-u-text">
+            <span className="block text-note text-u-text2">{row.label}</span>
+            <span className="mt-1 block font-u-num text-lead font-medium text-u-text">
               {formatAmount(currency, row.amount)}
             </span>
           </div>

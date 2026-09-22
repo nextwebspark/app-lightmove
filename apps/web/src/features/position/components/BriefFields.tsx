@@ -21,7 +21,7 @@ export function Eyebrow({
   return (
     <span
       className={cn(
-        "block text-[10px] font-semibold uppercase tracking-[0.12em]",
+        "block text-eyebrow font-semibold uppercase tracking-[0.12em]",
         tone === "inferred" ? "text-u-inferred" : "text-u-text3",
         className,
       )}
@@ -57,7 +57,7 @@ export function FieldBlock({
 }
 
 const UNDERLINE =
-  "w-full border-b border-u-border bg-transparent py-2 text-[15px] text-u-text outline-none transition " +
+  "w-full border-b border-u-border bg-transparent py-2 text-lead text-u-text outline-none transition " +
   "placeholder:text-u-text3 focus:border-u-accent";
 
 /** Text on a hairline — the brief's plain field. */
@@ -134,7 +134,7 @@ export function ChipGroup<T extends string>({
             onClick={() => onChange(selected && allowClear ? null : option.value)}
             className={cn(
               "rounded-full border font-medium transition",
-              size === "sm" ? "px-2.5 py-[3px] text-[11.5px]" : "px-3.5 py-1.5 text-[13px]",
+              size === "sm" ? "px-2.5 py-[3px] text-note" : "px-3.5 py-1.5 text-body",
               selected
                 ? CHIP_TONES[option.tone ?? "accent"]
                 : "border-u-border-strong bg-u-bg text-u-text2 hover:border-u-text3 hover:text-u-text",
@@ -186,10 +186,10 @@ export function ChoiceCard({
       )}
     >
       <span className="min-w-0">
-        <span className={cn("block text-[14px] font-semibold", selected ? "text-u-text" : "text-u-text2")}>
+        <span className={cn("block text-body font-semibold", selected ? "text-u-text" : "text-u-text2")}>
           {title}
         </span>
-        <span className="mt-1 block text-[11.5px] text-u-text3">{body}</span>
+        <span className="mt-1 block text-note text-u-text3">{body}</span>
       </span>
       <span
         aria-hidden="true"
@@ -238,7 +238,7 @@ export function TokenChip({
   onRemove: () => void;
 }) {
   return (
-    <span className="inline-flex items-center gap-2 rounded-[6px] bg-u-raised py-1.5 pe-2 ps-3 text-[12.5px] font-medium text-u-text">
+    <span className="inline-flex items-center gap-2 rounded-[6px] bg-u-raised py-1.5 pe-2 ps-3 text-note font-medium text-u-text">
       {label}
       {marker}
       <RemoveDot label={`Remove ${label}`} onClick={onRemove} />
@@ -272,7 +272,7 @@ export function BriefPanel({
 
 type BriefButtonVariant = "primary" | "outline" | "link";
 
-const BUTTON_BASE = "inline-flex items-center justify-center gap-2 text-[13px] font-semibold transition";
+const BUTTON_BASE = "inline-flex items-center justify-center gap-2 text-body font-semibold transition";
 
 const BUTTON_CLASS: Record<BriefButtonVariant, string> = {
   primary:
@@ -318,7 +318,7 @@ export function BriefButton({
 /** The uppercase heading over a table's column. */
 export function ColumnHead({ children, className }: { children: ReactNode; className?: string }) {
   return (
-    <span className={cn("text-[10px] font-semibold uppercase tracking-[0.1em] text-u-text3", className)}>
+    <span className={cn("text-eyebrow font-semibold uppercase tracking-[0.1em] text-u-text3", className)}>
       {children}
     </span>
   );
@@ -344,7 +344,7 @@ export function StatusBadge({
   return (
     <span
       className={cn(
-        "inline-flex items-center rounded-[5px] border px-2 py-0.5 text-[11px] font-semibold",
+        "inline-flex items-center rounded-[5px] border px-2 py-0.5 text-meta font-semibold",
         BADGE_TONES[tone],
         className,
       )}
@@ -387,7 +387,7 @@ export function FigureInput({
       }}
       className={cn(
         "min-w-0 border-b border-u-border bg-transparent font-u-num text-u-text outline-none transition placeholder:text-u-text3 focus:border-u-accent",
-        size === "lg" ? "py-1 text-[28px] font-medium tracking-[-0.02em]" : "py-1.5 text-[16px]",
+        size === "lg" ? "py-1 text-figure font-medium tracking-[-0.02em]" : "py-1.5 text-lead",
         className,
       )}
     />
