@@ -75,7 +75,7 @@ export function CompensationStep({
             aria-label="Currency"
             value={currency}
             onChange={(event) => onChange({ currency: event.target.value }, true)}
-            className="rounded-[6px] bg-u-raised px-2.5 py-1.5 text-[12px] font-semibold text-u-text outline-none"
+            className="rounded-[6px] bg-u-raised px-2.5 py-1.5 text-note font-semibold text-u-text outline-none"
           >
             {CURRENCIES.map((code) => (
               <option key={code} value={code}>
@@ -117,7 +117,7 @@ export function CompensationStep({
             />
           </div>
           <div className="mt-3 flex items-baseline gap-2">
-            {isFixed && <span className="font-u-num text-[18px] text-u-text2">{currency}</span>}
+            {isFixed && <span className="font-u-num text-subhead text-u-text2">{currency}</span>}
             <FigureInput
               size="lg"
               grouped={isFixed}
@@ -127,12 +127,12 @@ export function CompensationStep({
               onChange={(bonusValue) => onChange({ bonusValue })}
               className={isFixed ? "w-full max-w-[240px]" : "w-[4ch]"}
             />
-            {!isFixed && <span className="font-u-num text-[22px] text-u-text2">%</span>}
+            {!isFixed && <span className="font-u-num text-subhead text-u-text2">%</span>}
           </div>
-          <span className="mt-1 block text-[12.5px] text-u-text3">
+          <span className="mt-1 block text-note text-u-text3">
             {compensation.bonusBasis ? BONUS_CAPTIONS[compensation.bonusBasis] : "choose what the figure is read against"}
           </span>
-          <div className="mt-4 border-t border-u-border pt-3 text-[12.5px] text-u-text2">
+          <div className="mt-4 border-t border-u-border pt-3 text-note text-u-text2">
             Calculated: <span className="font-u-num">{calculatedBonus}</span>
           </div>
         </BriefPanel>
@@ -152,7 +152,7 @@ export function CompensationStep({
             />
           </div>
           <div className="mt-3 flex items-baseline gap-2">
-            <span className="font-u-num text-[18px] text-u-text2">{currency}</span>
+            <span className="font-u-num text-subhead text-u-text2">{currency}</span>
             <FigureInput
               size="lg"
               grouped
@@ -163,14 +163,14 @@ export function CompensationStep({
               className="w-full max-w-[240px]"
             />
           </div>
-          <span className="mt-1 block text-[12.5px] text-u-text3">total value</span>
+          <span className="mt-1 block text-note text-u-text3">total value</span>
           <div className="mt-4 border-t border-u-border pt-2">
             <UnderlineField
               value={compensation.incentiveVesting ?? ""}
               aria-label="Vesting schedule"
               placeholder="Vesting schedule, e.g. 4-year vesting"
               onChange={(event) => onChange({ incentiveVesting: event.target.value || null })}
-              className="border-transparent text-[13px] text-u-text2 focus:border-u-accent"
+              className="border-transparent text-body text-u-text2 focus:border-u-accent"
             />
           </div>
         </BriefPanel>

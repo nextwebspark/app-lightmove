@@ -20,7 +20,7 @@ export function SuggestedTemplateBanner({
   onDismiss: () => void;
 }) {
   return (
-    <BriefPanel className="flex flex-wrap items-center gap-3 border border-u-inferred/25 bg-u-inferred-tint px-4 py-3 text-[13px] text-u-text">
+    <BriefPanel className="flex flex-wrap items-center gap-3 border border-u-inferred/25 bg-u-inferred-tint px-4 py-3 text-body text-u-text">
       <Icon d={ICONS.sparkle} size={14} className="flex-none text-u-inferred" />
       <span className="min-w-0 flex-1">
         This reads like a <b className="font-semibold">{template.title}</b> mandate — draft from that template too?

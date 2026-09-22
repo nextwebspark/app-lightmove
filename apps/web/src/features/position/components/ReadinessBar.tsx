@@ -12,13 +12,13 @@ export function ReadinessBar({ position }: { position: Position }) {
   return (
     <BriefPanel className="px-6 py-4">
       <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
-        <span className="text-[15px] font-semibold text-u-text">
+        <span className="text-lead font-semibold text-u-text">
           Profile readiness
-          <span className={cn("ms-2.5 font-u-num text-[13px] font-medium", complete ? "text-u-direct" : "text-u-signal")}>
+          <span className={cn("ms-2.5 font-u-num text-body font-medium", complete ? "text-u-direct" : "text-u-signal")}>
             {count} of {POSITION_STEPS.length} sections complete
           </span>
         </span>
-        <span className="text-[12px] text-u-text3">{completion(position)}% overall completeness</span>
+        <span className="text-note text-u-text3">{completion(position)}% overall completeness</span>
       </div>
       <div className="mt-3 flex gap-1.5" aria-hidden="true">
         {done.map((isDone, index) => (

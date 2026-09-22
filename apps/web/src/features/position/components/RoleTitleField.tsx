@@ -61,7 +61,7 @@ export function RoleTitleField({
           list.setOpen(true);
         }}
         {...list.inputHandlers}
-        className="text-[17px] font-medium"
+        className="text-subhead font-medium"
       />
 
       {showList && (
@@ -84,8 +84,8 @@ export function RoleTitleField({
                 index === list.active ? "bg-u-accent-tint" : "",
               )}
             >
-              <span className="truncate text-[13px] font-medium text-u-text">{template.title}</span>
-              <span className="min-w-0 flex-1 truncate text-right text-[11px] text-u-text3">
+              <span className="truncate text-body font-medium text-u-text">{template.title}</span>
+              <span className="min-w-0 flex-1 truncate text-right text-meta text-u-text3">
                 {SENIORITY_LABELS[template.seniority]}
                 {template.shared ? "" : " · yours"}
               </span>
