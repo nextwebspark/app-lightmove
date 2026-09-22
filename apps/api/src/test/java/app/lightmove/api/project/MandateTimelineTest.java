@@ -77,6 +77,17 @@ class MandateTimelineTest {
     }
 
     @Test
+    @DisplayName("a shortlist before the start is refused on the shortlist, not on the date it derived")
+    void shortlistBeforeStartNamesItsOwnField() {
+        // The derived mapping target would also land before the start, so the order of the checks is
+        // what decides which field the consultant is sent to.
+        assertThatThrownBy(() -> MandateTimeline.requested(
+                ProjectType.EXECUTIVE_SEARCH, TODAY, null, TODAY.minusDays(10), TODAY))
+                .isInstanceOf(ApiException.class)
+                .hasMessageContaining("shortlist");
+    }
+
+    @Test
     @DisplayName("a shortlist cannot be due before the mapping it draws on")
     void shortlistCannotPrecedeMapping() {
         assertThatThrownBy(() -> MandateTimeline.requested(ProjectType.EXECUTIVE_SEARCH, TODAY,

@@ -61,6 +61,19 @@ class MandateProgressTest {
     }
 
     @Test
+    @DisplayName("the engage clock runs from the mapping target, not from the mandate's start")
+    void engageClockStartsWhenMappingEnds() {
+        // The map finished exactly on its 60-day target, and a day of the engage window has gone.
+        MandateProgress justEngaging =
+                search(START.plusDays(61), new ProjectProgressCounts(40, 40, 10, 0, 0));
+
+        assertThat(justEngaging.activePhase()).isEqualTo(MandatePhase.ENGAGE);
+        // 1 of the 40 days from the mapping target to the shortlist — not 61 of 100 from the start,
+        // which would read as most of the window already spent on work that could not have begun.
+        assertThat(justEngaging.elapsedFraction()).isEqualTo(0.025);
+    }
+
+    @Test
     @DisplayName("a milestone on the start date is spent the day it arrives, not divided by")
     void zeroLengthWindowDoesNotDivideByZero() {
         MandateTimeline sameDay = new MandateTimeline(ProjectType.MAPPING, START, START, null);

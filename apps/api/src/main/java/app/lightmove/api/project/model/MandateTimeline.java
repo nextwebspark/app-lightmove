@@ -64,6 +64,13 @@ public record MandateTimeline(ProjectType type, LocalDate startDate,
                     "Enter the date the shortlist is due");
         }
 
+        // Before deriving anything from it: a shortlist behind the start date would otherwise produce a
+        // mapping target behind it too, and the refusal would name the field the caller never touched.
+        if (shortlist != null && shortlist.isBefore(start)) {
+            throw ApiException.withField(ErrorCode.VALIDATION_FAILED, "shortlistTargetDate",
+                    "The shortlist date cannot fall before the project starts");
+        }
+
         LocalDate mapping = mappingTarget != null || shortlist == null
                 ? mappingTarget
                 : autoMappingTarget(start, shortlist);
@@ -71,10 +78,6 @@ public record MandateTimeline(ProjectType type, LocalDate startDate,
         if (mapping != null && mapping.isBefore(start)) {
             throw ApiException.withField(ErrorCode.VALIDATION_FAILED, "mappingTargetDate",
                     "The mapping date cannot fall before the project starts");
-        }
-        if (shortlist != null && shortlist.isBefore(start)) {
-            throw ApiException.withField(ErrorCode.VALIDATION_FAILED, "shortlistTargetDate",
-                    "The shortlist date cannot fall before the project starts");
         }
         if (mapping != null && shortlist != null && shortlist.isBefore(mapping)) {
             throw ApiException.withField(ErrorCode.VALIDATION_FAILED, "shortlistTargetDate",

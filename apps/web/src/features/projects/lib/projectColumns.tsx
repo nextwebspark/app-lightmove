@@ -91,7 +91,12 @@ export const projectColumns = helper.columns([
     header: "Assignment progress",
     meta: { share: 0, min: 168 },
     sortFn: (a, b) => compareNumber(phaseRank(a.original.progress), phaseRank(b.original.progress)),
-    cell: (info) => <PhaseBar progress={info.row.original.progress} />,
+    cell: (info) => (
+      <PhaseBar
+        progress={info.row.original.progress}
+        projectType={info.row.original.projectType}
+      />
+    ),
   }),
 
   helper.accessor("mappingTargetDate", {

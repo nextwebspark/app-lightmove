@@ -105,7 +105,7 @@ function ProjectCard({ project, onOpen }: { project: Project; onOpen: () => void
           </span>
         </div>
 
-        <PhaseBar progress={project.progress} />
+        <PhaseBar progress={project.progress} projectType={project.projectType} />
 
         <div className="flex items-center gap-2.5 border-t border-line-soft pt-2.5">
           <TeamStack team={project.team} />

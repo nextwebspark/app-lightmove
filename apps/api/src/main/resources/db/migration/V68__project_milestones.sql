@@ -14,6 +14,12 @@
 -- The backfill keeps every existing mandate judged against the date it was already judged against:
 -- target_date was the only deadline anyone could state, so it becomes the mapping target. A lead who
 -- meant something else corrects it on the mandate.
+--
+-- Except where that date predates the mandate itself. Nothing stopped a brief stating a target start
+-- already in the past, and such a row would fail the ordering CHECK below and abort this migration —
+-- taking the deploy with it, since the API cannot boot on a half-applied schema. Those mandates get no
+-- mapping target rather than an impossible one: health reads them as undated, which is the truth,
+-- because that date was never a deadline anybody could still meet.
 
 ALTER TABLE app_lm_project
     ADD COLUMN project_type varchar(32) NOT NULL DEFAULT 'MAPPING'
@@ -24,7 +30,7 @@ ALTER TABLE app_lm_project
 
 UPDATE app_lm_project
 SET start_date          = created_at::date,
-    mapping_target_date = target_date;
+    mapping_target_date = CASE WHEN target_date >= created_at::date THEN target_date END;
 
 -- The default goes again immediately (V40's idiom): from here the type is always written explicitly.
 ALTER TABLE app_lm_project

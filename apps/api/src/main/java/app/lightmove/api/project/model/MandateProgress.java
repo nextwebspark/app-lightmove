@@ -47,24 +47,41 @@ public record MandateProgress(MandateTimeline timeline, ProjectProgressCounts co
                 : fraction(counts.pastIdentified(), counts.candidatesTotal());
     }
 
+    /** Days since the mandate began — the span velocity is a rate over, not the current phase's clock. */
     public int daysElapsed() {
         return (int) Math.max(0, ChronoUnit.DAYS.between(timeline.startDate(), today));
     }
 
     /**
+     * Where the clock for the phase in hand starts: the mandate's own start while it is mapping, and
+     * the mapping target it just met once a search moves on to its shortlist.
+     *
+     * <p>That second case is the point. Measuring the engage half from day one would count the whole
+     * mapping window as time already spent on work that could not begin until the map was done, so a
+     * mandate that finished its map exactly on target would flip to off track on the day it hit it.
+     */
+    private LocalDate phaseStart() {
+        return activePhase() == MandatePhase.MAP || timeline.mappingTarget() == null
+                ? timeline.startDate()
+                : timeline.mappingTarget();
+    }
+
+    /**
      * How much of the window to the governing milestone has been spent. A window of no length — a
-     * milestone on the start date — is spent the moment the day arrives rather than dividing by zero.
+     * milestone on the day the phase opens — is spent the moment that day arrives rather than
+     * dividing by zero.
      */
     public double elapsedFraction() {
         LocalDate milestone = governingMilestone();
         if (milestone == null) {
             return 0;
         }
-        long window = ChronoUnit.DAYS.between(timeline.startDate(), milestone);
+        LocalDate from = phaseStart();
+        long window = ChronoUnit.DAYS.between(from, milestone);
         if (window <= 0) {
             return today.isBefore(milestone) ? 0 : 1;
         }
-        return Math.min(1, daysElapsed() / (double) window);
+        return Math.clamp(ChronoUnit.DAYS.between(from, today) / (double) window, 0, 1);
     }
 
     public boolean milestonePassed() {

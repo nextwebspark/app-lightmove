@@ -22,7 +22,7 @@ export function PhasePipeline({ project }: { project: Project }) {
         </span>
       </div>
 
-      <PhaseBar progress={progress} />
+      <PhaseBar progress={progress} projectType={project.projectType} />
 
       <div className="mt-2 flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1 font-mono text-[11.5px] text-text3">
         <span>Started {formatDate(project.startDate)}</span>

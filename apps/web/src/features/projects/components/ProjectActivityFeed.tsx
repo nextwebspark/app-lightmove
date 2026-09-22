@@ -17,7 +17,10 @@ export function ProjectActivityFeed({ projectId }: { projectId: string }) {
     staleTime: 30 * 1000,
   });
 
-  if (isError) return null;
+  // Nothing at all until the read lands. A client representative is refused this — the feed narrates
+  // the firm's own research — so a heading and a "Loading…" that collapse into a 403 would announce a
+  // section they are never going to see.
+  if (isError || isPending) return null;
 
   return (
     <>
@@ -25,9 +28,7 @@ export function ProjectActivityFeed({ projectId }: { projectId: string }) {
         Recent activity
       </div>
 
-      {isPending ? (
-        <p className="font-mono text-[11px] text-text3">Loading…</p>
-      ) : activity.length === 0 ? (
+      {activity.length === 0 ? (
         <p className="font-mono text-[11px] text-text3">Nothing has happened on this mandate yet</p>
       ) : (
         <ul className="border-l border-line-soft">
