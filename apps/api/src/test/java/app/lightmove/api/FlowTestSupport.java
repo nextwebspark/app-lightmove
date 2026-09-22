@@ -43,6 +43,7 @@ public abstract class FlowTestSupport {
     @Autowired private RecordingCompanyEnricher companyEnricher;
     @Autowired private StubGeocoder geocoder;
     @Autowired protected RecordingAssistantTurnRunner assistantRunner;
+    @Autowired protected RecordingCompanyDiscovery discovery;
     @Autowired private JdbcTemplate vendorCache;
 
     protected String domain;
@@ -56,6 +57,7 @@ public abstract class FlowTestSupport {
         companyEnricher.clear();
         geocoder.clear();
         assistantRunner.clear();
+        discovery.clear();
         // The vendor company cache is global by design (V64), so a slug one class's capture
         // remembered would answer the next class's — and its enricher would never be asked.
         vendorCache.update("DELETE FROM app_lm_vendor_company");
