@@ -7,12 +7,21 @@ import type { TriageCompanySource, TriageCompanyStatus } from "../api/types";
  * saying different things about the same company.
  */
 
-/** "Plugin" rather than "Extension" — that is what people call it. */
+/**
+ * "Plugin" rather than "Extension" — that is what people call it.
+ *
+ * The two machine doors share the assistant's indigo: the colour says a machine found the company
+ * and the label says which one. `assistant` was missing until now, and because the grid reads
+ * `SOURCE_STYLES[source].label` an assistant-filed company threw on render rather than badging
+ * oddly — a shipped crash, not a cosmetic gap.
+ */
 export const SOURCE_STYLES: Record<TriageCompanySource, { label: string; className: string }> = {
   strategy: { label: "Strategy", className: "text-sky bg-sky-dim" },
   manual: { label: "Manual", className: "text-amber bg-amber-dim" },
   extension: { label: "Plugin", className: "text-green bg-green-dim" },
   csv: { label: "Import", className: "text-text2 bg-line-soft" },
+  assistant: { label: "Assistant", className: "text-ai bg-ai-dim" },
+  web: { label: "AI Research", className: "text-ai bg-ai-dim" },
 };
 
 export interface TriageMove {

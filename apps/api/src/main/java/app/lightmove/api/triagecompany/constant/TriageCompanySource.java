@@ -34,7 +34,19 @@ public enum TriageCompanySource {
      * a chat panel is not a consultant ticking a row on the Strategy grid. It is also the only badge
      * that says a machine chose the company and a person only agreed.
      */
-    ASSISTANT("assistant");
+    ASSISTANT("assistant"),
+
+    /**
+     * Found by AI Research's grounded web search and filed by the person who read the row. V68 added
+     * it to the column's CHECK.
+     *
+     * <p>Distinct from {@link #ASSISTANT} although a machine chose both: that badge says a
+     * conversation proposed the company, this one says a search over the open web did, and the two
+     * are read differently by whoever picks the row up later. It is also the only door whose figures
+     * may be absent by design — a company neither the universe nor a vendor carries is filed with
+     * its name and nothing else, because the alternative is a number the model invented.
+     */
+    WEB("web");
 
     private final String wireToken;
 

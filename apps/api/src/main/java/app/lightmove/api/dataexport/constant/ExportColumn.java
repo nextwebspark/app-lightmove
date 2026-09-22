@@ -152,6 +152,7 @@ public enum ExportColumn {
             case EXTENSION -> "Plugin";
             case CSV -> "Import";
             case ASSISTANT -> "Assistant";
+            case WEB -> "AI Research";
         };
     }
 

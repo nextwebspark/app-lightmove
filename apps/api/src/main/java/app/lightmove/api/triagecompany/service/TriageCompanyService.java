@@ -70,9 +70,17 @@ public class TriageCompanyService {
     /** The doors a caller may supply a company through. {@code STRATEGY} is the server's to write. */
     private static final Set<TriageCompanySource> CAPTURABLE_SOURCES =
             Set.of(TriageCompanySource.MANUAL, TriageCompanySource.EXTENSION, TriageCompanySource.CSV,
-                    TriageCompanySource.ASSISTANT);
+                    TriageCompanySource.ASSISTANT, TriageCompanySource.WEB);
 
-    /** The doors that come one company at a time, so resolving and researching each is affordable. */
+    /**
+     * The doors that come one company at a time, so resolving and researching each is affordable.
+     *
+     * <p>{@code ASSISTANT} and {@code WEB} are deliberately out. Both arrive already resolved — the
+     * proposal and the discovery answer each matched the company against the universe before a person
+     * ever saw it — so re-resolving here would repeat work, and {@code announceForResearch} would
+     * spend a billed vendor lookup per filed row against no cap at all. A consultant filing twenty
+     * discovered companies is the case that makes that a bill rather than a rounding error.
+     */
     private static final Set<TriageCompanySource> SUPPLIED_ONE_AT_A_TIME =
             Set.of(TriageCompanySource.MANUAL, TriageCompanySource.EXTENSION);
 
