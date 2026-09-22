@@ -4,7 +4,7 @@ import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it } from "vitest";
 import { AssistantProvider } from "./AssistantProvider";
 import { AssistantLauncher } from "./components/AssistantLauncher";
-import { AssistantPanel } from "./components/AssistantPanel";
+import { AssistantDock } from "./components/AssistantDock";
 
 /**
  * That the assistant opens, closes, and never takes the page hostage while it is open.
@@ -12,6 +12,10 @@ import { AssistantPanel } from "./components/AssistantPanel";
  * <p>The non-modal part is the one worth a test: the whole point of docking it is that a consultant
  * keeps ticking rows in the grid beside it, and `Drawer`'s `aria-modal` would tell a screen reader
  * the rest of the page is gone.
+ *
+ * <p>Mounted through {@link AssistantDock}, which is what a screen renders. A shut panel is behind
+ * `aria-hidden` rather than absent — it stays in the tree long enough to animate out — so the
+ * queries below say the same thing they always did.
  */
 /** A fresh client per test, so one test's in-flight mutation cannot answer the next one's. */
 function mount() {
@@ -19,7 +23,7 @@ function mount() {
     <QueryClientProvider client={new QueryClient()}>
       <AssistantProvider>
         <AssistantLauncher />
-        <AssistantPanel contextLabel="Meridian Energy Group · CFO" projectId="p1" />
+        <AssistantDock contextLabel="Meridian Energy Group · CFO" projectId="p1" />
       </AssistantProvider>
     </QueryClientProvider>,
   );
@@ -104,6 +108,20 @@ describe("the assistant panel", () => {
     mount();
 
     expect(screen.getByRole("complementary", { name: "Uncava Assistant" })).toBeInTheDocument();
+  });
+
+  // The panel outlives the close by the length of the collapse, which is the whole reason shutting it
+  // no longer snaps. What must not outlive it is any way to reach the thing: hidden and untabbable
+  // the moment it starts to go, not when it finishes.
+  it("takes the shut panel out of the page while it animates away", async () => {
+    mount();
+    await userEvent.click(screen.getByRole("button", { name: /ask/i }));
+    const panel = screen.getByRole("complementary", { name: "Uncava Assistant" });
+
+    await userEvent.keyboard("{Escape}");
+
+    expect(panel).toBeInTheDocument();
+    expect(panel.closest("[inert]")).toHaveAttribute("aria-hidden", "true");
   });
 
   it("puts a starter into the composer rather than sending it", async () => {

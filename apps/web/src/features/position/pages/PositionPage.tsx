@@ -45,6 +45,7 @@ import {
   markManualFrom,
   REPORTING_FIELD_KEYS,
 } from "../lib/provenance";
+import { loadReceipts, saveReceipts } from "../lib/receiptStore";
 import { STEP_PARAM, openingStepOf, stepOf, type PositionStep, type StepKey } from "../lib/steps";
 
 const GROUND = "flex flex-1 bg-u-bg text-u-text";
@@ -70,8 +71,8 @@ export function PositionPage() {
   if (isError) {
     return (
       <div className={`${GROUND} items-start justify-center px-4 pt-16`}>
-        <div className="max-w-[440px] rounded-[11px] bg-u-surface px-5 py-4 text-[13px] leading-[1.6] text-u-text2 shadow-u-e1">
-          <span className="mb-1 block text-[15px] font-semibold text-u-text">Couldn't load this brief</span>
+        <div className="max-w-[440px] rounded-[11px] bg-u-surface px-5 py-4 text-body text-u-text2 shadow-u-e1">
+          <span className="mb-1 block text-lead font-semibold text-u-text">Couldn't load this brief</span>
           You may no longer have access to this mandate, or the request failed. Reload the page, and ask the
           project lead if it keeps happening.
         </div>
@@ -130,10 +131,18 @@ function PositionBrief({ projectId, position }: { projectId: string; position: P
   // is exactly when somebody would have left one set.
   const [lockedCompetencies, setLockedCompetencies] = useState<ReadonlySet<string>>(new Set());
 
-  // "Read from document" state — session-only, never persisted. `receipts` is what a screen's strip and
-  // a field's marker read for the snippet and Undo; a reload or a dismissed strip loses it, but the
-  // `source` a fill stamped on the brief itself survives (see lib/documentFill.ts).
-  const [receipts, setReceipts] = useState<Receipts>({});
+  // "Read from document" state — the tab's, never the database's. `receipts` is what a screen's strip
+  // and a field's marker read for the document name, the snippet and the Undo; `lib/receiptStore.ts`
+  // keeps it for the tab, so a reload reads back the same popover rather than a sparkle with nothing
+  // behind it. The `source` a fill stamped on the brief is the half that is persisted, and the only
+  // half that outlives the tab (see lib/documentFill.ts).
+  const [receipts, setReceipts] = useState<Receipts>(() =>
+    loadReceipts(projectId, position.document?.fileName),
+  );
+  const documentName = position.document?.fileName;
+  useEffect(() => {
+    saveReceipts(projectId, documentName, receipts);
+  }, [projectId, documentName, receipts]);
   const [sectionErrors, setSectionErrors] = useState<ReadonlySet<ExtractionSection>>(new Set());
   const [suggestedTemplate, setSuggestedTemplate] = useState<PositionTemplate | null>(null);
   const [usualDirectReports, setUsualDirectReports] = useState<string[] | null>(null);
@@ -853,8 +862,8 @@ function StepHeader({ step, action }: { step: PositionStep; action?: ReactNode }
   return (
     <div className="mb-7 flex flex-wrap items-start justify-between gap-4 min-w-0">
       <div className="min-w-0">
-        <h1 className="text-[23px] font-bold leading-[1.25] tracking-[-0.01em] sm:text-[26px]">{step.heading}</h1>
-        <p className="mt-1.5 max-w-[620px] text-[14px] leading-[1.6] text-u-text2">{step.lede}</p>
+        <h1 className="text-title font-semibold tracking-[-0.01em]">{step.heading}</h1>
+        <p className="mt-1.5 max-w-[620px] text-body text-u-text2">{step.lede}</p>
       </div>
       {action}
     </div>

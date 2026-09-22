@@ -62,11 +62,11 @@ export function DocumentCard({
             <button
               type="button"
               onClick={onDownload}
-              className="block max-w-full truncate text-start text-[13.5px] font-semibold text-u-text hover:text-u-accent hover:underline"
+              className="block max-w-full truncate text-start text-body font-semibold text-u-text hover:text-u-accent hover:underline"
             >
               {document.fileName}
             </button>
-            <span className="mt-0.5 block text-[11.5px] text-u-text3">
+            <span className="mt-0.5 block text-note text-u-text3">
               {fileSizeOf(document.fileSize)} · added {formatInstantDate(document.uploadedAt)}
             </span>
           </div>
@@ -102,7 +102,7 @@ export function DocumentCard({
       )}
 
       {uploading && (
-        <span className="mt-2.5 flex items-center gap-2 text-[11.5px] text-u-text3">
+        <span className="mt-2.5 flex items-center gap-2 text-note text-u-text3">
           <Spinner />
           Uploading…
         </span>

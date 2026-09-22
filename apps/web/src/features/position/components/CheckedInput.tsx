@@ -20,7 +20,7 @@ export function CheckedInput({
         value={value}
         aria-invalid={invalid}
         className={cn(
-          "w-full rounded-lg border bg-panel2 py-2.5 pl-3 pr-9 text-[13.5px] font-medium",
+          "w-full rounded-lg border bg-panel2 py-2.5 pl-3 pr-9 text-body font-medium",
           invalid ? "border-red" : "border-line",
           "text-text outline-none transition focus:border-sky",
         )}

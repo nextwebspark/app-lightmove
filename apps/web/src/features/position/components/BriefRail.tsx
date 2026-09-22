@@ -52,7 +52,7 @@ export function BriefRail({
         <UncavaRailNav label="Brief steps" param={STEP_PARAM} items={stepLinks} activeKey={activeKey} />
 
         <div className="flex flex-wrap items-center gap-2 lg:mt-auto lg:flex-col lg:items-stretch lg:pt-6">
-          <span aria-live="polite" className="text-[11px] text-u-text3 lg:mb-1 lg:text-center">
+          <span aria-live="polite" className="text-meta text-u-text3 lg:mb-1 lg:text-center">
             {saveStatus === "saving" ? "Saving…" : saveStatus === "saved" ? "Saved" : " "}
           </span>
           <BriefButton

@@ -347,11 +347,20 @@ const POSITION = {
     employmentType: "FULL_TIME_PERMANENT",
     seniority: "N_MINUS_1",
     responsibilities: [
-      "Multi-site operational delivery",
-      "Performance and productivity",
-      "Operating-model design",
+      { text: "Multi-site operational delivery", source: "DOCUMENT" },
+      { text: "Performance and productivity", source: "TEMPLATE" },
+      { text: "Operating-model design", source: "MANUAL" },
     ],
     narrative: "The group is consolidating four downstream plants under one operating leader.",
+    // A brief a document has been read into, so the sweep sees the provenance glyphs too.
+    fieldSources: {
+      department: "TEMPLATE",
+      locationCity: "DOCUMENT",
+      locationCountry: "DOCUMENT",
+      employmentType: "TEMPLATE",
+      seniority: "MANUAL",
+      narrative: "TEMPLATE",
+    },
   },
   context: {
     mandateReason: "GROWTH_EXPANSION",
@@ -363,6 +372,7 @@ const POSITION = {
     ],
     confidential: true,
     internalContext: "Succession for a retiring incumbent, confidential until Q4.",
+    fieldSources: { mandateReason: "DOCUMENT", businessDriver: "DOCUMENT" },
   },
   reporting: {
     orgChart: [
@@ -407,6 +417,7 @@ const POSITION = {
     targetStart: "2026-11-30",
     noticeValue: 3,
     noticeUnit: "MONTHS",
+    fieldSources: { teamSize: "DOCUMENT", noticeValue: "DOCUMENT", noticeUnit: "DOCUMENT" },
   },
   compensation: {
     currency: "AED",
@@ -429,18 +440,23 @@ const POSITION = {
       {
         text: "Ran a multi-site downstream manufacturing P&L above USD 500m",
         mode: "REQUIRED",
-        fromBrief: true,
+        source: "TEMPLATE",
       },
-      { text: "GCC operating experience", mode: "PREFERRED", fromBrief: true },
+      { text: "GCC operating experience", mode: "PREFERRED", source: "DOCUMENT" },
     ],
     technical: [
-      { name: "Operational excellence", description: "Runs the operation on measures", weight: 40 },
-      { name: "Capital projects", description: null, weight: 35 },
-      { name: "Commercial acumen", description: null, weight: 25 },
+      {
+        name: "Operational excellence",
+        description: "Runs the operation on measures",
+        weight: 40,
+        source: "DOCUMENT",
+      },
+      { name: "Capital projects", description: null, weight: 35, source: "TEMPLATE" },
+      { name: "Commercial acumen", description: null, weight: 25, source: "MANUAL" },
     ],
     behavioural: [
-      { name: "Executive presence", description: null, weight: 50 },
-      { name: "Change leadership", description: null, weight: 50 },
+      { name: "Executive presence", description: null, weight: 50, source: "TEMPLATE" },
+      { name: "Change leadership", description: null, weight: 50, source: "DOCUMENT" },
     ],
     technicalShare: 60,
   },

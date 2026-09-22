@@ -33,7 +33,7 @@ export function SuggestedSeatsRow({
             key={title}
             type="button"
             onClick={() => onAdd(title)}
-            className="inline-flex items-center gap-1.5 rounded-full border border-u-inferred/40 bg-u-inferred-tint px-3 py-1.5 text-[12.5px] font-medium text-u-inferred transition hover:brightness-95"
+            className="inline-flex items-center gap-1.5 rounded-full border border-u-inferred/40 bg-u-inferred-tint px-3 py-1.5 text-note font-medium text-u-inferred transition hover:brightness-95"
           >
             <Icon d={ICONS.plus} size={12} />
             {title}
