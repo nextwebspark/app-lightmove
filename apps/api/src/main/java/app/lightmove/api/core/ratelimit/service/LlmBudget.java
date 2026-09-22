@@ -30,7 +30,10 @@ public enum LlmBudget {
     ASSESSMENT_EXTRACT("assessment-extract", LlmRateLimitSettings::defaultRequestsPerMinute),
 
     /** Step three's "Read from document" — reporting-structure extraction. */
-    REPORTING_EXTRACT("reporting-extract", LlmRateLimitSettings::defaultRequestsPerMinute);
+    REPORTING_EXTRACT("reporting-extract", LlmRateLimitSettings::defaultRequestsPerMinute),
+
+    /** A captured executive's background inference — nationality, gender, years of experience. */
+    CANDIDATE_BACKGROUND_INFER("candidate-background-infer", LlmRateLimitSettings::defaultRequestsPerMinute);
 
     private final String meter;
     private final ToIntFunction<LlmRateLimitSettings> callsPerMinute;

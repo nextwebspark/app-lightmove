@@ -1,14 +1,16 @@
 package app.lightmove.api.candidate.constant;
 
 /**
- * An executive's gender as a researcher recorded it, for the report's diversity chapter.
+ * An executive's gender, for the report's diversity chapter.
  *
- * <p><b>Recorded, never inferred.</b> Nothing derives this from a name, a photo or a pronoun. The
- * chapter that reads it states what somebody entered, and a mandate where nobody entered anything is
- * reported as unmeasured rather than as a pool of one gender.
+ * <p>A captured executive's profile can propose this value (issue #458, {@code CandidateBackgroundProposer}
+ * reading their name, photo and career for a signal) — a deliberate change from this enum's original
+ * "recorded, never inferred" rule. What the rule protected still holds by another means:
+ * {@code Candidate.aiInferredFields} flags a proposed value until a researcher's own edit changes it,
+ * so nothing this class holds is presented as a fact somebody entered until somebody has looked at it.
  *
- * <p>Absent is not {@link #OTHER}: a null column means nobody said, {@code OTHER} means somebody
- * did. The two are counted separately for that reason.
+ * <p>Absent is not {@link #OTHER}: a null column means nobody said or confirmed one, {@code OTHER}
+ * means somebody did. The two are counted separately for that reason.
  */
 public enum Gender {
 

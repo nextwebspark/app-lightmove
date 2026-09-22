@@ -19,6 +19,7 @@ import { formatNumber } from "../../../lib/format";
 import { NOTICE_PERIODS } from "../../../lib/noticePeriod";
 import { toReadableUrl } from "../../../lib/url";
 import { amountTyped } from "../lib/compensation";
+import type { CandidateBackgroundField } from "../api/types";
 import { EMPTY_CONTACT_LINE, type CandidateForm, type ContactEntryForm } from "../lib/candidateForm";
 import {
   CANDIDATE_GENDERS,
@@ -358,6 +359,27 @@ function AmountField({
 }
 
 /**
+ * A small marker for a value an AI inference proposed that nobody has reviewed yet — see
+ * `Candidate.aiInferredFields`. Amber for the reason a captured row's own source pill is: it is a
+ * fact worth a second look, not yet one this screen is vouching for.
+ */
+export function AiInferredBadge() {
+  return (
+    <span
+      title="AI-suggested from the captured profile — not yet reviewed"
+      className="inline-flex flex-none items-center rounded-[4px] bg-amber-dim px-[5px] py-[1px] font-mono text-[9px] font-bold uppercase tracking-[0.04em] text-amber"
+    >
+      AI
+    </span>
+  );
+}
+
+function backgroundBadge(aiInferred: ReadonlySet<CandidateBackgroundField> | undefined,
+  field: CandidateBackgroundField) {
+  return aiInferred?.has(field) ? <AiInferredBadge /> : undefined;
+}
+
+/**
  * A nationality outside the nine groups — typed before the picker existed, or stated by an import —
  * stays offered, for the reason a stored currency does: see {@link CompensationFields}.
  */
@@ -365,7 +387,12 @@ export function BackgroundFields({
   register,
   errors,
   storedNationality,
-}: FieldGroupProps & { storedNationality?: string | null }) {
+  aiInferred,
+}: FieldGroupProps & {
+  storedNationality?: string | null;
+  /** Which of the three fields below hold a value AI proposed, not yet reviewed. */
+  aiInferred?: ReadonlySet<CandidateBackgroundField>;
+}) {
   const offGroup =
     storedNationality && !CANDIDATE_NATIONALITIES.includes(storedNationality) ? storedNationality : null;
   return (
@@ -375,6 +402,7 @@ export function BackgroundFields({
           label="Nationality"
           hint="Not the same fact as country — visa status and local credibility follow it."
           error={errors.nationality?.message}
+          action={backgroundBadge(aiInferred, "nationality")}
         >
           <Select {...register("nationality")}>
             <option value="">Not recorded</option>
@@ -386,15 +414,20 @@ export function BackgroundFields({
             {offGroup && <option value={offGroup}>{offGroup} (as recorded)</option>}
           </Select>
         </Field>
-        <Field label="Years of experience" error={errors.yearsExperience?.message}>
+        <Field
+          label="Years of experience"
+          error={errors.yearsExperience?.message}
+          action={backgroundBadge(aiInferred, "yearsExperience")}
+        >
           <Input {...register("yearsExperience")} inputMode="numeric" placeholder="18" />
         </Field>
       </div>
       <div className="grid gap-x-4 sm:grid-cols-2">
         <Field
           label="Gender"
-          hint="Only where it is known — the diversity report counts it and never guesses it from a name."
+          hint="A researcher's own entry, or an AI suggestion from a captured profile — flagged AI until confirmed."
           error={errors.gender?.message}
+          action={backgroundBadge(aiInferred, "gender")}
         >
           <Select {...register("gender")}>
             <option value="">Not recorded</option>

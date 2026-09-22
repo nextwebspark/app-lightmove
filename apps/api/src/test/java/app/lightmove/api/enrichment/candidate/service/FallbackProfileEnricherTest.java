@@ -105,7 +105,7 @@ class FallbackProfileEnricherTest {
     }
 
     private static EnrichedProfile profile(List<CandidateCareerEntry> career, EnrichmentVendor vendor) {
-        return new EnrichedProfile("Title", null, null, null, null, null, null, career,
+        return EnrichedProfile.researched("Title", null, null, null, null, null, null, career,
                 null, null, null, null, vendor);
     }
 }

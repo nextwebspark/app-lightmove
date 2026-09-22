@@ -6,6 +6,7 @@ import app.lightmove.api.candidate.constant.CandidateSource;
 import app.lightmove.api.candidate.constant.CandidateStatus;
 import app.lightmove.api.candidate.constant.ContactSource;
 import app.lightmove.api.candidate.constant.EnrichmentVendor;
+import app.lightmove.api.candidate.constant.Gender;
 import java.util.List;
 import java.util.UUID;
 import org.junit.jupiter.api.DisplayName;
@@ -17,7 +18,7 @@ import org.junit.jupiter.api.Test;
  */
 class CandidateEnrichmentTest {
 
-    private static final EnrichedProfile RESEARCH = new EnrichedProfile(
+    private static final EnrichedProfile RESEARCH = EnrichedProfile.researched(
             "Group CFO", "Finance leader across GCC retail.", "Al Rawabi Dairy",
             "https://www.linkedin.com/company/alrawabi/", "https://media.example.com/alrawabi.png",
             "Dubai", "United Arab Emirates",
@@ -25,6 +26,9 @@ class CandidateEnrichmentTest {
             List.of(new CandidateEducationEntry("AUC", "MBA, Finance", "2010 - 2012")),
             List.of("Financial Planning"), List.of("English", "Arabic"), null,
             EnrichmentVendor.BRIGHTDATA);
+
+    private static final EnrichedProfile RESEARCH_WITH_BACKGROUND =
+            RESEARCH.withBackground("Emirati", Gender.FEMALE, 14);
 
     @Test
     @DisplayName("research fills in what nobody typed")
@@ -79,6 +83,56 @@ class CandidateEnrichmentTest {
         // The fields only research writes still land.
         assertThat(candidate.getProfile().education()).hasSize(1);
         assertThat(candidate.getProfile().skills()).containsExactly("Financial Planning");
+    }
+
+    @Test
+    @DisplayName("an inferred background is filled in and flagged, not just recorded")
+    void researchProposesBackgroundAndFlagsItInferred() {
+        Candidate candidate = captured(details("Sample Person", null, null, null, null, null));
+
+        candidate.enrich(RESEARCH_WITH_BACKGROUND);
+
+        assertThat(candidate.getNationality()).isEqualTo("Emirati");
+        assertThat(candidate.getGender()).isEqualTo(Gender.FEMALE);
+        assertThat(candidate.getYearsExperience()).isEqualTo(14);
+        assertThat(candidate.getAiInferredFields()).containsExactlyInAnyOrder(
+                "nationality", "gender", "yearsExperience");
+    }
+
+    @Test
+    @DisplayName("research never overwrites a background a researcher already typed, and flags nothing")
+    void researchNeverOverwritesTheResearchersBackground() {
+        Candidate candidate = captured(detailsWithBackground("Emirati", Gender.MALE, 20));
+
+        candidate.enrich(RESEARCH_WITH_BACKGROUND);
+
+        assertThat(candidate.getNationality()).isEqualTo("Emirati");
+        assertThat(candidate.getGender()).isEqualTo(Gender.MALE);
+        assertThat(candidate.getYearsExperience()).isEqualTo(20);
+        assertThat(candidate.getAiInferredFields()).isEmpty();
+    }
+
+    @Test
+    @DisplayName("a researcher changing an inferred value clears its flag")
+    void editingAnInferredValueClearsItsFlag() {
+        Candidate candidate = captured(details("Sample Person", null, null, null, null, null));
+        candidate.enrich(RESEARCH_WITH_BACKGROUND);
+
+        candidate.describe(detailsWithBackground("Western expat", Gender.FEMALE, 14), ContactSource.MANUAL);
+
+        assertThat(candidate.getAiInferredFields()).containsExactly("gender");
+    }
+
+    @Test
+    @DisplayName("resubmitting an inferred value unchanged leaves it flagged")
+    void resubmittingTheSameInferredValueLeavesItFlagged() {
+        Candidate candidate = captured(details("Sample Person", null, null, null, null, null));
+        candidate.enrich(RESEARCH_WITH_BACKGROUND);
+
+        candidate.describe(detailsWithBackground("Emirati", Gender.FEMALE, 14), ContactSource.MANUAL);
+
+        assertThat(candidate.getAiInferredFields()).containsExactlyInAnyOrder(
+                "nationality", "gender", "yearsExperience");
     }
 
     @Test
@@ -137,5 +191,13 @@ class CandidateEnrichmentTest {
                 null, null, "https://www.linkedin.com/in/sample-profile", null, null, null, null,
                 null, summary, null, CandidateCompensation.unknown(),
                 new CandidateProfile(career, languages, null, null, null), null);
+    }
+
+    private static CandidateDetails detailsWithBackground(String nationality, Gender gender,
+                                                           Integer yearsExperience) {
+        return new CandidateDetails("Sample Person", null, null, CandidateStatus.IDENTIFIED, null,
+                null, null, "https://www.linkedin.com/in/sample-profile", null, null, nationality,
+                gender, yearsExperience, null, null, CandidateCompensation.unknown(),
+                CandidateProfile.empty(), null);
     }
 }

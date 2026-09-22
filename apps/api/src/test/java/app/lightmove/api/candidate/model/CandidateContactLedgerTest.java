@@ -20,7 +20,7 @@ import org.junit.jupiter.api.Test;
  */
 class CandidateContactLedgerTest {
 
-    private static final EnrichedProfile RESEARCH = new EnrichedProfile(
+    private static final EnrichedProfile RESEARCH = EnrichedProfile.researched(
             "Group CFO", "Finance leader across GCC retail.", "Al Rawabi Dairy", null, null,
             "Dubai", "United Arab Emirates", List.of(), List.of(), List.of(), List.of(), null,
             EnrichmentVendor.BRIGHTDATA);

@@ -84,18 +84,14 @@ public class HarvestApiProfileEnricher implements LinkedInProfileEnricher {
     private EnrichedProfile withPhoto(EnrichedProfile enriched, HarvestApiProfile profile) {
         String photoUrl = profile.photo() != null ? profile.photo()
                 : profile.profilePicture() == null ? null : profile.profilePicture().url();
-        return new EnrichedProfile(enriched.title(), enriched.about(), enriched.employerName(),
-                enriched.employerLinkedinUrl(), enriched.employerLogoUrl(), enriched.locationCity(),
-                enriched.locationCountry(), enriched.career(), enriched.education(),
-                enriched.skills(), enriched.languages(),
-                photos.fetchOrNull(photoUrl), EnrichmentVendor.HARVESTAPI);
+        return enriched.withPhoto(photos.fetchOrNull(photoUrl));
     }
 
     static EnrichedProfile toEnrichedProfile(HarvestApiProfile profile) {
         HarvestApiParsedLocation location =
                 profile.location() == null ? null : profile.location().parsed();
         HarvestApiExperience current = currentPositionOf(profile);
-        return new EnrichedProfile(
+        return EnrichedProfile.researched(
                 current == null ? null : current.position(),
                 profile.about(),
                 current == null ? null : current.companyName(),

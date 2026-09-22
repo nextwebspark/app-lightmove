@@ -1,6 +1,7 @@
 package app.lightmove.api.candidate.model;
 
 import app.lightmove.api.common.constant.Seniority;
+import app.lightmove.api.candidate.constant.BackgroundField;
 import app.lightmove.api.candidate.constant.CandidateSource;
 import app.lightmove.api.candidate.constant.CandidateStatus;
 import app.lightmove.api.candidate.constant.ContactChannel;
@@ -22,9 +23,12 @@ import jakarta.persistence.Table;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
+import java.util.Set;
 import java.util.UUID;
 import lombok.AccessLevel;
 import lombok.Getter;
@@ -96,6 +100,16 @@ public class Candidate extends BaseEntity {
 
     @Column(name = "years_experience")
     private Integer yearsExperience;
+
+    /**
+     * Which of {@link BackgroundField}'s three keys currently hold a value {@link #enrich} proposed
+     * that nobody has reviewed since (V68, issue #458). A researcher's own edit that actually changes
+     * one of the three removes it here; resubmitting the same value does not, since nothing was
+     * actually reviewed and decided.
+     */
+    @JdbcTypeCode(SqlTypes.JSON)
+    @Column(name = "ai_inferred_fields", nullable = false)
+    private Set<String> aiInferredFields = new HashSet<>();
 
     @Column(name = "summary")
     private String summary;
@@ -202,9 +216,7 @@ public class Candidate extends BaseEntity {
         this.linkedinUrl = details.linkedinUrl();
         this.locationCountry = details.locationCountry();
         this.locationCity = details.locationCity();
-        this.nationality = details.nationality();
-        this.gender = details.gender();
-        this.yearsExperience = details.yearsExperience();
+        describeBackground(details);
         this.summary = details.summary();
         this.note = details.note();
         this.compensationCurrency = details.compensation().currency();
@@ -219,6 +231,35 @@ public class Candidate extends BaseEntity {
         this.profile = details.profile().keepingEnrichmentOf(this.profile);
         remember(ContactChannel.EMAIL, details.emails(), door);
         remember(ContactChannel.PHONE, details.phones(), door);
+    }
+
+    /**
+     * Nationality, gender and years of experience — the three an inference may have proposed. A
+     * researcher changing one is what confirms it; resubmitting the same value leaves the flag
+     * standing, since nothing was actually reviewed.
+     */
+    private void describeBackground(CandidateDetails details) {
+        if (!Objects.equals(nationality, details.nationality())) {
+            aiInferredFields = withoutInferred(BackgroundField.NATIONALITY);
+        }
+        if (!Objects.equals(gender, details.gender())) {
+            aiInferredFields = withoutInferred(BackgroundField.GENDER);
+        }
+        if (!Objects.equals(yearsExperience, details.yearsExperience())) {
+            aiInferredFields = withoutInferred(BackgroundField.YEARS_EXPERIENCE);
+        }
+        this.nationality = details.nationality();
+        this.gender = details.gender();
+        this.yearsExperience = details.yearsExperience();
+    }
+
+    private Set<String> withoutInferred(BackgroundField field) {
+        if (!aiInferredFields.contains(field.key())) {
+            return aiInferredFields;
+        }
+        Set<String> updated = new HashSet<>(aiInferredFields);
+        updated.remove(field.key());
+        return updated;
     }
 
     /**
@@ -281,6 +322,10 @@ public class Candidate extends BaseEntity {
      * Fills in what research found, and only where nobody has filled anything in — vendor data never
      * outranks a researcher. On a mapped candidate {@code companyName} is the triage snapshot and is
      * never overwritten.
+     *
+     * <p>Nationality, gender and years of experience follow the same rule, but a value filled from
+     * here is also stamped into {@link #aiInferredFields} (issue #458): it is a proposal, not
+     * something a researcher recorded, until {@link #describeBackground} sees it changed.
      */
     public void enrich(EnrichedProfile enriched) {
         if (title == null) {
@@ -298,6 +343,20 @@ public class Candidate extends BaseEntity {
         if (triageCompanyId == null && companyName == null) {
             companyName = enriched.employerName();
         }
+        Set<String> inferred = new HashSet<>(aiInferredFields);
+        if (nationality == null && enriched.nationality() != null) {
+            nationality = enriched.nationality();
+            inferred.add(BackgroundField.NATIONALITY.key());
+        }
+        if (gender == null && enriched.gender() != null) {
+            gender = enriched.gender();
+            inferred.add(BackgroundField.GENDER.key());
+        }
+        if (yearsExperience == null && enriched.yearsExperience() != null) {
+            yearsExperience = enriched.yearsExperience();
+            inferred.add(BackgroundField.YEARS_EXPERIENCE.key());
+        }
+        this.aiInferredFields = inferred;
         this.enrichedBy = enriched.vendor();
         this.profile = new CandidateProfile(
                 profile.career().isEmpty() ? enriched.career() : profile.career(),

@@ -1,17 +1,20 @@
 package app.lightmove.api.report.service;
 
+import app.lightmove.api.common.constant.NationalityGroup;
 import app.lightmove.api.common.location.model.Country;
 import app.lightmove.api.common.location.service.Countries;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
+import java.util.stream.Collectors;
 
 /**
- * The group a nationality is counted under. The drawer records one of nine — the Gulf six by name and
- * everyone else as Western expat, South Asian or Arab expat, non-GCC — but a spreadsheet states
- * whatever it states, so "Egyptian", "Egypt" and "Arab expat" are folded here, at read time, and the
- * stored value is never rewritten.
+ * The group a nationality is counted under. The drawer records one of {@link NationalityGroup}'s nine
+ * — the Gulf six by name and everyone else as Western expat, South Asian or Arab expat, non-GCC — but
+ * a spreadsheet states whatever it states, so "Egyptian", "Egypt" and "Arab expat" are folded here, at
+ * read time, and the stored value is never rewritten.
  *
  * <p>Two routes to a group: a spelling the table knows, or a country the catalog resolves. A spelling
  * neither places keeps its own, title-cased, rather than being pushed into a group it may not belong
@@ -19,12 +22,14 @@ import java.util.Set;
  */
 final class NationalityCatalog {
 
-    private static final String WESTERN_EXPAT = "Western expat";
-    private static final String SOUTH_ASIAN = "South Asian";
-    private static final String ARAB_EXPAT = "Arab expat, non-GCC";
+    private static final String WESTERN_EXPAT = NationalityGroup.WESTERN_EXPAT.value();
+    private static final String SOUTH_ASIAN = NationalityGroup.SOUTH_ASIAN.value();
+    private static final String ARAB_EXPAT = NationalityGroup.ARAB_EXPAT_NON_GCC.value();
 
-    private static final Set<String> GCC_GROUPS =
-            Set.of("Saudi", "Emirati", "Kuwaiti", "Qatari", "Omani", "Bahraini");
+    private static final Set<String> GCC_GROUPS = Arrays.stream(NationalityGroup.values())
+            .filter(NationalityGroup::isGcc)
+            .map(NationalityGroup::value)
+            .collect(Collectors.toUnmodifiableSet());
     private static final Set<String> EXPAT_GROUPS = Set.of(WESTERN_EXPAT, SOUTH_ASIAN, ARAB_EXPAT);
 
     private static final Map<String, String> GROUP_BY_COUNTRY_CODE = new HashMap<>();

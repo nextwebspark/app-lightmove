@@ -5,10 +5,11 @@ import java.util.List;
 /**
  * Chapter four: the nationality and gender mix of the mapped pool, by seniority.
  *
- * <p><b>Gender is counted, never inferred.</b> {@code genderByLevel} totals only rows where a
- * researcher recorded one, and {@code genderUnrecorded} is everyone else — a chapter that guessed a
- * gender from a name would be stating a guess as a finding, and a mandate nobody has recorded reads
- * as unmeasured rather than as a pool of one gender.
+ * <p><b>This chapter states whatever the row holds, and nothing more.</b> {@code genderByLevel} totals
+ * every row with a gender on file — a researcher's own entry, or a captured profile's AI-suggested
+ * value the row still carries (issue #458) — and {@code genderUnrecorded} is everyone else. It does
+ * not distinguish the two: a value nobody has reviewed is still what the row states today, and a
+ * mandate with nothing on file at all reads as unmeasured rather than as a pool of one gender.
  *
  * <p>{@code genderWithoutLevel} is the recorded genders of executives with no seniority on file.
  * A captured executive arrives without a level, so without it a gender recorded on one was counted

@@ -25,10 +25,14 @@ export type CandidateStatus =
 export type CandidateSeniority = SeniorityToken;
 
 /**
- * Gender as a researcher recorded it, for the report's diversity chapter. Never inferred from a
- * name, and `null` — nobody recorded it — is a different fact from `other`, which somebody did.
+ * Gender, for the report's diversity chapter. A researcher's own entry, or a captured profile's
+ * AI-suggested value — see `aiInferredFields` — flagged until reviewed either way. `null` — nobody
+ * recorded or confirmed one — is a different fact from `other`, which somebody did.
  */
 export type CandidateGender = "female" | "male" | "other";
+
+/** The three background fields `aiInferredFields` can flag as an unreviewed AI suggestion. */
+export type CandidateBackgroundField = "nationality" | "gender" | "yearsExperience";
 
 /** Which door a profile came through. Only `manual` is reachable today. */
 export type CandidateSource = "manual" | "csv" | "extension";
@@ -81,6 +85,8 @@ export interface Candidate {
   nationality: string | null;
   gender: CandidateGender | null;
   yearsExperience: number | null;
+  /** Which of nationality/gender/yearsExperience hold a value AI proposed, not yet reviewed. */
+  aiInferredFields: CandidateBackgroundField[];
   summary: string | null;
   note: string | null;
   compensation: CandidateCompensation;

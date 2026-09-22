@@ -221,7 +221,7 @@ public class CandidateService {
 
         if (source == CandidateSource.EXTENSION && isLinkedInProfileUrl(details.linkedinUrl())) {
             events.publishEvent(new CandidateCapturedEvent(candidate.getId(), projectId,
-                    details.linkedinUrl()));
+                    details.linkedinUrl(), userId, details.fullName()));
         }
         stream.publish(projectId, ProjectStreamKind.CANDIDATE_CAPTURED);
 
@@ -739,6 +739,7 @@ public class CandidateService {
                 candidate.getNationality(),
                 candidate.getGender() == null ? null : candidate.getGender().value(),
                 candidate.getYearsExperience(),
+                candidate.getAiInferredFields(),
                 candidate.getSummary(),
                 candidate.getNote(),
                 new CandidateCompensationDto(compensation.currency(), compensation.baseSalary(),

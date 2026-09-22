@@ -192,6 +192,7 @@ const yasmin: Candidate = {
   nationality: null,
   gender: null,
   yearsExperience: null,
+  aiInferredFields: [],
   summary: null,
   note: null,
   compensation: {

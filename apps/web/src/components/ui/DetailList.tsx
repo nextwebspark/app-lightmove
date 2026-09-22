@@ -46,17 +46,21 @@ export function DetailTile({
   label,
   value,
   full,
+  badge,
 }: {
   label: string;
   value: ReactNode;
   /** Spans both columns, for a value that is a sentence rather than a figure. */
   full?: boolean;
+  /** A small marker beside the label — an AI-inferred flag, say — rather than part of the value. */
+  badge?: ReactNode;
 }) {
   const empty = value === null || value === undefined || value === "";
   return (
     <div className={cn("min-w-0", full && "col-span-2")}>
-      <div className="mb-1 font-mono text-[9.5px] font-semibold uppercase tracking-[0.08em] text-text3">
+      <div className="mb-1 flex items-center gap-1.5 font-mono text-[9.5px] font-semibold uppercase tracking-[0.08em] text-text3">
         {label}
+        {badge}
       </div>
       <div
         className={cn(

@@ -15,6 +15,7 @@ import app.lightmove.api.triagecompany.dto.TriageCompaniesResponse;
 import app.lightmove.api.triagecompany.dto.TriageCompanyResponse;
 import app.lightmove.api.triagecompany.service.TriageCompanyService;
 import java.util.List;
+import java.util.Set;
 import java.util.UUID;
 import java.util.stream.IntStream;
 import org.junit.jupiter.api.DisplayName;
@@ -80,8 +81,8 @@ class MandateListToolsTest {
         return IntStream.range(0, count)
                 .mapToObj(index -> new CandidateResponse(UUID.randomUUID(), null, "Company " + index,
                         "Executive " + index, "CFO", "C_SUITE", "MAPPED", null, null, null, null,
-                        null, null, null, null, null, List.of(), List.of(), List.of(), List.of(),
-                        "MANUAL", null, null, null, null, null))
+                        null, null, Set.of(), null, null, null, List.of(), List.of(), List.of(),
+                        List.of(), "MANUAL", null, null, null, null, null))
                 .toList();
     }
 

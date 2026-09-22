@@ -23,6 +23,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.MediaType;
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.test.context.TestPropertySource;
 import tools.jackson.databind.JsonNode;
 
 /**
@@ -33,13 +34,19 @@ import tools.jackson.databind.JsonNode;
  * <p>What must hold: only an extension capture with a real profile URL spends a research call, a
  * provider failure costs the capture nothing, and research naming an employer files that company
  * into the mandate's universe with the person mapped to it.
+ *
+ * <p>Background inference (issue #458) is off here: this suite is about the vendor-research merge,
+ * not the model call layered on top of it, and leaving it on would have every capture spend a real
+ * attempt at Vertex. {@code CandidateEnrichmentTest} covers the merge and flagging rules directly
+ * against {@code Candidate.enrich}, with no model involved.
  */
 @IntegrationTest
+@TestPropertySource(properties = "lightmove.enrichment.background-inference=false")
 class CandidateEnrichmentIntegrationTest extends FlowTestSupport {
 
     private static final byte[] PHOTO_BYTES = {(byte) 0xFF, (byte) 0xD8, (byte) 0xFF, 0};
 
-    private static final EnrichedProfile RESEARCH = new EnrichedProfile(
+    private static final EnrichedProfile RESEARCH = EnrichedProfile.researched(
             "Group CFO", "Finance leader across GCC retail.", "Al Rawabi Dairy",
             "https://www.linkedin.com/company/alrawabi/", "https://media.example.com/alrawabi.png",
             "Dubai", "United Arab Emirates",
@@ -253,7 +260,7 @@ class CandidateEnrichmentIntegrationTest extends FlowTestSupport {
     @DisplayName("research naming no employer leaves the person unmapped, and no photo means 404")
     void researchWithoutAnEmployerLeavesThePersonUnmapped() throws Exception {
         String projectId = mandate("Employerless Research Firm");
-        enricher.answerWith(new EnrichedProfile("Advisor", null, null, null, null, null, null,
+        enricher.answerWith(EnrichedProfile.researched("Advisor", null, null, null, null, null, null,
                 List.of(new CandidateCareerEntry("Somewhere", "Advisor", "2020 –")),
                 null, null, null, null, EnrichmentVendor.HARVESTAPI));
 

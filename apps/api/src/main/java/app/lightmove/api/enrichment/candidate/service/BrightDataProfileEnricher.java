@@ -85,15 +85,11 @@ public class BrightDataProfileEnricher implements LinkedInProfileEnricher {
         BrightDataPerson person = result.hits().getFirst();
         EnrichedProfile enriched = toEnrichedProfile(person);
         String avatar = Boolean.TRUE.equals(person.defaultAvatar()) ? null : person.avatar();
-        return Optional.of(new EnrichedProfile(enriched.title(), enriched.about(),
-                enriched.employerName(), enriched.employerLinkedinUrl(), enriched.employerLogoUrl(),
-                enriched.locationCity(), enriched.locationCountry(), enriched.career(),
-                enriched.education(), enriched.skills(), enriched.languages(),
-                photos.fetchOrNull(avatar), EnrichmentVendor.BRIGHTDATA));
+        return Optional.of(enriched.withPhoto(photos.fetchOrNull(avatar)));
     }
 
     static EnrichedProfile toEnrichedProfile(BrightDataPerson person) {
-        return new EnrichedProfile(
+        return EnrichedProfile.researched(
                 currentTitleOf(person),
                 unmasked(person.about()),
                 employerNameOf(person),

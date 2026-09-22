@@ -29,6 +29,7 @@ import { useChangeCandidateStatus } from "../lib/useChangeCandidateStatus";
 import { useProfileSections, type ProfileSection } from "../lib/useProfileSections";
 import { CandidateAvatar } from "./CandidateAvatar";
 import {
+  AiInferredBadge,
   BackgroundFields,
   CareerFields,
   CompensationFields,
@@ -359,17 +360,29 @@ export function CandidateProfile({
                   register={form.register}
                   errors={form.formState.errors}
                   storedNationality={candidate.nationality}
+                  aiInferred={new Set(candidate.aiInferredFields)}
                 />
               )}
             </SectionEditor>
           ) : (
             <>
               <DetailGrid>
-                <DetailTile label="Nationality" value={candidate.nationality} />
-                <DetailTile label="Gender" value={candidateGenderLabel(candidate.gender)} />
+                <DetailTile
+                  label="Nationality"
+                  value={candidate.nationality}
+                  badge={candidate.aiInferredFields.includes("nationality") ? <AiInferredBadge /> : undefined}
+                />
+                <DetailTile
+                  label="Gender"
+                  value={candidateGenderLabel(candidate.gender)}
+                  badge={candidate.aiInferredFields.includes("gender") ? <AiInferredBadge /> : undefined}
+                />
                 <DetailTile
                   label="Experience"
                   value={candidate.yearsExperience ? `${candidate.yearsExperience} years` : null}
+                  badge={
+                    candidate.aiInferredFields.includes("yearsExperience") ? <AiInferredBadge /> : undefined
+                  }
                 />
               </DetailGrid>
               <PillRow label="Languages" values={candidate.languages} empty="No languages recorded." />

@@ -3,6 +3,7 @@ package app.lightmove.api.candidate.dto;
 import java.time.Instant;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 
 /**
@@ -24,9 +25,14 @@ public record CandidateResponse(
         String locationCountry,
         String locationCity,
         String nationality,
-        /** A {@code Gender} wire token, or null where nobody recorded it — never inferred. */
+        /** A {@code Gender} wire token, or null where nobody recorded or confirmed one. */
         String gender,
         Integer yearsExperience,
+        /**
+         * Which of nationality/gender/yearsExperience currently hold a value an AI inference
+         * proposed, not yet reviewed by a researcher's own edit (issue #458).
+         */
+        Set<String> aiInferredFields,
         String summary,
         String note,
         CandidateCompensationDto compensation,
