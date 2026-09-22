@@ -46,7 +46,7 @@ export function UncavaRailNav({
             to={{ search: `?${param}=${item.key}` }}
             aria-current={isActive ? "page" : undefined}
             className={cn(
-              "flex flex-none items-center gap-2.5 whitespace-nowrap rounded-[7px] px-2.5 py-2 text-[13.5px] transition",
+              "flex flex-none items-center gap-2.5 whitespace-nowrap rounded-[7px] px-2.5 py-2 text-body transition",
               isActive
                 ? "bg-u-sunken font-medium text-u-text [&_svg]:text-u-accent"
                 : "text-u-text2 hover:bg-u-raised hover:text-u-text",
@@ -55,7 +55,7 @@ export function UncavaRailNav({
             <Icon d={item.icon} className="flex-none" />
             <span className="flex-1">{item.label}</span>
             {item.badge && (
-              <span className="flex-none rounded-full bg-u-inferred-tint px-1.5 py-0.5 text-[10px] font-semibold text-u-inferred">
+              <span className="flex-none rounded-full bg-u-inferred-tint px-1.5 py-0.5 text-eyebrow font-semibold text-u-inferred">
                 {item.badge}
               </span>
             )}

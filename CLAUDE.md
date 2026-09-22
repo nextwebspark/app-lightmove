@@ -139,8 +139,13 @@ steps carry **Read from document** in their own header, Compensation none. The r
 also offers the matched template's usual direct reports as **Suggested seats** under the chart,
 and a role title the document suggests a different template for surfaces as a one-line banner
 with an Apply.
-Everything a reading leaves behind — confidence, snippet, Undo, the rail badge — is session state,
-never persisted; only `source` survives a reload.
+Everything a reading leaves behind — confidence, snippet, Undo, the rail badge — is the tab's, never
+the database's: `lib/receiptStore.ts` keeps it in `sessionStorage` stamped with the attached
+document's name, so a reload reads back the same popover instead of a sparkle with nothing behind it,
+and a closed tab takes the quoted lines of a client's description with it. Only `source` outlives the
+tab. The sparkle's popover is **portalled** — it opens inside a table that scrolls sideways and inside
+the React Flow canvas, both of which clip an `absolute` panel, and the canvas's `transform` defeats
+`position: fixed` too.
 `Position.dc.html` is superseded and kept as a record. Publishing stays ungated: the review's
 checklist reports, it does not gate. A published brief then **reads back** rather than locking —
 the rail offers **Edit position** in place of Publish and no draft to save, and the review's sections

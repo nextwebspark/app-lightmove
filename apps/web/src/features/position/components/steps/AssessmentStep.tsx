@@ -85,6 +85,7 @@ export function AssessmentStep({
         rows={technical}
         locked={locked}
         receipt={receipt?.lists.technical}
+        fileName={receipt?.fileName}
         onChange={onPanel("technical")}
         onToggleLock={onToggleLock}
         onReorder={onReorder("technical")}
@@ -97,6 +98,7 @@ export function AssessmentStep({
         rows={behavioural}
         locked={locked}
         receipt={receipt?.lists.behavioural}
+        fileName={receipt?.fileName}
         onChange={onPanel("behavioural")}
         onToggleLock={onToggleLock}
         onReorder={onReorder("behavioural")}

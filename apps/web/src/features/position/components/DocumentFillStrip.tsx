@@ -27,7 +27,7 @@ export function DocumentFillStrip({
   if (count === 0 && !error) return null;
 
   return (
-    <BriefPanel className="mb-6 flex flex-wrap items-center gap-3 border border-u-inferred/25 bg-u-inferred-tint px-4 py-3 text-[13px] text-u-text">
+    <BriefPanel className="mb-6 flex flex-wrap items-center gap-3 border border-u-inferred/25 bg-u-inferred-tint px-4 py-3 text-body text-u-text">
       <Icon d={ICONS.sparkle} size={14} className="flex-none text-u-inferred" />
       <span className="min-w-0 flex-1">
         {error ? (
@@ -46,7 +46,7 @@ export function DocumentFillStrip({
           Read again
         </BriefButton>
       ) : (
-        <button type="button" onClick={onUndoAll} className="text-[12.5px] font-semibold text-u-inferred hover:underline">
+        <button type="button" onClick={onUndoAll} className="text-note font-semibold text-u-inferred hover:underline">
           Undo all
         </button>
       )}

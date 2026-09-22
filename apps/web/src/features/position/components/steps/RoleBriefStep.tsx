@@ -148,8 +148,8 @@ export function RoleBriefStep({
   };
 
   /** A scalar's marker: its glyph when its value came from a reading, backed by this screen's receipt
-   *  for the snippet and Undo — degraded to the glyph alone once the receipt is gone (a reload, or the
-   *  strip dismissed). */
+   *  for the document, the snippet and the Undo — degraded to the glyph alone only where the receipt
+   *  is genuinely gone (the strip dismissed, or a tab that never held it). */
   const markerFor = (fieldSources: Record<string, FieldSource>, key: string, onUndo: () => void) => {
     const info = receipt?.scalars[key];
     return (
@@ -157,6 +157,7 @@ export function RoleBriefStep({
         source={fieldSources[key]}
         confidence={info?.confidence}
         snippet={info?.snippet}
+        fileName={info && receipt?.fileName}
         onUndo={info ? onUndo : undefined}
       />
     );
@@ -260,13 +261,13 @@ export function RoleBriefStep({
 
       <FieldBlock
         label="Target start"
-        aside={savingTargetDate ? <span className="text-[11px] text-u-text3">Saving…</span> : undefined}
+        aside={savingTargetDate ? <span className="text-meta text-u-text3">Saving…</span> : undefined}
       >
         {/* The mandate's one target date, written to the project itself: the brief reads it back. */}
         <DateInput
           value={reporting.targetStart ?? ""}
           onChange={onChangeTargetDate}
-          className="max-w-[280px] rounded-none border-0 border-b border-u-border bg-transparent px-0 py-2 font-u-num text-[15px] focus-within:border-u-accent"
+          className="max-w-[280px] rounded-none border-0 border-b border-u-border bg-transparent px-0 py-2 font-u-num text-lead focus-within:border-u-accent"
         />
       </FieldBlock>
 
@@ -277,6 +278,7 @@ export function RoleBriefStep({
             source={reporting.fieldSources.noticeValue}
             confidence={noticeInfo?.confidence}
             snippet={noticeInfo?.snippet}
+            fileName={noticeInfo && receipt?.fileName}
             onUndo={noticeInfo ? onUndoNotice : undefined}
           />
         }
@@ -298,6 +300,7 @@ export function RoleBriefStep({
                       source={responsibility.source}
                       confidence={info?.confidence}
                       snippet={info?.snippet}
+                      fileName={info && receipt?.fileName}
                       onUndo={info ? () => onUndoResponsibility(responsibility.text) : undefined}
                     />
                   }
@@ -319,7 +322,7 @@ export function RoleBriefStep({
             event.preventDefault();
             addResponsibility();
           }}
-          className="w-full max-w-[280px] rounded-[8px] bg-u-raised px-4 py-2.5 text-[13px] text-u-text outline-none transition placeholder:text-u-text3 focus:ring-1 focus:ring-u-accent-ring"
+          className="w-full max-w-[280px] rounded-[8px] bg-u-raised px-4 py-2.5 text-body text-u-text outline-none transition placeholder:text-u-text3 focus:ring-1 focus:ring-u-accent-ring"
         />
       </FieldBlock>
 

@@ -128,10 +128,10 @@ export function RoleTitleCombobox({
                   index === list.active ? "bg-panel2 text-text" : "text-text2"
                 }`}
               >
-                <span className="truncate font-sans text-[13px] font-medium text-text">
+                <span className="truncate font-sans text-body font-medium text-text">
                   {template.title}
                 </span>
-                <span className="min-w-0 flex-1 truncate text-right font-mono text-[10.5px] text-text3">
+                <span className="min-w-0 flex-1 truncate text-right font-mono text-meta text-text3">
                   {SENIORITY_LABELS[template.seniority]}
                   {template.shared ? "" : " · yours"}
                 </span>
