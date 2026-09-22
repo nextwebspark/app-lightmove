@@ -54,7 +54,7 @@ jobs:
       # disagree. Upstream calls these two actions internal and reserves the right to change them in
       # a patch release, which is why the version here is exact rather than a floating major.
       - name: Scan
-        uses: google/osv-scanner-action/osv-scanner-action@v2.5.1
+        uses: google/osv-scanner-action/osv-scanner-action@v2.6.0
         with:
           scan-args: |-
             --format=json
@@ -67,7 +67,7 @@ jobs:
         continue-on-error: true
 
       - name: Report
-        uses: google/osv-scanner-action/osv-reporter-action@v2.5.1
+        uses: google/osv-scanner-action/osv-reporter-action@v2.6.0
         with:
           scan-args: |-
             --output=osv.sarif
