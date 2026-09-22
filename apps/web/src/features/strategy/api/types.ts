@@ -182,3 +182,65 @@ export interface CompanySort {
   direction: SortDirection;
 }
 
+
+/** Where a discovered row's figures came from. Not also "is it already in the mandate" — see below. */
+export type DiscoverySource = "universe" | "researched" | "web";
+
+/** How the answer was obtained. On the wire because an outage and an empty market are not the same. */
+export type DiscoveryMode = "GROUNDED_STRUCTURED" | "GROUNDED_PROSE_EXTRACTED" | "UNAVAILABLE";
+
+/**
+ * One company AI Research found.
+ *
+ * <p>Every figure here came from a record — an Apollo row or a vendor's. A row the server could not
+ * resolve carries `unresolved: true` and nulls, and the grid draws the empty cells rather than
+ * anything plausible: the model is never allowed to supply a number about a company.
+ *
+ * <p>`source` and `alreadyInMandate` are independent. A universe row this mandate already holds is
+ * both, and collapsing them into one badge would misdescribe where its numbers came from.
+ */
+export interface DiscoveredCompany {
+  /** Identity inside this answer, and what a filing call names. Not an Apollo id. */
+  ref: string;
+  source: DiscoverySource;
+  alreadyInMandate: boolean;
+  unresolved: boolean;
+  apolloAccountId: string | null;
+  companyName: string;
+  industry: string | null;
+  companyCountry: string | null;
+  companyCity: string | null;
+  numEmployees: number | null;
+  annualRevenue: number | null;
+  website: string | null;
+  companyLinkedinUrl: string | null;
+  foundedYear: number | null;
+  logoUrl: string | null;
+  shortDescription: string | null;
+  /** The page the model read the company off, where it named one. */
+  sourceUrl: string | null;
+  /** One line on why it fits the question — and the note a filed row keeps. */
+  reason: string | null;
+  /** The model's relevance score for the question asked. Never a claim about the company. */
+  fit: number | null;
+}
+
+export interface DiscoveryAnswer {
+  companies: DiscoveredCompany[];
+  mode: DiscoveryMode;
+  provider: string;
+  searchesLeftToday: number;
+}
+
+export interface DiscoveryConfig {
+  offered: boolean;
+  dailySearchLimit: number;
+}
+
+export interface DiscoverCompaniesPayload {
+  question: string;
+  country?: string;
+  limit?: number;
+  /** Only decorates the answer with `alreadyInMandate`; authorised on its own server-side. */
+  projectId?: string;
+}

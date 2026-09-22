@@ -5,10 +5,9 @@ import { useOutletContext } from "react-router-dom";
 import type { ProjectOutletContext } from "../../../components/layout/ProjectLayout";
 import { FullscreenButton } from "../../../components/ui";
 import { useToast } from "../../../components/ui/Toast";
-import { useAssistant } from "../../assistant/AssistantProvider";
 import { useAuth } from "../../auth/AuthProvider";
 import { cn } from "../../../lib/cn";
-import { messageFor } from "../../../lib/errorCodes";
+import { codeOf, messageFor } from "../../../lib/errorCodes";
 import { hasRoomForRails } from "../../../lib/viewport";
 import { DEFAULT_PAGE_SIZE } from "../../../lib/paging";
 import { useAutosave } from "../../../lib/useAutosave";
@@ -21,11 +20,15 @@ import * as strategyApi from "../api/strategyApi";
 import type {
   CompanyResult,
   CompanySort,
+  DiscoveredCompany,
+  DiscoveryAnswer,
   SearchVisibility,
   Strategy,
   StrategyFilter,
 } from "../api/types";
+import { AiResearchPanel } from "../components/AiResearchPanel";
 import { CompanyResultsTable } from "../components/CompanyResultsTable";
+import { DiscoveredCompaniesTable } from "../components/DiscoveredCompaniesTable";
 import { MarketCompanyDrawer } from "../components/MarketCompanyDrawer";
 import { DEFAULT_COLUMN_VISIBILITY, companyColumns } from "../lib/companyColumns";
 import { useColumnVisibility } from "../../../lib/useColumnVisibility";
@@ -75,7 +78,6 @@ function StrategyEditor() {
   const { project } = useOutletContext<ProjectOutletContext>();
   const queryClient = useQueryClient();
   const toast = useToast();
-  const { openAssistant } = useAssistant();
   // Whose searches are "Mine" in the dropdown. The list already excludes other people's private ones,
   // so this only splits what arrived, never widens it.
   const { user } = useAuth();
@@ -117,6 +119,28 @@ function StrategyEditor() {
   const [rowSelection, setRowSelection] = useState<RowSelectionState>(NOTHING_SELECTED);
   const selectedIds = useMemo(() => Object.keys(rowSelection), [rowSelection]);
   const clearSelection = useCallback(() => setRowSelection(NOTHING_SELECTED), []);
+
+  /*
+   * AI Research. Its own selection, because the two grids key their rows differently — the market's
+   * on an Apollo id, an answer's on a proposal-local ref — and a tick carried across would name a
+   * row that does not exist in the other.
+   *
+   * The answer is component state rather than a query. Discovery spends the workspace's daily
+   * budget, so a key-driven refetch on window focus or a remount would bill a firm for a resize.
+   */
+  const [researchOpen, setResearchOpen] = useState(false);
+  const [researching, setResearching] = useState(false);
+  const [answer, setAnswer] = useState<DiscoveryAnswer | null>(null);
+  const [researchFailure, setResearchFailure] = useState<string | null>(null);
+  const [answerSelection, setAnswerSelection] = useState<RowSelectionState>(NOTHING_SELECTED);
+  const answerRefs = useMemo(() => Object.keys(answerSelection), [answerSelection]);
+  const clearAnswerSelection = useCallback(() => setAnswerSelection(NOTHING_SELECTED), []);
+
+  const discoveryConfig = useQuery({
+    queryKey: companiesApi.DISCOVERY_CONFIG_KEY,
+    queryFn: ({ signal }) => companiesApi.getDiscoveryConfig(signal),
+    staleTime: 10 * 60 * 1000,
+  });
 
   // A keystroke should narrow the list, not fire a request per character.
   useEffect(() => {
@@ -358,6 +382,99 @@ function StrategyEditor() {
     onError: (error) => toast(messageFor(error)),
   });
 
+  /**
+   * One AI Research search.
+   *
+   * <p>Deliberately not a `useQuery`: every call spends a slice of the workspace's day, and a
+   * key-driven refetch on window focus would bill the firm for a window resize. It also never
+   * invalidates `STRATEGY_KEY` — the web question and the saved Apollo filter are separate things,
+   * and writing one into the other is the trap this screen exists to avoid.
+   */
+  const research = useMutation({
+    mutationFn: ({ question, country }: { question: string; country: string }) =>
+      companiesApi.discoverCompanies({
+        question,
+        country: country || undefined,
+        projectId: project.id,
+      }),
+    onMutate: () => {
+      setResearching(true);
+      setResearchFailure(null);
+    },
+    onSuccess: (found) => {
+      setAnswer(found);
+      clearAnswerSelection();
+    },
+    onError: (error) => setResearchFailure(messageFor(error)),
+    onSettled: () => setResearching(false),
+  });
+
+  /**
+   * Files the ticked half of an answer, through the two doors that already exist.
+   *
+   * <p>The split is the point. A row the universe carries goes through the bulk door with its id, so
+   * the server resolves the snapshot and V34's CHECK stays honest; a row it does not carry goes
+   * through capture with `source: "web"` and only what a record supplied. A company the mandate
+   * turns out to already hold is counted as a skip rather than a failure, which is the same
+   * arithmetic the accept endpoint performs server-side.
+   */
+  const fileAnswer = useMutation({
+    mutationFn: async (status: TriageCompanyStatus) => {
+      const chosen = (answer?.companies ?? []).filter((company) =>
+        answerRefs.includes(company.ref),
+      );
+      const resolved = chosen.filter((company) => company.apolloAccountId !== null);
+      const unresolved = chosen.filter((company) => company.apolloAccountId === null);
+
+      let added = 0;
+      let skipped = 0;
+      if (resolved.length > 0) {
+        const bulk = await triageApi.addSelectedCompanies(
+          project.id,
+          resolved.map((company) => company.apolloAccountId as string),
+          status,
+        );
+        added += bulk.added;
+        skipped += bulk.skipped;
+      }
+      for (const company of unresolved) {
+        try {
+          await triageApi.captureCompany(project.id, capturePayloadFor(company, status));
+          added += 1;
+        } catch (error) {
+          if (codeOf(error) !== "TRIAGE_COMPANY_ALREADY_HELD") throw error;
+          skipped += 1;
+        }
+      }
+      return { added, skipped };
+    },
+    onSuccess: (result, status) => {
+      void refreshScopedReads();
+      clearAnswerSelection();
+      // The filed rows now carry the badge, so the answer on screen has to say so too.
+      setAnswer((current) =>
+        current === null
+          ? null
+          : {
+              ...current,
+              companies: current.companies.map((company) =>
+                answerRefs.includes(company.ref)
+                  ? { ...company, alreadyInMandate: true }
+                  : company,
+              ),
+            },
+      );
+      toast(
+        `${result.added} ${result.added === 1 ? "company" : "companies"} moved to ${stageByStatus(status).label}` +
+          (result.skipped > 0 ? `, ${result.skipped} already in this mandate` : ""),
+      );
+    },
+    onError: (error) => toast(messageFor(error)),
+  });
+
+  /** An answer replaces the grid's contents; without one the panel is just a question box over it. */
+  const showingAnswer = answer !== null;
+
   if (strategy.isError) {
     return (
       <div className="p-10 text-center font-mono text-[13px] text-text3">
@@ -389,7 +506,9 @@ function StrategyEditor() {
         onOverwriteSearch={(searchId) => overwriteSearch.mutate(searchId)}
         onDeleteSearch={(searchId) => deleteSearch.mutate(searchId)}
         onAddAll={() => addAll.mutate()}
-        onAiResearch={openAssistant}
+        aiResearchOffered={discoveryConfig.data?.offered !== false}
+        aiResearchOpen={researchOpen}
+        onAiResearch={() => setResearchOpen((open) => !open)}
         columnVisibility={columnVisibility}
         onColumnVisibilityChange={setColumnVisibility}
         onResetLayout={() => setLayout(EMPTY_GRID_LAYOUT)}
@@ -424,48 +543,123 @@ function StrategyEditor() {
               instead of drifting by half the width of the nav rail, and it never covers the paging
               row underneath. */}
           <div className="relative flex min-h-0 flex-1 flex-col">
-            <CompanyResultsTable
-              companies={companies.data?.companies ?? []}
-              sort={sort}
-              onSortChange={setSort}
-              columnVisibility={columnVisibility}
-              onColumnVisibilityChange={setColumnVisibility}
-              layout={layout}
-              onLayoutChange={setLayout}
-              loading={companies.isFetching}
-              error={companies.isError}
-              rowSelection={rowSelection}
-              onRowSelectionChange={setRowSelection}
-              onOpenCompany={setOpenCompany}
-            />
-            {selectedIds.length > 0 && (
-              <SelectionActionBar
-                count={selectedIds.length}
-                noun="company"
-                plural="companies"
-                onClear={clearSelection}
-              >
-                {TRIAGE_STAGES.map((stage) => (
-                  <SelectionAction
-                    key={stage.status}
-                    icon={stage.icon}
-                    label={stage.label}
-                    tone={stage.status === "declined" ? "danger" : "neutral"}
-                    disabled={addSelected.isPending}
-                    onClick={() => addSelected.mutate(stage.status)}
-                  />
-                ))}
-              </SelectionActionBar>
+            {/* One grid frame, two row sets. The market's rows key on an Apollo id and are paged and
+                sorted by the server; an answer is one capped list a company with no id can sit in.
+                Widening CompanyResult to hold both would make every market cell conditional. */}
+            {showingAnswer ? (
+              <DiscoveredCompaniesTable
+                companies={answer?.companies ?? []}
+                layout={layout}
+                onLayoutChange={setLayout}
+                loading={researching}
+                error={false}
+                rowSelection={answerSelection}
+                onRowSelectionChange={setAnswerSelection}
+              />
+            ) : (
+              <CompanyResultsTable
+                companies={companies.data?.companies ?? []}
+                sort={sort}
+                onSortChange={setSort}
+                columnVisibility={columnVisibility}
+                onColumnVisibilityChange={setColumnVisibility}
+                layout={layout}
+                onLayoutChange={setLayout}
+                loading={companies.isFetching}
+                error={companies.isError}
+                rowSelection={rowSelection}
+                onRowSelectionChange={setRowSelection}
+                onOpenCompany={setOpenCompany}
+              />
             )}
+
+            {researchOpen && (
+              <AiResearchPanel
+                answer={answer}
+                searching={researching}
+                failure={researchFailure}
+                searchesLeftToday={answer?.searchesLeftToday ?? null}
+                onSearch={(question, country) => research.mutate({ question, country })}
+                onClose={() => {
+                  setResearchOpen(false);
+                  setAnswer(null);
+                  setResearchFailure(null);
+                  clearAnswerSelection();
+                }}
+              />
+            )}
+
+            {/* One bar, whichever grid is underneath — the stages are the same three, and only what
+                a tick means changes. */}
+            {showingAnswer
+              ? answerRefs.length > 0 && (
+                  <SelectionActionBar
+                    count={answerRefs.length}
+                    noun="company"
+                    plural="companies"
+                    onClear={clearAnswerSelection}
+                  >
+                    {TRIAGE_STAGES.map((stage) => (
+                      <SelectionAction
+                        key={stage.status}
+                        icon={stage.icon}
+                        label={stage.label}
+                        tone={stage.status === "declined" ? "danger" : "neutral"}
+                        disabled={fileAnswer.isPending}
+                        onClick={() => fileAnswer.mutate(stage.status)}
+                      />
+                    ))}
+                  </SelectionActionBar>
+                )
+              : selectedIds.length > 0 && (
+                  <SelectionActionBar
+                    count={selectedIds.length}
+                    noun="company"
+                    plural="companies"
+                    onClear={clearSelection}
+                  >
+                    {TRIAGE_STAGES.map((stage) => (
+                      <SelectionAction
+                        key={stage.status}
+                        icon={stage.icon}
+                        label={stage.label}
+                        tone={stage.status === "declined" ? "danger" : "neutral"}
+                        disabled={addSelected.isPending}
+                        onClick={() => addSelected.mutate(stage.status)}
+                      />
+                    ))}
+                  </SelectionActionBar>
+                )}
           </div>
-          <PaginationBar
-            page={page}
-            size={pageSize}
-            totalCount={companies.data?.totalCount}
-            onPage={setPage}
-            onSize={setPageSize}
-            trailing={<FullscreenButton active={isFullscreen} onToggle={toggleFullscreen} />}
-          />
+          {showingAnswer ? (
+            <div className="flex items-center gap-3 px-2 py-1.5">
+              <span className="font-mono text-[11px] text-text3">
+                {answer?.companies.length ?? 0} found
+              </span>
+              <button
+                type="button"
+                onClick={() => {
+                  setAnswer(null);
+                  clearAnswerSelection();
+                }}
+                className="font-sans text-[12px] text-ai hover:underline"
+              >
+                Back to filter results
+              </button>
+              <span className="ms-auto">
+                <FullscreenButton active={isFullscreen} onToggle={toggleFullscreen} />
+              </span>
+            </div>
+          ) : (
+            <PaginationBar
+              page={page}
+              size={pageSize}
+              totalCount={companies.data?.totalCount}
+              onPage={setPage}
+              onSize={setPageSize}
+              trailing={<FullscreenButton active={isFullscreen} onToggle={toggleFullscreen} />}
+            />
+          )}
         </div>
       </div>
 
@@ -499,4 +693,30 @@ function FilterRailPlaceholder() {
       className="hidden animate-pulse border-e border-line-soft bg-panel lg:block lg:w-[19%] lg:min-w-[264px] lg:max-w-[312px] lg:shrink-0"
     />
   );
+}
+
+/**
+ * What a discovered row files as when the universe does not carry it.
+ *
+ * <p>Only the fields a record supplied, which for an unresolved row is the name, the page it was
+ * read off and the reason. Nothing here can carry a figure the model produced, because an unresolved
+ * row does not have one — the server left every one of them null rather than filling it in.
+ */
+function capturePayloadFor(company: DiscoveredCompany, status: TriageCompanyStatus) {
+  return {
+    companyName: company.companyName,
+    source: "web" as const,
+    status,
+    industry: company.industry ?? undefined,
+    companyCountry: company.companyCountry ?? undefined,
+    companyCity: company.companyCity ?? undefined,
+    numEmployees: company.numEmployees ?? undefined,
+    annualRevenue: company.annualRevenue ?? undefined,
+    foundedYear: company.foundedYear ?? undefined,
+    website: company.website ?? undefined,
+    companyLinkedinUrl: company.companyLinkedinUrl ?? undefined,
+    shortDescription: company.shortDescription ?? undefined,
+    sourceUrl: company.sourceUrl ?? undefined,
+    note: company.reason ?? undefined,
+  };
 }

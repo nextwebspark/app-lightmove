@@ -8,7 +8,15 @@ import { ApiRequestError } from "../../../lib/apiClient";
 import type { Project } from "../../projects/api/types";
 import * as companiesApi from "../api/companiesApi";
 import * as strategyApi from "../api/strategyApi";
-import type { CompanyPage, Facets, SavedSearch, Strategy, StrategyFilter } from "../api/types";
+import type {
+  CompanyPage,
+  DiscoveredCompany,
+  DiscoveryAnswer,
+  Facets,
+  SavedSearch,
+  Strategy,
+  StrategyFilter,
+} from "../api/types";
 import * as triageApi from "../../triage/api/triageApi";
 import { stubFullscreenApi } from "../../../test/fullscreen";
 import { StrategyPage } from "./StrategyPage";
@@ -36,12 +44,15 @@ vi.mock("../../triage/api/triageApi", async (importOriginal) => ({
   addMarketCompany: vi.fn(),
   addAllInScope: vi.fn(),
   addSelectedCompanies: vi.fn(),
+  captureCompany: vi.fn(),
 }));
 vi.mock("../api/companiesApi", async (importOriginal) => ({
   ...(await importOriginal<typeof companiesApi>()),
   getFacets: vi.fn(),
   searchCompanies: vi.fn(),
   searchKeywords: vi.fn(),
+  discoverCompanies: vi.fn(),
+  getDiscoveryConfig: vi.fn(),
 }));
 
 const project = { id: "p1", positionTitle: "CFO" } as Project;
@@ -208,6 +219,10 @@ describe("StrategyPage — the filter sidebar and its results", () => {
     }));
     vi.mocked(strategyApi.getCompanies).mockResolvedValue(pageOf());
     vi.mocked(strategyApi.putFilter).mockImplementation(async (_id, filter) => strategyOf(filter));
+    vi.mocked(companiesApi.getDiscoveryConfig).mockResolvedValue({
+      offered: true,
+      dailySearchLimit: 25,
+    });
   });
 
   it("opens on the whole universe rather than on nothing", async () => {
@@ -1516,5 +1531,196 @@ describe("StrategyPage — full screen", () => {
     // StrategyEditor is keyed on the project, so switching mandates is an unmount — and would
     // otherwise strand the browser in fullscreen with no way back but Escape.
     expect(fullscreenApi.exitFullscreen).toHaveBeenCalled();
+  });
+
+  describe("AI Research", () => {
+    const discovered = (overrides: Partial<DiscoveredCompany> = {}): DiscoveredCompany => ({
+      ref: "li:acwa-power",
+      source: "universe",
+      alreadyInMandate: false,
+      unresolved: false,
+      apolloAccountId: "a1",
+      companyName: "ACWA Power",
+      industry: "oil & energy",
+      companyCountry: "Saudi Arabia",
+      companyCity: "Riyadh",
+      numEmployees: 3000,
+      annualRevenue: 6_000_000_000,
+      website: "https://acwapower.com",
+      companyLinkedinUrl: "https://linkedin.com/company/acwa-power",
+      foundedYear: 2004,
+      logoUrl: null,
+      shortDescription: null,
+      sourceUrl: "https://example.test/gcc-ipps",
+      reason: "IPP leader, renewables pivot",
+      fit: 88,
+      ...overrides,
+    });
+
+    const unresolvedRow = () =>
+      discovered({
+        ref: "li:shamal-energy",
+        source: "web",
+        unresolved: true,
+        apolloAccountId: null,
+        companyName: "Shamal Energy",
+        industry: null,
+        companyCountry: null,
+        companyCity: null,
+        numEmployees: null,
+        annualRevenue: null,
+        website: null,
+        companyLinkedinUrl: "https://linkedin.com/company/shamal-energy",
+        foundedYear: null,
+        fit: 58,
+      });
+
+    const answerOf = (companies: DiscoveredCompany[]): DiscoveryAnswer => ({
+      companies,
+      mode: "GROUNDED_STRUCTURED",
+      provider: "gemini-grounded",
+      searchesLeftToday: 24,
+    });
+
+    const ask = async (user: ReturnType<typeof userEvent.setup>, question = "Gulf IPPs") => {
+      await user.click(await screen.findByRole("button", { name: /AI Research/ }));
+      await user.type(
+        screen.getByRole("textbox", { name: /What are you looking for/ }),
+        question,
+      );
+      await user.click(screen.getByRole("button", { name: "Search" }));
+    };
+
+    it("asks the question that was typed, and never writes it into the saved filter", async () => {
+      vi.mocked(companiesApi.discoverCompanies).mockResolvedValue(answerOf([discovered()]));
+      const user = userEvent.setup();
+      renderPage();
+
+      await ask(user);
+
+      await waitFor(() =>
+        expect(companiesApi.discoverCompanies).toHaveBeenCalledWith({
+          question: "Gulf IPPs",
+          country: undefined,
+          projectId: "p1",
+        }),
+      );
+      // The trap this screen is built around: a web question is not an Apollo filter, and writing
+      // one into the other would leave the mandate with a saved search nobody asked for.
+      expect(strategyApi.putFilter).not.toHaveBeenCalled();
+    });
+
+    it("draws each row's provenance, and leaves an unresolved row's figures empty", async () => {
+      vi.mocked(companiesApi.discoverCompanies).mockResolvedValue(
+        answerOf([discovered(), unresolvedRow()]),
+      );
+      const user = userEvent.setup();
+      renderPage();
+
+      await ask(user);
+
+      expect(await screen.findByText("Shamal Energy")).toBeInTheDocument();
+      expect(screen.getByText("In universe")).toBeInTheDocument();
+      expect(screen.getByText("Web")).toBeInTheDocument();
+      // The resolved row's figures came from a record, so they are drawn.
+      const acwaRow = screen.getByText("ACWA Power").closest("[role='row']") as HTMLElement;
+      expect(within(acwaRow).getByText("3,000")).toBeInTheDocument();
+      expect(within(acwaRow).getByText("Saudi Arabia")).toBeInTheDocument();
+
+      // The unresolved row's never existed, so nothing plausible is drawn in their place. The empty
+      // cell is the honest answer and the whole reason the resolution step exists.
+      const shamalRow = screen.getByText("Shamal Energy").closest("[role='row']") as HTMLElement;
+      expect(within(shamalRow).queryByText("Saudi Arabia")).toBeNull();
+      expect(within(shamalRow).queryByText("3,000")).toBeNull();
+      expect(within(shamalRow).queryByText(/^\$/)).toBeNull();
+      expect(within(shamalRow).queryByText("2004")).toBeNull();
+      // The fit score survives, and is not an exception to the rule: it scores relevance to the
+      // question that was asked rather than claiming anything about the company.
+      expect(within(shamalRow).getByText("58")).toBeInTheDocument();
+    });
+
+    it("cannot tick a company the mandate already holds", async () => {
+      vi.mocked(companiesApi.discoverCompanies).mockResolvedValue(
+        answerOf([discovered({ alreadyInMandate: true })]),
+      );
+      const user = userEvent.setup();
+      renderPage();
+
+      await ask(user);
+
+      expect(
+        await screen.findByRole("checkbox", {
+          name: "ACWA Power is already in this mandate",
+        }),
+      ).toBeDisabled();
+    });
+
+    it("files the resolved half by id and the unresolved half as a web capture", async () => {
+      vi.mocked(companiesApi.discoverCompanies).mockResolvedValue(
+        answerOf([discovered(), unresolvedRow()]),
+      );
+      vi.mocked(triageApi.addSelectedCompanies).mockResolvedValue({ added: 1, skipped: 0 });
+      vi.mocked(triageApi.captureCompany).mockResolvedValue(triagedAs("inUniverse"));
+      const user = userEvent.setup();
+      renderPage();
+
+      await ask(user);
+      await screen.findByText("Shamal Energy");
+      await user.click(screen.getByRole("checkbox", { name: "Select ACWA Power" }));
+      await user.click(screen.getByRole("checkbox", { name: "Select Shamal Energy" }));
+      await user.click(await screen.findByRole("button", { name: "In universe" }));
+
+      // Two doors, one press. The id goes through the bulk write so the server resolves the
+      // snapshot; the one with no id goes through capture carrying only what a record supplied.
+      await waitFor(() =>
+        expect(triageApi.addSelectedCompanies).toHaveBeenCalledWith("p1", ["a1"], "inUniverse"),
+      );
+      expect(triageApi.captureCompany).toHaveBeenCalledWith(
+        "p1",
+        expect.objectContaining({
+          companyName: "Shamal Energy",
+          source: "web",
+          note: "IPP leader, renewables pivot",
+          sourceUrl: "https://example.test/gcc-ipps",
+        }),
+      );
+      // Nothing the model produced became a figure on the filed row.
+      const captured = vi.mocked(triageApi.captureCompany).mock.calls[0][1];
+      expect(captured.numEmployees).toBeUndefined();
+      expect(captured.industry).toBeUndefined();
+    });
+
+    it("says what the workspace's day cost, in words rather than a code", async () => {
+      vi.mocked(companiesApi.discoverCompanies).mockRejectedValue(
+        new ApiRequestError({
+          status: 429,
+          code: "COMPANY_DISCOVERY_DAILY_LIMIT_REACHED",
+          detail: "This workspace has used its AI Research for today",
+          correlationId: "c1",
+        }),
+      );
+      const user = userEvent.setup();
+      renderPage();
+
+      await ask(user);
+
+      expect(await screen.findByRole("alert")).toHaveTextContent(
+        "Your workspace has used its AI Research for today",
+      );
+    });
+
+    it("offers a disabled button where no provider is configured", async () => {
+      vi.mocked(companiesApi.getDiscoveryConfig).mockResolvedValue({
+        offered: false,
+        dailySearchLimit: 25,
+      });
+      renderPage();
+
+      // Drawn rather than hidden: the feature exists, this deployment has not been given a key, and
+      // a button that 503s when pressed is a worse way to learn that.
+      await waitFor(() =>
+        expect(screen.getByRole("button", { name: /AI Research/ })).toBeDisabled(),
+      );
+    });
   });
 });

@@ -1,5 +1,13 @@
 import { request } from "../../../lib/apiClient";
-import type { CompanyResult, CompanySuggestion, FacetCount, Facets } from "./types";
+import type {
+  CompanyResult,
+  CompanySuggestion,
+  DiscoverCompaniesPayload,
+  DiscoveryAnswer,
+  DiscoveryConfig,
+  FacetCount,
+  Facets,
+} from "./types";
 
 /**
  * The workspace-level reads over the company universe: what the filter sidebar can offer, and what a
@@ -50,4 +58,27 @@ export function searchKeywords(
     `/companies/keywords?${new URLSearchParams({ q: query })}`,
     { signal },
   );
+}
+
+/**
+ * AI Research. A mutation rather than a query everywhere it is called, because it spends the
+ * workspace's daily budget — a key-driven refetch on window focus would bill a firm for a resize.
+ * Only the config read below is cached.
+ */
+export function discoverCompanies(
+  payload: DiscoverCompaniesPayload,
+  signal?: AbortSignal,
+): Promise<DiscoveryAnswer> {
+  return request<DiscoveryAnswer>("/companies/discover", {
+    method: "POST",
+    body: payload,
+    signal,
+  });
+}
+
+/** Read before the CTA is drawn, so an unconfigured deployment disables it rather than failing. */
+export const DISCOVERY_CONFIG_KEY = ["companyDiscoveryConfig"] as const;
+
+export function getDiscoveryConfig(signal?: AbortSignal): Promise<DiscoveryConfig> {
+  return request<DiscoveryConfig>("/companies/discover/config", { signal });
 }

@@ -25,6 +25,7 @@ export function SelectionCheckbox({
   checked,
   indeterminate,
   label,
+  disabled,
   onChange,
 }: {
   checked: boolean;
@@ -32,6 +33,12 @@ export function SelectionCheckbox({
   indeterminate?: boolean;
   /** The accessible name — "Select Emirates NBD", "Select all companies on this page". */
   label: string;
+  /**
+   * A row that cannot be acted on — an AI Research answer the mandate already holds. Drawn rather
+   * than omitted: a gap in a column of tick boxes reads as a rendering fault, and the label says
+   * why this one is out.
+   */
+  disabled?: boolean;
   onChange: (event: ChangeEvent<HTMLInputElement>) => void;
 }) {
   const inputRef = useRef<HTMLInputElement>(null);
@@ -49,11 +56,12 @@ export function SelectionCheckbox({
         ref={inputRef}
         type="checkbox"
         checked={checked}
+        disabled={disabled}
         onChange={onChange}
         aria-label={label}
-        className="peer absolute inset-0 z-10 cursor-pointer opacity-0"
+        className="peer absolute inset-0 z-10 cursor-pointer opacity-0 disabled:cursor-not-allowed"
       />
-      <span className="rounded-[5px] peer-focus-visible:outline peer-focus-visible:outline-2 peer-focus-visible:outline-offset-2 peer-focus-visible:outline-amber">
+      <span className="rounded-[5px] peer-disabled:opacity-40 peer-focus-visible:outline peer-focus-visible:outline-2 peer-focus-visible:outline-offset-2 peer-focus-visible:outline-amber">
         <CheckBox checked={indeterminate ? "mixed" : checked} size="sm" />
       </span>
     </span>

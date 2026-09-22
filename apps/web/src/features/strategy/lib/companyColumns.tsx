@@ -97,7 +97,9 @@ export const companyColumns = helper.columns([
     header: "Fit",
     enableSorting: false,
     meta: { share: 0, min: 44 },
-    // No score yet; it fills in when AI Research lands.
+    // Always an em-dash here, and not a gap waiting to be filled: a fit score is relevance to a
+    // question, and the market grid is a filter rather than a question. The populated column lives
+    // on AI Research's own grid — see lib/discoveredColumns.tsx.
     cell: () => <span className="font-sans text-[13px] font-semibold text-text3">—</span>,
   }),
 
