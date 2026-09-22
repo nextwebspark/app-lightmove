@@ -21,12 +21,21 @@ body {
 }
 
 /* The tokens carry the theme, so a colour transition would make every switch a slow fade of the whole
-   page. Only the background and text animate, and briefly. */
-body,
-body * {
-  transition:
-    background-color 120ms ease,
-    border-color 120ms ease;
+   page. Only the background and text animate, and briefly.
+
+   In `@layer base` because it is a default, and unlayered CSS beats every layer. Outside a layer this
+   rule's `transition` shorthand silently replaced `transition-property` on every element in the app,
+   which killed all 160-odd Tailwind `transition-*` utilities — the rail's width collapse, the
+   collapsible's rows, the report's bar fills, every hover — and left only these two colours moving.
+   Utilities sit in a later layer than base, so from here a component that asks for a transition gets
+   the one it asked for and everything else still fades its theme. */
+@layer base {
+  body,
+  body * {
+    transition:
+      background-color 120ms ease,
+      border-color 120ms ease;
+  }
 }
 
 ::placeholder {
@@ -114,7 +123,8 @@ body * {
   animation: slide-in-end 0.24s cubic-bezier(0.2, 0.8, 0.2, 1) both;
 }
 
-/* Respect the user's wishes. An animation is decoration; motion sickness is not. */
+/* Respect the user's wishes. An animation is decoration; motion sickness is not. Deliberately
+   unlayered: an `!important` outside every layer is the one declaration nothing can outrank. */
 @media (prefers-reduced-motion: reduce) {
   body,
   body *,

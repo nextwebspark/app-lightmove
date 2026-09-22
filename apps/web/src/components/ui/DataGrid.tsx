@@ -256,7 +256,10 @@ export function DataGrid<TFeatures extends TableFeatures, TData extends RowData>
         next[id] = cumulative;
         cumulative += cellOf(box, id)?.getBoundingClientRect().width ?? 0;
       }
-      setPinnedOffsets(next);
+      // Returning the same object makes React bail out. Worth the comparison because the observer
+      // fires on every frame of an animated container — the assistant docking, the rail collapsing —
+      // and most of those frames move no pinned column at all.
+      setPinnedOffsets((current) => (sameOffsets(current, next) ? current : next));
     };
     measure();
     const observer = new ResizeObserver(measure);
@@ -964,6 +967,11 @@ function moveColumn<TData extends RowData>(
 
 function cellOf(box: HTMLElement | null, id: string): HTMLElement | null {
   return box?.querySelector(`[role="columnheader"][data-column-id="${CSS.escape(id)}"]`) ?? null;
+}
+
+function sameOffsets(a: Record<string, number>, b: Record<string, number>): boolean {
+  const ids = Object.keys(b);
+  return ids.length === Object.keys(a).length && ids.every((id) => a[id] === b[id]);
 }
 
 /** An inset shadow rather than a border, for the reason `PINNED_START` is one: a border shifts the track. */

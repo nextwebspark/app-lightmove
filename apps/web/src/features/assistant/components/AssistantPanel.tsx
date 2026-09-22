@@ -25,6 +25,10 @@ const STARTERS = [
  *
  * <p>It holds no state worth keeping — {@link AssistantProvider} does — so remounting it as the
  * user crosses between layouts costs nothing.
+ *
+ * <p>It is also a fixed 400px and knows nothing about being open or shut: {@link AssistantDock} is
+ * the slot that animates around it, and a panel whose own width moved would reflow its contents on
+ * every frame of that.
  */
 export function AssistantPanel({
   contextLabel,
@@ -95,13 +99,11 @@ export function AssistantPanel({
     if (open && toggledByUser) composer.current?.focus();
   }, [open, toggledByUser]);
 
-  if (!open) return null;
-
   return (
     <aside
       role="complementary"
       aria-label="Uncava Assistant"
-      className="ms-2.5 hidden w-[400px] flex-none animate-slide-in-end flex-col overflow-hidden rounded-[10px] border border-line bg-panel lg:flex"
+      className="ms-2.5 flex h-full w-[400px] flex-none flex-col overflow-hidden rounded-[10px] border border-line bg-panel"
     >
       <div className="flex-none border-b border-line px-3 py-2.5">
         <div className="flex items-center gap-2">
@@ -131,6 +133,11 @@ export function AssistantPanel({
       <div ref={transcript} className="flex min-h-0 flex-1 flex-col gap-5 overflow-y-auto px-3 py-4">
         {threadId ? (
           <>
+            {thread.isLoading && !turnId && (
+              <p className="my-auto text-center font-mono text-[11px] text-text3">
+                Opening the conversation…
+              </p>
+            )}
             {past.map((turn) => (
               <AssistantTurnView
                 key={turn.id}
