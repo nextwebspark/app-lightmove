@@ -8,5 +8,6 @@ package app.lightmove.api.core.config;
  */
 public record CompanySettings(
         CompanySearchSettings search,
-        CompanyListSettings list
+        CompanyListSettings list,
+        CompanyDiscoverySettings discovery
 ) {}

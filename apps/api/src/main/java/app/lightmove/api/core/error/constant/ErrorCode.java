@@ -297,6 +297,22 @@ public enum ErrorCode {
     ASSISTANT_PROPOSAL_ALREADY_ACCEPTED(HttpStatus.CONFLICT,
             "This proposal has already been filed"),
 
+    /**
+     * No discovery provider on this deployment. Mirrors {@code CONTACT_LOOKUP_UNAVAILABLE}: an
+     * operator's problem, and nothing the person who pressed the button can act on. The toolbar asks
+     * the config route first so it can disable the CTA rather than offer a button that fails.
+     */
+    COMPANY_DISCOVERY_UNAVAILABLE(HttpStatus.SERVICE_UNAVAILABLE,
+            "AI Research is not available on this deployment"),
+
+    /**
+     * The workspace has spent its research for today. A 429 rather than a 409: nothing is wrong with
+     * the request and the same one works tomorrow — the caller's only mistake was being the
+     * twenty-sixth. Nothing was written and nothing was asked of the provider.
+     */
+    COMPANY_DISCOVERY_DAILY_LIMIT_REACHED(HttpStatus.TOO_MANY_REQUESTS,
+            "This workspace has used its AI Research for today"),
+
     INTERNAL_ERROR(HttpStatus.INTERNAL_SERVER_ERROR, "Something went wrong on our end");
 
     private final HttpStatus status;

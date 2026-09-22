@@ -7,7 +7,11 @@ public record CompanySearchSettings(
         /** Rows returned when the request names no explicit {@code limit}. */
         @DefaultValue("10") int defaultResultLimit,
 
-        /** Hard ceiling on rows one search returns; a larger requested {@code limit} clamps to this. */
+        /**
+         * Hard ceiling on rows one search returns. A larger requested {@code limit} is
+         * <b>refused, not clamped</b> — a silently narrowed limit is a wrong answer the caller
+         * cannot tell it got. See {@code CompanySearchLimits.resolved}.
+         */
         @DefaultValue("25") int maxResultLimit,
 
         /** Longest accepted query text; beyond it the request is rejected — a scope, not an attack. */

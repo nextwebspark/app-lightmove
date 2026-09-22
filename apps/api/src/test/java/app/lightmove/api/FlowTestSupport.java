@@ -59,6 +59,10 @@ public abstract class FlowTestSupport {
         // The vendor company cache is global by design (V64), so a slug one class's capture
         // remembered would answer the next class's — and its enricher would never be asked.
         vendorCache.update("DELETE FROM app_lm_vendor_company");
+        // The daily spend counter commits on its own (REQUIRES_NEW) and nothing rolls it back, so
+        // one class's searches would otherwise eat the next class's day — and its assertions would
+        // fail on a cap it never touched.
+        vendorCache.update("DELETE FROM app_lm_workspace_daily_spend");
         domain = "firm%d-%s.example".formatted(RUN.incrementAndGet(),
                 getClass().getSimpleName().toLowerCase());
     }

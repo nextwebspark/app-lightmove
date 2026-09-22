@@ -30,7 +30,15 @@ public enum LlmBudget {
     ASSESSMENT_EXTRACT("assessment-extract", LlmRateLimitSettings::defaultRequestsPerMinute),
 
     /** Step three's "Read from document" — reporting-structure extraction. */
-    REPORTING_EXTRACT("reporting-extract", LlmRateLimitSettings::defaultRequestsPerMinute);
+    REPORTING_EXTRACT("reporting-extract", LlmRateLimitSettings::defaultRequestsPerMinute),
+
+    /**
+     * Strategy's AI Research. Coarser than the others by a factor of two or three: one request here
+     * can be a grounded call, a second ungrounded extraction and a repair attempt, where every meter
+     * above counts one call per request. The per-minute brake is not what protects the bill anyway —
+     * {@link WorkspaceDailySpend} is; this stops a double-click costing twice.
+     */
+    COMPANY_DISCOVERY("company-discovery", LlmRateLimitSettings::defaultRequestsPerMinute);
 
     private final String meter;
     private final ToIntFunction<LlmRateLimitSettings> callsPerMinute;

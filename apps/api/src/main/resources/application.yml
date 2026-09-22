@@ -408,7 +408,8 @@ lightmove:
     search:
       # Rows returned when the request names no explicit limit.
       default-result-limit: ${COMPANY_SEARCH_DEFAULT_LIMIT:10}
-      # Hard ceiling on rows one search returns; a larger requested limit clamps to this.
+      # Hard ceiling on rows one search returns; a larger requested limit is refused, not clamped —
+      # a silently narrowed limit is a wrong answer the caller cannot tell it got.
       max-result-limit: ${COMPANY_SEARCH_MAX_LIMIT:25}
       # Longest accepted query text; beyond it the request is rejected — a scope, not an attack.
       max-query-length: ${COMPANY_SEARCH_MAX_QUERY_LENGTH:100}
@@ -426,6 +427,32 @@ lightmove:
       # How many companies one "Add all to Universe" may take; a filter matching more is refused, not
       # truncated. Above CompanyListSettings.MAX_BULK_ADD_LIMIT the application refuses to start.
       bulk-add-limit: ${COMPANY_BULK_ADD_LIMIT:200}
+    # Strategy's AI Research: a grounded Google search for companies the universe does not carry.
+    # The model proposes a name, a LinkedIn page and a reason; every figure on the row is filled from
+    # an Apollo row or a vendor record, or left empty.
+    discovery:
+      # Off leaves the port answering nothing and the toolbar's CTA disabled, rather than a button
+      # that fails when pressed. This is also how you turn discovery off — never a cap of zero, which
+      # would still admit the day's first search.
+      enabled: ${COMPANY_DISCOVERY_ENABLED:true}
+      # Its own model for the reason lightmove.assistant.model is: a grounded lookup is a Flash-tier
+      # workload and must not move because a planning workload needed a Pro-tier one.
+      model: ${COMPANY_DISCOVERY_MODEL:gemini-2.5-flash}
+      temperature: ${COMPANY_DISCOVERY_TEMPERATURE:0.2}
+      # Zero, matching the extraction prompts: this retrieves and classifies, it does not plan.
+      thinking-budget: ${COMPANY_DISCOVERY_THINKING_BUDGET:0}
+      # Vertex has historically refused grounding and a response schema on one call. true tries it
+      # once per process and latches off on a refusal naming the schema; false goes straight to
+      # grounded prose plus a second ungrounded extraction. A region whose answer is known sets it.
+      grounded-structured-output: ${COMPANY_DISCOVERY_GROUNDED_SCHEMA:true}
+      default-result-limit: ${COMPANY_DISCOVERY_DEFAULT_LIMIT:10}
+      # Refused rather than clamped, like every other list read.
+      max-result-limit: ${COMPANY_DISCOVERY_MAX_LIMIT:25}
+      max-question-length: ${COMPANY_DISCOVERY_MAX_QUESTION:500}
+      # Per UTC day, per workspace, counted in app_lm_workspace_daily_spend so it survives a second
+      # instance. This is the number standing between a firm and a Vertex bill; the per-minute
+      # LlmBudget meter beside it only stops a double-click.
+      daily-searches-per-workspace: ${COMPANY_DISCOVERY_DAILY_SEARCHES:25}
 
   position:
     document:

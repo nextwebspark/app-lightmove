@@ -54,6 +54,8 @@ export type ApiErrorCode =
   | "CONTACT_LOOKUP_NO_PROFILE"
   | "CONTACT_LIMIT_REACHED"
   | "CANDIDATE_PROFILE_URL_LOCKED"
+  | "COMPANY_DISCOVERY_UNAVAILABLE"
+  | "COMPANY_DISCOVERY_DAILY_LIMIT_REACHED"
   | "WORKSPACE_NAME_MISMATCH"
   | "TEMPLATE_STALE"
   | "TEMPLATE_FALLBACK_REQUIRED"
@@ -112,6 +114,11 @@ const MESSAGES: Partial<Record<ApiErrorCode, string>> = {
   CONTACT_LIMIT_REACHED: "A profile holds ten email addresses and ten phone numbers at most.",
   CANDIDATE_PROFILE_URL_LOCKED:
     "This profile was captured from LinkedIn, so its URL is not editable.",
+  COMPANY_DISCOVERY_UNAVAILABLE: "AI Research is not set up on this deployment.",
+  // Says when it comes back, because "too many requests" reads as "slow down" and this one will not
+  // clear by waiting a minute.
+  COMPANY_DISCOVERY_DAILY_LIMIT_REACHED:
+    "Your workspace has used its AI Research for today. It resets at midnight UTC.",
 };
 
 /**
