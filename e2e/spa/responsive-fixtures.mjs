@@ -39,6 +39,23 @@ const team = (n) =>
     projectRoles: [i === 0 ? "LEAD" : "RESEARCHER"],
   }));
 
+export const PROJECT_ACTIVITY = [
+  {
+    eventType: "CANDIDATE_ADDED",
+    summary: "mapped an executive",
+    actorName: "Hakan Alac",
+    actorAvatarUrl: null,
+    occurredAt: "2026-09-21T08:00:00Z",
+  },
+  {
+    eventType: "TRIAGE_BULK_ADDED",
+    summary: "filed 12 companies",
+    actorName: "Aleksandra Mizinska",
+    actorAvatarUrl: null,
+    occurredAt: "2026-09-19T08:00:00Z",
+  },
+];
+
 export const PROJECTS = [
   {
     id: "proj-1",
@@ -46,8 +63,26 @@ export const PROJECTS = [
     clientName: "Emirates Global Aluminium",
     positionTitle: "Chief Operating Officer, Downstream Manufacturing",
     stage: "MAPPING",
+    projectType: "MAPPING",
     health: "OK",
-    targetDate: "2026-11-30",
+    startDate: "2026-04-01",
+    mappingTargetDate: "2026-11-30",
+    shortlistTargetDate: null,
+    targetDate: null,
+    progress: {
+      activePhase: "MAP",
+      mappingComplete: false,
+      mapPercent: 65,
+      engagePercent: 0,
+      universeCompanies: 128,
+      companiesResearched: 83,
+      candidatesMapped: 42,
+      candidatesEngaged: 0,
+      qualifiedMatches: 0,
+      mappingVelocityPerWeek: 2.1,
+      governingMilestone: "2026-11-30",
+      daysRemaining: 69,
+    },
     team: team(4),
     representatives: [],
     companies: 128,
@@ -60,8 +95,27 @@ export const PROJECTS = [
     clientName: "Qatar National Petrochemical",
     positionTitle: "Group Head of Digital Transformation",
     stage: "OUTREACH",
+    projectType: "EXECUTIVE_SEARCH",
     health: "RISK",
-    targetDate: "2026-09-15",
+    startDate: "2026-05-12",
+    // Mapping is complete, so this row sweeps the "Complete ✓" cell and the engage half of the bar.
+    mappingTargetDate: "2026-08-01",
+    shortlistTargetDate: "2026-12-01",
+    targetDate: "2027-02-01",
+    progress: {
+      activePhase: "ENGAGE",
+      mappingComplete: true,
+      mapPercent: 100,
+      engagePercent: 30,
+      universeCompanies: 64,
+      companiesResearched: 64,
+      candidatesMapped: 17,
+      candidatesEngaged: 5,
+      qualifiedMatches: 3,
+      mappingVelocityPerWeek: 1.4,
+      governingMilestone: "2026-12-01",
+      daysRemaining: 18,
+    },
     team: team(2),
     representatives: [],
     companies: 64,
@@ -511,6 +565,7 @@ export function payloadFor(pathname, search = "") {
       counts: TRIAGE_COUNTS,
     };
   if (/\/projects\/[^/]+\/report/.test(pathname)) return REPORT;
+  if (/\/projects\/[^/]+\/activity/.test(pathname)) return PROJECT_ACTIVITY;
   // The Companies grid asks only for the brief's package, to offer its currency to a new executive.
   if (/\/projects\/[^/]+\/position\/compensation$/.test(pathname)) return POSITION.compensation;
   if (/\/projects\/[^/]+\/position/.test(pathname)) return POSITION;

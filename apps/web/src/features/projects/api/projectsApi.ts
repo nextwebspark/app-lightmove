@@ -1,5 +1,5 @@
 import { request } from "../../../lib/apiClient";
-import type { Project, StaffRole } from "./types";
+import type { Project, ProjectActivity, ProjectType, StaffRole } from "./types";
 
 /**
  * Every call the projects feature makes, plus the query keys its screens share. Clients are their own
@@ -9,6 +9,8 @@ import type { Project, StaffRole } from "./types";
 
 export const PROJECTS_KEY = ["projects"] as const;
 
+export const projectActivityKey = (projectId: string) => ["project-activity", projectId] as const;
+
 export function projects(): Promise<Project[]> {
   return request<Project[]>("/projects");
 }
@@ -16,18 +18,35 @@ export function projects(): Promise<Project[]> {
 export function createProject(payload: {
   clientId: string;
   positionTitle: string;
-  targetDate?: string;
+  projectType: ProjectType;
+  startDate?: string;
+  mappingTargetDate?: string;
+  shortlistTargetDate?: string;
 }): Promise<Project> {
   // No lead to choose: the server seats the creator as the mandate's lead.
   return request<Project>("/projects", { method: "POST", body: payload });
 }
 
 /**
- * The one project field editable after creation. The brief's Role Brief step edits it from there:
- * the mandate keeps one target date, on the project, and the brief only ever reads it back.
+ * A patch of the mandate itself: the brief's target start, or the timeline health is measured
+ * against. Every field is optional and what is left out stays as it is.
  */
-export function updateProject(projectId: string, payload: { targetDate: string }): Promise<Project> {
+export function updateProject(
+  projectId: string,
+  payload: {
+    targetDate?: string;
+    projectType?: ProjectType;
+    startDate?: string;
+    mappingTargetDate?: string;
+    shortlistTargetDate?: string;
+  },
+): Promise<Project> {
   return request<Project>(`/projects/${projectId}`, { method: "PATCH", body: payload });
+}
+
+/** What has happened on a mandate lately. Staff only — a client contact is refused it. */
+export function projectActivity(projectId: string, signal?: AbortSignal): Promise<ProjectActivity[]> {
+  return request<ProjectActivity[]>(`/projects/${projectId}/activity`, { signal });
 }
 
 /**

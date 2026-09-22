@@ -1,4 +1,4 @@
-import type { ProjectHealth, ProjectStage } from "../../features/projects/api/types";
+import type { ProjectHealth, ProjectStage, ProjectType } from "../../features/projects/api/types";
 
 /**
  * The mockups' stage pills and health dots, colour maps lifted from Workspace.dc.html's STAGES and
@@ -30,11 +30,28 @@ export function StagePill({ stage }: { stage: ProjectStage }) {
   );
 }
 
-const HEALTH_STYLES: Record<ProjectHealth, { label: string; dot: string; text: string }> = {
-  OK: { label: "On track", dot: "bg-green", text: "text-text2" },
-  RISK: { label: "At risk", dot: "bg-amber", text: "text-amber" },
-  OFF: { label: "Off track", dot: "bg-red", text: "text-red" },
-  DONE: { label: "Complete", dot: "bg-text3", text: "text-text3" },
+/** What a mandate is engaged to deliver, in the pill shape the stages already use. */
+const TYPE_STYLES: Record<ProjectType, { label: string; className: string }> = {
+  MAPPING: { label: "Mapping only", className: "text-text2 border-line bg-panel2" },
+  EXECUTIVE_SEARCH: { label: "Executive search", className: "text-sky bg-sky-dim border-transparent" },
+};
+
+export function ProjectTypeBadge({ projectType }: { projectType: ProjectType }) {
+  const { label, className } = TYPE_STYLES[projectType];
+  return (
+    <span
+      className={`inline-flex items-center whitespace-nowrap rounded-md border px-[9px] py-[3px] font-mono text-[10.5px] font-semibold uppercase tracking-[0.06em] ${className}`}
+    >
+      {label}
+    </span>
+  );
+}
+
+const HEALTH_STYLES: Record<ProjectHealth, { label: string; dot: string; text: string; pill: string }> = {
+  OK: { label: "On track", dot: "bg-green", text: "text-text2", pill: "text-green bg-green-dim" },
+  RISK: { label: "At risk", dot: "bg-amber", text: "text-amber", pill: "text-amber bg-amber-dim" },
+  OFF: { label: "Off track", dot: "bg-red", text: "text-red", pill: "text-red bg-red-dim" },
+  DONE: { label: "Complete", dot: "bg-text3", text: "text-text3", pill: "text-text3 bg-panel2" },
 };
 
 export function HealthDot({ health }: { health: ProjectHealth }) {
@@ -42,6 +59,18 @@ export function HealthDot({ health }: { health: ProjectHealth }) {
   return (
     <span className={`inline-flex items-center gap-1.5 whitespace-nowrap font-mono text-xs font-medium ${text}`}>
       <span className={`size-[7px] rounded-full ${dot}`} />
+      {label}
+    </span>
+  );
+}
+
+/** The same four states as a filled pill, for the list's Status column and the drawer's header. */
+export function HealthPill({ health }: { health: ProjectHealth }) {
+  const { label, pill } = HEALTH_STYLES[health];
+  return (
+    <span
+      className={`inline-flex items-center whitespace-nowrap rounded-md px-[9px] py-[3px] font-mono text-[10.5px] font-semibold uppercase tracking-[0.06em] ${pill}`}
+    >
       {label}
     </span>
   );

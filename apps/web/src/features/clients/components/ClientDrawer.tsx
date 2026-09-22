@@ -425,8 +425,12 @@ function MandateView({
           );
         })}
 
-        <SectionLabel className="mt-[18px]">Target</SectionLabel>
-        <p className="font-mono text-[12.5px] text-text2">{formatDate(mandate.targetDate)}</p>
+        <SectionLabel className="mt-[18px]">Milestones</SectionLabel>
+        <MilestoneRow label="Map" date={mandate.mappingTargetDate} />
+        {mandate.projectType === "EXECUTIVE_SEARCH" && (
+          <MilestoneRow label="Shortlist" date={mandate.shortlistTargetDate} />
+        )}
+        <MilestoneRow label="Target start" date={mandate.targetDate} />
       </div>
 
       <div className="flex items-center justify-between border-t border-line-soft px-5 py-3">
@@ -464,5 +468,15 @@ function StatTile({ value, label }: { value: string; label: string }) {
       <b className="block font-mono text-[17px] font-semibold text-text">{value}</b>
       <span className="font-mono text-[10.5px] uppercase tracking-[0.06em] text-text3">{label}</span>
     </div>
+  );
+}
+
+/** One dated line of a mandate's timeline, in the drawer's own mono figures. */
+function MilestoneRow({ label, date }: { label: string; date: string | null }) {
+  return (
+    <p className="flex items-baseline justify-between py-[3px] font-mono text-[12.5px] text-text2">
+      <span className="text-text3">{label}</span>
+      <span>{formatDate(date)}</span>
+    </p>
   );
 }

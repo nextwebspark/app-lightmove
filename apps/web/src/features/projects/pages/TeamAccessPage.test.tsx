@@ -1,3 +1,4 @@
+import { sampleProgress } from "../../../test/sampleProject";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
@@ -92,6 +93,11 @@ describe("TeamAccessPage", () => {
     positionTitle: "CFO Search",
     stage: "MAPPING",
     health: "OK",
+    projectType: "MAPPING",
+    startDate: "2026-07-01",
+    mappingTargetDate: null,
+    shortlistTargetDate: null,
+    progress: sampleProgress(),
     targetDate: null,
     team: [
       {

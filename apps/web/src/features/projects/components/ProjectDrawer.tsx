@@ -1,8 +1,19 @@
 import { Link, useNavigate } from "react-router-dom";
 import { Icon, ICONS } from "../../../components/layout/Icon";
-import { Avatar, Button, CompanyLogo, Drawer, StagePill, stageLabel } from "../../../components/ui";
+import {
+  Avatar,
+  Button,
+  CompanyLogo,
+  Drawer,
+  HealthPill,
+  ProjectTypeBadge,
+  StagePill,
+  stageLabel,
+} from "../../../components/ui";
 import { DrawerCloseButton } from "../../../components/ui/Drawer";
-import { formatDate } from "../../../lib/format";
+import { formatNumber } from "../../../lib/format";
+import { ProjectActivityFeed } from "./ProjectActivityFeed";
+import { PaceNotice, PhasePipeline } from "./ProjectPulse";
 import type { AttachedRepresentative, Project, StaffRole, TeamMember } from "../api/types";
 import { STAGE_ORDER } from "../lib/filtering";
 import { staffRoleOf } from "../lib/projectTeamColumns";
@@ -26,7 +37,9 @@ export function ProjectDrawer({ project, onClose }: { project: Project | null; o
           {project.clientName}
         </div>
         <div className="mt-1 text-[17px] font-semibold">{project.positionTitle}</div>
-        <div className="mt-2.5">
+        <div className="mt-2.5 flex flex-wrap items-center gap-1.5">
+          <ProjectTypeBadge projectType={project.projectType} />
+          <HealthPill health={project.health} />
           <StagePill stage={project.stage} />
         </div>
         <Button className="mt-3 w-full" onClick={() => navigate(`/projects/${project.id}`)}>
@@ -35,11 +48,18 @@ export function ProjectDrawer({ project, onClose }: { project: Project | null; o
       </div>
 
       <div className="flex-1 overflow-y-auto px-5 py-[18px]">
-        <SectionLabel>Pipeline</SectionLabel>
-        <div className="flex gap-2.5">
-          <StatTile value={String(project.companies)} label="Companies" />
-          <StatTile value={String(project.candidates)} label="Candidates" />
-          <StatTile value={formatDate(project.targetDate).slice(0, 6)} label="Target" />
+        <PhasePipeline project={project} />
+        <PaceNotice project={project} />
+
+        <SectionLabel className="mt-[18px]">Key metrics</SectionLabel>
+        <div className="grid grid-cols-2 gap-2.5">
+          <StatTile value={formatNumber(project.progress.universeCompanies)} label="Universe companies" />
+          <StatTile value={formatNumber(project.progress.candidatesMapped)} label="Executives mapped" />
+          <StatTile value={formatNumber(project.progress.qualifiedMatches)} label="Qualified matches" />
+          <StatTile
+            value={`${project.progress.mappingVelocityPerWeek.toFixed(1)}/wk`}
+            label="Mapping velocity"
+          />
         </div>
 
         <SectionLabel className="mt-[18px]">Stage gates</SectionLabel>
@@ -65,7 +85,10 @@ export function ProjectDrawer({ project, onClose }: { project: Project | null; o
           );
         })}
 
-        <SectionLabel className="mt-[18px]">Project team</SectionLabel>
+        <div className="mt-[18px] flex items-baseline justify-between">
+          <SectionLabel>Project team</SectionLabel>
+          <InviteLink projectId={project.id} panel="team" />
+        </div>
         <div className="overflow-hidden rounded-[10px] border border-line-soft">
           {staff.length === 0 ? (
             <EmptyRow>No one staffed yet</EmptyRow>
@@ -83,7 +106,10 @@ export function ProjectDrawer({ project, onClose }: { project: Project | null; o
           )}
         </div>
 
-        <SectionLabel className="mt-[18px]">Client</SectionLabel>
+        <div className="mt-[18px] flex items-baseline justify-between">
+          <SectionLabel>Client contacts</SectionLabel>
+          <InviteLink projectId={project.id} panel="client" />
+        </div>
         <div className="overflow-hidden rounded-[10px] border border-line-soft">
           <div className="flex items-center gap-[11px] px-[13px] py-[11px]">
             <CompanyLogo name={project.clientName} logo={project.clientLogoUrl} size={30} />
@@ -106,8 +132,25 @@ export function ProjectDrawer({ project, onClose }: { project: Project | null; o
           <Icon d={ICONS.settings} size={13} />
           Manage team &amp; client access in project settings
         </Link>
+
+        <ProjectActivityFeed projectId={project.id} />
       </div>
     </Drawer>
+  );
+}
+
+/**
+ * Opens the Team &amp; access tab with the right panel already up. Navigation, not a second write
+ * surface: seats and client access are granted in one place, and this drawer stays a read.
+ */
+function InviteLink({ projectId, panel }: { projectId: string; panel: "team" | "client" }) {
+  return (
+    <Link
+      to={`/projects/${projectId}/team?invite=${panel}`}
+      className="font-mono text-[11px] font-semibold text-amber hover:underline"
+    >
+      + Invite
+    </Link>
   );
 }
 
@@ -172,7 +215,7 @@ function SectionLabel({ children, className = "" }: { children: string; classNam
 
 function StatTile({ value, label }: { value: string; label: string }) {
   return (
-    <div className="flex-1 rounded-lg border border-line-soft bg-panel2 px-3 py-2.5">
+    <div className="rounded-lg border border-line-soft bg-panel2 px-3 py-2.5">
       <b className="block font-mono text-[17px] font-semibold text-text">{value}</b>
       <span className="font-mono text-[10.5px] uppercase tracking-[0.06em] text-text3">{label}</span>
     </div>

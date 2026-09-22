@@ -150,7 +150,23 @@ those screens are live fields; nothing is frozen server-side (V38). Every step's
 brief — the step before on one side, the step after on the other — and the review, having no step
 after it, offers **Move to Strategy** there once published, the mandate's market being what is left
 to do. Nothing in that row is filled: the brief's two acts are the rail's, on every step, and the
-mockup's third copy of the pair at the review's top right is deliberately not drawn. **The product is Uncava**: the mark is the rhombus over an isometric cube
+mockup's third copy of the pair at the review's top right is deliberately not drawn. A mandate also declares **what it is engaged to deliver and by when** (V68, `claude-design/project-health/`).
+A *Mapping* mandate owes a universe map and has one milestone; an *Executive search* runs through to a
+shortlist and has two — the mapping target, auto-drafted at 60% of the window and editable, then the
+shortlist the hiring manager is waiting for. `ProjectHealth` stopped being a date comparison: it is
+**progress against elapsed time** in the window from `start_date` to whichever milestone currently
+governs the mandate, with a settling-in week so a mandate cannot read off track on day three. Mapping
+is complete when every company in the live universe has been researched — an executive mapped against
+it, or "no executive found" ticked (V59) — and a search re-anchors to its shortlist date at that
+point; nothing consults `stage`, which nothing in the app ever moves. The numbers behind it are two
+grouped queries per list read, behind `ProjectProgressCounter`. The projects list draws them as a
+two-segment bar (`MAP · 20%`, then `ENGAGE · 30%`) beside a map target that reads `Complete ✓` when
+coverage is done; the drawer adds the phase pipeline, a pace notice when a mandate is behind, four
+metric tiles and a **recent-activity feed read back out of the audit trail** — gated `WORK_EXECUTE`,
+not `WORK_VIEW`, because it narrates the firm's own research and a client representative holds
+`WORK_VIEW`. It renders a whitelisted sentence per event type; the ledger's `metadata` never crosses
+the wire. The list's chips narrow by type and health rather than by stage, for the same reason the
+phase does. **The product is Uncava**: the mark is the rhombus over an isometric cube
 in `apps/web/public/brand` (`favicon.svg`, the SPA's `AppIcon`, the extension's `BrandMark` and icons,
 and the email's `uncava-mark-email-v1.png` are drawn from that one geometry) and every user-facing
 string says Uncava,
@@ -176,7 +192,8 @@ the mockups: if a screen isn't being built this session, its tables and entities
 `position` is the mandate's **brief** — what the role is, why it exists, what it pays and what a
 candidate is scored against. It owns `app_lm_position` and its owned lists, and it depends on `project`
 because the mandate keeps two of the fields the screen shows: the role title, which step one edits, and
-the one target date (V8), which the screen only displays — it is set on the project and nowhere else.
+the one target start date (V8), which the screen only displays — it is set on the project and nowhere
+else, and since V68 it is the brief's date alone: health is measured against the mandate's milestones.
 Nothing else depends on it: the one reverse edge that existed — `project`'s `ReportService` reading the
 position repository for the report's salary band — went with the report.
 

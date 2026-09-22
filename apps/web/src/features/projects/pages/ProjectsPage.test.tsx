@@ -1,3 +1,4 @@
+import { sampleProgress } from "../../../test/sampleProject";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { render, screen } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
@@ -73,6 +74,11 @@ describe("ProjectsPage — pure client", () => {
     positionTitle: "CFO Search",
     stage: "MAPPING",
     health: "OK",
+    projectType: "MAPPING",
+    startDate: "2026-07-01",
+    mappingTargetDate: null,
+    shortlistTargetDate: null,
+    progress: sampleProgress(),
     targetDate: null,
     team: [],
     representatives: [],

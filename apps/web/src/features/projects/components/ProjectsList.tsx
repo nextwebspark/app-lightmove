@@ -1,10 +1,11 @@
 import type { ColumnVisibilityState, OnChangeFn, PaginationState } from "@tanstack/react-table";
-import { CompanyLogo, HealthDot, StagePill } from "../../../components/ui";
+import { CompanyLogo, HealthPill, ProjectTypeBadge } from "../../../components/ui";
 import { DataGrid } from "../../../components/ui/DataGrid";
 import { useDataGridTable } from "../../../lib/useDataGridTable";
 import type { GridLayout } from "../../../lib/useGridLayout";
 import type { GridSort } from "../../../lib/useGridSort";
 import { formatDate } from "../../../lib/format";
+import { PhaseBar } from "./PhaseBar";
 import type { Project } from "../api/types";
 import {
   leadOf,
@@ -94,23 +95,23 @@ function ProjectCard({ project, onOpen }: { project: Project; onOpen: () => void
             </div>
             <div className="mt-0.5 text-[13.5px] font-semibold text-text">{project.positionTitle}</div>
           </div>
-          <HealthDot health={project.health} />
+          <HealthPill health={project.health} />
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
-          <StagePill stage={project.stage} />
+          <ProjectTypeBadge projectType={project.projectType} />
           <span className="font-mono text-[11px] text-text3">
             Lead · {leadOf(project.team)?.fullName ?? "—"}
           </span>
         </div>
 
+        <PhaseBar progress={project.progress} />
+
         <div className="flex items-center gap-2.5 border-t border-line-soft pt-2.5">
           <TeamStack team={project.team} />
-          <span className="ml-auto font-mono text-[11px] text-text2">
-            <b className="font-semibold text-text">{project.companies}</b> cos ·{" "}
-            <b className="font-semibold text-text">{project.candidates}</b> cand
+          <span className="ml-auto font-mono text-[11px] text-text3">
+            {project.progress.mappingComplete ? "Map complete" : `Map ${formatDate(project.mappingTargetDate)}`}
           </span>
-          <span className="font-mono text-[11px] text-text3">{formatDate(project.targetDate)}</span>
         </div>
       </button>
       <div className="flex justify-end border-t border-line-soft px-3.5 py-2.5">

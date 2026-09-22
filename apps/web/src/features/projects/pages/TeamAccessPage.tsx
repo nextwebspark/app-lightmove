@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useNavigate, useOutletContext } from "react-router-dom";
+import { useNavigate, useOutletContext, useSearchParams } from "react-router-dom";
 import type { ProjectOutletContext } from "../../../components/layout/ProjectLayout";
 import { Icon, ICONS } from "../../../components/layout/Icon";
 import { PageHeader } from "../../../components/layout/PageHeader";
@@ -47,8 +47,19 @@ export function TeamAccessPage() {
   const queryClient = useQueryClient();
   const toast = useToast();
   const navigate = useNavigate();
-  const [addTeamOpen, setAddTeamOpen] = useState(false);
-  const [addContactOpen, setAddContactOpen] = useState(false);
+  // ?invite= is how the project drawer's two "+ Invite" links arrive: they open this screen with the
+  // panel they asked for already up. Consumed once, so a refresh or a back does not reopen it.
+  const [searchParams, setSearchParams] = useSearchParams();
+  const requestedPanel = searchParams.get("invite");
+  const [addTeamOpen, setAddTeamOpen] = useState(requestedPanel === "team");
+  const [addContactOpen, setAddContactOpen] = useState(requestedPanel === "client");
+
+  useEffect(() => {
+    if (requestedPanel) {
+      setSearchParams({}, { replace: true });
+    }
+  }, [requestedPanel, setSearchParams]);
+
   const [sort, setSort] = useGridSort<ProjectTeamSortField>(
     "projectTeam",
     project.id,

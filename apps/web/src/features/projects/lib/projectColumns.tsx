@@ -6,7 +6,7 @@ import {
 } from "@tanstack/react-table";
 import { Link } from "react-router-dom";
 import { Icon, ICONS } from "../../../components/layout/Icon";
-import { Avatar, CompanyLogo, HealthDot, StagePill } from "../../../components/ui";
+import { Avatar, CompanyLogo, HealthPill, ProjectTypeBadge } from "../../../components/ui";
 import {
   LOCAL_ROW_MODELS,
   DATA_GRID_FEATURES,
@@ -16,8 +16,8 @@ import {
 import { TruncatedText } from "../../../components/ui/TruncatedText";
 import { compareDate, compareNumber, compareText } from "../../../lib/gridSortFns";
 import { formatDate } from "../../../lib/format";
-import type { Project, TeamMember } from "../api/types";
-import { STAGE_ORDER } from "./filtering";
+import { PhaseBar } from "../components/PhaseBar";
+import type { MandateProgress, Project, TeamMember } from "../api/types";
 
 /**
  * The mandate list holds every project the firm has — tens of rows, in one query — so unlike the
@@ -37,27 +37,33 @@ const helper = createColumnHelper<typeof projectTableFeatures, Project>();
  */
 export const projectColumns = helper.columns([
   helper.accessor("clientName", {
-    id: "client",
-    header: "Client",
+    id: "company",
+    header: "Company",
     enableHiding: false,
-    meta: { share: 18, min: 160 },
+    meta: { share: 20, min: 180 },
     sortFn: (a, b) => compareText(a.original.clientName, b.original.clientName),
     cell: (info) => (
       <span className="flex min-w-0 items-center gap-2">
         <CompanyLogo name={info.getValue()} logo={info.row.original.clientLogoUrl} size={22} />
-        <TruncatedText
-          value={info.getValue()}
-          className="font-mono text-[12.5px] font-medium text-text2"
-        />
+        <span className="block min-w-0">
+          <TruncatedText
+            value={info.getValue()}
+            className="font-sans text-[13px] font-semibold text-text"
+          />
+          <TruncatedText
+            value={`Lead · ${leadOf(info.row.original.team)?.fullName ?? "—"}`}
+            className="mt-0.5 block font-mono text-[11px] text-text3"
+          />
+        </span>
       </span>
     ),
   }),
 
   helper.accessor("positionTitle", {
-    id: "position",
-    header: "Position",
+    id: "role",
+    header: "Role & type",
     enableHiding: false,
-    meta: { share: 26, min: 200 },
+    meta: { share: 22, min: 190 },
     sortFn: (a, b) => compareText(a.original.positionTitle, b.original.positionTitle),
     cell: (info) => (
       <span className="block min-w-0">
@@ -65,31 +71,11 @@ export const projectColumns = helper.columns([
           value={info.getValue()}
           className="font-sans text-[13px] font-semibold text-text"
         />
-        <TruncatedText
-          value={`Lead · ${leadOf(info.row.original.team)?.fullName ?? "—"}`}
-          className="mt-0.5 block font-mono text-[11px] text-text3"
-        />
+        <span className="mt-1 block">
+          <ProjectTypeBadge projectType={info.row.original.projectType} />
+        </span>
       </span>
     ),
-  }),
-
-  helper.accessor("stage", {
-    id: "stage",
-    header: "Stage",
-    // "Outreach live" is the widest pill, and a pill that crossed the gap would sit in Health.
-    meta: { share: 0, min: 148 },
-    // The stages are a sequence, not an alphabet: Brief comes before Universe, not after Outreach.
-    sortFn: (a, b) =>
-      compareNumber(STAGE_ORDER.indexOf(a.original.stage), STAGE_ORDER.indexOf(b.original.stage)),
-    cell: (info) => <StagePill stage={info.getValue()} />,
-  }),
-
-  helper.accessor("health", {
-    id: "health",
-    header: "Health",
-    enableSorting: false,
-    meta: { share: 0, min: 92 },
-    cell: (info) => <HealthDot health={info.getValue()} />,
   }),
 
   helper.display({
@@ -100,28 +86,43 @@ export const projectColumns = helper.columns([
     cell: (info) => <TeamStack team={info.row.original.team} />,
   }),
 
-  helper.accessor("targetDate", {
-    id: "target",
-    header: "Target",
-    meta: { share: 0, min: 104 },
-    sortFn: (a, b) => compareDate(a.original.targetDate, b.original.targetDate),
+  helper.accessor((project) => phaseRank(project.progress), {
+    id: "progress",
+    header: "Assignment progress",
+    meta: { share: 0, min: 168 },
+    sortFn: (a, b) => compareNumber(phaseRank(a.original.progress), phaseRank(b.original.progress)),
+    cell: (info) => <PhaseBar progress={info.row.original.progress} />,
+  }),
+
+  helper.accessor("mappingTargetDate", {
+    id: "mapTarget",
+    header: "Map target",
+    meta: { share: 0, min: 116 },
+    sortFn: (a, b) => compareDate(a.original.mappingTargetDate, b.original.mappingTargetDate),
+    cell: (info) =>
+      info.row.original.progress.mappingComplete ? (
+        <span className="whitespace-nowrap font-mono text-[12.5px] font-semibold text-green">
+          Complete ✓
+        </span>
+      ) : (
+        <DataGridCell value={formatDate(info.getValue())} />
+      ),
+  }),
+
+  helper.accessor("shortlistTargetDate", {
+    id: "shortlist",
+    header: "Shortlist delivery",
+    meta: { share: 0, min: 130 },
+    sortFn: (a, b) => compareDate(a.original.shortlistTargetDate, b.original.shortlistTargetDate),
     cell: (info) => <DataGridCell value={formatDate(info.getValue())} />,
   }),
 
-  helper.display({
-    id: "pipeline",
-    header: "Pipeline",
+  helper.accessor("health", {
+    id: "status",
+    header: "Status",
     enableSorting: false,
-    meta: { share: 0, min: 132 },
-    cell: (info) => {
-      const project = info.row.original;
-      return (
-        <span className="whitespace-nowrap font-mono text-xs text-text2">
-          <b className="font-semibold text-text">{project.companies}</b> cos ·{" "}
-          <b className="font-semibold text-text">{project.candidates}</b> cand
-        </span>
-      );
-    },
+    meta: { share: 0, min: 108 },
+    cell: (info) => <HealthPill health={info.getValue()} />,
   }),
 
   helper.display({
@@ -134,14 +135,22 @@ export const projectColumns = helper.columns([
   }),
 ]);
 
-export const PROJECT_SORT_FIELDS = ["client", "position", "stage", "target"] as const;
+/**
+ * One number a mandate's progress sorts by. Engaging mandates rank above mapping ones whatever their
+ * percentages, because a mandate working its people is further along than one still building a list.
+ */
+function phaseRank(progress: MandateProgress): number {
+  return progress.activePhase === "ENGAGE" ? 100 + progress.engagePercent : progress.mapPercent;
+}
+
+export const PROJECT_SORT_FIELDS = ["company", "role", "progress", "mapTarget", "shortlist"] as const;
 
 export type ProjectSortField = (typeof PROJECT_SORT_FIELDS)[number];
 
 export const PROJECT_COLUMN_VISIBILITY: ColumnVisibilityState = {};
 
 /** A scrolled row without its client is a line of anonymous figures, so the client travels with it. */
-export const PROJECT_COLUMN_PINNING: ColumnPinningState = { start: ["client"], end: [] };
+export const PROJECT_COLUMN_PINNING: ColumnPinningState = { start: ["company"], end: [] };
 
 export function TeamStack({ team }: { team: TeamMember[] }) {
   return (

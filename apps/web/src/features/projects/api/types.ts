@@ -13,6 +13,38 @@ export type ProjectStage =
 
 export type ProjectHealth = "OK" | "RISK" | "OFF" | "DONE";
 
+/** What a mandate is engaged to deliver, which decides how many milestones it has. */
+export type ProjectType = "MAPPING" | "EXECUTIVE_SEARCH";
+
+/** Which half of the work a mandate is in. Derived from coverage, never from its stage. */
+export type MandatePhase = "MAP" | "ENGAGE";
+
+/** How far a mandate has got, as the list's bar and the drawer's tiles read it. */
+export interface MandateProgress {
+  activePhase: MandatePhase;
+  mappingComplete: boolean;
+  mapPercent: number;
+  engagePercent: number;
+  universeCompanies: number;
+  companiesResearched: number;
+  candidatesMapped: number;
+  candidatesEngaged: number;
+  qualifiedMatches: number;
+  mappingVelocityPerWeek: number;
+  /** The milestone health is measured against — the mapping target, or the shortlist. */
+  governingMilestone: string | null;
+  daysRemaining: number | null;
+}
+
+/** One line of the drawer's activity feed, already rendered as a sentence by the server. */
+export interface ProjectActivity {
+  eventType: string;
+  summary: string;
+  actorName: string;
+  actorAvatarUrl: string | null;
+  occurredAt: string;
+}
+
 export type ProjectRole = "LEAD" | "RESEARCHER" | "CLIENT";
 
 /** The staff roles the team table hands out. CLIENT is not one of them — it comes from an attach. */
@@ -52,8 +84,14 @@ export interface Project {
   clientLogoUrl: string | null;
   positionTitle: string;
   stage: ProjectStage;
+  projectType: ProjectType;
   health: ProjectHealth;
+  startDate: string;
+  mappingTargetDate: string | null;
+  shortlistTargetDate: string | null;
+  /** The brief's target start — when the hire should begin. Not a milestone; health ignores it. */
   targetDate: string | null;
+  progress: MandateProgress;
   team: TeamMember[];
   representatives: AttachedRepresentative[];
   /** The mandate's live universe: every company it has triaged and not declined. */

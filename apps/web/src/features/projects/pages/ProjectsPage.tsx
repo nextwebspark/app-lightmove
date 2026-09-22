@@ -29,7 +29,7 @@ import { CHIPS, filterProjects, type ChipKey } from "../lib/filtering";
 const PROJECT_LAYOUT_COLUMNS = layoutColumnsOf(projectColumns);
 const HIDEABLE_PROJECT_COLUMNS = hideableColumnsOf(projectColumns);
 
-const DEFAULT_PROJECT_SORT = { field: "target", direction: "asc" } as const;
+const DEFAULT_PROJECT_SORT = { field: "mapTarget", direction: "asc" } as const;
 
 /**
  * The workspace home: the mandate list under My/All views, with the search box, stage chips and
@@ -114,7 +114,15 @@ export function ProjectsPage({ view }: { view: "my" | "all" }) {
           action={newProjectButton}
         />
         <TableSkeleton
-          columns={["Client", "Position", "Stage", "Health", "Team", "Target", "Pipeline"]}
+          columns={[
+            "Company",
+            "Role & type",
+            "Team",
+            "Assignment progress",
+            "Map target",
+            "Shortlist delivery",
+            "Status",
+          ]}
         />
       </>
     );

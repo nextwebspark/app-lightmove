@@ -1,9 +1,14 @@
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
-import { describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+import { sampleProgress } from "../../../test/sampleProject";
+import * as projectsApi from "../api/projectsApi";
 import type { Project, TeamMember } from "../api/types";
 import { ProjectDrawer } from "./ProjectDrawer";
+
+vi.mock("../api/projectsApi");
 
 const seat = (memberId: string, fullName: string, projectRoles: TeamMember["projectRoles"]): TeamMember => ({
   memberId,
@@ -22,6 +27,20 @@ const project: Project = {
   positionTitle: "CFO Search",
   stage: "MAPPING",
   health: "RISK",
+  projectType: "MAPPING",
+  startDate: "2026-07-01",
+  mappingTargetDate: "2026-10-30",
+  shortlistTargetDate: null,
+  progress: sampleProgress({
+    mapPercent: 25,
+    universeCompanies: 4,
+    companiesResearched: 1,
+    candidatesMapped: 2,
+    qualifiedMatches: 1,
+    mappingVelocityPerWeek: 2.1,
+    governingMilestone: "2026-10-30",
+    daysRemaining: 18,
+  }),
   targetDate: null,
   team: [
     seat("m1", "Riley Researcher", ["RESEARCHER"]),
@@ -42,22 +61,41 @@ const project: Project = {
   createdAt: "2026-07-13T10:00:00Z",
 };
 
-const renderDrawer = () =>
+const renderDrawer = (overrides: Partial<Project> = {}) =>
   render(
-    <MemoryRouter>
-      <Routes>
-        <Route path="/" element={<ProjectDrawer project={project} onClose={vi.fn()} />} />
-        <Route path="/projects/:projectId" element={<div>Position page</div>} />
-      </Routes>
-    </MemoryRouter>,
+    <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
+      <MemoryRouter>
+        <Routes>
+          <Route
+            path="/"
+            element={<ProjectDrawer project={{ ...project, ...overrides }} onClose={vi.fn()} />}
+          />
+          <Route path="/projects/:projectId" element={<div>Position page</div>} />
+        </Routes>
+      </MemoryRouter>
+    </QueryClientProvider>,
   );
 
 describe("ProjectDrawer", () => {
+  beforeEach(() => {
+    vi.mocked(projectsApi.projectActivityKey).mockImplementation(
+      (projectId: string) => ["project-activity", projectId] as never,
+    );
+    vi.mocked(projectsApi.projectActivity).mockResolvedValue([
+      {
+        eventType: "CANDIDATE_ADDED",
+        summary: "mapped an executive",
+        actorName: "Lee Lead",
+        actorAvatarUrl: null,
+        occurredAt: "2026-07-13T10:00:00Z",
+      },
+    ]);
+  });
+
   it("summarises the mandate's stage, staff roles and client contacts", () => {
     renderDrawer();
 
     expect(screen.getAllByText("Mapping")).not.toHaveLength(0);
-    expect(screen.queryByText("At risk")).not.toBeInTheDocument();
     expect(screen.getByText("Lee Lead")).toBeInTheDocument();
     expect(screen.getByText("Lead")).toBeInTheDocument();
     expect(screen.getByText("Riley Researcher")).toBeInTheDocument();
@@ -70,8 +108,38 @@ describe("ProjectDrawer", () => {
   it("reports the mandate's universe and the executives mapped against it", () => {
     renderDrawer();
 
-    expect(screen.getByText("Companies").closest("div")).toHaveTextContent("4");
-    expect(screen.getByText("Candidates").closest("div")).toHaveTextContent("2");
+    expect(screen.getByText("Universe companies").closest("div")).toHaveTextContent("4");
+    expect(screen.getByText("Executives mapped").closest("div")).toHaveTextContent("2");
+    expect(screen.getByText("Qualified matches").closest("div")).toHaveTextContent("1");
+    expect(screen.getByText("Mapping velocity").closest("div")).toHaveTextContent("2.1/wk");
+  });
+
+  it("states what the mandate is engaged to deliver, and how it is doing", () => {
+    renderDrawer();
+
+    expect(screen.getByText("Mapping only")).toBeInTheDocument();
+    expect(screen.getByText("At risk")).toBeInTheDocument();
+    expect(screen.getByText("Map · 25%")).toBeInTheDocument();
+    expect(screen.getByText("18 days remaining")).toBeInTheDocument();
+    expect(screen.getByText("Map 30 Oct 2026")).toBeInTheDocument();
+  });
+
+  it("explains a mandate that is behind", () => {
+    renderDrawer();
+
+    expect(screen.getByRole("status")).toHaveTextContent("1 of 4 companies researched");
+  });
+
+  it("says nothing about pace on a mandate that is keeping up", () => {
+    renderDrawer({ health: "OK" });
+
+    expect(screen.queryByRole("status")).not.toBeInTheDocument();
+  });
+
+  it("narrates what the ledger recorded against the mandate", async () => {
+    renderDrawer();
+
+    expect(await screen.findByText("Lee Lead mapped an executive")).toBeInTheDocument();
   });
 
   it("shows the client's logo", () => {
@@ -94,6 +162,10 @@ describe("ProjectDrawer", () => {
       "href",
       "/projects/p1/team",
     );
+
+    const [teamInvite, clientInvite] = screen.getAllByRole("link", { name: "+ Invite" });
+    expect(teamInvite).toHaveAttribute("href", "/projects/p1/team?invite=team");
+    expect(clientInvite).toHaveAttribute("href", "/projects/p1/team?invite=client");
   });
 
   it("opens the project", async () => {

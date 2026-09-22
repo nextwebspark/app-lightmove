@@ -1,3 +1,4 @@
+import { sampleProgress } from "../../../test/sampleProject";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
@@ -12,6 +13,8 @@ import type { CompanySuggestion } from "../../strategy/api/types";
 import * as positionApi from "../../position/api/positionApi";
 import type { PositionTemplate } from "../../position/api/types";
 import * as projectsApi from "../api/projectsApi";
+import { autoMappingTarget } from "../lib/timeline";
+import { todayIso } from "../../../lib/dates";
 import type { Project } from "../api/types";
 import { NewProjectModal } from "./NewProjectModal";
 
@@ -76,6 +79,11 @@ const created = (clientId: string): Project => ({
   positionTitle: "CFO",
   stage: "BRIEF",
   health: "OK",
+  projectType: "MAPPING",
+  startDate: "2026-07-01",
+  mappingTargetDate: null,
+  shortlistTargetDate: null,
+  progress: sampleProgress(),
   targetDate: null,
   team: [],
   representatives: [],
@@ -439,3 +447,90 @@ describe("NewProjectModal — where a refusal is reported", () => {
     );
   });
 });
+
+/**
+ * What the mandate is engaged to deliver decides which dates it is asked for, and the search branch
+ * derives its mapping target so a consultant is never left to work out 60% of a window.
+ */
+describe("NewProjectModal — what the mandate delivers, and by when", () => {
+  const wrap = (children: ReactNode) => (
+    <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
+      <ToastProvider>{children}</ToastProvider>
+    </QueryClientProvider>
+  );
+  const modal = () => <NewProjectModal open onClose={vi.fn()} clients={CLIENTS} />;
+
+  it("asks a mapping mandate for its map delivery date and nothing else", () => {
+    render(wrap(modal()));
+
+    expect(screen.getByRole("radio", { name: /Mapping/ })).toBeChecked();
+    expect(screen.getByText("Map delivery date")).toBeInTheDocument();
+    expect(screen.queryByText("Shortlist delivery date")).not.toBeInTheDocument();
+  });
+
+  it("asks a search for its shortlist date, and derives the mapping target from it", async () => {
+    const user = userEvent.setup();
+    render(wrap(modal()));
+
+    await user.click(screen.getByRole("radio", { name: /Executive Search/ }));
+    expect(screen.getByText("Shortlist delivery date")).toBeInTheDocument();
+
+    await user.type(shortlistInput(), "2026-12-30");
+
+    // 60% of the window from today, which the form seeded as the start date.
+    const start = todayIso();
+    await waitFor(() =>
+      expect(mappingInput()).toHaveValue(autoMappingTarget(start, "2026-12-30")),
+    );
+  });
+
+  it("refuses a search with no shortlist date, on the field that is missing", async () => {
+    const user = userEvent.setup();
+    vi.mocked(projectsApi.createProject).mockClear();
+    render(wrap(modal()));
+
+    await user.click(screen.getByRole("radio", { name: /Executive Search/ }));
+    await user.type(screen.getByPlaceholderText(/Chief Financial Officer/), "COO");
+    await user.click(screen.getByRole("button", { name: "Create project" }));
+
+    expect(await screen.findByText("Enter the date the shortlist is due")).toBeInTheDocument();
+    expect(projectsApi.createProject).not.toHaveBeenCalled();
+  });
+
+  it("sends the type and the timeline it was given", async () => {
+    const user = userEvent.setup();
+    vi.mocked(projectsApi.createProject).mockResolvedValue(created("acme"));
+    render(wrap(modal()));
+
+    await user.type(screen.getByPlaceholderText(/Chief Financial Officer/), "CFO");
+    await user.type(mappingInput(), "2026-11-15");
+    await user.click(screen.getByRole("button", { name: "Create project" }));
+
+    await waitFor(() =>
+      expect(projectsApi.createProject).toHaveBeenCalledWith(
+        expect.objectContaining({
+          projectType: "MAPPING",
+          startDate: todayIso(),
+          mappingTargetDate: "2026-11-15",
+          shortlistTargetDate: undefined,
+        }),
+      ),
+    );
+  });
+});
+
+/** The two date inputs, named by the field each one sits under. */
+function mappingInput(): HTMLInputElement {
+  return dateInputUnder(/Map delivery date|Mapping target/);
+}
+
+function shortlistInput(): HTMLInputElement {
+  return dateInputUnder(/Shortlist delivery date/);
+}
+
+function dateInputUnder(label: RegExp): HTMLInputElement {
+  const field = screen.getByText(label).closest("label");
+  const input = field?.querySelector('input[type="date"]');
+  if (!input) throw new Error(`No date input under ${label}`);
+  return input as HTMLInputElement;
+}

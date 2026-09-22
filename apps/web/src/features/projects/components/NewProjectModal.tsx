@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
-import { Button, DateInput, Field, FormError, Modal, Select, useToast } from "../../../components/ui";
+import { Button, Field, FormError, Modal, Select, useToast } from "../../../components/ui";
 import { codeOf } from "../../../lib/errorCodes";
 import { fieldErrorsFrom } from "../../../lib/formErrors";
 import * as clientsApi from "../../clients/api/clientsApi";
@@ -9,22 +9,28 @@ import { CompanyPicker } from "../../clients/components/CompanyPicker";
 import { pickedCompanyName, type CompanyPick } from "../../clients/lib/companyPick";
 import * as positionApi from "../../position/api/positionApi";
 import { RoleTitleCombobox } from "../../position/components/RoleTitleCombobox";
+import type { ProjectType } from "../api/types";
 import * as projectsApi from "../api/projectsApi";
+import { autoMappingTarget, timelineProblem } from "../lib/timeline";
+import { ProjectTimelineFields } from "./ProjectTimelineFields";
+import { ProjectTypeChooser } from "./ProjectTypeChooser";
+import { todayIso } from "../../../lib/dates";
 
 const NEW_CLIENT = "__new__";
 
 /** Mirrors `@Size(max = 160)` on CreateProjectRequest.positionTitle, so the cap is met at the field. */
 const MAX_POSITION_TITLE_LENGTH = 160;
 
-/** The two inputs a rejected create can be attributed to; the client select offers ids only. */
-type ProjectField = "newClientName" | "positionTitle";
+/** The inputs a rejected create can be attributed to; the client select offers ids only. */
+type ProjectField = "newClientName" | "positionTitle" | "mappingTargetDate" | "shortlistTargetDate";
 
 /**
  * The New-project modal: client (pick or create inline), position (typed free, or picked from the
- * role-template library — the same combobox as the brief's step one), target date. There is no lead to
- * choose — whoever creates the mandate is seated as its admin (and lead) by the server, and delegates
- * from the project drawer afterwards. A 409 on the inline client quietly resolves to the existing
- * record — the user meant that client.
+ * role-template library — the same combobox as the brief's step one), what the mandate is engaged to
+ * deliver, and the dates it will be measured against. There is no lead to choose — whoever creates the
+ * mandate is seated as its admin (and lead) by the server, and delegates from the project drawer
+ * afterwards. A 409 on the inline client quietly resolves to the existing record — the user meant that
+ * client.
  *
  * Opened from a client's drawer, the entrance has already decided the client: the field is shown
  * locked and `lockedClientId` — not state — is what gets submitted, so the mandate cannot land on a
@@ -51,7 +57,13 @@ export function NewProjectModal({
   const [pickedClientId, setPickedClientId] = useState<string | null>(null);
   const [newClientPick, setNewClientPick] = useState<CompanyPick | null>(null);
   const [positionTitle, setPositionTitle] = useState("");
-  const [targetDate, setTargetDate] = useState("");
+  const [projectType, setProjectType] = useState<ProjectType>("MAPPING");
+  const [startDate, setStartDate] = useState(todayIso);
+  const [mappingTargetDate, setMappingTargetDate] = useState("");
+  const [shortlistTargetDate, setShortlistTargetDate] = useState("");
+  // The derived mapping target belongs to the form until the user takes it: after their first edit it
+  // stops following the shortlist date, or every correction would be undone by the next keystroke.
+  const [mappingTargetEdited, setMappingTargetEdited] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [fieldErrors, setFieldErrors] = useState<Partial<Record<ProjectField, string>>>({});
 
@@ -105,7 +117,11 @@ export function NewProjectModal({
       return projectsApi.createProject({
         clientId: resolvedClientId,
         positionTitle: positionTitle.trim(),
-        targetDate: targetDate || undefined,
+        projectType,
+        startDate: startDate || undefined,
+        mappingTargetDate: mappingTargetDate || undefined,
+        shortlistTargetDate:
+          projectType === "EXECUTIVE_SEARCH" ? shortlistTargetDate || undefined : undefined,
       });
     },
     onSuccess: () => {
@@ -120,6 +136,8 @@ export function NewProjectModal({
       const { fields, formMessage } = fieldErrorsFrom(mutationError, {
         customName: "newClientName",
         positionTitle: "positionTitle",
+        mappingTargetDate: "mappingTargetDate",
+        shortlistTargetDate: "shortlistTargetDate",
       });
       setFieldErrors(fields);
       setError(formMessage);
@@ -152,6 +170,11 @@ export function NewProjectModal({
       setFieldErrors({
         positionTitle: `That title is too long — keep it to ${MAX_POSITION_TITLE_LENGTH} characters or fewer`,
       });
+      return;
+    }
+    const problem = timelineProblem(projectType, startDate, mappingTargetDate, shortlistTargetDate);
+    if (problem) {
+      setFieldErrors({ [problem.field]: problem.message });
       return;
     }
     create.mutate();
@@ -229,9 +252,48 @@ export function NewProjectModal({
         />
       </Field>
 
-      <Field label="Target date">
-        <DateInput value={targetDate} onChange={setTargetDate} />
-      </Field>
+      {/* Not wrapped in `Field`: its <label> would associate with the first button in the group and
+          name that one option "Project type", which is the wrong name on the wrong control. The
+          group carries its own aria-label instead. */}
+      <div className="mb-4">
+        <div className="mb-1.5 font-mono text-[10px] font-semibold uppercase tracking-[0.12em] text-text3">
+          Project type
+        </div>
+        <ProjectTypeChooser
+          value={projectType}
+          onChange={(picked) => {
+            setProjectType(picked);
+            clearFieldError("mappingTargetDate");
+            clearFieldError("shortlistTargetDate");
+          }}
+        />
+      </div>
+
+      <ProjectTimelineFields
+        projectType={projectType}
+        startDate={startDate}
+        mappingTargetDate={mappingTargetDate}
+        shortlistTargetDate={shortlistTargetDate}
+        errors={fieldErrors}
+        onStartDateChange={(value) => {
+          setStartDate(value);
+          if (!mappingTargetEdited && value && shortlistTargetDate) {
+            setMappingTargetDate(autoMappingTarget(value, shortlistTargetDate));
+          }
+        }}
+        onMappingTargetChange={(value) => {
+          setMappingTargetDate(value);
+          setMappingTargetEdited(true);
+          clearFieldError("mappingTargetDate");
+        }}
+        onShortlistTargetChange={(value) => {
+          setShortlistTargetDate(value);
+          if (!mappingTargetEdited && value && startDate) {
+            setMappingTargetDate(autoMappingTarget(startDate, value));
+          }
+          clearFieldError("shortlistTargetDate");
+        }}
+      />
 
       <div className="mt-5 flex justify-end gap-2">
         <Button variant="secondary" onClick={onClose}>

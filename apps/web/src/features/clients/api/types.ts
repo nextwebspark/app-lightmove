@@ -1,4 +1,4 @@
-import type { ProjectHealth, ProjectStage } from "../../projects/api/types";
+import type { ProjectHealth, ProjectStage, ProjectType } from "../../projects/api/types";
 
 /**
  * The client-registry API contract, hand-mirrored like the projects module's. A client is either
@@ -51,8 +51,11 @@ export interface ClientMandate {
   id: string;
   positionTitle: string;
   stage: ProjectStage;
+  projectType: ProjectType;
   health: ProjectHealth;
   leadName: string | null;
+  mappingTargetDate: string | null;
+  shortlistTargetDate: string | null;
   targetDate: string | null;
 }
 
