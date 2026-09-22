@@ -1,0 +1,22 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "companies": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "companyName": { "type": "string" },
+          "linkedinUrl": { "type": ["string", "null"] },
+          "websiteUrl": { "type": ["string", "null"] },
+          "sourceUrl": { "type": ["string", "null"] },
+          "reason": { "type": ["string", "null"] },
+          "fit": { "type": ["integer", "null"] }
+        },
+        "required": ["companyName"]
+      }
+    }
+  },
+  "required": ["companies"]
+}
