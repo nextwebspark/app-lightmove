@@ -77,8 +77,11 @@ public class AssistantPromptAssembler {
                 .append(", which is what a tool asking for a mandate wants. It is at the ")
                 .append(mandate.stage().name().toLowerCase(Locale.ROOT))
                 .append(" stage");
-        if (mandate.targetDate() != null) {
-            prompt.append(", targeted for ").append(mandate.targetDate());
+        if (mandate.mappingTargetDate() != null) {
+            prompt.append(", with its mapping due ").append(mandate.mappingTargetDate());
+        }
+        if (mandate.shortlistTargetDate() != null) {
+            prompt.append(" and its shortlist due ").append(mandate.shortlistTargetDate());
         }
         prompt.append('.');
     }

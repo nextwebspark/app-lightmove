@@ -3,6 +3,8 @@ package app.lightmove.api.candidate.repository;
 import app.lightmove.api.candidate.constant.CandidateStatus;
 import app.lightmove.api.candidate.model.Candidate;
 import app.lightmove.api.candidate.model.CandidateCount;
+import app.lightmove.api.candidate.model.CandidateEngagementCount;
+import app.lightmove.api.candidate.model.CompanyCoverageCount;
 import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
@@ -211,4 +213,42 @@ public interface CandidateRepository extends JpaRepository<Candidate, UUID> {
     Page<UUID> findTriageCompanyIdsRankedByExecutiveStatusAndExecutiveStatuses(
             UUID projectId, String status, String companyName, String executiveName,
             List<String> executiveStatuses, boolean ascending, Pageable pageable);
+
+    /**
+     * How much of each mandate's live universe has been researched, for the whole projects list in
+     * one query. A company counts as researched when an executive has been mapped at it, or when
+     * someone ticked that there was nobody to map — the two are mutually exclusive, because filing an
+     * executive clears that tick.
+     *
+     * <p>Native, and reading the triage table rather than its entity: the conditional count is
+     * Postgres's own, and this is the direction the boundary allows — {@code candidate} may reference
+     * {@code app_lm_project_triage_company} directly, never the reverse.
+     */
+    @Query(value = "select t.project_id as projectId, count(*) as universeTotal, "
+            + "count(*) filter (where t.no_executive_found or exists ("
+            + "  select 1 from app_lm_project_candidate c where c.triage_company_id = t.id"
+            + ")) as researched "
+            + "from app_lm_project_triage_company t "
+            + "where t.project_id in (:projectIds) and t.status <> :declinedStatus "
+            + "group by t.project_id",
+            nativeQuery = true)
+    List<CompanyCoverageCount> countCoverageByProjectIdIn(Collection<UUID> projectIds,
+                                                          String declinedStatus);
+
+    /**
+     * How far each mandate has worked the people it mapped. Everyone past IDENTIFIED has been acted
+     * on, including the three statuses that left the running — a person ruled out was still worked,
+     * which is why this counts differently from {@link #countByProjectIdInExcludingStatuses}.
+     *
+     * <p>The statuses are bound rather than spelled into the query, so renaming one is a compile
+     * error here instead of a silently empty column.
+     */
+    @Query("select new app.lightmove.api.candidate.model.CandidateEngagementCount("
+            + "c.projectId, count(c), "
+            + "sum(case when c.status <> :identifiedStatus then 1L else 0L end), "
+            + "sum(case when c.status in :qualifiedStatuses then 1L else 0L end)) "
+            + "from Candidate c where c.projectId in :projectIds group by c.projectId")
+    List<CandidateEngagementCount> countEngagementByProjectIdIn(
+            Collection<UUID> projectIds, CandidateStatus identifiedStatus,
+            Collection<CandidateStatus> qualifiedStatuses);
 }

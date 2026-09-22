@@ -56,10 +56,16 @@ class ProjectFlowIntegrationTest extends FlowTestSupport {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {"clientId":"%s","positionTitle":"Chief Financial Officer",
-                                 "targetDate":"%s"}
-                                """.formatted(clientId, LocalDate.now().plusMonths(6))))
+                                 "mappingTargetDate":"%s","targetDate":"%s"}
+                                """.formatted(clientId, LocalDate.now().plusMonths(2),
+                                LocalDate.now().plusMonths(6))))
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.stage").value("BRIEF"))
+                .andExpect(jsonPath("$.projectType").value("MAPPING"))
+                .andExpect(jsonPath("$.startDate").value(LocalDate.now().toString()))
+                .andExpect(jsonPath("$.shortlistTargetDate").doesNotExist())
+                .andExpect(jsonPath("$.progress.activePhase").value("MAP"))
+                .andExpect(jsonPath("$.progress.mapPercent").value(0))
                 .andExpect(jsonPath("$.health").value("OK"))
                 .andExpect(jsonPath("$.clientName").value("Meridian Energy"))
                 .andExpect(jsonPath("$.clientLogoUrl").doesNotExist())
@@ -238,10 +244,28 @@ class ProjectFlowIntegrationTest extends FlowTestSupport {
     }
 
     @Test
-    @DisplayName("a mandate past its target reads off-track; a delivered one reads done")
-    void healthShowsInTheList() throws Exception {
+    @DisplayName("a mandate past its mapping target with the map unfinished reads off-track")
+    void healthFollowsTheMilestone() throws Exception {
         String admin = adminOf("Health Firm");
         String clientId = createClient(admin, "Al Rabie");
+
+        mvc.perform(post("/api/v1/projects")
+                        .header("Authorization", "Bearer " + admin)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"clientId":"%s","positionTitle":"CHRO",
+                                 "startDate":"%s","mappingTargetDate":"%s"}
+                                """.formatted(clientId, LocalDate.now().minusDays(30),
+                                LocalDate.now().minusDays(1))))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.health").value("OFF"));
+    }
+
+    @Test
+    @DisplayName("the brief's target start is not a milestone: a past one leaves health alone")
+    void targetStartDoesNotDriveHealth() throws Exception {
+        String admin = adminOf("Target Firm");
+        String clientId = createClient(admin, "Agthia Group");
 
         mvc.perform(post("/api/v1/projects")
                         .header("Authorization", "Bearer " + admin)
@@ -250,7 +274,78 @@ class ProjectFlowIntegrationTest extends FlowTestSupport {
                                 {"clientId":"%s","positionTitle":"CHRO","targetDate":"%s"}
                                 """.formatted(clientId, LocalDate.now().minusDays(1))))
                 .andExpect(status().isCreated())
-                .andExpect(jsonPath("$.health").value("OFF"));
+                .andExpect(jsonPath("$.health").value("OK"))
+                .andExpect(jsonPath("$.targetDate").value(LocalDate.now().minusDays(1).toString()));
+    }
+
+    @Test
+    @DisplayName("a search derives its mapping target from the window to the shortlist")
+    void searchDerivesItsMappingTarget() throws Exception {
+        String admin = adminOf("Search Firm");
+        String clientId = createClient(admin, "Emaar Properties");
+        LocalDate start = LocalDate.now();
+
+        mvc.perform(post("/api/v1/projects")
+                        .header("Authorization", "Bearer " + admin)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"clientId":"%s","positionTitle":"COO","projectType":"EXECUTIVE_SEARCH",
+                                 "startDate":"%s","shortlistTargetDate":"%s"}
+                                """.formatted(clientId, start, start.plusDays(100))))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.projectType").value("EXECUTIVE_SEARCH"))
+                .andExpect(jsonPath("$.mappingTargetDate").value(start.plusDays(60).toString()))
+                .andExpect(jsonPath("$.shortlistTargetDate").value(start.plusDays(100).toString()));
+    }
+
+    @Test
+    @DisplayName("a search without a shortlist date is refused, on the field that is missing")
+    void searchNeedsAShortlistDate() throws Exception {
+        String admin = adminOf("Refusal Firm");
+        String clientId = createClient(admin, "ACWA Power");
+
+        mvc.perform(post("/api/v1/projects")
+                        .header("Authorization", "Bearer " + admin)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"clientId":"%s","positionTitle":"COO","projectType":"EXECUTIVE_SEARCH"}
+                                """.formatted(clientId)))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.fieldErrors.shortlistTargetDate").exists());
+    }
+
+    @Test
+    @DisplayName("a milestone cannot be patched to fall before the mandate starts")
+    void milestonesStayInOrderThroughAPatch() throws Exception {
+        String admin = adminOf("Order Firm");
+        String projectId = createProject(admin, createClient(admin, "Al Rabie"), "CHRO");
+
+        mvc.perform(patch("/api/v1/projects/" + projectId)
+                        .header("Authorization", "Bearer " + admin)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"mappingTargetDate":"%s"}
+                                """.formatted(LocalDate.now().minusYears(1))))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.fieldErrors.mappingTargetDate").exists());
+    }
+
+    @Test
+    @DisplayName("the activity feed narrates what the ledger recorded against the mandate")
+    void activityReadsTheLedger() throws Exception {
+        String admin = adminOf("Activity Firm");
+        String projectId = createProject(admin, createClient(admin, "Agthia Group"), "Group CFO");
+        captureCompany(admin, projectId, "ACWA Power");
+
+        mvc.perform(get("/api/v1/projects/" + projectId + "/activity")
+                        .header("Authorization", "Bearer " + admin))
+                .andExpect(status().isOk())
+                // Newest first: the company that was just captured, then the mandate being started.
+                .andExpect(jsonPath("$[0].summary").value("captured a company"))
+                .andExpect(jsonPath("$[0].actorName").isNotEmpty())
+                .andExpect(jsonPath("$[-1:].summary").value("started the mandate"))
+                // The ledger's own metadata stays in the ledger.
+                .andExpect(jsonPath("$[0].metadata").doesNotExist());
     }
 
     @Test

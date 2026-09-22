@@ -27,8 +27,8 @@ public class ReportService {
 
     public ReportResponse read(UUID workspaceId, UUID projectId) {
         ReportSources gathered = sources.load(workspaceId, projectId);
-        ReportCalendar calendar = ReportCalendar.of(gathered.project().getCreatedAt(),
-                gathered.project().getTargetDate(), clock);
+        ReportCalendar calendar = ReportCalendar.of(gathered.project().getStartDate(),
+                gathered.project().getMappingTargetDate(), clock);
         ReportHeadDto head = new ReportHeadDto(gathered.universeTotal(), gathered.executivesTotal(),
                 gathered.isTruncated(), clock.instant());
         return new ReportResponse(head, progress.report(gathered, calendar), market.report(gathered),

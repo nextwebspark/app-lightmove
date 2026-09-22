@@ -10,15 +10,18 @@ import java.time.temporal.ChronoUnit;
  * The mandate's timeline as the progress chapter buckets it: day 0 and week 0 begin at kickoff, and
  * the last bucket is the one {@code asOf} falls in. Days are counted in UTC, the zone every stored
  * instant is in, so a row filed at 23:30 in Riyadh lands in one bucket on every read.
+ *
+ * <p>Kickoff is the mandate's own start date and the target is its mapping milestone — this chapter
+ * charts mapping, so the line it climbs towards is the date the map is due, never the date the hire
+ * is meant to begin.
  */
 public record ReportCalendar(LocalDate kickoff, LocalDate asOf, LocalDate targetDate) {
 
     private static final int DAYS_PER_WEEK = 7;
 
-    public static ReportCalendar of(Instant kickoff, LocalDate targetDate, Clock clock) {
-        LocalDate kickoffDate = dateOf(kickoff);
+    public static ReportCalendar of(LocalDate kickoff, LocalDate targetDate, Clock clock) {
         LocalDate today = LocalDate.now(clock.withZone(ZoneOffset.UTC));
-        return new ReportCalendar(kickoffDate, today.isBefore(kickoffDate) ? kickoffDate : today, targetDate);
+        return new ReportCalendar(kickoff, today.isBefore(kickoff) ? kickoff : today, targetDate);
     }
 
     public int dayCount() {

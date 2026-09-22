@@ -136,6 +136,12 @@ class ClientAccessIntegrationTest extends FlowTestSupport {
                                 """))
                 .andExpect(status().isForbidden());
 
+        // The activity feed narrates the firm's own research, so it is closed to them even on the
+        // mandate they can otherwise read in full.
+        mvc.perform(get("/api/v1/projects/" + attached + "/activity")
+                        .header("Authorization", "Bearer " + rep))
+                .andExpect(status().isForbidden());
+
         // Every staff surface is closed to them.
         mvc.perform(get("/api/v1/clients").header("Authorization", "Bearer " + rep))
                 .andExpect(status().isForbidden());

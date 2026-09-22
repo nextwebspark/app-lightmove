@@ -12,19 +12,16 @@ import app.lightmove.api.core.security.rbac.ProjectRole;
 import app.lightmove.api.core.security.rbac.RbacService;
 import app.lightmove.api.core.security.rbac.Role;
 import app.lightmove.api.core.security.rbac.WorkspaceAccess;
-import app.lightmove.api.core.security.rbac.WorkspaceRole;
 import app.lightmove.api.core.security.repository.UserRepository;
 import app.lightmove.api.position.service.PositionService;
-import app.lightmove.api.project.constant.ProjectHealth;
-import app.lightmove.api.project.dto.AttachedRepresentativeResponse;
 import app.lightmove.api.project.dto.CreateProjectRequest;
 import app.lightmove.api.project.dto.ProjectResponse;
-import app.lightmove.api.project.dto.TeamMemberResponse;
 import app.lightmove.api.project.dto.UpdateProjectRequest;
 import app.lightmove.api.project.constant.ClientRepStatus;
 import app.lightmove.api.project.model.Client;
 import app.lightmove.api.project.model.ClientRepresentative;
 import app.lightmove.api.project.model.PendingRepresentativeAttachment;
+import app.lightmove.api.project.model.MandateTimeline;
 import app.lightmove.api.project.model.Project;
 import app.lightmove.api.project.model.ProjectFacts;
 import app.lightmove.api.project.model.ProjectMember;
@@ -36,18 +33,13 @@ import app.lightmove.api.project.repository.ProjectRepository;
 import app.lightmove.api.workspace.model.WorkspaceMember;
 import jakarta.servlet.http.HttpServletRequest;
 import java.time.LocalDate;
-import java.util.Comparator;
 import java.util.EnumSet;
 import java.util.HashSet;
 import java.util.List;
-import java.util.Map;
-import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
-import java.util.function.Function;
 import java.util.stream.Collectors;
-import java.util.stream.Stream;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -72,8 +64,7 @@ public class ProjectService {
     private final ClientRepresentativeRepository representatives;
     private final PendingRepresentativeAttachmentRepository pendingAttachments;
     private final PositionService positionService;
-    private final ProjectCompanyCounter companyCounter;
-    private final ProjectCandidateCounter candidateCounter;
+    private final ProjectResponseAssembler assembler;
     private final WorkspaceAccess access;
     private final RbacService rbac;
     private final UserRepository users;
@@ -98,8 +89,7 @@ public class ProjectService {
                 return List.of();
             }
         }
-        Assembly assembly = assemblyFor(workspaceId, all);
-        return all.stream().map(project -> toResponse(project, assembly)).toList();
+        return assembler.assembleAll(workspaceId, all);
     }
 
     /**
@@ -119,7 +109,8 @@ public class ProjectService {
                         clients.findByIdAndWorkspaceId(project.getClientId(), workspaceId)
                                 .map(Client::getName)
                                 .orElse(null),
-                        project.getStage(), project.getTargetDate()));
+                        project.getStage(), project.getProjectType(),
+                        project.getMappingTargetDate(), project.getShortlistTargetDate()));
     }
 
     /** The mandates of one client, fully assembled (team, health) — the client drawer reads this. */
@@ -129,8 +120,7 @@ public class ProjectService {
         if (forClient.isEmpty()) {
             return List.of();
         }
-        Assembly assembly = assemblyFor(workspaceId, forClient);
-        return forClient.stream().map(project -> toResponse(project, assembly)).toList();
+        return assembler.assembleAll(workspaceId, forClient);
     }
 
     /**
@@ -143,8 +133,10 @@ public class ProjectService {
         WorkspaceMember creator = access.requireActiveMember(userId, workspaceId);
         Client client = requireClient(request.clientId(), workspaceId);
 
-        Project project = projects.save(Project.create(
-                workspaceId, request.clientId(), request.positionTitle(), request.targetDate(), userId));
+        MandateTimeline timeline = MandateTimeline.requested(request.projectType(), request.startDate(),
+                request.mappingTargetDate(), request.shortlistTargetDate(), LocalDate.now());
+        Project project = projects.save(Project.create(workspaceId, request.clientId(),
+                request.positionTitle(), timeline, request.targetDate(), userId));
         seats.save(ProjectMember.of(project.getId(), creator.getId(),
                 rbac.projectRoles(EnumSet.of(ProjectRole.LEAD)), userId));
         // Seeded from the role-template library, and handed the facts it needs rather than the
@@ -158,7 +150,7 @@ public class ProjectService {
                 .detail("position", project.getPositionTitle())
                 .record();
 
-        return toResponse(project, assemblyFor(workspaceId, List.of(project)));
+        return assembler.assemble(workspaceId, project);
     }
 
     @Transactional
@@ -169,12 +161,13 @@ public class ProjectService {
         if (request.targetDate() != null) {
             project.setTargetDate(request.targetDate());
         }
+        project.retime(merged(project, request));
 
         audit.event(ProjectEventType.PROJECT_UPDATED)
                 .actor(userId).workspace(workspaceId).target("project", projectId).from(httpRequest)
                 .record();
 
-        return toResponse(project, assemblyFor(workspaceId, List.of(project)));
+        return assembler.assemble(workspaceId, project);
     }
 
     /**
@@ -199,7 +192,7 @@ public class ProjectService {
             seats.save(ProjectMember.of(projectId, memberId, Set.of(rbac.role(role)), userId));
             auditTeamChange(userId, workspaceId, projectId, memberId, "add", httpRequest);
             notifySeated(userId, project, membership, role, true);
-            return toResponse(project, assemblyFor(workspaceId, List.of(project)));
+            return assembler.assemble(workspaceId, project);
         }
 
         // A seat carrying only CLIENT belongs to a representative who is now being staffed: they are
@@ -222,7 +215,7 @@ public class ProjectService {
             notifySeated(userId, project, membership, role, !heldStaffRole);
         }
 
-        return toResponse(project, assemblyFor(workspaceId, List.of(project)));
+        return assembler.assemble(workspaceId, project);
     }
 
     @Transactional
@@ -238,7 +231,7 @@ public class ProjectService {
 
         seats.delete(seat);
         auditTeamChange(userId, workspaceId, projectId, memberId, "remove", httpRequest);
-        return toResponse(project, assemblyFor(workspaceId, List.of(project)));
+        return assembler.assemble(workspaceId, project);
     }
 
     /**
@@ -300,7 +293,7 @@ public class ProjectService {
                     "That representative cannot be added to a mandate in their current state");
         }
 
-        return toResponse(project, assemblyFor(workspaceId, List.of(project)));
+        return assembler.assemble(workspaceId, project);
     }
 
     /**
@@ -337,7 +330,7 @@ public class ProjectService {
             }
         }
 
-        return toResponse(project, assemblyFor(workspaceId, List.of(project)));
+        return assembler.assemble(workspaceId, project);
     }
 
     /**
@@ -467,6 +460,21 @@ public class ProjectService {
         }
     }
 
+    /**
+     * The patch's timeline fields folded over the stored ones and held to the same rules a create is.
+     * Null means "not supplied", so the Role Brief's PATCH of the target start leaves every milestone
+     * exactly as it was.
+     */
+    private static MandateTimeline merged(Project project, UpdateProjectRequest request) {
+        MandateTimeline stored = project.timeline();
+        return MandateTimeline.requested(
+                request.projectType() == null ? stored.type() : request.projectType(),
+                request.startDate() == null ? stored.startDate() : request.startDate(),
+                request.mappingTargetDate() == null ? stored.mappingTarget() : request.mappingTargetDate(),
+                request.shortlistTargetDate() == null ? stored.shortlistTarget() : request.shortlistTargetDate(),
+                LocalDate.now());
+    }
+
     private Project requireProject(UUID projectId, UUID workspaceId) {
         return projects.findByIdAndWorkspaceId(projectId, workspaceId)
                 .orElseThrow(() -> ApiException.of(ErrorCode.NOT_FOUND));
@@ -495,113 +503,4 @@ public class ProjectService {
                 .record();
     }
 
-    private Assembly assemblyFor(UUID workspaceId, List<Project> forProjects) {
-        List<UUID> ids = forProjects.stream().map(Project::getId).toList();
-        Map<UUID, List<ProjectMember>> seatsByProject = seats.findByProjectIdIn(ids).stream()
-                .collect(Collectors.groupingBy(ProjectMember::getProjectId));
-
-        Map<UUID, WorkspaceMember> memberById = access.activeMembers(workspaceId).stream()
-                .collect(Collectors.toMap(WorkspaceMember::getId, Function.identity()));
-        Map<UUID, User> userById = users
-                .findAllById(memberById.values().stream().map(WorkspaceMember::getUserId).toList())
-                .stream()
-                .collect(Collectors.toMap(User::getId, Function.identity()));
-        Map<UUID, Client> clientById = clients.findByWorkspaceIdOrderByNameAsc(workspaceId).stream()
-                .collect(Collectors.toMap(Client::getId, Function.identity()));
-
-        List<UUID> clientIds = forProjects.stream().map(Project::getClientId).distinct().toList();
-        Map<UUID, List<ClientRepresentative>> repsByClientId = representatives
-                .findByWorkspaceIdAndClientIdIn(workspaceId, clientIds).stream()
-                .collect(Collectors.groupingBy(ClientRepresentative::getClientId));
-        Map<UUID, Set<UUID>> pendingRepIdsByProjectId = pendingAttachments.findByProjectIdIn(ids).stream()
-                .collect(Collectors.groupingBy(PendingRepresentativeAttachment::getProjectId,
-                        Collectors.mapping(PendingRepresentativeAttachment::getRepresentativeId,
-                                Collectors.toSet())));
-
-        return new Assembly(seatsByProject, memberById, userById, clientById,
-                repsByClientId, pendingRepIdsByProjectId, companyCounter.countByProject(ids),
-                candidateCounter.countByProject(ids), LocalDate.now());
-    }
-
-    private ProjectResponse toResponse(Project project, Assembly assembly) {
-        List<TeamMemberResponse> team = assembly.seatsByProject()
-                .getOrDefault(project.getId(), List.of()).stream()
-                .flatMap(seat -> {
-                    WorkspaceMember member = assembly.memberById().get(seat.getMemberId());
-                    if (member == null) {
-                        return Stream.<TeamMemberResponse>empty();
-                    }
-                    User user = assembly.userById().get(member.getUserId());
-                    return Stream.of(new TeamMemberResponse(
-                            member.getId(), member.getUserId(),
-                            user == null ? "" : user.getFullName(),
-                            user == null ? null : user.getAvatarUrl(),
-                            names(member.getRoles(), WorkspaceRole::valueOf),
-                            names(seat.getRoles(), ProjectRole::valueOf)));
-                })
-                // Sorted here, not in the query: the seat rows come back in whatever order the join
-                // produced, so the Team & access table would otherwise reshuffle between fetches.
-                .sorted(Comparator.comparing(TeamMemberResponse::fullName, String.CASE_INSENSITIVE_ORDER))
-                .toList();
-
-        // The client-side contacts on this mandate. Seated wins over a stale pending row, and the
-        // reported status is the attachment's ("Active" vs invitation still out), not the registry's.
-        //
-        // Which means a REVOKED representative whose CLIENT seat was never dropped would still read
-        // "Active" here. Nothing revokes today, so nothing is wrong yet — but whoever adds that flow
-        // must drop the CLIENT seat and any pending row with it, not merely flip the registry status.
-        Set<UUID> clientSeatUserIds = assembly.seatsByProject()
-                .getOrDefault(project.getId(), List.of()).stream()
-                .filter(seat -> seat.getRoles().stream().anyMatch(role -> role.is(ProjectRole.CLIENT)))
-                .map(seat -> assembly.memberById().get(seat.getMemberId()))
-                .filter(Objects::nonNull)
-                .map(WorkspaceMember::getUserId)
-                .collect(Collectors.toSet());
-        Set<UUID> pendingRepIds = assembly.pendingRepIdsByProjectId()
-                .getOrDefault(project.getId(), Set.of());
-        List<AttachedRepresentativeResponse> attachedRepresentatives = assembly.repsByClientId()
-                .getOrDefault(project.getClientId(), List.of()).stream()
-                .filter(rep -> (rep.getUserId() != null && clientSeatUserIds.contains(rep.getUserId()))
-                        || pendingRepIds.contains(rep.getId()))
-                .sorted(Comparator.comparing(ClientRepresentative::getCreatedAt))
-                .map(rep -> {
-                    boolean seated = rep.getUserId() != null
-                            && clientSeatUserIds.contains(rep.getUserId());
-                    return new AttachedRepresentativeResponse(
-                            rep.getId(), rep.getFullName(), rep.getPosition(), rep.getEmail(),
-                            seated ? ClientRepStatus.ACTIVE : ClientRepStatus.INVITED);
-                })
-                .toList();
-
-        Client client = assembly.clientById().get(project.getClientId());
-        return new ProjectResponse(
-                project.getId(), project.getClientId(),
-                client == null ? "" : client.getName(),
-                client == null ? null : client.getLogoUrl(),
-                project.getPositionTitle(), project.getStage(),
-                ProjectHealth.derive(project.getStage(), project.getTargetDate(), assembly.today()),
-                project.getTargetDate(), team, attachedRepresentatives,
-                assembly.companyCountByProject().getOrDefault(project.getId(), 0L),
-                assembly.candidateCountByProject().getOrDefault(project.getId(), 0L),
-                project.getCreatedAt());
-    }
-
-    private static <E extends Enum<E>> List<E> names(Set<Role> roles, Function<String, E> valueOf) {
-        return roles.stream()
-                .map(Role::getName)
-                .sorted(Comparator.naturalOrder())
-                .map(valueOf)
-                .toList();
-    }
-
-    private record Assembly(Map<UUID, List<ProjectMember>> seatsByProject,
-                            Map<UUID, WorkspaceMember> memberById,
-                            Map<UUID, User> userById,
-                            Map<UUID, Client> clientById,
-                            Map<UUID, List<ClientRepresentative>> repsByClientId,
-                            Map<UUID, Set<UUID>> pendingRepIdsByProjectId,
-                            Map<UUID, Long> companyCountByProject,
-                            Map<UUID, Long> candidateCountByProject,
-                            LocalDate today) {
-    }
 }

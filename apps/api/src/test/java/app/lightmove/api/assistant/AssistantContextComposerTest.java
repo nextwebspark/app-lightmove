@@ -12,6 +12,7 @@ import app.lightmove.api.assistant.service.AssistantContextComposer;
 import app.lightmove.api.core.security.model.User;
 import app.lightmove.api.core.security.repository.UserRepository;
 import app.lightmove.api.project.constant.ProjectStage;
+import app.lightmove.api.project.constant.ProjectType;
 import app.lightmove.api.project.model.ProjectFacts;
 import app.lightmove.api.project.service.ProjectService;
 import java.time.LocalDate;
@@ -39,7 +40,7 @@ class AssistantContextComposerTest {
         givenConsultant("Nadia Haddad");
         when(projects.factsOf(WORKSPACE, MANDATE)).thenReturn(Optional.of(
                 new ProjectFacts(MANDATE, "Group CFO", "Meridian Energy Group",
-                        ProjectStage.MAPPING, LocalDate.of(2026, 11, 30))));
+                        ProjectStage.MAPPING, ProjectType.MAPPING, LocalDate.of(2026, 11, 30), null)));
 
         AssistantContext context = composer.compose(USER, WORKSPACE, MANDATE);
 

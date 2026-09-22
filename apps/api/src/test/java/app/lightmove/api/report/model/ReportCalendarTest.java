@@ -9,10 +9,10 @@ import java.time.ZoneOffset;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
-/** The buckets the progress chapter counts into: from kickoff to today, nothing outside either end. */
+/** The buckets the progress chapter counts into: from the mandate's start date to today, nothing outside either end. */
 class ReportCalendarTest {
 
-    private static final Instant KICKOFF = Instant.parse("2026-07-21T10:00:00Z");
+    private static final LocalDate KICKOFF = LocalDate.of(2026, 7, 21);
     private static final Clock TODAY = Clock.fixed(Instant.parse("2026-09-08T08:00:00Z"), ZoneOffset.UTC);
 
     private final ReportCalendar calendar = ReportCalendar.of(KICKOFF, LocalDate.of(2026, 9, 1), TODAY);
@@ -40,7 +40,7 @@ class ReportCalendarTest {
     @Test
     @DisplayName("a mandate created today spans one day and one week")
     void aFreshMandateIsOneBucket() {
-        ReportCalendar fresh = ReportCalendar.of(Instant.parse("2026-09-08T09:00:00Z"), null, TODAY);
+        ReportCalendar fresh = ReportCalendar.of(LocalDate.of(2026, 9, 8), null, TODAY);
 
         assertThat(fresh.dayCount()).isEqualTo(1);
         assertThat(fresh.weekCount()).isEqualTo(1);

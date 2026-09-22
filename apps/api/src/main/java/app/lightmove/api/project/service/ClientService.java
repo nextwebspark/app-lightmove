@@ -206,6 +206,7 @@ public class ClientService {
                 .findFirst()
                 .orElse(null);
         return new ClientMandateResponse(project.id(), project.positionTitle(), project.stage(),
-                project.health(), leadName, project.targetDate());
+                project.projectType(), project.health(), leadName, project.mappingTargetDate(),
+                project.shortlistTargetDate(), project.targetDate());
     }
 }
