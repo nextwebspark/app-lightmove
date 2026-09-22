@@ -76,7 +76,7 @@ export function ReportingStep({
 
       <SuggestedSeatsRow chart={reporting.orgChart} usualDirectReports={usualDirectReports} onAdd={onAddSuggestedSeat} />
 
-      <p className="border-t border-u-border pt-4 text-[14px] text-u-text2">
+      <p className="border-t border-u-border pt-4 text-body text-u-text2">
         Reports to <b className="font-semibold text-u-text">{manager ?? "nobody yet"}</b> · Seniority level{" "}
         <b className="font-semibold text-u-text">{level ?? "unset"}</b> · leads{" "}
         <b className="font-semibold text-u-text">
@@ -91,13 +91,14 @@ export function ReportingStep({
             source={reporting.fieldSources.teamSize}
             confidence={teamSizeInfo?.confidence}
             snippet={teamSizeInfo?.snippet}
+            fileName={teamSizeInfo && receipt?.fileName}
             onUndo={teamSizeInfo ? onUndoTeamSize : undefined}
           />
         }
       >
         <span className="flex items-baseline gap-2">
-          <span className="font-u-num text-[28px] font-medium text-u-text">{reports}</span>
-          <span className="text-[13px] text-u-text3">direct report{reports === 1 ? "" : "s"}</span>
+          <span className="font-u-num text-figure font-medium text-u-text">{reports}</span>
+          <span className="text-body text-u-text3">direct report{reports === 1 ? "" : "s"}</span>
         </span>
       </FieldBlock>
     </div>

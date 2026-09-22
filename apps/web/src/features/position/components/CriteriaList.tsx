@@ -50,10 +50,10 @@ export function CriteriaList({
             value={criterion.text}
             aria-label={`Criterion ${index + 1}`}
             onChange={(event) => patch(index, { text: event.target.value })}
-            className="min-w-[160px] flex-1 bg-transparent text-[14px] text-u-text outline-none"
+            className="min-w-[160px] flex-1 bg-transparent text-body text-u-text outline-none"
           />
           {criterion.source === "TEMPLATE" && (
-            <span className="flex-none rounded-[4px] bg-u-accent-tint px-1.5 py-0.5 text-[9.5px] font-bold uppercase tracking-[0.06em] text-u-accent">
+            <span className="flex-none rounded-[4px] bg-u-accent-tint px-1.5 py-0.5 text-eyebrow font-bold uppercase tracking-[0.06em] text-u-accent">
               From brief
             </span>
           )}
@@ -61,6 +61,7 @@ export function CriteriaList({
             source={criterion.source}
             confidence={receipt?.lists.criteria?.appended[criterion.text]?.confidence}
             snippet={receipt?.lists.criteria?.appended[criterion.text]?.snippet}
+            fileName={receipt?.lists.criteria?.appended[criterion.text] && receipt.fileName}
             onUndo={onUndo ? () => onUndo(criterion.text) : undefined}
           />
           <ChipGroup
@@ -89,7 +90,7 @@ export function CriteriaList({
             event.preventDefault();
             add();
           }}
-          className="min-w-0 flex-1 bg-transparent text-[14px] text-u-text outline-none placeholder:text-u-text3"
+          className="min-w-0 flex-1 bg-transparent text-body text-u-text outline-none placeholder:text-u-text3"
         />
         {draft.trim() && (
           <BriefButton variant="link" onClick={add} className="px-0">

@@ -42,8 +42,10 @@ export function OrgSeatNode({ data }: NodeProps<Node<OrgSeatData>>) {
         filled && "border-s-2 border-s-u-inferred/60 bg-u-inferred-tint",
       )}
     >
+      {/* On the start edge, not the end: the seat's own add and remove controls fade in at `end-2` on
+          hover, and a glyph under them is one whose popover can never be reached. */}
       {filled && (
-        <span className="absolute -top-1.5 end-1.5">
+        <span className="absolute -top-1.5 start-1.5">
           <ProvenanceMarker source={seat.source} />
         </span>
       )}
@@ -51,10 +53,10 @@ export function OrgSeatNode({ data }: NodeProps<Node<OrgSeatData>>) {
 
       {isMandate ? (
         <>
-          <span className="block truncate text-[13.5px] font-semibold text-u-accent">
+          <span className="block truncate text-body font-semibold text-u-accent">
             {roleTitle.trim() || "Untitled role"}
           </span>
-          <span className="mt-1 inline-block rounded-[4px] bg-u-accent-solid px-1.5 py-0.5 text-[8.5px] font-bold uppercase tracking-[0.08em] text-white">
+          <span className="mt-1 inline-block rounded-[4px] bg-u-accent-solid px-1.5 py-0.5 text-eyebrow font-bold uppercase tracking-[0.08em] text-white">
             This position
           </span>
         </>
@@ -65,14 +67,14 @@ export function OrgSeatNode({ data }: NodeProps<Node<OrgSeatData>>) {
             aria-label="Seat title"
             placeholder="Title"
             onChange={(event) => data.onPatch(seat.nodeId, { title: event.target.value || null })}
-            className="w-full bg-transparent text-[13.5px] font-semibold text-u-text outline-none placeholder:font-normal placeholder:text-u-text3"
+            className="w-full bg-transparent text-body font-semibold text-u-text outline-none placeholder:font-normal placeholder:text-u-text3"
           />
           <input
             value={seat.name ?? ""}
             aria-label="Seat holder name"
             placeholder="Name"
             onChange={(event) => data.onPatch(seat.nodeId, { name: event.target.value || null })}
-            className="w-full bg-transparent text-[12px] text-u-text2 outline-none placeholder:text-u-text3/70"
+            className="w-full bg-transparent text-note text-u-text2 outline-none placeholder:text-u-text3/70"
           />
         </>
       )}
