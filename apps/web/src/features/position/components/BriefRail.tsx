@@ -1,10 +1,9 @@
 import { UncavaRailNav } from "../../../components/layout/UncavaRailNav";
 import type { SaveStatus } from "../../../lib/useAutosave";
 import type { Position } from "../api/types";
+import { fieldCountOf, type Receipts } from "../lib/documentFill";
 import { POSITION_STEPS, STEP_PARAM, type StepKey } from "../lib/steps";
 import { BriefButton } from "./BriefFields";
-
-const STEP_LINKS = POSITION_STEPS.map((step) => ({ key: step.key, label: step.name, icon: step.icon }));
 
 /**
  * The rail beside the brief: the five steps as the report draws its chapters — one line each — and
@@ -23,6 +22,7 @@ export function BriefRail({
   saveStatus,
   publishing,
   readBack,
+  receipts,
   onPublish,
   onEditPosition,
   onSaveDraft,
@@ -33,16 +33,23 @@ export function BriefRail({
   publishing: boolean;
   /** Published and not reopened: the brief reads back and the rail offers the way in. */
   readBack: boolean;
+  /** This session's document-reading receipts — the source of the "N filled" badge, never a persisted
+   *  count: a brief somebody finished a month ago must not nag about fields nobody has re-read since. */
+  receipts: Receipts;
   onPublish: () => void;
   onEditPosition: () => void;
   onSaveDraft: () => void;
 }) {
   const published = Boolean(position.publication.publishedAt);
+  const stepLinks = POSITION_STEPS.map((step) => {
+    const count = fieldCountOf(receipts[step.key]);
+    return { key: step.key, label: step.name, icon: step.icon, badge: count > 0 ? `${count} filled` : undefined };
+  });
 
   return (
     <aside className="flex-none border-b border-u-border lg:w-[258px] lg:border-b-0 lg:border-r">
       <div className="flex flex-col gap-3 px-4 py-3.5 lg:sticky lg:top-0 lg:h-[calc(100dvh-62px)] lg:gap-0 lg:overflow-y-auto lg:px-[22px] lg:py-[30px]">
-        <UncavaRailNav label="Brief steps" param={STEP_PARAM} items={STEP_LINKS} activeKey={activeKey} />
+        <UncavaRailNav label="Brief steps" param={STEP_PARAM} items={stepLinks} activeKey={activeKey} />
 
         <div className="flex flex-wrap items-center gap-2 lg:mt-auto lg:flex-col lg:items-stretch lg:pt-6">
           <span aria-live="polite" className="text-[11px] text-u-text3 lg:mb-1 lg:text-center">

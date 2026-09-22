@@ -1,4 +1,4 @@
-import { useEffect, useRef, type ReactNode } from "react";
+import { useEffect, useRef } from "react";
 import { NavLink } from "react-router-dom";
 import { useTheme } from "../../features/theme/useTheme";
 import { cn } from "../../lib/cn";
@@ -32,14 +32,11 @@ export interface SidebarGroup {
 export function Sidebar({
   groups,
   backLink,
-  header,
   open = false,
   onClose,
 }: {
   groups: SidebarGroup[];
   backLink?: SidebarItem;
-  /** Rendered under the back link when expanded — the project shell's stage badge lives here. */
-  header?: ReactNode;
   open?: boolean;
   onClose?: () => void;
 }) {
@@ -95,8 +92,6 @@ export function Sidebar({
           <div className="mx-1 mb-1.5 h-px bg-line-soft" />
         </>
       )}
-
-      {header && <div className={cn("px-2.5 pb-1 pt-0.5", labelsHidden)}>{header}</div>}
 
       {groups.map((group) => (
         <div key={group.label}>

@@ -15,7 +15,9 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 /**
- * Reading the document already attached to a mandate's brief — "Read from document" on step one.
+ * Reading the document already attached to a mandate's brief — "Read from document" on steps one, two,
+ * three and five. Step four (compensation) is no longer read at all: most position descriptions state
+ * no figure, so the product decision is to stop asking rather than propose an empty reading.
  *
  * <p>Gated {@code PROJECT_EDIT}, not {@code WORK_VIEW} like the document's own download: downloading
  * moves bytes for free, this spends a billed model call (or, degraded, a bit of CPU), and a read-only
@@ -44,15 +46,6 @@ public class PositionExtractionController {
             @AuthenticationPrincipal AuthPrincipal principal, @PathVariable UUID projectId,
             HttpServletRequest httpRequest) {
         return ResponseEntity.ok(extraction.extractContext(
-                principal.userId(), principal.requireWorkspaceId(), projectId, httpRequest));
-    }
-
-    @PostMapping("/compensation")
-    @PreAuthorize("@projectAuthorizer.can(principal, #projectId, 'PROJECT_EDIT')")
-    public ResponseEntity<PositionExtractionResponse> extractCompensation(
-            @AuthenticationPrincipal AuthPrincipal principal, @PathVariable UUID projectId,
-            HttpServletRequest httpRequest) {
-        return ResponseEntity.ok(extraction.extractCompensation(
                 principal.userId(), principal.requireWorkspaceId(), projectId, httpRequest));
     }
 

@@ -35,7 +35,7 @@ export const ICONS = {
   collapse: "m11 17-5-5 5-5M18 17l-5-5 5-5",
   expand: "m13 17 5-5-5-5M6 17l5-5-5-5",
   plus: "M12 5v14M5 12h14",
-  /** The assistant's mark — a large four-point star with a small one, as every AI surface draws it. */
+  /** The AI mark — the assistant's launcher, and a brief value a document reading filled. */
   sparkle:
     "M9.9 2.6 11 5.9a2 2 0 0 0 1.3 1.3l3.3 1.1-3.3 1.1a2 2 0 0 0-1.3 1.3L9.9 14l-1.1-3.3a2 2 0 0 0-1.3-1.3L4.2 8.3l3.3-1.1a2 2 0 0 0 1.3-1.3ZM18 14l.6 1.8 1.8.6-1.8.6-.6 1.8-.6-1.8-1.8-.6 1.8-.6Z",
   arrowRight: "M5 12h14M13 6l6 6-6 6",
@@ -45,8 +45,10 @@ export const ICONS = {
   /** A check inside a circle — the Position wizard's "this field now holds something" affordance. */
   checkCircle: "M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18M8.5 12.2l2.3 2.3 4.7-4.7",
   uploadCloud: "M12 13v8m0-8-3 3m3-3 3 3M20 16.7A4.5 4.5 0 0 0 17.5 8h-1.8A7 7 0 1 0 4 14.9",
-  /** An arrow dropping into a tray — Export, the mirror of `uploadCloud`. */
-  download: "M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3",
+  /** An arrow dropping into a tray — Import, read from the mandate's side: the data arrives here. */
+  importInto: "M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3",
+  /** The same tray with the arrow rising out of it — Export, the mandate leaving as a file. */
+  exportOut: "M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M17 8l-5-5-5 5M12 3v12",
   /** A page with its corner turned — the attached position description. */
   file: "M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8zM14 2v6h6",
   lock: "M19 11H5a2 2 0 0 0-2 2v6a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-6a2 2 0 0 0-2-2ZM7 11V7a5 5 0 0 1 10 0v4",

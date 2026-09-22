@@ -4,7 +4,7 @@ import { NotFoundPage } from "../../app/NotFoundPage";
 import * as projectsApi from "../../features/projects/api/projectsApi";
 import type { Project } from "../../features/projects/api/types";
 import { cn } from "../../lib/cn";
-import { Spinner, StagePill } from "../ui";
+import { Spinner } from "../ui";
 import { AppShell } from "./AppShell";
 import { ICONS } from "./Icon";
 import { type SidebarGroup } from "./Sidebar";
@@ -126,7 +126,6 @@ export function ProjectLayout() {
       }
       navGroups={groups}
       navBackLink={{ to: "/", label: "All projects", icon: ICONS.back }}
-      navHeader={<StagePill stage={project.stage} />}
       assistantContext={`${project.clientName} · ${project.positionTitle}`}
       assistantProjectId={project.id}
       /* Wider than the mockups' 1160px on purpose — see WorkspaceLayout for the reasoning. */

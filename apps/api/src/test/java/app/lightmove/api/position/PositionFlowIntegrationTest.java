@@ -48,7 +48,10 @@ class PositionFlowIntegrationTest extends FlowTestSupport {
                 .andExpect(jsonPath("$.details.locationCity").isEmpty())
                 .andExpect(jsonPath("$.details.seniority").value("C_SUITE"))
                 .andExpect(jsonPath("$.details.employmentType").value("FULL_TIME_PERMANENT"))
-                .andExpect(jsonPath("$.details.responsibilities[0]").value("Group P&L stewardship"))
+                .andExpect(jsonPath("$.details.responsibilities[0].text").value("Group P&L stewardship"))
+                .andExpect(jsonPath("$.details.responsibilities[0].source").value("TEMPLATE"))
+                .andExpect(jsonPath("$.details.fieldSources.department").value("TEMPLATE"))
+                .andExpect(jsonPath("$.details.fieldSources.location").doesNotExist())
                 // The seat above, the mandate's own, and the four seats a CFO usually owns.
                 .andExpect(jsonPath("$.reporting.orgChart.length()").value(6))
                 // The mandate seat leads the stored chart — Position#mandateSeatFirst explains why.
@@ -69,7 +72,7 @@ class PositionFlowIntegrationTest extends FlowTestSupport {
                 .andExpect(jsonPath("$.context.strategicPriorities.length()").value(5))
                 .andExpect(jsonPath("$.context.strategicPriorities[0].name").value("Capital discipline"))
                 .andExpect(jsonPath("$.context.strategicPriorities[0].selected").value(false))
-                .andExpect(jsonPath("$.assessment.criteria[0].fromBrief").value(true))
+                .andExpect(jsonPath("$.assessment.criteria[0].source").value("TEMPLATE"))
                 .andExpect(jsonPath("$.assessment.criteria[0].mode").value("REQUIRED"))
                 .andExpect(jsonPath("$.assessment.technical[0].name").value("Financial Reporting & Controls"))
                 .andExpect(jsonPath("$.assessment.technical[0].description").isNotEmpty())
@@ -101,7 +104,8 @@ class PositionFlowIntegrationTest extends FlowTestSupport {
                 {"roleTitle":"Group Chief Financial Officer","department":"Group Finance",
                  "locationCity":"abu dhabi","locationCountry":"UAE",
                  "employmentType":"TEMPORARY","seniority":"N_MINUS_1",
-                 "responsibilities":["Group P&L stewardship","Capital structure & treasury"],
+                 "responsibilities":[{"text":"Group P&L stewardship","source":"MANUAL"},
+                                     {"text":"Capital structure & treasury","source":"MANUAL"}],
                  "narrative":"A hands-on CFO."}""")
                 .andExpect(jsonPath("$.details.department").value("Group Finance"))
                 // Each half of the location is settled on its own: the country to the catalog's
@@ -110,11 +114,38 @@ class PositionFlowIntegrationTest extends FlowTestSupport {
                 .andExpect(jsonPath("$.details.locationCountry").value("United Arab Emirates"))
                 .andExpect(jsonPath("$.details.employmentType").value("TEMPORARY"))
                 .andExpect(jsonPath("$.details.seniority").value("N_MINUS_1"))
-                .andExpect(jsonPath("$.details.responsibilities.length()").value(2));
+                .andExpect(jsonPath("$.details.responsibilities.length()").value(2))
+                .andExpect(jsonPath("$.details.responsibilities[0].text").value("Group P&L stewardship"))
+                .andExpect(jsonPath("$.details.fieldSources.department").value("MANUAL"));
 
         // The role title is the mandate's one title — the step writes it there, not to a second copy.
         mvc.perform(get("/api/v1/projects").header("Authorization", "Bearer " + admin))
                 .andExpect(jsonPath("$[0].positionTitle").value("Group Chief Financial Officer"));
+    }
+
+    @Test
+    @DisplayName("a step sent with no provenance at all round-trips as MANUAL; an unknown key is refused")
+    void provenanceRoundTripsAndDefaultsToManual() throws Exception {
+        String admin = adminOf("Provenance Firm");
+        String projectId = createProject(admin, createClient(admin, "Etisalat", "UAE"), "CFO");
+
+        // No "source" on the responsibility and no "fieldSources" at all — a plain client saying
+        // nothing about provenance is read as a person having typed the whole step.
+        putStep(admin, projectId, "details", """
+                {"roleTitle":"CFO","department":"Group Finance","location":null,"employmentType":null,
+                 "seniority":null,"responsibilities":[{"text":"Group P&L stewardship"}],"narrative":null}""")
+                .andExpect(jsonPath("$.details.responsibilities[0].source").value("MANUAL"))
+                .andExpect(jsonPath("$.details.fieldSources.department").value("MANUAL"));
+
+        mvc.perform(put(positionUrl(projectId) + "/details")
+                        .header("Authorization", "Bearer " + admin)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"roleTitle":"CFO","department":"Group Finance","location":null,
+                                 "employmentType":null,"seniority":null,"responsibilities":[],
+                                 "narrative":null,"fieldSources":{"salaryMin":"MANUAL"}}"""))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("VALIDATION_FAILED"));
     }
 
     @Test
@@ -322,11 +353,13 @@ class PositionFlowIntegrationTest extends FlowTestSupport {
 
         putStep(admin, projectId, "criteria", """
                 {"criteria":[
-                  {"text":"Arabic language skills","mode":"PREFERRED","fromBrief":false},
-                  {"text":"Board reporting experience","mode":"REQUIRED","fromBrief":true}]}""")
+                  {"text":"Arabic language skills","mode":"PREFERRED","source":"MANUAL"},
+                  {"text":"Board reporting experience","mode":"REQUIRED","source":"TEMPLATE"}]}""")
                 .andExpect(jsonPath("$.assessment.criteria.length()").value(2))
                 .andExpect(jsonPath("$.assessment.criteria[0].text").value("Arabic language skills"))
-                .andExpect(jsonPath("$.assessment.criteria[1].mode").value("REQUIRED"));
+                .andExpect(jsonPath("$.assessment.criteria[0].source").value("MANUAL"))
+                .andExpect(jsonPath("$.assessment.criteria[1].mode").value("REQUIRED"))
+                .andExpect(jsonPath("$.assessment.criteria[1].source").value("TEMPLATE"));
 
         putStep(admin, projectId, "competencies", """
                 {"technical":[{"name":"Treasury","description":"Debt and liquidity","weight":60},
@@ -334,6 +367,7 @@ class PositionFlowIntegrationTest extends FlowTestSupport {
                  "behavioural":[{"name":"Leadership","description":"Sets direction","weight":100}]}""")
                 .andExpect(jsonPath("$.assessment.technical[0].name").value("Treasury"))
                 .andExpect(jsonPath("$.assessment.technical[0].description").value("Debt and liquidity"))
+                .andExpect(jsonPath("$.assessment.technical[0].source").value("MANUAL"))
                 .andExpect(jsonPath("$.assessment.technical[1].weight").value(30))
                 .andExpect(jsonPath("$.assessment.behavioural.length()").value(1))
                 // A write that names no split leaves the seeded even one standing.

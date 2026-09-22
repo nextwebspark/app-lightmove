@@ -1,4 +1,5 @@
 import { request } from "../../../lib/apiClient";
+import type { BulkAddResult, TriageCompanyStatus } from "../../triage/api/types";
 import type { AssistantThread, AssistantTurn } from "./types";
 
 /**
@@ -25,4 +26,23 @@ export function askIn(threadId: string, question: string): Promise<AssistantTurn
 
 export function getThread(threadId: string): Promise<AssistantThread> {
   return request<AssistantThread>(`/assistant/threads/${threadId}`);
+}
+
+/**
+ * Files the ticked rows of a turn's proposal, at one stage.
+ *
+ * <p>Refs, never company identities: the fields a company lands with come from the proposal the
+ * server resolved and stored, so there is no door here for filing a company under a name of the
+ * caller's choosing. The turn is the only thing this names — the mandate comes out of the stored
+ * proposal, and is re-authorised against it.
+ */
+export function acceptProposal(
+  turnId: string,
+  refs: string[],
+  status: TriageCompanyStatus,
+): Promise<BulkAddResult> {
+  return request<BulkAddResult>(`/assistant/turns/${turnId}/proposal/accept`, {
+    method: "POST",
+    body: { refs, status },
+  });
 }

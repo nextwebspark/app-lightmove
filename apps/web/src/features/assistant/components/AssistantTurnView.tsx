@@ -1,22 +1,69 @@
+import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useState } from "react";
 import { Icon } from "../../../components/layout/Icon";
+import { useToast } from "../../../components/ui/Toast";
+import { messageFor } from "../../../lib/errorCodes";
+import { useProjectRowsChanged } from "../../../lib/projectRows";
+import type { TriageCompanyStatus } from "../../triage/api/types";
+import * as assistantApi from "../api/assistantApi";
+import type { AssistantProposal } from "../api/types";
 import type { TurnProgress } from "../lib/useAssistantTurn";
+import { AssistantProposalCard, outcomeLine } from "./AssistantProposalCard";
 
 /**
- * One exchange as it happens: what was asked, what the assistant is doing, and what it has said.
+ * One exchange: what was asked, what the assistant is doing, what it said, and what it is offering.
  *
  * <p>The trace is not decoration. A turn runs 30–180s, and saying "Searching the company universe"
  * is what makes that tolerable — it is also how somebody notices the assistant is about to do
  * something they did not want, while there is still time to say so.
+ *
+ * <p><b>This is where the proposal is written, and the card is not.</b> The card hands up the refs
+ * a person ticked and the stage they pressed; everything with a consequence — the request, the
+ * toast, and the reads that go stale — happens here.
+ *
+ * <p><b>Dismissing is this reader's, and only for as long as they are looking.</b> It is component
+ * state, so it survives neither a reload nor a remount — and the panel remounts on crossing between
+ * the three layouts, so dismissing a card and walking from Strategy to Clients brings it back. That
+ * is the accepted answer rather than an oversight: nothing server-side records a dismissal, and
+ * making one durable means first deciding whether dismissing is a fact about the mandate or about
+ * the person reading it. The case that matters is already durable — once the proposal is *filed*,
+ * its outcome is a stored event and the card never offers its buttons again.
  */
 export function AssistantTurnView({
+  turnId,
+  threadId,
   question,
   progress,
 }: {
+  turnId: string;
+  threadId: string;
   question: string;
   progress: TurnProgress;
 }) {
+  const queryClient = useQueryClient();
+  const rowsChanged = useProjectRowsChanged();
+  const toast = useToast();
+  const [dismissed, setDismissed] = useState(false);
+  const [failure, setFailure] = useState<string | null>(null);
+
   const running = progress.status === "RUNNING";
   const failed = progress.status === "FAILED" || progress.status === "CANCELLED";
+
+  const filing = useMutation({
+    mutationFn: ({ refs, status }: { refs: string[]; status: TriageCompanyStatus }) =>
+      assistantApi.acceptProposal(turnId, refs, status),
+    onSuccess: async (result, { refs, status }) => {
+      setFailure(null);
+      // The mandate the proposal was authorised against, which is not necessarily the one on screen:
+      // a conversation about one client can be open while the reader is looking at another.
+      if (progress.proposal) await rowsChanged(progress.proposal.projectId);
+      void queryClient.invalidateQueries({ queryKey: assistantApi.ASSISTANT_THREAD_KEY(threadId) });
+      toast(outcomeLine({ status, refs, added: result.added, skipped: result.skipped }));
+    },
+    onError: (error) => setFailure(messageFor(error)),
+  });
+
+  const proposal = withOutcome(progress.proposal, filing.data, filing.variables);
 
   return (
     <div>
@@ -61,6 +108,24 @@ export function AssistantTurnView({
         <p className="font-mono text-[11px] text-text3">Thinking…</p>
       )}
 
+      {proposal && !dismissed && (
+        <div className="mt-3">
+          <AssistantProposalCard
+            proposal={proposal}
+            running={running}
+            filing={filing.isPending}
+            onAccept={(refs, status) => filing.mutate({ refs, status })}
+            onDismiss={() => setDismissed(true)}
+          />
+        </div>
+      )}
+
+      {failure && (
+        <p role="alert" className="mt-2 font-sans text-[11.5px] text-red">
+          {failure}
+        </p>
+      )}
+
       {failed && (
         <div className="flex gap-2.5 rounded-[9px] border border-amber/40 bg-amber-dim px-3 py-2.5">
           <Icon
@@ -75,6 +140,28 @@ export function AssistantTurnView({
       )}
     </div>
   );
+}
+
+/**
+ * What the card shows once this panel has filed it.
+ *
+ * <p>The server announces an acceptance as a `proposal.accepted` event, which only reaches a stream
+ * that is still open — and a turn has to have finished before it can be filed at all, by which time
+ * its stream has completed. So the outcome of *this* panel's own accept comes from the response to
+ * it. A reload reads the stored one instead, which is why the stored value always wins.
+ */
+function withOutcome(
+  proposal: AssistantProposal | null,
+  result: { added: number; skipped: number } | undefined,
+  filed: { refs: string[]; status: TriageCompanyStatus } | undefined,
+): AssistantProposal | null {
+  if (!proposal || proposal.accepted || !result || !filed) {
+    return proposal;
+  }
+  return {
+    ...proposal,
+    accepted: { status: filed.status, refs: filed.refs, ...result },
+  };
 }
 
 /**

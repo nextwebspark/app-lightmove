@@ -129,7 +129,7 @@ export function TriageToolbar({
           disabled={exporting}
           className={`${TOOLBAR_BUTTON} disabled:opacity-50`}
         >
-          <Icon d={ICONS.download} size={14} className="flex-none" />
+          <Icon d={ICONS.exportOut} size={14} className="flex-none" />
           {exporting ? "Exporting…" : "Export"}
         </button>
 
@@ -143,7 +143,7 @@ export function TriageToolbar({
             )}
             {canImport && (
               <button type="button" onClick={onImport} className={TOOLBAR_BUTTON}>
-                <Icon d={ICONS.uploadCloud} size={14} className="flex-none" />
+                <Icon d={ICONS.importInto} size={14} className="flex-none" />
                 Import
               </button>
             )}

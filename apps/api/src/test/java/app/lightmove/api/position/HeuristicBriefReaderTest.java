@@ -116,7 +116,7 @@ class HeuristicBriefReaderTest {
     }
 
     @Test
-    @DisplayName("every employment-type keyword resolves, and permanent outranks the word contract")
+    @DisplayName("every employment-type keyword resolves, and permanent and temporary outrank the word contract")
     void resolvesEveryEmploymentTypeKeyword() {
         assertThat(employmentTypeFor("This is a permanent contract based in Dubai."))
                 .isEqualTo("FULL_TIME_PERMANENT");
@@ -124,6 +124,10 @@ class HeuristicBriefReaderTest {
         assertThat(employmentTypeFor("This is a part-time role.")).isEqualTo("PART_TIME");
         assertThat(employmentTypeFor("An interim mandate for 6 months.")).isEqualTo("INTERIM");
         assertThat(employmentTypeFor("A retained advisory engagement.")).isEqualTo("RETAINED_ADVISORY");
+        // TEMPORARY has been in the vocabulary since #442; the keyword map could not propose it until
+        // #395, and it sits ahead of "contract" so a temporary contract reads as what it was called.
+        assertThat(employmentTypeFor("A temporary assignment covering a leave.")).isEqualTo("TEMPORARY");
+        assertThat(employmentTypeFor("A temporary contract for the season.")).isEqualTo("TEMPORARY");
     }
 
     @Test

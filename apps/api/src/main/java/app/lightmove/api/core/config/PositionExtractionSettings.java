@@ -3,7 +3,7 @@ package app.lightmove.api.core.config;
 import org.springframework.boot.context.properties.bind.DefaultValue;
 
 /**
- * Reading an attached position description into step-one proposals — {@code
+ * Reading an attached position description into proposals for steps one, two, three and five — {@code
  * lightmove.position.extraction.*}.
  *
  * <p>Caps here bound both a decompression bomb and the model's own per-call cost — {@code maxPages}

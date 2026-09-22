@@ -26,9 +26,11 @@ Fields:
     documents never say this, and null is the common, correct answer.
   - businessDriver: a sentence or two of the business context behind the hire, if the document states
     one — often under a heading like "The Opportunity" or "Background".
-  - strategicPriorities: the specific strategic priorities or objectives the document names for this
-    role, each as its own short name (a few words, not a sentence) with its own snippet. List only
-    priorities the document actually names — not a summary of the whole role.
+  - strategicPriorities: at most 5 of the strategic priorities or objectives the document names for
+    this role, each as its own short name (6 words or fewer, not a sentence) with its own snippet.
+    Choose the five the document itself weights most heavily — by emphasis, order, "must"/"key"/
+    "critical" wording, and how much space it gives them — never simply the first five named. Do not
+    pad the list to reach five, and do not invent a priority the document does not name.
 
 This document's confidentiality and any internal notes about the mandate are not something the
 document itself states — do not answer anything about those from this task.

@@ -10,7 +10,6 @@ import app.lightmove.api.position.dto.PositionExtractionResponse;
 import app.lightmove.api.position.dto.ProposedFieldDto;
 import app.lightmove.api.position.model.ExtractedField;
 import app.lightmove.api.position.model.ProposedAssessment;
-import app.lightmove.api.position.model.ProposedCompensation;
 import app.lightmove.api.position.model.ProposedMandateContext;
 import app.lightmove.api.position.model.ProposedPositionDetails;
 import app.lightmove.api.position.model.ProposedReportingStructure;
@@ -19,14 +18,18 @@ import app.lightmove.api.positiontemplate.dto.PositionTemplateSummary;
 import app.lightmove.api.positiontemplate.service.PositionTemplateService;
 import jakarta.servlet.http.HttpServletRequest;
 import java.util.ArrayList;
+import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Locale;
+import java.util.Set;
 import java.util.UUID;
 import org.springframework.stereotype.Service;
 
 /**
  * Reads the document already attached to a mandate's brief into a step proposal — the one explicit
  * act that opens {@link PositionDocumentService}'s "never read" boundary, on its own call, never as a
- * side effect of upload.
+ * side effect of upload. Reads steps one, two, three and five; step four (compensation) is not read
+ * at all — most position descriptions state no figure, so the product decision is to stop asking.
  *
  * <p>Its own class rather than more methods on {@link PositionDocumentService} or {@link
  * PositionService}, for the same reason the document service is already split out: this orchestrates
@@ -43,7 +46,6 @@ public class PositionExtractionService {
     private final PositionDocumentTextReader textReader;
     private final PositionDetailsProposer detailsProposer;
     private final PositionContextProposer contextProposer;
-    private final PositionCompensationProposer compensationProposer;
     private final PositionAssessmentProposer assessmentProposer;
     private final PositionReportingProposer reportingProposer;
     private final PositionTemplateService templates;
@@ -56,7 +58,6 @@ public class PositionExtractionService {
                                      PositionDocumentTextReader textReader,
                                      PositionDetailsProposer detailsProposer,
                                      PositionContextProposer contextProposer,
-                                     PositionCompensationProposer compensationProposer,
                                      PositionAssessmentProposer assessmentProposer,
                                      PositionReportingProposer reportingProposer,
                                      PositionTemplateService templates,
@@ -65,7 +66,6 @@ public class PositionExtractionService {
         this.textReader = textReader;
         this.detailsProposer = detailsProposer;
         this.contextProposer = contextProposer;
-        this.compensationProposer = compensationProposer;
         this.assessmentProposer = assessmentProposer;
         this.reportingProposer = reportingProposer;
         this.templates = templates;
@@ -81,7 +81,7 @@ public class PositionExtractionService {
                 userId, text, document.clientId(), workspaceId);
         recordAudit(userId, workspaceId, projectId, httpRequest, proposed.source().value());
         PositionTemplateSummary suggestedTemplate = suggestedTemplateFor(proposed.fields(), workspaceId);
-        return assemble(proposed.source().value(), proposed.fields(), suggestedTemplate);
+        return assemble(proposed.source().value(), proposed.fields(), suggestedTemplate, null);
     }
 
     public PositionExtractionResponse extractContext(UUID userId, UUID workspaceId, UUID projectId,
@@ -89,19 +89,9 @@ public class PositionExtractionService {
         LoadedDocument document = load(workspaceId, projectId);
         String text = textReader.read(document.content());
         ProposedMandateContext proposed = contextProposer.propose(
-                userId, text, document.clientId(), workspaceId, document.roleTitle());
+                userId, text, document.clientId(), workspaceId);
         recordAudit(userId, workspaceId, projectId, httpRequest, proposed.source().value());
-        return assemble(proposed.source().value(), proposed.fields(), null);
-    }
-
-    public PositionExtractionResponse extractCompensation(UUID userId, UUID workspaceId, UUID projectId,
-                                                           HttpServletRequest httpRequest) {
-        LoadedDocument document = load(workspaceId, projectId);
-        String text = textReader.read(document.content());
-        ProposedCompensation proposed = compensationProposer.propose(
-                userId, text, document.clientId(), workspaceId, document.roleTitle());
-        recordAudit(userId, workspaceId, projectId, httpRequest, proposed.source().value());
-        return assemble(proposed.source().value(), proposed.fields(), null);
+        return assemble(proposed.source().value(), proposed.fields(), null, null);
     }
 
     public PositionExtractionResponse extractAssessment(UUID userId, UUID workspaceId, UUID projectId,
@@ -111,7 +101,7 @@ public class PositionExtractionService {
         ProposedAssessment proposed = assessmentProposer.propose(
                 userId, text, document.clientId(), workspaceId, document.roleTitle());
         recordAudit(userId, workspaceId, projectId, httpRequest, proposed.source().value());
-        return assemble(proposed.source().value(), proposed.fields(), null);
+        return assemble(proposed.source().value(), proposed.fields(), null, null);
     }
 
     public PositionExtractionResponse extractReporting(UUID userId, UUID workspaceId, UUID projectId,
@@ -119,9 +109,10 @@ public class PositionExtractionService {
         LoadedDocument document = load(workspaceId, projectId);
         String text = textReader.read(document.content());
         ProposedReportingStructure proposed = reportingProposer.propose(
-                userId, text, document.clientId(), workspaceId, document.roleTitle());
+                userId, text, document.clientId(), workspaceId);
         recordAudit(userId, workspaceId, projectId, httpRequest, proposed.source().value());
-        return assemble(proposed.source().value(), proposed.fields(), null);
+        List<String> usualDirectReports = usualDirectReportsFor(workspaceId, document.roleTitle());
+        return assemble(proposed.source().value(), proposed.fields(), null, usualDirectReports);
     }
 
     /**
@@ -137,6 +128,34 @@ public class PositionExtractionService {
                 .map(ExtractedField::value)
                 .findFirst()
                 .flatMap(roleTitle -> templates.suggestFor(workspaceId, roleTitle))
+                .orElse(null);
+    }
+
+    /**
+     * The matched template's own direct reports, for the reporting step's Suggested seats row (#398)
+     * — never the generic fallback, the same title-only lookup {@link PositionAssessmentProposer}'s
+     * controlled vocabulary uses. Trimmed and de-duplicated case-insensitively, since a template's own
+     * list is workspace-writable text, not a reading verified against a document.
+     */
+    private List<String> usualDirectReportsFor(UUID workspaceId, String roleTitle) {
+        if (roleTitle == null || roleTitle.isBlank()) {
+            return null;
+        }
+        return templates.matchingByTitle(workspaceId, roleTitle)
+                .map(template -> {
+                    Set<String> seenCaseInsensitive = new LinkedHashSet<>();
+                    List<String> reports = new ArrayList<>();
+                    for (String title : template.getBody().directReports()) {
+                        if (title == null || title.isBlank()) {
+                            continue;
+                        }
+                        String trimmed = title.trim();
+                        if (seenCaseInsensitive.add(trimmed.toLowerCase(Locale.ROOT))) {
+                            reports.add(trimmed);
+                        }
+                    }
+                    return reports;
+                })
                 .orElse(null);
     }
 
@@ -157,12 +176,13 @@ public class PositionExtractionService {
     }
 
     private static PositionExtractionResponse assemble(String extractionSource, List<ExtractedField> fields,
-                                                        PositionTemplateSummary suggestedTemplate) {
+                                                        PositionTemplateSummary suggestedTemplate,
+                                                        List<String> usualDirectReports) {
         List<ProposedFieldDto> dtos = new ArrayList<>(fields.size());
         for (int i = 0; i < fields.size(); i++) {
             dtos.add(toDto(i, fields.get(i)));
         }
-        return new PositionExtractionResponse(extractionSource, dtos, suggestedTemplate);
+        return new PositionExtractionResponse(extractionSource, dtos, suggestedTemplate, usualDirectReports);
     }
 
     private static ProposedFieldDto toDto(int id, ExtractedField field) {

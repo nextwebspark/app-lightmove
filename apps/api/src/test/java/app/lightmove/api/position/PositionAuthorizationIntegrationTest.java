@@ -63,7 +63,7 @@ class PositionAuthorizationIntegrationTest extends FlowTestSupport {
                         .header("Authorization", "Bearer " + sara)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
-                                {"criteria":[{"text":"X","mode":"REQUIRED","fromBrief":false}]}"""))
+                                {"criteria":[{"text":"X","mode":"REQUIRED","source":"MANUAL"}]}"""))
                 .andExpect(status().isForbidden());
         mvc.perform(put(positionUrl(f.projectId) + "/details")
                         .header("Authorization", "Bearer " + sara)

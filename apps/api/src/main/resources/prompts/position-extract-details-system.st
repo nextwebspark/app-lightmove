@@ -24,14 +24,20 @@ Fields:
     Title", "Position" or "Role".
   - department: the function or division the role sits in, if named.
   - location: the city, country or region the role is based in, if named.
-  - employmentType: one of FULL_TIME_PERMANENT, FIXED_TERM_CONTRACT, PART_TIME, INTERIM,
+  - employmentType: one of FULL_TIME_PERMANENT, FIXED_TERM_CONTRACT, PART_TIME, TEMPORARY, INTERIM,
     RETAINED_ADVISORY — only when the document's wording clearly means one of these; otherwise null.
+    TEMPORARY is short-term cover with no stated end date; FIXED_TERM_CONTRACT is an engagement the
+    document gives a length or an end date to; INTERIM is a senior placeholder holding the seat until
+    a permanent appointment is made.
   - seniority: one of BOARD, C_SUITE, N_MINUS_1, N_MINUS_2, N_MINUS_3, describing how far the role
     sits from the chief executive — only when the document gives you enough to place it; otherwise
     null.
-  - responsibilities: the individual duties or accountabilities listed for the role, each as its own
-    short line, each with its own snippet. List the specific items a "Responsibilities",
-    "Accountabilities" or "Duties" section actually names — not a summary of the whole document.
+  - responsibilities: at most 5 of the individual duties or accountabilities listed for the role, each
+    as its own short line (10 words or fewer, verb-first — "Owns the group's treasury function", not
+    "The role is responsible for the group's treasury function"), each with its own snippet. Choose the
+    five the document itself weights most heavily — by emphasis, order, "must"/"key"/"critical"
+    wording, and how much space it gives them — never simply the first five lines of a longer list. Do
+    not pad the list to reach five, and do not invent one the document does not state.
   - narrative: two or three sentences describing the ideal candidate for this role, drawn from what
     the document says about the person it is looking for — not a summary of the company or the role.
 

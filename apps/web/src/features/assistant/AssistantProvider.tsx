@@ -20,6 +20,12 @@ type AssistantState = {
   question: string;
   startedTurn: (turn: { id: string; threadId: string; question: string }) => void;
   /**
+   * Let go of a remembered conversation the server will not open — one that was deleted, or that
+   * belongs to a workspace this user has since left. Nothing else may forget it: a thread is how the
+   * panel keeps its place.
+   */
+  forgetThread: () => void;
+  /**
    * Whether the panel's current state came from somebody pressing something, rather than from the
    * remembered one being restored. Focus follows a person's action and must not follow a page load:
    * landing on a screen and having the caret yanked into a panel nobody just opened is the bug this
@@ -32,6 +38,7 @@ type AssistantState = {
 };
 
 const OPEN_KEY = "lm.assistant.open";
+const THREAD_KEY = "lm.assistant.thread";
 
 const AssistantContext = createContext<AssistantState>({
   open: false,
@@ -39,6 +46,7 @@ const AssistantContext = createContext<AssistantState>({
   turnId: null,
   question: "",
   startedTurn: () => {},
+  forgetThread: () => {},
   toggledByUser: false,
   openAssistant: () => {},
   closeAssistant: () => {},
@@ -52,9 +60,20 @@ export function useAssistant(): AssistantState {
 export function AssistantProvider({ children }: { children: ReactNode }) {
   const [open, setOpen] = useState(readStoredOpen);
   const [toggledByUser, setToggledByUser] = useState(false);
-  // Deliberately not persisted, unlike the open state: a turn's stream is live and a thread id
-  // restored from a previous session would open a stream on a conversation nobody is having.
+  // The conversation is remembered; the turn inside it is not. A restored thread id opens no stream
+  // — it is read back — while a restored turn id would open one on a turn that is long over.
+  const [threadId, setThreadId] = useState(readStoredThread);
   const [turn, setTurn] = useState<{ id: string; threadId: string; question: string } | null>(null);
+
+  const startedTurn = useCallback((started: { id: string; threadId: string; question: string }) => {
+    setTurn(started);
+    setThreadId(started.threadId);
+    try {
+      localStorage.setItem(THREAD_KEY, started.threadId);
+    } catch {
+      // A private window refuses this, and the conversation is still in memory for this session.
+    }
+  }, []);
 
   const remember = useCallback((next: boolean) => {
     setOpen(next);
@@ -66,19 +85,30 @@ export function AssistantProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
+  const forgetThread = useCallback(() => {
+    setThreadId(null);
+    setTurn(null);
+    try {
+      localStorage.removeItem(THREAD_KEY);
+    } catch {
+      // Nothing was stored to remove, and the state above is what the panel reads.
+    }
+  }, []);
+
   const value = useMemo<AssistantState>(
     () => ({
       open,
-      threadId: turn?.threadId ?? null,
+      threadId,
       turnId: turn?.id ?? null,
       question: turn?.question ?? "",
-      startedTurn: setTurn,
+      startedTurn,
+      forgetThread,
       toggledByUser,
       openAssistant: () => remember(true),
       closeAssistant: () => remember(false),
       toggleAssistant: () => remember(!open),
     }),
-    [open, turn, toggledByUser, remember],
+    [open, threadId, turn, toggledByUser, startedTurn, forgetThread, remember],
   );
 
   return <AssistantContext.Provider value={value}>{children}</AssistantContext.Provider>;
@@ -96,5 +126,20 @@ function readStoredOpen(): boolean {
     return localStorage.getItem(OPEN_KEY) === "1";
   } catch {
     return false;
+  }
+}
+
+/**
+ * The conversation the panel was last having, so a reload does not throw it away.
+ *
+ * <p>What makes this safe where a stored turn id would not be: a thread is fetched, not streamed.
+ * A thread that no longer exists answers 404 and the panel falls back to its starters; a stored turn
+ * id would instead open a stream on a turn nobody is waiting for.
+ */
+function readStoredThread(): string | null {
+  try {
+    return localStorage.getItem(THREAD_KEY);
+  } catch {
+    return null;
   }
 }

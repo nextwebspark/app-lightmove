@@ -1,6 +1,7 @@
 package app.lightmove.api.position.model;
 
 import app.lightmove.api.common.constant.CompetencyPanel;
+import app.lightmove.api.position.constant.FieldSource;
 import jakarta.persistence.Column;
 import jakarta.persistence.Embeddable;
 import jakarta.persistence.EnumType;
@@ -34,12 +35,18 @@ public class PositionCompetency {
     @Column(name = "weight", nullable = false)
     private int weight;
 
-    public static PositionCompetency of(CompetencyPanel panel, String name, String description, int weight) {
+    @Enumerated(EnumType.STRING)
+    @Column(name = "source", nullable = false, length = 16)
+    private FieldSource source;
+
+    public static PositionCompetency of(CompetencyPanel panel, String name, String description, int weight,
+                                        FieldSource source) {
         PositionCompetency competency = new PositionCompetency();
         competency.panel = panel;
         competency.name = name.trim();
         competency.description = description == null || description.isBlank() ? null : description.trim();
         competency.weight = weight;
+        competency.source = source;
         return competency;
     }
 }

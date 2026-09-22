@@ -1,6 +1,7 @@
 package app.lightmove.api.position.dto;
 
 import app.lightmove.api.common.constant.BenefitFrequency;
+import app.lightmove.api.position.constant.FieldSource;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
@@ -17,5 +18,8 @@ public record BenefitDto(
         Long amount,
 
         @NotNull(message = "Choose monthly or yearly")
-        BenefitFrequency frequency
+        BenefitFrequency frequency,
+
+        /** Null on a write defaults to {@code MANUAL} — a person typed it. */
+        FieldSource source
 ) {}

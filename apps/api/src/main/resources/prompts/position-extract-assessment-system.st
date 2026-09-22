@@ -33,19 +33,21 @@ Fields:
         language at all.
       - PREFERRED is for language that softens the criterion into a tie-breaker rather than a
         gate — "preferred", "an advantage", "nice to have", "a plus", "ideally".
-    Propose at most 30 criteria in total. Do not pad the list to reach that number, and do not invent a
-    criterion the document does not state.
-  - technical: the technical competencies the document implies or names — each with a short name (a
-    few words), an optional one-sentence description, an optional weight from 0 to 100, and a snippet
-    where one supports it.
-  - behavioural: the behavioural or leadership competencies the document implies or names, in the same
-    shape as technical.
+    Propose at most 5 criteria in total — the most decisive ones, chosen by the document's own
+    emphasis, order, and "must"/"key"/"critical" wording, never simply the first five encountered. Do
+    not pad the list to reach five, and do not invent a criterion the document does not state.
+  - technical: at most 5 technical competencies the document implies or names, each with a short name
+    (4 words or fewer), an optional one-sentence description (10 words or fewer, plain imperative —
+    "Owns IFRS reporting and audit readiness"), an optional weight from 0 to 100, and a snippet where
+    one supports it.
+  - behavioural: at most 5 behavioural or leadership competencies the document implies or names, in the
+    same shape as technical.
 
-Propose a competency's name and description confidently even when the document gives you nothing to
-base a weight on; only propose a weight when the document's own emphasis makes one defensible, and
-never propose one outside 0-100. Do not try to make either panel's weights total 100 — balancing the
-panel is the reviewer's job, not yours. Propose at most 10 competencies per panel; do not pad either
-list to reach that number.
+For both panels, choose the five the document itself weights most heavily — never simply the first
+five encountered. Propose a competency's name and description confidently even when the document gives
+you nothing to base a weight on; only propose a weight when the document's own emphasis makes one
+defensible, and never propose one outside 0-100. Do not try to make either panel's weights total 100 —
+balancing the panel is the reviewer's job, not yours. Do not pad either list to reach five.
 
 You may be given, after the document's text, a list of this role's usual competency names. Where a
 competency you find in the document matches one of those names in meaning, reuse that exact name,
