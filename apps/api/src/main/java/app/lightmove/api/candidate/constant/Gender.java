@@ -4,8 +4,8 @@ package app.lightmove.api.candidate.constant;
  * An executive's gender, for the report's diversity chapter.
  *
  * <p>A captured executive's profile can propose this value (issue #458, {@code CandidateBackgroundProposer}
- * reading their name, photo and career for a signal) — a deliberate change from this enum's original
- * "recorded, never inferred" rule. What the rule protected still holds by another means:
+ * reading their name, title, location, about text and career for a signal) — a deliberate change from
+ * this enum's original "recorded, never inferred" rule. What the rule protected still holds by another means:
  * {@code Candidate.aiInferredFields} flags a proposed value until a researcher's own edit changes it,
  * so nothing this class holds is presented as a fact somebody entered until somebody has looked at it.
  *

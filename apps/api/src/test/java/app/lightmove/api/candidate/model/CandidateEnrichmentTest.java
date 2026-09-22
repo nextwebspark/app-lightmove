@@ -120,7 +120,9 @@ class CandidateEnrichmentTest {
 
         candidate.describe(detailsWithBackground("Western expat", Gender.FEMALE, 14), ContactSource.MANUAL);
 
-        assertThat(candidate.getAiInferredFields()).containsExactly("gender");
+        // Only nationality changed (Emirati -> Western expat); gender and yearsExperience were
+        // resubmitted unchanged, so nothing about them was actually reviewed and their flags stand.
+        assertThat(candidate.getAiInferredFields()).containsExactlyInAnyOrder("gender", "yearsExperience");
     }
 
     @Test
