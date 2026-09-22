@@ -167,7 +167,7 @@ the mockups: if a screen isn't being built this session, its tables and entities
 
 | Path | What |
 |---|---|
-| `apps/api` | Spring Boot 4.1 (Java 21, Maven). Features: `core`, `common`, `workspace`, `project`, `position`, `positiontemplate`, `strategy`, `triagecompany`, `candidate`, `enrichment`, `customcolumn`, `dataimport`, `dataexport`, `geocoding`, `talentmap`, `report`, `assistant` |
+| `apps/api` | Spring Boot 4.1 (Java 21, Maven). Features: `core`, `common`, `workspace`, `project`, `position`, `positiontemplate`, `strategy`, `triagecompany`, `candidate`, `enrichment`, `customcolumn`, `dataimport`, `dataexport`, `geocoding`, `talentmap`, `report`, `assistant`, `companydiscovery` |
 | `apps/web` | React 19 SPA (Vite 8, TypeScript, Tailwind v4) |
 | `apps/extension` | LightMove Capture — the Chrome extension (Manifest V3, React 19, Vite 8). Its own workspace; shares no code with `apps/web`. |
 | `claude-design/` | HTML mockups — **the source of truth for all UI**. Read the relevant `*.dc.html` before building a screen. |
@@ -186,6 +186,17 @@ content, so it is its own feature rather than part of the brief: `position` read
 `PositionTemplateService` (`matching` when a mandate is created, `require` when a consultant picks one,
 `suggestFor`/`matchingByTitle` when a read document proposes one) and `positiontemplate` never depends back. The vocabulary both speak (employment type, benefit
 frequency, competency panel, …) lives in `common/constant` for exactly that reason.
+
+**`companydiscovery` is the market we do not hold** — Strategy's AI Research. A consultant's
+free-text market question, answered by a grounded Google search, resolved against what we already
+have, and handed back as rows a person ticks and files. A composer like `dataexport`: the universe
+from `strategy`, the mandate's filed rows from `triagecompany`, a vendor's record of a LinkedIn page
+from `enrichment`, and nothing depending back. **The model proposes identifiers and a reason; every
+figure comes from a record** — `DiscoveredCompanyDto` has no public constructor and three named
+factories, so a line taking a headcount off the model's answer cannot be written. A company neither
+the universe nor a vendor carries is answered with its name and empty columns. It writes nothing:
+resolved rows file through `POST /triage/bulk` as `STRATEGY`, unresolved ones through
+`POST /triage/capture` as `WEB` (V68).
 
 `strategy` and `triagecompany` split one story in two, in the order a consultant works: **`strategy`
 is the market side** — the saved filter, the saved searches, the reads over the Apollo universe, and
@@ -369,6 +380,19 @@ against the library's `revised_at` says the library moved on since, and `app_lm_
 takes a library template out of one firm's picker and title matching.
 V57 adds the `PLATFORM` role scope and `app_lm_user_platform_role` — written by
 `grant-platform-role.sh`, never by the application.
+V68 adds `'WEB'` to `app_lm_project_triage_company_source_chk` — the door AI Research files through,
+kept distinct from `ASSISTANT` because a conversation proposing a company and a grounded search
+finding one are different acts. The apollo-source CHECK is untouched and is what the feature leans
+on: a discovered company the universe carries files by id as `STRATEGY`, one it does not files with
+no id as `WEB`. `app_lm_project_candidate_source_chk` is deliberately not widened — nothing files a
+web-sourced person yet.
+`app_lm_workspace_daily_spend` (V69) is the first ceiling in the application that holds across
+instances: one row per workspace, meter and UTC day, claimed by a single upsert whose `WHERE` guards
+the `DO UPDATE` branch, so two requests racing on the last slot cannot both take it and **no row back
+is the refusal**. `REQUIRES_NEW`, so a caller that later fails cannot un-spend what it was billed for.
+The date is pinned to UTC in the statement, never `current_date`, because two instances in two session
+timezones would otherwise hand a firm two days' budget. Generic by design — `meter` names the
+workload, so the assistant's own ceiling (#430) is a new value rather than a second table.
 `app_lm_position_document` holds the attached position description inline (`bytea`) — one small file per
 mandate, read back only by its own download endpoint. Everything else (roles, hardening, grants) →
 `db-ops` skill.
