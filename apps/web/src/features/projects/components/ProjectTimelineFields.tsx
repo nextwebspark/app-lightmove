@@ -7,8 +7,12 @@ import { daysFromStart } from "../lib/timeline";
  * When the mandate starts and what it owes by when — the dates its health will be measured against.
  *
  * <p>A mapping mandate states one: the day its client expects the map. A search states the day the
- * shortlist is due and the mapping target follows at 60% of that window, shown so it can be read and
+ * shortlist is due, and the mapping target follows at 60% of that window, shown so it can be read and
  * edited rather than discovered later.
+ *
+ * <p>Two dates to a row, and the window summarised in one line rather than in a panel. This form sits
+ * in a dialog capped at 90% of the viewport, and every row it grows is a row nearer the point where a
+ * consultant has to scroll to reach Create project.
  */
 export function ProjectTimelineFields({
   projectType,
@@ -33,83 +37,56 @@ export function ProjectTimelineFields({
 
   return (
     <>
-      <SectionLabel>Timeline</SectionLabel>
+      <div className="mb-3 border-t border-line-soft pt-3.5 font-mono text-[10px] font-semibold uppercase tracking-[0.14em] text-text3">
+        Timeline
+      </div>
 
-      <Field
-        label="Project start date"
-        hint="Defaults to today. Edit if the project starts later or was kicked off earlier."
-      >
-        <DateInput value={startDate} onChange={onStartDateChange} />
-      </Field>
+      <div className="grid grid-cols-1 gap-x-3 sm:grid-cols-2">
+        <Field label="Project start date">
+          <DateInput value={startDate} onChange={onStartDateChange} />
+        </Field>
 
-      {searching ? (
-        <>
-          <Field
-            label="Shortlist delivery date"
-            hint="When does the client expect the shortlist?"
-            error={errors.shortlistTargetDate}
-          >
-            <DateInput value={shortlistTargetDate} onChange={onShortlistTargetChange} />
-          </Field>
-
-          <div className="mb-4 rounded-[10px] border border-line bg-panel2 p-3">
-            <SummaryLabel>Milestones</SummaryLabel>
+        {searching ? (
+          <>
+            <Field label="Shortlist delivery date" error={errors.shortlistTargetDate}>
+              <DateInput value={shortlistTargetDate} onChange={onShortlistTargetChange} />
+            </Field>
             <Field label="Mapping target" error={errors.mappingTargetDate}>
               <DateInput value={mappingTargetDate} onChange={onMappingTargetChange} />
             </Field>
-            <p className="-mt-2 font-mono text-[11px] text-text3">
-              {describeMilestone(startDate, mappingTargetDate, "Auto-calculated from the shortlist window — edit to override.")}
-            </p>
-            <p className="mt-2.5 font-mono text-[11px] text-text3">
-              Shortlist target{" "}
-              <b className="font-semibold text-text2">{formatDate(shortlistTargetDate || null)}</b> ·
-              matches the shortlist delivery date
-            </p>
-          </div>
-        </>
-      ) : (
-        <>
-          <Field
-            label="Map delivery date"
-            hint="When does the client expect the completed universe map?"
-            error={errors.mappingTargetDate}
-          >
+          </>
+        ) : (
+          <Field label="Map delivery date" error={errors.mappingTargetDate}>
             <DateInput value={mappingTargetDate} onChange={onMappingTargetChange} />
           </Field>
+        )}
+      </div>
 
-          <div className="mb-4 rounded-[10px] border border-line bg-panel2 p-3">
-            <SummaryLabel>Target</SummaryLabel>
-            <p className="text-[12.5px] font-semibold text-text">
-              Map delivery: {formatDate(mappingTargetDate || null)} · starting{" "}
-              {formatDate(startDate || null)}
-            </p>
-            <p className="mt-0.5 font-mono text-[11px] text-text3">
-              {describeMilestone(startDate, mappingTargetDate, "No delivery date stated yet.")}
-            </p>
-          </div>
-        </>
-      )}
+      <p className="mb-4 font-mono text-[11px] leading-relaxed text-text3">
+        {summarise(searching, startDate, mappingTargetDate, shortlistTargetDate)}
+      </p>
     </>
   );
 }
 
-function describeMilestone(startDate: string, targetDate: string, fallback: string): string {
-  const days = startDate && targetDate ? daysFromStart(startDate, targetDate) : null;
-  return days === null ? fallback : `${days} day${days === 1 ? "" : "s"} from start`;
-}
+/** The one line under the dates: what is due when, and how long the mandate has to do it. */
+function summarise(
+  searching: boolean,
+  startDate: string,
+  mappingTargetDate: string,
+  shortlistTargetDate: string,
+): string {
+  const deliverable = searching ? shortlistTargetDate : mappingTargetDate;
+  if (!deliverable) {
+    return searching
+      ? "Enter the shortlist date and the mapping target follows at 60% of the window."
+      : "No delivery date stated yet.";
+  }
 
-function SectionLabel({ children }: { children: string }) {
-  return (
-    <div className="mb-2 mt-1 border-t border-line-soft pt-3.5 font-mono text-[10px] font-semibold uppercase tracking-[0.14em] text-text3">
-      {children}
-    </div>
-  );
-}
+  const days = startDate ? daysFromStart(startDate, deliverable) : null;
+  const window = days === null ? "" : ` · ${days} day${days === 1 ? "" : "s"} from start`;
 
-function SummaryLabel({ children }: { children: string }) {
-  return (
-    <div className="mb-1.5 font-mono text-[10px] font-semibold uppercase tracking-[0.12em] text-text3">
-      {children}
-    </div>
-  );
+  return searching
+    ? `Shortlist ${formatDate(deliverable)}${window}. The mapping target is auto-set — edit it to override.`
+    : `Map delivery ${formatDate(deliverable)}${window}.`;
 }

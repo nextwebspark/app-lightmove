@@ -181,9 +181,21 @@ export function NewProjectModal({
   };
 
   return (
-    // overflow-visible: the dialog's own scroll clips the template list at the modal's edge; this
-    // form is short enough to never need the scroll, and the list must float over the boundary.
-    <Modal open={open} onClose={onClose} title="New project" className="overflow-visible">
+    <Modal
+      open={open}
+      onClose={onClose}
+      title="New project"
+      footer={
+        <>
+          <Button variant="secondary" onClick={onClose}>
+            Cancel
+          </Button>
+          <Button loading={create.isPending} onClick={submit}>
+            Create project
+          </Button>
+        </>
+      }
+    >
       <FormError message={error} />
 
       {/* The hint carries the name because a disabled <select> is skipped in a screen reader's forms
@@ -294,15 +306,6 @@ export function NewProjectModal({
           clearFieldError("shortlistTargetDate");
         }}
       />
-
-      <div className="mt-5 flex justify-end gap-2">
-        <Button variant="secondary" onClick={onClose}>
-          Cancel
-        </Button>
-        <Button loading={create.isPending} onClick={submit}>
-          Create project
-        </Button>
-      </div>
     </Modal>
   );
 }

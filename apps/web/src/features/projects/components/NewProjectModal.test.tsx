@@ -463,7 +463,7 @@ describe("NewProjectModal — what the mandate delivers, and by when", () => {
   it("asks a mapping mandate for its map delivery date and nothing else", () => {
     render(wrap(modal()));
 
-    expect(screen.getByRole("radio", { name: /Mapping/ })).toBeChecked();
+    expect(screen.getByRole("radio", { name: /Mapping/i })).toBeChecked();
     expect(screen.getByText("Map delivery date")).toBeInTheDocument();
     expect(screen.queryByText("Shortlist delivery date")).not.toBeInTheDocument();
   });
@@ -472,7 +472,7 @@ describe("NewProjectModal — what the mandate delivers, and by when", () => {
     const user = userEvent.setup();
     render(wrap(modal()));
 
-    await user.click(screen.getByRole("radio", { name: /Executive Search/ }));
+    await user.click(screen.getByRole("radio", { name: /Executive search/i }));
     expect(screen.getByText("Shortlist delivery date")).toBeInTheDocument();
 
     await user.type(shortlistInput(), "2026-12-30");
@@ -489,7 +489,7 @@ describe("NewProjectModal — what the mandate delivers, and by when", () => {
     vi.mocked(projectsApi.createProject).mockClear();
     render(wrap(modal()));
 
-    await user.click(screen.getByRole("radio", { name: /Executive Search/ }));
+    await user.click(screen.getByRole("radio", { name: /Executive search/i }));
     await user.type(screen.getByPlaceholderText(/Chief Financial Officer/), "COO");
     await user.click(screen.getByRole("button", { name: "Create project" }));
 
