@@ -35,6 +35,8 @@ class CompanySearchAuthorizationIntegrationTest extends FlowTestSupport {
     private static final String KEYWORDS_URL = "/api/v1/companies/keywords";
     /** A company that need not exist: the gate is refused before anything is looked up. */
     private static final String ONE_COMPANY_URL = "/api/v1/companies/a1";
+    private static final String DISCOVER_URL = "/api/v1/companies/discover";
+    private static final String DISCOVER_CONFIG_URL = "/api/v1/companies/discover/config";
 
     @Test
     @DisplayName("a pure client representative reads neither the facets nor the company search")
@@ -55,6 +57,15 @@ class CompanySearchAuthorizationIntegrationTest extends FlowTestSupport {
         // And this one would answer the whole record for any company they could name.
         mvc.perform(get(ONE_COMPANY_URL).header("Authorization", "Bearer " + rep))
                 .andExpect(status().isForbidden());
+
+        // AI Research is the same market read, and it spends the firm's money doing it.
+        mvc.perform(post(DISCOVER_URL).header("Authorization", "Bearer " + rep)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"question":"Who are the large IPPs in the Gulf?"}"""))
+                .andExpect(status().isForbidden());
+        mvc.perform(get(DISCOVER_CONFIG_URL).header("Authorization", "Bearer " + rep))
+                .andExpect(status().isForbidden());
     }
 
     @Test
@@ -74,6 +85,30 @@ class CompanySearchAuthorizationIntegrationTest extends FlowTestSupport {
                 .andExpect(status().isOk());
         mvc.perform(get(KEYWORDS_URL).param("q", "saas").header("Authorization", "Bearer " + member))
                 .andExpect(status().isOk());
+        mvc.perform(get(DISCOVER_CONFIG_URL).header("Authorization", "Bearer " + member))
+                .andExpect(status().isOk());
+    }
+
+    @Test
+    @DisplayName("a member cannot decorate an answer with another workspace's mandate")
+    void anotherWorkspacesMandateIsNotVisible() throws Exception {
+        String alok = "alok@" + domain;
+        createWorkspace(verifiedUser("Alok Kumar", alok), "Own Firm");
+        String owner = login(alok);
+
+        String rival = "rival@rival-" + domain;
+        createWorkspace(verifiedUser("Rival Owner", rival), "Rival Firm");
+        String rivalProject = mandateIn(login(rival));
+
+        // projectId only decorates an answer with "already in this mandate", and it is authorised on
+        // its own before it is used for anything. A mandate outside the caller's workspace is not a
+        // 403 either — it is a 404, because its existence is not this firm's to learn.
+        mvc.perform(post(DISCOVER_URL).header("Authorization", "Bearer " + owner)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"question":"Who are the large IPPs in the Gulf?","projectId":"%s"}
+                                """.formatted(rivalProject)))
+                .andExpect(status().isNotFound());
     }
 
     @Test
@@ -83,6 +118,26 @@ class CompanySearchAuthorizationIntegrationTest extends FlowTestSupport {
         mvc.perform(get(SEARCH_URL).param("q", "power")).andExpect(status().isUnauthorized());
         mvc.perform(get(KEYWORDS_URL).param("q", "saas")).andExpect(status().isUnauthorized());
         mvc.perform(get(ONE_COMPANY_URL)).andExpect(status().isUnauthorized());
+        mvc.perform(post(DISCOVER_URL).contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"question":"anything"}"""))
+                .andExpect(status().isUnauthorized());
+    }
+
+    private String mandateIn(String token) throws Exception {
+        String clientId = body(mvc.perform(post("/api/v1/clients")
+                        .header("Authorization", "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"customName":"Rival Client"}"""))
+                .andReturn()).get("id").asText();
+        return body(mvc.perform(post("/api/v1/projects")
+                        .header("Authorization", "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"clientId":"%s","positionTitle":"Head of Energy"}
+                                """.formatted(clientId)))
+                .andReturn()).get("id").asText();
     }
 
     /**

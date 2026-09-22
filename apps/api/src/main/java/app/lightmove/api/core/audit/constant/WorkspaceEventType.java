@@ -38,7 +38,18 @@ public enum WorkspaceEventType implements AuditEventType {
      * itself records, because the two are different facts: that one says rows were written, this one
      * says a proposal was why — and names the turn that made it.
      */
-    ASSISTANT_PROPOSAL_ACCEPTED;
+    ASSISTANT_PROPOSAL_ACCEPTED,
+
+    /**
+     * An AI Research search ran. Audited like {@code COMPANIES_EXPORTED} rather than like the read it
+     * otherwise resembles, and for both of that one's reasons at once: it spends the firm's money on
+     * a named person's behalf, and it brings names from outside the product into it.
+     *
+     * <p>Recorded as a failure with {@code reason: daily_cap} when the workspace's day is already
+     * spent, because "the cap bit" is exactly the thing somebody will want to see when they ask why
+     * the button stopped working.
+     */
+    COMPANY_DISCOVERY_RAN;
 
     @Override
     public String code() {

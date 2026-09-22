@@ -31,6 +31,10 @@ import org.springframework.web.bind.annotation.RestController;
  * <p>A mandate's own filtered list is deliberately <i>not</i> here. It lives under
  * {@code /projects/{projectId}/strategy/companies} behind the project-level {@code WORK_VIEW},
  * because which companies a search is looking at is the search's content, not the market's shape.
+ *
+ * <p>AI Research shares this path prefix and the same gate, and is deliberately a separate class —
+ * {@code CompanyDiscoveryController}. It spends the firm's money, writes an audit row and takes an
+ * optional mandate, none of which the sentence above is true of.
  */
 @RestController
 @RequestMapping("/api/v1/companies")
