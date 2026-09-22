@@ -1,5 +1,6 @@
 package app.lightmove.api.strategy.service;
 
+import app.lightmove.api.core.text.service.WebsiteDomain;
 import app.lightmove.api.strategy.constant.CompanySortField;
 import app.lightmove.api.strategy.constant.EmployeeBand;
 import app.lightmove.api.strategy.constant.RevenueBand;
@@ -168,6 +169,46 @@ public class ApolloCompanyQueryService {
                 .query(COMPANY_ROW_MAPPER)
                 .list();
         return byName.size() == 1 ? Optional.of(byName.getFirst()) : Optional.empty();
+    }
+
+    /**
+     * The one company a website names, or nothing. {@link #matchEmployer}'s name tier, keyed on the
+     * domain instead: web search and vendors both return a homepage, and it is the only identifier
+     * they reliably agree on.
+     *
+     * <p>Two rows on one domain answer nothing rather than the first, for the reason the name tier
+     * gives — a subsidiary and its parent share a homepage, and picking either is a fact nobody
+     * checked.
+     *
+     * <p>The {@code LIKE} is a prefilter and the equality that decides is
+     * {@link WebsiteDomain#of}'s, applied to both sides in Java. A regex in SQL would be a second
+     * definition of "domain" that drifts from the one every other caller uses, and {@code
+     * %acwapower.com%} alone would match {@code notacwapower.com.tr}.
+     *
+     * <p>It is a sequential scan of the whole universe per call, and <b>no index can be added</b> —
+     * V23 records that the deployed table is owned by the pipeline's account rather than
+     * {@code lm_app}, so {@code CREATE INDEX} there fails with "must be owner of table". Affordable
+     * at the couple of dozen calls a capped discovery answer makes, behind a model call that already
+     * costs seconds. Batch every domain into one scan if that stops being true.
+     */
+    public Optional<CompanyRow> matchByDomain(String website) {
+        String domain = WebsiteDomain.of(website);
+        if (domain == null) {
+            return Optional.empty();
+        }
+        List<CompanyRow> candidates = jdbc.sql("""
+                        SELECT %s
+                        FROM app_lm_apollo_companies
+                        WHERE lower(website) LIKE :contains ESCAPE '\\'
+                        LIMIT 3
+                        """.formatted(ROW_COLUMNS))
+                .param("contains", "%" + escapeLikePattern(domain) + "%")
+                .query(COMPANY_ROW_MAPPER)
+                .list()
+                .stream()
+                .filter(row -> domain.equals(WebsiteDomain.of(row.website())))
+                .toList();
+        return candidates.size() == 1 ? Optional.of(candidates.getFirst()) : Optional.empty();
     }
 
     /**

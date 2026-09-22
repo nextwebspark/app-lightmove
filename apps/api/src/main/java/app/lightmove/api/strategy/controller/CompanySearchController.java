@@ -10,6 +10,7 @@ import app.lightmove.api.strategy.dto.CompanySuggestionsResponse;
 import app.lightmove.api.strategy.dto.FacetsResponse;
 import app.lightmove.api.strategy.dto.KeywordSuggestionsResponse;
 import app.lightmove.api.strategy.model.CompanyRow;
+import app.lightmove.api.strategy.service.CompanySearchLimits;
 import app.lightmove.api.strategy.service.ApolloCompanyQueryService;
 import app.lightmove.api.strategy.service.IndustryAdjacency;
 import java.util.List;
@@ -111,27 +112,11 @@ public class CompanySearchController {
     }
 
     private String accepted(String query) {
-        String trimmed = query.trim();
-        if (trimmed.length() > searchConfig.maxQueryLength()) {
-            throw new ApiException(ErrorCode.VALIDATION_FAILED,
-                    "q exceeds " + searchConfig.maxQueryLength() + " characters");
-        }
-        return trimmed;
+        return CompanySearchLimits.accepted("q", query, searchConfig.maxQueryLength());
     }
 
-    /**
-     * Refused rather than clamped, matching every other list read: a silently narrowed limit is a
-     * wrong answer the caller cannot tell it got.
-     */
     private int resolvedLimit(Integer limit, int fallback) {
-        if (limit == null) {
-            return fallback;
-        }
-        if (limit < 1 || limit > searchConfig.maxResultLimit()) {
-            throw new ApiException(ErrorCode.VALIDATION_FAILED,
-                    "limit must be between 1 and " + searchConfig.maxResultLimit());
-        }
-        return limit;
+        return CompanySearchLimits.resolved(limit, fallback, searchConfig.maxResultLimit());
     }
 
     private static CompanySuggestion toSuggestion(CompanyRow row) {
