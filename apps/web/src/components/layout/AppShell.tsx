@@ -1,7 +1,7 @@
 import { useEffect, useState, type ReactNode } from "react";
 import { useLocation } from "react-router-dom";
 import { cn } from "../../lib/cn";
-import { AssistantPanel } from "../../features/assistant/components/AssistantPanel";
+import { AssistantDock } from "../../features/assistant/components/AssistantDock";
 import { Sidebar, type SidebarGroup, type SidebarItem } from "./Sidebar";
 import { Topbar } from "./Topbar";
 
@@ -66,8 +66,10 @@ export function AppShell({
         </main>
 
         {/* Docked, not overlaid: main is flex-1, so this narrows it and covers nothing. The mockup
-            draws it this way because the grid has to stay tickable while the assistant is open. */}
-        <AssistantPanel contextLabel={assistantContext} projectId={assistantProjectId} />
+            draws it this way because the grid has to stay tickable while the assistant is open. The
+            dock is the slot rather than the panel, so main narrows on the same curve the panel
+            arrives on instead of losing its width a frame ahead of it. */}
+        <AssistantDock contextLabel={assistantContext} projectId={assistantProjectId} />
       </div>
     </div>
   );
