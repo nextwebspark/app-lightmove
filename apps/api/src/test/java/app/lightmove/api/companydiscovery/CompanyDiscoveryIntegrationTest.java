@@ -51,8 +51,10 @@ class CompanyDiscoveryIntegrationTest extends FlowTestSupport {
         universe.company("a1", "ACWA Power").industry("utilities").country("Saudi Arabia")
                 .employees(3400).website("https://acwapower.example")
                 .linkedin("http://www.linkedin.com/company/acwa-power").insert();
-        companyEnricher.answerWith(new VendorCompanyRecord("nebras-power", "Nebras Power",
-                "Utilities", "Qatar", "Doha", 410, "https://nebras.example",
+        // Scripted for this slug alone: Shamal Energy must come back empty, and a double answering
+        // the same record to every slug would resolve the row this case exists to leave unresolved.
+        companyEnricher.answerFor("nebras-power", new VendorCompanyRecord("nebras-power",
+                "Nebras Power", "Utilities", "Qatar", "Doha", 410, "https://nebras.example",
                 "https://www.linkedin.com/company/nebras-power", 2014, null, null, List.of(), null));
 
         discovery.answerWith(
@@ -95,6 +97,12 @@ class CompanyDiscoveryIntegrationTest extends FlowTestSupport {
         // The mode is on the wire, not only in the log: an empty market and an unreachable provider
         // are different answers.
         assertThat(answer.get("mode").asText()).isEqualTo("GROUNDED_STRUCTURED");
+
+        // The resolution order is what this feature bills on: the universe answers first and nothing
+        // is bought for a row it already covered, so ACWA never reaches the vendor and the two the
+        // universe missed do.
+        assertThat(companyEnricher.fetchedSlugs())
+                .containsExactlyInAnyOrder("nebras-power", "shamal-energy");
     }
 
     @Test

@@ -31,6 +31,7 @@ class CompanyDiscoverySpendIntegrationTest extends FlowTestSupport {
     @Autowired JdbcTemplate db;
 
     private String adminToken;
+    private String workspaceId;
 
     @Test
     @DisplayName("the day runs out, and the refusal costs the provider nothing")
@@ -58,9 +59,12 @@ class CompanyDiscoverySpendIntegrationTest extends FlowTestSupport {
 
         search(adminToken).andExpect(status().isTooManyRequests());
 
+        // Scoped to this test's own workspace. The ledger is append-only and every method in this
+        // class runs its own searches, so an unscoped read is the sum of whichever ran first.
         List<Map<String, Object>> events = db.queryForList(
                 "SELECT outcome, metadata ->> 'reason' AS reason FROM app_lm_audit_event"
-                        + " WHERE event_type = ? ORDER BY id", "COMPANY_DISCOVERY_RAN");
+                        + " WHERE event_type = ? AND workspace_id = ?::uuid ORDER BY id",
+                "COMPANY_DISCOVERY_RAN", workspaceId);
         assertThat(events).hasSize(4);
         // Three that ran and one that did not, and the last one says which wall it hit.
         assertThat(events.getLast()).containsEntry("outcome", "FAILURE");
@@ -91,7 +95,7 @@ class CompanyDiscoverySpendIntegrationTest extends FlowTestSupport {
 
     private void workspace(String firmName) throws Exception {
         String alok = "alok@" + domain;
-        createWorkspace(verifiedUser("Alok Kumar", alok), firmName);
+        workspaceId = createWorkspace(verifiedUser("Alok Kumar", alok), firmName);
         adminToken = login(alok);
     }
 
