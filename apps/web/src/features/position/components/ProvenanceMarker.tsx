@@ -20,6 +20,11 @@ const PANEL_GAP = 6;
  * `MANUAL`. Hover or focus opens a hand-rolled popover — where the value was read from, the snippet it
  * was read out of, and an Undo.
  *
+ * <p>Drawn as every other floating surface in the app is — a hairline, a panel ground and the
+ * elevation ladder's top step — rather than as an inverted black tooltip, which it was alone in being.
+ * The machine's voice is carried in the ink instead: the sparkle and the Undo wear `u-inferred`, the
+ * same way the reading's strip and the file card's Extract with AI do.
+ *
  * <p>Portalled and positioned from the trigger's measured rect, the escape {@link TruncatedText} and
  * {@link Popover} already make: the glyph sits inside a competency table that scrolls sideways, a
  * benefits table that does the same, and a React Flow canvas whose viewport is both clipped and
@@ -169,13 +174,27 @@ export function ProvenanceMarker({
               dismissedRef.current = true;
               triggerRef.current?.focus();
             }}
-            className="fixed z-[200] rounded-[8px] bg-u-text px-3 py-2 text-note text-u-bg shadow-u-e3"
+            // `u-raised` rather than the `u-bg` a dropdown sits on: this panel opens *over* the
+            // `u-surface` tables and cards, and on the dark theme `u-bg` is darker than they are — a
+            // popover that reads as a hole punched in the page rather than as something above it.
+            // Raised is a step away from both the page and the panels in either theme, which is the
+            // job the token is named for, and what the competency table's own lifted row already uses.
+            className="fixed z-[200] rounded-[10px] border border-u-border-strong bg-u-raised px-3 py-2.5 text-note text-u-text2 shadow-u-e3"
           >
-            <span className="block font-semibold">
-              {fileName ? `Read from ${fileName}` : "Read from the document"}
+            <span className="flex items-start gap-1.5 font-medium text-u-text">
+              <Icon d={ICONS.sparkle} size={12} className="mt-px flex-none text-u-inferred" />
+              <span className="min-w-0 break-words">
+                {fileName ? `Read from ${fileName}` : "Read from the document"}
+              </span>
             </span>
-            {confidence && <span className="mt-0.5 block opacity-70">{CONFIDENCE_LABEL[confidence]}</span>}
-            {snippet && <span className="mt-1 block italic opacity-80">&ldquo;{snippet}&rdquo;</span>}
+            {confidence && (
+              <span className={cn("mt-1 block ps-[18px]", confidence === "low" ? "text-u-signal" : "text-u-text3")}>
+                {CONFIDENCE_LABEL[confidence]}
+              </span>
+            )}
+            {snippet && (
+              <span className="mt-1.5 block border-s-2 border-u-border-strong ps-2 italic">&ldquo;{snippet}&rdquo;</span>
+            )}
             {onUndo && (
               <button
                 type="button"
@@ -183,7 +202,7 @@ export function ProvenanceMarker({
                 // the click lands.
                 onMouseDown={(event) => event.preventDefault()}
                 onClick={onUndo}
-                className="mt-1.5 font-semibold underline underline-offset-2 hover:no-underline"
+                className="mt-2 font-semibold text-u-inferred hover:underline"
               >
                 Undo
               </button>
