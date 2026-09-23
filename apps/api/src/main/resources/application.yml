@@ -102,27 +102,6 @@ spring:
     virtual:
       enabled: true           # Java 21 virtual threads: auth endpoints are IO-bound (DB, DNS, email).
 
-  task:
-    execution:
-      # FORCE, and this is load-bearing rather than tuning.
-      #
-      # Boot only auto-configures `applicationTaskExecutor` when the context defines no Executor bean
-      # of its own (TaskExecutorConfigurations.OnExecutorCondition). AssistantExecutorConfig defines
-      # two — deliberately bounded, platform-threaded pools for turns and for SSE drains — which
-      # under the default AUTO would suppress it. Every unqualified @Async in the application
-      # (AuditEventWriter, CandidateEnrichmentWorker, CompanyEnrichmentWorker) resolves to that bean;
-      # without it they fall back to an unbounded SimpleAsyncTaskExecutor with a log line nobody
-      # reads. FORCE keeps it, so the assistant's pools sit beside the default rather than replacing
-      # it.
-      #
-      # The test profile hides this: SynchronousAuditWrites supplies an AsyncConfigurer, which wins
-      # for unqualified @Async there. So a green suite is not evidence either way — this comment is.
-      #
-      # It IS checkable after a deploy, and worth one look: AuditEventWriter's threads should read
-      # task-N in the logs. SimpleAsyncTaskExecutor-N means this setting stopped working and every
-      # unqualified @Async is running unbounded.
-      mode: force
-
   ai:
     # spring-ai-autoconfigure-retry is on the classpath (transitive via the GenAI starter) and is
     # gated only by @ConditionalOnClass, so its RetryTemplate is ALREADY active and
@@ -282,36 +261,14 @@ lightmove:
       default-requests-per-minute: ${LLM_DEFAULT_REQUESTS_PER_MINUTE:10}
 
 
-  # The Uncava Assistant's own model call. Beside lightmove.llm rather than inside it, and beside
-  # spring.ai.google.genai.chat.model rather than taking it: the extraction prompts classify and a
-  # Flash-tier model answers them well, while a turn plans over a wide tool surface and wants a Pro
-  # one. Two workloads, two models, and neither should move because the other needed to.
+  # The Uncava Assistant's own model call. Flash, not Pro: an ask is one request held open while the
+  # model searches and proposes, and it must finish inside Cloud Run's 60s request timeout.
   assistant:
-    # Confirm this id is served in spring.ai.google.genai.location before deploying to a new region;
-    # gemini-3.1-pro-preview is the preview variant of the same tier.
-    model: ${ASSISTANT_MODEL:gemini-3.1-pro}
-    # Low, because a turn's job is to choose correctly rather than to write well: the same question
-    # twice should reach for the same tools.
+    model: ${ASSISTANT_MODEL:gemini-2.5-flash}
     temperature: ${ASSISTANT_TEMPERATURE:0.2}
-    # Not zero, which is what the extraction prompts use — they classify, this one plans.
-    thinking-budget: ${ASSISTANT_THINKING_BUDGET:2048}
-    # Earlier exchanges sent with a question. A window, not the thread: Gemini has no server-side
-    # compaction, so an unbounded history is an unbounded bill.
+    thinking-budget: ${ASSISTANT_THINKING_BUDGET:512}
     history-window: ${ASSISTANT_HISTORY_WINDOW:12}
-    # Rows one tool call may put in front of the model. A tool answer is spent twice — the context
-    # window and the bill — so a mandate's four hundred companies are a grid's worth, not an answer's.
     tool-row-limit: ${ASSISTANT_TOOL_ROW_LIMIT:25}
-    # Turns one instance runs at once, and therefore the spend cap: 2 here against --max-instances 2
-    # is four concurrent Vertex calls fleet-wide. Also sits inside DB_POOL_MAX of 5 once the event
-    # appender's short writes are counted — raise it with the database tier, not on its own.
-    max-concurrent-turns: ${ASSISTANT_MAX_CONCURRENT_TURNS:2}
-    # Shallow on purpose: a deep queue turns a capacity problem into a latency one, and a user who
-    # waited a minute for a slot has already given up.
-    queue-capacity: ${ASSISTANT_QUEUE_CAPACITY:8}
-    # How long a RUNNING turn may go untouched before the sweep calls it stranded. Generous against a
-    # 30-180s turn, because cancelling a live one throws away an answer already paid for.
-    turn-timeout: ${ASSISTANT_TURN_TIMEOUT:PT5M}
-    sweep-interval: ${ASSISTANT_SWEEP_INTERVAL:PT1M}
 
   email:
     provider: ${EMAIL_PROVIDER:resend}

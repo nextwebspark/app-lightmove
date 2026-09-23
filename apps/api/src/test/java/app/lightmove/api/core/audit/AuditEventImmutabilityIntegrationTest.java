@@ -35,15 +35,15 @@ class AuditEventImmutabilityIntegrationTest {
     @Autowired
     private AuditEventRepository events;
 
-    /** The shape a real turn records: a raw id and raw token counts, not strings. */
+    /** Details that are not all strings: a raw id and raw counts. */
     @Test
     void recordsAnEventWhoseDetailsAreNotAllStrings() {
         UUID turnId = UUID.randomUUID();
 
-        audit.event(WorkspaceEventType.ASSISTANT_TURN_RAN)
+        audit.event(WorkspaceEventType.POSITION_TEMPLATES_IMPORTED)
                 .actor(UUID.randomUUID())
                 .workspace(UUID.randomUUID())
-                .target("assistantThread", UUID.randomUUID())
+                .target("positionTemplate", UUID.randomUUID())
                 .origin("203.0.113.7", "test-agent")
                 .detail("turnId", turnId)
                 .detail("status", "SUCCEEDED")

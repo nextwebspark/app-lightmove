@@ -2,6 +2,7 @@ import { useEffect, useState, type ReactNode } from "react";
 import { useLocation } from "react-router-dom";
 import { cn } from "../../lib/cn";
 import { AssistantDock } from "../../features/assistant/components/AssistantDock";
+import { AssistantLauncher } from "../../features/assistant/components/AssistantLauncher";
 import { Sidebar, type SidebarGroup, type SidebarItem } from "./Sidebar";
 import { Topbar } from "./Topbar";
 
@@ -69,7 +70,14 @@ export function AppShell({
             draws it this way because the grid has to stay tickable while the assistant is open. The
             dock is the slot rather than the panel, so main narrows on the same curve the panel
             arrives on instead of losing its width a frame ahead of it. */}
-        <AssistantDock contextLabel={assistantContext} projectId={assistantProjectId} />
+        {/* Offered inside a project only, for now: the open state lives in AssistantProvider, so
+            leaving for a workspace screen hides the panel and coming back restores it. */}
+        {assistantProjectId && (
+          <>
+            <AssistantDock contextLabel={assistantContext} projectId={assistantProjectId} />
+            <AssistantLauncher />
+          </>
+        )}
       </div>
     </div>
   );

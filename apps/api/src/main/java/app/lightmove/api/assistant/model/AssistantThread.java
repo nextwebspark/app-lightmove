@@ -9,18 +9,7 @@ import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 
-/**
- * One conversation, owned by the person who started it.
- *
- * <p><b>The first unconditionally private row in this schema.</b> Every other tenant table is shared
- * across a workspace or a project seat; this one is not, and the {@code (workspaceId, userId)} pair
- * is the whole authorisation — there is no action above it. {@code StrategySearch} is the nearest
- * precedent, but a search is only <i>optionally</i> private and still sits under {@code PROJECT_EDIT}.
- *
- * <p>{@code projectId} is the mandate the thread was asked <i>about</i>, not its owner: it is context
- * for the model and never a substitute for authorising a tool call, which is checked against the
- * arguments of that call.
- */
+/** One chat, private to the person who started it and asked inside one project. */
 @Entity
 @Table(name = "app_lm_assistant_thread")
 @Getter
@@ -33,7 +22,6 @@ public class AssistantThread extends BaseEntity {
     @Column(name = "user_id", nullable = false, updatable = false)
     private UUID userId;
 
-    /** Null once the mandate is deleted — V65 unmoors the thread rather than deleting it. */
     @Column(name = "project_id")
     private UUID projectId;
 

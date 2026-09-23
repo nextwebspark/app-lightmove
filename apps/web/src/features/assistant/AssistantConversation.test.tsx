@@ -3,155 +3,176 @@ import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { ToastProvider } from "../../components/ui/Toast";
-import { ApiRequestError } from "../../lib/apiClient";
-import type { AssistantThread, AssistantTurn } from "./api/types";
+import type { AssistantThread, AssistantTurn, LiveStep } from "./api/types";
 import { AssistantProvider } from "./AssistantProvider";
 import { AssistantPanel } from "./components/AssistantPanel";
 
 const ask = vi.hoisted(() => vi.fn());
 const getThread = vi.hoisted(() => vi.fn());
+const listThreads = vi.hoisted(() => vi.fn());
+const acceptProposal = vi.hoisted(() => vi.fn());
 vi.mock("./api/assistantApi", async (importOriginal) => ({
   ...(await importOriginal<typeof import("./api/assistantApi")>()),
   ask,
-  askIn: ask,
   getThread,
+  listThreads,
+  acceptProposal,
 }));
 
-// A turn that never settles: this file is about what is drawn, not about the stream.
-const streamEvents = vi.hoisted(() => vi.fn(() => new Promise<void>(() => {})));
-vi.mock("../../lib/apiClient", async (importOriginal) => ({
-  ...(await importOriginal<typeof import("../../lib/apiClient")>()),
-  streamEvents,
-}));
-
-function turn(over: Partial<AssistantTurn> & { id: string }): AssistantTurn {
+function turn(id: string, threadId: string, over: Partial<AssistantTurn> = {}): AssistantTurn {
   return {
-    threadId: "th1",
-    status: "SUCCEEDED",
-    question: `Question ${over.id}`,
-    answer: `Answer ${over.id}`,
-    errorCode: null,
+    id,
+    threadId,
+    question: `Question ${id}`,
+    answer: `Answer ${id}`,
+    steps: [],
     proposal: null,
+    proposalAccepted: null,
     createdAt: "2026-01-01T00:00:00Z",
-    finishedAt: "2026-01-01T00:01:00Z",
     ...over,
   };
 }
 
-function thread(turns: AssistantTurn[]): AssistantThread {
-  return {
-    id: "th1",
-    title: "Top IPPs",
-    projectId: "p1",
-    createdAt: "2026-01-01T00:00:00Z",
-    updatedAt: "2026-01-01T00:01:00Z",
-    turns,
-  };
+function thread(id: string, turns: AssistantTurn[]): AssistantThread {
+  return { id, title: `Chat ${id}`, projectId: "p1", turns };
 }
+
+const CARD = {
+  title: "Two retailers",
+  companies: [
+    { apolloAccountId: "a1", companyName: "Majid Al Futtaim", country: "United Arab Emirates", employees: 40000, logoUrl: null },
+    { apolloAccountId: "a2", companyName: "Landmark Group", country: "United Arab Emirates", employees: 50000, logoUrl: null },
+  ],
+};
 
 function mount() {
   return render(
     <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
       <ToastProvider>
         <AssistantProvider>
-          <AssistantPanel contextLabel="Meridian Energy Group · CFO" projectId="p1" />
+          <AssistantPanel contextLabel="Meridian · CFO" projectId="p1" />
         </AssistantProvider>
       </ToastProvider>
     </QueryClientProvider>,
   );
 }
 
-describe("the conversation the panel is having", () => {
-  beforeEach(() => {
-    localStorage.clear();
-    localStorage.setItem("lm.assistant.open", "1");
-  });
-  afterEach(() => {
-    ask.mockReset();
-    getThread.mockReset();
-  });
+async function send(question: string) {
+  await userEvent.type(screen.getByRole("textbox", { name: "Ask the assistant" }), question);
+  await userEvent.click(screen.getByRole("button", { name: "Send" }));
+}
 
-  // The finding on #434: a second question replaced the first, so the panel showed one exchange at
-  // a time and read as a bug rather than as a missing feature.
-  it("keeps the exchanges already had, in the order they happened", async () => {
-    localStorage.setItem("lm.assistant.thread", "th1");
-    getThread.mockResolvedValue(thread([turn({ id: "t1" }), turn({ id: "t2" })]));
+describe("a chat with the assistant", () => {
+  beforeEach(() => localStorage.clear());
+  afterEach(() => vi.resetAllMocks());
 
-    mount();
-
-    expect(await screen.findByText("Question t1")).toBeInTheDocument();
-    expect(screen.getByText("Answer t2")).toBeInTheDocument();
-    // Starters belong to an empty panel, not to a conversation already under way.
-    expect(screen.queryByRole("button", { name: /Top 10 IPP operators/i })).not.toBeInTheDocument();
-  });
-
-  it("carries a card the conversation was left holding", async () => {
-    localStorage.setItem("lm.assistant.thread", "th1");
-    getThread.mockResolvedValue(
-      thread([
-        turn({
-          id: "t1",
-          proposal: {
-            projectId: "p1",
-            title: "2 companies not yet in your universe",
-            companies: [
-              { ref: "c1", origin: "UNIVERSE", apolloAccountId: "a1", companyName: "Marafiq", country: "Saudi Arabia", employees: 2400 },
-            ],
-            accepted: null,
-          },
-        }),
-      ]),
-    );
+  it("answers with a card of companies that can be filed straight away", async () => {
+    const answered = turn("t1", "th1", { question: "Top retailers in UAE", proposal: CARD });
+    ask.mockResolvedValue(answered);
+    getThread.mockResolvedValue(thread("th1", [answered]));
+    acceptProposal.mockResolvedValue({ added: 2, skipped: 0 });
 
     mount();
+    await send("Top retailers in UAE");
 
-    expect(await screen.findByText("2 companies not yet in your universe")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Shortlist" })).toBeEnabled();
+    expect(await screen.findByText("Majid Al Futtaim")).toBeInTheDocument();
+    expect(ask).toHaveBeenCalledWith("p1", "Top retailers in UAE", null, expect.any(Function));
+
+    await userEvent.click(screen.getByRole("button", { name: "Universe" }));
+
+    await waitFor(() => expect(acceptProposal).toHaveBeenCalledWith("t1", ["a1", "a2"], "inUniverse"));
   });
 
-  // The live turn is drawn from its stream and the finished ones from the thread read. Both know
-  // about the turn being asked, so the one that is running has to come from exactly one of them.
-  it("draws the turn being answered once, not twice", async () => {
-    ask.mockResolvedValue({ id: "t2", threadId: "th1", question: "Question t2" });
-    getThread.mockResolvedValue(thread([turn({ id: "t1" }), turn({ id: "t2", status: "RUNNING" })]));
+  it("asks a follow-up in the same chat", async () => {
+    const first = turn("t1", "th1");
+    const second = turn("t2", "th1");
+    ask.mockResolvedValueOnce(first).mockResolvedValueOnce(second);
+    getThread.mockResolvedValueOnce(thread("th1", [first])).mockResolvedValue(thread("th1", [first, second]));
 
     mount();
-    await userEvent.type(screen.getByRole("textbox", { name: "Ask the assistant" }), "Question t2");
-    await userEvent.click(screen.getByRole("button", { name: "Send" }));
+    await send("Question t1");
+    await screen.findByText("Answer t1");
+    await send("Question t2");
 
-    await waitFor(() => expect(screen.getAllByText("Question t1")).toHaveLength(1));
-    expect(screen.getAllByText("Question t2")).toHaveLength(1);
+    expect(await screen.findByText("Answer t2")).toBeInTheDocument();
+    expect(ask).toHaveBeenLastCalledWith("p1", "Question t2", "th1", expect.any(Function));
   });
 
-  // A remembered thread can outlive the workspace it belongs to. Keeping it would fail every
-  // question asked into it, so the panel lets go and offers its starters again.
-  it("lets go of a remembered conversation the server will not open", async () => {
-    localStorage.setItem("lm.assistant.thread", "gone");
-    getThread.mockRejectedValue(
-      new ApiRequestError({ code: "NOT_FOUND", detail: "No such thread", status: 404, correlationId: "c1" }),
-    );
+  it("lists this project's chats and opens one", async () => {
+    listThreads.mockResolvedValue([{ id: "old", title: "Qatar contractors", updatedAt: "2026-01-01T00:00:00Z" }]);
+    getThread.mockResolvedValue(thread("old", [turn("t9", "old")]));
 
     mount();
+    await userEvent.click(screen.getByRole("button", { name: "History" }));
+    await userEvent.click(await screen.findByRole("button", { name: "Qatar contractors" }));
 
-    expect(await screen.findByRole("button", { name: /Top 10 IPP operators/i })).toBeInTheDocument();
-    expect(localStorage.getItem("lm.assistant.thread")).toBeNull();
+    expect(await screen.findByText("Answer t9")).toBeInTheDocument();
+    expect(listThreads).toHaveBeenCalledWith("p1");
   });
 
-  it("remembers the conversation across a reload, but opens no stream for it", async () => {
-    ask.mockResolvedValue({ id: "t1", threadId: "th1", question: "Question t1" });
-    getThread.mockResolvedValue(thread([turn({ id: "t1" })]));
-
-    const first = mount();
-    await userEvent.type(screen.getByRole("textbox", { name: "Ask the assistant" }), "Question t1");
-    await userEvent.click(screen.getByRole("button", { name: "Send" }));
-    await waitFor(() => expect(localStorage.getItem("lm.assistant.thread")).toBe("th1"));
-    first.unmount();
-    streamEvents.mockClear();
+  it("starts a new chat, leaving the old one in the history", async () => {
+    const answered = turn("t1", "th1");
+    ask.mockResolvedValue(answered);
+    getThread.mockResolvedValue(thread("th1", [answered]));
 
     mount();
+    await send("Question t1");
+    await screen.findByText("Answer t1");
+    await userEvent.click(screen.getByRole("button", { name: "New chat" }));
 
-    expect(await screen.findByText("Question t1")).toBeInTheDocument();
-    // A restored thread is read back; a restored turn id would open a stream on a turn long over.
-    expect(streamEvents).not.toHaveBeenCalled();
+    expect(screen.queryByText("Answer t1")).not.toBeInTheDocument();
+    expect(screen.getByText("Find companies for this mandate.")).toBeInTheDocument();
+  });
+
+  it("shows each step while it works, and keeps them with the answer", async () => {
+    const answered = turn("t1", "th1", {
+      steps: [{ label: "Searching retail companies in United Arab Emirates", detail: "342 matched, showing the top 25" }],
+    });
+    let finish: (value: AssistantTurn) => void = () => {};
+    ask.mockImplementation((_projectId, _question, _threadId, onStep: (step: LiveStep) => void) => {
+      onStep({ index: 0, label: "Searching retail companies in United Arab Emirates", detail: null, done: false });
+      onStep({ index: 0, label: "Searching retail companies in United Arab Emirates", detail: "342 matched, showing the top 25", done: true });
+      onStep({ index: 1, label: "Preparing 10 companies", detail: null, done: false });
+      return new Promise<AssistantTurn>((resolve) => {
+        finish = resolve;
+      });
+    });
+    getThread.mockResolvedValue(thread("th1", [answered]));
+
+    mount();
+    await send("Top retailers in UAE");
+
+    expect(await screen.findByText("Preparing 10 companies")).toBeInTheDocument();
+    expect(screen.getByText(/342 matched, showing the top 25/)).toBeInTheDocument();
+
+    finish(answered);
+
+    expect(await screen.findByText("Answer t1")).toBeInTheDocument();
+    expect(screen.queryByText("Preparing 10 companies")).not.toBeInTheDocument();
+    expect(screen.getByText(/342 matched, showing the top 25/)).toBeInTheDocument();
+  });
+
+  it("shows a sent question once, acknowledged at once, and brings it into view", async () => {
+    const scrolled = vi.fn();
+    Element.prototype.scrollIntoView = scrolled;
+    const answered = turn("t1", "th1", { question: "Which sector is best?" });
+    let finish: (value: AssistantTurn) => void = () => {};
+    ask.mockImplementation(() => new Promise<AssistantTurn>((resolve) => {
+      finish = resolve;
+    }));
+    getThread.mockResolvedValue(thread("th1", [answered]));
+
+    mount();
+    await send("Which sector is best?");
+
+    expect(await screen.findByText("Reading your question")).toBeInTheDocument();
+    expect(screen.getAllByText("Which sector is best?")).toHaveLength(1);
+    expect(scrolled).toHaveBeenCalled();
+
+    finish(answered);
+
+    expect(await screen.findByText("Answer t1")).toBeInTheDocument();
+    expect(screen.getAllByText("Which sector is best?")).toHaveLength(1);
+    expect(screen.queryByText("Reading your question")).not.toBeInTheDocument();
   });
 });

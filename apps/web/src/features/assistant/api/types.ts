@@ -1,54 +1,58 @@
-/** One company the assistant is offering to file. Rendered by #435; carried here so a turn is whole. */
+import type { TriageCompanyStatus } from "../../triage/api/types";
+
 export type ProposedCompany = {
-  ref: string;
-  origin: "UNIVERSE" | "RESEARCHED" | "WEB";
-  apolloAccountId: string | null;
+  apolloAccountId: string;
   companyName: string;
   country: string | null;
   employees: number | null;
+  logoUrl: string | null;
 };
 
+/** The company card an answer carried. */
 export type AssistantProposal = {
-  projectId: string;
   title: string;
   companies: ProposedCompany[];
-  accepted: { status: string; refs: string[]; added: number; skipped: number } | null;
 };
 
-export type AssistantTurnStatus = "RUNNING" | "SUCCEEDED" | "FAILED" | "CANCELLED";
+/** What was filed from a card. A null status means the default stage, in universe. */
+export type ProposalOutcome = {
+  status: TriageCompanyStatus | null;
+  added: number;
+  skipped: number;
+};
+
+/** One thing the assistant did while answering, e.g. a search and how many it matched. */
+export type AssistantStep = {
+  label: string;
+  detail: string | null;
+};
+
+/** A step as it arrives while the answer is still being worked out. */
+export type LiveStep = AssistantStep & {
+  index: number;
+  done: boolean;
+};
 
 export type AssistantTurn = {
   id: string;
   threadId: string;
-  status: AssistantTurnStatus;
   question: string;
-  answer: string | null;
-  errorCode: string | null;
+  answer: string;
+  steps: AssistantStep[];
   proposal: AssistantProposal | null;
+  proposalAccepted: ProposalOutcome | null;
   createdAt: string;
-  finishedAt: string | null;
+};
+
+export type AssistantThreadSummary = {
+  id: string;
+  title: string;
+  updatedAt: string;
 };
 
 export type AssistantThread = {
   id: string;
   title: string;
   projectId: string | null;
-  createdAt: string;
-  updatedAt: string;
   turns: AssistantTurn[];
-};
-
-/**
- * One frame of a turn's stream.
- *
- * <p>`kind` is passed through as the server's wire string and never parsed into a closed set: an
- * instance running older code must drop a kind it does not know rather than the whole frame, because
- * unlike the project stream — where every event means only "refetch" — an assistant event *is* the
- * content.
- */
-export type AssistantFrame = {
-  seq: number;
-  kind: string;
-  payload: Record<string, unknown>;
-  occurredAt: string;
 };

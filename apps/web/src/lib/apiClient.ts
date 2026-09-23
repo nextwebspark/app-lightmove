@@ -299,13 +299,16 @@ export async function requestBlob(path: string, options: RequestOptions = {}): P
  *
  * Resolves when the server ends the stream — which it does on a cycle by design, so a clean end is
  * ordinary — and rejects on abort or a network/auth failure. The caller owns reconnecting.
+ *
+ * A POST with a body works too, for a request that answers by streaming its own progress.
  */
 export async function streamEvents(
   path: string,
   onEvent: (event: SseEvent) => void,
   signal: AbortSignal,
+  options: Pick<RequestOptions, "method" | "body"> = {},
 ): Promise<void> {
-  const response = await sendWithAuth(path, { signal });
+  const response = await sendWithAuth(path, { ...options, signal });
   const reader = response.body?.getReader();
   if (!reader) {
     return;

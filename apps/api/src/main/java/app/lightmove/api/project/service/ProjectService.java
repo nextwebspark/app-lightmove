@@ -26,7 +26,6 @@ import app.lightmove.api.project.model.Client;
 import app.lightmove.api.project.model.ClientRepresentative;
 import app.lightmove.api.project.model.PendingRepresentativeAttachment;
 import app.lightmove.api.project.model.Project;
-import app.lightmove.api.project.model.ProjectFacts;
 import app.lightmove.api.project.model.ProjectMember;
 import app.lightmove.api.project.repository.ClientRepository;
 import app.lightmove.api.project.repository.ClientRepresentativeRepository;
@@ -42,7 +41,6 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
-import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
 import java.util.function.Function;
@@ -100,26 +98,6 @@ public class ProjectService {
         }
         Assembly assembly = assemblyFor(workspaceId, all);
         return all.stream().map(project -> toResponse(project, assembly)).toList();
-    }
-
-    /**
-     * One mandate, named rather than assembled.
-     *
-     * <p>Scoped on the workspace by the finder itself, so a mandate of another firm is absent
-     * rather than refused — the caller asked whether this workspace has one, and it does not.
-     *
-     * <p>Exists because a caller outside this feature had no way to learn a mandate's title without
-     * {@code list}, which assembles every mandate in the workspace, or reaching into two of these
-     * repositories. Widening the public surface is the sanctioned answer to both.
-     */
-    @Transactional(readOnly = true)
-    public Optional<ProjectFacts> factsOf(UUID workspaceId, UUID projectId) {
-        return projects.findByIdAndWorkspaceId(projectId, workspaceId)
-                .map(project -> new ProjectFacts(project.getId(), project.getPositionTitle(),
-                        clients.findByIdAndWorkspaceId(project.getClientId(), workspaceId)
-                                .map(Client::getName)
-                                .orElse(null),
-                        project.getStage(), project.getTargetDate()));
     }
 
     /** The mandates of one client, fully assembled (team, health) — the client drawer reads this. */

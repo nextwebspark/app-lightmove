@@ -6,130 +6,94 @@ import static org.mockito.Mockito.RETURNS_DEEP_STUBS;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
-import app.lightmove.api.assistant.model.AssistantProposal;
-import app.lightmove.api.assistant.model.ProposalOrigin;
-import app.lightmove.api.assistant.service.AssistantEventSink;
 import app.lightmove.api.core.config.LightMoveProperties;
 import app.lightmove.api.strategy.model.CompanyExclusion;
 import app.lightmove.api.strategy.model.CompanyRow;
 import app.lightmove.api.strategy.model.CompanyScope;
 import app.lightmove.api.strategy.service.ApolloCompanyQueryService;
 import app.lightmove.api.strategy.service.StrategyService;
-import java.util.ArrayList;
 import java.util.List;
-import java.util.Map;
 import java.util.UUID;
 import java.util.stream.IntStream;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.ai.chat.model.ToolContext;
-import tools.jackson.databind.ObjectMapper;
 
-/**
- * That a proposal says only what the market said, and only about companies the mandate may see.
- *
- * <p>The card this feeds is where a consultant decides to file forty companies into a client's
- * mandate, so every field on it has to be one we resolved rather than one the model produced.
- */
+/** The card says only what the universe said, and only about companies the mandate may see. */
 class ProposalToolsTest {
 
     private static final int CAP = 25;
-    private static final UUID PROJECT = UUID.randomUUID();
 
     private final ApolloCompanyQueryService market = mock(ApolloCompanyQueryService.class);
     private final StrategyService strategies = mock(StrategyService.class);
-    private final ObjectMapper json = new ObjectMapper();
-    private final List<Map<String, Object>> emitted = new ArrayList<>();
+    private final TurnRecorder recorder = new TurnRecorder(step -> { });
 
     @Test
-    @DisplayName("every field comes from the market row, not from what the model said")
-    void buildsRowsFromTheResolvedMarket() {
+    @DisplayName("every field comes from the universe row, not from what the model said")
+    void buildsRowsFromTheUniverse() {
         marketHolding(row("a1", "Saudi Electricity Company", "Saudi Arabia", 32_000));
 
-        tools().proposeCompanies(PROJECT.toString(), "Six IPPs", List.of("a1"), context());
+        tools().proposeCompanies("Six IPPs", List.of("a1"), context());
 
-        assertThat(proposal().companies()).singleElement().satisfies(company -> {
+        assertThat(recorder.proposal().companies()).singleElement().satisfies(company -> {
+            assertThat(company.apolloAccountId()).isEqualTo("a1");
             assertThat(company.companyName()).isEqualTo("Saudi Electricity Company");
             assertThat(company.country()).isEqualTo("Saudi Arabia");
             assertThat(company.employees()).isEqualTo(32_000);
-            assertThat(company.apolloAccountId()).isEqualTo("a1");
-            assertThat(company.origin()).isEqualTo(ProposalOrigin.UNIVERSE);
+            assertThat(company.logoUrl()).isEqualTo("https://logos.example/a1");
         });
     }
 
     @Test
-    @DisplayName("a company the mandate ruled off limits never reaches the card")
-    void dropsOffLimitsBeforeProposing() {
+    @DisplayName("a company ruled off limits, or gone from the universe, never reaches the card")
+    void dropsOffLimitsAndUnknown() {
         marketHolding(row("a1", "ACWA Power", "Saudi Arabia", 4_000),
                 row("a2", "Barred Co", "Saudi Arabia", 900));
         offLimits("a2");
 
-        ProposalPlaced placed = tools()
-                .proposeCompanies(PROJECT.toString(), "Two", List.of("a1", "a2"), context());
+        int carried = tools().proposeCompanies("Two", List.of("a1", "a2", "gone"), context());
 
-        // Proposing one a client has ruled out and silently dropping it on the way in is the
-        // dishonest count this whole issue exists to avoid.
-        assertThat(proposal().companies()).extracting("apolloAccountId").containsExactly("a1");
-        assertThat(placed.proposed()).isEqualTo(1);
-        assertThat(placed.dropped()).isEqualTo(1);
+        assertThat(carried).isEqualTo(1);
+        assertThat(recorder.proposal().companies()).extracting("apolloAccountId").containsExactly("a1");
+        assertThat(recorder.steps()).singleElement().satisfies(step -> {
+            assertThat(step.label()).isEqualTo("Preparing 3 companies");
+            assertThat(step.detail())
+                    .isEqualTo("1 on the card, 2 left out (off limits or no longer in the universe)");
+        });
     }
 
     @Test
-    @DisplayName("an id the universe no longer carries is dropped and counted")
-    void countsWhatTheUniverseCouldNotResolve() {
-        marketHolding(row("a1", "ACWA Power", "Saudi Arabia", 4_000));
-
-        ProposalPlaced placed = tools()
-                .proposeCompanies(PROJECT.toString(), "Two", List.of("a1", "gone"), context());
-
-        assertThat(placed.proposed()).isEqualTo(1);
-        assertThat(placed.dropped()).isEqualTo(1);
-    }
-
-    @Test
-    @DisplayName("more companies than the row limit are capped rather than proposed whole")
+    @DisplayName("more companies than the row limit are capped")
     void capsAtTheRowLimit() {
         List<CompanyRow> many = IntStream.range(0, 40)
                 .mapToObj(index -> row("a" + index, "Company " + index, "Qatar", 100))
                 .toList();
         marketHolding(many.toArray(CompanyRow[]::new));
 
-        ProposalPlaced placed = tools().proposeCompanies(PROJECT.toString(), "Many",
+        int carried = tools().proposeCompanies("Many",
                 many.stream().map(CompanyRow::apolloAccountId).toList(), context());
 
-        assertThat(placed.proposed()).isEqualTo(CAP);
+        assertThat(carried).isEqualTo(CAP);
     }
 
     @Test
-    @DisplayName("the model's title is flattened to one line and capped")
-    void flattensTheTitleItWasGiven() {
+    @DisplayName("the model's title is flattened to one line")
+    void flattensTheTitle() {
         marketHolding(row("a1", "ACWA Power", "Saudi Arabia", 4_000));
 
-        tools().proposeCompanies(PROJECT.toString(), "Six\nIPPs   in\tSaudi", List.of("a1"), context());
+        tools().proposeCompanies("Six\nIPPs   in\tSaudi", List.of("a1"), context());
 
-        // It is rendered as a card heading, so a newline in it is a line the panel never laid out.
-        assertThat(proposal().title()).isEqualTo("Six IPPs in Saudi");
-    }
-
-    @Test
-    @DisplayName("a proposal names no stage — the person filing chooses that")
-    void proposesWhatAndNeverWhere() {
-        marketHolding(row("a1", "ACWA Power", "Saudi Arabia", 4_000));
-
-        tools().proposeCompanies(PROJECT.toString(), "One", List.of("a1"), context());
-
-        assertThat(json.convertValue(emitted.getFirst(), Map.class)).doesNotContainKey("status");
+        assertThat(recorder.proposal().title()).isEqualTo("Six IPPs in Saudi");
     }
 
     private ProposalTools tools() {
         LightMoveProperties properties = mock(LightMoveProperties.class, RETURNS_DEEP_STUBS);
         when(properties.assistant().toolRowLimit()).thenReturn(CAP);
-        return new ProposalTools(market, strategies, json, properties);
+        return new ProposalTools(market, strategies, properties);
     }
 
-    private AssistantProposal proposal() {
-        assertThat(emitted).as("the tool's only effect is the event it emits").hasSize(1);
-        return json.convertValue(emitted.getFirst(), AssistantProposal.class);
+    private ToolContext context() {
+        return new ToolContext(new AssistantToolContext(UUID.randomUUID(), UUID.randomUUID(), recorder).asMap());
     }
 
     private void marketHolding(CompanyRow... rows) {
@@ -147,25 +111,9 @@ class ProposalToolsTest {
                 CompanyExclusion.NONE, null));
     }
 
-    private ToolContext context() {
-        AssistantEventSink sink = new AssistantEventSink() {
-            @Override
-            public void delta(String text) {
-            }
-
-            @Override
-            public void proposal(Map<String, Object> payload) {
-                emitted.add(payload);
-            }
-        };
-        return new ToolContext(ToolCallerContext.of(
-                new AssistantToolCaller(UUID.randomUUID(), UUID.randomUUID(), UUID.randomUUID()),
-                sink));
-    }
-
     private static CompanyRow row(String id, String name, String country, Integer employees) {
         return new CompanyRow(id, name, "oil & energy", country, "Riyadh", employees, null, null,
-                null, null, null, null, null, null, null, null, null, null, null, null, null, null,
-                null, List.of(), List.of(), List.of(), List.of());
+                "https://logos.example/" + id, null, null, null, null, null, null, null, null, null,
+                null, null, null, null, null, List.of(), List.of(), List.of(), List.of());
     }
 }

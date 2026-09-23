@@ -1,27 +1,12 @@
-import { request } from "../../../lib/apiClient";
+import { ApiRequestError, request, streamEvents } from "../../../lib/apiClient";
 import type { BulkAddResult, TriageCompanyStatus } from "../../triage/api/types";
-import type { AssistantThread, AssistantTurn } from "./types";
+import type { AssistantThread, AssistantThreadSummary, AssistantTurn, LiveStep } from "./types";
 
-/**
- * The caller's own assistant conversations.
- *
- * <p>Asking answers **202 with a RUNNING turn**, not the answer: a turn with tools runs 30–180s,
- * which no single response can hold. What comes back is the turn to open a stream on.
- */
 export const ASSISTANT_THREAD_KEY = (threadId: string) => ["assistant", "thread", threadId] as const;
+export const ASSISTANT_THREADS_KEY = (projectId: string) => ["assistant", "threads", projectId] as const;
 
-export function ask(question: string, projectId: string | null): Promise<AssistantTurn> {
-  return request<AssistantTurn>("/assistant/ask", {
-    method: "POST",
-    body: { question, projectId },
-  });
-}
-
-export function askIn(threadId: string, question: string): Promise<AssistantTurn> {
-  return request<AssistantTurn>(`/assistant/threads/${threadId}/ask`, {
-    method: "POST",
-    body: { question },
-  });
+export function listThreads(projectId: string): Promise<AssistantThreadSummary[]> {
+  return request<AssistantThreadSummary[]>(`/projects/${projectId}/assistant/threads`);
 }
 
 export function getThread(threadId: string): Promise<AssistantThread> {
@@ -29,20 +14,43 @@ export function getThread(threadId: string): Promise<AssistantThread> {
 }
 
 /**
- * Files the ticked rows of a turn's proposal, at one stage.
- *
- * <p>Refs, never company identities: the fields a company lands with come from the proposal the
- * server resolved and stored, so there is no door here for filing a company under a name of the
- * caller's choosing. The turn is the only thing this names — the mandate comes out of the stored
- * proposal, and is re-authorised against it.
+ * Asks, and hands each step to `onStep` as the server reports it ("Searching retail companies in
+ * …", then its count). Resolves with the saved turn once the answer is ready.
  */
+export async function ask(
+  projectId: string,
+  question: string,
+  threadId: string | null,
+  onStep: (step: LiveStep) => void,
+): Promise<AssistantTurn> {
+  const received: { turn?: AssistantTurn; failedCode?: string } = {};
+  await streamEvents(
+    `/projects/${projectId}/assistant/ask`,
+    (event) => {
+      if (event.name === "step") onStep(JSON.parse(event.data) as LiveStep);
+      if (event.name === "done") received.turn = JSON.parse(event.data) as AssistantTurn;
+      if (event.name === "failed") received.failedCode = (JSON.parse(event.data) as { code: string }).code;
+    },
+    new AbortController().signal,
+    { method: "POST", body: { question, threadId } },
+  );
+  if (received.turn) return received.turn;
+  // No `done`: the model failed, or the answer outran the 55s stream.
+  throw new ApiRequestError({
+    code: received.failedCode ?? "ASSISTANT_UNAVAILABLE",
+    detail: "The assistant could not answer",
+    status: 503,
+    correlationId: "none",
+  });
+}
+
 export function acceptProposal(
   turnId: string,
-  refs: string[],
+  apolloAccountIds: string[],
   status: TriageCompanyStatus,
 ): Promise<BulkAddResult> {
-  return request<BulkAddResult>(`/assistant/turns/${turnId}/proposal/accept`, {
+  return request<BulkAddResult>(`/assistant/turns/${turnId}/accept`, {
     method: "POST",
-    body: { refs, status },
+    body: { apolloAccountIds, status },
   });
 }
