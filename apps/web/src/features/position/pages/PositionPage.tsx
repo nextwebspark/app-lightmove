@@ -559,12 +559,19 @@ function PositionBrief({ projectId, position }: { projectId: string; position: P
       void flushDocumentFill(outcome.changed);
 
       const filled = Object.values(outcome.receipts).reduce((sum, receipt) => sum + fieldCountOf(receipt), 0);
-      const problem = readProblemOf(settled, filled, fileName);
+      // The title carries no receipt, so `filled` never counts it — but a rename is the most visible
+      // thing a reading can do, and must never be reported as "nothing new".
+      const renamedTo =
+        outcome.next.details.roleTitle !== snapshot.details.roleTitle ? outcome.next.details.roleTitle : null;
+      const problem = readProblemOf(settled, filled > 0 || renamedTo !== null, fileName);
       setReadProblem(problem);
       if (problem) return;
 
-      const read = `${filled} field${filled === 1 ? "" : "s"} from ${fileName}`;
-      const lead = redrafted ? `Drafted from the ${redrafted.template.title} template and read ${read}` : `Read ${read}`;
+      const done: string[] = [];
+      if (redrafted) done.push(`drafted from the ${redrafted.template.title} template`);
+      if (filled > 0) done.push(`read ${filled} field${filled === 1 ? "" : "s"} from ${fileName}`);
+      if (renamedTo) done.push(`renamed the mandate "${renamedTo}"`);
+      const summary = done.length > 0 ? sentenceOf(done) : null;
       // The org chart merge can decline a proposed manager or direct report with zero other signal —
       // this is the one place a reading's own success toast can still say so.
       const orgChartSkip = outcome.skipped.find((field) => field.fieldKey === "orgChart");
@@ -574,12 +581,11 @@ function PositionBrief({ projectId, position }: { projectId: string; position: P
             ? "the org chart is at its seat limit"
             : "this mandate has no seat yet";
         toast(
-          filled > 0
-            ? `${lead} — some reporting lines didn't fit because ${reason}.`
+          summary
+            ? `${summary} — some reporting lines didn't fit because ${reason}.`
             : `Reporting lines from ${fileName} didn't fit because ${reason}.`,
         );
-      } else if (filled > 0 || redrafted) toast(lead);
-      else toast("Nothing new to read from this document");
+      } else toast(summary ?? "Nothing new to read from this document");
     },
     onError: (error) => setReadProblem(messageFor(error)),
   });
@@ -806,7 +812,7 @@ function StepHeader({ step, action }: { step: PositionStep; action?: ReactNode }
  */
 function readProblemOf(
   settled: Record<ExtractionSection, PromiseSettledResult<PositionExtraction>>,
-  filled: number,
+  changedAnything: boolean,
   fileName: string,
 ): string | null {
   const rejected = EXTRACTION_SECTIONS.filter((section) => settled[section].status === "rejected");
@@ -814,11 +820,10 @@ function readProblemOf(
     return messageFor((settled[rejected[0]] as PromiseRejectedResult).reason);
   }
   if (rejected.length > 0) {
-    const names = rejected.map((section) => SECTION_NAMES[section]);
-    const list = names.length === 1 ? names[0] : `${names.slice(0, -1).join(", ")} and ${names.at(-1)}`;
-    return `Couldn't read ${list} from ${fileName}. The rest was filled.`;
+    const list = sentenceOf(rejected.map((section) => SECTION_NAMES[section]), false);
+    return `Couldn't read ${list} from ${fileName}. ${changedAnything ? "The rest was filled." : "The rest was read, with nothing new in it."}`;
   }
-  if (filled > 0) return null;
+  if (changedAnything) return null;
 
   const readings = EXTRACTION_SECTIONS.map(
     (section) => (settled[section] as PromiseFulfilledResult<PositionExtraction>).value,
@@ -828,4 +833,10 @@ function readProblemOf(
     return "The document reader couldn't be reached, so nothing was filled. Try again in a moment.";
   }
   return `Nothing could be read from ${fileName} — check it is the position description.`;
+}
+
+/** "a", "a and b", "a, b and c" — capitalised as a sentence unless it sits mid-line. */
+function sentenceOf(parts: readonly string[], capitalise = true): string {
+  const joined = parts.length === 1 ? parts[0] : `${parts.slice(0, -1).join(", ")} and ${parts.at(-1)}`;
+  return capitalise ? joined.charAt(0).toUpperCase() + joined.slice(1) : joined;
 }

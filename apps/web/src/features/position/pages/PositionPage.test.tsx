@@ -705,6 +705,10 @@ describe("PositionPage", () => {
         await waitFor(() =>
           expect(lastCall(positionApi.putDetails)[1]).toMatchObject({ roleTitle: "Group Chief Financial Officer" }),
         );
+        // A title-only reading fills no receipted field, but the rename is still announced — never
+        // reported as "nothing new".
+        expect(await screen.findByText('Renamed the mandate "Group Chief Financial Officer"')).toBeInTheDocument();
+        expect(screen.queryByText("Nothing new to read from this document")).not.toBeInTheDocument();
       });
 
       it("leaves a brief somebody has typed into alone", async () => {
@@ -778,8 +782,26 @@ describe("PositionPage", () => {
 
         await person.click(await screen.findByRole("button", { name: /Extract with AI/ }));
 
-        expect(await screen.findByRole("alert")).toHaveTextContent("Couldn't read the reporting line from CFO-brief.pdf");
+        expect(await screen.findByRole("alert")).toHaveTextContent(
+          "Couldn't read the reporting line from CFO-brief.pdf. The rest was filled.",
+        );
         expect(screen.getByRole("textbox", { name: "City" })).toHaveValue("Dubai");
+      });
+
+      it("does not claim the rest was filled when it read but found nothing new", async () => {
+        vi.mocked(positionApi.getPosition).mockResolvedValue(attached);
+        vi.mocked(positionApi.extractDetails).mockResolvedValue({ ...emptyExtraction, extractionSource: "model" });
+        vi.mocked(positionApi.extractContext).mockResolvedValue({ ...emptyExtraction, extractionSource: "model" });
+        vi.mocked(positionApi.extractReporting).mockRejectedValue(new Error("boom"));
+        vi.mocked(positionApi.extractAssessment).mockResolvedValue({ ...emptyExtraction, extractionSource: "model" });
+        renderPage();
+        const person = userEvent.setup();
+
+        await person.click(await screen.findByRole("button", { name: /Extract with AI/ }));
+
+        expect(await screen.findByRole("alert")).toHaveTextContent(
+          "Couldn't read the reporting line from CFO-brief.pdf. The rest was read, with nothing new in it.",
+        );
       });
     });
   });
