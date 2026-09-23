@@ -9,170 +9,416 @@
 <x-dc>
 <helmet>
   <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700;900&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700;900&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
   <style>
-    :root{--bg:#f8f9fb;--panel:#ffffff;--panel2:#f3f4f6;--line:#e2e4e9;--line-soft:#edeef2;--text:#111113;--text2:#475569;--text3:#64748b;--amber:#a67c2e;--amber-btn:#e2b65c;--amber-dim:rgba(226,182,92,.14);--sky:#2563eb;--sky-dim:rgba(37,99,235,.10);--red:#dc2626;--red-dim:rgba(220,38,38,.08);--green:#059669;--green-dim:rgba(5,150,105,.10);--shadow:0 8px 28px rgba(15,23,42,.10);--mono:'Geist','Inter',system-ui,sans-serif;--sans:'Geist','Inter',system-ui,sans-serif}
-    body.dark{--bg:#0c0d0e;--panel:#16171a;--panel2:#131316;--line:#2a2a2e;--line-soft:#212326;--text:#f8fafc;--text2:#cbd5e1;--text3:#94a3b8;--amber:#e2b65c;--amber-dim:rgba(226,182,92,.16);--sky:#60a5fa;--sky-dim:rgba(96,165,250,.16);--red:#f87171;--red-dim:rgba(248,113,113,.14);--green:#34d399;--green-dim:rgba(52,211,153,.16);--shadow:0 8px 28px rgba(0,0,0,.5)}
+    :root{--bg:#f8f9fb;--panel:#ffffff;--panel2:#f3f4f6;--line:#e2e4e9;--line-soft:#edeef2;--text:#111113;--text2:#475569;--text3:#64748b;--amber:#a67c2e;--amber-btn:#e2b65c;--amber-dim:rgba(226,182,92,.14);--on-amber:#1a1712;--sky:#2563eb;--sky-dim:rgba(37,99,235,.10);--red:#dc2626;--red-dim:rgba(220,38,38,.08);--green:#059669;--green-dim:rgba(5,150,105,.10);--ai:#6366f1;--ai2:#3b82f6;--ai-line:#4f46e5;--ai-dim:rgba(99,102,241,.10);--ai-soft:rgba(99,102,241,.06);--shadow:0 8px 28px rgba(15,23,42,.10);--radius-panel:14px;--mono:'Geist','Inter',system-ui,sans-serif;--sans:'Geist','Inter',system-ui,sans-serif;
+      --t-eyebrow:9.5px;--t-meta:11px;--t-note:12px;--t-body:13px;--t-lead:15px;--t-subhead:17px;--t-title:19px;--t-figure:27px;
+      --u-bg:#ffffff;--u-surface:#f7f8fa;--u-raised:#eceff3;--u-sunken:#e4e8ee;--u-border:rgba(3,7,18,.09);--u-border-strong:rgba(3,7,18,.16);--u-scrim:rgba(3,7,18,.4);--u-text:#0b0d12;--u-text2:#4c5462;--u-text3:#6b7382;--u-accent:#4a56d6;--u-accent-solid:#4a56d6;--u-accent-tint:rgba(74,86,214,.09);--u-accent-ring:rgba(74,86,214,.4);--u-signal:#a8602f;--u-signal-tint:rgba(168,96,47,.1);--u-offlimits:#d93a45;--u-offlimits-tint:rgba(217,58,69,.1);--u-direct:#0f9d6b;--u-direct-tint:rgba(15,157,107,.1);--u-adjacent:#1f72d4;--u-adjacent-tint:rgba(31,114,212,.1);--u-inferred:#8244d6;--u-inferred-tint:rgba(130,68,214,.1);--u-chart-1:#4a56d6;--u-chart-2:#0f9d6b;--u-chart-3:#a8602f;--u-chart-4:#8244d6;--u-chart-5:#1e8fa8;--u-chart-6:#d93a45;--u-seq-1:#e4e8f6;--u-seq-2:#b9c0ee;--u-seq-3:#8189f7;--u-seq-4:#4a56d6;--u-seq-5:#2e3878;--u-grid-axis:rgba(3,7,18,.14);--u-grid-line:rgba(3,7,18,.07);--u-num:'JetBrains Mono',ui-monospace,SFMono-Regular,monospace;--u-e1:0 1px 2px rgba(3,7,18,.06);--u-e3:0 18px 44px -10px rgba(3,7,18,.2)}
+    body.dark{--bg:#0c0d0e;--panel:#16171a;--panel2:#131316;--line:#2a2a2e;--line-soft:#212326;--text:#f8fafc;--text2:#cbd5e1;--text3:#94a3b8;--amber:#e2b65c;--amber-dim:rgba(226,182,92,.16);--sky:#60a5fa;--sky-dim:rgba(96,165,250,.16);--red:#f87171;--red-dim:rgba(248,113,113,.14);--green:#34d399;--green-dim:rgba(52,211,153,.16);--ai:#818cf8;--ai2:#60a5fa;--ai-line:#6366f1;--ai-dim:rgba(129,140,248,.16);--ai-soft:rgba(129,140,248,.09);--shadow:0 8px 28px rgba(0,0,0,.5);
+      --u-bg:#08090b;--u-surface:#0e1013;--u-raised:#15181d;--u-sunken:#1d2128;--u-border:rgba(255,255,255,.07);--u-border-strong:rgba(255,255,255,.14);--u-scrim:rgba(4,5,7,.72);--u-text:#f4f6f8;--u-text2:#a6adbb;--u-text3:#7c8493;--u-accent:#6e79f2;--u-accent-solid:#4a56d6;--u-accent-tint:rgba(110,121,242,.14);--u-accent-ring:rgba(110,121,242,.45);--u-signal:#d4855c;--u-signal-tint:rgba(212,133,92,.12);--u-offlimits:#f2626b;--u-offlimits-tint:rgba(242,98,107,.12);--u-direct:#3ecf8e;--u-direct-tint:rgba(62,207,142,.12);--u-adjacent:#5aa9ff;--u-adjacent-tint:rgba(90,169,255,.12);--u-inferred:#b07cf5;--u-inferred-tint:rgba(176,124,245,.12);--u-chart-1:#6e79f2;--u-chart-2:#3ecf8e;--u-chart-3:#d4855c;--u-chart-4:#b07cf5;--u-chart-5:#4fc3d9;--u-chart-6:#f2626b;--u-seq-1:#1e2440;--u-seq-2:#2e3878;--u-seq-3:#4a56d6;--u-seq-4:#6e79f2;--u-seq-5:#a3a9fa;--u-grid-axis:rgba(255,255,255,.1);--u-grid-line:rgba(255,255,255,.055);--u-e1:0 0 #0000;--u-e3:0 18px 44px -10px rgba(0,0,0,.8)}
     *{box-sizing:border-box}
     html,body{height:100%;margin:0}
     body{background:var(--bg);color:var(--text);font:400 14px/1.45 var(--sans);-webkit-font-smoothing:antialiased}
     a{color:var(--sky);text-decoration:none}
-    a:hover{text-decoration:underline}
-    input::placeholder{color:var(--text3)}
+    input::placeholder,textarea::placeholder{color:var(--text3)}
+    button{font-family:inherit}
     @keyframes fadeUp{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
+    @keyframes spin{to{transform:rotate(360deg)}}
+    @keyframes slideInEnd{from{transform:translateX(100%)}to{transform:none}}
   </style>
-  <script>try{if(localStorage.getItem('lm-theme')!=='light'){document.body.classList.add('dark');}}catch(e){}</script>
+  <script>try{var t=localStorage.getItem('lm-theme');if(t==='dark'||(t!=='light'&&window.matchMedia&&matchMedia('(prefers-color-scheme: dark)').matches)){document.body.classList.add('dark');}}catch(e){}</script>
 </helmet>
-<div data-screen-label="Signup" style="min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:24px;gap:24px">
-  <div style="display:flex;align-items:center;gap:10px;animation:fadeUp .5s ease both">
-    <span style="width:30px;height:30px;border-radius:8px;background:#e2b65c;color:#1a1712;display:grid;place-items:center;font:700 14px var(--mono)">L</span>
-    <span style="font:600 16px var(--mono);letter-spacing:.02em">LightMove</span>
+<div data-screen-label="Signup" style="min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:24px;padding:24px">
+
+  <sc-if value="{{ isStep1 }}" hint-placeholder-val="{{ true }}">
+    <button type="button" onClick="{{ toggleTheme }}" aria-label="{{ themeLabel }}" title="{{ themeLabel }}" style="position:fixed;right:16px;top:16px;z-index:50;width:28px;height:28px;display:grid;place-items:center;padding:0;border-radius:8px;border:1px solid var(--line);background:var(--panel2);color:var(--text3);cursor:pointer;outline:none;transition:color .15s" style-hover="color:var(--text)">
+      <sc-if value="{{ dark }}" hint-placeholder-val="{{ false }}">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="12" cy="12" r="4"></circle><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"></path></svg>
+      </sc-if>
+      <sc-if value="{{ light }}" hint-placeholder-val="{{ true }}">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8Z"></path></svg>
+      </sc-if>
+    </button>
+  </sc-if>
+
+  <div style="display:flex;align-items:center;gap:14px;animation:fadeUp .5s ease both">
+    <svg viewBox="-36 -51 72 104" fill="none" stroke="currentColor" style="height:56px;width:auto;flex:none;color:var(--text)" aria-hidden="true"><path d="M-32 10 L 0 -8 L 32 10 L 0 28 Z M-32 10 V 32 L 0 50 L 32 32 V 10 M0 28 V 50" stroke-width="2.6" stroke-linejoin="round"></path><path d="M0 -48 L 32 -30 L 0 -12 L -32 -30 Z" fill="currentColor" stroke="none"></path></svg>
+    <span style="font:500 19px var(--sans);text-transform:uppercase;letter-spacing:.32em;color:var(--text)">Uncava</span>
   </div>
 
-  <div style="display:flex;align-items:center;gap:0;animation:fadeUp .5s .04s ease both">
-    <sc-for list="{{ steps }}" as="s" hint-placeholder-count="3">
+  <nav aria-label="Signup progress" data-screen-label="Stepper" style="display:flex;align-items:center;animation:fadeUp .5s .04s ease both">
+    <sc-for list="{{ steps }}" as="s" hint-placeholder-count="4">
       <div style="display:flex;align-items:center">
         <sc-if value="{{ s.showConnector }}" hint-placeholder-val="{{ false }}">
-          <span style="width:32px;height:1px;background:{{ s.connectorColor }};margin:0 8px"></span>
+          <span aria-hidden="true" style="width:32px;height:1px;margin:0 8px;background:{{ s.connectorColor }}"></span>
         </sc-if>
-        <button onClick="{{ s.go }}" style="display:flex;align-items:center;gap:8px;background:none;border:none;padding:0;cursor:pointer">
-          <span style="width:24px;height:24px;border-radius:50%;display:grid;place-items:center;font:600 11px var(--mono);background:{{ s.circleBg }};color:{{ s.circleColor }};border:1px solid {{ s.circleBorder }}">{{ s.mark }}</span>
+        <button type="button" onClick="{{ stepClick }}" data-n="{{ s.n }}" disabled="{{ s.disabled }}" aria-current="{{ s.ariaCurrent }}" style="display:flex;align-items:center;gap:8px;border-radius:6px;background:none;border:none;padding:0;outline:none;cursor:{{ s.cursor }}">
+          <span style="width:24px;height:24px;border-radius:50%;display:grid;place-items:center;border:1px solid {{ s.circleBorder }};background:{{ s.circleBg }};color:{{ s.circleColor }};font:600 11px var(--mono)">{{ s.mark }}</span>
           <span style="font:500 12px var(--sans);color:{{ s.labelColor }}">{{ s.label }}</span>
         </button>
       </div>
     </sc-for>
-  </div>
+  </nav>
 
-  <div style="width:480px;max-width:94vw;background:var(--panel);border:1px solid var(--line);border-radius:14px;box-shadow:var(--shadow);padding:32px;animation:fadeUp .5s .08s ease both">
-    <div style="font:600 19px/1.25 var(--sans);margin:0 0 4px">{{ title }}</div>
-    <div style="font:400 12px var(--mono);color:var(--text3);margin:0 0 24px">{{ subtitle }}</div>
+  <!-- Step 1 · Account -->
+  <sc-if value="{{ isStep1 }}" hint-placeholder-val="{{ true }}">
+    <div data-screen-label="Step 1 · Create your account" style="width:480px;max-width:94vw;border-radius:14px;border:1px solid var(--line);background:var(--panel);padding:32px;box-shadow:var(--shadow);animation:fadeUp .5s .08s ease both">
+      <h1 style="margin:0;font:600 19px/1.25 var(--sans)">Create your account</h1>
+      <p style="margin:4px 0 24px;font:400 12px var(--mono);color:var(--text3)">Step 1 of 4 · your details</p>
 
-    <sc-if value="{{ isStep1 }}" hint-placeholder-val="{{ true }}">
-      <label style="display:block;font:600 10px var(--mono);letter-spacing:.12em;text-transform:uppercase;color:var(--text3);margin:0 0 6px">Full name</label>
-      <input type="text" placeholder="Yara Haddad" style="width:100%;background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:9px 12px;font:400 13px var(--mono);color:var(--text);outline:none;margin-bottom:16px" style-focus="border-color:var(--sky)">
-      <label style="display:block;font:600 10px var(--mono);letter-spacing:.12em;text-transform:uppercase;color:var(--text3);margin:0 0 6px">Work email</label>
-      <input type="email" placeholder="you@firm.com" style="width:100%;background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:9px 12px;font:400 13px var(--mono);color:var(--text);outline:none;margin-bottom:16px" style-focus="border-color:var(--sky)">
-      <label style="display:block;font:600 10px var(--mono);letter-spacing:.12em;text-transform:uppercase;color:var(--text3);margin:0 0 6px">Password</label>
-      <input type="password" placeholder="8+ characters" style="width:100%;background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:9px 12px;font:400 13px var(--mono);color:var(--text);outline:none;margin-bottom:6px" style-focus="border-color:var(--sky)">
-      <div style="font:400 11px var(--mono);color:var(--text3);margin-bottom:20px">Use at least 8 characters, with one number.</div>
-      <button onClick="{{ next }}" style="width:100%;display:flex;align-items:center;justify-content:center;gap:8px;background:var(--amber-btn);border:1px solid var(--amber-btn);color:#1a1712;font:600 13.5px var(--sans);padding:10px 14px;border-radius:8px;cursor:pointer" style-hover="filter:brightness(1.05)">Continue</button>
-    </sc-if>
+      <label style="display:block;margin-bottom:16px">
+        <span style="display:flex;align-items:baseline;justify-content:space-between;margin-bottom:6px"><span style="font:600 10px var(--mono);letter-spacing:.12em;text-transform:uppercase;color:var(--text3)">Full name</span></span>
+        <input autocomplete="name" placeholder="Yara Haddad" value="{{ fullName }}" onInput="{{ setField }}" data-field="fullName" style="width:100%;border-radius:8px;border:1px solid var(--line);background:var(--panel2);padding:10px 12px;font:400 13px var(--mono);color:var(--text);outline:none;transition:border-color .15s" style-focus="border-color:var(--sky)">
+      </label>
 
-    <sc-if value="{{ isStep2 }}" hint-placeholder-val="{{ false }}">
-      <label style="display:block;font:600 10px var(--mono);letter-spacing:.12em;text-transform:uppercase;color:var(--text3);margin:0 0 6px">Organization name</label>
-      <input type="text" placeholder="e.g. LightMove Search Partners" style="width:100%;background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:9px 12px;font:400 13px var(--mono);color:var(--text);outline:none;margin-bottom:6px" style-focus="border-color:var(--sky)">
-      <div style="font:400 11px var(--mono);color:var(--text3);margin-bottom:16px">This becomes your workspace name — you can change it later.</div>
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px 16px;margin-bottom:20px">
-        <div>
-          <label style="display:block;font:600 10px var(--mono);letter-spacing:.12em;text-transform:uppercase;color:var(--text3);margin:0 0 6px">Company size</label>
-          <select style="width:100%;background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:9px 12px;font:400 13px var(--mono);color:var(--text);outline:none" style-focus="border-color:var(--sky)">
-            <option>1–10 people</option><option>11–50 people</option><option>51–200 people</option><option>200+ people</option>
-          </select>
-        </div>
-        <div>
-          <label style="display:block;font:600 10px var(--mono);letter-spacing:.12em;text-transform:uppercase;color:var(--text3);margin:0 0 6px">Primary region</label>
-          <select style="width:100%;background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:9px 12px;font:400 13px var(--mono);color:var(--text);outline:none" style-focus="border-color:var(--sky)">
-            <option>GCC</option><option>MENA</option><option>Europe</option><option>North America</option><option>Global</option>
-          </select>
-        </div>
-        <div>
-          <label style="display:block;font:600 10px var(--mono);letter-spacing:.12em;text-transform:uppercase;color:var(--text3);margin:0 0 6px">Your role</label>
-          <select style="width:100%;background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:9px 12px;font:400 13px var(--mono);color:var(--text);outline:none" style-focus="border-color:var(--sky)">
-            <option>Partner</option><option>Consultant</option><option>Researcher</option><option>Operations</option>
-          </select>
-        </div>
-        <div>
-          <label style="display:block;font:600 10px var(--mono);letter-spacing:.12em;text-transform:uppercase;color:var(--text3);margin:0 0 6px">Team focus</label>
-          <select style="width:100%;background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:9px 12px;font:400 13px var(--mono);color:var(--text);outline:none" style-focus="border-color:var(--sky)">
-            <option>Executive search</option><option>Board advisory</option><option>Talent mapping</option><option>Mixed</option>
-          </select>
-        </div>
+      <label style="display:block;margin-bottom:16px">
+        <span style="display:flex;align-items:baseline;justify-content:space-between;margin-bottom:6px"><span style="font:600 10px var(--mono);letter-spacing:.12em;text-transform:uppercase;color:var(--text3)">Work email</span></span>
+        <input type="email" autocomplete="email" placeholder="you@firm.com" value="{{ email }}" onInput="{{ setField }}" data-field="email" aria-invalid="{{ emailTaken }}" style="width:100%;border-radius:8px;border:1px solid {{ emailBorder }};background:var(--panel2);padding:10px 12px;font:400 13px var(--mono);color:var(--text);outline:none;transition:border-color .15s" style-focus="border-color:var(--sky)">
+        <span aria-live="polite">
+          <sc-if value="{{ emailTaken }}" hint-placeholder-val="{{ false }}">
+            <span style="display:block;margin-top:6px;font:400 11px var(--mono);color:var(--red)">An account with this email already exists</span>
+          </sc-if>
+          <sc-if value="{{ emailFree }}" hint-placeholder-val="{{ true }}">
+            <span style="display:block;margin-top:6px;font:400 11px var(--mono);color:var(--text3)">Your company domain — not a personal address.</span>
+          </sc-if>
+        </span>
+      </label>
+
+      <sc-if value="{{ emailTaken }}" hint-placeholder-val="{{ false }}">
+        <p data-screen-label="Email already registered" style="margin:-8px 0 16px;font:400 12.5px var(--sans);color:var(--text2)">
+          <a href="Login.dc.html" style="font-weight:500;color:var(--sky)" style-hover="text-decoration:underline">Log in instead →</a>
+        </p>
+      </sc-if>
+
+      <label style="display:block;margin-bottom:16px">
+        <span style="display:flex;align-items:baseline;justify-content:space-between;margin-bottom:6px"><span style="font:600 10px var(--mono);letter-spacing:.12em;text-transform:uppercase;color:var(--text3)">Password</span></span>
+        <input type="password" autocomplete="new-password" placeholder="8+ characters" value="{{ password }}" onInput="{{ setField }}" data-field="password" style="width:100%;border-radius:8px;border:1px solid var(--line);background:var(--panel2);padding:10px 12px;font:400 13px var(--mono);color:var(--text);outline:none;transition:border-color .15s" style-focus="border-color:var(--sky)">
+        <span style="display:block;margin-top:6px;font:400 11px var(--mono);color:var(--text3)">Use at least 8 characters, with one number.</span>
+      </label>
+
+      <label style="display:block;margin-bottom:16px">
+        <span style="display:flex;align-items:baseline;justify-content:space-between;margin-bottom:6px"><span style="font:600 10px var(--mono);letter-spacing:.12em;text-transform:uppercase;color:var(--text3)">Confirm password</span></span>
+        <input type="password" autocomplete="new-password" placeholder="Re-enter your password" value="{{ confirmPassword }}" onInput="{{ setField }}" data-field="confirmPassword" style="width:100%;border-radius:8px;border:1px solid var(--line);background:var(--panel2);padding:10px 12px;font:400 13px var(--mono);color:var(--text);outline:none;transition:border-color .15s" style-focus="border-color:var(--sky)">
+      </label>
+
+      <p style="margin:0 0 20px;font:400 11.5px/1.625 var(--sans);color:var(--text3)">
+        By continuing you agree to the <a href="#" style="color:var(--sky)" style-hover="text-decoration:underline">Terms</a> and <a href="#" style="color:var(--sky)" style-hover="text-decoration:underline">Privacy Policy</a>.
+      </p>
+
+      <button type="button" onClick="{{ submitAccount }}" style="width:100%;display:flex;align-items:center;justify-content:center;gap:8px;border-radius:8px;padding:10px 14px;font:600 13.5px var(--sans);background:var(--amber-btn);border:1px solid var(--amber-btn);color:var(--on-amber);cursor:pointer;transition:filter .15s" style-hover="filter:brightness(1.05)">Continue</button>
+
+      <div style="margin:18px 0;display:flex;align-items:center;gap:10px;font:500 10px var(--mono);text-transform:uppercase;letter-spacing:.1em;color:var(--text3)">
+        <span style="height:1px;flex:1;background:var(--line-soft)"></span>
+        <span>or</span>
+        <span style="height:1px;flex:1;background:var(--line-soft)"></span>
       </div>
-      <div style="display:flex;gap:10px">
-        <button onClick="{{ back }}" style="flex:none;display:flex;align-items:center;gap:6px;background:var(--panel);border:1px solid var(--line);color:var(--text2);font:500 13px var(--sans);padding:10px 16px;border-radius:8px;cursor:pointer" style-hover="color:var(--text);border-color:var(--text3)">Back</button>
-        <button onClick="{{ next }}" style="flex:1;display:flex;align-items:center;justify-content:center;gap:8px;background:var(--amber-btn);border:1px solid var(--amber-btn);color:#1a1712;font:600 13.5px var(--sans);padding:10px 14px;border-radius:8px;cursor:pointer" style-hover="filter:brightness(1.05)">Continue</button>
-      </div>
-    </sc-if>
 
-    <sc-if value="{{ isStep3 }}" hint-placeholder-val="{{ false }}">
-      <div style="display:flex;flex-direction:column;gap:8px;margin-bottom:12px">
-        <sc-for list="{{ invites }}" as="inv" hint-placeholder-count="2">
-          <div style="display:flex;gap:8px;align-items:center">
-            <input type="email" placeholder="colleague@firm.com" style="flex:1;background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:9px 12px;font:400 13px var(--mono);color:var(--text);outline:none;min-width:0" style-focus="border-color:var(--sky)">
-            <select style="flex:none;width:130px;background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:9px 10px;font:400 12.5px var(--mono);color:var(--text);outline:none" style-focus="border-color:var(--sky)">
-              <option>Consultant</option><option>Researcher</option><option>Admin</option>
+      <div style="display:flex;flex-direction:column;gap:8px">
+        <button type="button" onClick="{{ oauth }}" style="width:100%;display:flex;align-items:center;justify-content:center;gap:8px;border-radius:8px;padding:10px 14px;font:500 13.5px var(--sans);background:var(--panel);border:1px solid var(--line);color:var(--text2);cursor:pointer;transition:color .15s,border-color .15s" style-hover="color:var(--text);border-color:var(--text3)">
+          <svg width="15" height="15" viewBox="0 0 24 24" aria-hidden="true"><path fill="#4285F4" d="M23.5 12.3c0-.8-.1-1.6-.2-2.3H12v4.5h6.5a5.6 5.6 0 0 1-2.4 3.6v3h3.9c2.3-2.1 3.5-5.2 3.5-8.8Z"></path><path fill="#34A853" d="M12 24c3.2 0 5.9-1.1 7.9-2.9l-3.9-3a7.2 7.2 0 0 1-10.7-3.8h-4v3.1A12 12 0 0 0 12 24Z"></path><path fill="#FBBC05" d="M5.3 14.3a7.1 7.1 0 0 1 0-4.6V6.6h-4a12 12 0 0 0 0 10.8l4-3.1Z"></path><path fill="#EA4335" d="M12 4.8c1.8 0 3.4.6 4.6 1.8l3.4-3.4A12 12 0 0 0 1.3 6.6l4 3.1A7.2 7.2 0 0 1 12 4.8Z"></path></svg>
+          Continue with Google
+        </button>
+        <button type="button" onClick="{{ oauth }}" style="width:100%;display:flex;align-items:center;justify-content:center;gap:8px;border-radius:8px;padding:10px 14px;font:500 13.5px var(--sans);background:var(--panel);border:1px solid var(--line);color:var(--text2);cursor:pointer;transition:color .15s,border-color .15s" style-hover="color:var(--text);border-color:var(--text3)">
+          <svg width="15" height="15" viewBox="0 0 24 24" aria-hidden="true"><path fill="#0A66C2" d="M20.45 20.45h-3.56v-5.57c0-1.33-.03-3.04-1.85-3.04-1.86 0-2.14 1.45-2.14 2.95v5.66H9.35V9h3.41v1.56h.05a3.74 3.74 0 0 1 3.37-1.85c3.6 0 4.27 2.37 4.27 5.46v6.28ZM5.34 7.43a2.07 2.07 0 1 1 0-4.13 2.07 2.07 0 0 1 0 4.13Zm1.78 13.02H3.55V9h3.57v11.45ZM22.22 0H1.77C.79 0 0 .77 0 1.73v20.54C0 23.23.79 24 1.77 24h20.45c.98 0 1.78-.77 1.78-1.73V1.73C24 .77 23.2 0 22.22 0Z"></path></svg>
+          Continue with LinkedIn
+        </button>
+      </div>
+    </div>
+  </sc-if>
+
+  <!-- Step 2 · Verify -->
+  <sc-if value="{{ isStep2 }}" hint-placeholder-val="{{ false }}">
+    <div data-screen-label="Step 2 · Confirm your email" style="width:420px;max-width:94vw;text-align:center;border-radius:14px;border:1px solid var(--line);background:var(--panel);padding:32px;box-shadow:var(--shadow);animation:fadeUp .5s .08s ease both">
+      <div style="margin:0 auto 16px;width:44px;height:44px;border-radius:50%;display:grid;place-items:center;background:var(--amber-dim)">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true" style="color:var(--amber)"><rect x="3" y="5" width="18" height="14" rx="2"></rect><path d="m3 7 9 6 9-6"></path></svg>
+      </div>
+
+      <h1 style="margin:0;font:600 19px/1.25 var(--sans)">Confirm your email</h1>
+      <p style="margin:4px 0 24px;font:400 12px var(--mono);color:var(--text3)">Step 2 of 4 · check your inbox</p>
+
+      <p style="margin:0 0 24px;font:400 14px/1.45 var(--sans);color:var(--text2)">
+        We sent a link to <span style="font-weight:500">{{ sentTo }}</span>. Open it and you will be signed in and brought straight to the next step — here, or in whichever browser opens the link.
+      </p>
+
+      <p style="margin:0 0 24px;font:400 12px var(--mono);color:var(--text3)">
+        Your email domain is how we know which firm you work at — so we confirm it before creating anything in that firm&rsquo;s name.
+      </p>
+
+      <div style="display:flex;flex-direction:column;gap:8px">
+        <button type="button" onClick="{{ confirmed }}" style="display:flex;align-items:center;justify-content:center;gap:8px;border-radius:8px;padding:10px 14px;font:600 13.5px var(--sans);background:var(--amber-btn);border:1px solid var(--amber-btn);color:var(--on-amber);cursor:pointer;transition:filter .15s" style-hover="filter:brightness(1.05)">I've confirmed it</button>
+
+        <button type="button" onClick="{{ resend }}" disabled="{{ linkSent }}" style="display:flex;align-items:center;justify-content:center;gap:8px;border-radius:8px;padding:10px 14px;font:500 13.5px var(--sans);background:transparent;border:none;color:var(--text3);cursor:{{ resendCursor }}" style-hover="color:var(--text2);text-decoration:underline">{{ resendLabel }}</button>
+
+        <button type="button" onClick="{{ signOut }}" style="display:flex;align-items:center;justify-content:center;gap:8px;border-radius:8px;padding:10px 14px;font:500 13.5px var(--sans);background:transparent;border:none;color:var(--text3);cursor:pointer" style-hover="color:var(--text2);text-decoration:underline">Sign out</button>
+      </div>
+    </div>
+  </sc-if>
+
+  <!-- Step 3 · Organization -->
+  <sc-if value="{{ isStep3 }}" hint-placeholder-val="{{ false }}">
+    <div data-screen-label="Step 3 · About your organization" style="width:480px;max-width:94vw;border-radius:14px;border:1px solid var(--line);background:var(--panel);padding:32px;box-shadow:var(--shadow);animation:fadeUp .5s .08s ease both">
+      <h1 style="margin:0;font:600 19px/1.25 var(--sans)">About your organization</h1>
+      <p style="margin:4px 0 24px;font:400 12px var(--mono);color:var(--text3)">{{ step3Subtitle }}</p>
+
+      <label style="display:block;margin-bottom:16px">
+        <span style="display:flex;align-items:baseline;justify-content:space-between;margin-bottom:6px"><span style="font:600 10px var(--mono);letter-spacing:.12em;text-transform:uppercase;color:var(--text3)">Organization name</span></span>
+        <input placeholder="e.g. Uncava Search Partners" value="{{ orgName }}" onInput="{{ setOrgName }}" style="width:100%;border-radius:8px;border:1px solid var(--line);background:var(--panel2);padding:10px 12px;font:400 13px var(--mono);color:var(--text);outline:none;transition:border-color .15s" style-focus="border-color:var(--sky)">
+        <span style="display:block;margin-top:6px;font:400 11px var(--mono);color:var(--text3)">This becomes your workspace name — you can change it later.</span>
+      </label>
+
+      <div style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));column-gap:16px">
+        <label style="display:block;margin-bottom:16px">
+          <span style="display:flex;align-items:baseline;justify-content:space-between;margin-bottom:6px"><span style="font:600 10px var(--mono);letter-spacing:.12em;text-transform:uppercase;color:var(--text3)">Company size</span></span>
+          <select style="width:100%;border-radius:8px;border:1px solid var(--line);background:var(--panel2);padding:10px 12px;font:400 13px var(--mono);color:var(--text);outline:none;transition:border-color .15s" style-focus="border-color:var(--sky)">
+            <sc-for list="{{ companySizes }}" as="o" hint-placeholder-count="4"><option>{{ o }}</option></sc-for>
+          </select>
+        </label>
+
+        <label style="display:block;margin-bottom:16px">
+          <span style="display:flex;align-items:baseline;justify-content:space-between;margin-bottom:6px"><span style="font:600 10px var(--mono);letter-spacing:.12em;text-transform:uppercase;color:var(--text3)">Primary region</span></span>
+          <select style="width:100%;border-radius:8px;border:1px solid var(--line);background:var(--panel2);padding:10px 12px;font:400 13px var(--mono);color:var(--text);outline:none;transition:border-color .15s" style-focus="border-color:var(--sky)">
+            <sc-for list="{{ regions }}" as="o" hint-placeholder-count="5"><option>{{ o }}</option></sc-for>
+          </select>
+        </label>
+
+        <label style="display:block;margin-bottom:16px">
+          <span style="display:flex;align-items:baseline;justify-content:space-between;margin-bottom:6px"><span style="font:600 10px var(--mono);letter-spacing:.12em;text-transform:uppercase;color:var(--text3)">Team focus</span></span>
+          <select style="width:100%;border-radius:8px;border:1px solid var(--line);background:var(--panel2);padding:10px 12px;font:400 13px var(--mono);color:var(--text);outline:none;transition:border-color .15s" style-focus="border-color:var(--sky)">
+            <sc-for list="{{ teamFocuses }}" as="o" hint-placeholder-count="4"><option>{{ o }}</option></sc-for>
+          </select>
+        </label>
+      </div>
+
+      <button type="button" onClick="{{ submitWorkspace }}" style="width:100%;display:flex;align-items:center;justify-content:center;gap:8px;border-radius:8px;padding:10px 14px;font:600 13.5px var(--sans);background:var(--amber-btn);border:1px solid var(--amber-btn);color:var(--on-amber);cursor:pointer;transition:filter .15s" style-hover="filter:brightness(1.05)">Continue</button>
+    </div>
+  </sc-if>
+
+  <!-- Step 4 · Invite team -->
+  <sc-if value="{{ isStep4 }}" hint-placeholder-val="{{ false }}">
+    <div data-screen-label="Step 4 · Invite your team" style="width:480px;max-width:94vw;border-radius:14px;border:1px solid var(--line);background:var(--panel);padding:32px;box-shadow:var(--shadow);animation:fadeUp .5s .08s ease both">
+      <h1 style="margin:0;font:600 19px/1.25 var(--sans)">Invite your team</h1>
+      <p style="margin:4px 0 24px;font:400 12px var(--mono);color:var(--text3)">Step 4 of 4 · optional — invite people later from Team</p>
+
+      <div style="margin-bottom:12px;display:flex;flex-direction:column;gap:8px">
+        <sc-for list="{{ invites }}" as="it" hint-placeholder-count="2">
+          <div style="display:flex;flex-wrap:wrap;align-items:center;gap:8px">
+            <input type="email" value="{{ it.email }}" onInput="{{ setInviteEmail }}" data-id="{{ it.id }}" placeholder="colleague@firm.com" aria-label="Colleague's email" style="flex:1;min-width:0;border-radius:8px;border:1px solid {{ it.border }};background:var(--panel2);padding:10px 12px;font:400 13px var(--mono);color:var(--text);outline:none;transition:border-color .15s" style-focus="border-color:var(--sky)">
+            <select value="{{ it.role }}" onChange="{{ setInviteRole }}" data-id="{{ it.id }}" aria-label="Role" style="width:130px;flex:none;border-radius:8px;border:1px solid var(--line);background:var(--panel2);padding:10px 12px;font:400 13px var(--mono);color:var(--text);outline:none;transition:border-color .15s" style-focus="border-color:var(--sky)">
+              <sc-for list="{{ it.roles }}" as="r" hint-placeholder-count="2"><option value="{{ r.value }}">{{ r.label }}</option></sc-for>
             </select>
-            <button onClick="{{ removeInvite }}" data-idx="{{ $index }}" style="flex:none;background:none;border:none;color:var(--text3);cursor:pointer;padding:6px;border-radius:6px;font:400 13px var(--sans)" style-hover="color:var(--red)">✕</button>
+            <sc-if value="{{ it.canRemove }}" hint-placeholder-val="{{ true }}">
+              <button type="button" onClick="{{ removeInvite }}" data-id="{{ it.id }}" aria-label="{{ it.removeLabel }}" style="flex:none;border-radius:6px;padding:6px;background:none;border:none;color:var(--text3);font:400 14px var(--sans);cursor:pointer;outline:none;transition:color .15s" style-hover="color:var(--red)">✕</button>
+            </sc-if>
+            <sc-if value="{{ it.lastRow }}" hint-placeholder-val="{{ false }}">
+              <button type="button" disabled="{{ true }}" aria-label="{{ it.removeLabel }}" style="flex:none;border-radius:6px;padding:6px;background:none;border:none;color:var(--text3);font:400 14px var(--sans);opacity:.3;cursor:not-allowed;outline:none">✕</button>
+            </sc-if>
+            <sc-if value="{{ it.hasError }}" hint-placeholder-val="{{ false }}">
+              <span style="width:100%;font:400 11px var(--mono);color:var(--red)">That doesn't look like a valid email</span>
+            </sc-if>
           </div>
         </sc-for>
       </div>
-      <button onClick="{{ addInvite }}" style="display:inline-flex;align-items:center;gap:6px;background:none;border:none;padding:0;cursor:pointer;font:500 12.5px var(--sans);color:var(--sky);margin-bottom:22px" style-hover="text-decoration:underline">
-        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M12 5v14M5 12h14"></path></svg>
+
+      <button type="button" onClick="{{ addInvite }}" style="margin-bottom:20px;display:inline-flex;align-items:center;gap:6px;background:none;border:none;padding:0;cursor:pointer;font:500 12.5px var(--sans);color:var(--sky)" style-hover="text-decoration:underline">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" aria-hidden="true"><path d="M12 5v14M5 12h14"></path></svg>
         Add another
       </button>
-      <div style="display:flex;align-items:center;gap:7px;padding:9px 12px;background:var(--sky-dim);border-radius:8px;color:var(--sky);font:400 11.5px var(--mono);margin-bottom:20px">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex:none"><circle cx="12" cy="12" r="9"></circle><path d="M12 8h.01M12 11v5"></path></svg>
+
+      <div style="margin-bottom:20px;display:flex;align-items:center;gap:8px;border-radius:8px;background:var(--sky-dim);padding:10px 12px;font:400 11.5px var(--mono);color:var(--sky)">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true" style="flex:none"><circle cx="12" cy="12" r="9"></circle><path d="M12 8h.01M12 11v5"></path></svg>
         Invitees get access to projects you add them to — roles apply per project.
       </div>
-      <div style="display:flex;gap:10px;align-items:center">
-        <button onClick="{{ back }}" style="flex:none;display:flex;align-items:center;gap:6px;background:var(--panel);border:1px solid var(--line);color:var(--text2);font:500 13px var(--sans);padding:10px 16px;border-radius:8px;cursor:pointer" style-hover="color:var(--text);border-color:var(--text3)">Back</button>
-        <button onClick="{{ finish }}" style="flex:1;display:flex;align-items:center;justify-content:center;gap:8px;background:var(--amber-btn);border:1px solid var(--amber-btn);color:#1a1712;font:600 13.5px var(--sans);padding:10px 14px;border-radius:8px;cursor:pointer" style-hover="filter:brightness(1.05)">Send invites &amp; finish</button>
+
+      <div style="display:flex;align-items:center;gap:10px">
+        <button type="button" onClick="{{ backToWorkspace }}" style="flex:none;display:flex;align-items:center;justify-content:center;gap:8px;border-radius:8px;padding:10px 14px;font:500 13.5px var(--sans);background:var(--panel);border:1px solid var(--line);color:var(--text2);cursor:pointer;transition:color .15s,border-color .15s" style-hover="color:var(--text);border-color:var(--text3)">Back</button>
+        <button type="button" onClick="{{ finish }}" style="flex:1;display:flex;align-items:center;justify-content:center;gap:8px;border-radius:8px;padding:10px 14px;font:600 13.5px var(--sans);background:var(--amber-btn);border:1px solid var(--amber-btn);color:var(--on-amber);cursor:pointer;transition:filter .15s" style-hover="filter:brightness(1.05)">Send invites &amp; finish</button>
       </div>
-      <button onClick="{{ finish }}" style="width:100%;background:none;border:none;padding:0;cursor:pointer;font:500 12.5px var(--sans);color:var(--text3);margin-top:16px;text-align:center" style-hover="color:var(--text2);text-decoration:underline">Skip for now</button>
-    </sc-if>
-  </div>
 
-  <div style="font:400 12.5px var(--sans);color:var(--text2);animation:fadeUp .5s .12s ease both">Already have an account? <a href="Login.dc.html">Sign in</a></div>
+      <button type="button" onClick="{{ skip }}" style="margin-top:16px;width:100%;text-align:center;background:none;border:none;padding:0;cursor:pointer;font:500 12.5px var(--sans);color:var(--text3)" style-hover="color:var(--text2);text-decoration:underline">Skip for now</button>
+    </div>
+  </sc-if>
+
+  <sc-if value="{{ isStep1 }}" hint-placeholder-val="{{ true }}">
+    <p style="margin:0;font:400 12.5px var(--sans);color:var(--text2);animation:fadeUp .5s .12s ease both">
+      Already have an account? <a href="Login.dc.html" style="color:var(--sky)" style-hover="text-decoration:underline">Sign in</a>
+    </p>
+  </sc-if>
 </div>
-
-<template id="__bundler_thumbnail"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><rect width="100" height="100" fill="#16171a"></rect><text x="50" y="50" fill="#e2b65c" font-family="Montserrat,sans-serif" font-size="26" font-weight="700" text-anchor="middle" dominant-baseline="central">SU</text></svg></template>
+<template id="__bundler_thumbnail"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><rect width="100" height="100" fill="#16171a"></rect><g transform="translate(50 40) scale(.42)" fill="none" stroke="#f8fafc"><path d="M-32 10 L 0 -8 L 32 10 L 0 28 Z M-32 10 V 32 L 0 50 L 32 32 V 10 M0 28 V 50" stroke-width="3" stroke-linejoin="round"></path><path d="M0 -48 L 32 -30 L 0 -12 L -32 -30 Z" fill="#f8fafc" stroke="none"></path></g><text x="50" y="86" fill="#e2b65c" font-family="Geist,Inter,sans-serif" font-size="13" font-weight="700" letter-spacing="2" text-anchor="middle">SU</text></svg></template>
 </x-dc>
-<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:&quot;100%&quot;,&quot;height&quot;:760}}">
+<script type="text/x-dc" data-dc-script data-props="{&quot;step&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;default&quot;:&quot;1&quot;,&quot;options&quot;:[&quot;1&quot;,&quot;2&quot;,&quot;3&quot;,&quot;4&quot;],&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;State&quot;},&quot;emailTaken&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;State&quot;},&quot;reentered&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;State&quot;},&quot;linkSent&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;State&quot;}}">
 class Component extends DCLogic {
-  state = { step: 1, invites: [{ id: 1 }, { id: 2 }] };
+  constructor(props) {
+    super(props);
+    this.SIGNUP_STEPS = [
+      { n: 1, label: 'Account' },
+      { n: 2, label: 'Verify' },
+      { n: 3, label: 'Organization' },
+      { n: 4, label: 'Invite team' },
+    ];
+    this.COMPANY_SIZES = ['1–10 people', '11–50 people', '51–200 people', '200+ people'];
+    this.REGIONS = ['GCC', 'MENA', 'Europe', 'North America', 'Global'];
+    this.TEAM_FOCUSES = ['Executive search', 'Board advisory', 'Talent mapping', 'Mixed'];
+    this.INVITE_ROLES = [{ value: 'MEMBER', label: 'Member' }, { value: 'ADMIN', label: 'Admin' }];
+    this.CAST_NAME = 'Yara Haddad';
+    this.CAST_EMAIL = 'yara@meridiansearch.com';
+    this.CAST_WORKSPACE = 'Meridian Search Partners';
+
+    const q = typeof location !== 'undefined' ? new URLSearchParams(location.search) : new URLSearchParams();
+    const flag = (k) => (q.has(k) ? ['1', 'true', 'yes'].includes(q.get(k)) : null);
+    const urlStep = q.get('step');
+    this.state = {
+      step: ['1', '2', '3', '4'].includes(urlStep) ? urlStep : null,
+      emailTaken: flag('emailTaken'),
+      reentered: flag('reentered'),
+      linkSent: flag('linkSent'),
+      form: {},
+      orgName: null,
+      invites: [{ id: 1, email: '', role: 'MEMBER' }, { id: 2, email: '', role: 'MEMBER' }],
+      rowErrors: {},
+      dark: false,
+    };
+  }
+
+  componentDidMount() {
+    this.setState({ dark: document.body.classList.contains('dark') });
+  }
+
+  componentDidUpdate(prevProps) {
+    const cleared = {};
+    ['step', 'emailTaken', 'reentered', 'linkSent'].forEach((k) => {
+      if (prevProps && prevProps[k] !== this.props[k] && this.state[k] !== null) cleared[k] = null;
+    });
+    if (Object.keys(cleared).length) this.setState(cleared);
+  }
+
+  pick(k, fallback) {
+    const v = this.state[k];
+    if (v !== null && v !== undefined) return v;
+    const p = this.props[k];
+    return p === undefined ? fallback : p;
+  }
+
+  go(url) { if (typeof window !== 'undefined') window.location.href = url; }
 
   renderVals() {
-    const step = this.state.step;
-    const meta = [
-      { n: 1, label: 'Account' },
-      { n: 2, label: 'Organization' },
-      { n: 3, label: 'Invite team' },
-    ];
-    const steps = meta.map((s, i) => {
-      const done = s.n < step, active = s.n === step;
+    const step = Number(this.pick('step', '1')) || 1;
+    const emailTaken = !!this.pick('emailTaken', false);
+    const reentered = !!this.pick('reentered', false);
+    const linkSent = !!this.pick('linkSent', false);
+    const f = this.state.form;
+    const fv = (k, taken) => (f[k] !== undefined ? f[k] : emailTaken ? taken : '');
+
+    const backable = step === 4 ? [3] : [];
+    const steps = this.SIGNUP_STEPS.map((s, i) => {
+      const done = s.n < step;
+      const active = s.n === step;
+      const canGoBack = done && backable.includes(s.n);
       return {
+        n: s.n,
         label: s.label,
         mark: done ? '✓' : String(s.n),
         showConnector: i > 0,
         connectorColor: s.n <= step ? 'var(--amber-btn)' : 'var(--line)',
         circleBg: done ? 'var(--green-dim)' : active ? 'var(--amber-btn)' : 'var(--panel2)',
-        circleColor: done ? 'var(--green)' : active ? '#1a1712' : 'var(--text3)',
+        circleColor: done ? 'var(--green)' : active ? 'var(--on-amber)' : 'var(--text3)',
         circleBorder: done ? 'transparent' : active ? 'var(--amber-btn)' : 'var(--line)',
         labelColor: active ? 'var(--text)' : done ? 'var(--text2)' : 'var(--text3)',
-        go: () => { if (s.n < step) this.setState({ step: s.n }); },
+        disabled: !canGoBack,
+        cursor: canGoBack ? 'pointer' : 'default',
+        ariaCurrent: active ? 'step' : undefined,
       };
     });
-    const titles = {
-      1: ['Create your account', 'Step 1 of 3 · your details'],
-      2: ['About your organization', 'Step 2 of 3 · this becomes your workspace'],
-      3: ['Invite your team', 'Step 3 of 3 · optional — invite people later from Team'],
+
+    const invites = this.state.invites.map((r) => ({
+      ...r,
+      hasError: !!this.state.rowErrors[r.id],
+      border: this.state.rowErrors[r.id] ? 'var(--red)' : 'var(--line)',
+      removeLabel: 'Remove ' + (r.email || 'this invite'),
+      canRemove: this.state.invites.length > 1,
+      lastRow: this.state.invites.length === 1,
+      roles: this.INVITE_ROLES,
+    }));
+    const clearRowError = (id) => {
+      if (!this.state.rowErrors[id]) return {};
+      const next = { ...this.state.rowErrors };
+      delete next[id];
+      return { rowErrors: next };
     };
+    const patchInvite = (id, patch) => this.setState((s) => ({
+      invites: s.invites.map((r) => (r.id === id ? { ...r, ...patch } : r)),
+      ...clearRowError(id),
+    }));
+    const validEmail = (v) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v);
+
+    const dark = this.state.dark;
     return {
       steps,
-      title: titles[step][0],
-      subtitle: titles[step][1],
       isStep1: step === 1,
       isStep2: step === 2,
       isStep3: step === 3,
-      invites: this.state.invites,
-      next: () => this.setState({ step: Math.min(3, step + 1) }),
-      back: () => this.setState({ step: Math.max(1, step - 1) }),
-      addInvite: () => this.setState(s => ({ invites: [...s.invites, { id: Date.now() }] })),
-      removeInvite: (e) => {
-        const idx = +e.currentTarget.dataset.idx;
-        this.setState(s => ({ invites: s.invites.filter((_, i) => i !== idx) }));
+      isStep4: step === 4,
+      dark,
+      light: !dark,
+      themeLabel: dark ? 'Switch to light mode' : 'Switch to dark mode',
+      toggleTheme: () => {
+        const d = !this.state.dark;
+        document.body.classList.toggle('dark', d);
+        try { localStorage.setItem('lm-theme', d ? 'dark' : 'light'); } catch (e) {}
+        this.setState({ dark: d });
       },
-      finish: () => { window.location.href = 'Workspace.dc.html?fresh=1'; },
+      stepClick: (e) => {
+        const n = Number(e.currentTarget.dataset.n);
+        if (n < step && backable.includes(n)) this.setState({ step: String(n), reentered: true });
+      },
+
+      fullName: fv('fullName', this.CAST_NAME),
+      email: fv('email', this.CAST_EMAIL),
+      password: fv('password', 'meridian2026'),
+      confirmPassword: fv('confirmPassword', 'meridian2026'),
+      emailTaken,
+      emailFree: !emailTaken,
+      emailBorder: emailTaken ? 'var(--red)' : 'var(--line)',
+      setField: (e) => {
+        const k = e.currentTarget.dataset.field;
+        const v = e.currentTarget.value;
+        this.setState((s) => ({ form: { ...s.form, [k]: v }, ...(k === 'email' && emailTaken ? { emailTaken: false } : {}) }));
+      },
+      submitAccount: () => this.setState({ step: '2', emailTaken: false }),
+      oauth: () => this.setState({ step: '2', emailTaken: false }),
+
+      sentTo: (f.email && f.email.trim()) || this.CAST_EMAIL,
+      linkSent,
+      resendLabel: linkSent ? 'Link sent' : 'Resend the link',
+      resendCursor: linkSent ? 'not-allowed' : 'pointer',
+      resend: () => { if (!linkSent) this.setState({ linkSent: true }); },
+      confirmed: () => this.setState({ step: '3' }),
+      signOut: () => this.go('Login.dc.html'),
+
+      step3Subtitle: 'Step 3 of 4 · ' + (reentered ? 'update your workspace' : 'this becomes your workspace'),
+      orgName: this.state.orgName !== null ? this.state.orgName : reentered ? this.CAST_WORKSPACE : '',
+      setOrgName: (e) => this.setState({ orgName: e.currentTarget.value }),
+      companySizes: this.COMPANY_SIZES,
+      regions: this.REGIONS,
+      teamFocuses: this.TEAM_FOCUSES,
+      submitWorkspace: () => this.setState({ step: '4' }),
+
+      invites,
+      setInviteEmail: (e) => patchInvite(Number(e.currentTarget.dataset.id), { email: e.currentTarget.value }),
+      setInviteRole: (e) => patchInvite(Number(e.currentTarget.dataset.id), { role: e.currentTarget.value }),
+      addInvite: () => this.setState((s) => ({ invites: [...s.invites, { id: Date.now(), email: '', role: 'MEMBER' }] })),
+      removeInvite: (e) => {
+        const id = Number(e.currentTarget.dataset.id);
+        this.setState((s) => (s.invites.length > 1 ? { invites: s.invites.filter((r) => r.id !== id), ...clearRowError(id) } : {}));
+      },
+      backToWorkspace: () => this.setState({ step: '3', reentered: true }),
+      finish: () => {
+        const errors = {};
+        this.state.invites.forEach((r) => { if (r.email !== '' && !validEmail(r.email)) errors[r.id] = true; });
+        if (Object.keys(errors).length) { this.setState({ rowErrors: errors }); return; }
+        this.go('Workspace.dc.html');
+      },
+      skip: () => this.go('Workspace.dc.html'),
     };
   }
 }

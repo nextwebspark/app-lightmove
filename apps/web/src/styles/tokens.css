@@ -84,7 +84,7 @@
   --shadow-panel: 0 8px 28px rgba(15, 23, 42, 0.1);
   --radius-panel: 14px;
 
-  /* ── UNCAVA (claude-design/color-pallate) ───────────────────────────────────
+  /* ── UNCAVA (the --u-* block in every claude-design/*.dc.html helmet) ───────────────────────────────────
    *
    * A second palette, beside the first rather than replacing it. Only the Reports chapters and the
    * Position brief read these; every other screen keeps the tokens above, so adopting Uncava app-wide
