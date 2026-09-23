@@ -75,7 +75,7 @@ export function CompensationStep({
             aria-label="Currency"
             value={currency}
             onChange={(event) => onChange({ currency: event.target.value }, true)}
-            className="rounded-[6px] bg-u-raised px-2.5 py-1.5 text-note font-semibold text-u-text outline-none"
+            className="rounded-[8px] border border-u-border bg-u-sunken px-3 py-1.5 text-body font-semibold text-u-text outline-none"
           >
             {CURRENCIES.map((code) => (
               <option key={code} value={code}>
@@ -117,9 +117,8 @@ export function CompensationStep({
             />
           </div>
           <div className="mt-3 flex items-baseline gap-2">
-            {isFixed && <span className="font-u-num text-subhead text-u-text2">{currency}</span>}
+            {isFixed && <span className="type-figure-input text-u-text2">{currency}</span>}
             <FigureInput
-              size="lg"
               grouped={isFixed}
               value={compensation.bonusValue}
               aria-label="Bonus target"
@@ -127,7 +126,7 @@ export function CompensationStep({
               onChange={(bonusValue) => onChange({ bonusValue })}
               className={isFixed ? "w-full max-w-[240px]" : "w-[4ch]"}
             />
-            {!isFixed && <span className="font-u-num text-subhead text-u-text2">%</span>}
+            {!isFixed && <span className="type-figure-input text-u-text2">%</span>}
           </div>
           <span className="mt-1 block text-note text-u-text3">
             {compensation.bonusBasis ? BONUS_CAPTIONS[compensation.bonusBasis] : "choose what the figure is read against"}
@@ -152,9 +151,8 @@ export function CompensationStep({
             />
           </div>
           <div className="mt-3 flex items-baseline gap-2">
-            <span className="font-u-num text-subhead text-u-text2">{currency}</span>
+            <span className="type-figure-input text-u-text2">{currency}</span>
             <FigureInput
-              size="lg"
               grouped
               value={compensation.incentiveAmount}
               aria-label="Incentive amount"
@@ -170,7 +168,9 @@ export function CompensationStep({
               aria-label="Vesting schedule"
               placeholder="Vesting schedule, e.g. 4-year vesting"
               onChange={(event) => onChange({ incentiveVesting: event.target.value || null })}
-              className="border-transparent text-body text-u-text2 focus:border-u-accent"
+              // Quiet inline caption under the LTIP figure, not a field of its own — kept borderless
+              // and unboxed rather than inheriting UnderlineField's usual box.
+              className="rounded-none border-0 bg-transparent px-0 py-2 text-u-text2"
             />
           </div>
         </BriefPanel>

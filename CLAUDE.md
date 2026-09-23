@@ -132,14 +132,20 @@ compensation is never read, most descriptions state no figure — fan out into `
 `fillBrief`, which folds every scalar and repeatable list into the brief field-by-field, source-aware
 (`TEMPLATE | DOCUMENT | MANUAL`, V67): a `DOCUMENT` value is replaced by a fresh reading, a `MANUAL`
 one never is. There is no review-then-accept panel — the old wizard's went with it — a filled field
-wears a small sparkle (`ProvenanceMarker`) instead, whose popover carries the snippet and an Undo; a
-per-screen strip summarises the last reading with an Undo all, and the rail badges a step `N filled`
-for the session. **Extract with AI** on the file card reads again; the Reporting and Assessment
+wears a small sparkle (`ProvenanceMarker`) instead, whose popover carries the snippet and an Undo.
+A reading that worked says nothing more than a toast; only one that went wrong leaves a line
+(`DocumentReadNotice`) — an unreadable file, a section that failed, a reader that could not be
+reached. **Extract with AI** on the file card reads again; the Reporting and Assessment
 steps carry **Read from document** in their own header, Compensation none. The reporting reading
-also offers the matched template's usual direct reports as **Suggested seats** under the chart,
-and a role title the document suggests a different template for surfaces as a one-line banner
-with an Apply.
-Everything a reading leaves behind — confidence, snippet, Undo, the rail badge — is the tab's, never
+also offers the matched template's usual direct reports as **Suggested seats** under the chart.
+When the document reads as a template's role, that template is **applied automatically — but only
+to a brief nobody has typed into** (`isUntouched`), because applying one replaces responsibilities,
+the org chart, competencies and benefits wholesale, typed rows included; on an edited brief the
+suggestion is dropped. The same reading is then folded over the redrafted brief (no second read),
+and the title is the document's when it states one, never the template's. **A document's role title
+always replaces the brief's** — typed or not, it renames the mandate; it carries no provenance (no
+`fieldSources` key), so it takes no sparkle and no Undo.
+Everything a reading leaves behind — confidence, snippet, Undo — is the tab's, never
 the database's: `lib/receiptStore.ts` keeps it in `sessionStorage` stamped with the attached
 document's name, so a reload reads back the same popover instead of a sparkle with nothing behind it,
 and a closed tab takes the quoted lines of a client's description with it. Only `source` outlives the

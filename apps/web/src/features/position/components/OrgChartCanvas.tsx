@@ -210,6 +210,7 @@ function OrgChart({ chart, roleTitle, onChange }: OrgChartCanvasProps) {
         minZoom={0.3}
         maxZoom={1.5}
         proOptions={PRO_OPTIONS}
+        ariaLabelConfig={ARIA_LABELS}
         aria-label="Org chart"
         className="[&_.react-flow__attribution]:hidden"
       >
@@ -247,3 +248,9 @@ const NODE_TYPES = { orgSeat: OrgSeatNode };
 const FIT_VIEW = { padding: 0.2, maxZoom: 1 };
 /** The React Flow watermark is a paid-plan removal; hiding it is what the flag is for. */
 const PRO_OPTIONS = { hideAttribution: true };
+
+const ARIA_LABELS = {
+  "controls.zoomIn.ariaLabel": "Zoom in",
+  "controls.zoomOut.ariaLabel": "Zoom out",
+  "controls.fitView.ariaLabel": "Fit view",
+};

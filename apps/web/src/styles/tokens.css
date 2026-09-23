@@ -81,10 +81,17 @@
   --text-figure: 27px;
   --text-figure--line-height: 1.15;
 
+  --tracking-label: 0.02em;
+  --tracking-tag: 0.06em;
+  --tracking-title: -0.01em;
+  --tracking-figure: -0.02em;
+
+  --leading-narrative: 1.7;
+
   --shadow-panel: 0 8px 28px rgba(15, 23, 42, 0.1);
   --radius-panel: 14px;
 
-  /* ── UNCAVA (claude-design/color-pallate) ───────────────────────────────────
+  /* ── UNCAVA (the --u-* block in every claude-design/*.dc.html helmet) ───────────────────────────────────
    *
    * A second palette, beside the first rather than replacing it. Only the Reports chapters and the
    * Position brief read these; every other screen keeps the tokens above, so adopting Uncava app-wide
@@ -239,4 +246,56 @@
   /* On a dark ground a card is lifted by its surface step and border, never by a shadow. */
   --shadow-u-e1: 0 0 #0000;
   --shadow-u-e3: 0 18px 44px -10px rgba(0, 0, 0, 0.8);
+}
+
+/* Type roles: each is one recurring text style of claude-design/Position.dc.html, colour left to the caller. */
+@utility type-label {
+  font-size: var(--text-note);
+  line-height: var(--text-note--line-height);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: var(--tracking-label);
+}
+
+@utility type-summary-label {
+  font-size: var(--text-eyebrow);
+  line-height: var(--text-eyebrow--line-height);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: var(--tracking-tag);
+}
+
+@utility type-tag {
+  font-size: var(--text-eyebrow);
+  line-height: var(--text-eyebrow--line-height);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: var(--tracking-tag);
+}
+
+@utility type-title {
+  font-size: var(--text-title);
+  line-height: var(--text-title--line-height);
+  font-weight: 600;
+  letter-spacing: var(--tracking-title);
+}
+
+@utility type-heading {
+  font-size: var(--text-body);
+  line-height: var(--text-body--line-height);
+  font-weight: 600;
+}
+
+@utility type-figure {
+  font-family: var(--font-u-num);
+  font-size: var(--text-figure);
+  line-height: var(--text-figure--line-height);
+  font-weight: 500;
+}
+
+@utility type-figure-input {
+  font-family: var(--font-u-num);
+  font-size: var(--text-lead);
+  line-height: var(--text-lead--line-height);
+  font-weight: 400;
 }

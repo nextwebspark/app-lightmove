@@ -591,7 +591,15 @@ function fillDetails(
     if (result.skipped) skipped.push({ step: "details", fieldKey: lens.key, reason: result.skipped });
   };
 
-  // roleTitle is never filled — the document's title only ever drives the template suggestion.
+  // The document's title always wins, typed or not — it renames the mandate. It carries no provenance
+  // (the server's field-source allow-list has no key for it), so it takes no receipt and no Undo.
+  const title = fields.find((candidate) => candidate.fieldKey === "roleTitle" && candidate.origin === "document");
+  const readTitle = title?.value.trim();
+  if (readTitle && readTitle !== draft.roleTitle) {
+    draft = { ...draft, roleTitle: readTitle };
+    changed = true;
+  }
+
   applyLens(DEPARTMENT_LENS);
   applyLens(LOCATION_CITY_LENS);
   applyLens(LOCATION_COUNTRY_LENS);
