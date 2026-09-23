@@ -10,504 +10,706 @@
 <helmet>
   <meta name="design_doc_mode" content="canvas">
   <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700;900&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700;900&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
   <style>
-    :root{--bg:#f8f9fb;--panel:#ffffff;--panel2:#f3f4f6;--line:#e2e4e9;--line-soft:#edeef2;--text:#111113;--text2:#475569;--text3:#64748b;--amber:#a67c2e;--amber-btn:#e2b65c;--amber-dim:rgba(226,182,92,.14);--sky:#2563eb;--sky-dim:rgba(37,99,235,.10);--red:#dc2626;--red-dim:rgba(220,38,38,.08);--green:#059669;--green-dim:rgba(5,150,105,.10);--shadow:0 8px 28px rgba(15,23,42,.10);--mono:'Geist','Inter',system-ui,sans-serif;--sans:'Geist','Inter',system-ui,sans-serif}
-    body.dark{--bg:#0c0d0e;--panel:#16171a;--panel2:#131316;--line:#2a2a2e;--line-soft:#212326;--text:#f8fafc;--text2:#cbd5e1;--text3:#94a3b8;--amber:#e2b65c;--amber-dim:rgba(226,182,92,.16);--sky:#60a5fa;--sky-dim:rgba(96,165,250,.16);--red:#f87171;--red-dim:rgba(248,113,113,.14);--green:#34d399;--green-dim:rgba(52,211,153,.16);--shadow:0 8px 28px rgba(0,0,0,.5)}
+    :root{--bg:#f8f9fb;--panel:#ffffff;--panel2:#f3f4f6;--line:#e2e4e9;--line-soft:#edeef2;--text:#111113;--text2:#475569;--text3:#64748b;--amber:#a67c2e;--amber-btn:#e2b65c;--amber-dim:rgba(226,182,92,.14);--on-amber:#1a1712;--sky:#2563eb;--sky-dim:rgba(37,99,235,.10);--red:#dc2626;--red-dim:rgba(220,38,38,.08);--green:#059669;--green-dim:rgba(5,150,105,.10);--ai:#6366f1;--ai2:#3b82f6;--ai-line:#4f46e5;--ai-dim:rgba(99,102,241,.10);--ai-soft:rgba(99,102,241,.06);--shadow:0 8px 28px rgba(15,23,42,.10);--radius-panel:14px;--mono:'Geist','Inter',system-ui,sans-serif;--sans:'Geist','Inter',system-ui,sans-serif;
+      --t-eyebrow:9.5px;--t-meta:11px;--t-note:12px;--t-body:13px;--t-lead:15px;--t-subhead:17px;--t-title:19px;--t-figure:27px;
+      --u-bg:#ffffff;--u-surface:#f7f8fa;--u-raised:#eceff3;--u-sunken:#e4e8ee;--u-border:rgba(3,7,18,.09);--u-border-strong:rgba(3,7,18,.16);--u-scrim:rgba(3,7,18,.4);--u-text:#0b0d12;--u-text2:#4c5462;--u-text3:#6b7382;--u-accent:#4a56d6;--u-accent-solid:#4a56d6;--u-accent-tint:rgba(74,86,214,.09);--u-accent-ring:rgba(74,86,214,.4);--u-signal:#a8602f;--u-signal-tint:rgba(168,96,47,.1);--u-offlimits:#d93a45;--u-offlimits-tint:rgba(217,58,69,.1);--u-direct:#0f9d6b;--u-direct-tint:rgba(15,157,107,.1);--u-adjacent:#1f72d4;--u-adjacent-tint:rgba(31,114,212,.1);--u-inferred:#8244d6;--u-inferred-tint:rgba(130,68,214,.1);--u-chart-1:#4a56d6;--u-chart-2:#0f9d6b;--u-chart-3:#a8602f;--u-chart-4:#8244d6;--u-chart-5:#1e8fa8;--u-chart-6:#d93a45;--u-seq-1:#e4e8f6;--u-seq-2:#b9c0ee;--u-seq-3:#8189f7;--u-seq-4:#4a56d6;--u-seq-5:#2e3878;--u-grid-axis:rgba(3,7,18,.14);--u-grid-line:rgba(3,7,18,.07);--u-num:'JetBrains Mono',ui-monospace,SFMono-Regular,monospace;--u-e1:0 1px 2px rgba(3,7,18,.06);--u-e3:0 18px 44px -10px rgba(3,7,18,.2)}
+    body.dark{--bg:#0c0d0e;--panel:#16171a;--panel2:#131316;--line:#2a2a2e;--line-soft:#212326;--text:#f8fafc;--text2:#cbd5e1;--text3:#94a3b8;--amber:#e2b65c;--amber-dim:rgba(226,182,92,.16);--sky:#60a5fa;--sky-dim:rgba(96,165,250,.16);--red:#f87171;--red-dim:rgba(248,113,113,.14);--green:#34d399;--green-dim:rgba(52,211,153,.16);--ai:#818cf8;--ai2:#60a5fa;--ai-line:#6366f1;--ai-dim:rgba(129,140,248,.16);--ai-soft:rgba(129,140,248,.09);--shadow:0 8px 28px rgba(0,0,0,.5);
+      --u-bg:#08090b;--u-surface:#0e1013;--u-raised:#15181d;--u-sunken:#1d2128;--u-border:rgba(255,255,255,.07);--u-border-strong:rgba(255,255,255,.14);--u-scrim:rgba(4,5,7,.72);--u-text:#f4f6f8;--u-text2:#a6adbb;--u-text3:#7c8493;--u-accent:#6e79f2;--u-accent-solid:#4a56d6;--u-accent-tint:rgba(110,121,242,.14);--u-accent-ring:rgba(110,121,242,.45);--u-signal:#d4855c;--u-signal-tint:rgba(212,133,92,.12);--u-offlimits:#f2626b;--u-offlimits-tint:rgba(242,98,107,.12);--u-direct:#3ecf8e;--u-direct-tint:rgba(62,207,142,.12);--u-adjacent:#5aa9ff;--u-adjacent-tint:rgba(90,169,255,.12);--u-inferred:#b07cf5;--u-inferred-tint:rgba(176,124,245,.12);--u-chart-1:#6e79f2;--u-chart-2:#3ecf8e;--u-chart-3:#d4855c;--u-chart-4:#b07cf5;--u-chart-5:#4fc3d9;--u-chart-6:#f2626b;--u-seq-1:#1e2440;--u-seq-2:#2e3878;--u-seq-3:#4a56d6;--u-seq-4:#6e79f2;--u-seq-5:#a3a9fa;--u-grid-axis:rgba(255,255,255,.1);--u-grid-line:rgba(255,255,255,.055);--u-e1:0 0 #0000;--u-e3:0 18px 44px -10px rgba(0,0,0,.8)}
     *{box-sizing:border-box}
-    html,body{margin:0}
+    html,body{height:100%;margin:0}
     body{background:var(--bg);color:var(--text);font:400 14px/1.45 var(--sans);-webkit-font-smoothing:antialiased}
     a{color:var(--sky);text-decoration:none}
-    a:hover{text-decoration:underline}
     input::placeholder,textarea::placeholder{color:var(--text3)}
-    ::-webkit-scrollbar{width:8px;height:8px}
-    ::-webkit-scrollbar-thumb{background:var(--line);border-radius:8px}
+    button{font-family:inherit}
+    @keyframes fadeUp{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
+    @keyframes spin{to{transform:rotate(360deg)}}
+    @keyframes slideInEnd{from{transform:translateX(100%)}to{transform:none}}
   </style>
-  <script>try{if(localStorage.getItem('lm-theme')!=='light'){document.body.classList.add('dark');}}catch(e){}</script>
+  <script>try{var t=localStorage.getItem('lm-theme');if(t==='dark'||(t!=='light'&&window.matchMedia&&matchMedia('(prefers-color-scheme: dark)').matches)){document.body.classList.add('dark');}}catch(e){}</script>
+  <style>
+    /* The side panel is dark-only (apps/extension/popup.html puts the dark class on html), whatever the page theme. */
+    [data-popup]{--bg:#0c0d0e;--panel:#16171a;--panel2:#131316;--line:#2a2a2e;--line-soft:#212326;--text:#f8fafc;--text2:#cbd5e1;--text3:#94a3b8;--amber:#e2b65c;--amber-dim:rgba(226,182,92,.16);--sky:#60a5fa;--sky-dim:rgba(96,165,250,.16);--red:#f87171;--red-dim:rgba(248,113,113,.14);--green:#34d399;--green-dim:rgba(52,211,153,.16);--shadow:0 8px 28px rgba(0,0,0,.5);color-scheme:dark}
+    @keyframes pulse{50%{opacity:.5}}
+  </style>
 </helmet>
 
-<section style="padding:40px 44px 64px">
-  <div style="display:flex;align-items:flex-end;justify-content:space-between;gap:24px;flex-wrap:wrap;margin-bottom:28px">
-    <div>
-      <div style="font:600 10px var(--mono);letter-spacing:.14em;text-transform:uppercase;color:var(--text3)">Browser extension · Chrome</div>
-      <h1 style="font:700 26px/1.15 var(--sans);letter-spacing:-.02em;margin:9px 0 0">LightMove Capture</h1>
-      <p style="font:400 13px/1.6 var(--sans);color:var(--text2);max-width:620px;margin:8px 0 0">Toolbar popup, 400 × 600. Reads the open page — a LinkedIn profile, a company page, a corporate bio — and writes it straight into a project section. Session is shared with the web app: signed-in users never see a login screen.</p>
-    </div>
-    <div style="display:flex;gap:8px;flex-wrap:wrap">
-      <span style="display:inline-flex;align-items:center;gap:6px;padding:5px 11px;border-radius:6px;background:var(--panel2);border:1px solid var(--line-soft);font:600 10.5px var(--mono);letter-spacing:.06em;text-transform:uppercase;color:var(--text3)">5 states</span>
-      <span style="display:inline-flex;align-items:center;gap:6px;padding:5px 11px;border-radius:6px;background:var(--amber-dim);border:1px solid var(--amber-dim);font:600 10.5px var(--mono);letter-spacing:.06em;text-transform:uppercase;color:var(--amber)">Interactive</span>
-    </div>
-  </div>
+<div data-screen-label="Extension" style="min-height:100vh;background:var(--bg);color:var(--text)">
+<section style="{{ sectionStyle }}">
 
-  <div style="display:flex;gap:34px;flex-wrap:wrap;align-items:flex-start">
-
-    <div style="width:400px">
-      <div style="display:flex;align-items:baseline;gap:8px;margin-bottom:10px">
-        <span style="font:600 13px var(--sans)">1 · Signed out</span>
-        <span style="font:400 11.5px var(--mono);color:var(--text3)">no session cookie</span>
+  <sc-if value="{{ isCanvas }}" hint-placeholder-val="{{ true }}">
+    <div style="display:flex;align-items:flex-end;justify-content:space-between;gap:24px;flex-wrap:wrap;margin-bottom:28px">
+      <div>
+        <div style="font:600 10px var(--mono);letter-spacing:.14em;text-transform:uppercase;color:var(--text3)">Browser extension · Chrome side panel</div>
+        <h1 style="font:700 26px/1.15 var(--sans);letter-spacing:-.02em;margin:9px 0 0">UNCAVA Capture</h1>
+        <p style="font:400 13px/1.6 var(--sans);color:var(--text2);max-width:640px;margin:8px 0 0">The side panel, drawn at 400 × 600 and always dark. It reads the LinkedIn profile or company page the consultant is on — a name, and the URL sent unshown — and files it into a mandate. It is paired to the workspace through the /extension/connect page below, never by sharing the app's cookie.</p>
       </div>
-      <div data-screen-label="Popup — signed out" style="width:400px;height:600px;background:var(--panel);border:1px solid var(--line);border-radius:14px;box-shadow:var(--shadow);overflow:hidden;display:flex;flex-direction:column">
-        <div style="display:flex;align-items:center;gap:9px;padding:12px 14px;border-bottom:1px solid var(--line-soft)">
-          <span style="width:24px;height:24px;border-radius:7px;background:#e2b65c;color:#1a1712;display:grid;place-items:center;font:700 12px var(--mono)">L</span>
-          <span style="font:600 13.5px var(--mono);letter-spacing:.02em">LightMove Capture</span>
-        </div>
-        <div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:28px;gap:14px">
-          <span style="width:44px;height:44px;border-radius:12px;background:var(--panel2);border:1px solid var(--line);display:grid;place-items:center">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--text3)" stroke-width="2"><rect x="3" y="11" width="18" height="10" rx="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>
-          </span>
-          <div style="font:600 15px var(--sans)">Sign in to capture</div>
-          <div style="font:400 12.5px/1.6 var(--sans);color:var(--text2);max-width:280px">Captures are written to your projects, so the extension needs your workspace session. Signing in opens LightMove in a new tab and closes itself when done.</div>
-          <button onClick="{{ goLogin }}" style="display:inline-flex;align-items:center;gap:7px;background:var(--amber-btn);border:1px solid var(--amber-btn);color:#1a1712;font:600 13px var(--sans);padding:9px 16px;border-radius:8px;cursor:pointer;margin-top:4px" style-hover="filter:brightness(1.05)">
-            Open LightMove
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path><path d="M15 3h6v6"></path><path d="M10 14 21 3"></path></svg>
-          </button>
-          <div style="font:400 11px var(--mono);color:var(--text3);margin-top:2px">app.lightmove.io/login</div>
-        </div>
-        <div style="padding:11px 14px;border-top:1px solid var(--line-soft);display:flex;align-items:center;justify-content:space-between">
-          <span style="font:400 11px var(--mono);color:var(--text3)">v1.0 · linkedin.com detected</span>
-          <button onClick="{{ noop }}" style="background:none;border:none;padding:0;cursor:pointer;font:500 11.5px var(--sans);color:var(--sky)" style-hover="text-decoration:underline">Use SSO</button>
-        </div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+        <span style="display:inline-flex;align-items:center;padding:5px 11px;border-radius:6px;background:var(--panel2);border:1px solid var(--line-soft);font:600 10.5px var(--mono);letter-spacing:.06em;text-transform:uppercase;color:var(--text3)">{{ stateCount }}</span>
+        <button onClick="{{ toggleTheme }}" style="display:inline-flex;align-items:center;gap:7px;padding:6px 11px;border-radius:8px;border:1px solid var(--line);background:var(--panel);color:var(--text2);font:500 12px var(--sans);cursor:pointer" style-hover="color:var(--text);border-color:var(--text3)">{{ themeLabel }}</button>
       </div>
     </div>
+  </sc-if>
 
-    <div style="width:400px">
-      <div style="display:flex;align-items:baseline;gap:8px;margin-bottom:10px">
-        <span style="font:600 13px var(--sans)">2 · Capture person</span>
-        <span style="font:400 11.5px var(--mono);color:var(--text3)">LinkedIn profile</span>
-      </div>
-      <div data-screen-label="Popup — capture person" style="width:400px;height:600px;background:var(--panel);border:1px solid var(--line);border-radius:14px;box-shadow:var(--shadow);overflow:hidden;display:flex;flex-direction:column">
-        <div style="display:flex;align-items:center;gap:9px;padding:11px 14px;border-bottom:1px solid var(--line-soft)">
-          <span style="width:22px;height:22px;border-radius:6px;background:#e2b65c;color:#1a1712;display:grid;place-items:center;font:700 11px var(--mono)">L</span>
-          <span style="flex:1;font:600 12.5px var(--mono);letter-spacing:.02em">Capture</span>
-          <button onClick="{{ openSettings }}" style="display:grid;place-items:center;width:26px;height:26px;border-radius:7px;background:none;border:1px solid var(--line-soft);color:var(--text3);cursor:pointer" style-hover="color:var(--text);border-color:var(--text3)">
-            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-2.9 1.17V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 7 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 2.6 15a1.65 1.65 0 0 0-1.6-1H1a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 2.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 7 4.6h.09A1.65 1.65 0 0 0 8 3V3a2 2 0 1 1 4 0v.09A1.65 1.65 0 0 0 15 4.6"></path></svg>
-          </button>
-          <span style="width:26px;height:26px;border-radius:50%;background:var(--green-dim);color:var(--green);display:grid;place-items:center;font:700 10.5px var(--mono)">SA</span>
-        </div>
-
-        <div style="display:flex;padding:0 14px;gap:2px;border-bottom:1px solid var(--line-soft)">
-          <button onClick="{{ setTab }}" data-tab="person" style="background:none;border:none;border-bottom:2px solid var(--amber-btn);padding:9px 4px;margin-right:14px;cursor:pointer;font:600 12px var(--sans);color:var(--text)">Person</button>
-          <button onClick="{{ setTab }}" data-tab="company" style="background:none;border:none;border-bottom:2px solid transparent;padding:9px 4px;cursor:pointer;font:500 12px var(--sans);color:var(--text3)" style-hover="color:var(--text2)">Company</button>
-        </div>
-
-        <div style="display:flex;align-items:center;gap:8px;padding:9px 14px;background:var(--sky-dim);border-bottom:1px solid var(--line-soft)">
-          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="var(--sky)" stroke-width="2.2"><path d="m5 13 4 4L19 7"></path></svg>
-          <span style="flex:1;font:400 11px var(--mono);color:var(--text2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">Read from linkedin.com/in/amira-haddad</span>
-          <button onClick="{{ noop }}" style="background:none;border:none;padding:0;cursor:pointer;font:500 11px var(--sans);color:var(--sky)" style-hover="text-decoration:underline">Re-scan</button>
-        </div>
-
-        <div style="flex:1;overflow-y:auto;padding:14px">
-          <div style="display:flex;align-items:center;gap:11px;margin-bottom:16px">
-            <span style="width:40px;height:40px;flex:none;border-radius:50%;background:var(--amber-dim);color:var(--amber);display:grid;place-items:center;font:700 13px var(--mono)">AH</span>
-            <div style="min-width:0">
-              <div style="font:600 14.5px var(--sans);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">Amira Haddad</div>
-              <div style="font:400 11.5px var(--mono);color:var(--text3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">Group CFO · Al Rawabi Dairy</div>
+  <sc-if value="{{ showPopups }}" hint-placeholder-val="{{ true }}">
+    <sc-if value="{{ isCanvas }}" hint-placeholder-val="{{ true }}">
+      <div style="font:600 10px var(--mono);letter-spacing:.14em;text-transform:uppercase;color:var(--text3);margin:0 0 14px">Side panel</div>
+    </sc-if>
+    <div style="{{ popupRowStyle }}">
+      <sc-for list="{{ popupFrames }}" as="it" hint-placeholder-count="10">
+        <div style="width:400px;flex:none">
+          <sc-if value="{{ it.showCaption }}" hint-placeholder-val="{{ true }}">
+            <div style="display:flex;align-items:baseline;gap:8px;margin-bottom:10px">
+              <span style="font:600 13px var(--sans);color:var(--text)">{{ it.label }}</span>
+              <span style="font:400 11.5px var(--mono);color:var(--text3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ it.caption }}</span>
             </div>
-          </div>
+          </sc-if>
+          <div data-popup="" data-screen-label="{{ it.screenLabel }}" style="width:400px;height:600px;display:flex;flex-direction:column;overflow:hidden;background:var(--panel);color:var(--text);font:400 14px/1.5 var(--sans);border:1px solid var(--line);border-radius:14px;box-shadow:var(--shadow);text-align:left">
 
-          <div style="font:600 10px var(--mono);letter-spacing:.12em;text-transform:uppercase;color:var(--text3);margin-bottom:8px">Detected fields</div>
-          <div style="display:flex;flex-direction:column;gap:8px">
-            <sc-for list="{{ personFields }}" as="f" hint-placeholder-count="7">
-              <label style="display:block">
-                <span style="font:600 9.5px var(--mono);letter-spacing:.11em;text-transform:uppercase;color:var(--text3)">{{ f.label }}</span>
-                <input onInput="{{ noop }}" value="{{ f.value }}" style="width:100%;margin-top:4px;background:var(--panel2);border:1px solid var(--line);border-radius:7px;padding:7px 10px;font:400 12.5px var(--mono);color:var(--text);outline:none" style-focus="border-color:var(--sky)">
-              </label>
-            </sc-for>
-          </div>
+            <sc-if value="{{ it.vLoading }}">
+              <div style="flex:1;display:flex;align-items:center;justify-content:center;font-size:12.5px;color:var(--text3)">Loading…</div>
+            </sc-if>
 
-          <div style="font:600 10px var(--mono);letter-spacing:.12em;text-transform:uppercase;color:var(--text3);margin:18px 0 8px">Previous roles</div>
-          <div style="border:1px solid var(--line-soft);border-radius:8px;overflow:hidden">
-            <sc-for list="{{ prevRoles }}" as="r" hint-placeholder-count="3">
-              <div style="display:flex;align-items:center;gap:8px;padding:8px 10px;border-bottom:1px solid var(--line-soft)">
-                <div style="flex:1;min-width:0">
-                  <div style="font:500 12px var(--sans);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ r.title }}</div>
-                  <div style="font:400 10.5px var(--mono);color:var(--text3)">{{ r.company }}</div>
-                </div>
-                <span style="font:400 10.5px var(--mono);color:var(--text3);white-space:nowrap">{{ r.years }}</span>
+            <sc-if value="{{ it.vUnreachable }}">
+              <div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:0 24px;text-align:center">
+                <h1 style="margin:0;font-size:15px;font-weight:600">UNCAVA Capture is not responding</h1>
+                <p style="margin:8px 0 0;max-width:280px;font-size:12.5px;line-height:1.6;color:var(--text2)">Its background worker did not answer. Your session is untouched — try again rather than reconnecting.</p>
+                <button onClick="{{ onRetry }}" data-frame="{{ it.id }}" style="margin-top:16px;border:none;border-radius:8px;background:var(--amber-btn);padding:9px 16px;font-size:13px;font-weight:600;color:var(--on-amber);cursor:pointer">Try again</button>
               </div>
-            </sc-for>
-          </div>
+            </sc-if>
 
-          <div style="font:600 10px var(--mono);letter-spacing:.12em;text-transform:uppercase;color:var(--text3);margin:18px 0 8px">Seniority</div>
-          <div style="display:flex;gap:6px;flex-wrap:wrap">
-            <sc-for list="{{ seniorityChips }}" as="s" hint-placeholder-count="4">
-              <button onClick="{{ pickSeniority }}" data-val="{{ s.id }}" style="padding:5px 11px;border-radius:6px;cursor:pointer;font:600 11px var(--sans);background:{{ s.bg }};border:1px solid {{ s.border }};color:{{ s.fg }}">{{ s.label }}</button>
-            </sc-for>
-          </div>
-
-          <div style="font:600 10px var(--mono);letter-spacing:.12em;text-transform:uppercase;color:var(--text3);margin:18px 0 8px">Tags</div>
-          <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px">
-            <sc-for list="{{ personTags }}" as="t" hint-placeholder-count="3">
-              <span style="display:inline-flex;align-items:center;gap:6px;padding:4px 9px;border-radius:6px;background:var(--panel2);border:1px solid var(--line-soft);font:500 11px var(--sans);color:var(--text2)">
-                {{ t.label }}
-                <button onClick="{{ dropTag }}" data-id="{{ t.id }}" style="background:none;border:none;padding:0;cursor:pointer;color:var(--text3);display:grid;place-items:center" style-hover="color:var(--red)">
-                  <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M18 6 6 18M6 6l12 12"></path></svg>
+            <sc-if value="{{ it.vSignedOut }}">
+              <header style="display:flex;align-items:center;gap:9px;border-bottom:1px solid var(--line-soft);padding:11px 14px">
+                <svg viewBox="-36 -51 72 104" fill="none" stroke="currentColor" style="height:24px;width:auto;flex:none;color:var(--text)" aria-hidden="true"><path d="M-32 10 L 0 -8 L 32 10 L 0 28 Z M-32 10 V 32 L 0 50 L 32 32 V 10 M0 28 V 50" stroke-width="2.6" stroke-linejoin="round"></path><path d="M0 -48 L 32 -30 L 0 -12 L -32 -30 Z" fill="currentColor" stroke="none"></path></svg>
+                <span style="font:600 13px var(--mono);letter-spacing:.02em">UNCAVA Capture</span>
+              </header>
+              <div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:0 14px;text-align:center">
+                <svg viewBox="-36 -51 72 104" fill="none" stroke="currentColor" style="height:56px;width:auto;flex:none;color:var(--text)" aria-hidden="true"><path d="M-32 10 L 0 -8 L 32 10 L 0 28 Z M-32 10 V 32 L 0 50 L 32 32 V 10 M0 28 V 50" stroke-width="2.6" stroke-linejoin="round"></path><path d="M0 -48 L 32 -30 L 0 -12 L -32 -30 Z" fill="currentColor" stroke="none"></path></svg>
+                <h1 style="margin:16px 0 0;font-size:15px;font-weight:600">Connect to UNCAVA</h1>
+                <p style="margin:8px 0 0;max-width:280px;font-size:12.5px;line-height:1.6;color:var(--text2)">Open your workspace to link this extension to your account. You will not need to sign in again here.</p>
+                <button onClick="{{ onConnect }}" data-frame="{{ it.id }}" style="margin-top:16px;display:inline-flex;align-items:center;gap:8px;border:none;border-radius:8px;background:var(--amber-btn);padding:9px 16px;font-size:13px;font-weight:600;color:var(--on-amber);cursor:pointer">
+                  Open Uncava
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 3h6v6M10 14 21 3M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h6"></path></svg>
                 </button>
-              </span>
-            </sc-for>
-          </div>
-          <input onKeyDown="{{ addTag }}" placeholder="Add a tag, press enter" style="width:100%;background:var(--panel2);border:1px dashed var(--line);border-radius:7px;padding:7px 10px;font:400 12px var(--mono);color:var(--text);outline:none" style-focus="border-style:solid;border-color:var(--sky)">
-
-          <div style="font:600 10px var(--mono);letter-spacing:.12em;text-transform:uppercase;color:var(--text3);margin:18px 0 8px">Notes</div>
-          <textarea onInput="{{ noop }}" placeholder="Why this person matters to the mandate" rows="3" style="width:100%;background:var(--panel2);border:1px solid var(--line);border-radius:7px;padding:8px 10px;font:400 12.5px/1.55 var(--sans);color:var(--text);outline:none;resize:vertical" style-focus="border-color:var(--sky)"></textarea>
-
-          <button onClick="{{ toggleOffLimits }}" style="width:100%;display:flex;align-items:center;gap:10px;margin-top:14px;padding:10px 11px;border-radius:8px;cursor:pointer;text-align:left;background:{{ olBg }};border:1px solid {{ olBorder }}">
-            <span style="width:15px;height:15px;flex:none;border-radius:4px;display:grid;place-items:center;background:{{ olBoxBg }};border:1px solid {{ olBoxBorder }}">
-              <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="{{ olTick }}" stroke-width="3.4"><path d="m5 13 4 4L19 7"></path></svg>
-            </span>
-            <span style="flex:1;min-width:0">
-              <span style="display:block;font:600 12px var(--sans);color:{{ olFg }}">Mark off-limits</span>
-              <span style="display:block;font:400 10.5px var(--mono);color:var(--text3);margin-top:1px">Blocks outreach across the project</span>
-            </span>
-          </button>
-        </div>
-
-        <div style="border-top:1px solid var(--line-soft);padding:11px 14px;display:flex;flex-direction:column;gap:9px">
-          <div style="display:flex;gap:8px">
-            <select onChange="{{ noop }}" style="flex:1;min-width:0;background:var(--panel2);border:1px solid var(--line);border-radius:7px;padding:7px 9px;font:400 11.5px var(--mono);color:var(--text);outline:none">
-              <option>CFO — GCC F&amp;B</option>
-              <option>CEO — Zenith Industrial</option>
-              <option>CHRO — Meridian Foods</option>
-            </select>
-            <select onChange="{{ noop }}" style="flex:1;min-width:0;background:var(--panel2);border:1px solid var(--line);border-radius:7px;padding:7px 9px;font:400 11.5px var(--mono);color:var(--text);outline:none">
-              <option>Candidates</option>
-              <option>Long list</option>
-              <option>Pipeline</option>
-            </select>
-          </div>
-          <div style="display:flex;gap:8px">
-            <button onClick="{{ save }}" style="flex:1;display:inline-flex;align-items:center;justify-content:center;gap:7px;background:var(--amber-btn);border:1px solid var(--amber-btn);color:#1a1712;font:600 12.5px var(--sans);padding:9px 12px;border-radius:8px;cursor:pointer" style-hover="filter:brightness(1.05)">
-              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3"><path d="M12 5v14M5 12h14"></path></svg>
-              Save to project
-            </button>
-            <button onClick="{{ noop }}" style="background:var(--panel);border:1px solid var(--line);color:var(--text2);font:500 12.5px var(--sans);padding:9px 12px;border-radius:8px;cursor:pointer" style-hover="color:var(--text);border-color:var(--text3)">Save &amp; next</button>
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <div style="width:400px">
-      <div style="display:flex;align-items:baseline;gap:8px;margin-bottom:10px">
-        <span style="font:600 13px var(--sans)">3 · Capture company</span>
-        <span style="font:400 11.5px var(--mono);color:var(--text3)">company page or website</span>
-      </div>
-      <div data-screen-label="Popup — capture company" style="width:400px;height:600px;background:var(--panel);border:1px solid var(--line);border-radius:14px;box-shadow:var(--shadow);overflow:hidden;display:flex;flex-direction:column">
-        <div style="display:flex;align-items:center;gap:9px;padding:11px 14px;border-bottom:1px solid var(--line-soft)">
-          <span style="width:22px;height:22px;border-radius:6px;background:#e2b65c;color:#1a1712;display:grid;place-items:center;font:700 11px var(--mono)">L</span>
-          <span style="flex:1;font:600 12.5px var(--mono);letter-spacing:.02em">Capture</span>
-          <span style="width:26px;height:26px;border-radius:50%;background:var(--green-dim);color:var(--green);display:grid;place-items:center;font:700 10.5px var(--mono)">SA</span>
-        </div>
-        <div style="display:flex;padding:0 14px;gap:2px;border-bottom:1px solid var(--line-soft)">
-          <button onClick="{{ setTab }}" data-tab="person" style="background:none;border:none;border-bottom:2px solid transparent;padding:9px 4px;margin-right:14px;cursor:pointer;font:500 12px var(--sans);color:var(--text3)" style-hover="color:var(--text2)">Person</button>
-          <button onClick="{{ setTab }}" data-tab="company" style="background:none;border:none;border-bottom:2px solid var(--amber-btn);padding:9px 4px;cursor:pointer;font:600 12px var(--sans);color:var(--text)">Company</button>
-        </div>
-        <div style="display:flex;align-items:center;gap:8px;padding:9px 14px;background:var(--sky-dim);border-bottom:1px solid var(--line-soft)">
-          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="var(--sky)" stroke-width="2.2"><path d="m5 13 4 4L19 7"></path></svg>
-          <span style="flex:1;font:400 11px var(--mono);color:var(--text2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">Read from alrawabidairy.ae/about</span>
-          <button onClick="{{ noop }}" style="background:none;border:none;padding:0;cursor:pointer;font:500 11px var(--sans);color:var(--sky)" style-hover="text-decoration:underline">Re-scan</button>
-        </div>
-
-        <div style="flex:1;overflow-y:auto;padding:14px">
-          <div style="display:flex;align-items:center;gap:11px;margin-bottom:16px">
-            <span style="width:40px;height:40px;flex:none;border-radius:9px;background:var(--panel2);border:1px solid var(--line);color:var(--text2);display:grid;place-items:center;font:700 13px var(--mono)">AR</span>
-            <div style="min-width:0">
-              <div style="font:600 14.5px var(--sans);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">Al Rawabi Dairy</div>
-              <div style="font:400 11.5px var(--mono);color:var(--text3)">Dubai, UAE · alrawabidairy.ae</div>
-            </div>
-          </div>
-
-          <div style="font:600 10px var(--mono);letter-spacing:.12em;text-transform:uppercase;color:var(--text3);margin-bottom:8px">Detected fields</div>
-          <div style="display:flex;flex-direction:column;gap:8px">
-            <sc-for list="{{ companyFields }}" as="f" hint-placeholder-count="8">
-              <label style="display:block">
-                <span style="font:600 9.5px var(--mono);letter-spacing:.11em;text-transform:uppercase;color:var(--text3)">{{ f.label }}</span>
-                <input onInput="{{ noop }}" value="{{ f.value }}" style="width:100%;margin-top:4px;background:var(--panel2);border:1px solid var(--line);border-radius:7px;padding:7px 10px;font:400 12.5px var(--mono);color:var(--text);outline:none" style-focus="border-color:var(--sky)">
-              </label>
-            </sc-for>
-          </div>
-
-          <div style="display:flex;align-items:flex-start;gap:7px;margin-top:18px;padding:9px 10px;border-radius:8px;background:var(--panel2);border:1px solid var(--line-soft)">
-            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="var(--text3)" stroke-width="2" style="flex:none;margin-top:1px"><circle cx="12" cy="12" r="9"></circle><path d="M12 16v-4M12 8h.01"></path></svg>
-            <span style="font:400 11px/1.55 var(--mono);color:var(--text3)">Matches 4 of 5 Strategy criteria. Fails <span style="color:var(--text2)">revenue ≥ $500M</span>.</span>
-          </div>
-
-          <div style="font:600 10px var(--mono);letter-spacing:.12em;text-transform:uppercase;color:var(--text3);margin:18px 0 8px">Tags</div>
-          <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px">
-            <sc-for list="{{ companyTags }}" as="t" hint-placeholder-count="2">
-              <span style="display:inline-flex;align-items:center;gap:6px;padding:4px 9px;border-radius:6px;background:var(--panel2);border:1px solid var(--line-soft);font:500 11px var(--sans);color:var(--text2)">{{ t.label }}</span>
-            </sc-for>
-          </div>
-          <input onKeyDown="{{ addCompanyTag }}" placeholder="Add a tag, press enter" style="width:100%;background:var(--panel2);border:1px dashed var(--line);border-radius:7px;padding:7px 10px;font:400 12px var(--mono);color:var(--text);outline:none" style-focus="border-style:solid;border-color:var(--sky)">
-
-          <div style="font:600 10px var(--mono);letter-spacing:.12em;text-transform:uppercase;color:var(--text3);margin:18px 0 8px">Notes</div>
-          <textarea onInput="{{ noop }}" placeholder="Context for the universe entry" rows="3" style="width:100%;background:var(--panel2);border:1px solid var(--line);border-radius:7px;padding:8px 10px;font:400 12.5px/1.55 var(--sans);color:var(--text);outline:none;resize:vertical" style-focus="border-color:var(--sky)"></textarea>
-
-          <div style="display:flex;align-items:center;gap:8px;margin-top:14px;padding:10px 11px;border-radius:8px;background:var(--panel2);border:1px solid var(--line-soft)">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--text3)" stroke-width="2"><path d="M17 21v-8H7v8M7 3v5h8"></path><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2Z"></path></svg>
-            <span style="flex:1;font:400 11px/1.5 var(--mono);color:var(--text3)">Also queue <span style="color:var(--text2)">12 executives</span> found on this page for review</span>
-            <button onClick="{{ noop }}" style="background:none;border:none;padding:0;cursor:pointer;font:600 11px var(--sans);color:var(--sky)" style-hover="text-decoration:underline">Queue</button>
-          </div>
-        </div>
-
-        <div style="border-top:1px solid var(--line-soft);padding:11px 14px;display:flex;flex-direction:column;gap:9px">
-          <label style="display:block">
-            <span style="font:600 9.5px var(--mono);letter-spacing:.11em;text-transform:uppercase;color:var(--text3)">Project</span>
-            <select onChange="{{ noop }}" style="width:100%;margin-top:4px;background:var(--panel2);border:1px solid var(--line);border-radius:7px;padding:7px 10px;font:400 12px var(--mono);color:var(--text);outline:none">
-              <option>CFO — GCC F&amp;B</option>
-              <option>CEO — Zenith Industrial</option>
-              <option>CHRO — Meridian Foods</option>
-            </select>
-          </label>
-          <div style="display:flex;gap:8px">
-            <button onClick="{{ save }}" style="flex:1;display:inline-flex;align-items:center;justify-content:center;gap:7px;background:var(--amber-btn);border:1px solid var(--amber-btn);color:#1a1712;font:600 12.5px var(--sans);padding:9px 10px;border-radius:8px;cursor:pointer" style-hover="filter:brightness(1.05)">
-              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3"><path d="M12 5v14M5 12h14"></path></svg>
-              Add to universe
-            </button>
-            <button onClick="{{ save }}" style="flex:1;display:inline-flex;align-items:center;justify-content:center;gap:7px;background:var(--panel);border:1px solid var(--line);color:var(--text2);font:600 12.5px var(--sans);padding:9px 10px;border-radius:8px;cursor:pointer" style-hover="color:var(--text);border-color:var(--text3)">
-              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="m5 13 4 4L19 7"></path></svg>
-              Add to shortlist
-            </button>
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <div style="width:400px">
-      <div style="display:flex;align-items:baseline;gap:8px;margin-bottom:10px">
-        <span style="font:600 13px var(--sans)">4 · Saved</span>
-        <span style="font:400 11.5px var(--mono);color:var(--text3)">auto-closes in 4s</span>
-      </div>
-      <div data-screen-label="Popup — saved" style="width:400px;height:600px;background:var(--panel);border:1px solid var(--line);border-radius:14px;box-shadow:var(--shadow);overflow:hidden;display:flex;flex-direction:column">
-        <div style="display:flex;align-items:center;gap:9px;padding:11px 14px;border-bottom:1px solid var(--line-soft)">
-          <span style="width:22px;height:22px;border-radius:6px;background:#e2b65c;color:#1a1712;display:grid;place-items:center;font:700 11px var(--mono)">L</span>
-          <span style="flex:1;font:600 12.5px var(--mono);letter-spacing:.02em">Capture</span>
-          <span style="width:26px;height:26px;border-radius:50%;background:var(--green-dim);color:var(--green);display:grid;place-items:center;font:700 10.5px var(--mono)">SA</span>
-        </div>
-        <div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:26px;gap:13px">
-          <span style="width:46px;height:46px;border-radius:50%;background:var(--green-dim);display:grid;place-items:center">
-            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="var(--green)" stroke-width="2.6"><path d="m5 13 4 4L19 7"></path></svg>
-          </span>
-          <div style="font:600 15px var(--sans)">Amira Haddad added</div>
-          <div style="font:400 12.5px/1.6 var(--sans);color:var(--text2);max-width:290px">Filed under <span style="color:var(--text)">Candidates</span> in CFO — GCC F&amp;B, linked to Al Rawabi Dairy in the universe.</div>
-          <div style="width:100%;max-width:300px;border:1px solid var(--line-soft);border-radius:9px;padding:11px 12px;background:var(--panel2);display:flex;flex-direction:column;gap:7px;text-align:left;margin-top:2px">
-            <sc-for list="{{ receipt }}" as="r" hint-placeholder-count="4">
-              <div style="display:flex;align-items:center;justify-content:space-between;gap:10px">
-                <span style="font:600 9.5px var(--mono);letter-spacing:.11em;text-transform:uppercase;color:var(--text3)">{{ r.label }}</span>
-                <span style="font:400 11.5px var(--mono);color:var(--text2);text-align:right">{{ r.value }}</span>
+                <p style="margin:10px 0 0;font:400 11px var(--mono);color:var(--text3)">{{ connectUrl }}</p>
               </div>
-            </sc-for>
+              <footer style="display:flex;align-items:center;justify-content:space-between;border-top:1px solid var(--line-soft);padding:10px 14px;font:400 11px var(--mono);color:var(--text3)">
+                <span>Not connected</span>
+                <button onClick="{{ onConnect }}" data-frame="{{ it.id }}" style="background:none;border:none;padding:0;font:inherit;color:var(--sky);cursor:pointer" style-hover="text-decoration:underline">Already connected? Recheck</button>
+              </footer>
+            </sc-if>
+
+            <sc-if value="{{ it.vCapture }}">
+              <header style="display:flex;align-items:center;gap:9px;border-bottom:1px solid var(--line-soft);padding:11px 14px">
+                <svg viewBox="-36 -51 72 104" fill="none" stroke="currentColor" style="height:24px;width:auto;flex:none;color:var(--text)" aria-hidden="true"><path d="M-32 10 L 0 -8 L 32 10 L 0 28 Z M-32 10 V 32 L 0 50 L 32 32 V 10 M0 28 V 50" stroke-width="2.6" stroke-linejoin="round"></path><path d="M0 -48 L 32 -30 L 0 -12 L -32 -30 Z" fill="currentColor" stroke="none"></path></svg>
+                <span style="flex:1;font:600 12.5px var(--mono);letter-spacing:.02em">UNCAVA Capture</span>
+                <button onClick="{{ onOpenSettings }}" data-frame="{{ it.id }}" aria-label="Settings" style="display:grid;place-items:center;width:26px;height:26px;padding:0;border-radius:7px;border:1px solid var(--line);background:none;font-size:13px;color:var(--text2);cursor:pointer" style-hover="color:var(--text)">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.6a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1"></path></svg>
+                </button>
+                <button onClick="{{ onSignOut }}" data-frame="{{ it.id }}" title="{{ userTitle }}" style="padding:0;border:none;background:none;border-radius:999px;cursor:pointer">
+                  <span style="display:grid;width:26px;height:26px;place-items:center;border-radius:999px;background:var(--green-dim);font:700 10.5px var(--mono);color:var(--green)" title="{{ userName }}">{{ userInitials }}</span>
+                </button>
+              </header>
+
+              <div role="tablist" style="display:flex;gap:2px;border-bottom:1px solid var(--line-soft);padding:0 14px">
+                <sc-for list="{{ it.tabs }}" as="tb" hint-placeholder-count="2">
+                  <button role="tab" onClick="{{ onTab }}" data-frame="{{ it.id }}" data-v="{{ tb.id }}" style="{{ tb.style }}" style-hover="color:var(--text2)">{{ tb.id }}</button>
+                </sc-for>
+              </div>
+
+              <sc-if value="{{ it.vReading }}">
+                <div role="status" style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;padding:48px 0">
+                  <span style="width:20px;height:20px;border-radius:999px;border:2px solid var(--line);border-top-color:var(--amber-btn);animation:spin 1s linear infinite"></span>
+                  <p style="margin:0;font-size:11.5px;color:var(--text3)">Reading this page…</p>
+                </div>
+              </sc-if>
+
+              <sc-if value="{{ it.vForm }}">
+                <div style="display:flex;align-items:center;gap:8px;border-bottom:1px solid var(--line-soft);background:var(--sky-dim);padding:9px 14px">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex:none;color:var(--sky)"><path d="M20 6 9 17l-5-5"></path></svg>
+                  <span style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font:400 11px var(--mono);color:var(--text2)">{{ it.sourceText }}</span>
+                  <button onClick="{{ onRescan }}" data-frame="{{ it.id }}" style="background:none;border:none;padding:0;font-size:11px;font-weight:500;color:var(--sky);cursor:pointer" style-hover="text-decoration:underline">Re-scan</button>
+                </div>
+
+                <div style="flex:1;min-height:0;overflow-y:auto;padding:14px">
+                  <sc-if value="{{ it.showLinkedInOnly }}">
+                    <div style="margin-bottom:14px;border-radius:8px;border:1px solid var(--line-soft);background:var(--panel2);padding:8px 10px;font-size:11.5px;line-height:1.5;color:var(--text2)">
+                      <p style="margin:0">UNCAVA Capture reads LinkedIn only, for now. To add a person or a company by hand, open Uncava.</p>
+                      <a href="Project.dc.html?page=universe" target="_blank" style="display:inline-block;margin-top:8px;border-radius:6px;background:var(--amber-btn);padding:6px 10px;font-size:11.5px;font-weight:600;color:var(--on-amber)">Open Uncava</a>
+                    </div>
+                  </sc-if>
+
+                  <div style="margin-bottom:14px;display:flex;align-items:center;gap:10px">
+                    <span style="{{ it.tileStyle }}">{{ it.initials }}</span>
+                    <span style="min-width:0;flex:1;overflow:hidden">
+                      <sc-if value="{{ it.hasName }}">
+                        <span style="display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:14.5px;font-weight:600;color:var(--text)">{{ it.nameValue }}</span>
+                      </sc-if>
+                      <sc-if value="{{ it.noName }}">
+                        <span style="{{ it.namePlaceholderStyle }}"></span>
+                      </sc-if>
+                    </span>
+                  </div>
+
+                  <div style="font:600 10px var(--mono);letter-spacing:.12em;text-transform:uppercase;color:var(--text3);margin-bottom:8px">Detected</div>
+                  <div>
+                    <label style="font:600 9.5px var(--mono);letter-spacing:.11em;text-transform:uppercase;color:var(--text3)">{{ it.nameLabel }}</label>
+                    <sc-if value="{{ it.nameLocked }}">
+                      <input value="{{ it.nameValue }}" onChange="{{ onName }}" data-frame="{{ it.id }}" aria-label="{{ it.nameLabel }}" style="{{ it.inputStyle }}">
+                    </sc-if>
+                    <sc-if value="{{ it.nameEditable }}">
+                      <input value="{{ it.nameValue }}" onChange="{{ onName }}" data-frame="{{ it.id }}" aria-label="{{ it.nameLabel }}" style="{{ it.inputStyle }}" style-focus="border-color:var(--sky)">
+                    </sc-if>
+                  </div>
+
+                  <div style="font:600 10px var(--mono);letter-spacing:.12em;text-transform:uppercase;color:var(--text3);margin:18px 0 8px">Notes</div>
+                  <textarea rows="3" value="{{ it.noteValue }}" onChange="{{ onNote }}" data-frame="{{ it.id }}" aria-label="Notes" placeholder="{{ it.notePlaceholder }}" style="display:block;width:100%;resize:vertical;border-radius:7px;border:1px solid var(--line);background:var(--panel2);padding:8px 10px;font:400 12.5px/1.55 var(--sans);color:var(--text);outline:none" style-focus="border-color:var(--sky)"></textarea>
+
+                  <sc-if value="{{ it.isPerson }}">
+                    <div style="font:600 10px var(--mono);letter-spacing:.12em;text-transform:uppercase;color:var(--text3);margin:18px 0 8px">Status</div>
+                    <select value="{{ it.status }}" onChange="{{ onStatus }}" data-frame="{{ it.id }}" aria-label="Status" style="width:100%;border-radius:7px;border:1px solid var(--line);background:var(--panel2);padding:7px 10px;font:400 12px var(--mono);color:var(--text);outline:none" style-focus="border-color:var(--sky)">
+                      <sc-for list="{{ statusOptions }}" as="so" hint-placeholder-count="4">
+                        <option value="{{ so.id }}">{{ so.label }}</option>
+                      </sc-for>
+                    </select>
+                  </sc-if>
+                </div>
+
+                <div style="display:flex;flex-direction:column;gap:9px;border-top:1px solid var(--line-soft);padding:11px 14px">
+                  <sc-if value="{{ it.hasRefusal }}">
+                    <p role="alert" style="margin:0;border-radius:8px;border:1px solid var(--line-soft);background:var(--red-dim);padding:8px 10px;font-size:11.5px;line-height:1.5;color:var(--red)">{{ it.refusalText }}</p>
+                  </sc-if>
+                  <div>
+                    <label style="font:600 9.5px var(--mono);letter-spacing:.11em;text-transform:uppercase;color:var(--text3)">Project</label>
+                    <select value="{{ it.projectId }}" onChange="{{ onProject }}" data-frame="{{ it.id }}" style="margin-top:4px;width:100%;border-radius:7px;border:1px solid var(--line);background:var(--panel2);padding:7px 10px;font:400 12px var(--mono);color:var(--text);outline:none" style-focus="border-color:var(--sky)">
+                      <sc-for list="{{ projectOptions }}" as="po" hint-placeholder-count="5">
+                        <option value="{{ po.id }}">{{ po.label }}</option>
+                      </sc-for>
+                    </select>
+                  </div>
+                  <sc-if value="{{ it.isPerson }}">
+                    <button onClick="{{ onSavePerson }}" data-frame="{{ it.id }}" disabled="{{ it.saveDisabled }}" style="{{ it.saveStyle }}">
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M12 5v14"></path></svg>
+                      {{ it.saveLabel }}
+                    </button>
+                  </sc-if>
+                  <sc-if value="{{ it.isCompany }}">
+                    <div style="display:flex;gap:8px">
+                      <button onClick="{{ onDestination }}" data-frame="{{ it.id }}" data-v="inUniverse" disabled="{{ it.destDisabled }}" style="{{ it.destPrimaryStyle }}">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M12 5v14"></path></svg>
+                        {{ it.destPrimaryLabel }}
+                      </button>
+                      <button onClick="{{ onDestination }}" data-frame="{{ it.id }}" data-v="shortlisted" disabled="{{ it.destDisabled }}" style="{{ it.destSecondaryStyle }}" style-hover="border-color:var(--text3);color:var(--text)">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"></path></svg>
+                        {{ it.destSecondaryLabel }}
+                      </button>
+                    </div>
+                  </sc-if>
+                </div>
+              </sc-if>
+
+              <sc-if value="{{ it.vSaved }}">
+                <div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:0 24px;text-align:center">
+                  <span aria-hidden="true" style="display:grid;width:46px;height:46px;place-items:center;border-radius:999px;background:var(--green-dim);color:var(--green)">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"></path></svg>
+                  </span>
+                  <h2 style="margin:14px 0 0;font-size:15px;font-weight:600">{{ it.savedTitle }}</h2>
+                  <p style="margin:8px 0 0;font-size:12.5px;line-height:1.6;color:var(--text2)">Filed in <span style="font-weight:600;color:var(--text)">{{ it.landedIn }}</span>.</p>
+                  <dl style="margin:14px 0 0;width:100%;border-radius:9px;background:var(--panel2);padding:8px 10px;text-align:left">
+                    <sc-for list="{{ it.receipt }}" as="rr" hint-placeholder-count="3">
+                      <div style="display:flex;align-items:baseline;gap:8px;padding:3px 0">
+                        <dt style="width:68px;flex:none;font:600 9.5px var(--mono);letter-spacing:.11em;text-transform:uppercase;color:var(--text3)">{{ rr.label }}</dt>
+                        <dd style="margin:0;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:11.5px;color:var(--text2)">{{ rr.value }}</dd>
+                      </div>
+                    </sc-for>
+                  </dl>
+                  <div style="margin-top:16px;display:flex;gap:8px">
+                    <a href="Project.dc.html?page=universe" target="_blank" style="border-radius:8px;border:1px solid var(--line);padding:8px 14px;font-size:12.5px;font-weight:600;color:var(--text2)" style-hover="border-color:var(--text3);color:var(--text)">View in project</a>
+                    <button onClick="{{ onCaptureAnother }}" data-frame="{{ it.id }}" style="border:none;border-radius:8px;background:var(--amber-btn);padding:8px 14px;font-size:12.5px;font-weight:600;color:var(--on-amber);cursor:pointer">Capture another</button>
+                  </div>
+                  <sc-if value="{{ it.showUndo }}">
+                    <button onClick="{{ onUndo }}" data-frame="{{ it.id }}" disabled="{{ it.undoing }}" style="{{ it.undoStyle }}" style-hover="text-decoration:underline">
+                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 7v6h6M3 13a9 9 0 1 0 3-7.7L3 8"></path></svg>
+                      {{ it.undoLabel }}
+                    </button>
+                  </sc-if>
+                </div>
+              </sc-if>
+            </sc-if>
+
+            <sc-if value="{{ it.vSettings }}">
+              <div style="flex:1;display:flex;flex-direction:column;overflow:hidden">
+                <header style="display:flex;align-items:center;gap:9px;border-bottom:1px solid var(--line-soft);padding:11px 14px">
+                  <button onClick="{{ onBack }}" data-frame="{{ it.id }}" aria-label="Back to capture" style="display:grid;place-items:center;width:26px;height:26px;padding:0;border-radius:7px;border:1px solid var(--line);background:none;color:var(--text2);cursor:pointer" style-hover="color:var(--text)">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m15 18-6-6 6-6"></path></svg>
+                  </button>
+                  <span style="flex:1;font:600 12.5px var(--mono);letter-spacing:.02em">Settings</span>
+                </header>
+                <div style="flex:1;overflow-y:auto;padding:14px">
+                  <div style="font:600 10px var(--mono);letter-spacing:.12em;text-transform:uppercase;color:var(--text3);margin-bottom:8px">Default destination</div>
+                  <div>
+                    <label style="font:600 9.5px var(--mono);letter-spacing:.11em;text-transform:uppercase;color:var(--text3)">Project</label>
+                    <select value="{{ it.defaultProjectId }}" onChange="{{ onDefaultProject }}" data-frame="{{ it.id }}" style="margin-top:4px;width:100%;border-radius:7px;border:1px solid var(--line);background:var(--panel2);padding:7px 10px;font:400 12px var(--mono);color:var(--text);outline:none" style-focus="border-color:var(--sky)">
+                      <option value="">Ask every time — offer the last one used</option>
+                      <sc-for list="{{ projectOptions }}" as="po" hint-placeholder-count="5">
+                        <option value="{{ po.id }}">{{ po.label }}</option>
+                      </sc-for>
+                    </select>
+                  </div>
+
+                  <div style="font:600 10px var(--mono);letter-spacing:.12em;text-transform:uppercase;color:var(--text3);margin:18px 0 8px">Behaviour</div>
+                  <div style="border-radius:8px;border:1px solid var(--line)">
+                    <sc-for list="{{ it.toggles }}" as="tg" hint-placeholder-count="2">
+                      <div style="{{ tg.rowStyle }}">
+                        <span style="flex:1">
+                          <span style="display:block;font-size:12.5px;font-weight:500;color:var(--text)">{{ tg.label }}</span>
+                          <span style="display:block;font-size:10.5px;color:var(--text3)">{{ tg.hint }}</span>
+                        </span>
+                        <button role="switch" aria-label="{{ tg.label }}" onClick="{{ onToggle }}" data-frame="{{ it.id }}" data-v="{{ tg.id }}" style="{{ tg.trackStyle }}">
+                          <span aria-hidden="true" style="{{ tg.knobStyle }}"></span>
+                        </button>
+                      </div>
+                    </sc-for>
+                  </div>
+
+                  <div style="font:600 10px var(--mono);letter-spacing:.12em;text-transform:uppercase;color:var(--text3);margin:18px 0 8px">Session</div>
+                  <div style="display:flex;align-items:center;gap:10px;border-radius:8px;border:1px solid var(--line);background:var(--panel2);padding:8px 10px">
+                    <span style="display:grid;width:26px;height:26px;flex:none;place-items:center;border-radius:999px;background:var(--green-dim);font:700 10.5px var(--mono);color:var(--green)" title="{{ userName }}">{{ userInitials }}</span>
+                    <span style="flex:1;overflow:hidden">
+                      <span style="display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:12.5px;font-weight:500;color:var(--text)">{{ userName }}</span>
+                      <span style="display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:10.5px;color:var(--text3)">{{ userEmail }}</span>
+                    </span>
+                    <button onClick="{{ onSignOut }}" data-frame="{{ it.id }}" style="border-radius:8px;border:1px solid var(--line);background:none;padding:6px 10px;font-size:11.5px;font-weight:600;color:var(--text2);cursor:pointer" style-hover="border-color:var(--red);color:var(--red)">Sign out</button>
+                  </div>
+                  <p style="margin:8px 0 0;font-size:10.5px;line-height:1.5;color:var(--text3)">Signing out here ends only the extension's session. Your browser stays signed in, and the session appears in Settings → Active sessions until you end it from either side.</p>
+                </div>
+              </div>
+            </sc-if>
+
           </div>
-          <div style="display:flex;gap:8px;margin-top:6px">
-            <button onClick="{{ noop }}" style="display:inline-flex;align-items:center;gap:7px;background:var(--panel);border:1px solid var(--line);color:var(--text2);font:500 12px var(--sans);padding:8px 13px;border-radius:8px;cursor:pointer" style-hover="color:var(--text);border-color:var(--text3)">View in project</button>
-            <button onClick="{{ noop }}" style="display:inline-flex;align-items:center;gap:7px;background:var(--amber-btn);border:1px solid var(--amber-btn);color:#1a1712;font:600 12px var(--sans);padding:8px 13px;border-radius:8px;cursor:pointer" style-hover="filter:brightness(1.05)">Capture another</button>
-          </div>
-          <button onClick="{{ noop }}" style="background:none;border:none;padding:0;cursor:pointer;font:500 11.5px var(--sans);color:var(--sky);margin-top:2px" style-hover="text-decoration:underline">Undo</button>
         </div>
-        <div style="padding:11px 14px;border-top:1px solid var(--line-soft);font:400 11px var(--mono);color:var(--text3);text-align:center">14 captures this week · 3 pending review</div>
-      </div>
+      </sc-for>
     </div>
+  </sc-if>
 
-    <div style="width:400px">
-      <div style="display:flex;align-items:baseline;gap:8px;margin-bottom:10px">
-        <span style="font:600 13px var(--sans)">5 · Settings</span>
-        <span style="font:400 11.5px var(--mono);color:var(--text3)">default project &amp; session</span>
-      </div>
-      <div data-screen-label="Popup — settings" style="width:400px;height:600px;background:var(--panel);border:1px solid var(--line);border-radius:14px;box-shadow:var(--shadow);overflow:hidden;display:flex;flex-direction:column">
-        <div style="display:flex;align-items:center;gap:9px;padding:11px 14px;border-bottom:1px solid var(--line-soft)">
-          <button onClick="{{ closeSettings }}" style="display:grid;place-items:center;width:26px;height:26px;border-radius:7px;background:none;border:1px solid var(--line-soft);color:var(--text3);cursor:pointer" style-hover="color:var(--text);border-color:var(--text3)">
-            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="m15 18-6-6 6-6"></path></svg>
-          </button>
-          <span style="flex:1;font:600 12.5px var(--mono);letter-spacing:.02em">Settings</span>
-        </div>
-        <div style="flex:1;overflow-y:auto;padding:16px 14px">
-          <div style="font:600 10px var(--mono);letter-spacing:.12em;text-transform:uppercase;color:var(--text3);margin-bottom:8px">Default destination</div>
-          <div style="display:flex;flex-direction:column;gap:8px">
-            <label style="display:block">
-              <span style="font:600 9.5px var(--mono);letter-spacing:.11em;text-transform:uppercase;color:var(--text3)">Project</span>
-              <select onChange="{{ noop }}" style="width:100%;margin-top:4px;background:var(--panel2);border:1px solid var(--line);border-radius:7px;padding:7px 10px;font:400 12.5px var(--mono);color:var(--text);outline:none">
-                <option>CFO — GCC F&amp;B</option>
-                <option>Ask every time</option>
-              </select>
-            </label>
-            <label style="display:block">
-              <span style="font:600 9.5px var(--mono);letter-spacing:.11em;text-transform:uppercase;color:var(--text3)">Section for people</span>
-              <select onChange="{{ noop }}" style="width:100%;margin-top:4px;background:var(--panel2);border:1px solid var(--line);border-radius:7px;padding:7px 10px;font:400 12.5px var(--mono);color:var(--text);outline:none">
-                <option>Candidates</option>
-                <option>Long list</option>
-                <option>Pipeline</option>
-              </select>
-            </label>
-            <label style="display:block">
-              <span style="font:600 9.5px var(--mono);letter-spacing:.11em;text-transform:uppercase;color:var(--text3)">Section for companies</span>
-              <select onChange="{{ noop }}" style="width:100%;margin-top:4px;background:var(--panel2);border:1px solid var(--line);border-radius:7px;padding:7px 10px;font:400 12.5px var(--mono);color:var(--text);outline:none">
-                <option>Universe</option>
-                <option>Shortlist</option>
-                <option>Long list</option>
-              </select>
-            </label>
-          </div>
-
-          <div style="font:600 10px var(--mono);letter-spacing:.12em;text-transform:uppercase;color:var(--text3);margin:20px 0 8px">Behaviour</div>
-          <div style="border:1px solid var(--line-soft);border-radius:9px;overflow:hidden">
-            <sc-for list="{{ toggles }}" as="t" hint-placeholder-count="4">
-              <button onClick="{{ flipToggle }}" data-id="{{ t.id }}" style="width:100%;display:flex;align-items:center;gap:10px;padding:11px 12px;border:none;border-bottom:1px solid var(--line-soft);background:none;cursor:pointer;text-align:left">
-                <span style="flex:1;min-width:0">
-                  <span style="display:block;font:500 12.5px var(--sans);color:var(--text)">{{ t.label }}</span>
-                  <span style="display:block;font:400 10.5px var(--mono);color:var(--text3);margin-top:2px">{{ t.hint }}</span>
-                </span>
-                <span style="width:32px;height:18px;flex:none;border-radius:9px;padding:2px;display:flex;background:{{ t.trackBg }};border:1px solid {{ t.trackBorder }};justify-content:{{ t.justify }}">
-                  <span style="width:12px;height:12px;border-radius:50%;background:{{ t.knob }}"></span>
-                </span>
-              </button>
-            </sc-for>
-          </div>
-
-          <div style="font:600 10px var(--mono);letter-spacing:.12em;text-transform:uppercase;color:var(--text3);margin:20px 0 8px">Session</div>
-          <div style="display:flex;align-items:center;gap:10px;padding:11px 12px;border:1px solid var(--line-soft);border-radius:9px;background:var(--panel2)">
-            <span style="width:30px;height:30px;flex:none;border-radius:50%;background:var(--green-dim);color:var(--green);display:grid;place-items:center;font:700 11px var(--mono)">SA</span>
-            <div style="flex:1;min-width:0">
-              <div style="font:600 12.5px var(--sans)">Sara Al-Mansour</div>
-              <div style="font:400 10.5px var(--mono);color:var(--text3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">s.almansour@firm.com · session shared with app</div>
+  <sc-if value="{{ showConnect }}" hint-placeholder-val="{{ true }}">
+    <sc-if value="{{ isCanvas }}" hint-placeholder-val="{{ true }}">
+      <div style="font:600 10px var(--mono);letter-spacing:.14em;text-transform:uppercase;color:var(--text3);margin:48px 0 14px">Workspace · /extension/connect</div>
+    </sc-if>
+    <div style="{{ connectRowStyle }}">
+      <sc-for list="{{ connectFrames }}" as="c" hint-placeholder-count="5">
+        <div style="{{ c.wrapStyle }}">
+          <sc-if value="{{ c.showCaption }}" hint-placeholder-val="{{ true }}">
+            <div style="display:flex;align-items:baseline;gap:8px;margin-bottom:10px">
+              <span style="font:600 13px var(--sans);color:var(--text)">{{ c.label }}</span>
+              <span style="font:400 11.5px var(--mono);color:var(--text3)">{{ c.caption }}</span>
             </div>
-            <button onClick="{{ noop }}" style="background:none;border:1px solid var(--line);color:var(--text2);font:500 11px var(--sans);padding:6px 10px;border-radius:7px;cursor:pointer" style-hover="color:var(--red);border-color:var(--red)">Sign out</button>
+          </sc-if>
+          <div data-screen-label="{{ c.screenLabel }}" style="{{ c.frameStyle }}">
+            <div style="width:100%;max-width:448px;text-align:center;border-radius:14px;border:1px solid var(--line);background:var(--panel);padding:32px;box-shadow:var(--shadow);animation:fadeUp .5s ease both">
+              <div style="display:flex;justify-content:center">
+                <div style="display:flex;align-items:center;gap:14px;animation:fadeUp .5s ease both">
+                  <svg viewBox="-36 -51 72 104" fill="none" stroke="currentColor" style="height:48px;width:auto;flex:none;color:var(--text)" aria-hidden="true"><path d="M-32 10 L 0 -8 L 32 10 L 0 28 Z M-32 10 V 32 L 0 50 L 32 32 V 10 M0 28 V 50" stroke-width="2.6" stroke-linejoin="round"></path><path d="M0 -48 L 32 -30 L 0 -12 L -32 -30 Z" fill="currentColor" stroke="none"></path></svg>
+                  <span style="font:500 16px var(--sans);text-transform:uppercase;letter-spacing:.32em;color:var(--text)">Uncava</span>
+                </div>
+              </div>
+
+              <sc-if value="{{ c.isPairing }}">
+                <h1 style="margin:24px 0 0;font:600 18px/28px var(--sans);color:var(--text)">Connecting Uncava Capture…</h1>
+                <p style="margin:8px 0 0;font-size:14px;line-height:1.625;color:var(--text2)">Handing the session to the extension.</p>
+                <div style="margin-top:20px;display:flex;justify-content:center;color:var(--text)">
+                  <svg viewBox="0 0 24 24" fill="none" aria-hidden="true" style="width:14px;height:14px;animation:spin 1s linear infinite"><circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="3" opacity="0.25"></circle><path d="M12 2a10 10 0 0 1 10 10" stroke="currentColor" stroke-width="3" stroke-linecap="round"></path></svg>
+                </div>
+              </sc-if>
+
+              <sc-if value="{{ c.isPaired }}">
+                <h1 style="margin:24px 0 0;font:600 18px/28px var(--sans);color:var(--text)">Uncava Capture is connected</h1>
+                <p style="margin:8px 0 0;font-size:14px;line-height:1.625;color:var(--text2)">You can close this tab. Open the extension from your toolbar, or press ⌥⇧L, on any company page to capture it into a mandate.</p>
+                <p style="margin:16px 0 0;font-size:12px;line-height:16px;color:var(--text3)">It appears in Settings → Active sessions as <span style="font-weight:500">Uncava Capture</span>, and you can end it there at any time without signing out of this browser.</p>
+              </sc-if>
+
+              <sc-if value="{{ c.isNotInstalled }}">
+                <h1 style="margin:24px 0 0;font:600 18px/28px var(--sans);color:var(--text)">Extension not detected</h1>
+                <p style="margin:8px 0 0;font-size:14px;line-height:1.625;color:var(--text2)">This page could not reach Uncava Capture. Install it, make sure it is enabled at<span style="font-family:var(--mono)"> chrome://extensions</span>, then try again.</p>
+                <button onClick="{{ onPair }}" data-conn="{{ c.id }}" style="margin-top:20px;display:flex;align-items:center;justify-content:center;gap:8px;border-radius:8px;padding:10px 14px;font:600 13.5px var(--sans);background:var(--amber-btn);border:1px solid var(--amber-btn);color:var(--on-amber);cursor:pointer" style-hover="filter:brightness(1.05)">Try again</button>
+              </sc-if>
+
+              <sc-if value="{{ c.isFailed }}">
+                <h1 style="margin:24px 0 0;font:600 18px/28px var(--sans);color:var(--text)">Could not connect the extension</h1>
+                <p role="alert" style="margin:8px 0 0;font-size:14px;line-height:1.625;color:var(--red)">{{ c.errorMessage }}</p>
+                <button onClick="{{ onPair }}" data-conn="{{ c.id }}" style="margin-top:20px;display:flex;align-items:center;justify-content:center;gap:8px;border-radius:8px;padding:10px 14px;font:600 13.5px var(--sans);background:var(--amber-btn);border:1px solid var(--amber-btn);color:var(--on-amber);cursor:pointer" style-hover="filter:brightness(1.05)">Try again</button>
+              </sc-if>
+            </div>
           </div>
-          <div style="font:400 10.5px/1.6 var(--mono);color:var(--text3);margin-top:10px">Sign-out here only clears the extension. Session cookies from app.lightmove.io are reused, so no separate login is ever required while you are signed in to the workspace.</div>
         </div>
-        <div style="padding:11px 14px;border-top:1px solid var(--line-soft);display:flex;align-items:center;justify-content:space-between">
-          <span style="font:400 11px var(--mono);color:var(--text3)">Shortcut ⌥⇧L</span>
-          <a href="Settings.dc.html">Workspace settings</a>
-        </div>
-      </div>
+      </sc-for>
     </div>
+  </sc-if>
 
-  </div>
 </section>
-
-<template id="__bundler_thumbnail"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><rect width="100" height="100" fill="#16171a"></rect><text x="50" y="52" fill="#e2b65c" font-family="Geist,sans-serif" font-size="24" font-weight="700" text-anchor="middle" dominant-baseline="central">EXT</text></svg></template>
-
+</div>
+<template id="__bundler_thumbnail"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><rect width="100" height="100" fill="#16171a"></rect><g transform="translate(50 40) scale(.42)" fill="none" stroke="#f8fafc"><path d="M-32 10 L 0 -8 L 32 10 L 0 28 Z M-32 10 V 32 L 0 50 L 32 32 V 10 M0 28 V 50" stroke-width="3" stroke-linejoin="round"></path><path d="M0 -48 L 32 -30 L 0 -12 L -32 -30 Z" fill="#f8fafc" stroke="none"></path></g><text x="50" y="86" fill="#e2b65c" font-family="Geist,Inter,sans-serif" font-size="13" font-weight="700" letter-spacing="2" text-anchor="middle">EX</text></svg></template>
 </x-dc>
-<script type="text/x-dc" data-dc-script data-props="{&quot;accent&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;default&quot;:&quot;sky&quot;,&quot;options&quot;:[&quot;sky&quot;,&quot;amber&quot;,&quot;green&quot;],&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;Options&quot;}}">
+<script type="text/x-dc" data-dc-script data-props="{&quot;screen&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;default&quot;:&quot;canvas&quot;,&quot;options&quot;:[&quot;canvas&quot;,&quot;signed-out&quot;,&quot;person&quot;,&quot;company&quot;,&quot;saved&quot;,&quot;settings&quot;,&quot;connect-pairing&quot;,&quot;connect-paired&quot;,&quot;connect-not-installed&quot;,&quot;connect-failed&quot;],&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;State&quot;}}">
 class Component extends DCLogic {
-  state = {
-    seniority: 'csuite',
-    relevance: 'direct',
-    offLimits: false,
-    pTags: [{ id: 't1', label: 'Dairy' }, { id: 't2', label: 'UAE' }, { id: 't3', label: 'Arabic + English' }],
-    cTags: [{ id: 'c1', label: 'Family-owned' }, { id: 'c2', label: 'GCC distribution' }],
-    toggles: {
-      autoDetect: true,
-      dedupe: true,
-      queuePeople: false,
-      closeAfterSave: true,
-    },
-  };
+  constructor(props) {
+    super(props);
+    const screens = ['canvas', 'signed-out', 'person', 'company', 'saved', 'settings', 'connect-pairing', 'connect-paired', 'connect-not-installed', 'connect-failed'];
+    let screen = screens.indexOf(props.screen) >= 0 ? props.screen : 'canvas';
+    if (typeof location !== 'undefined') {
+      const q = new URLSearchParams(location.search).get('screen');
+      if (q && screens.indexOf(q) >= 0) screen = q;
+    }
+    this.connectUrl = 'https://beta.uncava.com/extension/connect';
+    this.user = { fullName: 'Yara Haddad', email: 'yara@meridiansearch.com', initials: 'YH' };
+    this.projects = [
+      { id: 'p1', positionTitle: 'Chief Financial Officer', clientName: 'Meridian Energy Group' },
+      { id: 'p2', positionTitle: 'VP, Renewables', clientName: 'Meridian Energy Group' },
+      { id: 'p3', positionTitle: 'Chief Human Resources Officer', clientName: 'Al Rabie Saudi Foods' },
+      { id: 'p5', positionTitle: 'Supply Chain Director', clientName: 'Al Rabie Saudi Foods' },
+      { id: 'p6', positionTitle: 'Chief Executive Officer', clientName: 'Agthia Group' },
+    ];
+    this.statuses = [
+      { id: 'identified', label: 'Identified' },
+      { id: 'contacted', label: 'Contacted' },
+      { id: 'offLimits', label: 'Off-limits' },
+      { id: 'outOfScope', label: 'Out of scope' },
+    ];
+    this.refusals = {
+      CANDIDATE_ALREADY_MAPPED: 'This mandate already maps someone with that name. Open them on the Companies screen instead.',
+      TRIAGE_COMPANY_ALREADY_HELD: 'This mandate already holds a company with that name. Open it on the Companies screen instead.',
+    };
+    this.popupMeta = [
+      { id: 'signedOut', label: 'Signed out', caption: 'not paired yet' },
+      { id: 'loading', label: 'Loading', caption: 'asking the worker for the session' },
+      { id: 'unreachable', label: 'Not responding', caption: 'the worker did not answer' },
+      { id: 'reading', label: 'First read', caption: 'the panel’s first page read' },
+      { id: 'person', label: 'Person', caption: 'a linkedin.com/in/ profile' },
+      { id: 'company', label: 'Company', caption: 'a linkedin.com/company/ page' },
+      { id: 'refusal', label: 'Person · refused', caption: 'CANDIDATE_ALREADY_MAPPED' },
+      { id: 'linkedinOnly', label: 'Not LinkedIn', caption: 'LINKEDIN_ONLY' },
+      { id: 'saved', label: 'Saved', caption: 'the receipt, with Undo' },
+      { id: 'settings', label: 'Settings', caption: 'extension-local only' },
+    ];
+    this.connectMeta = [
+      { id: 'pairing', label: 'Pairing', caption: 'runs on arrival' },
+      { id: 'paired', label: 'Paired', caption: 'session handed over' },
+      { id: 'notInstalled', label: 'Not installed', caption: 'the ping went unanswered' },
+      { id: 'failed', label: 'Failed', caption: 'the mint was refused' },
+      { id: 'rateLimited', label: 'Failed · rate limited', caption: 'RATE_LIMITED' },
+    ];
+    this.state = { dark: false, screen: screen, frames: this.seedFrames(), connect: this.seedConnect() };
+  }
 
-  chip(active, tone) {
-    return active
-      ? { bg: 'var(--' + tone + '-dim)', border: 'var(--' + tone + ')', fg: 'var(--' + tone + ')' }
-      : { bg: 'var(--panel2)', border: 'var(--line)', fg: 'var(--text3)' };
+  componentDidMount() {
+    this.setState({ dark: document.body.classList.contains('dark') });
+  }
+
+  seedFrames() {
+    const base = {
+      view: 'capture', tab: 'company', reading: false, rescanning: false,
+      personName: '', personLocked: false, personNote: '', status: 'identified',
+      companyName: '', companyLocked: false, companyNote: '',
+      sourceUrl: null, readError: null, refusesPerson: null, refusal: null,
+      projectId: 'p1', saving: null, saved: null, undoing: false, undone: false,
+      defaultProjectId: '', isPageTypeDetected: true, closesAfterSave: false,
+    };
+    const personPage = { tab: 'person', sourceUrl: 'https://www.linkedin.com/in/faisal-al-nuaimi/', personName: 'Faisal Al Nuaimi', personLocked: true };
+    const companyPage = { tab: 'company', sourceUrl: 'https://www.linkedin.com/company/acwa-power/', companyName: 'ACWA Power', companyLocked: true };
+    const mk = (o) => Object.assign({}, base, o);
+    return {
+      signedOut: mk(Object.assign({}, personPage, { view: 'signedOut' })),
+      loading: mk({ view: 'loading' }),
+      unreachable: mk({ view: 'unreachable' }),
+      reading: mk(Object.assign({}, personPage, { reading: true })),
+      person: mk(personPage),
+      company: mk(companyPage),
+      refusal: mk({ tab: 'person', sourceUrl: 'https://www.linkedin.com/in/hessa-al-qubaisi/', personName: 'Hessa Al Qubaisi', personLocked: true, refusesPerson: 'CANDIDATE_ALREADY_MAPPED', refusal: 'CANDIDATE_ALREADY_MAPPED' }),
+      linkedinOnly: mk({ tab: 'company', readError: 'LINKEDIN_ONLY' }),
+      saved: mk(Object.assign({}, companyPage, { saved: { subject: 'company', name: 'ACWA Power', landedIn: 'the shortlist' } })),
+      settings: mk(Object.assign({}, companyPage, { view: 'settings' })),
+    };
+  }
+
+  seedConnect() {
+    return {
+      pairing: { state: 'pairing', error: null },
+      paired: { state: 'paired', error: null },
+      notInstalled: { state: 'notInstalled', error: null },
+      failed: { state: 'failed', error: 'The workspace could not create a session for the extension.' },
+      rateLimited: { state: 'failed', error: 'Too many attempts to connect the extension. Try again in an hour.' },
+    };
+  }
+
+  patch(id, obj) {
+    this.setState((s) => ({ frames: Object.assign({}, s.frames, { [id]: Object.assign({}, s.frames[id], obj) }) }));
+  }
+
+  later(ms, fn) {
+    setTimeout(fn, ms);
+  }
+
+  projectLabel(p) {
+    return p.clientName ? p.positionTitle + ' — ' + p.clientName : p.positionTitle;
+  }
+
+  initialsOf(name) {
+    const parts = name.trim().split(/\s+/).filter(Boolean);
+    const first = (parts[0] && parts[0][0]) || '?';
+    const last = parts.length > 1 ? (parts[parts.length - 1][0] || '') : '';
+    return (first + last).toUpperCase();
+  }
+
+  popupView(id, meta, showCaption) {
+    const f = this.state.frames[id];
+    const pulse = 'animation:pulse 2s cubic-bezier(.4,0,.6,1) infinite;';
+    const isPerson = f.tab === 'person';
+    const name = isPerson ? f.personName : f.companyName;
+    const locked = isPerson ? f.personLocked : f.companyLocked;
+    const hasName = Boolean(name.trim());
+    const isReading = f.rescanning;
+    const canSave = hasName && Boolean(f.projectId);
+    const vCapture = f.view === 'capture';
+    const savedHere = Boolean(f.saved) && f.saved.subject === f.tab;
+    const project = this.projects.find((p) => p.id === f.projectId);
+
+    const tabStyle = (active, isFirst) =>
+      'background:none;border:none;border-bottom:2px solid ' + (active ? 'var(--amber-btn)' : 'transparent') +
+      ';padding:9px 4px;font-size:12px;text-transform:capitalize;cursor:pointer;font-family:inherit;' +
+      (isFirst ? 'margin-right:14px;' : '') +
+      (active ? 'font-weight:600;color:var(--text)' : 'font-weight:500;color:var(--text3)');
+
+    const inputStyle = 'display:block;margin-top:4px;width:100%;border-radius:7px;border:1px solid var(--line);background:var(--panel2);padding:7px 10px;font:400 12.5px/1.5 var(--mono);color:var(--text);outline:none;' +
+      (locked && hasName ? 'cursor:default;border-color:var(--line-soft);background:transparent;' : '') +
+      (isReading ? pulse + 'opacity:.6;' : '');
+
+    const tileStyle = 'display:grid;width:40px;height:40px;flex:none;place-items:center;font:700 13px var(--mono);' +
+      (isPerson ? 'border-radius:999px;background:var(--amber-dim);color:var(--amber);' : 'border-radius:9px;background:var(--panel2);color:var(--text2);') +
+      (isReading ? pulse : '');
+
+    const busy = Boolean(f.saving);
+    const primaryBtn = 'display:flex;flex:1;align-items:center;justify-content:center;gap:7px;border-radius:8px;border:1px solid var(--amber-btn);background:var(--amber-btn);padding:9px 10px;font-size:12.5px;font-weight:600;color:var(--on-amber);cursor:pointer;';
+    const secondaryBtn = 'display:flex;flex:1;align-items:center;justify-content:center;gap:7px;border-radius:8px;border:1px solid var(--line);background:var(--panel);padding:9px 10px;font-size:12.5px;font-weight:600;color:var(--text2);cursor:pointer;';
+    const dim60 = (!canSave || busy) ? 'opacity:.6;cursor:default;' : '';
+
+    const toggle = (tid, label, hint, isOn, isFirst) => ({
+      id: tid, label: label, hint: hint,
+      rowStyle: 'display:flex;align-items:center;gap:12px;padding:8px 10px;' + (isFirst ? '' : 'border-top:1px solid var(--line-soft);'),
+      trackStyle: 'position:relative;height:18px;width:32px;flex:none;padding:0;border-radius:999px;cursor:pointer;transition:background-color .15s;' +
+        (isOn ? 'background:var(--amber-dim);border:none;' : 'background:var(--panel2);border:1px solid var(--line);'),
+      knobStyle: 'position:absolute;top:2px;height:12px;width:12px;border-radius:999px;transition:all .15s;' +
+        (isOn ? 'left:17px;background:var(--amber);' : 'left:3px;background:var(--text3);'),
+    });
+
+    return {
+      id: id,
+      label: meta.label,
+      caption: meta.caption,
+      showCaption: showCaption,
+      screenLabel: 'Side panel — ' + meta.label,
+      vLoading: f.view === 'loading',
+      vUnreachable: f.view === 'unreachable',
+      vSignedOut: f.view === 'signedOut',
+      vSettings: f.view === 'settings',
+      vCapture: vCapture,
+      vReading: vCapture && f.reading,
+      vForm: vCapture && !f.reading && !savedHere,
+      vSaved: vCapture && !f.reading && savedHere,
+      tabs: [
+        { id: 'person', style: tabStyle(f.tab === 'person', true) },
+        { id: 'company', style: tabStyle(f.tab === 'company', false) },
+      ],
+      isPerson: isPerson,
+      isCompany: !isPerson,
+      sourceText: isReading ? 'Reading this page…' : 'Read from ' + (f.sourceUrl || 'this page'),
+      showLinkedInOnly: f.readError === 'LINKEDIN_ONLY',
+      tileStyle: tileStyle,
+      initials: hasName ? this.initialsOf(name) : '',
+      hasName: hasName,
+      noName: !hasName,
+      namePlaceholderStyle: 'display:block;height:18px;width:60%;border-radius:4px;background:var(--panel2);' + (isReading ? pulse : ''),
+      nameLabel: isPerson ? 'Full name' : 'Company name',
+      nameValue: name,
+      nameLocked: locked && hasName,
+      nameEditable: !(locked && hasName),
+      inputStyle: inputStyle,
+      noteValue: isPerson ? f.personNote : f.companyNote,
+      notePlaceholder: isPerson ? 'Why this person matters to the mandate' : 'Context for the universe entry',
+      status: f.status,
+      hasRefusal: isPerson && Boolean(f.refusal),
+      refusalText: f.refusal ? (this.refusals[f.refusal] || f.refusal) : '',
+      projectId: f.projectId,
+      saveDisabled: !canSave || busy,
+      saveLabel: f.saving === 'person' ? 'Saving…' : 'Save to project',
+      saveStyle: 'display:flex;width:100%;align-items:center;justify-content:center;gap:7px;border:none;border-radius:8px;background:var(--amber-btn);padding:8px 0;font-size:13px;font-weight:600;color:var(--on-amber);cursor:pointer;' + ((!canSave || busy) ? 'opacity:.5;cursor:default;' : ''),
+      destDisabled: !canSave || busy,
+      destPrimaryLabel: f.saving === 'inUniverse' ? 'Adding…' : 'Add to universe',
+      destSecondaryLabel: f.saving === 'shortlisted' ? 'Adding…' : 'Add to shortlist',
+      destPrimaryStyle: primaryBtn + dim60,
+      destSecondaryStyle: secondaryBtn + dim60,
+      savedTitle: savedHere ? f.saved.name + ' added' : '',
+      landedIn: savedHere ? f.saved.landedIn : '',
+      receipt: savedHere ? [
+        { label: 'Project', value: project ? project.positionTitle : 'this mandate' },
+        { label: 'Landed in', value: f.saved.landedIn },
+        { label: 'Source', value: f.sourceUrl || 'Typed in the popup' },
+      ] : [],
+      showUndo: !f.undone,
+      undoing: f.undoing,
+      undoLabel: f.undoing ? 'Undoing…' : 'Undo',
+      undoStyle: 'margin-top:12px;display:inline-flex;align-items:center;gap:6px;background:none;border:none;padding:0;font-size:11.5px;color:var(--sky);cursor:pointer;' + (f.undoing ? 'opacity:.6;' : ''),
+      defaultProjectId: f.defaultProjectId,
+      toggles: [
+        toggle('isPageTypeDetected', 'Auto-detect page type', 'Opens the Person or Company tab to match the page', f.isPageTypeDetected, true),
+        toggle('closesAfterSave', 'Close after save', 'Closes the popup once a capture lands', f.closesAfterSave, false),
+      ],
+    };
+  }
+
+  connectView(id, meta, isCanvas) {
+    const c = this.state.connect[id];
+    return {
+      id: id,
+      label: meta.label,
+      caption: meta.caption,
+      showCaption: isCanvas,
+      screenLabel: '/extension/connect — ' + meta.label,
+      wrapStyle: isCanvas ? 'width:560px;flex:none' : 'width:100%',
+      frameStyle: isCanvas
+        ? 'height:480px;display:flex;align-items:center;justify-content:center;padding:24px;background:var(--bg);border:1px solid var(--line);border-radius:14px;overflow:hidden'
+        : 'min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px;background:var(--bg)',
+      isPairing: c.state === 'pairing',
+      isPaired: c.state === 'paired',
+      isNotInstalled: c.state === 'notInstalled',
+      isFailed: c.state === 'failed',
+      errorMessage: c.error,
+    };
   }
 
   renderVals() {
     const s = this.state;
-    const accent = this.props.accent ?? 'sky';
-    const T = [
-      { id: 'autoDetect', label: 'Auto-detect page type', hint: 'Open on Person or Company without asking' },
-      { id: 'dedupe', label: 'Warn on duplicates', hint: 'Check the project before saving' },
-      { id: 'queuePeople', label: 'Queue people from company pages', hint: 'Collect executives listed on the page' },
-      { id: 'closeAfterSave', label: 'Close popup after save', hint: 'Dismiss 4 seconds after the receipt' },
-    ];
-    const on = (v) => ({
-      trackBg: v ? 'var(--' + accent + '-dim)' : 'var(--panel2)',
-      trackBorder: v ? 'var(--' + accent + ')' : 'var(--line)',
-      knob: v ? 'var(--' + accent + ')' : 'var(--text3)',
-      justify: v ? 'flex-end' : 'flex-start',
-    });
+    const isCanvas = s.screen === 'canvas';
+    const popupByScreen = { 'signed-out': 'signedOut', person: 'person', company: 'company', saved: 'saved', settings: 'settings' };
+    const connectByScreen = { 'connect-pairing': 'pairing', 'connect-paired': 'paired', 'connect-not-installed': 'notInstalled', 'connect-failed': 'failed' };
+    const popupMeta = isCanvas ? this.popupMeta : this.popupMeta.filter((m) => m.id === popupByScreen[s.screen]);
+    const connectMeta = isCanvas ? this.connectMeta : this.connectMeta.filter((m) => m.id === connectByScreen[s.screen]);
+    const frameOf = (e) => e.currentTarget.dataset.frame;
+    const frame = (id) => this.state.frames[id];
+
+    const settleAfterRead = (id) => this.later(900, () => this.patch(id, { reading: false }));
 
     return {
-      personFields: [
-        { label: 'Full name', value: 'Amira Haddad' },
-        { label: 'Current title', value: 'Group Chief Financial Officer' },
-        { label: 'Current company', value: 'Al Rawabi Dairy' },
-        { label: 'Location', value: 'Dubai, United Arab Emirates' },
-        { label: 'Tenure', value: 'Since Mar 2021 · 4 yrs 5 mos' },
-        { label: 'LinkedIn', value: 'linkedin.com/in/amira-haddad' },
-        { label: 'Email · phone', value: 'a.haddad@alrawabidairy.ae · +971 4 ···' },
-      ],
-      companyFields: [
-        { label: 'Company name', value: 'Al Rawabi Dairy Company LLC' },
-        { label: 'Website', value: 'alrawabidairy.ae' },
-        { label: 'LinkedIn', value: 'linkedin.com/company/al-rawabi-dairy' },
-        { label: 'Sector', value: 'Food & Beverage Manufacturing' },
-        { label: 'HQ', value: 'Dubai, UAE' },
-        { label: 'Headcount band', value: '1K–2.5K' },
-        { label: 'Revenue band', value: '$250M–500M' },
-        { label: 'Ownership', value: 'Family-owned' },
-      ],
-      prevRoles: [
-        { title: 'Finance Director', company: 'Agthia Group', years: '2016–2021' },
-        { title: 'Head of FP&A', company: 'Almarai', years: '2012–2016' },
-        { title: 'Audit Manager', company: 'KPMG Lower Gulf', years: '2007–2012' },
-      ],
-      seniorityChips: [
-        { id: 'board', label: 'Board' },
-        { id: 'csuite', label: 'C-suite' },
-        { id: 'n1', label: 'N-1' },
-        { id: 'n2', label: 'N-2' },
-      ].map(c => Object.assign({}, c, this.chip(s.seniority === c.id, accent))),
-      relevanceChips: [
-        { id: 'direct', label: 'Direct' },
-        { id: 'adjacent', label: 'Adjacent' },
-        { id: 'inferred', label: 'Inferred' },
-      ].map(c => Object.assign({}, c, this.chip(s.relevance === c.id, accent))),
-      personTags: s.pTags,
-      companyTags: s.cTags,
-      olBg: s.offLimits ? 'var(--red-dim)' : 'var(--panel2)',
-      olBorder: s.offLimits ? 'var(--red)' : 'var(--line-soft)',
-      olBoxBg: s.offLimits ? 'var(--red)' : 'transparent',
-      olBoxBorder: s.offLimits ? 'var(--red)' : 'var(--line)',
-      olTick: s.offLimits ? '#ffffff' : 'transparent',
-      olFg: s.offLimits ? 'var(--red)' : 'var(--text)',
-      receipt: [
-        { label: 'Project', value: 'CFO — GCC F&B' },
-        { label: 'Section', value: 'Candidates' },
-        { label: 'Company link', value: 'Al Rawabi Dairy' },
-        { label: 'Source', value: 'LinkedIn profile' },
-      ],
-      toggles: T.map(t => Object.assign({}, t, on(s.toggles[t.id]))),
-      pickSeniority: (e) => this.setState({ seniority: e.currentTarget.dataset.val }),
-      pickRelevance: (e) => this.setState({ relevance: e.currentTarget.dataset.val }),
-      toggleOffLimits: () => this.setState(p => ({ offLimits: !p.offLimits })),
-      flipToggle: (e) => {
-        const id = e.currentTarget.dataset.id;
-        this.setState(p => ({ toggles: Object.assign({}, p.toggles, { [id]: !p.toggles[id] }) }));
+      isCanvas: isCanvas,
+      showPopups: popupMeta.length > 0,
+      showConnect: connectMeta.length > 0,
+      sectionStyle: isCanvas ? 'padding:40px 44px 64px' : (popupMeta.length ? 'min-height:100vh;display:flex;align-items:center;justify-content:center;padding:40px' : 'padding:0'),
+      popupRowStyle: isCanvas ? 'display:flex;gap:34px;flex-wrap:wrap;align-items:flex-start' : 'display:flex;justify-content:center',
+      connectRowStyle: isCanvas ? 'display:flex;gap:34px;flex-wrap:wrap;align-items:flex-start' : 'display:block',
+      stateCount: (this.popupMeta.length + this.connectMeta.length) + ' states',
+      themeLabel: s.dark ? 'Light mode' : 'Dark mode',
+      popupFrames: popupMeta.map((m) => this.popupView(m.id, m, isCanvas)),
+      connectFrames: connectMeta.map((m) => this.connectView(m.id, m, isCanvas)),
+      projectOptions: this.projects.map((p) => ({ id: p.id, label: this.projectLabel(p) })),
+      statusOptions: this.statuses,
+      connectUrl: this.connectUrl,
+      userName: this.user.fullName,
+      userEmail: this.user.email,
+      userInitials: this.user.initials,
+      userTitle: this.user.fullName + ' · ' + this.user.email + ' — sign out of the extension',
+
+      toggleTheme: () => {
+        const d = !this.state.dark;
+        document.body.classList.toggle('dark', d);
+        try { localStorage.setItem('lm-theme', d ? 'dark' : 'light'); } catch (e) {}
+        this.setState({ dark: d });
       },
-      dropTag: (e) => {
-        const id = e.currentTarget.dataset.id;
-        this.setState(p => ({ pTags: p.pTags.filter(t => t.id !== id) }));
+      onTab: (e) => this.patch(frameOf(e), { tab: e.currentTarget.dataset.v }),
+      onOpenSettings: (e) => this.patch(frameOf(e), { view: 'settings' }),
+      onBack: (e) => this.patch(frameOf(e), { view: 'capture' }),
+      onSignOut: (e) => this.patch(frameOf(e), { view: 'signedOut', saved: null }),
+      onConnect: (e) => {
+        const id = frameOf(e);
+        this.patch(id, { view: 'capture', reading: true });
+        settleAfterRead(id);
       },
-      addTag: (e) => {
-        if (e.key !== 'Enter' || !e.target.value.trim()) return;
-        const label = e.target.value.trim();
-        e.target.value = '';
-        this.setState(p => ({ pTags: p.pTags.concat([{ id: 'n' + Date.now(), label }]) }));
+      onRetry: (e) => {
+        const id = frameOf(e);
+        this.patch(id, { view: 'loading' });
+        this.later(700, () => { this.patch(id, { view: 'capture', reading: true }); settleAfterRead(id); });
       },
-      addCompanyTag: (e) => {
-        if (e.key !== 'Enter' || !e.target.value.trim()) return;
-        const label = e.target.value.trim();
-        e.target.value = '';
-        this.setState(p => ({ cTags: p.cTags.concat([{ id: 'n' + Date.now(), label }]) }));
+      onRescan: (e) => {
+        const id = frameOf(e);
+        this.patch(id, { rescanning: true });
+        this.later(900, () => this.patch(id, { rescanning: false }));
       },
-      setTab: () => {},
-      openSettings: () => {},
-      closeSettings: () => {},
-      save: () => {},
-      goLogin: () => { window.location.href = 'Login.dc.html'; },
-      noop: () => {},
+      onName: (e) => {
+        const id = frameOf(e);
+        const f = frame(id);
+        const isPerson = f.tab === 'person';
+        const locked = isPerson ? f.personLocked && f.personName.trim() : f.companyLocked && f.companyName.trim();
+        if (locked) return;
+        this.patch(id, isPerson ? { personName: e.target.value, personLocked: false } : { companyName: e.target.value, companyLocked: false });
+      },
+      onNote: (e) => {
+        const id = frameOf(e);
+        this.patch(id, frame(id).tab === 'person' ? { personNote: e.target.value } : { companyNote: e.target.value });
+      },
+      onStatus: (e) => this.patch(frameOf(e), { status: e.target.value }),
+      onProject: (e) => this.patch(frameOf(e), { projectId: e.target.value, refusal: null }),
+      onDefaultProject: (e) => this.patch(frameOf(e), { defaultProjectId: e.target.value }),
+      onToggle: (e) => {
+        const id = frameOf(e);
+        const key = e.currentTarget.dataset.v;
+        this.patch(id, { [key]: !frame(id)[key] });
+      },
+      onSavePerson: (e) => {
+        const id = frameOf(e);
+        const f = frame(id);
+        if (!f.personName.trim() || !f.projectId || f.saving) return;
+        this.patch(id, { saving: 'person', refusal: null });
+        this.later(700, () => {
+          const g = frame(id);
+          if (g.refusesPerson) {
+            this.patch(id, { saving: null, refusal: g.refusesPerson });
+          } else {
+            this.patch(id, { saving: null, undone: false, saved: { subject: 'person', name: g.personName.trim(), landedIn: 'this mandate’s people' } });
+          }
+        });
+      },
+      onDestination: (e) => {
+        const id = frameOf(e);
+        const dest = e.currentTarget.dataset.v;
+        const f = frame(id);
+        if (!f.companyName.trim() || !f.projectId || f.saving) return;
+        this.patch(id, { saving: dest });
+        this.later(700, () => {
+          const g = frame(id);
+          this.patch(id, { saving: null, undone: false, saved: { subject: 'company', name: g.companyName.trim(), landedIn: dest === 'inUniverse' ? 'the universe' : 'the shortlist' } });
+        });
+      },
+      onCaptureAnother: (e) => {
+        const id = frameOf(e);
+        const f = frame(id);
+        const reset = f.tab === 'person' ? { personNote: '', status: 'identified' } : { companyNote: '' };
+        this.patch(id, Object.assign({ saved: null, undone: false, undoing: false, rescanning: true }, reset));
+        this.later(900, () => this.patch(id, { rescanning: false }));
+      },
+      onUndo: (e) => {
+        const id = frameOf(e);
+        if (frame(id).undoing) return;
+        this.patch(id, { undoing: true });
+        this.later(700, () => this.patch(id, { undoing: false, undone: true }));
+      },
+      onPair: (e) => {
+        const id = e.currentTarget.dataset.conn;
+        const setConn = (obj) => this.setState((st) => ({ connect: Object.assign({}, st.connect, { [id]: Object.assign({}, st.connect[id], obj) }) }));
+        setConn({ state: 'pairing' });
+        this.later(1400, () => setConn({ state: 'paired' }));
+      },
     };
   }
 }
-
 </script>
 </body>
 </html>
