@@ -9,68 +9,445 @@
 <x-dc>
 <helmet>
   <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700;900&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700;900&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
   <style>
-    :root{--bg:#f8f9fb;--panel:#ffffff;--panel2:#f3f4f6;--line:#e2e4e9;--line-soft:#edeef2;--text:#111113;--text2:#475569;--text3:#64748b;--amber:#a67c2e;--amber-btn:#e2b65c;--amber-dim:rgba(226,182,92,.14);--sky:#2563eb;--sky-dim:rgba(37,99,235,.10);--red:#dc2626;--red-dim:rgba(220,38,38,.08);--green:#059669;--green-dim:rgba(5,150,105,.10);--shadow:0 8px 28px rgba(15,23,42,.10);--mono:'Geist','Inter',system-ui,sans-serif;--sans:'Geist','Inter',system-ui,sans-serif}
-    body.dark{--bg:#0c0d0e;--panel:#16171a;--panel2:#131316;--line:#2a2a2e;--line-soft:#212326;--text:#f8fafc;--text2:#cbd5e1;--text3:#94a3b8;--amber:#e2b65c;--amber-dim:rgba(226,182,92,.16);--sky:#60a5fa;--sky-dim:rgba(96,165,250,.16);--red:#f87171;--red-dim:rgba(248,113,113,.14);--green:#34d399;--green-dim:rgba(52,211,153,.16);--shadow:0 8px 28px rgba(0,0,0,.5)}
+    :root{--bg:#f8f9fb;--panel:#ffffff;--panel2:#f3f4f6;--line:#e2e4e9;--line-soft:#edeef2;--text:#111113;--text2:#475569;--text3:#64748b;--amber:#a67c2e;--amber-btn:#e2b65c;--amber-dim:rgba(226,182,92,.14);--on-amber:#1a1712;--sky:#2563eb;--sky-dim:rgba(37,99,235,.10);--red:#dc2626;--red-dim:rgba(220,38,38,.08);--green:#059669;--green-dim:rgba(5,150,105,.10);--ai:#6366f1;--ai2:#3b82f6;--ai-line:#4f46e5;--ai-dim:rgba(99,102,241,.10);--ai-soft:rgba(99,102,241,.06);--shadow:0 8px 28px rgba(15,23,42,.10);--radius-panel:14px;--mono:'Geist','Inter',system-ui,sans-serif;--sans:'Geist','Inter',system-ui,sans-serif;
+      --t-eyebrow:9.5px;--t-meta:11px;--t-note:12px;--t-body:13px;--t-lead:15px;--t-subhead:17px;--t-title:19px;--t-figure:27px;
+      --u-bg:#ffffff;--u-surface:#f7f8fa;--u-raised:#eceff3;--u-sunken:#e4e8ee;--u-border:rgba(3,7,18,.09);--u-border-strong:rgba(3,7,18,.16);--u-scrim:rgba(3,7,18,.4);--u-text:#0b0d12;--u-text2:#4c5462;--u-text3:#6b7382;--u-accent:#4a56d6;--u-accent-solid:#4a56d6;--u-accent-tint:rgba(74,86,214,.09);--u-accent-ring:rgba(74,86,214,.4);--u-signal:#a8602f;--u-signal-tint:rgba(168,96,47,.1);--u-offlimits:#d93a45;--u-offlimits-tint:rgba(217,58,69,.1);--u-direct:#0f9d6b;--u-direct-tint:rgba(15,157,107,.1);--u-adjacent:#1f72d4;--u-adjacent-tint:rgba(31,114,212,.1);--u-inferred:#8244d6;--u-inferred-tint:rgba(130,68,214,.1);--u-chart-1:#4a56d6;--u-chart-2:#0f9d6b;--u-chart-3:#a8602f;--u-chart-4:#8244d6;--u-chart-5:#1e8fa8;--u-chart-6:#d93a45;--u-seq-1:#e4e8f6;--u-seq-2:#b9c0ee;--u-seq-3:#8189f7;--u-seq-4:#4a56d6;--u-seq-5:#2e3878;--u-grid-axis:rgba(3,7,18,.14);--u-grid-line:rgba(3,7,18,.07);--u-num:'JetBrains Mono',ui-monospace,SFMono-Regular,monospace;--u-e1:0 1px 2px rgba(3,7,18,.06);--u-e3:0 18px 44px -10px rgba(3,7,18,.2)}
+    body.dark{--bg:#0c0d0e;--panel:#16171a;--panel2:#131316;--line:#2a2a2e;--line-soft:#212326;--text:#f8fafc;--text2:#cbd5e1;--text3:#94a3b8;--amber:#e2b65c;--amber-dim:rgba(226,182,92,.16);--sky:#60a5fa;--sky-dim:rgba(96,165,250,.16);--red:#f87171;--red-dim:rgba(248,113,113,.14);--green:#34d399;--green-dim:rgba(52,211,153,.16);--ai:#818cf8;--ai2:#60a5fa;--ai-line:#6366f1;--ai-dim:rgba(129,140,248,.16);--ai-soft:rgba(129,140,248,.09);--shadow:0 8px 28px rgba(0,0,0,.5);
+      --u-bg:#08090b;--u-surface:#0e1013;--u-raised:#15181d;--u-sunken:#1d2128;--u-border:rgba(255,255,255,.07);--u-border-strong:rgba(255,255,255,.14);--u-scrim:rgba(4,5,7,.72);--u-text:#f4f6f8;--u-text2:#a6adbb;--u-text3:#7c8493;--u-accent:#6e79f2;--u-accent-solid:#4a56d6;--u-accent-tint:rgba(110,121,242,.14);--u-accent-ring:rgba(110,121,242,.45);--u-signal:#d4855c;--u-signal-tint:rgba(212,133,92,.12);--u-offlimits:#f2626b;--u-offlimits-tint:rgba(242,98,107,.12);--u-direct:#3ecf8e;--u-direct-tint:rgba(62,207,142,.12);--u-adjacent:#5aa9ff;--u-adjacent-tint:rgba(90,169,255,.12);--u-inferred:#b07cf5;--u-inferred-tint:rgba(176,124,245,.12);--u-chart-1:#6e79f2;--u-chart-2:#3ecf8e;--u-chart-3:#d4855c;--u-chart-4:#b07cf5;--u-chart-5:#4fc3d9;--u-chart-6:#f2626b;--u-seq-1:#1e2440;--u-seq-2:#2e3878;--u-seq-3:#4a56d6;--u-seq-4:#6e79f2;--u-seq-5:#a3a9fa;--u-grid-axis:rgba(255,255,255,.1);--u-grid-line:rgba(255,255,255,.055);--u-e1:0 0 #0000;--u-e3:0 18px 44px -10px rgba(0,0,0,.8)}
     *{box-sizing:border-box}
     html,body{height:100%;margin:0}
     body{background:var(--bg);color:var(--text);font:400 14px/1.45 var(--sans);-webkit-font-smoothing:antialiased}
     a{color:var(--sky);text-decoration:none}
-    a:hover{text-decoration:underline}
-    input::placeholder{color:var(--text3)}
+    input::placeholder,textarea::placeholder{color:var(--text3)}
+    button{font-family:inherit}
     @keyframes fadeUp{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
+    @keyframes spin{to{transform:rotate(360deg)}}
+    @keyframes slideInEnd{from{transform:translateX(100%)}to{transform:none}}
   </style>
-  <script>try{if(localStorage.getItem('lm-theme')!=='light'){document.body.classList.add('dark');}}catch(e){}</script>
+  <script>try{var t=localStorage.getItem('lm-theme');if(t==='dark'||(t!=='light'&&window.matchMedia&&matchMedia('(prefers-color-scheme: dark)').matches)){document.body.classList.add('dark');}}catch(e){}</script>
 </helmet>
-<div data-screen-label="Login" style="min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:24px;gap:26px">
-  <div style="display:flex;align-items:center;gap:10px;animation:fadeUp .5s ease both">
-    <span style="width:30px;height:30px;border-radius:8px;background:#e2b65c;color:#1a1712;display:grid;place-items:center;font:700 14px var(--mono)">L</span>
-    <span style="font:600 16px var(--mono);letter-spacing:.02em">LightMove</span>
-  </div>
+<div data-screen-label="Login" style="min-height:100vh;background:var(--bg);color:var(--text)">
 
-  <div style="width:400px;max-width:94vw;background:var(--panel);border:1px solid var(--line);border-radius:14px;box-shadow:var(--shadow);padding:32px;animation:fadeUp .5s .06s ease both">
-    <div style="font:600 19px/1.25 var(--sans);margin:0 0 4px">Sign in</div>
-    <div style="font:400 12px var(--mono);color:var(--text3);margin:0 0 24px">Executive search workspace</div>
-
-    <label style="display:block;font:600 10px var(--mono);letter-spacing:.12em;text-transform:uppercase;color:var(--text3);margin:0 0 6px">Work email</label>
-    <input type="email" placeholder="you@firm.com" style="width:100%;background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:9px 12px;font:400 13px var(--mono);color:var(--text);outline:none;margin-bottom:16px" style-focus="border-color:var(--sky)">
-
-    <div style="display:flex;align-items:baseline;justify-content:space-between;margin:0 0 6px">
-      <label style="font:600 10px var(--mono);letter-spacing:.12em;text-transform:uppercase;color:var(--text3)">Password</label>
-      <button onClick="{{ forgot }}" style="background:none;border:none;padding:0;cursor:pointer;font:500 11.5px var(--sans);color:var(--sky)" style-hover="text-decoration:underline">Forgot?</button>
-    </div>
-    <input type="password" placeholder="••••••••" style="width:100%;background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:9px 12px;font:400 13px var(--mono);color:var(--text);outline:none;margin-bottom:20px" style-focus="border-color:var(--sky)">
-
-    <button onClick="{{ signIn }}" style="width:100%;display:flex;align-items:center;justify-content:center;gap:8px;background:var(--amber-btn);border:1px solid var(--amber-btn);color:#1a1712;font:600 13.5px var(--sans);padding:10px 14px;border-radius:8px;cursor:pointer" style-hover="filter:brightness(1.05)">Continue</button>
-
-    <sc-if value="{{ showSso }}" hint-placeholder-val="{{ true }}">
-      <div style="display:flex;align-items:center;gap:10px;color:var(--text3);font:500 10px var(--mono);letter-spacing:.1em;text-transform:uppercase;margin:18px 0">
-        <span style="flex:1;height:1px;background:var(--line-soft)"></span>
-        <span>or</span>
-        <span style="flex:1;height:1px;background:var(--line-soft)"></span>
-      </div>
-      <button onClick="{{ signIn }}" style="width:100%;display:flex;align-items:center;justify-content:center;gap:8px;background:var(--panel);border:1px solid var(--line);color:var(--text2);font:500 13px var(--sans);padding:10px 14px;border-radius:8px;cursor:pointer" style-hover="color:var(--text);border-color:var(--text3)">
-        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="10" rx="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>
-        Continue with SSO
+  <!-- ─── login: LoginPage.tsx ─── -->
+  <sc-if value="{{ isLogin }}" hint-placeholder-val="{{ true }}">
+    <div data-screen-label="Sign in" style="min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:24px;padding:24px">
+      <button type="button" onClick="{{ toggleTheme }}" aria-label="{{ themeLabel }}" title="{{ themeLabel }}" style="position:fixed;right:16px;top:16px;z-index:50;display:grid;place-items:center;width:28px;height:28px;padding:0;border-radius:8px;border:1px solid var(--line);background:var(--panel2);color:var(--text3);cursor:pointer;outline:none;transition:color .15s" style-hover="color:var(--text)">
+        <sc-if value="{{ dark }}" hint-placeholder-val="{{ false }}">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="12" cy="12" r="4"></circle><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"></path></svg>
+        </sc-if>
+        <sc-if value="{{ light }}" hint-placeholder-val="{{ true }}">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8Z"></path></svg>
+        </sc-if>
       </button>
-    </sc-if>
 
-    <div style="font:400 11px var(--mono);color:var(--text3);text-align:center;margin-top:18px">Demo — any credentials work</div>
-  </div>
+      <div style="display:flex;align-items:center;gap:14px;animation:fadeUp .5s ease both">
+        <svg viewBox="-36 -51 72 104" fill="none" stroke="currentColor" style="height:56px;width:auto;flex:none;color:var(--text)" aria-hidden="true"><path d="M-32 10 L 0 -8 L 32 10 L 0 28 Z M-32 10 V 32 L 0 50 L 32 32 V 10 M0 28 V 50" stroke-width="2.6" stroke-linejoin="round"></path><path d="M0 -48 L 32 -30 L 0 -12 L -32 -30 Z" fill="currentColor" stroke="none"></path></svg>
+        <span style="font:500 19px var(--sans);text-transform:uppercase;letter-spacing:.32em;color:var(--text)">Uncava</span>
+      </div>
 
-  <div style="font:400 12.5px var(--sans);color:var(--text2);animation:fadeUp .5s .12s ease both">New to LightMove? <a href="Signup.dc.html">Create an account</a></div>
+      <div style="width:400px;max-width:94vw;border-radius:14px;border:1px solid var(--line);background:var(--panel);padding:32px;box-shadow:var(--shadow);animation:fadeUp .5s .06s ease both">
+        <h1 style="margin:0;font:600 19px/1.25 var(--sans)">Sign in</h1>
+        <p style="margin:4px 0 24px;font:400 12px var(--mono);color:var(--text3)">Executive search workspace</p>
+
+        <sc-if value="{{ hasError }}" hint-placeholder-val="{{ false }}">
+          <div role="alert" style="margin-bottom:16px;border-radius:8px;background:var(--red-dim);padding:10px 12px;font:400 11.5px/1.45 var(--mono);color:var(--red)">{{ errorMessage }}</div>
+        </sc-if>
+
+        <label style="display:block;margin-bottom:16px">
+          <span style="display:flex;align-items:baseline;justify-content:space-between;margin-bottom:6px">
+            <span style="font:600 10px var(--mono);letter-spacing:.12em;text-transform:uppercase;color:var(--text3)">Work email</span>
+          </span>
+          <input type="email" autocomplete="email" placeholder="you@firm.com" style="width:100%;border-radius:8px;border:1px solid var(--line);background:var(--panel2);padding:10px 12px;font:400 13px var(--mono);color:var(--text);outline:none;transition:border-color .15s" style-focus="border-color:var(--sky)">
+        </label>
+
+        <label style="display:block;margin-bottom:16px">
+          <span style="display:flex;align-items:baseline;justify-content:space-between;margin-bottom:6px">
+            <span style="font:600 10px var(--mono);letter-spacing:.12em;text-transform:uppercase;color:var(--text3)">Password</span>
+            <button type="button" onClick="{{ go }}" data-to="forgot" style="background:none;border:none;padding:0;cursor:pointer;font:500 11.5px var(--sans);color:var(--sky)" style-hover="text-decoration:underline">Forgot?</button>
+          </span>
+          <input type="password" autocomplete="current-password" placeholder="••••••••" style="width:100%;border-radius:8px;border:1px solid var(--line);background:var(--panel2);padding:10px 12px;font:400 13px var(--mono);color:var(--text);outline:none;transition:border-color .15s" style-focus="border-color:var(--sky)">
+        </label>
+
+        <button type="button" onClick="{{ signIn }}" style="width:100%;margin-top:4px;display:flex;align-items:center;justify-content:center;gap:8px;border-radius:8px;padding:10px 14px;font:600 13.5px var(--sans);background:var(--amber-btn);border:1px solid var(--amber-btn);color:var(--on-amber);cursor:pointer" style-hover="filter:brightness(1.05)">Continue</button>
+
+        <sc-if value="{{ showProviders }}" hint-placeholder-val="{{ true }}">
+          <div style="margin:18px 0;display:flex;align-items:center;gap:10px;font:500 10px var(--mono);text-transform:uppercase;letter-spacing:.1em;color:var(--text3)">
+            <span style="height:1px;flex:1;background:var(--line-soft)"></span>
+            <span>or</span>
+            <span style="height:1px;flex:1;background:var(--line-soft)"></span>
+          </div>
+          <div style="display:flex;flex-direction:column;gap:8px">
+            <button type="button" onClick="{{ providerSignIn }}" style="width:100%;display:flex;align-items:center;justify-content:center;gap:8px;border-radius:8px;padding:10px 14px;font:500 13.5px var(--sans);background:var(--panel);border:1px solid var(--line);color:var(--text2);cursor:pointer" style-hover="color:var(--text);border-color:var(--text3)">
+              <svg width="15" height="15" viewBox="0 0 24 24" aria-hidden="true"><path fill="#4285F4" d="M23.5 12.3c0-.8-.1-1.6-.2-2.3H12v4.5h6.5a5.6 5.6 0 0 1-2.4 3.6v3h3.9c2.3-2.1 3.5-5.2 3.5-8.8Z"></path><path fill="#34A853" d="M12 24c3.2 0 5.9-1.1 7.9-2.9l-3.9-3a7.2 7.2 0 0 1-10.7-3.8h-4v3.1A12 12 0 0 0 12 24Z"></path><path fill="#FBBC05" d="M5.3 14.3a7.1 7.1 0 0 1 0-4.6V6.6h-4a12 12 0 0 0 0 10.8l4-3.1Z"></path><path fill="#EA4335" d="M12 4.8c1.8 0 3.4.6 4.6 1.8l3.4-3.4A12 12 0 0 0 1.3 6.6l4 3.1A7.2 7.2 0 0 1 12 4.8Z"></path></svg>
+              Continue with Google
+            </button>
+            <button type="button" onClick="{{ providerSignIn }}" style="width:100%;display:flex;align-items:center;justify-content:center;gap:8px;border-radius:8px;padding:10px 14px;font:500 13.5px var(--sans);background:var(--panel);border:1px solid var(--line);color:var(--text2);cursor:pointer" style-hover="color:var(--text);border-color:var(--text3)">
+              <svg width="15" height="15" viewBox="0 0 24 24" aria-hidden="true"><path fill="#0A66C2" d="M20.45 20.45h-3.56v-5.57c0-1.33-.03-3.04-1.85-3.04-1.86 0-2.14 1.45-2.14 2.95v5.66H9.35V9h3.41v1.56h.05a3.74 3.74 0 0 1 3.37-1.85c3.6 0 4.27 2.37 4.27 5.46v6.28ZM5.34 7.43a2.07 2.07 0 1 1 0-4.13 2.07 2.07 0 0 1 0 4.13Zm1.78 13.02H3.55V9h3.57v11.45ZM22.22 0H1.77C.79 0 0 .77 0 1.73v20.54C0 23.23.79 24 1.77 24h20.45c.98 0 1.78-.77 1.78-1.73V1.73C24 .77 23.2 0 22.22 0Z"></path></svg>
+              Continue with LinkedIn
+            </button>
+          </div>
+        </sc-if>
+      </div>
+
+      <p style="margin:0;font:400 12.5px var(--sans);color:var(--text2);animation:fadeUp .5s .12s ease both">New to Uncava? <a href="Signup.dc.html" style="color:var(--sky)" style-hover="text-decoration:underline">Create an account</a></p>
+    </div>
+  </sc-if>
+
+  <!-- ─── forgot: ForgotPasswordPage.tsx (form) ─── -->
+  <sc-if value="{{ isForgot }}" hint-placeholder-val="{{ false }}">
+    <div data-screen-label="Forgot password" style="min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:24px;padding:24px">
+      <div style="display:flex;align-items:center;gap:14px;animation:fadeUp .5s ease both">
+        <svg viewBox="-36 -51 72 104" fill="none" stroke="currentColor" style="height:48px;width:auto;flex:none;color:var(--text)" aria-hidden="true"><path d="M-32 10 L 0 -8 L 32 10 L 0 28 Z M-32 10 V 32 L 0 50 L 32 32 V 10 M0 28 V 50" stroke-width="2.6" stroke-linejoin="round"></path><path d="M0 -48 L 32 -30 L 0 -12 L -32 -30 Z" fill="currentColor" stroke="none"></path></svg>
+        <span style="font:500 16px var(--sans);text-transform:uppercase;letter-spacing:.32em;color:var(--text)">Uncava</span>
+      </div>
+
+      <div style="width:400px;max-width:94vw;border-radius:14px;border:1px solid var(--line);background:var(--panel);padding:32px;box-shadow:var(--shadow);animation:fadeUp .5s .06s ease both">
+        <h1 style="margin:0;font:600 19px/1.25 var(--sans)">Reset your password</h1>
+        <p style="margin:4px 0 24px;font:400 12px var(--mono);color:var(--text3)">We’ll email you a link to choose a new one.</p>
+
+        <label style="display:block;margin-bottom:16px">
+          <span style="display:flex;align-items:baseline;justify-content:space-between;margin-bottom:6px">
+            <span style="font:600 10px var(--mono);letter-spacing:.12em;text-transform:uppercase;color:var(--text3)">Work email</span>
+          </span>
+          <input type="email" autocomplete="email" placeholder="you@firm.com" style="width:100%;border-radius:8px;border:1px solid var(--line);background:var(--panel2);padding:10px 12px;font:400 13px var(--mono);color:var(--text);outline:none;transition:border-color .15s" style-focus="border-color:var(--sky)">
+        </label>
+
+        <button type="button" onClick="{{ go }}" data-to="forgot-sent" style="width:100%;margin-top:4px;display:flex;align-items:center;justify-content:center;gap:8px;border-radius:8px;padding:10px 14px;font:600 13.5px var(--sans);background:var(--amber-btn);border:1px solid var(--amber-btn);color:var(--on-amber);cursor:pointer" style-hover="filter:brightness(1.05)">Send reset link</button>
+      </div>
+
+      <p style="margin:0;font:400 12.5px var(--sans);color:var(--text2);animation:fadeUp .5s .12s ease both">Remembered it? <button type="button" onClick="{{ go }}" data-to="login" style="background:none;border:none;padding:0;cursor:pointer;font:inherit;color:var(--sky)" style-hover="text-decoration:underline">Back to sign in</button></p>
+    </div>
+  </sc-if>
+
+  <!-- ─── forgot-sent: ForgotPasswordPage.tsx (sentTo) ─── -->
+  <sc-if value="{{ isForgotSent }}" hint-placeholder-val="{{ false }}">
+    <div data-screen-label="Reset link sent" style="min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:24px;padding:24px">
+      <div style="display:flex;align-items:center;gap:14px;animation:fadeUp .5s ease both">
+        <svg viewBox="-36 -51 72 104" fill="none" stroke="currentColor" style="height:48px;width:auto;flex:none;color:var(--text)" aria-hidden="true"><path d="M-32 10 L 0 -8 L 32 10 L 0 28 Z M-32 10 V 32 L 0 50 L 32 32 V 10 M0 28 V 50" stroke-width="2.6" stroke-linejoin="round"></path><path d="M0 -48 L 32 -30 L 0 -12 L -32 -30 Z" fill="currentColor" stroke="none"></path></svg>
+        <span style="font:500 16px var(--sans);text-transform:uppercase;letter-spacing:.32em;color:var(--text)">Uncava</span>
+      </div>
+
+      <div style="width:400px;max-width:94vw;border-radius:14px;border:1px solid var(--line);background:var(--panel);padding:32px;box-shadow:var(--shadow);animation:fadeUp .5s .06s ease both;text-align:center">
+        <div style="margin:0 auto 16px;display:grid;place-items:center;width:44px;height:44px;border-radius:50%;background:var(--amber-dim)">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color:var(--amber)" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2"></rect><path d="m3 7 9 6 9-6"></path></svg>
+        </div>
+        <h1 style="margin:0;font:600 19px/1.25 var(--sans)">Check your inbox</h1>
+        <p style="margin:8px 0 24px;font:400 14px/1.45 var(--sans);color:var(--text2)">If an account exists for <span style="font-weight:500;color:var(--text)">yara@meridiansearch.com</span>, a reset link is on its way. It expires in 30 minutes.</p>
+        <button type="button" onClick="{{ go }}" data-to="login" style="background:none;border:none;padding:0;cursor:pointer;font:400 12.5px var(--sans);color:var(--sky)" style-hover="text-decoration:underline">Back to sign in</button>
+      </div>
+    </div>
+  </sc-if>
+
+  <!-- ─── reset: ResetPasswordPage.tsx (form) ─── -->
+  <sc-if value="{{ isReset }}" hint-placeholder-val="{{ false }}">
+    <div data-screen-label="Choose a new password" style="min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:24px;padding:24px">
+      <div style="display:flex;align-items:center;gap:14px;animation:fadeUp .5s ease both">
+        <svg viewBox="-36 -51 72 104" fill="none" stroke="currentColor" style="height:48px;width:auto;flex:none;color:var(--text)" aria-hidden="true"><path d="M-32 10 L 0 -8 L 32 10 L 0 28 Z M-32 10 V 32 L 0 50 L 32 32 V 10 M0 28 V 50" stroke-width="2.6" stroke-linejoin="round"></path><path d="M0 -48 L 32 -30 L 0 -12 L -32 -30 Z" fill="currentColor" stroke="none"></path></svg>
+        <span style="font:500 16px var(--sans);text-transform:uppercase;letter-spacing:.32em;color:var(--text)">Uncava</span>
+      </div>
+
+      <div style="width:400px;max-width:94vw;border-radius:14px;border:1px solid var(--line);background:var(--panel);padding:32px;box-shadow:var(--shadow);animation:fadeUp .5s .06s ease both">
+        <h1 style="margin:0;font:600 19px/1.25 var(--sans)">Choose a new password</h1>
+        <p style="margin:4px 0 24px;font:400 12px var(--mono);color:var(--text3)">You’ll be signed in as soon as it’s set.</p>
+
+        <label style="display:block;margin-bottom:16px">
+          <span style="display:flex;align-items:baseline;justify-content:space-between;margin-bottom:6px">
+            <span style="font:600 10px var(--mono);letter-spacing:.12em;text-transform:uppercase;color:var(--text3)">New password</span>
+          </span>
+          <input type="password" autocomplete="new-password" placeholder="8+ characters" style="width:100%;border-radius:8px;border:1px solid var(--line);background:var(--panel2);padding:10px 12px;font:400 13px var(--mono);color:var(--text);outline:none;transition:border-color .15s" style-focus="border-color:var(--sky)">
+        </label>
+
+        <label style="display:block;margin-bottom:16px">
+          <span style="display:flex;align-items:baseline;justify-content:space-between;margin-bottom:6px">
+            <span style="font:600 10px var(--mono);letter-spacing:.12em;text-transform:uppercase;color:var(--text3)">Confirm password</span>
+          </span>
+          <input type="password" autocomplete="new-password" placeholder="Re-enter your password" style="width:100%;border-radius:8px;border:1px solid var(--line);background:var(--panel2);padding:10px 12px;font:400 13px var(--mono);color:var(--text);outline:none;transition:border-color .15s" style-focus="border-color:var(--sky)">
+        </label>
+
+        <p style="margin:0 0 12px;font:400 11px var(--mono);color:var(--text3)">Use at least 8 characters, with one number.</p>
+
+        <a href="Workspace.dc.html" style="width:100%;margin-top:4px;display:flex;align-items:center;justify-content:center;gap:8px;border-radius:8px;padding:10px 14px;font:600 13.5px var(--sans);background:var(--amber-btn);border:1px solid var(--amber-btn);color:var(--on-amber);cursor:pointer" style-hover="filter:brightness(1.05)">Set password and sign in</a>
+      </div>
+    </div>
+  </sc-if>
+
+  <!-- ─── reset-invalid: ResetPasswordPage.tsx (invalidLink) ─── -->
+  <sc-if value="{{ isResetInvalid }}" hint-placeholder-val="{{ false }}">
+    <div data-screen-label="Reset link expired" style="min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:24px;padding:24px">
+      <div style="display:flex;align-items:center;gap:14px;animation:fadeUp .5s ease both">
+        <svg viewBox="-36 -51 72 104" fill="none" stroke="currentColor" style="height:48px;width:auto;flex:none;color:var(--text)" aria-hidden="true"><path d="M-32 10 L 0 -8 L 32 10 L 0 28 Z M-32 10 V 32 L 0 50 L 32 32 V 10 M0 28 V 50" stroke-width="2.6" stroke-linejoin="round"></path><path d="M0 -48 L 32 -30 L 0 -12 L -32 -30 Z" fill="currentColor" stroke="none"></path></svg>
+        <span style="font:500 16px var(--sans);text-transform:uppercase;letter-spacing:.32em;color:var(--text)">Uncava</span>
+      </div>
+
+      <div style="width:400px;max-width:94vw;border-radius:14px;border:1px solid var(--line);background:var(--panel);padding:32px;box-shadow:var(--shadow);animation:fadeUp .5s .06s ease both;text-align:center">
+        <div style="margin:0 auto 16px;display:grid;place-items:center;width:44px;height:44px;border-radius:50%;background:var(--red-dim)">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="color:var(--red)" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12"></path></svg>
+        </div>
+        <h1 style="margin:0;font:600 19px var(--sans)">This link has expired or was already used</h1>
+        <p style="margin:8px 0 24px;font:400 12px/1.45 var(--mono);color:var(--text3)">Reset links work once and expire after 30 minutes. Request a fresh one — it only takes a moment.</p>
+        <button type="button" onClick="{{ go }}" data-to="forgot" style="width:100%;display:flex;align-items:center;justify-content:center;gap:8px;border-radius:8px;padding:10px 14px;font:600 13.5px var(--sans);background:var(--amber-btn);border:1px solid var(--amber-btn);color:var(--on-amber);cursor:pointer" style-hover="filter:brightness(1.05)">Request a new link</button>
+        <p style="margin:16px 0 0;font:400 12.5px var(--sans)"><button type="button" onClick="{{ go }}" data-to="login" style="background:none;border:none;padding:0;cursor:pointer;font:inherit;color:var(--sky)" style-hover="text-decoration:underline">Back to sign in</button></p>
+      </div>
+    </div>
+  </sc-if>
+
+  <!-- ─── verify-pending / verify-ok / verify-failed: VerifyEmailPage.tsx ─── -->
+  <sc-if value="{{ isVerify }}" hint-placeholder-val="{{ false }}">
+    <div data-screen-label="{{ verifyLabel }}" style="min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:24px;padding:24px">
+      <div style="display:flex;align-items:center;gap:14px;animation:fadeUp .5s ease both">
+        <svg viewBox="-36 -51 72 104" fill="none" stroke="currentColor" style="height:48px;width:auto;flex:none;color:var(--text)" aria-hidden="true"><path d="M-32 10 L 0 -8 L 32 10 L 0 28 Z M-32 10 V 32 L 0 50 L 32 32 V 10 M0 28 V 50" stroke-width="2.6" stroke-linejoin="round"></path><path d="M0 -48 L 32 -30 L 0 -12 L -32 -30 Z" fill="currentColor" stroke="none"></path></svg>
+        <span style="font:500 16px var(--sans);text-transform:uppercase;letter-spacing:.32em;color:var(--text)">Uncava</span>
+      </div>
+
+      <div style="width:400px;max-width:94vw;border-radius:14px;border:1px solid var(--line);background:var(--panel);padding:32px;box-shadow:var(--shadow);animation:fadeUp .5s .06s ease both;text-align:center">
+        <sc-if value="{{ isVerifyPending }}" hint-placeholder-val="{{ true }}">
+          <h1 style="margin:0;font:600 19px var(--sans)">Verifying your email…</h1>
+          <p style="margin:8px 0 0;font:400 12px var(--mono);color:var(--text3)">One moment.</p>
+        </sc-if>
+
+        <sc-if value="{{ isVerifyOk }}" hint-placeholder-val="{{ false }}">
+          <div style="margin:0 auto 16px;display:grid;place-items:center;width:44px;height:44px;border-radius:50%;background:var(--green-dim)">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="color:var(--green)" aria-hidden="true"><path d="M20 6 9 17l-5-5"></path></svg>
+          </div>
+          <h1 style="margin:0;font:600 19px var(--sans)">Email verified</h1>
+          <p style="margin:8px 0 24px;font:400 12px var(--mono);color:var(--text3)">Your account is confirmed.</p>
+          <a href="Signup.dc.html?step=3" style="width:100%;display:flex;align-items:center;justify-content:center;gap:8px;border-radius:8px;padding:10px 14px;font:600 13.5px var(--sans);background:var(--amber-btn);border:1px solid var(--amber-btn);color:var(--on-amber);cursor:pointer" style-hover="filter:brightness(1.05)">Continue</a>
+        </sc-if>
+
+        <sc-if value="{{ isVerifyFailed }}" hint-placeholder-val="{{ false }}">
+          <div style="margin:0 auto 16px;display:grid;place-items:center;width:44px;height:44px;border-radius:50%;background:var(--red-dim)">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="color:var(--red)" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12"></path></svg>
+          </div>
+          <h1 style="margin:0;font:600 19px var(--sans)">Verification failed</h1>
+          <p style="margin:8px 0 24px;font:400 12px var(--mono);color:var(--text3)">This link is not valid</p>
+          <button type="button" onClick="{{ go }}" data-to="login" style="background:none;border:none;padding:0;cursor:pointer;font:400 12.5px var(--sans);color:var(--sky)" style-hover="text-decoration:underline">Back to sign in</button>
+        </sc-if>
+      </div>
+    </div>
+  </sc-if>
+
+  <!-- ─── callback: OAuthCallbackPage.tsx ─── -->
+  <sc-if value="{{ isCallback }}" hint-placeholder-val="{{ false }}">
+    <div data-screen-label="Signing you in" style="min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;padding:24px">
+      <div style="display:flex;align-items:center;gap:14px;animation:fadeUp .5s ease both">
+        <svg viewBox="-36 -51 72 104" fill="none" stroke="currentColor" style="height:48px;width:auto;flex:none;color:var(--text)" aria-hidden="true"><path d="M-32 10 L 0 -8 L 32 10 L 0 28 Z M-32 10 V 32 L 0 50 L 32 32 V 10 M0 28 V 50" stroke-width="2.6" stroke-linejoin="round"></path><path d="M0 -48 L 32 -30 L 0 -12 L -32 -30 Z" fill="currentColor" stroke="none"></path></svg>
+        <span style="font:500 16px var(--sans);text-transform:uppercase;letter-spacing:.32em;color:var(--text)">Uncava</span>
+      </div>
+      <p style="margin:0;font:400 12px var(--mono);color:var(--text3)">Signing you in…</p>
+    </div>
+  </sc-if>
+
+  <!-- ─── invite shell: AcceptInvitePage.tsx Shell (signup / email-taken / wrong-account / in-workspace / unverified / accept) ─── -->
+  <sc-if value="{{ isInviteShell }}" hint-placeholder-val="{{ false }}">
+    <div data-screen-label="{{ inviteLabel }}" style="min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:24px;padding:24px">
+      <div style="display:flex;align-items:center;gap:14px;animation:fadeUp .5s ease both">
+        <svg viewBox="-36 -51 72 104" fill="none" stroke="currentColor" style="height:48px;width:auto;flex:none;color:var(--text)" aria-hidden="true"><path d="M-32 10 L 0 -8 L 32 10 L 0 28 Z M-32 10 V 32 L 0 50 L 32 32 V 10 M0 28 V 50" stroke-width="2.6" stroke-linejoin="round"></path><path d="M0 -48 L 32 -30 L 0 -12 L -32 -30 Z" fill="currentColor" stroke="none"></path></svg>
+        <span style="font:500 16px var(--sans);text-transform:uppercase;letter-spacing:.32em;color:var(--text)">Uncava</span>
+      </div>
+
+      <div style="width:440px;max-width:94vw;border-radius:14px;border:1px solid var(--line);background:var(--panel);padding:32px;box-shadow:var(--shadow);animation:fadeUp .5s .06s ease both;text-align:center">
+        <h1 style="margin:0;font:600 19px/1.25 var(--sans)">Join {{ workspaceName }}</h1>
+        <p style="margin:4px 0 24px;font:400 12px var(--mono);color:var(--text3)">{{ inviteSubtitle }}</p>
+
+        <sc-if value="{{ isInviteForm }}" hint-placeholder-val="{{ true }}">
+          <div style="text-align:left">
+            <label style="display:block;margin-bottom:16px">
+              <span style="display:flex;align-items:baseline;justify-content:space-between;margin-bottom:6px">
+                <span style="font:600 10px var(--mono);letter-spacing:.12em;text-transform:uppercase;color:var(--text3)">Work email</span>
+              </span>
+              <input type="email" value="{{ inviteEmail }}" readonly style="width:100%;border-radius:8px;border:1px solid var(--line);background:var(--panel2);padding:10px 12px;font:400 13px var(--mono);color:var(--text3);outline:none;cursor:not-allowed">
+              <span style="display:block;margin-top:6px;font:400 11px var(--mono);color:var(--text3)">The address your invitation was sent to.</span>
+            </label>
+
+            <label style="display:block;margin-bottom:16px">
+              <span style="display:flex;align-items:baseline;justify-content:space-between;margin-bottom:6px">
+                <span style="font:600 10px var(--mono);letter-spacing:.12em;text-transform:uppercase;color:var(--text3)">Full name</span>
+              </span>
+              <input autocomplete="name" placeholder="Yara Haddad" style="width:100%;border-radius:8px;border:1px solid var(--line);background:var(--panel2);padding:10px 12px;font:400 13px var(--mono);color:var(--text);outline:none;transition:border-color .15s" style-focus="border-color:var(--sky)">
+            </label>
+
+            <label style="display:block;margin-bottom:16px">
+              <span style="display:flex;align-items:baseline;justify-content:space-between;margin-bottom:6px">
+                <span style="font:600 10px var(--mono);letter-spacing:.12em;text-transform:uppercase;color:var(--text3)">Password</span>
+              </span>
+              <input type="password" autocomplete="new-password" placeholder="8+ characters" style="width:100%;border-radius:8px;border:1px solid var(--line);background:var(--panel2);padding:10px 12px;font:400 13px var(--mono);color:var(--text);outline:none;transition:border-color .15s" style-focus="border-color:var(--sky)">
+              <span style="display:block;margin-top:6px;font:400 11px var(--mono);color:var(--text3)">Use at least 8 characters, with one number.</span>
+            </label>
+
+            <label style="display:block;margin-bottom:16px">
+              <span style="display:flex;align-items:baseline;justify-content:space-between;margin-bottom:6px">
+                <span style="font:600 10px var(--mono);letter-spacing:.12em;text-transform:uppercase;color:var(--text3)">Confirm password</span>
+              </span>
+              <input type="password" autocomplete="new-password" placeholder="Re-enter your password" style="width:100%;border-radius:8px;border:1px solid var(--line);background:var(--panel2);padding:10px 12px;font:400 13px var(--mono);color:var(--text);outline:none;transition:border-color .15s" style-focus="border-color:var(--sky)">
+            </label>
+
+            <sc-if value="{{ isInviteEmailTaken }}" hint-placeholder-val="{{ false }}">
+              <div style="margin-bottom:20px;display:flex;align-items:center;gap:8px;border-radius:8px;background:var(--sky-dim);padding:10px 12px;font:400 11.5px/1.45 var(--mono);color:var(--sky)">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex:none" aria-hidden="true"><circle cx="12" cy="12" r="9"></circle><path d="M12 8h.01M12 11v5"></path></svg>
+                <span>{{ inviteEmail }} already has an account. <button type="button" onClick="{{ go }}" data-to="login" style="background:none;border:none;padding:0;cursor:pointer;font:500 11.5px var(--mono);color:var(--sky)" style-hover="text-decoration:underline">Log in to accept →</button></span>
+              </div>
+            </sc-if>
+            <sc-if value="{{ isInviteSignup }}" hint-placeholder-val="{{ true }}">
+              <a href="Workspace.dc.html" style="width:100%;margin-top:4px;display:flex;align-items:center;justify-content:center;gap:8px;border-radius:8px;padding:10px 14px;font:600 13.5px var(--sans);background:var(--amber-btn);border:1px solid var(--amber-btn);color:var(--on-amber);cursor:pointer" style-hover="filter:brightness(1.05)">Accept &amp; join</a>
+            </sc-if>
+          </div>
+
+          <p style="margin:16px 0 0;text-align:left;font:400 11.5px/1.625 var(--sans);color:var(--text3)">By continuing you agree to the <a href="#" style="color:var(--sky)" style-hover="text-decoration:underline">Terms</a> and <a href="#" style="color:var(--sky)" style-hover="text-decoration:underline">Privacy Policy</a>.</p>
+        </sc-if>
+
+        <sc-if value="{{ isInviteWrongAccount }}" hint-placeholder-val="{{ false }}">
+          <div style="margin-bottom:20px;display:flex;align-items:center;gap:8px;border-radius:8px;background:var(--sky-dim);padding:10px 12px;font:400 11.5px/1.45 var(--mono);color:var(--sky);text-align:left">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex:none" aria-hidden="true"><circle cx="12" cy="12" r="9"></circle><path d="M12 8h.01M12 11v5"></path></svg>
+            <span>This invitation is for {{ inviteEmail }}, but you are signed in as {{ signedInEmail }}.</span>
+          </div>
+          <button type="button" onClick="{{ go }}" data-to="login" style="width:100%;display:flex;align-items:center;justify-content:center;gap:8px;border-radius:8px;padding:10px 14px;font:500 13.5px var(--sans);background:var(--panel);border:1px solid var(--line);color:var(--text2);cursor:pointer" style-hover="color:var(--text);border-color:var(--text3)">Sign out and switch account</button>
+        </sc-if>
+
+        <sc-if value="{{ isInviteInWorkspace }}" hint-placeholder-val="{{ false }}">
+          <div style="margin-bottom:20px;display:flex;align-items:center;gap:8px;border-radius:8px;background:var(--sky-dim);padding:10px 12px;font:400 11.5px/1.45 var(--mono);color:var(--sky);text-align:left">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex:none" aria-hidden="true"><circle cx="12" cy="12" r="9"></circle><path d="M12 8h.01M12 11v5"></path></svg>
+            <span>You already belong to {{ currentWorkspaceName }}. Leave it before joining another.</span>
+          </div>
+        </sc-if>
+
+        <sc-if value="{{ isInviteUnverified }}" hint-placeholder-val="{{ false }}">
+          <div style="margin-bottom:20px;display:flex;align-items:center;gap:8px;border-radius:8px;background:var(--sky-dim);padding:10px 12px;font:400 11.5px/1.45 var(--mono);color:var(--sky);text-align:left">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex:none" aria-hidden="true"><circle cx="12" cy="12" r="9"></circle><path d="M12 8h.01M12 11v5"></path></svg>
+            <span>Confirm {{ inviteEmail }} first — open the link in your inbox, and we’ll bring you back here.</span>
+          </div>
+        </sc-if>
+
+        <sc-if value="{{ isInviteAccept }}" hint-placeholder-val="{{ false }}">
+          <div style="margin-bottom:20px;display:flex;align-items:center;gap:8px;border-radius:8px;background:var(--sky-dim);padding:10px 12px;font:400 11.5px/1.45 var(--mono);color:var(--sky);text-align:left">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex:none" aria-hidden="true"><circle cx="12" cy="12" r="9"></circle><path d="M12 8h.01M12 11v5"></path></svg>
+            <span>You'll be in as soon as you accept.</span>
+          </div>
+          <a href="Workspace.dc.html" style="width:100%;display:flex;align-items:center;justify-content:center;gap:8px;border-radius:8px;padding:10px 14px;font:600 13.5px var(--sans);background:var(--amber-btn);border:1px solid var(--amber-btn);color:var(--on-amber);cursor:pointer" style-hover="filter:brightness(1.05)">Accept invitation</a>
+        </sc-if>
+      </div>
+    </div>
+  </sc-if>
+
+  <!-- ─── invite-expired / invite-invalid / invite-missing: AcceptInvitePage.tsx Dead ─── -->
+  <sc-if value="{{ isInviteDead }}" hint-placeholder-val="{{ false }}">
+    <div data-screen-label="{{ deadLabel }}" style="min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:24px;padding:24px">
+      <div style="display:flex;align-items:center;gap:14px;animation:fadeUp .5s ease both">
+        <svg viewBox="-36 -51 72 104" fill="none" stroke="currentColor" style="height:48px;width:auto;flex:none;color:var(--text)" aria-hidden="true"><path d="M-32 10 L 0 -8 L 32 10 L 0 28 Z M-32 10 V 32 L 0 50 L 32 32 V 10 M0 28 V 50" stroke-width="2.6" stroke-linejoin="round"></path><path d="M0 -48 L 32 -30 L 0 -12 L -32 -30 Z" fill="currentColor" stroke="none"></path></svg>
+        <span style="font:500 16px var(--sans);text-transform:uppercase;letter-spacing:.32em;color:var(--text)">Uncava</span>
+      </div>
+
+      <div style="width:420px;max-width:94vw;border-radius:14px;border:1px solid var(--line);background:var(--panel);padding:32px;box-shadow:var(--shadow);animation:fadeUp .5s .06s ease both;text-align:center">
+        <h1 style="margin:0;font:600 19px var(--sans)">{{ deadTitle }}</h1>
+        <p style="margin:8px 0 24px;font:400 13px/1.625 var(--sans);color:var(--text2)">{{ deadDetail }}</p>
+        <button type="button" onClick="{{ go }}" data-to="login" style="background:none;border:none;padding:0;cursor:pointer;font:500 12.5px var(--sans);color:var(--sky)" style-hover="text-decoration:underline">Back to sign in</button>
+      </div>
+    </div>
+  </sc-if>
+
 </div>
-
-<template id="__bundler_thumbnail"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><rect width="100" height="100" fill="#16171a"></rect><text x="50" y="50" fill="#e2b65c" font-family="Montserrat,sans-serif" font-size="26" font-weight="700" text-anchor="middle" dominant-baseline="central">IN</text></svg></template>
+<template id="__bundler_thumbnail"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><rect width="100" height="100" fill="#16171a"></rect><g transform="translate(50 40) scale(.42)" fill="none" stroke="#f8fafc"><path d="M-32 10 L 0 -8 L 32 10 L 0 28 Z M-32 10 V 32 L 0 50 L 32 32 V 10 M0 28 V 50" stroke-width="3" stroke-linejoin="round"></path><path d="M0 -48 L 32 -30 L 0 -12 L -32 -30 Z" fill="#f8fafc" stroke="none"></path></g><text x="50" y="86" fill="#e2b65c" font-family="Geist,Inter,sans-serif" font-size="13" font-weight="700" letter-spacing="2" text-anchor="middle">IN</text></svg></template>
 </x-dc>
-<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:&quot;100%&quot;,&quot;height&quot;:720},&quot;showSso&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:true,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;Options&quot;}}">
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:&quot;100%&quot;,&quot;height&quot;:760},&quot;screen&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;default&quot;:&quot;login&quot;,&quot;options&quot;:[&quot;login&quot;,&quot;forgot&quot;,&quot;forgot-sent&quot;,&quot;reset&quot;,&quot;reset-invalid&quot;,&quot;verify-pending&quot;,&quot;verify-ok&quot;,&quot;verify-failed&quot;,&quot;callback&quot;,&quot;invite-signup&quot;,&quot;invite-email-taken&quot;,&quot;invite-wrong-account&quot;,&quot;invite-in-workspace&quot;,&quot;invite-unverified&quot;,&quot;invite-accept&quot;,&quot;invite-expired&quot;,&quot;invite-invalid&quot;,&quot;invite-missing&quot;],&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;State&quot;},&quot;showProviders&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:true,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;State&quot;},&quot;error&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;default&quot;:&quot;none&quot;,&quot;options&quot;:[&quot;none&quot;,&quot;EMAIL_NOT_WORK_ADDRESS&quot;,&quot;ACCOUNT_SUSPENDED&quot;,&quot;EMAIL_DISPOSABLE&quot;,&quot;EMAIL_NOT_VERIFIED&quot;,&quot;network&quot;,&quot;bad-credentials&quot;],&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;State&quot;}}">
 class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+    this.screens = ['login', 'forgot', 'forgot-sent', 'reset', 'reset-invalid', 'verify-pending', 'verify-ok', 'verify-failed', 'callback', 'invite-signup', 'invite-email-taken', 'invite-wrong-account', 'invite-in-workspace', 'invite-unverified', 'invite-accept', 'invite-expired', 'invite-invalid', 'invite-missing'];
+    this.errorMessages = {
+      EMAIL_NOT_WORK_ADDRESS: 'Please sign in with your work account. Uncava is for search firms.',
+      ACCOUNT_SUSPENDED: 'This account has been suspended.',
+      EMAIL_DISPOSABLE: 'Please use your work email address.',
+      EMAIL_NOT_VERIFIED: 'Your provider reports that address as unverified. Verify it with them, then try again.',
+      network: 'Could not reach Uncava. Check your connection and try again.',
+      'bad-credentials': 'Invalid email or password'
+    };
+    this.deadScreens = {
+      'invite-expired': { label: 'Invitation expired', title: 'This invitation has expired', detail: 'Invitations are valid for seven days. Ask an admin to send you another.' },
+      'invite-invalid': { label: 'Invitation invalid', title: 'This invitation is no longer valid', detail: 'It may have already been used, or been revoked. Ask an admin to send you another.' },
+      'invite-missing': { label: 'No invitation', title: 'No invitation', detail: 'This link is missing its token.' }
+    };
+    this.inviteLabels = {
+      'invite-signup': 'Invite · create account',
+      'invite-email-taken': 'Invite · already registered',
+      'invite-wrong-account': 'Invite · wrong account',
+      'invite-in-workspace': 'Invite · already in a workspace',
+      'invite-unverified': 'Invite · unverified',
+      'invite-accept': 'Invite · accept'
+    };
+    this.verifyLabels = { 'verify-pending': 'Verifying email', 'verify-ok': 'Email verified', 'verify-failed': 'Verification failed' };
+
+    let screen = props.screen || 'login';
+    let error = props.error || 'none';
+    let showProviders = props.showProviders !== undefined ? props.showProviders : true;
+    if (typeof location !== 'undefined') {
+      const q = new URLSearchParams(location.search);
+      if (q.get('screen') && this.screens.indexOf(q.get('screen')) >= 0) screen = q.get('screen');
+      if (q.get('error')) error = q.get('error');
+      if (q.get('showProviders')) showProviders = q.get('showProviders') !== 'false';
+    }
+    this.state = { screen: screen, error: error, showProviders: showProviders, dark: false };
+  }
+
+  componentDidMount() {
+    this.setState({ dark: document.body.classList.contains('dark') });
+  }
+
+  toggleTheme() {
+    const d = !this.state.dark;
+    document.body.classList.toggle('dark', d);
+    try { localStorage.setItem('lm-theme', d ? 'dark' : 'light'); } catch (e) {}
+    this.setState({ dark: d });
+  }
+
   renderVals() {
+    const s = this.state.screen;
+    const dead = this.deadScreens[s] || this.deadScreens['invite-missing'];
+    const errorMessage = this.errorMessages[this.state.error] || '';
+    const isInviteShell = !!this.inviteLabels[s];
     return {
-      showSso: this.props.showSso ?? true,
+      isLogin: s === 'login',
+      isForgot: s === 'forgot',
+      isForgotSent: s === 'forgot-sent',
+      isReset: s === 'reset',
+      isResetInvalid: s === 'reset-invalid',
+      isVerify: !!this.verifyLabels[s],
+      isVerifyPending: s === 'verify-pending',
+      isVerifyOk: s === 'verify-ok',
+      isVerifyFailed: s === 'verify-failed',
+      verifyLabel: this.verifyLabels[s] || '',
+      isCallback: s === 'callback',
+      isInviteShell: isInviteShell,
+      inviteLabel: this.inviteLabels[s] || '',
+      isInviteForm: s === 'invite-signup' || s === 'invite-email-taken',
+      isInviteSignup: s === 'invite-signup',
+      isInviteEmailTaken: s === 'invite-email-taken',
+      isInviteWrongAccount: s === 'invite-wrong-account',
+      isInviteInWorkspace: s === 'invite-in-workspace',
+      isInviteUnverified: s === 'invite-unverified',
+      isInviteAccept: s === 'invite-accept',
+      isInviteDead: !!this.deadScreens[s],
+      deadLabel: dead.label,
+      deadTitle: dead.title,
+      deadDetail: dead.detail,
+      workspaceName: 'Meridian Search Partners',
+      inviteSubtitle: s === 'invite-unverified' ? 'one step left' : 'Yara Haddad invited you as Member',
+      inviteEmail: 'rana@meridiansearch.com',
+      signedInEmail: 'rana@northgate-search.com',
+      currentWorkspaceName: 'Northgate Search',
+      hasError: !!errorMessage,
+      errorMessage: errorMessage,
+      showProviders: !!this.state.showProviders,
+      dark: this.state.dark,
+      light: !this.state.dark,
+      themeLabel: this.state.dark ? 'Switch to light mode' : 'Switch to dark mode',
+      toggleTheme: () => this.toggleTheme(),
+      go: (e) => { const to = e.currentTarget.dataset.to; this.setState({ screen: to, error: 'none' }); },
       signIn: () => { window.location.href = 'Workspace.dc.html'; },
-      forgot: () => { alert('Password reset flow — out of mockup scope'); },
+      providerSignIn: () => {
+        this.setState({ screen: 'callback' });
+        setTimeout(() => { window.location.href = 'Workspace.dc.html'; }, 900);
+      }
     };
   }
 }

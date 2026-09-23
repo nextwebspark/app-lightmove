@@ -78,9 +78,9 @@ same map as points alone for the poll that waits on places rather than on people
 tab is the mandate's talent mapping report (`GET /projects/{id}/report`): four chapters — mapping
 progress, shape of the market, remuneration, diversity — aggregated live by `report` from the same
 rows, so nothing is stored and nothing goes stale. It reads one chapter at a time behind a numbered
-step rail, the chapter kept in the URL (`?chapter=`), and its mockups are `claude-design/report/`
-(light and dark) rather than a `*.dc.html` — the one screen drawn in the UNCAVA palette
-(`--color-u-*`), a deliberate seam until the rest follow. It states only what the rows carry: a candidate's
+step rail, the chapter kept in the URL (`?chapter=`), and its mockup is the `reports` page of
+`claude-design/Project.dc.html` — drawn in the UNCAVA palette (`--color-u-*`), a deliberate seam
+until the rest follow. It states only what the rows carry: a candidate's
 status but no pipeline outcome, and a package in another currency is counted rather than converted.
 **Gender (V56) is recorded on a candidate and never inferred from a name** — the chapter divides by
 the executives who have one on file, not by the headcount, so a mandate nobody has recorded reads as
@@ -102,7 +102,7 @@ market chapter's hubs carry a point from `geocoding` — asked only for the hand
 — so it draws a small map beside the bars where a Mapbox token is configured, and the bars alone
 where none is. The standalone
 Candidates screen, and the pipeline and outreach tables, don't exist yet. The **Position**
-screen is the mandate's brief, drawn from `claude-design/position/*.png` (issue #442) in the UNCAVA
+screen is the mandate's brief, drawn in `claude-design/Position.dc.html` (issue #442) in the UNCAVA
 palette like Reports — the second screen on that seam — as five steps behind a rail (Role Brief,
 Reporting, Compensation, Assessment Criteria, Review & Publish), the step kept in the URL (`?step=`)
 and each section autosaving through its own write. It opens drafted rather than
@@ -152,7 +152,7 @@ and a closed tab takes the quoted lines of a client's description with it. Only 
 tab. The sparkle's popover is **portalled** — it opens inside a table that scrolls sideways and inside
 the React Flow canvas, both of which clip an `absolute` panel, and the canvas's `transform` defeats
 `position: fixed` too.
-`Position.dc.html` is superseded and kept as a record. Publishing stays ungated: the review's
+Publishing stays ungated: the review's
 checklist reports, it does not gate. A published brief then **reads back** rather than locking —
 the rail offers **Edit position** in place of Publish and no draft to save, and the review's sections
 drop their "Edit section" link. **Publishing the changes is the way back out**, closing the review
@@ -164,10 +164,8 @@ to do. Nothing in that row is filled: the brief's two acts are the rail's, on ev
 mockup's third copy of the pair at the review's top right is deliberately not drawn. **The product is Uncava**: the mark is the rhombus over an isometric cube
 in `apps/web/public/brand` (`favicon.svg`, the SPA's `AppIcon`, the extension's `BrandMark` and icons,
 and the email's `uncava-mark-email-v1.png` are drawn from that one geometry) and every user-facing
-string says Uncava,
-while the mockups still draw the
-amber "L" tile and the code, packages, persisted keys and JWT issuer keep the `lightmove` name — a
-deliberate split, not drift. It is served at `https://beta.uncava.com` (Cloud Run domain mapping,
+string says Uncava — the mockups included — while the code, packages, persisted keys and JWT issuer
+keep the `lightmove` name — a deliberate split, not drift. It is served at `https://beta.uncava.com` (Cloud Run domain mapping,
 Cloudflare DNS with the proxy off; README, "Custom domain"), and a link to it pasted into a chat app
 draws a card from the Open Graph tags in `apps/web/index.html` over `public/og-image-v2.png` — static,
 because no crawler runs the bundle (README, "Link previews"). Publishing stamps who
