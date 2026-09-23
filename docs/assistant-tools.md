@@ -15,6 +15,7 @@ Panel ──POST /api/v1/projects/{projectId}/assistant/ask {question, threadId?
         ├─ find my chat in this project (or start one titled from the question)
         ├─ last N question/answer pairs → history
         ├─ ChatClient.call() with the tools + ToolContext {workspaceId, projectId, TurnRecorder}
+        │     readMandateBrief       → the role and the client (never compensation or internal notes)
         │     describeMarket         → exact country / industry spellings
         │     searchCompanyUniverse  → top 25 by headcount, with the total matched
         │     proposeCompanies(ids)  → resolves ids from the universe, drops off-limits,
@@ -74,7 +75,7 @@ closes mid-answer, the answer is still saved and shows up in History.
   - `service/AssistantAskStream` streams an ask's steps and result.
   - `service/AssistantService` handles ask, the history list and reading a chat.
   - `service/AssistantProposalService` handles accept.
-  - `tool/` holds `CompanySearchTools`, `ProposalTools`, `MarketSearch`, `MarketQuery`, `AssistantToolContext` and `TurnRecorder`.
+  - `tool/` holds `MandateTools`, `CompanySearchTools`, `ProposalTools`, `MarketSearch`, `MarketQuery`, `AssistantToolContext` and `TurnRecorder`.
 - Frontend `apps/web/src/features/assistant`:
   - `AssistantProvider` holds whether the panel is open and the chat shown per project.
   - `components/AssistantPanel` has the history list, New chat, the transcript and the composer.

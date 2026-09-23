@@ -10,6 +10,7 @@ import app.lightmove.api.assistant.repository.AssistantThreadRepository;
 import app.lightmove.api.assistant.repository.AssistantTurnRepository;
 import app.lightmove.api.assistant.tool.AssistantToolContext;
 import app.lightmove.api.assistant.tool.CompanySearchTools;
+import app.lightmove.api.assistant.tool.MandateTools;
 import app.lightmove.api.assistant.tool.ProposalTools;
 import app.lightmove.api.assistant.tool.TurnRecorder;
 import app.lightmove.api.core.config.AssistantSettings;
@@ -53,13 +54,15 @@ public class AssistantService {
     private final ChatClient chatClient;
     private final CompanySearchTools searchTools;
     private final ProposalTools proposalTools;
+    private final MandateTools mandateTools;
     private final TransactionTemplate transactions;
     private final Resource systemPrompt;
     private final AssistantSettings settings;
 
     public AssistantService(AssistantThreadRepository threads, AssistantTurnRepository turns,
                             ChatClient chatClient, CompanySearchTools searchTools,
-                            ProposalTools proposalTools, TransactionTemplate transactions,
+                            ProposalTools proposalTools, MandateTools mandateTools,
+                            TransactionTemplate transactions,
                             @Value("classpath:prompts/assistant-system.st") Resource systemPrompt,
                             LightMoveProperties properties) {
         this.threads = threads;
@@ -67,6 +70,7 @@ public class AssistantService {
         this.chatClient = chatClient;
         this.searchTools = searchTools;
         this.proposalTools = proposalTools;
+        this.mandateTools = mandateTools;
         this.transactions = transactions;
         this.systemPrompt = systemPrompt;
         this.settings = properties.assistant();
@@ -133,7 +137,7 @@ public class AssistantService {
                             .labels(Map.of("prompt", PROMPT_ID)))
                     .system(systemPrompt)
                     .messages(conversation(history, question))
-                    .tools(searchTools, proposalTools)
+                    .tools(mandateTools, searchTools, proposalTools)
                     .toolContext(context.asMap())
                     .call()
                     .content();

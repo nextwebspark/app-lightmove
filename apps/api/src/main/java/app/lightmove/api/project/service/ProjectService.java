@@ -24,6 +24,7 @@ import app.lightmove.api.project.dto.UpdateProjectRequest;
 import app.lightmove.api.project.constant.ClientRepStatus;
 import app.lightmove.api.project.model.Client;
 import app.lightmove.api.project.model.ClientRepresentative;
+import app.lightmove.api.project.model.MandateFacts;
 import app.lightmove.api.project.model.PendingRepresentativeAttachment;
 import app.lightmove.api.project.model.Project;
 import app.lightmove.api.project.model.ProjectMember;
@@ -41,6 +42,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
 import java.util.function.Function;
@@ -98,6 +100,18 @@ public class ProjectService {
         }
         Assembly assembly = assemblyFor(workspaceId, all);
         return all.stream().map(project -> toResponse(project, assembly)).toList();
+    }
+
+    /** Absent for a mandate of another workspace. */
+    @Transactional(readOnly = true)
+    public Optional<MandateFacts> mandateOf(UUID workspaceId, UUID projectId) {
+        return projects.findByIdAndWorkspaceId(projectId, workspaceId).map(project -> {
+            Client client = clients.findByIdAndWorkspaceId(project.getClientId(), workspaceId).orElse(null);
+            return client == null
+                    ? new MandateFacts(project.getPositionTitle(), null, null, null, null)
+                    : new MandateFacts(project.getPositionTitle(), client.getName(), client.getSector(),
+                            client.getHqCountry(), client.getHqCity());
+        });
     }
 
     /** The mandates of one client, fully assembled (team, health) — the client drawer reads this. */
