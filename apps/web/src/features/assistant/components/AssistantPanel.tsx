@@ -48,7 +48,7 @@ export function AssistantPanel({ contextLabel, projectId }: { contextLabel: stri
 
   const [liveSteps, setLiveSteps] = useState<LiveStep[]>([]);
   const [pendingQuestion, setPendingQuestion] = useState<string | null>(null);
-  const latest = useRef<HTMLDivElement>(null);
+  const scroller = useRef<HTMLDivElement>(null);
 
   const asking = useMutation({
     mutationFn: (question: string) => {
@@ -87,12 +87,11 @@ export function AssistantPanel({ contextLabel, projectId }: { contextLabel: stri
 
   useEscapeKey(open, closeAssistant);
 
-  // The newest question goes to the top of the view and its answer grows beneath it. Scrolling to the
-  // bottom instead hid a long answer's start, and a new question behind a card the reader was looking at.
   const lastTurnId = turns.at(-1)?.id;
   useEffect(() => {
-    latest.current?.scrollIntoView?.({ block: "start", behavior: "smooth" });
-  }, [pendingQuestion, lastTurnId]);
+    const list = scroller.current;
+    list?.scrollTo?.({ top: list.scrollHeight, behavior: "smooth" });
+  }, [pendingQuestion, liveSteps.length, lastTurnId, thread.data]);
 
   // Guarded on the toggle so restoring a remembered open panel never steals the caret.
   useEffect(() => {
@@ -183,7 +182,7 @@ export function AssistantPanel({ contextLabel, projectId }: { contextLabel: stri
         </div>
       )}
 
-      <div className="flex min-h-0 flex-1 flex-col gap-5 overflow-y-auto px-3 py-4">
+      <div ref={scroller} className="flex min-h-0 flex-1 flex-col gap-5 overflow-y-auto px-3 py-4">
         {thread.isLoading && <p className="my-auto text-center font-mono text-[11px] text-text3">Opening the chat…</p>}
         {thread.isError && (
           <p role="alert" className="font-sans text-[11.5px] text-red">
@@ -192,13 +191,13 @@ export function AssistantPanel({ contextLabel, projectId }: { contextLabel: stri
         )}
 
         {turns.map((turn) => (
-          <div key={turn.id} ref={!pendingQuestion && turn.id === lastTurnId ? latest : undefined}>
+          <div key={turn.id}>
             <AssistantTurnView turn={turn} projectId={projectId} />
           </div>
         ))}
 
         {pendingQuestion && (
-          <div ref={latest}>
+          <div>
             <QuestionBubble question={pendingQuestion} />
             <AssistantSteps steps={liveSteps.length > 0 ? liveSteps : [READING_STEP]} />
           </div>

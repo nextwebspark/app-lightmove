@@ -152,9 +152,9 @@ describe("a chat with the assistant", () => {
     expect(screen.getByText(/342 matched, showing the top 25/)).toBeInTheDocument();
   });
 
-  it("shows a sent question once, acknowledged at once, and brings it into view", async () => {
+  it("shows a sent question once, acknowledged at once, and follows the chat down as it grows", async () => {
     const scrolled = vi.fn();
-    Element.prototype.scrollIntoView = scrolled;
+    Element.prototype.scrollTo = scrolled;
     const answered = turn("t1", "th1", { question: "Which sector is best?" });
     let finish: (value: AssistantTurn) => void = () => {};
     ask.mockImplementation(() => new Promise<AssistantTurn>((resolve) => {
@@ -168,10 +168,12 @@ describe("a chat with the assistant", () => {
     expect(await screen.findByText("Reading your question")).toBeInTheDocument();
     expect(screen.getAllByText("Which sector is best?")).toHaveLength(1);
     expect(scrolled).toHaveBeenCalled();
+    scrolled.mockClear();
 
     finish(answered);
 
     expect(await screen.findByText("Answer t1")).toBeInTheDocument();
+    expect(scrolled).toHaveBeenCalled();
     expect(screen.getAllByText("Which sector is best?")).toHaveLength(1);
     expect(screen.queryByText("Reading your question")).not.toBeInTheDocument();
   });
