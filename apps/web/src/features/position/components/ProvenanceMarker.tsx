@@ -69,6 +69,30 @@ export function ProvenanceMarker({
     Boolean(triggerRef.current?.contains(node) || panelRef.current?.contains(node));
 
   /**
+   * Whether a point still sits between the glyph and its panel — the small physical gap
+   * {@link panelPositionOf}'s `PANEL_GAP` leaves between them, and the wider one either side of a
+   * narrow glyph under a much wider centred panel. Nothing in the DOM occupies that gap, so a mouse
+   * crossing it fires its `mouseover` on whatever page content happens to sit underneath, which reads
+   * as "outside" to {@link holds} alone.
+   */
+  const bridges = (event: MouseEvent) => {
+    const trigger = triggerRef.current?.getBoundingClientRect();
+    const panel = panelRef.current?.getBoundingClientRect();
+    // A rendered, visible glyph and panel always measure some area — the zero-by-zero rect jsdom
+    // hands back with no layout engine behind it is not that, and trusting it here would make every
+    // event count as "still bridging" rather than none.
+    if (!trigger || !panel || (trigger.width === 0 && trigger.height === 0) || (panel.width === 0 && panel.height === 0)) {
+      return false;
+    }
+    const pad = 4;
+    const left = Math.min(trigger.left, panel.left) - pad;
+    const right = Math.max(trigger.right, panel.right) + pad;
+    const top = Math.min(trigger.top, panel.top) - pad;
+    const bottom = Math.max(trigger.bottom, panel.bottom) + pad;
+    return event.clientX >= left && event.clientX <= right && event.clientY >= top && event.clientY <= bottom;
+  };
+
+  /**
    * What closes the panel, all of it while it is open and none of it while it is not.
    *
    * <p>Leaving is read from where the pointer or the focus *arrived* rather than from a leave event's
@@ -82,6 +106,7 @@ export function ProvenanceMarker({
     if (!open) return;
     const outside = (event: Event) => {
       if (holds(event.target)) return;
+      if (event instanceof MouseEvent && bridges(event)) return;
       setAnchor(null);
       setSteppingIn(false);
     };

@@ -4,25 +4,30 @@ import { cn } from "../../../lib/cn";
 
 /**
  * The brief's field kit, in the UNCAVA palette (`u-*` tokens only). The screen draws a field as a
- * small uppercase eyebrow over a hairline rather than a boxed input, a choice as a row of pills, and
- * a figure in the numeral face — this is that vocabulary, stated once so five steps cannot drift.
+ * small uppercase eyebrow over a bordered box, a choice as a row of pills, and a figure in the numeral
+ * face — this is that vocabulary, stated once so five steps cannot drift.
  */
 
 export function Eyebrow({
   children,
   tone = "quiet",
+  size = "field",
   className,
 }: {
   children: ReactNode;
   /** `inferred` is the purple UNCAVA reserves for what a machine drafted rather than a person typed. */
   tone?: "quiet" | "inferred";
+  /** `summary` is the read-back tier — the review's cards, where the value leads and the label follows. */
+  size?: "field" | "summary";
   className?: string;
 }) {
   return (
     <span
       className={cn(
-        "block text-eyebrow font-semibold uppercase tracking-[0.12em]",
-        tone === "inferred" ? "text-u-inferred" : "text-u-text3",
+        "block",
+        size === "summary" ? "type-summary-label" : "type-label",
+        /* The mockup draws every label in the legacy `--text2`, not `--u-text2`. */
+        tone === "inferred" ? "text-u-inferred" : "text-text2",
         className,
       )}
     >
@@ -57,10 +62,10 @@ export function FieldBlock({
 }
 
 const UNDERLINE =
-  "w-full border-b border-u-border bg-transparent py-2 text-lead text-u-text outline-none transition " +
-  "placeholder:text-u-text3 focus:border-u-accent";
+  "w-full rounded-[8px] border border-u-border bg-u-sunken px-3 py-2.5 text-body text-u-text outline-none " +
+  "transition placeholder:text-u-text3 focus:border-u-accent";
 
-/** Text on a hairline — the brief's plain field. */
+/** Text in a box, the same shape every other form in the app uses — the brief's plain field. */
 export function UnderlineField({ className, ...rest }: InputHTMLAttributes<HTMLInputElement>) {
   return <input {...rest} className={cn(UNDERLINE, className)} />;
 }
@@ -186,7 +191,7 @@ export function ChoiceCard({
       )}
     >
       <span className="min-w-0">
-        <span className={cn("block text-body font-semibold", selected ? "text-u-text" : "text-u-text2")}>
+        <span className={cn("block type-heading", selected ? "text-u-text" : "text-u-text2")}>
           {title}
         </span>
         <span className="mt-1 block text-note text-u-text3">{body}</span>
@@ -315,10 +320,10 @@ export function BriefButton({
   );
 }
 
-/** The uppercase heading over a table's column. */
+/** The uppercase heading over a table's column — the field eyebrow's own spelling. */
 export function ColumnHead({ children, className }: { children: ReactNode; className?: string }) {
   return (
-    <span className={cn("text-eyebrow font-semibold uppercase tracking-[0.1em] text-u-text3", className)}>
+    <span className={cn("type-label text-text2", className)}>
       {children}
     </span>
   );
@@ -357,13 +362,16 @@ export function StatusBadge({
 /**
  * A number in the numeral face: money grouped as it is typed, so a seven-figure salary can be
  * checked by eye, or a plain count. A blank field is null.
+ *
+ * <p>One size, wherever a figure is typed — a base salary, a bonus, a share of the assessment. The
+ * headline figures a screen only reads back (the package total, the team size) are the larger face;
+ * a field the hand goes to is this one.
  */
 export function FigureInput({
   value,
   onChange,
   grouped = false,
   max,
-  size = "md",
   className,
   ...rest
 }: {
@@ -372,7 +380,6 @@ export function FigureInput({
   /** Thousands separators while typing — money, never a percentage. */
   grouped?: boolean;
   max?: number;
-  size?: "md" | "lg";
 } & Omit<InputHTMLAttributes<HTMLInputElement>, "value" | "onChange" | "max" | "size">) {
   return (
     <input
@@ -386,8 +393,7 @@ export function FigureInput({
         onChange(max !== undefined ? Math.min(figure, max) : figure);
       }}
       className={cn(
-        "min-w-0 border-b border-u-border bg-transparent font-u-num text-u-text outline-none transition placeholder:text-u-text3 focus:border-u-accent",
-        size === "lg" ? "py-1 text-figure font-medium tracking-[-0.02em]" : "py-1.5 text-lead",
+        "min-w-0 border-b border-u-border bg-transparent py-1.5 type-figure-input text-u-text outline-none transition placeholder:text-u-text3 focus:border-u-accent",
         className,
       )}
     />

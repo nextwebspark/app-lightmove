@@ -12,7 +12,11 @@ You are a senior front-end developer specializing in ReactJS, TypeScript, HTML, 
 > `text-body` · `text-lead` · `text-subhead` · `text-title` · `text-figure`), each carrying its own
 > leading. Reach for `text-[Npx]` only where a mockup asks for a size the scale has no step for — a size
 > that is "nearly" one of these is that one, and a screen that invents 13.5px beside the app's 13px is
-> how the Position brief drifted out of step with everything around it.
+> how the Position brief drifted out of step with everything around it. A recurring mockup style
+> (uppercase label, micro tag, step title, card heading, headline figure) is a `type-*` role utility in
+> the same file — use it before composing size + weight + tracking by hand. A new step, tracking or
+> leading token must also be registered in `lib/cn.ts`: unregistered, `twMerge` reads `text-note` as a
+> colour and drops it the moment a real colour follows.
 
 ## Code Implementation Guidelines
 

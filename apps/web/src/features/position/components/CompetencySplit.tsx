@@ -52,14 +52,13 @@ function ShareCard({
       </span>
       <span className="mt-2 flex items-baseline gap-1">
         <FigureInput
-          size="lg"
           max={100}
           value={share}
           aria-label={`${label} share`}
           onChange={(value) => onChange(value ?? 0)}
           className="w-[4.5ch] border-transparent focus:border-u-accent"
         />
-        <span className="font-u-num text-subhead text-u-text2">%</span>
+        <span className="type-figure-input text-u-text2">%</span>
       </span>
     </BriefPanel>
   );

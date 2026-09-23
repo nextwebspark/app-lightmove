@@ -44,7 +44,7 @@ export function CountryField({
         onChange={(event) => onChange(event.target.value)}
         className={
           variant === "uncava"
-            ? "rounded-none border-0 border-b border-u-border bg-transparent px-0 py-2 font-sans text-[15px] text-u-text focus:border-u-accent"
+            ? "rounded-[8px] border border-u-border bg-u-sunken px-3 py-2.5 font-sans text-body text-u-text focus:border-u-accent"
             : undefined
         }
       />

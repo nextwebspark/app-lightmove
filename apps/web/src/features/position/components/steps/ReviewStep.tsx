@@ -32,7 +32,7 @@ export function ReviewStep({
   const published = position.publication.publishedAt;
 
   return (
-    <div className="flex flex-col gap-4">
+    <div className="flex flex-col gap-3">
       {published && (
         <div className="flex flex-wrap items-center gap-3 rounded-[10px] bg-u-direct-tint px-4 py-3 text-body text-u-direct">
           <Icon d={ICONS.checkCircle} size={16} className="flex-none" />
@@ -66,12 +66,12 @@ export function ReviewStep({
         />
       ))}
 
-      <BriefPanel className="px-6 py-5">
-        <span className="block text-lead font-semibold text-u-text">Publication readiness</span>
+      <BriefPanel className="px-4 py-3.5">
+        <span className="block type-heading text-u-text">Publication readiness</span>
         <span className="mt-0.5 block text-note text-u-text3">
           What a complete brief states, so a client reads a position and not a draft.
         </span>
-        <ul className="mt-4 flex flex-col gap-3">
+        <ul className="mt-3 flex flex-col gap-2.5">
           {readinessOf(position).map((item) => (
             <li key={item.label} className="flex items-start gap-3">
               <span
@@ -86,7 +86,7 @@ export function ReviewStep({
             </li>
           ))}
         </ul>
-        <p className="mt-4 flex items-center gap-2 border-t border-u-border pt-3.5 text-note text-u-text3">
+        <p className="mt-3 flex items-center gap-2 border-t border-u-border pt-3 text-note text-u-text3">
           <Icon d={ICONS.info} size={13} className="flex-none" />
           These checks report. Publishing records that the brief is ready and freezes nothing.
         </p>

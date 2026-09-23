@@ -23,7 +23,8 @@ export interface ComboboxOption {
  * a page publishes, so a company can hold a sector Apollo never named — clearing it silently because
  * this list has no row for it would lose a fact nobody touched.
  */
-/** `uncava` is the brief's skin: a hairline under the text, the list on the UNCAVA ground. */
+/** `uncava` is the brief's skin: the same bordered, filled box every other field in the brief wears,
+ *  over UNCAVA tokens, with the list on the UNCAVA ground. */
 export type FacetComboboxVariant = "default" | "uncava";
 
 const BOX_CLASS: Record<FacetComboboxVariant, { base: string; invalid: string; open: string; idle: string }> = {
@@ -34,7 +35,7 @@ const BOX_CLASS: Record<FacetComboboxVariant, { base: string; invalid: string; o
     idle: "border-line",
   },
   uncava: {
-    base: "flex items-center gap-2 border-b bg-transparent py-2 text-u-text",
+    base: "flex items-center gap-2 rounded-[8px] border bg-u-sunken px-3 py-2.5 text-u-text",
     invalid: "border-u-offlimits",
     open: "border-u-accent",
     idle: "border-u-border",
@@ -43,7 +44,7 @@ const BOX_CLASS: Record<FacetComboboxVariant, { base: string; invalid: string; o
 
 const INPUT_CLASS: Record<FacetComboboxVariant, string> = {
   default: "w-full bg-transparent font-mono text-[13px] text-text outline-none placeholder:text-text3",
-  uncava: "w-full bg-transparent text-[15px] text-u-text outline-none placeholder:text-u-text3",
+  uncava: "w-full bg-transparent text-body text-u-text outline-none placeholder:text-u-text3",
 };
 
 const LIST_CLASS: Record<FacetComboboxVariant, { list: string; active: string; check: string; empty: string }> = {
@@ -57,7 +58,7 @@ const LIST_CLASS: Record<FacetComboboxVariant, { list: string; active: string; c
     list: "rounded-[10px] border border-u-border bg-u-bg py-1 text-u-text shadow-u-e3",
     active: "bg-u-accent-tint",
     check: "text-u-accent",
-    empty: "rounded-[10px] border border-u-border bg-u-bg px-3 py-2 text-[12px] text-u-text3 shadow-u-e3",
+    empty: "rounded-[10px] border border-u-border bg-u-bg px-3 py-2 text-note text-u-text3 shadow-u-e3",
   },
 };
 
@@ -170,7 +171,7 @@ export function FacetCombobox({
         {value !== "" && (
           <button
             type="button"
-            aria-label={`Clear ${noun.replace(/s$/, "")}`}
+            aria-label={`Clear ${noun.replace(/ies$/, "y").replace(/s$/, "")}`}
             onMouseDown={(event) => {
               event.preventDefault();
               list.cancelBlur();
@@ -221,7 +222,7 @@ export function FacetCombobox({
                 index === list.active ? LIST_CLASS[variant].active : "",
               )}
             >
-              <span className={cn("truncate font-sans text-[13px] font-medium", variant === "uncava" ? "text-u-text" : "text-text")}>
+              <span className={cn("truncate font-sans font-medium", variant === "uncava" ? "text-body text-u-text" : "text-[13px] text-text")}>
                 {option.label}
               </span>
               {option.value === value && (

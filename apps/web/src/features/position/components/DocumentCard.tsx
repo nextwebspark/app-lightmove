@@ -62,7 +62,7 @@ export function DocumentCard({
             <button
               type="button"
               onClick={onDownload}
-              className="block max-w-full truncate text-start text-body font-semibold text-u-text hover:text-u-accent hover:underline"
+              className="block max-w-full truncate text-start type-heading text-u-text hover:text-u-accent hover:underline"
             >
               {document.fileName}
             </button>

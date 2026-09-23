@@ -1,11 +1,10 @@
 import type { Criterion } from "../../api/types";
 import type { IdentifiedCompetency } from "../../lib/competencyRows";
-import { fieldCountOf, type StepReceipt } from "../../lib/documentFill";
+import type { StepReceipt } from "../../lib/documentFill";
 import { FieldBlock } from "../BriefFields";
 import { CompetencySplit } from "../CompetencySplit";
 import { CompetencyTable } from "../CompetencyTable";
 import { CriteriaList } from "../CriteriaList";
-import { DocumentFillStrip } from "../DocumentFillStrip";
 
 export type CompetencyPanelKey = "technical" | "behavioural";
 
@@ -17,16 +16,11 @@ export function AssessmentStep({
   technicalShare,
   locked,
   receipt,
-  stripError,
-  extracting,
   onCriteria,
   onPanel,
   onShare,
   onToggleLock,
   onReorder,
-  onExtractDocument,
-  onUndoAll,
-  onDismissStrip,
   onUndoCriterion,
   onUndoCompetency,
 }: {
@@ -37,31 +31,16 @@ export function AssessmentStep({
   locked: ReadonlySet<string>;
   /** This session's Assessment-screen receipt — the criteria list and both competency panels. */
   receipt?: StepReceipt;
-  stripError?: string;
-  extracting: boolean;
   onCriteria: (criteria: Criterion[]) => void;
   onPanel: (panel: CompetencyPanelKey) => (rows: IdentifiedCompetency[]) => void;
   onShare: (technicalShare: number) => void;
   onToggleLock: (id: string) => void;
   onReorder: (panel: CompetencyPanelKey) => (fromId: string, toId: string) => void;
-  onExtractDocument: () => void;
-  onUndoAll: () => void;
-  onDismissStrip: () => void;
   onUndoCriterion: (text: string) => void;
   onUndoCompetency: (panel: CompetencyPanelKey, name: string) => void;
 }) {
   return (
     <div className="flex flex-col gap-8">
-      <DocumentFillStrip
-        fileName={receipt?.fileName ?? ""}
-        count={fieldCountOf(receipt)}
-        error={stripError}
-        onRetry={onExtractDocument}
-        retrying={extracting}
-        onUndoAll={onUndoAll}
-        onDismiss={onDismissStrip}
-      />
-
       <FieldBlock
         label={
           <>

@@ -61,7 +61,6 @@ export function RoleTitleField({
           list.setOpen(true);
         }}
         {...list.inputHandlers}
-        className="text-subhead font-medium"
       />
 
       {showList && (

@@ -1,7 +1,7 @@
 import type { ReactNode } from "react";
 import { CountryField } from "../../../components/ui/CountryField";
 import type { PositionDetails } from "../api/types";
-import { FieldBlock, UnderlineField } from "./BriefFields";
+import { Eyebrow, UnderlineField } from "./BriefFields";
 
 /**
  * Where the role sits, in two halves: the city as free text, the country from the served vocabulary
@@ -26,8 +26,9 @@ export function LocationFields({
   onChange: (patch: Pick<Partial<PositionDetails>, "locationCity" | "locationCountry">) => void;
 }) {
   return (
-    <FieldBlock label="Location">
-      <div className="grid grid-cols-1 gap-x-6 gap-y-3 sm:grid-cols-2">
+    <div className="grid grid-cols-1 gap-x-6 gap-y-3 sm:grid-cols-2">
+      <div className="min-w-0">
+        <Eyebrow className="mb-1.5">City</Eyebrow>
         <div className="flex items-center gap-1.5">
           <UnderlineField
             aria-label="City"
@@ -38,6 +39,9 @@ export function LocationFields({
           />
           {cityMarker}
         </div>
+      </div>
+      <div className="min-w-0">
+        <Eyebrow className="mb-1.5">Country</Eyebrow>
         <div className="flex items-center gap-1.5">
           <div className="min-w-0 flex-1">
             <CountryField
@@ -51,6 +55,6 @@ export function LocationFields({
           {countryMarker}
         </div>
       </div>
-    </FieldBlock>
+    </div>
   );
 }

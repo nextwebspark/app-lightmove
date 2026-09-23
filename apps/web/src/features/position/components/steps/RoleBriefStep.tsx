@@ -17,20 +17,26 @@ import type {
   PositionTemplate,
   ReportingStructure,
 } from "../../api/types";
-import { fieldCountOf, type StepReceipt } from "../../lib/documentFill";
+import type { StepReceipt } from "../../lib/documentFill";
 import {
   EMPLOYMENT_TYPE_LABELS,
   MANDATE_REASON_LABELS,
   OFFERED_EMPLOYMENT_TYPES,
 } from "../../lib/labels";
-import { ChipGroup, ChoiceCard, FieldBlock, TokenChip, withRecorded, type ChipOption } from "../BriefFields";
+import {
+  ChipGroup,
+  ChoiceCard,
+  FieldBlock,
+  TokenChip,
+  UnderlineField,
+  withRecorded,
+  type ChipOption,
+} from "../BriefFields";
 import { DocumentCard } from "../DocumentCard";
-import { DocumentFillStrip } from "../DocumentFillStrip";
 import { IdealProfileField } from "../IdealProfileField";
 import { LocationFields } from "../LocationFields";
 import { ProvenanceMarker } from "../ProvenanceMarker";
 import { RoleTitleField } from "../RoleTitleField";
-import { SuggestedTemplateBanner } from "../SuggestedTemplateBanner";
 
 const EMPLOYMENT_OPTIONS: ChipOption<EmploymentType>[] = OFFERED_EMPLOYMENT_TYPES.map((value) => ({
   value,
@@ -70,8 +76,6 @@ export function RoleBriefStep({
   extracting,
   savingTargetDate,
   receipt,
-  stripError,
-  suggestedTemplate,
   onChangeDetails,
   onChangeContext,
   onChangeReporting,
@@ -81,10 +85,6 @@ export function RoleBriefStep({
   onRemoveDocument,
   onDownloadDocument,
   onExtractDocument,
-  onApplySuggestedTemplate,
-  onDismissSuggestedTemplate,
-  onUndoAll,
-  onDismissStrip,
   onUndoDetail,
   onUndoContext,
   onUndoNotice,
@@ -102,9 +102,6 @@ export function RoleBriefStep({
   savingTargetDate: boolean;
   /** This session's Role Brief receipt — details, context and the reporting notice pair. */
   receipt?: StepReceipt;
-  /** Set when details or context failed to read this session — shown on the strip instead of a count. */
-  stripError?: string;
-  suggestedTemplate?: PositionTemplate | null;
   onChangeDetails: (patch: Partial<PositionDetails>) => void;
   onChangeContext: (patch: Partial<MandateContext>, immediate?: boolean) => void;
   onChangeReporting: (patch: Partial<ReportingStructure>, immediate?: boolean) => void;
@@ -114,10 +111,6 @@ export function RoleBriefStep({
   onRemoveDocument: () => void;
   onDownloadDocument: () => void;
   onExtractDocument: () => void;
-  onApplySuggestedTemplate: () => void;
-  onDismissSuggestedTemplate: () => void;
-  onUndoAll: () => void;
-  onDismissStrip: () => void;
   onUndoDetail: (fieldKey: string) => void;
   onUndoContext: (fieldKey: string) => void;
   onUndoNotice: () => void;
@@ -166,16 +159,6 @@ export function RoleBriefStep({
 
   return (
     <div className="flex flex-col gap-8">
-      <DocumentFillStrip
-        fileName={receipt?.fileName ?? ""}
-        count={fieldCountOf(receipt)}
-        error={stripError}
-        onRetry={onExtractDocument}
-        retrying={extracting}
-        onUndoAll={onUndoAll}
-        onDismiss={onDismissStrip}
-      />
-
       <DocumentCard
         document={document}
         uploading={uploading}
@@ -186,24 +169,27 @@ export function RoleBriefStep({
         onExtract={onExtractDocument}
       />
 
-      {suggestedTemplate && (
-        <SuggestedTemplateBanner
-          template={suggestedTemplate}
-          applying={applyingTemplate}
-          onApply={onApplySuggestedTemplate}
-          onDismiss={onDismissSuggestedTemplate}
-        />
-      )}
 
-      <FieldBlock label="Role title">
-        <RoleTitleField
-          value={details.roleTitle}
-          templates={templates}
-          busy={applyingTemplate}
-          onChange={(roleTitle) => onChangeDetails({ roleTitle })}
-          onPick={onPickTemplate}
-        />
-      </FieldBlock>
+      <div className="grid grid-cols-1 gap-x-6 gap-y-6 sm:grid-cols-2">
+        <FieldBlock label="Role title">
+          <RoleTitleField
+            value={details.roleTitle}
+            templates={templates}
+            busy={applyingTemplate}
+            onChange={(roleTitle) => onChangeDetails({ roleTitle })}
+            onPick={onPickTemplate}
+          />
+        </FieldBlock>
+
+        <FieldBlock label="Department" aside={markerFor(details.fieldSources, "department", () => onUndoDetail("department"))}>
+          <UnderlineField
+            aria-label="Department"
+            value={details.department ?? ""}
+            placeholder="e.g. Group Finance"
+            onChange={(event) => onChangeDetails({ department: event.target.value || null })}
+          />
+        </FieldBlock>
+      </div>
 
       <LocationFields
         city={details.locationCity}
@@ -213,28 +199,33 @@ export function RoleBriefStep({
         onChange={onChangeDetails}
       />
 
-      <FieldBlock label="Employment type" aside={markerFor(details.fieldSources, "employmentType", () => onUndoDetail("employmentType"))}>
-        <ChipGroup
-          label="Employment type"
-          options={withRecorded(EMPLOYMENT_OPTIONS, details.employmentType, (value) => EMPLOYMENT_TYPE_LABELS[value])}
-          value={details.employmentType}
-          allowClear
-          onChange={(employmentType) => onChangeDetails({ employmentType })}
-        />
-      </FieldBlock>
+      <div className="grid grid-cols-1 gap-x-6 gap-y-6 sm:grid-cols-2">
+        <FieldBlock label="Employment type" aside={markerFor(details.fieldSources, "employmentType", () => onUndoDetail("employmentType"))}>
+          <ChipGroup
+            size="sm"
+            label="Employment type"
+            options={withRecorded(EMPLOYMENT_OPTIONS, details.employmentType, (value) => EMPLOYMENT_TYPE_LABELS[value])}
+            value={details.employmentType}
+            allowClear
+            onChange={(employmentType) => onChangeDetails({ employmentType })}
+          />
+        </FieldBlock>
 
-      <FieldBlock label="Seniority" aside={markerFor(details.fieldSources, "seniority", () => onUndoDetail("seniority"))}>
-        <ChipGroup
-          label="Seniority"
-          options={SENIORITY_OPTIONS}
-          value={details.seniority}
-          allowClear
-          onChange={(seniority) => onChangeDetails({ seniority })}
-        />
-      </FieldBlock>
+        <FieldBlock label="Seniority" aside={markerFor(details.fieldSources, "seniority", () => onUndoDetail("seniority"))}>
+          <ChipGroup
+            size="sm"
+            label="Seniority"
+            options={SENIORITY_OPTIONS}
+            value={details.seniority}
+            allowClear
+            onChange={(seniority) => onChangeDetails({ seniority })}
+          />
+        </FieldBlock>
+      </div>
 
       <FieldBlock label="Reason for hire" aside={markerFor(context.fieldSources, "mandateReason", () => onUndoContext("mandateReason"))}>
         <ChipGroup
+          size="sm"
           label="Reason for hire"
           options={REASON_OPTIONS}
           value={context.mandateReason}
@@ -259,32 +250,34 @@ export function RoleBriefStep({
         </div>
       </FieldBlock>
 
-      <FieldBlock
-        label="Target start"
-        aside={savingTargetDate ? <span className="text-meta text-u-text3">Saving…</span> : undefined}
-      >
-        {/* The mandate's one target date, written to the project itself: the brief reads it back. */}
-        <DateInput
-          value={reporting.targetStart ?? ""}
-          onChange={onChangeTargetDate}
-          className="max-w-[280px] rounded-none border-0 border-b border-u-border bg-transparent px-0 py-2 font-u-num text-lead focus-within:border-u-accent"
-        />
-      </FieldBlock>
-
-      <FieldBlock
-        label="Notice period to plan for"
-        aside={
-          <ProvenanceMarker
-            source={reporting.fieldSources.noticeValue}
-            confidence={noticeInfo?.confidence}
-            snippet={noticeInfo?.snippet}
-            fileName={noticeInfo && receipt?.fileName}
-            onUndo={noticeInfo ? onUndoNotice : undefined}
+      <div className="grid grid-cols-1 gap-x-6 gap-y-6 sm:grid-cols-2">
+        <FieldBlock
+          label="Target start"
+          aside={savingTargetDate ? <span className="text-meta text-u-text3">Saving…</span> : undefined}
+        >
+          {/* The mandate's one target date, written to the project itself: the brief reads it back. */}
+          <DateInput
+            value={reporting.targetStart ?? ""}
+            onChange={onChangeTargetDate}
+            className="rounded-[8px] border border-u-border bg-u-sunken px-3 py-2.5 font-u-num text-body focus-within:border-u-accent"
           />
-        }
-      >
-        <ChipGroup label="Notice period" options={noticeOptions} value={noticeValue} allowClear onChange={changeNotice} />
-      </FieldBlock>
+        </FieldBlock>
+
+        <FieldBlock
+          label="Notice period to plan for"
+          aside={
+            <ProvenanceMarker
+              source={reporting.fieldSources.noticeValue}
+              confidence={noticeInfo?.confidence}
+              snippet={noticeInfo?.snippet}
+              fileName={noticeInfo && receipt?.fileName}
+              onUndo={noticeInfo ? onUndoNotice : undefined}
+            />
+          }
+        >
+          <ChipGroup size="sm" label="Notice period" options={noticeOptions} value={noticeValue} allowClear onChange={changeNotice} />
+        </FieldBlock>
+      </div>
 
       <FieldBlock label="Key responsibilities">
         {details.responsibilities.length > 0 && (
@@ -312,7 +305,7 @@ export function RoleBriefStep({
             })}
           </div>
         )}
-        <input
+        <UnderlineField
           value={responsibility}
           aria-label="Add a responsibility"
           placeholder="Add a responsibility…"
@@ -322,7 +315,7 @@ export function RoleBriefStep({
             event.preventDefault();
             addResponsibility();
           }}
-          className="w-full max-w-[280px] rounded-[8px] bg-u-raised px-4 py-2.5 text-body text-u-text outline-none transition placeholder:text-u-text3 focus:ring-1 focus:ring-u-accent-ring"
+          className="max-w-[280px]"
         />
       </FieldBlock>
 

@@ -249,8 +249,8 @@ export interface PositionExtraction {
   extractionSource: ExtractionSource;
   fields: ProposedField[];
   /** The brief template the extracted role title matches — null on every response but step one's,
-   * and null there too when nothing but the generic fallback would match. Offered as a separate,
-   * explicit opt-in; never applied automatically. */
+   * and null there too when nothing but the generic fallback would match. Applied automatically only
+   * to a brief nobody has typed into (`isUntouched`), and dropped otherwise. */
   suggestedTemplate: PositionTemplate | null;
   /** The matched template's own direct reports, for the reporting step's Suggested seats row (#398)
    * — null on every response but step three's, and null there too when the mandate's title matches
