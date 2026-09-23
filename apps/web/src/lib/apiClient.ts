@@ -305,7 +305,7 @@ export async function requestBlob(path: string, options: RequestOptions = {}): P
 export async function streamEvents(
   path: string,
   onEvent: (event: SseEvent) => void,
-  signal: AbortSignal,
+  signal: AbortSignal | undefined,
   options: Pick<RequestOptions, "method" | "body"> = {},
 ): Promise<void> {
   const response = await sendWithAuth(path, { ...options, signal });

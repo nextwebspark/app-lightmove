@@ -16,6 +16,8 @@ export function getThread(threadId: string): Promise<AssistantThread> {
 /**
  * Asks, and hands each step to `onStep` as the server reports it ("Searching retail companies in
  * …", then its count). Resolves with the saved turn once the answer is ready.
+ *
+ * <p>Not cancellable: the server saves the answer whether or not anyone is still reading.
  */
 export async function ask(
   projectId: string,
@@ -31,7 +33,7 @@ export async function ask(
       if (event.name === "done") received.turn = JSON.parse(event.data) as AssistantTurn;
       if (event.name === "failed") received.failedCode = (JSON.parse(event.data) as { code: string }).code;
     },
-    new AbortController().signal,
+    undefined,
     { method: "POST", body: { question, threadId } },
   );
   if (received.turn) return received.turn;

@@ -126,6 +126,13 @@ public class AssistantService {
         });
     }
 
+    /**
+     * Deliberately not {@code LlmCallPolicy.forPrompt}: its SafeGuardAdvisor refuses text matching a
+     * phrase list, which is right for a spreadsheet header and wrong for conversation — "ignore the
+     * declined ones" would be refused, and a tool result quoting one of those phrases would block the
+     * turn. #429 owns what replaces it. The ChatCallLog attribution is kept, since that is what keeps
+     * prompt and answer content out of the logs.
+     */
     private String callModel(String question, List<AssistantTurn> history, AssistantToolContext context) {
         try {
             String answer = chatClient.prompt()
