@@ -42,12 +42,10 @@ folder into claude.ai/design and edit it there. `support.js` is the Claude Desig
 
 ## Tokens
 
-The `<style>` in every helmet is `apps/web/src/styles/tokens.css`, renamed without the `--color-`
-prefix. It holds two palettes:
-
-- The app palette (`--bg`, `--panel`, `--line`, `--text`, `--amber`, `--sky`, …, `--ai*` for the
-  assistant). Every screen uses it except the two below.
-- The UNCAVA palette (`--u-*`). Only the Position brief and the Reports chapters use it.
+Every helmet links `uncava-tokens.css`, the UNCAVA palette (`--u-*`), and aliases the app names onto
+it (`--bg: var(--u-bg)`, `--amber: var(--u-accent)`, …). `apps/web/src/styles/tokens.css` mirrors
+that with the `--color-` prefix: the `--color-u-*` values are the palette, and the app tokens every
+screen uses are aliases of them.
 
 Dark mode is a `dark` class on `<body>`, stored in `localStorage['lm-theme']`, the same switch as the
 app. A token change belongs in `tokens.css` and in every helmet at once.
