@@ -51,7 +51,7 @@ export function SettingsGeneralPage() {
     mutationFn: () =>
       workspaceApi.updateWorkspace({
         name,
-        apolloAccountId: pick?.source === "universe" ? pick.company.apolloAccountId : null,
+        apolloAccountId: pick?.source === "universe" ? pick.company.apolloAccountId : "",
         defaultRegion: region,
         defaultCurrency: currency,
       }),

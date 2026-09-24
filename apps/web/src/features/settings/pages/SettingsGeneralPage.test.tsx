@@ -93,7 +93,7 @@ describe("SettingsGeneralPage — the workspace's firm", () => {
 
     await waitFor(() => expect(workspaceApi.updateWorkspace).toHaveBeenCalled());
     expect(workspaceApi.updateWorkspace).toHaveBeenCalledWith(
-      expect.objectContaining({ name: "Typed Firm", apolloAccountId: null }),
+      expect.objectContaining({ name: "Typed Firm", apolloAccountId: "" }),
     );
   });
 

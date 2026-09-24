@@ -27,7 +27,4 @@ class WorkspaceCompanyResolver {
                 .orElseThrow(() -> ApiException.userFacing(ErrorCode.VALIDATION_FAILED,
                         "That company is no longer in the database"));
     }
-
-    record WorkspaceIdentity(String name, WorkspaceCompany company) {
-    }
 }

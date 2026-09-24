@@ -154,7 +154,7 @@ class WorkspaceCompanyIntegrationTest extends FlowTestSupport {
                         .header("Authorization", "Bearer " + login(alok))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
-                                {"name":"Nimbus Partners","apolloAccountId":null}"""))
+                                {"name":"Nimbus Partners","apolloAccountId":""}"""))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.name").value("Nimbus Partners"))
                 .andExpect(jsonPath("$.company").value(org.hamcrest.Matchers.nullValue()))
@@ -179,5 +179,30 @@ class WorkspaceCompanyIntegrationTest extends FlowTestSupport {
         mvc.perform(get("/api/v1/workspace").header("Authorization", "Bearer " + admin))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.name").value("Steady Firm"));
+    }
+
+    @Test
+    @DisplayName("Settings refuses a save that does not say which company, rather than clearing the picked one")
+    void settingsOmittedCompanyIsRefused() throws Exception {
+        String alok = "alok@" + domain;
+        mvc.perform(post("/api/v1/onboarding/workspace")
+                        .header("Authorization", "Bearer " + verifiedUser("Alok Kumar", alok))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"name":"Al-Futtaim","apolloAccountId":"apollo-af"}"""))
+                .andExpect(status().isCreated());
+        String admin = login(alok);
+
+        mvc.perform(patch("/api/v1/workspace")
+                        .header("Authorization", "Bearer " + admin)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"name":"Al-Futtaim","defaultRegion":"MENA"}"""))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("VALIDATION_FAILED"));
+
+        mvc.perform(get("/api/v1/workspace").header("Authorization", "Bearer " + admin))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.company.logoUrl").value("https://logos.example/af.png"));
     }
 }

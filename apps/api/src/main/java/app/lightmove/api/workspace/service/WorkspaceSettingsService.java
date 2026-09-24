@@ -11,7 +11,6 @@ import app.lightmove.api.workspace.model.WorkspacePersona;
 import app.lightmove.api.workspace.repository.InvitationRepository;
 import app.lightmove.api.workspace.repository.WorkspaceMemberRepository;
 import app.lightmove.api.workspace.repository.WorkspaceRepository;
-import app.lightmove.api.workspace.service.WorkspaceCompanyResolver.WorkspaceIdentity;
 import jakarta.servlet.http.HttpServletRequest;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
