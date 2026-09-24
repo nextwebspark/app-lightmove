@@ -37,7 +37,8 @@ function withWritingStep(steps: LiveStep[]): LiveStep[] {
  * replaces them once the answer is written.
  */
 export function AssistantPanel({ contextLabel, projectId }: { contextLabel: string; projectId: string }) {
-  const { open, toggledByUser, closeAssistant, threadIdFor, showThread } = useAssistant();
+  const { isOpenFor, toggledByUser, closeAssistant, threadIdFor, showThread } = useAssistant();
+  const open = isOpenFor(projectId);
   const threadId = threadIdFor(projectId);
   const [draft, setDraft] = useState("");
   const [historyOpen, setHistoryOpen] = useState(false);
