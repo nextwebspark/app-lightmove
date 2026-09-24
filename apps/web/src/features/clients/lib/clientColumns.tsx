@@ -31,7 +31,7 @@ export const clientColumns = helper.columns([
     id: "name",
     header: "Business unit",
     enableHiding: false,
-    meta: { share: 30, min: 220 },
+    meta: { share: 0, min: 300 },
     sortFn: (a, b) => compareText(a.original.name, b.original.name),
     cell: (info) => (
       <span className="flex min-w-0 items-center gap-2.5">
@@ -70,7 +70,7 @@ export const clientColumns = helper.columns([
     id: "viewers",
     header: "Viewers",
     enableSorting: false,
-    meta: { share: 0, min: 140 },
+    meta: { share: 1, min: 140 },
     cell: (info) => <ViewerCell viewers={info.row.original.viewers} />,
   }),
 ]);
