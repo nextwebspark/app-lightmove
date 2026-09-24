@@ -27,12 +27,12 @@ export function CaptureSettingsScreen({ user, projects, onBack, onSignOut }: Cap
 
   return (
     <div className="flex flex-1 flex-col overflow-hidden">
-      <header className="flex items-center gap-[9px] border-b border-line-soft px-3.5 py-[11px]">
+      <header className="flex items-center gap-[9px] border-b border-u-border px-3.5 py-[11px]">
         <button
           type="button"
           onClick={onBack}
           aria-label="Back to capture"
-          className="grid h-[26px] w-[26px] place-items-center rounded-[7px] border border-line text-text2 hover:text-text"
+          className="grid h-[26px] w-[26px] place-items-center rounded-[7px] border border-u-border-strong text-u-text2 hover:text-u-text"
         >
           <Icon d={ICONS.chevronLeft} />
         </button>
@@ -50,7 +50,7 @@ export function CaptureSettingsScreen({ user, projects, onBack, onSignOut }: Cap
         />
 
         <SectionLabel className="mb-2 mt-[18px]">Behaviour</SectionLabel>
-        <div className="divide-y divide-line-soft rounded-lg border border-line">
+        <div className="divide-y divide-u-border rounded-lg border border-u-border-strong">
           <ToggleRow
             label="Auto-detect page type"
             hint="Opens the Person or Company tab to match the page"
@@ -66,21 +66,21 @@ export function CaptureSettingsScreen({ user, projects, onBack, onSignOut }: Cap
         </div>
 
         <SectionLabel className="mb-2 mt-[18px]">Session</SectionLabel>
-        <div className="flex items-center gap-2.5 rounded-lg border border-line bg-panel2 px-2.5 py-2">
+        <div className="flex items-center gap-2.5 rounded-lg border border-u-border-strong bg-u-raised px-2.5 py-2">
           {user && <InitialsAvatar name={user.fullName} />}
           <span className="flex-1 overflow-hidden">
-            <span className="block truncate text-[12.5px] font-medium text-text">{user?.fullName ?? "Not paired"}</span>
-            <span className="block truncate text-[10.5px] text-text3">{user?.email ?? ""}</span>
+            <span className="block truncate text-[12.5px] font-medium text-u-text">{user?.fullName ?? "Not paired"}</span>
+            <span className="block truncate text-[10.5px] text-u-text3">{user?.email ?? ""}</span>
           </span>
           <button
             type="button"
             onClick={onSignOut}
-            className="rounded-lg border border-line px-2.5 py-1.5 text-[11.5px] font-semibold text-text2 hover:border-red hover:text-red"
+            className="rounded-lg border border-u-border-strong px-2.5 py-1.5 text-[11.5px] font-semibold text-u-text2 hover:border-u-offlimits hover:text-u-offlimits"
           >
             Sign out
           </button>
         </div>
-        <p className="mt-2 text-[10.5px] leading-[1.5] text-text3">
+        <p className="mt-2 text-[10.5px] leading-[1.5] text-u-text3">
           Signing out here ends only the extension's session. Your browser stays signed in, and the
           session appears in Settings → Active sessions until you end it from either side.
         </p>

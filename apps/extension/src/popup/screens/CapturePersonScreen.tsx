@@ -124,7 +124,7 @@ export function CapturePersonScreen({ page, projects }: CaptureScreenProps) {
           aria-label="Notes"
           placeholder="Why this person matters to the mandate"
           onChange={(event) => editNote(event.target.value)}
-          className="w-full resize-y rounded-[7px] border border-line bg-panel2 px-2.5 py-2 text-[12.5px] leading-[1.55] text-text outline-none focus:border-sky"
+          className="w-full resize-y rounded-[7px] border border-u-border-strong bg-u-raised px-2.5 py-2 text-[12.5px] leading-[1.55] text-u-text outline-none focus:border-u-accent"
         />
 
         <SectionLabel className="mb-2 mt-[18px]">Status</SectionLabel>
@@ -132,7 +132,7 @@ export function CapturePersonScreen({ page, projects }: CaptureScreenProps) {
           value={status}
           aria-label="Status"
           onChange={(event) => setStatus(event.target.value as CandidateCaptureStatus)}
-          className="w-full rounded-[7px] border border-line bg-panel2 px-2.5 py-[7px] font-mono text-[12px] text-text outline-none focus:border-sky"
+          className="w-full rounded-[7px] border border-u-border-strong bg-u-raised px-2.5 py-[7px] font-mono text-[12px] text-u-text outline-none focus:border-u-accent"
         >
           {CANDIDATE_CAPTURE_STATUSES.map((value) => (
             <option key={value} value={value}>
@@ -142,7 +142,7 @@ export function CapturePersonScreen({ page, projects }: CaptureScreenProps) {
         </select>
       </div>
 
-      <div className="flex flex-col gap-[9px] border-t border-line-soft px-3.5 py-[11px]">
+      <div className="flex flex-col gap-[9px] border-t border-u-border px-3.5 py-[11px]">
         {capture.refusal && <RefusalNote refusal={capture.refusal} />}
         <ProjectSelect
           projects={projects.projects}
@@ -154,7 +154,7 @@ export function CapturePersonScreen({ page, projects }: CaptureScreenProps) {
           type="button"
           onClick={handleSave}
           disabled={!canSave || capture.isSaving}
-          className="flex w-full items-center justify-center gap-[7px] rounded-lg bg-amber-btn py-2 text-[13px] font-semibold text-on-amber disabled:opacity-50"
+          className="flex w-full items-center justify-center gap-[7px] rounded-lg bg-u-accent-solid py-2 text-[13px] font-semibold text-white disabled:opacity-50"
         >
           <Icon d={ICONS.plus} />
           {capture.isSaving ? "Saving…" : "Save to project"}
@@ -174,7 +174,7 @@ function RefusalNote({ refusal }: { refusal: CaptureRefusal }) {
         : refusal.message;
 
   return (
-    <p role="alert" className="rounded-lg border border-line-soft bg-red-dim px-2.5 py-2 text-[11.5px] leading-[1.5] text-red">
+    <p role="alert" className="rounded-lg border border-u-border bg-u-offlimits-tint px-2.5 py-2 text-[11.5px] leading-[1.5] text-u-offlimits">
       {explanation}
     </p>
   );

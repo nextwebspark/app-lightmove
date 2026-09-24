@@ -1,76 +1,81 @@
 @import "tailwindcss";
 
 /*
- * The popup's design tokens.
+ * The panel's design tokens: the UNCAVA palette, under the same `u-*` names as apps/web's tokens.css,
+ * which lifted them from claude-design/uncava-tokens.css.
  *
- * The same values as apps/web's tokens.css, which took them from claude-design/*.dc.html — this is a
- * copy rather than an import, and deliberately: the extension is a separate app with a separate build
- * and shares no module graph with the web app. A shared package for forty lines of custom properties
+ * A copy rather than an import, and deliberately: the extension is a separate app with a separate build
+ * and shares no module graph with the web app. A shared package for a few dozen custom properties
  * would couple the two builds for less than it saves. Only the palette is duplicated; no logic is.
  *
- * Dark is the popup's only theme, and deliberately: a toolbar popup is a small panel over whatever the
- * consultant is reading, and the mockups draw it dark. `popup.html` sets `class="dark"` on <html>, so
- * the `:root` values below are the fallback the `.dark` block overrides — not a light theme anybody
- * reaches. Give the popup a light mode and it needs a `prefers-color-scheme` rule that is not here yet.
+ * Dark is the panel's only theme — UNCAVA is dark-first, and the panel sits over whatever the
+ * consultant is reading. `popup.html` sets `class="dark"` on <html>, so the `@theme` values below are
+ * the fallback the `.dark` block overrides, not a light theme anybody reaches.
  */
 @custom-variant dark (&:where(.dark, .dark *));
 
 @theme {
-  --color-bg: #f8f9fb;
-  --color-panel: #ffffff;
-  --color-panel2: #f3f4f6;
-  --color-line: #e2e4e9;
-  --color-line-soft: #edeef2;
+  --color-u-bg: #ffffff;
+  --color-u-surface: #f7f8fa;
+  --color-u-raised: #eceff3;
+  --color-u-sunken: #e4e8ee;
+  --color-u-border: rgba(3, 7, 18, 0.09);
+  --color-u-border-strong: rgba(3, 7, 18, 0.16);
 
-  --color-text: #111113;
-  --color-text2: #475569;
-  --color-text3: #64748b;
+  --color-u-text: #0b0d12;
+  --color-u-text2: #4c5462;
+  --color-u-text3: #6b7382;
 
-  /* Amber is the brand: the logo tile and every primary action. */
-  --color-amber: #a67c2e;
-  --color-amber-btn: #e2b65c;
-  --color-amber-dim: rgba(226, 182, 92, 0.14);
+  --color-u-accent: #4a56d6;
+  --color-u-accent-solid: #4a56d6;
+  --color-u-accent-solid-hover: #3a46c4;
+  --color-u-accent-tint: rgba(74, 86, 214, 0.09);
+  --color-u-accent-ring: rgba(74, 86, 214, 0.4);
 
-  /* Sky is for links and informational states. */
-  --color-sky: #2563eb;
-  --color-sky-dim: rgba(37, 99, 235, 0.1);
-
-  --color-red: #dc2626;
-  --color-red-dim: rgba(220, 38, 38, 0.08);
-  --color-green: #059669;
-  --color-green-dim: rgba(5, 150, 105, 0.1);
-
-  /* The one colour that never inverts: text on an amber button, in either theme. */
-  --color-on-amber: #1a1712;
+  --color-u-signal: #a8602f;
+  --color-u-signal-tint: rgba(168, 96, 47, 0.1);
+  --color-u-offlimits: #d93a45;
+  --color-u-offlimits-tint: rgba(217, 58, 69, 0.1);
+  --color-u-direct: #0f9d6b;
+  --color-u-direct-tint: rgba(15, 157, 107, 0.1);
+  --color-u-inferred: #8244d6;
+  --color-u-inferred-tint: rgba(130, 68, 214, 0.1);
 
   --font-sans: "Geist", "Inter", system-ui, sans-serif;
   --font-mono: "Geist", "Inter", system-ui, sans-serif;
 
-  --shadow-panel: 0 8px 28px rgba(15, 23, 42, 0.1);
-  --radius-panel: 14px;
+  --shadow-u-e3: 0 18px 44px -10px rgba(3, 7, 18, 0.2);
+  --radius-u-modal: 16px;
 }
 
 .dark {
-  --color-bg: #0c0d0e;
-  --color-panel: #16171a;
-  --color-panel2: #131316;
-  --color-line: #2a2a2e;
-  --color-line-soft: #212326;
+  --color-u-bg: #08090b;
+  --color-u-surface: #0e1013;
+  --color-u-raised: #15181d;
+  --color-u-sunken: #1d2128;
+  --color-u-border: rgba(255, 255, 255, 0.07);
+  --color-u-border-strong: rgba(255, 255, 255, 0.14);
 
-  --color-text: #f8fafc;
-  --color-text2: #cbd5e1;
-  --color-text3: #94a3b8;
+  --color-u-text: #f4f6f8;
+  --color-u-text2: #a6adbb;
+  --color-u-text3: #7c8493;
 
-  --color-amber: #e2b65c;
-  --color-amber-dim: rgba(226, 182, 92, 0.16);
-  --color-sky: #60a5fa;
-  --color-sky-dim: rgba(96, 165, 250, 0.16);
-  --color-red: #f87171;
-  --color-red-dim: rgba(248, 113, 113, 0.14);
-  --color-green: #34d399;
-  --color-green-dim: rgba(52, 211, 153, 0.16);
+  --color-u-accent: #6e79f2;
+  --color-u-accent-solid: #4a56d6;
+  --color-u-accent-solid-hover: #5a66e6;
+  --color-u-accent-tint: rgba(110, 121, 242, 0.14);
+  --color-u-accent-ring: rgba(110, 121, 242, 0.45);
 
-  --shadow-panel: 0 8px 28px rgba(0, 0, 0, 0.5);
+  --color-u-signal: #d4855c;
+  --color-u-signal-tint: rgba(212, 133, 92, 0.12);
+  --color-u-offlimits: #f2626b;
+  --color-u-offlimits-tint: rgba(242, 98, 107, 0.12);
+  --color-u-direct: #3ecf8e;
+  --color-u-direct-tint: rgba(62, 207, 142, 0.12);
+  --color-u-inferred: #b07cf5;
+  --color-u-inferred-tint: rgba(176, 124, 245, 0.12);
+
+  --shadow-u-e3: 0 18px 44px -10px rgba(0, 0, 0, 0.8);
 }
 
 /*
@@ -87,7 +92,7 @@ body {
 }
 
 body {
-  background: var(--color-panel);
-  color: var(--color-text);
+  background: var(--color-u-surface);
+  color: var(--color-u-text);
   font-family: var(--font-sans);
 }

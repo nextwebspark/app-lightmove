@@ -26,7 +26,7 @@ export function DestinationButtons({
         type="button"
         disabled={isDisabled || isSaving}
         onClick={() => onCapture(primary)}
-        className="flex flex-1 items-center justify-center gap-[7px] rounded-lg border border-amber-btn bg-amber-btn px-2.5 py-[9px] text-[12.5px] font-semibold text-on-amber disabled:opacity-60"
+        className="flex flex-1 items-center justify-center gap-[7px] rounded-lg border border-u-accent-solid bg-u-accent-solid px-2.5 py-[9px] text-[12.5px] font-semibold text-white disabled:opacity-60"
       >
         <Icon d={ICONS.plus} />
         {savingDestination === primary ? "Adding…" : DESTINATION_LABELS[primary]}
@@ -35,7 +35,7 @@ export function DestinationButtons({
         type="button"
         disabled={isDisabled || isSaving}
         onClick={() => onCapture(secondary)}
-        className="flex flex-1 items-center justify-center gap-[7px] rounded-lg border border-line bg-panel px-2.5 py-[9px] text-[12.5px] font-semibold text-text2 hover:border-text3 hover:text-text disabled:opacity-60"
+        className="flex flex-1 items-center justify-center gap-[7px] rounded-lg border border-u-border-strong bg-u-surface px-2.5 py-[9px] text-[12.5px] font-semibold text-u-text2 hover:border-u-text3 hover:text-u-text disabled:opacity-60"
       >
         <Icon d={ICONS.check} />
         {savingDestination === secondary ? "Adding…" : DESTINATION_LABELS[secondary]}

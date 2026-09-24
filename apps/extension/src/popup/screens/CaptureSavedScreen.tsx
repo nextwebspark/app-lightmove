@@ -34,15 +34,15 @@ export function CaptureSavedScreen({
 }: CaptureSavedScreenProps) {
   return (
     <div className="flex flex-1 flex-col items-center justify-center px-6 text-center">
-      <span className="grid h-[46px] w-[46px] place-items-center rounded-full bg-green-dim text-green" aria-hidden>
+      <span className="grid h-[46px] w-[46px] place-items-center rounded-full bg-u-direct-tint text-u-direct" aria-hidden>
         <Icon d={ICONS.check} size={20} />
       </span>
       <h2 className="mt-3.5 text-[15px] font-semibold">{subjectName} added</h2>
-      <p className="mt-2 text-[12.5px] leading-[1.6] text-text2">
-        Filed in <span className="font-semibold text-text">{landedIn}</span>.
+      <p className="mt-2 text-[12.5px] leading-[1.6] text-u-text2">
+        Filed in <span className="font-semibold text-u-text">{landedIn}</span>.
       </p>
 
-      <dl className="mt-3.5 w-full rounded-[9px] bg-panel2 px-2.5 py-2 text-left">
+      <dl className="mt-3.5 w-full rounded-[9px] bg-u-raised px-2.5 py-2 text-left">
         <ReceiptRow label="Project" value={projectName} />
         <ReceiptRow label="Landed in" value={landedIn} />
         <ReceiptRow label="Source" value={sourceUrl ?? "Typed in the popup"} />
@@ -53,14 +53,14 @@ export function CaptureSavedScreen({
           href={`${workspaceOrigin}/projects/${projectId}/companies`}
           target="_blank"
           rel="noreferrer"
-          className="rounded-lg border border-line px-3.5 py-2 text-[12.5px] font-semibold text-text2 hover:border-text3 hover:text-text"
+          className="rounded-lg border border-u-border-strong px-3.5 py-2 text-[12.5px] font-semibold text-u-text2 hover:border-u-text3 hover:text-u-text"
         >
           View in project
         </a>
         <button
           type="button"
           onClick={onCaptureAnother}
-          className="rounded-lg bg-amber-btn px-3.5 py-2 text-[12.5px] font-semibold text-on-amber"
+          className="rounded-lg bg-u-accent-solid px-3.5 py-2 text-[12.5px] font-semibold text-white"
         >
           Capture another
         </button>
@@ -71,7 +71,7 @@ export function CaptureSavedScreen({
           type="button"
           onClick={onUndo}
           disabled={isUndoing}
-          className="mt-3 inline-flex items-center gap-1.5 text-[11.5px] text-sky hover:underline disabled:opacity-60"
+          className="mt-3 inline-flex items-center gap-1.5 text-[11.5px] text-u-accent hover:underline disabled:opacity-60"
         >
           <Icon d={ICONS.undo} size={12} />
           {isUndoing ? "Undoing…" : "Undo"}
@@ -84,10 +84,10 @@ export function CaptureSavedScreen({
 function ReceiptRow({ label, value }: { label: string; value: string }) {
   return (
     <div className="flex items-baseline gap-2 py-[3px]">
-      <dt className="w-[68px] shrink-0 font-mono text-[9.5px] font-semibold uppercase tracking-[0.11em] text-text3">
+      <dt className="w-[68px] shrink-0 font-mono text-[9.5px] font-semibold uppercase tracking-[0.11em] text-u-text3">
         {label}
       </dt>
-      <dd className="flex-1 truncate text-[11.5px] text-text2">{value}</dd>
+      <dd className="flex-1 truncate text-[11.5px] text-u-text2">{value}</dd>
     </div>
   );
 }
