@@ -51,7 +51,7 @@ export function Modal({
         <div
           className={cn(
             "relative z-10 flex-none border-b px-5 pb-1 pt-5 text-base font-semibold transition-[border-color,box-shadow] md:px-[22px] md:pt-[22px]",
-            hiddenAbove ? "border-u-border shadow-[0_12px_16px_-12px_var(--color-u-scrim)]" : "border-transparent",
+            hiddenAbove ? "border-u-border shadow-[0_16px_20px_-14px_var(--color-u-scrim)]" : "border-transparent",
           )}
         >
           {title}
@@ -74,7 +74,7 @@ export function Modal({
           <div
             className={cn(
               "relative z-10 flex flex-none justify-end gap-2 border-t px-5 py-4 transition-[border-color,box-shadow] md:px-[22px]",
-              hiddenBelow ? "border-u-border shadow-[0_-12px_16px_-12px_var(--color-u-scrim)]" : "border-transparent",
+              hiddenBelow ? "border-u-border shadow-[0_-16px_20px_-14px_var(--color-u-scrim)]" : "border-transparent",
             )}
           >
             {footer}
