@@ -44,12 +44,12 @@ Gemini (Flash, usually 5–15s) and the stream closes at 55s, inside Cloud Run's
 If the model call fails, nothing is saved and the panel shows `ASSISTANT_UNAVAILABLE`. If the tab
 closes mid-answer, the answer is still saved and shows up in History.
 
-## Storage (V65, simplified by V68)
+## Storage (V65, simplified by V70)
 
 | Table | Row |
 |---|---|
 | `app_lm_assistant_thread` | One chat: `workspace_id`, `user_id`, `project_id`, `title`. Private to its user. |
-| `app_lm_assistant_turn` | One answered question: `question`, `answer`, `steps` (jsonb, V69), `proposal` (jsonb card), `proposal_accepted` (jsonb outcome). |
+| `app_lm_assistant_turn` | One answered question: `question`, `answer`, `steps` (jsonb, V71), `proposal` (jsonb card), `proposal_accepted` (jsonb outcome). |
 
 ## Security
 
