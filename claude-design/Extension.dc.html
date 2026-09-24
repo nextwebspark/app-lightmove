@@ -10,13 +10,21 @@
 <helmet>
   <meta name="design_doc_mode" content="canvas">
   <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700;900&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="uncava-tokens.css">
   <style>
-    :root{--bg:#f8f9fb;--panel:#ffffff;--panel2:#f3f4f6;--line:#e2e4e9;--line-soft:#edeef2;--text:#111113;--text2:#475569;--text3:#64748b;--amber:#a67c2e;--amber-btn:#e2b65c;--amber-dim:rgba(226,182,92,.14);--on-amber:#1a1712;--sky:#2563eb;--sky-dim:rgba(37,99,235,.10);--red:#dc2626;--red-dim:rgba(220,38,38,.08);--green:#059669;--green-dim:rgba(5,150,105,.10);--ai:#6366f1;--ai2:#3b82f6;--ai-line:#4f46e5;--ai-dim:rgba(99,102,241,.10);--ai-soft:rgba(99,102,241,.06);--shadow:0 8px 28px rgba(15,23,42,.10);--radius-panel:14px;--mono:'Geist','Inter',system-ui,sans-serif;--sans:'Geist','Inter',system-ui,sans-serif;
-      --t-eyebrow:9.5px;--t-meta:11px;--t-note:12px;--t-body:13px;--t-lead:15px;--t-subhead:17px;--t-title:19px;--t-figure:27px;
-      --u-bg:#ffffff;--u-surface:#f7f8fa;--u-raised:#eceff3;--u-sunken:#e4e8ee;--u-border:rgba(3,7,18,.09);--u-border-strong:rgba(3,7,18,.16);--u-scrim:rgba(3,7,18,.4);--u-text:#0b0d12;--u-text2:#4c5462;--u-text3:#6b7382;--u-accent:#4a56d6;--u-accent-solid:#4a56d6;--u-accent-tint:rgba(74,86,214,.09);--u-accent-ring:rgba(74,86,214,.4);--u-signal:#a8602f;--u-signal-tint:rgba(168,96,47,.1);--u-offlimits:#d93a45;--u-offlimits-tint:rgba(217,58,69,.1);--u-direct:#0f9d6b;--u-direct-tint:rgba(15,157,107,.1);--u-adjacent:#1f72d4;--u-adjacent-tint:rgba(31,114,212,.1);--u-inferred:#8244d6;--u-inferred-tint:rgba(130,68,214,.1);--u-chart-1:#4a56d6;--u-chart-2:#0f9d6b;--u-chart-3:#a8602f;--u-chart-4:#8244d6;--u-chart-5:#1e8fa8;--u-chart-6:#d93a45;--u-seq-1:#e4e8f6;--u-seq-2:#b9c0ee;--u-seq-3:#8189f7;--u-seq-4:#4a56d6;--u-seq-5:#2e3878;--u-grid-axis:rgba(3,7,18,.14);--u-grid-line:rgba(3,7,18,.07);--u-num:'JetBrains Mono',ui-monospace,SFMono-Regular,monospace;--u-e1:0 1px 2px rgba(3,7,18,.06);--u-e3:0 18px 44px -10px rgba(3,7,18,.2)}
-    body.dark{--bg:#0c0d0e;--panel:#16171a;--panel2:#131316;--line:#2a2a2e;--line-soft:#212326;--text:#f8fafc;--text2:#cbd5e1;--text3:#94a3b8;--amber:#e2b65c;--amber-dim:rgba(226,182,92,.16);--sky:#60a5fa;--sky-dim:rgba(96,165,250,.16);--red:#f87171;--red-dim:rgba(248,113,113,.14);--green:#34d399;--green-dim:rgba(52,211,153,.16);--ai:#818cf8;--ai2:#60a5fa;--ai-line:#6366f1;--ai-dim:rgba(129,140,248,.16);--ai-soft:rgba(129,140,248,.09);--shadow:0 8px 28px rgba(0,0,0,.5);
-      --u-bg:#08090b;--u-surface:#0e1013;--u-raised:#15181d;--u-sunken:#1d2128;--u-border:rgba(255,255,255,.07);--u-border-strong:rgba(255,255,255,.14);--u-scrim:rgba(4,5,7,.72);--u-text:#f4f6f8;--u-text2:#a6adbb;--u-text3:#7c8493;--u-accent:#6e79f2;--u-accent-solid:#4a56d6;--u-accent-tint:rgba(110,121,242,.14);--u-accent-ring:rgba(110,121,242,.45);--u-signal:#d4855c;--u-signal-tint:rgba(212,133,92,.12);--u-offlimits:#f2626b;--u-offlimits-tint:rgba(242,98,107,.12);--u-direct:#3ecf8e;--u-direct-tint:rgba(62,207,142,.12);--u-adjacent:#5aa9ff;--u-adjacent-tint:rgba(90,169,255,.12);--u-inferred:#b07cf5;--u-inferred-tint:rgba(176,124,245,.12);--u-chart-1:#6e79f2;--u-chart-2:#3ecf8e;--u-chart-3:#d4855c;--u-chart-4:#b07cf5;--u-chart-5:#4fc3d9;--u-chart-6:#f2626b;--u-seq-1:#1e2440;--u-seq-2:#2e3878;--u-seq-3:#4a56d6;--u-seq-4:#6e79f2;--u-seq-5:#a3a9fa;--u-grid-axis:rgba(255,255,255,.1);--u-grid-line:rgba(255,255,255,.055);--u-e1:0 0 #0000;--u-e3:0 18px 44px -10px rgba(0,0,0,.8)}
+    :root{
+      --amber:var(--u-accent);--amber-btn:var(--u-accent-solid);--amber-dim:var(--u-accent-tint);--on-amber:#ffffff;
+      --sky:var(--u-accent);--sky-dim:var(--u-accent-tint);--ring:var(--u-accent-ring);
+      --red:var(--u-offlimits);--red-dim:var(--u-offlimits-tint);
+      --green:var(--u-direct);--green-dim:var(--u-direct-tint);
+      --ai:var(--u-inferred);--ai2:var(--u-adjacent);--ai-line:var(--u-accent);--ai-dim:var(--u-inferred-tint);--ai-soft:var(--u-inferred-tint);
+      --bg:var(--u-bg);--panel:var(--u-surface);--panel2:var(--u-raised);--line:var(--u-border-strong);--line-soft:var(--u-border);
+      --text:var(--u-text);--text2:var(--u-text2);--text3:var(--u-text3);
+      --shadow:var(--u-e3);--radius-panel:var(--u-r-modal);
+      --mono:var(--u-font-ui);--sans:var(--u-font-ui);
+      --u-text2:var(--u-text-2);--u-text3:var(--u-text-3);--u-num:var(--u-font-num);
+    }
     *{box-sizing:border-box}
     html,body{height:100%;margin:0}
     body{background:var(--bg);color:var(--text);font:400 14px/1.45 var(--sans);-webkit-font-smoothing:antialiased}
@@ -27,10 +35,10 @@
     @keyframes spin{to{transform:rotate(360deg)}}
     @keyframes slideInEnd{from{transform:translateX(100%)}to{transform:none}}
   </style>
-  <script>try{var t=localStorage.getItem('lm-theme');if(t==='dark'||(t!=='light'&&window.matchMedia&&matchMedia('(prefers-color-scheme: dark)').matches)){document.body.classList.add('dark');}}catch(e){}</script>
+  <script>try{var t=localStorage.getItem('lm-theme');document.documentElement.setAttribute('data-theme', t==='light'?'light':'dark');}catch(e){}</script>
   <style>
     /* The side panel is dark-only (apps/extension/popup.html puts the dark class on html), whatever the page theme. */
-    [data-popup]{--bg:#0c0d0e;--panel:#16171a;--panel2:#131316;--line:#2a2a2e;--line-soft:#212326;--text:#f8fafc;--text2:#cbd5e1;--text3:#94a3b8;--amber:#e2b65c;--amber-dim:rgba(226,182,92,.16);--sky:#60a5fa;--sky-dim:rgba(96,165,250,.16);--red:#f87171;--red-dim:rgba(248,113,113,.14);--green:#34d399;--green-dim:rgba(52,211,153,.16);--shadow:0 8px 28px rgba(0,0,0,.5);color-scheme:dark}
+    [data-popup]{--bg:#08090b;--panel:#0e1013;--panel2:#15181d;--line:rgba(255,255,255,.14);--line-soft:rgba(255,255,255,.07);--text:#f4f6f8;--text2:#a6adbb;--text3:#7c8493;--amber:#6e79f2;--amber-dim:rgba(110,121,242,.14);--sky:#6e79f2;--sky-dim:rgba(110,121,242,.14);--red:#f2626b;--red-dim:rgba(242,98,107,.12);--green:#3ecf8e;--green-dim:rgba(62,207,142,.12);--shadow:0 8px 28px rgba(0,0,0,.5);color-scheme:dark}
     @keyframes pulse{50%{opacity:.5}}
   </style>
 </helmet>
@@ -47,7 +55,7 @@
       </div>
       <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
         <span style="display:inline-flex;align-items:center;padding:5px 11px;border-radius:6px;background:var(--panel2);border:1px solid var(--line-soft);font:600 10.5px var(--mono);letter-spacing:.06em;text-transform:uppercase;color:var(--text3)">{{ stateCount }}</span>
-        <button onClick="{{ toggleTheme }}" style="display:inline-flex;align-items:center;gap:7px;padding:6px 11px;border-radius:8px;border:1px solid var(--line);background:var(--panel);color:var(--text2);font:500 12px var(--sans);cursor:pointer" style-hover="color:var(--text);border-color:var(--text3)">{{ themeLabel }}</button>
+        <button onClick="{{ toggleTheme }}" style="display:inline-flex;align-items:center;gap:7px;padding:6px 11px;border-radius:6px;border:1px solid var(--line);background:var(--panel);color:var(--text2);font:500 12px var(--sans);cursor:pointer" style-hover="color:var(--text);border-color:var(--text3)">{{ themeLabel }}</button>
       </div>
     </div>
   </sc-if>
@@ -75,7 +83,7 @@
               <div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:0 24px;text-align:center">
                 <h1 style="margin:0;font-size:15px;font-weight:600">UNCAVA Capture is not responding</h1>
                 <p style="margin:8px 0 0;max-width:280px;font-size:12.5px;line-height:1.6;color:var(--text2)">Its background worker did not answer. Your session is untouched — try again rather than reconnecting.</p>
-                <button onClick="{{ onRetry }}" data-frame="{{ it.id }}" style="margin-top:16px;border:none;border-radius:8px;background:var(--amber-btn);padding:9px 16px;font-size:13px;font-weight:600;color:var(--on-amber);cursor:pointer">Try again</button>
+                <button onClick="{{ onRetry }}" data-frame="{{ it.id }}" style="margin-top:16px;border:none;border-radius:6px;background:var(--amber-btn);padding:9px 16px;font-size:13px;font-weight:500;color:var(--on-amber);cursor:pointer">Try again</button>
               </div>
             </sc-if>
 
@@ -88,7 +96,7 @@
                 <svg viewBox="-36 -51 72 104" fill="none" stroke="currentColor" style="height:56px;width:auto;flex:none;color:var(--text)" aria-hidden="true"><path d="M-32 10 L 0 -8 L 32 10 L 0 28 Z M-32 10 V 32 L 0 50 L 32 32 V 10 M0 28 V 50" stroke-width="2.6" stroke-linejoin="round"></path><path d="M0 -48 L 32 -30 L 0 -12 L -32 -30 Z" fill="currentColor" stroke="none"></path></svg>
                 <h1 style="margin:16px 0 0;font-size:15px;font-weight:600">Connect to UNCAVA</h1>
                 <p style="margin:8px 0 0;max-width:280px;font-size:12.5px;line-height:1.6;color:var(--text2)">Open your workspace to link this extension to your account. You will not need to sign in again here.</p>
-                <button onClick="{{ onConnect }}" data-frame="{{ it.id }}" style="margin-top:16px;display:inline-flex;align-items:center;gap:8px;border:none;border-radius:8px;background:var(--amber-btn);padding:9px 16px;font-size:13px;font-weight:600;color:var(--on-amber);cursor:pointer">
+                <button onClick="{{ onConnect }}" data-frame="{{ it.id }}" style="margin-top:16px;display:inline-flex;align-items:center;gap:8px;border:none;border-radius:6px;background:var(--amber-btn);padding:9px 16px;font-size:13px;font-weight:500;color:var(--on-amber);cursor:pointer">
                   Open Uncava
                   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 3h6v6M10 14 21 3M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h6"></path></svg>
                 </button>
@@ -104,7 +112,7 @@
               <header style="display:flex;align-items:center;gap:9px;border-bottom:1px solid var(--line-soft);padding:11px 14px">
                 <svg viewBox="-36 -51 72 104" fill="none" stroke="currentColor" style="height:24px;width:auto;flex:none;color:var(--text)" aria-hidden="true"><path d="M-32 10 L 0 -8 L 32 10 L 0 28 Z M-32 10 V 32 L 0 50 L 32 32 V 10 M0 28 V 50" stroke-width="2.6" stroke-linejoin="round"></path><path d="M0 -48 L 32 -30 L 0 -12 L -32 -30 Z" fill="currentColor" stroke="none"></path></svg>
                 <span style="flex:1;font:600 12.5px var(--mono);letter-spacing:.02em">UNCAVA Capture</span>
-                <button onClick="{{ onOpenSettings }}" data-frame="{{ it.id }}" aria-label="Settings" style="display:grid;place-items:center;width:26px;height:26px;padding:0;border-radius:7px;border:1px solid var(--line);background:none;font-size:13px;color:var(--text2);cursor:pointer" style-hover="color:var(--text)">
+                <button onClick="{{ onOpenSettings }}" data-frame="{{ it.id }}" aria-label="Settings" style="display:grid;place-items:center;width:26px;height:26px;padding:0;border-radius:6px;border:1px solid var(--line);background:none;font-size:13px;color:var(--text2);cursor:pointer" style-hover="color:var(--text)">
                   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.6a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1"></path></svg>
                 </button>
                 <button onClick="{{ onSignOut }}" data-frame="{{ it.id }}" title="{{ userTitle }}" style="padding:0;border:none;background:none;border-radius:999px;cursor:pointer">
@@ -134,9 +142,9 @@
 
                 <div style="flex:1;min-height:0;overflow-y:auto;padding:14px">
                   <sc-if value="{{ it.showLinkedInOnly }}">
-                    <div style="margin-bottom:14px;border-radius:8px;border:1px solid var(--line-soft);background:var(--panel2);padding:8px 10px;font-size:11.5px;line-height:1.5;color:var(--text2)">
+                    <div style="margin-bottom:14px;border-radius:6px;border:1px solid var(--line-soft);background:var(--panel2);padding:8px 10px;font-size:11.5px;line-height:1.5;color:var(--text2)">
                       <p style="margin:0">UNCAVA Capture reads LinkedIn only, for now. To add a person or a company by hand, open Uncava.</p>
-                      <a href="Project.dc.html?page=universe" target="_blank" style="display:inline-block;margin-top:8px;border-radius:6px;background:var(--amber-btn);padding:6px 10px;font-size:11.5px;font-weight:600;color:var(--on-amber)">Open Uncava</a>
+                      <a href="Position.dc.html?page=universe" target="_blank" style="display:inline-block;margin-top:8px;border-radius:6px;background:var(--amber-btn);padding:6px 10px;font-size:11.5px;font-weight:500;color:var(--on-amber)">Open Uncava</a>
                     </div>
                   </sc-if>
 
@@ -164,11 +172,11 @@
                   </div>
 
                   <div style="font:600 10px var(--mono);letter-spacing:.12em;text-transform:uppercase;color:var(--text3);margin:18px 0 8px">Notes</div>
-                  <textarea rows="3" value="{{ it.noteValue }}" onChange="{{ onNote }}" data-frame="{{ it.id }}" aria-label="Notes" placeholder="{{ it.notePlaceholder }}" style="display:block;width:100%;resize:vertical;border-radius:7px;border:1px solid var(--line);background:var(--panel2);padding:8px 10px;font:400 12.5px/1.55 var(--sans);color:var(--text);outline:none" style-focus="border-color:var(--sky)"></textarea>
+                  <textarea rows="3" value="{{ it.noteValue }}" onChange="{{ onNote }}" data-frame="{{ it.id }}" aria-label="Notes" placeholder="{{ it.notePlaceholder }}" style="display:block;width:100%;resize:vertical;border-radius:6px;border:1px solid var(--line);background:var(--panel2);padding:8px 10px;font:400 12.5px/1.55 var(--sans);color:var(--text);outline:none" style-focus="border-color:var(--sky)"></textarea>
 
                   <sc-if value="{{ it.isPerson }}">
                     <div style="font:600 10px var(--mono);letter-spacing:.12em;text-transform:uppercase;color:var(--text3);margin:18px 0 8px">Status</div>
-                    <select value="{{ it.status }}" onChange="{{ onStatus }}" data-frame="{{ it.id }}" aria-label="Status" style="width:100%;border-radius:7px;border:1px solid var(--line);background:var(--panel2);padding:7px 10px;font:400 12px var(--mono);color:var(--text);outline:none" style-focus="border-color:var(--sky)">
+                    <select value="{{ it.status }}" onChange="{{ onStatus }}" data-frame="{{ it.id }}" aria-label="Status" style="width:100%;border-radius:6px;border:1px solid var(--line);background:var(--panel2);padding:7px 10px;font:400 12px var(--mono);color:var(--text);outline:none" style-focus="border-color:var(--sky)">
                       <sc-for list="{{ statusOptions }}" as="so" hint-placeholder-count="4">
                         <option value="{{ so.id }}">{{ so.label }}</option>
                       </sc-for>
@@ -178,11 +186,11 @@
 
                 <div style="display:flex;flex-direction:column;gap:9px;border-top:1px solid var(--line-soft);padding:11px 14px">
                   <sc-if value="{{ it.hasRefusal }}">
-                    <p role="alert" style="margin:0;border-radius:8px;border:1px solid var(--line-soft);background:var(--red-dim);padding:8px 10px;font-size:11.5px;line-height:1.5;color:var(--red)">{{ it.refusalText }}</p>
+                    <p role="alert" style="margin:0;border-radius:6px;border:1px solid var(--line-soft);background:var(--red-dim);padding:8px 10px;font-size:11.5px;line-height:1.5;color:var(--red)">{{ it.refusalText }}</p>
                   </sc-if>
                   <div>
                     <label style="font:600 9.5px var(--mono);letter-spacing:.11em;text-transform:uppercase;color:var(--text3)">Project</label>
-                    <select value="{{ it.projectId }}" onChange="{{ onProject }}" data-frame="{{ it.id }}" style="margin-top:4px;width:100%;border-radius:7px;border:1px solid var(--line);background:var(--panel2);padding:7px 10px;font:400 12px var(--mono);color:var(--text);outline:none" style-focus="border-color:var(--sky)">
+                    <select value="{{ it.projectId }}" onChange="{{ onProject }}" data-frame="{{ it.id }}" style="margin-top:4px;width:100%;border-radius:6px;border:1px solid var(--line);background:var(--panel2);padding:7px 10px;font:400 12px var(--mono);color:var(--text);outline:none" style-focus="border-color:var(--sky)">
                       <sc-for list="{{ projectOptions }}" as="po" hint-placeholder-count="5">
                         <option value="{{ po.id }}">{{ po.label }}</option>
                       </sc-for>
@@ -225,8 +233,8 @@
                     </sc-for>
                   </dl>
                   <div style="margin-top:16px;display:flex;gap:8px">
-                    <a href="Project.dc.html?page=universe" target="_blank" style="border-radius:8px;border:1px solid var(--line);padding:8px 14px;font-size:12.5px;font-weight:600;color:var(--text2)" style-hover="border-color:var(--text3);color:var(--text)">View in project</a>
-                    <button onClick="{{ onCaptureAnother }}" data-frame="{{ it.id }}" style="border:none;border-radius:8px;background:var(--amber-btn);padding:8px 14px;font-size:12.5px;font-weight:600;color:var(--on-amber);cursor:pointer">Capture another</button>
+                    <a href="Position.dc.html?page=universe" target="_blank" style="border-radius:6px;border:1px solid var(--line);padding:8px 14px;font-size:12.5px;font-weight:600;color:var(--text2)" style-hover="border-color:var(--text3);color:var(--text)">View in project</a>
+                    <button onClick="{{ onCaptureAnother }}" data-frame="{{ it.id }}" style="border:none;border-radius:6px;background:var(--amber-btn);padding:8px 14px;font-size:12.5px;font-weight:500;color:var(--on-amber);cursor:pointer">Capture another</button>
                   </div>
                   <sc-if value="{{ it.showUndo }}">
                     <button onClick="{{ onUndo }}" data-frame="{{ it.id }}" disabled="{{ it.undoing }}" style="{{ it.undoStyle }}" style-hover="text-decoration:underline">
@@ -241,7 +249,7 @@
             <sc-if value="{{ it.vSettings }}">
               <div style="flex:1;display:flex;flex-direction:column;overflow:hidden">
                 <header style="display:flex;align-items:center;gap:9px;border-bottom:1px solid var(--line-soft);padding:11px 14px">
-                  <button onClick="{{ onBack }}" data-frame="{{ it.id }}" aria-label="Back to capture" style="display:grid;place-items:center;width:26px;height:26px;padding:0;border-radius:7px;border:1px solid var(--line);background:none;color:var(--text2);cursor:pointer" style-hover="color:var(--text)">
+                  <button onClick="{{ onBack }}" data-frame="{{ it.id }}" aria-label="Back to capture" style="display:grid;place-items:center;width:26px;height:26px;padding:0;border-radius:6px;border:1px solid var(--line);background:none;color:var(--text2);cursor:pointer" style-hover="color:var(--text)">
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m15 18-6-6 6-6"></path></svg>
                   </button>
                   <span style="flex:1;font:600 12.5px var(--mono);letter-spacing:.02em">Settings</span>
@@ -250,7 +258,7 @@
                   <div style="font:600 10px var(--mono);letter-spacing:.12em;text-transform:uppercase;color:var(--text3);margin-bottom:8px">Default destination</div>
                   <div>
                     <label style="font:600 9.5px var(--mono);letter-spacing:.11em;text-transform:uppercase;color:var(--text3)">Project</label>
-                    <select value="{{ it.defaultProjectId }}" onChange="{{ onDefaultProject }}" data-frame="{{ it.id }}" style="margin-top:4px;width:100%;border-radius:7px;border:1px solid var(--line);background:var(--panel2);padding:7px 10px;font:400 12px var(--mono);color:var(--text);outline:none" style-focus="border-color:var(--sky)">
+                    <select value="{{ it.defaultProjectId }}" onChange="{{ onDefaultProject }}" data-frame="{{ it.id }}" style="margin-top:4px;width:100%;border-radius:6px;border:1px solid var(--line);background:var(--panel2);padding:7px 10px;font:400 12px var(--mono);color:var(--text);outline:none" style-focus="border-color:var(--sky)">
                       <option value="">Ask every time — offer the last one used</option>
                       <sc-for list="{{ projectOptions }}" as="po" hint-placeholder-count="5">
                         <option value="{{ po.id }}">{{ po.label }}</option>
@@ -259,7 +267,7 @@
                   </div>
 
                   <div style="font:600 10px var(--mono);letter-spacing:.12em;text-transform:uppercase;color:var(--text3);margin:18px 0 8px">Behaviour</div>
-                  <div style="border-radius:8px;border:1px solid var(--line)">
+                  <div style="border-radius:6px;border:1px solid var(--line)">
                     <sc-for list="{{ it.toggles }}" as="tg" hint-placeholder-count="2">
                       <div style="{{ tg.rowStyle }}">
                         <span style="flex:1">
@@ -274,13 +282,13 @@
                   </div>
 
                   <div style="font:600 10px var(--mono);letter-spacing:.12em;text-transform:uppercase;color:var(--text3);margin:18px 0 8px">Session</div>
-                  <div style="display:flex;align-items:center;gap:10px;border-radius:8px;border:1px solid var(--line);background:var(--panel2);padding:8px 10px">
+                  <div style="display:flex;align-items:center;gap:10px;border-radius:6px;border:1px solid var(--line);background:var(--panel2);padding:8px 10px">
                     <span style="display:grid;width:26px;height:26px;flex:none;place-items:center;border-radius:999px;background:var(--green-dim);font:700 10.5px var(--mono);color:var(--green)" title="{{ userName }}">{{ userInitials }}</span>
                     <span style="flex:1;overflow:hidden">
                       <span style="display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:12.5px;font-weight:500;color:var(--text)">{{ userName }}</span>
                       <span style="display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:10.5px;color:var(--text3)">{{ userEmail }}</span>
                     </span>
-                    <button onClick="{{ onSignOut }}" data-frame="{{ it.id }}" style="border-radius:8px;border:1px solid var(--line);background:none;padding:6px 10px;font-size:11.5px;font-weight:600;color:var(--text2);cursor:pointer" style-hover="border-color:var(--red);color:var(--red)">Sign out</button>
+                    <button onClick="{{ onSignOut }}" data-frame="{{ it.id }}" style="border-radius:6px;border:1px solid var(--line);background:none;padding:6px 10px;font-size:11.5px;font-weight:600;color:var(--text2);cursor:pointer" style-hover="border-color:var(--red);color:var(--red)">Sign out</button>
                   </div>
                   <p style="margin:8px 0 0;font-size:10.5px;line-height:1.5;color:var(--text3)">Signing out here ends only the extension's session. Your browser stays signed in, and the session appears in Settings → Active sessions until you end it from either side.</p>
                 </div>
@@ -332,13 +340,13 @@
               <sc-if value="{{ c.isNotInstalled }}">
                 <h1 style="margin:24px 0 0;font:600 18px/28px var(--sans);color:var(--text)">Extension not detected</h1>
                 <p style="margin:8px 0 0;font-size:14px;line-height:1.625;color:var(--text2)">This page could not reach Uncava Capture. Install it, make sure it is enabled at<span style="font-family:var(--mono)"> chrome://extensions</span>, then try again.</p>
-                <button onClick="{{ onPair }}" data-conn="{{ c.id }}" style="margin-top:20px;display:flex;align-items:center;justify-content:center;gap:8px;border-radius:8px;padding:10px 14px;font:600 13.5px var(--sans);background:var(--amber-btn);border:1px solid var(--amber-btn);color:var(--on-amber);cursor:pointer" style-hover="filter:brightness(1.05)">Try again</button>
+                <button onClick="{{ onPair }}" data-conn="{{ c.id }}" style="margin-top:20px;display:flex;align-items:center;justify-content:center;gap:8px;border-radius:6px;padding:10px 14px;font:500 13.5px var(--sans);background:var(--amber-btn);border:1px solid var(--amber-btn);color:var(--on-amber);cursor:pointer" style-hover="filter:brightness(1.05)">Try again</button>
               </sc-if>
 
               <sc-if value="{{ c.isFailed }}">
                 <h1 style="margin:24px 0 0;font:600 18px/28px var(--sans);color:var(--text)">Could not connect the extension</h1>
                 <p role="alert" style="margin:8px 0 0;font-size:14px;line-height:1.625;color:var(--red)">{{ c.errorMessage }}</p>
-                <button onClick="{{ onPair }}" data-conn="{{ c.id }}" style="margin-top:20px;display:flex;align-items:center;justify-content:center;gap:8px;border-radius:8px;padding:10px 14px;font:600 13.5px var(--sans);background:var(--amber-btn);border:1px solid var(--amber-btn);color:var(--on-amber);cursor:pointer" style-hover="filter:brightness(1.05)">Try again</button>
+                <button onClick="{{ onPair }}" data-conn="{{ c.id }}" style="margin-top:20px;display:flex;align-items:center;justify-content:center;gap:8px;border-radius:6px;padding:10px 14px;font:500 13.5px var(--sans);background:var(--amber-btn);border:1px solid var(--amber-btn);color:var(--on-amber);cursor:pointer" style-hover="filter:brightness(1.05)">Try again</button>
               </sc-if>
             </div>
           </div>
@@ -362,13 +370,13 @@ class Component extends DCLogic {
       if (q && screens.indexOf(q) >= 0) screen = q;
     }
     this.connectUrl = 'https://beta.uncava.com/extension/connect';
-    this.user = { fullName: 'Yara Haddad', email: 'yara@meridiansearch.com', initials: 'YH' };
+    this.user = { fullName: 'Yara Haddad', email: 'yara@alfuttaim.com', initials: 'YH' };
     this.projects = [
-      { id: 'p1', positionTitle: 'Chief Financial Officer', clientName: 'Meridian Energy Group' },
-      { id: 'p2', positionTitle: 'VP, Renewables', clientName: 'Meridian Energy Group' },
-      { id: 'p3', positionTitle: 'Chief Human Resources Officer', clientName: 'Al Rabie Saudi Foods' },
-      { id: 'p5', positionTitle: 'Supply Chain Director', clientName: 'Al Rabie Saudi Foods' },
-      { id: 'p6', positionTitle: 'Chief Executive Officer', clientName: 'Agthia Group' },
+      { id: 'p1', positionTitle: 'Senior Manager, Product Planning (Toyota & Lexus)', clientName: 'Automotive' },
+      { id: 'p2', positionTitle: 'Aftersales Operations Manager', clientName: 'Automotive' },
+      { id: 'p3', positionTitle: 'Leasing Director, Mixed-Use Retail', clientName: 'Real Estate' },
+      { id: 'p5', positionTitle: 'Buying Director, IKEA UAE', clientName: 'Retail' },
+      { id: 'p6', positionTitle: 'Head of Credit Risk', clientName: 'Financial Services' },
     ];
     this.statuses = [
       { id: 'identified', label: 'Identified' },
@@ -377,8 +385,8 @@ class Component extends DCLogic {
       { id: 'outOfScope', label: 'Out of scope' },
     ];
     this.refusals = {
-      CANDIDATE_ALREADY_MAPPED: 'This mandate already maps someone with that name. Open them on the Companies screen instead.',
-      TRIAGE_COMPANY_ALREADY_HELD: 'This mandate already holds a company with that name. Open it on the Companies screen instead.',
+      CANDIDATE_ALREADY_MAPPED: 'This position already maps someone with that name. Open them on the Companies screen instead.',
+      TRIAGE_COMPANY_ALREADY_HELD: 'This position already holds a company with that name. Open it on the Companies screen instead.',
     };
     this.popupMeta = [
       { id: 'signedOut', label: 'Signed out', caption: 'not paired yet' },
@@ -399,11 +407,11 @@ class Component extends DCLogic {
       { id: 'failed', label: 'Failed', caption: 'the mint was refused' },
       { id: 'rateLimited', label: 'Failed · rate limited', caption: 'RATE_LIMITED' },
     ];
-    this.state = { dark: false, screen: screen, frames: this.seedFrames(), connect: this.seedConnect() };
+    this.state = { dark: true, screen: screen, frames: this.seedFrames(), connect: this.seedConnect() };
   }
 
   componentDidMount() {
-    this.setState({ dark: document.body.classList.contains('dark') });
+    this.setState({ dark: document.documentElement.getAttribute('data-theme') !== 'light' });
   }
 
   seedFrames() {
@@ -480,7 +488,7 @@ class Component extends DCLogic {
       (isFirst ? 'margin-right:14px;' : '') +
       (active ? 'font-weight:600;color:var(--text)' : 'font-weight:500;color:var(--text3)');
 
-    const inputStyle = 'display:block;margin-top:4px;width:100%;border-radius:7px;border:1px solid var(--line);background:var(--panel2);padding:7px 10px;font:400 12.5px/1.5 var(--mono);color:var(--text);outline:none;' +
+    const inputStyle = 'display:block;margin-top:4px;width:100%;border-radius:6px;border:1px solid var(--line);background:var(--panel2);padding:7px 10px;font:400 12.5px/1.5 var(--mono);color:var(--text);outline:none;' +
       (locked && hasName ? 'cursor:default;border-color:var(--line-soft);background:transparent;' : '') +
       (isReading ? pulse + 'opacity:.6;' : '');
 
@@ -489,8 +497,8 @@ class Component extends DCLogic {
       (isReading ? pulse : '');
 
     const busy = Boolean(f.saving);
-    const primaryBtn = 'display:flex;flex:1;align-items:center;justify-content:center;gap:7px;border-radius:8px;border:1px solid var(--amber-btn);background:var(--amber-btn);padding:9px 10px;font-size:12.5px;font-weight:600;color:var(--on-amber);cursor:pointer;';
-    const secondaryBtn = 'display:flex;flex:1;align-items:center;justify-content:center;gap:7px;border-radius:8px;border:1px solid var(--line);background:var(--panel);padding:9px 10px;font-size:12.5px;font-weight:600;color:var(--text2);cursor:pointer;';
+    const primaryBtn = 'display:flex;flex:1;align-items:center;justify-content:center;gap:7px;border-radius:6px;border:1px solid var(--amber-btn);background:var(--amber-btn);padding:9px 10px;font-size:12.5px;font-weight:500;color:var(--on-amber);cursor:pointer;';
+    const secondaryBtn = 'display:flex;flex:1;align-items:center;justify-content:center;gap:7px;border-radius:6px;border:1px solid var(--line);background:var(--panel);padding:9px 10px;font-size:12.5px;font-weight:600;color:var(--text2);cursor:pointer;';
     const dim60 = (!canSave || busy) ? 'opacity:.6;cursor:default;' : '';
 
     const toggle = (tid, label, hint, isOn, isFirst) => ({
@@ -535,14 +543,14 @@ class Component extends DCLogic {
       nameEditable: !(locked && hasName),
       inputStyle: inputStyle,
       noteValue: isPerson ? f.personNote : f.companyNote,
-      notePlaceholder: isPerson ? 'Why this person matters to the mandate' : 'Context for the universe entry',
+      notePlaceholder: isPerson ? 'Why this person matters to the position' : 'Context for the universe entry',
       status: f.status,
       hasRefusal: isPerson && Boolean(f.refusal),
       refusalText: f.refusal ? (this.refusals[f.refusal] || f.refusal) : '',
       projectId: f.projectId,
       saveDisabled: !canSave || busy,
       saveLabel: f.saving === 'person' ? 'Saving…' : 'Save to project',
-      saveStyle: 'display:flex;width:100%;align-items:center;justify-content:center;gap:7px;border:none;border-radius:8px;background:var(--amber-btn);padding:8px 0;font-size:13px;font-weight:600;color:var(--on-amber);cursor:pointer;' + ((!canSave || busy) ? 'opacity:.5;cursor:default;' : ''),
+      saveStyle: 'display:flex;width:100%;align-items:center;justify-content:center;gap:7px;border:none;border-radius:6px;background:var(--amber-btn);padding:8px 0;font-size:13px;font-weight:500;color:var(--on-amber);cursor:pointer;' + ((!canSave || busy) ? 'opacity:.5;cursor:default;' : ''),
       destDisabled: !canSave || busy,
       destPrimaryLabel: f.saving === 'inUniverse' ? 'Adding…' : 'Add to universe',
       destSecondaryLabel: f.saving === 'shortlisted' ? 'Adding…' : 'Add to shortlist',
@@ -551,7 +559,7 @@ class Component extends DCLogic {
       savedTitle: savedHere ? f.saved.name + ' added' : '',
       landedIn: savedHere ? f.saved.landedIn : '',
       receipt: savedHere ? [
-        { label: 'Project', value: project ? project.positionTitle : 'this mandate' },
+        { label: 'Project', value: project ? project.positionTitle : 'this position' },
         { label: 'Landed in', value: f.saved.landedIn },
         { label: 'Source', value: f.sourceUrl || 'Typed in the popup' },
       ] : [],
@@ -620,7 +628,7 @@ class Component extends DCLogic {
 
       toggleTheme: () => {
         const d = !this.state.dark;
-        document.body.classList.toggle('dark', d);
+        document.documentElement.setAttribute('data-theme', d ? 'dark' : 'light');
         try { localStorage.setItem('lm-theme', d ? 'dark' : 'light'); } catch (e) {}
         this.setState({ dark: d });
       },
@@ -673,7 +681,7 @@ class Component extends DCLogic {
           if (g.refusesPerson) {
             this.patch(id, { saving: null, refusal: g.refusesPerson });
           } else {
-            this.patch(id, { saving: null, undone: false, saved: { subject: 'person', name: g.personName.trim(), landedIn: 'this mandate’s people' } });
+            this.patch(id, { saving: null, undone: false, saved: { subject: 'person', name: g.personName.trim(), landedIn: 'this position’s people' } });
           }
         });
       },
