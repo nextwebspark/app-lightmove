@@ -136,18 +136,16 @@ class ClientFlowIntegrationTest extends FlowTestSupport {
     }
 
     @Test
-    @DisplayName("notes are saved with the record and read back on the drawer")
-    void updateSavesNotes() throws Exception {
+    @DisplayName("a PATCH changes only the fields it carries, and a blank one clears its field")
+    void updateIsPartial() throws Exception {
         String admin = adminOf("Notes Firm");
         String clientId = createClient(admin, "Meridian Energy");
 
-        mvc.perform(patch("/api/v1/clients/" + clientId)
-                        .header("Authorization", "Bearer " + admin)
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content("""
-                                {"name":"Meridian Energy","sector":"Energy","domain":"meridian.ae",
-                                 "offLimitsNote":"Protected until 2027","notes":"Hiring freeze lifted Q1"}"""))
-                .andExpect(status().isOk());
+        patchClient(admin, clientId, """
+                {"name":"Meridian Energy","sector":"Energy","domain":"meridian.ae",
+                 "offLimitsNote":"Protected until 2027"}""");
+        patchClient(admin, clientId, """
+                {"name":"Meridian Energy","notes":"Hiring freeze lifted Q1"}""");
 
         mvc.perform(get("/api/v1/clients/" + clientId).header("Authorization", "Bearer " + admin))
                 .andExpect(status().isOk())
@@ -155,6 +153,22 @@ class ClientFlowIntegrationTest extends FlowTestSupport {
                 .andExpect(jsonPath("$.sector").value("Energy"))
                 .andExpect(jsonPath("$.domain").value("meridian.ae"))
                 .andExpect(jsonPath("$.offLimitsNote").value("Protected until 2027"));
+
+        patchClient(admin, clientId, """
+                {"name":"Meridian Energy","notes":""}""");
+
+        mvc.perform(get("/api/v1/clients/" + clientId).header("Authorization", "Bearer " + admin))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.notes").value(org.hamcrest.Matchers.nullValue()))
+                .andExpect(jsonPath("$.sector").value("Energy"));
+    }
+
+    private void patchClient(String token, String clientId, String body) throws Exception {
+        mvc.perform(patch("/api/v1/clients/" + clientId)
+                        .header("Authorization", "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(body))
+                .andExpect(status().isOk());
     }
 
     @Test

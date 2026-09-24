@@ -114,14 +114,22 @@ public class Client extends BaseEntity {
         return client;
     }
 
-    /** Registry edit from the client drawer. The provenance key is deliberately untouched. */
+    /**
+     * Registry edit from the client drawer, as a partial update: a null field is left as it is and a
+     * blank one is cleared. The provenance key is deliberately untouched.
+     */
     public void applyDetails(String name, String sector, String hqCountry, String domain,
                              String offLimitsNote, String notes) {
         this.name = name.trim();
-        this.sector = sector;
-        this.hqCountry = Countries.nameOf(hqCountry);
-        this.domain = domain;
-        this.offLimitsNote = offLimitsNote;
-        this.notes = notes;
+        this.sector = patched(sector, this.sector);
+        this.hqCountry = hqCountry == null ? this.hqCountry : Countries.nameOf(hqCountry);
+        this.domain = patched(domain, this.domain);
+        this.offLimitsNote = patched(offLimitsNote, this.offLimitsNote);
+        this.notes = patched(notes, this.notes);
+    }
+
+    private static String patched(String incoming, String current) {
+        if (incoming == null) return current;
+        return incoming.isBlank() ? null : incoming.trim();
     }
 }

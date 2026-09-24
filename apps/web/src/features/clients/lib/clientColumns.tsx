@@ -4,7 +4,6 @@ import {
   type ColumnPinningState,
   type ColumnVisibilityState,
 } from "@tanstack/react-table";
-import { Icon, ICONS } from "../../../components/layout/Icon";
 import {
   LOCAL_ROW_MODELS,
   DATA_GRID_FEATURES,
@@ -15,6 +14,7 @@ import { TruncatedText } from "../../../components/ui/TruncatedText";
 import { compareNumber, compareText } from "../../../lib/gridSortFns";
 import { initials } from "../../../lib/format";
 import type { Client, ClientRepStatus, ViewerSummary } from "../api/types";
+import { BusinessUnitGlyph } from "../components/BusinessUnitGlyph";
 import { openPositionsLabel } from "./openPositions";
 
 /** The registry is one query of tens of rows, so the grid sorts and pages it itself. */
@@ -131,19 +131,6 @@ export function ViewerCell({ viewers }: { viewers: ViewerSummary }) {
     <span className="inline-flex items-center gap-1.5 whitespace-nowrap font-mono text-xs text-u-text2">
       <span className={`size-[7px] rounded-full ${dot}`} />
       {label}
-    </span>
-  );
-}
-
-/** A business unit is a part of the org, not a company, so it wears the team glyph rather than a logo. */
-export function BusinessUnitGlyph({ size }: { size: 26 | 32 }) {
-  return (
-    <span
-      aria-hidden="true"
-      style={{ width: size, height: size }}
-      className="grid flex-none place-items-center rounded-md bg-u-raised text-u-text3 ring-1 ring-u-border"
-    >
-      <Icon d={ICONS.team} size={size === 32 ? 16 : 13} />
     </span>
   );
 }

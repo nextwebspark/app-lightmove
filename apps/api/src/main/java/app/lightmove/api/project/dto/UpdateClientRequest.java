@@ -3,7 +3,10 @@ package app.lightmove.api.project.dto;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
 
-/** Edit a client record's own fields; mandates and representatives have their own endpoints. */
+/**
+ * Edit a client record's own fields; mandates and representatives have their own endpoints. A field
+ * left out is unchanged and a blank one is cleared — only the name is required.
+ */
 public record UpdateClientRequest(
         @NotBlank(message = "Enter the business unit name")
         @Size(max = 160, message = "That name is too long")

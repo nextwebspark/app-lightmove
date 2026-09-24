@@ -22,9 +22,7 @@ export function filterClients(
   return clients.filter((client) => {
     if (options.chip === "active" && client.activeMandates === 0) return false;
     if (options.chip === "noreps" && client.contacts.length > 0) return false;
-    if (query && !`${client.name} ${client.sector ?? ""}`.toLowerCase().includes(query)) {
-      return false;
-    }
+    if (query && !client.name.toLowerCase().includes(query)) return false;
     return true;
   });
 }

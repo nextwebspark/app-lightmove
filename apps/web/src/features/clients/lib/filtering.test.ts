@@ -45,13 +45,15 @@ describe("filterClients", () => {
     expect(rows).toHaveLength(2);
   });
 
-  it("search matches name and sector, case-insensitively", () => {
+  it("search matches the name, case-insensitively", () => {
     const other = client({ id: "other", name: "Agthia", sector: "FMCG" });
     expect(filterClients([retained, other], { chip: "all", query: "meridian" }).map((c) => c.id)).toEqual([
       "retained",
     ]);
-    expect(filterClients([retained, other], { chip: "all", query: "fmcg" }).map((c) => c.id)).toEqual([
-      "other",
-    ]);
+  });
+
+  it("search ignores the sector, which the screen no longer shows", () => {
+    const other = client({ id: "other", name: "Agthia", sector: "FMCG" });
+    expect(filterClients([retained, other], { chip: "all", query: "fmcg" })).toEqual([]);
   });
 });

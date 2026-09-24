@@ -5,7 +5,6 @@ import type { GridLayout } from "../../../lib/useGridLayout";
 import type { GridSort } from "../../../lib/useGridSort";
 import type { Client } from "../api/types";
 import {
-  BusinessUnitGlyph,
   CLIENT_COLUMN_PINNING,
   clientColumns,
   clientTableFeatures,
@@ -13,6 +12,7 @@ import {
   ViewerCell,
   type ClientSortField,
 } from "../lib/clientColumns";
+import { BusinessUnitGlyph } from "./BusinessUnitGlyph";
 import { openPositionsLabel } from "../lib/openPositions";
 
 /** The client registry: the shared grid on a wide screen, a stack of cards below `md`. */
@@ -90,9 +90,8 @@ function ClientCard({ client, onOpen }: { client: Client; onOpen: () => void }) 
         </span>
       </div>
 
-      <div className="flex items-center gap-2.5 border-t border-u-border pt-2.5">
+      <div className="flex items-center justify-between gap-2.5 border-t border-u-border pt-2.5">
         <RepStack contacts={client.contacts} />
-        <span className="ml-auto" />
         <ViewerCell viewers={client.viewers} />
       </div>
     </button>

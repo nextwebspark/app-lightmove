@@ -9,6 +9,7 @@ import {
   Input,
   StagePill,
   stageLabel,
+  TextArea,
   useToast,
 } from "../../../components/ui";
 import { isValidEmail } from "../../../lib/email";
@@ -17,7 +18,7 @@ import { formatDate } from "../../../lib/format";
 import { STAGE_ORDER } from "../../projects/lib/filtering";
 import * as clientsApi from "../api/clientsApi";
 import type { ClientDetail, ClientMandate, ClientRepresentative } from "../api/types";
-import { BusinessUnitGlyph } from "../lib/clientColumns";
+import { BusinessUnitGlyph } from "./BusinessUnitGlyph";
 import { openPositionsLabel } from "../lib/openPositions";
 
 /**
@@ -93,13 +94,7 @@ function ClientView({
     mutationFn: () =>
       clientsApi.updateClient(client.id, {
         name: name.trim(),
-        // The PATCH replaces the whole record, so the fields this drawer no longer shows ride along
-        // unchanged — leaving them out would clear them.
-        sector: client.sector ?? undefined,
-        hqCountry: client.hqCountry ?? undefined,
-        domain: client.domain ?? undefined,
-        offLimitsNote: client.offLimitsNote ?? undefined,
-        notes: notes.trim() || undefined,
+        notes: notes.trim(),
       }),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: clientsApi.clientKey(client.id) });
@@ -158,12 +153,12 @@ function ClientView({
           <Input value={name} onChange={(event) => setName(event.target.value)} />
         </DrawerField>
         <DrawerField label="Notes">
-          <textarea
+          <TextArea
             rows={3}
+            maxLength={2000}
             value={notes}
             onChange={(event) => setNotes(event.target.value)}
             placeholder="e.g. hiring freeze lifted Q1, prioritise senior backfills"
-            className="w-full resize-y rounded-lg border border-u-border-strong bg-u-raised px-3 py-2.5 font-mono text-[13px] text-u-text outline-none placeholder:text-u-text3 focus:border-u-accent"
           />
         </DrawerField>
         {dirty && (
@@ -403,7 +398,7 @@ function MandateView({
         <p className="font-mono text-[12.5px] text-u-text2">{formatDate(mandate.targetDate)}</p>
       </div>
 
-      <div className="flex items-center justify-start border-t border-u-border px-5 py-3">
+      <div className="flex items-center border-t border-u-border px-5 py-3">
         <Button variant="ghost" onClick={onBack}>
           Back
         </Button>
