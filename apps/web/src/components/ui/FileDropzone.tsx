@@ -88,12 +88,12 @@ export function FileDropzone({
 
 const DROPZONE_SKINS = {
   default: {
-    zone: "bg-panel2",
-    dragging: "border-sky brightness-105",
-    idle: "border-sky/70 hover:brightness-105",
-    badge: "bg-sky-dim text-sky",
-    title: "text-[15px] text-sky",
-    hint: "text-xs text-text3",
+    zone: "bg-u-raised",
+    dragging: "border-u-accent brightness-105",
+    idle: "border-u-accent/70 hover:brightness-105",
+    badge: "bg-u-accent-tint text-u-accent",
+    title: "text-[15px] text-u-accent",
+    hint: "text-xs text-u-text3",
   },
   uncava: {
     zone: "bg-u-surface",

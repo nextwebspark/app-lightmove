@@ -166,7 +166,7 @@ export function TeamAccessPage() {
               <button
                 type="button"
                 onClick={() => setAddTeamOpen(true)}
-                className="inline-flex items-center gap-[7px] rounded-lg border border-amber-btn bg-amber-btn px-[13px] py-[7px] text-[13px] font-semibold text-on-amber hover:brightness-105"
+                className="inline-flex items-center gap-[7px] rounded-lg border border-u-accent-solid bg-u-accent-solid px-[13px] py-[7px] text-[13px] font-semibold text-white hover:brightness-105"
               >
                 <Icon d={ICONS.plus} size={14} />
                 Add team member
@@ -199,7 +199,7 @@ export function TeamAccessPage() {
           />
         </div>
 
-        <p className="mt-3 font-mono text-[11.5px] text-text3">
+        <p className="mt-3 font-mono text-[11.5px] text-u-text3">
           A mandate always keeps at least one lead. Leads add members, set their role and decide who on
           the client side may read it.
         </p>
@@ -207,18 +207,18 @@ export function TeamAccessPage() {
         <div className="mb-3.5 mt-8 flex items-start gap-4">
           <div>
             <h2 className="text-base font-semibold leading-tight">Client</h2>
-            <p className="mt-1 font-mono text-xs text-text3">
+            <p className="mt-1 font-mono text-xs text-u-text3">
               The client organisation and the people we report to on their side
             </p>
           </div>
         </div>
 
-        <div className="overflow-hidden rounded-[11px] border border-line">
-          <div className="flex items-center gap-3 border-b border-line bg-panel2 px-4 py-[15px]">
+        <div className="overflow-hidden rounded-[11px] border border-u-border-strong">
+          <div className="flex items-center gap-3 border-b border-u-border-strong bg-u-raised px-4 py-[15px]">
             <CompanyLogo name={project.clientName} logo={project.clientLogoUrl} size={38} />
             <div className="min-w-0 flex-1">
               <div className="text-sm font-semibold">{project.clientName}</div>
-              <div className="mt-0.5 font-mono text-[11.5px] text-text3">
+              <div className="mt-0.5 font-mono text-[11.5px] text-u-text3">
                 {[client?.sector, contactCount].filter(Boolean).join(" · ")}
               </div>
             </div>
@@ -226,7 +226,7 @@ export function TeamAccessPage() {
               <button
                 type="button"
                 onClick={() => setAddContactOpen(true)}
-                className="inline-flex items-center gap-1.5 rounded-lg border border-amber-btn bg-amber-btn px-3 py-1.5 text-[12.5px] font-semibold text-on-amber hover:brightness-105"
+                className="inline-flex items-center gap-1.5 rounded-lg border border-u-accent-solid bg-u-accent-solid px-3 py-1.5 text-[12.5px] font-semibold text-white hover:brightness-105"
               >
                 <Icon d={ICONS.plus} size={14} />
                 Add contact
@@ -244,7 +244,7 @@ export function TeamAccessPage() {
             />
           ))}
 
-          <div className="px-4 py-[11px] font-mono text-[11px] text-text3">
+          <div className="px-4 py-[11px] font-mono text-[11px] text-u-text3">
             Invited contacts join automatically once they accept — no action needed on your side.
           </div>
         </div>
@@ -271,8 +271,8 @@ function PermissionBanner({ canManage }: { canManage: boolean }) {
     <div
       className={`mb-[18px] flex items-center gap-2.5 rounded-[9px] border px-[13px] py-2.5 text-[12.5px] ${
         canManage
-          ? "border-sky bg-sky-dim text-sky"
-          : "border-line bg-panel2 text-text2"
+          ? "border-u-accent bg-u-accent-tint text-u-accent"
+          : "border-u-border-strong bg-u-raised text-u-text2"
       }`}
     >
       <Icon d={canManage ? ICONS.info : ICONS.lock} size={15} className="shrink-0" />
@@ -286,8 +286,8 @@ function PermissionBanner({ canManage }: { canManage: boolean }) {
 }
 
 const CONTACT_BADGE: Record<AttachedRepresentative["status"], { label: string; className: string }> = {
-  ACTIVE: { label: "Active", className: "text-green bg-green-dim" },
-  INVITED: { label: "Invite sent", className: "text-amber bg-amber-dim" },
+  ACTIVE: { label: "Active", className: "text-u-direct bg-u-direct-tint" },
+  INVITED: { label: "Invite sent", className: "text-u-accent bg-u-accent-tint" },
 };
 
 function ContactRow({
@@ -303,11 +303,11 @@ function ContactRow({
 }) {
   const badge = CONTACT_BADGE[contact.status];
   return (
-    <div className="flex items-center gap-3 border-b border-line-soft px-4 py-[13px]">
+    <div className="flex items-center gap-3 border-b border-u-border px-4 py-[13px]">
       <Avatar id={contact.representativeId} name={contact.fullName} size="lg" />
       <div className="min-w-0 flex-1">
         <div className="text-[13.5px] font-medium">{contact.fullName}</div>
-        <div className="mt-0.5 truncate font-mono text-[11.5px] text-text3">
+        <div className="mt-0.5 truncate font-mono text-[11.5px] text-u-text3">
           {[contact.position, contact.email].filter(Boolean).join(" · ")}
         </div>
       </div>
@@ -323,7 +323,7 @@ function ContactRow({
           aria-label={`Remove ${contact.fullName}`}
           disabled={removing}
           onClick={onRemove}
-          className="rounded-md p-2.5 text-text3 hover:bg-red-dim hover:text-red disabled:opacity-50 lg:p-1.5"
+          className="rounded-md p-2.5 text-u-text3 hover:bg-u-offlimits-tint hover:text-u-offlimits disabled:opacity-50 lg:p-1.5"
         >
           <Icon d={ICONS.trash} size={15} />
         </button>

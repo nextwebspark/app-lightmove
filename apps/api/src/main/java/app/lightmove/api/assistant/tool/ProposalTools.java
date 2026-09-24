@@ -1,141 +1,140 @@
 package app.lightmove.api.assistant.tool;
 
 import app.lightmove.api.assistant.model.AssistantProposal;
-import app.lightmove.api.assistant.model.ProposalOrigin;
 import app.lightmove.api.assistant.model.ProposedCompany;
-import app.lightmove.api.assistant.service.AssistantEventSink;
 import app.lightmove.api.core.config.LightMoveProperties;
-import app.lightmove.api.core.security.rbac.ProjectAction;
 import app.lightmove.api.strategy.model.CompanyRow;
-import app.lightmove.api.strategy.model.CompanyScope;
 import app.lightmove.api.strategy.service.ApolloCompanyQueryService;
 import app.lightmove.api.strategy.service.StrategyService;
+import app.lightmove.api.triagecompany.model.CapturedCompanyDetails;
+import java.util.Comparator;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.UUID;
-import java.util.concurrent.atomic.AtomicInteger;
+import java.util.stream.Stream;
 import org.springframework.ai.chat.model.ToolContext;
 import org.springframework.ai.tool.annotation.Tool;
 import org.springframework.ai.tool.annotation.ToolParam;
 import org.springframework.stereotype.Component;
-import tools.jackson.core.type.TypeReference;
-import tools.jackson.databind.ObjectMapper;
 
 /**
- * How the assistant offers to file companies — and the only way it ever can.
- *
- * <p><b>It writes nothing.</b> Its whole effect is one {@code proposal} event; the rows exist in that
- * payload until a person accepts them. That is the third time this codebase has made the same call
- * deliberately — the importer writes nothing itself and is confirmed by a person, and the position
- * document's promised silent auto-fill shipped as review-then-accept — and the reason scales with
- * the actor: an agent filing forty companies into a client's mandate unprompted is that mistake
- * forty times over.
- *
- * <p><b>The first {@code WORK_EXECUTE} tool, which {@code docs/assistant-tools.md} anticipated.</b>
- * A proposal writes no rows, but it is the first half of a write and the only thing it is for is to
- * be accepted. {@code CLIENT} holds {@code WORK_VIEW}, so declaring that here would offer a client
- * representative a card whose every button refuses them — worse than not offering it. Both halves
- * declare the same action and agree.
+ * Puts companies in front of the user as a card they tick and file. It writes nothing to the mandate;
+ * the card is saved with the answer and filed only when a person presses a stage button.
  */
 @Component
-public class ProposalTools implements AssistantToolSubject {
+public class ProposalTools {
 
     private static final int MAX_TITLE = 120;
 
-    private static final TypeReference<Map<String, Object>> PAYLOAD = new TypeReference<>() {
-    };
-
     private final ApolloCompanyQueryService market;
     private final StrategyService strategies;
-    private final ObjectMapper json;
     private final int maxRows;
 
     public ProposalTools(ApolloCompanyQueryService market, StrategyService strategies,
-                         ObjectMapper json, LightMoveProperties properties) {
+                         LightMoveProperties properties) {
         this.market = market;
         this.strategies = strategies;
-        this.json = json;
         this.maxRows = properties.assistant().toolRowLimit();
     }
 
     @Tool(description = """
-            Offer a set of companies for the user to file into a mandate, as a card they tick and \
-            accept. This writes nothing: nothing reaches the mandate until a person presses a \
-            button, and they choose the stage, so do not ask which stage they want. Propose only \
-            companies you found through a search tool in this conversation, by the Apollo account \
-            id that search gave you. The answer says how many the card actually carries and how \
-            many were dropped — a company already ruled off limits, or one the universe no longer \
-            has, is dropped — so describe the card by that number and never by what you asked \
-            for.""")
-    @RequiresProjectAction(ProjectAction.WORK_EXECUTE)
-    public ProposalPlaced proposeCompanies(
-            @ToolParam(description = "The mandate's id") String projectId,
-            @ToolParam(description = "One short line saying what these companies are")
-            String title,
-            @ToolParam(description = "Apollo account ids, from a search in this conversation")
-            List<String> apolloAccountIds,
+            Show companies to the user as a card they can tick and add to the mandate. Call it every \
+            time an answer puts forward companies. Pass the Apollo account ids a search returned, and \
+            the LinkedIn slugs of RESEARCHED companies lookUpCompaniesByName returned. The answer says \
+            how many the card holds: companies the client has ruled off limits, or that were never \
+            found, are dropped.""")
+    public int proposeCompanies(
+            @ToolParam(description = "One short line saying what these companies are") String title,
+            @ToolParam(description = "Apollo account ids, and LinkedIn slugs of researched companies, from this conversation")
+            List<String> companyIds,
             ToolContext toolContext) {
-        AssistantToolCaller caller = ToolCallerContext.callerOf(toolContext);
-        UUID mandate = UUID.fromString(projectId);
-        List<String> asked = requested(apolloAccountIds);
-        List<ProposedCompany> companies = resolve(caller.workspaceId(), mandate, asked);
-
-        AssistantProposal proposal = new AssistantProposal(mandate, oneLine(title), companies);
-        ToolCallerContext.sinkOf(toolContext).proposal(json.convertValue(proposal, PAYLOAD));
-
-        return new ProposalPlaced(companies.size(), asked.size() - companies.size());
+        AssistantToolContext context = AssistantToolContext.from(toolContext);
+        List<String> asked = requested(companyIds);
+        int step = context.recorder().startStep("Preparing " + asked.size() + " "
+                + (asked.size() == 1 ? "company" : "companies"));
+        AssistantProposal card = card(context, oneLine(title), asked);
+        context.recorder().propose(card);
+        context.recorder().finishStep(step,
+                describeCard(card.companies().size(), asked.size() - card.companies().size()));
+        return card.companies().size();
     }
 
     /**
-     * Capped at the tool row limit for the reason that limit exists, and one more: a card is read by
-     * a person, and the accept behind it files in one batch the bulk-add limit already bounds.
+     * The card for an answer that found companies but whose model never proposed them — Flash
+     * sometimes answers straight after its lookups, and a card the answer describes must exist.
      */
-    private List<String> requested(List<String> apolloAccountIds) {
-        if (apolloAccountIds == null) {
+    public void proposeWhatWasFound(AssistantToolContext context) {
+        TurnRecorder recorder = context.recorder();
+        List<String> found = Stream.concat(recorder.foundAccountIds().stream(),
+                recorder.researched().keySet().stream()).toList();
+        if (recorder.proposal() != null || found.isEmpty()) {
+            return;
+        }
+        int step = recorder.startStep("Preparing the card");
+        AssistantProposal card = card(context, "Companies found", found);
+        recorder.propose(card);
+        recorder.finishStep(step, describeCard(card.companies().size(), 0));
+    }
+
+    private static String describeCard(int carried, int leftOut) {
+        String onCard = carried + " on the card";
+        return leftOut == 0 ? onCard : onCard + ", " + leftOut + " left out (off limits or not found)";
+    }
+
+    private List<String> requested(List<String> companyIds) {
+        if (companyIds == null) {
             return List.of();
         }
-        return apolloAccountIds.stream()
+        return companyIds.stream()
                 .filter(id -> id != null && !id.isBlank())
+                .map(String::strip)
                 .distinct()
+                .toList();
+    }
+
+    /**
+     * Names and figures come from the universe row or the researched page, so the card never shows a
+     * company the model made up: a slug counts only if this answer researched it.
+     */
+    private AssistantProposal card(AssistantToolContext context, String title, List<String> keys) {
+        TurnRecorder recorder = context.recorder();
+        Map<String, CapturedCompanyDetails> researched = recorder.researched();
+        Map<String, String> operated = recorder.operatedBrands();
+        Set<String> offLimits = Set.copyOf(
+                strategies.scopeOf(context.workspaceId(), context.projectId()).offLimitsAccountIds());
+
+        List<String> accountIds = keys.stream().filter(key -> !researched.containsKey(key)).toList();
+        Stream<ProposedCompany> fromUniverse = accountIds.isEmpty() ? Stream.empty()
+                : market.byAccountIds(accountIds).stream()
+                        .filter(row -> !offLimits.contains(row.apolloAccountId()))
+                        .map(row -> fromUniverse(row, operated.get(row.apolloAccountId())));
+        Stream<ProposedCompany> fromLinkedIn = keys.stream()
+                .filter(researched::containsKey)
+                .map(slug -> fromLinkedIn(slug, researched.get(slug), operated.get(slug)));
+
+        List<ProposedCompany> companies = Stream.concat(fromUniverse, fromLinkedIn)
+                .sorted(Comparator.comparing(ProposedCompany::employees,
+                        Comparator.nullsLast(Comparator.reverseOrder())))
                 .limit(maxRows)
                 .toList();
+        Map<String, CapturedCompanyDetails> carried = new LinkedHashMap<>();
+        companies.stream()
+                .filter(company -> company.apolloAccountId() == null)
+                .forEach(company -> carried.put(company.linkedinSlug(), researched.get(company.linkedinSlug())));
+        return new AssistantProposal(title, companies, carried);
     }
 
-    /**
-     * Every field comes from the market row, never from the model.
-     *
-     * <p>A name the model supplied would render on the card as though we held it, which is the one
-     * thing a provenance badge is there to prevent. Off-limits is applied here as well as at accept:
-     * proposing a company the client has ruled out and then silently dropping it on the way in is
-     * exactly the dishonest count this issue exists to avoid.
-     */
-    private List<ProposedCompany> resolve(UUID workspaceId, UUID projectId,
-                                          List<String> apolloAccountIds) {
-        if (apolloAccountIds.isEmpty()) {
-            return List.of();
-        }
-        CompanyScope scope = strategies.scopeOf(workspaceId, projectId);
-        Set<String> offLimits = Set.copyOf(scope.offLimitsAccountIds());
-        AtomicInteger ref = new AtomicInteger();
-        return market.byAccountIds(apolloAccountIds).stream()
-                .filter(row -> !offLimits.contains(row.apolloAccountId()))
-                .map(row -> universeRow("c" + ref.incrementAndGet(), row))
-                .toList();
+    private static ProposedCompany fromUniverse(CompanyRow row, String operates) {
+        return new ProposedCompany(row.apolloAccountId(), null, row.companyName(), row.companyCountry(),
+                row.numEmployees(), row.logoUrl(), operates);
     }
 
-    private static ProposedCompany universeRow(String ref, CompanyRow row) {
-        return new ProposedCompany(ref, ProposalOrigin.UNIVERSE, row.apolloAccountId(),
-                row.companyName(), row.companyCountry(), row.numEmployees());
+    private static ProposedCompany fromLinkedIn(String slug, CapturedCompanyDetails page, String operates) {
+        return new ProposedCompany(null, slug, page.companyName(), page.companyCountry(),
+                page.numEmployees(), page.logoUrl(), operates);
     }
 
-    /**
-     * The model's own sentence, flattened and capped before it is stored.
-     *
-     * <p>The same treatment a member-typed position title gets before it reaches the system message:
-     * this one is rendered as a card heading, and a newline in it is a line the panel did not lay
-     * out.
-     */
     private static String oneLine(String title) {
         if (title == null || title.isBlank()) {
             return "";

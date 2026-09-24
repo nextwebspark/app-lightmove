@@ -22,7 +22,7 @@ export interface SelectedTag {
 export function FilterAccordion({
   label,
   selected,
-  tagTone = "sky",
+  tagTone = "accent",
   open,
   onToggleOpen,
   onReset,
@@ -32,7 +32,7 @@ export function FilterAccordion({
   label: string;
   selected: SelectedTag[];
   /** Off-limits reads in red; everything else is an ordinary selection. */
-  tagTone?: "sky" | "red";
+  tagTone?: "accent" | "offlimits";
   open: boolean;
   onToggleOpen: () => void;
   onReset: () => void;
@@ -55,13 +55,13 @@ export function FilterAccordion({
           }
         }}
         className={cn(
-          "flex min-h-[52px] w-full cursor-pointer items-center gap-2 px-4 py-3 text-left transition hover:bg-panel2",
-          !summarised && "border-b border-line-soft",
+          "flex min-h-[52px] w-full cursor-pointer items-center gap-2 px-4 py-3 text-left transition hover:bg-u-raised",
+          !summarised && "border-b border-u-border",
         )}
       >
         <span
           className={cn(
-            "whitespace-nowrap font-sans text-[13px] text-text",
+            "whitespace-nowrap font-sans text-[13px] text-u-text",
             open ? "font-bold" : "font-medium",
           )}
         >
@@ -77,8 +77,8 @@ export function FilterAccordion({
                 onReset();
               }}
               className={cn(
-                "flex flex-none items-center gap-1 rounded-full border border-line px-2 py-[3px] transition hover:border-text3",
-                tagTone === "red" ? "text-red" : "text-text2",
+                "flex flex-none items-center gap-1 rounded-full border border-u-border-strong px-2 py-[3px] transition hover:border-u-text3",
+                tagTone === "offlimits" ? "text-u-offlimits" : "text-u-text2",
               )}
             >
               <Icon d={ICONS.x} size={9} />
@@ -93,7 +93,7 @@ export function FilterAccordion({
                 event.stopPropagation();
                 onReset();
               }}
-              className="flex-none px-1 py-[2px] font-sans text-[11px] font-semibold text-text3 transition hover:text-text"
+              className="flex-none px-1 py-[2px] font-sans text-[11px] font-semibold text-u-text3 transition hover:text-u-text"
             >
               Reset
             </button>
@@ -101,13 +101,13 @@ export function FilterAccordion({
           <Icon
             d={open ? ICONS.chevronDown : ICONS.chevronRight}
             size={14}
-            className="flex-none text-text3"
+            className="flex-none text-u-text3"
           />
         </span>
       </div>
 
       {summarised && (
-        <div className="flex flex-wrap gap-[5px] border-b border-line-soft px-4 pb-3">
+        <div className="flex flex-wrap gap-[5px] border-b border-u-border px-4 pb-3">
           {selected.map((tag) => (
             <SelectionPill
               key={tag.value}
@@ -119,7 +119,7 @@ export function FilterAccordion({
         </div>
       )}
 
-      {open && <div className="border-b border-line-soft px-4 py-3">{children}</div>}
+      {open && <div className="border-b border-u-border px-4 py-3">{children}</div>}
     </div>
   );
 }

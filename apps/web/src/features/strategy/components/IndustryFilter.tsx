@@ -91,15 +91,15 @@ export function IndustryFilter({
       {children}
 
       {adjacent.length > 0 && (
-        <div className="flex flex-col gap-2 border-t border-line-soft pt-3">
+        <div className="flex flex-col gap-2 border-t border-u-border pt-3">
           <div className="flex items-center justify-between gap-2">
             <span className="flex items-center gap-1.5">
-              <Icon d={SPARKLE} size={13} className="flex-none text-amber" />
-              <span className="font-sans text-[12px] font-semibold text-text">
+              <Icon d={SPARKLE} size={13} className="flex-none text-u-accent" />
+              <span className="font-sans text-[12px] font-semibold text-u-text">
                 Adjacent Industries
               </span>
             </span>
-            <span className="font-sans text-[11px] text-text3">Based on your selection</span>
+            <span className="font-sans text-[11px] text-u-text3">Based on your selection</span>
           </div>
 
           <div role="group" aria-label="Adjacent Industries" className="flex flex-wrap gap-[6px]">
@@ -108,7 +108,7 @@ export function IndustryFilter({
                 key={industry.value}
                 type="button"
                 onClick={() => addIndustry(industry.value)}
-                className="inline-flex items-center gap-1 rounded-full border border-line px-2 py-[3px] font-sans text-[11px] font-medium text-text2 transition hover:border-amber hover:text-amber"
+                className="inline-flex items-center gap-1 rounded-full border border-u-border-strong px-2 py-[3px] font-sans text-[11px] font-medium text-u-text2 transition hover:border-u-accent hover:text-u-accent"
               >
                 <Icon d={ICONS.plus} size={10} className="flex-none" />
                 {industry.label}
@@ -120,7 +120,7 @@ export function IndustryFilter({
             <button
               type="button"
               onClick={() => setShowAllAdjacent((shown) => !shown)}
-              className="self-start font-sans text-[11px] text-text3 transition hover:text-text"
+              className="self-start font-sans text-[11px] text-u-text3 transition hover:text-u-text"
             >
               {showAllAdjacent ? "Show fewer" : `+ ${adjacent.length - ADJACENT_SHOWN} more industries`}
             </button>

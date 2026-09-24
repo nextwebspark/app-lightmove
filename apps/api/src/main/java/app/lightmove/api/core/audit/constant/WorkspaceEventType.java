@@ -24,21 +24,7 @@ public enum WorkspaceEventType implements AuditEventType {
     POSITION_TEMPLATE_DELETED,
     POSITION_TEMPLATE_HIDDEN,
     POSITION_TEMPLATE_SHOWN,
-    POSITION_TEMPLATES_IMPORTED,
-
-    /**
-     * One assistant turn reached the model. Recorded for the reason a contact lookup is: it spends
-     * money against the firm's account on a named person's behalf, and the cost has to be
-     * attributable after the fact.
-     */
-    ASSISTANT_TURN_RAN,
-
-    /**
-     * A person filed companies the assistant proposed. Beside the {@code TRIAGE_BULK_ADDED} the write
-     * itself records, because the two are different facts: that one says rows were written, this one
-     * says a proposal was why — and names the turn that made it.
-     */
-    ASSISTANT_PROPOSAL_ACCEPTED;
+    POSITION_TEMPLATES_IMPORTED;
 
     @Override
     public String code() {

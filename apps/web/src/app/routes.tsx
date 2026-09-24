@@ -153,7 +153,7 @@ function Booting() {
   return (
     <div className="flex min-h-screen flex-col items-center justify-center gap-4">
       <Logo />
-      <p className="font-mono text-xs text-text3">Loading…</p>
+      <p className="font-mono text-xs text-u-text3">Loading…</p>
     </div>
   );
 }

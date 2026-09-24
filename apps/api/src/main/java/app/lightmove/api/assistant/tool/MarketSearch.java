@@ -7,14 +7,7 @@ import app.lightmove.api.strategy.model.CompanyScope;
 import app.lightmove.api.strategy.service.ApolloCompanyQueryService;
 import org.springframework.stereotype.Component;
 
-/**
- * One capped, counted read of the company universe, and the vocabulary it has to be asked in.
- *
- * <p>Its own collaborator rather than a method on a tool class because two tools read the same
- * market: {@link CompanySearchTools} over the universe as it is, {@link StrategyTools} through one
- * mandate's saved filter. Sharing it here keeps both answering with the same cap and the same order,
- * and keeps either tool from depending on the other.
- */
+/** One capped, counted read of the company universe, and the vocabulary it has to be asked in. */
 @Component
 class MarketSearch {
 

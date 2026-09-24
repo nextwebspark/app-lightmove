@@ -96,9 +96,9 @@ function TemplateCard({
   onToggle: (template: TemplateOverview) => void;
 }) {
   return (
-    <div className="rounded-[10px] border border-line bg-panel p-3.5">
-      <div className="text-[13.5px] font-semibold text-text">{template.title}</div>
-      <div className="mt-0.5 font-mono text-[11px] text-text3">
+    <div className="rounded-[10px] border border-u-border-strong bg-u-surface p-3.5">
+      <div className="text-[13.5px] font-semibold text-u-text">{template.title}</div>
+      <div className="mt-0.5 font-mono text-[11px] text-u-text3">
         {DISCIPLINE_LABELS[template.discipline]} · {SENIORITY_LABELS[template.seniority]}
       </div>
       <div className="mt-2 flex flex-wrap items-center gap-1.5">
@@ -106,9 +106,9 @@ function TemplateCard({
         {template.libraryChangedSinceCustomised && <LibraryUpdatedPill />}
       </div>
       {template.summary && (
-        <div className="mt-2 line-clamp-2 font-mono text-[11.5px] text-text3">{template.summary}</div>
+        <div className="mt-2 line-clamp-2 font-mono text-[11.5px] text-u-text3">{template.summary}</div>
       )}
-      <div className="mt-2.5 border-t border-line-soft pt-2.5">
+      <div className="mt-2.5 border-t border-u-border pt-2.5">
         <TemplateActions scope={scope} template={template} isToggling={isToggling} onToggle={onToggle} />
       </div>
     </div>

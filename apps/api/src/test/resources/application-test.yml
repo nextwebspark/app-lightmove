@@ -57,12 +57,6 @@ lightmove:
     # setting, so the timing equalisation holds at whatever strength runs.
     bcrypt-strength: 4
 
-  assistant:
-    # Off in tests. Nothing rolls back in the integration suite, so a live timer would reclaim other
-    # classes' in-flight turns as "stranded". AssistantTurnSweeper.sweep(Instant) is called directly
-    # instead, against a row the test back-dated itself.
-    sweep-enabled: false
-
   company:
     list:
       # Small so the refusal path is reachable. At the production 200 a test would have to seed 201

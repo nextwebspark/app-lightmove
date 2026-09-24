@@ -31,7 +31,7 @@ export function CompanyDrawerHeader({
   onClose: () => void;
 }) {
   return (
-    <div className="relative flex-none border-b border-line-soft px-5 py-4">
+    <div className="relative flex-none border-b border-u-border px-5 py-4">
       <DrawerCloseButton onClose={onClose} />
 
       <div className="flex items-start gap-3 pe-8">
@@ -50,7 +50,7 @@ export function CompanyDrawerHeader({
             </span>
             {badges}
           </div>
-          <p className="mt-1 font-mono text-[11.5px] text-text3">
+          <p className="mt-1 font-mono text-[11.5px] text-u-text3">
             {context.filter(Boolean).join(" · ") || "Nothing recorded about where it sits"}
           </p>
         </div>

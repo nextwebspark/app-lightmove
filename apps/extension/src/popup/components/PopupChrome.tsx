@@ -6,7 +6,7 @@ export function BrandMark({ className }: { className?: string }) {
   return (
     <svg
       viewBox="-36 -51 72 104"
-      className={cn("h-6 w-auto shrink-0 text-text", className)}
+      className={cn("h-6 w-auto shrink-0 text-u-text", className)}
       fill="none"
       stroke="currentColor"
       aria-hidden
@@ -21,7 +21,7 @@ export function BrandMark({ className }: { className?: string }) {
 export function InitialsAvatar({ name }: { name: string }) {
   return (
     <span
-      className="grid h-[26px] w-[26px] place-items-center rounded-full bg-green-dim font-mono text-[10.5px] font-bold text-green"
+      className="grid h-[26px] w-[26px] place-items-center rounded-full bg-u-direct-tint font-mono text-[10.5px] font-bold text-u-direct"
       title={name}
     >
       {initialsOf(name)}
@@ -47,6 +47,6 @@ function initialsOf(name: string): string {
  */
 export function PopupShell({ children }: { children: ReactNode }) {
   return (
-    <div className="fixed inset-0 flex min-w-[320px] flex-col overflow-hidden bg-panel">{children}</div>
+    <div className="fixed inset-0 flex min-w-[320px] flex-col overflow-hidden bg-u-surface">{children}</div>
   );
 }

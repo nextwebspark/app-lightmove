@@ -360,7 +360,7 @@ function StrategyEditor() {
 
   if (strategy.isError) {
     return (
-      <div className="p-10 text-center font-mono text-[13px] text-text3">
+      <div className="p-10 text-center font-mono text-[13px] text-u-text3">
         This mandate&rsquo;s search could not be loaded.
       </div>
     );
@@ -402,7 +402,7 @@ function StrategyEditor() {
           (data ? (
             <>
               <div
-                className="fixed inset-0 z-[90] bg-[rgba(15,20,30,0.4)] lg:hidden"
+                className="fixed inset-0 z-[90] bg-u-scrim lg:hidden"
                 onClick={() => setShowFilters(false)}
               />
               <FilterSidebar
@@ -496,7 +496,7 @@ function FilterRailPlaceholder() {
   return (
     <div
       aria-hidden="true"
-      className="hidden animate-pulse border-e border-line-soft bg-panel lg:block lg:w-[19%] lg:min-w-[264px] lg:max-w-[312px] lg:shrink-0"
+      className="hidden animate-pulse border-e border-u-border bg-u-surface lg:block lg:w-[19%] lg:min-w-[264px] lg:max-w-[312px] lg:shrink-0"
     />
   );
 }

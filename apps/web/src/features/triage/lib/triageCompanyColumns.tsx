@@ -132,9 +132,9 @@ const BUILT_IN_COLUMNS = helper.columns([
           <span className="flex min-w-0 flex-col justify-center">
             <TruncatedText
               value={name ?? "No employer named"}
-              className="font-sans text-[13px] text-text2"
+              className="font-sans text-[13px] text-u-text2"
             />
-            <span className="font-mono text-[10px] uppercase tracking-[0.04em] text-text3">
+            <span className="font-mono text-[10px] uppercase tracking-[0.04em] text-u-text3">
               Not in universe
             </span>
           </span>
@@ -154,7 +154,7 @@ const BUILT_IN_COLUMNS = helper.columns([
           <CompanyLogo name={company.companyName} logo={company.logoUrl} size={28} />
           <TruncatedText
             value={name}
-            className="font-sans text-[13px] font-medium text-text transition group-hover:text-sky"
+            className="font-sans text-[13px] font-medium text-u-text transition group-hover:text-u-accent"
           />
         </button>
       );
@@ -171,7 +171,7 @@ const BUILT_IN_COLUMNS = helper.columns([
       const row = info.row.original;
       const meta = info.table.options.meta;
       if (!meta?.canWrite) {
-        return <span className="font-sans text-[13px] text-text3">—</span>;
+        return <span className="font-sans text-[13px] text-u-text3">—</span>;
       }
       // A row's actions are its company's — a mapped executive is removed from their own profile. An
       // executive whose employer is not in the universe has no company to move, so their one action
@@ -185,7 +185,7 @@ const BUILT_IN_COLUMNS = helper.columns([
               title={`Remove ${candidate.fullName} from this mandate — not remembered; use "Out of scope" to keep a record`}
               aria-label={`Remove ${candidate.fullName} from this mandate`}
               onClick={() => meta.onRemoveCandidate(candidate)}
-              className={cn(GRID_ICON_BUTTON, "hover:text-red")}
+              className={cn(GRID_ICON_BUTTON, "hover:text-u-offlimits")}
             >
               <Icon d={ICONS.trash} size={14} />
             </button>
@@ -224,7 +224,7 @@ const BUILT_IN_COLUMNS = helper.columns([
             aria-label={`Remove ${company.companyName} from this mandate`}
             disabled={busy}
             onClick={() => meta.onDelete(company)}
-            className={cn(GRID_ICON_BUTTON, "hover:text-red disabled:opacity-40")}
+            className={cn(GRID_ICON_BUTTON, "hover:text-u-offlimits disabled:opacity-40")}
           >
             <Icon d={ICONS.trash} size={14} />
           </button>
@@ -240,7 +240,7 @@ const BUILT_IN_COLUMNS = helper.columns([
     meta: { share: 0, min: 56 },
     cell: (info) => {
       const { company } = info.row.original;
-      if (!company) return <span className="font-sans text-[13px] text-text3">—</span>;
+      if (!company) return <span className="font-sans text-[13px] text-u-text3">—</span>;
       return (
         <span className="flex justify-start gap-1">
           <CompanyLink
@@ -288,7 +288,7 @@ const BUILT_IN_COLUMNS = helper.columns([
             title={meta?.canWrite ? "Open this profile" : "View this profile"}
             // `w-full`: a button sizes to its content even as a flex container, so without it the
             // row never squeezes and the name paints over the next column instead of clipping.
-            className="flex w-full min-w-0 items-center gap-2 rounded-[4px] text-start font-sans text-[13px] font-medium text-text transition hover:text-sky"
+            className="flex w-full min-w-0 items-center gap-2 rounded-[4px] text-start font-sans text-[13px] font-medium text-u-text transition hover:text-u-accent"
           >
             {meta && <CandidateAvatar projectId={meta.projectId} candidate={candidate} size="sm" />}
             <TruncatedText value={candidate.fullName} />
@@ -307,7 +307,7 @@ const BUILT_IN_COLUMNS = helper.columns([
               type="button"
               onClick={() => meta.onAddExecutive(company)}
               title="Researched — nobody suitable found. Click to search again."
-              className="rounded-[4px] font-sans text-[13px] text-text3 transition hover:underline"
+              className="rounded-[4px] font-sans text-[13px] text-u-text3 transition hover:underline"
             >
               No executive found
             </button>
@@ -319,7 +319,7 @@ const BUILT_IN_COLUMNS = helper.columns([
             <button
               type="button"
               onClick={() => meta.onAddExecutive(company)}
-              className="rounded-[4px] font-sans text-[13px] text-amber transition hover:underline"
+              className="rounded-[4px] font-sans text-[13px] text-u-accent transition hover:underline"
             >
               + Add executive
             </button>
@@ -328,7 +328,7 @@ const BUILT_IN_COLUMNS = helper.columns([
               onClick={() => meta.onMarkNoExecutiveFound(company)}
               title="Mark this company as researched, with nobody suitable found"
               disabled={busy}
-              className="rounded-[4px] font-mono text-[10.5px] text-text3 transition hover:text-text hover:underline disabled:opacity-40 disabled:hover:no-underline"
+              className="rounded-[4px] font-mono text-[10.5px] text-u-text3 transition hover:text-u-text hover:underline disabled:opacity-40 disabled:hover:no-underline"
             >
               No executive found
             </button>
@@ -576,9 +576,9 @@ function ContactListCell({ values }: { values: string[] }) {
   if (values.length === 0) return <DataGridCell value={null} />;
   return (
     <span className="flex min-w-0 items-center gap-1.5" title={values.join("\n")}>
-      <TruncatedText value={values[0]} className="font-sans text-[13px] text-text2" />
+      <TruncatedText value={values[0]} className="font-sans text-[13px] text-u-text2" />
       {values.length > 1 && (
-        <span className="flex-none rounded-[4px] bg-panel2 px-1.5 py-px font-mono text-[9.5px] font-semibold text-text3">
+        <span className="flex-none rounded-[4px] bg-u-raised px-1.5 py-px font-mono text-[9.5px] font-semibold text-u-text3">
           +{values.length - 1}
         </span>
       )}

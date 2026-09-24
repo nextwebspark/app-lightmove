@@ -10,8 +10,8 @@
 }
 
 .lm-map-popup .mapboxgl-popup-tip {
-  border-top-color: var(--color-line);
-  border-bottom-color: var(--color-line);
+  border-top-color: var(--color-u-border-strong);
+  border-bottom-color: var(--color-u-border-strong);
 }
 
 /* The attribution and logo sit over the globe's own ground rather than the app's. */

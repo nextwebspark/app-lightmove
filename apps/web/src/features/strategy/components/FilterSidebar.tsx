@@ -138,21 +138,21 @@ export function FilterSidebar({
       role="region"
       aria-label="Filters"
       className={cn(
-        "overflow-y-auto border-line-soft bg-panel",
+        "overflow-y-auto border-u-border bg-u-surface",
         // A 264px rail beside the table does not fit a phone, so below `lg` it overlays the results.
-        "fixed inset-y-0 start-0 z-[95] w-[min(288px,86vw)] border-e shadow-panel",
+        "fixed inset-y-0 start-0 z-[95] w-[min(288px,86vw)] border-e shadow-u-e3",
         "lg:static lg:z-auto lg:w-[19%] lg:min-w-[264px] lg:max-w-[312px] lg:shrink-0 lg:shadow-none",
       )}
     >
-      <div className="flex items-center justify-between border-b border-line-soft px-4 py-2.5 lg:hidden">
-        <span className="font-mono text-[10px] font-semibold uppercase tracking-[0.14em] text-text3">
+      <div className="flex items-center justify-between border-b border-u-border px-4 py-2.5 lg:hidden">
+        <span className="font-mono text-[10px] font-semibold uppercase tracking-[0.14em] text-u-text3">
           Filters
         </span>
         <button
           type="button"
           onClick={onClose}
           aria-label="Hide filters"
-          className="flex size-8 items-center justify-center rounded-[6px] text-text3 transition hover:bg-panel2 hover:text-text"
+          className="flex size-8 items-center justify-center rounded-[6px] text-u-text3 transition hover:bg-u-raised hover:text-u-text"
         >
           <Icon d={ICONS.close} size={16} />
         </button>
@@ -221,9 +221,9 @@ export function FilterSidebar({
           footnote={
             /* Nine companies in ten publish no revenue figure, so any band silently drops them.
                The Unknown row is the only way to reach those, and this line is why it exists. */
-            <p className="font-sans text-[11px] leading-relaxed text-text3">
+            <p className="font-sans text-[11px] leading-relaxed text-u-text3">
               Most companies publish no revenue figure. Tick{" "}
-              <b className="text-text2">Unknown</b> to keep them in scope.
+              <b className="text-u-text2">Unknown</b> to keep them in scope.
             </p>
           }
         />
@@ -246,7 +246,7 @@ export function FilterSidebar({
             selected={filter.industries}
             onChange={(industries) => onChange({ ...filter, industries })}
           >
-            <div className="border-t border-line-soft pt-3">
+            <div className="border-t border-u-border pt-3">
               <KeywordFilter
                 selected={filter.keywords}
                 onChange={(keywords) => onChange({ ...filter, keywords })}
@@ -298,7 +298,7 @@ export function FilterSidebar({
               .map((company) => company.apolloAccountId),
           )
         }
-        tagTone="red"
+        tagTone="offlimits"
         open={open === "offlimits"}
         onToggleOpen={() => toggleOpen("offlimits")}
         onReset={() => onOffLimitsChange([])}
@@ -316,7 +316,7 @@ function ChipSkeleton() {
         <div
           key={width}
           style={{ width }}
-          className="h-[24px] animate-pulse rounded-full border border-line-soft bg-panel"
+          className="h-[24px] animate-pulse rounded-full border border-u-border bg-u-surface"
         />
       ))}
     </div>

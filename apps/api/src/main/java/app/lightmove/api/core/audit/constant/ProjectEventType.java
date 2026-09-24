@@ -49,7 +49,10 @@ public enum ProjectEventType implements AuditEventType {
 
     SPREADSHEET_IMPORTED,
 
-    COMPANIES_EXPORTED;
+    COMPANIES_EXPORTED,
+
+    /** A question answered by the assistant — recorded because it spends model and vendor money. */
+    ASSISTANT_ASKED;
 
     @Override
     public String code() {

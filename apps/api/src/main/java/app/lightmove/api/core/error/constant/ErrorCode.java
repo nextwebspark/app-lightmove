@@ -262,32 +262,22 @@ public enum ErrorCode {
             "This profile was captured from LinkedIn; its URL is not editable"),
 
     /**
-     * A second question while the first is still running. Refused rather than queued: every turn
-     * spends real money against the firm's Vertex account, and a thread that answers two questions
-     * at once reads as interleaved nonsense. It also happens to kill the panel's double-submit.
+     * The model could not be reached or gave no usable answer, and nothing was saved. Never sent for a
+     * stream that ran out of time — that answer may still be saved; see {@link #ASSISTANT_STILL_ANSWERING}.
      */
-    ASSISTANT_TURN_IN_PROGRESS(HttpStatus.CONFLICT,
-            "Wait for the current answer before asking again"),
+    ASSISTANT_UNAVAILABLE(HttpStatus.SERVICE_UNAVAILABLE,
+            "The assistant could not answer just now. Try again in a moment"),
 
-    /**
-     * Every turn slot on this instance is taken. A 503 rather than a 429: the caller has done
-     * nothing wrong and the same request will work shortly, which is what distinguishes capacity
-     * from a rate limit.
-     */
+    /** Every answer slot on this instance is taken. Refused before anything is asked or billed. */
     ASSISTANT_BUSY(HttpStatus.SERVICE_UNAVAILABLE,
-            "The assistant is busy. Try again in a moment"),
+            "The assistant is busy answering other questions. Try again in a moment"),
 
     /**
-     * A proposal cannot be filed while its own turn is still answering.
-     *
-     * <p>Not a policy so much as arithmetic. {@code AssistantEventAppender} allocates
-     * {@code max(seq) + 1} and is safe because a turn has one writer at a time; the card renders the
-     * moment the {@code proposal} event reaches the browser, which is mid-stream, so an accept
-     * arriving then would put a request thread and the worker on that allocation together. One of
-     * them loses V65's unique index — and if it is the worker, a good answer ends as a FAILED turn.
+     * Sent in place of an answer when the stream has to close first. The answer is still being worked
+     * out and is saved to the chat when it is ready, so asking again would pay for it twice.
      */
-    ASSISTANT_TURN_STILL_ANSWERING(HttpStatus.CONFLICT,
-            "Wait for the answer to finish before filing these"),
+    ASSISTANT_STILL_ANSWERING(HttpStatus.ACCEPTED,
+            "This is taking longer than usual. The answer will appear in this chat when it is ready"),
 
     /**
      * The proposal on this turn has already been filed. A conflict rather than a quiet re-run: the

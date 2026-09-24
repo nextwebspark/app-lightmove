@@ -1,7 +1,9 @@
 @import "tailwindcss";
 
 /*
- * The design system, lifted verbatim from claude-design/*.dc.html.
+ * The design system: UNCAVA, lifted verbatim from claude-design/uncava-tokens.css. There is one
+ * palette and its names are `u-*`; the app's old names (panel, amber, sky, …) are gone, so a class
+ * written against one of them compiles to nothing.
  *
  * These values are not "inspired by" the mockups — they are the mockups' own CSS variables, copied
  * across. That is deliberate: it means a screen built from a mockup matches it exactly, and when a
@@ -13,52 +15,12 @@
 @custom-variant dark (&:where(.dark, .dark *));
 
 @theme {
-  /* ── The app palette, aliased onto UNCAVA ─────────────────────────────────
-   *
-   * Exactly the alias block at the top of every claude-design/*.dc.html helmet: the app's own names
-   * (amber, sky, panel, …) survive so no call site needs a rename, but every one of them now reads an
-   * Uncava value. Amber is no longer amber — it is Uncava's indigo accent — and the names are kept only
-   * because a rename across the app buys nothing a reader can see.
-   *
-   * RESTATED UNDER `.dark` BELOW, AND THAT IS LOAD-BEARING. A custom property that reads another is
-   * resolved where it is declared: declared only on `:root`, `--color-amber` would freeze the light
-   * `--color-u-accent` and every dark screen would inherit it, whatever `.dark` said about the u-* set. */
-  --color-bg: var(--color-u-bg);
-  --color-panel: var(--color-u-surface);
-  --color-panel2: var(--color-u-raised);
-  --color-line: var(--color-u-border-strong);
-  --color-line-soft: var(--color-u-border);
-
-  --color-text: var(--color-u-text);
-  --color-text2: var(--color-u-text2);
-  --color-text3: var(--color-u-text3);
-
-  --color-amber: var(--color-u-accent);
-  --color-amber-btn: var(--color-u-accent-solid);
-  --color-amber-dim: var(--color-u-accent-tint);
-
-  --color-sky: var(--color-u-accent);
-  --color-sky-dim: var(--color-u-accent-tint);
-
-  --color-red: var(--color-u-offlimits);
-  --color-red-dim: var(--color-u-offlimits-tint);
-  --color-green: var(--color-u-direct);
-  --color-green-dim: var(--color-u-direct-tint);
-
-  /* The assistant keeps a voice of its own: Uncava's "inferred" violet, what a machine made. */
-  --color-ai: var(--color-u-inferred);
-  --color-ai2: var(--color-u-adjacent);
-  --color-ai-line: var(--color-u-accent);
-  --color-ai-dim: var(--color-u-inferred-tint);
-  --color-ai-soft: var(--color-u-inferred-tint);
-
-  /* Text on the accent's solid stop, the only one that takes white — in either theme. */
-  --color-on-amber: #ffffff;
-
   /* The mockups dropped the monospace face: --mono now resolves to Geist too. The token stays so
      existing font-mono call sites keep matching the mockups without a rename. */
   --font-sans: "Geist", "Inter", system-ui, sans-serif;
   --font-mono: "Geist", "Inter", system-ui, sans-serif;
+  /* The wordmark's face, and nothing else's. */
+  --font-brand: "Montserrat", sans-serif;
 
   /* ── Type scale ───────────────────────────────────────────────────────────
    *
@@ -94,13 +56,15 @@
 
   --leading-narrative: 1.7;
 
-  --shadow-panel: var(--shadow-u-e3);
-  --radius-panel: 16px;
+  /* UNCAVA's radius ladder: a control, a chip, a card, a modal. */
+  --radius-u-control: 6px;
+  --radius-u-chip: 8px;
+  --radius-u-card: 12px;
+  --radius-u-modal: 16px;
 
   /* ── UNCAVA (the --u-* block in every claude-design/*.dc.html helmet) ───────────────────────────────────
    *
-   * The one palette. The Reports chapters and the Position brief read these names directly; every
-   * other screen reads them through the aliases above.
+   * The one palette, and every screen reads these names directly.
    *
    * THE LIGHT AND DARK SETS ARE SWAPPED RELATIVE TO THEIR SOURCE, AND THAT IS NOT A MISTAKE.
    * Uncava is dark-first: its `:root` holds the DARK values and `[data-theme="light"]` the light
@@ -124,7 +88,9 @@
   --color-u-text3: #6b7382;
 
   --color-u-accent: #4a56d6;
+  --color-u-accent-hover: #3a46c4;
   --color-u-accent-solid: #4a56d6;
+  --color-u-accent-solid-hover: #3a46c4;
   --color-u-accent-tint: rgba(74, 86, 214, 0.09);
   --color-u-accent-ring: rgba(74, 86, 214, 0.4);
 
@@ -167,39 +133,15 @@
 
   /* Uncava's elevation ladder: e1 lifts a card off the page, e3 a panel off the screen. */
   --shadow-u-e1: 0 1px 2px rgba(3, 7, 18, 0.06);
+  --shadow-u-e2: 0 4px 14px -2px rgba(3, 7, 18, 0.12);
   --shadow-u-e3: 0 18px 44px -10px rgba(3, 7, 18, 0.2);
 }
 
 /*
  * Dark mode overrides the token values themselves rather than adding `dark:` variants at every call
- * site. A component written once against `bg-panel` is then correct in both themes, and cannot drift.
+ * site. A component written once against `bg-u-surface` is then correct in both themes, and cannot drift.
  */
 .dark {
-  /* The aliases again, so they resolve against the dark u-* set below — see the note in `@theme`. */
-  --color-bg: var(--color-u-bg);
-  --color-panel: var(--color-u-surface);
-  --color-panel2: var(--color-u-raised);
-  --color-line: var(--color-u-border-strong);
-  --color-line-soft: var(--color-u-border);
-  --color-text: var(--color-u-text);
-  --color-text2: var(--color-u-text2);
-  --color-text3: var(--color-u-text3);
-  --color-amber: var(--color-u-accent);
-  --color-amber-btn: var(--color-u-accent-solid);
-  --color-amber-dim: var(--color-u-accent-tint);
-  --color-sky: var(--color-u-accent);
-  --color-sky-dim: var(--color-u-accent-tint);
-  --color-red: var(--color-u-offlimits);
-  --color-red-dim: var(--color-u-offlimits-tint);
-  --color-green: var(--color-u-direct);
-  --color-green-dim: var(--color-u-direct-tint);
-  --color-ai: var(--color-u-inferred);
-  --color-ai2: var(--color-u-adjacent);
-  --color-ai-line: var(--color-u-accent);
-  --color-ai-dim: var(--color-u-inferred-tint);
-  --color-ai-soft: var(--color-u-inferred-tint);
-  --shadow-panel: var(--shadow-u-e3);
-
   /* UNCAVA's own `:root` — its dark-first default. See the note above for why it lands here. */
   --color-u-bg: #08090b;
   --color-u-surface: #0e1013;
@@ -214,7 +156,9 @@
   --color-u-text3: #7c8493;
 
   --color-u-accent: #6e79f2;
+  --color-u-accent-hover: #8189f7;
   --color-u-accent-solid: #4a56d6;
+  --color-u-accent-solid-hover: #5a66e6;
   --color-u-accent-tint: rgba(110, 121, 242, 0.14);
   --color-u-accent-ring: rgba(110, 121, 242, 0.45);
 
@@ -246,8 +190,8 @@
   --color-u-grid-axis: rgba(255, 255, 255, 0.1);
   --color-u-grid-line: rgba(255, 255, 255, 0.055);
 
-  /* On a dark ground a card is lifted by its surface step and border, never by a shadow. */
-  --shadow-u-e1: 0 0 #0000;
+  --shadow-u-e1: 0 1px 2px rgba(0, 0, 0, 0.5);
+  --shadow-u-e2: 0 4px 14px -2px rgba(0, 0, 0, 0.65);
   --shadow-u-e3: 0 18px 44px -10px rgba(0, 0, 0, 0.8);
 }
 

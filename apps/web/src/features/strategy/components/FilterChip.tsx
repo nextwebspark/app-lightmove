@@ -28,14 +28,14 @@ export function FilterChip({
       aria-pressed={selected}
       className={cn(
         "inline-flex items-center rounded-full px-[10px] py-[4px] transition",
-        "shadow-[inset_0_0_0_1px_currentColor] hover:text-amber",
-        selected ? "bg-amber-dim text-amber" : "bg-transparent text-line",
+        "shadow-[inset_0_0_0_1px_currentColor] hover:text-u-accent",
+        selected ? "bg-u-accent-tint text-u-accent" : "bg-transparent text-u-border-strong",
       )}
     >
       <span
         className={cn(
           "font-sans text-[12px] font-medium",
-          selected ? "text-amber" : "text-text",
+          selected ? "text-u-accent" : "text-u-text",
         )}
       >
         {label}

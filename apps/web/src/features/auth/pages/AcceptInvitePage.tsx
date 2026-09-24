@@ -145,7 +145,7 @@ function AcceptSignupForm({ token, invitation }: { token: string; invitation: In
     <Shell workspaceName={invitation.workspaceName} subtitle={invitedAs(invitation)} error={formError}>
       <form onSubmit={handleSubmit(onSubmit)} noValidate className="text-left">
         <Field label="Work email" hint="The address your invitation was sent to.">
-          <Input type="email" value={invitation.email} readOnly className="cursor-not-allowed text-text3" />
+          <Input type="email" value={invitation.email} readOnly className="cursor-not-allowed text-u-text3" />
         </Field>
 
         <Field label="Full name" error={errors.fullName?.message}>
@@ -188,7 +188,7 @@ function AcceptSignupForm({ token, invitation }: { token: string; invitation: In
             <Link
               to="/login"
               state={{ email: invitation.email }}
-              className="font-medium text-sky hover:underline"
+              className="font-medium text-u-accent hover:underline"
             >
               Log in to accept →
             </Link>
@@ -200,13 +200,13 @@ function AcceptSignupForm({ token, invitation }: { token: string; invitation: In
         )}
       </form>
 
-      <p className="mt-4 text-[11.5px] leading-relaxed text-text3">
+      <p className="mt-4 text-[11.5px] leading-relaxed text-u-text3">
         By continuing you agree to the{" "}
-        <a href="/terms" className="text-sky hover:underline">
+        <a href="/terms" className="text-u-accent hover:underline">
           Terms
         </a>{" "}
         and{" "}
-        <a href="/privacy" className="text-sky hover:underline">
+        <a href="/privacy" className="text-u-accent hover:underline">
           Privacy Policy
         </a>
         .
@@ -359,7 +359,7 @@ function Shell({
 
       <Card className="w-[440px] max-w-[94vw] text-center [animation-delay:60ms]">
         <h1 className="text-[19px] font-semibold leading-tight">Join {workspaceName}</h1>
-        <p className="mb-6 mt-1 font-mono text-xs text-text3">{subtitle}</p>
+        <p className="mb-6 mt-1 font-mono text-xs text-u-text3">{subtitle}</p>
 
         <FormError message={error} />
 
@@ -376,9 +376,9 @@ function Dead({ title, detail }: { title: string; detail: string }) {
 
       <Card className="w-[420px] max-w-[94vw] text-center [animation-delay:60ms]">
         <h1 className="text-[19px] font-semibold">{title}</h1>
-        <p className="mb-6 mt-2 text-[13px] leading-relaxed text-text2">{detail}</p>
+        <p className="mb-6 mt-2 text-[13px] leading-relaxed text-u-text2">{detail}</p>
 
-        <Link to="/login" className="text-[12.5px] font-medium text-sky hover:underline">
+        <Link to="/login" className="text-[12.5px] font-medium text-u-accent hover:underline">
           Back to sign in
         </Link>
       </Card>
@@ -390,7 +390,7 @@ function Centered({ children }: { children: React.ReactNode }) {
   return (
     <div className="flex min-h-dvh flex-col items-center justify-center gap-4 p-4 sm:p-6">
       <Logo />
-      <p className="font-mono text-xs text-text3">{children}</p>
+      <p className="font-mono text-xs text-u-text3">{children}</p>
     </div>
   );
 }

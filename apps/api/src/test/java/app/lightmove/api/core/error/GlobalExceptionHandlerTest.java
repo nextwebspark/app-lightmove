@@ -88,10 +88,10 @@ class GlobalExceptionHandlerTest {
     void userFacingDetailIsRendered() {
         ProblemDetail banner = handler.handleApiException(
                 ApiException.userFacing(ErrorCode.VALIDATION_FAILED,
-                        "Clients are invited to a project, not granted through the roster"),
+                        "Hiring managers are invited to a position, not granted through the roster"),
                 new MockHttpServletRequest());
 
-        assertThat(banner.getDetail()).isEqualTo("Clients are invited to a project, not granted through the roster");
+        assertThat(banner.getDetail()).isEqualTo("Hiring managers are invited to a position, not granted through the roster");
 
         ProblemDetail field = handler.handleApiException(
                 ApiException.withField(ErrorCode.VALIDATION_FAILED, "password", "Include at least one number"),

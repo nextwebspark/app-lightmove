@@ -167,7 +167,7 @@ export function CompanyDrawer({
               {canWrite && company.noExecutiveFound && (
                 <span
                   title="Researched — nobody suitable found. Adding an executive here clears this."
-                  className="font-mono text-[11px] uppercase tracking-[0.04em] text-text3"
+                  className="font-mono text-[11px] uppercase tracking-[0.04em] text-u-text3"
                 >
                   No executive found
                 </span>
@@ -224,7 +224,7 @@ export function CompanyDrawer({
                 <DetailTile label="Country" value={company.companyCountry} />
               </DetailGrid>
               {!isMandateSupplied && (
-                <p className="mt-3 font-mono text-[11px]/[1.6] text-text3">
+                <p className="mt-3 font-mono text-[11px]/[1.6] text-u-text3">
                   These fields come from the market export and are refreshed by it, so they are not
                   editable here. Your note below is yours.
                 </p>
@@ -250,7 +250,7 @@ export function CompanyDrawer({
                     type="button"
                     onClick={() => saveNote.mutate({ company, note })}
                     disabled={saveNote.isPending}
-                    className="font-mono text-[11px] font-semibold uppercase tracking-[0.06em] text-amber transition hover:underline disabled:opacity-50"
+                    className="font-mono text-[11px] font-semibold uppercase tracking-[0.06em] text-u-accent transition hover:underline disabled:opacity-50"
                   >
                     Save
                   </button>
@@ -270,7 +270,7 @@ export function CompanyDrawer({
           </div>
 
           {canWrite && (
-            <div className="flex flex-none flex-wrap items-center gap-2 border-t border-line-soft px-5 py-3">
+            <div className="flex flex-none flex-wrap items-center gap-2 border-t border-u-border px-5 py-3">
               {MOVES[company.status].map((move) => (
                 <Button
                   key={move.status}
@@ -286,7 +286,7 @@ export function CompanyDrawer({
               <Button
                 type="button"
                 variant="secondary"
-                className="ms-auto text-red"
+                className="ms-auto text-u-offlimits"
                 title={removeTooltip(company.companyName)}
                 onClick={() => onDelete(company)}
               >
@@ -334,7 +334,7 @@ function MandateColumnsSection({
             type="button"
             onClick={onSave}
             disabled={saving}
-            className="font-mono text-[11px] font-semibold uppercase tracking-[0.06em] text-amber transition hover:underline disabled:opacity-50"
+            className="font-mono text-[11px] font-semibold uppercase tracking-[0.06em] text-u-accent transition hover:underline disabled:opacity-50"
           >
             Save
           </button>

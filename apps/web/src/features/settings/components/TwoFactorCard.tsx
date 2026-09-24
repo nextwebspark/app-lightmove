@@ -8,16 +8,16 @@ import { Toggle } from "../../../components/ui";
  */
 export function TwoFactorCard() {
   return (
-    <div className="rounded-[10px] border border-line-soft bg-panel2 p-5">
+    <div className="rounded-[10px] border border-u-border bg-u-raised p-5">
       <div className="flex items-center gap-3">
         <div className="flex-1">
           <div className="text-[13px] font-semibold">Two-factor authentication</div>
-          <div className="mt-[3px] font-mono text-[11.5px] text-text3">
+          <div className="mt-[3px] font-mono text-[11.5px] text-u-text3">
             Require a code from your authenticator app when signing in.
           </div>
         </div>
 
-        <span className="font-mono text-[11.5px] text-text3">Not available yet</span>
+        <span className="font-mono text-[11.5px] text-u-text3">Not available yet</span>
         <Toggle checked={false} disabled label="Two-factor authentication" />
       </div>
     </div>

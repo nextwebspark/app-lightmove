@@ -78,6 +78,10 @@ describe("ProjectsPage — pure client", () => {
     stage: "MAPPING",
     health: "OK",
     targetDate: null,
+    projectType: "SEARCH",
+    startDate: null,
+    deliveryDate: null,
+    mappingTargetDate: null,
     team: [],
     representatives: [],
     companies: 0,
@@ -114,7 +118,7 @@ describe("ProjectsPage — pure client", () => {
 
     // Twice, not once: the list renders a card stack and a table, and CSS shows one per breakpoint.
     expect(await screen.findAllByText("CFO Search")).not.toHaveLength(0);
-    expect(screen.queryByText("New project")).not.toBeInTheDocument();
+    expect(screen.queryByText("New position")).not.toBeInTheDocument();
     // The registry and roster are staff surfaces — a pure client must never request them.
     expect(clientsApi.clients).not.toHaveBeenCalled();
     expect(workspaceApi.members).not.toHaveBeenCalled();
@@ -135,8 +139,8 @@ describe("ProjectsPage — pure client", () => {
 
     renderPage();
 
-    expect(await screen.findByText("No projects shared with you yet")).toBeInTheDocument();
-    expect(screen.queryByText("New project")).not.toBeInTheDocument();
-    expect(screen.queryByText("Create your first project")).not.toBeInTheDocument();
+    expect(await screen.findByText("No positions shared with you yet")).toBeInTheDocument();
+    expect(screen.queryByText("New position")).not.toBeInTheDocument();
+    expect(screen.queryByText("Open your first position")).not.toBeInTheDocument();
   });
 });

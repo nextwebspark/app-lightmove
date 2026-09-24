@@ -103,7 +103,7 @@ function ContactReadView({
   const phone = useContactLookup("phone", projectId, candidate.id, onSaved, toast);
 
   return (
-    <div className="divide-y divide-line-soft">
+    <div className="divide-y divide-u-border">
       <ContactChannel
         icon={<Icon d={ICONS.mail} size={14} />}
         label="Email"
@@ -169,10 +169,10 @@ function ContactReadView({
               target="_blank"
               rel="noreferrer noopener"
               title={profileUrl}
-              className="group flex min-w-0 items-center gap-1 font-mono text-[13px] text-sky"
+              className="group flex min-w-0 items-center gap-1 font-mono text-[13px] text-u-accent"
             >
               <ReadableUrl url={profileUrl} />
-              <Icon d={ICONS.externalLink} size={12} className="flex-none text-text3 group-hover:text-sky" />
+              <Icon d={ICONS.externalLink} size={12} className="flex-none text-u-text3 group-hover:text-u-accent" />
             </a>
             <CopyButton what="LinkedIn URL" onCopy={() => copy("LinkedIn URL", profileUrl)} />
           </li>
@@ -261,7 +261,7 @@ function ContactSectionEditor({
         saving={saving.isPending}
         error={submitError}
       >
-        <div className="divide-y divide-line-soft">
+        <div className="divide-y divide-u-border">
           <ContactChannel icon={<Icon d={ICONS.mail} size={14} />} label="Email">
             <ContactEntriesFields channel="email" />
           </ContactChannel>
@@ -297,8 +297,8 @@ function ContactChannel({
     <div className="flex gap-3 py-3 first:pt-1 last:pb-1">
       <span
         className={cn(
-          "mt-0.5 flex size-7 flex-none items-center justify-center rounded-full text-text2",
-          disc && "bg-panel2",
+          "mt-0.5 flex size-7 flex-none items-center justify-center rounded-full text-u-text2",
+          disc && "bg-u-raised",
         )}
       >
         {icon}
@@ -306,7 +306,7 @@ function ContactChannel({
       <div className="min-w-0 flex-1">
         <div className="flex flex-wrap items-start justify-between gap-x-3 gap-y-2">
           <div className="min-w-0 flex-1">
-            <div className="mb-1 font-mono text-[9.5px] font-semibold uppercase tracking-[0.08em] text-text3">
+            <div className="mb-1 font-mono text-[9.5px] font-semibold uppercase tracking-[0.08em] text-u-text3">
               {label}
             </div>
             <ul className="space-y-1">{children}</ul>
@@ -328,7 +328,7 @@ function EmailLine({ entry, onCopy }: { entry: CandidateEmail; onCopy: () => voi
     <li className="flex min-w-0 items-center gap-1.5">
       <a
         href={`mailto:${entry.address}`}
-        className="min-w-0 truncate font-mono text-[13px] text-text hover:underline"
+        className="min-w-0 truncate font-mono text-[13px] text-u-text hover:underline"
       >
         {entry.address}
       </a>
@@ -343,7 +343,7 @@ function PhoneLine({ entry, onCopy }: { entry: CandidatePhone; onCopy: () => voi
     <li className="flex min-w-0 items-center gap-1.5">
       <a
         href={`tel:${entry.number.replace(/\s+/g, "")}`}
-        className="min-w-0 truncate font-mono text-[13px] text-text hover:underline"
+        className="min-w-0 truncate font-mono text-[13px] text-u-text hover:underline"
       >
         {entry.number}
       </a>
@@ -364,10 +364,10 @@ function ContactPills({ entry }: { entry: CandidateEmail | CandidatePhone }) {
       {entry.kind && (
         <DetailPill
           label={entry.kind}
-          className={entry.kind === "work" ? "bg-sky-dim text-sky" : "bg-amber-dim text-amber"}
+          className={entry.kind === "work" ? "bg-u-accent-tint text-u-accent" : "bg-u-accent-tint text-u-accent"}
         />
       )}
-      {entry.verified && <DetailPill label="Verified" className="bg-green-dim text-green" />}
+      {entry.verified && <DetailPill label="Verified" className="bg-u-direct-tint text-u-direct" />}
     </>
   );
 }
@@ -379,7 +379,7 @@ function CopyButton({ what, onCopy }: { what: string; onCopy: () => void }) {
       onClick={onCopy}
       aria-label={`Copy ${what}`}
       title="Copy"
-      className="ms-auto flex flex-none rounded-md p-1 text-text3 transition hover:bg-panel2 hover:text-text"
+      className="ms-auto flex flex-none rounded-md p-1 text-u-text3 transition hover:bg-u-raised hover:text-u-text"
     >
       <Icon d={ICONS.copy} size={13} />
     </button>
@@ -393,7 +393,7 @@ function ReadableUrl({ url }: { url: string }) {
   if (lastSlash <= 0) return <span className="truncate hover:underline">{readable}</span>;
   return (
     <span className="min-w-0 truncate">
-      <span className="text-text3">{readable.slice(0, lastSlash + 1)}</span>
+      <span className="text-u-text3">{readable.slice(0, lastSlash + 1)}</span>
       <span className="group-hover:underline">{readable.slice(lastSlash + 1)}</span>
     </span>
   );
@@ -401,7 +401,7 @@ function ReadableUrl({ url }: { url: string }) {
 
 /** An em dash for a channel nobody has asked about; the miss, once a lookup ran and found nothing. */
 function EmptyLine({ asked, label }: { asked: boolean; label: string }) {
-  return <li className="font-mono text-[13px] text-text3">{asked ? label : "—"}</li>;
+  return <li className="font-mono text-[13px] text-u-text3">{asked ? label : "—"}</li>;
 }
 
 /**
@@ -439,7 +439,7 @@ function FindButton({
         {!pending && <Icon d={ICONS.search} size={13} />}
         {pending ? "Finding…" : label}
       </Button>
-      <span className="text-end font-mono text-[10px] text-text3">
+      <span className="text-end font-mono text-[10px] text-u-text3">
         {hasProfile ? "Spends 1 credit" : "Add a LinkedIn profile URL to look contacts up"}
       </span>
     </div>

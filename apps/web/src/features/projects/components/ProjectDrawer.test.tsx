@@ -40,6 +40,10 @@ const project: Project = {
   stage: "MAPPING",
   health: "RISK",
   targetDate: daysFromToday(10),
+  projectType: "SEARCH",
+  startDate: null,
+  deliveryDate: null,
+  mappingTargetDate: null,
   team: [
     seat("m1", "Riley Researcher", ["RESEARCHER"]),
     seat("m2", "Lee Lead", ["LEAD"]),

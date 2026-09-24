@@ -243,7 +243,7 @@ export function CompanyFactsForm({
         />
       </div>
 
-      <div className="flex flex-none justify-end gap-2 border-t border-line-soft px-5 py-3">
+      <div className="flex flex-none justify-end gap-2 border-t border-u-border px-5 py-3">
         <Button type="button" variant="secondary" onClick={onCancel} disabled={saving.isPending}>
           Cancel
         </Button>

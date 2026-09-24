@@ -120,7 +120,7 @@ function CreateWorkspace({
   return (
     <>
       <h1 className="text-[19px] font-semibold leading-tight">About your organization</h1>
-      <p className="mb-6 mt-1 font-mono text-xs text-text3">
+      <p className="mb-6 mt-1 font-mono text-xs text-u-text3">
         Step 3 of 4 · {editing ? "update your workspace" : "this becomes your workspace"}
       </p>
 
@@ -128,7 +128,7 @@ function CreateWorkspace({
 
       <form onSubmit={handleSubmit(onSubmit)} noValidate>
         {pick && (
-          <span className="mb-1.5 block font-mono text-[10px] font-semibold uppercase tracking-[0.12em] text-text3">
+          <span className="mb-1.5 block font-mono text-[10px] font-semibold uppercase tracking-[0.12em] text-u-text3">
             Organization name
           </span>
         )}

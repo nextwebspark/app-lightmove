@@ -254,6 +254,90 @@ class ProjectFlowIntegrationTest extends FlowTestSupport {
     }
 
     @Test
+    @DisplayName("a search stores its timeline and defaults its mapping target to 60% of the window")
+    void searchCarriesTimelineAndDefaultMappingTarget() throws Exception {
+        String admin = adminOf("Timeline Firm");
+        String clientId = createClient(admin, "Engineering");
+        LocalDate start = LocalDate.now();
+
+        mvc.perform(post("/api/v1/projects")
+                        .header("Authorization", "Bearer " + admin)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"clientId":"%s","positionTitle":"Engineering Director","projectType":"SEARCH",
+                                 "startDate":"%s","deliveryDate":"%s"}
+                                """.formatted(clientId, start, start.plusDays(50))))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.projectType").value("SEARCH"))
+                .andExpect(jsonPath("$.startDate").value(start.toString()))
+                .andExpect(jsonPath("$.deliveryDate").value(start.plusDays(50).toString()))
+                .andExpect(jsonPath("$.mappingTargetDate").value(start.plusDays(30).toString()))
+                .andExpect(jsonPath("$.targetDate").doesNotExist());
+    }
+
+    @Test
+    @DisplayName("a mapping project keeps no mapping target, and a caller naming no type gets a search")
+    void mappingHasNoMappingTargetAndTypeDefaultsToSearch() throws Exception {
+        String admin = adminOf("Mapping Firm");
+        String clientId = createClient(admin, "Retail");
+        LocalDate start = LocalDate.now();
+
+        mvc.perform(post("/api/v1/projects")
+                        .header("Authorization", "Bearer " + admin)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"clientId":"%s","positionTitle":"Buying Director","projectType":"MAPPING",
+                                 "startDate":"%s","deliveryDate":"%s"}
+                                """.formatted(clientId, start, start.plusDays(40))))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.projectType").value("MAPPING"))
+                .andExpect(jsonPath("$.mappingTargetDate").doesNotExist());
+
+        mvc.perform(post("/api/v1/projects")
+                        .header("Authorization", "Bearer " + admin)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"clientId":"%s","positionTitle":"Store Manager"}
+                                """.formatted(clientId)))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.projectType").value("SEARCH"))
+                .andExpect(jsonPath("$.startDate").doesNotExist());
+    }
+
+    @Test
+    @DisplayName("a delivery on or before the start, or a mapping target outside the window, is refused per field")
+    void timelineOrderIsEnforced() throws Exception {
+        String admin = adminOf("Order Firm");
+        String clientId = createClient(admin, "Finance");
+        LocalDate start = LocalDate.now();
+
+        mvc.perform(post("/api/v1/projects")
+                        .header("Authorization", "Bearer " + admin)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"clientId":"%s","positionTitle":"Head of Credit Risk","projectType":"SEARCH",
+                                 "startDate":"%s","deliveryDate":"%s"}
+                                """.formatted(clientId, start, start)))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("VALIDATION_FAILED"))
+                .andExpect(jsonPath("$.fieldErrors.deliveryDate").exists());
+
+        mvc.perform(post("/api/v1/projects")
+                        .header("Authorization", "Bearer " + admin)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"clientId":"%s","positionTitle":"Head of Credit Risk","projectType":"SEARCH",
+                                 "startDate":"%s","deliveryDate":"%s","mappingTargetDate":"%s"}
+                                """.formatted(clientId, start, start.plusDays(30), start.plusDays(31))))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.fieldErrors.mappingTargetDate").exists());
+
+        // Nothing was written by either refusal.
+        mvc.perform(get("/api/v1/projects").header("Authorization", "Bearer " + admin))
+                .andExpect(jsonPath("$.length()").value(0));
+    }
+
+    @Test
     @DisplayName("the list reports each mandate's own universe and its mapped executives")
     void pipelineCountsAreLive() throws Exception {
         String admin = adminOf("Pipeline Firm");

@@ -26,8 +26,7 @@ export function Eyebrow({
       className={cn(
         "block",
         size === "summary" ? "type-summary-label" : "type-label",
-        /* The mockup draws every label in the legacy `--text2`, not `--u-text2`. */
-        tone === "inferred" ? "text-u-inferred" : "text-text2",
+        tone === "inferred" ? "text-u-inferred" : "text-u-text2",
         className,
       )}
     >
@@ -167,46 +166,6 @@ export function withRecorded<T extends string>(
   return [...options, { value, label: `${labelOf(value)} (as recorded)` }];
 }
 
-/** One of two cards a choice is made between — Standard or Confidential — with its dot on the end. */
-export function ChoiceCard({
-  title,
-  body,
-  selected,
-  onSelect,
-}: {
-  title: string;
-  body: string;
-  selected: boolean;
-  onSelect: () => void;
-}) {
-  return (
-    <button
-      type="button"
-      role="radio"
-      aria-checked={selected}
-      onClick={onSelect}
-      className={cn(
-        "flex items-start justify-between gap-4 rounded-[10px] border px-4 py-3.5 text-start transition",
-        selected ? "border-u-accent bg-u-accent-tint" : "border-u-border-strong bg-u-bg hover:border-u-text3",
-      )}
-    >
-      <span className="min-w-0">
-        <span className={cn("block type-heading", selected ? "text-u-text" : "text-u-text2")}>
-          {title}
-        </span>
-        <span className="mt-1 block text-note text-u-text3">{body}</span>
-      </span>
-      <span
-        aria-hidden="true"
-        className={cn(
-          "mt-1 size-3 flex-none rounded-full border",
-          selected ? "border-u-accent bg-u-accent" : "border-u-border-strong bg-transparent",
-        )}
-      />
-    </button>
-  );
-}
-
 /** The grey dot that removes one item of a list. */
 export function RemoveDot({
   label,
@@ -323,7 +282,7 @@ export function BriefButton({
 /** The uppercase heading over a table's column — the field eyebrow's own spelling. */
 export function ColumnHead({ children, className }: { children: ReactNode; className?: string }) {
   return (
-    <span className={cn("type-label text-text2", className)}>
+    <span className={cn("type-label text-u-text2", className)}>
       {children}
     </span>
   );

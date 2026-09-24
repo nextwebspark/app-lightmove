@@ -116,10 +116,10 @@ export function AddCompanyPanel({
 
   return (
     <>
-      <div className="relative flex-none border-b border-line-soft px-5 py-4">
+      <div className="relative flex-none border-b border-u-border px-5 py-4">
         <DrawerCloseButton onClose={onClose} />
         <h2 className="font-sans text-base font-semibold">Add a company</h2>
-        <p className="mt-1 pe-8 font-mono text-[11.5px] text-text3">{heading}</p>
+        <p className="mt-1 pe-8 font-mono text-[11.5px] text-u-text3">{heading}</p>
       </div>
 
       {draft.step === "byHand" && (
@@ -156,13 +156,13 @@ export function AddCompanyPanel({
             </Field>
 
             {settled.length < MIN_SEARCH_LENGTH ? (
-              <p className="font-mono text-[11.5px] text-text3">
+              <p className="font-mono text-[11.5px] text-u-text3">
                 Type at least {MIN_SEARCH_LENGTH} characters to search the company universe.
               </p>
             ) : (
               <ul
                 aria-label="Companies in the market"
-                className="divide-y divide-line-soft overflow-hidden rounded-lg border border-line-soft"
+                className="divide-y divide-u-border overflow-hidden rounded-lg border border-u-border"
               >
                 {(matches.data?.companies ?? []).map((match) => (
                   <li key={match.apolloAccountId}>
@@ -172,31 +172,31 @@ export function AddCompanyPanel({
                         setPickError(null);
                         setDraft({ step: "picked", company: match });
                       }}
-                      className="flex w-full items-center gap-2.5 px-3 py-2.5 text-left transition hover:bg-panel2"
+                      className="flex w-full items-center gap-2.5 px-3 py-2.5 text-left transition hover:bg-u-raised"
                     >
                       <CompanyLogo name={match.companyName} logo={match.logoUrl} size={20} />
                       <span className="min-w-0 flex-1">
-                        <span className="block truncate font-sans text-[13px] font-medium text-text">
+                        <span className="block truncate font-sans text-[13px] font-medium text-u-text">
                           {match.companyName}
                         </span>
-                        <span className="block truncate font-mono text-[11px] text-text3">
+                        <span className="block truncate font-mono text-[11px] text-u-text3">
                           {marketMetaOf(match) || "—"}
                         </span>
                       </span>
-                      <span className="flex-none font-mono text-[11px] text-sky">Select →</span>
+                      <span className="flex-none font-mono text-[11px] text-u-accent">Select →</span>
                     </button>
                   </li>
                 ))}
                 {matches.isError && (
-                  <li className="px-3 py-3 font-mono text-[11.5px] text-red">
+                  <li className="px-3 py-3 font-mono text-[11.5px] text-u-offlimits">
                     The company universe could not be searched. Try again in a moment.
                   </li>
                 )}
                 {matches.isFetching && matches.data === undefined && (
-                  <li className="px-3 py-3 font-mono text-[11.5px] text-text3">Searching…</li>
+                  <li className="px-3 py-3 font-mono text-[11.5px] text-u-text3">Searching…</li>
                 )}
                 {matches.isSuccess && matches.data.companies.length === 0 && (
-                  <li className="px-3 py-3 font-mono text-[11.5px] text-text3">
+                  <li className="px-3 py-3 font-mono text-[11.5px] text-u-text3">
                     Nothing in the market matches “{settled}”.
                   </li>
                 )}
@@ -212,7 +212,7 @@ export function AddCompanyPanel({
                   <button
                     type="button"
                     onClick={() => setDraft({ step: "byHand", name: query.trim() })}
-                    className="flex w-full items-center gap-1.5 px-3 py-2.5 text-left font-mono text-[11.5px] text-amber transition hover:bg-panel2"
+                    className="flex w-full items-center gap-1.5 px-3 py-2.5 text-left font-mono text-[11.5px] text-u-accent transition hover:bg-u-raised"
                   >
                     <Icon d={ICONS.plus} size={12} className="flex-none" />
                     {matches.isError
@@ -224,7 +224,7 @@ export function AddCompanyPanel({
             )}
           </div>
 
-          <div className="flex flex-none justify-end gap-2 border-t border-line-soft px-5 py-3">
+          <div className="flex flex-none justify-end gap-2 border-t border-u-border px-5 py-3">
             <Button type="button" variant="secondary" onClick={onClose}>
               Cancel
             </Button>
@@ -237,7 +237,7 @@ export function AddCompanyPanel({
           <div className="min-h-0 flex-1 overflow-y-auto px-5 pt-4">
             <FormError message={pickError} />
 
-            <div className="flex items-center gap-2.5 rounded-lg border border-line-soft bg-panel2 px-3 py-2.5">
+            <div className="flex items-center gap-2.5 rounded-lg border border-u-border bg-u-raised px-3 py-2.5">
               <CompanyLogo
                 name={draft.company.companyName}
                 logo={draft.company.logoUrl}
@@ -245,7 +245,7 @@ export function AddCompanyPanel({
               />
               <span className="flex min-w-0 flex-1 flex-col">
                 <span className="flex min-w-0 items-center gap-1">
-                  <span className="truncate font-sans text-[13px] font-semibold text-text">
+                  <span className="truncate font-sans text-[13px] font-semibold text-u-text">
                     {draft.company.companyName}
                   </span>
                   {/* Off the record once it arrives, not off the suggestion: the typeahead carries a
@@ -257,7 +257,7 @@ export function AddCompanyPanel({
                     linkedinUrl={factsOf(draft.company).companyLinkedinUrl}
                   />
                 </span>
-                <span className="block truncate font-mono text-[11px] text-text3">
+                <span className="block truncate font-mono text-[11px] text-u-text3">
                   {[marketMetaOf(draft.company), "from the market export"]
                     .filter(Boolean)
                     .join(" · ")}
@@ -266,7 +266,7 @@ export function AddCompanyPanel({
               <button
                 type="button"
                 onClick={() => setDraft({ step: "search" })}
-                className="flex-none font-mono text-[11px] text-sky transition hover:underline"
+                className="flex-none font-mono text-[11px] text-u-accent transition hover:underline"
               >
                 Change
               </button>
@@ -275,7 +275,7 @@ export function AddCompanyPanel({
             {/* A record that would not load never blocks the add: the server resolves the company
                 from its id either way, so this is a preview failing, not the company. */}
             {picked.isError ? (
-              <p className="mt-4 font-mono text-[11.5px] text-text3">
+              <p className="mt-4 font-mono text-[11.5px] text-u-text3">
                 The rest of its record could not be read. Adding it still takes the market's own
                 figures.
               </p>
@@ -304,7 +304,7 @@ export function AddCompanyPanel({
             </div>
           </div>
 
-          <div className="flex flex-none justify-end gap-2 border-t border-line-soft px-5 py-3">
+          <div className="flex flex-none justify-end gap-2 border-t border-u-border px-5 py-3">
             <Button type="button" variant="secondary" onClick={onClose} disabled={take.isPending}>
               Cancel
             </Button>

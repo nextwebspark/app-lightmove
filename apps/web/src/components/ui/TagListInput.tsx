@@ -42,11 +42,11 @@ export function TagListInput({
   };
 
   return (
-    <div className="flex min-h-[42px] w-full flex-wrap items-center gap-1.5 rounded-lg border border-line bg-panel px-2 py-1.5 transition focus-within:border-sky">
+    <div className="flex min-h-[42px] w-full flex-wrap items-center gap-1.5 rounded-lg border border-u-border-strong bg-u-surface px-2 py-1.5 transition focus-within:border-u-accent">
       {values.map((value) => (
         <span
           key={value.toLowerCase()}
-          className="inline-flex items-center gap-1 rounded-md bg-panel2 px-2 py-1 font-mono text-[12px] text-text ring-1 ring-line-soft"
+          className="inline-flex items-center gap-1 rounded-md bg-u-raised px-2 py-1 font-mono text-[12px] text-u-text ring-1 ring-u-border"
         >
           {value}
           {!disabled && (
@@ -54,7 +54,7 @@ export function TagListInput({
               type="button"
               aria-label={`Remove ${value}`}
               onClick={() => onChange(values.filter((existing) => existing !== value))}
-              className="text-text3 hover:text-red"
+              className="text-u-text3 hover:text-u-offlimits"
             >
               ×
             </button>
@@ -69,7 +69,7 @@ export function TagListInput({
           onChange={(event) => setDraft(event.target.value)}
           onKeyDown={handleKeyDown}
           onBlur={commitDraft}
-          className="min-w-[120px] flex-1 bg-transparent px-1 py-1 font-mono text-[13px] text-text outline-none"
+          className="min-w-[120px] flex-1 bg-transparent px-1 py-1 font-mono text-[13px] text-u-text outline-none"
         />
       )}
     </div>

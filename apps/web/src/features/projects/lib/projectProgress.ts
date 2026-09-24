@@ -1,4 +1,5 @@
 import type { Project } from "../api/types";
+import { deadlineOf } from "./timeline";
 
 export interface ProjectProgress {
   /** Universe companies with someone mapped, out of the universe; 0 when there is no universe yet. */
@@ -21,8 +22,9 @@ export function projectProgress(project: Project, today: Date = new Date()): Pro
   const coveragePercent = universe > 0 ? Math.min(100, Math.round((project.mappedCompanies / universe) * 100)) : 0;
 
   const midnight = startOfDay(today);
-  const daysRemaining = project.targetDate
-    ? Math.round((startOfDay(new Date(`${project.targetDate}T00:00:00`)).getTime() - midnight.getTime()) / DAY_MS)
+  const deadline = deadlineOf(project);
+  const daysRemaining = deadline
+    ? Math.round((startOfDay(new Date(`${deadline}T00:00:00`)).getTime() - midnight.getTime()) / DAY_MS)
     : null;
 
   const weeksOpen = Math.max(1, (midnight.getTime() - startOfDay(new Date(project.createdAt)).getTime()) / (7 * DAY_MS));

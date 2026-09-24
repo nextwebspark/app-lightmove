@@ -85,7 +85,7 @@ export function TeamPage() {
   if (isError) {
     return (
       <>
-        <PageHeader title="Team" subtitle="roles apply per project" />
+        <PageHeader title="Team" subtitle="roles apply per position" />
         <EmptyState
           icon={<Icon d={ICONS.lock} size={24} />}
           title="Couldn't load the roster"
@@ -99,7 +99,7 @@ export function TeamPage() {
     <>
       <PageHeader
         title="Team"
-        subtitle={`${members.length} ${members.length === 1 ? "member" : "members"} · roles apply per project`}
+        subtitle={`${members.length} ${members.length === 1 ? "member" : "members"} · roles apply per position`}
         action={
           isAdmin && (
             <Button

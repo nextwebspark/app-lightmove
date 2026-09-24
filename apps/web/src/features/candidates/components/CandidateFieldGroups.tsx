@@ -83,7 +83,7 @@ export function IdentityFields<TTransformed>({
             {...register("employerName")}
             readOnly={employerLocked}
             placeholder="Al Rawabi Dairy"
-            className={employerLocked ? "text-text3" : undefined}
+            className={employerLocked ? "text-u-text3" : undefined}
           />
         </Field>
         {statusField}
@@ -150,10 +150,10 @@ export function CareerFields<TTransformed extends FieldValues>({
   return (
     <div className="mb-4">
       <div className="mb-1.5 flex items-baseline justify-between">
-        <span className="font-mono text-[10px] font-semibold uppercase tracking-[0.12em] text-text3">
+        <span className="font-mono text-[10px] font-semibold uppercase tracking-[0.12em] text-u-text3">
           Career history
         </span>
-        <span className="font-mono text-[11px] text-text3">Most recent first</span>
+        <span className="font-mono text-[11px] text-u-text3">Most recent first</span>
       </div>
       {career.fields.map((row, index) => (
         <div key={row.id} className="mb-2 flex items-start gap-2">
@@ -179,7 +179,7 @@ export function CareerFields<TTransformed extends FieldValues>({
             type="button"
             onClick={() => career.remove(index)}
             aria-label={`Remove career row ${index + 1}`}
-            className="mt-2 flex-none rounded-md p-1.5 text-text3 transition hover:bg-panel2 hover:text-red"
+            className="mt-2 flex-none rounded-md p-1.5 text-u-text3 transition hover:bg-u-raised hover:text-u-offlimits"
           >
             <Icon d={ICONS.trash} size={14} />
           </button>
@@ -188,13 +188,13 @@ export function CareerFields<TTransformed extends FieldValues>({
       <button
         type="button"
         onClick={() => career.append({ company: "", title: "", period: "" })}
-        className="inline-flex items-center gap-1.5 rounded-[6px] border border-dashed border-line px-3 py-2 font-sans text-[13px] text-text2 transition hover:border-text3 hover:text-text"
+        className="inline-flex items-center gap-1.5 rounded-[6px] border border-dashed border-u-border-strong px-3 py-2 font-sans text-[13px] text-u-text2 transition hover:border-u-text3 hover:text-u-text"
       >
         <Icon d={ICONS.plus} size={14} />
         Add a post
       </button>
       {errors.career?.message && (
-        <span role="alert" className="mt-1.5 block font-mono text-[11px] text-red">
+        <span role="alert" className="mt-1.5 block font-mono text-[11px] text-u-offlimits">
           {errors.career.message}
         </span>
       )}
@@ -298,7 +298,7 @@ export function CompensationFields({
         }}
         live
       />
-      <p className="mt-3 mb-4 font-mono text-[11px] text-text3">
+      <p className="mt-3 mb-4 font-mono text-[11px] text-u-text3">
         Whole units, in the currency it was quoted in. Nothing converts it.
       </p>
     </>
@@ -330,7 +330,7 @@ function AmountField({
         {currency && (
           <span
             aria-hidden="true"
-            className="pointer-events-none absolute inset-y-0 start-0 flex items-center ps-3 font-mono text-[11px] font-semibold text-text3"
+            className="pointer-events-none absolute inset-y-0 start-0 flex items-center ps-3 font-mono text-[11px] font-semibold text-u-text3"
           >
             {currency}
           </span>
@@ -425,8 +425,8 @@ export function ContactFields({ lockedUrl = null }: { lockedUrl?: string | null 
   if (lockedUrl) {
     return (
       <Field label="LinkedIn" hint="Captured from this profile page — not editable">
-        <div className="flex items-center gap-2 rounded-lg border border-line-soft bg-panel2 px-3 py-2 font-mono text-[13px] text-text2">
-          <Icon d={ICONS.lock} size={13} className="flex-none text-text3" />
+        <div className="flex items-center gap-2 rounded-lg border border-u-border bg-u-raised px-3 py-2 font-mono text-[13px] text-u-text2">
+          <Icon d={ICONS.lock} size={13} className="flex-none text-u-text3" />
           <span className="min-w-0 truncate">{toReadableUrl(lockedUrl)}</span>
         </div>
       </Field>
@@ -497,8 +497,8 @@ export function ContactEntriesFields({ channel }: { channel: "email" | "phone" }
                     className={cn(
                       "flex-none rounded-[5px] border px-[7px] py-[3px] font-mono text-[9.5px] font-bold uppercase tracking-[0.06em] transition",
                       field.value
-                        ? "border-transparent bg-green-dim text-green"
-                        : "border-line text-text3 hover:border-text3 hover:text-text2",
+                        ? "border-transparent bg-u-direct-tint text-u-direct"
+                        : "border-u-border-strong text-u-text3 hover:border-u-text3 hover:text-u-text2",
                     )}
                   >
                     Verified
@@ -509,13 +509,13 @@ export function ContactEntriesFields({ channel }: { channel: "email" | "phone" }
                 type="button"
                 onClick={() => lines.remove(index)}
                 aria-label={`Remove ${noun} ${index + 1}`}
-                className="flex-none rounded-md p-1.5 text-text3 transition hover:bg-panel2 hover:text-red"
+                className="flex-none rounded-md p-1.5 text-u-text3 transition hover:bg-u-raised hover:text-u-offlimits"
               >
                 <Icon d={ICONS.trash} size={14} />
               </button>
             </div>
             {errors?.[index]?.value?.message && (
-              <span role="alert" className="mt-1 block font-mono text-[11px] text-red">
+              <span role="alert" className="mt-1 block font-mono text-[11px] text-u-offlimits">
                 {errors[index]?.value?.message}
               </span>
             )}
@@ -526,13 +526,13 @@ export function ContactEntriesFields({ channel }: { channel: "email" | "phone" }
         type="button"
         onClick={() => lines.append({ ...EMPTY_CONTACT_LINE })}
         disabled={lines.fields.length >= 10}
-        className="mt-2 inline-flex items-center gap-1.5 rounded-[6px] border border-dashed border-line px-3 py-1.5 font-sans text-[12.5px] text-text2 transition hover:border-text3 hover:text-text disabled:cursor-not-allowed disabled:opacity-50"
+        className="mt-2 inline-flex items-center gap-1.5 rounded-[6px] border border-dashed border-u-border-strong px-3 py-1.5 font-sans text-[12.5px] text-u-text2 transition hover:border-u-text3 hover:text-u-text disabled:cursor-not-allowed disabled:opacity-50"
       >
         <Icon d={ICONS.plus} size={13} />
         Add {noun}
       </button>
       {errors?.message && (
-        <span role="alert" className="mt-1.5 block font-mono text-[11px] text-red">
+        <span role="alert" className="mt-1.5 block font-mono text-[11px] text-u-offlimits">
           {errors.message}
         </span>
       )}

@@ -19,12 +19,12 @@ export function BenefitLines({
 
   return (
     <div>
-      <span className="mb-1.5 block font-mono text-[10px] font-semibold uppercase tracking-[0.12em] text-text3">
+      <span className="mb-1.5 block font-mono text-[10px] font-semibold uppercase tracking-[0.12em] text-u-text3">
         Benefits &amp; allowances — lines only, the amount is each mandate&apos;s
       </span>
-      <div className="rounded-[10px] border border-line-soft bg-panel px-3.5 pb-3 pt-1">
+      <div className="rounded-[10px] border border-u-border bg-u-surface px-3.5 pb-3 pt-1">
         {benefits.map((benefit, index) => (
-          <div key={benefit.id} className="flex items-center gap-2.5 border-b border-line-soft py-2">
+          <div key={benefit.id} className="flex items-center gap-2.5 border-b border-u-border py-2">
             <InlineInput
               value={benefit.name}
               aria-label={`Benefit ${index + 1} name`}
@@ -36,7 +36,7 @@ export function BenefitLines({
               value={benefit.frequency}
               aria-label={`Benefit ${index + 1} frequency`}
               onChange={(event) => patch(benefit.id, { frequency: event.target.value as BenefitFrequency })}
-              className="w-[120px] flex-none !bg-panel2 !py-1.5"
+              className="w-[120px] flex-none !bg-u-raised !py-1.5"
             >
               {Object.entries(BENEFIT_FREQUENCY_LABELS).map(([value, label]) => (
                 <option key={value} value={value}>

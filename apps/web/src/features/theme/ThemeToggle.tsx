@@ -19,7 +19,7 @@ export function ThemeToggle({ className }: { className?: string }) {
       // in dark mode reads as a description to a screen reader, not an action.
       aria-label={dark ? "Switch to light mode" : "Switch to dark mode"}
       title={dark ? "Switch to light mode" : "Switch to dark mode"}
-      className={`grid size-7 place-items-center rounded-lg border border-line bg-panel2 text-text3 outline-none transition hover:text-text focus-visible:ring-2 focus-visible:ring-sky ${className ?? ""}`}
+      className={`grid size-7 place-items-center rounded-lg border border-u-border-strong bg-u-raised text-u-text3 outline-none transition hover:text-u-text focus-visible:ring-2 focus-visible:ring-u-accent ${className ?? ""}`}
     >
       {dark ? (
         <svg className="size-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">

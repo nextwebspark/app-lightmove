@@ -29,10 +29,10 @@ export function WorkspacePersonaCard({ persona }: { persona: WorkspacePersona })
   const update = (patch: Partial<WorkspacePersona>) => setDraft((current) => ({ ...current, ...patch }));
 
   return (
-    <div className="mt-4 rounded-[10px] border border-line-soft bg-panel2 p-5">
+    <div className="mt-4 rounded-[10px] border border-u-border bg-u-raised p-5">
       <div className="mb-4">
         <div className="text-sm font-semibold">Firm persona</div>
-        <div className="mt-0.5 font-mono text-[11.5px] text-text3">
+        <div className="mt-0.5 font-mono text-[11.5px] text-u-text3">
           What your firm does — Uncava's assistant uses it to tailor research to you.
         </div>
       </div>
@@ -44,7 +44,7 @@ export function WorkspacePersonaCard({ persona }: { persona: WorkspacePersona })
           value={draft.summary ?? ""}
           onChange={(event) => update({ summary: event.target.value })}
           placeholder="e.g. Board and C-suite search for family groups and sovereign-backed companies in the Gulf"
-          className="!bg-panel"
+          className="!bg-u-surface"
         />
       </Field>
 
@@ -85,7 +85,7 @@ export function WorkspacePersonaCard({ persona }: { persona: WorkspacePersona })
           maxLength={MAX_TEXT_LENGTH}
           value={draft.notes ?? ""}
           onChange={(event) => update({ notes: event.target.value })}
-          className="!bg-panel"
+          className="!bg-u-surface"
         />
       </Field>
 
@@ -105,7 +105,7 @@ export function WorkspacePersonaCard({ persona }: { persona: WorkspacePersona })
 function ListField({ label, children }: { label: string; children: ReactNode }) {
   return (
     <div className="mb-4">
-      <div className="mb-1.5 font-mono text-[10px] font-semibold uppercase tracking-[0.12em] text-text3">
+      <div className="mb-1.5 font-mono text-[10px] font-semibold uppercase tracking-[0.12em] text-u-text3">
         {label}
       </div>
       {children}

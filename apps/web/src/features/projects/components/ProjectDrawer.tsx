@@ -20,6 +20,7 @@ import { canExecuteProjectWork } from "../lib/access";
 import { activityLines, formatActivityTime } from "../lib/activity";
 import { projectProgress } from "../lib/projectProgress";
 import { staffRoleOf } from "../lib/projectTeamColumns";
+import { deadlineOf } from "../lib/timeline";
 
 /**
  * The projects list's read-only summary of one position (Workspace.dc.html's "Position drawer"):
@@ -121,6 +122,7 @@ function ProjectDrawerPanel({ project, onClose }: { project: Project; onClose: (
 
 function MappingProgress({ project }: { project: Project }) {
   const { coveragePercent, daysRemaining } = projectProgress(project);
+  const deadline = deadlineOf(project);
   const overdue = daysRemaining !== null && daysRemaining < 0;
 
   return (
@@ -147,8 +149,8 @@ function MappingProgress({ project }: { project: Project }) {
         {project.companies === 1 ? "company" : "companies"} with an executive mapped
       </div>
       <div className="mt-2 flex items-baseline justify-between gap-3 text-meta text-u-text3">
-        <span>Started: {formatDate(project.createdAt.slice(0, 10))}</span>
-        <span>Target: {project.targetDate ? formatDate(project.targetDate) : "not set"}</span>
+        <span>Started: {formatDate(project.startDate ?? project.createdAt.slice(0, 10))}</span>
+        <span>Target: {deadline ? formatDate(deadline) : "not set"}</span>
       </div>
       {daysRemaining !== null && project.health !== "DONE" && (
         <div className={cn("mt-1.5 flex items-center gap-1.5 text-meta font-semibold", daysRemainingColor(daysRemaining))}>

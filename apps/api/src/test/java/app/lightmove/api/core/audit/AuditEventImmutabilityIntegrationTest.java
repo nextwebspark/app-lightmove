@@ -3,7 +3,7 @@ package app.lightmove.api.core.audit;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import app.lightmove.api.IntegrationTest;
-import app.lightmove.api.core.audit.constant.WorkspaceEventType;
+import app.lightmove.api.core.audit.constant.ProjectEventType;
 import app.lightmove.api.core.audit.model.AuditEvent;
 import app.lightmove.api.core.audit.repository.AuditEventRepository;
 import app.lightmove.api.core.audit.service.AuditService;
@@ -35,21 +35,19 @@ class AuditEventImmutabilityIntegrationTest {
     @Autowired
     private AuditEventRepository events;
 
-    /** The shape a real turn records: a raw id and raw token counts, not strings. */
+    /** Details that are not all strings: a raw id and raw counts. */
     @Test
     void recordsAnEventWhoseDetailsAreNotAllStrings() {
         UUID turnId = UUID.randomUUID();
 
-        audit.event(WorkspaceEventType.ASSISTANT_TURN_RAN)
+        audit.event(ProjectEventType.ASSISTANT_ASKED)
                 .actor(UUID.randomUUID())
                 .workspace(UUID.randomUUID())
-                .target("assistantThread", UUID.randomUUID())
+                .target("project", UUID.randomUUID())
                 .origin("203.0.113.7", "test-agent")
                 .detail("turnId", turnId)
-                .detail("status", "SUCCEEDED")
-                .detailIfPresent("model", "gemini-2.5-flash")
-                .detailIfPresent("inputTokens", 1_234)
-                .detailIfPresent("outputTokens", 567)
+                .detailIfPresent("vendorSearches", 7)
+                .detailIfPresent("companiesOnCard", 12)
                 .record();
 
         // Reaching this line at all is most of the assertion: the writer is synchronous under test,

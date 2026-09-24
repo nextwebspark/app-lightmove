@@ -168,8 +168,8 @@ describe("routes — the staff guard", () => {
     // straight away would read the pathname before any redirect could have happened. And an exact
     // match, because toHaveTextContent is a substring test and "/clients" contains "/".
     await waitFor(() => expect(screen.getByTestId("pathname").textContent).toBe("/"));
-    expect(screen.queryByText("Add your first client")).not.toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: /new client/i })).not.toBeInTheDocument();
+    expect(screen.queryByText("Add your first business unit")).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /new business unit/i })).not.toBeInTheDocument();
   });
 
   // The predicate is "holds CLIENT and no staff role". Someone who is both is staff, and losing these
@@ -179,7 +179,7 @@ describe("routes — the staff guard", () => {
 
     renderAt("/clients");
 
-    expect(await screen.findByText("Add your first client")).toBeInTheDocument();
+    expect(await screen.findByText("Add your first business unit")).toBeInTheDocument();
   });
 
   it("keeps the roster for a member who also holds CLIENT", async () => {
@@ -339,13 +339,13 @@ describe("routes — the not-found screen", () => {
     expect(await screen.findByText("We couldn't open that page")).toBeInTheDocument();
     expect(screen.getByTestId("pathname").textContent).toBe("/nowhere-in-particular");
     // The shell, not a bare page: the rail is how the user gets anywhere else from here.
-    expect(screen.getByRole("link", { name: /my projects/i })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: /my positions/i })).toBeInTheDocument();
   });
 
   it("renders a project id it cannot read, rather than the list", async () => {
     renderAt("/projects/not-a-project/strategy");
 
-    expect(await screen.findByText("We couldn't open that project")).toBeInTheDocument();
+    expect(await screen.findByText("We couldn't open that position")).toBeInTheDocument();
     expect(screen.getByTestId("pathname").textContent).toBe("/projects/not-a-project/strategy");
   });
 
@@ -361,7 +361,7 @@ describe("routes — the not-found screen", () => {
   it("offers the way back to My projects", async () => {
     renderAt("/nowhere-in-particular");
 
-    await userEvent.click(await screen.findByRole("button", { name: "Go to My projects" }));
+    await userEvent.click(await screen.findByRole("button", { name: "Go to My positions" }));
 
     await waitFor(() => expect(screen.getByTestId("pathname").textContent).toBe("/"));
   });

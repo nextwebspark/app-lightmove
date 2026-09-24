@@ -66,9 +66,9 @@ export const projectTeamColumns = helper.columns([
           <span className="min-w-0">
             <TruncatedText
               value={member.fullName}
-              className="block font-sans text-[13.5px] font-medium text-text"
+              className="block font-sans text-[13.5px] font-medium text-u-text"
             />
-            {isSelf && <span className="mt-0.5 block font-mono text-[11px] text-text3">You</span>}
+            {isSelf && <span className="mt-0.5 block font-mono text-[11px] text-u-text3">You</span>}
           </span>
         </span>
       );
@@ -129,7 +129,7 @@ export function TeamSeatManageControl({
 }) {
   if (meta.soleLeadMemberId === member.memberId) {
     return (
-      <span title={SOLE_LEAD_TITLE} className="grid size-9 place-items-center text-text3 lg:size-6">
+      <span title={SOLE_LEAD_TITLE} className="grid size-9 place-items-center text-u-text3 lg:size-6">
         <Icon d={ICONS.lock} size={15} />
       </span>
     );
@@ -142,7 +142,7 @@ export function TeamSeatManageControl({
       aria-label={`Remove ${member.fullName}`}
       disabled={meta.busyMemberId === member.memberId}
       onClick={() => meta.onRemove(member)}
-      className={`${GRID_ICON_BUTTON} hover:bg-red-dim hover:text-red disabled:opacity-50`}
+      className={`${GRID_ICON_BUTTON} hover:bg-u-offlimits-tint hover:text-u-offlimits disabled:opacity-50`}
     >
       <Icon d={ICONS.trash} size={15} />
     </button>

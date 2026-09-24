@@ -135,38 +135,38 @@ export function TalentMapView({
       <aside
         aria-label="Mapping panel"
         className={cn(
-          "absolute inset-x-0 bottom-0 z-10 flex max-h-[62%] flex-col border-t border-line bg-panel shadow-panel",
+          "absolute inset-x-0 bottom-0 z-10 flex max-h-[62%] flex-col border-t border-u-border-strong bg-u-surface shadow-u-e3",
           "lg:static lg:max-h-none lg:flex-none lg:border-e lg:border-t-0 lg:shadow-none lg:transition-[width]",
           collapsed ? "lg:w-10" : "lg:w-[300px]",
         )}
       >
-        <div className={cn("flex flex-none items-center gap-2 border-b border-line-soft px-2.5 py-2", collapsed && "lg:flex-col lg:px-1")}>
+        <div className={cn("flex flex-none items-center gap-2 border-b border-u-border px-2.5 py-2", collapsed && "lg:flex-col lg:px-1")}>
           <button
             type="button"
             onClick={() => onPreferences({ panelCollapsed: !collapsed })}
             aria-expanded={!collapsed}
             aria-label={collapsed ? "Show mapping panel" : "Hide mapping panel"}
             title={collapsed ? "Show mapping panel" : "Hide mapping panel"}
-            className="flex-none cursor-pointer rounded-md p-1 text-text3 transition hover:bg-panel2 hover:text-text"
+            className="flex-none cursor-pointer rounded-md p-1 text-u-text3 transition hover:bg-u-raised hover:text-u-text"
           >
             <Icon d={collapsed ? ICONS.expand : ICONS.collapse} size={15} />
           </button>
           {!collapsed && counts && (
-            <div className="flex min-w-0 flex-1 flex-wrap items-center gap-x-3 gap-y-1 font-mono text-[11.5px] text-text2">
+            <div className="flex min-w-0 flex-1 flex-wrap items-center gap-x-3 gap-y-1 font-mono text-[11.5px] text-u-text2">
               <span className="inline-flex items-center gap-1" title="Countries">
-                <Icon d={ICONS.mapPin} size={12} className="text-text3" />
+                <Icon d={ICONS.mapPin} size={12} className="text-u-text3" />
                 {counts.countries}
               </span>
               <span className="inline-flex items-center gap-1" title="Companies">
-                <Icon d={ICONS.building} size={12} className="text-text3" />
+                <Icon d={ICONS.building} size={12} className="text-u-text3" />
                 {counts.companies}
               </span>
               <span className="inline-flex items-center gap-1" title="Executives">
-                <Icon d={ICONS.candidates} size={12} className="text-text3" />
+                <Icon d={ICONS.candidates} size={12} className="text-u-text3" />
                 {counts.executives}
               </span>
               {page && page.geocodingPending > 0 && (
-                <span role="status" className="inline-flex items-center gap-1 text-text3">
+                <span role="status" className="inline-flex items-center gap-1 text-u-text3">
                   <Spinner />
                   Locating {countOf(page.geocodingPending, "place")}…
                 </span>
@@ -174,7 +174,7 @@ export function TalentMapView({
             </div>
           )}
           {collapsed && counts && (
-            <span className="hidden font-mono text-[11px] text-text3 lg:block" title="Companies">
+            <span className="hidden font-mono text-[11px] text-u-text3 lg:block" title="Companies">
               {counts.companies}
             </span>
           )}
@@ -202,19 +202,19 @@ export function TalentMapView({
                   onOpen={open}
                 />
                 {counts && counts.companies === 0 && counts.executives === 0 && (
-                  <p className="px-3 py-4 text-[12.5px] text-text3">
+                  <p className="px-3 py-4 text-[12.5px] text-u-text3">
                     {query ? "Nothing matches that search." : "Nothing mapped yet."}
                   </p>
                 )}
               </>
             ) : null}
             {tree && tree.counts.unlocated > 0 && !expanded.has(UNLOCATED_KEY) && (
-              <p className="px-3 py-2 font-mono text-[11px] text-text3">
+              <p className="px-3 py-2 font-mono text-[11px] text-u-text3">
                 {tree.counts.unlocated} without a location on the map.
               </p>
             )}
             {page && (page.totalCompanies > page.companies.length || page.totalCandidates > page.candidates.length) && (
-              <p role="status" className="px-3 py-2 font-mono text-[11px] text-text3">
+              <p role="status" className="px-3 py-2 font-mono text-[11px] text-u-text3">
                 Showing {page.companies.length} of {page.totalCompanies} companies and{" "}
                 {page.candidates.length} of {page.totalCandidates} executives.
               </p>
@@ -223,7 +223,7 @@ export function TalentMapView({
         )}
       </aside>
 
-      <div className="relative min-h-0 min-w-0 flex-1 bg-panel2">
+      <div className="relative min-h-0 min-w-0 flex-1 bg-u-raised">
         {error ? (
           <EmptyState
             icon={<Icon d={ICONS.warning} size={22} />}
@@ -273,33 +273,33 @@ export function TalentMapView({
         {!error && !unsupported && (
           <div
             aria-label="Legend"
-            className="pointer-events-none absolute bottom-7 start-2.5 flex items-center gap-3 rounded-[6px] border border-line bg-panel/90 px-2.5 py-1.5 font-mono text-[10.5px] text-text2 backdrop-blur"
+            className="pointer-events-none absolute bottom-7 start-2.5 flex items-center gap-3 rounded-[6px] border border-u-border-strong bg-u-surface/90 px-2.5 py-1.5 font-mono text-[10.5px] text-u-text2 backdrop-blur"
           >
             <span className="inline-flex items-center gap-1.5">
-              <span aria-hidden="true" className="size-2.5 rounded-full bg-text" />
+              <span aria-hidden="true" className="size-2.5 rounded-full bg-u-text" />
               Company
             </span>
             <span className="inline-flex items-center gap-1.5">
-              <span aria-hidden="true" className="size-2 rounded-full bg-sky" />
+              <span aria-hidden="true" className="size-2 rounded-full bg-u-accent" />
               Executive
             </span>
             <span className="inline-flex items-center gap-1.5">
-              <span aria-hidden="true" className="size-2.5 rounded-full bg-amber-btn" />
+              <span aria-hidden="true" className="size-2.5 rounded-full bg-u-accent-solid" />
               Selected
             </span>
           </div>
         )}
 
         {loading && !error && !unsupported && (
-          <div className="pointer-events-none absolute end-2.5 top-2.5 rounded-[6px] border border-line bg-panel/90 px-2 py-1 font-mono text-[10.5px] text-text3 backdrop-blur">
+          <div className="pointer-events-none absolute end-2.5 top-2.5 rounded-[6px] border border-u-border-strong bg-u-surface/90 px-2 py-1 font-mono text-[10.5px] text-u-text3 backdrop-blur">
             Refreshing…
           </div>
         )}
 
         {visible && features.features.length === 0 && !loading && !error && !unsupported && (
           <div className="pointer-events-none absolute inset-x-0 top-1/3 flex justify-center px-4">
-            <div className="max-w-[360px] rounded-[10px] border border-line bg-panel/95 px-4 py-3 text-center text-[12.5px] text-text2 shadow-panel backdrop-blur">
-              <div className="font-semibold text-text">Nothing to place on the map yet</div>
+            <div className="max-w-[360px] rounded-[10px] border border-u-border-strong bg-u-surface/95 px-4 py-3 text-center text-[12.5px] text-u-text2 shadow-u-e3 backdrop-blur">
+              <div className="font-semibold text-u-text">Nothing to place on the map yet</div>
               {tree && tree.counts.unlocated > 0
                 ? `${tree.counts.unlocated} of the mandate's rows have no city or country the map can use.`
                 : "Add a company with a city or country and it will appear here."}

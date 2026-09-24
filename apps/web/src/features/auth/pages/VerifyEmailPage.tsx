@@ -92,20 +92,20 @@ export function VerifyEmailPage() {
         {state === "verifying" && (
           <>
             <h1 className="text-[19px] font-semibold">Verifying your email…</h1>
-            <p className="mt-2 font-mono text-xs text-text3">One moment.</p>
+            <p className="mt-2 font-mono text-xs text-u-text3">One moment.</p>
           </>
         )}
 
         {settled && (
           <>
-            <div className="mx-auto mb-4 grid size-11 place-items-center rounded-full bg-green-dim">
-              <svg className="size-5 text-green" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" aria-hidden="true">
+            <div className="mx-auto mb-4 grid size-11 place-items-center rounded-full bg-u-direct-tint">
+              <svg className="size-5 text-u-direct" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" aria-hidden="true">
                 <path d="M20 6 9 17l-5-5" />
               </svg>
             </div>
 
             <h1 className="text-[19px] font-semibold">Email verified</h1>
-            <p className="mb-6 mt-2 font-mono text-xs text-text3">Your account is confirmed.</p>
+            <p className="mb-6 mt-2 font-mono text-xs text-u-text3">Your account is confirmed.</p>
 
             <Button className="w-full" onClick={handleContinue} disabled={continuing}>
               {continuing ? "One moment…" : "Continue"}
@@ -115,16 +115,16 @@ export function VerifyEmailPage() {
 
         {state === "failed" && !verifiedAlready && (
           <>
-            <div className="mx-auto mb-4 grid size-11 place-items-center rounded-full bg-red-dim">
-              <svg className="size-5 text-red" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" aria-hidden="true">
+            <div className="mx-auto mb-4 grid size-11 place-items-center rounded-full bg-u-offlimits-tint">
+              <svg className="size-5 text-u-offlimits" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" aria-hidden="true">
                 <path d="M18 6 6 18M6 6l12 12" />
               </svg>
             </div>
 
             <h1 className="text-[19px] font-semibold">Verification failed</h1>
-            <p className="mb-6 mt-2 font-mono text-xs text-text3">{message}</p>
+            <p className="mb-6 mt-2 font-mono text-xs text-u-text3">{message}</p>
 
-            <Link to="/login" className="text-[12.5px] text-sky hover:underline">
+            <Link to="/login" className="text-[12.5px] text-u-accent hover:underline">
               Back to sign in
             </Link>
           </>

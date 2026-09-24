@@ -81,6 +81,12 @@ public class PositionService {
         return assembler.compensationOf(position);
     }
 
+    /** The brief as it stands, for a reader that must not write: an undrafted one reads blank. */
+    @Transactional(readOnly = true)
+    public PositionResponse briefOf(UUID workspaceId, UUID projectId) {
+        return assembler.assemble(briefs.read(workspaceId, projectId));
+    }
+
     @Transactional
     public PositionResponse putDetails(UUID userId, UUID workspaceId, UUID projectId,
                                        PutPositionDetailsRequest request, HttpServletRequest httpRequest) {

@@ -31,7 +31,7 @@ export function SettingsProfilePage() {
     <>
       <PageHeader title="Profile" subtitle="How you appear across the workspace" />
 
-      <div className="rounded-[10px] border border-line-soft bg-panel2 p-5">
+      <div className="rounded-[10px] border border-u-border bg-u-raised p-5">
         <ProfileIdentityRow
           userId={user.id}
           fullName={user.fullName}

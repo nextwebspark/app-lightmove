@@ -26,10 +26,10 @@ export function CompensationSummary({ compensation }: { compensation: CandidateC
 }
 
 const PART_COLOURS: Record<PackagePart["key"], string> = {
-  baseSalary: "bg-sky",
-  bonus: "bg-green",
-  allowances: "bg-amber",
-  longTermIncentive: "bg-text3",
+  baseSalary: "bg-u-accent",
+  bonus: "bg-u-direct",
+  allowances: "bg-u-accent",
+  longTermIncentive: "bg-u-text3",
 };
 
 /**
@@ -50,14 +50,14 @@ export function PackageTotal({
   if (total === 0 && !live) return null;
 
   return (
-    <div className="mt-3 rounded-[8px] border border-line-soft bg-panel2 px-3 py-2.5">
+    <div className="mt-3 rounded-[8px] border border-u-border bg-u-raised px-3 py-2.5">
       <div className="flex items-center justify-between">
-        <span className="font-mono text-[12px] text-text2">
-          Total{live && <span className="ms-1.5 text-[10.5px] text-text3">· as typed</span>}
+        <span className="font-mono text-[12px] text-u-text2">
+          Total{live && <span className="ms-1.5 text-[10.5px] text-u-text3">· as typed</span>}
         </span>
         <span
           data-testid="package-total"
-          className={cn("font-mono text-[15px] font-bold", total > 0 ? "text-text" : "text-text3")}
+          className={cn("font-mono text-[15px] font-bold", total > 0 ? "text-u-text" : "text-u-text3")}
         >
           {total > 0 ? `${currency} ${formatNumber(total)}`.trim() : "—"}
         </span>
@@ -73,7 +73,7 @@ export function PackageTotal({
               />
             ))}
           </div>
-          <ul className="mt-2 flex flex-wrap gap-x-3 gap-y-1 font-mono text-[10.5px] text-text3">
+          <ul className="mt-2 flex flex-wrap gap-x-3 gap-y-1 font-mono text-[10.5px] text-u-text3">
             {parts.map((part) => (
               <li key={part.key} className="flex items-center gap-1.5">
                 <span

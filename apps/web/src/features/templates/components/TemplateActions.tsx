@@ -25,7 +25,7 @@ export function TemplateActions({
           aria-label={`${toggleLabel} ${template.title}`}
           disabled={isToggling}
           onClick={() => onToggle(template)}
-          className="rounded-md px-2 py-1 text-xs font-medium text-text3 transition hover:bg-panel2 hover:text-text disabled:opacity-50"
+          className="rounded-md px-2 py-1 text-xs font-medium text-u-text3 transition hover:bg-u-raised hover:text-u-text disabled:opacity-50"
         >
           {toggleLabel}
         </button>
@@ -33,7 +33,7 @@ export function TemplateActions({
       <Link
         to={`${SCOPE_COPY[scope].path}/${encodeURIComponent(template.code)}`}
         aria-label={`Open ${template.title}`}
-        className="inline-flex items-center gap-1.5 whitespace-nowrap rounded-[7px] border border-line px-[11px] py-[5px] text-xs font-semibold text-text2 transition hover:border-text3 hover:bg-panel hover:text-text"
+        className="inline-flex items-center gap-1.5 whitespace-nowrap rounded-[7px] border border-u-border-strong px-[11px] py-[5px] text-xs font-semibold text-u-text2 transition hover:border-u-text3 hover:bg-u-surface hover:text-u-text"
       >
         Open
         <Icon d={ICONS.arrowRight} size={13} />

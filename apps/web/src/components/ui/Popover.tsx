@@ -101,7 +101,7 @@ export function Popover({
               width,
               maxWidth: "calc(100vw - 24px)",
             }}
-            className="fixed z-[80] max-h-[70dvh] overflow-y-auto rounded-[10px] border border-line bg-panel p-2 shadow-panel"
+            className="fixed z-[80] max-h-[70dvh] overflow-y-auto rounded-[10px] border border-u-border-strong bg-u-surface p-2 shadow-u-e3"
           >
             {children(() => setAnchor(null))}
           </div>,

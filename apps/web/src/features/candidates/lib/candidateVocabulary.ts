@@ -5,18 +5,18 @@ import type { CandidateGender, CandidateSeniority, CandidateSource, CandidateSta
  * How a mandate's research on a person reads on screen, in one place — the grid's Status pill and the
  * drawer's Status select are the same seven values and must not drift into two vocabularies.
  *
- * <p>The colours carry the reading: green is progress, red is a closed door, amber is a door that was
- * never open for this brief, and grey is "mapped and nothing more", which is where every profile
+ * <p>The colours carry the reading: green is progress, red is a closed door, the signal is a door
+ * that was never open for this brief, and grey is "mapped and nothing more", which is where every profile
  * starts and is the most common value on any grid.
  */
 export const CANDIDATE_STATUSES: { value: CandidateStatus; label: string; className: string }[] = [
-  { value: "identified", label: "Identified", className: "text-text2 bg-line-soft" },
-  { value: "contacted", label: "Contacted", className: "text-sky bg-sky-dim" },
-  { value: "engaged", label: "Engaged", className: "text-sky bg-sky-dim" },
-  { value: "interested", label: "Interested", className: "text-green bg-green-dim" },
-  { value: "notInterested", label: "Not interested", className: "text-text3 bg-panel2" },
-  { value: "offLimits", label: "Off-limits", className: "text-red bg-red-dim" },
-  { value: "outOfScope", label: "Out of scope", className: "text-amber bg-amber-dim" },
+  { value: "identified", label: "Identified", className: "text-u-text2 bg-u-border" },
+  { value: "contacted", label: "Contacted", className: "text-u-accent bg-u-accent-tint" },
+  { value: "engaged", label: "Engaged", className: "text-u-accent bg-u-accent-tint" },
+  { value: "interested", label: "Interested", className: "text-u-direct bg-u-direct-tint" },
+  { value: "notInterested", label: "Not interested", className: "text-u-text3 bg-u-raised" },
+  { value: "offLimits", label: "Off-limits", className: "text-u-offlimits bg-u-offlimits-tint" },
+  { value: "outOfScope", label: "Out of scope", className: "text-u-signal bg-u-signal-tint" },
 ];
 
 const BY_VALUE = new Map(CANDIDATE_STATUSES.map((status) => [status.value, status]));
@@ -76,7 +76,7 @@ export function candidateGenderLabel(gender: CandidateGender | null): string | n
 
 /** Which door a profile came through, in the colours the Companies grid gives the same three sources. */
 export const CANDIDATE_SOURCE_STYLES: Record<CandidateSource, { label: string; className: string }> = {
-  manual: { label: "Manual", className: "text-amber bg-amber-dim" },
-  csv: { label: "Import", className: "text-text2 bg-line-soft" },
-  extension: { label: "Plugin", className: "text-green bg-green-dim" },
+  manual: { label: "Manual", className: "text-u-accent bg-u-accent-tint" },
+  csv: { label: "Import", className: "text-u-text2 bg-u-border" },
+  extension: { label: "Plugin", className: "text-u-direct bg-u-direct-tint" },
 };

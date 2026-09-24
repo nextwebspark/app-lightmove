@@ -68,7 +68,7 @@ check_code E2.1 "CLIENT cannot be granted through the roster" 400 VALIDATION_FAI
 # The rule's own wording now reaches the caller, rather than being logged at DEBUG while the response
 # said only "One or more fields are invalid".
 check E2.2 "and the admin is told why" \
-  "Clients are invited to a project, not granted through the roster" "$(json '.detail')"
+  "Hiring managers are invited to a position, not granted through the roster" "$(json '.detail')"
 # As a banner rather than a field error, which is the right channel here: the roster editor is a role
 # set, not a single input. ApiException.withField is used where a rule does belong to one field —
 # the password rules take that path.

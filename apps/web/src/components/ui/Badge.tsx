@@ -5,13 +5,13 @@ import type { ProjectHealth, ProjectStage } from "../../features/projects/api/ty
  * HEALTH tables.
  */
 const STAGE_STYLES: Record<ProjectStage, { label: string; className: string }> = {
-  BRIEF: { label: "Brief", className: "text-text2 bg-panel2 border-transparent" },
-  UNIVERSE: { label: "Universe", className: "text-sky bg-sky-dim border-transparent" },
-  LOCKED: { label: "Universe locked", className: "text-sky border-sky" },
-  MAPPING: { label: "Mapping", className: "text-amber bg-amber-dim border-transparent" },
-  OUTREACH: { label: "Outreach live", className: "text-amber bg-amber-dim border-transparent" },
-  DELIVERED: { label: "Shortlist delivered", className: "text-green bg-green-dim border-transparent" },
-  CLOSED: { label: "Closed", className: "text-text3 border-line-soft" },
+  BRIEF: { label: "Brief", className: "text-u-text2 border-u-border-strong" },
+  UNIVERSE: { label: "Universe", className: "text-u-accent bg-u-accent-tint border-transparent" },
+  LOCKED: { label: "Universe locked", className: "text-u-accent border-u-accent" },
+  MAPPING: { label: "Mapping", className: "text-u-accent bg-u-accent-tint border-transparent" },
+  OUTREACH: { label: "Outreach live", className: "text-u-accent border-u-accent" },
+  DELIVERED: { label: "Shortlist delivered", className: "text-u-direct bg-u-direct-tint border-transparent" },
+  CLOSED: { label: "Closed", className: "text-u-text3 border-u-border" },
 };
 
 export function stageLabel(stage: ProjectStage): string {
@@ -31,11 +31,10 @@ export function StagePill({ stage }: { stage: ProjectStage }) {
 }
 
 const HEALTH_STYLES: Record<ProjectHealth, { label: string; dot: string; text: string }> = {
-  OK: { label: "On track", dot: "bg-green", text: "text-text2" },
-  // Uncava's warning colour, not the accent: under the Uncava aliases "amber" is indigo.
+  OK: { label: "On track", dot: "bg-u-direct", text: "text-u-text2" },
   RISK: { label: "At risk", dot: "bg-u-signal", text: "text-u-signal" },
-  OFF: { label: "Off track", dot: "bg-red", text: "text-red" },
-  DONE: { label: "Complete", dot: "bg-text3", text: "text-text3" },
+  OFF: { label: "Off track", dot: "bg-u-offlimits", text: "text-u-offlimits" },
+  DONE: { label: "Complete", dot: "bg-u-text3", text: "text-u-text3" },
 };
 
 export function HealthDot({ health }: { health: ProjectHealth }) {

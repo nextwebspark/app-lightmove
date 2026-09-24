@@ -62,7 +62,7 @@ export function PaginationBar({
         disabled={page === 0}
         onClick={() => onPage(page - 1)}
       />
-      <span className="inline-flex items-center gap-2 rounded-[6px] border border-line-soft px-3 py-1.5 font-sans text-[13px] font-semibold text-text">
+      <span className="inline-flex items-center gap-2 rounded-[6px] border border-u-border px-3 py-1.5 font-sans text-[13px] font-semibold text-u-text">
         {page + 1}
       </span>
       <PageButton
@@ -71,16 +71,16 @@ export function PaginationBar({
         disabled={page >= lastPage}
         onClick={() => onPage(page + 1)}
       />
-      <span className="font-sans text-[13px] text-text3">{countLabel()}</span>
+      <span className="font-sans text-[13px] text-u-text3">{countLabel()}</span>
 
       {/* `ms-auto` here rather than on `trailing`, so the size control and whatever the caller puts
           beside it travel to the right edge as one group. */}
-      <label className="ms-auto flex items-center gap-2 font-sans text-[13px] text-text3">
+      <label className="ms-auto flex items-center gap-2 font-sans text-[13px] text-u-text3">
         Rows per page
         <select
           value={size}
           onChange={(event) => resize(Number(event.target.value))}
-          className="rounded-[6px] border border-line-soft bg-transparent px-3 py-1.5 font-sans text-[13px] font-semibold text-text outline-none transition hover:border-line focus:border-sky"
+          className="rounded-[6px] border border-u-border bg-transparent px-3 py-1.5 font-sans text-[13px] font-semibold text-u-text outline-none transition hover:border-u-border-strong focus:border-u-accent"
         >
           {PAGE_SIZE_OPTIONS.map((option) => (
             <option key={option} value={option}>
@@ -100,9 +100,9 @@ export function PaginationBar({
  * the same object as the pagers rather than a copy of their class string.
  */
 export const PAGER_ICON_BUTTON =
-  "grid size-10 place-items-center rounded-[6px] border border-line-soft lg:size-8 text-text3 " +
-  "transition hover:border-line hover:text-text disabled:opacity-40 " +
-  "disabled:hover:border-line-soft disabled:hover:text-text3";
+  "grid size-10 place-items-center rounded-[6px] border border-u-border lg:size-8 text-u-text3 " +
+  "transition hover:border-u-border-strong hover:text-u-text disabled:opacity-40 " +
+  "disabled:hover:border-u-border disabled:hover:text-u-text3";
 
 function PageButton({
   label,

@@ -40,7 +40,7 @@ export function DetectedFieldInput({
     <div>
       <label
         htmlFor={inputId}
-        className="font-mono text-[9.5px] font-semibold uppercase tracking-[0.11em] text-text3"
+        className="font-mono text-[9.5px] font-semibold uppercase tracking-[0.11em] text-u-text3"
       >
         {label}
       </label>
@@ -53,8 +53,8 @@ export function DetectedFieldInput({
         aria-busy={isReading || undefined}
         readOnly={isLocked}
         className={cn(
-          "mt-1 w-full rounded-[7px] border border-line bg-panel2 px-2.5 py-[7px] font-mono text-[12.5px] text-text outline-none",
-          isLocked ? "cursor-default border-line-soft bg-transparent" : "focus:border-sky",
+          "mt-1 w-full rounded-[7px] border border-u-border-strong bg-u-raised px-2.5 py-[7px] font-mono text-[12.5px] text-u-text outline-none",
+          isLocked ? "cursor-default border-u-border bg-transparent" : "focus:border-u-accent",
           isReading && "animate-pulse opacity-60",
         )}
       />

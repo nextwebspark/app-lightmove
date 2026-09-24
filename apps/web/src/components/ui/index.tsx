@@ -42,14 +42,14 @@ interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
 }
 
 const BUTTON_STYLES: Record<ButtonVariant, string> = {
-  // The amber call-to-action. Its label is near-black in both themes — see --color-on-amber.
+  // The filled accent call-to-action: the one UNCAVA stop that takes white text, in both themes.
   primary:
-    "bg-amber-btn border border-amber-btn text-on-amber font-semibold hover:brightness-105 " +
-    "disabled:opacity-50 disabled:hover:brightness-100",
+    "bg-u-accent-solid border border-u-accent-solid text-white font-medium hover:bg-u-accent-solid-hover hover:border-u-accent-solid-hover " +
+    "disabled:opacity-50 disabled:hover:bg-u-accent-solid disabled:hover:border-u-accent-solid",
   secondary:
-    "bg-panel border border-line text-text2 font-medium hover:text-text hover:border-text3 " +
+    "bg-u-surface border border-u-border-strong text-u-text2 font-medium hover:text-u-text hover:border-u-text3 " +
     "disabled:opacity-50",
-  ghost: "bg-transparent border-none text-text3 font-medium hover:text-text2 hover:underline",
+  ghost: "bg-transparent border-none text-u-text3 font-medium hover:text-u-text2 hover:underline",
 };
 
 export function Button({
@@ -65,7 +65,7 @@ export function Button({
       {...rest}
       disabled={disabled || loading}
       className={cn(
-        "flex items-center justify-center gap-2 rounded-lg px-3.5 py-2.5 text-[13.5px] transition",
+        "flex items-center justify-center gap-2 rounded-[6px] px-3.5 py-2.5 text-[13.5px] transition",
         "disabled:cursor-not-allowed",
         BUTTON_STYLES[variant],
         className,
@@ -117,7 +117,7 @@ export function Field({
   return (
     <label className="mb-4 block">
       <span className="mb-1.5 flex items-baseline justify-between">
-        <span className="font-mono text-[10px] font-semibold uppercase tracking-[0.12em] text-text3">
+        <span className="font-mono text-[10px] font-semibold uppercase tracking-[0.12em] text-u-text3">
           {label}
         </span>
         {action}
@@ -133,9 +133,9 @@ export function Field({
           all and simply finds the form refusing to submit. */}
       <span aria-live="polite">
         {error ? (
-          <span className="mt-1.5 block font-mono text-[11px] text-red">{error}</span>
+          <span className="mt-1.5 block font-mono text-[11px] text-u-offlimits">{error}</span>
         ) : hint ? (
-          <span className="mt-1.5 block font-mono text-[11px] text-text3">{hint}</span>
+          <span className="mt-1.5 block font-mono text-[11px] text-u-text3">{hint}</span>
         ) : null}
       </span>
     </label>
@@ -145,15 +145,15 @@ export function Field({
 // ── Input / Select ──────────────────────────────────────────────────────────
 
 const CONTROL =
-  "w-full rounded-lg border bg-panel2 px-3 py-2.5 font-mono text-[13px] text-text outline-none " +
-  "transition focus:border-sky";
+  "w-full rounded-[6px] border bg-u-raised px-3 py-2.5 font-mono text-[13px] text-u-text outline-none " +
+  "transition focus:border-u-accent";
 
 export function Input({ invalid, className, ...rest }: InputHTMLAttributes<HTMLInputElement> & { invalid?: boolean }) {
   return (
     <input
       {...rest}
       aria-invalid={invalid}
-      className={cn(CONTROL, invalid ? "border-red" : "border-line", className)}
+      className={cn(CONTROL, invalid ? "border-u-offlimits" : "border-u-border-strong", className)}
     />
   );
 }
@@ -168,7 +168,7 @@ export function TextArea({
     <textarea
       {...rest}
       aria-invalid={invalid}
-      className={cn(CONTROL, "resize-y", invalid ? "border-red" : "border-line", className)}
+      className={cn(CONTROL, "resize-y", invalid ? "border-u-offlimits" : "border-u-border-strong", className)}
     />
   );
 }
@@ -183,7 +183,7 @@ export function Select({
     <select
       {...rest}
       aria-invalid={invalid}
-      className={cn(CONTROL, invalid ? "border-red" : "border-line", className)}
+      className={cn(CONTROL, invalid ? "border-u-offlimits" : "border-u-border-strong", className)}
     >
       {children}
     </select>
@@ -194,7 +194,7 @@ export function Select({
 
 export function Card({ children, className }: { children: ReactNode; className?: string }) {
   return (
-    <div className={cn("animate-fade-up rounded-panel border border-line bg-panel p-6 shadow-panel sm:p-8", className)}>
+    <div className={cn("animate-fade-up rounded-u-modal border border-u-border-strong bg-u-surface p-6 shadow-u-e3 sm:p-8", className)}>
       {children}
     </div>
   );
@@ -221,7 +221,7 @@ export function Logo() {
   return (
     <div className="flex animate-fade-up items-center gap-3.5">
       <AppIcon className="h-12" />
-      <span className="text-[16px] font-medium uppercase tracking-[0.32em] text-text">Uncava</span>
+      <span className="font-brand text-[16px] font-extralight uppercase tracking-[0.38em] text-u-text">Uncava</span>
     </div>
   );
 }
@@ -231,7 +231,7 @@ export function AuthLogo() {
   return (
     <div className="flex animate-fade-up items-center gap-3.5">
       <AppIcon className="h-14" />
-      <span className="text-[19px] font-medium uppercase tracking-[0.32em] text-text">Uncava</span>
+      <span className="font-brand text-[19px] font-extralight uppercase tracking-[0.38em] text-u-text">Uncava</span>
     </div>
   );
 }
@@ -247,17 +247,44 @@ export function FormError({ message }: { message: string | null }) {
   return (
     <div
       role="alert"
-      className="mb-4 rounded-lg bg-red-dim px-3 py-2.5 font-mono text-[11.5px] text-red"
+      className="mb-4 rounded-lg bg-u-offlimits-tint px-3 py-2.5 font-mono text-[11.5px] text-u-offlimits"
     >
       {message}
     </div>
   );
 }
 
-/** The blue informational note from the Signup mockup's invite step. */
-export function Notice({ children }: { children: ReactNode }) {
+/**
+ * The accent informational note. Bare, it is the Signup invite step's one-liner; given a `title`, it
+ * is the New position modal's bordered summary block, the title as its eyebrow.
+ */
+export function Notice({
+  title,
+  className,
+  children,
+}: {
+  title?: string;
+  className?: string;
+  children: ReactNode;
+}) {
+  if (title) {
+    return (
+      <div className={cn("mb-4 rounded-lg border border-u-accent bg-u-accent-tint px-3.5 py-3", className)}>
+        <div className="mb-1.5 flex items-center gap-1.5">
+          <span aria-hidden="true" className="size-1.5 rounded-full bg-u-accent" />
+          <span className="text-[10px] font-semibold uppercase tracking-[0.1em] text-u-accent">{title}</span>
+        </div>
+        {children}
+      </div>
+    );
+  }
   return (
-    <div className="mb-5 flex items-center gap-2 rounded-lg bg-sky-dim px-3 py-2.5 font-mono text-[11.5px] text-sky">
+    <div
+      className={cn(
+        "mb-5 flex items-center gap-2 rounded-lg bg-u-accent-tint px-3 py-2.5 font-mono text-[11.5px] text-u-accent",
+        className,
+      )}
+    >
       <svg
         className="size-3.5 shrink-0"
         viewBox="0 0 24 24"
@@ -302,19 +329,21 @@ export function Toggle({
       onClick={() => onChange?.(!checked)}
       className={cn(
         "relative h-[18px] w-8 shrink-0 rounded-full border-none p-0 transition-colors",
-        checked ? "bg-amber-btn" : "bg-line",
+        checked ? "bg-u-accent-solid" : "bg-u-border-strong",
         disabled ? "cursor-not-allowed opacity-60" : "cursor-pointer",
       )}
     >
       <span
         className={cn(
           "absolute left-0.5 top-0.5 size-3.5 rounded-full transition-transform",
-          checked ? "translate-x-3.5 bg-on-amber" : "bg-text3",
+          checked ? "translate-x-3.5 bg-white" : "bg-u-text3",
         )}
       />
     </button>
   );
 }
 
+export { ChoiceCardGroup } from "./ChoiceCardGroup";
+export type { ChoiceCardOption } from "./ChoiceCardGroup";
 export { SegmentedControl } from "./SegmentedControl";
 export type { SegmentedOption } from "./SegmentedControl";
