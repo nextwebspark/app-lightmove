@@ -1,6 +1,7 @@
 package app.lightmove.api.enrichment.company.service;
 
 import app.lightmove.api.enrichment.company.model.VendorCompanyRecord;
+import java.util.List;
 import java.util.Optional;
 
 /**
@@ -12,6 +13,15 @@ import java.util.Optional;
 public interface LinkedInCompanyEnricher {
 
     Optional<VendorCompanyRecord> fetch(String linkedinSlug);
+
+    /**
+     * The pages whose name contains {@code namePart}, in one country — or anywhere, for a null
+     * {@code countryCode} — with at least {@code minEmployees}. Every hit is billed, so a provider
+     * answers a handful rather than every match.
+     */
+    default List<VendorCompanyRecord> searchByName(String namePart, String countryCode, int minEmployees) {
+        return List.of();
+    }
 
     /** Who answered. Stored beside every cached record, a miss included, so a row names its source. */
     String provider();

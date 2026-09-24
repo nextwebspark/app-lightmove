@@ -22,7 +22,7 @@ export function AssistantDock({
   projectId,
 }: {
   contextLabel: string;
-  projectId: string | null;
+  projectId: string;
 }) {
   const { open } = useAssistant();
   const [mounted, setMounted] = useState(open);

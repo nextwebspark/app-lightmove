@@ -69,7 +69,10 @@ export function AppShell({
             draws it this way because the grid has to stay tickable while the assistant is open. The
             dock is the slot rather than the panel, so main narrows on the same curve the panel
             arrives on instead of losing its width a frame ahead of it. */}
-        <AssistantDock contextLabel={assistantContext} projectId={assistantProjectId} />
+        {/* Inside a project only, and opened from Strategy's AI Research: no screen floats its own way in. */}
+        {assistantProjectId && (
+          <AssistantDock contextLabel={assistantContext} projectId={assistantProjectId} />
+        )}
       </div>
     </div>
   );

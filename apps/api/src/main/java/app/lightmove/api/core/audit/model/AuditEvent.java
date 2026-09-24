@@ -32,7 +32,7 @@ import org.hibernate.annotations.Immutable;
  * {@code UPDATE} hits the append-only trigger at commit, long after {@code AuditEventWriter} has
  * returned and outside the try/catch that exists so a lost audit row never fails the work it
  * records. The annotation removes the possibility rather than the symptom: nothing dirty-checks
- * these rows at all. {@code AssistantEvent} and {@code GeocodedPlace} carry it for the same reason;
+ * these rows at all. {@code GeocodedPlace} carries it for the same reason;
  * inserts are unaffected, so it composes with {@code IDENTITY}.
  */
 @Entity

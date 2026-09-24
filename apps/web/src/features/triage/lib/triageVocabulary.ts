@@ -13,6 +13,7 @@ export const SOURCE_STYLES: Record<TriageCompanySource, { label: string; classNa
   manual: { label: "Manual", className: "text-u-accent bg-u-accent-tint" },
   extension: { label: "Plugin", className: "text-u-direct bg-u-direct-tint" },
   csv: { label: "Import", className: "text-u-text2 bg-u-border" },
+  assistant: { label: "Assistant", className: "text-u-inferred bg-u-inferred-tint" },
 };
 
 export interface TriageMove {
