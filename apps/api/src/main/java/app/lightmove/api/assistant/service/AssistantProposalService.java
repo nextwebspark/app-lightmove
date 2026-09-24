@@ -23,11 +23,14 @@ import java.util.UUID;
 import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 /**
  * Files the ticked companies of a card: universe companies through the door Strategy's bulk add uses,
  * researched ones through the capture door with what their page said. The project and the companies
- * come from the stored turn, so the request can only choose among what was offered.
+ * come from the stored turn, so the request can only choose among what was offered. One transaction
+ * over a locked turn: a card is filed whole or not at all, and a second accept waits for the first
+ * and is then refused as already filed.
  */
 @Service
 @RequiredArgsConstructor
@@ -38,9 +41,10 @@ public class AssistantProposalService {
     private final ProjectAccess projectAccess;
     private final TriageCompanyService triage;
 
+    @Transactional
     public TriageBulkAddResponse accept(UUID turnId, UUID userId, UUID workspaceId,
                                         AcceptProposalRequest request, HttpServletRequest httpRequest) {
-        AssistantTurn turn = turns.findByIdAndWorkspaceIdAndActorUserId(turnId, workspaceId, userId)
+        AssistantTurn turn = turns.findForUpdateByIdAndWorkspaceIdAndActorUserId(turnId, workspaceId, userId)
                 .filter(found -> found.getProposal() != null)
                 .orElseThrow(() -> ApiException.of(ErrorCode.NOT_FOUND));
         if (turn.getProposalAccepted() != null) {
