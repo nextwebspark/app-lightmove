@@ -280,6 +280,81 @@ class ProjectFlowIntegrationTest extends FlowTestSupport {
         assertThat(countsOf(projects, untouched)).containsExactly(0L, 0L);
     }
 
+    @Test
+    @DisplayName("coverage counts universe companies with someone mapped, and engaged executives")
+    void coverageAndEngagedCounts() throws Exception {
+        String admin = adminOf("Coverage Firm");
+        String projectId = createProject(admin, createClient(admin, "Agthia Group"), "Group CFO");
+
+        String covered = captureCompany(admin, projectId, "ACWA Power");
+        captureCompany(admin, projectId, "Emaar Properties");
+        String declined = captureCompany(admin, projectId, "Gulf Trader");
+        mapExecutive(admin, projectId, covered, "Yasmin El-Sayed", "engaged");
+        mapExecutive(admin, projectId, covered, "Hana Aziz", null);
+        // Someone at a declined company covers nothing: coverage is read against the universe.
+        mapExecutive(admin, projectId, declined, "Omar Farouk", "interested");
+        decline(admin, projectId, declined);
+
+        JsonNode project = projectIn(body(mvc.perform(get("/api/v1/projects")
+                        .header("Authorization", "Bearer " + admin))
+                .andExpect(status().isOk())
+                .andReturn()), projectId);
+
+        assertThat(project.get("companies").asLong()).isEqualTo(2L);
+        assertThat(project.get("mappedCompanies").asLong()).isEqualTo(1L);
+        assertThat(project.get("engagedCandidates").asLong()).isEqualTo(2L);
+    }
+
+    @Test
+    @DisplayName("activity lists the mandate's work newest first, pages by cursor, and stays in its tenant")
+    void activityFeed() throws Exception {
+        String admin = adminOf("Activity Firm");
+        String projectId = createProject(admin, createClient(admin, "Agthia Group"), "Group CFO");
+        String company = captureCompany(admin, projectId, "ACWA Power");
+        mapExecutive(admin, projectId, company, "Yasmin El-Sayed", null);
+        decline(admin, projectId, company);
+
+        JsonNode page = body(mvc.perform(get("/api/v1/projects/" + projectId + "/activity")
+                        .header("Authorization", "Bearer " + admin))
+                .andExpect(status().isOk())
+                .andReturn());
+        JsonNode entries = page.get("entries");
+        assertThat(entries).extracting(entry -> entry.get("type").asText()).containsExactly(
+                "TRIAGE_COMPANY_MOVED", "CANDIDATE_ADDED", "TRIAGE_COMPANY_CAPTURED", "PROJECT_CREATED");
+        assertThat(entries.get(0).get("details").get("status").asText()).isEqualTo("declined");
+        assertThat(entries.get(0).get("actorName").asText()).isEqualTo("Alok Kumar");
+        assertThat(entries.get(0).has("ipAddress")).isFalse();
+        assertThat(page.get("nextCursor").isNull()).isTrue();
+
+        JsonNode first = body(mvc.perform(get("/api/v1/projects/" + projectId + "/activity?limit=3")
+                        .header("Authorization", "Bearer " + admin))
+                .andExpect(status().isOk())
+                .andReturn());
+        assertThat(first.get("entries").size()).isEqualTo(3);
+        JsonNode rest = body(mvc.perform(get("/api/v1/projects/" + projectId + "/activity?limit=3&before="
+                                + first.get("nextCursor").asLong())
+                        .header("Authorization", "Bearer " + admin))
+                .andExpect(status().isOk())
+                .andReturn());
+        assertThat(rest.get("entries")).extracting(entry -> entry.get("type").asText())
+                .containsExactly("PROJECT_CREATED");
+
+        String rivalEmail = "boss@rival-" + domain;
+        createWorkspace(verifiedUser("Rival Boss", rivalEmail), "Rival Activity Firm");
+        mvc.perform(get("/api/v1/projects/" + projectId + "/activity")
+                        .header("Authorization", "Bearer " + login(rivalEmail)))
+                .andExpect(status().isNotFound());
+    }
+
+    private static JsonNode projectIn(JsonNode projects, String projectId) {
+        for (JsonNode project : projects) {
+            if (project.get("id").asText().equals(projectId)) {
+                return project;
+            }
+        }
+        throw new AssertionError(projectId + " is not in the list: " + projects);
+    }
+
     /** The {@code companies} and {@code candidates} one mandate reports, in that order. */
     private static long[] countsOf(JsonNode projects, String projectId) {
         for (JsonNode project : projects) {
