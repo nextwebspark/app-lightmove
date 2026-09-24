@@ -5,7 +5,7 @@ import { useNavigate } from "react-router-dom";
 import { AuthLogo, Button, Card, Field, FormError, Select } from "../../../components/ui";
 import { ApiRequestError } from "../../../lib/apiClient";
 import { CompanyPicker, type CompanySearchSource } from "../../clients/components/CompanyPicker";
-import { pickedCompanyName, type CompanyPick } from "../../clients/lib/companyPick";
+import { pickedCompanyName, workspaceCompanyPick, type CompanyPick } from "../../clients/lib/companyPick";
 import { useAuth } from "../AuthProvider";
 import { SIGNUP_STEPS, Stepper } from "../components/Stepper";
 import * as authApi from "../api/authApi";
@@ -62,7 +62,9 @@ function CreateWorkspace({
 }) {
   const [formError, setFormError] = useState<string | null>(null);
 
-  const [pick, setPick] = useState<CompanyPick | null>(() => (editing ? pickOf(editing) : null));
+  const [pick, setPick] = useState<CompanyPick | null>(() =>
+    editing ? workspaceCompanyPick(editing.name, editing.company) : null,
+  );
 
   const {
     register,
@@ -187,25 +189,6 @@ const ONBOARDING_COMPANY_SEARCH: CompanySearchSource = {
   key: authApi.ONBOARDING_COMPANY_SEARCH_KEY,
   search: authApi.searchOnboardingCompanies,
 };
-
-/** The workspace they already made, as the picker shows a pick: the universe row it was filed under, or its typed name. */
-function pickOf(workspace: WorkspaceSummary): CompanyPick {
-  const { company } = workspace;
-  if (!company) return { source: "custom", name: workspace.name, domain: "", hqCountry: "" };
-  return {
-    source: "universe",
-    company: {
-      apolloAccountId: company.apolloAccountId,
-      companyName: workspace.name,
-      industry: company.industry,
-      companyCity: company.city,
-      companyCountry: company.country,
-      website: company.website,
-      logoUrl: company.logoUrl,
-      numEmployees: null,
-    },
-  };
-}
 
 /** The universe's headcount as one of the step's size bands; null leaves the dropdown where it was. */
 function companySizeOf(numEmployees: number | null): string | null {

@@ -84,6 +84,24 @@ class AssistantIntegrationTest extends FlowTestSupport {
     }
 
     @Test
+    @DisplayName("a firm with no sector on record is offered retail's starters, and only on a seated project")
+    void offersRetailStartersToAFirmWithNoSector() throws Exception {
+        Firm firm = firm("Assistant Starters Firm");
+
+        mvc.perform(get("/api/v1/projects/" + firm.projectId + "/assistant/starters")
+                        .header("Authorization", "Bearer " + firm.admin))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.sectorAssumed").value(true))
+                .andExpect(jsonPath("$.starters[0].kind").value("SECTOR"))
+                .andExpect(jsonPath("$.starters[0].prompt").value("Top 10 Retail companies"))
+                .andExpect(jsonPath("$.starters[1].kind").value("ADJACENT"));
+
+        mvc.perform(get("/api/v1/projects/" + firm.projectId + "/assistant/starters")
+                        .header("Authorization", "Bearer " + login(firm.saraEmail)))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
     @DisplayName("someone else's chat is not found, and a chat cannot be continued from another project")
     void keepsChatsPrivateAndInTheirProject() throws Exception {
         Firm firm = firm("Assistant Private Firm");

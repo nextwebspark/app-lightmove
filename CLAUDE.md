@@ -396,9 +396,11 @@ unit expects the map or the shortlist) and, on a search only, `mapping_target_da
 and stays the brief's hire date; the list's Target and the derived health read `delivery_date` and
 fall back to it (`Project.deadline()`, the SPA's `deadlineOf`).
 V69 adds the workspace's `persona` jsonb — main business, sectors, competitors, geographies, notes —
-for the assistant to tailor research to: seeded at signup with the picked company's industry, written
-by an admin through `PUT /workspace/persona` (Settings → General), read by staff on `GET /workspace`
-and never carried on `/me`.
+for the assistant to tailor research to: seeded at signup with the picked company's industry, its
+sector group and its country — and re-filed when Settings re-picks the firm, the old company's chips
+giving way to the new one's (`WorkspacePersona.refiledFrom`) — written by an admin through
+`PUT /workspace/persona` (Settings → General), read by staff on `GET /workspace` and never carried
+on `/me`. The assistant's empty chat offers a sector starter for each of its first two sectors.
 V57 adds the `PLATFORM` role scope and `app_lm_user_platform_role` — written by
 `grant-platform-role.sh`, never by the application.
 `app_lm_position_document` holds the attached position description inline (`bytea`) — one small file per

@@ -22,14 +22,11 @@ export function AssistantProposalCard({
   proposal,
   outcome,
   filing,
-  pending = false,
   onAccept,
 }: {
   proposal: AssistantProposal;
   outcome: ProposalOutcome | null;
   filing: boolean;
-  /** Drawn before the answer is saved: nothing can be filed until the turn exists. */
-  pending?: boolean;
   onAccept: (companyIds: string[], status: TriageCompanyStatus) => void;
 }) {
   const [ticked, setTicked] = useState<string[]>(() =>
@@ -110,14 +107,14 @@ export function AssistantProposalCard({
 
       <div className="border-t border-u-border bg-u-raised px-3 py-2.5">
         <p className="mb-[7px] font-mono text-[11px] text-u-text3">
-          {pending ? "Available when the answer is ready" : acceptCountLabel(ticked.length)}
+          {acceptCountLabel(ticked.length)}
         </p>
         <div className="flex flex-wrap items-center gap-1.5">
           {TRIAGE_STAGES.map((stage) => (
             <button
               key={stage.status}
               type="button"
-              disabled={pending || filing || ticked.length === 0}
+              disabled={filing || ticked.length === 0}
               onClick={() => onAccept(ticked, stage.status)}
               title={`File the selected companies as ${stage.label}`}
               className={cn(
