@@ -248,7 +248,16 @@ case "${1:-up}" in
     docker exec -i "$PG_CONTAINER" psql -U lm_app -d lightmove -q -v ON_ERROR_STOP=1 -v project="${2:-}" \
       < "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/seed-report.sql"
     ;;
+  seed-firm)
+    # The workspace's company and persona for the assistant's prompt. Local container only, for
+    # seed-report's reason; fills what is empty and never overwrites a persona typed in Settings.
+    require_docker
+    running || { say "$PG_CONTAINER is not running — run \`npm run dev:db\` first"; exit 1; }
+    say "seeding the firm persona into ${2:-the newest workspace}"
+    docker exec -i "$PG_CONTAINER" psql -U lm_app -d lightmove -q -v ON_ERROR_STOP=1 -v workspace="${2:-}" \
+      < "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/seed-firm.sql"
+    ;;
   *)
-    say "usage: ops/dev/db.sh [up|down|reset|psql|seed-report [project-id]|apollo-pull|apollo-save|apollo-restore]"
+    say "usage: ops/dev/db.sh [up|down|reset|psql|seed-report [project-id]|seed-firm [workspace-id]|apollo-pull|apollo-save|apollo-restore]"
     exit 1 ;;
 esac
