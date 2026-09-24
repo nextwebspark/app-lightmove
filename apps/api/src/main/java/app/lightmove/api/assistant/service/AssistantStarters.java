@@ -3,14 +3,17 @@ package app.lightmove.api.assistant.service;
 import app.lightmove.api.assistant.constant.StarterKind;
 import app.lightmove.api.assistant.dto.AssistantStarter;
 import app.lightmove.api.assistant.dto.AssistantStartersResponse;
+import app.lightmove.api.common.industry.service.Industries;
 import app.lightmove.api.strategy.service.IndustryAdjacency;
 import app.lightmove.api.workspace.model.FirmFacts;
 import app.lightmove.api.workspace.model.WorkspacePersona;
 import app.lightmove.api.workspace.service.FirmService;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 import java.util.UUID;
@@ -23,6 +26,7 @@ import org.springframework.stereotype.Service;
  * whose executives move well into it, and companies of its size. The sector an admin wrote into the
  * persona wins over the picked company's universe industry, which is often a neighbour of the firm's
  * real business (an online retailer filed under internet); a firm with neither is offered retail's.
+ * The first two sectors each get a prompt of their own; neighbours and size follow the first.
  */
 @Service
 @RequiredArgsConstructor
@@ -31,7 +35,7 @@ public class AssistantStarters {
     private static final String ASSUMED_SECTOR = "retail";
     private static final int MAX_TEXT = 80;
     private static final int OPEN_ENDED_ABOVE = 10_000;
-    private static final Set<String> LOWER_CASE_WORDS = Set.of("&", "and", "of", "the", "for", "in");
+    private static final int MAX_SECTOR_STARTERS = 2;
 
     private final FirmService firms;
     private final IndustryAdjacency adjacency;
@@ -39,29 +43,46 @@ public class AssistantStarters {
     public AssistantStartersResponse forWorkspace(UUID workspaceId) {
         FirmFacts firm = firms.firmOf(workspaceId);
         WorkspacePersona persona = firm.persona() == null ? WorkspacePersona.empty() : firm.persona();
-        String recorded = firstPresent(first(persona.sectors()), firm.industry());
-        String sector = recorded == null ? ASSUMED_SECTOR : recorded;
+        List<String> recorded = recordedSectors(persona.sectors(), firm.industry());
+        String sector = recorded.isEmpty() ? ASSUMED_SECTOR : recorded.getFirst();
         String place = firstPresent(firm.country(), first(persona.geographies()));
         String where = place == null ? "" : " in " + place;
-        String sectorName = displayed(sector);
+        String sectorName = Industries.displayNameOf(sector);
 
         List<AssistantStarter> starters = new ArrayList<>();
-        starters.add(new AssistantStarter(StarterKind.SECTOR, "Top 10 " + sectorName + " companies" + where));
+        for (String each : recorded.isEmpty() ? List.of(sector) : recorded) {
+            starters.add(new AssistantStarter(StarterKind.SECTOR,
+                    "Top 10 " + Industries.displayNameOf(each) + " companies" + where));
+        }
         List<String> neighbours = neighboursPreferringPersona(sector, persona.sectors());
         if (!neighbours.isEmpty()) {
             starters.add(new AssistantStarter(StarterKind.ADJACENT, "Companies in the sectors next to "
                     + sectorName + where + " whose executives move well into " + sectorName));
-            starters.add(new AssistantStarter(StarterKind.ADJACENT, "Top " + displayed(neighbours.getFirst())
+            starters.add(new AssistantStarter(StarterKind.ADJACENT, "Top " + Industries.displayNameOf(neighbours.getFirst())
                     + " companies" + where + " with executives who could move into " + sectorName));
         }
         Integer employees = firm.employees();
         String name = clean(firm.name());
-        if (recorded != null && employees != null && employees > 0 && name != null) {
+        if (!recorded.isEmpty() && employees != null && employees > 0 && name != null) {
             starters.add(new AssistantStarter(StarterKind.SIZE,
                     sectorName + " companies" + where + " with " + sizeBand(employees)
                             + ", similar in size to " + name));
         }
-        return new AssistantStartersResponse(recorded == null, List.copyOf(starters));
+        return new AssistantStartersResponse(recorded.isEmpty(), List.copyOf(starters));
+    }
+
+    /** The persona's first sectors, or the company's industry when it names none; one prompt each. */
+    private static List<String> recordedSectors(List<String> personaSectors, String industry) {
+        Map<String, String> distinct = new LinkedHashMap<>();
+        (personaSectors == null ? List.<String>of() : personaSectors).stream()
+                .map(AssistantStarters::clean)
+                .filter(Objects::nonNull)
+                .forEach(value -> distinct.putIfAbsent(value.toLowerCase(Locale.ROOT), value));
+        if (distinct.isEmpty()) {
+            String cleanIndustry = clean(industry);
+            return cleanIndustry == null ? List.of() : List.of(cleanIndustry);
+        }
+        return distinct.values().stream().limit(MAX_SECTOR_STARTERS).toList();
     }
 
     /** The firm's own sectors first, when the list puts them beside its industry; then the list's order. */
@@ -99,22 +120,6 @@ public class AssistantStarters {
             }
         }
         return Math.round(best);
-    }
-
-    /** The universe spells industries in lower case; a sector someone typed keeps its own casing. */
-    private static String displayed(String sector) {
-        if (!sector.equals(sector.toLowerCase(Locale.ROOT))) {
-            return sector;
-        }
-        String[] words = sector.split(" ");
-        for (int index = 0; index < words.length; index++) {
-            String word = words[index];
-            if (word.isEmpty() || (index > 0 && LOWER_CASE_WORDS.contains(word))) {
-                continue;
-            }
-            words[index] = Character.toUpperCase(word.charAt(0)) + word.substring(1);
-        }
-        return String.join(" ", words);
     }
 
     private static String first(List<String> values) {

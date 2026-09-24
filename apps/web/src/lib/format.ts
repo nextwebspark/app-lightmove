@@ -5,6 +5,19 @@ export function titleCase(value: string): string {
   return value.charAt(0) + value.slice(1).toLowerCase();
 }
 
+const LOWER_CASE_WORDS = new Set(["&", "and", "of", "the", "for", "in"]);
+
+/** "oil & energy" → "Oil & Energy" — the server's `Industries.displayNameOf`, for the universe's lower-case labels. */
+export function industryDisplayName(label: string): string {
+  if (label !== label.toLowerCase()) return label;
+  return label
+    .split(" ")
+    .map((word, index) =>
+      word === "" || (index > 0 && LOWER_CASE_WORDS.has(word)) ? word : word.charAt(0).toUpperCase() + word.slice(1),
+    )
+    .join(" ");
+}
+
 /** "2026-09-15" → "15 Sep 2026", the mockups' date shape. */
 export function formatDate(isoDate: string | null | undefined): string {
   if (!isoDate) return "—";

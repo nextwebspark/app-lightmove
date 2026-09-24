@@ -75,7 +75,9 @@ class WorkspaceCompanyIntegrationTest extends FlowTestSupport {
 
         mvc.perform(get("/api/v1/workspace").header("Authorization", "Bearer " + login("alok@" + domain)))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.persona.sectors[0]").value("retail"))
+                .andExpect(jsonPath("$.persona.sectors[0]").value("Retail"))
+                .andExpect(jsonPath("$.persona.sectors[1]").value("Retail & Consumer"))
+                .andExpect(jsonPath("$.persona.geographies[0]").value("United Arab Emirates"))
                 .andExpect(jsonPath("$.persona.competitors").isEmpty())
                 .andExpect(jsonPath("$.company.logoUrl").value("https://logos.example/af.png"));
     }
@@ -95,7 +97,7 @@ class WorkspaceCompanyIntegrationTest extends FlowTestSupport {
     }
 
     @Test
-    @DisplayName("going back and typing a name by hand clears the picked firm's snapshot")
+    @DisplayName("going back and typing a name by hand clears the picked firm's snapshot, and the chips it filled")
     void typedNameClearsSnapshot() throws Exception {
         String alok = "alok@" + domain;
         String token = verifiedUser("Alok Kumar", alok);
@@ -114,10 +116,15 @@ class WorkspaceCompanyIntegrationTest extends FlowTestSupport {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.workspace.name").value("Nimbus Partners"))
                 .andExpect(jsonPath("$.workspace.company").value(org.hamcrest.Matchers.nullValue()));
+
+        mvc.perform(get("/api/v1/workspace").header("Authorization", "Bearer " + login(alok)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.persona.sectors").isEmpty())
+                .andExpect(jsonPath("$.persona.geographies").isEmpty());
     }
 
     @Test
-    @DisplayName("an existing workspace picks its firm in Settings and takes the universe's name and logo")
+    @DisplayName("an existing workspace picks its firm in Settings and takes its name, logo, sectors and country")
     void settingsPicksCompany() throws Exception {
         String alok = "alok@" + domain;
         createWorkspace(verifiedUser("Alok Kumar", alok), "Typed Firm");
@@ -136,11 +143,13 @@ class WorkspaceCompanyIntegrationTest extends FlowTestSupport {
                 .andExpect(jsonPath("$.company.city").value("Dubai"))
                 .andExpect(jsonPath("$.company.website").value("https://alfuttaim.com"))
                 .andExpect(jsonPath("$.company.logoUrl").value("https://logos.example/af.png"))
-                .andExpect(jsonPath("$.persona.sectors").isEmpty());
+                .andExpect(jsonPath("$.persona.sectors[0]").value("Retail"))
+                .andExpect(jsonPath("$.persona.sectors[1]").value("Retail & Consumer"))
+                .andExpect(jsonPath("$.persona.geographies[0]").value("United Arab Emirates"));
     }
 
     @Test
-    @DisplayName("typing a name in Settings clears the firm a workspace had picked")
+    @DisplayName("typing a name in Settings clears the firm a workspace had picked, and the chips it filled")
     void settingsTypedNameClearsSnapshot() throws Exception {
         String alok = "alok@" + domain;
         mvc.perform(post("/api/v1/onboarding/workspace")
@@ -158,7 +167,8 @@ class WorkspaceCompanyIntegrationTest extends FlowTestSupport {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.name").value("Nimbus Partners"))
                 .andExpect(jsonPath("$.company").value(org.hamcrest.Matchers.nullValue()))
-                .andExpect(jsonPath("$.persona.sectors[0]").value("retail"));
+                .andExpect(jsonPath("$.persona.sectors").isEmpty())
+                .andExpect(jsonPath("$.persona.geographies").isEmpty());
     }
 
     @Test
