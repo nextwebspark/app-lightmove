@@ -1,5 +1,5 @@
 import { request } from "../../../lib/apiClient";
-import type { Project, StaffRole } from "./types";
+import type { Project, ProjectType, StaffRole } from "./types";
 
 /**
  * Every call the projects feature makes, plus the query keys its screens share. Clients are their own
@@ -16,7 +16,10 @@ export function projects(): Promise<Project[]> {
 export function createProject(payload: {
   clientId: string;
   positionTitle: string;
-  targetDate?: string;
+  projectType: ProjectType;
+  startDate?: string;
+  deliveryDate?: string;
+  mappingTargetDate?: string;
 }): Promise<Project> {
   // No lead to choose: the server seats the creator as the mandate's lead.
   return request<Project>("/projects", { method: "POST", body: payload });

@@ -9,9 +9,8 @@ import { candidateStatusStyle } from "../../candidates/lib/candidateVocabulary";
 import { STATUS_TONES, statusTone } from "../lib/statusTone";
 
 /**
- * The drill-in panel every chapter opens: anchored to the edge of the screen, full height, in the
- * report's own palette. Its own shell rather than the app's floating drawer, which is drawn in the
- * other palette and would put an amber-and-sky panel over an indigo report.
+ * The drill-in panel every chapter opens: anchored to the edge of the screen and full height, where
+ * the app's drawer floats inset from it.
  */
 export function ReportDrawer({
   open,

@@ -11,11 +11,11 @@ import type { TemplateImportAction, TemplateImportResult, TemplateScope } from "
 import { AI_TEMPLATE_PROMPT } from "../lib/aiPrompt";
 
 const ACTION_BADGES: Record<TemplateImportAction, { label: string; className: string }> = {
-  CREATE: { label: "Create", className: "bg-green-dim text-green" },
-  UPDATE: { label: "Update", className: "bg-sky-dim text-sky" },
-  CUSTOMISE: { label: "Customise", className: "bg-amber-dim text-amber" },
-  UNCHANGED: { label: "Unchanged", className: "bg-panel2 text-text3" },
-  INVALID: { label: "Invalid", className: "bg-red-dim text-red" },
+  CREATE: { label: "Create", className: "bg-u-direct-tint text-u-direct" },
+  UPDATE: { label: "Update", className: "bg-u-accent-tint text-u-accent" },
+  CUSTOMISE: { label: "Customise", className: "bg-u-accent-tint text-u-accent" },
+  UNCHANGED: { label: "Unchanged", className: "bg-u-raised text-u-text3" },
+  INVALID: { label: "Invalid", className: "bg-u-offlimits-tint text-u-offlimits" },
 };
 
 const SUMMARY_ORDER: TemplateImportAction[] = ["CREATE", "UPDATE", "CUSTOMISE", "UNCHANGED", "INVALID"];
@@ -25,7 +25,7 @@ const SCOPE_LINES: Record<TemplateScope, string> = {
   workspace: "Into your firm's templates — library templates in the file become your own copies",
 };
 
-const LINK = "text-[12.5px] font-medium text-sky transition hover:underline disabled:opacity-50";
+const LINK = "text-[12.5px] font-medium text-u-accent transition hover:underline disabled:opacity-50";
 
 /**
  * Import a template file: choose it, read what each template in it would do, then write — all of it,
@@ -102,8 +102,27 @@ export function ImportTemplatesDialog({
   const toWrite = plan ? writesIn(plan) : 0;
 
   return (
-    <Modal open={open} onClose={close} title="Import templates" className="md:w-[640px]">
-      <p className="-mt-2 mb-4 font-mono text-[11.5px] text-text3">{SCOPE_LINES[scope]}</p>
+    <Modal
+      open={open}
+      onClose={close}
+      title="Import templates"
+      className="md:w-[640px]"
+      footer={
+        <>
+          <Button variant="secondary" onClick={close}>
+            Cancel
+          </Button>
+          {plan && file && (
+            <Button disabled={invalid || toWrite === 0} loading={commit.isPending} onClick={() => commit.mutate(file)}>
+              {invalid || toWrite === 0
+                ? "Import"
+                : `Import ${toWrite} template${toWrite === 1 ? "" : "s"}`}
+            </Button>
+          )}
+        </>
+      }
+    >
+      <p className="-mt-2 mb-4 font-mono text-[11.5px] text-u-text3">{SCOPE_LINES[scope]}</p>
       <FormError message={failure} />
 
       {plan === null ? (
@@ -151,29 +170,29 @@ export function ImportTemplatesDialog({
       ) : (
         <>
           <div className="mb-3 flex flex-wrap items-center gap-2.5">
-            <Icon d={ICONS.file} size={16} className="flex-none text-text3" />
+            <Icon d={ICONS.file} size={16} className="flex-none text-u-text3" />
             <span className="text-[13px] font-medium">{file?.name}</span>
-            <span className="font-mono text-[11.5px] text-text3">
+            <span className="font-mono text-[11.5px] text-u-text3">
               {plan.rows.length} template{plan.rows.length === 1 ? "" : "s"}
             </span>
             <button type="button" className={cn(LINK, "ms-auto")} onClick={reset}>
               Choose a different file
             </button>
           </div>
-          <div className="overflow-hidden rounded-[10px] border border-line-soft">
+          <div className="overflow-hidden rounded-[10px] border border-u-border">
             {plan.rows.map((row, index) => (
               <div
                 key={`${row.code ?? row.title}-${index}`}
                 className={cn(
                   "px-3.5 py-2.5",
-                  index > 0 && "border-t border-line-soft",
-                  row.action === "INVALID" && "bg-red-dim",
+                  index > 0 && "border-t border-u-border",
+                  row.action === "INVALID" && "bg-u-offlimits-tint",
                 )}
               >
                 <div className="flex items-center gap-2.5">
                   <div className="min-w-0 flex-1">
                     <div className="text-[13px] font-medium">{row.title}</div>
-                    {row.code && <div className="font-mono text-[11px] text-text3">{row.code}</div>}
+                    {row.code && <div className="font-mono text-[11px] text-u-text3">{row.code}</div>}
                   </div>
                   <span
                     className={cn(
@@ -187,7 +206,7 @@ export function ImportTemplatesDialog({
                 {row.problems.length > 0 && (
                   <ul className="mt-1.5 flex flex-col gap-0.5">
                     {row.problems.map((problem) => (
-                      <li key={`${problem.field}-${problem.message}`} className="font-mono text-[11.5px] text-red">
+                      <li key={`${problem.field}-${problem.message}`} className="font-mono text-[11.5px] text-u-offlimits">
                         {problem.field} — {problem.message}
                       </li>
                     ))}
@@ -196,37 +215,24 @@ export function ImportTemplatesDialog({
               </div>
             ))}
           </div>
-          <p className="mt-3 font-mono text-xs font-medium text-text2">{summaryOf(plan)}</p>
+          <p className="mt-3 font-mono text-xs font-medium text-u-text2">{summaryOf(plan)}</p>
           {invalid && (
-            <p className="mt-2.5 rounded-lg border border-red bg-red-dim px-3 py-2.5 font-mono text-xs text-text2">
+            <p className="mt-2.5 rounded-lg border border-u-offlimits bg-u-offlimits-tint px-3 py-2.5 font-mono text-xs text-u-text2">
               Nothing is written until every template in the file passes. Fix the invalid one and choose the
               file again.
             </p>
           )}
         </>
       )}
-
-      <div className="mt-5 flex justify-end gap-2">
-        <Button variant="secondary" onClick={close}>
-          Cancel
-        </Button>
-        {plan && file && (
-          <Button disabled={invalid || toWrite === 0} loading={commit.isPending} onClick={() => commit.mutate(file)}>
-            {invalid || toWrite === 0
-              ? "Import"
-              : `Import ${toWrite} template${toWrite === 1 ? "" : "s"}`}
-          </Button>
-        )}
-      </div>
     </Modal>
   );
 }
 
 function HelpCard({ title, body, children }: { title: string; body: string; children: ReactNode }) {
   return (
-    <div className="rounded-[10px] border border-line-soft bg-panel2 p-3.5">
+    <div className="rounded-[10px] border border-u-border bg-u-raised p-3.5">
       <div className="text-[13px] font-semibold">{title}</div>
-      <p className="mb-2.5 mt-1 font-mono text-[11.5px] leading-relaxed text-text3">{body}</p>
+      <p className="mb-2.5 mt-1 font-mono text-[11.5px] leading-relaxed text-u-text3">{body}</p>
       <div className="flex flex-wrap gap-3.5">{children}</div>
     </div>
   );

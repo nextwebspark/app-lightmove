@@ -62,21 +62,21 @@ export function TagCombobox({
 
   return (
     <div className="relative">
-      <div className="rounded-md border border-line bg-panel2">
+      <div className="rounded-md border border-u-border-strong bg-u-raised">
         {tags.length > 0 && (
           <div className="flex flex-wrap gap-[5px] px-2 pt-2">
             {tags.map((tag) => (
               <SelectionPill
                 key={tag.value}
                 label={tag.label}
-                tone="amber"
+                tone="accent"
                 onRemove={() => onRemove(tag.value)}
               />
             ))}
           </div>
         )}
         <div className="flex h-8 items-center gap-2 px-[10px]">
-          <Icon d={ICONS.search} size={13} className="flex-none text-text3" />
+          <Icon d={ICONS.search} size={13} className="flex-none text-u-text3" />
           <input
             role="combobox"
             aria-expanded={showList}
@@ -92,7 +92,7 @@ export function TagCombobox({
               list.setOpen(true);
             }}
             {...list.inputHandlers}
-            className="w-full bg-transparent font-sans text-[12px] font-medium text-text outline-none placeholder:text-text3"
+            className="w-full bg-transparent font-sans text-[12px] font-medium text-u-text outline-none placeholder:text-u-text3"
           />
           <button
             type="button"
@@ -104,7 +104,7 @@ export function TagCombobox({
               list.cancelBlur();
               list.setOpen(!list.open);
             }}
-            className="flex-none text-text3 transition hover:text-text"
+            className="flex-none text-u-text3 transition hover:text-u-text"
           >
             <Icon
               d={ICONS.chevronDown}
@@ -119,7 +119,7 @@ export function TagCombobox({
         <ul
           id={listId}
           role="listbox"
-          className="absolute z-10 mt-1 max-h-64 w-full overflow-auto rounded-md border border-line bg-panel py-1 shadow-panel"
+          className="absolute z-10 mt-1 max-h-64 w-full overflow-auto rounded-md border border-u-border-strong bg-u-surface py-1 shadow-u-e3"
         >
           {options.map((option, index) => (
             <li
@@ -131,14 +131,14 @@ export function TagCombobox({
               onMouseEnter={() => list.setActive(index)}
               className={cn(
                 "flex cursor-pointer items-center gap-2 px-[10px] py-[5px]",
-                index === list.active ? "bg-panel2" : "",
+                index === list.active ? "bg-u-raised" : "",
               )}
             >
-              <span className="truncate font-sans text-[12px] font-medium text-text">
+              <span className="truncate font-sans text-[12px] font-medium text-u-text">
                 {option.label}
               </span>
               {option.count !== undefined && (
-                <span className="ms-auto flex-none font-sans text-[11px] text-text3">
+                <span className="ms-auto flex-none font-sans text-[11px] text-u-text3">
                   {option.count.toLocaleString()}
                 </span>
               )}
@@ -149,7 +149,7 @@ export function TagCombobox({
       {showEmpty && (
         <div
           aria-live="polite"
-          className="absolute z-10 mt-1 w-full rounded-md border border-line bg-panel px-3 py-2 font-sans text-[12px] text-text3 shadow-panel"
+          className="absolute z-10 mt-1 w-full rounded-md border border-u-border-strong bg-u-surface px-3 py-2 font-sans text-[12px] text-u-text3 shadow-u-e3"
         >
           {emptyText}
         </div>

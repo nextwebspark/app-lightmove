@@ -24,7 +24,7 @@ export function SignedOutScreen({ onConnected }: SignedOutScreenProps) {
 
   return (
     <PopupShell>
-      <header className="flex items-center gap-[9px] border-b border-line-soft px-3.5 py-[11px]">
+      <header className="flex items-center gap-[9px] border-b border-u-border px-3.5 py-[11px]">
         <BrandMark />
         <span className="font-mono text-[13px] font-semibold tracking-[0.02em]">UNCAVA Capture</span>
       </header>
@@ -32,24 +32,24 @@ export function SignedOutScreen({ onConnected }: SignedOutScreenProps) {
       <div className="flex flex-1 flex-col items-center justify-center px-3.5 text-center">
         <BrandMark className="h-14" />
         <h1 className="mt-4 text-[15px] font-semibold">Connect to UNCAVA</h1>
-        <p className="mt-2 max-w-[280px] text-[12.5px] leading-[1.6] text-text2">
+        <p className="mt-2 max-w-[280px] text-[12.5px] leading-[1.6] text-u-text2">
           Open your workspace to link this extension to your account. You will not need to sign in
           again here.
         </p>
         <button
           type="button"
           onClick={handleConnect}
-          className="mt-4 inline-flex items-center gap-2 rounded-lg bg-amber-btn px-4 py-[9px] text-[13px] font-semibold text-on-amber"
+          className="mt-4 inline-flex items-center gap-2 rounded-lg bg-u-accent-solid px-4 py-[9px] text-[13px] font-semibold text-white"
         >
           Open Uncava
           <Icon d={ICONS.externalLink} />
         </button>
-        <p className="mt-2.5 font-mono text-[11px] text-text3">{extensionConnectUrl}</p>
+        <p className="mt-2.5 font-mono text-[11px] text-u-text3">{extensionConnectUrl}</p>
       </div>
 
-      <footer className="flex items-center justify-between border-t border-line-soft px-3.5 py-2.5 font-mono text-[11px] text-text3">
+      <footer className="flex items-center justify-between border-t border-u-border px-3.5 py-2.5 font-mono text-[11px] text-u-text3">
         <span>Not connected</span>
-        <button type="button" onClick={onConnected} className="text-sky hover:underline">
+        <button type="button" onClick={onConnected} className="text-u-accent hover:underline">
           Already connected? Recheck
         </button>
       </footer>

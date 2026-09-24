@@ -56,7 +56,21 @@ export function InviteModal({ open, onClose }: { open: boolean; onClose: () => v
   };
 
   return (
-    <Modal open={open} onClose={onClose} title="Invite a colleague">
+    <Modal
+      open={open}
+      onClose={onClose}
+      title="Invite a colleague"
+      footer={
+        <>
+          <Button variant="secondary" onClick={onClose}>
+            Cancel
+          </Button>
+          <Button loading={send.isPending} onClick={submit}>
+            Send invite
+          </Button>
+        </>
+      }
+    >
       <FormError message={error} />
 
       <Field
@@ -88,15 +102,6 @@ export function InviteModal({ open, onClose }: { open: boolean; onClose: () => v
           ))}
         </Select>
       </Field>
-
-      <div className="mt-5 flex justify-end gap-2">
-        <Button variant="secondary" onClick={onClose}>
-          Cancel
-        </Button>
-        <Button loading={send.isPending} onClick={submit}>
-          Send invite
-        </Button>
-      </div>
     </Modal>
   );
 }

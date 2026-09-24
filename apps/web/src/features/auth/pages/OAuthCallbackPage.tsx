@@ -86,7 +86,7 @@ export function OAuthCallbackPage() {
   return (
     <div className="flex min-h-dvh flex-col items-center justify-center gap-4 p-4 sm:p-6">
       <Logo />
-      <p className="font-mono text-xs text-text3">
+      <p className="font-mono text-xs text-u-text3">
         {isBridgingPopup ? "You can close this window." : "Signing you in…"}
       </p>
     </div>

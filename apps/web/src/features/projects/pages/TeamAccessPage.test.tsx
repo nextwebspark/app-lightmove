@@ -97,6 +97,10 @@ describe("TeamAccessPage", () => {
     stage: "MAPPING",
     health: "OK",
     targetDate: null,
+    projectType: "SEARCH",
+    startDate: null,
+    deliveryDate: null,
+    mappingTargetDate: null,
     team: [
       {
         memberId: "m1",

@@ -90,7 +90,7 @@ export function LoginPage() {
 
       <Card className="w-[400px] max-w-[94vw] [animation-delay:60ms]">
         <h1 className="text-[19px] font-semibold leading-tight">Sign in</h1>
-        <p className="mb-6 mt-1 font-mono text-xs text-text3">Executive search workspace</p>
+        <p className="mb-6 mt-1 font-mono text-xs text-u-text3">Executive search workspace</p>
 
         <FormError message={formError} />
 
@@ -115,7 +115,7 @@ export function LoginPage() {
               <Link
                 to="/forgot-password"
                 state={{ email: watch("email") }}
-                className="text-[11.5px] font-medium text-sky hover:underline"
+                className="text-[11.5px] font-medium text-u-accent hover:underline"
               >
                 Forgot?
               </Link>
@@ -138,9 +138,9 @@ export function LoginPage() {
         <OAuthButtons onError={setFormError} />
       </Card>
 
-      <p className="animate-fade-up text-[12.5px] text-text2 [animation-delay:120ms]">
+      <p className="animate-fade-up text-[12.5px] text-u-text2 [animation-delay:120ms]">
         New to Uncava?{" "}
-        <Link to="/signup" className="text-sky hover:underline">
+        <Link to="/signup" className="text-u-accent hover:underline">
           Create an account
         </Link>
       </p>

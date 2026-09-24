@@ -6,7 +6,7 @@ const ELEMENTS: Components = {
   p: ({ children }) => <p className="mb-2 last:mb-0">{children}</p>,
   ul: ({ children }) => <ul className="mb-2 list-disc space-y-1 ps-4 last:mb-0">{children}</ul>,
   ol: ({ children }) => <ol className="mb-2 list-decimal space-y-1 ps-4 last:mb-0">{children}</ol>,
-  strong: ({ children }) => <strong className="font-semibold text-text">{children}</strong>,
+  strong: ({ children }) => <strong className="font-semibold text-u-text">{children}</strong>,
 };
 
 /**
@@ -15,7 +15,7 @@ const ELEMENTS: Components = {
  */
 export function AssistantAnswer({ text }: { text: string }) {
   return (
-    <div className="font-sans text-[13px] leading-[1.6] text-text">
+    <div className="font-sans text-[13px] leading-[1.6] text-u-text">
       <ReactMarkdown allowedElements={ALLOWED} unwrapDisallowed components={ELEMENTS}>
         {text}
       </ReactMarkdown>

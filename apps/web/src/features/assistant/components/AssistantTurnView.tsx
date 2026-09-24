@@ -51,7 +51,7 @@ export function AssistantTurnView({ turn, projectId }: { turn: AssistantTurn; pr
       )}
 
       {filing.isError && (
-        <p role="alert" className="mt-2 font-sans text-[11.5px] text-red">
+        <p role="alert" className="mt-2 font-sans text-[11.5px] text-u-offlimits">
           {messageFor(filing.error)}
         </p>
       )}
@@ -62,7 +62,7 @@ export function AssistantTurnView({ turn, projectId }: { turn: AssistantTurn; pr
 export function QuestionBubble({ question }: { question: string }) {
   return (
     <div className="mb-3.5 flex justify-end">
-      <div className="max-w-[86%] rounded-[12px_12px_3px_12px] bg-panel2 px-3 py-2 font-sans text-[13px] leading-[1.5] text-text">
+      <div className="max-w-[86%] rounded-[12px_12px_3px_12px] bg-u-raised px-3 py-2 font-sans text-[13px] leading-[1.5] text-u-text">
         {question}
       </div>
     </div>

@@ -43,7 +43,7 @@ export function SettingsMembersPage() {
         }
       />
 
-      <div className="rounded-[10px] border border-line-soft bg-panel2 px-5 py-2">
+      <div className="rounded-[10px] border border-u-border bg-u-raised px-5 py-2">
         {members.map((member) => (
           <MemberRow key={member.memberId} member={member} />
         ))}
@@ -51,10 +51,10 @@ export function SettingsMembersPage() {
 
       {invitations.length > 0 && (
         <section className="mt-5">
-          <h3 className="mb-2 font-mono text-[10px] font-semibold uppercase tracking-[0.14em] text-text3">
+          <h3 className="mb-2 font-mono text-[10px] font-semibold uppercase tracking-[0.14em] text-u-text3">
             Outstanding invitations
           </h3>
-          <div className="rounded-[10px] border border-line-soft bg-panel2 px-5 py-2">
+          <div className="rounded-[10px] border border-u-border bg-u-raised px-5 py-2">
             {invitations.map((invitation) => (
               <InvitationRow key={invitation.id} invitation={invitation} />
             ))}
@@ -108,14 +108,14 @@ function MemberRow({ member }: { member: Member }) {
   });
 
   return (
-    <div className="flex flex-wrap items-center gap-x-3 gap-y-2 border-t border-line-soft py-3 first:border-t-0">
+    <div className="flex flex-wrap items-center gap-x-3 gap-y-2 border-t border-u-border py-3 first:border-t-0">
       <Avatar id={member.memberId} name={member.fullName} src={member.avatarUrl} size="lg" />
       <div className="min-w-0 flex-1">
         <div className="truncate text-[13px] font-medium">
           {member.fullName}
-          {isSelf && <span className="ml-1.5 font-mono text-[10px] text-text3">(you)</span>}
+          {isSelf && <span className="ml-1.5 font-mono text-[10px] text-u-text3">(you)</span>}
         </div>
-        <div className="mt-0.5 truncate font-mono text-[11px] text-text3">{member.email}</div>
+        <div className="mt-0.5 truncate font-mono text-[11px] text-u-text3">{member.email}</div>
       </div>
 
       <Select
@@ -123,7 +123,7 @@ function MemberRow({ member }: { member: Member }) {
         onChange={(event) => changeRoles.mutate(event.target.value as WorkspaceRole)}
         disabled={changeRoles.isPending}
         aria-label={`Role for ${member.fullName}`}
-        className="w-[130px] shrink-0 !bg-panel"
+        className="w-[130px] shrink-0 !bg-u-surface"
       >
         {INVITE_ROLES.map((option) => (
           <option key={option} value={option}>
@@ -136,14 +136,14 @@ function MemberRow({ member }: { member: Member }) {
         type="button"
         title={isSelf ? "Leave workspace" : "Remove member"}
         onClick={() => setConfirmRemove(true)}
-        className="flex-none rounded-md p-1.5 text-text3 transition hover:bg-red-dim hover:text-red"
+        className="flex-none rounded-md p-1.5 text-u-text3 transition hover:bg-u-offlimits-tint hover:text-u-offlimits"
       >
         ✕
       </button>
 
       {confirmRemove && (
         <Modal open onClose={() => setConfirmRemove(false)} title={isSelf ? "Leave workspace" : "Remove member"}>
-          <p className="mb-5 text-[13px] text-text2">
+          <p className="mb-5 text-[13px] text-u-text2">
             {isSelf
               ? "You'll lose access to this workspace and everything in it."
               : `${member.fullName} loses access immediately. If they are the only admin on live projects, hand those over first.`}
@@ -153,7 +153,7 @@ function MemberRow({ member }: { member: Member }) {
               Cancel
             </Button>
             <Button
-              className="!border-red !bg-red !text-white hover:!brightness-105"
+              className="!border-u-offlimits !bg-u-offlimits !text-white hover:!brightness-105"
               loading={remove.isPending}
               onClick={() => remove.mutate()}
             >
@@ -197,10 +197,10 @@ function InvitationRow({ invitation }: { invitation: Invitation }) {
   const busy = resend.isPending || revoke.isPending;
 
   return (
-    <div className="flex flex-wrap items-center gap-x-3 gap-y-2 border-t border-line-soft py-3 first:border-t-0">
+    <div className="flex flex-wrap items-center gap-x-3 gap-y-2 border-t border-u-border py-3 first:border-t-0">
       <div className="min-w-0 flex-1">
         <div className="truncate font-mono text-[13px]">{invitation.email}</div>
-        <div className="mt-0.5 font-mono text-[11px] text-text3">
+        <div className="mt-0.5 font-mono text-[11px] text-u-text3">
           {titleCase(invitation.role)}
           {invitation.invitedByName && ` · invited by ${invitation.invitedByName}`}
         </div>
@@ -208,7 +208,7 @@ function InvitationRow({ invitation }: { invitation: Invitation }) {
       <Button variant="secondary" className="!py-1.5 !text-xs" disabled={busy} loading={resend.isPending} onClick={() => resend.mutate()}>
         Resend
       </Button>
-      <Button variant="ghost" className="!py-1.5 !text-xs !text-red" disabled={busy} onClick={() => revoke.mutate()}>
+      <Button variant="ghost" className="!py-1.5 !text-xs !text-u-offlimits" disabled={busy} onClick={() => revoke.mutate()}>
         Revoke
       </Button>
     </div>

@@ -39,7 +39,7 @@ export function OffLimitsFilter({
 
   return (
     <div className="flex flex-col gap-3">
-      <p className="font-sans text-[12px] leading-relaxed text-text3">
+      <p className="font-sans text-[12px] leading-relaxed text-u-text3">
         Companies added here will be completely excluded from your active search results.
       </p>
 
@@ -50,18 +50,18 @@ export function OffLimitsFilter({
       />
 
       <div>
-        <div className="mb-2 font-sans text-[10px] font-semibold tracking-[1px] text-text3">
+        <div className="mb-2 font-sans text-[10px] font-semibold tracking-[1px] text-u-text3">
           EXCLUDED ({companies.length})
         </div>
         {companies.length === 0 ? (
-          <p className="font-sans text-[12px] text-text3">Nothing excluded yet.</p>
+          <p className="font-sans text-[12px] text-u-text3">Nothing excluded yet.</p>
         ) : (
           <div className="flex flex-wrap gap-[6px]">
             {companies.map((company) => (
               <SelectionPill
                 key={company.apolloAccountId}
                 label={company.companyName}
-                tone="amber"
+                tone="accent"
                 onRemove={() => remove(company.apolloAccountId)}
               />
             ))}

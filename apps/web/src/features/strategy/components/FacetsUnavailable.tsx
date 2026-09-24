@@ -7,7 +7,7 @@
  */
 export function FacetsUnavailable() {
   return (
-    <p className="font-sans text-[12px] leading-relaxed text-text3">
+    <p className="font-sans text-[12px] leading-relaxed text-u-text3">
       These counts are not available to you. The results beside this rail are unaffected.
     </p>
   );

@@ -27,7 +27,7 @@ export function ProfileIdentityRow({
       <Avatar id={userId} name={fullName} src={avatarUrl} size="xl" className="rounded-xl" />
       <div>
         <div className="text-sm font-semibold">{fullName}</div>
-        <div className="mt-0.5 font-mono text-[11.5px] text-text3">{membershipMeta(roles, joinedAt)}</div>
+        <div className="mt-0.5 font-mono text-[11.5px] text-u-text3">{membershipMeta(roles, joinedAt)}</div>
       </div>
     </div>
   );

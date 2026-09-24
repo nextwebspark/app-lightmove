@@ -48,7 +48,7 @@ export function AddTeamMemberModal({ project, onClose }: { project: Project; onC
 
   return (
     <Modal open onClose={onClose} title="Add team member" className="md:w-[480px]">
-      <p className="-mt-3 mb-4 font-mono text-xs text-text3">
+      <p className="-mt-3 mb-4 font-mono text-xs text-u-text3">
         Pick from the firm directory and set the role they join with
       </p>
 
@@ -59,12 +59,12 @@ export function AddTeamMemberModal({ project, onClose }: { project: Project; onC
             return (
               <div
                 key={person.memberId}
-                className="flex items-center gap-2.5 rounded-[9px] border border-line px-[11px] py-[9px]"
+                className="flex items-center gap-2.5 rounded-[9px] border border-u-border-strong px-[11px] py-[9px]"
               >
                 <Avatar id={person.memberId} name={person.fullName} src={person.avatarUrl} size="lg" />
                 <div className="min-w-0 flex-1">
                   <div className="text-[13px] font-medium">{person.fullName}</div>
-                  <div className="truncate font-mono text-[11px] text-text3">
+                  <div className="truncate font-mono text-[11px] text-u-text3">
                     Joins as {ROLE_STYLES[role].label}
                   </div>
                 </div>
@@ -100,7 +100,7 @@ export function AddTeamMemberModal({ project, onClose }: { project: Project; onC
           })}
         </div>
       ) : (
-        <p className="px-4 py-[26px] text-center font-mono text-[12.5px] text-text3">
+        <p className="px-4 py-[26px] text-center font-mono text-[12.5px] text-u-text3">
           Everyone in the directory is already on this project.
         </p>
       )}

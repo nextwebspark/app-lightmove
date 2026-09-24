@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { DateInput } from "../../../../components/ui";
+import { ChoiceCardGroup, DateInput, type ChoiceCardOption } from "../../../../components/ui";
 import {
   NOTICE_PERIODS,
   noticePairLabel,
@@ -25,7 +25,6 @@ import {
 } from "../../lib/labels";
 import {
   ChipGroup,
-  ChoiceCard,
   FieldBlock,
   TokenChip,
   UnderlineField,
@@ -65,6 +64,11 @@ const NOTICE_OPTIONS: ChipOption<string>[] = NOTICE_PERIODS.filter((period) => p
  * mandate context's, the notice period is the reporting structure's, and the target date is the
  * project's own. Each writes through its own channel, so the screen is one page over four writes.
  */
+const CONFIDENTIALITY_OPTIONS: readonly ChoiceCardOption<"standard" | "confidential">[] = [
+  { value: "standard", title: "Standard", body: "Visible to the whole workspace" },
+  { value: "confidential", title: "Confidential", body: "Restricted until shortlist" },
+];
+
 export function RoleBriefStep({
   details,
   context,
@@ -234,20 +238,13 @@ export function RoleBriefStep({
       </FieldBlock>
 
       <FieldBlock label="Confidentiality level">
-        <div role="radiogroup" aria-label="Confidentiality level" className="grid max-w-[520px] grid-cols-1 gap-3 sm:grid-cols-2">
-          <ChoiceCard
-            title="Standard"
-            body="Visible to the whole workspace"
-            selected={!context.confidential}
-            onSelect={() => onChangeContext({ confidential: false }, true)}
-          />
-          <ChoiceCard
-            title="Confidential"
-            body="Restricted until shortlist"
-            selected={context.confidential}
-            onSelect={() => onChangeContext({ confidential: true }, true)}
-          />
-        </div>
+        <ChoiceCardGroup
+          label="Confidentiality level"
+          options={CONFIDENTIALITY_OPTIONS}
+          value={context.confidential ? "confidential" : "standard"}
+          onChange={(level) => onChangeContext({ confidential: level === "confidential" }, true)}
+          className="max-w-[520px]"
+        />
       </FieldBlock>
 
       <div className="grid grid-cols-1 gap-x-6 gap-y-6 sm:grid-cols-2">

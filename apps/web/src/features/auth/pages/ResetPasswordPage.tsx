@@ -61,9 +61,9 @@ export function ResetPasswordPage() {
       <Card className="w-[400px] max-w-[94vw] [animation-delay:60ms]">
         {invalidLink ? (
           <div className="text-center">
-            <div className="mx-auto mb-4 grid size-11 place-items-center rounded-full bg-red-dim">
+            <div className="mx-auto mb-4 grid size-11 place-items-center rounded-full bg-u-offlimits-tint">
               <svg
-                className="size-5 text-red"
+                className="size-5 text-u-offlimits"
                 viewBox="0 0 24 24"
                 fill="none"
                 stroke="currentColor"
@@ -77,7 +77,7 @@ export function ResetPasswordPage() {
             <h1 className="text-[19px] font-semibold">
               {token ? "This link has expired or was already used" : "This link is incomplete"}
             </h1>
-            <p className="mb-6 mt-2 font-mono text-xs text-text3">
+            <p className="mb-6 mt-2 font-mono text-xs text-u-text3">
               Reset links work once and expire after 30 minutes. Request a fresh one — it only takes
               a moment.
             </p>
@@ -87,7 +87,7 @@ export function ResetPasswordPage() {
             </Button>
 
             <p className="mt-4 text-[12.5px]">
-              <Link to="/login" className="text-sky hover:underline">
+              <Link to="/login" className="text-u-accent hover:underline">
                 Back to sign in
               </Link>
             </p>
@@ -95,7 +95,7 @@ export function ResetPasswordPage() {
         ) : (
           <>
             <h1 className="text-[19px] font-semibold leading-tight">Choose a new password</h1>
-            <p className="mb-6 mt-1 font-mono text-xs text-text3">
+            <p className="mb-6 mt-1 font-mono text-xs text-u-text3">
               You&rsquo;ll be signed in as soon as it&rsquo;s set.
             </p>
 
@@ -123,7 +123,7 @@ export function ResetPasswordPage() {
                 />
               </Field>
 
-              <p className="mb-3 font-mono text-[11px] text-text3">
+              <p className="mb-3 font-mono text-[11px] text-u-text3">
                 Use at least 8 characters, with one number.
               </p>
 

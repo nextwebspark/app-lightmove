@@ -2,6 +2,7 @@ package app.lightmove.api.project.dto;
 
 import app.lightmove.api.project.constant.ProjectHealth;
 import app.lightmove.api.project.constant.ProjectStage;
+import app.lightmove.api.project.constant.ProjectType;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.util.List;
@@ -20,6 +21,10 @@ public record ProjectResponse(
         ProjectStage stage,
         ProjectHealth health,
         LocalDate targetDate,
+        ProjectType projectType,
+        LocalDate startDate,
+        LocalDate deliveryDate,
+        LocalDate mappingTargetDate,
         List<TeamMemberResponse> team,
         List<AttachedRepresentativeResponse> representatives,
         long companies,

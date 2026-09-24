@@ -7,11 +7,11 @@ import { cn } from "../../lib/cn";
  * screen, hashed from their id exactly so, matching the mockups' per-member tints.
  */
 const ACCENTS = [
-  "bg-sky-dim text-sky",
-  "bg-amber-dim text-amber",
-  "bg-green-dim text-green",
-  "bg-red-dim text-red",
-  "bg-panel2 text-text2",
+  "bg-u-accent-tint text-u-accent",
+  "bg-u-chart-5/15 text-u-chart-5",
+  "bg-u-raised text-u-text2",
+  "bg-u-direct-tint text-u-direct",
+  "bg-u-signal-tint text-u-signal",
 ] as const;
 
 const SIZES = {

@@ -5,7 +5,7 @@ import jakarta.validation.constraints.Size;
 
 /** Edit a client record's own fields; mandates and representatives have their own endpoints. */
 public record UpdateClientRequest(
-        @NotBlank(message = "Enter the client's name")
+        @NotBlank(message = "Enter the business unit name")
         @Size(max = 160, message = "That name is too long")
         String name,
 

@@ -45,6 +45,9 @@ export interface AttachedRepresentative {
   status: "INVITED" | "ACTIVE";
 }
 
+/** What a mandate delivers: a mapped executive universe, or a full search through to a shortlist. */
+export type ProjectType = "MAPPING" | "SEARCH";
+
 export interface Project {
   id: string;
   clientId: string;
@@ -53,7 +56,14 @@ export interface Project {
   positionTitle: string;
   stage: ProjectStage;
   health: ProjectHealth;
+  /** The brief's hire date ("Target start"); not when the work is due — see `deliveryDate`. */
   targetDate: string | null;
+  projectType: ProjectType;
+  startDate: string | null;
+  /** When the business unit expects the map or the shortlist. Null on a mandate older than V73. */
+  deliveryDate: string | null;
+  /** A search's point by which the universe should be mapped; null on a mapping project. */
+  mappingTargetDate: string | null;
   team: TeamMember[];
   representatives: AttachedRepresentative[];
   /** The mandate's live universe: every company it has triaged and not declined. */

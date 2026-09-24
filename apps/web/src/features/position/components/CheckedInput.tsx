@@ -20,9 +20,9 @@ export function CheckedInput({
         value={value}
         aria-invalid={invalid}
         className={cn(
-          "w-full rounded-lg border bg-panel2 py-2.5 pl-3 pr-9 text-body font-medium",
-          invalid ? "border-red" : "border-line",
-          "text-text outline-none transition focus:border-sky",
+          "w-full rounded-lg border bg-u-raised py-2.5 pl-3 pr-9 text-body font-medium",
+          invalid ? "border-u-offlimits" : "border-u-border-strong",
+          "text-u-text outline-none transition focus:border-u-accent",
         )}
       />
       <Icon
@@ -30,7 +30,7 @@ export function CheckedInput({
         size={16}
         className={cn(
           "pointer-events-none absolute end-3 top-3 transition-colors",
-          filled && !invalid ? "text-green" : "text-line",
+          filled && !invalid ? "text-u-direct" : "text-u-border-strong",
         )}
       />
     </span>

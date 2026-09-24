@@ -39,12 +39,12 @@ export function TalentMapPopup({
     : [node.candidate.title, node.candidate.companyName].filter(Boolean).join(" · ");
 
   return (
-    <div className="w-[260px] rounded-[10px] border border-line bg-panel p-3 font-sans shadow-panel">
+    <div className="w-[260px] rounded-[10px] border border-u-border-strong bg-u-surface p-3 font-sans shadow-u-e3">
       <div className="flex items-start gap-2">
         <span
           className={cn(
             "mt-0.5 flex-none rounded-full px-1.5 py-px font-mono text-[9.5px] font-semibold uppercase tracking-[0.1em]",
-            isCompany ? "bg-panel2 text-text2" : "bg-sky-dim text-sky",
+            isCompany ? "bg-u-raised text-u-text2" : "bg-u-accent-tint text-u-accent",
           )}
         >
           {isCompany ? "Company" : "Executive"}
@@ -53,7 +53,7 @@ export function TalentMapPopup({
           type="button"
           onClick={onClose}
           aria-label="Close"
-          className="ms-auto -mt-1 -me-1 cursor-pointer rounded-md p-1 text-text3 transition hover:bg-panel2 hover:text-text"
+          className="ms-auto -mt-1 -me-1 cursor-pointer rounded-md p-1 text-u-text3 transition hover:bg-u-raised hover:text-u-text"
         >
           <Icon d={ICONS.close} size={13} />
         </button>
@@ -68,15 +68,15 @@ export function TalentMapPopup({
           <button
             type="button"
             onClick={onOpen}
-            className="block w-full cursor-pointer text-start text-[13.5px] font-semibold leading-tight text-text underline-offset-2 transition hover:text-amber hover:underline"
+            className="block w-full cursor-pointer text-start text-[13.5px] font-semibold leading-tight text-u-text underline-offset-2 transition hover:text-u-accent hover:underline"
           >
             {title}
           </button>
-          {subtitle && <div className="mt-0.5 text-[12px] text-text3">{subtitle}</div>}
+          {subtitle && <div className="mt-0.5 text-[12px] text-u-text3">{subtitle}</div>}
         </div>
       </div>
       {isCompany && (
-        <div className="mt-1 text-[11.5px] text-text3">
+        <div className="mt-1 text-[11.5px] text-u-text3">
           {countOf(node.executives.length, "executive")} mapped
         </div>
       )}
@@ -85,7 +85,7 @@ export function TalentMapPopup({
           <button
             type="button"
             onClick={onAddExecutive}
-            className={cn(POPUP_BUTTON, "border-line bg-panel text-text2 hover:border-text3 hover:text-text")}
+            className={cn(POPUP_BUTTON, "border-u-border-strong bg-u-surface text-u-text2 hover:border-u-text3 hover:text-u-text")}
           >
             <Icon d={ICONS.userPlus} size={12} />
             Add executive

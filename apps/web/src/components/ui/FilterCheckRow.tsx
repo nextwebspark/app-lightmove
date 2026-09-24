@@ -6,7 +6,7 @@ import { cn } from "../../lib/cn";
  *
  * <p><b>Only the box changes when it is checked.</b> The label keeps the same weight, size and colour
  * either way, and the count stays muted. That is deliberate and it is what the wireframe does: a list
- * where selected rows also turn amber reads as two different kinds of row, and the eye has to
+ * where selected rows also turn the accent reads as two different kinds of row, and the eye has to
  * re-scan to find the checked ones. Leaving the text alone means the checkmarks are the only signal,
  * which is the one you actually want to follow down a column of eleven bands.
  *
@@ -35,13 +35,13 @@ export function FilterCheckRow({
       role="checkbox"
       aria-checked={checked}
       onClick={onToggle}
-      className="flex w-full items-center justify-between rounded-[5px] px-1 py-[5px] text-left transition hover:bg-panel2"
+      className="flex w-full items-center justify-between rounded-[5px] px-1 py-[5px] text-left transition hover:bg-u-raised"
     >
       <span className={cn("flex items-center", size === "md" ? "gap-2.5" : "gap-2")}>
         <CheckBox checked={checked} size={size} />
         <span
           className={cn(
-            "font-sans text-text",
+            "font-sans text-u-text",
             size === "md" ? "text-[13px] font-medium" : "text-[12px] font-medium",
           )}
         >
@@ -49,7 +49,7 @@ export function FilterCheckRow({
         </span>
       </span>
       {count !== undefined && (
-        <span className="font-sans text-[12px] font-medium text-text3">
+        <span className="font-sans text-[12px] font-medium text-u-text3">
           {count.toLocaleString()}
         </span>
       )}
@@ -80,7 +80,7 @@ export function CheckBox({
       className={cn(
         "grid flex-none place-items-center rounded-[4px] shadow-[inset_0_0_0_1.5px_currentColor]",
         box,
-        checked ? "bg-amber-dim text-amber" : "text-line",
+        checked ? "bg-u-accent-tint text-u-accent" : "text-u-border-strong",
       )}
     >
       <svg
@@ -90,7 +90,7 @@ export function CheckBox({
         fill="none"
         stroke="currentColor"
         strokeWidth={3.2}
-        className={cn("text-amber", checked ? "opacity-100" : "opacity-0")}
+        className={cn("text-u-accent", checked ? "opacity-100" : "opacity-0")}
       >
         <path d={checked === "mixed" ? "M5 12h14" : "M20 6 9 17l-5-5"} />
       </svg>

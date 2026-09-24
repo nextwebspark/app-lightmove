@@ -419,7 +419,7 @@ describe("DataGrid header menu — a checkbox filter", () => {
         }}
       />,
     );
-    expect(screen.getByRole("button", { name: "Sector column menu" })).not.toHaveClass("text-sky");
+    expect(screen.getByRole("button", { name: "Sector column menu" })).not.toHaveClass("text-u-accent");
 
     rerender(
       <Harness
@@ -428,7 +428,7 @@ describe("DataGrid header menu — a checkbox filter", () => {
         }}
       />,
     );
-    expect(screen.getByRole("button", { name: "Sector column menu" })).toHaveClass("text-sky");
+    expect(screen.getByRole("button", { name: "Sector column menu" })).toHaveClass("text-u-accent");
   });
 });
 

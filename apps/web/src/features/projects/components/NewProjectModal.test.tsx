@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { render, screen, waitFor, within } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import type { ReactNode } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
@@ -7,8 +7,6 @@ import { ToastProvider } from "../../../components/ui";
 import { ApiRequestError } from "../../../lib/apiClient";
 import * as clientsApi from "../../clients/api/clientsApi";
 import type { Client } from "../../clients/api/types";
-import * as companiesApi from "../../strategy/api/companiesApi";
-import type { CompanySuggestion } from "../../strategy/api/types";
 import * as positionApi from "../../position/api/positionApi";
 import type { PositionTemplate } from "../../position/api/types";
 import * as projectsApi from "../api/projectsApi";
@@ -30,26 +28,8 @@ vi.mock("../../clients/api/clientsApi", async (importOriginal) => ({
   createClient: vi.fn(),
 }));
 
-// The inline-client step is the registry's own company picker, so this suite reads the universe too.
-vi.mock("../../strategy/api/companiesApi", async (importOriginal) => ({
-  ...(await importOriginal<typeof import("../../strategy/api/companiesApi")>()),
-  searchCompanies: vi.fn(),
-}));
-
-const suggestion: CompanySuggestion = {
-  apolloAccountId: "apollo-1",
-  companyName: "Meridian Energy Group",
-  industry: "oil & energy",
-  companyCity: "Abu Dhabi",
-  companyCountry: "United Arab Emirates",
-  website: "https://meridian.ae",
-  logoUrl: null,
-  numEmployees: 4200,
-};
-
 beforeEach(() => {
   vi.mocked(positionApi.listTemplates).mockResolvedValue([]);
-  vi.mocked(companiesApi.searchCompanies).mockResolvedValue({ companies: [suggestion] });
 });
 
 const client = (id: string, name: string): Client => ({
@@ -77,6 +57,10 @@ const created = (clientId: string): Project => ({
   stage: "BRIEF",
   health: "OK",
   targetDate: null,
+  projectType: "SEARCH",
+  startDate: null,
+  deliveryDate: null,
+  mappingTargetDate: null,
   team: [],
   representatives: [],
   companies: 0,
@@ -89,7 +73,7 @@ const created = (clientId: string): Project => ({
  * including "New client…" — so the project could be created against Globex while the drawer behind
  * the modal still read Acme.
  */
-describe("NewProjectModal — the client the entrance already decided", () => {
+describe("NewProjectModal — the business unit the entrance already decided", () => {
   // One client across a rerender, so the staleness test keeps the same component instance rather than
   // relying on React happening to reconcile two hand-built trees.
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
@@ -102,23 +86,23 @@ describe("NewProjectModal — the client the entrance already decided", () => {
     <NewProjectModal open onClose={vi.fn()} clients={CLIENTS} lockedClientId={lockedClientId} />
   );
 
-  it("locks the client, and creates the project against it", async () => {
+  it("locks the business unit, and creates the position against it", async () => {
     const user = userEvent.setup();
     vi.mocked(projectsApi.createProject).mockResolvedValue(created("acme"));
 
     render(wrap(modal("acme")));
 
-    const field = screen.getByRole("combobox", { name: /Client/ });
+    const field = screen.getByRole("combobox", { name: /Business unit/ });
     expect(field).toBeDisabled();
     expect(field).toHaveValue("acme");
     expect(screen.getByText("Acme Corp")).toBeInTheDocument();
     expect(screen.queryByText("Globex")).not.toBeInTheDocument();
-    expect(screen.queryByText(/New client/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/New business unit/)).not.toBeInTheDocument();
     // The inline-create path must be unreachable, not merely unlabelled.
-    expect(screen.queryByPlaceholderText(/Meridian Energy Group/)).not.toBeInTheDocument();
+    expect(screen.queryByPlaceholderText(/name a new business unit/)).not.toBeInTheDocument();
 
     await user.type(screen.getByPlaceholderText(/Chief Financial Officer/), "CFO");
-    await user.click(screen.getByRole("button", { name: "Create project" }));
+    await user.click(screen.getByRole("button", { name: "Create position" }));
 
     await waitFor(() =>
       expect(projectsApi.createProject).toHaveBeenCalledWith(
@@ -127,33 +111,51 @@ describe("NewProjectModal — the client the entrance already decided", () => {
     );
   });
 
-  it("still offers the full list and an inline client on the free-choice entrance", async () => {
+  it("offers every business unit on focus, and filters as a name is typed", async () => {
     const user = userEvent.setup();
 
     render(wrap(modal()));
 
-    const field = screen.getByRole("combobox", { name: /Client/ });
+    const field = screen.getByRole("combobox", { name: /Business unit/ });
     expect(field).toBeEnabled();
+    await user.click(field);
+    expect(screen.getByRole("option", { name: "Acme Corp" })).toBeInTheDocument();
     expect(screen.getByRole("option", { name: "Globex" })).toBeInTheDocument();
 
-    await user.selectOptions(field, "__new__");
-    expect(screen.getByPlaceholderText("Search company database…")).toBeInTheDocument();
+    await user.type(field, "glo");
+
+    expect(screen.queryByRole("option", { name: "Acme Corp" })).not.toBeInTheDocument();
+    expect(screen.getByRole("option", { name: "Globex" })).toBeInTheDocument();
+    expect(screen.getByRole("option", { name: /Create “glo”/ })).toBeInTheDocument();
   });
 
-  it("submits the client the prop names now, not the one it named at mount", async () => {
+  it("takes a picked business unit's name into the one field", async () => {
+    const user = userEvent.setup();
+
+    render(wrap(modal()));
+
+    const field = screen.getByRole("combobox", { name: /Business unit/ });
+    await user.type(field, "acm");
+    await user.click(screen.getByRole("option", { name: "Acme Corp" }));
+
+    expect(field).toHaveValue("Acme Corp");
+    expect(screen.queryByRole("listbox", { name: "Business units" })).not.toBeInTheDocument();
+  });
+
+  it("submits the business unit the prop names now, not the one it named at mount", async () => {
     const user = userEvent.setup();
     vi.mocked(projectsApi.createProject).mockResolvedValue(created("globex"));
 
     const { rerender } = render(wrap(modal("acme")));
-    expect(screen.getByRole("combobox", { name: /Client/ })).toHaveValue("acme");
+    expect(screen.getByRole("combobox", { name: /Business unit/ })).toHaveValue("acme");
 
     rerender(wrap(modal("globex")));
 
-    expect(screen.getByRole("combobox", { name: /Client/ })).toHaveValue("globex");
+    expect(screen.getByRole("combobox", { name: /Business unit/ })).toHaveValue("globex");
     expect(screen.getByText("Globex")).toBeInTheDocument();
 
     await user.type(screen.getByPlaceholderText(/Chief Financial Officer/), "CTO");
-    await user.click(screen.getByRole("button", { name: "Create project" }));
+    await user.click(screen.getByRole("button", { name: "Create position" }));
 
     await waitFor(() =>
       expect(projectsApi.createProject).toHaveBeenCalledWith(
@@ -221,6 +223,7 @@ describe("NewProjectModal — the role-template picker on the Position field", (
     const user = userEvent.setup();
 
     render(wrap(<NewProjectModal open onClose={vi.fn()} clients={CLIENTS} />));
+    await user.type(screen.getByRole("combobox", { name: /Business unit/ }), "Acme Corp");
 
     const field = screen.getByRole("combobox", { name: "Position" });
     await user.click(field);
@@ -231,7 +234,7 @@ describe("NewProjectModal — the role-template picker on the Position field", (
     );
 
     expect(field).toHaveValue("Chief Financial Officer");
-    await user.click(screen.getByRole("button", { name: "Create project" }));
+    await user.click(screen.getByRole("button", { name: "Create position" }));
 
     await waitFor(() =>
       expect(projectsApi.createProject).toHaveBeenCalledWith(
@@ -246,14 +249,15 @@ describe("NewProjectModal — the role-template picker on the Position field", (
     const user = userEvent.setup();
 
     render(wrap(<NewProjectModal open onClose={vi.fn()} clients={CLIENTS} />));
+    await user.type(screen.getByRole("combobox", { name: /Business unit/ }), "Acme Corp");
 
     const field = screen.getByRole("combobox", { name: "Position" });
     await user.type(field, "Group CFO – Energy Division");
 
     expect(field).toHaveValue("Group CFO – Energy Division");
-    expect(screen.queryByRole("listbox")).not.toBeInTheDocument();
+    expect(screen.queryByRole("listbox", { name: "Role templates" })).not.toBeInTheDocument();
 
-    await user.click(screen.getByRole("button", { name: "Create project" }));
+    await user.click(screen.getByRole("button", { name: "Create position" }));
     await waitFor(() =>
       expect(projectsApi.createProject).toHaveBeenCalledWith(
         expect.objectContaining({ positionTitle: "Group CFO – Energy Division" }),
@@ -305,7 +309,7 @@ describe("NewProjectModal — where a refusal is reported", () => {
     const user = userEvent.setup();
     render(wrap(<NewProjectModal open onClose={vi.fn()} clients={CLIENTS} />));
 
-    await user.click(screen.getByRole("button", { name: "Create project" }));
+    await user.click(screen.getByRole("button", { name: "Create position" }));
 
     expect(screen.getByText("Enter the position title")).toBeInTheDocument();
     expect(projectsApi.createProject).not.toHaveBeenCalled();
@@ -319,7 +323,7 @@ describe("NewProjectModal — where a refusal is reported", () => {
 
     const field = screen.getByRole("combobox", { name: "Position" });
     await user.type(field, "C".repeat(161));
-    await user.click(screen.getByRole("button", { name: "Create project" }));
+    await user.click(screen.getByRole("button", { name: "Create position" }));
 
     // The guard is `> 160` and @Size(max = 160) is inclusive, so the copy must not send a user who
     // trims to exactly 160 into the case it calls refused.
@@ -337,7 +341,7 @@ describe("NewProjectModal — where a refusal is reported", () => {
     render(wrap(<NewProjectModal open onClose={vi.fn()} clients={CLIENTS} />));
 
     const field = screen.getByRole("combobox", { name: "Position" });
-    await user.click(screen.getByRole("button", { name: "Create project" }));
+    await user.click(screen.getByRole("button", { name: "Create position" }));
     expect(screen.getByText("Enter the position title")).toBeInTheDocument();
 
     await user.type(field, "C");
@@ -346,44 +350,30 @@ describe("NewProjectModal — where a refusal is reported", () => {
     expect(field).not.toHaveAttribute("aria-invalid", "true");
   });
 
-  // The inline client is a picked company now, not a typed name: submitting with nothing picked must
-  // say so at the picker, and picking must clear it without a second submit.
-  it("clears the inline-client error as soon as a company is picked", async () => {
+  it("asks for a business unit, and clears the error as one is typed", async () => {
     const user = userEvent.setup();
     render(wrap(<NewProjectModal open onClose={vi.fn()} clients={CLIENTS} />));
 
-    await user.selectOptions(screen.getByRole("combobox", { name: /Client/ }), "__new__");
-    await user.click(screen.getByRole("button", { name: "Create project" }));
-    expect(
-      screen.getByText("Pick the client's company, or add it as a new one"),
-    ).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Create position" }));
+    expect(screen.getByText("Choose a business unit or name a new one")).toBeInTheDocument();
 
-    await user.type(screen.getByPlaceholderText("Search company database…"), "Meridian");
-    await user.click(await screen.findByText("Meridian Energy Group"));
+    await user.type(screen.getByRole("combobox", { name: /Business unit/ }), "D");
 
-    expect(
-      screen.queryByText("Pick the client's company, or add it as a new one"),
-    ).not.toBeInTheDocument();
+    expect(screen.queryByText("Choose a business unit or name a new one")).not.toBeInTheDocument();
   });
 
-  // The whole point of the shared picker: a mandate opened this way posts an apolloAccountId, so the
-  // server resolves the canonical name and domain instead of filing a custom duplicate.
-  it("creates the inline client from the universe pick, not from a typed name", async () => {
-    vi.mocked(clientsApi.createClient).mockResolvedValue(client("new-1", "Meridian Energy Group"));
+  it("creates the inline business unit by name, then the position against it", async () => {
+    vi.mocked(clientsApi.createClient).mockResolvedValue(client("new-1", "Data & Analytics"));
     vi.mocked(projectsApi.createProject).mockResolvedValue(created("new-1"));
     const user = userEvent.setup();
     render(wrap(<NewProjectModal open onClose={vi.fn()} clients={CLIENTS} />));
 
-    await user.selectOptions(screen.getByRole("combobox", { name: /Client/ }), "__new__");
-    await user.type(screen.getByPlaceholderText("Search company database…"), "Meridian");
-    await user.click(await screen.findByText("Meridian Energy Group"));
+    await user.type(screen.getByRole("combobox", { name: /Business unit/ }), "  Data & Analytics ");
     await user.type(screen.getByRole("combobox", { name: "Position" }), "CFO");
-    await user.click(screen.getByRole("button", { name: "Create project" }));
+    await user.click(screen.getByRole("button", { name: "Create position" }));
 
     await waitFor(() =>
-      expect(clientsApi.createClient).toHaveBeenCalledWith(
-        expect.objectContaining({ company: { apolloAccountId: "apollo-1" } }),
-      ),
+      expect(clientsApi.createClient).toHaveBeenCalledWith({ customName: "Data & Analytics" }),
     );
     await waitFor(() =>
       expect(projectsApi.createProject).toHaveBeenCalledWith(
@@ -392,14 +382,50 @@ describe("NewProjectModal — where a refusal is reported", () => {
     );
   });
 
+  // Typing a name the registry already holds is the user meaning that unit, not a duplicate.
+  it("files a typed name the registry already holds under the existing business unit", async () => {
+    vi.mocked(clientsApi.createClient).mockReset();
+    vi.mocked(projectsApi.createProject).mockResolvedValue(created("globex"));
+    const user = userEvent.setup();
+    render(wrap(<NewProjectModal open onClose={vi.fn()} clients={CLIENTS} />));
+
+    await user.type(screen.getByRole("combobox", { name: /Business unit/ }), "GLOBEX");
+    await user.type(screen.getByRole("combobox", { name: "Position" }), "CFO");
+    await user.click(screen.getByRole("button", { name: "Create position" }));
+
+    await waitFor(() =>
+      expect(projectsApi.createProject).toHaveBeenCalledWith(
+        expect.objectContaining({ clientId: "globex" }),
+      ),
+    );
+    expect(clientsApi.createClient).not.toHaveBeenCalled();
+  });
+
+  it("routes the server's delivery-date refusal to the delivery field", async () => {
+    vi.mocked(projectsApi.createProject).mockRejectedValue(
+      refusal("VALIDATION_FAILED", "One or more fields are invalid", {
+        deliveryDate: "The delivery date must be after the start date",
+      }),
+    );
+    const user = userEvent.setup();
+    render(wrap(<NewProjectModal open onClose={vi.fn()} clients={CLIENTS} />));
+    await user.type(screen.getByRole("combobox", { name: /Business unit/ }), "Acme Corp");
+
+    await user.type(screen.getByRole("combobox", { name: "Position" }), "CFO");
+    await user.click(screen.getByRole("button", { name: "Create position" }));
+
+    expect(await screen.findByText("The delivery date must be after the start date")).toBeInTheDocument();
+  });
+
   it("lets a title of exactly 160 characters through", async () => {
     vi.mocked(projectsApi.createProject).mockResolvedValue(created("acme"));
     const user = userEvent.setup();
     render(wrap(<NewProjectModal open onClose={vi.fn()} clients={CLIENTS} />));
+    await user.type(screen.getByRole("combobox", { name: /Business unit/ }), "Acme Corp");
 
     const title = "C".repeat(160);
     await user.type(screen.getByRole("combobox", { name: "Position" }), title);
-    await user.click(screen.getByRole("button", { name: "Create project" }));
+    await user.click(screen.getByRole("button", { name: "Create position" }));
 
     await waitFor(() =>
       expect(projectsApi.createProject).toHaveBeenCalledWith(
@@ -416,9 +442,10 @@ describe("NewProjectModal — where a refusal is reported", () => {
     );
     const user = userEvent.setup();
     render(wrap(<NewProjectModal open onClose={vi.fn()} clients={CLIENTS} />));
+    await user.type(screen.getByRole("combobox", { name: /Business unit/ }), "Acme Corp");
 
     await user.type(screen.getByRole("combobox", { name: "Position" }), "CFO");
-    await user.click(screen.getByRole("button", { name: "Create project" }));
+    await user.click(screen.getByRole("button", { name: "Create position" }));
 
     expect(await screen.findByText("That title is too long")).toBeInTheDocument();
     expect(screen.queryByText("One or more fields are invalid")).not.toBeInTheDocument();
@@ -430,12 +457,123 @@ describe("NewProjectModal — where a refusal is reported", () => {
     );
     const user = userEvent.setup();
     render(wrap(<NewProjectModal open onClose={vi.fn()} clients={CLIENTS} />));
+    await user.type(screen.getByRole("combobox", { name: /Business unit/ }), "Acme Corp");
 
     await user.type(screen.getByRole("combobox", { name: "Position" }), "CFO");
-    await user.click(screen.getByRole("button", { name: "Create project" }));
+    await user.click(screen.getByRole("button", { name: "Create position" }));
 
     expect(await screen.findByRole("alert")).toHaveTextContent(
       "You don't have permission to do this.",
     );
+  });
+});
+
+/** The mockup's type cards and timeline: what the form sends, and what it previews before sending. */
+describe("NewProjectModal — project type and timeline", () => {
+  const wrap = (children: ReactNode) => (
+    <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
+      <ToastProvider>{children}</ToastProvider>
+    </QueryClientProvider>
+  );
+
+  const dateInput = (label: RegExp) =>
+    within(screen.getByText(label).closest("label")!).getByDisplayValue(/\d{4}-\d\d-\d\d|^$/);
+
+  beforeEach(() => {
+    vi.mocked(projectsApi.createProject).mockReset();
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(new Date(2026, 8, 24, 10, 0));
+    return () => vi.useRealTimers();
+  });
+
+  it("starts as a mapping project starting today, and sends the type with its dates", async () => {
+    vi.mocked(projectsApi.createProject).mockResolvedValue(created("acme"));
+    const user = userEvent.setup();
+    render(wrap(<NewProjectModal open onClose={vi.fn()} clients={CLIENTS} />));
+    await user.type(screen.getByRole("combobox", { name: /Business unit/ }), "Acme Corp");
+
+    expect(screen.getByRole("radio", { name: /Mapping/ })).toHaveAttribute("aria-checked", "true");
+    expect(dateInput(/Project start date/)).toHaveValue("2026-09-24");
+
+    fireEvent.change(dateInput(/Map delivery date/), { target: { value: "2026-10-24" } });
+    expect(screen.getByText("30 days from start")).toBeInTheDocument();
+
+    await user.type(screen.getByRole("combobox", { name: "Position" }), "Buying Director");
+    await user.click(screen.getByRole("button", { name: "Create position" }));
+
+    await waitFor(() =>
+      expect(projectsApi.createProject).toHaveBeenCalledWith({
+        clientId: "acme",
+        positionTitle: "Buying Director",
+        projectType: "MAPPING",
+        startDate: "2026-09-24",
+        deliveryDate: "2026-10-24",
+        mappingTargetDate: undefined,
+      }),
+    );
+  });
+
+  it("previews a search's mapping target at 60% of the window and leaves it to the server unless moved", async () => {
+    vi.mocked(projectsApi.createProject).mockResolvedValue(created("acme"));
+    const user = userEvent.setup();
+    render(wrap(<NewProjectModal open onClose={vi.fn()} clients={CLIENTS} />));
+    await user.type(screen.getByRole("combobox", { name: /Business unit/ }), "Acme Corp");
+
+    await user.click(screen.getByRole("radio", { name: /Search/ }));
+    fireEvent.change(dateInput(/Shortlist delivery date/), { target: { value: "2026-11-08" } });
+
+    const mappingTarget = screen.getByLabelText("Mapping target date");
+    expect(mappingTarget).toHaveValue("2026-10-21");
+    expect(screen.getByText(/~60% of window · 27 days from start$/)).toBeInTheDocument();
+
+    fireEvent.change(mappingTarget, { target: { value: "2026-10-30" } });
+    expect(screen.getByText(/36 days from start · edited$/)).toBeInTheDocument();
+
+    await user.type(screen.getByRole("combobox", { name: "Position" }), "Head of Credit Risk");
+    await user.click(screen.getByRole("button", { name: "Create position" }));
+
+    await waitFor(() =>
+      expect(projectsApi.createProject).toHaveBeenCalledWith(
+        expect.objectContaining({ projectType: "SEARCH", mappingTargetDate: "2026-10-30" }),
+      ),
+    );
+  });
+
+  it("refuses a delivery date on or before the start without posting", async () => {
+    const user = userEvent.setup();
+    render(wrap(<NewProjectModal open onClose={vi.fn()} clients={CLIENTS} />));
+
+    fireEvent.change(dateInput(/Map delivery date/), { target: { value: "2026-09-20" } });
+    expect(
+      screen.getByText("Map delivery date must be after the project start date."),
+    ).toBeInTheDocument();
+
+    await user.type(screen.getByRole("combobox", { name: "Position" }), "CFO");
+    await user.click(screen.getByRole("button", { name: "Create position" }));
+
+    expect(projectsApi.createProject).not.toHaveBeenCalled();
+  });
+
+  it("bounds the mapping target to the window, and refuses one outside it without creating anything", async () => {
+    vi.mocked(clientsApi.createClient).mockReset();
+    const user = userEvent.setup();
+    render(wrap(<NewProjectModal open onClose={vi.fn()} clients={CLIENTS} />));
+    await user.type(screen.getByRole("combobox", { name: /Business unit/ }), "Data & Analytics");
+
+    await user.click(screen.getByRole("radio", { name: /Search/ }));
+    fireEvent.change(dateInput(/Shortlist delivery date/), { target: { value: "2026-11-08" } });
+    const mappingTarget = screen.getByLabelText("Mapping target date");
+    expect(mappingTarget).toHaveAttribute("min", "2026-09-25");
+    expect(mappingTarget).toHaveAttribute("max", "2026-11-08");
+
+    fireEvent.change(mappingTarget, { target: { value: "2026-09-24" } });
+    await user.type(screen.getByRole("combobox", { name: "Position" }), "CFO");
+    await user.click(screen.getByRole("button", { name: "Create position" }));
+
+    expect(
+      screen.getByText("The mapping target must fall after the start and by the delivery date"),
+    ).toBeInTheDocument();
+    expect(clientsApi.createClient).not.toHaveBeenCalled();
+    expect(projectsApi.createProject).not.toHaveBeenCalled();
   });
 });

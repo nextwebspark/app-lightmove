@@ -75,7 +75,7 @@ export function KeywordFilter({
             onPick={(value) => onChange([...selected, value])}
             onRemove={(value) => onChange(selected.filter((entry) => entry !== value))}
           />
-          <p className="font-sans text-[11px] leading-relaxed text-text3">
+          <p className="font-sans text-[11px] leading-relaxed text-u-text3">
             {selected.length === 0
               ? "Type at least two letters to search the universe's keywords."
               : "A company carrying any one of these keywords matches."}

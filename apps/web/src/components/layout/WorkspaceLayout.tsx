@@ -56,14 +56,14 @@ export function WorkspaceShell({ children }: { children: ReactNode }) {
 
   const projectsGroup: SidebarGroup = clientOnly
     ? {
-        label: "Projects",
-        items: [{ to: "/", label: "My projects", icon: ICONS.myProjects, end: true }],
+        label: "Positions",
+        items: [{ to: "/", label: "My positions", icon: ICONS.myProjects, end: true }],
       }
     : {
-        label: "Projects",
+        label: "Positions",
         items: [
-          { to: "/", label: "My projects", icon: ICONS.myProjects, count: myCount, end: true },
-          { to: "/all", label: "All projects", icon: ICONS.allProjects, count: projects?.length },
+          { to: "/", label: "My positions", icon: ICONS.myProjects, count: myCount, end: true },
+          { to: "/all", label: "All positions", icon: ICONS.allProjects, count: projects?.length },
         ],
       };
 
@@ -74,7 +74,7 @@ export function WorkspaceShell({ children }: { children: ReactNode }) {
         {
           label: "Workspace",
           items: [
-            { to: "/clients", label: "Clients", icon: ICONS.clients, count: clients?.length },
+            { to: "/clients", label: "Business units", icon: ICONS.clients, count: clients?.length },
             { to: "/team", label: "Team", icon: ICONS.team, count: members?.length },
             // Every staff member's, not just an admin's: the rail lands on the section everyone can
             // read (Profile), and the shell hides the workspace sections from a non-admin. An admin

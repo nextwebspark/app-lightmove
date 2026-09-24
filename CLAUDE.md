@@ -79,8 +79,9 @@ tab is the mandate's talent mapping report (`GET /projects/{id}/report`): four c
 progress, shape of the market, remuneration, diversity — aggregated live by `report` from the same
 rows, so nothing is stored and nothing goes stale. It reads one chapter at a time behind a numbered
 step rail, the chapter kept in the URL (`?chapter=`), and its mockup is the `reports` page of
-`claude-design/Project.dc.html` — drawn in the UNCAVA palette (`--color-u-*`), a deliberate seam
-until the rest follow. It states only what the rows carry: a candidate's
+`claude-design/Position.dc.html` — drawn in the UNCAVA palette (`--color-u-*`) — the only palette
+the code has: the old app names (`panel`, `amber`, `sky`, …) are gone from both apps, and an unset
+theme opens dark. It states only what the rows carry: a candidate's
 status but no pipeline outcome, and a package in another currency is counted rather than converted.
 **Gender (V56) is recorded on a candidate and never inferred from a name** — the chapter divides by
 the executives who have one on file, not by the headcount, so a mandate nobody has recorded reads as
@@ -103,7 +104,7 @@ market chapter's hubs carry a point from `geocoding` — asked only for the hand
 where none is. The standalone
 Candidates screen, and the pipeline and outreach tables, don't exist yet. The **Position**
 screen is the mandate's brief, drawn in `claude-design/Position.dc.html` (issue #442) in the UNCAVA
-palette like Reports — the second screen on that seam — as five steps behind a rail (Role Brief,
+palette like every screen — as five steps behind a rail (Role Brief,
 Reporting, Compensation, Assessment Criteria, Review & Publish), the step kept in the URL (`?step=`)
 and each section autosaving through its own write. It opens drafted rather than
 blank: a **role-template library** of seventeen briefs (twelve C-suite, four functional heads, one
@@ -165,7 +166,10 @@ mockup's third copy of the pair at the review's top right is deliberately not dr
 in `apps/web/public/brand` (`favicon.svg`, the SPA's `AppIcon`, the extension's `BrandMark` and icons,
 and the email's `uncava-mark-email-v1.png` are drawn from that one geometry) and every user-facing
 string says Uncava — the mockups included — while the code, packages, persisted keys and JWT issuer
-keep the `lightmove` name — a deliberate split, not drift. It is served at `https://beta.uncava.com` (Cloud Run domain mapping,
+keep the `lightmove` name — a deliberate split, not drift. The same split holds for the domain
+vocabulary: where a mockup says **Position** and **Business unit** (and **Hiring manager** for a
+client representative), the screen says so, while the code, routes, API and tables keep
+`project` and `client`; a screen whose mockup still says project or client keeps saying it. It is served at `https://beta.uncava.com` (Cloud Run domain mapping,
 Cloudflare DNS with the proxy off; README, "Custom domain"), and a link to it pasted into a chat app
 draws a card from the Open Graph tags in `apps/web/index.html` over `public/og-image-v2.png` — static,
 because no crawler runs the bundle (README, "Link previews"). Publishing stamps who
@@ -380,6 +384,12 @@ V68 gives `app_lm_workspace` the same write-time company snapshot: signup's orga
 the firm from the universe (`GET /onboarding/companies`, since `/companies/search` needs a workspace)
 and the server files it under the resolved row's name, id, industry, city, country, website, LinkedIn
 and logo; a firm typed in by hand leaves them all null.
+V73 gives `app_lm_project` the New position modal's decisions: `project_type` (`MAPPING | SEARCH`, V34's
+CHECK idiom, existing rows `SEARCH`) and a timeline — `start_date`, `delivery_date` (when the business
+unit expects the map or the shortlist) and, on a search only, `mapping_target_date`, which
+`ProjectTimeline` defaults to 60% of the window when the modal sends none. `target_date` is untouched
+and stays the brief's hire date; the list's Target and the derived health read `delivery_date` and
+fall back to it (`Project.deadline()`, the SPA's `deadlineOf`).
 V69 adds the workspace's `persona` jsonb — main business, sectors, competitors, geographies, notes —
 for the assistant to tailor research to: seeded at signup with the picked company's industry, written
 by an admin through `PUT /workspace/persona` (Settings → General), read by staff on `GET /workspace`

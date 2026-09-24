@@ -24,10 +24,10 @@ const TARGET_LABELS: Record<CustomColumnTarget, string> = {
   candidate: "Person",
 };
 
-const LABEL = "font-mono text-[10px] font-semibold uppercase tracking-[0.12em] text-text3";
+const LABEL = "font-mono text-[10px] font-semibold uppercase tracking-[0.12em] text-u-text3";
 
 const ROW_BUTTON =
-  "rounded-[7px] border border-line px-2 py-[5px] text-[11.5px] font-medium transition disabled:opacity-50";
+  "rounded-[7px] border border-u-border-strong px-2 py-[5px] text-[11.5px] font-medium transition disabled:opacity-50";
 
 /**
  * The columns this mandate has added to its own grid: rename one, change what it holds, move it,
@@ -136,16 +136,16 @@ export function ManageColumnsDialog({
     <Modal open={open} onClose={onClose} title="Columns on this mandate" className="md:w-[620px]">
       <div className="flex flex-col gap-4">
         {columns.length === 0 ? (
-          <p className="font-sans text-[13px] text-text3">
+          <p className="font-sans text-[13px] text-u-text3">
             This mandate has only the built-in columns. Add one below, or import a spreadsheet and any
             column it carries that we do not have becomes one.
           </p>
         ) : (
-          <ul className="flex flex-col rounded-lg border border-line-soft">
+          <ul className="flex flex-col rounded-lg border border-u-border">
             {columns.map((column) => (
               <li
                 key={column.id}
-                className="flex flex-wrap items-center gap-2 border-b border-line-soft px-2.5 py-2 last:border-b-0"
+                className="flex flex-wrap items-center gap-2 border-b border-u-border px-2.5 py-2 last:border-b-0"
               >
                 {renaming?.id === column.id ? (
                   <Input
@@ -170,12 +170,12 @@ export function ManageColumnsDialog({
                   <span className="min-w-0 flex-1">
                     <span
                       className={`block truncate font-sans text-[13px] ${
-                        column.hidden ? "text-text3 line-through" : "text-text"
+                        column.hidden ? "text-u-text3 line-through" : "text-u-text"
                       }`}
                     >
                       {column.label}
                     </span>
-                    <span className="mt-px block font-mono text-[11px] text-text3">
+                    <span className="mt-px block font-mono text-[11px] text-u-text3">
                       {TARGET_LABELS[column.target]} · {TYPE_LABELS[column.dataType]}
                     </span>
                   </span>
@@ -187,7 +187,7 @@ export function ManageColumnsDialog({
                     aria-label={`Move ${column.label} earlier`}
                     onClick={() => move(column, -1)}
                     disabled={reorder.isPending}
-                    className={`${ROW_BUTTON} text-text2 hover:border-text3 hover:text-text`}
+                    className={`${ROW_BUTTON} text-u-text2 hover:border-u-text3 hover:text-u-text`}
                   >
                     <Icon d={ICONS.chevronDown} size={13} className="rotate-180" />
                   </button>
@@ -196,14 +196,14 @@ export function ManageColumnsDialog({
                     aria-label={`Move ${column.label} later`}
                     onClick={() => move(column, 1)}
                     disabled={reorder.isPending}
-                    className={`${ROW_BUTTON} text-text2 hover:border-text3 hover:text-text`}
+                    className={`${ROW_BUTTON} text-u-text2 hover:border-u-text3 hover:text-u-text`}
                   >
                     <Icon d={ICONS.chevronDown} size={13} />
                   </button>
                   <button
                     type="button"
                     onClick={() => setRenaming({ id: column.id, label: column.label })}
-                    className={`${ROW_BUTTON} text-text2 hover:border-text3 hover:text-text`}
+                    className={`${ROW_BUTTON} text-u-text2 hover:border-u-text3 hover:text-u-text`}
                   >
                     Rename
                   </button>
@@ -211,7 +211,7 @@ export function ManageColumnsDialog({
                     type="button"
                     onClick={() => update.mutate({ id: column.id, hidden: !column.hidden })}
                     disabled={update.isPending}
-                    className={`${ROW_BUTTON} text-text2 hover:border-text3 hover:text-text`}
+                    className={`${ROW_BUTTON} text-u-text2 hover:border-u-text3 hover:text-u-text`}
                   >
                     {column.hidden ? "Show" : "Hide"}
                   </button>
@@ -219,7 +219,7 @@ export function ManageColumnsDialog({
                     type="button"
                     onClick={() => remove.mutate(column.id)}
                     disabled={remove.isPending}
-                    className={`${ROW_BUTTON} text-red hover:border-red`}
+                    className={`${ROW_BUTTON} text-u-offlimits hover:border-u-offlimits`}
                   >
                     Remove
                   </button>
@@ -229,7 +229,7 @@ export function ManageColumnsDialog({
           </ul>
         )}
 
-        <div className="rounded-lg border border-line-soft p-2.5">
+        <div className="rounded-lg border border-u-border p-2.5">
           <p className={`mb-2 ${LABEL}`}>Add a column</p>
           <div className="flex flex-wrap gap-2">
             <Input

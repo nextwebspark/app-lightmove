@@ -22,7 +22,7 @@ import { rebalance } from "../../position/lib/rebalance";
 import { AddRowButton, ColumnLabel, RemoveRowButton } from "./fields";
 
 /**
- * One weighting panel (technical = sky, behavioural = amber), rendered as a full-width table.
+ * One weighting panel (technical in the accent, behavioural in the signal), rendered as a full-width table.
  *
  * <p>Three things a consultant does here. A slider rebalances the others so the total holds; the
  * number input sets a weight exactly; and a lock holds one row still while the rest absorb the
@@ -41,17 +41,17 @@ const MAX_ROWS = 10;
 // Header strip and rows share one template so their columns cannot drift apart. Below md the row
 // wraps to three lines — a 390px viewport cannot hold seven columns without scrolling sideways.
 const ACCENTS = {
-  sky: {
-    border: "border-sky/30",
-    dot: "bg-sky",
-    slider: "[--range-accent:var(--color-sky)]",
-    badge: "border-sky/40 bg-sky-dim text-sky",
+  accent: {
+    border: "border-u-accent/30",
+    dot: "bg-u-accent",
+    slider: "[--range-accent:var(--color-u-accent)]",
+    badge: "border-u-accent/40 bg-u-accent-tint text-u-accent",
   },
-  amber: {
-    border: "border-amber-btn/35",
-    dot: "bg-amber-btn",
-    slider: "[--range-accent:var(--color-amber-btn)]",
-    badge: "border-amber-btn/45 bg-amber-dim text-amber",
+  signal: {
+    border: "border-u-signal/35",
+    dot: "bg-u-signal",
+    slider: "[--range-accent:var(--color-u-signal)]",
+    badge: "border-u-signal/45 bg-u-signal-tint text-u-signal",
   },
 } as const;
 
@@ -73,7 +73,7 @@ export function CompetencyPanel({
   onReorder,
 }: {
   title: string;
-  accent: "sky" | "amber";
+  accent: keyof typeof ACCENTS;
   rows: IdentifiedCompetency[];
   locked: ReadonlySet<string>;
   onChange: (rows: IdentifiedCompetency[]) => void;
@@ -114,18 +114,18 @@ export function CompetencyPanel({
   return (
     <section
       aria-label={title}
-      className={cn("overflow-hidden rounded-[10px] border bg-panel2", theme.border)}
+      className={cn("overflow-hidden rounded-[10px] border bg-u-raised", theme.border)}
     >
-      <div className="flex flex-wrap items-center gap-x-2.5 gap-y-1 border-b border-line-soft px-4 py-3">
+      <div className="flex flex-wrap items-center gap-x-2.5 gap-y-1 border-b border-u-border px-4 py-3">
         <span className={cn("size-2 flex-none rounded-full", theme.dot)} />
-        <span className="font-mono text-[11px] font-semibold uppercase tracking-[0.1em] text-text2">
+        <span className="font-mono text-[11px] font-semibold uppercase tracking-[0.1em] text-u-text2">
           {title}
         </span>
-        <span className="text-[12.5px] text-text3">Weighted — must total 100%</span>
+        <span className="text-[12.5px] text-u-text3">Weighted — must total 100%</span>
         <span
           className={cn(
             "ms-auto rounded-md border px-2.5 py-[3px] font-mono text-xs font-bold",
-            total === 100 ? theme.badge : "border-red/40 bg-red-dim text-red",
+            total === 100 ? theme.badge : "border-u-offlimits/40 bg-u-offlimits-tint text-u-offlimits",
           )}
         >
           {total}%
@@ -136,7 +136,7 @@ export function CompetencyPanel({
         <div
           className={cn(
             ROW_GRID,
-            "hidden border-b border-line-soft px-4 py-[9px] md:grid",
+            "hidden border-b border-u-border px-4 py-[9px] md:grid",
           )}
         >
           <span />
@@ -176,7 +176,7 @@ export function CompetencyPanel({
       </DndContext>
 
       {rows.length === 0 && (
-        <p className="border-b border-line-soft px-4 py-3 text-[12.5px] text-text3">
+        <p className="border-b border-u-border px-4 py-3 text-[12.5px] text-u-text3">
           No competencies yet.
         </p>
       )}
@@ -226,8 +226,8 @@ function CompetencyRow({
       style={{ transform: CSS.Transform.toString(transform), transition }}
       className={cn(
         ROW_GRID,
-        "items-center border-b border-line-soft px-4 py-2.5",
-        isDragging && "relative z-10 bg-panel shadow-panel",
+        "items-center border-b border-u-border px-4 py-2.5",
+        isDragging && "relative z-10 bg-u-surface shadow-u-e3",
       )}
     >
       <button
@@ -236,7 +236,7 @@ function CompetencyRow({
         {...listeners}
         aria-label={`Reorder ${named}`}
         title="Drag to rank, or focus and use the arrow keys"
-        className="flex-none cursor-grab touch-none rounded p-0.5 text-text3 transition hover:text-text2 active:cursor-grabbing"
+        className="flex-none cursor-grab touch-none rounded p-0.5 text-u-text3 transition hover:text-u-text2 active:cursor-grabbing"
       >
         <Icon d={ICONS.dragHandle} size={13} />
       </button>
@@ -245,7 +245,7 @@ function CompetencyRow({
         value={row.name}
         aria-label={`${panelTitle} competency ${index + 1} name`}
         onChange={(e) => onPatch({ name: e.target.value })}
-        className="min-w-0 bg-transparent text-[13px] font-semibold text-text outline-none"
+        className="min-w-0 bg-transparent text-[13px] font-semibold text-u-text outline-none"
       />
 
       <input
@@ -255,7 +255,7 @@ function CompetencyRow({
         onChange={(e) => onPatch({ description: e.target.value || null })}
         className={cn(
           STACKS_BELOW_MD,
-          "row-start-2 min-w-0 bg-transparent text-[12.5px] text-text3 outline-none placeholder:text-text3/60",
+          "row-start-2 min-w-0 bg-transparent text-[12.5px] text-u-text3 outline-none placeholder:text-u-text3/60",
         )}
       />
 
@@ -284,9 +284,9 @@ function CompetencyRow({
             const weight = Math.max(0, Math.min(100, Math.round(Number(e.target.value) || 0)));
             onPatch({ weight });
           }}
-          className="w-12 rounded-md border border-line bg-panel px-1.5 py-[3px] text-right font-mono text-xs font-semibold text-text outline-none disabled:opacity-60"
+          className="w-12 rounded-md border border-u-border-strong bg-u-surface px-1.5 py-[3px] text-right font-mono text-xs font-semibold text-u-text outline-none disabled:opacity-60"
         />
-        <span className="font-mono text-xs font-medium text-text3">%</span>
+        <span className="font-mono text-xs font-medium text-u-text3">%</span>
       </span>
 
       <button
@@ -297,7 +297,7 @@ function CompetencyRow({
         onClick={onToggleLock}
         className={cn(
           "col-start-4 row-start-1 flex-none justify-self-center rounded p-0.5 transition md:col-auto md:row-auto",
-          locked ? "text-text" : "text-text3/60 hover:text-text2",
+          locked ? "text-u-text" : "text-u-text3/60 hover:text-u-text2",
         )}
       >
         <Icon d={locked ? ICONS.lock : ICONS.unlock} size={13} />

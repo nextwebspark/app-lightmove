@@ -22,7 +22,7 @@ export function NotFoundPage({
     <WorkspaceShell>
       <EmptyState icon={<Icon d={ICONS.search} size={24} />} title={title} body={body}>
         <Button variant="secondary" onClick={() => navigate("/")}>
-          Go to My projects
+          Go to My positions
         </Button>
       </EmptyState>
     </WorkspaceShell>

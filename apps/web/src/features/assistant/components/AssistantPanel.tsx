@@ -149,21 +149,21 @@ export function AssistantPanel({ contextLabel, projectId }: { contextLabel: stri
     <aside
       role="complementary"
       aria-label="Uncava Assistant"
-      className="ms-2.5 flex h-full w-[400px] flex-none flex-col overflow-hidden rounded-[10px] border border-line bg-panel"
+      className="ms-2.5 flex h-full w-[400px] flex-none flex-col overflow-hidden rounded-[10px] border border-u-border-strong bg-u-surface"
     >
-      <div className="flex-none border-b border-line px-3 py-2.5">
+      <div className="flex-none border-b border-u-border-strong px-3 py-2.5">
         <div className="flex items-center gap-2">
-          <span className="grid h-[26px] w-[26px] flex-none place-items-center rounded-[7px] bg-[linear-gradient(135deg,var(--color-ai),var(--color-ai2))] text-white">
+          <span className="grid h-[26px] w-[26px] flex-none place-items-center rounded-[7px] bg-[linear-gradient(135deg,var(--color-u-inferred),var(--color-u-adjacent))] text-white">
             <Icon d={ICONS.sparkle} size={14} />
           </span>
-          <span className="font-sans text-[13px] font-semibold text-text">Assistant</span>
+          <span className="font-sans text-[13px] font-semibold text-u-text">Assistant</span>
           <button
             type="button"
             onClick={() => setHistoryOpen((current) => !current)}
             aria-expanded={historyOpen}
             className={cn(
-              "ms-auto rounded-md px-2 py-1 font-sans text-[11.5px] text-text2 transition hover:bg-panel2 hover:text-text",
-              historyOpen && "bg-panel2 text-text",
+              "ms-auto rounded-md px-2 py-1 font-sans text-[11.5px] text-u-text2 transition hover:bg-u-raised hover:text-u-text",
+              historyOpen && "bg-u-raised text-u-text",
             )}
           >
             History
@@ -173,7 +173,7 @@ export function AssistantPanel({ contextLabel, projectId }: { contextLabel: stri
             onClick={() => handleOpenThread(null)}
             title="New chat"
             aria-label="New chat"
-            className="grid h-7 w-7 place-items-center rounded-md text-text3 transition hover:bg-panel2 hover:text-text"
+            className="grid h-7 w-7 place-items-center rounded-md text-u-text3 transition hover:bg-u-raised hover:text-u-text"
           >
             <Icon d={ICONS.plus} size={15} />
           </button>
@@ -182,31 +182,31 @@ export function AssistantPanel({ contextLabel, projectId }: { contextLabel: stri
             onClick={closeAssistant}
             title="Close"
             aria-label="Close the assistant"
-            className="grid h-7 w-7 place-items-center rounded-md text-text3 transition hover:bg-panel2 hover:text-text"
+            className="grid h-7 w-7 place-items-center rounded-md text-u-text3 transition hover:bg-u-raised hover:text-u-text"
           >
             <Icon d={ICONS.close} size={15} />
           </button>
         </div>
 
-        <div className="mt-2.5 flex w-fit max-w-full items-center gap-1.5 rounded-md bg-panel2 px-2 py-1 font-mono text-[11px] text-text3">
-          <Icon d="M12 2 3 7l9 5 9-5-9-5Z" size={11} className="flex-none text-amber" />
+        <div className="mt-2.5 flex w-fit max-w-full items-center gap-1.5 rounded-md bg-u-raised px-2 py-1 font-mono text-[11px] text-u-text3">
+          <Icon d="M12 2 3 7l9 5 9-5-9-5Z" size={11} className="flex-none text-u-accent" />
           <span className="truncate">{contextLabel}</span>
         </div>
       </div>
 
       {historyOpen && (
-        <div className="flex-none border-b border-line bg-panel2 px-2 py-2">
-          <p className="px-1.5 pb-1 font-mono text-[10.5px] uppercase tracking-[0.04em] text-text3">
+        <div className="flex-none border-b border-u-border-strong bg-u-raised px-2 py-2">
+          <p className="px-1.5 pb-1 font-mono text-[10.5px] uppercase tracking-[0.04em] text-u-text3">
             Chats in this project
           </p>
-          {history.isLoading && <p className="px-1.5 py-1 font-sans text-xs text-text3">Loading…</p>}
+          {history.isLoading && <p className="px-1.5 py-1 font-sans text-xs text-u-text3">Loading…</p>}
           {history.isError && (
-            <p role="alert" className="px-1.5 py-1 font-sans text-xs text-red">
+            <p role="alert" className="px-1.5 py-1 font-sans text-xs text-u-offlimits">
               {messageFor(history.error)}
             </p>
           )}
           {history.data?.length === 0 && (
-            <p className="px-1.5 py-1 font-sans text-xs text-text3">No chats yet.</p>
+            <p className="px-1.5 py-1 font-sans text-xs text-u-text3">No chats yet.</p>
           )}
           <ul className="max-h-[220px] overflow-y-auto">
             {history.data?.map((summary) => (
@@ -215,8 +215,8 @@ export function AssistantPanel({ contextLabel, projectId }: { contextLabel: stri
                   type="button"
                   onClick={() => handleOpenThread(summary.id)}
                   className={cn(
-                    "block w-full truncate rounded-md px-1.5 py-1.5 text-start font-sans text-xs text-text2 transition hover:bg-panel hover:text-text",
-                    summary.id === threadId && "bg-panel font-medium text-text",
+                    "block w-full truncate rounded-md px-1.5 py-1.5 text-start font-sans text-xs text-u-text2 transition hover:bg-u-surface hover:text-u-text",
+                    summary.id === threadId && "bg-u-surface font-medium text-u-text",
                   )}
                 >
                   {summary.title}
@@ -228,9 +228,9 @@ export function AssistantPanel({ contextLabel, projectId }: { contextLabel: stri
       )}
 
       <div ref={scroller} className="flex min-h-0 flex-1 flex-col gap-5 overflow-y-auto px-3 py-4">
-        {thread.isLoading && <p className="my-auto text-center font-mono text-[11px] text-text3">Opening the chat…</p>}
+        {thread.isLoading && <p className="my-auto text-center font-mono text-[11px] text-u-text3">Opening the chat…</p>}
         {thread.isError && (
-          <p role="alert" className="font-sans text-[11.5px] text-red">
+          <p role="alert" className="font-sans text-[11.5px] text-u-offlimits">
             {messageFor(thread.error)}
           </p>
         )}
@@ -254,7 +254,7 @@ export function AssistantPanel({ contextLabel, projectId }: { contextLabel: stri
         )}
 
         {asking.isError && (
-          <p role="alert" className="font-sans text-[11.5px] text-red">
+          <p role="alert" className="font-sans text-[11.5px] text-u-offlimits">
             {messageFor(asking.error)}
           </p>
         )}
@@ -262,8 +262,8 @@ export function AssistantPanel({ contextLabel, projectId }: { contextLabel: stri
         {empty && !threadId && (
           <div className="my-auto">
             <div className="mb-4 text-center">
-              <p className="font-sans text-[13px] text-text2">Find companies for this mandate.</p>
-              <p className="mt-1 font-mono text-[11px] text-text3">
+              <p className="font-sans text-[13px] text-u-text2">Find companies for this mandate.</p>
+              <p className="mt-1 font-mono text-[11px] text-u-text3">
                 It searches the company universe and lets you add what it finds.
               </p>
             </div>
@@ -272,7 +272,7 @@ export function AssistantPanel({ contextLabel, projectId }: { contextLabel: stri
                 key={starter}
                 type="button"
                 onClick={() => setDraft(starter)}
-                className="mb-1.5 block w-full rounded-lg border border-dashed border-line px-2.5 py-2 text-start font-sans text-xs text-text2 transition hover:border-solid hover:border-ai hover:bg-ai-soft hover:text-text"
+                className="mb-1.5 block w-full rounded-lg border border-dashed border-u-border-strong px-2.5 py-2 text-start font-sans text-xs text-u-text2 transition hover:border-solid hover:border-u-inferred hover:bg-u-inferred-tint hover:text-u-text"
               >
                 {starter}
               </button>
@@ -281,8 +281,8 @@ export function AssistantPanel({ contextLabel, projectId }: { contextLabel: stri
         )}
       </div>
 
-      <div className="flex-none border-t border-line px-3 pb-3 pt-2.5">
-        <div className="rounded-[10px] border border-line bg-panel2 px-2.5 py-2">
+      <div className="flex-none border-t border-u-border-strong px-3 pb-3 pt-2.5">
+        <div className="rounded-[10px] border border-u-border-strong bg-u-raised px-2.5 py-2">
           <textarea
             ref={composer}
             value={draft}
@@ -296,10 +296,10 @@ export function AssistantPanel({ contextLabel, projectId }: { contextLabel: stri
             placeholder={asking.isPending ? "Answering…" : "Ask for companies…"}
             rows={2}
             aria-label="Ask the assistant"
-            className="w-full resize-none border-none bg-transparent font-sans text-[13px] leading-[1.5] text-text outline-none"
+            className="w-full resize-none border-none bg-transparent font-sans text-[13px] leading-[1.5] text-u-text outline-none"
           />
           <div className="mt-1 flex items-center gap-2">
-            <span className="font-mono text-[10px] text-text3">
+            <span className="font-mono text-[10px] text-u-text3">
               {asking.isPending ? "Answering…" : "Enter to send"}
             </span>
             <button
@@ -308,7 +308,7 @@ export function AssistantPanel({ contextLabel, projectId }: { contextLabel: stri
               disabled={!draft.trim() || asking.isPending}
               aria-label="Send"
               title="Send"
-              className="ms-auto grid h-[26px] w-[26px] place-items-center rounded-md border-none bg-[linear-gradient(135deg,var(--color-ai),var(--color-ai2))] transition disabled:opacity-40"
+              className="ms-auto grid h-[26px] w-[26px] place-items-center rounded-md border-none bg-[linear-gradient(135deg,var(--color-u-inferred),var(--color-u-adjacent))] transition disabled:opacity-40"
             >
               <Icon d={ICONS.arrowUp} size={13} className="text-white" />
             </button>

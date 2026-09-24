@@ -35,6 +35,6 @@ describe("ui primitives merge classes in the caller's favour", () => {
     const button = screen.getByRole("button");
     expect(button.className).toContain("px-8");
     expect(button.className).not.toContain("px-3.5");
-    expect(button.className).toContain("border-line");
+    expect(button.className).toContain("border-u-border-strong");
   });
 });

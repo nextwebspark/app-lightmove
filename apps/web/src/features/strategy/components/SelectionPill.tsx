@@ -1,18 +1,17 @@
 import { Icon, ICONS } from "../../../components/layout/Icon";
 import { cn } from "../../../lib/cn";
 
-type PillTone = "amber" | "sky" | "red";
+type PillTone = "accent" | "offlimits";
 
 const TONES: Record<PillTone, string> = {
-  amber: "bg-amber-dim text-amber shadow-[inset_0_0_0_1px_var(--color-amber-dim)]",
-  sky: "bg-sky-dim text-sky",
-  red: "bg-red-dim text-red",
+  accent: "bg-u-accent-tint text-u-accent",
+  offlimits: "bg-u-offlimits-tint text-u-offlimits",
 };
 
 /** One selected value as a pill, removable where the caller can drop it. */
 export function SelectionPill({
   label,
-  tone = "sky",
+  tone = "accent",
   onRemove,
 }: {
   label: string;

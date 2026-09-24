@@ -15,14 +15,14 @@ const VISIBLE_POSTS = 4;
 export function CareerTimeline({ career }: { career: readonly CandidateCareerEntry[] }) {
   const [showAll, setShowAll] = useState(false);
   if (career.length === 0) {
-    return <p className="font-mono text-[12.5px] text-text3">No history captured yet.</p>;
+    return <p className="font-mono text-[12.5px] text-u-text3">No history captured yet.</p>;
   }
   const shown = showAll ? career : career.slice(0, VISIBLE_POSTS);
   const groups = groupCareer(shown);
 
   return (
     <>
-      <ol className="ms-[5px] border-s border-line ps-4">
+      <ol className="ms-[5px] border-s border-u-border-strong ps-4">
         {groups.map((group, index) => {
           const current = group.posts.some((post) => isCurrent(post.period));
           return (
@@ -30,17 +30,17 @@ export function CareerTimeline({ career }: { career: readonly CandidateCareerEnt
               <span
                 aria-hidden="true"
                 className={cn(
-                  "absolute -start-[21px] top-[5px] size-[9px] rounded-full border-2 border-panel",
-                  current ? "bg-sky ring-2 ring-sky-dim" : "bg-line",
+                  "absolute -start-[21px] top-[5px] size-[9px] rounded-full border-2 border-u-surface",
+                  current ? "bg-u-accent ring-2 ring-u-accent-tint" : "bg-u-border-strong",
                 )}
               />
-              <div className="font-sans text-[13px] font-semibold text-text">
+              <div className="font-sans text-[13px] font-semibold text-u-text">
                 {group.company ?? "Employer not recorded"}
               </div>
               {group.posts.length === 1 ? (
                 <CareerPost post={group.posts[0]} />
               ) : (
-                <ol className="mt-1.5 border-s border-line-soft ps-3.5">
+                <ol className="mt-1.5 border-s border-u-border ps-3.5">
                   {group.posts.map((post, postIndex) => (
                     <li key={`${post.title}-${post.period}-${postIndex}`} className="pb-2.5 last:pb-0">
                       <CareerPost post={post} />
@@ -56,7 +56,7 @@ export function CareerTimeline({ career }: { career: readonly CandidateCareerEnt
         <button
           type="button"
           onClick={() => setShowAll((current) => !current)}
-          className="mt-3 font-mono text-[11px] font-semibold uppercase tracking-[0.06em] text-sky transition hover:underline"
+          className="mt-3 font-mono text-[11px] font-semibold uppercase tracking-[0.06em] text-u-accent transition hover:underline"
         >
           {showAll ? "Show fewer" : `Show all ${career.length} posts`}
         </button>
@@ -71,13 +71,13 @@ function CareerPost({ post }: { post: CandidateCareerEntry }) {
   return (
     <div>
       {post.title && (
-        <div className="mt-0.5 font-sans text-[13px] font-medium text-text2">{post.title}</div>
+        <div className="mt-0.5 font-sans text-[13px] font-medium text-u-text2">{post.title}</div>
       )}
       {(post.period || current) && (
-        <div className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-1 font-mono text-[11.5px] text-text3">
+        <div className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-1 font-mono text-[11.5px] text-u-text3">
           {post.period && <span>{post.period}</span>}
           {tenure && <span>· {tenure}</span>}
-          {current && <DetailPill label="Current" className="bg-green-dim text-green" />}
+          {current && <DetailPill label="Current" className="bg-u-direct-tint text-u-direct" />}
         </div>
       )}
     </div>

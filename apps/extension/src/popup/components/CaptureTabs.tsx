@@ -14,7 +14,7 @@ interface CaptureTabsProps {
  */
 export function CaptureTabs({ active, onSelect }: CaptureTabsProps) {
   return (
-    <div className="flex gap-0.5 border-b border-line-soft px-3.5" role="tablist">
+    <div className="flex gap-0.5 border-b border-u-border px-3.5" role="tablist">
       {CAPTURE_SUBJECTS.map((subject) => (
         <button
           key={subject}
@@ -28,8 +28,8 @@ export function CaptureTabs({ active, onSelect }: CaptureTabsProps) {
             "border-b-2 px-1 py-[9px] text-[12px] capitalize",
             subject === "person" && "mr-3.5",
             active === subject
-              ? "border-amber-btn font-semibold text-text"
-              : "border-transparent font-medium text-text3 hover:text-text2",
+              ? "border-u-accent-solid font-semibold text-u-text"
+              : "border-transparent font-medium text-u-text3 hover:text-u-text2",
           )}
         >
           {subject}

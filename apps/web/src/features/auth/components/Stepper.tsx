@@ -57,7 +57,7 @@ export function Stepper({
               <span
                 className={cn(
                   "mx-1.5 h-px w-4 sm:mx-2 sm:w-8",
-                  step.n <= current ? "bg-amber-btn" : "bg-line",
+                  step.n <= current ? "bg-u-accent-solid" : "bg-u-border-strong",
                 )}
                 aria-hidden="true"
               />
@@ -68,15 +68,15 @@ export function Stepper({
               disabled={!canGoBack}
               onClick={() => canGoBack && onGoBack?.(step.n)}
               aria-current={active ? "step" : undefined}
-              className="flex items-center gap-2 rounded-md outline-none focus-visible:ring-2 focus-visible:ring-sky disabled:cursor-default"
+              className="flex items-center gap-2 rounded-md outline-none focus-visible:ring-2 focus-visible:ring-u-accent disabled:cursor-default"
             >
               <span
                 className={`grid size-6 place-items-center rounded-full border font-mono text-[11px] font-semibold ${
                   done
-                    ? "border-transparent bg-green-dim text-green"
+                    ? "border-transparent bg-u-direct-tint text-u-direct"
                     : active
-                      ? "border-amber-btn bg-amber-btn text-on-amber"
-                      : "border-line bg-panel2 text-text3"
+                      ? "border-u-accent-solid bg-u-accent-solid text-white"
+                      : "border-u-border-strong bg-u-raised text-u-text3"
                 }`}
               >
                 {done ? "✓" : step.n}
@@ -85,8 +85,8 @@ export function Stepper({
               <span
                 className={cn(
                   "text-xs font-medium",
-                  active ? "inline text-text" : "hidden sm:inline",
-                  done ? "text-text2" : !active && "text-text3",
+                  active ? "inline text-u-text" : "hidden sm:inline",
+                  done ? "text-u-text2" : !active && "text-u-text3",
                 )}
               >
                 {step.label}

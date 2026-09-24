@@ -34,9 +34,9 @@ export function CustomFieldsFieldset({
   const set = (fieldKey: string, value: string) => onChange({ ...values, [fieldKey]: value });
 
   return (
-    <div className={heading ? "mt-1 border-t border-line-soft pt-4" : undefined}>
+    <div className={heading ? "mt-1 border-t border-u-border pt-4" : undefined}>
       {heading && (
-        <p className="mb-3 font-mono text-[10px] font-semibold uppercase tracking-[0.12em] text-text3">
+        <p className="mb-3 font-mono text-[10px] font-semibold uppercase tracking-[0.12em] text-u-text3">
           This mandate's columns
         </p>
       )}

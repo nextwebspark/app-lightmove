@@ -708,7 +708,7 @@ function TriageStage() {
         />
 
         {unlisted.map((line) => (
-          <p key={line} role="status" className="flex-none font-mono text-[11.5px] text-text3">
+          <p key={line} role="status" className="flex-none font-mono text-[11.5px] text-u-text3">
             {line}
           </p>
         ))}

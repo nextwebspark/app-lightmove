@@ -1,8 +1,8 @@
 import { useEffect, useState, type ReactNode } from "react";
 import { useLocation } from "react-router-dom";
 import { cn } from "../../lib/cn";
+import { useAssistant } from "../../features/assistant/AssistantProvider";
 import { AssistantDock } from "../../features/assistant/components/AssistantDock";
-import { AssistantLauncher } from "../../features/assistant/components/AssistantLauncher";
 import { Sidebar, type SidebarGroup, type SidebarItem } from "./Sidebar";
 import { Topbar } from "./Topbar";
 
@@ -31,6 +31,7 @@ export function AppShell({
 }) {
   const { pathname } = useLocation();
   const [navOpen, setNavOpen] = useState(false);
+  const { open: assistantOpen } = useAssistant();
 
   useEffect(() => setNavOpen(false), [pathname]);
 
@@ -50,7 +51,7 @@ export function AppShell({
       <div className="flex min-h-0 flex-1 px-3.5 pb-3.5">
         {navOpen && (
           <div
-            className="fixed inset-0 z-[90] bg-[rgba(15,20,30,0.4)] lg:hidden"
+            className="fixed inset-0 z-[90] bg-u-scrim lg:hidden"
             onClick={() => setNavOpen(false)}
           />
         )}
@@ -60,9 +61,10 @@ export function AppShell({
           backLink={navBackLink}
           open={navOpen}
           onClose={() => setNavOpen(false)}
+          assistantOpen={!!assistantProjectId && assistantOpen}
         />
 
-        <main className="min-w-0 flex-1 overflow-y-auto rounded-[10px] border border-line bg-panel">
+        <main className="min-w-0 flex-1 overflow-y-auto rounded-[10px] border border-u-border-strong bg-u-surface">
           <div className={cn(contentClassName)}>{children}</div>
         </main>
 
@@ -70,13 +72,9 @@ export function AppShell({
             draws it this way because the grid has to stay tickable while the assistant is open. The
             dock is the slot rather than the panel, so main narrows on the same curve the panel
             arrives on instead of losing its width a frame ahead of it. */}
-        {/* Offered inside a project only, for now: the open state lives in AssistantProvider, so
-            leaving for a workspace screen hides the panel and coming back restores it. */}
+        {/* Inside a project only, and opened from Strategy's AI Research: no screen floats its own way in. */}
         {assistantProjectId && (
-          <>
-            <AssistantDock contextLabel={assistantContext} projectId={assistantProjectId} />
-            <AssistantLauncher />
-          </>
+          <AssistantDock contextLabel={assistantContext} projectId={assistantProjectId} />
         )}
       </div>
     </div>

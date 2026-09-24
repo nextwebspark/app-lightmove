@@ -2,7 +2,7 @@ package app.lightmove.api.core.email.render;
 
 /**
  * The one place an email's colours and type are decided — the Uncava light palette, from
- * {@code claude-design/color-pallate/uncava-tokens.css}.
+ * {@code claude-design/uncava-tokens.css}.
  *
  * <p>Light only. A mail client's dark mode is its own inversion and cannot be reached from here, so
  * the header pairs the mark with the wordmark as text: whatever a client does to the picture, the
@@ -17,7 +17,8 @@ final class EmailPalette {
 
     static final String PAGE = "#F7F8FA";
     static final String CARD = "#FFFFFF";
-    static final String BORDER = "#E9EBEF";
+    /** {@code --u-border} (rgba 3,7,18 at 9%) flattened onto the white card, since not every client blends alpha. */
+    static final String BORDER = "#E8E9EA";
 
     static final String HEADING = "#0B0D12";
     static final String BODY = "#4C5462";

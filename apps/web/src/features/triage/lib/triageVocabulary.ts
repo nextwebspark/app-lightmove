@@ -9,11 +9,11 @@ import type { TriageCompanySource, TriageCompanyStatus } from "../api/types";
 
 /** "Plugin" rather than "Extension" — that is what people call it. */
 export const SOURCE_STYLES: Record<TriageCompanySource, { label: string; className: string }> = {
-  strategy: { label: "Strategy", className: "text-sky bg-sky-dim" },
-  manual: { label: "Manual", className: "text-amber bg-amber-dim" },
-  extension: { label: "Plugin", className: "text-green bg-green-dim" },
-  csv: { label: "Import", className: "text-text2 bg-line-soft" },
-  assistant: { label: "Assistant", className: "text-ai bg-ai-soft" },
+  strategy: { label: "Strategy", className: "text-u-accent bg-u-accent-tint" },
+  manual: { label: "Manual", className: "text-u-accent bg-u-accent-tint" },
+  extension: { label: "Plugin", className: "text-u-direct bg-u-direct-tint" },
+  csv: { label: "Import", className: "text-u-text2 bg-u-border" },
+  assistant: { label: "Assistant", className: "text-u-inferred bg-u-inferred-tint" },
 };
 
 export interface TriageMove {

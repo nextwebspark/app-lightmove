@@ -73,7 +73,7 @@ export function RoleTitleCombobox({
           id="role-title-suggestions"
           role="listbox"
           aria-label="Role templates"
-          className="absolute z-10 mt-1 max-h-72 w-full overflow-auto rounded-[10px] border border-line bg-panel py-1 shadow-panel"
+          className="absolute z-10 mt-1 max-h-72 w-full overflow-auto rounded-[10px] border border-u-border-strong bg-u-surface py-1 shadow-u-e3"
         >
           {matches.map((template, index) => (
             <li
@@ -84,13 +84,13 @@ export function RoleTitleCombobox({
               onMouseDown={(event) => list.commitFromPointer(event, index)}
               onMouseEnter={() => list.setActive(index)}
               className={`flex cursor-pointer items-baseline gap-2.5 px-3 py-[7px] ${
-                index === list.active ? "bg-panel2 text-text" : "text-text2"
+                index === list.active ? "bg-u-raised text-u-text" : "text-u-text2"
               }`}
             >
-              <span className="truncate font-sans text-body font-medium text-text">
+              <span className="truncate font-sans text-body font-medium text-u-text">
                 {template.title}
               </span>
-              <span className="min-w-0 flex-1 truncate text-right font-mono text-meta text-text3">
+              <span className="min-w-0 flex-1 truncate text-right font-mono text-meta text-u-text3">
                 {SENIORITY_LABELS[template.seniority]}
                 {template.shared ? "" : " · yours"}
               </span>
