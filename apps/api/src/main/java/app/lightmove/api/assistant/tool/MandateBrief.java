@@ -8,7 +8,7 @@ import java.util.List;
  */
 public record MandateBrief(String roleTitle, String seniority, String department, String locationCity,
                            String locationCountry, String clientName, String clientSector,
-                           String clientHqCity, String clientHqCountry, List<String> responsibilities,
+                           String clientHqCity, String clientHqCountry, Integer clientEmployees, List<String> responsibilities,
                            String narrative, String mandateReason, String businessDriver,
                            List<String> strategicPriorities) {
 }

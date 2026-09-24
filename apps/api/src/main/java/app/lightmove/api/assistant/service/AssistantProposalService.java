@@ -1,6 +1,7 @@
 package app.lightmove.api.assistant.service;
 
 import app.lightmove.api.assistant.dto.AcceptProposalRequest;
+import app.lightmove.api.assistant.model.AssistantProposal;
 import app.lightmove.api.assistant.model.AssistantThread;
 import app.lightmove.api.assistant.model.AssistantTurn;
 import app.lightmove.api.assistant.model.ProposalOutcome;
@@ -24,8 +25,9 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
 /**
- * Files the ticked companies of a card through the same door Strategy's bulk add uses. The project
- * and the companies come from the stored turn, so the request can only choose among what was offered.
+ * Files the ticked companies of a card: universe companies through the door Strategy's bulk add uses,
+ * researched ones through the capture door with what their page said. The project and the companies
+ * come from the stored turn, so the request can only choose among what was offered.
  */
 @Service
 @RequiredArgsConstructor
@@ -49,18 +51,30 @@ public class AssistantProposalService {
                 .orElseThrow(() -> ApiException.of(ErrorCode.NOT_FOUND));
         projectAccess.requireAction(userId, workspaceId, projectId, ProjectAction.WORK_EXECUTE);
 
-        List<String> chosen = request.apolloAccountIds().stream().distinct().toList();
-        Set<String> offered = turn.getProposal().companies().stream()
-                .map(ProposedCompany::apolloAccountId)
+        List<String> chosen = request.companyIds().stream().distinct().toList();
+        AssistantProposal card = turn.getProposal();
+        Set<String> offered = card.companies().stream()
+                .map(ProposedCompany::key)
                 .collect(Collectors.toSet());
         if (!offered.containsAll(chosen)) {
             throw new ApiException(ErrorCode.VALIDATION_FAILED,
                     "Every company must be one this proposal offered");
         }
 
-        TriageBulkAddResponse filed = triage.addSelected(userId, workspaceId, projectId,
-                new AddSelectedTriageCompaniesRequest(chosen, request.status()),
-                TriageCompanySource.ASSISTANT, httpRequest);
+        List<String> accountIds = chosen.stream().filter(key -> !card.researched().containsKey(key)).toList();
+        TriageBulkAddResponse fromUniverse = accountIds.isEmpty() ? new TriageBulkAddResponse(0, 0)
+                : triage.addSelected(userId, workspaceId, projectId,
+                        new AddSelectedTriageCompaniesRequest(accountIds, request.status()),
+                        TriageCompanySource.ASSISTANT, httpRequest);
+        long researchedAdded = chosen.stream()
+                .filter(card.researched()::containsKey)
+                .filter(slug -> triage.captureResearched(userId, workspaceId, projectId,
+                        card.researched().get(slug), TriageCompanySource.ASSISTANT, request.status(), httpRequest))
+                .count();
+        int researchedChosen = chosen.size() - accountIds.size();
+        TriageBulkAddResponse filed = new TriageBulkAddResponse(
+                fromUniverse.added() + (int) researchedAdded,
+                fromUniverse.skipped() + researchedChosen - (int) researchedAdded);
         turn.recordAccepted(new ProposalOutcome(request.status(), filed.added(), filed.skipped()));
         turns.save(turn);
         return filed;

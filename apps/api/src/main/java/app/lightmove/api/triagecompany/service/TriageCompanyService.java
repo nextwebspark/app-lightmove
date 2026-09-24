@@ -457,6 +457,33 @@ public class TriageCompanyService {
     }
 
     /**
+     * A company someone chose from what was researched about it — the assistant's card — filed with
+     * everything its page said. It lands as the market row where the universe carries it. False when
+     * the mandate already held it, which a card filed twice, or a company taken in since, can be.
+     */
+    @Transactional
+    public boolean captureResearched(UUID userId, UUID workspaceId, UUID projectId,
+                                     CapturedCompanyDetails details, TriageCompanySource source,
+                                     String status, HttpServletRequest httpRequest) {
+        requireProject(projectId, workspaceId);
+        ResolvedCapture resolved = resolveCapture(projectId, userId, details, source, resolveStatus(status));
+        if (!resolved.created()) {
+            return false;
+        }
+        TriageCompany captured = resolved.company();
+        var event = audit.event(ProjectEventType.TRIAGE_COMPANY_CAPTURED)
+                .actor(userId).workspace(workspaceId).target("project", projectId).from(httpRequest)
+                .detail("source", source.name())
+                .detail("triageCompanyId", captured.getId().toString());
+        if (captured.getApolloAccountId() != null) {
+            event = event.detail("apolloAccountId", captured.getApolloAccountId());
+        }
+        event.record();
+        stream.publish(projectId, ProjectStreamKind.COMPANY_CAPTURED);
+        return true;
+    }
+
+    /**
      * The short transactional tail of a company enrichment.
      *
      * <p>{@code REQUIRES_NEW} because the enrichment worker calls this from an {@code AFTER_COMMIT}

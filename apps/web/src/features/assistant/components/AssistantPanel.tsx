@@ -6,7 +6,8 @@ import { messageFor } from "../../../lib/errorCodes";
 import { useEscapeKey } from "../../../lib/useEscapeKey";
 import * as assistantApi from "../api/assistantApi";
 import { useAssistant } from "../AssistantProvider";
-import type { LiveStep } from "../api/types";
+import type { AssistantProposal, AssistantThread, LiveStep } from "../api/types";
+import { AssistantProposalCard } from "./AssistantProposalCard";
 import { AssistantSteps } from "./AssistantSteps";
 import { AssistantTurnView, QuestionBubble } from "./AssistantTurnView";
 
@@ -18,12 +19,19 @@ const STARTERS = [
 
 const READING_STEP: LiveStep = { index: 0, label: "Reading your question", detail: null, done: false };
 
+/** Once every tool has finished, the model still writes the answer — a gap that would read as a hang. */
+function withWritingStep(steps: LiveStep[]): LiveStep[] {
+  if (steps.length === 0) return [READING_STEP];
+  if (steps.some((step) => !step.done)) return steps;
+  return [...steps, { index: steps.length, label: "Writing the answer", detail: null, done: false }];
+}
+
 /**
  * The assistant, docked beside the page rather than over it: `role="complementary"` with no scrim,
  * so the grid next to it stays usable while it is open.
  *
- * <p>One chat at a time. Asking waits for the whole answer — the model searches and proposes inside
- * that one request — and the chat is then read back from the server.
+ * <p>One chat at a time. Asking streams the steps and the card as they happen, and the saved turn
+ * replaces them once the answer is written.
  */
 export function AssistantPanel({ contextLabel, projectId }: { contextLabel: string; projectId: string }) {
   const { open, toggledByUser, closeAssistant, threadIdFor, showThread } = useAssistant();
@@ -47,28 +55,44 @@ export function AssistantPanel({ contextLabel, projectId }: { contextLabel: stri
   });
 
   const [liveSteps, setLiveSteps] = useState<LiveStep[]>([]);
+  const [liveProposal, setLiveProposal] = useState<AssistantProposal | null>(null);
   const [pendingQuestion, setPendingQuestion] = useState<string | null>(null);
   const scroller = useRef<HTMLDivElement>(null);
 
   const asking = useMutation({
     mutationFn: (question: string) => {
       setLiveSteps([]);
+      setLiveProposal(null);
       setPendingQuestion(question);
-      return assistantApi.ask(projectId, question, threadId, (step) =>
-        setLiveSteps((current) => [...current.filter((held) => held.index !== step.index), step]
-          .sort((left, right) => left.index - right.index)),
+      return assistantApi.ask(
+        projectId,
+        question,
+        threadId,
+        (step) =>
+          setLiveSteps((current) => [...current.filter((held) => held.index !== step.index), step]
+            .sort((left, right) => left.index - right.index)),
+        setLiveProposal,
       );
     },
     // The pending bubble and the saved turn swap in one synchronous block, so React draws them in one
-    // frame: the question is never shown twice and the layout does not jump.
+    // frame: the question is never shown twice and the layout does not jump. The turn is appended to
+    // the cached chat rather than the chat refetched; only a chat never loaded here is read whole.
     onSuccess: async (turn) => {
-      const fresh = await assistantApi.getThread(turn.threadId);
+      const key = assistantApi.ASSISTANT_THREAD_KEY(turn.threadId);
+      const cached = queryClient.getQueryData<AssistantThread>(key);
+      const fresh = cached
+        ? { ...cached, turns: [...cached.turns.filter((held) => held.id !== turn.id), turn] }
+        : await assistantApi.getThread(turn.threadId);
       setPendingQuestion(null);
-      queryClient.setQueryData(assistantApi.ASSISTANT_THREAD_KEY(turn.threadId), fresh);
+      setLiveProposal(null);
+      queryClient.setQueryData(key, fresh);
       showThread(projectId, turn.threadId);
       void queryClient.invalidateQueries({ queryKey: assistantApi.ASSISTANT_THREADS_KEY(projectId) });
     },
-    onError: () => setPendingQuestion(null),
+    onError: () => {
+      setPendingQuestion(null);
+      setLiveProposal(null);
+    },
   });
 
   const handleSend = () => {
@@ -82,6 +106,7 @@ export function AssistantPanel({ contextLabel, projectId }: { contextLabel: stri
     setHistoryOpen(false);
     asking.reset();
     setPendingQuestion(null);
+    setLiveProposal(null);
     showThread(projectId, id);
   };
 
@@ -91,7 +116,7 @@ export function AssistantPanel({ contextLabel, projectId }: { contextLabel: stri
   useEffect(() => {
     const list = scroller.current;
     list?.scrollTo?.({ top: list.scrollHeight, behavior: "smooth" });
-  }, [pendingQuestion, liveSteps.length, lastTurnId, thread.data]);
+  }, [pendingQuestion, liveSteps.length, liveProposal, lastTurnId, thread.data]);
 
   // Guarded on the toggle so restoring a remembered open panel never steals the caret.
   useEffect(() => {
@@ -199,7 +224,12 @@ export function AssistantPanel({ contextLabel, projectId }: { contextLabel: stri
         {pendingQuestion && (
           <div>
             <QuestionBubble question={pendingQuestion} />
-            <AssistantSteps steps={liveSteps.length > 0 ? liveSteps : [READING_STEP]} />
+            <AssistantSteps steps={withWritingStep(liveSteps)} />
+            {liveProposal && (
+              <div className="mt-3">
+                <AssistantProposalCard proposal={liveProposal} outcome={null} filing={false} pending onAccept={() => {}} />
+              </div>
+            )}
           </div>
         )}
 

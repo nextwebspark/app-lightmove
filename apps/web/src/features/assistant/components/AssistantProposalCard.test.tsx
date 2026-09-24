@@ -57,6 +57,32 @@ describe("the assistant's company card", () => {
     expect(screen.getByRole("button", { name: "Universe" })).toBeDisabled();
   });
 
+  it("files a company researched on LinkedIn by its slug, and names the brand a partner runs", async () => {
+    const { onAccept } = mount({
+      proposal: {
+        title: "Global retailers",
+        companies: [
+          company("a1", { companyName: "Majid Al Futtaim", operates: "Carrefour" }),
+          { ...company("x"), apolloAccountId: null, linkedinSlug: "ikea", companyName: "IKEA" },
+        ],
+      },
+    });
+
+    expect(screen.getByText("Operates Carrefour")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "LinkedIn" })).toHaveAttribute("href", "https://www.linkedin.com/company/ikea");
+
+    await userEvent.click(screen.getByRole("button", { name: "Shortlist" }));
+
+    expect(onAccept).toHaveBeenCalledWith(["a1", "ikea"], "shortlisted");
+  });
+
+  it("offers nothing to file while the answer is still being written", () => {
+    mount({ pending: true });
+
+    expect(screen.getByText("Available when the answer is ready")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Shortlist" })).toBeDisabled();
+  });
+
   it("shows what was filed instead of the buttons once filed", () => {
     mount({ outcome: { status: null, added: 2, skipped: 1 } });
 

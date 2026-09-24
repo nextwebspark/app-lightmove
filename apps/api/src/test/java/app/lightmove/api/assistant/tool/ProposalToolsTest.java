@@ -1,17 +1,21 @@
 package app.lightmove.api.assistant.tool;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.tuple;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.RETURNS_DEEP_STUBS;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
+import app.lightmove.api.assistant.model.AssistantProposal;
 import app.lightmove.api.core.config.LightMoveProperties;
 import app.lightmove.api.strategy.model.CompanyExclusion;
 import app.lightmove.api.strategy.model.CompanyRow;
 import app.lightmove.api.strategy.model.CompanyScope;
 import app.lightmove.api.strategy.service.ApolloCompanyQueryService;
 import app.lightmove.api.strategy.service.StrategyService;
+import app.lightmove.api.triagecompany.model.CapturedCompanyDetails;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 import java.util.stream.IntStream;
@@ -58,7 +62,7 @@ class ProposalToolsTest {
         assertThat(recorder.steps()).singleElement().satisfies(step -> {
             assertThat(step.label()).isEqualTo("Preparing 3 companies");
             assertThat(step.detail())
-                    .isEqualTo("1 on the card, 2 left out (off limits or no longer in the universe)");
+                    .isEqualTo("1 on the card, 2 left out (off limits or not found)");
         });
     }
 
@@ -84,6 +88,60 @@ class ProposalToolsTest {
         tools().proposeCompanies("Six\nIPPs   in\tSaudi", List.of("a1"), context());
 
         assertThat(recorder.proposal().title()).isEqualTo("Six IPPs in Saudi");
+    }
+
+    @Test
+    @DisplayName("an answer that found companies but proposed none still carries a card of them")
+    void cardsWhatWasFoundWhenNothingWasProposed() {
+        marketHolding(row("a1", "ACWA Power", "Saudi Arabia", 4_000),
+                row("a2", "Marafiq", "Saudi Arabia", 2_400));
+        recorder.found(List.of("a2", "a1"));
+
+        tools().proposeWhatWasFound(new AssistantToolContext(UUID.randomUUID(), UUID.randomUUID(), recorder));
+
+        assertThat(recorder.proposal().companies()).extracting("apolloAccountId").containsExactly("a1", "a2");
+    }
+
+    @Test
+    @DisplayName("the card is passed on the moment it is made, before the answer is written")
+    void announcesTheCard() {
+        marketHolding(row("a1", "ACWA Power", "Saudi Arabia", 4_000));
+        List<AssistantProposal> heard = new ArrayList<>();
+        TurnRecorder listening = new TurnRecorder(step -> { }, heard::add);
+
+        tools().proposeCompanies("One", List.of("a1"),
+                new ToolContext(new AssistantToolContext(UUID.randomUUID(), UUID.randomUUID(), listening).asMap()));
+
+        assertThat(heard).singleElement().satisfies(card ->
+                assertThat(card.companies()).extracting("apolloAccountId").containsExactly("a1"));
+    }
+
+    @Test
+    @DisplayName("a company researched on LinkedIn joins the card with its page's figures and the brand it runs")
+    void cardsAResearchedCompany() {
+        marketHolding(row("a1", "ACWA Power", "Saudi Arabia", 4_000));
+        recorder.researched("ikea", new CapturedCompanyDetails("IKEA", "Retail", "Sweden", "Delft", 160_000,
+                null, null, "https://www.linkedin.com/company/ikea", 1943, null, null, null, null));
+        recorder.operates("ikea", "IKEA");
+
+        tools().proposeCompanies("Retailers", List.of("a1", "ikea", "never-researched"), context());
+
+        assertThat(recorder.proposal().companies()).extracting("linkedinSlug", "apolloAccountId", "employees")
+                .containsExactly(tuple("ikea", null, 160_000), tuple(null, "a1", 4_000));
+        assertThat(recorder.proposal().researched()).containsOnlyKeys("ikea");
+    }
+
+    @Test
+    @DisplayName("a card the model proposed is left as it chose it")
+    void keepsTheModelsCard() {
+        marketHolding(row("a1", "ACWA Power", "Saudi Arabia", 4_000),
+                row("a2", "Marafiq", "Saudi Arabia", 2_400));
+        tools().proposeCompanies("One", List.of("a1"), context());
+        recorder.found(List.of("a1", "a2"));
+
+        tools().proposeWhatWasFound(new AssistantToolContext(UUID.randomUUID(), UUID.randomUUID(), recorder));
+
+        assertThat(recorder.proposal().companies()).extracting("apolloAccountId").containsExactly("a1");
     }
 
     private ProposalTools tools() {

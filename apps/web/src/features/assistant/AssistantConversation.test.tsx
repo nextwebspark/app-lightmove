@@ -76,7 +76,7 @@ describe("a chat with the assistant", () => {
     await send("Top retailers in UAE");
 
     expect(await screen.findByText("Majid Al Futtaim")).toBeInTheDocument();
-    expect(ask).toHaveBeenCalledWith("p1", "Top retailers in UAE", null, expect.any(Function));
+    expect(ask).toHaveBeenCalledWith("p1", "Top retailers in UAE", null, expect.any(Function), expect.any(Function));
 
     await userEvent.click(screen.getByRole("button", { name: "Universe" }));
 
@@ -95,7 +95,7 @@ describe("a chat with the assistant", () => {
     await send("Question t2");
 
     expect(await screen.findByText("Answer t2")).toBeInTheDocument();
-    expect(ask).toHaveBeenLastCalledWith("p1", "Question t2", "th1", expect.any(Function));
+    expect(ask).toHaveBeenLastCalledWith("p1", "Question t2", "th1", expect.any(Function), expect.any(Function));
   });
 
   it("lists this project's chats and opens one", async () => {
@@ -150,6 +150,34 @@ describe("a chat with the assistant", () => {
     expect(await screen.findByText("Answer t1")).toBeInTheDocument();
     expect(screen.queryByText("Preparing 10 companies")).not.toBeInTheDocument();
     expect(screen.getByText(/342 matched, showing the top 25/)).toBeInTheDocument();
+  });
+
+  it("draws the card as soon as it is made, fileable only once the answer is saved", async () => {
+    const answered = turn("t1", "th1", { question: "Top retailers in UAE", proposal: CARD });
+    let finish: (value: AssistantTurn) => void = () => {};
+    ask.mockImplementation((_projectId, _question, _threadId, onStep: (step: LiveStep) => void,
+      onProposal: (proposal: typeof CARD) => void) => {
+      onStep({ index: 0, label: "Preparing 2 companies", detail: "2 on the card", done: true });
+      onProposal(CARD);
+      return new Promise<AssistantTurn>((resolve) => {
+        finish = resolve;
+      });
+    });
+    getThread.mockResolvedValue(thread("th1", [answered]));
+
+    mount();
+    await send("Top retailers in UAE");
+
+    expect(await screen.findByText("Landmark Group")).toBeInTheDocument();
+    expect(screen.getByText("Writing the answer")).toBeInTheDocument();
+    expect(screen.getByText("Available when the answer is ready")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Universe" })).toBeDisabled();
+
+    finish(answered);
+
+    expect(await screen.findByText("Answer t1")).toBeInTheDocument();
+    expect(screen.getAllByText("Landmark Group")).toHaveLength(1);
+    expect(screen.getByRole("button", { name: "Universe" })).toBeEnabled();
   });
 
   it("shows a sent question once, acknowledged at once, and follows the chat down as it grows", async () => {

@@ -6,7 +6,7 @@ import { cn } from "../../../lib/cn";
 import { formatNumber } from "../../../lib/format";
 import type { TriageCompanyStatus } from "../../triage/api/types";
 import { TRIAGE_STAGES } from "../../triage/lib/triageStages";
-import type { AssistantProposal, ProposalOutcome, ProposedCompany } from "../api/types";
+import { companyKey, type AssistantProposal, type ProposalOutcome, type ProposedCompany } from "../api/types";
 
 const ACCEPT_LABELS: Record<TriageCompanyStatus, string> = {
   inUniverse: "Universe",
@@ -22,15 +22,18 @@ export function AssistantProposalCard({
   proposal,
   outcome,
   filing,
+  pending = false,
   onAccept,
 }: {
   proposal: AssistantProposal;
   outcome: ProposalOutcome | null;
   filing: boolean;
-  onAccept: (apolloAccountIds: string[], status: TriageCompanyStatus) => void;
+  /** Drawn before the answer is saved: nothing can be filed until the turn exists. */
+  pending?: boolean;
+  onAccept: (companyIds: string[], status: TriageCompanyStatus) => void;
 }) {
   const [ticked, setTicked] = useState<string[]>(() =>
-    proposal.companies.map((company) => company.apolloAccountId),
+    proposal.companies.map(companyKey),
   );
 
   if (outcome) {
@@ -59,10 +62,11 @@ export function AssistantProposalCard({
 
       <ul className="max-h-[258px] overflow-y-auto">
         {proposal.companies.map((company) => {
-          const on = ticked.includes(company.apolloAccountId);
+          const key = companyKey(company);
+          const on = ticked.includes(key);
           return (
             <li
-              key={company.apolloAccountId}
+              key={key}
               className={cn(
                 "flex items-center gap-2.5 border-b border-line-soft px-3 py-2.5",
                 on && "bg-ai-soft",
@@ -71,7 +75,7 @@ export function AssistantProposalCard({
               <SelectionCheckbox
                 checked={on}
                 label={`Include ${company.companyName}`}
-                onChange={() => toggle(company.apolloAccountId)}
+                onChange={() => toggle(key)}
               />
               <CompanyLogo name={company.companyName} logo={company.logoUrl} size={22} />
               <div className="min-w-0 flex-1">
@@ -82,8 +86,22 @@ export function AssistantProposalCard({
                   )}
                 >
                   {company.companyName}
+                  {company.apolloAccountId == null && company.linkedinSlug && (
+                    <a
+                      href={`https://www.linkedin.com/company/${company.linkedinSlug}`}
+                      target="_blank"
+                      rel="noreferrer"
+                      title="Found on LinkedIn, not yet in the company universe"
+                      className="ms-1.5 rounded bg-ai-soft px-1 py-px align-middle font-mono text-[9.5px] font-normal text-ai hover:underline"
+                    >
+                      LinkedIn
+                    </a>
+                  )}
                 </p>
                 <p className="truncate font-mono text-[10.5px] text-text3">{meta(company)}</p>
+                {company.operates && company.operates !== company.companyName && (
+                  <p className="truncate font-sans text-[11px] text-text2">Operates {company.operates}</p>
+                )}
               </div>
             </li>
           );
@@ -91,13 +109,15 @@ export function AssistantProposalCard({
       </ul>
 
       <div className="border-t border-line-soft bg-panel2 px-3 py-2.5">
-        <p className="mb-[7px] font-mono text-[11px] text-text3">{acceptCountLabel(ticked.length)}</p>
+        <p className="mb-[7px] font-mono text-[11px] text-text3">
+          {pending ? "Available when the answer is ready" : acceptCountLabel(ticked.length)}
+        </p>
         <div className="flex flex-wrap items-center gap-1.5">
           {TRIAGE_STAGES.map((stage) => (
             <button
               key={stage.status}
               type="button"
-              disabled={filing || ticked.length === 0}
+              disabled={pending || filing || ticked.length === 0}
               onClick={() => onAccept(ticked, stage.status)}
               title={`File the selected companies as ${stage.label}`}
               className={cn(

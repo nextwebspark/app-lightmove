@@ -18,8 +18,13 @@ Panel ──POST /api/v1/projects/{projectId}/assistant/ask {question, threadId?
         │     readMandateBrief       → the role and the client (never compensation or internal notes)
         │     describeMarket         → exact country / industry spellings
         │     searchCompanyUniverse  → top 25 by headcount, with the total matched
-        │     proposeCompanies(ids)  → resolves ids from the universe, drops off-limits,
-        │                              records the card
+        │     lookUpCompaniesByName  → names the model knows, local and global: a brand's local
+        │                              operator first, then the universe, then LinkedIn in the
+        │                              country via Bright Data, then the brand's own page anywhere
+        │                              (cached per page, 30 days)
+        │     adjacentIndustries     → the sectors beside one, from industry-adjacency.json
+        │     proposeCompanies(ids)  → account ids from the universe, LinkedIn slugs this answer
+        │                              researched; drops off-limits, records the card
         │   each tool reports its steps ──▶ event: step {index, label, detail, done}
         └─ save the turn {question, answer, steps, proposal} ──▶ event: done {turn}
                                               model failed ──▶ event: failed {code}
@@ -75,7 +80,7 @@ closes mid-answer, the answer is still saved and shows up in History.
   - `service/AssistantAskStream` streams an ask's steps and result.
   - `service/AssistantService` handles ask, the history list and reading a chat.
   - `service/AssistantProposalService` handles accept.
-  - `tool/` holds `MandateTools`, `CompanySearchTools`, `ProposalTools`, `MarketSearch`, `MarketQuery`, `AssistantToolContext` and `TurnRecorder`.
+  - `tool/` holds `MandateTools`, `CompanySearchTools`, `SectorTools`, `NamedCompanyTools`, `ProposalTools`, `MarketSearch`, `MarketQuery`, `AssistantToolContext` and `TurnRecorder`.
 - Frontend `apps/web/src/features/assistant`:
   - `AssistantProvider` holds whether the panel is open and the chat shown per project.
   - `components/AssistantPanel` has the history list, New chat, the transcript and the composer.

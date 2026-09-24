@@ -17,7 +17,9 @@ import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
 /**
  * Answers a question while streaming what the tools are doing: a {@code step} event per step as it
- * starts and finishes, then {@code done} with the saved turn, or {@code failed} with an error code.
+ * starts and finishes, {@code proposal} with the company card the moment it is made — the answer
+ * text takes one more model round after it — then {@code done} with the saved turn, or
+ * {@code failed} with an error code.
  *
  * <p>The answer is worked out on a background thread so the response can flush as it goes. A
  * closed tab only stops the sending: the answer is still saved and appears in the chat history.
@@ -41,7 +43,8 @@ public class AssistantAskStream {
         executor.execute(() -> {
             try {
                 AssistantTurnResponse turn = assistant.ask(userId, workspaceId, projectId, existing, question,
-                        step -> send(emitter, "step", step));
+                        step -> send(emitter, "step", step),
+                        proposal -> send(emitter, "proposal", proposal));
                 send(emitter, "done", turn);
             } catch (ApiException failed) {
                 send(emitter, "failed", Map.of("code", failed.getCode().name()));

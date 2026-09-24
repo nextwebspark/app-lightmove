@@ -33,6 +33,15 @@ class IndustryAdjacencyTest {
     }
 
     @Test
+    @DisplayName("an industry is found whatever case it is asked in")
+    void findsAnIndustryInAnyCase() {
+        IndustryAdjacency adjacency = new IndustryAdjacency(json);
+
+        assertThat(adjacency.neighboursOf(" Real Estate ")).isEqualTo(neighbours.get("real estate"));
+        assertThat(adjacency.neighboursOf("Property")).isEmpty();
+    }
+
+    @Test
     @DisplayName("every industry suggests something")
     void everyIndustrySuggestsSomething() {
         // A leaf with no neighbours is a dead end: picking it offers nothing and the panel looks

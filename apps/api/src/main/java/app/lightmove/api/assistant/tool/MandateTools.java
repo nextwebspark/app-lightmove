@@ -8,7 +8,10 @@ import app.lightmove.api.position.dto.StrategicPriorityDto;
 import app.lightmove.api.position.service.PositionService;
 import app.lightmove.api.project.model.MandateFacts;
 import app.lightmove.api.project.service.ProjectService;
+import app.lightmove.api.strategy.model.CompanyRow;
+import app.lightmove.api.strategy.service.ApolloCompanyQueryService;
 import java.util.List;
+import java.util.Locale;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import lombok.RequiredArgsConstructor;
@@ -26,11 +29,12 @@ public class MandateTools {
 
     private final ProjectService projects;
     private final PositionService positions;
+    private final ApolloCompanyQueryService universe;
 
     @Tool(description = """
             Read the mandate this conversation is about: the role being hired (title, seniority, \
             department, location, responsibilities, why the search exists) and the client (name, \
-            sector, headquarters). Call it before answering anything that depends on the role or the \
+            sector, headquarters, headcount when the universe carries it). Call it before answering anything that depends on the role or the \
             client, such as which sectors or companies suit this position.""")
     public MandateBrief readMandateBrief(ToolContext toolContext) {
         AssistantToolContext context = AssistantToolContext.from(toolContext);
@@ -38,15 +42,25 @@ public class MandateTools {
         int step = recorder.startStep("Reading the position brief");
 
         MandateFacts mandate = projects.mandateOf(context.workspaceId(), context.projectId())
-                .orElse(new MandateFacts(null, null, null, null, null));
+                .orElse(new MandateFacts(null, null, null, null, null, null));
         PositionResponse brief = positions.briefOf(context.workspaceId(), context.projectId());
-        MandateBrief summary = summarise(mandate, brief);
+        MandateBrief summary = summarise(mandate, employeesOf(mandate.clientApolloAccountId()), brief);
 
         recorder.finishStep(step, describe(summary));
         return summary;
     }
 
-    static MandateBrief summarise(MandateFacts mandate, PositionResponse brief) {
+    private Integer employeesOf(String apolloAccountId) {
+        if (apolloAccountId == null) {
+            return null;
+        }
+        return universe.byAccountIds(List.of(apolloAccountId)).stream()
+                .findFirst()
+                .map(CompanyRow::numEmployees)
+                .orElse(null);
+    }
+
+    static MandateBrief summarise(MandateFacts mandate, Integer clientEmployees, PositionResponse brief) {
         PositionDetailsDto details = brief.details();
         MandateContextDto context = brief.context();
         return new MandateBrief(
@@ -59,6 +73,7 @@ public class MandateTools {
                 mandate.clientSector(),
                 mandate.clientHqCity(),
                 mandate.clientHqCountry(),
+                clientEmployees,
                 details.responsibilities().stream()
                         .map(ResponsibilityDto::text)
                         .limit(MAX_RESPONSIBILITIES)
@@ -72,17 +87,21 @@ public class MandateTools {
                         .toList());
     }
 
-    /** "Chief Financial Officer · client Kalem Company (Banking, Dubai, United Arab Emirates)". */
+    /** "Chief Financial Officer · client Kalem Company (Banking, Dubai, United Arab Emirates, 1,200 staff)". */
     static String describe(MandateBrief brief) {
         String client = brief.clientName() == null ? null
                 : "client " + brief.clientName() + bracketed(brief.clientSector(), brief.clientHqCity(),
-                        brief.clientHqCountry());
+                        brief.clientHqCountry(), staffOf(brief.clientEmployees()));
         String described = Stream.of(brief.roleTitle(), client)
                 .filter(part -> part != null && !part.isBlank())
                 .collect(Collectors.joining(" · "));
         boolean drafted = !brief.responsibilities().isEmpty() || hasText(brief.narrative())
                 || hasText(brief.businessDriver());
         return drafted ? described : described + (described.isEmpty() ? "" : " · ") + "no brief written yet";
+    }
+
+    private static String staffOf(Integer employees) {
+        return employees == null ? null : String.format(Locale.ROOT, "%,d staff", employees);
     }
 
     private static String bracketed(String... parts) {

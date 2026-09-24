@@ -108,9 +108,9 @@ public class ProjectService {
         return projects.findByIdAndWorkspaceId(projectId, workspaceId).map(project -> {
             Client client = clients.findByIdAndWorkspaceId(project.getClientId(), workspaceId).orElse(null);
             return client == null
-                    ? new MandateFacts(project.getPositionTitle(), null, null, null, null)
+                    ? new MandateFacts(project.getPositionTitle(), null, null, null, null, null)
                     : new MandateFacts(project.getPositionTitle(), client.getName(), client.getSector(),
-                            client.getHqCountry(), client.getHqCity());
+                            client.getHqCountry(), client.getHqCity(), client.getCompanySourceId());
         });
     }
 

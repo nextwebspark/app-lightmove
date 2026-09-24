@@ -3,6 +3,7 @@ package app.lightmove.api.assistant.service;
 import app.lightmove.api.assistant.dto.AssistantThreadResponse;
 import app.lightmove.api.assistant.dto.AssistantThreadSummary;
 import app.lightmove.api.assistant.dto.AssistantTurnResponse;
+import app.lightmove.api.assistant.model.AssistantProposal;
 import app.lightmove.api.assistant.model.AssistantStepEvent;
 import app.lightmove.api.assistant.model.AssistantThread;
 import app.lightmove.api.assistant.model.AssistantTurn;
@@ -11,7 +12,9 @@ import app.lightmove.api.assistant.repository.AssistantTurnRepository;
 import app.lightmove.api.assistant.tool.AssistantToolContext;
 import app.lightmove.api.assistant.tool.CompanySearchTools;
 import app.lightmove.api.assistant.tool.MandateTools;
+import app.lightmove.api.assistant.tool.NamedCompanyTools;
 import app.lightmove.api.assistant.tool.ProposalTools;
+import app.lightmove.api.assistant.tool.SectorTools;
 import app.lightmove.api.assistant.tool.TurnRecorder;
 import app.lightmove.api.core.config.AssistantSettings;
 import app.lightmove.api.core.config.LightMoveProperties;
@@ -55,13 +58,16 @@ public class AssistantService {
     private final CompanySearchTools searchTools;
     private final ProposalTools proposalTools;
     private final MandateTools mandateTools;
+    private final SectorTools sectorTools;
+    private final NamedCompanyTools namedCompanyTools;
     private final TransactionTemplate transactions;
     private final Resource systemPrompt;
     private final AssistantSettings settings;
 
     public AssistantService(AssistantThreadRepository threads, AssistantTurnRepository turns,
                             ChatClient chatClient, CompanySearchTools searchTools,
-                            ProposalTools proposalTools, MandateTools mandateTools,
+                            ProposalTools proposalTools, MandateTools mandateTools, SectorTools sectorTools,
+                            NamedCompanyTools namedCompanyTools,
                             TransactionTemplate transactions,
                             @Value("classpath:prompts/assistant-system.st") Resource systemPrompt,
                             LightMoveProperties properties) {
@@ -71,6 +77,8 @@ public class AssistantService {
         this.searchTools = searchTools;
         this.proposalTools = proposalTools;
         this.mandateTools = mandateTools;
+        this.sectorTools = sectorTools;
+        this.namedCompanyTools = namedCompanyTools;
         this.transactions = transactions;
         this.systemPrompt = systemPrompt;
         this.settings = properties.assistant();
@@ -107,13 +115,15 @@ public class AssistantService {
     /** The project was authorised by the controller and {@code existing} by {@link #requireThread}. */
     public AssistantTurnResponse ask(UUID userId, UUID workspaceId, UUID projectId,
                                      AssistantThread existing, String question,
-                                     Consumer<AssistantStepEvent> onStep) {
+                                     Consumer<AssistantStepEvent> onStep,
+                                     Consumer<AssistantProposal> onProposal) {
         List<AssistantTurn> history = existing == null ? List.of()
                 : turns.findByThreadIdOrderByCreatedAtAsc(existing.getId());
 
-        TurnRecorder recorder = new TurnRecorder(onStep);
-        String answer = callModel(question, history,
-                new AssistantToolContext(workspaceId, projectId, recorder));
+        TurnRecorder recorder = new TurnRecorder(onStep, onProposal);
+        AssistantToolContext context = new AssistantToolContext(workspaceId, projectId, recorder);
+        String answer = callModel(question, history, context);
+        proposalTools.proposeWhatWasFound(context);
 
         return transactions.execute(status -> {
             AssistantThread thread = existing != null ? existing
@@ -144,7 +154,7 @@ public class AssistantService {
                             .labels(Map.of("prompt", PROMPT_ID)))
                     .system(systemPrompt)
                     .messages(conversation(history, question))
-                    .tools(mandateTools, searchTools, proposalTools)
+                    .tools(mandateTools, searchTools, namedCompanyTools, sectorTools, proposalTools)
                     .toolContext(context.asMap())
                     .call()
                     .content();

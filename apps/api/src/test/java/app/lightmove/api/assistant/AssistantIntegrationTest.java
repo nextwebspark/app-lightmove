@@ -103,7 +103,7 @@ class AssistantIntegrationTest extends FlowTestSupport {
         String turnId = turnWithCard(firm);
 
         mvc.perform(accept(firm.admin, turnId, """
-                        {"apolloAccountIds":["a1"],"status":"shortlisted"}"""))
+                        {"companyIds":["a1"],"status":"shortlisted"}"""))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.added").value(1));
 
@@ -114,7 +114,7 @@ class AssistantIntegrationTest extends FlowTestSupport {
                 .containsEntry("status", "SHORTLISTED");
 
         mvc.perform(accept(firm.admin, turnId, """
-                        {"apolloAccountIds":["a2"]}"""))
+                        {"companyIds":["a2"]}"""))
                 .andExpect(status().isConflict())
                 .andExpect(jsonPath("$.code").value("ASSISTANT_PROPOSAL_ALREADY_ACCEPTED"));
     }
@@ -128,8 +128,37 @@ class AssistantIntegrationTest extends FlowTestSupport {
         String turnId = turnWithCard(firm);
 
         mvc.perform(accept(firm.admin, turnId, """
-                        {"apolloAccountIds":["a9"]}"""))
+                        {"companyIds":["a9"]}"""))
                 .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    @DisplayName("a company researched on LinkedIn is filed whole, with what its page said")
+    void filesAResearchedCompany() throws Exception {
+        Firm firm = firm("Assistant Researched Firm");
+        String turnId = askAndAwait(firm.admin, firm.projectId, null, "Global retailers in UAE")
+                .get("id").asText();
+        db.update("UPDATE app_lm_assistant_turn SET proposal = ?::jsonb WHERE id = ?", """
+                {"title":"Global retailers","companies":[
+                  {"linkedinSlug":"ikea","companyName":"IKEA","country":"Sweden","employees":160000,
+                   "operates":"IKEA"}],
+                 "researched":{"ikea":{"companyName":"IKEA","industry":"Retail","companyCountry":"Sweden",
+                   "companyCity":"Delft","numEmployees":160000,"website":"https://www.ikea.com",
+                   "companyLinkedinUrl":"https://www.linkedin.com/company/ikea","foundedYear":1943}}}""",
+                UUID.fromString(turnId));
+
+        mvc.perform(accept(firm.admin, turnId, """
+                        {"companyIds":["ikea"],"status":"shortlisted"}"""))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.added").value(1));
+
+        assertThat(db.queryForMap("SELECT company_name, source, status, num_employees, website"
+                + " FROM app_lm_project_triage_company WHERE project_id = ?", UUID.fromString(firm.projectId)))
+                .containsEntry("company_name", "IKEA")
+                .containsEntry("source", "ASSISTANT")
+                .containsEntry("status", "SHORTLISTED")
+                .containsEntry("num_employees", 160000)
+                .containsEntry("website", "https://www.ikea.com");
     }
 
     private String turnWithCard(Firm firm) throws Exception {

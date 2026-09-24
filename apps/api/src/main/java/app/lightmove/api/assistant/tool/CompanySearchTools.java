@@ -1,5 +1,6 @@
 package app.lightmove.api.assistant.tool;
 
+import app.lightmove.api.strategy.service.IndustryAdjacency;
 import java.util.Locale;
 import lombok.RequiredArgsConstructor;
 import org.springframework.ai.chat.model.ToolContext;
@@ -13,6 +14,7 @@ import org.springframework.stereotype.Component;
 public class CompanySearchTools {
 
     private final MarketSearch market;
+    private final IndustryAdjacency adjacency;
 
     @Tool(description = """
             Search the company universe and return the largest matching companies, biggest first. \
@@ -21,7 +23,8 @@ public class CompanySearchTools {
             reports them. The answer says how many companies matched in total and how many are \
             shown — when those differ you are seeing the largest, not all of them, so narrow the \
             search rather than reporting the list as the whole market. Each company comes with an \
-            Apollo account id, which is what identifies it everywhere else.""")
+            Apollo account id, which is what identifies it everywhere else. When an industry is \
+            given, the answer also lists the industries adjacent to it.""")
     public CompanyMatches searchCompanyUniverse(
             @ToolParam(required = false, description = "Country, spelled as describeMarket reports it")
             String country,
@@ -37,7 +40,9 @@ public class CompanySearchTools {
         int step = recorder.startStep(
                 describeSearch(country, industry, keyword, companyName, minEmployees, maxEmployees));
         CompanyMatches matches = market.matching(MarketQuery.scopeOf(country, industry, keyword,
-                companyName, minEmployees, maxEmployees));
+                companyName, minEmployees, maxEmployees))
+                .withAdjacentIndustries(adjacency.neighboursOf(industry));
+        recorder.found(matches.companies().stream().map(MarketCompanySummary::apolloAccountId).toList());
         recorder.finishStep(step, describeMatches(matches));
         return matches;
     }
