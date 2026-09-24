@@ -30,6 +30,15 @@ export function daysBetween(fromIso: string, toIso: string): number {
   return Math.round((toUtcMs(toIso) - toUtcMs(fromIso)) / DAY_MS);
 }
 
+export function addDays(isoDate: string, days: number): string {
+  return fromUtcMs(toUtcMs(isoDate) + days * DAY_MS);
+}
+
+/** Mirrors `ProjectTimeline`: after the start, and no later than delivery. */
+export function mappingTargetFits(startIso: string, deliveryIso: string, targetIso: string): boolean {
+  return daysBetween(startIso, targetIso) > 0 && daysBetween(targetIso, deliveryIso) >= 0;
+}
+
 /** The default mapping target, or null while the window is open or runs backwards. */
 export function autoMappingTarget(startIso: string, deliveryIso: string): string | null {
   if (!startIso || !deliveryIso) return null;

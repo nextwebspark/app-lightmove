@@ -12,6 +12,7 @@ export function DateInput({
   value,
   onChange,
   min,
+  max,
   ariaLabel,
   className,
 }: {
@@ -20,6 +21,8 @@ export function DateInput({
   onChange: (isoDate: string) => void;
   /** ISO yyyy-MM-dd: the earliest day the picker offers. */
   min?: string;
+  /** ISO yyyy-MM-dd: the latest day the picker offers. */
+  max?: string;
   /** For a date shown without a `Field` label around it. */
   ariaLabel?: string;
   className?: string;
@@ -53,6 +56,7 @@ export function DateInput({
         type="date"
         value={value}
         min={min}
+        max={max}
         aria-label={ariaLabel}
         onChange={(event) => onChange(event.target.value)}
         onClick={openPicker}

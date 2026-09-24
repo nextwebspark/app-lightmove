@@ -23,7 +23,14 @@ import * as positionApi from "../../position/api/positionApi";
 import { RoleTitleCombobox } from "../../position/components/RoleTitleCombobox";
 import * as projectsApi from "../api/projectsApi";
 import type { ProjectType } from "../api/types";
-import { autoMappingTarget, daysBetween, MAPPING_SHARE, todayIso } from "../lib/timeline";
+import {
+  addDays,
+  autoMappingTarget,
+  daysBetween,
+  MAPPING_SHARE,
+  mappingTargetFits,
+  todayIso,
+} from "../lib/timeline";
 import { BusinessUnitCombobox } from "./BusinessUnitCombobox";
 
 /** Mirrors `@Size(max = 160)` on CreateProjectRequest.positionTitle, so the cap is met at the field. */
@@ -54,18 +61,8 @@ const TIMELINE_HEADING =
   "mb-4 mt-5 border-t border-u-border pt-4 font-mono text-[10px] font-semibold uppercase tracking-[0.14em] text-u-text3";
 
 /**
- * The New-position modal (`claude-design/Workspace.dc.html`): business unit (one field — pick an
- * existing one or type a new one), position (typed free, or picked from the role-template library —
- * the same combobox as the brief's step one), project type, and the timeline. There is no lead to
- * choose — whoever creates the mandate is seated as its lead by the server. A typed name the registry
- * already holds files under that unit, and so does a 409 on creating it — the user meant that one.
- *
- * Opened from a business unit's drawer, the entrance has already decided the unit: the field is shown
- * locked and `lockedClientId` — not state — is what gets submitted, so the mandate cannot land on a
- * different unit than the drawer behind the modal.
- *
- * A search's mapping target is previewed here at {@link MAPPING_SHARE} of the window and sent only when
- * the user moved it; the server fills the same default otherwise, so the rule has one home.
+ * The New-position modal (`claude-design/Workspace.dc.html`). Opened from a business unit's drawer,
+ * `lockedClientId` — not state — is what gets submitted, so the position cannot land on another unit.
  */
 export function NewProjectModal({
   open,
@@ -91,8 +88,6 @@ export function NewProjectModal({
   const [error, setError] = useState<string | null>(null);
   const [fieldErrors, setFieldErrors] = useState<Partial<Record<ProjectField, string>>>({});
 
-  // The picker's options, sharing the Position page's cache. A failed read leaves the field a plain
-  // typeable input — the same degradation as there.
   const { data: templates = [] } = useQuery({
     queryKey: positionApi.POSITION_TEMPLATES_KEY,
     queryFn: ({ signal }) => positionApi.listTemplates(signal),
@@ -105,7 +100,6 @@ export function NewProjectModal({
   // and what is submitted — two tests of the same prop are how the shown client and the sent one drift
   // apart, which is the bug this lock exists to close.
   const locked = lockedClientId ? clients.find((client) => client.id === lockedClientId) : undefined;
-  // Rebuilt only when the registry changes: this modal re-renders on every keystroke.
   const clientsByName = useMemo(
     () => new Map(clients.map((client) => [client.name.toLowerCase(), client])),
     [clients],
@@ -150,10 +144,12 @@ export function NewProjectModal({
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: projectsApi.PROJECTS_KEY });
       void queryClient.invalidateQueries({ queryKey: clientsApi.CLIENTS_KEY });
-      toast("Position created — you're its admin and lead");
+      toast("Position created — you're its lead");
       onClose();
     },
     onError: (mutationError) => {
+      // The unit may already exist even though the position was refused.
+      if (creatingClient) void queryClient.invalidateQueries({ queryKey: clientsApi.CLIENTS_KEY });
       // Two requests can fail here — the inline business unit create and the position create — so both
       // DTOs' field names are mapped onto the field that carries them.
       const { fields, formMessage } = fieldErrorsFrom(mutationError, {
@@ -167,9 +163,6 @@ export function NewProjectModal({
     },
   });
 
-  // Cleared as the field is edited, not only on the next submit: react-hook-form's reValidateMode
-  // does this for every other form wearing `invalid=`, and without it a corrected value keeps the red
-  // border and a message that no longer describes it.
   const clearFieldError = (field: ProjectField) =>
     setFieldErrors((current) => (current[field] ? { ...current, [field]: undefined } : current));
 
@@ -212,6 +205,15 @@ export function NewProjectModal({
       refused.positionTitle = "Enter the position title";
     } else if (title.length > MAX_POSITION_TITLE_LENGTH) {
       refused.positionTitle = `That title is too long — keep it to ${MAX_POSITION_TITLE_LENGTH} characters or fewer`;
+    }
+    if (
+      !isMapping &&
+      mappingTargetOverride &&
+      startDate &&
+      deliveryDate &&
+      !mappingTargetFits(startDate, deliveryDate, mappingTargetOverride)
+    ) {
+      refused.mappingTargetDate = "The mapping target must fall after the start and by the delivery date";
     }
     setFieldErrors(refused);
     if (Object.keys(refused).length > 0 || dateOrderError) return;
@@ -341,7 +343,8 @@ export function NewProjectModal({
           >
             <DateInput
               value={mappingTarget}
-              min={startDate}
+              min={addDays(startDate, 1)}
+              max={deliveryDate}
               onChange={handleMappingTargetChange}
               ariaLabel="Mapping target date"
               className="w-auto gap-1.5 border-0 bg-transparent p-0 font-sans text-[12.5px] font-semibold"

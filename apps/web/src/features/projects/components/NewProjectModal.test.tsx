@@ -255,7 +255,7 @@ describe("NewProjectModal — the role-template picker on the Position field", (
     await user.type(field, "Group CFO – Energy Division");
 
     expect(field).toHaveValue("Group CFO – Energy Division");
-    expect(screen.queryByRole("listbox")).not.toBeInTheDocument();
+    expect(screen.queryByRole("listbox", { name: "Role templates" })).not.toBeInTheDocument();
 
     await user.click(screen.getByRole("button", { name: "Create position" }));
     await waitFor(() =>
@@ -551,6 +551,29 @@ describe("NewProjectModal — project type and timeline", () => {
     await user.type(screen.getByRole("combobox", { name: "Position" }), "CFO");
     await user.click(screen.getByRole("button", { name: "Create position" }));
 
+    expect(projectsApi.createProject).not.toHaveBeenCalled();
+  });
+
+  it("bounds the mapping target to the window, and refuses one outside it without creating anything", async () => {
+    vi.mocked(clientsApi.createClient).mockReset();
+    const user = userEvent.setup();
+    render(wrap(<NewProjectModal open onClose={vi.fn()} clients={CLIENTS} />));
+    await user.type(screen.getByRole("combobox", { name: /Business unit/ }), "Data & Analytics");
+
+    await user.click(screen.getByRole("radio", { name: /Search/ }));
+    fireEvent.change(dateInput(/Shortlist delivery date/), { target: { value: "2026-11-08" } });
+    const mappingTarget = screen.getByLabelText("Mapping target date");
+    expect(mappingTarget).toHaveAttribute("min", "2026-09-25");
+    expect(mappingTarget).toHaveAttribute("max", "2026-11-08");
+
+    fireEvent.change(mappingTarget, { target: { value: "2026-09-24" } });
+    await user.type(screen.getByRole("combobox", { name: "Position" }), "CFO");
+    await user.click(screen.getByRole("button", { name: "Create position" }));
+
+    expect(
+      screen.getByText("The mapping target must fall after the start and by the delivery date"),
+    ).toBeInTheDocument();
+    expect(clientsApi.createClient).not.toHaveBeenCalled();
     expect(projectsApi.createProject).not.toHaveBeenCalled();
   });
 });
