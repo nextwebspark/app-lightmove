@@ -55,7 +55,7 @@ export function AssistantProposalCard({
     );
 
   return (
-    <div className="overflow-hidden rounded-[11px] border border-u-accent bg-u-surface shadow-u-surface">
+    <div className="overflow-hidden rounded-[11px] border border-u-accent bg-u-surface shadow-u-e3">
       <div className="border-b border-u-border bg-u-inferred-tint px-3 py-2.5">
         <p className="font-sans text-[12.5px] font-semibold text-u-text">{proposal.title}</p>
       </div>
