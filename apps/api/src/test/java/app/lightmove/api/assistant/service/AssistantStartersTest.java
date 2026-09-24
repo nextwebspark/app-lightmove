@@ -46,7 +46,7 @@ class AssistantStartersTest {
     }
 
     @Test
-    @DisplayName("the persona's sector beats the company's universe industry, and its other sectors lead the adjacent ones")
+    @DisplayName("the persona's sectors beat the company's universe industry, each gets a prompt, and they lead the adjacent ones")
     void prefersThePersonasSectors() {
         firmIs(new FirmFacts("Kalem Group", "online media", null, null, null, null,
                 new WorkspacePersona(null, List.of("Retail", "Supermarkets"), List.of(), List.of(), null)));
@@ -56,8 +56,22 @@ class AssistantStartersTest {
 
         assertThat(offered).extracting(AssistantStarter::prompt).containsExactly(
                 "Top 10 Retail companies",
+                "Top 10 Supermarkets companies",
                 "Companies in the sectors next to Retail whose executives move well into Retail",
                 "Top Supermarkets companies with executives who could move into Retail");
+    }
+
+    @Test
+    @DisplayName("a persona with many sectors is offered two sector prompts, never more")
+    void capsTheSectorPrompts() {
+        firmIs(new FirmFacts("Kalem Group", null, null, null, null, null,
+                new WorkspacePersona(null, List.of("Oil & Energy", "Energy & Utilities", "Mining & Metals"),
+                        List.of(), List.of(), null)));
+
+        assertThat(starters.forWorkspace(WORKSPACE).starters())
+                .filteredOn(starter -> starter.kind() == StarterKind.SECTOR)
+                .extracting(AssistantStarter::prompt)
+                .containsExactly("Top 10 Oil & Energy companies", "Top 10 Energy & Utilities companies");
     }
 
     @Test
