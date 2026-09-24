@@ -86,9 +86,9 @@ export function ProjectLayout() {
   const base = `/projects/${project.id}`;
   const groups: SidebarGroup[] = [
     {
-      label: "Mandate",
+      label: "Position",
       items: [
-        { to: base, label: "Position", icon: ICONS.position, end: true },
+        { to: base, label: "Brief", icon: ICONS.position, end: true },
         { to: `${base}/strategy`, label: "Strategy", icon: ICONS.strategy },
       ],
     },
