@@ -61,6 +61,10 @@ describe("ProjectsPage — pure client", () => {
       logoMark: "A",
       emailDomain: "access-firm.com",
       joinedAt: null,
+      company: null,
+      companySize: null,
+      primaryRegion: null,
+      teamFocus: null,
       roles: ["CLIENT" as const],
     },
   };

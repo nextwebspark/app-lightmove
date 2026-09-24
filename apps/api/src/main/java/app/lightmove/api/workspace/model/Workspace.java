@@ -15,6 +15,8 @@ import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
 
 /**
  * The tenant. Every piece of business data in LightMove hangs off exactly one of these, and every
@@ -57,6 +59,32 @@ public class Workspace extends BaseEntity {
     @Column(name = "team_focus", length = 32)
     private String teamFocus;
 
+    /** The universe row this firm was picked as at signup; null for a firm typed in by hand (V68). */
+    @Column(name = "apollo_account_id")
+    private String apolloAccountId;
+
+    @Column(name = "company_industry")
+    private String companyIndustry;
+
+    @Column(name = "company_city")
+    private String companyCity;
+
+    @Column(name = "company_country")
+    private String companyCountry;
+
+    @Column(name = "company_website")
+    private String companyWebsite;
+
+    @Column(name = "company_linkedin_url")
+    private String companyLinkedinUrl;
+
+    @Column(name = "logo_url")
+    private String logoUrl;
+
+    @JdbcTypeCode(SqlTypes.JSON)
+    @Column(name = "persona", nullable = false)
+    private WorkspacePersona persona = WorkspacePersona.empty();
+
     @Setter
     @Column(name = "default_region", nullable = false, length = 32)
     private String defaultRegion = "GCC";
@@ -76,6 +104,7 @@ public class Workspace extends BaseEntity {
     private UUID createdBy;
 
     public static Workspace create(String name, String slug, String emailDomain, UUID createdBy,
+                                   WorkspaceCompany company,
                                    String companySize, String primaryRegion, String teamFocus) {
         Workspace workspace = new Workspace();
         workspace.name = name;
@@ -86,6 +115,8 @@ public class Workspace extends BaseEntity {
         workspace.primaryRegion = primaryRegion;
         workspace.teamFocus = teamFocus;
         workspace.logoMark = deriveLogoMark(name);
+        workspace.identifyAs(company);
+        workspace.persona = WorkspacePersona.seededFrom(company);
         // The region they work in is the sensible default for the region their projects will be in.
         workspace.defaultRegion = primaryRegion != null ? primaryRegion : "GCC";
         return workspace;
@@ -97,12 +128,38 @@ public class Workspace extends BaseEntity {
      * <p>Notably <b>not</b> the slug, which is in URLs and bookmarks, and not the email domain, which
      * was never the user's to choose. A workspace can be re-described; it cannot be re-identified.
      */
-    public void describe(String name, String companySize, String primaryRegion, String teamFocus) {
+    public void describe(String name, WorkspaceCompany company,
+                         String companySize, String primaryRegion, String teamFocus) {
         this.name = name;
         this.companySize = companySize;
         this.primaryRegion = primaryRegion;
         this.teamFocus = teamFocus;
         this.logoMark = deriveLogoMark(name);
+        identifyAs(company);
+    }
+
+    public void describePersona(WorkspacePersona persona) {
+        this.persona = persona == null ? WorkspacePersona.empty() : persona;
+    }
+
+    /** Null when the firm was typed in by hand rather than picked from the universe. */
+    public WorkspaceCompany getCompany() {
+        if (apolloAccountId == null) {
+            return null;
+        }
+        return new WorkspaceCompany(apolloAccountId, companyIndustry, companyCity, companyCountry,
+                companyWebsite, companyLinkedinUrl, logoUrl);
+    }
+
+    /** A null company clears the whole snapshot: a typed name must not keep another firm's logo. */
+    private void identifyAs(WorkspaceCompany company) {
+        this.apolloAccountId = company == null ? null : company.apolloAccountId();
+        this.companyIndustry = company == null ? null : company.industry();
+        this.companyCity = company == null ? null : company.city();
+        this.companyCountry = company == null ? null : company.country();
+        this.companyWebsite = company == null ? null : company.website();
+        this.companyLinkedinUrl = company == null ? null : company.linkedinUrl();
+        this.logoUrl = company == null ? null : company.logoUrl();
     }
 
     /** The Settings → General form. Re-derives the logo mark; identity (slug, domain) stays put. */

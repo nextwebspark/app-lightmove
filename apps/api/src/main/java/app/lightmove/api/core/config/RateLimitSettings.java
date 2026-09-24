@@ -13,5 +13,11 @@ public record RateLimitSettings(
 
         /** Pairing the extension: rare and deliberate per account, but a whole firm shares one office IP. */
         @DefaultValue("5") int extensionPairingsPerHour,
-        @DefaultValue("60") int extensionPairingsPerHourPerIp
+        @DefaultValue("60") int extensionPairingsPerHourPerIp,
+
+        /**
+         * Signup's company typeahead: an unindexable scan of the universe that needs only a verified
+         * session, not a workspace. Debounced keystrokes fit well inside it.
+         */
+        @DefaultValue("60") int onboardingCompanySearchesPerMinute
 ) {}

@@ -1,5 +1,6 @@
 package app.lightmove.api.workspace.controller;
 
+import app.lightmove.api.core.ratelimit.service.RateLimitGuard;
 import app.lightmove.api.core.security.controller.AuthResponseAssembler;
 import app.lightmove.api.core.security.dto.AuthResponse;
 import app.lightmove.api.core.security.dto.UserResponse;
@@ -9,6 +10,8 @@ import app.lightmove.api.core.security.model.User;
 import app.lightmove.api.core.security.rbac.WorkspaceRole;
 import app.lightmove.api.core.security.service.AuthenticationService;
 import app.lightmove.api.core.security.token.RefreshCookieFactory;
+import app.lightmove.api.strategy.dto.CompanySuggestionsResponse;
+import app.lightmove.api.strategy.service.CompanySuggestionSearch;
 import app.lightmove.api.workspace.dto.AcceptInvitationRequest;
 import app.lightmove.api.workspace.dto.AcceptInvitationSignupRequest;
 import app.lightmove.api.workspace.dto.CreateWorkspaceRequest;
@@ -44,11 +47,15 @@ import org.springframework.web.bind.annotation.RestController;
 @RequiredArgsConstructor
 public class OnboardingController {
 
+    private static final int MIN_COMPANY_QUERY_LENGTH = 2;
+
     private final OnboardingService onboarding;
     private final InvitationService invitations;
     private final AuthenticationService authentication;
     private final AuthResponseAssembler assembler;
     private final RefreshCookieFactory refreshCookie;
+    private final CompanySuggestionSearch suggestions;
+    private final RateLimitGuard rateLimit;
 
     /**
      * Signup step 3 — create your workspace. The client must then call {@code /auth/refresh}: the
@@ -60,7 +67,7 @@ public class OnboardingController {
                                                         HttpServletRequest httpRequest) {
         onboarding.createWorkspace(
                 principal.userId(),
-                new CreateWorkspaceCommand(request.name(), request.companySize(),
+                new CreateWorkspaceCommand(request.name(), request.apolloAccountId(), request.companySize(),
                         request.primaryRegion(), request.teamFocus()),
                 httpRequest);
 
@@ -76,12 +83,28 @@ public class OnboardingController {
                                                         @Valid @RequestBody CreateWorkspaceRequest request,
                                                         HttpServletRequest httpRequest) {
         CreateWorkspaceCommand command = new CreateWorkspaceCommand(
-                request.name(), request.companySize(), request.primaryRegion(),
+                request.name(), request.apolloAccountId(), request.companySize(), request.primaryRegion(),
                 request.teamFocus());
 
         onboarding.updateWorkspace(principal.userId(), principal.requireWorkspaceId(), command, httpRequest);
 
         return ResponseEntity.ok(currentUser(principal));
+    }
+
+    /**
+     * The organisation step's company picker. {@code /companies/search} is gated on
+     * {@code PROJECT_BROWSE}, which nobody holds before their workspace exists, so the step reads the
+     * same universe typeahead here. Existence of a company is not secret, but each query is an
+     * unindexable scan reachable by any verified session, so it carries its own per-account and per-IP
+     * budget; a query shorter than the picker's minimum answers nothing.
+     */
+    @GetMapping("/companies")
+    public ResponseEntity<CompanySuggestionsResponse> searchCompanies(@AuthenticationPrincipal AuthPrincipal principal,
+                                                                      @RequestParam(name = "q") String query,
+                                                                      HttpServletRequest httpRequest) {
+        rateLimit.checkOnboardingCompanySearch(principal.email(), httpRequest);
+        return ResponseEntity.ok(new CompanySuggestionsResponse(
+                suggestions.suggest(query, null, MIN_COMPANY_QUERY_LENGTH)));
     }
 
     /**

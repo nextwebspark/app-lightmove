@@ -1,3 +1,4 @@
+import type { WorkspaceCompany } from "../../auth/api/types";
 import type { WorkspaceRole } from "../../auth/api/types";
 
 /** The workspace-management API contract, hand-mirrored like the auth module's. */
@@ -13,6 +14,17 @@ export interface WorkspaceDetail {
   plan: string;
   memberCount: number;
   createdAt: string;
+  persona: WorkspacePersona;
+  company: WorkspaceCompany | null;
+}
+
+/** What the firm is, for the assistant to tailor its research to. Edited by an admin. */
+export interface WorkspacePersona {
+  summary: string | null;
+  sectors: string[];
+  competitors: string[];
+  geographies: string[];
+  notes: string | null;
 }
 
 /** One row of the active roster. */

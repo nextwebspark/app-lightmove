@@ -9,6 +9,7 @@ import app.lightmove.api.core.security.rbac.Role;
 import app.lightmove.api.core.security.rbac.WorkspaceRole;
 import app.lightmove.api.core.security.token.TokenPair;
 import app.lightmove.api.workspace.constant.InvitationStatus;
+import app.lightmove.api.workspace.dto.WorkspaceCompanyResponse;
 import app.lightmove.api.workspace.dto.WorkspaceSummary;
 import app.lightmove.api.workspace.model.Workspace;
 import app.lightmove.api.workspace.model.WorkspaceMember;
@@ -110,6 +111,10 @@ public class AuthResponseAssembler {
                 workspace.getLogoMark(),
                 WorkspaceRole.isStaff(roles) ? workspace.getEmailDomain() : null,
                 roles,
-                membership.getJoinedAt());
+                membership.getJoinedAt(),
+                WorkspaceCompanyResponse.of(workspace.getCompany()),
+                workspace.getCompanySize(),
+                workspace.getPrimaryRegion(),
+                workspace.getTeamFocus());
     }
 }

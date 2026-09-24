@@ -3,6 +3,7 @@ import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "../../features/auth/AuthProvider";
 import { AppIcon, Avatar } from "../ui";
 import { Icon, ICONS } from "./Icon";
+import { CompanyLogo } from "../ui/CompanyLogo";
 
 /**
  * The 46px header: the workspace dropdown (settings, members, sign out) on the left, the user's
@@ -146,7 +147,11 @@ function WorkspaceMenu({ compact = false }: { compact?: boolean }) {
       {open && (
         <div className="absolute left-0 top-10 z-[80] w-[min(268px,calc(100vw-24px))] rounded-[10px] border border-line bg-panel p-1.5 shadow-panel">
           <div className="mb-1.5 flex items-center gap-2.5 border-b border-line-soft p-2.5">
-            <LogoTile mark={workspace.logoMark ?? workspace.name[0]} size={30} />
+            {workspace.company?.logoUrl ? (
+              <CompanyLogo name={workspace.name} logo={workspace.company.logoUrl} size={30} />
+            ) : (
+              <LogoTile mark={workspace.logoMark ?? workspace.name[0]} size={30} />
+            )}
             <div className="font-mono text-[13px] font-semibold">{workspace.name}</div>
           </div>
 

@@ -22,6 +22,22 @@ export interface WorkspaceSummary {
   roles: WorkspaceRole[];
   /** When this membership became active. Settings → Profile reads it as "joined Mar 2026". */
   joinedAt: string | null;
+  /** The universe company the firm was picked as at signup; null for one typed in by hand. */
+  company: WorkspaceCompany | null;
+  /** Signup's description of the firm, so going back to that step shows what was saved. */
+  companySize: string | null;
+  primaryRegion: string | null;
+  teamFocus: string | null;
+}
+
+export interface WorkspaceCompany {
+  apolloAccountId: string;
+  industry: string | null;
+  city: string | null;
+  country: string | null;
+  website: string | null;
+  linkedinUrl: string | null;
+  logoUrl: string | null;
 }
 
 export interface User {
@@ -124,6 +140,8 @@ export interface ActiveSession {
 
 export interface CreateWorkspaceRequest {
   name: string;
+  /** The universe company picked; null for a firm typed in by hand. The server files it under its own name. */
+  apolloAccountId: string | null;
   companySize: string;
   primaryRegion: string;
   teamFocus: string;

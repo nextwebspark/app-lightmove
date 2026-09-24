@@ -5,12 +5,11 @@ import app.lightmove.api.core.config.LightMoveProperties;
 import app.lightmove.api.core.error.constant.ErrorCode;
 import app.lightmove.api.core.error.model.ApiException;
 import app.lightmove.api.strategy.dto.CompanyResultDto;
-import app.lightmove.api.strategy.dto.CompanySuggestion;
 import app.lightmove.api.strategy.dto.CompanySuggestionsResponse;
 import app.lightmove.api.strategy.dto.FacetsResponse;
 import app.lightmove.api.strategy.dto.KeywordSuggestionsResponse;
-import app.lightmove.api.strategy.model.CompanyRow;
 import app.lightmove.api.strategy.service.ApolloCompanyQueryService;
+import app.lightmove.api.strategy.service.CompanySuggestionSearch;
 import app.lightmove.api.strategy.service.IndustryAdjacency;
 import java.util.List;
 import org.springframework.http.ResponseEntity;
@@ -37,12 +36,14 @@ public class CompanySearchController {
 
     private final ApolloCompanyQueryService companies;
     private final IndustryAdjacency adjacency;
+    private final CompanySuggestionSearch suggestions;
     private final CompanySearchSettings searchConfig;
 
     public CompanySearchController(ApolloCompanyQueryService companies, IndustryAdjacency adjacency,
-                                   LightMoveProperties properties) {
+                                   CompanySuggestionSearch suggestions, LightMoveProperties properties) {
         this.companies = companies;
         this.adjacency = adjacency;
+        this.suggestions = suggestions;
         this.searchConfig = properties.company().search();
     }
 
@@ -67,14 +68,7 @@ public class CompanySearchController {
     public ResponseEntity<CompanySuggestionsResponse> search(@RequestParam(name = "q") String query,
                                                              @RequestParam(name = "limit", required = false)
                                                              Integer limit) {
-        String trimmed = accepted(query);
-        if (trimmed.isEmpty()) {
-            return ResponseEntity.ok(new CompanySuggestionsResponse(List.of()));
-        }
-        return ResponseEntity.ok(new CompanySuggestionsResponse(
-                companies.typeahead(trimmed, resolvedLimit(limit, searchConfig.defaultResultLimit())).stream()
-                        .map(CompanySearchController::toSuggestion)
-                        .toList()));
+        return ResponseEntity.ok(new CompanySuggestionsResponse(suggestions.suggest(query, limit, 1)));
     }
 
     /**
@@ -84,7 +78,7 @@ public class CompanySearchController {
     @GetMapping("/keywords")
     @PreAuthorize("@workspaceAuthorizer.can(principal, 'PROJECT_BROWSE')")
     public ResponseEntity<KeywordSuggestionsResponse> keywords(@RequestParam(name = "q") String query) {
-        String trimmed = accepted(query);
+        String trimmed = suggestions.acceptedQuery(query);
         if (trimmed.length() < searchConfig.keywordMinQueryLength()) {
             return ResponseEntity.ok(new KeywordSuggestionsResponse(List.of()));
         }
@@ -108,35 +102,5 @@ public class CompanySearchController {
                 .findFirst()
                 .map(CompanyResultDto::of)
                 .orElseThrow(() -> ApiException.of(ErrorCode.NOT_FOUND)));
-    }
-
-    private String accepted(String query) {
-        String trimmed = query.trim();
-        if (trimmed.length() > searchConfig.maxQueryLength()) {
-            throw new ApiException(ErrorCode.VALIDATION_FAILED,
-                    "q exceeds " + searchConfig.maxQueryLength() + " characters");
-        }
-        return trimmed;
-    }
-
-    /**
-     * Refused rather than clamped, matching every other list read: a silently narrowed limit is a
-     * wrong answer the caller cannot tell it got.
-     */
-    private int resolvedLimit(Integer limit, int fallback) {
-        if (limit == null) {
-            return fallback;
-        }
-        if (limit < 1 || limit > searchConfig.maxResultLimit()) {
-            throw new ApiException(ErrorCode.VALIDATION_FAILED,
-                    "limit must be between 1 and " + searchConfig.maxResultLimit());
-        }
-        return limit;
-    }
-
-    private static CompanySuggestion toSuggestion(CompanyRow row) {
-        return new CompanySuggestion(row.apolloAccountId(), row.companyName(), row.industry(),
-                row.companyCity(), row.companyCountry(), row.website(), row.logoUrl(),
-                row.numEmployees());
     }
 }
