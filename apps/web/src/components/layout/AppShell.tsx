@@ -1,6 +1,7 @@
 import { useEffect, useState, type ReactNode } from "react";
 import { useLocation } from "react-router-dom";
 import { cn } from "../../lib/cn";
+import { useAssistant } from "../../features/assistant/AssistantProvider";
 import { AssistantDock } from "../../features/assistant/components/AssistantDock";
 import { Sidebar, type SidebarGroup, type SidebarItem } from "./Sidebar";
 import { Topbar } from "./Topbar";
@@ -30,6 +31,7 @@ export function AppShell({
 }) {
   const { pathname } = useLocation();
   const [navOpen, setNavOpen] = useState(false);
+  const { open: assistantOpen } = useAssistant();
 
   useEffect(() => setNavOpen(false), [pathname]);
 
@@ -59,6 +61,7 @@ export function AppShell({
           backLink={navBackLink}
           open={navOpen}
           onClose={() => setNavOpen(false)}
+          assistantOpen={!!assistantProjectId && assistantOpen}
         />
 
         <main className="min-w-0 flex-1 overflow-y-auto rounded-[10px] border border-u-border-strong bg-u-surface">

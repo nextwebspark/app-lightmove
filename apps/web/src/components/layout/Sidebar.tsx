@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { NavLink } from "react-router-dom";
 import { useTheme } from "../../features/theme/useTheme";
 import { cn } from "../../lib/cn";
@@ -28,19 +28,28 @@ export interface SidebarGroup {
  * <p>Below `lg` it slides in over the content as a drawer, ignoring the collapsed preference — a
  * 56px icon-only overlay would be all cost and no benefit on a phone. There it <i>is</i> a card: the
  * border, fill and shadow in the base classes are the drawer's, and the `lg:` group strips them.
+ *
+ * <p>`assistantOpen` collapses it without touching the stored preference, so shutting the assistant
+ * restores whatever the user had chosen.
  */
 export function Sidebar({
   groups,
   backLink,
   open = false,
   onClose,
+  assistantOpen = false,
 }: {
   groups: SidebarGroup[];
   backLink?: SidebarItem;
   open?: boolean;
   onClose?: () => void;
+  assistantOpen?: boolean;
 }) {
-  const { collapsed, toggle } = useSidebarCollapsed();
+  const preference = useSidebarCollapsed();
+  const [expandedBesideAssistant, setExpandedBesideAssistant] = useState(false);
+  useEffect(() => setExpandedBesideAssistant(false), [assistantOpen]);
+  const collapsed = assistantOpen ? !expandedBesideAssistant : preference.collapsed;
+  const toggle = assistantOpen ? () => setExpandedBesideAssistant((expanded) => !expanded) : preference.toggle;
   const { theme, toggle: toggleTheme } = useTheme();
   const dark = theme === "dark";
   const navRef = useRef<HTMLElement>(null);
