@@ -4,8 +4,10 @@ import app.lightmove.api.candidate.constant.CandidateStatus;
 import app.lightmove.api.candidate.model.CandidateCount;
 import app.lightmove.api.candidate.repository.CandidateRepository;
 import app.lightmove.api.project.service.ProjectCandidateCounter;
+import app.lightmove.api.triagecompany.constant.TriageCompanyStatus;
 import java.util.Collection;
 import java.util.EnumSet;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
@@ -14,10 +16,10 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 
 /**
- * The projects list's "Candidates" number, answered for {@code project}, which owns
+ * The projects list's people-side numbers, answered for {@code project}, which owns
  * {@link ProjectCandidateCounter}; this only implements it.
  *
- * <p>Executives who have left the running are left out, the same rule
+ * <p>Executives who have left the running are left out of "Candidates", the same rule
  * {@code ProjectCompanyCounterAdapter} applies to declined companies. The two numbers sit side by
  * side under one "Pipeline" heading and read as a pair, so counting everyone here and only the live
  * companies there would make one heading mean two things. Every executive ever mapped, ruled out or
@@ -32,6 +34,9 @@ class ProjectCandidateCounterAdapter implements ProjectCandidateCounter {
     private static final Set<CandidateStatus> LEFT_THE_RUNNING = EnumSet.of(
             CandidateStatus.NOT_INTERESTED, CandidateStatus.OFF_LIMITS, CandidateStatus.OUT_OF_SCOPE);
 
+    private static final Set<CandidateStatus> ENGAGED = EnumSet.of(
+            CandidateStatus.ENGAGED, CandidateStatus.INTERESTED);
+
     private final CandidateRepository candidates;
 
     @Override
@@ -39,7 +44,35 @@ class ProjectCandidateCounterAdapter implements ProjectCandidateCounter {
         if (projectIds.isEmpty()) {
             return Map.of();
         }
-        return candidates.countByProjectIdInExcludingStatuses(projectIds, LEFT_THE_RUNNING).stream()
-                .collect(Collectors.toMap(CandidateCount::projectId, CandidateCount::total));
+        return byProject(candidates.countByProjectIdInExcludingStatuses(projectIds, LEFT_THE_RUNNING));
+    }
+
+    @Override
+    public Map<UUID, Long> countMappedByProject(Collection<UUID> projectIds) {
+        if (projectIds.isEmpty()) {
+            return Map.of();
+        }
+        return byProject(candidates.countEveryoneByProjectIdIn(projectIds));
+    }
+
+    @Override
+    public Map<UUID, Long> countEngagedByProject(Collection<UUID> projectIds) {
+        if (projectIds.isEmpty()) {
+            return Map.of();
+        }
+        return byProject(candidates.countByProjectIdInAndStatusIn(projectIds, ENGAGED));
+    }
+
+    @Override
+    public Map<UUID, Long> countMappedCompaniesByProject(Collection<UUID> projectIds) {
+        if (projectIds.isEmpty()) {
+            return Map.of();
+        }
+        return byProject(candidates.countMappedCompaniesByProjectIdIn(
+                projectIds, TriageCompanyStatus.DECLINED.name()));
+    }
+
+    private static Map<UUID, Long> byProject(List<CandidateCount> counts) {
+        return counts.stream().collect(Collectors.toMap(CandidateCount::getProjectId, CandidateCount::getTotal));
     }
 }

@@ -24,7 +24,8 @@ export function AssistantDock({
   contextLabel: string;
   projectId: string;
 }) {
-  const { open } = useAssistant();
+  const { isOpenFor } = useAssistant();
+  const open = isOpenFor(projectId);
   const [mounted, setMounted] = useState(open);
 
   // Kept mounted through the collapse, or closing would blank the panel and then shut an empty gap.

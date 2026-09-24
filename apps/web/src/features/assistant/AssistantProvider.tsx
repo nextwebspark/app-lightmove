@@ -4,19 +4,18 @@ import { createContext, useCallback, useContext, useMemo, useState, type ReactNo
  * Whether the assistant is open, and which chat it shows.
  *
  * <p>Mounted above the routes because `ProjectLayout`'s panel remounts as the reader moves between
- * screens, and the open chat should survive that. The chat is remembered per project, so opening
- * the assistant in another project never shows this one's conversation.
+ * screens, and the open chat should survive that. Open and chat are both per project, so moving to
+ * another project neither keeps the panel open nor shows this one's conversation.
  */
 type AssistantState = {
-  open: boolean;
+  isOpenFor: (projectId: string) => boolean;
   /**
    * Whether the open state came from somebody pressing something rather than from a reload: focus
    * follows a person's action, never a page load.
    */
   toggledByUser: boolean;
-  openAssistant: () => void;
+  openAssistant: (projectId: string) => void;
   closeAssistant: () => void;
-  toggleAssistant: () => void;
   threadIdFor: (projectId: string) => string | null;
   /** Shows a chat, or `null` for a new one. */
   showThread: (projectId: string, threadId: string | null) => void;
@@ -25,11 +24,10 @@ type AssistantState = {
 const OPEN_KEY = "lm.assistant.open";
 
 const AssistantContext = createContext<AssistantState>({
-  open: false,
+  isOpenFor: () => false,
   toggledByUser: false,
   openAssistant: () => {},
   closeAssistant: () => {},
-  toggleAssistant: () => {},
   threadIdFor: () => null,
   showThread: () => {},
 });
@@ -39,15 +37,16 @@ export function useAssistant(): AssistantState {
 }
 
 export function AssistantProvider({ children }: { children: ReactNode }) {
-  const [open, setOpen] = useState(readStoredOpen);
+  const [openProjectId, setOpenProjectId] = useState(readStoredOpenProject);
   const [toggledByUser, setToggledByUser] = useState(false);
   const [threads, setThreads] = useState<Record<string, string | null>>({});
 
-  const remember = useCallback((next: boolean) => {
-    setOpen(next);
+  const remember = useCallback((projectId: string | null) => {
+    setOpenProjectId(projectId);
     setToggledByUser(true);
     try {
-      localStorage.setItem(OPEN_KEY, next ? "1" : "0");
+      if (projectId) localStorage.setItem(OPEN_KEY, projectId);
+      else localStorage.removeItem(OPEN_KEY);
     } catch {
       // A private window refuses this, and the panel opening is not worth failing over.
     }
@@ -59,25 +58,24 @@ export function AssistantProvider({ children }: { children: ReactNode }) {
 
   const value = useMemo<AssistantState>(
     () => ({
-      open,
+      isOpenFor: (projectId) => openProjectId === projectId,
       toggledByUser,
-      openAssistant: () => remember(true),
-      closeAssistant: () => remember(false),
-      toggleAssistant: () => remember(!open),
+      openAssistant: (projectId) => remember(projectId),
+      closeAssistant: () => remember(null),
       threadIdFor: (projectId) => threads[projectId] ?? null,
       showThread,
     }),
-    [open, toggledByUser, threads, remember, showThread],
+    [openProjectId, toggledByUser, threads, remember, showThread],
   );
 
   return <AssistantContext.Provider value={value}>{children}</AssistantContext.Provider>;
 }
 
 /** Closed by default: the panel takes 400px of the page, so opening it is the user's decision. */
-function readStoredOpen(): boolean {
+function readStoredOpenProject(): string | null {
   try {
-    return localStorage.getItem(OPEN_KEY) === "1";
+    return localStorage.getItem(OPEN_KEY);
   } catch {
-    return false;
+    return null;
   }
 }

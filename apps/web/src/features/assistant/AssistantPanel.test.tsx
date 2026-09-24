@@ -20,19 +20,19 @@ import { AssistantDock } from "./components/AssistantDock";
 function AiResearchButton() {
   const { openAssistant } = useAssistant();
   return (
-    <button type="button" onClick={openAssistant}>
+    <button type="button" onClick={() => openAssistant("p1")}>
       AI Research
     </button>
   );
 }
 
 /** A fresh client per test, so one test's in-flight mutation cannot answer the next one's. */
-function mount() {
+function mount(projectId = "p1") {
   return render(
     <QueryClientProvider client={new QueryClient()}>
       <AssistantProvider>
         <AiResearchButton />
-        <AssistantDock contextLabel="Meridian Energy Group · CFO" projectId="p1" />
+        <AssistantDock contextLabel="Meridian Energy Group · CFO" projectId={projectId} />
       </AssistantProvider>
     </QueryClientProvider>,
   );
@@ -93,7 +93,7 @@ describe("the assistant panel", () => {
   });
 
   it("does not steal focus when a remembered panel is restored", () => {
-    localStorage.setItem("lm.assistant.open", "1");
+    localStorage.setItem("lm.assistant.open", "p1");
 
     mount();
 
@@ -110,6 +110,16 @@ describe("the assistant panel", () => {
     mount();
 
     expect(screen.getByRole("complementary", { name: "Uncava Assistant" })).toBeInTheDocument();
+  });
+
+  it("stays shut in another project after being opened in one", async () => {
+    const first = mount();
+    await userEvent.click(screen.getByRole("button", { name: "AI Research" }));
+    first.unmount();
+
+    mount("p2");
+
+    expect(screen.queryByRole("complementary", { name: "Uncava Assistant" })).not.toBeInTheDocument();
   });
 
   // The panel outlives the close by the length of the collapse, which is the whole reason shutting it

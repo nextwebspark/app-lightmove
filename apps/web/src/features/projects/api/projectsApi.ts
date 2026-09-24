@@ -1,5 +1,5 @@
 import { request } from "../../../lib/apiClient";
-import type { Project, ProjectType, StaffRole } from "./types";
+import type { Project, ProjectActivityPage, ProjectType, StaffRole } from "./types";
 
 /**
  * Every call the projects feature makes, plus the query keys its screens share. Clients are their own
@@ -11,6 +11,16 @@ export const PROJECTS_KEY = ["projects"] as const;
 
 export function projects(): Promise<Project[]> {
   return request<Project[]>("/projects");
+}
+
+export const ACTIVITY_PAGE_SIZE = 20;
+
+export const projectActivityKey = (projectId: string) => ["projects", projectId, "activity"] as const;
+
+/** A page of the mandate's recent activity, newest first. Staff only — a client seat is refused. */
+export function projectActivity(projectId: string, before: number | null): Promise<ProjectActivityPage> {
+  const cursor = before == null ? "" : `&before=${before}`;
+  return request<ProjectActivityPage>(`/projects/${projectId}/activity?limit=${ACTIVITY_PAGE_SIZE}${cursor}`);
 }
 
 export function createProject(payload: {

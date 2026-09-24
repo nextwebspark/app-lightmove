@@ -26,7 +26,7 @@ export function CompanyDrawerHeader({
   context: (string | null)[];
   /** Pills sitting beside the name — a stage, a source. */
   badges?: ReactNode;
-  /** A control at the end of the row, such as Edit. */
+  /** Controls on their own row under the name, such as Edit: beside it they squeezed the name column. */
   action?: ReactNode;
   onClose: () => void;
 }) {
@@ -53,8 +53,8 @@ export function CompanyDrawerHeader({
           <p className="mt-1 font-mono text-[11.5px] text-u-text3">
             {context.filter(Boolean).join(" · ") || "Nothing recorded about where it sits"}
           </p>
+          {action && <div className="mt-3">{action}</div>}
         </div>
-        {action}
       </div>
     </div>
   );

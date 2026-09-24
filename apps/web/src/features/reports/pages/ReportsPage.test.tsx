@@ -37,6 +37,9 @@ describe("ReportsPage", () => {
     representatives: [],
     companies: 0,
     candidates: 0,
+    mappedCandidates: 0,
+    engagedCandidates: 0,
+    mappedCompanies: 0,
     createdAt: "2026-07-21T10:00:00Z",
   };
 

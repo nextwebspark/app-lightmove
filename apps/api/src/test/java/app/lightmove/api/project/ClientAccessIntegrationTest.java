@@ -135,6 +135,9 @@ class ClientAccessIntegrationTest extends FlowTestSupport {
                                 {"targetDate":"2027-01-01"}
                                 """))
                 .andExpect(status().isForbidden());
+        // The activity feed names the firm's own people and what they did: staff only, even here.
+        mvc.perform(get("/api/v1/projects/" + attached + "/activity").header("Authorization", "Bearer " + rep))
+                .andExpect(status().isForbidden());
 
         // Every staff surface is closed to them.
         mvc.perform(get("/api/v1/clients").header("Authorization", "Bearer " + rep))

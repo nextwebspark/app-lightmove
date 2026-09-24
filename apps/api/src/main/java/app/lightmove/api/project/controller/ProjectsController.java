@@ -4,10 +4,12 @@ import app.lightmove.api.core.security.model.AuthPrincipal;
 import app.lightmove.api.project.dto.InviteRepresentativeRequest;
 import app.lightmove.api.project.dto.AttachRepresentativeRequest;
 import app.lightmove.api.project.dto.CreateProjectRequest;
+import app.lightmove.api.project.dto.ProjectActivityResponse;
 import app.lightmove.api.project.dto.ProjectResponse;
 import app.lightmove.api.project.dto.PutTeamMemberRequest;
 import app.lightmove.api.project.dto.UpdateProjectRequest;
 import app.lightmove.api.project.service.ClientRepresentativeService;
+import app.lightmove.api.project.service.ProjectActivityService;
 import app.lightmove.api.project.service.ProjectService;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
@@ -26,6 +28,7 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 /**
@@ -43,6 +46,7 @@ public class ProjectsController {
 
     private final ProjectService projects;
     private final ClientRepresentativeService representatives;
+    private final ProjectActivityService activity;
 
     @GetMapping
     @PreAuthorize("@workspaceAuthorizer.member(principal)")
@@ -58,6 +62,20 @@ public class ProjectsController {
         ProjectResponse created = projects.create(
                 principal.userId(), principal.requireWorkspaceId(), request, httpRequest);
         return ResponseEntity.status(HttpStatus.CREATED).body(created);
+    }
+
+    /**
+     * The side panel's recent activity. Staff only ({@code WORK_EXECUTE}): the lines name the firm's
+     * own people and what they did, which a client representative's read-only seat does not cover.
+     */
+    @GetMapping("/{projectId}/activity")
+    @PreAuthorize("@projectAuthorizer.can(principal, #projectId, 'WORK_EXECUTE')")
+    public ResponseEntity<ProjectActivityResponse> activity(
+            @AuthenticationPrincipal AuthPrincipal principal,
+            @PathVariable UUID projectId,
+            @RequestParam(required = false) Long before,
+            @RequestParam(defaultValue = "" + ProjectActivityService.DEFAULT_PAGE_SIZE) int limit) {
+        return ResponseEntity.ok(activity.list(principal.requireWorkspaceId(), projectId, before, limit));
     }
 
     @PatchMapping("/{projectId}")

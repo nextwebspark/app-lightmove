@@ -102,7 +102,12 @@ client report was judged worse than none. The
 market chapter's hubs carry a point from `geocoding` — asked only for the handful of cities it names
 — so it draws a small map beside the bars where a Mapbox token is configured, and the bars alone
 where none is. The standalone
-Candidates screen, and the pipeline and outreach tables, don't exist yet. The **Position**
+Candidates screen, and the pipeline and outreach tables, don't exist yet. A projects-list row opens
+the **position side panel** (`Workspace.dc.html`'s Position drawer): mapping progress as universe
+companies with an executive mapped (`mappedCompanies` of `companies` on `GET /projects`), key
+metrics, stage gates, the team and hiring managers, and **recent activity** — `GET
+/projects/{id}/activity`, a cursor-paged, allowlisted read of the audit trail, `WORK_EXECUTE` so a
+client seat never sees it, phrased and merged into lines by `lib/activity.ts`. The **Position**
 screen is the mandate's brief, drawn in `claude-design/Position.dc.html` (issue #442) in the UNCAVA
 palette like every screen — as five steps behind a rail (Role Brief,
 Reporting, Compensation, Assessment Criteria, Review & Publish), the step kept in the URL (`?step=`)

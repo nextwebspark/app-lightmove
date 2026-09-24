@@ -31,7 +31,7 @@ export function AppShell({
 }) {
   const { pathname } = useLocation();
   const [navOpen, setNavOpen] = useState(false);
-  const { open: assistantOpen } = useAssistant();
+  const { isOpenFor } = useAssistant();
 
   useEffect(() => setNavOpen(false), [pathname]);
 
@@ -61,7 +61,7 @@ export function AppShell({
           backLink={navBackLink}
           open={navOpen}
           onClose={() => setNavOpen(false)}
-          assistantOpen={!!assistantProjectId && assistantOpen}
+          assistantOpen={!!assistantProjectId && isOpenFor(assistantProjectId)}
         />
 
         <main className="min-w-0 flex-1 overflow-y-auto rounded-[10px] border border-u-border-strong bg-u-surface">

@@ -389,7 +389,7 @@ function StrategyEditor() {
         onOverwriteSearch={(searchId) => overwriteSearch.mutate(searchId)}
         onDeleteSearch={(searchId) => deleteSearch.mutate(searchId)}
         onAddAll={() => addAll.mutate()}
-        onAiResearch={openAssistant}
+        onAiResearch={() => openAssistant(project.id)}
         columnVisibility={columnVisibility}
         onColumnVisibilityChange={setColumnVisibility}
         onResetLayout={() => setLayout(EMPTY_GRID_LAYOUT)}
