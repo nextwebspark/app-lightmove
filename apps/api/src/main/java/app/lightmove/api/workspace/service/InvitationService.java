@@ -110,7 +110,7 @@ public class InvitationService {
             // invitation CHECK's client-to-project rule trivially true.
             if (command.role() == WorkspaceRole.CLIENT) {
                 throw ApiException.userFacing(ErrorCode.VALIDATION_FAILED,
-                        "Clients are invited to a project, not to the workspace");
+                        "Hiring managers are invited to a position, not to the workspace");
             }
 
             // Already in: skipped rather than failing the other nine invitations in the batch.

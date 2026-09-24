@@ -23,6 +23,10 @@ const project: Project = {
   stage: "MAPPING",
   health: "RISK",
   targetDate: null,
+  projectType: "SEARCH",
+  startDate: null,
+  deliveryDate: null,
+  mappingTargetDate: null,
   team: [
     seat("m1", "Riley Researcher", ["RESEARCHER"]),
     seat("m2", "Lee Lead", ["LEAD"]),
@@ -90,7 +94,7 @@ describe("ProjectDrawer", () => {
   it("sends team and client changes to the project's settings", () => {
     renderDrawer();
 
-    expect(screen.getByRole("link", { name: /manage team & client access/i })).toHaveAttribute(
+    expect(screen.getByRole("link", { name: /manage team & hiring manager access/i })).toHaveAttribute(
       "href",
       "/projects/p1/team",
     );
@@ -99,7 +103,7 @@ describe("ProjectDrawer", () => {
   it("opens the project", async () => {
     renderDrawer();
 
-    await userEvent.click(screen.getByRole("button", { name: /open project/i }));
+    await userEvent.click(screen.getByRole("button", { name: /open position/i }));
 
     expect(await screen.findByText("Position page")).toBeInTheDocument();
   });

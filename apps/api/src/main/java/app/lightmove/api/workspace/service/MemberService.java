@@ -51,7 +51,7 @@ public class MemberService {
         // keeps the CLIENT role unreachable until the portal exists to receive one.
         if (newRoles.contains(WorkspaceRole.CLIENT)) {
             throw ApiException.userFacing(ErrorCode.VALIDATION_FAILED,
-                    "Clients are invited to a project, not granted through the roster");
+                    "Hiring managers are invited to a position, not granted through the roster");
         }
 
         boolean isAdmin = holds(member, WorkspaceRole.ADMIN);

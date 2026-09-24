@@ -83,7 +83,7 @@ function MemberCard({ member, activeCount }: { member: Member; activeCount: numb
         </div>
       </div>
       <div className="flex-none font-mono text-[11px] text-text3">
-        {activeCount} active {activeCount === 1 ? "project" : "projects"}
+        {activeCount} active {activeCount === 1 ? "position" : "positions"}
       </div>
     </div>
   );

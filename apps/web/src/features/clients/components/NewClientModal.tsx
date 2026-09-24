@@ -55,7 +55,7 @@ export function NewClientModal({
       toast(
         contactEmail.trim()
           ? `${client.name} added — invite sent to ${contactEmail.trim()}`
-          : `${client.name} added as client`,
+          : `${client.name} added as a business unit`,
       );
       onCreated(client);
       onClose();
@@ -83,12 +83,12 @@ export function NewClientModal({
     create.mutate();
   };
 
-  const createLabel = contactEmail.trim() ? "Create client & send invite" : "Create client";
+  const createLabel = contactEmail.trim() ? "Create & send invite" : "Create business unit";
 
   return (
-    <Modal open={open} onClose={onClose} title="New client">
+    <Modal open={open} onClose={onClose} title="New business unit">
       <p className="-mt-2 mb-4 font-mono text-[11.5px] text-text3">
-        Search the company database first — most clients already exist as records.
+        Search the company database first — or add a business unit that isn't listed.
       </p>
       <FormError message={error} />
 
@@ -96,16 +96,16 @@ export function NewClientModal({
         pick={pick}
         onPick={handlePick}
         existingNames={existingNames}
-        onRejectExisting={(name) => toast(`${name} is already a client`)}
+        onRejectExisting={(name) => toast(`${name} is already a business unit`)}
         autoFocus
       />
 
       {pick && (
         <>
           <div className="mb-3 font-mono text-[10px] font-semibold uppercase tracking-[0.12em] text-text3">
-            Primary contact
+            Primary hiring manager
             <span className="ml-1 font-normal normal-case tracking-normal text-text3">
-              · optional — gets an invite as a representative. Add more from the client panel later.
+              · optional — gets an invite. Add more from the business unit panel later.
             </span>
           </div>
           <div className="flex gap-2.5">

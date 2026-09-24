@@ -237,7 +237,7 @@ function SuggestionRow({
       </span>
       {alreadyClient ? (
         <span className="rounded-md bg-green-dim px-1.5 py-0.5 font-mono text-[9.5px] font-semibold uppercase tracking-[0.08em] text-green">
-          Client
+          Existing
         </span>
       ) : (
         <span className="font-mono text-[11px] text-sky">Select →</span>
@@ -286,7 +286,7 @@ function NewCompanyForm({
           autoFocus
         />
       </Field>
-      <Field label="Domain · optional, helps us match the client">
+      <Field label="Domain · optional, helps us match the business unit">
         <Input
           value={domain}
           onChange={(event) => setDomain(event.target.value)}

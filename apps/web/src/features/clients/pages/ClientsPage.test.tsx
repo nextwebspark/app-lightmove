@@ -35,10 +35,10 @@ describe("ClientsPage — a refused read", () => {
 
     renderPage();
 
-    expect(await screen.findByText("Couldn't load the client registry")).toBeInTheDocument();
-    expect(screen.queryByText("Add your first client")).not.toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: /new client/i })).not.toBeInTheDocument();
-    expect(screen.queryByText(/0 clients/)).not.toBeInTheDocument();
+    expect(await screen.findByText("Couldn't load the business units")).toBeInTheDocument();
+    expect(screen.queryByText("Add your first business unit")).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /new business unit/i })).not.toBeInTheDocument();
+    expect(screen.queryByText(/0 business units/)).not.toBeInTheDocument();
   });
 
   it("still offers the empty state when the registry is genuinely empty", async () => {
@@ -46,6 +46,6 @@ describe("ClientsPage — a refused read", () => {
 
     renderPage();
 
-    expect(await screen.findByText("Add your first client")).toBeInTheDocument();
+    expect(await screen.findByText("Add your first business unit")).toBeInTheDocument();
   });
 });

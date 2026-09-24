@@ -77,7 +77,7 @@ export function ProjectLayout() {
     // here, and neither is a navigation the user asked for.
     return (
       <NotFoundPage
-        title="We couldn't open that project"
+        title="We couldn't open that position"
         body="It may have been deleted, or you may not be on its team. Ask the mandate's lead if you think you should have access."
       />
     );
@@ -125,7 +125,7 @@ export function ProjectLayout() {
         <ProjectBreadcrumb clientName={project.clientName} positionTitle={project.positionTitle} />
       }
       navGroups={groups}
-      navBackLink={{ to: "/", label: "All projects", icon: ICONS.back }}
+      navBackLink={{ to: "/", label: "All positions", icon: ICONS.back }}
       assistantContext={`${project.clientName} · ${project.positionTitle}`}
       assistantProjectId={project.id}
       /* Wider than the mockups' 1160px on purpose — see WorkspaceLayout for the reasoning. */

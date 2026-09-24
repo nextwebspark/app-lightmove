@@ -68,7 +68,7 @@ export const memberColumns = helper.columns([
 
   helper.display({
     id: "projects",
-    header: "Active projects",
+    header: "Active positions",
     meta: { share: 0, min: 132 },
     // The count is the page's, not the row's — it is a fact about the project list, which the roster
     // response does not carry — so the comparator reads it back off the table's meta.
@@ -79,7 +79,7 @@ export const memberColumns = helper.columns([
       ),
     cell: (info) => {
       const count = info.table.options.meta?.activeCount(info.row.original.memberId) ?? 0;
-      return <DataGridCell value={`${count} active ${count === 1 ? "project" : "projects"}`} muted />;
+      return <DataGridCell value={`${count} active ${count === 1 ? "position" : "positions"}`} muted />;
     },
   }),
 ]);

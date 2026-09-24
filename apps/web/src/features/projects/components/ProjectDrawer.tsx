@@ -7,6 +7,7 @@ import type { AttachedRepresentative, Project, StaffRole, TeamMember } from "../
 import { STAGE_ORDER } from "../lib/filtering";
 import { staffRoleOf } from "../lib/projectTeamColumns";
 import { ROLE_STYLES } from "./ProjectRoleChips";
+import { deadlineOf } from "../lib/timeline";
 
 /** The project list's read-only summary of one mandate; every change is made in the project itself. */
 export function ProjectDrawer({ project, onClose }: { project: Project | null; onClose: () => void }) {
@@ -30,7 +31,7 @@ export function ProjectDrawer({ project, onClose }: { project: Project | null; o
           <StagePill stage={project.stage} />
         </div>
         <Button className="mt-3 w-full" onClick={() => navigate(`/projects/${project.id}`)}>
-          Open project →
+          Open position →
         </Button>
       </div>
 
@@ -39,7 +40,7 @@ export function ProjectDrawer({ project, onClose }: { project: Project | null; o
         <div className="flex gap-2.5">
           <StatTile value={String(project.companies)} label="Companies" />
           <StatTile value={String(project.candidates)} label="Candidates" />
-          <StatTile value={formatDate(project.targetDate).slice(0, 6)} label="Target" />
+          <StatTile value={formatDate(deadlineOf(project)).slice(0, 6)} label="Target" />
         </div>
 
         <SectionLabel className="mt-[18px]">Stage gates</SectionLabel>
@@ -65,7 +66,7 @@ export function ProjectDrawer({ project, onClose }: { project: Project | null; o
           );
         })}
 
-        <SectionLabel className="mt-[18px]">Project team</SectionLabel>
+        <SectionLabel className="mt-[18px]">Team</SectionLabel>
         <div className="overflow-hidden rounded-[10px] border border-line-soft">
           {staff.length === 0 ? (
             <EmptyRow>No one staffed yet</EmptyRow>
@@ -83,7 +84,7 @@ export function ProjectDrawer({ project, onClose }: { project: Project | null; o
           )}
         </div>
 
-        <SectionLabel className="mt-[18px]">Client</SectionLabel>
+        <SectionLabel className="mt-[18px]">Business unit</SectionLabel>
         <div className="overflow-hidden rounded-[10px] border border-line-soft">
           <div className="flex items-center gap-[11px] px-[13px] py-[11px]">
             <CompanyLogo name={project.clientName} logo={project.clientLogoUrl} size={30} />
@@ -91,7 +92,7 @@ export function ProjectDrawer({ project, onClose }: { project: Project | null; o
             <Chip label="Hiring entity" className="border-line bg-panel2 text-text2" />
           </div>
           {project.representatives.length === 0 ? (
-            <EmptyRow>No client contacts on this mandate</EmptyRow>
+            <EmptyRow>No hiring managers on this position</EmptyRow>
           ) : (
             project.representatives.map((representative) => (
               <RepresentativeRow key={representative.representativeId} representative={representative} />
@@ -104,7 +105,7 @@ export function ProjectDrawer({ project, onClose }: { project: Project | null; o
           className="mt-3 inline-flex items-center gap-1.5 text-xs font-medium text-text2 hover:text-text hover:underline"
         >
           <Icon d={ICONS.settings} size={13} />
-          Manage team &amp; client access in project settings
+          Manage team &amp; hiring manager access in position settings
         </Link>
       </div>
     </Drawer>

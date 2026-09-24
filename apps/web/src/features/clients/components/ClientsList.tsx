@@ -59,7 +59,7 @@ export function ClientsList({
   return (
     <DataGrid
       table={table}
-      label="Clients"
+      label="Business units"
       fit="content"
       layout={layout}
       onLayoutChange={onLayoutChange}
@@ -67,7 +67,7 @@ export function ClientsList({
       loading={false}
       error={false}
       errorMessage="That list could not be loaded. Refresh, or check you still have access."
-      emptyMessage="No clients match. Clear the search or add a new client."
+      emptyMessage="No business units match. Clear the search or add a new one."
       onRowClick={(client) => onOpen(client.id)}
       renderCard={(client) => <ClientCard client={client} onOpen={() => onOpen(client.id)} />}
     />

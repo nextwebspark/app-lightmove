@@ -50,7 +50,7 @@ export function ClientDrawer({
   const mandate = client?.mandates.find((m) => m.id === mandateId) ?? null;
 
   return (
-    <Drawer open={clientId !== null} onClose={onClose} label={client?.name ?? "Client"}>
+    <Drawer open={clientId !== null} onClose={onClose} label={client?.name ?? "Business unit"}>
       {!client ? (
         <div className="grid flex-1 place-items-center font-mono text-[12px] text-text3">Loading…</div>
       ) : mandate ? (
@@ -109,7 +109,7 @@ function ClientView({
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: clientsApi.clientKey(client.id) });
       void queryClient.invalidateQueries({ queryKey: clientsApi.CLIENTS_KEY });
-      toast("Client details saved");
+      toast("Business unit saved");
     },
     onError: (error) => toast(messageFor(error)),
   });
@@ -134,7 +134,7 @@ function ClientView({
           ✕
         </button>
         <div className="font-mono text-[11px] font-medium uppercase tracking-[0.08em] text-text3">
-          Client record
+          Business unit record
         </div>
         <div className="mt-1 flex items-start gap-2.5">
           <CompanyLogo name={client.name} logo={client.logoUrl} size={32} />
@@ -165,7 +165,7 @@ function ClientView({
             </span>
           )}
         </div>
-        <DrawerField label="Client name">
+        <DrawerField label="Business unit name">
           <Input value={name} onChange={(event) => setName(event.target.value)} />
         </DrawerField>
         <div className="flex gap-2.5">
@@ -212,10 +212,10 @@ function ClientView({
 
         <Representatives client={client} />
 
-        <SectionLabel className="mt-[18px]">Mandates</SectionLabel>
+        <SectionLabel className="mt-[18px]">Open positions</SectionLabel>
         {client.mandates.length === 0 ? (
           <p className="py-2 font-mono text-[12px] text-text3">
-            No mandates yet — create a project for this client.
+            No positions yet — open one for this business unit.
           </p>
         ) : (
           client.mandates.map((m) => (
@@ -293,7 +293,7 @@ function Representatives({ client }: { client: ClientDetail }) {
   return (
     <>
       <div className="mb-2 mt-[18px] flex items-center justify-between">
-        <SectionLabel>Client representatives</SectionLabel>
+        <SectionLabel>Hiring managers</SectionLabel>
         {!open && (
           <button
             type="button"
@@ -307,7 +307,7 @@ function Representatives({ client }: { client: ClientDetail }) {
 
       {client.representatives.length === 0 && !open && (
         <p className="py-1 font-mono text-[12px] text-text3">
-          No representatives yet. Invite one to give the client access to their mandates.
+          No hiring managers yet. Invite one to give them access to their positions.
         </p>
       )}
 
@@ -433,7 +433,7 @@ function MandateView({
         <Button variant="ghost" onClick={onBack}>
           Back
         </Button>
-        <Button onClick={() => navigate(`/projects/${mandate.id}`)}>Open project →</Button>
+        <Button onClick={() => navigate(`/projects/${mandate.id}`)}>Open position →</Button>
       </div>
     </>
   );

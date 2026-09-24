@@ -6,7 +6,7 @@ import type { Client } from "../api/types";
  */
 
 export const CHIPS = [
-  { key: "all", label: "All clients" },
+  { key: "all", label: "All business units" },
   { key: "active", label: "Active mandates" },
   { key: "noreps", label: "No representative" },
 ] as const;

@@ -28,7 +28,7 @@ const helper = createColumnHelper<typeof clientTableFeatures, Client>();
 export const clientColumns = helper.columns([
   helper.accessor("name", {
     id: "name",
-    header: "Client",
+    header: "Business unit",
     enableHiding: false,
     // The floor covers a twenty-odd-character name: the mark and its gutter eat 36px before a letter.
     meta: { share: 26, min: 220 },
@@ -62,7 +62,7 @@ export const clientColumns = helper.columns([
 
   helper.display({
     id: "contacts",
-    header: "Client contact",
+    header: "Hiring managers",
     enableSorting: false,
     meta: { share: 0, min: 132 },
     cell: (info) => <RepStack contacts={info.row.original.contacts} />,
@@ -78,7 +78,7 @@ export const clientColumns = helper.columns([
 
   helper.accessor("activeMandates", {
     id: "mandates",
-    header: "Mandates",
+    header: "Open positions",
     meta: { share: 0, min: 104 },
     sortFn: (a, b) => compareNumber(a.original.activeMandates, b.original.activeMandates),
     cell: (info) => <DataGridCell value={String(info.getValue())} />,
