@@ -135,6 +135,7 @@ public class Workspace extends BaseEntity {
         this.primaryRegion = primaryRegion;
         this.teamFocus = teamFocus;
         this.logoMark = deriveLogoMark(name);
+        this.persona = persona.refiledFrom(getCompany(), company);
         identifyAs(company);
     }
 
@@ -164,11 +165,13 @@ public class Workspace extends BaseEntity {
 
     /**
      * The Settings → General form. Re-derives the logo mark and re-files the company snapshot, which a
-     * null company clears; identity (slug, domain) stays put, and the persona is the admin's own text.
+     * null company clears; identity (slug, domain) stays put. The persona's sectors and country follow
+     * the company, and the rest of it stays the admin's own text.
      */
     public void applySettings(String name, WorkspaceCompany company, String defaultRegion, String defaultCurrency) {
         this.name = name;
         this.logoMark = deriveLogoMark(name);
+        this.persona = persona.refiledFrom(getCompany(), company);
         identifyAs(company);
         if (defaultRegion != null) {
             this.defaultRegion = defaultRegion;
