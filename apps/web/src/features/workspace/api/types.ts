@@ -13,6 +13,16 @@ export interface WorkspaceDetail {
   plan: string;
   memberCount: number;
   createdAt: string;
+  persona: WorkspacePersona;
+}
+
+/** What the firm is, for the assistant to tailor its research to. Edited by an admin. */
+export interface WorkspacePersona {
+  summary: string | null;
+  sectors: string[];
+  competitors: string[];
+  geographies: string[];
+  notes: string | null;
 }
 
 /** One row of the active roster. */

@@ -5,6 +5,7 @@ import { Button, Field, FormError, Input, Modal, Select, useToast } from "../../
 import { messageFor } from "../../../lib/errorCodes";
 import { useAuth } from "../../auth/AuthProvider";
 import * as workspaceApi from "../../workspace/api/workspaceApi";
+import { WorkspacePersonaCard } from "../components/WorkspacePersonaCard";
 
 const REGIONS = ["GCC", "MENA", "Europe", "Global"];
 const CURRENCIES = ["USD", "AED", "SAR", "EUR"];
@@ -96,6 +97,8 @@ export function SettingsGeneralPage() {
           </Button>
         </div>
       </div>
+
+      <WorkspacePersonaCard key={workspace.id} persona={workspace.persona} />
 
       <div className="mt-4 rounded-[10px] border border-red bg-red-dim p-5">
         <div className="flex items-center gap-3">

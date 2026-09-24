@@ -15,6 +15,8 @@ import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
 
 /**
  * The tenant. Every piece of business data in LightMove hangs off exactly one of these, and every
@@ -79,6 +81,10 @@ public class Workspace extends BaseEntity {
     @Column(name = "logo_url")
     private String logoUrl;
 
+    @JdbcTypeCode(SqlTypes.JSON)
+    @Column(name = "persona", nullable = false)
+    private WorkspacePersona persona = WorkspacePersona.empty();
+
     @Setter
     @Column(name = "default_region", nullable = false, length = 32)
     private String defaultRegion = "GCC";
@@ -110,6 +116,7 @@ public class Workspace extends BaseEntity {
         workspace.teamFocus = teamFocus;
         workspace.logoMark = deriveLogoMark(name);
         workspace.identifyAs(company);
+        workspace.persona = WorkspacePersona.seededFrom(company);
         // The region they work in is the sensible default for the region their projects will be in.
         workspace.defaultRegion = primaryRegion != null ? primaryRegion : "GCC";
         return workspace;
@@ -129,6 +136,10 @@ public class Workspace extends BaseEntity {
         this.teamFocus = teamFocus;
         this.logoMark = deriveLogoMark(name);
         identifyAs(company);
+    }
+
+    public void describePersona(WorkspacePersona persona) {
+        this.persona = persona == null ? WorkspacePersona.empty() : persona;
     }
 
     /** Null when the firm was typed in by hand rather than picked from the universe. */

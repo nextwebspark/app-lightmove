@@ -380,6 +380,10 @@ V68 gives `app_lm_workspace` the same write-time company snapshot: signup's orga
 the firm from the universe (`GET /onboarding/companies`, since `/companies/search` needs a workspace)
 and the server files it under the resolved row's name, id, industry, city, country, website, LinkedIn
 and logo; a firm typed in by hand leaves them all null.
+V69 adds the workspace's `persona` jsonb — main business, sectors, competitors, geographies, notes —
+for the assistant to tailor research to: seeded at signup with the picked company's industry, written
+by an admin through `PUT /workspace/persona` (Settings → General), read by staff on `GET /workspace`
+and never carried on `/me`.
 V57 adds the `PLATFORM` role scope and `app_lm_user_platform_role` — written by
 `grant-platform-role.sh`, never by the application.
 `app_lm_position_document` holds the attached position description inline (`bytea`) — one small file per

@@ -248,6 +248,7 @@ describe("routes — the settings gates", () => {
       plan: "FREE",
       memberCount: 1,
       createdAt: "2026-03-14T09:00:00Z",
+      persona: { summary: null, sectors: [], competitors: [], geographies: [], notes: null },
     });
 
     renderAt("/settings/general");

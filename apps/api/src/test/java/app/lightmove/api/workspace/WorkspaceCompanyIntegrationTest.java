@@ -69,6 +69,11 @@ class WorkspaceCompanyIntegrationTest extends FlowTestSupport {
                 .andExpect(jsonPath("$.workspace.company.linkedinUrl")
                         .value("https://www.linkedin.com/company/al-futtaim"))
                 .andExpect(jsonPath("$.workspace.company.logoUrl").value("https://logos.example/af.png"));
+
+        mvc.perform(get("/api/v1/workspace").header("Authorization", "Bearer " + login("alok@" + domain)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.persona.sectors[0]").value("retail"))
+                .andExpect(jsonPath("$.persona.competitors").isEmpty());
     }
 
     @Test

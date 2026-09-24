@@ -13,7 +13,9 @@ import app.lightmove.api.workspace.constant.MemberStatus;
 import app.lightmove.api.workspace.model.Invitation;
 import app.lightmove.api.workspace.model.Workspace;
 import app.lightmove.api.workspace.model.WorkspaceMember;
+import app.lightmove.api.workspace.model.WorkspacePersona;
 import java.time.Instant;
+import java.util.List;
 import java.util.Set;
 import java.util.UUID;
 import org.junit.jupiter.api.DisplayName;
@@ -101,5 +103,18 @@ class WorkspaceDomainTest {
                 .isInstanceOf(ApiException.class)
                 .extracting(ex -> ((ApiException) ex).getCode())
                 .isEqualTo(ErrorCode.CONFLICT);
+    }
+
+    @Test
+    @DisplayName("a persona is trimmed, blanks dropped, and repeated list entries kept once")
+    void personaIsTidied() {
+        WorkspacePersona persona = new WorkspacePersona("  Search  ", java.util.Arrays.asList("Energy", " ENERGY", null, " "),
+                null, List.of("GCC"), "");
+
+        assertThat(persona.summary()).isEqualTo("Search");
+        assertThat(persona.sectors()).containsExactly("Energy");
+        assertThat(persona.competitors()).isEmpty();
+        assertThat(persona.geographies()).containsExactly("GCC");
+        assertThat(persona.notes()).isNull();
     }
 }
