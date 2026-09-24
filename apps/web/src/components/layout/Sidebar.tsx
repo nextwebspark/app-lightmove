@@ -47,7 +47,11 @@ export function Sidebar({
 }) {
   const preference = useSidebarCollapsed();
   const [expandedBesideAssistant, setExpandedBesideAssistant] = useState(false);
-  useEffect(() => setExpandedBesideAssistant(false), [assistantOpen]);
+  const [assistantWasOpen, setAssistantWasOpen] = useState(assistantOpen);
+  if (assistantWasOpen !== assistantOpen) {
+    setAssistantWasOpen(assistantOpen);
+    setExpandedBesideAssistant(false);
+  }
   const collapsed = assistantOpen ? !expandedBesideAssistant : preference.collapsed;
   const toggle = assistantOpen ? () => setExpandedBesideAssistant((expanded) => !expanded) : preference.toggle;
   const { theme, toggle: toggleTheme } = useTheme();
