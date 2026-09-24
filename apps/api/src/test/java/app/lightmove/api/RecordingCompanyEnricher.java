@@ -16,12 +16,20 @@ import org.springframework.context.annotation.Primary;
 public class RecordingCompanyEnricher implements LinkedInCompanyEnricher {
 
     private final List<String> fetched = new CopyOnWriteArrayList<>();
+    private final List<String> searched = new CopyOnWriteArrayList<>();
     private volatile VendorCompanyRecord answer;
+    private volatile List<VendorCompanyRecord> searchAnswer = List.of();
 
     @Override
     public Optional<VendorCompanyRecord> fetch(String linkedinSlug) {
         fetched.add(linkedinSlug);
         return Optional.ofNullable(answer);
+    }
+
+    @Override
+    public List<VendorCompanyRecord> searchByName(String namePart, String countryCode) {
+        searched.add(namePart);
+        return searchAnswer;
     }
 
     @Override
@@ -33,9 +41,19 @@ public class RecordingCompanyEnricher implements LinkedInCompanyEnricher {
         this.answer = record;
     }
 
+    public void answerSearchWith(List<VendorCompanyRecord> hits) {
+        this.searchAnswer = List.copyOf(hits);
+    }
+
     public void clear() {
         fetched.clear();
+        searched.clear();
         answer = null;
+        searchAnswer = List.of();
+    }
+
+    public List<String> searchedNames() {
+        return List.copyOf(searched);
     }
 
     public List<String> fetchedSlugs() {

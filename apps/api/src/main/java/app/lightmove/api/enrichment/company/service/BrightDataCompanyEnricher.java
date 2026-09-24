@@ -13,6 +13,7 @@ import app.lightmove.api.enrichment.company.model.VendorCompanyRecord;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.Optional;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.resilience.annotation.Retryable;
@@ -36,6 +37,9 @@ import tools.jackson.databind.annotation.JsonNaming;
 public class BrightDataCompanyEnricher implements LinkedInCompanyEnricher {
 
     private static final String VENDOR = "brightdata";
+    private static final int NAME_SEARCH_HITS = 10;
+    private static final int FEWEST_EMPLOYEES = 50;
+    private static final int FEWEST_EMPLOYEES_ANYWHERE = 1_000;
 
     private final RestClient client;
     private final String datasetId;
@@ -79,6 +83,49 @@ public class BrightDataCompanyEnricher implements LinkedInCompanyEnricher {
             return Optional.empty();
         }
         return toRecord(linkedinSlug, hits.get(0), json);
+    }
+
+    /**
+     * {@code includes} is a case-insensitive substring match. The country is matched in the codes
+     * array rather than {@code country_code}, which holds "AE,GB,KW" for a company in several; and
+     * the headcount floor keeps a one-person namesake from being billed as a hit. With no country the
+     * search is for a global company's own page, so the floor rises: a name as short as "H&M" is
+     * otherwise a page of billed strangers.
+     */
+    @Override
+    @Retryable(
+            predicate = VendorRetryPredicate.class,
+            maxRetriesString = "${lightmove.enrichment.brightdata.max-retries}",
+            delayString = "${lightmove.resilience.retry-delay}",
+            jitterString = "${lightmove.resilience.retry-jitter}",
+            multiplierString = "${lightmove.resilience.retry-multiplier}",
+            maxDelayString = "${lightmove.resilience.retry-max-delay}")
+    public List<VendorCompanyRecord> searchByName(String namePart, String countryCode) {
+        JsonNode result = guard.call(VendorCall.of(VENDOR, "company-name-search"),
+                () -> client.post()
+                        .uri("/datasets/search/{datasetId}", datasetId)
+                        .body(namedIn(namePart, countryCode))
+                        .retrieve()
+                        .body(JsonNode.class));
+        JsonNode hits = result == null ? null : result.get("hits");
+        if (hits == null || hits.isEmpty()) {
+            return List.of();
+        }
+        return hits.valueStream()
+                .filter(hit -> hit.hasNonNull("id"))
+                .flatMap(hit -> toRecord(hit.get("id").asString().toLowerCase(Locale.ROOT), hit, json).stream())
+                .toList();
+    }
+
+    static Map<String, Object> namedIn(String namePart, String countryCode) {
+        Map<String, Object> named = Map.of("name", "name", "operator", "includes", "value", namePart);
+        List<Map<String, Object>> filters = countryCode == null
+                ? List.of(named, Map.of("name", "employees_in_linkedin", "operator", ">=",
+                        "value", FEWEST_EMPLOYEES_ANYWHERE))
+                : List.of(named,
+                        Map.of("name", "country_codes_array", "operator", "array_includes", "value", countryCode),
+                        Map.of("name", "employees_in_linkedin", "operator", ">=", "value", FEWEST_EMPLOYEES));
+        return Map.of("size", NAME_SEARCH_HITS, "filter", Map.of("operator", "and", "filters", filters));
     }
 
     static Optional<VendorCompanyRecord> toRecord(String linkedinSlug, JsonNode hit, ObjectMapper json) {

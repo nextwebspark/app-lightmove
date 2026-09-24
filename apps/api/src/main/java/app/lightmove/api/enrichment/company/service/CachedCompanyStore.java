@@ -7,6 +7,7 @@ import app.lightmove.api.enrichment.company.model.VendorCompanyRecord;
 import java.sql.Array;
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.sql.Timestamp;
 import java.sql.Types;
 import java.time.Instant;
 import java.util.List;
@@ -41,6 +42,17 @@ public class CachedCompanyStore {
                    logo_url, keywords, raw
             FROM app_lm_vendor_company
             WHERE linkedin_slug = ?
+            """;
+
+    private static final String SELECT_BY_NAME = """
+            SELECT linkedin_slug, provider, fetched_at, found, company_name, industry_v2_label,
+                   company_country, company_city, employees_linkedin, website, linkedin_url,
+                   founded_year, about, logo_url, keywords, raw
+            FROM app_lm_vendor_company
+            WHERE found AND fetched_at > ? AND (CAST(? AS text) IS NULL OR lower(company_country) = lower(?))
+              AND lower(company_name) = ANY (?)
+            ORDER BY employees_linkedin DESC NULLS LAST
+            LIMIT 1
             """;
 
     /**
@@ -85,6 +97,19 @@ public class CachedCompanyStore {
     public Optional<CachedCompany> find(String linkedinSlug) {
         return jdbc.query(SELECT, rs -> rs.next() ? Optional.of(read(linkedinSlug, rs)) : Optional.empty(),
                 linkedinSlug);
+    }
+
+    /** The biggest fresh page whose name is one of {@code names}, lower-cased, in {@code country} or anywhere for null. */
+    @Transactional(propagation = Propagation.REQUIRES_NEW, readOnly = true)
+    public Optional<VendorCompanyRecord> findByName(List<String> names, String country, Instant freshAfter) {
+        return jdbc.query(SELECT_BY_NAME, ps -> {
+            ps.setTimestamp(1, Timestamp.from(freshAfter));
+            ps.setString(2, country);
+            ps.setString(3, country);
+            ps.setArray(4, ps.getConnection().createArrayOf("text", names.toArray(String[]::new)));
+        }, rs -> rs.next()
+                ? Optional.of(read(rs.getString("linkedin_slug"), rs).answer())
+                : Optional.<VendorCompanyRecord>empty());
     }
 
     /** Remembers an answer — no answer included, so a slug the provider lacks is not re-bought. */

@@ -1,11 +1,13 @@
 package app.lightmove.api.enrichment.company.service;
 
+import app.lightmove.api.common.location.service.Countries;
 import app.lightmove.api.core.config.LightMoveProperties;
 import app.lightmove.api.enrichment.company.model.CachedCompany;
 import app.lightmove.api.enrichment.company.model.VendorCompanyRecord;
 import app.lightmove.api.triagecompany.model.CapturedCompanyDetails;
 import java.time.Duration;
 import java.time.Instant;
+import java.util.List;
 import java.util.Optional;
 import org.springframework.stereotype.Service;
 
@@ -51,5 +53,41 @@ public class CompanyResearch {
         // A vendor that threw never reaches here, so a bad minute is not remembered as a miss.
         store.remember(linkedinSlug, enricher.provider(), answer);
         return answer.flatMap(VendorCompanyRecord::asCapturedDetails);
+    }
+
+    /**
+     * A company someone named, found by its page's name in one country. Every hit a search returns
+     * is remembered under its own slug, because every hit is billed: an "Aldar" search pays for Aldar
+     * Education too, and a later ask for it is a cache read. A name nothing matches is not
+     * remembered — there is no slug to key it on.
+     */
+    public Optional<CapturedCompanyDetails> byName(String name, String country) {
+        String countryCode = Countries.codeOf(country);
+        return countryCode == null ? Optional.empty() : named(name, Countries.nameOf(country), countryCode);
+    }
+
+    /** A global company's own page, wherever it is headquartered — IKEA is Swedish however local the ask. */
+    public Optional<CapturedCompanyDetails> byNameAnywhere(String name) {
+        return named(name, null, null);
+    }
+
+    private Optional<CapturedCompanyDetails> named(String name, String countryName, String countryCode) {
+        Optional<VendorCompanyRecord> held = store.findByName(CompanyNames.matchKeys(name), countryName,
+                Instant.now().minus(cacheTtl));
+        if (held.isPresent()) {
+            return held.flatMap(VendorCompanyRecord::asCapturedDetails);
+        }
+        if (!enricher.isEnabled()) {
+            return Optional.empty();
+        }
+        for (String term : CompanyNames.searchTerms(name)) {
+            List<VendorCompanyRecord> hits = enricher.searchByName(term, countryCode);
+            hits.forEach(hit -> store.remember(hit.linkedinSlug(), enricher.provider(), Optional.of(hit)));
+            Optional<VendorCompanyRecord> named = CompanyNames.best(name, hits);
+            if (named.isPresent()) {
+                return named.flatMap(VendorCompanyRecord::asCapturedDetails);
+            }
+        }
+        return Optional.empty();
     }
 }
