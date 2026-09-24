@@ -79,8 +79,9 @@ tab is the mandate's talent mapping report (`GET /projects/{id}/report`): four c
 progress, shape of the market, remuneration, diversity — aggregated live by `report` from the same
 rows, so nothing is stored and nothing goes stale. It reads one chapter at a time behind a numbered
 step rail, the chapter kept in the URL (`?chapter=`), and its mockup is the `reports` page of
-`claude-design/Position.dc.html` — drawn in the UNCAVA palette (`--color-u-*`), which every other
-screen now wears too through the app tokens' aliases. It states only what the rows carry: a candidate's
+`claude-design/Position.dc.html` — drawn in the UNCAVA palette (`--color-u-*`) — the only palette
+the code has: the old app names (`panel`, `amber`, `sky`, …) are gone from both apps, and an unset
+theme opens dark. It states only what the rows carry: a candidate's
 status but no pipeline outcome, and a package in another currency is counted rather than converted.
 **Gender (V56) is recorded on a candidate and never inferred from a name** — the chapter divides by
 the executives who have one on file, not by the headcount, so a mandate nobody has recorded reads as
@@ -103,7 +104,7 @@ market chapter's hubs carry a point from `geocoding` — asked only for the hand
 where none is. The standalone
 Candidates screen, and the pipeline and outreach tables, don't exist yet. The **Position**
 screen is the mandate's brief, drawn in `claude-design/Position.dc.html` (issue #442) in the UNCAVA
-palette like Reports — the second screen on that seam — as five steps behind a rail (Role Brief,
+palette like every screen — as five steps behind a rail (Role Brief,
 Reporting, Compensation, Assessment Criteria, Review & Publish), the step kept in the URL (`?step=`)
 and each section autosaving through its own write. It opens drafted rather than
 blank: a **role-template library** of seventeen briefs (twelve C-suite, four functional heads, one
