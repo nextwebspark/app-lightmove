@@ -13,6 +13,7 @@ export const SOURCE_STYLES: Record<TriageCompanySource, { label: string; classNa
   manual: { label: "Manual", className: "text-amber bg-amber-dim" },
   extension: { label: "Plugin", className: "text-green bg-green-dim" },
   csv: { label: "Import", className: "text-text2 bg-line-soft" },
+  assistant: { label: "Assistant", className: "text-ai bg-ai-soft" },
 };
 
 export interface TriageMove {

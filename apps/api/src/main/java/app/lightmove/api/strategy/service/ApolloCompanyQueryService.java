@@ -171,6 +171,32 @@ public class ApolloCompanyQueryService {
     }
 
     /**
+     * The biggest company of that exact name in one country — or anywhere for a null {@code country} —
+     * with at least {@code minEmployees}. Unlike {@link #matchEmployer} a name need not be unique: a
+     * brand the universe holds in three countries is still the UAE row when the UAE is asked about.
+     * The country or headcount index narrows the scan, since the ETL-owned table takes no index of ours.
+     */
+    public Optional<CompanyRow> largestNamed(String companyName, String country, int minEmployees) {
+        if (companyName == null || companyName.isBlank()) {
+            return Optional.empty();
+        }
+        return jdbc.sql("""
+                        SELECT %s
+                        FROM app_lm_apollo_companies
+                        WHERE lower(company_name) = lower(:name)
+                          AND (CAST(:country AS text) IS NULL OR company_country = :country)
+                          AND coalesce(num_employees, 0) >= :min
+                        ORDER BY num_employees DESC NULLS LAST
+                        LIMIT 1
+                        """.formatted(ROW_COLUMNS))
+                .param("name", companyName.strip())
+                .param("country", country)
+                .param("min", minEmployees)
+                .query(COMPANY_ROW_MAPPER)
+                .optional();
+    }
+
+    /**
      * The Industry accordion, in the taxonomy's groups — file order, so the sidebar does not
      * rearrange when the pipeline reloads. An industry the taxonomy does not cover is dropped and
      * would vanish; {@code SectorTaxonomyCoverageIntegrationTest} asserts that set is empty.

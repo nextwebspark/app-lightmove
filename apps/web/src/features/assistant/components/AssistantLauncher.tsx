@@ -4,7 +4,7 @@ import { cn } from "../../../lib/cn";
 import { useAssistant } from "../AssistantProvider";
 
 /**
- * The way in from any screen, and visible only while the panel is shut.
+ * The way in from a project screen, and visible only while the panel is shut.
  *
  * <p>Bottom-right because the toast holds bottom-centre, and under the toast's `z-[120]` for the
  * same reason: a toast reporting what the assistant just filed has to be readable over it.

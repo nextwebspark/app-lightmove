@@ -1,11 +1,14 @@
 package app.lightmove.api.enrichment.company.service;
 
+import app.lightmove.api.common.location.service.Countries;
 import app.lightmove.api.core.config.LightMoveProperties;
 import app.lightmove.api.enrichment.company.model.CachedCompany;
 import app.lightmove.api.enrichment.company.model.VendorCompanyRecord;
+import app.lightmove.api.enrichment.company.model.VendorSearchAllowance;
 import app.lightmove.api.triagecompany.model.CapturedCompanyDetails;
 import java.time.Duration;
 import java.time.Instant;
+import java.util.List;
 import java.util.Optional;
 import org.springframework.stereotype.Service;
 
@@ -22,6 +25,12 @@ import org.springframework.stereotype.Service;
  */
 @Service
 public class CompanyResearch {
+
+    /** Smallest page a name search in one country counts — below it, a namesake is likelier than a match. */
+    public static final int MIN_EMPLOYEES_IN_COUNTRY = 50;
+
+    /** Smallest page counted as a global company's own; a name as short as "H&M" otherwise buys strangers. */
+    public static final int MIN_EMPLOYEES_ANYWHERE = 1_000;
 
     private final LinkedInCompanyEnricher enricher;
     private final CachedCompanyStore store;
@@ -51,5 +60,50 @@ public class CompanyResearch {
         // A vendor that threw never reaches here, so a bad minute is not remembered as a miss.
         store.remember(linkedinSlug, enricher.provider(), answer);
         return answer.flatMap(VendorCompanyRecord::asCapturedDetails);
+    }
+
+    /**
+     * A company someone named, found by its page's name in one country. Every hit a search returns
+     * is remembered under its own slug, because every hit is billed: an "Aldar" search pays for Aldar
+     * Education too, and a later ask for it is a cache read. A name nothing matches is not
+     * remembered — there is no slug to key it on. A search {@code allowance} has no room for is not
+     * made.
+     */
+    public Optional<CapturedCompanyDetails> byName(String name, String country, VendorSearchAllowance allowance) {
+        String countryCode = Countries.codeOf(country);
+        return countryCode == null ? Optional.empty()
+                : named(name, Countries.nameOf(country), countryCode, MIN_EMPLOYEES_IN_COUNTRY, allowance);
+    }
+
+    /**
+     * A global company's own page, wherever it is headquartered — IKEA is Swedish however local the
+     * ask. Only a big one counts: a small namesake abroad is somebody else.
+     */
+    public Optional<CapturedCompanyDetails> byNameAnywhere(String name, VendorSearchAllowance allowance) {
+        return named(name, null, null, MIN_EMPLOYEES_ANYWHERE, allowance);
+    }
+
+    private Optional<CapturedCompanyDetails> named(String name, String countryName, String countryCode,
+                                                   int minEmployees, VendorSearchAllowance allowance) {
+        Optional<VendorCompanyRecord> held = store.findByName(CompanyNames.spellingsOf(name),
+                CompanyNames.matchKeys(name), countryName, minEmployees, Instant.now().minus(cacheTtl));
+        if (held.isPresent()) {
+            return held.flatMap(VendorCompanyRecord::asCapturedDetails);
+        }
+        if (!enricher.isEnabled()) {
+            return Optional.empty();
+        }
+        for (String term : CompanyNames.searchTerms(name)) {
+            if (!allowance.take()) {
+                return Optional.empty();
+            }
+            List<VendorCompanyRecord> hits = enricher.searchByName(term, countryCode, minEmployees);
+            store.rememberAll(enricher.provider(), hits);
+            Optional<VendorCompanyRecord> named = CompanyNames.best(name, hits);
+            if (named.isPresent()) {
+                return named.flatMap(VendorCompanyRecord::asCapturedDetails);
+            }
+        }
+        return Optional.empty();
     }
 }

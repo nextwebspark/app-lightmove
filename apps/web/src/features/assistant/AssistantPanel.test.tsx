@@ -128,10 +128,10 @@ describe("the assistant panel", () => {
     mount();
     await userEvent.click(screen.getByRole("button", { name: /ask/i }));
 
-    await userEvent.click(screen.getByRole("button", { name: /Top 10 IPP operators/i }));
+    await userEvent.click(screen.getByRole("button", { name: /Top 10 retail companies/i }));
 
     expect(screen.getByRole("textbox", { name: "Ask the assistant" })).toHaveValue(
-      "Top 10 IPP operators in Saudi Arabia",
+      "Top 10 retail companies in the United Arab Emirates",
     );
   });
 });

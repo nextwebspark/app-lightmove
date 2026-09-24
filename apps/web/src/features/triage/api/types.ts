@@ -8,7 +8,7 @@ export type TriageCompanyStatus = "inUniverse" | "shortlisted" | "declined";
  * exported by Apollo and one typed off a careers page are not equally trustworthy, and only a
  * `strategy` company has a universe id to link back to.
  */
-export type TriageCompanySource = "strategy" | "manual" | "extension" | "csv";
+export type TriageCompanySource = "strategy" | "manual" | "extension" | "csv" | "assistant";
 
 /**
  * One company in a mandate's universe.

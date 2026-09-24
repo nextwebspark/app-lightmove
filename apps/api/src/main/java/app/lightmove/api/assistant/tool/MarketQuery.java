@@ -29,21 +29,6 @@ final class MarketQuery {
                 List.of(), CompanyExclusion.NONE, companyName);
     }
 
-    /**
-     * Tightens a scope the mandate already defines, and can do nothing else: every axis it does not
-     * take an argument for is copied through, so the off-limits list and the triage exclusion survive
-     * whatever the model asked for.
-     */
-    static CompanyScope narrow(CompanyScope saved, String companyName, Long minEmployees,
-                               Long maxEmployees) {
-        NumericRange employees = rangeOf(minEmployees, maxEmployees);
-        return new CompanyScope(saved.industries(), saved.keywords(), saved.marketSegments(),
-                saved.countries(), saved.employeeBands(), saved.revenueBands(),
-                employees == null ? saved.employeeRange() : employees, saved.revenueRange(),
-                saved.offLimitsAccountIds(), saved.triagedExclusion(),
-                companyName == null || companyName.isBlank() ? saved.nameQuery() : companyName);
-    }
-
     private static List<String> listOf(String supplied) {
         return supplied == null || supplied.isBlank() ? List.of() : List.of(supplied.trim());
     }

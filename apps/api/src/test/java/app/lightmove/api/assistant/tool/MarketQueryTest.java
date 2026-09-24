@@ -2,10 +2,8 @@ package app.lightmove.api.assistant.tool;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-import app.lightmove.api.strategy.model.CompanyExclusion;
 import app.lightmove.api.strategy.model.CompanyScope;
 import app.lightmove.api.strategy.model.NumericRange;
-import java.util.List;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
@@ -54,42 +52,5 @@ class MarketQueryTest {
 
         assertThat(scope.countries()).isEmpty();
         assertThat(scope.industries()).isEmpty();
-    }
-
-    @Test
-    @DisplayName("narrowing a mandate's filter keeps its axes and its off-limits list")
-    void narrowingKeepsTheMandatesOwnFilter() {
-        CompanyScope saved = savedFilter();
-
-        CompanyScope narrowed = MarketQuery.narrow(saved, null, 2_000L, null);
-
-        assertThat(narrowed.industries()).isEqualTo(saved.industries());
-        assertThat(narrowed.countries()).isEqualTo(saved.countries());
-        assertThat(narrowed.offLimitsAccountIds())
-                .as("a company the client ruled out must not come back because the model asked again")
-                .isEqualTo(saved.offLimitsAccountIds());
-        assertThat(narrowed.employeeRange()).isEqualTo(new NumericRange(2_000L, null));
-    }
-
-    @Test
-    @DisplayName("narrowing with nothing supplied leaves the saved filter as it stands")
-    void narrowingWithNothingChangesNothing() {
-        CompanyScope saved = savedFilter();
-
-        assertThat(MarketQuery.narrow(saved, null, null, null)).isEqualTo(saved);
-    }
-
-    @Test
-    @DisplayName("a blank name does not wipe the filter's own name query")
-    void aBlankNameLeavesTheSavedQuery() {
-        CompanyScope saved = savedFilter();
-
-        assertThat(MarketQuery.narrow(saved, "  ", null, null).nameQuery()).isEqualTo("Aramco");
-    }
-
-    private static CompanyScope savedFilter() {
-        return new CompanyScope(List.of("oil & energy"), List.of(), List.of(), List.of("Saudi Arabia"),
-                List.of("1k-5k"), List.of(), null, null, List.of("acct-1", "acct-2"),
-                CompanyExclusion.NONE, "Aramco");
     }
 }

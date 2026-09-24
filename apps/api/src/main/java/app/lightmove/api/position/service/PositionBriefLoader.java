@@ -51,6 +51,15 @@ class PositionBriefLoader {
         return positions.findByProjectId(project.getId());
     }
 
+    /** {@link #find} as a whole brief: an undrafted one reads blank and is not saved. */
+    PositionBrief read(UUID workspaceId, UUID projectId) {
+        Project project = projects.findByIdAndWorkspaceId(projectId, workspaceId)
+                .orElseThrow(() -> ApiException.of(ErrorCode.NOT_FOUND));
+        Position position = positions.findByProjectId(project.getId())
+                .orElseGet(() -> Position.forProject(project.getId(), null));
+        return new PositionBrief(project, position);
+    }
+
     /**
      * The seeded brief a new mandate starts from: the template its role title matches in the
      * workspace's catalog, with the client's home country pre-filled as the location's country half.
