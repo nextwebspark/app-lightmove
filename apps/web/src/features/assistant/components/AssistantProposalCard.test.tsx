@@ -76,13 +76,6 @@ describe("the assistant's company card", () => {
     expect(onAccept).toHaveBeenCalledWith(["a1", "ikea"], "shortlisted");
   });
 
-  it("offers nothing to file while the answer is still being written", () => {
-    mount({ pending: true });
-
-    expect(screen.getByText("Available when the answer is ready")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Shortlist" })).toBeDisabled();
-  });
-
   it("shows what was filed instead of the buttons once filed", () => {
     mount({ outcome: { status: null, added: 2, skipped: 1 } });
 

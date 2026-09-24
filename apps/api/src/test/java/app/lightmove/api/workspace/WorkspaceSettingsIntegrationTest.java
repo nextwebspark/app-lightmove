@@ -47,7 +47,7 @@ class WorkspaceSettingsIntegrationTest extends FlowTestSupport {
                         .header("Authorization", "Bearer " + admin)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
-                                {"name":"Zeta Advisory","defaultRegion":"MENA","defaultCurrency":"AED"}"""))
+                                {"name":"Zeta Advisory","apolloAccountId":"","defaultRegion":"MENA","defaultCurrency":"AED"}"""))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.name").value("Zeta Advisory"))
                 .andExpect(jsonPath("$.logoMark").value("Z"))
@@ -111,7 +111,7 @@ class WorkspaceSettingsIntegrationTest extends FlowTestSupport {
                         .header("Authorization", "Bearer " + login(sara))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
-                                {"name":"Sara's Now"}"""))
+                                {"name":"Sara's Now","apolloAccountId":""}"""))
                 .andExpect(status().isForbidden());
     }
 

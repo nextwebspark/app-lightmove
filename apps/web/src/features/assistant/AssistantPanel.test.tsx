@@ -135,15 +135,4 @@ describe("the assistant panel", () => {
     expect(panel).toBeInTheDocument();
     expect(panel.closest("[inert]")).toHaveAttribute("aria-hidden", "true");
   });
-
-  it("puts a starter into the composer rather than sending it", async () => {
-    mount();
-    await userEvent.click(screen.getByRole("button", { name: "AI Research" }));
-
-    await userEvent.click(screen.getByRole("button", { name: /Top 10 retail companies/i }));
-
-    expect(screen.getByRole("textbox", { name: "Ask the assistant" })).toHaveValue(
-      "Top 10 retail companies in the United Arab Emirates",
-    );
-  });
 });

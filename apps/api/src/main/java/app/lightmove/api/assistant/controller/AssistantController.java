@@ -2,11 +2,13 @@ package app.lightmove.api.assistant.controller;
 
 import app.lightmove.api.assistant.dto.AcceptProposalRequest;
 import app.lightmove.api.assistant.dto.AskRequest;
+import app.lightmove.api.assistant.dto.AssistantStartersResponse;
 import app.lightmove.api.assistant.dto.AssistantThreadResponse;
 import app.lightmove.api.assistant.dto.AssistantThreadSummary;
 import app.lightmove.api.assistant.service.AssistantAskStream;
 import app.lightmove.api.assistant.service.AssistantProposalService;
 import app.lightmove.api.assistant.service.AssistantService;
+import app.lightmove.api.assistant.service.AssistantStarters;
 import app.lightmove.api.core.security.model.AuthPrincipal;
 import app.lightmove.api.triagecompany.dto.TriageBulkAddResponse;
 import jakarta.servlet.http.HttpServletRequest;
@@ -37,6 +39,14 @@ public class AssistantController {
     private final AssistantService assistant;
     private final AssistantProposalService proposals;
     private final AssistantAskStream askStream;
+    private final AssistantStarters starters;
+
+    @GetMapping("/api/v1/projects/{projectId}/assistant/starters")
+    @PreAuthorize("@projectAuthorizer.can(principal, #projectId, 'WORK_EXECUTE')")
+    public ResponseEntity<AssistantStartersResponse> starters(
+            @AuthenticationPrincipal AuthPrincipal principal, @PathVariable UUID projectId) {
+        return ResponseEntity.ok(starters.forWorkspace(principal.requireWorkspaceId()));
+    }
 
     @GetMapping("/api/v1/projects/{projectId}/assistant/threads")
     @PreAuthorize("@projectAuthorizer.can(principal, #projectId, 'WORK_EXECUTE')")

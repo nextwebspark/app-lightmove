@@ -11,9 +11,11 @@ const ask = vi.hoisted(() => vi.fn());
 const getThread = vi.hoisted(() => vi.fn());
 const listThreads = vi.hoisted(() => vi.fn());
 const acceptProposal = vi.hoisted(() => vi.fn());
+const listStarters = vi.hoisted(() => vi.fn());
 vi.mock("./api/assistantApi", async (importOriginal) => ({
   ...(await importOriginal<typeof import("./api/assistantApi")>()),
   ask,
+  listStarters,
   getThread,
   listThreads,
   acceptProposal,
@@ -63,8 +65,44 @@ async function send(question: string) {
 }
 
 describe("a chat with the assistant", () => {
-  beforeEach(() => localStorage.clear());
+  beforeEach(() => {
+    localStorage.clear();
+    listStarters.mockResolvedValue({ sectorAssumed: false, starters: [] });
+  });
   afterEach(() => vi.resetAllMocks());
+
+  it("asks a suggested question in one press, marking the adjacent sectors out", async () => {
+    const answered = turn("t1", "th1", { question: "Top Supermarkets companies in UAE" });
+    listStarters.mockResolvedValue({
+      sectorAssumed: false,
+      starters: [
+        { kind: "SECTOR", prompt: "Top 10 Retail companies in UAE" },
+        { kind: "ADJACENT", prompt: "Top Supermarkets companies in UAE" },
+      ],
+    });
+    ask.mockResolvedValue(answered);
+    getThread.mockResolvedValue(thread("th1", [answered]));
+
+    mount();
+
+    expect(await screen.findByText("Adjacent · transferable talent")).toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: /Top Supermarkets companies in UAE/ }));
+
+    expect(ask).toHaveBeenCalledWith("p1", "Top Supermarkets companies in UAE", null, expect.any(Function), expect.any(Function));
+    expect(await screen.findByText("Answer t1")).toBeInTheDocument();
+  });
+
+  it("says when it assumed retail for a firm with no sector on record", async () => {
+    listStarters.mockResolvedValue({
+      sectorAssumed: true,
+      starters: [{ kind: "SECTOR", prompt: "Top 10 Retail companies" }],
+    });
+
+    mount();
+
+    expect(await screen.findByRole("button", { name: /Top 10 Retail companies/ })).toBeInTheDocument();
+    expect(screen.getByText(/Assuming retail/)).toBeInTheDocument();
+  });
 
   it("answers with a card of companies that can be filed straight away", async () => {
     const answered = turn("t1", "th1", { question: "Top retailers in UAE", proposal: CARD });
@@ -152,7 +190,7 @@ describe("a chat with the assistant", () => {
     expect(screen.getByText(/342 matched, showing the top 25/)).toBeInTheDocument();
   });
 
-  it("draws the card as soon as it is made, fileable only once the answer is saved", async () => {
+  it("holds the card back until the answer is saved, then draws it once and fileable", async () => {
     const answered = turn("t1", "th1", { question: "Top retailers in UAE", proposal: CARD });
     let finish: (value: AssistantTurn) => void = () => {};
     ask.mockImplementation((_projectId, _question, _threadId, onStep: (step: LiveStep) => void,
@@ -168,14 +206,15 @@ describe("a chat with the assistant", () => {
     mount();
     await send("Top retailers in UAE");
 
-    expect(await screen.findByText("Landmark Group")).toBeInTheDocument();
+    expect(await screen.findByText("Preparing the card for 2 companies…")).toBeInTheDocument();
     expect(screen.getByText("Writing the answer")).toBeInTheDocument();
-    expect(screen.getByText("Available when the answer is ready")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Universe" })).toBeDisabled();
+    expect(screen.queryByText("Landmark Group")).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Universe" })).not.toBeInTheDocument();
 
     finish(answered);
 
     expect(await screen.findByText("Answer t1")).toBeInTheDocument();
+    expect(screen.queryByText("Preparing the card for 2 companies…")).not.toBeInTheDocument();
     expect(screen.getAllByText("Landmark Group")).toHaveLength(1);
     expect(screen.getByRole("button", { name: "Universe" })).toBeEnabled();
   });

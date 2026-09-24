@@ -5,13 +5,23 @@ import { Button, Field, FormError, Input, Modal, Select, useToast } from "../../
 import { CompanyLogo } from "../../../components/ui/CompanyLogo";
 import { messageFor } from "../../../lib/errorCodes";
 import { useAuth } from "../../auth/AuthProvider";
+import type { WorkspaceCompany } from "../../auth/api/types";
+import { CompanyPicker } from "../../clients/components/CompanyPicker";
+import {
+  pickedCompanyName,
+  workspaceCompanyPick,
+  type CompanyPick,
+} from "../../clients/lib/companyPick";
 import * as workspaceApi from "../../workspace/api/workspaceApi";
 import { WorkspacePersonaCard } from "../components/WorkspacePersonaCard";
 
 const REGIONS = ["GCC", "MENA", "Europe", "Global"];
 const CURRENCIES = ["USD", "AED", "SAR", "EUR"];
 
-/** Settings → General: identity card, name/defaults form, and the typed-confirmation danger zone. */
+/**
+ * Settings → General: identity card, the firm (picked from the universe, as at signup) and defaults,
+ * and the typed-confirmation danger zone.
+ */
 export function SettingsGeneralPage() {
   const { reload } = useAuth();
   const queryClient = useQueryClient();
@@ -22,25 +32,32 @@ export function SettingsGeneralPage() {
     queryFn: workspaceApi.workspace,
   });
 
-  const [name, setName] = useState("");
+  const [pick, setPick] = useState<CompanyPick | null>(null);
   const [region, setRegion] = useState("GCC");
   const [currency, setCurrency] = useState("USD");
   const [deleteOpen, setDeleteOpen] = useState(false);
 
   useEffect(() => {
     if (workspace) {
-      setName(workspace.name);
+      setPick(workspaceCompanyPick(workspace.name, workspace.company));
       setRegion(workspace.defaultRegion);
       setCurrency(workspace.defaultCurrency);
     }
   }, [workspace]);
 
+  const name = pick ? pickedCompanyName(pick).trim() : "";
+
   const save = useMutation({
     mutationFn: () =>
-      workspaceApi.updateWorkspace({ name: name.trim(), defaultRegion: region, defaultCurrency: currency }),
+      workspaceApi.updateWorkspace({
+        name,
+        apolloAccountId: pick?.source === "universe" ? pick.company.apolloAccountId : "",
+        defaultRegion: region,
+        defaultCurrency: currency,
+      }),
     onSuccess: async () => {
       void queryClient.invalidateQueries({ queryKey: workspaceApi.WORKSPACE_KEY });
-      // The name and logo mark also live in the auth summary the topbar reads.
+      // The name, logo mark and company logo also live in the auth summary the topbar reads.
       await reload();
       toast("Workspace settings saved");
     },
@@ -64,6 +81,11 @@ export function SettingsGeneralPage() {
           )}
           <div>
             <div className="text-sm font-semibold">{workspace.name}</div>
+            {workspace.company && (
+              <div className="mt-0.5 font-mono text-[11.5px] text-u-text3">
+                {[workspace.company.industry, companyLocationOf(workspace.company)].filter(Boolean).join(" · ")}
+              </div>
+            )}
             <div className="mt-0.5 font-mono text-[11.5px] text-u-text3">
               {workspace.plan.toLowerCase()} plan · {workspace.memberCount}{" "}
               {workspace.memberCount === 1 ? "member" : "members"}
@@ -71,10 +93,16 @@ export function SettingsGeneralPage() {
           </div>
         </div>
 
+        {pick && (
+          <span className="mb-1.5 block font-mono text-[10px] font-semibold uppercase tracking-[0.12em] text-u-text3">
+            Organization
+          </span>
+        )}
+        <div className={pick ? undefined : "mb-4"}>
+          <CompanyPicker label="Organization" pick={pick} onPick={setPick} asksCustomDetails={false} />
+        </div>
+
         <div className="grid grid-cols-1 gap-x-4 gap-y-3.5 md:grid-cols-2">
-          <Field label="Workspace name">
-            <Input value={name} onChange={(event) => setName(event.target.value)} className="!bg-u-surface" />
-          </Field>
           <Field label="Workspace URL">
             <div className="rounded-lg border border-u-border bg-u-surface px-3 py-[9px] font-mono text-[13px] font-medium text-u-text2">
               {window.location.host}/w/{workspace.slug}
@@ -97,7 +125,7 @@ export function SettingsGeneralPage() {
         </div>
 
         <div className="mt-5 flex justify-end">
-          <Button loading={save.isPending} disabled={!name.trim()} onClick={() => save.mutate()}>
+          <Button loading={save.isPending} disabled={!name} onClick={() => save.mutate()}>
             Save changes
           </Button>
         </div>
@@ -180,4 +208,8 @@ function DeleteWorkspaceModal({ workspaceName, onClose }: { workspaceName: strin
       </div>
     </Modal>
   );
+}
+
+function companyLocationOf(company: WorkspaceCompany): string {
+  return [company.city, company.country].filter(Boolean).join(", ");
 }
