@@ -120,7 +120,7 @@ export function TagListInput({
             onFocus={list.inputHandlers.onFocus}
             onBlur={() => {
               list.inputHandlers.onBlur();
-              add(draft.trim());
+              add((showList && matches[list.active]?.label) || draft.trim());
             }}
             className="min-w-[120px] flex-1 bg-transparent px-1 py-1 font-mono text-[13px] text-u-text outline-none"
           />

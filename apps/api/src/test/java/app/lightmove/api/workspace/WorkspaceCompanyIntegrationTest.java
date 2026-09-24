@@ -97,7 +97,7 @@ class WorkspaceCompanyIntegrationTest extends FlowTestSupport {
     }
 
     @Test
-    @DisplayName("going back and typing a name by hand clears the picked firm's snapshot")
+    @DisplayName("going back and typing a name by hand clears the picked firm's snapshot, and the chips it filled")
     void typedNameClearsSnapshot() throws Exception {
         String alok = "alok@" + domain;
         String token = verifiedUser("Alok Kumar", alok);
@@ -116,6 +116,11 @@ class WorkspaceCompanyIntegrationTest extends FlowTestSupport {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.workspace.name").value("Nimbus Partners"))
                 .andExpect(jsonPath("$.workspace.company").value(org.hamcrest.Matchers.nullValue()));
+
+        mvc.perform(get("/api/v1/workspace").header("Authorization", "Bearer " + login(alok)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.persona.sectors").isEmpty())
+                .andExpect(jsonPath("$.persona.geographies").isEmpty());
     }
 
     @Test

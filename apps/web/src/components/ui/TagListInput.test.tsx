@@ -70,4 +70,14 @@ describe("TagListInput", () => {
     expect(screen.getByRole("status")).toHaveTextContent("Saudi Arabia|Arab");
     expect(screen.getByRole("status")).not.toHaveTextContent("Emirates");
   });
+
+  it("leaving the box on a highlighted suggestion takes the suggestion, as Enter would", async () => {
+    const user = userEvent.setup();
+    render(<Harness initial={[]} options={COUNTRIES} />);
+
+    await user.type(screen.getByLabelText("Add a sector"), "sau");
+    await user.tab();
+
+    expect(screen.getByRole("status")).toHaveTextContent("Saudi Arabia");
+  });
 });
