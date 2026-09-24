@@ -15,6 +15,7 @@ import {
   TeamStack,
   type ProjectSortField,
 } from "../lib/projectColumns";
+import { deadlineOf } from "../lib/timeline";
 
 /** The mandate list: the shared grid on a wide screen, a stack of cards below `md`. */
 export function ProjectsList({
@@ -61,7 +62,7 @@ export function ProjectsList({
   return (
     <DataGrid
       table={table}
-      label="Projects"
+      label="Positions"
       fit="content"
       layout={layout}
       onLayoutChange={onLayoutChange}
@@ -110,7 +111,7 @@ function ProjectCard({ project, onOpen }: { project: Project; onOpen: () => void
             <b className="font-semibold text-text">{project.companies}</b> cos ·{" "}
             <b className="font-semibold text-text">{project.candidates}</b> cand
           </span>
-          <span className="font-mono text-[11px] text-text3">{formatDate(project.targetDate)}</span>
+          <span className="font-mono text-[11px] text-text3">{formatDate(deadlineOf(project))}</span>
         </div>
       </button>
       <div className="flex justify-end border-t border-line-soft px-3.5 py-2.5">

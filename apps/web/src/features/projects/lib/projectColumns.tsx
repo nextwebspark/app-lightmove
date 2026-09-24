@@ -18,6 +18,7 @@ import { compareDate, compareNumber, compareText } from "../../../lib/gridSortFn
 import { formatDate } from "../../../lib/format";
 import type { Project, TeamMember } from "../api/types";
 import { STAGE_ORDER } from "./filtering";
+import { deadlineOf } from "./timeline";
 
 /**
  * The mandate list holds every project the firm has — tens of rows, in one query — so unlike the
@@ -38,7 +39,7 @@ const helper = createColumnHelper<typeof projectTableFeatures, Project>();
 export const projectColumns = helper.columns([
   helper.accessor("clientName", {
     id: "client",
-    header: "Client",
+    header: "Business unit",
     enableHiding: false,
     meta: { share: 18, min: 160 },
     sortFn: (a, b) => compareText(a.original.clientName, b.original.clientName),
@@ -100,11 +101,11 @@ export const projectColumns = helper.columns([
     cell: (info) => <TeamStack team={info.row.original.team} />,
   }),
 
-  helper.accessor("targetDate", {
+  helper.accessor(deadlineOf, {
     id: "target",
     header: "Target",
     meta: { share: 0, min: 104 },
-    sortFn: (a, b) => compareDate(a.original.targetDate, b.original.targetDate),
+    sortFn: (a, b) => compareDate(deadlineOf(a.original), deadlineOf(b.original)),
     cell: (info) => <DataGridCell value={formatDate(info.getValue())} />,
   }),
 

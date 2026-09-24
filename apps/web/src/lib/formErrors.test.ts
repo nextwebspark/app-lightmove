@@ -24,13 +24,13 @@ describe("fieldErrorsFrom", () => {
   it("puts an unmapped field's message in the banner", () => {
     const result = fieldErrorsFrom(
       refusal("VALIDATION_FAILED", "One or more fields are invalid", {
-        clientId: "Choose a client",
+        clientId: "Choose a business unit",
       }),
       NAMES,
     );
 
     expect(result.fields).toEqual({});
-    expect(result.formMessage).toBe("Choose a client");
+    expect(result.formMessage).toBe("Choose a business unit");
   });
 
   // The mixed case: one mapped key used to return early and discard the rest, so the user fixed the
@@ -39,13 +39,13 @@ describe("fieldErrorsFrom", () => {
     const result = fieldErrorsFrom(
       refusal("VALIDATION_FAILED", "One or more fields are invalid", {
         positionTitle: "That title is too long",
-        clientId: "Choose a client",
+        clientId: "Choose a business unit",
       }),
       NAMES,
     );
 
     expect(result.fields).toEqual({ positionTitle: "That title is too long" });
-    expect(result.formMessage).toBe("Choose a client");
+    expect(result.formMessage).toBe("Choose a business unit");
   });
 
   // One entry answers every row, so a form posting many rows needs no entry per index.
