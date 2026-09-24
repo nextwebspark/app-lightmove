@@ -5,11 +5,11 @@ import type { ProjectHealth, ProjectStage } from "../../features/projects/api/ty
  * HEALTH tables.
  */
 const STAGE_STYLES: Record<ProjectStage, { label: string; className: string }> = {
-  BRIEF: { label: "Brief", className: "text-text2 border-line" },
+  BRIEF: { label: "Brief", className: "text-text2 bg-panel2 border-transparent" },
   UNIVERSE: { label: "Universe", className: "text-sky bg-sky-dim border-transparent" },
   LOCKED: { label: "Universe locked", className: "text-sky border-sky" },
   MAPPING: { label: "Mapping", className: "text-amber bg-amber-dim border-transparent" },
-  OUTREACH: { label: "Outreach live", className: "text-amber border-amber" },
+  OUTREACH: { label: "Outreach live", className: "text-amber bg-amber-dim border-transparent" },
   DELIVERED: { label: "Shortlist delivered", className: "text-green bg-green-dim border-transparent" },
   CLOSED: { label: "Closed", className: "text-text3 border-line-soft" },
 };
@@ -32,7 +32,8 @@ export function StagePill({ stage }: { stage: ProjectStage }) {
 
 const HEALTH_STYLES: Record<ProjectHealth, { label: string; dot: string; text: string }> = {
   OK: { label: "On track", dot: "bg-green", text: "text-text2" },
-  RISK: { label: "At risk", dot: "bg-amber", text: "text-amber" },
+  // Uncava's warning colour, not the accent: under the Uncava aliases "amber" is indigo.
+  RISK: { label: "At risk", dot: "bg-u-signal", text: "text-u-signal" },
   OFF: { label: "Off track", dot: "bg-red", text: "text-red" },
   DONE: { label: "Complete", dot: "bg-text3", text: "text-text3" },
 };

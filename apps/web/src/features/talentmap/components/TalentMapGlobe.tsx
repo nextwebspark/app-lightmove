@@ -19,11 +19,15 @@ const INITIAL_ZOOM = 2.6;
  */
 const CITY_ZOOM = 11;
 
-/** Pin colours: the ink of the app's text for a company, sky for a person, amber for the selection. */
-const INK = { light: "#15213a", dark: "#e2e8f0" };
-const SKY = "#2563eb";
-const AMBER = "#e2b65c";
-const GROUND = { light: "#ffffff", dark: "#16171a" };
+/**
+ * Pin colours, as literals because Mapbox paints outside the CSS cascade — Uncava's values, kept in
+ * step with tokens.css by hand: the text ink for a company, the accent for a person, and the signal
+ * (Uncava's selection colour) for the one selected.
+ */
+const INK = { light: "#0b0d12", dark: "#f4f6f8" };
+const SKY = "#6e79f2";
+const AMBER = "#d4855c";
+const GROUND = { light: "#ffffff", dark: "#08090b" };
 
 const CONTROL_BUTTON =
   "grid size-8 cursor-pointer place-items-center rounded-[6px] border border-line bg-panel text-text2 " +
