@@ -10,16 +10,14 @@ import app.lightmove.api.core.security.rbac.RbacService;
 import app.lightmove.api.core.security.rbac.WorkspaceAccess;
 import app.lightmove.api.core.security.rbac.WorkspaceRole;
 import app.lightmove.api.core.security.repository.UserRepository;
-import app.lightmove.api.strategy.service.ApolloCompanyQueryService;
 import app.lightmove.api.workspace.constant.MemberStatus;
 import app.lightmove.api.workspace.model.CreateWorkspaceCommand;
 import app.lightmove.api.workspace.model.Workspace;
-import app.lightmove.api.workspace.model.WorkspaceCompany;
 import app.lightmove.api.workspace.model.WorkspaceMember;
 import app.lightmove.api.workspace.repository.WorkspaceMemberRepository;
 import app.lightmove.api.workspace.repository.WorkspaceRepository;
+import app.lightmove.api.workspace.service.WorkspaceCompanyResolver.WorkspaceIdentity;
 import jakarta.servlet.http.HttpServletRequest;
-import java.util.List;
 import java.util.Set;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
@@ -46,7 +44,7 @@ public class OnboardingService {
     private final WorkspaceAccess access;
     private final RbacService rbac;
     private final AuditService audit;
-    private final ApolloCompanyQueryService companies;
+    private final WorkspaceCompanyResolver companyResolver;
 
     /**
      * Signup step 3 — "create my workspace". Verification is step 2, so the caller is already verified;
@@ -63,7 +61,7 @@ public class OnboardingService {
         requireNoExistingMembership(userId);
 
         String domain = EmailAddressValidator.domainOf(user.getEmail());
-        CompanyIdentity identity = identify(command);
+        WorkspaceIdentity identity = companyResolver.resolve(command.name(), command.apolloAccountId());
         String slug = SlugGenerator.from(identity.name(), workspaces::existsBySlug);
 
         Workspace workspace = workspaces.save(Workspace.create(
@@ -100,7 +98,7 @@ public class OnboardingService {
         Workspace workspace = workspaces.findById(workspaceId)
                 .orElseThrow(() -> ApiException.of(ErrorCode.WORKSPACE_NOT_FOUND));
 
-        CompanyIdentity identity = identify(command);
+        WorkspaceIdentity identity = companyResolver.resolve(command.name(), command.apolloAccountId());
         workspace.describe(identity.name(), identity.company(), command.companySize(),
                 command.primaryRegion(), command.teamFocus());
 
@@ -110,23 +108,6 @@ public class OnboardingService {
                 .record();
 
         return workspace;
-    }
-
-    /**
-     * A picked company is filed under the universe's own name and snapshot, resolved here rather than
-     * trusted from the request — the same rule a client record follows.
-     */
-    private CompanyIdentity identify(CreateWorkspaceCommand command) {
-        if (command.apolloAccountId() == null || command.apolloAccountId().isBlank()) {
-            return new CompanyIdentity(command.name().trim(), null);
-        }
-        return companies.byAccountIds(List.of(command.apolloAccountId())).stream().findFirst()
-                .map(row -> new CompanyIdentity(row.companyName().trim(), WorkspaceCompany.of(row)))
-                .orElseThrow(() -> ApiException.userFacing(ErrorCode.VALIDATION_FAILED,
-                        "That company is no longer in the database"));
-    }
-
-    private record CompanyIdentity(String name, WorkspaceCompany company) {
     }
 
     private void requireNoExistingMembership(UUID userId) {

@@ -11,6 +11,7 @@ import app.lightmove.api.workspace.model.WorkspacePersona;
 import app.lightmove.api.workspace.repository.InvitationRepository;
 import app.lightmove.api.workspace.repository.WorkspaceMemberRepository;
 import app.lightmove.api.workspace.repository.WorkspaceRepository;
+import app.lightmove.api.workspace.service.WorkspaceCompanyResolver.WorkspaceIdentity;
 import jakarta.servlet.http.HttpServletRequest;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
@@ -34,6 +35,7 @@ public class WorkspaceSettingsService {
     private final WorkspaceMemberRepository members;
     private final InvitationRepository invitations;
     private final AuditService audit;
+    private final WorkspaceCompanyResolver companyResolver;
 
     @Transactional(readOnly = true)
     public WorkspaceDetail get(UUID workspaceId) {
@@ -41,15 +43,17 @@ public class WorkspaceSettingsService {
     }
 
     @Transactional
-    public WorkspaceDetail update(UUID actorId, UUID workspaceId, String name,
+    public WorkspaceDetail update(UUID actorId, UUID workspaceId, String name, String apolloAccountId,
                                   String defaultRegion, String defaultCurrency,
                                   HttpServletRequest request) {
         Workspace workspace = requireWorkspace(workspaceId);
-        workspace.applySettings(name.trim(), defaultRegion, defaultCurrency);
+        WorkspaceIdentity identity = companyResolver.resolve(name, apolloAccountId);
+        workspace.applySettings(identity.name(), identity.company(), defaultRegion, defaultCurrency);
 
         audit.event(WorkspaceEventType.WORKSPACE_UPDATED)
                 .actor(actorId).workspace(workspaceId).from(request)
                 .detail("name", workspace.getName())
+                .detailIfPresent("apolloAccountId", workspace.getApolloAccountId())
                 .record();
 
         return detail(workspace);

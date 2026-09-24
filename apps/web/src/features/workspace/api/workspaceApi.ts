@@ -14,6 +14,8 @@ export function workspace(): Promise<WorkspaceDetail> {
 
 export function updateWorkspace(payload: {
   name: string;
+  /** Null files the typed name with no company, clearing any snapshot the workspace held. */
+  apolloAccountId: string | null;
   defaultRegion?: string;
   defaultCurrency?: string;
 }): Promise<WorkspaceDetail> {

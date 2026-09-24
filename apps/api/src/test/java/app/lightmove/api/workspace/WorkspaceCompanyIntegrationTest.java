@@ -16,7 +16,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.MediaType;
 import org.springframework.jdbc.core.JdbcTemplate;
 
-/** Signup's organisation step: the firm is picked from the company universe, or typed in by hand. */
+/** The workspace's firm — picked from the company universe or typed by hand, at signup and again in Settings. */
 @IntegrationTest
 class WorkspaceCompanyIntegrationTest extends FlowTestSupport {
 
@@ -114,5 +114,70 @@ class WorkspaceCompanyIntegrationTest extends FlowTestSupport {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.workspace.name").value("Nimbus Partners"))
                 .andExpect(jsonPath("$.workspace.company").value(org.hamcrest.Matchers.nullValue()));
+    }
+
+    @Test
+    @DisplayName("an existing workspace picks its firm in Settings and takes the universe's name and logo")
+    void settingsPicksCompany() throws Exception {
+        String alok = "alok@" + domain;
+        createWorkspace(verifiedUser("Alok Kumar", alok), "Typed Firm");
+        String admin = login(alok);
+
+        mvc.perform(patch("/api/v1/workspace")
+                        .header("Authorization", "Bearer " + admin)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"name":"Typed Firm","apolloAccountId":"apollo-af",
+                                 "defaultRegion":"GCC","defaultCurrency":"AED"}"""))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.name").value("Al-Futtaim"))
+                .andExpect(jsonPath("$.logoMark").value("A"))
+                .andExpect(jsonPath("$.company.apolloAccountId").value("apollo-af"))
+                .andExpect(jsonPath("$.company.city").value("Dubai"))
+                .andExpect(jsonPath("$.company.website").value("https://alfuttaim.com"))
+                .andExpect(jsonPath("$.company.logoUrl").value("https://logos.example/af.png"))
+                .andExpect(jsonPath("$.persona.sectors").isEmpty());
+    }
+
+    @Test
+    @DisplayName("typing a name in Settings clears the firm a workspace had picked")
+    void settingsTypedNameClearsSnapshot() throws Exception {
+        String alok = "alok@" + domain;
+        mvc.perform(post("/api/v1/onboarding/workspace")
+                        .header("Authorization", "Bearer " + verifiedUser("Alok Kumar", alok))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"name":"Al-Futtaim","apolloAccountId":"apollo-af"}"""))
+                .andExpect(status().isCreated());
+
+        mvc.perform(patch("/api/v1/workspace")
+                        .header("Authorization", "Bearer " + login(alok))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"name":"Nimbus Partners","apolloAccountId":null}"""))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.name").value("Nimbus Partners"))
+                .andExpect(jsonPath("$.company").value(org.hamcrest.Matchers.nullValue()))
+                .andExpect(jsonPath("$.persona.sectors[0]").value("retail"));
+    }
+
+    @Test
+    @DisplayName("Settings refuses an id the universe does not hold and leaves the workspace as it was")
+    void settingsUnknownCompanyIsRefused() throws Exception {
+        String alok = "alok@" + domain;
+        createWorkspace(verifiedUser("Alok Kumar", alok), "Steady Firm");
+        String admin = login(alok);
+
+        mvc.perform(patch("/api/v1/workspace")
+                        .header("Authorization", "Bearer " + admin)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"name":"Ghost Co","apolloAccountId":"apollo-missing"}"""))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("VALIDATION_FAILED"));
+
+        mvc.perform(get("/api/v1/workspace").header("Authorization", "Bearer " + admin))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.name").value("Steady Firm"));
     }
 }
