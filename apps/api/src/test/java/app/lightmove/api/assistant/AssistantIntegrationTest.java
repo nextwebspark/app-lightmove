@@ -3,6 +3,7 @@ package app.lightmove.api.assistant;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.request;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -10,6 +11,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import app.lightmove.api.ApolloUniverse;
 import app.lightmove.api.FlowTestSupport;
 import app.lightmove.api.IntegrationTest;
+import app.lightmove.api.StubChatModel;
 import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -32,6 +34,9 @@ class AssistantIntegrationTest extends FlowTestSupport {
     private JdbcTemplate db;
 
     private ApolloUniverse universe;
+
+    @Autowired
+    private StubChatModel model;
 
     @BeforeEach
     void freshUniverse() {
@@ -159,6 +164,28 @@ class AssistantIntegrationTest extends FlowTestSupport {
                 .containsEntry("status", "SHORTLISTED")
                 .containsEntry("num_employees", 160000)
                 .containsEntry("website", "https://www.ikea.com");
+    }
+
+    @Test
+    @DisplayName("every question carries the firm: its name and the persona its admins recorded")
+    void tellsTheModelAboutTheFirm() throws Exception {
+        Firm firm = firm("Assistant Persona Firm");
+        mvc.perform(put("/api/v1/workspace/persona")
+                        .header("Authorization", "Bearer " + firm.admin)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"summary":"Gulf retail and property group","sectors":["Retail","Real Estate"],
+                                 "competitors":["Majid Al Futtaim"],"geographies":["UAE"]}"""))
+                .andExpect(status().isOk());
+
+        askAndAwait(firm.admin, firm.projectId, null, "Top retailers in UAE");
+
+        String system = model.lastPrompt().getSystemMessage().getText();
+        assertThat(system)
+                .contains("- Name: Assistant Persona Firm")
+                .contains("- Sectors: Retail, Real Estate")
+                .contains("- Competitors: Majid Al Futtaim")
+                .doesNotContain("{firm}");
     }
 
     private String turnWithCard(Firm firm) throws Exception {

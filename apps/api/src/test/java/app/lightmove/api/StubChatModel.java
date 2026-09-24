@@ -20,9 +20,17 @@ public class StubChatModel implements ChatModel {
 
     private static final String REPLY = "stubbed response";
 
+    private volatile Prompt lastPrompt;
+
     @Override
     public ChatResponse call(Prompt prompt) {
+        lastPrompt = prompt;
         return chunk(REPLY);
+    }
+
+    /** The last prompt sent, so a test can see what the model was told. */
+    public Prompt lastPrompt() {
+        return lastPrompt;
     }
 
     private static ChatResponse chunk(String text) {

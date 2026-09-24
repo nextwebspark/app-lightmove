@@ -17,8 +17,10 @@ Panel ──POST /api/v1/projects/{projectId}/assistant/ask {question, threadId?
       still saved; every answered ask records ASSISTANT_ASKED with its Bright Data searches
         ├─ find my chat in this project (or start one titled from the question)
         ├─ last N question/answer pairs → history
+        ├─ system prompt carries the firm: FirmService.firmOf → FirmContext, the workspace's company
+        │  (V68) and the persona its admins wrote in Settings → General (V69), framed as data
         ├─ ChatClient.call() with the tools + ToolContext {workspaceId, projectId, TurnRecorder}
-        │     readMandateBrief       → the role and the client (never compensation or internal notes)
+        │     readMandateBrief       → the position only (never compensation or internal notes)
         │     describeMarket         → exact country / industry spellings
         │     searchCompanyUniverse  → top 25 by headcount, with the total matched
         │     lookUpCompaniesByName  → names the model knows, local and global: a brand's local

@@ -22,6 +22,7 @@ import app.lightmove.api.core.config.AssistantSettings;
 import app.lightmove.api.core.config.LightMoveProperties;
 import app.lightmove.api.core.error.constant.ErrorCode;
 import app.lightmove.api.core.error.model.ApiException;
+import app.lightmove.api.workspace.service.FirmService;
 import app.lightmove.api.core.llm.service.ChatCallLog;
 import java.time.Instant;
 import java.util.ArrayList;
@@ -64,6 +65,7 @@ public class AssistantService {
     private final NamedCompanyTools namedCompanyTools;
     private final TransactionTemplate transactions;
     private final AuditService audit;
+    private final FirmService firms;
     private final Resource systemPrompt;
     private final AssistantSettings settings;
 
@@ -71,7 +73,7 @@ public class AssistantService {
                             ChatClient chatClient, CompanySearchTools searchTools,
                             ProposalTools proposalTools, MandateTools mandateTools, SectorTools sectorTools,
                             NamedCompanyTools namedCompanyTools,
-                            TransactionTemplate transactions, AuditService audit,
+                            TransactionTemplate transactions, AuditService audit, FirmService firms,
                             @Value("classpath:prompts/assistant-system.st") Resource systemPrompt,
                             LightMoveProperties properties) {
         this.threads = threads;
@@ -84,6 +86,7 @@ public class AssistantService {
         this.namedCompanyTools = namedCompanyTools;
         this.transactions = transactions;
         this.audit = audit;
+        this.firms = firms;
         this.systemPrompt = systemPrompt;
         this.settings = properties.assistant();
     }
@@ -165,7 +168,8 @@ public class AssistantService {
                             .temperature(settings.temperature())
                             .thinkingBudget(settings.thinkingBudget())
                             .labels(Map.of("prompt", PROMPT_ID)))
-                    .system(systemPrompt)
+                    .system(system -> system.text(systemPrompt)
+                            .param("firm", FirmContext.render(firms.firmOf(context.workspaceId()))))
                     .messages(conversation(history, question))
                     .tools(mandateTools, searchTools, namedCompanyTools, sectorTools, proposalTools)
                     .toolContext(context.asMap())
