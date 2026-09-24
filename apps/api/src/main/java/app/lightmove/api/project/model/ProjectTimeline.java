@@ -29,9 +29,12 @@ public record ProjectTimeline(LocalDate startDate, LocalDate deliveryDate, Local
         if (type == ProjectType.MAPPING && mappingTargetDate != null) {
             problems.put("mappingTargetDate", "A mapping project has no separate mapping target");
         }
-        if (type == ProjectType.SEARCH && mappingTargetDate != null && windowIsSet
-                && (!mappingTargetDate.isAfter(startDate) || mappingTargetDate.isAfter(deliveryDate))) {
-            problems.put("mappingTargetDate", "The mapping target must fall between the start and delivery dates");
+        if (type == ProjectType.SEARCH && mappingTargetDate != null) {
+            if (!windowIsSet) {
+                problems.put("mappingTargetDate", "A mapping target needs both a start and a delivery date");
+            } else if (!mappingTargetDate.isAfter(startDate) || mappingTargetDate.isAfter(deliveryDate)) {
+                problems.put("mappingTargetDate", "The mapping target must fall between the start and delivery dates");
+            }
         }
         if (!problems.isEmpty()) {
             throw ApiException.withFields(ErrorCode.VALIDATION_FAILED, problems);

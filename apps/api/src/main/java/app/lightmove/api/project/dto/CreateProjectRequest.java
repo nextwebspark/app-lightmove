@@ -7,10 +7,7 @@ import jakarta.validation.constraints.Size;
 import java.time.LocalDate;
 import java.util.UUID;
 
-/**
- * The creator becomes the project's lead; there is no lead to choose up front. {@code targetDate} is the
- * brief's hire date and the New position modal no longer sends it; the timeline is the three dates after it.
- */
+/** The creator becomes the project's lead. {@code targetDate} is the brief's hire date, not the timeline. */
 public record CreateProjectRequest(
         @NotNull(message = "Choose a business unit")
         UUID clientId,

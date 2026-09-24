@@ -49,4 +49,25 @@ class ProjectTimelineTest {
                 ProjectType.MAPPING, START, START.plusDays(10), START.plusDays(5)))
                 .isInstanceOf(ApiException.class);
     }
+
+    @Test
+    @DisplayName("a mapping target is refused unless both ends of the window are there to check it against")
+    void mappingTargetNeedsTheWholeWindow() {
+        assertThatThrownBy(() -> ProjectTimeline.resolve(
+                ProjectType.SEARCH, START, null, LocalDate.of(2020, 1, 1)))
+                .isInstanceOf(ApiException.class);
+        assertThatThrownBy(() -> ProjectTimeline.resolve(
+                ProjectType.SEARCH, null, START.plusDays(10), START.plusDays(5)))
+                .isInstanceOf(ApiException.class);
+        assertThatThrownBy(() -> ProjectTimeline.resolve(ProjectType.SEARCH, null, null, START))
+                .isInstanceOf(ApiException.class);
+    }
+
+    @Test
+    @DisplayName("a mapping target after the delivery date is refused")
+    void mappingTargetAfterDeliveryIsRefused() {
+        assertThatThrownBy(() -> ProjectTimeline.resolve(
+                ProjectType.SEARCH, START, START.plusDays(10), START.plusDays(11)))
+                .isInstanceOf(ApiException.class);
+    }
 }
