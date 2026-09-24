@@ -12,8 +12,8 @@ body,
 }
 
 body {
-  background: var(--color-bg);
-  color: var(--color-text);
+  background: var(--color-u-bg);
+  color: var(--color-u-text);
   font-family: var(--font-sans);
   font-size: 14px;
   line-height: 1.45;
@@ -39,7 +39,7 @@ body {
 }
 
 ::placeholder {
-  color: var(--color-text3);
+  color: var(--color-u-text3);
 }
 
 /* Tailwind v4's preflight dropped v3's pointer cursor on buttons; this restores it for every control. */
@@ -142,19 +142,19 @@ body {
  * of this.
  */
 .react-flow {
-  --xy-background-color: var(--color-panel2);
-  --xy-edge-stroke: var(--color-line);
-  --xy-edge-stroke-selected: var(--color-sky);
-  --xy-connectionline-stroke: var(--color-sky);
-  --xy-handle-background-color: var(--color-panel);
-  --xy-handle-border-color: var(--color-line);
-  --xy-controls-button-background-color: var(--color-panel);
-  --xy-controls-button-background-color-hover: var(--color-panel2);
-  --xy-controls-button-color: var(--color-text2);
-  --xy-controls-button-color-hover: var(--color-text);
-  --xy-controls-button-border-color: var(--color-line);
-  --xy-selection-background-color: var(--color-sky-dim);
-  --xy-selection-border: 1px solid var(--color-sky);
+  --xy-background-color: var(--color-u-raised);
+  --xy-edge-stroke: var(--color-u-border-strong);
+  --xy-edge-stroke-selected: var(--color-u-accent);
+  --xy-connectionline-stroke: var(--color-u-accent);
+  --xy-handle-background-color: var(--color-u-surface);
+  --xy-handle-border-color: var(--color-u-border-strong);
+  --xy-controls-button-background-color: var(--color-u-surface);
+  --xy-controls-button-background-color-hover: var(--color-u-raised);
+  --xy-controls-button-color: var(--color-u-text2);
+  --xy-controls-button-color-hover: var(--color-u-text);
+  --xy-controls-button-border-color: var(--color-u-border-strong);
+  --xy-selection-background-color: var(--color-u-accent-tint);
+  --xy-selection-border: 1px solid var(--color-u-accent);
 }
 
 /*
@@ -171,7 +171,7 @@ body {
   -webkit-appearance: none;
   height: 6px;
   border-radius: 999px;
-  background: var(--color-line-soft);
+  background: var(--color-u-border);
 }
 .weight-slider::-webkit-slider-thumb {
   -webkit-appearance: none;
@@ -180,12 +180,12 @@ body {
   border-radius: 50%;
   cursor: pointer;
   background: var(--range-accent);
-  border: 2px solid var(--color-panel);
+  border: 2px solid var(--color-u-surface);
 }
 .weight-slider::-moz-range-track {
   height: 6px;
   border-radius: 999px;
-  background: var(--color-line-soft);
+  background: var(--color-u-border);
 }
 .weight-slider::-moz-range-thumb {
   width: 16px;
@@ -193,13 +193,13 @@ body {
   border-radius: 50%;
   cursor: pointer;
   background: var(--range-accent);
-  border: 2px solid var(--color-panel);
+  border: 2px solid var(--color-u-surface);
 }
 .weight-slider:focus-visible::-webkit-slider-thumb {
-  outline: 2px solid var(--color-sky);
+  outline: 2px solid var(--color-u-accent);
   outline-offset: 2px;
 }
 .weight-slider:focus-visible::-moz-range-thumb {
-  outline: 2px solid var(--color-sky);
+  outline: 2px solid var(--color-u-accent);
   outline-offset: 2px;
 }

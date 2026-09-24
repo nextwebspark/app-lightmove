@@ -106,7 +106,7 @@ export function ExtensionConnectPage() {
   }, [pair]);
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-bg p-6">
+    <div className="flex min-h-screen items-center justify-center bg-u-bg p-6">
       <Card className="w-full max-w-md text-center">
         <div className="flex justify-center">
           <Logo />
@@ -129,12 +129,12 @@ function ConnectStatus({
   if (state === "paired") {
     return (
       <>
-        <h1 className="mt-6 text-lg font-semibold text-text">Uncava Capture is connected</h1>
-        <p className="mt-2 text-sm leading-relaxed text-text2">
+        <h1 className="mt-6 text-lg font-semibold text-u-text">Uncava Capture is connected</h1>
+        <p className="mt-2 text-sm leading-relaxed text-u-text2">
           You can close this tab. Open the extension from your toolbar, or press ⌥⇧L, on any company
           page to capture it into a mandate.
         </p>
-        <p className="mt-4 text-xs text-text3">
+        <p className="mt-4 text-xs text-u-text3">
           It appears in Settings → Active sessions as <span className="font-medium">Uncava Capture</span>,
           and you can end it there at any time without signing out of this browser.
         </p>
@@ -145,8 +145,8 @@ function ConnectStatus({
   if (state === "notInstalled") {
     return (
       <>
-        <h1 className="mt-6 text-lg font-semibold text-text">Extension not detected</h1>
-        <p className="mt-2 text-sm leading-relaxed text-text2">
+        <h1 className="mt-6 text-lg font-semibold text-u-text">Extension not detected</h1>
+        <p className="mt-2 text-sm leading-relaxed text-u-text2">
           This page could not reach Uncava Capture. Install it, make sure it is enabled at
           <span className="font-mono"> chrome://extensions</span>, then try again.
         </p>
@@ -160,8 +160,8 @@ function ConnectStatus({
   if (state === "failed") {
     return (
       <>
-        <h1 className="mt-6 text-lg font-semibold text-text">Could not connect the extension</h1>
-        <p role="alert" className="mt-2 text-sm leading-relaxed text-red">
+        <h1 className="mt-6 text-lg font-semibold text-u-text">Could not connect the extension</h1>
+        <p role="alert" className="mt-2 text-sm leading-relaxed text-u-offlimits">
           {errorMessage}
         </p>
         <Button className="mt-5" onClick={onConnect}>
@@ -173,8 +173,8 @@ function ConnectStatus({
 
   return (
     <>
-      <h1 className="mt-6 text-lg font-semibold text-text">Connecting Uncava Capture…</h1>
-      <p className="mt-2 text-sm leading-relaxed text-text2">Handing the session to the extension.</p>
+      <h1 className="mt-6 text-lg font-semibold text-u-text">Connecting Uncava Capture…</h1>
+      <p className="mt-2 text-sm leading-relaxed text-u-text2">Handing the session to the extension.</p>
       <div className="mt-5 flex justify-center">
         <Spinner />
       </div>

@@ -12,15 +12,15 @@ export interface SegmentedOption<TValue extends string> {
 export type SegmentedVariant = "default" | "uncava";
 
 const GROUP_CLASS: Record<SegmentedVariant, string> = {
-  default: "rounded-[6px] border-line bg-panel p-0.5",
+  default: "rounded-[6px] border-u-border-strong bg-u-surface p-0.5",
   uncava: "gap-0.5 rounded-[8px] border-u-border-strong bg-u-bg p-[3px]",
 };
 
 const OPTION_CLASS: Record<SegmentedVariant, { base: string; selected: string; idle: string }> = {
   default: {
     base: "rounded-[4px] px-2.5 py-1.5 text-[12.5px] font-medium",
-    selected: "bg-amber-dim text-text",
-    idle: "text-text3 hover:text-text",
+    selected: "bg-u-accent-tint text-u-text",
+    idle: "text-u-text3 hover:text-u-text",
   },
   uncava: {
     base: "rounded-[6px] px-3 py-1.5 text-[11.5px] font-semibold",

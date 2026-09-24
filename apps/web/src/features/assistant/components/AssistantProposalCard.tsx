@@ -14,17 +14,17 @@ const PROVENANCE: Record<
 > = {
   UNIVERSE: {
     label: "universe",
-    className: "text-green bg-green-dim",
+    className: "text-u-direct bg-u-direct-tint",
     title: "Already in your universe — nothing was spent",
   },
   RESEARCHED: {
     label: "bright data",
-    className: "text-amber bg-amber-dim",
+    className: "text-u-signal bg-u-signal-tint",
     title: "Bought from a vendor and kept, so it is never bought again",
   },
   WEB: {
     label: "web",
-    className: "text-text3 bg-panel2",
+    className: "text-u-text3 bg-u-raised",
     title: "Named by an open-web search and not verified against any dataset",
   },
 };
@@ -51,7 +51,7 @@ const ACCEPT_LABELS: Record<TriageCompanyStatus, string> = {
  * proposing tool writes nothing either: an agent filing forty companies into a client's mandate
  * unprompted is the mistake this whole path exists to make impossible.
  *
- * <p>Provenance is on every row, always. Green is a company the firm already licenses, amber one a
+ * <p>Provenance is on every row, always. Green is a company the firm already licenses, the signal one a
  * vendor was paid for, grey a name off the open web that nobody verified — and the last of those is
  * the reason a badge is not decoration.
  */
@@ -85,10 +85,10 @@ export function AssistantProposalCard({
     );
 
   return (
-    <div className="overflow-hidden rounded-[11px] border border-ai-line bg-panel shadow-panel">
-      <div className="border-b border-line-soft bg-ai-soft px-3 py-2.5">
-        <p className="font-sans text-[12.5px] font-semibold text-text">{proposal.title}</p>
-        <p className="mt-[3px] font-mono text-[11px] text-text3">{composition(proposal.companies)}</p>
+    <div className="overflow-hidden rounded-[11px] border border-u-accent bg-u-surface shadow-u-e3">
+      <div className="border-b border-u-border bg-u-inferred-tint px-3 py-2.5">
+        <p className="font-sans text-[12.5px] font-semibold text-u-text">{proposal.title}</p>
+        <p className="mt-[3px] font-mono text-[11px] text-u-text3">{composition(proposal.companies)}</p>
       </div>
 
       <ul className="max-h-[258px] overflow-y-auto">
@@ -99,8 +99,8 @@ export function AssistantProposalCard({
             <li
               key={company.ref}
               className={cn(
-                "flex items-center gap-2.5 border-b border-line-soft px-3 py-2.5",
-                on && "bg-ai-soft",
+                "flex items-center gap-2.5 border-b border-u-border px-3 py-2.5",
+                on && "bg-u-inferred-tint",
               )}
             >
               <SelectionCheckbox
@@ -108,19 +108,19 @@ export function AssistantProposalCard({
                 label={`Include ${company.companyName}`}
                 onChange={() => toggle(company.ref)}
               />
-              <span className="grid size-[22px] flex-none place-items-center rounded-[5px] bg-panel2 font-mono text-[9px] font-bold text-text3">
+              <span className="grid size-[22px] flex-none place-items-center rounded-[5px] bg-u-raised font-mono text-[9px] font-bold text-u-text3">
                 {initials(company.companyName)}
               </span>
               <div className="min-w-0 flex-1">
                 <p
                   className={cn(
-                    "truncate font-sans text-[12.5px] font-medium text-text",
+                    "truncate font-sans text-[12.5px] font-medium text-u-text",
                     !on && "opacity-55",
                   )}
                 >
                   {company.companyName}
                 </p>
-                <p className="truncate font-mono text-[10.5px] text-text3">{meta(company)}</p>
+                <p className="truncate font-mono text-[10.5px] text-u-text3">{meta(company)}</p>
               </div>
               <span
                 title={provenance.title}
@@ -136,8 +136,8 @@ export function AssistantProposalCard({
         })}
       </ul>
 
-      <div className="border-t border-line-soft bg-panel2 px-3 py-2.5">
-        <p className="mb-[7px] font-mono text-[11px] text-text3">
+      <div className="border-t border-u-border bg-u-raised px-3 py-2.5">
+        <p className="mb-[7px] font-mono text-[11px] text-u-text3">
           {running ? "Waiting for the answer to finish" : acceptCountLabel(ticked.length)}
         </p>
         <div className="flex flex-wrap items-center gap-1.5">
@@ -149,10 +149,10 @@ export function AssistantProposalCard({
               onClick={() => onAccept(ticked, stage.status)}
               title={`File the selected companies as ${stage.label}`}
               className={cn(
-                "inline-flex items-center gap-1.5 rounded-md border border-line bg-panel px-2.5 py-1.5 font-sans text-[11.5px] font-medium transition disabled:opacity-40",
+                "inline-flex items-center gap-1.5 rounded-md border border-u-border-strong bg-u-surface px-2.5 py-1.5 font-sans text-[11.5px] font-medium transition disabled:opacity-40",
                 stage.status === "declined"
-                  ? "text-red hover:border-red"
-                  : "text-text2 hover:border-ai hover:text-text",
+                  ? "text-u-offlimits hover:border-u-offlimits"
+                  : "text-u-text2 hover:border-u-inferred hover:text-u-text",
               )}
             >
               <Icon d={stage.icon} size={12} />
@@ -163,7 +163,7 @@ export function AssistantProposalCard({
             type="button"
             onClick={onDismiss}
             disabled={filing}
-            className="ms-auto border-none bg-transparent font-sans text-[11.5px] text-text3 transition hover:text-text disabled:opacity-40"
+            className="ms-auto border-none bg-transparent font-sans text-[11.5px] text-u-text3 transition hover:text-u-text disabled:opacity-40"
           >
             Dismiss
           </button>
@@ -182,9 +182,9 @@ export function AssistantProposalCard({
  */
 function ProposalOutcome({ accepted }: { accepted: NonNullable<AssistantProposal["accepted"]> }) {
   return (
-    <div className="flex gap-2.5 rounded-[9px] border border-line-soft bg-panel2 px-3 py-2.5">
-      <Icon d={ICONS.check} size={13} className="mt-0.5 flex-none text-green" />
-      <p className="font-sans text-[11.5px] leading-[1.5] text-text2">{outcomeLine(accepted)}</p>
+    <div className="flex gap-2.5 rounded-[9px] border border-u-border bg-u-raised px-3 py-2.5">
+      <Icon d={ICONS.check} size={13} className="mt-0.5 flex-none text-u-direct" />
+      <p className="font-sans text-[11.5px] leading-[1.5] text-u-text2">{outcomeLine(accepted)}</p>
     </div>
   );
 }

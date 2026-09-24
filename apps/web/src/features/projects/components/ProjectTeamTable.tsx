@@ -74,13 +74,13 @@ export function ProjectTeamTable({
 
 function TeamSeatCard({ member, meta }: { member: TeamMember; meta: ProjectTeamTableMeta }) {
   return (
-    <div className="flex flex-col gap-3 rounded-[10px] border border-line bg-panel p-3.5">
+    <div className="flex flex-col gap-3 rounded-[10px] border border-u-border-strong bg-u-surface p-3.5">
       <div className="flex items-center gap-2.5">
         <Avatar id={member.memberId} name={member.fullName} src={member.avatarUrl} size="lg" className="size-8" />
         <div className="min-w-0 flex-1">
           <div className="truncate text-[13.5px] font-medium">{member.fullName}</div>
           {member.userId === meta.viewerUserId && (
-            <div className="mt-0.5 font-mono text-[11px] text-text3">You</div>
+            <div className="mt-0.5 font-mono text-[11px] text-u-text3">You</div>
           )}
         </div>
         <TeamSeatManageControl member={member} meta={meta} />

@@ -5,11 +5,11 @@ import { formatInstantDate } from "../../../lib/format";
 import type { SavedSearch, SearchVisibility, StrategyFilter } from "../api/types";
 
 const ROW_ACTION =
-  "grid size-6 flex-none place-items-center rounded-[5px] text-text3 opacity-0 transition " +
+  "grid size-6 flex-none place-items-center rounded-[5px] text-u-text3 opacity-0 transition " +
   "group-hover:opacity-100 focus-visible:opacity-100 group-focus-within:opacity-100";
 
 const ROW_INPUT =
-  "w-full rounded-[7px] border border-line bg-panel2 px-2.5 py-[7px] font-sans text-[13px] text-text outline-none focus:border-text3";
+  "w-full rounded-[7px] border border-u-border-strong bg-u-raised px-2.5 py-[7px] font-sans text-[13px] text-u-text outline-none focus:border-u-text3";
 
 /**
  * One saved search in the dropdown: load it, rename it, re-capture the current filter onto it, move
@@ -87,23 +87,23 @@ export function SavedSearchRow({
       : (search.createdByName ?? "Someone on the team");
 
   return (
-    <div className="group flex items-center gap-1 rounded-[7px] px-1 transition hover:bg-panel2">
+    <div className="group flex items-center gap-1 rounded-[7px] px-1 transition hover:bg-u-raised">
       <button
         type="button"
         onClick={() => onLoad(search.filter)}
         className="min-w-0 flex-1 px-1.5 py-[7px] text-left transition"
       >
         <span className="flex items-center gap-1.5">
-          {isActive && <Icon d={ICONS.check} size={12} className="flex-none text-amber" />}
-          <span className="truncate font-sans text-[13px] text-text2 group-hover:text-text">
+          {isActive && <Icon d={ICONS.check} size={12} className="flex-none text-u-accent" />}
+          <span className="truncate font-sans text-[13px] text-u-text2 group-hover:text-u-text">
             {search.name}
           </span>
         </span>
         {/* "Active" rides the provenance line rather than the name's. Four action slots are reserved
             on the first line whether or not they are visible, and a badge on top of them left the
             name — the only thing identifying the row — truncated to about a dozen characters. */}
-        <span className="mt-[1px] block truncate font-sans text-[11px] text-text3">
-          {isActive && <span className="font-semibold text-amber">Active · </span>}
+        <span className="mt-[1px] block truncate font-sans text-[11px] text-u-text3">
+          {isActive && <span className="font-semibold text-u-accent">Active · </span>}
           {provenance} · {formatInstantDate(search.updatedAt)}
         </span>
       </button>
@@ -118,7 +118,7 @@ export function SavedSearchRow({
         // depend on which variant Tailwind happens to emit first.
         className={cn(
           ROW_ACTION,
-          isActive ? "cursor-default group-hover:opacity-30" : "hover:text-text",
+          isActive ? "cursor-default group-hover:opacity-30" : "hover:text-u-text",
         )}
       >
         <Icon d={ICONS.recapture} size={13} />
@@ -134,7 +134,7 @@ export function SavedSearchRow({
           onClick={() =>
             onSetVisibility(search.id, search.visibility === "PRIVATE" ? "SHARED" : "PRIVATE")
           }
-          className={cn(ROW_ACTION, "hover:text-text")}
+          className={cn(ROW_ACTION, "hover:text-u-text")}
         >
           <Icon d={search.visibility === "PRIVATE" ? ICONS.members : ICONS.lock} size={13} />
         </button>
@@ -143,7 +143,7 @@ export function SavedSearchRow({
         type="button"
         aria-label={`Rename ${search.name}`}
         onClick={() => setDraft(search.name)}
-        className={cn(ROW_ACTION, "hover:text-text")}
+        className={cn(ROW_ACTION, "hover:text-u-text")}
       >
         <Icon d={ICONS.pencil} size={13} />
       </button>
@@ -151,7 +151,7 @@ export function SavedSearchRow({
         type="button"
         aria-label={`Delete ${search.name}`}
         onClick={() => onDelete(search.id)}
-        className={cn(ROW_ACTION, "hover:text-red")}
+        className={cn(ROW_ACTION, "hover:text-u-offlimits")}
       >
         <Icon d={ICONS.close} size={13} />
       </button>

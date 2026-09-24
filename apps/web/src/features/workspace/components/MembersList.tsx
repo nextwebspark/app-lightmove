@@ -74,15 +74,15 @@ export function MembersList({
 
 function MemberCard({ member, activeCount }: { member: Member; activeCount: number }) {
   return (
-    <div className="flex items-center gap-2.5 rounded-[10px] border border-line bg-panel p-3">
+    <div className="flex items-center gap-2.5 rounded-[10px] border border-u-border-strong bg-u-surface p-3">
       <Avatar id={member.memberId} name={member.fullName} src={member.avatarUrl} />
       <div className="min-w-0 flex-1">
         <div className="truncate text-[13px]">{member.fullName}</div>
-        <div className="truncate font-mono text-[11px] text-text3">
+        <div className="truncate font-mono text-[11px] text-u-text3">
           {member.roles.map(titleCase).join(" · ")} · {member.email}
         </div>
       </div>
-      <div className="flex-none font-mono text-[11px] text-text3">
+      <div className="flex-none font-mono text-[11px] text-u-text3">
         {activeCount} active {activeCount === 1 ? "position" : "positions"}
       </div>
     </div>

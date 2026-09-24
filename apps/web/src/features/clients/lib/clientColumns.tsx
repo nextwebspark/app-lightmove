@@ -39,12 +39,12 @@ export const clientColumns = helper.columns([
         <span className="min-w-0">
           <TruncatedText
             value={info.getValue()}
-            className="block font-sans text-[13px] font-semibold text-text"
+            className="block font-sans text-[13px] font-semibold text-u-text"
           />
           {locationOf(info.row.original) && (
             <TruncatedText
               value={locationOf(info.row.original)}
-              className="block font-mono text-[11px] text-text3"
+              className="block font-mono text-[11px] text-u-text3"
             />
           )}
         </span>
@@ -102,8 +102,8 @@ export const CLIENT_COLUMN_VISIBILITY: ColumnVisibilityState = {};
 export const CLIENT_COLUMN_PINNING: ColumnPinningState = { start: ["name"], end: [] };
 
 const TYPE_STYLES: Record<ClientType, { label: string; className: string }> = {
-  RETAINED: { label: "Retained", className: "text-sky bg-sky-dim border-transparent" },
-  PROSPECT: { label: "Prospect", className: "text-text3 border-line-soft" },
+  RETAINED: { label: "Retained", className: "text-u-accent bg-u-accent-tint border-transparent" },
+  PROSPECT: { label: "Prospect", className: "text-u-text3 border-u-border" },
 };
 
 export function TypePill({ type }: { type: ClientType }) {
@@ -118,13 +118,13 @@ export function TypePill({ type }: { type: ClientType }) {
 }
 
 const REP_TINT: Record<ClientRepStatus, string> = {
-  ACTIVE: "bg-green-dim text-green",
-  INVITED: "bg-amber-dim text-amber",
+  ACTIVE: "bg-u-direct-tint text-u-direct",
+  INVITED: "bg-u-accent-tint text-u-accent",
 };
 
 export function RepStack({ contacts }: { contacts: { fullName: string; status: ClientRepStatus }[] }) {
   if (contacts.length === 0) {
-    return <span className="font-mono text-xs text-text3">—</span>;
+    return <span className="font-mono text-xs text-u-text3">—</span>;
   }
   const shown = contacts.slice(0, 4);
   const overflow = contacts.length - shown.length;
@@ -134,7 +134,7 @@ export function RepStack({ contacts }: { contacts: { fullName: string; status: C
         <span
           key={`${contact.fullName}-${index}`}
           title={contact.fullName}
-          className={`grid size-6 place-items-center rounded-full border-2 border-panel font-mono text-[10px] font-semibold ${
+          className={`grid size-6 place-items-center rounded-full border-2 border-u-surface font-mono text-[10px] font-semibold ${
             REP_TINT[contact.status]
           } ${index > 0 ? "-ml-[7px]" : ""}`}
         >
@@ -142,7 +142,7 @@ export function RepStack({ contacts }: { contacts: { fullName: string; status: C
         </span>
       ))}
       {overflow > 0 && (
-        <span className="-ml-[7px] grid size-6 place-items-center rounded-full border-2 border-panel bg-panel2 font-mono text-[10px] font-semibold text-text3">
+        <span className="-ml-[7px] grid size-6 place-items-center rounded-full border-2 border-u-surface bg-u-raised font-mono text-[10px] font-semibold text-u-text3">
           +{overflow}
         </span>
       )}
@@ -151,7 +151,7 @@ export function RepStack({ contacts }: { contacts: { fullName: string; status: C
 }
 
 export function ViewerCell({ viewers }: { viewers: ViewerSummary }) {
-  const dot = viewers.active > 0 ? "bg-green" : viewers.invited > 0 ? "bg-amber" : "bg-line";
+  const dot = viewers.active > 0 ? "bg-u-direct" : viewers.invited > 0 ? "bg-u-accent" : "bg-u-border-strong";
   const label =
     viewers.active === 0 && viewers.invited === 0
       ? "None"
@@ -162,7 +162,7 @@ export function ViewerCell({ viewers }: { viewers: ViewerSummary }) {
           .filter(Boolean)
           .join(" · ");
   return (
-    <span className="inline-flex items-center gap-1.5 whitespace-nowrap font-mono text-xs text-text2">
+    <span className="inline-flex items-center gap-1.5 whitespace-nowrap font-mono text-xs text-u-text2">
       <span className={`size-[7px] rounded-full ${dot}`} />
       {label}
     </span>

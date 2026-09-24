@@ -13,8 +13,7 @@ const STORAGE_KEY = "lm-theme";
  * <p>The class goes on `<body>`, not on `<html>`, because that is where the mockups put it and the
  * tokens are written to match (`@custom-variant dark (&:where(.dark, .dark *))`).
  *
- * <p>An unset preference follows the operating system rather than assuming light: someone whose machine
- * is in dark mode at midnight did not ask to be flashbanged.
+ * <p>An unset preference is dark: UNCAVA is dark-first, and light is the theme someone chooses.
  */
 export function useTheme(): { theme: Theme; toggle: () => void } {
   const [theme, setTheme] = useState<Theme>(preferred);
@@ -47,5 +46,5 @@ function preferred(): Theme {
   if (stored === "dark" || stored === "light") {
     return stored;
   }
-  return window.matchMedia?.("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+  return "dark";
 }

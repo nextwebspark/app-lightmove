@@ -101,10 +101,10 @@ export function OAuthButtons({ onError }: OAuthButtonsProps) {
 
   return (
     <>
-      <div className="my-[18px] flex items-center gap-2.5 font-mono text-[10px] font-medium uppercase tracking-[0.1em] text-text3">
-        <span className="h-px flex-1 bg-line-soft" />
+      <div className="my-[18px] flex items-center gap-2.5 font-mono text-[10px] font-medium uppercase tracking-[0.1em] text-u-text3">
+        <span className="h-px flex-1 bg-u-border" />
         <span>or</span>
-        <span className="h-px flex-1 bg-line-soft" />
+        <span className="h-px flex-1 bg-u-border" />
       </div>
 
       <div className="flex flex-col gap-2">

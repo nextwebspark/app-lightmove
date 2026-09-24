@@ -39,7 +39,7 @@ export function ActiveSessionsCard({
   const hasOtherSessions = sessions.some((session) => !session.current);
 
   return (
-    <div className="rounded-[10px] border border-line-soft bg-panel2 p-5">
+    <div className="rounded-[10px] border border-u-border bg-u-raised p-5">
       <div className="mb-3 flex items-center">
         <div className="text-[13px] font-semibold">Active sessions</div>
         {hasOtherSessions && (
@@ -47,7 +47,7 @@ export function ActiveSessionsCard({
             type="button"
             onClick={onRevokeOthers}
             disabled={isRevokingOthers}
-            className="ml-auto rounded-md px-2 py-1 text-xs font-medium text-red hover:bg-red-dim disabled:opacity-50"
+            className="ml-auto rounded-md px-2 py-1 text-xs font-medium text-u-offlimits hover:bg-u-offlimits-tint disabled:opacity-50"
           >
             Sign out all others
           </button>
@@ -55,11 +55,11 @@ export function ActiveSessionsCard({
       </div>
 
       {isError ? (
-        <p role="alert" className="border-t border-line-soft pt-3 font-mono text-[11.5px] text-red">
+        <p role="alert" className="border-t border-u-border pt-3 font-mono text-[11.5px] text-u-offlimits">
           Your sessions could not be loaded. Reload the page to try again.
         </p>
       ) : isLoading ? (
-        <Skeleton className="h-12 w-full bg-line" />
+        <Skeleton className="h-12 w-full bg-u-border-strong" />
       ) : (
         sessions.map((session) => (
           <SessionRow
@@ -88,16 +88,16 @@ function SessionRow({
     .join(" · ");
 
   return (
-    <div className="flex items-center gap-3 border-t border-line-soft py-2.5">
-      <Icon d={DEVICE_ICONS[session.deviceKind]} className="shrink-0 text-text3" />
+    <div className="flex items-center gap-3 border-t border-u-border py-2.5">
+      <Icon d={DEVICE_ICONS[session.deviceKind]} className="shrink-0 text-u-text3" />
 
       <div className="min-w-0 flex-1">
         <div className="truncate text-[13px] font-medium">{session.device}</div>
-        <div className="mt-px font-mono text-[11px] text-text3">{meta}</div>
+        <div className="mt-px font-mono text-[11px] text-u-text3">{meta}</div>
       </div>
 
       {session.current ? (
-        <span className="rounded-full bg-sky-dim px-[9px] py-[3px] font-mono text-[10px] font-semibold uppercase tracking-[0.05em] text-sky">
+        <span className="rounded-full bg-u-accent-tint px-[9px] py-[3px] font-mono text-[10px] font-semibold uppercase tracking-[0.05em] text-u-accent">
           This device
         </span>
       ) : (
@@ -105,7 +105,7 @@ function SessionRow({
           type="button"
           onClick={onRevoke}
           disabled={isRevoking}
-          className="rounded-[7px] border border-line px-2.5 py-1 text-xs font-medium text-text3 hover:border-red hover:text-red disabled:opacity-50"
+          className="rounded-[7px] border border-u-border-strong px-2.5 py-1 text-xs font-medium text-u-text3 hover:border-u-offlimits hover:text-u-offlimits disabled:opacity-50"
         >
           Revoke
         </button>

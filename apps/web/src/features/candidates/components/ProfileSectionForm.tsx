@@ -38,9 +38,9 @@ export function SectionEditButton({
       disabled={disabled}
       onClick={onClick}
       className={cn(
-        "rounded-md p-1.5 text-text3 opacity-60 transition",
-        "group-hover:opacity-100 hover:bg-panel2 hover:text-text focus-visible:opacity-100",
-        "disabled:cursor-not-allowed disabled:opacity-30 disabled:hover:bg-transparent disabled:hover:text-text3",
+        "rounded-md p-1.5 text-u-text3 opacity-60 transition",
+        "group-hover:opacity-100 hover:bg-u-raised hover:text-u-text focus-visible:opacity-100",
+        "disabled:cursor-not-allowed disabled:opacity-30 disabled:hover:bg-transparent disabled:hover:text-u-text3",
       )}
     >
       <Icon d={ICONS.pencil} size={13} />
@@ -93,8 +93,8 @@ export function ProfileSectionForm({
     <form ref={form} onSubmit={onSubmit} onKeyDown={handleKeyDown} noValidate className="pt-1">
       <FormError message={error} />
       {children}
-      <div className="flex items-center justify-end gap-2 border-t border-line-soft pt-3">
-        <span className="me-auto font-mono text-[10.5px] text-text3">Esc cancels · ⌘/Ctrl ↵ saves</span>
+      <div className="flex items-center justify-end gap-2 border-t border-u-border pt-3">
+        <span className="me-auto font-mono text-[10.5px] text-u-text3">Esc cancels · ⌘/Ctrl ↵ saves</span>
         <Button
           type="button"
           variant="secondary"

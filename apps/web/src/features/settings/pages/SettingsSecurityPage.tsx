@@ -62,12 +62,12 @@ export function SettingsSecurityPage() {
     <>
       <PageHeader title="Security" subtitle="Password, two-factor authentication and sessions" />
 
-      <div className="mb-4 rounded-[10px] border border-line-soft bg-panel2 p-5">
+      <div className="mb-4 rounded-[10px] border border-u-border bg-u-raised p-5">
         <div className="mb-3.5 text-[13px] font-semibold">Change password</div>
         {user.hasPassword ? (
           <ChangePasswordForm onSave={handleChangePassword} />
         ) : (
-          <p className="font-mono text-[11.5px] text-text3">
+          <p className="font-mono text-[11.5px] text-u-text3">
             You sign in with a connected provider, so there is no password to change. To add one,{" "}
             <Link to="/forgot-password">send yourself a set-password link</Link> — proving the mailbox
             is what lets us attach it.

@@ -29,15 +29,15 @@ export function ListToolbar<TChip extends string>({
 }) {
   return (
     <div className="mb-3.5 flex flex-wrap items-center gap-2.5">
-      <div className="flex w-full items-center gap-2 rounded-lg border border-line bg-panel2 px-[11px] py-[7px] sm:w-[300px]">
-        <Icon d={ICONS.search} size={14} className="text-text3" />
+      <div className="flex w-full items-center gap-2 rounded-lg border border-u-border-strong bg-u-raised px-[11px] py-[7px] sm:w-[300px]">
+        <Icon d={ICONS.search} size={14} className="text-u-text3" />
         <input
           value={query}
           onChange={(event) => onQueryChange(event.target.value)}
           placeholder={placeholder}
           // A placeholder is a hint, not a name: it is gone the moment a letter is typed.
           aria-label={placeholder}
-          className="w-full bg-transparent font-mono text-[13px] text-text outline-none placeholder:text-text3"
+          className="w-full bg-transparent font-mono text-[13px] text-u-text outline-none placeholder:text-u-text3"
         />
       </div>
 
@@ -48,8 +48,8 @@ export function ListToolbar<TChip extends string>({
             type="button"
             onClick={() => onChipChange(key)}
             className={cn(
-              "rounded-full border px-[11px] py-[5px] font-mono text-xs font-medium transition hover:text-text",
-              activeChip === key ? "border-amber bg-amber-dim text-amber" : "border-line text-text2",
+              "rounded-full border px-[11px] py-[5px] font-mono text-xs font-medium transition hover:text-u-text",
+              activeChip === key ? "border-u-accent bg-u-accent-tint text-u-accent" : "border-u-border-strong text-u-text2",
             )}
           >
             {label}

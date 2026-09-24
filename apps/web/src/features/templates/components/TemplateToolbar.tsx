@@ -13,8 +13,8 @@ const SCOPE_NOTES: Record<TemplateScope, string> = {
 };
 
 const TOOLBAR_BUTTON =
-  "inline-flex items-center gap-1.5 whitespace-nowrap rounded-[6px] border border-line bg-panel " +
-  "px-3 py-2 font-sans text-[13px] font-medium text-text2 transition hover:border-text3 hover:text-text disabled:opacity-50";
+  "inline-flex items-center gap-1.5 whitespace-nowrap rounded-[6px] border border-u-border-strong bg-u-surface " +
+  "px-3 py-2 font-sans text-[13px] font-medium text-u-text2 transition hover:border-u-text3 hover:text-u-text disabled:opacity-50";
 
 /** The bar over a Templates grid, laid out as Strategy's and the Companies stages' toolbars are. */
 export function TemplateToolbar({
@@ -43,15 +43,15 @@ export function TemplateToolbar({
   onNew: () => void;
 }) {
   return (
-    <div className="flex min-h-[44px] flex-none flex-wrap items-center gap-x-3.5 gap-y-2 border-b border-line-soft bg-panel2 px-3 py-2 sm:px-5 sm:py-1.5">
-      <div className="order-last flex w-full min-w-[180px] items-center gap-2 rounded-[6px] border border-line px-3 py-2 sm:order-none sm:w-[240px] sm:flex-none">
-        <Icon d={ICONS.search} size={14} className="flex-none text-text3" />
+    <div className="flex min-h-[44px] flex-none flex-wrap items-center gap-x-3.5 gap-y-2 border-b border-u-border bg-u-raised px-3 py-2 sm:px-5 sm:py-1.5">
+      <div className="order-last flex w-full min-w-[180px] items-center gap-2 rounded-[6px] border border-u-border-strong px-3 py-2 sm:order-none sm:w-[240px] sm:flex-none">
+        <Icon d={ICONS.search} size={14} className="flex-none text-u-text3" />
         <input
           value={query}
           onChange={(event) => onQuery(event.target.value)}
           placeholder="Search templates..."
           aria-label="Search templates"
-          className="w-full bg-transparent font-sans text-[13px] text-text outline-none placeholder:text-text3"
+          className="w-full bg-transparent font-sans text-[13px] text-u-text outline-none placeholder:text-u-text3"
         />
       </div>
 
@@ -60,10 +60,10 @@ export function TemplateToolbar({
           align="right"
           width={320}
           label="About this list"
-          triggerClassName="grid size-9 place-items-center rounded-[6px] text-text3 transition hover:bg-panel hover:text-text"
+          triggerClassName="grid size-9 place-items-center rounded-[6px] text-u-text3 transition hover:bg-u-surface hover:text-u-text"
           trigger={() => <Icon d={ICONS.info} size={15} />}
         >
-          {() => <p className="p-2 font-sans text-[12.5px] leading-relaxed text-text2">{SCOPE_NOTES[scope]}</p>}
+          {() => <p className="p-2 font-sans text-[12.5px] leading-relaxed text-u-text2">{SCOPE_NOTES[scope]}</p>}
         </Popover>
 
         {/* Below `md` the list is a card stack, and a Columns menu over cards has nothing to act on. */}

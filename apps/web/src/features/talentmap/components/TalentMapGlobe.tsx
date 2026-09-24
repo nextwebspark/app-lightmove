@@ -19,15 +19,38 @@ const INITIAL_ZOOM = 2.6;
  */
 const CITY_ZOOM = 11;
 
-/** Pin colours: the ink of the app's text for a company, sky for a person, amber for the selection. */
-const INK = { light: "#15213a", dark: "#e2e8f0" };
-const SKY = "#2563eb";
-const AMBER = "#e2b65c";
-const GROUND = { light: "#ffffff", dark: "#16171a" };
+/** What the pins and the globe's fog are painted in, read off the UNCAVA tokens for the current theme. */
+interface PinPalette {
+  ink: string;
+  person: string;
+  selection: string;
+  ground: string;
+  fog: string;
+  horizon: string;
+  space: string;
+}
+
+/**
+ * Mapbox paints outside CSS, so it takes the token values rather than the variables — re-read on every
+ * style load and selection, which is exactly when the theme may have changed. The same read as
+ * `HubGlobe`'s: the company in the text's ink, a person in the accent, the selection in the signal.
+ */
+function readPinPalette(): PinPalette {
+  const token = (name: string) => getComputedStyle(document.body).getPropertyValue(name).trim();
+  return {
+    ink: token("--color-u-text"),
+    person: token("--color-u-accent"),
+    selection: token("--color-u-signal"),
+    ground: token("--color-u-bg"),
+    fog: token("--color-u-raised"),
+    horizon: token("--color-u-sunken"),
+    space: token("--color-u-bg"),
+  };
+}
 
 const CONTROL_BUTTON =
-  "grid size-8 cursor-pointer place-items-center rounded-[6px] border border-line bg-panel text-text2 " +
-  "shadow-panel transition hover:text-text";
+  "grid size-8 cursor-pointer place-items-center rounded-[6px] border border-u-border-strong bg-u-surface text-u-text2 " +
+  "shadow-u-e3 transition hover:text-u-text";
 
 /**
  * The globe itself — the one component that imports `mapbox-gl`, and loaded lazily for it, so the
@@ -123,15 +146,16 @@ export default function TalentMapGlobe({
 
     map.on("style.load", () => {
       const { dark: isDark, features: current, selectedId: selected, hoveredId: hovered } = latest.current;
+      const palette = readPinPalette();
       map.setFog({
-        color: isDark ? "rgb(18, 20, 26)" : "rgb(222, 228, 238)",
-        "high-color": isDark ? "rgb(24, 30, 44)" : "rgb(196, 210, 232)",
+        color: palette.fog,
+        "high-color": palette.horizon,
         "horizon-blend": 0.02,
-        "space-color": isDark ? "rgb(8, 8, 12)" : "rgb(241, 243, 247)",
+        "space-color": palette.space,
         "star-intensity": isDark ? 0.35 : 0,
       });
-      ensureLayers(map, current, isDark);
-      applySelection(map, selected, isDark);
+      ensureLayers(map, current, palette);
+      applySelection(map, selected, palette);
       applyHover(map, hovered);
       setStyleReady((tick) => tick + 1);
     });
@@ -206,7 +230,7 @@ export default function TalentMapGlobe({
   useEffect(() => {
     const map = mapRef.current;
     if (!map || !map.getLayer("companies")) return;
-    applySelection(map, selectedId, dark);
+    applySelection(map, selectedId, readPinPalette());
   }, [selectedId, dark, styleReady]);
 
   useEffect(() => {
@@ -290,10 +314,9 @@ export default function TalentMapGlobe({
 }
 
 /** Adds the source and every layer over it, once per style — safe to call again after a swap. */
-function ensureLayers(map: mapboxgl.Map, data: PinCollection, dark: boolean) {
+function ensureLayers(map: mapboxgl.Map, data: PinCollection, palette: PinPalette) {
   if (map.getSource(SOURCE)) return;
-  const ink = dark ? INK.dark : INK.light;
-  const ground = dark ? GROUND.dark : GROUND.light;
+  const { ink, ground } = palette;
 
   map.addSource(SOURCE, {
     type: "geojson",
@@ -344,7 +367,7 @@ function ensureLayers(map: mapboxgl.Map, data: PinCollection, dark: boolean) {
     source: SOURCE,
     filter: ["==", ["get", "rowId"], ""],
     paint: {
-      "circle-color": AMBER,
+      "circle-color": palette.selection,
       "circle-opacity": 0.28,
       "circle-radius": ["interpolate", ["linear"], ["zoom"], 2, 12, 10, 22],
     },
@@ -376,7 +399,7 @@ function ensureLayers(map: mapboxgl.Map, data: PinCollection, dark: boolean) {
     source: SOURCE,
     filter: ["all", ["!", ["has", "point_count"]], ["==", ["get", "kind"], "executive"]],
     paint: {
-      "circle-color": SKY,
+      "circle-color": palette.person,
       "circle-opacity": 0.92,
       "circle-radius": ["interpolate", ["linear"], ["zoom"], 2, 3, 10, 6],
       "circle-stroke-width": 1.5,
@@ -405,12 +428,12 @@ function ensureLayers(map: mapboxgl.Map, data: PinCollection, dark: boolean) {
   });
 }
 
-function applySelection(map: mapboxgl.Map, selectedId: string | null, dark: boolean) {
-  const ink = dark ? INK.dark : INK.light;
+function applySelection(map: mapboxgl.Map, selectedId: string | null, palette: PinPalette) {
+  const { ink, person, selection } = palette;
   const id = selectedId ?? "";
   map.setFilter("selected-halo", ["==", ["get", "rowId"], id]);
-  map.setPaintProperty("companies", "circle-color", ["case", ["==", ["get", "rowId"], id], AMBER, ink]);
-  map.setPaintProperty("executives", "circle-color", ["case", ["==", ["get", "rowId"], id], AMBER, SKY]);
+  map.setPaintProperty("companies", "circle-color", ["case", ["==", ["get", "rowId"], id], selection, ink]);
+  map.setPaintProperty("executives", "circle-color", ["case", ["==", ["get", "rowId"], id], selection, person]);
 }
 
 function applyHover(map: mapboxgl.Map, hoveredId: string | null) {

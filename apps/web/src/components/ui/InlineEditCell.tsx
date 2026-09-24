@@ -79,7 +79,7 @@ export function InlineEditCell({
         type="button"
         onClick={open}
         title="Click to edit"
-        className="flex w-full min-w-0 rounded-[4px] text-start transition hover:bg-panel2"
+        className="flex w-full min-w-0 rounded-[4px] text-start transition hover:bg-u-raised"
       >
         <DataGridCell value={value} muted />
       </button>
@@ -110,7 +110,7 @@ export function InlineEditCell({
         disabled={saving || !dirty}
         onMouseDown={(event) => event.preventDefault()}
         onClick={commit}
-        className="grid size-6 shrink-0 place-items-center rounded-[4px] text-text3 transition hover:bg-panel2 hover:text-green disabled:pointer-events-none disabled:opacity-40"
+        className="grid size-6 shrink-0 place-items-center rounded-[4px] text-u-text3 transition hover:bg-u-raised hover:text-u-direct disabled:pointer-events-none disabled:opacity-40"
       >
         <Icon d={ICONS.check} size={14} />
       </button>
@@ -121,7 +121,7 @@ export function InlineEditCell({
         disabled={saving}
         onMouseDown={(event) => event.preventDefault()}
         onClick={cancel}
-        className="grid size-6 shrink-0 place-items-center rounded-[4px] text-text3 transition hover:bg-panel2 hover:text-red disabled:pointer-events-none disabled:opacity-40"
+        className="grid size-6 shrink-0 place-items-center rounded-[4px] text-u-text3 transition hover:bg-u-raised hover:text-u-offlimits disabled:pointer-events-none disabled:opacity-40"
       >
         <Icon d={ICONS.close} size={14} />
       </button>

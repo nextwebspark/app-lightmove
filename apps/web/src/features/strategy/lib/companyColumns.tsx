@@ -56,7 +56,7 @@ export const companyColumns = helper.columns([
         <CompanyLogo name={info.getValue()} logo={info.row.original.logoUrl} size={28} />
         <TruncatedText
           value={info.getValue()}
-          className="font-sans text-[13px] font-medium text-text"
+          className="font-sans text-[13px] font-medium text-u-text"
         />
       </span>
     ),
@@ -98,7 +98,7 @@ export const companyColumns = helper.columns([
     enableSorting: false,
     meta: { share: 0, min: 44 },
     // No score yet; it fills in when AI Research lands.
-    cell: () => <span className="font-sans text-[13px] font-semibold text-text3">—</span>,
+    cell: () => <span className="font-sans text-[13px] font-semibold text-u-text3">—</span>,
   }),
 
   helper.accessor("companyCountry", {

@@ -53,7 +53,7 @@ export function SelectionCheckbox({
         aria-label={label}
         className="peer absolute inset-0 z-10 cursor-pointer opacity-0"
       />
-      <span className="rounded-[5px] peer-focus-visible:outline peer-focus-visible:outline-2 peer-focus-visible:outline-offset-2 peer-focus-visible:outline-amber">
+      <span className="rounded-[5px] peer-focus-visible:outline peer-focus-visible:outline-2 peer-focus-visible:outline-offset-2 peer-focus-visible:outline-u-accent">
         <CheckBox checked={indeterminate ? "mixed" : checked} size="sm" />
       </span>
     </span>

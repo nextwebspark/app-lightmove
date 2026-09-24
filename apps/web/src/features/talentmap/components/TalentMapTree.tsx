@@ -201,7 +201,7 @@ const GroupRow = memo(function GroupRow({
       onClick={line.expandable ? () => handlers.toggle(line.key) : undefined}
       onKeyDown={(event) => handlers.keyDown(event, index)}
       className={cn(
-        "mt-1 flex cursor-pointer select-none items-center gap-1.5 px-3 py-1.5 outline-none focus-visible:bg-panel2",
+        "mt-1 flex cursor-pointer select-none items-center gap-1.5 px-3 py-1.5 outline-none focus-visible:bg-u-raised",
         line.muted && "cursor-default",
       )}
     >
@@ -209,15 +209,15 @@ const GroupRow = memo(function GroupRow({
         <Icon
           d={ICONS.chevronRight}
           size={13}
-          className={cn("flex-none text-text3 transition-transform", open && "rotate-90")}
+          className={cn("flex-none text-u-text3 transition-transform", open && "rotate-90")}
         />
       ) : (
         <span className="w-[13px] flex-none" />
       )}
-      <span className={cn("truncate text-[13px] font-semibold", line.muted ? "text-text3" : "text-text")}>
+      <span className={cn("truncate text-[13px] font-semibold", line.muted ? "text-u-text3" : "text-u-text")}>
         {line.label}
       </span>
-      <span className="ms-auto flex-none font-mono text-[11px] text-text3">{line.count}</span>
+      <span className="ms-auto flex-none font-mono text-[11px] text-u-text3">{line.count}</span>
     </div>
   );
 });
@@ -266,10 +266,10 @@ const NodeRow = memo(function NodeRow({
       className={cn(
         "group flex cursor-pointer select-none items-center gap-2 border-s-2 py-1.5 pe-2 outline-none transition-colors",
         selected
-          ? "border-amber bg-amber-dim"
+          ? "border-u-accent bg-u-accent-tint"
           : hovered
-            ? "border-transparent bg-panel2"
-            : "border-transparent hover:bg-panel2 focus-visible:bg-panel2",
+            ? "border-transparent bg-u-raised"
+            : "border-transparent hover:bg-u-raised focus-visible:bg-u-raised",
       )}
     >
       {expandable ? (
@@ -281,7 +281,7 @@ const NodeRow = memo(function NodeRow({
             handlers.toggle(node.id);
           }}
           aria-label={open ? `Collapse ${name}` : `Expand ${name}`}
-          className="-ms-1 flex-none cursor-pointer rounded p-0.5 text-text3 hover:text-text"
+          className="-ms-1 flex-none cursor-pointer rounded p-0.5 text-u-text3 hover:text-u-text"
         >
           <Icon d={ICONS.chevronRight} size={12} className={cn("transition-transform", open && "rotate-90")} />
         </button>
@@ -301,12 +301,12 @@ const NodeRow = memo(function NodeRow({
             aria-hidden="true"
             className={cn(
               "size-2 flex-none rounded-full",
-              !located ? "bg-line" : isCompany ? "bg-text" : "bg-sky",
+              !located ? "bg-u-border-strong" : isCompany ? "bg-u-text" : "bg-u-accent",
             )}
           />
-          <span className="truncate text-[13px] font-medium text-text">{name}</span>
+          <span className="truncate text-[13px] font-medium text-u-text">{name}</span>
         </span>
-        <span className="block truncate ps-3.5 text-[11.5px] text-text3">
+        <span className="block truncate ps-3.5 text-[11.5px] text-u-text3">
           {isCompany
             ? [
                 countOf(node.executives.length, "exec"),
@@ -327,7 +327,7 @@ const NodeRow = memo(function NodeRow({
         }}
         aria-label={`Open ${name}`}
         title="Open"
-        className="flex-none cursor-pointer rounded p-1 text-text3 opacity-0 transition hover:bg-panel hover:text-text group-hover:opacity-100 focus-visible:opacity-100"
+        className="flex-none cursor-pointer rounded p-1 text-u-text3 opacity-0 transition hover:bg-u-surface hover:text-u-text group-hover:opacity-100 focus-visible:opacity-100"
       >
         <Icon d={ICONS.arrowRight} size={13} />
       </button>

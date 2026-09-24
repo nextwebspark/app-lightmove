@@ -35,7 +35,7 @@ export function AssistantLauncher() {
       aria-hidden={open}
       inert={open}
       className={cn(
-        "fixed bottom-5 end-5 z-[110] hidden h-11 lg:inline-flex items-center gap-2.5 rounded-[22px] border border-ai-line bg-[linear-gradient(135deg,var(--color-ai),var(--color-ai2))] pe-[17px] ps-3.5 font-sans text-[13px] font-semibold text-white shadow-[0_8px_24px_-6px_rgba(79,70,229,.5)] transition duration-200 hover:brightness-110 motion-reduce:transition-none",
+        "fixed bottom-5 end-5 z-[110] hidden h-11 lg:inline-flex items-center gap-2.5 rounded-[22px] border border-u-accent bg-[linear-gradient(135deg,var(--color-u-inferred),var(--color-u-adjacent))] pe-[17px] ps-3.5 font-sans text-[13px] font-semibold text-white shadow-[0_8px_24px_-6px_color-mix(in_srgb,var(--color-u-inferred)_50%,transparent)] transition duration-200 hover:brightness-110 motion-reduce:transition-none",
         open ? "pointer-events-none scale-95 opacity-0" : "scale-100 opacity-100",
       )}
     >

@@ -103,20 +103,20 @@ export function AssistantPanel({
     <aside
       role="complementary"
       aria-label="Uncava Assistant"
-      className="ms-2.5 flex h-full w-[400px] flex-none flex-col overflow-hidden rounded-[10px] border border-line bg-panel"
+      className="ms-2.5 flex h-full w-[400px] flex-none flex-col overflow-hidden rounded-[10px] border border-u-border-strong bg-u-surface"
     >
-      <div className="flex-none border-b border-line px-3 py-2.5">
+      <div className="flex-none border-b border-u-border-strong px-3 py-2.5">
         <div className="flex items-center gap-2">
-          <span className="grid h-[26px] w-[26px] flex-none place-items-center rounded-[7px] bg-[linear-gradient(135deg,var(--color-ai),var(--color-ai2))] text-white">
+          <span className="grid h-[26px] w-[26px] flex-none place-items-center rounded-[7px] bg-[linear-gradient(135deg,var(--color-u-inferred),var(--color-u-adjacent))] text-white">
             <Icon d={ICONS.sparkle} size={14} />
           </span>
-          <span className="font-sans text-[13px] font-semibold text-text">Assistant</span>
+          <span className="font-sans text-[13px] font-semibold text-u-text">Assistant</span>
           <button
             type="button"
             onClick={closeAssistant}
             title="Close"
             aria-label="Close the assistant"
-            className="ms-auto grid h-7 w-7 place-items-center rounded-md text-text3 transition hover:bg-panel2 hover:text-text"
+            className="ms-auto grid h-7 w-7 place-items-center rounded-md text-u-text3 transition hover:bg-u-raised hover:text-u-text"
           >
             <Icon d={ICONS.close} size={15} />
           </button>
@@ -124,8 +124,8 @@ export function AssistantPanel({
 
         {/* Which mandate the conversation is about. A thread keeps the context it was asked in, so
             this states the screen's, not wherever the reader has since navigated. */}
-        <div className="mt-2.5 flex w-fit max-w-full items-center gap-1.5 rounded-md bg-panel2 px-2 py-1 font-mono text-[11px] text-text3">
-          <Icon d="M12 2 3 7l9 5 9-5-9-5Z" size={11} className="flex-none text-amber" />
+        <div className="mt-2.5 flex w-fit max-w-full items-center gap-1.5 rounded-md bg-u-raised px-2 py-1 font-mono text-[11px] text-u-text3">
+          <Icon d="M12 2 3 7l9 5 9-5-9-5Z" size={11} className="flex-none text-u-accent" />
           <span className="truncate">{contextLabel}</span>
         </div>
       </div>
@@ -134,7 +134,7 @@ export function AssistantPanel({
         {threadId ? (
           <>
             {thread.isLoading && !turnId && (
-              <p className="my-auto text-center font-mono text-[11px] text-text3">
+              <p className="my-auto text-center font-mono text-[11px] text-u-text3">
                 Opening the conversation…
               </p>
             )}
@@ -159,8 +159,8 @@ export function AssistantPanel({
         ) : (
           <div className="my-auto">
             <div className="mb-4 text-center">
-              <p className="font-sans text-[13px] text-text2">Ask about this market.</p>
-              <p className="mt-1 font-mono text-[11px] text-text3">
+              <p className="font-sans text-[13px] text-u-text2">Ask about this market.</p>
+              <p className="mt-1 font-mono text-[11px] text-u-text3">
                 It reads the company universe and this mandate&apos;s own rows.
               </p>
             </div>
@@ -169,7 +169,7 @@ export function AssistantPanel({
                 key={starter}
                 type="button"
                 onClick={() => setDraft(starter)}
-                className="mb-1.5 block w-full rounded-lg border border-dashed border-line px-2.5 py-2 text-start font-sans text-xs text-text2 transition hover:border-solid hover:border-ai hover:bg-ai-soft hover:text-text"
+                className="mb-1.5 block w-full rounded-lg border border-dashed border-u-border-strong px-2.5 py-2 text-start font-sans text-xs text-u-text2 transition hover:border-solid hover:border-u-inferred hover:bg-u-inferred-tint hover:text-u-text"
               >
                 {starter}
               </button>
@@ -177,14 +177,14 @@ export function AssistantPanel({
           </div>
         )}
         {failure && (
-          <p role="alert" className="font-sans text-[11.5px] text-red">
+          <p role="alert" className="font-sans text-[11.5px] text-u-offlimits">
             {failure}
           </p>
         )}
       </div>
 
-      <div className="flex-none border-t border-line px-3 pb-3 pt-2.5">
-        <div className="rounded-[10px] border border-line bg-panel2 px-2.5 py-2">
+      <div className="flex-none border-t border-u-border-strong px-3 pb-3 pt-2.5">
+        <div className="rounded-[10px] border border-u-border-strong bg-u-raised px-2.5 py-2">
           <textarea
             ref={composer}
             value={draft}
@@ -200,10 +200,10 @@ export function AssistantPanel({
             placeholder="Ask about this market..."
             rows={2}
             aria-label="Ask the assistant"
-            className="w-full resize-none border-none bg-transparent font-sans text-[13px] leading-[1.5] text-text outline-none"
+            className="w-full resize-none border-none bg-transparent font-sans text-[13px] leading-[1.5] text-u-text outline-none"
           />
           <div className="mt-1 flex items-center gap-2">
-            <span className="font-mono text-[10px] text-text3">
+            <span className="font-mono text-[10px] text-u-text3">
               {running ? "Answering…" : "Enter to send"}
             </span>
             <button
@@ -212,7 +212,7 @@ export function AssistantPanel({
               disabled={!draft.trim() || running || asking.isPending}
               aria-label="Send"
               title={running ? "Wait for the current answer" : "Send"}
-              className="ms-auto grid h-[26px] w-[26px] place-items-center rounded-md border-none bg-[linear-gradient(135deg,var(--color-ai),var(--color-ai2))] transition disabled:opacity-40"
+              className="ms-auto grid h-[26px] w-[26px] place-items-center rounded-md border-none bg-[linear-gradient(135deg,var(--color-u-inferred),var(--color-u-adjacent))] transition disabled:opacity-40"
             >
               <Icon d={ICONS.arrowUp} size={13} className="text-white" />
             </button>

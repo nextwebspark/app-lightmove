@@ -28,8 +28,8 @@ const VIEWPORT_FILLING_TABS = ["/companies/", "/strategy"];
  * the space it needed sitting empty beside it — the columns that got squeezed were the ones carrying
  * the data.
  *
- * <p>Reports is here for a different reason: it paints its own ground in the Uncava palette, and a
- * gutter of the shell's panel colour around it would frame the report in the wrong theme. The brief
+ * <p>Reports is here for a different reason: it paints its own ground, the page background rather
+ * than the shell's surface, and a gutter around it would frame the report in a second tone. The brief
  * (the mandate's index route, matched exactly below) is full-bleed for the same reason.
  */
 const FULL_BLEED_TABS = ["/companies/", "/strategy", "/reports"];

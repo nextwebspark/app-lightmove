@@ -62,9 +62,9 @@ const LIFECYCLE: Record<Lifecycle, { label: string; destructive: boolean; confir
 };
 
 const BANNER_TONES = {
-  sky: "border-line-soft bg-sky-dim",
-  amber: "border-amber-btn bg-amber-dim",
-  plain: "border-line bg-panel2",
+  accent: "border-u-border bg-u-accent-tint",
+  signal: "border-u-signal bg-u-signal-tint",
+  plain: "border-u-border-strong bg-u-raised",
 } as const;
 
 const DISCARD = "Discard your unsaved changes?";
@@ -195,7 +195,7 @@ function TemplateEditor({ scope, code }: { scope: TemplateScope; code: string | 
     return (
       <>
         <BackLink path={path} heading={heading} dirty={false} />
-        <p role="alert" className="mt-4 rounded-lg bg-red-dim px-3 py-2.5 font-mono text-xs text-red">
+        <p role="alert" className="mt-4 rounded-lg bg-u-offlimits-tint px-3 py-2.5 font-mono text-xs text-u-offlimits">
           {messageFor(detailQuery.error)}
         </p>
       </>
@@ -203,7 +203,7 @@ function TemplateEditor({ scope, code }: { scope: TemplateScope; code: string | 
   }
 
   if (!draft || (code !== null && !detail)) {
-    return <p className="font-mono text-xs text-text3">Loading template…</p>;
+    return <p className="font-mono text-xs text-u-text3">Loading template…</p>;
   }
 
   const noticePeriod = noticePeriodOfPair(draft.noticeValue, draft.noticeUnit);
@@ -239,17 +239,17 @@ function TemplateEditor({ scope, code }: { scope: TemplateScope; code: string | 
             <h1 className="text-[19px] font-semibold leading-tight">{draft.title.trim() || "Untitled template"}</h1>
             {detail && <TemplateBadge scope={scope} template={detail} />}
           </div>
-          <div className="mt-1 font-mono text-xs text-text3">{metaLineOf(scope, detail)}</div>
+          <div className="mt-1 font-mono text-xs text-u-text3">{metaLineOf(scope, detail)}</div>
         </div>
         <div className="ms-auto flex flex-none items-center gap-2.5">
-          {dirty && <span className="font-mono text-[11.5px] font-medium text-amber">Unsaved changes</span>}
+          {dirty && <span className="font-mono text-[11.5px] font-medium text-u-accent">Unsaved changes</span>}
           {saveButton}
         </div>
       </div>
 
       <div
         className={cn(
-          "mb-[18px] flex flex-wrap items-start gap-2.5 rounded-[10px] border px-3.5 py-3 font-mono text-xs leading-relaxed text-text2",
+          "mb-[18px] flex flex-wrap items-start gap-2.5 rounded-[10px] border px-3.5 py-3 font-mono text-xs leading-relaxed text-u-text2",
           BANNER_TONES[banner.tone],
         )}
       >
@@ -262,7 +262,7 @@ function TemplateEditor({ scope, code }: { scope: TemplateScope; code: string | 
       </div>
 
       {stale ? (
-        <div role="alert" className="mb-4 flex flex-wrap items-center gap-3 rounded-lg bg-red-dim px-3 py-2.5 font-mono text-[11.5px] text-red">
+        <div role="alert" className="mb-4 flex flex-wrap items-center gap-3 rounded-lg bg-u-offlimits-tint px-3 py-2.5 font-mono text-[11.5px] text-u-offlimits">
           <span className="flex-1">{messageFor(failure)}</span>
           <Button variant="secondary" className="py-1.5 text-xs" onClick={() => void reloadAfterConflict()}>
             Reload
@@ -274,14 +274,14 @@ function TemplateEditor({ scope, code }: { scope: TemplateScope; code: string | 
 
       <SectionCard title="Identity & matching" aside="How the picker lists this template, and which role titles are drafted from it">
         <Field label="Title">
-          <Input value={draft.title} maxLength={160} onChange={(e) => update({ title: e.target.value })} className="!bg-panel" />
+          <Input value={draft.title} maxLength={160} onChange={(e) => update({ title: e.target.value })} className="!bg-u-surface" />
         </Field>
         <div className="grid grid-cols-1 gap-x-4 md:grid-cols-2">
           <Field label="Discipline">
             <Select
               value={draft.discipline}
               onChange={(e) => update({ discipline: e.target.value as PositionDiscipline })}
-              className="!bg-panel"
+              className="!bg-u-surface"
             >
               {DISCIPLINES.map((discipline) => (
                 <option key={discipline} value={discipline}>
@@ -294,7 +294,7 @@ function TemplateEditor({ scope, code }: { scope: TemplateScope; code: string | 
             <Select
               value={draft.seniority}
               onChange={(e) => update({ seniority: e.target.value as PositionSeniority })}
-              className="!bg-panel"
+              className="!bg-u-surface"
             >
               {SENIORITY_TIERS.map((tier) => (
                 <option key={tier} value={tier}>
@@ -305,7 +305,7 @@ function TemplateEditor({ scope, code }: { scope: TemplateScope; code: string | 
           </Field>
         </div>
         <Field label="Summary — one line under the title in the picker">
-          <Input value={draft.summary} maxLength={300} onChange={(e) => update({ summary: e.target.value })} className="!bg-panel" />
+          <Input value={draft.summary} maxLength={300} onChange={(e) => update({ summary: e.target.value })} className="!bg-u-surface" />
         </Field>
         <ChipListField
           label="Match keywords"
@@ -322,13 +322,13 @@ function TemplateEditor({ scope, code }: { scope: TemplateScope; code: string | 
       <SectionCard title="Position details" aside="Step 1 of the brief. Role title and location stay the mandate's own">
         <div className="grid grid-cols-1 gap-x-4 md:grid-cols-2">
           <Field label="Department">
-            <Input value={draft.department} maxLength={160} onChange={(e) => update({ department: e.target.value })} className="!bg-panel" />
+            <Input value={draft.department} maxLength={160} onChange={(e) => update({ department: e.target.value })} className="!bg-u-surface" />
           </Field>
           <Field label="Employment type">
             <Select
               value={draft.employmentType ?? ""}
               onChange={(e) => update({ employmentType: (e.target.value || null) as EmploymentType | null })}
-              className="!bg-panel"
+              className="!bg-u-surface"
             >
               <option value="">Not set</option>
               {Object.entries(EMPLOYMENT_TYPE_LABELS).map(([value, label]) => (
@@ -353,7 +353,7 @@ function TemplateEditor({ scope, code }: { scope: TemplateScope; code: string | 
             value={draft.narrative}
             maxLength={4000}
             onChange={(e) => update({ narrative: e.target.value })}
-            className="!bg-panel font-sans leading-relaxed"
+            className="!bg-u-surface font-sans leading-relaxed"
           />
         </Field>
       </SectionCard>
@@ -375,7 +375,7 @@ function TemplateEditor({ scope, code }: { scope: TemplateScope; code: string | 
       <SectionCard title="Reporting structure" aside="Seeds step 3's org chart: the seat above the role, and the seats beneath it">
         <div className="grid grid-cols-1 gap-x-4 md:grid-cols-2">
           <Field label="Reports to">
-            <Input value={draft.reportsTo} maxLength={160} onChange={(e) => update({ reportsTo: e.target.value })} className="!bg-panel" />
+            <Input value={draft.reportsTo} maxLength={160} onChange={(e) => update({ reportsTo: e.target.value })} className="!bg-u-surface" />
           </Field>
           <Field label="Notice period">
             <Select
@@ -388,7 +388,7 @@ function TemplateEditor({ scope, code }: { scope: TemplateScope; code: string | 
                     : (pairOfNoticePeriod(e.target.value) ?? { noticeValue: null, noticeUnit: null }),
                 )
               }
-              className="!bg-panel"
+              className="!bg-u-surface"
             >
               <option value="">Not set</option>
               {NOTICE_PERIODS.map((period) => (
@@ -418,14 +418,14 @@ function TemplateEditor({ scope, code }: { scope: TemplateScope; code: string | 
       >
         <div className="grid grid-cols-1 gap-x-4 md:grid-cols-2">
           <Field label="Currency">
-            <Select value={draft.currency} onChange={(e) => update({ currency: e.target.value })} className="!bg-panel">
+            <Select value={draft.currency} onChange={(e) => update({ currency: e.target.value })} className="!bg-u-surface">
               {[...new Set([draft.currency, ...CURRENCIES])].map((currency) => (
                 <option key={currency}>{currency}</option>
               ))}
             </Select>
           </Field>
           <div className="mb-4">
-            <span className="mb-1.5 block font-mono text-[10px] font-semibold uppercase tracking-[0.12em] text-text3">
+            <span className="mb-1.5 block font-mono text-[10px] font-semibold uppercase tracking-[0.12em] text-u-text3">
               Base salary quoted
             </span>
             <SegmentedControl<BaseSalaryMode>
@@ -446,13 +446,13 @@ function TemplateEditor({ scope, code }: { scope: TemplateScope; code: string | 
                 step={0.01}
                 value={draft.bonusValue ?? ""}
                 onChange={(e) => update({ bonusValue: numberOrNull(e.target.value) })}
-                className="w-24 flex-none !bg-panel"
+                className="w-24 flex-none !bg-u-surface"
               />
               <Select
                 value={draft.bonusBasis ?? ""}
                 aria-label="Bonus basis"
                 onChange={(e) => update({ bonusBasis: (e.target.value || null) as BonusBasis | null })}
-                className="!bg-panel"
+                className="!bg-u-surface"
               >
                 <option value="">Not set</option>
                 {Object.entries(BONUS_BASIS_LABELS).map(([value, label]) => (
@@ -467,7 +467,7 @@ function TemplateEditor({ scope, code }: { scope: TemplateScope; code: string | 
             <Select
               value={draft.incentiveType ?? ""}
               onChange={(e) => update({ incentiveType: (e.target.value || null) as IncentiveType | null })}
-              className="!bg-panel"
+              className="!bg-u-surface"
             >
               <option value="">None</option>
               {Object.entries(INCENTIVE_TYPE_LABELS).map(([value, label]) => (
@@ -483,7 +483,7 @@ function TemplateEditor({ scope, code }: { scope: TemplateScope; code: string | 
             value={draft.incentiveVesting}
             maxLength={200}
             onChange={(e) => update({ incentiveVesting: e.target.value })}
-            className="!bg-panel"
+            className="!bg-u-surface"
           />
         </Field>
         <BenefitLines benefits={draft.benefits} onChange={(benefits) => update({ benefits })} />
@@ -493,7 +493,7 @@ function TemplateEditor({ scope, code }: { scope: TemplateScope; code: string | 
         <div className="mb-4 flex flex-col gap-3.5">
           <CompetencyPanel
             title="Technical competencies"
-            accent="sky"
+            accent="accent"
             rows={draft.technical}
             locked={lockedTechnical}
             onChange={(technical) => update({ technical })}
@@ -502,7 +502,7 @@ function TemplateEditor({ scope, code }: { scope: TemplateScope; code: string | 
           />
           <CompetencyPanel
             title="Behavioural competencies"
-            accent="amber"
+            accent="signal"
             rows={draft.behavioural}
             locked={lockedBehavioural}
             onChange={(behavioural) => update({ behavioural })}
@@ -514,7 +514,7 @@ function TemplateEditor({ scope, code }: { scope: TemplateScope; code: string | 
       </SectionCard>
 
       {dirty && problems.length > 0 && (
-        <ul className="mb-3 flex flex-col gap-0.5 font-mono text-[11.5px] text-red">
+        <ul className="mb-3 flex flex-col gap-0.5 font-mono text-[11.5px] text-u-offlimits">
           {problems.map((problem) => (
             <li key={problem}>{problem}</li>
           ))}
@@ -525,7 +525,7 @@ function TemplateEditor({ scope, code }: { scope: TemplateScope; code: string | 
         {lifecycleAction && (
           <Button
             variant="secondary"
-            className={cn(LIFECYCLE[lifecycleAction].destructive && "!border-red !text-red hover:!bg-red-dim")}
+            className={cn(LIFECYCLE[lifecycleAction].destructive && "!border-u-offlimits !text-u-offlimits hover:!bg-u-offlimits-tint")}
             loading={lifecycle.isPending}
             onClick={() => handleLifecycle(lifecycleAction)}
           >
@@ -537,13 +537,13 @@ function TemplateEditor({ scope, code }: { scope: TemplateScope; code: string | 
 
       {confirming && (
         <Modal open onClose={() => setConfirming(null)} title={LIFECYCLE[confirming].label}>
-          <p className="mb-5 text-[13px] text-text2">{LIFECYCLE[confirming].confirm}</p>
+          <p className="mb-5 text-[13px] text-u-text2">{LIFECYCLE[confirming].confirm}</p>
           <div className="flex justify-end gap-2">
             <Button variant="secondary" onClick={() => setConfirming(null)}>
               Cancel
             </Button>
             <Button
-              className="!border-red !bg-red !text-white hover:!brightness-105"
+              className="!border-u-offlimits !bg-u-offlimits !text-white hover:!brightness-105"
               loading={lifecycle.isPending}
               onClick={() => lifecycle.mutate(confirming)}
             >
@@ -564,7 +564,7 @@ function BackLink({ path, heading, dirty }: { path: string; heading: string; dir
       onClick={(event) => {
         if (dirty && !window.confirm(DISCARD)) event.preventDefault();
       }}
-      className="inline-flex items-center gap-1.5 text-xs font-medium text-text3 transition hover:text-text"
+      className="inline-flex items-center gap-1.5 text-xs font-medium text-u-text3 transition hover:text-u-text"
     >
       <Icon d={ICONS.back} size={14} />
       {heading}
@@ -574,9 +574,9 @@ function BackLink({ path, heading, dirty }: { path: string; heading: string; dir
 
 function SectionCard({ title, aside, children }: { title: string; aside: string; children: ReactNode }) {
   return (
-    <section aria-label={title} className="mb-4 rounded-[10px] border border-line-soft bg-panel2 p-5">
+    <section aria-label={title} className="mb-4 rounded-[10px] border border-u-border bg-u-raised p-5">
       <div className="text-[13px] font-semibold">{title}</div>
-      <p className="mb-4 mt-0.5 font-mono text-[11.5px] text-text3">{aside}</p>
+      <p className="mb-4 mt-0.5 font-mono text-[11.5px] text-u-text3">{aside}</p>
       {children}
     </section>
   );
@@ -653,13 +653,13 @@ function bannerOf(
 ): { tone: keyof typeof BANNER_TONES; text: string } {
   if (!detail) {
     return scope === "library"
-      ? { tone: "sky", text: "A new library template. Once saved, every workspace sees it in the picker." }
+      ? { tone: "accent", text: "A new library template. Once saved, every workspace sees it in the picker." }
       : { tone: "plain", text: "A new template for your firm only." };
   }
   if (scope === "library") {
     if (detail.fallback) {
       return {
-        tone: "sky",
+        tone: "accent",
         text: "LightMove library — and the fallback: a role title no keyword matches is drafted from this template, so it can't be archived.",
       };
     }
@@ -673,7 +673,7 @@ function bannerOf(
     const keeping =
       copies === 0 ? "" : ` — ${copies} workspace${copies === 1 ? " has its" : "s have their"} own copy and keep${copies === 1 ? "s" : ""} it`;
     return {
-      tone: "sky",
+      tone: "accent",
       text: `LightMove library. Saving updates every workspace that hasn't customised this template${keeping}. Mandates already drafted never change.`,
     };
   }
@@ -681,7 +681,7 @@ function bannerOf(
     case "CUSTOMISED":
       return detail.libraryChangedSinceCustomised
         ? {
-            tone: "amber",
+            tone: "signal",
             text: "Your firm's copy. LightMove has updated the library version since you customised it. Reset to take the new version, or keep yours.",
           }
         : { tone: "plain", text: "Your firm's copy of a library template. Library updates don't reach it until you reset." };
@@ -694,7 +694,7 @@ function bannerOf(
       };
     default:
       return {
-        tone: "sky",
+        tone: "accent",
         text: "You're viewing the LightMove library version. Saving creates your firm's own copy; library updates stop reaching it until you reset.",
       };
   }

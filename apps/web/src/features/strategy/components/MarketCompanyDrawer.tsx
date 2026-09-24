@@ -83,7 +83,7 @@ export function MarketCompanyDrawer({
                 <DetailPill key={tag} label={tag} />
               ))}
               {tags.length > TAG_LIMIT && (
-                <span className="font-mono text-[11px] text-text3">
+                <span className="font-mono text-[11px] text-u-text3">
                   +{tags.length - TAG_LIMIT} more
                 </span>
               )}
@@ -92,14 +92,14 @@ export function MarketCompanyDrawer({
         )}
       </div>
 
-      <div className="flex flex-none flex-wrap items-center gap-2 border-t border-line-soft px-5 py-3">
+      <div className="flex flex-none flex-wrap items-center gap-2 border-t border-u-border px-5 py-3">
         {TRIAGE_STAGES.map((stage) => (
           <Button
             key={stage.status}
             type="button"
             variant="secondary"
             // Declined reads as the destructive one on the bulk bar over this same grid.
-            className={cn(stage.status === "declined" && "text-red")}
+            className={cn(stage.status === "declined" && "text-u-offlimits")}
             onClick={() => onTriage(company, stage.status)}
           >
             <Icon d={stage.icon} size={14} />
@@ -111,7 +111,7 @@ export function MarketCompanyDrawer({
         <Button
           type="button"
           variant="secondary"
-          className="ms-auto text-red"
+          className="ms-auto text-u-offlimits"
           disabled={barring}
           onClick={() => onOffLimits(company)}
         >

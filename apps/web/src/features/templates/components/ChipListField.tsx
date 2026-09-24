@@ -3,7 +3,7 @@ import { Input } from "../../../components/ui";
 import { cn } from "../../../lib/cn";
 import { AddRowButton, RemoveRowButton } from "./fields";
 
-const LABEL = "mb-1.5 block font-mono text-[10px] font-semibold uppercase tracking-[0.12em] text-text3";
+const LABEL = "mb-1.5 block font-mono text-[10px] font-semibold uppercase tracking-[0.12em] text-u-text3";
 
 /** Short texts as removable chips, with an input that adds one — keywords, responsibilities, seats. */
 export function ChipListField({
@@ -46,13 +46,13 @@ export function ChipListField({
   return (
     <div className="mb-4">
       <span className={LABEL}>{label}</span>
-      <div className="rounded-[10px] border border-line-soft bg-panel px-3.5 py-3">
+      <div className="rounded-[10px] border border-u-border bg-u-surface px-3.5 py-3">
         {values.length > 0 && (
           <div className="flex flex-wrap gap-2">
             {values.map((value, index) => (
               <span
                 key={`${value}-${index}`}
-                className="inline-flex items-center gap-[7px] rounded border border-line bg-panel2 py-1.5 pe-2 ps-2.5 text-xs font-semibold text-text2"
+                className="inline-flex items-center gap-[7px] rounded border border-u-border-strong bg-u-raised py-1.5 pe-2 ps-2.5 text-xs font-semibold text-u-text2"
               >
                 {value}
                 <RemoveRowButton
@@ -87,11 +87,11 @@ export function ChipListField({
           </div>
         )}
         {duplicate && (
-          <p role="status" className="mt-2.5 font-mono text-[11px] text-amber">
+          <p role="status" className="mt-2.5 font-mono text-[11px] text-u-accent">
             &ldquo;{duplicate}&rdquo; is already in the list.
           </p>
         )}
-        {hint && <p className="mt-2.5 font-mono text-[11px] text-text3">{hint}</p>}
+        {hint && <p className="mt-2.5 font-mono text-[11px] text-u-text3">{hint}</p>}
       </div>
     </div>
   );

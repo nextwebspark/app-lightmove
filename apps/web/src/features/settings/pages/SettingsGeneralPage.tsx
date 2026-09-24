@@ -53,18 +53,18 @@ export function SettingsGeneralPage() {
     <>
       <PageHeader title="General" subtitle="Workspace identity and defaults" />
 
-      <div className="rounded-[10px] border border-line-soft bg-panel2 p-5">
+      <div className="rounded-[10px] border border-u-border bg-u-raised p-5">
         <div className="mb-5 flex items-center gap-3.5">
           {workspace.company?.logoUrl ? (
             <CompanyLogo name={workspace.name} logo={workspace.company.logoUrl} size={44} />
           ) : (
-            <span className="grid size-11 place-items-center rounded-[11px] bg-amber-btn font-mono text-lg font-bold text-on-amber">
+            <span className="grid size-11 place-items-center rounded-[11px] bg-u-accent-solid font-mono text-lg font-bold text-white">
               {workspace.logoMark ?? workspace.name[0]}
             </span>
           )}
           <div>
             <div className="text-sm font-semibold">{workspace.name}</div>
-            <div className="mt-0.5 font-mono text-[11.5px] text-text3">
+            <div className="mt-0.5 font-mono text-[11.5px] text-u-text3">
               {workspace.plan.toLowerCase()} plan · {workspace.memberCount}{" "}
               {workspace.memberCount === 1 ? "member" : "members"}
             </div>
@@ -73,22 +73,22 @@ export function SettingsGeneralPage() {
 
         <div className="grid grid-cols-1 gap-x-4 gap-y-3.5 md:grid-cols-2">
           <Field label="Workspace name">
-            <Input value={name} onChange={(event) => setName(event.target.value)} className="!bg-panel" />
+            <Input value={name} onChange={(event) => setName(event.target.value)} className="!bg-u-surface" />
           </Field>
           <Field label="Workspace URL">
-            <div className="rounded-lg border border-line-soft bg-panel px-3 py-[9px] font-mono text-[13px] font-medium text-text2">
+            <div className="rounded-lg border border-u-border bg-u-surface px-3 py-[9px] font-mono text-[13px] font-medium text-u-text2">
               {window.location.host}/w/{workspace.slug}
             </div>
           </Field>
           <Field label="Default region">
-            <Select value={region} onChange={(event) => setRegion(event.target.value)} className="!bg-panel">
+            <Select value={region} onChange={(event) => setRegion(event.target.value)} className="!bg-u-surface">
               {REGIONS.map((r) => (
                 <option key={r}>{r}</option>
               ))}
             </Select>
           </Field>
           <Field label="Default currency">
-            <Select value={currency} onChange={(event) => setCurrency(event.target.value)} className="!bg-panel">
+            <Select value={currency} onChange={(event) => setCurrency(event.target.value)} className="!bg-u-surface">
               {CURRENCIES.map((c) => (
                 <option key={c}>{c}</option>
               ))}
@@ -105,17 +105,17 @@ export function SettingsGeneralPage() {
 
       <WorkspacePersonaCard key={workspace.id} persona={workspace.persona} />
 
-      <div className="mt-4 rounded-[10px] border border-red bg-red-dim p-5">
+      <div className="mt-4 rounded-[10px] border border-u-offlimits bg-u-offlimits-tint p-5">
         <div className="flex items-center gap-3">
           <div className="flex-1">
-            <div className="text-[13px] font-semibold text-red">Delete workspace</div>
-            <div className="mt-1 font-mono text-[11.5px] text-text3">
+            <div className="text-[13px] font-semibold text-u-offlimits">Delete workspace</div>
+            <div className="mt-1 font-mono text-[11.5px] text-u-text3">
               Permanently removes all projects, candidates and client records. This cannot be undone.
             </div>
           </div>
           <Button
             variant="secondary"
-            className="!border-red !text-red hover:!bg-red hover:!text-white"
+            className="!border-u-offlimits !text-u-offlimits hover:!bg-u-offlimits hover:!text-white"
             onClick={() => setDeleteOpen(true)}
           >
             Delete…
@@ -151,9 +151,9 @@ function DeleteWorkspaceModal({ workspaceName, onClose }: { workspaceName: strin
   return (
     <Modal open onClose={onClose} title="Delete workspace">
       <FormError message={error} />
-      <p className="mb-4 text-[13px] text-text2">
+      <p className="mb-4 text-[13px] text-u-text2">
         This removes every member and cancels outstanding invitations. Type{" "}
-        <b className="font-semibold text-text">{workspaceName}</b> to confirm.
+        <b className="font-semibold text-u-text">{workspaceName}</b> to confirm.
       </p>
 
       <Field label="Workspace name">
@@ -170,7 +170,7 @@ function DeleteWorkspaceModal({ workspaceName, onClose }: { workspaceName: strin
           Cancel
         </Button>
         <Button
-          className="!border-red !bg-red !text-white hover:!brightness-105"
+          className="!border-u-offlimits !bg-u-offlimits !text-white hover:!brightness-105"
           disabled={!matches}
           loading={destroy.isPending}
           onClick={() => destroy.mutate()}

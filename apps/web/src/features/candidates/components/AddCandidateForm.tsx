@@ -111,10 +111,10 @@ export function AddCandidateForm({
 
   return (
     <>
-      <div className="relative flex-none border-b border-line-soft px-5 py-4">
+      <div className="relative flex-none border-b border-u-border px-5 py-4">
         <DrawerCloseButton onClose={onClose} />
         <h2 className="font-sans text-base font-semibold">Add executive</h2>
-        <p className="mt-1 pe-8 font-mono text-[11.5px] text-text3">
+        <p className="mt-1 pe-8 font-mono text-[11.5px] text-u-text3">
           {company
             ? `At ${company.companyName}`
             : "Not tied to a company in this mandate's universe — name their employer below."}
@@ -149,13 +149,13 @@ export function AddCandidateForm({
           <Section title="Contact">
             <div className="mb-4 space-y-4">
               <div>
-                <span className="mb-1.5 block font-mono text-[10px] font-semibold uppercase tracking-[0.12em] text-text3">
+                <span className="mb-1.5 block font-mono text-[10px] font-semibold uppercase tracking-[0.12em] text-u-text3">
                   Email
                 </span>
                 <ContactEntriesFields channel="email" />
               </div>
               <div>
-                <span className="mb-1.5 block font-mono text-[10px] font-semibold uppercase tracking-[0.12em] text-text3">
+                <span className="mb-1.5 block font-mono text-[10px] font-semibold uppercase tracking-[0.12em] text-u-text3">
                   Phone
                 </span>
                 <ContactEntriesFields channel="phone" />
@@ -194,7 +194,7 @@ export function AddCandidateForm({
           />
         </div>
 
-        <div className="flex flex-none justify-end gap-2 border-t border-line-soft px-5 py-3">
+        <div className="flex flex-none justify-end gap-2 border-t border-u-border px-5 py-3">
           <Button type="button" variant="secondary" onClick={onClose} disabled={save.isPending}>
             Cancel
           </Button>
@@ -210,8 +210,8 @@ export function AddCandidateForm({
 
 function Section({ title, children }: { title: string; children: ReactNode }) {
   return (
-    <section className="mb-2 border-b border-line-soft pb-2 last:border-b-0">
-      <h3 className="mb-3 font-mono text-[10.5px] font-semibold uppercase tracking-[0.1em] text-text3">
+    <section className="mb-2 border-b border-u-border pb-2 last:border-b-0">
+      <h3 className="mb-3 font-mono text-[10.5px] font-semibold uppercase tracking-[0.1em] text-u-text3">
         {title}
       </h3>
       {children}

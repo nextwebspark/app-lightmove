@@ -49,7 +49,7 @@ export function AppShell({
       <div className="flex min-h-0 flex-1 px-3.5 pb-3.5">
         {navOpen && (
           <div
-            className="fixed inset-0 z-[90] bg-[rgba(15,20,30,0.4)] lg:hidden"
+            className="fixed inset-0 z-[90] bg-u-scrim lg:hidden"
             onClick={() => setNavOpen(false)}
           />
         )}
@@ -61,7 +61,7 @@ export function AppShell({
           onClose={() => setNavOpen(false)}
         />
 
-        <main className="min-w-0 flex-1 overflow-y-auto rounded-[10px] border border-line bg-panel">
+        <main className="min-w-0 flex-1 overflow-y-auto rounded-[10px] border border-u-border-strong bg-u-surface">
           <div className={cn(contentClassName)}>{children}</div>
         </main>
 

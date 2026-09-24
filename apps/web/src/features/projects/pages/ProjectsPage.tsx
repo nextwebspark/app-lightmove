@@ -156,7 +156,7 @@ export function ProjectsPage({ view }: { view: "my" | "all" }) {
           body="A position holds one open role end to end — brief, company universe, triage and candidates."
         >
           {newProjectButton}
-          <div className="mt-[34px] flex items-center gap-2.5 font-mono text-[11px] font-medium uppercase tracking-[0.06em] text-text3">
+          <div className="mt-[34px] flex items-center gap-2.5 font-mono text-[11px] font-medium uppercase tracking-[0.06em] text-u-text3">
             <span>Brief</span>
             <span className="opacity-50">→</span>
             <span>Universe</span>

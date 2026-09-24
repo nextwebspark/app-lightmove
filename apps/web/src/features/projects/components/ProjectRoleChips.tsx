@@ -17,12 +17,12 @@ export const ROLE_STYLES: Record<StaffRole, RoleStyle> = {
   LEAD: {
     label: "Lead",
     description: "owns the mandate, its team and client access",
-    on: "text-amber bg-amber-dim border-amber",
+    on: "text-u-accent bg-u-accent-tint border-u-accent",
   },
   RESEARCHER: {
     label: "Researcher",
     description: "sources and verifies candidates",
-    on: "text-text2 bg-panel2 border-line",
+    on: "text-u-text2 bg-u-raised border-u-border-strong",
   },
 };
 
@@ -30,7 +30,7 @@ const CHIP =
   "inline-flex items-center gap-[5px] rounded-full border px-2.5 py-1 font-mono text-[10.5px] " +
   "font-semibold uppercase tracking-[0.04em] transition";
 
-const OFF = "text-text3 bg-transparent border-line";
+const OFF = "text-u-text3 bg-transparent border-u-border-strong";
 
 export function ProjectRoleChips({
   memberName,
@@ -110,7 +110,7 @@ export function ProjectRoleLegend() {
           >
             {ROLE_STYLES[candidate].label}
           </span>
-          <span className="text-text3">{ROLE_STYLES[candidate].description}</span>
+          <span className="text-u-text3">{ROLE_STYLES[candidate].description}</span>
         </span>
       ))}
     </div>

@@ -72,7 +72,7 @@ export function ChangePasswordForm({
               autoComplete="current-password"
               placeholder="••••••••"
               invalid={!!errors.currentPassword}
-              className="!bg-panel"
+              className="!bg-u-surface"
               {...register("currentPassword")}
             />
           </Field>
@@ -84,7 +84,7 @@ export function ChangePasswordForm({
             autoComplete="new-password"
             placeholder="8+ characters"
             invalid={!!errors.newPassword}
-            className="!bg-panel"
+            className="!bg-u-surface"
             {...register("newPassword")}
           />
         </Field>
@@ -95,7 +95,7 @@ export function ChangePasswordForm({
             autoComplete="new-password"
             placeholder="Repeat it"
             invalid={!!errors.confirmPassword}
-            className="!bg-panel"
+            className="!bg-u-surface"
             {...register("confirmPassword")}
           />
         </Field>

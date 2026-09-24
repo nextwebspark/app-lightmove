@@ -11,6 +11,6 @@ describe("cn", () => {
   });
 
   it("keeps a type role beside a colour and an alignment", () => {
-    expect(cn("type-label text-text2", "text-end")).toBe("type-label text-text2 text-end");
+    expect(cn("type-label text-u-text2", "text-end")).toBe("type-label text-u-text2 text-end");
   });
 });

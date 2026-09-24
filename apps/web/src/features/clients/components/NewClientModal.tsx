@@ -104,7 +104,7 @@ export function NewClientModal({
         )
       }
     >
-      <p className="-mt-2 mb-4 font-mono text-[11.5px] text-text3">
+      <p className="-mt-2 mb-4 font-mono text-[11.5px] text-u-text3">
         Search the company database first — or add a business unit that isn't listed.
       </p>
       <FormError message={error} />
@@ -119,9 +119,9 @@ export function NewClientModal({
 
       {pick && (
         <>
-          <div className="mb-3 font-mono text-[10px] font-semibold uppercase tracking-[0.12em] text-text3">
+          <div className="mb-3 font-mono text-[10px] font-semibold uppercase tracking-[0.12em] text-u-text3">
             Primary hiring manager
-            <span className="ml-1 font-normal normal-case tracking-normal text-text3">
+            <span className="ml-1 font-normal normal-case tracking-normal text-u-text3">
               · optional — gets an invite. Add more from the business unit panel later.
             </span>
           </div>

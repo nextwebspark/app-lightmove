@@ -50,11 +50,11 @@ export function AddClientContactModal({
 
   return (
     <Modal open onClose={onClose} title="Add client contact" className="md:w-[490px]">
-      <p className="-mt-3 mb-4 font-mono text-xs text-text3">
+      <p className="-mt-3 mb-4 font-mono text-xs text-u-text3">
         Invite someone from {project.clientName} to this project
       </p>
 
-      <div className="mb-4 flex gap-1.5 rounded-[9px] bg-panel2 p-1">
+      <div className="mb-4 flex gap-1.5 rounded-[9px] bg-u-raised p-1">
         <TabButton active={mode === "existing"} onClick={() => setMode("existing")}>
           Existing person
         </TabButton>
@@ -71,17 +71,17 @@ export function AddClientContactModal({
                 {roster.map((person) => (
                   <div
                     key={person.id}
-                    className="flex items-center gap-2.5 rounded-[9px] border border-line px-[11px] py-[9px]"
+                    className="flex items-center gap-2.5 rounded-[9px] border border-u-border-strong px-[11px] py-[9px]"
                   >
                     <Avatar id={person.id} name={person.fullName} size="lg" />
                     <div className="min-w-0 flex-1">
                       <div className="text-[13px] font-medium">{person.fullName}</div>
-                      <div className="truncate font-mono text-[11px] text-text3">
+                      <div className="truncate font-mono text-[11px] text-u-text3">
                         {[person.position, person.email].filter(Boolean).join(" · ")}
                       </div>
                     </div>
                     {attachedIds.has(person.id) ? (
-                      <span className="px-2.5 py-1.5 font-mono text-[10px] font-semibold uppercase tracking-[0.05em] text-text3">
+                      <span className="px-2.5 py-1.5 font-mono text-[10px] font-semibold uppercase tracking-[0.05em] text-u-text3">
                         Added
                       </span>
                     ) : (
@@ -99,15 +99,15 @@ export function AddClientContactModal({
                   </div>
                 ))}
               </div>
-              <p className="mt-3 font-mono text-[11px] text-text3">
+              <p className="mt-3 font-mono text-[11px] text-u-text3">
                 Someone who has already accepted gets this mandate straight away. Anyone still holding
                 an unaccepted invite joins it the moment they accept.
               </p>
             </>
           ) : (
-            <p className="px-4 py-[26px] text-center font-mono text-[12.5px] text-text3">
+            <p className="px-4 py-[26px] text-center font-mono text-[12.5px] text-u-text3">
               No people on record for this client yet. Use{" "}
-              <b className="text-text2">Invite by email</b> to add the first contact.
+              <b className="text-u-text2">Invite by email</b> to add the first contact.
             </p>
           )}
           <div className="mt-[18px] flex justify-end">
@@ -170,7 +170,7 @@ function InviteByEmail({
 
   return (
     <>
-      {error && <p className="mb-2 font-mono text-[11px] text-red">{error}</p>}
+      {error && <p className="mb-2 font-mono text-[11px] text-u-offlimits">{error}</p>}
       <Field label="Full name">
         <Input
           value={fullName}
@@ -193,7 +193,7 @@ function InviteByEmail({
           placeholder="e.g. Chief People Officer"
         />
       </Field>
-      <p className="font-mono text-[11px] text-text3">
+      <p className="font-mono text-[11px] text-u-text3">
         We&apos;ll email an invite. They join the project as a client contact once they accept.
       </p>
       <div className="mt-[18px] flex justify-end gap-2">
@@ -222,7 +222,7 @@ function TabButton({
       type="button"
       onClick={onClick}
       className={`flex-1 rounded-md py-[7px] text-[12.5px] font-semibold transition ${
-        active ? "bg-panel text-text shadow-panel" : "text-text2 hover:text-text"
+        active ? "bg-u-surface text-u-text shadow-u-e3" : "text-u-text2 hover:text-u-text"
       }`}
     >
       {children}

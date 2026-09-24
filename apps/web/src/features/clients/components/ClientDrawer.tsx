@@ -52,7 +52,7 @@ export function ClientDrawer({
   return (
     <Drawer open={clientId !== null} onClose={onClose} label={client?.name ?? "Business unit"}>
       {!client ? (
-        <div className="grid flex-1 place-items-center font-mono text-[12px] text-text3">Loading…</div>
+        <div className="grid flex-1 place-items-center font-mono text-[12px] text-u-text3">Loading…</div>
       ) : mandate ? (
         <MandateView mandate={mandate} clientName={client.name} onBack={() => setMandateId(null)} />
       ) : (
@@ -124,26 +124,26 @@ function ClientView({
 
   return (
     <>
-      <div className="relative border-b border-line-soft px-5 pb-3.5 pt-[18px]">
+      <div className="relative border-b border-u-border px-5 pb-3.5 pt-[18px]">
         <button
           type="button"
           onClick={onClose}
           aria-label="Close"
-          className="absolute right-3.5 top-3.5 rounded-md p-1.5 text-text3 hover:bg-panel2 hover:text-text"
+          className="absolute right-3.5 top-3.5 rounded-md p-1.5 text-u-text3 hover:bg-u-raised hover:text-u-text"
         >
           ✕
         </button>
-        <div className="font-mono text-[11px] font-medium uppercase tracking-[0.08em] text-text3">
+        <div className="font-mono text-[11px] font-medium uppercase tracking-[0.08em] text-u-text3">
           Business unit record
         </div>
         <div className="mt-1 flex items-start gap-2.5">
           <CompanyLogo name={client.name} logo={client.logoUrl} size={32} />
           <div className="min-w-0">
             <div className="text-[17px] font-semibold">{client.name}</div>
-            <div className="mt-0.5 font-mono text-[11px] text-text3">
+            <div className="mt-0.5 font-mono text-[11px] text-u-text3">
               {[client.hqCity, client.hqCountry].filter(Boolean).join(", ") || "—"}
             </div>
-            <div className="font-mono text-[10px] text-text3">
+            <div className="font-mono text-[10px] text-u-text3">
               {[client.sector, client.domain].filter(Boolean).join(" · ") || "—"}
             </div>
           </div>
@@ -160,7 +160,7 @@ function ClientView({
         <div className="mb-2 mt-[18px] flex items-center justify-between">
           <SectionLabel>Details</SectionLabel>
           {dirty && (
-            <span className="font-mono text-[10px] font-semibold uppercase tracking-[0.1em] text-amber">
+            <span className="font-mono text-[10px] font-semibold uppercase tracking-[0.1em] text-u-accent">
               unsaved
             </span>
           )}
@@ -214,7 +214,7 @@ function ClientView({
 
         <SectionLabel className="mt-[18px]">Open positions</SectionLabel>
         {client.mandates.length === 0 ? (
-          <p className="py-2 font-mono text-[12px] text-text3">
+          <p className="py-2 font-mono text-[12px] text-u-text3">
             No positions yet — open one for this business unit.
           </p>
         ) : (
@@ -223,20 +223,20 @@ function ClientView({
               key={m.id}
               type="button"
               onClick={() => onOpenMandate(m.id)}
-              className="flex w-full items-center gap-2.5 rounded-[7px] px-2 py-2 text-left hover:bg-panel2"
+              className="flex w-full items-center gap-2.5 rounded-[7px] px-2 py-2 text-left hover:bg-u-raised"
             >
               <span className="min-w-0 flex-1">
-                <span className="block truncate text-[13px] font-medium text-text">{m.positionTitle}</span>
-                <span className="block font-mono text-[11px] text-text3">Lead · {m.leadName ?? "—"}</span>
+                <span className="block truncate text-[13px] font-medium text-u-text">{m.positionTitle}</span>
+                <span className="block font-mono text-[11px] text-u-text3">Lead · {m.leadName ?? "—"}</span>
               </span>
               <StagePill stage={m.stage} />
-              <span className="text-text3">›</span>
+              <span className="text-u-text3">›</span>
             </button>
           ))
         )}
       </div>
 
-      <div className="flex items-center justify-between border-t border-line-soft px-5 py-3">
+      <div className="flex items-center justify-between border-t border-u-border px-5 py-3">
         <Button variant="ghost" onClick={onClose}>
           Close
         </Button>
@@ -298,7 +298,7 @@ function Representatives({ client }: { client: ClientDetail }) {
           <button
             type="button"
             onClick={() => setOpen(true)}
-            className="font-mono text-[11px] text-sky hover:underline"
+            className="font-mono text-[11px] text-u-accent hover:underline"
           >
             Invite
           </button>
@@ -306,7 +306,7 @@ function Representatives({ client }: { client: ClientDetail }) {
       </div>
 
       {client.representatives.length === 0 && !open && (
-        <p className="py-1 font-mono text-[12px] text-text3">
+        <p className="py-1 font-mono text-[12px] text-u-text3">
           No hiring managers yet. Invite one to give them access to their positions.
         </p>
       )}
@@ -316,8 +316,8 @@ function Representatives({ client }: { client: ClientDetail }) {
       ))}
 
       {open && (
-        <div className="mt-2 rounded-lg border border-line-soft bg-panel2 p-3.5">
-          {error && <p className="mb-2 font-mono text-[11px] text-red">{error}</p>}
+        <div className="mt-2 rounded-lg border border-u-border bg-u-raised p-3.5">
+          {error && <p className="mb-2 font-mono text-[11px] text-u-offlimits">{error}</p>}
           <DrawerField label="Full name">
             <Input value={fullName} onChange={(event) => setFullName(event.target.value)} placeholder="e.g. Khalid Al-Otaibi" />
           </DrawerField>
@@ -342,8 +342,8 @@ function Representatives({ client }: { client: ClientDetail }) {
 }
 
 const REP_BADGE: Record<ClientRepresentative["status"], { label: string; className: string }> = {
-  ACTIVE: { label: "Active", className: "text-green bg-green-dim" },
-  INVITED: { label: "Invited", className: "text-amber bg-amber-dim" },
+  ACTIVE: { label: "Active", className: "text-u-direct bg-u-direct-tint" },
+  INVITED: { label: "Invited", className: "text-u-accent bg-u-accent-tint" },
 };
 
 function RepRow({ rep }: { rep: ClientRepresentative }) {
@@ -353,7 +353,7 @@ function RepRow({ rep }: { rep: ClientRepresentative }) {
       <Avatar id={rep.id} name={rep.fullName} />
       <div className="min-w-0 flex-1">
         <div className="truncate text-[13px]">{rep.fullName}</div>
-        <div className="truncate font-mono text-[11px] text-text3">
+        <div className="truncate font-mono text-[11px] text-u-text3">
           {[rep.position, rep.email].filter(Boolean).join(" · ")}
         </div>
       </div>
@@ -381,19 +381,19 @@ function MandateView({
 
   return (
     <>
-      <div className="border-b border-line-soft px-5 pb-3.5 pt-[18px]">
+      <div className="border-b border-u-border px-5 pb-3.5 pt-[18px]">
         <button
           type="button"
           onClick={onBack}
-          className="mb-1.5 flex items-center gap-1 font-mono text-[11px] text-text3 hover:text-text"
+          className="mb-1.5 flex items-center gap-1 font-mono text-[11px] text-u-text3 hover:text-u-text"
         >
           ‹ {clientName}
         </button>
-        <div className="font-mono text-[11px] font-medium uppercase tracking-[0.08em] text-text3">
+        <div className="font-mono text-[11px] font-medium uppercase tracking-[0.08em] text-u-text3">
           Mandate
         </div>
         <div className="mt-1 text-[17px] font-semibold">{mandate.positionTitle}</div>
-        <div className="mt-0.5 font-mono text-[11px] text-text3">Lead · {mandate.leadName ?? "—"}</div>
+        <div className="mt-0.5 font-mono text-[11px] text-u-text3">Lead · {mandate.leadName ?? "—"}</div>
       </div>
 
       <div className="flex-1 overflow-y-auto px-5 py-[18px]">
@@ -410,15 +410,15 @@ function MandateView({
             <div
               key={stage}
               className={`flex items-center gap-2.5 py-[7px] font-mono text-[12.5px] ${
-                now ? "font-semibold text-amber" : done ? "text-text2" : "text-text3"
+                now ? "font-semibold text-u-accent" : done ? "text-u-text2" : "text-u-text3"
               }`}
             >
               <span
                 className={`grid size-3.5 flex-none place-items-center rounded-full border-[1.5px] ${
-                  done ? "border-green bg-green-dim" : now ? "border-amber" : "border-line"
+                  done ? "border-u-direct bg-u-direct-tint" : now ? "border-u-accent" : "border-u-border-strong"
                 }`}
               >
-                <span className={`size-1.5 rounded-full ${done ? "bg-green" : now ? "bg-amber" : ""}`} />
+                <span className={`size-1.5 rounded-full ${done ? "bg-u-direct" : now ? "bg-u-accent" : ""}`} />
               </span>
               {stageLabel(stage)}
             </div>
@@ -426,10 +426,10 @@ function MandateView({
         })}
 
         <SectionLabel className="mt-[18px]">Target</SectionLabel>
-        <p className="font-mono text-[12.5px] text-text2">{formatDate(mandate.targetDate)}</p>
+        <p className="font-mono text-[12.5px] text-u-text2">{formatDate(mandate.targetDate)}</p>
       </div>
 
-      <div className="flex items-center justify-between border-t border-line-soft px-5 py-3">
+      <div className="flex items-center justify-between border-t border-u-border px-5 py-3">
         <Button variant="ghost" onClick={onBack}>
           Back
         </Button>
@@ -441,7 +441,7 @@ function MandateView({
 
 function SectionLabel({ children, className = "" }: { children: string; className?: string }) {
   return (
-    <div className={`mb-2 font-mono text-[10px] font-semibold uppercase tracking-[0.14em] text-text3 ${className}`}>
+    <div className={`mb-2 font-mono text-[10px] font-semibold uppercase tracking-[0.14em] text-u-text3 ${className}`}>
       {children}
     </div>
   );
@@ -450,7 +450,7 @@ function SectionLabel({ children, className = "" }: { children: string; classNam
 function DrawerField({ label, children }: { label: string; children: ReactNode }) {
   return (
     <label className="mb-3 block">
-      <span className="mb-1 block font-mono text-[10px] font-semibold uppercase tracking-[0.12em] text-text3">
+      <span className="mb-1 block font-mono text-[10px] font-semibold uppercase tracking-[0.12em] text-u-text3">
         {label}
       </span>
       {children}
@@ -460,9 +460,9 @@ function DrawerField({ label, children }: { label: string; children: ReactNode }
 
 function StatTile({ value, label }: { value: string; label: string }) {
   return (
-    <div className="flex-1 rounded-lg border border-line-soft bg-panel2 px-3 py-2.5">
-      <b className="block font-mono text-[17px] font-semibold text-text">{value}</b>
-      <span className="font-mono text-[10.5px] uppercase tracking-[0.06em] text-text3">{label}</span>
+    <div className="flex-1 rounded-lg border border-u-border bg-u-raised px-3 py-2.5">
+      <b className="block font-mono text-[17px] font-semibold text-u-text">{value}</b>
+      <span className="font-mono text-[10.5px] uppercase tracking-[0.06em] text-u-text3">{label}</span>
     </div>
   );
 }

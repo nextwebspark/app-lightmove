@@ -26,8 +26,7 @@ export function Eyebrow({
       className={cn(
         "block",
         size === "summary" ? "type-summary-label" : "type-label",
-        /* The mockup draws every label in the legacy `--text2`, not `--u-text2`. */
-        tone === "inferred" ? "text-u-inferred" : "text-text2",
+        tone === "inferred" ? "text-u-inferred" : "text-u-text2",
         className,
       )}
     >
@@ -283,7 +282,7 @@ export function BriefButton({
 /** The uppercase heading over a table's column — the field eyebrow's own spelling. */
 export function ColumnHead({ children, className }: { children: ReactNode; className?: string }) {
   return (
-    <span className={cn("type-label text-text2", className)}>
+    <span className={cn("type-label text-u-text2", className)}>
       {children}
     </span>
   );

@@ -62,7 +62,7 @@ export function TruncatedText({ value, className }: { value: string | null; clas
               ),
               maxWidth: MAX_WIDTH,
             }}
-            className="pointer-events-none fixed z-[200] rounded-[8px] border border-line bg-panel px-3 py-2 font-sans text-[12px] leading-relaxed text-text2 shadow-panel"
+            className="pointer-events-none fixed z-[200] rounded-[8px] border border-u-border-strong bg-u-surface px-3 py-2 font-sans text-[12px] leading-relaxed text-u-text2 shadow-u-e3"
           >
             {value}
           </div>,

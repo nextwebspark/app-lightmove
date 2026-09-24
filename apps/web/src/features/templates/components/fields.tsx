@@ -3,25 +3,25 @@ import { cn } from "../../../lib/cn";
 import { Icon, ICONS } from "../../../components/layout/Icon";
 
 const INLINE =
-  "w-full border-b border-transparent bg-transparent py-1 font-mono text-[13.5px] font-medium text-text outline-none transition " +
-  "hover:border-line focus:border-sky";
+  "w-full border-b border-transparent bg-transparent py-1 font-mono text-[13.5px] font-medium text-u-text outline-none transition " +
+  "hover:border-u-border-strong focus:border-u-accent";
 
 /**
  * The template editor's field kit — what the Position wizard's own kit left behind when the brief
- * moved to the UNCAVA palette. The editor keeps the app's amber tokens, as every Settings screen does.
+ * moved to its own underline fields.
  */
 
 /** The section heading pattern the editor repeats: 15px title + a quiet mono aside. */
 export function SectionHeading({ title, aside }: { title: string; aside?: string }) {
   return (
     <div className="mb-3 flex items-baseline gap-2">
-      <span className="text-[15px] font-semibold text-text">{title}</span>
-      {aside && <span className="font-mono text-[11.5px] text-text3">{aside}</span>}
+      <span className="text-[15px] font-semibold text-u-text">{title}</span>
+      {aside && <span className="font-mono text-[11.5px] text-u-text3">{aside}</span>}
     </div>
   );
 }
 
-/** The underline-on-hover inline input — borderless until pointed at, sky underline when focused. */
+/** The underline-on-hover inline input — borderless until pointed at, accent underline when focused. */
 export function InlineInput({ className, ...rest }: InputHTMLAttributes<HTMLInputElement>) {
   return <input {...rest} className={cn(INLINE, className)} />;
 }
@@ -31,7 +31,7 @@ export function ColumnLabel({ children, className }: { children: ReactNode; clas
   return (
     <span
       className={cn(
-        "font-mono text-[10px] font-semibold uppercase tracking-[0.08em] text-text3",
+        "font-mono text-[10px] font-semibold uppercase tracking-[0.08em] text-u-text3",
         className,
       )}
     >
@@ -49,7 +49,7 @@ export function SegmentedControl<T extends string>({
   value,
   onChange,
   label,
-  accent = "sky",
+  accent = "accent",
   size = "md",
   className,
 }: {
@@ -57,15 +57,15 @@ export function SegmentedControl<T extends string>({
   value: T;
   onChange: (value: T) => void;
   label: string;
-  accent?: "sky" | "amber" | "red";
+  accent?: "accent" | "signal" | "offlimits";
   /** "sm" for the grid tables, where two buttons share a 150px column and must not wrap. */
   size?: "sm" | "md";
   className?: string;
 }) {
-  const active: Record<"sky" | "amber" | "red", string> = {
-    sky: "border-sky bg-sky-dim text-sky",
-    amber: "border-amber-btn bg-amber-dim text-amber",
-    red: "border-red bg-red-dim text-red",
+  const active: Record<"accent" | "signal" | "offlimits", string> = {
+    accent: "border-u-accent bg-u-accent-tint text-u-accent",
+    signal: "border-u-signal bg-u-signal-tint text-u-signal",
+    offlimits: "border-u-offlimits bg-u-offlimits-tint text-u-offlimits",
   };
   return (
     <div role="group" aria-label={label} className={cn("flex flex-wrap gap-1.5", className)}>
@@ -80,7 +80,7 @@ export function SegmentedControl<T extends string>({
             size === "sm" ? "px-2 py-1 text-[11px]" : "px-3 py-1.5 text-xs",
             option.value === value
               ? active[accent]
-              : "border-line bg-panel text-text3 hover:border-text3 hover:text-text2",
+              : "border-u-border-strong bg-u-surface text-u-text3 hover:border-u-text3 hover:text-u-text2",
           )}
         >
           {option.label}
@@ -105,8 +105,8 @@ export function AddRowButton({
       type="button"
       onClick={onClick}
       className={cn(
-        "rounded-lg border border-dashed border-line px-3.5 py-2 text-xs font-semibold text-sky",
-        "transition hover:border-sky hover:bg-sky-dim",
+        "rounded-lg border border-dashed border-u-border-strong px-3.5 py-2 text-xs font-semibold text-u-accent",
+        "transition hover:border-u-accent hover:bg-u-accent-tint",
         className,
       )}
     >
@@ -130,7 +130,7 @@ export function RemoveRowButton({
       type="button"
       aria-label={label}
       onClick={onClick}
-      className={cn("rounded p-1 text-text3 transition hover:text-red", className)}
+      className={cn("rounded p-1 text-u-text3 transition hover:text-u-offlimits", className)}
     >
       <Icon d={ICONS.close} size={12} />
     </button>

@@ -48,7 +48,7 @@ export const projectColumns = helper.columns([
         <CompanyLogo name={info.getValue()} logo={info.row.original.clientLogoUrl} size={22} />
         <TruncatedText
           value={info.getValue()}
-          className="font-mono text-[12.5px] font-medium text-text2"
+          className="font-mono text-[12.5px] font-medium text-u-text2"
         />
       </span>
     ),
@@ -64,11 +64,11 @@ export const projectColumns = helper.columns([
       <span className="block min-w-0">
         <TruncatedText
           value={info.getValue()}
-          className="font-sans text-[13px] font-semibold text-text"
+          className="font-sans text-[13px] font-semibold text-u-text"
         />
         <TruncatedText
           value={`Lead · ${leadOf(info.row.original.team)?.fullName ?? "—"}`}
-          className="mt-0.5 block font-mono text-[11px] text-text3"
+          className="mt-0.5 block font-mono text-[11px] text-u-text3"
         />
       </span>
     ),
@@ -117,9 +117,9 @@ export const projectColumns = helper.columns([
     cell: (info) => {
       const project = info.row.original;
       return (
-        <span className="whitespace-nowrap font-mono text-xs text-text2">
-          <b className="font-semibold text-text">{project.companies}</b> cos ·{" "}
-          <b className="font-semibold text-text">{project.candidates}</b> cand
+        <span className="whitespace-nowrap font-mono text-xs text-u-text2">
+          <b className="font-semibold text-u-text">{project.companies}</b> cos ·{" "}
+          <b className="font-semibold text-u-text">{project.candidates}</b> cand
         </span>
       );
     },
@@ -154,7 +154,7 @@ export function TeamStack({ team }: { team: TeamMember[] }) {
           name={seat.fullName}
           src={seat.avatarUrl}
           size="sm"
-          className={`border-2 border-panel ${index > 0 ? "-ml-[7px]" : ""}`}
+          className={`border-2 border-u-surface ${index > 0 ? "-ml-[7px]" : ""}`}
         />
       ))}
     </span>
@@ -167,7 +167,7 @@ export function OpenProjectLink({ project }: { project: Project }) {
       to={`/projects/${project.id}`}
       aria-label={`Open ${project.positionTitle}`}
       title={`Open ${project.positionTitle}`}
-      className="inline-flex items-center gap-1.5 whitespace-nowrap rounded-[7px] border border-line px-[11px] py-[5px] text-xs font-semibold text-text2 transition hover:border-text3 hover:bg-panel hover:text-text"
+      className="inline-flex items-center gap-1.5 whitespace-nowrap rounded-[7px] border border-u-border-strong px-[11px] py-[5px] text-xs font-semibold text-u-text2 transition hover:border-u-text3 hover:bg-u-surface hover:text-u-text"
     >
       Open
       <Icon d={ICONS.arrowRight} size={13} />

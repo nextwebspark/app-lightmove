@@ -68,44 +68,44 @@ export function AssistantTurnView({
   return (
     <div>
       <div className="mb-3.5 flex justify-end">
-        <div className="max-w-[86%] rounded-[12px_12px_3px_12px] bg-panel2 px-3 py-2 font-sans text-[13px] leading-[1.5] text-text">
+        <div className="max-w-[86%] rounded-[12px_12px_3px_12px] bg-u-raised px-3 py-2 font-sans text-[13px] leading-[1.5] text-u-text">
           {question}
         </div>
       </div>
 
       {progress.steps.length > 0 && (
-        <ul className="mb-3 rounded-[9px] border border-line-soft bg-panel2 p-2">
+        <ul className="mb-3 rounded-[9px] border border-u-border bg-u-raised p-2">
           {progress.steps.map((step) => (
             <li key={step.seq} className="flex items-start gap-2 py-1">
               <span className="mt-0.5 grid h-[13px] w-[13px] flex-none place-items-center">
                 {step.running ? (
-                  <Icon d="M21 12a9 9 0 1 1-6.2-8.6" size={11} className="animate-spin text-ai" />
+                  <Icon d="M21 12a9 9 0 1 1-6.2-8.6" size={11} className="animate-spin text-u-inferred" />
                 ) : (
-                  <Icon d="M20 6 9 17l-5-5" size={11} className="text-green" />
+                  <Icon d="M20 6 9 17l-5-5" size={11} className="text-u-direct" />
                 )}
               </span>
-              <span className="flex-1 font-sans text-[11.5px] leading-[1.45] text-text2">
+              <span className="flex-1 font-sans text-[11.5px] leading-[1.45] text-u-text2">
                 {step.label}
               </span>
               {/* Every tool the assistant has today reads data the firm already holds. A paid step
                   says otherwise, and none exists yet — the web search is #464. */}
-              <span className="flex-none font-mono text-[10px] text-text3">free</span>
+              <span className="flex-none font-mono text-[10px] text-u-text3">free</span>
             </li>
           ))}
         </ul>
       )}
 
       {progress.answer && (
-        <div className="font-sans text-[13px] leading-[1.6] text-text">
+        <div className="font-sans text-[13px] leading-[1.6] text-u-text">
           {progress.answer}
           {running && (
-            <span className="ms-px inline-block h-3.5 w-0.5 -translate-y-px animate-pulse bg-ai align-[-2px]" />
+            <span className="ms-px inline-block h-3.5 w-0.5 -translate-y-px animate-pulse bg-u-inferred align-[-2px]" />
           )}
         </div>
       )}
 
       {running && !progress.answer && progress.steps.length === 0 && (
-        <p className="font-mono text-[11px] text-text3">Thinking…</p>
+        <p className="font-mono text-[11px] text-u-text3">Thinking…</p>
       )}
 
       {proposal && !dismissed && (
@@ -121,19 +121,19 @@ export function AssistantTurnView({
       )}
 
       {failure && (
-        <p role="alert" className="mt-2 font-sans text-[11.5px] text-red">
+        <p role="alert" className="mt-2 font-sans text-[11.5px] text-u-offlimits">
           {failure}
         </p>
       )}
 
       {failed && (
-        <div className="flex gap-2.5 rounded-[9px] border border-amber/40 bg-amber-dim px-3 py-2.5">
+        <div className="flex gap-2.5 rounded-[9px] border border-u-accent/40 bg-u-accent-tint px-3 py-2.5">
           <Icon
             d="M12 9v4m0 4h.01M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0Z"
             size={14}
-            className="mt-0.5 flex-none text-amber"
+            className="mt-0.5 flex-none text-u-accent"
           />
-          <p className="font-sans text-[11.5px] leading-[1.5] text-text2">
+          <p className="font-sans text-[11.5px] leading-[1.5] text-u-text2">
             {failureMessage(progress.errorCode)}
           </p>
         </div>

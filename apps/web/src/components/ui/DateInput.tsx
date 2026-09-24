@@ -39,15 +39,15 @@ export function DateInput({
   return (
     <div
       className={cn(
-        "relative flex w-full items-center justify-between rounded-[6px] border border-line bg-panel2",
-        "px-3 py-2.5 font-mono text-[13px] transition focus-within:border-sky",
+        "relative flex w-full items-center justify-between rounded-[6px] border border-u-border-strong bg-u-raised",
+        "px-3 py-2.5 font-mono text-[13px] transition focus-within:border-u-accent",
         className,
       )}
     >
-      <span className={value ? "text-text" : "text-text3"}>
+      <span className={value ? "text-u-text" : "text-u-text3"}>
         {value ? formatDate(value) : "Select date"}
       </span>
-      <Icon d={ICONS.calendar} size={14} className="text-text3" />
+      <Icon d={ICONS.calendar} size={14} className="text-u-text3" />
       <input
         ref={inputRef}
         type="date"

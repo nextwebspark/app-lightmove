@@ -61,7 +61,7 @@ export function RangeFilter({
             value={range.min}
             onChange={(min) => onRangeChange({ ...range, min })}
           />
-          <span className="font-sans text-[12px] font-medium text-text3">to</span>
+          <span className="font-sans text-[12px] font-medium text-u-text3">to</span>
           <BoundInput
             placeholder={maxPlaceholder}
             value={range.max}
@@ -107,23 +107,23 @@ function ModeOption({
       onClick={onSelect}
       className={cn(
         "flex items-center gap-2 rounded-md border px-[10px] py-[6px] text-left transition",
-        selected ? "border-amber bg-amber-dim" : "border-line bg-transparent hover:border-text3",
+        selected ? "border-u-accent bg-u-accent-tint" : "border-u-border-strong bg-transparent hover:border-u-text3",
       )}
     >
       <span
         className={cn(
           "grid h-[14px] w-[14px] flex-none place-items-center rounded-full shadow-[inset_0_0_0_1.5px_currentColor]",
-          selected ? "text-amber" : "text-line",
+          selected ? "text-u-accent" : "text-u-border-strong",
         )}
       >
         <span
-          className={cn("h-[7px] w-[7px] rounded-full bg-amber", selected ? "opacity-100" : "opacity-0")}
+          className={cn("h-[7px] w-[7px] rounded-full bg-u-accent", selected ? "opacity-100" : "opacity-0")}
         />
       </span>
       <span
         className={cn(
           "font-sans text-[12px] font-semibold",
-          selected ? "text-amber" : "text-text",
+          selected ? "text-u-accent" : "text-u-text",
         )}
       >
         {label}
@@ -160,7 +160,7 @@ function BoundInput({
         const raw = event.target.value.replace(/[^\d]/g, "").slice(0, MAX_BOUND_DIGITS);
         onChange(raw === "" ? null : Number(raw));
       }}
-      className="w-0 flex-1 rounded-md border border-line bg-panel2 px-2 py-[5px] font-sans text-[12px] font-medium text-text outline-none focus:border-amber"
+      className="w-0 flex-1 rounded-md border border-u-border-strong bg-u-raised px-2 py-[5px] font-sans text-[12px] font-medium text-u-text outline-none focus:border-u-accent"
     />
   );
 }
@@ -169,7 +169,7 @@ function RowSkeleton() {
   return (
     <div className="flex flex-col gap-1">
       {[0, 1, 2, 3, 4].map((row) => (
-        <div key={row} className="h-[28px] animate-pulse rounded-[5px] bg-panel2" />
+        <div key={row} className="h-[28px] animate-pulse rounded-[5px] bg-u-raised" />
       ))}
     </div>
   );

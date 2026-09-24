@@ -45,10 +45,10 @@ function columnsFor(scope: TemplateScope) {
       sortFn: (a, b) => compareText(a.original.title, b.original.title),
       cell: (info) => (
         <span className="block min-w-0">
-          <TruncatedText value={info.getValue()} className="font-sans text-[13px] font-semibold text-text" />
+          <TruncatedText value={info.getValue()} className="font-sans text-[13px] font-semibold text-u-text" />
           <TruncatedText
             value={info.row.original.code}
-            className="mt-0.5 block font-mono text-[11px] text-text3"
+            className="mt-0.5 block font-mono text-[11px] text-u-text3"
           />
         </span>
       ),

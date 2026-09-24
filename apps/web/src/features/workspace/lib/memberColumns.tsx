@@ -45,7 +45,7 @@ export const memberColumns = helper.columns([
           name={info.getValue()}
           src={info.row.original.avatarUrl}
         />
-        <TruncatedText value={info.getValue()} className="font-sans text-[13px] text-text" />
+        <TruncatedText value={info.getValue()} className="font-sans text-[13px] text-u-text" />
       </span>
     ),
   }),
