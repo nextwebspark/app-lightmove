@@ -6,7 +6,7 @@ export interface ProjectProgress {
   coveragePercent: number;
   /** Whole days to the target date — negative once it has passed, null with no target. */
   daysRemaining: number | null;
-  /** Executives mapped per week since the mandate was opened, one decimal. */
+  /** Executives mapped per week since the mandate was opened, ruled out or not, one decimal. */
   weeklyVelocity: string;
 }
 
@@ -28,7 +28,7 @@ export function projectProgress(project: Project, today: Date = new Date()): Pro
     : null;
 
   const weeksOpen = Math.max(1, (midnight.getTime() - startOfDay(new Date(project.createdAt)).getTime()) / (7 * DAY_MS));
-  const weeklyVelocity = (project.candidates / weeksOpen).toFixed(1);
+  const weeklyVelocity = (project.mappedCandidates / weeksOpen).toFixed(1);
 
   return { coveragePercent, daysRemaining, weeklyVelocity };
 }

@@ -30,12 +30,23 @@ export function StagePill({ stage }: { stage: ProjectStage }) {
   );
 }
 
-const HEALTH_STYLES: Record<ProjectHealth, { label: string; dot: string; text: string }> = {
-  OK: { label: "On track", dot: "bg-u-direct", text: "text-u-text2" },
-  RISK: { label: "At risk", dot: "bg-u-signal", text: "text-u-signal" },
-  OFF: { label: "Off track", dot: "bg-u-offlimits", text: "text-u-offlimits" },
-  DONE: { label: "Complete", dot: "bg-u-text3", text: "text-u-text3" },
+const HEALTH_STYLES: Record<ProjectHealth, { label: string; dot: string; text: string; pill: string }> = {
+  OK: { label: "On track", dot: "bg-u-direct", text: "text-u-text2", pill: "bg-u-direct-tint text-u-direct" },
+  RISK: { label: "At risk", dot: "bg-u-signal", text: "text-u-signal", pill: "bg-u-signal-tint text-u-signal" },
+  OFF: { label: "Off track", dot: "bg-u-offlimits", text: "text-u-offlimits", pill: "bg-u-offlimits-tint text-u-offlimits" },
+  DONE: { label: "Complete", dot: "bg-u-text3", text: "text-u-text3", pill: "bg-u-raised text-u-text3" },
 };
+
+export function HealthPill({ health }: { health: ProjectHealth }) {
+  const { label, pill } = HEALTH_STYLES[health];
+  return (
+    <span
+      className={`inline-flex items-center whitespace-nowrap rounded-md px-[9px] py-[3px] text-[10.5px] font-semibold uppercase tracking-[0.06em] ${pill}`}
+    >
+      {label}
+    </span>
+  );
+}
 
 export function HealthDot({ health }: { health: ProjectHealth }) {
   const { label, dot, text } = HEALTH_STYLES[health];

@@ -65,6 +65,7 @@ const created = (clientId: string): Project => ({
   representatives: [],
   companies: 0,
   candidates: 0,
+  mappedCandidates: 0,
   engagedCandidates: 0,
   mappedCompanies: 0,
   createdAt: "2026-01-01T00:00:00Z",

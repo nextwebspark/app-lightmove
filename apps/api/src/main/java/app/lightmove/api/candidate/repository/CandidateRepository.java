@@ -46,32 +46,38 @@ public interface CandidateRepository extends JpaRepository<Candidate, UUID> {
      * one query rather than one per row. Grouped, so a mandate with nobody mapped is missing from the
      * result rather than zero. Which statuses the caller leaves out is the caller's policy.
      */
-    @Query("select new app.lightmove.api.candidate.model.CandidateCount(c.projectId, count(c)) "
+    @Query("select c.projectId as projectId, count(c) as total "
             + "from Candidate c where c.projectId in :projectIds "
             + "and c.status not in :excludedStatuses group by c.projectId")
     List<CandidateCount> countByProjectIdInExcludingStatuses(Collection<UUID> projectIds,
                                                              Collection<CandidateStatus> excludedStatuses);
 
-    @Query("select new app.lightmove.api.candidate.model.CandidateCount(c.projectId, count(c)) "
+    @Query("select c.projectId as projectId, count(c) as total "
             + "from Candidate c where c.projectId in :projectIds "
             + "and c.status in :statuses group by c.projectId")
     List<CandidateCount> countByProjectIdInAndStatusIn(Collection<UUID> projectIds,
                                                        Collection<CandidateStatus> statuses);
 
+    /** Everyone a mandate has mapped, ruled out or not — the side panel's "Executives mapped". */
+    @Query("select c.projectId as projectId, count(c) as total "
+            + "from Candidate c where c.projectId in :projectIds group by c.projectId")
+    List<CandidateCount> countEveryoneByProjectIdIn(Collection<UUID> projectIds);
+
     /**
      * Per mandate, how many of its non-declined triaged companies have at least one executive mapped
-     * at them, as {@code [projectId, count]} rows. Native for the reason
-     * {@link #findTriageCompanyIdsRankedByExecutiveStatus} is: the declined filter lives on
-     * {@code triagecompany}'s table, which this side may join but not reach through an entity.
+     * at them. Native for the reason {@link #findTriageCompanyIdsRankedByExecutiveStatus} is: the
+     * declined filter lives on {@code triagecompany}'s table, which this side may join but not reach
+     * through an entity. The aliases are quoted because Postgres folds a bare one to lower case, and
+     * the projection matches on {@code projectId}.
      */
     @Query(
-            value = "select c.project_id, count(distinct c.triage_company_id) "
+            value = "select c.project_id as \"projectId\", count(distinct c.triage_company_id) as \"total\" "
                     + "from app_lm_project_candidate c "
                     + "join app_lm_project_triage_company t on t.id = c.triage_company_id "
-                    + "where c.project_id in (:projectIds) and t.status <> 'DECLINED' "
+                    + "where c.project_id in (:projectIds) and t.status <> :declinedStatus "
                     + "group by c.project_id",
             nativeQuery = true)
-    List<Object[]> countMappedCompaniesByProjectIdIn(Collection<UUID> projectIds);
+    List<CandidateCount> countMappedCompaniesByProjectIdIn(Collection<UUID> projectIds, String declinedStatus);
 
     boolean existsByIdAndProjectId(UUID id, UUID projectId);
 

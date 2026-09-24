@@ -2,7 +2,7 @@ import { useInfiniteQuery } from "@tanstack/react-query";
 import { useEffect, useState, type ReactNode } from "react";
 import { Link } from "react-router-dom";
 import { Icon, ICONS } from "../../../components/layout/Icon";
-import { Avatar, Drawer, StagePill } from "../../../components/ui";
+import { Avatar, Drawer, HealthPill, StagePill } from "../../../components/ui";
 import { DrawerCloseButton } from "../../../components/ui/Drawer";
 import { cn } from "../../../lib/cn";
 import { formatDate, formatNumber } from "../../../lib/format";
@@ -11,12 +11,11 @@ import { projectActivity, projectActivityKey } from "../api/projectsApi";
 import type {
   AttachedRepresentative,
   Project,
-  ProjectHealth,
   ProjectStage,
   StaffRole,
   TeamMember,
 } from "../api/types";
-import { canExecuteProjectWork } from "../lib/access";
+import { canExecuteProjectWork, canManageProjectAccess } from "../lib/access";
 import { activityLines, formatActivityTime } from "../lib/activity";
 import { projectProgress } from "../lib/projectProgress";
 import { staffRoleOf } from "../lib/projectTeamColumns";
@@ -35,6 +34,7 @@ export function ProjectDrawer({ project, onClose }: { project: Project | null; o
 function ProjectDrawerPanel({ project, onClose }: { project: Project; onClose: () => void }) {
   const { user } = useAuth();
   const isStaff = canExecuteProjectWork(project, user?.id, user?.workspace?.roles);
+  const canManageAccess = canManageProjectAccess(project, user?.id, user?.workspace?.roles);
   const staff = staffLeadsFirst(project.team);
 
   return (
@@ -55,7 +55,7 @@ function ProjectDrawerPanel({ project, onClose }: { project: Project; onClose: (
         <SectionLabel className="mt-[18px]">Key metrics</SectionLabel>
         <div className="grid grid-cols-2 gap-2.5">
           <MetricTile value={formatNumber(project.companies)} label="Universe companies" />
-          <MetricTile value={formatNumber(project.candidates)} label="Executives mapped" />
+          <MetricTile value={formatNumber(project.mappedCandidates)} label="Executives mapped" />
           <MetricTile value={formatNumber(project.engagedCandidates)} label="Engaged" />
           <MetricTile value={`${projectProgress(project).weeklyVelocity}/wk`} label="Mapping velocity" />
         </div>
@@ -63,7 +63,7 @@ function ProjectDrawerPanel({ project, onClose }: { project: Project; onClose: (
         <SectionLabel className="mt-[18px]">Stage gates</SectionLabel>
         <StageGates stage={project.stage} />
 
-        <SectionLabel className="mt-[18px]" action={isStaff ? <InviteLink projectId={project.id} /> : null}>
+        <SectionLabel className="mt-[18px]" action={canManageAccess ? <InviteLink projectId={project.id} /> : null}>
           Recruiting team
         </SectionLabel>
         <div className="overflow-hidden rounded-[10px] border border-u-border">
@@ -83,7 +83,7 @@ function ProjectDrawerPanel({ project, onClose }: { project: Project; onClose: (
           )}
         </div>
 
-        <SectionLabel className="mt-[18px]" action={isStaff ? <InviteLink projectId={project.id} /> : null}>
+        <SectionLabel className="mt-[18px]" action={canManageAccess ? <InviteLink projectId={project.id} /> : null}>
           Hiring managers
         </SectionLabel>
         <div className="overflow-hidden rounded-[10px] border border-u-border">
@@ -96,13 +96,15 @@ function ProjectDrawerPanel({ project, onClose }: { project: Project; onClose: (
           )}
         </div>
 
-        <Link
-          to={`/projects/${project.id}/team`}
-          className="mt-3 inline-flex items-center gap-1.5 text-note font-medium text-u-text2 hover:text-u-text hover:underline"
-        >
-          <Icon d={ICONS.settings} size={13} />
-          Manage team &amp; hiring manager access in position settings
-        </Link>
+        {canManageAccess && (
+          <Link
+            to={`/projects/${project.id}/team`}
+            className="mt-3 inline-flex items-center gap-1.5 text-note font-medium text-u-text2 hover:text-u-text hover:underline"
+          >
+            <Icon d={ICONS.settings} size={13} />
+            Manage team &amp; hiring manager access in position settings
+          </Link>
+        )}
 
         {isStaff && <RecentActivity projectId={project.id} />}
       </div>
@@ -263,9 +265,13 @@ function StageGates({ stage }: { stage: ProjectStage }) {
 
 const INITIAL_ACTIVITY_LINES = 4;
 const MORE_ACTIVITY_LINES = 10;
+/** Pages read on their own per ask. A run of autosaves can fold a page into one line, and an uncapped
+ *  loop would read the whole history just because the drawer opened. */
+const AUTO_FETCH_PAGES = 3;
 
 function RecentActivity({ projectId }: { projectId: string }) {
   const [visible, setVisible] = useState(INITIAL_ACTIVITY_LINES);
+  const [autoFetchesLeft, setAutoFetchesLeft] = useState(AUTO_FETCH_PAGES);
   const activity = useInfiniteQuery({
     queryKey: projectActivityKey(projectId),
     queryFn: ({ pageParam }) => projectActivity(projectId, pageParam),
@@ -277,10 +283,12 @@ function RecentActivity({ projectId }: { projectId: string }) {
   const { hasNextPage, isFetchingNextPage, fetchNextPage } = activity;
 
   // A page can collapse into fewer lines than it has entries, so keep reading until the lines asked
-  // for exist or the feed runs out.
+  // for exist, the feed runs out, or this ask's budget does — then See more is the person's to press.
   useEffect(() => {
-    if (lines.length < visible && hasNextPage && !isFetchingNextPage) void fetchNextPage();
-  }, [lines.length, visible, hasNextPage, isFetchingNextPage, fetchNextPage]);
+    if (lines.length >= visible || !hasNextPage || isFetchingNextPage || autoFetchesLeft === 0) return;
+    setAutoFetchesLeft((left) => left - 1);
+    void fetchNextPage();
+  }, [lines.length, visible, hasNextPage, isFetchingNextPage, autoFetchesLeft, fetchNextPage]);
 
   const canShowMore = lines.length > visible || Boolean(hasNextPage);
 
@@ -310,7 +318,10 @@ function RecentActivity({ projectId }: { projectId: string }) {
           {canShowMore && (
             <button
               type="button"
-              onClick={() => setVisible((shown) => shown + MORE_ACTIVITY_LINES)}
+              onClick={() => {
+                setVisible((shown) => shown + MORE_ACTIVITY_LINES);
+                setAutoFetchesLeft(AUTO_FETCH_PAGES);
+              }}
               disabled={isFetchingNextPage}
               className="mt-3 text-note font-medium text-u-accent hover:underline disabled:opacity-60"
             >
@@ -330,27 +341,6 @@ function firstNameOf(fullName: string): string {
 function staffLeadsFirst(team: TeamMember[]): TeamMember[] {
   const staff = team.filter((member) => member.projectRoles.some((role) => role !== "CLIENT"));
   return staff.sort((a, b) => Number(staffRoleOf(b) === "LEAD") - Number(staffRoleOf(a) === "LEAD"));
-}
-
-const HEALTH_PILL: Record<ProjectHealth, { label: string; className: string }> = {
-  OK: { label: "On track", className: "bg-u-direct-tint text-u-direct" },
-  RISK: { label: "At risk", className: "bg-u-signal-tint text-u-signal" },
-  OFF: { label: "Off track", className: "bg-u-offlimits-tint text-u-offlimits" },
-  DONE: { label: "Complete", className: "bg-u-raised text-u-text3" },
-};
-
-function HealthPill({ health }: { health: ProjectHealth }) {
-  const { label, className } = HEALTH_PILL[health];
-  return (
-    <span
-      className={cn(
-        "inline-flex items-center whitespace-nowrap rounded-md px-[9px] py-[3px] text-[10.5px] font-semibold uppercase tracking-[0.06em]",
-        className,
-      )}
-    >
-      {label}
-    </span>
-  );
 }
 
 const ROLE_CHIP: Record<StaffRole, { label: string; className: string }> = {

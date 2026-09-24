@@ -503,7 +503,8 @@ public class ProjectService {
 
         return new Assembly(seatsByProject, memberById, userById, clientById,
                 repsByClientId, pendingRepIdsByProjectId, companyCounter.countByProject(ids),
-                candidateCounter.countByProject(ids), candidateCounter.countEngagedByProject(ids),
+                candidateCounter.countByProject(ids), candidateCounter.countMappedByProject(ids),
+                candidateCounter.countEngagedByProject(ids),
                 candidateCounter.countMappedCompaniesByProject(ids), LocalDate.now());
     }
 
@@ -568,6 +569,7 @@ public class ProjectService {
                 project.getDeliveryDate(), project.getMappingTargetDate(), team, attachedRepresentatives,
                 assembly.companyCountByProject().getOrDefault(project.getId(), 0L),
                 assembly.candidateCountByProject().getOrDefault(project.getId(), 0L),
+                assembly.mappedCandidateCountByProject().getOrDefault(project.getId(), 0L),
                 assembly.engagedCountByProject().getOrDefault(project.getId(), 0L),
                 assembly.mappedCompanyCountByProject().getOrDefault(project.getId(), 0L),
                 project.getCreatedAt());
@@ -589,6 +591,7 @@ public class ProjectService {
                             Map<UUID, Set<UUID>> pendingRepIdsByProjectId,
                             Map<UUID, Long> companyCountByProject,
                             Map<UUID, Long> candidateCountByProject,
+                            Map<UUID, Long> mappedCandidateCountByProject,
                             Map<UUID, Long> engagedCountByProject,
                             Map<UUID, Long> mappedCompanyCountByProject,
                             LocalDate today) {

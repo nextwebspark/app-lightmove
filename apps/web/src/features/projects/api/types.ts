@@ -70,6 +70,8 @@ export interface Project {
   companies: number;
   /** Every executive the mandate still has in play — those who left the running are not counted. */
   candidates: number;
+  /** Every executive the mandate has mapped, ruled out or not. */
+  mappedCandidates: number;
   /** Executives who have answered: engaged or interested. */
   engagedCandidates: number;
   /** Universe companies with at least one executive mapped at them: the side panel's coverage. */

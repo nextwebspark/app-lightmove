@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { render, screen } from "@testing-library/react";
+import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
@@ -60,6 +60,7 @@ const project: Project = {
   ],
   companies: 8,
   candidates: 6,
+  mappedCandidates: 8,
   engagedCandidates: 2,
   mappedCompanies: 3,
   createdAt: "2026-07-13T10:00:00Z",
@@ -122,7 +123,8 @@ describe("ProjectDrawer", () => {
     renderDrawer();
 
     expect(screen.getByText("Universe companies").closest("div")).toHaveTextContent("8");
-    expect(screen.getByText("Executives mapped").closest("div")).toHaveTextContent("6");
+    // Everyone mapped, not the six still in play: a refusal must not shrink what was mapped.
+    expect(screen.getByText("Executives mapped").closest("div")).toHaveTextContent("8");
     expect(screen.getByText("Engaged").closest("div")).toHaveTextContent("2");
   });
 
@@ -176,6 +178,29 @@ describe("ProjectDrawer", () => {
     expect(screen.queryByText("Recent activity")).not.toBeInTheDocument();
     expect(screen.queryByRole("link", { name: "+ Invite" })).not.toBeInTheDocument();
     expect(projectsApi.projectActivity).not.toHaveBeenCalled();
+  });
+
+  it("stops reading on its own after a few pages that fold into one line", async () => {
+    let cursor = 100;
+    vi.mocked(projectsApi.projectActivity).mockImplementation(async () => {
+      cursor -= 1;
+      return { entries: [entry(cursor, "CANDIDATE_ADDED")], nextCursor: cursor };
+    });
+    renderDrawer();
+
+    await waitFor(() => expect(projectsApi.projectActivity).toHaveBeenCalledTimes(4));
+    await new Promise((settle) => setTimeout(settle, 50));
+    expect(projectsApi.projectActivity).toHaveBeenCalledTimes(4);
+    expect(screen.getByRole("button", { name: "See more" })).toBeEnabled();
+  });
+
+  it("shows a researcher the activity but no way to change who is on the position", async () => {
+    viewer.id = "u-m1";
+    renderDrawer();
+
+    expect(await screen.findByText("Recent activity")).toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: "+ Invite" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: /manage team & hiring manager access/i })).not.toBeInTheDocument();
   });
 
   it("offers no controls that change the team", () => {

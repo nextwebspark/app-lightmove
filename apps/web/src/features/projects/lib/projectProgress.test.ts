@@ -19,6 +19,7 @@ const base: Project = {
   representatives: [],
   companies: 19,
   candidates: 14,
+  mappedCandidates: 14,
   engagedCandidates: 0,
   mappedCompanies: 12,
   createdAt: "2026-08-27T09:00:00Z",

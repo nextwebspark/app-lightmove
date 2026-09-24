@@ -1,3 +1,4 @@
+import { CANDIDATE_STATUSES } from "../../candidates/lib/candidateVocabulary";
 import type { ProjectActivityEntry } from "../api/types";
 
 /** One line of the side panel's Recent activity: a run of the same act by the same person, merged. */
@@ -68,16 +69,6 @@ function triageStage(status: string | undefined): "universe" | "shortlisted" | "
 
 const TRIAGE_VERB = { universe: "added", shortlisted: "shortlisted", declined: "declined" } as const;
 
-const CANDIDATE_STATUS: Record<string, string> = {
-  identified: "Identified",
-  contacted: "Contacted",
-  engaged: "Engaged",
-  interested: "Interested",
-  notInterested: "Not interested",
-  offLimits: "Off limits",
-  outOfScope: "Out of scope",
-};
-
 const EXPORT_STAGE: Record<string, string> = {
   inUniverse: "universe",
   shortlisted: "shortlist",
@@ -137,7 +128,7 @@ function phraseOf(entry: ProjectActivityEntry): Phrase | null {
     case "CANDIDATE_ADDED":
       return { group: entry.type, count: 1, one: "mapped an executive", many: executives("mapped") };
     case "CANDIDATE_UPDATED": {
-      const label = details.status ? CANDIDATE_STATUS[details.status] : undefined;
+      const label = CANDIDATE_STATUSES.find((status) => status.value === details.status)?.label;
       if (!label) return null;
       return {
         group: `${entry.type}:${details.status}`,

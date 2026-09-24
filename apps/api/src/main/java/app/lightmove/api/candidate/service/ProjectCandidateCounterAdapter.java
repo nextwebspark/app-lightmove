@@ -4,6 +4,7 @@ import app.lightmove.api.candidate.constant.CandidateStatus;
 import app.lightmove.api.candidate.model.CandidateCount;
 import app.lightmove.api.candidate.repository.CandidateRepository;
 import app.lightmove.api.project.service.ProjectCandidateCounter;
+import app.lightmove.api.triagecompany.constant.TriageCompanyStatus;
 import java.util.Collection;
 import java.util.EnumSet;
 import java.util.List;
@@ -47,6 +48,14 @@ class ProjectCandidateCounterAdapter implements ProjectCandidateCounter {
     }
 
     @Override
+    public Map<UUID, Long> countMappedByProject(Collection<UUID> projectIds) {
+        if (projectIds.isEmpty()) {
+            return Map.of();
+        }
+        return byProject(candidates.countEveryoneByProjectIdIn(projectIds));
+    }
+
+    @Override
     public Map<UUID, Long> countEngagedByProject(Collection<UUID> projectIds) {
         if (projectIds.isEmpty()) {
             return Map.of();
@@ -59,11 +68,11 @@ class ProjectCandidateCounterAdapter implements ProjectCandidateCounter {
         if (projectIds.isEmpty()) {
             return Map.of();
         }
-        return candidates.countMappedCompaniesByProjectIdIn(projectIds).stream()
-                .collect(Collectors.toMap(row -> (UUID) row[0], row -> ((Number) row[1]).longValue()));
+        return byProject(candidates.countMappedCompaniesByProjectIdIn(
+                projectIds, TriageCompanyStatus.DECLINED.name()));
     }
 
     private static Map<UUID, Long> byProject(List<CandidateCount> counts) {
-        return counts.stream().collect(Collectors.toMap(CandidateCount::projectId, CandidateCount::total));
+        return counts.stream().collect(Collectors.toMap(CandidateCount::getProjectId, CandidateCount::getTotal));
     }
 }

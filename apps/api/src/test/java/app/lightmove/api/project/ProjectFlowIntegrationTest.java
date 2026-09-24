@@ -365,7 +365,7 @@ class ProjectFlowIntegrationTest extends FlowTestSupport {
     }
 
     @Test
-    @DisplayName("coverage counts universe companies with someone mapped, and engaged executives")
+    @DisplayName("coverage counts universe companies with someone mapped, everyone mapped, and engaged executives")
     void coverageAndEngagedCounts() throws Exception {
         String admin = adminOf("Coverage Firm");
         String projectId = createProject(admin, createClient(admin, "Agthia Group"), "Group CFO");
@@ -375,6 +375,7 @@ class ProjectFlowIntegrationTest extends FlowTestSupport {
         String declined = captureCompany(admin, projectId, "Gulf Trader");
         mapExecutive(admin, projectId, covered, "Yasmin El-Sayed", "engaged");
         mapExecutive(admin, projectId, covered, "Hana Aziz", null);
+        mapExecutive(admin, projectId, covered, "Karim Nassar", "notInterested");
         // Someone at a declined company covers nothing: coverage is read against the universe.
         mapExecutive(admin, projectId, declined, "Omar Farouk", "interested");
         decline(admin, projectId, declined);
@@ -386,6 +387,9 @@ class ProjectFlowIntegrationTest extends FlowTestSupport {
 
         assertThat(project.get("companies").asLong()).isEqualTo(2L);
         assertThat(project.get("mappedCompanies").asLong()).isEqualTo(1L);
+        // Ruled out still counts as mapped; only the in-play number drops.
+        assertThat(project.get("mappedCandidates").asLong()).isEqualTo(4L);
+        assertThat(project.get("candidates").asLong()).isEqualTo(3L);
         assertThat(project.get("engagedCandidates").asLong()).isEqualTo(2L);
     }
 

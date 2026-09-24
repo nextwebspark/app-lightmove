@@ -6,7 +6,7 @@ import java.util.UUID;
 
 /**
  * The projects list's people-side numbers: how many executives each mandate still has in play, how
- * many of them are engaged, and how many of its universe companies have anyone mapped at all — the
+ * many it has mapped in all, how many are engaged, and how many of its universe companies have anyone mapped at all — the
  * last being the side panel's mapping coverage against {@link ProjectCompanyCounter}'s universe.
  *
  * <p>Declared here and implemented in {@code candidate} for the reason given on
@@ -22,6 +22,9 @@ public interface ProjectCandidateCounter {
      * by side under one "Pipeline" heading.
      */
     Map<UUID, Long> countByProject(Collection<UUID> projectIds);
+
+    /** Every executive mapped, ruled out or not — what the side panel's mapping velocity divides. */
+    Map<UUID, Long> countMappedByProject(Collection<UUID> projectIds);
 
     /** Executives who have answered: engaged or interested. */
     Map<UUID, Long> countEngagedByProject(Collection<UUID> projectIds);
