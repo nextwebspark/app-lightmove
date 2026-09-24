@@ -9,13 +9,21 @@
 <x-dc>
 <helmet>
   <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700;900&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="">
+  <link rel="stylesheet" href="uncava-tokens.css">
   <style>
-    :root{--bg:#f8f9fb;--panel:#ffffff;--panel2:#f3f4f6;--line:#e2e4e9;--line-soft:#edeef2;--text:#111113;--text2:#475569;--text3:#64748b;--amber:#a67c2e;--amber-btn:#e2b65c;--amber-dim:rgba(226,182,92,.14);--on-amber:#1a1712;--sky:#2563eb;--sky-dim:rgba(37,99,235,.10);--red:#dc2626;--red-dim:rgba(220,38,38,.08);--green:#059669;--green-dim:rgba(5,150,105,.10);--ai:#6366f1;--ai2:#3b82f6;--ai-line:#4f46e5;--ai-dim:rgba(99,102,241,.10);--ai-soft:rgba(99,102,241,.06);--shadow:0 8px 28px rgba(15,23,42,.10);--radius-panel:14px;--mono:'Geist','Inter',system-ui,sans-serif;--sans:'Geist','Inter',system-ui,sans-serif;
-      --t-eyebrow:9.5px;--t-meta:11px;--t-note:12px;--t-body:13px;--t-lead:15px;--t-subhead:17px;--t-title:19px;--t-figure:27px;
-      --u-bg:#ffffff;--u-surface:#f7f8fa;--u-raised:#eceff3;--u-sunken:#e4e8ee;--u-border:rgba(3,7,18,.09);--u-border-strong:rgba(3,7,18,.16);--u-scrim:rgba(3,7,18,.4);--u-text:#0b0d12;--u-text2:#4c5462;--u-text3:#6b7382;--u-accent:#4a56d6;--u-accent-solid:#4a56d6;--u-accent-tint:rgba(74,86,214,.09);--u-accent-ring:rgba(74,86,214,.4);--u-signal:#a8602f;--u-signal-tint:rgba(168,96,47,.1);--u-offlimits:#d93a45;--u-offlimits-tint:rgba(217,58,69,.1);--u-direct:#0f9d6b;--u-direct-tint:rgba(15,157,107,.1);--u-adjacent:#1f72d4;--u-adjacent-tint:rgba(31,114,212,.1);--u-inferred:#8244d6;--u-inferred-tint:rgba(130,68,214,.1);--u-chart-1:#4a56d6;--u-chart-2:#0f9d6b;--u-chart-3:#a8602f;--u-chart-4:#8244d6;--u-chart-5:#1e8fa8;--u-chart-6:#d93a45;--u-seq-1:#e4e8f6;--u-seq-2:#b9c0ee;--u-seq-3:#8189f7;--u-seq-4:#4a56d6;--u-seq-5:#2e3878;--u-grid-axis:rgba(3,7,18,.14);--u-grid-line:rgba(3,7,18,.07);--u-num:'JetBrains Mono',ui-monospace,SFMono-Regular,monospace;--u-e1:0 1px 2px rgba(3,7,18,.06);--u-e3:0 18px 44px -10px rgba(3,7,18,.2)}
-    body.dark{--bg:#0c0d0e;--panel:#16171a;--panel2:#131316;--line:#2a2a2e;--line-soft:#212326;--text:#f8fafc;--text2:#cbd5e1;--text3:#94a3b8;--amber:#e2b65c;--amber-dim:rgba(226,182,92,.16);--sky:#60a5fa;--sky-dim:rgba(96,165,250,.16);--red:#f87171;--red-dim:rgba(248,113,113,.14);--green:#34d399;--green-dim:rgba(52,211,153,.16);--ai:#818cf8;--ai2:#60a5fa;--ai-line:#6366f1;--ai-dim:rgba(129,140,248,.16);--ai-soft:rgba(129,140,248,.09);--shadow:0 8px 28px rgba(0,0,0,.5);
-      --u-bg:#08090b;--u-surface:#0e1013;--u-raised:#15181d;--u-sunken:#1d2128;--u-border:rgba(255,255,255,.07);--u-border-strong:rgba(255,255,255,.14);--u-scrim:rgba(4,5,7,.72);--u-text:#f4f6f8;--u-text2:#a6adbb;--u-text3:#7c8493;--u-accent:#6e79f2;--u-accent-solid:#4a56d6;--u-accent-tint:rgba(110,121,242,.14);--u-accent-ring:rgba(110,121,242,.45);--u-signal:#d4855c;--u-signal-tint:rgba(212,133,92,.12);--u-offlimits:#f2626b;--u-offlimits-tint:rgba(242,98,107,.12);--u-direct:#3ecf8e;--u-direct-tint:rgba(62,207,142,.12);--u-adjacent:#5aa9ff;--u-adjacent-tint:rgba(90,169,255,.12);--u-inferred:#b07cf5;--u-inferred-tint:rgba(176,124,245,.12);--u-chart-1:#6e79f2;--u-chart-2:#3ecf8e;--u-chart-3:#d4855c;--u-chart-4:#b07cf5;--u-chart-5:#4fc3d9;--u-chart-6:#f2626b;--u-seq-1:#1e2440;--u-seq-2:#2e3878;--u-seq-3:#4a56d6;--u-seq-4:#6e79f2;--u-seq-5:#a3a9fa;--u-grid-axis:rgba(255,255,255,.1);--u-grid-line:rgba(255,255,255,.055);--u-e1:0 0 #0000;--u-e3:0 18px 44px -10px rgba(0,0,0,.8)}
+    :root{
+      --amber:var(--u-accent);--amber-btn:var(--u-accent-solid);--amber-dim:var(--u-accent-tint);--on-amber:#ffffff;
+      --sky:var(--u-accent);--sky-dim:var(--u-accent-tint);--ring:var(--u-accent-ring);
+      --red:var(--u-offlimits);--red-dim:var(--u-offlimits-tint);
+      --green:var(--u-direct);--green-dim:var(--u-direct-tint);
+      --ai:var(--u-inferred);--ai2:var(--u-adjacent);--ai-line:var(--u-accent);--ai-dim:var(--u-inferred-tint);--ai-soft:var(--u-inferred-tint);
+      --bg:var(--u-bg);--panel:var(--u-surface);--panel2:var(--u-raised);--line:var(--u-border-strong);--line-soft:var(--u-border);
+      --text:var(--u-text);--text2:var(--u-text2);--text3:var(--u-text3);
+      --shadow:var(--u-e3);--radius-panel:var(--u-r-modal);
+      --mono:var(--u-font-ui);--sans:var(--u-font-ui);
+      --u-text2:var(--u-text-2);--u-text3:var(--u-text-3);--u-num:var(--u-font-num);
+    }
     *{box-sizing:border-box}
     html,body{height:100%;margin:0}
     body{background:var(--bg);color:var(--text);font:400 14px/1.45 var(--sans);-webkit-font-smoothing:antialiased}
@@ -26,12 +34,12 @@
     @keyframes spin{to{transform:rotate(360deg)}}
     @keyframes slideInEnd{from{transform:translateX(100%)}to{transform:none}}
   </style>
-  <script>try{var t=localStorage.getItem('lm-theme');if(t==='dark'||(t!=='light'&&window.matchMedia&&matchMedia('(prefers-color-scheme: dark)').matches)){document.body.classList.add('dark');}}catch(e){}</script>
+  <script>try{var t=localStorage.getItem('lm-theme');document.documentElement.setAttribute('data-theme', t==='light'?'light':'dark');}catch(e){}</script>
 </helmet>
 <div data-screen-label="Signup" style="min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:24px;padding:24px">
 
   <sc-if value="{{ isStep1 }}" hint-placeholder-val="{{ true }}">
-    <button type="button" onClick="{{ toggleTheme }}" aria-label="{{ themeLabel }}" title="{{ themeLabel }}" style="position:fixed;right:16px;top:16px;z-index:50;width:28px;height:28px;display:grid;place-items:center;padding:0;border-radius:8px;border:1px solid var(--line);background:var(--panel2);color:var(--text3);cursor:pointer;outline:none;transition:color .15s" style-hover="color:var(--text)">
+    <button type="button" onClick="{{ toggleTheme }}" aria-label="{{ themeLabel }}" title="{{ themeLabel }}" style="position:fixed;right:16px;top:16px;z-index:50;width:28px;height:28px;display:grid;place-items:center;padding:0;border-radius:6px;border:1px solid var(--line);background:var(--panel2);color:var(--text3);cursor:pointer;outline:none;transition:color .15s" style-hover="color:var(--text)">
       <sc-if value="{{ dark }}" hint-placeholder-val="{{ false }}">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="12" cy="12" r="4"></circle><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"></path></svg>
       </sc-if>
@@ -43,7 +51,7 @@
 
   <div style="display:flex;align-items:center;gap:14px;animation:fadeUp .5s ease both">
     <svg viewBox="-36 -51 72 104" fill="none" stroke="currentColor" style="height:56px;width:auto;flex:none;color:var(--text)" aria-hidden="true"><path d="M-32 10 L 0 -8 L 32 10 L 0 28 Z M-32 10 V 32 L 0 50 L 32 32 V 10 M0 28 V 50" stroke-width="2.6" stroke-linejoin="round"></path><path d="M0 -48 L 32 -30 L 0 -12 L -32 -30 Z" fill="currentColor" stroke="none"></path></svg>
-    <span style="font:500 19px var(--sans);text-transform:uppercase;letter-spacing:.32em;color:var(--text)">Uncava</span>
+    <span style="font:200 19px var(--u-font-brand);text-transform:uppercase;letter-spacing:.38em;color:var(--text)">Uncava</span>
   </div>
 
   <nav aria-label="Signup progress" data-screen-label="Stepper" style="display:flex;align-items:center;animation:fadeUp .5s .04s ease both">
@@ -62,18 +70,18 @@
 
   <!-- Step 1 · Account -->
   <sc-if value="{{ isStep1 }}" hint-placeholder-val="{{ true }}">
-    <div data-screen-label="Step 1 · Create your account" style="width:480px;max-width:94vw;border-radius:14px;border:1px solid var(--line);background:var(--panel);padding:32px;box-shadow:var(--shadow);animation:fadeUp .5s .08s ease both">
-      <h1 style="margin:0;font:600 19px/1.25 var(--sans)">Create your account</h1>
+    <div data-screen-label="Step 1 · Create your account" style="width:480px;max-width:94vw;border-radius:16px;border:1px solid var(--line);background:var(--panel);padding:32px;box-shadow:var(--shadow);animation:fadeUp .5s .08s ease both">
+      <h1 style="margin: 0; font: 600 19px/1.25 var(--sans); font-weight: 600">Create your account</h1>
       <p style="margin:4px 0 24px;font:400 12px var(--mono);color:var(--text3)">Step 1 of 4 · your details</p>
 
       <label style="display:block;margin-bottom:16px">
         <span style="display:flex;align-items:baseline;justify-content:space-between;margin-bottom:6px"><span style="font:600 10px var(--mono);letter-spacing:.12em;text-transform:uppercase;color:var(--text3)">Full name</span></span>
-        <input autocomplete="name" placeholder="Yara Haddad" value="{{ fullName }}" onInput="{{ setField }}" data-field="fullName" style="width:100%;border-radius:8px;border:1px solid var(--line);background:var(--panel2);padding:10px 12px;font:400 13px var(--mono);color:var(--text);outline:none;transition:border-color .15s" style-focus="border-color:var(--sky)">
+        <input autocomplete="name" placeholder="Yara Haddad" value="{{ fullName }}" onInput="{{ setField }}" data-field="fullName" style="width:100%;border-radius:6px;border:1px solid var(--line);background:var(--panel2);padding:10px 12px;font:400 13px var(--mono);color:var(--text);outline:none;transition:border-color .15s" style-focus="border-color:var(--sky);box-shadow:0 0 0 1px var(--ring)">
       </label>
 
       <label style="display:block;margin-bottom:16px">
         <span style="display:flex;align-items:baseline;justify-content:space-between;margin-bottom:6px"><span style="font:600 10px var(--mono);letter-spacing:.12em;text-transform:uppercase;color:var(--text3)">Work email</span></span>
-        <input type="email" autocomplete="email" placeholder="you@firm.com" value="{{ email }}" onInput="{{ setField }}" data-field="email" aria-invalid="{{ emailTaken }}" style="width:100%;border-radius:8px;border:1px solid {{ emailBorder }};background:var(--panel2);padding:10px 12px;font:400 13px var(--mono);color:var(--text);outline:none;transition:border-color .15s" style-focus="border-color:var(--sky)">
+        <input type="email" autocomplete="email" placeholder="you@firm.com" value="{{ email }}" onInput="{{ setField }}" data-field="email" aria-invalid="{{ emailTaken }}" style="width:100%;border-radius:6px;border:1px solid {{ emailBorder }};background:var(--panel2);padding:10px 12px;font:400 13px var(--mono);color:var(--text);outline:none;transition:border-color .15s" style-focus="border-color:var(--sky);box-shadow:0 0 0 1px var(--ring)">
         <span aria-live="polite">
           <sc-if value="{{ emailTaken }}" hint-placeholder-val="{{ false }}">
             <span style="display:block;margin-top:6px;font:400 11px var(--mono);color:var(--red)">An account with this email already exists</span>
@@ -92,20 +100,20 @@
 
       <label style="display:block;margin-bottom:16px">
         <span style="display:flex;align-items:baseline;justify-content:space-between;margin-bottom:6px"><span style="font:600 10px var(--mono);letter-spacing:.12em;text-transform:uppercase;color:var(--text3)">Password</span></span>
-        <input type="password" autocomplete="new-password" placeholder="8+ characters" value="{{ password }}" onInput="{{ setField }}" data-field="password" style="width:100%;border-radius:8px;border:1px solid var(--line);background:var(--panel2);padding:10px 12px;font:400 13px var(--mono);color:var(--text);outline:none;transition:border-color .15s" style-focus="border-color:var(--sky)">
+        <input type="password" autocomplete="new-password" placeholder="8+ characters" value="{{ password }}" onInput="{{ setField }}" data-field="password" style="width:100%;border-radius:6px;border:1px solid var(--line);background:var(--panel2);padding:10px 12px;font:400 13px var(--mono);color:var(--text);outline:none;transition:border-color .15s" style-focus="border-color:var(--sky);box-shadow:0 0 0 1px var(--ring)">
         <span style="display:block;margin-top:6px;font:400 11px var(--mono);color:var(--text3)">Use at least 8 characters, with one number.</span>
       </label>
 
       <label style="display:block;margin-bottom:16px">
         <span style="display:flex;align-items:baseline;justify-content:space-between;margin-bottom:6px"><span style="font:600 10px var(--mono);letter-spacing:.12em;text-transform:uppercase;color:var(--text3)">Confirm password</span></span>
-        <input type="password" autocomplete="new-password" placeholder="Re-enter your password" value="{{ confirmPassword }}" onInput="{{ setField }}" data-field="confirmPassword" style="width:100%;border-radius:8px;border:1px solid var(--line);background:var(--panel2);padding:10px 12px;font:400 13px var(--mono);color:var(--text);outline:none;transition:border-color .15s" style-focus="border-color:var(--sky)">
+        <input type="password" autocomplete="new-password" placeholder="Re-enter your password" value="{{ confirmPassword }}" onInput="{{ setField }}" data-field="confirmPassword" style="width:100%;border-radius:6px;border:1px solid var(--line);background:var(--panel2);padding:10px 12px;font:400 13px var(--mono);color:var(--text);outline:none;transition:border-color .15s" style-focus="border-color:var(--sky);box-shadow:0 0 0 1px var(--ring)">
       </label>
 
       <p style="margin:0 0 20px;font:400 11.5px/1.625 var(--sans);color:var(--text3)">
         By continuing you agree to the <a href="#" style="color:var(--sky)" style-hover="text-decoration:underline">Terms</a> and <a href="#" style="color:var(--sky)" style-hover="text-decoration:underline">Privacy Policy</a>.
       </p>
 
-      <button type="button" onClick="{{ submitAccount }}" style="width:100%;display:flex;align-items:center;justify-content:center;gap:8px;border-radius:8px;padding:10px 14px;font:600 13.5px var(--sans);background:var(--amber-btn);border:1px solid var(--amber-btn);color:var(--on-amber);cursor:pointer;transition:filter .15s" style-hover="filter:brightness(1.05)">Continue</button>
+      <button type="button" onClick="{{ submitAccount }}" style="width:100%;display:flex;align-items:center;justify-content:center;gap:8px;border-radius:6px;padding:10px 14px;font:500 13.5px var(--sans);background:var(--amber-btn);border:1px solid var(--amber-btn);color:var(--on-amber);cursor:pointer;transition:filter .15s" style-hover="filter:brightness(1.05)">Continue</button>
 
       <div style="margin:18px 0;display:flex;align-items:center;gap:10px;font:500 10px var(--mono);text-transform:uppercase;letter-spacing:.1em;color:var(--text3)">
         <span style="height:1px;flex:1;background:var(--line-soft)"></span>
@@ -114,11 +122,11 @@
       </div>
 
       <div style="display:flex;flex-direction:column;gap:8px">
-        <button type="button" onClick="{{ oauth }}" style="width:100%;display:flex;align-items:center;justify-content:center;gap:8px;border-radius:8px;padding:10px 14px;font:500 13.5px var(--sans);background:var(--panel);border:1px solid var(--line);color:var(--text2);cursor:pointer;transition:color .15s,border-color .15s" style-hover="color:var(--text);border-color:var(--text3)">
+        <button type="button" onClick="{{ oauth }}" style="width:100%;display:flex;align-items:center;justify-content:center;gap:8px;border-radius:6px;padding:10px 14px;font:500 13.5px var(--sans);background:var(--panel);border:1px solid var(--line);color:var(--text2);cursor:pointer;transition:color .15s,border-color .15s" style-hover="color:var(--text);border-color:var(--text3)">
           <svg width="15" height="15" viewBox="0 0 24 24" aria-hidden="true"><path fill="#4285F4" d="M23.5 12.3c0-.8-.1-1.6-.2-2.3H12v4.5h6.5a5.6 5.6 0 0 1-2.4 3.6v3h3.9c2.3-2.1 3.5-5.2 3.5-8.8Z"></path><path fill="#34A853" d="M12 24c3.2 0 5.9-1.1 7.9-2.9l-3.9-3a7.2 7.2 0 0 1-10.7-3.8h-4v3.1A12 12 0 0 0 12 24Z"></path><path fill="#FBBC05" d="M5.3 14.3a7.1 7.1 0 0 1 0-4.6V6.6h-4a12 12 0 0 0 0 10.8l4-3.1Z"></path><path fill="#EA4335" d="M12 4.8c1.8 0 3.4.6 4.6 1.8l3.4-3.4A12 12 0 0 0 1.3 6.6l4 3.1A7.2 7.2 0 0 1 12 4.8Z"></path></svg>
           Continue with Google
         </button>
-        <button type="button" onClick="{{ oauth }}" style="width:100%;display:flex;align-items:center;justify-content:center;gap:8px;border-radius:8px;padding:10px 14px;font:500 13.5px var(--sans);background:var(--panel);border:1px solid var(--line);color:var(--text2);cursor:pointer;transition:color .15s,border-color .15s" style-hover="color:var(--text);border-color:var(--text3)">
+        <button type="button" onClick="{{ oauth }}" style="width:100%;display:flex;align-items:center;justify-content:center;gap:8px;border-radius:6px;padding:10px 14px;font:500 13.5px var(--sans);background:var(--panel);border:1px solid var(--line);color:var(--text2);cursor:pointer;transition:color .15s,border-color .15s" style-hover="color:var(--text);border-color:var(--text3)">
           <svg width="15" height="15" viewBox="0 0 24 24" aria-hidden="true"><path fill="#0A66C2" d="M20.45 20.45h-3.56v-5.57c0-1.33-.03-3.04-1.85-3.04-1.86 0-2.14 1.45-2.14 2.95v5.66H9.35V9h3.41v1.56h.05a3.74 3.74 0 0 1 3.37-1.85c3.6 0 4.27 2.37 4.27 5.46v6.28ZM5.34 7.43a2.07 2.07 0 1 1 0-4.13 2.07 2.07 0 0 1 0 4.13Zm1.78 13.02H3.55V9h3.57v11.45ZM22.22 0H1.77C.79 0 0 .77 0 1.73v20.54C0 23.23.79 24 1.77 24h20.45c.98 0 1.78-.77 1.78-1.73V1.73C24 .77 23.2 0 22.22 0Z"></path></svg>
           Continue with LinkedIn
         </button>
@@ -128,7 +136,7 @@
 
   <!-- Step 2 · Verify -->
   <sc-if value="{{ isStep2 }}" hint-placeholder-val="{{ false }}">
-    <div data-screen-label="Step 2 · Confirm your email" style="width:420px;max-width:94vw;text-align:center;border-radius:14px;border:1px solid var(--line);background:var(--panel);padding:32px;box-shadow:var(--shadow);animation:fadeUp .5s .08s ease both">
+    <div data-screen-label="Step 2 · Confirm your email" style="width:420px;max-width:94vw;text-align:center;border-radius:16px;border:1px solid var(--line);background:var(--panel);padding:32px;box-shadow:var(--shadow);animation:fadeUp .5s .08s ease both">
       <div style="margin:0 auto 16px;width:44px;height:44px;border-radius:50%;display:grid;place-items:center;background:var(--amber-dim)">
         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true" style="color:var(--amber)"><rect x="3" y="5" width="18" height="14" rx="2"></rect><path d="m3 7 9 6 9-6"></path></svg>
       </div>
@@ -141,69 +149,69 @@
       </p>
 
       <p style="margin:0 0 24px;font:400 12px var(--mono);color:var(--text3)">
-        Your email domain is how we know which firm you work at — so we confirm it before creating anything in that firm&rsquo;s name.
+        Your email domain is how we know which firm you work at — so we confirm it before creating anything in that firm’s name.
       </p>
 
       <div style="display:flex;flex-direction:column;gap:8px">
-        <button type="button" onClick="{{ confirmed }}" style="display:flex;align-items:center;justify-content:center;gap:8px;border-radius:8px;padding:10px 14px;font:600 13.5px var(--sans);background:var(--amber-btn);border:1px solid var(--amber-btn);color:var(--on-amber);cursor:pointer;transition:filter .15s" style-hover="filter:brightness(1.05)">I've confirmed it</button>
+        <button type="button" onClick="{{ confirmed }}" style="display:flex;align-items:center;justify-content:center;gap:8px;border-radius:6px;padding:10px 14px;font:500 13.5px var(--sans);background:var(--amber-btn);border:1px solid var(--amber-btn);color:var(--on-amber);cursor:pointer;transition:filter .15s" style-hover="filter:brightness(1.05)">I've confirmed it</button>
 
-        <button type="button" onClick="{{ resend }}" disabled="{{ linkSent }}" style="display:flex;align-items:center;justify-content:center;gap:8px;border-radius:8px;padding:10px 14px;font:500 13.5px var(--sans);background:transparent;border:none;color:var(--text3);cursor:{{ resendCursor }}" style-hover="color:var(--text2);text-decoration:underline">{{ resendLabel }}</button>
+        <button type="button" onClick="{{ resend }}" disabled="{{ linkSent }}" style="display:flex;align-items:center;justify-content:center;gap:8px;border-radius:6px;padding:10px 14px;font:500 13.5px var(--sans);background:transparent;border:none;color:var(--text3);cursor:{{ resendCursor }}" style-hover="color:var(--text2);text-decoration:underline">{{ resendLabel }}</button>
 
-        <button type="button" onClick="{{ signOut }}" style="display:flex;align-items:center;justify-content:center;gap:8px;border-radius:8px;padding:10px 14px;font:500 13.5px var(--sans);background:transparent;border:none;color:var(--text3);cursor:pointer" style-hover="color:var(--text2);text-decoration:underline">Sign out</button>
+        <button type="button" onClick="{{ signOut }}" style="display:flex;align-items:center;justify-content:center;gap:8px;border-radius:6px;padding:10px 14px;font:500 13.5px var(--sans);background:transparent;border:none;color:var(--text3);cursor:pointer" style-hover="color:var(--text2);text-decoration:underline">Sign out</button>
       </div>
     </div>
   </sc-if>
 
   <!-- Step 3 · Organization -->
   <sc-if value="{{ isStep3 }}" hint-placeholder-val="{{ false }}">
-    <div data-screen-label="Step 3 · About your organization" style="width:480px;max-width:94vw;border-radius:14px;border:1px solid var(--line);background:var(--panel);padding:32px;box-shadow:var(--shadow);animation:fadeUp .5s .08s ease both">
+    <div data-screen-label="Step 3 · About your organization" style="width:480px;max-width:94vw;border-radius:16px;border:1px solid var(--line);background:var(--panel);padding:32px;box-shadow:var(--shadow);animation:fadeUp .5s .08s ease both">
       <h1 style="margin:0;font:600 19px/1.25 var(--sans)">About your organization</h1>
       <p style="margin:4px 0 24px;font:400 12px var(--mono);color:var(--text3)">{{ step3Subtitle }}</p>
 
       <label style="display:block;margin-bottom:16px">
         <span style="display:flex;align-items:baseline;justify-content:space-between;margin-bottom:6px"><span style="font:600 10px var(--mono);letter-spacing:.12em;text-transform:uppercase;color:var(--text3)">Organization name</span></span>
-        <input placeholder="e.g. Uncava Search Partners" value="{{ orgName }}" onInput="{{ setOrgName }}" style="width:100%;border-radius:8px;border:1px solid var(--line);background:var(--panel2);padding:10px 12px;font:400 13px var(--mono);color:var(--text);outline:none;transition:border-color .15s" style-focus="border-color:var(--sky)">
+        <input placeholder="e.g. Uncava Search Partners" value="{{ orgName }}" onInput="{{ setOrgName }}" style="width:100%;border-radius:6px;border:1px solid var(--line);background:var(--panel2);padding:10px 12px;font:400 13px var(--mono);color:var(--text);outline:none;transition:border-color .15s" style-focus="border-color:var(--sky);box-shadow:0 0 0 1px var(--ring)">
         <span style="display:block;margin-top:6px;font:400 11px var(--mono);color:var(--text3)">This becomes your workspace name — you can change it later.</span>
       </label>
 
       <div style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));column-gap:16px">
         <label style="display:block;margin-bottom:16px">
           <span style="display:flex;align-items:baseline;justify-content:space-between;margin-bottom:6px"><span style="font:600 10px var(--mono);letter-spacing:.12em;text-transform:uppercase;color:var(--text3)">Company size</span></span>
-          <select style="width:100%;border-radius:8px;border:1px solid var(--line);background:var(--panel2);padding:10px 12px;font:400 13px var(--mono);color:var(--text);outline:none;transition:border-color .15s" style-focus="border-color:var(--sky)">
+          <select style="width:100%;border-radius:6px;border:1px solid var(--line);background:var(--panel2);padding:10px 12px;font:400 13px var(--mono);color:var(--text);outline:none;transition:border-color .15s" style-focus="border-color:var(--sky);box-shadow:0 0 0 1px var(--ring)">
             <sc-for list="{{ companySizes }}" as="o" hint-placeholder-count="4"><option>{{ o }}</option></sc-for>
           </select>
         </label>
 
         <label style="display:block;margin-bottom:16px">
           <span style="display:flex;align-items:baseline;justify-content:space-between;margin-bottom:6px"><span style="font:600 10px var(--mono);letter-spacing:.12em;text-transform:uppercase;color:var(--text3)">Primary region</span></span>
-          <select style="width:100%;border-radius:8px;border:1px solid var(--line);background:var(--panel2);padding:10px 12px;font:400 13px var(--mono);color:var(--text);outline:none;transition:border-color .15s" style-focus="border-color:var(--sky)">
+          <select style="width:100%;border-radius:6px;border:1px solid var(--line);background:var(--panel2);padding:10px 12px;font:400 13px var(--mono);color:var(--text);outline:none;transition:border-color .15s" style-focus="border-color:var(--sky);box-shadow:0 0 0 1px var(--ring)">
             <sc-for list="{{ regions }}" as="o" hint-placeholder-count="5"><option>{{ o }}</option></sc-for>
           </select>
         </label>
 
         <label style="display:block;margin-bottom:16px">
           <span style="display:flex;align-items:baseline;justify-content:space-between;margin-bottom:6px"><span style="font:600 10px var(--mono);letter-spacing:.12em;text-transform:uppercase;color:var(--text3)">Team focus</span></span>
-          <select style="width:100%;border-radius:8px;border:1px solid var(--line);background:var(--panel2);padding:10px 12px;font:400 13px var(--mono);color:var(--text);outline:none;transition:border-color .15s" style-focus="border-color:var(--sky)">
+          <select style="width:100%;border-radius:6px;border:1px solid var(--line);background:var(--panel2);padding:10px 12px;font:400 13px var(--mono);color:var(--text);outline:none;transition:border-color .15s" style-focus="border-color:var(--sky);box-shadow:0 0 0 1px var(--ring)">
             <sc-for list="{{ teamFocuses }}" as="o" hint-placeholder-count="4"><option>{{ o }}</option></sc-for>
           </select>
         </label>
       </div>
 
-      <button type="button" onClick="{{ submitWorkspace }}" style="width:100%;display:flex;align-items:center;justify-content:center;gap:8px;border-radius:8px;padding:10px 14px;font:600 13.5px var(--sans);background:var(--amber-btn);border:1px solid var(--amber-btn);color:var(--on-amber);cursor:pointer;transition:filter .15s" style-hover="filter:brightness(1.05)">Continue</button>
+      <button type="button" onClick="{{ submitWorkspace }}" style="width:100%;display:flex;align-items:center;justify-content:center;gap:8px;border-radius:6px;padding:10px 14px;font:500 13.5px var(--sans);background:var(--amber-btn);border:1px solid var(--amber-btn);color:var(--on-amber);cursor:pointer;transition:filter .15s" style-hover="filter:brightness(1.05)">Continue</button>
     </div>
   </sc-if>
 
   <!-- Step 4 · Invite team -->
   <sc-if value="{{ isStep4 }}" hint-placeholder-val="{{ false }}">
-    <div data-screen-label="Step 4 · Invite your team" style="width:480px;max-width:94vw;border-radius:14px;border:1px solid var(--line);background:var(--panel);padding:32px;box-shadow:var(--shadow);animation:fadeUp .5s .08s ease both">
+    <div data-screen-label="Step 4 · Invite your team" style="width:480px;max-width:94vw;border-radius:16px;border:1px solid var(--line);background:var(--panel);padding:32px;box-shadow:var(--shadow);animation:fadeUp .5s .08s ease both">
       <h1 style="margin:0;font:600 19px/1.25 var(--sans)">Invite your team</h1>
       <p style="margin:4px 0 24px;font:400 12px var(--mono);color:var(--text3)">Step 4 of 4 · optional — invite people later from Team</p>
 
       <div style="margin-bottom:12px;display:flex;flex-direction:column;gap:8px">
         <sc-for list="{{ invites }}" as="it" hint-placeholder-count="2">
           <div style="display:flex;flex-wrap:wrap;align-items:center;gap:8px">
-            <input type="email" value="{{ it.email }}" onInput="{{ setInviteEmail }}" data-id="{{ it.id }}" placeholder="colleague@firm.com" aria-label="Colleague's email" style="flex:1;min-width:0;border-radius:8px;border:1px solid {{ it.border }};background:var(--panel2);padding:10px 12px;font:400 13px var(--mono);color:var(--text);outline:none;transition:border-color .15s" style-focus="border-color:var(--sky)">
-            <select value="{{ it.role }}" onChange="{{ setInviteRole }}" data-id="{{ it.id }}" aria-label="Role" style="width:130px;flex:none;border-radius:8px;border:1px solid var(--line);background:var(--panel2);padding:10px 12px;font:400 13px var(--mono);color:var(--text);outline:none;transition:border-color .15s" style-focus="border-color:var(--sky)">
+            <input type="email" value="{{ it.email }}" onInput="{{ setInviteEmail }}" data-id="{{ it.id }}" placeholder="colleague@firm.com" aria-label="Colleague's email" style="flex:1;min-width:0;border-radius:6px;border:1px solid {{ it.border }};background:var(--panel2);padding:10px 12px;font:400 13px var(--mono);color:var(--text);outline:none;transition:border-color .15s" style-focus="border-color:var(--sky);box-shadow:0 0 0 1px var(--ring)">
+            <select value="{{ it.role }}" onChange="{{ setInviteRole }}" data-id="{{ it.id }}" aria-label="Role" style="width:130px;flex:none;border-radius:6px;border:1px solid var(--line);background:var(--panel2);padding:10px 12px;font:400 13px var(--mono);color:var(--text);outline:none;transition:border-color .15s" style-focus="border-color:var(--sky);box-shadow:0 0 0 1px var(--ring)">
               <sc-for list="{{ it.roles }}" as="r" hint-placeholder-count="2"><option value="{{ r.value }}">{{ r.label }}</option></sc-for>
             </select>
             <sc-if value="{{ it.canRemove }}" hint-placeholder-val="{{ true }}">
@@ -224,14 +232,14 @@
         Add another
       </button>
 
-      <div style="margin-bottom:20px;display:flex;align-items:center;gap:8px;border-radius:8px;background:var(--sky-dim);padding:10px 12px;font:400 11.5px var(--mono);color:var(--sky)">
+      <div style="margin-bottom:20px;display:flex;align-items:center;gap:8px;border-radius:6px;background:var(--sky-dim);padding:10px 12px;font:400 11.5px var(--mono);color:var(--sky)">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true" style="flex:none"><circle cx="12" cy="12" r="9"></circle><path d="M12 8h.01M12 11v5"></path></svg>
         Invitees get access to projects you add them to — roles apply per project.
       </div>
 
       <div style="display:flex;align-items:center;gap:10px">
-        <button type="button" onClick="{{ backToWorkspace }}" style="flex:none;display:flex;align-items:center;justify-content:center;gap:8px;border-radius:8px;padding:10px 14px;font:500 13.5px var(--sans);background:var(--panel);border:1px solid var(--line);color:var(--text2);cursor:pointer;transition:color .15s,border-color .15s" style-hover="color:var(--text);border-color:var(--text3)">Back</button>
-        <button type="button" onClick="{{ finish }}" style="flex:1;display:flex;align-items:center;justify-content:center;gap:8px;border-radius:8px;padding:10px 14px;font:600 13.5px var(--sans);background:var(--amber-btn);border:1px solid var(--amber-btn);color:var(--on-amber);cursor:pointer;transition:filter .15s" style-hover="filter:brightness(1.05)">Send invites &amp; finish</button>
+        <button type="button" onClick="{{ backToWorkspace }}" style="flex:none;display:flex;align-items:center;justify-content:center;gap:8px;border-radius:6px;padding:10px 14px;font:500 13.5px var(--sans);background:var(--panel);border:1px solid var(--line);color:var(--text2);cursor:pointer;transition:color .15s,border-color .15s" style-hover="color:var(--text);border-color:var(--text3)">Back</button>
+        <button type="button" onClick="{{ finish }}" style="flex:1;display:flex;align-items:center;justify-content:center;gap:8px;border-radius:6px;padding:10px 14px;font:500 13.5px var(--sans);background:var(--amber-btn);border:1px solid var(--amber-btn);color:var(--on-amber);cursor:pointer;transition:filter .15s" style-hover="filter:brightness(1.05)">Send invites &amp; finish</button>
       </div>
 
       <button type="button" onClick="{{ skip }}" style="margin-top:16px;width:100%;text-align:center;background:none;border:none;padding:0;cursor:pointer;font:500 12.5px var(--sans);color:var(--text3)" style-hover="color:var(--text2);text-decoration:underline">Skip for now</button>
@@ -258,11 +266,11 @@ class Component extends DCLogic {
     ];
     this.COMPANY_SIZES = ['1–10 people', '11–50 people', '51–200 people', '200+ people'];
     this.REGIONS = ['GCC', 'MENA', 'Europe', 'North America', 'Global'];
-    this.TEAM_FOCUSES = ['Executive search', 'Board advisory', 'Talent mapping', 'Mixed'];
+    this.TEAM_FOCUSES = ['Talent acquisition', 'Talent mapping', 'People operations', 'Mixed'];
     this.INVITE_ROLES = [{ value: 'MEMBER', label: 'Member' }, { value: 'ADMIN', label: 'Admin' }];
     this.CAST_NAME = 'Yara Haddad';
-    this.CAST_EMAIL = 'yara@meridiansearch.com';
-    this.CAST_WORKSPACE = 'Meridian Search Partners';
+    this.CAST_EMAIL = 'yara@alfuttaim.com';
+    this.CAST_WORKSPACE = 'Al-Futtaim';
 
     const q = typeof location !== 'undefined' ? new URLSearchParams(location.search) : new URLSearchParams();
     const flag = (k) => (q.has(k) ? ['1', 'true', 'yes'].includes(q.get(k)) : null);
@@ -276,12 +284,12 @@ class Component extends DCLogic {
       orgName: null,
       invites: [{ id: 1, email: '', role: 'MEMBER' }, { id: 2, email: '', role: 'MEMBER' }],
       rowErrors: {},
-      dark: false,
+      dark: true,
     };
   }
 
   componentDidMount() {
-    this.setState({ dark: document.body.classList.contains('dark') });
+    this.setState({ dark: document.documentElement.getAttribute('data-theme') !== 'light' });
   }
 
   componentDidUpdate(prevProps) {
@@ -363,7 +371,7 @@ class Component extends DCLogic {
       themeLabel: dark ? 'Switch to light mode' : 'Switch to dark mode',
       toggleTheme: () => {
         const d = !this.state.dark;
-        document.body.classList.toggle('dark', d);
+        document.documentElement.setAttribute('data-theme', d ? 'dark' : 'light');
         try { localStorage.setItem('lm-theme', d ? 'dark' : 'light'); } catch (e) {}
         this.setState({ dark: d });
       },

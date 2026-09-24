@@ -7,15 +7,25 @@
 </head>
 <body>
 <x-dc>
+
 <helmet>
   <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700;900&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="uncava-tokens.css">
+  <script src="./image-slot.js"></script>
   <style>
-    :root{--bg:#f8f9fb;--panel:#ffffff;--panel2:#f3f4f6;--line:#e2e4e9;--line-soft:#edeef2;--text:#111113;--text2:#475569;--text3:#64748b;--amber:#a67c2e;--amber-btn:#e2b65c;--amber-dim:rgba(226,182,92,.14);--on-amber:#1a1712;--sky:#2563eb;--sky-dim:rgba(37,99,235,.10);--red:#dc2626;--red-dim:rgba(220,38,38,.08);--green:#059669;--green-dim:rgba(5,150,105,.10);--ai:#6366f1;--ai2:#3b82f6;--ai-line:#4f46e5;--ai-dim:rgba(99,102,241,.10);--ai-soft:rgba(99,102,241,.06);--shadow:0 8px 28px rgba(15,23,42,.10);--radius-panel:14px;--mono:'Geist','Inter',system-ui,sans-serif;--sans:'Geist','Inter',system-ui,sans-serif;
-      --t-eyebrow:9.5px;--t-meta:11px;--t-note:12px;--t-body:13px;--t-lead:15px;--t-subhead:17px;--t-title:19px;--t-figure:27px;
-      --u-bg:#ffffff;--u-surface:#f7f8fa;--u-raised:#eceff3;--u-sunken:#e4e8ee;--u-border:rgba(3,7,18,.09);--u-border-strong:rgba(3,7,18,.16);--u-scrim:rgba(3,7,18,.4);--u-text:#0b0d12;--u-text2:#4c5462;--u-text3:#6b7382;--u-accent:#4a56d6;--u-accent-solid:#4a56d6;--u-accent-tint:rgba(74,86,214,.09);--u-accent-ring:rgba(74,86,214,.4);--u-signal:#a8602f;--u-signal-tint:rgba(168,96,47,.1);--u-offlimits:#d93a45;--u-offlimits-tint:rgba(217,58,69,.1);--u-direct:#0f9d6b;--u-direct-tint:rgba(15,157,107,.1);--u-adjacent:#1f72d4;--u-adjacent-tint:rgba(31,114,212,.1);--u-inferred:#8244d6;--u-inferred-tint:rgba(130,68,214,.1);--u-chart-1:#4a56d6;--u-chart-2:#0f9d6b;--u-chart-3:#a8602f;--u-chart-4:#8244d6;--u-chart-5:#1e8fa8;--u-chart-6:#d93a45;--u-seq-1:#e4e8f6;--u-seq-2:#b9c0ee;--u-seq-3:#8189f7;--u-seq-4:#4a56d6;--u-seq-5:#2e3878;--u-grid-axis:rgba(3,7,18,.14);--u-grid-line:rgba(3,7,18,.07);--u-num:'JetBrains Mono',ui-monospace,SFMono-Regular,monospace;--u-e1:0 1px 2px rgba(3,7,18,.06);--u-e3:0 18px 44px -10px rgba(3,7,18,.2)}
-    body.dark{--bg:#0c0d0e;--panel:#16171a;--panel2:#131316;--line:#2a2a2e;--line-soft:#212326;--text:#f8fafc;--text2:#cbd5e1;--text3:#94a3b8;--amber:#e2b65c;--amber-dim:rgba(226,182,92,.16);--sky:#60a5fa;--sky-dim:rgba(96,165,250,.16);--red:#f87171;--red-dim:rgba(248,113,113,.14);--green:#34d399;--green-dim:rgba(52,211,153,.16);--ai:#818cf8;--ai2:#60a5fa;--ai-line:#6366f1;--ai-dim:rgba(129,140,248,.16);--ai-soft:rgba(129,140,248,.09);--shadow:0 8px 28px rgba(0,0,0,.5);
-      --u-bg:#08090b;--u-surface:#0e1013;--u-raised:#15181d;--u-sunken:#1d2128;--u-border:rgba(255,255,255,.07);--u-border-strong:rgba(255,255,255,.14);--u-scrim:rgba(4,5,7,.72);--u-text:#f4f6f8;--u-text2:#a6adbb;--u-text3:#7c8493;--u-accent:#6e79f2;--u-accent-solid:#4a56d6;--u-accent-tint:rgba(110,121,242,.14);--u-accent-ring:rgba(110,121,242,.45);--u-signal:#d4855c;--u-signal-tint:rgba(212,133,92,.12);--u-offlimits:#f2626b;--u-offlimits-tint:rgba(242,98,107,.12);--u-direct:#3ecf8e;--u-direct-tint:rgba(62,207,142,.12);--u-adjacent:#5aa9ff;--u-adjacent-tint:rgba(90,169,255,.12);--u-inferred:#b07cf5;--u-inferred-tint:rgba(176,124,245,.12);--u-chart-1:#6e79f2;--u-chart-2:#3ecf8e;--u-chart-3:#d4855c;--u-chart-4:#b07cf5;--u-chart-5:#4fc3d9;--u-chart-6:#f2626b;--u-seq-1:#1e2440;--u-seq-2:#2e3878;--u-seq-3:#4a56d6;--u-seq-4:#6e79f2;--u-seq-5:#a3a9fa;--u-grid-axis:rgba(255,255,255,.1);--u-grid-line:rgba(255,255,255,.055);--u-e1:0 0 #0000;--u-e3:0 18px 44px -10px rgba(0,0,0,.8)}
+    :root{
+      --amber:var(--u-accent);--amber-btn:var(--u-accent-solid);--amber-dim:var(--u-accent-tint);--on-amber:#ffffff;
+      --sky:var(--u-accent);--sky-dim:var(--u-accent-tint);--ring:var(--u-accent-ring);
+      --red:var(--u-offlimits);--red-dim:var(--u-offlimits-tint);
+      --green:var(--u-direct);--green-dim:var(--u-direct-tint);
+      --ai:var(--u-inferred);--ai2:var(--u-adjacent);--ai-line:var(--u-accent);--ai-dim:var(--u-inferred-tint);--ai-soft:var(--u-inferred-tint);
+      --bg:var(--u-bg);--panel:var(--u-surface);--panel2:var(--u-raised);--line:var(--u-border-strong);--line-soft:var(--u-border);
+      --text:var(--u-text);--text2:var(--u-text2);--text3:var(--u-text3);
+      --shadow:var(--u-e3);--radius-panel:var(--u-r-modal);
+      --mono:var(--u-font-ui);--sans:var(--u-font-ui);
+      --u-text2:var(--u-text-2);--u-text3:var(--u-text-3);--u-num:var(--u-font-num);
+    }
     *{box-sizing:border-box}
     html,body{height:100%;margin:0}
     body{background:var(--bg);color:var(--text);font:400 14px/1.45 var(--sans);-webkit-font-smoothing:antialiased}
@@ -26,39 +36,39 @@
     @keyframes spin{to{transform:rotate(360deg)}}
     @keyframes slideInEnd{from{transform:translateX(100%)}to{transform:none}}
   </style>
-  <script>try{var t=localStorage.getItem('lm-theme');if(t==='dark'||(t!=='light'&&window.matchMedia&&matchMedia('(prefers-color-scheme: dark)').matches)){document.body.classList.add('dark');}}catch(e){}</script>
+  <script>try{var t=localStorage.getItem('lm-theme');document.documentElement.setAttribute('data-theme', t==='light'?'light':'dark');}catch(e){}</script>
 </helmet>
-<div data-screen-label="Clients" style="height:100vh;display:flex;flex-direction:column;overflow:hidden">
+<div data-screen-label="Business units" style="height:100vh;display:flex;flex-direction:column;overflow:hidden">
 
   <header data-screen-label="Topbar" style="height:46px;flex:none;display:flex;align-items:center;gap:12px;padding:0 14px;position:relative;z-index:60">
     <div style="flex:1;min-width:0;display:flex;align-items:center">
       <div style="position:relative">
         <button onClick="{{ toggleWsMenu }}" style="display:flex;align-items:center;gap:10px;padding:5px 10px 5px 6px;border-radius:8px;background:none;border:none;cursor:pointer" style-hover="background:var(--panel2)">
           <svg viewBox="-36 -51 72 104" fill="none" stroke="currentColor" style="height:30px;width:auto;flex:none;color:var(--text)" aria-hidden="true"><path d="M-32 10 L 0 -8 L 32 10 L 0 28 Z M-32 10 V 32 L 0 50 L 32 32 V 10 M0 28 V 50" stroke-width="2.6" stroke-linejoin="round"></path><path d="M0 -48 L 32 -30 L 0 -12 L -32 -30 Z" fill="currentColor" stroke="none"></path></svg>
-          <span style="font:500 14px var(--sans);text-transform:uppercase;letter-spacing:.3em;color:var(--text)">Uncava</span>
+          <span style="font:200 14px var(--u-font-brand);text-transform:uppercase;letter-spacing:.38em;color:var(--text)">Uncava</span>
           <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color:var(--text3)"><path d="m6 9 6 6 6-6"></path></svg>
         </button>
         <sc-if value="{{ wsMenuOpen }}" hint-placeholder-val="{{ false }}">
           <div style="position:absolute;left:0;top:40px;z-index:80;width:268px;border-radius:10px;border:1px solid var(--line);background:var(--panel);padding:6px;box-shadow:var(--shadow)">
             <div style="display:flex;align-items:center;gap:10px;padding:10px;border-bottom:1px solid var(--line-soft);margin-bottom:6px">
-              <span style="width:30px;height:30px;background:var(--amber-btn);color:var(--on-amber);font:700 11px var(--mono);border-radius:6px;display:grid;place-items:center">M</span>
-              <div style="font:600 13px var(--mono)">Meridian Search Partners</div>
+              <span style="width:30px;height:30px;background:var(--amber-btn);color:var(--on-amber);font:700 11px var(--mono);border-radius:6px;display:grid;place-items:center">A</span>
+              <div style="font:600 13px var(--mono)">Al-Futtaim</div>
             </div>
-            <a href="Settings.dc.html?section=profile" style="display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:7px;font-size:13px;color:var(--text2)" style-hover="background:var(--panel2);color:var(--text)">
+            <a href="Settings.dc.html?section=profile" style="display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:6px;font-size:13px;color:var(--text2)" style-hover="background:var(--panel2);color:var(--text)">
               <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex:none"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2M16 7a4 4 0 1 1-8 0 4 4 0 0 1 8 0"></path></svg>
               Your profile
             </a>
             <div style="height:1px;background:var(--line-soft);margin:6px 4px"></div>
-            <a href="Settings.dc.html?section=general" style="display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:7px;font-size:13px;color:var(--text2)" style-hover="background:var(--panel2);color:var(--text)">
+            <a href="Settings.dc.html?section=general" style="display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:6px;font-size:13px;color:var(--text2)" style-hover="background:var(--panel2);color:var(--text)">
               <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex:none"><path d="M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6ZM19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09a1.65 1.65 0 0 0-1-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09a1.65 1.65 0 0 0 1.51-1 1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33h.01a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51h.01a1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82v.01a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1Z"></path></svg>
               Workspace settings
             </a>
-            <a href="Settings.dc.html?section=members" style="display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:7px;font-size:13px;color:var(--text2)" style-hover="background:var(--panel2);color:var(--text)">
+            <a href="Settings.dc.html?section=members" style="display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:6px;font-size:13px;color:var(--text2)" style-hover="background:var(--panel2);color:var(--text)">
               <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex:none"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2M13 7a4 4 0 1 1-8 0 4 4 0 0 1 8 0M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"></path></svg>
               Members
             </a>
             <div style="height:1px;background:var(--line-soft);margin:6px 4px"></div>
-            <a href="Login.dc.html" style="display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:7px;font-size:13px;color:var(--text2)" style-hover="background:var(--panel2);color:var(--text)">
+            <a href="Login.dc.html" style="display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:6px;font-size:13px;color:var(--text2)" style-hover="background:var(--panel2);color:var(--text)">
               <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex:none"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9"></path></svg>
               Sign out
             </a>
@@ -80,7 +90,7 @@
             <div style="padding:14px 10px 6px;font:600 10px var(--mono);letter-spacing:.14em;text-transform:uppercase;color:var(--text3)">{{ g.label }}</div>
           </sc-if>
           <sc-for list="{{ g.items }}" as="it" hint-placeholder-count="2">
-            <a href="{{ it.href }}" title="{{ it.label }}" style="display:flex;align-items:center;justify-content:{{ navJustify }};gap:10px;padding:8px 10px;border-radius:7px;font-size:13.5px;color:{{ it.color }};background:{{ it.bg }}" style-hover="background:var(--panel2);color:var(--text)">
+            <a href="{{ it.href }}" title="{{ it.label }}" style="display:flex;align-items:center;justify-content:{{ navJustify }};gap:10px;padding:8px 10px;border-radius:6px;font-size:13.5px;color:{{ it.color }};background:{{ it.bg }}" style-hover="background:var(--panel2);color:var(--text)">
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex:none;color:{{ it.iconColor }}"><path d="{{ it.icon }}"></path></svg>
               <sc-if value="{{ labelsShown }}" hint-placeholder-val="{{ true }}">
                 <span style="white-space:nowrap">{{ it.label }}</span>
@@ -91,11 +101,11 @@
         </div>
       </sc-for>
       <div style="margin-top:auto;border-top:1px solid var(--line-soft);padding-top:12px">
-        <button onClick="{{ toggleTheme }}" title="{{ themeLabel }}" style="display:flex;align-items:center;justify-content:{{ navJustify }};gap:10px;width:100%;padding:8px 10px;border-radius:7px;font-size:13.5px;color:var(--text2);background:none;border:none;text-align:left;cursor:pointer" style-hover="background:var(--panel2);color:var(--text)">
+        <button onClick="{{ toggleTheme }}" title="{{ themeLabel }}" style="display:flex;align-items:center;justify-content:{{ navJustify }};gap:10px;width:100%;padding:8px 10px;border-radius:6px;font-size:13.5px;color:var(--text2);background:none;border:none;text-align:left;cursor:pointer" style-hover="background:var(--panel2);color:var(--text)">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex:none"><path d="{{ themeIcon }}"></path></svg>
           <sc-if value="{{ labelsShown }}" hint-placeholder-val="{{ true }}"><span style="white-space:nowrap">{{ themeLabel }}</span></sc-if>
         </button>
-        <button onClick="{{ toggleCollapse }}" title="{{ collapseTitle }}" style="display:flex;align-items:center;justify-content:{{ navJustify }};gap:10px;width:100%;padding:8px 10px;border-radius:7px;font-size:13.5px;color:var(--text2);background:none;border:none;text-align:left;cursor:pointer" style-hover="background:var(--panel2);color:var(--text)">
+        <button onClick="{{ toggleCollapse }}" title="{{ collapseTitle }}" style="display:flex;align-items:center;justify-content:{{ navJustify }};gap:10px;width:100%;padding:8px 10px;border-radius:6px;font-size:13.5px;color:var(--text2);background:none;border:none;text-align:left;cursor:pointer" style-hover="background:var(--panel2);color:var(--text)">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex:none"><path d="{{ collapseIcon }}"></path></svg>
           <sc-if value="{{ labelsShown }}" hint-placeholder-val="{{ true }}"><span style="white-space:nowrap">Collapse</span></sc-if>
         </button>
@@ -110,14 +120,14 @@
 
         <div data-screen-label="Page header" style="margin-bottom:18px;display:flex;align-items:flex-start;gap:16px">
           <div>
-            <div style="font:600 19px/1.25 var(--sans)">Clients</div>
+            <div style="font:600 19px/1.25 var(--sans)">Business units</div>
             <div style="margin-top:4px;font:400 12px var(--mono);color:var(--text3)">{{ pageSub }}</div>
           </div>
           <sc-if value="{{ showHeaderAction }}" hint-placeholder-val="{{ true }}">
             <div style="margin-left:auto;display:flex;gap:8px">
               <button onClick="{{ openModal }}" style="display:flex;align-items:center;justify-content:center;gap:8px;border-radius:8px;padding:7px 14px;font:600 13px var(--sans);background:var(--amber-btn);border:1px solid var(--amber-btn);color:var(--on-amber);cursor:pointer" style-hover="filter:brightness(1.05)">
                 <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"></path></svg>
-                New client
+                New business unit
               </button>
             </div>
           </sc-if>
@@ -127,14 +137,14 @@
           <div data-screen-label="Loading" role="status" aria-label="Loading" style="overflow-x:auto">
             <table style="width:100%;min-width:820px;border-collapse:collapse">
               <thead><tr>
-                <sc-for list="{{ skeletonHeads }}" as="h" hint-placeholder-count="6">
+                <sc-for list="{{ skeletonHeads }}" as="h" hint-placeholder-count="4">
                   <th style="white-space:nowrap;border-bottom:1px solid var(--line);padding:9px 12px;text-align:left;font:600 10.5px var(--mono);text-transform:uppercase;letter-spacing:.12em;color:var(--text3)">{{ h }}</th>
                 </sc-for>
               </tr></thead>
               <tbody>
                 <sc-for list="{{ skeletonRows }}" as="sr" hint-placeholder-count="6">
                   <tr>
-                    <sc-for list="{{ sr.bars }}" as="b" hint-placeholder-count="6">
+                    <sc-for list="{{ sr.bars }}" as="b" hint-placeholder-count="4">
                       <td style="border-bottom:1px solid var(--line-soft);padding:15px 12px"><div style="height:14px;width:{{ b }};border-radius:4px;background:var(--panel2)"></div></td>
                     </sc-for>
                   </tr>
@@ -147,13 +157,13 @@
         <sc-if value="{{ isEmpty }}" hint-placeholder-val="{{ false }}">
           <div data-screen-label="Empty" style="display:flex;flex-direction:column;align-items:center;justify-content:center;padding:90px 20px 70px;text-align:center;animation:fadeUp .5s ease both">
             <div style="margin-bottom:18px;width:52px;height:52px;border-radius:14px;display:grid;place-items:center;background:var(--amber-dim);color:var(--amber)">
-              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 21h18M5 21V7l7-4 7 4v14M9 9h.01M9 13h.01M9 17h.01M15 9h.01M15 13h.01M15 17h.01"></path></svg>
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2M13 7a4 4 0 1 1-8 0 4 4 0 0 1 8 0M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"></path></svg>
             </div>
-            <div style="margin-bottom:6px;font-size:19px;font-weight:600">Add your first client</div>
-            <div style="margin-bottom:22px;max-width:420px;font-size:13px;color:var(--text2)">A client is the hiring entity a mandate is run for. Most already exist in the company database — search it first.</div>
+            <div style="margin-bottom:6px;font-size:19px;font-weight:600">Add your first business unit</div>
+            <div style="margin-bottom:22px;max-width:420px;font-size:13px;color:var(--text2)">A business unit groups the hiring managers and open positions for one part of the org — Engineering, Sales, and so on.</div>
             <button onClick="{{ openModal }}" style="display:flex;align-items:center;justify-content:center;gap:8px;border-radius:8px;padding:7px 14px;font:600 13px var(--sans);background:var(--amber-btn);border:1px solid var(--amber-btn);color:var(--on-amber);cursor:pointer" style-hover="filter:brightness(1.05)">
               <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"></path></svg>
-              New client
+              New business unit
             </button>
           </div>
         </sc-if>
@@ -162,7 +172,7 @@
           <div data-screen-label="Toolbar" style="margin-bottom:14px;display:flex;flex-wrap:wrap;align-items:center;gap:10px">
             <div style="display:flex;width:300px;align-items:center;gap:8px;border-radius:8px;border:1px solid var(--line);background:var(--panel2);padding:7px 11px">
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color:var(--text3);flex:none"><path d="M11 3a8 8 0 1 0 0 16 8 8 0 0 0 0-16Zm10 18-4.3-4.3"></path></svg>
-              <input value="{{ q }}" onChange="{{ onSearch }}" placeholder="Search clients…" aria-label="Search clients…" style="width:100%;background:transparent;border:none;font:400 13px var(--mono);color:var(--text);outline:none">
+              <input value="{{ q }}" onChange="{{ onSearch }}" placeholder="Search business units…" aria-label="Search business units…" style="width:100%;background:transparent;border:none;font:400 13px var(--mono);color:var(--text);outline:none">
             </div>
             <div style="display:flex;flex-wrap:wrap;gap:6px">
               <sc-for list="{{ chips }}" as="c" hint-placeholder-count="3">
@@ -179,7 +189,7 @@
               </button>
               <sc-if value="{{ colMenuOpen }}" hint-placeholder-val="{{ false }}">
                 <div style="position:absolute;right:0;top:40px;z-index:80;width:220px;border-radius:10px;border:1px solid var(--line);background:var(--panel);padding:8px;box-shadow:var(--shadow);display:flex;flex-direction:column">
-                  <sc-for list="{{ colOptions }}" as="co" hint-placeholder-count="5">
+                  <sc-for list="{{ colOptions }}" as="co" hint-placeholder-count="3">
                     <button onClick="{{ toggleCol }}" data-id="{{ co.id }}" role="checkbox" style="display:flex;width:100%;align-items:center;justify-content:space-between;border-radius:5px;padding:5px 4px;text-align:left;background:none;border:none;cursor:pointer" style-hover="background:var(--panel2)">
                       <span style="display:flex;align-items:center;gap:8px">
                         <span style="display:grid;flex:none;place-items:center;width:15px;height:15px;border-radius:4px;box-shadow:inset 0 0 0 1.5px currentColor;color:{{ co.boxColor }};background:{{ co.boxBg }}">
@@ -196,11 +206,11 @@
             </div>
           </div>
 
-          <div data-screen-label="Clients grid" role="table" aria-label="Clients" style="display:flex;flex-direction:column;overflow:hidden;border-radius:8px;border:1px solid var(--line);background:var(--panel)">
+          <div data-screen-label="Business units grid" role="table" aria-label="Business units" style="display:flex;flex-direction:column;overflow:hidden;border-radius:8px;border:1px solid var(--line);background:var(--panel)">
             <div style="overflow:auto">
               <div style="position:sticky;top:0;z-index:20;border-bottom:1px solid var(--line);background:var(--panel2);min-width:{{ gridMin }}">
                 <div role="row" style="display:grid;grid-template-columns:{{ gridCols }};align-items:center;gap:12px;padding:10px 0">
-                  <sc-for list="{{ headers }}" as="h" hint-placeholder-count="6">
+                  <sc-for list="{{ headers }}" as="h" hint-placeholder-count="4">
                     <div role="columnheader" style="min-width:0;padding-left:{{ h.pl }};padding-right:{{ h.pr }};box-shadow:{{ h.shadow }}">
                       <sc-if value="{{ h.sortable }}" hint-placeholder-val="{{ true }}">
                         <button onClick="{{ sortBy }}" data-id="{{ h.id }}" style="display:block;width:100%;text-align:left;background:none;border:none;padding:0;cursor:pointer" style-hover="opacity:.8">
@@ -219,37 +229,29 @@
                 <div role="row" onClick="{{ openRow }}" data-id="{{ r.id }}" style="display:grid;grid-template-columns:{{ gridCols }};min-width:{{ gridMin }};height:52px;align-items:center;gap:12px;border-bottom:1px solid var(--line-soft);cursor:pointer" style-hover="background:var(--panel2)">
                   <div role="cell" style="min-width:0;padding-left:16px;align-self:stretch;display:flex;align-items:center;box-shadow:1px 0 0 0 var(--line-soft)">
                     <span style="display:flex;min-width:0;align-items:center;gap:10px">
-                      <span aria-hidden="true" style="width:26px;height:26px;font:600 13px var(--sans);display:flex;flex:none;align-items:center;justify-content:center;border-radius:6px;background:var(--panel2);color:var(--text3);box-shadow:0 0 0 1px var(--line-soft)">{{ r.initial }}</span>
+                      <span aria-hidden="true" style="width:26px;height:26px;display:flex;flex:none;align-items:center;justify-content:center;border-radius:6px;background:var(--panel2);color:var(--text3);box-shadow:0 0 0 1px var(--line-soft)"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2M13 7a4 4 0 1 1-8 0 4 4 0 0 1 8 0M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"></path></svg></span>
                       <span style="min-width:0">
                         <span style="display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font:600 13px var(--sans);color:var(--text)">{{ r.name }}</span>
-                        <span style="display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font:400 11px var(--mono);color:var(--text3)">{{ r.location }}</span>
+                        <span style="display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font:400 11px var(--mono);color:var(--text3)">{{ r.headline }}</span>
                       </span>
                     </span>
                   </div>
-                  <sc-if value="{{ showType }}" hint-placeholder-val="{{ true }}">
-                    <div role="cell" style="min-width:0;padding-right:{{ r.padType }}">
-                      <span style="display:inline-flex;align-items:center;white-space:nowrap;border-radius:6px;border:1px solid {{ r.typeBorder }};padding:3px 9px;font:600 10.5px var(--mono);text-transform:uppercase;letter-spacing:.06em;color:{{ r.typeColor }};background:{{ r.typeBg }}">{{ r.typeLabel }}</span>
-                    </div>
-                  </sc-if>
-                  <sc-if value="{{ showContacts }}" hint-placeholder-val="{{ true }}">
-                    <div role="cell" style="min-width:0;padding-right:{{ r.padContacts }}">
-                      <sc-if value="{{ r.hasReps }}" hint-placeholder-val="{{ true }}">
+                  <sc-if value="{{ showManagers }}" hint-placeholder-val="{{ true }}">
+                    <div role="cell" style="min-width:0;padding-right:{{ r.padManagers }}">
+                      <sc-if value="{{ r.hasManagers }}" hint-placeholder-val="{{ true }}">
                         <span style="display:flex;align-items:center">
-                          <sc-for list="{{ r.reps }}" as="k" hint-placeholder-count="2">
-                            <span title="{{ k.name }}" style="display:grid;width:24px;height:24px;place-items:center;border-radius:50%;border:2px solid var(--panel);font:600 10px var(--mono);background:{{ k.bg }};color:{{ k.color }};margin-left:{{ k.ml }}">{{ k.initials }}</span>
+                          <sc-for list="{{ r.managers }}" as="k" hint-placeholder-count="2">
+                            <image-slot id="{{ k.slotId }}" title="{{ k.name }}" shape="circle" style="width:24px;height:24px;border:2px solid var(--panel);margin-left:{{ k.ml }}" placeholder=""></image-slot>
                           </sc-for>
                         </span>
                       </sc-if>
-                      <sc-if value="{{ r.noReps }}" hint-placeholder-val="{{ false }}">
+                      <sc-if value="{{ r.noManagers }}" hint-placeholder-val="{{ false }}">
                         <span style="font:400 12px var(--mono);color:var(--text3)">—</span>
                       </sc-if>
                     </div>
                   </sc-if>
-                  <sc-if value="{{ showSector }}" hint-placeholder-val="{{ true }}">
-                    <div role="cell" style="min-width:0;padding-right:{{ r.padSector }};overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font:400 13px var(--sans);color:var(--text2)">{{ r.sector }}</div>
-                  </sc-if>
-                  <sc-if value="{{ showMandates }}" hint-placeholder-val="{{ true }}">
-                    <div role="cell" style="min-width:0;padding-right:{{ r.padMandates }};font:400 13px var(--sans);color:var(--text2)">{{ r.mandates }}</div>
+                  <sc-if value="{{ showReqs }}" hint-placeholder-val="{{ true }}">
+                    <div role="cell" style="min-width:0;padding-right:{{ r.padReqs }};font:400 13px var(--sans);color:var(--text2)">{{ r.reqs }}</div>
                   </sc-if>
                   <sc-if value="{{ showViewers }}" hint-placeholder-val="{{ true }}">
                     <div role="cell" style="min-width:0;padding-right:16px">
@@ -265,7 +267,7 @@
               <sc-if value="{{ noResults }}" hint-placeholder-val="{{ false }}">
                 <div data-screen-label="No results" style="padding:40px 16px;text-align:center;font:400 13px var(--mono);color:var(--text3)">
                   <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="display:block;margin:0 auto 8px;color:var(--text3)"><path d="M11 3a8 8 0 1 0 0 16 8 8 0 0 0 0-16Zm10 18-4.3-4.3"></path></svg>
-                  No clients match. Clear the search or add a new client.
+                  No business units match. Clear the search or add a new one.
                 </div>
               </sc-if>
             </div>
@@ -276,25 +278,26 @@
     </main>
   </div>
 
+  <sc-if value="{{ askVisible }}" hint-placeholder-val="{{ true }}">
   <a href="Assistant.dc.html" title="Ask the assistant" style="position:fixed;bottom:20px;right:20px;z-index:110;height:44px;display:inline-flex;align-items:center;gap:10px;padding:0 17px 0 14px;border-radius:22px;border:1px solid var(--ai-line);background:linear-gradient(135deg,var(--ai),var(--ai2));color:#fff;font:600 13px var(--sans);box-shadow:0 8px 24px -6px rgba(79,70,229,.5);text-decoration:none" style-hover="filter:brightness(1.1)">
     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex:none"><path d="M9.9 2.6 11 5.9a2 2 0 0 0 1.3 1.3l3.3 1.1-3.3 1.1a2 2 0 0 0-1.3 1.3L9.9 14l-1.1-3.3a2 2 0 0 0-1.3-1.3L4.2 8.3l3.3-1.1a2 2 0 0 0 1.3-1.3ZM18 14l.6 1.8 1.8.6-1.8.6-.6 1.8-.6-1.8-1.8-.6 1.8-.6Z"></path></svg>
     Ask
   </a>
+  </sc-if>
 
   <sc-if value="{{ drawerShown }}" hint-placeholder-val="{{ false }}">
     <div onClick="{{ closeDrawer }}" style="position:fixed;inset:0;z-index:90;background:rgba(15,20,30,.4)"></div>
-    <aside role="dialog" aria-modal="true" aria-label="{{ dv.name }}" data-screen-label="Client drawer" style="position:fixed;right:10px;top:10px;bottom:10px;z-index:95;width:420px;max-width:92vw;display:flex;flex-direction:column;border-radius:10px;border:1px solid var(--line);background:var(--panel);box-shadow:var(--shadow);animation:fadeUp .5s ease both">
+    <aside role="dialog" aria-modal="true" aria-label="{{ dv.name }}" data-screen-label="Business unit drawer" style="position:fixed;right:10px;top:10px;bottom:10px;z-index:95;width:420px;max-width:92vw;display:flex;flex-direction:column;border-radius:10px;border:1px solid var(--line);background:var(--panel);box-shadow:var(--shadow);animation:fadeUp .5s ease both">
 
-      <sc-if value="{{ clientView }}" hint-placeholder-val="{{ true }}">
+      <sc-if value="{{ buView }}" hint-placeholder-val="{{ true }}">
         <div style="position:relative;border-bottom:1px solid var(--line-soft);padding:18px 20px 14px">
           <button onClick="{{ closeDrawer }}" aria-label="Close" style="position:absolute;right:14px;top:14px;border-radius:6px;padding:6px;color:var(--text3);background:none;border:none;cursor:pointer" style-hover="background:var(--panel2);color:var(--text)">✕</button>
-          <div style="font:500 11px var(--mono);text-transform:uppercase;letter-spacing:.08em;color:var(--text3)">Client record</div>
+          <div style="font:500 11px var(--mono);text-transform:uppercase;letter-spacing:.08em;color:var(--text3)">Business unit record</div>
           <div style="margin-top:4px;display:flex;align-items:flex-start;gap:10px">
-            <span aria-hidden="true" style="width:32px;height:32px;font:600 16px var(--sans);display:flex;flex:none;align-items:center;justify-content:center;border-radius:6px;background:var(--panel2);color:var(--text3);box-shadow:0 0 0 1px var(--line-soft)">{{ dv.initial }}</span>
+            <span aria-hidden="true" style="width:32px;height:32px;display:flex;flex:none;align-items:center;justify-content:center;border-radius:6px;background:var(--panel2);color:var(--text3);box-shadow:0 0 0 1px var(--line-soft)"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2M13 7a4 4 0 1 1-8 0 4 4 0 0 1 8 0M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"></path></svg></span>
             <div style="min-width:0">
               <div style="font-size:17px;font-weight:600">{{ dv.name }}</div>
-              <div style="margin-top:2px;font:400 11px var(--mono);color:var(--text3)">{{ dv.location }}</div>
-              <div style="font:400 10px var(--mono);color:var(--text3)">{{ dv.sectorDomain }}</div>
+              <div style="margin-top:2px;font:400 11px var(--mono);color:var(--text3)">{{ dv.headline }}</div>
             </div>
           </div>
         </div>
@@ -302,16 +305,16 @@
         <div style="flex:1;overflow-y:auto;padding:18px 20px">
           <div style="display:flex;gap:10px">
             <div style="flex:1;border-radius:8px;border:1px solid var(--line-soft);background:var(--panel2);padding:10px 12px">
-              <b style="display:block;font:600 17px var(--mono);color:var(--text)">{{ dv.active }}</b>
-              <span style="font:400 10.5px var(--mono);text-transform:uppercase;letter-spacing:.06em;color:var(--text3)">Active</span>
+              <b style="display:block;font:600 17px var(--mono);color:var(--text)">{{ dv.open }}</b>
+              <span style="font:400 10.5px var(--mono);text-transform:uppercase;letter-spacing:.06em;color:var(--text3)">Open</span>
             </div>
             <div style="flex:1;border-radius:8px;border:1px solid var(--line-soft);background:var(--panel2);padding:10px 12px">
-              <b style="display:block;font:600 17px var(--mono);color:var(--text)">{{ dv.delivered }}</b>
-              <span style="font:400 10.5px var(--mono);text-transform:uppercase;letter-spacing:.06em;color:var(--text3)">Delivered</span>
+              <b style="display:block;font:600 17px var(--mono);color:var(--text)">{{ dv.filled }}</b>
+              <span style="font:400 10.5px var(--mono);text-transform:uppercase;letter-spacing:.06em;color:var(--text3)">Filled</span>
             </div>
             <div style="flex:1;border-radius:8px;border:1px solid var(--line-soft);background:var(--panel2);padding:10px 12px">
-              <b style="display:block;font:600 17px var(--mono);color:var(--text)">{{ dv.repCount }}</b>
-              <span style="font:400 10.5px var(--mono);text-transform:uppercase;letter-spacing:.06em;color:var(--text3)">Reps</span>
+              <b style="display:block;font:600 17px var(--mono);color:var(--text)">{{ dv.managerCount }}</b>
+              <span style="font:400 10.5px var(--mono);text-transform:uppercase;letter-spacing:.06em;color:var(--text3)">Managers</span>
             </div>
           </div>
 
@@ -322,36 +325,12 @@
             </sc-if>
           </div>
           <label style="display:block;margin-bottom:12px">
-            <span style="display:block;margin-bottom:4px;font:600 10px var(--mono);text-transform:uppercase;letter-spacing:.12em;color:var(--text3)">Client name</span>
+            <span style="display:block;margin-bottom:4px;font:600 10px var(--mono);text-transform:uppercase;letter-spacing:.12em;color:var(--text3)">Business unit name</span>
             <input value="{{ draft.name }}" onChange="{{ onDraft }}" data-id="name" style="width:100%;border-radius:8px;border:1px solid var(--line);background:var(--panel2);padding:10px 12px;font:400 13px var(--mono);color:var(--text);outline:none" style-focus="border-color:var(--sky)">
           </label>
-          <div style="display:flex;gap:10px">
-            <div style="flex:1">
-              <label style="display:block;margin-bottom:12px">
-                <span style="display:block;margin-bottom:4px;font:600 10px var(--mono);text-transform:uppercase;letter-spacing:.12em;color:var(--text3)">Sector</span>
-                <input value="{{ draft.sector }}" onChange="{{ onDraft }}" data-id="sector" placeholder="e.g. FMCG" style="width:100%;border-radius:8px;border:1px solid var(--line);background:var(--panel2);padding:10px 12px;font:400 13px var(--mono);color:var(--text);outline:none" style-focus="border-color:var(--sky)">
-              </label>
-            </div>
-            <div style="flex:1">
-              <label style="display:block;margin-bottom:12px">
-                <span style="display:block;margin-bottom:4px;font:600 10px var(--mono);text-transform:uppercase;letter-spacing:.12em;color:var(--text3)">HQ</span>
-                <span style="display:flex;height:42px;align-items:center;gap:8px;border-radius:8px;border:1px solid var(--line);background:var(--panel2);padding:0 12px">
-                  <input value="{{ draft.hq }}" onChange="{{ onDraft }}" data-id="hq" placeholder="United Arab Emirates" role="combobox" style="width:100%;min-width:0;background:transparent;border:none;font:400 13px var(--mono);color:var(--text);outline:none">
-                  <sc-if value="{{ draftHasHq }}" hint-placeholder-val="{{ true }}">
-                    <button onClick="{{ clearHq }}" aria-label="Clear country" style="flex:none;display:grid;place-items:center;background:none;border:none;padding:0;color:var(--text3);cursor:pointer" style-hover="color:var(--text)"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6 6 18M6 6l12 12"></path></svg></button>
-                  </sc-if>
-                  <span style="flex:none;display:grid;place-items:center;color:var(--text3)"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m6 9 6 6 6-6"></path></svg></span>
-                </span>
-              </label>
-            </div>
-          </div>
           <label style="display:block;margin-bottom:12px">
-            <span style="display:block;margin-bottom:4px;font:600 10px var(--mono);text-transform:uppercase;letter-spacing:.12em;color:var(--text3)">Domain</span>
-            <input value="{{ draft.domain }}" onChange="{{ onDraft }}" data-id="domain" placeholder="e.g. almarai.com" style="width:100%;border-radius:8px;border:1px solid var(--line);background:var(--panel2);padding:10px 12px;font:400 13px var(--mono);color:var(--text);outline:none" style-focus="border-color:var(--sky)">
-          </label>
-          <label style="display:block;margin-bottom:12px">
-            <span style="display:block;margin-bottom:4px;font:600 10px var(--mono);text-transform:uppercase;letter-spacing:.12em;color:var(--text3)">Off-limits</span>
-            <input value="{{ draft.off }}" onChange="{{ onDraft }}" data-id="off" placeholder="e.g. all employees protected until Jan 2027" style="width:100%;border-radius:8px;border:1px solid var(--line);background:var(--panel2);padding:10px 12px;font:400 13px var(--mono);color:var(--text);outline:none" style-focus="border-color:var(--sky)">
+            <span style="display:block;margin-bottom:4px;font:600 10px var(--mono);text-transform:uppercase;letter-spacing:.12em;color:var(--text3)">Notes</span>
+            <textarea rows="3" value="{{ draft.notes }}" onChange="{{ onDraft }}" data-id="notes" placeholder="e.g. hiring freeze lifted Q1, prioritise senior backfills" style="width:100%;resize:vertical;border-radius:8px;border:1px solid var(--line);background:var(--panel2);padding:10px 12px;font:400 13px var(--mono);color:var(--text);outline:none" style-focus="border-color:var(--sky)"></textarea>
           </label>
           <sc-if value="{{ dirty }}" hint-placeholder-val="{{ false }}">
             <div style="margin-bottom:8px;display:flex;justify-content:flex-end;gap:8px">
@@ -360,18 +339,18 @@
             </div>
           </sc-if>
 
-          <div data-screen-label="Representatives" style="margin:18px 0 8px;display:flex;align-items:center;justify-content:space-between">
-            <div style="font:600 10px var(--mono);text-transform:uppercase;letter-spacing:.14em;color:var(--text3)">Client representatives</div>
+          <div data-screen-label="Hiring managers" style="margin:18px 0 8px;display:flex;align-items:center;justify-content:space-between">
+            <div style="font:600 10px var(--mono);text-transform:uppercase;letter-spacing:.14em;color:var(--text3)">Hiring managers</div>
             <sc-if value="{{ inviteClosed }}" hint-placeholder-val="{{ true }}">
               <button onClick="{{ openInvite }}" style="font:400 11px var(--mono);color:var(--sky);background:none;border:none;padding:0;cursor:pointer" style-hover="text-decoration:underline">Invite</button>
             </sc-if>
           </div>
-          <sc-if value="{{ noRepsNote }}" hint-placeholder-val="{{ false }}">
-            <p style="margin:0;padding:4px 0;font:400 12px var(--mono);color:var(--text3)">No representatives yet. Invite one to give the client access to their mandates.</p>
+          <sc-if value="{{ noManagersNote }}" hint-placeholder-val="{{ false }}">
+            <p style="margin:0;padding:4px 0;font:400 12px var(--mono);color:var(--text3)">No hiring managers yet. Invite one to give them access to their positions.</p>
           </sc-if>
-          <sc-for list="{{ dv.reps }}" as="p" hint-placeholder-count="2">
+          <sc-for list="{{ dv.managers }}" as="p" hint-placeholder-count="2">
             <div style="display:flex;align-items:center;gap:10px;padding:6px 0">
-              <span title="{{ p.fullName }}" style="display:grid;flex:none;width:26px;height:26px;place-items:center;border-radius:50%;font:600 10px var(--mono);background:{{ p.avBg }};color:{{ p.avColor }}">{{ p.initials }}</span>
+              <image-slot id="{{ p.slotId }}" title="{{ p.fullName }}" shape="circle" style="width:26px;height:26px;flex:none" placeholder=""></image-slot>
               <div style="min-width:0;flex:1">
                 <div style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:13px">{{ p.fullName }}</div>
                 <div style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font:400 11px var(--mono);color:var(--text3)">{{ p.meta }}</div>
@@ -386,11 +365,11 @@
               </sc-if>
               <label style="display:block;margin-bottom:12px">
                 <span style="display:block;margin-bottom:4px;font:600 10px var(--mono);text-transform:uppercase;letter-spacing:.12em;color:var(--text3)">Full name</span>
-                <input value="{{ inv.fullName }}" onChange="{{ onInv }}" data-id="fullName" placeholder="e.g. Khalid Al-Otaibi" style="width:100%;border-radius:8px;border:1px solid var(--line);background:var(--panel2);padding:10px 12px;font:400 13px var(--mono);color:var(--text);outline:none" style-focus="border-color:var(--sky)">
+                <input value="{{ inv.fullName }}" onChange="{{ onInv }}" data-id="fullName" placeholder="e.g. Farah Nasser" style="width:100%;border-radius:8px;border:1px solid var(--line);background:var(--panel2);padding:10px 12px;font:400 13px var(--mono);color:var(--text);outline:none" style-focus="border-color:var(--sky)">
               </label>
               <label style="display:block;margin-bottom:12px">
-                <span style="display:block;margin-bottom:4px;font:600 10px var(--mono);text-transform:uppercase;letter-spacing:.12em;color:var(--text3)">Position</span>
-                <input value="{{ inv.position }}" onChange="{{ onInv }}" data-id="position" placeholder="e.g. Group CHRO" style="width:100%;border-radius:8px;border:1px solid var(--line);background:var(--panel2);padding:10px 12px;font:400 13px var(--mono);color:var(--text);outline:none" style-focus="border-color:var(--sky)">
+                <span style="display:block;margin-bottom:4px;font:600 10px var(--mono);text-transform:uppercase;letter-spacing:.12em;color:var(--text3)">Title</span>
+                <input value="{{ inv.position }}" onChange="{{ onInv }}" data-id="position" placeholder="e.g. Engineering Director" style="width:100%;border-radius:8px;border:1px solid var(--line);background:var(--panel2);padding:10px 12px;font:400 13px var(--mono);color:var(--text);outline:none" style-focus="border-color:var(--sky)">
               </label>
               <label style="display:block;margin-bottom:12px">
                 <span style="display:block;margin-bottom:4px;font:600 10px var(--mono);text-transform:uppercase;letter-spacing:.12em;color:var(--text3)">Work email</span>
@@ -403,12 +382,12 @@
             </div>
           </sc-if>
 
-          <div style="margin:18px 0 8px;font:600 10px var(--mono);text-transform:uppercase;letter-spacing:.14em;color:var(--text3)">Mandates</div>
-          <sc-if value="{{ noMandates }}" hint-placeholder-val="{{ false }}">
-            <p style="margin:0;padding:8px 0;font:400 12px var(--mono);color:var(--text3)">No mandates yet — create a project for this client.</p>
+          <div style="margin:18px 0 8px;font:600 10px var(--mono);text-transform:uppercase;letter-spacing:.14em;color:var(--text3)">Open positions</div>
+          <sc-if value="{{ noReqs }}" hint-placeholder-val="{{ false }}">
+            <p style="margin:0;padding:8px 0;font:400 12px var(--mono);color:var(--text3)">No positions yet — open one for this business unit.</p>
           </sc-if>
-          <sc-for list="{{ dv.mandates }}" as="m" hint-placeholder-count="2">
-            <button onClick="{{ openMandate }}" data-id="{{ m.id }}" style="display:flex;width:100%;align-items:center;gap:10px;border-radius:7px;padding:8px;text-align:left;background:none;border:none;cursor:pointer" style-hover="background:var(--panel2)">
+          <sc-for list="{{ dv.reqs }}" as="m" hint-placeholder-count="2">
+            <button onClick="{{ openReq }}" data-id="{{ m.id }}" style="display:flex;width:100%;align-items:center;gap:10px;border-radius:6px;padding:8px;text-align:left;background:none;border:none;cursor:pointer" style-hover="background:var(--panel2)">
               <span style="min-width:0;flex:1">
                 <span style="display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font:500 13px var(--sans);color:var(--text)">{{ m.positionTitle }}</span>
                 <span style="display:block;font:400 11px var(--mono);color:var(--text3)">Lead · {{ m.leadName }}</span>
@@ -421,35 +400,42 @@
 
         <div style="display:flex;align-items:center;justify-content:space-between;border-top:1px solid var(--line-soft);padding:12px 20px">
           <button onClick="{{ closeDrawer }}" style="display:flex;align-items:center;justify-content:center;gap:8px;border-radius:8px;padding:10px 14px;font:500 13.5px var(--sans);background:transparent;border:none;color:var(--text3);cursor:pointer" style-hover="color:var(--text2);text-decoration:underline">Close</button>
-          <button onClick="{{ openMandateModal }}" style="display:flex;align-items:center;justify-content:center;gap:8px;border-radius:8px;padding:10px 14px;font:500 13.5px var(--sans);background:var(--panel);border:1px solid var(--line);color:var(--text2);cursor:pointer" style-hover="color:var(--text);border-color:var(--text3)">＋ New mandate</button>
+          <button onClick="{{ openReqModal }}" style="display:flex;align-items:center;justify-content:center;gap:8px;border-radius:8px;padding:10px 14px;font:500 13.5px var(--sans);background:var(--panel);border:1px solid var(--line);color:var(--text2);cursor:pointer" style-hover="color:var(--text);border-color:var(--text3)">＋ New position</button>
         </div>
       </sc-if>
 
-      <sc-if value="{{ mandateView }}" hint-placeholder-val="{{ false }}">
-        <div data-screen-label="Mandate sub-view" style="border-bottom:1px solid var(--line-soft);padding:18px 20px 14px">
-          <button onClick="{{ backToClient }}" style="margin-bottom:6px;display:flex;align-items:center;gap:4px;font:400 11px var(--mono);color:var(--text3);background:none;border:none;padding:0;cursor:pointer" style-hover="color:var(--text)">‹ {{ dv.name }}</button>
-          <div style="font:500 11px var(--mono);text-transform:uppercase;letter-spacing:.08em;color:var(--text3)">Mandate</div>
-          <div style="margin-top:4px;font-size:17px;font-weight:600">{{ mv.positionTitle }}</div>
-          <div style="margin-top:2px;font:400 11px var(--mono);color:var(--text3)">Lead · {{ mv.leadName }}</div>
+      <sc-if value="{{ reqView }}" hint-placeholder-val="{{ false }}">
+        <div data-screen-label="Req sub-view" style="border-bottom:1px solid var(--line-soft);padding:18px 20px 14px">
+          <button onClick="{{ backToBu }}" style="margin-bottom:6px;display:flex;align-items:center;gap:4px;font:400 11px var(--mono);color:var(--text3);background:none;border:none;padding:0;cursor:pointer" style-hover="color:var(--text)">‹ {{ dv.name }}</button>
+          <div style="font:500 11px var(--mono);text-transform:uppercase;letter-spacing:.08em;color:var(--text3)">Position</div>
+          <div style="margin-top:4px;font-size:17px;font-weight:600">{{ rv.positionTitle }}</div>
+          <div style="margin-top:2px;font:400 11px var(--mono);color:var(--text3)">Lead · {{ rv.leadName }}</div>
+          <a href="{{ rv.openHref }}" style="margin-top:12px;width:100%;display:flex;align-items:center;justify-content:center;gap:8px;border-radius:6px;padding:10px 14px;font:500 13.5px var(--sans);background:var(--amber-btn);border:1px solid var(--amber-btn);color:var(--on-amber);text-decoration:none" style-hover="filter:brightness(1.05)">Open position →</a>
         </div>
         <div style="flex:1;overflow-y:auto;padding:18px 20px">
           <div style="margin-bottom:16px;display:flex;align-items:center;justify-content:space-between">
-            <span style="display:inline-flex;align-items:center;gap:6px;white-space:nowrap;border-radius:6px;border:1px solid {{ mv.pillBorder }};padding:3px 9px;font:600 10.5px var(--mono);text-transform:uppercase;letter-spacing:.06em;color:{{ mv.pillColor }};background:{{ mv.pillBg }}"><span style="width:6px;height:6px;border-radius:50%;background:currentColor"></span>{{ mv.stageLabel }}</span>
-            <span style="display:inline-flex;align-items:center;gap:6px;white-space:nowrap;font:500 12px var(--mono);color:{{ mv.healthText }}"><span style="width:7px;height:7px;border-radius:50%;background:{{ mv.healthDot }}"></span>{{ mv.healthLabel }}</span>
+            <span style="display:inline-flex;align-items:center;gap:6px;white-space:nowrap;border-radius:6px;border:1px solid {{ rv.pillBorder }};padding:3px 9px;font:600 10.5px var(--mono);text-transform:uppercase;letter-spacing:.06em;color:{{ rv.pillColor }};background:{{ rv.pillBg }}"><span style="width:6px;height:6px;border-radius:50%;background:currentColor"></span>{{ rv.stageLabel }}</span>
+            <span style="display:inline-flex;align-items:center;gap:6px;white-space:nowrap;font:500 12px var(--mono);color:{{ rv.healthText }}"><span style="width:7px;height:7px;border-radius:50%;background:{{ rv.healthDot }}"></span>{{ rv.healthLabel }}</span>
           </div>
           <div style="margin-bottom:8px;font:600 10px var(--mono);text-transform:uppercase;letter-spacing:.14em;color:var(--text3)">Stage</div>
-          <sc-for list="{{ mv.gates }}" as="gt" hint-placeholder-count="6">
-            <div style="display:flex;align-items:center;gap:10px;padding:7px 0;font:{{ gt.weight }} 12.5px var(--mono);color:{{ gt.color }}">
-              <span style="display:grid;flex:none;width:14px;height:14px;place-items:center;border-radius:50%;border:1.5px solid {{ gt.ring }};background:{{ gt.fill }}"><span style="width:6px;height:6px;border-radius:50%;background:{{ gt.dot }}"></span></span>
+          <sc-for list="{{ rv.gates }}" as="gt" hint-placeholder-count="6">
+            <div style="display:flex;align-items:center;gap:10px;padding:7px 0;font:{{ gt.weight }} 12.5px var(--mono);color:{{ gt.color }};opacity:{{ gt.opacity }}">
+                            <span style="display:grid;flex:none;width:14px;height:14px;place-items:center;border-radius:50%;border:1.5px solid {{ gt.ring }};background:{{ gt.fill }}">
+                <sc-if value="{{ gt.done }}" hint-placeholder-val="{{ false }}">
+                  <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="var(--green)" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"></path></svg>
+                </sc-if>
+                <sc-if value="{{ gt.notDone }}" hint-placeholder-val="{{ true }}">
+                  <span style="width:6px;height:6px;border-radius:50%;background:{{ gt.dot }}"></span>
+                </sc-if>
+              </span>
               {{ gt.label }}
             </div>
           </sc-for>
           <div style="margin:18px 0 8px;font:600 10px var(--mono);text-transform:uppercase;letter-spacing:.14em;color:var(--text3)">Target</div>
-          <p style="margin:0;font:400 12.5px var(--mono);color:var(--text2)">{{ mv.target }}</p>
+          <p style="margin:0;font:400 12.5px var(--mono);color:var(--text2)">{{ rv.target }}</p>
         </div>
-        <div style="display:flex;align-items:center;justify-content:space-between;border-top:1px solid var(--line-soft);padding:12px 20px">
-          <button onClick="{{ backToClient }}" style="display:flex;align-items:center;justify-content:center;gap:8px;border-radius:8px;padding:10px 14px;font:500 13.5px var(--sans);background:transparent;border:none;color:var(--text3);cursor:pointer" style-hover="color:var(--text2);text-decoration:underline">Back</button>
-          <a href="Project.dc.html" style="display:flex;align-items:center;justify-content:center;gap:8px;border-radius:8px;padding:10px 14px;font:600 13.5px var(--sans);background:var(--amber-btn);border:1px solid var(--amber-btn);color:var(--on-amber);text-decoration:none" style-hover="filter:brightness(1.05)">Open project →</a>
+        <div style="display:flex;align-items:center;justify-content:flex-start;border-top:1px solid var(--line-soft);padding:12px 20px">
+          <button onClick="{{ backToBu }}" style="display:flex;align-items:center;justify-content:center;gap:8px;border-radius:8px;padding:10px 14px;font:500 13.5px var(--sans);background:transparent;border:none;color:var(--text3);cursor:pointer" style-hover="color:var(--text2);text-decoration:underline">Back</button>
         </div>
       </sc-if>
     </aside>
@@ -457,110 +443,79 @@
 
   <sc-if value="{{ modalShown }}" hint-placeholder-val="{{ false }}">
     <div onClick="{{ closeModal }}" style="position:fixed;inset:0;z-index:100;display:grid;place-items:center;background:rgba(15,20,30,.4)">
-      <div role="dialog" aria-modal="true" aria-label="New client" data-screen-label="New client modal" onClick="{{ stop }}" style="max-height:90vh;width:440px;max-width:94vw;overflow-y:auto;border-radius:12px;border:1px solid var(--line);background:var(--panel);padding:22px;box-shadow:var(--shadow);animation:fadeUp .5s ease both">
-        <div style="margin-bottom:16px;font-size:16px;font-weight:600">New client</div>
-        <p style="margin:-8px 0 16px;font:400 11.5px var(--mono);color:var(--text3)">Search the company database first — most clients already exist as records.</p>
+      <div role="dialog" aria-modal="true" aria-label="New business unit" data-screen-label="New business unit modal" onClick="{{ stop }}" style="max-height:90vh;width:440px;max-width:94vw;overflow-y:auto;border-radius:12px;border:1px solid var(--line);background:var(--panel);padding:22px;box-shadow:var(--shadow);animation:fadeUp .5s ease both">
+        <div style="margin-bottom:16px;font-size:16px;font-weight:600">New business unit</div>
+        <p style="margin:-8px 0 16px;font:400 11.5px var(--mono);color:var(--text3)">Pick from the org structure, or add one that isn't listed yet.</p>
         <sc-if value="{{ hasModalError }}" hint-placeholder-val="{{ false }}">
           <div role="alert" style="margin-bottom:16px;border-radius:8px;background:var(--red-dim);padding:10px 12px;font:400 11.5px var(--mono);color:var(--red)">{{ modalError }}</div>
         </sc-if>
 
         <sc-if value="{{ noPick }}" hint-placeholder-val="{{ true }}">
           <label style="display:block;margin-bottom:16px">
-            <span style="display:flex;margin-bottom:6px;align-items:baseline;justify-content:space-between"><span style="font:600 10px var(--mono);text-transform:uppercase;letter-spacing:.12em;color:var(--text3)">Company</span></span>
-            <input value="{{ pq }}" onChange="{{ onPickQuery }}" placeholder="Search company database…" style="width:100%;border-radius:8px;border:1px solid var(--line);background:var(--panel2);padding:10px 12px;font:400 13px var(--mono);color:var(--text);outline:none" style-focus="border-color:var(--sky)">
+            <span style="display:flex;margin-bottom:6px;align-items:baseline;justify-content:space-between"><span style="font:600 10px var(--mono);text-transform:uppercase;letter-spacing:.12em;color:var(--text3)">Business unit</span></span>
+            <input value="{{ pq }}" onChange="{{ onPickQuery }}" placeholder="Search org structure…" style="width:100%;border-radius:8px;border:1px solid var(--line);background:var(--panel2);padding:10px 12px;font:400 13px var(--mono);color:var(--text);outline:none" style-focus="border-color:var(--sky)">
           </label>
-          <sc-if value="{{ pickTooShort }}" hint-placeholder-val="{{ true }}">
-            <p style="margin:0;font:400 11.5px var(--mono);color:var(--text3)">Type at least 2 characters to search the company database.</p>
-          </sc-if>
-          <sc-if value="{{ pickSearch }}" hint-placeholder-val="{{ false }}">
-            <div data-screen-label="Company results" style="max-height:280px;overflow-y:auto;border-radius:8px;border:1px solid var(--line-soft)">
-              <sc-if value="{{ searching }}" hint-placeholder-val="{{ false }}">
-                <div style="display:flex;align-items:center;gap:8px;padding:12px;font:400 11.5px var(--mono);color:var(--text3)">
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" aria-hidden="true" style="animation:spin 1s linear infinite"><circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="3" opacity="0.25"></circle><path d="M12 2a10 10 0 0 1 10 10" stroke="currentColor" stroke-width="3" stroke-linecap="round"></path></svg>
-                  Searching…
-                </div>
-              </sc-if>
-              <sc-for list="{{ hits }}" as="hit" hint-placeholder-count="3">
-                <button onClick="{{ pickHit }}" data-id="{{ hit.id }}" style="display:flex;width:100%;align-items:center;gap:10px;border:none;border-bottom:{{ hit.border }};padding:10px 12px;text-align:left;background:none;cursor:pointer" style-hover="background:var(--panel2)">
-                  <span aria-hidden="true" style="width:28px;height:28px;font:600 14px var(--sans);display:flex;flex:none;align-items:center;justify-content:center;border-radius:6px;background:var(--panel2);color:var(--text3);box-shadow:0 0 0 1px var(--line-soft)">{{ hit.initial }}</span>
-                  <span style="min-width:0;flex:1">
-                    <span style="display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font:500 13px var(--sans);color:var(--text)">{{ hit.name }}</span>
-                    <span style="display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font:400 11px var(--mono);color:var(--text3)">{{ hit.location }}</span>
-                    <span style="display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font:400 10px var(--mono);color:var(--text3)">{{ hit.industry }}</span>
-                  </span>
-                  <sc-if value="{{ hit.isClient }}" hint-placeholder-val="{{ false }}">
-                    <span style="border-radius:6px;background:var(--green-dim);padding:2px 6px;font:600 9.5px var(--mono);text-transform:uppercase;letter-spacing:.08em;color:var(--green)">Client</span>
-                  </sc-if>
-                  <sc-if value="{{ hit.selectable }}" hint-placeholder-val="{{ true }}">
-                    <span style="font:400 11px var(--mono);color:var(--sky)">Select →</span>
-                  </sc-if>
-                </button>
-              </sc-for>
-              <sc-if value="{{ noHits }}" hint-placeholder-val="{{ false }}">
-                <p style="margin:0;padding:12px;font:400 11.5px var(--mono);color:var(--text3)">No company found for “{{ pqTrim }}”.</p>
-              </sc-if>
-              <sc-if value="{{ settled }}" hint-placeholder-val="{{ true }}">
-                <button onClick="{{ openCustom }}" style="display:flex;width:100%;align-items:center;gap:6px;padding:10px 12px;text-align:left;font:400 11.5px var(--mono);color:var(--amber);background:none;border:none;cursor:pointer" style-hover="background:var(--panel2)">＋ None of these — add “{{ pqTrim }}” as a new company</button>
-              </sc-if>
-            </div>
-          </sc-if>
+          <div data-screen-label="Business unit results" style="max-height:280px;overflow-y:auto;border-radius:8px;border:1px solid var(--line-soft)">
+            <sc-for list="{{ hits }}" as="hit" hint-placeholder-count="4">
+              <button onClick="{{ pickHit }}" data-id="{{ hit.id }}" style="display:flex;width:100%;align-items:center;gap:10px;border:none;border-bottom:{{ hit.border }};padding:10px 12px;text-align:left;background:none;cursor:pointer" style-hover="background:var(--panel2)">
+                <span aria-hidden="true" style="width:28px;height:28px;display:flex;flex:none;align-items:center;justify-content:center;border-radius:6px;background:var(--panel2);color:var(--text3);box-shadow:0 0 0 1px var(--line-soft)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2M13 7a4 4 0 1 1-8 0 4 4 0 0 1 8 0M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"></path></svg></span>
+                <span style="min-width:0;flex:1">
+                  <span style="display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font:500 13px var(--sans);color:var(--text)">{{ hit.name }}</span>
+                </span>
+                <sc-if value="{{ hit.isBU }}" hint-placeholder-val="{{ false }}">
+                  <span style="border-radius:6px;background:var(--green-dim);padding:2px 6px;font:600 9.5px var(--mono);text-transform:uppercase;letter-spacing:.08em;color:var(--green)">Existing</span>
+                </sc-if>
+                <sc-if value="{{ hit.selectable }}" hint-placeholder-val="{{ true }}">
+                  <span style="font:400 11px var(--mono);color:var(--sky)">Select →</span>
+                </sc-if>
+              </button>
+            </sc-for>
+            <sc-if value="{{ noHits }}" hint-placeholder-val="{{ false }}">
+              <p style="margin:0;padding:12px;font:400 11.5px var(--mono);color:var(--text3)">No match for “{{ pqTrim }}”.</p>
+            </sc-if>
+            <button onClick="{{ openCustom }}" style="display:flex;width:100%;align-items:center;gap:6px;padding:10px 12px;text-align:left;font:400 11.5px var(--mono);color:var(--amber);background:none;border:none;cursor:pointer" style-hover="background:var(--panel2)">＋ Not listed — add a business unit</button>
+          </div>
           <sc-if value="{{ customOpen }}" hint-placeholder-val="{{ false }}">
-            <div data-screen-label="New company record" style="margin-top:16px;border-radius:8px;border:1px solid var(--line-soft);background:var(--panel2);padding:14px">
-              <div style="margin-bottom:12px;font:600 10px var(--mono);text-transform:uppercase;letter-spacing:.12em;color:var(--text3)">New company record</div>
-              <label style="display:block;margin-bottom:16px">
-                <span style="display:flex;margin-bottom:6px"><span style="font:600 10px var(--mono);text-transform:uppercase;letter-spacing:.12em;color:var(--text3)">Company name</span></span>
-                <input value="{{ custom.name }}" onChange="{{ onCustom }}" data-id="name" placeholder="e.g. Meridian Energy Group" style="width:100%;border-radius:8px;border:1px solid {{ customNameBorder }};background:var(--panel2);padding:10px 12px;font:400 13px var(--mono);color:var(--text);outline:none" style-focus="border-color:var(--sky)">
+            <div data-screen-label="New business unit name" style="margin-top:16px;border-radius:8px;border:1px solid var(--line-soft);background:var(--panel2);padding:14px">
+              <label style="display:block;margin-bottom:0">
+                <span style="display:flex;margin-bottom:6px"><span style="font:600 10px var(--mono);text-transform:uppercase;letter-spacing:.12em;color:var(--text3)">Business unit name</span></span>
+                <input value="{{ custom.name }}" onChange="{{ onCustom }}" data-id="name" placeholder="e.g. Data & Analytics" style="width:100%;border-radius:8px;border:1px solid {{ customNameBorder }};background:var(--panel2);padding:10px 12px;font:400 13px var(--mono);color:var(--text);outline:none" style-focus="border-color:var(--sky)">
                 <sc-if value="{{ hasCustomError }}" hint-placeholder-val="{{ false }}">
                   <span style="display:block;margin-top:6px;font:400 11px var(--mono);color:var(--red)">{{ customError }}</span>
                 </sc-if>
               </label>
-              <label style="display:block;margin-bottom:16px">
-                <span style="display:flex;margin-bottom:6px"><span style="font:600 10px var(--mono);text-transform:uppercase;letter-spacing:.12em;color:var(--text3)">Domain · optional, helps us match the client</span></span>
-                <input value="{{ custom.domain }}" onChange="{{ onCustom }}" data-id="domain" placeholder="e.g. meridian.ae" style="width:100%;border-radius:8px;border:1px solid var(--line);background:var(--panel2);padding:10px 12px;font:400 13px var(--mono);color:var(--text);outline:none" style-focus="border-color:var(--sky)">
-              </label>
-              <label style="display:block;margin-bottom:16px">
-                <span style="display:flex;margin-bottom:6px"><span style="font:600 10px var(--mono);text-transform:uppercase;letter-spacing:.12em;color:var(--text3)">Country · optional</span></span>
-                <span style="display:flex;height:42px;align-items:center;gap:8px;border-radius:8px;border:1px solid var(--line);background:var(--panel2);padding:0 12px">
-                  <input value="{{ custom.country }}" onChange="{{ onCustom }}" data-id="country" placeholder="Search countries…" role="combobox" style="width:100%;min-width:0;background:transparent;border:none;font:400 13px var(--mono);color:var(--text);outline:none">
-                  <span style="flex:none;display:grid;place-items:center;color:var(--text3)"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m6 9 6 6 6-6"></path></svg></span>
-                </span>
-              </label>
-              <div style="display:flex;justify-content:flex-end;gap:8px">
+              <div style="margin-top:16px;display:flex;justify-content:flex-end;gap:8px">
                 <button onClick="{{ cancelCustom }}" style="display:flex;align-items:center;justify-content:center;gap:8px;border-radius:8px;padding:10px 14px;font:500 13.5px var(--sans);background:var(--panel);border:1px solid var(--line);color:var(--text2);cursor:pointer" style-hover="color:var(--text);border-color:var(--text3)">Cancel</button>
-                <button onClick="{{ confirmCustom }}" style="display:flex;align-items:center;justify-content:center;gap:8px;border-radius:8px;padding:10px 14px;font:600 13.5px var(--sans);background:var(--amber-btn);border:1px solid var(--amber-btn);color:var(--on-amber);cursor:pointer" style-hover="filter:brightness(1.05)">Use this company</button>
+                <button onClick="{{ confirmCustom }}" style="display:flex;align-items:center;justify-content:center;gap:8px;border-radius:8px;padding:10px 14px;font:600 13.5px var(--sans);background:var(--amber-btn);border:1px solid var(--amber-btn);color:var(--on-amber);cursor:pointer" style-hover="filter:brightness(1.05)">Use this name</button>
               </div>
             </div>
           </sc-if>
         </sc-if>
 
         <sc-if value="{{ hasPick }}" hint-placeholder-val="{{ false }}">
-          <div data-screen-label="Picked company" style="margin-bottom:16px;display:flex;align-items:center;gap:10px;border-radius:8px;border:1px solid var(--line-soft);background:var(--panel2);padding:10px 12px">
-            <span aria-hidden="true" style="width:28px;height:28px;font:600 14px var(--sans);display:flex;flex:none;align-items:center;justify-content:center;border-radius:6px;background:var(--panel2);color:var(--text3);box-shadow:0 0 0 1px var(--line-soft)">{{ pv.initial }}</span>
+          <div data-screen-label="Picked business unit" style="margin-bottom:16px;display:flex;align-items:center;gap:10px;border-radius:8px;border:1px solid var(--line-soft);background:var(--panel2);padding:10px 12px">
+            <span aria-hidden="true" style="width:28px;height:28px;display:flex;flex:none;align-items:center;justify-content:center;border-radius:6px;background:var(--panel2);color:var(--text3);box-shadow:0 0 0 1px var(--line-soft)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2M13 7a4 4 0 1 1-8 0 4 4 0 0 1 8 0M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"></path></svg></span>
             <span style="min-width:0;flex:1">
               <span style="display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font:600 13px var(--sans);color:var(--text)">{{ pv.name }}</span>
-              <span style="display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font:400 11px var(--mono);color:var(--text3)">{{ pv.sub }}</span>
-              <sc-if value="{{ pv.hasIndustry }}" hint-placeholder-val="{{ true }}">
-                <span style="display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font:400 10px var(--mono);color:var(--text3)">{{ pv.industry }}</span>
-              </sc-if>
             </span>
             <button onClick="{{ changePick }}" style="font:400 11px var(--mono);color:var(--sky);background:none;border:none;padding:0;cursor:pointer" style-hover="text-decoration:underline">Change</button>
           </div>
 
           <div style="margin-bottom:12px;font:600 10px var(--mono);text-transform:uppercase;letter-spacing:.12em;color:var(--text3)">
-            Primary contact
-            <span style="margin-left:4px;font-weight:400;text-transform:none;letter-spacing:normal;color:var(--text3)">· optional — gets an invite as a representative. Add more from the client panel later.</span>
+            Primary hiring manager
+            <span style="margin-left:4px;font-weight:400;text-transform:none;letter-spacing:normal;color:var(--text3)">· optional — gets an invite. Add more from the business unit panel later.</span>
           </div>
           <div style="display:flex;gap:10px">
             <div style="flex:1">
               <label style="display:block;margin-bottom:16px">
                 <span style="display:flex;margin-bottom:6px"><span style="font:600 10px var(--mono);text-transform:uppercase;letter-spacing:.12em;color:var(--text3)">Full name</span></span>
-                <input value="{{ contact.fullName }}" onChange="{{ onContact }}" data-id="fullName" placeholder="e.g. Khalid Al-Otaibi" style="width:100%;border-radius:8px;border:1px solid var(--line);background:var(--panel2);padding:10px 12px;font:400 13px var(--mono);color:var(--text);outline:none" style-focus="border-color:var(--sky)">
+                <input value="{{ contact.fullName }}" onChange="{{ onContact }}" data-id="fullName" placeholder="e.g. Farah Nasser" style="width:100%;border-radius:8px;border:1px solid var(--line);background:var(--panel2);padding:10px 12px;font:400 13px var(--mono);color:var(--text);outline:none" style-focus="border-color:var(--sky)">
               </label>
             </div>
             <div style="flex:1">
               <label style="display:block;margin-bottom:16px">
-                <span style="display:flex;margin-bottom:6px"><span style="font:600 10px var(--mono);text-transform:uppercase;letter-spacing:.12em;color:var(--text3)">Position</span></span>
-                <input value="{{ contact.position }}" onChange="{{ onContact }}" data-id="position" placeholder="e.g. Group CHRO" style="width:100%;border-radius:8px;border:1px solid var(--line);background:var(--panel2);padding:10px 12px;font:400 13px var(--mono);color:var(--text);outline:none" style-focus="border-color:var(--sky)">
+                <span style="display:flex;margin-bottom:6px"><span style="font:600 10px var(--mono);text-transform:uppercase;letter-spacing:.12em;color:var(--text3)">Title</span></span>
+                <input value="{{ contact.position }}" onChange="{{ onContact }}" data-id="position" placeholder="e.g. Engineering Director" style="width:100%;border-radius:8px;border:1px solid var(--line);background:var(--panel2);padding:10px 12px;font:400 13px var(--mono);color:var(--text);outline:none" style-focus="border-color:var(--sky)">
               </label>
             </div>
           </div>
@@ -570,29 +525,29 @@
           </label>
           <div style="margin-top:20px;display:flex;justify-content:flex-end;gap:8px">
             <button onClick="{{ closeModal }}" style="display:flex;align-items:center;justify-content:center;gap:8px;border-radius:8px;padding:10px 14px;font:500 13.5px var(--sans);background:var(--panel);border:1px solid var(--line);color:var(--text2);cursor:pointer" style-hover="color:var(--text);border-color:var(--text3)">Cancel</button>
-            <button onClick="{{ createClient }}" style="display:flex;align-items:center;justify-content:center;gap:8px;border-radius:8px;padding:10px 14px;font:600 13.5px var(--sans);background:var(--amber-btn);border:1px solid var(--amber-btn);color:var(--on-amber);cursor:pointer" style-hover="filter:brightness(1.05)">{{ createLabel }}</button>
+            <button onClick="{{ createBu }}" style="display:flex;align-items:center;justify-content:center;gap:8px;border-radius:8px;padding:10px 14px;font:600 13.5px var(--sans);background:var(--amber-btn);border:1px solid var(--amber-btn);color:var(--on-amber);cursor:pointer" style-hover="filter:brightness(1.05)">{{ createLabel }}</button>
           </div>
         </sc-if>
       </div>
     </div>
   </sc-if>
 
-  <sc-if value="{{ mandateModalShown }}" hint-placeholder-val="{{ false }}">
-    <div onClick="{{ closeMandateModal }}" style="position:fixed;inset:0;z-index:100;display:grid;place-items:center;background:rgba(15,20,30,.4)">
-      <div role="dialog" aria-modal="true" aria-label="New project" data-screen-label="New project modal (client locked)" onClick="{{ stop }}" style="width:440px;max-width:94vw;border-radius:12px;border:1px solid var(--line);background:var(--panel);padding:22px;box-shadow:var(--shadow);animation:fadeUp .5s ease both">
-        <div style="margin-bottom:16px;font-size:16px;font-weight:600">New project</div>
+  <sc-if value="{{ reqModalShown }}" hint-placeholder-val="{{ false }}">
+    <div onClick="{{ closeReqModal }}" style="position:fixed;inset:0;z-index:100;display:grid;place-items:center;background:rgba(15,20,30,.4)">
+      <div role="dialog" aria-modal="true" aria-label="New position" data-screen-label="New position modal (business unit locked)" onClick="{{ stop }}" style="width:440px;max-width:94vw;border-radius:12px;border:1px solid var(--line);background:var(--panel);padding:22px;box-shadow:var(--shadow);animation:fadeUp .5s ease both">
+        <div style="margin-bottom:16px;font-size:16px;font-weight:600">New position</div>
         <label style="display:block;margin-bottom:16px">
-          <span style="display:flex;margin-bottom:6px"><span style="font:600 10px var(--mono);text-transform:uppercase;letter-spacing:.12em;color:var(--text3)">Client</span></span>
+          <span style="display:flex;margin-bottom:6px"><span style="font:600 10px var(--mono);text-transform:uppercase;letter-spacing:.12em;color:var(--text3)">Business unit</span></span>
           <select disabled style="width:100%;border-radius:8px;border:1px solid var(--line);background:var(--panel2);padding:10px 12px;font:400 13px var(--mono);color:var(--text);outline:none;cursor:not-allowed;opacity:.6">
             <option label="{{ lockedName }}" value="locked"></option>
           </select>
-          <span style="display:block;margin-top:6px;font:400 11px var(--mono);color:var(--text3)">This mandate belongs to {{ lockedName }}.</span>
+          <span style="display:block;margin-top:6px;font:400 11px var(--mono);color:var(--text3)">This position belongs to {{ lockedName }}.</span>
         </label>
         <label style="display:block;margin-bottom:16px">
           <span style="display:flex;margin-bottom:6px"><span style="font:600 10px var(--mono);text-transform:uppercase;letter-spacing:.12em;color:var(--text3)">Position</span></span>
           <div style="position:relative">
             <span style="position:relative;display:block">
-              <input value="{{ pos }}" onChange="{{ onPos }}" onFocus="{{ posFocus }}" onBlur="{{ posBlur }}" role="combobox" autocomplete="off" placeholder="e.g. Chief Financial Officer" style="width:100%;border-radius:8px;border:1px solid {{ posBorder }};background:var(--panel2);padding:10px 36px 10px 12px;font:500 13px var(--sans);color:var(--text);outline:none" style-focus="border-color:var(--sky)">
+              <input value="{{ pos }}" onChange="{{ onPos }}" onFocus="{{ posFocus }}" onBlur="{{ posBlur }}" role="combobox" autocomplete="off" placeholder="e.g. Senior Backend Engineer" style="width:100%;border-radius:8px;border:1px solid {{ posBorder }};background:var(--panel2);padding:10px 36px 10px 12px;font:500 13px var(--sans);color:var(--text);outline:none" style-focus="border-color:var(--sky)">
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="pointer-events:none;position:absolute;right:12px;top:12px;color:{{ posCheck }}"><path d="M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18M8.5 12.2l2.3 2.3 4.7-4.7"></path></svg>
             </span>
             <sc-if value="{{ posListShown }}" hint-placeholder-val="{{ false }}">
@@ -619,8 +574,8 @@
           </div>
         </label>
         <div style="margin-top:20px;display:flex;justify-content:flex-end;gap:8px">
-          <button onClick="{{ closeMandateModal }}" style="display:flex;align-items:center;justify-content:center;gap:8px;border-radius:8px;padding:10px 14px;font:500 13.5px var(--sans);background:var(--panel);border:1px solid var(--line);color:var(--text2);cursor:pointer" style-hover="color:var(--text);border-color:var(--text3)">Cancel</button>
-          <button onClick="{{ createProject }}" style="display:flex;align-items:center;justify-content:center;gap:8px;border-radius:8px;padding:10px 14px;font:600 13.5px var(--sans);background:var(--amber-btn);border:1px solid var(--amber-btn);color:var(--on-amber);cursor:pointer" style-hover="filter:brightness(1.05)">Create project</button>
+          <button onClick="{{ closeReqModal }}" style="display:flex;align-items:center;justify-content:center;gap:8px;border-radius:8px;padding:10px 14px;font:500 13.5px var(--sans);background:var(--panel);border:1px solid var(--line);color:var(--text2);cursor:pointer" style-hover="color:var(--text);border-color:var(--text3)">Cancel</button>
+          <button onClick="{{ createReq }}" style="display:flex;align-items:center;justify-content:center;gap:8px;border-radius:8px;padding:10px 14px;font:600 13.5px var(--sans);background:var(--amber-btn);border:1px solid var(--amber-btn);color:var(--on-amber);cursor:pointer" style-hover="filter:brightness(1.05)">Create position</button>
         </div>
       </div>
     </div>
@@ -630,9 +585,10 @@
     <div role="status" style="position:fixed;bottom:22px;left:50%;transform:translateX(-50%);z-index:120;background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:9px 16px;font:500 12px var(--mono);color:var(--text2);box-shadow:var(--shadow);animation:fadeUp .2s ease both">{{ toast }}</div>
   </sc-if>
 </div>
-<template id="__bundler_thumbnail"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><rect width="100" height="100" fill="#16171a"></rect><g transform="translate(50 40) scale(.42)" fill="none" stroke="#f8fafc"><path d="M-32 10 L 0 -8 L 32 10 L 0 28 Z M-32 10 V 32 L 0 50 L 32 32 V 10 M0 28 V 50" stroke-width="3" stroke-linejoin="round"></path><path d="M0 -48 L 32 -30 L 0 -12 L -32 -30 Z" fill="#f8fafc" stroke="none"></path></g><text x="50" y="86" fill="#e2b65c" font-family="Geist,Inter,sans-serif" font-size="13" font-weight="700" letter-spacing="2" text-anchor="middle">CL</text></svg></template>
+<template id="__bundler_thumbnail"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><rect width="100" height="100" fill="#16171a"></rect><g transform="translate(50 40) scale(.42)" fill="none" stroke="#f8fafc"><path d="M-32 10 L 0 -8 L 32 10 L 0 28 Z M-32 10 V 32 L 0 50 L 32 32 V 10 M0 28 V 50" stroke-width="3" stroke-linejoin="round"></path><path d="M0 -48 L 32 -30 L 0 -12 L -32 -30 Z" fill="#f8fafc" stroke="none"></path></g><text x="50" y="86" fill="#e2b65c" font-family="Geist,Inter,sans-serif" font-size="13" font-weight="700" letter-spacing="2" text-anchor="middle">BU</text></svg></template>
+
 </x-dc>
-<script type="text/x-dc" data-dc-script data-props="{&quot;empty&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;State&quot;},&quot;loading&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;State&quot;},&quot;drawerOpen&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;Overlays&quot;},&quot;modalOpen&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;Overlays&quot;},&quot;mandateModalOpen&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;Overlays&quot;}}">
+<script type="text/x-dc" data-dc-script>
 class Component extends DCLogic {
   constructor(props) {
     super(props);
@@ -642,7 +598,7 @@ class Component extends DCLogic {
     this.ICON = {
       myProjects: 'M12 2a10 10 0 1 0 .01 0M12 8a4 4 0 1 0 .01 0',
       allProjects: 'M3 3h7v7H3zM14 3h7v7h-7zM3 14h7v7H3zM14 14h7v7h-7z',
-      clients: 'M3 21h18M5 21V7l7-4 7 4v14M9 9h.01M9 13h.01M9 17h.01M15 9h.01M15 13h.01M15 17h.01',
+      units: 'M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2M13 7a4 4 0 1 1-8 0 4 4 0 0 1 8 0M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75',
       team: 'M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2M13 7a4 4 0 1 1-8 0 4 4 0 0 1 8 0M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75',
       settings: 'M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6ZM19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09a1.65 1.65 0 0 0-1-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09a1.65 1.65 0 0 0 1.51-1 1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33h.01a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51h.01a1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82v.01a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1Z',
       moon: 'M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79Z',
@@ -652,15 +608,14 @@ class Component extends DCLogic {
     };
 
     this.STAGES = {
-      BRIEF: { label: 'Brief', color: 'var(--text2)', bg: 'transparent', border: 'var(--line)' },
+      BRIEF: { label: 'Brief', color: 'var(--text2)', bg: 'var(--panel2)', border: 'transparent' },
       UNIVERSE: { label: 'Universe', color: 'var(--sky)', bg: 'var(--sky-dim)', border: 'transparent' },
-      LOCKED: { label: 'Universe locked', color: 'var(--sky)', bg: 'transparent', border: 'var(--sky)' },
       MAPPING: { label: 'Mapping', color: 'var(--amber)', bg: 'var(--amber-dim)', border: 'transparent' },
-      OUTREACH: { label: 'Outreach live', color: 'var(--amber)', bg: 'transparent', border: 'var(--amber)' },
+      OUTREACH: { label: 'Outreach live', color: 'var(--amber)', bg: 'var(--amber-dim)', border: 'transparent' },
       DELIVERED: { label: 'Shortlist delivered', color: 'var(--green)', bg: 'var(--green-dim)', border: 'transparent' },
       CLOSED: { label: 'Closed', color: 'var(--text3)', bg: 'transparent', border: 'var(--line-soft)' },
     };
-    this.STAGE_ORDER = ['BRIEF', 'UNIVERSE', 'LOCKED', 'MAPPING', 'OUTREACH', 'DELIVERED', 'CLOSED'];
+    this.STAGE_ORDER = ['BRIEF', 'UNIVERSE', 'MAPPING', 'OUTREACH', 'DELIVERED', 'CLOSED'];
     this.HEALTH = {
       OK: { label: 'On track', dot: 'var(--green)', text: 'var(--text2)' },
       RISK: { label: 'At risk', dot: 'var(--amber)', text: 'var(--amber)' },
@@ -668,89 +623,62 @@ class Component extends DCLogic {
       DONE: { label: 'Complete', dot: 'var(--text3)', text: 'var(--text3)' },
     };
     this.ACCENTS = [
-      ['var(--sky-dim)', 'var(--sky)'], ['var(--amber-dim)', 'var(--amber)'], ['var(--green-dim)', 'var(--green)'],
-      ['var(--red-dim)', 'var(--red)'], ['var(--panel2)', 'var(--text2)'],
+      ['var(--u-accent-tint)', 'var(--u-accent)'], ['color-mix(in srgb, var(--u-chart-5) 16%, transparent)', 'var(--u-chart-5)'], ['var(--panel2)', 'var(--text2)'],
     ];
 
     this.CHIPS = [
-      { key: 'all', label: 'All clients' },
-      { key: 'active', label: 'Active mandates' },
-      { key: 'noreps', label: 'No representative' },
+      { key: 'all', label: 'All business units' },
+      { key: 'active', label: 'Active positions' },
+      { key: 'nomanager', label: 'No hiring manager' },
     ];
 
     this.COLUMNS = [
-      { id: 'name', label: 'Client', track: 'minmax(220px, 26fr)', min: 220, sortable: true },
-      { id: 'type', label: 'Type', track: '108px', min: 108, sortable: true },
-      { id: 'contacts', label: 'Client contact', track: '132px', min: 132, sortable: false },
-      { id: 'sector', label: 'Sector', track: 'minmax(140px, 20fr)', min: 140, sortable: true },
-      { id: 'mandates', label: 'Mandates', track: '104px', min: 104, sortable: true },
+      { id: 'name', label: 'Business unit', track: 'minmax(220px, 30fr)', min: 220, sortable: true },
+      { id: 'managers', label: 'Hiring managers', track: '148px', min: 148, sortable: false },
+      { id: 'reqs', label: 'Open positions', track: '104px', min: 104, sortable: true },
       { id: 'viewers', label: 'Viewers', track: '140px', min: 140, sortable: false },
     ];
 
-    this.UNIVERSE = [
-      ['ACWA Power', 'Riyadh', 'Saudi Arabia', 'Utilities'],
-      ['TAQA', 'Abu Dhabi', 'United Arab Emirates', 'Oil & Energy'],
-      ['Masdar', 'Abu Dhabi', 'United Arab Emirates', 'Renewables & Environment'],
-      ['ENGIE Middle East', 'Dubai', 'United Arab Emirates', 'Utilities'],
-      ['Emirates Water & Electricity Co', 'Abu Dhabi', 'United Arab Emirates', 'Utilities'],
-      ['Saudi Electricity Co', 'Riyadh', 'Saudi Arabia', 'Utilities'],
-      ['Marafiq', 'Jubail', 'Saudi Arabia', 'Utilities'],
-      ['Qatar Electricity & Water', 'Doha', 'Qatar', 'Utilities'],
-      ['Nebras Power', 'Doha', 'Qatar', 'Oil & Energy'],
-      ['Alfanar', 'Riyadh', 'Saudi Arabia', 'Electrical/Electronic Manufacturing'],
-      ['Dubai Electricity & Water Authority', 'Dubai', 'United Arab Emirates', 'Utilities'],
-      ['Oman Power & Water Procurement', 'Muscat', 'Oman', 'Utilities'],
-      ['Meridian Energy Group', 'Abu Dhabi', 'United Arab Emirates', 'Oil & Energy'],
-      ['Al Rabie Saudi Foods', 'Riyadh', 'Saudi Arabia', 'Food & Beverages'],
-      ['Bindawood Holding', 'Jeddah', 'Saudi Arabia', 'Retail'],
-      ['Agthia Group', 'Abu Dhabi', 'United Arab Emirates', 'Food & Beverages'],
-      ['Almarai', 'Riyadh', 'Saudi Arabia', 'Food & Beverages'],
-      ['Savola Group', 'Jeddah', 'Saudi Arabia', 'Food Production'],
-      ['Americana Restaurants', 'Dubai', 'United Arab Emirates', 'Restaurants'],
-    ].map(([name, city, country, industry], i) => ({ id: 'u' + i, name, city, country, industry }));
+    this.CATALOG = ['Automotive', 'Retail', 'Real Estate', 'Financial Services', 'Health', 'Education', 'Technology Ventures', 'Group Corporate'];
 
     this.TEMPLATES = [
-      ['Chief Executive Officer', 'C-Suite'], ['Chief Financial Officer', 'C-Suite'], ['Chief Operating Officer', 'C-Suite'],
-      ['Chief Human Resources Officer', 'C-Suite'], ['Chief Technology Officer', 'C-Suite'], ['Chief Information Officer', 'C-Suite'],
-      ['Chief Commercial Officer', 'C-Suite'], ['Chief Marketing Officer', 'C-Suite'], ['Chief Risk Officer', 'C-Suite'],
-      ['Chief Compliance Officer', 'C-Suite'], ['Chief Investment Officer', 'C-Suite'], ['Head of Finance', 'N-1'],
-      ['Head of Human Resources', 'N-1'], ['Head of Compliance', 'N-1'], ['Head of Internal Audit', 'N-1'],
+      ['Senior Manager, Product Planning (Toyota & Lexus)', 'Senior'], ['Aftersales Operations Manager', 'Manager'], ['Regional Service Manager', 'Manager'],
+      ['Buying Director, IKEA UAE', 'Senior'], ['Regional Store Operations Manager, M&S', 'Senior'], ['Category Manager, Fashion & Lifestyle', 'Manager'],
+      ['Leasing Director, Mixed-Use Retail', 'Senior'], ['Development Manager', 'Manager'], ['Facilities & Asset Manager', 'Manager'],
+      ['Head of Credit Risk', 'Senior'], ['Insurance Product Manager', 'Manager'], ['Financial Planning & Analysis Manager', 'Manager'],
     ].map(([title, seniority]) => ({ title, seniority }));
 
     this.SEED = [
       {
-        id: 'c1', name: 'Meridian Energy Group', type: 'RETAINED', sector: 'Energy', hqCity: 'Abu Dhabi', hqCountry: 'United Arab Emirates',
-        domain: 'meridianenergy.ae', offLimits: '', delivered: 0,
-        reps: [
-          { id: 'r-layla', fullName: 'Layla Mansour', position: 'Group HR Director', email: 'layla.mansour@meridianenergy.ae', status: 'ACTIVE', accent: 0 },
-          { id: 'r-karim', fullName: 'Karim Nasser', position: 'Head of Talent', email: 'karim.nasser@meridianenergy.ae', status: 'INVITED', accent: 2 },
+        id: 'c1', name: 'Automotive', notes: 'Toyota, Lexus & Honda distribution across the UAE — largest revenue base in the group.',
+        managers: [
+          { id: 'r-khalid', fullName: 'Khalid Al Marzooqi', position: 'VP Automotive Operations', email: 'khalid.almarzooqi@alfuttaim.com', status: 'ACTIVE', accent: 0 },
+          { id: 'r-mariam', fullName: 'Mariam Al Suwaidi', position: 'Aftersales Director', email: 'mariam.alsuwaidi@alfuttaim.com', status: 'INVITED', accent: 2 },
         ],
-        mandates: [
-          { id: 'm1', positionTitle: 'Chief Financial Officer', stage: 'MAPPING', health: 'OK', leadName: 'Yara Haddad', target: '15 Oct 2026' },
-          { id: 'm2', positionTitle: 'VP, Renewables', stage: 'UNIVERSE', health: 'OK', leadName: 'Sara Al-Mansour', target: '30 Oct 2026' },
-        ],
-      },
-      {
-        id: 'c2', name: 'Al Rabie Saudi Foods', type: 'RETAINED', sector: 'Food & Beverages', hqCity: 'Riyadh', hqCountry: 'Saudi Arabia',
-        domain: 'alrabie.com', offLimits: '', delivered: 0, reps: [],
-        mandates: [
-          { id: 'm3', positionTitle: 'Chief Human Resources Officer', stage: 'OUTREACH', health: 'RISK', leadName: 'Yara Haddad', target: '07 Nov 2026' },
-          { id: 'm4', positionTitle: 'Supply Chain Director', stage: 'BRIEF', health: 'OK', leadName: 'Sara Al-Mansour', target: '04 Dec 2026' },
+        reqs: [
+          { id: 'm1', positionTitle: 'Senior Manager, Product Planning (Toyota & Lexus)', type: 'executive', stage: 'MAPPING', health: 'OK', leadName: 'Yara Haddad', target: '15 Oct 2026' },
+          { id: 'm2', positionTitle: 'Aftersales Operations Manager', type: 'mapping', stage: 'UNIVERSE', health: 'OK', leadName: 'Sara Al-Mansour', target: '30 Oct 2026' },
         ],
       },
       {
-        id: 'c3', name: 'Bindawood Holding', type: 'RETAINED', sector: 'Retail', hqCity: 'Jeddah', hqCountry: 'Saudi Arabia',
-        domain: 'bindawoodholding.com', offLimits: '', delivered: 0, reps: [],
-        mandates: [
-          { id: 'm5', positionTitle: 'Chief Digital Officer', stage: 'LOCKED', health: 'OK', leadName: 'Yousef Iman', target: '20 Nov 2026' },
-          { id: 'm6', positionTitle: 'Head of eCommerce', stage: 'MAPPING', health: 'OFF', leadName: 'Omar Khalil', target: '25 Oct 2026' },
+        id: 'c2', name: 'Real Estate', notes: 'Dubai Festival City and the group\u2019s mixed-use commercial & residential portfolio.', managers: [],
+        reqs: [
+          { id: 'm3', positionTitle: 'Leasing Director, Mixed-Use Retail', type: 'executive', stage: 'MAPPING', health: 'OK', leadName: 'Yara Haddad', target: '20 Nov 2026' },
+          { id: 'm4', positionTitle: 'Development Manager', type: 'mapping', stage: 'MAPPING', health: 'OFF', leadName: 'Sara Al-Mansour', target: '25 Oct 2026' },
         ],
       },
       {
-        id: 'c4', name: 'Agthia Group', type: 'PROSPECT', sector: 'Food & Beverages', hqCity: 'Abu Dhabi', hqCountry: 'United Arab Emirates',
-        domain: 'agthia.com', offLimits: '', delivered: 1, reps: [],
-        mandates: [
-          { id: 'm7', positionTitle: 'Chief Executive Officer', stage: 'DELIVERED', health: 'DONE', leadName: 'Yara Haddad', target: '01 Jun 2026' },
+        id: 'c3', name: 'Retail', notes: 'IKEA, Marks & Spencer and Robinsons franchise partnerships across the Middle East.', managers: [],
+        reqs: [
+          { id: 'm5', positionTitle: 'Buying Director, IKEA UAE', type: 'executive', stage: 'OUTREACH', health: 'RISK', leadName: 'Yousef Iman', target: '07 Nov 2026' },
+          { id: 'm6', positionTitle: 'Regional Store Operations Manager, M&S', type: 'mapping', stage: 'BRIEF', health: 'OK', leadName: 'Omar Khalil', target: '04 Dec 2026' },
+        ],
+      },
+      {
+        id: 'c4', name: 'Financial Services', notes: 'Al-Futtaim Finance, insurance and investment banking.',
+        managers: [{ id: 'r-noor', fullName: 'Noor Fares', position: 'Finance Director', email: 'noor.fares@alfuttaim.com', status: 'INVITED', accent: 1 }],
+        reqs: [
+          { id: 'm7', positionTitle: 'Head of Credit Risk', type: 'executive', stage: 'DELIVERED', health: 'DONE', leadName: 'Yara Haddad', target: '01 Jun 2026' },
         ],
       },
     ];
@@ -758,16 +686,16 @@ class Component extends DCLogic {
     let collapsed = false;
     try { collapsed = localStorage.getItem('lm-side-collapsed') === '1'; } catch (e) {}
 
-    const mandateModalOpen = flag('mandateModalOpen', props.mandateModalOpen);
-    const drawerOpen = flag('drawerOpen', props.drawerOpen) || mandateModalOpen;
-    const clients = this.SEED.map((c) => ({ ...c, reps: c.reps.map((r) => ({ ...r })), mandates: c.mandates.map((m) => ({ ...m })) }));
+    const reqModalOpen = flag('reqModalOpen', props.mandateModalOpen);
+    const drawerOpen = flag('drawerOpen', props.drawerOpen) || reqModalOpen;
+    const units = this.SEED.map((c) => ({ ...c, managers: c.managers.map((r) => ({ ...r })), reqs: c.reqs.map((m) => ({ ...m })) }));
 
     this.state = {
-      dark: false,
+      dark: true,
       collapsed,
       wsMenuOpen: false,
       toast: '',
-      clients,
+      units,
       empty: flag('empty', props.empty),
       loading: flag('loading', props.loading),
       q: '',
@@ -777,34 +705,34 @@ class Component extends DCLogic {
       colVis: {},
       colMenuOpen: false,
       openId: drawerOpen ? 'c1' : null,
-      mandateId: null,
-      draft: this.draftFor(clients, drawerOpen ? 'c1' : null),
+      reqId: null,
+      draft: this.draftFor(units, drawerOpen ? 'c1' : null),
       inviteOpen: false,
       inv: { fullName: '', position: '', email: '' },
       invError: '',
       modalOpen: flag('modalOpen', props.modalOpen),
       ...this.freshModal(),
-      mandateModalOpen,
-      ...this.freshMandateModal(),
+      reqModalOpen,
+      ...this.freshReqModal(),
     };
   }
 
   freshModal() {
-    return { pq: '', searching: false, pick: null, customOpen: false, custom: { name: '', domain: '', country: '' }, customError: '', contact: { fullName: '', position: '', email: '' }, modalError: '' };
+    return { pq: '', pick: null, customOpen: false, custom: { name: '' }, customError: '', contact: { fullName: '', position: '', email: '' }, modalError: '' };
   }
 
-  freshMandateModal() {
+  freshReqModal() {
     return { pos: '', posFocused: false, posError: '', target: '' };
   }
 
-  draftFor(clients, id) {
-    const c = clients.find((x) => x.id === id);
-    if (!c) return { name: '', sector: '', hq: '', domain: '', off: '' };
-    return { name: c.name, sector: c.sector || '', hq: c.hqCountry || '', domain: c.domain || '', off: c.offLimits || '' };
+  draftFor(units, id) {
+    const c = units.find((x) => x.id === id);
+    if (!c) return { name: '', notes: '' };
+    return { name: c.name, notes: c.notes || '' };
   }
 
   componentDidMount() {
-    this.setState({ dark: document.body.classList.contains('dark') });
+    this.setState({ dark: document.documentElement.getAttribute('data-theme') !== 'light' });
   }
 
   componentDidUpdate(prev) {
@@ -815,7 +743,7 @@ class Component extends DCLogic {
     if (prev.drawerOpen !== p.drawerOpen) this.openDrawer(p.drawerOpen ? 'c1' : null);
     if (prev.mandateModalOpen !== p.mandateModalOpen) {
       if (p.mandateModalOpen) this.openDrawer('c1');
-      this.setState({ mandateModalOpen: !!p.mandateModalOpen, ...this.freshMandateModal() });
+      this.setState({ reqModalOpen: !!p.mandateModalOpen, ...this.freshReqModal() });
     }
   }
 
@@ -826,7 +754,7 @@ class Component extends DCLogic {
   }
 
   openDrawer(id) {
-    this.setState({ openId: id, mandateId: null, draft: this.draftFor(this.state.clients, id), inviteOpen: false, inv: { fullName: '', position: '', email: '' }, invError: '' });
+    this.setState({ openId: id, reqId: null, draft: this.draftFor(this.state.units, id), inviteOpen: false, inv: { fullName: '', position: '', email: '' }, invError: '' });
   }
 
   isValidEmail(value) {
@@ -839,8 +767,8 @@ class Component extends DCLogic {
     return (parts[0][0] + (parts.length > 1 ? parts[parts.length - 1][0] : '')).toUpperCase();
   }
 
-  updateClient(id, fn) {
-    this.setState({ clients: this.state.clients.map((c) => (c.id === id ? fn(c) : c)) });
+  updateUnit(id, fn) {
+    this.setState({ units: this.state.units.map((c) => (c.id === id ? fn(c) : c)) });
   }
 
   pill(stage) {
@@ -856,12 +784,12 @@ class Component extends DCLogic {
       iconColor: active ? 'var(--amber)' : 'currentColor',
     });
     return [
-      { label: 'Projects', items: [
-        item('My projects', this.ICON.myProjects, 'Workspace.dc.html', 5),
-        item('All projects', this.ICON.allProjects, 'Workspace.dc.html?view=all', 7),
+      { label: 'Positions', items: [
+        item('My positions', this.ICON.myProjects, 'Workspace.dc.html', 5),
+        item('All positions', this.ICON.allProjects, 'Workspace.dc.html?view=all', 7),
       ] },
       { label: 'Workspace', items: [
-        item('Clients', this.ICON.clients, 'Clients.dc.html', count, true),
+        item('Business units', this.ICON.units, 'Clients.dc.html', count, true),
         item('Team', this.ICON.team, 'Workspace.dc.html?view=team', 5),
         item('Settings', this.ICON.settings, 'Settings.dc.html?section=profile'),
       ] },
@@ -870,19 +798,19 @@ class Component extends DCLogic {
 
   renderVals() {
     const s = this.state;
-    const all = s.empty ? [] : s.clients;
+    const all = s.empty ? [] : s.units;
     const query = s.q.trim().toLowerCase();
 
     const filtered = all.filter((c) => {
-      const active = c.mandates.filter((m) => m.stage !== 'DELIVERED' && m.stage !== 'CLOSED').length;
-      if (s.chip === 'active' && active === 0) return false;
-      if (s.chip === 'noreps' && c.reps.length > 0) return false;
-      if (query && !`${c.name} ${c.sector || ''}`.toLowerCase().includes(query)) return false;
+      const open = c.reqs.filter((m) => m.stage !== 'DELIVERED' && m.stage !== 'CLOSED').length;
+      if (s.chip === 'active' && open === 0) return false;
+      if (s.chip === 'nomanager' && c.managers.length > 0) return false;
+      if (query && !c.name.toLowerCase().includes(query)) return false;
       return true;
     });
 
-    const activeOf = (c) => c.mandates.filter((m) => m.stage !== 'DELIVERED' && m.stage !== 'CLOSED').length;
-    const keyOf = { name: (c) => c.name, type: (c) => c.type, sector: (c) => c.sector || '', mandates: activeOf };
+    const openOf = (c) => c.reqs.filter((m) => m.stage !== 'DELIVERED' && m.stage !== 'CLOSED').length;
+    const keyOf = { name: (c) => c.name, reqs: openOf };
     const dir = s.sortDir === 'asc' ? 1 : -1;
     const sorted = [...filtered].sort((a, b) => {
       const ka = keyOf[s.sortField](a);
@@ -895,33 +823,24 @@ class Component extends DCLogic {
     const padFor = (id) => (id === lastId ? '16px' : '0');
 
     const rows = sorted.map((c) => {
-      const act = c.reps.filter((r) => r.status === 'ACTIVE').length;
-      const inv = c.reps.filter((r) => r.status === 'INVITED').length;
+      const act = c.managers.filter((r) => r.status === 'ACTIVE').length;
+      const inv = c.managers.filter((r) => r.status === 'INVITED').length;
       const viewerLabel = act === 0 && inv === 0 ? 'None' : [act > 0 ? `${act} active` : null, inv > 0 ? `${inv} invited` : null].filter(Boolean).join(' · ');
-      const retained = c.type === 'RETAINED';
       return {
         id: c.id,
         name: c.name,
-        initial: c.name.charAt(0).toUpperCase(),
-        location: [c.hqCity, c.hqCountry].filter(Boolean).join(', '),
-        typeLabel: retained ? 'Retained' : 'Prospect',
-        typeColor: retained ? 'var(--sky)' : 'var(--text3)',
-        typeBg: retained ? 'var(--sky-dim)' : 'transparent',
-        typeBorder: retained ? 'transparent' : 'var(--line-soft)',
-        hasReps: c.reps.length > 0,
-        noReps: c.reps.length === 0,
-        reps: c.reps.slice(0, 4).map((r, i) => ({
+        headline: openOf(c) + ' open ' + (openOf(c) === 1 ? 'position' : 'positions'),
+        hasManagers: c.managers.length > 0,
+        noManagers: c.managers.length === 0,
+        managers: c.managers.slice(0, 4).map((r, i) => ({
+          slotId: 'viewer-' + c.id + '-' + i,
           name: r.fullName,
-          initials: this.initials(r.fullName),
-          bg: r.status === 'ACTIVE' ? 'var(--green-dim)' : 'var(--amber-dim)',
-          color: r.status === 'ACTIVE' ? 'var(--green)' : 'var(--amber)',
           ml: i > 0 ? '-7px' : '0',
         })),
-        sector: c.sector || '—',
-        mandates: String(activeOf(c)),
+        reqs: String(openOf(c)),
         viewerDot: act > 0 ? 'var(--green)' : inv > 0 ? 'var(--amber)' : 'var(--line)',
         viewerLabel,
-        padType: padFor('type'), padContacts: padFor('contacts'), padSector: padFor('sector'), padMandates: padFor('mandates'),
+        padManagers: padFor('managers'), padReqs: padFor('reqs'),
       };
     });
 
@@ -943,40 +862,39 @@ class Component extends DCLogic {
     const hideable = this.COLUMNS.filter((c) => c.id !== 'name');
     const hiddenCount = hideable.filter((c) => s.colVis[c.id] === false).length;
 
-    const client = s.clients.find((c) => c.id === s.openId) || null;
-    const dv = client ? {
-      name: client.name,
-      initial: client.name.charAt(0).toUpperCase(),
-      location: [client.hqCity, client.hqCountry].filter(Boolean).join(', ') || '—',
-      sectorDomain: [client.sector, client.domain].filter(Boolean).join(' · ') || '—',
-      active: String(activeOf(client)),
-      delivered: String(client.delivered),
-      repCount: String(client.reps.length),
-      reps: client.reps.map((r) => ({
+    const unit = s.units.find((c) => c.id === s.openId) || null;
+    const askVisible = !s.openId;
+    const dv = unit ? {
+      name: unit.name,
+      headline: openOf(unit) + ' open ' + (openOf(unit) === 1 ? 'position' : 'positions'),
+      open: String(openOf(unit)),
+      filled: String(unit.reqs.filter((m) => m.stage === 'DELIVERED').length),
+      managerCount: String(unit.managers.length),
+      managers: unit.managers.map((r, i) => ({
+        slotId: 'contact-' + unit.id + '-' + i,
         fullName: r.fullName,
-        initials: this.initials(r.fullName),
         meta: [r.position, r.email].filter(Boolean).join(' · '),
-        avBg: this.ACCENTS[r.accent % 5][0],
-        avColor: this.ACCENTS[r.accent % 5][1],
         badge: r.status === 'ACTIVE' ? 'Active' : 'Invited',
         badgeColor: r.status === 'ACTIVE' ? 'var(--green)' : 'var(--amber)',
         badgeBg: r.status === 'ACTIVE' ? 'var(--green-dim)' : 'var(--amber-dim)',
       })),
-      mandates: client.mandates.map((m) => ({ id: m.id, positionTitle: m.positionTitle, leadName: m.leadName || '—', ...this.pill(m.stage) })),
-    } : { name: 'Client', reps: [], mandates: [] };
+      reqs: unit.reqs.map((m) => ({ id: m.id, positionTitle: m.positionTitle, leadName: m.leadName || '—', ...this.pill(m.stage) })),
+    } : { name: 'Business unit', managers: [], reqs: [] };
 
-    const mandate = client && s.mandateId ? client.mandates.find((m) => m.id === s.mandateId) : null;
-    let mv = { gates: [] };
-    if (mandate) {
-      const current = this.STAGE_ORDER.indexOf(mandate.stage);
-      const h = this.HEALTH[mandate.health];
-      mv = {
-        positionTitle: mandate.positionTitle,
-        leadName: mandate.leadName || '—',
-        target: mandate.target || '—',
+    const req = unit && s.reqId ? unit.reqs.find((m) => m.id === s.reqId) : null;
+    let rv = { gates: [] };
+    if (req) {
+      const gateKeys = this.STAGE_ORDER.filter((st) => st !== 'CLOSED');
+      const current = gateKeys.indexOf(req.stage);
+      const h = this.HEALTH[req.health];
+      rv = {
+        positionTitle: req.positionTitle,
+        leadName: req.leadName || '—',
+        target: req.target || '—',
         healthLabel: h.label, healthDot: h.dot, healthText: h.text,
-        ...this.pill(mandate.stage),
-        gates: this.STAGE_ORDER.filter((st) => st !== 'CLOSED').map((st, i) => {
+        openHref: 'Position.dc.html?page=universe&unit=' + encodeURIComponent(unit.name) + '&pos=' + encodeURIComponent(req.positionTitle),
+        ...this.pill(req.stage),
+        gates: gateKeys.map((st, i) => {
           const done = i < current;
           const now = i === current;
           return {
@@ -986,42 +904,32 @@ class Component extends DCLogic {
             ring: done ? 'var(--green)' : now ? 'var(--amber)' : 'var(--line)',
             fill: done ? 'var(--green-dim)' : 'transparent',
             dot: done ? 'var(--green)' : now ? 'var(--amber)' : 'transparent',
+            opacity: '1',
+            done, notDone: !done,
           };
         }),
       };
     }
 
-    const dirty = !!client && (
-      s.draft.name !== client.name || s.draft.sector !== (client.sector || '') || s.draft.hq !== (client.hqCountry || '') ||
-      s.draft.domain !== (client.domain || '') || s.draft.off !== (client.offLimits || ''));
+    const dirty = !!unit && (s.draft.name !== unit.name || s.draft.notes !== (unit.notes || ''));
 
     const pqTrim = s.pq.trim();
-    const names = new Set(s.clients.map((c) => c.name.toLowerCase()));
-    const hitList = pqTrim.length >= 2 && !s.searching
-      ? this.UNIVERSE.filter((u) => u.name.toLowerCase().includes(pqTrim.toLowerCase())).slice(0, 8)
-      : [];
-    const hits = hitList.map((u, i) => {
-      const isClient = names.has(u.name.toLowerCase());
-      return {
-        id: u.id, name: u.name, initial: u.name.charAt(0).toUpperCase(),
-        location: [u.city, u.country].filter(Boolean).join(', ') || '—',
-        industry: u.industry,
-        isClient, selectable: !isClient,
-        border: i === hitList.length - 1 ? 'none' : '1px solid var(--line-soft)',
-      };
+    const names = new Set(s.units.map((c) => c.name.toLowerCase()));
+    const hitList = this.CATALOG.filter((n) => n.toLowerCase().includes(pqTrim.toLowerCase())).slice(0, 8);
+    const hits = hitList.map((name, i) => {
+      const isBU = names.has(name.toLowerCase());
+      return { id: name, name, isBU, selectable: !isBU, border: i === hitList.length - 1 ? 'none' : '1px solid var(--line-soft)' };
     });
 
     const pick = s.pick;
-    const pv = pick ? (pick.source === 'universe'
-      ? { name: pick.company.name, initial: pick.company.name.charAt(0).toUpperCase(), sub: [pick.company.city, pick.company.country].filter(Boolean).join(', ') || '—', industry: pick.company.industry, hasIndustry: !!pick.company.industry }
-      : { name: pick.name, initial: pick.name.charAt(0).toUpperCase(), sub: 'new company record', industry: '', hasIndustry: false }) : {};
+    const pv = pick ? { name: pick.name } : {};
 
     const posMatches = (() => {
       const needle = s.pos.trim().toLowerCase();
       const list = needle ? this.TEMPLATES.filter((t) => t.title.toLowerCase().includes(needle)) : this.TEMPLATES;
       return list.slice(0, 8);
     })();
-    const lockedName = client ? client.name : 'Selected client';
+    const lockedName = unit ? unit.name : 'Selected business unit';
     const targetLabel = s.target ? new Date(`${s.target}T00:00:00`).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : 'Select date';
 
     return {
@@ -1035,18 +943,18 @@ class Component extends DCLogic {
       collapseIcon: s.collapsed ? this.ICON.expand : this.ICON.collapse,
       wsMenuOpen: s.wsMenuOpen,
 
-      pageSub: s.loading ? 'records shared across projects' : `${all.length} ${all.length === 1 ? 'client' : 'clients'} · records shared across projects`,
+      pageSub: s.loading ? 'business units shared across reqs' : `${all.length} ${all.length === 1 ? 'business unit' : 'business units'} · shared across reqs`,
       showHeaderAction: true,
       isLoading: s.loading,
       isEmpty: !s.loading && all.length === 0,
       isList: !s.loading && all.length > 0,
-      skeletonHeads: ['Client', 'Type', 'Client contact', 'Sector', 'Mandates', 'Viewers'],
-      skeletonRows: [0, 1, 2, 3, 4, 5].map((r) => ({ bars: [0, 1, 2, 3, 4, 5].map((c) => ['96px', '64px', '112px', '48px', '80px'][(r + c) % 5]) })),
+      skeletonHeads: ['Business unit', 'Hiring managers', 'Open reqs', 'Viewers'],
+      skeletonRows: [0, 1, 2, 3, 4, 5].map((r) => ({ bars: [0, 1, 2, 3].map((c) => ['96px', '64px', '48px', '80px'][(r + c) % 4]) })),
 
       q: s.q,
       chips: this.CHIPS.map((c) => ({
         ...c,
-        border: s.chip === c.key ? 'var(--amber)' : 'var(--line)',
+        border: s.chip === c.key ? 'transparent' : 'var(--line)',
         bg: s.chip === c.key ? 'var(--amber-dim)' : 'transparent',
         color: s.chip === c.key ? 'var(--amber)' : 'var(--text2)',
       })),
@@ -1062,27 +970,25 @@ class Component extends DCLogic {
       headers,
       rows,
       noResults: rows.length === 0,
-      showType: s.colVis.type !== false,
-      showContacts: s.colVis.contacts !== false,
-      showSector: s.colVis.sector !== false,
-      showMandates: s.colVis.mandates !== false,
+      showManagers: s.colVis.managers !== false,
+      showReqs: s.colVis.reqs !== false,
       showViewers: s.colVis.viewers !== false,
 
-      drawerShown: !!client,
-      clientView: !!client && !mandate,
-      mandateView: !!mandate,
-      dv, mv,
+      drawerShown: !!unit,
+      buView: !!unit && !req,
+      reqView: !!req,
+      askVisible,
+      dv, rv,
       draft: s.draft,
-      draftHasHq: s.draft.hq !== '',
       dirty,
       saveOpacity: s.draft.name.trim() ? 1 : 0.5,
       inviteOpen: s.inviteOpen,
       inviteClosed: !s.inviteOpen,
-      noRepsNote: !!client && client.reps.length === 0 && !s.inviteOpen,
+      noManagersNote: !!unit && unit.managers.length === 0 && !s.inviteOpen,
       inv: s.inv,
       invError: s.invError,
       hasInvError: !!s.invError,
-      noMandates: !!client && client.mandates.length === 0,
+      noReqs: !!unit && unit.reqs.length === 0,
 
       modalShown: s.modalOpen,
       hasModalError: !!s.modalError,
@@ -1091,12 +997,8 @@ class Component extends DCLogic {
       hasPick: !!pick,
       pq: s.pq,
       pqTrim,
-      pickTooShort: pqTrim.length < 2,
-      pickSearch: pqTrim.length >= 2,
-      searching: s.searching,
       hits,
-      noHits: pqTrim.length >= 2 && !s.searching && hits.length === 0,
-      settled: !s.searching,
+      noHits: hits.length === 0,
       customOpen: s.customOpen,
       custom: s.custom,
       customError: s.customError,
@@ -1104,9 +1006,10 @@ class Component extends DCLogic {
       customNameBorder: s.customError ? 'var(--red)' : 'var(--line)',
       pv,
       contact: s.contact,
-      createLabel: s.contact.email.trim() ? 'Create client & send invite' : 'Create client',
+      createLabel: s.contact.email.trim() ? 'Create & send invite' : 'Create business unit',
+      // positions terminology used in copy above
 
-      mandateModalShown: s.mandateModalOpen && !!client,
+      reqModalShown: s.reqModalOpen && !!unit,
       lockedName,
       pos: s.pos,
       posBorder: s.posError ? 'var(--red)' : 'var(--line)',
@@ -1126,7 +1029,7 @@ class Component extends DCLogic {
       toggleWsMenu: () => this.setState({ wsMenuOpen: !s.wsMenuOpen }),
       toggleTheme: () => {
         const d = !s.dark;
-        document.body.classList.toggle('dark', d);
+        document.documentElement.setAttribute('data-theme', d ? 'dark' : 'light');
         try { localStorage.setItem('lm-theme', d ? 'dark' : 'light'); } catch (e) {}
         this.setState({ dark: d });
       },
@@ -1150,17 +1053,16 @@ class Component extends DCLogic {
         else this.setState({ sortField: id, sortDir: 'asc' });
       },
       openRow: (e) => this.openDrawer(e.currentTarget.dataset.id),
-      closeDrawer: () => this.setState({ openId: null, mandateId: null }),
+      closeDrawer: () => this.setState({ openId: null, reqId: null }),
 
       onDraft: (e) => this.setState({ draft: { ...s.draft, [e.currentTarget.dataset.id]: e.target.value } }),
-      clearHq: (e) => { e.preventDefault(); this.setState({ draft: { ...s.draft, hq: '' } }); },
-      discardDraft: () => this.setState({ draft: this.draftFor(s.clients, s.openId) }),
+      discardDraft: () => this.setState({ draft: this.draftFor(s.units, s.openId) }),
       saveDraft: () => {
         if (!s.draft.name.trim()) return;
         const d = s.draft;
-        this.updateClient(s.openId, (c) => ({ ...c, name: d.name.trim(), sector: d.sector.trim() || null, hqCountry: d.hq.trim() || null, domain: d.domain.trim() || null, offLimits: d.off.trim() }));
-        this.setState({ draft: { name: d.name.trim(), sector: d.sector.trim(), hq: d.hq.trim(), domain: d.domain.trim(), off: d.off.trim() } });
-        this.showToast('Client details saved');
+        this.updateUnit(s.openId, (c) => ({ ...c, name: d.name.trim(), notes: d.notes.trim() }));
+        this.setState({ draft: { name: d.name.trim(), notes: d.notes.trim() } });
+        this.showToast('Business unit saved');
       },
 
       openInvite: () => this.setState({ inviteOpen: true, invError: '' }),
@@ -1168,79 +1070,71 @@ class Component extends DCLogic {
       onInv: (e) => this.setState({ inv: { ...s.inv, [e.currentTarget.dataset.id]: e.target.value } }),
       sendInvite: () => {
         const { fullName, position, email } = s.inv;
-        if (!fullName.trim() || !position.trim() || !email.trim()) { this.setState({ invError: 'Name, position and work email are required.' }); return; }
+        if (!fullName.trim() || !position.trim() || !email.trim()) { this.setState({ invError: 'Name, title and work email are required.' }); return; }
         if (!this.isValidEmail(email)) { this.setState({ invError: 'Enter a valid work email address.' }); return; }
-        const rep = { id: 'r' + Date.now(), fullName: fullName.trim(), position: position.trim(), email: email.trim(), status: 'INVITED', accent: client.reps.length + 1 };
-        this.updateClient(s.openId, (c) => ({ ...c, reps: [...c.reps, rep] }));
+        const rep = { id: 'r' + Date.now(), fullName: fullName.trim(), position: position.trim(), email: email.trim(), status: 'INVITED', accent: unit.managers.length + 1 };
+        this.updateUnit(s.openId, (c) => ({ ...c, managers: [...c.managers, rep] }));
         this.setState({ inviteOpen: false, inv: { fullName: '', position: '', email: '' }, invError: '' });
         this.showToast(`Invite sent to ${email.trim()}`);
       },
 
-      openMandate: (e) => this.setState({ mandateId: e.currentTarget.dataset.id }),
-      backToClient: () => this.setState({ mandateId: null }),
+      openReq: (e) => this.setState({ reqId: e.currentTarget.dataset.id }),
+      backToBu: () => this.setState({ reqId: null }),
 
       openModal: () => this.setState({ modalOpen: true, ...this.freshModal() }),
       closeModal: () => this.setState({ modalOpen: false }),
-      onPickQuery: (e) => {
-        const v = e.target.value;
-        this.setState({ pq: v, searching: v.trim().length >= 2, customOpen: false });
-        clearTimeout(this._searchTimer);
-        this._searchTimer = setTimeout(() => this.setState({ searching: false }), 320);
-      },
+      onPickQuery: (e) => this.setState({ pq: e.target.value, customOpen: false }),
       pickHit: (e) => {
-        const company = this.UNIVERSE.find((u) => u.id === e.currentTarget.dataset.id);
-        if (names.has(company.name.toLowerCase())) { this.showToast(`${company.name} is already a client`); return; }
-        this.setState({ pick: { source: 'universe', company }, modalError: '' });
+        const name = e.currentTarget.dataset.id;
+        if (names.has(name.toLowerCase())) { this.showToast(`${name} is already a business unit`); return; }
+        this.setState({ pick: { name }, modalError: '' });
       },
-      openCustom: () => this.setState({ customOpen: true, custom: { name: pqTrim, domain: '', country: '' }, customError: '' }),
+      openCustom: () => this.setState({ customOpen: true, custom: { name: pqTrim }, customError: '' }),
       cancelCustom: () => this.setState({ customOpen: false }),
-      onCustom: (e) => this.setState({ custom: { ...s.custom, [e.currentTarget.dataset.id]: e.target.value }, customError: e.currentTarget.dataset.id === 'name' ? '' : s.customError }),
+      onCustom: (e) => this.setState({ custom: { ...s.custom, [e.currentTarget.dataset.id]: e.target.value }, customError: '' }),
       confirmCustom: () => {
-        if (!s.custom.name.trim()) { this.setState({ customError: 'Enter the company name' }); return; }
-        this.setState({ customOpen: false, pick: { source: 'custom', name: s.custom.name.trim(), domain: s.custom.domain.trim(), hqCountry: s.custom.country.trim() }, modalError: '' });
+        if (!s.custom.name.trim()) { this.setState({ customError: 'Enter the business unit name' }); return; }
+        this.setState({ customOpen: false, pick: { name: s.custom.name.trim() }, modalError: '' });
       },
       changePick: () => this.setState({ pick: null, modalError: '' }),
       onContact: (e) => this.setState({ contact: { ...s.contact, [e.currentTarget.dataset.id]: e.target.value } }),
-      createClient: () => {
+      createBu: () => {
         const { fullName, position, email } = s.contact;
         const any = fullName.trim() || position.trim() || email.trim();
         if (any && (!fullName.trim() || !position.trim() || !email.trim())) { this.setState({ modalError: 'All three fields are required to send an invite.' }); return; }
         if (email.trim() && !this.isValidEmail(email)) { this.setState({ modalError: 'Enter a valid work email address.' }); return; }
-        const name = pick.source === 'universe' ? pick.company.name : pick.name;
-        if (names.has(name.toLowerCase())) { this.setState({ modalError: 'A client with this name already exists.' }); return; }
+        const name = pick.name;
+        if (names.has(name.toLowerCase())) { this.setState({ modalError: 'A business unit with this name already exists.' }); return; }
         const id = 'c' + Date.now();
         const created = {
-          id, name, type: 'PROSPECT', delivered: 0, offLimits: '', mandates: [],
-          sector: pick.source === 'universe' ? pick.company.industry : null,
-          hqCity: pick.source === 'universe' ? pick.company.city : null,
-          hqCountry: pick.source === 'universe' ? pick.company.country : (pick.hqCountry || null),
-          domain: pick.source === 'custom' ? (pick.domain || null) : null,
-          reps: email.trim() ? [{ id: 'r' + id, fullName: fullName.trim(), position: position.trim(), email: email.trim(), status: 'INVITED', accent: 3 }] : [],
+          id, name, notes: '', reqs: [],
+          managers: email.trim() ? [{ id: 'r' + id, fullName: fullName.trim(), position: position.trim(), email: email.trim(), status: 'INVITED', accent: 3 }] : [],
         };
-        const clients = s.empty ? [created] : [...s.clients, created];
-        this.setState({ clients, empty: false, modalOpen: false, openId: id, mandateId: null, draft: this.draftFor(clients, id), inviteOpen: false });
-        this.showToast(email.trim() ? `${name} added — invite sent to ${email.trim()}` : `${name} added as client`);
+        const units = s.empty ? [created] : [...s.units, created];
+        this.setState({ units, empty: false, modalOpen: false, openId: id, reqId: null, draft: this.draftFor(units, id), inviteOpen: false });
+        this.showToast(email.trim() ? `${name} added — invite sent to ${email.trim()}` : `${name} added as a business unit`);
       },
 
-      openMandateModal: () => this.setState({ mandateModalOpen: true, ...this.freshMandateModal() }),
-      closeMandateModal: () => this.setState({ mandateModalOpen: false }),
+      openReqModal: () => this.setState({ reqModalOpen: true, ...this.freshReqModal() }),
+      closeReqModal: () => this.setState({ reqModalOpen: false }),
       onPos: (e) => this.setState({ pos: e.target.value, posError: '', posFocused: true }),
       posFocus: () => this.setState({ posFocused: true }),
       posBlur: () => { clearTimeout(this._blurTimer); this._blurTimer = setTimeout(() => this.setState({ posFocused: false }), 120); },
       pickTemplate: (e) => { e.preventDefault(); this.setState({ pos: e.currentTarget.dataset.id, posError: '', posFocused: false }); },
       onTarget: (e) => this.setState({ target: e.target.value }),
-      createProject: () => {
+      createReq: () => {
         const title = s.pos.trim();
         if (!title) { this.setState({ posError: 'Enter the position title' }); return; }
         if (title.length > 160) { this.setState({ posError: 'That title is too long — keep it to 160 characters or fewer' }); return; }
-        const m = { id: 'm' + Date.now(), positionTitle: title, stage: 'BRIEF', health: 'OK', leadName: 'Yara Haddad', target: s.target ? targetLabel : null };
-        this.updateClient(s.openId, (c) => ({ ...c, type: 'RETAINED', mandates: [...c.mandates, m] }));
-        this.setState({ mandateModalOpen: false });
-        this.showToast("Project created — you're its admin and lead");
+        const m = { id: 'm' + Date.now(), positionTitle: title, type: 'executive', stage: 'BRIEF', health: 'OK', leadName: 'Yara Haddad', target: s.target ? targetLabel : null };
+        this.updateUnit(s.openId, (c) => ({ ...c, reqs: [...c.reqs, m] }));
+        this.setState({ reqModalOpen: false });
+        this.showToast("Position created — you're its admin and lead");
       },
     };
   }
 }
+
 </script>
 </body>
 </html>

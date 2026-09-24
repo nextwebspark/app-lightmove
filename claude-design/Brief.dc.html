@@ -1,0 +1,1171 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="">
+  <link rel="stylesheet" href="uncava-tokens.css">
+  <style>
+    :root{
+      --amber:var(--u-accent);--amber-btn:var(--u-accent-solid);--amber-dim:var(--u-accent-tint);--on-amber:#ffffff;
+      --sky:var(--u-accent);--sky-dim:var(--u-accent-tint);--ring:var(--u-accent-ring);
+      --red:var(--u-offlimits);--red-dim:var(--u-offlimits-tint);
+      --green:var(--u-direct);--green-dim:var(--u-direct-tint);
+      --ai:var(--u-inferred);--ai2:var(--u-adjacent);--ai-line:var(--u-accent);--ai-dim:var(--u-inferred-tint);--ai-soft:var(--u-inferred-tint);
+      --bg:var(--u-bg);--panel:var(--u-surface);--panel2:var(--u-raised);--line:var(--u-border-strong);--line-soft:var(--u-border);
+      --text:var(--u-text);--text2:var(--u-text2);--text3:var(--u-text3);
+      --shadow:var(--u-e3);--radius-panel:var(--u-r-modal);
+      --mono:var(--u-font-ui);--sans:var(--u-font-ui);
+      --u-text2:var(--u-text-2);--u-text3:var(--u-text-3);--u-num:var(--u-font-num);
+    }
+    *{box-sizing:border-box}
+    html,body{height:100%;margin:0}
+    body{background:var(--bg);color:var(--text);font:400 14px/1.45 var(--sans);-webkit-font-smoothing:antialiased}
+    a{color:var(--sky);text-decoration:none}
+    input::placeholder,textarea::placeholder{color:var(--text3)}
+    button{font-family:inherit}
+    @keyframes fadeUp{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
+    @keyframes spin{to{transform:rotate(360deg)}}
+    @keyframes slideInEnd{from{transform:translateX(100%)}to{transform:none}}
+  </style>
+  <script>try{var t=localStorage.getItem('lm-theme');document.documentElement.setAttribute('data-theme', t==='light'?'light':'dark');}catch(e){}</script>
+</helmet>
+<div data-screen-label="Position" style="height:100vh;display:flex;flex-direction:column;overflow:hidden;background:var(--bg);color:var(--text)">
+
+  <header style="height:46px;flex:none;display:flex;align-items:center;gap:12px;padding:0 14px;position:relative;z-index:60">
+    <div style="display:flex;min-width:0;flex:1;align-items:center">
+      <div style="display:flex;min-width:0;align-items:center;gap:8px">
+        <div style="position:relative">
+          <button type="button" onClick="{{ toggleWsMenu }}" title="Al-Futtaim" style="display:flex;align-items:center;gap:4px;padding:4px;border-radius:6px;background:none;border:none;cursor:pointer" style-hover="background:var(--panel2)">
+            <svg viewBox="-36 -51 72 104" fill="none" stroke="currentColor" style="height:30px;width:auto;flex:none;color:var(--text)" aria-hidden="true"><path d="M-32 10 L 0 -8 L 32 10 L 0 28 Z M-32 10 V 32 L 0 50 L 32 32 V 10 M0 28 V 50" stroke-width="2.6" stroke-linejoin="round"></path><path d="M0 -48 L 32 -30 L 0 -12 L -32 -30 Z" fill="currentColor" stroke="none"></path></svg>
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex:none;color:var(--text3)" aria-hidden="true"><path d="m6 9 6 6 6-6"></path></svg>
+          </button>
+          <sc-if value="{{ wsMenuOpen }}" hint-placeholder-val="{{ false }}">
+            <div style="position:absolute;left:0;top:40px;z-index:80;width:268px;border-radius:10px;border:1px solid var(--line);background:var(--panel);padding:6px;box-shadow:var(--shadow)">
+              <div style="display:flex;align-items:center;gap:10px;border-bottom:1px solid var(--line-soft);padding:10px;margin-bottom:6px">
+                <span style="width:30px;height:30px;border-radius:6px;background:var(--amber-btn);color:var(--on-amber);font:700 11px var(--mono);display:grid;place-items:center">A</span>
+                <span style="font:600 13px var(--mono);color:var(--text)">Al-Futtaim</span>
+              </div>
+              <a href="Settings.dc.html?section=profile" style="display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:6px;font-size:13px;color:var(--text2)" style-hover="background:var(--panel2);color:var(--text)"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex:none;" aria-hidden="true"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2M16 7a4 4 0 1 1-8 0 4 4 0 0 1 8 0"></path></svg>Your profile</a>
+              <div style="margin:6px 4px;height:1px;background:var(--line-soft)"></div>
+              <a href="Settings.dc.html?section=general" style="display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:6px;font-size:13px;color:var(--text2)" style-hover="background:var(--panel2);color:var(--text)"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex:none;" aria-hidden="true"><path d="M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6ZM19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09a1.65 1.65 0 0 0-1-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09a1.65 1.65 0 0 0 1.51-1 1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33h.01a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51h.01a1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82v.01a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1Z"></path></svg>Workspace settings</a>
+              <a href="Settings.dc.html?section=members" style="display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:6px;font-size:13px;color:var(--text2)" style-hover="background:var(--panel2);color:var(--text)"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex:none;" aria-hidden="true"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2M13 7a4 4 0 1 1-8 0 4 4 0 0 1 8 0M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"></path></svg>Members</a>
+              <div style="margin:6px 4px;height:1px;background:var(--line-soft)"></div>
+              <a href="Login.dc.html" style="display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:6px;font-size:13px;color:var(--text2)" style-hover="background:var(--panel2);color:var(--text)"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex:none;" aria-hidden="true"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9"></path></svg>Sign out</a>
+            </div>
+          </sc-if>
+        </div>
+        <a href="Workspace.dc.html" style="white-space:nowrap;border-radius:6px;padding:4px 6px;font:500 13px var(--mono);color:var(--text3)" style-hover="background:var(--panel2);color:var(--text)">Positions</a>
+        <span style="font-size:12px;color:var(--text3);opacity:.4">/</span>
+        <span style="display:flex;align-items:center;gap:6px;white-space:nowrap;font:500 13px var(--mono);color:var(--text2)"><span style="width:6px;height:6px;border-radius:50%;background:var(--sky)"></span>{{ department }}</span>
+        <span style="font-size:12px;color:var(--text3);opacity:.4">/</span>
+        <span style="min-width:0;max-width:280px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font:600 14px var(--sans);color:var(--text)">{{ roleTitle }}</span>
+      </div>
+    </div>
+    <div style="display:flex;flex:none;align-items:center;gap:10px">
+      <span title="Yara Haddad" style="width:26px;height:26px;border-radius:50%;display:grid;place-items:center;background:var(--sky-dim);color:var(--sky);font:600 10px var(--mono)">YH</span>
+    </div>
+  </header>
+
+  <div style="flex:1;min-height:0;display:flex;padding:0 14px 14px">
+    <nav aria-label="Main" style="width:{{ sideWidth }};flex:none;padding:14px 10px;display:flex;flex-direction:column;overflow-y:auto;overflow-x:hidden;transition:width .18s">
+      <a href="Workspace.dc.html" title="All positions" style="{{ backRowStyle }}" style-hover="background:var(--panel2);color:var(--text)"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex:none;" aria-hidden="true"><path d="M19 12H5M12 19l-7-7 7-7"></path></svg><sc-if value="{{ showLabels }}" hint-placeholder-val="{{ true }}"><span style="white-space:nowrap">All positions</span></sc-if></a>
+      <div style="margin:0 4px 6px;height:1px;background:var(--line-soft)"></div>
+      <sc-for list="{{ navGroups }}" as="g" hint-placeholder-count="4">
+        <div>
+          <sc-if value="{{ showLabels }}" hint-placeholder-val="{{ true }}"><div style="padding:14px 10px 6px;font:600 10px var(--mono);letter-spacing:.14em;text-transform:uppercase;color:var(--text3)">{{ g.label }}</div></sc-if>
+          <sc-for list="{{ g.items }}" as="it" hint-placeholder-count="2">
+            <a href="{{ it.href }}" title="{{ it.label }}" style="{{ it.rowStyle }}" style-hover="background:var(--panel2);color:var(--text)">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex:none;color:{{ it.iconColor }}" aria-hidden="true"><path d="{{ it.icon }}"></path></svg>
+              <sc-if value="{{ showLabels }}" hint-placeholder-val="{{ true }}"><span style="white-space: nowrap; position: relative">{{ it.label }}</span></sc-if>
+              <sc-if value="{{ it.hasCount }}" hint-placeholder-val="{{ false }}"><span style="margin-left:auto;font:500 11px var(--mono);color:var(--text3)">{{ it.count }}</span></sc-if>
+            </a>
+          </sc-for>
+        </div>
+      </sc-for>
+      <div style="margin-top:auto;border-top:1px solid var(--line-soft);padding-top:12px">
+        <button type="button" onClick="{{ toggleTheme }}" title="{{ themeLabel }}" style="{{ footRowStyle }}" style-hover="background:var(--panel2);color:var(--text)">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex:none" aria-hidden="true"><path d="{{ themeIcon }}"></path></svg>
+          <sc-if value="{{ showLabels }}" hint-placeholder-val="{{ true }}"><span style="white-space:nowrap">{{ themeLabel }}</span></sc-if>
+        </button>
+        <button type="button" onClick="{{ toggleCollapse }}" title="{{ collapseTitle }}" style="{{ footRowStyle }}" style-hover="background:var(--panel2);color:var(--text)">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex:none" aria-hidden="true"><path d="{{ collapseIcon }}"></path></svg>
+          <sc-if value="{{ showLabels }}" hint-placeholder-val="{{ true }}"><span style="white-space:nowrap">Collapse</span></sc-if>
+        </button>
+        <sc-if value="{{ showLabels }}" hint-placeholder-val="{{ true }}"><p style="margin:0;padding:8px 10px 0;font:400 11px var(--mono);color:var(--text3)">v2026.09.22</p></sc-if>
+      </div>
+    </nav>
+
+    <main style="flex:1;min-width:0;overflow-y:auto;border-radius:10px;border:1px solid var(--line);background:var(--panel)">
+      <div style="display:flex;min-height:100%;width:100%;flex-direction:column">
+        <div data-screen-label="Position brief" style="flex:1;display:flex;background:var(--u-bg);color:var(--u-text);font-family:var(--sans)">
+          <aside data-screen-label="Brief rail" style="flex:none;width:258px;border-right:1px solid var(--u-border)">
+            <div style="position:sticky;top:0;height:calc(100vh - 62px);overflow-y:auto;padding:30px 22px;display:flex;flex-direction:column">
+              <nav aria-label="Brief steps" style="display:flex;flex-direction:column;gap:2px">
+                <sc-for list="{{ railItems }}" as="r" hint-placeholder-count="5">
+                  <a href="{{ r.href }}" onClick="{{ goStep }}" data-id="{{ r.key }}" aria-current="{{ r.current }}" style="{{ r.style }}" style-hover="{{ r.hover }}">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex:none;color:{{ r.iconColor }}" aria-hidden="true"><path d="{{ r.icon }}"></path></svg>
+                    <span style="flex:1">{{ r.name }}</span>
+                  </a>
+                </sc-for>
+              </nav>
+              <div style="margin-top:auto;padding-top:24px;display:flex;flex-direction:column;align-items:stretch">
+                <span aria-live="polite" style="margin-bottom:4px;text-align:center;font:400 11px/1.45 var(--sans);color:var(--u-text3)">{{ saveLabel }}</span>
+                <button type="button" onClick="{{ railPrimary }}" style="display:inline-flex;align-items:center;justify-content:center;gap:8px;width:100%;border-radius:8px;border:1px solid transparent;background:var(--u-accent-solid);padding:10px 16px;font:500 13px/1.55 var(--sans);color:#fff;cursor:pointer" style-hover="filter:brightness(1.1)">{{ railPrimaryLabel }}</button>
+                <button type="button" onClick="{{ saveDraft }}" style="{{ saveDraftStyle }}" style-hover="{{ saveDraftHover }}">Save draft</button>
+              </div>
+            </div>
+          </aside>
+
+          <div style="min-width:0;flex:1">
+            <div style="padding:30px 40px 100px">
+              <div style="margin-bottom:28px;display:flex;flex-wrap:wrap;align-items:flex-start;justify-content:space-between;gap:16px;min-width:0">
+                <div style="min-width:0">
+                  <h1 style="margin:0;font:600 19px/1.3 var(--sans);letter-spacing:-.01em;color:var(--u-text)">{{ stepHeading }}</h1>
+                  <p style="margin:6px 0 0;max-width:620px;font:400 13px/1.55 var(--sans);color:var(--u-text2)">{{ stepLede }}</p>
+                </div>
+                <sc-if value="{{ showReadAction }}" hint-placeholder-val="{{ false }}">
+                  <button type="button" onClick="{{ extract }}" style="flex:none;display:inline-flex;align-items:center;justify-content:center;gap:8px;border-radius:8px;border:1px solid var(--u-border-strong);background:transparent;padding:10px 16px;font:500 13px/1.55 var(--sans);color:var(--u-inferred);cursor:pointer" style-hover="background:var(--u-raised)"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex:none;" aria-hidden="true"><path d="M9.9 2.6 11 5.9a2 2 0 0 0 1.3 1.3l3.3 1.1-3.3 1.1a2 2 0 0 0-1.3 1.3L9.9 14l-1.1-3.3a2 2 0 0 0-1.3-1.3L4.2 8.3l3.3-1.1a2 2 0 0 0 1.3-1.3ZM18 14l.6 1.8 1.8.6-1.8.6-.6 1.8-.6-1.8-1.8-.6 1.8-.6Z"></path></svg>Read from document</button>
+                </sc-if>
+              </div>
+              <sc-if value="{{ showReadNotice }}" hint-placeholder-val="{{ false }}">
+                <div role="alert" data-screen-label="Document read notice" style="margin-bottom:24px;display:flex;flex-wrap:wrap;align-items:center;gap:8px;border-radius:8px;background:var(--u-signal-tint);padding:8px 12px;font:400 12px/1.5 var(--sans);color:var(--u-signal)">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex:none;" aria-hidden="true"><path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0ZM12 9v4M12 17h.01"></path></svg>
+                  <span style="min-width:0;flex:1">{{ readNoticeMessage }}</span>
+                  <button type="button" onClick="{{ retryRead }}" style="{{ retryStyle }}" style-hover="text-decoration:underline">{{ retryLabel }}</button>
+                  <button type="button" onClick="{{ dismissNotice }}" aria-label="Dismiss" style="flex:none;display:grid;padding:0;border:none;background:none;cursor:pointer;color:inherit;opacity:.7;transition:opacity .15s" style-hover="opacity:1"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex:none;" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12"></path></svg></button>
+                </div>
+              </sc-if>
+              <sc-if value="{{ isBrief }}" hint-placeholder-val="{{ true }}">
+                <div data-screen-label="Role Brief" style="display:flex;flex-direction:column;gap:32px">
+                  <div>
+                    <sc-if value="{{ documentAttached }}" hint-placeholder-val="{{ true }}">
+                      <div style="display:flex;flex-wrap:wrap;align-items:center;gap:14px;border-radius:11px;background:var(--u-surface);padding:14px 16px;box-shadow:var(--u-e1)">
+                        <span style="width:36px;height:36px;flex:none;display:grid;place-items:center;border-radius:8px;background:var(--u-accent-tint);color:var(--u-accent)"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex:none;" aria-hidden="true"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8zM14 2v6h6"></path></svg></span>
+                        <div style="min-width:0;flex:1 1 160px">
+                          <button type="button" onClick="{{ download }}" style="display:block;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;text-align:start;padding:0;border:none;background:none;cursor:pointer;font:600 13px/1.55 var(--sans);color:var(--u-text)" style-hover="color:var(--u-accent);text-decoration:underline">CFO_Position_Description.pdf</button>
+                          <span style="margin-top:2px;display:block;font:400 12px/1.5 var(--sans);color:var(--u-text3)">184 KB · added 12 Sep 2026</span>
+                        </div>
+                        <div style="margin-left:auto;display:flex;flex:none;align-items:center;gap:8px">
+                          <button type="button" onClick="{{ extract }}" style="display:inline-flex;align-items:center;justify-content:center;gap:8px;border-radius:8px;border:1px solid var(--u-border-strong);background:transparent;padding:10px 16px;font:500 13px/1.55 var(--sans);color:var(--u-inferred);cursor:pointer" style-hover="background:var(--u-raised)"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex:none;" aria-hidden="true"><path d="M9.9 2.6 11 5.9a2 2 0 0 0 1.3 1.3l3.3 1.1-3.3 1.1a2 2 0 0 0-1.3 1.3L9.9 14l-1.1-3.3a2 2 0 0 0-1.3-1.3L4.2 8.3l3.3-1.1a2 2 0 0 0 1.3-1.3ZM18 14l.6 1.8 1.8.6-1.8.6-.6 1.8-.6-1.8-1.8-.6 1.8-.6Z"></path></svg>Extract with AI</button>
+                          <button type="button" onClick="{{ replaceDoc }}" style="display:inline-flex;align-items:center;padding:4px;border:1px solid transparent;background:none;cursor:pointer;font:600 13px/1.55 var(--sans);color:var(--u-text2)" style-hover="text-decoration:underline">Replace</button>
+                          <button type="button" onClick="{{ removeDoc }}" style="display:inline-flex;align-items:center;padding:4px;border:1px solid transparent;background:none;cursor:pointer;font:600 13px/1.55 var(--sans);color:var(--u-text2)" style-hover="text-decoration:underline;color:var(--u-offlimits)">Remove</button>
+                        </div>
+                      </div>
+                    </sc-if>
+                    <sc-if value="{{ noDocument }}" hint-placeholder-val="{{ false }}">
+                      <button type="button" onClick="{{ attachDoc }}" aria-label="Position description file" style="display:flex;min-height:140px;width:100%;flex-direction:column;align-items:center;justify-content:center;gap:12px;border-radius:12px;border:1.5px dashed var(--u-border-strong);background:var(--u-surface);padding:24px;text-align:center;cursor:pointer;font-family:var(--sans)" style-hover="border-color:var(--u-accent)">
+                        <span style="width:40px;height:40px;flex:none;display:grid;place-items:center;border-radius:50%;background:var(--u-accent-tint);color:var(--u-accent)"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex:none;" aria-hidden="true"><path d="M12 13v8m0-8-3 3m3-3 3 3M20 16.7A4.5 4.5 0 0 0 17.5 8h-1.8A7 7 0 1 0 4 14.9"></path></svg></span>
+                        <span style="display:flex;flex-direction:column;gap:4px">
+                          <span style="font:600 15px var(--sans);color:var(--u-accent)">Attach the position description</span>
+                          <span style="font:400 12px var(--sans);color:var(--u-text3)">Read once to fill the brief, then kept with the mandate.</span>
+                        </span>
+                      </button>
+                    </sc-if>
+                  </div>
+
+
+                  <div style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:24px">
+                    <div style="min-width:0">
+                      <div style="margin-bottom:8px;display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:8px 16px"><span style="display:block;font:600 12px/1.5 var(--sans);text-transform:uppercase;letter-spacing:.02em;color:var(--text2)">Role title</span></div>
+                      <div style="position:relative">
+                        <input role="combobox" aria-label="Role title" autocomplete="off" value="{{ roleTitle }}" onInput="{{ setText }}" onFocus="{{ openTitleList }}" data-field="roleTitle" placeholder="e.g. Chief Financial Officer" style="width:100%;border-radius:8px;border:1px solid var(--u-border);background:var(--u-sunken);padding:10px 12px;font:400 13px/1.55 var(--sans);color:var(--u-text);outline:none" style-focus="border-color:var(--u-accent)">
+                        <sc-if value="{{ titleListOpen }}" hint-placeholder-val="{{ false }}">
+                          <ul role="listbox" aria-label="Role templates" style="position:absolute;z-index:10;margin:4px 0 0;padding:4px 0;list-style:none;max-height:288px;width:100%;overflow:auto;border-radius:10px;border:1px solid var(--u-border);background:var(--u-bg);box-shadow:var(--u-e3)">
+                            <sc-for list="{{ titleMatches }}" as="t" hint-placeholder-count="3">
+                              <li role="option" onClick="{{ pickTemplate }}" data-id="{{ t.title }}" style="display:flex;cursor:pointer;align-items:baseline;gap:10px;padding:7px 12px" style-hover="background:var(--u-accent-tint)">
+                                <span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font:500 13px var(--sans);color:var(--u-text)">{{ t.title }}</span>
+                                <span style="min-width:0;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;text-align:right;font:400 11px var(--sans);color:var(--u-text3)">{{ t.meta }}</span>
+                              </li>
+                            </sc-for>
+                          </ul>
+                        </sc-if>
+                      </div>
+                    </div>
+                    <div style="min-width:0">
+                      <div style="margin-bottom:8px;display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:8px 16px"><span style="display:block;font:600 12px/1.5 var(--sans);text-transform:uppercase;letter-spacing:.02em;color:var(--text2)">Department</span><sc-for list="{{ mDepartment }}" as="m" hint-placeholder-count="1"><span style="position:relative;display:inline-flex;flex:none;vertical-align:middle"><button type="button" onClick="{{ toggleProv }}" data-id="{{ m.id }}" aria-label="Read from the document" style="width:16px;height:16px;display:grid;place-items:center;flex:none;border-radius:999px;border:none;background:none;padding:0;cursor:pointer;color:{{ m.color }}"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex:none;" aria-hidden="true"><path d="M9.9 2.6 11 5.9a2 2 0 0 0 1.3 1.3l3.3 1.1-3.3 1.1a2 2 0 0 0-1.3 1.3L9.9 14l-1.1-3.3a2 2 0 0 0-1.3-1.3L4.2 8.3l3.3-1.1a2 2 0 0 0 1.3-1.3ZM18 14l.6 1.8 1.8.6-1.8.6-.6 1.8-.6-1.8-1.8-.6 1.8-.6Z"></path></svg></button><sc-if value="{{ m.open }}" hint-placeholder-val="{{ false }}"><div role="group" aria-label="Document provenance" style="position:absolute;{{ m.popPos }};z-index:200;width:260px;border-radius:10px;border:1px solid var(--u-border-strong);background:var(--u-raised);padding:10px 12px;font:400 12px/1.5 var(--sans);color:var(--u-text2);box-shadow:var(--u-e3);text-align:left;white-space:normal;text-transform:none;letter-spacing:normal"><span style="display:flex;align-items:flex-start;gap:6px;font-weight:500;color:var(--u-text)"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex:none;margin-top:1px;color:var(--u-inferred)" aria-hidden="true"><path d="M9.9 2.6 11 5.9a2 2 0 0 0 1.3 1.3l3.3 1.1-3.3 1.1a2 2 0 0 0-1.3 1.3L9.9 14l-1.1-3.3a2 2 0 0 0-1.3-1.3L4.2 8.3l3.3-1.1a2 2 0 0 0 1.3-1.3ZM18 14l.6 1.8 1.8.6-1.8.6-.6 1.8-.6-1.8-1.8-.6 1.8-.6Z"></path></svg><span style="min-width:0;overflow-wrap:anywhere">{{ m.readLine }}</span></span><sc-if value="{{ m.hasConf }}" hint-placeholder-val="{{ true }}"><span style="display:block;margin-top:4px;padding-left:18px;color:{{ m.confColor }}">{{ m.confLabel }}</span></sc-if><sc-if value="{{ m.hasSnippet }}" hint-placeholder-val="{{ true }}"><span style="display:block;margin-top:6px;border-left:2px solid var(--u-border-strong);padding-left:8px;font-style:italic">“{{ m.snippet }}”</span></sc-if><sc-if value="{{ m.hasUndo }}" hint-placeholder-val="{{ true }}"><button type="button" onClick="{{ undoProv }}" data-id="{{ m.id }}" style="display:block;margin-top:8px;padding:0;border:none;background:none;cursor:pointer;font:600 12px var(--sans);color:var(--u-inferred)" style-hover="text-decoration:underline">Undo</button></sc-if></div></sc-if></span></sc-for></div>
+                      <input aria-label="Department" value="{{ department }}" onInput="{{ setText }}" data-field="department" placeholder="e.g. Group Finance" style="width:100%;border-radius:8px;border:1px solid var(--u-border);background:var(--u-sunken);padding:10px 12px;font:400 13px/1.55 var(--sans);color:var(--u-text);outline:none" style-focus="border-color:var(--u-accent)">
+                    </div>
+                  </div>
+                  <div style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px 24px">
+                    <div style="min-width:0">
+                      <span style="display:block;margin-bottom:6px;font:600 12px/1.5 var(--sans);text-transform:uppercase;letter-spacing:.02em;color:var(--text2)">City</span>
+                      <div style="display:flex;align-items:center;gap:6px">
+                        <input aria-label="City" value="{{ city }}" onInput="{{ setText }}" data-field="city" placeholder="City" style="min-width:0;flex:1;width:100%;border-radius:8px;border:1px solid var(--u-border);background:var(--u-sunken);padding:10px 12px;font:400 13px/1.55 var(--sans);color:var(--u-text);outline:none" style-focus="border-color:var(--u-accent)">
+                        <sc-for list="{{ mCity }}" as="m" hint-placeholder-count="1"><span style="position:relative;display:inline-flex;flex:none;vertical-align:middle"><button type="button" onClick="{{ toggleProv }}" data-id="{{ m.id }}" aria-label="Read from the document" style="width:16px;height:16px;display:grid;place-items:center;flex:none;border-radius:999px;border:none;background:none;padding:0;cursor:pointer;color:{{ m.color }}"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex:none;" aria-hidden="true"><path d="M9.9 2.6 11 5.9a2 2 0 0 0 1.3 1.3l3.3 1.1-3.3 1.1a2 2 0 0 0-1.3 1.3L9.9 14l-1.1-3.3a2 2 0 0 0-1.3-1.3L4.2 8.3l3.3-1.1a2 2 0 0 0 1.3-1.3ZM18 14l.6 1.8 1.8.6-1.8.6-.6 1.8-.6-1.8-1.8-.6 1.8-.6Z"></path></svg></button><sc-if value="{{ m.open }}" hint-placeholder-val="{{ false }}"><div role="group" aria-label="Document provenance" style="position:absolute;{{ m.popPos }};z-index:200;width:260px;border-radius:10px;border:1px solid var(--u-border-strong);background:var(--u-raised);padding:10px 12px;font:400 12px/1.5 var(--sans);color:var(--u-text2);box-shadow:var(--u-e3);text-align:left;white-space:normal;text-transform:none;letter-spacing:normal"><span style="display:flex;align-items:flex-start;gap:6px;font-weight:500;color:var(--u-text)"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex:none;margin-top:1px;color:var(--u-inferred)" aria-hidden="true"><path d="M9.9 2.6 11 5.9a2 2 0 0 0 1.3 1.3l3.3 1.1-3.3 1.1a2 2 0 0 0-1.3 1.3L9.9 14l-1.1-3.3a2 2 0 0 0-1.3-1.3L4.2 8.3l3.3-1.1a2 2 0 0 0 1.3-1.3ZM18 14l.6 1.8 1.8.6-1.8.6-.6 1.8-.6-1.8-1.8-.6 1.8-.6Z"></path></svg><span style="min-width:0;overflow-wrap:anywhere">{{ m.readLine }}</span></span><sc-if value="{{ m.hasConf }}" hint-placeholder-val="{{ true }}"><span style="display:block;margin-top:4px;padding-left:18px;color:{{ m.confColor }}">{{ m.confLabel }}</span></sc-if><sc-if value="{{ m.hasSnippet }}" hint-placeholder-val="{{ true }}"><span style="display:block;margin-top:6px;border-left:2px solid var(--u-border-strong);padding-left:8px;font-style:italic">“{{ m.snippet }}”</span></sc-if><sc-if value="{{ m.hasUndo }}" hint-placeholder-val="{{ true }}"><button type="button" onClick="{{ undoProv }}" data-id="{{ m.id }}" style="display:block;margin-top:8px;padding:0;border:none;background:none;cursor:pointer;font:600 12px var(--sans);color:var(--u-inferred)" style-hover="text-decoration:underline">Undo</button></sc-if></div></sc-if></span></sc-for>
+                      </div>
+                    </div>
+                    <div style="min-width:0">
+                      <span style="display:block;margin-bottom:6px;font:600 12px/1.5 var(--sans);text-transform:uppercase;letter-spacing:.02em;color:var(--text2)">Country</span>
+                      <div style="display:flex;align-items:center;gap:6px">
+                        <div style="min-width:0;flex:1">
+                          <div style="display:flex;align-items:center;gap:8px;border-radius:8px;border:1px solid var(--u-border);background:var(--u-sunken);padding:10px 12px;color:var(--u-text)">
+                            <input role="combobox" value="{{ country }}" onInput="{{ setText }}" data-field="country" placeholder="Country" style="width:100%;background:transparent;border:none;padding:0;font:400 13px/1.55 var(--sans);color:var(--u-text);outline:none">
+                            <sc-if value="{{ hasCountry }}" hint-placeholder-val="{{ true }}"><button type="button" onClick="{{ clearCountry }}" aria-label="Clear countrie" style="flex:none;display:grid;padding:0;border:none;background:none;cursor:pointer;color:var(--u-text3)" style-hover="color:var(--u-text)"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex:none;" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12"></path></svg></button></sc-if>
+                            <button type="button" aria-label="Show countries" style="flex:none;display:grid;padding:0;border:none;background:none;cursor:pointer;color:var(--u-text3)" style-hover="color:var(--u-text)"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex:none;" aria-hidden="true"><path d="m6 9 6 6 6-6"></path></svg></button>
+                          </div>
+                        </div>
+                        <sc-for list="{{ mCountry }}" as="m" hint-placeholder-count="1"><span style="position:relative;display:inline-flex;flex:none;vertical-align:middle"><button type="button" onClick="{{ toggleProv }}" data-id="{{ m.id }}" aria-label="Read from the document" style="width:16px;height:16px;display:grid;place-items:center;flex:none;border-radius:999px;border:none;background:none;padding:0;cursor:pointer;color:{{ m.color }}"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex:none;" aria-hidden="true"><path d="M9.9 2.6 11 5.9a2 2 0 0 0 1.3 1.3l3.3 1.1-3.3 1.1a2 2 0 0 0-1.3 1.3L9.9 14l-1.1-3.3a2 2 0 0 0-1.3-1.3L4.2 8.3l3.3-1.1a2 2 0 0 0 1.3-1.3ZM18 14l.6 1.8 1.8.6-1.8.6-.6 1.8-.6-1.8-1.8-.6 1.8-.6Z"></path></svg></button><sc-if value="{{ m.open }}" hint-placeholder-val="{{ false }}"><div role="group" aria-label="Document provenance" style="position:absolute;{{ m.popPos }};z-index:200;width:260px;border-radius:10px;border:1px solid var(--u-border-strong);background:var(--u-raised);padding:10px 12px;font:400 12px/1.5 var(--sans);color:var(--u-text2);box-shadow:var(--u-e3);text-align:left;white-space:normal;text-transform:none;letter-spacing:normal"><span style="display:flex;align-items:flex-start;gap:6px;font-weight:500;color:var(--u-text)"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex:none;margin-top:1px;color:var(--u-inferred)" aria-hidden="true"><path d="M9.9 2.6 11 5.9a2 2 0 0 0 1.3 1.3l3.3 1.1-3.3 1.1a2 2 0 0 0-1.3 1.3L9.9 14l-1.1-3.3a2 2 0 0 0-1.3-1.3L4.2 8.3l3.3-1.1a2 2 0 0 0 1.3-1.3ZM18 14l.6 1.8 1.8.6-1.8.6-.6 1.8-.6-1.8-1.8-.6 1.8-.6Z"></path></svg><span style="min-width:0;overflow-wrap:anywhere">{{ m.readLine }}</span></span><sc-if value="{{ m.hasConf }}" hint-placeholder-val="{{ true }}"><span style="display:block;margin-top:4px;padding-left:18px;color:{{ m.confColor }}">{{ m.confLabel }}</span></sc-if><sc-if value="{{ m.hasSnippet }}" hint-placeholder-val="{{ true }}"><span style="display:block;margin-top:6px;border-left:2px solid var(--u-border-strong);padding-left:8px;font-style:italic">“{{ m.snippet }}”</span></sc-if><sc-if value="{{ m.hasUndo }}" hint-placeholder-val="{{ true }}"><button type="button" onClick="{{ undoProv }}" data-id="{{ m.id }}" style="display:block;margin-top:8px;padding:0;border:none;background:none;cursor:pointer;font:600 12px var(--sans);color:var(--u-inferred)" style-hover="text-decoration:underline">Undo</button></sc-if></div></sc-if></span></sc-for>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:24px">
+                    <div style="min-width:0">
+                      <div style="margin-bottom:8px;display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:8px 16px"><span style="display:block;font:600 12px/1.5 var(--sans);text-transform:uppercase;letter-spacing:.02em;color:var(--text2)">Employment type</span></div>
+                      <div role="radiogroup" aria-label="Employment type" style="display:flex;flex-wrap:wrap;gap:8px"><sc-for list="{{ employmentChips }}" as="c" hint-placeholder-count="3"><button type="button" role="radio" onClick="{{ pick }}" data-group="{{ c.group }}" data-val="{{ c.val }}" data-idx="{{ c.idx }}" style="{{ c.style }}">{{ c.label }}</button></sc-for></div>
+                    </div>
+                    <div style="min-width:0">
+                      <div style="margin-bottom:8px;display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:8px 16px"><span style="display:block;font:600 12px/1.5 var(--sans);text-transform:uppercase;letter-spacing:.02em;color:var(--text2)">Seniority</span><sc-for list="{{ mSeniority }}" as="m" hint-placeholder-count="1"><span style="position:relative;display:inline-flex;flex:none;vertical-align:middle"><button type="button" onClick="{{ toggleProv }}" data-id="{{ m.id }}" aria-label="Read from the document" style="width:16px;height:16px;display:grid;place-items:center;flex:none;border-radius:999px;border:none;background:none;padding:0;cursor:pointer;color:{{ m.color }}"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex:none;" aria-hidden="true"><path d="M9.9 2.6 11 5.9a2 2 0 0 0 1.3 1.3l3.3 1.1-3.3 1.1a2 2 0 0 0-1.3 1.3L9.9 14l-1.1-3.3a2 2 0 0 0-1.3-1.3L4.2 8.3l3.3-1.1a2 2 0 0 0 1.3-1.3ZM18 14l.6 1.8 1.8.6-1.8.6-.6 1.8-.6-1.8-1.8-.6 1.8-.6Z"></path></svg></button><sc-if value="{{ m.open }}" hint-placeholder-val="{{ false }}"><div role="group" aria-label="Document provenance" style="position:absolute;{{ m.popPos }};z-index:200;width:260px;border-radius:10px;border:1px solid var(--u-border-strong);background:var(--u-raised);padding:10px 12px;font:400 12px/1.5 var(--sans);color:var(--u-text2);box-shadow:var(--u-e3);text-align:left;white-space:normal;text-transform:none;letter-spacing:normal"><span style="display:flex;align-items:flex-start;gap:6px;font-weight:500;color:var(--u-text)"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex:none;margin-top:1px;color:var(--u-inferred)" aria-hidden="true"><path d="M9.9 2.6 11 5.9a2 2 0 0 0 1.3 1.3l3.3 1.1-3.3 1.1a2 2 0 0 0-1.3 1.3L9.9 14l-1.1-3.3a2 2 0 0 0-1.3-1.3L4.2 8.3l3.3-1.1a2 2 0 0 0 1.3-1.3ZM18 14l.6 1.8 1.8.6-1.8.6-.6 1.8-.6-1.8-1.8-.6 1.8-.6Z"></path></svg><span style="min-width:0;overflow-wrap:anywhere">{{ m.readLine }}</span></span><sc-if value="{{ m.hasConf }}" hint-placeholder-val="{{ true }}"><span style="display:block;margin-top:4px;padding-left:18px;color:{{ m.confColor }}">{{ m.confLabel }}</span></sc-if><sc-if value="{{ m.hasSnippet }}" hint-placeholder-val="{{ true }}"><span style="display:block;margin-top:6px;border-left:2px solid var(--u-border-strong);padding-left:8px;font-style:italic">“{{ m.snippet }}”</span></sc-if><sc-if value="{{ m.hasUndo }}" hint-placeholder-val="{{ true }}"><button type="button" onClick="{{ undoProv }}" data-id="{{ m.id }}" style="display:block;margin-top:8px;padding:0;border:none;background:none;cursor:pointer;font:600 12px var(--sans);color:var(--u-inferred)" style-hover="text-decoration:underline">Undo</button></sc-if></div></sc-if></span></sc-for></div>
+                      <div role="radiogroup" aria-label="Seniority" style="display:flex;flex-wrap:wrap;gap:8px"><sc-for list="{{ seniorityChips }}" as="c" hint-placeholder-count="3"><button type="button" role="radio" onClick="{{ pick }}" data-group="{{ c.group }}" data-val="{{ c.val }}" data-idx="{{ c.idx }}" style="{{ c.style }}">{{ c.label }}</button></sc-for></div>
+                    </div>
+                  </div>
+
+                  <div style="min-width:0">
+                    <div style="margin-bottom:8px;display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:8px 16px"><span style="display:block;font:600 12px/1.5 var(--sans);text-transform:uppercase;letter-spacing:.02em;color:var(--text2)">Reason for hire</span><sc-for list="{{ mReason }}" as="m" hint-placeholder-count="1"><span style="position:relative;display:inline-flex;flex:none;vertical-align:middle"><button type="button" onClick="{{ toggleProv }}" data-id="{{ m.id }}" aria-label="Read from the document" style="width:16px;height:16px;display:grid;place-items:center;flex:none;border-radius:999px;border:none;background:none;padding:0;cursor:pointer;color:{{ m.color }}"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex:none;" aria-hidden="true"><path d="M9.9 2.6 11 5.9a2 2 0 0 0 1.3 1.3l3.3 1.1-3.3 1.1a2 2 0 0 0-1.3 1.3L9.9 14l-1.1-3.3a2 2 0 0 0-1.3-1.3L4.2 8.3l3.3-1.1a2 2 0 0 0 1.3-1.3ZM18 14l.6 1.8 1.8.6-1.8.6-.6 1.8-.6-1.8-1.8-.6 1.8-.6Z"></path></svg></button><sc-if value="{{ m.open }}" hint-placeholder-val="{{ false }}"><div role="group" aria-label="Document provenance" style="position:absolute;{{ m.popPos }};z-index:200;width:260px;border-radius:10px;border:1px solid var(--u-border-strong);background:var(--u-raised);padding:10px 12px;font:400 12px/1.5 var(--sans);color:var(--u-text2);box-shadow:var(--u-e3);text-align:left;white-space:normal;text-transform:none;letter-spacing:normal"><span style="display:flex;align-items:flex-start;gap:6px;font-weight:500;color:var(--u-text)"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex:none;margin-top:1px;color:var(--u-inferred)" aria-hidden="true"><path d="M9.9 2.6 11 5.9a2 2 0 0 0 1.3 1.3l3.3 1.1-3.3 1.1a2 2 0 0 0-1.3 1.3L9.9 14l-1.1-3.3a2 2 0 0 0-1.3-1.3L4.2 8.3l3.3-1.1a2 2 0 0 0 1.3-1.3ZM18 14l.6 1.8 1.8.6-1.8.6-.6 1.8-.6-1.8-1.8-.6 1.8-.6Z"></path></svg><span style="min-width:0;overflow-wrap:anywhere">{{ m.readLine }}</span></span><sc-if value="{{ m.hasConf }}" hint-placeholder-val="{{ true }}"><span style="display:block;margin-top:4px;padding-left:18px;color:{{ m.confColor }}">{{ m.confLabel }}</span></sc-if><sc-if value="{{ m.hasSnippet }}" hint-placeholder-val="{{ true }}"><span style="display:block;margin-top:6px;border-left:2px solid var(--u-border-strong);padding-left:8px;font-style:italic">“{{ m.snippet }}”</span></sc-if><sc-if value="{{ m.hasUndo }}" hint-placeholder-val="{{ true }}"><button type="button" onClick="{{ undoProv }}" data-id="{{ m.id }}" style="display:block;margin-top:8px;padding:0;border:none;background:none;cursor:pointer;font:600 12px var(--sans);color:var(--u-inferred)" style-hover="text-decoration:underline">Undo</button></sc-if></div></sc-if></span></sc-for></div>
+                    <div role="radiogroup" aria-label="Reason for hire" style="display:flex;flex-wrap:wrap;gap:8px"><sc-for list="{{ reasonChips }}" as="c" hint-placeholder-count="3"><button type="button" role="radio" onClick="{{ pick }}" data-group="{{ c.group }}" data-val="{{ c.val }}" data-idx="{{ c.idx }}" style="{{ c.style }}">{{ c.label }}</button></sc-for></div>
+                  </div>
+
+                  <div style="min-width:0">
+                    <div style="margin-bottom:8px;display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:8px 16px"><span style="display:block;font:600 12px/1.5 var(--sans);text-transform:uppercase;letter-spacing:.02em;color:var(--text2)">Confidentiality level</span></div>
+                    <div role="radiogroup" aria-label="Confidentiality level" style="display:grid;max-width:520px;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px">
+                      <sc-for list="{{ confCards }}" as="cc" hint-placeholder-count="2">
+                        <button type="button" role="radio" onClick="{{ pick }}" data-group="conf" data-val="{{ cc.val }}" data-idx="" style="{{ cc.style }}">
+                          <span style="min-width:0">
+                            <span style="display:block;font:600 13px/1.55 var(--sans);color:{{ cc.titleColor }}">{{ cc.title }}</span>
+                            <span style="margin-top:4px;display:block;font:400 12px/1.5 var(--sans);color:var(--u-text3)">{{ cc.body }}</span>
+                          </span>
+                          <span aria-hidden="true" style="{{ cc.dot }}"></span>
+                        </button>
+                      </sc-for>
+                    </div>
+                  </div>
+
+                  <div style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:24px">
+                    <div style="min-width:0">
+                      <div style="margin-bottom:8px;display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:8px 16px"><span style="display:block;font:600 12px/1.5 var(--sans);text-transform:uppercase;letter-spacing:.02em;color:var(--text2)">Target start</span></div>
+                      <div style="position:relative;display:flex;width:100%;align-items:center;justify-content:space-between;border-radius:8px;border:1px solid var(--u-border);background:var(--u-sunken);padding:10px 12px;font:400 13px/1.55 var(--u-num);cursor:pointer">
+                        <span style="color:var(--text)">{{ targetStart }}</span>
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex:none;color:var(--text3)" aria-hidden="true"><path d="M8 2v4M16 2v4M3 10h18M5 4h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2Z"></path></svg>
+                      </div>
+                    </div>
+                    <div style="min-width:0">
+                      <div style="margin-bottom:8px;display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:8px 16px"><span style="display:block;font:600 12px/1.5 var(--sans);text-transform:uppercase;letter-spacing:.02em;color:var(--text2)">Notice period to plan for</span><sc-for list="{{ mNotice }}" as="m" hint-placeholder-count="1"><span style="position:relative;display:inline-flex;flex:none;vertical-align:middle"><button type="button" onClick="{{ toggleProv }}" data-id="{{ m.id }}" aria-label="Read from the document" style="width:16px;height:16px;display:grid;place-items:center;flex:none;border-radius:999px;border:none;background:none;padding:0;cursor:pointer;color:{{ m.color }}"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex:none;" aria-hidden="true"><path d="M9.9 2.6 11 5.9a2 2 0 0 0 1.3 1.3l3.3 1.1-3.3 1.1a2 2 0 0 0-1.3 1.3L9.9 14l-1.1-3.3a2 2 0 0 0-1.3-1.3L4.2 8.3l3.3-1.1a2 2 0 0 0 1.3-1.3ZM18 14l.6 1.8 1.8.6-1.8.6-.6 1.8-.6-1.8-1.8-.6 1.8-.6Z"></path></svg></button><sc-if value="{{ m.open }}" hint-placeholder-val="{{ false }}"><div role="group" aria-label="Document provenance" style="position:absolute;{{ m.popPos }};z-index:200;width:260px;border-radius:10px;border:1px solid var(--u-border-strong);background:var(--u-raised);padding:10px 12px;font:400 12px/1.5 var(--sans);color:var(--u-text2);box-shadow:var(--u-e3);text-align:left;white-space:normal;text-transform:none;letter-spacing:normal"><span style="display:flex;align-items:flex-start;gap:6px;font-weight:500;color:var(--u-text)"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex:none;margin-top:1px;color:var(--u-inferred)" aria-hidden="true"><path d="M9.9 2.6 11 5.9a2 2 0 0 0 1.3 1.3l3.3 1.1-3.3 1.1a2 2 0 0 0-1.3 1.3L9.9 14l-1.1-3.3a2 2 0 0 0-1.3-1.3L4.2 8.3l3.3-1.1a2 2 0 0 0 1.3-1.3ZM18 14l.6 1.8 1.8.6-1.8.6-.6 1.8-.6-1.8-1.8-.6 1.8-.6Z"></path></svg><span style="min-width:0;overflow-wrap:anywhere">{{ m.readLine }}</span></span><sc-if value="{{ m.hasConf }}" hint-placeholder-val="{{ true }}"><span style="display:block;margin-top:4px;padding-left:18px;color:{{ m.confColor }}">{{ m.confLabel }}</span></sc-if><sc-if value="{{ m.hasSnippet }}" hint-placeholder-val="{{ true }}"><span style="display:block;margin-top:6px;border-left:2px solid var(--u-border-strong);padding-left:8px;font-style:italic">“{{ m.snippet }}”</span></sc-if><sc-if value="{{ m.hasUndo }}" hint-placeholder-val="{{ true }}"><button type="button" onClick="{{ undoProv }}" data-id="{{ m.id }}" style="display:block;margin-top:8px;padding:0;border:none;background:none;cursor:pointer;font:600 12px var(--sans);color:var(--u-inferred)" style-hover="text-decoration:underline">Undo</button></sc-if></div></sc-if></span></sc-for></div>
+                      <div role="radiogroup" aria-label="Notice period" style="display:flex;flex-wrap:wrap;gap:8px"><sc-for list="{{ noticeChips }}" as="c" hint-placeholder-count="3"><button type="button" role="radio" onClick="{{ pick }}" data-group="{{ c.group }}" data-val="{{ c.val }}" data-idx="{{ c.idx }}" style="{{ c.style }}">{{ c.label }}</button></sc-for></div>
+                    </div>
+                  </div>
+
+                  <div style="min-width:0">
+                    <div style="margin-bottom:8px;display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:8px 16px"><span style="display:block;font:600 12px/1.5 var(--sans);text-transform:uppercase;letter-spacing:.02em;color:var(--text2)">Key responsibilities</span></div>
+                    <sc-if value="{{ hasResponsibilities }}" hint-placeholder-val="{{ true }}">
+                      <div style="margin-bottom:12px;display:flex;flex-wrap:wrap;gap:8px">
+                        <sc-for list="{{ responsibilities }}" as="rs" hint-placeholder-count="6">
+                          <span style="display:inline-flex;align-items:center;gap:8px;border-radius:6px;background:var(--u-raised);padding:6px 8px 6px 12px;font:500 12px/1.5 var(--sans);color:var(--u-text)">
+                            {{ rs.text }}
+                            <sc-for list="{{ rs.mk }}" as="m" hint-placeholder-count="1"><span style="position:relative;display:inline-flex;flex:none;vertical-align:middle"><button type="button" onClick="{{ toggleProv }}" data-id="{{ m.id }}" aria-label="Read from the document" style="width:16px;height:16px;display:grid;place-items:center;flex:none;border-radius:999px;border:none;background:none;padding:0;cursor:pointer;color:{{ m.color }}"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex:none;" aria-hidden="true"><path d="M9.9 2.6 11 5.9a2 2 0 0 0 1.3 1.3l3.3 1.1-3.3 1.1a2 2 0 0 0-1.3 1.3L9.9 14l-1.1-3.3a2 2 0 0 0-1.3-1.3L4.2 8.3l3.3-1.1a2 2 0 0 0 1.3-1.3ZM18 14l.6 1.8 1.8.6-1.8.6-.6 1.8-.6-1.8-1.8-.6 1.8-.6Z"></path></svg></button><sc-if value="{{ m.open }}" hint-placeholder-val="{{ false }}"><div role="group" aria-label="Document provenance" style="position:absolute;{{ m.popPos }};z-index:200;width:260px;border-radius:10px;border:1px solid var(--u-border-strong);background:var(--u-raised);padding:10px 12px;font:400 12px/1.5 var(--sans);color:var(--u-text2);box-shadow:var(--u-e3);text-align:left;white-space:normal;text-transform:none;letter-spacing:normal"><span style="display:flex;align-items:flex-start;gap:6px;font-weight:500;color:var(--u-text)"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex:none;margin-top:1px;color:var(--u-inferred)" aria-hidden="true"><path d="M9.9 2.6 11 5.9a2 2 0 0 0 1.3 1.3l3.3 1.1-3.3 1.1a2 2 0 0 0-1.3 1.3L9.9 14l-1.1-3.3a2 2 0 0 0-1.3-1.3L4.2 8.3l3.3-1.1a2 2 0 0 0 1.3-1.3ZM18 14l.6 1.8 1.8.6-1.8.6-.6 1.8-.6-1.8-1.8-.6 1.8-.6Z"></path></svg><span style="min-width:0;overflow-wrap:anywhere">{{ m.readLine }}</span></span><sc-if value="{{ m.hasConf }}" hint-placeholder-val="{{ true }}"><span style="display:block;margin-top:4px;padding-left:18px;color:{{ m.confColor }}">{{ m.confLabel }}</span></sc-if><sc-if value="{{ m.hasSnippet }}" hint-placeholder-val="{{ true }}"><span style="display:block;margin-top:6px;border-left:2px solid var(--u-border-strong);padding-left:8px;font-style:italic">“{{ m.snippet }}”</span></sc-if><sc-if value="{{ m.hasUndo }}" hint-placeholder-val="{{ true }}"><button type="button" onClick="{{ undoProv }}" data-id="{{ m.id }}" style="display:block;margin-top:8px;padding:0;border:none;background:none;cursor:pointer;font:600 12px var(--sans);color:var(--u-inferred)" style-hover="text-decoration:underline">Undo</button></sc-if></div></sc-if></span></sc-for>
+                            <button type="button" onClick="{{ removeResp }}" data-idx="{{ rs.idx }}" aria-label="Remove {{ rs.text }}" style="width:18px;height:18px;display:grid;place-items:center;flex:none;border-radius:999px;border:none;padding:0;cursor:pointer;background:color-mix(in srgb,var(--u-text3) 70%,transparent);color:#fff" style-hover="background:var(--u-offlimits)"><svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex:none;stroke-width:3" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12"></path></svg></button>
+                          </span>
+                        </sc-for>
+                      </div>
+                    </sc-if>
+                    <input aria-label="Add a responsibility" placeholder="Add a responsibility…" style="width:100%;max-width:280px;border-radius:8px;border:1px solid var(--u-border);background:var(--u-sunken);padding:10px 12px;font:400 13px/1.55 var(--sans);color:var(--u-text);outline:none" style-focus="border-color:var(--u-accent)">
+                  </div>
+                  <div style="min-width:0">
+                    <div style="margin-bottom:8px;display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:8px 16px"><span style="display:block;font:600 12px/1.5 var(--sans);text-transform:uppercase;letter-spacing:.02em;color:var(--u-inferred)">Ideal profile — drafted from the brief <span aria-hidden="true">✦</span></span><sc-for list="{{ mNarrative }}" as="m" hint-placeholder-count="1"><span style="position:relative;display:inline-flex;flex:none;vertical-align:middle"><button type="button" onClick="{{ toggleProv }}" data-id="{{ m.id }}" aria-label="Read from the document" style="width:16px;height:16px;display:grid;place-items:center;flex:none;border-radius:999px;border:none;background:none;padding:0;cursor:pointer;color:{{ m.color }}"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex:none;" aria-hidden="true"><path d="M9.9 2.6 11 5.9a2 2 0 0 0 1.3 1.3l3.3 1.1-3.3 1.1a2 2 0 0 0-1.3 1.3L9.9 14l-1.1-3.3a2 2 0 0 0-1.3-1.3L4.2 8.3l3.3-1.1a2 2 0 0 0 1.3-1.3ZM18 14l.6 1.8 1.8.6-1.8.6-.6 1.8-.6-1.8-1.8-.6 1.8-.6Z"></path></svg></button><sc-if value="{{ m.open }}" hint-placeholder-val="{{ false }}"><div role="group" aria-label="Document provenance" style="position:absolute;{{ m.popPos }};z-index:200;width:260px;border-radius:10px;border:1px solid var(--u-border-strong);background:var(--u-raised);padding:10px 12px;font:400 12px/1.5 var(--sans);color:var(--u-text2);box-shadow:var(--u-e3);text-align:left;white-space:normal;text-transform:none;letter-spacing:normal"><span style="display:flex;align-items:flex-start;gap:6px;font-weight:500;color:var(--u-text)"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex:none;margin-top:1px;color:var(--u-inferred)" aria-hidden="true"><path d="M9.9 2.6 11 5.9a2 2 0 0 0 1.3 1.3l3.3 1.1-3.3 1.1a2 2 0 0 0-1.3 1.3L9.9 14l-1.1-3.3a2 2 0 0 0-1.3-1.3L4.2 8.3l3.3-1.1a2 2 0 0 0 1.3-1.3ZM18 14l.6 1.8 1.8.6-1.8.6-.6 1.8-.6-1.8-1.8-.6 1.8-.6Z"></path></svg><span style="min-width:0;overflow-wrap:anywhere">{{ m.readLine }}</span></span><sc-if value="{{ m.hasConf }}" hint-placeholder-val="{{ true }}"><span style="display:block;margin-top:4px;padding-left:18px;color:{{ m.confColor }}">{{ m.confLabel }}</span></sc-if><sc-if value="{{ m.hasSnippet }}" hint-placeholder-val="{{ true }}"><span style="display:block;margin-top:6px;border-left:2px solid var(--u-border-strong);padding-left:8px;font-style:italic">“{{ m.snippet }}”</span></sc-if><sc-if value="{{ m.hasUndo }}" hint-placeholder-val="{{ true }}"><button type="button" onClick="{{ undoProv }}" data-id="{{ m.id }}" style="display:block;margin-top:8px;padding:0;border:none;background:none;cursor:pointer;font:600 12px var(--sans);color:var(--u-inferred)" style-hover="text-decoration:underline">Undo</button></sc-if></div></sc-if></span></sc-for></div>
+                    <div style="border-radius:11px;background:var(--u-surface);box-shadow:var(--u-e1);padding:14px 16px">
+                      <p style="{{ narrativeStyle }}">{{ narrative }}</p>
+                      <div style="margin-top:8px;display:flex;align-items:center;gap:12px">
+                        <button type="button" onClick="{{ toggleNarrative }}" style="padding:0;border:none;background:none;cursor:pointer;font:600 13px var(--sans);color:var(--u-accent)" style-hover="text-decoration:underline">{{ narrativeToggle }}</button>
+                        <button type="button" style="margin-left:auto;display:inline-flex;align-items:center;gap:6px;padding:0;border:none;background:none;cursor:pointer;font:500 12px var(--sans);color:var(--u-text3)" style-hover="color:var(--u-text)"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex:none;" aria-hidden="true"><path d="M12 20h9M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4 12.5-12.5Z"></path></svg>Edit</button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </sc-if>
+              <sc-if value="{{ isReporting }}" hint-placeholder-val="{{ false }}">
+                <div data-screen-label="Reporting" style="display:flex;flex-direction:column;gap:24px">
+                  <div>
+                    <div style="margin-bottom:8px;display:flex;justify-content:flex-end"><span style="display:block;font:600 12px/1.5 var(--sans);text-transform:uppercase;letter-spacing:.02em;color:var(--text2)">Drag to arrange · Hover a seat to add or remove · Drag a handle to re-parent</span></div>
+                    <div aria-label="Org chart" style="position:relative;height:420px;overflow:hidden;border-radius:11px;box-shadow:var(--u-e1);background-color:var(--panel2);background-image:radial-gradient(var(--u-border-strong) 1px,transparent 1px);background-size:18px 18px">
+                      <div style="{{ chartInnerStyle }}">
+                        <sc-for list="{{ edgeSegments }}" as="sg" hint-placeholder-count="12"><div style="{{ sg.style }}"></div></sc-for>
+                        <sc-for list="{{ seatBoxes }}" as="st" hint-placeholder-count="7">
+                          <div style="{{ st.boxStyle }}">
+                            <sc-for list="{{ st.mk }}" as="m" hint-placeholder-count="0"><span style="position:absolute;top:-6px;left:6px;display:inline-flex"><button type="button" onClick="{{ toggleProv }}" data-id="{{ m.id }}" aria-label="Read from the document" style="width:16px;height:16px;display:grid;place-items:center;border-radius:999px;border:none;background:none;padding:0;cursor:pointer;color:{{ m.color }}"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex:none;" aria-hidden="true"><path d="M9.9 2.6 11 5.9a2 2 0 0 0 1.3 1.3l3.3 1.1-3.3 1.1a2 2 0 0 0-1.3 1.3L9.9 14l-1.1-3.3a2 2 0 0 0-1.3-1.3L4.2 8.3l3.3-1.1a2 2 0 0 0 1.3-1.3ZM18 14l.6 1.8 1.8.6-1.8.6-.6 1.8-.6-1.8-1.8-.6 1.8-.6Z"></path></svg></button><sc-if value="{{ m.open }}" hint-placeholder-val="{{ false }}"><div role="group" aria-label="Document provenance" style="position:absolute;{{ m.popPos }};z-index:200;width:260px;border-radius:10px;border:1px solid var(--u-border-strong);background:var(--u-raised);padding:10px 12px;font:400 12px/1.5 var(--sans);color:var(--u-text2);box-shadow:var(--u-e3)"><span style="display:flex;align-items:flex-start;gap:6px;font-weight:500;color:var(--u-text)"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex:none;margin-top:1px;color:var(--u-inferred)" aria-hidden="true"><path d="M9.9 2.6 11 5.9a2 2 0 0 0 1.3 1.3l3.3 1.1-3.3 1.1a2 2 0 0 0-1.3 1.3L9.9 14l-1.1-3.3a2 2 0 0 0-1.3-1.3L4.2 8.3l3.3-1.1a2 2 0 0 0 1.3-1.3ZM18 14l.6 1.8 1.8.6-1.8.6-.6 1.8-.6-1.8-1.8-.6 1.8-.6Z"></path></svg><span>{{ m.readLine }}</span></span></div></sc-if></span></sc-for>
+                            <span style="position:absolute;left:50%;top:0;transform:translate(-50%,-50%);width:8px;height:8px;border-radius:50%;border:1px solid var(--u-border-strong);background:var(--u-bg)"></span>
+                            <sc-if value="{{ st.isMandate }}" hint-placeholder-val="{{ false }}">
+                              <span style="display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font:600 13px/1.55 var(--sans);color:var(--u-accent)">{{ st.title }}</span>
+                              <span style="margin-top:4px;display:inline-block;border-radius:4px;background:var(--u-accent-solid);padding:2px 6px;font:700 9.5px/1.35 var(--sans);text-transform:uppercase;letter-spacing:.06em;color:#fff">This position</span>
+                            </sc-if>
+                            <sc-if value="{{ st.isSeat }}" hint-placeholder-val="{{ true }}">
+                              <input value="{{ st.title }}" aria-label="Seat title" placeholder="Title" style="display:block;width:100%;padding:0;border:none;background:transparent;font:600 13px/1.55 var(--sans);color:var(--u-text);outline:none">
+                              <input value="{{ st.name }}" aria-label="Seat holder name" placeholder="Name" style="display:block;width:100%;padding:0;border:none;background:transparent;font:400 12px/1.5 var(--sans);color:var(--u-text2);outline:none">
+                            </sc-if>
+                            <span style="position:absolute;left:50%;top:100%;transform:translate(-50%,-50%);width:8px;height:8px;border-radius:50%;border:1px solid var(--u-border-strong);background:var(--u-bg)"></span>
+                          </div>
+                        </sc-for>
+                      </div>
+                      <div style="position:absolute;left:15px;bottom:15px;display:flex;flex-direction:column;overflow:hidden;border-radius:8px;border:1px solid var(--u-border);background:var(--u-bg);box-shadow:var(--u-e1)">
+                        <button type="button" aria-label="Zoom in" style="width:26px;height:26px;display:grid;place-items:center;border:none;border-bottom:1px solid var(--u-border);background:var(--u-bg);color:var(--u-text2);cursor:pointer;padding:0" style-hover="background:var(--u-raised)"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex:none;" aria-hidden="true"><path d="M12 5v14M5 12h14"></path></svg></button>
+                        <button type="button" aria-label="Zoom out" style="width:26px;height:26px;display:grid;place-items:center;border:none;border-bottom:1px solid var(--u-border);background:var(--u-bg);color:var(--u-text2);cursor:pointer;padding:0" style-hover="background:var(--u-raised)"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex:none;" aria-hidden="true"><path d="M5 12h14"></path></svg></button>
+                        <button type="button" aria-label="Fit view" style="width:26px;height:26px;display:grid;place-items:center;border:none;background:var(--u-bg);color:var(--u-text2);cursor:pointer;padding:0" style-hover="background:var(--u-raised)"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex:none;" aria-hidden="true"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"></path></svg></button>
+                      </div>
+                    </div>
+                  </div>
+                  <sc-if value="{{ showSuggestedSeats }}" hint-placeholder-val="{{ true }}">
+                    <div>
+                      <span style="display:block;margin-bottom:8px;font:600 12px/1.5 var(--sans);text-transform:uppercase;letter-spacing:.02em;color:var(--u-inferred)">Suggested seats</span>
+                      <div style="display:flex;flex-wrap:wrap;gap:8px">
+                        <sc-for list="{{ suggestedSeats }}" as="ss" hint-placeholder-count="2">
+                          <button type="button" onClick="{{ addSeat }}" data-id="{{ ss.title }}" style="display:inline-flex;align-items:center;gap:6px;border-radius:999px;border:1px solid color-mix(in srgb,var(--u-inferred) 40%,transparent);background:var(--u-inferred-tint);padding:6px 12px;font:500 12px/1.5 var(--sans);color:var(--u-inferred);cursor:pointer" style-hover="filter:brightness(.95)"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex:none;" aria-hidden="true"><path d="M12 5v14M5 12h14"></path></svg>{{ ss.title }}</button>
+                        </sc-for>
+                      </div>
+                    </div>
+                  </sc-if>
+
+                  <p style="margin:0;border-top:1px solid var(--u-border);padding-top:16px;font:400 13px/1.55 var(--sans);color:var(--u-text2)">Reports to <b style="font-weight:600;color:var(--u-text)">{{ managerLabel }}</b> · Seniority level <b style="font-weight:600;color:var(--u-text)">{{ levelLabel }}</b> · leads <b style="font-weight:600;color:var(--u-text)">{{ reportsLine }}</b></p>
+
+                  <div style="min-width:0">
+                    <div style="margin-bottom:8px;display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:8px 16px"><span style="display:block;font:600 12px/1.5 var(--sans);text-transform:uppercase;letter-spacing:.02em;color:var(--text2)">Team size</span><sc-for list="{{ mTeamSize }}" as="m" hint-placeholder-count="1"><span style="position:relative;display:inline-flex;flex:none;vertical-align:middle"><button type="button" onClick="{{ toggleProv }}" data-id="{{ m.id }}" aria-label="Read from the document" style="width:16px;height:16px;display:grid;place-items:center;flex:none;border-radius:999px;border:none;background:none;padding:0;cursor:pointer;color:{{ m.color }}"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex:none;" aria-hidden="true"><path d="M9.9 2.6 11 5.9a2 2 0 0 0 1.3 1.3l3.3 1.1-3.3 1.1a2 2 0 0 0-1.3 1.3L9.9 14l-1.1-3.3a2 2 0 0 0-1.3-1.3L4.2 8.3l3.3-1.1a2 2 0 0 0 1.3-1.3ZM18 14l.6 1.8 1.8.6-1.8.6-.6 1.8-.6-1.8-1.8-.6 1.8-.6Z"></path></svg></button><sc-if value="{{ m.open }}" hint-placeholder-val="{{ false }}"><div role="group" aria-label="Document provenance" style="position:absolute;{{ m.popPos }};z-index:200;width:260px;border-radius:10px;border:1px solid var(--u-border-strong);background:var(--u-raised);padding:10px 12px;font:400 12px/1.5 var(--sans);color:var(--u-text2);box-shadow:var(--u-e3);text-align:left;white-space:normal;text-transform:none;letter-spacing:normal"><span style="display:flex;align-items:flex-start;gap:6px;font-weight:500;color:var(--u-text)"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex:none;margin-top:1px;color:var(--u-inferred)" aria-hidden="true"><path d="M9.9 2.6 11 5.9a2 2 0 0 0 1.3 1.3l3.3 1.1-3.3 1.1a2 2 0 0 0-1.3 1.3L9.9 14l-1.1-3.3a2 2 0 0 0-1.3-1.3L4.2 8.3l3.3-1.1a2 2 0 0 0 1.3-1.3ZM18 14l.6 1.8 1.8.6-1.8.6-.6 1.8-.6-1.8-1.8-.6 1.8-.6Z"></path></svg><span style="min-width:0;overflow-wrap:anywhere">{{ m.readLine }}</span></span><sc-if value="{{ m.hasConf }}" hint-placeholder-val="{{ true }}"><span style="display:block;margin-top:4px;padding-left:18px;color:{{ m.confColor }}">{{ m.confLabel }}</span></sc-if><sc-if value="{{ m.hasSnippet }}" hint-placeholder-val="{{ true }}"><span style="display:block;margin-top:6px;border-left:2px solid var(--u-border-strong);padding-left:8px;font-style:italic">“{{ m.snippet }}”</span></sc-if><sc-if value="{{ m.hasUndo }}" hint-placeholder-val="{{ true }}"><button type="button" onClick="{{ undoProv }}" data-id="{{ m.id }}" style="display:block;margin-top:8px;padding:0;border:none;background:none;cursor:pointer;font:600 12px var(--sans);color:var(--u-inferred)" style-hover="text-decoration:underline">Undo</button></sc-if></div></sc-if></span></sc-for></div>
+                    <span style="display:flex;align-items:baseline;gap:8px">
+                      <span style="font:500 27px/1.15 var(--u-num);color:var(--u-text)">{{ reportsCount }}</span>
+                      <span style="font:400 13px/1.55 var(--sans);color:var(--u-text3)">{{ reportsNoun }}</span>
+                    </span>
+                  </div>
+                </div>
+              </sc-if>
+              <sc-if value="{{ isCompensation }}" hint-placeholder-val="{{ false }}">
+                <div data-screen-label="Compensation" style="display:flex;flex-direction:column;gap:20px">
+                  <div style="border-radius:11px;background:var(--u-surface);box-shadow:var(--u-e1);padding:20px">
+                    <div style="display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:12px">
+                      <span style="display:block;font:600 12px/1.5 var(--sans);text-transform:uppercase;letter-spacing:.02em;color:var(--text2)">Base salary</span>
+                      <div role="radiogroup" aria-label="Base salary period" style="display:inline-flex;flex:none;align-items:center;gap:2px;border-radius:8px;border:1px solid var(--u-border-strong);background:var(--u-bg);padding:3px">
+                        <sc-for list="{{ periodOptions }}" as="c" hint-placeholder-count="2"><button type="button" role="radio" onClick="{{ pick }}" data-group="period" data-val="{{ c.val }}" data-idx="" style="{{ c.style }}">{{ c.label }}</button></sc-for>
+                      </div>
+                    </div>
+                    <div style="margin-top:16px;display:flex;flex-wrap:wrap;align-items:center;gap:16px">
+                      <select aria-label="Currency" value="{{ currency }}" onChange="{{ setCurrency }}" style="border-radius:8px;border:1px solid var(--u-border);background:var(--u-sunken);padding:6px 12px;font:600 13px/1.55 var(--sans);color:var(--u-text);outline:none">
+                        <sc-for list="{{ currencies }}" as="cu" hint-placeholder-count="7"><option value="{{ cu }}">{{ cu }}</option></sc-for>
+                      </select>
+                      <input inputmode="numeric" aria-label="Minimum base salary" value="{{ salaryMin }}" onInput="{{ setNum }}" data-field="min" placeholder="90,000" style="width:140px;min-width:0;border:none;border-bottom:1px solid var(--u-border);background:transparent;padding:6px 0;font:400 15px/1.4 var(--u-num);color:var(--u-text);outline:none" style-focus="border-bottom-color:var(--u-accent)">
+                      <span style="color:var(--u-text3)">–</span>
+                      <input inputmode="numeric" aria-label="Maximum base salary" value="{{ salaryMax }}" onInput="{{ setNum }}" data-field="max" placeholder="120,000" style="width:140px;min-width:0;border:none;border-bottom:1px solid var(--u-border);background:transparent;padding:6px 0;font:400 15px/1.4 var(--u-num);color:var(--u-text);outline:none" style-focus="border-bottom-color:var(--u-accent)">
+                    </div>
+                  </div>
+
+                  <div style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px">
+                    <div style="border-radius:11px;background:var(--u-surface);box-shadow:var(--u-e1);padding:20px">
+                      <div style="display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:12px">
+                        <span style="display:block;font:600 12px/1.5 var(--sans);text-transform:uppercase;letter-spacing:.02em;color:var(--text2)">Annual bonus target</span>
+                        <div role="radiogroup" aria-label="Bonus basis" style="display:flex;flex-wrap:nowrap;gap:8px"><sc-for list="{{ bonusChips }}" as="c" hint-placeholder-count="3"><button type="button" role="radio" onClick="{{ pick }}" data-group="{{ c.group }}" data-val="{{ c.val }}" data-idx="{{ c.idx }}" style="{{ c.style }}">{{ c.label }}</button></sc-for></div>
+                      </div>
+                      <div style="margin-top:12px;display:flex;align-items:baseline;gap:8px">
+                        <sc-if value="{{ bonusFixed }}" hint-placeholder-val="{{ false }}"><span style="font:400 15px/1.4 var(--u-num);color:var(--u-text2)">{{ currency }}</span></sc-if>
+                        <input inputmode="numeric" aria-label="Bonus target" value="{{ bonusValue }}" onInput="{{ setNum }}" data-field="bonusValue" placeholder="{{ bonusPlaceholder }}" style="{{ bonusInputStyle }}" style-focus="border-bottom-color:var(--u-accent)">
+                        <sc-if value="{{ bonusPercent }}" hint-placeholder-val="{{ true }}"><span style="font:400 15px/1.4 var(--u-num);color:var(--u-text2)">%</span></sc-if>
+                      </div>
+                      <span style="margin-top:4px;display:block;font:400 12px/1.5 var(--sans);color:var(--u-text3)">{{ bonusCaption }}</span>
+                      <div style="margin-top:16px;border-top:1px solid var(--u-border);padding-top:12px;font:400 12px/1.5 var(--sans);color:var(--u-text2)">Calculated: <span style="font-family:var(--u-num)">{{ calculatedBonus }}</span></div>
+                    </div>
+                    <div style="border-radius:11px;background:var(--u-surface);box-shadow:var(--u-e1);padding:20px">
+                      <div style="display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:12px">
+                        <span style="display:block;font:600 12px/1.5 var(--sans);text-transform:uppercase;letter-spacing:.02em;color:var(--text2)">LTIP</span>
+                        <div role="radiogroup" aria-label="Long-term incentive" style="display:flex;flex-wrap:nowrap;gap:8px"><sc-for list="{{ ltipChips }}" as="c" hint-placeholder-count="3"><button type="button" role="radio" onClick="{{ pick }}" data-group="{{ c.group }}" data-val="{{ c.val }}" data-idx="{{ c.idx }}" style="{{ c.style }}">{{ c.label }}</button></sc-for></div>
+                      </div>
+                      <div style="margin-top:12px;display:flex;align-items:baseline;gap:8px">
+                        <span style="font:400 15px/1.4 var(--u-num);color:var(--u-text2)">{{ currency }}</span>
+                        <input inputmode="numeric" aria-label="Incentive amount" value="{{ incentiveAmount }}" onInput="{{ setNum }}" data-field="incentiveAmount" placeholder="600,000" style="width:100%;max-width:240px;min-width:0;border:none;border-bottom:1px solid var(--u-border);background:transparent;padding:6px 0;font:400 15px/1.4 var(--u-num);color:var(--u-text);outline:none" style-focus="border-bottom-color:var(--u-accent)">
+                      </div>
+                      <span style="margin-top:4px;display:block;font:400 12px/1.5 var(--sans);color:var(--u-text3)">total value</span>
+                      <div style="margin-top:16px;border-top:1px solid var(--u-border);padding-top:8px">
+                        <input aria-label="Vesting schedule" value="{{ vesting }}" onInput="{{ setText }}" data-field="vesting" placeholder="Vesting schedule, e.g. 4-year vesting" style="width:100%;border:0;border-radius:0;background:transparent;padding:8px 0;font:400 13px/1.55 var(--sans);color:var(--u-text2);outline:none">
+                      </div>
+                    </div>
+                  </div>
+
+                  <div style="min-width:0">
+                    <div style="margin-bottom:8px;display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:8px 16px"><span style="display:block;font:600 12px/1.5 var(--sans);text-transform:uppercase;letter-spacing:.02em;color:var(--text2)">Benefits &amp; allowances</span></div>
+                    <div style="border-radius:11px;background:var(--u-surface);box-shadow:var(--u-e1)">
+                      <div style="min-width:600px">
+                        <div style="display:grid;grid-template-columns:minmax(0,1fr) 120px 160px 28px;align-items:center;gap:12px;padding:12px 16px;border-bottom:1px solid var(--u-border)">
+                          <span style="font:600 12px/1.5 var(--sans);text-transform:uppercase;letter-spacing:.02em;color:var(--text2)">Benefit</span>
+                          <span style="font:600 12px/1.5 var(--sans);text-transform:uppercase;letter-spacing:.02em;color:var(--text2);text-align:center">Amount</span>
+                          <span style="font:600 12px/1.5 var(--sans);text-transform:uppercase;letter-spacing:.02em;color:var(--text2);text-align:center">Frequency</span>
+                          <span></span>
+                        </div>
+                        <sc-for list="{{ benefits }}" as="b" hint-placeholder-count="4">
+                          <div style="display:grid;grid-template-columns:minmax(0,1fr) 120px 160px 28px;align-items:center;gap:12px;padding:10px 16px;border-bottom:1px solid var(--u-border)">
+                            <input value="{{ b.name }}" aria-label="Benefit name" style="min-width:0;border:none;padding:0;background:transparent;font:400 13px/1.55 var(--sans);color:var(--u-text);outline:none">
+                            <input inputmode="numeric" value="{{ b.amount }}" onInput="{{ setBenefitAmount }}" data-idx="{{ b.idx }}" aria-label="{{ b.name }} amount" placeholder="–" style="min-width:0;width:100%;border:none;border-bottom:1px solid transparent;background:transparent;padding:6px 0;text-align:center;font:400 13px/1.55 var(--u-num);color:var(--u-text);outline:none" style-focus="border-bottom-color:var(--u-accent)">
+                            <div role="radiogroup" aria-label="{{ b.name }} frequency" style="display:flex;flex-wrap:nowrap;justify-content:center;gap:8px">
+                              <sc-for list="{{ b.freqChips }}" as="c" hint-placeholder-count="2"><button type="button" role="radio" onClick="{{ pick }}" data-group="{{ c.group }}" data-val="{{ c.val }}" data-idx="{{ c.idx }}" style="{{ c.style }}">{{ c.label }}</button></sc-for>
+                            </div>
+                            <button type="button" onClick="{{ removeBenefit }}" data-idx="{{ b.idx }}" aria-label="Remove {{ b.name }}" style="width:18px;height:18px;display:grid;place-items:center;flex:none;border-radius:999px;border:none;padding:0;cursor:pointer;background:color-mix(in srgb,var(--u-text3) 70%,transparent);color:#fff" style-hover="background:var(--u-offlimits)"><svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex:none;stroke-width:3" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12"></path></svg></button>
+                          </div>
+                        </sc-for>
+                        <div style="display:grid;grid-template-columns:minmax(0,1fr) 120px 160px 28px;align-items:center;gap:12px;padding:10px 16px">
+                          <div style="display:flex;min-width:0;align-items:center;gap:8px;color:var(--u-text3)">
+                            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex:none;" aria-hidden="true"><path d="M12 5v14M5 12h14"></path></svg>
+                            <input aria-label="New benefit name" placeholder="Add benefit or allowance…" style="min-width:0;flex:1;border:none;padding:0;background:transparent;font:400 13px/1.55 var(--sans);color:var(--u-text);outline:none">
+                          </div>
+                          <input inputmode="numeric" aria-label="New benefit amount" placeholder="–" style="min-width:0;width:100%;border:none;border-bottom:1px solid transparent;background:transparent;padding:6px 0;text-align:center;font:400 13px/1.55 var(--u-num);color:var(--u-text);outline:none">
+                          <div role="radiogroup" aria-label="New benefit frequency" style="display:flex;flex-wrap:nowrap;justify-content:center;gap:8px">
+                            <sc-for list="{{ draftFreqChips }}" as="c" hint-placeholder-count="2"><button type="button" role="radio" style="{{ c.style }}">{{ c.label }}</button></sc-for>
+                          </div>
+                          <button type="button" aria-label="Add benefit" style="padding:4px 0;border:1px solid transparent;background:none;cursor:pointer;font:600 12px var(--sans);color:var(--u-accent)" style-hover="text-decoration:underline">Add</button>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                  <div style="border-radius:11px;border:1px solid var(--u-accent-ring);background:var(--u-accent-tint);padding:20px 24px">
+                    <span style="display:block;font:600 12px/1.5 var(--sans);text-transform:uppercase;letter-spacing:.02em;color:var(--text2)">Total target annual package</span>
+                    <div style="margin-top:12px;font:500 27px/1.15 var(--u-num);letter-spacing:-.02em;color:var(--u-text)">{{ packageLine }}</div>
+                    <div aria-hidden="true" style="margin-top:16px;display:flex;height:10px;gap:2px;overflow:hidden;border-radius:999px;background:var(--u-sunken)">
+                      <sc-for list="{{ mixBar }}" as="mb" hint-placeholder-count="3"><span style="{{ mb.style }}"></span></sc-for>
+                    </div>
+                    <div style="margin-top:16px;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px">
+                      <sc-for list="{{ mixRows }}" as="mr" hint-placeholder-count="3">
+                        <div style="border-radius:8px;border:1px solid var(--u-border);background:var(--u-bg);padding:12px 14px">
+                          <span style="display:flex;align-items:center;gap:6px;font:400 12px/1.5 var(--sans);color:var(--u-text2)"><span aria-hidden="true" style="width:8px;height:8px;flex:none;border-radius:2px;background:{{ mr.color }}"></span>{{ mr.label }}</span>
+                          <span style="margin-top:4px;display:block;font:500 15px/1.4 var(--u-num);color:var(--u-text)">{{ mr.amount }}</span>
+                        </div>
+                      </sc-for>
+                    </div>
+                  </div>
+                </div>
+              </sc-if>
+              <sc-if value="{{ isAssessment }}" hint-placeholder-val="{{ false }}">
+                <div data-screen-label="Assessment Criteria" style="display:flex;flex-direction:column;gap:32px">
+                  <div style="min-width:0">
+                    <div style="margin-bottom:8px;display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:8px 16px"><span style="display:block;font:600 12px/1.5 var(--sans);text-transform:uppercase;letter-spacing:.02em;color:var(--text2)">Screening criteria<span style="margin-left:8px;text-transform:none;letter-spacing:normal;color:var(--u-text3)">· Required narrows the field · Preferred breaks ties</span></span></div>
+                    <div style="border-radius:11px;background:var(--u-surface);box-shadow:var(--u-e1)">
+                      <sc-for list="{{ criteria }}" as="cr" hint-placeholder-count="7">
+                        <div style="display:flex;flex-wrap:wrap;align-items:center;gap:12px;border-bottom:1px solid var(--u-border);padding:12px 16px">
+                          <input value="{{ cr.text }}" aria-label="Criterion" style="min-width:160px;flex:1;border:none;padding:0;background:transparent;font:400 13px/1.55 var(--sans);color:var(--u-text);outline:none">
+                          <sc-if value="{{ cr.fromBrief }}" hint-placeholder-val="{{ false }}"><span style="flex:none;border-radius:4px;background:var(--u-accent-tint);padding:2px 6px;font:700 9.5px/1.35 var(--sans);text-transform:uppercase;letter-spacing:.06em;color:var(--u-accent)">From brief</span></sc-if>
+                          <sc-for list="{{ cr.mk }}" as="m" hint-placeholder-count="1"><span style="position:relative;display:inline-flex;flex:none;vertical-align:middle"><button type="button" onClick="{{ toggleProv }}" data-id="{{ m.id }}" aria-label="Read from the document" style="width:16px;height:16px;display:grid;place-items:center;flex:none;border-radius:999px;border:none;background:none;padding:0;cursor:pointer;color:{{ m.color }}"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex:none;" aria-hidden="true"><path d="M9.9 2.6 11 5.9a2 2 0 0 0 1.3 1.3l3.3 1.1-3.3 1.1a2 2 0 0 0-1.3 1.3L9.9 14l-1.1-3.3a2 2 0 0 0-1.3-1.3L4.2 8.3l3.3-1.1a2 2 0 0 0 1.3-1.3ZM18 14l.6 1.8 1.8.6-1.8.6-.6 1.8-.6-1.8-1.8-.6 1.8-.6Z"></path></svg></button><sc-if value="{{ m.open }}" hint-placeholder-val="{{ false }}"><div role="group" aria-label="Document provenance" style="position:absolute;{{ m.popPos }};z-index:200;width:260px;border-radius:10px;border:1px solid var(--u-border-strong);background:var(--u-raised);padding:10px 12px;font:400 12px/1.5 var(--sans);color:var(--u-text2);box-shadow:var(--u-e3);text-align:left;white-space:normal;text-transform:none;letter-spacing:normal"><span style="display:flex;align-items:flex-start;gap:6px;font-weight:500;color:var(--u-text)"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex:none;margin-top:1px;color:var(--u-inferred)" aria-hidden="true"><path d="M9.9 2.6 11 5.9a2 2 0 0 0 1.3 1.3l3.3 1.1-3.3 1.1a2 2 0 0 0-1.3 1.3L9.9 14l-1.1-3.3a2 2 0 0 0-1.3-1.3L4.2 8.3l3.3-1.1a2 2 0 0 0 1.3-1.3ZM18 14l.6 1.8 1.8.6-1.8.6-.6 1.8-.6-1.8-1.8-.6 1.8-.6Z"></path></svg><span style="min-width:0;overflow-wrap:anywhere">{{ m.readLine }}</span></span><sc-if value="{{ m.hasConf }}" hint-placeholder-val="{{ true }}"><span style="display:block;margin-top:4px;padding-left:18px;color:{{ m.confColor }}">{{ m.confLabel }}</span></sc-if><sc-if value="{{ m.hasSnippet }}" hint-placeholder-val="{{ true }}"><span style="display:block;margin-top:6px;border-left:2px solid var(--u-border-strong);padding-left:8px;font-style:italic">“{{ m.snippet }}”</span></sc-if><sc-if value="{{ m.hasUndo }}" hint-placeholder-val="{{ true }}"><button type="button" onClick="{{ undoProv }}" data-id="{{ m.id }}" style="display:block;margin-top:8px;padding:0;border:none;background:none;cursor:pointer;font:600 12px var(--sans);color:var(--u-inferred)" style-hover="text-decoration:underline">Undo</button></sc-if></div></sc-if></span></sc-for>
+                          <div role="radiogroup" aria-label="Criterion mode" style="display:flex;flex-wrap:nowrap;gap:8px">
+                            <sc-for list="{{ cr.modeChips }}" as="c" hint-placeholder-count="2"><button type="button" role="radio" onClick="{{ pick }}" data-group="{{ c.group }}" data-val="{{ c.val }}" data-idx="{{ c.idx }}" style="{{ c.style }}">{{ c.label }}</button></sc-for>
+                          </div>
+                          <button type="button" onClick="{{ removeCriterion }}" data-idx="{{ cr.idx }}" aria-label="Remove criterion" style="width:18px;height:18px;display:grid;place-items:center;flex:none;border-radius:999px;border:none;padding:0;cursor:pointer;background:color-mix(in srgb,var(--u-text3) 70%,transparent);color:#fff" style-hover="background:var(--u-offlimits)"><svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex:none;stroke-width:3" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12"></path></svg></button>
+                        </div>
+                      </sc-for>
+                      <div style="display:flex;align-items:center;gap:12px;padding:12px 16px">
+                        <input aria-label="Add a criterion" placeholder="+ Add a criterion…" style="min-width:0;flex:1;border:none;padding:0;background:transparent;font:400 13px/1.55 var(--sans);color:var(--u-text);outline:none">
+                      </div>
+                    </div>
+                  </div>
+
+                  <div style="min-width:0">
+                    <div style="margin-bottom:8px;display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:8px 16px"><span style="display:block;font:600 12px/1.5 var(--sans);text-transform:uppercase;letter-spacing:.02em;color:var(--text2)">Competency split</span></div>
+                    <div style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px">
+                      <sc-for list="{{ shareCards }}" as="sc" hint-placeholder-count="2">
+                        <div style="border-radius:11px;background:var(--u-surface);box-shadow:var(--u-e1);padding:16px 20px">
+                          <span style="display:flex;align-items:center;gap:8px;font:500 13px/1.55 var(--sans);color:var(--u-text)"><span style="width:8px;height:8px;border-radius:50%;background:{{ sc.color }}"></span>{{ sc.label }}</span>
+                          <span style="margin-top:8px;display:flex;align-items:baseline;gap:4px">
+                            <input inputmode="numeric" value="{{ sc.share }}" onInput="{{ setShare }}" data-id="{{ sc.key }}" aria-label="{{ sc.label }} share" style="width:4.5ch;min-width:0;border:none;border-bottom:1px solid transparent;background:transparent;padding:6px 0;font:400 15px/1.4 var(--u-num);color:var(--u-text);outline:none" style-focus="border-bottom-color:var(--u-accent)">
+                            <span style="font:400 15px/1.4 var(--u-num);color:var(--u-text2)">%</span>
+                          </span>
+                        </div>
+                      </sc-for>
+                    </div>
+                    <div aria-hidden="true" style="margin-top:12px;display:flex;height:6px;gap:4px;overflow:hidden;border-radius:999px">
+                      <span style="width:{{ techShareW }};border-radius:999px;background:var(--u-chart-1)"></span>
+                      <span style="width:{{ behShareW }};border-radius:999px;background:var(--u-chart-5)"></span>
+                    </div>
+                  </div>
+
+                  <sc-for list="{{ panels }}" as="pn" hint-placeholder-count="2">
+                    <section aria-label="{{ pn.title }}">
+                      <div style="margin-bottom:8px;display:flex;align-items:center;gap:10px">
+                        <span style="width:8px;height:8px;flex:none;border-radius:50%;background:{{ pn.dot }}"></span>
+                        <span style="display:block;font:600 12px/1.5 var(--sans);text-transform:uppercase;letter-spacing:.02em;color:var(--text2)">{{ pn.title }}</span>
+                        <span style="{{ pn.badgeStyle }}">{{ pn.total }}</span>
+                      </div>
+                      <div style="border-radius:11px;background:var(--u-surface);box-shadow:var(--u-e1)">
+                        <div style="min-width:620px">
+                          <div style="display:grid;grid-template-columns:20px minmax(0,1.2fr) minmax(0,1.6fr) 72px 18px 22px 22px;align-items:center;column-gap:12px;padding:10px 16px;border-bottom:1px solid var(--u-border)">
+                            <span></span>
+                            <span style="font:600 12px/1.5 var(--sans);text-transform:uppercase;letter-spacing:.02em;color:var(--text2)">Competency</span>
+                            <span style="font:600 12px/1.5 var(--sans);text-transform:uppercase;letter-spacing:.02em;color:var(--text2)">Description</span>
+                            <span style="font:600 12px/1.5 var(--sans);text-transform:uppercase;letter-spacing:.02em;color:var(--text2);text-align:end">Weight</span>
+                            <span></span><span></span><span></span>
+                          </div>
+                          <sc-for list="{{ pn.rows }}" as="cp" hint-placeholder-count="5">
+                            <div style="{{ cp.rowStyle }}">
+                              <button type="button" aria-label="Reorder {{ cp.name }}" title="Drag to rank, or focus and use the arrow keys" style="flex:none;padding:2px;border:none;background:none;border-radius:4px;cursor:grab;color:var(--u-text3);display:grid" style-hover="color:var(--u-text2)"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex:none;" aria-hidden="true"><path d="M5 9h14M5 15h14"></path></svg></button>
+                              <input value="{{ cp.name }}" aria-label="Competency name" style="min-width:0;border:none;padding:0;background:transparent;font:500 13px/1.55 var(--sans);color:var(--u-text);outline:none">
+                              <input value="{{ cp.description }}" aria-label="Competency description" placeholder="What this measures…" style="min-width:0;border:none;padding:0;background:transparent;font:400 13px/1.55 var(--sans);color:var(--u-text2);outline:none">
+                              <span style="display:flex;align-items:center;justify-content:flex-end;gap:2px">
+                                <input inputmode="numeric" value="{{ cp.weight }}" aria-label="Weight" style="{{ cp.weightStyle }}" style-focus="border-bottom-color:var(--u-accent)">
+                                <span style="font:400 13px/1.55 var(--u-num);color:var(--u-text3)">%</span>
+                              </span>
+                              <span style="display:flex;align-items:center;justify-content:center"><sc-for list="{{ cp.mk }}" as="m" hint-placeholder-count="1"><span style="position:relative;display:inline-flex;flex:none;vertical-align:middle"><button type="button" onClick="{{ toggleProv }}" data-id="{{ m.id }}" aria-label="Read from the document" style="width:16px;height:16px;display:grid;place-items:center;flex:none;border-radius:999px;border:none;background:none;padding:0;cursor:pointer;color:{{ m.color }}"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex:none;" aria-hidden="true"><path d="M9.9 2.6 11 5.9a2 2 0 0 0 1.3 1.3l3.3 1.1-3.3 1.1a2 2 0 0 0-1.3 1.3L9.9 14l-1.1-3.3a2 2 0 0 0-1.3-1.3L4.2 8.3l3.3-1.1a2 2 0 0 0 1.3-1.3ZM18 14l.6 1.8 1.8.6-1.8.6-.6 1.8-.6-1.8-1.8-.6 1.8-.6Z"></path></svg></button><sc-if value="{{ m.open }}" hint-placeholder-val="{{ false }}"><div role="group" aria-label="Document provenance" style="position:absolute;{{ m.popPos }};z-index:200;width:260px;border-radius:10px;border:1px solid var(--u-border-strong);background:var(--u-raised);padding:10px 12px;font:400 12px/1.5 var(--sans);color:var(--u-text2);box-shadow:var(--u-e3);text-align:left;white-space:normal;text-transform:none;letter-spacing:normal"><span style="display:flex;align-items:flex-start;gap:6px;font-weight:500;color:var(--u-text)"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex:none;margin-top:1px;color:var(--u-inferred)" aria-hidden="true"><path d="M9.9 2.6 11 5.9a2 2 0 0 0 1.3 1.3l3.3 1.1-3.3 1.1a2 2 0 0 0-1.3 1.3L9.9 14l-1.1-3.3a2 2 0 0 0-1.3-1.3L4.2 8.3l3.3-1.1a2 2 0 0 0 1.3-1.3ZM18 14l.6 1.8 1.8.6-1.8.6-.6 1.8-.6-1.8-1.8-.6 1.8-.6Z"></path></svg><span style="min-width:0;overflow-wrap:anywhere">{{ m.readLine }}</span></span><sc-if value="{{ m.hasConf }}" hint-placeholder-val="{{ true }}"><span style="display:block;margin-top:4px;padding-left:18px;color:{{ m.confColor }}">{{ m.confLabel }}</span></sc-if><sc-if value="{{ m.hasSnippet }}" hint-placeholder-val="{{ true }}"><span style="display:block;margin-top:6px;border-left:2px solid var(--u-border-strong);padding-left:8px;font-style:italic">“{{ m.snippet }}”</span></sc-if><sc-if value="{{ m.hasUndo }}" hint-placeholder-val="{{ true }}"><button type="button" onClick="{{ undoProv }}" data-id="{{ m.id }}" style="display:block;margin-top:8px;padding:0;border:none;background:none;cursor:pointer;font:600 12px var(--sans);color:var(--u-inferred)" style-hover="text-decoration:underline">Undo</button></sc-if></div></sc-if></span></sc-for></span>
+                              <button type="button" onClick="{{ toggleLock }}" data-id="{{ cp.id }}" aria-pressed="{{ cp.lockedAttr }}" title="{{ cp.lockTitle }}" style="flex:none;padding:2px;border:none;background:none;border-radius:4px;cursor:pointer;display:grid;color:{{ cp.lockColor }}" style-hover="color:var(--u-text2)"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="{{ cp.lockIcon }}"></path></svg></button>
+                              <button type="button" onClick="{{ removeCompetency }}" data-id="{{ cp.id }}" aria-label="Remove {{ cp.name }}" style="width:18px;height:18px;display:grid;place-items:center;flex:none;border-radius:999px;border:none;padding:0;cursor:pointer;background:color-mix(in srgb,var(--u-text3) 70%,transparent);color:#fff" style-hover="background:var(--u-offlimits)"><svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex:none;stroke-width:3" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12"></path></svg></button>
+                            </div>
+                          </sc-for>
+                        </div>
+                      </div>
+                      <button type="button" style="margin-top:8px;padding:4px 0;border:1px solid transparent;background:none;cursor:pointer;font:600 13px/1.55 var(--sans);color:var(--u-accent)" style-hover="text-decoration:underline">+ Add competency</button>
+                    </section>
+                  </sc-for>
+                </div>
+              </sc-if>
+              <sc-if value="{{ isReview }}" hint-placeholder-val="{{ false }}">
+                <div data-screen-label="Review &amp; Publish" style="display:flex;flex-direction:column;gap:12px">
+                  <sc-if value="{{ published }}" hint-placeholder-val="{{ false }}">
+                    <div style="display:flex;flex-wrap:wrap;align-items:center;gap:12px;border-radius:10px;background:var(--u-direct-tint);padding:12px 16px;font:400 13px/1.55 var(--sans);color:var(--u-direct)">
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex:none;" aria-hidden="true"><path d="M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18M8.5 12.2l2.3 2.3 4.7-4.7"></path></svg>
+                      <span style="min-width:0">Position profile published by Yara Haddad · 18 Sep 2026 · the brief stays editable</span>
+                      <sc-if value="{{ canWithdraw }}" hint-placeholder-val="{{ true }}">
+                        <button type="button" onClick="{{ withdraw }}" style="margin-left:auto;padding:0;border:none;background:none;cursor:pointer;font:600 12px var(--sans);color:var(--u-text3)" style-hover="color:var(--u-offlimits);text-decoration:underline">Withdraw publication</button>
+                      </sc-if>
+                    </div>
+                  </sc-if>
+                  <div style="border-radius:11px;background:var(--u-surface);box-shadow:var(--u-e1);padding:14px 16px">
+                    <div style="display:flex;flex-wrap:wrap;align-items:baseline;justify-content:space-between;gap:4px 16px">
+                      <span style="font:600 13px/1.55 var(--sans);color:var(--u-text)">Profile readiness<span style="margin-left:10px;font:500 12px var(--u-num);color:{{ readinessColor }}">{{ readinessCount }}</span></span>
+                      <span style="font:400 12px/1.5 var(--sans);color:var(--u-text3)">{{ completenessLine }}</span>
+                    </div>
+                    <div aria-hidden="true" style="margin-top:12px;display:flex;gap:6px">
+                      <sc-for list="{{ readinessSegments }}" as="rg" hint-placeholder-count="5"><span style="{{ rg.style }}"></span></sc-for>
+                    </div>
+                  </div>
+                  <sc-for list="{{ reviewCards }}" as="rc" hint-placeholder-count="4">
+                    <section aria-label="{{ rc.name }}" style="{{ rc.frame }}">
+                      <div style="display:flex;flex-wrap:wrap;align-items:center;gap:8px">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex:none;color:var(--u-text2)" aria-hidden="true"><path d="{{ rc.icon }}"></path></svg>
+                        <span style="font:600 13px/1.55 var(--sans);color:var(--u-text)">{{ rc.name }}</span>
+                        <span style="{{ rc.badgeStyle }}">{{ rc.badge }}</span>
+                        <sc-if value="{{ canEdit }}" hint-placeholder-val="{{ true }}">
+                          <a href="{{ rc.href }}" onClick="{{ goStep }}" data-id="{{ rc.key }}" style="margin-left:auto;display:inline-flex;align-items:center;gap:6px;font:500 12px var(--sans);color:var(--u-accent)" style-hover="text-decoration:underline">Edit section<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex:none;" aria-hidden="true"><path d="M12 20h9M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4 12.5-12.5Z"></path></svg></a>
+                        </sc-if>
+                      </div>
+                      <dl style="margin:12px 0 0;display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px 24px">
+                        <sc-for list="{{ rc.fields }}" as="f" hint-placeholder-count="3">
+                          <div style="min-width:0">
+                            <dt><span style="display:block;font:600 9.5px/1.35 var(--sans);text-transform:uppercase;letter-spacing:.06em;color:var(--text2)">{{ f.label }}</span></dt>
+                            <dd style="margin:2px 0 0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font:400 13px/1.55 var(--sans);color:var(--u-text)">{{ f.value }}</dd>
+                          </div>
+                        </sc-for>
+                      </dl>
+                      <sc-if value="{{ rc.hasAttention }}" hint-placeholder-val="{{ false }}">
+                        <div style="margin-top:12px;display:flex;align-items:center;gap:8px;border-radius:8px;background:var(--u-signal-tint);padding:8px 12px;font:400 12px/1.5 var(--sans);color:var(--u-signal)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex:none;" aria-hidden="true"><path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0ZM12 9v4M12 17h.01"></path></svg>{{ rc.attention }}</div>
+                      </sc-if>
+                    </section>
+                  </sc-for>
+                  <div style="border-radius:11px;background:var(--u-surface);box-shadow:var(--u-e1);padding:14px 16px">
+                    <span style="display:block;font:600 13px/1.55 var(--sans);color:var(--u-text)">Publication readiness</span>
+                    <span style="margin-top:2px;display:block;font:400 12px/1.5 var(--sans);color:var(--u-text3)">What a complete brief states, so a hiring manager reads a position and not a draft.</span>
+                    <ul style="margin:12px 0 0;padding:0;list-style:none;display:flex;flex-direction:column;gap:10px">
+                      <sc-for list="{{ readinessChecks }}" as="ck" hint-placeholder-count="3">
+                        <li style="display:flex;align-items:flex-start;gap:12px">
+                          <span style="{{ ck.dotStyle }}"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="{{ ck.icon }}"></path></svg></span>
+                          <span style="font:400 13px/1.55 var(--sans);color:{{ ck.color }}">{{ ck.label }}</span>
+                        </li>
+                      </sc-for>
+                    </ul>
+                    <p style="margin:12px 0 0;display:flex;align-items:center;gap:8px;border-top:1px solid var(--u-border);padding-top:12px;font:400 12px/1.5 var(--sans);color:var(--u-text3)"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex:none;" aria-hidden="true"><path d="M12 16v-4M12 8h.01M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20Z"></path></svg>These checks report. Publishing records that the brief is ready and freezes nothing.</p>
+                  </div>
+                </div>
+              </sc-if>
+              <div style="margin-top:36px;display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:12px;border-top:1px solid var(--u-border);padding-top:20px">
+                <sc-if value="{{ hasPrev }}" hint-placeholder-val="{{ false }}">
+                  <a href="{{ prevHref }}" onClick="{{ goStep }}" data-id="{{ prevKey }}" style="display:inline-flex;align-items:center;justify-content:center;gap:8px;border-radius:6px;border:1px solid var(--u-border-strong);background:transparent;padding:10px 16px;font:500 13px/1.55 var(--sans);color:var(--u-text2)" style-hover="background:var(--u-raised);color:var(--u-text)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex:none;" aria-hidden="true"><path d="M19 12H5M12 19l-7-7 7-7"></path></svg>Back to {{ prevName }}</a>
+                </sc-if>
+                <sc-if value="{{ noPrev }}" hint-placeholder-val="{{ true }}"><span></span></sc-if>
+                <sc-if value="{{ hasNext }}" hint-placeholder-val="{{ true }}">
+                  <a href="{{ nextHref }}" onClick="{{ goStep }}" data-id="{{ nextKey }}" style="display:inline-flex;align-items:center;justify-content:center;gap:8px;border-radius:6px;border:1px solid var(--u-border-strong);background:transparent;padding:10px 16px;font:500 13px/1.55 var(--sans);color:var(--u-text2)" style-hover="background:var(--u-raised);color:var(--u-text)">Next: {{ nextName }}<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex:none;" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"></path></svg></a>
+                </sc-if>
+                <sc-if value="{{ showMoveToStrategy }}" hint-placeholder-val="{{ false }}">
+                  <a href="Strategy.dc.html" style="display:inline-flex;align-items:center;justify-content:center;gap:8px;border-radius:6px;border:1px solid transparent;background:var(--u-accent-solid);padding:10px 16px;font:500 13px/1.55 var(--sans);color:#fff" style-hover="filter:brightness(1.1)">Move to Strategy</a>
+                </sc-if>
+              </div>
+
+            </div>
+          </div>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <a href="Assistant.dc.html" title="Ask the assistant" style="position:fixed;bottom:20px;right:20px;z-index:110;height:44px;display:inline-flex;align-items:center;gap:10px;padding:0 17px 0 14px;border-radius:22px;border:1px solid var(--ai-line);background:linear-gradient(135deg,var(--ai),var(--ai2));color:#fff;font:600 13px var(--sans);box-shadow:0 8px 24px -6px rgba(79,70,229,.5)"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex:none;" aria-hidden="true"><path d="M9.9 2.6 11 5.9a2 2 0 0 0 1.3 1.3l3.3 1.1-3.3 1.1a2 2 0 0 0-1.3 1.3L9.9 14l-1.1-3.3a2 2 0 0 0-1.3-1.3L4.2 8.3l3.3-1.1a2 2 0 0 0 1.3-1.3ZM18 14l.6 1.8 1.8.6-1.8.6-.6 1.8-.6-1.8-1.8-.6 1.8-.6Z"></path></svg>Ask</a>
+
+  <sc-if value="{{ hasToast }}" hint-placeholder-val="{{ false }}">
+    <div style="position:fixed;bottom:22px;left:50%;transform:translateX(-50%);z-index:120;background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:9px 16px;font:500 12px var(--mono);color:var(--text2);box-shadow:var(--shadow);animation:fadeUp .2s ease both">{{ toast }}</div>
+  </sc-if>
+</div>
+<template id="__bundler_thumbnail"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><rect width="100" height="100" fill="#16171a"></rect><g transform="translate(50 40) scale(.42)" fill="none" stroke="#f8fafc"><path d="M-32 10 L 0 -8 L 32 10 L 0 28 Z M-32 10 V 32 L 0 50 L 32 32 V 10 M0 28 V 50" stroke-width="3" stroke-linejoin="round"></path><path d="M0 -48 L 32 -30 L 0 -12 L -32 -30 Z" fill="#f8fafc" stroke="none"></path></g><text x="50" y="86" fill="#e2b65c" font-family="Geist,Inter,sans-serif" font-size="13" font-weight="700" letter-spacing="2" text-anchor="middle">PO</text></svg></template>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;step&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;default&quot;:&quot;brief&quot;,&quot;options&quot;:[&quot;brief&quot;,&quot;reporting&quot;,&quot;compensation&quot;,&quot;assessment&quot;,&quot;review&quot;],&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;State&quot;},&quot;published&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;State&quot;},&quot;readBack&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;State&quot;},&quot;documentAttached&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:true,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;State&quot;},&quot;provenanceOpen&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;State&quot;},&quot;readNotice&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;default&quot;:&quot;none&quot;,&quot;options&quot;:[&quot;none&quot;,&quot;partial&quot;,&quot;unreadable&quot;,&quot;unreachable&quot;,&quot;failed&quot;],&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;State&quot;},&quot;saving&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;default&quot;:&quot;idle&quot;,&quot;options&quot;:[&quot;idle&quot;,&quot;saving&quot;,&quot;saved&quot;],&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;State&quot;}}">
+class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+    this.P = {"position": "M12 2 3 7l9 5 9-5-9-5ZM3 12l9 5 9-5M3 17l9 5 9-5", "strategy": "M12 20V10M18 20V4M6 20v-4", "globe": "M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18ZM3.5 9h17M3.5 15h17M12 3a14 14 0 0 1 0 18 14 14 0 0 1 0-18Z", "star": "m12 3 2.6 5.6 6 .8-4.4 4.2 1.1 6-5.3-2.9-5.3 2.9 1.1-6L3.4 9.4l6-.8L12 3Z", "close": "M18 6 6 18M6 6l12 12", "candidates": "M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8Z", "outreach": "M22 2 11 13M22 2l-7 20-4-9-9-4 20-7Z", "reports": "M9 12h6m-6 4h6M9 8h1M5 21h14a2 2 0 0 0 2-2V7l-5-5H5a2 2 0 0 0-2 2v15a2 2 0 0 0 2 2Z", "team": "M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2M13 7a4 4 0 1 1-8 0 4 4 0 0 1 8 0M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75", "back": "M19 12H5M12 19l-7-7 7-7", "moon": "M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79Z", "sun": "M12 16a4 4 0 1 0 0-8 4 4 0 0 0 0 8ZM12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4", "collapse": "m11 17-5-5 5-5M18 17l-5-5 5-5", "expand": "m13 17 5-5-5-5M6 17l5-5-5-5", "sparkle": "M9.9 2.6 11 5.9a2 2 0 0 0 1.3 1.3l3.3 1.1-3.3 1.1a2 2 0 0 0-1.3 1.3L9.9 14l-1.1-3.3a2 2 0 0 0-1.3-1.3L4.2 8.3l3.3-1.1a2 2 0 0 0 1.3-1.3ZM18 14l.6 1.8 1.8.6-1.8.6-.6 1.8-.6-1.8-1.8-.6 1.8-.6Z", "chevronDown": "m6 9 6 6 6-6", "file": "M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8zM14 2v6h6", "orgChart": "M9 3h6v4H9zM4 17h6v4H4zM14 17h6v4h-6zM12 7v7M7 14h10M7 14v3M17 14v3", "currency": "M12 2v20M17 6.5C17 4.6 14.8 3.5 12 3.5S7 4.6 7 6.5s2.2 3 5 3.5 5 1.6 5 3.5-2.2 3-5 3-5-1.1-5-3", "clipboard": "M9 5H7a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2M9 5a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-2a2 2 0 0 1-2-2zM9 14l2 2 4-4", "rocket": "M4.5 16.5c-1.5 1.3-2 5-2 5s3.7-.5 5-2c.7-.8.7-2 0-2.8-.8-.7-2-.7-2.8 0zM12 15l-3-3 5-6c1.5-1.5 4-2 6-2 0 2-.5 4.5-2 6l-6 5zM9 12H5l3-3M12 15v4l3-3", "arrowLeft": "M19 12H5M12 19l-7-7 7-7", "arrowRight": "M5 12h14M13 6l6 6-6 6", "plus": "M12 5v14M5 12h14", "minus": "M5 12h14", "fit": "M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5", "pencil": "M12 20h9M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4 12.5-12.5Z", "check": "m5 13 4 4L19 7", "checkCircle": "M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18M8.5 12.2l2.3 2.3 4.7-4.7", "warning": "M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0ZM12 9v4M12 17h.01", "info": "M12 16v-4M12 8h.01M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20Z", "lock": "M19 11H5a2 2 0 0 0-2 2v6a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-6a2 2 0 0 0-2-2ZM7 11V7a5 5 0 0 1 10 0v4", "unlock": "M19 11H5a2 2 0 0 0-2 2v6a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-6a2 2 0 0 0-2-2ZM7 11V7a5 5 0 0 1 9.9-1", "dragHandle": "M5 9h14M5 15h14", "uploadCloud": "M12 13v8m0-8-3 3m3-3 3 3M20 16.7A4.5 4.5 0 0 0 17.5 8h-1.8A7 7 0 1 0 4 14.9", "calendar": "M8 2v4M16 2v4M3 10h18M5 4h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2Z", "profile": "M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2M16 7a4 4 0 1 1-8 0 4 4 0 0 1 8 0", "settings": "M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6ZM19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09a1.65 1.65 0 0 0-1-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09a1.65 1.65 0 0 0 1.51-1 1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33h.01a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51h.01a1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82v.01a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1Z", "members": "M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2M13 7a4 4 0 1 1-8 0 4 4 0 0 1 8 0M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75", "signOut": "M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9"};
+    this.FILE = 'CFO_Position_Description.pdf';
+    this.CONF = { high: 'High confidence', medium: 'Medium confidence', low: 'Worth checking' };
+    this.STEPS = [
+      { key: 'brief', name: 'Role Brief', heading: 'Role Brief', lede: 'Define the role and why it exists. Attach the position description to keep it with the position.', icon: this.P.file },
+      { key: 'reporting', name: 'Reporting', heading: 'Reporting Structure', lede: 'Define who this role reports to and the team it will lead.', icon: this.P.orgChart },
+      { key: 'compensation', name: 'Compensation', heading: 'Compensation Package', lede: 'Define base, bonus, long-term incentive and allowances for this role.', icon: this.P.currency },
+      { key: 'assessment', name: 'Assessment Criteria', heading: 'Assessment Criteria', lede: 'Define the screening gates and competency weights used to evaluate candidates.', icon: this.P.clipboard },
+      { key: 'review', name: 'Review & Publish', heading: 'Review & publish', lede: 'Review every section before publishing the position profile.', icon: this.P.rocket },
+    ];
+    this.TEMPLATES = [
+      { title: 'Chief Executive Officer', meta: 'C-Suite' }, { title: 'Chief Financial Officer', meta: 'C-Suite' },
+      { title: 'Chief Operating Officer', meta: 'C-Suite' }, { title: 'Chief Commercial Officer', meta: 'C-Suite' },
+      { title: 'Chief Human Resources Officer', meta: 'C-Suite' }, { title: 'Chief Information Officer', meta: 'C-Suite' },
+      { title: 'Chief Technology Officer', meta: 'C-Suite' }, { title: 'Chief Marketing Officer', meta: 'C-Suite' },
+      { title: 'Chief Risk Officer', meta: 'C-Suite' }, { title: 'Chief Compliance Officer', meta: 'C-Suite' },
+      { title: 'Chief Investment Officer', meta: 'C-Suite' }, { title: 'Head of Finance', meta: 'N-1' },
+      { title: 'Head of Human Resources', meta: 'N-1' }, { title: 'Head of Compliance', meta: 'N-1' },
+      { title: 'Head of Internal Audit', meta: 'N-1' },
+    ];
+    // Receipts: what this tab's reading remembers per field (confidence + quoted line).
+    this.RECEIPTS = {
+      department: { c: 'high', s: 'The Chief Financial Officer leads Group Finance and is a member of the Executive Committee.' },
+      locationCity: { c: 'high', s: 'The role is based at the Group’s headquarters in Dubai.' },
+      locationCountry: { c: 'high', s: 'The role is based at the Group’s headquarters in Dubai.' },
+      seniority: { c: 'medium', s: 'reporting directly to the Group Chief Executive Officer' },
+      mandateReason: { c: 'high', s: 'following the planned retirement of the current CFO in 2027' },
+      noticePeriod: { c: 'low', s: 'an appointment within three months is anticipated' },
+      narrative: { c: 'medium', s: 'a finance leader who has taken a listed or government-related entity through a major capital programme' },
+      teamSize: { c: 'medium', s: 'leads five direct reports and a finance function of around 140' },
+      'resp:Cross-divisional capital allocation': { c: 'high', s: 'allocate capital across the automotive, retail, real estate and financial-services divisions' },
+      'resp:Credit rating & lender relationships': { c: 'high', s: 'maintain the Group’s credit rating and banking relationships across its sukuk and loan facilities' },
+      'crit:Listed-company or GRE reporting under IFRS': { c: 'high', s: 'demonstrable experience of IFRS reporting for bond or sukuk investors' },
+      'crit:Diversified retail, automotive or real-estate background': { c: 'medium', s: 'experience across retail, automotive or real-estate businesses is strongly preferred' },
+      'tech:Multi-Entity Treasury & Cash Pooling': { c: 'high', s: 'running treasury and cash pooling across 200+ operating companies' },
+    };
+    this.PREV = { department: 'Finance', locationCity: '', locationCountry: '', seniority: 'C-Suite', mandateReason: null, noticePeriod: '3 months',
+      narrative: 'The Chief Financial Officer will sit on the executive committee, reporting to the Group CEO with board-level exposure. This is a hands-on leadership role for someone who has operated at scale within a diversified or multi-business-unit environment, and who can bring rigor to the function while remaining a trusted advisor to the shareholder.' };
+
+    const q = typeof location !== 'undefined' ? new URLSearchParams(location.search) : new URLSearchParams('');
+    const keys = this.STEPS.map((s) => s.key);
+    const step = keys.includes(q.get('step')) ? q.get('step') : (keys.includes(props.step) ? props.step : 'brief');
+    const readBack = !!props.readBack;
+    const published = !!props.published || readBack;
+    const defaultProv = { brief: 'department', reporting: 'teamSize', assessment: 'crit:Listed-company or GRE reporting under IFRS' };
+
+    this.state = {
+      dark: true, wsMenuOpen: false, toast: '', titleListOpen: false,
+      collapsed: (() => { try { return localStorage.getItem('lm-side-collapsed') === '1'; } catch (e) { return false; } })(),
+      step, published, reopened: !readBack,
+      documentAttached: props.documentAttached !== false,
+      openProv: props.provenanceOpen ? (defaultProv[step] || null) : null,
+      readNotice: ['partial', 'unreadable', 'unreachable', 'failed'].includes(props.readNotice) ? props.readNotice : 'none',
+      retrying: false,
+      saving: props.saving || 'idle',
+      sources: { department: 1, locationCity: 1, locationCountry: 1, seniority: 1, mandateReason: 1, noticePeriod: 1, narrative: 1, teamSize: 1 },
+      roleTitle: 'Chief Financial Officer', department: 'Group Finance', city: 'Dubai', country: 'United Arab Emirates',
+      employment: 'Full-time', seniority: 'C-Suite', reason: 'Succession plan', confidential: true, targetStart: '15 Oct 2026', notice: '3 months',
+      narrative: 'Al-Futtaim is looking for a Group CFO who has run finance at scale across a large, diversified conglomerate, and who is comfortable allocating capital across automotive, retail, real estate and financial-services businesses. The successor will sit on the Executive Committee, reporting to the Group CEO with board-level exposure, and will be expected to modernise a 140-strong finance function while keeping the Group’s banking relationships and credit profile intact.',
+      narrativeExpanded: false,
+      responsibilities: [
+        { text: 'Group P&L stewardship', src: 'TEMPLATE' }, { text: 'Capital structure & treasury', src: 'TEMPLATE' },
+        { text: 'Board & shareholder reporting', src: 'TEMPLATE' }, { text: 'Finance transformation', src: 'TEMPLATE' },
+        { text: 'Cross-divisional capital allocation', src: 'DOCUMENT' }, { text: 'Credit rating & lender relationships', src: 'DOCUMENT' },
+      ],
+      seats: [
+        { id: 'ceo', parent: null, title: 'Group CEO', name: '', src: 'TEMPLATE' },
+        { id: 'cfo', parent: 'ceo', mandate: true },
+        { id: 'fc', parent: 'cfo', title: 'Group Financial Controller', name: 'Mona Al Ketbi', src: 'MANUAL' },
+        { id: 'tr', parent: 'cfo', title: 'Head of Treasury', name: 'Rashid Al Nuaimi', src: 'MANUAL' },
+        { id: 'fpa', parent: 'cfo', title: 'Head of FP&A', name: '', src: 'TEMPLATE' },
+        { id: 'tax', parent: 'cfo', title: 'Head of Tax', name: '', src: 'DOCUMENT' },
+        { id: 'ir', parent: 'cfo', title: 'Head of Investor Relations', name: '', src: 'DOCUMENT' },
+      ],
+      suggested: ['Head of Internal Audit', 'Head of Procurement'],
+      comp: { mode: 'ANNUAL', currency: 'AED', min: 1200000, max: 1500000, bonusBasis: 'PERCENT_OF_BASE', bonusValue: 40,
+        incentive: 'LTIP_CASH', incentiveAmount: 900000, vesting: 'Three-year performance cycle, vesting one third annually',
+        benefits: [
+          { name: 'Housing allowance', amount: 25000, freq: 'MONTHLY' },
+          { name: 'Schooling allowance', amount: 120000, freq: 'YEARLY' },
+          { name: 'Car allowance', amount: 6000, freq: 'MONTHLY' },
+          { name: 'Flights (home country)', amount: 40000, freq: 'YEARLY' },
+        ] },
+      criteria: [
+        { text: 'Track record leading finance or ops function through M&A or restructuring', mode: 'REQUIRED', src: 'TEMPLATE' },
+        { text: 'Experience reporting to a board or sovereign shareholder', mode: 'REQUIRED', src: 'TEMPLATE' },
+        { text: 'Prior P&L ownership above $500M revenue scope', mode: 'REQUIRED', src: 'TEMPLATE' },
+        { text: 'Listed-company or GRE reporting under IFRS', mode: 'REQUIRED', src: 'DOCUMENT' },
+        { text: 'Sector experience relevant to the department’s core business', mode: 'PREFERRED', src: 'TEMPLATE' },
+        { text: 'Diversified retail, automotive or real-estate background', mode: 'PREFERRED', src: 'DOCUMENT' },
+        { text: 'Arabic speaker', mode: 'PREFERRED', src: 'MANUAL' },
+      ],
+      techShare: 60,
+      technical: [
+        { id: 't1', name: 'Financial Reporting & Controls', description: 'IFRS reporting, audit readiness and the control environment', weight: 25, src: 'TEMPLATE' },
+        { id: 't2', name: 'M&A / Restructuring Experience', description: 'Deal execution, carve-outs and post-merger integration', weight: 20, src: 'TEMPLATE' },
+        { id: 't3', name: 'Treasury & Capital Markets', description: 'Debt structuring, liquidity and lender relationships', weight: 20, src: 'TEMPLATE' },
+        { id: 't4', name: 'Board & Investor Relations', description: 'Board reporting and shareholder communication', weight: 15, src: 'TEMPLATE' },
+        { id: 't5', name: 'Multi-Entity Treasury & Cash Pooling', description: 'Treasury and cash pooling across 200+ operating companies', weight: 20, src: 'DOCUMENT' },
+      ],
+      behavioural: [
+        { id: 'b1', name: 'Strategic Leadership', description: 'Sets direction and carries a transformation at group level', weight: 30, src: 'TEMPLATE' },
+        { id: 'b2', name: 'Stakeholder Influence', description: 'Credible with the shareholder, the board and the executive committee', weight: 25, src: 'TEMPLATE' },
+        { id: 'b3', name: 'Change Management', description: 'Builds the function’s capability while running the day job', weight: 25, src: 'TEMPLATE' },
+        { id: 'b4', name: 'Resilience under Ambiguity', description: 'Operates through market shifts and incomplete information', weight: 20, src: 'TEMPLATE' },
+      ],
+      locked: { t3: true },
+    };
+  }
+
+  componentDidMount() { this.setState({ dark: document.documentElement.getAttribute('data-theme') !== 'light' }); }
+
+  showToast(msg) {
+    clearTimeout(this._toastTimer);
+    this.setState({ toast: msg });
+    this._toastTimer = setTimeout(() => this.setState({ toast: '' }), 2200);
+  }
+
+  touched() {
+    clearTimeout(this._saveTimer);
+    this.setState({ saving: 'saving' });
+    this._saveTimer = setTimeout(() => this.setState({ saving: 'saved' }), 800);
+  }
+
+  manual(id) { const s = { ...this.state.sources }; delete s[id]; return s; }
+
+  fmt(n) { return Math.round(n).toLocaleString('en-GB'); }
+  amt(c, n) { return c + ' ' + this.fmt(n); }
+
+  chipStyle(sel, tone) {
+    const base = 'border-radius:999px;border:1px solid;padding:3px 10px;font:500 12px/1.5 var(--sans);cursor:pointer;white-space:nowrap;transition:all .15s;';
+    if (sel) return base + (tone === 'offlimits'
+      ? 'border-color:transparent;background:var(--u-offlimits-tint);color:var(--u-offlimits)'
+      : 'border-color:transparent;background:var(--u-accent-tint);color:var(--u-accent)');
+    return base + 'border-color:var(--u-border-strong);background:var(--u-bg);color:var(--u-text2)';
+  }
+  chips(group, opts, value, idx) {
+    return opts.map((o) => ({ group, idx: idx == null ? '' : String(idx), val: o.v, label: o.l, style: this.chipStyle(o.v === value, o.t) }));
+  }
+  plain(list) { return list.map((l) => ({ v: l, l })); }
+
+  marker(id, isDoc, pos) {
+    const s = this.state;
+    if (!s.documentAttached || !isDoc) return [];
+    const r = this.RECEIPTS[id];
+    const conf = r && r.c;
+    const popPos = pos === 'end' ? 'top:calc(100% + 6px);right:-6px'
+      : pos === 'above' ? 'bottom:calc(100% + 6px);left:-6px'
+      : 'top:calc(100% + 6px);left:50%;transform:translateX(-50%)';
+    return [{
+      id, open: s.openProv === id, popPos,
+      color: conf === 'low' ? 'var(--u-signal)' : 'var(--u-inferred)',
+      readLine: r ? 'Read from ' + this.FILE : 'Read from the document',
+      hasConf: !!conf, confLabel: conf ? this.CONF[conf] : '', confColor: conf === 'low' ? 'var(--u-signal)' : 'var(--u-text3)',
+      hasSnippet: !!(r && r.s), snippet: r ? r.s : '', hasUndo: !!r,
+    }];
+  }
+
+  undo(id) {
+    const s = this.state;
+    const next = { openProv: null };
+    if (id.startsWith('resp:')) next.responsibilities = s.responsibilities.filter((r) => r.text !== id.slice(5));
+    else if (id.startsWith('crit:')) next.criteria = s.criteria.filter((c) => c.text !== id.slice(5));
+    else if (id.startsWith('tech:')) next.technical = s.technical.filter((c) => c.name !== id.slice(5));
+    else {
+      next.sources = this.manual(id);
+      const field = { department: 'department', locationCity: 'city', locationCountry: 'country', seniority: 'seniority', mandateReason: 'reason', noticePeriod: 'notice', narrative: 'narrative' }[id];
+      if (field) next[field] = this.PREV[id];
+    }
+    this.setState(next);
+    this.touched();
+  }
+
+  managerOf(seats) {
+    const mandate = seats.find((x) => x.mandate);
+    return mandate && seats.find((x) => x.id === mandate.parent);
+  }
+  directReports(seats) { return seats.filter((x) => x.parent === 'cfo'); }
+
+  pkg() {
+    const c = this.state.comp;
+    const mult = c.mode === 'MONTHLY' ? 12 : 1;
+    const base = { min: (c.min || 0) * mult, max: (c.max || 0) * mult };
+    const allowances = c.benefits.reduce((t, b) => t + (b.freq === 'YEARLY' ? (b.amount || 0) : (b.amount || 0) * 12), 0);
+    const bonusOn = (ab) => {
+      const v = c.bonusValue || 0;
+      if (v <= 0) return 0;
+      if (c.bonusBasis === 'FIXED_AMOUNT') return v;
+      if (ab <= 0) return 0;
+      return c.bonusBasis === 'PERCENT_OF_BASE' ? ab * v / 100 : 0;
+    };
+    const bonus = { min: bonusOn(base.min), max: bonusOn(base.max) };
+    const incentive = c.incentive ? (c.incentiveAmount || 0) : (c.incentiveAmount || 0);
+    const hasBand = base.min > 0 || base.max > 0;
+    return { base, bonus, incentive, allowances,
+      min: hasBand ? base.min + bonus.min + incentive + allowances : null,
+      max: hasBand ? base.max + bonus.max + incentive + allowances : null };
+  }
+
+  done() {
+    const s = this.state;
+    const mgr = this.managerOf(s.seats);
+    const mgrLabel = mgr && ((mgr.name || '').trim() || (mgr.title || '').trim());
+    const tTotal = s.technical.reduce((a, b) => a + b.weight, 0);
+    const bTotal = s.behavioural.reduce((a, b) => a + b.weight, 0);
+    const band = s.comp.min != null && s.comp.max != null;
+    const quantified = s.comp.benefits.every((b) => b.amount != null);
+    const place = (s.city || '').trim() || (s.country || '').trim();
+    return {
+      brief: !!(s.roleTitle.trim() && place),
+      briefWhy: !s.roleTitle.trim() ? 'The role has no title yet.' : !place ? 'No location yet — name the city or the country.' : null,
+      reporting: !!mgrLabel && this.directReports(s.seats).length > 0,
+      reportingWhy: !mgrLabel ? 'Nobody is named as the manager yet.' : this.directReports(s.seats).length === 0 ? 'No direct reports drawn yet.' : null,
+      compensation: band && quantified,
+      compensationWhy: !band ? 'No base salary band yet.' : !quantified ? 'Allowances not fully quantified — give every benefit a figure.' : null,
+      assessment: tTotal === 100 && bTotal === 100,
+      assessmentWhy: tTotal !== 100 ? 'Technical weights total ' + tTotal + '%, not 100%.' : bTotal !== 100 ? 'Behavioural weights total ' + bTotal + '%, not 100%.' : null,
+      review: s.published,
+      mgrLabel, tTotal, bTotal, band, quantified, place,
+    };
+  }
+
+  layoutChart() {
+    const seats = this.state.seats;
+    const W = 210, H = 62, CG = 26, RG = 74;
+    const kids = (id) => seats.filter((x) => x.parent === id);
+    const width = (id) => { const k = kids(id); return k.length ? k.reduce((t, c) => t + width(c.id), 0) + CG * (k.length - 1) : W; };
+    const pos = {}; let maxDepth = 0;
+    const place = (id, x0, depth) => {
+      const w = width(id); maxDepth = Math.max(maxDepth, depth);
+      pos[id] = { x: x0 + w / 2 - W / 2, y: depth * (H + RG) };
+      let c = x0; kids(id).forEach((k) => { place(k.id, c, depth + 1); c += width(k.id) + CG; });
+    };
+    let cursor = 0;
+    seats.filter((x) => !x.parent).forEach((r) => { place(r.id, cursor, 0); cursor += width(r.id) + CG; });
+    const totalW = cursor - CG, totalH = (maxDepth + 1) * H + maxDepth * RG;
+    const segs = [];
+    const line = (l, t, w, h) => segs.push({ style: 'position:absolute;left:' + l + 'px;top:' + t + 'px;width:' + w + 'px;height:' + h + 'px;background:var(--line)' });
+    seats.filter((x) => x.parent).forEach((x) => {
+      const p = pos[x.parent], c = pos[x.id];
+      const x1 = p.x + W / 2, y1 = p.y + H, x2 = c.x + W / 2, y2 = c.y, my = y1 + RG / 2;
+      line(x1, y1, 1, my - y1); line(Math.min(x1, x2), my, Math.abs(x2 - x1) + 1, 1); line(x2, my, 1, y2 - my);
+    });
+    const scale = Math.min(1, 760 / totalW, 330 / totalH);
+    const s = this.state;
+    const boxes = seats.map((x) => {
+      const filled = !x.mandate && x.src === 'DOCUMENT' && s.documentAttached;
+      let box = 'position:absolute;left:' + pos[x.id].x + 'px;top:' + pos[x.id].y + 'px;width:210px;min-height:62px;border-radius:10px;border:1px solid;padding:10px 14px;box-shadow:var(--u-e1);font-family:var(--sans);';
+      box += x.mandate ? 'border-color:var(--u-accent);background:var(--u-accent-tint)' : 'border-color:var(--u-border-strong);background:var(--u-sunken)';
+      if (filled) box += ';border-left:2px solid color-mix(in srgb,var(--u-inferred) 60%,transparent);background:var(--u-inferred-tint)';
+      return { id: x.id, isMandate: !!x.mandate, isSeat: !x.mandate, boxStyle: box,
+        title: x.mandate ? (s.roleTitle.trim() || 'Untitled role') : (x.title || ''), name: x.name || '',
+        mk: x.mandate ? [] : this.marker('seat:' + x.id, x.src === 'DOCUMENT', 'above') };
+    });
+    return { segs, boxes,
+      inner: 'position:absolute;left:50%;top:50%;width:' + totalW + 'px;height:' + totalH + 'px;transform:translate(-50%,-50%) scale(' + scale.toFixed(3) + ');transform-origin:center' };
+  }
+
+  renderVals() {
+    const s = this.state;
+    const P = this.P;
+    const idx = this.STEPS.findIndex((x) => x.key === s.step);
+    const step = this.STEPS[idx];
+    const prev = this.STEPS[idx - 1], next = this.STEPS[idx + 1];
+    const d = this.done();
+    const readBack = s.published && !s.reopened && s.step === 'review';
+    const c = s.comp;
+    const pk = this.pkg();
+    const isFixed = c.bonusBasis === 'FIXED_AMOUNT';
+    const reports = this.directReports(s.seats).length;
+    const chart = s.step === 'reporting' ? this.layoutChart() : { segs: [], boxes: [], inner: '' };
+
+    const navRow = (active) => 'display:flex;width:100%;align-items:center;gap:10px;border-radius:7px;padding:8px 10px;font-size:13.5px;text-align:left;border:none;cursor:pointer;text-decoration:none;'
+      + (s.collapsed ? 'justify-content:center;' : '') + (active ? 'background:var(--panel2);color:var(--text)' : 'background:none;color:var(--text2)');
+    const item = (label, icon, href, count, active) => ({ label, icon: P[icon], href, count: count == null ? '' : count, hasCount: count != null && !s.collapsed, rowStyle: navRow(active), iconColor: active ? 'var(--amber)' : 'currentColor' });
+
+    const doneFlags = [d.brief, d.reporting, d.compensation, d.assessment, d.review];
+    const doneCount = doneFlags.filter(Boolean).length;
+    const badge = (tone) => 'display:inline-flex;align-items:center;border-radius:5px;border:1px solid;padding:2px 8px;font:600 11px/1.45 var(--sans);' + ({
+      complete: 'border-color:color-mix(in srgb,var(--u-direct) 40%,transparent);background:var(--u-direct-tint);color:var(--u-direct)',
+      attention: 'border-color:color-mix(in srgb,var(--u-signal) 50%,transparent);background:var(--u-signal-tint);color:var(--u-signal)',
+      offlimits: 'border-color:color-mix(in srgb,var(--u-offlimits) 40%,transparent);background:var(--u-offlimits-tint);color:var(--u-offlimits)',
+    })[tone];
+
+    const range = (a, b) => (a == null || b == null ? '—' : this.amt(c.currency, a) + ' to ' + this.amt(c.currency, b));
+    const dash = (v) => (v && String(v).trim() ? v : '—');
+    const placeLine = [s.city, s.country].map((h) => (h || '').trim()).filter(Boolean).join(', ') || null;
+    const bonusText = c.bonusValue == null || !c.bonusBasis ? '—' : isFixed ? this.amt(c.currency, c.bonusValue) + ' fixed' : c.bonusValue + '% of base';
+    const cardFields = {
+      brief: [{ label: 'Role title', value: dash(s.roleTitle) }, { label: 'Location', value: dash(placeLine) }, { label: 'Reason for hire', value: dash(s.reason) }, { label: 'Confidentiality', value: s.confidential ? 'Confidential' : 'Standard' }],
+      reporting: [{ label: 'Reports to', value: dash(d.mgrLabel) }, { label: 'Direct reports', value: reports + ' direct report' + (reports === 1 ? '' : 's') },
+        { label: 'Org level', value: dash(s.seniority) }],
+      compensation: [{ label: 'Total package target', value: range(pk.min, pk.max) }, { label: 'Base salary', value: pk.min == null ? '—' : range(pk.base.min, pk.base.max) }, { label: 'Annual bonus target', value: bonusText }],
+      assessment: [{ label: 'Technical competencies', value: s.techShare + '% weighting' }, { label: 'Behavioural competencies', value: (100 - s.techShare) + '% weighting' },
+        { label: 'Screening criteria', value: s.criteria.length + ' rule' + (s.criteria.length === 1 ? '' : 's') + ' active' }],
+    };
+
+    const mixRowsRaw = [
+      { label: 'Base', amount: pk.base.max, color: 'var(--u-chart-1)' },
+      { label: 'Bonus', amount: pk.bonus.max, color: 'var(--u-chart-4)' },
+      { label: 'LTIP & allowances', amount: pk.incentive + pk.allowances, color: 'var(--u-chart-5)' },
+    ];
+    const ceiling = pk.max || 0;
+
+    const panelOf = (key, title, rows, dot) => {
+      const total = rows.reduce((a, b) => a + b.weight, 0);
+      return { title, dot, total: total + '%', badgeStyle: badge(total === 100 ? 'complete' : 'offlimits') + ';margin-left:auto;font-family:var(--u-num)',
+        rows: rows.map((r) => {
+          const locked = !!s.locked[r.id];
+          return { id: r.id, name: r.name, description: r.description || '', weight: String(r.weight),
+            rowStyle: 'display:grid;grid-template-columns:20px minmax(0,1.2fr) minmax(0,1.6fr) 72px 18px 22px 22px;align-items:center;column-gap:12px;padding:12px 16px;border-bottom:1px solid var(--u-border)' + (locked ? ';background:color-mix(in srgb,var(--u-raised) 60%,transparent)' : ''),
+            weightStyle: 'width:36px;border:none;border-bottom:1px solid transparent;background:transparent;padding:0;text-align:end;font:400 13px/1.55 var(--u-num);color:var(--u-text);outline:none' + (locked ? ';opacity:.6' : ''),
+            lockedAttr: locked ? 'true' : 'false', lockIcon: locked ? P.lock : P.unlock,
+            lockColor: locked ? 'var(--u-accent)' : 'color-mix(in srgb,var(--u-text3) 60%,transparent)',
+            lockTitle: locked ? 'Unlock this weight' : 'Hold this weight while the others rebalance',
+            mk: this.marker(key + ':' + r.name, r.src === 'DOCUMENT', 'end') };
+        }) };
+    };
+
+    const cardStyle = (sel) => 'display:flex;align-items:flex-start;justify-content:space-between;gap:16px;border-radius:10px;border:1px solid;padding:14px 16px;text-align:start;cursor:pointer;font-family:var(--sans);'
+      + (sel ? 'border-color:var(--u-accent);background:var(--u-accent-tint)' : 'border-color:var(--u-border-strong);background:var(--u-bg)');
+    const dotStyle = (sel) => 'margin-top:4px;width:12px;height:12px;flex:none;border-radius:50%;border:1px solid;' + (sel ? 'border-color:var(--u-accent);background:var(--u-accent)' : 'border-color:var(--u-border-strong);background:transparent');
+
+    const q = s.roleTitle.trim().toLowerCase();
+    const titleMatches = this.TEMPLATES.filter((t) => !q || t.title.toLowerCase().includes(q) || q.includes('cfo') && t.title === 'Chief Financial Officer').slice(0, 8);
+
+    return {
+      // shell
+      sideWidth: s.collapsed ? '56px' : '210px',
+      showLabels: !s.collapsed,
+      backRowStyle: navRow(false) + ';margin-bottom:6px;font-weight:500',
+      footRowStyle: navRow(false),
+      themeLabel: s.dark ? 'Light mode' : 'Dark mode',
+      themeIcon: s.dark ? P.sun : P.moon,
+      collapseTitle: s.collapsed ? 'Expand sidebar' : 'Collapse sidebar',
+      collapseIcon: s.collapsed ? P.expand : P.collapse,
+      wsMenuOpen: s.wsMenuOpen,
+      navGroups: [
+        { label: 'Position', items: [item('Brief', 'position', 'Position.dc.html', null, true), item('Strategy', 'strategy', 'Strategy.dc.html', null, false)] },
+        { label: 'Companies', items: [item('In universe', 'globe', 'Position.dc.html?page=universe', 24, false), item('Shortlisted', 'star', 'Position.dc.html?page=shortlisted', 9, false), item('Declined', 'close', 'Position.dc.html?page=declined', 6, false)] },
+        { label: 'People', items: [item('Candidates', 'candidates', 'Position.dc.html?page=candidates', null, false), item('Outreach', 'outreach', 'Position.dc.html?page=outreach', null, false)] },
+        { label: 'Project', items: [item('Reports', 'reports', 'Position.dc.html?page=reports', null, false), item('Team & access', 'team', 'Position.dc.html?page=team', null, false)] },
+      ],
+      toggleWsMenu: () => this.setState({ wsMenuOpen: !s.wsMenuOpen }),
+      toggleTheme: () => { const dk = !s.dark; document.documentElement.setAttribute('data-theme', dk ? 'dark' : 'light'); try { localStorage.setItem('lm-theme', dk ? 'dark' : 'light'); } catch (e) {} this.setState({ dark: dk }); },
+      toggleCollapse: () => { const cl = !s.collapsed; try { localStorage.setItem('lm-side-collapsed', cl ? '1' : '0'); } catch (e) {} this.setState({ collapsed: cl }); },
+      hasToast: !!s.toast, toast: s.toast,
+
+      // rail
+      railItems: this.STEPS.map((x) => {
+        const active = x.key === s.step;
+        return { key: x.key, name: x.name, icon: x.icon, href: '?step=' + x.key, current: active ? 'page' : 'false',
+          iconColor: active ? 'var(--u-accent)' : 'currentColor',
+          style: 'display:flex;flex:none;align-items:center;gap:10px;white-space:nowrap;border-radius:7px;padding:8px 10px;font:' + (active ? '500' : '400') + ' 13px/1.55 var(--sans);text-decoration:none;transition:all .15s;'
+            + (active ? 'background:var(--u-sunken);color:var(--u-text)' : 'color:var(--u-text2)'),
+          hover: active ? '' : 'background:var(--u-raised);color:var(--u-text)' };
+      }),
+      saveLabel: s.saving === 'saving' ? 'Saving…' : s.saving === 'saved' ? 'Saved' : ' ',
+      railPrimaryLabel: readBack ? 'Edit position' : s.published ? 'Publish changes' : 'Publish profile',
+      railPrimary: () => {
+        if (readBack) { this.setState({ reopened: true }); return; }
+        if (!s.published) { this.setState({ published: true, reopened: false, saving: 'idle' }); this.showToast('Position profile published'); return; }
+        this.setState({ reopened: false, saving: 'idle' }); this.showToast('Changes published');
+      },
+      saveDraftStyle: 'margin-top:8px;display:inline-flex;align-items:center;justify-content:center;gap:8px;width:100%;border-radius:8px;border:1px solid var(--u-border-strong);background:transparent;padding:10px 16px;font:600 13px/1.55 var(--sans);color:var(--u-text2);' + (readBack ? 'opacity:.5;cursor:not-allowed' : 'cursor:pointer'),
+      saveDraftHover: readBack ? '' : 'background:var(--u-raised);color:var(--u-text)',
+      saveDraft: () => { if (readBack) return; this.setState({ saving: 'saved' }); this.showToast('Draft saved'); },
+      goStep: (e) => {
+        e.preventDefault();
+        const k = e.currentTarget.dataset.id;
+        this.setState({ step: k, openProv: null, titleListOpen: false, reopened: k !== 'review' ? true : s.reopened });
+      },
+
+      // header
+      stepHeading: step.heading, stepLede: step.lede,
+      showReadAction: (s.step === 'reporting' || s.step === 'assessment') && s.documentAttached,
+      extract: () => {
+        const n = Object.keys(s.sources).length + s.responsibilities.filter((r) => r.src === 'DOCUMENT').length + s.criteria.filter((r) => r.src === 'DOCUMENT').length + s.technical.filter((r) => r.src === 'DOCUMENT').length;
+        this.showToast(n > 0 ? 'Read ' + n + ' field' + (n === 1 ? '' : 's') + ' from ' + this.FILE : 'Nothing new to read from this document');
+      },
+      showReadNotice: s.readNotice !== 'none' && s.documentAttached && (s.step === 'brief' || s.step === 'reporting' || s.step === 'assessment'),
+      readNoticeMessage: {
+        partial: "Couldn't read the reporting line from " + this.FILE + '. The rest was filled.',
+        unreadable: 'Nothing could be read from ' + this.FILE + ' \u2014 check it is the position description.',
+        unreachable: "The document reader couldn't be reached, so nothing was filled. Try again in a moment.",
+        failed: 'Something went wrong. Try again.',
+      }[s.readNotice] || '',
+      retryLabel: s.retrying ? 'Reading\u2026' : 'Read again',
+      retryStyle: 'flex:none;padding:0;border:none;background:none;font:600 12px/1.5 var(--sans);color:inherit;' + (s.retrying ? 'cursor:not-allowed;opacity:.6' : 'cursor:pointer'),
+      retryRead: () => {
+        if (s.retrying) return;
+        this.setState({ retrying: true });
+        setTimeout(() => { this.setState({ retrying: false, readNotice: 'none' }); this.showToast('Read 14 fields from ' + this.FILE); }, 1200);
+      },
+      dismissNotice: () => this.setState({ readNotice: 'none' }),
+      isBrief: s.step === 'brief', isReporting: s.step === 'reporting', isCompensation: s.step === 'compensation', isAssessment: s.step === 'assessment', isReview: s.step === 'review',
+
+      // provenance
+      toggleProv: (e) => { const id = e.currentTarget.dataset.id; this.setState({ openProv: s.openProv === id ? null : id }); },
+      undoProv: (e) => this.undo(e.currentTarget.dataset.id),
+
+      // role brief
+      documentAttached: s.documentAttached, noDocument: !s.documentAttached,
+      download: () => this.showToast('Downloading ' + this.FILE),
+      replaceDoc: () => this.showToast('Choose a file to replace ' + this.FILE),
+      removeDoc: () => this.setState({ documentAttached: false, openProv: null, readNotice: 'none' }),
+      attachDoc: () => { this.setState({ documentAttached: true, readNotice: 'none' }); this.showToast('Read 14 fields from ' + this.FILE); },
+      roleTitle: s.roleTitle, department: s.department, city: s.city, country: s.country, hasCountry: !!s.country,
+      titleListOpen: s.titleListOpen && titleMatches.length > 0, titleMatches,
+      openTitleList: () => this.setState({ titleListOpen: true }),
+      pickTemplate: (e) => { const t = e.currentTarget.dataset.id; this.setState({ roleTitle: t, titleListOpen: false }); this.showToast('Brief drafted from the ' + t + ' template.'); },
+      clearCountry: () => this.setState({ country: '', sources: this.manual('locationCountry') }),
+      setText: (e) => {
+        const f = e.currentTarget.dataset.field, v = e.currentTarget.value;
+        const srcKey = { department: 'department', city: 'locationCity', country: 'locationCountry' }[f];
+        if (f === 'vesting') this.setState({ comp: { ...c, vesting: v } });
+        else this.setState({ [f]: v, sources: srcKey ? this.manual(srcKey) : s.sources, titleListOpen: f === 'roleTitle' });
+        this.touched();
+      },
+      mDepartment: this.marker('department', !!s.sources.department, 'center'),
+      mCity: this.marker('locationCity', !!s.sources.locationCity, 'center'),
+      mCountry: this.marker('locationCountry', !!s.sources.locationCountry, 'end'),
+      mSeniority: this.marker('seniority', !!s.sources.seniority, 'end'),
+      mReason: this.marker('mandateReason', !!s.sources.mandateReason, 'end'),
+      mNotice: this.marker('noticePeriod', !!s.sources.noticePeriod, 'end'),
+      mNarrative: this.marker('narrative', !!s.sources.narrative, 'end'),
+      mTeamSize: this.marker('teamSize', !!s.sources.teamSize, 'end'),
+      employmentChips: this.chips('employment', this.plain(['Full-time', 'Part-time', 'Contract', 'Temporary', 'Interim']), s.employment),
+      seniorityChips: this.chips('seniority', this.plain(['Board', 'C-Suite', 'N-1', 'N-2', 'N-3']), s.seniority),
+      reasonChips: this.chips('reason', this.plain(['Succession plan', 'New position', 'Replacement', 'Growth', 'Restructure']), s.reason),
+      noticeChips: this.chips('notice', this.plain(['1 month', '2 months', '3 months', '6 months']), s.notice),
+      confCards: [
+        { val: 'no', title: 'Standard', body: 'Visible to the whole workspace', style: cardStyle(!s.confidential), dot: dotStyle(!s.confidential), titleColor: !s.confidential ? 'var(--u-text)' : 'var(--u-text2)' },
+        { val: 'yes', title: 'Confidential', body: 'Restricted until shortlist', style: cardStyle(s.confidential), dot: dotStyle(s.confidential), titleColor: s.confidential ? 'var(--u-text)' : 'var(--u-text2)' },
+      ],
+      targetStart: s.targetStart,
+      hasResponsibilities: s.responsibilities.length > 0,
+      responsibilities: s.responsibilities.map((r, i) => ({ text: r.text, idx: String(i), mk: this.marker('resp:' + r.text, r.src === 'DOCUMENT', 'center') })),
+      removeResp: (e) => { const i = +e.currentTarget.dataset.idx; this.setState({ responsibilities: s.responsibilities.filter((_, j) => j !== i) }); this.touched(); },
+      narrative: s.narrative || 'Describe the ideal profile — the person this position is looking for.',
+      narrativeStyle: 'margin:0;cursor:text;font:400 13px/1.7 var(--sans);color:' + (s.narrative ? 'var(--u-text2)' : 'var(--u-text3)') + (s.narrativeExpanded ? '' : ';display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow:hidden'),
+      narrativeToggle: s.narrativeExpanded ? 'Show less' : 'Show more',
+      toggleNarrative: () => this.setState({ narrativeExpanded: !s.narrativeExpanded }),
+
+      pick: (e) => {
+        const ds = e.currentTarget.dataset, g = ds.group, v = ds.val, i = +ds.idx;
+        const upd = {};
+        if (g === 'employment') upd.employment = s.employment === v ? null : v;
+        if (g === 'seniority') { upd.seniority = s.seniority === v ? null : v; upd.sources = this.manual('seniority'); }
+        if (g === 'reason') { upd.reason = v; upd.sources = this.manual('mandateReason'); }
+        if (g === 'notice') { upd.notice = s.notice === v ? null : v; upd.sources = this.manual('noticePeriod'); }
+        if (g === 'conf') upd.confidential = v === 'yes';
+        if (g === 'period') upd.comp = { ...c, mode: v };
+        if (g === 'bonus') upd.comp = { ...c, bonusBasis: v, bonusValue: v === 'FIXED_AMOUNT' ? 450000 : 40 };
+        if (g === 'ltip') upd.comp = { ...c, incentive: v === 'NONE' ? null : v };
+        if (g === 'freq') upd.comp = { ...c, benefits: c.benefits.map((b, j) => (j === i ? { ...b, freq: v } : b)) };
+        if (g === 'mode') upd.criteria = s.criteria.map((r, j) => (j === i ? { ...r, mode: v, src: 'MANUAL' } : r));
+        this.setState(upd);
+        this.touched();
+      },
+
+      // reporting
+      chartInnerStyle: chart.inner, edgeSegments: chart.segs, seatBoxes: chart.boxes,
+      showSuggestedSeats: s.documentAttached && s.suggested.length > 0,
+      suggestedSeats: s.suggested.map((t) => ({ title: t })),
+      addSeat: (e) => {
+        const t = e.currentTarget.dataset.id;
+        this.setState({ seats: [...s.seats, { id: 'n' + s.seats.length, parent: 'cfo', title: t, name: '', src: 'MANUAL' }], suggested: s.suggested.filter((x) => x !== t) });
+        this.touched();
+      },
+      managerLabel: d.mgrLabel || 'nobody yet',
+      levelLabel: s.seniority || 'unset',
+      reportsLine: reports + ' direct report' + (reports === 1 ? '' : 's'),
+      reportsCount: String(reports),
+      reportsNoun: 'direct report' + (reports === 1 ? '' : 's'),
+
+      // compensation
+      currency: c.currency, currencies: ['AED', 'USD', 'SAR', 'QAR', 'KWD', 'GBP', 'EUR'],
+      setCurrency: (e) => { this.setState({ comp: { ...c, currency: e.currentTarget.value } }); this.touched(); },
+      periodOptions: [{ v: 'ANNUAL', l: 'Annual' }, { v: 'MONTHLY', l: 'Monthly' }].map((o) => ({ val: o.v, label: o.l,
+        style: 'display:inline-flex;align-items:center;gap:6px;white-space:nowrap;border:none;cursor:pointer;border-radius:6px;padding:6px 12px;font:600 11.5px var(--sans);' + (c.mode === o.v ? 'background:var(--u-accent-solid);color:#fff' : 'background:transparent;color:var(--u-text2)') })),
+      salaryMin: c.min == null ? '' : this.fmt(c.min), salaryMax: c.max == null ? '' : this.fmt(c.max),
+      setNum: (e) => {
+        const f = e.currentTarget.dataset.field, digits = e.currentTarget.value.replace(/[^\d]/g, '');
+        this.setState({ comp: { ...c, [f]: digits ? Number(digits) : null } }); this.touched();
+      },
+      bonusChips: this.chips('bonus', [{ v: 'PERCENT_OF_BASE', l: '% of base' }, { v: 'FIXED_AMOUNT', l: 'Fixed amount' }], c.bonusBasis),
+      bonusFixed: isFixed, bonusPercent: !isFixed,
+      bonusValue: c.bonusValue == null ? '' : isFixed ? this.fmt(c.bonusValue) : String(c.bonusValue),
+      bonusPlaceholder: isFixed ? '150,000' : '30',
+      bonusInputStyle: 'min-width:0;border:none;border-bottom:1px solid var(--u-border);background:transparent;padding:6px 0;font:400 15px/1.4 var(--u-num);color:var(--u-text);outline:none;' + (isFixed ? 'width:100%;max-width:240px' : 'width:4ch'),
+      bonusCaption: c.bonusBasis === 'FIXED_AMOUNT' ? 'per year' : c.bonusBasis === 'PERCENT_OF_BASE' ? 'of base salary' : 'choose what the figure is read against',
+      calculatedBonus: pk.bonus.max <= 0 ? '—' : isFixed ? this.amt(c.currency, pk.bonus.max) : this.amt(c.currency, pk.bonus.min) + ' – ' + this.amt(c.currency, pk.bonus.max),
+      ltipChips: this.chips('ltip', [{ v: 'OPTIONS', l: 'Stock Options' }, { v: 'RSU', l: 'RSUs' }, { v: 'LTIP_CASH', l: 'Cash' }, { v: 'NONE', l: 'None' }], c.incentive || 'NONE'),
+      incentiveAmount: c.incentiveAmount == null ? '' : this.fmt(c.incentiveAmount),
+      vesting: c.vesting || '',
+      benefits: c.benefits.map((b, i) => ({ name: b.name, idx: String(i), amount: b.amount == null ? '' : this.fmt(b.amount),
+        freqChips: this.chips('freq', [{ v: 'MONTHLY', l: 'Monthly' }, { v: 'YEARLY', l: 'Yearly' }], b.freq, i) })),
+      draftFreqChips: this.chips('draft', [{ v: 'MONTHLY', l: 'Monthly' }, { v: 'YEARLY', l: 'Yearly' }], 'MONTHLY'),
+      setBenefitAmount: (e) => {
+        const i = +e.currentTarget.dataset.idx, digits = e.currentTarget.value.replace(/[^\d]/g, '');
+        this.setState({ comp: { ...c, benefits: c.benefits.map((b, j) => (j === i ? { ...b, amount: digits ? Number(digits) : null } : b)) } }); this.touched();
+      },
+      removeBenefit: (e) => { const i = +e.currentTarget.dataset.idx; this.setState({ comp: { ...c, benefits: c.benefits.filter((_, j) => j !== i) } }); this.touched(); },
+      packageLine: pk.min == null || pk.max == null ? '—' : this.amt(c.currency, pk.min) + ' – ' + this.amt(c.currency, pk.max),
+      mixBar: mixRowsRaw.map((r) => ({ pct: ceiling > 0 && r.amount > 0 ? Math.max(1, Math.round(r.amount / ceiling * 100)) : 0, color: r.color }))
+        .filter((r) => r.pct > 0).map((r) => ({ style: 'width:' + r.pct + '%;border-radius:999px;background:' + r.color })),
+      mixRows: mixRowsRaw.map((r) => ({ label: r.label, amount: this.amt(c.currency, r.amount), color: r.color })),
+
+      // assessment
+      criteria: s.criteria.map((r, i) => ({ text: r.text, idx: String(i), fromBrief: r.src === 'TEMPLATE',
+        mk: this.marker('crit:' + r.text, r.src === 'DOCUMENT', 'center'),
+        modeChips: this.chips('mode', [{ v: 'REQUIRED', l: 'Required' }, { v: 'PREFERRED', l: 'Preferred' }], r.mode, i) })),
+      removeCriterion: (e) => { const i = +e.currentTarget.dataset.idx; this.setState({ criteria: s.criteria.filter((_, j) => j !== i) }); this.touched(); },
+      shareCards: [
+        { key: 'technical', label: 'Technical', share: String(s.techShare), color: 'var(--u-chart-1)' },
+        { key: 'behavioural', label: 'Behavioural', share: String(100 - s.techShare), color: 'var(--u-chart-5)' },
+      ],
+      setShare: (e) => {
+        const n = Math.min(100, Number(e.currentTarget.value.replace(/[^\d]/g, '') || 0));
+        this.setState({ techShare: e.currentTarget.dataset.id === 'technical' ? n : 100 - n }); this.touched();
+      },
+      techShareW: s.techShare + '%', behShareW: (100 - s.techShare) + '%',
+      panels: [panelOf('tech', 'Technical competencies', s.technical, 'var(--u-chart-1)'), panelOf('beh', 'Behavioural competencies', s.behavioural, 'var(--u-chart-5)')],
+      toggleLock: (e) => { const id = e.currentTarget.dataset.id; this.setState({ locked: { ...s.locked, [id]: !s.locked[id] } }); },
+      removeCompetency: (e) => {
+        const id = e.currentTarget.dataset.id;
+        this.setState({ technical: s.technical.filter((r) => r.id !== id), behavioural: s.behavioural.filter((r) => r.id !== id) }); this.touched();
+      },
+
+      // review
+      published: s.published, canWithdraw: !readBack, canEdit: !readBack,
+      withdraw: () => { this.setState({ published: false, reopened: true }); this.showToast('Publication withdrawn'); },
+      readinessCount: doneCount + ' of 5 sections complete',
+      readinessColor: doneCount === 5 ? 'var(--u-direct)' : 'var(--u-signal)',
+      completenessLine: Math.round(doneCount / 5 * 100) + '% overall completeness',
+      readinessSegments: doneFlags.map((f) => ({ style: 'height:6px;flex:1;border-radius:999px;background:' + (f ? 'var(--u-direct)' : 'var(--u-signal)') })),
+      reviewCards: this.STEPS.slice(0, 4).map((x) => {
+        const ok = d[x.key], why = d[x.key + 'Why'];
+        return { key: x.key, name: x.name, icon: x.icon, href: '?step=' + x.key,
+          frame: 'border-radius:10px;padding:14px 16px;box-shadow:var(--u-e1);' + (ok ? 'background:var(--u-surface)' : 'border:1px solid var(--u-signal);background:color-mix(in srgb,var(--u-signal-tint) 40%,transparent)'),
+          badge: ok ? 'Complete' : 'Needs attention', badgeStyle: badge(ok ? 'complete' : 'attention'),
+          fields: cardFields[x.key], hasAttention: !!why, attention: why || '' };
+      }),
+      readinessChecks: [
+        { label: 'Role parameters, position context and reporting lines specified', met: !!(s.roleTitle.trim() && d.place && d.mgrLabel) },
+        { label: 'Compensation package captured with allowances fully quantified', met: d.band && d.quantified },
+        { label: 'Technical and behavioural weighting totals exactly 100%', met: d.tTotal === 100 && d.bTotal === 100 },
+      ].map((k) => ({ label: k.label, icon: k.met ? P.check : P.warning, color: k.met ? 'var(--u-text)' : 'var(--u-text2)',
+        dotStyle: 'margin-top:1px;width:18px;height:18px;flex:none;display:grid;place-items:center;border-radius:50%;' + (k.met ? 'background:var(--u-direct-tint);color:var(--u-direct)' : 'background:var(--u-signal-tint);color:var(--u-signal)') })),
+
+      // footer
+      hasPrev: !!prev, noPrev: !prev, prevKey: prev ? prev.key : '', prevName: prev ? prev.name : '', prevHref: prev ? '?step=' + prev.key : '',
+      hasNext: !!next, nextKey: next ? next.key : '', nextName: next ? next.name : '', nextHref: next ? '?step=' + next.key : '',
+      showMoveToStrategy: !next && s.published,
+    };
+  }
+}
+</script>
+</body>
+</html>
