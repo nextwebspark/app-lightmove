@@ -60,7 +60,7 @@ export interface Project {
   targetDate: string | null;
   projectType: ProjectType;
   startDate: string | null;
-  /** When the business unit expects the map or the shortlist. Null on a mandate older than V70. */
+  /** When the business unit expects the map or the shortlist. Null on a mandate older than V73. */
   deliveryDate: string | null;
   /** A search's point by which the universe should be mapped; null on a mapping project. */
   mappingTargetDate: string | null;

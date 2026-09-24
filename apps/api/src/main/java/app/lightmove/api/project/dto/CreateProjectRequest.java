@@ -29,7 +29,7 @@ public record CreateProjectRequest(
 
         LocalDate mappingTargetDate
 ) {
-    /** A caller that names no type gets the column's default, so every pre-V70 client keeps working. */
+    /** A caller that names no type gets the column's default, so every pre-V73 client keeps working. */
     public CreateProjectRequest {
         projectType = projectType == null ? ProjectType.SEARCH : projectType;
     }

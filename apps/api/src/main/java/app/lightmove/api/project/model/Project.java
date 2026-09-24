@@ -63,7 +63,7 @@ public class Project extends BaseEntity {
         this.positionTitle = positionTitle.trim();
     }
 
-    /** When the client expects the work back: the delivery date, or the hire date on a mandate older than V70. */
+    /** When the client expects the work back: the delivery date, or the hire date on a mandate older than V73. */
     public LocalDate deadline() {
         return deliveryDate != null ? deliveryDate : targetDate;
     }

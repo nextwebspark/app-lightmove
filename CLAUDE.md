@@ -384,7 +384,7 @@ V68 gives `app_lm_workspace` the same write-time company snapshot: signup's orga
 the firm from the universe (`GET /onboarding/companies`, since `/companies/search` needs a workspace)
 and the server files it under the resolved row's name, id, industry, city, country, website, LinkedIn
 and logo; a firm typed in by hand leaves them all null.
-V70 gives `app_lm_project` the New position modal's decisions: `project_type` (`MAPPING | SEARCH`, V34's
+V73 gives `app_lm_project` the New position modal's decisions: `project_type` (`MAPPING | SEARCH`, V34's
 CHECK idiom, existing rows `SEARCH`) and a timeline — `start_date`, `delivery_date` (when the business
 unit expects the map or the shortlist) and, on a search only, `mapping_target_date`, which
 `ProjectTimeline` defaults to 60% of the window when the modal sends none. `target_date` is untouched
