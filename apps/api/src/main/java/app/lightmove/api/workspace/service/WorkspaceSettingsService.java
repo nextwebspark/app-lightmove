@@ -7,6 +7,7 @@ import app.lightmove.api.core.error.model.ApiException;
 import app.lightmove.api.workspace.constant.InvitationStatus;
 import app.lightmove.api.workspace.constant.MemberStatus;
 import app.lightmove.api.workspace.model.Workspace;
+import app.lightmove.api.workspace.model.WorkspacePersona;
 import app.lightmove.api.workspace.repository.InvitationRepository;
 import app.lightmove.api.workspace.repository.WorkspaceMemberRepository;
 import app.lightmove.api.workspace.repository.WorkspaceRepository;
@@ -49,6 +50,20 @@ public class WorkspaceSettingsService {
         audit.event(WorkspaceEventType.WORKSPACE_UPDATED)
                 .actor(actorId).workspace(workspaceId).from(request)
                 .detail("name", workspace.getName())
+                .record();
+
+        return detail(workspace);
+    }
+
+    @Transactional
+    public WorkspaceDetail updatePersona(UUID actorId, UUID workspaceId, WorkspacePersona persona,
+                                         HttpServletRequest request) {
+        Workspace workspace = requireWorkspace(workspaceId);
+        workspace.describePersona(persona);
+
+        audit.event(WorkspaceEventType.WORKSPACE_UPDATED)
+                .actor(actorId).workspace(workspaceId).from(request)
+                .detail("section", "persona")
                 .record();
 
         return detail(workspace);

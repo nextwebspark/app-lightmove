@@ -2,9 +2,11 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 import { PageHeader } from "../../../components/layout/PageHeader";
 import { Button, Field, FormError, Input, Modal, Select, useToast } from "../../../components/ui";
+import { CompanyLogo } from "../../../components/ui/CompanyLogo";
 import { messageFor } from "../../../lib/errorCodes";
 import { useAuth } from "../../auth/AuthProvider";
 import * as workspaceApi from "../../workspace/api/workspaceApi";
+import { WorkspacePersonaCard } from "../components/WorkspacePersonaCard";
 
 const REGIONS = ["GCC", "MENA", "Europe", "Global"];
 const CURRENCIES = ["USD", "AED", "SAR", "EUR"];
@@ -53,9 +55,13 @@ export function SettingsGeneralPage() {
 
       <div className="rounded-[10px] border border-line-soft bg-panel2 p-5">
         <div className="mb-5 flex items-center gap-3.5">
-          <span className="grid size-11 place-items-center rounded-[11px] bg-amber-btn font-mono text-lg font-bold text-on-amber">
-            {workspace.logoMark ?? workspace.name[0]}
-          </span>
+          {workspace.company?.logoUrl ? (
+            <CompanyLogo name={workspace.name} logo={workspace.company.logoUrl} size={44} />
+          ) : (
+            <span className="grid size-11 place-items-center rounded-[11px] bg-amber-btn font-mono text-lg font-bold text-on-amber">
+              {workspace.logoMark ?? workspace.name[0]}
+            </span>
+          )}
           <div>
             <div className="text-sm font-semibold">{workspace.name}</div>
             <div className="mt-0.5 font-mono text-[11.5px] text-text3">
@@ -96,6 +102,8 @@ export function SettingsGeneralPage() {
           </Button>
         </div>
       </div>
+
+      <WorkspacePersonaCard key={workspace.id} persona={workspace.persona} />
 
       <div className="mt-4 rounded-[10px] border border-red bg-red-dim p-5">
         <div className="flex items-center gap-3">

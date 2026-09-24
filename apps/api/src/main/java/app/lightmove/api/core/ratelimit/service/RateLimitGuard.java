@@ -82,6 +82,11 @@ public class RateLimitGuard {
                 config.extensionPairingsPerHourPerIp(), Duration.ofHours(1));
     }
 
+    public void checkOnboardingCompanySearch(String email, HttpServletRequest request) {
+        checkRateLimit("onboarding-company-search", email, request, config.onboardingCompanySearchesPerMinute(),
+                Duration.ofMinutes(1));
+    }
+
     private void checkRateLimit(String action, String email, HttpServletRequest request, int limit, Duration window) {
         checkRateLimit(action, email, request, limit, limit, window);
     }
