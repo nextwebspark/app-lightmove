@@ -60,7 +60,7 @@ export function ProjectBreadcrumb({
         to="/"
         className="hidden whitespace-nowrap rounded-md px-1.5 py-1 font-mono text-[13px] font-medium text-text3 hover:bg-panel2 hover:text-text md:inline"
       >
-        Projects
+        Positions
       </Link>
       <span className="hidden text-xs text-text3 opacity-40 md:inline">/</span>
       <span className="hidden items-center gap-1.5 whitespace-nowrap font-mono text-[13px] font-medium text-text2 sm:flex">
@@ -139,7 +139,7 @@ function WorkspaceMenu({ compact = false }: { compact?: boolean }) {
       >
         <AppIcon className="h-[30px]" />
         {!compact && (
-          <span className="text-[14px] font-medium uppercase tracking-[0.3em] text-text">Uncava</span>
+          <span className="font-brand text-[14px] font-extralight uppercase tracking-[0.38em] text-text">Uncava</span>
         )}
         <Icon d={ICONS.chevronDown} size={13} className="text-text3" />
       </button>

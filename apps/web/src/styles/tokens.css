@@ -13,46 +13,51 @@
 @custom-variant dark (&:where(.dark, .dark *));
 
 @theme {
-  /* ── Light (mockup :root) ───────────────────────────────────────────────── */
-  --color-bg: #f8f9fb;
-  --color-panel: #ffffff;
-  --color-panel2: #f3f4f6;
-  --color-line: #e2e4e9;
-  --color-line-soft: #edeef2;
+  /* ── The app palette, aliased onto UNCAVA ──────────────────────────────────
+   *
+   * Every mockup helmet now declares these as `var(--u-*)`, so they are aliases here too: a screen
+   * written against `bg-panel` or `text-amber` renders in the UNCAVA palette without a rename. The
+   * old names stay because they are what every call site says; `amber` is now the accent, not a
+   * gold. Colour changes belong in the `--color-u-*` values below, never here. */
+  --color-bg: var(--color-u-bg);
+  --color-panel: var(--color-u-surface);
+  --color-panel2: var(--color-u-raised);
+  --color-line: var(--color-u-border-strong);
+  --color-line-soft: var(--color-u-border);
 
-  --color-text: #111113;
-  --color-text2: #475569;
-  --color-text3: #64748b;
+  --color-text: var(--color-u-text);
+  --color-text2: var(--color-u-text2);
+  --color-text3: var(--color-u-text3);
 
-  /* Amber is the brand: the logo tile and every primary action. */
-  --color-amber: #a67c2e;
-  --color-amber-btn: #e2b65c;
-  --color-amber-dim: rgba(226, 182, 92, 0.14);
+  /* The accent: the logo tile, every primary action, links and informational states alike. */
+  --color-amber: var(--color-u-accent);
+  --color-amber-btn: var(--color-u-accent-solid);
+  --color-amber-dim: var(--color-u-accent-tint);
+  --color-sky: var(--color-u-accent);
+  --color-sky-dim: var(--color-u-accent-tint);
+  --color-ring: var(--color-u-accent-ring);
 
-  /* Sky is for links and informational states. */
-  --color-sky: #2563eb;
-  --color-sky-dim: rgba(37, 99, 235, 0.1);
+  --color-red: var(--color-u-offlimits);
+  --color-red-dim: var(--color-u-offlimits-tint);
+  --color-green: var(--color-u-direct);
+  --color-green-dim: var(--color-u-direct-tint);
 
-  --color-red: #dc2626;
-  --color-red-dim: rgba(220, 38, 38, 0.08);
-  --color-green: #059669;
-  --color-green-dim: rgba(5, 150, 105, 0.1);
+  /* The assistant speaks in UNCAVA's machine-made voice, apart from the accent the firm's data wears. */
+  --color-ai: var(--color-u-inferred);
+  --color-ai2: var(--color-u-adjacent);
+  --color-ai-line: var(--color-u-accent);
+  --color-ai-dim: var(--color-u-inferred-tint);
+  --color-ai-soft: var(--color-u-inferred-tint);
 
-  /* Indigo is the assistant, and only the assistant. Amber is the brand and sky is information —
-     a third voice is what keeps a machine's suggestion visibly distinct from the firm's own data. */
-  --color-ai: #6366f1;
-  --color-ai2: #3b82f6;
-  --color-ai-line: #4f46e5;
-  --color-ai-dim: rgba(99, 102, 241, 0.1);
-  --color-ai-soft: rgba(99, 102, 241, 0.06);
-
-  /* The one colour that never inverts: text on an amber button, in either theme. */
-  --color-on-amber: #1a1712;
+  /* The one colour that never inverts: text on a filled accent button, in either theme. */
+  --color-on-amber: #ffffff;
 
   /* The mockups dropped the monospace face: --mono now resolves to Geist too. The token stays so
      existing font-mono call sites keep matching the mockups without a rename. */
   --font-sans: "Geist", "Inter", system-ui, sans-serif;
   --font-mono: "Geist", "Inter", system-ui, sans-serif;
+  /* The wordmark's face, and nothing else's. */
+  --font-brand: "Montserrat", sans-serif;
 
   /* ── Type scale ───────────────────────────────────────────────────────────
    *
@@ -88,15 +93,13 @@
 
   --leading-narrative: 1.7;
 
-  --shadow-panel: 0 8px 28px rgba(15, 23, 42, 0.1);
-  --radius-panel: 14px;
+  --shadow-panel: var(--shadow-u-e3);
+  --radius-panel: 16px;
 
   /* ── UNCAVA (the --u-* block in every claude-design/*.dc.html helmet) ───────────────────────────────────
    *
-   * A second palette, beside the first rather than replacing it. Only the Reports chapters and the
-   * Position brief read these; every other screen keeps the tokens above, so adopting Uncava app-wide
-   * later is a rename and not a rewrite. That does mean those two tabs carry a different accent from
-   * the nav around them until that happens — a known, deliberate seam.
+   * The one palette. The app tokens above are aliases onto it; the Reports chapters and the Position
+   * brief also read these names directly, having adopted it first.
    *
    * THE LIGHT AND DARK SETS ARE SWAPPED RELATIVE TO THEIR SOURCE, AND THAT IS NOT A MISTAKE.
    * Uncava is dark-first: its `:root` holds the DARK values and `[data-theme="light"]` the light
@@ -171,31 +174,32 @@
  * site. A component written once against `bg-panel` is then correct in both themes, and cannot drift.
  */
 .dark {
-  --color-bg: #0c0d0e;
-  --color-panel: #16171a;
-  --color-panel2: #131316;
-  --color-line: #2a2a2e;
-  --color-line-soft: #212326;
-
-  --color-text: #f8fafc;
-  --color-text2: #cbd5e1;
-  --color-text3: #94a3b8;
-
-  --color-amber: #e2b65c;
-  --color-amber-dim: rgba(226, 182, 92, 0.16);
-  --color-sky: #60a5fa;
-  --color-sky-dim: rgba(96, 165, 250, 0.16);
-  --color-red: #f87171;
-  --color-red-dim: rgba(248, 113, 113, 0.14);
-  --color-green: #34d399;
-  --color-green-dim: rgba(52, 211, 153, 0.16);
-  --color-ai: #818cf8;
-  --color-ai2: #60a5fa;
-  --color-ai-line: #6366f1;
-  --color-ai-dim: rgba(129, 140, 248, 0.16);
-  --color-ai-soft: rgba(129, 140, 248, 0.09);
-
-  --shadow-panel: 0 8px 28px rgba(0, 0, 0, 0.5);
+  /* Repeated from `@theme` on purpose: a custom property resolves its `var()` where it is declared,
+     so aliases declared only on :root would carry the light values into a dark body. */
+  --color-bg: var(--color-u-bg);
+  --color-panel: var(--color-u-surface);
+  --color-panel2: var(--color-u-raised);
+  --color-line: var(--color-u-border-strong);
+  --color-line-soft: var(--color-u-border);
+  --color-text: var(--color-u-text);
+  --color-text2: var(--color-u-text2);
+  --color-text3: var(--color-u-text3);
+  --color-amber: var(--color-u-accent);
+  --color-amber-btn: var(--color-u-accent-solid);
+  --color-amber-dim: var(--color-u-accent-tint);
+  --color-sky: var(--color-u-accent);
+  --color-sky-dim: var(--color-u-accent-tint);
+  --color-ring: var(--color-u-accent-ring);
+  --color-red: var(--color-u-offlimits);
+  --color-red-dim: var(--color-u-offlimits-tint);
+  --color-green: var(--color-u-direct);
+  --color-green-dim: var(--color-u-direct-tint);
+  --color-ai: var(--color-u-inferred);
+  --color-ai2: var(--color-u-adjacent);
+  --color-ai-line: var(--color-u-accent);
+  --color-ai-dim: var(--color-u-inferred-tint);
+  --color-ai-soft: var(--color-u-inferred-tint);
+  --shadow-panel: var(--shadow-u-e3);
 
   /* UNCAVA's own `:root` — its dark-first default. See the note above for why it lands here. */
   --color-u-bg: #08090b;

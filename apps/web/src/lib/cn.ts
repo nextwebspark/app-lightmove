@@ -12,6 +12,7 @@ const twMerge = extendTailwindMerge<"type-role">({
       text: ["eyebrow", "meta", "note", "body", "lead", "subhead", "title", "figure"],
       tracking: ["label", "tag", "title", "figure"],
       leading: ["narrative"],
+      font: ["brand"],
     },
     classGroups: {
       "type-role": [{ type: ["label", "summary-label", "tag", "title", "heading", "figure", "figure-input"] }],

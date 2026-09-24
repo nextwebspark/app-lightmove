@@ -167,46 +167,6 @@ export function withRecorded<T extends string>(
   return [...options, { value, label: `${labelOf(value)} (as recorded)` }];
 }
 
-/** One of two cards a choice is made between — Standard or Confidential — with its dot on the end. */
-export function ChoiceCard({
-  title,
-  body,
-  selected,
-  onSelect,
-}: {
-  title: string;
-  body: string;
-  selected: boolean;
-  onSelect: () => void;
-}) {
-  return (
-    <button
-      type="button"
-      role="radio"
-      aria-checked={selected}
-      onClick={onSelect}
-      className={cn(
-        "flex items-start justify-between gap-4 rounded-[10px] border px-4 py-3.5 text-start transition",
-        selected ? "border-u-accent bg-u-accent-tint" : "border-u-border-strong bg-u-bg hover:border-u-text3",
-      )}
-    >
-      <span className="min-w-0">
-        <span className={cn("block type-heading", selected ? "text-u-text" : "text-u-text2")}>
-          {title}
-        </span>
-        <span className="mt-1 block text-note text-u-text3">{body}</span>
-      </span>
-      <span
-        aria-hidden="true"
-        className={cn(
-          "mt-1 size-3 flex-none rounded-full border",
-          selected ? "border-u-accent bg-u-accent" : "border-u-border-strong bg-transparent",
-        )}
-      />
-    </button>
-  );
-}
-
 /** The grey dot that removes one item of a list. */
 export function RemoveDot({
   label,

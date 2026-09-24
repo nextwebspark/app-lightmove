@@ -42,9 +42,9 @@ interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
 }
 
 const BUTTON_STYLES: Record<ButtonVariant, string> = {
-  // The amber call-to-action. Its label is near-black in both themes — see --color-on-amber.
+  // The filled accent call-to-action. Its label is white in both themes — see --color-on-amber.
   primary:
-    "bg-amber-btn border border-amber-btn text-on-amber font-semibold hover:brightness-105 " +
+    "bg-amber-btn border border-amber-btn text-on-amber font-medium hover:brightness-105 " +
     "disabled:opacity-50 disabled:hover:brightness-100",
   secondary:
     "bg-panel border border-line text-text2 font-medium hover:text-text hover:border-text3 " +
@@ -65,7 +65,7 @@ export function Button({
       {...rest}
       disabled={disabled || loading}
       className={cn(
-        "flex items-center justify-center gap-2 rounded-lg px-3.5 py-2.5 text-[13.5px] transition",
+        "flex items-center justify-center gap-2 rounded-[6px] px-3.5 py-2.5 text-[13.5px] transition",
         "disabled:cursor-not-allowed",
         BUTTON_STYLES[variant],
         className,
@@ -145,7 +145,7 @@ export function Field({
 // ── Input / Select ──────────────────────────────────────────────────────────
 
 const CONTROL =
-  "w-full rounded-lg border bg-panel2 px-3 py-2.5 font-mono text-[13px] text-text outline-none " +
+  "w-full rounded-[6px] border bg-panel2 px-3 py-2.5 font-mono text-[13px] text-text outline-none " +
   "transition focus:border-sky";
 
 export function Input({ invalid, className, ...rest }: InputHTMLAttributes<HTMLInputElement> & { invalid?: boolean }) {
@@ -221,7 +221,7 @@ export function Logo() {
   return (
     <div className="flex animate-fade-up items-center gap-3.5">
       <AppIcon className="h-12" />
-      <span className="text-[16px] font-medium uppercase tracking-[0.32em] text-text">Uncava</span>
+      <span className="font-brand text-[16px] font-extralight uppercase tracking-[0.38em] text-text">Uncava</span>
     </div>
   );
 }
@@ -231,7 +231,7 @@ export function AuthLogo() {
   return (
     <div className="flex animate-fade-up items-center gap-3.5">
       <AppIcon className="h-14" />
-      <span className="text-[19px] font-medium uppercase tracking-[0.32em] text-text">Uncava</span>
+      <span className="font-brand text-[19px] font-extralight uppercase tracking-[0.38em] text-text">Uncava</span>
     </div>
   );
 }
@@ -254,10 +254,37 @@ export function FormError({ message }: { message: string | null }) {
   );
 }
 
-/** The blue informational note from the Signup mockup's invite step. */
-export function Notice({ children }: { children: ReactNode }) {
+/**
+ * The accent informational note. Bare, it is the Signup invite step's one-liner; given a `title`, it
+ * is the New position modal's bordered summary block, the title as its eyebrow.
+ */
+export function Notice({
+  title,
+  className,
+  children,
+}: {
+  title?: string;
+  className?: string;
+  children: ReactNode;
+}) {
+  if (title) {
+    return (
+      <div className={cn("mb-4 rounded-lg border border-sky bg-sky-dim px-3.5 py-3", className)}>
+        <div className="mb-1.5 flex items-center gap-1.5">
+          <span aria-hidden="true" className="size-1.5 rounded-full bg-sky" />
+          <span className="text-[10px] font-semibold uppercase tracking-[0.1em] text-sky">{title}</span>
+        </div>
+        {children}
+      </div>
+    );
+  }
   return (
-    <div className="mb-5 flex items-center gap-2 rounded-lg bg-sky-dim px-3 py-2.5 font-mono text-[11.5px] text-sky">
+    <div
+      className={cn(
+        "mb-5 flex items-center gap-2 rounded-lg bg-sky-dim px-3 py-2.5 font-mono text-[11.5px] text-sky",
+        className,
+      )}
+    >
       <svg
         className="size-3.5 shrink-0"
         viewBox="0 0 24 24"
@@ -316,5 +343,7 @@ export function Toggle({
   );
 }
 
+export { ChoiceCardGroup } from "./ChoiceCardGroup";
+export type { ChoiceCardOption } from "./ChoiceCardGroup";
 export { SegmentedControl } from "./SegmentedControl";
 export type { SegmentedOption } from "./SegmentedControl";

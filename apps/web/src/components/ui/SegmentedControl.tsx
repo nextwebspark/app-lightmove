@@ -1,5 +1,6 @@
-import { useRef, type KeyboardEvent, type ReactNode } from "react";
+import type { ReactNode } from "react";
 import { cn } from "../../lib/cn";
+import { useRadioGroupKeys } from "./useRadioGroupKeys";
 
 export interface SegmentedOption<TValue extends string> {
   value: TValue;
@@ -52,26 +53,18 @@ export function SegmentedControl<TValue extends string>({
   variant?: SegmentedVariant;
   className?: string;
 }) {
-  const groupRef = useRef<HTMLDivElement>(null);
-
-  const step = (event: KeyboardEvent<HTMLDivElement>) => {
-    const forward = event.key === "ArrowRight" || event.key === "ArrowDown";
-    const back = event.key === "ArrowLeft" || event.key === "ArrowUp";
-    if (!forward && !back) return;
-    event.preventDefault();
-    const index = options.findIndex((option) => option.value === value);
-    const next = options[(index + (forward ? 1 : -1) + options.length) % options.length];
-    onChange(next.value);
-    // The chosen option is the tab stop, so the focus follows the choice as the pattern requires.
-    groupRef.current?.querySelectorAll("button")[options.indexOf(next)]?.focus();
-  };
+  const keys = useRadioGroupKeys(
+    options.map((option) => option.value),
+    value,
+    onChange,
+  );
 
   return (
     <div
-      ref={groupRef}
+      ref={keys.ref}
       role="radiogroup"
       aria-label={label}
-      onKeyDown={step}
+      onKeyDown={keys.onKeyDown}
       className={cn("inline-flex flex-none items-center border", GROUP_CLASS[variant], className)}
     >
       {options.map((option) => {
