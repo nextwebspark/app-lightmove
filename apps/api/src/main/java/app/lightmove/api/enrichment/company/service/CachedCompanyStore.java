@@ -5,6 +5,7 @@ import app.lightmove.api.common.industry.service.Industries;
 import app.lightmove.api.enrichment.company.model.CachedCompany;
 import app.lightmove.api.enrichment.company.model.VendorCompanyRecord;
 import java.sql.Array;
+import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Timestamp;
@@ -13,6 +14,7 @@ import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
 import lombok.RequiredArgsConstructor;
+import org.springframework.jdbc.core.BatchPreparedStatementSetter;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Propagation;
@@ -50,7 +52,8 @@ public class CachedCompanyStore {
                    founded_year, about, logo_url, keywords, raw
             FROM app_lm_vendor_company
             WHERE found AND fetched_at > ? AND (CAST(? AS text) IS NULL OR lower(company_country) = lower(?))
-              AND lower(company_name) = ANY (?)
+              AND coalesce(employees_linkedin, 0) >= ?
+              AND (name_key = ANY (?) OR lower(company_name) = ANY (?))
             ORDER BY employees_linkedin DESC NULLS LAST
             LIMIT 1
             """;
@@ -62,12 +65,12 @@ public class CachedCompanyStore {
      */
     private static final String UPSERT = """
             INSERT INTO app_lm_vendor_company (
-                linkedin_slug, provider, fetched_at, found, company_name,
+                linkedin_slug, provider, fetched_at, found, company_name, name_key,
                 industry_v2_code,
                 industry_v2_label, industry_v1, sector_group, company_country, company_city,
                 employees_linkedin, website, linkedin_url, founded_year, about, logo_url, keywords,
                 raw)
-            VALUES (?, ?, now(), ?, ?,
+            VALUES (?, ?, now(), ?, ?, ?,
                 (SELECT v2_code FROM app_lm_industry_v2 WHERE lower(v2_label) = lower(?)),
                 ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CAST(? AS jsonb))
             ON CONFLICT (linkedin_slug) DO UPDATE SET
@@ -75,6 +78,7 @@ public class CachedCompanyStore {
                 fetched_at        = EXCLUDED.fetched_at,
                 found             = EXCLUDED.found,
                 company_name      = EXCLUDED.company_name,
+                name_key          = EXCLUDED.name_key,
                 industry_v2_code  = EXCLUDED.industry_v2_code,
                 industry_v2_label = EXCLUDED.industry_v2_label,
                 industry_v1       = EXCLUDED.industry_v1,
@@ -99,14 +103,21 @@ public class CachedCompanyStore {
                 linkedinSlug);
     }
 
-    /** The biggest fresh page whose name is one of {@code names}, lower-cased, in {@code country} or anywhere for null. */
+    /**
+     * The biggest fresh page with at least {@code minEmployees} whose name — without its legal form,
+     * as a live search reads it — is one of {@code spellings}, in {@code country} or anywhere for null.
+     * {@code rawNames} finds a row written before it carried that key.
+     */
     @Transactional(propagation = Propagation.REQUIRES_NEW, readOnly = true)
-    public Optional<VendorCompanyRecord> findByName(List<String> names, String country, Instant freshAfter) {
+    public Optional<VendorCompanyRecord> findByName(List<String> spellings, List<String> rawNames,
+                                                    String country, int minEmployees, Instant freshAfter) {
         return jdbc.query(SELECT_BY_NAME, ps -> {
             ps.setTimestamp(1, Timestamp.from(freshAfter));
             ps.setString(2, country);
             ps.setString(3, country);
-            ps.setArray(4, ps.getConnection().createArrayOf("text", names.toArray(String[]::new)));
+            ps.setInt(4, minEmployees);
+            ps.setArray(5, ps.getConnection().createArrayOf("text", spellings.toArray(String[]::new)));
+            ps.setArray(6, ps.getConnection().createArrayOf("text", rawNames.toArray(String[]::new)));
         }, rs -> rs.next()
                 ? Optional.of(read(rs.getString("linkedin_slug"), rs).answer())
                 : Optional.<VendorCompanyRecord>empty());
@@ -115,40 +126,63 @@ public class CachedCompanyStore {
     /** Remembers an answer — no answer included, so a slug the provider lacks is not re-bought. */
     @Transactional(propagation = Propagation.REQUIRES_NEW)
     public void remember(String linkedinSlug, String provider, Optional<VendorCompanyRecord> answer) {
-        VendorCompanyRecord record = answer.orElse(null);
+        jdbc.update(UPSERT, ps -> bind(ps, linkedinSlug, provider, answer.orElse(null)));
+    }
+
+    /** Every hit of one search, in one transaction — each was billed, and each is kept. */
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
+    public void rememberAll(String provider, List<VendorCompanyRecord> hits) {
+        if (hits.isEmpty()) {
+            return;
+        }
+        jdbc.batchUpdate(UPSERT, new BatchPreparedStatementSetter() {
+            @Override
+            public void setValues(PreparedStatement ps, int index) throws SQLException {
+                VendorCompanyRecord hit = hits.get(index);
+                bind(ps, hit.linkedinSlug(), provider, hit);
+            }
+
+            @Override
+            public int getBatchSize() {
+                return hits.size();
+            }
+        });
+    }
+
+    private static void bind(PreparedStatement ps, String linkedinSlug, String provider,
+                             VendorCompanyRecord record) throws SQLException {
         ResolvedIndustry resolved =
                 record == null ? null : Industries.resolve(record.industry());
         // A label nobody could resolve stays in industry_v2_label and leaves industry_v1 null: the
         // column is a foreign key into app_lm_industry, so the vendor's own spelling cannot go there.
         boolean known = resolved != null && resolved.sectorGroup() != null;
 
-        jdbc.update(UPSERT, ps -> {
-            int field = 1;
-            ps.setString(field++, linkedinSlug);
-            ps.setString(field++, provider);
-            ps.setBoolean(field++, record != null);
-            ps.setString(field++, record == null ? null : record.companyName());
-            ps.setString(field++, record == null ? null : record.industry());
-            ps.setString(field++, record == null ? null : record.industry());
-            ps.setString(field++, known ? resolved.label() : null);
-            ps.setString(field++, known ? resolved.sectorGroup() : null);
-            ps.setString(field++, record == null ? null : record.companyCountry());
-            ps.setString(field++, record == null ? null : record.companyCity());
-            ps.setObject(field++, record == null ? null : record.employeesInLinkedin(), Types.INTEGER);
-            ps.setString(field++, record == null ? null : record.website());
-            ps.setString(field++, record == null ? null : record.linkedinUrl());
-            ps.setObject(field++, record == null ? null : record.foundedYear(), Types.INTEGER);
-            ps.setString(field++, record == null ? null : record.about());
-            ps.setString(field++, record == null ? null : record.logoUrl());
-            List<String> keywords = record == null ? List.of() : record.keywords();
-            if (keywords == null || keywords.isEmpty()) {
-                ps.setNull(field++, Types.ARRAY);
-            } else {
-                ps.setArray(field++, ps.getConnection()
-                        .createArrayOf("text", keywords.toArray(String[]::new)));
-            }
-            ps.setString(field, record == null ? null : record.raw());
-        });
+        int field = 1;
+        ps.setString(field++, linkedinSlug);
+        ps.setString(field++, provider);
+        ps.setBoolean(field++, record != null);
+        ps.setString(field++, record == null ? null : record.companyName());
+        ps.setString(field++, record == null ? null : CompanyNames.key(record.companyName()));
+        ps.setString(field++, record == null ? null : record.industry());
+        ps.setString(field++, record == null ? null : record.industry());
+        ps.setString(field++, known ? resolved.label() : null);
+        ps.setString(field++, known ? resolved.sectorGroup() : null);
+        ps.setString(field++, record == null ? null : record.companyCountry());
+        ps.setString(field++, record == null ? null : record.companyCity());
+        ps.setObject(field++, record == null ? null : record.employeesInLinkedin(), Types.INTEGER);
+        ps.setString(field++, record == null ? null : record.website());
+        ps.setString(field++, record == null ? null : record.linkedinUrl());
+        ps.setObject(field++, record == null ? null : record.foundedYear(), Types.INTEGER);
+        ps.setString(field++, record == null ? null : record.about());
+        ps.setString(field++, record == null ? null : record.logoUrl());
+        List<String> keywords = record == null ? List.of() : record.keywords();
+        if (keywords == null || keywords.isEmpty()) {
+            ps.setNull(field++, Types.ARRAY);
+        } else {
+            ps.setArray(field++, ps.getConnection()
+                    .createArrayOf("text", keywords.toArray(String[]::new)));
+        }
+        ps.setString(field, record == null ? null : record.raw());
     }
 
     private static CachedCompany read(String linkedinSlug, ResultSet rs) throws SQLException {

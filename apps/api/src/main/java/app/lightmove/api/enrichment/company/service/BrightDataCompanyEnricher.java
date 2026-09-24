@@ -38,8 +38,6 @@ public class BrightDataCompanyEnricher implements LinkedInCompanyEnricher {
 
     private static final String VENDOR = "brightdata";
     private static final int NAME_SEARCH_HITS = 10;
-    private static final int FEWEST_EMPLOYEES = 50;
-    private static final int FEWEST_EMPLOYEES_ANYWHERE = 1_000;
 
     private final RestClient client;
     private final String datasetId;
@@ -88,9 +86,7 @@ public class BrightDataCompanyEnricher implements LinkedInCompanyEnricher {
     /**
      * {@code includes} is a case-insensitive substring match. The country is matched in the codes
      * array rather than {@code country_code}, which holds "AE,GB,KW" for a company in several; and
-     * the headcount floor keeps a one-person namesake from being billed as a hit. With no country the
-     * search is for a global company's own page, so the floor rises: a name as short as "H&M" is
-     * otherwise a page of billed strangers.
+     * the caller's headcount floor keeps a one-person namesake from being billed as a hit.
      */
     @Override
     @Retryable(
@@ -100,11 +96,11 @@ public class BrightDataCompanyEnricher implements LinkedInCompanyEnricher {
             jitterString = "${lightmove.resilience.retry-jitter}",
             multiplierString = "${lightmove.resilience.retry-multiplier}",
             maxDelayString = "${lightmove.resilience.retry-max-delay}")
-    public List<VendorCompanyRecord> searchByName(String namePart, String countryCode) {
+    public List<VendorCompanyRecord> searchByName(String namePart, String countryCode, int minEmployees) {
         JsonNode result = guard.call(VendorCall.of(VENDOR, "company-name-search"),
                 () -> client.post()
                         .uri("/datasets/search/{datasetId}", datasetId)
-                        .body(namedIn(namePart, countryCode))
+                        .body(namedIn(namePart, countryCode, minEmployees))
                         .retrieve()
                         .body(JsonNode.class));
         JsonNode hits = result == null ? null : result.get("hits");
@@ -117,14 +113,13 @@ public class BrightDataCompanyEnricher implements LinkedInCompanyEnricher {
                 .toList();
     }
 
-    static Map<String, Object> namedIn(String namePart, String countryCode) {
+    static Map<String, Object> namedIn(String namePart, String countryCode, int minEmployees) {
         Map<String, Object> named = Map.of("name", "name", "operator", "includes", "value", namePart);
-        List<Map<String, Object>> filters = countryCode == null
-                ? List.of(named, Map.of("name", "employees_in_linkedin", "operator", ">=",
-                        "value", FEWEST_EMPLOYEES_ANYWHERE))
-                : List.of(named,
-                        Map.of("name", "country_codes_array", "operator", "array_includes", "value", countryCode),
-                        Map.of("name", "employees_in_linkedin", "operator", ">=", "value", FEWEST_EMPLOYEES));
+        Map<String, Object> bigEnough = Map.of("name", "employees_in_linkedin", "operator", ">=",
+                "value", minEmployees);
+        List<Map<String, Object>> filters = countryCode == null ? List.of(named, bigEnough)
+                : List.of(named, Map.of("name", "country_codes_array", "operator", "array_includes",
+                        "value", countryCode), bigEnough);
         return Map.of("size", NAME_SEARCH_HITS, "filter", Map.of("operator", "and", "filters", filters));
     }
 

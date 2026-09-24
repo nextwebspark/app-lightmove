@@ -16,10 +16,10 @@ public interface LinkedInCompanyEnricher {
 
     /**
      * The pages whose name contains {@code namePart}, in one country — or anywhere, for a null
-     * {@code countryCode} — big enough to hire from. Every hit is billed, so a provider answers a
-     * handful rather than every match.
+     * {@code countryCode} — with at least {@code minEmployees}. Every hit is billed, so a provider
+     * answers a handful rather than every match.
      */
-    default List<VendorCompanyRecord> searchByName(String namePart, String countryCode) {
+    default List<VendorCompanyRecord> searchByName(String namePart, String countryCode, int minEmployees) {
         return List.of();
     }
 

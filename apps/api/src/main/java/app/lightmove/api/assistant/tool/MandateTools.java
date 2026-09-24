@@ -1,5 +1,7 @@
 package app.lightmove.api.assistant.tool;
 
+import app.lightmove.api.core.error.constant.ErrorCode;
+import app.lightmove.api.core.error.model.ApiException;
 import app.lightmove.api.position.dto.MandateContextDto;
 import app.lightmove.api.position.dto.PositionDetailsDto;
 import app.lightmove.api.position.dto.PositionResponse;
@@ -42,7 +44,7 @@ public class MandateTools {
         int step = recorder.startStep("Reading the position brief");
 
         MandateFacts mandate = projects.mandateOf(context.workspaceId(), context.projectId())
-                .orElse(new MandateFacts(null, null, null, null, null, null));
+                .orElseThrow(() -> ApiException.of(ErrorCode.NOT_FOUND));
         PositionResponse brief = positions.briefOf(context.workspaceId(), context.projectId());
         MandateBrief summary = summarise(mandate, employeesOf(mandate.clientApolloAccountId()), brief);
 

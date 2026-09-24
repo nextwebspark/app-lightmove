@@ -269,6 +269,11 @@ lightmove:
     thinking-budget: ${ASSISTANT_THINKING_BUDGET:512}
     history-window: ${ASSISTANT_HISTORY_WINDOW:12}
     tool-row-limit: ${ASSISTANT_TOOL_ROW_LIMIT:25}
+    max-concurrent-asks: ${ASSISTANT_MAX_CONCURRENT_ASKS:4}
+    max-names-per-lookup: 10
+    name-lookup-parallelism: 3
+    name-lookup-deadline: 25s
+    max-vendor-searches-per-ask: ${ASSISTANT_MAX_VENDOR_SEARCHES:15}
 
   email:
     provider: ${EMAIL_PROVIDER:resend}

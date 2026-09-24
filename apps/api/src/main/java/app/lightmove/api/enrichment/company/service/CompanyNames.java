@@ -32,7 +32,7 @@ final class CompanyNames {
 
     /** What to search for, most specific first: the name without its legal form, then its core. */
     static List<String> searchTerms(String name) {
-        return spellings(name).stream().filter(term -> term.length() >= SHORTEST_TERM).toList();
+        return spellingsOf(name).stream().filter(term -> term.length() >= SHORTEST_TERM).toList();
     }
 
     /** Every spelling a stored page name is compared against, the name as given included. */
@@ -41,19 +41,26 @@ final class CompanyNames {
         if (name != null && !name.isBlank()) {
             keys.add(name.strip().toLowerCase(Locale.ROOT));
         }
-        keys.addAll(spellings(name));
+        keys.addAll(spellingsOf(name));
         return List.copyOf(keys);
+    }
+
+    /** A page's name the way a search reads it — lower-cased, legal form dropped. What the cache is keyed on. */
+    static String key(String name) {
+        String key = withoutLegalForm(name);
+        return key.isEmpty() ? null : key;
     }
 
     /** The hit whose name is the one asked for, the biggest where several are. */
     static Optional<VendorCompanyRecord> best(String name, List<VendorCompanyRecord> hits) {
-        Set<String> wanted = Set.copyOf(spellings(name));
+        Set<String> wanted = Set.copyOf(spellingsOf(name));
         return hits.stream()
                 .filter(hit -> wanted.contains(withoutLegalForm(hit.companyName())))
                 .max(Comparator.comparing(hit -> hit.employeesInLinkedin() == null ? 0 : hit.employeesInLinkedin()));
     }
 
-    private static List<String> spellings(String name) {
+    /** The name without its legal form, then without its generic words — what a page's key must equal. */
+    static List<String> spellingsOf(String name) {
         String legal = withoutLegalForm(name);
         String core = without(words(legal), GENERIC_WORDS);
         Set<String> spellings = new LinkedHashSet<>();

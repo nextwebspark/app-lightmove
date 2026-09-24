@@ -27,7 +27,7 @@ public class RecordingCompanyEnricher implements LinkedInCompanyEnricher {
     }
 
     @Override
-    public List<VendorCompanyRecord> searchByName(String namePart, String countryCode) {
+    public List<VendorCompanyRecord> searchByName(String namePart, String countryCode, int minEmployees) {
         searched.add(namePart);
         return searchAnswer;
     }

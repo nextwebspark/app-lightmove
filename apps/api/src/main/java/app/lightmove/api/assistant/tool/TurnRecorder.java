@@ -29,6 +29,7 @@ public class TurnRecorder {
     private final Map<String, CapturedCompanyDetails> researched = new LinkedHashMap<>();
     private final Map<String, String> operatedBrands = new LinkedHashMap<>();
     private boolean namesLookedUp;
+    private int vendorSearches;
     private AssistantProposal proposal;
 
     public TurnRecorder(Consumer<AssistantStepEvent> onStep) {
@@ -67,6 +68,15 @@ public class TurnRecorder {
 
     public List<String> foundAccountIds() {
         return List.copyOf(foundAccountIds);
+    }
+
+    public void countVendorSearches(int searches) {
+        vendorSearches += searches;
+    }
+
+    /** Billed Bright Data searches this answer made — what its audit event records. */
+    public int vendorSearches() {
+        return vendorSearches;
     }
 
     public void researched(String linkedinSlug, CapturedCompanyDetails details) {
