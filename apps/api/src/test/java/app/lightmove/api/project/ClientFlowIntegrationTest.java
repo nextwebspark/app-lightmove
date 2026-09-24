@@ -136,6 +136,28 @@ class ClientFlowIntegrationTest extends FlowTestSupport {
     }
 
     @Test
+    @DisplayName("notes are saved with the record and read back on the drawer")
+    void updateSavesNotes() throws Exception {
+        String admin = adminOf("Notes Firm");
+        String clientId = createClient(admin, "Meridian Energy");
+
+        mvc.perform(patch("/api/v1/clients/" + clientId)
+                        .header("Authorization", "Bearer " + admin)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"name":"Meridian Energy","sector":"Energy","domain":"meridian.ae",
+                                 "offLimitsNote":"Protected until 2027","notes":"Hiring freeze lifted Q1"}"""))
+                .andExpect(status().isOk());
+
+        mvc.perform(get("/api/v1/clients/" + clientId).header("Authorization", "Bearer " + admin))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.notes").value("Hiring freeze lifted Q1"))
+                .andExpect(jsonPath("$.sector").value("Energy"))
+                .andExpect(jsonPath("$.domain").value("meridian.ae"))
+                .andExpect(jsonPath("$.offLimitsNote").value("Protected until 2027"));
+    }
+
+    @Test
     @DisplayName("renaming a client onto another client's name is a 409, whatever its case")
     void updateDuplicateNameIsRejected() throws Exception {
         String admin = adminOf("Update Duplicate Firm");

@@ -86,7 +86,7 @@ export function ClientsPage() {
     return (
       <>
         <PageHeader title="Business units" subtitle="business units shared across reqs" action={newClientButton} />
-        <TableSkeleton columns={["Business unit", "Type", "Hiring managers", "Sector", "Open positions", "Viewers"]} />
+        <TableSkeleton columns={["Business unit", "Hiring managers", "Open positions", "Viewers"]} />
       </>
     );
   }

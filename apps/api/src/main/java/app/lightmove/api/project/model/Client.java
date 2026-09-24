@@ -68,6 +68,9 @@ public class Client extends BaseEntity {
     @Column(name = "off_limits_note")
     private String offLimitsNote;
 
+    @Column(name = "notes")
+    private String notes;
+
     /** Which universe the record came from ('apollo' today). Null for a custom record. */
     @Column(name = "company_source")
     private String companySource;
@@ -113,11 +116,12 @@ public class Client extends BaseEntity {
 
     /** Registry edit from the client drawer. The provenance key is deliberately untouched. */
     public void applyDetails(String name, String sector, String hqCountry, String domain,
-                             String offLimitsNote) {
+                             String offLimitsNote, String notes) {
         this.name = name.trim();
         this.sector = sector;
         this.hqCountry = Countries.nameOf(hqCountry);
         this.domain = domain;
         this.offLimitsNote = offLimitsNote;
+        this.notes = notes;
     }
 }

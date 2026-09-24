@@ -30,12 +30,12 @@ describe("filterClients", () => {
     viewers: { active: 0, invited: 0 },
   });
 
-  it("the Active-mandates chip hides clients with no live mandate", () => {
+  it("the Active-positions chip hides clients with no live mandate", () => {
     const rows = filterClients([retained, prospect], { chip: "active", query: "" });
     expect(rows.map((c) => c.id)).toEqual(["retained"]);
   });
 
-  it("the No-representative chip keeps only clients with no contacts", () => {
+  it("the No-hiring-manager chip keeps only clients with no contacts", () => {
     const rows = filterClients([retained, prospect], { chip: "noreps", query: "" });
     expect(rows.map((c) => c.id)).toEqual(["prospect"]);
   });

@@ -7,8 +7,8 @@ import type { Client } from "../api/types";
 
 export const CHIPS = [
   { key: "all", label: "All business units" },
-  { key: "active", label: "Active mandates" },
-  { key: "noreps", label: "No representative" },
+  { key: "active", label: "Active positions" },
+  { key: "noreps", label: "No hiring manager" },
 ] as const;
 
 export type ChipKey = (typeof CHIPS)[number]["key"];

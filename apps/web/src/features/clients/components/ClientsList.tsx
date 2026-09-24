@@ -1,20 +1,19 @@
 import type { ColumnVisibilityState, OnChangeFn, PaginationState } from "@tanstack/react-table";
-import { CompanyLogo } from "../../../components/ui/CompanyLogo";
 import { DataGrid } from "../../../components/ui/DataGrid";
 import { useDataGridTable } from "../../../lib/useDataGridTable";
 import type { GridLayout } from "../../../lib/useGridLayout";
 import type { GridSort } from "../../../lib/useGridSort";
 import type { Client } from "../api/types";
 import {
+  BusinessUnitGlyph,
   CLIENT_COLUMN_PINNING,
   clientColumns,
   clientTableFeatures,
-  locationOf,
   RepStack,
-  TypePill,
   ViewerCell,
   type ClientSortField,
 } from "../lib/clientColumns";
+import { openPositionsLabel } from "../lib/openPositions";
 
 /** The client registry: the shared grid on a wide screen, a stack of cards below `md`. */
 export function ClientsList({
@@ -82,22 +81,18 @@ function ClientCard({ client, onOpen }: { client: Client; onOpen: () => void }) 
       className="flex w-full flex-col gap-2.5 rounded-[10px] border border-u-border-strong bg-u-surface p-3.5 text-left transition hover:bg-u-raised"
     >
       <div className="flex items-start gap-2.5">
-        <CompanyLogo name={client.name} logo={client.logoUrl} size={28} />
-        <span className="min-w-0 flex-1 text-[13.5px] font-semibold text-u-text">{client.name}</span>
-        <span className="flex-none">
-          <TypePill type={client.type} />
+        <BusinessUnitGlyph size={26} />
+        <span className="min-w-0 flex-1">
+          <span className="block text-[13.5px] font-semibold text-u-text">{client.name}</span>
+          <span className="block font-mono text-[11.5px] text-u-text3">
+            {openPositionsLabel(client.activeMandates)}
+          </span>
         </span>
-      </div>
-
-      <div className="font-mono text-[11.5px] text-u-text3">
-        {[locationOf(client), client.sector].filter(Boolean).join(" · ") || "—"}
       </div>
 
       <div className="flex items-center gap-2.5 border-t border-u-border pt-2.5">
         <RepStack contacts={client.contacts} />
-        <span className="ml-auto font-mono text-[11px] text-u-text2">
-          <b className="font-semibold text-u-text">{client.activeMandates}</b> active
-        </span>
+        <span className="ml-auto" />
         <ViewerCell viewers={client.viewers} />
       </div>
     </button>

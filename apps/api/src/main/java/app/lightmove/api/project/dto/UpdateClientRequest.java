@@ -18,5 +18,8 @@ public record UpdateClientRequest(
         @Size(max = 160, message = "That domain is too long")
         String domain,
 
-        String offLimitsNote
+        String offLimitsNote,
+
+        @Size(max = 2000, message = "Those notes are too long")
+        String notes
 ) {}

@@ -93,7 +93,7 @@ public class ClientService {
 
         return new ClientDetailResponse(client.getId(), client.getName(), client.getSector(),
                 client.getHqCountry(), client.getHqCity(), client.getLogoUrl(), client.getDomain(),
-                client.getOffLimitsNote(), active, mandates.size() - active, reps, mandates);
+                client.getOffLimitsNote(), client.getNotes(), active, mandates.size() - active, reps, mandates);
     }
 
     @Transactional
@@ -140,7 +140,7 @@ public class ClientService {
         }
 
         client.applyDetails(name, request.sector(), request.hqCountry(), request.domain(),
-                request.offLimitsNote());
+                request.offLimitsNote(), request.notes());
 
         audit.event(ProjectEventType.CLIENT_UPDATED)
                 .actor(userId).workspace(workspaceId).target("client", clientId).from(httpRequest)
