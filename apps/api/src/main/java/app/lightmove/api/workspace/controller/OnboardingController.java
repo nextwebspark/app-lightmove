@@ -1,9 +1,6 @@
 package app.lightmove.api.workspace.controller;
 
-import app.lightmove.api.core.config.CompanySearchSettings;
-import app.lightmove.api.core.config.LightMoveProperties;
-import app.lightmove.api.core.error.constant.ErrorCode;
-import app.lightmove.api.core.error.model.ApiException;
+import app.lightmove.api.core.ratelimit.service.RateLimitGuard;
 import app.lightmove.api.core.security.controller.AuthResponseAssembler;
 import app.lightmove.api.core.security.dto.AuthResponse;
 import app.lightmove.api.core.security.dto.UserResponse;
@@ -13,9 +10,8 @@ import app.lightmove.api.core.security.model.User;
 import app.lightmove.api.core.security.rbac.WorkspaceRole;
 import app.lightmove.api.core.security.service.AuthenticationService;
 import app.lightmove.api.core.security.token.RefreshCookieFactory;
-import app.lightmove.api.strategy.dto.CompanySuggestion;
 import app.lightmove.api.strategy.dto.CompanySuggestionsResponse;
-import app.lightmove.api.strategy.service.ApolloCompanyQueryService;
+import app.lightmove.api.strategy.service.CompanySuggestionSearch;
 import app.lightmove.api.workspace.dto.AcceptInvitationRequest;
 import app.lightmove.api.workspace.dto.AcceptInvitationSignupRequest;
 import app.lightmove.api.workspace.dto.CreateWorkspaceRequest;
@@ -58,8 +54,8 @@ public class OnboardingController {
     private final AuthenticationService authentication;
     private final AuthResponseAssembler assembler;
     private final RefreshCookieFactory refreshCookie;
-    private final ApolloCompanyQueryService companies;
-    private final LightMoveProperties properties;
+    private final CompanySuggestionSearch suggestions;
+    private final RateLimitGuard rateLimit;
 
     /**
      * Signup step 3 — create your workspace. The client must then call {@code /auth/refresh}: the
@@ -98,24 +94,17 @@ public class OnboardingController {
     /**
      * The organisation step's company picker. {@code /companies/search} is gated on
      * {@code PROJECT_BROWSE}, which nobody holds before their workspace exists, so the step reads the
-     * same universe typeahead here. Existence of a company is not secret; a query shorter than the
-     * picker's own minimum answers nothing rather than scanning the universe for one letter.
+     * same universe typeahead here. Existence of a company is not secret, but each query is an
+     * unindexable scan reachable by any verified session, so it carries its own per-account and per-IP
+     * budget; a query shorter than the picker's minimum answers nothing.
      */
     @GetMapping("/companies")
-    public ResponseEntity<CompanySuggestionsResponse> searchCompanies(@RequestParam(name = "q") String query) {
-        String trimmed = query.trim();
-        if (trimmed.length() < MIN_COMPANY_QUERY_LENGTH) {
-            return ResponseEntity.ok(new CompanySuggestionsResponse(List.of()));
-        }
-        CompanySearchSettings companySearch = properties.company().search();
-        if (trimmed.length() > companySearch.maxQueryLength()) {
-            throw new ApiException(ErrorCode.VALIDATION_FAILED,
-                    "q exceeds " + companySearch.maxQueryLength() + " characters");
-        }
+    public ResponseEntity<CompanySuggestionsResponse> searchCompanies(@AuthenticationPrincipal AuthPrincipal principal,
+                                                                      @RequestParam(name = "q") String query,
+                                                                      HttpServletRequest httpRequest) {
+        rateLimit.checkOnboardingCompanySearch(principal.email(), httpRequest);
         return ResponseEntity.ok(new CompanySuggestionsResponse(
-                companies.typeahead(trimmed, companySearch.defaultResultLimit()).stream()
-                        .map(CompanySuggestion::of)
-                        .toList()));
+                suggestions.suggest(query, null, MIN_COMPANY_QUERY_LENGTH)));
     }
 
     /**
