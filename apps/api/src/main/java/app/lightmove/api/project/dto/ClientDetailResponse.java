@@ -13,6 +13,7 @@ public record ClientDetailResponse(
         String logoUrl,
         String domain,
         String offLimitsNote,
+        String notes,
         long activeMandates,
         long deliveredMandates,
         List<RepresentativeResponse> representatives,

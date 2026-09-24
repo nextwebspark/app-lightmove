@@ -136,6 +136,42 @@ class ClientFlowIntegrationTest extends FlowTestSupport {
     }
 
     @Test
+    @DisplayName("a PATCH changes only the fields it carries, and a blank one clears its field")
+    void updateIsPartial() throws Exception {
+        String admin = adminOf("Notes Firm");
+        String clientId = createClient(admin, "Meridian Energy");
+
+        patchClient(admin, clientId, """
+                {"name":"Meridian Energy","sector":"Energy","domain":"meridian.ae",
+                 "offLimitsNote":"Protected until 2027"}""");
+        patchClient(admin, clientId, """
+                {"name":"Meridian Energy","notes":"Hiring freeze lifted Q1"}""");
+
+        mvc.perform(get("/api/v1/clients/" + clientId).header("Authorization", "Bearer " + admin))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.notes").value("Hiring freeze lifted Q1"))
+                .andExpect(jsonPath("$.sector").value("Energy"))
+                .andExpect(jsonPath("$.domain").value("meridian.ae"))
+                .andExpect(jsonPath("$.offLimitsNote").value("Protected until 2027"));
+
+        patchClient(admin, clientId, """
+                {"name":"Meridian Energy","notes":""}""");
+
+        mvc.perform(get("/api/v1/clients/" + clientId).header("Authorization", "Bearer " + admin))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.notes").value(org.hamcrest.Matchers.nullValue()))
+                .andExpect(jsonPath("$.sector").value("Energy"));
+    }
+
+    private void patchClient(String token, String clientId, String body) throws Exception {
+        mvc.perform(patch("/api/v1/clients/" + clientId)
+                        .header("Authorization", "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(body))
+                .andExpect(status().isOk());
+    }
+
+    @Test
     @DisplayName("renaming a client onto another client's name is a 409, whatever its case")
     void updateDuplicateNameIsRejected() throws Exception {
         String admin = adminOf("Update Duplicate Firm");
