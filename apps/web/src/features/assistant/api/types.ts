@@ -67,3 +67,15 @@ export type AssistantThread = {
   projectId: string | null;
   turns: AssistantTurn[];
 };
+
+/** A question the empty chat offers: the firm's own sector, a sector beside it, or its size. */
+export type AssistantStarter = {
+  kind: "SECTOR" | "ADJACENT" | "SIZE";
+  prompt: string;
+};
+
+/** `sectorAssumed` means nothing records the firm's sector and the starters are retail's. */
+export type AssistantStarters = {
+  sectorAssumed: boolean;
+  starters: AssistantStarter[];
+};

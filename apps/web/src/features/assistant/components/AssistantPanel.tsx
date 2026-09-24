@@ -8,15 +8,9 @@ import { useEscapeKey } from "../../../lib/useEscapeKey";
 import * as assistantApi from "../api/assistantApi";
 import { useAssistant } from "../AssistantProvider";
 import type { AssistantProposal, AssistantThread, LiveStep } from "../api/types";
-import { AssistantProposalCard } from "./AssistantProposalCard";
+import { AssistantStarters } from "./AssistantStarters";
 import { AssistantSteps } from "./AssistantSteps";
 import { AssistantTurnView, QuestionBubble } from "./AssistantTurnView";
-
-const STARTERS = [
-  "Top 10 retail companies in the United Arab Emirates",
-  "Largest oil & energy companies in Saudi Arabia",
-  "Construction companies in Qatar with 500 to 5,000 staff",
-];
 
 const STILL_ANSWERING_RECHECK_MS = 20_000;
 
@@ -30,11 +24,26 @@ function withWritingStep(steps: LiveStep[]): LiveStep[] {
 }
 
 /**
+ * Stands in for the card until the turn is saved: a card drawn early is redrawn under the answer
+ * once it lands, which read as a glitch.
+ */
+function PreparingCard({ count }: { count: number }) {
+  return (
+    <div className="mt-3 flex items-center gap-2 rounded-[9px] border border-u-border bg-u-raised px-3 py-2.5">
+      <Icon d="M21 12a9 9 0 1 1-6.2-8.6" size={11} className="flex-none animate-spin text-u-inferred" />
+      <span className="font-sans text-[11.5px] text-u-text2">
+        Preparing the card for {count} {count === 1 ? "company" : "companies"}…
+      </span>
+    </div>
+  );
+}
+
+/**
  * The assistant, docked beside the page rather than over it: `role="complementary"` with no scrim,
  * so the grid next to it stays usable while it is open.
  *
- * <p>One chat at a time. Asking streams the steps and the card as they happen, and the saved turn
- * replaces them once the answer is written.
+ * <p>One chat at a time. Asking streams the steps as they happen; the card is drawn only with the
+ * saved turn, once the answer is written.
  */
 export function AssistantPanel({ contextLabel, projectId }: { contextLabel: string; projectId: string }) {
   const { isOpenFor, toggledByUser, closeAssistant, threadIdFor, showThread } = useAssistant();
@@ -246,10 +255,8 @@ export function AssistantPanel({ contextLabel, projectId }: { contextLabel: stri
           <div>
             <QuestionBubble question={pendingQuestion} />
             <AssistantSteps steps={withWritingStep(liveSteps)} />
-            {liveProposal && (
-              <div className="mt-3">
-                <AssistantProposalCard proposal={liveProposal} outcome={null} filing={false} pending onAccept={() => {}} />
-              </div>
+            {liveProposal && liveProposal.companies.length > 0 && (
+              <PreparingCard count={liveProposal.companies.length} />
             )}
           </div>
         )}
@@ -261,24 +268,7 @@ export function AssistantPanel({ contextLabel, projectId }: { contextLabel: stri
         )}
 
         {empty && !threadId && (
-          <div className="my-auto">
-            <div className="mb-4 text-center">
-              <p className="font-sans text-[13px] text-u-text2">Find companies for this mandate.</p>
-              <p className="mt-1 font-mono text-[11px] text-u-text3">
-                It searches the company universe and lets you add what it finds.
-              </p>
-            </div>
-            {STARTERS.map((starter) => (
-              <button
-                key={starter}
-                type="button"
-                onClick={() => setDraft(starter)}
-                className="mb-1.5 block w-full rounded-lg border border-dashed border-u-border-strong px-2.5 py-2 text-start font-sans text-xs text-u-text2 transition hover:border-solid hover:border-u-inferred hover:bg-u-inferred-tint hover:text-u-text"
-              >
-                {starter}
-              </button>
-            ))}
-          </div>
+          <AssistantStarters projectId={projectId} disabled={asking.isPending} onPick={(prompt) => asking.mutate(prompt)} />
         )}
       </div>
 

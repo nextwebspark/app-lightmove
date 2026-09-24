@@ -2,6 +2,7 @@ import { ApiRequestError, request, streamEvents } from "../../../lib/apiClient";
 import type { BulkAddResult, TriageCompanyStatus } from "../../triage/api/types";
 import type {
   AssistantProposal,
+  AssistantStarters,
   AssistantThread,
   AssistantThreadSummary,
   AssistantTurn,
@@ -10,6 +11,11 @@ import type {
 
 export const ASSISTANT_THREAD_KEY = (threadId: string) => ["assistant", "thread", threadId] as const;
 export const ASSISTANT_THREADS_KEY = (projectId: string) => ["assistant", "threads", projectId] as const;
+export const ASSISTANT_STARTERS_KEY = (projectId: string) => ["assistant", "starters", projectId] as const;
+
+export function listStarters(projectId: string): Promise<AssistantStarters> {
+  return request<AssistantStarters>(`/projects/${projectId}/assistant/starters`);
+}
 
 export function listThreads(projectId: string): Promise<AssistantThreadSummary[]> {
   return request<AssistantThreadSummary[]>(`/projects/${projectId}/assistant/threads`);
