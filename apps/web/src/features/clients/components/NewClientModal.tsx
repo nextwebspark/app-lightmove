@@ -86,7 +86,24 @@ export function NewClientModal({
   const createLabel = contactEmail.trim() ? "Create & send invite" : "Create business unit";
 
   return (
-    <Modal open={open} onClose={onClose} title="New business unit">
+    <Modal
+      open={open}
+      onClose={onClose}
+      title="New business unit"
+      footer={
+        // The actions arrive with the pick: until a company is chosen there is nothing to create.
+        pick && (
+          <>
+            <Button variant="secondary" onClick={onClose}>
+              Cancel
+            </Button>
+            <Button loading={create.isPending} onClick={submit}>
+              {createLabel}
+            </Button>
+          </>
+        )
+      }
+    >
       <p className="-mt-2 mb-4 font-mono text-[11.5px] text-text3">
         Search the company database first — or add a business unit that isn't listed.
       </p>
@@ -136,15 +153,6 @@ export function NewClientModal({
               placeholder="name@company.com"
             />
           </Field>
-
-          <div className="mt-5 flex justify-end gap-2">
-            <Button variant="secondary" onClick={onClose}>
-              Cancel
-            </Button>
-            <Button loading={create.isPending} onClick={submit}>
-              {createLabel}
-            </Button>
-          </div>
         </>
       )}
     </Modal>

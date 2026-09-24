@@ -53,7 +53,7 @@ const PROJECT_TYPE_OPTIONS: readonly ChoiceCardOption<ProjectType>[] = [
 ];
 
 const TIMELINE_HEADING =
-  "mb-4 mt-5 border-t border-line-soft pt-4 font-mono text-[10px] font-semibold uppercase tracking-[0.14em] text-text3";
+  "mb-4 mt-5 border-t border-u-border pt-4 font-mono text-[10px] font-semibold uppercase tracking-[0.14em] text-u-text3";
 
 /**
  * The New-position modal (`claude-design/Workspace.dc.html`): business unit (pick, or name a new one),
@@ -241,9 +241,22 @@ export function NewProjectModal({
   const mappingTargetDays = mappingTarget ? daysBetween(startDate, mappingTarget) : null;
 
   return (
-    // The dialog keeps its own scroll: the timeline makes this form taller than a laptop screen, and the
-    // template list opens over the type cards below the Position field, well inside the scroll area.
-    <Modal open={open} onClose={onClose} title="New position">
+    // The template list opens over the type cards below the Position field, inside the scrolling body.
+    <Modal
+      open={open}
+      onClose={onClose}
+      title="New position"
+      footer={
+        <>
+          <Button variant="secondary" onClick={onClose}>
+            Cancel
+          </Button>
+          <Button loading={create.isPending} onClick={submit}>
+            Create position
+          </Button>
+        </>
+      }
+    >
       <FormError message={error} />
 
       {/* The hint carries the name because a disabled <select> is skipped in a screen reader's forms
@@ -300,7 +313,7 @@ export function NewProjectModal({
       </Field>
 
       <div className="mb-4">
-        <span className="mb-1.5 block font-mono text-[10px] font-semibold uppercase tracking-[0.12em] text-text3">
+        <span className="mb-1.5 block font-mono text-[10px] font-semibold uppercase tracking-[0.12em] text-u-text3">
           Project type
         </span>
         <ChoiceCardGroup
@@ -335,10 +348,10 @@ export function NewProjectModal({
 
       {showSummary && isMapping && (
         <Notice title="Target">
-          <div className="text-[13.5px] font-semibold text-text">
+          <div className="text-[13.5px] font-semibold text-u-text">
             Map delivery: {formatDate(deliveryDate)} · Starting {formatDate(startDate)}
           </div>
-          <div className="mt-0.5 font-mono text-meta text-text2">{windowDays} days from start</div>
+          <div className="mt-0.5 font-mono text-meta text-u-text2">{windowDays} days from start</div>
         </Notice>
       )}
 
@@ -346,7 +359,7 @@ export function NewProjectModal({
         <Notice title="Auto-calculated milestones">
           <MilestoneRow
             label="Mapping target"
-            dotClassName="bg-sky"
+            dotClassName="bg-u-accent"
             note={`~${Math.round(MAPPING_SHARE * 100)}% of window · ${mappingTargetDays} days from start${
               mappingTargetOverride ? " · edited" : ""
             }`}
@@ -360,26 +373,18 @@ export function NewProjectModal({
               className="w-auto gap-1.5 border-0 bg-transparent p-0 font-sans text-[12.5px] font-semibold"
             />
           </MilestoneRow>
-          <MilestoneRow label="Shortlist target" dotClassName="bg-amber" note="Matches shortlist delivery date">
-            <span className="flex items-center gap-1.5 text-[12.5px] font-semibold text-text">
+          <MilestoneRow label="Shortlist target" dotClassName="bg-u-accent" note="Matches shortlist delivery date">
+            <span className="flex items-center gap-1.5 text-[12.5px] font-semibold text-u-text">
               {formatDate(deliveryDate)}
-              <Icon d={ICONS.lock} size={12} className="text-text3" />
+              <Icon d={ICONS.lock} size={12} className="text-u-text3" />
             </span>
           </MilestoneRow>
-          <div className="mt-2 border-t border-line-soft pt-2 text-meta text-text3">
+          <div className="mt-2 border-t border-u-border pt-2 text-meta text-u-text3">
             Auto-calculated from the start and shortlist dates.
           </div>
         </Notice>
       )}
 
-      <div className="mt-5 flex justify-end gap-2">
-        <Button variant="secondary" onClick={onClose}>
-          Cancel
-        </Button>
-        <Button loading={create.isPending} onClick={submit}>
-          Create position
-        </Button>
-      </div>
     </Modal>
   );
 }
@@ -398,15 +403,15 @@ function MilestoneRow({
   children: ReactNode;
 }) {
   return (
-    <div className="flex items-start gap-2 border-t border-line-soft py-2">
+    <div className="flex items-start gap-2 border-t border-u-border py-2">
       <span aria-hidden="true" className={cn("mt-[5px] size-1.5 flex-none rounded-full", dotClassName)} />
       <div className="min-w-0 flex-1">
         <div className="flex items-center justify-between gap-2">
-          <span className="font-mono text-[10px] font-semibold uppercase tracking-[0.06em] text-text3">{label}</span>
+          <span className="font-mono text-[10px] font-semibold uppercase tracking-[0.06em] text-u-text3">{label}</span>
           {children}
         </div>
-        <div className="mt-0.5 text-meta text-text3">{note}</div>
-        {error && <div className="mt-0.5 font-mono text-meta text-red">{error}</div>}
+        <div className="mt-0.5 text-meta text-u-text3">{note}</div>
+        {error && <div className="mt-0.5 font-mono text-meta text-u-offlimits">{error}</div>}
       </div>
     </div>
   );

@@ -102,7 +102,26 @@ export function ImportTemplatesDialog({
   const toWrite = plan ? writesIn(plan) : 0;
 
   return (
-    <Modal open={open} onClose={close} title="Import templates" className="md:w-[640px]">
+    <Modal
+      open={open}
+      onClose={close}
+      title="Import templates"
+      className="md:w-[640px]"
+      footer={
+        <>
+          <Button variant="secondary" onClick={close}>
+            Cancel
+          </Button>
+          {plan && file && (
+            <Button disabled={invalid || toWrite === 0} loading={commit.isPending} onClick={() => commit.mutate(file)}>
+              {invalid || toWrite === 0
+                ? "Import"
+                : `Import ${toWrite} template${toWrite === 1 ? "" : "s"}`}
+            </Button>
+          )}
+        </>
+      }
+    >
       <p className="-mt-2 mb-4 font-mono text-[11.5px] text-text3">{SCOPE_LINES[scope]}</p>
       <FormError message={failure} />
 
@@ -205,19 +224,6 @@ export function ImportTemplatesDialog({
           )}
         </>
       )}
-
-      <div className="mt-5 flex justify-end gap-2">
-        <Button variant="secondary" onClick={close}>
-          Cancel
-        </Button>
-        {plan && file && (
-          <Button disabled={invalid || toWrite === 0} loading={commit.isPending} onClick={() => commit.mutate(file)}>
-            {invalid || toWrite === 0
-              ? "Import"
-              : `Import ${toWrite} template${toWrite === 1 ? "" : "s"}`}
-          </Button>
-        )}
-      </div>
     </Modal>
   );
 }

@@ -26,6 +26,21 @@ describe("Modal", () => {
   });
 });
 
+/** The actions are pinned beneath the body, so a short screen scrolls the form and never the buttons. */
+describe("Modal — footer", () => {
+  it("renders the footer outside the scrolling body", () => {
+    render(
+      <Modal open onClose={vi.fn()} title="New position" footer={<button>Create</button>}>
+        <p>form</p>
+      </Modal>,
+    );
+
+    const body = screen.getByText("form").parentElement!;
+    expect(body).toHaveClass("overflow-y-auto");
+    expect(body).not.toContainElement(screen.getByRole("button", { name: "Create" }));
+  });
+});
+
 describe("Toast", () => {
   function Trigger({ message }: { message: string }) {
     const toast = useToast();

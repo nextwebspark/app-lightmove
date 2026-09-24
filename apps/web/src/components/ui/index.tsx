@@ -269,10 +269,10 @@ export function Notice({
 }) {
   if (title) {
     return (
-      <div className={cn("mb-4 rounded-lg border border-sky bg-sky-dim px-3.5 py-3", className)}>
+      <div className={cn("mb-4 rounded-lg border border-u-accent bg-u-accent-tint px-3.5 py-3", className)}>
         <div className="mb-1.5 flex items-center gap-1.5">
-          <span aria-hidden="true" className="size-1.5 rounded-full bg-sky" />
-          <span className="text-[10px] font-semibold uppercase tracking-[0.1em] text-sky">{title}</span>
+          <span aria-hidden="true" className="size-1.5 rounded-full bg-u-accent" />
+          <span className="text-[10px] font-semibold uppercase tracking-[0.1em] text-u-accent">{title}</span>
         </div>
         {children}
       </div>
