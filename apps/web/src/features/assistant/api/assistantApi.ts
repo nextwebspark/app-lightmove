@@ -46,9 +46,10 @@ export async function ask(
     { method: "POST", body: { question, threadId } },
   );
   if (received.turn) return received.turn;
-  // No `done`: the model failed, or the answer outran the 55s stream.
+  // A stream that ended with no event lost its connection, not its answer: the server finishes and
+  // saves it regardless, so it reads as still answering rather than as a failure to retry.
   throw new ApiRequestError({
-    code: received.failedCode ?? "ASSISTANT_UNAVAILABLE",
+    code: received.failedCode ?? "ASSISTANT_STILL_ANSWERING",
     detail: "The assistant could not answer",
     status: 503,
     correlationId: "none",

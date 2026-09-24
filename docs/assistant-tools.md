@@ -11,7 +11,10 @@ v1 does only this. New abilities are added one tool at a time, each one tested b
 ```
 Panel ──POST /api/v1/projects/{projectId}/assistant/ask {question, threadId?}──▶ AssistantController
    @PreAuthorize projectAuthorizer WORK_EXECUTE; a chat that is not yours → 404 (plain HTTP, before streaming)
-   └─ AssistantAskStream: returns an SseEmitter, runs AssistantService.ask on a background thread
+   └─ AssistantAskStream: LlmBudget.ASSISTANT per user, then one of max-concurrent-asks slots
+      (ASSISTANT_BUSY when none), returns an SseEmitter, runs AssistantService.ask on a background
+      thread; at 50s an unfinished answer closes the stream as ASSISTANT_STILL_ANSWERING and is
+      still saved; every answered ask records ASSISTANT_ASKED with its Bright Data searches
         ├─ find my chat in this project (or start one titled from the question)
         ├─ last N question/answer pairs → history
         ├─ ChatClient.call() with the tools + ToolContext {workspaceId, projectId, TurnRecorder}

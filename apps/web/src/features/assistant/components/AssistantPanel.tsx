@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useRef, useState } from "react";
 import { Icon, ICONS } from "../../../components/layout/Icon";
 import { cn } from "../../../lib/cn";
+import { ApiRequestError } from "../../../lib/apiClient";
 import { messageFor } from "../../../lib/errorCodes";
 import { useEscapeKey } from "../../../lib/useEscapeKey";
 import * as assistantApi from "../api/assistantApi";
@@ -16,6 +17,8 @@ const STARTERS = [
   "Largest oil & energy companies in Saudi Arabia",
   "Construction companies in Qatar with 500 to 5,000 staff",
 ];
+
+const STILL_ANSWERING_RECHECK_MS = 20_000;
 
 const READING_STEP: LiveStep = { index: 0, label: "Reading your question", detail: null, done: false };
 
@@ -58,9 +61,13 @@ export function AssistantPanel({ contextLabel, projectId }: { contextLabel: stri
   const [liveProposal, setLiveProposal] = useState<AssistantProposal | null>(null);
   const [pendingQuestion, setPendingQuestion] = useState<string | null>(null);
   const scroller = useRef<HTMLDivElement>(null);
+  // Set when the person opens another chat mid-answer: the answer still lands in its own chat, but
+  // must not pull them back to it.
+  const movedOn = useRef(false);
 
   const asking = useMutation({
     mutationFn: (question: string) => {
+      movedOn.current = false;
       setLiveSteps([]);
       setLiveProposal(null);
       setPendingQuestion(question);
@@ -80,6 +87,11 @@ export function AssistantPanel({ contextLabel, projectId }: { contextLabel: stri
     onSuccess: async (turn) => {
       const key = assistantApi.ASSISTANT_THREAD_KEY(turn.threadId);
       const cached = queryClient.getQueryData<AssistantThread>(key);
+      void queryClient.invalidateQueries({ queryKey: assistantApi.ASSISTANT_THREADS_KEY(projectId) });
+      if (movedOn.current) {
+        if (cached) queryClient.setQueryData(key, { ...cached, turns: [...cached.turns, turn] });
+        return;
+      }
       const fresh = cached
         ? { ...cached, turns: [...cached.turns.filter((held) => held.id !== turn.id), turn] }
         : await assistantApi.getThread(turn.threadId);
@@ -87,11 +99,18 @@ export function AssistantPanel({ contextLabel, projectId }: { contextLabel: stri
       setLiveProposal(null);
       queryClient.setQueryData(key, fresh);
       showThread(projectId, turn.threadId);
-      void queryClient.invalidateQueries({ queryKey: assistantApi.ASSISTANT_THREADS_KEY(projectId) });
     },
-    onError: () => {
+    // A slow answer is still saved, so it is looked for again rather than asked for again.
+    onError: (error) => {
       setPendingQuestion(null);
       setLiveProposal(null);
+      if (error instanceof ApiRequestError && error.code === "ASSISTANT_STILL_ANSWERING") {
+        void queryClient.invalidateQueries({ queryKey: assistantApi.ASSISTANT_THREADS_KEY(projectId) });
+        if (threadId) {
+          const key = assistantApi.ASSISTANT_THREAD_KEY(threadId);
+          window.setTimeout(() => void queryClient.invalidateQueries({ queryKey: key }), STILL_ANSWERING_RECHECK_MS);
+        }
+      }
     },
   });
 
@@ -103,6 +122,7 @@ export function AssistantPanel({ contextLabel, projectId }: { contextLabel: stri
   };
 
   const handleOpenThread = (id: string | null) => {
+    movedOn.current = asking.isPending;
     setHistoryOpen(false);
     asking.reset();
     setPendingQuestion(null);

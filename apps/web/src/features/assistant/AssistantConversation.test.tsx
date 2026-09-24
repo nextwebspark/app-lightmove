@@ -180,6 +180,36 @@ describe("a chat with the assistant", () => {
     expect(screen.getByRole("button", { name: "Universe" })).toBeEnabled();
   });
 
+  it("leaves the person in the chat they moved to when an earlier answer lands", async () => {
+    const answered = turn("t1", "th1");
+    let finish: (value: AssistantTurn) => void = () => {};
+    ask.mockImplementation(() => new Promise<AssistantTurn>((resolve) => {
+      finish = resolve;
+    }));
+    getThread.mockResolvedValue(thread("th1", [answered]));
+
+    mount();
+    await send("Question t1");
+    await userEvent.click(screen.getByRole("button", { name: "New chat" }));
+
+    finish(answered);
+
+    await waitFor(() => expect(screen.getByText("Find companies for this mandate.")).toBeInTheDocument());
+    expect(screen.queryByText("Answer t1")).not.toBeInTheDocument();
+  });
+
+  it("says a slow answer is still coming rather than inviting a paid retry", async () => {
+    const { ApiRequestError } = await import("../../lib/apiClient");
+    ask.mockRejectedValue(new ApiRequestError({
+      code: "ASSISTANT_STILL_ANSWERING", detail: "", status: 202, correlationId: "none",
+    }));
+
+    mount();
+    await send("Top retailers in UAE");
+
+    expect(await screen.findByText(/no need to ask again/)).toBeInTheDocument();
+  });
+
   it("shows a sent question once, acknowledged at once, and follows the chat down as it grows", async () => {
     const scrolled = vi.fn();
     Element.prototype.scrollTo = scrolled;

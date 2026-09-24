@@ -261,9 +261,23 @@ public enum ErrorCode {
     CANDIDATE_PROFILE_URL_LOCKED(HttpStatus.CONFLICT,
             "This profile was captured from LinkedIn; its URL is not editable"),
 
-    /** The model could not be reached or gave no usable answer. Nothing was saved; asking again is safe. */
+    /**
+     * The model could not be reached or gave no usable answer, and nothing was saved. Never sent for a
+     * stream that ran out of time — that answer may still be saved; see {@link #ASSISTANT_STILL_ANSWERING}.
+     */
     ASSISTANT_UNAVAILABLE(HttpStatus.SERVICE_UNAVAILABLE,
             "The assistant could not answer just now. Try again in a moment"),
+
+    /** Every answer slot on this instance is taken. Refused before anything is asked or billed. */
+    ASSISTANT_BUSY(HttpStatus.SERVICE_UNAVAILABLE,
+            "The assistant is busy answering other questions. Try again in a moment"),
+
+    /**
+     * Sent in place of an answer when the stream has to close first. The answer is still being worked
+     * out and is saved to the chat when it is ready, so asking again would pay for it twice.
+     */
+    ASSISTANT_STILL_ANSWERING(HttpStatus.ACCEPTED,
+            "This is taking longer than usual. The answer will appear in this chat when it is ready"),
 
     /**
      * The proposal on this turn has already been filed. A conflict rather than a quiet re-run: the

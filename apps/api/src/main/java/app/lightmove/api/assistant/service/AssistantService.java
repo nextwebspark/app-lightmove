@@ -16,6 +16,8 @@ import app.lightmove.api.assistant.tool.NamedCompanyTools;
 import app.lightmove.api.assistant.tool.ProposalTools;
 import app.lightmove.api.assistant.tool.SectorTools;
 import app.lightmove.api.assistant.tool.TurnRecorder;
+import app.lightmove.api.core.audit.constant.ProjectEventType;
+import app.lightmove.api.core.audit.service.AuditService;
 import app.lightmove.api.core.config.AssistantSettings;
 import app.lightmove.api.core.config.LightMoveProperties;
 import app.lightmove.api.core.error.constant.ErrorCode;
@@ -61,6 +63,7 @@ public class AssistantService {
     private final SectorTools sectorTools;
     private final NamedCompanyTools namedCompanyTools;
     private final TransactionTemplate transactions;
+    private final AuditService audit;
     private final Resource systemPrompt;
     private final AssistantSettings settings;
 
@@ -68,7 +71,7 @@ public class AssistantService {
                             ChatClient chatClient, CompanySearchTools searchTools,
                             ProposalTools proposalTools, MandateTools mandateTools, SectorTools sectorTools,
                             NamedCompanyTools namedCompanyTools,
-                            TransactionTemplate transactions,
+                            TransactionTemplate transactions, AuditService audit,
                             @Value("classpath:prompts/assistant-system.st") Resource systemPrompt,
                             LightMoveProperties properties) {
         this.threads = threads;
@@ -80,6 +83,7 @@ public class AssistantService {
         this.sectorTools = sectorTools;
         this.namedCompanyTools = namedCompanyTools;
         this.transactions = transactions;
+        this.audit = audit;
         this.systemPrompt = systemPrompt;
         this.settings = properties.assistant();
     }
@@ -125,7 +129,7 @@ public class AssistantService {
         String answer = callModel(question, history, context);
         proposalTools.proposeWhatWasFound(context);
 
-        return transactions.execute(status -> {
+        AssistantTurnResponse saved = transactions.execute(status -> {
             AssistantThread thread = existing != null ? existing
                     : threads.save(AssistantThread.of(workspaceId, userId, projectId,
                             titleOf(question)));
@@ -134,6 +138,15 @@ public class AssistantService {
             threads.touch(thread.getId(), Instant.now());
             return AssistantTurnResponse.of(turn);
         });
+        audit.event(ProjectEventType.ASSISTANT_ASKED)
+                .actor(userId).workspace(workspaceId).target("project", projectId)
+                .detail("threadId", saved.threadId().toString())
+                .detail("turnId", saved.id().toString())
+                .detail("vendorSearches", String.valueOf(recorder.vendorSearches()))
+                .detail("companiesOnCard", String.valueOf(
+                        recorder.proposal() == null ? 0 : recorder.proposal().companies().size()))
+                .record();
+        return saved;
     }
 
     /**

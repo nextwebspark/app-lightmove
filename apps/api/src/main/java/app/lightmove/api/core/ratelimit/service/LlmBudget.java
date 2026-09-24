@@ -30,7 +30,10 @@ public enum LlmBudget {
     ASSESSMENT_EXTRACT("assessment-extract", LlmRateLimitSettings::defaultRequestsPerMinute),
 
     /** Step three's "Read from document" — reporting-structure extraction. */
-    REPORTING_EXTRACT("reporting-extract", LlmRateLimitSettings::defaultRequestsPerMinute);
+    REPORTING_EXTRACT("reporting-extract", LlmRateLimitSettings::defaultRequestsPerMinute),
+
+    /** A question to the assistant — several model rounds, and vendor lookups behind them. */
+    ASSISTANT("assistant", LlmRateLimitSettings::defaultRequestsPerMinute);
 
     private final String meter;
     private final ToIntFunction<LlmRateLimitSettings> callsPerMinute;
