@@ -62,6 +62,7 @@ const userWith = (roles: ("ADMIN" | "MEMBER" | "CLIENT")[]) => ({
     logoMark: "M",
     emailDomain: "firm.example",
     joinedAt: null,
+    company: null,
     roles,
   },
 });

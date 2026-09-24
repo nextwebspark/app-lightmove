@@ -131,6 +131,7 @@ const lead = {
     logoMark: "F",
     emailDomain: "firm.example",
     joinedAt: null,
+    company: null,
     roles: ["MEMBER" as const],
   },
 };

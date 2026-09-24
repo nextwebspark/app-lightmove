@@ -1,4 +1,4 @@
-import { keepPreviousData, useQuery } from "@tanstack/react-query";
+import { keepPreviousData, useQuery, type QueryKey } from "@tanstack/react-query";
 import { useState } from "react";
 import { Button, Field, Input, Spinner } from "../../../components/ui";
 import { CountryField } from "../../../components/ui/CountryField";
@@ -16,9 +16,21 @@ import {
 /** How many characters the box waits for before it asks the universe anything. */
 const MIN_QUERY_LENGTH = 2;
 
+/** Which endpoint answers the typeahead — signup reads the universe before any workspace exists. */
+export interface CompanySearchSource {
+  key: (query: string) => QueryKey;
+  search: (query: string, signal: AbortSignal) => Promise<CompanySuggestion[]>;
+}
+
+const WORKSPACE_COMPANY_SEARCH: CompanySearchSource = {
+  key: COMPANY_SEARCH_KEY,
+  search: (query, signal) => searchCompanies(query, undefined, signal).then((page) => page.companies),
+};
+
 /**
  * The company step of creating a client, shared by both entrances — the registry's New-client modal and
- * the New-project modal's inline client.
+ * the New-project modal's inline client — and signup's organisation step, which passes its own
+ * `source` and takes a typed name with no further details.
  *
  * <p>It reads the Apollo universe through the same `/companies/search` call and the same query key
  * Strategy's own pickers use, so a keystroke typed here is answered from the cache they filled.
@@ -33,6 +45,9 @@ export function CompanyPicker({
   onRejectExisting,
   error,
   autoFocus,
+  label = "Company",
+  source = WORKSPACE_COMPANY_SEARCH,
+  asksCustomDetails = true,
 }: {
   pick: CompanyPick | null;
   onPick: (pick: CompanyPick | null) => void;
@@ -43,6 +58,10 @@ export function CompanyPicker({
   /** A refusal the caller owns — "nothing picked yet". Rendered by `Field`, like every other error. */
   error?: string;
   autoFocus?: boolean;
+  label?: string;
+  source?: CompanySearchSource;
+  /** False takes "None of these" as the typed name alone, with no domain/country form. */
+  asksCustomDetails?: boolean;
 }) {
   const [query, setQuery] = useState("");
   const [customOpen, setCustomOpen] = useState(false);
@@ -55,9 +74,8 @@ export function CompanyPicker({
   // The signal is not optional politeness: typeahead is `company_name ILIKE '%…%'` over 71,822 rows,
   // which no index can serve, so an abandoned keystroke left running is a full scan nobody awaits.
   const { data, isFetching, isError } = useQuery({
-    queryKey: COMPANY_SEARCH_KEY(debounced),
-    queryFn: ({ signal }): Promise<CompanySuggestion[]> =>
-      searchCompanies(debounced, undefined, signal).then((page) => page.companies),
+    queryKey: source.key(debounced),
+    queryFn: ({ signal }): Promise<CompanySuggestion[]> => source.search(debounced, signal),
     enabled: pick === null && debounced.length >= MIN_QUERY_LENGTH,
     placeholderData: keepPreviousData,
   });
@@ -76,6 +94,14 @@ export function CompanyPicker({
       return;
     }
     onPick({ source: "universe", company: hit });
+  };
+
+  const handleAddCustom = () => {
+    if (asksCustomDetails) {
+      setCustomOpen(true);
+      return;
+    }
+    onPick({ source: "custom", name: trimmed, domain: "", hqCountry: "" });
   };
 
   const handleConfirmCustom = (name: string, domain: string, hqCountry: string) => {
@@ -113,7 +139,7 @@ export function CompanyPicker({
 
   return (
     <>
-      <Field label="Company" error={error}>
+      <Field label={label} error={error}>
         <Input
           value={query}
           onChange={(event) => setQuery(event.target.value)}
@@ -161,7 +187,7 @@ export function CompanyPicker({
           {!isFetching && (
             <button
               type="button"
-              onClick={() => setCustomOpen(true)}
+              onClick={handleAddCustom}
               className="flex w-full items-center gap-1.5 px-3 py-2.5 text-left font-mono text-[11.5px] text-amber hover:bg-panel2"
             >
               ＋ None of these — add “{trimmed}” as a new company

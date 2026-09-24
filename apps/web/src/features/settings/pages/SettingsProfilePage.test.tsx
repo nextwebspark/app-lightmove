@@ -42,6 +42,7 @@ describe("SettingsProfilePage — your own profile", () => {
       logoMark: "N",
       emailDomain: "nextwebspark.com",
       joinedAt: "2026-03-14T09:00:00Z",
+      company: null,
       roles: ["ADMIN" as const],
     },
   };

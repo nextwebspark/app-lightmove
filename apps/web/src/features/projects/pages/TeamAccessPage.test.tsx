@@ -64,6 +64,7 @@ describe("TeamAccessPage", () => {
       logoMark: "F",
       emailDomain: "firm.example",
       joinedAt: null,
+      company: null,
       roles: ["ADMIN" as const],
     },
   };

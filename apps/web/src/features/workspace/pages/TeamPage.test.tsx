@@ -63,6 +63,7 @@ describe("TeamPage — a refused read", () => {
         logoMark: "M",
         emailDomain: "firm.example",
         joinedAt: null,
+        company: null,
         roles: ["ADMIN" as const],
       },
     });

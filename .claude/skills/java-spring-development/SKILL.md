@@ -365,6 +365,10 @@ method plus the records it returns — never another feature's internals:
   Suggested seats row — one more read, never a write, so the boundary above still holds.
 - `project`'s `ClientService` calls `ApolloCompanyQueryService` to resolve the company a new client
   record names.
+- `workspace`'s `OnboardingService` calls `ApolloCompanyQueryService.byAccountIds` the same way, to
+  resolve the firm signup's organisation step picked, and `OnboardingController` answers that step's
+  typeahead from `typeahead` — `/companies/search` needs `PROJECT_BROWSE`, which nobody holds before
+  their workspace exists.
 - The projects list's two pipeline numbers run the same inversion as `TriagedCompanyLookup` above, and
   it is the shape to copy whenever a feature needs a read from one that already depends on it:
   `project` declares `ProjectCompanyCounter` and `ProjectCandidateCounter` in its own `service/`, and

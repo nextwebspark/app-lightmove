@@ -9,7 +9,6 @@ import app.lightmove.api.strategy.dto.CompanySuggestion;
 import app.lightmove.api.strategy.dto.CompanySuggestionsResponse;
 import app.lightmove.api.strategy.dto.FacetsResponse;
 import app.lightmove.api.strategy.dto.KeywordSuggestionsResponse;
-import app.lightmove.api.strategy.model.CompanyRow;
 import app.lightmove.api.strategy.service.ApolloCompanyQueryService;
 import app.lightmove.api.strategy.service.IndustryAdjacency;
 import java.util.List;
@@ -73,7 +72,7 @@ public class CompanySearchController {
         }
         return ResponseEntity.ok(new CompanySuggestionsResponse(
                 companies.typeahead(trimmed, resolvedLimit(limit, searchConfig.defaultResultLimit())).stream()
-                        .map(CompanySearchController::toSuggestion)
+                        .map(CompanySuggestion::of)
                         .toList()));
     }
 
@@ -132,11 +131,5 @@ public class CompanySearchController {
                     "limit must be between 1 and " + searchConfig.maxResultLimit());
         }
         return limit;
-    }
-
-    private static CompanySuggestion toSuggestion(CompanyRow row) {
-        return new CompanySuggestion(row.apolloAccountId(), row.companyName(), row.industry(),
-                row.companyCity(), row.companyCountry(), row.website(), row.logoUrl(),
-                row.numEmployees());
     }
 }

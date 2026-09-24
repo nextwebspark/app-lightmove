@@ -93,6 +93,7 @@ describe("VerifyEmailPage", () => {
         logoMark: "M",
         emailDomain: "nextwebspark.com",
         joinedAt: null,
+        company: null,
         roles: ["ADMIN"],
       },
     });

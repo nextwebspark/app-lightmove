@@ -51,6 +51,7 @@ describe("SettingsMembersPage — the roster", () => {
       logoMark: "N",
       emailDomain: "nextwebspark.com",
       joinedAt: null,
+      company: null,
       roles: ["ADMIN" as const],
     },
   };

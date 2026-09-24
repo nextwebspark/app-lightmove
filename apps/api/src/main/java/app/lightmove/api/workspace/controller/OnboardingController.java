@@ -1,5 +1,9 @@
 package app.lightmove.api.workspace.controller;
 
+import app.lightmove.api.core.config.CompanySearchSettings;
+import app.lightmove.api.core.config.LightMoveProperties;
+import app.lightmove.api.core.error.constant.ErrorCode;
+import app.lightmove.api.core.error.model.ApiException;
 import app.lightmove.api.core.security.controller.AuthResponseAssembler;
 import app.lightmove.api.core.security.dto.AuthResponse;
 import app.lightmove.api.core.security.dto.UserResponse;
@@ -9,6 +13,9 @@ import app.lightmove.api.core.security.model.User;
 import app.lightmove.api.core.security.rbac.WorkspaceRole;
 import app.lightmove.api.core.security.service.AuthenticationService;
 import app.lightmove.api.core.security.token.RefreshCookieFactory;
+import app.lightmove.api.strategy.dto.CompanySuggestion;
+import app.lightmove.api.strategy.dto.CompanySuggestionsResponse;
+import app.lightmove.api.strategy.service.ApolloCompanyQueryService;
 import app.lightmove.api.workspace.dto.AcceptInvitationRequest;
 import app.lightmove.api.workspace.dto.AcceptInvitationSignupRequest;
 import app.lightmove.api.workspace.dto.CreateWorkspaceRequest;
@@ -44,11 +51,15 @@ import org.springframework.web.bind.annotation.RestController;
 @RequiredArgsConstructor
 public class OnboardingController {
 
+    private static final int MIN_COMPANY_QUERY_LENGTH = 2;
+
     private final OnboardingService onboarding;
     private final InvitationService invitations;
     private final AuthenticationService authentication;
     private final AuthResponseAssembler assembler;
     private final RefreshCookieFactory refreshCookie;
+    private final ApolloCompanyQueryService companies;
+    private final LightMoveProperties properties;
 
     /**
      * Signup step 3 — create your workspace. The client must then call {@code /auth/refresh}: the
@@ -60,7 +71,7 @@ public class OnboardingController {
                                                         HttpServletRequest httpRequest) {
         onboarding.createWorkspace(
                 principal.userId(),
-                new CreateWorkspaceCommand(request.name(), request.companySize(),
+                new CreateWorkspaceCommand(request.name(), request.apolloAccountId(), request.companySize(),
                         request.primaryRegion(), request.teamFocus()),
                 httpRequest);
 
@@ -76,12 +87,35 @@ public class OnboardingController {
                                                         @Valid @RequestBody CreateWorkspaceRequest request,
                                                         HttpServletRequest httpRequest) {
         CreateWorkspaceCommand command = new CreateWorkspaceCommand(
-                request.name(), request.companySize(), request.primaryRegion(),
+                request.name(), request.apolloAccountId(), request.companySize(), request.primaryRegion(),
                 request.teamFocus());
 
         onboarding.updateWorkspace(principal.userId(), principal.requireWorkspaceId(), command, httpRequest);
 
         return ResponseEntity.ok(currentUser(principal));
+    }
+
+    /**
+     * The organisation step's company picker. {@code /companies/search} is gated on
+     * {@code PROJECT_BROWSE}, which nobody holds before their workspace exists, so the step reads the
+     * same universe typeahead here. Existence of a company is not secret; a query shorter than the
+     * picker's own minimum answers nothing rather than scanning the universe for one letter.
+     */
+    @GetMapping("/companies")
+    public ResponseEntity<CompanySuggestionsResponse> searchCompanies(@RequestParam(name = "q") String query) {
+        String trimmed = query.trim();
+        if (trimmed.length() < MIN_COMPANY_QUERY_LENGTH) {
+            return ResponseEntity.ok(new CompanySuggestionsResponse(List.of()));
+        }
+        CompanySearchSettings companySearch = properties.company().search();
+        if (trimmed.length() > companySearch.maxQueryLength()) {
+            throw new ApiException(ErrorCode.VALIDATION_FAILED,
+                    "q exceeds " + companySearch.maxQueryLength() + " characters");
+        }
+        return ResponseEntity.ok(new CompanySuggestionsResponse(
+                companies.typeahead(trimmed, companySearch.defaultResultLimit()).stream()
+                        .map(CompanySuggestion::of)
+                        .toList()));
     }
 
     /**

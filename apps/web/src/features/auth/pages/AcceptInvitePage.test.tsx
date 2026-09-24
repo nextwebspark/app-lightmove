@@ -86,6 +86,7 @@ describe("AcceptInvitePage", () => {
           logoMark: null,
           emailDomain: "nextwebspark.com",
           joinedAt: null,
+          company: null,
           roles: ["MEMBER"],
         },
       },

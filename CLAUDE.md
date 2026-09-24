@@ -376,6 +376,10 @@ firm's own. V58 makes both editable: a firm's row sharing a library row's `code`
 shadows the library row in every read (`PositionTemplateRepository.findAllVisibleTo`), `customised_from`
 against the library's `revised_at` says the library moved on since, and `app_lm_position_template_hidden`
 takes a library template out of one firm's picker and title matching.
+V68 gives `app_lm_workspace` the same write-time company snapshot: signup's organisation step picks
+the firm from the universe (`GET /onboarding/companies`, since `/companies/search` needs a workspace)
+and the server files it under the resolved row's name, id, industry, city, country, website, LinkedIn
+and logo; a firm typed in by hand leaves them all null.
 V57 adds the `PLATFORM` role scope and `app_lm_user_platform_role` — written by
 `grant-platform-role.sh`, never by the application.
 `app_lm_position_document` holds the attached position description inline (`bytea`) — one small file per

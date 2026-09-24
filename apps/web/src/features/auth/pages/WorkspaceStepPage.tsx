@@ -2,8 +2,10 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { useNavigate } from "react-router-dom";
-import { AuthLogo, Button, Card, Field, FormError, Input, Select } from "../../../components/ui";
+import { AuthLogo, Button, Card, Field, FormError, Select } from "../../../components/ui";
 import { ApiRequestError } from "../../../lib/apiClient";
+import { CompanyPicker, type CompanySearchSource } from "../../clients/components/CompanyPicker";
+import { pickedCompanyName, type CompanyPick } from "../../clients/lib/companyPick";
 import { useAuth } from "../AuthProvider";
 import { SIGNUP_STEPS, Stepper } from "../components/Stepper";
 import * as authApi from "../api/authApi";
@@ -60,9 +62,13 @@ function CreateWorkspace({
 }) {
   const [formError, setFormError] = useState<string | null>(null);
 
+  const [pick, setPick] = useState<CompanyPick | null>(() => (editing ? pickOf(editing) : null));
+
   const {
     register,
     handleSubmit,
+    setValue,
+    clearErrors,
     formState: { errors, isSubmitting },
   } = useForm<WorkspaceValues>({
     resolver: zodResolver(workspaceSchema),
@@ -75,10 +81,22 @@ function CreateWorkspace({
     },
   });
 
+  const handlePick = (next: CompanyPick | null) => {
+    setPick(next);
+    setValue("name", next ? pickedCompanyName(next) : "");
+    if (next) clearErrors("name");
+    const size = next?.source === "universe" ? companySizeOf(next.company.numEmployees) : null;
+    if (size) setValue("companySize", size);
+  };
+
   const onSubmit = async (values: WorkspaceValues) => {
     setFormError(null);
+    const payload = {
+      ...values,
+      apolloAccountId: pick?.source === "universe" ? pick.company.apolloAccountId : null,
+    };
     try {
-      await (editing ? authApi.updateWorkspace(values) : authApi.createWorkspace(values));
+      await (editing ? authApi.updateWorkspace(payload) : authApi.createWorkspace(payload));
       await onCreated();
     } catch (error) {
       setFormError(
@@ -97,18 +115,25 @@ function CreateWorkspace({
       <FormError message={formError} />
 
       <form onSubmit={handleSubmit(onSubmit)} noValidate>
-        <Field
-          label="Organization name"
-          error={errors.name?.message}
-          hint="This becomes your workspace name — you can change it later."
-        >
-          <Input
+        {pick && (
+          <span className="mb-1.5 block font-mono text-[10px] font-semibold uppercase tracking-[0.12em] text-text3">
+            Organization name
+          </span>
+        )}
+        {/* The picker's result list carries no margin of its own; the picked card and the bare field do. */}
+        <div className={pick ? undefined : "mb-4"}>
+          <CompanyPicker
+            label="Organization name"
+            pick={pick}
+            onPick={handlePick}
+            source={ONBOARDING_COMPANY_SEARCH}
+            asksCustomDetails={false}
+            // Typing is not choosing: the name is only set by a pick, so say how to make one.
+            error={errors.name ? "Choose your organization from the list, or add it as new" : undefined}
             autoFocus
-            placeholder="e.g. Uncava Search Partners"
-            invalid={!!errors.name}
-            {...register("name")}
           />
-        </Field>
+        </div>
+        <input type="hidden" {...register("name")} />
 
         {/* No bottom margin: each Field already carries mb-4, and stacking the grid's own on top of the
             last row's put a double gap above Continue that the mockup does not have. */}
@@ -144,4 +169,37 @@ function CreateWorkspace({
       </form>
     </>
   );
+}
+
+const ONBOARDING_COMPANY_SEARCH: CompanySearchSource = {
+  key: authApi.ONBOARDING_COMPANY_SEARCH_KEY,
+  search: authApi.searchOnboardingCompanies,
+};
+
+/** The workspace they already made, as the picker shows a pick: the universe row it was filed under, or its typed name. */
+function pickOf(workspace: WorkspaceSummary): CompanyPick {
+  const { company } = workspace;
+  if (!company) return { source: "custom", name: workspace.name, domain: "", hqCountry: "" };
+  return {
+    source: "universe",
+    company: {
+      apolloAccountId: company.apolloAccountId,
+      companyName: workspace.name,
+      industry: company.industry,
+      companyCity: company.city,
+      companyCountry: company.country,
+      website: company.website,
+      logoUrl: company.logoUrl,
+      numEmployees: null,
+    },
+  };
+}
+
+/** The universe's headcount as one of the step's size bands; null leaves the dropdown where it was. */
+function companySizeOf(numEmployees: number | null): string | null {
+  if (numEmployees === null || numEmployees <= 0) return null;
+  if (numEmployees <= 10) return COMPANY_SIZES[0];
+  if (numEmployees <= 50) return COMPANY_SIZES[1];
+  if (numEmployees <= 200) return COMPANY_SIZES[2];
+  return COMPANY_SIZES[3];
 }
