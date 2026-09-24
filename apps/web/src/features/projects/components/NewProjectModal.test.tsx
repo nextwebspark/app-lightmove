@@ -99,7 +99,7 @@ describe("NewProjectModal — the business unit the entrance already decided", (
     expect(screen.queryByText("Globex")).not.toBeInTheDocument();
     expect(screen.queryByText(/New business unit/)).not.toBeInTheDocument();
     // The inline-create path must be unreachable, not merely unlabelled.
-    expect(screen.queryByPlaceholderText("e.g. Data & Analytics")).not.toBeInTheDocument();
+    expect(screen.queryByPlaceholderText(/name a new business unit/)).not.toBeInTheDocument();
 
     await user.type(screen.getByPlaceholderText(/Chief Financial Officer/), "CFO");
     await user.click(screen.getByRole("button", { name: "Create position" }));
@@ -111,17 +111,35 @@ describe("NewProjectModal — the business unit the entrance already decided", (
     );
   });
 
-  it("still offers the full list and an inline business unit on the free-choice entrance", async () => {
+  it("offers every business unit on focus, and filters as a name is typed", async () => {
     const user = userEvent.setup();
 
     render(wrap(modal()));
 
     const field = screen.getByRole("combobox", { name: /Business unit/ });
     expect(field).toBeEnabled();
+    await user.click(field);
+    expect(screen.getByRole("option", { name: "Acme Corp" })).toBeInTheDocument();
     expect(screen.getByRole("option", { name: "Globex" })).toBeInTheDocument();
 
-    await user.selectOptions(field, "__new__");
-    expect(screen.getByPlaceholderText("e.g. Data & Analytics")).toBeInTheDocument();
+    await user.type(field, "glo");
+
+    expect(screen.queryByRole("option", { name: "Acme Corp" })).not.toBeInTheDocument();
+    expect(screen.getByRole("option", { name: "Globex" })).toBeInTheDocument();
+    expect(screen.getByRole("option", { name: /Create “glo”/ })).toBeInTheDocument();
+  });
+
+  it("takes a picked business unit's name into the one field", async () => {
+    const user = userEvent.setup();
+
+    render(wrap(modal()));
+
+    const field = screen.getByRole("combobox", { name: /Business unit/ });
+    await user.type(field, "acm");
+    await user.click(screen.getByRole("option", { name: "Acme Corp" }));
+
+    expect(field).toHaveValue("Acme Corp");
+    expect(screen.queryByRole("listbox", { name: "Business units" })).not.toBeInTheDocument();
   });
 
   it("submits the business unit the prop names now, not the one it named at mount", async () => {
@@ -205,6 +223,7 @@ describe("NewProjectModal — the role-template picker on the Position field", (
     const user = userEvent.setup();
 
     render(wrap(<NewProjectModal open onClose={vi.fn()} clients={CLIENTS} />));
+    await user.type(screen.getByRole("combobox", { name: /Business unit/ }), "Acme Corp");
 
     const field = screen.getByRole("combobox", { name: "Position" });
     await user.click(field);
@@ -230,6 +249,7 @@ describe("NewProjectModal — the role-template picker on the Position field", (
     const user = userEvent.setup();
 
     render(wrap(<NewProjectModal open onClose={vi.fn()} clients={CLIENTS} />));
+    await user.type(screen.getByRole("combobox", { name: /Business unit/ }), "Acme Corp");
 
     const field = screen.getByRole("combobox", { name: "Position" });
     await user.type(field, "Group CFO – Energy Division");
@@ -330,17 +350,16 @@ describe("NewProjectModal — where a refusal is reported", () => {
     expect(field).not.toHaveAttribute("aria-invalid", "true");
   });
 
-  it("asks for the new business unit's name, and clears the error as it is typed", async () => {
+  it("asks for a business unit, and clears the error as one is typed", async () => {
     const user = userEvent.setup();
     render(wrap(<NewProjectModal open onClose={vi.fn()} clients={CLIENTS} />));
 
-    await user.selectOptions(screen.getByRole("combobox", { name: /Business unit/ }), "__new__");
     await user.click(screen.getByRole("button", { name: "Create position" }));
-    expect(screen.getByText("Enter the business unit name")).toBeInTheDocument();
+    expect(screen.getByText("Choose a business unit or name a new one")).toBeInTheDocument();
 
-    await user.type(screen.getByPlaceholderText("e.g. Data & Analytics"), "D");
+    await user.type(screen.getByRole("combobox", { name: /Business unit/ }), "D");
 
-    expect(screen.queryByText("Enter the business unit name")).not.toBeInTheDocument();
+    expect(screen.queryByText("Choose a business unit or name a new one")).not.toBeInTheDocument();
   });
 
   it("creates the inline business unit by name, then the position against it", async () => {
@@ -349,8 +368,7 @@ describe("NewProjectModal — where a refusal is reported", () => {
     const user = userEvent.setup();
     render(wrap(<NewProjectModal open onClose={vi.fn()} clients={CLIENTS} />));
 
-    await user.selectOptions(screen.getByRole("combobox", { name: /Business unit/ }), "__new__");
-    await user.type(screen.getByPlaceholderText("e.g. Data & Analytics"), "  Data & Analytics ");
+    await user.type(screen.getByRole("combobox", { name: /Business unit/ }), "  Data & Analytics ");
     await user.type(screen.getByRole("combobox", { name: "Position" }), "CFO");
     await user.click(screen.getByRole("button", { name: "Create position" }));
 
@@ -371,8 +389,7 @@ describe("NewProjectModal — where a refusal is reported", () => {
     const user = userEvent.setup();
     render(wrap(<NewProjectModal open onClose={vi.fn()} clients={CLIENTS} />));
 
-    await user.selectOptions(screen.getByRole("combobox", { name: /Business unit/ }), "__new__");
-    await user.type(screen.getByPlaceholderText("e.g. Data & Analytics"), "GLOBEX");
+    await user.type(screen.getByRole("combobox", { name: /Business unit/ }), "GLOBEX");
     await user.type(screen.getByRole("combobox", { name: "Position" }), "CFO");
     await user.click(screen.getByRole("button", { name: "Create position" }));
 
@@ -392,6 +409,7 @@ describe("NewProjectModal — where a refusal is reported", () => {
     );
     const user = userEvent.setup();
     render(wrap(<NewProjectModal open onClose={vi.fn()} clients={CLIENTS} />));
+    await user.type(screen.getByRole("combobox", { name: /Business unit/ }), "Acme Corp");
 
     await user.type(screen.getByRole("combobox", { name: "Position" }), "CFO");
     await user.click(screen.getByRole("button", { name: "Create position" }));
@@ -403,6 +421,7 @@ describe("NewProjectModal — where a refusal is reported", () => {
     vi.mocked(projectsApi.createProject).mockResolvedValue(created("acme"));
     const user = userEvent.setup();
     render(wrap(<NewProjectModal open onClose={vi.fn()} clients={CLIENTS} />));
+    await user.type(screen.getByRole("combobox", { name: /Business unit/ }), "Acme Corp");
 
     const title = "C".repeat(160);
     await user.type(screen.getByRole("combobox", { name: "Position" }), title);
@@ -423,6 +442,7 @@ describe("NewProjectModal — where a refusal is reported", () => {
     );
     const user = userEvent.setup();
     render(wrap(<NewProjectModal open onClose={vi.fn()} clients={CLIENTS} />));
+    await user.type(screen.getByRole("combobox", { name: /Business unit/ }), "Acme Corp");
 
     await user.type(screen.getByRole("combobox", { name: "Position" }), "CFO");
     await user.click(screen.getByRole("button", { name: "Create position" }));
@@ -437,6 +457,7 @@ describe("NewProjectModal — where a refusal is reported", () => {
     );
     const user = userEvent.setup();
     render(wrap(<NewProjectModal open onClose={vi.fn()} clients={CLIENTS} />));
+    await user.type(screen.getByRole("combobox", { name: /Business unit/ }), "Acme Corp");
 
     await user.type(screen.getByRole("combobox", { name: "Position" }), "CFO");
     await user.click(screen.getByRole("button", { name: "Create position" }));
@@ -469,6 +490,7 @@ describe("NewProjectModal — project type and timeline", () => {
     vi.mocked(projectsApi.createProject).mockResolvedValue(created("acme"));
     const user = userEvent.setup();
     render(wrap(<NewProjectModal open onClose={vi.fn()} clients={CLIENTS} />));
+    await user.type(screen.getByRole("combobox", { name: /Business unit/ }), "Acme Corp");
 
     expect(screen.getByRole("radio", { name: /Mapping/ })).toHaveAttribute("aria-checked", "true");
     expect(dateInput(/Project start date/)).toHaveValue("2026-09-24");
@@ -495,6 +517,7 @@ describe("NewProjectModal — project type and timeline", () => {
     vi.mocked(projectsApi.createProject).mockResolvedValue(created("acme"));
     const user = userEvent.setup();
     render(wrap(<NewProjectModal open onClose={vi.fn()} clients={CLIENTS} />));
+    await user.type(screen.getByRole("combobox", { name: /Business unit/ }), "Acme Corp");
 
     await user.click(screen.getByRole("radio", { name: /Search/ }));
     fireEvent.change(dateInput(/Shortlist delivery date/), { target: { value: "2026-11-08" } });

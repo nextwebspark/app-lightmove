@@ -6,7 +6,6 @@ import {
   DateInput,
   Field,
   FormError,
-  Input,
   Modal,
   Notice,
   Select,
@@ -25,8 +24,7 @@ import { RoleTitleCombobox } from "../../position/components/RoleTitleCombobox";
 import * as projectsApi from "../api/projectsApi";
 import type { ProjectType } from "../api/types";
 import { autoMappingTarget, daysBetween, MAPPING_SHARE, todayIso } from "../lib/timeline";
-
-const NEW_CLIENT = "__new__";
+import { BusinessUnitCombobox } from "./BusinessUnitCombobox";
 
 /** Mirrors `@Size(max = 160)` on CreateProjectRequest.positionTitle, so the cap is met at the field. */
 const MAX_POSITION_TITLE_LENGTH = 160;
@@ -34,8 +32,8 @@ const MAX_POSITION_TITLE_LENGTH = 160;
 /** Mirrors `@Size(max = 160)` on CreateClientRequest.customName. */
 const MAX_BUSINESS_UNIT_NAME_LENGTH = 160;
 
-/** The inputs a rejected create can be attributed to; the business unit select offers ids only. */
-type ProjectField = "newClientName" | "positionTitle" | "deliveryDate" | "mappingTargetDate";
+/** The inputs a rejected create can be attributed to. */
+type ProjectField = "businessUnit" | "positionTitle" | "deliveryDate" | "mappingTargetDate";
 
 const PROJECT_TYPE_OPTIONS: readonly ChoiceCardOption<ProjectType>[] = [
   {
@@ -56,11 +54,11 @@ const TIMELINE_HEADING =
   "mb-4 mt-5 border-t border-u-border pt-4 font-mono text-[10px] font-semibold uppercase tracking-[0.14em] text-u-text3";
 
 /**
- * The New-position modal (`claude-design/Workspace.dc.html`): business unit (pick, or name a new one),
- * position (typed free, or picked from the role-template library — the same combobox as the brief's
- * step one), project type, and the timeline. There is no lead to choose — whoever creates the mandate
- * is seated as its lead by the server. A 409 on the inline business unit quietly resolves to the
- * existing record — the user meant that one.
+ * The New-position modal (`claude-design/Workspace.dc.html`): business unit (one field — pick an
+ * existing one or type a new one), position (typed free, or picked from the role-template library —
+ * the same combobox as the brief's step one), project type, and the timeline. There is no lead to
+ * choose — whoever creates the mandate is seated as its lead by the server. A typed name the registry
+ * already holds files under that unit, and so does a 409 on creating it — the user meant that one.
  *
  * Opened from a business unit's drawer, the entrance has already decided the unit: the field is shown
  * locked and `lockedClientId` — not state — is what gets submitted, so the mandate cannot land on a
@@ -84,10 +82,7 @@ export function NewProjectModal({
   const queryClient = useQueryClient();
   const toast = useToast();
 
-  // null until the user picks: seeding from `clients` at mount mirrors server state, and the list is
-  // still empty on the render where Projects opens this modal before its clients query has settled.
-  const [pickedClientId, setPickedClientId] = useState<string | null>(null);
-  const [newClientName, setNewClientName] = useState("");
+  const [businessUnitName, setBusinessUnitName] = useState("");
   const [positionTitle, setPositionTitle] = useState("");
   const [projectType, setProjectType] = useState<ProjectType>("MAPPING");
   const [startDate, setStartDate] = useState(todayIso);
@@ -115,8 +110,9 @@ export function NewProjectModal({
     () => new Map(clients.map((client) => [client.name.toLowerCase(), client])),
     [clients],
   );
-  const clientId = lockedClientId || pickedClientId || clients[0]?.id || NEW_CLIENT;
-  const creatingClient = clientId === NEW_CLIENT;
+  const unitName = businessUnitName.trim();
+  const knownUnit = clientsByName.get(unitName.toLowerCase());
+  const creatingClient = !lockedClientId && !!unitName && !knownUnit;
 
   const isMapping = projectType === "MAPPING";
   const windowDays = startDate && deliveryDate ? daysBetween(startDate, deliveryDate) : null;
@@ -128,24 +124,18 @@ export function NewProjectModal({
 
   const create = useMutation({
     mutationFn: async () => {
-      let resolvedClientId = clientId;
-      if (creatingClient) {
-        const name = newClientName.trim();
-        const known = clientsByName.get(name.toLowerCase());
-        if (known) {
-          resolvedClientId = known.id;
-        } else {
-          try {
-            resolvedClientId = (await clientsApi.createClient({ customName: name })).id;
-          } catch (clientError) {
-            if (codeOf(clientError) !== "CLIENT_ALREADY_EXISTS") throw clientError;
-            // The user meant that unit. Re-fetch rather than trust the prop — a colleague may have
-            // created it after this modal's list was cached.
-            const fresh = await clientsApi.clients();
-            const existing = fresh.find((c) => c.name.toLowerCase() === name.toLowerCase());
-            if (!existing) throw clientError;
-            resolvedClientId = existing.id;
-          }
+      let resolvedClientId = lockedClientId || knownUnit?.id;
+      if (!resolvedClientId) {
+        try {
+          resolvedClientId = (await clientsApi.createClient({ customName: unitName })).id;
+        } catch (clientError) {
+          if (codeOf(clientError) !== "CLIENT_ALREADY_EXISTS") throw clientError;
+          // The user meant that unit. Re-fetch rather than trust the prop — a colleague may have
+          // created it after this modal's list was cached.
+          const fresh = await clientsApi.clients();
+          const existing = fresh.find((c) => c.name.toLowerCase() === unitName.toLowerCase());
+          if (!existing) throw clientError;
+          resolvedClientId = existing.id;
         }
       }
       return projectsApi.createProject({
@@ -167,7 +157,7 @@ export function NewProjectModal({
       // Two requests can fail here — the inline business unit create and the position create — so both
       // DTOs' field names are mapped onto the field that carries them.
       const { fields, formMessage } = fieldErrorsFrom(mutationError, {
-        customName: "newClientName",
+        customName: "businessUnit",
         positionTitle: "positionTitle",
         deliveryDate: "deliveryDate",
         mappingTargetDate: "mappingTargetDate",
@@ -211,29 +201,20 @@ export function NewProjectModal({
 
   const submit = () => {
     setError(null);
-    setFieldErrors({});
-    const name = newClientName.trim();
-    if (creatingClient && !name) {
-      setFieldErrors({ newClientName: "Enter the business unit name" });
-      return;
+    const title = positionTitle.trim();
+    const refused: Partial<Record<ProjectField, string>> = {};
+    if (!lockedClientId && !unitName) {
+      refused.businessUnit = "Choose a business unit or name a new one";
+    } else if (creatingClient && unitName.length > MAX_BUSINESS_UNIT_NAME_LENGTH) {
+      refused.businessUnit = `That name is too long — keep it to ${MAX_BUSINESS_UNIT_NAME_LENGTH} characters or fewer`;
     }
-    if (creatingClient && name.length > MAX_BUSINESS_UNIT_NAME_LENGTH) {
-      setFieldErrors({
-        newClientName: `That name is too long — keep it to ${MAX_BUSINESS_UNIT_NAME_LENGTH} characters or fewer`,
-      });
-      return;
+    if (!title) {
+      refused.positionTitle = "Enter the position title";
+    } else if (title.length > MAX_POSITION_TITLE_LENGTH) {
+      refused.positionTitle = `That title is too long — keep it to ${MAX_POSITION_TITLE_LENGTH} characters or fewer`;
     }
-    if (!positionTitle.trim()) {
-      setFieldErrors({ positionTitle: "Enter the position title" });
-      return;
-    }
-    if (positionTitle.trim().length > MAX_POSITION_TITLE_LENGTH) {
-      setFieldErrors({
-        positionTitle: `That title is too long — keep it to ${MAX_POSITION_TITLE_LENGTH} characters or fewer`,
-      });
-      return;
-    }
-    if (dateOrderError) return;
+    setFieldErrors(refused);
+    if (Object.keys(refused).length > 0 || dateOrderError) return;
     create.mutate();
   };
 
@@ -264,7 +245,14 @@ export function NewProjectModal({
           even when the control itself never gets focus. */}
       <Field
         label="Business unit"
-        hint={locked ? `This position belongs to ${locked.name}.` : undefined}
+        hint={
+          locked
+            ? `This position belongs to ${locked.name}.`
+            : creatingClient
+              ? "A new business unit — it is created with the position."
+              : undefined
+        }
+        error={fieldErrors.businessUnit}
       >
         {lockedClientId ? (
           // Disabled rather than replaced by plain text: the user still sees which unit the position
@@ -273,31 +261,17 @@ export function NewProjectModal({
             <option value={lockedClientId}>{locked?.name ?? "Selected business unit"}</option>
           </Select>
         ) : (
-          <Select value={clientId} onChange={(event) => setPickedClientId(event.target.value)}>
-            {clients.map((client) => (
-              <option key={client.id} value={client.id}>
-                {client.name}
-              </option>
-            ))}
-            <option value={NEW_CLIENT}>＋ New business unit…</option>
-          </Select>
+          <BusinessUnitCombobox
+            value={businessUnitName}
+            clients={clients}
+            invalid={!!fieldErrors.businessUnit}
+            onChange={(name) => {
+              setBusinessUnitName(name);
+              clearFieldError("businessUnit");
+            }}
+          />
         )}
       </Field>
-
-      {creatingClient && (
-        <Field label="New business unit name" error={fieldErrors.newClientName}>
-          <Input
-            value={newClientName}
-            onChange={(event) => {
-              setNewClientName(event.target.value);
-              clearFieldError("newClientName");
-            }}
-            placeholder="e.g. Data & Analytics"
-            invalid={!!fieldErrors.newClientName}
-            autoFocus
-          />
-        </Field>
-      )}
 
       {/* Picking a template only fills the title: creation seeds the brief from the title on the
           server, through the same keyword match a typed one gets, so no id travels with the form. */}
