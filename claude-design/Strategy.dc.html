@@ -9,13 +9,22 @@
 <x-dc>
 <helmet>
   <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700;900&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="uncava-tokens.css">
+  <script src="./image-slot.js"></script>
   <style>
-    :root{--bg:#f8f9fb;--panel:#ffffff;--panel2:#f3f4f6;--line:#e2e4e9;--line-soft:#edeef2;--text:#111113;--text2:#475569;--text3:#64748b;--amber:#a67c2e;--amber-btn:#e2b65c;--amber-dim:rgba(226,182,92,.14);--on-amber:#1a1712;--sky:#2563eb;--sky-dim:rgba(37,99,235,.10);--red:#dc2626;--red-dim:rgba(220,38,38,.08);--green:#059669;--green-dim:rgba(5,150,105,.10);--ai:#6366f1;--ai2:#3b82f6;--ai-line:#4f46e5;--ai-dim:rgba(99,102,241,.10);--ai-soft:rgba(99,102,241,.06);--shadow:0 8px 28px rgba(15,23,42,.10);--radius-panel:14px;--mono:'Geist','Inter',system-ui,sans-serif;--sans:'Geist','Inter',system-ui,sans-serif;
-      --t-eyebrow:9.5px;--t-meta:11px;--t-note:12px;--t-body:13px;--t-lead:15px;--t-subhead:17px;--t-title:19px;--t-figure:27px;
-      --u-bg:#ffffff;--u-surface:#f7f8fa;--u-raised:#eceff3;--u-sunken:#e4e8ee;--u-border:rgba(3,7,18,.09);--u-border-strong:rgba(3,7,18,.16);--u-scrim:rgba(3,7,18,.4);--u-text:#0b0d12;--u-text2:#4c5462;--u-text3:#6b7382;--u-accent:#4a56d6;--u-accent-solid:#4a56d6;--u-accent-tint:rgba(74,86,214,.09);--u-accent-ring:rgba(74,86,214,.4);--u-signal:#a8602f;--u-signal-tint:rgba(168,96,47,.1);--u-offlimits:#d93a45;--u-offlimits-tint:rgba(217,58,69,.1);--u-direct:#0f9d6b;--u-direct-tint:rgba(15,157,107,.1);--u-adjacent:#1f72d4;--u-adjacent-tint:rgba(31,114,212,.1);--u-inferred:#8244d6;--u-inferred-tint:rgba(130,68,214,.1);--u-chart-1:#4a56d6;--u-chart-2:#0f9d6b;--u-chart-3:#a8602f;--u-chart-4:#8244d6;--u-chart-5:#1e8fa8;--u-chart-6:#d93a45;--u-seq-1:#e4e8f6;--u-seq-2:#b9c0ee;--u-seq-3:#8189f7;--u-seq-4:#4a56d6;--u-seq-5:#2e3878;--u-grid-axis:rgba(3,7,18,.14);--u-grid-line:rgba(3,7,18,.07);--u-num:'JetBrains Mono',ui-monospace,SFMono-Regular,monospace;--u-e1:0 1px 2px rgba(3,7,18,.06);--u-e3:0 18px 44px -10px rgba(3,7,18,.2)}
-    body.dark{--bg:#0c0d0e;--panel:#16171a;--panel2:#131316;--line:#2a2a2e;--line-soft:#212326;--text:#f8fafc;--text2:#cbd5e1;--text3:#94a3b8;--amber:#e2b65c;--amber-dim:rgba(226,182,92,.16);--sky:#60a5fa;--sky-dim:rgba(96,165,250,.16);--red:#f87171;--red-dim:rgba(248,113,113,.14);--green:#34d399;--green-dim:rgba(52,211,153,.16);--ai:#818cf8;--ai2:#60a5fa;--ai-line:#6366f1;--ai-dim:rgba(129,140,248,.16);--ai-soft:rgba(129,140,248,.09);--shadow:0 8px 28px rgba(0,0,0,.5);
-      --u-bg:#08090b;--u-surface:#0e1013;--u-raised:#15181d;--u-sunken:#1d2128;--u-border:rgba(255,255,255,.07);--u-border-strong:rgba(255,255,255,.14);--u-scrim:rgba(4,5,7,.72);--u-text:#f4f6f8;--u-text2:#a6adbb;--u-text3:#7c8493;--u-accent:#6e79f2;--u-accent-solid:#4a56d6;--u-accent-tint:rgba(110,121,242,.14);--u-accent-ring:rgba(110,121,242,.45);--u-signal:#d4855c;--u-signal-tint:rgba(212,133,92,.12);--u-offlimits:#f2626b;--u-offlimits-tint:rgba(242,98,107,.12);--u-direct:#3ecf8e;--u-direct-tint:rgba(62,207,142,.12);--u-adjacent:#5aa9ff;--u-adjacent-tint:rgba(90,169,255,.12);--u-inferred:#b07cf5;--u-inferred-tint:rgba(176,124,245,.12);--u-chart-1:#6e79f2;--u-chart-2:#3ecf8e;--u-chart-3:#d4855c;--u-chart-4:#b07cf5;--u-chart-5:#4fc3d9;--u-chart-6:#f2626b;--u-seq-1:#1e2440;--u-seq-2:#2e3878;--u-seq-3:#4a56d6;--u-seq-4:#6e79f2;--u-seq-5:#a3a9fa;--u-grid-axis:rgba(255,255,255,.1);--u-grid-line:rgba(255,255,255,.055);--u-e1:0 0 #0000;--u-e3:0 18px 44px -10px rgba(0,0,0,.8)}
+    :root{
+      --amber:var(--u-accent);--amber-btn:var(--u-accent-solid);--amber-dim:var(--u-accent-tint);--on-amber:#ffffff;
+      --sky:var(--u-accent);--sky-dim:var(--u-accent-tint);--ring:var(--u-accent-ring);
+      --red:var(--u-offlimits);--red-dim:var(--u-offlimits-tint);
+      --green:var(--u-direct);--green-dim:var(--u-direct-tint);
+      --ai:var(--u-inferred);--ai2:var(--u-adjacent);--ai-line:var(--u-accent);--ai-dim:var(--u-inferred-tint);--ai-soft:var(--u-inferred-tint);
+      --bg:var(--u-bg);--panel:var(--u-surface);--panel2:var(--u-raised);--line:var(--u-border-strong);--line-soft:var(--u-border);
+      --text:var(--u-text);--text2:var(--u-text2);--text3:var(--u-text3);
+      --shadow:var(--u-e3);--radius-panel:var(--u-r-modal);
+      --mono:var(--u-font-ui);--sans:var(--u-font-ui);
+      --u-text2:var(--u-text-2);--u-text3:var(--u-text-3);--u-num:var(--u-font-num);
+    }
     *{box-sizing:border-box}
     html,body{height:100%;margin:0}
     body{background:var(--bg);color:var(--text);font:400 14px/1.45 var(--sans);-webkit-font-smoothing:antialiased}
@@ -26,7 +35,7 @@
     @keyframes spin{to{transform:rotate(360deg)}}
     @keyframes slideInEnd{from{transform:translateX(100%)}to{transform:none}}
   </style>
-  <script>try{var t=localStorage.getItem('lm-theme');if(t==='dark'||(t!=='light'&&window.matchMedia&&matchMedia('(prefers-color-scheme: dark)').matches)){document.body.classList.add('dark');}}catch(e){}</script>
+  <script>try{var t=localStorage.getItem('lm-theme');document.documentElement.setAttribute('data-theme', t==='light'?'light':'dark');}catch(e){}</script>
 </helmet>
 <div data-screen-label="Strategy" style="height:100vh;display:flex;flex-direction:column;overflow:hidden">
 
@@ -34,7 +43,7 @@
     <div style="flex:1;min-width:0;display:flex;align-items:center">
       <div style="display:flex;min-width:0;align-items:center;gap:8px">
         <div style="position:relative">
-          <button onClick="{{ toggleWsMenu }}" title="Meridian Search Partners" style="display:flex;align-items:center;gap:4px;padding:4px;border-radius:7px;background:none;border:none;cursor:pointer" style-hover="background:var(--panel2)">
+          <button onClick="{{ toggleWsMenu }}" title="Al-Futtaim" style="display:flex;align-items:center;gap:4px;padding:4px;border-radius:6px;background:none;border:none;cursor:pointer" style-hover="background:var(--panel2)">
             <svg viewBox="-36 -51 72 104" fill="none" stroke="currentColor" style="height:30px;width:auto;flex:none;color:var(--text)" aria-hidden="true"><path d="M-32 10 L 0 -8 L 32 10 L 0 28 Z M-32 10 V 32 L 0 50 L 32 32 V 10 M0 28 V 50" stroke-width="2.6" stroke-linejoin="round"></path><path d="M0 -48 L 32 -30 L 0 -12 L -32 -30 Z" fill="currentColor" stroke="none"></path></svg>
             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color:var(--text3)"><path d="m6 9 6 6 6-6"></path></svg>
           </button>
@@ -42,27 +51,27 @@
             <div onClick="{{ closeWsMenu }}" style="position:fixed;inset:0;z-index:79"></div>
             <div data-screen-label="Workspace menu" style="position:absolute;left:0;top:40px;z-index:80;width:268px;border-radius:10px;border:1px solid var(--line);background:var(--panel);padding:6px;box-shadow:var(--shadow)">
               <div style="display:flex;align-items:center;gap:10px;padding:10px;border-bottom:1px solid var(--line-soft);margin-bottom:6px">
-                <span style="width:30px;height:30px;background:var(--amber-btn);color:var(--on-amber);font:700 11px var(--mono);border-radius:6px;display:grid;place-items:center">M</span>
-                <div style="font:600 13px var(--mono);color:var(--text)">Meridian Search Partners</div>
+                <span style="width:30px;height:30px;background:var(--amber-btn);color:var(--on-amber);font:700 11px var(--mono);border-radius:6px;display:grid;place-items:center">A</span>
+                <div style="font:600 13px var(--mono);color:var(--text)">Al-Futtaim</div>
               </div>
-              <a href="Settings.dc.html?section=profile" style="display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:7px;font:400 13px var(--sans);color:var(--text2)" style-hover="background:var(--panel2);color:var(--text)">
+              <a href="Settings.dc.html?section=profile" style="display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:6px;font:400 13px var(--sans);color:var(--text2)" style-hover="background:var(--panel2);color:var(--text)">
                 <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex:none"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2M16 7a4 4 0 1 1-8 0 4 4 0 0 1 8 0"></path></svg>Your profile</a>
               <div style="margin:6px 4px;height:1px;background:var(--line-soft)"></div>
-              <a href="Settings.dc.html?section=general" style="display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:7px;font:400 13px var(--sans);color:var(--text2)" style-hover="background:var(--panel2);color:var(--text)">
+              <a href="Settings.dc.html?section=general" style="display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:6px;font:400 13px var(--sans);color:var(--text2)" style-hover="background:var(--panel2);color:var(--text)">
                 <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex:none"><path d="{{ I.settings }}"></path></svg>Workspace settings</a>
-              <a href="Settings.dc.html?section=members" style="display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:7px;font:400 13px var(--sans);color:var(--text2)" style-hover="background:var(--panel2);color:var(--text)">
+              <a href="Settings.dc.html?section=members" style="display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:6px;font:400 13px var(--sans);color:var(--text2)" style-hover="background:var(--panel2);color:var(--text)">
                 <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex:none"><path d="{{ I.members }}"></path></svg>Members</a>
               <div style="margin:6px 4px;height:1px;background:var(--line-soft)"></div>
-              <a href="Login.dc.html" style="display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:7px;font:400 13px var(--sans);color:var(--text2)" style-hover="background:var(--panel2);color:var(--text)">
+              <a href="Login.dc.html" style="display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:6px;font:400 13px var(--sans);color:var(--text2)" style-hover="background:var(--panel2);color:var(--text)">
                 <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex:none"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9"></path></svg>Sign out</a>
             </div>
           </sc-if>
         </div>
-        <a href="Workspace.dc.html" style="white-space:nowrap;border-radius:6px;padding:4px 6px;font:500 13px var(--mono);color:var(--text3)" style-hover="background:var(--panel2);color:var(--text)">Projects</a>
+        <a href="Workspace.dc.html" style="white-space:nowrap;border-radius:6px;padding:4px 6px;font:500 13px var(--mono);color:var(--text3)" style-hover="background:var(--panel2);color:var(--text)">Positions</a>
         <span style="font-size:12px;color:var(--text3);opacity:.4">/</span>
-        <span style="display:flex;align-items:center;gap:6px;white-space:nowrap;font:500 13px var(--mono);color:var(--text2)"><span style="width:6px;height:6px;border-radius:50%;background:var(--sky)"></span>Meridian Energy Group</span>
+        <span style="display:flex;align-items:center;gap:6px;white-space:nowrap;font:500 13px var(--mono);color:var(--text2)"><span style="width:6px;height:6px;border-radius:50%;background:var(--sky)"></span>{{ department }}</span>
         <span style="font-size:12px;color:var(--text3);opacity:.4">/</span>
-        <span style="min-width:0;max-width:280px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font:600 14px var(--sans);color:var(--text)">Chief Financial Officer</span>
+        <span style="min-width:0;max-width:280px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font:600 14px var(--sans);color:var(--text)">{{ roleTitle }}</span>
       </div>
     </div>
     <span title="Yara Haddad" style="width:26px;height:26px;border-radius:50%;display:grid;place-items:center;background:var(--sky-dim);color:var(--sky);font:600 10px var(--mono);flex:none">YH</span>
@@ -70,15 +79,15 @@
 
   <div style="flex:1;min-height:0;display:flex;padding:0 14px 14px">
     <nav data-screen-label="Project sidebar" style="width:{{ sideWidth }};flex:none;padding:14px 10px;display:flex;flex-direction:column;overflow-y:auto;overflow-x:hidden;transition:width .18s">
-      <a href="Workspace.dc.html" title="All projects" style="display:flex;align-items:center;justify-content:{{ navJustify }};gap:10px;padding:8px 10px;border-radius:7px;font:500 13.5px var(--sans);color:var(--text2);margin-bottom:6px" style-hover="background:var(--panel2);color:var(--text)">
+      <a href="Workspace.dc.html" title="All positions" style="display:flex;align-items:center;justify-content:{{ navJustify }};gap:10px;padding:8px 10px;border-radius:6px;font:500 13.5px var(--sans);color:var(--text2);margin-bottom:6px" style-hover="background:var(--panel2);color:var(--text)">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex:none"><path d="{{ I.back }}"></path></svg>
-        <span style="display:{{ labelDisp }};white-space:nowrap">All projects</span>
+        <span style="display:{{ labelDisp }};white-space:nowrap">All positions</span>
       </a>
       <div style="margin:0 4px 6px;height:1px;background:var(--line-soft)"></div>
       <sc-for list="{{ navGroups }}" as="g" hint-placeholder-count="4">
         <div style="display:{{ labelDisp }};padding:14px 10px 6px;font:600 10px var(--mono);letter-spacing:.14em;text-transform:uppercase;color:var(--text3)">{{ g.label }}</div>
         <sc-for list="{{ g.items }}" as="it" hint-placeholder-count="2">
-          <a href="{{ it.href }}" title="{{ it.label }}" style="display:flex;align-items:center;justify-content:{{ navJustify }};gap:10px;padding:8px 10px;border-radius:7px;font:400 13.5px var(--sans);color:{{ it.color }};background:{{ it.bg }}" style-hover="background:var(--panel2);color:var(--text)">
+          <a href="{{ it.href }}" title="{{ it.label }}" style="display:flex;align-items:center;justify-content:{{ navJustify }};gap:10px;padding:8px 10px;border-radius:6px;font:400 13.5px var(--sans);color:{{ it.color }};background:{{ it.bg }}" style-hover="background:var(--panel2);color:var(--text)">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex:none;color:{{ it.iconColor }}"><path d="{{ it.icon }}"></path></svg>
             <span style="display:{{ labelDisp }};white-space:nowrap">{{ it.label }}</span>
             <sc-if value="{{ it.hasCount }}" hint-placeholder-val="{{ false }}">
@@ -88,11 +97,11 @@
         </sc-for>
       </sc-for>
       <div style="margin-top:auto;border-top:1px solid var(--line-soft);padding-top:12px">
-        <button onClick="{{ toggleTheme }}" title="{{ themeLabel }}" style="display:flex;align-items:center;justify-content:{{ navJustify }};gap:10px;width:100%;padding:8px 10px;border-radius:7px;font:400 13.5px var(--sans);color:var(--text2);background:none;border:none;text-align:left;cursor:pointer" style-hover="background:var(--panel2);color:var(--text)">
+        <button onClick="{{ toggleTheme }}" title="{{ themeLabel }}" style="display:flex;align-items:center;justify-content:{{ navJustify }};gap:10px;width:100%;padding:8px 10px;border-radius:6px;font:400 13.5px var(--sans);color:var(--text2);background:none;border:none;text-align:left;cursor:pointer" style-hover="background:var(--panel2);color:var(--text)">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex:none"><path d="{{ themeIcon }}"></path></svg>
           <span style="display:{{ labelDisp }};white-space:nowrap">{{ themeLabel }}</span>
         </button>
-        <button onClick="{{ toggleCollapse }}" title="{{ collapseTitle }}" style="display:flex;align-items:center;justify-content:{{ navJustify }};gap:10px;width:100%;padding:8px 10px;border-radius:7px;font:400 13.5px var(--sans);color:var(--text2);background:none;border:none;text-align:left;cursor:pointer" style-hover="background:var(--panel2);color:var(--text)">
+        <button onClick="{{ toggleCollapse }}" title="{{ collapseTitle }}" style="display:flex;align-items:center;justify-content:{{ navJustify }};gap:10px;width:100%;padding:8px 10px;border-radius:6px;font:400 13.5px var(--sans);color:var(--text2);background:none;border:none;text-align:left;cursor:pointer" style-hover="background:var(--panel2);color:var(--text)">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex:none"><path d="{{ collapseIcon }}"></path></svg>
           <span style="display:{{ labelDisp }};white-space:nowrap">Collapse</span>
         </button>
@@ -117,8 +126,8 @@
                 <div onClick="{{ closePopovers }}" style="position:fixed;inset:0;z-index:79"></div>
                 <div data-screen-label="Save search menu" style="position:absolute;left:0;top:calc(100% + 8px);z-index:80;width:360px;max-height:70dvh;overflow-y:auto;border-radius:10px;border:1px solid var(--line);background:var(--panel);padding:8px;box-shadow:var(--shadow)">
                   <div style="display:flex;align-items:center;gap:6px;padding:4px">
-                    <input value="{{ saveName }}" onInput="{{ onSaveName }}" onKeyDown="{{ onSaveKey }}" placeholder="Name this search…" aria-label="Name this search" maxlength="120" style="width:100%;border-radius:7px;border:1px solid var(--line);background:var(--panel2);padding:7px 10px;font:400 13px var(--sans);color:var(--text);outline:none" style-focus="border-color:var(--text3)">
-                    <button onClick="{{ submitSave }}" style="flex:none;border-radius:7px;border:1px solid var(--amber);background:var(--amber-dim);padding:7px 10px;font:600 12.5px var(--sans);color:var(--amber);cursor:pointer;opacity:{{ saveBtnOpacity }}">Save</button>
+                    <input value="{{ saveName }}" onInput="{{ onSaveName }}" onKeyDown="{{ onSaveKey }}" placeholder="Name this search…" aria-label="Name this search" maxlength="120" style="width:100%;border-radius:6px;border:1px solid var(--line);background:var(--panel2);padding:7px 10px;font:400 13px var(--sans);color:var(--text);outline:none" style-focus="border-color:var(--text3)">
+                    <button onClick="{{ submitSave }}" style="flex:none;border-radius:6px;border:1px solid var(--amber);background:var(--amber-dim);padding:7px 10px;font:600 12.5px var(--sans);color:var(--amber);cursor:pointer;opacity:{{ saveBtnOpacity }}">Save</button>
                   </div>
                   <div role="radiogroup" aria-label="Who can see it" style="display:flex;align-items:center;gap:4px;padding:0 4px 4px">
                     <sc-for list="{{ tierChips }}" as="c" hint-placeholder-count="2">
@@ -138,11 +147,11 @@
                   <sc-for list="{{ listedSearches }}" as="s" hint-placeholder-count="2">
                     <sc-if value="{{ s.renaming }}" hint-placeholder-val="{{ false }}">
                       <div style="padding:4px">
-                        <input value="{{ renameDraft }}" onInput="{{ onRenameInput }}" onKeyDown="{{ onRenameKey }}" data-id="{{ s.id }}" aria-label="Rename {{ s.name }}" maxlength="120" style="width:100%;border-radius:7px;border:1px solid var(--text3);background:var(--panel2);padding:7px 10px;font:400 13px var(--sans);color:var(--text);outline:none">
+                        <input value="{{ renameDraft }}" onInput="{{ onRenameInput }}" onKeyDown="{{ onRenameKey }}" data-id="{{ s.id }}" aria-label="Rename {{ s.name }}" maxlength="120" style="width:100%;border-radius:6px;border:1px solid var(--text3);background:var(--panel2);padding:7px 10px;font:400 13px var(--sans);color:var(--text);outline:none">
                       </div>
                     </sc-if>
                     <sc-if value="{{ s.notRenaming }}" hint-placeholder-val="{{ true }}">
-                      <div onMouseEnter="{{ hoverSearch }}" onMouseLeave="{{ unhoverSearch }}" data-id="{{ s.id }}" style="display:flex;align-items:center;gap:4px;border-radius:7px;padding:0 4px;background:{{ s.rowBg }}">
+                      <div onMouseEnter="{{ hoverSearch }}" onMouseLeave="{{ unhoverSearch }}" data-id="{{ s.id }}" style="display:flex;align-items:center;gap:4px;border-radius:6px;padding:0 4px;background:{{ s.rowBg }}">
                         <button onClick="{{ loadSearch }}" data-id="{{ s.id }}" style="min-width:0;flex:1;padding:7px 6px;text-align:left;background:none;border:none;cursor:pointer">
                           <span style="display:flex;align-items:center;gap:6px">
                             <sc-if value="{{ s.active }}" hint-placeholder-val="{{ false }}">
@@ -179,7 +188,7 @@
               <span style="border-radius:4px;background:var(--sky-dim);padding:2px 5px;font:700 10px var(--sans);color:var(--sky)">{{ axisCount }}</span>
             </button>
 
-            <a href="Assistant.dc.html" style="display:inline-flex;align-items:center;gap:8px;white-space:nowrap;border-radius:6px;border:1px solid #4f46e5;background:linear-gradient(90deg,#6366f1,#3b82f6);padding:8px 16px;font:600 13px var(--sans);color:#fff;box-shadow:0 4px 12px -2px rgba(0,0,0,.15)" style-hover="filter:brightness(1.05)">
+            <a href="Assistant.dc.html" style="display:inline-flex;align-items:center;gap:8px;white-space:nowrap;border-radius:6px;border:1px solid var(--u-border-strong);background:var(--u-inferred-tint);padding:8px 16px;font:500 13px var(--sans);color:var(--u-inferred)" style-hover="background:var(--u-raised)">
               <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex:none"><path d="{{ I.sparkle }}"></path></svg>
               <span>AI Research</span>
             </a>
@@ -258,7 +267,7 @@
                         <sc-if value="{{ a.isLoc }}" hint-placeholder-val="{{ true }}">
                           <div style="display:flex;flex-wrap:wrap;gap:6px">
                             <sc-for list="{{ locChips }}" as="c" hint-placeholder-count="13">
-                              <button onClick="{{ toggleCountry }}" data-value="{{ c.label }}" aria-pressed="{{ c.selected }}" style="display:inline-flex;align-items:center;border-radius:999px;padding:4px 10px;box-shadow:inset 0 0 0 1px currentColor;background:{{ c.bg }};color:{{ c.ring }};border:none;cursor:pointer" style-hover="color:var(--amber)">
+                              <button onClick="{{ toggleCountry }}" data-value="{{ c.label }}" aria-pressed="{{ c.selected }}" style="display:inline-flex;align-items:center;border-radius:999px;padding:4px 10px;background:{{ c.bg }};border:none;box-shadow:none;cursor:pointer" style-hover="background:var(--panel2)">
                                 <span style="font:500 12px var(--sans);color:{{ c.textColor }}">{{ c.label }}</span>
                               </button>
                             </sc-for>
@@ -422,7 +431,7 @@
                           <div style="display:flex;flex-direction:column;gap:12px">
                             <p style="margin:0;font:400 12px/1.6 var(--sans);color:var(--text3)">Companies added here will be completely excluded from your active search results.</p>
                             <div style="position:relative">
-                              <input value="{{ offQ }}" onInput="{{ onOffQ }}" role="combobox" placeholder="Search companies…" aria-label="Search companies" style="width:100%;border-radius:8px;border:1px solid var(--line);background:var(--panel);padding:8px 11px;font:400 13px var(--mono);color:var(--text);outline:none" style-focus="border-color:var(--sky)">
+                              <input value="{{ offQ }}" onInput="{{ onOffQ }}" role="combobox" placeholder="Search companies…" aria-label="Search companies" style="width:100%;border-radius:6px;border:1px solid var(--line);background:var(--panel);padding:8px 11px;font:400 13px var(--mono);color:var(--text);outline:none" style-focus="border-color:var(--sky)">
                               <sc-if value="{{ offListShown }}" hint-placeholder-val="{{ false }}">
                                 <ul role="listbox" style="position:absolute;z-index:10;margin:4px 0 0;padding:4px 0;list-style:none;max-height:288px;width:100%;overflow:auto;border-radius:10px;border:1px solid var(--line);background:var(--panel);box-shadow:var(--shadow)">
                                   <sc-for list="{{ offOptions }}" as="o" hint-placeholder-count="4">
@@ -464,7 +473,7 @@
 
             <div style="display:flex;min-width:0;flex:1;flex-direction:column;gap:12px;padding:8px">
               <div style="position:relative;display:flex;min-height:0;flex:1;flex-direction:column">
-                <div data-screen-label="Company grid" style="display:flex;flex:1;min-height:0;flex-direction:column;overflow:hidden;border-radius:8px;border:1px solid var(--line);background:var(--panel)">
+                <div data-screen-label="Company grid" style="display:flex;flex:1;min-height:0;flex-direction:column;overflow:hidden;border-radius:12px;border:1px solid var(--line);background:var(--panel)">
                   <div role="table" aria-label="Companies" style="display:flex;min-height:0;flex:1;flex-direction:column;overflow:auto">
                     <div style="position:sticky;top:0;z-index:20;flex:none;min-width:{{ gridMin }};border-bottom:1px solid var(--line);background:var(--panel2)">
                       <div role="row" style="display:grid;grid-template-columns:{{ gridCols }};min-width:{{ gridMin }};align-items:center;gap:12px;padding:10px 0">
@@ -508,7 +517,7 @@
                                 <span style="width:15px;height:15px;flex:none;display:grid;place-items:center;border-radius:4px;box-shadow:inset 0 0 0 1.5px currentColor;background:{{ r.box.bg }};color:{{ r.box.color }}"><svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.2" style="color:var(--amber);opacity:{{ r.box.op }}"><path d="{{ r.box.glyph }}"></path></svg></span>
                               </span>
                               <span style="display:flex;min-width:0;flex:1;align-items:center;gap:10px">
-                                <span aria-hidden="true" style="width:28px;height:28px;font-size:14px;display:flex;flex:none;align-items:center;justify-content:center;border-radius:6px;background:var(--panel2);font-weight:600;color:var(--text3);box-shadow:0 0 0 1px var(--line-soft)">{{ r.initial }}</span>
+                                <image-slot id="{{ r.slotId }}" title="{{ r.name }}" shape="rounded" radius="6px" style="width:28px;height:28px;flex:none" placeholder=""></image-slot>
                                 <span title="{{ r.name }}" style="display:block;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font:500 13px var(--sans);color:var(--text)">{{ r.name }}</span>
                               </span>
                             </span>
@@ -606,7 +615,7 @@
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="{{ I.close }}"></path></svg>
         </button>
         <div style="display:flex;align-items:flex-start;gap:12px;padding-right:32px">
-          <span aria-hidden="true" style="width:44px;height:44px;font-size:22px;display:flex;flex:none;align-items:center;justify-content:center;border-radius:6px;background:var(--panel2);font-weight:600;color:var(--text3);box-shadow:0 0 0 1px var(--line-soft)">{{ d.initial }}</span>
+          <span aria-hidden="true" style="width:44px;height:44px;flex:none;display:flex;align-items:center;justify-content:center;border-radius:6px;background:var(--panel2);color:var(--text3);box-shadow:0 0 0 1px var(--line-soft)"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M7 21V4a1 1 0 0 1 1-1h8a1 1 0 0 1 1 1v17 M4 21h16 M10 7h1 M13 7h1 M10 10h1 M13 10h1 M10 13h1 M13 13h1 M10 16h1 M13 16h1"></path></svg></span>
           <div style="min-width:0;flex:1">
             <div style="display:flex;flex-wrap:wrap;align-items:center;gap:8px">
               <span style="display:flex;align-items:center;gap:6px">
@@ -641,7 +650,7 @@
               <sc-for list="{{ sec.tiles }}" as="t" hint-placeholder-count="4">
                 <div style="min-width:0;grid-column:{{ t.span }}">
                   <div style="margin-bottom:4px;font:600 9.5px var(--mono);text-transform:uppercase;letter-spacing:.08em;color:var(--text3)">{{ t.label }}</div>
-                  <div style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;border-radius:7px;border:1px solid var(--line-soft);background:var(--panel2);padding:7px 10px;font:400 13px var(--mono);color:{{ t.color }}">{{ t.value }}</div>
+                  <div style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;border-radius:6px;border:1px solid var(--line-soft);background:var(--panel2);padding:7px 10px;font:400 13px var(--mono);color:{{ t.color }}">{{ t.value }}</div>
                 </div>
               </sc-for>
             </div>
@@ -664,10 +673,10 @@
 
       <div style="display:flex;flex:none;flex-wrap:wrap;align-items:center;gap:8px;border-top:1px solid var(--line-soft);padding:12px 20px">
         <sc-for list="{{ drawerStages }}" as="st" hint-placeholder-count="3">
-          <button onClick="{{ triageOne }}" data-status="{{ st.status }}" style="display:flex;align-items:center;justify-content:center;gap:8px;border-radius:8px;padding:10px 14px;font:500 13.5px var(--sans);background:var(--panel);border:1px solid var(--line);color:{{ st.color }};cursor:pointer" style-hover="{{ st.hover }}">
+          <button onClick="{{ triageOne }}" data-status="{{ st.status }}" style="display:flex;align-items:center;justify-content:center;gap:8px;border-radius:6px;padding:10px 14px;font:500 13.5px var(--sans);background:var(--panel);border:1px solid var(--line);color:{{ st.color }};cursor:pointer" style-hover="{{ st.hover }}">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="{{ st.icon }}"></path></svg>{{ st.label }}</button>
         </sc-for>
-        <button onClick="{{ barCompany }}" style="margin-left:auto;display:flex;align-items:center;justify-content:center;gap:8px;border-radius:8px;padding:10px 14px;font:500 13.5px var(--sans);background:var(--panel);border:1px solid var(--line);color:var(--red);cursor:pointer" style-hover="border-color:var(--text3)">
+        <button onClick="{{ barCompany }}" style="margin-left:auto;display:flex;align-items:center;justify-content:center;gap:8px;border-radius:6px;padding:10px 14px;font:500 13.5px var(--sans);background:var(--panel);border:1px solid var(--line);color:var(--red);cursor:pointer" style-hover="border-color:var(--text3)">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="{{ I.lock }}"></path></svg>Off limits</button>
       </div>
     </aside>
@@ -697,6 +706,8 @@ class Component extends DCLogic {
       return raw === 'true' || raw === '1';
     };
     const text = (key, fallback) => params.get(key) ?? fallback;
+    const department = text('unit', 'Group Finance');
+    const roleTitle = text('pos', 'Chief Financial Officer');
 
     this.I = {
       back: 'M19 12H5M12 19l-7-7 7-7',
@@ -786,39 +797,59 @@ class Component extends DCLogic {
       keywords: [], technologies: [], sic: [], naics: [],
     }, o);
     this.COMPANIES = [
-      co('acwa', 'ACWA Power', { web: 'https://acwapower.com', li: 'https://linkedin.com/company/acwa-power', fb: 'https://facebook.com/ACWAPower', x: 'https://x.com/acwapower', country: 'Saudi Arabia', industry: 'utilities', city: 'Riyadh', state: 'Riyadh Province', revenue: 1740000000, employees: 4213, founded: 2004,
-        notes: 'Developer, investor and operator of power generation, desalinated water and green hydrogen plants across 14 countries, with a portfolio of 90+ assets and a stated 2030 target of half its capacity from renewables. Listed on Tadawul since October 2021; the Public Investment Fund is its largest shareholder. Operates the NEOM Green Hydrogen project with Air Products and NEOM, and is the offtaker-facing developer on most of Saudi Arabia’s round-by-round solar tenders.',
-        phone: '+966 11 283 5555', address: 'Business Gate, Building 1, Airport Road, Qurtubah, Riyadh 13244', totalFunding: 1210000000, latestFunding: 'IPO', latestFundingAmount: 1210000000, lastRaised: '2021-10-11',
-        keywords: ['power generation', 'desalination', 'renewable energy', 'green hydrogen', 'independent power producer', 'solar pv', 'wind energy', 'water treatment', 'energy transition', 'concentrated solar power', 'battery storage', 'public private partnership', 'power purchase agreements'],
-        technologies: ['sap', 'microsoft office 365', 'oracle', 'salesforce', 'servicenow'], sic: ['4911'], naics: ['221112', '221310'] }),
-      co('taqa', 'TAQA', { web: 'https://taqa.com', li: 'https://linkedin.com/company/taqa', fb: 'https://facebook.com/TAQAGroup', x: 'https://x.com/TAQAGroup', country: 'United Arab Emirates', industry: 'utilities', city: 'Abu Dhabi', state: 'Abu Dhabi', revenue: 14100000000, employees: 9480, founded: 2005, notes: 'Integrated utility: generation, transmission and distribution, water, and upstream oil and gas.', phone: '+971 2 691 4900', address: 'Al Maqam Tower, ADGM Square, Al Maryah Island, Abu Dhabi', parent: 'Abu Dhabi Developmental Holding Company', keywords: ['utilities', 'transmission', 'power generation'], technologies: ['sap'], sic: ['4911'], naics: ['221122'] }),
-      co('masdar', 'Masdar', { web: 'https://masdar.ae', li: 'https://linkedin.com/company/masdar', fb: 'https://facebook.com/Masdar', x: 'https://x.com/Masdar', country: 'United Arab Emirates', industry: 'renewables & environment', city: 'Abu Dhabi', state: 'Abu Dhabi', revenue: 1100000000, employees: 1318, founded: 2006, notes: 'Clean energy developer with 50GW+ of capacity across 40 countries.', phone: '+971 2 653 3333', address: 'Masdar City, Abu Dhabi', parent: 'Mubadala Investment Company', keywords: ['solar energy', 'wind energy', 'green hydrogen'], sic: ['4911'], naics: ['221114'] }),
-      co('engie', 'ENGIE Middle East', { web: 'https://engie.com', li: 'https://linkedin.com/company/engie-middle-east', x: 'https://x.com/ENGIEgroup', country: 'United Arab Emirates', industry: 'utilities', city: 'Dubai', state: 'Dubai', employees: 2140, founded: 2010, notes: 'Regional arm of ENGIE, operating power and water JVs across the GCC.', address: 'Emaar Square, Building 4, Downtown Dubai', parent: 'ENGIE', keywords: ['power generation', 'desalination', 'district cooling'], sic: ['4911'] }),
-      co('ewec', 'Emirates Water & Electricity Co', { web: 'https://ewec.ae', li: 'https://linkedin.com/company/ewec', x: 'https://x.com/EWEC_UAE', country: 'United Arab Emirates', industry: 'utilities', city: 'Abu Dhabi', state: 'Abu Dhabi', revenue: 4900000000, employees: 1152, founded: 2018, notes: 'Single buyer of power and water in Abu Dhabi; runs the IPP tender programme.', phone: '+971 2 694 3333', parent: 'TAQA', keywords: ['power purchase agreements', 'desalination'], naics: ['221122'] }),
-      co('sec', 'Saudi Electricity Co', { web: 'https://se.com.sa', li: 'https://linkedin.com/company/saudi-electricity-company', fb: 'https://facebook.com/SaudiElectricity', x: 'https://x.com/Alkahrabacare', country: 'Saudi Arabia', industry: 'utilities', city: 'Riyadh', state: 'Riyadh Province', revenue: 19200000000, employees: 32450, founded: 2000, notes: 'National generation, transmission and distribution utility.', phone: '+966 11 807 2222', address: 'Al Mursalat, King Abdulaziz Road, Riyadh', keywords: ['transmission', 'power distribution', 'smart grid'], sic: ['4911'], naics: ['221122'] }),
-      co('marafiq', 'Marafiq', { web: 'https://marafiq.com.sa', li: 'https://linkedin.com/company/marafiq', x: 'https://x.com/marafiq_sa', country: 'Saudi Arabia', industry: 'utilities', city: 'Jubail', state: 'Eastern Province', revenue: 1230000000, employees: 2610, founded: 2003, notes: 'Power and water utility for the Jubail and Yanbu industrial cities.', phone: '+966 13 340 1111', keywords: ['desalination', 'water treatment', 'power generation'], sic: ['4941'] }),
-      co('qewc', 'Qatar Electricity & Water', { web: 'https://qewc.com', li: 'https://linkedin.com/company/qewc', country: 'Qatar', industry: 'utilities', city: 'Doha', state: 'Ad Dawhah', revenue: 790000000, employees: 1046, founded: 1990, notes: 'Listed generation and desalination company; parent of Nebras Power.', phone: '+974 4485 8585', keywords: ['desalination', 'power plants'], sic: ['4911'] }),
-      co('nebras', 'Nebras Power', { web: 'https://nebras-power.com', li: 'https://linkedin.com/company/nebras-power', country: 'Qatar', industry: 'utilities', city: 'Doha', state: 'Ad Dawhah', employees: 242, founded: 2014, notes: 'International power investment arm with assets in 10 countries.', parent: 'Qatar Electricity & Water', keywords: ['power generation'] }),
-      co('alfanar', 'Alfanar', { web: 'https://alfanar.com', li: 'https://linkedin.com/company/alfanar', fb: 'https://facebook.com/alfanar', x: 'https://x.com/alfanar', country: 'Saudi Arabia', industry: 'renewables & environment', city: 'Riyadh', state: 'Riyadh Province', revenue: 2300000000, employees: 12380, founded: 1976, notes: 'Electrical manufacturing, EPC and renewable project development.', phone: '+966 11 275 8888', keywords: ['solar pv', 'wind energy', 'green hydrogen'], sic: ['3612'] }),
-      co('dewa', 'Dubai Electricity & Water Authority', { web: 'https://dewa.gov.ae', li: 'https://linkedin.com/company/dewa', fb: 'https://facebook.com/DEWAOfficial', x: 'https://x.com/DEWAOfficial', country: 'United Arab Emirates', industry: 'utilities', city: 'Dubai', state: 'Dubai', revenue: 6400000000, employees: 11730, founded: 1992, notes: 'Dubai’s power and water authority; developer of the Mohammed bin Rashid solar park.', phone: '+971 4 601 9999', keywords: ['solar energy', 'smart grid', 'desalination'], sic: ['4911'], naics: ['221122'] }),
-      co('opwp', 'Oman Power & Water Procurement', { web: 'https://omanpwp.om', li: 'https://linkedin.com/company/opwp', country: 'Oman', industry: 'utilities', city: 'Muscat', state: 'Muscat', employees: 221, founded: 2003, notes: 'Single buyer of power and desalinated water in Oman.', parent: 'Nama Holding', keywords: ['power purchase agreements'] }),
-      co('sembcorp', 'Sembcorp Middle East', { web: 'https://sembcorp.com', li: 'https://linkedin.com/company/sembcorp', country: 'United Arab Emirates', industry: 'utilities', city: 'Dubai', state: 'Dubai', employees: 418, founded: 2006, notes: 'Owns and operates IWPPs in the UAE and Oman.', parent: 'Sembcorp Industries', keywords: ['desalination', 'power generation'] }),
-      co('edfme', 'EDF Renewables ME', { web: 'https://edf-re.ae', li: 'https://linkedin.com/company/edf-renewables-middle-east', country: 'United Arab Emirates', industry: 'renewables & environment', city: 'Abu Dhabi', state: 'Abu Dhabi', employees: 306, founded: 2016, notes: 'Regional renewables developer; partner on Al Dhafra and Hassyan.', parent: 'EDF Renewables', keywords: ['solar pv', 'wind energy'] }),
-      co('yde', 'Yellow Door Energy', { web: 'https://yellowdoorenergy.com', li: 'https://linkedin.com/company/yellow-door-energy', fb: 'https://facebook.com/yellowdoorenergy', x: 'https://x.com/YellowDoorEnrgy', country: 'United Arab Emirates', industry: 'renewables & environment', city: 'Dubai', state: 'Dubai', revenue: 48000000, employees: 258, founded: 2015, notes: 'Commercial and industrial solar leasing across the GCC and Jordan.', totalFunding: 200000000, latestFunding: 'Private Equity', latestFundingAmount: 110000000, lastRaised: '2023-06-19', keywords: ['solar pv', 'power purchase agreements'] }),
-      co('enviromena', 'Enviromena', { web: 'https://enviromena.com', li: 'https://linkedin.com/company/enviromena-power-systems', country: 'United Arab Emirates', industry: 'renewables & environment', city: 'Abu Dhabi', state: 'Abu Dhabi', employees: 212, founded: 2007, notes: 'Solar EPC and O&M contractor.', keywords: ['solar pv'] }),
+      co('maf', 'Majid Al Futtaim', { web: 'https://majidalfuttaim.com', country: 'United Arab Emirates', industry: 'diversified conglomerate', city: 'Dubai', state: 'Dubai', employees: 45000, founded: 1992,
+        notes: 'Diversified conglomerate split from the Al-Futtaim family business in 2000; operates shopping malls (Mall of the Emirates), Carrefour Middle East, VOX Cinemas and hospitality across the region.',
+        keywords: ['retail', 'shopping malls', 'hypermarkets', 'real estate', 'leisure & entertainment', 'diversified conglomerate'] }),
+      co('chalhoub', 'Chalhoub Group', { web: 'https://chalhoubgroup.com', country: 'United Arab Emirates', industry: 'luxury retail distribution', city: 'Dubai', state: 'Dubai', employees: 7000, founded: 1955,
+        notes: 'Family-owned luxury goods distributor and retailer, partnering with brands such as Dior, Chanel and Louis Vuitton across the Middle East.',
+        keywords: ['luxury retail', 'beauty & fragrance', 'brand distribution', 'family conglomerate'] }),
+      co('landmark', 'Landmark Group', { web: 'https://landmarkgroup.com', country: 'United Arab Emirates', industry: 'retail', city: 'Dubai', state: 'Dubai', employees: 55000, founded: 1973,
+        notes: 'Family-owned retail and hospitality conglomerate behind Splash, Babyshop, Centrepoint and Lifestyle across the GCC and India.',
+        keywords: ['fashion retail', 'department stores', 'franchise retail', 'family conglomerate'] }),
+      co('alshaya', 'Alshaya Group', { country: 'Kuwait', industry: 'retail franchising', city: 'Kuwait City', state: null, employees: 50000, founded: 1890,
+        notes: 'Family-owned franchise retailer operating Starbucks, H&M, and dozens of international brands across the Middle East, Russia and Turkey.',
+        keywords: ['retail franchising', 'food & beverage', 'fashion retail', 'family conglomerate'] }),
+      co('apparel', 'Apparel Group', { web: 'https://apparelgroup.com', country: 'United Arab Emirates', industry: 'fashion retail', city: 'Dubai', state: 'Dubai', employees: 19000, founded: 1999,
+        notes: 'Fashion and lifestyle retail conglomerate with 2,000+ stores across brands such as Tommy Hilfiger, Aldo and Tim Hortons in the region.',
+        keywords: ['fashion retail', 'franchise retail', 'lifestyle brands'] }),
+      co('gmg', 'GMG (Gulf Marketing Group)', { country: 'United Arab Emirates', industry: 'consumer & sports retail', city: 'Dubai', state: 'Dubai', employees: 18000, founded: 1974,
+        notes: 'Consumer goods group spanning sports retail (Sun & Sand Sports), healthcare and F&B distribution across the Middle East and Asia.',
+        keywords: ['sports retail', 'consumer goods', 'healthcare distribution'] }),
+      co('jumbo', 'Jumbo Group', { country: 'United Arab Emirates', industry: 'electronics retail & automotive', city: 'Dubai', state: 'Dubai', employees: 3500, founded: 1974,
+        notes: 'Consumer electronics retailer (Jumbo Electronics) and BMW/MINI dealer in the UAE.',
+        keywords: ['electronics retail', 'automotive dealership', 'consumer technology'] }),
+      co('naboodah', 'Al Naboodah Group', { web: 'https://alnaboodah.com', country: 'United Arab Emirates', industry: 'construction & automotive conglomerate', city: 'Dubai', state: 'Dubai', employees: 15000, founded: 1948,
+        notes: 'Family conglomerate spanning construction, automotive (Skoda, Renault), travel and engineering across the UAE.',
+        keywords: ['construction', 'automotive dealership', 'engineering', 'family conglomerate'] }),
+      co('ghurair', 'Al Ghurair Group', { web: 'https://alghurair.com', country: 'United Arab Emirates', industry: 'diversified conglomerate', city: 'Dubai', state: 'Dubai', employees: 30000, founded: 1960,
+        notes: 'Family conglomerate spanning foods & resources, construction, printing and investment across the region.',
+        keywords: ['diversified conglomerate', 'foods & resources', 'construction', 'family business'] }),
+      co('rostamani', 'Al Rostamani Group', { country: 'United Arab Emirates', industry: 'automotive & financial services', city: 'Dubai', state: 'Dubai', employees: 5000, founded: 1957,
+        notes: 'Family conglomerate whose businesses include Nissan UAE distribution, travel, and Al Rostamani exchange and financial services.',
+        keywords: ['automotive dealership', 'financial services', 'family conglomerate'] }),
+      co('habtoor', 'Al Habtoor Group', { web: 'https://alhabtoorgroup.com', country: 'United Arab Emirates', industry: 'automotive, hospitality & real estate', city: 'Dubai', state: 'Dubai', employees: 25000, founded: 1970,
+        notes: 'Family conglomerate holding the Bentley, Bugatti and Mitsubishi dealerships in Dubai alongside hospitality and real-estate developments.',
+        keywords: ['automotive dealership', 'hospitality', 'real estate', 'family conglomerate'] }),
+      co('ihc', 'International Holding Company (IHC)', { web: 'https://ihc.ae', country: 'United Arab Emirates', industry: 'investment holding', city: 'Abu Dhabi', state: 'Abu Dhabi', employees: null, founded: 1998,
+        notes: 'Abu Dhabi-listed investment holding company with a portfolio spanning real estate, healthcare, food and financial services.',
+        keywords: ['investment holding', 'diversified conglomerate', 'listed company'] }),
+      co('dubaiholding', 'Dubai Holding', { web: 'https://dubaiholding.com', country: 'United Arab Emirates', industry: 'investment holding', city: 'Dubai', state: 'Dubai', employees: null, founded: 2004,
+        notes: 'Government-related investment holding company with businesses spanning real estate, hospitality and telecoms.',
+        keywords: ['investment holding', 'real estate', 'hospitality', 'government-related entity'] }),
+      co('lulu', 'LuLu Group International', { web: 'https://lulugroupinternational.com', country: 'United Arab Emirates', industry: 'retail (hypermarkets)', city: 'Abu Dhabi', state: 'Abu Dhabi', employees: 65000, founded: 2000,
+        notes: 'Hypermarket and retail group operating across the GCC, India and Southeast Asia.',
+        keywords: ['hypermarkets', 'grocery retail', 'family conglomerate'] }),
     ];
     this.OFF_EXTRA = [
-      { name: 'Meridian Energy Group', industry: 'utilities', city: 'Abu Dhabi', country: 'United Arab Emirates' },
-      { name: 'Mubadala Energy', industry: 'oil & energy', city: 'Abu Dhabi', country: 'United Arab Emirates' },
-      { name: 'Abu Dhabi Power Corporation', industry: 'utilities', city: 'Abu Dhabi', country: 'United Arab Emirates' },
-      { name: 'Emirates Global Aluminium', industry: 'mining & metals', city: 'Abu Dhabi', country: 'United Arab Emirates' },
+      { name: 'Emirates Group', industry: 'aviation & logistics', city: 'Dubai', country: 'United Arab Emirates' },
+      { name: 'DP World', industry: 'logistics', city: 'Dubai', country: 'United Arab Emirates' },
     ];
 
     this.INITIAL_FILTER = {
-      countries: ['United Arab Emirates', 'Saudi Arabia', 'Qatar', 'Oman'],
+      countries: ['United Arab Emirates', 'Kuwait'],
       emp: ['201-500', '501-1000', '1001-2000', '2001-5000', '5001-10000', '10000-plus'], empRange: null,
       rev: [], revRange: null,
-      ind: ['utilities', 'renewables & environment', 'oil & energy'], kw: ['power generation', 'desalination'],
+      ind: [], kw: [],
       seg: [],
     };
     const clone = (f) => JSON.parse(JSON.stringify(f));
@@ -829,13 +860,13 @@ class Component extends DCLogic {
     const drawerOpen = flag('drawerOpen', props.drawerOpen ?? false);
 
     this.state = {
-      dark: false, toast: '', wsMenuOpen: false,
+      dark: true, toast: '', wsMenuOpen: false, department, roleTitle,
       collapsed: (() => { try { return localStorage.getItem('lm-side-collapsed') === '1'; } catch (e) { return false; } })(),
       counts: { universe: 24, shortlisted: 9, declined: 6 },
       showFilters: flag('filtersOpen', props.filtersOpen ?? true),
       open: openFilter === 'none' ? null : openFilter,
       filter: clone(this.INITIAL_FILTER),
-      offLimits: ['Meridian Energy Group', 'Mubadala Energy'],
+      offLimits: ['Emirates Group', 'DP World'],
       indQ: '', indListOpen: false, kwQ: '', includeKw: true, offQ: '', adjacentAll: false,
       q: '', page: 0, pageSize: 50, sort: { field: 'employees', dir: 'desc' },
       selected: {}, presetSelection: selectedCount,
@@ -843,13 +874,13 @@ class Component extends DCLogic {
       saveMenuOpen: flag('saveMenuOpen', props.saveMenuOpen ?? false),
       saveName: '', saveVis: 'SHARED', saveTab: null, renamingId: null, renameDraft: '', hoverSearchId: null,
       searches: [
-        { id: 's1', name: 'GCC utilities, 200+ staff', mine: true, vis: 'SHARED', by: 'Yara Haddad', updated: '27 Aug 2026', filter: clone(this.INITIAL_FILTER) },
-        { id: 's2', name: 'Saudi IPPs and developers', mine: false, vis: 'SHARED', by: 'Sara Al-Mansour', updated: '14 Aug 2026', filter: { countries: ['Saudi Arabia'], emp: [], empRange: null, rev: ['1b-5b', '5b-10b', '10b-plus'], revRange: null, ind: ['utilities', 'oil & energy'], kw: [], seg: [] } },
-        { id: 's3', name: 'Renewables developers, UAE', mine: true, vis: 'PRIVATE', by: 'Yara Haddad', updated: '03 Aug 2026', filter: { countries: ['United Arab Emirates'], emp: [], empRange: null, rev: [], revRange: null, ind: ['renewables & environment'], kw: [], seg: [] } },
+        { id: 's1', name: 'UAE conglomerates, 200+ staff', mine: true, vis: 'SHARED', by: 'Yara Haddad', updated: '27 Aug 2026', filter: clone(this.INITIAL_FILTER) },
+        { id: 's2', name: 'Kuwait & UAE retail franchisors', mine: false, vis: 'SHARED', by: 'Sara Al-Mansour', updated: '14 Aug 2026', filter: { countries: ['Kuwait', 'United Arab Emirates'], emp: [], empRange: null, rev: [], revRange: null, ind: [], kw: [], seg: [] } },
+        { id: 's3', name: 'Real estate developers, UAE', mine: true, vis: 'PRIVATE', by: 'Yara Haddad', updated: '03 Aug 2026', filter: { countries: ['United Arab Emirates'], emp: [], empRange: null, rev: [], revRange: null, ind: [], kw: [], seg: [] } },
       ],
       columnsOpen: flag('columnsOpen', props.columnsOpen ?? false),
       visibility: Object.assign({}, this.DEFAULT_VISIBILITY),
-      drawerId: drawerOpen ? 'acwa' : null, aboutExpanded: false,
+      drawerId: drawerOpen ? 'maf' : null, aboutExpanded: false,
       fullscreen: false,
     };
     if (selectedCount > 0) {
@@ -861,7 +892,7 @@ class Component extends DCLogic {
   }
 
   componentDidMount() {
-    this.setState({ dark: document.body.classList.contains('dark') });
+    this.setState({ dark: document.documentElement.getAttribute('data-theme') !== 'light' });
     this._esc = (event) => {
       if (event.key !== 'Escape') return;
       const st = this.state;
@@ -984,14 +1015,14 @@ class Component extends DCLogic {
       color: active ? 'var(--text)' : 'var(--text2)', bg: active ? 'var(--panel2)' : 'transparent', iconColor: active ? 'var(--amber)' : 'currentColor',
     });
     const navGroups = [
-      { label: 'Mandate', items: [navItem('Position', I.position, 'Position.dc.html', false), navItem('Strategy', I.strategy, 'Strategy.dc.html', true)] },
+      { label: 'Position', items: [navItem('Brief', I.position, 'Position.dc.html', false), navItem('Strategy', I.strategy, 'Strategy.dc.html', true)] },
       { label: 'Companies', items: [
-        navItem('In universe', I.globe, 'Project.dc.html?page=universe', false, st.counts.universe),
-        navItem('Shortlisted', I.star, 'Project.dc.html?page=shortlisted', false, st.counts.shortlisted),
-        navItem('Declined', I.close, 'Project.dc.html?page=declined', false, st.counts.declined),
+        navItem('In universe', I.globe, 'Position.dc.html?page=universe', false, st.counts.universe),
+        navItem('Shortlisted', I.star, 'Position.dc.html?page=shortlisted', false, st.counts.shortlisted),
+        navItem('Declined', I.close, 'Position.dc.html?page=declined', false, st.counts.declined),
       ] },
-      { label: 'People', items: [navItem('Candidates', I.candidates, 'Project.dc.html?page=candidates', false), navItem('Outreach', I.outreach, 'Project.dc.html?page=outreach', false)] },
-      { label: 'Project', items: [navItem('Reports', I.reports, 'Project.dc.html?page=reports', false), navItem('Team & access', I.team, 'Project.dc.html?page=team', false)] },
+      { label: 'People', items: [navItem('Candidates', I.candidates, 'Position.dc.html?page=candidates', false), navItem('Outreach', I.outreach, 'Position.dc.html?page=outreach', false)] },
+      { label: 'Project', items: [navItem('Reports', I.reports, 'Position.dc.html?page=reports', false), navItem('Team & access', I.team, 'Position.dc.html?page=team', false)] },
     ];
 
     const constrains = (r) => r !== null && (r.min !== null || r.max !== null);
@@ -1054,7 +1085,7 @@ class Component extends DCLogic {
 
     const locChips = this.MARKETS.map((m) => {
       const sel = f.countries.includes(m);
-      return { label: m, selected: sel, bg: sel ? 'var(--amber-dim)' : 'transparent', ring: sel ? 'var(--amber)' : 'var(--line)', textColor: sel ? 'var(--amber)' : 'var(--text)' };
+      return { label: m, selected: sel, bg: sel ? 'var(--amber-dim)' : 'var(--panel2)', ring: sel ? 'var(--amber-dim)' : 'var(--panel2)', textColor: sel ? 'var(--amber)' : 'var(--text)' };
     });
 
     const needle = st.indQ.trim().toLowerCase();
@@ -1093,7 +1124,7 @@ class Component extends DCLogic {
     const visible = this.visibleRows(st);
     const pageRows = st.page === 0 ? visible : [...visible.slice((st.page * 5) % Math.max(visible.length, 1)), ...visible.slice(0, (st.page * 5) % Math.max(visible.length, 1))];
     const rows = pageRows.map((c) => ({
-      id: c.id, name: c.name, initial: c.name.charAt(0).toUpperCase(),
+      id: c.id, name: c.name, initial: c.name.charAt(0).toUpperCase(), slotId: 'company-' + c.id,
       box: this.box(!!st.selected[c.id]),
       web: c.web, li: c.li, fb: c.fb, x: c.x,
       hasWeb: !!c.web, noWeb: !c.web, hasLi: !!c.li, noLi: !c.li, hasFb: !!c.fb, noFb: !c.fb, hasX: !!c.x, noX: !c.x,
@@ -1175,7 +1206,7 @@ class Component extends DCLogic {
     sections.forEach((s, i) => { s.border = i === sections.length - 1 && tags.length === 0 ? 'none' : '1px solid var(--line-soft)'; });
     const about = dc.notes ?? 'No description was captured for this company.';
     const d = {
-      name: dc.name, initial: dc.name.charAt(0).toUpperCase(), web: dc.web, li: dc.li, hasWeb: !!dc.web, hasLi: !!dc.li,
+      name: dc.name, initial: dc.name.charAt(0).toUpperCase(), slotId: 'company-drawer-' + dc.id, web: dc.web, li: dc.li, hasWeb: !!dc.web, hasLi: !!dc.li,
       context: [dc.industry, dc.city, dc.country].filter(Boolean).join(' · ') || 'Nothing recorded about where it sits',
       about, aboutLong: about.length > 300, sections,
       hasTags: tags.length > 0, tags: tags.slice(0, 12), hasMoreTags: tags.length > 12, moreTags: '+' + (tags.length - 12) + ' more',
@@ -1196,6 +1227,7 @@ class Component extends DCLogic {
 
     return {
       I,
+      department: st.department, roleTitle: st.roleTitle,
       sideWidth: collapsed ? '56px' : '210px',
       labelDisp: collapsed ? 'none' : 'block',
       navJustify: collapsed ? 'center' : 'flex-start',
@@ -1244,14 +1276,14 @@ class Component extends DCLogic {
       drawerOpen: !!st.drawerId, d, drawerStages,
       aboutClamp: st.aboutExpanded ? '' : 'display:-webkit-box;-webkit-line-clamp:4;-webkit-box-orient:vertical;overflow:hidden',
       aboutToggle: st.aboutExpanded ? 'Show less' : 'Show more',
-      launcherShown: true,
+      launcherShown: !st.drawerId,
       hasToast: !!st.toast, toast: st.toast,
 
       toggleWsMenu: () => this.setState({ wsMenuOpen: !this.state.wsMenuOpen }),
       closeWsMenu: () => this.setState({ wsMenuOpen: false }),
       toggleTheme: () => {
         const dark = !this.state.dark;
-        document.body.classList.toggle('dark', dark);
+        document.documentElement.setAttribute('data-theme', dark ? 'dark' : 'light');
         try { localStorage.setItem('lm-theme', dark ? 'dark' : 'light'); } catch (e) {}
         this.setState({ dark });
       },

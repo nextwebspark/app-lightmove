@@ -9,13 +9,22 @@
 <x-dc>
 <helmet>
   <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700;900&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="uncava-tokens.css">
+  <script src="./image-slot.js"></script>
   <style>
-    :root{--bg:#f8f9fb;--panel:#ffffff;--panel2:#f3f4f6;--line:#e2e4e9;--line-soft:#edeef2;--text:#111113;--text2:#475569;--text3:#64748b;--amber:#a67c2e;--amber-btn:#e2b65c;--amber-dim:rgba(226,182,92,.14);--on-amber:#1a1712;--sky:#2563eb;--sky-dim:rgba(37,99,235,.10);--red:#dc2626;--red-dim:rgba(220,38,38,.08);--green:#059669;--green-dim:rgba(5,150,105,.10);--ai:#6366f1;--ai2:#3b82f6;--ai-line:#4f46e5;--ai-dim:rgba(99,102,241,.10);--ai-soft:rgba(99,102,241,.06);--shadow:0 8px 28px rgba(15,23,42,.10);--radius-panel:14px;--mono:'Geist','Inter',system-ui,sans-serif;--sans:'Geist','Inter',system-ui,sans-serif;
-      --t-eyebrow:9.5px;--t-meta:11px;--t-note:12px;--t-body:13px;--t-lead:15px;--t-subhead:17px;--t-title:19px;--t-figure:27px;
-      --u-bg:#ffffff;--u-surface:#f7f8fa;--u-raised:#eceff3;--u-sunken:#e4e8ee;--u-border:rgba(3,7,18,.09);--u-border-strong:rgba(3,7,18,.16);--u-scrim:rgba(3,7,18,.4);--u-text:#0b0d12;--u-text2:#4c5462;--u-text3:#6b7382;--u-accent:#4a56d6;--u-accent-solid:#4a56d6;--u-accent-tint:rgba(74,86,214,.09);--u-accent-ring:rgba(74,86,214,.4);--u-signal:#a8602f;--u-signal-tint:rgba(168,96,47,.1);--u-offlimits:#d93a45;--u-offlimits-tint:rgba(217,58,69,.1);--u-direct:#0f9d6b;--u-direct-tint:rgba(15,157,107,.1);--u-adjacent:#1f72d4;--u-adjacent-tint:rgba(31,114,212,.1);--u-inferred:#8244d6;--u-inferred-tint:rgba(130,68,214,.1);--u-chart-1:#4a56d6;--u-chart-2:#0f9d6b;--u-chart-3:#a8602f;--u-chart-4:#8244d6;--u-chart-5:#1e8fa8;--u-chart-6:#d93a45;--u-seq-1:#e4e8f6;--u-seq-2:#b9c0ee;--u-seq-3:#8189f7;--u-seq-4:#4a56d6;--u-seq-5:#2e3878;--u-grid-axis:rgba(3,7,18,.14);--u-grid-line:rgba(3,7,18,.07);--u-num:'JetBrains Mono',ui-monospace,SFMono-Regular,monospace;--u-e1:0 1px 2px rgba(3,7,18,.06);--u-e3:0 18px 44px -10px rgba(3,7,18,.2)}
-    body.dark{--bg:#0c0d0e;--panel:#16171a;--panel2:#131316;--line:#2a2a2e;--line-soft:#212326;--text:#f8fafc;--text2:#cbd5e1;--text3:#94a3b8;--amber:#e2b65c;--amber-dim:rgba(226,182,92,.16);--sky:#60a5fa;--sky-dim:rgba(96,165,250,.16);--red:#f87171;--red-dim:rgba(248,113,113,.14);--green:#34d399;--green-dim:rgba(52,211,153,.16);--ai:#818cf8;--ai2:#60a5fa;--ai-line:#6366f1;--ai-dim:rgba(129,140,248,.16);--ai-soft:rgba(129,140,248,.09);--shadow:0 8px 28px rgba(0,0,0,.5);
-      --u-bg:#08090b;--u-surface:#0e1013;--u-raised:#15181d;--u-sunken:#1d2128;--u-border:rgba(255,255,255,.07);--u-border-strong:rgba(255,255,255,.14);--u-scrim:rgba(4,5,7,.72);--u-text:#f4f6f8;--u-text2:#a6adbb;--u-text3:#7c8493;--u-accent:#6e79f2;--u-accent-solid:#4a56d6;--u-accent-tint:rgba(110,121,242,.14);--u-accent-ring:rgba(110,121,242,.45);--u-signal:#d4855c;--u-signal-tint:rgba(212,133,92,.12);--u-offlimits:#f2626b;--u-offlimits-tint:rgba(242,98,107,.12);--u-direct:#3ecf8e;--u-direct-tint:rgba(62,207,142,.12);--u-adjacent:#5aa9ff;--u-adjacent-tint:rgba(90,169,255,.12);--u-inferred:#b07cf5;--u-inferred-tint:rgba(176,124,245,.12);--u-chart-1:#6e79f2;--u-chart-2:#3ecf8e;--u-chart-3:#d4855c;--u-chart-4:#b07cf5;--u-chart-5:#4fc3d9;--u-chart-6:#f2626b;--u-seq-1:#1e2440;--u-seq-2:#2e3878;--u-seq-3:#4a56d6;--u-seq-4:#6e79f2;--u-seq-5:#a3a9fa;--u-grid-axis:rgba(255,255,255,.1);--u-grid-line:rgba(255,255,255,.055);--u-e1:0 0 #0000;--u-e3:0 18px 44px -10px rgba(0,0,0,.8)}
+    :root{
+      --amber:var(--u-accent);--amber-btn:var(--u-accent-solid);--amber-dim:var(--u-accent-tint);--on-amber:#ffffff;
+      --sky:var(--u-accent);--sky-dim:var(--u-accent-tint);--ring:var(--u-accent-ring);
+      --red:var(--u-offlimits);--red-dim:var(--u-offlimits-tint);
+      --green:var(--u-direct);--green-dim:var(--u-direct-tint);
+      --ai:var(--u-inferred);--ai2:var(--u-adjacent);--ai-line:var(--u-accent);--ai-dim:var(--u-inferred-tint);--ai-soft:var(--u-inferred-tint);
+      --bg:var(--u-bg);--panel:var(--u-surface);--panel2:var(--u-raised);--line:var(--u-border-strong);--line-soft:var(--u-border);
+      --text:var(--u-text);--text2:var(--u-text2);--text3:var(--u-text3);
+      --shadow:var(--u-e3);--radius-panel:var(--u-r-modal);
+      --mono:var(--u-font-ui);--sans:var(--u-font-ui);
+      --u-text2:var(--u-text-2);--u-text3:var(--u-text-3);--u-num:var(--u-font-num);
+    }
     *{box-sizing:border-box}
     html,body{height:100%;margin:0}
     body{background:var(--bg);color:var(--text);font:400 14px/1.45 var(--sans);-webkit-font-smoothing:antialiased}
@@ -26,7 +35,7 @@
     @keyframes spin{to{transform:rotate(360deg)}}
     @keyframes slideInEnd{from{transform:translateX(100%)}to{transform:none}}
   </style>
-  <script>try{var t=localStorage.getItem('lm-theme');if(t==='dark'||(t!=='light'&&window.matchMedia&&matchMedia('(prefers-color-scheme: dark)').matches)){document.body.classList.add('dark');}}catch(e){}</script>
+  <script>try{var t=localStorage.getItem('lm-theme');document.documentElement.setAttribute('data-theme', t==='light'?'light':'dark');}catch(e){}</script>
 </helmet>
 <div data-screen-label="Settings" style="height:100vh;display:flex;flex-direction:column;overflow:hidden">
 
@@ -35,7 +44,7 @@
     <div style="display:flex;min-width:0;flex:1;align-items:center">
       <div style="display:flex;min-width:0;align-items:center;gap:8px">
         <div style="position:relative">
-          <button onClick="{{ toggleWsMenu }}" title="Meridian Search Partners" style="display:flex;align-items:center;gap:4px;padding:4px;border-radius:7px;background:none;border:none;cursor:pointer" style-hover="background:var(--panel2)">
+          <button onClick="{{ toggleWsMenu }}" title="Al-Futtaim" style="display:flex;align-items:center;gap:4px;padding:4px;border-radius:6px;background:none;border:none;cursor:pointer" style-hover="background:var(--panel2)">
             <svg viewBox="-36 -51 72 104" fill="none" stroke="currentColor" style="height:30px;width:auto;flex:none;color:var(--text)" aria-hidden="true"><path d="M-32 10 L 0 -8 L 32 10 L 0 28 Z M-32 10 V 32 L 0 50 L 32 32 V 10 M0 28 V 50" stroke-width="2.6" stroke-linejoin="round"></path><path d="M0 -48 L 32 -30 L 0 -12 L -32 -30 Z" fill="currentColor" stroke="none"></path></svg>
             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color:var(--text3)"><path d="m6 9 6 6 6-6"></path></svg>
           </button>
@@ -43,26 +52,26 @@
             <div onClick="{{ closeMenus }}" style="position:fixed;inset:0;z-index:79"></div>
             <div data-screen-label="Workspace menu" style="position:absolute;left:0;top:40px;z-index:80;width:268px;border-radius:10px;border:1px solid var(--line);background:var(--panel);padding:6px;box-shadow:var(--shadow)">
               <div style="display:flex;align-items:center;gap:10px;border-bottom:1px solid var(--line-soft);padding:10px;margin-bottom:6px">
-                <span style="width:30px;height:30px;border-radius:6px;background:var(--amber-btn);color:var(--on-amber);font:700 11px var(--mono);display:grid;place-items:center">M</span>
-                <div style="font:600 13px var(--mono);color:var(--text)">Meridian Search Partners</div>
+                <span style="width:30px;height:30px;border-radius:6px;background:var(--amber-btn);color:var(--on-amber);font:700 11px var(--mono);display:grid;place-items:center">A</span>
+                <div style="font:600 13px var(--mono);color:var(--text)">Al-Futtaim</div>
               </div>
-              <button data-section="profile" onClick="{{ goSection }}" style="display:flex;width:100%;align-items:center;gap:10px;border-radius:7px;padding:8px 10px;text-align:left;font:400 13px var(--sans);color:var(--text2);background:none;border:none;cursor:pointer" style-hover="background:var(--panel2);color:var(--text)">
+              <button data-section="profile" onClick="{{ goSection }}" style="display:flex;width:100%;align-items:center;gap:10px;border-radius:6px;padding:8px 10px;text-align:left;font:400 13px var(--sans);color:var(--text2);background:none;border:none;cursor:pointer" style-hover="background:var(--panel2);color:var(--text)">
                 <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex:none"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2M16 7a4 4 0 1 1-8 0 4 4 0 0 1 8 0"></path></svg>
                 Your profile
               </button>
               <div style="margin:6px 4px;height:1px;background:var(--line-soft)"></div>
               <sc-if value="{{ isAdmin }}" hint-placeholder-val="{{ true }}">
-                <button data-section="general" onClick="{{ goSection }}" style="display:flex;width:100%;align-items:center;gap:10px;border-radius:7px;padding:8px 10px;text-align:left;font:400 13px var(--sans);color:var(--text2);background:none;border:none;cursor:pointer" style-hover="background:var(--panel2);color:var(--text)">
+                <button data-section="general" onClick="{{ goSection }}" style="display:flex;width:100%;align-items:center;gap:10px;border-radius:6px;padding:8px 10px;text-align:left;font:400 13px var(--sans);color:var(--text2);background:none;border:none;cursor:pointer" style-hover="background:var(--panel2);color:var(--text)">
                   <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex:none"><path d="{{ I.settings }}"></path></svg>
                   Workspace settings
                 </button>
-                <button data-section="members" onClick="{{ goSection }}" style="display:flex;width:100%;align-items:center;gap:10px;border-radius:7px;padding:8px 10px;text-align:left;font:400 13px var(--sans);color:var(--text2);background:none;border:none;cursor:pointer" style-hover="background:var(--panel2);color:var(--text)">
+                <button data-section="members" onClick="{{ goSection }}" style="display:flex;width:100%;align-items:center;gap:10px;border-radius:6px;padding:8px 10px;text-align:left;font:400 13px var(--sans);color:var(--text2);background:none;border:none;cursor:pointer" style-hover="background:var(--panel2);color:var(--text)">
                   <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex:none"><path d="{{ I.members }}"></path></svg>
                   Members
                 </button>
                 <div style="margin:6px 4px;height:1px;background:var(--line-soft)"></div>
               </sc-if>
-              <a href="Login.dc.html" style="display:flex;width:100%;align-items:center;gap:10px;border-radius:7px;padding:8px 10px;text-align:left;font:400 13px var(--sans);color:var(--text2)" style-hover="background:var(--panel2);color:var(--text)">
+              <a href="Login.dc.html" style="display:flex;width:100%;align-items:center;gap:10px;border-radius:6px;padding:8px 10px;text-align:left;font:400 13px var(--sans);color:var(--text2)" style-hover="background:var(--panel2);color:var(--text)">
                 <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex:none"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9"></path></svg>
                 Sign out
               </a>
@@ -85,7 +94,7 @@
 
     <!-- Sidebar -->
     <nav aria-label="Main" style="width:{{ sideWidth }};flex:none;padding:14px 10px;display:flex;flex-direction:column;overflow-y:auto;overflow-x:hidden;transition:width .18s">
-      <a href="Workspace.dc.html" title="Back to workspace" style="display:flex;width:100%;align-items:center;justify-content:{{ rowJustify }};gap:10px;border-radius:7px;padding:8px 10px;margin-bottom:6px;font:500 13.5px var(--sans);color:var(--text2)" style-hover="background:var(--panel2);color:var(--text)">
+      <a href="Workspace.dc.html" title="Back to workspace" style="display:flex;width:100%;align-items:center;justify-content:{{ rowJustify }};gap:10px;border-radius:6px;padding:8px 10px;margin-bottom:6px;font:500 13.5px var(--sans);color:var(--text2)" style-hover="background:var(--panel2);color:var(--text)">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex:none"><path d="M19 12H5M12 19l-7-7 7-7"></path></svg>
         <span style="white-space:nowrap;display:{{ labelDisplay }}">Back to workspace</span>
       </a>
@@ -102,11 +111,11 @@
         </div>
       </sc-for>
       <div style="margin-top:auto;border-top:1px solid var(--line-soft);padding-top:12px">
-        <button onClick="{{ toggleTheme }}" title="{{ themeLabel }}" style="display:flex;width:100%;align-items:center;justify-content:{{ rowJustify }};gap:10px;border-radius:7px;padding:8px 10px;text-align:left;font:400 13.5px var(--sans);color:var(--text2);background:none;border:none;cursor:pointer" style-hover="background:var(--panel2);color:var(--text)">
+        <button onClick="{{ toggleTheme }}" title="{{ themeLabel }}" style="display:flex;width:100%;align-items:center;justify-content:{{ rowJustify }};gap:10px;border-radius:6px;padding:8px 10px;text-align:left;font:400 13.5px var(--sans);color:var(--text2);background:none;border:none;cursor:pointer" style-hover="background:var(--panel2);color:var(--text)">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex:none"><path d="{{ themeIcon }}"></path></svg>
           <span style="white-space:nowrap;display:{{ labelDisplay }}">{{ themeLabel }}</span>
         </button>
-        <button onClick="{{ toggleCollapse }}" title="{{ collapseTitle }}" style="display:flex;width:100%;align-items:center;justify-content:{{ rowJustify }};gap:10px;border-radius:7px;padding:8px 10px;text-align:left;font:400 13.5px var(--sans);color:var(--text2);background:none;border:none;cursor:pointer" style-hover="background:var(--panel2);color:var(--text)">
+        <button onClick="{{ toggleCollapse }}" title="{{ collapseTitle }}" style="display:flex;width:100%;align-items:center;justify-content:{{ rowJustify }};gap:10px;border-radius:6px;padding:8px 10px;text-align:left;font:400 13.5px var(--sans);color:var(--text2);background:none;border:none;cursor:pointer" style-hover="background:var(--panel2);color:var(--text)">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex:none"><path d="{{ collapseIcon }}"></path></svg>
           <span style="white-space:nowrap;display:{{ labelDisplay }}">Collapse</span>
         </button>
@@ -140,20 +149,20 @@
                 </label>
                 <label style="display:block;margin-bottom:16px">
                   <span style="display:block;margin-bottom:6px;font:600 10px var(--mono);letter-spacing:.12em;text-transform:uppercase;color:var(--text3)">Work email</span>
-                  <div style="border-radius:8px;border:1px solid var(--line-soft);background:var(--panel);padding:9px 12px;font:500 13px var(--mono);color:var(--text2)">yara@meridiansearch.com</div>
+                  <div style="border-radius:6px;border:1px solid var(--line-soft);background:var(--panel);padding:9px 12px;font:500 13px var(--mono);color:var(--text2)">yara@alfuttaim.com</div>
                   <span style="margin-top:6px;display:block;font:400 11px var(--mono);color:var(--text3)">Your sign-in address — ask an admin to change it</span>
                 </label>
                 <label style="display:block;margin-bottom:16px">
                   <span style="display:block;margin-bottom:6px;font:600 10px var(--mono);letter-spacing:.12em;text-transform:uppercase;color:var(--text3)">Title</span>
-                  <input value="{{ pTitle }}" onChange="{{ onProfileTitle }}" placeholder="Managing Partner" style="width:100%;border-radius:8px;border:1px solid var(--line);background:var(--panel);padding:10px 12px;font:400 13px var(--mono);color:var(--text);outline:none" style-focus="border-color:var(--sky)">
+                  <input value="{{ pTitle }}" onChange="{{ onProfileTitle }}" placeholder="Head of Talent Acquisition" style="width:100%;border-radius:6px;border:1px solid var(--line);background:var(--panel);padding:10px 12px;font:400 13px var(--mono);color:var(--text);outline:none" style-focus="border-color:var(--sky)">
                 </label>
                 <label style="display:block;margin-bottom:16px">
                   <span style="display:block;margin-bottom:6px;font:600 10px var(--mono);letter-spacing:.12em;text-transform:uppercase;color:var(--text3)">Role</span>
-                  <div style="border-radius:8px;border:1px solid var(--line-soft);background:var(--panel);padding:9px 12px;font:500 13px var(--mono);color:var(--text2)">{{ roleReadOnly }}</div>
+                  <div style="border-radius:6px;border:1px solid var(--line-soft);background:var(--panel);padding:9px 12px;font:500 13px var(--mono);color:var(--text2)">{{ roleReadOnly }}</div>
                 </label>
                 <label style="display:block;margin-bottom:16px">
                   <span style="display:block;margin-bottom:6px;font:600 10px var(--mono);letter-spacing:.12em;text-transform:uppercase;color:var(--text3)">Timezone</span>
-                  <select value="{{ pTz }}" onChange="{{ onProfileTz }}" style="width:100%;border-radius:8px;border:1px solid var(--line);background:var(--panel);padding:10px 12px;font:400 13px var(--mono);color:var(--text);outline:none" style-focus="border-color:var(--sky)">
+                  <select value="{{ pTz }}" onChange="{{ onProfileTz }}" style="width:100%;border-radius:6px;border:1px solid var(--line);background:var(--panel);padding:10px 12px;font:400 13px var(--mono);color:var(--text);outline:none" style-focus="border-color:var(--sky)">
                     <option value="Asia/Dubai">Gulf Standard Time (GMT+4)</option>
                     <option value="Asia/Riyadh">Arabia Standard Time (GMT+3)</option>
                     <option value="Etc/GMT">GMT</option>
@@ -162,7 +171,7 @@
                 </label>
                 <label style="display:block;margin-bottom:16px">
                   <span style="display:block;margin-bottom:6px;font:600 10px var(--mono);letter-spacing:.12em;text-transform:uppercase;color:var(--text3)">Language</span>
-                  <select value="{{ pLocale }}" onChange="{{ onProfileLocale }}" style="width:100%;border-radius:8px;border:1px solid var(--line);background:var(--panel);padding:10px 12px;font:400 13px var(--mono);color:var(--text);outline:none" style-focus="border-color:var(--sky)">
+                  <select value="{{ pLocale }}" onChange="{{ onProfileLocale }}" style="width:100%;border-radius:6px;border:1px solid var(--line);background:var(--panel);padding:10px 12px;font:400 13px var(--mono);color:var(--text);outline:none" style-focus="border-color:var(--sky)">
                     <option value="en">English</option>
                     <option value="ar">العربية</option>
                     <option value="fr">Français</option>
@@ -170,7 +179,7 @@
                 </label>
               </div>
               <div style="margin-top:20px;display:flex;justify-content:flex-end">
-                <button onClick="{{ saveProfile }}" style="display:flex;align-items:center;justify-content:center;gap:8px;border-radius:8px;padding:10px 14px;font:600 13.5px var(--sans);background:var(--amber-btn);border:1px solid var(--amber-btn);color:var(--on-amber);cursor:pointer" style-hover="filter:brightness(1.05)">Save changes</button>
+                <button onClick="{{ saveProfile }}" style="display:flex;align-items:center;justify-content:center;gap:8px;border-radius:6px;padding:10px 14px;font:500 13.5px var(--sans);background:var(--amber-btn);border:1px solid var(--amber-btn);color:var(--on-amber);cursor:pointer" style-hover="filter:brightness(1.05)">Save changes</button>
               </div>
             </div>
           </div>
@@ -207,7 +216,7 @@
                   </label>
                 </div>
                 <div style="margin-top:16px;display:flex;justify-content:flex-end">
-                  <button onClick="{{ updatePassword }}" style="display:flex;align-items:center;justify-content:center;gap:8px;border-radius:8px;padding:10px 14px;font:500 13.5px var(--sans);background:var(--panel);border:1px solid var(--line);color:var(--text2);cursor:pointer" style-hover="color:var(--text);border-color:var(--text3)">Update password</button>
+                  <button onClick="{{ updatePassword }}" style="display:flex;align-items:center;justify-content:center;gap:8px;border-radius:6px;padding:10px 14px;font:500 13.5px var(--sans);background:var(--panel);border:1px solid var(--line);color:var(--text2);cursor:pointer" style-hover="color:var(--text);border-color:var(--text3)">Update password</button>
                 </div>
               </sc-if>
             </div>
@@ -243,7 +252,7 @@
                     <span style="border-radius:999px;background:var(--sky-dim);padding:3px 9px;font:600 10px var(--mono);text-transform:uppercase;letter-spacing:.05em;color:var(--sky)">This device</span>
                   </sc-if>
                   <sc-if value="{{ s.revocable }}" hint-placeholder-val="{{ true }}">
-                    <button data-id="{{ s.id }}" onClick="{{ revokeSession }}" style="border-radius:7px;border:1px solid var(--line);background:none;padding:4px 10px;font:500 12px var(--sans);color:var(--text3);cursor:pointer" style-hover="border-color:var(--red);color:var(--red)">Revoke</button>
+                    <button data-id="{{ s.id }}" onClick="{{ revokeSession }}" style="border-radius:6px;border:1px solid var(--line);background:none;padding:4px 10px;font:500 12px var(--sans);color:var(--text3);cursor:pointer" style-hover="border-color:var(--red);color:var(--red)">Revoke</button>
                   </sc-if>
                 </div>
               </sc-for>
@@ -260,7 +269,7 @@
             </div>
             <div style="border-radius:10px;border:1px solid var(--line-soft);background:var(--panel2);padding:20px">
               <div style="margin-bottom:20px;display:flex;align-items:center;gap:14px">
-                <span style="width:44px;height:44px;border-radius:11px;display:grid;place-items:center;background:var(--amber-btn);color:var(--on-amber);font:700 18px var(--mono)">M</span>
+                <img src="assets/al-futtaim-logo.png" alt="Al-Futtaim" style="width:44px;height:44px;border-radius:11px;object-fit:contain;background:var(--panel)" />
                 <div>
                   <div style="font:600 14px var(--sans)">{{ wsName }}</div>
                   <div style="margin-top:2px;font:400 11.5px var(--mono);color:var(--text3)">pro plan · 5 members</div>
@@ -269,21 +278,21 @@
               <div style="display:grid;grid-template-columns:1fr 1fr;column-gap:16px;row-gap:14px">
                 <label style="display:block;margin-bottom:16px">
                   <span style="display:block;margin-bottom:6px;font:600 10px var(--mono);letter-spacing:.12em;text-transform:uppercase;color:var(--text3)">Workspace name</span>
-                  <input value="{{ wsName }}" onChange="{{ onWsName }}" style="width:100%;border-radius:8px;border:1px solid var(--line);background:var(--panel);padding:10px 12px;font:400 13px var(--mono);color:var(--text);outline:none" style-focus="border-color:var(--sky)">
+                  <input value="{{ wsName }}" onChange="{{ onWsName }}" style="width:100%;border-radius:6px;border:1px solid var(--line);background:var(--panel);padding:10px 12px;font:400 13px var(--mono);color:var(--text);outline:none" style-focus="border-color:var(--sky)">
                 </label>
                 <label style="display:block;margin-bottom:16px">
                   <span style="display:block;margin-bottom:6px;font:600 10px var(--mono);letter-spacing:.12em;text-transform:uppercase;color:var(--text3)">Workspace URL</span>
-                  <div style="border-radius:8px;border:1px solid var(--line-soft);background:var(--panel);padding:9px 12px;font:500 13px var(--mono);color:var(--text2)">beta.uncava.com/w/meridian-search</div>
+                  <div style="border-radius:6px;border:1px solid var(--line-soft);background:var(--panel);padding:9px 12px;font:500 13px var(--mono);color:var(--text2)">beta.uncava.com/w/meridian-search</div>
                 </label>
                 <label style="display:block;margin-bottom:16px">
                   <span style="display:block;margin-bottom:6px;font:600 10px var(--mono);letter-spacing:.12em;text-transform:uppercase;color:var(--text3)">Default region</span>
-                  <select value="{{ wsRegion }}" onChange="{{ onWsRegion }}" style="width:100%;border-radius:8px;border:1px solid var(--line);background:var(--panel);padding:10px 12px;font:400 13px var(--mono);color:var(--text);outline:none" style-focus="border-color:var(--sky)">
+                  <select value="{{ wsRegion }}" onChange="{{ onWsRegion }}" style="width:100%;border-radius:6px;border:1px solid var(--line);background:var(--panel);padding:10px 12px;font:400 13px var(--mono);color:var(--text);outline:none" style-focus="border-color:var(--sky)">
                     <option>GCC</option><option>MENA</option><option>Europe</option><option>Global</option>
                   </select>
                 </label>
                 <label style="display:block;margin-bottom:16px">
                   <span style="display:block;margin-bottom:6px;font:600 10px var(--mono);letter-spacing:.12em;text-transform:uppercase;color:var(--text3)">Default currency</span>
-                  <select value="{{ wsCurrency }}" onChange="{{ onWsCurrency }}" style="width:100%;border-radius:8px;border:1px solid var(--line);background:var(--panel);padding:10px 12px;font:400 13px var(--mono);color:var(--text);outline:none" style-focus="border-color:var(--sky)">
+                  <select value="{{ wsCurrency }}" onChange="{{ onWsCurrency }}" style="width:100%;border-radius:6px;border:1px solid var(--line);background:var(--panel);padding:10px 12px;font:400 13px var(--mono);color:var(--text);outline:none" style-focus="border-color:var(--sky)">
                     <option>USD</option><option>AED</option><option>SAR</option><option>EUR</option>
                   </select>
                 </label>
@@ -298,7 +307,7 @@
                   <div style="font:600 13px var(--sans);color:var(--red)">Delete workspace</div>
                   <div style="margin-top:4px;font:400 11.5px var(--mono);color:var(--text3)">Permanently removes all projects, candidates and client records. This cannot be undone.</div>
                 </div>
-                <button onClick="{{ openDelete }}" style="display:flex;align-items:center;justify-content:center;gap:8px;border-radius:8px;padding:10px 14px;font:500 13.5px var(--sans);background:var(--panel);border:1px solid var(--red);color:var(--red);cursor:pointer" style-hover="background:var(--red);color:#fff">Delete…</button>
+                <button onClick="{{ openDelete }}" style="display:flex;align-items:center;justify-content:center;gap:8px;border-radius:6px;padding:10px 14px;font:500 13.5px var(--sans);background:var(--panel);border:1px solid var(--red);color:var(--red);cursor:pointer" style-hover="background:var(--red);color:#fff">Delete…</button>
               </div>
             </div>
           </div>
@@ -313,7 +322,7 @@
                 <div style="margin-top:4px;font:400 12px var(--mono);color:var(--text3)">{{ membersSubtitle }}</div>
               </div>
               <div style="margin-left:auto;display:flex;gap:8px">
-                <button onClick="{{ openInvite }}" style="display:flex;align-items:center;justify-content:center;gap:8px;border-radius:8px;padding:7px 14px;font:600 13px var(--sans);background:var(--amber-btn);border:1px solid var(--amber-btn);color:var(--on-amber);cursor:pointer" style-hover="filter:brightness(1.05)">
+                <button onClick="{{ openInvite }}" style="display:flex;align-items:center;justify-content:center;gap:8px;border-radius:6px;padding:7px 14px;font:500 13px var(--sans);background:var(--amber-btn);border:1px solid var(--amber-btn);color:var(--on-amber);cursor:pointer" style-hover="filter:brightness(1.05)">
                   <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"></path></svg>
                   Invite
                 </button>
@@ -322,12 +331,12 @@
             <div style="border-radius:10px;border:1px solid var(--line-soft);background:var(--panel2);padding:8px 20px">
               <sc-for list="{{ members }}" as="m" hint-placeholder-count="5">
                 <div style="{{ m.rowStyle }}">
-                  <span title="{{ m.name }}" style="{{ m.avatarStyle }}">{{ m.initials }}</span>
+                  <image-slot id="{{ m.slotId }}" title="{{ m.name }}" shape="circle" style="width:30px;height:30px;flex:none" placeholder=""></image-slot>
                   <div style="min-width:0;flex:1">
                     <div style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font:500 13px var(--sans)">{{ m.name }}<sc-if value="{{ m.self }}" hint-placeholder-val="{{ false }}"><span style="margin-left:6px;font:400 10px var(--mono);color:var(--text3)">(you)</span></sc-if></div>
                     <div style="margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font:400 11px var(--mono);color:var(--text3)">{{ m.email }}</div>
                   </div>
-                  <select value="{{ m.role }}" data-id="{{ m.id }}" onChange="{{ changeRole }}" aria-label="{{ m.roleAria }}" style="width:130px;flex:none;border-radius:8px;border:1px solid var(--line);background:var(--panel);padding:10px 12px;font:400 13px var(--mono);color:var(--text);outline:none" style-focus="border-color:var(--sky)">
+                  <select value="{{ m.role }}" data-id="{{ m.id }}" onChange="{{ changeRole }}" aria-label="{{ m.roleAria }}" style="width:130px;flex:none;border-radius:6px;border:1px solid var(--line);background:var(--panel);padding:10px 12px;font:400 13px var(--mono);color:var(--text);outline:none" style-focus="border-color:var(--sky)">
                     <option value="MEMBER">Member</option>
                     <option value="ADMIN">Admin</option>
                   </select>
@@ -345,8 +354,8 @@
                         <div style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font:400 13px var(--mono)">{{ inv.email }}</div>
                         <div style="margin-top:2px;font:400 11px var(--mono);color:var(--text3)">{{ inv.meta }}</div>
                       </div>
-                      <button data-id="{{ inv.id }}" onClick="{{ resendInvite }}" style="display:flex;align-items:center;justify-content:center;border-radius:8px;padding:6px 14px;font:500 12px var(--sans);background:var(--panel);border:1px solid var(--line);color:var(--text2);cursor:pointer" style-hover="color:var(--text);border-color:var(--text3)">Resend</button>
-                      <button data-id="{{ inv.id }}" onClick="{{ revokeInvite }}" style="display:flex;align-items:center;justify-content:center;border-radius:8px;padding:6px 14px;font:500 12px var(--sans);background:transparent;border:none;color:var(--red);cursor:pointer" style-hover="text-decoration:underline">Revoke</button>
+                      <button data-id="{{ inv.id }}" onClick="{{ resendInvite }}" style="display:flex;align-items:center;justify-content:center;border-radius:6px;padding:6px 14px;font:500 12px var(--sans);background:var(--panel);border:1px solid var(--line);color:var(--text2);cursor:pointer" style-hover="color:var(--text);border-color:var(--text3)">Resend</button>
+                      <button data-id="{{ inv.id }}" onClick="{{ revokeInvite }}" style="display:flex;align-items:center;justify-content:center;border-radius:6px;padding:6px 14px;font:500 12px var(--sans);background:transparent;border:none;color:var(--red);cursor:pointer" style-hover="text-decoration:underline">Revoke</button>
                     </div>
                   </sc-for>
                 </div>
@@ -455,7 +464,7 @@
                                 <sc-if value="{{ r.toggleLabel }}" hint-placeholder-val="{{ false }}">
                                   <button data-code="{{ r.code }}" onClick="{{ toggleRow }}" aria-label="{{ r.toggleAria }}" style="border-radius:6px;padding:4px 8px;font:500 12px var(--sans);color:var(--text3);background:none;border:none;cursor:pointer" style-hover="background:var(--panel2);color:var(--text)">{{ r.toggleLabel }}</button>
                                 </sc-if>
-                                <button data-code="{{ r.code }}" onClick="{{ openRow }}" aria-label="{{ r.openAria }}" style="display:inline-flex;align-items:center;gap:6px;white-space:nowrap;border-radius:7px;border:1px solid var(--line);background:none;padding:5px 11px;font:600 12px var(--sans);color:var(--text2);cursor:pointer" style-hover="border-color:var(--text3);background:var(--panel);color:var(--text)">
+                                <button data-code="{{ r.code }}" onClick="{{ openRow }}" aria-label="{{ r.openAria }}" style="display:inline-flex;align-items:center;gap:6px;white-space:nowrap;border-radius:6px;border:1px solid var(--line);background:none;padding:5px 11px;font:500 12px var(--sans);color:var(--text2);cursor:pointer" style-hover="border-color:var(--text3);background:var(--panel);color:var(--text)">
                                   Open
                                   <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14M13 6l6 6-6 6"></path></svg>
                                 </button>
@@ -529,7 +538,7 @@
             <div style="{{ edBannerStyle }}">
               <span style="min-width:220px;flex:1">{{ edBannerText }}</span>
               <sc-if value="{{ edShowReset }}" hint-placeholder-val="{{ false }}">
-                <button data-action="reset" onClick="{{ onLifecycle }}" style="display:flex;flex:none;align-items:center;justify-content:center;border-radius:8px;padding:6px 14px;font:500 12px var(--sans);background:var(--panel);border:1px solid var(--line);color:var(--text2);cursor:pointer" style-hover="color:var(--text);border-color:var(--text3)">Reset to library</button>
+                <button data-action="reset" onClick="{{ onLifecycle }}" style="display:flex;flex:none;align-items:center;justify-content:center;border-radius:6px;padding:6px 14px;font:500 12px var(--sans);background:var(--panel);border:1px solid var(--line);color:var(--text2);cursor:pointer" style-hover="color:var(--text);border-color:var(--text3)">Reset to library</button>
               </sc-if>
             </div>
 
@@ -539,25 +548,25 @@
               <p style="margin:2px 0 16px;font:400 11.5px var(--mono);color:var(--text3)">How the picker lists this template, and which role titles are drafted from it</p>
               <label style="display:block;margin-bottom:16px">
                 <span style="display:block;margin-bottom:6px;font:600 10px var(--mono);letter-spacing:.12em;text-transform:uppercase;color:var(--text3)">Title</span>
-                <input value="{{ ed.title }}" data-field="title" onChange="{{ onEdField }}" maxlength="160" style="width:100%;border-radius:8px;border:1px solid var(--line);background:var(--panel);padding:10px 12px;font:400 13px var(--mono);color:var(--text);outline:none" style-focus="border-color:var(--sky)">
+                <input value="{{ ed.title }}" data-field="title" onChange="{{ onEdField }}" maxlength="160" style="width:100%;border-radius:6px;border:1px solid var(--line);background:var(--panel);padding:10px 12px;font:400 13px var(--mono);color:var(--text);outline:none" style-focus="border-color:var(--sky)">
               </label>
               <div style="display:grid;grid-template-columns:1fr 1fr;column-gap:16px">
                 <label style="display:block;margin-bottom:16px">
                   <span style="display:block;margin-bottom:6px;font:600 10px var(--mono);letter-spacing:.12em;text-transform:uppercase;color:var(--text3)">Discipline</span>
-                  <select value="{{ ed.discipline }}" data-field="discipline" onChange="{{ onEdField }}" style="width:100%;border-radius:8px;border:1px solid var(--line);background:var(--panel);padding:10px 12px;font:400 13px var(--mono);color:var(--text);outline:none">
+                  <select value="{{ ed.discipline }}" data-field="discipline" onChange="{{ onEdField }}" style="width:100%;border-radius:6px;border:1px solid var(--line);background:var(--panel);padding:10px 12px;font:400 13px var(--mono);color:var(--text);outline:none">
                     <option value="EXECUTIVE">Executive</option><option value="FINANCE">Finance</option><option value="OPERATIONS">Operations</option><option value="TECHNOLOGY">Technology</option><option value="PEOPLE">People</option><option value="COMMERCIAL">Commercial</option><option value="GOVERNANCE">Governance</option><option value="INVESTMENT">Investment</option>
                   </select>
                 </label>
                 <label style="display:block;margin-bottom:16px">
                   <span style="display:block;margin-bottom:6px;font:600 10px var(--mono);letter-spacing:.12em;text-transform:uppercase;color:var(--text3)">Seniority</span>
-                  <select value="{{ ed.seniority }}" data-field="seniority" onChange="{{ onEdField }}" style="width:100%;border-radius:8px;border:1px solid var(--line);background:var(--panel);padding:10px 12px;font:400 13px var(--mono);color:var(--text);outline:none">
+                  <select value="{{ ed.seniority }}" data-field="seniority" onChange="{{ onEdField }}" style="width:100%;border-radius:6px;border:1px solid var(--line);background:var(--panel);padding:10px 12px;font:400 13px var(--mono);color:var(--text);outline:none">
                     <option value="BOARD">Board</option><option value="C_SUITE">C-Suite</option><option value="N_MINUS_1">N-1</option><option value="N_MINUS_2">N-2</option><option value="N_MINUS_3">N-3</option>
                   </select>
                 </label>
               </div>
               <label style="display:block;margin-bottom:16px">
                 <span style="display:block;margin-bottom:6px;font:600 10px var(--mono);letter-spacing:.12em;text-transform:uppercase;color:var(--text3)">Summary — one line under the title in the picker</span>
-                <input value="{{ ed.summary }}" data-field="summary" onChange="{{ onEdField }}" maxlength="300" style="width:100%;border-radius:8px;border:1px solid var(--line);background:var(--panel);padding:10px 12px;font:400 13px var(--mono);color:var(--text);outline:none" style-focus="border-color:var(--sky)">
+                <input value="{{ ed.summary }}" data-field="summary" onChange="{{ onEdField }}" maxlength="300" style="width:100%;border-radius:6px;border:1px solid var(--line);background:var(--panel);padding:10px 12px;font:400 13px var(--mono);color:var(--text);outline:none" style-focus="border-color:var(--sky)">
               </label>
               <sc-for list="{{ chipKeywords }}" as="cf" hint-placeholder-count="1">
                 <div style="margin-bottom:16px">
@@ -566,14 +575,14 @@
                     <sc-if value="{{ cf.hasChips }}" hint-placeholder-val="{{ true }}">
                       <div style="display:flex;flex-wrap:wrap;gap:8px">
                         <sc-for list="{{ cf.chips }}" as="ch" hint-placeholder-count="4">
-                          <span style="display:inline-flex;align-items:center;gap:7px;border-radius:4px;border:1px solid var(--line);background:var(--panel2);padding:6px 8px 6px 10px;font:600 12px var(--sans);color:var(--text2)">{{ ch.text }}<button data-list="{{ cf.key }}" data-idx="{{ ch.idx }}" onClick="{{ removeChip }}" aria-label="{{ ch.aria }}" style="border-radius:4px;padding:4px;background:none;border:none;color:var(--text3);cursor:pointer;display:grid" style-hover="color:var(--red)"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6 6 18M6 6l12 12"></path></svg></button></span>
+                          <span style="display:inline-flex;align-items:center;gap:7px;border-radius:4px;border:1px solid var(--line);background:var(--panel2);padding:6px 8px 6px 10px;font:500 12px var(--sans);color:var(--text2)">{{ ch.text }}<button data-list="{{ cf.key }}" data-idx="{{ ch.idx }}" onClick="{{ removeChip }}" aria-label="{{ ch.aria }}" style="border-radius:4px;padding:4px;background:none;border:none;color:var(--text3);cursor:pointer;display:grid" style-hover="color:var(--red)"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6 6 18M6 6l12 12"></path></svg></button></span>
                         </sc-for>
                       </div>
                     </sc-if>
                     <sc-if value="{{ cf.canAdd }}" hint-placeholder-val="{{ true }}">
                       <div style="{{ cf.addRowStyle }}">
-                        <input value="{{ cf.draft }}" data-list="{{ cf.key }}" onChange="{{ onChipDraft }}" onKeyDown="{{ onChipKey }}" placeholder="{{ cf.placeholder }}" aria-label="{{ cf.addAria }}" style="width:100%;border-radius:8px;border:1px solid var(--line);background:var(--panel2);padding:10px 12px;font:400 13px var(--mono);color:var(--text);outline:none" style-focus="border-color:var(--sky)">
-                        <button data-list="{{ cf.key }}" onClick="{{ addChip }}" style="flex:none;border-radius:8px;border:1px dashed var(--line);background:none;padding:8px 14px;font:600 12px var(--sans);color:var(--sky);cursor:pointer" style-hover="border-color:var(--sky);background:var(--sky-dim)">+ Add</button>
+                        <input value="{{ cf.draft }}" data-list="{{ cf.key }}" onChange="{{ onChipDraft }}" onKeyDown="{{ onChipKey }}" placeholder="{{ cf.placeholder }}" aria-label="{{ cf.addAria }}" style="width:100%;border-radius:6px;border:1px solid var(--line);background:var(--panel2);padding:10px 12px;font:400 13px var(--mono);color:var(--text);outline:none" style-focus="border-color:var(--sky)">
+                        <button data-list="{{ cf.key }}" onClick="{{ addChip }}" style="flex:none;border-radius:6px;border:1px dashed var(--line);background:none;padding:8px 14px;font:500 12px var(--sans);color:var(--sky);cursor:pointer" style-hover="border-color:var(--sky);background:var(--sky-dim)">+ Add</button>
                       </div>
                     </sc-if>
                     <sc-if value="{{ cf.dup }}" hint-placeholder-val="{{ false }}">
@@ -594,11 +603,11 @@
               <div style="display:grid;grid-template-columns:1fr 1fr;column-gap:16px">
                 <label style="display:block;margin-bottom:16px">
                   <span style="display:block;margin-bottom:6px;font:600 10px var(--mono);letter-spacing:.12em;text-transform:uppercase;color:var(--text3)">Department</span>
-                  <input value="{{ ed.department }}" data-field="department" onChange="{{ onEdField }}" maxlength="160" style="width:100%;border-radius:8px;border:1px solid var(--line);background:var(--panel);padding:10px 12px;font:400 13px var(--mono);color:var(--text);outline:none" style-focus="border-color:var(--sky)">
+                  <input value="{{ ed.department }}" data-field="department" onChange="{{ onEdField }}" maxlength="160" style="width:100%;border-radius:6px;border:1px solid var(--line);background:var(--panel);padding:10px 12px;font:400 13px var(--mono);color:var(--text);outline:none" style-focus="border-color:var(--sky)">
                 </label>
                 <label style="display:block;margin-bottom:16px">
                   <span style="display:block;margin-bottom:6px;font:600 10px var(--mono);letter-spacing:.12em;text-transform:uppercase;color:var(--text3)">Employment type</span>
-                  <select value="{{ ed.employmentType }}" data-field="employmentType" onChange="{{ onEdField }}" style="width:100%;border-radius:8px;border:1px solid var(--line);background:var(--panel);padding:10px 12px;font:400 13px var(--mono);color:var(--text);outline:none">
+                  <select value="{{ ed.employmentType }}" data-field="employmentType" onChange="{{ onEdField }}" style="width:100%;border-radius:6px;border:1px solid var(--line);background:var(--panel);padding:10px 12px;font:400 13px var(--mono);color:var(--text);outline:none">
                     <option value="">Not set</option><option value="FULL_TIME_PERMANENT">Full-time</option><option value="PART_TIME">Part-time</option><option value="FIXED_TERM_CONTRACT">Contract</option><option value="TEMPORARY">Temporary</option><option value="INTERIM">Interim</option><option value="RETAINED_ADVISORY">Advisory</option>
                   </select>
                 </label>
@@ -610,14 +619,14 @@
                     <sc-if value="{{ cf.hasChips }}" hint-placeholder-val="{{ true }}">
                       <div style="display:flex;flex-wrap:wrap;gap:8px">
                         <sc-for list="{{ cf.chips }}" as="ch" hint-placeholder-count="4">
-                          <span style="display:inline-flex;align-items:center;gap:7px;border-radius:4px;border:1px solid var(--line);background:var(--panel2);padding:6px 8px 6px 10px;font:600 12px var(--sans);color:var(--text2)">{{ ch.text }}<button data-list="{{ cf.key }}" data-idx="{{ ch.idx }}" onClick="{{ removeChip }}" aria-label="{{ ch.aria }}" style="border-radius:4px;padding:4px;background:none;border:none;color:var(--text3);cursor:pointer;display:grid" style-hover="color:var(--red)"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6 6 18M6 6l12 12"></path></svg></button></span>
+                          <span style="display:inline-flex;align-items:center;gap:7px;border-radius:4px;border:1px solid var(--line);background:var(--panel2);padding:6px 8px 6px 10px;font:500 12px var(--sans);color:var(--text2)">{{ ch.text }}<button data-list="{{ cf.key }}" data-idx="{{ ch.idx }}" onClick="{{ removeChip }}" aria-label="{{ ch.aria }}" style="border-radius:4px;padding:4px;background:none;border:none;color:var(--text3);cursor:pointer;display:grid" style-hover="color:var(--red)"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6 6 18M6 6l12 12"></path></svg></button></span>
                         </sc-for>
                       </div>
                     </sc-if>
                     <sc-if value="{{ cf.canAdd }}" hint-placeholder-val="{{ true }}">
                       <div style="{{ cf.addRowStyle }}">
-                        <input value="{{ cf.draft }}" data-list="{{ cf.key }}" onChange="{{ onChipDraft }}" onKeyDown="{{ onChipKey }}" placeholder="{{ cf.placeholder }}" aria-label="{{ cf.addAria }}" style="width:100%;border-radius:8px;border:1px solid var(--line);background:var(--panel2);padding:10px 12px;font:400 13px var(--mono);color:var(--text);outline:none" style-focus="border-color:var(--sky)">
-                        <button data-list="{{ cf.key }}" onClick="{{ addChip }}" style="flex:none;border-radius:8px;border:1px dashed var(--line);background:none;padding:8px 14px;font:600 12px var(--sans);color:var(--sky);cursor:pointer" style-hover="border-color:var(--sky);background:var(--sky-dim)">+ Add</button>
+                        <input value="{{ cf.draft }}" data-list="{{ cf.key }}" onChange="{{ onChipDraft }}" onKeyDown="{{ onChipKey }}" placeholder="{{ cf.placeholder }}" aria-label="{{ cf.addAria }}" style="width:100%;border-radius:6px;border:1px solid var(--line);background:var(--panel2);padding:10px 12px;font:400 13px var(--mono);color:var(--text);outline:none" style-focus="border-color:var(--sky)">
+                        <button data-list="{{ cf.key }}" onClick="{{ addChip }}" style="flex:none;border-radius:6px;border:1px dashed var(--line);background:none;padding:8px 14px;font:500 12px var(--sans);color:var(--sky);cursor:pointer" style-hover="border-color:var(--sky);background:var(--sky-dim)">+ Add</button>
                       </div>
                     </sc-if>
                     <sc-if value="{{ cf.dup }}" hint-placeholder-val="{{ false }}">
@@ -628,7 +637,7 @@
               </sc-for>
               <label style="display:block;margin-bottom:16px">
                 <span style="display:block;margin-bottom:6px;font:600 10px var(--mono);letter-spacing:.12em;text-transform:uppercase;color:var(--text3)">Ideal profile</span>
-                <textarea rows="5" value="{{ ed.narrative }}" data-field="narrative" onChange="{{ onEdField }}" maxlength="4000" style="width:100%;resize:vertical;border-radius:8px;border:1px solid var(--line);background:var(--panel);padding:10px 12px;font:400 13px/1.6 var(--sans);color:var(--text);outline:none" style-focus="border-color:var(--sky)"></textarea>
+                <textarea rows="5" value="{{ ed.narrative }}" data-field="narrative" onChange="{{ onEdField }}" maxlength="4000" style="width:100%;resize:vertical;border-radius:6px;border:1px solid var(--line);background:var(--panel);padding:10px 12px;font:400 13px/1.6 var(--sans);color:var(--text);outline:none" style-focus="border-color:var(--sky)"></textarea>
               </label>
             </section>
 
@@ -643,14 +652,14 @@
                     <sc-if value="{{ cf.hasChips }}" hint-placeholder-val="{{ true }}">
                       <div style="display:flex;flex-wrap:wrap;gap:8px">
                         <sc-for list="{{ cf.chips }}" as="ch" hint-placeholder-count="5">
-                          <span style="display:inline-flex;align-items:center;gap:7px;border-radius:4px;border:1px solid var(--line);background:var(--panel2);padding:6px 8px 6px 10px;font:600 12px var(--sans);color:var(--text2)">{{ ch.text }}<button data-list="{{ cf.key }}" data-idx="{{ ch.idx }}" onClick="{{ removeChip }}" aria-label="{{ ch.aria }}" style="border-radius:4px;padding:4px;background:none;border:none;color:var(--text3);cursor:pointer;display:grid" style-hover="color:var(--red)"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6 6 18M6 6l12 12"></path></svg></button></span>
+                          <span style="display:inline-flex;align-items:center;gap:7px;border-radius:4px;border:1px solid var(--line);background:var(--panel2);padding:6px 8px 6px 10px;font:500 12px var(--sans);color:var(--text2)">{{ ch.text }}<button data-list="{{ cf.key }}" data-idx="{{ ch.idx }}" onClick="{{ removeChip }}" aria-label="{{ ch.aria }}" style="border-radius:4px;padding:4px;background:none;border:none;color:var(--text3);cursor:pointer;display:grid" style-hover="color:var(--red)"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6 6 18M6 6l12 12"></path></svg></button></span>
                         </sc-for>
                       </div>
                     </sc-if>
                     <sc-if value="{{ cf.canAdd }}" hint-placeholder-val="{{ true }}">
                       <div style="{{ cf.addRowStyle }}">
-                        <input value="{{ cf.draft }}" data-list="{{ cf.key }}" onChange="{{ onChipDraft }}" onKeyDown="{{ onChipKey }}" placeholder="{{ cf.placeholder }}" aria-label="{{ cf.addAria }}" style="width:100%;border-radius:8px;border:1px solid var(--line);background:var(--panel2);padding:10px 12px;font:400 13px var(--mono);color:var(--text);outline:none" style-focus="border-color:var(--sky)">
-                        <button data-list="{{ cf.key }}" onClick="{{ addChip }}" style="flex:none;border-radius:8px;border:1px dashed var(--line);background:none;padding:8px 14px;font:600 12px var(--sans);color:var(--sky);cursor:pointer" style-hover="border-color:var(--sky);background:var(--sky-dim)">+ Add</button>
+                        <input value="{{ cf.draft }}" data-list="{{ cf.key }}" onChange="{{ onChipDraft }}" onKeyDown="{{ onChipKey }}" placeholder="{{ cf.placeholder }}" aria-label="{{ cf.addAria }}" style="width:100%;border-radius:6px;border:1px solid var(--line);background:var(--panel2);padding:10px 12px;font:400 13px var(--mono);color:var(--text);outline:none" style-focus="border-color:var(--sky)">
+                        <button data-list="{{ cf.key }}" onClick="{{ addChip }}" style="flex:none;border-radius:6px;border:1px dashed var(--line);background:none;padding:8px 14px;font:500 12px var(--sans);color:var(--sky);cursor:pointer" style-hover="border-color:var(--sky);background:var(--sky-dim)">+ Add</button>
                       </div>
                     </sc-if>
                     <sc-if value="{{ cf.dup }}" hint-placeholder-val="{{ false }}">
@@ -668,11 +677,11 @@
               <div style="display:grid;grid-template-columns:1fr 1fr;column-gap:16px">
                 <label style="display:block;margin-bottom:16px">
                   <span style="display:block;margin-bottom:6px;font:600 10px var(--mono);letter-spacing:.12em;text-transform:uppercase;color:var(--text3)">Reports to</span>
-                  <input value="{{ ed.reportsTo }}" data-field="reportsTo" onChange="{{ onEdField }}" maxlength="160" style="width:100%;border-radius:8px;border:1px solid var(--line);background:var(--panel);padding:10px 12px;font:400 13px var(--mono);color:var(--text);outline:none" style-focus="border-color:var(--sky)">
+                  <input value="{{ ed.reportsTo }}" data-field="reportsTo" onChange="{{ onEdField }}" maxlength="160" style="width:100%;border-radius:6px;border:1px solid var(--line);background:var(--panel);padding:10px 12px;font:400 13px var(--mono);color:var(--text);outline:none" style-focus="border-color:var(--sky)">
                 </label>
                 <label style="display:block;margin-bottom:16px">
                   <span style="display:block;margin-bottom:6px;font:600 10px var(--mono);letter-spacing:.12em;text-transform:uppercase;color:var(--text3)">Notice period</span>
-                  <select value="{{ ed.notice }}" data-field="notice" onChange="{{ onEdField }}" aria-label="Notice period" style="width:100%;border-radius:8px;border:1px solid var(--line);background:var(--panel);padding:10px 12px;font:400 13px var(--mono);color:var(--text);outline:none">
+                  <select value="{{ ed.notice }}" data-field="notice" onChange="{{ onEdField }}" aria-label="Notice period" style="width:100%;border-radius:6px;border:1px solid var(--line);background:var(--panel);padding:10px 12px;font:400 13px var(--mono);color:var(--text);outline:none">
                     <option value="">Not set</option><option value="None">None</option><option value="1 month">1 month</option><option value="2 months">2 months</option><option value="3 months">3 months</option><option value="6 months">6 months</option>
                   </select>
                 </label>
@@ -684,14 +693,14 @@
                     <sc-if value="{{ cf.hasChips }}" hint-placeholder-val="{{ true }}">
                       <div style="display:flex;flex-wrap:wrap;gap:8px">
                         <sc-for list="{{ cf.chips }}" as="ch" hint-placeholder-count="4">
-                          <span style="display:inline-flex;align-items:center;gap:7px;border-radius:4px;border:1px solid var(--line);background:var(--panel2);padding:6px 8px 6px 10px;font:600 12px var(--sans);color:var(--text2)">{{ ch.text }}<button data-list="{{ cf.key }}" data-idx="{{ ch.idx }}" onClick="{{ removeChip }}" aria-label="{{ ch.aria }}" style="border-radius:4px;padding:4px;background:none;border:none;color:var(--text3);cursor:pointer;display:grid" style-hover="color:var(--red)"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6 6 18M6 6l12 12"></path></svg></button></span>
+                          <span style="display:inline-flex;align-items:center;gap:7px;border-radius:4px;border:1px solid var(--line);background:var(--panel2);padding:6px 8px 6px 10px;font:500 12px var(--sans);color:var(--text2)">{{ ch.text }}<button data-list="{{ cf.key }}" data-idx="{{ ch.idx }}" onClick="{{ removeChip }}" aria-label="{{ ch.aria }}" style="border-radius:4px;padding:4px;background:none;border:none;color:var(--text3);cursor:pointer;display:grid" style-hover="color:var(--red)"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6 6 18M6 6l12 12"></path></svg></button></span>
                         </sc-for>
                       </div>
                     </sc-if>
                     <sc-if value="{{ cf.canAdd }}" hint-placeholder-val="{{ true }}">
                       <div style="{{ cf.addRowStyle }}">
-                        <input value="{{ cf.draft }}" data-list="{{ cf.key }}" onChange="{{ onChipDraft }}" onKeyDown="{{ onChipKey }}" placeholder="{{ cf.placeholder }}" aria-label="{{ cf.addAria }}" style="width:100%;border-radius:8px;border:1px solid var(--line);background:var(--panel2);padding:10px 12px;font:400 13px var(--mono);color:var(--text);outline:none" style-focus="border-color:var(--sky)">
-                        <button data-list="{{ cf.key }}" onClick="{{ addChip }}" style="flex:none;border-radius:8px;border:1px dashed var(--line);background:none;padding:8px 14px;font:600 12px var(--sans);color:var(--sky);cursor:pointer" style-hover="border-color:var(--sky);background:var(--sky-dim)">+ Add</button>
+                        <input value="{{ cf.draft }}" data-list="{{ cf.key }}" onChange="{{ onChipDraft }}" onKeyDown="{{ onChipKey }}" placeholder="{{ cf.placeholder }}" aria-label="{{ cf.addAria }}" style="width:100%;border-radius:6px;border:1px solid var(--line);background:var(--panel2);padding:10px 12px;font:400 13px var(--mono);color:var(--text);outline:none" style-focus="border-color:var(--sky)">
+                        <button data-list="{{ cf.key }}" onClick="{{ addChip }}" style="flex:none;border-radius:6px;border:1px dashed var(--line);background:none;padding:8px 14px;font:500 12px var(--sans);color:var(--sky);cursor:pointer" style-hover="border-color:var(--sky);background:var(--sky-dim)">+ Add</button>
                       </div>
                     </sc-if>
                     <sc-if value="{{ cf.dup }}" hint-placeholder-val="{{ false }}">
@@ -709,7 +718,7 @@
               <div style="display:grid;grid-template-columns:1fr 1fr;column-gap:16px">
                 <label style="display:block;margin-bottom:16px">
                   <span style="display:block;margin-bottom:6px;font:600 10px var(--mono);letter-spacing:.12em;text-transform:uppercase;color:var(--text3)">Currency</span>
-                  <select value="{{ ed.currency }}" data-field="currency" onChange="{{ onEdField }}" style="width:100%;border-radius:8px;border:1px solid var(--line);background:var(--panel);padding:10px 12px;font:400 13px var(--mono);color:var(--text);outline:none">
+                  <select value="{{ ed.currency }}" data-field="currency" onChange="{{ onEdField }}" style="width:100%;border-radius:6px;border:1px solid var(--line);background:var(--panel);padding:10px 12px;font:400 13px var(--mono);color:var(--text);outline:none">
                     <option>USD</option><option>AED</option><option>SAR</option><option>QAR</option><option>KWD</option><option>GBP</option><option>EUR</option>
                   </select>
                 </label>
@@ -724,22 +733,22 @@
                 <label style="display:block;margin-bottom:16px">
                   <span style="display:block;margin-bottom:6px;font:600 10px var(--mono);letter-spacing:.12em;text-transform:uppercase;color:var(--text3)">Target bonus</span>
                   <span style="display:flex;gap:8px">
-                    <input type="number" min="0" step="0.01" value="{{ ed.bonusValue }}" data-field="bonusValue" onChange="{{ onEdField }}" style="width:96px;flex:none;border-radius:8px;border:1px solid var(--line);background:var(--panel);padding:10px 12px;font:400 13px var(--mono);color:var(--text);outline:none" style-focus="border-color:var(--sky)">
-                    <select value="{{ ed.bonusBasis }}" data-field="bonusBasis" onChange="{{ onEdField }}" aria-label="Bonus basis" style="width:100%;border-radius:8px;border:1px solid var(--line);background:var(--panel);padding:10px 12px;font:400 13px var(--mono);color:var(--text);outline:none">
+                    <input type="number" min="0" step="0.01" value="{{ ed.bonusValue }}" data-field="bonusValue" onChange="{{ onEdField }}" style="width:96px;flex:none;border-radius:6px;border:1px solid var(--line);background:var(--panel);padding:10px 12px;font:400 13px var(--mono);color:var(--text);outline:none" style-focus="border-color:var(--sky)">
+                    <select value="{{ ed.bonusBasis }}" data-field="bonusBasis" onChange="{{ onEdField }}" aria-label="Bonus basis" style="width:100%;border-radius:6px;border:1px solid var(--line);background:var(--panel);padding:10px 12px;font:400 13px var(--mono);color:var(--text);outline:none">
                       <option value="">Not set</option><option value="PERCENT_OF_BASE">% of base</option><option value="FIXED_AMOUNT">Fixed amount</option><option value="PERCENT_OF_TOTAL_FIXED">% of total fixed</option><option value="MONTHS_OF_BASE">Months of base</option>
                     </select>
                   </span>
                 </label>
                 <label style="display:block;margin-bottom:16px">
                   <span style="display:block;margin-bottom:6px;font:600 10px var(--mono);letter-spacing:.12em;text-transform:uppercase;color:var(--text3)">Long-term incentive</span>
-                  <select value="{{ ed.incentiveType }}" data-field="incentiveType" onChange="{{ onEdField }}" style="width:100%;border-radius:8px;border:1px solid var(--line);background:var(--panel);padding:10px 12px;font:400 13px var(--mono);color:var(--text);outline:none">
+                  <select value="{{ ed.incentiveType }}" data-field="incentiveType" onChange="{{ onEdField }}" style="width:100%;border-radius:6px;border:1px solid var(--line);background:var(--panel);padding:10px 12px;font:400 13px var(--mono);color:var(--text);outline:none">
                     <option value="">None</option><option value="OPTIONS">Stock Options</option><option value="RSU">RSUs</option><option value="LTIP_CASH">Cash</option><option value="PHANTOM_EQUITY">Phantom equity</option>
                   </select>
                 </label>
               </div>
               <label style="display:block;margin-bottom:16px">
                 <span style="display:block;margin-bottom:6px;font:600 10px var(--mono);letter-spacing:.12em;text-transform:uppercase;color:var(--text3)">Incentive vesting</span>
-                <input value="{{ ed.incentiveVesting }}" data-field="incentiveVesting" onChange="{{ onEdField }}" maxlength="200" style="width:100%;border-radius:8px;border:1px solid var(--line);background:var(--panel);padding:10px 12px;font:400 13px var(--mono);color:var(--text);outline:none" style-focus="border-color:var(--sky)">
+                <input value="{{ ed.incentiveVesting }}" data-field="incentiveVesting" onChange="{{ onEdField }}" maxlength="200" style="width:100%;border-radius:6px;border:1px solid var(--line);background:var(--panel);padding:10px 12px;font:400 13px var(--mono);color:var(--text);outline:none" style-focus="border-color:var(--sky)">
               </label>
               <div>
                 <span style="display:block;margin-bottom:6px;font:600 10px var(--mono);letter-spacing:.12em;text-transform:uppercase;color:var(--text3)">Benefits &amp; allowances — lines only, the amount is each mandate's</span>
@@ -747,13 +756,13 @@
                   <sc-for list="{{ edBenefits }}" as="b" hint-placeholder-count="5">
                     <div style="display:flex;align-items:center;gap:10px;border-bottom:1px solid var(--line-soft);padding:8px 0">
                       <input value="{{ b.name }}" data-idx="{{ b.idx }}" onChange="{{ onBenefitName }}" aria-label="{{ b.nameAria }}" maxlength="120" style="min-width:0;flex:1;border:none;border-bottom:1px solid transparent;background:transparent;padding:4px 0;font:500 13.5px var(--sans);color:var(--text);outline:none" style-hover="border-bottom-color:var(--line)" style-focus="border-bottom-color:var(--sky)">
-                      <select value="{{ b.frequency }}" data-idx="{{ b.idx }}" onChange="{{ onBenefitFreq }}" aria-label="{{ b.freqAria }}" style="width:120px;flex:none;border-radius:8px;border:1px solid var(--line);background:var(--panel2);padding:6px 12px;font:400 13px var(--mono);color:var(--text);outline:none">
+                      <select value="{{ b.frequency }}" data-idx="{{ b.idx }}" onChange="{{ onBenefitFreq }}" aria-label="{{ b.freqAria }}" style="width:120px;flex:none;border-radius:6px;border:1px solid var(--line);background:var(--panel2);padding:6px 12px;font:400 13px var(--mono);color:var(--text);outline:none">
                         <option value="MONTHLY">Monthly</option><option value="YEARLY">Yearly</option>
                       </select>
                       <button data-idx="{{ b.idx }}" onClick="{{ removeBenefit }}" aria-label="{{ b.removeAria }}" style="border-radius:4px;padding:4px;background:none;border:none;color:var(--text3);cursor:pointer;display:grid" style-hover="color:var(--red)"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6 6 18M6 6l12 12"></path></svg></button>
                     </div>
                   </sc-for>
-                  <button onClick="{{ addBenefit }}" style="margin-top:10px;width:100%;border-radius:8px;border:1px dashed var(--line);background:none;padding:8px 14px;font:600 12px var(--sans);color:var(--sky);cursor:pointer" style-hover="border-color:var(--sky);background:var(--sky-dim)">+ Add benefit</button>
+                  <button onClick="{{ addBenefit }}" style="margin-top:10px;width:100%;border-radius:6px;border:1px dashed var(--line);background:none;padding:8px 14px;font:600 12px var(--sans);color:var(--sky);cursor:pointer" style-hover="border-color:var(--sky);background:var(--sky-dim)">+ Add benefit</button>
                 </div>
               </div>
             </section>
@@ -799,7 +808,7 @@
                     </sc-if>
                     <sc-if value="{{ p.canAdd }}" hint-placeholder-val="{{ true }}">
                       <div style="padding:10px 16px">
-                        <button data-panel="{{ p.key }}" onClick="{{ onCompAdd }}" style="border-radius:8px;border:1px dashed var(--line);background:none;padding:8px 14px;font:600 12px var(--sans);color:var(--sky);cursor:pointer" style-hover="border-color:var(--sky);background:var(--sky-dim)">+ Add competency</button>
+                        <button data-panel="{{ p.key }}" onClick="{{ onCompAdd }}" style="border-radius:6px;border:1px dashed var(--line);background:none;padding:8px 14px;font:600 12px var(--sans);color:var(--sky);cursor:pointer" style-hover="border-color:var(--sky);background:var(--sky-dim)">+ Add competency</button>
                       </div>
                     </sc-if>
                   </section>
@@ -814,7 +823,7 @@
                   <sc-for list="{{ edCriteria }}" as="cq" hint-placeholder-count="4">
                     <div style="display:flex;align-items:center;gap:10px;border-bottom:1px solid var(--line-soft);padding:9px 4px">
                       <input value="{{ cq.text }}" data-idx="{{ cq.idx }}" onChange="{{ onCritText }}" aria-label="{{ cq.aria }}" style="min-width:0;flex:1;border:none;border-bottom:1px solid transparent;background:transparent;padding:4px 0;font:500 13px var(--sans);color:var(--text);outline:none" style-hover="border-bottom-color:var(--line)" style-focus="border-bottom-color:var(--sky)">
-                      <span style="display:flex;flex:none;overflow:hidden;border-radius:7px;border:1px solid var(--line)">
+                      <span style="display:flex;flex:none;overflow:hidden;border-radius:6px;border:1px solid var(--line)">
                         <button data-idx="{{ cq.idx }}" data-mode="REQUIRED" onClick="{{ onCritMode }}" aria-pressed="{{ cq.required }}" style="{{ cq.reqStyle }}">Required</button>
                         <button data-idx="{{ cq.idx }}" data-mode="PREFERRED" onClick="{{ onCritMode }}" aria-pressed="{{ cq.preferred }}" style="{{ cq.prefStyle }}">Preferred</button>
                       </span>
@@ -822,8 +831,8 @@
                     </div>
                   </sc-for>
                   <div style="margin-top:12px;display:flex;gap:8px">
-                    <input value="{{ critDraft }}" onChange="{{ onCritDraft }}" onKeyDown="{{ onCritKey }}" placeholder="Add a criterion…" style="width:100%;border-radius:8px;border:1px solid var(--line);background:var(--panel);padding:10px 12px;font:400 13px var(--mono);color:var(--text);outline:none" style-focus="border-color:var(--sky)">
-                    <button onClick="{{ addCriterion }}" style="display:flex;flex:none;align-items:center;justify-content:center;border-radius:8px;padding:10px 14px;font:500 13.5px var(--sans);background:var(--panel);border:1px solid var(--line);color:var(--text2);cursor:pointer" style-hover="color:var(--text);border-color:var(--text3)">Add</button>
+                    <input value="{{ critDraft }}" onChange="{{ onCritDraft }}" onKeyDown="{{ onCritKey }}" placeholder="Add a criterion…" style="width:100%;border-radius:6px;border:1px solid var(--line);background:var(--panel);padding:10px 12px;font:400 13px var(--mono);color:var(--text);outline:none" style-focus="border-color:var(--sky)">
+                    <button onClick="{{ addCriterion }}" style="display:flex;flex:none;align-items:center;justify-content:center;border-radius:6px;padding:10px 14px;font:500 13.5px var(--sans);background:var(--panel);border:1px solid var(--line);color:var(--text2);cursor:pointer" style-hover="color:var(--text);border-color:var(--text3)">Add</button>
                   </div>
                 </div>
               </div>
@@ -918,13 +927,13 @@
             </div>
             <p style="margin:12px 0 0;font:500 12px var(--mono);color:var(--text2)">{{ importSummary }}</p>
             <sc-if value="{{ importInvalid }}" hint-placeholder-val="{{ true }}">
-              <p style="margin:10px 0 0;border-radius:8px;border:1px solid var(--red);background:var(--red-dim);padding:10px 12px;font:400 12px var(--mono);color:var(--text2)">Nothing is written until every template in the file passes. Fix the invalid one and choose the file again.</p>
+              <p style="margin:10px 0 0;border-radius:6px;border:1px solid var(--red);background:var(--red-dim);padding:10px 12px;font:400 12px var(--mono);color:var(--text2)">Nothing is written until every template in the file passes. Fix the invalid one and choose the file again.</p>
             </sc-if>
           </div>
         </sc-if>
 
         <div style="margin-top:20px;display:flex;justify-content:flex-end;gap:8px">
-          <button onClick="{{ closeImport }}" style="display:flex;align-items:center;justify-content:center;border-radius:8px;padding:10px 14px;font:500 13.5px var(--sans);background:var(--panel);border:1px solid var(--line);color:var(--text2);cursor:pointer" style-hover="color:var(--text);border-color:var(--text3)">Cancel</button>
+          <button onClick="{{ closeImport }}" style="display:flex;align-items:center;justify-content:center;border-radius:6px;padding:10px 14px;font:500 13.5px var(--sans);background:var(--panel);border:1px solid var(--line);color:var(--text2);cursor:pointer" style-hover="color:var(--text);border-color:var(--text3)">Cancel</button>
           <sc-if value="{{ importPlanShown }}" hint-placeholder-val="{{ true }}">
             <button onClick="{{ commitImport }}" disabled="{{ importBlocked }}" style="{{ importButtonStyle }}">{{ importButtonLabel }}</button>
           </sc-if>
@@ -941,10 +950,10 @@
         <p style="margin:0 0 16px;font:400 13px var(--sans);color:var(--text2)">This removes every member and cancels outstanding invitations. Type <b style="font-weight:600;color:var(--text)">{{ wsName }}</b> to confirm.</p>
         <label style="display:block;margin-bottom:16px">
           <span style="display:block;margin-bottom:6px;font:600 10px var(--mono);letter-spacing:.12em;text-transform:uppercase;color:var(--text3)">Workspace name</span>
-          <input value="{{ confirmName }}" onChange="{{ onConfirmName }}" placeholder="{{ wsName }}" style="width:100%;border-radius:8px;border:1px solid var(--line);background:var(--panel2);padding:10px 12px;font:400 13px var(--mono);color:var(--text);outline:none" style-focus="border-color:var(--sky)">
+          <input value="{{ confirmName }}" onChange="{{ onConfirmName }}" placeholder="{{ wsName }}" style="width:100%;border-radius:6px;border:1px solid var(--line);background:var(--panel2);padding:10px 12px;font:400 13px var(--mono);color:var(--text);outline:none" style-focus="border-color:var(--sky)">
         </label>
         <div style="margin-top:20px;display:flex;justify-content:flex-end;gap:8px">
-          <button onClick="{{ closeDelete }}" style="display:flex;align-items:center;justify-content:center;border-radius:8px;padding:10px 14px;font:500 13.5px var(--sans);background:var(--panel);border:1px solid var(--line);color:var(--text2);cursor:pointer" style-hover="color:var(--text);border-color:var(--text3)">Cancel</button>
+          <button onClick="{{ closeDelete }}" style="display:flex;align-items:center;justify-content:center;border-radius:6px;padding:10px 14px;font:500 13.5px var(--sans);background:var(--panel);border:1px solid var(--line);color:var(--text2);cursor:pointer" style-hover="color:var(--text);border-color:var(--text3)">Cancel</button>
           <button onClick="{{ confirmDelete }}" disabled="{{ deleteBlocked }}" style="{{ deleteButtonStyle }}">Delete workspace</button>
         </div>
       </div>
@@ -964,13 +973,13 @@
         </label>
         <label style="display:block;margin-bottom:16px">
           <span style="display:block;margin-bottom:6px;font:600 10px var(--mono);letter-spacing:.12em;text-transform:uppercase;color:var(--text3)">Role</span>
-          <select value="{{ inviteRole }}" onChange="{{ onInviteRole }}" style="width:100%;border-radius:8px;border:1px solid var(--line);background:var(--panel2);padding:10px 12px;font:400 13px var(--mono);color:var(--text);outline:none">
+          <select value="{{ inviteRole }}" onChange="{{ onInviteRole }}" style="width:100%;border-radius:6px;border:1px solid var(--line);background:var(--panel2);padding:10px 12px;font:400 13px var(--mono);color:var(--text);outline:none">
             <option value="MEMBER">Member</option><option value="ADMIN">Admin</option>
           </select>
         </label>
         <div style="margin-top:20px;display:flex;justify-content:flex-end;gap:8px">
-          <button onClick="{{ closeInvite }}" style="display:flex;align-items:center;justify-content:center;border-radius:8px;padding:10px 14px;font:500 13.5px var(--sans);background:var(--panel);border:1px solid var(--line);color:var(--text2);cursor:pointer" style-hover="color:var(--text);border-color:var(--text3)">Cancel</button>
-          <button onClick="{{ sendInvite }}" style="display:flex;align-items:center;justify-content:center;border-radius:8px;padding:10px 14px;font:600 13.5px var(--sans);background:var(--amber-btn);border:1px solid var(--amber-btn);color:var(--on-amber);cursor:pointer" style-hover="filter:brightness(1.05)">Send invite</button>
+          <button onClick="{{ closeInvite }}" style="display:flex;align-items:center;justify-content:center;border-radius:6px;padding:10px 14px;font:500 13.5px var(--sans);background:var(--panel);border:1px solid var(--line);color:var(--text2);cursor:pointer" style-hover="color:var(--text);border-color:var(--text3)">Cancel</button>
+          <button onClick="{{ sendInvite }}" style="display:flex;align-items:center;justify-content:center;border-radius:6px;padding:10px 14px;font:500 13.5px var(--sans);background:var(--amber-btn);border:1px solid var(--amber-btn);color:var(--on-amber);cursor:pointer" style-hover="filter:brightness(1.05)">Send invite</button>
         </div>
       </div>
     </div>
@@ -983,8 +992,8 @@
         <div style="margin-bottom:16px;font:600 16px var(--sans)">{{ removeTitle }}</div>
         <p style="margin:0 0 20px;font:400 13px var(--sans);color:var(--text2)">{{ removeBody }}</p>
         <div style="display:flex;justify-content:flex-end;gap:8px">
-          <button onClick="{{ closeRemove }}" style="display:flex;align-items:center;justify-content:center;border-radius:8px;padding:10px 14px;font:500 13.5px var(--sans);background:var(--panel);border:1px solid var(--line);color:var(--text2);cursor:pointer" style-hover="color:var(--text);border-color:var(--text3)">Cancel</button>
-          <button onClick="{{ confirmRemove }}" style="display:flex;align-items:center;justify-content:center;border-radius:8px;padding:10px 14px;font:600 13.5px var(--sans);background:var(--red);border:1px solid var(--red);color:#fff;cursor:pointer" style-hover="filter:brightness(1.05)">{{ removeAction }}</button>
+          <button onClick="{{ closeRemove }}" style="display:flex;align-items:center;justify-content:center;border-radius:6px;padding:10px 14px;font:500 13.5px var(--sans);background:var(--panel);border:1px solid var(--line);color:var(--text2);cursor:pointer" style-hover="color:var(--text);border-color:var(--text3)">Cancel</button>
+          <button onClick="{{ confirmRemove }}" style="display:flex;align-items:center;justify-content:center;border-radius:6px;padding:10px 14px;font:500 13.5px var(--sans);background:var(--red);border:1px solid var(--red);color:#fff;cursor:pointer" style-hover="filter:brightness(1.05)">{{ removeAction }}</button>
         </div>
       </div>
     </div>
@@ -997,15 +1006,15 @@
         <div style="margin-bottom:16px;font:600 16px var(--sans)">{{ confirmLabel }}</div>
         <p style="margin:0 0 20px;font:400 13px var(--sans);color:var(--text2)">{{ confirmText }}</p>
         <div style="display:flex;justify-content:flex-end;gap:8px">
-          <button onClick="{{ closeConfirm }}" style="display:flex;align-items:center;justify-content:center;border-radius:8px;padding:10px 14px;font:500 13.5px var(--sans);background:var(--panel);border:1px solid var(--line);color:var(--text2);cursor:pointer" style-hover="color:var(--text);border-color:var(--text3)">Cancel</button>
-          <button onClick="{{ runConfirmed }}" style="display:flex;align-items:center;justify-content:center;border-radius:8px;padding:10px 14px;font:600 13.5px var(--sans);background:var(--red);border:1px solid var(--red);color:#fff;cursor:pointer" style-hover="filter:brightness(1.05)">{{ confirmLabel }}</button>
+          <button onClick="{{ closeConfirm }}" style="display:flex;align-items:center;justify-content:center;border-radius:6px;padding:10px 14px;font:500 13.5px var(--sans);background:var(--panel);border:1px solid var(--line);color:var(--text2);cursor:pointer" style-hover="color:var(--text);border-color:var(--text3)">Cancel</button>
+          <button onClick="{{ runConfirmed }}" style="display:flex;align-items:center;justify-content:center;border-radius:6px;padding:10px 14px;font:500 13.5px var(--sans);background:var(--red);border:1px solid var(--red);color:#fff;cursor:pointer" style-hover="filter:brightness(1.05)">{{ confirmLabel }}</button>
         </div>
       </div>
     </div>
   </sc-if>
 
   <sc-if value="{{ toastVisible }}" hint-placeholder-val="{{ false }}">
-    <div role="status" style="position:fixed;bottom:22px;left:50%;transform:translateX(-50%);z-index:120;background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:9px 16px;font:500 12px var(--mono);color:var(--text2);box-shadow:var(--shadow);animation:fadeUp .2s ease both">{{ toast }}</div>
+    <div role="status" style="position:fixed;bottom:22px;left:50%;transform:translateX(-50%);z-index:120;background:var(--panel);border:1px solid var(--line);border-radius:6px;padding:9px 16px;font:500 12px var(--mono);color:var(--text2);box-shadow:var(--shadow);animation:fadeUp .2s ease both">{{ toast }}</div>
   </sc-if>
 </div>
 <template id="__bundler_thumbnail"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><rect width="100" height="100" fill="#16171a"></rect><g transform="translate(50 40) scale(.42)" fill="none" stroke="#f8fafc"><path d="M-32 10 L 0 -8 L 32 10 L 0 28 Z M-32 10 V 32 L 0 50 L 32 32 V 10 M0 28 V 50" stroke-width="3" stroke-linejoin="round"></path><path d="M0 -48 L 32 -30 L 0 -12 L -32 -30 Z" fill="#f8fafc" stroke="none"></path></g><text x="50" y="86" fill="#e2b65c" font-family="Geist,Inter,sans-serif" font-size="13" font-weight="700" letter-spacing="2" text-anchor="middle">SE</text></svg></template>
@@ -1109,26 +1118,26 @@ class Component extends DCLogic {
     try { collapsed = localStorage.getItem('lm-side-collapsed') === '1'; } catch (e) {}
 
     this.state = {
-      section, dark: false, collapsed, toast: '', wsMenuOpen: false,
-      pName: 'Yara Haddad', pTitle: 'Managing Partner', pTz: 'Asia/Dubai', pLocale: 'en', pNameError: '',
+      section, dark: true, collapsed, toast: '', wsMenuOpen: false,
+      pName: 'Yara Haddad', pTitle: 'Head of Talent Acquisition', pTz: 'Asia/Dubai', pLocale: 'en', pNameError: '',
       pwCurrent: '', pwNew: '', pwConfirm: '', pwErr: {},
       sessions: [
         { id: 's1', device: 'macOS — Chrome', kind: 'DESKTOP', meta: '94.204.12.8 · active now', current: true },
         { id: 's2', device: 'iPhone — Safari', kind: 'MOBILE', meta: '5.31.44.120 · 3 hours ago', current: false },
         { id: 's3', device: 'Uncava Capture (browser extension)', kind: 'EXTENSION', meta: '94.204.12.8 · 2 days ago', current: false },
       ],
-      wsName: 'Meridian Search Partners', wsRegion: 'GCC', wsCurrency: 'USD',
+      wsName: 'Al-Futtaim', wsRegion: 'GCC', wsCurrency: 'USD',
       deleteOpen: !!props.deleteOpen, confirmName: '',
       members: [
-        { id: 'yh', name: 'Yara Haddad', initials: 'YH', email: 'yara@meridiansearch.com', role: 'ADMIN', tint: 'sky' },
-        { id: 'yi', name: 'Yousef Iman', initials: 'YI', email: 'yousef@meridiansearch.com', role: 'MEMBER', tint: 'amber' },
-        { id: 'sa', name: 'Sara Al-Mansour', initials: 'SA', email: 'sara@meridiansearch.com', role: 'MEMBER', tint: 'green' },
-        { id: 'ok', name: 'Omar Khalil', initials: 'OK', email: 'omar@meridiansearch.com', role: 'MEMBER', tint: 'red' },
-        { id: 'da', name: 'Dana Aboud', initials: 'DA', email: 'dana@meridiansearch.com', role: 'MEMBER', tint: 'plain' },
+        { id: 'yh', name: 'Yara Haddad', initials: 'YH', email: 'yara@alfuttaim.com', role: 'ADMIN', tint: 'sky' },
+        { id: 'yi', name: 'Yousef Iman', initials: 'YI', email: 'yousef@alfuttaim.com', role: 'MEMBER', tint: 'amber' },
+        { id: 'sa', name: 'Sara Al-Mansour', initials: 'SA', email: 'sara@alfuttaim.com', role: 'MEMBER', tint: 'green' },
+        { id: 'ok', name: 'Omar Khalil', initials: 'OK', email: 'omar@alfuttaim.com', role: 'MEMBER', tint: 'red' },
+        { id: 'da', name: 'Dana Aboud', initials: 'DA', email: 'dana@alfuttaim.com', role: 'MEMBER', tint: 'plain' },
       ],
       invitations: [
-        { id: 'i1', email: 'rana@meridiansearch.com', role: 'MEMBER', invitedBy: 'Yara Haddad' },
-        { id: 'i2', email: 'marwan@meridiansearch.com', role: 'MEMBER', invitedBy: null },
+        { id: 'i1', email: 'rana@alfuttaim.com', role: 'MEMBER', invitedBy: 'Yara Haddad' },
+        { id: 'i2', email: 'marwan@alfuttaim.com', role: 'MEMBER', invitedBy: null },
       ],
       inviteOpen: false, inviteEmail: '', inviteRole: 'MEMBER', inviteError: '',
       removeId: null,
@@ -1153,7 +1162,7 @@ class Component extends DCLogic {
     }
   }
 
-  componentDidMount() { this.setState({ dark: document.body.classList.contains('dark') }); }
+  componentDidMount() { this.setState({ dark: document.documentElement.getAttribute('data-theme') !== 'light' }); }
 
   showToast(msg) {
     this.setState({ toast: msg });
@@ -1297,22 +1306,22 @@ class Component extends DCLogic {
     const item = (key, label, icon) => {
       const on = activeKey === key;
       return { key, label, icon, iconColor: on ? 'var(--amber)' : 'currentColor',
-        style: 'display:flex;width:100%;align-items:center;justify-content:' + (c ? 'center' : 'flex-start') + ';gap:10px;border-radius:7px;padding:8px 10px;text-align:left;font:400 13.5px var(--sans);border:none;cursor:pointer;background:' + (on ? 'var(--panel2)' : 'transparent') + ';color:' + (on ? 'var(--text)' : 'var(--text2)') };
+        style: 'display:flex;width:100%;align-items:center;justify-content:' + (c ? 'center' : 'flex-start') + ';gap:10px;border-radius:6px;padding:8px 10px;text-align:left;font:400 13.5px var(--sans);border:none;cursor:pointer;background:' + (on ? 'var(--panel2)' : 'transparent') + ';color:' + (on ? 'var(--text)' : 'var(--text2)') };
     };
     const navGroups = [{ label: 'Account', items: [item('profile', 'Profile', I.profile), item('security', 'Security', I.lock)] }];
     if (isAdmin) navGroups.push({ label: 'Workspace', items: [item('general', 'General', I.settings), item('members', 'Members', I.members), item('templates', 'Templates', I.file)] });
     if (superAdmin) navGroups.push({ label: 'Platform', items: [item('library', 'Template library', I.position)] });
 
-    const inputStyle = (err, bg) => 'width:100%;border-radius:8px;border:1px solid ' + (err ? 'var(--red)' : 'var(--line)') + ';background:' + (bg || 'var(--panel)') + ';padding:10px 12px;font:400 13px var(--mono);color:var(--text);outline:none';
-    const primary = (disabled) => 'display:flex;align-items:center;justify-content:center;gap:8px;border-radius:8px;padding:10px 14px;font:600 13.5px var(--sans);background:var(--amber-btn);border:1px solid var(--amber-btn);color:var(--on-amber);cursor:' + (disabled ? 'not-allowed;opacity:.5' : 'pointer');
+    const inputStyle = (err, bg) => 'width:100%;border-radius:6px;border:1px solid ' + (err ? 'var(--red)' : 'var(--line)') + ';background:' + (bg || 'var(--panel)') + ';padding:10px 12px;font:400 13px var(--mono);color:var(--text);outline:none';
+    const primary = (disabled) => 'display:flex;align-items:center;justify-content:center;gap:8px;border-radius:6px;padding:10px 14px;font:500 13.5px var(--sans);background:var(--amber-btn);border:1px solid var(--amber-btn);color:var(--on-amber);cursor:' + (disabled ? 'not-allowed;opacity:.5' : 'pointer');
     const roleWord = isAdmin ? 'Admin' : 'Member';
 
     // Members
-    const tints = { sky: 'var(--sky-dim);color:var(--sky)', amber: 'var(--amber-dim);color:var(--amber)', green: 'var(--green-dim);color:var(--green)', red: 'var(--red-dim);color:var(--red)', plain: 'var(--panel2);color:var(--text2)' };
+    const tints = { sky: 'var(--u-accent-tint);color:var(--u-accent)', amber: 'color-mix(in srgb, var(--u-chart-5) 16%, transparent);color:var(--u-chart-5)', green: 'var(--u-accent-tint);color:var(--u-accent)', red: 'color-mix(in srgb, var(--u-chart-5) 16%, transparent);color:var(--u-chart-5)', plain: 'var(--panel2);color:var(--text2)' };
     const members = st.members.map((m, i) => Object.assign({}, m, {
       self: m.id === 'yh', roleAria: 'Role for ' + m.name, removeTitle: m.id === 'yh' ? 'Leave workspace' : 'Remove member',
       rowStyle: 'display:flex;flex-wrap:wrap;align-items:center;column-gap:12px;row-gap:8px;padding:12px 0' + (i ? ';border-top:1px solid var(--line-soft)' : ''),
-      avatarStyle: 'width:30px;height:30px;flex:none;border-radius:50%;display:grid;place-items:center;font:600 10px var(--mono);background:' + tints[m.tint],
+      slotId: 'member-avatar-' + m.id,
     }));
     const invitations = st.invitations.map((v, i) => Object.assign({}, v, {
       meta: (v.role === 'ADMIN' ? 'Admin' : 'Member') + (v.invitedBy ? ' · invited by ' + v.invitedBy : ''),
@@ -1431,7 +1440,7 @@ class Component extends DCLogic {
           hasChips: vals.length > 0, canAdd: vals.length < max, addRowStyle: 'display:flex;gap:8px' + (vals.length ? ';margin-top:12px' : ''),
           chips: vals.map((v, i) => ({ text: v, idx: String(i), aria: 'Remove ' + v })) }];
       };
-      const seg = (on) => 'border-radius:8px;border:1px solid ' + (on ? 'var(--sky);background:var(--sky-dim);color:var(--sky)' : 'var(--line);background:var(--panel);color:var(--text3)') + ';padding:6px 12px;font:600 12px var(--sans);cursor:pointer';
+      const seg = (on) => 'border-radius:6px;border:1px solid ' + (on ? 'var(--sky);background:var(--sky-dim);color:var(--sky)' : 'var(--line);background:var(--panel);color:var(--text3)') + ';padding:6px 12px;font:600 12px var(--sans);cursor:pointer';
       const panel = (key2, title, accent, list) => {
         const tot = total(list);
         const col = accent === 'sky' ? 'var(--sky)' : 'var(--amber-btn)';
@@ -1460,7 +1469,7 @@ class Component extends DCLogic {
         edSaveLabel: !detail ? 'Create template' : libVersion ? "Save as my firm's copy" : 'Save',
         edSaveDisabled: !canSave, edSaveStyle: primary(!canSave),
         edLifecycle: life || '', edLifecycleLabel: life ? LIFE[life][0] : '',
-        edLifecycleStyle: 'display:flex;align-items:center;justify-content:center;border-radius:8px;padding:10px 14px;font:500 13.5px var(--sans);background:var(--panel);cursor:pointer;border:1px solid ' + (lifeDestructive ? 'var(--red);color:var(--red)' : 'var(--line);color:var(--text2)'),
+        edLifecycleStyle: 'display:flex;align-items:center;justify-content:center;border-radius:6px;padding:10px 14px;font:500 13.5px var(--sans);background:var(--panel);cursor:pointer;border:1px solid ' + (lifeDestructive ? 'var(--red);color:var(--red)' : 'var(--line);color:var(--text2)'),
         edShowProblems: st.edDirty && problems.length > 0, edProblems: problems.map((p) => ({ text: p })),
         chipKeywords: chip('keywords', 'Match keywords', 'Add a keyword, e.g. group cfo', 20, "A new mandate whose role title contains any of these is drafted from this template. Case doesn't matter."),
         chipResponsibilities: chip('responsibilities', 'Key responsibilities', 'Add a responsibility…', 20),
@@ -1471,7 +1480,7 @@ class Component extends DCLogic {
         edPanels: [panel('technical', 'Technical competencies', 'sky', ed.technical), panel('behavioural', 'Behavioural competencies', 'amber', ed.behavioural)],
         edCriteria: ed.criteria.map((x, i) => ({ idx: String(i), text: x.text, aria: 'Criterion ' + (i + 1), removeAria: 'Remove criterion ' + (i + 1),
           required: x.mode === 'REQUIRED', preferred: x.mode === 'PREFERRED',
-          reqStyle: 'border:none;padding:5px 11px;font:600 11px var(--mono);cursor:pointer;' + (x.mode === 'REQUIRED' ? 'background:var(--red-dim);color:var(--red)' : 'background:var(--panel);color:var(--text3)'),
+          reqStyle: 'border:none;padding:5px 11px;font:600 11px var(--mono);cursor:pointer;' + (x.mode === 'REQUIRED' ? 'background:var(--sky-dim);color:var(--sky)' : 'background:var(--panel);color:var(--text3)'),
           prefStyle: 'border:none;padding:5px 11px;font:600 11px var(--mono);cursor:pointer;' + (x.mode === 'PREFERRED' ? 'background:var(--sky-dim);color:var(--sky)' : 'background:var(--panel);color:var(--text3)') })),
       });
     }
@@ -1516,7 +1525,7 @@ class Component extends DCLogic {
 
       wsName: st.wsName, wsRegion: st.wsRegion, wsCurrency: st.wsCurrency, wsNameBlank: !st.wsName.trim(), wsSaveStyle: primary(!st.wsName.trim()),
       deleteOpen: st.deleteOpen, confirmName: st.confirmName, deleteBlocked,
-      deleteButtonStyle: 'display:flex;align-items:center;justify-content:center;border-radius:8px;padding:10px 14px;font:600 13.5px var(--sans);background:var(--red);border:1px solid var(--red);color:#fff;cursor:' + (deleteBlocked ? 'not-allowed;opacity:.5' : 'pointer'),
+      deleteButtonStyle: 'display:flex;align-items:center;justify-content:center;border-radius:6px;padding:10px 14px;font:500 13.5px var(--sans);background:var(--red);border:1px solid var(--red);color:#fff;cursor:' + (deleteBlocked ? 'not-allowed;opacity:.5' : 'pointer'),
 
       members, membersSubtitle: st.members.length + ' ' + (st.members.length === 1 ? 'member' : 'members') + ' · roles apply per project',
       invitations, hasInvitations: invitations.length > 0,
@@ -1557,7 +1566,7 @@ class Component extends DCLogic {
         if (isEditor && st.edDirty && typeof confirm !== 'undefined' && !confirm('Discard your unsaved changes?')) return;
         this.goto(target, { edDirty: false });
       },
-      toggleTheme: () => { const d = !st.dark; document.body.classList.toggle('dark', d); try { localStorage.setItem('lm-theme', d ? 'dark' : 'light'); } catch (e) {} this.setState({ dark: d }); },
+      toggleTheme: () => { const d = !st.dark; document.documentElement.setAttribute('data-theme', d ? 'dark' : 'light'); try { localStorage.setItem('lm-theme', d ? 'dark' : 'light'); } catch (e) {} this.setState({ dark: d }); },
       toggleCollapse: () => { const v = !st.collapsed; try { localStorage.setItem('lm-side-collapsed', v ? '1' : '0'); } catch (e) {} this.setState({ collapsed: v }); },
 
       onProfileName: (e) => this.setState({ pName: e.target.value, pNameError: '' }),
