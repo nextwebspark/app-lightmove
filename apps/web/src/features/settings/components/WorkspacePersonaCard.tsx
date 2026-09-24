@@ -1,14 +1,20 @@
-import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { useState, type ReactNode } from "react";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useMemo, useState, type ReactNode } from "react";
 import { Button, Field, TextArea, useToast } from "../../../components/ui";
+import type { ComboboxOption } from "../../../components/ui/FacetCombobox";
 import { TagListInput } from "../../../components/ui/TagListInput";
+import { useCountries } from "../../../lib/countries";
 import { messageFor } from "../../../lib/errorCodes";
+import { industryDisplayName } from "../../../lib/format";
+import * as companiesApi from "../../strategy/api/companiesApi";
 import * as workspaceApi from "../../workspace/api/workspaceApi";
 import type { WorkspacePersona } from "../../workspace/api/types";
 
 /** Mirrors the `@Size` caps on UpdateWorkspacePersonaRequest. */
 const MAX_LIST_ITEMS = 20;
 const MAX_TEXT_LENGTH = 2000;
+const FACETS_STALE_MS = 10 * 60 * 1000;
+const REGIONS = ["GCC", "MENA", "Levant", "Europe", "Global"];
 
 /** Settings → General's firm persona: what the firm is, kept for the assistant to tailor research to. */
 export function WorkspacePersonaCard({ persona }: { persona: WorkspacePersona }) {
@@ -25,6 +31,9 @@ export function WorkspacePersonaCard({ persona }: { persona: WorkspacePersona })
     },
     onError: (error) => toast(messageFor(error)),
   });
+
+  const sectorOptions = useSectorOptions();
+  const geographyOptions = useGeographyOptions();
 
   const update = (patch: Partial<WorkspacePersona>) => setDraft((current) => ({ ...current, ...patch }));
 
@@ -54,7 +63,9 @@ export function WorkspacePersonaCard({ persona }: { persona: WorkspacePersona })
             ariaLabel="Add a sector"
             values={draft.sectors}
             onChange={(sectors) => update({ sectors })}
-            placeholder="Type a sector, press Enter"
+            options={sectorOptions}
+            listId="persona-sector-suggestions"
+            placeholder="Pick or type a sector"
             maxItems={MAX_LIST_ITEMS}
           />
         </ListField>
@@ -63,7 +74,9 @@ export function WorkspacePersonaCard({ persona }: { persona: WorkspacePersona })
             ariaLabel="Add a geography"
             values={draft.geographies}
             onChange={(geographies) => update({ geographies })}
-            placeholder="e.g. GCC, Levant"
+            options={geographyOptions}
+            listId="persona-geography-suggestions"
+            placeholder="Pick a country, or type GCC, Levant…"
             maxItems={MAX_LIST_ITEMS}
           />
         </ListField>
@@ -95,6 +108,35 @@ export function WorkspacePersonaCard({ persona }: { persona: WorkspacePersona })
         </Button>
       </div>
     </div>
+  );
+}
+
+/** The universe's industries and the sectors they group under; undefined while refused, so the chips stay free text. */
+function useSectorOptions(): ComboboxOption[] | undefined {
+  const facets = useQuery({
+    queryKey: companiesApi.FACETS_KEY,
+    queryFn: companiesApi.getFacets,
+    staleTime: FACETS_STALE_MS,
+  });
+  const groups = facets.data?.sectorGroups;
+  return useMemo(() => {
+    if (!groups) return undefined;
+    const labels = [
+      ...groups.flatMap((group) => group.industries.map((industry) => industryDisplayName(industry.label))),
+      ...groups.map((group) => group.name),
+    ];
+    return [...new Set(labels)]
+      .sort((first, second) => first.localeCompare(second))
+      .map((label) => ({ value: label, label }));
+  }, [groups]);
+}
+
+/** Every country the catalog names, after the regions a firm is as often described by. */
+function useGeographyOptions(): ComboboxOption[] | undefined {
+  const { options, isError } = useCountries();
+  return useMemo(
+    () => (isError ? undefined : [...REGIONS.map((region) => ({ value: region, label: region })), ...options]),
+    [options, isError],
   );
 }
 

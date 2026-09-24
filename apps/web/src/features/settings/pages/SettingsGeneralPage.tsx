@@ -46,6 +46,8 @@ export function SettingsGeneralPage() {
   }, [workspace]);
 
   const name = pick ? pickedCompanyName(pick).trim() : "";
+  const pickedAnotherCompany =
+    pick?.source === "universe" && pick.company.apolloAccountId !== workspace?.company?.apolloAccountId;
 
   const save = useMutation({
     mutationFn: () =>
@@ -100,6 +102,11 @@ export function SettingsGeneralPage() {
         )}
         <div className={pick ? undefined : "mb-4"}>
           <CompanyPicker label="Organization" pick={pick} onPick={setPick} asksCustomDetails={false} />
+          {pickedAnotherCompany && (
+            <p className="mt-1.5 font-mono text-[11.5px] text-u-text3">
+              Saving fills the persona's sectors and geographies from this company.
+            </p>
+          )}
         </div>
 
         <div className="grid grid-cols-1 gap-x-4 gap-y-3.5 md:grid-cols-2">
@@ -131,7 +138,11 @@ export function SettingsGeneralPage() {
         </div>
       </div>
 
-      <WorkspacePersonaCard key={workspace.id} persona={workspace.persona} />
+      {/* Keyed on the firm too: a re-pick refiles the persona's sectors and country server-side. */}
+      <WorkspacePersonaCard
+        key={`${workspace.id}:${workspace.company?.apolloAccountId ?? ""}`}
+        persona={workspace.persona}
+      />
 
       <div className="mt-4 rounded-[10px] border border-u-offlimits bg-u-offlimits-tint p-5">
         <div className="flex items-center gap-3">

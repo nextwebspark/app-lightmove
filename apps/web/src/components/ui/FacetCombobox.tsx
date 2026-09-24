@@ -249,7 +249,7 @@ export function FacetCombobox({
  * hit outranks an incidental one: "ae" is the code for the United Arab Emirates and also three
  * letters inside "Israel", which sorts first alphabetically and was what Enter committed.
  */
-function rankedFor(needle: string, options: readonly ComboboxOption[]): ComboboxOption[] {
+export function rankedFor(needle: string, options: readonly ComboboxOption[]): ComboboxOption[] {
   if (!needle) return [...options];
   const ranked: { option: ComboboxOption; rank: number }[] = [];
   for (const option of options) {
