@@ -12,6 +12,10 @@ import { useAssistant } from "../AssistantProvider";
  * <p>Hidden below `lg` along with the panel it opens. Below that breakpoint the Strategy filter rail
  * is itself a fixed overlay and two of them cannot share a phone, so the assistant has no layout
  * there yet — and a button that opens nothing is worse than no button.
+ *
+ * <p>Also hidden while any `Drawer` is open, as every mockup does it (`showLauncher: !drawerId`): the
+ * pill sits exactly over a drawer's footer action. Read off the DOM rather than threaded through
+ * state, because every screen owns its own drawer.
  */
 export function AssistantLauncher() {
   const { open, toggledByUser, openAssistant } = useAssistant();
@@ -35,7 +39,7 @@ export function AssistantLauncher() {
       aria-hidden={open}
       inert={open}
       className={cn(
-        "fixed bottom-5 end-5 z-[110] hidden h-11 lg:inline-flex items-center gap-2.5 rounded-[22px] border border-ai-line bg-[linear-gradient(135deg,var(--color-ai),var(--color-ai2))] pe-[17px] ps-3.5 font-sans text-[13px] font-semibold text-white shadow-[0_8px_24px_-6px_rgba(79,70,229,.5)] transition duration-200 hover:brightness-110 motion-reduce:transition-none",
+        "fixed bottom-5 end-5 z-[110] hidden h-11 lg:inline-flex [body:has([data-drawer])_&]:!hidden items-center gap-2.5 rounded-[22px] border border-ai-line bg-[linear-gradient(135deg,var(--color-ai),var(--color-ai2))] pe-[17px] ps-3.5 font-sans text-[13px] font-semibold text-white shadow-[0_8px_24px_-6px_rgba(79,70,229,.5)] transition duration-200 hover:brightness-110 motion-reduce:transition-none",
         open ? "pointer-events-none scale-95 opacity-0" : "scale-100 opacity-100",
       )}
     >

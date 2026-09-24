@@ -79,8 +79,9 @@ tab is the mandate's talent mapping report (`GET /projects/{id}/report`): four c
 progress, shape of the market, remuneration, diversity — aggregated live by `report` from the same
 rows, so nothing is stored and nothing goes stale. It reads one chapter at a time behind a numbered
 step rail, the chapter kept in the URL (`?chapter=`), and its mockup is the `reports` page of
-`claude-design/Project.dc.html` — drawn in the UNCAVA palette (`--color-u-*`), a deliberate seam
-until the rest follow. It states only what the rows carry: a candidate's
+`claude-design/Project.dc.html` — drawn in the UNCAVA palette (`--color-u-*`), which is now the
+whole app's: `tokens.css` aliases every app token (`amber`, `panel`, `line`, …) onto it, exactly as
+each mockup helmet does, so `amber` reads Uncava's indigo accent and warnings are `u-signal`. It states only what the rows carry: a candidate's
 status but no pipeline outcome, and a package in another currency is counted rather than converted.
 **Gender (V56) is recorded on a candidate and never inferred from a name** — the chapter divides by
 the executives who have one on file, not by the headcount, so a mandate nobody has recorded reads as
@@ -101,9 +102,14 @@ client report was judged worse than none. The
 market chapter's hubs carry a point from `geocoding` — asked only for the handful of cities it names
 — so it draws a small map beside the bars where a Mapbox token is configured, and the bars alone
 where none is. The standalone
-Candidates screen, and the pipeline and outreach tables, don't exist yet. The **Position**
+Candidates screen, and the pipeline and outreach tables, don't exist yet. A projects-list row opens
+the **position side panel** (`Workspace.dc.html`'s Position drawer): mapping progress as universe
+companies with an executive mapped (`mappedCompanies` of `companies` on `GET /projects`), key
+metrics, stage gates, the team and hiring managers, and **recent activity** — `GET
+/projects/{id}/activity`, a cursor-paged, allowlisted read of the audit trail, `WORK_EXECUTE` so a
+client seat never sees it, phrased and merged into lines by `lib/activity.ts`. The **Position**
 screen is the mandate's brief, drawn in `claude-design/Position.dc.html` (issue #442) in the UNCAVA
-palette like Reports — the second screen on that seam — as five steps behind a rail (Role Brief,
+palette like Reports, as five steps behind a rail (Role Brief,
 Reporting, Compensation, Assessment Criteria, Review & Publish), the step kept in the URL (`?step=`)
 and each section autosaving through its own write. It opens drafted rather than
 blank: a **role-template library** of seventeen briefs (twelve C-suite, four functional heads, one

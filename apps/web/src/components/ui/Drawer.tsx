@@ -52,6 +52,7 @@ export function Drawer({
         role="dialog"
         aria-modal="true"
         aria-label={label}
+        data-drawer=""
         className={cn(
           "fixed inset-x-2.5 bottom-2.5 top-14 z-[95] flex animate-fade-up flex-col rounded-[10px]",
           "border border-line bg-panel shadow-panel sm:inset-x-auto sm:right-2.5 sm:top-2.5 sm:max-w-[92vw]",

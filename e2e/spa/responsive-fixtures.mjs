@@ -52,6 +52,8 @@ export const PROJECTS = [
     representatives: [],
     companies: 128,
     candidates: 42,
+    engagedCandidates: 11,
+    mappedCompanies: 81,
     createdAt: "2026-04-01T00:00:00Z",
   },
   {
@@ -66,9 +68,32 @@ export const PROJECTS = [
     representatives: [],
     companies: 64,
     candidates: 17,
+    engagedCandidates: 4,
+    mappedCompanies: 22,
     createdAt: "2026-05-12T00:00:00Z",
   },
 ];
+
+const ACTIVITY = {
+  entries: [
+    ["CANDIDATE_ADDED", {}, 2],
+    ["CANDIDATE_ADDED", {}, 3],
+    ["TRIAGE_BULK_ADDED", { added: "12", status: "DECLINED" }, 26],
+    ["CANDIDATE_UPDATED", { status: "contacted" }, 30],
+    ["POSITION_PUBLISHED", {}, 50],
+    ["SPREADSHEET_IMPORTED", { fileName: "gcc-aluminium.xlsx", companiesCreated: "40", candidatesCreated: "18" }, 75],
+    ["PROJECT_CREATED", {}, 90],
+  ].map(([type, details, hoursAgo], i) => ({
+    id: 100 - i,
+    type,
+    occurredAt: new Date(Date.now() - hoursAgo * 3_600_000).toISOString(),
+    actorUserId: "user-3",
+    actorName: "Yara Haddad",
+    actorAvatarUrl: null,
+    details,
+  })),
+  nextCursor: null,
+};
 
 const MEMBERS = team(4).map((seat, i) => ({
   memberId: seat.memberId,
@@ -509,6 +534,8 @@ const ROUTES = [
  */
 export function payloadFor(pathname, search = "") {
   if (pathname.endsWith("/auth/csrf")) return {};
+
+  if (/\/projects\/[^/]+\/activity/.test(pathname)) return ACTIVITY;
 
   if (/\/projects\/[^/]+\/strategy\/companies/.test(pathname))
     return { companies: COMPANIES, totalCount: 71822, page: 0, size: 25 };
