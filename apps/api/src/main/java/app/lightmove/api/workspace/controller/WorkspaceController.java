@@ -49,7 +49,8 @@ public class WorkspaceController {
                                                     HttpServletRequest httpRequest) {
         return ResponseEntity.ok(toResponse(settings.update(
                 principal.userId(), principal.requireWorkspaceId(),
-                request.name(), request.defaultRegion(), request.defaultCurrency(), httpRequest)));
+                request.name(), request.apolloAccountId(), request.defaultRegion(), request.defaultCurrency(),
+                httpRequest)));
     }
 
     /** The firm persona the assistant will read — an admin's to write, like the rest of this page. */

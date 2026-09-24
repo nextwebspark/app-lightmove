@@ -162,10 +162,14 @@ public class Workspace extends BaseEntity {
         this.logoUrl = company == null ? null : company.logoUrl();
     }
 
-    /** The Settings → General form. Re-derives the logo mark; identity (slug, domain) stays put. */
-    public void applySettings(String name, String defaultRegion, String defaultCurrency) {
+    /**
+     * The Settings → General form. Re-derives the logo mark and re-files the company snapshot, which a
+     * null company clears; identity (slug, domain) stays put, and the persona is the admin's own text.
+     */
+    public void applySettings(String name, WorkspaceCompany company, String defaultRegion, String defaultCurrency) {
         this.name = name;
         this.logoMark = deriveLogoMark(name);
+        identifyAs(company);
         if (defaultRegion != null) {
             this.defaultRegion = defaultRegion;
         }
