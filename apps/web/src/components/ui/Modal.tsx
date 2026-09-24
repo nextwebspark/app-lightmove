@@ -50,8 +50,8 @@ export function Modal({
       >
         <div
           className={cn(
-            "flex-none border-b px-5 pb-1 pt-5 text-base font-semibold transition-colors md:px-[22px] md:pt-[22px]",
-            hiddenAbove ? "border-u-border" : "border-transparent",
+            "relative z-10 flex-none border-b px-5 pb-1 pt-5 text-base font-semibold transition-[border-color,box-shadow] md:px-[22px] md:pt-[22px]",
+            hiddenAbove ? "border-u-border shadow-[0_12px_16px_-12px_var(--color-u-scrim)]" : "border-transparent",
           )}
         >
           {title}
@@ -61,15 +61,20 @@ export function Modal({
           onScroll={measure}
           // pt-3 rather than the header's margin: callers pull a subtitle up under the title with -mt-2
           // or -mt-3, and a negative margin past a scroll box's padding is clipped.
-          className={cn("min-h-0 flex-1 overflow-y-auto px-5 pt-3 md:px-[22px]", !footer && "pb-5 md:pb-[22px]")}
+          // The thumb is drawn rather than overlaid: an overlay scrollbar (macOS, headless Chromium) stays
+          // hidden until the user scrolls, which is exactly when they needed telling there was more.
+          className={cn(
+            "min-h-0 flex-1 overflow-y-auto px-5 pt-3 [scrollbar-color:var(--color-u-border-strong)_transparent] [scrollbar-gutter:stable] [scrollbar-width:thin] md:px-[22px]",
+            !footer && "pb-5 md:pb-[22px]",
+          )}
         >
           {children}
         </div>
         {footer && (
           <div
             className={cn(
-              "flex flex-none justify-end gap-2 border-t px-5 py-4 transition-colors md:px-[22px]",
-              hiddenBelow ? "border-u-border" : "border-transparent",
+              "relative z-10 flex flex-none justify-end gap-2 border-t px-5 py-4 transition-[border-color,box-shadow] md:px-[22px]",
+              hiddenBelow ? "border-u-border shadow-[0_-12px_16px_-12px_var(--color-u-scrim)]" : "border-transparent",
             )}
           >
             {footer}
