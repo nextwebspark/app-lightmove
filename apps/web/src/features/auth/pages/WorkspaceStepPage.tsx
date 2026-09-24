@@ -1,5 +1,5 @@
 import { zodResolver } from "@hookform/resolvers/zod";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useForm } from "react-hook-form";
 import { useNavigate } from "react-router-dom";
 import { AuthLogo, Button, Card, Field, FormError, Select } from "../../../components/ui";
@@ -68,6 +68,7 @@ function CreateWorkspace({
     register,
     handleSubmit,
     setValue,
+    getValues,
     clearErrors,
     formState: { errors, isSubmitting },
   } = useForm<WorkspaceValues>({
@@ -75,18 +76,29 @@ function CreateWorkspace({
     defaultValues: {
       name: editing?.name ?? "",
       // The mockup's dropdowns open on their first option; ours were opening on the second.
-      companySize: COMPANY_SIZES[0],
-      primaryRegion: REGIONS[0],
-      teamFocus: TEAM_FOCUSES[0],
+      companySize: editing?.companySize ?? COMPANY_SIZES[0],
+      primaryRegion: editing?.primaryRegion ?? REGIONS[0],
+      teamFocus: editing?.teamFocus ?? TEAM_FOCUSES[0],
     },
   });
+
+  // The size a database pick filled in, so dropping that pick can take it back out — unless the
+  // user has since chosen a size themselves.
+  const sizeFromPick = useRef<string | null>(null);
 
   const handlePick = (next: CompanyPick | null) => {
     setPick(next);
     setValue("name", next ? pickedCompanyName(next) : "");
     if (next) clearErrors("name");
+    if (sizeFromPick.current !== null && getValues("companySize") === sizeFromPick.current) {
+      setValue("companySize", COMPANY_SIZES[0]);
+    }
+    sizeFromPick.current = null;
     const size = next?.source === "universe" ? companySizeOf(next.company.numEmployees) : null;
-    if (size) setValue("companySize", size);
+    if (size) {
+      setValue("companySize", size);
+      sizeFromPick.current = size;
+    }
   };
 
   const onSubmit = async (values: WorkspaceValues) => {

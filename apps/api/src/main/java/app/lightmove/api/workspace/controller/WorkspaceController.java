@@ -2,6 +2,7 @@ package app.lightmove.api.workspace.controller;
 
 import app.lightmove.api.core.security.model.AuthPrincipal;
 import app.lightmove.api.workspace.dto.DeleteWorkspaceRequest;
+import app.lightmove.api.workspace.dto.WorkspaceCompanyResponse;
 import app.lightmove.api.workspace.dto.UpdateWorkspacePersonaRequest;
 import app.lightmove.api.workspace.dto.UpdateWorkspaceSettingsRequest;
 import app.lightmove.api.workspace.dto.WorkspaceResponse;
@@ -77,6 +78,7 @@ public class WorkspaceController {
         Workspace ws = detail.workspace();
         return new WorkspaceResponse(ws.getId(), ws.getName(), ws.getSlug(), ws.getLogoMark(),
                 ws.getEmailDomain(), ws.getDefaultRegion(), ws.getDefaultCurrency(), ws.getPlan(),
-                detail.memberCount(), ws.getCreatedAt(), ws.getPersona());
+                detail.memberCount(), ws.getCreatedAt(), ws.getPersona(),
+                WorkspaceCompanyResponse.of(ws.getCompany()));
     }
 }

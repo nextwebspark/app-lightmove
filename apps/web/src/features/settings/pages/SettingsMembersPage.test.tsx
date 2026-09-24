@@ -52,6 +52,9 @@ describe("SettingsMembersPage — the roster", () => {
       emailDomain: "nextwebspark.com",
       joinedAt: null,
       company: null,
+      companySize: null,
+      primaryRegion: null,
+      teamFocus: null,
       roles: ["ADMIN" as const],
     },
   };

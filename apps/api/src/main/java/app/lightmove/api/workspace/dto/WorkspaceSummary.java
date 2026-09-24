@@ -27,5 +27,10 @@ public record WorkspaceSummary(
         Instant joinedAt,
 
         /** The universe company the firm was picked as at signup; null for one typed in by hand. */
-        WorkspaceCompanyResponse company
+        WorkspaceCompanyResponse company,
+
+        /** Signup's description of the firm, so going back to that step shows what was saved. */
+        String companySize,
+        String primaryRegion,
+        String teamFocus
 ) {}

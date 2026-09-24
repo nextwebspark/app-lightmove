@@ -24,6 +24,10 @@ export interface WorkspaceSummary {
   joinedAt: string | null;
   /** The universe company the firm was picked as at signup; null for one typed in by hand. */
   company: WorkspaceCompany | null;
+  /** Signup's description of the firm, so going back to that step shows what was saved. */
+  companySize: string | null;
+  primaryRegion: string | null;
+  teamFocus: string | null;
 }
 
 export interface WorkspaceCompany {

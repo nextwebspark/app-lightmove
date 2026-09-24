@@ -47,6 +47,9 @@ describe("SettingsSecurityPage", () => {
       emailDomain: "nextwebspark.com",
       joinedAt: "2026-03-14T09:00:00Z",
       company: null,
+      companySize: null,
+      primaryRegion: null,
+      teamFocus: null,
       roles: ["MEMBER"],
     },
   };

@@ -95,4 +95,56 @@ describe("WorkspaceStepPage — the organization is picked from the company data
     ).toBeInTheDocument();
     expect(authApi.createWorkspace).not.toHaveBeenCalled();
   });
+
+  it("takes the prefilled size back out when the picked company is swapped for a typed one", async () => {
+    const user = userEvent.setup();
+    renderPage();
+
+    await user.type(screen.getByPlaceholderText("Search company database…"), "Al-Fut");
+    await user.click(await screen.findByRole("button", { name: /Al-Futtaim/ }));
+    await user.click(screen.getByRole("button", { name: "Change" }));
+    vi.mocked(authApi.searchOnboardingCompanies).mockResolvedValue([]);
+    await user.clear(screen.getByPlaceholderText("Search company database…"));
+    await user.type(screen.getByPlaceholderText("Search company database…"), "Nimbus Partners");
+    await user.click(await screen.findByRole("button", { name: /None of these/ }));
+    await user.click(screen.getByRole("button", { name: "Continue" }));
+
+    await waitFor(() => expect(authApi.createWorkspace).toHaveBeenCalled());
+    expect(authApi.createWorkspace).toHaveBeenCalledWith(
+      expect.objectContaining({ name: "Nimbus Partners", apolloAccountId: null, companySize: "1–10 people" }),
+    );
+  });
+
+  it("reopens a saved workspace with what it was described as", async () => {
+    const user = userEvent.setup();
+    currentUser = {
+      workspace: {
+        id: "w1",
+        name: "Nimbus Partners",
+        slug: "nimbus",
+        logoMark: "N",
+        emailDomain: "nimbus.example",
+        roles: ["ADMIN"],
+        joinedAt: null,
+        company: null,
+        companySize: "51–200 people",
+        primaryRegion: "Europe",
+        teamFocus: "Board advisory",
+      },
+    };
+    vi.mocked(authApi.updateWorkspace).mockResolvedValue({} as User);
+    renderPage();
+
+    await user.click(screen.getByRole("button", { name: "Continue" }));
+
+    await waitFor(() => expect(authApi.updateWorkspace).toHaveBeenCalled());
+    expect(authApi.updateWorkspace).toHaveBeenCalledWith(
+      expect.objectContaining({
+        name: "Nimbus Partners",
+        companySize: "51–200 people",
+        primaryRegion: "Europe",
+        teamFocus: "Board advisory",
+      }),
+    );
+  });
 });

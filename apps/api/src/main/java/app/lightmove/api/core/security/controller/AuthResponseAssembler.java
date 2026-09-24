@@ -112,6 +112,9 @@ public class AuthResponseAssembler {
                 WorkspaceRole.isStaff(roles) ? workspace.getEmailDomain() : null,
                 roles,
                 membership.getJoinedAt(),
-                WorkspaceCompanyResponse.of(workspace.getCompany()));
+                WorkspaceCompanyResponse.of(workspace.getCompany()),
+                workspace.getCompanySize(),
+                workspace.getPrimaryRegion(),
+                workspace.getTeamFocus());
     }
 }

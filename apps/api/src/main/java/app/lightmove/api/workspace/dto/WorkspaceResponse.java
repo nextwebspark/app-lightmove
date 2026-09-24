@@ -16,5 +16,6 @@ public record WorkspaceResponse(
         String plan,
         long memberCount,
         Instant createdAt,
-        WorkspacePersona persona
+        WorkspacePersona persona,
+        WorkspaceCompanyResponse company
 ) {}

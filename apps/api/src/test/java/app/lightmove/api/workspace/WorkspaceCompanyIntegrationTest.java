@@ -61,6 +61,9 @@ class WorkspaceCompanyIntegrationTest extends FlowTestSupport {
                                  "companySize":"200+ people","primaryRegion":"GCC","teamFocus":"Mixed"}"""))
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.workspace.name").value("Al-Futtaim"))
+                .andExpect(jsonPath("$.workspace.companySize").value("200+ people"))
+                .andExpect(jsonPath("$.workspace.primaryRegion").value("GCC"))
+                .andExpect(jsonPath("$.workspace.teamFocus").value("Mixed"))
                 .andExpect(jsonPath("$.workspace.company.apolloAccountId").value("apollo-af"))
                 .andExpect(jsonPath("$.workspace.company.industry").value("retail"))
                 .andExpect(jsonPath("$.workspace.company.city").value("Dubai"))
@@ -73,7 +76,8 @@ class WorkspaceCompanyIntegrationTest extends FlowTestSupport {
         mvc.perform(get("/api/v1/workspace").header("Authorization", "Bearer " + login("alok@" + domain)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.persona.sectors[0]").value("retail"))
-                .andExpect(jsonPath("$.persona.competitors").isEmpty());
+                .andExpect(jsonPath("$.persona.competitors").isEmpty())
+                .andExpect(jsonPath("$.company.logoUrl").value("https://logos.example/af.png"));
     }
 
     @Test
