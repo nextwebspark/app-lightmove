@@ -7,6 +7,7 @@ import app.lightmove.api.common.constant.CompetencyPanel;
 import app.lightmove.api.common.constant.CriterionMode;
 import app.lightmove.api.common.constant.EmploymentType;
 import app.lightmove.api.common.constant.IncentiveType;
+import app.lightmove.api.common.constant.MandateReason;
 import app.lightmove.api.common.constant.NoticeUnit;
 import app.lightmove.api.common.constant.Seniority;
 import app.lightmove.api.core.config.LightMoveProperties;
@@ -21,6 +22,7 @@ import app.lightmove.api.positiontemplate.model.PositionTemplateBody;
 import app.lightmove.api.positiontemplate.model.PositionTemplateCompetency;
 import app.lightmove.api.positiontemplate.model.PositionTemplateCriterion;
 import app.lightmove.api.positiontemplate.model.PositionTemplateDraft;
+import app.lightmove.api.positiontemplate.model.PositionTemplateSeat;
 import app.lightmove.api.positiontemplate.model.TemplateProblem;
 import java.io.IOException;
 import java.io.InputStream;
@@ -44,13 +46,18 @@ import tools.jackson.core.JacksonException;
 import tools.jackson.databind.ObjectMapper;
 
 /**
- * The template file ({@code lightmove.position-templates}, version 1): what Export writes, what Import
+ * The template file ({@code lightmove.position-templates}, version 2): what Export writes, what Import
  * reads, and what {@code position-templates.schema.json} publishes for anyone — or any model — writing
  * one outside the app.
  *
  * <p>Reading checks the file against the format before binding it, because binding alone forgives too
  * much: {@link PositionTemplateBody} ignores unknown keys so a retired field never breaks a stored
  * template, and that would let a misspelt key in a hand-written file vanish without a word.
+ *
+ * <p>Version 1 carried the brief's old shape — a {@code reportsTo} title and a flat {@code directReports}
+ * list, a department and strategic priorities. It still imports: the two titles become a chart and the
+ * two retired fields are dropped, so a file exported or written before the brief was reshaped is not
+ * stranded.
  *
  * <p>Its limits are {@link PositionTemplateSettings}. There is no content-type check: the bytes
  * are parsed as JSON whatever the part claims.
@@ -60,7 +67,8 @@ import tools.jackson.databind.ObjectMapper;
 class PositionTemplateExchange {
 
     static final String FORMAT = "lightmove.position-templates";
-    static final int FORMAT_VERSION = 1;
+    static final int FORMAT_VERSION = 2;
+    static final int LEGACY_FORMAT_VERSION = 1;
     static final String SCHEMA_RESOURCE = "positiontemplate/position-templates.schema.json";
 
     private static final String UNTITLED = "Untitled template";
@@ -70,6 +78,7 @@ class PositionTemplateExchange {
     private static final Set<String> BENEFIT_FIELDS = fieldsOf(PositionTemplateBenefit.class);
     private static final Set<String> CRITERION_FIELDS = fieldsOf(PositionTemplateCriterion.class);
     private static final Set<String> COMPETENCY_FIELDS = fieldsOf(PositionTemplateCompetency.class);
+    private static final Set<String> SEAT_FIELDS = fieldsOf(PositionTemplateSeat.class);
 
     private final ObjectMapper json;
     private final PositionTemplateValidator validator;
@@ -108,7 +117,8 @@ class PositionTemplateExchange {
         if (!(document instanceof Map<?, ?> root) || !FORMAT.equals(root.get("format"))) {
             throw new ApiException(ErrorCode.TEMPLATE_FILE_UNREADABLE, "Template import carries no format marker");
         }
-        if (!(root.get("formatVersion") instanceof Number version) || version.intValue() != FORMAT_VERSION) {
+        if (!(root.get("formatVersion") instanceof Number version)
+                || (version.intValue() != FORMAT_VERSION && version.intValue() != LEGACY_FORMAT_VERSION)) {
             throw ApiException.userFacing(ErrorCode.TEMPLATE_FILE_UNREADABLE,
                     "That template file is in a format version LightMove does not read");
         }
@@ -119,15 +129,17 @@ class PositionTemplateExchange {
             throw ApiException.userFacing(ErrorCode.TEMPLATE_FILE_UNREADABLE,
                     "A template file can hold at most " + limits.maxImportTemplates() + " templates");
         }
+        boolean legacy = ((Number) root.get("formatVersion")).intValue() == LEGACY_FORMAT_VERSION;
         Set<String> codesSeen = new HashSet<>();
-        return entries.stream().map(entry -> readTemplate(entry, codesSeen)).toList();
+        return entries.stream().map(entry -> readTemplate(entry, legacy, codesSeen)).toList();
     }
 
-    private ImportedTemplate readTemplate(Object entry, Set<String> codesSeen) {
-        if (!(entry instanceof Map<?, ?> fields)) {
+    private ImportedTemplate readTemplate(Object entry, boolean legacy, Set<String> codesSeen) {
+        if (!(entry instanceof Map<?, ?> given)) {
             return new ImportedTemplate(null, UNTITLED, null,
                     List.of(new TemplateProblem("template", "Each template must be an object")));
         }
+        Map<?, ?> fields = legacy ? upgradedFromVersionOne(given) : given;
         String title = fields.get("title") instanceof String text && !text.isBlank() ? text.trim() : UNTITLED;
         List<TemplateProblem> problems = new ArrayList<>();
         String code = codeOf(fields.get("code"), title, problems);
@@ -162,6 +174,57 @@ class PositionTemplateExchange {
     }
 
     /**
+     * A version-1 entry in version 2's shape: {@code reportsTo} becomes the root seat, the role sits
+     * beneath it and each of {@code directReports} beneath the role. A value of the wrong type is left
+     * where it was, so the structure check names it rather than the upgrade swallowing it.
+     */
+    private static Map<?, ?> upgradedFromVersionOne(Map<?, ?> fields) {
+        if (!(fields.get("body") instanceof Map<?, ?> body)) {
+            return fields;
+        }
+        Map<Object, Object> upgraded = new LinkedHashMap<>(body);
+        upgraded.remove("department");
+        upgraded.remove("strategicPriorities");
+        Object reportsTo = upgraded.get("reportsTo");
+        Object directReports = upgraded.get("directReports");
+        boolean reportsToReadable = reportsTo == null || reportsTo instanceof String;
+        boolean directReportsReadable = directReports == null
+                || directReports instanceof List<?> titles && titles.stream().allMatch(String.class::isInstance);
+        if (reportsToReadable && directReportsReadable && !upgraded.containsKey("orgChart")) {
+            upgraded.remove("reportsTo");
+            upgraded.remove("directReports");
+            upgraded.put("orgChart", legacyChart((String) reportsTo,
+                    directReports == null ? List.of() : (List<?>) directReports));
+        }
+        Map<Object, Object> entry = new LinkedHashMap<>(fields);
+        entry.put("body", upgraded);
+        return entry;
+    }
+
+    private static List<Map<String, Object>> legacyChart(String reportsTo, List<?> directReports) {
+        boolean hasManager = reportsTo != null && !reportsTo.isBlank();
+        List<Map<String, Object>> chart = new ArrayList<>();
+        if (hasManager) {
+            chart.add(seat("manager", null, reportsTo, false));
+        }
+        chart.add(seat(PositionTemplateSeat.MANDATE_SEAT_ID, hasManager ? "manager" : null, null, true));
+        for (int index = 0; index < directReports.size(); index++) {
+            chart.add(seat("report-" + (index + 1), PositionTemplateSeat.MANDATE_SEAT_ID,
+                    (String) directReports.get(index), false));
+        }
+        return chart;
+    }
+
+    private static Map<String, Object> seat(String id, String parentId, String title, boolean mandateSeat) {
+        Map<String, Object> seat = new LinkedHashMap<>();
+        seat.put("id", id);
+        seat.put("parentId", parentId);
+        seat.put("title", title);
+        seat.put("mandateSeat", mandateSeat);
+        return seat;
+    }
+
+    /**
      * Types and field names, before anything is bound. A competency's weight is required here because a
      * missing one would bind to 0 rather than fail, and quietly unbalance the panel.
      */
@@ -181,13 +244,20 @@ class PositionTemplateExchange {
             return;
         }
         unknownFields("body.", content, BODY_FIELDS, problems);
-        for (String field : List.of("department", "narrative", "reportsTo", "currency", "incentiveVesting")) {
+        for (String field : List.of("narrative", "currency", "incentiveVesting")) {
             text("body." + field, content.get(field), problems);
         }
-        for (String field : List.of("responsibilities", "directReports", "strategicPriorities")) {
-            textList("body." + field, content.get(field), problems);
-        }
+        textList("body.responsibilities", content.get("responsibilities"), problems);
         enumName("body.employmentType", content.get("employmentType"), EmploymentType.class, problems);
+        enumName("body.mandateReason", content.get("mandateReason"), MandateReason.class, problems);
+        yesOrNo("body.confidential", content.get("confidential"), problems);
+        wholeNumber("body.technicalShare", content.get("technicalShare"), problems);
+        objects("body.orgChart", content.get("orgChart"), SEAT_FIELDS, problems, (path, item) -> {
+            text(path + ".id", item.get("id"), problems);
+            text(path + ".parentId", item.get("parentId"), problems);
+            text(path + ".title", item.get("title"), problems);
+            yesOrNo(path + ".mandateSeat", item.get("mandateSeat"), problems);
+        });
         enumName("body.noticeUnit", content.get("noticeUnit"), NoticeUnit.class, problems);
         enumName("body.baseSalaryMode", content.get("baseSalaryMode"), BaseSalaryMode.class, problems);
         enumName("body.bonusBasis", content.get("bonusBasis"), BonusBasis.class, problems);
@@ -267,6 +337,12 @@ class PositionTemplateExchange {
     private static void textList(String path, Object value, List<TemplateProblem> problems) {
         if (value != null && !(value instanceof List<?> items && items.stream().allMatch(String.class::isInstance))) {
             problems.add(new TemplateProblem(path, "Must be a list of text"));
+        }
+    }
+
+    private static void yesOrNo(String path, Object value, List<TemplateProblem> problems) {
+        if (value != null && !(value instanceof Boolean)) {
+            problems.add(new TemplateProblem(path, "Must be true or false"));
         }
     }
 

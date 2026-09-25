@@ -9,7 +9,7 @@ import app.lightmove.api.common.constant.NoticeUnit;
 import app.lightmove.api.common.constant.Seniority;
 import app.lightmove.api.core.persistence.model.BaseEntity;
 import app.lightmove.api.position.constant.FieldSource;
-import app.lightmove.api.position.constant.MandateReason;
+import app.lightmove.api.common.constant.MandateReason;
 import app.lightmove.api.position.constant.PositionFieldKeys;
 import jakarta.persistence.CollectionTable;
 import jakarta.persistence.Column;

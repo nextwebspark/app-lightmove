@@ -5,12 +5,13 @@ import type {
   CriterionMode,
   EmploymentType,
   IncentiveType,
+  MandateReason,
   NoticeUnit,
   PositionDiscipline,
   PositionSeniority,
 } from "../../position/api/types";
 
-/** The role-template management contract, hand-mirrored from the records in the position dto package. */
+/** The role-template management contract, hand-mirrored from the records in the positiontemplate package. */
 
 /** The library a super admin edits, or the caller's own workspace's templates. */
 export type TemplateScope = "library" | "workspace";
@@ -37,17 +38,29 @@ export interface TemplateCompetency {
   weight: number;
 }
 
-/** What a template drafts into a new brief. Never a role title, location or salary band — those are each mandate's. */
+/** One seat of a template's org chart: a title, never a person. The role's own seat has no title. */
+export interface TemplateSeat {
+  id: string;
+  parentId: string | null;
+  title: string | null;
+  mandateSeat: boolean;
+}
+
+/**
+ * What a template drafts into a new brief, in the brief's own step order. Never a role title,
+ * location or salary band — those are each mandate's.
+ */
 export interface TemplateBody {
-  department: string | null;
   employmentType: EmploymentType | null;
-  narrative: string | null;
-  responsibilities: string[];
-  reportsTo: string | null;
-  directReports: string[];
-  strategicPriorities: string[];
+  /** Null leaves each mandate's own reason for hire alone. */
+  mandateReason: MandateReason | null;
+  /** Null leaves each mandate's own confidentiality alone. */
+  confidential: boolean | null;
   noticeValue: number | null;
   noticeUnit: NoticeUnit | null;
+  responsibilities: string[];
+  narrative: string | null;
+  orgChart: TemplateSeat[];
   currency: string;
   baseSalaryMode: BaseSalaryMode;
   bonusValue: number | null;
@@ -57,6 +70,7 @@ export interface TemplateBody {
   benefits: TemplateBenefit[];
   criteria: TemplateCriterion[];
   competencies: TemplateCompetency[];
+  technicalShare: number;
 }
 
 export interface TemplateOverview {

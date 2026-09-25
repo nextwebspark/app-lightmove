@@ -9,8 +9,10 @@ import app.lightmove.api.positiontemplate.model.PositionTemplateBody;
 import app.lightmove.api.positiontemplate.model.PositionTemplateCompetency;
 import app.lightmove.api.positiontemplate.model.PositionTemplateCriterion;
 import app.lightmove.api.positiontemplate.model.PositionTemplateDraft;
+import app.lightmove.api.positiontemplate.model.PositionTemplateSeat;
 import app.lightmove.api.positiontemplate.model.TemplateProblem;
 import java.math.BigDecimal;
+import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
@@ -33,6 +35,8 @@ class PositionTemplateValidator {
     /** Wide enough for a fixed amount — the same ceiling the brief's own write accepts. */
     private static final BigDecimal MAX_BONUS = new BigDecimal("999999999999.99");
     private static final int MAX_COMPETENCIES_PER_PANEL = 10;
+    /** {@code PutReportingStructureRequest}'s ceiling. */
+    private static final int MAX_SEATS = 60;
 
     /** Normalises the draft and refuses it with every problem at once, keyed by field. */
     PositionTemplateDraft requireValid(PositionTemplateDraft draft) {
@@ -77,15 +81,10 @@ class PositionTemplateValidator {
                 "A keyword is too long");
 
         PositionTemplateBody body = draft.body();
-        tooLong(problems, "body.department", body.department(), 160, "That department name is too long");
         tooLong(problems, "body.narrative", body.narrative(), 4000, "That profile is too long");
         list(problems, "body.responsibilities", body.responsibilities(), 20, 200,
                 "That is too many responsibilities", "A responsibility is too long");
-        tooLong(problems, "body.reportsTo", body.reportsTo(), 160, "That seat title is too long");
-        list(problems, "body.directReports", body.directReports(), 30, 160,
-                "That is too many direct reports", "A direct report's title is too long");
-        list(problems, "body.strategicPriorities", body.strategicPriorities(), 20, 120,
-                "That is too many strategic priorities", "A strategic priority is too long");
+        orgChart(problems, body.orgChart());
         if (body.noticeValue() != null && (body.noticeValue() < 0 || body.noticeValue() > 999)) {
             problems.put("body.noticeValue", "Notice is a number from 0 to 999");
         }
@@ -103,7 +102,49 @@ class PositionTemplateValidator {
         benefits(problems, body.benefits());
         criteria(problems, body.criteria());
         competencies(problems, body.competencies());
+        if (body.technicalShare() < 0 || body.technicalShare() > 100) {
+            problems.put("body.technicalShare", "The technical share is between 0 and 100");
+        }
         return problems;
+    }
+
+    /** The brief's own chart rules, so a template can never draft a chart its reporting write refuses. */
+    private static void orgChart(Map<String, String> problems, List<PositionTemplateSeat> seats) {
+        String field = "body.orgChart";
+        if (seats.size() > MAX_SEATS) {
+            problems.putIfAbsent(field, "That is too many seats for one chart");
+        }
+        if (seats.stream().filter(PositionTemplateSeat::mandateSeat).count() != 1) {
+            problems.putIfAbsent(field, "The chart needs exactly one seat for the role itself");
+        }
+        Map<String, String> parentById = new HashMap<>();
+        for (PositionTemplateSeat seat : seats) {
+            if (seat.id() == null || seat.id().isEmpty() || seat.id().length() > 40) {
+                problems.putIfAbsent(field, "Every seat needs a short id");
+            } else if (parentById.put(seat.id(), seat.parentId()) != null) {
+                problems.putIfAbsent(field, "Two seats share an id");
+            }
+            tooLong(problems, field, seat.title(), 160, "A seat title is too long");
+        }
+        for (Map.Entry<String, String> seat : parentById.entrySet()) {
+            if (seat.getValue() != null && !parentById.containsKey(seat.getValue())) {
+                problems.putIfAbsent(field, "A seat reports to a seat that is not on the chart");
+            }
+            if (reachesItself(seat.getKey(), parentById)) {
+                problems.putIfAbsent(field, "A seat cannot report to itself, even through others");
+            }
+        }
+    }
+
+    private static boolean reachesItself(String seatId, Map<String, String> parentById) {
+        String current = parentById.get(seatId);
+        for (int hop = 0; current != null && hop <= parentById.size(); hop++) {
+            if (current.equals(seatId)) {
+                return true;
+            }
+            current = parentById.get(current);
+        }
+        return false;
     }
 
     private static void benefits(Map<String, String> problems, List<PositionTemplateBenefit> benefits) {

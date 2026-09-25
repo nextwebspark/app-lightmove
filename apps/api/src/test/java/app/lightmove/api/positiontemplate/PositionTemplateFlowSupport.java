@@ -69,27 +69,27 @@ public abstract class PositionTemplateFlowSupport extends FlowTestSupport {
     }
 
     /** One template as a file entry: both panels balanced, a criterion and a responsibility. */
-    protected static String templateEntry(String title, String keyword, String department) {
+    protected static String templateEntry(String title, String keyword, String narrative) {
         return """
                 {"title":"%s","discipline":"FINANCE","seniority":"C_SUITE","summary":"Written by a test.",
                  "keywords":["%s"],
-                 "body":{"department":"%s","responsibilities":["Run the function"],
+                 "body":{"narrative":"%s","responsibilities":["Run the function"],
                    "criteria":[{"text":"Has run the function at scale","mode":"REQUIRED"}],
                    "competencies":[
                      {"panel":"TECHNICAL","name":"Operating","description":"Runs it","weight":100},
                      {"panel":"BEHAVIOURAL","name":"Judgement","description":"Decides well","weight":100}]}}
-                """.formatted(title, keyword, department);
+                """.formatted(title, keyword, narrative);
     }
 
-    protected static String templateRequest(String title, String keyword, String department, Long version) {
-        String entry = templateEntry(title, keyword, department).strip();
+    protected static String templateRequest(String title, String keyword, String narrative, Long version) {
+        String entry = templateEntry(title, keyword, narrative).strip();
         return entry.substring(0, entry.length() - 1) + ",\"version\":" + version + "}";
     }
 
-    /** A template as its editor opened it, with the department changed — a file entry, or a save with its version. */
-    protected String edited(JsonNode detail, String department, boolean withVersion) throws Exception {
+    /** A template as its editor opened it, with the narrative changed — a file entry, or a save with its version. */
+    protected String edited(JsonNode detail, String narrative, boolean withVersion) throws Exception {
         ObjectNode body = (ObjectNode) detail.get("body").deepCopy();
-        body.put("department", department);
+        body.put("narrative", narrative);
         Map<String, Object> request = new LinkedHashMap<>();
         for (String field : List.of("title", "discipline", "seniority", "summary", "keywords")) {
             request.put(field, detail.get(field));
@@ -102,7 +102,7 @@ public abstract class PositionTemplateFlowSupport extends FlowTestSupport {
     }
 
     protected static String fileOf(String... entries) {
-        return "{\"format\":\"lightmove.position-templates\",\"formatVersion\":1,\"templates\":["
+        return "{\"format\":\"lightmove.position-templates\",\"formatVersion\":2,\"templates\":["
                 + String.join(",", entries) + "]}";
     }
 

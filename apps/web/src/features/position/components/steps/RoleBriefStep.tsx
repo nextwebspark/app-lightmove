@@ -1,60 +1,33 @@
 import { useState } from "react";
-import { ChoiceCardGroup, DateInput, type ChoiceCardOption } from "../../../../components/ui";
+import { ChoiceCardGroup, DateInput } from "../../../../components/ui";
 import {
-  NOTICE_PERIODS,
   noticePairLabel,
   noticePeriodOfPair,
   pairOfNoticePeriod,
 } from "../../../../lib/noticePeriod";
-import { SENIORITY_LABELS, SENIORITY_TIERS, type SeniorityTier } from "../../../../lib/seniority";
 import type {
-  EmploymentType,
   FieldSource,
   MandateContext,
-  MandateReason,
   PositionDetails,
   PositionDocument,
   PositionTemplate,
   ReportingStructure,
 } from "../../api/types";
 import type { StepReceipt } from "../../lib/documentFill";
+import { EMPLOYMENT_TYPE_LABELS } from "../../lib/labels";
+import { ChipGroup, FieldBlock, TokenChip, UnderlineField, withRecorded } from "../BriefFields";
 import {
-  EMPLOYMENT_TYPE_LABELS,
-  MANDATE_REASON_LABELS,
-  OFFERED_EMPLOYMENT_TYPES,
-} from "../../lib/labels";
-import {
-  ChipGroup,
-  FieldBlock,
-  TokenChip,
-  UnderlineField,
-  withRecorded,
-  type ChipOption,
-} from "../BriefFields";
+  CONFIDENTIALITY_OPTIONS,
+  EMPLOYMENT_OPTIONS,
+  NOTICE_OPTIONS,
+  REASON_OPTIONS,
+  SENIORITY_OPTIONS,
+} from "../briefOptions";
 import { DocumentCard } from "../DocumentCard";
 import { IdealProfileField } from "../IdealProfileField";
 import { LocationFields } from "../LocationFields";
 import { ProvenanceMarker } from "../ProvenanceMarker";
 import { RoleTitleField } from "../RoleTitleField";
-
-const EMPLOYMENT_OPTIONS: ChipOption<EmploymentType>[] = OFFERED_EMPLOYMENT_TYPES.map((value) => ({
-  value,
-  label: EMPLOYMENT_TYPE_LABELS[value],
-}));
-
-const SENIORITY_OPTIONS: ChipOption<SeniorityTier>[] = SENIORITY_TIERS.map((value) => ({
-  value,
-  label: SENIORITY_LABELS[value],
-}));
-
-const REASON_OPTIONS: ChipOption<MandateReason>[] = (
-  Object.entries(MANDATE_REASON_LABELS) as [MandateReason, string][]
-).map(([value, label]) => ({ value, label }));
-
-/** The four the brief offers — "None" is the executive's claim, not a period a mandate plans for. */
-const NOTICE_OPTIONS: ChipOption<string>[] = NOTICE_PERIODS.filter((period) => period.months > 0).map(
-  (period) => ({ value: period.label, label: period.label }),
-);
 
 /**
  * Step one: what the role is and why it exists — the document, the title, where it sits, how it is
@@ -64,11 +37,6 @@ const NOTICE_OPTIONS: ChipOption<string>[] = NOTICE_PERIODS.filter((period) => p
  * mandate context's, the notice period is the reporting structure's, and the target date is the
  * project's own. Each writes through its own channel, so the screen is one page over four writes.
  */
-const CONFIDENTIALITY_OPTIONS: readonly ChoiceCardOption<"standard" | "confidential">[] = [
-  { value: "standard", title: "Standard", body: "Visible to the whole workspace" },
-  { value: "confidential", title: "Confidential", body: "Restricted until shortlist" },
-];
-
 export function RoleBriefStep({
   details,
   context,

@@ -361,8 +361,8 @@ method plus the records it returns — never another feature's internals:
   `BenefitFrequency`, `CompetencyPanel`, `CriterionMode`, …) live in `common/constant` beside
   `Seniority` rather than in either feature. The reporting extraction's `usualDirectReports` also rides
   this seam: `PositionExtractionService.extractReporting` matches the brief's own role title through
-  `matchingByTitle` and carries that template's `directReports` back on the response, for the SPA's
-  Suggested seats row — one more read, never a write, so the boundary above still holds.
+  `matchingByTitle` and carries the titles of the seats beneath that template's role back on the
+  response, for the SPA's Suggested seats row — one more read, never a write, so the boundary above still holds.
 - `project`'s `ClientService` calls `ApolloCompanyQueryService` to resolve the company a new client
   record names.
 - `workspace`'s `OnboardingService` calls `ApolloCompanyQueryService.byAccountIds` the same way, to

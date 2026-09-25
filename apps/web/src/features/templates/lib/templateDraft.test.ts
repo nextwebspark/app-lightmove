@@ -18,15 +18,18 @@ const cfo = (overrides: Partial<TemplateDetail> = {}): TemplateDetail => ({
   revisedAt: "2026-09-02T10:00:00Z",
   revisedByName: null,
   body: {
-    department: "Finance",
     employmentType: "FULL_TIME_PERMANENT",
-    narrative: "Sits on the executive committee.",
-    responsibilities: ["Group P&L stewardship"],
-    reportsTo: "Group CEO",
-    directReports: ["Head of Treasury"],
-    strategicPriorities: ["Capital discipline"],
+    mandateReason: "SUCCESSION",
+    confidential: null,
     noticeValue: 3,
     noticeUnit: "MONTHS",
+    responsibilities: ["Group P&L stewardship"],
+    narrative: "Sits on the executive committee.",
+    orgChart: [
+      { id: "ceo", parentId: null, title: "Group CEO", mandateSeat: false },
+      { id: "role", parentId: "ceo", title: null, mandateSeat: true },
+      { id: "treasury", parentId: "role", title: "Head of Treasury", mandateSeat: false },
+    ],
     currency: "USD",
     baseSalaryMode: "ANNUAL",
     bonusValue: 40,
@@ -40,6 +43,7 @@ const cfo = (overrides: Partial<TemplateDetail> = {}): TemplateDetail => ({
       { panel: "TECHNICAL", name: "Treasury", description: null, weight: 40 },
       { panel: "BEHAVIOURAL", name: "Leadership", description: "Sets direction", weight: 100 },
     ],
+    technicalShare: 60,
   },
   ...overrides,
 });
@@ -73,12 +77,12 @@ describe("templateDraft — the editor's copy of a template", () => {
   });
 
   it("sends a cleared text field as null rather than an empty string", () => {
-    const draft = { ...draftOf(cfo()), department: "   ", narrative: "", summary: "" };
+    const draft = { ...draftOf(cfo()), incentiveVesting: "   ", narrative: "", summary: "" };
 
     const request = requestOf(draft, 7);
 
     expect(request.summary).toBeNull();
-    expect(request.body.department).toBeNull();
+    expect(request.body.incentiveVesting).toBeNull();
     expect(request.body.narrative).toBeNull();
   });
 
@@ -92,6 +96,36 @@ describe("templateDraft — the editor's copy of a template", () => {
       "Give the template a title.",
       "Technical competency weights must total 100.",
     ]);
+  });
+
+  it("starts a new template's chart as the role's own seat alone, split evenly", () => {
+    const draft = blankDraft();
+
+    expect(draft.orgChart).toHaveLength(1);
+    expect(draft.orgChart[0]).toMatchObject({ mandateSeat: true, parentNodeId: null });
+    expect(draft.technicalShare).toBe(50);
+  });
+
+  it("keeps a seat's place in the tree and never sends a name or where it was dragged", () => {
+    const draft = draftOf(cfo());
+    const moved = {
+      ...draft,
+      orgChart: draft.orgChart.map((node) =>
+        node.nodeId === "treasury" ? { ...node, name: "Sara Haddad", canvasX: 40, canvasY: 90 } : node,
+      ),
+    };
+
+    expect(requestOf(moved, 7).body.orgChart).toEqual(cfo().body.orgChart);
+  });
+
+  it("asks for a title on every seat but the role's own", () => {
+    const draft = draftOf(cfo());
+    const untitled = {
+      ...draft,
+      orgChart: [...draft.orgChart, { ...draft.orgChart[2], nodeId: "new", title: null }],
+    };
+
+    expect(draftProblems(untitled)).toEqual(["Give every seat on the chart a title."]);
   });
 
   it("lets a panel with no competencies in it save", () => {

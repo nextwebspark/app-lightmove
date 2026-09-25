@@ -50,7 +50,9 @@ class PositionFlowIntegrationTest extends FlowTestSupport {
                 .andExpect(jsonPath("$.details.employmentType").value("FULL_TIME_PERMANENT"))
                 .andExpect(jsonPath("$.details.responsibilities[0].text").value("Group P&L stewardship"))
                 .andExpect(jsonPath("$.details.responsibilities[0].source").value("TEMPLATE"))
-                .andExpect(jsonPath("$.details.fieldSources.department").value("TEMPLATE"))
+                .andExpect(jsonPath("$.details.fieldSources.employmentType").value("TEMPLATE"))
+                // A template no longer states a department: the brief no longer edits one.
+                .andExpect(jsonPath("$.details.department").isEmpty())
                 .andExpect(jsonPath("$.details.fieldSources.location").doesNotExist())
                 // The seat above, the mandate's own, and the four seats a CFO usually owns.
                 .andExpect(jsonPath("$.reporting.orgChart.length()").value(6))
@@ -68,10 +70,10 @@ class PositionFlowIntegrationTest extends FlowTestSupport {
                 .andExpect(jsonPath("$.compensation.salaryMin").isEmpty())
                 .andExpect(jsonPath("$.compensation.currency").value("AED"))
                 .andExpect(jsonPath("$.compensation.baseSalaryMode").value("ANNUAL"))
-                // The brief opens on the priority palette, none of it lit.
-                .andExpect(jsonPath("$.context.strategicPriorities.length()").value(5))
-                .andExpect(jsonPath("$.context.strategicPriorities[0].name").value("Capital discipline"))
-                .andExpect(jsonPath("$.context.strategicPriorities[0].selected").value(false))
+                // Nor a priority palette, for the same reason — and it leaves the reason for hire alone.
+                .andExpect(jsonPath("$.context.strategicPriorities.length()").value(0))
+                .andExpect(jsonPath("$.context.mandateReason").value("NEW_ROLE"))
+                .andExpect(jsonPath("$.assessment.technicalShare").value(50))
                 .andExpect(jsonPath("$.assessment.criteria[0].source").value("TEMPLATE"))
                 .andExpect(jsonPath("$.assessment.criteria[0].mode").value("REQUIRED"))
                 .andExpect(jsonPath("$.assessment.technical[0].name").value("Financial Reporting & Controls"))
