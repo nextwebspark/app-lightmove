@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { render, screen } from "@testing-library/react";
+import { render, screen, within } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { ToastProvider } from "../../../components/ui";
@@ -133,6 +133,22 @@ describe("ProjectsPage — pure client", () => {
     const openLinks = await screen.findAllByRole("link", { name: "Open CFO Search" });
     expect(openLinks).not.toHaveLength(0);
     for (const link of openLinks) expect(link).toHaveAttribute("href", "/projects/p1");
+  });
+
+  it("groups the list under business-unit headers, with the nameless bucket last", async () => {
+    vi.mocked(projectsApi.projects).mockResolvedValue([
+      { ...attachedMandate, id: "p2", clientId: "", clientName: "", positionTitle: "COO Search" },
+      attachedMandate,
+    ]);
+
+    renderPage();
+
+    expect(await screen.findByText("Beta Client · 1")).toBeInTheDocument();
+    const groups = screen.getAllByRole("rowgroup");
+    expect(groups).toHaveLength(2);
+    expect(within(groups[0]).getAllByText("CFO Search")).not.toHaveLength(0);
+    expect(within(groups[1]).getByText("No business unit · 1")).toBeInTheDocument();
+    expect(within(groups[1]).getAllByText("COO Search")).not.toHaveLength(0);
   });
 
   it("shows the no-projects-shared state, with nothing to create, when no mandate is attached", async () => {

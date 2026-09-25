@@ -6,7 +6,7 @@ import {
 } from "@tanstack/react-table";
 import { Link } from "react-router-dom";
 import { Icon, ICONS } from "../../../components/layout/Icon";
-import { Avatar, CompanyLogo, HealthDot, StagePill } from "../../../components/ui";
+import { Avatar, HealthDot, StagePill } from "../../../components/ui";
 import {
   LOCAL_ROW_MODELS,
   DATA_GRID_FEATURES,
@@ -37,28 +37,11 @@ const helper = createColumnHelper<typeof projectTableFeatures, Project>();
  * so a stored preference can only ever name a column that still exists.
  */
 export const projectColumns = helper.columns([
-  helper.accessor("clientName", {
-    id: "client",
-    header: "Business unit",
-    enableHiding: false,
-    meta: { share: 18, min: 160 },
-    sortFn: (a, b) => compareText(a.original.clientName, b.original.clientName),
-    cell: (info) => (
-      <span className="flex min-w-0 items-center gap-2">
-        <CompanyLogo name={info.getValue()} logo={info.row.original.clientLogoUrl} size={22} />
-        <TruncatedText
-          value={info.getValue()}
-          className="font-mono text-[12.5px] font-medium text-u-text2"
-        />
-      </span>
-    ),
-  }),
-
   helper.accessor("positionTitle", {
     id: "position",
     header: "Position",
     enableHiding: false,
-    meta: { share: 26, min: 200 },
+    meta: { share: 30, min: 220 },
     sortFn: (a, b) => compareText(a.original.positionTitle, b.original.positionTitle),
     cell: (info) => (
       <span className="block min-w-0">
@@ -135,14 +118,14 @@ export const projectColumns = helper.columns([
   }),
 ]);
 
-export const PROJECT_SORT_FIELDS = ["client", "position", "stage", "target"] as const;
+export const PROJECT_SORT_FIELDS = ["position", "stage", "target"] as const;
 
 export type ProjectSortField = (typeof PROJECT_SORT_FIELDS)[number];
 
 export const PROJECT_COLUMN_VISIBILITY: ColumnVisibilityState = {};
 
-/** A scrolled row without its client is a line of anonymous figures, so the client travels with it. */
-export const PROJECT_COLUMN_PINNING: ColumnPinningState = { start: ["client"], end: [] };
+/** The business unit lives on the group header, so the position is what travels with a scrolled row. */
+export const PROJECT_COLUMN_PINNING: ColumnPinningState = { start: ["position"], end: [] };
 
 export function TeamStack({ team }: { team: TeamMember[] }) {
   return (
