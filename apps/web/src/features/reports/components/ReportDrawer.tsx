@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import { createPortal } from "react-dom";
 import { Link } from "react-router-dom";
 import { Icon, ICONS } from "../../../components/layout/Icon";
 import { cn } from "../../../lib/cn";
@@ -11,6 +12,10 @@ import { STATUS_TONES, statusTone } from "../lib/statusTone";
 /**
  * The drill-in panel every chapter opens: anchored to the edge of the screen and full height, where
  * the app's drawer floats inset from it.
+ *
+ * <p>Portalled to the body: a chapter's `animate-fade-up` leaves a transform on its `<section>`, which
+ * makes it the containing block for `position: fixed`, so a drawer opened from a scrolled chapter
+ * was pinned to the top of the chapter — above the viewport — and clipped to its column.
  */
 export function ReportDrawer({
   open,
@@ -31,7 +36,7 @@ export function ReportDrawer({
 
   if (!open) return null;
 
-  return (
+  return createPortal(
     <>
       <div className="fixed inset-0 z-[90] bg-u-scrim" onClick={onClose} />
       <aside
@@ -57,7 +62,8 @@ export function ReportDrawer({
         </div>
         <div className="min-h-0 flex-1 overflow-y-auto px-6 py-[22px]">{children}</div>
       </aside>
-    </>
+    </>,
+    document.body,
   );
 }
 

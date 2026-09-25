@@ -180,3 +180,95 @@ export interface Report {
   remuneration: ReportRemuneration;
   diversity: ReportDiversity;
 }
+
+/**
+ * Researcher performance as `GET /projects/{id}/report/team` answers it — staff-only, attributed by
+ * who filed each executive. The table and the pace are counted over `from`–`to`; coverage and the
+ * company cards are the mandate as it stands.
+ */
+export type ResearcherRole = "LEAD" | "RESEARCHER" | "FORMER";
+
+export interface SourcingQuality {
+  contactPct: number;
+  verifiedPct: number;
+  compPct: number;
+  level: "GOOD" | "ATTENTION";
+}
+
+export interface StatusCount {
+  status: CandidateStatus;
+  count: number;
+}
+
+export interface SourcedExecutive {
+  id: string;
+  name: string;
+  title: string | null;
+  seniority: string | null;
+  companyName: string | null;
+  status: CandidateStatus;
+  addedByName: string | null;
+  addedAt: string;
+}
+
+export interface TeamKpis {
+  executivesInRange: number;
+  rangePerWeek: number;
+  mandatePerWeek: number;
+  coveredCompanies: number;
+  targetCompanies: number;
+  lastAddedAt: string | null;
+  lastAddedBy: string | null;
+}
+
+export interface CoverageShare {
+  userId: string;
+  name: string;
+  companies: number;
+}
+
+export interface Researcher {
+  userId: string;
+  name: string;
+  avatarUrl: string | null;
+  role: ResearcherRole;
+  executives: number;
+  companies: number;
+  perDay: number;
+  sharePct: number;
+  lastAddedAt: string | null;
+  /** Null for someone who filed nobody in the range. */
+  quality: SourcingQuality | null;
+  statusMix: StatusCount[];
+  /** One count per day of the range. */
+  daily: number[];
+  recent: SourcedExecutive[];
+}
+
+export interface CompanyCoverage {
+  triageCompanyId: string;
+  name: string;
+  industry: string | null;
+  city: string | null;
+  country: string | null;
+  employees: number | null;
+  stage: string;
+  executives: number;
+  contributors: number;
+  lastAddedAt: string | null;
+  statusMix: StatusCount[];
+  quality: SourcingQuality;
+  mappedExecutives: SourcedExecutive[];
+}
+
+export interface TeamPerformance {
+  from: string;
+  to: string;
+  days: number;
+  truncated: boolean;
+  kpis: TeamKpis;
+  coverage: CoverageShare[];
+  researchers: Researcher[];
+  companies: CompanyCoverage[];
+  companiesTotal: number;
+}

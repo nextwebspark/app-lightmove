@@ -193,10 +193,115 @@ class ReportIntegrationTest extends FlowTestSupport {
                 .andExpect(jsonPath("$.diversity.genderByLevel[1].female").value(0));
     }
 
+    @Test
+    @DisplayName("researcher performance is staff-only: a client representative reads the report but not the team")
+    void teamReadIsStaffOnly() throws Exception {
+        Fixture f = fixture("Report Team Gate Firm");
+        String repEmail = "ext@report-client.example";
+        JsonNode representative = body(mvc.perform(post("/api/v1/clients/" + f.clientId + "/representatives")
+                        .header("Authorization", "Bearer " + f.admin)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"fullName":"Ext Rep","position":"Chair","email":"%s"}
+                                """.formatted(repEmail)))
+                .andExpect(status().isCreated())
+                .andReturn());
+        String rep = body(mvc.perform(post("/api/v1/onboarding/accept-invitation-signup")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"token":"%s","fullName":"Ext Rep","password":"%s"}
+                                """.formatted(email.latestTokenFor(repEmail), PASSWORD)))
+                .andExpect(status().isCreated())
+                .andReturn()).get("accessToken").asText();
+        mvc.perform(post("/api/v1/projects/" + f.projectId + "/representatives")
+                        .header("Authorization", "Bearer " + f.admin)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"representativeId":"%s"}
+                                """.formatted(representative.get("id").asText())))
+                .andExpect(status().isOk());
+
+        mvc.perform(get(reportUrl(f.projectId)).header("Authorization", "Bearer " + rep))
+                .andExpect(status().isOk());
+        mvc.perform(get(teamUrl(f.projectId)).header("Authorization", "Bearer " + rep))
+                .andExpect(status().isForbidden());
+        mvc.perform(get(teamUrl(f.projectId)).header("Authorization", "Bearer " + f.admin))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.researchers[0].role").value("LEAD"))
+                .andExpect(jsonPath("$.researchers[0].executives").value(0))
+                .andExpect(jsonPath("$.researchers[0].quality").doesNotExist())
+                .andExpect(jsonPath("$.researchers.length()").value(1));
+    }
+
+    @Test
+    @DisplayName("each executive is credited to whoever filed it, and a company to whoever filed its first")
+    void teamIsAttributedByWhoFiled() throws Exception {
+        Fixture f = fixture("Report Team Firm");
+        seat(f.admin, f.projectId, f.saraId, "RESEARCHER");
+        String sara = login(f.saraEmail);
+        String almarai = capture(f.admin, f.projectId, "Almarai", "food & beverages", null);
+        String panda = capture(f.admin, f.projectId, "Panda Retail", "retail", null);
+        capture(f.admin, f.projectId, "Savola", "food & beverages", null);
+        candidate(f.admin, f.projectId, """
+                {"triageCompanyId":"%s","fullName":"Yasmin El-Sayed","status":"interested",
+                 "emails":[{"value":"yasmin@almarai.example","verified":true}],
+                 "compensation":{"currency":"USD","baseSalary":300000}}""".formatted(almarai));
+        candidate(sara, f.projectId, """
+                {"triageCompanyId":"%s","fullName":"Omar Farouk"}""".formatted(almarai));
+        candidate(sara, f.projectId, """
+                {"triageCompanyId":"%s","fullName":"Hind Al Suwaidi"}""".formatted(panda));
+
+        JsonNode team = body(mvc.perform(get(teamUrl(f.projectId)).header("Authorization", "Bearer " + f.admin))
+                .andExpect(status().isOk())
+                .andReturn());
+
+        assertThat(team.at("/kpis/executivesInRange").asInt()).isEqualTo(3);
+        assertThat(team.at("/kpis/coveredCompanies").asInt()).isEqualTo(2);
+        assertThat(team.at("/kpis/targetCompanies").asInt()).isEqualTo(3);
+        assertThat(team.at("/kpis/lastAddedBy").asText()).isEqualTo("Sara Al-Mansour");
+
+        JsonNode first = team.at("/researchers/0");
+        assertThat(first.get("name").asText()).isEqualTo("Sara Al-Mansour");
+        assertThat(first.get("role").asText()).isEqualTo("RESEARCHER");
+        assertThat(first.get("executives").asInt()).isEqualTo(2);
+        assertThat(first.get("companies").asInt()).isEqualTo(2);
+        assertThat(first.get("sharePct").asInt()).isEqualTo(67);
+        assertThat(first.at("/quality/level").asText()).isEqualTo("ATTENTION");
+
+        JsonNode lead = team.at("/researchers/1");
+        assertThat(lead.get("name").asText()).isEqualTo("Alok Kumar");
+        assertThat(lead.at("/quality/contactPct").asInt()).isEqualTo(100);
+        assertThat(lead.at("/quality/verifiedPct").asInt()).isEqualTo(100);
+        assertThat(lead.at("/quality/compPct").asInt()).isEqualTo(100);
+        assertThat(lead.at("/quality/level").asText()).isEqualTo("GOOD");
+        assertThat(lead.at("/statusMix/0/status").asText()).isEqualTo("interested");
+
+        // Almarai's first executive was the lead's, so the lead holds it although Sara filed there too.
+        assertThat(team.at("/coverage/0/companies").asInt()).isEqualTo(1);
+        assertThat(team.at("/coverage/1/companies").asInt()).isEqualTo(1);
+        assertThat(team.at("/companiesTotal").asInt()).isEqualTo(2);
+        assertThat(team.at("/companies/0/name").asText()).isEqualTo("Almarai");
+        assertThat(team.at("/companies/0/contributors").asInt()).isEqualTo(2);
+        assertThat(team.at("/companies/0/mappedExecutives/0/addedByName").asText()).isEqualTo("Sara Al-Mansour");
+    }
+
+    @Test
+    @DisplayName("a range that starts after it ends is refused")
+    void backwardsRangeIsRefused() throws Exception {
+        Fixture f = fixture("Report Team Range Firm");
+        mvc.perform(get(teamUrl(f.projectId)).param("from", "2030-01-02").param("to", "2020-01-01")
+                        .header("Authorization", "Bearer " + f.admin))
+                .andExpect(status().isBadRequest());
+    }
+
     // ── fixture ──────────────────────────────────────────────────────────────
 
     private static String reportUrl(String projectId) {
         return "/api/v1/projects/" + projectId + "/report";
+    }
+
+    private static String teamUrl(String projectId) {
+        return reportUrl(projectId) + "/team";
     }
 
     private static int cell(JsonNode market, String sector, String level) {
@@ -254,7 +359,7 @@ class ReportIntegrationTest extends FlowTestSupport {
                 .andExpect(status().isOk());
     }
 
-    private record Fixture(String admin, String projectId, String saraEmail, String saraId) {}
+    private record Fixture(String admin, String clientId, String projectId, String saraEmail, String saraId) {}
 
     private Fixture fixture(String firmName) throws Exception {
         String alok = "alok@" + domain;
@@ -277,7 +382,7 @@ class ReportIntegrationTest extends FlowTestSupport {
                                 """.formatted(clientId)))
                 .andReturn()).get("id").asText();
 
-        return new Fixture(admin, projectId, sara, memberIdOf(admin, sara));
+        return new Fixture(admin, clientId, projectId, sara, memberIdOf(admin, sara));
     }
 
     private void seat(String leadToken, String projectId, String memberId, String role) throws Exception {

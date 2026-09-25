@@ -6,12 +6,20 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { Project } from "../../projects/api/types";
 import * as reportApi from "../api/reportApi";
 import { SAMPLE_REPORT } from "../../../test/sampleReport";
+import { SAMPLE_TEAM_PERFORMANCE } from "../../../test/sampleTeamPerformance";
 import { ReportsPage } from "./ReportsPage";
 
 vi.mock("../api/reportApi", async (importOriginal) => ({
   // The query key is real; only the call is mocked.
   ...(await importOriginal<typeof import("../api/reportApi")>()),
   getReport: vi.fn(),
+  getTeamPerformance: vi.fn(),
+}));
+
+// No seat and no admin role by default: the chapters every reader sees, the staff-only card absent.
+let viewerRoles: string[] = ["MEMBER"];
+vi.mock("../../auth/AuthProvider", () => ({
+  useAuth: () => ({ user: { id: "u-viewer", workspace: { roles: viewerRoles } } }),
 }));
 
 /**
@@ -75,6 +83,23 @@ describe("ReportsPage", () => {
 
   beforeEach(() => {
     vi.resetAllMocks();
+    viewerRoles = ["MEMBER"];
+  });
+
+  it("shows researcher performance to staff and never asks for it on a client's behalf", async () => {
+    vi.mocked(reportApi.getReport).mockResolvedValue(SAMPLE_REPORT);
+    vi.mocked(reportApi.getTeamPerformance).mockResolvedValue(SAMPLE_TEAM_PERFORMANCE);
+
+    const asClient = renderPage();
+    await screen.findByText("Recent momentum");
+    expect(screen.queryByText("Researcher performance")).not.toBeInTheDocument();
+    expect(reportApi.getTeamPerformance).not.toHaveBeenCalled();
+    asClient.unmount();
+
+    viewerRoles = ["ADMIN"];
+    renderPage();
+    expect(await screen.findByText("Researcher performance")).toBeInTheDocument();
+    expect(await screen.findByRole("button", { name: /Omar Khoury/ })).toBeInTheDocument();
   });
 
   it("states a refused read instead of reporting a map of zeros", async () => {

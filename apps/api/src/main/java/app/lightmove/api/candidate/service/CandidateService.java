@@ -21,6 +21,7 @@ import app.lightmove.api.candidate.dto.SaveCandidateRequest;
 import app.lightmove.api.candidate.dto.UpdateCandidateContactsRequest;
 import app.lightmove.api.candidate.dto.UpdateCandidateStatusRequest;
 import app.lightmove.api.candidate.model.Candidate;
+import app.lightmove.api.candidate.model.CandidateAttribution;
 import app.lightmove.api.candidate.model.CandidateCapturedEvent;
 import app.lightmove.api.candidate.model.CandidateCareerEntry;
 import app.lightmove.api.candidate.model.CandidateCompensation;
@@ -56,10 +57,12 @@ import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.stream.Collectors;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.domain.Page;
@@ -171,6 +174,17 @@ public class CandidateService {
         return new CandidatesResponse(
                 found.getContent().stream().map(CandidateService::toDto).toList(),
                 found.getTotalElements(), 0, cap);
+    }
+
+    /**
+     * Who filed each of the mandate's executives, by candidate id — the report's researcher breakdown.
+     * Its own read rather than a field on {@code CandidateResponse}, which a client seat also reads.
+     */
+    @Transactional(readOnly = true)
+    public Map<UUID, UUID> addedByOf(UUID workspaceId, UUID projectId) {
+        requireProject(projectId, workspaceId);
+        return candidates.findAttributionByProjectId(projectId).stream()
+                .collect(Collectors.toMap(CandidateAttribution::getCandidateId, CandidateAttribution::getAddedBy));
     }
 
     /**

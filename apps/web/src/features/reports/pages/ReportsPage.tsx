@@ -4,7 +4,9 @@ import { ICONS } from "../../../components/layout/Icon";
 import type { ProjectOutletContext } from "../../../components/layout/ProjectLayout";
 import { Spinner } from "../../../components/ui";
 import { formatRelativeTime } from "../../../lib/format";
+import { useAuth } from "../../auth/AuthProvider";
 import type { Project } from "../../projects/api/types";
+import { canExecuteProjectWork } from "../../projects/lib/access";
 import * as reportApi from "../api/reportApi";
 import type { Report } from "../api/types";
 import { ReportGap } from "../components/ReportGap";
@@ -103,9 +105,16 @@ function Chapter({
   project: Project;
   report: Report;
 }) {
+  const { user } = useAuth();
   switch (chapterKey) {
     case "progress":
-      return <ProgressSection progress={report.progress} />;
+      return (
+        <ProgressSection
+          progress={report.progress}
+          projectId={project.id}
+          showTeam={canExecuteProjectWork(project, user?.id, user?.workspace?.roles)}
+        />
+      );
     case "market":
       return (
         <MarketSection
