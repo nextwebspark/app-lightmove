@@ -1,0 +1,162 @@
+name: Rollback
+
+# Puts production traffic back on the revision an earlier release left behind. Seconds, not a rebuild:
+# no image is built and no migration runs, so the schema stays where the newest release took it. That is
+# safe exactly as far back as no `-- lightmove:contract` migration has shipped since the target, which is
+# what the guard below checks (db-ops skill, "Rolling back").
+#
+# When the target's revision is gone, run Deploy with the tag instead: it rebuilds, and Flyway ignores
+# the migrations newer than the tag.
+on:
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: Release tag to put back in front of users, e.g. v1.4.0.
+        required: true
+        type: string
+      force:
+        description: Roll back across a contract migration anyway. The older code will meet a schema it does not expect.
+        required: false
+        type: boolean
+        default: false
+
+# The same group as Deploy, so a rollback never interleaves with a release moving traffic the other way.
+concurrency:
+  group: deploy-production
+  cancel-in-progress: false
+
+env:
+  SERVICE: lightmove
+  REGION: us-central1
+  MIGRATIONS: apps/api/src/main/resources/db/migration
+
+jobs:
+  rollback:
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: read
+      id-token: write
+
+    steps:
+      - name: Check the ref is a release tag
+        env:
+          REF: ${{ inputs.ref }}
+        run: |
+          case "$REF" in
+            v[0-9]*.[0-9]*.[0-9]*) ;;
+            *) echo "::error::'${REF}' is not a release tag (vX.Y.Z)."; exit 1 ;;
+          esac
+
+      # Every tag and the history between them: the guard diffs the target's migrations against the
+      # serving release's.
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - name: Authenticate to GCP
+        uses: google-github-actions/auth@v3
+        with:
+          workload_identity_provider: ${{ vars.GCP_WIF_PROVIDER }}
+          service_account: ${{ vars.GCP_DEPLOY_SA }}
+
+      - uses: google-github-actions/setup-gcloud@v3
+
+      # Deploy labels every revision with its release (`release=v1-4-0`, no dots allowed), which is how
+      # both the serving release and the target's revision are found without keeping a list anywhere.
+      - name: Find the serving and target revisions
+        id: revisions
+        env:
+          REF: ${{ inputs.ref }}
+        run: |
+          SERVING_REVISION=$(gcloud run services describe "$SERVICE" --region "$REGION" --format=json \
+            | jq -r '[.status.traffic[]? | select(.percent == 100)][0].revisionName // empty')
+          if [ -z "$SERVING_REVISION" ]; then
+            echo "::error::No single revision holds all traffic. Settle the split by hand first."
+            exit 1
+          fi
+          SERVING_LABEL=$(gcloud run revisions describe "$SERVING_REVISION" --region "$REGION" \
+            --format='value(metadata.labels.release)')
+          SERVING="${SERVING_LABEL//-/.}"
+
+          TARGET_REVISION=$(gcloud run revisions list --service "$SERVICE" --region "$REGION" \
+            --filter="metadata.labels.release=${REF//./-}" \
+            --sort-by=~metadata.creationTimestamp --limit 1 --format='value(metadata.name)')
+          if [ -z "$TARGET_REVISION" ]; then
+            echo "::error::No revision is left for ${REF}. Run Deploy with ${REF} instead: it rebuilds the tag, and Flyway ignores the migrations newer than it."
+            exit 1
+          fi
+          READY=$(gcloud run revisions describe "$TARGET_REVISION" --region "$REGION" --format=json \
+            | jq -r '.status.conditions[] | select(.type == "Ready") | .status')
+          if [ "$READY" != "True" ]; then
+            echo "::error::${TARGET_REVISION} (${REF}) is not ready. Run Deploy with ${REF} instead."
+            exit 1
+          fi
+          if [ "$TARGET_REVISION" = "$SERVING_REVISION" ]; then
+            echo "::notice::${REF} (${TARGET_REVISION}) is already serving."
+          fi
+
+          echo "Serving ${SERVING:-an unlabelled release} on ${SERVING_REVISION}; target ${REF} on ${TARGET_REVISION}"
+          {
+            echo "serving=${SERVING}"
+            echo "serving_revision=${SERVING_REVISION}"
+            echo "target_revision=${TARGET_REVISION}"
+          } >> "$GITHUB_OUTPUT"
+
+      # A contract migration shipped after the target removed something the target's code still reads.
+      # Rolling forward, or to a release sharing the serving one's migrations, finds none.
+      - name: The target runs on the schema production has
+        env:
+          REF: ${{ inputs.ref }}
+          SERVING: ${{ steps.revisions.outputs.serving }}
+          FORCE: ${{ inputs.force }}
+        run: |
+          if [ -z "$SERVING" ]; then
+            echo "::error::The serving revision carries no release label, so what has migrated since ${REF} cannot be worked out."
+            if [ "$FORCE" = "true" ]; then exit 0; fi
+            exit 1
+          fi
+          CONTRACTS=""
+          for f in $(git diff --name-only --diff-filter=A "$REF" "$SERVING" -- "$MIGRATIONS"); do
+            if git show "${SERVING}:${f}" | grep -qiE '^--[[:space:]]*lightmove:contract([[:space:]]|$)'; then
+              CONTRACTS="${CONTRACTS} ${f}"
+            fi
+          done
+          if [ -z "$CONTRACTS" ]; then
+            echo "No contract migration between ${REF} and ${SERVING}."
+            exit 0
+          fi
+          for f in $CONTRACTS; do
+            echo "::error file=${f}::Shipped after ${REF} and marked contract: ${REF}'s code expects what it removed."
+          done
+          if [ "$FORCE" = "true" ]; then
+            echo "::warning::Rolling back across a contract migration because force was set."
+            exit 0
+          fi
+          echo "::error::Fix forward instead, or re-run with force if you have checked ${REF} never touches what those migrations removed."
+          exit 1
+
+      - name: Move traffic
+        id: move
+        env:
+          TARGET: ${{ steps.revisions.outputs.target_revision }}
+        run: gcloud run services update-traffic "$SERVICE" --region "$REGION" --to-revisions="${TARGET}=100"
+
+      - name: Smoke test
+        env:
+          REF: ${{ inputs.ref }}
+          TARGET: ${{ steps.revisions.outputs.target_revision }}
+          PUBLIC_BASE_URL: ${{ vars.PUBLIC_BASE_URL }}
+        run: |
+          SERVICE_URL=$(gcloud run services describe "$SERVICE" --region "$REGION" --format='value(status.url)')
+          ops/gcp/smoke.sh public "${PUBLIC_BASE_URL:-$SERVICE_URL}" "$SERVICE_URL"
+          echo "::notice::Serving ${REF} (${TARGET}). The schema is unchanged; the next Deploy moves traffic to the newest revision."
+
+      - name: Put the serving revision back
+        if: failure() && steps.move.outcome == 'success'
+        env:
+          SERVING_REVISION: ${{ steps.revisions.outputs.serving_revision }}
+          REF: ${{ inputs.ref }}
+        run: |
+          gcloud run services update-traffic "$SERVICE" --region "$REGION" --to-revisions="${SERVING_REVISION}=100"
+          echo "::error::${REF} failed its smoke test, so traffic is back on ${SERVING_REVISION}."
