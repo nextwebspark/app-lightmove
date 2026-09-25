@@ -15,6 +15,7 @@ import {
   TeamStack,
   type ProjectSortField,
 } from "../lib/projectColumns";
+import { PROJECT_GROUPING } from "../lib/grouping";
 import { deadlineOf } from "../lib/timeline";
 
 /** The mandate list: the shared grid on a wide screen, a stack of cards below `md`. */
@@ -72,6 +73,7 @@ export function ProjectsList({
       errorMessage="That list could not be loaded. Refresh, or check you still have access."
       emptyMessage={emptyMessage}
       onRowClick={(project) => onOpen(project.id)}
+      groupBy={PROJECT_GROUPING}
       renderCard={(project) => <ProjectCard project={project} onOpen={() => onOpen(project.id)} />}
     />
   );
