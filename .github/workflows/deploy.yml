@@ -137,22 +137,75 @@ jobs:
           secrets: |-
             flyway_password:${{ vars.GCP_PROJECT }}/lightmove-flyway-password
 
-      - name: Migrate the database
-        env:
-          FLYWAY_PASSWORD: ${{ steps.secrets.outputs.flyway_password }}
+      # Its own step, because the backup below asks Flyway what is pending over the same connection.
+      - name: Start the Cloud SQL proxy
         run: |
           curl -sSL -o cloud-sql-proxy \
             https://storage.googleapis.com/cloud-sql-connectors/cloud-sql-proxy/v2.14.1/cloud-sql-proxy.linux.amd64
           chmod +x cloud-sql-proxy
-          ./cloud-sql-proxy --port 5432 "${CLOUD_SQL_INSTANCE}" &
+          ./cloud-sql-proxy --port 5432 "${CLOUD_SQL_INSTANCE}" > cloud-sql-proxy.log 2>&1 &
           for _ in $(seq 1 30); do nc -z 127.0.0.1 5432 && break; sleep 1; done
 
+      # Rolling the image back never rolls the schema back, and a migration that ran but was wrong is
+      # fixed forward. This backup is for the case neither covers: a migration that destroyed data.
+      # Taken only when something is about to run. When Flyway cannot say, it is taken anyway.
+      # Restore it into a CLONE and copy rows back, never in place: in place rewinds the whole
+      # instance, the Apollo universe and every write since included (db-ops skill, "Rolling back").
+      - name: Back up before migrating
+        env:
+          FLYWAY_PASSWORD: ${{ steps.secrets.outputs.flyway_password }}
+          VERSION: ${{ inputs.ref }}
+        run: |
+          INSTANCE="${CLOUD_SQL_INSTANCE##*:}"
+          SQL_PROJECT="${CLOUD_SQL_INSTANCE%%:*}"
+
+          PENDING=$(docker run --rm --network host \
+              -v "$PWD/apps/api/src/main/resources/db/migration:/flyway/sql:ro" \
+              redgate/flyway:11 \
+              -url="jdbc:postgresql://127.0.0.1:5432/${DATABASE}" \
+              -user="${{ vars.DB_MIGRATE_USER || 'lm_app' }}" \
+              -password="${FLYWAY_PASSWORD}" \
+              -placeholders.iam_user= \
+              -outputType=json \
+              info | jq '[.migrations[] | select(.state == "Pending")] | length' 2>/dev/null || echo unknown)
+          if [ "$PENDING" = "0" ]; then
+            echo "Nothing to migrate, so nothing to back up."
+            exit 0
+          fi
+          echo "Pending migrations: ${PENDING}"
+
+          if [ "$(gcloud sql instances describe "$INSTANCE" --project "$SQL_PROJECT" \
+                  --format='value(settings.backupConfiguration.pointInTimeRecoveryEnabled)')" != "True" ]; then
+            echo "::warning::Point-in-time recovery is off on ${INSTANCE}. This backup is then the only way back to just before ${VERSION} migrated."
+          fi
+
+          gcloud sql backups create --instance "$INSTANCE" --project "$SQL_PROJECT" \
+            --description "pre-migrate ${VERSION}"
+
+          # On-demand backups are kept until deleted. The newest ten are plenty: older ones predate
+          # schemas nobody would restore into.
+          gcloud sql backups list --instance "$INSTANCE" --project "$SQL_PROJECT" \
+              --filter='type=ON_DEMAND AND description~^pre-migrate' \
+              --sort-by=~windowStartTime --format='value(id)' \
+            | tail -n +11 \
+            | while read -r ID; do
+                gcloud sql backups delete "$ID" --instance "$INSTANCE" --project "$SQL_PROJECT" --quiet
+              done
+
+      - name: Migrate the database
+        env:
+          FLYWAY_PASSWORD: ${{ steps.secrets.outputs.flyway_password }}
+        run: |
           # iam_user is empty on purpose: V2__grant_iam_access.sql then no-ops, which is what a
           # production database wants. Humans read it with their own Google identity via psql.sh.
           # lm_app today, lm_migrate once ops/cloudsql/create-migrate-role.sh has been applied. The role
           # split is what removes DDL from the runtime role; until then this is still a *deploy* step
           # rather than a boot step, which is the half that matters most — a bad migration fails the
           # deploy and the previous revision keeps serving.
+          #
+          # lock_timeout: an ALTER waiting behind a live transaction holds its own lock in the queue, and
+          # every request touching that table queues behind it. Better the deploy fails, rolled back
+          # whole since each migration is one transaction, than production stalls. Re-run the deploy.
           docker run --rm --network host \
             -v "$PWD/apps/api/src/main/resources/db/migration:/flyway/sql:ro" \
             redgate/flyway:11 \
@@ -161,6 +214,7 @@ jobs:
             -password="${FLYWAY_PASSWORD}" \
             -baselineOnMigrate=true \
             -placeholders.iam_user= \
+            -initSql="SET lock_timeout = '${{ vars.MIGRATION_LOCK_TIMEOUT || '5s' }}'" \
             -connectRetries=5 \
             migrate
 
@@ -180,8 +234,22 @@ jobs:
           echo "known=${URL}" >> "$GITHUB_OUTPUT"
           echo "url=${URL:-http://localhost:8080}" >> "$GITHUB_OUTPUT"
 
+      # What to put back if the new revision fails once public. Empty before the service exists.
+      - name: Find the revision serving now
+        id: previous
+        run: |
+          REVISION=$(gcloud run services describe "$SERVICE" --region "$REGION" --format=json 2>/dev/null \
+            | jq -r '[.status.traffic[]? | select(.percent == 100)][0].revisionName // empty' || true)
+          echo "revision=${REVISION}" >> "$GITHUB_OUTPUT"
+          echo "Serving now: ${REVISION:-nothing, first deploy}"
+
+      # Blue/green: the new revision starts with no traffic behind a `candidate` tag, is smoke-tested on
+      # its own URL, and only then takes traffic. A revision that fails to start or to answer never
+      # meets a user. Cloud Run refuses --no-traffic when it creates the service, so the first deploy
+      # goes straight to 100%.
       - name: Deploy to Cloud Run
         env:
+          PREVIOUS: ${{ steps.previous.outputs.revision }}
           IMAGE: ${{ steps.build.outputs.image }}
           BASE_URL: ${{ steps.url.outputs.url }}
           VERSION: ${{ inputs.ref }}
@@ -318,9 +386,14 @@ jobs:
           # ops/gcp/schedule-warm-hours.sh (1 during Dubai hours, 0 overnight), and a deploy leaves that
           # value alone. Passing the flag here sets the REVISION-level one instead, which would undo the
           # schedule on every release and force a new revision for every change to it.
+          TRAFFIC=()
+          if [ -n "$PREVIOUS" ]; then
+            TRAFFIC=(--no-traffic --tag candidate)
+          fi
           gcloud run deploy "$SERVICE" \
             --image "$IMAGE" \
             --region "$REGION" \
+            "${TRAFFIC[@]}" \
             --update-labels "release=${VERSION//./-}" \
             --service-account "${{ vars.GCP_RUNTIME_SA }}" \
             --allow-unauthenticated \
@@ -330,6 +403,24 @@ jobs:
             --timeout 60s \
             --set-env-vars "^|^FLYWAY_ENABLED=false|MANAGEMENT_PORT=8080|DB_POOL_MAX=5|EMAIL_PROVIDER=${EMAIL_PROVIDER}|EMAIL_FROM=${{ vars.EMAIL_FROM || 'noreply@uncava.com' }}|WEB_BASE_URL=${BASE_URL}|WEB_CORS_ORIGINS=${BASE_URL},chrome-extension://${EXTENSION_ID}|LIGHTMOVE_AUTH_AUTO_VERIFY_EMAIL=${{ vars.AUTO_VERIFY_EMAIL || 'false' }}|AUTH_RATE_LIMIT_ENABLED=${{ vars.RATE_LIMIT_ENABLED || 'true' }}|AUTH_LOGIN_ATTEMPTS_PER_MINUTE=${{ vars.LOGIN_ATTEMPTS_PER_MINUTE || '10' }}|AUTH_SIGNUP_ATTEMPTS_PER_HOUR=${{ vars.SIGNUP_ATTEMPTS_PER_HOUR || '5' }}|AUTH_VERIFICATION_RESENDS_PER_HOUR=${{ vars.VERIFICATION_RESENDS_PER_HOUR || '3' }}|LIGHTMOVE_WEB_TRUSTED_PROXY_COUNT=${{ vars.TRUSTED_PROXY_COUNT || '0' }}|JWT_PRIVATE_KEY_LOCATION=file:/secrets/jwt-private/private.pem|JWT_PUBLIC_KEY_LOCATION=file:/secrets/jwt-public/public.pem${OAUTH_ENV}${ENRICHMENT_ENV}" \
             --set-secrets "DB_PASSWORD=lightmove-db-password:latest,/secrets/jwt-private/private.pem=lightmove-jwt-private-key:latest,/secrets/jwt-public/public.pem=lightmove-jwt-public-key:latest${EMAIL_SECRETS}${OAUTH_SECRETS}${ENRICHMENT_SECRETS}${MAPBOX_SECRETS}${CONTACTOUT_SECRETS}"
+
+      # ── Prove the candidate, then hand it the traffic ────────────────────────
+      - name: Smoke test the candidate
+        if: steps.previous.outputs.revision != ''
+        env:
+          PUBLIC_BASE_URL: ${{ vars.PUBLIC_BASE_URL }}
+        run: |
+          DESCRIBED=$(gcloud run services describe "$SERVICE" --region "$REGION" --format=json)
+          CANDIDATE=$(jq -r '.status.traffic[] | select(.tag == "candidate") | .url' <<< "$DESCRIBED")
+          PUBLIC=$(jq -r --arg p "$PUBLIC_BASE_URL" 'if $p != "" then $p else .status.url end' <<< "$DESCRIBED")
+          ops/gcp/smoke.sh candidate "$CANDIDATE" "$PUBLIC"
+
+      - name: Promote the candidate
+        id: promote
+        if: steps.previous.outputs.revision != ''
+        run: |
+          gcloud run services update-traffic "$SERVICE" --region "$REGION" \
+            --to-latest --remove-tags candidate
 
       # First deploy only, and only without a custom domain: the service now has a URL, and it is not
       # the placeholder we booted with. Verification emails and the OAuth redirect are built from
@@ -344,35 +435,29 @@ jobs:
             --update-env-vars "^|^WEB_BASE_URL=${URL}|WEB_CORS_ORIGINS=${URL},chrome-extension://${EXTENSION_ID}"
           echo "::notice::Service URL is ${URL}. Every deploy from here on resolves it automatically and takes one revision. If you enable Google sign-in, add ${URL}/login/oauth2/code/google to the OAuth client's authorised redirect URIs."
 
-      # ── Prove it actually works ──────────────────────────────────────────────
-      # `gcloud run deploy` succeeding means the revision started, not that it serves. These three assert
-      # the properties that this deployment exists to preserve.
+      # ── Prove it actually works where users are ──────────────────────────────
       - name: Smoke test
         env:
           VERSION: ${{ inputs.ref }}
           PUBLIC_BASE_URL: ${{ vars.PUBLIC_BASE_URL }}
         run: |
-          # With a custom domain the service's own URL redirects every page to it, so a page check
-          # against status.url reads an empty 302 and fails a deploy that is serving fine (v0.3.0).
           SERVICE_URL=$(gcloud run services describe "$SERVICE" --region "$REGION" --format='value(status.url)')
-          URL="${PUBLIC_BASE_URL:-$SERVICE_URL}"
-          URL="${URL%/}"
+          ops/gcp/smoke.sh public "${PUBLIC_BASE_URL:-$SERVICE_URL}" "$SERVICE_URL"
+          echo "::notice::Deployed ${VERSION} ($(git rev-parse --short HEAD)) to ${PUBLIC_BASE_URL:-$SERVICE_URL}"
 
-          echo "health"
-          curl -fsS --retry 5 --retry-delay 3 "$URL/actuator/health" > /dev/null
+      # Only once traffic has moved: a failed build, migration or candidate never touched it. The schema
+      # stays migrated, which the revision put back tolerates by the N-1 rule CI enforces (ci.yml).
+      - name: Put the previous revision back
+        if: failure() && steps.promote.outcome == 'success'
+        env:
+          PREVIOUS: ${{ steps.previous.outputs.revision }}
+          VERSION: ${{ inputs.ref }}
+        run: |
+          gcloud run services update-traffic "$SERVICE" --region "$REGION" --to-revisions="${PREVIOUS}=100"
+          echo "::error::${VERSION} failed once public, so traffic is back on ${PREVIOUS}. The schema stays migrated. The next Deploy returns traffic to the newest revision."
 
-          echo "the SPA is in the image and served at the root"
-          curl -fsS "$URL/" | grep -q '<div id="root">'
-
-          echo "metrics are NOT public (Actuator shares the app port here)"
-          [ "$(curl -s -o /dev/null -w '%{http_code}' "$URL/actuator/prometheus")" = "401" ]
-
-          echo "the API is still shut to anonymous callers"
-          [ "$(curl -s -o /dev/null -w '%{http_code}' "$URL/api/v1/onboarding/workspaces")" = "401" ]
-
-          if [ "$URL" != "$SERVICE_URL" ]; then
-            echo "the service's own URL sends pages to the public origin"
-            [ "$(curl -s -o /dev/null -w '%{redirect_url}' "$SERVICE_URL/")" = "$URL/" ]
-          fi
-
-          echo "::notice::Deployed ${VERSION} ($(git rev-parse --short HEAD)) to ${URL}"
+      # A candidate that failed its smoke test keeps a public URL until something removes the tag.
+      - name: Remove the candidate tag
+        if: failure() && steps.previous.outputs.revision != '' && steps.promote.outcome != 'success'
+        run: |
+          gcloud run services update-traffic "$SERVICE" --region "$REGION" --remove-tags candidate || true
