@@ -16,15 +16,17 @@ import java.util.List;
  *
  * <p>An omitted axis becomes an empty list, which {@code CompanyScope} defines as "no constraint on
  * this axis, never match nothing" — so a question that names only a country reads the whole of it.
+ * Countries and industries arrive already resolved by {@link MarketTerms}, a region or a sector as
+ * several values.
  */
 final class MarketQuery {
 
     private MarketQuery() {
     }
 
-    static CompanyScope scopeOf(String country, String industry, String keyword, String companyName,
-                                Long minEmployees, Long maxEmployees) {
-        return new CompanyScope(listOf(industry), listOf(keyword), List.of(), listOf(country),
+    static CompanyScope scopeOf(List<String> countries, List<String> industries, String keyword,
+                                String companyName, Long minEmployees, Long maxEmployees) {
+        return new CompanyScope(List.copyOf(industries), listOf(keyword), List.of(), List.copyOf(countries),
                 List.of(), List.of(), rangeOf(minEmployees, maxEmployees), null,
                 List.of(), CompanyExclusion.NONE, companyName);
     }

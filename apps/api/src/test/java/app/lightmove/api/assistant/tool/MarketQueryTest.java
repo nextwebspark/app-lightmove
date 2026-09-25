@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import app.lightmove.api.strategy.model.CompanyScope;
 import app.lightmove.api.strategy.model.NumericRange;
+import java.util.List;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
@@ -13,7 +14,7 @@ class MarketQueryTest {
     @Test
     @DisplayName("a named country and industry land on their own axes")
     void placesTheAxesItWasGiven() {
-        CompanyScope scope = MarketQuery.scopeOf("Saudi Arabia", "oil & energy", null, null, null, null);
+        CompanyScope scope = MarketQuery.scopeOf(List.of("Saudi Arabia"), List.of("oil & energy"), null, null, null, null);
 
         assertThat(scope.countries()).containsExactly("Saudi Arabia");
         assertThat(scope.industries()).containsExactly("oil & energy");
@@ -22,7 +23,7 @@ class MarketQueryTest {
     @Test
     @DisplayName("headcount becomes a numeric range, and no band slug is invented for it")
     void readsHeadcountAsANumericRange() {
-        CompanyScope scope = MarketQuery.scopeOf(null, null, null, null, 1_000L, 5_000L);
+        CompanyScope scope = MarketQuery.scopeOf(List.of(), List.of(), null, null, 1_000L, 5_000L);
 
         assertThat(scope.employeeRange()).isEqualTo(new NumericRange(1_000L, 5_000L));
         assertThat(scope.employeeBands())
@@ -33,7 +34,7 @@ class MarketQueryTest {
     @Test
     @DisplayName("an omitted axis constrains nothing")
     void leavesAnOmittedAxisOpen() {
-        CompanyScope scope = MarketQuery.scopeOf("Saudi Arabia", null, null, null, null, null);
+        CompanyScope scope = MarketQuery.scopeOf(List.of("Saudi Arabia"), List.of(), null, null, null, null);
 
         // Empty is CompanyScope's "no constraint on this axis". A blank string reaching a list would
         // read as a constraint nothing satisfies, so the question would come back with zero rows and
@@ -46,11 +47,12 @@ class MarketQueryTest {
     }
 
     @Test
-    @DisplayName("a blank argument is an omitted one")
-    void treatsABlankArgumentAsOmitted() {
-        CompanyScope scope = MarketQuery.scopeOf("  ", "", null, null, null, null);
+    @DisplayName("a region or a sector lands as every value it was read as")
+    void placesEveryResolvedValue() {
+        CompanyScope scope = MarketQuery.scopeOf(List.of("Qatar", "Kuwait"), List.of("banking", "insurance"),
+                null, null, null, null);
 
-        assertThat(scope.countries()).isEmpty();
-        assertThat(scope.industries()).isEmpty();
+        assertThat(scope.countries()).containsExactly("Qatar", "Kuwait");
+        assertThat(scope.industries()).containsExactly("banking", "insurance");
     }
 }

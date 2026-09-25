@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { render, screen, waitFor } from "@testing-library/react";
+import { act, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { ToastProvider } from "../../components/ui/Toast";
@@ -88,7 +88,7 @@ describe("a chat with the assistant", () => {
     expect(await screen.findByText("Adjacent · transferable talent")).toBeInTheDocument();
     await userEvent.click(screen.getByRole("button", { name: /Top Supermarkets companies in UAE/ }));
 
-    expect(ask).toHaveBeenCalledWith("p1", "Top Supermarkets companies in UAE", null, expect.any(Function), expect.any(Function));
+    expect(ask).toHaveBeenCalledWith("p1", "Top Supermarkets companies in UAE", null, expect.any(Function), expect.any(Function), expect.any(Function));
     expect(await screen.findByText("Answer t1")).toBeInTheDocument();
   });
 
@@ -114,7 +114,7 @@ describe("a chat with the assistant", () => {
     await send("Top retailers in UAE");
 
     expect(await screen.findByText("Majid Al Futtaim")).toBeInTheDocument();
-    expect(ask).toHaveBeenCalledWith("p1", "Top retailers in UAE", null, expect.any(Function), expect.any(Function));
+    expect(ask).toHaveBeenCalledWith("p1", "Top retailers in UAE", null, expect.any(Function), expect.any(Function), expect.any(Function));
 
     await userEvent.click(screen.getByRole("button", { name: "Universe" }));
 
@@ -133,7 +133,7 @@ describe("a chat with the assistant", () => {
     await send("Question t2");
 
     expect(await screen.findByText("Answer t2")).toBeInTheDocument();
-    expect(ask).toHaveBeenLastCalledWith("p1", "Question t2", "th1", expect.any(Function), expect.any(Function));
+    expect(ask).toHaveBeenLastCalledWith("p1", "Question t2", "th1", expect.any(Function), expect.any(Function), expect.any(Function));
   });
 
   it("lists this project's chats and opens one", async () => {
@@ -217,6 +217,48 @@ describe("a chat with the assistant", () => {
     expect(screen.queryByText("Preparing the card for 2 companies…")).not.toBeInTheDocument();
     expect(screen.getAllByText("Landmark Group")).toHaveLength(1);
     expect(screen.getByRole("button", { name: "Universe" })).toBeEnabled();
+  });
+
+  it("streams the answer as it is written, then draws the card below it once the turn is saved", async () => {
+    const answered = turn("t1", "th1", {
+      question: "Top retailers in UAE",
+      answer: "The card holds two UAE retailers.",
+      steps: [{ label: "Preparing 2 companies", detail: "2 on the card" }],
+      proposal: CARD,
+    });
+    let write: (text: string) => void = () => {};
+    let finish: (value: AssistantTurn) => void = () => {};
+    ask.mockImplementation((_projectId, _question, _threadId, onStep: (step: LiveStep) => void,
+      onProposal: (proposal: typeof CARD) => void, onAnswer: (text: string) => void) => {
+      onStep({ index: 0, label: "Preparing 2 companies", detail: "2 on the card", done: true });
+      onProposal(CARD);
+      write = onAnswer;
+      return new Promise<AssistantTurn>((resolve) => {
+        finish = resolve;
+      });
+    });
+    getThread.mockResolvedValue(thread("th1", [answered]));
+
+    mount();
+    await send("Top retailers in UAE");
+    expect(await screen.findByText("Writing the answer")).toBeInTheDocument();
+
+    act(() => write("The card holds "));
+    act(() => write("two UAE retailers."));
+
+    expect(await screen.findByText("The card holds two UAE retailers.")).toBeInTheDocument();
+    expect(screen.queryByText("Writing the answer")).not.toBeInTheDocument();
+    expect(screen.getByText("Preparing the card for 2 companies…")).toBeInTheDocument();
+    expect(screen.queryByText("Landmark Group")).not.toBeInTheDocument();
+
+    finish(answered);
+
+    expect(await screen.findByText("Landmark Group")).toBeInTheDocument();
+    expect(screen.getAllByText("The card holds two UAE retailers.")).toHaveLength(1);
+    expect(screen.queryByText("Preparing the card for 2 companies…")).not.toBeInTheDocument();
+    const answer = screen.getByText("The card holds two UAE retailers.");
+    const card = screen.getByText("Landmark Group");
+    expect(answer.compareDocumentPosition(card) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   });
 
   it("leaves the person in the chat they moved to when an earlier answer lands", async () => {

@@ -19,10 +19,14 @@ Panel ──POST /api/v1/projects/{projectId}/assistant/ask {question, threadId?
         ├─ last N question/answer pairs → history
         ├─ system prompt carries the firm: FirmService.firmOf → FirmContext, the workspace's company
         │  (V68) and the persona its admins wrote in Settings → General (V69), framed as data
-        ├─ ChatClient.call() with the tools + ToolContext {workspaceId, projectId, TurnRecorder}
-        │     readMandateBrief       → the position only (never compensation or internal notes)
-        │     describeMarket         → exact country / industry spellings
-        │     searchCompanyUniverse  → top 25 by headcount, with the total matched
+        ├─ …and the position: PositionService.briefOf → MandateBrief → PositionContext (never
+        │  compensation or internal notes) — in the prompt, because a tool cost a model round
+        ├─ AssistantModelCall: ChatClient.stream() with the tools + ToolContext {workspaceId,
+        │  projectId, TurnRecorder}; the tools run between the model's rounds inside the stream
+        │     searchCompanyUniverse  → top 25 by headcount, with the total matched; reads plain
+        │                              spellings itself (MarketTerms): "UAE", "KSA", a region
+        │                              (GCC, Middle East), "oil and gas", a sector ("Technology")
+        │     describeMarket         → exact spellings, only when a search reports one unrecognised
         │     lookUpCompaniesByName  → names the model knows, local and global: a brand's local
         │                              operator first, then the universe, then LinkedIn in the
         │                              country via Bright Data, then the brand's own page anywhere
@@ -31,9 +35,12 @@ Panel ──POST /api/v1/projects/{projectId}/assistant/ask {question, threadId?
         │     proposeCompanies(ids)  → account ids from the universe, LinkedIn slugs this answer
         │                              researched; drops off-limits, records the card
         │   each tool reports its steps ──▶ event: step {index, label, detail, done}
+        │   each piece of the answer's text ──▶ event: answer {text}
         └─ save the turn {question, answer, steps, proposal} ──▶ event: done {turn}
+           (the answer saved is exactly the streamed pieces joined)
                                               model failed ──▶ event: failed {code}
-Panel shows the steps live; on `done` it reads the chat back (GET /api/v1/assistant/threads/{id})
+Panel shows the steps and then the answer's text live; the card is drawn once, whole, on `done`,
+below the text, where a one-line "Preparing the card" placeholder held its place
 
 Card button ──POST /api/v1/assistant/turns/{turnId}/accept {apolloAccountIds, status}──▶
    owner check + WORK_EXECUTE on the chat's project
@@ -43,7 +50,10 @@ Card button ──POST /api/v1/assistant/turns/{turnId}/accept {apolloAccountIds
 
 The request itself streams its progress: no queue, no event table, no reconnect. It waits for
 Gemini (Flash, usually 5–15s) and the stream closes at 55s, inside Cloud Run's 60s request timeout.
-If the model call fails, nothing is saved and the panel shows `ASSISTANT_UNAVAILABLE`. If the tab
+A company question is about three model rounds: the search and the name lookup together, the card,
+then the answer. If the model call fails, nothing is saved and the panel shows
+`ASSISTANT_UNAVAILABLE`; a failure before anything was shown is retried once, never one after a
+tool ran, because the tool would run — and bill — again. If the tab
 closes mid-answer, the answer is still saved and shows up in History.
 
 ## Storage (V65, simplified by V70)
@@ -74,7 +84,7 @@ closes mid-answer, the answer is still saved and shows up in History.
    `AssistantToolContext.from(toolContext)`, never from an argument. Report what it does with
    `recorder().startStep("Searching …")` and `finishStep(index, "342 matched")`, so the person
    waiting sees it.
-2. Pass the bean to `.tools(...)` in `AssistantService.callModel`.
+2. Pass the bean to `.tools(...)` in `AssistantModelCall.answer`.
 3. Tell the model when to use it in `prompts/assistant-system.st`.
 4. If it writes anything, it must propose rather than write. A person confirms every change.
 
@@ -84,8 +94,10 @@ closes mid-answer, the answer is still saved and shows up in History.
   - `controller/AssistantController` has the four endpoints.
   - `service/AssistantAskStream` streams an ask's steps and result.
   - `service/AssistantService` handles ask, the history list and reading a chat.
+  - `service/AssistantModelCall` is the one streamed model conversation an ask makes.
+  - `service/FirmContext` / `PositionContext` render the firm and the position for the prompt.
   - `service/AssistantProposalService` handles accept.
-  - `tool/` holds `MandateTools`, `CompanySearchTools`, `SectorTools`, `NamedCompanyTools`, `ProposalTools`, `MarketSearch`, `MarketQuery`, `AssistantToolContext` and `TurnRecorder`.
+  - `tool/` holds `CompanySearchTools`, `SectorTools`, `NamedCompanyTools`, `ProposalTools`, `MarketSearch`, `MarketQuery`, `MarketTerms`, `AssistantToolContext` and `TurnRecorder`.
 - Frontend `apps/web/src/features/assistant`:
   - `AssistantProvider` holds whether the panel is open and the chat shown per project.
   - `components/AssistantPanel` has the history list, New chat, the transcript and the composer.
