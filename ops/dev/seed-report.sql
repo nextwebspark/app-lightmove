@@ -278,6 +278,32 @@ CROSS JOIN LATERAL (
         now()) AS at
 ) filed;
 
+-- Researcher performance attributes by added_by, so the seeded executives are shared across the
+-- mandate's staff seats (LEAD / RESEARCHER, never a client seat) — unevenly, so the table ranks.
+-- A mandate staffed by its creator alone keeps every row theirs.
+WITH staff AS (
+    SELECT wm.user_id, row_number() OVER (ORDER BY pm.created_at, wm.user_id) - 1 AS seat
+    FROM app_lm_project_member pm
+    JOIN app_lm_workspace_member wm ON wm.id = pm.member_id
+    WHERE pm.project_id = :'project_id'
+      AND EXISTS (SELECT 1 FROM app_lm_project_member_role pmr JOIN app_lm_role r ON r.id = pmr.role_id
+                  WHERE pmr.project_member_id = pm.id AND r.name IN ('LEAD', 'RESEARCHER'))
+), sized AS (SELECT count(*) AS seats FROM staff)
+UPDATE app_lm_project_candidate c
+SET added_by = staff.user_id
+FROM seed_executive x, sized, staff
+WHERE c.id = x.id AND sized.seats > 1
+  AND staff.seat = (CASE WHEN x.n % 10 < 5 THEN 0 WHEN x.n % 10 < 8 THEN 1 ELSE 2 END) % sized.seats;
+
+-- A work address for most of the first seat's people and fewer of everyone else's, a third of them
+-- verified, so the researcher table's quality column has a spread to show. Deleted with the row.
+INSERT INTO app_lm_candidate_contact (candidate_id, channel, value, value_key, kind, verified, source)
+SELECT c.id, 'EMAIL', v.address, v.address, 'WORK', x.n % 3 = 0, 'MANUAL'
+FROM seed_executive x
+JOIN app_lm_project_candidate c ON c.id = x.id
+CROSS JOIN LATERAL (SELECT lower(regexp_replace(x.full_name, '[^A-Za-z]+', '.', 'g')) || '@example.com' AS address) v
+WHERE x.n % 10 < 4 OR x.n % 3 = 0;
+
 -- What the mandate already held keeps everything it has; only its blanks are filled, so the captures
 -- count in the matrix and the diversity chapter instead of under "not on file".
 UPDATE app_lm_project_candidate c

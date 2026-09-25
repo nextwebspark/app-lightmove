@@ -13,6 +13,10 @@
  * not resolved yet leaves that hub without a point rather than holding the report up — the chapter
  * is a list of cities that can also be drawn, not a map that must be.
  *
+ * <p>Chapter one's researcher breakdown is a second, staff-only read ({@code WORK_EXECUTE}): who
+ * filed each executive comes from {@code CandidateService.addedByOf} and the team's names from
+ * {@code ProjectService.teamOf}, so a client seat's read never carries the firm's own people.
+ *
  * <p>The read is unpaged and capped ({@code lightmove.report.*}), with the head saying when a cap
  * was hit, so a mandate past it is told rather than shown a report that looks complete.
  */

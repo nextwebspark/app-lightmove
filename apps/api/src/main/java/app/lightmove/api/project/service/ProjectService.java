@@ -112,6 +112,13 @@ public class ProjectService {
         return forClient.stream().map(project -> toResponse(project, assembly)).toList();
     }
 
+    /** One mandate's seats, named — the report's researcher breakdown reads who staffs it. */
+    @Transactional(readOnly = true)
+    public List<TeamMemberResponse> teamOf(UUID workspaceId, UUID projectId) {
+        Project project = requireProject(projectId, workspaceId);
+        return toResponse(project, assemblyFor(workspaceId, List.of(project))).team();
+    }
+
     /**
      * The creator is the mandate's LEAD from birth — they own it and run it. Handover is an ordinary
      * seat change: promote a second lead, then demote or remove the first.

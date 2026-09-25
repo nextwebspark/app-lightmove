@@ -406,7 +406,7 @@
                   </a>
                 </sc-for>
               </nav>
-              <div style="margin-top:28px;border-top:1px solid var(--u-border);padding-top:20px;font-size:11px;font-style:italic;line-height:1.7;color:var(--u-text3)">Talent mapping report, prepared for Meridian Energy Group — confidential. Generated active now, live from the mandate's rows.</div>
+              <div style="margin-top:28px;border-top:1px solid var(--u-border);padding-top:20px;font-size:11px;font-style:italic;line-height:1.7;color:var(--u-text3)">Talent mapping report, prepared for Al-Futtaim — confidential. Generated active now, live from the mandate's rows.</div>
             </div>
           </aside>
           <div style="min-width:0;flex:1">
@@ -501,6 +501,82 @@
                       </svg>
                     </sc-if>
                     <div style="margin-top:14px;border-top:1px dashed var(--u-border-strong);padding-top:13px;font-size:12px;font-style:italic;line-height:1.65;color:var(--u-text2)"><sc-for list="{{ mom.note }}" as="s"><sc-if value="{{ s.b }}"><b style="font-weight:700;font-style:normal;color:var(--u-text)">{{ s.t }}</b></sc-if><sc-if value="{{ s.p }}">{{ s.t }}</sc-if></sc-for></div>
+                  </div>
+
+                  <div style="margin-top:16px;border-radius:11px;background:var(--u-surface);padding:22px 24px;box-shadow:var(--u-e1)">
+                    <div style="display:flex;flex-wrap:wrap;align-items:flex-start;justify-content:space-between;gap:12px">
+                      <div><div style="font-size:15px;font-weight:700">Researcher performance</div><div style="margin-top:3px;font-size:12px;color:var(--u-text3)">{{ rp.caption }}</div></div>
+                      <div style="display:flex;flex-wrap:wrap;align-items:center;gap:6px">
+                        <sc-for list="{{ rp.ranges }}" as="rg" hint-placeholder-count="5">
+                          <button onClick="{{ rp.setRange }}" data-k="{{ rg.key }}" style="border-radius:7px;border:1px solid var(--u-border-strong);padding:6px 11px;font:600 11.5px var(--sans);cursor:pointer;{{ rg.style }}">{{ rg.label }}</button>
+                        </sc-for>
+                        <button onClick="{{ rp.resetRanges }}" style="border:none;background:transparent;padding:6px 4px;font:600 11.5px var(--sans);color:var(--u-text3);cursor:pointer">Reset filters</button>
+                      </div>
+                    </div>
+
+                    <div style="margin-top:18px;display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px">
+                      <sc-for list="{{ rp.kpis }}" as="k" hint-placeholder-count="4">
+                        <div style="border-radius:9px;border:1px solid var(--u-border);padding:13px 15px">
+                          <div style="font:600 9.5px var(--sans);text-transform:uppercase;letter-spacing:.07em;color:var(--u-text3)">{{ k.label }}</div>
+                          <div style="margin-top:6px;font:700 21px var(--sans)">{{ k.value }}</div>
+                          <div style="margin-top:3px;font-size:11px;color:var(--u-text3)">{{ k.sub }}</div>
+                        </div>
+                      </sc-for>
+                    </div>
+
+                    <div style="margin-top:18px;display:grid;grid-template-columns:280px 1fr;gap:20px">
+                      <div style="border-radius:9px;border:1px solid var(--u-border);padding:16px">
+                        <div style="font:600 9.5px var(--sans);text-transform:uppercase;letter-spacing:.07em;color:var(--u-text3)">Overall sourcing coverage</div>
+                        <div style="margin-top:12px;display:flex;justify-content:center">
+                          <svg width="150" height="150" viewBox="0 0 200 200">
+                            <g transform="rotate(-90 100 100)">
+                              <sc-for list="{{ rp.segs }}" as="sg"><circle cx="100" cy="100" r="66" fill="none" strokeWidth="28" strokeDasharray="{{ sg.dash }}" strokeDashoffset="{{ sg.offset }}" style="stroke:{{ sg.color }}"></circle></sc-for>
+                            </g>
+                            <text x="100" y="97" textAnchor="middle" style="fill:var(--u-text);font:700 25px var(--sans)">{{ rp.donutPct }}%</text>
+                            <text x="100" y="116" textAnchor="middle" style="fill:var(--u-text3);font:700 9px var(--sans);text-transform:uppercase;letter-spacing:.05em">{{ rp.donutLabel }}</text>
+                          </svg>
+                        </div>
+                        <div style="margin-top:10px;display:flex;flex-direction:column;gap:7px">
+                          <sc-for list="{{ rp.legend }}" as="lg" hint-placeholder-count="5">
+                            <div style="display:flex;align-items:center;gap:8px;font-size:11.5px"><span style="width:9px;height:9px;flex:none;border-radius:2px;background:{{ lg.color }}"></span><span style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--u-text2)">{{ lg.name }}</span><span style="font:700 11.5px var(--u-num)">{{ lg.n }}</span></div>
+                          </sc-for>
+                        </div>
+                      </div>
+
+                      <div style="border-radius:9px;border:1px solid var(--u-border);overflow:hidden">
+                        <div style="display:grid;grid-template-columns:2fr 1fr 1fr 1fr 0.7fr;gap:8px;border-bottom:1px solid var(--u-border);background:var(--u-sunken);padding:9px 14px;font:600 9.5px var(--sans);text-transform:uppercase;letter-spacing:.06em;color:var(--u-text3)">
+                          <span>Researcher</span><span>Executives mapped</span><span>Velocity</span><span>Quality</span><span style="text-align:right">Share</span>
+                        </div>
+                        <sc-for list="{{ rp.list }}" as="r" hint-placeholder-count="4">
+                          <button onClick="{{ openResearcher }}" data-id="{{ r.id }}" style="display:grid;width:100%;grid-template-columns:2fr 1fr 1fr 1fr 0.7fr;align-items:center;gap:8px;border:none;border-top:1px solid var(--u-border);background:transparent;padding:11px 14px;cursor:pointer;text-align:left;color:var(--u-text)" style-hover="background:var(--u-raised)">
+                            <div style="display:flex;align-items:center;gap:10px;min-width:0">
+                              <span style="{{ r.avStyle }}">{{ r.initials }}</span>
+                              <div style="min-width:0"><div style="font-size:12.5px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ r.name }}</div><div style="margin-top:1px;font-size:10.5px;color:var(--u-text3);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ r.sub }}</div></div>
+                            </div>
+                            <div>
+                              <div style="font:700 14px var(--u-num)">{{ r.execs }}</div>
+                              <div style="margin-top:4px;height:5px;width:64px;overflow:hidden;border-radius:3px;background:var(--u-sunken)"><div style="height:100%;border-radius:3px;width:{{ r.barW }};background:{{ r.barColor }}"></div></div>
+                            </div>
+                            <span style="font:500 12px var(--u-num);color:var(--u-text2)">{{ r.velocityLabel }}</span>
+                            <span style="width:fit-content;border-radius:999px;padding:3px 9px;font:600 10.5px var(--sans);background:{{ r.qualityBg }};color:{{ r.qualityColor }}">{{ r.qualityLabel }}</span>
+                            <span style="text-align:right;font:700 12.5px var(--u-num)">{{ r.sharePct }}%</span>
+                          </button>
+                        </sc-for>
+                        <div style="display:grid;grid-template-columns:2fr 1fr 1fr 1fr 0.7fr;gap:8px;border-top:1px solid var(--u-border-strong);background:var(--u-sunken);padding:11px 14px;font:700 12px var(--sans)">
+                          <span>Total</span><span>{{ rp.totalExecs }} mapped</span><span></span><span></span><span style="text-align:right">{{ rp.totalShare }}</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div style="margin-top:18px;font:600 9.5px var(--sans);text-transform:uppercase;letter-spacing:.07em;color:var(--u-text3)">Company coverage status</div>
+                    <div style="margin-top:10px;display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:10px">
+                      <sc-for list="{{ rp.companies }}" as="c" hint-placeholder-count="6">
+                        <button onClick="{{ openCoverageCompany }}" data-id="{{ c.id }}" style="border-radius:8px;border:1px solid var(--u-border);padding:11px 13px;background:transparent;cursor:pointer;text-align:left;color:var(--u-text)" style-hover="background:var(--u-raised)">
+                          <div style="display:flex;justify-content:space-between;gap:6px;font-size:12px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap"><span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ c.name }}</span><span style="flex:none;color:var(--u-text3);font-weight:500">{{ c.execs }} execs</span></div>
+                          <div style="margin-top:8px;height:5px;width:100%;overflow:hidden;border-radius:3px;background:var(--u-sunken)"><div style="height:100%;border-radius:3px;width:{{ c.barW }};background:var(--u-direct)"></div></div>
+                        </button>
+                      </sc-for>
+                    </div>
                   </div>
                 </sc-if>
 
@@ -1324,6 +1400,97 @@
             </div>
           </section>
         </sc-if>
+        <sc-if value="{{ rd.hasResearcher }}">
+          <section style="margin-bottom:24px">
+            <h3 style="margin:0 0 10px;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--u-text3)">Where their executives stand</h3>
+            <div style="display:flex;flex-direction:column;gap:9px">
+              <sc-for list="{{ rd.rpFunnel }}" as="fn" hint-placeholder-count="4">
+                <div>
+                  <div style="margin-bottom:4px;display:flex;justify-content:space-between;font-size:12px;color:var(--u-text2)"><span>{{ fn.label }}</span><span style="font:700 12px var(--u-num);color:var(--u-text)">{{ fn.n }} <span style="color:var(--u-text3);font-weight:400">({{ fn.pct }}%)</span></span></div>
+                  <div style="height:9px;width:100%;overflow:hidden;border-radius:4px;background:var(--u-sunken)"><div style="height:100%;border-radius:4px;width:{{ fn.w }};background:{{ fn.fill }}"></div></div>
+                </div>
+              </sc-for>
+            </div>
+          </section>
+          <section style="margin-bottom:24px">
+            <h3 style="margin:0 0 10px;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--u-text3)">Sourcing data quality</h3>
+            <div style="display:flex;flex-direction:column;gap:11px">
+              <sc-for list="{{ rd.rpQuality }}" as="q" hint-placeholder-count="4">
+                <div>
+                  <div style="margin-bottom:4px;display:flex;justify-content:space-between;font-size:12px;color:var(--u-text2)"><span>{{ q.label }}</span><span style="font:700 12px var(--u-num);color:var(--u-text)">{{ q.pct }}%</span></div>
+                  <div style="height:6px;width:100%;overflow:hidden;border-radius:3px;background:var(--u-sunken)"><div style="height:100%;border-radius:3px;width:{{ q.w }};background:var(--u-direct)"></div></div>
+                </div>
+              </sc-for>
+            </div>
+          </section>
+          <section style="margin-bottom:24px">
+            <div style="display:flex;justify-content:space-between;margin-bottom:8px"><h3 style="margin:0;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--u-text3)">{{ rd.rpSpark.totalDays }}-day activity</h3><span style="font-size:11.5px;font-weight:600;color:var(--u-direct)">Active {{ rd.rpSpark.activeDays }} of {{ rd.rpSpark.totalDays }} days</span></div>
+            <div style="border-radius:9px;background:var(--u-sunken);padding:10px 12px">
+              <svg width="100%" height="{{ rd.rpSpark.sparkH }}" viewBox="0 0 {{ rd.rpSpark.sparkW }} {{ rd.rpSpark.sparkH }}" preserveAspectRatio="none">
+                <polyline points="{{ rd.rpSpark.sparkPts }}" fill="none" strokeLinejoin="round" strokeLinecap="round" style="stroke:var(--u-direct);stroke-width:2"></polyline>
+              </svg>
+            </div>
+          </section>
+          <section style="margin-bottom:24px">
+            <h3 style="margin:0 0 10px;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--u-text3)">Recently added executives</h3>
+            <div style="display:flex;flex-direction:column;gap:2px">
+              <sc-for list="{{ rd.rpAdded }}" as="a" hint-placeholder-count="4">
+                <div style="display:flex;align-items:center;gap:11px;border-top:1px solid var(--u-border);padding:10px 4px">
+                  <span style="{{ a.avStyle }}">{{ a.initials }}</span>
+                  <div style="min-width:0;flex:1"><div style="font-size:13px;font-weight:600;color:var(--u-text)">{{ a.name }}</div><div style="margin-top:2px;font-size:11.5px;color:var(--u-text3)">{{ a.co }} · {{ a.level }}</div></div>
+                  <span style="flex:none;border-radius:999px;padding:3px 10px;font:600 10.5px var(--sans);background:{{ a.bg }};color:{{ a.c }}">{{ a.status }}</span>
+                </div>
+              </sc-for>
+            </div>
+          </section>
+        </sc-if>
+        <sc-if value="{{ rd.hasCoverage }}">
+          <section style="margin-bottom:24px">
+            <h3 style="margin:0 0 10px;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--u-text3)">{{ rd.coverageFunnelCaption }}</h3>
+            <div style="display:flex;flex-direction:column;gap:9px">
+              <sc-for list="{{ rd.coverageFunnel }}" as="fn" hint-placeholder-count="4">
+                <div>
+                  <div style="margin-bottom:4px;display:flex;justify-content:space-between;font-size:12px;color:var(--u-text2)"><span>{{ fn.label }}</span><span style="font:700 12px var(--u-num);color:var(--u-text)">{{ fn.n }} <span style="color:var(--u-text3);font-weight:400">({{ fn.pct }}%)</span></span></div>
+                  <div style="height:9px;width:100%;overflow:hidden;border-radius:4px;background:var(--u-sunken)"><div style="height:100%;border-radius:4px;width:{{ fn.w }};background:{{ fn.fill }}"></div></div>
+                </div>
+              </sc-for>
+            </div>
+          </section>
+          <section style="margin-bottom:24px">
+            <h3 style="margin:0 0 10px;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--u-text3)">Mapped executives</h3>
+            <div style="display:flex;flex-direction:column;gap:2px">
+              <sc-for list="{{ rd.coverageExecs }}" as="ex" hint-placeholder-count="3">
+                <div style="display:flex;align-items:center;gap:11px;border-top:1px solid var(--u-border);padding:10px 4px">
+                  <span style="{{ ex.avStyle }}">{{ ex.initials }}</span>
+                  <div style="min-width:0;flex:1"><div style="font-size:13px;font-weight:600;color:var(--u-text)">{{ ex.name }}</div><div style="margin-top:2px;font-size:11.5px;color:var(--u-text3)">{{ ex.title }}</div><div style="margin-top:2px;font-size:10.5px;color:var(--u-text3)">Added by {{ ex.by }} · {{ ex.when }}</div></div>
+                  <span style="flex:none;border-radius:999px;padding:3px 10px;font:600 10.5px var(--sans);background:{{ ex.bg }};color:{{ ex.c }}">{{ ex.status }}</span>
+                </div>
+              </sc-for>
+            </div>
+          </section>
+          <section style="margin-bottom:24px">
+            <h3 style="margin:0 0 10px;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--u-text3)">Sourcing data quality</h3>
+            <div style="display:flex;flex-direction:column;gap:11px">
+              <sc-for list="{{ rd.coverageQuality }}" as="q" hint-placeholder-count="3">
+                <div>
+                  <div style="margin-bottom:4px;display:flex;justify-content:space-between;font-size:12px;color:var(--u-text2)"><span>{{ q.label }}</span><span style="font:700 12px var(--u-num);color:var(--u-text)">{{ q.pct }}%</span></div>
+                  <div style="height:6px;width:100%;overflow:hidden;border-radius:3px;background:var(--u-sunken)"><div style="height:100%;border-radius:3px;width:{{ q.w }};background:var(--u-direct)"></div></div>
+                </div>
+              </sc-for>
+            </div>
+          </section>
+          <section style="margin-bottom:24px">
+            <h3 style="margin:0 0 10px;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--u-text3)">Recent sourcing activity</h3>
+            <div style="display:flex;flex-direction:column;gap:10px">
+              <sc-for list="{{ rd.coverageActivity }}" as="ac" hint-placeholder-count="3">
+                <div style="display:flex;gap:9px">
+                  <span style="margin-top:5px;width:6px;height:6px;flex:none;border-radius:50%;background:var(--u-direct)"></span>
+                  <div><div style="font-size:12.5px;color:var(--u-text)"><b style="font-weight:700">{{ ac.who }}</b> {{ ac.what }}</div><div style="margin-top:2px;font-size:11px;color:var(--u-text3)">{{ ac.when }}</div></div>
+                </div>
+              </sc-for>
+            </div>
+          </section>
+        </sc-if>
         <sc-if value="{{ rd.hasStack }}">
           <section style="margin-bottom:24px">
             <h3 style="margin:0 0 10px;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--u-text3)">{{ rd.stackLabel }}</h3>
@@ -1676,7 +1843,7 @@ class Component extends DCLogic {
     const department = pick("unit", "Group Finance");
     const roleTitle = pick("pos", "Chief Financial Officer");
     this.state = {
-      page: pick("page", "universe"), view: pick("view", "table"), drawer: pick("drawer", "none"), dialog: pick("dialog", "none"),
+      page: pick("page", "reports"), view: pick("view", "table"), drawer: pick("drawer", "none"), dialog: pick("dialog", "none"),
       importStep: pick("importStep", "map"), empty: flag("empty", false), clientRep: flag("clientRep", false),
       chapter, teamModal: pick("teamModal", "none"), canManage: flag("canManage", true),
       dark: true, collapsed, wsMenu: false, colMenu: false,
@@ -2069,7 +2236,139 @@ class Component extends DCLogic {
         kpi("Recent pace", pr.pace.toFixed(1), "/wk", `vs ${pr.targetPace.toFixed(1)}/wk needed`, "alarm"),
         kpi("Since last new executive", 5, "d", "gap since the last one filed", "alarm")
       ],
-      cov, mom, basisRecentStyle: segU(s.basis === "recent"), basisFullStyle: segU(s.basis === "full"), momWeeksStyle: segU(weeks), momDaysStyle: segU(!weeks)
+      cov, mom, basisRecentStyle: segU(s.basis === "recent"), basisFullStyle: segU(s.basis === "full"), momWeeksStyle: segU(weeks), momDaysStyle: segU(!weeks),
+      rp: this.researcherPerf()
+    };
+  }
+
+  researcherPerf() {
+    const s = this.state;
+    const range = s.rpRange || "last30";
+    const RANGES = [["all", "All time"], ["week", "This week"], ["7d", "Last 7 days"], ["last30", "Last 30 days"], ["custom", "Custom"]];
+    const rows = [
+      { id: "m1", name: "Yara Haddad", role: "Lead researcher", companies: 12, execs: 51, velocity: 3.6, lastActive: "2h ago", verified: 43, engaged: 31, interested: 19, shortlisted: 7, confidence: 88, contactPct: 57, compPct: 48, quality: "good", activity: [1, 1, 0, 1, 1, 1, 0, 1, 1, 0, 1, 1, 1, 0, 1, 1, 1, 1],
+        added: [["Amira Haddad", "Al Naboodah Group", "C-Suite", "Verified"], ["Rami Khoury", "Al Habtoor Group", "C-Suite", "Passive"], ["Lina Nasr", "Chalhoub Group", "C-Suite", "Interested"], ["Khalid Mansour", "Al Rostamani Group", "N-1", "Verified"]] },
+      { id: "m4", name: "Omar Khoury", role: "Researcher", companies: 9, execs: 38, velocity: 2.8, lastActive: "5h ago", verified: 30, engaged: 22, interested: 12, shortlisted: 4, confidence: 81, contactPct: 52, compPct: 40, quality: "good", activity: [1, 1, 1, 0, 1, 1, 1, 0, 1, 1, 0, 1, 1, 1, 0, 1, 1, 0],
+        added: [["Nadia Salloum", "GMG", "N-1", "Verified"], ["Hassan Fares", "LuLu Group International", "C-Suite", "Passive"]] },
+      { id: "m3", name: "Sara Al-Mansour", role: "Researcher", companies: 6, execs: 24, velocity: 2.1, lastActive: "1d ago", verified: 15, engaged: 10, interested: 6, shortlisted: 2, confidence: 68, contactPct: 38, compPct: 27, quality: "attention", activity: [1, 0, 1, 0, 0, 1, 0, 1, 0, 1, 0, 0, 1, 0, 1, 0, 1, 0],
+        added: [["Farid Aoun", "Apparel Group", "N-1", "Interested"], ["Dina Kassab", "Landmark Group", "N-2", "Verified"]] },
+      { id: "m5", name: "Faisal Otaibi", role: "Researcher", companies: 4, execs: 15, velocity: 1.4, lastActive: "3h ago", verified: 12, engaged: 8, interested: 5, shortlisted: 1, confidence: 74, contactPct: 45, compPct: 30, quality: "good", activity: [0, 1, 0, 0, 1, 0, 1, 0, 0, 1, 0, 1, 0, 0, 1, 0, 0, 1],
+        added: [["Reem Sabbagh", "Alshaya Group", "N-1", "Verified"]] },
+    ];
+    const totalExecs = rows.reduce((t, r) => t + r.execs, 0);
+    const scoped = 42, remaining = Math.max(0, scoped - totalExecs);
+    const colors = ["var(--u-direct)", "var(--u-adjacent)", "var(--u-inferred)", "var(--u-signal)"];
+    const maxExecs = Math.max(...rows.map((r) => r.execs));
+    const C2 = 2 * Math.PI * 66;
+    const donutRows = rows.concat(remaining > 0 ? [{ name: "Unmapped / pending", execs: remaining }] : []);
+    const donutColors = colors.concat(["var(--u-border-strong)"]);
+    let used = 0;
+    const segs = donutRows.map((r, i) => {
+      const d = (r.execs / scoped) * C2;
+      const seg = { label: r.name, n: r.execs, color: donutColors[i] || "var(--u-text3)", dash: `${d.toFixed(2)} ${(C2 - d).toFixed(2)}`, offset: (-used).toFixed(2) };
+      used += d;
+      return seg;
+    });
+    const mappedPct = Math.round((totalExecs / scoped) * 100);
+    const lastNew = rows.reduce((best, r) => (!best || r.lastActive < best.lastActive ? r : best), null);
+    const recentVelocity = (rows.reduce((t, r) => t + r.velocity, 0) / rows.length * 7).toFixed(1);
+    const targetVelocity = "9.8";
+    const projected = "12 Oct 2026";
+    return {
+      caption: `share of the ${scoped}-company target's ${totalExecs} executives found so far, by researcher`,
+      ranges: RANGES.map(([k, label]) => ({ key: k, label, style: k === range ? "background:var(--u-accent-tint);color:var(--u-accent);border-color:var(--u-accent-ring)" : "background:transparent;color:var(--u-text2);border-color:var(--u-border-strong)" })),
+      setRange: (e) => this.setState({ rpRange: e.currentTarget.dataset.k }),
+      resetRanges: () => this.setState({ rpRange: "last30" }),
+      kpis: [
+        { label: "Recent pace", value: `${recentVelocity}/wk`, sub: `vs ${targetVelocity}/wk target pace` },
+        { label: "Companies covered", value: `${rows.reduce((t, r) => t + r.companies, 0)} / 42`, sub: "11 target remaining" },
+        { label: "Last new executive", value: "2d ago", sub: `${rows[0].name} filed last` },
+        { label: "Projected completion", value: projected, sub: "Based on current speed" },
+      ],
+      donutPct: mappedPct, donutLabel: "Mapped", segs,
+      legend: donutRows.map((r, i) => ({ color: donutColors[i], name: r.name, n: r.execs })),
+      stack: rows.map((r, i) => ({ label: r.name.split(" ")[0], n: r.execs, w: `${(r.execs / totalExecs) * 100}%`, fill: colors[i] })),
+      list: rows.map((r, i) => ({
+        id: r.id, name: r.name, initials: initials(r.name), avStyle: avatar(r.id, 32),
+        roleLabel: r.role, sub: `${r.companies} companies · ${r.lastActive}`,
+        companies: r.companies, execs: r.execs, perWeek: r.velocity.toFixed(1),
+        barW: `${(r.execs / maxExecs) * 100}%`, barColor: colors[i],
+        velocityLabel: `${r.velocity}/day`,
+        qualityLabel: r.quality === "good" ? "Good" : "Attention",
+        qualityBg: r.quality === "good" ? "var(--u-direct-tint)" : "var(--u-signal-tint)",
+        qualityColor: r.quality === "good" ? "var(--u-direct)" : "var(--u-signal)",
+        sharePct: pct(r.execs, totalExecs),
+      })),
+      totalExecs, totalShare: "100%",
+      companies: [
+        { id: "c01", name: "Al Naboodah Group", execs: 18, pct: 90 }, { id: "c02", name: "Al Habtoor Group", execs: 14, pct: 78 },
+        { id: "c09", name: "Chalhoub Group", execs: 12, pct: 70 }, { id: "c13", name: "GMG", execs: 9, pct: 60 },
+        { id: "c03", name: "Al Rostamani Group", execs: 6, pct: 45 }, { id: "c14", name: "LuLu Group International", execs: 3, pct: 20 },
+      ].map((c) => ({ ...c, barW: `${c.pct}%` })),
+    };
+  }
+
+  researcherDrawer(id) {
+    const r = this.researcherPerf().list.find((x) => x.id === id);
+    const full = [
+      { id: "m1", verified: 43, engaged: 31, interested: 19, shortlisted: 7, confidence: 88, contactPct: 57, compPct: 48, activity: [1, 1, 0, 1, 1, 1, 0, 1, 1, 0, 1, 1, 1, 0, 1, 1, 1, 1],
+        added: [["Amira Haddad", "Al Naboodah Group", "C-Suite", "Verified"], ["Rami Khoury", "Al Habtoor Group", "C-Suite", "Passive"], ["Lina Nasr", "Chalhoub Group", "C-Suite", "Interested"], ["Khalid Mansour", "Al Rostamani Group", "N-1", "Verified"]] },
+      { id: "m4", verified: 30, engaged: 22, interested: 12, shortlisted: 4, confidence: 81, contactPct: 52, compPct: 40, activity: [1, 1, 1, 0, 1, 1, 1, 0, 1, 1, 0, 1, 1, 1, 0, 1, 1, 0],
+        added: [["Nadia Salloum", "GMG", "N-1", "Verified"], ["Hassan Fares", "LuLu Group International", "C-Suite", "Passive"]] },
+      { id: "m3", verified: 15, engaged: 10, interested: 6, shortlisted: 2, confidence: 68, contactPct: 38, compPct: 27, activity: [1, 0, 1, 0, 0, 1, 0, 1, 0, 1, 0, 0, 1, 0, 1, 0, 1, 0],
+        added: [["Farid Aoun", "Apparel Group", "N-1", "Interested"], ["Dina Kassab", "Landmark Group", "N-2", "Verified"]] },
+      { id: "m5", verified: 12, engaged: 8, interested: 5, shortlisted: 1, confidence: 74, contactPct: 45, compPct: 30, activity: [0, 1, 0, 0, 1, 0, 1, 0, 0, 1, 0, 1, 0, 0, 1, 0, 0, 1],
+        added: [["Reem Sabbagh", "Alshaya Group", "N-1", "Verified"]] },
+    ].find((x) => x.id === id);
+    if (!r || !full) return null;
+    const funnelMax = full.verified;
+    const funnel = [
+      { label: "Identified", n: full.verified, pct: pct(full.verified, funnelMax), fill: "var(--u-text3)" },
+      { label: "Engaged", n: full.engaged, pct: pct(full.engaged, funnelMax), fill: "var(--u-adjacent)" },
+      { label: "Interested", n: full.interested, pct: pct(full.interested, funnelMax), fill: "var(--u-direct)" },
+      { label: "Not interested", n: full.shortlisted, pct: pct(full.shortlisted, funnelMax), fill: "var(--u-offlimits)" },
+    ].map((f) => ({ ...f, w: `${f.pct}%` }));
+    const quality = [
+      { label: "Contact captured", pct: full.contactPct, marker: null },
+      { label: "Verified contact", pct: Math.round(full.contactPct * 0.4), marker: null },
+      { label: "Comp captured", pct: full.compPct, marker: null },
+    ].map((q) => ({ ...q, w: `${q.pct}%` }));
+    const activeDays = full.activity.filter(Boolean).length;
+    const sparkW = 340, sparkH = 46, n = full.activity.length;
+    const pts = full.activity.map((v, i) => `${(i / (n - 1)) * sparkW},${sparkH - (v ? sparkH * 0.75 : sparkH * 0.15) - (Math.sin(i) * 4)}`).join(" ");
+    const statusColor = (s) => s === "Verified" ? { bg: "var(--u-direct-tint)", c: "var(--u-direct)" } : s === "Interested" ? { bg: "var(--u-adjacent-tint)", c: "var(--u-adjacent)" } : { bg: "var(--u-signal-tint)", c: "var(--u-signal)" };
+    return {
+      name: r.name, roleLabel: r.roleLabel, sub: r.sub,
+      execs: r.execs, companies: r.companies, sharePct: r.sharePct, perWeek: r.perWeek, avStyle: r.avStyle, initials: r.initials,
+      funnel, quality,
+      activePct: pct(activeDays, n), activeDays, totalDays: n, sparkPts: pts, sparkW, sparkH,
+      added: full.added.map(([name, co, level, status]) => ({ name, initials: initials(name), avStyle: avatar(name, 28), co, level, status, ...statusColor(status) })),
+    };
+  }
+
+  coverageDrawer(id) {
+    const co = CO[id];
+    if (!co) return null;
+    const DATA = {
+      c01: { mapped: 18, target: 24, lastAdded: "3d", verified: 8, engaged: 4, interested: 3, shortlisted: 3, contactPct: 72, compPct: 58, confidence: 81,
+        execs: [["Fatima Al Mazrouei", "Group Finance Director", "Verified", "Yara Haddad", "2d ago"], ["Khalid Al Harbi", "Chief Operating Officer", "Engaged", "Omar Khoury", "5d ago"], ["Sara Al-Mansour Rep", "VP Supply Chain", "Interested", "Sara Al-Mansour", "1w ago"]],
+        activity: [["Yara Haddad", "added CFO Fatima Al Mazrouei", "2d ago"], ["Omar Khoury", "verified VP Operations Khalid Al Harbi", "5d ago"], ["Sara Al-Mansour", "added CTO profile", "1w ago"]] },
+    };
+    const d = DATA[id] || { mapped: co.execCount || 0, target: (co.execCount || 0) + 6, lastAdded: "—", verified: 0, engaged: 0, interested: 0, shortlisted: 0, contactPct: 0, compPct: 0, confidence: 0, execs: [], activity: [] };
+    const funnelMax = Math.max(1, d.verified);
+    const funnel = [
+      { label: "Verified", n: d.verified, fill: "var(--u-direct)" }, { label: "Engaged", n: d.engaged, fill: "var(--u-direct)" },
+      { label: "Interested", n: d.interested, fill: "var(--u-adjacent)" }, { label: "Shortlisted", n: d.shortlisted, fill: "var(--u-signal)" },
+    ].map((f) => ({ ...f, pct: pct(f.n, d.mapped || 1), w: `${pct(f.n, funnelMax)}%` }));
+    const quality = [{ label: "Contact captured", pct: d.contactPct }, { label: "Verified contact", pct: Math.round(d.contactPct * 0.4) }, { label: "Comp captured", pct: d.compPct }].map((q) => ({ ...q, w: `${q.pct}%` }));
+    const statusColor2 = (s) => s === "Verified" ? { bg: "var(--u-direct-tint)", c: "var(--u-direct)" } : s === "Engaged" ? { bg: "var(--u-direct-tint)", c: "var(--u-direct)" } : { bg: "var(--u-adjacent-tint)", c: "var(--u-adjacent)" };
+    return {
+      name: co.name, sub: `${co.industry} · ${co.city} · ~${co.employees ? Math.round(co.employees / 1000) + "k" : "—"} emps`, avStyle: avatar(id, 40), initials: initials(co.name),
+      kpis: [{ value: d.mapped, label: "Mapped" }, { value: 2, label: "Researchers" }, { value: "Universe", label: "Stage" }, { value: d.lastAdded, label: "Last added" }],
+      funnelCaption: `Where they stand (${d.mapped} mapped)`, funnel,
+      execs: d.execs.map(([name, title, status, by, when]) => ({ name, initials: initials(name), avStyle: avatar(name, 32), title, by, when, status, ...statusColor2(status) })),
+      quality,
+      activity: d.activity.map(([who, what, when]) => ({ who, what, when })),
     };
   }
 
@@ -2281,7 +2580,7 @@ class Component extends DCLogic {
     const rd = this.state.rd;
     if (!rd) return { show: false };
     const pill = (status) => `flex:none;white-space:nowrap;border-radius:999px;padding:3px 9px;font-size:9.5px;font-weight:700;${TONES[STATUS[status].tone].pill}`;
-    const blank = { show: true, hasKpis: false, kpis: [], isHub: false, meters: [], hasStack: false, stack: [], stackAll: [], hasRows: false, rows: [], hasPeople: false, people: [], hasList: false, list: [], hasContext: false, contextLabel: "Note", context: "", hasLink: false, link: "" };
+    const blank = { show: true, hasKpis: false, kpis: [], isHub: false, meters: [], hasStack: false, stack: [], stackAll: [], hasRows: false, rows: [], hasPeople: false, people: [], hasList: false, list: [], hasContext: false, contextLabel: "Note", context: "", hasLink: false, link: "", hasResearcher: false, rpFunnel: [], rpQuality: [], rpSpark: null, rpAdded: [], hasCoverage: false, coverageFunnelCaption: "", coverageFunnel: [], coverageExecs: [], coverageQuality: [], coverageActivity: [] };
     if (rd.kind === "disclosure") {
       const d = this.disclosures().find((x) => x.id === rd.id);
       const vs = (v, b) => (v < b.low ? `${cmoney(BRIEF_CURRENCY, b.low - v)} below floor` : v > b.high ? `${cmoney(BRIEF_CURRENCY, v - b.high)} above ceiling` : "within band");
@@ -2309,6 +2608,19 @@ class Component extends DCLogic {
         hasStack: true, stackLabel: "Talent depth by level", stack: depth, stackAll: depth,
         hasList: true, listLabel: "Top employers mapped here", list: [...new Set(people.map((e) => (CO[e.co] ? CO[e.co].name : e.coName)))],
         hasLink: true, link: `Open ${rd.id} on the map` });
+    }
+    if (rd.kind === "researcher") {
+      const r = this.researcherDrawer(rd.id);
+      if (!r) return { show: false };
+      return Object.assign(blank, { eyebrow: "Researcher performance", title: r.name, subtitle: `${r.roleLabel} · active ${r.sub.split("· ")[1] || ""}`, hasKpis: true,
+        kpis: [{ value: r.execs, label: "Execs" }, { value: r.companies, label: "Cos" }, { value: `${r.sharePct}%`, label: "Share" }, { value: `${r.perWeek}/day`, label: "/day" }],
+        hasResearcher: true, rpFunnel: r.funnel, rpQuality: r.quality, rpSpark: r, rpAdded: r.added });
+    }
+    if (rd.kind === "coverageCompany") {
+      const c = this.coverageDrawer(rd.id);
+      if (!c) return { show: false };
+      return Object.assign(blank, { eyebrow: "Company coverage", title: c.name, subtitle: c.sub, hasKpis: true, kpis: c.kpis,
+        hasCoverage: true, coverageFunnelCaption: c.funnelCaption, coverageFunnel: c.funnel, coverageExecs: c.execs, coverageQuality: c.quality, coverageActivity: c.activity });
     }
     const [sector, level] = rd.id.split("|");
     const people = E.filter((e) => e.co && CO[e.co].industry === sector && e.level === level);
@@ -2421,6 +2733,8 @@ class Component extends DCLogic {
       openDisclosure: (e) => set({ rd: { kind: "disclosure", id: id(e) } }),
       openHub: (e) => set({ rd: { kind: "hub", id: id(e) } }),
       openSlice: (e) => set({ rd: { kind: "slice", id: id(e) } }),
+      openResearcher: (e) => set({ rd: { kind: "researcher", id: id(e) } }),
+      openCoverageCompany: (e) => set({ rd: { kind: "coverageCompany", id: id(e) } }),
       closeReportDrawer: () => set({ rd: null }),
       openMemberModal: () => set({ teamModal: "member" }),
       openContactModal: () => set({ teamModal: "contact", contactTab: "existing" }),
@@ -2495,6 +2809,7 @@ class Component extends DCLogic {
       customCols: CUSTOM.map((c) => ({ label: c.label, meta: `${c.target === "company" ? "Company" : "Person"} · ${c.type}` })),
       showRemove: isStage && cw && s.dialog === "remove", removeTitle: `Remove ${removeCo.name}?`, removeName: removeCo.name,
       chProgress: s.chapter === "progress", chMarket: s.chapter === "market", chComp: s.chapter === "comp", chDei: s.chapter === "dei",
+      rp: report.rp || { caption: "", stack: [], list: [] },
       rScreenLabel: `Reports · ${CHAPTERS.find((c) => c.key === s.chapter).label}`, rNav, rd,
       cpCountry: s.cpCountry, cpNat: s.cpNat, dvNat: s.dvNat, dvLevel: s.dvLevel,
       cov: {}, mom: {}, mk: {}, cp: {}, dv: {},

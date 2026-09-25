@@ -2,6 +2,7 @@ package app.lightmove.api.candidate.repository;
 
 import app.lightmove.api.candidate.constant.CandidateStatus;
 import app.lightmove.api.candidate.model.Candidate;
+import app.lightmove.api.candidate.model.CandidateAttribution;
 import app.lightmove.api.candidate.model.CandidateCount;
 import java.util.Collection;
 import java.util.List;
@@ -27,6 +28,9 @@ public interface CandidateRepository extends JpaRepository<Candidate, UUID> {
 
     Page<Candidate> findByProjectIdAndFullNameContainingIgnoreCase(
             UUID projectId, String fullName, Pageable pageable);
+
+    @Query("select c.id as candidateId, c.addedBy as addedBy from Candidate c where c.projectId = :projectId")
+    List<CandidateAttribution> findAttributionByProjectId(UUID projectId);
 
     /** The talent map's read: the whole mandate, with no search box above it to narrow. */
     Page<Candidate> findByProjectId(UUID projectId, Pageable pageable);

@@ -101,7 +101,14 @@ company was reached (V30 dropped `app_lm_strategy_sector.kind`), and an illustra
 client report was judged worse than none. The
 market chapter's hubs carry a point from `geocoding` — asked only for the handful of cities it names
 — so it draws a small map beside the bars where a Mapbox token is configured, and the bars alone
-where none is. The standalone
+where none is. Under Recent momentum the progress chapter carries **Researcher performance** (the
+`reports` page's handoff mock), the one staff-only part of the report: its own read,
+`GET /projects/{id}/report/team?from=&to=`, gated `WORK_EXECUTE`, so a client seat never sees the firm's
+people ranked. Every executive counts for whoever filed it (`added_by`, read through
+`CandidateService.addedByOf`, never put on `CandidateResponse`, which a client seat also reads) and a
+company for whoever filed its first executive. The mock's confidence score, conversion funnel and
+per-company target have no row behind them, so they are not drawn: the drawers show a status *mix*,
+and quality is what is on file (a contact, a verified one, a base salary). The standalone
 Candidates screen, and the pipeline and outreach tables, don't exist yet. A projects-list row opens
 the **position side panel** (`Workspace.dc.html`'s Position drawer): mapping progress as universe
 companies with an executive mapped (`mappedCompanies` of `companies` on `GET /projects`), key

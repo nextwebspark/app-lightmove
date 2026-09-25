@@ -56,7 +56,7 @@ public record ReportCalendar(LocalDate kickoff, LocalDate asOf, LocalDate target
         return dayIndexOf(date) / DAYS_PER_WEEK;
     }
 
-    private static LocalDate dateOf(Instant moment) {
+    public static LocalDate dateOf(Instant moment) {
         return moment.atOffset(ZoneOffset.UTC).toLocalDate();
     }
 }
