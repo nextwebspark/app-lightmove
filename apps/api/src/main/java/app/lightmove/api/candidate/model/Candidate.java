@@ -107,6 +107,10 @@ public class Candidate extends BaseEntity {
     @Column(name = "ai_inferred_fields", nullable = false)
     private Set<String> aiInferredFields = new HashSet<>();
 
+    @JdbcTypeCode(SqlTypes.JSON)
+    @Column(name = "ai_assessment")
+    private CandidateAiAssessment aiAssessment;
+
     @Column(name = "summary")
     private String summary;
 
@@ -378,6 +382,11 @@ public class Candidate extends BaseEntity {
         boolean filled = !inferred.equals(aiInferredFields);
         aiInferredFields = inferred;
         return filled;
+    }
+
+    /** Replaces the last AI assessment whole — it is the model's own reading, not anybody's edit. */
+    public void recordAiAssessment(CandidateAiAssessment assessment) {
+        this.aiAssessment = assessment;
     }
 
     /**

@@ -35,8 +35,8 @@ public enum LlmBudget {
     /** A question to the assistant — several model rounds, and vendor lookups behind them. */
     ASSISTANT("assistant", LlmRateLimitSettings::defaultRequestsPerMinute),
 
-    /** A captured executive's background inference — nationality, gender, years of experience. */
-    CANDIDATE_BACKGROUND_INFER("candidate-background-infer", LlmRateLimitSettings::defaultRequestsPerMinute);
+    /** A candidate's AI enrichment — background, competency assessment, grounded sources. */
+    CANDIDATE_AI_ENRICH("candidate-ai-enrich", LlmRateLimitSettings::defaultRequestsPerMinute);
 
     private final String meter;
     private final ToIntFunction<LlmRateLimitSettings> callsPerMinute;

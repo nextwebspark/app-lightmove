@@ -664,7 +664,7 @@ export function AiInferredBadge() {
   return (
     <span
       title="AI-suggested from the captured profile — not yet reviewed"
-      className="inline-flex flex-none items-center rounded-[4px] bg-u-signal-tint px-[5px] py-[1px] font-mono text-[9px] font-bold uppercase tracking-[0.04em] text-u-signal"
+      className="inline-flex flex-none items-center rounded-[4px] bg-u-inferred-tint px-[5px] py-[1px] font-mono text-[9px] font-bold uppercase tracking-[0.04em] text-u-inferred"
     >
       AI
     </span>

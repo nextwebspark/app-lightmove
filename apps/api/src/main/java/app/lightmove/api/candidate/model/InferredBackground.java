@@ -6,8 +6,4 @@ import app.lightmove.api.candidate.constant.Gender;
 public record InferredBackground(String nationality, Gender gender, Integer yearsExperience) {
 
     public static final InferredBackground NONE = new InferredBackground(null, null, null);
-
-    public boolean isEmpty() {
-        return nationality == null && gender == null && yearsExperience == null;
-    }
 }

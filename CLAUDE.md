@@ -85,12 +85,19 @@ theme opens dark. It states only what the rows carry: a candidate's
 status but no pipeline outcome, and a package in another currency is counted rather than converted.
 **Gender (V56) is recorded on a candidate, or proposed and flagged — never silently inferred** — the
 chapter divides by the executives who have one on file, not by the headcount, so a mandate nobody has
-recorded reads as unmeasured rather than as a pool of one gender. Once a plugin capture's vendor
-research has landed, `CandidateBackgroundWorker` asks the model for whichever of gender, nationality
-(one of the nine groups) and years of experience are still empty, and writes them in a separate
-transaction so the research never waits on it. A value already on the row always stands, and each
-filled one is flagged in `ai_inferred_fields` (V78, an "AI" badge in the drawer) until a researcher
-changes it. **Nationality is counted in nine groups** — the Gulf six by name,
+recorded reads as unmeasured rather than as a pool of one gender. **AI enrichment** is one
+Google-grounded Gemini call (`CandidateAiEnricher`, Spring AI `googleSearchRetrieval`) run by
+`CandidateAiEnrichWorker` after a capture's vendor research lands, and again from the drawer's
+**AI deep enrich** button (`POST …/candidates/{id}/ai-enrich`, 202, `WORK_EXECUTE`). It reads the
+profile as given and searches the web only for what LinkedIn does not say. It proposes whichever of gender,
+nationality (one of the nine groups) and years of experience are still empty — a value already on the
+row always stands, and each filled one is flagged in `ai_inferred_fields` (V78, an "AI" badge) until a
+researcher changes it — and scores the executive 1–10 on the brief's technical and behavioural
+competencies with at most five positives and five negatives each, a summary, and the pages it relied
+on (V79 `ai_assessment`, replaced whole per run, LinkedIn links dropped). **The model never sees a
+candidate's contacts, compensation, note or custom fields**: its input is the `CandidateDossier`
+allowlist. The assessment ranks a person, so it is staff-only — its own read
+(`GET …/ai-assessment`, `WORK_EXECUTE`) and never on `CandidateResponse`, which a client seat reads. **Nationality is counted in nine groups** — the Gulf six by name,
 and everyone else as Western expat, South Asian or Arab expat, non-GCC: the drawer offers exactly those
 nine and stores the label, while a spreadsheet's "Egyptian" is folded into its group by `report` at read
 time and never rewritten. **A notice period is one of five** — None, 1, 2, 3 or 6 months — on both halves
@@ -391,6 +398,8 @@ NULL is "nobody recorded it" and is deliberately not a fourth value, because "no
 "recorded as other" are different facts and the report counts them apart.
 V78 adds `app_lm_project_candidate.ai_inferred_fields` jsonb — the keys (`nationality`, `gender`,
 `yearsExperience`) holding a model's proposal that no researcher has changed since.
+V79 adds `app_lm_project_candidate.ai_assessment` jsonb — the AI enrichment's summary, per-panel
+score with positives and negatives, and source links; the model's own reading, replaced whole per run.
 V76 adds `app_lm_project_candidate.compensation_breakdown` jsonb — the drawer's allowance lines and
 LTIP instruments. `allowances` stays the total every reader sums; `CandidateCompensation` keeps the
 two agreeing (lines supply a missing total, a contradicting total drops them). The editor's

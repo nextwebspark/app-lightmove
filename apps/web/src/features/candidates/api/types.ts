@@ -208,3 +208,25 @@ export interface SaveCandidatePayload {
   /** Omitted leaves every custom column alone; a blank value clears that one column. */
   customFields?: CustomFieldValues;
 }
+
+/** One competency panel's AI reading: a 1–10 score (null when the model could not judge) and why. */
+export interface CompetencyPanelAssessment {
+  score: number | null;
+  positives: string[];
+  negatives: string[];
+}
+
+/** A web page the AI assessment relied on, as the model reported it. */
+export interface AssessmentSourceLink {
+  url: string;
+  title: string | null;
+}
+
+/** A candidate's last AI assessment — staff-only, read on its own and never carried on `Candidate`. */
+export interface CandidateAiAssessment {
+  summary: string | null;
+  technical: CompetencyPanelAssessment | null;
+  behavioural: CompetencyPanelAssessment | null;
+  sources: AssessmentSourceLink[];
+  assessedAt: string;
+}

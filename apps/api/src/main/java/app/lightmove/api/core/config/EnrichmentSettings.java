@@ -16,15 +16,15 @@ import org.springframework.boot.context.properties.bind.DefaultValue;
  * capability with its own key and its own bill, so {@code provider: off} must leave the drawer's
  * Find email / Find phone buttons working.
  *
- * <p>{@code backgroundInference} is the model call that follows whatever research {@code provider}
- * fetched; off keeps the research and skips the call.
+ * <p>{@code aiEnrichOnCapture} is the grounded model call that follows a capture's research; off keeps
+ * the research and skips the call. The drawer's AI deep enrich button works either way.
  */
 public record EnrichmentSettings(
         @DefaultValue("off") String provider,
         BrightDataSettings brightdata,
         HarvestApiSettings harvestapi,
         ContactOutSettings contactout,
-        @DefaultValue("true") boolean backgroundInference,
+        @DefaultValue("true") boolean aiEnrichOnCapture,
 
         /**
          * How long a row of {@code app_lm_vendor_company} answers for a slug before the provider is asked

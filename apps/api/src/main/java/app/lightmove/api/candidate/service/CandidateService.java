@@ -1,7 +1,7 @@
 package app.lightmove.api.candidate.service;
 
 import app.lightmove.api.common.constant.Seniority;
-import app.lightmove.api.candidate.constant.BackgroundField;
+import app.lightmove.api.candidate.constant.AiEnrichTrigger;
 import app.lightmove.api.candidate.constant.CandidateSource;
 import app.lightmove.api.candidate.constant.CandidateStatus;
 import app.lightmove.api.candidate.constant.ContactChannel;
@@ -25,6 +25,9 @@ import app.lightmove.api.candidate.dto.UpdateCandidateContactsRequest;
 import app.lightmove.api.candidate.dto.UpdateCandidateStatusRequest;
 import app.lightmove.api.candidate.model.AllowanceLine;
 import app.lightmove.api.candidate.model.Candidate;
+import app.lightmove.api.candidate.model.CandidateAiAssessment;
+import app.lightmove.api.candidate.model.CandidateAiEnrichRequested;
+import app.lightmove.api.candidate.model.CandidateAiEnrichment;
 import app.lightmove.api.candidate.model.CandidateAttribution;
 import app.lightmove.api.candidate.model.CandidateCapturedEvent;
 import app.lightmove.api.candidate.model.CandidateCareerEntry;
@@ -33,14 +36,13 @@ import app.lightmove.api.candidate.model.CandidateContact;
 import app.lightmove.api.candidate.model.CandidateContactState;
 import app.lightmove.api.candidate.model.ContactEntry;
 import app.lightmove.api.candidate.model.CandidateDetails;
+import app.lightmove.api.candidate.model.CandidateDossier;
 import app.lightmove.api.candidate.model.CandidatePhoto;
 import app.lightmove.api.candidate.model.CandidateProfile;
-import app.lightmove.api.candidate.model.CandidateResearchedEvent;
 import app.lightmove.api.candidate.model.CompensationBreakdown;
 import app.lightmove.api.candidate.model.EnrichedProfile;
 import app.lightmove.api.candidate.model.FoundEmails;
 import app.lightmove.api.candidate.model.FoundPhones;
-import app.lightmove.api.candidate.model.InferredBackground;
 import app.lightmove.api.candidate.model.StoredPhoto;
 import app.lightmove.api.candidate.repository.CandidatePhotoRepository;
 import app.lightmove.api.candidate.repository.CandidateRepository;
@@ -346,23 +348,57 @@ public class CandidateService {
             mapToEmployer(projectId, candidate, enriched);
             keepPhoto(candidateId, enriched);
             stream.publish(projectId, ProjectStreamKind.CANDIDATE_ENRICHED);
-            Set<BackgroundField> missing = candidate.missingBackground();
-            if (!missing.isEmpty()) {
-                events.publishEvent(new CandidateResearchedEvent(candidateId, projectId,
-                        candidate.getAddedBy(), candidate.getFullName(), missing, enriched));
-            }
+            projects.findById(projectId).ifPresent(project -> events.publishEvent(
+                    new CandidateAiEnrichRequested(candidateId, projectId, project.getWorkspaceId(),
+                            candidate.getAddedBy(), AiEnrichTrigger.CAPTURE)));
         }, () -> log.info("Candidate {} was removed before its research landed", candidateId));
     }
 
+    /** Confirms the candidate is one of this workspace's before an AI enrichment is paid for. */
+    @Transactional(readOnly = true)
+    public void requireCandidate(UUID workspaceId, UUID projectId, UUID candidateId) {
+        requireProject(projectId, workspaceId);
+        candidates.findByIdAndProjectId(candidateId, projectId)
+                .orElseThrow(() -> ApiException.of(ErrorCode.NOT_FOUND));
+    }
+
     /**
-     * The background inference's own write, after the research has already landed. {@code REQUIRES_NEW}
-     * for {@link #applyResearch}'s reason; a racing drawer edit wins by {@code @Version} the same way.
+     * What the AI enrichment may send to the model — {@link CandidateDossier} is an allowlist, so
+     * contact details and compensation never leave through here. Empty once the row is gone.
+     */
+    @Transactional(readOnly = true)
+    public Optional<CandidateDossier> dossierOf(UUID projectId, UUID candidateId) {
+        return candidates.findByIdAndProjectId(candidateId, projectId).map(candidate -> {
+            CandidateProfile profile = candidate.getProfile();
+            return new CandidateDossier(candidate.getFullName(), candidate.getTitle(),
+                    candidate.getCompanyName(), candidate.getLocationCity(), candidate.getLocationCountry(),
+                    candidate.getLinkedinUrl(), candidate.getSummary(), profile.career(),
+                    profile.education(), profile.skills(), profile.languages(),
+                    candidate.missingBackground());
+        });
+    }
+
+    /** The last AI assessment, staff-only — it is never carried on {@link CandidateResponse}. */
+    @Transactional(readOnly = true)
+    public Optional<CandidateAiAssessment> aiAssessmentOf(UUID workspaceId, UUID projectId, UUID candidateId) {
+        requireProject(projectId, workspaceId);
+        return Optional.ofNullable(candidates.findByIdAndProjectId(candidateId, projectId)
+                .orElseThrow(() -> ApiException.of(ErrorCode.NOT_FOUND))
+                .getAiAssessment());
+    }
+
+    /**
+     * The AI enrichment's own write: background into whichever fields are still empty, and the
+     * assessment replaced whole. {@code REQUIRES_NEW} for {@link #applyResearch}'s reason; a racing
+     * drawer edit wins by {@code @Version} the same way.
      */
     @Transactional(propagation = Propagation.REQUIRES_NEW)
-    public void applyInferredBackground(UUID projectId, UUID candidateId, InferredBackground proposed) {
-        candidates.findByIdAndProjectId(candidateId, projectId)
-                .filter(candidate -> candidate.proposeBackground(proposed))
-                .ifPresent(candidate -> stream.publish(projectId, ProjectStreamKind.CANDIDATE_ENRICHED));
+    public void applyAiEnrichment(UUID projectId, UUID candidateId, CandidateAiEnrichment enrichment) {
+        candidates.findByIdAndProjectId(candidateId, projectId).ifPresent(candidate -> {
+            candidate.proposeBackground(enrichment.background());
+            candidate.recordAiAssessment(enrichment.assessment());
+            stream.publish(projectId, ProjectStreamKind.CANDIDATE_ENRICHED);
+        });
     }
 
     /**

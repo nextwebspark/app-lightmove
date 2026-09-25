@@ -1,5 +1,7 @@
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Drawer } from "../../../components/ui/Drawer";
 import type { CustomColumn } from "../../customcolumns/api/types";
+import { CANDIDATE_KEY, getCandidate } from "../api/candidatesApi";
 import type { Candidate } from "../api/types";
 import { AddCandidateForm, type CandidateCompanyContext } from "./AddCandidateForm";
 import { CandidateProfile } from "./CandidateProfile";
@@ -13,6 +15,10 @@ export type { CandidateCompanyContext } from "./AddCandidateForm";
  * holds it and the caller shows that — a reader who corrected a salary is still reading, and the
  * next thing they do is usually write the note. An add lands on the profile it created for the same
  * reason.
+ *
+ * <p>The person shown is read through their own query, seeded with the row the caller opened: the
+ * stream's refresh after a background enrichment re-reads it, so a drawer left open picks up what
+ * the research and the AI enrichment filled in without being reopened.
  */
 export function CandidateDrawer({
   open,
@@ -48,19 +54,32 @@ export function CandidateDrawer({
    *  outcome. Only meaningful with a `company`, so callers without one pass nothing. */
   onMarkNoExecutiveFound?: () => void;
 }) {
+  const queryClient = useQueryClient();
+  const live = useQuery({
+    queryKey: CANDIDATE_KEY(projectId, candidate?.id ?? ""),
+    queryFn: ({ signal }) => getCandidate(projectId, candidate!.id, signal),
+    enabled: candidate !== null,
+    initialData: candidate ?? undefined,
+  });
+  const shown = candidate && live.data?.id === candidate.id ? live.data : candidate;
+  const handleSaved = (saved: Candidate) => {
+    queryClient.setQueryData(CANDIDATE_KEY(projectId, saved.id), saved);
+    onSaved(saved);
+  };
+
   return (
-    <Drawer open={open} onClose={onClose} wide label={candidate ? candidate.fullName : "Add executive"}>
-      {candidate ? (
+    <Drawer open={open} onClose={onClose} wide label={shown ? shown.fullName : "Add executive"}>
+      {shown ? (
         // Keyed so moving to another person starts the fold and edit state fresh.
         <CandidateProfile
-          key={candidate.id}
+          key={shown.id}
           projectId={projectId}
-          candidate={candidate}
+          candidate={shown}
           customColumns={customColumns}
           canWrite={canWrite}
           briefCurrency={defaultCurrency}
           onClose={onClose}
-          onSaved={onSaved}
+          onSaved={handleSaved}
           onRemove={canWrite ? onDelete : undefined}
         />
       ) : (
@@ -70,7 +89,7 @@ export function CandidateDrawer({
           customColumns={customColumns}
           defaultCurrency={defaultCurrency}
           onClose={onClose}
-          onSaved={onSaved}
+          onSaved={handleSaved}
           onMarkNoExecutiveFound={onMarkNoExecutiveFound}
         />
       )}

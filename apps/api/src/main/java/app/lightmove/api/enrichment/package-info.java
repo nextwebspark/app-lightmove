@@ -7,8 +7,9 @@
  * somebody presses a button and waits — and its own package doc says why it answers inline.
  *
  * <p><b>It never writes.</b> The answer goes back through one public method on the owning feature —
- * {@code CandidateService.applyResearch}, {@code TriageCompanyService.applyEnrichment} — which opens
- * its own transaction. Every vendor call goes through {@link app.lightmove.api.core.resilience}.
+ * {@code CandidateService.applyResearch}, {@code applyAiEnrichment}, {@code TriageCompanyService.applyEnrichment}
+ * — which opens its own transaction. The candidate AI enrichment also reads the mandate's brief, through
+ * {@code PositionService.briefOf} (read-only, drafts nothing); {@code position} depends on neither side. Every vendor call goes through {@link app.lightmove.api.core.resilience}.
  *
  * <p><b>One exception, and it owns no mandate's row.</b> {@code company} keeps {@code app_lm_vendor_company}
  * (V64) — what a provider said about a LinkedIn page, remembered so the same company is not bought
