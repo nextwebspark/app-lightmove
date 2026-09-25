@@ -43,7 +43,6 @@ export function TriageCompanyTable({
   onMove,
   onDelete,
   onAddExecutive,
-  onMarkNoExecutiveFound,
   onSaveNote,
   onChangeCandidateStatus,
   onEditCandidate,
@@ -71,8 +70,6 @@ export function TriageCompanyTable({
   onMove: (company: TriageCompany, status: TriageCompanyStatus) => void;
   onDelete: (company: TriageCompany) => void;
   onAddExecutive: (company: TriageCompany) => void;
-  /** Flags a company as researched-and-nobody-suitable, from its "+ Add executive" cell. */
-  onMarkNoExecutiveFound: (company: TriageCompany) => void;
   /** Saves the grid's own inline-edited Note cell — the same write the Companies panel makes. */
   onSaveNote: (company: TriageCompany, note: string) => Promise<unknown>;
   /** Changes a mapped executive's status inline, from the grid's own Status column. */
@@ -108,7 +105,6 @@ export function TriageCompanyTable({
       onMove,
       onDelete,
       onAddExecutive,
-      onMarkNoExecutiveFound,
       onSaveNote,
       onChangeCandidateStatus,
       onEditCandidate,

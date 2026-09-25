@@ -25,6 +25,7 @@ export function CandidateDrawer({
   onClose,
   onSaved,
   onDelete,
+  onMarkNoExecutiveFound,
 }: {
   open: boolean;
   projectId: string;
@@ -43,6 +44,9 @@ export function CandidateDrawer({
   onSaved: (saved: Candidate) => void;
   /** Opens the confirmation. Absent while adding — there is nothing to remove yet. */
   onDelete?: (candidate: Candidate) => void;
+  /** Flags the company as researched-and-nobody-suitable and closes the panel — the add form's other
+   *  outcome. Only meaningful with a `company`, so callers without one pass nothing. */
+  onMarkNoExecutiveFound?: () => void;
 }) {
   return (
     <Drawer open={open} onClose={onClose} wide label={candidate ? candidate.fullName : "Add executive"}>
@@ -66,6 +70,7 @@ export function CandidateDrawer({
           defaultCurrency={defaultCurrency}
           onClose={onClose}
           onSaved={onSaved}
+          onMarkNoExecutiveFound={onMarkNoExecutiveFound}
         />
       )}
     </Drawer>

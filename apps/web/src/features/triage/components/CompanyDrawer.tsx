@@ -19,6 +19,10 @@ import { AddCompanyPanel } from "./AddCompanyPanel";
 import { CompanyFactsForm, editPayloadOf } from "./CompanyFactsForm";
 import { CompanyFactsSections } from "./CompanyFactsSections";
 
+/** The corner icons share the close button's footprint so the row reads as one control strip. */
+const CORNER_BUTTON =
+  "rounded-md p-1.5 transition hover:bg-u-raised disabled:opacity-40 disabled:hover:bg-transparent";
+
 /**
  * One company, in the mandate's own terms — the panel the mockup's `coDrawer` describes, finally
  * built, and the form that adds a new one.
@@ -149,46 +153,51 @@ export function CompanyDrawer({
               className={SOURCE_STYLES[company.source].className}
             />
             <DetailPill label={stageByStatus(company.status).label} />
+            {company.noExecutiveFound && (
+              <span title="Researched — nobody suitable found. Adding an executive here clears this.">
+                <DetailPill label="No executive found" />
+              </span>
+            )}
           </>
         }
-        action={
+        cornerActions={
           !editing && (canWrite || canEdit) && (
-            <span className="flex flex-wrap items-center gap-2">
+            <>
               {canWrite && (
-                <Button
+                <button
                   type="button"
-                  variant="secondary"
+                  title="Add executive"
+                  aria-label={`Add an executive at ${company.companyName}`}
                   onClick={() => onAddExecutive(company)}
+                  className={`${CORNER_BUTTON} text-u-accent hover:text-u-accent-hover`}
                 >
-                  <Icon d={ICONS.userPlus} size={14} />
-                  Add executive
-                </Button>
-              )}
-              {canWrite && company.noExecutiveFound && (
-                <span
-                  title="Researched — nobody suitable found. Adding an executive here clears this."
-                  className="font-mono text-[11px] uppercase tracking-[0.04em] text-u-text3"
-                >
-                  No executive found
-                </span>
+                  <Icon d={ICONS.userPlus} size={16} />
+                </button>
               )}
               {canWrite && !company.noExecutiveFound && (
-                <Button
+                <button
                   type="button"
-                  variant="secondary"
+                  title="Mark as researched — nobody suitable found"
+                  aria-label={`Mark ${company.companyName} as no executive found`}
                   disabled={markingNoExecutiveFound}
                   onClick={() => onMarkNoExecutiveFound(company)}
+                  className={`${CORNER_BUTTON} text-u-text3 hover:text-u-offlimits`}
                 >
-                  No executive found
-                </Button>
+                  <Icon d={ICONS.userX} size={16} />
+                </button>
               )}
               {canEdit && (
-                <Button type="button" variant="secondary" onClick={() => setEditing(true)}>
-                  <Icon d={ICONS.pencil} size={14} />
-                  Edit
-                </Button>
+                <button
+                  type="button"
+                  title="Edit company"
+                  aria-label={`Edit ${company.companyName}`}
+                  onClick={() => setEditing(true)}
+                  className={`${CORNER_BUTTON} text-u-text3 hover:text-u-text`}
+                >
+                  <Icon d={ICONS.pencil} size={16} />
+                </button>
               )}
-            </span>
+            </>
           )
         }
       />

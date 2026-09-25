@@ -2,6 +2,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { useMutation } from "@tanstack/react-query";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { FormProvider, useForm } from "react-hook-form";
+import { Icon, ICONS } from "../../../components/layout/Icon";
 import { Button, FormError, useToast } from "../../../components/ui";
 import { DrawerCloseButton } from "../../../components/ui/Drawer";
 import { codeOf, messageFor } from "../../../lib/errorCodes";
@@ -53,6 +54,7 @@ export function AddCandidateForm({
   defaultCurrency,
   onClose,
   onSaved,
+  onMarkNoExecutiveFound,
 }: {
   projectId: string;
   company: CandidateCompanyContext | null;
@@ -63,6 +65,9 @@ export function AddCandidateForm({
   onClose: () => void;
   /** The created profile — the panel moves on to reading it. */
   onSaved: (saved: Candidate) => void;
+  /** The research's other outcome — flags the company and closes this panel. Only offered when the
+   *  panel was opened from a company's row, where there is a company to flag. */
+  onMarkNoExecutiveFound?: () => void;
 }) {
   const toast = useToast();
   const [submitError, setSubmitError] = useState<string | null>(null);
@@ -195,6 +200,19 @@ export function AddCandidateForm({
         </div>
 
         <div className="flex flex-none justify-end gap-2 border-t border-u-border px-5 py-3">
+          {company && onMarkNoExecutiveFound && (
+            <Button
+              type="button"
+              variant="secondary"
+              className="me-auto"
+              title={`Mark ${company.companyName} as researched — nobody suitable found`}
+              onClick={onMarkNoExecutiveFound}
+              disabled={save.isPending}
+            >
+              <Icon d={ICONS.userX} size={14} />
+              No executive found
+            </Button>
+          )}
           <Button type="button" variant="secondary" onClick={onClose} disabled={save.isPending}>
             Cancel
           </Button>

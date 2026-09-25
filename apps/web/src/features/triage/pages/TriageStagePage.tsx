@@ -143,6 +143,7 @@ function TriageStage() {
   const [openCompany, setOpenCompany] = useState<OpenCompany | null>(null);
   const [pendingRemoval, setPendingRemoval] = useState<TriageCompany | null>(null);
   const [profile, setProfile] = useState<OpenProfile | null>(null);
+  const profileCompany = profile?.company ?? null;
   const [pendingCandidateRemoval, setPendingCandidateRemoval] = useState<Candidate | null>(null);
   const [importing, setImporting] = useState(false);
   const [managingColumns, setManagingColumns] = useState(false);
@@ -544,8 +545,10 @@ function TriageStage() {
     onError: (error) => toast(messageFor(error)),
   });
 
+  // Loosened past `TriageCompany`: the add-executive panel holds only its company context, which is
+  // exactly the two fields this write and its toast need.
   const markNoExecutiveFound = useMutation({
-    mutationFn: (company: TriageCompany) =>
+    mutationFn: (company: { id: string; companyName: string }) =>
       triageApi.updateTriageCompany(project.id, company.id, { noExecutiveFound: true }),
     onSuccess: (_result, company) => {
       refreshEveryStage();
@@ -688,10 +691,6 @@ function TriageStage() {
               company: { triageCompanyId: company.id, companyName: company.companyName },
             })
           }
-          onMarkNoExecutiveFound={(company) => {
-            markBusy(company.id);
-            markNoExecutiveFound.mutate(company);
-          }}
           onSaveNote={(company, note) => saveNote.mutateAsync({ company, note })}
           onChangeCandidateStatus={(candidate, status) => {
             markBusy(candidate.id);
@@ -773,6 +772,20 @@ function TriageStage() {
           refreshEverything();
         }}
         onDelete={canWrite ? setPendingCandidateRemoval : undefined}
+        // The add form's other conclusion: the research happened and nobody fit, so the panel closes
+        // on the flag rather than on a saved profile.
+        onMarkNoExecutiveFound={
+          canWrite && profileCompany
+            ? () => {
+                markBusy(profileCompany.triageCompanyId);
+                markNoExecutiveFound.mutate({
+                  id: profileCompany.triageCompanyId,
+                  companyName: profileCompany.companyName,
+                });
+                setProfile(null);
+              }
+            : undefined
+        }
       />
 
       <RemoveCompanyDialog
