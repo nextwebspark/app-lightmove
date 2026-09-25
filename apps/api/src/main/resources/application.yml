@@ -389,6 +389,9 @@ lightmove:
       # How many companies one "Add all to Universe" may take; a filter matching more is refused, not
       # truncated. Above CompanyListSettings.MAX_BULK_ADD_LIMIT the application refuses to start.
       bulk-add-limit: ${COMPANY_BULK_ADD_LIMIT:200}
+    # How long the whole-universe facet counts (sectors, segments, size bands, countries) stay in
+    # memory. They change only when the pipeline reloads the universe.
+    facet-cache-ttl: ${COMPANY_FACET_CACHE_TTL:1h}
 
   position:
     document:

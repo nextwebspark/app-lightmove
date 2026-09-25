@@ -42,7 +42,7 @@ import org.springframework.stereotype.Service;
  * selectable band rendering as {@code annual_revenue IS NULL}.
  *
  * <p>Facet counts are taken over the whole universe, not the current selection, so the five
- * accordions are one cacheable read that no filter invalidates.
+ * accordions are one read that no filter invalidates — {@link UniverseFacets} holds it.
  */
 @Service
 @RequiredArgsConstructor

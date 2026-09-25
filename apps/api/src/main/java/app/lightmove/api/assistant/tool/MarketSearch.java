@@ -5,6 +5,7 @@ import app.lightmove.api.strategy.constant.CompanySortField;
 import app.lightmove.api.strategy.constant.SortDirection;
 import app.lightmove.api.strategy.model.CompanyScope;
 import app.lightmove.api.strategy.service.ApolloCompanyQueryService;
+import app.lightmove.api.strategy.service.UniverseFacets;
 import org.springframework.stereotype.Component;
 
 /** One capped, counted read of the company universe, and the vocabulary it has to be asked in. */
@@ -15,11 +16,13 @@ class MarketSearch {
     private static final CompanySortField BY_SIZE = CompanySortField.EMPLOYEES;
 
     private final ApolloCompanyQueryService companies;
+    private final UniverseFacets facets;
     private final int maxRows;
     private final int maxVocabulary;
 
-    MarketSearch(ApolloCompanyQueryService companies, LightMoveProperties properties) {
+    MarketSearch(ApolloCompanyQueryService companies, UniverseFacets facets, LightMoveProperties properties) {
         this.companies = companies;
+        this.facets = facets;
         this.maxRows = properties.assistant().toolRowLimit();
         this.maxVocabulary = properties.assistant().vocabularyLimit();
     }
@@ -40,9 +43,7 @@ class MarketSearch {
      * twenty-five by company count while the search tools call its spellings authoritative.
      */
     MarketShape shape() {
-        return new MarketShape(companies.sectorGroups(),
-                companies.countByCountry(CompanyScope.unfiltered(), maxVocabulary),
-                companies.marketSegmentFacets(), companies.employeeBandFacets(),
-                companies.revenueBandFacets());
+        return new MarketShape(facets.sectorGroups(), facets.countries(maxVocabulary),
+                facets.marketSegments(), facets.employeeBands(), facets.revenueBands());
     }
 }
