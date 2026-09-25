@@ -1,0 +1,26 @@
+# Squawk lints a migration for what it does to a live database: locks that stall traffic, constraints
+# that scan a table under an exclusive lock. CI runs it on the migrations a pull request adds, never
+# on applied history. Silence one statement with `-- squawk-ignore <rule>` on the line above it and
+# say why; the rules below are off for the whole repository.
+pg_version = "16.0"
+# Flyway runs each migration in one transaction.
+assume_in_transaction = true
+excluded_rules = [
+    # House style: varchar(n) and integer are deliberate here, and neither is a production hazard.
+    "prefer-text-field",
+    "prefer-bigint-over-int",
+    "prefer-identity",
+    # The deploy step sets lock_timeout for every migration (deploy.yml, `-initSql`), so repeating it in
+    # each file would only be noise. Statement time is bounded by the same lock_timeout in practice.
+    "require-lock-timeout",
+    "require-statement-timeout",
+    # Dropping, renaming and retyping are not lock problems but compatibility ones, and the contract
+    # marker check in ci.yml owns them (db-ops skill, "Rolling back").
+    "ban-drop-column",
+    "ban-drop-table",
+    "renaming-column",
+    "renaming-table",
+    "changing-column-type",
+    # Relaxing NOT NULL is the expand half of a change, and safe.
+    "ban-drop-not-null",
+]
