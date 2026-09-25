@@ -149,6 +149,49 @@ class CandidateFlowIntegrationTest extends FlowTestSupport {
     }
 
     @Test
+    @DisplayName("allowance lines and LTIP instruments round-trip, the lines summed into the allowances total")
+    void theCompensationBreakdownRoundTrips() throws Exception {
+        String projectId = mandate("Breakdown Firm");
+
+        mvc.perform(post(candidatesUrl(projectId))
+                        .header("Authorization", "Bearer " + admin())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"fullName":"Rania Aziz","companyName":"A Firm",
+                                 "compensation":{"currency":"AED","baseSalary":1800000,"bonus":810000,
+                                                 "longTermIncentive":1000000,
+                                                 "allowanceLines":[{"label":"Housing","amount":414000},
+                                                                   {"label":"Transport","amount":138000},
+                                                                   {"label":"","amount":null}],
+                                                 "longTermIncentiveTypes":["options","rsus"]}}"""))
+                .andExpect(status().isCreated());
+
+        JsonNode read = body(mvc.perform(get(candidatesUrl(projectId))
+                        .header("Authorization", "Bearer " + admin()))
+                .andExpect(status().isOk())
+                .andReturn()).get("candidates").get(0);
+
+        assertThat(read.at("/compensation/allowances").asLong()).isEqualTo(552_000L);
+        assertThat(read.at("/compensation/allowanceLines")).hasSize(2);
+        assertThat(read.at("/compensation/allowanceLines/0/label").asText()).isEqualTo("Housing");
+        assertThat(read.at("/compensation/longTermIncentiveTypes/1").asText()).isEqualTo("rsus");
+    }
+
+    @Test
+    @DisplayName("an LTIP instrument the drawer does not offer is refused")
+    void anUnknownIncentiveTypeIsRefused() throws Exception {
+        String projectId = mandate("Unknown Incentive Firm");
+
+        mvc.perform(post(candidatesUrl(projectId))
+                        .header("Authorization", "Bearer " + admin())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"fullName":"Omar Haddad","companyName":"A Firm",
+                                 "compensation":{"longTermIncentiveTypes":["phantom"]}}"""))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
     @DisplayName("a notice period the drawer does not offer is stored as stated, never refused")
     void anUnofferedNoticePeriodIsKept() throws Exception {
         String projectId = mandate("Notice Period Firm");

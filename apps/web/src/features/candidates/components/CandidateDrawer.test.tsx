@@ -48,6 +48,8 @@ const yasmin: Candidate = {
     allowances: null,
     longTermIncentive: null,
     noticePeriod: "3 months",
+    allowanceLines: [],
+    longTermIncentiveTypes: [],
   },
   career: [{ company: "Regional Foods Co.", title: "Finance Director", period: "2017–2021" }],
   languages: ["English", "Arabic"],
@@ -281,8 +283,99 @@ describe("CandidateDrawer", () => {
     // A select whose value matched no option would post blank and clear a fact nobody touched.
     const currency = screen.getByLabelText(/^Currency$/i);
     expect(currency).toHaveValue("INR");
-    expect(within(currency).getByRole("option", { name: "AED" })).toBeInTheDocument();
+    expect(within(currency).getByRole("option", { name: "AED - UAE Dirham" })).toBeInTheDocument();
     expect(within(currency).getByRole("option", { name: "Not set" })).toBeInTheDocument();
+  });
+
+  it("follows the brief's currency until it is overridden, and can go back to it", async () => {
+    renderDrawer({
+      candidate: { ...yasmin, compensation: { ...yasmin.compensation, currency: null } },
+      company: null,
+      defaultCurrency: "SAR",
+    });
+
+    await userEvent.click(screen.getByRole("button", { name: /Edit compensation/i }));
+    expect(screen.getByLabelText(/^Currency$/i)).toHaveTextContent("SAR - Saudi Riyal");
+    expect(screen.getByText(/^From brief$/i)).toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole("button", { name: /^Override$/i }));
+    const currency = screen.getByLabelText(/^Currency$/i);
+    expect(currency).toHaveValue("SAR");
+    await userEvent.selectOptions(currency, "USD");
+    expect(screen.queryByText(/^From brief$/i)).not.toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole("button", { name: /^Reset to brief$/i }));
+    expect(screen.getByLabelText(/^Currency$/i)).toHaveTextContent("SAR - Saudi Riyal");
+  });
+
+  it("opens a stored currency other than the brief's as overridden", async () => {
+    renderDrawer({ candidate: yasmin, company: null, defaultCurrency: "SAR" });
+
+    await userEvent.click(screen.getByRole("button", { name: /Edit compensation/i }));
+
+    expect(screen.getByLabelText(/^Currency$/i)).toHaveValue("AED");
+    expect(screen.getByRole("button", { name: /^Reset to brief$/i })).toBeInTheDocument();
+  });
+
+  it("stores the annual base, the bonus amount, the allowance lines and the LTIP instruments", async () => {
+    vi.mocked(candidatesApi.updateCandidate).mockResolvedValue(yasmin);
+    renderDrawer({ candidate: yasmin, company: null, defaultCurrency: "AED" });
+
+    await userEvent.click(screen.getByRole("button", { name: /Edit compensation/i }));
+    const base = screen.getByLabelText(/^Base$/i);
+    await userEvent.clear(base);
+    await userEvent.type(base, "150,000");
+    await userEvent.click(screen.getByRole("radio", { name: "Monthly" }));
+    await userEvent.type(screen.getByLabelText(/^Bonus$/i), "45");
+    expect(screen.getByText("Calculated: AED 810,000")).toBeInTheDocument();
+
+    await userEvent.type(screen.getByLabelText("Allowance 1 amount"), "414000");
+    await userEvent.type(screen.getByLabelText("Allowance 2 amount"), "138000");
+    await userEvent.click(screen.getByRole("button", { name: "+ Add" }));
+    await userEvent.type(screen.getByLabelText("Allowance 4 name"), "Schooling");
+    await userEvent.type(screen.getByLabelText("Allowance 4 amount"), "10000");
+    await userEvent.type(screen.getByLabelText(/^LTIP$/i), "1000000");
+    await userEvent.click(screen.getByRole("button", { name: "None" }));
+    await userEvent.click(screen.getByRole("button", { name: "Options" }));
+    await userEvent.click(screen.getByRole("button", { name: "RSUs" }));
+
+    // 1,800,000 + 810,000 + 562,000 + 1,000,000.
+    expect(screen.getByTestId("package-total")).toHaveTextContent("AED 4,172,000");
+    await userEvent.click(screen.getByRole("button", { name: /^Save$/i }));
+
+    await waitFor(() => expect(candidatesApi.updateCandidate).toHaveBeenCalled());
+    const sent = vi.mocked(candidatesApi.updateCandidate).mock.calls[0][2].compensation;
+    expect(sent).toMatchObject({
+      currency: "AED",
+      baseSalary: 1_800_000,
+      bonus: 810_000,
+      allowances: 562_000,
+      longTermIncentive: 1_000_000,
+      // The Education heading was left without a figure, so it is not an allowance of nought.
+      allowanceLines: [
+        { label: "Housing", amount: 414_000 },
+        { label: "Transport", amount: 138_000 },
+        { label: "Schooling", amount: 10_000 },
+      ],
+      // None stands alone: picking an instrument let go of it.
+      longTermIncentiveTypes: ["options", "rsus"],
+    });
+  });
+
+  it("reopens a bonus as its share of base, and a pre-itemised allowance total as one line", async () => {
+    renderDrawer({
+      candidate: {
+        ...yasmin,
+        compensation: { ...yasmin.compensation, bonus: 84_000, allowances: 40_000 },
+      },
+      company: null,
+    });
+
+    await userEvent.click(screen.getByRole("button", { name: /Edit compensation/i }));
+
+    expect(screen.getByLabelText(/^Bonus$/i)).toHaveValue("20");
+    expect(screen.getByLabelText("Allowance 1 name")).toHaveValue("Allowances");
+    expect(screen.getByLabelText("Allowance 1 amount")).toHaveValue("40,000");
   });
 
   it("offers the five notice periods, and keeps a stored period the picker does not carry", async () => {
@@ -318,12 +411,14 @@ describe("CandidateDrawer", () => {
 
     // A consultant who already picked one is stating this package is quoted in another.
     expect(currency()).toHaveValue("QAR");
+    expect(screen.getByRole("button", { name: /^Reset to brief$/i })).toBeInTheDocument();
   });
 
   it("opens a new executive on the mandate's currency when the brief is already read", async () => {
     renderDrawer({ defaultCurrency: "SAR" });
 
-    expect(screen.getByLabelText(/^Currency$/i)).toHaveValue("SAR");
+    expect(screen.getByLabelText(/^Currency$/i)).toHaveTextContent("SAR - Saudi Riyal");
+    expect(screen.getByText(/^From brief$/i)).toBeInTheDocument();
   });
 
   it("records a gender only where one is picked, and reads an unrecorded one as nothing", async () => {

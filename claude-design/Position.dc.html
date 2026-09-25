@@ -1032,14 +1032,73 @@
                 </sc-if>
 
                 <sc-if value="{{ sx.isComp }}">
-                  <div style="display:grid;grid-template-columns:1fr 1fr;column-gap:12px;row-gap:10px">
-                    <sc-for list="{{ cd.compTiles }}" as="t"><div style="{{ t.wrap }}"><div style="margin-bottom:4px;font:600 9.5px var(--mono);text-transform:uppercase;letter-spacing:.08em;color:var(--text3)">{{ t.label }}</div><div style="{{ t.style }}">{{ t.value }}</div></div></sc-for>
-                  </div>
-                  <sc-if value="{{ cd.hasTotal }}">
-                    <div style="margin-top:12px;border-radius:6px;border:1px solid var(--line-soft);background:var(--panel2);padding:10px 12px">
-                      <div style="display:flex;align-items:center;justify-content:space-between"><span style="font:400 12px var(--mono);color:var(--text2)">Total</span><span style="font:700 15px var(--mono);color:var(--text)">{{ cd.total }}</span></div>
-                      <div style="margin-top:10px;display:flex;height:6px;gap:1px;overflow:hidden;border-radius:999px"><sc-for list="{{ cd.parts }}" as="pt"><span style="height:100%;width:{{ pt.w }};background:{{ pt.color }}"></span></sc-for></div>
-                      <ul style="margin:8px 0 0;padding:0;list-style:none;display:flex;flex-wrap:wrap;column-gap:12px;row-gap:4px;font:400 10.5px var(--mono);color:var(--text3)"><sc-for list="{{ cd.parts }}" as="pt"><li style="display:flex;align-items:center;gap:6px"><span style="width:7px;height:7px;border-radius:50%;background:{{ pt.color }}"></span>{{ pt.label }}</li></sc-for></ul>
+                  <sc-if value="{{ !compEditing }}" hint-placeholder-val="{{ true }}">
+                    <div style="display:grid;grid-template-columns:1fr 1fr;column-gap:12px;row-gap:10px">
+                      <sc-for list="{{ cd.compTiles }}" as="t"><div style="{{ t.wrap }}"><div style="margin-bottom:4px;font:600 9.5px var(--mono);text-transform:uppercase;letter-spacing:.08em;color:var(--text3)">{{ t.label }}</div><div style="{{ t.style }}">{{ t.value }}</div></div></sc-for>
+                    </div>
+                    <sc-if value="{{ cd.hasTotal }}">
+                      <div style="margin-top:12px;border-radius:6px;border:1px solid var(--line-soft);background:var(--panel2);padding:10px 12px">
+                        <div style="display:flex;align-items:center;justify-content:space-between"><span style="font:400 12px var(--mono);color:var(--text2)">Total</span><span style="font:700 15px var(--mono);color:var(--text)">{{ cd.total }}</span></div>
+                        <div style="margin-top:10px;display:flex;height:6px;gap:1px;overflow:hidden;border-radius:999px"><sc-for list="{{ cd.parts }}" as="pt"><span style="height:100%;width:{{ pt.w }};background:{{ pt.color }}"></span></sc-for></div>
+                        <ul style="margin:8px 0 0;padding:0;list-style:none;display:flex;flex-wrap:wrap;column-gap:12px;row-gap:4px;font:400 10.5px var(--mono);color:var(--text3)"><sc-for list="{{ cd.parts }}" as="pt"><li style="display:flex;align-items:center;gap:6px"><span style="width:7px;height:7px;border-radius:50%;background:{{ pt.color }}"></span>{{ pt.label }}</li></sc-for></ul>
+                      </div>
+                    </sc-if>
+                  </sc-if>
+                  <sc-if value="{{ compEditing }}" hint-placeholder-val="{{ false }}">
+                    <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px">
+                      <select value="{{ cf.currency }}" onChange="{{ setCompCurrency }}" disabled="{{ cf.currencyDisabled }}" style="flex:1;min-width:0;appearance:none;-webkit-appearance:none;border-radius:6px;border:1px solid var(--line-soft);background:var(--panel2);padding:9px 12px;font:600 13px var(--mono);color:var(--text);outline:none">
+                        <sc-for list="{{ cf.currencyOptions }}" as="o"><option value="{{ o.value }}">{{ o.label }}</option></sc-for>
+                      </select>
+                      <sc-if value="{{ cf.fromBrief }}"><span style="flex:none;border-radius:5px;padding:4px 8px;font:700 10px var(--mono);text-transform:uppercase;letter-spacing:.05em;background:var(--u-direct-tint);color:var(--u-direct)">From brief</span></sc-if>
+                      <button onClick="{{ toggleCompOverride }}" style="flex:none;border:none;background:transparent;padding:0;font:600 12.5px var(--sans);color:var(--u-accent);cursor:pointer">{{ cf.overrideLabel }}</button>
+                    </div>
+                    <div style="display:grid;grid-template-columns:1fr 1fr;column-gap:16px;row-gap:16px">
+                      <div>
+                        <div style="margin-bottom:6px;font:600 9.5px var(--mono);text-transform:uppercase;letter-spacing:.08em;color:var(--text3)">Base</div>
+                        <input type="text" value="{{ cf.baseDisplay }}" onChange="{{ setCompBase }}" style="width:100%;box-sizing:border-box;border-radius:6px;border:1px solid var(--u-accent);background:var(--panel2);padding:9px 12px;font:700 14px var(--mono);color:var(--text);outline:none">
+                        <div style="margin-top:8px;display:inline-flex;width:fit-content;gap:2px;border-radius:6px;border:1px solid var(--line-soft);background:var(--panel2);padding:3px">
+                          <button onClick="{{ setBaseAnnual }}" style="{{ cf.baseAnnualStyle }}">Annual</button>
+                          <button onClick="{{ setBaseMonthly }}" style="{{ cf.baseMonthlyStyle }}">Monthly</button>
+                        </div>
+                      </div>
+                      <div>
+                        <div style="margin-bottom:6px;font:600 9.5px var(--mono);text-transform:uppercase;letter-spacing:.08em;color:var(--text3)">Bonus</div>
+                        <input type="text" value="{{ cf.bonusDisplay }}" onChange="{{ setCompBonus }}" style="width:100%;box-sizing:border-box;border-radius:6px;border:1px solid var(--line-soft);background:var(--panel2);padding:9px 12px;font:700 14px var(--mono);color:var(--text);outline:none">
+                        <div style="margin-top:8px;display:inline-flex;width:fit-content;gap:2px;border-radius:6px;border:1px solid var(--line-soft);background:var(--panel2);padding:3px">
+                          <button onClick="{{ setBonusPct }}" style="{{ cf.bonusPctStyle }}">% of Base</button>
+                          <button onClick="{{ setBonusFixed }}" style="{{ cf.bonusFixedStyle }}">Fixed</button>
+                        </div>
+                        <div style="margin-top:8px;font:400 11.5px var(--mono);color:var(--text3)">Calculated: {{ cf.bonusCalculatedLabel }}</div>
+                      </div>
+                      <div>
+                        <div style="margin-bottom:6px;font:600 9.5px var(--mono);text-transform:uppercase;letter-spacing:.08em;color:var(--text3)">Allowances</div>
+                        <div style="border-radius:6px;border:1px solid var(--line-soft);overflow:hidden">
+                          <sc-for list="{{ cf.allowances }}" as="al" hint-placeholder-count="3">
+                            <div style="display:flex;align-items:center;gap:8px;border-bottom:1px solid var(--line-soft);padding:8px 10px">
+                              <input type="text" value="{{ al.label }}" data-i="{{ al.i }}" onChange="{{ setAllowanceLabel }}" style="flex:1;min-width:0;border:none;background:transparent;padding:0;font:400 12.5px var(--mono);color:var(--text2);outline:none">
+                              <input type="text" value="{{ al.display }}" data-i="{{ al.i }}" onChange="{{ setAllowanceAmount }}" style="flex:none;width:110px;text-align:right;border:none;background:transparent;padding:0;font:700 12.5px var(--mono);color:var(--text);outline:none">
+                            </div>
+                          </sc-for>
+                        </div>
+                        <button onClick="{{ addAllowance }}" style="margin-top:8px;border:none;background:transparent;padding:0;font:600 12.5px var(--sans);color:var(--u-accent);cursor:pointer">+ Add</button>
+                      </div>
+                      <div>
+                        <div style="margin-bottom:6px;font:600 9.5px var(--mono);text-transform:uppercase;letter-spacing:.08em;color:var(--text3)">LTIP</div>
+                        <input type="text" value="{{ cf.ltipDisplay }}" onChange="{{ setCompLtip }}" style="width:100%;box-sizing:border-box;border-radius:6px;border:1px solid var(--line-soft);background:var(--panel2);padding:9px 12px;font:700 14px var(--mono);color:var(--text);outline:none">
+                        <div style="margin-top:8px;display:flex;flex-wrap:wrap;gap:6px">
+                          <sc-for list="{{ cf.ltipTypes }}" as="lt" hint-placeholder-count="4">
+                            <button onClick="{{ toggleLtipType }}" data-i="{{ lt.key }}" style="{{ lt.style }}">{{ lt.label }}</button>
+                          </sc-for>
+                        </div>
+                      </div>
+                    </div>
+                    <div style="margin-top:16px;border-radius:6px;border:1px solid var(--u-accent);background:var(--u-accent-tint);padding:12px 14px;display:flex;align-items:center;justify-content:space-between">
+                      <span style="font:700 10px var(--mono);text-transform:uppercase;letter-spacing:.08em;color:var(--text2)">Total package</span>
+                      <span style="font:700 17px var(--mono);color:var(--text)">{{ cf.totalLabel }}</span>
+                    </div>
+                    <div style="margin-top:14px;display:flex;justify-content:flex-end;gap:8px">
+                      <button onClick="{{ cancelCompEdit }}" style="border-radius:6px;border:1px solid var(--line-soft);background:transparent;padding:8px 16px;font:600 12.5px var(--sans);color:var(--text2);cursor:pointer">Cancel</button>
+                      <button onClick="{{ saveCompEdit }}" style="border-radius:6px;border:1px solid var(--u-accent-solid);background:var(--u-accent-solid);padding:8px 16px;font:600 12.5px var(--sans);color:#fff;cursor:pointer">Save</button>
                     </div>
                   </sc-if>
                 </sc-if>
@@ -1740,6 +1799,7 @@ const pct = (p, w) => (w === 0 ? 0 : Math.round((p / w) * 100));
 const ordinal = (n) => { const r = n % 100; if (r >= 11 && r <= 13) return `${n}th`; return `${n}${["th", "st", "nd", "rd"][n % 10] || "th"}`; };
 const cmoney = (cur, a) => { const t = (v) => v.toFixed(v >= 10 ? 0 : 1).replace(/\.0$/, ""); if (a >= 1e6) return `${cur} ${t(a / 1e6)}M`; if (a >= 1e3) return `${cur} ${Math.round(a / 1e3)}K`; return `${cur} ${a.toLocaleString("en-US")}`; };
 const num = (v) => v.toLocaleString("en-GB");
+const parseAmt = (s) => { const n = parseFloat(String(s).replace(/[^0-9.]/g, "")); return isNaN(n) ? 0 : n; };
 const rt = (s) => s.split("**").map((t, i) => ({ t, b: i % 2 === 1, p: i % 2 === 0 })).filter((x) => x.t !== "");
 const countOf = (n, noun, plural) => `${n} ${n === 1 ? noun : plural || `${noun}s`}`;
 const noun = (g) => (EXPAT.includes(g) ? "executive" : "national");
@@ -1849,7 +1909,7 @@ class Component extends DCLogic {
       dark: true, collapsed, wsMenu: false, colMenu: false,
       sort: { field: "added", dir: "desc" },
       vis: { founded: false, description: false, source: false },
-      toast: null, coId: "c01", candId: "e01", removeId: "c01", contactEditing: false,
+      toast: null, coId: "c01", candId: "e01", removeId: "c01", contactEditing: false, compEditing: false, compForm: null,
       sec: { summary: true, experience: true, compensation: true, background: false, contact: true, columns: false, note: false },
       mapSel: "c01", mapOpen: { "United Arab Emirates": true, "Saudi Arabia": true, Qatar: true, Oman: true, Bahrain: true, c01: true }, mapExecs: true, mapPanel: true,
       basis: "recent", momentum: "weeks", measure: "package", cpCountry: "All countries", cpNat: "All nationalities",
@@ -2127,7 +2187,7 @@ class Component extends DCLogic {
       const open = !!s.sec[d.id] || (d.id === "contact" && s.contactEditing);
       return { id: d.id, title: d.title, hasCount: d.count !== undefined, count: d.count, showSummary: !open && !!d.summary, summary: d.summary || "",
         chev: `flex:none;color:var(--text3);transition:transform .2s;transform:${open ? "none" : "rotate(-90deg)"}`, open,
-        pencil: cw && !!d.pencil && !(d.id === "contact" && s.contactEditing), pencilTitle: `Edit ${d.pencil}`, saveNote: false,
+        pencil: cw && !!d.pencil && !(d.id === "contact" && s.contactEditing) && !(d.id === "compensation" && s.compEditing), pencilTitle: `Edit ${d.pencil}`, saveNote: false,
         isSummary: d.id === "summary", isExperience: d.id === "experience", isComp: d.id === "compensation", isBackground: d.id === "background", isContact: d.id === "contact", isColumns: d.id === "columns", isNote: d.id === "note" };
     });
     const verStyle = (on) => `flex:none;cursor:pointer;border-radius:5px;padding:3px 7px;font:700 9.5px var(--mono);text-transform:uppercase;letter-spacing:.06em;${on ? "border:1px solid transparent;background:var(--green-dim);color:var(--green)" : "border:1px solid var(--line);background:none;color:var(--text3)"}`;
@@ -2678,6 +2738,46 @@ class Component extends DCLogic {
     return `flex:1;border-radius:6px;padding:7px 0;font:600 12.5px var(--sans);border:none;cursor:pointer;${active ? "background:var(--panel);color:var(--text);box-shadow:var(--shadow)" : "background:none;color:var(--text2)"}`;
   }
 
+  openCompEdit(cand) {
+    const comp = (cand && cand.comp) || [BRIEF_CURRENCY, 0, 0, 0, 0, null];
+    const allowTotal = comp[3] || 0;
+    const allowances = allowTotal > 0
+      ? [{ label: "Housing", amount: Math.round(allowTotal * 0.6) }, { label: "Transport", amount: Math.round(allowTotal * 0.2) }, { label: "Education", amount: Math.round(allowTotal * 0.2) }]
+      : [{ label: "Housing", amount: 0 }, { label: "Transport", amount: 0 }, { label: "Education", amount: 0 }];
+    const base = comp[1] || 0;
+    const bonus = comp[2] || 0;
+    this.setState({
+      compEditing: true,
+      compForm: { currency: comp[0] || BRIEF_CURRENCY, overridden: (comp[0] || BRIEF_CURRENCY) !== BRIEF_CURRENCY, base, cadence: "annual",
+        bonusMode: "pct", bonusPct: base ? Math.round((bonus / base) * 100) : 0, bonusFixed: bonus, allowances, ltip: comp[4] || 0, ltipTypes: ["options", "rsus"] },
+      sec: Object.assign({}, this.state.sec, { compensation: true }),
+    });
+  }
+
+  compFormVals() {
+    const f = this.state.compForm;
+    if (!f) return { allowances: [], ltipTypes: [], currencyOptions: [] };
+    const baseAnnual = f.cadence === "monthly" ? f.base * 12 : f.base;
+    const bonusCalc = f.bonusMode === "pct" ? Math.round(baseAnnual * (f.bonusPct / 100)) : f.bonusFixed;
+    const allowTotal = f.allowances.reduce((t, a) => t + (a.amount || 0), 0);
+    const total = baseAnnual + bonusCalc + allowTotal + (f.ltip || 0);
+    const CURRENCIES = [["AED", "AED - UAE Dirham"], ["SAR", "SAR - Saudi Riyal"], ["USD", "USD - US Dollar"], ["GBP", "GBP - British Pound"], ["EUR", "EUR - Euro"]];
+    const LTIP_TYPES = [["options", "Options"], ["rsus", "RSUs"], ["cash", "Cash"], ["none", "None"]];
+    const chipStyle = (on) => `flex:none;border-radius:999px;padding:5px 12px;font:600 11.5px var(--sans);cursor:pointer;${on ? "border:1px solid var(--u-accent-ring);background:var(--u-accent-tint);color:var(--u-accent)" : "border:1px solid var(--line-soft);background:transparent;color:var(--text3)"}`;
+    return {
+      currency: f.currency, currencyDisabled: !f.overridden, fromBrief: !f.overridden, overrideLabel: f.overridden ? "Reset to brief" : "Override",
+      currencyOptions: CURRENCIES.map(([value, label]) => ({ value, label })),
+      baseDisplay: `${f.currency} ${num(f.base)}`, baseAnnualStyle: segU(f.cadence === "annual"), baseMonthlyStyle: segU(f.cadence === "monthly"),
+      bonusDisplay: f.bonusMode === "pct" ? `${f.bonusPct}%` : `${f.currency} ${num(f.bonusFixed)}`,
+      bonusPctStyle: segU(f.bonusMode === "pct"), bonusFixedStyle: segU(f.bonusMode === "fixed"),
+      bonusCalculatedLabel: `${f.currency} ${num(bonusCalc)}`,
+      allowances: f.allowances.map((a, i) => ({ i, label: a.label, display: num(a.amount) })),
+      ltipDisplay: `${f.currency} ${num(f.ltip)}`,
+      ltipTypes: LTIP_TYPES.map(([key, label]) => ({ key, label, style: chipStyle(f.ltipTypes.includes(key)) })),
+      totalLabel: `${f.currency} ${num(total)}`,
+    };
+  }
+
   handlers() {
     const set = (o) => this.setState(o);
     const id = (e) => e.currentTarget.dataset.id;
@@ -2719,7 +2819,30 @@ class Component extends DCLogic {
       toggleSec: (e) => { const k = id(e); set({ sec: Object.assign({}, this.state.sec, { [k]: !this.state.sec[k] }) }); },
       expandAll: () => set({ sec: { summary: true, experience: true, compensation: true, background: true, contact: true, columns: true, note: true } }),
       collapseAll: () => set({ sec: { summary: false, experience: false, compensation: false, background: false, contact: false, columns: false, note: false }, contactEditing: false }),
-      sectionPencil: (e) => { if (id(e) === "contact") set({ contactEditing: true, sec: Object.assign({}, this.state.sec, { contact: true }) }); },
+      toggleCompOverride: () => { const f = this.state.compForm; set({ compForm: Object.assign({}, f, { overridden: !f.overridden, currency: f.overridden ? BRIEF_CURRENCY : f.currency }) }); },
+      setCompCurrency: (e) => set({ compForm: Object.assign({}, this.state.compForm, { currency: e.target.value }) }),
+      setCompBase: (e) => set({ compForm: Object.assign({}, this.state.compForm, { base: parseAmt(e.target.value) }) }),
+      setBaseAnnual: () => set({ compForm: Object.assign({}, this.state.compForm, { cadence: "annual" }) }),
+      setBaseMonthly: () => set({ compForm: Object.assign({}, this.state.compForm, { cadence: "monthly" }) }),
+      setCompBonus: (e) => { const f = this.state.compForm; const v = parseAmt(e.target.value); set({ compForm: Object.assign({}, f, f.bonusMode === "pct" ? { bonusPct: v } : { bonusFixed: v }) }); },
+      setBonusPct: () => set({ compForm: Object.assign({}, this.state.compForm, { bonusMode: "pct" }) }),
+      setBonusFixed: () => set({ compForm: Object.assign({}, this.state.compForm, { bonusMode: "fixed" }) }),
+      setAllowanceLabel: (e) => { const i = +e.target.dataset.i; const f = this.state.compForm; const allowances = f.allowances.map((a, idx) => (idx === i ? Object.assign({}, a, { label: e.target.value }) : a)); set({ compForm: Object.assign({}, f, { allowances }) }); },
+      setAllowanceAmount: (e) => { const i = +e.target.dataset.i; const f = this.state.compForm; const allowances = f.allowances.map((a, idx) => (idx === i ? Object.assign({}, a, { amount: parseAmt(e.target.value) }) : a)); set({ compForm: Object.assign({}, f, { allowances }) }); },
+      addAllowance: () => { const f = this.state.compForm; set({ compForm: Object.assign({}, f, { allowances: f.allowances.concat([{ label: "", amount: 0 }]) }) }); },
+      setCompLtip: (e) => set({ compForm: Object.assign({}, this.state.compForm, { ltip: parseAmt(e.target.value) }) }),
+      toggleLtipType: (e) => { const k = e.currentTarget.dataset.i; const f = this.state.compForm; let types = f.ltipTypes.slice(); if (k === "none") types = ["none"]; else { types = types.filter((t) => t !== "none"); types = types.includes(k) ? types.filter((t) => t !== k) : types.concat([k]); if (types.length === 0) types = ["none"]; } set({ compForm: Object.assign({}, f, { ltipTypes: types }) }); },
+      cancelCompEdit: () => set({ compEditing: false, compForm: null }),
+      saveCompEdit: () => {
+        const f = this.state.compForm; const cand = E.find((x) => x.id === this.state.candId);
+        const baseAnnual = f.cadence === "monthly" ? f.base * 12 : f.base;
+        const bonusCalc = f.bonusMode === "pct" ? Math.round(baseAnnual * (f.bonusPct / 100)) : f.bonusFixed;
+        const allowTotal = f.allowances.reduce((t, a) => t + (a.amount || 0), 0);
+        cand.comp = [f.currency, baseAnnual, bonusCalc, allowTotal, f.ltip, cand.comp ? cand.comp[5] : null];
+        set({ compEditing: false, compForm: null });
+        this.showToast("Compensation updated");
+      },
+      sectionPencil: (e) => { const k = id(e); if (k === "contact") set({ contactEditing: true, sec: Object.assign({}, this.state.sec, { contact: true }) }); if (k === "compensation") { const cand = E.find((x) => x.id === this.state.candId); this.openCompEdit(cand); } },
       cancelContactEdit: () => set({ contactEditing: false }),
       saveContactEdit: () => { set({ contactEditing: false }); this.showToast("Contact saved"); },
       copyValue: (e) => this.showToast(`${id(e)} copied`),
@@ -2793,6 +2916,7 @@ class Component extends DCLogic {
       askVisible: !(isStage && (s.drawer === "company" || s.drawer === "candidate")),
       co: isStage && s.drawer === "company" ? this.coVals() : {}, cd: isStage && s.drawer === "candidate" ? this.cdVals() : { cdSections: [] },
       cdSections: isStage && s.drawer === "candidate" ? this.cdVals().cdSections : [],
+      compEditing: s.compEditing && cw, cf: this.compFormVals(),
       contactEditing: s.contactEditing && cw, contactReading: !(s.contactEditing && cw),
       showImport: isStage && cw && s.dialog === "import", importChoose: s.importStep === "choose", importMap: s.importStep === "map", importDone: s.importStep === "done",
       importCols: [

@@ -58,7 +58,18 @@ export interface CandidateCompensation {
   allowances: number | null;
   longTermIncentive: number | null;
   noticePeriod: string | null;
+  /** The allowances itemised. When present they sum to `allowances`, which the server keeps agreeing. */
+  allowanceLines: AllowanceLine[];
+  /** What the long-term incentive is paid in; `none` is a recorded "no LTIP" and only ever alone. */
+  longTermIncentiveTypes: LongTermIncentiveType[];
 }
+
+export interface AllowanceLine {
+  label: string | null;
+  amount: number | null;
+}
+
+export type LongTermIncentiveType = "options" | "rsus" | "cash" | "none";
 
 /**
  * One executive mapped for a mandate.

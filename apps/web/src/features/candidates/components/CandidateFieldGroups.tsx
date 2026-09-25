@@ -1,4 +1,4 @@
-import type { ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import {
   Controller,
   useFieldArray,
@@ -13,12 +13,23 @@ import {
 import { Icon, ICONS } from "../../../components/layout/Icon";
 import { Field, Input, Select, TextArea } from "../../../components/ui";
 import { CountryField } from "../../../components/ui/CountryField";
+import { SegmentedControl, type SegmentedOption } from "../../../components/ui/SegmentedControl";
 import { cn } from "../../../lib/cn";
-import { CURRENCIES } from "../../../lib/currencies";
+import { CURRENCIES, currencyOptionLabel } from "../../../lib/currencies";
 import { formatNumber } from "../../../lib/format";
 import { NOTICE_PERIODS } from "../../../lib/noticePeriod";
 import { toReadableUrl } from "../../../lib/url";
-import { amountTyped } from "../lib/compensation";
+import type { LongTermIncentiveType } from "../api/types";
+import {
+  allowanceTotalOf,
+  amountTyped,
+  annualBaseOf,
+  bonusAmountOf,
+  bonusPercentOf,
+  toggleIncentiveType,
+  type BaseCadence,
+  type BonusBasis,
+} from "../lib/compensation";
 import { EMPTY_CONTACT_LINE, type CandidateForm, type ContactEntryForm } from "../lib/candidateForm";
 import {
   CANDIDATE_GENDERS,
@@ -26,7 +37,6 @@ import {
   CANDIDATE_SENIORITIES,
   CANDIDATE_STATUSES,
 } from "../lib/candidateVocabulary";
-import { PackageTotal } from "./CompensationSummary";
 
 /**
  * The profile's fields, one group per section, shared by the form that adds an executive and the
@@ -202,66 +212,303 @@ export function CareerFields<TTransformed extends FieldValues>({
   );
 }
 
-const AMOUNTS: { name: "baseSalary" | "bonus" | "allowances" | "longTermIncentive"; label: string; placeholder: string }[] = [
-  { name: "baseSalary", label: "Base", placeholder: "420,000" },
-  { name: "bonus", label: "Bonus", placeholder: "80,000" },
-  { name: "allowances", label: "Allowances", placeholder: "40,000" },
-  { name: "longTermIncentive", label: "Long-term incentive", placeholder: "0" },
+const CADENCES: readonly SegmentedOption<BaseCadence>[] = [
+  { value: "annual", label: "Annual" },
+  { value: "monthly", label: "Monthly" },
 ];
 
+const BONUS_BASES: readonly SegmentedOption<BonusBasis>[] = [
+  { value: "percent", label: "% of Base" },
+  { value: "fixed", label: "Fixed" },
+];
+
+const INCENTIVE_TYPES: { value: LongTermIncentiveType; label: string }[] = [
+  { value: "options", label: "Options" },
+  { value: "rsus", label: "RSUs" },
+  { value: "cash", label: "Cash" },
+  { value: "none", label: "None" },
+];
+
+const MAX_ALLOWANCE_LINES = 12;
+
+type CurrencyMode = "auto" | "override" | "brief";
+
 /**
- * A package, as it is quoted: the currency chosen once and shown inside every figure it qualifies,
- * and the total worked out as the figures are typed — a consultant checking a number against what
- * was said on the phone reads the total, not four fields.
+ * A package, as it is quoted (claude-design/Position.dc.html, the drawer's Compensation editor): the
+ * currency the brief is quoted in unless somebody overrides it, the base and bonus typed the way they
+ * were said — per month, as a share of base — the allowances line by line, the instruments an LTIP is
+ * paid in, and the total worked out as it is typed. What is stored is always the annual amounts; the
+ * two toggles are how a figure was spoken, and the patch converts them.
  *
  * <p>A currency the list does not carry — one stored before the picker existed, or by an import —
  * stays offered as an option: a select whose value matches no option posts blank, and that would
  * clear a fact nobody touched. The notice period, which was a text box until the five became the
- * vocabulary, is kept the same way; "Not established" above them is the blank every sibling picker
- * carries, and is not "None" — see lib/noticePeriod.ts.
+ * vocabulary, is kept the same way; "Not established" is the blank every sibling picker carries, and
+ * is not "None" — see lib/noticePeriod.ts.
  */
-export function CompensationFields({
+export function CompensationFields<TTransformed extends FieldValues>({
   register,
   errors,
+  control,
   watch,
   setValue,
+  briefCurrency,
   storedCurrency,
   storedNoticePeriod,
 }: FieldGroupProps & {
+  control: Control<CandidateForm, unknown, TTransformed>;
   watch: UseFormWatch<CandidateForm>;
   setValue: UseFormSetValue<CandidateForm>;
+  /** The mandate's currency from the brief, which a package follows until somebody overrides it. */
+  briefCurrency?: string | null;
+  /** What the profile already holds; a stored code other than the brief's opens overridden. */
   storedCurrency?: string | null;
   storedNoticePeriod?: string | null;
 }) {
-  const [currency, base, bonus, allowances, longTermIncentive] = watch([
-    "currency",
-    "baseSalary",
-    "bonus",
-    "allowances",
-    "longTermIncentive",
-  ]);
-  const currencies: string[] =
-    storedCurrency && !(CURRENCIES as readonly string[]).includes(storedCurrency)
-      ? [storedCurrency, ...CURRENCIES]
-      : [...CURRENCIES];
+  const [currencyMode, setCurrencyMode] = useState<CurrencyMode>("auto");
+  const allowances = useFieldArray({ control, name: "allowanceLines" });
+  const [currency, base, baseCadence, bonus, bonusBasis, allowanceLines, longTermIncentive, incentiveTypes] =
+    watch([
+      "currency",
+      "baseSalary",
+      "baseCadence",
+      "bonus",
+      "bonusBasis",
+      "allowanceLines",
+      "longTermIncentive",
+      "longTermIncentiveTypes",
+    ]);
+
+  const followsBrief =
+    Boolean(briefCurrency) &&
+    (currencyMode === "brief" ||
+      (currencyMode === "auto" && (!storedCurrency || storedCurrency === briefCurrency)));
+
+  // The brief is read beside the grid and can land after the form opened; while the package follows
+  // it, it takes it. Once overridden, nothing here touches the pick.
+  useEffect(() => {
+    if (followsBrief && briefCurrency && currency !== briefCurrency) {
+      setValue("currency", briefCurrency, { shouldDirty: true });
+    }
+  }, [followsBrief, briefCurrency, currency, setValue]);
+
+  const currencyField = register("currency");
+  const currencies: string[] = [...CURRENCIES];
+  for (const held of [storedCurrency, briefCurrency]) {
+    if (held && !currencies.includes(held)) currencies.unshift(held);
+  }
   const offVocabularyNotice =
     storedNoticePeriod && !NOTICE_PERIODS.some((period) => period.label === storedNoticePeriod)
       ? storedNoticePeriod
       : null;
 
+  const annualBase = annualBaseOf(amountTyped(base), baseCadence);
+  const bonusAmount = bonusAmountOf(annualBase, amountTyped(bonus), bonusBasis);
+  const allowanceTotal = allowanceTotalOf(allowanceLines.map((line) => amountTyped(line.amount)));
+  const total = (annualBase ?? 0) + (bonusAmount ?? 0) + (allowanceTotal ?? 0) + (amountTyped(longTermIncentive) ?? 0);
+
+  const handleBonusBasis = (next: BonusBasis) => {
+    if (next === bonusBasis) return;
+    // Carry the figure across rather than reading 45 as AED 45: the switch changes how the bonus is
+    // stated, not what it is.
+    const typed = amountTyped(bonus);
+    if (typed !== null) {
+      const restated =
+        next === "fixed"
+          ? bonusAmount === null ? "" : formatNumber(bonusAmount)
+          : annualBase ? String(bonusPercentOf(annualBase, typed)) : "";
+      setValue("bonus", restated, { shouldDirty: true });
+    }
+    setValue("bonusBasis", next, { shouldDirty: true });
+  };
+
   return (
     <>
-      <div className="grid gap-x-4 sm:grid-cols-2">
-        <Field label="Currency" error={errors.currency?.message}>
-          <Select {...register("currency")} invalid={Boolean(errors.currency)}>
+      <div className="mb-4 flex items-center gap-2.5">
+        {followsBrief ? (
+          <div
+            aria-label="Currency"
+            className="min-w-0 flex-1 truncate rounded-[6px] border border-u-border bg-u-raised px-3 py-[9px] font-mono text-[13px] font-semibold text-u-text"
+          >
+            {currencyOptionLabel(currency)}
+          </div>
+        ) : (
+          <Select
+            {...currencyField}
+            // A pick is a statement that this package is quoted otherwise: a brief read after it must
+            // not take it back.
+            onChange={(event) => {
+              setCurrencyMode("override");
+              void currencyField.onChange(event);
+            }}
+            aria-label="Currency"
+            invalid={Boolean(errors.currency)}
+            className="min-w-0 flex-1 font-mono text-[13px] font-semibold"
+          >
             <option value="">Not set</option>
             {currencies.map((code) => (
               <option key={code} value={code}>
-                {code}
+                {currencyOptionLabel(code)}
               </option>
             ))}
           </Select>
-        </Field>
+        )}
+        {followsBrief && (
+          <span className="flex-none rounded-[5px] bg-u-direct-tint px-2 py-1 font-mono text-[10px] font-bold uppercase tracking-[0.05em] text-u-direct">
+            From brief
+          </span>
+        )}
+        {briefCurrency && (
+          <button
+            type="button"
+            onClick={() => setCurrencyMode(followsBrief ? "override" : "brief")}
+            className="flex-none font-sans text-[12.5px] font-semibold text-u-accent hover:underline"
+          >
+            {followsBrief ? "Override" : "Reset to brief"}
+          </button>
+        )}
+      </div>
+
+      <div className="grid gap-x-4 gap-y-4 sm:grid-cols-2">
+        <div>
+          <AmountField
+            name="baseSalary"
+            label="Base"
+            placeholder="1,800,000"
+            currency={currency}
+            register={register}
+            setValue={setValue}
+            error={errors.baseSalary?.message}
+          />
+          <SegmentedControl
+            label="Base salary is"
+            options={CADENCES}
+            value={baseCadence}
+            onChange={(next) => setValue("baseCadence", next, { shouldDirty: true })}
+            variant="uncava"
+            className="-mt-2"
+          />
+        </div>
+
+        <div>
+          {bonusBasis === "fixed" ? (
+            <AmountField
+              name="bonus"
+              label="Bonus"
+              placeholder="150,000"
+              currency={currency}
+              register={register}
+              setValue={setValue}
+              error={errors.bonus?.message}
+            />
+          ) : (
+            <Field label="Bonus" error={errors.bonus?.message}>
+              <div className="relative">
+                <Input
+                  {...register("bonus")}
+                  aria-label="Bonus"
+                  inputMode="decimal"
+                  placeholder="30"
+                  invalid={Boolean(errors.bonus)}
+                  className="pe-8 font-mono font-bold"
+                />
+                <span
+                  aria-hidden="true"
+                  className="pointer-events-none absolute inset-y-0 end-0 flex items-center pe-3 font-mono text-[12px] font-semibold text-u-text3"
+                >
+                  %
+                </span>
+              </div>
+            </Field>
+          )}
+          <SegmentedControl
+            label="Bonus is"
+            options={BONUS_BASES}
+            value={bonusBasis}
+            onChange={handleBonusBasis}
+            variant="uncava"
+            className="-mt-2"
+          />
+          {bonusBasis === "percent" && bonusAmount !== null && (
+            <p className="mt-2 font-mono text-[11.5px] text-u-text3">
+              Calculated: {`${currency} ${formatNumber(bonusAmount)}`.trim()}
+            </p>
+          )}
+          {/* A share of no base comes to nothing the server can store, so say so before Save drops it. */}
+          {bonusBasis === "percent" && annualBase === null && amountTyped(bonus) !== null && (
+            <p className="mt-2 font-mono text-[11.5px] text-u-signal">Enter a base to work this out</p>
+          )}
+        </div>
+
+        <div>
+          <span className="mb-1.5 block font-mono text-[10px] font-semibold uppercase tracking-[0.12em] text-u-text3">
+            Allowances
+          </span>
+          {allowances.fields.length > 0 && (
+            <ul className="overflow-hidden rounded-[6px] border border-u-border">
+              {allowances.fields.map((line, index) => (
+                <AllowanceLineRow
+                  key={line.id}
+                  index={index}
+                  register={register}
+                  setValue={setValue}
+                  error={
+                    errors.allowanceLines?.[index]?.amount?.message ?? errors.allowanceLines?.[index]?.label?.message
+                  }
+                />
+              ))}
+            </ul>
+          )}
+          {allowances.fields.length < MAX_ALLOWANCE_LINES && (
+            <button
+              type="button"
+              onClick={() => allowances.append({ label: "", amount: "" })}
+              className="mt-2 font-sans text-[12.5px] font-semibold text-u-accent hover:underline"
+            >
+              + Add
+            </button>
+          )}
+        </div>
+
+        <div>
+          <AmountField
+            name="longTermIncentive"
+            label="LTIP"
+            placeholder="1,000,000"
+            currency={currency}
+            register={register}
+            setValue={setValue}
+            error={errors.longTermIncentive?.message}
+          />
+          <div role="group" aria-label="LTIP paid in" className="-mt-2 flex flex-wrap gap-1.5">
+            {INCENTIVE_TYPES.map((type) => {
+              const pressed = incentiveTypes.includes(type.value);
+              return (
+                <button
+                  key={type.value}
+                  type="button"
+                  aria-pressed={pressed}
+                  onClick={() =>
+                    setValue("longTermIncentiveTypes", toggleIncentiveType(incentiveTypes, type.value), {
+                      shouldDirty: true,
+                    })
+                  }
+                  className={cn(
+                    "flex-none rounded-full border px-3 py-[5px] font-sans text-[11.5px] font-semibold transition",
+                    pressed
+                      ? "border-u-accent-ring bg-u-accent-tint text-u-accent"
+                      : "border-u-border text-u-text3 hover:text-u-text",
+                  )}
+                >
+                  {type.label}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      </div>
+
+      <div className="mt-4 sm:w-1/2 sm:pe-2">
         <Field label="Notice period" error={errors.noticePeriod?.message}>
           <Select {...register("noticePeriod")} invalid={Boolean(errors.noticePeriod)}>
             <option value="">Not established</option>
@@ -275,33 +522,63 @@ export function CompensationFields({
             )}
           </Select>
         </Field>
-        {AMOUNTS.map((amount) => (
-          <AmountField
-            key={amount.name}
-            name={amount.name}
-            label={amount.label}
-            placeholder={amount.placeholder}
-            currency={currency}
-            register={register}
-            setValue={setValue}
-            error={errors[amount.name]?.message}
-          />
-        ))}
       </div>
-      <PackageTotal
-        currency={currency}
-        compensation={{
-          baseSalary: amountTyped(base),
-          bonus: amountTyped(bonus),
-          allowances: amountTyped(allowances),
-          longTermIncentive: amountTyped(longTermIncentive),
-        }}
-        live
-      />
-      <p className="mt-3 mb-4 font-mono text-[11px] text-u-text3">
-        Whole units, in the currency it was quoted in. Nothing converts it.
-      </p>
+
+      <div className="mb-4 flex items-center justify-between rounded-[6px] border border-u-accent bg-u-accent-tint px-3.5 py-3">
+        <span className="font-mono text-[10px] font-bold uppercase tracking-[0.08em] text-u-text2">Total package</span>
+        <span
+          data-testid="package-total"
+          className={cn("font-mono text-[17px] font-bold", total > 0 ? "text-u-text" : "text-u-text3")}
+        >
+          {total > 0 ? `${currency} ${formatNumber(total)}`.trim() : "—"}
+        </span>
+      </div>
     </>
+  );
+}
+
+/** One allowance: its name on the left, its annual figure on the right, as one row of a ruled list. */
+function AllowanceLineRow({
+  index,
+  register,
+  setValue,
+  error,
+}: {
+  index: number;
+  register: UseFormRegister<CandidateForm>;
+  setValue: UseFormSetValue<CandidateForm>;
+  error?: string;
+}) {
+  const amount = register(`allowanceLines.${index}.amount`);
+  return (
+    <li className="border-b border-u-border px-2.5 py-2 last:border-b-0">
+      <div className="flex items-center gap-2">
+        <input
+          {...register(`allowanceLines.${index}.label`)}
+          aria-label={`Allowance ${index + 1} name`}
+          placeholder="Allowance"
+          className="min-w-0 flex-1 bg-transparent font-mono text-[12.5px] text-u-text2 outline-none placeholder:text-u-text3"
+        />
+        <input
+          {...amount}
+          aria-label={`Allowance ${index + 1} amount`}
+          aria-invalid={Boolean(error)}
+          inputMode="numeric"
+          placeholder="0"
+          className="w-[110px] flex-none bg-transparent text-end font-mono text-[12.5px] font-bold text-u-text outline-none placeholder:text-u-text3"
+          onBlur={(event) => {
+            void amount.onBlur(event);
+            const figure = amountTyped(event.target.value);
+            if (figure !== null) setValue(`allowanceLines.${index}.amount`, formatNumber(figure));
+          }}
+        />
+      </div>
+      {error && (
+        <p role="alert" className="mt-1 font-mono text-[11px] text-u-offlimits">
+          {error}
+        </p>
+      )}
+    </li>
   );
 }
 
@@ -315,7 +592,7 @@ function AmountField({
   setValue,
   error,
 }: {
-  name: (typeof AMOUNTS)[number]["name"];
+  name: "baseSalary" | "bonus" | "longTermIncentive";
   label: string;
   placeholder: string;
   currency: string;
@@ -330,7 +607,7 @@ function AmountField({
         {currency && (
           <span
             aria-hidden="true"
-            className="pointer-events-none absolute inset-y-0 start-0 flex items-center ps-3 font-mono text-[11px] font-semibold text-u-text3"
+            className="pointer-events-none absolute inset-y-0 start-0 flex items-center ps-3 font-mono text-[12px] font-bold text-u-text"
           >
             {currency}
           </span>
@@ -343,7 +620,7 @@ function AmountField({
           inputMode="numeric"
           placeholder={placeholder}
           invalid={Boolean(error)}
-          className={cn(currency && "ps-12")}
+          className={cn("font-mono font-bold", currency && "ps-12")}
           onBlur={(event) => {
             void field.onBlur(event);
             const figure = amountTyped(event.target.value);

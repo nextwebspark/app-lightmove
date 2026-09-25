@@ -3,6 +3,13 @@ import type { Resolver } from "react-hook-form";
 import { z } from "zod";
 import { formatNumber } from "../../../lib/format";
 import { optionalNumber, optionalWebAddress } from "../../../lib/formFields";
+import {
+  allowanceTotalOf,
+  annualBaseOf,
+  bonusAmountOf,
+  bonusBasisOf,
+  bonusPercentOf,
+} from "./compensation";
 import type {
   Candidate,
   CandidateEmail,
@@ -10,6 +17,7 @@ import type {
   CandidateSeniority,
   CandidateStatus,
   ContactEntryInput,
+  LongTermIncentiveType,
   SaveCandidatePayload,
 } from "../api/types";
 
@@ -116,9 +124,16 @@ export const candidateSchema = z.object({
   languages: z.string().trim().max(1200),
   currency: z.string().trim().max(3),
   baseSalary: money("Base salary"),
+  // How the two figures were typed, not what is stored: the patch turns them into the annual base
+  // and the bonus amount the server holds.
+  baseCadence: z.enum(["annual", "monthly"]),
   bonus: money("Bonus"),
-  allowances: money("Allowances"),
+  bonusBasis: z.enum(["percent", "fixed"]),
+  allowanceLines: z
+    .array(z.object({ label: z.string().trim().max(60), amount: money("Allowance") }))
+    .max(12, "A package lists 12 allowances at most"),
   longTermIncentive: money("Long-term incentive"),
+  longTermIncentiveTypes: z.array(z.enum(["options", "rsus", "cash", "none"])),
   noticePeriod: z.string().trim().max(100),
   career: z
     .array(
@@ -145,6 +160,13 @@ export type CandidateForm = z.input<typeof candidateSchema>;
 /** What the schema hands back once parsed — the numeric fields coerced, or absent. */
 export type ParsedCandidateForm = z.output<typeof candidateSchema>;
 
+/** The three a GCC package is itemised in, offered as headings; a line left without a figure is not saved. */
+const DEFAULT_ALLOWANCE_LINES: CandidateForm["allowanceLines"] = [
+  { label: "Housing", amount: "" },
+  { label: "Transport", amount: "" },
+  { label: "Education", amount: "" },
+];
+
 export const EMPTY_FORM: CandidateForm = {
   fullName: "",
   title: "",
@@ -164,9 +186,12 @@ export const EMPTY_FORM: CandidateForm = {
   languages: "",
   currency: "",
   baseSalary: "",
+  baseCadence: "annual",
   bonus: "",
-  allowances: "",
+  bonusBasis: "percent",
+  allowanceLines: DEFAULT_ALLOWANCE_LINES,
   longTermIncentive: "",
+  longTermIncentiveTypes: [],
   noticePeriod: "",
   career: [],
 };
@@ -188,7 +213,17 @@ export const SECTION_FIELDS = {
   ],
   summary: ["summary"],
   experience: ["career"],
-  compensation: ["currency", "baseSalary", "bonus", "allowances", "longTermIncentive", "noticePeriod"],
+  compensation: [
+    "currency",
+    "baseSalary",
+    "baseCadence",
+    "bonus",
+    "bonusBasis",
+    "allowanceLines",
+    "longTermIncentive",
+    "longTermIncentiveTypes",
+    "noticePeriod",
+  ],
   background: ["nationality", "gender", "yearsExperience", "languages"],
   contact: ["linkedinUrl"],
   note: ["note"],
@@ -240,16 +275,42 @@ export function formOf(candidate: Candidate): CandidateForm {
     note: candidate.note ?? "",
     languages: candidate.languages.join(", "),
     currency: candidate.compensation.currency ?? "",
-    baseSalary: amountOf(candidate.compensation.baseSalary),
-    bonus: amountOf(candidate.compensation.bonus),
-    allowances: amountOf(candidate.compensation.allowances),
+    ...compensationFormOf(candidate),
     longTermIncentive: amountOf(candidate.compensation.longTermIncentive),
+    longTermIncentiveTypes: [...candidate.compensation.longTermIncentiveTypes],
     noticePeriod: candidate.compensation.noticePeriod ?? "",
     career: candidate.career.map((entry) => ({
       company: entry.company ?? "",
       title: entry.title ?? "",
       period: entry.period ?? "",
     })),
+  };
+}
+
+/**
+ * The package's figures as they reopen: the base annual, the bonus as a share of it where there is
+ * one, and the allowances as their lines — or, for a total stored before lines existed, one line
+ * holding it, so the figure is edited rather than silently replaced.
+ */
+function compensationFormOf(
+  candidate: Candidate,
+): Pick<CandidateForm, "baseSalary" | "baseCadence" | "bonus" | "bonusBasis" | "allowanceLines"> {
+  const { baseSalary, bonus, allowances, allowanceLines } = candidate.compensation;
+  const bonusBasis = bonusBasisOf(baseSalary, bonus);
+  return {
+    baseSalary: amountOf(baseSalary),
+    baseCadence: "annual",
+    bonus:
+      bonusBasis === "percent" && baseSalary && bonus !== null
+        ? String(bonusPercentOf(baseSalary, bonus))
+        : amountOf(bonus),
+    bonusBasis,
+    allowanceLines:
+      allowanceLines.length > 0
+        ? allowanceLines.map((line) => ({ label: line.label ?? "", amount: amountOf(line.amount) }))
+        : allowances !== null
+          ? [{ label: "Allowances", amount: amountOf(allowances) }]
+          : DEFAULT_ALLOWANCE_LINES,
   };
 }
 
@@ -321,16 +382,25 @@ const PATCHES: {
         period: entry.period || null,
       })),
   }),
-  compensation: (parsed) => ({
-    compensation: {
-      currency: parsed.currency || null,
-      baseSalary: parsed.baseSalary ?? null,
-      bonus: parsed.bonus ?? null,
-      allowances: parsed.allowances ?? null,
-      longTermIncentive: parsed.longTermIncentive ?? null,
-      noticePeriod: parsed.noticePeriod || null,
-    },
-  }),
+  compensation: (parsed) => {
+    const baseSalary = annualBaseOf(parsed.baseSalary ?? null, parsed.baseCadence);
+    // A line without a figure is a heading nobody filled in, not an allowance of nought.
+    const allowanceLines = parsed.allowanceLines
+      .filter((line) => line.amount !== undefined)
+      .map((line) => ({ label: line.label || null, amount: line.amount ?? null }));
+    return {
+      compensation: {
+        currency: parsed.currency || null,
+        baseSalary,
+        bonus: bonusAmountOf(baseSalary, parsed.bonus ?? null, parsed.bonusBasis),
+        allowances: allowanceTotalOf(allowanceLines.map((line) => line.amount)),
+        longTermIncentive: parsed.longTermIncentive ?? null,
+        noticePeriod: parsed.noticePeriod || null,
+        allowanceLines,
+        longTermIncentiveTypes: parsed.longTermIncentiveTypes as LongTermIncentiveType[],
+      },
+    };
+  },
   background: (parsed) => ({
     nationality: parsed.nationality || undefined,
     gender: parsed.gender || undefined,

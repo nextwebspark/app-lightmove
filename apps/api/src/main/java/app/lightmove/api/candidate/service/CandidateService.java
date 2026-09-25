@@ -7,6 +7,8 @@ import app.lightmove.api.candidate.constant.ContactChannel;
 import app.lightmove.api.candidate.constant.ContactKind;
 import app.lightmove.api.candidate.constant.ContactSource;
 import app.lightmove.api.candidate.constant.Gender;
+import app.lightmove.api.candidate.constant.LongTermIncentiveType;
+import app.lightmove.api.candidate.dto.AllowanceLineDto;
 import app.lightmove.api.candidate.dto.CandidateCareerEntryDto;
 import app.lightmove.api.candidate.dto.CandidateCompensationDto;
 import app.lightmove.api.candidate.dto.CandidateContactsDto;
@@ -20,6 +22,7 @@ import app.lightmove.api.candidate.dto.CandidatesResponse;
 import app.lightmove.api.candidate.dto.SaveCandidateRequest;
 import app.lightmove.api.candidate.dto.UpdateCandidateContactsRequest;
 import app.lightmove.api.candidate.dto.UpdateCandidateStatusRequest;
+import app.lightmove.api.candidate.model.AllowanceLine;
 import app.lightmove.api.candidate.model.Candidate;
 import app.lightmove.api.candidate.model.CandidateAttribution;
 import app.lightmove.api.candidate.model.CandidateCapturedEvent;
@@ -31,6 +34,7 @@ import app.lightmove.api.candidate.model.ContactEntry;
 import app.lightmove.api.candidate.model.CandidateDetails;
 import app.lightmove.api.candidate.model.CandidatePhoto;
 import app.lightmove.api.candidate.model.CandidateProfile;
+import app.lightmove.api.candidate.model.CompensationBreakdown;
 import app.lightmove.api.candidate.model.EnrichedProfile;
 import app.lightmove.api.candidate.model.FoundEmails;
 import app.lightmove.api.candidate.model.FoundPhones;
@@ -666,7 +670,27 @@ public class CandidateService {
             return CandidateCompensation.unknown();
         }
         return new CandidateCompensation(supplied.currency(), supplied.baseSalary(), supplied.bonus(),
-                supplied.allowances(), supplied.longTermIncentive(), supplied.noticePeriod());
+                supplied.allowances(), supplied.longTermIncentive(), supplied.noticePeriod(),
+                breakdownOf(supplied));
+    }
+
+    private static CompensationBreakdown breakdownOf(CandidateCompensationDto supplied) {
+        List<AllowanceLine> lines = supplied.allowanceLines() == null ? List.of()
+                : supplied.allowanceLines().stream()
+                        .filter(Objects::nonNull)
+                        .map(line -> new AllowanceLine(line.label(), line.amount()))
+                        .toList();
+        List<LongTermIncentiveType> types = supplied.longTermIncentiveTypes() == null ? List.of()
+                : supplied.longTermIncentiveTypes().stream().map(CandidateService::resolveIncentiveType).toList();
+        return new CompensationBreakdown(lines, types);
+    }
+
+    private static LongTermIncentiveType resolveIncentiveType(String token) {
+        LongTermIncentiveType type = LongTermIncentiveType.fromValue(token);
+        if (type == null) {
+            throw new ApiException(ErrorCode.VALIDATION_FAILED, "Unknown long-term incentive type: " + token);
+        }
+        return type;
     }
 
     private static CandidateProfile profileOf(SaveCandidateRequest request) {
@@ -757,7 +781,13 @@ public class CandidateService {
                 candidate.getNote(),
                 new CandidateCompensationDto(compensation.currency(), compensation.baseSalary(),
                         compensation.bonus(), compensation.allowances(),
-                        compensation.longTermIncentive(), compensation.noticePeriod()),
+                        compensation.longTermIncentive(), compensation.noticePeriod(),
+                        compensation.breakdown().allowanceLines().stream()
+                                .map(line -> new AllowanceLineDto(line.label(), line.amount()))
+                                .toList(),
+                        compensation.breakdown().longTermIncentiveTypes().stream()
+                                .map(LongTermIncentiveType::value)
+                                .toList()),
                 candidate.getProfile().career().stream()
                         .map(entry -> new CandidateCareerEntryDto(entry.company(), entry.title(), entry.period()))
                         .toList(),

@@ -1,5 +1,5 @@
 import { formatNumber } from "../../../lib/format";
-import type { CandidateCompensation } from "../api/types";
+import type { CandidateCompensation, LongTermIncentiveType } from "../api/types";
 
 /** One element of a package: a stored figure and its share of the total, for the composition bar. */
 export interface PackagePart {
@@ -49,4 +49,53 @@ export function amountTyped(value: string | undefined): number | null {
 export function formatAmount(currency: string, amount: number | null): string | null {
   if (amount === null || amount === undefined) return null;
   return `${currency} ${formatNumber(amount)}`.trim();
+}
+
+export type BaseCadence = "annual" | "monthly";
+export type BonusBasis = "percent" | "fixed";
+
+/** A base typed per month is stored per year — `base_salary` is always annual. */
+export function annualBaseOf(base: number | null, cadence: BaseCadence): number | null {
+  if (base === null) return null;
+  return cadence === "monthly" ? base * 12 : base;
+}
+
+/** A bonus typed as a share of the (annual) base, as the amount it comes to. */
+export function bonusAmountOf(annualBase: number | null, bonus: number | null, basis: BonusBasis): number | null {
+  if (bonus === null) return null;
+  if (basis === "fixed") return bonus;
+  // A share of a base nobody established is not a bonus of nought.
+  if (annualBase === null) return null;
+  return Math.round((annualBase * bonus) / 100);
+}
+
+/**
+ * How a stored bonus reopens: as a share of base, because that is how a GCC package is quoted — except
+ * a bonus with no base to share it of, which can only be restated as the amount it is.
+ */
+export function bonusBasisOf(baseSalary: number | null, bonus: number | null): BonusBasis {
+  return bonus !== null && !baseSalary ? "fixed" : "percent";
+}
+
+export function bonusPercentOf(baseSalary: number, bonus: number): number {
+  return Math.round((bonus / baseSalary) * 1000) / 10;
+}
+
+/** The typed lines summed, or null when none holds a figure — "not established", not nought. */
+export function allowanceTotalOf(amounts: readonly (number | null)[]): number | null {
+  const figures = amounts.filter((amount): amount is number => amount !== null);
+  return figures.length === 0 ? null : figures.reduce((sum, amount) => sum + amount, 0);
+}
+
+/**
+ * Pressing one instrument chip. None stands alone: picking it clears the rest, picking an
+ * instrument clears it, and letting go of the last instrument leaves nothing recorded.
+ */
+export function toggleIncentiveType(
+  selected: readonly LongTermIncentiveType[],
+  pressed: LongTermIncentiveType,
+): LongTermIncentiveType[] {
+  if (selected.includes(pressed)) return selected.filter((type) => type !== pressed);
+  if (pressed === "none") return ["none"];
+  return [...selected.filter((type) => type !== "none"), pressed];
 }
