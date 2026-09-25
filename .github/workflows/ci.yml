@@ -52,6 +52,34 @@ jobs:
           done
           exit $failed
 
+      # The next three steps hold every migration to one rule: the release before it must still run on
+      # the schema it leaves, so production can always roll back one release by moving traffic alone
+      # (db-ops skill, "Rolling back"). Diffed against the main fetched above; a PR adding no migration
+      # skips all three.
+      - name: Find the migrations this PR adds
+        id: migrations
+        if: github.event_name != 'push'
+        run: |
+          git diff --no-renames --diff-filter=A --name-only FETCH_HEAD HEAD -- \
+            'apps/api/src/main/resources/db/migration/V*.sql' > "$RUNNER_TEMP/added-migrations"
+          if [ -s "$RUNNER_TEMP/added-migrations" ]; then
+            echo "any=true" >> "$GITHUB_OUTPUT"
+            # A contract migration breaks the last release on purpose, so there is no N-1 run to pass.
+            if xargs grep -liE '^--[[:space:]]*lightmove:contract([[:space:]]|$)' < "$RUNNER_TEMP/added-migrations" > /dev/null; then
+              echo "contract=true" >> "$GITHUB_OUTPUT"
+            fi
+          fi
+
+      # Locks a migration takes against live traffic: an index built without CONCURRENTLY, a constraint
+      # validated under an exclusive lock. Only the files this PR adds; applied history is never edited.
+      - name: Migrations are safe to run on a live database
+        if: steps.migrations.outputs.any == 'true'
+        run: xargs npx --yes squawk-cli@2.66.0 --config .squawk.toml < "$RUNNER_TEMP/added-migrations"
+
+      - name: Destructive migrations are marked
+        if: steps.migrations.outputs.any == 'true'
+        run: xargs ops/cloudsql/check-contract-marker.sh < "$RUNNER_TEMP/added-migrations"
+
       - uses: actions/setup-java@v6
         with:
           java-version: '21'
@@ -66,6 +94,26 @@ jobs:
       - name: Test
         working-directory: apps/api
         run: ./mvnw -B test
+
+      # The latest release's own code and tests, on the schema this PR builds: Flyway points at this
+      # tree's migrations, Hibernate validates every entity against them, and the suite drives the native
+      # SQL validation cannot see. Green means rolling back to that tag after this ships needs no
+      # database work.
+      - name: The last release still runs on this schema
+        if: steps.migrations.outputs.any == 'true' && steps.migrations.outputs.contract != 'true'
+        run: |
+          git fetch --depth=1 origin 'refs/tags/v*:refs/tags/v*'
+          TAG="$(git tag -l 'v[0-9]*.[0-9]*.[0-9]*' --sort=-v:refname | head -n 1)"
+          if [ -z "$TAG" ]; then
+            echo "::notice::No release yet, so there is nothing to roll back to."
+            exit 0
+          fi
+          git worktree add "$RUNNER_TEMP/last-release" "$TAG"
+          cd "$RUNNER_TEMP/last-release/apps/api"
+          if ! SPRING_FLYWAY_LOCATIONS="filesystem:${GITHUB_WORKSPACE}/apps/api/src/main/resources/db/migration" ./mvnw -B test; then
+            echo "::error::${TAG} fails on this PR's schema, so production could not roll back to it once this ships. Make the migration additive, or mark it '-- lightmove:contract' and ship its destructive half a release after the code stops using what it removes (db-ops skill, \"Rolling back\")."
+            exit 1
+          fi
 
   web:
     name: Web

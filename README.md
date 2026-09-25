@@ -336,17 +336,29 @@ CI is green on `main`, works the next version out from the latest tag, pushes it
 whose notes are the merged PR titles since the last one, and hands that tag to **Deploy**. The first
 release is `v0.1.0` — there is nothing yet to bump from.
 
-To redeploy a tag, or roll back to an older one, run **Deploy** by itself and give it the tag. It
-rebuilds from that commit, so it costs a few minutes. When a revision for the image is still around,
-moving traffic is instant instead:
+**Deploy** proves a release before it meets a user. It backs the database up when a migration is
+pending (`pre-migrate vX.Y.Z`, newest ten kept), migrates under a 5s `lock_timeout`, starts the new
+revision with **no traffic** behind a `candidate` tag, smoke-tests it on that tag's own URL, and only then
+moves traffic to it. If the smoke test then fails on the public URL, traffic goes straight back to the
+revision that was serving. The schema stays migrated either way — which is safe because of the rule below.
 
-```bash
-gcloud run services update-traffic lightmove --region us-central1 --to-revisions=lightmove-00042-abc=100
-```
+**To roll back**, run Actions → **Rollback** with the tag. It moves traffic to the revision that release
+left behind in seconds: no build, no migration. It refuses when a migration marked
+`-- lightmove:contract` has shipped since that tag (`force` overrides, after you have checked). Run
+**Deploy** with the old tag only when its revision is gone — that rebuilds it, which costs a few minutes,
+and Flyway ignores the migrations newer than the tag.
 
-**Rolling the image back does not roll the schema back.** Flyway only goes forwards, so an older tag
-is safe only where the older code tolerates the newer schema — true of an added column, false of a
-renamed or dropped one. Crossing one of those needs a compensating migration, not an older tag.
+**Rolling the image back does not roll the schema back.** Flyway only goes forwards, so every migration
+must leave the release before it working: expand in one release, contract (drop, rename, `NOT NULL`,
+retype) in a later one, marked. CI proves it on every PR that adds a migration by running the latest
+release's own test suite against the new schema, and Squawk lints what each statement locks. A migration
+that ran and is wrong is fixed forward with a new one. The rule, the marker and the backup's restore
+path are in the `db-ops` skill, "Rolling back".
+
+The backup step needs the `lightmoveDeployBackup` role on the deployer: re-run `./ops/gcp/bootstrap.sh`
+once on an environment bootstrapped before it existed. Not built yet, and the natural next steps:
+feature flags, which separate shipping code from turning it on, and a percentage canary, which Cloud Run's
+traffic split supports once there is enough traffic for a slice of it to mean something.
 
 ### First time
 
@@ -464,7 +476,7 @@ set the variable and assert it with a test.
 | `ops/dev/` | `db.sh` (the local Docker Postgres) and `api.sh` (the API pointed at it) — what `npm run dev` runs |
 | `ops/cloudsql/` | Database bootstrap, hardening, the `lm_migrate` role, and `psql.sh` |
 | `ops/gcp/` | `bootstrap.sh` — everything on GCP the first deploy needs, idempotent; `schedule-warm-hours.sh` — the Dubai-hours minimum-instance schedule |
-| `.github/workflows/` | `ci.yml` gates; `release.yml` tags and releases; `deploy.yml` builds, migrates, deploys, smoke-tests |
+| `.github/workflows/` | `ci.yml` gates; `release.yml` tags and releases; `deploy.yml` backs up, migrates, deploys a candidate, smoke-tests, promotes; `rollback.yml` moves traffic back |
 | `docs/` | [Login & authentication](docs/login-and-authentication.md) — every signup/login/invite scenario, end to end |
 
 [CLAUDE.md](CLAUDE.md) has the rules that shape the code, and the traps this codebase has already fallen

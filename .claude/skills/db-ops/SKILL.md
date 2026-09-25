@@ -18,6 +18,45 @@ forever, which is precisely what `harden.sql` revokes. In the pipeline it runs a
 instead, so a bad migration fails a deploy and the old revision keeps serving — rather than
 crash-looping production, where you can roll back an image but not a schema.
 
+## Rolling back: every migration leaves the last release working
+
+Rolling back production is moving traffic to the revision an earlier release left behind (Actions →
+**Rollback**, seconds, no build, no Flyway). The schema stays where the newest release took it, so a
+rollback is only as safe as this rule: **the release before a migration must still run on the schema it
+leaves** (N-1). Expand, then contract, across two releases:
+
+| Change | Release N (expand) | A later release (contract, marked) |
+|---|---|---|
+| Add a column or table | nullable or defaulted | — |
+| Rename | add the new column, backfill, write both, read the new | drop the old |
+| Drop | stop reading and writing it | drop it |
+| NOT NULL | backfill; the code always writes it | `SET NOT NULL` |
+| Change a type | add a column of the new type, backfill, switch | drop the old |
+
+The contract half carries **`-- lightmove:contract`** in its header. That is the price of it: Rollback
+refuses to cross it (short of `force`), so the oldest tag you can roll back to moves up to the release
+that shipped it. `ops/cloudsql/check-contract-marker.sh` fails CI on an unmarked drop, rename,
+`SET NOT NULL` or retype; a hit that is harmless (a scratch table created and dropped in one file, a
+numeric widened) says `-- lightmove:additive` instead. Every applied migration before this rule (V6
+through V70) would have needed the marker; none is edited.
+
+What proves it, on every PR that adds a migration (`ci.yml`, the API job):
+- **The last release still runs on this schema.** The latest tag's own code and full suite, with
+  `SPRING_FLYWAY_LOCATIONS` pointed at the PR's migrations: Hibernate `validate` catches a mapped column
+  that went away, the suite the native SQL `validate` cannot see. Skipped for a marked contract migration.
+- **Squawk** (`.squawk.toml`) for what a statement does to a live table: an index built without
+  `CONCURRENTLY` (put it in a migration of its own — Flyway runs that one outside a transaction), a
+  constraint validated under an exclusive lock (`NOT VALID`, then `VALIDATE CONSTRAINT`). Where the table
+  is small enough not to matter, say so: `-- squawk-ignore <rule>` above the statement, with the reason.
+- **`lock_timeout`** (5s, `MIGRATION_LOCK_TIMEOUT`) on the deploy's Flyway run: a migration stuck behind a
+  live transaction fails the deploy, rolled back whole, instead of queueing every request behind it.
+  Re-run the deploy.
+
+A migration that ran and is wrong is **fixed forward** with a new one, never undone. Deploy takes an
+on-demand backup (`pre-migrate vX.Y.Z`, newest ten kept) before any pending migration runs; it is for
+data a migration destroyed, and it is restored **into a clone** and the rows copied back — restoring in
+place rewinds the whole instance, the Apollo universe and every write since included.
+
 ## Humans and roles
 
 `ops/cloudsql/create-database.sh` creates the database, the app user, and registers the IAM

@@ -155,6 +155,22 @@ gcloud projects add-iam-policy-binding "$PROJECT" \
     --member="serviceAccount:${DEPLOY_SA_EMAIL}" --role=roles/cloudsql.client --condition=None --quiet >/dev/null
 echo "  ✓ deployer has cloudsql.client (for the migration step)"
 
+# Deploy takes an on-demand backup before any migration runs and prunes the old ones. A custom role
+# because the predefined one that can do that, cloudsql.editor, can also delete the instance.
+BACKUP_ROLE="lightmoveDeployBackup"
+BACKUP_PERMISSIONS="cloudsql.backupRuns.create,cloudsql.backupRuns.get,cloudsql.backupRuns.list,cloudsql.backupRuns.delete,cloudsql.instances.get"
+if gcloud iam roles describe "$BACKUP_ROLE" --project="$PROJECT" &>/dev/null; then
+    gcloud iam roles update "$BACKUP_ROLE" --project="$PROJECT" \
+        --permissions="$BACKUP_PERMISSIONS" --quiet >/dev/null
+else
+    gcloud iam roles create "$BACKUP_ROLE" --project="$PROJECT" \
+        --title="LightMove pre-migration backup" --permissions="$BACKUP_PERMISSIONS" --quiet >/dev/null
+fi
+gcloud projects add-iam-policy-binding "$PROJECT" \
+    --member="serviceAccount:${DEPLOY_SA_EMAIL}" --role="projects/${PROJECT}/roles/${BACKUP_ROLE}" \
+    --condition=None --quiet >/dev/null
+echo "  ✓ deployer can back up Cloud SQL before migrating — and nothing else on the instance"
+
 # ── Workload Identity Federation ──────────────────────────────────────────────
 # Keyless GitHub → GCP. No JSON service-account key is ever created, so there is none to leak, rotate,
 # or find in a GitHub secret three years from now.
