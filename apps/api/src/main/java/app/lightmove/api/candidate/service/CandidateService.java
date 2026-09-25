@@ -163,6 +163,14 @@ public class CandidateService {
                 found.getTotalElements(), page, size);
     }
 
+    @Transactional(readOnly = true)
+    public CandidateResponse get(UUID workspaceId, UUID projectId, UUID candidateId) {
+        requireProject(projectId, workspaceId);
+        return candidates.findByIdAndProjectId(candidateId, projectId)
+                .map(CandidateService::toDto)
+                .orElseThrow(() -> ApiException.of(ErrorCode.NOT_FOUND));
+    }
+
     /**
      * Every executive the mandate has mapped, unpaged — the seam {@code talentmap} reads people
      * through. Takes a cap the caller states and states it back in {@code totalCount}, so a mandate

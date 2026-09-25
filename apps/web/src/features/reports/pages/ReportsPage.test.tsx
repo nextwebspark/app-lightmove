@@ -3,6 +3,9 @@ import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter, Outlet, Route, Routes, useLocation } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import * as candidatesApi from "../../candidates/api/candidatesApi";
+import type { Candidate } from "../../candidates/api/types";
+import * as customColumnsApi from "../../customcolumns/api/customColumnsApi";
 import type { Project } from "../../projects/api/types";
 import * as reportApi from "../api/reportApi";
 import { SAMPLE_REPORT } from "../../../test/sampleReport";
@@ -14,6 +17,16 @@ vi.mock("../api/reportApi", async (importOriginal) => ({
   ...(await importOriginal<typeof import("../api/reportApi")>()),
   getReport: vi.fn(),
   getTeamPerformance: vi.fn(),
+}));
+
+vi.mock("../../candidates/api/candidatesApi", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("../../candidates/api/candidatesApi")>()),
+  getCandidate: vi.fn(),
+}));
+
+vi.mock("../../customcolumns/api/customColumnsApi", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("../../customcolumns/api/customColumnsApi")>()),
+  getCustomColumns: vi.fn(),
 }));
 
 // No seat and no admin role by default: the chapters every reader sees, the staff-only card absent.
@@ -273,6 +286,57 @@ describe("ReportsPage", () => {
     await user.selectOptions(screen.getByRole("combobox", { name: "Country" }), "Kuwait");
 
     expect(screen.getByText(/too few to compute a reliable percentile/)).toBeInTheDocument();
+  });
+
+  it("opens a compensation dot as the executive's full profile, read by their id", async () => {
+    vi.mocked(reportApi.getReport).mockResolvedValue(SAMPLE_REPORT);
+    vi.mocked(customColumnsApi.getCustomColumns).mockResolvedValue({ columns: [] });
+    const zahrani: Candidate = {
+      id: "d1",
+      triageCompanyId: null,
+      companyName: "Al Ain Farms",
+      fullName: "H. Al-Zahrani",
+      title: "VP Finance",
+      seniority: null,
+      status: "interested",
+      linkedinUrl: null,
+      locationCountry: "United Arab Emirates",
+      locationCity: "Abu Dhabi",
+      nationality: "Saudi",
+      gender: null,
+      yearsExperience: null,
+      summary: null,
+      note: null,
+      compensation: {
+        currency: "AED",
+        baseSalary: null,
+        bonus: null,
+        allowances: null,
+        longTermIncentive: null,
+        noticePeriod: null,
+        allowanceLines: [],
+        longTermIncentiveTypes: [],
+      },
+      career: [{ company: "Regional Foods Co.", title: "Finance Director", period: "2017–2021" }],
+      languages: [],
+      education: [],
+      skills: [],
+      source: "manual",
+      sourceUrl: null,
+      customFields: {},
+      addedAt: "2026-08-02T09:00:00Z",
+      enrichedAt: null,
+      contacts: { emails: [], phones: [], emailsLookedUpAt: null, phonesLookedUpAt: null, source: null },
+    };
+    vi.mocked(candidatesApi.getCandidate).mockResolvedValue(zahrani);
+    const user = userEvent.setup();
+
+    renderPage("comp");
+    await user.click(await screen.findByRole("button", { name: /^H\. Al-Zahrani ·/ }));
+
+    const drawer = await screen.findByRole("dialog", { name: "H. Al-Zahrani" });
+    expect(candidatesApi.getCandidate).toHaveBeenCalledWith("p1", "d1", expect.anything());
+    expect(within(drawer).getByText("Regional Foods Co.")).toBeInTheDocument();
   });
 
   it("says the brief has no band rather than ranking against nothing", async () => {
