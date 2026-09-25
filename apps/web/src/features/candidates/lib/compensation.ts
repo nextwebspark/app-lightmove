@@ -34,10 +34,10 @@ export function packageOf(
   };
 }
 
-/** "420,000" as typed, or "" — what an amount field holds, back as the number it means. */
+/** "420,000" or "45%" as typed, or "" — what a figure field holds, back as the number it means. */
 export function amountTyped(value: string | undefined): number | null {
   if (!value) return null;
-  const figure = Number(value.replace(/[,\s]/g, ""));
+  const figure = Number(value.replace(/[,\s%]/g, ""));
   return Number.isFinite(figure) && figure >= 0 ? figure : null;
 }
 
@@ -88,14 +88,17 @@ export function allowanceTotalOf(amounts: readonly (number | null)[]): number | 
 }
 
 /**
- * Pressing one instrument chip. None stands alone: picking it clears the rest, picking an
- * instrument clears it, and letting go of the last instrument leaves nothing recorded.
+ * Pressing one instrument chip, as the mockup's chips behave. None stands alone: picking it clears
+ * the rest, picking an instrument clears it, and letting go of the last instrument lands on None.
  */
 export function toggleIncentiveType(
   selected: readonly LongTermIncentiveType[],
   pressed: LongTermIncentiveType,
 ): LongTermIncentiveType[] {
-  if (selected.includes(pressed)) return selected.filter((type) => type !== pressed);
   if (pressed === "none") return ["none"];
+  if (selected.includes(pressed)) {
+    const remaining = selected.filter((type) => type !== pressed);
+    return remaining.length === 0 ? ["none"] : remaining;
+  }
   return [...selected.filter((type) => type !== "none"), pressed];
 }

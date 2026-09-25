@@ -231,6 +231,11 @@ const INCENTIVE_TYPES: { value: LongTermIncentiveType; label: string }[] = [
 
 const MAX_ALLOWANCE_LINES = 12;
 
+const TOGGLE_CLASS = "mt-2 rounded-[6px] border-u-border bg-u-raised";
+
+/** The mockup's figure field: soft border, 14px bold, the currency set in the same weight as the figure. */
+const FIGURE_INPUT = "border-u-border py-[9px] text-[14px] font-bold";
+
 type CurrencyMode = "auto" | "override" | "brief";
 
 /**
@@ -293,6 +298,7 @@ export function CompensationFields<TTransformed extends FieldValues>({
   }, [followsBrief, briefCurrency, currency, setValue]);
 
   const currencyField = register("currency");
+  const bonusPercentField = register("bonus");
   const currencies: string[] = [...CURRENCIES];
   for (const held of [storedCurrency, briefCurrency]) {
     if (held && !currencies.includes(held)) currencies.unshift(held);
@@ -316,7 +322,7 @@ export function CompensationFields<TTransformed extends FieldValues>({
       const restated =
         next === "fixed"
           ? bonusAmount === null ? "" : formatNumber(bonusAmount)
-          : annualBase ? String(bonusPercentOf(annualBase, typed)) : "";
+          : annualBase ? `${bonusPercentOf(annualBase, typed)}%` : "";
       setValue("bonus", restated, { shouldDirty: true });
     }
     setValue("bonusBasis", next, { shouldDirty: true });
@@ -324,7 +330,7 @@ export function CompensationFields<TTransformed extends FieldValues>({
 
   return (
     <>
-      <div className="mb-4 flex items-center gap-2.5">
+      <div className="mb-3.5 flex items-center gap-2.5">
         {followsBrief ? (
           <div
             aria-label="Currency"
@@ -343,7 +349,7 @@ export function CompensationFields<TTransformed extends FieldValues>({
             }}
             aria-label="Currency"
             invalid={Boolean(errors.currency)}
-            className="min-w-0 flex-1 font-mono text-[13px] font-semibold"
+            className="min-w-0 flex-1 border-u-border py-[9px] font-semibold"
           >
             <option value="">Not set</option>
             {currencies.map((code) => (
@@ -386,7 +392,7 @@ export function CompensationFields<TTransformed extends FieldValues>({
             value={baseCadence}
             onChange={(next) => setValue("baseCadence", next, { shouldDirty: true })}
             variant="uncava"
-            className="-mt-2"
+            className={TOGGLE_CLASS}
           />
         </div>
 
@@ -402,24 +408,21 @@ export function CompensationFields<TTransformed extends FieldValues>({
               error={errors.bonus?.message}
             />
           ) : (
-            <Field label="Bonus" error={errors.bonus?.message}>
-              <div className="relative">
-                <Input
-                  {...register("bonus")}
-                  aria-label="Bonus"
-                  inputMode="decimal"
-                  placeholder="30"
-                  invalid={Boolean(errors.bonus)}
-                  className="pe-8 font-mono font-bold"
-                />
-                <span
-                  aria-hidden="true"
-                  className="pointer-events-none absolute inset-y-0 end-0 flex items-center pe-3 font-mono text-[12px] font-semibold text-u-text3"
-                >
-                  %
-                </span>
-              </div>
-            </Field>
+            <CompensationField label="Bonus" error={errors.bonus?.message}>
+              <Input
+                {...bonusPercentField}
+                aria-label="Bonus"
+                inputMode="decimal"
+                placeholder="30%"
+                invalid={Boolean(errors.bonus)}
+                className={FIGURE_INPUT}
+                onBlur={(event) => {
+                  void bonusPercentField.onBlur(event);
+                  const share = amountTyped(event.target.value);
+                  if (share !== null) setValue("bonus", `${share}%`);
+                }}
+              />
+            </CompensationField>
           )}
           <SegmentedControl
             label="Bonus is"
@@ -427,7 +430,7 @@ export function CompensationFields<TTransformed extends FieldValues>({
             value={bonusBasis}
             onChange={handleBonusBasis}
             variant="uncava"
-            className="-mt-2"
+            className={TOGGLE_CLASS}
           />
           {bonusBasis === "percent" && bonusAmount !== null && (
             <p className="mt-2 font-mono text-[11.5px] text-u-text3">
@@ -480,7 +483,7 @@ export function CompensationFields<TTransformed extends FieldValues>({
             setValue={setValue}
             error={errors.longTermIncentive?.message}
           />
-          <div role="group" aria-label="LTIP paid in" className="-mt-2 flex flex-wrap gap-1.5">
+          <div role="group" aria-label="LTIP paid in" className="mt-2 flex flex-wrap gap-1.5">
             {INCENTIVE_TYPES.map((type) => {
               const pressed = incentiveTypes.includes(type.value);
               return (
@@ -509,8 +512,12 @@ export function CompensationFields<TTransformed extends FieldValues>({
       </div>
 
       <div className="mt-4 sm:w-1/2 sm:pe-2">
-        <Field label="Notice period" error={errors.noticePeriod?.message}>
-          <Select {...register("noticePeriod")} invalid={Boolean(errors.noticePeriod)}>
+        <CompensationField label="Notice period" error={errors.noticePeriod?.message}>
+          <Select
+            {...register("noticePeriod")}
+            invalid={Boolean(errors.noticePeriod)}
+            className="border-u-border py-[9px]"
+          >
             <option value="">Not established</option>
             {NOTICE_PERIODS.map((period) => (
               <option key={period.label} value={period.label}>
@@ -521,10 +528,10 @@ export function CompensationFields<TTransformed extends FieldValues>({
               <option value={offVocabularyNotice}>{offVocabularyNotice} (as recorded)</option>
             )}
           </Select>
-        </Field>
+        </CompensationField>
       </div>
 
-      <div className="mb-4 flex items-center justify-between rounded-[6px] border border-u-accent bg-u-accent-tint px-3.5 py-3">
+      <div className="mt-4 flex items-center justify-between rounded-[6px] border border-u-accent bg-u-accent-tint px-3.5 py-3">
         <span className="font-mono text-[10px] font-bold uppercase tracking-[0.08em] text-u-text2">Total package</span>
         <span
           data-testid="package-total"
@@ -534,6 +541,26 @@ export function CompensationFields<TTransformed extends FieldValues>({
         </span>
       </div>
     </>
+  );
+}
+
+/**
+ * The editor's own label: the mockup sets these at 9.5px, a step under the shared `Field`, and stacks
+ * each toggle 8px under its input rather than a field's width of space.
+ */
+function CompensationField({ label, error, children }: { label: string; error?: string; children: ReactNode }) {
+  return (
+    <label className="block">
+      <span className="mb-1.5 block font-mono text-[9.5px] font-semibold uppercase tracking-[0.08em] text-u-text3">
+        {label}
+      </span>
+      {children}
+      {error && (
+        <span role="alert" className="mt-1 block font-mono text-[11px] text-u-offlimits">
+          {error}
+        </span>
+      )}
+    </label>
   );
 }
 
@@ -602,12 +629,12 @@ function AmountField({
 }) {
   const field = register(name);
   return (
-    <Field label={label} error={error}>
+    <CompensationField label={label} error={error}>
       <div className="relative">
         {currency && (
           <span
             aria-hidden="true"
-            className="pointer-events-none absolute inset-y-0 start-0 flex items-center ps-3 font-mono text-[12px] font-bold text-u-text"
+            className="pointer-events-none absolute inset-y-0 start-0 flex items-center ps-3 font-mono text-[14px] font-bold text-u-text"
           >
             {currency}
           </span>
@@ -620,7 +647,7 @@ function AmountField({
           inputMode="numeric"
           placeholder={placeholder}
           invalid={Boolean(error)}
-          className={cn("font-mono font-bold", currency && "ps-12")}
+          className={cn(FIGURE_INPUT, currency && "ps-[2.9rem]")}
           onBlur={(event) => {
             void field.onBlur(event);
             const figure = amountTyped(event.target.value);
@@ -630,7 +657,7 @@ function AmountField({
           }}
         />
       </div>
-    </Field>
+    </CompensationField>
   );
 }
 

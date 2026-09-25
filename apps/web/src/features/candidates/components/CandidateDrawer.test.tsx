@@ -373,7 +373,7 @@ describe("CandidateDrawer", () => {
 
     await userEvent.click(screen.getByRole("button", { name: /Edit compensation/i }));
 
-    expect(screen.getByLabelText(/^Bonus$/i)).toHaveValue("20");
+    expect(screen.getByLabelText(/^Bonus$/i)).toHaveValue("20%");
     expect(screen.getByLabelText("Allowance 1 name")).toHaveValue("Allowances");
     expect(screen.getByLabelText("Allowance 1 amount")).toHaveValue("40,000");
   });

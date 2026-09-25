@@ -150,7 +150,8 @@ export const candidateSchema = z.object({
 function money(label: string) {
   return z
     .string()
-    .transform((value) => value.replace(/[,\s]/g, ""))
+    // "%" too: a bonus stated as a share of base is shown as "45%".
+    .transform((value) => value.replace(/[,\s%]/g, ""))
     .pipe(optionalNumber(label, Number.MAX_SAFE_INTEGER));
 }
 
@@ -302,7 +303,7 @@ function compensationFormOf(
     baseCadence: "annual",
     bonus:
       bonusBasis === "percent" && baseSalary && bonus !== null
-        ? String(bonusPercentOf(baseSalary, bonus))
+        ? `${bonusPercentOf(baseSalary, bonus)}%`
         : amountOf(bonus),
     bonusBasis,
     allowanceLines:

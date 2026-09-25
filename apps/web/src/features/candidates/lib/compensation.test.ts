@@ -65,9 +65,11 @@ describe("the editor's conversions", () => {
     expect(allowanceTotalOf([null, null])).toBeNull();
   });
 
-  it("keeps None on its own", () => {
+  it("keeps None on its own, and lands on it when the last instrument is let go", () => {
     expect(toggleIncentiveType(["options"], "none")).toEqual(["none"]);
     expect(toggleIncentiveType(["none"], "rsus")).toEqual(["rsus"]);
     expect(toggleIncentiveType(["options", "rsus"], "rsus")).toEqual(["options"]);
+    // As the mockup's chips do: letting go of the last instrument lands on None.
+    expect(toggleIncentiveType(["options"], "options")).toEqual(["none"]);
   });
 });

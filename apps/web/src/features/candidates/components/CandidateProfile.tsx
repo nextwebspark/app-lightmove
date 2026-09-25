@@ -318,9 +318,10 @@ export function CandidateProfile({
               section="compensation"
               candidate={candidate}
               save={replace}
-              doneMessage="Compensation saved"
+              doneMessage="Compensation updated"
               onDone={finish}
               onCancel={() => setEditing(null)}
+              footer="plain"
             >
               {(form) => (
                 <CompensationFields
