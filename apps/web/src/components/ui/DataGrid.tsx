@@ -8,6 +8,7 @@ import {
   rowSortingFeature,
   type Column,
   type ReactTable,
+  type Row,
   type RowData,
   type TableFeatures,
 } from "@tanstack/react-table";
@@ -149,6 +150,15 @@ type GridFeatures = {
 
 type GridColumn<TData extends RowData> = Column<GridFeatures, TData, unknown>;
 
+type GridRow<TData extends RowData> = Row<GridFeatures, TData>;
+
+export interface DataGridGrouping<TData extends RowData> {
+  /** The group's display label — the caller substitutes its own fallback for blanks. */
+  keyOf: (row: TData) => string;
+  /** Orders the groups; rows inside one keep the table's own sort. */
+  compare: (a: string, b: string) => number;
+}
+
 export function DataGrid<TFeatures extends TableFeatures, TData extends RowData>({
   table,
   label,
@@ -165,6 +175,7 @@ export function DataGrid<TFeatures extends TableFeatures, TData extends RowData>
   onRowClick,
   onEditColumn,
   columnFilters,
+  groupBy,
 }: {
   table: ReactTable<TFeatures, TData>;
   /** Names the grid for screen readers — "Companies", "Shortlisted companies". */
@@ -217,6 +228,12 @@ export function DataGrid<TFeatures extends TableFeatures, TData extends RowData>
    * column with no entry gets no "Filter by" section on its menu.
    */
   columnFilters?: Record<string, DataGridColumnFilter>;
+  /**
+   * Partitions the grid's rows under full-width section headers ("AUTOMOTIVE · 2"), after the
+   * table's own sort — the mockup's positions list. Only the grid branch: the card stack already
+   * names the group on every card.
+   */
+  groupBy?: DataGridGrouping<TData>;
 }) {
   /*
    * The one cast, and the reason GridFeatures exists. Every caller registers at least those four
@@ -416,6 +433,65 @@ export function DataGrid<TFeatures extends TableFeatures, TData extends RowData>
 
   const track = { gridTemplateColumns: "var(--dg-cols)", minWidth: "var(--dg-min)" };
 
+  const renderRow = (row: GridRow<TData>) => (
+    <div
+      key={row.id}
+      role="row"
+      style={track}
+      tabIndex={onRowClick ? 0 : undefined}
+      onClick={
+        onRowClick
+          ? (event) => {
+              if (event.target instanceof Element && event.target.closest(NESTED_CONTROL)) return;
+              onRowClick(row.original);
+            }
+          : undefined
+      }
+      // A row is not a button, so the keys one answers to have to be spelled out — and only
+      // when the row itself holds focus, or Space on a cell's own button would fire twice.
+      onKeyDown={
+        onRowClick
+          ? (event) => {
+              if (event.target !== event.currentTarget) return;
+              if (event.key !== "Enter" && event.key !== " ") return;
+              event.preventDefault();
+              onRowClick(row.original);
+            }
+          : undefined
+      }
+      className={cn(
+        "group grid h-[52px] items-center gap-3 border-b border-u-border transition hover:bg-u-raised",
+        onRowClick &&
+          "cursor-pointer focus-visible:outline focus-visible:-outline-offset-2 focus-visible:outline-u-accent",
+      )}
+    >
+      {row.getVisibleCells().map((cell, index) => {
+        const pinned = cell.column.getIsPinned();
+        return (
+          <div
+            key={cell.id}
+            role="cell"
+            style={
+              pinned === "start"
+                ? { insetInlineStart: pinnedOffsets[cell.column.id] ?? 0 }
+                : undefined
+            }
+            className={cn(
+              "min-w-0",
+              // The row paints the hover tint and the pinned cell covers it, so it has to repaint it.
+              pinned === "start" && `${PINNED_FILL} ${PINNED_START}`,
+              !pinned && "first:ps-4 last:pe-4",
+            )}
+          >
+            <LeadingSlot lead={index === 0 && rowLead?.(row.original)}>
+              <grid.FlexRender cell={cell} />
+            </LeadingSlot>
+          </div>
+        );
+      })}
+    </div>
+  );
+
   const panel = (
     <div
       className={cn(
@@ -584,65 +660,28 @@ export function DataGrid<TFeatures extends TableFeatures, TData extends RowData>
             <RowSkeleton />
           ) : rows.length === 0 ? (
             <GridMessage>{emptyMessage}</GridMessage>
-          ) : (
-            rows.map((row) => (
-              <div
-                key={row.id}
-                role="row"
-                style={track}
-                tabIndex={onRowClick ? 0 : undefined}
-                onClick={
-                  onRowClick
-                    ? (event) => {
-                        if (event.target instanceof Element && event.target.closest(NESTED_CONTROL)) return;
-                        onRowClick(row.original);
-                      }
-                    : undefined
-                }
-                // A row is not a button, so the keys one answers to have to be spelled out — and only
-                // when the row itself holds focus, or Space on a cell's own button would fire twice.
-                onKeyDown={
-                  onRowClick
-                    ? (event) => {
-                        if (event.target !== event.currentTarget) return;
-                        if (event.key !== "Enter" && event.key !== " ") return;
-                        event.preventDefault();
-                        onRowClick(row.original);
-                      }
-                    : undefined
-                }
-                className={cn(
-                  "group grid h-[52px] items-center gap-3 border-b border-u-border transition hover:bg-u-raised",
-                  onRowClick &&
-                    "cursor-pointer focus-visible:outline focus-visible:-outline-offset-2 focus-visible:outline-u-accent",
-                )}
-              >
-                {row.getVisibleCells().map((cell, index) => {
-                  const pinned = cell.column.getIsPinned();
-                  return (
-                    <div
-                      key={cell.id}
-                      role="cell"
-                      style={
-                        pinned === "start"
-                          ? { insetInlineStart: pinnedOffsets[cell.column.id] ?? 0 }
-                          : undefined
-                      }
-                      className={cn(
-                        "min-w-0",
-                        // The row paints the hover tint and the pinned cell covers it, so it has to repaint it.
-                        pinned === "start" && `${PINNED_FILL} ${PINNED_START}`,
-                        !pinned && "first:ps-4 last:pe-4",
-                      )}
-                    >
-                      <LeadingSlot lead={index === 0 && rowLead?.(row.original)}>
-                        <grid.FlexRender cell={cell} />
-                      </LeadingSlot>
-                    </div>
-                  );
-                })}
+          ) : groupBy ? (
+            groupsOf(rows, groupBy).map((group) => (
+              // Not sticky and no z-index: the column header at z-20 scrolls over it, per the mockup.
+              <div key={group.key} role="rowgroup">
+                <div
+                  role="row"
+                  style={{ minWidth: "var(--dg-min)" } as CSSProperties}
+                  className="border-b border-u-border bg-u-raised px-4 py-[9px]"
+                >
+                  <span
+                    role="cell"
+                    aria-colspan={visibleColumns.length}
+                    className="block font-mono text-meta font-semibold uppercase tracking-[0.1em] text-u-text3"
+                  >
+                    {group.key} · {group.rows.length}
+                  </span>
+                </div>
+                {group.rows.map(renderRow)}
               </div>
             ))
+          ) : (
+            rows.map(renderRow)
           )}
         </div>
       </div>
@@ -698,6 +737,22 @@ interface ReorderSession<TData extends RowData> {
  * <p>A grid honours a `minmax` floor whatever the container's width, so without the `min` sum the row
  * overflows a container that clips rather than scrolls, and the last column stops existing.
  */
+function groupsOf<TData extends RowData>(
+  rows: GridRow<TData>[],
+  groupBy: DataGridGrouping<TData>,
+): { key: string; rows: GridRow<TData>[] }[] {
+  const buckets = new Map<string, GridRow<TData>[]>();
+  for (const row of rows) {
+    const key = groupBy.keyOf(row.original);
+    const bucket = buckets.get(key);
+    if (bucket) bucket.push(row);
+    else buckets.set(key, [row]);
+  }
+  return [...buckets.keys()]
+    .sort(groupBy.compare)
+    .map((key) => ({ key, rows: buckets.get(key)! }));
+}
+
 function templateOf<TData extends RowData>(
   columns: readonly GridColumn<TData>[],
   widths: Record<string, number>,

@@ -114,7 +114,7 @@ export function ProjectsPage({ view }: { view: "my" | "all" }) {
           action={newProjectButton}
         />
         <TableSkeleton
-          columns={["Business unit", "Position", "Stage", "Health", "Team", "Target", "Pipeline"]}
+          columns={["Position", "Stage", "Health", "Team", "Target", "Pipeline"]}
         />
       </>
     );
