@@ -57,8 +57,6 @@ interface TriageTableMeta {
   onDelete: (company: TriageCompany) => void;
   /** Opens the drawer to map someone new at this company. */
   onAddExecutive: (company: TriageCompany) => void;
-  /** Flags a company as researched-and-nobody-suitable, from its own "+ Add executive" cell. */
-  onMarkNoExecutiveFound: (company: TriageCompany) => void;
   /** Saves the grid's own inline-edited Note cell. */
   onSaveNote: (company: TriageCompany, note: string) => Promise<unknown>;
   /** Changes a mapped executive's status from the grid's own Status column. */
@@ -196,15 +194,6 @@ const BUILT_IN_COLUMNS = helper.columns([
       const busy = meta.busyIds.has(company.id);
       return (
         <span className="flex justify-start gap-1.5">
-          <button
-            type="button"
-            title="Add an executive here"
-            aria-label={`Add an executive at ${company.companyName}`}
-            onClick={() => meta.onAddExecutive(company)}
-            className={GRID_ICON_BUTTON}
-          >
-            <Icon d={ICONS.userPlus} size={14} />
-          </button>
           {MOVES[company.status].map((move) => (
             <button
               key={move.status}
@@ -307,32 +296,23 @@ const BUILT_IN_COLUMNS = helper.columns([
               type="button"
               onClick={() => meta.onAddExecutive(company)}
               title="Researched — nobody suitable found. Click to search again."
-              className="rounded-[4px] font-sans text-[13px] text-u-text3 transition hover:underline"
+              aria-label={`No executive found at ${company.companyName} — search again`}
+              className={GRID_ICON_BUTTON}
             >
-              No executive found
+              <Icon d={ICONS.userX} size={14} />
             </button>
           );
         }
-        const busy = meta.busyIds.has(company.id);
         return (
-          <span className="flex min-w-0 items-center gap-2">
-            <button
-              type="button"
-              onClick={() => meta.onAddExecutive(company)}
-              className="rounded-[4px] font-sans text-[13px] text-u-accent transition hover:underline"
-            >
-              + Add executive
-            </button>
-            <button
-              type="button"
-              onClick={() => meta.onMarkNoExecutiveFound(company)}
-              title="Mark this company as researched, with nobody suitable found"
-              disabled={busy}
-              className="rounded-[4px] font-mono text-[10.5px] text-u-text3 transition hover:text-u-text hover:underline disabled:opacity-40 disabled:hover:no-underline"
-            >
-              No executive found
-            </button>
-          </span>
+          <button
+            type="button"
+            onClick={() => meta.onAddExecutive(company)}
+            title="Add executive"
+            aria-label={`Add an executive at ${company.companyName}`}
+            className={cn(GRID_ICON_BUTTON, "text-u-accent hover:text-u-accent-hover")}
+          >
+            <Icon d={ICONS.userPlus} size={14} />
+          </button>
         );
       }
       return <DataGridCell value={null} />;
