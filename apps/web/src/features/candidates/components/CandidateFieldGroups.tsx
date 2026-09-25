@@ -663,7 +663,7 @@ function AmountField({
 export function AiInferredBadge() {
   return (
     <span
-      title="AI-suggested from the captured profile — not yet reviewed"
+      title="AI-suggested — saving the Background section confirms it"
       className="inline-flex flex-none items-center rounded-[4px] bg-u-inferred-tint px-[5px] py-[1px] font-mono text-[9px] font-bold uppercase tracking-[0.04em] text-u-inferred"
     >
       AI
@@ -722,7 +722,7 @@ export function BackgroundFields({
       <div className="grid gap-x-4 sm:grid-cols-2">
         <Field
           label="Gender"
-          hint="A researcher's own entry, or an AI suggestion from a captured profile — flagged AI until confirmed."
+          hint="A researcher's own entry, or an AI suggestion — flagged AI until you save this section."
           error={errors.gender?.message}
           action={backgroundBadge(aiInferred, "gender")}
         >

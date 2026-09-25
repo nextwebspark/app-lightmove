@@ -400,6 +400,9 @@ V78 adds `app_lm_project_candidate.ai_inferred_fields` jsonb — the keys (`nati
 `yearsExperience`) holding a model's proposal that no researcher has changed since.
 V79 adds `app_lm_project_candidate.ai_assessment` jsonb — the AI enrichment's summary, per-panel
 score with positives and negatives, and source links; the model's own reading, replaced whole per run.
+V80 adds `ai_enrich_failed_at` — the last AI enrichment run that produced nothing, so the drawer says
+so at once; a later success clears it. Saving the drawer's Background section (`confirmBackground`)
+confirms its AI values and clears `ai_inferred_fields`.
 V76 adds `app_lm_project_candidate.compensation_breakdown` jsonb — the drawer's allowance lines and
 LTIP instruments. `allowances` stays the total every reader sums; `CandidateCompensation` keeps the
 two agreeing (lines supply a missing total, a contradicting total drops them). The editor's

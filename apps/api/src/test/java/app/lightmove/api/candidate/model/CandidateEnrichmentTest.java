@@ -138,6 +138,30 @@ class CandidateEnrichmentTest {
     }
 
     @Test
+    @DisplayName("saving the Background section confirms every AI-proposed value in it")
+    void confirmingTheBackgroundClearsEveryFlag() {
+        Candidate candidate = captured(details("Sample Person", null, null, null, null, null));
+        candidate.proposeBackground(PROPOSED);
+
+        candidate.confirmBackground();
+
+        assertThat(candidate.getAiInferredFields()).isEmpty();
+        assertThat(candidate.getNationality()).isEqualTo("Emirati");
+    }
+
+    @Test
+    @DisplayName("a successful assessment supersedes an earlier failed run")
+    void anAssessmentClearsAnEarlierFailure() {
+        Candidate candidate = captured(details("Sample Person", null, null, null, null, null));
+        candidate.recordAiEnrichFailure();
+        assertThat(candidate.getAiEnrichFailedAt()).isNotNull();
+
+        candidate.recordAiAssessment(new CandidateAiAssessment("Read.", null, null, List.of(), "2026-09-25T10:00:00Z"));
+
+        assertThat(candidate.getAiEnrichFailedAt()).isNull();
+    }
+
+    @Test
     @DisplayName("only the fields still empty are named as missing")
     void missingBackgroundNamesOnlyTheEmptyFields() {
         Candidate candidate = captured(detailsWithBackground(null, null, 20));

@@ -207,6 +207,8 @@ export interface SaveCandidatePayload {
   languages?: string[];
   /** Omitted leaves every custom column alone; a blank value clears that one column. */
   customFields?: CustomFieldValues;
+  /** Sent only by the Background section's save: its AI-proposed values are now reviewed. */
+  confirmBackground?: boolean;
 }
 
 /** One competency panel's AI reading: a 1–10 score (null when the model could not judge) and why. */
@@ -222,11 +224,15 @@ export interface AssessmentSourceLink {
   title: string | null;
 }
 
-/** A candidate's last AI assessment — staff-only, read on its own and never carried on `Candidate`. */
+/**
+ * A candidate's last AI assessment and last failed run — staff-only, read on its own and never
+ * carried on `Candidate`. The assessment fields are null until a run has succeeded.
+ */
 export interface CandidateAiAssessment {
   summary: string | null;
   technical: CompetencyPanelAssessment | null;
   behavioural: CompetencyPanelAssessment | null;
   sources: AssessmentSourceLink[];
-  assessedAt: string;
+  assessedAt: string | null;
+  failedAt: string | null;
 }

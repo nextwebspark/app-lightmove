@@ -111,6 +111,10 @@ public class Candidate extends BaseEntity {
     @Column(name = "ai_assessment")
     private CandidateAiAssessment aiAssessment;
 
+    /** The last AI enrichment run that produced nothing (V80); a later success clears it. */
+    @Column(name = "ai_enrich_failed_at")
+    private Instant aiEnrichFailedAt;
+
     @Column(name = "summary")
     private String summary;
 
@@ -251,6 +255,11 @@ public class Candidate extends BaseEntity {
         this.yearsExperience = details.yearsExperience();
     }
 
+    /** A researcher saved the Background section: every AI-proposed value in it is now theirs. */
+    public void confirmBackground() {
+        aiInferredFields = new HashSet<>();
+    }
+
     private void confirmIfChanged(BackgroundField field, Object before, Object after) {
         if (!Objects.equals(before, after) && aiInferredFields.contains(field.key())) {
             Set<String> remaining = new HashSet<>(aiInferredFields);
@@ -387,6 +396,11 @@ public class Candidate extends BaseEntity {
     /** Replaces the last AI assessment whole — it is the model's own reading, not anybody's edit. */
     public void recordAiAssessment(CandidateAiAssessment assessment) {
         this.aiAssessment = assessment;
+        this.aiEnrichFailedAt = null;
+    }
+
+    public void recordAiEnrichFailure() {
+        this.aiEnrichFailedAt = Instant.now();
     }
 
     /**

@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -425,6 +426,60 @@ class CandidateEnrichmentIntegrationTest extends FlowTestSupport {
         mvc.perform(get(candidatesUrl(projectId) + "/" + candidateId + "/ai-assessment")
                         .header("Authorization", "Bearer " + clientToken))
                 .andExpect(status().isForbidden());
+    }
+
+    @Test
+    @DisplayName("saving the Background section confirms its AI values; any other save leaves them flagged")
+    void savingBackgroundConfirmsTheAiValues() throws Exception {
+        String projectId = mandate("Confirm Background Firm");
+        enricher.answerWith(RESEARCH);
+        model.answerWith(AI_ENRICHMENT);
+        String candidateId = capture(projectId, "Sample Person", "sample-profile");
+
+        saveProfile(projectId, candidateId, "\"note\":\"Called on Monday\"");
+        assertThat(firstCandidateOf(projectId).get("aiInferredFields")).hasSize(3);
+
+        saveProfile(projectId, candidateId, "\"confirmBackground\":true");
+        JsonNode confirmed = firstCandidateOf(projectId);
+        assertThat(confirmed.get("aiInferredFields")).isEmpty();
+        assertThat(confirmed.get("nationality").asText()).isEqualTo("Emirati");
+    }
+
+    @Test
+    @DisplayName("a run that produces nothing is recorded, so the drawer can say it failed")
+    void aFailedRunIsRecorded() throws Exception {
+        String projectId = mandate("Failed Run Firm");
+        String candidateId = body(mvc.perform(post(candidatesUrl(projectId))
+                        .header("Authorization", "Bearer " + adminToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"fullName":"Unreadable Answer"}"""))
+                .andExpect(status().isCreated())
+                .andReturn()).get("id").asText();
+
+        // StubChatModel's default reply binds to nothing: the run produces no assessment.
+        mvc.perform(post(candidatesUrl(projectId) + "/" + candidateId + "/ai-enrich")
+                        .header("Authorization", "Bearer " + adminToken))
+                .andExpect(status().isAccepted());
+
+        JsonNode state = assessmentOf(projectId, candidateId, adminToken);
+        assertThat(state.get("failedAt").isNull()).isFalse();
+        assertThat(state.get("assessedAt").isNull()).isTrue();
+    }
+
+    /** The drawer's section save: the row as it stands, with the section's fields over it. */
+    private void saveProfile(String projectId, String candidateId, String patch) throws Exception {
+        JsonNode row = firstCandidateOf(projectId);
+        mvc.perform(put(candidatesUrl(projectId) + "/" + candidateId)
+                        .header("Authorization", "Bearer " + adminToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"fullName":"%s","linkedinUrl":"%s","source":"extension",
+                                 "nationality":"%s","gender":"%s","yearsExperience":%d,%s}
+                                """.formatted(row.get("fullName").asText(), row.get("linkedinUrl").asText(),
+                                row.get("nationality").asText(), row.get("gender").asText(),
+                                row.get("yearsExperience").asInt(), patch)))
+                .andExpect(status().isOk());
     }
 
     private JsonNode assessmentOf(String projectId, String candidateId, String token) throws Exception {

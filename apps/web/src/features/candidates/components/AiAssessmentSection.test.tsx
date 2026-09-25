@@ -83,6 +83,7 @@ const assessed: CandidateAiAssessment = {
     { url: "https://www.example.org/b", title: null },
   ],
   assessedAt: "2026-09-20T10:00:00Z",
+  failedAt: null,
 };
 
 const renderDrawer = (canWrite = true) =>
@@ -153,6 +154,23 @@ describe("AI assessment", () => {
 
     await waitFor(() => expect(candidatesApi.requestAiEnrich).toHaveBeenCalledWith("p1", "c1"));
     expect(await screen.findByRole("button", { name: /Enriching/ })).toBeDisabled();
+  });
+
+  it("says at once when the run fails, instead of waiting out the timeout", async () => {
+    const user = userEvent.setup();
+    renderDrawer();
+    await screen.findByText("A proven GCC finance leader.");
+    vi.mocked(candidatesApi.getAiAssessment).mockResolvedValue({
+      ...assessed,
+      failedAt: "2026-09-25T10:00:00Z",
+    });
+
+    await user.click(screen.getByRole("button", { name: "AI deep enrich" }));
+
+    expect(await screen.findByText("The AI enrichment failed — try again", {}, { timeout: 5000 }))
+      .toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "AI deep enrich" })).toBeEnabled();
+    expect(screen.getByText(/Last AI enrichment failed/)).toBeInTheDocument();
   });
 
   it("offers a client seat neither the fold nor the button, and never asks for the assessment", async () => {

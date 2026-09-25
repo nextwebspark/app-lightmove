@@ -25,8 +25,8 @@ import app.lightmove.api.candidate.dto.UpdateCandidateContactsRequest;
 import app.lightmove.api.candidate.dto.UpdateCandidateStatusRequest;
 import app.lightmove.api.candidate.model.AllowanceLine;
 import app.lightmove.api.candidate.model.Candidate;
-import app.lightmove.api.candidate.model.CandidateAiAssessment;
 import app.lightmove.api.candidate.model.CandidateAiEnrichRequested;
+import app.lightmove.api.candidate.model.CandidateAiEnrichState;
 import app.lightmove.api.candidate.model.CandidateAiEnrichment;
 import app.lightmove.api.candidate.model.CandidateAttribution;
 import app.lightmove.api.candidate.model.CandidateCapturedEvent;
@@ -296,6 +296,9 @@ public class CandidateService {
 
         candidate.remapTo(request.triageCompanyId());
         candidate.describe(details, door);
+        if (Boolean.TRUE.equals(request.confirmBackground())) {
+            candidate.confirmBackground();
+        }
         refuseOverfullChannels(candidate);
         candidate.describeCustomFields(customColumns.applyTo(projectId, CustomColumnTarget.CANDIDATE,
                 candidate.getCustomFields(), request.customFields()));
@@ -378,13 +381,19 @@ public class CandidateService {
         });
     }
 
-    /** The last AI assessment, staff-only — it is never carried on {@link CandidateResponse}. */
+    /**
+     * The last AI assessment and the last failed run, staff-only — neither is carried on
+     * {@link CandidateResponse}. Empty when the candidate has never been enriched.
+     */
     @Transactional(readOnly = true)
-    public Optional<CandidateAiAssessment> aiAssessmentOf(UUID workspaceId, UUID projectId, UUID candidateId) {
+    public Optional<CandidateAiEnrichState> aiAssessmentOf(UUID workspaceId, UUID projectId, UUID candidateId) {
         requireProject(projectId, workspaceId);
-        return Optional.ofNullable(candidates.findByIdAndProjectId(candidateId, projectId)
-                .orElseThrow(() -> ApiException.of(ErrorCode.NOT_FOUND))
-                .getAiAssessment());
+        Candidate candidate = candidates.findByIdAndProjectId(candidateId, projectId)
+                .orElseThrow(() -> ApiException.of(ErrorCode.NOT_FOUND));
+        if (candidate.getAiAssessment() == null && candidate.getAiEnrichFailedAt() == null) {
+            return Optional.empty();
+        }
+        return Optional.of(new CandidateAiEnrichState(candidate.getAiAssessment(), candidate.getAiEnrichFailedAt()));
     }
 
     /**
@@ -392,6 +401,14 @@ public class CandidateService {
      * assessment replaced whole. {@code REQUIRES_NEW} for {@link #applyResearch}'s reason; a racing
      * drawer edit wins by {@code @Version} the same way.
      */
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
+    public void recordAiEnrichFailure(UUID projectId, UUID candidateId) {
+        candidates.findByIdAndProjectId(candidateId, projectId).ifPresent(candidate -> {
+            candidate.recordAiEnrichFailure();
+            stream.publish(projectId, ProjectStreamKind.CANDIDATE_ENRICHED);
+        });
+    }
+
     @Transactional(propagation = Propagation.REQUIRES_NEW)
     public void applyAiEnrichment(UUID projectId, UUID candidateId, CandidateAiEnrichment enrichment) {
         candidates.findByIdAndProjectId(candidateId, projectId).ifPresent(candidate -> {

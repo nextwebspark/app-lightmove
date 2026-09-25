@@ -17,17 +17,26 @@ export function AiAssessmentBody({ enrichment }: { enrichment: AiEnrichment }) {
   if (enrichment.isError) {
     return <p className="pb-4 font-mono text-[12.5px] text-u-text3">The AI assessment could not be read.</p>;
   }
+  const lastFailure = enrichment.lastFailedAt && !enrichment.isRunning && (
+    <p className="font-mono text-[11.5px] text-u-offlimits">
+      Last AI enrichment failed {formatInstantDate(enrichment.lastFailedAt)} — try again
+    </p>
+  );
   if (!assessment) {
     return (
-      <p className="pb-4 font-mono text-[12.5px] text-u-text3">
-        {enrichment.isRunning
-          ? "Searching the web and scoring against the brief…"
-          : "Not assessed yet. AI deep enrich reads the profile, searches the web and scores this executive against the brief's competencies."}
-      </p>
+      <div className="space-y-2 pb-4">
+        {lastFailure}
+        <p className="font-mono text-[12.5px] text-u-text3">
+          {enrichment.isRunning
+            ? "Searching the web and scoring against the brief…"
+            : "Not assessed yet. AI deep enrich reads the profile, searches the web and scores this executive against the brief's competencies."}
+        </p>
+      </div>
     );
   }
   return (
     <div className="space-y-4 pb-4">
+      {lastFailure}
       <div className="flex items-center gap-2 font-mono text-[11px] text-u-text3">
         <AiInferredBadge />
         <span>Assessed {formatInstantDate(assessment.assessedAt)} — a proposal to review, not a finding</span>
@@ -95,7 +104,7 @@ function PointList({ points, tone }: { points: readonly string[]; tone: "positiv
     <ul aria-label={isPositive ? "Positives" : "Negatives"} className="mt-2 space-y-1">
       {points.map((point) => (
         <li key={point} className="flex gap-1.5 text-[12.5px] leading-snug text-u-text2">
-          <span aria-hidden className={cn("font-mono font-bold", isPositive ? "text-u-direct" : "text-u-offlimits")}>
+          <span aria-hidden className={cn("w-3 flex-none text-center font-mono font-bold", isPositive ? "text-u-direct" : "text-u-offlimits")}>
             {isPositive ? "+" : "–"}
           </span>
           <span>{point}</span>

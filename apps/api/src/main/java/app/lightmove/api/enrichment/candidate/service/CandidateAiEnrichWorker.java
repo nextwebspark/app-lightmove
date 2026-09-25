@@ -52,15 +52,27 @@ class CandidateAiEnrichWorker {
                 // The button spent this before answering 202; a capture spends it here.
                 llmBudget.require(LlmBudget.CANDIDATE_AI_ENRICH, request.requestedBy());
             }
-            candidates.dossierOf(request.projectId(), request.candidateId())
-                    .flatMap(dossier -> enricher.enrich(dossier,
-                            positions.briefOf(request.workspaceId(), request.projectId())))
-                    .ifPresent(enrichment -> candidates.applyAiEnrichment(request.projectId(),
-                            request.candidateId(), enrichment));
+            candidates.dossierOf(request.projectId(), request.candidateId()).ifPresent(dossier ->
+                    enricher.enrich(dossier, positions.briefOf(request.workspaceId(), request.projectId()))
+                            .ifPresentOrElse(
+                                    enrichment -> candidates.applyAiEnrichment(request.projectId(),
+                                            request.candidateId(), enrichment),
+                                    () -> recordFailure(request)));
         } catch (ObjectOptimisticLockingFailureException raced) {
             log.info("Candidate {} was edited while its AI enrichment ran", request.candidateId());
         } catch (RuntimeException ex) {
             log.error("Failed AI enrichment for candidate {}", request.candidateId(), ex);
+            recordFailure(request);
+        }
+    }
+
+    /** Best-effort: the drawer waiting on this run is told it failed rather than left to time out. */
+    private void recordFailure(CandidateAiEnrichRequested request) {
+        try {
+            candidates.recordAiEnrichFailure(request.projectId(), request.candidateId());
+        } catch (RuntimeException ex) {
+            log.warn("Could not record the failed AI enrichment for candidate {}: {}",
+                    request.candidateId(), ex.toString());
         }
     }
 }
