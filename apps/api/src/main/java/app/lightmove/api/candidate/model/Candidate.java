@@ -23,6 +23,7 @@ import jakarta.persistence.Table;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.EnumSet;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -101,12 +102,7 @@ public class Candidate extends BaseEntity {
     @Column(name = "years_experience")
     private Integer yearsExperience;
 
-    /**
-     * Which of {@link BackgroundField}'s three keys currently hold a value {@link #enrich} proposed
-     * that nobody has reviewed since (V68, issue #458). A researcher's own edit that actually changes
-     * one of the three removes it here; resubmitting the same value does not, since nothing was
-     * actually reviewed and decided.
-     */
+    /** {@link BackgroundField} keys holding a value the model proposed that no researcher has changed since (V78). */
     @JdbcTypeCode(SqlTypes.JSON)
     @Column(name = "ai_inferred_fields", nullable = false)
     private Set<String> aiInferredFields = new HashSet<>();
@@ -239,32 +235,24 @@ public class Candidate extends BaseEntity {
     }
 
     /**
-     * Nationality, gender and years of experience — the three an inference may have proposed. A
-     * researcher changing one is what confirms it; resubmitting the same value leaves the flag
-     * standing, since nothing was actually reviewed.
+     * A researcher changing one of the three background fields is what confirms it; resubmitting the
+     * same value leaves its AI flag standing, since nothing was actually reviewed.
      */
     private void describeBackground(CandidateDetails details) {
-        if (!Objects.equals(nationality, details.nationality())) {
-            aiInferredFields = withoutInferred(BackgroundField.NATIONALITY);
-        }
-        if (!Objects.equals(gender, details.gender())) {
-            aiInferredFields = withoutInferred(BackgroundField.GENDER);
-        }
-        if (!Objects.equals(yearsExperience, details.yearsExperience())) {
-            aiInferredFields = withoutInferred(BackgroundField.YEARS_EXPERIENCE);
-        }
+        confirmIfChanged(BackgroundField.NATIONALITY, nationality, details.nationality());
+        confirmIfChanged(BackgroundField.GENDER, gender, details.gender());
+        confirmIfChanged(BackgroundField.YEARS_EXPERIENCE, yearsExperience, details.yearsExperience());
         this.nationality = details.nationality();
         this.gender = details.gender();
         this.yearsExperience = details.yearsExperience();
     }
 
-    private Set<String> withoutInferred(BackgroundField field) {
-        if (!aiInferredFields.contains(field.key())) {
-            return aiInferredFields;
+    private void confirmIfChanged(BackgroundField field, Object before, Object after) {
+        if (!Objects.equals(before, after) && aiInferredFields.contains(field.key())) {
+            Set<String> remaining = new HashSet<>(aiInferredFields);
+            remaining.remove(field.key());
+            aiInferredFields = remaining;
         }
-        Set<String> updated = new HashSet<>(aiInferredFields);
-        updated.remove(field.key());
-        return updated;
     }
 
     /**
@@ -327,10 +315,6 @@ public class Candidate extends BaseEntity {
      * Fills in what research found, and only where nobody has filled anything in — vendor data never
      * outranks a researcher. On a mapped candidate {@code companyName} is the triage snapshot and is
      * never overwritten.
-     *
-     * <p>Nationality, gender and years of experience follow the same rule, but a value filled from
-     * here is also stamped into {@link #aiInferredFields} (issue #458): it is a proposal, not
-     * something a researcher recorded, until {@link #describeBackground} sees it changed.
      */
     public void enrich(EnrichedProfile enriched) {
         if (title == null) {
@@ -348,20 +332,6 @@ public class Candidate extends BaseEntity {
         if (triageCompanyId == null && companyName == null) {
             companyName = enriched.employerName();
         }
-        Set<String> inferred = new HashSet<>(aiInferredFields);
-        if (nationality == null && enriched.nationality() != null) {
-            nationality = enriched.nationality();
-            inferred.add(BackgroundField.NATIONALITY.key());
-        }
-        if (gender == null && enriched.gender() != null) {
-            gender = enriched.gender();
-            inferred.add(BackgroundField.GENDER.key());
-        }
-        if (yearsExperience == null && enriched.yearsExperience() != null) {
-            yearsExperience = enriched.yearsExperience();
-            inferred.add(BackgroundField.YEARS_EXPERIENCE.key());
-        }
-        this.aiInferredFields = inferred;
         this.enrichedBy = enriched.vendor();
         this.profile = new CandidateProfile(
                 profile.career().isEmpty() ? enriched.career() : profile.career(),
@@ -369,6 +339,45 @@ public class Candidate extends BaseEntity {
                 enriched.education(),
                 enriched.skills(),
                 Instant.now().toString());
+    }
+
+    /** The background fields nobody has filled in — what an inference may still propose. */
+    public Set<BackgroundField> missingBackground() {
+        Set<BackgroundField> missing = EnumSet.noneOf(BackgroundField.class);
+        if (nationality == null) {
+            missing.add(BackgroundField.NATIONALITY);
+        }
+        if (gender == null) {
+            missing.add(BackgroundField.GENDER);
+        }
+        if (yearsExperience == null) {
+            missing.add(BackgroundField.YEARS_EXPERIENCE);
+        }
+        return missing;
+    }
+
+    /**
+     * Fills what the model proposed into whichever fields are still empty and flags each one it filled
+     * in {@link #aiInferredFields}. A value already there — typed, imported, captured or researched —
+     * always stands. Answers whether anything was filled.
+     */
+    public boolean proposeBackground(InferredBackground proposed) {
+        Set<String> inferred = new HashSet<>(aiInferredFields);
+        if (nationality == null && proposed.nationality() != null) {
+            nationality = proposed.nationality();
+            inferred.add(BackgroundField.NATIONALITY.key());
+        }
+        if (gender == null && proposed.gender() != null) {
+            gender = proposed.gender();
+            inferred.add(BackgroundField.GENDER.key());
+        }
+        if (yearsExperience == null && proposed.yearsExperience() != null) {
+            yearsExperience = proposed.yearsExperience();
+            inferred.add(BackgroundField.YEARS_EXPERIENCE.key());
+        }
+        boolean filled = !inferred.equals(aiInferredFields);
+        aiInferredFields = inferred;
+        return filled;
     }
 
     /**

@@ -83,9 +83,14 @@ step rail, the chapter kept in the URL (`?chapter=`), and its mockup is the `rep
 the code has: the old app names (`panel`, `amber`, `sky`, …) are gone from both apps, and an unset
 theme opens dark. It states only what the rows carry: a candidate's
 status but no pipeline outcome, and a package in another currency is counted rather than converted.
-**Gender (V56) is recorded on a candidate and never inferred from a name** — the chapter divides by
-the executives who have one on file, not by the headcount, so a mandate nobody has recorded reads as
-unmeasured rather than as a pool of one gender. **Nationality is counted in nine groups** — the Gulf six by name,
+**Gender (V56) is recorded on a candidate, or proposed and flagged — never silently inferred** — the
+chapter divides by the executives who have one on file, not by the headcount, so a mandate nobody has
+recorded reads as unmeasured rather than as a pool of one gender. Once a plugin capture's vendor
+research has landed, `CandidateBackgroundWorker` asks the model for whichever of gender, nationality
+(one of the nine groups) and years of experience are still empty, and writes them in a separate
+transaction so the research never waits on it. A value already on the row always stands, and each
+filled one is flagged in `ai_inferred_fields` (V78, an "AI" badge in the drawer) until a researcher
+changes it. **Nationality is counted in nine groups** — the Gulf six by name,
 and everyone else as Western expat, South Asian or Arab expat, non-GCC: the drawer offers exactly those
 nine and stores the label, while a spreadsheet's "Egyptian" is folded into its group by `report` at read
 time and never rewritten. **A notice period is one of five** — None, 1, 2, 3 or 6 months — on both halves
@@ -384,6 +389,8 @@ nothing to key it on.
 V56 adds `app_lm_project_candidate.gender` (`FEMALE | MALE | OTHER`), nullable with no default:
 NULL is "nobody recorded it" and is deliberately not a fourth value, because "not recorded" and
 "recorded as other" are different facts and the report counts them apart.
+V78 adds `app_lm_project_candidate.ai_inferred_fields` jsonb — the keys (`nationality`, `gender`,
+`yearsExperience`) holding a model's proposal that no researcher has changed since.
 V76 adds `app_lm_project_candidate.compensation_breakdown` jsonb — the drawer's allowance lines and
 LTIP instruments. `allowances` stays the total every reader sums; `CandidateCompensation` keeps the
 two agreeing (lines supply a missing total, a contradicting total drops them). The editor's

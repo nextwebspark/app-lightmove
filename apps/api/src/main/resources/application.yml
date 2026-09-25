@@ -324,10 +324,7 @@ lightmove:
       api-key: ${HARVESTAPI_API_KEY:}
       read-timeout: ${HARVESTAPI_READ_TIMEOUT:60s}
 
-    # Nationality, gender and years of experience, read off whichever research `provider` already
-    # fetched (issue #458). On by default — it spends no vendor account of its own — so an operator
-    # who wants profile research without this extra model call turns it off here rather than dropping
-    # `provider` back to off.
+    # After research lands, infer the executive's missing nationality, gender and years of experience.
     background-inference: ${CANDIDATE_BACKGROUND_INFERENCE:true}
 
     # How long app_lm_vendor_company answers for a LinkedIn slug before the provider is asked again (V64).

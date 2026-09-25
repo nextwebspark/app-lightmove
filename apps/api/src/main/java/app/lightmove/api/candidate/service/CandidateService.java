@@ -1,6 +1,7 @@
 package app.lightmove.api.candidate.service;
 
 import app.lightmove.api.common.constant.Seniority;
+import app.lightmove.api.candidate.constant.BackgroundField;
 import app.lightmove.api.candidate.constant.CandidateSource;
 import app.lightmove.api.candidate.constant.CandidateStatus;
 import app.lightmove.api.candidate.constant.ContactChannel;
@@ -34,10 +35,12 @@ import app.lightmove.api.candidate.model.ContactEntry;
 import app.lightmove.api.candidate.model.CandidateDetails;
 import app.lightmove.api.candidate.model.CandidatePhoto;
 import app.lightmove.api.candidate.model.CandidateProfile;
+import app.lightmove.api.candidate.model.CandidateResearchedEvent;
 import app.lightmove.api.candidate.model.CompensationBreakdown;
 import app.lightmove.api.candidate.model.EnrichedProfile;
 import app.lightmove.api.candidate.model.FoundEmails;
 import app.lightmove.api.candidate.model.FoundPhones;
+import app.lightmove.api.candidate.model.InferredBackground;
 import app.lightmove.api.candidate.model.StoredPhoto;
 import app.lightmove.api.candidate.repository.CandidatePhotoRepository;
 import app.lightmove.api.candidate.repository.CandidateRepository;
@@ -247,7 +250,7 @@ public class CandidateService {
 
         if (source == CandidateSource.EXTENSION && isLinkedInProfileUrl(details.linkedinUrl())) {
             events.publishEvent(new CandidateCapturedEvent(candidate.getId(), projectId,
-                    details.linkedinUrl(), userId, details.fullName()));
+                    details.linkedinUrl()));
         }
         stream.publish(projectId, ProjectStreamKind.CANDIDATE_CAPTURED);
 
@@ -343,7 +346,23 @@ public class CandidateService {
             mapToEmployer(projectId, candidate, enriched);
             keepPhoto(candidateId, enriched);
             stream.publish(projectId, ProjectStreamKind.CANDIDATE_ENRICHED);
+            Set<BackgroundField> missing = candidate.missingBackground();
+            if (!missing.isEmpty()) {
+                events.publishEvent(new CandidateResearchedEvent(candidateId, projectId,
+                        candidate.getAddedBy(), candidate.getFullName(), missing, enriched));
+            }
         }, () -> log.info("Candidate {} was removed before its research landed", candidateId));
+    }
+
+    /**
+     * The background inference's own write, after the research has already landed. {@code REQUIRES_NEW}
+     * for {@link #applyResearch}'s reason; a racing drawer edit wins by {@code @Version} the same way.
+     */
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
+    public void applyInferredBackground(UUID projectId, UUID candidateId, InferredBackground proposed) {
+        candidates.findByIdAndProjectId(candidateId, projectId)
+                .filter(candidate -> candidate.proposeBackground(proposed))
+                .ifPresent(candidate -> stream.publish(projectId, ProjectStreamKind.CANDIDATE_ENRICHED));
     }
 
     /**

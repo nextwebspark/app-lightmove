@@ -16,10 +16,8 @@ import org.springframework.boot.context.properties.bind.DefaultValue;
  * capability with its own key and its own bill, so {@code provider: off} must leave the drawer's
  * Find email / Find phone buttons working.
  *
- * <p>{@code backgroundInference} is likewise not selected by {@code provider}, but the other way
- * round from {@code contactout}: it rides on whichever vendor's research {@code provider} already
- * fetched rather than needing an account of its own, so it defaults on — an operator turns it off to
- * stop the extra model call without giving up profile research entirely (issue #458).
+ * <p>{@code backgroundInference} is the model call that follows whatever research {@code provider}
+ * fetched; off keeps the research and skips the call.
  */
 public record EnrichmentSettings(
         @DefaultValue("off") String provider,

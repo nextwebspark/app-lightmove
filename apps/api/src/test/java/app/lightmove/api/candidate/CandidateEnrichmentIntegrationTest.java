@@ -11,19 +11,20 @@ import app.lightmove.api.ApolloUniverse;
 import app.lightmove.api.FlowTestSupport;
 import app.lightmove.api.IntegrationTest;
 import app.lightmove.api.RecordingProfileEnricher;
+import app.lightmove.api.StubChatModel;
 import app.lightmove.api.candidate.constant.EnrichmentVendor;
 import app.lightmove.api.candidate.model.CandidateCareerEntry;
 import app.lightmove.api.candidate.model.CandidateEducationEntry;
 import app.lightmove.api.candidate.model.EnrichedPhoto;
 import app.lightmove.api.candidate.model.EnrichedProfile;
 import java.util.List;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.MediaType;
 import org.springframework.jdbc.core.JdbcTemplate;
-import org.springframework.test.context.TestPropertySource;
 import tools.jackson.databind.JsonNode;
 
 /**
@@ -33,20 +34,15 @@ import tools.jackson.databind.JsonNode;
  *
  * <p>What must hold: only an extension capture with a real profile URL spends a research call, a
  * provider failure costs the capture nothing, and research naming an employer files that company
- * into the mandate's universe with the person mapped to it.
- *
- * <p>Background inference (issue #458) is off here: this suite is about the vendor-research merge,
- * not the model call layered on top of it, and leaving it on would have every capture spend a real
- * attempt at Vertex. {@code CandidateEnrichmentTest} covers the merge and flagging rules directly
- * against {@code Candidate.enrich}, with no model involved.
+ * into the mandate's universe with the person mapped to it. Once the research lands, the background
+ * worker infers what is still missing — on {@link StubChatModel}, whose default reply binds to nothing.
  */
 @IntegrationTest
-@TestPropertySource(properties = "lightmove.enrichment.background-inference=false")
 class CandidateEnrichmentIntegrationTest extends FlowTestSupport {
 
     private static final byte[] PHOTO_BYTES = {(byte) 0xFF, (byte) 0xD8, (byte) 0xFF, 0};
 
-    private static final EnrichedProfile RESEARCH = EnrichedProfile.researched(
+    private static final EnrichedProfile RESEARCH = new EnrichedProfile(
             "Group CFO", "Finance leader across GCC retail.", "Al Rawabi Dairy",
             "https://www.linkedin.com/company/alrawabi/", "https://media.example.com/alrawabi.png",
             "Dubai", "United Arab Emirates",
@@ -55,7 +51,11 @@ class CandidateEnrichmentIntegrationTest extends FlowTestSupport {
             List.of("Financial Planning"), List.of("English", "Arabic"),
             new EnrichedPhoto(PHOTO_BYTES, "image/jpeg"), EnrichmentVendor.BRIGHTDATA);
 
+    private static final String INFERRED_BACKGROUND =
+            "{\"nationality\":\"Emirati\",\"gender\":\"female\",\"yearsExperience\":14}";
+
     @Autowired private RecordingProfileEnricher enricher;
+    @Autowired private StubChatModel model;
     @Autowired JdbcTemplate db;
 
     private ApolloUniverse universe;
@@ -67,6 +67,11 @@ class CandidateEnrichmentIntegrationTest extends FlowTestSupport {
         // The employer resolution reads the Apollo universe, so this suite owns its contents.
         universe = new ApolloUniverse(db);
         universe.reset();
+    }
+
+    @AfterEach
+    void resetTheModel() {
+        model.reset();
     }
 
     @Test
@@ -260,7 +265,7 @@ class CandidateEnrichmentIntegrationTest extends FlowTestSupport {
     @DisplayName("research naming no employer leaves the person unmapped, and no photo means 404")
     void researchWithoutAnEmployerLeavesThePersonUnmapped() throws Exception {
         String projectId = mandate("Employerless Research Firm");
-        enricher.answerWith(EnrichedProfile.researched("Advisor", null, null, null, null, null, null,
+        enricher.answerWith(new EnrichedProfile("Advisor", null, null, null, null, null, null,
                 List.of(new CandidateCareerEntry("Somewhere", "Advisor", "2020 –")),
                 null, null, null, null, EnrichmentVendor.HARVESTAPI));
 
@@ -275,6 +280,55 @@ class CandidateEnrichmentIntegrationTest extends FlowTestSupport {
                 .andExpect(status().isNotFound());
     }
 
+    @Test
+    @DisplayName("after research lands, the missing background is inferred and flagged AI")
+    void researchIsFollowedByAnInferredBackground() throws Exception {
+        String projectId = mandate("Inferred Background Firm");
+        enricher.answerWith(RESEARCH);
+        model.answerWith(INFERRED_BACKGROUND);
+
+        capture(projectId, "Sample Person", "sample-profile");
+
+        JsonNode researched = firstCandidateOf(projectId);
+        assertThat(researched.get("nationality").asText()).isEqualTo("Emirati");
+        assertThat(researched.get("gender").asText()).isEqualTo("female");
+        assertThat(researched.get("yearsExperience").asInt()).isEqualTo(14);
+        assertThat(researched.get("aiInferredFields")).extracting(JsonNode::asText)
+                .containsExactlyInAnyOrder("nationality", "gender", "yearsExperience");
+        assertThat(model.lastPrompt().getUserMessage().getText()).contains("Group CFO at Al Rawabi Dairy");
+    }
+
+    @Test
+    @DisplayName("years of experience already on the row are kept, and only the rest is inferred")
+    void experienceAlreadyOnTheRowIsKept() throws Exception {
+        String projectId = mandate("Kept Experience Firm");
+        enricher.answerWith(RESEARCH);
+        model.answerWith(INFERRED_BACKGROUND);
+
+        captureWith(projectId, "\"yearsExperience\":20");
+
+        JsonNode researched = firstCandidateOf(projectId);
+        assertThat(researched.get("yearsExperience").asInt()).isEqualTo(20);
+        assertThat(researched.get("nationality").asText()).isEqualTo("Emirati");
+        assertThat(researched.get("aiInferredFields")).extracting(JsonNode::asText)
+                .containsExactlyInAnyOrder("nationality", "gender");
+    }
+
+    @Test
+    @DisplayName("a background already complete never calls the model")
+    void aCompleteBackgroundNeverCallsTheModel() throws Exception {
+        String projectId = mandate("Full Background Firm");
+        enricher.answerWith(RESEARCH);
+        model.answerWith(INFERRED_BACKGROUND);
+
+        captureWith(projectId, "\"yearsExperience\":20,\"nationality\":\"Saudi\",\"gender\":\"male\"");
+
+        JsonNode researched = firstCandidateOf(projectId);
+        assertThat(researched.get("nationality").asText()).isEqualTo("Saudi");
+        assertThat(researched.get("aiInferredFields")).isEmpty();
+        assertThat(model.lastPrompt()).isNull();
+    }
+
     private String capture(String projectId, String fullName, String slug) throws Exception {
         return body(mvc.perform(post(candidatesUrl(projectId))
                         .header("Authorization", "Bearer " + adminToken)
@@ -285,6 +339,17 @@ class CandidateEnrichmentIntegrationTest extends FlowTestSupport {
                                 """.formatted(fullName, slug)))
                 .andExpect(status().isCreated())
                 .andReturn()).get("id").asText();
+    }
+
+    private void captureWith(String projectId, String background) throws Exception {
+        mvc.perform(post(candidatesUrl(projectId))
+                        .header("Authorization", "Bearer " + adminToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"fullName":"Sample Person","source":"extension",
+                                 "linkedinUrl":"https://www.linkedin.com/in/sample-profile",%s}
+                                """.formatted(background)))
+                .andExpect(status().isCreated());
     }
 
     private JsonNode firstCandidateOf(String projectId) throws Exception {

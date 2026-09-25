@@ -2,6 +2,7 @@ package app.lightmove.api.candidate.model;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import app.lightmove.api.candidate.constant.BackgroundField;
 import app.lightmove.api.candidate.constant.CandidateSource;
 import app.lightmove.api.candidate.constant.CandidateStatus;
 import app.lightmove.api.candidate.constant.ContactSource;
@@ -18,7 +19,7 @@ import org.junit.jupiter.api.Test;
  */
 class CandidateEnrichmentTest {
 
-    private static final EnrichedProfile RESEARCH = EnrichedProfile.researched(
+    private static final EnrichedProfile RESEARCH = new EnrichedProfile(
             "Group CFO", "Finance leader across GCC retail.", "Al Rawabi Dairy",
             "https://www.linkedin.com/company/alrawabi/", "https://media.example.com/alrawabi.png",
             "Dubai", "United Arab Emirates",
@@ -27,8 +28,7 @@ class CandidateEnrichmentTest {
             List.of("Financial Planning"), List.of("English", "Arabic"), null,
             EnrichmentVendor.BRIGHTDATA);
 
-    private static final EnrichedProfile RESEARCH_WITH_BACKGROUND =
-            RESEARCH.withBackground("Emirati", Gender.FEMALE, 14);
+    private static final InferredBackground PROPOSED = new InferredBackground("Emirati", Gender.FEMALE, 14);
 
     @Test
     @DisplayName("research fills in what nobody typed")
@@ -86,11 +86,11 @@ class CandidateEnrichmentTest {
     }
 
     @Test
-    @DisplayName("an inferred background is filled in and flagged, not just recorded")
-    void researchProposesBackgroundAndFlagsItInferred() {
+    @DisplayName("a proposed background fills the empty fields and flags each one")
+    void aProposedBackgroundIsFilledAndFlagged() {
         Candidate candidate = captured(details("Sample Person", null, null, null, null, null));
 
-        candidate.enrich(RESEARCH_WITH_BACKGROUND);
+        assertThat(candidate.proposeBackground(PROPOSED)).isTrue();
 
         assertThat(candidate.getNationality()).isEqualTo("Emirati");
         assertThat(candidate.getGender()).isEqualTo(Gender.FEMALE);
@@ -100,11 +100,11 @@ class CandidateEnrichmentTest {
     }
 
     @Test
-    @DisplayName("research never overwrites a background a researcher already typed, and flags nothing")
-    void researchNeverOverwritesTheResearchersBackground() {
+    @DisplayName("a proposal never overwrites a background already on the row, and flags nothing")
+    void aProposalNeverOverwritesAnExistingBackground() {
         Candidate candidate = captured(detailsWithBackground("Emirati", Gender.MALE, 20));
 
-        candidate.enrich(RESEARCH_WITH_BACKGROUND);
+        assertThat(candidate.proposeBackground(PROPOSED)).isFalse();
 
         assertThat(candidate.getNationality()).isEqualTo("Emirati");
         assertThat(candidate.getGender()).isEqualTo(Gender.MALE);
@@ -116,7 +116,7 @@ class CandidateEnrichmentTest {
     @DisplayName("a researcher changing an inferred value clears its flag")
     void editingAnInferredValueClearsItsFlag() {
         Candidate candidate = captured(details("Sample Person", null, null, null, null, null));
-        candidate.enrich(RESEARCH_WITH_BACKGROUND);
+        candidate.proposeBackground(PROPOSED);
 
         candidate.describe(detailsWithBackground("Western expat", Gender.FEMALE, 14), ContactSource.MANUAL);
 
@@ -129,12 +129,21 @@ class CandidateEnrichmentTest {
     @DisplayName("resubmitting an inferred value unchanged leaves it flagged")
     void resubmittingTheSameInferredValueLeavesItFlagged() {
         Candidate candidate = captured(details("Sample Person", null, null, null, null, null));
-        candidate.enrich(RESEARCH_WITH_BACKGROUND);
+        candidate.proposeBackground(PROPOSED);
 
         candidate.describe(detailsWithBackground("Emirati", Gender.FEMALE, 14), ContactSource.MANUAL);
 
         assertThat(candidate.getAiInferredFields()).containsExactlyInAnyOrder(
                 "nationality", "gender", "yearsExperience");
+    }
+
+    @Test
+    @DisplayName("only the fields still empty are named as missing")
+    void missingBackgroundNamesOnlyTheEmptyFields() {
+        Candidate candidate = captured(detailsWithBackground(null, null, 20));
+
+        assertThat(candidate.missingBackground())
+                .containsExactlyInAnyOrder(BackgroundField.NATIONALITY, BackgroundField.GENDER);
     }
 
     @Test

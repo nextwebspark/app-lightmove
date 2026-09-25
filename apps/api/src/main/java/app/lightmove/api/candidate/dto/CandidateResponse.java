@@ -28,10 +28,7 @@ public record CandidateResponse(
         /** A {@code Gender} wire token, or null where nobody recorded or confirmed one. */
         String gender,
         Integer yearsExperience,
-        /**
-         * Which of nationality/gender/yearsExperience currently hold a value an AI inference
-         * proposed, not yet reviewed by a researcher's own edit (issue #458).
-         */
+        /** Which of nationality/gender/yearsExperience hold a model's proposal no researcher has changed. */
         Set<String> aiInferredFields,
         String summary,
         String note,

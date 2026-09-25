@@ -1,8 +1,11 @@
 package app.lightmove.api.enrichment.candidate.service;
 
+import app.lightmove.api.candidate.constant.BackgroundField;
 import app.lightmove.api.candidate.constant.Gender;
 import app.lightmove.api.candidate.model.CandidateCareerEntry;
+import app.lightmove.api.candidate.model.CandidateResearchedEvent;
 import app.lightmove.api.candidate.model.EnrichedProfile;
+import app.lightmove.api.candidate.model.InferredBackground;
 import app.lightmove.api.common.constant.NationalityGroup;
 import app.lightmove.api.core.llm.model.BlockedAnswer;
 import app.lightmove.api.core.llm.model.PromptGuardSpec;
@@ -13,7 +16,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
-import java.util.UUID;
+import java.util.Set;
 import java.util.function.Consumer;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -25,24 +28,8 @@ import org.springframework.core.io.Resource;
 import org.springframework.stereotype.Service;
 
 /**
- * Reads a freshly researched profile for what it says about the executive's background — nationality,
- * gender and years of experience — the three fields the report's Diversity chapter counts and a
- * researcher would otherwise have to type in by hand (issue #458).
- *
- * <p>Built on the shared {@link ChatClient} the way {@code ColumnMappingProposer} and
- * {@code PositionDetailsProposer} are. Unlike those, there is no deterministic heuristic behind this
- * one: nationality and gender have no reliable rule beyond a guess, and a career history's free-text
- * {@code period} ("2021–Present", "c. 2015") is exactly the kind of thing a regex gets wrong more often
- * than it helps. An outage, a refused call, or a budget already spent all answer the same way — nothing
- * inferred, the profile returned exactly as it came in — never a fabricated value standing in for a
- * real one.
- *
- * <p><b>Every value this call answers is written but flagged, never trusted outright.</b>
- * {@code Candidate.enrich} stamps whichever of these three fields it fills from here into
- * {@code aiInferredFields}, and only a researcher's own edit that actually changes the value clears the
- * flag. Gender in particular carried a "recorded, never inferred" rule before this feature existed;
- * the flag is what keeps that promise in spirit even though the rule itself no longer holds literally
- * — nothing this call answers is presented as a fact somebody entered until somebody has looked at it.
+ * Reads a researched profile for the background a researcher would otherwise type in — nationality (one
+ * of the nine groups), gender and years of experience. Every failure answers {@link InferredBackground#NONE}.
  */
 @Service
 @Slf4j
@@ -52,7 +39,6 @@ public class CandidateBackgroundProposer {
     private static final double INFERENCE_TEMPERATURE = 0.0;
     private static final String ANSWER_MIME_TYPE = "application/json";
 
-    /** No reasoning step: this is a read-and-answer task over a short profile, not one thinking improves. */
     private static final int INFERENCE_THINKING_BUDGET = 0;
 
     private static final int MIN_PLAUSIBLE_YEARS = 0;
@@ -79,30 +65,28 @@ public class CandidateBackgroundProposer {
         this.llmBudget = llmBudget;
     }
 
-    /**
-     * The same research, with whatever background this call could read from it folded in. Nothing the
-     * vendor already answered is at risk here: only the three fields this call owns are ever set, and
-     * every way this can fail returns {@code fetched} exactly as it came in.
-     */
-    public EnrichedProfile propose(UUID userId, String candidateFullName, EnrichedProfile fetched) {
-        if (hasNothingToReasonFrom(fetched)) {
-            return fetched;
+    /** Only the fields the event names as missing are answered; the rest come back null. */
+    public InferredBackground propose(CandidateResearchedEvent event) {
+        EnrichedProfile research = event.research();
+        if (hasNothingToReasonFrom(research)) {
+            return InferredBackground.NONE;
         }
         try {
-            llmBudget.require(LlmBudget.CANDIDATE_BACKGROUND_INFER, userId);
-            ModelAnswer answered = ask(candidateFullName, fetched);
-            if (answered == null || wasBlocked(answered)) {
-                return fetched;
+            llmBudget.require(LlmBudget.CANDIDATE_BACKGROUND_INFER, event.addedBy());
+            ModelAnswer answered = ask(event.fullName(), research);
+            if (answered == null || BlockedAnswer.matches(answered.nationality())) {
+                return InferredBackground.NONE;
             }
-            return fetched.withBackground(nationalityOf(answered), genderOf(answered),
-                    yearsExperienceOf(answered));
+            Set<BackgroundField> missing = event.missing();
+            return new InferredBackground(
+                    missing.contains(BackgroundField.NATIONALITY) ? nationalityOf(answered) : null,
+                    missing.contains(BackgroundField.GENDER) ? genderOf(answered) : null,
+                    missing.contains(BackgroundField.YEARS_EXPERIENCE) ? yearsExperienceOf(answered) : null);
         } catch (RuntimeException e) {
-            // Every way this can fail — no budget left, no credentials, a network that cannot reach
-            // Vertex, an answer that will not bind — has the same right answer: infer nothing this
-            // time. The candidate simply keeps what the vendor's own research already gave it, and a
-            // future re-capture gets another attempt.
+            // No budget left, no credentials, Vertex unreachable, an answer that will not bind: all
+            // mean infer nothing this time, and the candidate keeps what the research gave it.
             log.warn("Candidate background inference skipped: {}", e.toString());
-            return fetched;
+            return InferredBackground.NONE;
         }
     }
 
@@ -133,15 +117,10 @@ public class CandidateBackgroundProposer {
                 .entity(ModelAnswer.class);
     }
 
-    /** No title, no about text, no career and no location leaves nothing to reason about — and
-     * nothing worth a billed call answering three fields null. */
+    /** Nothing worth a billed call answering three nulls. */
     private static boolean hasNothingToReasonFrom(EnrichedProfile fetched) {
         return fetched.title() == null && fetched.about() == null
                 && fetched.career().isEmpty() && fetched.locationCountry() == null;
-    }
-
-    private static boolean wasBlocked(ModelAnswer answered) {
-        return BlockedAnswer.matches(answered.nationality());
     }
 
     /** One of the nine canonical groups, or null — the model's own spelling is never stored as-is. */
