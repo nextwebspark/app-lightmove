@@ -1,34 +1,15 @@
 import { SegmentedControl, type SegmentedOption } from "../../../../components/ui/SegmentedControl";
-import type { BaseSalaryMode, BonusBasis, Compensation, IncentiveType } from "../../api/types";
+import type { BaseSalaryMode, BonusBasis, Compensation } from "../../api/types";
 import { formatAmount, packageTotal } from "../../lib/compensation";
-import {
-  BASE_SALARY_MODE_LABELS,
-  BONUS_BASIS_LABELS,
-  CURRENCIES,
-  INCENTIVE_TYPE_LABELS,
-  OFFERED_BONUS_BASES,
-  OFFERED_INCENTIVE_TYPES,
-} from "../../lib/labels";
+import { BASE_SALARY_MODE_LABELS, BONUS_BASIS_LABELS, CURRENCIES, INCENTIVE_TYPE_LABELS } from "../../lib/labels";
 import { BenefitsTable } from "../BenefitsTable";
-import { BriefPanel, ChipGroup, Eyebrow, FieldBlock, FigureInput, UnderlineField, withRecorded, type ChipOption } from "../BriefFields";
+import { BriefPanel, ChipGroup, Eyebrow, FieldBlock, FigureInput, UnderlineField, withRecorded } from "../BriefFields";
+import { BONUS_OPTIONS, INCENTIVE_OPTIONS, type IncentiveChoice } from "../briefOptions";
 import { PackageSummary } from "../PackageSummary";
 
 const PERIOD_OPTIONS: SegmentedOption<BaseSalaryMode>[] = (
   Object.entries(BASE_SALARY_MODE_LABELS) as [BaseSalaryMode, string][]
 ).map(([value, label]) => ({ value, label }));
-
-const BONUS_OPTIONS: ChipOption<BonusBasis>[] = OFFERED_BONUS_BASES.map((value) => ({
-  value,
-  label: BONUS_BASIS_LABELS[value],
-}));
-
-/** "None" is the absence of an incentive, which the wire spells as null rather than a fourth kind. */
-type IncentiveChoice = IncentiveType | "NONE";
-
-const INCENTIVE_OPTIONS: ChipOption<IncentiveChoice>[] = [
-  ...OFFERED_INCENTIVE_TYPES.map((value) => ({ value, label: INCENTIVE_TYPE_LABELS[value] })),
-  { value: "NONE", label: "None" },
-];
 
 const BONUS_CAPTIONS: Record<BonusBasis, string> = {
   PERCENT_OF_BASE: "of base salary",

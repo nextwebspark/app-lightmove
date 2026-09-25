@@ -1,7 +1,7 @@
 package app.lightmove.api.position.model;
 
 import app.lightmove.api.position.constant.FieldSource;
-import app.lightmove.api.position.constant.MandateReason;
+import app.lightmove.api.common.constant.MandateReason;
 import java.util.List;
 import java.util.Map;
 

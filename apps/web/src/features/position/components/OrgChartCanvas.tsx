@@ -49,9 +49,11 @@ interface OrgChartCanvasProps {
   roleTitle: string;
   /** `immediate` for structural edits, which are decisions rather than typing. */
   onChange: (chart: OrgNode[], immediate?: boolean) => void;
+  /** False on a role template, whose seats are titles: who sits in one is a mandate's to say. */
+  showNames?: boolean;
 }
 
-function OrgChart({ chart, roleTitle, onChange }: OrgChartCanvasProps) {
+function OrgChart({ chart, roleTitle, onChange, showNames = true }: OrgChartCanvasProps) {
   useSeatInView(chart.length);
   const patch = useCallback(
     (nodeId: string, changes: Partial<OrgNode>, immediate = false) =>
@@ -135,6 +137,7 @@ function OrgChart({ chart, roleTitle, onChange }: OrgChartCanvasProps) {
           data: {
             seat,
             roleTitle,
+            showName: showNames,
             childCount: childrenOf(chart, seat.nodeId).length,
             isRoot: seat.parentNodeId === null,
             canRemove: !seat.mandateSeat,
@@ -145,7 +148,7 @@ function OrgChart({ chart, roleTitle, onChange }: OrgChartCanvasProps) {
           },
         };
       }),
-    [chart, layout, roleTitle, patch, addChild, addParent, remove],
+    [chart, layout, roleTitle, showNames, patch, addChild, addParent, remove],
   );
 
   const edges: Edge[] = useMemo(

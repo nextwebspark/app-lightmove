@@ -7,22 +7,24 @@ import { ApiRequestError } from "../../../lib/apiClient";
 import { cn } from "../../../lib/cn";
 import { codeOf, messageFor } from "../../../lib/errorCodes";
 import { formatInstantDate } from "../../../lib/format";
-import {
-  noticePairLabel,
-  noticePeriodOfPair,
-  NOTICE_PERIODS,
-  pairOfNoticePeriod,
-} from "../../../lib/noticePeriod";
-import { SENIORITY_LABELS, SENIORITY_TIERS } from "../../../lib/seniority";
+import { noticePairLabel, noticePeriodOfPair, pairOfNoticePeriod } from "../../../lib/noticePeriod";
 import { POSITION_TEMPLATES_KEY } from "../../position/api/positionApi";
-import type {
-  BaseSalaryMode,
-  BonusBasis,
-  EmploymentType,
-  IncentiveType,
-  PositionDiscipline,
-  PositionSeniority,
-} from "../../position/api/types";
+import type { BaseSalaryMode, PositionDiscipline } from "../../position/api/types";
+import { ChipGroup, FieldBlock, withRecorded, type ChipOption } from "../../position/components/BriefFields";
+import {
+  BONUS_OPTIONS,
+  CONFIDENTIALITY_OPTIONS,
+  EMPLOYMENT_OPTIONS,
+  INCENTIVE_OPTIONS,
+  NOTICE_OPTIONS,
+  REASON_OPTIONS,
+  SENIORITY_OPTIONS,
+  type ConfidentialityLevel,
+  type IncentiveChoice,
+} from "../../position/components/briefOptions";
+import { CompetencySplit } from "../../position/components/CompetencySplit";
+import { OrgChartCanvas } from "../../position/components/OrgChartCanvas";
+import { POSITION_STEPS, type StepKey } from "../../position/lib/steps";
 import { CompetencyPanel } from "../components/CompetencyPanel";
 import { CriteriaCard } from "../components/CriteriaCard";
 import { SegmentedControl } from "../components/fields";
@@ -68,6 +70,17 @@ const BANNER_TONES = {
 } as const;
 
 const DISCARD = "Discard your unsaved changes?";
+
+/** The brief's confidentiality cards as chips — a template may also leave it unset. */
+const CONFIDENTIALITY_CHIPS: ChipOption<ConfidentialityLevel>[] = CONFIDENTIALITY_OPTIONS.map(({ value, title }) => ({
+  value,
+  label: title,
+}));
+
+/** Each section is headed as the brief's own step is, so a template reads in the order it drafts. */
+function stepHeading(key: StepKey): string {
+  return POSITION_STEPS.find((step) => step.key === key)?.heading ?? key;
+}
 
 /** One template, opened from either Templates list — or a new one, at `…/new`. */
 export function TemplateEditorPage({ scope }: { scope: TemplateScope }) {
@@ -207,12 +220,14 @@ function TemplateEditor({ scope, code }: { scope: TemplateScope; code: string | 
   }
 
   const noticePeriod = noticePeriodOfPair(draft.noticeValue, draft.noticeUnit);
-  // A template written outside the app, or before step three offered five periods, keeps saying what
-  // it says: the exchange schema is deliberately wider than this picker.
+  // A template written outside the app, or before the brief offered its four periods, keeps saying
+  // what it says: the exchange schema is deliberately wider than these chips.
   const noticeAsRecorded =
     !noticePeriod && draft.noticeValue != null && draft.noticeUnit != null
       ? noticePairLabel(draft.noticeValue, draft.noticeUnit)
       : null;
+  const noticeChoice = noticePeriod ?? noticeAsRecorded;
+  const incentiveChoice: IncentiveChoice = draft.incentiveType ?? "NONE";
 
   const problems = draftProblems(draft);
   const lifecycleAction = code === null || !detail ? null : lifecycleOf(scope, detail);
@@ -273,10 +288,10 @@ function TemplateEditor({ scope, code }: { scope: TemplateScope; code: string | 
       )}
 
       <SectionCard title="Identity & matching" aside="How the picker lists this template, and which role titles are drafted from it">
-        <Field label="Title">
-          <Input value={draft.title} maxLength={160} onChange={(e) => update({ title: e.target.value })} className="!bg-u-surface" />
-        </Field>
         <div className="grid grid-cols-1 gap-x-4 md:grid-cols-2">
+          <Field label="Title">
+            <Input value={draft.title} maxLength={160} onChange={(e) => update({ title: e.target.value })} className="!bg-u-surface" />
+          </Field>
           <Field label="Discipline">
             <Select
               value={draft.discipline}
@@ -286,19 +301,6 @@ function TemplateEditor({ scope, code }: { scope: TemplateScope; code: string | 
               {DISCIPLINES.map((discipline) => (
                 <option key={discipline} value={discipline}>
                   {DISCIPLINE_LABELS[discipline]}
-                </option>
-              ))}
-            </Select>
-          </Field>
-          <Field label="Seniority">
-            <Select
-              value={draft.seniority}
-              onChange={(e) => update({ seniority: e.target.value as PositionSeniority })}
-              className="!bg-u-surface"
-            >
-              {SENIORITY_TIERS.map((tier) => (
-                <option key={tier} value={tier}>
-                  {SENIORITY_LABELS[tier]}
                 </option>
               ))}
             </Select>
@@ -319,26 +321,71 @@ function TemplateEditor({ scope, code }: { scope: TemplateScope; code: string | 
         />
       </SectionCard>
 
-      <SectionCard title="Position details" aside="Step 1 of the brief. Role title and location stay the mandate's own">
-        <div className="grid grid-cols-1 gap-x-4 md:grid-cols-2">
-          <Field label="Department">
-            <Input value={draft.department} maxLength={160} onChange={(e) => update({ department: e.target.value })} className="!bg-u-surface" />
-          </Field>
-          <Field label="Employment type">
-            <Select
-              value={draft.employmentType ?? ""}
-              onChange={(e) => update({ employmentType: (e.target.value || null) as EmploymentType | null })}
-              className="!bg-u-surface"
-            >
-              <option value="">Not set</option>
-              {Object.entries(EMPLOYMENT_TYPE_LABELS).map(([value, label]) => (
-                <option key={value} value={value}>
-                  {label}
-                </option>
-              ))}
-            </Select>
-          </Field>
+      <SectionCard
+        title={stepHeading("brief")}
+        aside="How the brief opens. Role title, location and target start stay each mandate's own"
+      >
+        <div className="grid grid-cols-1 gap-x-6 md:grid-cols-2">
+          <FieldBlock label="Employment type" className="mb-5">
+            <ChipGroup
+              size="sm"
+              label="Employment type"
+              options={withRecorded(EMPLOYMENT_OPTIONS, draft.employmentType, (value) => EMPLOYMENT_TYPE_LABELS[value])}
+              value={draft.employmentType}
+              allowClear
+              onChange={(employmentType) => update({ employmentType })}
+            />
+          </FieldBlock>
+          <FieldBlock label="Seniority" className="mb-5">
+            <ChipGroup
+              size="sm"
+              label="Seniority"
+              options={SENIORITY_OPTIONS}
+              value={draft.seniority}
+              onChange={(seniority) => seniority && update({ seniority })}
+            />
+          </FieldBlock>
         </div>
+        <FieldBlock label="Reason for hire" className="mb-5">
+          <ChipGroup
+            size="sm"
+            label="Reason for hire"
+            options={REASON_OPTIONS}
+            value={draft.mandateReason}
+            allowClear
+            onChange={(mandateReason) => update({ mandateReason })}
+          />
+          <FieldHint>Leave unset to keep each mandate's own.</FieldHint>
+        </FieldBlock>
+        <FieldBlock label="Confidentiality level" className="mb-5">
+          <ChipGroup
+            size="sm"
+            label="Confidentiality level"
+            options={CONFIDENTIALITY_CHIPS}
+            value={draft.confidential === null ? null : draft.confidential ? "confidential" : "standard"}
+            allowClear
+            onChange={(level) => update({ confidential: level === null ? null : level === "confidential" })}
+          />
+          <FieldHint>Leave unset to keep each mandate's own.</FieldHint>
+        </FieldBlock>
+        <FieldBlock label="Notice period to plan for" className="mb-5">
+          <ChipGroup
+            size="sm"
+            label="Notice period"
+            options={withRecorded(NOTICE_OPTIONS, noticeChoice, (label) => label)}
+            value={noticeChoice}
+            allowClear
+            onChange={(chosen) =>
+              chosen === noticeAsRecorded
+                ? undefined
+                : update(
+                    chosen === null
+                      ? { noticeValue: null, noticeUnit: null }
+                      : (pairOfNoticePeriod(chosen) ?? {}),
+                  )
+            }
+          />
+        </FieldBlock>
         <ChipListField
           label="Key responsibilities"
           values={draft.responsibilities}
@@ -359,61 +406,19 @@ function TemplateEditor({ scope, code }: { scope: TemplateScope; code: string | 
       </SectionCard>
 
       <SectionCard
-        title="Mandate context"
-        aside="The strategic-priority palette step 2 offers. Reason for hire and business driver stay per mandate"
+        title={stepHeading("reporting")}
+        aside="The seats around the role. Titles only — who sits in them is each mandate's to say"
       >
-        <ChipListField
-          label="Strategic priorities"
-          values={draft.strategicPriorities}
-          placeholder="Add a priority…"
-          max={20}
-          maxLength={120}
-          onChange={(strategicPriorities) => update({ strategicPriorities })}
-        />
-      </SectionCard>
-
-      <SectionCard title="Reporting structure" aside="Seeds step 3's org chart: the seat above the role, and the seats beneath it">
-        <div className="grid grid-cols-1 gap-x-4 md:grid-cols-2">
-          <Field label="Reports to">
-            <Input value={draft.reportsTo} maxLength={160} onChange={(e) => update({ reportsTo: e.target.value })} className="!bg-u-surface" />
-          </Field>
-          <Field label="Notice period">
-            <Select
-              value={noticePeriod ?? noticeAsRecorded ?? ""}
-              aria-label="Notice period"
-              onChange={(e) =>
-                update(
-                  e.target.value === noticeAsRecorded
-                    ? {}
-                    : (pairOfNoticePeriod(e.target.value) ?? { noticeValue: null, noticeUnit: null }),
-                )
-              }
-              className="!bg-u-surface"
-            >
-              <option value="">Not set</option>
-              {NOTICE_PERIODS.map((period) => (
-                <option key={period.label} value={period.label}>
-                  {period.label}
-                </option>
-              ))}
-              {noticeAsRecorded && (
-                <option value={noticeAsRecorded}>{noticeAsRecorded} (as recorded)</option>
-              )}
-            </Select>
-          </Field>
-        </div>
-        <ChipListField
-          label="Direct reports"
-          values={draft.directReports}
-          placeholder="Add a seat, e.g. Head of Treasury"
-          max={30}
-          maxLength={160}
-          onChange={(directReports) => update({ directReports })}
+        <OrgChartCanvas
+          chart={draft.orgChart}
+          roleTitle={draft.title.trim() || "This role"}
+          showNames={false}
+          onChange={(orgChart) => update({ orgChart })}
         />
       </SectionCard>
 
       <SectionCard
-        title="Compensation shape"
+        title={stepHeading("compensation")}
         aside="The package's shape, never its figures. The salary band is the client's budget, set on each mandate"
       >
         <div className="grid grid-cols-1 gap-x-4 md:grid-cols-2">
@@ -438,45 +443,39 @@ function TemplateEditor({ scope, code }: { scope: TemplateScope; code: string | 
               onChange={(baseSalaryMode) => update({ baseSalaryMode })}
             />
           </div>
-          <Field label="Target bonus">
-            <span className="flex gap-2">
-              <Input
-                type="number"
-                min={0}
-                step={0.01}
-                value={draft.bonusValue ?? ""}
-                onChange={(e) => update({ bonusValue: numberOrNull(e.target.value) })}
-                className="w-24 flex-none !bg-u-surface"
-              />
-              <Select
-                value={draft.bonusBasis ?? ""}
-                aria-label="Bonus basis"
-                onChange={(e) => update({ bonusBasis: (e.target.value || null) as BonusBasis | null })}
-                className="!bg-u-surface"
-              >
-                <option value="">Not set</option>
-                {Object.entries(BONUS_BASIS_LABELS).map(([value, label]) => (
-                  <option key={value} value={value}>
-                    {label}
-                  </option>
-                ))}
-              </Select>
-            </span>
-          </Field>
-          <Field label="Long-term incentive">
-            <Select
-              value={draft.incentiveType ?? ""}
-              onChange={(e) => update({ incentiveType: (e.target.value || null) as IncentiveType | null })}
-              className="!bg-u-surface"
-            >
-              <option value="">None</option>
-              {Object.entries(INCENTIVE_TYPE_LABELS).map(([value, label]) => (
-                <option key={value} value={value}>
-                  {label}
-                </option>
-              ))}
-            </Select>
-          </Field>
+        </div>
+        <div className="grid grid-cols-1 gap-x-6 md:grid-cols-2">
+          <FieldBlock label="Annual bonus target" className="mb-5">
+            <ChipGroup
+              size="sm"
+              label="Bonus basis"
+              options={withRecorded(BONUS_OPTIONS, draft.bonusBasis, (basis) => BONUS_BASIS_LABELS[basis])}
+              value={draft.bonusBasis}
+              allowClear
+              onChange={(bonusBasis) => update({ bonusBasis })}
+            />
+            <Input
+              type="number"
+              min={0}
+              step={0.01}
+              aria-label="Target bonus"
+              placeholder={draft.bonusBasis === "FIXED_AMOUNT" ? `Amount in ${draft.currency}` : "Percent"}
+              value={draft.bonusValue ?? ""}
+              onChange={(e) => update({ bonusValue: numberOrNull(e.target.value) })}
+              className="mt-2.5 max-w-[220px] !bg-u-surface"
+            />
+          </FieldBlock>
+          <FieldBlock label="LTIP" className="mb-5">
+            <ChipGroup
+              size="sm"
+              label="Long-term incentive"
+              options={withRecorded(INCENTIVE_OPTIONS, incentiveChoice, (choice) =>
+                choice === "NONE" ? "None" : INCENTIVE_TYPE_LABELS[choice],
+              )}
+              value={incentiveChoice}
+              onChange={(choice) => update({ incentiveType: choice === null || choice === "NONE" ? null : choice })}
+            />
+          </FieldBlock>
         </div>
         <Field label="Incentive vesting">
           <Input
@@ -489,8 +488,15 @@ function TemplateEditor({ scope, code }: { scope: TemplateScope; code: string | 
         <BenefitLines benefits={draft.benefits} onChange={(benefits) => update({ benefits })} />
       </SectionCard>
 
-      <SectionCard title="Assessment" aside="What a candidate is scored against. Each panel with competencies must total exactly 100%">
-        <div className="mb-4 flex flex-col gap-3.5">
+      <SectionCard
+        title={stepHeading("assessment")}
+        aside="What a candidate is scored against. Each panel with competencies must total exactly 100%"
+      >
+        <CriteriaCard criteria={draft.criteria} onChange={(criteria) => update({ criteria })} />
+        <div className="my-4">
+          <CompetencySplit technicalShare={draft.technicalShare} onChange={(technicalShare) => update({ technicalShare })} />
+        </div>
+        <div className="flex flex-col gap-3.5">
           <CompetencyPanel
             title="Technical competencies"
             accent="accent"
@@ -510,7 +516,6 @@ function TemplateEditor({ scope, code }: { scope: TemplateScope; code: string | 
             onReorder={(fromId, toId) => update({ behavioural: moveRow(draft.behavioural, fromId, toId) })}
           />
         </div>
-        <CriteriaCard criteria={draft.criteria} onChange={(criteria) => update({ criteria })} />
       </SectionCard>
 
       {dirty && problems.length > 0 && (
@@ -580,6 +585,10 @@ function SectionCard({ title, aside, children }: { title: string; aside: string;
       {children}
     </section>
   );
+}
+
+function FieldHint({ children }: { children: ReactNode }) {
+  return <p className="mt-1.5 font-mono text-[11px] text-u-text3">{children}</p>;
 }
 
 function numberOrNull(text: string): number | null {

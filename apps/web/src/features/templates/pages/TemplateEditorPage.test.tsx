@@ -6,8 +6,41 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { ToastProvider } from "../../../components/ui";
 import { ApiRequestError } from "../../../lib/apiClient";
 import * as templateApi from "../api/templateAdminApi";
+import type { OrgNode } from "../../position/api/types";
 import type { TemplateDetail } from "../api/types";
 import { TemplateEditorPage } from "./TemplateEditorPage";
+
+// React Flow needs a layout engine jsdom does not have; the canvas is the brief's own and tested there.
+vi.mock("../../position/components/OrgChartCanvas", () => ({
+  OrgChartCanvas: ({ chart, onChange }: { chart: OrgNode[]; onChange: (chart: OrgNode[]) => void }) => (
+    <ul aria-label="Org chart">
+      {chart.map((seat) => (
+        <li key={seat.nodeId}>{seat.mandateSeat ? "This role" : seat.title}</li>
+      ))}
+      <li>
+        <button
+          type="button"
+          onClick={() =>
+            onChange([
+              ...chart,
+              {
+                nodeId: "new-seat",
+                parentNodeId: "role",
+                title: "Head of Tax",
+                name: null,
+                mandateSeat: false,
+                canvasX: null,
+                canvasY: null,
+              },
+            ])
+          }
+        >
+          Add Head of Tax
+        </button>
+      </li>
+    </ul>
+  ),
+}));
 
 vi.mock("../api/templateAdminApi", async (importOriginal) => ({
   ...(await importOriginal<typeof import("../api/templateAdminApi")>()),
@@ -35,15 +68,17 @@ const cfo = (overrides: Partial<TemplateDetail> = {}): TemplateDetail => ({
   revisedAt: "2026-09-02T10:00:00Z",
   revisedByName: null,
   body: {
-    department: "Finance",
     employmentType: "FULL_TIME_PERMANENT",
-    narrative: null,
-    responsibilities: ["Group P&L stewardship"],
-    reportsTo: "Group CEO",
-    directReports: [],
-    strategicPriorities: [],
+    mandateReason: null,
+    confidential: null,
     noticeValue: 3,
     noticeUnit: "MONTHS",
+    responsibilities: ["Group P&L stewardship"],
+    narrative: "Sits on the executive committee.",
+    orgChart: [
+      { id: "ceo", parentId: null, title: "Group CEO", mandateSeat: false },
+      { id: "role", parentId: "ceo", title: null, mandateSeat: true },
+    ],
     currency: "USD",
     baseSalaryMode: "ANNUAL",
     bonusValue: null,
@@ -56,6 +91,7 @@ const cfo = (overrides: Partial<TemplateDetail> = {}): TemplateDetail => ({
       { panel: "TECHNICAL", name: "Reporting", description: null, weight: 100 },
       { panel: "BEHAVIOURAL", name: "Leadership", description: null, weight: 100 },
     ],
+    technicalShare: 50,
   },
   ...overrides,
 });
@@ -85,7 +121,7 @@ describe("TemplateEditorPage — a firm editing a template", () => {
     vi.mocked(templateApi.getTemplate).mockResolvedValue(cfo());
 
     renderEditor();
-    await screen.findByLabelText("Department");
+    await screen.findByLabelText("Ideal profile");
 
     saveButtons("Save as my firm's copy").forEach((button) => expect(button).toBeDisabled());
   });
@@ -95,9 +131,9 @@ describe("TemplateEditorPage — a firm editing a template", () => {
     vi.mocked(templateApi.saveTemplate).mockResolvedValue(cfo({ origin: "CUSTOMISED", version: 8 }));
 
     renderEditor();
-    const department = await screen.findByLabelText("Department");
-    await userEvent.clear(department);
-    await userEvent.type(department, "Group Finance");
+    const profile = await screen.findByLabelText("Ideal profile");
+    await userEvent.clear(profile);
+    await userEvent.type(profile, "Runs group finance.");
     await userEvent.click(saveButtons("Save as my firm's copy")[0]);
 
     expect(templateApi.saveTemplate).toHaveBeenCalledWith(
@@ -105,7 +141,7 @@ describe("TemplateEditorPage — a firm editing a template", () => {
       "chief-financial-officer",
       expect.objectContaining({
         version: 7,
-        body: expect.objectContaining({ department: "Group Finance" }),
+        body: expect.objectContaining({ narrative: "Runs group finance." }),
       }),
     );
   });
@@ -129,17 +165,83 @@ describe("TemplateEditorPage — a firm editing a template", () => {
     );
 
     renderEditor();
-    await userEvent.type(await screen.findByLabelText("Department"), " & Treasury");
+    await userEvent.type(await screen.findByLabelText("Ideal profile"), " And treasury.");
     await userEvent.click(saveButtons("Save as my firm's copy")[0]);
     expect(await screen.findByText(/Someone saved this template after you opened it/)).toBeInTheDocument();
 
     vi.mocked(templateApi.getTemplate).mockResolvedValue(
-      cfo({ origin: "CUSTOMISED", version: 8, body: { ...cfo().body, department: "Their Finance" } }),
+      cfo({ origin: "CUSTOMISED", version: 8, body: { ...cfo().body, narrative: "Their Finance" } }),
     );
     await userEvent.click(screen.getByRole("button", { name: "Reload" }));
 
     expect(await screen.findByDisplayValue("Their Finance")).toBeInTheDocument();
     expect(screen.queryByText(/Someone saved this template after you opened it/)).not.toBeInTheDocument();
+  });
+
+  it("follows the brief's own steps, in the brief's order", async () => {
+    vi.mocked(templateApi.getTemplate).mockResolvedValue(cfo());
+
+    renderEditor();
+    await screen.findByLabelText("Ideal profile");
+
+    const sections = [
+      "Identity & matching",
+      "Role Brief",
+      "Reporting Structure",
+      "Compensation Package",
+      "Assessment Criteria",
+    ];
+    const drawn = screen.getAllByRole("region").map((section) => section.getAttribute("aria-label") ?? "");
+    expect(drawn.filter((label) => sections.includes(label))).toEqual(sections);
+  });
+
+  it("drafts a reason for hire, a confidentiality level, a new seat and the split — and sends each back", async () => {
+    vi.mocked(templateApi.getTemplate).mockResolvedValue(cfo());
+    vi.mocked(templateApi.saveTemplate).mockResolvedValue(cfo({ origin: "CUSTOMISED", version: 8 }));
+
+    renderEditor();
+    await userEvent.click(await screen.findByRole("radio", { name: "Succession plan" }));
+    await userEvent.click(screen.getByRole("radio", { name: "Confidential" }));
+    await userEvent.click(screen.getByRole("button", { name: "Add Head of Tax" }));
+    const technical = screen.getByRole("textbox", { name: "Technical share" });
+    await userEvent.clear(technical);
+    await userEvent.type(technical, "70");
+    await userEvent.click(saveButtons("Save as my firm's copy")[0]);
+
+    expect(templateApi.saveTemplate).toHaveBeenCalledWith(
+      "workspace",
+      "chief-financial-officer",
+      expect.objectContaining({
+        body: expect.objectContaining({
+          mandateReason: "SUCCESSION",
+          confidential: true,
+          technicalShare: 70,
+          orgChart: [
+            { id: "ceo", parentId: null, title: "Group CEO", mandateSeat: false },
+            { id: "role", parentId: "ceo", title: null, mandateSeat: true },
+            { id: "new-seat", parentId: "role", title: "Head of Tax", mandateSeat: false },
+          ],
+        }),
+      }),
+    );
+  });
+
+  it("offers the brief's four notice periods, and keeps one written outside them as recorded", async () => {
+    vi.mocked(templateApi.getTemplate).mockResolvedValue(
+      cfo({ body: { ...cfo().body, noticeValue: 6, noticeUnit: "WEEKS" } }),
+    );
+
+    renderEditor();
+    const notice = await screen.findByRole("radiogroup", { name: "Notice period" });
+
+    expect(Array.from(notice.querySelectorAll("button")).map((chip) => chip.textContent)).toEqual([
+      "1 month",
+      "2 months",
+      "3 months",
+      "6 months",
+      "6 weeks (as recorded)",
+    ]);
+    expect(screen.getByRole("radio", { name: "6 weeks (as recorded)" })).toHaveAttribute("aria-checked", "true");
   });
 
   it("tells a firm the library has moved past its copy, and offers the reset", async () => {
