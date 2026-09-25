@@ -55,7 +55,7 @@ public class NamedCompanyTools {
             locally. State figures only as returned here. Call it once per answer.""")
     public NamedCompanies lookUpCompaniesByName(
             @ToolParam(description = "Companies, at most ten") List<NamedCompanyRequest> companies,
-            @ToolParam(description = "Country the companies operate in") String country,
+            @ToolParam(description = "One country the companies operate in — for a region such as the GCC, its largest market") String country,
             ToolContext toolContext) {
         AssistantToolContext context = AssistantToolContext.from(toolContext);
         TurnRecorder recorder = context.recorder();

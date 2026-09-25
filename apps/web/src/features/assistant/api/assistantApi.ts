@@ -27,8 +27,9 @@ export function getThread(threadId: string): Promise<AssistantThread> {
 
 /**
  * Asks, and hands each step to `onStep` as the server reports it ("Searching retail companies in
- * …", then its count), and the company card to `onProposal` the moment it is made — the answer text
- * takes one more model round after it. Resolves with the saved turn once the answer is ready.
+ * …", then its count), the company card to `onProposal` the moment it is made, and each piece of the
+ * answer's text to `onAnswer` as the model writes it. Resolves with the saved turn, whose answer is
+ * exactly those pieces joined.
  *
  * <p>Not cancellable: the server saves the answer whether or not anyone is still reading.
  */
@@ -38,6 +39,7 @@ export async function ask(
   threadId: string | null,
   onStep: (step: LiveStep) => void,
   onProposal: (proposal: AssistantProposal) => void,
+  onAnswer: (text: string) => void,
 ): Promise<AssistantTurn> {
   const received: { turn?: AssistantTurn; failedCode?: string } = {};
   await streamEvents(
@@ -45,6 +47,7 @@ export async function ask(
     (event) => {
       if (event.name === "step") onStep(JSON.parse(event.data) as LiveStep);
       if (event.name === "proposal") onProposal(JSON.parse(event.data) as AssistantProposal);
+      if (event.name === "answer") onAnswer((JSON.parse(event.data) as { text: string }).text);
       if (event.name === "done") received.turn = JSON.parse(event.data) as AssistantTurn;
       if (event.name === "failed") received.failedCode = (JSON.parse(event.data) as { code: string }).code;
     },

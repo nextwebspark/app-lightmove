@@ -1,24 +1,25 @@
-package app.lightmove.api.assistant.tool;
+package app.lightmove.api.assistant.service;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 
 import app.lightmove.api.FlowTestSupport;
 import app.lightmove.api.IntegrationTest;
+import app.lightmove.api.assistant.model.MandateBrief;
+import app.lightmove.api.position.service.PositionService;
 import java.util.UUID;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
-import org.springframework.ai.chat.model.ToolContext;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.MediaType;
 import org.springframework.jdbc.core.JdbcTemplate;
 
 /** What the model is told about the position, read from real rows and never written back. */
 @IntegrationTest
-class MandateToolsIntegrationTest extends FlowTestSupport {
+class PositionContextIntegrationTest extends FlowTestSupport {
 
     @Autowired
-    private MandateTools tools;
+    private PositionService positions;
 
     @Autowired
     private JdbcTemplate db;
@@ -27,18 +28,14 @@ class MandateToolsIntegrationTest extends FlowTestSupport {
     @DisplayName("the brief names the position and nothing about the client, and leaves compensation out")
     void readsThePosition() throws Exception {
         Mandate mandate = mandate("Brief Reading Firm");
-        TurnRecorder recorder = new TurnRecorder(step -> { });
 
-        MandateBrief brief = tools.readMandateBrief(context(mandate, recorder));
+        MandateBrief brief = MandateBrief.of(positions.briefOf(mandate.workspaceId, mandate.projectId));
 
         assertThat(brief.roleTitle()).isEqualTo("Chief Financial Officer");
         assertThat(MandateBrief.class.getRecordComponents())
                 .extracting("name")
                 .doesNotContain("compensation", "internalContext", "clientName", "clientSector");
-        assertThat(recorder.steps()).singleElement().satisfies(step -> {
-            assertThat(step.label()).isEqualTo("Reading the position brief");
-            assertThat(step.detail()).startsWith("Chief Financial Officer");
-        });
+        assertThat(PositionContext.render(brief)).startsWith("- Role: Chief Financial Officer");
     }
 
     @Test
@@ -47,9 +44,10 @@ class MandateToolsIntegrationTest extends FlowTestSupport {
         Mandate mandate = mandate("Brief Absent Firm");
         db.update("DELETE FROM app_lm_position WHERE project_id = ?", mandate.projectId);
 
-        MandateBrief brief = tools.readMandateBrief(context(mandate, new TurnRecorder(step -> { })));
+        MandateBrief brief = MandateBrief.of(positions.briefOf(mandate.workspaceId, mandate.projectId));
 
         assertThat(brief.responsibilities()).isEmpty();
+        assertThat(PositionContext.render(brief)).endsWith("No brief has been written yet.");
         assertThat(db.queryForObject("SELECT count(*) FROM app_lm_position WHERE project_id = ?",
                 Integer.class, mandate.projectId)).isZero();
     }
@@ -78,8 +76,4 @@ class MandateToolsIntegrationTest extends FlowTestSupport {
         return new Mandate(workspaceId, projectId);
     }
 
-    private static ToolContext context(Mandate mandate, TurnRecorder recorder) {
-        return new ToolContext(
-                new AssistantToolContext(mandate.workspaceId, mandate.projectId, recorder).asMap());
-    }
 }

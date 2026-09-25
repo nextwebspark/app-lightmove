@@ -1,6 +1,7 @@
 package app.lightmove.api;
 
 import java.util.List;
+import reactor.core.publisher.Flux;
 import org.springframework.ai.chat.messages.AssistantMessage;
 import org.springframework.ai.chat.model.ChatModel;
 import org.springframework.ai.chat.model.ChatResponse;
@@ -26,6 +27,13 @@ public class StubChatModel implements ChatModel {
     public ChatResponse call(Prompt prompt) {
         lastPrompt = prompt;
         return chunk(REPLY);
+    }
+
+    /** The same reply in two pieces, as a streamed answer arrives. */
+    @Override
+    public Flux<ChatResponse> stream(Prompt prompt) {
+        lastPrompt = prompt;
+        return Flux.just(chunk("stubbed"), chunk(" response"));
     }
 
     /** The last prompt sent, so a test can see what the model was told. */

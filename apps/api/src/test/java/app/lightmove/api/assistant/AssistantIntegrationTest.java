@@ -50,7 +50,9 @@ class AssistantIntegrationTest extends FlowTestSupport {
         Firm firm = firm("Assistant Chat Firm");
 
         JsonNode first = askAndAwait(firm.admin, firm.projectId, null, "Top retailers in UAE");
-        assertThat(first.get("answer").asText()).isEqualTo("stubbed response");
+        assertThat(first.get("answer").asText())
+                .as("the saved answer is exactly the pieces that were streamed")
+                .isEqualTo("stubbed response");
         assertThat(first.get("steps").isArray()).isTrue();
         String threadId = first.get("threadId").asText();
 
@@ -204,6 +206,24 @@ class AssistantIntegrationTest extends FlowTestSupport {
                 .contains("- Sectors: Retail, Real Estate")
                 .contains("- Competitors: Majid Al Futtaim")
                 .doesNotContain("{firm}");
+    }
+
+    @Test
+    @DisplayName("the answer's text streams before the saved turn, and the position rides in the prompt")
+    void streamsTheAnswerAndCarriesThePosition() throws Exception {
+        Firm firm = firm("Assistant Streaming Firm");
+
+        MvcResult stream = mvc.perform(ask(firm.admin, firm.projectId, null, "Top retailers in UAE"))
+                .andExpect(request().asyncStarted())
+                .andReturn();
+        awaitContent(stream, "event:done");
+        String content = stream.getResponse().getContentAsString();
+
+        assertThat(content.indexOf("event:answer")).isNotNegative().isLessThan(content.indexOf("event:done"));
+        assertThat(content).contains("\"text\":\"stubbed\"").contains("\"text\":\" response\"");
+        assertThat(model.lastPrompt().getSystemMessage().getText())
+                .contains("- Role: Head of Retail")
+                .doesNotContain("{position}");
     }
 
     private String turnWithCard(Firm firm) throws Exception {

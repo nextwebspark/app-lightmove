@@ -8,16 +8,23 @@ import { useEscapeKey } from "../../../lib/useEscapeKey";
 import * as assistantApi from "../api/assistantApi";
 import { useAssistant } from "../AssistantProvider";
 import type { AssistantProposal, AssistantThread, LiveStep } from "../api/types";
+import { AssistantAnswer } from "./AssistantAnswer";
 import { AssistantStarters } from "./AssistantStarters";
 import { AssistantSteps } from "./AssistantSteps";
 import { AssistantTurnView, QuestionBubble } from "./AssistantTurnView";
 
 const STILL_ANSWERING_RECHECK_MS = 20_000;
+const FOLLOW_WITHIN_PX = 160;
 
 const READING_STEP: LiveStep = { index: 0, label: "Reading your question", detail: null, done: false };
 
-/** Once every tool has finished, the model still writes the answer — a gap that would read as a hang. */
-function withWritingStep(steps: LiveStep[]): LiveStep[] {
+/**
+ * Once every tool has finished, the model still writes the answer — a gap that would read as a hang.
+ * The row goes as soon as the answer's text appears, which then shows the writing itself: the saved
+ * turn has no such row, so keeping it would make the text jump up by a line when the turn lands.
+ */
+function withWritingStep(steps: LiveStep[], isAnswering: boolean): LiveStep[] {
+  if (isAnswering) return steps;
   if (steps.length === 0) return [READING_STEP];
   if (steps.some((step) => !step.done)) return steps;
   return [...steps, { index: steps.length, label: "Writing the answer", detail: null, done: false }];
@@ -25,7 +32,8 @@ function withWritingStep(steps: LiveStep[]): LiveStep[] {
 
 /**
  * Stands in for the card until the turn is saved: a card drawn early is redrawn under the answer
- * once it lands, which read as a glitch.
+ * once it lands, which read as a glitch. It sits where the card will, below the streaming answer, so
+ * the real card replaces it whole and nothing above it moves.
  */
 function PreparingCard({ count }: { count: number }) {
   return (
@@ -42,8 +50,8 @@ function PreparingCard({ count }: { count: number }) {
  * The assistant, docked beside the page rather than over it: `role="complementary"` with no scrim,
  * so the grid next to it stays usable while it is open.
  *
- * <p>One chat at a time. Asking streams the steps as they happen; the card is drawn only with the
- * saved turn, once the answer is written.
+ * <p>One chat at a time. Asking streams the steps and then the answer's text as they happen; the
+ * card is drawn only with the saved turn, once the answer is written.
  */
 export function AssistantPanel({ contextLabel, projectId }: { contextLabel: string; projectId: string }) {
   const { isOpenFor, toggledByUser, closeAssistant, threadIdFor, showThread } = useAssistant();
@@ -69,6 +77,7 @@ export function AssistantPanel({ contextLabel, projectId }: { contextLabel: stri
 
   const [liveSteps, setLiveSteps] = useState<LiveStep[]>([]);
   const [liveProposal, setLiveProposal] = useState<AssistantProposal | null>(null);
+  const [liveAnswer, setLiveAnswer] = useState("");
   const [pendingQuestion, setPendingQuestion] = useState<string | null>(null);
   const scroller = useRef<HTMLDivElement>(null);
   // Set when the person opens another chat mid-answer: the answer still lands in its own chat, but
@@ -80,6 +89,7 @@ export function AssistantPanel({ contextLabel, projectId }: { contextLabel: stri
       movedOn.current = false;
       setLiveSteps([]);
       setLiveProposal(null);
+      setLiveAnswer("");
       setPendingQuestion(question);
       return assistantApi.ask(
         projectId,
@@ -89,6 +99,7 @@ export function AssistantPanel({ contextLabel, projectId }: { contextLabel: stri
           setLiveSteps((current) => [...current.filter((held) => held.index !== step.index), step]
             .sort((left, right) => left.index - right.index)),
         setLiveProposal,
+        (text) => setLiveAnswer((current) => current + text),
       );
     },
     // The pending bubble and the saved turn swap in one synchronous block, so React draws them in one
@@ -107,6 +118,7 @@ export function AssistantPanel({ contextLabel, projectId }: { contextLabel: stri
         : await assistantApi.getThread(turn.threadId);
       setPendingQuestion(null);
       setLiveProposal(null);
+      setLiveAnswer("");
       queryClient.setQueryData(key, fresh);
       showThread(projectId, turn.threadId);
     },
@@ -114,6 +126,7 @@ export function AssistantPanel({ contextLabel, projectId }: { contextLabel: stri
     onError: (error) => {
       setPendingQuestion(null);
       setLiveProposal(null);
+      setLiveAnswer("");
       if (error instanceof ApiRequestError && error.code === "ASSISTANT_STILL_ANSWERING") {
         void queryClient.invalidateQueries({ queryKey: assistantApi.ASSISTANT_THREADS_KEY(projectId) });
         if (threadId) {
@@ -137,6 +150,7 @@ export function AssistantPanel({ contextLabel, projectId }: { contextLabel: stri
     asking.reset();
     setPendingQuestion(null);
     setLiveProposal(null);
+    setLiveAnswer("");
     showThread(projectId, id);
   };
 
@@ -147,6 +161,15 @@ export function AssistantPanel({ contextLabel, projectId }: { contextLabel: stri
     const list = scroller.current;
     list?.scrollTo?.({ top: list.scrollHeight, behavior: "smooth" });
   }, [pendingQuestion, liveSteps.length, liveProposal, lastTurnId, thread.data]);
+
+  // Streaming text follows the reader down only while they are already at the bottom, and without
+  // smoothing: a smooth scroll per piece of text queues up and lags behind the words.
+  useEffect(() => {
+    const list = scroller.current;
+    if (!list || !liveAnswer) return;
+    const distanceFromBottom = list.scrollHeight - list.scrollTop - list.clientHeight;
+    if (distanceFromBottom < FOLLOW_WITHIN_PX) list.scrollTo?.({ top: list.scrollHeight });
+  }, [liveAnswer]);
 
   // Guarded on the toggle so restoring a remembered open panel never steals the caret.
   useEffect(() => {
@@ -254,7 +277,8 @@ export function AssistantPanel({ contextLabel, projectId }: { contextLabel: stri
         {pendingQuestion && (
           <div>
             <QuestionBubble question={pendingQuestion} />
-            <AssistantSteps steps={withWritingStep(liveSteps)} />
+            <AssistantSteps steps={withWritingStep(liveSteps, liveAnswer.length > 0)} />
+            {liveAnswer && <AssistantAnswer text={liveAnswer} streaming />}
             {liveProposal && liveProposal.companies.length > 0 && (
               <PreparingCard count={liveProposal.companies.length} />
             )}

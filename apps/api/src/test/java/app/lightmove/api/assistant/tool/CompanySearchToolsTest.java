@@ -2,17 +2,22 @@ package app.lightmove.api.assistant.tool;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 import app.lightmove.api.assistant.model.AssistantStepEvent;
 import app.lightmove.api.strategy.service.IndustryAdjacency;
+import app.lightmove.api.strategy.service.SectorTaxonomy;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.ai.chat.model.ToolContext;
+import tools.jackson.databind.ObjectMapper;
 
 /** What a search tells the person waiting: what it looked for, then how much it found. */
 class CompanySearchToolsTest {
@@ -27,7 +32,7 @@ class CompanySearchToolsTest {
     void reportsTheSearchAsAStep() {
         when(market.matching(any())).thenReturn(new CompanyMatches(342, 25, List.of(), List.of()));
 
-        new CompanySearchTools(market, adjacency).searchCompanyUniverse("United Arab Emirates", "retail", null,
+        tools().searchCompanyUniverse("United Arab Emirates", "retail", null,
                 null, null, null, context());
 
         assertThat(sent).extracting(AssistantStepEvent::done).containsExactly(false, true);
@@ -45,7 +50,7 @@ class CompanySearchToolsTest {
                         55_000, 2000, null)), List.of()));
         when(adjacency.neighboursOf("retail")).thenReturn(List.of("apparel & fashion", "consumer goods"));
 
-        CompanyMatches matches = new CompanySearchTools(market, adjacency).searchCompanyUniverse(
+        CompanyMatches matches = tools().searchCompanyUniverse(
                 "United Arab Emirates", "retail", null, null, null, null, context());
 
         assertThat(matches.adjacentIndustries()).containsExactly("apparel & fashion", "consumer goods");
@@ -70,6 +75,48 @@ class CompanySearchToolsTest {
                 .isEqualTo("Searching construction companies in Qatar with 500–5,000 staff");
         assertThat(CompanySearchTools.describeSearch(null, null, "solar", "ACWA", 1_000L, null))
                 .isEqualTo("Searching \"solar\" companies named ACWA with at least 1,000 staff");
+    }
+
+    @Test
+    @DisplayName("a plain country spelling is searched and labelled as the universe spells it")
+    void readsAPlainCountrySpelling() {
+        when(market.matching(any())).thenReturn(new CompanyMatches(10, 10, List.of(), List.of()));
+
+        tools().searchCompanyUniverse("UAE", "Retail", null, null, null, null, context());
+
+        verify(market).matching(argThat(scope -> scope.countries().equals(List.of("United Arab Emirates"))
+                && scope.industries().equals(List.of("retail"))));
+        assertThat(recorder.steps().getFirst().label())
+                .isEqualTo("Searching retail companies in United Arab Emirates");
+    }
+
+    @Test
+    @DisplayName("a region is searched as its countries, and the answer says how it was read")
+    void searchesARegionAsItsCountries() {
+        when(market.matching(any())).thenReturn(new CompanyMatches(40, 25, List.of(), List.of()));
+
+        CompanyMatches matches = tools().searchCompanyUniverse("GCC", "banking", null, null, null, null,
+                context());
+
+        verify(market).matching(argThat(scope -> scope.countries().size() == 6));
+        assertThat(matches.interpretedAs()).singleElement().asString().startsWith("GCC → ");
+        assertThat(recorder.steps().getFirst().label()).isEqualTo("Searching banking companies in GCC");
+    }
+
+    @Test
+    @DisplayName("a spelling nothing can read is reported, and nothing is searched without it")
+    void refusesToSearchWithoutAnUnreadConstraint() {
+        CompanyMatches matches = tools().searchCompanyUniverse("Levantia", "retail", null, null, null, null,
+                context());
+
+        verifyNoInteractions(market);
+        assertThat(matches.unrecognised()).containsExactly("country \"Levantia\"");
+        assertThat(matches.note()).contains("describeMarket");
+        assertThat(recorder.steps().getFirst().detail()).isEqualTo("Couldn't read country \"Levantia\"");
+    }
+
+    private CompanySearchTools tools() {
+        return new CompanySearchTools(market, adjacency, new MarketTerms(new SectorTaxonomy(new ObjectMapper())));
     }
 
     private ToolContext context() {

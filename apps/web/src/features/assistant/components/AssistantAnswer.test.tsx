@@ -11,6 +11,20 @@ describe("an assistant answer", () => {
     expect(screen.queryByText(/\*\*/)).not.toBeInTheDocument();
   });
 
+  it("draws a bold still being written as bold, not as raw asterisks", () => {
+    render(<AssistantAnswer text={"Led by **Majid Al Fut"} streaming />);
+
+    expect(screen.getByText("Majid Al Fut").tagName).toBe("STRONG");
+    expect(screen.queryByText(/\*\*/)).not.toBeInTheDocument();
+  });
+
+  it("holds back a bold marker that has just been opened", () => {
+    render(<AssistantAnswer text={"Led by **"} streaming />);
+
+    expect(screen.getByText("Led by")).toBeInTheDocument();
+    expect(screen.queryByText(/\*/)).not.toBeInTheDocument();
+  });
+
   it("keeps separate paragraphs apart", () => {
     const { container } = render(<AssistantAnswer text={"First line.\n\nSecond line."} />);
 

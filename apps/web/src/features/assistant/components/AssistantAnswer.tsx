@@ -12,13 +12,22 @@ const ELEMENTS: Components = {
 /**
  * The model answers in Markdown. Only paragraphs, lists and emphasis are drawn; anything else keeps
  * its text and loses its formatting, and raw HTML in the answer is never rendered.
+ *
+ * <p>While the answer is `streaming`, a bold the model has opened but not yet closed is closed here,
+ * so a half-written name reads bold at once rather than as raw asterisks that turn bold later.
  */
-export function AssistantAnswer({ text }: { text: string }) {
+export function AssistantAnswer({ text, streaming = false }: { text: string; streaming?: boolean }) {
   return (
     <div className="font-sans text-[13px] leading-[1.6] text-u-text">
       <ReactMarkdown allowedElements={ALLOWED} unwrapDisallowed components={ELEMENTS}>
-        {text}
+        {streaming ? withOpenBoldClosed(text) : text}
       </ReactMarkdown>
     </div>
   );
+}
+
+function withOpenBoldClosed(text: string): string {
+  const markers = text.match(/\*\*/g)?.length ?? 0;
+  if (markers % 2 === 0) return text;
+  return text.endsWith("**") ? text.slice(0, -2) : `${text}**`;
 }

@@ -23,15 +23,26 @@ class SectorToolsTest {
     @Test
     @DisplayName("an industry's neighbours are reported as a step")
     void listsTheNeighbours() {
-        when(adjacency.neighboursOf("Real Estate")).thenReturn(List.of("construction", "insurance"));
+        when(adjacency.neighboursOf("real estate")).thenReturn(List.of("construction", "insurance"));
 
         AdjacentIndustries answer = new SectorTools(adjacency).adjacentIndustries("Real Estate", context());
 
         assertThat(answer.adjacent()).containsExactly("construction", "insurance");
         assertThat(recorder.steps()).singleElement().satisfies(step -> {
-            assertThat(step.label()).isEqualTo("Finding sectors next to Real Estate");
+            assertThat(step.label()).isEqualTo("Finding sectors next to real estate");
             assertThat(step.detail()).isEqualTo("2 adjacent");
         });
+    }
+
+    @Test
+    @DisplayName("an industry written plainly is read as the universe spells it")
+    void readsAPlainSpelling() {
+        when(adjacency.neighboursOf("oil & energy")).thenReturn(List.of("utilities"));
+
+        AdjacentIndustries answer = new SectorTools(adjacency).adjacentIndustries("Oil and Gas", context());
+
+        assertThat(answer.industry()).isEqualTo("oil & energy");
+        assertThat(answer.adjacent()).containsExactly("utilities");
     }
 
     @Test
