@@ -54,7 +54,7 @@ class ReportIntegrationTest extends FlowTestSupport {
 
         mvc.perform(get(reportUrl(f.projectId)).header("Authorization", "Bearer " + f.admin))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.remuneration.currency").value("USD"))
+                .andExpect(jsonPath("$.remuneration.currency").value("AED"))
                 .andExpect(jsonPath("$.remuneration.fixedBand").doesNotExist());
 
         assertThat(db.queryForObject("SELECT count(*) FROM app_lm_position WHERE project_id = ?",
