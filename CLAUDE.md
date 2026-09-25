@@ -299,6 +299,9 @@ its area — the invariants below are the summary; the skills hold the rationale
 Cloud SQL Postgres 16, instance `bright-gcc`, database `lightmove`. All tables prefixed **`app_lm_`**.
 **Hibernate never touches the schema** — `ddl-auto: none`; hand-written Flyway SQL in
 `apps/api/src/main/resources/db/migration/`. **Never edit an applied migration; add a new one.**
+**Every migration leaves the previous release working** — production rolls back by moving traffic, never
+the schema — so a drop, rename, `SET NOT NULL` or retype ships a release after the code stops needing it,
+marked `-- lightmove:contract`; CI runs the last release's suite on the new schema (`db-ops`, "Rolling back").
 `app_lm_apollo_companies` is the **company universe** — 100,631 companies, ETL-owned and read-only
 to the application, keyed on `apollo_account_id`. Anything that stores a company stores that id plus a
 **write-time snapshot**, and never a foreign key: the pipeline reloads the table wholesale. A company
