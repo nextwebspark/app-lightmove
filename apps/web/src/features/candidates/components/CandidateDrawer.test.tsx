@@ -572,6 +572,35 @@ describe("CandidateDrawer", () => {
     expect(screen.queryByLabelText(/Full name/i)).not.toBeInTheDocument();
   });
 
+  it("reads back the allowance lines and LTIP instruments the editor saved", async () => {
+    renderDrawer({
+      candidate: {
+        ...yasmin,
+        compensation: {
+          ...yasmin.compensation,
+          allowances: 552_000,
+          longTermIncentive: 1_000_000,
+          allowanceLines: [
+            { label: "Housing", amount: 414_000 },
+            { label: "Transport", amount: 138_000 },
+            { label: null, amount: null },
+          ],
+          longTermIncentiveTypes: ["options", "rsus"],
+        },
+      },
+      company: null,
+    });
+
+    const breakdown = screen.getByText("Allowance breakdown").nextElementSibling as HTMLElement;
+    // The empty row the editor left is not read back as an allowance.
+    expect(within(breakdown).getAllByRole("listitem")).toHaveLength(2);
+    expect(screen.getByText("Housing")).toBeInTheDocument();
+    expect(screen.getByText("AED 414,000")).toBeInTheDocument();
+    expect(screen.getByText("Transport")).toBeInTheDocument();
+    expect(screen.getByText("AED 138,000")).toBeInTheDocument();
+    expect(screen.getByText("AED 1,000,000 · Options, RSUs")).toBeInTheDocument();
+  });
+
   it("reads a career as a timeline: one employer for consecutive posts, the open one flagged", async () => {
     renderDrawer({
       candidate: {

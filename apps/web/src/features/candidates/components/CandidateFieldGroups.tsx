@@ -19,13 +19,13 @@ import { CURRENCIES, currencyOptionLabel, DEFAULT_CURRENCY } from "../../../lib/
 import { formatNumber } from "../../../lib/format";
 import { NOTICE_PERIODS } from "../../../lib/noticePeriod";
 import { toReadableUrl } from "../../../lib/url";
-import type { LongTermIncentiveType } from "../api/types";
 import {
   allowanceTotalOf,
   amountTyped,
   annualBaseOf,
   bonusAmountOf,
   bonusPercentOf,
+  LONG_TERM_INCENTIVE_TYPES,
   shareTyped,
   toggleIncentiveType,
   type BaseCadence,
@@ -221,13 +221,6 @@ const CADENCES: readonly SegmentedOption<BaseCadence>[] = [
 const BONUS_BASES: readonly SegmentedOption<BonusBasis>[] = [
   { value: "percent", label: "% of Base" },
   { value: "fixed", label: "Fixed" },
-];
-
-const INCENTIVE_TYPES: { value: LongTermIncentiveType; label: string }[] = [
-  { value: "options", label: "Options" },
-  { value: "rsus", label: "RSUs" },
-  { value: "cash", label: "Cash" },
-  { value: "none", label: "None" },
 ];
 
 const MAX_ALLOWANCE_LINES = 12;
@@ -488,7 +481,7 @@ export function CompensationFields<TTransformed extends FieldValues>({
             error={errors.longTermIncentive?.message}
           />
           <div role="group" aria-label="LTIP paid in" className="mt-2 flex flex-wrap gap-1.5">
-            {INCENTIVE_TYPES.map((type) => {
+            {LONG_TERM_INCENTIVE_TYPES.map((type) => {
               const pressed = incentiveTypes.includes(type.value);
               return (
                 <button

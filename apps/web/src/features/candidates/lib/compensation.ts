@@ -1,5 +1,5 @@
 import { formatNumber } from "../../../lib/format";
-import type { CandidateCompensation, LongTermIncentiveType } from "../api/types";
+import type { AllowanceLine, CandidateCompensation, LongTermIncentiveType } from "../api/types";
 
 /** One element of a package: a stored figure and its share of the total, for the composition bar. */
 export interface PackagePart {
@@ -49,6 +49,24 @@ export function amountTyped(value: string | undefined): number | null {
 export function formatAmount(currency: string, amount: number | null): string | null {
   if (amount === null || amount === undefined) return null;
   return `${currency} ${formatNumber(amount)}`.trim();
+}
+
+export const LONG_TERM_INCENTIVE_TYPES: readonly { value: LongTermIncentiveType; label: string }[] = [
+  { value: "options", label: "Options" },
+  { value: "rsus", label: "RSUs" },
+  { value: "cash", label: "Cash" },
+  { value: "none", label: "None" },
+];
+
+/** "Options, RSUs" — the instruments an LTIP is paid in, in the editor's order, or null when none is recorded. */
+export function incentiveTypesLabel(types: readonly LongTermIncentiveType[]): string | null {
+  const labels = LONG_TERM_INCENTIVE_TYPES.filter((type) => types.includes(type.value)).map((type) => type.label);
+  return labels.length > 0 ? labels.join(", ") : null;
+}
+
+/** The allowance lines worth reading back: a line with neither a name nor a figure is an empty row. */
+export function recordedAllowanceLines(lines: readonly AllowanceLine[] | undefined): AllowanceLine[] {
+  return (lines ?? []).filter((line) => (line.label?.trim() ?? "") !== "" || line.amount !== null);
 }
 
 export type BaseCadence = "annual" | "monthly";
