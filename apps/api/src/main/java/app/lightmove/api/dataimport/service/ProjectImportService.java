@@ -401,7 +401,8 @@ public class ProjectImportService {
                 held == null ? null : held.languages(),
                 held == null ? "csv" : held.source(),
                 held == null ? null : held.sourceUrl(),
-                fields.customValues(CustomColumnTarget.CANDIDATE));
+                fields.customValues(CustomColumnTarget.CANDIDATE),
+                null);
     }
 
     private app.lightmove.api.candidate.dto.CandidateCompensationDto compensationFor(

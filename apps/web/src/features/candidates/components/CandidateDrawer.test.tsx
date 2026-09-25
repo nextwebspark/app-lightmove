@@ -39,6 +39,7 @@ const yasmin: Candidate = {
   nationality: "Egyptian",
   gender: "female",
   yearsExperience: 18,
+  aiInferredFields: [],
   summary: null,
   note: null,
   compensation: {

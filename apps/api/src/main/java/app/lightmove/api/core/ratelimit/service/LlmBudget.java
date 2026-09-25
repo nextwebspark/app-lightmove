@@ -33,7 +33,10 @@ public enum LlmBudget {
     REPORTING_EXTRACT("reporting-extract", LlmRateLimitSettings::defaultRequestsPerMinute),
 
     /** A question to the assistant — several model rounds, and vendor lookups behind them. */
-    ASSISTANT("assistant", LlmRateLimitSettings::defaultRequestsPerMinute);
+    ASSISTANT("assistant", LlmRateLimitSettings::defaultRequestsPerMinute),
+
+    /** A candidate's AI enrichment — background, competency assessment, grounded sources. */
+    CANDIDATE_AI_ENRICH("candidate-ai-enrich", LlmRateLimitSettings::defaultRequestsPerMinute);
 
     private final String meter;
     private final ToIntFunction<LlmRateLimitSettings> callsPerMinute;

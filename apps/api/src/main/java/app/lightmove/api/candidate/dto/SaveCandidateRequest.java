@@ -109,5 +109,8 @@ public record SaveCandidateRequest(
          * Values for this mandate's custom columns, keyed by each column's {@code fieldKey}.
          * CustomColumnService.applyTo states what a row may store.
          */
-        Map<String, String> customFields
+        Map<String, String> customFields,
+
+        /** True from the drawer's Background save: the reader has reviewed its AI-proposed values. */
+        Boolean confirmBackground
 ) {}

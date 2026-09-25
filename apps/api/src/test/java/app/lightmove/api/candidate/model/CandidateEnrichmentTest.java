@@ -2,10 +2,12 @@ package app.lightmove.api.candidate.model;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import app.lightmove.api.candidate.constant.BackgroundField;
 import app.lightmove.api.candidate.constant.CandidateSource;
 import app.lightmove.api.candidate.constant.CandidateStatus;
 import app.lightmove.api.candidate.constant.ContactSource;
 import app.lightmove.api.candidate.constant.EnrichmentVendor;
+import app.lightmove.api.candidate.constant.Gender;
 import java.util.List;
 import java.util.UUID;
 import org.junit.jupiter.api.DisplayName;
@@ -25,6 +27,8 @@ class CandidateEnrichmentTest {
             List.of(new CandidateEducationEntry("AUC", "MBA, Finance", "2010 - 2012")),
             List.of("Financial Planning"), List.of("English", "Arabic"), null,
             EnrichmentVendor.BRIGHTDATA);
+
+    private static final InferredBackground PROPOSED = new InferredBackground("Emirati", Gender.FEMALE, 14);
 
     @Test
     @DisplayName("research fills in what nobody typed")
@@ -79,6 +83,91 @@ class CandidateEnrichmentTest {
         // The fields only research writes still land.
         assertThat(candidate.getProfile().education()).hasSize(1);
         assertThat(candidate.getProfile().skills()).containsExactly("Financial Planning");
+    }
+
+    @Test
+    @DisplayName("a proposed background fills the empty fields and flags each one")
+    void aProposedBackgroundIsFilledAndFlagged() {
+        Candidate candidate = captured(details("Sample Person", null, null, null, null, null));
+
+        assertThat(candidate.proposeBackground(PROPOSED)).isTrue();
+
+        assertThat(candidate.getNationality()).isEqualTo("Emirati");
+        assertThat(candidate.getGender()).isEqualTo(Gender.FEMALE);
+        assertThat(candidate.getYearsExperience()).isEqualTo(14);
+        assertThat(candidate.getAiInferredFields()).containsExactlyInAnyOrder(
+                "nationality", "gender", "yearsExperience");
+    }
+
+    @Test
+    @DisplayName("a proposal never overwrites a background already on the row, and flags nothing")
+    void aProposalNeverOverwritesAnExistingBackground() {
+        Candidate candidate = captured(detailsWithBackground("Emirati", Gender.MALE, 20));
+
+        assertThat(candidate.proposeBackground(PROPOSED)).isFalse();
+
+        assertThat(candidate.getNationality()).isEqualTo("Emirati");
+        assertThat(candidate.getGender()).isEqualTo(Gender.MALE);
+        assertThat(candidate.getYearsExperience()).isEqualTo(20);
+        assertThat(candidate.getAiInferredFields()).isEmpty();
+    }
+
+    @Test
+    @DisplayName("a researcher changing an inferred value clears its flag")
+    void editingAnInferredValueClearsItsFlag() {
+        Candidate candidate = captured(details("Sample Person", null, null, null, null, null));
+        candidate.proposeBackground(PROPOSED);
+
+        candidate.describe(detailsWithBackground("Western expat", Gender.FEMALE, 14), ContactSource.MANUAL);
+
+        // Only nationality changed (Emirati -> Western expat); gender and yearsExperience were
+        // resubmitted unchanged, so nothing about them was actually reviewed and their flags stand.
+        assertThat(candidate.getAiInferredFields()).containsExactlyInAnyOrder("gender", "yearsExperience");
+    }
+
+    @Test
+    @DisplayName("resubmitting an inferred value unchanged leaves it flagged")
+    void resubmittingTheSameInferredValueLeavesItFlagged() {
+        Candidate candidate = captured(details("Sample Person", null, null, null, null, null));
+        candidate.proposeBackground(PROPOSED);
+
+        candidate.describe(detailsWithBackground("Emirati", Gender.FEMALE, 14), ContactSource.MANUAL);
+
+        assertThat(candidate.getAiInferredFields()).containsExactlyInAnyOrder(
+                "nationality", "gender", "yearsExperience");
+    }
+
+    @Test
+    @DisplayName("saving the Background section confirms every AI-proposed value in it")
+    void confirmingTheBackgroundClearsEveryFlag() {
+        Candidate candidate = captured(details("Sample Person", null, null, null, null, null));
+        candidate.proposeBackground(PROPOSED);
+
+        candidate.confirmBackground();
+
+        assertThat(candidate.getAiInferredFields()).isEmpty();
+        assertThat(candidate.getNationality()).isEqualTo("Emirati");
+    }
+
+    @Test
+    @DisplayName("a successful assessment supersedes an earlier failed run")
+    void anAssessmentClearsAnEarlierFailure() {
+        Candidate candidate = captured(details("Sample Person", null, null, null, null, null));
+        candidate.recordAiEnrichFailure();
+        assertThat(candidate.getAiEnrichFailedAt()).isNotNull();
+
+        candidate.recordAiAssessment(new CandidateAiAssessment("Read.", null, null, List.of(), "2026-09-25T10:00:00Z"));
+
+        assertThat(candidate.getAiEnrichFailedAt()).isNull();
+    }
+
+    @Test
+    @DisplayName("only the fields still empty are named as missing")
+    void missingBackgroundNamesOnlyTheEmptyFields() {
+        Candidate candidate = captured(detailsWithBackground(null, null, 20));
+
+        assertThat(candidate.missingBackground())
+                .containsExactlyInAnyOrder(BackgroundField.NATIONALITY, BackgroundField.GENDER);
     }
 
     @Test
@@ -137,5 +226,13 @@ class CandidateEnrichmentTest {
                 null, null, "https://www.linkedin.com/in/sample-profile", null, null, null, null,
                 null, summary, null, CandidateCompensation.unknown(),
                 new CandidateProfile(career, languages, null, null, null), null);
+    }
+
+    private static CandidateDetails detailsWithBackground(String nationality, Gender gender,
+                                                           Integer yearsExperience) {
+        return new CandidateDetails("Sample Person", null, null, CandidateStatus.IDENTIFIED, null,
+                null, null, "https://www.linkedin.com/in/sample-profile", null, null, nationality,
+                gender, yearsExperience, null, null, CandidateCompensation.unknown(),
+                CandidateProfile.empty(), null);
     }
 }

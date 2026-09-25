@@ -1,6 +1,7 @@
 package app.lightmove.api.candidate.service;
 
 import app.lightmove.api.common.constant.Seniority;
+import app.lightmove.api.candidate.constant.AiEnrichTrigger;
 import app.lightmove.api.candidate.constant.CandidateSource;
 import app.lightmove.api.candidate.constant.CandidateStatus;
 import app.lightmove.api.candidate.constant.ContactChannel;
@@ -24,6 +25,9 @@ import app.lightmove.api.candidate.dto.UpdateCandidateContactsRequest;
 import app.lightmove.api.candidate.dto.UpdateCandidateStatusRequest;
 import app.lightmove.api.candidate.model.AllowanceLine;
 import app.lightmove.api.candidate.model.Candidate;
+import app.lightmove.api.candidate.model.CandidateAiEnrichRequested;
+import app.lightmove.api.candidate.model.CandidateAiEnrichState;
+import app.lightmove.api.candidate.model.CandidateAiEnrichment;
 import app.lightmove.api.candidate.model.CandidateAttribution;
 import app.lightmove.api.candidate.model.CandidateCapturedEvent;
 import app.lightmove.api.candidate.model.CandidateCareerEntry;
@@ -32,6 +36,7 @@ import app.lightmove.api.candidate.model.CandidateContact;
 import app.lightmove.api.candidate.model.CandidateContactState;
 import app.lightmove.api.candidate.model.ContactEntry;
 import app.lightmove.api.candidate.model.CandidateDetails;
+import app.lightmove.api.candidate.model.CandidateDossier;
 import app.lightmove.api.candidate.model.CandidatePhoto;
 import app.lightmove.api.candidate.model.CandidateProfile;
 import app.lightmove.api.candidate.model.CompensationBreakdown;
@@ -291,6 +296,9 @@ public class CandidateService {
 
         candidate.remapTo(request.triageCompanyId());
         candidate.describe(details, door);
+        if (Boolean.TRUE.equals(request.confirmBackground())) {
+            candidate.confirmBackground();
+        }
         refuseOverfullChannels(candidate);
         candidate.describeCustomFields(customColumns.applyTo(projectId, CustomColumnTarget.CANDIDATE,
                 candidate.getCustomFields(), request.customFields()));
@@ -343,7 +351,71 @@ public class CandidateService {
             mapToEmployer(projectId, candidate, enriched);
             keepPhoto(candidateId, enriched);
             stream.publish(projectId, ProjectStreamKind.CANDIDATE_ENRICHED);
+            projects.findById(projectId).ifPresent(project -> events.publishEvent(
+                    new CandidateAiEnrichRequested(candidateId, projectId, project.getWorkspaceId(),
+                            candidate.getAddedBy(), AiEnrichTrigger.CAPTURE)));
         }, () -> log.info("Candidate {} was removed before its research landed", candidateId));
+    }
+
+    /** Confirms the candidate is one of this workspace's before an AI enrichment is paid for. */
+    @Transactional(readOnly = true)
+    public void requireCandidate(UUID workspaceId, UUID projectId, UUID candidateId) {
+        requireProject(projectId, workspaceId);
+        candidates.findByIdAndProjectId(candidateId, projectId)
+                .orElseThrow(() -> ApiException.of(ErrorCode.NOT_FOUND));
+    }
+
+    /**
+     * What the AI enrichment may send to the model — {@link CandidateDossier} is an allowlist, so
+     * contact details and compensation never leave through here. Empty once the row is gone.
+     */
+    @Transactional(readOnly = true)
+    public Optional<CandidateDossier> dossierOf(UUID projectId, UUID candidateId) {
+        return candidates.findByIdAndProjectId(candidateId, projectId).map(candidate -> {
+            CandidateProfile profile = candidate.getProfile();
+            return new CandidateDossier(candidate.getFullName(), candidate.getTitle(),
+                    candidate.getCompanyName(), candidate.getLocationCity(), candidate.getLocationCountry(),
+                    candidate.getLinkedinUrl(), candidate.getSummary(), profile.career(),
+                    profile.education(), profile.skills(), profile.languages(),
+                    candidate.missingBackground());
+        });
+    }
+
+    /**
+     * The last AI assessment and the last failed run, staff-only — neither is carried on
+     * {@link CandidateResponse}. Empty when the candidate has never been enriched.
+     */
+    @Transactional(readOnly = true)
+    public Optional<CandidateAiEnrichState> aiAssessmentOf(UUID workspaceId, UUID projectId, UUID candidateId) {
+        requireProject(projectId, workspaceId);
+        Candidate candidate = candidates.findByIdAndProjectId(candidateId, projectId)
+                .orElseThrow(() -> ApiException.of(ErrorCode.NOT_FOUND));
+        if (candidate.getAiAssessment() == null && candidate.getAiEnrichFailedAt() == null) {
+            return Optional.empty();
+        }
+        return Optional.of(new CandidateAiEnrichState(candidate.getAiAssessment(), candidate.getAiEnrichFailedAt()));
+    }
+
+    /**
+     * The AI enrichment's own write: background into whichever fields are still empty, and the
+     * assessment replaced whole. {@code REQUIRES_NEW} for {@link #applyResearch}'s reason; a racing
+     * drawer edit wins by {@code @Version} the same way.
+     */
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
+    public void recordAiEnrichFailure(UUID projectId, UUID candidateId) {
+        candidates.findByIdAndProjectId(candidateId, projectId).ifPresent(candidate -> {
+            candidate.recordAiEnrichFailure();
+            stream.publish(projectId, ProjectStreamKind.CANDIDATE_ENRICHED);
+        });
+    }
+
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
+    public void applyAiEnrichment(UUID projectId, UUID candidateId, CandidateAiEnrichment enrichment) {
+        candidates.findByIdAndProjectId(candidateId, projectId).ifPresent(candidate -> {
+            candidate.proposeBackground(enrichment.background());
+            candidate.recordAiAssessment(enrichment.assessment());
+            stream.publish(projectId, ProjectStreamKind.CANDIDATE_ENRICHED);
+        });
     }
 
     /**
@@ -785,6 +857,7 @@ public class CandidateService {
                 candidate.getNationality(),
                 candidate.getGender() == null ? null : candidate.getGender().value(),
                 candidate.getYearsExperience(),
+                candidate.getAiInferredFields(),
                 candidate.getSummary(),
                 candidate.getNote(),
                 new CandidateCompensationDto(compensation.currency(), compensation.baseSalary(),

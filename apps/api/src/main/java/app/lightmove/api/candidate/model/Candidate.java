@@ -1,6 +1,7 @@
 package app.lightmove.api.candidate.model;
 
 import app.lightmove.api.common.constant.Seniority;
+import app.lightmove.api.candidate.constant.BackgroundField;
 import app.lightmove.api.candidate.constant.CandidateSource;
 import app.lightmove.api.candidate.constant.CandidateStatus;
 import app.lightmove.api.candidate.constant.ContactChannel;
@@ -22,9 +23,13 @@ import jakarta.persistence.Table;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.EnumSet;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
+import java.util.Set;
 import java.util.UUID;
 import lombok.AccessLevel;
 import lombok.Getter;
@@ -96,6 +101,19 @@ public class Candidate extends BaseEntity {
 
     @Column(name = "years_experience")
     private Integer yearsExperience;
+
+    /** {@link BackgroundField} keys holding a value the model proposed that no researcher has changed since (V78). */
+    @JdbcTypeCode(SqlTypes.JSON)
+    @Column(name = "ai_inferred_fields", nullable = false)
+    private Set<String> aiInferredFields = new HashSet<>();
+
+    @JdbcTypeCode(SqlTypes.JSON)
+    @Column(name = "ai_assessment")
+    private CandidateAiAssessment aiAssessment;
+
+    /** The last AI enrichment run that produced nothing (V80); a later success clears it. */
+    @Column(name = "ai_enrich_failed_at")
+    private Instant aiEnrichFailedAt;
 
     @Column(name = "summary")
     private String summary;
@@ -206,9 +224,7 @@ public class Candidate extends BaseEntity {
         this.linkedinUrl = details.linkedinUrl();
         this.locationCountry = details.locationCountry();
         this.locationCity = details.locationCity();
-        this.nationality = details.nationality();
-        this.gender = details.gender();
-        this.yearsExperience = details.yearsExperience();
+        describeBackground(details);
         this.summary = details.summary();
         this.note = details.note();
         this.compensationCurrency = details.compensation().currency();
@@ -224,6 +240,32 @@ public class Candidate extends BaseEntity {
         this.profile = details.profile().keepingEnrichmentOf(this.profile);
         remember(ContactChannel.EMAIL, details.emails(), door);
         remember(ContactChannel.PHONE, details.phones(), door);
+    }
+
+    /**
+     * A researcher changing one of the three background fields is what confirms it; resubmitting the
+     * same value leaves its AI flag standing, since nothing was actually reviewed.
+     */
+    private void describeBackground(CandidateDetails details) {
+        confirmIfChanged(BackgroundField.NATIONALITY, nationality, details.nationality());
+        confirmIfChanged(BackgroundField.GENDER, gender, details.gender());
+        confirmIfChanged(BackgroundField.YEARS_EXPERIENCE, yearsExperience, details.yearsExperience());
+        this.nationality = details.nationality();
+        this.gender = details.gender();
+        this.yearsExperience = details.yearsExperience();
+    }
+
+    /** A researcher saved the Background section: every AI-proposed value in it is now theirs. */
+    public void confirmBackground() {
+        aiInferredFields = new HashSet<>();
+    }
+
+    private void confirmIfChanged(BackgroundField field, Object before, Object after) {
+        if (!Objects.equals(before, after) && aiInferredFields.contains(field.key())) {
+            Set<String> remaining = new HashSet<>(aiInferredFields);
+            remaining.remove(field.key());
+            aiInferredFields = remaining;
+        }
     }
 
     /**
@@ -310,6 +352,55 @@ public class Candidate extends BaseEntity {
                 enriched.education(),
                 enriched.skills(),
                 Instant.now().toString());
+    }
+
+    /** The background fields nobody has filled in — what an inference may still propose. */
+    public Set<BackgroundField> missingBackground() {
+        Set<BackgroundField> missing = EnumSet.noneOf(BackgroundField.class);
+        if (nationality == null) {
+            missing.add(BackgroundField.NATIONALITY);
+        }
+        if (gender == null) {
+            missing.add(BackgroundField.GENDER);
+        }
+        if (yearsExperience == null) {
+            missing.add(BackgroundField.YEARS_EXPERIENCE);
+        }
+        return missing;
+    }
+
+    /**
+     * Fills what the model proposed into whichever fields are still empty and flags each one it filled
+     * in {@link #aiInferredFields}. A value already there — typed, imported, captured or researched —
+     * always stands. Answers whether anything was filled.
+     */
+    public boolean proposeBackground(InferredBackground proposed) {
+        Set<String> inferred = new HashSet<>(aiInferredFields);
+        if (nationality == null && proposed.nationality() != null) {
+            nationality = proposed.nationality();
+            inferred.add(BackgroundField.NATIONALITY.key());
+        }
+        if (gender == null && proposed.gender() != null) {
+            gender = proposed.gender();
+            inferred.add(BackgroundField.GENDER.key());
+        }
+        if (yearsExperience == null && proposed.yearsExperience() != null) {
+            yearsExperience = proposed.yearsExperience();
+            inferred.add(BackgroundField.YEARS_EXPERIENCE.key());
+        }
+        boolean filled = !inferred.equals(aiInferredFields);
+        aiInferredFields = inferred;
+        return filled;
+    }
+
+    /** Replaces the last AI assessment whole — it is the model's own reading, not anybody's edit. */
+    public void recordAiAssessment(CandidateAiAssessment assessment) {
+        this.aiAssessment = assessment;
+        this.aiEnrichFailedAt = null;
+    }
+
+    public void recordAiEnrichFailure() {
+        this.aiEnrichFailedAt = Instant.now();
     }
 
     /**

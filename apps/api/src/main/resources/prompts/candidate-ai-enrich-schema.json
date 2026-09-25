@@ -1,0 +1,33 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "nationality": { "type": ["string", "null"] },
+    "gender": { "type": ["string", "null"] },
+    "yearsExperience": { "type": ["integer", "null"] },
+    "summary": { "type": ["string", "null"] },
+    "technical": { "$ref": "#/$defs/panel" },
+    "behavioural": { "$ref": "#/$defs/panel" },
+    "sources": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "url": { "type": "string" },
+          "title": { "type": ["string", "null"] }
+        },
+        "required": ["url"]
+      }
+    }
+  },
+  "$defs": {
+    "panel": {
+      "type": ["object", "null"],
+      "properties": {
+        "score": { "type": ["integer", "null"] },
+        "positives": { "type": "array", "items": { "type": "string" } },
+        "negatives": { "type": "array", "items": { "type": "string" } }
+      }
+    }
+  }
+}
