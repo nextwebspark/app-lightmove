@@ -378,6 +378,48 @@ describe("CandidateDrawer", () => {
     expect(screen.getByLabelText("Allowance 1 amount")).toHaveValue("40,000");
   });
 
+  it("saves an untouched bonus as it was stored, even where its share of base is not exact", async () => {
+    vi.mocked(candidatesApi.updateCandidate).mockResolvedValue(yasmin);
+    renderDrawer({
+      candidate: { ...yasmin, compensation: { ...yasmin.compensation, bonus: 83_333 } },
+      company: null,
+    });
+
+    await userEvent.click(screen.getByRole("button", { name: /Edit compensation/i }));
+    await userEvent.selectOptions(screen.getByLabelText(/^Notice period$/i), "6 months");
+    await userEvent.click(screen.getByRole("button", { name: /^Save$/i }));
+
+    await waitFor(() => expect(candidatesApi.updateCandidate).toHaveBeenCalled());
+    expect(vi.mocked(candidatesApi.updateCandidate).mock.calls[0][2].compensation?.bonus).toBe(83_333);
+  });
+
+  it("refuses a share of base with no base, rather than dropping the bonus on file", async () => {
+    renderDrawer({
+      candidate: { ...yasmin, compensation: { ...yasmin.compensation, bonus: 84_000 } },
+      company: null,
+    });
+
+    await userEvent.click(screen.getByRole("button", { name: /Edit compensation/i }));
+    await userEvent.clear(screen.getByLabelText(/^Base$/i));
+    await userEvent.click(screen.getByRole("button", { name: /^Save$/i }));
+
+    expect(await screen.findByText(/A share of base needs a base/i)).toBeInTheDocument();
+    expect(candidatesApi.updateCandidate).not.toHaveBeenCalled();
+  });
+
+  it("takes a percent sign only in the bonus", async () => {
+    renderDrawer({ candidate: yasmin, company: null });
+
+    await userEvent.click(screen.getByRole("button", { name: /Edit compensation/i }));
+    const base = screen.getByLabelText(/^Base$/i);
+    await userEvent.clear(base);
+    await userEvent.type(base, "450%");
+    await userEvent.click(screen.getByRole("button", { name: /^Save$/i }));
+
+    expect(await screen.findByText(/Base salary must be a number/i)).toBeInTheDocument();
+    expect(candidatesApi.updateCandidate).not.toHaveBeenCalled();
+  });
+
   it("offers the five notice periods, and keeps a stored period the picker does not carry", async () => {
     vi.mocked(candidatesApi.updateCandidate).mockResolvedValue(yasmin);
     renderDrawer({

@@ -34,10 +34,10 @@ export function packageOf(
   };
 }
 
-/** "420,000" or "45%" as typed, or "" — what a figure field holds, back as the number it means. */
+/** "420,000" as typed, or "" — what an amount field holds, back as the number it means. */
 export function amountTyped(value: string | undefined): number | null {
   if (!value) return null;
-  const figure = Number(value.replace(/[,\s%]/g, ""));
+  const figure = Number(value.replace(/[,\s]/g, ""));
   return Number.isFinite(figure) && figure >= 0 ? figure : null;
 }
 
@@ -69,12 +69,21 @@ export function bonusAmountOf(annualBase: number | null, bonus: number | null, b
   return Math.round((annualBase * bonus) / 100);
 }
 
+/** The bonus field as typed — "45%" as a share, "150,000" as an amount — back as the number it means. */
+export function shareTyped(value: string | undefined): number | null {
+  return amountTyped(value?.replace(/%/g, ""));
+}
+
 /**
- * How a stored bonus reopens: as a share of base, because that is how a GCC package is quoted — except
- * a bonus with no base to share it of, which can only be restated as the amount it is.
+ * How a stored bonus reopens: as a share of base, because that is how a GCC package is quoted — but
+ * only where the shown share comes back to the stored amount exactly. Otherwise saving an untouched
+ * section recomputed the bonus from a rounded share and silently rewrote it (83,333 on 420,000 came
+ * back as 83,160), so such a bonus, and one with no base to share, reopens as the amount it is.
  */
 export function bonusBasisOf(baseSalary: number | null, bonus: number | null): BonusBasis {
-  return bonus !== null && !baseSalary ? "fixed" : "percent";
+  if (bonus === null) return "percent";
+  if (!baseSalary) return "fixed";
+  return bonusAmountOf(baseSalary, bonusPercentOf(baseSalary, bonus), "percent") === bonus ? "percent" : "fixed";
 }
 
 export function bonusPercentOf(baseSalary: number, bonus: number): number {
@@ -101,4 +110,12 @@ export function toggleIncentiveType(
     return remaining.length === 0 ? ["none"] : remaining;
   }
   return [...selected.filter((type) => type !== "none"), pressed];
+}
+
+/** An LTIP amount contradicts "None"; the server drops it the same way, so the request says what is stored. */
+export function incentiveTypesFor(
+  longTermIncentive: number | null,
+  types: readonly LongTermIncentiveType[],
+): LongTermIncentiveType[] {
+  return longTermIncentive && longTermIncentive > 0 ? types.filter((type) => type !== "none") : [...types];
 }

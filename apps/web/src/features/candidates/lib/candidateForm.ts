@@ -9,6 +9,7 @@ import {
   bonusAmountOf,
   bonusBasisOf,
   bonusPercentOf,
+  incentiveTypesFor,
 } from "./compensation";
 import type {
   Candidate,
@@ -127,7 +128,7 @@ export const candidateSchema = z.object({
   // How the two figures were typed, not what is stored: the patch turns them into the annual base
   // and the bonus amount the server holds.
   baseCadence: z.enum(["annual", "monthly"]),
-  bonus: money("Bonus"),
+  bonus: bonusFigure(),
   bonusBasis: z.enum(["percent", "fixed"]),
   allowanceLines: z
     .array(z.object({ label: z.string().trim().max(60), amount: money("Allowance") }))
@@ -150,9 +151,33 @@ export const candidateSchema = z.object({
 function money(label: string) {
   return z
     .string()
-    // "%" too: a bonus stated as a share of base is shown as "45%".
-    .transform((value) => value.replace(/[,\s%]/g, ""))
+    .transform((value) => value.replace(/[,\s]/g, ""))
     .pipe(optionalNumber(label, Number.MAX_SAFE_INTEGER));
+}
+
+/** The bonus, which alone may carry a "%": a share of base is shown as "45%". */
+function bonusFigure() {
+  return z
+    .string()
+    .transform((value) => value.replace(/[,\s%]/g, ""))
+    .pipe(optionalNumber("Bonus", Number.MAX_SAFE_INTEGER));
+}
+
+/**
+ * A share of base with no base comes to nothing storable, and saving it would drop a bonus that was
+ * on file. Refused on the bonus field instead, in every form that edits the package.
+ */
+export function refineCompensation(
+  values: { baseSalary?: number; bonus?: number; bonusBasis?: string },
+  context: z.RefinementCtx,
+) {
+  if (values.bonusBasis === "percent" && values.bonus !== undefined && values.baseSalary === undefined) {
+    context.addIssue({
+      code: "custom",
+      path: ["bonus"],
+      message: "A share of base needs a base — enter one or switch to Fixed",
+    });
+  }
 }
 
 /** What the inputs hold: every scalar a string, because that is what a text input gives back. */
@@ -249,7 +274,9 @@ export function sectionResolver<S extends ProfileFormSection>(
   const mask = Object.fromEntries(SECTION_FIELDS[section].map((key) => [key, true])) as {
     [K in keyof CandidateForm]?: true;
   };
-  return zodResolver(candidateSchema.pick(mask)) as unknown as Resolver<
+  const picked = candidateSchema.pick(mask);
+  const schema = section === "compensation" ? picked.superRefine(refineCompensation) : picked;
+  return zodResolver(schema) as unknown as Resolver<
     CandidateForm,
     unknown,
     SectionValues<S>
@@ -398,7 +425,10 @@ const PATCHES: {
         longTermIncentive: parsed.longTermIncentive ?? null,
         noticePeriod: parsed.noticePeriod || null,
         allowanceLines,
-        longTermIncentiveTypes: parsed.longTermIncentiveTypes as LongTermIncentiveType[],
+        longTermIncentiveTypes: incentiveTypesFor(
+          parsed.longTermIncentive ?? null,
+          parsed.longTermIncentiveTypes as LongTermIncentiveType[],
+        ),
       },
     };
   },

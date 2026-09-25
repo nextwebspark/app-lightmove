@@ -5,7 +5,9 @@ import {
   annualBaseOf,
   bonusAmountOf,
   bonusBasisOf,
+  incentiveTypesFor,
   packageOf,
+  shareTyped,
   toggleIncentiveType,
 } from "./compensation";
 
@@ -54,10 +56,22 @@ describe("the editor's conversions", () => {
     expect(bonusAmountOf(null, 45, "percent")).toBeNull();
   });
 
-  it("reopens a bonus as a share unless there is no base to share it of", () => {
+  it("reopens a bonus as a share only where the share comes back to the stored amount", () => {
     expect(bonusBasisOf(420_000, 84_000)).toBe("percent");
     expect(bonusBasisOf(null, null)).toBe("percent");
     expect(bonusBasisOf(null, 84_000)).toBe("fixed");
+    // 19.8% of 420,000 is 83,160: reopening this as a share would rewrite it on the next save.
+    expect(bonusBasisOf(420_000, 83_333)).toBe("fixed");
+  });
+
+  it("drops None beside an LTIP amount, and keeps it where there is none", () => {
+    expect(incentiveTypesFor(1_000_000, ["none"])).toEqual([]);
+    expect(incentiveTypesFor(null, ["none"])).toEqual(["none"]);
+  });
+
+  it("reads a share with its percent sign, and an amount without one", () => {
+    expect(shareTyped("45%")).toBe(45);
+    expect(amountTyped("45%")).toBeNull();
   });
 
   it("sums the lines that hold a figure, and is nothing when none does", () => {

@@ -13,6 +13,7 @@ import * as candidatesApi from "../api/candidatesApi";
 import type { Candidate } from "../api/types";
 import {
   candidateSchema,
+  refineCompensation,
   EMPTY_FORM,
   payloadOf,
   type CandidateForm,
@@ -76,7 +77,7 @@ export function AddCandidateForm({
   const [customFields, setCustomFields] = useState<CustomFieldValues>({});
 
   const form = useForm<CandidateForm, unknown, ParsedCandidateForm>({
-    resolver: zodResolver(candidateSchema),
+    resolver: zodResolver(candidateSchema.superRefine(refineCompensation)),
     defaultValues: {
       ...EMPTY_FORM,
       employerName: company?.companyName ?? "",

@@ -2,6 +2,8 @@ package app.lightmove.api.candidate.model;
 
 import static app.lightmove.api.core.text.service.SuppliedText.blankToNull;
 
+import app.lightmove.api.candidate.constant.LongTermIncentiveType;
+import java.util.List;
 import java.util.Objects;
 
 /**
@@ -14,7 +16,9 @@ import java.util.Objects;
  *
  * <p>{@code allowances} is the total every reader sums and the breakdown only itemises it, so the two
  * are reconciled here and nowhere else: lines with no total supply it, and a total that contradicts
- * its lines — a re-imported cell, say — is the later statement and drops them.
+ * its lines — a re-imported cell, say — is the later statement and drops them. An LTIP amount above
+ * nought likewise contradicts a recorded "None", which is dropped; instruments with no amount stay, the
+ * figure being not yet established rather than nought.
  */
 public record CandidateCompensation(String currency, Long baseSalary, Long bonus, Long allowances,
                                     Long longTermIncentive, String noticePeriod,
@@ -30,6 +34,10 @@ public record CandidateCompensation(String currency, Long baseSalary, Long bonus
             allowances = itemised;
         } else if (itemised != null && !Objects.equals(itemised, allowances)) {
             breakdown = breakdown.withoutAllowanceLines();
+        }
+        if (longTermIncentive != null && longTermIncentive > 0
+                && breakdown.longTermIncentiveTypes().equals(List.of(LongTermIncentiveType.NONE))) {
+            breakdown = new CompensationBreakdown(breakdown.allowanceLines(), List.of());
         }
     }
 

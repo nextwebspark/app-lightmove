@@ -26,6 +26,7 @@ import {
   annualBaseOf,
   bonusAmountOf,
   bonusPercentOf,
+  shareTyped,
   toggleIncentiveType,
   type BaseCadence,
   type BonusBasis,
@@ -309,7 +310,7 @@ export function CompensationFields<TTransformed extends FieldValues>({
       : null;
 
   const annualBase = annualBaseOf(amountTyped(base), baseCadence);
-  const bonusAmount = bonusAmountOf(annualBase, amountTyped(bonus), bonusBasis);
+  const bonusAmount = bonusAmountOf(annualBase, shareTyped(bonus), bonusBasis);
   const allowanceTotal = allowanceTotalOf(allowanceLines.map((line) => amountTyped(line.amount)));
   const total = (annualBase ?? 0) + (bonusAmount ?? 0) + (allowanceTotal ?? 0) + (amountTyped(longTermIncentive) ?? 0);
 
@@ -317,7 +318,7 @@ export function CompensationFields<TTransformed extends FieldValues>({
     if (next === bonusBasis) return;
     // Carry the figure across rather than reading 45 as AED 45: the switch changes how the bonus is
     // stated, not what it is.
-    const typed = amountTyped(bonus);
+    const typed = shareTyped(bonus);
     if (typed !== null) {
       const restated =
         next === "fixed"
@@ -418,7 +419,7 @@ export function CompensationFields<TTransformed extends FieldValues>({
                 className={FIGURE_INPUT}
                 onBlur={(event) => {
                   void bonusPercentField.onBlur(event);
-                  const share = amountTyped(event.target.value);
+                  const share = shareTyped(event.target.value);
                   if (share !== null) setValue("bonus", `${share}%`);
                 }}
               />
@@ -438,7 +439,7 @@ export function CompensationFields<TTransformed extends FieldValues>({
             </p>
           )}
           {/* A share of no base comes to nothing the server can store, so say so before Save drops it. */}
-          {bonusBasis === "percent" && annualBase === null && amountTyped(bonus) !== null && (
+          {bonusBasis === "percent" && annualBase === null && shareTyped(bonus) !== null && (
             <p className="mt-2 font-mono text-[11.5px] text-u-signal">Enter a base to work this out</p>
           )}
         </div>

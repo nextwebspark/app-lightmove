@@ -47,6 +47,25 @@ class CandidateCompensationTest {
         assertThat(breakdown.longTermIncentiveTypes()).containsExactly(LongTermIncentiveType.CASH);
     }
 
+    @Test
+    @DisplayName("an LTIP amount drops a recorded None, and instruments without an amount stay")
+    void anIncentiveAmountContradictsNone() {
+        CandidateCompensation paid = new CandidateCompensation("AED", null, null, null, 1_000_000L, null,
+                new CompensationBreakdown(List.of(), List.of(LongTermIncentiveType.NONE)));
+        CandidateCompensation unpriced = new CandidateCompensation("AED", null, null, null, null, null,
+                new CompensationBreakdown(List.of(), List.of(LongTermIncentiveType.RSUS)));
+
+        assertThat(paid.breakdown().longTermIncentiveTypes()).isEmpty();
+        assertThat(unpriced.breakdown().longTermIncentiveTypes()).containsExactly(LongTermIncentiveType.RSUS);
+    }
+
+    @Test
+    @DisplayName("an allowance typed without a name is filed under a generic one, not a blank heading")
+    void anUnnamedAllowanceIsLabelled() {
+        assertThat(new AllowanceLine(" ", 10_000L).label()).isEqualTo("Allowance");
+        assertThat(new AllowanceLine(null, null).isEmpty()).isTrue();
+    }
+
     private static CandidateCompensation packageWith(Long allowances, List<AllowanceLine> lines) {
         return new CandidateCompensation("AED", 1_800_000L, null, allowances, null, null,
                 new CompensationBreakdown(lines, List.of()));
