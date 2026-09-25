@@ -65,6 +65,15 @@ public class CandidateController {
         return ResponseEntity.ok(candidates.list(principal.requireWorkspaceId(), projectId, criteria));
     }
 
+    /** One executive whole — the report opens a person from a figure that carries only their id. */
+    @GetMapping("/{candidateId}")
+    @PreAuthorize("@projectAuthorizer.can(principal, #projectId, 'WORK_VIEW')")
+    public ResponseEntity<CandidateResponse> get(@AuthenticationPrincipal AuthPrincipal principal,
+                                                 @PathVariable UUID projectId,
+                                                 @PathVariable UUID candidateId) {
+        return ResponseEntity.ok(candidates.get(principal.requireWorkspaceId(), projectId, candidateId));
+    }
+
     /**
      * The stored profile photo, inline. Safe to serve under its stored type, unlike the position
      * document: these bytes came from enrichment's own server-side download, which accepts raster

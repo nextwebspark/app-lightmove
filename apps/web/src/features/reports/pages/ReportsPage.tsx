@@ -126,7 +126,7 @@ function Chapter({
         />
       );
     case "comp":
-      return <RemunerationSection remuneration={report.remuneration} />;
+      return <RemunerationSection project={project} remuneration={report.remuneration} />;
     case "dei":
       return <DiversitySection diversity={report.diversity} />;
   }

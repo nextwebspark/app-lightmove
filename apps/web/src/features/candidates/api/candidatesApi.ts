@@ -58,6 +58,18 @@ export function getCandidates(
   return request<CandidatesPage>(`/projects/${projectId}/candidates?${params}`, { signal });
 }
 
+/** Under the list's prefix, so every write that refreshes the grid refreshes this read too. */
+export const CANDIDATE_KEY = (projectId: string, candidateId: string) =>
+  [...CANDIDATES_KEY_PREFIX(projectId), "one", candidateId] as const;
+
+export function getCandidate(
+  projectId: string,
+  candidateId: string,
+  signal?: AbortSignal,
+): Promise<Candidate> {
+  return request<Candidate>(`/projects/${projectId}/candidates/${candidateId}`, { signal });
+}
+
 export function createCandidate(
   projectId: string,
   candidate: SaveCandidatePayload,

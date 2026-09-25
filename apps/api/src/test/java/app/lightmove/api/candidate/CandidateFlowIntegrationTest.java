@@ -626,6 +626,23 @@ class CandidateFlowIntegrationTest extends FlowTestSupport {
     }
 
     @Test
+    @DisplayName("one executive reads back whole, and only from their own mandate")
+    void oneExecutiveReadsBackFromTheirOwnMandateOnly() throws Exception {
+        String theirs = mandate("Single Read Firm");
+        String candidateId = mapTo(theirs, null, "Layla Mansour");
+        String ours = secondMandate(theirs);
+
+        mvc.perform(get(candidatesUrl(theirs) + "/" + candidateId)
+                        .header("Authorization", "Bearer " + admin()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.id").value(candidateId))
+                .andExpect(jsonPath("$.fullName").value("Layla Mansour"));
+        mvc.perform(get(candidatesUrl(ours) + "/" + candidateId)
+                        .header("Authorization", "Bearer " + admin()))
+                .andExpect(status().isNotFound());
+    }
+
+    @Test
     @DisplayName("an unknown status or seniority token is refused rather than stored")
     void unknownTokensAreRefused() throws Exception {
         String projectId = mandate("Unknown Token Firm");
