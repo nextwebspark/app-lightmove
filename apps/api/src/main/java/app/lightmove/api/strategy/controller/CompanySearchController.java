@@ -11,6 +11,7 @@ import app.lightmove.api.strategy.dto.KeywordSuggestionsResponse;
 import app.lightmove.api.strategy.service.ApolloCompanyQueryService;
 import app.lightmove.api.strategy.service.CompanySuggestionSearch;
 import app.lightmove.api.strategy.service.IndustryAdjacency;
+import app.lightmove.api.strategy.service.UniverseFacets;
 import java.util.List;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -35,13 +36,16 @@ import org.springframework.web.bind.annotation.RestController;
 public class CompanySearchController {
 
     private final ApolloCompanyQueryService companies;
+    private final UniverseFacets facets;
     private final IndustryAdjacency adjacency;
     private final CompanySuggestionSearch suggestions;
     private final CompanySearchSettings searchConfig;
 
-    public CompanySearchController(ApolloCompanyQueryService companies, IndustryAdjacency adjacency,
-                                   CompanySuggestionSearch suggestions, LightMoveProperties properties) {
+    public CompanySearchController(ApolloCompanyQueryService companies, UniverseFacets facets,
+                                   IndustryAdjacency adjacency, CompanySuggestionSearch suggestions,
+                                   LightMoveProperties properties) {
         this.companies = companies;
+        this.facets = facets;
         this.adjacency = adjacency;
         this.suggestions = suggestions;
         this.searchConfig = properties.company().search();
@@ -52,11 +56,11 @@ public class CompanySearchController {
     @PreAuthorize("@workspaceAuthorizer.can(principal, 'PROJECT_BROWSE')")
     public ResponseEntity<FacetsResponse> facets() {
         return ResponseEntity.ok(new FacetsResponse(
-                companies.sectorGroups(),
+                facets.sectorGroups(),
                 adjacency.neighbours(),
-                companies.marketSegmentFacets(),
-                companies.employeeBandFacets(),
-                companies.revenueBandFacets()));
+                facets.marketSegments(),
+                facets.employeeBands(),
+                facets.revenueBands()));
     }
 
     /**

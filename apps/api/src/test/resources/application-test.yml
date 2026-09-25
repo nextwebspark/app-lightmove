@@ -63,6 +63,8 @@ lightmove:
       # companies to trip it, and the behaviour under test is the limit rather than the number.
       # A bulk-add test seeding more than this gets a 409, which is the point.
       bulk-add-limit: 5
+    # Every test seeds its own universe, so a count cached by the test before it would be wrong.
+    facet-cache-ttl: 0s
 
   # A configured account, so the map view is offered and the config endpoint has something to say.
   # The geocoder itself is StubGeocoder (a @Primary test double); no request reaches Mapbox.
