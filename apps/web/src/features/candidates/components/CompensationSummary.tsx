@@ -2,24 +2,57 @@ import { DetailGrid, DetailTile } from "../../../components/ui/DetailList";
 import { cn } from "../../../lib/cn";
 import { formatNumber } from "../../../lib/format";
 import type { CandidateCompensation } from "../api/types";
-import { formatAmount, packageOf, type PackagePart } from "../lib/compensation";
+import {
+  formatAmount,
+  incentiveTypesLabel,
+  packageOf,
+  recordedAllowanceLines,
+  type PackagePart,
+} from "../lib/compensation";
 
 /**
  * A package as the profile reads it: the four figures as tiles, then the total with how it is made
  * up. The split is the reading an executive-search consultant actually wants — how much of the
- * package is at risk — and a bar says it faster than four numbers do.
+ * package is at risk — and a bar says it faster than four numbers do. The allowance lines and the
+ * LTIP's instruments the editor records are read back beside the figures they make up.
  */
 export function CompensationSummary({ compensation }: { compensation: CandidateCompensation }) {
   const currency = compensation.currency ?? "";
+  const allowanceLines = recordedAllowanceLines(compensation.allowanceLines);
+  const instruments = incentiveTypesLabel(compensation.longTermIncentiveTypes ?? []);
+  const ltipAmount = formatAmount(currency, compensation.longTermIncentive);
   return (
     <>
       <DetailGrid>
         <DetailTile label="Base" value={formatAmount(currency, compensation.baseSalary)} />
         <DetailTile label="Bonus" value={formatAmount(currency, compensation.bonus)} />
         <DetailTile label="Allowances" value={formatAmount(currency, compensation.allowances)} />
-        <DetailTile label="LTIP" value={formatAmount(currency, compensation.longTermIncentive)} />
+        <DetailTile
+          label="LTIP"
+          value={ltipAmount && instruments ? `${ltipAmount} · ${instruments}` : (ltipAmount ?? instruments)}
+        />
         <DetailTile label="Notice period" value={compensation.noticePeriod} full />
       </DetailGrid>
+      {allowanceLines.length > 0 && (
+        <div className="mt-3">
+          <div className="mb-1 font-mono text-[9.5px] font-semibold uppercase tracking-[0.08em] text-u-text3">
+            Allowance breakdown
+          </div>
+          <ul className="overflow-hidden rounded-[7px] border border-u-border">
+            {allowanceLines.map((line, index) => (
+              <li
+                key={`${line.label}-${index}`}
+                className="flex items-center gap-2 border-b border-u-border bg-u-raised px-2.5 py-[7px] font-mono text-[12.5px] last:border-b-0"
+              >
+                <span className="min-w-0 flex-1 truncate text-u-text2">{line.label?.trim() || "Allowance"}</span>
+                <span className="flex-none font-bold text-u-text">
+                  {formatAmount(currency, line.amount) ?? "—"}
+                </span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
       <PackageTotal currency={currency} compensation={compensation} />
     </>
   );
