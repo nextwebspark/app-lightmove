@@ -659,14 +659,19 @@ function AmountField({
   );
 }
 
-/** Marks a value an AI inference proposed that nobody has reviewed yet — `Candidate.aiInferredFields`. */
+/**
+ * Marks a value an AI inference proposed that nobody has reviewed yet — `Candidate.aiInferredFields`.
+ * The same sparkle, size and ink the brief's {@link ProvenanceMarker} wears, so AI-filled reads alike on both screens.
+ */
 export function AiInferredBadge() {
   return (
     <span
+      role="img"
+      aria-label="AI-suggested"
       title="AI-suggested — saving the Background section confirms it"
-      className="inline-flex flex-none items-center rounded-[4px] bg-u-inferred-tint px-[5px] py-[1px] font-mono text-[9px] font-bold uppercase tracking-[0.04em] text-u-inferred"
+      className="grid size-4 flex-none place-items-center text-u-inferred"
     >
-      AI
+      <Icon d={ICONS.sparkle} size={13} />
     </span>
   );
 }
