@@ -1,4 +1,4 @@
-import { keepPreviousData, useQuery } from "@tanstack/react-query";
+import { keepPreviousData, useQuery, type QueryKey } from "@tanstack/react-query";
 import { useState } from "react";
 import { Button, Field, Input, Spinner } from "../../../components/ui";
 import { CountryField } from "../../../components/ui/CountryField";
@@ -16,9 +16,21 @@ import {
 /** How many characters the box waits for before it asks the universe anything. */
 const MIN_QUERY_LENGTH = 2;
 
+/** Which endpoint answers the typeahead — signup reads the universe before any workspace exists. */
+export interface CompanySearchSource {
+  key: (query: string) => QueryKey;
+  search: (query: string, signal: AbortSignal) => Promise<CompanySuggestion[]>;
+}
+
+const WORKSPACE_COMPANY_SEARCH: CompanySearchSource = {
+  key: COMPANY_SEARCH_KEY,
+  search: (query, signal) => searchCompanies(query, undefined, signal).then((page) => page.companies),
+};
+
 /**
  * The company step of creating a client, shared by both entrances — the registry's New-client modal and
- * the New-project modal's inline client.
+ * the New-project modal's inline client — and signup's organisation step, which passes its own
+ * `source` and takes a typed name with no further details.
  *
  * <p>It reads the Apollo universe through the same `/companies/search` call and the same query key
  * Strategy's own pickers use, so a keystroke typed here is answered from the cache they filled.
@@ -33,6 +45,9 @@ export function CompanyPicker({
   onRejectExisting,
   error,
   autoFocus,
+  label = "Company",
+  source = WORKSPACE_COMPANY_SEARCH,
+  asksCustomDetails = true,
 }: {
   pick: CompanyPick | null;
   onPick: (pick: CompanyPick | null) => void;
@@ -43,6 +58,10 @@ export function CompanyPicker({
   /** A refusal the caller owns — "nothing picked yet". Rendered by `Field`, like every other error. */
   error?: string;
   autoFocus?: boolean;
+  label?: string;
+  source?: CompanySearchSource;
+  /** False takes "None of these" as the typed name alone, with no domain/country form. */
+  asksCustomDetails?: boolean;
 }) {
   const [query, setQuery] = useState("");
   const [customOpen, setCustomOpen] = useState(false);
@@ -55,9 +74,8 @@ export function CompanyPicker({
   // The signal is not optional politeness: typeahead is `company_name ILIKE '%…%'` over 71,822 rows,
   // which no index can serve, so an abandoned keystroke left running is a full scan nobody awaits.
   const { data, isFetching, isError } = useQuery({
-    queryKey: COMPANY_SEARCH_KEY(debounced),
-    queryFn: ({ signal }): Promise<CompanySuggestion[]> =>
-      searchCompanies(debounced, undefined, signal).then((page) => page.companies),
+    queryKey: source.key(debounced),
+    queryFn: ({ signal }): Promise<CompanySuggestion[]> => source.search(debounced, signal),
     enabled: pick === null && debounced.length >= MIN_QUERY_LENGTH,
     placeholderData: keepPreviousData,
   });
@@ -78,6 +96,14 @@ export function CompanyPicker({
     onPick({ source: "universe", company: hit });
   };
 
+  const handleAddCustom = () => {
+    if (asksCustomDetails) {
+      setCustomOpen(true);
+      return;
+    }
+    onPick({ source: "custom", name: trimmed, domain: "", hqCountry: "" });
+  };
+
   const handleConfirmCustom = (name: string, domain: string, hqCountry: string) => {
     setCustomOpen(false);
     onPick({ source: "custom", name, domain, hqCountry });
@@ -85,17 +111,17 @@ export function CompanyPicker({
 
   if (pick) {
     return (
-      <div className="mb-4 flex items-center gap-2.5 rounded-lg border border-line-soft bg-panel2 px-3 py-2.5">
+      <div className="mb-4 flex items-center gap-2.5 rounded-lg border border-u-border bg-u-raised px-3 py-2.5">
         <CompanyLogo name={pickedCompanyName(pick)} logo={pickedCompanyLogo(pick)} size={28} />
         <span className="min-w-0 flex-1">
-          <span className="block truncate text-[13px] font-semibold text-text">
+          <span className="block truncate text-[13px] font-semibold text-u-text">
             {pickedCompanyName(pick)}
           </span>
-          <span className="block truncate font-mono text-[11px] text-text3">
+          <span className="block truncate font-mono text-[11px] text-u-text3">
             {pick.source === "universe" ? companyLocation(pick.company) || "—" : "new company record"}
           </span>
           {pick.source === "universe" && pick.company.industry && (
-            <span className="block truncate font-mono text-[10px] text-text3">
+            <span className="block truncate font-mono text-[10px] text-u-text3">
               {pick.company.industry}
             </span>
           )}
@@ -103,7 +129,7 @@ export function CompanyPicker({
         <button
           type="button"
           onClick={() => onPick(null)}
-          className="font-mono text-[11px] text-sky hover:underline"
+          className="font-mono text-[11px] text-u-accent hover:underline"
         >
           Change
         </button>
@@ -113,7 +139,7 @@ export function CompanyPicker({
 
   return (
     <>
-      <Field label="Company" error={error}>
+      <Field label={label} error={error}>
         <Input
           value={query}
           onChange={(event) => setQuery(event.target.value)}
@@ -124,13 +150,13 @@ export function CompanyPicker({
       </Field>
 
       {trimmed.length < MIN_QUERY_LENGTH ? (
-        <p className="font-mono text-[11.5px] text-text3">
+        <p className="font-mono text-[11.5px] text-u-text3">
           Type at least {MIN_QUERY_LENGTH} characters to search the company database.
         </p>
       ) : (
-        <div className="max-h-[280px] overflow-y-auto rounded-lg border border-line-soft">
+        <div className="max-h-[280px] overflow-y-auto rounded-lg border border-u-border">
           {isFetching && (
-            <div className="flex items-center gap-2 px-3 py-3 font-mono text-[11.5px] text-text3">
+            <div className="flex items-center gap-2 px-3 py-3 font-mono text-[11.5px] text-u-text3">
               <Spinner /> Searching…
             </div>
           )}
@@ -147,12 +173,12 @@ export function CompanyPicker({
               the user straight to the escape hatch to file a duplicate of a company Apollo holds —
               which is the exact bug this picker exists to close. */}
           {isError && (
-            <p role="alert" className="px-3 py-3 font-mono text-[11.5px] text-red">
+            <p role="alert" className="px-3 py-3 font-mono text-[11.5px] text-u-offlimits">
               Couldn't reach the company database. Try again.
             </p>
           )}
           {isAnswered && hits.length === 0 && (
-            <p className="px-3 py-3 font-mono text-[11.5px] text-text3">
+            <p className="px-3 py-3 font-mono text-[11.5px] text-u-text3">
               No company found for “{debounced}”.
             </p>
           )}
@@ -161,8 +187,8 @@ export function CompanyPicker({
           {!isFetching && (
             <button
               type="button"
-              onClick={() => setCustomOpen(true)}
-              className="flex w-full items-center gap-1.5 px-3 py-2.5 text-left font-mono text-[11.5px] text-amber hover:bg-panel2"
+              onClick={handleAddCustom}
+              className="flex w-full items-center gap-1.5 px-3 py-2.5 text-left font-mono text-[11.5px] text-u-accent hover:bg-u-raised"
             >
               ＋ None of these — add “{trimmed}” as a new company
             </button>
@@ -195,26 +221,26 @@ function SuggestionRow({
     <button
       type="button"
       onClick={onSelect}
-      className="flex w-full items-center gap-2.5 border-b border-line-soft px-3 py-2.5 text-left last:border-0 hover:bg-panel2"
+      className="flex w-full items-center gap-2.5 border-b border-u-border px-3 py-2.5 text-left last:border-0 hover:bg-u-raised"
     >
       <CompanyLogo name={company.companyName} logo={company.logoUrl} size={28} />
       <span className="min-w-0 flex-1">
-        <span className="block truncate text-[13px] font-medium text-text">
+        <span className="block truncate text-[13px] font-medium text-u-text">
           {company.companyName}
         </span>
-        <span className="block truncate font-mono text-[11px] text-text3">
+        <span className="block truncate font-mono text-[11px] text-u-text3">
           {companyLocation(company) || "—"}
         </span>
         {company.industry && (
-          <span className="block truncate font-mono text-[10px] text-text3">{company.industry}</span>
+          <span className="block truncate font-mono text-[10px] text-u-text3">{company.industry}</span>
         )}
       </span>
       {alreadyClient ? (
-        <span className="rounded-md bg-green-dim px-1.5 py-0.5 font-mono text-[9.5px] font-semibold uppercase tracking-[0.08em] text-green">
-          Client
+        <span className="rounded-md bg-u-direct-tint px-1.5 py-0.5 font-mono text-[9.5px] font-semibold uppercase tracking-[0.08em] text-u-direct">
+          Existing
         </span>
       ) : (
-        <span className="font-mono text-[11px] text-sky">Select →</span>
+        <span className="font-mono text-[11px] text-u-accent">Select →</span>
       )}
     </button>
   );
@@ -244,8 +270,8 @@ function NewCompanyForm({
   };
 
   return (
-    <div className="mt-4 rounded-lg border border-line-soft bg-panel2 p-3.5">
-      <div className="mb-3 font-mono text-[10px] font-semibold uppercase tracking-[0.12em] text-text3">
+    <div className="mt-4 rounded-lg border border-u-border bg-u-raised p-3.5">
+      <div className="mb-3 font-mono text-[10px] font-semibold uppercase tracking-[0.12em] text-u-text3">
         New company record
       </div>
       <Field label="Company name" error={error ?? undefined}>
@@ -260,7 +286,7 @@ function NewCompanyForm({
           autoFocus
         />
       </Field>
-      <Field label="Domain · optional, helps us match the client">
+      <Field label="Domain · optional, helps us match the business unit">
         <Input
           value={domain}
           onChange={(event) => setDomain(event.target.value)}

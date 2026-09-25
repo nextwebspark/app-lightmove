@@ -45,6 +45,9 @@ export interface AttachedRepresentative {
   status: "INVITED" | "ACTIVE";
 }
 
+/** What a mandate delivers: a mapped executive universe, or a full search through to a shortlist. */
+export type ProjectType = "MAPPING" | "SEARCH";
+
 export interface Project {
   id: string;
   clientId: string;
@@ -53,12 +56,46 @@ export interface Project {
   positionTitle: string;
   stage: ProjectStage;
   health: ProjectHealth;
+  /** The brief's hire date ("Target start"); not when the work is due — see `deliveryDate`. */
   targetDate: string | null;
+  projectType: ProjectType;
+  startDate: string | null;
+  /** When the business unit expects the map or the shortlist. Null on a mandate older than V73. */
+  deliveryDate: string | null;
+  /** A search's point by which the universe should be mapped; null on a mapping project. */
+  mappingTargetDate: string | null;
   team: TeamMember[];
   representatives: AttachedRepresentative[];
   /** The mandate's live universe: every company it has triaged and not declined. */
   companies: number;
-  /** Every executive the mandate has mapped. */
+  /** Every executive the mandate still has in play — those who left the running are not counted. */
   candidates: number;
+  /** Every executive the mandate has mapped, ruled out or not. */
+  mappedCandidates: number;
+  /** Executives who have answered: engaged or interested. */
+  engagedCandidates: number;
+  /** Universe companies with at least one executive mapped at them: the side panel's coverage. */
+  mappedCompanies: number;
   createdAt: string;
+}
+
+/**
+ * One line of a mandate's recent activity — an audit event with its actor resolved. `details` holds
+ * only the few keys the server allows through (`status`, `added`, `companyName`, `fullName`,
+ * `fileName`, `companiesCreated`, `candidatesCreated`, `stage`).
+ */
+export interface ProjectActivityEntry {
+  id: number;
+  type: string;
+  occurredAt: string;
+  actorUserId: string | null;
+  actorName: string | null;
+  actorAvatarUrl: string | null;
+  details: Record<string, string>;
+}
+
+export interface ProjectActivityPage {
+  entries: ProjectActivityEntry[];
+  /** Pass back as `before` for the next page; null on the last one. */
+  nextCursor: number | null;
 }

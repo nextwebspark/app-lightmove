@@ -53,7 +53,7 @@ export function CriteriaList({
             className="min-w-[160px] flex-1 bg-transparent text-body text-u-text outline-none"
           />
           {criterion.source === "TEMPLATE" && (
-            <span className="flex-none rounded-[4px] bg-u-accent-tint px-1.5 py-0.5 text-eyebrow font-bold uppercase tracking-[0.06em] text-u-accent">
+            <span className="flex-none rounded-[4px] bg-u-accent-tint px-1.5 py-0.5 type-tag text-u-accent">
               From brief
             </span>
           )}

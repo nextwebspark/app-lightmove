@@ -76,7 +76,7 @@ export function ClientsPage() {
   const newClientButton = (
     <Button onClick={() => setNewClientOpen(true)} className="!px-3.5 !py-[7px] !text-[13px]">
       <Icon d={ICONS.plus} size={15} />
-      New client
+      New business unit
     </Button>
   );
 
@@ -85,8 +85,8 @@ export function ClientsPage() {
   if (isPending) {
     return (
       <>
-        <PageHeader title="Clients" subtitle="records shared across projects" action={newClientButton} />
-        <TableSkeleton columns={["Client", "Type", "Client contact", "Sector", "Mandates", "Viewers"]} />
+        <PageHeader title="Business units" subtitle="business units shared across reqs" action={newClientButton} />
+        <TableSkeleton columns={["Business unit", "Hiring managers", "Open positions", "Viewers"]} />
       </>
     );
   }
@@ -97,10 +97,10 @@ export function ClientsPage() {
   if (isError) {
     return (
       <>
-        <PageHeader title="Clients" subtitle="records shared across projects" />
+        <PageHeader title="Business units" subtitle="business units shared across reqs" />
         <EmptyState
           icon={<Icon d={ICONS.lock} size={24} />}
-          title="Couldn't load the client registry"
+          title="Couldn't load the business units"
           body="You may no longer have access to it, or the request failed. Reload the page, and ask an admin if it keeps happening."
         />
       </>
@@ -110,16 +110,16 @@ export function ClientsPage() {
   return (
     <>
       <PageHeader
-        title="Clients"
-        subtitle={`${clients.length} ${clients.length === 1 ? "client" : "clients"} · records shared across projects`}
+        title="Business units"
+        subtitle={`${clients.length} ${clients.length === 1 ? "business unit" : "business units"} · shared across reqs`}
         action={newClientButton}
       />
 
       {clients.length === 0 ? (
         <EmptyState
           icon={<Icon d={ICONS.clients} size={24} />}
-          title="Add your first client"
-          body="A client is the hiring entity a mandate is run for. Most already exist in the company database — search it first."
+          title="Add your first business unit"
+          body="A business unit groups the hiring managers and open positions for one part of the org — Engineering, Sales, and so on."
         >
           {newClientButton}
         </EmptyState>
@@ -128,7 +128,7 @@ export function ClientsPage() {
           <ListToolbar
             query={query}
             onQueryChange={setQuery}
-            placeholder="Search clients…"
+            placeholder="Search business units…"
             chips={CHIPS}
             activeChip={chip}
             onChipChange={setChip}

@@ -9,403 +9,509 @@
 <x-dc>
 <helmet>
   <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700;900&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="uncava-tokens.css">
   <style>
-    :root{--bg:#f8f9fb;--panel:#ffffff;--panel2:#f3f4f6;--line:#e2e4e9;--line-soft:#edeef2;--text:#111113;--text2:#475569;--text3:#64748b;--amber:#a67c2e;--amber-btn:#e2b65c;--amber-dim:rgba(226,182,92,.14);--sky:#2563eb;--sky-dim:rgba(37,99,235,.10);--red:#dc2626;--red-dim:rgba(220,38,38,.08);--green:#059669;--green-dim:rgba(5,150,105,.10);--shadow:0 8px 28px rgba(15,23,42,.10);--mono:'Geist','Inter',system-ui,sans-serif;--sans:'Geist','Inter',system-ui,sans-serif;--ai:#6366f1;--ai2:#3b82f6;--ai-line:#4f46e5;--ai-dim:rgba(99,102,241,.10);--ai-soft:rgba(99,102,241,.06)}
-    body.dark{--bg:#0c0d0e;--panel:#16171a;--panel2:#131316;--line:#2a2a2e;--line-soft:#212326;--text:#f8fafc;--text2:#cbd5e1;--text3:#94a3b8;--amber:#e2b65c;--amber-dim:rgba(226,182,92,.16);--sky:#60a5fa;--sky-dim:rgba(96,165,250,.16);--red:#f87171;--red-dim:rgba(248,113,113,.14);--green:#34d399;--green-dim:rgba(52,211,153,.16);--shadow:0 8px 28px rgba(0,0,0,.5);--ai:#818cf8;--ai2:#60a5fa;--ai-line:#6366f1;--ai-dim:rgba(129,140,248,.16);--ai-soft:rgba(129,140,248,.09)}
+    :root{
+      --amber:var(--u-accent);--amber-btn:var(--u-accent-solid);--amber-dim:var(--u-accent-tint);--on-amber:#ffffff;
+      --sky:var(--u-accent);--sky-dim:var(--u-accent-tint);--ring:var(--u-accent-ring);
+      --red:var(--u-offlimits);--red-dim:var(--u-offlimits-tint);
+      --green:var(--u-direct);--green-dim:var(--u-direct-tint);
+      --ai:var(--u-inferred);--ai2:var(--u-adjacent);--ai-line:var(--u-accent);--ai-dim:var(--u-inferred-tint);--ai-soft:var(--u-inferred-tint);
+      --bg:var(--u-bg);--panel:var(--u-surface);--panel2:var(--u-raised);--line:var(--u-border-strong);--line-soft:var(--u-border);
+      --text:var(--u-text);--text2:var(--u-text2);--text3:var(--u-text3);
+      --shadow:var(--u-e3);--radius-panel:var(--u-r-modal);
+      --mono:var(--u-font-ui);--sans:var(--u-font-ui);
+      --u-text2:var(--u-text-2);--u-text3:var(--u-text-3);--u-num:var(--u-font-num);
+    }
     *{box-sizing:border-box}
     html,body{height:100%;margin:0}
     body{background:var(--bg);color:var(--text);font:400 14px/1.45 var(--sans);-webkit-font-smoothing:antialiased}
     a{color:var(--sky);text-decoration:none}
-    a:hover{text-decoration:underline}
     input::placeholder,textarea::placeholder{color:var(--text3)}
-    @keyframes fadeUp{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
-    @keyframes slideIn{from{opacity:0;transform:translateX(16px)}to{opacity:1;transform:none}}
-    @keyframes blink{0%,45%{opacity:1}50%,95%{opacity:.15}100%{opacity:1}}
+    button{font-family:inherit}
+    @keyframes fadeUp{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
     @keyframes spin{to{transform:rotate(360deg)}}
-    @media (prefers-reduced-motion:reduce){*{animation:none !important}}
+    @keyframes slideInEnd{from{transform:translateX(100%)}to{transform:none}}
   </style>
+  <script>try{var t=localStorage.getItem('lm-theme');document.documentElement.setAttribute('data-theme', t==='light'?'light':'dark');}catch(e){}</script>
 </helmet>
+<div data-screen-label="Assistant" style="height:100vh;display:flex;flex-direction:column;overflow:hidden">
 
-<!--
-  Assistant.dc.html — the Uncava Assistant, mocked over Strategy.
-
-  Two decisions this mockup settles (see issue #437):
-
-  1. PALETTE. The panel uses the ORDINARY tokens, not UNCAVA (--color-u-*). It opens on every
-     screen, and every screen but Reports is on the ordinary palette. On Reports it will read as
-     slightly foreign — the same deliberate seam tokens.css already documents, and it closes when
-     the rest of the app migrates. The one addition is --ai / --ai2, the indigo already used for
-     Strategy's AI Research CTA, kept as the assistant's own accent so the button and the thing it
-     opens are visibly the same feature.
-
-  2. NON-MODAL. There is no scrim. The page keeps its own width and stays clickable while the
-     panel is open — the grid behind is live, and that is the point: you watch a proposal arrive
-     and tick rows beside it. The panel is a docked column, not an overlay.
--->
-
-<div style="height:100vh;display:flex;overflow:hidden">
-
-  <!-- ─────────────── nav rail (abbreviated; see Strategy.dc.html for the full one) ─────────────── -->
-  <nav style="width:240px;flex:none;padding:14px 10px;display:flex;flex-direction:column;overflow-y:auto;overflow-x:hidden">
-    <div style="display:flex;align-items:center;gap:8px;padding:4px 6px 4px 4px;margin:0 2px 12px">
-      <span style="width:24px;height:24px;border-radius:6px;background:#e2b65c;color:#1a1712;display:grid;place-items:center;font:700 12px var(--sans);flex:none">L</span>
-      <span style="font:700 14px var(--sans);letter-spacing:.01em;white-space:nowrap">LightMove</span>
-    </div>
-    <a href="Workspace.dc.html" style="display:flex;align-items:center;gap:10px;width:100%;padding:8px 10px;border-radius:7px;font:500 13px var(--sans);color:var(--text2);text-decoration:none;margin-bottom:6px" style-hover="background:var(--panel2);color:var(--text);text-decoration:none">
-      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex:none"><path d="M19 12H5M12 19l-7-7 7-7"></path></svg>
-      <span style="white-space:nowrap">All projects</span>
-    </a>
-    <div style="height:1px;background:var(--line-soft);margin:0 4px 10px"></div>
-    <span style="display:inline-flex;align-items:center;gap:5px;padding:3px 9px;border-radius:6px;font:600 10px var(--mono);letter-spacing:.05em;text-transform:uppercase;color:var(--amber);background:var(--amber-dim);margin:0 10px 12px;align-self:flex-start">
-      <span style="width:6px;height:6px;border-radius:50%;background:currentColor"></span>Mapping
-    </span>
-    <sc-for list="{{ navGroups }}" as="g" hint-placeholder-count="3">
-      <div style="font:600 10px var(--mono);letter-spacing:.14em;text-transform:uppercase;color:var(--text3);padding:10px 10px 6px">{{ g.group }}</div>
-      <sc-for list="{{ g.items }}" as="it" hint-placeholder-count="2">
-        <a href="{{ it.href }}" style="display:flex;align-items:center;gap:10px;width:100%;padding:8px 10px;border-radius:7px;font:400 13.5px var(--sans);color:{{ it.color }};background:{{ it.bg }};text-decoration:none" style-hover="background:var(--panel2);color:var(--text);text-decoration:none">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex:none;color:{{ it.iconColor }}"><path d="{{ it.icon }}"></path></svg>
-          <span style="white-space:nowrap">{{ it.label }}</span>
-        </a>
-      </sc-for>
-    </sc-for>
-    <div style="margin-top:auto;padding-top:12px;border-top:1px solid var(--line-soft)">
-      <button onClick="{{ toggleTheme }}" style="display:flex;align-items:center;gap:10px;width:100%;padding:8px 10px;border-radius:7px;font:400 13.5px var(--sans);color:var(--text2);background:none;border:none;text-align:left;cursor:pointer" style-hover="background:var(--panel2);color:var(--text)">
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex:none"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79Z"></path></svg>
-        <span style="white-space:nowrap">{{ themeLabel }}</span>
-      </button>
-    </div>
-  </nav>
-
-  <!-- ─────────────── the page + the docked panel, side by side ─────────────── -->
-  <div style="flex:1;display:flex;min-width:0;padding:10px 10px 10px 0;gap:{{ dockGap }}">
-
-    <main data-screen-label="Strategy" style="flex:1;min-height:0;min-width:0;background:var(--panel);border:1px solid var(--line);border-radius:15px;display:flex;flex-direction:column;overflow:hidden">
-
-      <div style="flex:none;display:flex;align-items:center;gap:18px;padding:16px 32px 14px;border-bottom:1px solid var(--line)">
-        <div style="min-width:0">
-          <div style="font:400 12px var(--mono);color:var(--text3);margin-bottom:3px">Projects / <span style="color:var(--amber)">&#9679;</span> Meridian Energy Group</div>
-          <div style="font:700 19px var(--sans);letter-spacing:-.01em">Chief Financial Officer</div>
-        </div>
-        <span style="margin-left:auto;display:flex;align-items:center">
-          <span style="width:26px;height:26px;border-radius:50%;display:grid;place-items:center;font:600 10px var(--mono);background:var(--sky-dim);color:var(--sky);border:2px solid var(--panel)">YH</span>
-          <span style="width:26px;height:26px;border-radius:50%;display:grid;place-items:center;font:600 10px var(--mono);background:var(--amber-dim);color:var(--amber);border:2px solid var(--panel);margin-left:-8px">YI</span>
-        </span>
-      </div>
-
-      <div style="flex:none;display:flex;align-items:center;gap:14px;padding:6px 20px;min-height:44px;background:var(--panel2);border-bottom:1px solid var(--line-soft)">
-        <button style="display:inline-flex;align-items:center;gap:6px;background:none;border:none;cursor:pointer;font:400 13px var(--sans);color:var(--text3);padding:4px 0;white-space:nowrap" style-hover="color:var(--text)">Save Search</button>
-        <button style="display:inline-flex;align-items:center;gap:6px;background:none;border:none;cursor:pointer;font:400 13px var(--sans);color:var(--text3);padding:8px;border-radius:6px;white-space:nowrap" style-hover="color:var(--text);background:var(--panel)">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex:none"><path d="M3 4h18l-7 8v6l-4 2v-8L3 4Z"></path></svg>
-          Hide Filters
-          <span style="font:700 10px var(--sans);color:var(--sky);background:var(--sky-dim);border-radius:4px;padding:2px 5px">4</span>
-        </button>
-        <!-- The CTA that opens the panel. Pressed state while the panel is open, so the button and
-             the panel read as one feature rather than two. -->
-        <button onClick="{{ togglePanel }}" style="display:inline-flex;align-items:center;gap:8px;padding:8px 16px;border-radius:6px;border:1px solid var(--ai-line);background:{{ ctaBg }};color:{{ ctaColor }};font:600 13px var(--sans);cursor:pointer;white-space:nowrap;box-shadow:{{ ctaShadow }}" style-hover="filter:brightness(1.07)">
-          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex:none"><path d="M9.9 2.6 11 5.9a2 2 0 0 0 1.3 1.3l3.3 1.1-3.3 1.1a2 2 0 0 0-1.3 1.3L9.9 14l-1.1-3.3a2 2 0 0 0-1.3-1.3L4.2 8.3l3.3-1.1a2 2 0 0 0 1.3-1.3ZM18 14l.6 1.8 1.8.6-1.8.6-.6 1.8-.6-1.8-1.8-.6 1.8-.6Z"></path></svg>
-          AI Research
-        </button>
-        <div style="margin-left:auto;font:400 12px var(--mono);color:var(--text3)">{{ resultCount }} companies</div>
-      </div>
-
-      <!-- The grid stays live while the panel is open — no scrim, no inert. Rows still tick. -->
-      <div style="flex:1;min-height:0;overflow:auto;padding:16px 20px">
-        <div style="border:1px solid var(--line);border-radius:10px;overflow:hidden;min-width:520px">
-          <div style="display:grid;grid-template-columns:28px minmax(150px,1.6fr) minmax(96px,1fr) minmax(110px,1.1fr) 84px;gap:0;background:var(--panel2);border-bottom:1px solid var(--line);font:600 10px var(--mono);letter-spacing:.09em;text-transform:uppercase;color:var(--text3)">
-            <div style="padding:9px 8px"></div>
-            <div style="padding:9px 10px">Company</div>
-            <div style="padding:9px 10px">Country</div>
-            <div style="padding:9px 10px">Sector</div>
-            <div style="padding:9px 10px">Staff</div>
-          </div>
-          <sc-for list="{{ gridRows }}" as="r" hint-placeholder-count="6">
-            <div onClick="{{ tickRow }}" data-name="{{ r.name }}" role="button" style="display:grid;grid-template-columns:28px minmax(150px,1.6fr) minmax(96px,1fr) minmax(110px,1.1fr) 84px;border-bottom:1px solid var(--line-soft);cursor:pointer;background:{{ r.bg }}" style-hover="background:var(--panel2)">
-              <div style="padding:10px 8px;display:grid;place-items:center">
-                <span style="width:14px;height:14px;border-radius:3px;border:1.5px solid {{ r.tickBorder }};background:{{ r.tickBg }};display:grid;place-items:center">
-                  <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3.4" style="display:{{ r.tickDisp }}"><path d="M20 6 9 17l-5-5"></path></svg>
-                </span>
+  <header style="height:46px;flex:none;display:flex;align-items:center;gap:12px;padding:0 14px;position:relative;z-index:60">
+    <div style="flex:1;min-width:0;display:flex;align-items:center">
+      <div style="display:flex;min-width:0;align-items:center;gap:8px">
+        <div style="position:relative">
+          <button onClick="{{ toggleWsMenu }}" title="{{ wsTriggerTitle }}" style="display:flex;align-items:center;gap:{{ wsTriggerGap }};padding:{{ wsTriggerPad }};border-radius:6px;background:none;border:none;cursor:pointer;color:var(--text)" style-hover="background:var(--panel2)">
+            <svg viewBox="-36 -51 72 104" fill="none" stroke="currentColor" style="height:30px;width:auto;flex:none;color:var(--text)" aria-hidden="true"><path d="M-32 10 L 0 -8 L 32 10 L 0 28 Z M-32 10 V 32 L 0 50 L 32 32 V 10 M0 28 V 50" stroke-width="2.6" stroke-linejoin="round"></path><path d="M0 -48 L 32 -30 L 0 -12 L -32 -30 Z" fill="currentColor" stroke="none"></path></svg>
+            <sc-if value="{{ isWorkspace }}" hint-placeholder-val="{{ false }}">
+              <span style="font:500 14px var(--sans);text-transform:uppercase;letter-spacing:.3em;color:var(--text)">Uncava</span>
+            </sc-if>
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex:none;color:var(--text3)"><path d="m6 9 6 6 6-6"></path></svg>
+          </button>
+          <sc-if value="{{ wsMenuOpen }}" hint-placeholder-val="{{ false }}">
+            <div style="position:absolute;left:0;top:40px;z-index:80;width:268px;border-radius:10px;border:1px solid var(--line);background:var(--panel);padding:6px;box-shadow:var(--shadow)">
+              <div style="display:flex;align-items:center;gap:10px;padding:10px;margin-bottom:6px;border-bottom:1px solid var(--line-soft)">
+                <span style="width:30px;height:30px;flex:none;background:var(--amber-btn);color:var(--on-amber);font:700 11px var(--mono);border-radius:6px;display:grid;place-items:center">A</span>
+                <div style="font:600 13px var(--mono);color:var(--text)">Al-Futtaim</div>
               </div>
-              <div style="padding:10px;font:500 13px var(--sans);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ r.name }}</div>
-              <div style="padding:10px;font:400 13px var(--sans);color:var(--text2)">{{ r.country }}</div>
-              <div style="padding:10px;font:400 13px var(--sans);color:var(--text2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ r.sector }}</div>
-              <div style="padding:10px;font:400 13px var(--mono);color:var(--text2)">{{ r.staff }}</div>
+              <a href="Settings.dc.html?section=profile" style="display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:6px;font-size:13px;color:var(--text2)" style-hover="background:var(--panel2);color:var(--text)">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2M16 7a4 4 0 1 1-8 0 4 4 0 0 1 8 0"></path></svg>Your profile
+              </a>
+              <div style="height:1px;background:var(--line-soft);margin:6px 0"></div>
+              <a href="Settings.dc.html?section=general" style="display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:6px;font-size:13px;color:var(--text2)" style-hover="background:var(--panel2);color:var(--text)">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6ZM19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09a1.65 1.65 0 0 0-1-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09a1.65 1.65 0 0 0 1.51-1 1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33h.01a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51h.01a1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82v.01a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1Z"></path></svg>Workspace settings
+              </a>
+              <a href="Settings.dc.html?section=members" style="display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:6px;font-size:13px;color:var(--text2)" style-hover="background:var(--panel2);color:var(--text)">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2M13 7a4 4 0 1 1-8 0 4 4 0 0 1 8 0M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"></path></svg>Members
+              </a>
+              <div style="height:1px;background:var(--line-soft);margin:6px 0"></div>
+              <a href="Login.dc.html" style="display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:6px;font-size:13px;color:var(--text2)" style-hover="background:var(--panel2);color:var(--text)">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9"></path></svg>Sign out
+              </a>
             </div>
+          </sc-if>
+        </div>
+        <sc-if value="{{ isProject }}" hint-placeholder-val="{{ true }}">
+          <a href="Workspace.dc.html" style="white-space:nowrap;border-radius:6px;padding:4px 6px;font:500 13px var(--mono);color:var(--text3)" style-hover="background:var(--panel2);color:var(--text)">Positions</a>
+          <span style="font-size:12px;color:var(--text3);opacity:.4">/</span>
+          <span style="display:flex;align-items:center;gap:6px;white-space:nowrap;font:500 13px var(--mono);color:var(--text2)"><span style="width:6px;height:6px;border-radius:50%;background:var(--sky)"></span>Group Finance</span>
+          <span style="font-size:12px;color:var(--text3);opacity:.4">/</span>
+          <span style="max-width:280px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font:600 14px var(--sans);color:var(--text)">Chief Financial Officer</span>
+        </sc-if>
+      </div>
+    </div>
+    <div style="display:flex;align-items:center;gap:10px;flex:none">
+      <span title="Yara Haddad" style="width:26px;height:26px;border-radius:50%;display:grid;place-items:center;background:var(--sky-dim);color:var(--sky);font:600 10px var(--mono)">YH</span>
+    </div>
+  </header>
+
+  <div style="flex:1;min-height:0;display:flex;padding:0 14px 14px">
+
+    <nav style="width:{{ navWidth }};flex:none;padding:14px 10px;display:flex;flex-direction:column;overflow-y:auto;overflow-x:hidden;transition:width .18s">
+      <sc-if value="{{ isProject }}" hint-placeholder-val="{{ true }}">
+        <a href="Workspace.dc.html" title="All positions" style="display:flex;align-items:center;justify-content:{{ navJustify }};gap:10px;padding:8px 10px;border-radius:6px;font:500 13.5px var(--sans);color:var(--text2)" style-hover="background:var(--panel2);color:var(--text)">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex:none"><path d="M19 12H5M12 19l-7-7 7-7"></path></svg>
+          <sc-if value="{{ navExpanded }}" hint-placeholder-val="{{ true }}"><span style="white-space:nowrap">All positions</span></sc-if>
+        </a>
+        <div style="height:1px;background:var(--line-soft);margin:8px 0 2px"></div>
+      </sc-if>
+      <sc-for list="{{ navGroups }}" as="g" hint-placeholder-count="4">
+        <sc-if value="{{ g.showLabel }}" hint-placeholder-val="{{ true }}">
+          <div style="padding:14px 10px 6px;font:600 10px var(--mono);letter-spacing:.14em;text-transform:uppercase;color:var(--text3)">{{ g.label }}</div>
+        </sc-if>
+        <sc-for list="{{ g.items }}" as="it" hint-placeholder-count="2">
+          <a href="{{ it.href }}" title="{{ it.label }}" style="display:flex;align-items:center;justify-content:{{ it.justify }};gap:10px;padding:8px 10px;border-radius:6px;font-size:13.5px;color:{{ it.color }};background:{{ it.bg }};margin-top:{{ it.marginTop }}" style-hover="background:var(--panel2);color:var(--text)">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex:none;color:{{ it.iconColor }}"><path d="{{ it.icon }}"></path></svg>
+            <sc-if value="{{ it.showLabel }}" hint-placeholder-val="{{ true }}">
+              <span style="white-space:nowrap">{{ it.label }}</span>
+              <sc-if value="{{ it.hasCount }}" hint-placeholder-val="{{ false }}">
+                <span style="margin-left:auto;font:500 11px var(--mono);color:var(--text3)">{{ it.count }}</span>
+              </sc-if>
+            </sc-if>
+          </a>
+        </sc-for>
+      </sc-for>
+      <div style="margin-top:auto;border-top:1px solid var(--line-soft);padding-top:12px">
+        <button onClick="{{ toggleTheme }}" title="{{ themeLabel }}" style="display:flex;align-items:center;justify-content:{{ navJustify }};gap:10px;width:100%;padding:8px 10px;border-radius:6px;font-size:13.5px;color:var(--text2);background:none;border:none;cursor:pointer;text-align:left" style-hover="background:var(--panel2);color:var(--text)">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex:none"><path d="{{ themeIcon }}"></path></svg>
+          <sc-if value="{{ navExpanded }}" hint-placeholder-val="{{ true }}"><span style="white-space:nowrap">{{ themeLabel }}</span></sc-if>
+        </button>
+        <button onClick="{{ toggleCollapse }}" title="{{ collapseLabel }}" style="display:flex;align-items:center;justify-content:{{ navJustify }};gap:10px;width:100%;padding:8px 10px;border-radius:6px;font-size:13.5px;color:var(--text2);background:none;border:none;cursor:pointer;text-align:left" style-hover="background:var(--panel2);color:var(--text)">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex:none"><path d="{{ collapseIcon }}"></path></svg>
+          <sc-if value="{{ navExpanded }}" hint-placeholder-val="{{ true }}"><span style="white-space:nowrap">Collapse</span></sc-if>
+        </button>
+        <sc-if value="{{ navExpanded }}" hint-placeholder-val="{{ true }}">
+          <p style="margin:0;padding:8px 10px 0;font:400 11px var(--mono);color:var(--text3)">v2026.09.22</p>
+        </sc-if>
+      </div>
+    </nav>
+
+    <main style="flex:1;min-width:0;overflow-y:auto;border-radius:10px;border:1px solid var(--line);background:var(--panel)">
+
+      <sc-if value="{{ isProject }}" hint-placeholder-val="{{ true }}">
+        <div data-screen-label="Strategy (behind)" style="display:flex;flex-direction:column;width:100%;height:100%">
+          <div style="min-height:44px;flex:none;display:flex;flex-wrap:wrap;align-items:center;gap:8px 14px;border-bottom:1px solid var(--line-soft);background:var(--panel2);padding:6px 20px">
+            <button style="display:inline-flex;align-items:center;gap:6px;white-space:nowrap;padding:4px 0;background:none;border:none;cursor:pointer;font:400 13px var(--sans);color:var(--text3)" style-hover="color:var(--text)">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex:none;color:var(--amber)"><path d="M12 17v5M9 10.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24V16a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V7h1a2 2 0 0 0 0-4H8a2 2 0 0 0 0 4h1Z"></path></svg>
+              Save Search
+              <span style="border-radius:4px;background:var(--sky-dim);padding:2px 5px;font:700 10px var(--sans);color:var(--sky)">2</span>
+            </button>
+            <button style="display:inline-flex;align-items:center;gap:6px;white-space:nowrap;border-radius:6px;padding:8px;background:none;border:none;cursor:pointer;font:400 13px var(--sans);color:var(--text3)" style-hover="background:var(--panel);color:var(--text)">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex:none"><path d="M3 4h18l-7 8v6l-4 2v-8L3 4Z"></path></svg>
+              Show Filters
+              <span style="border-radius:4px;background:var(--sky-dim);padding:2px 5px;font:700 10px var(--sans);color:var(--sky)">3</span>
+            </button>
+            <button onClick="{{ openPanel }}" style="display:inline-flex;align-items:center;gap:8px;white-space:nowrap;border-radius:6px;border:1px solid var(--u-border-strong);background:var(--u-inferred-tint);padding:8px 16px;font:500 13px var(--sans);color:var(--u-inferred);cursor:pointer" style-hover="background:var(--u-raised)">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex:none"><path d="M9.9 2.6 11 5.9a2 2 0 0 0 1.3 1.3l3.3 1.1-3.3 1.1a2 2 0 0 0-1.3 1.3L9.9 14l-1.1-3.3a2 2 0 0 0-1.3-1.3L4.2 8.3l3.3-1.1a2 2 0 0 0 1.3-1.3ZM18 14l.6 1.8 1.8.6-1.8.6-.6 1.8-.6-1.8-1.8-.6 1.8-.6Z"></path></svg>
+              AI Research
+            </button>
+            <div style="display:flex;align-items:center;gap:8px;width:240px;flex:none;border-radius:6px;border:1px solid var(--line);padding:8px 12px">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex:none;color:var(--text3)"><path d="M11 3a8 8 0 1 0 0 16 8 8 0 0 0 0-16Zm10 18-4.3-4.3"></path></svg>
+              <input placeholder="Search companies..." aria-label="Search companies" style="width:100%;background:transparent;border:none;outline:none;font:400 13px var(--sans);color:var(--text)">
+            </div>
+            <div style="margin-left:auto;display:flex;align-items:center;gap:12px">
+              <button style="display:inline-flex;align-items:center;gap:6px;white-space:nowrap;border-radius:6px;padding:8px;background:none;border:none;cursor:pointer;font:400 13px var(--sans);color:var(--text3)" style-hover="background:var(--panel);color:var(--text)">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex:none"><path d="M3 4h18v16H3zM9 4v16M15 4v16"></path></svg>
+                Columns
+              </button>
+              <button style="white-space:nowrap;background:none;border:none;cursor:pointer;font:400 13px var(--sans);color:var(--text3)" style-hover="color:var(--text)">Add all to Universe →</button>
+            </div>
+          </div>
+
+          <div style="flex:1;min-height:0;display:flex;flex-direction:column;gap:12px;padding:8px">
+            <div style="flex:1;min-height:0;overflow:auto">
+              <div style="min-width:560px">
+                <div style="display:grid;grid-template-columns:36px minmax(200px,2fr) minmax(130px,1fr) minmax(170px,1.3fr) 110px;border-bottom:1px solid var(--line-soft);font:600 10px var(--mono);letter-spacing:.12em;text-transform:uppercase;color:var(--text3)">
+                  <div style="padding:10px"></div>
+                  <div style="padding:10px">Company ↑</div>
+                  <div style="padding:10px">Country</div>
+                  <div style="padding:10px">Sector</div>
+                  <div style="padding:10px;text-align:right">Employees</div>
+                </div>
+                <sc-for list="{{ gridRows }}" as="r" hint-placeholder-count="10">
+                  <div style="display:grid;grid-template-columns:36px minmax(200px,2fr) minmax(130px,1fr) minmax(170px,1.3fr) 110px;align-items:center;border-bottom:1px solid var(--line-soft);font-size:13px;cursor:pointer" style-hover="background:var(--panel2)">
+                    <div style="padding:10px;display:grid;place-items:center">
+                      <span style="width:15px;height:15px;border-radius:4px;box-shadow:inset 0 0 0 1.5px currentColor;color:var(--line)"></span>
+                    </div>
+                    <div style="padding:10px;display:flex;align-items:center;gap:9px;min-width:0">
+                      <span style="width:22px;height:22px;flex:none;border-radius:5px;background:var(--panel2);display:grid;place-items:center;font:700 9px var(--mono);color:var(--text3)">{{ r.initials }}</span>
+                      <span style="font-weight:500;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ r.name }}</span>
+                    </div>
+                    <div style="padding:10px;color:var(--text2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ r.country }}</div>
+                    <div style="padding:10px;color:var(--text2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ r.sector }}</div>
+                    <div style="padding:10px;color:var(--text2);text-align:right;font-family:var(--mono)">{{ r.staff }}</div>
+                  </div>
+                </sc-for>
+              </div>
+            </div>
+            <div style="flex:none;display:flex;flex-wrap:wrap;align-items:center;gap:8px 16px;padding-right:100px">
+              <button disabled style="width:32px;height:32px;display:grid;place-items:center;border-radius:6px;border:1px solid var(--line-soft);background:none;color:var(--text3);opacity:.4"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m15 18-6-6 6-6"></path></svg></button>
+              <span style="display:inline-flex;align-items:center;gap:8px;border-radius:6px;border:1px solid var(--line-soft);padding:6px 12px;font:600 13px var(--sans);color:var(--text)">1</span>
+              <button style="width:32px;height:32px;display:grid;place-items:center;border-radius:6px;border:1px solid var(--line-soft);background:none;color:var(--text3);cursor:pointer" style-hover="border-color:var(--line);color:var(--text)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m9 18 6-6-6-6"></path></svg></button>
+              <span style="font:400 13px var(--sans);color:var(--text3)">1 - 25 of 1,284</span>
+              <label style="margin-left:auto;display:flex;align-items:center;gap:8px;font:400 13px var(--sans);color:var(--text3)">Rows per page
+                <span style="border-radius:6px;border:1px solid var(--line-soft);padding:6px 12px;font:600 13px var(--sans);color:var(--text)">25</span>
+              </label>
+            </div>
+          </div>
+        </div>
+      </sc-if>
+
+      <sc-if value="{{ isWorkspace }}" hint-placeholder-val="{{ false }}">
+        <div data-screen-label="My positions (behind)" style="max-width:1440px;margin:0 auto;padding:28px 28px 60px">
+          <div style="display:flex;align-items:flex-start;gap:16px;margin-bottom:18px">
+            <div style="flex:1;min-width:0">
+              <div style="font:600 19px/1.25 var(--sans)">My positions</div>
+              <div style="margin-top:4px;font:400 12px var(--mono);color:var(--text3)">5 positions · workspace Al-Futtaim</div>
+            </div>
+            <button style="display:flex;align-items:center;gap:8px;border-radius:6px;padding:7px 14px;font:500 13px var(--sans);background:var(--amber-btn);border:1px solid var(--amber-btn);color:var(--on-amber);cursor:pointer">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"></path></svg>New project
+            </button>
+          </div>
+          <div style="display:grid;grid-template-columns:minmax(170px,1.2fr) minmax(200px,1.5fr) 150px 110px 110px;border-bottom:1px solid var(--line-soft);font:600 10px var(--mono);letter-spacing:.12em;text-transform:uppercase;color:var(--text3)">
+            <div style="padding:10px">Business unit</div><div style="padding:10px">Position</div><div style="padding:10px">Stage</div><div style="padding:10px">Health</div><div style="padding:10px">Target</div>
+          </div>
+          <sc-for list="{{ projectRows }}" as="p" hint-placeholder-count="5">
+            <a href="{{ p.href }}" style="display:grid;grid-template-columns:minmax(170px,1.2fr) minmax(200px,1.5fr) 150px 110px 110px;align-items:center;border-bottom:1px solid var(--line-soft);font-size:13px;color:var(--text)" style-hover="background:var(--panel2)">
+              <div style="padding:11px 10px;color:var(--text2)">{{ p.department }}</div>
+              <div style="padding:11px 10px;font-weight:500">{{ p.position }}</div>
+              <div style="padding:11px 10px"><span style="display:inline-flex;align-items:center;gap:6px;border-radius:6px;border:1px solid {{ p.stageBorder }};padding:3px 9px;font:600 10.5px var(--mono);text-transform:uppercase;letter-spacing:.06em;color:{{ p.stageColor }};background:{{ p.stageBg }}"><span style="width:6px;height:6px;border-radius:50%;background:currentColor"></span>{{ p.stage }}</span></div>
+              <div style="padding:11px 10px;display:flex;align-items:center;gap:7px;font:500 12px var(--mono);color:{{ p.healthText }}"><span style="width:7px;height:7px;border-radius:50%;background:{{ p.healthDot }}"></span>{{ p.health }}</div>
+              <div style="padding:11px 10px;font:400 12px var(--mono);color:var(--text2)">{{ p.target }}</div>
+            </a>
           </sc-for>
         </div>
-        <div style="margin-top:14px;font:400 12px var(--mono);color:var(--text3)">{{ tickedLabel }}</div>
-      </div>
+      </sc-if>
     </main>
 
-    <!-- ─────────────── the assistant panel — docked, non-modal ─────────────── -->
-    <sc-if value="{{ panelOpen }}" hint-placeholder-val="{{ true }}">
-      <aside role="complementary" aria-label="Uncava Assistant" style="width:400px;flex:none;min-height:0;background:var(--panel);border:1px solid var(--line);border-radius:15px;display:flex;flex-direction:column;overflow:hidden;animation:slideIn .18s ease both">
+    <div aria-hidden="{{ dockHidden }}" style="flex:none;overflow:hidden;width:{{ dockWidth }};transition:width .24s ease-in-out">
+      <aside role="complementary" aria-label="Uncava Assistant" data-screen-label="Assistant panel" style="margin-left:10px;height:100%;width:400px;flex:none;display:flex;flex-direction:column;overflow:hidden;border-radius:10px;border:1px solid var(--line);background:var(--panel)">
 
-        <!-- header -->
-        <div style="flex:none;padding:12px 14px 10px;border-bottom:1px solid var(--line)">
-          <div style="display:flex;align-items:center;gap:9px">
-            <span style="width:22px;height:22px;border-radius:6px;background:linear-gradient(135deg,var(--ai),var(--ai2));display:grid;place-items:center;flex:none">
-              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.2"><path d="M9.9 2.6 11 5.9a2 2 0 0 0 1.3 1.3l3.3 1.1-3.3 1.1a2 2 0 0 0-1.3 1.3L9.9 14l-1.1-3.3a2 2 0 0 0-1.3-1.3L4.2 8.3l3.3-1.1a2 2 0 0 0 1.3-1.3Z"></path></svg>
+        <div style="flex:none;border-bottom:1px solid var(--line);padding:10px 12px">
+          <div style="display:flex;align-items:center;gap:8px">
+            <span style="width:26px;height:26px;flex:none;display:grid;place-items:center;border-radius:6px;background:linear-gradient(135deg,var(--ai),var(--ai2));color:#fff">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9.9 2.6 11 5.9a2 2 0 0 0 1.3 1.3l3.3 1.1-3.3 1.1a2 2 0 0 0-1.3 1.3L9.9 14l-1.1-3.3a2 2 0 0 0-1.3-1.3L4.2 8.3l3.3-1.1a2 2 0 0 0 1.3-1.3ZM18 14l.6 1.8 1.8.6-1.8.6-.6 1.8-.6-1.8-1.8-.6 1.8-.6Z"></path></svg>
             </span>
-            <span style="font:700 13.5px var(--sans);letter-spacing:-.01em">Assistant</span>
-            <div style="margin-left:auto;display:flex;align-items:center;gap:2px">
-              <button onClick="{{ newChat }}" title="New chat" style="width:28px;height:28px;display:grid;place-items:center;border-radius:6px;background:none;border:none;cursor:pointer;color:var(--text3)" style-hover="background:var(--panel2);color:var(--text)">
-                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"></path></svg>
-              </button>
-              <button onClick="{{ toggleView }}" title="{{ viewToggleTitle }}" style="width:28px;height:28px;display:grid;place-items:center;border-radius:6px;background:{{ histBg }};border:none;cursor:pointer;color:{{ histColor }}" style-hover="background:var(--panel2);color:var(--text)">
-                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12a9 9 0 1 0 3-6.7L3 8M3 3v5h5M12 7v5l3 2"></path></svg>
-              </button>
-              <button onClick="{{ togglePanel }}" title="Close" style="width:28px;height:28px;display:grid;place-items:center;border-radius:6px;background:none;border:none;cursor:pointer;color:var(--text3)" style-hover="background:var(--panel2);color:var(--text)">
-                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6 6 18M6 6l12 12"></path></svg>
-              </button>
-            </div>
+            <span style="font:600 13px var(--sans);color:var(--text)">Assistant</span>
+            <button onClick="{{ closePanel }}" title="Close" aria-label="Close the assistant" style="margin-left:auto;width:28px;height:28px;display:grid;place-items:center;border-radius:6px;background:none;border:none;cursor:pointer;color:var(--text3)" style-hover="background:var(--panel2);color:var(--text)">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6 6 18M6 6l12 12"></path></svg>
+            </button>
           </div>
-          <!-- Context pill: which mandate the thread is asking about. On a workspace screen this
-               reads "Workspace" instead, and a thread reopened elsewhere keeps the context it was
-               asked in. -->
-          <div style="display:flex;align-items:center;gap:6px;margin-top:9px;padding:4px 8px;border-radius:6px;background:var(--panel2);font:400 11px var(--mono);color:var(--text3);width:fit-content;max-width:100%">
-            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="var(--amber)" stroke-width="2.2" style="flex:none"><path d="M12 2 3 7l9 5 9-5-9-5Z"></path></svg>
+          <div style="margin-top:10px;display:flex;align-items:center;gap:6px;width:fit-content;max-width:100%;border-radius:6px;background:var(--panel2);padding:4px 8px;font:400 11px var(--mono);color:var(--text3)">
+            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex:none;color:var(--amber)"><path d="M12 2 3 7l9 5 9-5-9-5Z"></path></svg>
             <span style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ contextLabel }}</span>
           </div>
         </div>
 
-        <!-- ── history view ── -->
-        <sc-if value="{{ showHistory }}" hint-placeholder-val="{{ false }}">
-          <div style="flex:1;min-height:0;overflow-y:auto;padding:8px">
-            <div style="font:600 10px var(--mono);letter-spacing:.13em;text-transform:uppercase;color:var(--text3);padding:8px 8px 6px">Recent</div>
-            <sc-for list="{{ threads }}" as="t" hint-placeholder-count="5">
-              <button onClick="{{ openThread }}" data-id="{{ t.id }}" style="display:block;width:100%;text-align:left;padding:9px 10px;border-radius:8px;background:{{ t.bg }};border:none;cursor:pointer;margin-bottom:2px" style-hover="background:var(--panel2)">
-                <div style="display:flex;align-items:baseline;gap:8px">
-                  <span style="font:500 13px var(--sans);color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;flex:1">{{ t.title }}</span>
-                  <span style="font:400 10px var(--mono);color:var(--text3);flex:none">{{ t.when }}</span>
-                </div>
-                <div style="font:400 11.5px var(--sans);color:var(--text3);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ t.snippet }}</div>
-                <div style="font:400 10px var(--mono);color:var(--text3);margin-top:4px;opacity:.8">{{ t.context }}</div>
-              </button>
-            </sc-for>
-          </div>
-        </sc-if>
+        <div data-screen-label="{{ transcriptLabel }}" style="flex:1;min-height:0;display:flex;flex-direction:column;gap:20px;overflow-y:auto;padding:16px 12px">
 
-        <!-- ── thread view ── -->
-        <sc-if value="{{ showThread }}" hint-placeholder-val="{{ true }}">
-          <div style="flex:1;min-height:0;overflow-y:auto;padding:14px">
-
-            <!-- empty state -->
-            <sc-if value="{{ isEmpty }}" hint-placeholder-val="{{ false }}">
-              <div style="padding:26px 6px;text-align:center">
-                <div style="font:600 14px var(--sans);margin-bottom:6px">Ask about this market</div>
-                <div style="font:400 12.5px var(--sans);color:var(--text3);line-height:1.6;margin-bottom:16px">I can search the universe you already hold, and go wider when it does not have the answer.</div>
-                <sc-for list="{{ starters }}" as="s" hint-placeholder-count="3">
-                  <button onClick="{{ runStarter }}" data-q="{{ s.q }}" style="display:block;width:100%;text-align:left;padding:9px 11px;margin-bottom:6px;border-radius:8px;border:1px solid var(--line);background:none;cursor:pointer;font:400 12.5px var(--sans);color:var(--text2)" style-hover="border-color:var(--ai);color:var(--text);background:var(--ai-soft)">{{ s.q }}</button>
-                </sc-for>
+          <sc-if value="{{ showStarters }}" hint-placeholder-val="{{ false }}">
+            <div style="margin:auto 0">
+              <div style="margin-bottom:16px;text-align:center">
+                <p style="margin:0;font:400 13px var(--sans);color:var(--text2)">Ask about this market.</p>
+                <p style="margin:4px 0 0;font:400 11px var(--mono);color:var(--text3)">It reads the company universe and this position's own rows.</p>
               </div>
-            </sc-if>
+              <sc-for list="{{ starters }}" as="s" hint-placeholder-count="3">
+                <button onClick="{{ pickStarter }}" data-q="{{ s.q }}" style="display:block;width:100%;margin-bottom:6px;border-radius:6px;border:1px dashed var(--line);background:none;padding:8px 10px;text-align:left;font:400 12px var(--sans);color:var(--text2);cursor:pointer" style-hover="border-style:solid;border-color:var(--ai);background:var(--ai-soft);color:var(--text)">{{ s.q }}</button>
+              </sc-for>
+            </div>
+          </sc-if>
 
-            <sc-if value="{{ hasTurn }}" hint-placeholder-val="{{ true }}">
-
-              <!-- user message -->
-              <div style="display:flex;justify-content:flex-end;margin-bottom:14px">
-                <div style="max-width:86%;padding:8px 12px;border-radius:12px 12px 3px 12px;background:var(--panel2);font:400 13px var(--sans);line-height:1.5">{{ userMessage }}</div>
+          <sc-for list="{{ turns }}" as="t" hint-placeholder-count="1">
+            <div data-screen-label="Turn">
+              <div style="margin-bottom:14px;display:flex;justify-content:flex-end">
+                <div style="max-width:86%;border-radius:12px 12px 3px 12px;background:var(--panel2);padding:8px 12px;font:400 13px/1.5 var(--sans);color:var(--text)">{{ t.question }}</div>
               </div>
 
-              <!-- tool trace. This is the cost cascade made visible: every step says what it cost,
-                   and "free" is stated as loudly as a spend. A consultant should be able to see
-                   that we looked at our own data first. -->
-              <div style="border:1px solid var(--line-soft);border-radius:9px;background:var(--panel2);padding:4px;margin-bottom:12px">
-                <button onClick="{{ toggleTrace }}" style="display:flex;align-items:center;gap:7px;width:100%;padding:5px 7px;background:none;border:none;cursor:pointer;text-align:left">
-                  <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="var(--text3)" stroke-width="2.6" style="flex:none;transform:rotate({{ traceRot }});transition:transform .15s ease"><path d="m9 18 6-6-6-6"></path></svg>
-                  <span style="font:600 11px var(--mono);color:var(--text2)">{{ traceSummary }}</span>
-                  <span style="margin-left:auto;font:400 10px var(--mono);color:var(--text3)">{{ traceCost }}</span>
-                </button>
-                <sc-if value="{{ traceOpen }}" hint-placeholder-val="{{ true }}">
-                  <div style="padding:2px 7px 6px">
-                    <sc-for list="{{ trace }}" as="s" hint-placeholder-count="4">
-                      <div style="display:flex;align-items:flex-start;gap:8px;padding:5px 0">
-                        <span style="width:13px;height:13px;flex:none;margin-top:1px;display:grid;place-items:center">
-                          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="{{ s.iconColor }}" stroke-width="2.6" style="display:{{ s.doneDisp }}"><path d="M20 6 9 17l-5-5"></path></svg>
-                          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="var(--ai)" stroke-width="2.4" style="display:{{ s.runDisp }};animation:spin .9s linear infinite"><path d="M21 12a9 9 0 1 1-6.2-8.6"></path></svg>
-                        </span>
-                        <span style="font:400 11.5px var(--sans);color:var(--text2);line-height:1.45;flex:1">{{ s.label }}</span>
-                        <span style="font:400 10px var(--mono);color:{{ s.costColor }};flex:none;white-space:nowrap">{{ s.cost }}</span>
-                      </div>
-                    </sc-for>
-                  </div>
-                </sc-if>
-              </div>
-
-              <!-- degraded banner -->
-              <sc-if value="{{ isDegraded }}" hint-placeholder-val="{{ false }}">
-                <div style="display:flex;gap:9px;padding:9px 11px;border-radius:9px;background:var(--amber-dim);border:1px solid rgba(226,182,92,.4);margin-bottom:12px">
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--amber)" stroke-width="2.2" style="flex:none;margin-top:1px"><path d="M12 9v4m0 4h.01M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0Z"></path></svg>
-                  <div style="font:400 11.5px var(--sans);color:var(--text2);line-height:1.5">Bright Data could not be reached, so four companies are listed from the open web only and are <strong style="font-weight:600">unverified</strong>. Nothing was charged.</div>
+              <sc-if value="{{ t.hasSteps }}" hint-placeholder-val="{{ true }}">
+                <div style="margin-bottom:12px;border-radius:9px;border:1px solid var(--line-soft);background:var(--panel2);padding:8px">
+                  <sc-for list="{{ t.steps }}" as="s" hint-placeholder-count="3">
+                    <div style="display:flex;align-items:flex-start;gap:8px;padding:4px 0">
+                      <span style="margin-top:2px;width:13px;height:13px;flex:none;display:grid;place-items:center">
+                        <sc-if value="{{ s.running }}" hint-placeholder-val="{{ false }}">
+                          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color:var(--ai);animation:spin 1s linear infinite"><path d="M21 12a9 9 0 1 1-6.2-8.6"></path></svg>
+                        </sc-if>
+                        <sc-if value="{{ s.done }}" hint-placeholder-val="{{ true }}">
+                          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color:var(--green)"><path d="M20 6 9 17l-5-5"></path></svg>
+                        </sc-if>
+                      </span>
+                      <span style="flex:1;font:400 11.5px/1.45 var(--sans);color:var(--text2)">{{ s.label }}</span>
+                      <span style="flex:none;font:400 10px var(--mono);color:var(--text3)">free</span>
+                    </div>
+                  </sc-for>
                 </div>
               </sc-if>
 
-              <!-- assistant prose -->
-              <div style="font:400 13px var(--sans);line-height:1.6;color:var(--text);margin-bottom:12px">
-                {{ assistantText }}<span style="display:{{ caretDisp }};width:2px;height:14px;background:var(--ai);vertical-align:-2px;margin-left:1px;animation:blink 1s step-end infinite"></span>
-              </div>
+              <sc-if value="{{ t.hasAnswer }}" hint-placeholder-val="{{ true }}">
+                <div style="font:400 13px/1.6 var(--sans);color:var(--text)">{{ t.answer }}<sc-if value="{{ t.caret }}" hint-placeholder-val="{{ false }}"><span style="margin-left:1px;display:inline-block;width:2px;height:14px;vertical-align:-2px;background:var(--ai);opacity:.75"></span></sc-if></div>
+              </sc-if>
 
-              <!-- ── proposal card ── -->
-              <sc-if value="{{ hasProposal }}" hint-placeholder-val="{{ true }}">
-                <div style="border:1px solid var(--ai-line);border-radius:11px;overflow:hidden;background:var(--panel);box-shadow:var(--shadow)">
-                  <div style="padding:10px 12px;background:var(--ai-soft);border-bottom:1px solid var(--line-soft)">
-                    <div style="font:600 12.5px var(--sans);color:var(--text)">{{ proposalTitle }}</div>
-                    <div style="font:400 11px var(--mono);color:var(--text3);margin-top:3px">{{ proposalSub }}</div>
+              <sc-if value="{{ t.thinking }}" hint-placeholder-val="{{ false }}">
+                <p style="margin:0;font:400 11px var(--mono);color:var(--text3)">Thinking…</p>
+              </sc-if>
+
+              <sc-if value="{{ t.showCard }}" hint-placeholder-val="{{ false }}">
+                <div data-screen-label="Proposal card" style="margin-top:12px;overflow:hidden;border-radius:11px;border:1px solid var(--ai-line);background:var(--panel);box-shadow:var(--shadow)">
+                  <div style="border-bottom:1px solid var(--line-soft);background:var(--ai-soft);padding:10px 12px">
+                    <p style="margin:0;font:600 12.5px var(--sans);color:var(--text)">{{ t.cardTitle }}</p>
+                    <p style="margin:3px 0 0;font:400 11px var(--mono);color:var(--text3)">{{ t.cardSub }}</p>
                   </div>
-
                   <div style="max-height:258px;overflow-y:auto">
-                    <sc-for list="{{ proposal }}" as="p" hint-placeholder-count="5">
-                      <div style="display:flex;align-items:center;gap:9px;padding:9px 12px;border-bottom:1px solid var(--line-soft);background:{{ p.rowBg }}">
-                        <button onClick="{{ toggleProposalRow }}" data-id="{{ p.id }}" title="{{ p.tickTitle }}" style="width:16px;height:16px;flex:none;border-radius:4px;border:1.5px solid {{ p.tickBorder }};background:{{ p.tickBg }};cursor:pointer;display:grid;place-items:center;padding:0">
-                          <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3.4" style="display:{{ p.tickDisp }}"><path d="M20 6 9 17l-5-5"></path></svg>
+                    <sc-for list="{{ t.rows }}" as="p" hint-placeholder-count="6">
+                      <div style="display:flex;align-items:center;gap:10px;border-bottom:1px solid var(--line-soft);padding:10px 12px;background:{{ p.rowBg }}">
+                        <button onClick="{{ toggleRow }}" data-turn="{{ p.turn }}" data-ref="{{ p.ref }}" aria-label="{{ p.aria }}" style="width:15px;height:15px;flex:none;padding:0;display:grid;place-items:center;border:none;border-radius:4px;cursor:pointer;box-shadow:inset 0 0 0 1.5px currentColor;color:{{ p.boxColor }};background:{{ p.boxBg }}">
+                          <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.2" style="color:var(--amber);opacity:{{ p.tickOpacity }}"><path d="M20 6 9 17l-5-5"></path></svg>
                         </button>
-                        <span style="width:22px;height:22px;flex:none;border-radius:5px;background:var(--panel2);display:grid;place-items:center;font:700 9px var(--mono);color:var(--text3)">{{ p.initials }}</span>
+                        <span style="width:22px;height:22px;flex:none;display:grid;place-items:center;border-radius:5px;background:var(--panel2);font:700 9px var(--mono);color:var(--text3)">{{ p.initials }}</span>
                         <div style="flex:1;min-width:0">
-                          <div style="font:500 12.5px var(--sans);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;opacity:{{ p.nameOpacity }}">{{ p.name }}</div>
-                          <div style="font:400 10.5px var(--mono);color:var(--text3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ p.meta }}</div>
+                          <p style="margin:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font:500 12.5px var(--sans);color:var(--text);opacity:{{ p.nameOpacity }}">{{ p.name }}</p>
+                          <p style="margin:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font:400 10.5px var(--mono);color:var(--text3)">{{ p.meta }}</p>
                         </div>
-                        <!-- Provenance is on every row, always. Green = we already held it (free),
-                             amber = we bought it, grey = open web, discovery only, unverified. -->
-                        <span title="{{ p.sourceTitle }}" style="flex:none;font:600 9px var(--mono);letter-spacing:.04em;text-transform:uppercase;padding:2px 6px;border-radius:4px;color:{{ p.sourceColor }};background:{{ p.sourceBg }}">{{ p.source }}</span>
+                        <span title="{{ p.provTitle }}" style="flex:none;border-radius:4px;padding:2px 6px;font:600 9px var(--mono);text-transform:uppercase;letter-spacing:.04em;color:{{ p.provColor }};background:{{ p.provBg }}">{{ p.provLabel }}</span>
                       </div>
                     </sc-for>
                   </div>
-
-                  <!-- Accept bar. Three stages, same vocabulary and tones as the grid's own
-                       selection bar, and it files through the endpoint that already exists. -->
-                  <div style="padding:9px 12px;background:var(--panel2);border-top:1px solid var(--line-soft)">
-                    <div style="font:400 11px var(--mono);color:var(--text3);margin-bottom:7px">{{ acceptCountLabel }}</div>
-                    <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">
-                      <button onClick="{{ fileProposal }}" data-stage="universe" style="display:inline-flex;align-items:center;gap:5px;padding:6px 10px;border-radius:6px;border:1px solid var(--line);background:var(--panel);font:500 11.5px var(--sans);color:var(--text2);cursor:pointer" style-hover="color:var(--text);border-color:var(--ai)">
-                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M12 5v14M5 12h14"></path></svg>Universe
+                  <div style="border-top:1px solid var(--line-soft);background:var(--panel2);padding:10px 12px">
+                    <p style="margin:0 0 7px;font:400 11px var(--mono);color:var(--text3)">{{ t.caption }}</p>
+                    <div style="display:flex;flex-wrap:wrap;align-items:center;gap:6px">
+                      <button onClick="{{ acceptProposal }}" data-turn="{{ t.idx }}" data-status="inUniverse" title="File the selected companies as In universe" style="display:inline-flex;align-items:center;gap:6px;border-radius:6px;border:1px solid var(--line);background:var(--panel);padding:6px 10px;font:500 11.5px var(--sans);color:var(--text2);cursor:{{ t.btnCursor }};opacity:{{ t.btnOpacity }}" style-hover="border-color:var(--ai);color:var(--text)">
+                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18ZM3.5 9h17M3.5 15h17M12 3a14 14 0 0 1 0 18 14 14 0 0 1 0-18Z"></path></svg>Universe
                       </button>
-                      <button onClick="{{ fileProposal }}" data-stage="shortlist" style="display:inline-flex;align-items:center;gap:5px;padding:6px 10px;border-radius:6px;border:1px solid var(--line);background:var(--panel);font:500 11.5px var(--sans);color:var(--text2);cursor:pointer" style-hover="color:var(--text);border-color:var(--ai)">
-                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="m12 17.3-6.2 3.7 1.6-7L2 9.2l7.1-.6L12 2l2.9 6.6 7.1.6-5.4 4.8 1.6 7Z"></path></svg>Shortlist
+                      <button onClick="{{ acceptProposal }}" data-turn="{{ t.idx }}" data-status="shortlisted" title="File the selected companies as Shortlisted" style="display:inline-flex;align-items:center;gap:6px;border-radius:6px;border:1px solid var(--line);background:var(--panel);padding:6px 10px;font:500 11.5px var(--sans);color:var(--text2);cursor:{{ t.btnCursor }};opacity:{{ t.btnOpacity }}" style-hover="border-color:var(--ai);color:var(--text)">
+                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m12 3 2.6 5.6 6 .8-4.4 4.2 1.1 6-5.3-2.9-5.3 2.9 1.1-6L3.4 9.4l6-.8L12 3Z"></path></svg>Shortlist
                       </button>
-                      <button onClick="{{ fileProposal }}" data-stage="declined" style="display:inline-flex;align-items:center;gap:5px;padding:6px 10px;border-radius:6px;border:1px solid var(--line);background:var(--panel);font:500 11.5px var(--sans);color:var(--red);cursor:pointer" style-hover="border-color:var(--red)">
-                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M18 6 6 18M6 6l12 12"></path></svg>Decline
+                      <button onClick="{{ acceptProposal }}" data-turn="{{ t.idx }}" data-status="declined" title="File the selected companies as Declined" style="display:inline-flex;align-items:center;gap:6px;border-radius:6px;border:1px solid var(--line);background:var(--panel);padding:6px 10px;font:500 11.5px var(--sans);color:var(--red);cursor:{{ t.btnCursor }};opacity:{{ t.btnOpacity }}" style-hover="border-color:var(--red)">
+                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6 6 18M6 6l12 12"></path></svg>Decline
                       </button>
-                      <button onClick="{{ dismissProposal }}" style="margin-left:auto;background:none;border:none;cursor:pointer;font:400 11.5px var(--sans);color:var(--text3)" style-hover="color:var(--text)">Dismiss</button>
+                      <button onClick="{{ dismissProposal }}" data-turn="{{ t.idx }}" style="margin-left:auto;background:transparent;border:none;cursor:pointer;font:400 11.5px var(--sans);color:var(--text3)" style-hover="color:var(--text)">Dismiss</button>
                     </div>
                   </div>
                 </div>
               </sc-if>
 
-              <!-- follow-up suggestions — iteration 3, drawn here so the shape is agreed early -->
-              <sc-if value="{{ hasSuggestions }}" hint-placeholder-val="{{ true }}">
-                <div style="margin-top:14px">
-                  <div style="font:600 10px var(--mono);letter-spacing:.13em;text-transform:uppercase;color:var(--text3);margin-bottom:6px">Next</div>
-                  <sc-for list="{{ suggestions }}" as="s" hint-placeholder-count="2">
-                    <button onClick="{{ runStarter }}" data-q="{{ s.q }}" style="display:block;width:100%;text-align:left;padding:8px 10px;margin-bottom:5px;border-radius:8px;border:1px dashed var(--line);background:none;cursor:pointer;font:400 12px var(--sans);color:var(--text2)" style-hover="border-style:solid;border-color:var(--ai);color:var(--text);background:var(--ai-soft)">{{ s.q }}</button>
-                  </sc-for>
+              <sc-if value="{{ t.showOutcome }}" hint-placeholder-val="{{ false }}">
+                <div style="margin-top:12px;display:flex;gap:10px;border-radius:9px;border:1px solid var(--line-soft);background:var(--panel2);padding:10px 12px">
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="margin-top:2px;flex:none;color:var(--green)"><path d="m5 13 4 4L19 7"></path></svg>
+                  <p style="margin:0;font:400 11.5px/1.5 var(--sans);color:var(--text2)">{{ t.outcome }}</p>
                 </div>
               </sc-if>
 
-            </sc-if>
-          </div>
+              <sc-if value="{{ t.failed }}" hint-placeholder-val="{{ false }}">
+                <div data-screen-label="Turn failed" style="margin-top:12px;display:flex;gap:10px;border-radius:9px;border:1px solid color-mix(in srgb,var(--amber) 40%,transparent);background:var(--amber-dim);padding:10px 12px">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="margin-top:2px;flex:none;color:var(--amber)"><path d="M12 9v4m0 4h.01M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0Z"></path></svg>
+                  <p style="margin:0;font:400 11.5px/1.5 var(--sans);color:var(--text2)">{{ t.failMsg }}</p>
+                </div>
+              </sc-if>
+            </div>
+          </sc-for>
 
-          <!-- composer -->
-          <div style="flex:none;padding:10px 12px 12px;border-top:1px solid var(--line)">
-            <div style="border:1px solid {{ composerBorder }};border-radius:10px;padding:8px 10px;background:var(--panel2)">
-              <textarea value="{{ draft }}" onInput="{{ onDraft }}" onFocus="{{ focusComposer }}" onBlur="{{ blurComposer }}" placeholder="Ask about this market..." rows="2" style="width:100%;background:none;border:none;outline:none;resize:none;font:400 13px/1.5 var(--sans);color:var(--text)"></textarea>
-              <div style="display:flex;align-items:center;gap:8px;margin-top:4px">
-                <span style="font:400 10px var(--mono);color:var(--text3)">{{ composerHint }}</span>
-                <button onClick="{{ send }}" title="Send" style="margin-left:auto;width:26px;height:26px;display:grid;place-items:center;border-radius:6px;border:none;background:linear-gradient(135deg,var(--ai),var(--ai2));cursor:pointer;opacity:{{ sendOpacity }}">
-                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.4"><path d="M12 19V5M5 12l7-7 7 7"></path></svg>
-                </button>
-              </div>
+          <sc-if value="{{ hasFailure }}" hint-placeholder-val="{{ false }}">
+            <p role="alert" data-screen-label="Ask refused" style="margin:0;font:400 11.5px var(--sans);color:var(--red)">{{ failure }}</p>
+          </sc-if>
+        </div>
+
+        <div style="flex:none;border-top:1px solid var(--line);padding:10px 12px 12px">
+          <div style="border-radius:10px;border:1px solid var(--line);background:var(--panel2);padding:8px 10px">
+            <textarea value="{{ draft }}" onInput="{{ onDraft }}" onKeyDown="{{ onComposerKey }}" placeholder="Ask about this market..." rows="2" aria-label="Ask the assistant" style="width:100%;resize:none;border:none;background:transparent;outline:none;font:400 13px/1.5 var(--sans);color:var(--text)"></textarea>
+            <div style="margin-top:4px;display:flex;align-items:center;gap:8px">
+              <span style="font:400 10px var(--mono);color:var(--text3)">{{ composerHint }}</span>
+              <button onClick="{{ send }}" aria-label="Send" title="{{ sendTitle }}" style="margin-left:auto;width:26px;height:26px;display:grid;place-items:center;border-radius:6px;border:none;background:linear-gradient(135deg,var(--ai),var(--ai2));cursor:{{ sendCursor }};opacity:{{ sendOpacity }}">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2"><path d="M12 19V5M5 12l7-7 7 7"></path></svg>
+              </button>
             </div>
           </div>
-        </sc-if>
+        </div>
       </aside>
-    </sc-if>
+    </div>
   </div>
 
-  <!-- ─────────────── launcher — bottom right, clear of the bottom-centre toast ─────────────── -->
-  <sc-if value="{{ launcherVisible }}" hint-placeholder-val="{{ true }}">
-    <button onClick="{{ togglePanel }}" title="Ask the assistant" style="position:fixed;right:20px;bottom:20px;z-index:110;display:inline-flex;align-items:center;gap:9px;height:44px;padding:0 17px 0 14px;border-radius:22px;border:1px solid var(--ai-line);background:linear-gradient(135deg,var(--ai),var(--ai2));color:#fff;font:600 13px var(--sans);cursor:pointer;box-shadow:0 8px 24px -6px rgba(79,70,229,.5)" style-hover="filter:brightness(1.08)">
-      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex:none"><path d="M9.9 2.6 11 5.9a2 2 0 0 0 1.3 1.3l3.3 1.1-3.3 1.1a2 2 0 0 0-1.3 1.3L9.9 14l-1.1-3.3a2 2 0 0 0-1.3-1.3L4.2 8.3l3.3-1.1a2 2 0 0 0 1.3-1.3ZM18 14l.6 1.8 1.8.6-1.8.6-.6 1.8-.6-1.8-1.8-.6 1.8-.6Z"></path></svg>
-      Ask
-      <sc-if value="{{ hasUnread }}" hint-placeholder-val="{{ false }}">
-        <span style="width:7px;height:7px;border-radius:50%;background:#fff;box-shadow:0 0 0 2px rgba(255,255,255,.35)"></span>
-      </sc-if>
-    </button>
-  </sc-if>
+  <button onClick="{{ openPanel }}" title="Ask the assistant" aria-hidden="{{ launcherHidden }}" style="position:fixed;bottom:20px;right:20px;z-index:110;height:44px;display:inline-flex;align-items:center;gap:10px;padding:0 17px 0 14px;border-radius:22px;border:1px solid var(--ai-line);background:linear-gradient(135deg,var(--ai),var(--ai2));color:#fff;font:600 13px var(--sans);cursor:pointer;box-shadow:0 8px 24px -6px rgba(79,70,229,.5);transition:opacity .2s,transform .2s;opacity:{{ launcherOpacity }};transform:{{ launcherTransform }};pointer-events:{{ launcherEvents }}" style-hover="filter:brightness(1.1)">
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex:none"><path d="M9.9 2.6 11 5.9a2 2 0 0 0 1.3 1.3l3.3 1.1-3.3 1.1a2 2 0 0 0-1.3 1.3L9.9 14l-1.1-3.3a2 2 0 0 0-1.3-1.3L4.2 8.3l3.3-1.1a2 2 0 0 0 1.3-1.3ZM18 14l.6 1.8 1.8.6-1.8.6-.6 1.8-.6-1.8-1.8-.6 1.8-.6Z"></path></svg>
+    Ask
+  </button>
 
-  <!-- toast keeps bottom-centre; the launcher sits clear of it at bottom-right -->
   <sc-if value="{{ toastVisible }}" hint-placeholder-val="{{ false }}">
-    <div style="position:fixed;bottom:22px;left:50%;transform:translateX(-50%);background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:9px 16px;font:500 12px var(--mono);color:var(--text2);box-shadow:var(--shadow);z-index:170;animation:fadeUp .2s ease both">{{ toastMsg }}</div>
+    <div style="position:fixed;bottom:22px;left:50%;transform:translateX(-50%);z-index:120;background:var(--panel);border:1px solid var(--line);border-radius:6px;padding:9px 16px;font:500 12px var(--mono);color:var(--text2);box-shadow:var(--shadow);animation:fadeUp .2s ease both">{{ toastMsg }}</div>
   </sc-if>
-
 </div>
-<template id="__bundler_thumbnail"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><rect width="100" height="100" fill="#16171a"></rect><text x="50" y="50" fill="#818cf8" font-family="Geist,sans-serif" font-size="26" font-weight="700" text-anchor="middle" dominant-baseline="central">AI</text></svg></template>
+<template id="__bundler_thumbnail"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><rect width="100" height="100" fill="#16171a"></rect><g transform="translate(50 40) scale(.42)" fill="none" stroke="#f8fafc"><path d="M-32 10 L 0 -8 L 32 10 L 0 28 Z M-32 10 V 32 L 0 50 L 32 32 V 10 M0 28 V 50" stroke-width="3" stroke-linejoin="round"></path><path d="M0 -48 L 32 -30 L 0 -12 L -32 -30 Z" fill="#f8fafc" stroke="none"></path></g><text x="50" y="86" fill="#e2b65c" font-family="Geist,Inter,sans-serif" font-size="13" font-weight="700" letter-spacing="2" text-anchor="middle">AI</text></svg></template>
 </x-dc>
-<script type="text/x-dc" data-dc-script data-props="{&quot;panelOpen&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:true,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;Panel&quot;},&quot;panelView&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;default&quot;:&quot;thread&quot;,&quot;options&quot;:[&quot;thread&quot;,&quot;history&quot;],&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;Panel&quot;},&quot;turnState&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;default&quot;:&quot;proposal&quot;,&quot;options&quot;:[&quot;empty&quot;,&quot;streaming&quot;,&quot;proposal&quot;,&quot;degraded&quot;],&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;Panel&quot;}}">
+<script type="text/x-dc" data-dc-script data-props="{&quot;panelOpen&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:true,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;State&quot;},&quot;context&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;default&quot;:&quot;project&quot;,&quot;options&quot;:[&quot;project&quot;,&quot;workspace&quot;],&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;State&quot;},&quot;turnState&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;default&quot;:&quot;proposal&quot;,&quot;options&quot;:[&quot;empty&quot;,&quot;loading&quot;,&quot;streaming&quot;,&quot;answer&quot;,&quot;proposal&quot;,&quot;degraded&quot;,&quot;error&quot;],&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;State&quot;}}">
 class Component extends DCLogic {
   constructor(props) {
     super(props);
 
-    this.GRID = [
-      { name: 'ACWA Power', country: 'Saudi Arabia', sector: 'Energy & Utilities', staff: '1,800' },
-      { name: 'Masdar', country: 'UAE', sector: 'Energy & Utilities', staff: '1,200' },
-      { name: 'TAQA', country: 'UAE', sector: 'Energy & Utilities', staff: '7,400' },
-      { name: 'Nebras Power', country: 'Qatar', sector: 'Energy & Utilities', staff: '380' },
-      { name: 'Alfanar Energy', country: 'Saudi Arabia', sector: 'Manufacturing', staff: '6,100' },
-      { name: 'Empower', country: 'UAE', sector: 'Energy & Utilities', staff: '820' },
-    ];
-
-    // Provenance drives the colour, and the colour carries the cost story:
-    //   held  → we already had it, free
-    //   bought→ a vendor lookup was spent on it
-    //   web   → named by open-web discovery, unverified, never a source of facts
-    this.PROPOSAL = [
-      { id: 1, name: 'Saudi Electricity Company', meta: 'Saudi Arabia · 32,000 staff', source: 'held', on: true },
-      { id: 2, name: 'Marafiq', meta: 'Saudi Arabia · 2,400 staff', source: 'held', on: true },
-      { id: 3, name: 'Jinko Power Middle East', meta: 'UAE · 410 staff', source: 'bought', on: true },
-      { id: 4, name: 'Aljomaih Energy & Water', meta: 'Saudi Arabia · 260 staff', source: 'bought', on: true },
-      { id: 5, name: 'Desert Technologies', meta: 'Saudi Arabia · unknown', source: 'web', on: false },
-      { id: 6, name: 'Zahid Renewables', meta: 'Saudi Arabia · unknown', source: 'web', on: false },
-    ];
-
-    this.THREADS = [
-      { id: 't1', title: 'Top IPPs in Saudi Arabia', when: '2m', snippet: 'Six companies proposed, four filed to universe', context: 'Meridian Energy Group · Strategy' },
-      { id: 't2', title: 'Who runs finance at TAQA', when: '1h', snippet: 'Three executives mapped against the shortlist', context: 'Meridian Energy Group · Companies' },
-      { id: 't3', title: 'District cooling adjacency', when: 'Yesterday', snippet: 'Suggested Empower, Tabreed and two others', context: 'Meridian Energy Group · Strategy' },
-      { id: 't4', title: 'Gender split across the shortlist', when: '2d', snippet: 'Eleven of thirty-one executives have a gender on file', context: 'Meridian Energy Group · Reports' },
-      { id: 't5', title: 'CFO comp benchmarks, GCC utilities', when: '4d', snippet: 'Answered from the mandate own rows only', context: 'Workspace' },
-    ];
+    this.ICON = {
+      back: 'M19 12H5M12 19l-7-7 7-7',
+      myProjects: 'M12 2a10 10 0 1 0 .01 0M12 8a4 4 0 1 0 .01 0',
+      allProjects: 'M3 3h7v7H3zM14 3h7v7h-7zM3 14h7v7H3zM14 14h7v7h-7z',
+      clients: 'M3 21h18M5 21V7l7-4 7 4v14M9 9h.01M9 13h.01M9 17h.01M15 9h.01M15 13h.01M15 17h.01',
+      team: 'M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2M13 7a4 4 0 1 1-8 0 4 4 0 0 1 8 0M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75',
+      settings: 'M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6ZM19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09a1.65 1.65 0 0 0-1-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09a1.65 1.65 0 0 0 1.51-1 1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33h.01a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51h.01a1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82v.01a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1Z',
+      position: 'M12 2 3 7l9 5 9-5-9-5ZM3 12l9 5 9-5M3 17l9 5 9-5',
+      strategy: 'M12 20V10M18 20V4M6 20v-4',
+      globe: 'M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18ZM3.5 9h17M3.5 15h17M12 3a14 14 0 0 1 0 18 14 14 0 0 1 0-18Z',
+      star: 'm12 3 2.6 5.6 6 .8-4.4 4.2 1.1 6-5.3-2.9-5.3 2.9 1.1-6L3.4 9.4l6-.8L12 3Z',
+      close: 'M18 6 6 18M6 6l12 12',
+      candidates: 'M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8Z',
+      outreach: 'M22 2 11 13M22 2l-7 20-4-9-9-4 20-7Z',
+      reports: 'M9 12h6m-6 4h6M9 8h1M5 21h14a2 2 0 0 0 2-2V7l-5-5H5a2 2 0 0 0-2 2v15a2 2 0 0 0 2 2Z',
+      moon: 'M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79Z',
+      sun: 'M12 16a4 4 0 1 0 0-8 4 4 0 0 0 0 8ZM12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4',
+      collapse: 'm11 17-5-5 5-5M18 17l-5-5 5-5',
+      expand: 'm13 17 5-5-5-5M6 17l5-5-5-5',
+    };
 
     this.STARTERS = [
-      'Top 10 IPP operators in Saudi Arabia',
+      'Top automotive dealership groups in the UAE',
       'Which companies in my universe have no executives mapped?',
       'Show the market by country for this filter',
     ];
 
-    this.SUGGESTIONS = [
-      'District cooling is adjacent to this filter — want me to look there?',
-      'Nine companies in your universe have no executives mapped yet',
+    this.TOOL_LABELS = {
+      describeMarket: 'Reading what the universe holds',
+      searchCompanyUniverse: 'Searching the company universe',
+      searchMandateFilter: "Searching this position's own filter",
+      listMandateCompanies: 'Reading the companies this position has filed',
+      listMandateExecutives: 'Reading the executives this position has mapped',
+      mandateCompensation: 'Reading what the brief says the role pays',
+      proposeCompanies: 'Putting companies forward',
+    };
+
+    this.PROVENANCE = {
+      UNIVERSE: { label: 'universe', color: 'var(--green)', bg: 'var(--green-dim)', title: 'Already in your universe — nothing was spent' },
+      RESEARCHED: { label: 'bright data', color: 'var(--amber)', bg: 'var(--amber-dim)', title: 'Bought from a vendor and kept, so it is never bought again' },
+      WEB: { label: 'web', color: 'var(--text3)', bg: 'var(--panel2)', title: 'Named by an open-web search and not verified against any dataset' },
+    };
+    this.COMPOSITION = { UNIVERSE: 'already held', RESEARCHED: 'verified', WEB: 'from the web' };
+    this.STAGE_LABEL = { inUniverse: 'In universe', shortlisted: 'Shortlisted', declined: 'Declined' };
+
+    this.PROPOSAL = {
+      title: '6 companies not yet in your universe',
+      companies: [
+        { ref: 'c1', origin: 'UNIVERSE', companyName: 'Saudi Electricity Co', country: 'Saudi Arabia', employees: 32000 },
+        { ref: 'c2', origin: 'UNIVERSE', companyName: 'Marafiq', country: 'Saudi Arabia', employees: 2400 },
+        { ref: 'c3', origin: 'RESEARCHED', companyName: 'Alfanar', country: 'Saudi Arabia', employees: 6100 },
+        { ref: 'c4', origin: 'RESEARCHED', companyName: 'Yellow Door Energy', country: 'United Arab Emirates', employees: 180 },
+        { ref: 'c5', origin: 'WEB', companyName: 'Enviromena', country: 'United Arab Emirates', employees: null },
+        { ref: 'c6', origin: 'WEB', companyName: 'EDF Renewables ME', country: null, employees: null },
+      ],
+    };
+
+    this.ANSWERS = {
+      proposal: 'Thirty-eight automotive dealership groups match this filter. Al Naboodah Group, Al Habtoor Group and Trading Enterprises are already in this position. Six of the larger groups are not, and they are below: two the universe already holds, two bought and verified, and two named only on the open web. Nothing is filed until you choose a stage.',
+      unmapped: "Nine of the 24 companies in this position's universe have no executives mapped yet: Al Rostamani Group, Gargash Enterprises, AGMC, Liberty Automobiles, Apparel Group, GMG, Union Properties, Ahmed Seddiqi & Sons and Meraas. Al Naboodah Group and Al Habtoor Group have the most mapped, with four each.",
+      market: 'Your filter holds 1,284 companies. United Arab Emirates leads with 940, then Kuwait with 210 and Saudi Arabia with 134.',
+    };
+
+    this.GRID = [
+      ['Majid Al Futtaim', 'United Arab Emirates', 'Real Estate', '45,000'],
+      ['Chalhoub Group', 'United Arab Emirates', 'Luxury Retail', '7,000'],
+      ['Landmark Group', 'United Arab Emirates', 'Retail', '55,000'],
+      ['Alshaya Group', 'Kuwait', 'Retail', '50,000'],
+      ['Apparel Group', 'United Arab Emirates', 'Retail', '19,000'],
+      ['GMG', 'United Arab Emirates', 'Retail', '18,000'],
+      ['LuLu Group International', 'United Arab Emirates', 'Retail', '65,000'],
+      ['Al Naboodah Group', 'United Arab Emirates', 'Automotive', '15,000'],
+      ['Al Habtoor Group', 'United Arab Emirates', 'Automotive', '25,000'],
+      ['Emaar Properties', 'United Arab Emirates', 'Real Estate', '4,500'],
+      ['Aldar Properties', 'United Arab Emirates', 'Real Estate', '2,200'],
+      ['International Holding Company (IHC)', 'United Arab Emirates', 'Financial Services', '\u2014'],
+      ['Emirates NBD', 'United Arab Emirates', 'Financial Services', '17,000'],
     ];
 
+    this.PROJECTS = [
+      ['Automotive', 'Senior Manager, Product Planning (Toyota & Lexus)', 'MAPPING', 'OK', '15 Oct 2026'],
+      ['Automotive', 'Aftersales Operations Manager', 'UNIVERSE', 'OK', '30 Oct 2026'],
+      ['Real Estate', 'Leasing Director, Mixed-Use Retail', 'OUTREACH', 'RISK', '07 Nov 2026'],
+      ['Retail', 'Buying Director, IKEA UAE', 'LOCKED', 'OK', '20 Nov 2026'],
+      ['Real Estate', 'Development Manager', 'BRIEF', 'OK', '04 Dec 2026'],
+    ];
+
+    let q = {};
+    try { if (typeof location !== 'undefined') q = Object.fromEntries(new URLSearchParams(location.search)); } catch (e) {}
+    const openParam = q.panel != null ? !(q.panel === '0' || q.panel === 'closed' || q.panel === 'false') : null;
+    const turnState = q.turn || props.turnState || 'proposal';
+
+    let collapsed = false;
+    try { collapsed = localStorage.getItem('lm-side-collapsed') === '1'; } catch (e) {}
+
+    this._timers = [];
     this.state = {
-      dark: false,
+      dark: true,
       toast: '',
-      open: props.panelOpen ?? true,
-      view: props.panelView || 'thread',
-      turn: props.turnState || 'proposal',
-      traceOpen: true,
+      open: openParam != null ? openParam : (props.panelOpen ?? true),
+      context: q.context || props.context || 'project',
+      collapsed,
+      wsMenu: false,
       draft: '',
-      composerFocused: false,
-      ticked: ['ACWA Power'],
-      accepted: this.PROPOSAL.filter(p => p.on).map(p => p.id),
-      proposalLive: true,
+      running: false,
+      failure: null,
+      turns: this.seedTurns(turnState),
     };
+    this.state.running = this.state.turns.some(t => t.status === 'RUNNING');
+    if (turnState === 'error') this.state.failure = 'The assistant is busy. Try again in a moment';
   }
 
   componentDidMount() {
-    try {
-      if (localStorage.getItem('lm-theme') !== 'light') { document.body.classList.add('dark'); this.setState({ dark: true }); }
-    } catch (e) {}
+    this.setState({ dark: document.documentElement.getAttribute('data-theme') !== 'light' });
+    this._onKey = (e) => {
+      if (e.key !== 'Escape') return;
+      if (this.state.wsMenu) { this.setState({ wsMenu: false }); return; }
+      if (this.state.open) this.setState({ open: false });
+    };
+    document.addEventListener('keydown', this._onKey);
+  }
+
+  componentWillUnmount() {
+    document.removeEventListener('keydown', this._onKey);
+    this.clearTimers();
+  }
+
+  clearTimers() {
+    this._timers.forEach(id => clearTimeout(id));
+    this._timers = [];
   }
 
   showToast(msg) {
@@ -414,222 +520,289 @@ class Component extends DCLogic {
     this._tx = setTimeout(() => this.setState({ toast: '' }), 2200);
   }
 
-  navVals() {
-    const CURRENT = 'strategy';
-    const item = (key, label, icon, href) => ({
-      key, label, icon, href,
-      color: CURRENT === key ? 'var(--text)' : 'var(--text2)',
-      bg: CURRENT === key ? 'var(--panel2)' : 'transparent',
-      iconColor: CURRENT === key ? 'var(--amber)' : 'currentColor',
+  step(tool, running) {
+    return { tool, label: this.TOOL_LABELS[tool] || 'Looking something up', running: !!running };
+  }
+
+  newTurn(question) {
+    return { question, steps: [], answer: '', status: 'RUNNING', errorCode: null, proposal: null, ticked: [], dismissed: false, accepted: null };
+  }
+
+  withProposal(turn) {
+    const proposal = { title: this.PROPOSAL.title, companies: this.PROPOSAL.companies.slice() };
+    return { ...turn, proposal, ticked: proposal.companies.filter(c => c.origin !== 'WEB').map(c => c.ref) };
+  }
+
+  seedTurns(state) {
+    const s = (tool, running) => this.step(tool, running);
+    if (state === 'empty' || state === 'error') return [];
+    if (state === 'loading') return [this.newTurn('Show the market by country for this filter')];
+    if (state === 'streaming') {
+      return [{ ...this.newTurn('Show the market by country for this filter'),
+        steps: [s('describeMarket'), s('searchMandateFilter', true)],
+        answer: 'Your filter holds 1,284 companies. United Arab Emirates leads with 940, then Kuwait with 210' }];
+    }
+    if (state === 'answer') {
+      return [{ ...this.newTurn('Which companies in my universe have no executives mapped?'),
+        steps: [s('listMandateCompanies'), s('listMandateExecutives')],
+        answer: this.ANSWERS.unmapped, status: 'SUCCEEDED' }];
+    }
+    if (state === 'degraded') {
+      return [{ ...this.newTurn('Which companies in my universe have no executives mapped?'),
+        steps: [s('listMandateCompanies'), s('listMandateExecutives')],
+        answer: "Nine of the 24 companies in this position's universe have no executives mapped yet: Al Rostamani Group, Gargash Enterprises,",
+        status: 'FAILED', errorCode: 'ASSISTANT_TURN_STRANDED' }];
+    }
+    return [this.withProposal({ ...this.newTurn('Top automotive dealership groups in the UAE'),
+      steps: [s('searchCompanyUniverse'), s('searchMandateFilter'), s('listMandateCompanies'), s('proposeCompanies')],
+      answer: this.ANSWERS.proposal, status: 'SUCCEEDED' })];
+  }
+
+  updateTurn(index, patch) {
+    this.setState(st => ({ turns: st.turns.map((t, i) => (i === index ? (typeof patch === 'function' ? patch(t) : { ...t, ...patch }) : t)) }));
+  }
+
+  send() {
+    const asked = this.state.draft.trim();
+    if (!asked || this.state.running) return;
+    this.clearTimers();
+    const index = this.state.turns.length;
+    this.setState(st => ({ draft: '', failure: null, running: true, turns: st.turns.concat(this.newTurn(asked)) }));
+
+    const proposes = /ipp|operator|power producer|top \d+/i.test(asked);
+    const answer = proposes ? this.ANSWERS.proposal : (/executive|mapped/i.test(asked) ? this.ANSWERS.unmapped : this.ANSWERS.market);
+    const tools = proposes
+      ? ['searchCompanyUniverse', 'searchMandateFilter', 'proposeCompanies']
+      : (/executive|mapped/i.test(asked) ? ['listMandateCompanies', 'listMandateExecutives'] : ['describeMarket', 'searchMandateFilter']);
+
+    let at = 900;
+    const later = (ms, fn) => this._timers.push(setTimeout(fn, ms));
+    tools.forEach((tool, i) => {
+      later(at, () => this.updateTurn(index, t => ({ ...t, steps: t.steps.concat(this.step(tool, true)) })));
+      at += 900 + i * 150;
+      later(at, () => this.updateTurn(index, t => ({ ...t, steps: t.steps.map(st => (st.tool === tool ? { ...st, running: false } : st)) })));
+      at += 120;
     });
+    if (proposes) later(at, () => this.updateTurn(index, t => this.withProposal(t)));
+    const words = answer.split(' ');
+    words.forEach((w, i) => {
+      later(at + 60 + i * 45, () => this.updateTurn(index, t => ({ ...t, answer: t.answer + (i ? ' ' : '') + w })));
+    });
+    later(at + 120 + words.length * 45, () => {
+      this.updateTurn(index, t => ({ ...t, status: 'SUCCEEDED', steps: t.steps.map(st => ({ ...st, running: false })) }));
+      this.setState({ running: false });
+    });
+  }
+
+  outcomeLine(accepted) {
+    const filed = accepted.added + ' ' + (accepted.added === 1 ? 'company' : 'companies') + ' filed to ' + this.STAGE_LABEL[accepted.status];
+    return accepted.skipped > 0 ? filed + ', ' + accepted.skipped + ' already in this position' : filed;
+  }
+
+  initials(name) {
+    const parts = name.trim().split(/\s+/);
+    return ((parts[0] || '?')[0] + (parts.length > 1 ? parts[parts.length - 1][0] : '')).toUpperCase();
+  }
+
+  turnVals(t, idx) {
+    const running = t.status === 'RUNNING';
+    const failed = t.status === 'FAILED' || t.status === 'CANCELLED';
+    const hasProposal = !!t.proposal;
+    let rows = [];
+    let cardSub = '';
+    if (hasProposal) {
+      const companies = t.proposal.companies;
+      rows = companies.map(c => {
+        const on = t.ticked.includes(c.ref);
+        const prov = this.PROVENANCE[c.origin];
+        const staff = c.employees != null ? c.employees.toLocaleString('en-GB') + ' staff' : 'unknown';
+        return {
+          turn: String(idx), ref: c.ref, name: c.companyName, aria: 'Include ' + c.companyName,
+          initials: this.initials(c.companyName),
+          meta: [c.country, staff].filter(Boolean).join(' · '),
+          rowBg: on ? 'var(--ai-soft)' : 'transparent',
+          nameOpacity: on ? '1' : '.55',
+          boxColor: on ? 'var(--amber)' : 'var(--line)',
+          boxBg: on ? 'var(--amber-dim)' : 'transparent',
+          tickOpacity: on ? '1' : '0',
+          provLabel: prov.label, provColor: prov.color, provBg: prov.bg, provTitle: prov.title,
+        };
+      });
+      cardSub = Object.keys(this.COMPOSITION)
+        .map(o => ({ o, n: companies.filter(c => c.origin === o).length }))
+        .filter(g => g.n > 0)
+        .map(g => g.n + ' ' + this.COMPOSITION[g.o])
+        .join(' · ');
+    }
+    const n = t.ticked.length;
+    const disabled = running || n === 0;
     return {
-      navGroups: [
-        { group: 'Mandate', items: [
-          item('position', 'Position', 'M12 2 3 7l9 5 9-5-9-5ZM3 12l9 5 9-5M3 17l9 5 9-5', 'Position.dc.html'),
-          item('strategy', 'Strategy', 'M12 20V10M18 20V4M6 20v-4', 'Strategy.dc.html'),
-        ] },
-        { group: 'Companies', items: [
-          item('sourcing', 'Companies', 'M21 21l-4.3-4.3m1.8-5.2a7 7 0 1 1-14 0 7 7 0 0 1 14 0Z', 'Project.dc.html?page=sourcing'),
-        ] },
-        { group: 'Project', items: [
-          item('reports', 'Reports', 'M9 12h6m-6 4h6M9 8h1M5 21h14a2 2 0 0 0 2-2V7l-5-5H5a2 2 0 0 0-2 2v15a2 2 0 0 0 2 2Z', 'report/talent-map-uncava-light.html'),
-        ] },
-      ],
-      themeLabel: this.state.dark ? 'Light mode' : 'Dark mode',
-      toggleTheme: () => {
-        const dark = !this.state.dark;
-        document.body.classList.toggle('dark', dark);
-        try { localStorage.setItem('lm-theme', dark ? 'dark' : 'light'); } catch (e) {}
-        this.setState({ dark });
-      },
+      idx: String(idx),
+      question: t.question,
+      hasSteps: t.steps.length > 0,
+      steps: t.steps.map(s => ({ label: s.label, running: s.running, done: !s.running })),
+      hasAnswer: !!t.answer,
+      answer: t.answer,
+      caret: running && !!t.answer,
+      thinking: running && !t.answer && t.steps.length === 0,
+      showCard: hasProposal && !t.accepted && !t.dismissed,
+      showOutcome: hasProposal && !!t.accepted && !t.dismissed,
+      outcome: t.accepted ? this.outcomeLine(t.accepted) : '',
+      cardTitle: hasProposal ? t.proposal.title : '',
+      cardSub,
+      rows,
+      caption: running ? 'Waiting for the answer to finish' : (n === 0 ? 'Nothing selected' : 'File ' + n + ' ' + (n === 1 ? 'company' : 'companies') + ' as'),
+      btnOpacity: disabled ? '.4' : '1',
+      btnCursor: disabled ? 'default' : 'pointer',
+      failed,
+      failMsg: t.errorCode === 'ASSISTANT_TURN_STRANDED'
+        ? 'That answer stopped part way through. Ask again.'
+        : 'That answer did not finish. Ask again.',
     };
   }
 
-  traceFor(turn) {
-    const done = (label, cost, free) => ({
-      label, cost,
-      doneDisp: 'block', runDisp: 'none',
-      iconColor: 'var(--green)',
-      costColor: free ? 'var(--text3)' : 'var(--amber)',
+  navVals() {
+    const st = this.state;
+    const isProject = st.context === 'project';
+    const expanded = !st.collapsed;
+    const I = this.ICON;
+    const item = (label, icon, href, opts = {}) => ({
+      label, icon, href,
+      color: opts.active ? 'var(--text)' : 'var(--text2)',
+      bg: opts.active ? 'var(--panel2)' : 'transparent',
+      iconColor: opts.active ? 'var(--amber)' : 'currentColor',
+      hasCount: opts.count != null,
+      count: opts.count != null ? String(opts.count) : '',
+      showLabel: expanded,
+      justify: expanded ? 'flex-start' : 'center',
+      marginTop: '0',
     });
-    const running = (label) => ({
-      label, cost: '',
-      doneDisp: 'none', runDisp: 'block',
-      iconColor: 'var(--text3)', costColor: 'var(--text3)',
-    });
-
-    if (turn === 'streaming') {
-      return [
-        done('Searched your universe for energy companies in Saudi Arabia — 1,284 matched', 'free', true),
-        done('Narrowed to independent power producers — 38 companies', 'free', true),
-        running('Looking up four companies the universe does not carry'),
-      ];
-    }
-    if (turn === 'degraded') {
-      return [
-        done('Searched your universe for energy companies in Saudi Arabia — 1,284 matched', 'free', true),
-        done('Narrowed to independent power producers — 38 companies', 'free', true),
-        done('Found six more names on the open web', 'free', true),
-        { label: 'Bright Data did not answer — four companies left unverified', cost: 'not charged',
-          doneDisp: 'block', runDisp: 'none', iconColor: 'var(--amber)', costColor: 'var(--text3)' },
-      ];
-    }
-    return [
-      done('Searched your universe for energy companies in Saudi Arabia — 1,284 matched', 'free', true),
-      done('Narrowed to independent power producers — 38 companies', 'free', true),
-      done('Found six more names on the open web', 'free', true),
-      done('Matched two of them to companies you already hold', 'free', true),
-      done('Looked up the remaining four with Bright Data — two found', '2 lookups', false),
-    ];
+    const group = (label, items) => ({ label, items, showLabel: expanded });
+    const groups = isProject
+      ? [
+          group('Role', [item('Brief', I.position, 'Position.dc.html'), item('Strategy', I.strategy, 'Strategy.dc.html', { active: true })]),
+          group('Companies', [
+            item('In universe', I.globe, 'Position.dc.html?page=universe', { count: 24 }),
+            item('Shortlisted', I.star, 'Position.dc.html?page=shortlisted', { count: 9 }),
+            item('Declined', I.close, 'Position.dc.html?page=declined', { count: 6 }),
+          ]),
+          group('People', [item('Candidates', I.candidates, 'Position.dc.html?page=candidates'), item('Outreach', I.outreach, 'Position.dc.html?page=outreach')]),
+          group('Project', [item('Reports', I.reports, 'Position.dc.html?page=reports'), item('Team & access', I.team, 'Position.dc.html?page=team')]),
+        ]
+      : [
+          group('Positions', [
+            item('My positions', I.myProjects, 'Workspace.dc.html', { active: true, count: 5 }),
+            item('All positions', I.allProjects, 'Workspace.dc.html?view=all', { count: 7 }),
+          ]),
+          group('Workspace', [
+            item('Business units', I.clients, 'Clients.dc.html', { count: 4 }),
+            item('Team', I.team, 'Workspace.dc.html?view=team', { count: 5 }),
+            item('Settings', I.settings, 'Settings.dc.html?section=profile'),
+          ]),
+        ];
+    return {
+      isProject,
+      isWorkspace: !isProject,
+      navGroups: groups,
+      navExpanded: expanded,
+      navWidth: expanded ? '210px' : '56px',
+      navJustify: expanded ? 'flex-start' : 'center',
+      themeLabel: st.dark ? 'Light mode' : 'Dark mode',
+      themeIcon: st.dark ? I.sun : I.moon,
+      collapseLabel: expanded ? 'Collapse' : 'Expand',
+      collapseIcon: expanded ? I.collapse : I.expand,
+      toggleTheme: () => {
+        const d = !this.state.dark;
+        document.documentElement.setAttribute('data-theme', d ? 'dark' : 'light');
+        try { localStorage.setItem('lm-theme', d ? 'dark' : 'light'); } catch (e) {}
+        this.setState({ dark: d });
+      },
+      toggleCollapse: () => {
+        const c = !this.state.collapsed;
+        try { localStorage.setItem('lm-side-collapsed', c ? '1' : '0'); } catch (e) {}
+        this.setState({ collapsed: c });
+      },
+      wsMenuOpen: st.wsMenu,
+      toggleWsMenu: () => this.setState(s => ({ wsMenu: !s.wsMenu })),
+      wsTriggerTitle: isProject ? 'Al-Futtaim' : '',
+      wsTriggerGap: isProject ? '4px' : '10px',
+      wsTriggerPad: isProject ? '4px' : '5px 10px 5px 6px',
+    };
   }
 
   renderVals() {
     const st = this.state;
-    const turn = st.turn;
-    const isEmpty = turn === 'empty';
-    const isStreaming = turn === 'streaming';
-    const isDegraded = turn === 'degraded';
-    const showProposal = (turn === 'proposal' || isDegraded) && st.proposalLive;
-
-    const SOURCE = {
-      held: { label: 'universe', color: 'var(--green)', bg: 'var(--green-dim)', title: 'Already in your universe — nothing was spent' },
-      bought: { label: 'bright data', color: 'var(--amber)', bg: 'var(--amber-dim)', title: 'Bought from Bright Data and kept, so it is never bought again' },
-      web: { label: 'web', color: 'var(--text3)', bg: 'var(--panel2)', title: 'Named by an open-web search and not verified against any dataset' },
+    const STAGE = {
+      MAPPING: { label: 'Mapping', color: 'var(--amber)', bg: 'var(--amber-dim)', border: 'transparent' },
+      UNIVERSE: { label: 'Universe', color: 'var(--sky)', bg: 'var(--sky-dim)', border: 'transparent' },
+      OUTREACH: { label: 'Outreach live', color: 'var(--amber)', bg: 'transparent', border: 'var(--amber)' },
+      LOCKED: { label: 'Universe locked', color: 'var(--sky)', bg: 'transparent', border: 'var(--sky)' },
+      BRIEF: { label: 'Brief', color: 'var(--text2)', bg: 'transparent', border: 'var(--line)' },
     };
-
-    const rows = this.PROPOSAL.map(p => {
-      const on = st.accepted.includes(p.id);
-      const src = SOURCE[p.source];
-      return {
-        id: String(p.id), name: p.name, meta: p.meta,
-        initials: p.name.split(' ').slice(0, 2).map(w => w[0]).join(''),
-        source: src.label, sourceColor: src.color, sourceBg: src.bg, sourceTitle: src.title,
-        tickBorder: on ? 'var(--ai-line)' : 'var(--line)',
-        tickBg: on ? 'var(--ai-line)' : 'transparent',
-        tickDisp: on ? 'block' : 'none',
-        tickTitle: on ? 'Do not file this one' : 'File this one',
-        rowBg: on ? 'var(--ai-soft)' : 'transparent',
-        nameOpacity: on ? '1' : '.55',
-      };
-    });
-
-    const acceptedCount = st.accepted.length;
-    const trace = this.traceFor(turn);
-
-    const prose = isStreaming
-      ? 'Thirty-eight independent power producers match your filter. Six more turned up on the open web, and I have'
-      : (isDegraded
-        ? 'Thirty-eight IPPs match your filter, and six more turned up on the open web. Two of those you already hold. I could not verify the other four, so they are listed below as web-only — check them before filing.'
-        : 'Thirty-eight independent power producers match your filter. Six more turned up on the open web: two you already hold, two I verified with Bright Data, and two I could not verify. Here are the six that are not yet in your universe.');
-
-    const gridRows = this.GRID.map(r => {
-      const on = st.ticked.includes(r.name);
-      return {
-        ...r,
-        bg: on ? 'var(--sky-dim)' : 'transparent',
-        tickBorder: on ? 'var(--sky)' : 'var(--line)',
-        tickBg: on ? 'var(--sky)' : 'transparent',
-        tickDisp: on ? 'block' : 'none',
-      };
-    });
+    const HEALTH = {
+      OK: { label: 'On track', dot: 'var(--green)', text: 'var(--text2)' },
+      RISK: { label: 'At risk', dot: 'var(--amber)', text: 'var(--amber)' },
+    };
+    const turns = st.turns.map((t, i) => this.turnVals(t, i));
+    const canSend = !!st.draft.trim() && !st.running;
 
     return {
       ...this.navVals(),
 
-      // page behind
-      gridRows,
-      resultCount: '1,284',
-      tickedLabel: st.ticked.length
-        ? st.ticked.length + ' selected — the grid is still live while the assistant is open'
-        : 'The grid is still live while the assistant is open — try ticking a row',
-      tickRow: (e) => {
-        const n = e.currentTarget.dataset.name;
-        this.setState(s => ({ ticked: s.ticked.includes(n) ? s.ticked.filter(x => x !== n) : s.ticked.concat(n) }));
-      },
+      gridRows: this.GRID.map(([name, country, sector, staff]) => ({ name, country, sector, staff, initials: this.initials(name) })),
+      projectRows: this.PROJECTS.map(([department, position, stage, health, target]) => ({
+        department, position, target,
+        href: position === 'Chief Financial Officer' ? 'Strategy.dc.html' : 'Position.dc.html',
+        stage: STAGE[stage].label, stageColor: STAGE[stage].color, stageBg: STAGE[stage].bg, stageBorder: STAGE[stage].border,
+        health: HEALTH[health].label, healthDot: HEALTH[health].dot, healthText: HEALTH[health].text,
+      })),
 
-      // panel chrome
-      panelOpen: st.open,
-      launcherVisible: !st.open,
-      hasUnread: false,
-      dockGap: st.open ? '10px' : '0px',
-      togglePanel: () => this.setState(s => ({ open: !s.open })),
-      ctaBg: st.open ? 'var(--ai-dim)' : 'linear-gradient(90deg,#6366f1,#3b82f6)',
-      ctaColor: st.open ? 'var(--ai)' : '#fff',
-      ctaShadow: st.open ? 'none' : '0 4px 12px -2px rgba(0,0,0,.15)',
-      contextLabel: 'Meridian Energy Group · Strategy',
+      dockWidth: st.open ? '410px' : '0px',
+      dockHidden: st.open ? 'false' : 'true',
+      launcherHidden: st.open ? 'true' : 'false',
+      launcherOpacity: st.open ? '0' : '1',
+      launcherTransform: st.open ? 'scale(.95)' : 'scale(1)',
+      launcherEvents: st.open ? 'none' : 'auto',
+      openPanel: () => this.setState({ open: true }),
+      closePanel: () => this.setState({ open: false }),
 
-      showHistory: st.view === 'history',
-      showThread: st.view === 'thread',
-      histBg: st.view === 'history' ? 'var(--panel2)' : 'transparent',
-      histColor: st.view === 'history' ? 'var(--text)' : 'var(--text3)',
-      viewToggleTitle: st.view === 'history' ? 'Back to chat' : 'Previous chats',
-      toggleView: () => this.setState(s => ({ view: s.view === 'history' ? 'thread' : 'history' })),
-      newChat: () => { this.setState({ view: 'thread', turn: 'empty', proposalLive: true }); this.showToast('New chat'); },
+      contextLabel: st.context === 'project' ? 'Group Finance · Chief Financial Officer' : 'Workspace',
+      transcriptLabel: turns.length ? 'Conversation' : 'Starters',
 
-      // history
-      threads: this.THREADS.map((t, i) => ({ ...t, bg: i === 0 ? 'var(--panel2)' : 'transparent' })),
-      openThread: (e) => { this.setState({ view: 'thread', turn: 'proposal', proposalLive: true }); this.showToast('Opened chat'); },
-
-      // thread
-      isEmpty,
-      hasTurn: !isEmpty,
+      showStarters: turns.length === 0,
       starters: this.STARTERS.map(q => ({ q })),
-      userMessage: 'Give me the top IPP operators in Saudi Arabia for this mandate',
-      assistantText: prose,
-      caretDisp: isStreaming ? 'inline-block' : 'none',
-      isDegraded,
+      pickStarter: (e) => this.setState({ draft: e.currentTarget.dataset.q }),
 
-      // trace
-      trace,
-      traceOpen: st.traceOpen,
-      traceRot: st.traceOpen ? '90deg' : '0deg',
-      traceSummary: isStreaming ? 'Working — step ' + trace.length + ' of 3' : trace.length + ' steps',
-      traceCost: isDegraded ? 'nothing charged' : (isStreaming ? '' : '2 lookups'),
-      toggleTrace: () => this.setState(s => ({ traceOpen: !s.traceOpen })),
+      turns,
+      hasFailure: !!st.failure,
+      failure: st.failure || '',
 
-      // proposal
-      hasProposal: showProposal,
-      proposal: rows,
-      proposalTitle: '6 companies not yet in your universe',
-      proposalSub: '2 already held · 2 verified · 2 from the web',
-      acceptCountLabel: acceptedCount === 0
-        ? 'Nothing selected'
-        : 'File ' + acceptedCount + (acceptedCount === 1 ? ' company as' : ' companies as'),
-      toggleProposalRow: (e) => {
-        const id = Number(e.currentTarget.dataset.id);
-        this.setState(s => ({ accepted: s.accepted.includes(id) ? s.accepted.filter(x => x !== id) : s.accepted.concat(id) }));
+      toggleRow: (e) => {
+        const index = Number(e.currentTarget.dataset.turn);
+        const ref = e.currentTarget.dataset.ref;
+        this.updateTurn(index, t => ({ ...t, ticked: t.ticked.includes(ref) ? t.ticked.filter(r => r !== ref) : t.ticked.concat(ref) }));
       },
-      fileProposal: (e) => {
-        const stage = e.currentTarget.dataset.stage;
-        const n = this.state.accepted.length;
-        if (!n) { this.showToast('Nothing selected'); return; }
-        const word = { universe: 'universe', shortlist: 'shortlist', declined: 'declined' }[stage];
-        this.setState({ proposalLive: false });
-        this.showToast(n + (n === 1 ? ' company' : ' companies') + ' filed to ' + word);
+      acceptProposal: (e) => {
+        const index = Number(e.currentTarget.dataset.turn);
+        const status = e.currentTarget.dataset.status;
+        const t = this.state.turns[index];
+        if (!t || t.status === 'RUNNING' || t.ticked.length === 0) return;
+        const accepted = { status, refs: t.ticked.slice(), added: t.ticked.length, skipped: 0 };
+        this.updateTurn(index, { accepted });
+        this.showToast(this.outcomeLine(accepted));
       },
-      dismissProposal: () => { this.setState({ proposalLive: false }); this.showToast('Proposal dismissed'); },
+      dismissProposal: (e) => this.updateTurn(Number(e.currentTarget.dataset.turn), { dismissed: true }),
 
-      // suggestions
-      hasSuggestions: turn === 'proposal' && !st.proposalLive,
-      suggestions: this.SUGGESTIONS.map(q => ({ q })),
-
-      // composer
       draft: st.draft,
       onDraft: (e) => this.setState({ draft: e.target.value }),
-      focusComposer: () => this.setState({ composerFocused: true }),
-      blurComposer: () => this.setState({ composerFocused: false }),
-      composerBorder: st.composerFocused ? 'var(--ai)' : 'var(--line)',
-      composerHint: 'Enter to send · Shift+Enter for a new line',
-      sendOpacity: st.draft.trim() ? '1' : '.4',
-      send: () => {
-        if (!this.state.draft.trim()) return;
-        this.setState({ draft: '', turn: 'streaming' });
-        this.showToast('Asking...');
+      onComposerKey: (e) => {
+        if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); this.send(); }
       },
-      runStarter: (e) => {
-        this.setState({ turn: 'streaming' });
-        this.showToast('Asking: ' + e.currentTarget.dataset.q);
-      },
+      send: () => this.send(),
+      composerHint: st.running ? 'Answering…' : 'Enter to send',
+      sendTitle: st.running ? 'Wait for the current answer' : 'Send',
+      sendOpacity: canSend ? '1' : '.4',
+      sendCursor: canSend ? 'pointer' : 'default',
 
       toastVisible: !!st.toast,
       toastMsg: st.toast,

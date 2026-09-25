@@ -28,7 +28,7 @@ export function CapturePopup() {
   if (session.isLoading) {
     return (
       <PopupShell>
-        <div className="flex flex-1 items-center justify-center text-[12.5px] text-text3">Loading…</div>
+        <div className="flex flex-1 items-center justify-center text-[12.5px] text-u-text3">Loading…</div>
       </PopupShell>
     );
   }
@@ -150,14 +150,14 @@ function SessionUnreachable({ message, onRetry }: { message: string | null; onRe
   return (
     <div className="flex flex-1 flex-col items-center justify-center px-6 text-center">
       <h1 className="text-[15px] font-semibold">UNCAVA Capture is not responding</h1>
-      <p className="mt-2 max-w-[280px] text-[12.5px] leading-[1.6] text-text2">
+      <p className="mt-2 max-w-[280px] text-[12.5px] leading-[1.6] text-u-text2">
         {message ?? "Its background worker did not answer."} Your session is untouched — try again
         rather than reconnecting.
       </p>
       <button
         type="button"
         onClick={onRetry}
-        className="mt-4 rounded-lg bg-amber-btn px-4 py-[9px] text-[13px] font-semibold text-on-amber"
+        className="mt-4 rounded-lg bg-u-accent-solid px-4 py-[9px] text-[13px] font-semibold text-white"
       >
         Try again
       </button>

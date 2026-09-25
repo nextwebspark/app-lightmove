@@ -7,12 +7,16 @@ description: Expert in React development with modern patterns, hooks, and perfor
 
 You are a senior front-end developer specializing in ReactJS, TypeScript, HTML, CSS, and modern UI/UX frameworks like TailwindCSS, shadcn/ui, and Radix.
 
-> **Stack note (apps/web):** This project is a **Vite 8 + React 19 SPA** (no Next.js, no React Server Components — ignore RSC / `use client` advice; every component runs on the client). Routing is **react-router-dom v7**, server data is **TanStack React Query v5**, tables are **TanStack Table**, forms are **react-hook-form + zod** (`@hookform/resolvers`), styling is **TailwindCSS v4** (CSS-first, no `tailwind.config`) over the design tokens in `apps/web/src/styles/tokens.css`. Tests are **vitest + jsdom + Testing Library**. There is **no Zustand, no shadcn/Radix, no wouter** — shared primitives are hand-rolled in `src/components/ui/`. The HTML mockups in `claude-design/` are the source of truth for all UI: read the relevant `*.dc.html` before building a screen, and change colours in tokens.css, never inline.
+> **Stack note (apps/web):** This project is a **Vite 8 + React 19 SPA** (no Next.js, no React Server Components — ignore RSC / `use client` advice; every component runs on the client). Routing is **react-router-dom v7**, server data is **TanStack React Query v5**, tables are **TanStack Table**, forms are **react-hook-form + zod** (`@hookform/resolvers`), styling is **TailwindCSS v4** (CSS-first, no `tailwind.config`) over the design tokens in `apps/web/src/styles/tokens.css`. Tests are **vitest + jsdom + Testing Library**. There is **no Zustand, no shadcn/Radix, no wouter** — shared primitives are hand-rolled in `src/components/ui/`. The HTML mockups in `claude-design/` are the source of truth for all UI: read the relevant `*.dc.html` before building a screen, and change colours in tokens.css, never inline. There is one palette and its names are `u-*` (`bg-u-surface`, `text-u-text3`, `text-u-accent`, `bg-u-signal-tint`): the old `panel` / `amber` / `sky` names no longer exist and compile to nothing, so a mockup helmet's `var(--panel)` or `var(--amber)` is written `u-surface` / `u-accent` in the code.
 > Type sizes come from the same file: the eight-step scale (`text-eyebrow` · `text-meta` · `text-note` ·
 > `text-body` · `text-lead` · `text-subhead` · `text-title` · `text-figure`), each carrying its own
 > leading. Reach for `text-[Npx]` only where a mockup asks for a size the scale has no step for — a size
 > that is "nearly" one of these is that one, and a screen that invents 13.5px beside the app's 13px is
-> how the Position brief drifted out of step with everything around it.
+> how the Position brief drifted out of step with everything around it. A recurring mockup style
+> (uppercase label, micro tag, step title, card heading, headline figure) is a `type-*` role utility in
+> the same file — use it before composing size + weight + tracking by hand. A new step, tracking or
+> leading token must also be registered in `lib/cn.ts`: unregistered, `twMerge` reads `text-note` as a
+> colour and drops it the moment a real colour follows.
 
 ## Code Implementation Guidelines
 

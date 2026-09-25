@@ -15,6 +15,8 @@ import {
   TeamStack,
   type ProjectSortField,
 } from "../lib/projectColumns";
+import { PROJECT_GROUPING } from "../lib/grouping";
+import { deadlineOf } from "../lib/timeline";
 
 /** The mandate list: the shared grid on a wide screen, a stack of cards below `md`. */
 export function ProjectsList({
@@ -61,7 +63,7 @@ export function ProjectsList({
   return (
     <DataGrid
       table={table}
-      label="Projects"
+      label="Positions"
       fit="content"
       layout={layout}
       onLayoutChange={onLayoutChange}
@@ -71,6 +73,7 @@ export function ProjectsList({
       errorMessage="That list could not be loaded. Refresh, or check you still have access."
       emptyMessage={emptyMessage}
       onRowClick={(project) => onOpen(project.id)}
+      groupBy={PROJECT_GROUPING}
       renderCard={(project) => <ProjectCard project={project} onOpen={() => onOpen(project.id)} />}
     />
   );
@@ -78,42 +81,42 @@ export function ProjectsList({
 
 function ProjectCard({ project, onOpen }: { project: Project; onOpen: () => void }) {
   return (
-    <div className="overflow-hidden rounded-[10px] border border-line bg-panel">
+    <div className="overflow-hidden rounded-[10px] border border-u-border-strong bg-u-surface">
       <button
         type="button"
         onClick={onOpen}
-        className="flex w-full flex-col gap-2.5 p-3.5 text-left transition hover:bg-panel2"
+        className="flex w-full flex-col gap-2.5 p-3.5 text-left transition hover:bg-u-raised"
       >
         <div className="flex items-start gap-2">
           <div className="min-w-0 flex-1">
             <div className="flex min-w-0 items-center gap-1.5">
               <CompanyLogo name={project.clientName} logo={project.clientLogoUrl} size={18} />
-              <span className="truncate font-mono text-[11.5px] font-medium text-text3">
+              <span className="truncate font-mono text-[11.5px] font-medium text-u-text3">
                 {project.clientName}
               </span>
             </div>
-            <div className="mt-0.5 text-[13.5px] font-semibold text-text">{project.positionTitle}</div>
+            <div className="mt-0.5 text-[13.5px] font-semibold text-u-text">{project.positionTitle}</div>
           </div>
           <HealthDot health={project.health} />
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
           <StagePill stage={project.stage} />
-          <span className="font-mono text-[11px] text-text3">
+          <span className="font-mono text-[11px] text-u-text3">
             Lead · {leadOf(project.team)?.fullName ?? "—"}
           </span>
         </div>
 
-        <div className="flex items-center gap-2.5 border-t border-line-soft pt-2.5">
+        <div className="flex items-center gap-2.5 border-t border-u-border pt-2.5">
           <TeamStack team={project.team} />
-          <span className="ml-auto font-mono text-[11px] text-text2">
-            <b className="font-semibold text-text">{project.companies}</b> cos ·{" "}
-            <b className="font-semibold text-text">{project.candidates}</b> cand
+          <span className="ml-auto font-mono text-[11px] text-u-text2">
+            <b className="font-semibold text-u-text">{project.companies}</b> cos ·{" "}
+            <b className="font-semibold text-u-text">{project.candidates}</b> cand
           </span>
-          <span className="font-mono text-[11px] text-text3">{formatDate(project.targetDate)}</span>
+          <span className="font-mono text-[11px] text-u-text3">{formatDate(deadlineOf(project))}</span>
         </div>
       </button>
-      <div className="flex justify-end border-t border-line-soft px-3.5 py-2.5">
+      <div className="flex justify-end border-t border-u-border px-3.5 py-2.5">
         <OpenProjectLink project={project} />
       </div>
     </div>

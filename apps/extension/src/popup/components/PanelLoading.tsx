@@ -8,8 +8,8 @@
 export function PanelLoading({ label }: { label: string }) {
   return (
     <div className="flex flex-1 flex-col items-center justify-center gap-3 py-12" role="status" aria-live="polite">
-      <span className="h-5 w-5 animate-spin rounded-full border-2 border-line border-t-amber-btn" />
-      <p className="text-[11.5px] text-text3">{label}</p>
+      <span className="h-5 w-5 animate-spin rounded-full border-2 border-u-border-strong border-t-u-accent-solid" />
+      <p className="text-[11.5px] text-u-text3">{label}</p>
     </div>
   );
 }

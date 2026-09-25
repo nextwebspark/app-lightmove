@@ -68,14 +68,14 @@ export function CompanySearchCombobox({
           list.setOpen(true);
         }}
         {...list.inputHandlers}
-        className="w-full rounded-lg border border-line bg-panel px-[11px] py-2 font-mono text-[13px] text-text outline-none focus:border-sky"
+        className="w-full rounded-lg border border-u-border-strong bg-u-surface px-[11px] py-2 font-mono text-[13px] text-u-text outline-none focus:border-u-accent"
       />
 
       {showList && (
         <ul
           id={listId}
           role="listbox"
-          className="absolute z-10 mt-1 max-h-72 w-full overflow-auto rounded-[10px] border border-line bg-panel py-1 shadow-panel"
+          className="absolute z-10 mt-1 max-h-72 w-full overflow-auto rounded-[10px] border border-u-border-strong bg-u-surface py-1 shadow-u-e3"
         >
           {matches.map((company, index) => (
             <li
@@ -86,14 +86,14 @@ export function CompanySearchCombobox({
               onMouseDown={(event) => list.commitFromPointer(event, index)}
               onMouseEnter={() => list.setActive(index)}
               className={`flex cursor-pointer items-center gap-2.5 px-3 py-[7px] ${
-                index === list.active ? "bg-panel2 text-text" : "text-text2"
+                index === list.active ? "bg-u-raised text-u-text" : "text-u-text2"
               }`}
             >
               <CompanyLogo name={company.companyName} logo={company.logoUrl} size={16} />
-              <span className="truncate font-sans text-[13px] font-medium text-text">
+              <span className="truncate font-sans text-[13px] font-medium text-u-text">
                 {company.companyName}
               </span>
-              <span className="min-w-0 flex-1 truncate text-right font-mono text-[10.5px] text-text3">
+              <span className="min-w-0 flex-1 truncate text-right font-mono text-[10.5px] text-u-text3">
                 {metaOf(company)}
               </span>
             </li>
@@ -103,7 +103,7 @@ export function CompanySearchCombobox({
       {showEmpty && (
         <div
           aria-live="polite"
-          className="absolute z-10 mt-1 w-full rounded-[10px] border border-line bg-panel px-3 py-2 font-mono text-[12px] text-text3 shadow-panel"
+          className="absolute z-10 mt-1 w-full rounded-[10px] border border-u-border-strong bg-u-surface px-3 py-2 font-mono text-[12px] text-u-text3 shadow-u-e3"
         >
           No companies found.
         </div>

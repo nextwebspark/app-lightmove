@@ -14,7 +14,7 @@ export function DrawerCloseButton({ onClose }: { onClose: () => void }) {
       type="button"
       onClick={onClose}
       aria-label="Close"
-      className="absolute end-3.5 top-3.5 rounded-md p-1.5 text-text3 transition hover:bg-panel2 hover:text-text"
+      className="absolute end-3.5 top-3.5 rounded-md p-1.5 text-u-text3 transition hover:bg-u-raised hover:text-u-text"
     >
       <Icon d={ICONS.close} size={16} />
     </button>
@@ -47,14 +47,14 @@ export function Drawer({
 
   return (
     <>
-      <div className="fixed inset-0 z-[90] bg-[rgba(15,20,30,0.4)]" onClick={onClose} />
+      <div className="fixed inset-0 z-[90] bg-u-scrim" onClick={onClose} />
       <aside
         role="dialog"
         aria-modal="true"
         aria-label={label}
         className={cn(
           "fixed inset-x-2.5 bottom-2.5 top-14 z-[95] flex animate-fade-up flex-col rounded-[10px]",
-          "border border-line bg-panel shadow-panel sm:inset-x-auto sm:right-2.5 sm:top-2.5 sm:max-w-[92vw]",
+          "border border-u-border-strong bg-u-surface shadow-u-e3 sm:inset-x-auto sm:right-2.5 sm:top-2.5 sm:max-w-[92vw]",
           wide ? "sm:w-[560px]" : "sm:w-[420px]",
         )}
       >

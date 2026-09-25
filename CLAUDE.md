@@ -78,9 +78,10 @@ same map as points alone for the poll that waits on places rather than on people
 tab is the mandate's talent mapping report (`GET /projects/{id}/report`): four chapters — mapping
 progress, shape of the market, remuneration, diversity — aggregated live by `report` from the same
 rows, so nothing is stored and nothing goes stale. It reads one chapter at a time behind a numbered
-step rail, the chapter kept in the URL (`?chapter=`), and its mockups are `claude-design/report/`
-(light and dark) rather than a `*.dc.html` — the one screen drawn in the UNCAVA palette
-(`--color-u-*`), a deliberate seam until the rest follow. It states only what the rows carry: a candidate's
+step rail, the chapter kept in the URL (`?chapter=`), and its mockup is the `reports` page of
+`claude-design/Position.dc.html` — drawn in the UNCAVA palette (`--color-u-*`) — the only palette
+the code has: the old app names (`panel`, `amber`, `sky`, …) are gone from both apps, and an unset
+theme opens dark. It states only what the rows carry: a candidate's
 status but no pipeline outcome, and a package in another currency is counted rather than converted.
 **Gender (V56) is recorded on a candidate and never inferred from a name** — the chapter divides by
 the executives who have one on file, not by the headcount, so a mandate nobody has recorded reads as
@@ -100,10 +101,22 @@ company was reached (V30 dropped `app_lm_strategy_sector.kind`), and an illustra
 client report was judged worse than none. The
 market chapter's hubs carry a point from `geocoding` — asked only for the handful of cities it names
 — so it draws a small map beside the bars where a Mapbox token is configured, and the bars alone
-where none is. The standalone
-Candidates screen, and the pipeline and outreach tables, don't exist yet. The **Position**
-screen is the mandate's brief, drawn from `claude-design/position/*.png` (issue #442) in the UNCAVA
-palette like Reports — the second screen on that seam — as five steps behind a rail (Role Brief,
+where none is. Under Recent momentum the progress chapter carries **Researcher performance** (the
+`reports` page's handoff mock), the one staff-only part of the report: its own read,
+`GET /projects/{id}/report/team?from=&to=`, gated `WORK_EXECUTE`, so a client seat never sees the firm's
+people ranked. Every executive counts for whoever filed it (`added_by`, read through
+`CandidateService.addedByOf`, never put on `CandidateResponse`, which a client seat also reads) and a
+company for whoever filed its first executive. The mock's confidence score, conversion funnel and
+per-company target have no row behind them, so they are not drawn: the drawers show a status *mix*,
+and quality is what is on file (a contact, a verified one, a base salary). The standalone
+Candidates screen, and the pipeline and outreach tables, don't exist yet. A projects-list row opens
+the **position side panel** (`Workspace.dc.html`'s Position drawer): mapping progress as universe
+companies with an executive mapped (`mappedCompanies` of `companies` on `GET /projects`), key
+metrics, stage gates, the team and hiring managers, and **recent activity** — `GET
+/projects/{id}/activity`, a cursor-paged, allowlisted read of the audit trail, `WORK_EXECUTE` so a
+client seat never sees it, phrased and merged into lines by `lib/activity.ts`. The **Position**
+screen is the mandate's brief, drawn in `claude-design/Position.dc.html` (issue #442) in the UNCAVA
+palette like every screen — as five steps behind a rail (Role Brief,
 Reporting, Compensation, Assessment Criteria, Review & Publish), the step kept in the URL (`?step=`)
 and each section autosaving through its own write. It opens drafted rather than
 blank: a **role-template library** of seventeen briefs (twelve C-suite, four functional heads, one
@@ -132,21 +145,27 @@ compensation is never read, most descriptions state no figure — fan out into `
 `fillBrief`, which folds every scalar and repeatable list into the brief field-by-field, source-aware
 (`TEMPLATE | DOCUMENT | MANUAL`, V67): a `DOCUMENT` value is replaced by a fresh reading, a `MANUAL`
 one never is. There is no review-then-accept panel — the old wizard's went with it — a filled field
-wears a small sparkle (`ProvenanceMarker`) instead, whose popover carries the snippet and an Undo; a
-per-screen strip summarises the last reading with an Undo all, and the rail badges a step `N filled`
-for the session. **Extract with AI** on the file card reads again; the Reporting and Assessment
+wears a small sparkle (`ProvenanceMarker`) instead, whose popover carries the snippet and an Undo.
+A reading that worked says nothing more than a toast; only one that went wrong leaves a line
+(`DocumentReadNotice`) — an unreadable file, a section that failed, a reader that could not be
+reached. **Extract with AI** on the file card reads again; the Reporting and Assessment
 steps carry **Read from document** in their own header, Compensation none. The reporting reading
-also offers the matched template's usual direct reports as **Suggested seats** under the chart,
-and a role title the document suggests a different template for surfaces as a one-line banner
-with an Apply.
-Everything a reading leaves behind — confidence, snippet, Undo, the rail badge — is the tab's, never
+also offers the matched template's usual direct reports as **Suggested seats** under the chart.
+When the document reads as a template's role, that template is **applied automatically — but only
+to a brief nobody has typed into** (`isUntouched`), because applying one replaces responsibilities,
+the org chart, competencies and benefits wholesale, typed rows included; on an edited brief the
+suggestion is dropped. The same reading is then folded over the redrafted brief (no second read),
+and the title is the document's when it states one, never the template's. **A document's role title
+always replaces the brief's** — typed or not, it renames the mandate; it carries no provenance (no
+`fieldSources` key), so it takes no sparkle and no Undo.
+Everything a reading leaves behind — confidence, snippet, Undo — is the tab's, never
 the database's: `lib/receiptStore.ts` keeps it in `sessionStorage` stamped with the attached
 document's name, so a reload reads back the same popover instead of a sparkle with nothing behind it,
 and a closed tab takes the quoted lines of a client's description with it. Only `source` outlives the
 tab. The sparkle's popover is **portalled** — it opens inside a table that scrolls sideways and inside
 the React Flow canvas, both of which clip an `absolute` panel, and the canvas's `transform` defeats
 `position: fixed` too.
-`Position.dc.html` is superseded and kept as a record. Publishing stays ungated: the review's
+Publishing stays ungated: the review's
 checklist reports, it does not gate. A published brief then **reads back** rather than locking —
 the rail offers **Edit position** in place of Publish and no draft to save, and the review's sections
 drop their "Edit section" link. **Publishing the changes is the way back out**, closing the review
@@ -158,10 +177,11 @@ to do. Nothing in that row is filled: the brief's two acts are the rail's, on ev
 mockup's third copy of the pair at the review's top right is deliberately not drawn. **The product is Uncava**: the mark is the rhombus over an isometric cube
 in `apps/web/public/brand` (`favicon.svg`, the SPA's `AppIcon`, the extension's `BrandMark` and icons,
 and the email's `uncava-mark-email-v1.png` are drawn from that one geometry) and every user-facing
-string says Uncava,
-while the mockups still draw the
-amber "L" tile and the code, packages, persisted keys and JWT issuer keep the `lightmove` name — a
-deliberate split, not drift. It is served at `https://beta.uncava.com` (Cloud Run domain mapping,
+string says Uncava — the mockups included — while the code, packages, persisted keys and JWT issuer
+keep the `lightmove` name — a deliberate split, not drift. The same split holds for the domain
+vocabulary: where a mockup says **Position** and **Business unit** (and **Hiring manager** for a
+client representative), the screen says so, while the code, routes, API and tables keep
+`project` and `client`; a screen whose mockup still says project or client keeps saying it. It is served at `https://beta.uncava.com` (Cloud Run domain mapping,
 Cloudflare DNS with the proxy off; README, "Custom domain"), and a link to it pasted into a chat app
 draws a card from the Open Graph tags in `apps/web/index.html` over `public/og-image-v2.png` — static,
 because no crawler runs the bundle (README, "Link previews"). Publishing stamps who
@@ -364,6 +384,14 @@ nothing to key it on.
 V56 adds `app_lm_project_candidate.gender` (`FEMALE | MALE | OTHER`), nullable with no default:
 NULL is "nobody recorded it" and is deliberately not a fourth value, because "not recorded" and
 "recorded as other" are different facts and the report counts them apart.
+V76 adds `app_lm_project_candidate.compensation_breakdown` jsonb — the drawer's allowance lines and
+LTIP instruments. `allowances` stays the total every reader sums; `CandidateCompensation` keeps the
+two agreeing (lines supply a missing total, a contradicting total drops them). The editor's
+Annual/Monthly and %-of-base toggles are how a figure was typed, never stored.
+V77 makes AED the default currency (`DefaultCurrency` / the SPA's `DEFAULT_CURRENCY`): new workspaces,
+briefs and templates start in it, and it moved the shared library, never-saved briefs (`version = 0`)
+and workspace defaults off USD — a saved brief and a firm's own template keep what somebody chose.
+Revenue in the universe and the Strategy filter stays USD: that is what the data is in.
 `app_lm_position_template` (V42) is the role-template library — the identity a picker lists as columns,
 the drafted brief as one `jsonb` body (V30's idiom, not V39's child tables: a template is a
 heterogeneous document read and written whole), and the match keywords as a child table because they
@@ -372,6 +400,22 @@ firm's own. V58 makes both editable: a firm's row sharing a library row's `code`
 shadows the library row in every read (`PositionTemplateRepository.findAllVisibleTo`), `customised_from`
 against the library's `revised_at` says the library moved on since, and `app_lm_position_template_hidden`
 takes a library template out of one firm's picker and title matching.
+V68 gives `app_lm_workspace` the same write-time company snapshot: signup's organisation step picks
+the firm from the universe (`GET /onboarding/companies`, since `/companies/search` needs a workspace)
+and the server files it under the resolved row's name, id, industry, city, country, website, LinkedIn
+and logo; a firm typed in by hand leaves them all null.
+V73 gives `app_lm_project` the New position modal's decisions: `project_type` (`MAPPING | SEARCH`, V34's
+CHECK idiom, existing rows `SEARCH`) and a timeline — `start_date`, `delivery_date` (when the business
+unit expects the map or the shortlist) and, on a search only, `mapping_target_date`, which
+`ProjectTimeline` defaults to 60% of the window when the modal sends none. `target_date` is untouched
+and stays the brief's hire date; the list's Target and the derived health read `delivery_date` and
+fall back to it (`Project.deadline()`, the SPA's `deadlineOf`).
+V69 adds the workspace's `persona` jsonb — main business, sectors, competitors, geographies, notes —
+for the assistant to tailor research to: seeded at signup with the picked company's industry, its
+sector group and its country — and re-filed when Settings re-picks the firm, the old company's chips
+giving way to the new one's (`WorkspacePersona.refiledFrom`) — written by an admin through
+`PUT /workspace/persona` (Settings → General), read by staff on `GET /workspace` and never carried
+on `/me`. The assistant's empty chat offers a sector starter for each of its first two sectors.
 V57 adds the `PLATFORM` role scope and `app_lm_user_platform_role` — written by
 `grant-platform-role.sh`, never by the application.
 `app_lm_position_document` holds the attached position description inline (`bytea`) — one small file per

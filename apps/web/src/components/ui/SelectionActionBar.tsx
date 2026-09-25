@@ -50,20 +50,20 @@ export function SelectionActionBar({
       <div
         role="region"
         aria-label={`${count} ${count === 1 ? noun : plural} selected`}
-        className="animate-fade-up pointer-events-auto flex max-w-full flex-wrap items-center gap-x-1.5 gap-y-2 rounded-[10px] border border-line bg-panel px-2.5 py-2 shadow-panel"
+        className="animate-fade-up pointer-events-auto flex max-w-full flex-wrap items-center gap-x-1.5 gap-y-2 rounded-[10px] border border-u-border-strong bg-u-surface px-2.5 py-2 shadow-u-e3"
       >
-        <span aria-hidden className="whitespace-nowrap px-1.5 font-sans text-[13px] font-semibold text-text">
-          <span className="text-amber">{count}</span> selected
+        <span aria-hidden className="whitespace-nowrap px-1.5 font-sans text-[13px] font-semibold text-u-text">
+          <span className="text-u-accent">{count}</span> selected
         </span>
-        <span aria-hidden className="mx-0.5 hidden h-5 w-px flex-none bg-line sm:block" />
+        <span aria-hidden className="mx-0.5 hidden h-5 w-px flex-none bg-u-border-strong sm:block" />
         {children}
-        <span aria-hidden className="mx-0.5 hidden h-5 w-px flex-none bg-line sm:block" />
+        <span aria-hidden className="mx-0.5 hidden h-5 w-px flex-none bg-u-border-strong sm:block" />
         <button
           type="button"
           onClick={onClear}
           aria-label="Clear selection"
           title="Clear selection (Esc)"
-          className="grid size-8 flex-none place-items-center rounded-[6px] text-text3 transition hover:bg-panel2 hover:text-text"
+          className="grid size-8 flex-none place-items-center rounded-[6px] text-u-text3 transition hover:bg-u-raised hover:text-u-text"
         >
           <Icon d={ICONS.close} size={14} />
         </button>
@@ -95,8 +95,8 @@ export function SelectionAction({
       className={cn(
         "inline-flex flex-none items-center gap-2 whitespace-nowrap rounded-[6px] px-3 py-2 font-sans text-[13px] font-medium transition disabled:opacity-40",
         tone === "danger"
-          ? "text-red hover:bg-red-dim"
-          : "text-text2 hover:bg-panel2 hover:text-text",
+          ? "text-u-offlimits hover:bg-u-offlimits-tint"
+          : "text-u-text2 hover:bg-u-raised hover:text-u-text",
       )}
     >
       <Icon d={icon} size={14} className="flex-none" />

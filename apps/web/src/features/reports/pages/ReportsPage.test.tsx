@@ -3,15 +3,36 @@ import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter, Outlet, Route, Routes, useLocation } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import * as candidatesApi from "../../candidates/api/candidatesApi";
+import type { Candidate } from "../../candidates/api/types";
+import * as customColumnsApi from "../../customcolumns/api/customColumnsApi";
 import type { Project } from "../../projects/api/types";
 import * as reportApi from "../api/reportApi";
 import { SAMPLE_REPORT } from "../../../test/sampleReport";
+import { SAMPLE_TEAM_PERFORMANCE } from "../../../test/sampleTeamPerformance";
 import { ReportsPage } from "./ReportsPage";
 
 vi.mock("../api/reportApi", async (importOriginal) => ({
   // The query key is real; only the call is mocked.
   ...(await importOriginal<typeof import("../api/reportApi")>()),
   getReport: vi.fn(),
+  getTeamPerformance: vi.fn(),
+}));
+
+vi.mock("../../candidates/api/candidatesApi", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("../../candidates/api/candidatesApi")>()),
+  getCandidate: vi.fn(),
+}));
+
+vi.mock("../../customcolumns/api/customColumnsApi", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("../../customcolumns/api/customColumnsApi")>()),
+  getCustomColumns: vi.fn(),
+}));
+
+// No seat and no admin role by default: the chapters every reader sees, the staff-only card absent.
+let viewerRoles: string[] = ["MEMBER"];
+vi.mock("../../auth/AuthProvider", () => ({
+  useAuth: () => ({ user: { id: "u-viewer", workspace: { roles: viewerRoles } } }),
 }));
 
 /**
@@ -29,10 +50,17 @@ describe("ReportsPage", () => {
     stage: "MAPPING",
     health: "OK",
     targetDate: "2026-09-01",
+    projectType: "SEARCH",
+    startDate: null,
+    deliveryDate: null,
+    mappingTargetDate: null,
     team: [],
     representatives: [],
     companies: 0,
     candidates: 0,
+    mappedCandidates: 0,
+    engagedCandidates: 0,
+    mappedCompanies: 0,
     createdAt: "2026-07-21T10:00:00Z",
   };
 
@@ -68,6 +96,23 @@ describe("ReportsPage", () => {
 
   beforeEach(() => {
     vi.resetAllMocks();
+    viewerRoles = ["MEMBER"];
+  });
+
+  it("shows researcher performance to staff and never asks for it on a client's behalf", async () => {
+    vi.mocked(reportApi.getReport).mockResolvedValue(SAMPLE_REPORT);
+    vi.mocked(reportApi.getTeamPerformance).mockResolvedValue(SAMPLE_TEAM_PERFORMANCE);
+
+    const asClient = renderPage();
+    await screen.findByText("Recent momentum");
+    expect(screen.queryByText("Researcher performance")).not.toBeInTheDocument();
+    expect(reportApi.getTeamPerformance).not.toHaveBeenCalled();
+    asClient.unmount();
+
+    viewerRoles = ["ADMIN"];
+    renderPage();
+    expect(await screen.findByText("Researcher performance")).toBeInTheDocument();
+    expect(await screen.findByRole("button", { name: /Omar Khoury/ })).toBeInTheDocument();
   });
 
   it("states a refused read instead of reporting a map of zeros", async () => {
@@ -241,6 +286,58 @@ describe("ReportsPage", () => {
     await user.selectOptions(screen.getByRole("combobox", { name: "Country" }), "Kuwait");
 
     expect(screen.getByText(/too few to compute a reliable percentile/)).toBeInTheDocument();
+  });
+
+  it("opens a compensation dot as the executive's full profile, read by their id", async () => {
+    vi.mocked(reportApi.getReport).mockResolvedValue(SAMPLE_REPORT);
+    vi.mocked(customColumnsApi.getCustomColumns).mockResolvedValue({ columns: [] });
+    const zahrani: Candidate = {
+      id: "d1",
+      triageCompanyId: null,
+      companyName: "Al Ain Farms",
+      fullName: "H. Al-Zahrani",
+      title: "VP Finance",
+      seniority: null,
+      status: "interested",
+      linkedinUrl: null,
+      locationCountry: "United Arab Emirates",
+      locationCity: "Abu Dhabi",
+      nationality: "Saudi",
+      gender: null,
+      yearsExperience: null,
+      aiInferredFields: [],
+      summary: null,
+      note: null,
+      compensation: {
+        currency: "AED",
+        baseSalary: null,
+        bonus: null,
+        allowances: null,
+        longTermIncentive: null,
+        noticePeriod: null,
+        allowanceLines: [],
+        longTermIncentiveTypes: [],
+      },
+      career: [{ company: "Regional Foods Co.", title: "Finance Director", period: "2017–2021" }],
+      languages: [],
+      education: [],
+      skills: [],
+      source: "manual",
+      sourceUrl: null,
+      customFields: {},
+      addedAt: "2026-08-02T09:00:00Z",
+      enrichedAt: null,
+      contacts: { emails: [], phones: [], emailsLookedUpAt: null, phonesLookedUpAt: null, source: null },
+    };
+    vi.mocked(candidatesApi.getCandidate).mockResolvedValue(zahrani);
+    const user = userEvent.setup();
+
+    renderPage("comp");
+    await user.click(await screen.findByRole("button", { name: /^H\. Al-Zahrani ·/ }));
+
+    const drawer = await screen.findByRole("dialog", { name: "H. Al-Zahrani" });
+    expect(candidatesApi.getCandidate).toHaveBeenCalledWith("p1", "d1", expect.anything());
+    expect(within(drawer).getByText("Regional Foods Co.")).toBeInTheDocument();
   });
 
   it("says the brief has no band rather than ranking against nothing", async () => {

@@ -114,7 +114,7 @@ export function InviteStepPage() {
 
       <Card className="w-[480px] max-w-[94vw] [animation-delay:80ms]">
         <h1 className="text-[19px] font-semibold leading-tight">Invite your team</h1>
-        <p className="mb-6 mt-1 font-mono text-xs text-text3">
+        <p className="mb-6 mt-1 font-mono text-xs text-u-text3">
           Step 4 of 4 · optional — invite people later from Team
         </p>
 
@@ -151,13 +151,13 @@ export function InviteStepPage() {
                 onClick={() => removeRow(row.id)}
                 disabled={rows.length === 1}
                 aria-label={`Remove ${row.email || "this invite"}`}
-                className="shrink-0 rounded-md p-1.5 text-text3 outline-none transition hover:text-red focus-visible:ring-2 focus-visible:ring-sky disabled:opacity-30 disabled:hover:text-text3"
+                className="shrink-0 rounded-md p-1.5 text-u-text3 outline-none transition hover:text-u-offlimits focus-visible:ring-2 focus-visible:ring-u-accent disabled:opacity-30 disabled:hover:text-u-text3"
               >
                 ✕
               </button>
 
               {rowErrors.has(row.id) && (
-                <span className="w-full font-mono text-[11px] text-red">{rowErrors.get(row.id)}</span>
+                <span className="w-full font-mono text-[11px] text-u-offlimits">{rowErrors.get(row.id)}</span>
               )}
             </div>
           ))}
@@ -166,7 +166,7 @@ export function InviteStepPage() {
         <button
           type="button"
           onClick={addRow}
-          className="mb-5 inline-flex items-center gap-1.5 text-[12.5px] font-medium text-sky hover:underline"
+          className="mb-5 inline-flex items-center gap-1.5 text-[12.5px] font-medium text-u-accent hover:underline"
         >
           <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" aria-hidden="true">
             <path d="M12 5v14M5 12h14" />
@@ -196,7 +196,7 @@ export function InviteStepPage() {
         <button
           type="button"
           onClick={() => navigate("/", { replace: true })}
-          className="mt-4 w-full text-center text-[12.5px] font-medium text-text3 hover:text-text2 hover:underline"
+          className="mt-4 w-full text-center text-[12.5px] font-medium text-u-text3 hover:text-u-text2 hover:underline"
         >
           Skip for now
         </button>

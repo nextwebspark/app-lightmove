@@ -154,7 +154,7 @@ class PositionTemplateIntegrationTest extends FlowTestSupport {
                 "Lender confidence");
 
         // The package's shape is the new template's, since that is the half a template speaks for.
-        assertThat(brief.get("compensation").get("currency").asString()).isEqualTo("USD");
+        assertThat(brief.get("compensation").get("currency").asString()).isEqualTo("AED");
         assertThat(brief.get("compensation").get("bonusValue").asInt()).isEqualTo(40);
         assertThat(brief.get("compensation").get("benefits").size()).isEqualTo(5);
     }

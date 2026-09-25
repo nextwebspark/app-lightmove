@@ -35,33 +35,33 @@ export function CollapsibleSection({
 }) {
   const bodyId = `${id}-section-body`;
   return (
-    <section className="group border-b border-line-soft last:border-b-0">
+    <section className="group border-b border-u-border last:border-b-0">
       <div className="flex items-center gap-2">
         <button
           type="button"
           aria-expanded={open}
           aria-controls={bodyId}
           onClick={onToggle}
-          className="-mx-2 flex min-w-0 flex-1 items-center gap-2 rounded-md px-2 py-3.5 text-left transition hover:bg-panel2"
+          className="-mx-2 flex min-w-0 flex-1 items-center gap-2 rounded-md px-2 py-3.5 text-left transition hover:bg-u-raised"
         >
           <Icon
             d={ICONS.chevronDown}
             size={13}
             className={cn(
-              "flex-none text-text3 transition-transform duration-200 motion-reduce:transition-none",
+              "flex-none text-u-text3 transition-transform duration-200 motion-reduce:transition-none",
               !open && "-rotate-90",
             )}
           />
-          <span className="flex-none font-mono text-[10.5px] font-semibold uppercase tracking-[0.1em] text-text3">
+          <span className="flex-none font-mono text-[10.5px] font-semibold uppercase tracking-[0.1em] text-u-text3">
             {title}
           </span>
           {count !== undefined && (
-            <span className="flex-none rounded-[4px] bg-panel2 px-1.5 py-px font-mono text-[9.5px] font-semibold text-text3">
+            <span className="flex-none rounded-[4px] bg-u-raised px-1.5 py-px font-mono text-[9.5px] font-semibold text-u-text3">
               {count}
             </span>
           )}
           {!open && summary && (
-            <span className="min-w-0 truncate ps-1 font-mono text-[11.5px] text-text3">
+            <span className="min-w-0 truncate ps-1 font-mono text-[11.5px] text-u-text3">
               {summary}
             </span>
           )}

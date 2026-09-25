@@ -1,12 +1,13 @@
-import { useState } from "react";
+import { useCallback, useState } from "react";
 import { SegmentedControl } from "../../../components/ui/SegmentedControl";
-import type { Disclosure, ReportRemuneration } from "../api/types";
+import type { Project } from "../../projects/api/types";
+import type { ReportRemuneration } from "../api/types";
 import { ChartEmpty } from "../components/ChartEmpty";
 import { CompensationStrip } from "../components/CompensationStrip";
-import { DisclosureDrawer } from "../components/DisclosureDrawer";
 import { KpiTile, KpiTileRow } from "../components/KpiTiles";
 import { Legend } from "../components/Legend";
 import { LockedBenchmarkCard } from "../components/LockedBenchmarkCard";
+import { ReportCandidateDrawer } from "../components/ReportCandidateDrawer";
 import { ReportCard } from "../components/ReportCard";
 import { Figure, ReportSection } from "../components/ReportSection";
 import { ReportSelect } from "../components/ReportSelect";
@@ -35,11 +36,12 @@ const STATUS_LEGEND = Object.values(STATUS_TONES).map((tone) => ({
 }));
 
 /** Are we underpaying, against what the market has actually disclosed rather than an estimate? */
-export function RemunerationSection({ remuneration }: { remuneration: ReportRemuneration }) {
+export function RemunerationSection({ project, remuneration }: { project: Project; remuneration: ReportRemuneration }) {
   const [measure, setMeasure] = useState<CompensationMeasure>("package");
   const [country, setCountry] = useState(ALL_COUNTRIES);
   const [nationality, setNationality] = useState(ALL_NATIONALITIES);
-  const [selected, setSelected] = useState<Disclosure | null>(null);
+  const [selectedCandidateId, setSelectedCandidateId] = useState<string | null>(null);
+  const closeCandidate = useCallback(() => setSelectedCandidateId(null), []);
   const stats = compensationStats(remuneration, { measure, country, nationality });
   const gap = nationalityGap(remuneration);
   const currency = remuneration.currency;
@@ -152,7 +154,7 @@ export function RemunerationSection({ remuneration }: { remuneration: ReportRemu
           items={[...STATUS_LEGEND, { label: "Median", swatchClass: "bg-u-offlimits", shape: "dashed" }]}
         />
         {total > 0 ? (
-          <CompensationStrip stats={stats} currency={currency} onSelect={setSelected} />
+          <CompensationStrip stats={stats} currency={currency} onSelect={(disclosure) => setSelectedCandidateId(disclosure.id)} />
         ) : (
           <ChartEmpty>No disclosed packages in this slice.</ChartEmpty>
         )}
@@ -210,7 +212,7 @@ export function RemunerationSection({ remuneration }: { remuneration: ReportRemu
         market. Aggregating verified packages across mandates is a later piece of work.
       </LockedBenchmarkCard>
 
-      <DisclosureDrawer disclosure={selected} remuneration={remuneration} onClose={() => setSelected(null)} />
+      <ReportCandidateDrawer project={project} candidateId={selectedCandidateId} onClose={closeCandidate} />
     </ReportSection>
   );
 }

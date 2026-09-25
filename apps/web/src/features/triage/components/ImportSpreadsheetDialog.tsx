@@ -29,9 +29,9 @@ const CUSTOM_TYPES: { value: CustomColumnType; label: string }[] = [
   { value: "boolean", label: "Yes / no" },
 ];
 
-const LABEL = "font-mono text-[10px] font-semibold uppercase tracking-[0.12em] text-text3";
+const LABEL = "font-mono text-[10px] font-semibold uppercase tracking-[0.12em] text-u-text3";
 
-const LINK = "rounded-[4px] text-sky underline transition hover:brightness-110 disabled:opacity-50";
+const LINK = "rounded-[4px] text-u-accent underline transition hover:brightness-110 disabled:opacity-50";
 
 const MAPPING_SOURCE_LABELS: Record<MappingSource, string> = {
   exactHeaders: "every column matched by name",
@@ -153,7 +153,7 @@ export function ImportSpreadsheetDialog({
         <div>
           <FormError message={failure.message} />
           {(failure.retryable || failure.offerTemplate) && (
-            <p className="-mt-2 mb-4 flex flex-wrap items-center gap-3 font-mono text-[11.5px] text-text3">
+            <p className="-mt-2 mb-4 flex flex-wrap items-center gap-3 font-mono text-[11.5px] text-u-text3">
               {failure.retryable && (
                 <button type="button" onClick={retry} className={LINK}>
                   Try again
@@ -183,7 +183,7 @@ export function ImportSpreadsheetDialog({
             }}
           />
           {read.isPending && (
-            <span className="flex items-center gap-[7px] font-mono text-[11.5px] text-text3">
+            <span className="flex items-center gap-[7px] font-mono text-[11.5px] text-u-text3">
               <Spinner />
               Reading {file?.name}…
             </span>
@@ -200,7 +200,7 @@ export function ImportSpreadsheetDialog({
 
       {step === "map" && preview && (
         <div className="flex flex-col gap-4">
-          <p className="font-mono text-[11.5px] text-text3">
+          <p className="font-mono text-[11.5px] text-u-text3">
             {preview.fileName} · {preview.rowCount} {preview.rowCount === 1 ? "row" : "rows"} ·{" "}
             {/* Said plainly rather than hidden: the three differ in how far they are worth trusting,
                 and a user who knows which one answered knows how hard to look at the rows below. */}
@@ -217,11 +217,11 @@ export function ImportSpreadsheetDialog({
             />
           )}
 
-          <div className="max-h-[56dvh] overflow-y-auto rounded-lg border border-line-soft">
+          <div className="max-h-[56dvh] overflow-y-auto rounded-lg border border-u-border">
             {/* Fixed, or a long sample line sizes the first column from its content, `truncate`
                 has no bound to work against, and the table grows past the dialog. */}
             <table className="w-full table-fixed border-collapse">
-              <thead className="sticky top-0 bg-panel2">
+              <thead className="sticky top-0 bg-u-raised">
                 <tr>
                   <th className={`p-2.5 text-start ${LABEL}`}>Column in your file</th>
                   <th className={`p-2.5 text-start ${LABEL}`}>Imports as</th>
@@ -239,12 +239,12 @@ export function ImportSpreadsheetDialog({
                       .map((entry) => entry.targetField as string),
                   );
                   return (
-                    <tr key={column.index} className="border-t border-line-soft align-top">
+                    <tr key={column.index} className="border-t border-u-border align-top">
                       <td className="w-[40%] p-2.5">
-                        <span className="block truncate font-sans text-[13px] text-text">
+                        <span className="block truncate font-sans text-[13px] text-u-text">
                           {column.header}
                         </span>
-                        <span className="mt-px block truncate font-mono text-[11px] text-text3">
+                        <span className="mt-px block truncate font-mono text-[11px] text-u-text3">
                           {column.sampleValues.length > 0
                             ? column.sampleValues.join(" · ")
                             : "no values"}
@@ -301,7 +301,7 @@ export function ImportSpreadsheetDialog({
                         </Select>
 
                         {failure?.fieldErrors[`columns[${column.index}]`] && (
-                          <p className="mt-1.5 font-mono text-[11px] text-red">
+                          <p className="mt-1.5 font-mono text-[11px] text-u-offlimits">
                             {failure.fieldErrors[`columns[${column.index}]`]}
                           </p>
                         )}
@@ -372,7 +372,7 @@ export function ImportSpreadsheetDialog({
 
       {step === "done" && summary && (
         <div className="flex flex-col gap-4">
-          <ul className="flex flex-col gap-1.5 font-sans text-[13px] text-text2">
+          <ul className="flex flex-col gap-1.5 font-sans text-[13px] text-u-text2">
             <Tally count={summary.companiesCreated} noun="company" plural="companies" verb="added" />
             <Tally count={summary.companiesUpdated} noun="company" plural="companies" verb="updated" />
             <Tally
@@ -386,7 +386,7 @@ export function ImportSpreadsheetDialog({
           </ul>
 
           {summary.customColumnsCreated.length > 0 && (
-            <p className="rounded-lg bg-sky-dim px-3 py-2 font-sans text-[12.5px] text-sky">
+            <p className="rounded-lg bg-u-accent-tint px-3 py-2 font-sans text-[12.5px] text-u-accent">
               New {summary.customColumnsCreated.length === 1 ? "column" : "columns"} on this mandate:{" "}
               {summary.customColumnsCreated.join(", ")}
             </p>
@@ -397,13 +397,13 @@ export function ImportSpreadsheetDialog({
               <p className={`mb-1.5 ${LABEL}`}>
                 {summary.rowErrors.length} {summary.rowErrors.length === 1 ? "row" : "rows"} skipped
               </p>
-              <ul className="max-h-[24dvh] overflow-y-auto rounded-lg border border-line-soft">
+              <ul className="max-h-[24dvh] overflow-y-auto rounded-lg border border-u-border">
                 {summary.rowErrors.map((rowError) => (
                   <li
                     key={rowError.rowNumber}
-                    className="flex gap-2 border-b border-line-soft px-2.5 py-1.5 font-mono text-[11.5px] text-text3 last:border-b-0"
+                    className="flex gap-2 border-b border-u-border px-2.5 py-1.5 font-mono text-[11.5px] text-u-text3 last:border-b-0"
                   >
-                    <span className="flex-none text-red">Row {rowError.rowNumber}</span>
+                    <span className="flex-none text-u-offlimits">Row {rowError.rowNumber}</span>
                     <span className="min-w-0 flex-1">{rowError.message}</span>
                   </li>
                 ))}
@@ -462,7 +462,7 @@ function TemplateLine({
   pending: boolean;
 }) {
   return (
-    <p className="font-mono text-[11.5px] text-text3">
+    <p className="font-mono text-[11.5px] text-u-text3">
       {lead}{" "}
       <button type="button" onClick={onDownload} disabled={pending} className={LINK}>
         Download a sample file
@@ -487,7 +487,7 @@ function Tally({
   if (count === 0) return null;
   return (
     <li>
-      <span className="font-semibold text-text">{count}</span> {count === 1 ? noun : plural} {verb}
+      <span className="font-semibold text-u-text">{count}</span> {count === 1 ? noun : plural} {verb}
     </li>
   );
 }

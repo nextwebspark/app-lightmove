@@ -11,8 +11,8 @@ import {
 } from "../lib/triageCompanyColumns";
 
 const TOOLBAR_BUTTON =
-  "inline-flex items-center gap-1.5 whitespace-nowrap rounded-[6px] border border-line bg-panel " +
-  "px-3 py-2 font-sans text-[13px] font-medium text-text2 transition hover:border-text3 hover:text-text";
+  "inline-flex items-center gap-1.5 whitespace-nowrap rounded-[6px] border border-u-border-strong bg-u-surface " +
+  "px-3 py-2 font-sans text-[13px] font-medium text-u-text2 transition hover:border-u-text3 hover:text-u-text";
 
 /** The two readings of the screen, in the order they were built. */
 const VIEW_OPTIONS = [
@@ -85,19 +85,19 @@ export function TriageToolbar({
   const defaults = useMemo(() => defaultTriageColumnVisibility(customColumns), [customColumns]);
 
   return (
-    <div className="flex min-h-[44px] flex-none flex-wrap items-center gap-x-3.5 gap-y-2 border-b border-line-soft bg-panel2 px-3 py-2 sm:px-5 sm:py-1.5">
+    <div className="flex min-h-[44px] flex-none flex-wrap items-center gap-x-3.5 gap-y-2 border-b border-u-border bg-u-raised px-3 py-2 sm:px-5 sm:py-1.5">
       {/* Table view narrows by the grid's own Company and Executive header filters instead — one box
           doing the same job a few inches away would just be a second, confusing way to ask. Map view
           has no grid headers to attach a filter to, so it keeps this one. */}
       {view === "map" && (
-        <div className="order-last flex w-full min-w-[180px] items-center gap-2 rounded-[6px] border border-line px-3 py-2 sm:order-none sm:w-[240px] sm:flex-none">
-          <Icon d={ICONS.search} size={14} className="flex-none text-text3" />
+        <div className="order-last flex w-full min-w-[180px] items-center gap-2 rounded-[6px] border border-u-border-strong px-3 py-2 sm:order-none sm:w-[240px] sm:flex-none">
+          <Icon d={ICONS.search} size={14} className="flex-none text-u-text3" />
           <input
             value={query}
             onChange={(event) => onQuery(event.target.value)}
             placeholder="Filter companies and executives..."
             aria-label="Filter companies and executives"
-            className="w-full bg-transparent font-sans text-[13px] text-text outline-none placeholder:text-text3"
+            className="w-full bg-transparent font-sans text-[13px] text-u-text outline-none placeholder:text-u-text3"
           />
         </div>
       )}

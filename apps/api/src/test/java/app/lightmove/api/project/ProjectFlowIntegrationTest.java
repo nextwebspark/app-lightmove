@@ -254,6 +254,90 @@ class ProjectFlowIntegrationTest extends FlowTestSupport {
     }
 
     @Test
+    @DisplayName("a search stores its timeline and defaults its mapping target to 60% of the window")
+    void searchCarriesTimelineAndDefaultMappingTarget() throws Exception {
+        String admin = adminOf("Timeline Firm");
+        String clientId = createClient(admin, "Engineering");
+        LocalDate start = LocalDate.now();
+
+        mvc.perform(post("/api/v1/projects")
+                        .header("Authorization", "Bearer " + admin)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"clientId":"%s","positionTitle":"Engineering Director","projectType":"SEARCH",
+                                 "startDate":"%s","deliveryDate":"%s"}
+                                """.formatted(clientId, start, start.plusDays(50))))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.projectType").value("SEARCH"))
+                .andExpect(jsonPath("$.startDate").value(start.toString()))
+                .andExpect(jsonPath("$.deliveryDate").value(start.plusDays(50).toString()))
+                .andExpect(jsonPath("$.mappingTargetDate").value(start.plusDays(30).toString()))
+                .andExpect(jsonPath("$.targetDate").doesNotExist());
+    }
+
+    @Test
+    @DisplayName("a mapping project keeps no mapping target, and a caller naming no type gets a search")
+    void mappingHasNoMappingTargetAndTypeDefaultsToSearch() throws Exception {
+        String admin = adminOf("Mapping Firm");
+        String clientId = createClient(admin, "Retail");
+        LocalDate start = LocalDate.now();
+
+        mvc.perform(post("/api/v1/projects")
+                        .header("Authorization", "Bearer " + admin)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"clientId":"%s","positionTitle":"Buying Director","projectType":"MAPPING",
+                                 "startDate":"%s","deliveryDate":"%s"}
+                                """.formatted(clientId, start, start.plusDays(40))))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.projectType").value("MAPPING"))
+                .andExpect(jsonPath("$.mappingTargetDate").doesNotExist());
+
+        mvc.perform(post("/api/v1/projects")
+                        .header("Authorization", "Bearer " + admin)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"clientId":"%s","positionTitle":"Store Manager"}
+                                """.formatted(clientId)))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.projectType").value("SEARCH"))
+                .andExpect(jsonPath("$.startDate").doesNotExist());
+    }
+
+    @Test
+    @DisplayName("a delivery on or before the start, or a mapping target outside the window, is refused per field")
+    void timelineOrderIsEnforced() throws Exception {
+        String admin = adminOf("Order Firm");
+        String clientId = createClient(admin, "Finance");
+        LocalDate start = LocalDate.now();
+
+        mvc.perform(post("/api/v1/projects")
+                        .header("Authorization", "Bearer " + admin)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"clientId":"%s","positionTitle":"Head of Credit Risk","projectType":"SEARCH",
+                                 "startDate":"%s","deliveryDate":"%s"}
+                                """.formatted(clientId, start, start)))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("VALIDATION_FAILED"))
+                .andExpect(jsonPath("$.fieldErrors.deliveryDate").exists());
+
+        mvc.perform(post("/api/v1/projects")
+                        .header("Authorization", "Bearer " + admin)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"clientId":"%s","positionTitle":"Head of Credit Risk","projectType":"SEARCH",
+                                 "startDate":"%s","deliveryDate":"%s","mappingTargetDate":"%s"}
+                                """.formatted(clientId, start, start.plusDays(30), start.plusDays(31))))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.fieldErrors.mappingTargetDate").exists());
+
+        // Nothing was written by either refusal.
+        mvc.perform(get("/api/v1/projects").header("Authorization", "Bearer " + admin))
+                .andExpect(jsonPath("$.length()").value(0));
+    }
+
+    @Test
     @DisplayName("the list reports each mandate's own universe and its mapped executives")
     void pipelineCountsAreLive() throws Exception {
         String admin = adminOf("Pipeline Firm");
@@ -278,6 +362,85 @@ class ProjectFlowIntegrationTest extends FlowTestSupport {
         // pipeline both numbers state.
         assertThat(countsOf(projects, mapped)).containsExactly(2L, 2L);
         assertThat(countsOf(projects, untouched)).containsExactly(0L, 0L);
+    }
+
+    @Test
+    @DisplayName("coverage counts universe companies with someone mapped, everyone mapped, and engaged executives")
+    void coverageAndEngagedCounts() throws Exception {
+        String admin = adminOf("Coverage Firm");
+        String projectId = createProject(admin, createClient(admin, "Agthia Group"), "Group CFO");
+
+        String covered = captureCompany(admin, projectId, "ACWA Power");
+        captureCompany(admin, projectId, "Emaar Properties");
+        String declined = captureCompany(admin, projectId, "Gulf Trader");
+        mapExecutive(admin, projectId, covered, "Yasmin El-Sayed", "engaged");
+        mapExecutive(admin, projectId, covered, "Hana Aziz", null);
+        mapExecutive(admin, projectId, covered, "Karim Nassar", "notInterested");
+        // Someone at a declined company covers nothing: coverage is read against the universe.
+        mapExecutive(admin, projectId, declined, "Omar Farouk", "interested");
+        decline(admin, projectId, declined);
+
+        JsonNode project = projectIn(body(mvc.perform(get("/api/v1/projects")
+                        .header("Authorization", "Bearer " + admin))
+                .andExpect(status().isOk())
+                .andReturn()), projectId);
+
+        assertThat(project.get("companies").asLong()).isEqualTo(2L);
+        assertThat(project.get("mappedCompanies").asLong()).isEqualTo(1L);
+        // Ruled out still counts as mapped; only the in-play number drops.
+        assertThat(project.get("mappedCandidates").asLong()).isEqualTo(4L);
+        assertThat(project.get("candidates").asLong()).isEqualTo(3L);
+        assertThat(project.get("engagedCandidates").asLong()).isEqualTo(2L);
+    }
+
+    @Test
+    @DisplayName("activity lists the mandate's work newest first, pages by cursor, and stays in its tenant")
+    void activityFeed() throws Exception {
+        String admin = adminOf("Activity Firm");
+        String projectId = createProject(admin, createClient(admin, "Agthia Group"), "Group CFO");
+        String company = captureCompany(admin, projectId, "ACWA Power");
+        mapExecutive(admin, projectId, company, "Yasmin El-Sayed", null);
+        decline(admin, projectId, company);
+
+        JsonNode page = body(mvc.perform(get("/api/v1/projects/" + projectId + "/activity")
+                        .header("Authorization", "Bearer " + admin))
+                .andExpect(status().isOk())
+                .andReturn());
+        JsonNode entries = page.get("entries");
+        assertThat(entries).extracting(entry -> entry.get("type").asText()).containsExactly(
+                "TRIAGE_COMPANY_MOVED", "CANDIDATE_ADDED", "TRIAGE_COMPANY_CAPTURED", "PROJECT_CREATED");
+        assertThat(entries.get(0).get("details").get("status").asText()).isEqualTo("declined");
+        assertThat(entries.get(0).get("actorName").asText()).isEqualTo("Alok Kumar");
+        assertThat(entries.get(0).has("ipAddress")).isFalse();
+        assertThat(page.get("nextCursor").isNull()).isTrue();
+
+        JsonNode first = body(mvc.perform(get("/api/v1/projects/" + projectId + "/activity?limit=3")
+                        .header("Authorization", "Bearer " + admin))
+                .andExpect(status().isOk())
+                .andReturn());
+        assertThat(first.get("entries").size()).isEqualTo(3);
+        JsonNode rest = body(mvc.perform(get("/api/v1/projects/" + projectId + "/activity?limit=3&before="
+                                + first.get("nextCursor").asLong())
+                        .header("Authorization", "Bearer " + admin))
+                .andExpect(status().isOk())
+                .andReturn());
+        assertThat(rest.get("entries")).extracting(entry -> entry.get("type").asText())
+                .containsExactly("PROJECT_CREATED");
+
+        String rivalEmail = "boss@rival-" + domain;
+        createWorkspace(verifiedUser("Rival Boss", rivalEmail), "Rival Activity Firm");
+        mvc.perform(get("/api/v1/projects/" + projectId + "/activity")
+                        .header("Authorization", "Bearer " + login(rivalEmail)))
+                .andExpect(status().isNotFound());
+    }
+
+    private static JsonNode projectIn(JsonNode projects, String projectId) {
+        for (JsonNode project : projects) {
+            if (project.get("id").asText().equals(projectId)) {
+                return project;
+            }
+        }
+        throw new AssertionError(projectId + " is not in the list: " + projects);
     }
 
     /** The {@code companies} and {@code candidates} one mandate reports, in that order. */

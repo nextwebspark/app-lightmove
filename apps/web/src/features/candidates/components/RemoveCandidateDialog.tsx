@@ -28,11 +28,11 @@ export function RemoveCandidateDialog({
 
   return (
     <Modal open onClose={onCancel} title={`Remove ${candidate.fullName}?`}>
-      <p className="text-[13px]/[1.6] text-text2">
+      <p className="text-[13px]/[1.6] text-u-text2">
         This removes this mandate's research on {candidate.fullName} — their status, note and
         compensation go with it.
       </p>
-      <p className="mt-2.5 text-[13px]/[1.6] text-text3">
+      <p className="mt-2.5 text-[13px]/[1.6] text-u-text3">
         If they are simply not right for this brief, set their status to Out of scope instead. The map
         keeps the work, and the next mandate sees they were already found.
       </p>

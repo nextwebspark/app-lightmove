@@ -419,7 +419,9 @@ public class ProjectImportService {
                 firstOf(RowValues.number(fields.field(ImportTargetField.CANDIDATE_LONG_TERM_INCENTIVE)),
                         stored == null ? null : stored.longTermIncentive()),
                 firstOf(RowValues.noticePeriod(fields.field(ImportTargetField.CANDIDATE_NOTICE_PERIOD)),
-                        stored == null ? null : stored.noticePeriod()));
+                        stored == null ? null : stored.noticePeriod()),
+                stored == null ? null : stored.allowanceLines(),
+                stored == null ? null : stored.longTermIncentiveTypes());
     }
 
     /** Refused rather than truncated by the DTO's own {@code @Max}: a bad year is not a year. */

@@ -42,13 +42,13 @@ export function ColumnPicker({
     <Popover
       align="right"
       width={220}
-      triggerClassName="inline-flex items-center gap-1.5 whitespace-nowrap rounded-[6px] p-2 font-sans text-[13px] text-text3 transition hover:bg-panel hover:text-text"
+      triggerClassName="inline-flex items-center gap-1.5 whitespace-nowrap rounded-[6px] p-2 font-sans text-[13px] text-u-text3 transition hover:bg-u-surface hover:text-u-text"
       trigger={() => (
         <>
           <Icon d={ICONS.columns} size={14} className="flex-none" />
           Columns
           {hiddenCount > 0 && (
-            <span className="rounded-[4px] bg-sky-dim px-[5px] py-[2px] font-sans text-[10px] font-bold text-sky">
+            <span className="rounded-[4px] bg-u-accent-tint px-[5px] py-[2px] font-sans text-[10px] font-bold text-u-accent">
               {hiddenCount} hidden
             </span>
           )}
@@ -67,7 +67,7 @@ export function ColumnPicker({
             />
           ))}
 
-          <div className="mx-1 my-1.5 h-px bg-line-soft" />
+          <div className="mx-1 my-1.5 h-px bg-u-border" />
 
           <button
             type="button"
@@ -75,7 +75,7 @@ export function ColumnPicker({
               onChange(defaults);
               onResetLayout?.();
             }}
-            className="rounded-[5px] px-1 py-[7px] text-left font-sans text-[12px] font-medium text-text3 transition hover:bg-panel2 hover:text-text"
+            className="rounded-[5px] px-1 py-[7px] text-left font-sans text-[12px] font-medium text-u-text3 transition hover:bg-u-raised hover:text-u-text"
           >
             Reset to default
           </button>

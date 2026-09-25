@@ -70,17 +70,17 @@ export function SaveSearchMenu({
   return (
     <Popover
       width={360}
-      triggerClassName="inline-flex items-center gap-1.5 whitespace-nowrap py-1 font-sans text-[13px] text-text3 transition hover:text-text"
+      triggerClassName="inline-flex items-center gap-1.5 whitespace-nowrap py-1 font-sans text-[13px] text-u-text3 transition hover:text-u-text"
       trigger={() => (
         <>
           <Icon
             d="M12 17v5M9 10.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24V16a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V7h1a2 2 0 0 0 0-4H8a2 2 0 0 0 0 4h1Z"
             size={14}
-            className="flex-none text-amber"
+            className="flex-none text-u-accent"
           />
           Save Search
           {searches.length > 0 && (
-            <span className="rounded-[4px] bg-sky-dim px-[5px] py-[2px] font-sans text-[10px] font-bold text-sky">
+            <span className="rounded-[4px] bg-u-accent-tint px-[5px] py-[2px] font-sans text-[10px] font-bold text-u-accent">
               {searches.length}
             </span>
           )}
@@ -97,13 +97,13 @@ export function SaveSearchMenu({
               placeholder="Name this search…"
               aria-label="Name this search"
               maxLength={120}
-              className="w-full rounded-[7px] border border-line bg-panel2 px-2.5 py-[7px] font-sans text-[13px] text-text outline-none placeholder:text-text3 focus:border-text3"
+              className="w-full rounded-[7px] border border-u-border-strong bg-u-raised px-2.5 py-[7px] font-sans text-[13px] text-u-text outline-none placeholder:text-u-text3 focus:border-u-text3"
             />
             <button
               type="button"
               onClick={submit}
               disabled={saving || name.trim().length === 0}
-              className="flex-none rounded-[7px] border border-amber bg-amber-dim px-2.5 py-[7px] font-sans text-[12.5px] font-semibold text-amber transition hover:brightness-105 disabled:opacity-40"
+              className="flex-none rounded-[7px] border border-u-accent bg-u-accent-tint px-2.5 py-[7px] font-sans text-[12.5px] font-semibold text-u-accent transition hover:brightness-105 disabled:opacity-40"
             >
               Save
             </button>
@@ -120,7 +120,7 @@ export function SaveSearchMenu({
                 className={cn(
                   CHIP,
                   "text-[11.5px]",
-                  visibility === tier ? "bg-panel2 text-text" : "text-text3 hover:text-text2",
+                  visibility === tier ? "bg-u-raised text-u-text" : "text-u-text3 hover:text-u-text2",
                 )}
               >
                 <Icon d={tier === "PRIVATE" ? ICONS.lock : ICONS.members} size={12} />
@@ -129,7 +129,7 @@ export function SaveSearchMenu({
             ))}
           </div>
 
-          <div className="mx-1 my-1.5 h-px bg-line-soft" />
+          <div className="mx-1 my-1.5 h-px bg-u-border" />
 
           {/* A radiogroup, not a tablist: it is the same two-chip control as the tier picker above,
               and a tablist owes the reader aria-controls, a labelled panel and arrow-key movement
@@ -145,7 +145,7 @@ export function SaveSearchMenu({
                 className={cn(
                   CHIP,
                   "text-[12px]",
-                  selected === id ? "bg-panel2 font-semibold text-text" : "text-text3 hover:text-text2",
+                  selected === id ? "bg-u-raised font-semibold text-u-text" : "text-u-text3 hover:text-u-text2",
                 )}
               >
                 {id === "mine" ? "Mine" : "Shared"} ({id === "mine" ? mine.length : shared.length})
@@ -154,7 +154,7 @@ export function SaveSearchMenu({
           </div>
 
           {listed.length === 0 ? (
-            <p className="px-2.5 py-2 font-sans text-[12.5px] text-text3">
+            <p className="px-2.5 py-2 font-sans text-[12.5px] text-u-text3">
               {selected === "mine"
                 ? "You have not saved a search on this mandate yet."
                 : "Nothing shared with the mandate yet."}

@@ -53,10 +53,10 @@ export function OrgSeatNode({ data }: NodeProps<Node<OrgSeatData>>) {
 
       {isMandate ? (
         <>
-          <span className="block truncate text-body font-semibold text-u-accent">
+          <span className="block truncate type-heading text-u-accent">
             {roleTitle.trim() || "Untitled role"}
           </span>
-          <span className="mt-1 inline-block rounded-[4px] bg-u-accent-solid px-1.5 py-0.5 text-eyebrow font-bold uppercase tracking-[0.08em] text-white">
+          <span className="mt-1 inline-block rounded-[4px] bg-u-accent-solid px-1.5 py-0.5 type-tag text-white">
             This position
           </span>
         </>
@@ -67,7 +67,7 @@ export function OrgSeatNode({ data }: NodeProps<Node<OrgSeatData>>) {
             aria-label="Seat title"
             placeholder="Title"
             onChange={(event) => data.onPatch(seat.nodeId, { title: event.target.value || null })}
-            className="w-full bg-transparent text-body font-semibold text-u-text outline-none placeholder:font-normal placeholder:text-u-text3"
+            className="w-full bg-transparent type-heading text-u-text outline-none placeholder:font-normal placeholder:text-u-text3"
           />
           <input
             value={seat.name ?? ""}

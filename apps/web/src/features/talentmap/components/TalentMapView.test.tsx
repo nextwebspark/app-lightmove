@@ -79,7 +79,7 @@ const person = (overrides: Partial<Candidate>): Candidate => ({
   note: null,
   compensation: {
     currency: null, baseSalary: null, bonus: null, allowances: null,
-    longTermIncentive: null, noticePeriod: null,
+    longTermIncentive: null, noticePeriod: null, allowanceLines: [], longTermIncentiveTypes: [],
   },
   career: [],
   education: [],

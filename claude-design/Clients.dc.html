@@ -7,958 +7,1134 @@
 </head>
 <body>
 <x-dc>
+
 <helmet>
   <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700;900&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="uncava-tokens.css">
+  <script src="./image-slot.js"></script>
   <style>
-    :root{--bg:#f8f9fb;--panel:#ffffff;--panel2:#f3f4f6;--line:#e2e4e9;--line-soft:#edeef2;--text:#111113;--text2:#475569;--text3:#64748b;--amber:#a67c2e;--amber-btn:#e2b65c;--amber-dim:rgba(226,182,92,.14);--sky:#2563eb;--sky-dim:rgba(37,99,235,.10);--red:#dc2626;--red-dim:rgba(220,38,38,.08);--green:#059669;--green-dim:rgba(5,150,105,.10);--shadow:0 8px 28px rgba(15,23,42,.10);--mono:'Geist','Inter',system-ui,sans-serif;--sans:'Geist','Inter',system-ui,sans-serif}
-    body.dark{--bg:#0c0d0e;--panel:#16171a;--panel2:#131316;--line:#2a2a2e;--line-soft:#212326;--text:#f8fafc;--text2:#cbd5e1;--text3:#94a3b8;--amber:#e2b65c;--amber-dim:rgba(226,182,92,.16);--sky:#60a5fa;--sky-dim:rgba(96,165,250,.16);--red:#f87171;--red-dim:rgba(248,113,113,.14);--green:#34d399;--green-dim:rgba(52,211,153,.16);--shadow:0 8px 28px rgba(0,0,0,.5)}
+    :root{
+      --amber:var(--u-accent);--amber-btn:var(--u-accent-solid);--amber-dim:var(--u-accent-tint);--on-amber:#ffffff;
+      --sky:var(--u-accent);--sky-dim:var(--u-accent-tint);--ring:var(--u-accent-ring);
+      --red:var(--u-offlimits);--red-dim:var(--u-offlimits-tint);
+      --green:var(--u-direct);--green-dim:var(--u-direct-tint);
+      --ai:var(--u-inferred);--ai2:var(--u-adjacent);--ai-line:var(--u-accent);--ai-dim:var(--u-inferred-tint);--ai-soft:var(--u-inferred-tint);
+      --bg:var(--u-bg);--panel:var(--u-surface);--panel2:var(--u-raised);--line:var(--u-border-strong);--line-soft:var(--u-border);
+      --text:var(--u-text);--text2:var(--u-text2);--text3:var(--u-text3);
+      --shadow:var(--u-e3);--radius-panel:var(--u-r-modal);
+      --mono:var(--u-font-ui);--sans:var(--u-font-ui);
+      --u-text2:var(--u-text-2);--u-text3:var(--u-text-3);--u-num:var(--u-font-num);
+    }
     *{box-sizing:border-box}
     html,body{height:100%;margin:0}
     body{background:var(--bg);color:var(--text);font:400 14px/1.45 var(--sans);-webkit-font-smoothing:antialiased}
     a{color:var(--sky);text-decoration:none}
-    a:hover{text-decoration:underline}
     input::placeholder,textarea::placeholder{color:var(--text3)}
-    @keyframes fadeUp{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
-    @keyframes slideIn{from{opacity:0;transform:translateX(14px)}to{opacity:1;transform:none}}
+    button{font-family:inherit}
+    @keyframes fadeUp{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
+    @keyframes spin{to{transform:rotate(360deg)}}
+    @keyframes slideInEnd{from{transform:translateX(100%)}to{transform:none}}
   </style>
+  <script>try{var t=localStorage.getItem('lm-theme');document.documentElement.setAttribute('data-theme', t==='light'?'light':'dark');}catch(e){}</script>
 </helmet>
-<div data-screen-label="Clients" style="height:100vh;display:flex;overflow:hidden">
+<div data-screen-label="Business units" style="height:100vh;display:flex;flex-direction:column;overflow:hidden">
 
-    <nav style="width:{{ sideWidth }};flex:none;padding:14px 10px;display:flex;flex-direction:column;overflow-y:auto;overflow-x:hidden;transition:width .18s ease">
-      <div style="position:relative;margin:0 2px 12px">
-      <button onClick="{{ toggleWsMenu }}" style="display:flex;align-items:center;gap:8px;padding:4px 6px 4px 4px;border-radius:7px;background:none;border:none;cursor:pointer;color:var(--text)" style-hover="background:var(--panel2)">
-        <span style="width:24px;height:24px;border-radius:6px;background:#e2b65c;color:#1a1712;display:grid;place-items:center;font:700 12px var(--sans);flex:none">L</span>
-        <span style="display:{{ labelDisp }};font:700 14px var(--sans);letter-spacing:.01em;white-space:nowrap">LightMove</span>
-        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" style="color:var(--text3)"><path d="m6 9 6 6 6-6"></path></svg>
-      </button>
-      <sc-if value="{{ wsMenuOpen }}" hint-placeholder-val="{{ false }}">
-        <div style="position:absolute;top:40px;left:0;width:268px;background:var(--panel);border:1px solid var(--line);border-radius:10px;box-shadow:var(--shadow);padding:6px;z-index:80">
-          <div style="display:flex;align-items:center;gap:10px;padding:10px;border-bottom:1px solid var(--line-soft);margin-bottom:6px">
-            <span style="width:30px;height:30px;border-radius:8px;background:#e2b65c;color:#1a1712;display:grid;place-items:center;font:700 13px var(--mono)">L</span>
-            <div>
-              <div style="font:600 13px var(--mono)">LightMove</div>
-              <div style="font:400 11px var(--mono);color:var(--text3)">5 members · Pro plan</div>
+  <header data-screen-label="Topbar" style="height:46px;flex:none;display:flex;align-items:center;gap:12px;padding:0 14px;position:relative;z-index:60">
+    <div style="flex:1;min-width:0;display:flex;align-items:center">
+      <div style="position:relative">
+        <button onClick="{{ toggleWsMenu }}" style="display:flex;align-items:center;gap:10px;padding:5px 10px 5px 6px;border-radius:8px;background:none;border:none;cursor:pointer" style-hover="background:var(--panel2)">
+          <svg viewBox="-36 -51 72 104" fill="none" stroke="currentColor" style="height:30px;width:auto;flex:none;color:var(--text)" aria-hidden="true"><path d="M-32 10 L 0 -8 L 32 10 L 0 28 Z M-32 10 V 32 L 0 50 L 32 32 V 10 M0 28 V 50" stroke-width="2.6" stroke-linejoin="round"></path><path d="M0 -48 L 32 -30 L 0 -12 L -32 -30 Z" fill="currentColor" stroke="none"></path></svg>
+          <span style="font:200 14px var(--u-font-brand);text-transform:uppercase;letter-spacing:.38em;color:var(--text)">Uncava</span>
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color:var(--text3)"><path d="m6 9 6 6 6-6"></path></svg>
+        </button>
+        <sc-if value="{{ wsMenuOpen }}" hint-placeholder-val="{{ false }}">
+          <div style="position:absolute;left:0;top:40px;z-index:80;width:268px;border-radius:10px;border:1px solid var(--line);background:var(--panel);padding:6px;box-shadow:var(--shadow)">
+            <div style="display:flex;align-items:center;gap:10px;padding:10px;border-bottom:1px solid var(--line-soft);margin-bottom:6px">
+              <span style="width:30px;height:30px;background:var(--amber-btn);color:var(--on-amber);font:700 11px var(--mono);border-radius:6px;display:grid;place-items:center">A</span>
+              <div style="font:600 13px var(--mono)">Al-Futtaim</div>
             </div>
+            <a href="Settings.dc.html?section=profile" style="display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:6px;font-size:13px;color:var(--text2)" style-hover="background:var(--panel2);color:var(--text)">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex:none"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2M16 7a4 4 0 1 1-8 0 4 4 0 0 1 8 0"></path></svg>
+              Your profile
+            </a>
+            <div style="height:1px;background:var(--line-soft);margin:6px 4px"></div>
+            <a href="Settings.dc.html?section=general" style="display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:6px;font-size:13px;color:var(--text2)" style-hover="background:var(--panel2);color:var(--text)">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex:none"><path d="M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6ZM19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09a1.65 1.65 0 0 0-1-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09a1.65 1.65 0 0 0 1.51-1 1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33h.01a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51h.01a1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82v.01a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1Z"></path></svg>
+              Workspace settings
+            </a>
+            <a href="Settings.dc.html?section=members" style="display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:6px;font-size:13px;color:var(--text2)" style-hover="background:var(--panel2);color:var(--text)">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex:none"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2M13 7a4 4 0 1 1-8 0 4 4 0 0 1 8 0M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"></path></svg>
+              Members
+            </a>
+            <div style="height:1px;background:var(--line-soft);margin:6px 4px"></div>
+            <a href="Login.dc.html" style="display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:6px;font-size:13px;color:var(--text2)" style-hover="background:var(--panel2);color:var(--text)">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex:none"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9"></path></svg>
+              Sign out
+            </a>
           </div>
-          <a href="Settings.dc.html?section=general" style="display:flex;align-items:center;gap:10px;width:100%;padding:8px 10px;border-radius:7px;font:400 13px var(--sans);color:var(--text2);text-align:left;text-decoration:none" style-hover="background:var(--panel2);color:var(--text);text-decoration:none">
-            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex:none"><circle cx="12" cy="12" r="3"></circle><path d="M12 1v4m0 14v4M4.2 4.2l2.8 2.8m10 10 2.8 2.8M1 12h4m14 0h4M4.2 19.8 7 17m10-10 2.8-2.8"></path></svg>
-            Workspace settings
-          </a>
-          <a href="Workspace.dc.html?view=team" style="display:flex;align-items:center;gap:10px;width:100%;padding:8px 10px;border-radius:7px;font:400 13px var(--sans);color:var(--text2);text-align:left;text-decoration:none" style-hover="background:var(--panel2);color:var(--text);text-decoration:none">
-            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex:none"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2M13 7a4 4 0 1 1-8 0 4 4 0 0 1 8 0M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"></path></svg>
-            Members
-          </a>
-          <div style="height:1px;background:var(--line-soft);margin:6px 4px"></div>
-          <a href="Login.dc.html" style="display:flex;align-items:center;gap:10px;width:100%;padding:8px 10px;border-radius:7px;font:400 13px var(--sans);color:var(--text2);text-align:left;text-decoration:none" style-hover="background:var(--panel2);color:var(--text);text-decoration:none">
-            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex:none"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9"></path></svg>
-            Sign out
-          </a>
-        </div>
-      </sc-if>
+        </sc-if>
       </div>
-      <div style="display:{{ groupDisp }};font:600 10px var(--mono);letter-spacing:.14em;text-transform:uppercase;color:var(--text3);padding:0 10px 6px">Projects</div>
-      <sc-for list="{{ projNav }}" as="it" hint-placeholder-count="2">
-        <a href="{{ it.href }}" title="{{ it.label }}" style="display:flex;align-items:center;justify-content:{{ navJustify }};gap:10px;width:100%;padding:8px 10px;border-radius:7px;font:400 13.5px var(--sans);color:{{ it.color }};background:{{ it.bg }};text-decoration:none" style-hover="background:var(--panel2);color:var(--text);text-decoration:none">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex:none;color:{{ it.iconColor }}"><path d="{{ it.icon }}"></path></svg>
-          <span style="display:{{ labelDisp }};white-space:nowrap">{{ it.label }}</span>
-          <span style="display:{{ labelDisp }};margin-left:auto;font:500 11px var(--mono);color:var(--text3)">{{ it.count }}</span>
-        </a>
+    </div>
+    <div style="display:flex;flex:none;align-items:center;gap:10px">
+      <span title="Yara Haddad" style="width:26px;height:26px;border-radius:50%;display:grid;place-items:center;background:var(--sky-dim);color:var(--sky);font:600 10px var(--mono)">YH</span>
+    </div>
+  </header>
+
+  <div style="flex:1;min-height:0;display:flex;padding:0 14px 14px">
+
+    <nav aria-label="Main" style="width:{{ sideWidth }};flex:none;padding:14px 10px;display:flex;flex-direction:column;overflow-y:auto;overflow-x:hidden;transition:width .18s">
+      <sc-for list="{{ navGroups }}" as="g" hint-placeholder-count="2">
+        <div>
+          <sc-if value="{{ labelsShown }}" hint-placeholder-val="{{ true }}">
+            <div style="padding:14px 10px 6px;font:600 10px var(--mono);letter-spacing:.14em;text-transform:uppercase;color:var(--text3)">{{ g.label }}</div>
+          </sc-if>
+          <sc-for list="{{ g.items }}" as="it" hint-placeholder-count="2">
+            <a href="{{ it.href }}" title="{{ it.label }}" style="display:flex;align-items:center;justify-content:{{ navJustify }};gap:10px;padding:8px 10px;border-radius:6px;font-size:13.5px;color:{{ it.color }};background:{{ it.bg }}" style-hover="background:var(--panel2);color:var(--text)">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex:none;color:{{ it.iconColor }}"><path d="{{ it.icon }}"></path></svg>
+              <sc-if value="{{ labelsShown }}" hint-placeholder-val="{{ true }}">
+                <span style="white-space:nowrap">{{ it.label }}</span>
+                <span style="margin-left:auto;font:500 11px var(--mono);color:var(--text3)">{{ it.count }}</span>
+              </sc-if>
+            </a>
+          </sc-for>
+        </div>
       </sc-for>
-      <div style="display:{{ groupDisp }};font:600 10px var(--mono);letter-spacing:.14em;text-transform:uppercase;color:var(--text3);padding:14px 10px 6px">Workspace</div>
-      <sc-for list="{{ wsNav }}" as="it" hint-placeholder-count="3">
-        <a href="{{ it.href }}" title="{{ it.label }}" style="display:flex;align-items:center;justify-content:{{ navJustify }};gap:10px;width:100%;padding:8px 10px;border-radius:7px;font:400 13.5px var(--sans);color:{{ it.color }};background:{{ it.bg }};text-decoration:none" style-hover="background:var(--panel2);color:var(--text);text-decoration:none">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex:none;color:{{ it.iconColor }}"><path d="{{ it.icon }}"></path></svg>
-          <span style="display:{{ labelDisp }};white-space:nowrap">{{ it.label }}</span>
-          <span style="display:{{ labelDisp }};margin-left:auto;font:500 11px var(--mono);color:var(--text3)">{{ it.count }}</span>
-        </a>
-      </sc-for>
-      <div style="margin-top:auto;padding-top:12px;border-top:1px solid var(--line-soft)">
-        <button onClick="{{ toggleTheme }}" title="{{ themeLabel }}" style="display:flex;align-items:center;justify-content:{{ navJustify }};gap:10px;width:100%;padding:8px 10px;border-radius:7px;font:400 13.5px var(--sans);color:var(--text2);background:none;border:none;text-align:left;cursor:pointer" style-hover="background:var(--panel2);color:var(--text)">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex:none"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79Z"></path></svg>
-          <span style="display:{{ labelDisp }};white-space:nowrap">{{ themeLabel }}</span>
+      <div style="margin-top:auto;border-top:1px solid var(--line-soft);padding-top:12px">
+        <button onClick="{{ toggleTheme }}" title="{{ themeLabel }}" style="display:flex;align-items:center;justify-content:{{ navJustify }};gap:10px;width:100%;padding:8px 10px;border-radius:6px;font-size:13.5px;color:var(--text2);background:none;border:none;text-align:left;cursor:pointer" style-hover="background:var(--panel2);color:var(--text)">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex:none"><path d="{{ themeIcon }}"></path></svg>
+          <sc-if value="{{ labelsShown }}" hint-placeholder-val="{{ true }}"><span style="white-space:nowrap">{{ themeLabel }}</span></sc-if>
         </button>
-        <button onClick="{{ toggleCollapse }}" title="{{ collapseTitle }}" style="display:flex;align-items:center;justify-content:{{ navJustify }};gap:10px;width:100%;padding:8px 10px;border-radius:7px;font:400 13.5px var(--sans);color:var(--text2);background:none;border:none;text-align:left;cursor:pointer" style-hover="background:var(--panel2);color:var(--text)">
+        <button onClick="{{ toggleCollapse }}" title="{{ collapseTitle }}" style="display:flex;align-items:center;justify-content:{{ navJustify }};gap:10px;width:100%;padding:8px 10px;border-radius:6px;font-size:13.5px;color:var(--text2);background:none;border:none;text-align:left;cursor:pointer" style-hover="background:var(--panel2);color:var(--text)">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex:none"><path d="{{ collapseIcon }}"></path></svg>
-          <span style="display:{{ labelDisp }};white-space:nowrap">Collapse</span>
+          <sc-if value="{{ labelsShown }}" hint-placeholder-val="{{ true }}"><span style="white-space:nowrap">Collapse</span></sc-if>
         </button>
-        <div style="padding:8px 10px 0"><span style="display:{{ labelDisp }};font:400 11px var(--mono);color:var(--text3)">v1.4.0</span></div>
+        <sc-if value="{{ labelsShown }}" hint-placeholder-val="{{ true }}">
+          <p style="margin:0;padding:8px 10px 0;font:400 11px var(--mono);color:var(--text3)">v2026.09.22</p>
+        </sc-if>
       </div>
     </nav>
 
-    <div style="flex:1;display:flex;flex-direction:column;min-width:0;padding:10px 10px 10px 0">
-    <main style="flex:1;min-height:0;background:var(--panel);border:1px solid var(--line);border-radius:15px;min-width:0;display:flex;flex-direction:column;overflow:hidden">
-      <div style="flex:none;display:flex;align-items:center;gap:18px;padding:14px 32px;border-bottom:1px solid var(--line)">
-        <div style="min-width:0">
-          <div style="font:700 20px var(--sans);letter-spacing:-.01em">Clients</div>
-          <div style="color:var(--text3);font:400 12px var(--mono);margin-top:3px">{{ pageSub }}</div>
-        </div>
-        <div style="margin-left:auto;display:flex;align-items:center;gap:12px">
-          <button onClick="{{ openModal }}" style="display:inline-flex;align-items:center;gap:7px;padding:7px 13px;border-radius:8px;font:600 13px var(--sans);background:var(--amber-btn);border:1px solid var(--amber-btn);color:#1a1712;cursor:pointer" style-hover="filter:brightness(1.05)">
-            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M12 5v14M5 12h14"></path></svg>
-            New client
-          </button>
-          <span title="Yara Haddad" style="width:26px;height:26px;border-radius:50%;display:grid;place-items:center;font:600 10px var(--mono);background:var(--sky-dim);color:var(--sky)">YH</span>
-        </div>
-      </div>
-      <div style="flex:1;overflow-y:auto;min-height:0">
-      <div style="max-width:1440px;padding:22px 32px 60px">
+    <main style="flex:1;min-width:0;overflow-y:auto;border-radius:10px;border:1px solid var(--line);background:var(--panel)">
+      <div style="max-width:1440px;margin:0 auto;padding:28px 28px 60px">
 
-        <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px;flex-wrap:wrap">
-          <div style="display:flex;align-items:center;gap:8px;background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:7px 11px;width:300px">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--text3)" stroke-width="2"><circle cx="11" cy="11" r="8"></circle><path d="m21 21-4.3-4.3"></path></svg>
-            <input value="{{ q }}" onInput="{{ onSearch }}" placeholder="Search clients…" style="background:none;border:none;outline:none;width:100%;font:400 13px var(--mono);color:var(--text)">
+        <div data-screen-label="Page header" style="margin-bottom:18px;display:flex;align-items:flex-start;gap:16px">
+          <div>
+            <div style="font:600 19px/1.25 var(--sans)">Business units</div>
+            <div style="margin-top:4px;font:400 12px var(--mono);color:var(--text3)">{{ pageSub }}</div>
           </div>
-          <div style="display:flex;gap:6px;flex-wrap:wrap">
-            <sc-for list="{{ chips }}" as="c" hint-placeholder-count="3">
-              <button onClick="{{ setChip }}" data-chip="{{ c.key }}" style="padding:5px 11px;border-radius:999px;border:1px solid {{ c.border }};font:500 12px var(--mono);color:{{ c.color }};background:{{ c.bg }};cursor:pointer" style-hover="color:var(--text)">{{ c.label }}</button>
-            </sc-for>
-          </div>
+          <sc-if value="{{ showHeaderAction }}" hint-placeholder-val="{{ true }}">
+            <div style="margin-left:auto;display:flex;gap:8px">
+              <button onClick="{{ openModal }}" style="display:flex;align-items:center;justify-content:center;gap:8px;border-radius:8px;padding:7px 14px;font:600 13px var(--sans);background:var(--amber-btn);border:1px solid var(--amber-btn);color:var(--on-amber);cursor:pointer" style-hover="filter:brightness(1.05)">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"></path></svg>
+                New business unit
+              </button>
+            </div>
+          </sc-if>
         </div>
 
-        <table style="width:100%;border-collapse:collapse">
-          <thead>
-            <tr>
-              <th style="width:22%;font:600 10.5px var(--mono);letter-spacing:.12em;text-transform:uppercase;color:var(--text3);text-align:left;padding:9px 12px;border-bottom:1px solid var(--line);white-space:nowrap">Client</th>
-              <th style="width:12%;font:600 10.5px var(--mono);letter-spacing:.12em;text-transform:uppercase;color:var(--text3);text-align:left;padding:9px 12px;border-bottom:1px solid var(--line);white-space:nowrap">Type</th>
-              <th style="width:16%;font:600 10.5px var(--mono);letter-spacing:.12em;text-transform:uppercase;color:var(--text3);text-align:left;padding:9px 12px;border-bottom:1px solid var(--line);white-space:nowrap">Client contact</th>
-              <th style="width:18%;font:600 10.5px var(--mono);letter-spacing:.12em;text-transform:uppercase;color:var(--text3);text-align:left;padding:9px 12px;border-bottom:1px solid var(--line);white-space:nowrap">Sector</th>
-              <th style="width:12%;font:600 10.5px var(--mono);letter-spacing:.12em;text-transform:uppercase;color:var(--text3);text-align:left;padding:9px 12px;border-bottom:1px solid var(--line);white-space:nowrap">Mandates</th>
-              <th style="width:20%;font:600 10.5px var(--mono);letter-spacing:.12em;text-transform:uppercase;color:var(--text3);text-align:left;padding:9px 12px;border-bottom:1px solid var(--line);white-space:nowrap">Viewers</th>
-            </tr>
-          </thead>
-          <tbody>
-            <sc-for list="{{ rows }}" as="r" hint-placeholder-count="4">
-              <tr onClick="{{ openRow }}" data-id="{{ r.id }}" style="cursor:pointer" style-hover="background:var(--panel2)">
-                <td style="padding:11px 12px;border-bottom:1px solid var(--line-soft);white-space:nowrap">
-                  <span style="display:inline-flex;align-items:center;gap:10px">
-                    <span style="width:26px;height:26px;border-radius:7px;display:grid;place-items:center;font:600 10px var(--mono);background:var(--amber-dim);color:var(--amber)">{{ r.initials }}</span>
-                    <span style="font:600 13px var(--sans)">{{ r.name }}</span>
-                  </span>
-                </td>
-                <td style="padding:11px 12px;border-bottom:1px solid var(--line-soft);white-space:nowrap">
-                  <span style="display:inline-flex;padding:3px 9px;border-radius:999px;font:600 10.5px var(--mono);letter-spacing:.06em;text-transform:uppercase;color:{{ r.typeColor }};background:{{ r.typeBg }}">{{ r.typeLabel }}</span>
-                </td>
-                <td style="padding:11px 12px;border-bottom:1px solid var(--line-soft);white-space:nowrap">
-                  <sc-if value="{{ r.hasReps }}" hint-placeholder-val="{{ true }}">
-                    <span style="display:inline-flex">
-                      <sc-for list="{{ r.contactTags }}" as="k" hint-placeholder-count="2">
-                        <span title="{{ k.tip }}" style="width:24px;height:24px;border-radius:50%;display:grid;place-items:center;font:600 9px var(--mono);background:{{ k.bg }};color:{{ k.color }};border:2px solid var(--panel);margin-left:-6px">{{ k.initials }}</span>
-                      </sc-for>
+        <sc-if value="{{ isLoading }}" hint-placeholder-val="{{ false }}">
+          <div data-screen-label="Loading" role="status" aria-label="Loading" style="overflow-x:auto">
+            <table style="width:100%;min-width:820px;border-collapse:collapse">
+              <thead><tr>
+                <sc-for list="{{ skeletonHeads }}" as="h" hint-placeholder-count="4">
+                  <th style="white-space:nowrap;border-bottom:1px solid var(--line);padding:9px 12px;text-align:left;font:600 10.5px var(--mono);text-transform:uppercase;letter-spacing:.12em;color:var(--text3)">{{ h }}</th>
+                </sc-for>
+              </tr></thead>
+              <tbody>
+                <sc-for list="{{ skeletonRows }}" as="sr" hint-placeholder-count="6">
+                  <tr>
+                    <sc-for list="{{ sr.bars }}" as="b" hint-placeholder-count="4">
+                      <td style="border-bottom:1px solid var(--line-soft);padding:15px 12px"><div style="height:14px;width:{{ b }};border-radius:4px;background:var(--panel2)"></div></td>
+                    </sc-for>
+                  </tr>
+                </sc-for>
+              </tbody>
+            </table>
+          </div>
+        </sc-if>
+
+        <sc-if value="{{ isEmpty }}" hint-placeholder-val="{{ false }}">
+          <div data-screen-label="Empty" style="display:flex;flex-direction:column;align-items:center;justify-content:center;padding:90px 20px 70px;text-align:center;animation:fadeUp .5s ease both">
+            <div style="margin-bottom:18px;width:52px;height:52px;border-radius:14px;display:grid;place-items:center;background:var(--amber-dim);color:var(--amber)">
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2M13 7a4 4 0 1 1-8 0 4 4 0 0 1 8 0M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"></path></svg>
+            </div>
+            <div style="margin-bottom:6px;font-size:19px;font-weight:600">Add your first business unit</div>
+            <div style="margin-bottom:22px;max-width:420px;font-size:13px;color:var(--text2)">A business unit groups the hiring managers and open positions for one part of the org — Engineering, Sales, and so on.</div>
+            <button onClick="{{ openModal }}" style="display:flex;align-items:center;justify-content:center;gap:8px;border-radius:8px;padding:7px 14px;font:600 13px var(--sans);background:var(--amber-btn);border:1px solid var(--amber-btn);color:var(--on-amber);cursor:pointer" style-hover="filter:brightness(1.05)">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"></path></svg>
+              New business unit
+            </button>
+          </div>
+        </sc-if>
+
+        <sc-if value="{{ isList }}" hint-placeholder-val="{{ true }}">
+          <div data-screen-label="Toolbar" style="margin-bottom:14px;display:flex;flex-wrap:wrap;align-items:center;gap:10px">
+            <div style="display:flex;width:300px;align-items:center;gap:8px;border-radius:8px;border:1px solid var(--line);background:var(--panel2);padding:7px 11px">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color:var(--text3);flex:none"><path d="M11 3a8 8 0 1 0 0 16 8 8 0 0 0 0-16Zm10 18-4.3-4.3"></path></svg>
+              <input value="{{ q }}" onChange="{{ onSearch }}" placeholder="Search business units…" aria-label="Search business units…" style="width:100%;background:transparent;border:none;font:400 13px var(--mono);color:var(--text);outline:none">
+            </div>
+            <div style="display:flex;flex-wrap:wrap;gap:6px">
+              <sc-for list="{{ chips }}" as="c" hint-placeholder-count="3">
+                <button onClick="{{ setChip }}" data-id="{{ c.key }}" style="border-radius:999px;border:1px solid {{ c.border }};padding:5px 11px;font:500 12px var(--mono);color:{{ c.color }};background:{{ c.bg }};cursor:pointer" style-hover="color:var(--text)">{{ c.label }}</button>
+              </sc-for>
+            </div>
+            <div style="margin-left:auto;display:flex;align-items:center;gap:6px;position:relative">
+              <button onClick="{{ toggleColMenu }}" style="display:inline-flex;align-items:center;gap:6px;white-space:nowrap;border-radius:6px;padding:8px;font:400 13px var(--sans);color:var(--text3);background:none;border:none;cursor:pointer" style-hover="background:var(--panel);color:var(--text)">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex:none"><path d="M3 4h18v16H3zM9 4v16M15 4v16"></path></svg>
+                Columns
+                <sc-if value="{{ hasHidden }}" hint-placeholder-val="{{ false }}">
+                  <span style="border-radius:4px;background:var(--sky-dim);padding:2px 5px;font:700 10px var(--sans);color:var(--sky)">{{ hiddenCount }} hidden</span>
+                </sc-if>
+              </button>
+              <sc-if value="{{ colMenuOpen }}" hint-placeholder-val="{{ false }}">
+                <div style="position:absolute;right:0;top:40px;z-index:80;width:220px;border-radius:10px;border:1px solid var(--line);background:var(--panel);padding:8px;box-shadow:var(--shadow);display:flex;flex-direction:column">
+                  <sc-for list="{{ colOptions }}" as="co" hint-placeholder-count="3">
+                    <button onClick="{{ toggleCol }}" data-id="{{ co.id }}" role="checkbox" style="display:flex;width:100%;align-items:center;justify-content:space-between;border-radius:5px;padding:5px 4px;text-align:left;background:none;border:none;cursor:pointer" style-hover="background:var(--panel2)">
+                      <span style="display:flex;align-items:center;gap:8px">
+                        <span style="display:grid;flex:none;place-items:center;width:15px;height:15px;border-radius:4px;box-shadow:inset 0 0 0 1.5px currentColor;color:{{ co.boxColor }};background:{{ co.boxBg }}">
+                          <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.2" style="color:var(--amber);opacity:{{ co.tickOpacity }}"><path d="M20 6 9 17l-5-5"></path></svg>
+                        </span>
+                        <span style="font:500 12px var(--sans);color:var(--text)">{{ co.label }}</span>
+                      </span>
+                    </button>
+                  </sc-for>
+                  <div style="margin:6px 4px;height:1px;background:var(--line-soft)"></div>
+                  <button onClick="{{ resetCols }}" style="border-radius:5px;padding:7px 4px;text-align:left;font:500 12px var(--sans);color:var(--text3);background:none;border:none;cursor:pointer" style-hover="background:var(--panel2);color:var(--text)">Reset to default</button>
+                </div>
+              </sc-if>
+            </div>
+          </div>
+
+          <div data-screen-label="Business units grid" role="table" aria-label="Business units" style="display:flex;flex-direction:column;overflow:hidden;border-radius:8px;border:1px solid var(--line);background:var(--panel)">
+            <div style="overflow:auto">
+              <div style="position:sticky;top:0;z-index:20;border-bottom:1px solid var(--line);background:var(--panel2);min-width:{{ gridMin }}">
+                <div role="row" style="display:grid;grid-template-columns:{{ gridCols }};align-items:center;gap:12px;padding:10px 0">
+                  <sc-for list="{{ headers }}" as="h" hint-placeholder-count="4">
+                    <div role="columnheader" style="min-width:0;padding-left:{{ h.pl }};padding-right:{{ h.pr }};box-shadow:{{ h.shadow }}">
+                      <sc-if value="{{ h.sortable }}" hint-placeholder-val="{{ true }}">
+                        <button onClick="{{ sortBy }}" data-id="{{ h.id }}" style="display:block;width:100%;text-align:left;background:none;border:none;padding:0;cursor:pointer" style-hover="opacity:.8">
+                          <span style="display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font:600 11px var(--sans);text-transform:uppercase;letter-spacing:.04em;color:{{ h.color }}">{{ h.label }}{{ h.arrow }}</span>
+                        </button>
+                      </sc-if>
+                      <sc-if value="{{ h.fixed }}" hint-placeholder-val="{{ false }}">
+                        <span style="display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font:600 11px var(--sans);text-transform:uppercase;letter-spacing:.04em;color:var(--text3)">{{ h.label }}</span>
+                      </sc-if>
+                    </div>
+                  </sc-for>
+                </div>
+              </div>
+
+              <sc-for list="{{ rows }}" as="r" hint-placeholder-count="4">
+                <div role="row" onClick="{{ openRow }}" data-id="{{ r.id }}" style="display:grid;grid-template-columns:{{ gridCols }};min-width:{{ gridMin }};height:52px;align-items:center;gap:12px;border-bottom:1px solid var(--line-soft);cursor:pointer" style-hover="background:var(--panel2)">
+                  <div role="cell" style="min-width:0;padding-left:16px;align-self:stretch;display:flex;align-items:center;box-shadow:1px 0 0 0 var(--line-soft)">
+                    <span style="display:flex;min-width:0;align-items:center;gap:10px">
+                      <span aria-hidden="true" style="width:26px;height:26px;display:flex;flex:none;align-items:center;justify-content:center;border-radius:6px;background:var(--panel2);color:var(--text3);box-shadow:0 0 0 1px var(--line-soft)"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2M13 7a4 4 0 1 1-8 0 4 4 0 0 1 8 0M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"></path></svg></span>
+                      <span style="min-width:0">
+                        <span style="display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font:600 13px var(--sans);color:var(--text)">{{ r.name }}</span>
+                        <span style="display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font:400 11px var(--mono);color:var(--text3)">{{ r.headline }}</span>
+                      </span>
                     </span>
+                  </div>
+                  <sc-if value="{{ showManagers }}" hint-placeholder-val="{{ true }}">
+                    <div role="cell" style="min-width:0;padding-right:{{ r.padManagers }}">
+                      <sc-if value="{{ r.hasManagers }}" hint-placeholder-val="{{ true }}">
+                        <span style="display:flex;align-items:center">
+                          <sc-for list="{{ r.managers }}" as="k" hint-placeholder-count="2">
+                            <image-slot id="{{ k.slotId }}" title="{{ k.name }}" shape="circle" style="width:24px;height:24px;border:2px solid var(--panel);margin-left:{{ k.ml }}" placeholder=""></image-slot>
+                          </sc-for>
+                        </span>
+                      </sc-if>
+                      <sc-if value="{{ r.noManagers }}" hint-placeholder-val="{{ false }}">
+                        <span style="font:400 12px var(--mono);color:var(--text3)">—</span>
+                      </sc-if>
+                    </div>
                   </sc-if>
-                  <sc-if value="{{ r.noReps }}" hint-placeholder-val="{{ false }}">
-                    <span style="font:400 12px var(--mono);color:var(--text3)">—</span>
+                  <sc-if value="{{ showReqs }}" hint-placeholder-val="{{ true }}">
+                    <div role="cell" style="min-width:0;padding-right:{{ r.padReqs }};font:400 13px var(--sans);color:var(--text2)">{{ r.reqs }}</div>
                   </sc-if>
-                </td>
-                <td style="padding:11px 12px;border-bottom:1px solid var(--line-soft);font:400 12px var(--mono);color:var(--text2);white-space:nowrap">{{ r.sector }}</td>
-                <td style="padding:11px 12px;border-bottom:1px solid var(--line-soft);font:500 12px var(--mono);color:var(--text);white-space:nowrap">{{ r.mandates }}</td>
-                <td style="padding:11px 12px;border-bottom:1px solid var(--line-soft);white-space:nowrap">
-                  <span style="display:inline-flex;align-items:center;gap:7px;font:400 12px var(--mono);color:var(--text2)">
-                    <span style="width:7px;height:7px;border-radius:50%;background:{{ r.viewerDot }};flex:none"></span>
-                    {{ r.viewerLabel }}
-                  </span>
-                </td>
-              </tr>
-            </sc-for>
-          </tbody>
-        </table>
-        <sc-if value="{{ noResults }}" hint-placeholder-val="{{ false }}">
-          <div style="padding:48px;text-align:center;color:var(--text3);font:400 13px var(--mono)">No clients match. Clear the search or add a new client.</div>
+                  <sc-if value="{{ showViewers }}" hint-placeholder-val="{{ true }}">
+                    <div role="cell" style="min-width:0;padding-right:16px">
+                      <span style="display:inline-flex;align-items:center;gap:6px;white-space:nowrap;font:400 12px var(--mono);color:var(--text2)">
+                        <span style="width:7px;height:7px;border-radius:50%;background:{{ r.viewerDot }}"></span>
+                        {{ r.viewerLabel }}
+                      </span>
+                    </div>
+                  </sc-if>
+                </div>
+              </sc-for>
+
+              <sc-if value="{{ noResults }}" hint-placeholder-val="{{ false }}">
+                <div data-screen-label="No results" style="padding:40px 16px;text-align:center;font:400 13px var(--mono);color:var(--text3)">
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="display:block;margin:0 auto 8px;color:var(--text3)"><path d="M11 3a8 8 0 1 0 0 16 8 8 0 0 0 0-16Zm10 18-4.3-4.3"></path></svg>
+                  No business units match. Clear the search or add a new one.
+                </div>
+              </sc-if>
+            </div>
+          </div>
         </sc-if>
 
       </div>
-      </div>
     </main>
-    </div>
+  </div>
 
-  <sc-if value="{{ drawerOpen }}" hint-placeholder-val="{{ false }}">
-    <div onClick="{{ closeDrawer }}" style="position:fixed;inset:0;background:rgba(15,20,30,.4);z-index:90"></div>
-    <aside style="position:fixed;top:10px;right:10px;bottom:10px;width:430px;max-width:92vw;background:var(--panel);border:1px solid var(--line);border-radius:10px;box-shadow:var(--shadow);z-index:95;display:flex;flex-direction:column;animation:fadeUp .22s ease both;overflow:hidden">
+  <sc-if value="{{ askVisible }}" hint-placeholder-val="{{ true }}">
+  <a href="Assistant.dc.html" title="Ask the assistant" style="position:fixed;bottom:20px;right:20px;z-index:110;height:44px;display:inline-flex;align-items:center;gap:10px;padding:0 17px 0 14px;border-radius:22px;border:1px solid var(--ai-line);background:linear-gradient(135deg,var(--ai),var(--ai2));color:#fff;font:600 13px var(--sans);box-shadow:0 8px 24px -6px rgba(79,70,229,.5);text-decoration:none" style-hover="filter:brightness(1.1)">
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex:none"><path d="M9.9 2.6 11 5.9a2 2 0 0 0 1.3 1.3l3.3 1.1-3.3 1.1a2 2 0 0 0-1.3 1.3L9.9 14l-1.1-3.3a2 2 0 0 0-1.3-1.3L4.2 8.3l3.3-1.1a2 2 0 0 0 1.3-1.3ZM18 14l.6 1.8 1.8.6-1.8.6-.6 1.8-.6-1.8-1.8-.6 1.8-.6Z"></path></svg>
+    Ask
+  </a>
+  </sc-if>
 
-      <sc-if value="{{ clientView }}" hint-placeholder-val="{{ true }}">
-        <div style="padding:18px 20px 14px;border-bottom:1px solid var(--line-soft);position:relative;flex:none">
-          <button onClick="{{ closeDrawer }}" aria-label="Close" style="position:absolute;top:14px;right:14px;color:var(--text3);padding:6px;border-radius:6px;background:none;border:none;cursor:pointer" style-hover="color:var(--text);background:var(--panel2)">✕</button>
-          <div style="font:500 11px var(--mono);color:var(--text3);letter-spacing:.08em;text-transform:uppercase">Client record</div>
-          <div style="font:600 17px var(--sans);margin-top:4px">{{ drawer.name }}</div>
-          <div style="font:400 12px var(--mono);color:var(--text3);margin-top:3px">{{ drawer.meta }}</div>
+  <sc-if value="{{ drawerShown }}" hint-placeholder-val="{{ false }}">
+    <div onClick="{{ closeDrawer }}" style="position:fixed;inset:0;z-index:90;background:rgba(15,20,30,.4)"></div>
+    <aside role="dialog" aria-modal="true" aria-label="{{ dv.name }}" data-screen-label="Business unit drawer" style="position:fixed;right:10px;top:10px;bottom:10px;z-index:95;width:420px;max-width:92vw;display:flex;flex-direction:column;border-radius:10px;border:1px solid var(--line);background:var(--panel);box-shadow:var(--shadow);animation:fadeUp .5s ease both">
+
+      <sc-if value="{{ buView }}" hint-placeholder-val="{{ true }}">
+        <div style="position:relative;border-bottom:1px solid var(--line-soft);padding:18px 20px 14px">
+          <button onClick="{{ closeDrawer }}" aria-label="Close" style="position:absolute;right:14px;top:14px;border-radius:6px;padding:6px;color:var(--text3);background:none;border:none;cursor:pointer" style-hover="background:var(--panel2);color:var(--text)">✕</button>
+          <div style="font:500 11px var(--mono);text-transform:uppercase;letter-spacing:.08em;color:var(--text3)">Business unit record</div>
+          <div style="margin-top:4px;display:flex;align-items:flex-start;gap:10px">
+            <span aria-hidden="true" style="width:32px;height:32px;display:flex;flex:none;align-items:center;justify-content:center;border-radius:6px;background:var(--panel2);color:var(--text3);box-shadow:0 0 0 1px var(--line-soft)"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2M13 7a4 4 0 1 1-8 0 4 4 0 0 1 8 0M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"></path></svg></span>
+            <div style="min-width:0">
+              <div style="font-size:17px;font-weight:600">{{ dv.name }}</div>
+              <div style="margin-top:2px;font:400 11px var(--mono);color:var(--text3)">{{ dv.headline }}</div>
+            </div>
+          </div>
         </div>
-        <div style="padding:18px 20px;overflow-y:auto;flex:1">
+
+        <div style="flex:1;overflow-y:auto;padding:18px 20px">
           <div style="display:flex;gap:10px">
-            <div style="flex:1;background:var(--panel2);border:1px solid var(--line-soft);border-radius:8px;padding:10px 12px">
-              <b style="display:block;font:600 17px var(--mono);color:var(--text)">{{ drawer.active }}</b>
-              <span style="font:400 10.5px var(--mono);color:var(--text3);letter-spacing:.06em;text-transform:uppercase">Active</span>
+            <div style="flex:1;border-radius:8px;border:1px solid var(--line-soft);background:var(--panel2);padding:10px 12px">
+              <b style="display:block;font:600 17px var(--mono);color:var(--text)">{{ dv.open }}</b>
+              <span style="font:400 10.5px var(--mono);text-transform:uppercase;letter-spacing:.06em;color:var(--text3)">Open</span>
             </div>
-            <div style="flex:1;background:var(--panel2);border:1px solid var(--line-soft);border-radius:8px;padding:10px 12px">
-              <b style="display:block;font:600 17px var(--mono);color:var(--text)">{{ drawer.delivered }}</b>
-              <span style="font:400 10.5px var(--mono);color:var(--text3);letter-spacing:.06em;text-transform:uppercase">Delivered</span>
+            <div style="flex:1;border-radius:8px;border:1px solid var(--line-soft);background:var(--panel2);padding:10px 12px">
+              <b style="display:block;font:600 17px var(--mono);color:var(--text)">{{ dv.filled }}</b>
+              <span style="font:400 10.5px var(--mono);text-transform:uppercase;letter-spacing:.06em;color:var(--text3)">Filled</span>
             </div>
-            <div style="flex:1;background:var(--panel2);border:1px solid var(--line-soft);border-radius:8px;padding:10px 12px">
-              <b style="display:block;font:600 17px var(--mono);color:var(--text)">{{ drawer.repCount }}</b>
-              <span style="font:400 10.5px var(--mono);color:var(--text3);letter-spacing:.06em;text-transform:uppercase">Reps</span>
+            <div style="flex:1;border-radius:8px;border:1px solid var(--line-soft);background:var(--panel2);padding:10px 12px">
+              <b style="display:block;font:600 17px var(--mono);color:var(--text)">{{ dv.managerCount }}</b>
+              <span style="font:400 10.5px var(--mono);text-transform:uppercase;letter-spacing:.06em;color:var(--text3)">Managers</span>
             </div>
           </div>
 
-          <div style="display:flex;align-items:center;margin:18px 0 8px">
-            <span style="font:600 10px var(--mono);letter-spacing:.14em;text-transform:uppercase;color:var(--text3)">Details</span>
-            <sc-if value="{{ detailsDirty }}" hint-placeholder-val="{{ false }}">
-              <span style="margin-left:8px;font:500 10.5px var(--mono);color:var(--amber)">unsaved</span>
+          <div style="margin:18px 0 8px;display:flex;align-items:center;justify-content:space-between">
+            <div style="font:600 10px var(--mono);text-transform:uppercase;letter-spacing:.14em;color:var(--text3)">Details</div>
+            <sc-if value="{{ dirty }}" hint-placeholder-val="{{ false }}">
+              <span style="font:600 10px var(--mono);text-transform:uppercase;letter-spacing:.1em;color:var(--amber)">unsaved</span>
             </sc-if>
           </div>
-          <div style="border:1px solid var(--line-soft);border-radius:10px;padding:14px;display:flex;flex-direction:column;gap:12px">
-            <div>
-              <label style="display:block;font:600 10px var(--mono);letter-spacing:.12em;text-transform:uppercase;color:var(--text3);margin-bottom:6px">Client name</label>
-              <input value="{{ dName }}" onInput="{{ draftDName }}" style="width:100%;background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:8px 11px;font:400 13px var(--mono);color:var(--text);outline:none" style-focus="border-color:var(--sky)">
+          <label style="display:block;margin-bottom:12px">
+            <span style="display:block;margin-bottom:4px;font:600 10px var(--mono);text-transform:uppercase;letter-spacing:.12em;color:var(--text3)">Business unit name</span>
+            <input value="{{ draft.name }}" onChange="{{ onDraft }}" data-id="name" style="width:100%;border-radius:8px;border:1px solid var(--line);background:var(--panel2);padding:10px 12px;font:400 13px var(--mono);color:var(--text);outline:none" style-focus="border-color:var(--sky)">
+          </label>
+          <label style="display:block;margin-bottom:12px">
+            <span style="display:block;margin-bottom:4px;font:600 10px var(--mono);text-transform:uppercase;letter-spacing:.12em;color:var(--text3)">Notes</span>
+            <textarea rows="3" value="{{ draft.notes }}" onChange="{{ onDraft }}" data-id="notes" placeholder="e.g. hiring freeze lifted Q1, prioritise senior backfills" style="width:100%;resize:vertical;border-radius:8px;border:1px solid var(--line);background:var(--panel2);padding:10px 12px;font:400 13px var(--mono);color:var(--text);outline:none" style-focus="border-color:var(--sky)"></textarea>
+          </label>
+          <sc-if value="{{ dirty }}" hint-placeholder-val="{{ false }}">
+            <div style="margin-bottom:8px;display:flex;justify-content:flex-end;gap:8px">
+              <button onClick="{{ discardDraft }}" style="display:flex;align-items:center;justify-content:center;gap:8px;border-radius:8px;padding:10px 14px;font:500 13.5px var(--sans);background:var(--panel);border:1px solid var(--line);color:var(--text2);cursor:pointer" style-hover="color:var(--text);border-color:var(--text3)">Discard</button>
+              <button onClick="{{ saveDraft }}" style="display:flex;align-items:center;justify-content:center;gap:8px;border-radius:8px;padding:10px 14px;font:600 13.5px var(--sans);background:var(--amber-btn);border:1px solid var(--amber-btn);color:var(--on-amber);cursor:pointer;opacity:{{ saveOpacity }}" style-hover="filter:brightness(1.05)">Save changes</button>
             </div>
-            <div style="display:flex;gap:10px">
-              <div style="flex:1">
-                <label style="display:block;font:600 10px var(--mono);letter-spacing:.12em;text-transform:uppercase;color:var(--text3);margin-bottom:6px">Sector</label>
-                <input value="{{ dSector }}" onInput="{{ draftDSector }}" placeholder="e.g. FMCG" style="width:100%;background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:8px 11px;font:400 13px var(--mono);color:var(--text);outline:none" style-focus="border-color:var(--sky)">
-              </div>
-              <div style="flex:1">
-                <label style="display:block;font:600 10px var(--mono);letter-spacing:.12em;text-transform:uppercase;color:var(--text3);margin-bottom:6px">HQ</label>
-                <input value="{{ dHq }}" onInput="{{ draftDHq }}" placeholder="e.g. UAE" style="width:100%;background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:8px 11px;font:400 13px var(--mono);color:var(--text);outline:none" style-focus="border-color:var(--sky)">
-              </div>
-            </div>
-            <div>
-              <label style="display:block;font:600 10px var(--mono);letter-spacing:.12em;text-transform:uppercase;color:var(--text3);margin-bottom:6px">Domain <span style="font-weight:400;letter-spacing:0;text-transform:none">· optional, used to match records</span></label>
-              <input value="{{ dDomain }}" onInput="{{ draftDDomain }}" placeholder="e.g. almarai.com" style="width:100%;background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:8px 11px;font:400 13px var(--mono);color:var(--text);outline:none" style-focus="border-color:var(--sky)">
-            </div>
-            <div>
-              <label style="display:block;font:600 10px var(--mono);letter-spacing:.12em;text-transform:uppercase;color:var(--text3);margin-bottom:6px">Off-limits <span style="font-weight:400;letter-spacing:0;text-transform:none">· optional</span></label>
-              <input value="{{ dOff }}" onInput="{{ draftDOff }}" placeholder="e.g. all employees protected until Jan 2027" style="width:100%;background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:8px 11px;font:400 13px var(--mono);color:var(--text);outline:none" style-focus="border-color:var(--sky)">
-            </div>
-            <sc-if value="{{ detailsDirty }}" hint-placeholder-val="{{ false }}">
-              <div style="display:flex;justify-content:flex-end;gap:8px">
-                <button onClick="{{ revertDetails }}" style="padding:6px 12px;border-radius:8px;font:500 12.5px var(--sans);border:1px solid var(--line);color:var(--text2);background:none;cursor:pointer" style-hover="color:var(--text);border-color:var(--text3)">Discard</button>
-                <button onClick="{{ saveDetails }}" style="padding:6px 12px;border-radius:8px;font:600 12.5px var(--sans);background:var(--amber-btn);border:1px solid var(--amber-btn);color:#1a1712;cursor:pointer" style-hover="filter:brightness(1.05)">Save changes</button>
-              </div>
+          </sc-if>
+
+          <div data-screen-label="Hiring managers" style="margin:18px 0 8px;display:flex;align-items:center;justify-content:space-between">
+            <div style="font:600 10px var(--mono);text-transform:uppercase;letter-spacing:.14em;color:var(--text3)">Hiring managers</div>
+            <sc-if value="{{ inviteClosed }}" hint-placeholder-val="{{ true }}">
+              <button onClick="{{ openInvite }}" style="font:400 11px var(--mono);color:var(--sky);background:none;border:none;padding:0;cursor:pointer" style-hover="text-decoration:underline">Invite</button>
             </sc-if>
           </div>
-
-          <div style="display:flex;align-items:center;margin:18px 0 8px">
-            <span style="font:600 10px var(--mono);letter-spacing:.14em;text-transform:uppercase;color:var(--text3)">Client representatives</span>
-            <button onClick="{{ openInviteFromDrawer }}" style="margin-left:auto;display:inline-flex;align-items:center;gap:5px;padding:4px 9px;border-radius:7px;font:500 11.5px var(--sans);border:1px solid var(--line);color:var(--text2);background:none;cursor:pointer" style-hover="color:var(--text);border-color:var(--text3)">
-              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M12 5v14M5 12h14"></path></svg>
-              Invite
-            </button>
-          </div>
-          <sc-if value="{{ drawer.hasReps }}" hint-placeholder-val="{{ true }}">
-            <sc-for list="{{ drawer.reps }}" as="p" hint-placeholder-count="2">
-              <div style="position:relative;display:flex;align-items:center;gap:10px;padding:8px;border-radius:7px" style-hover="background:var(--panel2)">
-                <span style="width:26px;height:26px;border-radius:50%;display:grid;place-items:center;font:600 10px var(--mono);background:var(--sky-dim);color:var(--sky);flex:none">{{ p.initials }}</span>
-                <div style="min-width:0">
-                  <div style="font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ p.name }}</div>
-                  <div style="font:400 11px var(--mono);color:var(--text3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ p.position }} · {{ p.email }}</div>
-                </div>
-                <span style="margin-left:auto;flex:none;font:600 10px var(--mono);letter-spacing:.06em;padding:2px 7px;border-radius:5px;color:{{ p.stColor }};background:{{ p.stBg }}">{{ p.stLabel }}</span>
-                <button onClick="{{ toggleRepMenu }}" data-email="{{ p.email }}" aria-label="Representative actions" style="flex:none;width:24px;height:24px;display:grid;place-items:center;border-radius:6px;border:1px solid transparent;background:none;color:var(--text3);cursor:pointer" style-hover="color:var(--text);border-color:var(--line)">
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="5" r="1.6"></circle><circle cx="12" cy="12" r="1.6"></circle><circle cx="12" cy="19" r="1.6"></circle></svg>
-                </button>
-                <sc-if value="{{ p.menuOpen }}" hint-placeholder-val="{{ false }}">
-                  <div style="position:absolute;top:36px;right:6px;width:206px;background:var(--panel);border:1px solid var(--line);border-radius:10px;box-shadow:var(--shadow);padding:5px;z-index:60">
-                    <sc-if value="{{ p.menuNormal }}" hint-placeholder-val="{{ true }}">
-                      <sc-if value="{{ p.isInvited }}" hint-placeholder-val="{{ false }}">
-                        <button onClick="{{ resendInvite }}" data-email="{{ p.email }}" style="display:flex;align-items:center;gap:9px;width:100%;padding:7px 9px;border-radius:7px;border:none;background:none;cursor:pointer;text-align:left;font:500 12.5px var(--sans);color:var(--text)" style-hover="background:var(--panel2)">
-                          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--text3)" stroke-width="2"><path d="M21 12a9 9 0 1 1-3-6.7L21 8"></path><path d="M21 3v5h-5"></path></svg>
-                          Resend invite
-                        </button>
-                        <div style="height:1px;background:var(--line-soft);margin:4px 6px"></div>
-                        <button onClick="{{ askCancelInvite }}" data-email="{{ p.email }}" style="display:flex;align-items:center;gap:9px;width:100%;padding:7px 9px;border-radius:7px;border:none;background:none;cursor:pointer;text-align:left;font:500 12.5px var(--sans);color:var(--red)" style-hover="background:var(--red-dim)">
-                          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6 6 18M6 6l12 12"></path></svg>
-                          Cancel invite
-                        </button>
-                      </sc-if>
-                      <sc-if value="{{ p.isActive }}" hint-placeholder-val="{{ false }}">
-                        <button onClick="{{ copyRepEmail }}" data-email="{{ p.email }}" style="display:flex;align-items:center;gap:9px;width:100%;padding:7px 9px;border-radius:7px;border:none;background:none;cursor:pointer;text-align:left;font:500 12.5px var(--sans);color:var(--text)" style-hover="background:var(--panel2)">
-                          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--text3)" stroke-width="2"><rect x="2" y="4" width="20" height="16" rx="2"></rect><path d="m2 7 10 6 10-6"></path></svg>
-                          Copy email
-                        </button>
-                        <div style="height:1px;background:var(--line-soft);margin:4px 6px"></div>
-                        <button onClick="{{ askRevokeAccess }}" data-email="{{ p.email }}" style="display:flex;align-items:center;gap:9px;width:100%;padding:7px 9px;border-radius:7px;border:none;background:none;cursor:pointer;text-align:left;font:500 12.5px var(--sans);color:var(--red)" style-hover="background:var(--red-dim)">
-                          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="10" rx="2"></rect><path d="M8 11V7a4 4 0 0 1 8 0"></path></svg>
-                          Revoke access
-                        </button>
-                      </sc-if>
-                      <sc-if value="{{ p.isRevoked }}" hint-placeholder-val="{{ false }}">
-                        <button onClick="{{ resendInvite }}" data-email="{{ p.email }}" style="display:flex;align-items:center;gap:9px;width:100%;padding:7px 9px;border-radius:7px;border:none;background:none;cursor:pointer;text-align:left;font:500 12.5px var(--sans);color:var(--text)" style-hover="background:var(--panel2)">
-                          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--text3)" stroke-width="2"><path d="M21 12a9 9 0 1 1-3-6.7L21 8"></path><path d="M21 3v5h-5"></path></svg>
-                          Restore access
-                        </button>
-                        <div style="height:1px;background:var(--line-soft);margin:4px 6px"></div>
-                        <button onClick="{{ askRemoveRep }}" data-email="{{ p.email }}" style="display:flex;align-items:center;gap:9px;width:100%;padding:7px 9px;border-radius:7px;border:none;background:none;cursor:pointer;text-align:left;font:500 12.5px var(--sans);color:var(--red)" style-hover="background:var(--red-dim)">
-                          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M8 6V4h8v2M6 6l1 14h10l1-14"></path></svg>
-                          Remove representative
-                        </button>
-                      </sc-if>
-                    </sc-if>
-                    <sc-if value="{{ p.confirming }}" hint-placeholder-val="{{ false }}">
-                      <div style="padding:8px 8px 4px">
-                        <div style="font:500 12.5px var(--sans);color:var(--text);line-height:1.45">{{ p.confirmMsg }}</div>
-                        <div style="display:flex;justify-content:flex-end;gap:7px;margin-top:10px">
-                          <button onClick="{{ closeRepMenu }}" style="padding:5px 10px;border-radius:7px;font:500 12px var(--sans);border:1px solid var(--line);color:var(--text2);background:none;cursor:pointer" style-hover="color:var(--text);border-color:var(--text3)">Keep</button>
-                          <button onClick="{{ confirmRepAction }}" data-email="{{ p.email }}" style="padding:5px 10px;border-radius:7px;font:600 12px var(--sans);border:1px solid var(--red);color:#fff;background:var(--red);cursor:pointer" style-hover="filter:brightness(1.06)">{{ p.confirmBtn }}</button>
-                        </div>
-                      </div>
-                    </sc-if>
-                  </div>
-                </sc-if>
+          <sc-if value="{{ noManagersNote }}" hint-placeholder-val="{{ false }}">
+            <p style="margin:0;padding:4px 0;font:400 12px var(--mono);color:var(--text3)">No hiring managers yet. Invite one to give them access to their positions.</p>
+          </sc-if>
+          <sc-for list="{{ dv.managers }}" as="p" hint-placeholder-count="2">
+            <div style="display:flex;align-items:center;gap:10px;padding:6px 0">
+              <image-slot id="{{ p.slotId }}" title="{{ p.fullName }}" shape="circle" style="width:26px;height:26px;flex:none" placeholder=""></image-slot>
+              <div style="min-width:0;flex:1">
+                <div style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:13px">{{ p.fullName }}</div>
+                <div style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font:400 11px var(--mono);color:var(--text3)">{{ p.meta }}</div>
               </div>
-            </sc-for>
-          </sc-if>
-          <sc-if value="{{ drawer.noReps }}" hint-placeholder-val="{{ false }}">
-            <div style="padding:18px;border:1px dashed var(--line);border-radius:8px;text-align:center;color:var(--text3);font:400 12px var(--mono)">No representatives yet. Invite one to give the client portal access.</div>
-          </sc-if>
-
-          <sc-if value="{{ drawer.inviteOpen }}" hint-placeholder-val="{{ false }}">
-            <div style="border:1px solid var(--line);border-radius:10px;margin-top:10px;padding:14px;background:var(--panel2)">
-              <div style="font:600 10px var(--mono);letter-spacing:.14em;text-transform:uppercase;color:var(--text3);margin-bottom:10px">Invite representative</div>
-              <label style="display:block;font:600 10px var(--mono);letter-spacing:.12em;text-transform:uppercase;color:var(--text3);margin:0 0 6px">Full name</label>
-              <input value="{{ repName }}" onInput="{{ draftRepName }}" placeholder="e.g. Khalid Al-Otaibi" style="width:100%;background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:8px 11px;font:400 13px var(--mono);color:var(--text);outline:none" style-focus="border-color:var(--sky)">
-              <label style="display:block;font:600 10px var(--mono);letter-spacing:.12em;text-transform:uppercase;color:var(--text3);margin:12px 0 6px">Position</label>
-              <input value="{{ repPos }}" onInput="{{ draftRepPos }}" placeholder="e.g. Group CHRO" style="width:100%;background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:8px 11px;font:400 13px var(--mono);color:var(--text);outline:none" style-focus="border-color:var(--sky)">
-              <label style="display:block;font:600 10px var(--mono);letter-spacing:.12em;text-transform:uppercase;color:var(--text3);margin:12px 0 6px">Work email</label>
-              <input value="{{ repEmail }}" onInput="{{ draftRepEmail }}" placeholder="name@company.com" style="width:100%;background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:8px 11px;font:400 13px var(--mono);color:var(--text);outline:none" style-focus="border-color:var(--sky)">
-              <sc-if value="{{ repError }}" hint-placeholder-val="{{ false }}">
-                <div style="font:400 11.5px var(--mono);color:var(--red);margin-top:8px">{{ repErrorMsg }}</div>
-              </sc-if>
-              <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:12px">
-                <button onClick="{{ cancelDrawerInvite }}" style="padding:6px 12px;border-radius:8px;font:500 12.5px var(--sans);border:1px solid var(--line);color:var(--text2);background:none;cursor:pointer" style-hover="color:var(--text);border-color:var(--text3)">Cancel</button>
-                <button onClick="{{ sendDrawerInvite }}" style="padding:6px 12px;border-radius:8px;font:600 12.5px var(--sans);background:var(--amber-btn);border:1px solid var(--amber-btn);color:#1a1712;cursor:pointer" style-hover="filter:brightness(1.05)">Send invite</button>
-              </div>
-            </div>
-          </sc-if>
-
-          <div style="font:600 10px var(--mono);letter-spacing:.14em;text-transform:uppercase;color:var(--text3);margin:18px 0 8px">Mandates</div>
-          <sc-if value="{{ drawer.hasMandates }}" hint-placeholder-val="{{ true }}">
-            <sc-for list="{{ drawer.mandateRows }}" as="m" hint-placeholder-count="2">
-              <button onClick="{{ openProj }}" data-id="{{ m.id }}" style="display:flex;align-items:center;gap:10px;width:100%;padding:9px 8px;border-radius:7px;background:none;border:none;cursor:pointer;text-align:left;color:var(--text)" style-hover="background:var(--panel2)">
-                <div style="min-width:0">
-                  <div style="font:500 13px var(--sans);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ m.pos }}</div>
-                  <div style="font:400 11px var(--mono);color:var(--text3)">Lead · {{ m.lead }}</div>
-                </div>
-                <span style="margin-left:auto;flex:none;display:inline-flex;align-items:center;gap:6px;padding:3px 9px;border-radius:6px;font:600 10.5px var(--mono);letter-spacing:.06em;text-transform:uppercase;color:{{ m.color }};background:{{ m.bg }};border:1px solid {{ m.border }}">
-                  <span style="width:6px;height:6px;border-radius:50%;background:currentColor"></span>
-                  {{ m.label }}
-                </span>
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--text3)" stroke-width="2" style="flex:none"><path d="m9 18 6-6-6-6"></path></svg>
-              </button>
-            </sc-for>
-          </sc-if>
-          <sc-if value="{{ drawer.noMandates }}" hint-placeholder-val="{{ false }}">
-            <div style="padding:14px;border:1px dashed var(--line);border-radius:8px;text-align:center;color:var(--text3);font:400 12px var(--mono)">No mandates yet — create a project for this client.</div>
-          </sc-if>
-        </div>
-        <div style="padding:14px 20px;border-top:1px solid var(--line-soft);display:flex;gap:8px;flex:none">
-          <button onClick="{{ toastArchive }}" style="flex:none;display:inline-flex;align-items:center;justify-content:center;padding:8px 13px;border-radius:8px;font:500 13px var(--sans);border:1px solid var(--line);color:var(--text2);background:none;cursor:pointer" style-hover="color:var(--text);border-color:var(--text3)">Archive</button>
-          <a href="Workspace.dc.html" style="flex:1;display:inline-flex;align-items:center;justify-content:center;gap:6px;padding:8px 13px;border-radius:8px;font:600 13px var(--sans);background:var(--amber-btn);border:1px solid var(--amber-btn);color:#1a1712;text-decoration:none" style-hover="filter:brightness(1.05);text-decoration:none">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M12 5v14M5 12h14"></path></svg>
-            New mandate
-          </a>
-        </div>
-      </sc-if>
-
-      <sc-if value="{{ projView }}" hint-placeholder-val="{{ false }}">
-        <div style="padding:14px 20px 14px;border-bottom:1px solid var(--line-soft);position:relative;flex:none;animation:slideIn .18s ease both">
-          <button onClick="{{ closeDrawer }}" aria-label="Close" style="position:absolute;top:14px;right:14px;color:var(--text3);padding:6px;border-radius:6px;background:none;border:none;cursor:pointer" style-hover="color:var(--text);background:var(--panel2)">✕</button>
-          <button onClick="{{ backToClient }}" style="display:inline-flex;align-items:center;gap:6px;padding:4px 8px 4px 4px;margin:0 0 8px -6px;border-radius:7px;font:500 12px var(--sans);color:var(--text2);background:none;border:none;cursor:pointer" style-hover="color:var(--text);background:var(--panel2)">
-            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="m15 18-6-6 6-6"></path></svg>
-            {{ proj.clientName }}
-          </button>
-          <div style="font:500 11px var(--mono);color:var(--text3);letter-spacing:.08em;text-transform:uppercase">Mandate</div>
-          <div style="font:600 17px var(--sans);margin-top:4px">{{ proj.pos }}</div>
-          <div style="font:400 12px var(--mono);color:var(--text3);margin-top:3px">Lead · {{ proj.lead }} · created {{ proj.created }}</div>
-        </div>
-        <div style="padding:18px 20px;overflow-y:auto;flex:1;animation:slideIn .18s ease both">
-          <div style="display:flex;gap:10px">
-            <div style="flex:1;background:var(--panel2);border:1px solid var(--line-soft);border-radius:8px;padding:10px 12px">
-              <b style="display:block;font:600 17px var(--mono);color:var(--text)">{{ proj.companies }}</b>
-              <span style="font:400 10.5px var(--mono);color:var(--text3);letter-spacing:.06em;text-transform:uppercase">Companies</span>
-            </div>
-            <div style="flex:1;background:var(--panel2);border:1px solid var(--line-soft);border-radius:8px;padding:10px 12px">
-              <b style="display:block;font:600 17px var(--mono);color:var(--text)">{{ proj.candidates }}</b>
-              <span style="font:400 10.5px var(--mono);color:var(--text3);letter-spacing:.06em;text-transform:uppercase">Candidates</span>
-            </div>
-            <div style="flex:1;background:var(--panel2);border:1px solid var(--line-soft);border-radius:8px;padding:10px 12px">
-              <b style="display:block;font:600 17px var(--mono);color:var(--text)">{{ proj.target }}</b>
-              <span style="font:400 10.5px var(--mono);color:var(--text3);letter-spacing:.06em;text-transform:uppercase">Target</span>
-            </div>
-          </div>
-
-          <div style="font:600 10px var(--mono);letter-spacing:.14em;text-transform:uppercase;color:var(--text3);margin:18px 0 8px">Stage</div>
-          <div style="border:1px solid var(--line-soft);border-radius:10px;padding:12px 14px">
-            <sc-for list="{{ proj.gates }}" as="g" hint-placeholder-count="5">
-              <div style="display:flex;align-items:center;gap:10px;padding:4px 0;font:{{ g.weight }} 13px var(--sans);color:{{ g.color }}">
-                <span style="width:13px;height:13px;border-radius:50%;border:2px solid {{ g.ringBorder }};background:{{ g.ringBg }};flex:none"></span>
-                {{ g.label }}
-                <span style="font:400 11px var(--mono);color:var(--text3)">{{ g.note }}</span>
-              </div>
-            </sc-for>
-          </div>
-
-          <div style="font:600 10px var(--mono);letter-spacing:.14em;text-transform:uppercase;color:var(--text3);margin:18px 0 8px">Health</div>
-          <div style="border:1px solid var(--line-soft);border-radius:10px;padding:12px 14px">
-            <div style="display:flex;align-items:center;gap:7px;font:600 13.5px var(--sans);color:{{ proj.healthColor }};margin-bottom:6px">
-              <span style="width:7px;height:7px;border-radius:50%;background:currentColor"></span>
-              {{ proj.healthLabel }}
-            </div>
-            <sc-for list="{{ proj.healthLines }}" as="h" hint-placeholder-count="2">
-              <div style="font:400 12px var(--sans);color:var(--text2);padding:2px 0">{{ h.text }}</div>
-            </sc-for>
-          </div>
-
-          <div style="font:600 10px var(--mono);letter-spacing:.14em;text-transform:uppercase;color:var(--text3);margin:18px 0 8px">Team</div>
-          <sc-for list="{{ proj.team }}" as="t" hint-placeholder-count="2">
-            <div style="display:flex;align-items:center;gap:10px;padding:7px 8px;border-radius:7px" style-hover="background:var(--panel2)">
-              <span style="width:26px;height:26px;border-radius:50%;display:grid;place-items:center;font:600 10px var(--mono);background:var(--amber-dim);color:var(--amber);flex:none">{{ t.initials }}</span>
-              <span style="font-size:13px">{{ t.name }}</span>
-              <span style="margin-left:auto;font:400 11.5px var(--mono);color:var(--text3)">{{ t.role }}</span>
+              <span style="border-radius:6px;padding:2px 6px;font:600 9.5px var(--mono);text-transform:uppercase;letter-spacing:.08em;color:{{ p.badgeColor }};background:{{ p.badgeBg }}">{{ p.badge }}</span>
             </div>
           </sc-for>
+          <sc-if value="{{ inviteOpen }}" hint-placeholder-val="{{ false }}">
+            <div data-screen-label="Invite form" style="margin-top:8px;border-radius:8px;border:1px solid var(--line-soft);background:var(--panel2);padding:14px">
+              <sc-if value="{{ hasInvError }}" hint-placeholder-val="{{ false }}">
+                <p style="margin:0 0 8px;font:400 11px var(--mono);color:var(--red)">{{ invError }}</p>
+              </sc-if>
+              <label style="display:block;margin-bottom:12px">
+                <span style="display:block;margin-bottom:4px;font:600 10px var(--mono);text-transform:uppercase;letter-spacing:.12em;color:var(--text3)">Full name</span>
+                <input value="{{ inv.fullName }}" onChange="{{ onInv }}" data-id="fullName" placeholder="e.g. Farah Nasser" style="width:100%;border-radius:8px;border:1px solid var(--line);background:var(--panel2);padding:10px 12px;font:400 13px var(--mono);color:var(--text);outline:none" style-focus="border-color:var(--sky)">
+              </label>
+              <label style="display:block;margin-bottom:12px">
+                <span style="display:block;margin-bottom:4px;font:600 10px var(--mono);text-transform:uppercase;letter-spacing:.12em;color:var(--text3)">Title</span>
+                <input value="{{ inv.position }}" onChange="{{ onInv }}" data-id="position" placeholder="e.g. Engineering Director" style="width:100%;border-radius:8px;border:1px solid var(--line);background:var(--panel2);padding:10px 12px;font:400 13px var(--mono);color:var(--text);outline:none" style-focus="border-color:var(--sky)">
+              </label>
+              <label style="display:block;margin-bottom:12px">
+                <span style="display:block;margin-bottom:4px;font:600 10px var(--mono);text-transform:uppercase;letter-spacing:.12em;color:var(--text3)">Work email</span>
+                <input type="email" value="{{ inv.email }}" onChange="{{ onInv }}" data-id="email" placeholder="name@company.com" style="width:100%;border-radius:8px;border:1px solid var(--line);background:var(--panel2);padding:10px 12px;font:400 13px var(--mono);color:var(--text);outline:none" style-focus="border-color:var(--sky)">
+              </label>
+              <div style="display:flex;justify-content:flex-end;gap:8px">
+                <button onClick="{{ cancelInvite }}" style="display:flex;align-items:center;justify-content:center;gap:8px;border-radius:8px;padding:10px 14px;font:500 13.5px var(--sans);background:var(--panel);border:1px solid var(--line);color:var(--text2);cursor:pointer" style-hover="color:var(--text);border-color:var(--text3)">Cancel</button>
+                <button onClick="{{ sendInvite }}" style="display:flex;align-items:center;justify-content:center;gap:8px;border-radius:8px;padding:10px 14px;font:600 13.5px var(--sans);background:var(--amber-btn);border:1px solid var(--amber-btn);color:var(--on-amber);cursor:pointer" style-hover="filter:brightness(1.05)">Send invite</button>
+              </div>
+            </div>
+          </sc-if>
+
+          <div style="margin:18px 0 8px;font:600 10px var(--mono);text-transform:uppercase;letter-spacing:.14em;color:var(--text3)">Open positions</div>
+          <sc-if value="{{ noReqs }}" hint-placeholder-val="{{ false }}">
+            <p style="margin:0;padding:8px 0;font:400 12px var(--mono);color:var(--text3)">No positions yet — open one for this business unit.</p>
+          </sc-if>
+          <sc-for list="{{ dv.reqs }}" as="m" hint-placeholder-count="2">
+            <button onClick="{{ openReq }}" data-id="{{ m.id }}" style="display:flex;width:100%;align-items:center;gap:10px;border-radius:6px;padding:8px;text-align:left;background:none;border:none;cursor:pointer" style-hover="background:var(--panel2)">
+              <span style="min-width:0;flex:1">
+                <span style="display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font:500 13px var(--sans);color:var(--text)">{{ m.positionTitle }}</span>
+                <span style="display:block;font:400 11px var(--mono);color:var(--text3)">Lead · {{ m.leadName }}</span>
+              </span>
+              <span style="display:inline-flex;align-items:center;gap:6px;white-space:nowrap;border-radius:6px;border:1px solid {{ m.pillBorder }};padding:3px 9px;font:600 10.5px var(--mono);text-transform:uppercase;letter-spacing:.06em;color:{{ m.pillColor }};background:{{ m.pillBg }}"><span style="width:6px;height:6px;border-radius:50%;background:currentColor"></span>{{ m.stageLabel }}</span>
+              <span style="color:var(--text3)">›</span>
+            </button>
+          </sc-for>
         </div>
-        <div style="padding:14px 20px;border-top:1px solid var(--line-soft);display:flex;gap:8px;flex:none">
-          <button onClick="{{ backToClient }}" style="flex:none;display:inline-flex;align-items:center;justify-content:center;padding:8px 13px;border-radius:8px;font:500 13px var(--sans);border:1px solid var(--line);color:var(--text2);background:none;cursor:pointer" style-hover="color:var(--text);border-color:var(--text3)">Back</button>
-          <a href="Project.dc.html" style="flex:1;display:inline-flex;align-items:center;justify-content:center;gap:7px;padding:8px 13px;border-radius:8px;font:600 13px var(--sans);background:var(--amber-btn);border:1px solid var(--amber-btn);color:#1a1712;text-decoration:none" style-hover="filter:brightness(1.05);text-decoration:none">
-            Open project
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M5 12h14M13 6l6 6-6 6"></path></svg>
-          </a>
+
+        <div style="display:flex;align-items:center;justify-content:space-between;border-top:1px solid var(--line-soft);padding:12px 20px">
+          <button onClick="{{ closeDrawer }}" style="display:flex;align-items:center;justify-content:center;gap:8px;border-radius:8px;padding:10px 14px;font:500 13.5px var(--sans);background:transparent;border:none;color:var(--text3);cursor:pointer" style-hover="color:var(--text2);text-decoration:underline">Close</button>
+          <button onClick="{{ openReqModal }}" style="display:flex;align-items:center;justify-content:center;gap:8px;border-radius:8px;padding:10px 14px;font:500 13.5px var(--sans);background:var(--panel);border:1px solid var(--line);color:var(--text2);cursor:pointer" style-hover="color:var(--text);border-color:var(--text3)">＋ New position</button>
         </div>
       </sc-if>
 
+      <sc-if value="{{ reqView }}" hint-placeholder-val="{{ false }}">
+        <div data-screen-label="Req sub-view" style="border-bottom:1px solid var(--line-soft);padding:18px 20px 14px">
+          <button onClick="{{ backToBu }}" style="margin-bottom:6px;display:flex;align-items:center;gap:4px;font:400 11px var(--mono);color:var(--text3);background:none;border:none;padding:0;cursor:pointer" style-hover="color:var(--text)">‹ {{ dv.name }}</button>
+          <div style="font:500 11px var(--mono);text-transform:uppercase;letter-spacing:.08em;color:var(--text3)">Position</div>
+          <div style="margin-top:4px;font-size:17px;font-weight:600">{{ rv.positionTitle }}</div>
+          <div style="margin-top:2px;font:400 11px var(--mono);color:var(--text3)">Lead · {{ rv.leadName }}</div>
+          <a href="{{ rv.openHref }}" style="margin-top:12px;width:100%;display:flex;align-items:center;justify-content:center;gap:8px;border-radius:6px;padding:10px 14px;font:500 13.5px var(--sans);background:var(--amber-btn);border:1px solid var(--amber-btn);color:var(--on-amber);text-decoration:none" style-hover="filter:brightness(1.05)">Open position →</a>
+        </div>
+        <div style="flex:1;overflow-y:auto;padding:18px 20px">
+          <div style="margin-bottom:16px;display:flex;align-items:center;justify-content:space-between">
+            <span style="display:inline-flex;align-items:center;gap:6px;white-space:nowrap;border-radius:6px;border:1px solid {{ rv.pillBorder }};padding:3px 9px;font:600 10.5px var(--mono);text-transform:uppercase;letter-spacing:.06em;color:{{ rv.pillColor }};background:{{ rv.pillBg }}"><span style="width:6px;height:6px;border-radius:50%;background:currentColor"></span>{{ rv.stageLabel }}</span>
+            <span style="display:inline-flex;align-items:center;gap:6px;white-space:nowrap;font:500 12px var(--mono);color:{{ rv.healthText }}"><span style="width:7px;height:7px;border-radius:50%;background:{{ rv.healthDot }}"></span>{{ rv.healthLabel }}</span>
+          </div>
+          <div style="margin-bottom:8px;font:600 10px var(--mono);text-transform:uppercase;letter-spacing:.14em;color:var(--text3)">Stage</div>
+          <sc-for list="{{ rv.gates }}" as="gt" hint-placeholder-count="6">
+            <div style="display:flex;align-items:center;gap:10px;padding:7px 0;font:{{ gt.weight }} 12.5px var(--mono);color:{{ gt.color }};opacity:{{ gt.opacity }}">
+                            <span style="display:grid;flex:none;width:14px;height:14px;place-items:center;border-radius:50%;border:1.5px solid {{ gt.ring }};background:{{ gt.fill }}">
+                <sc-if value="{{ gt.done }}" hint-placeholder-val="{{ false }}">
+                  <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="var(--green)" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"></path></svg>
+                </sc-if>
+                <sc-if value="{{ gt.notDone }}" hint-placeholder-val="{{ true }}">
+                  <span style="width:6px;height:6px;border-radius:50%;background:{{ gt.dot }}"></span>
+                </sc-if>
+              </span>
+              {{ gt.label }}
+            </div>
+          </sc-for>
+          <div style="margin:18px 0 8px;font:600 10px var(--mono);text-transform:uppercase;letter-spacing:.14em;color:var(--text3)">Target</div>
+          <p style="margin:0;font:400 12.5px var(--mono);color:var(--text2)">{{ rv.target }}</p>
+        </div>
+        <div style="display:flex;align-items:center;justify-content:flex-start;border-top:1px solid var(--line-soft);padding:12px 20px">
+          <button onClick="{{ backToBu }}" style="display:flex;align-items:center;justify-content:center;gap:8px;border-radius:8px;padding:10px 14px;font:500 13.5px var(--sans);background:transparent;border:none;color:var(--text3);cursor:pointer" style-hover="color:var(--text2);text-decoration:underline">Back</button>
+        </div>
+      </sc-if>
     </aside>
   </sc-if>
 
-  <sc-if value="{{ modalOpen }}" hint-placeholder-val="{{ false }}">
-    <div onClick="{{ closeModal }}" style="position:fixed;inset:0;background:rgba(15,20,30,.4);z-index:100;display:grid;place-items:center">
-      <div onClick="{{ stopClick }}" style="width:480px;max-width:94vw;max-height:90vh;overflow-y:auto;background:var(--panel);border:1px solid var(--line);border-radius:12px;box-shadow:var(--shadow);padding:22px;animation:fadeUp .22s ease both">
-        <div style="display:flex;align-items:center;margin-bottom:4px">
-          <div style="font:600 16px var(--sans)">New client</div>
-        </div>
-        <div style="font:400 12px var(--sans);color:var(--text2);margin-bottom:14px">Search the company database first — most clients already exist as records.</div>
+  <sc-if value="{{ modalShown }}" hint-placeholder-val="{{ false }}">
+    <div onClick="{{ closeModal }}" style="position:fixed;inset:0;z-index:100;display:grid;place-items:center;background:rgba(15,20,30,.4)">
+      <div role="dialog" aria-modal="true" aria-label="New business unit" data-screen-label="New business unit modal" onClick="{{ stop }}" style="max-height:90vh;width:440px;max-width:94vw;overflow-y:auto;border-radius:12px;border:1px solid var(--line);background:var(--panel);padding:22px;box-shadow:var(--shadow);animation:fadeUp .5s ease both">
+        <div style="margin-bottom:16px;font-size:16px;font-weight:600">New business unit</div>
+        <p style="margin:-8px 0 16px;font:400 11.5px var(--mono);color:var(--text3)">Pick from the org structure, or add one that isn't listed yet.</p>
+        <sc-if value="{{ hasModalError }}" hint-placeholder-val="{{ false }}">
+          <div role="alert" style="margin-bottom:16px;border-radius:8px;background:var(--red-dim);padding:10px 12px;font:400 11.5px var(--mono);color:var(--red)">{{ modalError }}</div>
+        </sc-if>
 
-        <sc-if value="{{ noSelection }}" hint-placeholder-val="{{ true }}">
-          <div style="display:flex;align-items:center;gap:8px;background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:8px 11px">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--text3)" stroke-width="2"><circle cx="11" cy="11" r="8"></circle><path d="m21 21-4.3-4.3"></path></svg>
-            <input value="{{ dbq }}" onInput="{{ onDbSearch }}" placeholder="Search company database…" style="background:none;border:none;outline:none;width:100%;font:400 13px var(--mono);color:var(--text)">
-          </div>
-
-          <sc-if value="{{ dbHasResults }}" hint-placeholder-val="{{ false }}">
-            <div style="border:1px solid var(--line-soft);border-radius:8px;margin-top:10px;overflow:hidden">
-              <sc-for list="{{ dbResults }}" as="c" hint-placeholder-count="3">
-                <button onClick="{{ pickCompany }}" data-id="{{ c.id }}" style="display:flex;align-items:center;gap:10px;width:100%;padding:9px 12px;background:none;border:none;border-bottom:1px solid var(--line-soft);cursor:pointer;text-align:left;color:var(--text)" style-hover="background:var(--panel2)">
-                  <span style="width:24px;height:24px;border-radius:6px;display:grid;place-items:center;font:600 9px var(--mono);background:var(--sky-dim);color:var(--sky);flex:none">{{ c.initials }}</span>
-                  <span style="min-width:0">
-                    <span style="display:block;font:600 12.5px var(--sans)">{{ c.name }}</span>
-                    <span style="display:block;font:400 11px var(--mono);color:var(--text3)">{{ c.meta }}</span>
-                  </span>
-                  <sc-if value="{{ c.isClient }}" hint-placeholder-val="{{ false }}">
-                    <span style="margin-left:auto;flex:none;font:600 10px var(--mono);letter-spacing:.06em;color:var(--green);background:var(--green-dim);border-radius:5px;padding:2px 7px">CLIENT</span>
-                  </sc-if>
-                  <sc-if value="{{ c.notClient }}" hint-placeholder-val="{{ true }}">
-                    <span style="margin-left:auto;flex:none;font:500 11px var(--mono);color:var(--sky)">Select →</span>
-                  </sc-if>
-                </button>
-              </sc-for>
-              <button onClick="{{ startNewCompany }}" style="display:flex;align-items:center;gap:10px;width:100%;padding:9px 12px;background:none;border:none;cursor:pointer;text-align:left;color:var(--text2)" style-hover="background:var(--panel2);color:var(--text)">
-                <span style="width:24px;height:24px;border-radius:6px;display:grid;place-items:center;background:var(--amber-dim);color:var(--amber);flex:none">
-                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M12 5v14M5 12h14"></path></svg>
+        <sc-if value="{{ noPick }}" hint-placeholder-val="{{ true }}">
+          <label style="display:block;margin-bottom:16px">
+            <span style="display:flex;margin-bottom:6px;align-items:baseline;justify-content:space-between"><span style="font:600 10px var(--mono);text-transform:uppercase;letter-spacing:.12em;color:var(--text3)">Business unit</span></span>
+            <input value="{{ pq }}" onChange="{{ onPickQuery }}" placeholder="Search org structure…" style="width:100%;border-radius:8px;border:1px solid var(--line);background:var(--panel2);padding:10px 12px;font:400 13px var(--mono);color:var(--text);outline:none" style-focus="border-color:var(--sky)">
+          </label>
+          <div data-screen-label="Business unit results" style="max-height:280px;overflow-y:auto;border-radius:8px;border:1px solid var(--line-soft)">
+            <sc-for list="{{ hits }}" as="hit" hint-placeholder-count="4">
+              <button onClick="{{ pickHit }}" data-id="{{ hit.id }}" style="display:flex;width:100%;align-items:center;gap:10px;border:none;border-bottom:{{ hit.border }};padding:10px 12px;text-align:left;background:none;cursor:pointer" style-hover="background:var(--panel2)">
+                <span aria-hidden="true" style="width:28px;height:28px;display:flex;flex:none;align-items:center;justify-content:center;border-radius:6px;background:var(--panel2);color:var(--text3);box-shadow:0 0 0 1px var(--line-soft)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2M13 7a4 4 0 1 1-8 0 4 4 0 0 1 8 0M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"></path></svg></span>
+                <span style="min-width:0;flex:1">
+                  <span style="display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font:500 13px var(--sans);color:var(--text)">{{ hit.name }}</span>
                 </span>
-                <span style="font:500 12.5px var(--sans)">None of these — add “{{ dbq }}” as a new company</span>
+                <sc-if value="{{ hit.isBU }}" hint-placeholder-val="{{ false }}">
+                  <span style="border-radius:6px;background:var(--green-dim);padding:2px 6px;font:600 9.5px var(--mono);text-transform:uppercase;letter-spacing:.08em;color:var(--green)">Existing</span>
+                </sc-if>
+                <sc-if value="{{ hit.selectable }}" hint-placeholder-val="{{ true }}">
+                  <span style="font:400 11px var(--mono);color:var(--sky)">Select →</span>
+                </sc-if>
               </button>
-            </div>
-          </sc-if>
-
-          <sc-if value="{{ dbNoResults }}" hint-placeholder-val="{{ false }}">
-            <div style="border:1px dashed var(--line);border-radius:8px;margin-top:10px;padding:18px;text-align:center">
-              <div style="font:400 12.5px var(--mono);color:var(--text3);margin-bottom:10px">No company found for “{{ dbq }}”</div>
-              <button onClick="{{ startNewCompany }}" style="display:inline-flex;align-items:center;gap:7px;padding:7px 13px;border-radius:8px;font:600 12.5px var(--sans);border:1px solid var(--line);color:var(--text);background:none;cursor:pointer" style-hover="border-color:var(--text3)">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M12 5v14M5 12h14"></path></svg>
-                Add “{{ dbq }}” as a new company
-              </button>
-            </div>
-          </sc-if>
-
-          <sc-if value="{{ dbIdle }}" hint-placeholder-val="{{ true }}">
-            <div style="margin-top:10px;font:400 11.5px var(--mono);color:var(--text3);padding:4px 2px">Type at least 2 characters — searches 48,200 company records.</div>
-          </sc-if>
-
-          <sc-if value="{{ newCompanyOpen }}" hint-placeholder-val="{{ false }}">
-            <div style="border:1px solid var(--line);border-radius:10px;margin-top:12px;padding:14px;background:var(--panel2)">
-              <div style="font:600 10px var(--mono);letter-spacing:.14em;text-transform:uppercase;color:var(--text3);margin-bottom:10px">New company record</div>
-              <label style="display:block;font:600 10px var(--mono);letter-spacing:.12em;text-transform:uppercase;color:var(--text3);margin:0 0 6px">Company name</label>
-              <input value="{{ ncName }}" onInput="{{ draftNcName }}" placeholder="e.g. Meridian Energy Group" style="width:100%;background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:8px 11px;font:400 13px var(--mono);color:var(--text);outline:none" style-focus="border-color:var(--sky)">
-              <label style="display:flex;align-items:center;gap:6px;font:600 10px var(--mono);letter-spacing:.12em;text-transform:uppercase;color:var(--text3);margin:12px 0 6px">Domain <span style="font-weight:400;letter-spacing:0;text-transform:none;color:var(--text3)">· optional, helps us match the client</span></label>
-              <input value="{{ ncDomain }}" onInput="{{ draftNcDomain }}" placeholder="e.g. meridian.ae" style="width:100%;background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:8px 11px;font:400 13px var(--mono);color:var(--text);outline:none" style-focus="border-color:var(--sky)">
-              <div style="font:400 11px var(--mono);color:var(--text3);margin-top:8px">Just the essentials now — sector, HQ, off-limits and more live in the client panel, editable any time.</div>
+            </sc-for>
+            <sc-if value="{{ noHits }}" hint-placeholder-val="{{ false }}">
+              <p style="margin:0;padding:12px;font:400 11.5px var(--mono);color:var(--text3)">No match for “{{ pqTrim }}”.</p>
+            </sc-if>
+            <button onClick="{{ openCustom }}" style="display:flex;width:100%;align-items:center;gap:6px;padding:10px 12px;text-align:left;font:400 11.5px var(--mono);color:var(--amber);background:none;border:none;cursor:pointer" style-hover="background:var(--panel2)">＋ Not listed — add a business unit</button>
+          </div>
+          <sc-if value="{{ customOpen }}" hint-placeholder-val="{{ false }}">
+            <div data-screen-label="New business unit name" style="margin-top:16px;border-radius:8px;border:1px solid var(--line-soft);background:var(--panel2);padding:14px">
+              <label style="display:block;margin-bottom:0">
+                <span style="display:flex;margin-bottom:6px"><span style="font:600 10px var(--mono);text-transform:uppercase;letter-spacing:.12em;color:var(--text3)">Business unit name</span></span>
+                <input value="{{ custom.name }}" onChange="{{ onCustom }}" data-id="name" placeholder="e.g. Data & Analytics" style="width:100%;border-radius:8px;border:1px solid {{ customNameBorder }};background:var(--panel2);padding:10px 12px;font:400 13px var(--mono);color:var(--text);outline:none" style-focus="border-color:var(--sky)">
+                <sc-if value="{{ hasCustomError }}" hint-placeholder-val="{{ false }}">
+                  <span style="display:block;margin-top:6px;font:400 11px var(--mono);color:var(--red)">{{ customError }}</span>
+                </sc-if>
+              </label>
+              <div style="margin-top:16px;display:flex;justify-content:flex-end;gap:8px">
+                <button onClick="{{ cancelCustom }}" style="display:flex;align-items:center;justify-content:center;gap:8px;border-radius:8px;padding:10px 14px;font:500 13.5px var(--sans);background:var(--panel);border:1px solid var(--line);color:var(--text2);cursor:pointer" style-hover="color:var(--text);border-color:var(--text3)">Cancel</button>
+                <button onClick="{{ confirmCustom }}" style="display:flex;align-items:center;justify-content:center;gap:8px;border-radius:8px;padding:10px 14px;font:600 13.5px var(--sans);background:var(--amber-btn);border:1px solid var(--amber-btn);color:var(--on-amber);cursor:pointer" style-hover="filter:brightness(1.05)">Use this name</button>
+              </div>
             </div>
           </sc-if>
         </sc-if>
 
-        <sc-if value="{{ hasSelection }}" hint-placeholder-val="{{ false }}">
-          <div style="display:flex;align-items:center;gap:10px;background:var(--panel2);border:1px solid var(--line-soft);border-radius:8px;padding:9px 12px">
-            <span style="width:24px;height:24px;border-radius:6px;display:grid;place-items:center;font:600 9px var(--mono);background:var(--amber-dim);color:var(--amber);flex:none">{{ selInitials }}</span>
-            <div>
-              <div style="font:600 12.5px var(--sans)">{{ selName }}</div>
-              <div style="font:400 11px var(--mono);color:var(--text3)">{{ selMeta }}</div>
-            </div>
-            <button onClick="{{ backToCompany }}" style="margin-left:auto;font:500 11.5px var(--sans);color:var(--sky);background:none;border:none;cursor:pointer;padding:4px">Change</button>
+        <sc-if value="{{ hasPick }}" hint-placeholder-val="{{ false }}">
+          <div data-screen-label="Picked business unit" style="margin-bottom:16px;display:flex;align-items:center;gap:10px;border-radius:8px;border:1px solid var(--line-soft);background:var(--panel2);padding:10px 12px">
+            <span aria-hidden="true" style="width:28px;height:28px;display:flex;flex:none;align-items:center;justify-content:center;border-radius:6px;background:var(--panel2);color:var(--text3);box-shadow:0 0 0 1px var(--line-soft)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2M13 7a4 4 0 1 1-8 0 4 4 0 0 1 8 0M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"></path></svg></span>
+            <span style="min-width:0;flex:1">
+              <span style="display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font:600 13px var(--sans);color:var(--text)">{{ pv.name }}</span>
+            </span>
+            <button onClick="{{ changePick }}" style="font:400 11px var(--mono);color:var(--sky);background:none;border:none;padding:0;cursor:pointer" style-hover="text-decoration:underline">Change</button>
           </div>
-        </sc-if>
 
-        <sc-if value="{{ showCreateFields }}" hint-placeholder-val="{{ false }}">
-          <div style="display:flex;align-items:center;gap:8px;margin:16px 0 6px">
-            <span style="font:600 10px var(--mono);letter-spacing:.14em;text-transform:uppercase;color:var(--text3)">Primary contact</span>
-            <span style="font:400 11px var(--mono);color:var(--text3)">· optional — gets a portal invite. Add more from the client panel later.</span>
+          <div style="margin-bottom:12px;font:600 10px var(--mono);text-transform:uppercase;letter-spacing:.12em;color:var(--text3)">
+            Primary hiring manager
+            <span style="margin-left:4px;font-weight:400;text-transform:none;letter-spacing:normal;color:var(--text3)">· optional — gets an invite. Add more from the business unit panel later.</span>
           </div>
-          <div style="display:flex;gap:10px;margin-top:6px">
+          <div style="display:flex;gap:10px">
             <div style="flex:1">
-              <label style="display:block;font:600 10px var(--mono);letter-spacing:.12em;text-transform:uppercase;color:var(--text3);margin:0 0 6px">Full name</label>
-              <input value="{{ repName }}" onInput="{{ draftRepName }}" placeholder="e.g. Khalid Al-Otaibi" style="width:100%;background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:8px 11px;font:400 13px var(--mono);color:var(--text);outline:none" style-focus="border-color:var(--sky)">
+              <label style="display:block;margin-bottom:16px">
+                <span style="display:flex;margin-bottom:6px"><span style="font:600 10px var(--mono);text-transform:uppercase;letter-spacing:.12em;color:var(--text3)">Full name</span></span>
+                <input value="{{ contact.fullName }}" onChange="{{ onContact }}" data-id="fullName" placeholder="e.g. Farah Nasser" style="width:100%;border-radius:8px;border:1px solid var(--line);background:var(--panel2);padding:10px 12px;font:400 13px var(--mono);color:var(--text);outline:none" style-focus="border-color:var(--sky)">
+              </label>
             </div>
             <div style="flex:1">
-              <label style="display:block;font:600 10px var(--mono);letter-spacing:.12em;text-transform:uppercase;color:var(--text3);margin:0 0 6px">Position</label>
-              <input value="{{ repPos }}" onInput="{{ draftRepPos }}" placeholder="e.g. Group CHRO" style="width:100%;background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:8px 11px;font:400 13px var(--mono);color:var(--text);outline:none" style-focus="border-color:var(--sky)">
+              <label style="display:block;margin-bottom:16px">
+                <span style="display:flex;margin-bottom:6px"><span style="font:600 10px var(--mono);text-transform:uppercase;letter-spacing:.12em;color:var(--text3)">Title</span></span>
+                <input value="{{ contact.position }}" onChange="{{ onContact }}" data-id="position" placeholder="e.g. Engineering Director" style="width:100%;border-radius:8px;border:1px solid var(--line);background:var(--panel2);padding:10px 12px;font:400 13px var(--mono);color:var(--text);outline:none" style-focus="border-color:var(--sky)">
+              </label>
             </div>
           </div>
-          <label style="display:block;font:600 10px var(--mono);letter-spacing:.12em;text-transform:uppercase;color:var(--text3);margin:12px 0 6px">Work email</label>
-          <input value="{{ repEmail }}" onInput="{{ draftRepEmail }}" placeholder="name@company.com" style="width:100%;background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:8px 11px;font:400 13px var(--mono);color:var(--text);outline:none" style-focus="border-color:var(--sky)">
-          <sc-if value="{{ repError }}" hint-placeholder-val="{{ false }}">
-            <div style="font:400 11.5px var(--mono);color:var(--red);margin-top:8px">{{ repErrorMsg }}</div>
-          </sc-if>
-          <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:20px">
-            <button onClick="{{ closeModal }}" style="padding:7px 13px;border-radius:8px;font:500 13px var(--sans);border:1px solid var(--line);color:var(--text2);background:none;cursor:pointer" style-hover="color:var(--text);border-color:var(--text3)">Cancel</button>
-            <button onClick="{{ createClient }}" style="padding:7px 13px;border-radius:8px;font:600 13px var(--sans);background:var(--amber-btn);border:1px solid var(--amber-btn);color:#1a1712;cursor:pointer" style-hover="filter:brightness(1.05)">{{ createLabel }}</button>
+          <label style="display:block;margin-bottom:16px">
+            <span style="display:flex;margin-bottom:6px"><span style="font:600 10px var(--mono);text-transform:uppercase;letter-spacing:.12em;color:var(--text3)">Work email</span></span>
+            <input type="email" value="{{ contact.email }}" onChange="{{ onContact }}" data-id="email" placeholder="name@company.com" style="width:100%;border-radius:8px;border:1px solid var(--line);background:var(--panel2);padding:10px 12px;font:400 13px var(--mono);color:var(--text);outline:none" style-focus="border-color:var(--sky)">
+          </label>
+          <div style="margin-top:20px;display:flex;justify-content:flex-end;gap:8px">
+            <button onClick="{{ closeModal }}" style="display:flex;align-items:center;justify-content:center;gap:8px;border-radius:8px;padding:10px 14px;font:500 13.5px var(--sans);background:var(--panel);border:1px solid var(--line);color:var(--text2);cursor:pointer" style-hover="color:var(--text);border-color:var(--text3)">Cancel</button>
+            <button onClick="{{ createBu }}" style="display:flex;align-items:center;justify-content:center;gap:8px;border-radius:8px;padding:10px 14px;font:600 13.5px var(--sans);background:var(--amber-btn);border:1px solid var(--amber-btn);color:var(--on-amber);cursor:pointer" style-hover="filter:brightness(1.05)">{{ createLabel }}</button>
           </div>
         </sc-if>
-
       </div>
     </div>
   </sc-if>
 
-  <sc-if value="{{ toastVisible }}" hint-placeholder-val="{{ false }}">
-    <div style="position:fixed;bottom:22px;left:50%;transform:translateX(-50%);background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:9px 16px;font:500 12px var(--mono);color:var(--text2);box-shadow:var(--shadow);z-index:120;animation:fadeUp .2s ease both">{{ toastMsg }}</div>
+  <sc-if value="{{ reqModalShown }}" hint-placeholder-val="{{ false }}">
+    <div onClick="{{ closeReqModal }}" style="position:fixed;inset:0;z-index:100;display:grid;place-items:center;background:rgba(15,20,30,.4)">
+      <div role="dialog" aria-modal="true" aria-label="New position" data-screen-label="New position modal (business unit locked)" onClick="{{ stop }}" style="width:440px;max-width:94vw;border-radius:12px;border:1px solid var(--line);background:var(--panel);padding:22px;box-shadow:var(--shadow);animation:fadeUp .5s ease both">
+        <div style="margin-bottom:16px;font-size:16px;font-weight:600">New position</div>
+        <label style="display:block;margin-bottom:16px">
+          <span style="display:flex;margin-bottom:6px"><span style="font:600 10px var(--mono);text-transform:uppercase;letter-spacing:.12em;color:var(--text3)">Business unit</span></span>
+          <select disabled style="width:100%;border-radius:8px;border:1px solid var(--line);background:var(--panel2);padding:10px 12px;font:400 13px var(--mono);color:var(--text);outline:none;cursor:not-allowed;opacity:.6">
+            <option label="{{ lockedName }}" value="locked"></option>
+          </select>
+          <span style="display:block;margin-top:6px;font:400 11px var(--mono);color:var(--text3)">This position belongs to {{ lockedName }}.</span>
+        </label>
+        <label style="display:block;margin-bottom:16px">
+          <span style="display:flex;margin-bottom:6px"><span style="font:600 10px var(--mono);text-transform:uppercase;letter-spacing:.12em;color:var(--text3)">Position</span></span>
+          <div style="position:relative">
+            <span style="position:relative;display:block">
+              <input value="{{ pos }}" onChange="{{ onPos }}" onFocus="{{ posFocus }}" onBlur="{{ posBlur }}" role="combobox" autocomplete="off" placeholder="e.g. Senior Backend Engineer" style="width:100%;border-radius:8px;border:1px solid {{ posBorder }};background:var(--panel2);padding:10px 36px 10px 12px;font:500 13px var(--sans);color:var(--text);outline:none" style-focus="border-color:var(--sky)">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="pointer-events:none;position:absolute;right:12px;top:12px;color:{{ posCheck }}"><path d="M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18M8.5 12.2l2.3 2.3 4.7-4.7"></path></svg>
+            </span>
+            <sc-if value="{{ posListShown }}" hint-placeholder-val="{{ false }}">
+              <ul role="listbox" aria-label="Role templates" style="position:absolute;z-index:10;margin:4px 0 0;padding:4px 0;list-style:none;max-height:288px;width:100%;overflow:auto;border-radius:10px;border:1px solid var(--line);background:var(--panel);box-shadow:var(--shadow)">
+                <sc-for list="{{ posMatches }}" as="tp" hint-placeholder-count="5">
+                  <li role="option" onMouseDown="{{ pickTemplate }}" data-id="{{ tp.title }}" style="display:flex;cursor:pointer;align-items:baseline;gap:10px;padding:7px 12px;color:var(--text2)" style-hover="background:var(--panel2)">
+                    <span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font:500 13px var(--sans);color:var(--text)">{{ tp.title }}</span>
+                    <span style="min-width:0;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;text-align:right;font:400 11px var(--mono);color:var(--text3)">{{ tp.seniority }}</span>
+                  </li>
+                </sc-for>
+              </ul>
+            </sc-if>
+          </div>
+          <sc-if value="{{ hasPosError }}" hint-placeholder-val="{{ false }}">
+            <span style="display:block;margin-top:6px;font:400 11px var(--mono);color:var(--red)">{{ posError }}</span>
+          </sc-if>
+        </label>
+        <label style="display:block;margin-bottom:16px">
+          <span style="display:flex;margin-bottom:6px"><span style="font:600 10px var(--mono);text-transform:uppercase;letter-spacing:.12em;color:var(--text3)">Target date</span></span>
+          <div style="position:relative;display:flex;width:100%;align-items:center;justify-content:space-between;border-radius:8px;border:1px solid var(--line);background:var(--panel2);padding:10px 12px;font:400 13px var(--mono)">
+            <span style="color:{{ targetColor }}">{{ targetLabel }}</span>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color:var(--text3)"><path d="M8 2v4M16 2v4M3 10h18M5 4h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2Z"></path></svg>
+            <input type="date" value="{{ target }}" onChange="{{ onTarget }}" style="position:absolute;inset:0;cursor:pointer;opacity:0">
+          </div>
+        </label>
+        <div style="margin-top:20px;display:flex;justify-content:flex-end;gap:8px">
+          <button onClick="{{ closeReqModal }}" style="display:flex;align-items:center;justify-content:center;gap:8px;border-radius:8px;padding:10px 14px;font:500 13.5px var(--sans);background:var(--panel);border:1px solid var(--line);color:var(--text2);cursor:pointer" style-hover="color:var(--text);border-color:var(--text3)">Cancel</button>
+          <button onClick="{{ createReq }}" style="display:flex;align-items:center;justify-content:center;gap:8px;border-radius:8px;padding:10px 14px;font:600 13.5px var(--sans);background:var(--amber-btn);border:1px solid var(--amber-btn);color:var(--on-amber);cursor:pointer" style-hover="filter:brightness(1.05)">Create position</button>
+        </div>
+      </div>
+    </div>
   </sc-if>
 
+  <sc-if value="{{ hasToast }}" hint-placeholder-val="{{ false }}">
+    <div role="status" style="position:fixed;bottom:22px;left:50%;transform:translateX(-50%);z-index:120;background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:9px 16px;font:500 12px var(--mono);color:var(--text2);box-shadow:var(--shadow);animation:fadeUp .2s ease both">{{ toast }}</div>
+  </sc-if>
 </div>
+<template id="__bundler_thumbnail"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><rect width="100" height="100" fill="#16171a"></rect><g transform="translate(50 40) scale(.42)" fill="none" stroke="#f8fafc"><path d="M-32 10 L 0 -8 L 32 10 L 0 28 Z M-32 10 V 32 L 0 50 L 32 32 V 10 M0 28 V 50" stroke-width="3" stroke-linejoin="round"></path><path d="M0 -48 L 32 -30 L 0 -12 L -32 -30 Z" fill="#f8fafc" stroke="none"></path></g><text x="50" y="86" fill="#e2b65c" font-family="Geist,Inter,sans-serif" font-size="13" font-weight="700" letter-spacing="2" text-anchor="middle">BU</text></svg></template>
 
-<template id="__bundler_thumbnail"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><rect width="100" height="100" fill="#16171a"></rect><text x="50" y="50" fill="#e2b65c" font-family="Montserrat,sans-serif" font-size="26" font-weight="700" text-anchor="middle" dominant-baseline="central">CL</text></svg></template>
 </x-dc>
 <script type="text/x-dc" data-dc-script>
 class Component extends DCLogic {
   constructor(props) {
     super(props);
+    const params = typeof location !== 'undefined' ? new URLSearchParams(location.search) : new URLSearchParams('');
+    const flag = (key, fallback) => params.has(key) ? ['1', 'true', ''].includes(params.get(key)) : !!fallback;
+
+    this.ICON = {
+      myProjects: 'M12 2a10 10 0 1 0 .01 0M12 8a4 4 0 1 0 .01 0',
+      allProjects: 'M3 3h7v7H3zM14 3h7v7h-7zM3 14h7v7H3zM14 14h7v7h-7z',
+      units: 'M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2M13 7a4 4 0 1 1-8 0 4 4 0 0 1 8 0M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75',
+      team: 'M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2M13 7a4 4 0 1 1-8 0 4 4 0 0 1 8 0M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75',
+      settings: 'M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6ZM19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09a1.65 1.65 0 0 0-1-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09a1.65 1.65 0 0 0 1.51-1 1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33h.01a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51h.01a1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82v.01a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1Z',
+      moon: 'M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79Z',
+      sun: 'M12 16a4 4 0 1 0 0-8 4 4 0 0 0 0 8ZM12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4',
+      collapse: 'm11 17-5-5 5-5M18 17l-5-5 5-5',
+      expand: 'm13 17 5-5-5-5M6 17l5-5-5-5',
+    };
+
     this.STAGES = {
-      brief: { label: 'Brief', color: 'var(--text2)', bg: 'transparent', border: 'var(--line)', idx: 0 },
-      universe: { label: 'Universe', color: 'var(--sky)', bg: 'var(--sky-dim)', border: 'transparent', idx: 1 },
-      locked: { label: 'Universe locked', color: 'var(--sky)', bg: 'transparent', border: 'var(--sky)', idx: 1 },
-      mapping: { label: 'Mapping', color: 'var(--amber)', bg: 'var(--amber-dim)', border: 'transparent', idx: 2 },
-      outreach: { label: 'Outreach live', color: 'var(--amber)', bg: 'transparent', border: 'var(--amber)', idx: 3 },
-      delivered: { label: 'Shortlist delivered', color: 'var(--green)', bg: 'var(--green-dim)', border: 'transparent', idx: 4 },
+      BRIEF: { label: 'Brief', color: 'var(--text2)', bg: 'var(--panel2)', border: 'transparent' },
+      UNIVERSE: { label: 'Universe', color: 'var(--sky)', bg: 'var(--sky-dim)', border: 'transparent' },
+      MAPPING: { label: 'Mapping', color: 'var(--amber)', bg: 'var(--amber-dim)', border: 'transparent' },
+      OUTREACH: { label: 'Outreach live', color: 'var(--amber)', bg: 'var(--amber-dim)', border: 'transparent' },
+      DELIVERED: { label: 'Shortlist delivered', color: 'var(--green)', bg: 'var(--green-dim)', border: 'transparent' },
+      CLOSED: { label: 'Closed', color: 'var(--text3)', bg: 'transparent', border: 'var(--line-soft)' },
     };
-    this.GATES = ['Brief', 'Universe', 'Mapping', 'Outreach live', 'Shortlist delivered'];
-    this.DB = [
-      { id: 'mer', name: 'Meridian Energy Group', hq: 'UAE', sector: 'Energy' },
-      { id: 'alr', name: 'Al Rabie Saudi Foods', hq: 'Saudi Arabia', sector: 'FMCG' },
-      { id: 'bdw', name: 'Bindawood Holding', hq: 'Saudi Arabia', sector: 'Retail' },
-      { id: 'agt', name: 'Agthia Group', hq: 'UAE', sector: 'FMCG' },
-      { id: 'alm', name: 'Almarai', hq: 'Saudi Arabia', sector: 'FMCG' },
-      { id: 'ads', name: 'ADNOC Distribution', hq: 'UAE', sector: 'Energy' },
-      { id: 'sav', name: 'Savola Group', hq: 'Saudi Arabia', sector: 'FMCG' },
-      { id: 'maf', name: 'Majid Al Futtaim', hq: 'UAE', sector: 'Retail' },
-      { id: 'ara', name: 'Aramex', hq: 'UAE', sector: 'Logistics' },
-      { id: 'qnb', name: 'QNB Group', hq: 'Qatar', sector: 'Banking' },
-      { id: 'oor', name: 'Ooredoo', hq: 'Qatar', sector: 'Telecom' },
-      { id: 'zai', name: 'Zain Group', hq: 'Kuwait', sector: 'Telecom' },
-      { id: 'als', name: 'Alshaya Group', hq: 'Kuwait', sector: 'Retail' },
-      { id: 'enb', name: 'Emirates NBD', hq: 'UAE', sector: 'Banking' },
-      { id: 'stc', name: 'stc Group', hq: 'Saudi Arabia', sector: 'Telecom' },
-      { id: 'lul', name: 'Lulu Group International', hq: 'UAE', sector: 'Retail' },
+    this.STAGE_ORDER = ['BRIEF', 'UNIVERSE', 'MAPPING', 'OUTREACH', 'DELIVERED', 'CLOSED'];
+    this.HEALTH = {
+      OK: { label: 'On track', dot: 'var(--green)', text: 'var(--text2)' },
+      RISK: { label: 'At risk', dot: 'var(--amber)', text: 'var(--amber)' },
+      OFF: { label: 'Off track', dot: 'var(--red)', text: 'var(--red)' },
+      DONE: { label: 'Complete', dot: 'var(--text3)', text: 'var(--text3)' },
+    };
+    this.ACCENTS = [
+      ['var(--u-accent-tint)', 'var(--u-accent)'], ['color-mix(in srgb, var(--u-chart-5) 16%, transparent)', 'var(--u-chart-5)'], ['var(--panel2)', 'var(--text2)'],
     ];
-    this.MANDATES = [
-      { id: 'm1', client: 'mer', pos: 'Chief Financial Officer', stage: 'mapping', lead: 'Yara Haddad', created: '02 Jul', target: '28 Aug', companies: 64, candidates: 18,
-        team: [['Yara Haddad', 'Lead'], ['Omar Khalil', 'Researcher']],
-        health: 'atrisk', healthLines: ['37 days to target, mapping 40% done', 'Candidate response rate below plan'] },
-      { id: 'm2', client: 'mer', pos: 'VP, Renewables', stage: 'universe', lead: 'Sara Al-Mansour', created: '10 Jul', target: '05 Oct', companies: 31, candidates: 0,
-        team: [['Sara Al-Mansour', 'Lead']],
-        health: 'ontrack', healthLines: ['Universe build on schedule', '75 days to target'] },
-      { id: 'm3', client: 'alr', pos: 'Chief Human Resources Officer', stage: 'outreach', lead: 'Yara Haddad', created: '14 Jun', target: '30 Aug', companies: 58, candidates: 22,
-        team: [['Yara Haddad', 'Lead'], ['Sara Al-Mansour', 'Researcher']],
-        health: 'ontrack', healthLines: ['Outreach live, 9 conversations open', '39 days to target'] },
-      { id: 'm4', client: 'alr', pos: 'Supply Chain Director', stage: 'brief', lead: 'Sara Al-Mansour', created: '22 Jul', target: '12 Sep', companies: 0, candidates: 0,
-        team: [['Sara Al-Mansour', 'Lead']],
-        health: 'ontrack', healthLines: ['Brief in progress, 52 days to target', 'No blockers'] },
-      { id: 'm5', client: 'bdw', pos: 'Chief Digital Officer', stage: 'locked', lead: 'Yousef Iman', created: '20 Jun', target: '19 Sep', companies: 88, candidates: 0,
-        team: [['Yousef Iman', 'Lead'], ['Omar Khalil', 'Researcher']],
-        health: 'ontrack', healthLines: ['Universe locked, mapping starts this week', '59 days to target'] },
-      { id: 'm6', client: 'bdw', pos: 'Head of eCommerce', stage: 'mapping', lead: 'Omar Khalil', created: '01 Jul', target: '10 Sep', companies: 42, candidates: 6,
-        team: [['Omar Khalil', 'Lead']],
-        health: 'offtrack', healthLines: ['Mapping behind plan by 2 weeks', 'No researcher assigned'] },
-      { id: 'm7', client: 'agt', pos: 'Chief Executive Officer', stage: 'delivered', lead: 'Yara Haddad', created: '02 Apr', target: 'Done', companies: 112, candidates: 41,
-        team: [['Yara Haddad', 'Lead']],
-        health: 'ontrack', healthLines: ['Shortlist delivered', 'Portal access expires 30 days post-delivery'] },
+
+    this.CHIPS = [
+      { key: 'all', label: 'All business units' },
+      { key: 'active', label: 'Active positions' },
+      { key: 'nomanager', label: 'No hiring manager' },
     ];
+
+    this.COLUMNS = [
+      { id: 'name', label: 'Business unit', track: 'minmax(220px, 30fr)', min: 220, sortable: true },
+      { id: 'managers', label: 'Hiring managers', track: '148px', min: 148, sortable: false },
+      { id: 'reqs', label: 'Open positions', track: '104px', min: 104, sortable: true },
+      { id: 'viewers', label: 'Viewers', track: '140px', min: 140, sortable: false },
+    ];
+
+    this.CATALOG = ['Automotive', 'Retail', 'Real Estate', 'Financial Services', 'Health', 'Education', 'Technology Ventures', 'Group Corporate'];
+
+    this.TEMPLATES = [
+      ['Senior Manager, Product Planning (Toyota & Lexus)', 'Senior'], ['Aftersales Operations Manager', 'Manager'], ['Regional Service Manager', 'Manager'],
+      ['Buying Director, IKEA UAE', 'Senior'], ['Regional Store Operations Manager, M&S', 'Senior'], ['Category Manager, Fashion & Lifestyle', 'Manager'],
+      ['Leasing Director, Mixed-Use Retail', 'Senior'], ['Development Manager', 'Manager'], ['Facilities & Asset Manager', 'Manager'],
+      ['Head of Credit Risk', 'Senior'], ['Insurance Product Manager', 'Manager'], ['Financial Planning & Analysis Manager', 'Manager'],
+    ].map(([title, seniority]) => ({ title, seniority }));
+
+    this.SEED = [
+      {
+        id: 'c1', name: 'Automotive', notes: 'Toyota, Lexus & Honda distribution across the UAE — largest revenue base in the group.',
+        managers: [
+          { id: 'r-khalid', fullName: 'Khalid Al Marzooqi', position: 'VP Automotive Operations', email: 'khalid.almarzooqi@alfuttaim.com', status: 'ACTIVE', accent: 0 },
+          { id: 'r-mariam', fullName: 'Mariam Al Suwaidi', position: 'Aftersales Director', email: 'mariam.alsuwaidi@alfuttaim.com', status: 'INVITED', accent: 2 },
+        ],
+        reqs: [
+          { id: 'm1', positionTitle: 'Senior Manager, Product Planning (Toyota & Lexus)', type: 'executive', stage: 'MAPPING', health: 'OK', leadName: 'Yara Haddad', target: '15 Oct 2026' },
+          { id: 'm2', positionTitle: 'Aftersales Operations Manager', type: 'mapping', stage: 'UNIVERSE', health: 'OK', leadName: 'Sara Al-Mansour', target: '30 Oct 2026' },
+        ],
+      },
+      {
+        id: 'c2', name: 'Real Estate', notes: 'Dubai Festival City and the group\u2019s mixed-use commercial & residential portfolio.', managers: [],
+        reqs: [
+          { id: 'm3', positionTitle: 'Leasing Director, Mixed-Use Retail', type: 'executive', stage: 'MAPPING', health: 'OK', leadName: 'Yara Haddad', target: '20 Nov 2026' },
+          { id: 'm4', positionTitle: 'Development Manager', type: 'mapping', stage: 'MAPPING', health: 'OFF', leadName: 'Sara Al-Mansour', target: '25 Oct 2026' },
+        ],
+      },
+      {
+        id: 'c3', name: 'Retail', notes: 'IKEA, Marks & Spencer and Robinsons franchise partnerships across the Middle East.', managers: [],
+        reqs: [
+          { id: 'm5', positionTitle: 'Buying Director, IKEA UAE', type: 'executive', stage: 'OUTREACH', health: 'RISK', leadName: 'Yousef Iman', target: '07 Nov 2026' },
+          { id: 'm6', positionTitle: 'Regional Store Operations Manager, M&S', type: 'mapping', stage: 'BRIEF', health: 'OK', leadName: 'Omar Khalil', target: '04 Dec 2026' },
+        ],
+      },
+      {
+        id: 'c4', name: 'Financial Services', notes: 'Al-Futtaim Finance, insurance and investment banking.',
+        managers: [{ id: 'r-noor', fullName: 'Noor Fares', position: 'Finance Director', email: 'noor.fares@alfuttaim.com', status: 'INVITED', accent: 1 }],
+        reqs: [
+          { id: 'm7', positionTitle: 'Head of Credit Risk', type: 'executive', stage: 'DELIVERED', health: 'DONE', leadName: 'Yara Haddad', target: '01 Jun 2026' },
+        ],
+      },
+    ];
+
+    let collapsed = false;
+    try { collapsed = localStorage.getItem('lm-side-collapsed') === '1'; } catch (e) {}
+
+    const reqModalOpen = flag('reqModalOpen', props.mandateModalOpen);
+    const drawerOpen = flag('drawerOpen', props.drawerOpen) || reqModalOpen;
+    const units = this.SEED.map((c) => ({ ...c, managers: c.managers.map((r) => ({ ...r })), reqs: c.reqs.map((m) => ({ ...m })) }));
+
     this.state = {
-      clients: [
-        { id: 'mer', dbId: 'mer', source: 'db', override: {}, reps: [{ name: 'Khalid Al-Otaibi', position: 'Group CHRO', email: 'k.alotaibi@meridian.ae', status: 'active' }] },
-        { id: 'alr', dbId: 'alr', source: 'db', override: {}, reps: [{ name: 'Noura Al-Fahad', position: 'VP People', email: 'n.alfahad@alrabie.sa', status: 'invited' }] },
-        { id: 'bdw', dbId: 'bdw', source: 'db', override: {}, reps: [] },
-        { id: 'agt', dbId: 'agt', source: 'db', override: {}, reps: [{ name: 'Hind Al-Suwaidi', position: 'Group HR Director', email: 'h.alsuwaidi@agthia.com', status: 'active' }, { name: 'Faisal Rahman', position: 'Talent Acquisition Lead', email: 'f.rahman@agthia.com', status: 'invited' }] },
-      ],
-      q: '', chip: 'all',
-      repMenu: null, repConfirm: '',
-      drawerId: null, drawerProjId: null, drawerInviteOpen: false, modalOpen: false, wsMenuOpen: false, dark: false, toast: '',
-      dName: '', dSector: '', dHq: '', dDomain: '', dOff: '',
-      step: 'company', dbq: '', newCompanyOpen: false,
-      ncName: '', ncDomain: '',
-      selDbId: null, selCustom: null,
-      repName: '', repPos: '', repEmail: '', repError: '',
-      collapsed: (() => { try { return localStorage.getItem('lm-side-collapsed') === '1'; } catch (e) { return false; } })(),
+      dark: true,
+      collapsed,
+      wsMenuOpen: false,
+      toast: '',
+      units,
+      empty: flag('empty', props.empty),
+      loading: flag('loading', props.loading),
+      q: '',
+      chip: 'all',
+      sortField: 'name',
+      sortDir: 'asc',
+      colVis: {},
+      colMenuOpen: false,
+      openId: drawerOpen ? 'c1' : null,
+      reqId: null,
+      draft: this.draftFor(units, drawerOpen ? 'c1' : null),
+      inviteOpen: false,
+      inv: { fullName: '', position: '', email: '' },
+      invError: '',
+      modalOpen: flag('modalOpen', props.modalOpen),
+      ...this.freshModal(),
+      reqModalOpen,
+      ...this.freshReqModal(),
     };
+  }
+
+  freshModal() {
+    return { pq: '', pick: null, customOpen: false, custom: { name: '' }, customError: '', contact: { fullName: '', position: '', email: '' }, modalError: '' };
+  }
+
+  freshReqModal() {
+    return { pos: '', posFocused: false, posError: '', target: '' };
+  }
+
+  draftFor(units, id) {
+    const c = units.find((x) => x.id === id);
+    if (!c) return { name: '', notes: '' };
+    return { name: c.name, notes: c.notes || '' };
   }
 
   componentDidMount() {
-    try { if (localStorage.getItem('lm-theme') !== 'light') { document.body.classList.add('dark'); this.setState({ dark: true }); } } catch (e) {}
-    this._esc = (e) => {
-      if (e.key !== 'Escape') return;
-      if (this.state.repMenu) { this.setState({ repMenu: null, repConfirm: '' }); return; }
-      if (this.state.drawerProjId) { this.setState({ drawerProjId: null }); return; }
-      this.setState({ drawerId: null, modalOpen: false, wsMenuOpen: false });
-    };
-    document.addEventListener('keydown', this._esc);
+    this.setState({ dark: document.documentElement.getAttribute('data-theme') !== 'light' });
   }
-  componentWillUnmount() { document.removeEventListener('keydown', this._esc); }
 
-  db(id) { return this.DB.find(c => c.id === id); }
-  company(cl) { return Object.assign({}, cl.dbId ? this.db(cl.dbId) : cl.custom, cl.override || {}); }
-  CONFIRM = {
-    cancel: ['Cancel the invite for {name}? The link stops working immediately.', 'Cancel invite'],
-    revoke: ['Revoke portal access for {name}? They stay on the client record.', 'Revoke'],
-    remove: ['Remove {name} from this client record?', 'Remove'],
-  };
-  setRepStatus(email, status) {
-    this.setState(s => ({ clients: s.clients.map(c => c.id === s.drawerId ? { ...c, reps: c.reps.map(r => r.email === email ? { ...r, status } : r) } : c) }));
+  componentDidUpdate(prev) {
+    const p = this.props;
+    if (prev.empty !== p.empty) this.setState({ empty: !!p.empty });
+    if (prev.loading !== p.loading) this.setState({ loading: !!p.loading });
+    if (prev.modalOpen !== p.modalOpen) this.setState({ modalOpen: !!p.modalOpen, ...this.freshModal() });
+    if (prev.drawerOpen !== p.drawerOpen) this.openDrawer(p.drawerOpen ? 'c1' : null);
+    if (prev.mandateModalOpen !== p.mandateModalOpen) {
+      if (p.mandateModalOpen) this.openDrawer('c1');
+      this.setState({ reqModalOpen: !!p.mandateModalOpen, ...this.freshReqModal() });
+    }
   }
-  removeRep(email) {
-    this.setState(s => ({ clients: s.clients.map(c => c.id === s.drawerId ? { ...c, reps: c.reps.filter(r => r.email !== email) } : c) }));
-  }
-  initials(name) { return name.split(/\s+/).filter(Boolean).slice(0, 2).map(w => w[0]).join('').toUpperCase(); }
+
   showToast(msg) {
     this.setState({ toast: msg });
-    clearTimeout(this._tx);
-    this._tx = setTimeout(() => this.setState({ toast: '' }), 2400);
+    clearTimeout(this._toastTimer);
+    this._toastTimer = setTimeout(() => this.setState({ toast: '' }), 2200);
   }
-  mandatesFor(cl) { return cl.dbId ? this.MANDATES.filter(m => m.client === cl.dbId) : []; }
-  validEmail(e) { return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e); }
-  repDraftValid() {
-    const st = this.state;
-    if (!st.repName.trim() || !st.repPos.trim() || !st.repEmail.trim()) return 'All three fields are required to send an invite.';
-    if (!this.validEmail(st.repEmail.trim())) return 'Enter a valid work email address.';
-    return '';
+
+  openDrawer(id) {
+    this.setState({ openId: id, reqId: null, draft: this.draftFor(this.state.units, id), inviteOpen: false, inv: { fullName: '', position: '', email: '' }, invError: '' });
   }
-  selectedCompany() {
-    return this.state.selDbId ? this.db(this.state.selDbId) : this.state.selCustom;
+
+  isValidEmail(value) {
+    return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value.trim());
   }
-  seedDetails(cl) {
-    const co = this.company(cl);
-    return { dName: co.name || '', dSector: co.sector || '', dHq: co.hq || '', dDomain: co.domain || '', dOff: co.offlimits || '' };
+
+  initials(name) {
+    const parts = name.trim().split(/\s+/).filter(Boolean);
+    if (!parts.length) return '?';
+    return (parts[0][0] + (parts.length > 1 ? parts[parts.length - 1][0] : '')).toUpperCase();
   }
-  detailsDirty(cl) {
-    const seed = this.seedDetails(cl);
-    const st = this.state;
-    return seed.dName !== st.dName || seed.dSector !== st.dSector || seed.dHq !== st.dHq || seed.dDomain !== st.dDomain || seed.dOff !== st.dOff;
+
+  updateUnit(id, fn) {
+    this.setState({ units: this.state.units.map((c) => (c.id === id ? fn(c) : c)) });
+  }
+
+  pill(stage) {
+    const s = this.STAGES[stage];
+    return { stageLabel: s.label, pillColor: s.color, pillBg: s.bg, pillBorder: s.border };
+  }
+
+  navVals(count) {
+    const item = (label, icon, href, n, active) => ({
+      label, icon, href, count: n === undefined ? '' : n,
+      color: active ? 'var(--text)' : 'var(--text2)',
+      bg: active ? 'var(--panel2)' : 'transparent',
+      iconColor: active ? 'var(--amber)' : 'currentColor',
+    });
+    return [
+      { label: 'Positions', items: [
+        item('My positions', this.ICON.myProjects, 'Workspace.dc.html', 5),
+        item('All positions', this.ICON.allProjects, 'Workspace.dc.html?view=all', 7),
+      ] },
+      { label: 'Workspace', items: [
+        item('Business units', this.ICON.units, 'Clients.dc.html', count, true),
+        item('Team', this.ICON.team, 'Workspace.dc.html?view=team', 5),
+        item('Settings', this.ICON.settings, 'Settings.dc.html?section=profile'),
+      ] },
+    ];
   }
 
   renderVals() {
-    const st = this.state;
-    const navItem = (key, label, icon, count, href, on) => ({
-      key, label, icon, href, count: count === undefined ? '' : String(count),
-      color: on ? 'var(--text)' : 'var(--text2)',
-      bg: on ? 'var(--panel2)' : 'transparent',
-      iconColor: on ? 'var(--amber)' : 'currentColor',
+    const s = this.state;
+    const all = s.empty ? [] : s.units;
+    const query = s.q.trim().toLowerCase();
+
+    const filtered = all.filter((c) => {
+      const open = c.reqs.filter((m) => m.stage !== 'DELIVERED' && m.stage !== 'CLOSED').length;
+      if (s.chip === 'active' && open === 0) return false;
+      if (s.chip === 'nomanager' && c.managers.length > 0) return false;
+      if (query && !c.name.toLowerCase().includes(query)) return false;
+      return true;
     });
 
-    let rowsRaw = st.clients;
-    if (st.chip === 'active') rowsRaw = rowsRaw.filter(cl => this.mandatesFor(cl).some(m => m.stage !== 'delivered'));
-    else if (st.chip === 'noreps') rowsRaw = rowsRaw.filter(cl => cl.reps.length === 0);
-    if (st.q) rowsRaw = rowsRaw.filter(cl => this.company(cl).name.toLowerCase().includes(st.q.toLowerCase()));
+    const openOf = (c) => c.reqs.filter((m) => m.stage !== 'DELIVERED' && m.stage !== 'CLOSED').length;
+    const keyOf = { name: (c) => c.name, reqs: openOf };
+    const dir = s.sortDir === 'asc' ? 1 : -1;
+    const sorted = [...filtered].sort((a, b) => {
+      const ka = keyOf[s.sortField](a);
+      const kb = keyOf[s.sortField](b);
+      return (typeof ka === 'number' ? ka - kb : String(ka).localeCompare(String(kb))) * dir;
+    });
 
-    const rows = rowsRaw.map(cl => {
-      const co = this.company(cl);
-      const mand = this.mandatesFor(cl);
-      const act = mand.filter(m => m.stage !== 'delivered').length;
-      const activeReps = cl.reps.filter(r => r.status === 'active').length;
-      const invited = cl.reps.filter(r => r.status === 'invited').length;
-      const type = cl.type || (mand.length > 0 ? 'Retained' : 'Prospect');
-      const shown = cl.reps.slice(0, 4);
+    const visible = this.COLUMNS.filter((c) => c.id === 'name' || s.colVis[c.id] !== false);
+    const lastId = visible[visible.length - 1].id;
+    const padFor = (id) => (id === lastId ? '16px' : '0');
+
+    const rows = sorted.map((c) => {
+      const act = c.managers.filter((r) => r.status === 'ACTIVE').length;
+      const inv = c.managers.filter((r) => r.status === 'INVITED').length;
+      const viewerLabel = act === 0 && inv === 0 ? 'None' : [act > 0 ? `${act} active` : null, inv > 0 ? `${inv} invited` : null].filter(Boolean).join(' · ');
       return {
-        id: cl.id, name: co.name, initials: this.initials(co.name), sector: co.sector || '—',
-        mandates: String(act),
-        typeLabel: type,
-        typeColor: type === 'Retained' ? 'var(--sky)' : 'var(--text2)',
-        typeBg: type === 'Retained' ? 'var(--sky-dim)' : 'var(--panel2)',
-        hasReps: cl.reps.length > 0, noReps: cl.reps.length === 0,
-        contactTags: shown.map(p => ({
-          initials: this.initials(p.name), tip: p.name + (p.position ? ' · ' + p.position : ''),
-          bg: p.status === 'active' ? 'var(--green-dim)' : 'var(--amber-dim)',
-          color: p.status === 'active' ? 'var(--green)' : 'var(--amber)',
-        })).concat(cl.reps.length > 4 ? [{ initials: '+' + (cl.reps.length - 4), tip: (cl.reps.length - 4) + ' more', bg: 'var(--panel2)', color: 'var(--text3)' }] : []),
-        viewerDot: activeReps ? 'var(--green)' : invited ? 'var(--amber)' : 'var(--line)',
-        viewerLabel: activeReps ? activeReps + ' active' + (invited ? ' · ' + invited + ' invited' : '') : invited ? invited + ' invited' : 'None',
+        id: c.id,
+        name: c.name,
+        headline: openOf(c) + ' open ' + (openOf(c) === 1 ? 'position' : 'positions'),
+        hasManagers: c.managers.length > 0,
+        noManagers: c.managers.length === 0,
+        managers: c.managers.slice(0, 4).map((r, i) => ({
+          slotId: 'viewer-' + c.id + '-' + i,
+          name: r.fullName,
+          ml: i > 0 ? '-7px' : '0',
+        })),
+        reqs: String(openOf(c)),
+        viewerDot: act > 0 ? 'var(--green)' : inv > 0 ? 'var(--amber)' : 'var(--line)',
+        viewerLabel,
+        padManagers: padFor('managers'), padReqs: padFor('reqs'),
       };
     });
 
-    const chips = [['all', 'All clients'], ['active', 'Active mandates'], ['noreps', 'No representative']].map(([key, label]) => ({
-      key, label,
-      color: st.chip === key ? 'var(--amber)' : 'var(--text2)',
-      bg: st.chip === key ? 'var(--amber-dim)' : 'transparent',
-      border: st.chip === key ? 'var(--amber)' : 'var(--line)',
-    }));
-
-    let drawer = { name: '', meta: '', active: '', delivered: '', repCount: '', reps: [], mandateRows: [], hasReps: false, noReps: false, hasMandates: false, noMandates: false, inviteOpen: false };
-    let dirty = false;
-    const dc = st.clients.find(c => c.id === st.drawerId);
-    if (dc) {
-      const co = this.company(dc);
-      const mand = this.mandatesFor(dc);
-      const act = mand.filter(m => m.stage !== 'delivered').length;
-      dirty = this.detailsDirty(dc);
-      drawer = {
-        name: co.name, meta: (co.sector || '—') + ' · HQ ' + (co.hq || '—') + (co.domain ? ' · ' + co.domain : ''),
-        active: String(act), delivered: String(mand.length - act), repCount: String(dc.reps.length),
-        hasReps: dc.reps.length > 0, noReps: dc.reps.length === 0,
-        inviteOpen: st.drawerInviteOpen,
-        reps: dc.reps.map(r => ({
-          name: r.name, position: r.position, email: r.email, initials: this.initials(r.name),
-          stLabel: r.status === 'active' ? 'ACTIVE' : r.status === 'revoked' ? 'NO ACCESS' : 'INVITED',
-          stColor: r.status === 'active' ? 'var(--green)' : r.status === 'revoked' ? 'var(--text3)' : 'var(--amber)',
-          stBg: r.status === 'active' ? 'var(--green-dim)' : r.status === 'revoked' ? 'var(--panel2)' : 'var(--amber-dim)',
-          menuOpen: st.repMenu === r.email,
-          menuNormal: st.repMenu === r.email && !st.repConfirm,
-          confirming: st.repMenu === r.email && !!st.repConfirm,
-          confirmMsg: this.CONFIRM[st.repConfirm] ? this.CONFIRM[st.repConfirm][0].replace('{name}', r.name) : '',
-          confirmBtn: this.CONFIRM[st.repConfirm] ? this.CONFIRM[st.repConfirm][1] : '',
-          isInvited: r.status === 'invited', isActive: r.status === 'active', isRevoked: r.status === 'revoked',
-        })),
-        hasMandates: mand.length > 0, noMandates: mand.length === 0,
-        mandateRows: mand.map(m => {
-          const s = this.STAGES[m.stage];
-          return { id: m.id, pos: m.pos, lead: m.lead, label: s.label, color: s.color, bg: s.bg, border: s.border };
-        }),
+    const headers = visible.map((col, i) => {
+      const on = s.sortField === col.id;
+      return {
+        id: col.id,
+        label: col.label,
+        sortable: col.sortable,
+        fixed: !col.sortable,
+        arrow: on ? (s.sortDir === 'asc' ? ' ↑' : ' ↓') : '',
+        color: on ? 'var(--text)' : 'var(--text3)',
+        pl: i === 0 ? '16px' : '0',
+        pr: col.id === lastId ? '16px' : '0',
+        shadow: i === 0 ? '1px 0 0 0 var(--line-soft)' : 'none',
       };
-    }
+    });
 
-    let proj = { clientName: '', pos: '', lead: '', created: '', companies: '', candidates: '', target: '', gates: [], healthLabel: '', healthColor: '', healthLines: [], team: [] };
-    const pm = st.drawerProjId ? this.MANDATES.find(m => m.id === st.drawerProjId) : null;
-    if (pm && dc) {
-      const sIdx = this.STAGES[pm.stage].idx;
-      const HEALTH = { ontrack: ['On track', 'var(--green)'], atrisk: ['At risk', 'var(--amber)'], offtrack: ['Off track', 'var(--red)'] };
-      proj = {
-        clientName: this.company(dc).name,
-        pos: pm.pos, lead: pm.lead, created: pm.created,
-        companies: String(pm.companies), candidates: String(pm.candidates), target: pm.target,
-        gates: this.GATES.map((g, i) => {
-          const done = i < sIdx || pm.stage === 'delivered';
-          const current = i === sIdx && pm.stage !== 'delivered';
+    const hideable = this.COLUMNS.filter((c) => c.id !== 'name');
+    const hiddenCount = hideable.filter((c) => s.colVis[c.id] === false).length;
+
+    const unit = s.units.find((c) => c.id === s.openId) || null;
+    const askVisible = !s.openId;
+    const dv = unit ? {
+      name: unit.name,
+      headline: openOf(unit) + ' open ' + (openOf(unit) === 1 ? 'position' : 'positions'),
+      open: String(openOf(unit)),
+      filled: String(unit.reqs.filter((m) => m.stage === 'DELIVERED').length),
+      managerCount: String(unit.managers.length),
+      managers: unit.managers.map((r, i) => ({
+        slotId: 'contact-' + unit.id + '-' + i,
+        fullName: r.fullName,
+        meta: [r.position, r.email].filter(Boolean).join(' · '),
+        badge: r.status === 'ACTIVE' ? 'Active' : 'Invited',
+        badgeColor: r.status === 'ACTIVE' ? 'var(--green)' : 'var(--amber)',
+        badgeBg: r.status === 'ACTIVE' ? 'var(--green-dim)' : 'var(--amber-dim)',
+      })),
+      reqs: unit.reqs.map((m) => ({ id: m.id, positionTitle: m.positionTitle, leadName: m.leadName || '—', ...this.pill(m.stage) })),
+    } : { name: 'Business unit', managers: [], reqs: [] };
+
+    const req = unit && s.reqId ? unit.reqs.find((m) => m.id === s.reqId) : null;
+    let rv = { gates: [] };
+    if (req) {
+      const gateKeys = this.STAGE_ORDER.filter((st) => st !== 'CLOSED');
+      const current = gateKeys.indexOf(req.stage);
+      const h = this.HEALTH[req.health];
+      rv = {
+        positionTitle: req.positionTitle,
+        leadName: req.leadName || '—',
+        target: req.target || '—',
+        healthLabel: h.label, healthDot: h.dot, healthText: h.text,
+        openHref: 'Position.dc.html?page=universe&unit=' + encodeURIComponent(unit.name) + '&pos=' + encodeURIComponent(req.positionTitle),
+        ...this.pill(req.stage),
+        gates: gateKeys.map((st, i) => {
+          const done = i < current;
+          const now = i === current;
           return {
-            label: g,
-            note: (i === 1 && pm.stage === 'locked') ? '· locked' : '',
-            color: done ? 'var(--text2)' : current ? 'var(--amber)' : 'var(--text3)',
-            weight: current ? '600' : '400',
-            ringBorder: done ? 'var(--green)' : current ? 'var(--amber)' : 'var(--line)',
-            ringBg: done ? 'var(--green)' : current ? 'var(--amber-dim)' : 'transparent',
+            label: this.STAGES[st].label,
+            weight: now ? 600 : 400,
+            color: now ? 'var(--amber)' : done ? 'var(--text2)' : 'var(--text3)',
+            ring: done ? 'var(--green)' : now ? 'var(--amber)' : 'var(--line)',
+            fill: done ? 'var(--green-dim)' : 'transparent',
+            dot: done ? 'var(--green)' : now ? 'var(--amber)' : 'transparent',
+            opacity: '1',
+            done, notDone: !done,
           };
         }),
-        healthLabel: HEALTH[pm.health][0], healthColor: HEALTH[pm.health][1],
-        healthLines: pm.healthLines.map(t => ({ text: t })),
-        team: pm.team.map(([name, role]) => ({ name, role, initials: this.initials(name) })),
       };
     }
 
-    const query = st.dbq.trim();
-    const searching = query.length >= 2;
-    const clientIds = new Set(st.clients.map(c => c.dbId).filter(Boolean));
-    const dbMatches = searching ? this.DB.filter(c => c.name.toLowerCase().includes(query.toLowerCase())).slice(0, 6) : [];
-    const dbResults = dbMatches.map(c => ({
-      id: c.id, name: c.name, initials: this.initials(c.name), meta: c.sector + ' · ' + c.hq,
-      isClient: clientIds.has(c.id), notClient: !clientIds.has(c.id),
-    }));
+    const dirty = !!unit && (s.draft.name !== unit.name || s.draft.notes !== (unit.notes || ''));
 
-    const sel = this.selectedCompany();
-    const err = st.repError;
+    const pqTrim = s.pq.trim();
+    const names = new Set(s.units.map((c) => c.name.toLowerCase()));
+    const hitList = this.CATALOG.filter((n) => n.toLowerCase().includes(pqTrim.toLowerCase())).slice(0, 8);
+    const hits = hitList.map((name, i) => {
+      const isBU = names.has(name.toLowerCase());
+      return { id: name, name, isBU, selectable: !isBU, border: i === hitList.length - 1 ? 'none' : '1px solid var(--line-soft)' };
+    });
+
+    const pick = s.pick;
+    const pv = pick ? { name: pick.name } : {};
+
+    const posMatches = (() => {
+      const needle = s.pos.trim().toLowerCase();
+      const list = needle ? this.TEMPLATES.filter((t) => t.title.toLowerCase().includes(needle)) : this.TEMPLATES;
+      return list.slice(0, 8);
+    })();
+    const lockedName = unit ? unit.name : 'Selected business unit';
+    const targetLabel = s.target ? new Date(`${s.target}T00:00:00`).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : 'Select date';
 
     return {
-      wsMenuOpen: st.wsMenuOpen,
-      themeLabel: st.dark ? 'Light mode' : 'Dark mode',
-      sideWidth: st.collapsed ? '56px' : '240px',
-      labelDisp: st.collapsed ? 'none' : 'inline',
-      groupDisp: st.collapsed ? 'none' : 'block',
-      navJustify: st.collapsed ? 'center' : 'flex-start',
-      collapseIcon: st.collapsed ? 'm13 17 5-5-5-5M6 17l5-5-5-5' : 'm11 17-5-5 5-5M18 17l-5-5 5-5',
-      collapseTitle: st.collapsed ? 'Expand sidebar' : 'Collapse sidebar',
-      toggleCollapse: () => {
-        const collapsed = !this.state.collapsed;
-        try { localStorage.setItem('lm-side-collapsed', collapsed ? '1' : '0'); } catch (e) {}
-        this.setState({ collapsed });
-      },
-      projNav: [
-        navItem('my', 'My projects', 'M12 2a10 10 0 1 0 .01 0M12 8a4 4 0 1 0 .01 0', 4, 'Workspace.dc.html', false),
-        navItem('all', 'All projects', 'M3 3h7v7H3zM14 3h7v7h-7zM3 14h7v7H3zM14 14h7v7h-7z', 7, 'Workspace.dc.html?view=all', false),
-      ],
-      wsNav: [
-        navItem('clients', 'Clients', 'M3 21h18M5 21V7l7-4 7 4v14M9 9h.01M9 13h.01M9 17h.01M15 9h.01M15 13h.01M15 17h.01', st.clients.length, 'Clients.dc.html', true),
-        navItem('team', 'Team', 'M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2M13 7a4 4 0 1 1-8 0 4 4 0 0 1 8 0M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75', 5, 'Workspace.dc.html?view=team', false),
-        { ...navItem('settings', 'Settings', 'M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6ZM19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09a1.65 1.65 0 0 0-1-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09a1.65 1.65 0 0 0 1.51-1 1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33h.01a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51h.01a1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82v.01a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1Z', undefined, 'Settings.dc.html', false), count: '' },
-      ],
-      pageSub: st.clients.length + (st.clients.length === 1 ? ' client' : ' clients') + ' · records shared across projects',
-      q: st.q, chips, rows,
+      sideWidth: s.collapsed ? '56px' : '210px',
+      labelsShown: !s.collapsed,
+      navJustify: s.collapsed ? 'center' : 'flex-start',
+      navGroups: this.navVals(s.loading ? undefined : all.length),
+      themeLabel: s.dark ? 'Light mode' : 'Dark mode',
+      themeIcon: s.dark ? this.ICON.sun : this.ICON.moon,
+      collapseTitle: s.collapsed ? 'Expand sidebar' : 'Collapse sidebar',
+      collapseIcon: s.collapsed ? this.ICON.expand : this.ICON.collapse,
+      wsMenuOpen: s.wsMenuOpen,
+
+      pageSub: s.loading ? 'business units shared across reqs' : `${all.length} ${all.length === 1 ? 'business unit' : 'business units'} · shared across reqs`,
+      showHeaderAction: true,
+      isLoading: s.loading,
+      isEmpty: !s.loading && all.length === 0,
+      isList: !s.loading && all.length > 0,
+      skeletonHeads: ['Business unit', 'Hiring managers', 'Open reqs', 'Viewers'],
+      skeletonRows: [0, 1, 2, 3, 4, 5].map((r) => ({ bars: [0, 1, 2, 3].map((c) => ['96px', '64px', '48px', '80px'][(r + c) % 4]) })),
+
+      q: s.q,
+      chips: this.CHIPS.map((c) => ({
+        ...c,
+        border: s.chip === c.key ? 'transparent' : 'var(--line)',
+        bg: s.chip === c.key ? 'var(--amber-dim)' : 'transparent',
+        color: s.chip === c.key ? 'var(--amber)' : 'var(--text2)',
+      })),
+      colMenuOpen: s.colMenuOpen,
+      hasHidden: hiddenCount > 0,
+      hiddenCount,
+      colOptions: hideable.map((c) => {
+        const on = s.colVis[c.id] !== false;
+        return { id: c.id, label: c.label, boxColor: on ? 'var(--amber)' : 'var(--line)', boxBg: on ? 'var(--amber-dim)' : 'transparent', tickOpacity: on ? 1 : 0 };
+      }),
+      gridCols: visible.map((c) => c.track).join(' '),
+      gridMin: visible.reduce((sum, c) => sum + c.min, 0) + 12 * (visible.length - 1) + 32 + 'px',
+      headers,
+      rows,
       noResults: rows.length === 0,
-      drawerOpen: !!dc, drawer,
-      clientView: !!dc && !pm,
-      projView: !!dc && !!pm,
-      proj,
-      detailsDirty: dirty,
-      dName: st.dName, dSector: st.dSector, dHq: st.dHq, dDomain: st.dDomain, dOff: st.dOff,
-      modalOpen: st.modalOpen,
-      noSelection: !st.selDbId,
-      hasSelection: !!st.selDbId,
-      showCreateFields: !!st.selDbId || st.newCompanyOpen,
-      createLabel: st.repEmail.trim() ? 'Create client & send invite' : 'Create client',
-      dbq: st.dbq,
-      dbHasResults: searching && dbResults.length > 0 && !st.newCompanyOpen,
-      dbNoResults: searching && dbResults.length === 0 && !st.newCompanyOpen,
-      dbIdle: !searching && !st.newCompanyOpen,
-      dbResults,
-      newCompanyOpen: st.newCompanyOpen,
-      ncName: st.ncName, ncDomain: st.ncDomain,
-      selName: sel ? sel.name : '',
-      selInitials: sel ? this.initials(sel.name) : '',
-      selMeta: sel ? ((sel.sector || '—') + ' · ' + (sel.hq || '—') + (st.selDbId ? ' · from company DB' : ' · new company record')) : '',
-      repName: st.repName, repPos: st.repPos, repEmail: st.repEmail,
-      repError: !!err, repErrorMsg: err,
-      toastVisible: !!st.toast, toastMsg: st.toast,
+      showManagers: s.colVis.managers !== false,
+      showReqs: s.colVis.reqs !== false,
+      showViewers: s.colVis.viewers !== false,
 
-      toggleWsMenu: () => this.setState(s => ({ wsMenuOpen: !s.wsMenuOpen })),
+      drawerShown: !!unit,
+      buView: !!unit && !req,
+      reqView: !!req,
+      askVisible,
+      dv, rv,
+      draft: s.draft,
+      dirty,
+      saveOpacity: s.draft.name.trim() ? 1 : 0.5,
+      inviteOpen: s.inviteOpen,
+      inviteClosed: !s.inviteOpen,
+      noManagersNote: !!unit && unit.managers.length === 0 && !s.inviteOpen,
+      inv: s.inv,
+      invError: s.invError,
+      hasInvError: !!s.invError,
+      noReqs: !!unit && unit.reqs.length === 0,
+
+      modalShown: s.modalOpen,
+      hasModalError: !!s.modalError,
+      modalError: s.modalError,
+      noPick: !pick,
+      hasPick: !!pick,
+      pq: s.pq,
+      pqTrim,
+      hits,
+      noHits: hits.length === 0,
+      customOpen: s.customOpen,
+      custom: s.custom,
+      customError: s.customError,
+      hasCustomError: !!s.customError,
+      customNameBorder: s.customError ? 'var(--red)' : 'var(--line)',
+      pv,
+      contact: s.contact,
+      createLabel: s.contact.email.trim() ? 'Create & send invite' : 'Create business unit',
+      // positions terminology used in copy above
+
+      reqModalShown: s.reqModalOpen && !!unit,
+      lockedName,
+      pos: s.pos,
+      posBorder: s.posError ? 'var(--red)' : 'var(--line)',
+      posCheck: s.pos.trim() && !s.posError ? 'var(--green)' : 'var(--line)',
+      posListShown: s.posFocused && posMatches.length > 0,
+      posMatches,
+      posError: s.posError,
+      hasPosError: !!s.posError,
+      target: s.target,
+      targetLabel,
+      targetColor: s.target ? 'var(--text)' : 'var(--text3)',
+
+      hasToast: !!s.toast,
+      toast: s.toast,
+
+      stop: (e) => e.stopPropagation(),
+      toggleWsMenu: () => this.setState({ wsMenuOpen: !s.wsMenuOpen }),
       toggleTheme: () => {
-        const dark = !this.state.dark;
-        document.body.classList.toggle('dark', dark);
-        try { localStorage.setItem('lm-theme', dark ? 'dark' : 'light'); } catch (e) {}
-        this.setState({ dark });
+        const d = !s.dark;
+        document.documentElement.setAttribute('data-theme', d ? 'dark' : 'light');
+        try { localStorage.setItem('lm-theme', d ? 'dark' : 'light'); } catch (e) {}
+        this.setState({ dark: d });
       },
+      toggleCollapse: () => {
+        const c = !s.collapsed;
+        try { localStorage.setItem('lm-side-collapsed', c ? '1' : '0'); } catch (e) {}
+        this.setState({ collapsed: c });
+      },
+
       onSearch: (e) => this.setState({ q: e.target.value }),
-      setChip: (e) => this.setState({ chip: e.currentTarget.dataset.chip }),
-      openRow: (e) => {
+      setChip: (e) => this.setState({ chip: e.currentTarget.dataset.id }),
+      toggleColMenu: () => this.setState({ colMenuOpen: !s.colMenuOpen }),
+      toggleCol: (e) => {
         const id = e.currentTarget.dataset.id;
-        const cl = this.state.clients.find(c => c.id === id);
-        this.setState({ drawerId: id, drawerProjId: null, drawerInviteOpen: false, repName: '', repPos: '', repEmail: '', repError: '', ...this.seedDetails(cl) });
+        this.setState({ colVis: { ...s.colVis, [id]: s.colVis[id] === false } });
       },
-      closeDrawer: () => this.setState({ drawerId: null, drawerProjId: null, drawerInviteOpen: false }),
-      openProj: (e) => this.setState({ drawerProjId: e.currentTarget.dataset.id }),
-      backToClient: () => this.setState({ drawerProjId: null }),
-      draftDName: (e) => this.setState({ dName: e.target.value }),
-      draftDSector: (e) => this.setState({ dSector: e.target.value }),
-      draftDHq: (e) => this.setState({ dHq: e.target.value }),
-      draftDDomain: (e) => this.setState({ dDomain: e.target.value }),
-      draftDOff: (e) => this.setState({ dOff: e.target.value }),
-      revertDetails: () => {
-        const cl = this.state.clients.find(c => c.id === this.state.drawerId);
-        if (cl) this.setState(this.seedDetails(cl));
+      resetCols: () => this.setState({ colVis: {} }),
+      sortBy: (e) => {
+        const id = e.currentTarget.dataset.id;
+        if (s.sortField === id) this.setState({ sortDir: s.sortDir === 'asc' ? 'desc' : 'asc' });
+        else this.setState({ sortField: id, sortDir: 'asc' });
       },
-      saveDetails: () => {
-        const s = this.state;
-        if (!s.dName.trim()) { this.showToast('Client name is required'); return; }
-        const override = { name: s.dName.trim(), sector: s.dSector.trim(), hq: s.dHq.trim(), domain: s.dDomain.trim(), offlimits: s.dOff.trim() };
-        const clients = s.clients.map(c => c.id === s.drawerId ? { ...c, override } : c);
-        this.setState({ clients });
-        this.showToast('Client details saved');
-      },
-      toggleRepMenu: (e) => {
-        const email = e.currentTarget.dataset.email;
-        this.setState(s => ({ repMenu: s.repMenu === email ? null : email, repConfirm: '' }));
-      },
-      closeRepMenu: () => this.setState({ repMenu: null, repConfirm: '' }),
-      resendInvite: (e) => {
-        const email = e.currentTarget.dataset.email;
-        this.setRepStatus(email, 'invited');
-        this.setState({ repMenu: null, repConfirm: '' });
-        this.showToast('Invite re-sent to ' + email);
-      },
-      copyRepEmail: (e) => {
-        const email = e.currentTarget.dataset.email;
-        try { navigator.clipboard.writeText(email); } catch (err) {}
-        this.setState({ repMenu: null, repConfirm: '' });
-        this.showToast('Email copied');
-      },
-      askCancelInvite: () => this.setState({ repConfirm: 'cancel' }),
-      askRevokeAccess: () => this.setState({ repConfirm: 'revoke' }),
-      askRemoveRep: () => this.setState({ repConfirm: 'remove' }),
-      confirmRepAction: (e) => {
-        const email = e.currentTarget.dataset.email;
-        const kind = this.state.repConfirm;
-        if (kind === 'revoke') { this.setRepStatus(email, 'revoked'); this.showToast('Portal access revoked'); }
-        else { this.removeRep(email); this.showToast(kind === 'cancel' ? 'Invite cancelled' : 'Representative removed'); }
-        this.setState({ repMenu: null, repConfirm: '' });
-      },
-      openInviteFromDrawer: () => this.setState({ repMenu: null, repConfirm: '', drawerInviteOpen: true, repName: '', repPos: '', repEmail: '', repError: '' }),
-      cancelDrawerInvite: () => this.setState({ drawerInviteOpen: false, repError: '' }),
-      sendDrawerInvite: () => {
-        const msg = this.repDraftValid();
-        if (msg) { this.setState({ repError: msg }); return; }
-        const s = this.state;
-        const clients = s.clients.map(c => c.id === s.drawerId ? { ...c, reps: [...c.reps, { name: s.repName.trim(), position: s.repPos.trim(), email: s.repEmail.trim(), status: 'invited' }] } : c);
-        this.setState({ clients, drawerInviteOpen: false, repError: '' });
-        this.showToast('Invite sent to ' + s.repEmail.trim());
+      openRow: (e) => this.openDrawer(e.currentTarget.dataset.id),
+      closeDrawer: () => this.setState({ openId: null, reqId: null }),
+
+      onDraft: (e) => this.setState({ draft: { ...s.draft, [e.currentTarget.dataset.id]: e.target.value } }),
+      discardDraft: () => this.setState({ draft: this.draftFor(s.units, s.openId) }),
+      saveDraft: () => {
+        if (!s.draft.name.trim()) return;
+        const d = s.draft;
+        this.updateUnit(s.openId, (c) => ({ ...c, name: d.name.trim(), notes: d.notes.trim() }));
+        this.setState({ draft: { name: d.name.trim(), notes: d.notes.trim() } });
+        this.showToast('Business unit saved');
       },
 
-      openModal: () => this.setState({ modalOpen: true, dbq: '', newCompanyOpen: false, ncName: '', ncDomain: '', selDbId: null, selCustom: null, repName: '', repPos: '', repEmail: '', repError: '' }),
+      openInvite: () => this.setState({ inviteOpen: true, invError: '' }),
+      cancelInvite: () => this.setState({ inviteOpen: false, invError: '' }),
+      onInv: (e) => this.setState({ inv: { ...s.inv, [e.currentTarget.dataset.id]: e.target.value } }),
+      sendInvite: () => {
+        const { fullName, position, email } = s.inv;
+        if (!fullName.trim() || !position.trim() || !email.trim()) { this.setState({ invError: 'Name, title and work email are required.' }); return; }
+        if (!this.isValidEmail(email)) { this.setState({ invError: 'Enter a valid work email address.' }); return; }
+        const rep = { id: 'r' + Date.now(), fullName: fullName.trim(), position: position.trim(), email: email.trim(), status: 'INVITED', accent: unit.managers.length + 1 };
+        this.updateUnit(s.openId, (c) => ({ ...c, managers: [...c.managers, rep] }));
+        this.setState({ inviteOpen: false, inv: { fullName: '', position: '', email: '' }, invError: '' });
+        this.showToast(`Invite sent to ${email.trim()}`);
+      },
+
+      openReq: (e) => this.setState({ reqId: e.currentTarget.dataset.id }),
+      backToBu: () => this.setState({ reqId: null }),
+
+      openModal: () => this.setState({ modalOpen: true, ...this.freshModal() }),
       closeModal: () => this.setState({ modalOpen: false }),
-      stopClick: (e) => e.stopPropagation(),
-      onDbSearch: (e) => this.setState({ dbq: e.target.value, newCompanyOpen: false }),
-      pickCompany: (e) => {
-        const id = e.currentTarget.dataset.id;
-        if (this.state.clients.some(c => c.dbId === id)) { this.showToast(this.db(id).name + ' is already a client'); return; }
-        this.setState({ selDbId: id, selCustom: null, newCompanyOpen: false, repError: '' });
+      onPickQuery: (e) => this.setState({ pq: e.target.value, customOpen: false }),
+      pickHit: (e) => {
+        const name = e.currentTarget.dataset.id;
+        if (names.has(name.toLowerCase())) { this.showToast(`${name} is already a business unit`); return; }
+        this.setState({ pick: { name }, modalError: '' });
       },
-      startNewCompany: () => this.setState({ newCompanyOpen: true, selDbId: null, ncName: this.state.dbq.trim(), ncDomain: '' }),
-      draftNcName: (e) => this.setState({ ncName: e.target.value }),
-      draftNcDomain: (e) => this.setState({ ncDomain: e.target.value }),
-      backToCompany: () => this.setState({ selDbId: null, newCompanyOpen: false, repError: '' }),
-      draftRepName: (e) => this.setState({ repName: e.target.value }),
-      draftRepPos: (e) => this.setState({ repPos: e.target.value }),
-      draftRepEmail: (e) => this.setState({ repEmail: e.target.value }),
-      createClient: () => {
-        const s = this.state;
-        if (!s.selDbId) {
-          if (!s.ncName.trim()) { this.showToast('Company name is required'); return; }
-        }
-        const withRep = !!(s.repName.trim() || s.repPos.trim() || s.repEmail.trim());
-        if (withRep) {
-          const msg = this.repDraftValid();
-          if (msg) { this.setState({ repError: msg }); return; }
-        }
-        this.finishCreate(withRep);
+      openCustom: () => this.setState({ customOpen: true, custom: { name: pqTrim }, customError: '' }),
+      cancelCustom: () => this.setState({ customOpen: false }),
+      onCustom: (e) => this.setState({ custom: { ...s.custom, [e.currentTarget.dataset.id]: e.target.value }, customError: '' }),
+      confirmCustom: () => {
+        if (!s.custom.name.trim()) { this.setState({ customError: 'Enter the business unit name' }); return; }
+        this.setState({ customOpen: false, pick: { name: s.custom.name.trim() }, modalError: '' });
       },
-      toastArchive: () => this.showToast('Archive flow — confirm dialog in real build'),
-    };
-  }
+      changePick: () => this.setState({ pick: null, modalError: '' }),
+      onContact: (e) => this.setState({ contact: { ...s.contact, [e.currentTarget.dataset.id]: e.target.value } }),
+      createBu: () => {
+        const { fullName, position, email } = s.contact;
+        const any = fullName.trim() || position.trim() || email.trim();
+        if (any && (!fullName.trim() || !position.trim() || !email.trim())) { this.setState({ modalError: 'All three fields are required to send an invite.' }); return; }
+        if (email.trim() && !this.isValidEmail(email)) { this.setState({ modalError: 'Enter a valid work email address.' }); return; }
+        const name = pick.name;
+        if (names.has(name.toLowerCase())) { this.setState({ modalError: 'A business unit with this name already exists.' }); return; }
+        const id = 'c' + Date.now();
+        const created = {
+          id, name, notes: '', reqs: [],
+          managers: email.trim() ? [{ id: 'r' + id, fullName: fullName.trim(), position: position.trim(), email: email.trim(), status: 'INVITED', accent: 3 }] : [],
+        };
+        const units = s.empty ? [created] : [...s.units, created];
+        this.setState({ units, empty: false, modalOpen: false, openId: id, reqId: null, draft: this.draftFor(units, id), inviteOpen: false });
+        this.showToast(email.trim() ? `${name} added — invite sent to ${email.trim()}` : `${name} added as a business unit`);
+      },
 
-  finishCreate(withRep) {
-    const s = this.state;
-    const id = s.selDbId || ('new-' + Date.now());
-    const custom = s.selDbId ? null : { name: s.ncName.trim(), domain: s.ncDomain.trim(), hq: '', sector: '' };
-    const cl = {
-      id,
-      dbId: s.selDbId || null,
-      custom,
-      source: s.selDbId ? 'db' : 'new',
-      override: {},
-      reps: withRep ? [{ name: s.repName.trim(), position: s.repPos.trim(), email: s.repEmail.trim(), status: 'invited' }] : [],
+      openReqModal: () => this.setState({ reqModalOpen: true, ...this.freshReqModal() }),
+      closeReqModal: () => this.setState({ reqModalOpen: false }),
+      onPos: (e) => this.setState({ pos: e.target.value, posError: '', posFocused: true }),
+      posFocus: () => this.setState({ posFocused: true }),
+      posBlur: () => { clearTimeout(this._blurTimer); this._blurTimer = setTimeout(() => this.setState({ posFocused: false }), 120); },
+      pickTemplate: (e) => { e.preventDefault(); this.setState({ pos: e.currentTarget.dataset.id, posError: '', posFocused: false }); },
+      onTarget: (e) => this.setState({ target: e.target.value }),
+      createReq: () => {
+        const title = s.pos.trim();
+        if (!title) { this.setState({ posError: 'Enter the position title' }); return; }
+        if (title.length > 160) { this.setState({ posError: 'That title is too long — keep it to 160 characters or fewer' }); return; }
+        const m = { id: 'm' + Date.now(), positionTitle: title, type: 'executive', stage: 'BRIEF', health: 'OK', leadName: 'Yara Haddad', target: s.target ? targetLabel : null };
+        this.updateUnit(s.openId, (c) => ({ ...c, reqs: [...c.reqs, m] }));
+        this.setState({ reqModalOpen: false });
+        this.showToast("Position created — you're its admin and lead");
+      },
     };
-    const name = s.selDbId ? this.db(s.selDbId).name : custom.name;
-    this.setState({ clients: [cl, ...s.clients], modalOpen: false, drawerId: id, drawerProjId: null, drawerInviteOpen: false, ...this.seedDetailsFor(cl) });
-    this.showToast(withRep ? name + ' added — invite sent to ' + s.repEmail.trim() : name + ' added as client');
   }
-  seedDetailsFor(cl) { return this.seedDetails(cl); }
 }
+
 </script>
 </body>
 </html>

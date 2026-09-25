@@ -12,7 +12,7 @@ interface OpenStream {
   emit: (event: SseEvent) => void;
   end: () => void;
   fail: (error: Error) => void;
-  signal: AbortSignal;
+  signal: AbortSignal | undefined;
 }
 
 let openStreams: OpenStream[] = [];
@@ -93,7 +93,7 @@ it("backs off on failure and lets go entirely on unmount", async () => {
   expect(streamEventsMock).toHaveBeenCalledTimes(2);
 
   unmount();
-  expect(openStreams[1].signal.aborted).toBe(true);
+  expect(openStreams[1].signal?.aborted).toBe(true);
 
   await act(() => vi.advanceTimersByTimeAsync(60_000));
   expect(streamEventsMock).toHaveBeenCalledTimes(2);

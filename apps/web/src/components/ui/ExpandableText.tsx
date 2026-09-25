@@ -58,7 +58,7 @@ export function ExpandableText({
     <>
       <p
         ref={ref}
-        className={cn("text-[13px]/[1.6] text-text2", className)}
+        className={cn("text-[13px]/[1.6] text-u-text2", className)}
         style={expanded ? undefined : clampTo(lines)}
       >
         {text}
@@ -69,7 +69,7 @@ export function ExpandableText({
           type="button"
           aria-expanded={expanded}
           onClick={() => setExpanded((open) => !open)}
-          className="mt-1.5 font-mono text-[11px] text-sky transition hover:underline"
+          className="mt-1.5 font-mono text-[11px] text-u-accent transition hover:underline"
         >
           {expanded ? lessLabel : moreLabel}
         </button>

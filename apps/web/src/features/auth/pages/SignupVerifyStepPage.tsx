@@ -68,9 +68,9 @@ export function SignupVerifyStepPage() {
       <Stepper steps={SIGNUP_STEPS} current={2} />
 
       <Card className="w-[420px] max-w-[94vw] text-center [animation-delay:80ms]">
-        <div className="mx-auto mb-4 grid size-11 place-items-center rounded-full bg-amber-dim">
+        <div className="mx-auto mb-4 grid size-11 place-items-center rounded-full bg-u-accent-tint">
           <svg
-            className="size-5 text-amber"
+            className="size-5 text-u-accent"
             viewBox="0 0 24 24"
             fill="none"
             stroke="currentColor"
@@ -83,15 +83,15 @@ export function SignupVerifyStepPage() {
         </div>
 
         <h1 className="text-[19px] font-semibold leading-tight">Confirm your email</h1>
-        <p className="mb-6 mt-1 font-mono text-xs text-text3">Step 2 of 4 · check your inbox</p>
+        <p className="mb-6 mt-1 font-mono text-xs text-u-text3">Step 2 of 4 · check your inbox</p>
 
-        <p className="mb-6 text-sm text-text2">
-          We sent a link to <span className="font-medium text-text1">{user?.email}</span>. Open it and
+        <p className="mb-6 text-sm text-u-text2">
+          We sent a link to <span className="font-medium text-u-text">{user?.email}</span>. Open it and
           you will be signed in and brought straight to the next step — here, or in whichever browser
           opens the link.
         </p>
 
-        <p className="mb-6 font-mono text-xs text-text3">
+        <p className="mb-6 font-mono text-xs text-u-text3">
           Your email domain is how we know which firm you work at — so we confirm it before creating
           anything in that firm&rsquo;s name.
         </p>

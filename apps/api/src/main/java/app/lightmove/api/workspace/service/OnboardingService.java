@@ -43,6 +43,7 @@ public class OnboardingService {
     private final WorkspaceAccess access;
     private final RbacService rbac;
     private final AuditService audit;
+    private final WorkspaceCompanyResolver companyResolver;
 
     /**
      * Signup step 3 — "create my workspace". Verification is step 2, so the caller is already verified;
@@ -59,10 +60,11 @@ public class OnboardingService {
         requireNoExistingMembership(userId);
 
         String domain = EmailAddressValidator.domainOf(user.getEmail());
-        String slug = SlugGenerator.from(command.name(), workspaces::existsBySlug);
+        WorkspaceIdentity identity = companyResolver.resolve(command.name(), command.apolloAccountId());
+        String slug = SlugGenerator.from(identity.name(), workspaces::existsBySlug);
 
         Workspace workspace = workspaces.save(Workspace.create(
-                command.name().trim(), slug, domain, userId,
+                identity.name(), slug, domain, userId, identity.company(),
                 command.companySize(), command.primaryRegion(), command.teamFocus()));
 
         members.save(WorkspaceMember.invite(
@@ -95,7 +97,8 @@ public class OnboardingService {
         Workspace workspace = workspaces.findById(workspaceId)
                 .orElseThrow(() -> ApiException.of(ErrorCode.WORKSPACE_NOT_FOUND));
 
-        workspace.describe(command.name().trim(), command.companySize(),
+        WorkspaceIdentity identity = companyResolver.resolve(command.name(), command.apolloAccountId());
+        workspace.describe(identity.name(), identity.company(), command.companySize(),
                 command.primaryRegion(), command.teamFocus());
 
         audit.event(WorkspaceEventType.WORKSPACE_UPDATED)

@@ -56,6 +56,8 @@ const hakan: Candidate = {
     allowances: null,
     longTermIncentive: null,
     noticePeriod: null,
+    allowanceLines: [],
+    longTermIncentiveTypes: [],
   },
   career: [],
   languages: [],

@@ -64,6 +64,10 @@ describe("TeamAccessPage", () => {
       logoMark: "F",
       emailDomain: "firm.example",
       joinedAt: null,
+      company: null,
+      companySize: null,
+      primaryRegion: null,
+      teamFocus: null,
       roles: ["ADMIN" as const],
     },
   };
@@ -93,6 +97,10 @@ describe("TeamAccessPage", () => {
     stage: "MAPPING",
     health: "OK",
     targetDate: null,
+    projectType: "SEARCH",
+    startDate: null,
+    deliveryDate: null,
+    mappingTargetDate: null,
     team: [
       {
         memberId: "m1",
@@ -138,6 +146,9 @@ describe("TeamAccessPage", () => {
     ],
     companies: 0,
     candidates: 0,
+    mappedCandidates: 0,
+    engagedCandidates: 0,
+    mappedCompanies: 0,
     createdAt: "2026-07-13T10:00:00Z",
   };
 
@@ -175,6 +186,7 @@ describe("TeamAccessPage", () => {
     logoUrl: null,
     domain: null,
     offLimitsNote: null,
+    notes: null,
     activeMandates: 1,
     deliveredMandates: 0,
     representatives: [],
@@ -315,6 +327,7 @@ describe("TeamAccessPage", () => {
       logoUrl: null,
       domain: null,
       offLimitsNote: null,
+      notes: null,
       activeMandates: 1,
       deliveredMandates: 0,
       representatives: [],
@@ -341,6 +354,7 @@ describe("TeamAccessPage", () => {
       logoUrl: null,
       domain: null,
       offLimitsNote: null,
+      notes: null,
       activeMandates: 1,
       deliveredMandates: 0,
       representatives: [],
@@ -365,6 +379,7 @@ describe("TeamAccessPage", () => {
       logoUrl: null,
       domain: null,
       offLimitsNote: null,
+      notes: null,
       activeMandates: 1,
       deliveredMandates: 0,
       representatives: [
@@ -395,6 +410,7 @@ describe("TeamAccessPage", () => {
       logoUrl: null,
       domain: null,
       offLimitsNote: null,
+      notes: null,
       activeMandates: 1,
       deliveredMandates: 0,
       representatives: [],

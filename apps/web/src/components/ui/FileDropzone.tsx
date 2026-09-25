@@ -78,8 +78,8 @@ export function FileDropzone({
           <Icon d={ICONS.uploadCloud} size={20} />
         </span>
         <span className="flex flex-col gap-1">
-          <span className={`text-[15px] font-semibold ${skin.title}`}>{title}</span>
-          <span className={`text-xs ${skin.hint}`}>{hint}</span>
+          <span className={`font-semibold ${skin.title}`}>{title}</span>
+          <span className={skin.hint}>{hint}</span>
         </span>
       </button>
     </>
@@ -88,19 +88,19 @@ export function FileDropzone({
 
 const DROPZONE_SKINS = {
   default: {
-    zone: "bg-panel2",
-    dragging: "border-sky brightness-105",
-    idle: "border-sky/70 hover:brightness-105",
-    badge: "bg-sky-dim text-sky",
-    title: "text-sky",
-    hint: "text-text3",
+    zone: "bg-u-raised",
+    dragging: "border-u-accent brightness-105",
+    idle: "border-u-accent/70 hover:brightness-105",
+    badge: "bg-u-accent-tint text-u-accent",
+    title: "text-[15px] text-u-accent",
+    hint: "text-xs text-u-text3",
   },
   uncava: {
     zone: "bg-u-surface",
     dragging: "border-u-accent",
     idle: "border-u-border-strong hover:border-u-accent",
     badge: "bg-u-accent-tint text-u-accent",
-    title: "text-u-accent",
-    hint: "text-u-text3",
+    title: "text-lead text-u-accent",
+    hint: "text-note text-u-text3",
   },
 } as const;

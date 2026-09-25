@@ -7,6 +7,8 @@ import app.lightmove.api.candidate.constant.ContactChannel;
 import app.lightmove.api.candidate.constant.ContactKind;
 import app.lightmove.api.candidate.constant.ContactSource;
 import app.lightmove.api.candidate.constant.Gender;
+import app.lightmove.api.candidate.constant.LongTermIncentiveType;
+import app.lightmove.api.candidate.dto.AllowanceLineDto;
 import app.lightmove.api.candidate.dto.CandidateCareerEntryDto;
 import app.lightmove.api.candidate.dto.CandidateCompensationDto;
 import app.lightmove.api.candidate.dto.CandidateContactsDto;
@@ -20,7 +22,9 @@ import app.lightmove.api.candidate.dto.CandidatesResponse;
 import app.lightmove.api.candidate.dto.SaveCandidateRequest;
 import app.lightmove.api.candidate.dto.UpdateCandidateContactsRequest;
 import app.lightmove.api.candidate.dto.UpdateCandidateStatusRequest;
+import app.lightmove.api.candidate.model.AllowanceLine;
 import app.lightmove.api.candidate.model.Candidate;
+import app.lightmove.api.candidate.model.CandidateAttribution;
 import app.lightmove.api.candidate.model.CandidateCapturedEvent;
 import app.lightmove.api.candidate.model.CandidateCareerEntry;
 import app.lightmove.api.candidate.model.CandidateCompensation;
@@ -30,6 +34,7 @@ import app.lightmove.api.candidate.model.ContactEntry;
 import app.lightmove.api.candidate.model.CandidateDetails;
 import app.lightmove.api.candidate.model.CandidatePhoto;
 import app.lightmove.api.candidate.model.CandidateProfile;
+import app.lightmove.api.candidate.model.CompensationBreakdown;
 import app.lightmove.api.candidate.model.EnrichedProfile;
 import app.lightmove.api.candidate.model.FoundEmails;
 import app.lightmove.api.candidate.model.FoundPhones;
@@ -56,10 +61,12 @@ import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.stream.Collectors;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.domain.Page;
@@ -156,6 +163,14 @@ public class CandidateService {
                 found.getTotalElements(), page, size);
     }
 
+    @Transactional(readOnly = true)
+    public CandidateResponse get(UUID workspaceId, UUID projectId, UUID candidateId) {
+        requireProject(projectId, workspaceId);
+        return candidates.findByIdAndProjectId(candidateId, projectId)
+                .map(CandidateService::toDto)
+                .orElseThrow(() -> ApiException.of(ErrorCode.NOT_FOUND));
+    }
+
     /**
      * Every executive the mandate has mapped, unpaged — the seam {@code talentmap} reads people
      * through. Takes a cap the caller states and states it back in {@code totalCount}, so a mandate
@@ -171,6 +186,17 @@ public class CandidateService {
         return new CandidatesResponse(
                 found.getContent().stream().map(CandidateService::toDto).toList(),
                 found.getTotalElements(), 0, cap);
+    }
+
+    /**
+     * Who filed each of the mandate's executives, by candidate id — the report's researcher breakdown.
+     * Its own read rather than a field on {@code CandidateResponse}, which a client seat also reads.
+     */
+    @Transactional(readOnly = true)
+    public Map<UUID, UUID> addedByOf(UUID workspaceId, UUID projectId) {
+        requireProject(projectId, workspaceId);
+        return candidates.findAttributionByProjectId(projectId).stream()
+                .collect(Collectors.toMap(CandidateAttribution::getCandidateId, CandidateAttribution::getAddedBy));
     }
 
     /**
@@ -652,7 +678,27 @@ public class CandidateService {
             return CandidateCompensation.unknown();
         }
         return new CandidateCompensation(supplied.currency(), supplied.baseSalary(), supplied.bonus(),
-                supplied.allowances(), supplied.longTermIncentive(), supplied.noticePeriod());
+                supplied.allowances(), supplied.longTermIncentive(), supplied.noticePeriod(),
+                breakdownOf(supplied));
+    }
+
+    private static CompensationBreakdown breakdownOf(CandidateCompensationDto supplied) {
+        List<AllowanceLine> lines = supplied.allowanceLines() == null ? List.of()
+                : supplied.allowanceLines().stream()
+                        .filter(Objects::nonNull)
+                        .map(line -> new AllowanceLine(line.label(), line.amount()))
+                        .toList();
+        List<LongTermIncentiveType> types = supplied.longTermIncentiveTypes() == null ? List.of()
+                : supplied.longTermIncentiveTypes().stream().map(CandidateService::resolveIncentiveType).toList();
+        return new CompensationBreakdown(lines, types);
+    }
+
+    private static LongTermIncentiveType resolveIncentiveType(String token) {
+        LongTermIncentiveType type = LongTermIncentiveType.fromValue(token);
+        if (type == null) {
+            throw new ApiException(ErrorCode.VALIDATION_FAILED, "Unknown long-term incentive type: " + token);
+        }
+        return type;
     }
 
     private static CandidateProfile profileOf(SaveCandidateRequest request) {
@@ -744,7 +790,13 @@ public class CandidateService {
                 candidate.getNote(),
                 new CandidateCompensationDto(compensation.currency(), compensation.baseSalary(),
                         compensation.bonus(), compensation.allowances(),
-                        compensation.longTermIncentive(), compensation.noticePeriod()),
+                        compensation.longTermIncentive(), compensation.noticePeriod(),
+                        compensation.breakdown().allowanceLines().stream()
+                                .map(line -> new AllowanceLineDto(line.label(), line.amount()))
+                                .toList(),
+                        compensation.breakdown().longTermIncentiveTypes().stream()
+                                .map(LongTermIncentiveType::value)
+                                .toList()),
                 candidate.getProfile().career().stream()
                         .map(entry -> new CandidateCareerEntryDto(entry.company(), entry.title(), entry.period()))
                         .toList(),

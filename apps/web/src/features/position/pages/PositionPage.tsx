@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useEffect, useState, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { useNavigate, useOutletContext, useSearchParams } from "react-router-dom";
 import { Icon, ICONS } from "../../../components/layout/Icon";
 import type { ProjectOutletContext } from "../../../components/layout/ProjectLayout";
@@ -15,11 +15,13 @@ import type {
   MandateContext,
   Position,
   PositionDetails,
+  PositionExtraction,
   PositionTemplate,
   ReportingStructure,
 } from "../api/types";
 import { BriefButton } from "../components/BriefFields";
 import { BriefRail } from "../components/BriefRail";
+import { DocumentReadNotice } from "../components/DocumentReadNotice";
 import { AssessmentStep, type CompetencyPanelKey } from "../components/steps/AssessmentStep";
 import { CompensationStep } from "../components/steps/CompensationStep";
 import { ReportingStep } from "../components/steps/ReportingStep";
@@ -32,7 +34,6 @@ import {
   fillBrief,
   undoListItem,
   undoScalar,
-  undoStep,
   type ExtractionSection,
   type FillResults,
   type PositionSnapshot,
@@ -42,6 +43,7 @@ import { addSuggestedSeat } from "../lib/orgChart";
 import {
   CONTEXT_FIELD_KEYS,
   DETAILS_FIELD_KEYS,
+  isUntouched,
   markManualFrom,
   REPORTING_FIELD_KEYS,
 } from "../lib/provenance";
@@ -49,6 +51,15 @@ import { loadReceipts, saveReceipts } from "../lib/receiptStore";
 import { STEP_PARAM, openingStepOf, stepOf, type PositionStep, type StepKey } from "../lib/steps";
 
 const GROUND = "flex flex-1 bg-u-bg text-u-text";
+
+const EXTRACTION_SECTIONS: readonly ExtractionSection[] = ["details", "context", "reporting", "assessment"];
+
+const SECTION_NAMES: Record<ExtractionSection, string> = {
+  details: "the role brief",
+  context: "the mandate context",
+  reporting: "the reporting line",
+  assessment: "the assessment",
+};
 
 /** The Position tab: loads the brief, then hands the editor a snapshot to draft against. */
 export function PositionPage() {
@@ -131,8 +142,8 @@ function PositionBrief({ projectId, position }: { projectId: string; position: P
   // is exactly when somebody would have left one set.
   const [lockedCompetencies, setLockedCompetencies] = useState<ReadonlySet<string>>(new Set());
 
-  // "Read from document" state — the tab's, never the database's. `receipts` is what a screen's strip
-  // and a field's marker read for the document name, the snippet and the Undo; `lib/receiptStore.ts`
+  // "Read from document" state — the tab's, never the database's. `receipts` is what a field's marker
+  // reads for the document name, the snippet and the Undo; `lib/receiptStore.ts`
   // keeps it for the tab, so a reload reads back the same popover rather than a sparkle with nothing
   // behind it. The `source` a fill stamped on the brief is the half that is persisted, and the only
   // half that outlives the tab (see lib/documentFill.ts).
@@ -143,8 +154,9 @@ function PositionBrief({ projectId, position }: { projectId: string; position: P
   useEffect(() => {
     saveReceipts(projectId, documentName, receipts);
   }, [projectId, documentName, receipts]);
-  const [sectionErrors, setSectionErrors] = useState<ReadonlySet<ExtractionSection>>(new Set());
-  const [suggestedTemplate, setSuggestedTemplate] = useState<PositionTemplate | null>(null);
+  /** Set only when a reading went wrong — a reading that worked says nothing beyond its toast. */
+  const [readProblem, setReadProblem] = useState<string | null>(null);
+  const draftedRef = useRef<Position>(position);
   const [usualDirectReports, setUsualDirectReports] = useState<string[] | null>(null);
 
   // The picker's options. A failed read leaves the type-ahead with nothing to offer, which is the
@@ -328,13 +340,6 @@ function PositionBrief({ projectId, position }: { projectId: string; position: P
   // one twice, or after somebody has since typed over the field, changes nothing.
   // -----------------------------------------------------------------------------------------------
 
-  const dismissReceipt = (stepKey: StepKey) =>
-    setReceipts((current) => {
-      const next = { ...current };
-      delete next[stepKey];
-      return next;
-    });
-
   const undoDetailField = (fieldKey: string) => {
     const receipt = receipts.brief;
     if (!receipt) return;
@@ -366,40 +371,6 @@ function PositionBrief({ projectId, position }: { projectId: string; position: P
     setDetails(next);
     detailsSave.schedule(next);
   };
-  /**
-   * The Role Brief's receipt spans three draft objects (details, context and the reporting notice
-   * pair), so its "Undo all" cannot be the single-object `undoStep` — it walks each field to the
-   * object that owns it, exactly as the individual handlers above do.
-   */
-  const undoBriefAll = () => {
-    const receipt = receipts.brief;
-    if (!receipt) return;
-    let nextDetails = details;
-    let nextContext = context;
-    let nextReporting = reporting;
-
-    for (const fieldKey of Object.keys(receipt.scalars)) {
-      if (fieldKey === "noticePeriod") nextReporting = undoScalar(nextReporting, fieldKey, receipt);
-      else if (fieldKey === "mandateReason" || fieldKey === "businessDriver") {
-        nextContext = undoScalar(nextContext, fieldKey, receipt);
-      } else nextDetails = undoScalar(nextDetails, fieldKey, receipt);
-    }
-    for (const text of Object.keys(receipt.lists.responsibilities?.appended ?? {})) {
-      nextDetails = undoListItem(nextDetails, "responsibilities", text, receipt);
-    }
-    for (const text of Object.keys(receipt.lists.strategicPriorities?.appended ?? {})) {
-      nextContext = undoListItem(nextContext, "strategicPriorities", text, receipt);
-    }
-
-    setDetails(nextDetails);
-    setContext(nextContext);
-    setReporting(nextReporting);
-    if (nextDetails !== details) detailsSave.schedule(nextDetails);
-    if (nextContext !== context) contextSave.schedule(nextContext);
-    if (nextReporting !== reporting) reportingSave.schedule(nextReporting);
-    dismissReceipt("brief");
-  };
-
   const undoTeamSize = () => {
     const receipt = receipts.reporting;
     if (!receipt) return;
@@ -408,16 +379,6 @@ function PositionBrief({ projectId, position }: { projectId: string; position: P
     setReporting(next);
     reportingSave.schedule(next);
   };
-  /** The Reporting screen drafts one object, so its own receipt undoes in one call. */
-  const undoReportingAll = () => {
-    const receipt = receipts.reporting;
-    if (!receipt) return;
-    const next = undoStep(reporting, receipt);
-    setReporting(next);
-    if (next !== reporting) reportingSave.schedule(next);
-    dismissReceipt("reporting");
-  };
-
   const undoCriterion = (text: string) => {
     const receipt = receipts.assessment;
     if (!receipt) return;
@@ -440,35 +401,6 @@ function PositionBrief({ projectId, position }: { projectId: string; position: P
       competenciesSave.schedule({ technical: forWire(technical), behavioural: nextWire, technicalShare });
     }
   };
-  /**
-   * The assessment receipt never carries a scalar (technicalShare is never read), so unlike Reporting
-   * this cannot lean on the single-object `undoStep` either — `criteria`, `technical` and `behavioural`
-   * are three separate draft arrays here, not fields of one object.
-   */
-  const undoAssessmentAll = () => {
-    const receipt = receipts.assessment;
-    if (!receipt) return;
-    let nextCriteria = criteria;
-    for (const text of Object.keys(receipt.lists.criteria?.appended ?? {})) {
-      nextCriteria = undoListItem({ criteria: nextCriteria }, "criteria", text, receipt).criteria;
-    }
-    let nextTechnicalWire = forWire(technical);
-    for (const name of Object.keys(receipt.lists.technical?.appended ?? {})) {
-      nextTechnicalWire = undoListItem({ technical: nextTechnicalWire }, "technical", name, receipt).technical;
-    }
-    let nextBehaviouralWire = forWire(behavioural);
-    for (const name of Object.keys(receipt.lists.behavioural?.appended ?? {})) {
-      nextBehaviouralWire = undoListItem({ behavioural: nextBehaviouralWire }, "behavioural", name, receipt).behavioural;
-    }
-
-    setCriteria(nextCriteria);
-    setTechnical(identify(nextTechnicalWire));
-    setBehavioural(identify(nextBehaviouralWire));
-    criteriaSave.schedule(nextCriteria);
-    competenciesSave.schedule({ technical: nextTechnicalWire, behavioural: nextBehaviouralWire, technicalShare });
-    dismissReceipt("assessment");
-  };
-
   /**
    * Draft this brief as the picked role, and take its title while we are at it. Pending edits go
    * first: a title still inside the autosave debounce would otherwise land after the redraft and
@@ -542,6 +474,12 @@ function PositionBrief({ projectId, position }: { projectId: string; position: P
    * failing must leave the other three filled, per epic #393 — then folded into the brief in one pass
    * by `fillBrief`. `mutate`'s variable is the file name a receipt is stamped with, not read back off
    * `position`/`drafted`: the prop is a stale closure at the moment an attach's `onSuccess` fires this.
+   *
+   * <p>When the reading names a template and nobody has typed into the brief, the template is applied
+   * first and the same reading is then folded over the redrafted brief — so the document's values still
+   * win over what the template seeded, without paying for the four reads twice. The check reads the
+   * latest draft through a ref, not this closure: the reads take seconds, and somebody may type meanwhile.
+   * The title comes from the document when it states one, not from the template.
    */
   const readDocument = useMutation({
     mutationFn: async (fileName: string) => {
@@ -551,29 +489,47 @@ function PositionBrief({ projectId, position }: { projectId: string; position: P
         positionApi.extractReporting(projectId),
         positionApi.extractAssessment(projectId),
       ]);
-      return { fileName, detailsResult, contextResult, reportingResult, assessmentResult };
+      const suggested = detailsResult.status === "fulfilled" ? detailsResult.value.suggestedTemplate : null;
+      let redrafted: { brief: Position; template: PositionTemplate } | null = null;
+      if (suggested && isUntouched(draftedRef.current)) {
+        try {
+          await flushAll();
+          redrafted = { brief: await positionApi.applyTemplate(projectId, suggested.id), template: suggested };
+        } catch {
+          // The template is a bonus on top of the reading; failing to apply it must not lose the reading.
+        }
+      }
+      return { fileName, redrafted, detailsResult, contextResult, reportingResult, assessmentResult };
     },
-    onSuccess: ({ fileName, detailsResult, contextResult, reportingResult, assessmentResult }) => {
+    onSuccess: ({ fileName, redrafted, detailsResult, contextResult, reportingResult, assessmentResult }) => {
+      const settled = { details: detailsResult, context: contextResult, reporting: reportingResult, assessment: assessmentResult };
       const results: FillResults = {};
-      const failed = new Set<ExtractionSection>();
-      if (detailsResult.status === "fulfilled") results.details = detailsResult.value;
-      else failed.add("details");
-      if (contextResult.status === "fulfilled") results.context = contextResult.value;
-      else failed.add("context");
-      if (reportingResult.status === "fulfilled") results.reporting = reportingResult.value;
-      else failed.add("reporting");
-      if (assessmentResult.status === "fulfilled") results.assessment = assessmentResult.value;
-      else failed.add("assessment");
+      for (const section of EXTRACTION_SECTIONS) {
+        const result = settled[section];
+        if (result.status === "fulfilled") results[section] = result.value;
+      }
 
-      const snapshot: PositionSnapshot = {
-        details,
-        context,
-        reporting,
-        criteria,
-        technical: forWire(technical),
-        behavioural: forWire(behavioural),
-        technicalShare,
-      };
+      if (redrafted) adoptBrief(redrafted.brief);
+      const base = redrafted?.brief;
+      const snapshot: PositionSnapshot = base
+        ? {
+            details: base.details,
+            context: base.context,
+            reporting: base.reporting,
+            criteria: base.assessment.criteria,
+            technical: base.assessment.technical,
+            behavioural: base.assessment.behavioural,
+            technicalShare: base.assessment.technicalShare,
+          }
+        : {
+            details,
+            context,
+            reporting,
+            criteria,
+            technical: forWire(technical),
+            behavioural: forWire(behavioural),
+            technicalShare,
+          };
       const outcome = fillBrief(snapshot, results, fileName);
 
       setDetails(outcome.next.details);
@@ -583,8 +539,6 @@ function PositionBrief({ projectId, position }: { projectId: string; position: P
       setTechnical(identify(outcome.next.technical));
       setBehavioural(identify(outcome.next.behavioural));
       setReceipts((current) => ({ ...current, ...outcome.receipts }));
-      setSectionErrors(failed);
-      setSuggestedTemplate(results.details?.suggestedTemplate ?? null);
       setUsualDirectReports(results.reporting?.usualDirectReports ?? null);
 
       if (outcome.changed.has("brief") || outcome.changed.has("reporting")) {
@@ -605,6 +559,19 @@ function PositionBrief({ projectId, position }: { projectId: string; position: P
       void flushDocumentFill(outcome.changed);
 
       const filled = Object.values(outcome.receipts).reduce((sum, receipt) => sum + fieldCountOf(receipt), 0);
+      // The title carries no receipt, so `filled` never counts it — but a rename is the most visible
+      // thing a reading can do, and must never be reported as "nothing new".
+      const renamedTo =
+        outcome.next.details.roleTitle !== snapshot.details.roleTitle ? outcome.next.details.roleTitle : null;
+      const problem = readProblemOf(settled, filled > 0 || renamedTo !== null, fileName);
+      setReadProblem(problem);
+      if (problem) return;
+
+      const done: string[] = [];
+      if (redrafted) done.push(`drafted from the ${redrafted.template.title} template`);
+      if (filled > 0) done.push(`read ${filled} field${filled === 1 ? "" : "s"} from ${fileName}`);
+      if (renamedTo) done.push(`renamed the mandate "${renamedTo}"`);
+      const summary = done.length > 0 ? sentenceOf(done) : null;
       // The org chart merge can decline a proposed manager or direct report with zero other signal —
       // this is the one place a reading's own success toast can still say so.
       const orgChartSkip = outcome.skipped.find((field) => field.fieldKey === "orgChart");
@@ -614,14 +581,13 @@ function PositionBrief({ projectId, position }: { projectId: string; position: P
             ? "the org chart is at its seat limit"
             : "this mandate has no seat yet";
         toast(
-          filled > 0
-            ? `Read ${filled} field${filled === 1 ? "" : "s"} from ${fileName} — some reporting lines didn't fit because ${reason}.`
+          summary
+            ? `${summary} — some reporting lines didn't fit because ${reason}.`
             : `Reporting lines from ${fileName} didn't fit because ${reason}.`,
         );
-      } else if (filled > 0) toast(`Read ${filled} field${filled === 1 ? "" : "s"} from ${fileName}`);
-      else if (failed.size === 0) toast("Nothing new to read from this document");
+      } else toast(summary ?? "Nothing new to read from this document");
     },
-    onError: (error) => toast(messageFor(error)),
+    onError: (error) => setReadProblem(messageFor(error)),
   });
 
   /** A read already in flight is not started again — Extract with AI, Read again and the per-step
@@ -634,30 +600,13 @@ function PositionBrief({ projectId, position }: { projectId: string; position: P
     if (drafted.document) startReading(drafted.document.fileName);
   };
 
-  /**
-   * Applying the banner's suggested template redrafts the brief from it first — the ordinary
-   * `applyTemplate` mutation, unchanged — and then re-reads the document, so the reading's own values
-   * still win over whatever the template just seeded.
-   */
-  const applySuggestedTemplate = () => {
-    if (!suggestedTemplate) return;
-    const template = suggestedTemplate;
-    applyTemplate.mutate(template, {
-      onSuccess: () => {
-        setSuggestedTemplate(null);
-        if (drafted.document) startReading(drafted.document.fileName);
-      },
-    });
-  };
-
   const attachDocument = useMutation({
     mutationFn: (file: File) => positionApi.attachDocument(projectId, file),
     onSuccess: (saved) => {
       queryClient.setQueryData(key, saved);
       // A new document is a different reading — nothing the last one left behind still applies.
       setReceipts({});
-      setSectionErrors(new Set());
-      setSuggestedTemplate(null);
+      setReadProblem(null);
       setUsualDirectReports(null);
       if (saved.document) startReading(saved.document.fileName);
     },
@@ -668,8 +617,7 @@ function PositionBrief({ projectId, position }: { projectId: string; position: P
     onSuccess: (saved) => {
       queryClient.setQueryData(key, saved);
       setReceipts({});
-      setSectionErrors(new Set());
-      setSuggestedTemplate(null);
+      setReadProblem(null);
       setUsualDirectReports(null);
     },
     onError: (error) => toast(messageFor(error)),
@@ -711,6 +659,9 @@ function PositionBrief({ projectId, position }: { projectId: string; position: P
       technicalShare,
     },
   };
+  useEffect(() => {
+    draftedRef.current = drafted;
+  });
 
   // Only the review reads back. The rail stands beside every step, so without the step the brief
   // would go on offering "Edit position" next to a Compensation form that is live and taking input.
@@ -729,17 +680,6 @@ function PositionBrief({ projectId, position }: { projectId: string; position: P
       </BriefButton>
     ) : undefined;
 
-  const briefStripError =
-    sectionErrors.has("details") || sectionErrors.has("context")
-      ? "Couldn't read this section from the document."
-      : undefined;
-  const reportingStripError = sectionErrors.has("reporting")
-    ? "Couldn't read this section from the document."
-    : undefined;
-  const assessmentStripError = sectionErrors.has("assessment")
-    ? "Couldn't read this section from the document."
-    : undefined;
-
   return (
     <div className={`${GROUND} flex-col lg:flex-row`}>
       <BriefRail
@@ -748,7 +688,6 @@ function PositionBrief({ projectId, position }: { projectId: string; position: P
         saveStatus={saveStatus}
         publishing={publish.isPending}
         readBack={readBack}
-        receipts={receipts}
         onPublish={() => void publishNow()}
         onEditPosition={() => setReopened(true)}
         onSaveDraft={() => void saveDraft()}
@@ -757,6 +696,15 @@ function PositionBrief({ projectId, position }: { projectId: string; position: P
       <div className="min-w-0 flex-1">
         <div className="px-4 pb-[100px] pt-[30px] sm:px-10">
           <StepHeader step={step} action={readAction} />
+
+          {readProblem && (step.key === "brief" || step.key === "reporting" || step.key === "assessment") && (
+            <DocumentReadNotice
+              message={readProblem}
+              retrying={readDocument.isPending}
+              onRetry={onExtractDocument}
+              onDismiss={() => setReadProblem(null)}
+            />
+          )}
 
           {step.key === "brief" && (
             <RoleBriefStep
@@ -770,8 +718,6 @@ function PositionBrief({ projectId, position }: { projectId: string; position: P
               extracting={readDocument.isPending}
               savingTargetDate={updateTargetDate.isPending}
               receipt={receipts.brief}
-              stripError={briefStripError}
-              suggestedTemplate={suggestedTemplate}
               onChangeDetails={changeDetails}
               onChangeContext={changeContext}
               onChangeReporting={changeReporting}
@@ -781,10 +727,6 @@ function PositionBrief({ projectId, position }: { projectId: string; position: P
               onRemoveDocument={() => removeDocument.mutate()}
               onDownloadDocument={() => downloadDocument.mutate()}
               onExtractDocument={onExtractDocument}
-              onApplySuggestedTemplate={applySuggestedTemplate}
-              onDismissSuggestedTemplate={() => setSuggestedTemplate(null)}
-              onUndoAll={undoBriefAll}
-              onDismissStrip={() => dismissReceipt("brief")}
               onUndoDetail={undoDetailField}
               onUndoContext={undoContextField}
               onUndoNotice={undoNoticePeriod}
@@ -797,13 +739,8 @@ function PositionBrief({ projectId, position }: { projectId: string; position: P
               seniority={details.seniority}
               reporting={reporting}
               receipt={receipts.reporting}
-              stripError={reportingStripError}
-              extracting={readDocument.isPending}
               usualDirectReports={usualDirectReports}
               onChange={changeReporting}
-              onExtractDocument={onExtractDocument}
-              onUndoAll={undoReportingAll}
-              onDismissStrip={() => dismissReceipt("reporting")}
               onUndoTeamSize={undoTeamSize}
               onAddSuggestedSeat={(title) => {
                 const result = addSuggestedSeat(reporting.orgChart, title);
@@ -823,16 +760,11 @@ function PositionBrief({ projectId, position }: { projectId: string; position: P
               technicalShare={technicalShare}
               locked={lockedCompetencies}
               receipt={receipts.assessment}
-              stripError={assessmentStripError}
-              extracting={readDocument.isPending}
               onCriteria={changeCriteria}
               onPanel={changePanel}
               onShare={(share) => changeAssessment({ technicalShare: share })}
               onToggleLock={(id) => setLockedCompetencies((current) => toggle(current, id))}
               onReorder={reorderPanel}
-              onExtractDocument={onExtractDocument}
-              onUndoAll={undoAssessmentAll}
-              onDismissStrip={() => dismissReceipt("assessment")}
               onUndoCriterion={undoCriterion}
               onUndoCompetency={undoCompetency}
             />
@@ -862,10 +794,49 @@ function StepHeader({ step, action }: { step: PositionStep; action?: ReactNode }
   return (
     <div className="mb-7 flex flex-wrap items-start justify-between gap-4 min-w-0">
       <div className="min-w-0">
-        <h1 className="text-title font-semibold tracking-[-0.01em]">{step.heading}</h1>
+        <h1 className="type-title">{step.heading}</h1>
         <p className="mt-1.5 max-w-[620px] text-body text-u-text2">{step.lede}</p>
       </div>
       {action}
     </div>
   );
+}
+
+/**
+ * The line a reading leaves when it went wrong, or null when it worked. A rejected section is an
+ * HTTP failure — an unreadable file carries its own specific sentence in `detail`. A model the server
+ * could not reach is not: it answers 200 with nothing proposed (`"none"`, or `"documentHeadings"` for
+ * the details step's heuristic fallback), which is told apart from a document that says nothing only
+ * by every model-read section coming back that way. A reading that proposed values a person had
+ * already typed over is not a problem — it read fine and had nothing new.
+ */
+function readProblemOf(
+  settled: Record<ExtractionSection, PromiseSettledResult<PositionExtraction>>,
+  changedAnything: boolean,
+  fileName: string,
+): string | null {
+  const rejected = EXTRACTION_SECTIONS.filter((section) => settled[section].status === "rejected");
+  if (rejected.length === EXTRACTION_SECTIONS.length) {
+    return messageFor((settled[rejected[0]] as PromiseRejectedResult).reason);
+  }
+  if (rejected.length > 0) {
+    const list = sentenceOf(rejected.map((section) => SECTION_NAMES[section]), false);
+    return `Couldn't read ${list} from ${fileName}. ${changedAnything ? "The rest was filled." : "The rest was read, with nothing new in it."}`;
+  }
+  if (changedAnything) return null;
+
+  const readings = EXTRACTION_SECTIONS.map(
+    (section) => (settled[section] as PromiseFulfilledResult<PositionExtraction>).value,
+  );
+  if (readings.some((reading) => reading.fields.length > 0)) return null;
+  if (readings.every((reading) => reading.extractionSource !== "model")) {
+    return "The document reader couldn't be reached, so nothing was filled. Try again in a moment.";
+  }
+  return `Nothing could be read from ${fileName} — check it is the position description.`;
+}
+
+/** "a", "a and b", "a, b and c" — capitalised as a sentence unless it sits mid-line. */
+function sentenceOf(parts: readonly string[], capitalise = true): string {
+  const joined = parts.length === 1 ? parts[0] : `${parts.slice(0, -1).join(", ")} and ${parts.at(-1)}`;
+  return capitalise ? joined.charAt(0).toUpperCase() + joined.slice(1) : joined;
 }

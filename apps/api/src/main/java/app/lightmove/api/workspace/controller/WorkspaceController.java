@@ -2,9 +2,12 @@ package app.lightmove.api.workspace.controller;
 
 import app.lightmove.api.core.security.model.AuthPrincipal;
 import app.lightmove.api.workspace.dto.DeleteWorkspaceRequest;
+import app.lightmove.api.workspace.dto.WorkspaceCompanyResponse;
+import app.lightmove.api.workspace.dto.UpdateWorkspacePersonaRequest;
 import app.lightmove.api.workspace.dto.UpdateWorkspaceSettingsRequest;
 import app.lightmove.api.workspace.dto.WorkspaceResponse;
 import app.lightmove.api.workspace.model.Workspace;
+import app.lightmove.api.workspace.model.WorkspacePersona;
 import app.lightmove.api.workspace.service.WorkspaceSettingsService;
 import app.lightmove.api.workspace.service.WorkspaceSettingsService.WorkspaceDetail;
 import jakarta.servlet.http.HttpServletRequest;
@@ -16,6 +19,7 @@ import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
@@ -45,7 +49,20 @@ public class WorkspaceController {
                                                     HttpServletRequest httpRequest) {
         return ResponseEntity.ok(toResponse(settings.update(
                 principal.userId(), principal.requireWorkspaceId(),
-                request.name(), request.defaultRegion(), request.defaultCurrency(), httpRequest)));
+                request.name(), request.apolloAccountId(), request.defaultRegion(), request.defaultCurrency(),
+                httpRequest)));
+    }
+
+    /** The firm persona the assistant will read — an admin's to write, like the rest of this page. */
+    @PutMapping("/persona")
+    @PreAuthorize("@workspaceAuthorizer.can(principal, 'WORKSPACE_MANAGE')")
+    public ResponseEntity<WorkspaceResponse> updatePersona(@AuthenticationPrincipal AuthPrincipal principal,
+                                                           @Valid @RequestBody UpdateWorkspacePersonaRequest request,
+                                                           HttpServletRequest httpRequest) {
+        WorkspacePersona persona = new WorkspacePersona(request.summary(), request.sectors(),
+                request.competitors(), request.geographies(), request.notes());
+        return ResponseEntity.ok(toResponse(settings.updatePersona(
+                principal.userId(), principal.requireWorkspaceId(), persona, httpRequest)));
     }
 
     @DeleteMapping
@@ -62,6 +79,7 @@ public class WorkspaceController {
         Workspace ws = detail.workspace();
         return new WorkspaceResponse(ws.getId(), ws.getName(), ws.getSlug(), ws.getLogoMark(),
                 ws.getEmailDomain(), ws.getDefaultRegion(), ws.getDefaultCurrency(), ws.getPlan(),
-                detail.memberCount(), ws.getCreatedAt());
+                detail.memberCount(), ws.getCreatedAt(), ws.getPersona(),
+                WorkspaceCompanyResponse.of(ws.getCompany()));
     }
 }

@@ -42,7 +42,7 @@ import org.springframework.stereotype.Service;
  * selectable band rendering as {@code annual_revenue IS NULL}.
  *
  * <p>Facet counts are taken over the whole universe, not the current selection, so the five
- * accordions are one cacheable read that no filter invalidates.
+ * accordions are one read that no filter invalidates — {@link UniverseFacets} holds it.
  */
 @Service
 @RequiredArgsConstructor
@@ -168,6 +168,32 @@ public class ApolloCompanyQueryService {
                 .query(COMPANY_ROW_MAPPER)
                 .list();
         return byName.size() == 1 ? Optional.of(byName.getFirst()) : Optional.empty();
+    }
+
+    /**
+     * The biggest company of that exact name in one country — or anywhere for a null {@code country} —
+     * with at least {@code minEmployees}. Unlike {@link #matchEmployer} a name need not be unique: a
+     * brand the universe holds in three countries is still the UAE row when the UAE is asked about.
+     * The country or headcount index narrows the scan, since the ETL-owned table takes no index of ours.
+     */
+    public Optional<CompanyRow> largestNamed(String companyName, String country, int minEmployees) {
+        if (companyName == null || companyName.isBlank()) {
+            return Optional.empty();
+        }
+        return jdbc.sql("""
+                        SELECT %s
+                        FROM app_lm_apollo_companies
+                        WHERE lower(company_name) = lower(:name)
+                          AND (CAST(:country AS text) IS NULL OR company_country = :country)
+                          AND coalesce(num_employees, 0) >= :min
+                        ORDER BY num_employees DESC NULLS LAST
+                        LIMIT 1
+                        """.formatted(ROW_COLUMNS))
+                .param("name", companyName.strip())
+                .param("country", country)
+                .param("min", minEmployees)
+                .query(COMPANY_ROW_MAPPER)
+                .optional();
     }
 
     /**

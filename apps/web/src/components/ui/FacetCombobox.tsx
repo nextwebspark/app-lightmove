@@ -23,18 +23,19 @@ export interface ComboboxOption {
  * a page publishes, so a company can hold a sector Apollo never named — clearing it silently because
  * this list has no row for it would lose a fact nobody touched.
  */
-/** `uncava` is the brief's skin: a hairline under the text, the list on the UNCAVA ground. */
+/** `uncava` is the brief's skin: the same bordered, filled box every other field in the brief wears,
+ *  over UNCAVA tokens, with the list on the UNCAVA ground. */
 export type FacetComboboxVariant = "default" | "uncava";
 
 const BOX_CLASS: Record<FacetComboboxVariant, { base: string; invalid: string; open: string; idle: string }> = {
   default: {
-    base: "flex h-[42px] items-center gap-2 rounded-lg border bg-panel2 px-3",
-    invalid: "border-red",
-    open: "border-sky",
-    idle: "border-line",
+    base: "flex h-[42px] items-center gap-2 rounded-lg border bg-u-raised px-3",
+    invalid: "border-u-offlimits",
+    open: "border-u-accent",
+    idle: "border-u-border-strong",
   },
   uncava: {
-    base: "flex items-center gap-2 border-b bg-transparent py-2 text-u-text",
+    base: "flex items-center gap-2 rounded-[8px] border bg-u-sunken px-3 py-2.5 text-u-text",
     invalid: "border-u-offlimits",
     open: "border-u-accent",
     idle: "border-u-border",
@@ -42,22 +43,22 @@ const BOX_CLASS: Record<FacetComboboxVariant, { base: string; invalid: string; o
 };
 
 const INPUT_CLASS: Record<FacetComboboxVariant, string> = {
-  default: "w-full bg-transparent font-mono text-[13px] text-text outline-none placeholder:text-text3",
-  uncava: "w-full bg-transparent text-[15px] text-u-text outline-none placeholder:text-u-text3",
+  default: "w-full bg-transparent font-mono text-[13px] text-u-text outline-none placeholder:text-u-text3",
+  uncava: "w-full bg-transparent text-body text-u-text outline-none placeholder:text-u-text3",
 };
 
 const LIST_CLASS: Record<FacetComboboxVariant, { list: string; active: string; check: string; empty: string }> = {
   default: {
-    list: "rounded-lg border border-line bg-panel py-1 shadow-panel",
-    active: "bg-panel2",
-    check: "text-amber",
-    empty: "rounded-lg border border-line bg-panel px-3 py-2 font-mono text-[12px] text-text3 shadow-panel",
+    list: "rounded-lg border border-u-border-strong bg-u-surface py-1 shadow-u-e3",
+    active: "bg-u-raised",
+    check: "text-u-accent",
+    empty: "rounded-lg border border-u-border-strong bg-u-surface px-3 py-2 font-mono text-[12px] text-u-text3 shadow-u-e3",
   },
   uncava: {
     list: "rounded-[10px] border border-u-border bg-u-bg py-1 text-u-text shadow-u-e3",
     active: "bg-u-accent-tint",
     check: "text-u-accent",
-    empty: "rounded-[10px] border border-u-border bg-u-bg px-3 py-2 text-[12px] text-u-text3 shadow-u-e3",
+    empty: "rounded-[10px] border border-u-border bg-u-bg px-3 py-2 text-note text-u-text3 shadow-u-e3",
   },
 };
 
@@ -170,14 +171,14 @@ export function FacetCombobox({
         {value !== "" && (
           <button
             type="button"
-            aria-label={`Clear ${noun.replace(/s$/, "")}`}
+            aria-label={`Clear ${noun.replace(/ies$/, "y").replace(/s$/, "")}`}
             onMouseDown={(event) => {
               event.preventDefault();
               list.cancelBlur();
               onChange("");
               setQuery(null);
             }}
-            className={variant === "uncava" ? "flex-none text-u-text3 transition hover:text-u-text" : "flex-none text-text3 transition hover:text-text"}
+            className={variant === "uncava" ? "flex-none text-u-text3 transition hover:text-u-text" : "flex-none text-u-text3 transition hover:text-u-text"}
           >
             <Icon d={ICONS.close} size={12} />
           </button>
@@ -192,7 +193,7 @@ export function FacetCombobox({
             list.cancelBlur();
             list.setOpen(!list.open);
           }}
-          className={variant === "uncava" ? "flex-none text-u-text3 transition hover:text-u-text" : "flex-none text-text3 transition hover:text-text"}
+          className={variant === "uncava" ? "flex-none text-u-text3 transition hover:text-u-text" : "flex-none text-u-text3 transition hover:text-u-text"}
         >
           <Icon
             d={ICONS.chevronDown}
@@ -221,7 +222,7 @@ export function FacetCombobox({
                 index === list.active ? LIST_CLASS[variant].active : "",
               )}
             >
-              <span className={cn("truncate font-sans text-[13px] font-medium", variant === "uncava" ? "text-u-text" : "text-text")}>
+              <span className={cn("truncate font-sans font-medium", variant === "uncava" ? "text-body text-u-text" : "text-[13px] text-u-text")}>
                 {option.label}
               </span>
               {option.value === value && (
@@ -248,7 +249,7 @@ export function FacetCombobox({
  * hit outranks an incidental one: "ae" is the code for the United Arab Emirates and also three
  * letters inside "Israel", which sorts first alphabetically and was what Enter committed.
  */
-function rankedFor(needle: string, options: readonly ComboboxOption[]): ComboboxOption[] {
+export function rankedFor(needle: string, options: readonly ComboboxOption[]): ComboboxOption[] {
   if (!needle) return [...options];
   const ranked: { option: ComboboxOption; rank: number }[] = [];
   for (const option of options) {

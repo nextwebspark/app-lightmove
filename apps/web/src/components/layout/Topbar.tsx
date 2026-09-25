@@ -3,6 +3,7 @@ import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "../../features/auth/AuthProvider";
 import { AppIcon, Avatar } from "../ui";
 import { Icon, ICONS } from "./Icon";
+import { CompanyLogo } from "../ui/CompanyLogo";
 
 /**
  * The 46px header: the workspace dropdown (settings, members, sign out) on the left, the user's
@@ -29,7 +30,7 @@ export function Topbar({
           aria-label="Open navigation"
           aria-expanded={navOpen}
           aria-controls="app-nav"
-          className="-ml-1 flex size-9 flex-none items-center justify-center rounded-[7px] text-text2 transition hover:bg-panel2 hover:text-text lg:hidden"
+          className="-ml-1 flex size-9 flex-none items-center justify-center rounded-[7px] text-u-text2 transition hover:bg-u-raised hover:text-u-text lg:hidden"
         >
           <Icon d={ICONS.menu} size={18} />
         </button>
@@ -57,17 +58,17 @@ export function ProjectBreadcrumb({
       <WorkspaceMenu compact />
       <Link
         to="/"
-        className="hidden whitespace-nowrap rounded-md px-1.5 py-1 font-mono text-[13px] font-medium text-text3 hover:bg-panel2 hover:text-text md:inline"
+        className="hidden whitespace-nowrap rounded-md px-1.5 py-1 font-mono text-[13px] font-medium text-u-text3 hover:bg-u-raised hover:text-u-text md:inline"
       >
-        Projects
+        Positions
       </Link>
-      <span className="hidden text-xs text-text3 opacity-40 md:inline">/</span>
-      <span className="hidden items-center gap-1.5 whitespace-nowrap font-mono text-[13px] font-medium text-text2 sm:flex">
-        <span className="size-1.5 rounded-full bg-sky" />
+      <span className="hidden text-xs text-u-text3 opacity-40 md:inline">/</span>
+      <span className="hidden items-center gap-1.5 whitespace-nowrap font-mono text-[13px] font-medium text-u-text2 sm:flex">
+        <span className="size-1.5 rounded-full bg-u-accent" />
         {clientName}
       </span>
-      <span className="hidden text-xs text-text3 opacity-40 sm:inline">/</span>
-      <span className="min-w-0 flex-1 truncate text-sm font-semibold text-text lg:max-w-[280px] lg:flex-none">
+      <span className="hidden text-xs text-u-text3 opacity-40 sm:inline">/</span>
+      <span className="min-w-0 flex-1 truncate text-sm font-semibold text-u-text lg:max-w-[280px] lg:flex-none">
         {positionTitle}
       </span>
     </div>
@@ -81,14 +82,14 @@ export function SettingsBreadcrumb({ section }: { section: string }) {
       <WorkspaceMenu compact />
       <Link
         to="/"
-        className="hidden whitespace-nowrap rounded-md px-1.5 py-1 font-mono text-[13px] font-medium text-text3 hover:bg-panel2 hover:text-text md:inline"
+        className="hidden whitespace-nowrap rounded-md px-1.5 py-1 font-mono text-[13px] font-medium text-u-text3 hover:bg-u-raised hover:text-u-text md:inline"
       >
         Workspace
       </Link>
-      <span className="hidden text-xs text-text3 opacity-40 md:inline">/</span>
-      <span className="hidden whitespace-nowrap text-sm font-semibold text-text sm:inline">Settings</span>
-      <span className="hidden text-xs text-text3 opacity-40 sm:inline">/</span>
-      <span className="truncate font-mono text-[13px] font-medium text-text2">{section}</span>
+      <span className="hidden text-xs text-u-text3 opacity-40 md:inline">/</span>
+      <span className="hidden whitespace-nowrap text-sm font-semibold text-u-text sm:inline">Settings</span>
+      <span className="hidden text-xs text-u-text3 opacity-40 sm:inline">/</span>
+      <span className="truncate font-mono text-[13px] font-medium text-u-text2">{section}</span>
     </div>
   );
 }
@@ -120,8 +121,8 @@ function WorkspaceMenu({ compact = false }: { compact?: boolean }) {
   const isAdmin = workspace.roles.includes("ADMIN");
 
   const itemClass =
-    "flex w-full items-center gap-2.5 rounded-[7px] px-2.5 py-2 text-left text-[13px] text-text2 " +
-    "transition hover:bg-panel2 hover:text-text";
+    "flex w-full items-center gap-2.5 rounded-[7px] px-2.5 py-2 text-left text-[13px] text-u-text2 " +
+    "transition hover:bg-u-raised hover:text-u-text";
 
   return (
     <div className="relative" ref={ref}>
@@ -132,21 +133,25 @@ function WorkspaceMenu({ compact = false }: { compact?: boolean }) {
         title={compact ? workspace.name : undefined}
         className={
           compact
-            ? "flex items-center gap-1 rounded-[7px] p-1 hover:bg-panel2"
-            : "flex items-center gap-2.5 rounded-lg py-[5px] pl-1.5 pr-2.5 hover:bg-panel2"
+            ? "flex items-center gap-1 rounded-[7px] p-1 hover:bg-u-raised"
+            : "flex items-center gap-2.5 rounded-lg py-[5px] pl-1.5 pr-2.5 hover:bg-u-raised"
         }
       >
         <AppIcon className="h-[30px]" />
         {!compact && (
-          <span className="text-[14px] font-medium uppercase tracking-[0.3em] text-text">Uncava</span>
+          <span className="font-brand text-[14px] font-extralight uppercase tracking-[0.38em] text-u-text">Uncava</span>
         )}
-        <Icon d={ICONS.chevronDown} size={13} className="text-text3" />
+        <Icon d={ICONS.chevronDown} size={13} className="text-u-text3" />
       </button>
 
       {open && (
-        <div className="absolute left-0 top-10 z-[80] w-[min(268px,calc(100vw-24px))] rounded-[10px] border border-line bg-panel p-1.5 shadow-panel">
-          <div className="mb-1.5 flex items-center gap-2.5 border-b border-line-soft p-2.5">
-            <LogoTile mark={workspace.logoMark ?? workspace.name[0]} size={30} />
+        <div className="absolute left-0 top-10 z-[80] w-[min(268px,calc(100vw-24px))] rounded-[10px] border border-u-border-strong bg-u-surface p-1.5 shadow-u-e3">
+          <div className="mb-1.5 flex items-center gap-2.5 border-b border-u-border p-2.5">
+            {workspace.company?.logoUrl ? (
+              <CompanyLogo name={workspace.name} logo={workspace.company.logoUrl} size={30} />
+            ) : (
+              <LogoTile mark={workspace.logoMark ?? workspace.name[0]} size={30} />
+            )}
             <div className="font-mono text-[13px] font-semibold">{workspace.name}</div>
           </div>
 
@@ -156,7 +161,7 @@ function WorkspaceMenu({ compact = false }: { compact?: boolean }) {
             <Icon d={ICONS.profile} size={15} className="flex-none" />
             Your profile
           </button>
-          <div className="mx-1 my-1.5 h-px bg-line-soft" />
+          <div className="mx-1 my-1.5 h-px bg-u-border" />
 
           {isAdmin && (
             <>
@@ -168,7 +173,7 @@ function WorkspaceMenu({ compact = false }: { compact?: boolean }) {
                 <Icon d={ICONS.members} size={15} className="flex-none" />
                 Members
               </button>
-              <div className="mx-1 my-1.5 h-px bg-line-soft" />
+              <div className="mx-1 my-1.5 h-px bg-u-border" />
             </>
           )}
 
@@ -186,7 +191,7 @@ function LogoTile({ mark, size = 22 }: { mark: string; size?: number }) {
   return (
     <span
       style={{ width: size, height: size }}
-      className="grid place-items-center rounded-md bg-amber-btn font-mono text-[11px] font-bold text-on-amber"
+      className="grid place-items-center rounded-md bg-u-accent-solid font-mono text-[11px] font-bold text-white"
     >
       {mark}
     </span>

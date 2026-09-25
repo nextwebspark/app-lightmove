@@ -9,6 +9,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Set;
 import java.util.stream.Stream;
 import org.springframework.core.io.ClassPathResource;
 import tools.jackson.core.type.TypeReference;
@@ -45,6 +46,7 @@ import tools.jackson.databind.ObjectMapper;
 public final class Industries {
 
     private static final String RESOURCE = "data/industry-map.json";
+    private static final Set<String> LOWER_CASE_WORDS = Set.of("&", "and", "of", "the", "for", "in");
 
     private static final Map<String, String> INDUSTRY_BY_SPELLING;
     private static final Map<String, ResolvedIndustry> RESOLVED_BY_INDUSTRY;
@@ -114,6 +116,25 @@ public final class Industries {
     public static boolean isKnown(String spelling) {
         String trimmed = trimmed(spelling);
         return trimmed != null && INDUSTRY_BY_SPELLING.containsKey(fold(trimmed));
+    }
+
+    /**
+     * The label as a person reads it: the universe's lower-case spelling title-cased, short joining
+     * words left lower. A label with any capital in it was typed by someone and keeps its own casing.
+     */
+    public static String displayNameOf(String label) {
+        if (label == null || !label.equals(label.toLowerCase(Locale.ROOT))) {
+            return label;
+        }
+        String[] words = label.split(" ");
+        for (int index = 0; index < words.length; index++) {
+            String word = words[index];
+            if (word.isEmpty() || (index > 0 && LOWER_CASE_WORDS.contains(word))) {
+                continue;
+            }
+            words[index] = Character.toUpperCase(word.charAt(0)) + word.substring(1);
+        }
+        return String.join(" ", words);
     }
 
     /**

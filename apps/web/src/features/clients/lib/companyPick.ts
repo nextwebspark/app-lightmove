@@ -1,3 +1,4 @@
+import type { WorkspaceCompany } from "../../auth/api/types";
 import type { CompanySuggestion } from "../../strategy/api/types";
 
 /**
@@ -25,4 +26,22 @@ export function pickedCompanyLogo(pick: CompanyPick): string | null {
 /** Where a company is, city first — the subtext under its name wherever a suggestion is rendered. */
 export function companyLocation(company: CompanySuggestion): string {
   return [company.companyCity, company.companyCountry].filter(Boolean).join(", ");
+}
+
+/** A workspace's firm as the picker shows a pick: the universe row it was filed under, or its typed name. */
+export function workspaceCompanyPick(name: string, company: WorkspaceCompany | null): CompanyPick {
+  if (!company) return { source: "custom", name, domain: "", hqCountry: "" };
+  return {
+    source: "universe",
+    company: {
+      apolloAccountId: company.apolloAccountId,
+      companyName: name,
+      industry: company.industry,
+      companyCity: company.city,
+      companyCountry: company.country,
+      website: company.website,
+      logoUrl: company.logoUrl,
+      numEmployees: null,
+    },
+  };
 }

@@ -65,6 +65,7 @@ export interface ClientDetail {
   logoUrl: string | null;
   domain: string | null;
   offLimitsNote: string | null;
+  notes: string | null;
   activeMandates: number;
   deliveredMandates: number;
   representatives: ClientRepresentative[];
@@ -87,6 +88,7 @@ export interface UpdateClientPayload {
   hqCountry?: string;
   domain?: string;
   offLimitsNote?: string;
+  notes?: string;
 }
 
 export interface InviteRepresentativePayload {

@@ -5,6 +5,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -32,7 +33,8 @@ class WorkspaceSettingsIntegrationTest extends FlowTestSupport {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.name").value("Detail Firm"))
                 .andExpect(jsonPath("$.memberCount").value(2))
-                .andExpect(jsonPath("$.emailDomain").value(domain));
+                .andExpect(jsonPath("$.emailDomain").value(domain))
+                .andExpect(jsonPath("$.defaultCurrency").value("AED"));
     }
 
     @Test
@@ -46,13 +48,56 @@ class WorkspaceSettingsIntegrationTest extends FlowTestSupport {
                         .header("Authorization", "Bearer " + admin)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
-                                {"name":"Zeta Advisory","defaultRegion":"MENA","defaultCurrency":"AED"}"""))
+                                {"name":"Zeta Advisory","apolloAccountId":"","defaultRegion":"MENA","defaultCurrency":"SAR"}"""))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.name").value("Zeta Advisory"))
                 .andExpect(jsonPath("$.logoMark").value("Z"))
                 .andExpect(jsonPath("$.defaultRegion").value("MENA"))
-                .andExpect(jsonPath("$.defaultCurrency").value("AED"))
+                .andExpect(jsonPath("$.defaultCurrency").value("SAR"))
                 .andExpect(jsonPath("$.slug", org.hamcrest.Matchers.startsWith("old-name-firm")));
+    }
+
+    @Test
+    @DisplayName("an admin saves the firm persona, tidied, and every staff read carries it")
+    void adminSavesPersona() throws Exception {
+        String alok = "alok@" + domain;
+        createWorkspace(verifiedUser("Alok Kumar", alok), "Persona Firm");
+        String admin = login(alok);
+
+        mvc.perform(put("/api/v1/workspace/persona")
+                        .header("Authorization", "Bearer " + admin)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"summary":"  Board and C-suite search for Gulf family groups ",
+                                 "sectors":["Energy"," energy ","Retail",""],
+                                 "competitors":["Korn Ferry"],"geographies":["GCC"],"notes":" "}"""))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.persona.summary").value("Board and C-suite search for Gulf family groups"))
+                .andExpect(jsonPath("$.persona.sectors.length()").value(2))
+                .andExpect(jsonPath("$.persona.sectors[0]").value("Energy"))
+                .andExpect(jsonPath("$.persona.sectors[1]").value("Retail"))
+                .andExpect(jsonPath("$.persona.competitors[0]").value("Korn Ferry"))
+                .andExpect(jsonPath("$.persona.notes").value(org.hamcrest.Matchers.nullValue()));
+
+        mvc.perform(get("/api/v1/workspace").header("Authorization", "Bearer " + admin))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.persona.geographies[0]").value("GCC"));
+    }
+
+    @Test
+    @DisplayName("a member may not change the firm persona")
+    void memberCannotChangePersona() throws Exception {
+        String alok = "alok@" + domain;
+        String sara = "sara@" + domain;
+        createWorkspace(verifiedUser("Alok Kumar", alok), "Persona Guard Firm");
+        inviteAndAccept(login(alok), "Sara Al-Mansour", sara, "MEMBER");
+
+        mvc.perform(put("/api/v1/workspace/persona")
+                        .header("Authorization", "Bearer " + login(sara))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"summary":"Anything"}"""))
+                .andExpect(status().isForbidden());
     }
 
     @Test
@@ -67,7 +112,7 @@ class WorkspaceSettingsIntegrationTest extends FlowTestSupport {
                         .header("Authorization", "Bearer " + login(sara))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
-                                {"name":"Sara's Now"}"""))
+                                {"name":"Sara's Now","apolloAccountId":""}"""))
                 .andExpect(status().isForbidden());
     }
 

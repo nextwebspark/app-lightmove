@@ -8,6 +8,7 @@ import {
   rowSortingFeature,
   type Column,
   type ReactTable,
+  type Row,
   type RowData,
   type TableFeatures,
 } from "@tanstack/react-table";
@@ -103,11 +104,11 @@ const KEYBOARD_RESIZE_LEAP = 64;
 // `start-0` here — a grid can have more than one pinned-start column (the always-pinned one, plus at
 // most one a user froze from the header menu), and each needs its own offset, applied inline below,
 // rather than every pinned cell sticking to the same edge and overlapping.
-const PINNED_START = "sticky ps-4 shadow-[1px_0_0_0_var(--color-line-soft)]";
+const PINNED_START = "sticky ps-4 shadow-[1px_0_0_0_var(--color-u-border)]";
 
 // The row centres its cells, so without `self-stretch` an opaque cell is a band with daylight
 // above and below it, and the scrolling columns slide through the gaps.
-const PINNED_FILL = "flex items-center self-stretch bg-panel transition group-hover:bg-panel2";
+const PINNED_FILL = "flex items-center self-stretch bg-u-surface transition group-hover:bg-u-raised";
 
 /**
  * The company grid: TanStack Table v9 computing the models, this file owning every pixel.
@@ -149,6 +150,15 @@ type GridFeatures = {
 
 type GridColumn<TData extends RowData> = Column<GridFeatures, TData, unknown>;
 
+type GridRow<TData extends RowData> = Row<GridFeatures, TData>;
+
+export interface DataGridGrouping<TData extends RowData> {
+  /** The group's display label — the caller substitutes its own fallback for blanks. */
+  keyOf: (row: TData) => string;
+  /** Orders the groups; rows inside one keep the table's own sort. */
+  compare: (a: string, b: string) => number;
+}
+
 export function DataGrid<TFeatures extends TableFeatures, TData extends RowData>({
   table,
   label,
@@ -165,6 +175,7 @@ export function DataGrid<TFeatures extends TableFeatures, TData extends RowData>
   onRowClick,
   onEditColumn,
   columnFilters,
+  groupBy,
 }: {
   table: ReactTable<TFeatures, TData>;
   /** Names the grid for screen readers — "Companies", "Shortlisted companies". */
@@ -217,6 +228,12 @@ export function DataGrid<TFeatures extends TableFeatures, TData extends RowData>
    * column with no entry gets no "Filter by" section on its menu.
    */
   columnFilters?: Record<string, DataGridColumnFilter>;
+  /**
+   * Partitions the grid's rows under full-width section headers ("AUTOMOTIVE · 2"), after the
+   * table's own sort — the mockup's positions list. Only the grid branch: the card stack already
+   * names the group on every card.
+   */
+  groupBy?: DataGridGrouping<TData>;
 }) {
   /*
    * The one cast, and the reason GridFeatures exists. Every caller registers at least those four
@@ -416,10 +433,69 @@ export function DataGrid<TFeatures extends TableFeatures, TData extends RowData>
 
   const track = { gridTemplateColumns: "var(--dg-cols)", minWidth: "var(--dg-min)" };
 
+  const renderRow = (row: GridRow<TData>) => (
+    <div
+      key={row.id}
+      role="row"
+      style={track}
+      tabIndex={onRowClick ? 0 : undefined}
+      onClick={
+        onRowClick
+          ? (event) => {
+              if (event.target instanceof Element && event.target.closest(NESTED_CONTROL)) return;
+              onRowClick(row.original);
+            }
+          : undefined
+      }
+      // A row is not a button, so the keys one answers to have to be spelled out — and only
+      // when the row itself holds focus, or Space on a cell's own button would fire twice.
+      onKeyDown={
+        onRowClick
+          ? (event) => {
+              if (event.target !== event.currentTarget) return;
+              if (event.key !== "Enter" && event.key !== " ") return;
+              event.preventDefault();
+              onRowClick(row.original);
+            }
+          : undefined
+      }
+      className={cn(
+        "group grid h-[52px] items-center gap-3 border-b border-u-border transition hover:bg-u-raised",
+        onRowClick &&
+          "cursor-pointer focus-visible:outline focus-visible:-outline-offset-2 focus-visible:outline-u-accent",
+      )}
+    >
+      {row.getVisibleCells().map((cell, index) => {
+        const pinned = cell.column.getIsPinned();
+        return (
+          <div
+            key={cell.id}
+            role="cell"
+            style={
+              pinned === "start"
+                ? { insetInlineStart: pinnedOffsets[cell.column.id] ?? 0 }
+                : undefined
+            }
+            className={cn(
+              "min-w-0",
+              // The row paints the hover tint and the pinned cell covers it, so it has to repaint it.
+              pinned === "start" && `${PINNED_FILL} ${PINNED_START}`,
+              !pinned && "first:ps-4 last:pe-4",
+            )}
+          >
+            <LeadingSlot lead={index === 0 && rowLead?.(row.original)}>
+              <grid.FlexRender cell={cell} />
+            </LeadingSlot>
+          </div>
+        );
+      })}
+    </div>
+  );
+
   const panel = (
     <div
       className={cn(
-        "min-h-0 flex-col overflow-hidden rounded-[8px] border border-line bg-panel",
+        "min-h-0 flex-col overflow-hidden rounded-[8px] border border-u-border-strong bg-u-surface",
         fit === "fill" && "flex-1",
         // Not `flex hidden md:flex`: twMerge resolves the two unprefixed display classes and the
         // grid would be the one that lost.
@@ -458,7 +534,7 @@ export function DataGrid<TFeatures extends TableFeatures, TData extends RowData>
             // that spilled past that edge, squaring off partway across the header instead of
             // reaching the last column.
             style={{ minWidth: "var(--dg-min)" } as CSSProperties}
-            className="sticky top-0 z-20 flex-none border-b border-line bg-panel2"
+            className="sticky top-0 z-20 flex-none border-b border-u-border-strong bg-u-raised"
           >
           <div
             role="row"
@@ -476,7 +552,7 @@ export function DataGrid<TFeatures extends TableFeatures, TData extends RowData>
                 <span
                   className={cn(
                     "block truncate font-sans text-[11px] font-semibold uppercase tracking-[0.04em]",
-                    sorted ? "text-text" : "text-text3",
+                    sorted ? "text-u-text" : "text-u-text3",
                   )}
                 >
                   <grid.FlexRender header={header} />
@@ -499,7 +575,7 @@ export function DataGrid<TFeatures extends TableFeatures, TData extends RowData>
                     "group/header relative min-w-0",
                     movable && "cursor-grab",
                     // The gutter travels with the pinned cell; padding on the row would scroll out from under it.
-                    pinned === "start" && `${PINNED_START} z-10 self-stretch bg-panel2`,
+                    pinned === "start" && `${PINNED_START} z-10 self-stretch bg-u-raised`,
                     !pinned && "first:ps-4 last:pe-4",
                   )}
                 >
@@ -561,7 +637,7 @@ export function DataGrid<TFeatures extends TableFeatures, TData extends RowData>
                       index === headerGroup.headers.length - 1 ? "end-0" : "-end-2",
                     )}
                   >
-                    <span className="mx-auto block h-full w-px bg-amber" />
+                    <span className="mx-auto block h-full w-px bg-u-accent" />
                   </span>
                 </div>
               );
@@ -584,65 +660,28 @@ export function DataGrid<TFeatures extends TableFeatures, TData extends RowData>
             <RowSkeleton />
           ) : rows.length === 0 ? (
             <GridMessage>{emptyMessage}</GridMessage>
-          ) : (
-            rows.map((row) => (
-              <div
-                key={row.id}
-                role="row"
-                style={track}
-                tabIndex={onRowClick ? 0 : undefined}
-                onClick={
-                  onRowClick
-                    ? (event) => {
-                        if (event.target instanceof Element && event.target.closest(NESTED_CONTROL)) return;
-                        onRowClick(row.original);
-                      }
-                    : undefined
-                }
-                // A row is not a button, so the keys one answers to have to be spelled out — and only
-                // when the row itself holds focus, or Space on a cell's own button would fire twice.
-                onKeyDown={
-                  onRowClick
-                    ? (event) => {
-                        if (event.target !== event.currentTarget) return;
-                        if (event.key !== "Enter" && event.key !== " ") return;
-                        event.preventDefault();
-                        onRowClick(row.original);
-                      }
-                    : undefined
-                }
-                className={cn(
-                  "group grid h-[52px] items-center gap-3 border-b border-line-soft transition hover:bg-panel2",
-                  onRowClick &&
-                    "cursor-pointer focus-visible:outline focus-visible:-outline-offset-2 focus-visible:outline-sky",
-                )}
-              >
-                {row.getVisibleCells().map((cell, index) => {
-                  const pinned = cell.column.getIsPinned();
-                  return (
-                    <div
-                      key={cell.id}
-                      role="cell"
-                      style={
-                        pinned === "start"
-                          ? { insetInlineStart: pinnedOffsets[cell.column.id] ?? 0 }
-                          : undefined
-                      }
-                      className={cn(
-                        "min-w-0",
-                        // The row paints the hover tint and the pinned cell covers it, so it has to repaint it.
-                        pinned === "start" && `${PINNED_FILL} ${PINNED_START}`,
-                        !pinned && "first:ps-4 last:pe-4",
-                      )}
-                    >
-                      <LeadingSlot lead={index === 0 && rowLead?.(row.original)}>
-                        <grid.FlexRender cell={cell} />
-                      </LeadingSlot>
-                    </div>
-                  );
-                })}
+          ) : groupBy ? (
+            groupsOf(rows, groupBy).map((group) => (
+              // Not sticky and no z-index: the column header at z-20 scrolls over it, per the mockup.
+              <div key={group.key} role="rowgroup">
+                <div
+                  role="row"
+                  style={{ minWidth: "var(--dg-min)" } as CSSProperties}
+                  className="border-b border-u-border bg-u-raised px-4 py-[9px]"
+                >
+                  <span
+                    role="cell"
+                    aria-colspan={visibleColumns.length}
+                    className="block font-mono text-meta font-semibold uppercase tracking-[0.1em] text-u-text3"
+                  >
+                    {group.key} · {group.rows.length}
+                  </span>
+                </div>
+                {group.rows.map(renderRow)}
               </div>
             ))
+          ) : (
+            rows.map(renderRow)
           )}
         </div>
       </div>
@@ -698,6 +737,22 @@ interface ReorderSession<TData extends RowData> {
  * <p>A grid honours a `minmax` floor whatever the container's width, so without the `min` sum the row
  * overflows a container that clips rather than scrolls, and the last column stops existing.
  */
+function groupsOf<TData extends RowData>(
+  rows: GridRow<TData>[],
+  groupBy: DataGridGrouping<TData>,
+): { key: string; rows: GridRow<TData>[] }[] {
+  const buckets = new Map<string, GridRow<TData>[]>();
+  for (const row of rows) {
+    const key = groupBy.keyOf(row.original);
+    const bucket = buckets.get(key);
+    if (bucket) bucket.push(row);
+    else buckets.set(key, [row]);
+  }
+  return [...buckets.keys()]
+    .sort(groupBy.compare)
+    .map((key) => ({ key, rows: buckets.get(key)! }));
+}
+
 function templateOf<TData extends RowData>(
   columns: readonly GridColumn<TData>[],
   widths: Record<string, number>,
@@ -792,11 +847,11 @@ function HeaderMenu<TData extends RowData>({
       width={190}
       trigger={() => <Icon d={filtered ? ICONS.filter : ICONS.chevronDown} size={12} />}
       triggerClassName={cn(
-        "grid size-5 shrink-0 place-items-center rounded-[4px] transition hover:bg-panel2",
+        "grid size-5 shrink-0 place-items-center rounded-[4px] transition hover:bg-u-raised",
         "aria-expanded:opacity-100 focus-visible:opacity-100",
         filtered
-          ? "text-sky opacity-100"
-          : "text-text3 opacity-0 hover:text-text group-hover/header:opacity-100",
+          ? "text-u-accent opacity-100"
+          : "text-u-text3 opacity-0 hover:text-u-text group-hover/header:opacity-100",
       )}
     >
       {(close) => (
@@ -804,7 +859,7 @@ function HeaderMenu<TData extends RowData>({
           {filter && (
             <>
               <div className="px-2.5 py-1.5">
-                <label className="mb-1 block font-sans text-[11px] font-medium text-text3">
+                <label className="mb-1 block font-sans text-[11px] font-medium text-u-text3">
                   Filter by
                 </label>
                 {filter.kind === "check" ? (
@@ -839,12 +894,12 @@ function HeaderMenu<TData extends RowData>({
                     }}
                     placeholder={filter.placeholder}
                     aria-label={filter["aria-label"]}
-                    className="h-7 w-full min-w-0 rounded-[4px] border border-line bg-panel px-2 font-sans text-[12px] text-text outline-none placeholder:text-text3 focus:border-sky"
+                    className="h-7 w-full min-w-0 rounded-[4px] border border-u-border-strong bg-u-surface px-2 font-sans text-[12px] text-u-text outline-none placeholder:text-u-text3 focus:border-u-accent"
                   />
                 )}
               </div>
               {(sortable || canMoveLeft || canMoveRight || !structurallyPinned || editable) && (
-                <div className="my-1 border-t border-line-soft" />
+                <div className="my-1 border-t border-u-border" />
               )}
             </>
           )}
@@ -900,7 +955,7 @@ function HeaderMenu<TData extends RowData>({
           )}
           {editable && (
             <>
-              <div className="my-1 border-t border-line-soft" />
+              <div className="my-1 border-t border-u-border" />
               <MenuItem
                 icon={ICONS.pencil}
                 label="Edit field"
@@ -922,9 +977,9 @@ function MenuItem({ icon, label, onClick }: { icon: string; label: string; onCli
     <button
       type="button"
       onClick={onClick}
-      className="flex w-full items-center gap-2.5 rounded-[6px] px-2.5 py-2 text-left font-sans text-[13px] text-text2 transition hover:bg-panel2 hover:text-text"
+      className="flex w-full items-center gap-2.5 rounded-[6px] px-2.5 py-2 text-left font-sans text-[13px] text-u-text2 transition hover:bg-u-raised hover:text-u-text"
     >
-      <Icon d={icon} size={14} className="text-text3" />
+      <Icon d={icon} size={14} className="text-u-text3" />
       {label}
     </button>
   );
@@ -985,7 +1040,7 @@ function paintDropEdge(box: HTMLElement | null, id: string | undefined, after: b
   }
   cell.style.setProperty(
     "box-shadow",
-    `inset ${after ? "-2px" : "2px"} 0 0 0 var(--color-amber)`,
+    `inset ${after ? "-2px" : "2px"} 0 0 0 var(--color-u-accent)`,
   );
 }
 
@@ -1012,14 +1067,14 @@ export function DataGridCell({ value, muted }: { value: string | null; muted?: b
   return (
     <TruncatedText
       value={value}
-      className={muted ? "font-sans text-[13px] text-text3" : "font-sans text-[13px] text-text2"}
+      className={muted ? "font-sans text-[13px] text-u-text3" : "font-sans text-[13px] text-u-text2"}
     />
   );
 }
 
 /** The icon button every grid's row actions and links are built from. */
 export const GRID_ICON_BUTTON =
-  "grid size-9 place-items-center rounded-[5px] text-text3 transition hover:bg-panel2 hover:text-text lg:size-6";
+  "grid size-9 place-items-center rounded-[5px] text-u-text3 transition hover:bg-u-raised hover:text-u-text lg:size-6";
 
 /**
  * The first column's content, with `lead` in front of it when there is one. Renders the child alone
@@ -1037,8 +1092,8 @@ function LeadingSlot({ lead, children }: { lead: ReactNode; children: ReactNode 
 
 function GridMessage({ children }: { children: ReactNode }) {
   return (
-    <div className="px-4 py-10 text-center font-mono text-[13px] text-text3">
-      <Icon d={ICONS.search} size={18} className="mx-auto mb-2 text-text3" />
+    <div className="px-4 py-10 text-center font-mono text-[13px] text-u-text3">
+      <Icon d={ICONS.search} size={18} className="mx-auto mb-2 text-u-text3" />
       {children}
     </div>
   );
@@ -1046,7 +1101,7 @@ function GridMessage({ children }: { children: ReactNode }) {
 
 function CardMessage({ children }: { children: ReactNode }) {
   return (
-    <div className="rounded-[10px] border border-line bg-panel px-4 py-8 text-center font-mono text-[13px] text-text3">
+    <div className="rounded-[10px] border border-u-border-strong bg-u-surface px-4 py-8 text-center font-mono text-[13px] text-u-text3">
       {children}
     </div>
   );
@@ -1056,7 +1111,7 @@ function CardSkeleton() {
   return (
     <>
       {Array.from({ length: 4 }, (_, index) => (
-        <div key={index} className="h-[84px] animate-pulse rounded-[10px] border border-line bg-panel" />
+        <div key={index} className="h-[84px] animate-pulse rounded-[10px] border border-u-border-strong bg-u-surface" />
       ))}
     </>
   );
@@ -1066,8 +1121,8 @@ function RowSkeleton() {
   return (
     <div>
       {Array.from({ length: 8 }, (_, index) => (
-        <div key={index} className="flex h-[52px] items-center border-b border-line-soft px-4">
-          <div className="h-3 w-1/3 animate-pulse rounded bg-panel2" />
+        <div key={index} className="flex h-[52px] items-center border-b border-u-border px-4">
+          <div className="h-3 w-1/3 animate-pulse rounded bg-u-raised" />
         </div>
       ))}
     </div>

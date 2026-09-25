@@ -32,6 +32,9 @@ public enum LlmBudget {
     /** Step three's "Read from document" — reporting-structure extraction. */
     REPORTING_EXTRACT("reporting-extract", LlmRateLimitSettings::defaultRequestsPerMinute),
 
+    /** A question to the assistant — several model rounds, and vendor lookups behind them. */
+    ASSISTANT("assistant", LlmRateLimitSettings::defaultRequestsPerMinute),
+
     /** A captured executive's background inference — nationality, gender, years of experience. */
     CANDIDATE_BACKGROUND_INFER("candidate-background-infer", LlmRateLimitSettings::defaultRequestsPerMinute);
 

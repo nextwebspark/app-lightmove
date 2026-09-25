@@ -45,7 +45,7 @@ class PostgresStreamListenerTest {
     @DisplayName("distinct legal channels are accepted")
     void distinctLegalChannelsAreAccepted() {
         assertThatCode(() -> new PostgresStreamListener(null,
-                List.of(handlerOn("lm_project_stream"), handlerOn("lm_assistant_turn_stream"))))
+                List.of(handlerOn("lm_project_stream"), handlerOn("lm_other_stream"))))
                 .doesNotThrowAnyException();
     }
 

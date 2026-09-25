@@ -71,7 +71,7 @@ export function ProfileForm({
           <Input
             autoComplete="name"
             invalid={!!errors.fullName}
-            className="!bg-panel"
+            className="!bg-u-surface"
             {...register("fullName")}
           />
         </Field>
@@ -84,7 +84,7 @@ export function ProfileForm({
           <Input
             placeholder="Managing Partner"
             invalid={!!errors.title}
-            className="!bg-panel"
+            className="!bg-u-surface"
             {...register("title")}
           />
         </Field>
@@ -94,7 +94,7 @@ export function ProfileForm({
         </Field>
 
         <Field label="Timezone" error={errors.timezone?.message}>
-          <Select invalid={!!errors.timezone} className="!bg-panel" {...register("timezone")}>
+          <Select invalid={!!errors.timezone} className="!bg-u-surface" {...register("timezone")}>
             {TIMEZONE_OPTIONS.map((option) => (
               <option key={option.value} value={option.value}>
                 {option.label}
@@ -104,7 +104,7 @@ export function ProfileForm({
         </Field>
 
         <Field label="Language" error={errors.locale?.message}>
-          <Select invalid={!!errors.locale} className="!bg-panel" {...register("locale")}>
+          <Select invalid={!!errors.locale} className="!bg-u-surface" {...register("locale")}>
             {LANGUAGE_OPTIONS.map((option) => (
               <option key={option.value} value={option.value}>
                 {option.label}
@@ -126,7 +126,7 @@ export function ProfileForm({
 /** A value the caller may read and not edit — the treatment the mockup gives Workspace URL and Role. */
 function ReadOnlyValue({ children }: { children: ReactNode }) {
   return (
-    <div className="rounded-lg border border-line-soft bg-panel px-3 py-[9px] font-mono text-[13px] font-medium text-text2">
+    <div className="rounded-lg border border-u-border bg-u-surface px-3 py-[9px] font-mono text-[13px] font-medium text-u-text2">
       {children}
     </div>
   );

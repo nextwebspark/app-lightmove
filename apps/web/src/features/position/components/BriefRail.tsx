@@ -1,7 +1,6 @@
 import { UncavaRailNav } from "../../../components/layout/UncavaRailNav";
 import type { SaveStatus } from "../../../lib/useAutosave";
 import type { Position } from "../api/types";
-import { fieldCountOf, type Receipts } from "../lib/documentFill";
 import { POSITION_STEPS, STEP_PARAM, type StepKey } from "../lib/steps";
 import { BriefButton } from "./BriefFields";
 
@@ -22,7 +21,6 @@ export function BriefRail({
   saveStatus,
   publishing,
   readBack,
-  receipts,
   onPublish,
   onEditPosition,
   onSaveDraft,
@@ -33,18 +31,12 @@ export function BriefRail({
   publishing: boolean;
   /** Published and not reopened: the brief reads back and the rail offers the way in. */
   readBack: boolean;
-  /** This session's document-reading receipts — the source of the "N filled" badge, never a persisted
-   *  count: a brief somebody finished a month ago must not nag about fields nobody has re-read since. */
-  receipts: Receipts;
   onPublish: () => void;
   onEditPosition: () => void;
   onSaveDraft: () => void;
 }) {
   const published = Boolean(position.publication.publishedAt);
-  const stepLinks = POSITION_STEPS.map((step) => {
-    const count = fieldCountOf(receipts[step.key]);
-    return { key: step.key, label: step.name, icon: step.icon, badge: count > 0 ? `${count} filled` : undefined };
-  });
+  const stepLinks = POSITION_STEPS.map((step) => ({ key: step.key, label: step.name, icon: step.icon }));
 
   return (
     <aside className="flex-none border-b border-u-border lg:w-[258px] lg:border-b-0 lg:border-r">

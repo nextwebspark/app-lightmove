@@ -1,4 +1,4 @@
-import type { ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import {
   Controller,
   useFieldArray,
@@ -13,13 +13,25 @@ import {
 import { Icon, ICONS } from "../../../components/layout/Icon";
 import { Field, Input, Select, TextArea } from "../../../components/ui";
 import { CountryField } from "../../../components/ui/CountryField";
+import { SegmentedControl, type SegmentedOption } from "../../../components/ui/SegmentedControl";
 import { cn } from "../../../lib/cn";
-import { CURRENCIES } from "../../../lib/currencies";
+import { CURRENCIES, currencyOptionLabel, DEFAULT_CURRENCY } from "../../../lib/currencies";
 import { formatNumber } from "../../../lib/format";
 import { NOTICE_PERIODS } from "../../../lib/noticePeriod";
 import { toReadableUrl } from "../../../lib/url";
-import { amountTyped } from "../lib/compensation";
 import type { CandidateBackgroundField } from "../api/types";
+import {
+  allowanceTotalOf,
+  amountTyped,
+  annualBaseOf,
+  bonusAmountOf,
+  bonusPercentOf,
+  LONG_TERM_INCENTIVE_TYPES,
+  shareTyped,
+  toggleIncentiveType,
+  type BaseCadence,
+  type BonusBasis,
+} from "../lib/compensation";
 import { EMPTY_CONTACT_LINE, type CandidateForm, type ContactEntryForm } from "../lib/candidateForm";
 import {
   CANDIDATE_GENDERS,
@@ -27,7 +39,6 @@ import {
   CANDIDATE_SENIORITIES,
   CANDIDATE_STATUSES,
 } from "../lib/candidateVocabulary";
-import { PackageTotal } from "./CompensationSummary";
 
 /**
  * The profile's fields, one group per section, shared by the form that adds an executive and the
@@ -84,7 +95,7 @@ export function IdentityFields<TTransformed>({
             {...register("employerName")}
             readOnly={employerLocked}
             placeholder="Al Rawabi Dairy"
-            className={employerLocked ? "text-text3" : undefined}
+            className={employerLocked ? "text-u-text3" : undefined}
           />
         </Field>
         {statusField}
@@ -151,10 +162,10 @@ export function CareerFields<TTransformed extends FieldValues>({
   return (
     <div className="mb-4">
       <div className="mb-1.5 flex items-baseline justify-between">
-        <span className="font-mono text-[10px] font-semibold uppercase tracking-[0.12em] text-text3">
+        <span className="font-mono text-[10px] font-semibold uppercase tracking-[0.12em] text-u-text3">
           Career history
         </span>
-        <span className="font-mono text-[11px] text-text3">Most recent first</span>
+        <span className="font-mono text-[11px] text-u-text3">Most recent first</span>
       </div>
       {career.fields.map((row, index) => (
         <div key={row.id} className="mb-2 flex items-start gap-2">
@@ -180,7 +191,7 @@ export function CareerFields<TTransformed extends FieldValues>({
             type="button"
             onClick={() => career.remove(index)}
             aria-label={`Remove career row ${index + 1}`}
-            className="mt-2 flex-none rounded-md p-1.5 text-text3 transition hover:bg-panel2 hover:text-red"
+            className="mt-2 flex-none rounded-md p-1.5 text-u-text3 transition hover:bg-u-raised hover:text-u-offlimits"
           >
             <Icon d={ICONS.trash} size={14} />
           </button>
@@ -189,13 +200,13 @@ export function CareerFields<TTransformed extends FieldValues>({
       <button
         type="button"
         onClick={() => career.append({ company: "", title: "", period: "" })}
-        className="inline-flex items-center gap-1.5 rounded-[6px] border border-dashed border-line px-3 py-2 font-sans text-[13px] text-text2 transition hover:border-text3 hover:text-text"
+        className="inline-flex items-center gap-1.5 rounded-[6px] border border-dashed border-u-border-strong px-3 py-2 font-sans text-[13px] text-u-text2 transition hover:border-u-text3 hover:text-u-text"
       >
         <Icon d={ICONS.plus} size={14} />
         Add a post
       </button>
       {errors.career?.message && (
-        <span role="alert" className="mt-1.5 block font-mono text-[11px] text-red">
+        <span role="alert" className="mt-1.5 block font-mono text-[11px] text-u-offlimits">
           {errors.career.message}
         </span>
       )}
@@ -203,68 +214,308 @@ export function CareerFields<TTransformed extends FieldValues>({
   );
 }
 
-const AMOUNTS: { name: "baseSalary" | "bonus" | "allowances" | "longTermIncentive"; label: string; placeholder: string }[] = [
-  { name: "baseSalary", label: "Base", placeholder: "420,000" },
-  { name: "bonus", label: "Bonus", placeholder: "80,000" },
-  { name: "allowances", label: "Allowances", placeholder: "40,000" },
-  { name: "longTermIncentive", label: "Long-term incentive", placeholder: "0" },
+const CADENCES: readonly SegmentedOption<BaseCadence>[] = [
+  { value: "annual", label: "Annual" },
+  { value: "monthly", label: "Monthly" },
 ];
 
+const BONUS_BASES: readonly SegmentedOption<BonusBasis>[] = [
+  { value: "percent", label: "% of Base" },
+  { value: "fixed", label: "Fixed" },
+];
+
+const MAX_ALLOWANCE_LINES = 12;
+
+const TOGGLE_CLASS = "mt-2 rounded-[6px] border-u-border bg-u-raised";
+
+/** The mockup's figure field: soft border, 14px bold, the currency set in the same weight as the figure. */
+const FIGURE_INPUT = "border-u-border py-[9px] text-[14px] font-bold";
+
+type CurrencyMode = "auto" | "override" | "brief";
+
 /**
- * A package, as it is quoted: the currency chosen once and shown inside every figure it qualifies,
- * and the total worked out as the figures are typed — a consultant checking a number against what
- * was said on the phone reads the total, not four fields.
+ * A package, as it is quoted (claude-design/Position.dc.html, the drawer's Compensation editor): the
+ * currency the brief is quoted in unless somebody overrides it, the base and bonus typed the way they
+ * were said — per month, as a share of base — the allowances line by line, the instruments an LTIP is
+ * paid in, and the total worked out as it is typed. What is stored is always the annual amounts; the
+ * two toggles are how a figure was spoken, and the patch converts them.
  *
  * <p>A currency the list does not carry — one stored before the picker existed, or by an import —
  * stays offered as an option: a select whose value matches no option posts blank, and that would
  * clear a fact nobody touched. The notice period, which was a text box until the five became the
- * vocabulary, is kept the same way; "Not established" above them is the blank every sibling picker
- * carries, and is not "None" — see lib/noticePeriod.ts.
+ * vocabulary, is kept the same way; "Not established" is the blank every sibling picker carries, and
+ * is not "None" — see lib/noticePeriod.ts.
  */
-export function CompensationFields({
+export function CompensationFields<TTransformed extends FieldValues>({
   register,
   errors,
+  control,
   watch,
   setValue,
+  briefCurrency,
   storedCurrency,
   storedNoticePeriod,
 }: FieldGroupProps & {
+  control: Control<CandidateForm, unknown, TTransformed>;
   watch: UseFormWatch<CandidateForm>;
   setValue: UseFormSetValue<CandidateForm>;
+  /** The mandate's currency from the brief, which a package follows until somebody overrides it. */
+  briefCurrency?: string | null;
+  /** What the profile already holds; a stored code other than the brief's opens overridden. */
   storedCurrency?: string | null;
   storedNoticePeriod?: string | null;
 }) {
-  const [currency, base, bonus, allowances, longTermIncentive] = watch([
-    "currency",
-    "baseSalary",
-    "bonus",
-    "allowances",
-    "longTermIncentive",
-  ]);
-  const currencies: string[] =
-    storedCurrency && !(CURRENCIES as readonly string[]).includes(storedCurrency)
-      ? [storedCurrency, ...CURRENCIES]
-      : [...CURRENCIES];
+  const [currencyMode, setCurrencyMode] = useState<CurrencyMode>("auto");
+  const allowances = useFieldArray({ control, name: "allowanceLines" });
+  const [currency, base, baseCadence, bonus, bonusBasis, allowanceLines, longTermIncentive, incentiveTypes] =
+    watch([
+      "currency",
+      "baseSalary",
+      "baseCadence",
+      "bonus",
+      "bonusBasis",
+      "allowanceLines",
+      "longTermIncentive",
+      "longTermIncentiveTypes",
+    ]);
+
+  const followsBrief =
+    Boolean(briefCurrency) &&
+    (currencyMode === "brief" ||
+      (currencyMode === "auto" && (!storedCurrency || storedCurrency === briefCurrency)));
+
+  // The brief is read beside the grid and can land after the form opened; while the package follows
+  // it, it takes it. With no brief and nothing on file, the package starts in the default currency.
+  // Once overridden, nothing here touches the pick.
+  useEffect(() => {
+    if (followsBrief && briefCurrency && currency !== briefCurrency) {
+      setValue("currency", briefCurrency, { shouldDirty: true });
+    } else if (!briefCurrency && !storedCurrency && currencyMode === "auto" && !currency) {
+      setValue("currency", DEFAULT_CURRENCY, { shouldDirty: true });
+    }
+  }, [followsBrief, briefCurrency, storedCurrency, currencyMode, currency, setValue]);
+
+  const currencyField = register("currency");
+  const bonusPercentField = register("bonus");
+  const currencies: string[] = [...CURRENCIES];
+  for (const held of [storedCurrency, briefCurrency]) {
+    if (held && !currencies.includes(held)) currencies.unshift(held);
+  }
   const offVocabularyNotice =
     storedNoticePeriod && !NOTICE_PERIODS.some((period) => period.label === storedNoticePeriod)
       ? storedNoticePeriod
       : null;
 
+  const annualBase = annualBaseOf(amountTyped(base), baseCadence);
+  const bonusAmount = bonusAmountOf(annualBase, shareTyped(bonus), bonusBasis);
+  const allowanceTotal = allowanceTotalOf(allowanceLines.map((line) => amountTyped(line.amount)));
+  const total = (annualBase ?? 0) + (bonusAmount ?? 0) + (allowanceTotal ?? 0) + (amountTyped(longTermIncentive) ?? 0);
+
+  const handleBonusBasis = (next: BonusBasis) => {
+    if (next === bonusBasis) return;
+    // Carry the figure across rather than reading 45 as AED 45: the switch changes how the bonus is
+    // stated, not what it is.
+    const typed = shareTyped(bonus);
+    if (typed !== null) {
+      const restated =
+        next === "fixed"
+          ? bonusAmount === null ? "" : formatNumber(bonusAmount)
+          : annualBase ? `${bonusPercentOf(annualBase, typed)}%` : "";
+      setValue("bonus", restated, { shouldDirty: true });
+    }
+    setValue("bonusBasis", next, { shouldDirty: true });
+  };
+
   return (
     <>
-      <div className="grid gap-x-4 sm:grid-cols-2">
-        <Field label="Currency" error={errors.currency?.message}>
-          <Select {...register("currency")} invalid={Boolean(errors.currency)}>
+      <div className="mb-3.5 flex items-center gap-2.5">
+        {followsBrief ? (
+          <div
+            aria-label="Currency"
+            className="min-w-0 flex-1 truncate rounded-[6px] border border-u-border bg-u-raised px-3 py-[9px] font-mono text-[13px] font-semibold text-u-text"
+          >
+            {currencyOptionLabel(currency)}
+          </div>
+        ) : (
+          <Select
+            {...currencyField}
+            // A pick is a statement that this package is quoted otherwise: a brief read after it must
+            // not take it back.
+            onChange={(event) => {
+              setCurrencyMode("override");
+              void currencyField.onChange(event);
+            }}
+            aria-label="Currency"
+            invalid={Boolean(errors.currency)}
+            className="min-w-0 flex-1 border-u-border py-[9px] font-semibold"
+          >
             <option value="">Not set</option>
             {currencies.map((code) => (
               <option key={code} value={code}>
-                {code}
+                {currencyOptionLabel(code)}
               </option>
             ))}
           </Select>
-        </Field>
-        <Field label="Notice period" error={errors.noticePeriod?.message}>
-          <Select {...register("noticePeriod")} invalid={Boolean(errors.noticePeriod)}>
+        )}
+        {followsBrief && (
+          <span className="flex-none rounded-[5px] bg-u-direct-tint px-2 py-1 font-mono text-[10px] font-bold uppercase tracking-[0.05em] text-u-direct">
+            From brief
+          </span>
+        )}
+        {briefCurrency && (
+          <button
+            type="button"
+            onClick={() => setCurrencyMode(followsBrief ? "override" : "brief")}
+            className="flex-none font-sans text-[12.5px] font-semibold text-u-accent hover:underline"
+          >
+            {followsBrief ? "Override" : "Reset to brief"}
+          </button>
+        )}
+      </div>
+
+      <div className="grid gap-x-4 gap-y-4 sm:grid-cols-2">
+        <div>
+          <AmountField
+            name="baseSalary"
+            label="Base"
+            placeholder="1,800,000"
+            currency={currency}
+            register={register}
+            setValue={setValue}
+            error={errors.baseSalary?.message}
+          />
+          <SegmentedControl
+            label="Base salary is"
+            options={CADENCES}
+            value={baseCadence}
+            onChange={(next) => setValue("baseCadence", next, { shouldDirty: true })}
+            variant="uncava"
+            className={TOGGLE_CLASS}
+          />
+        </div>
+
+        <div>
+          {bonusBasis === "fixed" ? (
+            <AmountField
+              name="bonus"
+              label="Bonus"
+              placeholder="150,000"
+              currency={currency}
+              register={register}
+              setValue={setValue}
+              error={errors.bonus?.message}
+            />
+          ) : (
+            <CompensationField label="Bonus" error={errors.bonus?.message}>
+              <Input
+                {...bonusPercentField}
+                aria-label="Bonus"
+                inputMode="decimal"
+                placeholder="30%"
+                invalid={Boolean(errors.bonus)}
+                className={FIGURE_INPUT}
+                onBlur={(event) => {
+                  void bonusPercentField.onBlur(event);
+                  const share = shareTyped(event.target.value);
+                  if (share !== null) setValue("bonus", `${share}%`);
+                }}
+              />
+            </CompensationField>
+          )}
+          <SegmentedControl
+            label="Bonus is"
+            options={BONUS_BASES}
+            value={bonusBasis}
+            onChange={handleBonusBasis}
+            variant="uncava"
+            className={TOGGLE_CLASS}
+          />
+          {bonusBasis === "percent" && bonusAmount !== null && (
+            <p className="mt-2 font-mono text-[11.5px] text-u-text3">
+              Calculated: {`${currency} ${formatNumber(bonusAmount)}`.trim()}
+            </p>
+          )}
+          {/* A share of no base comes to nothing the server can store, so say so before Save drops it. */}
+          {bonusBasis === "percent" && annualBase === null && shareTyped(bonus) !== null && (
+            <p className="mt-2 font-mono text-[11.5px] text-u-signal">Enter a base to work this out</p>
+          )}
+        </div>
+
+        <div>
+          <span className="mb-1.5 block font-mono text-[10px] font-semibold uppercase tracking-[0.12em] text-u-text3">
+            Allowances
+          </span>
+          {allowances.fields.length > 0 && (
+            <ul className="overflow-hidden rounded-[6px] border border-u-border">
+              {allowances.fields.map((line, index) => (
+                <AllowanceLineRow
+                  key={line.id}
+                  index={index}
+                  register={register}
+                  setValue={setValue}
+                  error={
+                    errors.allowanceLines?.[index]?.amount?.message ?? errors.allowanceLines?.[index]?.label?.message
+                  }
+                />
+              ))}
+            </ul>
+          )}
+          {allowances.fields.length < MAX_ALLOWANCE_LINES && (
+            <button
+              type="button"
+              onClick={() => allowances.append({ label: "", amount: "" })}
+              className="mt-2 font-sans text-[12.5px] font-semibold text-u-accent hover:underline"
+            >
+              + Add
+            </button>
+          )}
+        </div>
+
+        <div>
+          <AmountField
+            name="longTermIncentive"
+            label="LTIP"
+            placeholder="1,000,000"
+            currency={currency}
+            register={register}
+            setValue={setValue}
+            error={errors.longTermIncentive?.message}
+          />
+          <div role="group" aria-label="LTIP paid in" className="mt-2 flex flex-wrap gap-1.5">
+            {LONG_TERM_INCENTIVE_TYPES.map((type) => {
+              const pressed = incentiveTypes.includes(type.value);
+              return (
+                <button
+                  key={type.value}
+                  type="button"
+                  aria-pressed={pressed}
+                  onClick={() =>
+                    setValue("longTermIncentiveTypes", toggleIncentiveType(incentiveTypes, type.value), {
+                      shouldDirty: true,
+                    })
+                  }
+                  className={cn(
+                    "flex-none rounded-full border px-3 py-[5px] font-sans text-[11.5px] font-semibold transition",
+                    pressed
+                      ? "border-u-accent-ring bg-u-accent-tint text-u-accent"
+                      : "border-u-border text-u-text3 hover:text-u-text",
+                  )}
+                >
+                  {type.label}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      </div>
+
+      <div className="mt-4 sm:w-1/2 sm:pe-2">
+        <CompensationField label="Notice period" error={errors.noticePeriod?.message}>
+          <Select
+            {...register("noticePeriod")}
+            invalid={Boolean(errors.noticePeriod)}
+            className="border-u-border py-[9px]"
+          >
             <option value="">Not established</option>
             {NOTICE_PERIODS.map((period) => (
               <option key={period.label} value={period.label}>
@@ -275,34 +526,84 @@ export function CompensationFields({
               <option value={offVocabularyNotice}>{offVocabularyNotice} (as recorded)</option>
             )}
           </Select>
-        </Field>
-        {AMOUNTS.map((amount) => (
-          <AmountField
-            key={amount.name}
-            name={amount.name}
-            label={amount.label}
-            placeholder={amount.placeholder}
-            currency={currency}
-            register={register}
-            setValue={setValue}
-            error={errors[amount.name]?.message}
-          />
-        ))}
+        </CompensationField>
       </div>
-      <PackageTotal
-        currency={currency}
-        compensation={{
-          baseSalary: amountTyped(base),
-          bonus: amountTyped(bonus),
-          allowances: amountTyped(allowances),
-          longTermIncentive: amountTyped(longTermIncentive),
-        }}
-        live
-      />
-      <p className="mt-3 mb-4 font-mono text-[11px] text-text3">
-        Whole units, in the currency it was quoted in. Nothing converts it.
-      </p>
+
+      <div className="mt-4 flex items-center justify-between rounded-[6px] border border-u-accent bg-u-accent-tint px-3.5 py-3">
+        <span className="font-mono text-[10px] font-bold uppercase tracking-[0.08em] text-u-text2">Total package</span>
+        <span
+          data-testid="package-total"
+          className={cn("font-mono text-[17px] font-bold", total > 0 ? "text-u-text" : "text-u-text3")}
+        >
+          {total > 0 ? `${currency} ${formatNumber(total)}`.trim() : "—"}
+        </span>
+      </div>
     </>
+  );
+}
+
+/**
+ * The editor's own label: the mockup sets these at 9.5px, a step under the shared `Field`, and stacks
+ * each toggle 8px under its input rather than a field's width of space.
+ */
+function CompensationField({ label, error, children }: { label: string; error?: string; children: ReactNode }) {
+  return (
+    <label className="block">
+      <span className="mb-1.5 block font-mono text-[9.5px] font-semibold uppercase tracking-[0.08em] text-u-text3">
+        {label}
+      </span>
+      {children}
+      {error && (
+        <span role="alert" className="mt-1 block font-mono text-[11px] text-u-offlimits">
+          {error}
+        </span>
+      )}
+    </label>
+  );
+}
+
+/** One allowance: its name on the left, its annual figure on the right, as one row of a ruled list. */
+function AllowanceLineRow({
+  index,
+  register,
+  setValue,
+  error,
+}: {
+  index: number;
+  register: UseFormRegister<CandidateForm>;
+  setValue: UseFormSetValue<CandidateForm>;
+  error?: string;
+}) {
+  const amount = register(`allowanceLines.${index}.amount`);
+  return (
+    <li className="border-b border-u-border px-2.5 py-2 last:border-b-0">
+      <div className="flex items-center gap-2">
+        <input
+          {...register(`allowanceLines.${index}.label`)}
+          aria-label={`Allowance ${index + 1} name`}
+          placeholder="Allowance"
+          className="min-w-0 flex-1 bg-transparent font-mono text-[12.5px] text-u-text2 outline-none placeholder:text-u-text3"
+        />
+        <input
+          {...amount}
+          aria-label={`Allowance ${index + 1} amount`}
+          aria-invalid={Boolean(error)}
+          inputMode="numeric"
+          placeholder="0"
+          className="w-[110px] flex-none bg-transparent text-end font-mono text-[12.5px] font-bold text-u-text outline-none placeholder:text-u-text3"
+          onBlur={(event) => {
+            void amount.onBlur(event);
+            const figure = amountTyped(event.target.value);
+            if (figure !== null) setValue(`allowanceLines.${index}.amount`, formatNumber(figure));
+          }}
+        />
+      </div>
+      {error && (
+        <p role="alert" className="mt-1 font-mono text-[11px] text-u-offlimits">
+          {error}
+        </p>
+      )}
+    </li>
   );
 }
 
@@ -316,7 +617,7 @@ function AmountField({
   setValue,
   error,
 }: {
-  name: (typeof AMOUNTS)[number]["name"];
+  name: "baseSalary" | "bonus" | "longTermIncentive";
   label: string;
   placeholder: string;
   currency: string;
@@ -326,12 +627,12 @@ function AmountField({
 }) {
   const field = register(name);
   return (
-    <Field label={label} error={error}>
+    <CompensationField label={label} error={error}>
       <div className="relative">
         {currency && (
           <span
             aria-hidden="true"
-            className="pointer-events-none absolute inset-y-0 start-0 flex items-center ps-3 font-mono text-[11px] font-semibold text-text3"
+            className="pointer-events-none absolute inset-y-0 start-0 flex items-center ps-3 font-mono text-[14px] font-bold text-u-text"
           >
             {currency}
           </span>
@@ -344,7 +645,7 @@ function AmountField({
           inputMode="numeric"
           placeholder={placeholder}
           invalid={Boolean(error)}
-          className={cn(currency && "ps-12")}
+          className={cn(FIGURE_INPUT, currency && "ps-[2.9rem]")}
           onBlur={(event) => {
             void field.onBlur(event);
             const figure = amountTyped(event.target.value);
@@ -354,20 +655,16 @@ function AmountField({
           }}
         />
       </div>
-    </Field>
+    </CompensationField>
   );
 }
 
-/**
- * A small marker for a value an AI inference proposed that nobody has reviewed yet — see
- * `Candidate.aiInferredFields`. Amber for the reason a captured row's own source pill is: it is a
- * fact worth a second look, not yet one this screen is vouching for.
- */
+/** Marks a value an AI inference proposed that nobody has reviewed yet — `Candidate.aiInferredFields`. */
 export function AiInferredBadge() {
   return (
     <span
       title="AI-suggested from the captured profile — not yet reviewed"
-      className="inline-flex flex-none items-center rounded-[4px] bg-amber-dim px-[5px] py-[1px] font-mono text-[9px] font-bold uppercase tracking-[0.04em] text-amber"
+      className="inline-flex flex-none items-center rounded-[4px] bg-u-signal-tint px-[5px] py-[1px] font-mono text-[9px] font-bold uppercase tracking-[0.04em] text-u-signal"
     >
       AI
     </span>
@@ -458,8 +755,8 @@ export function ContactFields({ lockedUrl = null }: { lockedUrl?: string | null 
   if (lockedUrl) {
     return (
       <Field label="LinkedIn" hint="Captured from this profile page — not editable">
-        <div className="flex items-center gap-2 rounded-lg border border-line-soft bg-panel2 px-3 py-2 font-mono text-[13px] text-text2">
-          <Icon d={ICONS.lock} size={13} className="flex-none text-text3" />
+        <div className="flex items-center gap-2 rounded-lg border border-u-border bg-u-raised px-3 py-2 font-mono text-[13px] text-u-text2">
+          <Icon d={ICONS.lock} size={13} className="flex-none text-u-text3" />
           <span className="min-w-0 truncate">{toReadableUrl(lockedUrl)}</span>
         </div>
       </Field>
@@ -530,8 +827,8 @@ export function ContactEntriesFields({ channel }: { channel: "email" | "phone" }
                     className={cn(
                       "flex-none rounded-[5px] border px-[7px] py-[3px] font-mono text-[9.5px] font-bold uppercase tracking-[0.06em] transition",
                       field.value
-                        ? "border-transparent bg-green-dim text-green"
-                        : "border-line text-text3 hover:border-text3 hover:text-text2",
+                        ? "border-transparent bg-u-direct-tint text-u-direct"
+                        : "border-u-border-strong text-u-text3 hover:border-u-text3 hover:text-u-text2",
                     )}
                   >
                     Verified
@@ -542,13 +839,13 @@ export function ContactEntriesFields({ channel }: { channel: "email" | "phone" }
                 type="button"
                 onClick={() => lines.remove(index)}
                 aria-label={`Remove ${noun} ${index + 1}`}
-                className="flex-none rounded-md p-1.5 text-text3 transition hover:bg-panel2 hover:text-red"
+                className="flex-none rounded-md p-1.5 text-u-text3 transition hover:bg-u-raised hover:text-u-offlimits"
               >
                 <Icon d={ICONS.trash} size={14} />
               </button>
             </div>
             {errors?.[index]?.value?.message && (
-              <span role="alert" className="mt-1 block font-mono text-[11px] text-red">
+              <span role="alert" className="mt-1 block font-mono text-[11px] text-u-offlimits">
                 {errors[index]?.value?.message}
               </span>
             )}
@@ -559,13 +856,13 @@ export function ContactEntriesFields({ channel }: { channel: "email" | "phone" }
         type="button"
         onClick={() => lines.append({ ...EMPTY_CONTACT_LINE })}
         disabled={lines.fields.length >= 10}
-        className="mt-2 inline-flex items-center gap-1.5 rounded-[6px] border border-dashed border-line px-3 py-1.5 font-sans text-[12.5px] text-text2 transition hover:border-text3 hover:text-text disabled:cursor-not-allowed disabled:opacity-50"
+        className="mt-2 inline-flex items-center gap-1.5 rounded-[6px] border border-dashed border-u-border-strong px-3 py-1.5 font-sans text-[12.5px] text-u-text2 transition hover:border-u-text3 hover:text-u-text disabled:cursor-not-allowed disabled:opacity-50"
       >
         <Icon d={ICONS.plus} size={13} />
         Add {noun}
       </button>
       {errors?.message && (
-        <span role="alert" className="mt-1.5 block font-mono text-[11px] text-red">
+        <span role="alert" className="mt-1.5 block font-mono text-[11px] text-u-offlimits">
           {errors.message}
         </span>
       )}

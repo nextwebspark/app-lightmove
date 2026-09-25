@@ -147,14 +147,21 @@ describe("scalar fill — keep, replace, ignore", () => {
     expect(outcome.changed.has("brief")).toBe(false);
   });
 
-  it("never fills roleTitle", () => {
-    const snapshot = snapshotOf({ details: details({ roleTitle: "Untitled" }) });
+  it("takes the document's role title over whatever the brief had", () => {
+    const snapshot = snapshotOf({ details: details({ roleTitle: "Group CFO – Energy" }) });
     const outcome = fillBrief(
       snapshot,
       { details: extraction([field("roleTitle", "Chief Financial Officer")]) },
       FILE_NAME,
     );
-    expect(outcome.next.details.roleTitle).toBe("Untitled");
+    expect(outcome.next.details.roleTitle).toBe("Chief Financial Officer");
+    expect(outcome.changed.has("brief")).toBe(true);
+  });
+
+  it("keeps the brief's title when the document states none", () => {
+    const snapshot = snapshotOf({ details: details({ roleTitle: "Group CFO – Energy" }) });
+    const outcome = fillBrief(snapshot, { details: extraction([field("roleTitle", "   ")]) }, FILE_NAME);
+    expect(outcome.next.details.roleTitle).toBe("Group CFO – Energy");
   });
 
   it("fills each half of the location the server split, marking them apart", () => {

@@ -24,5 +24,13 @@ public record WorkspaceSummary(
         List<WorkspaceRole> roles,
 
         /** When this membership became active. Settings → Profile reads it as "joined Mar 2026". */
-        Instant joinedAt
+        Instant joinedAt,
+
+        /** The universe company the firm was picked as at signup; null for one typed in by hand. */
+        WorkspaceCompanyResponse company,
+
+        /** Signup's description of the firm, so going back to that step shows what was saved. */
+        String companySize,
+        String primaryRegion,
+        String teamFocus
 ) {}

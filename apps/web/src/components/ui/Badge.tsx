@@ -5,13 +5,13 @@ import type { ProjectHealth, ProjectStage } from "../../features/projects/api/ty
  * HEALTH tables.
  */
 const STAGE_STYLES: Record<ProjectStage, { label: string; className: string }> = {
-  BRIEF: { label: "Brief", className: "text-text2 border-line" },
-  UNIVERSE: { label: "Universe", className: "text-sky bg-sky-dim border-transparent" },
-  LOCKED: { label: "Universe locked", className: "text-sky border-sky" },
-  MAPPING: { label: "Mapping", className: "text-amber bg-amber-dim border-transparent" },
-  OUTREACH: { label: "Outreach live", className: "text-amber border-amber" },
-  DELIVERED: { label: "Shortlist delivered", className: "text-green bg-green-dim border-transparent" },
-  CLOSED: { label: "Closed", className: "text-text3 border-line-soft" },
+  BRIEF: { label: "Brief", className: "text-u-text2 border-u-border-strong" },
+  UNIVERSE: { label: "Universe", className: "text-u-accent bg-u-accent-tint border-transparent" },
+  LOCKED: { label: "Universe locked", className: "text-u-accent border-u-accent" },
+  MAPPING: { label: "Mapping", className: "text-u-accent bg-u-accent-tint border-transparent" },
+  OUTREACH: { label: "Outreach live", className: "text-u-accent border-u-accent" },
+  DELIVERED: { label: "Shortlist delivered", className: "text-u-direct bg-u-direct-tint border-transparent" },
+  CLOSED: { label: "Closed", className: "text-u-text3 border-u-border" },
 };
 
 export function stageLabel(stage: ProjectStage): string {
@@ -30,12 +30,23 @@ export function StagePill({ stage }: { stage: ProjectStage }) {
   );
 }
 
-const HEALTH_STYLES: Record<ProjectHealth, { label: string; dot: string; text: string }> = {
-  OK: { label: "On track", dot: "bg-green", text: "text-text2" },
-  RISK: { label: "At risk", dot: "bg-amber", text: "text-amber" },
-  OFF: { label: "Off track", dot: "bg-red", text: "text-red" },
-  DONE: { label: "Complete", dot: "bg-text3", text: "text-text3" },
+const HEALTH_STYLES: Record<ProjectHealth, { label: string; dot: string; text: string; pill: string }> = {
+  OK: { label: "On track", dot: "bg-u-direct", text: "text-u-text2", pill: "bg-u-direct-tint text-u-direct" },
+  RISK: { label: "At risk", dot: "bg-u-signal", text: "text-u-signal", pill: "bg-u-signal-tint text-u-signal" },
+  OFF: { label: "Off track", dot: "bg-u-offlimits", text: "text-u-offlimits", pill: "bg-u-offlimits-tint text-u-offlimits" },
+  DONE: { label: "Complete", dot: "bg-u-text3", text: "text-u-text3", pill: "bg-u-raised text-u-text3" },
 };
+
+export function HealthPill({ health }: { health: ProjectHealth }) {
+  const { label, pill } = HEALTH_STYLES[health];
+  return (
+    <span
+      className={`inline-flex items-center whitespace-nowrap rounded-md px-[9px] py-[3px] text-[10.5px] font-semibold uppercase tracking-[0.06em] ${pill}`}
+    >
+      {label}
+    </span>
+  );
+}
 
 export function HealthDot({ health }: { health: ProjectHealth }) {
   const { label, dot, text } = HEALTH_STYLES[health];

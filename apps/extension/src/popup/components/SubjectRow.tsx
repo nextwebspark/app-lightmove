@@ -22,7 +22,7 @@ export function SubjectRow({ name, detail, shape, isReading = false }: SubjectRo
         aria-hidden
         className={cn(
           "grid h-10 w-10 shrink-0 place-items-center font-mono text-[13px] font-bold",
-          shape === "circle" ? "rounded-full bg-amber-dim text-amber" : "rounded-[9px] bg-panel2 text-text2",
+          shape === "circle" ? "rounded-full bg-u-accent-tint text-u-accent" : "rounded-[9px] bg-u-raised text-u-text2",
           isReading && "animate-pulse",
         )}
       >
@@ -31,13 +31,13 @@ export function SubjectRow({ name, detail, shape, isReading = false }: SubjectRo
       <span className="min-w-0 flex-1 overflow-hidden">
         {isNamed ? (
           <>
-            <span className="block truncate text-[14.5px] font-semibold text-text">{name}</span>
-            {detail && <span className="block truncate text-[11.5px] text-text3">{detail}</span>}
+            <span className="block truncate text-[14.5px] font-semibold text-u-text">{name}</span>
+            {detail && <span className="block truncate text-[11.5px] text-u-text3">{detail}</span>}
           </>
         ) : (
           <span
             aria-hidden
-            className={cn("block h-[18px] w-3/5 rounded bg-panel2", isReading && "animate-pulse")}
+            className={cn("block h-[18px] w-3/5 rounded bg-u-raised", isReading && "animate-pulse")}
           />
         )}
       </span>

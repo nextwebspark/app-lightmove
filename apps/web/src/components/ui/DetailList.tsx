@@ -21,9 +21,9 @@ export function DrawerSection({
   children: ReactNode;
 }) {
   return (
-    <section className="border-b border-line-soft py-4 last:border-b-0">
+    <section className="border-b border-u-border py-4 last:border-b-0">
       <div className="mb-2.5 flex items-baseline justify-between gap-3">
-        <h3 className="font-mono text-[10.5px] font-semibold uppercase tracking-[0.1em] text-text3">
+        <h3 className="font-mono text-[10.5px] font-semibold uppercase tracking-[0.1em] text-u-text3">
           {title}
         </h3>
         {action}
@@ -58,14 +58,14 @@ export function DetailTile({
   const empty = value === null || value === undefined || value === "";
   return (
     <div className={cn("min-w-0", full && "col-span-2")}>
-      <div className="mb-1 flex items-center gap-1.5 font-mono text-[9.5px] font-semibold uppercase tracking-[0.08em] text-text3">
+      <div className="mb-1 flex items-center gap-1.5 font-mono text-[9.5px] font-semibold uppercase tracking-[0.08em] text-u-text3">
         {label}
         {badge}
       </div>
       <div
         className={cn(
-          "truncate rounded-[7px] border border-line-soft bg-panel2 px-2.5 py-[7px] font-mono text-[13px]",
-          empty ? "text-text3" : "text-text",
+          "truncate rounded-[7px] border border-u-border bg-u-raised px-2.5 py-[7px] font-mono text-[13px]",
+          empty ? "text-u-text3" : "text-u-text",
         )}
       >
         {empty ? "—" : value}
@@ -80,7 +80,7 @@ export function DetailPill({ label, className }: { label: string; className?: st
     <span
       className={cn(
         "inline-flex items-center rounded-[5px] px-[7px] py-[2px] font-mono text-[9.5px] font-bold uppercase tracking-[0.06em]",
-        className ?? "bg-line-soft text-text2",
+        className ?? "bg-u-border text-u-text2",
       )}
     >
       {label}

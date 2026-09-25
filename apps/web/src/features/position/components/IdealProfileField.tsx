@@ -58,7 +58,7 @@ export function IdealProfileField({
           rows={6}
           onChange={(event) => onChange(event.target.value || null)}
           onBlur={() => setEditing(false)}
-          className="w-full resize-y rounded-[11px] border border-u-accent bg-u-surface px-4 py-3.5 text-body leading-[1.7] text-u-text outline-none"
+          className="w-full resize-y rounded-[11px] border border-u-accent bg-u-surface px-4 py-3.5 text-body leading-narrative text-u-text outline-none"
         />
       ) : (
         <BriefPanel className="px-4 py-3.5">
@@ -66,7 +66,7 @@ export function IdealProfileField({
             ref={prose}
             style={expanded ? undefined : CLAMP}
             onClick={() => setEditing(true)}
-            className={text ? "cursor-text text-body leading-[1.7] text-u-text2" : "cursor-text text-body leading-[1.7] text-u-text3"}
+            className={text ? "cursor-text text-body leading-narrative text-u-text2" : "cursor-text text-body leading-narrative text-u-text3"}
           >
             {text || "Describe the ideal profile — the person this mandate is looking for."}
           </p>

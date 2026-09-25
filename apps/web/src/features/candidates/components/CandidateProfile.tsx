@@ -68,6 +68,7 @@ export function CandidateProfile({
   candidate,
   customColumns,
   canWrite,
+  briefCurrency,
   onClose,
   onSaved,
   onRemove,
@@ -77,6 +78,8 @@ export function CandidateProfile({
   customColumns: readonly CustomColumn[];
   /** False for a client representative, who reads a mandate's people and changes nothing about them. */
   canWrite: boolean;
+  /** The brief's currency, which the Compensation editor follows until somebody overrides it. */
+  briefCurrency?: string | null;
   onClose: () => void;
   /** Every write's answer — the caller keeps showing what the server now holds. */
   onSaved: (saved: Candidate) => void;
@@ -135,13 +138,13 @@ export function CandidateProfile({
 
   return (
     <>
-      <div className="relative flex-none border-b border-line-soft px-5 py-4">
+      <div className="relative flex-none border-b border-u-border px-5 py-4">
         <DrawerCloseButton onClose={onClose} />
         <div className="group flex items-start gap-3 pe-8">
           <CandidateAvatar
             projectId={projectId}
             candidate={candidate}
-            className="size-[44px] rounded-[10px] border border-line text-sm"
+            className="size-[44px] rounded-[10px] border border-u-border-strong text-sm"
           />
           <div className="min-w-0 flex-1">
             <span className="flex items-center gap-1.5">
@@ -149,8 +152,8 @@ export function CandidateProfile({
               <HeaderProfileLink linkedinUrl={candidate.linkedinUrl} />
               {pencil("identity", "details")}
             </span>
-            <p className="mt-0.5 font-mono text-[12.5px] text-text2">{candidate.title ?? "—"}</p>
-            <p className="mt-1 font-mono text-[11.5px] text-text3">
+            <p className="mt-0.5 font-mono text-[12.5px] text-u-text2">{candidate.title ?? "—"}</p>
+            <p className="mt-1 font-mono text-[11.5px] text-u-text3">
               {[employerLabel, candidate.locationCity, candidate.locationCountry]
                 .filter(Boolean)
                 .join(" · ") || "No employer or location recorded"}
@@ -193,7 +196,7 @@ export function CandidateProfile({
 
       <div ref={body} className="min-h-0 flex-1 overflow-y-auto px-5">
         {editing === "identity" ? (
-          <section className="border-b border-line-soft py-4">
+          <section className="border-b border-u-border py-4">
             <SectionHeading>Details</SectionHeading>
             <SectionEditor
               section="identity"
@@ -240,7 +243,7 @@ export function CandidateProfile({
               )}
             </SectionEditor>
           ) : (
-            <p className="text-[13px]/[1.6] text-text2">
+            <p className="text-[13px]/[1.6] text-u-text2">
               {candidate.summary ?? "No summary written yet."}
             </p>
           )}
@@ -288,13 +291,13 @@ export function CandidateProfile({
               {candidate.education.map((school, index) => (
                 <li key={`${school.school}-${school.degree}-${index}`}>
                   {school.school && (
-                    <div className="font-sans text-[13px] font-semibold text-text">{school.school}</div>
+                    <div className="font-sans text-[13px] font-semibold text-u-text">{school.school}</div>
                   )}
                   {school.degree && (
-                    <div className="mt-0.5 font-sans text-[13px] text-text2">{school.degree}</div>
+                    <div className="mt-0.5 font-sans text-[13px] text-u-text2">{school.degree}</div>
                   )}
                   {school.period && (
-                    <div className="mt-0.5 font-mono text-[11.5px] text-text3">{school.period}</div>
+                    <div className="mt-0.5 font-mono text-[11.5px] text-u-text3">{school.period}</div>
                   )}
                 </li>
               ))}
@@ -316,16 +319,19 @@ export function CandidateProfile({
               section="compensation"
               candidate={candidate}
               save={replace}
-              doneMessage="Compensation saved"
+              doneMessage="Compensation updated"
               onDone={finish}
               onCancel={() => setEditing(null)}
+              footer="plain"
             >
               {(form) => (
                 <CompensationFields
                   register={form.register}
                   errors={form.formState.errors}
+                  control={form.control}
                   watch={form.watch}
                   setValue={form.setValue}
+                  briefCurrency={briefCurrency}
                   storedCurrency={compensation.currency}
                   storedNoticePeriod={compensation.noticePeriod}
                 />
@@ -454,7 +460,7 @@ export function CandidateProfile({
           onSaved={onSaved}
         />
 
-        <p className="py-4 font-mono text-[11px] text-text3">
+        <p className="py-4 font-mono text-[11px] text-u-text3">
           Added {formatInstantDate(candidate.addedAt)}
           {candidate.enrichedAt && ` · Researched ${formatInstantDate(candidate.enrichedAt)}`}
           {capturedFrom && (
@@ -464,7 +470,7 @@ export function CandidateProfile({
                 href={capturedFrom}
                 target="_blank"
                 rel="noreferrer noopener"
-                className="hover:text-text hover:underline"
+                className="hover:text-u-text hover:underline"
               >
                 Captured from {new URL(capturedFrom).hostname}
               </a>
@@ -474,11 +480,11 @@ export function CandidateProfile({
       </div>
 
       {onRemove && (
-        <div className="flex flex-none border-t border-line-soft px-5 py-3">
+        <div className="flex flex-none border-t border-u-border px-5 py-3">
           <Button
             type="button"
             variant="secondary"
-            className="text-red"
+            className="text-u-offlimits"
             onClick={() => onRemove(candidate)}
           >
             Remove from mandate
@@ -544,7 +550,7 @@ function NoteSection({
             type="button"
             onClick={() => saving.mutate(note)}
             disabled={saving.isPending}
-            className="font-mono text-[11px] font-semibold uppercase tracking-[0.06em] text-amber transition hover:underline disabled:opacity-50"
+            className="font-mono text-[11px] font-semibold uppercase tracking-[0.06em] text-u-accent transition hover:underline disabled:opacity-50"
           >
             {saving.isPending ? "Saving…" : "Save note"}
           </button>
@@ -563,7 +569,7 @@ function NoteSection({
           className="border-dashed font-sans text-[13px]/[1.55]"
         />
       ) : (
-        <p className="whitespace-pre-wrap text-[13px]/[1.6] text-text2">
+        <p className="whitespace-pre-wrap text-[13px]/[1.6] text-u-text2">
           {candidate.note ?? "No note on this person for this mandate."}
         </p>
       )}
@@ -633,7 +639,7 @@ function HeaderProfileLink({ linkedinUrl }: { linkedinUrl: string | null }) {
 
 function SectionHeading({ children }: { children: ReactNode }) {
   return (
-    <h3 className="mb-3 font-mono text-[10.5px] font-semibold uppercase tracking-[0.1em] text-text3">
+    <h3 className="mb-3 font-mono text-[10.5px] font-semibold uppercase tracking-[0.1em] text-u-text3">
       {children}
     </h3>
   );
@@ -644,7 +650,7 @@ function FoldAllButton({ label, onClick }: { label: string; onClick: () => void 
     <button
       type="button"
       onClick={onClick}
-      className="font-mono text-[11px] text-text3 transition hover:text-text"
+      className="font-mono text-[11px] text-u-text3 transition hover:text-u-text"
     >
       {label}
     </button>
@@ -655,17 +661,17 @@ function FoldAllButton({ label, onClick }: { label: string; onClick: () => void 
 function PillRow({ label, values, empty }: { label: string; values: readonly string[]; empty?: string }) {
   return (
     <div className="mt-3">
-      <div className="mb-1.5 font-mono text-[9.5px] font-semibold uppercase tracking-[0.08em] text-text3">
+      <div className="mb-1.5 font-mono text-[9.5px] font-semibold uppercase tracking-[0.08em] text-u-text3">
         {label}
       </div>
       {values.length === 0 ? (
-        <p className="font-mono text-[12.5px] text-text3">{empty}</p>
+        <p className="font-mono text-[12.5px] text-u-text3">{empty}</p>
       ) : (
         <div className="flex flex-wrap gap-1.5">
           {values.map((value) => (
             <span
               key={value}
-              className="inline-flex items-center rounded-full border border-line bg-panel2 px-2.5 py-1 font-mono text-[12px] font-medium text-text2"
+              className="inline-flex items-center rounded-full border border-u-border-strong bg-u-raised px-2.5 py-1 font-mono text-[12px] font-medium text-u-text2"
             >
               {value}
             </span>

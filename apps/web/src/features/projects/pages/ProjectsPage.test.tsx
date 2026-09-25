@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { render, screen } from "@testing-library/react";
+import { render, screen, within } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { ToastProvider } from "../../../components/ui";
@@ -61,6 +61,10 @@ describe("ProjectsPage — pure client", () => {
       logoMark: "A",
       emailDomain: "access-firm.com",
       joinedAt: null,
+      company: null,
+      companySize: null,
+      primaryRegion: null,
+      teamFocus: null,
       roles: ["CLIENT" as const],
     },
   };
@@ -74,10 +78,17 @@ describe("ProjectsPage — pure client", () => {
     stage: "MAPPING",
     health: "OK",
     targetDate: null,
+    projectType: "SEARCH",
+    startDate: null,
+    deliveryDate: null,
+    mappingTargetDate: null,
     team: [],
     representatives: [],
     companies: 0,
     candidates: 0,
+    mappedCandidates: 0,
+    engagedCandidates: 0,
+    mappedCompanies: 0,
     createdAt: "2026-07-13T10:00:00Z",
   };
 
@@ -108,7 +119,7 @@ describe("ProjectsPage — pure client", () => {
 
     // Twice, not once: the list renders a card stack and a table, and CSS shows one per breakpoint.
     expect(await screen.findAllByText("CFO Search")).not.toHaveLength(0);
-    expect(screen.queryByText("New project")).not.toBeInTheDocument();
+    expect(screen.queryByText("New position")).not.toBeInTheDocument();
     // The registry and roster are staff surfaces — a pure client must never request them.
     expect(clientsApi.clients).not.toHaveBeenCalled();
     expect(workspaceApi.members).not.toHaveBeenCalled();
@@ -124,13 +135,29 @@ describe("ProjectsPage — pure client", () => {
     for (const link of openLinks) expect(link).toHaveAttribute("href", "/projects/p1");
   });
 
+  it("groups the list under business-unit headers, with the nameless bucket last", async () => {
+    vi.mocked(projectsApi.projects).mockResolvedValue([
+      { ...attachedMandate, id: "p2", clientId: "", clientName: "", positionTitle: "COO Search" },
+      attachedMandate,
+    ]);
+
+    renderPage();
+
+    expect(await screen.findByText("Beta Client · 1")).toBeInTheDocument();
+    const groups = screen.getAllByRole("rowgroup");
+    expect(groups).toHaveLength(2);
+    expect(within(groups[0]).getAllByText("CFO Search")).not.toHaveLength(0);
+    expect(within(groups[1]).getByText("No business unit · 1")).toBeInTheDocument();
+    expect(within(groups[1]).getAllByText("COO Search")).not.toHaveLength(0);
+  });
+
   it("shows the no-projects-shared state, with nothing to create, when no mandate is attached", async () => {
     vi.mocked(projectsApi.projects).mockResolvedValue([]);
 
     renderPage();
 
-    expect(await screen.findByText("No projects shared with you yet")).toBeInTheDocument();
-    expect(screen.queryByText("New project")).not.toBeInTheDocument();
-    expect(screen.queryByText("Create your first project")).not.toBeInTheDocument();
+    expect(await screen.findByText("No positions shared with you yet")).toBeInTheDocument();
+    expect(screen.queryByText("New position")).not.toBeInTheDocument();
+    expect(screen.queryByText("Open your first position")).not.toBeInTheDocument();
   });
 });

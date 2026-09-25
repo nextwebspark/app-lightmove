@@ -7,6 +7,7 @@ import { KpiTile, KpiTileRow } from "../components/KpiTiles";
 import { DailyMomentumChart, WeeklyMomentumChart } from "../components/MomentumChart";
 import { Legend } from "../components/Legend";
 import { ReportCard } from "../components/ReportCard";
+import { ResearcherPerformanceCard } from "../components/ResearcherPerformanceCard";
 import { Figure, ReportSection } from "../components/ReportSection";
 import { formatShortDate, percent } from "../lib/figures";
 import { type Projection, type ProjectionBasis, projectCoverage, type WeeklyPace, weeklyPace } from "../lib/projection";
@@ -23,7 +24,16 @@ const MOMENTUM_OPTIONS = [
 ];
 
 /** Are we going to hit the deadline? Projected from actual recent pace, not the plan. */
-export function ProgressSection({ progress }: { progress: ReportProgress }) {
+export function ProgressSection({
+  progress,
+  projectId,
+  showTeam,
+}: {
+  progress: ReportProgress;
+  projectId: string;
+  /** Staff only — the researcher breakdown ranks the firm's own people, which a client seat never reads. */
+  showTeam: boolean;
+}) {
   const [basis, setBasis] = useState<ProjectionBasis>("recent");
   const [momentum, setMomentum] = useState<MomentumView>("weeks");
   const projection = projectCoverage(progress, basis);
@@ -148,6 +158,8 @@ export function ProgressSection({ progress }: { progress: ReportProgress }) {
           </>
         )}
       </ReportCard>
+
+      {showTeam && <ResearcherPerformanceCard projectId={projectId} progress={progress} />}
     </ReportSection>
   );
 }

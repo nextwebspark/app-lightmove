@@ -8,7 +8,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
  * descendant, so it does not order inside this stacking context — at anything below 95 a keyboard
  * user who tabbed past the nav scrim left it floating over "full screen".
  */
-export const FULLSCREEN_PANEL = "fixed inset-0 z-[96] bg-panel";
+export const FULLSCREEN_PANEL = "fixed inset-0 z-[96] bg-u-surface";
 
 /**
  * A screen that fills the window, and asks the browser to drop its own chrome as well.

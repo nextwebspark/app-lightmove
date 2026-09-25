@@ -99,7 +99,7 @@ export function ProjectsPage({ view }: { view: "my" | "all" }) {
   const newProjectButton = (
     <Button onClick={() => setModalOpen(true)} className="!px-3.5 !py-[7px] !text-[13px]">
       <Icon d={ICONS.plus} size={15} />
-      New project
+      New position
     </Button>
   );
 
@@ -109,12 +109,12 @@ export function ProjectsPage({ view }: { view: "my" | "all" }) {
     return (
       <>
         <PageHeader
-          title={view === "my" ? "My projects" : "All projects"}
+          title={view === "my" ? "My positions" : "All positions"}
           subtitle={`workspace ${user?.workspace?.name ?? ""}`}
           action={newProjectButton}
         />
         <TableSkeleton
-          columns={["Client", "Position", "Stage", "Health", "Team", "Target", "Pipeline"]}
+          columns={["Position", "Stage", "Health", "Team", "Target", "Pipeline"]}
         />
       </>
     );
@@ -126,12 +126,12 @@ export function ProjectsPage({ view }: { view: "my" | "all" }) {
     return (
       <>
         <PageHeader
-          title={view === "my" ? "My projects" : "All projects"}
+          title={view === "my" ? "My positions" : "All positions"}
           subtitle={`workspace ${user?.workspace?.name ?? ""}`}
         />
         <EmptyState
           icon={<Icon d={ICONS.lock} size={24} />}
-          title="Couldn't load the projects"
+          title="Couldn't load the positions"
           body="You may no longer have access to them, or the request failed. Reload the page, and ask an admin if it keeps happening."
         />
       </>
@@ -143,8 +143,8 @@ export function ProjectsPage({ view }: { view: "my" | "all" }) {
       return (
         <EmptyState
           icon={<Icon d={ICONS.briefcase} size={24} />}
-          title="No projects shared with you yet"
-          body="When your search firm attaches you to a mandate, it will appear here."
+          title="No positions shared with you yet"
+          body="When the TA team attaches you to a position, it will appear here."
         />
       );
     }
@@ -152,11 +152,11 @@ export function ProjectsPage({ view }: { view: "my" | "all" }) {
       <>
         <EmptyState
           icon={<Icon d={ICONS.briefcase} size={24} />}
-          title="Create your first project"
-          body="A project holds one search mandate end to end — brief, company universe, triage and candidates."
+          title="Open your first position"
+          body="A position holds one open role end to end — brief, company universe, triage and candidates."
         >
           {newProjectButton}
-          <div className="mt-[34px] flex items-center gap-2.5 font-mono text-[11px] font-medium uppercase tracking-[0.06em] text-text3">
+          <div className="mt-[34px] flex items-center gap-2.5 font-mono text-[11px] font-medium uppercase tracking-[0.06em] text-u-text3">
             <span>Brief</span>
             <span className="opacity-50">→</span>
             <span>Universe</span>
@@ -176,15 +176,15 @@ export function ProjectsPage({ view }: { view: "my" | "all" }) {
   return (
     <>
       <PageHeader
-        title={view === "my" ? "My projects" : "All projects"}
-        subtitle={`${rows.length} ${rows.length === 1 ? "project" : "projects"} · workspace ${user?.workspace?.name ?? ""}`}
+        title={view === "my" ? "My positions" : "All positions"}
+        subtitle={`${rows.length} ${rows.length === 1 ? "position" : "positions"} · workspace ${user?.workspace?.name ?? ""}`}
         action={clientOnly ? undefined : newProjectButton}
       />
 
       <ListToolbar
         query={query}
         onQueryChange={setQuery}
-        placeholder="Search client or position…"
+        placeholder="Search business unit or position…"
         chips={CHIPS}
         activeChip={chip}
         onChipChange={setChip}
@@ -212,8 +212,8 @@ export function ProjectsPage({ view }: { view: "my" | "all" }) {
           onPaginationChange={paging.onPaginationChange}
           emptyMessage={
             clientOnly
-              ? "No projects match. Clear filters."
-              : "No projects match. Clear filters or create a new project."
+              ? "No positions match. Clear filters."
+              : "No positions match. Clear filters or open a new position."
           }
           onOpen={setOpenProjectId}
         />

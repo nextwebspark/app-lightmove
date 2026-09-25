@@ -24,6 +24,12 @@ REVOKE ALL     ON app_lm_audit_event        FROM lm_app;
 GRANT  INSERT, SELECT ON app_lm_audit_event TO   lm_app;
 GRANT  USAGE   ON SEQUENCE app_lm_audit_event_id_seq TO lm_app;
 
+-- Owned by postgres from here on, so only this file can index it: V74 skips the index it cannot
+-- create. Supports the position panel's per-target activity read.
+CREATE INDEX IF NOT EXISTS app_lm_audit_event_target_idx
+    ON app_lm_audit_event (target_type, target_id, id DESC)
+    WHERE outcome = 'SUCCESS';
+
 -- 3. The company universe is reference data: the brightdata pipeline writes it (through
 --    the pipeline), the application only reads it. Giving lm_app write access would buy nothing and
 --    would let a SQL-injection foothold in the app rewrite every company a consultant sees.

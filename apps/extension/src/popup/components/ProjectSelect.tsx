@@ -29,7 +29,7 @@ export function ProjectSelect({
     <div>
       <label
         htmlFor={selectId}
-        className="font-mono text-[9.5px] font-semibold uppercase tracking-[0.11em] text-text3"
+        className="font-mono text-[9.5px] font-semibold uppercase tracking-[0.11em] text-u-text3"
       >
         Project
       </label>
@@ -38,7 +38,7 @@ export function ProjectSelect({
         value={selectedProjectId ?? ""}
         disabled={isLoading || (projects.length === 0 && !unsetLabel)}
         onChange={(event) => onSelect(event.target.value)}
-        className="mt-1 w-full rounded-[7px] border border-line bg-panel2 px-2.5 py-[7px] font-mono text-[12px] text-text outline-none focus:border-sky disabled:text-text3"
+        className="mt-1 w-full rounded-[7px] border border-u-border-strong bg-u-raised px-2.5 py-[7px] font-mono text-[12px] text-u-text outline-none focus:border-u-accent disabled:text-u-text3"
       >
         {unsetLabel && <option value="">{unsetLabel}</option>}
         {isLoading && <option value="">Loading mandates…</option>}

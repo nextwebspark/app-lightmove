@@ -131,6 +131,10 @@ const lead = {
     logoMark: "F",
     emailDomain: "firm.example",
     joinedAt: null,
+    company: null,
+    companySize: null,
+    primaryRegion: null,
+    teamFocus: null,
     roles: ["MEMBER" as const],
   },
 };
@@ -197,7 +201,7 @@ const yasmin: Candidate = {
   note: null,
   compensation: {
     currency: null, baseSalary: null, bonus: null, allowances: null,
-    longTermIncentive: null, noticePeriod: null,
+    longTermIncentive: null, noticePeriod: null, allowanceLines: [], longTermIncentiveTypes: [],
   },
   career: [],
   education: [],
@@ -520,21 +524,35 @@ describe("TriageStagePage", () => {
     expect(screen.getByRole("button", { name: /Shortlist: ACWA Power/i })).toBeInTheDocument();
   });
 
-  it("marks a company as no executive found from the grid, replacing the empty slot", async () => {
+  it("marks a company as no executive found from the add form, closing it unsaved", async () => {
     vi.mocked(triageApi.updateTriageCompany).mockResolvedValue({ ...acwa, noExecutiveFound: true });
     renderStage();
 
     await screen.findByText("ACWA Power");
-    await userEvent.click(screen.getByRole("button", { name: /^No executive found$/i }));
+    await userEvent.click(screen.getByRole("button", { name: /Add an executive at ACWA Power/i }));
+    const form = await screen.findByRole("dialog", { name: /Add executive/i });
+    await userEvent.click(within(form).getByRole("button", { name: /^No executive found$/i }));
 
     await waitFor(() =>
       expect(triageApi.updateTriageCompany).toHaveBeenCalledWith("p1", "u1", {
         noExecutiveFound: true,
       }),
     );
+    // The research concluded: the form closes on the flag rather than on a saved profile.
+    expect(screen.queryByRole("dialog", { name: /Add executive/i })).not.toBeInTheDocument();
   });
 
-  it("shows a flagged company's muted label instead of the empty slot, still opening the add form", async () => {
+  it("offers no flag to a form opened without a company, whose row there is nothing to flag", async () => {
+    renderStage();
+
+    await screen.findByText("ACWA Power");
+    await userEvent.click(screen.getByRole("button", { name: "Add executive" }));
+
+    const form = await screen.findByRole("dialog", { name: /Add executive/i });
+    expect(within(form).queryByRole("button", { name: /^No executive found$/i })).not.toBeInTheDocument();
+  });
+
+  it("shows a flagged company's muted icon instead of the empty slot, still opening the add form", async () => {
     vi.mocked(triageApi.getTriageCompanies).mockResolvedValue(
       pageOf({ companies: [{ ...acwa, noExecutiveFound: true }] }),
     );
@@ -542,9 +560,11 @@ describe("TriageStagePage", () => {
     renderStage();
 
     await screen.findByText("ACWA Power");
-    expect(screen.queryByRole("button", { name: /\+ Add executive/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /Add an executive at ACWA Power/i })).not.toBeInTheDocument();
 
-    await userEvent.click(screen.getByRole("button", { name: /^No executive found$/i }));
+    await userEvent.click(
+      screen.getByRole("button", { name: /No executive found at ACWA Power/i }),
+    );
     expect(await screen.findByRole("dialog", { name: /Add executive/i })).toBeInTheDocument();
   });
 
@@ -602,21 +622,23 @@ describe("TriageStagePage", () => {
 
     await screen.findByText("ACWA Power");
     await screen.findByText("Yasmin El-Sayed");
-    // Gulf has an executive mapped, so its own row shows Yasmin rather than the empty slot — ACWA is
-    // the only row offering this button, and its id (a company's) is what must stay marked busy.
-    const acwaMarkButton = screen.getByRole("button", { name: /^No executive found$/i });
-    await userEvent.click(acwaMarkButton);
-    expect(acwaMarkButton).toBeDisabled();
+    // ACWA's flag write starts from its add form and holds the company's id busy, which the grid
+    // shows as ACWA's own row actions staying disabled.
+    await userEvent.click(screen.getByRole("button", { name: /Add an executive at ACWA Power/i }));
+    const form = await screen.findByRole("dialog", { name: /Add executive/i });
+    await userEvent.click(within(form).getByRole("button", { name: /^No executive found$/i }));
+    const acwaMoveButton = screen.getByRole("button", { name: /Shortlist: ACWA Power/i });
+    expect(acwaMoveButton).toBeDisabled();
 
     // A write on Gulf's own row — a different id — starts and fully settles while ACWA's is still
     // pending. Before the fix this shared one busy id and overwrote ACWA's the moment Gulf's started.
     await userEvent.selectOptions(screen.getByLabelText(/Status for Yasmin El-Sayed/i), "interested");
     await waitFor(() => expect(candidatesApi.changeCandidateStatus).toHaveBeenCalled());
 
-    expect(acwaMarkButton).toBeDisabled();
+    expect(acwaMoveButton).toBeDisabled();
 
     resolveMarkNoExecutiveFound?.({ ...acwa, noExecutiveFound: true });
-    await waitFor(() => expect(acwaMarkButton).not.toBeDisabled());
+    await waitFor(() => expect(acwaMoveButton).not.toBeDisabled());
   });
 
   it("confirms a removal, and says the company itself is not deleted", async () => {
@@ -771,7 +793,7 @@ describe("TriageStagePage", () => {
 
     await userEvent.click(await screen.findByRole("button", { name: /Open ACWA Power/i }));
     const dialog = await screen.findByRole("dialog", { name: /ACWA Power/i });
-    await userEvent.click(within(dialog).getByRole("button", { name: /^Edit$/i }));
+    await userEvent.click(within(dialog).getByRole("button", { name: /Edit ACWA Power/i }));
 
     // The plugin reads whatever a page publishes, so a captured sector need not be one of Apollo's.
     // A select that silently dropped it would clear a field the consultant never touched.
@@ -809,7 +831,8 @@ describe("TriageStagePage", () => {
 
     await userEvent.click(await screen.findByRole("button", { name: "Add executive" }));
 
-    expect(await screen.findByLabelText(/^Currency$/i)).toHaveValue("SAR");
+    expect(await screen.findByText(/^From brief$/i)).toBeInTheDocument();
+    expect(screen.getByLabelText(/^Currency$/i)).toHaveTextContent("SAR - Saudi Riyal");
   });
 
   it("never asks a client representative's page view for the brief", async () => {
@@ -894,7 +917,7 @@ describe("TriageStagePage", () => {
     await screen.findByText("ACWA Power");
     // A company nobody has looked at yet is the most useful thing this grid shows, so its executive
     // cell is the invitation rather than a dash.
-    expect(screen.getByRole("button", { name: /\+ Add executive/i })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /Add an executive at ACWA Power/i })).toBeInTheDocument();
   });
 
   it("gives every executive at a company its own row, with the company repeated", async () => {
@@ -912,7 +935,7 @@ describe("TriageStagePage", () => {
     // Two people at one company is two lines, and the company is on both of them.
     expect(screen.getAllByText("ACWA Power")).toHaveLength(2);
     // With somebody mapped there is no empty slot left on that company.
-    expect(screen.queryByRole("button", { name: /\+ Add executive/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /Add an executive at ACWA Power/i })).not.toBeInTheDocument();
   });
 
   it("locates a line by its executive, not by their employer's head office", async () => {
@@ -1006,7 +1029,7 @@ describe("TriageStagePage", () => {
     renderStage();
 
     await screen.findByText("ACWA Power");
-    await userEvent.click(screen.getByRole("button", { name: /\+ Add executive/i }));
+    await userEvent.click(screen.getByRole("button", { name: /Add an executive at ACWA Power/i }));
 
     const drawer = await screen.findByRole("dialog", { name: /Add executive/i });
     // The employer comes from the row, not from typing: the mapping and the name must not disagree.
@@ -1254,7 +1277,7 @@ describe("TriageStagePage", () => {
 
     await userEvent.click(await screen.findByRole("button", { name: /Open ACWA Power/i }));
     const panel = await screen.findByRole("dialog", { name: /ACWA Power/i });
-    await userEvent.click(within(panel).getByRole("button", { name: /Add executive/i }));
+    await userEvent.click(within(panel).getByRole("button", { name: /Add an executive at ACWA Power/i }));
 
     // One panel at a time: the company's gives way to the form, already carrying the employer, so
     // the mapping cannot disagree with the company the reader came from.
@@ -1272,7 +1295,7 @@ describe("TriageStagePage", () => {
 
     await userEvent.click(await screen.findByRole("button", { name: /Open ACWA Power/i }));
     const panel = await screen.findByRole("dialog", { name: /ACWA Power/i });
-    const markButton = within(panel).getByRole("button", { name: /^No executive found$/i });
+    const markButton = within(panel).getByRole("button", { name: /Mark ACWA Power as no executive found/i });
     expect(markButton).not.toBeDisabled();
 
     await userEvent.click(markButton);
@@ -1291,7 +1314,7 @@ describe("TriageStagePage", () => {
 
     // Its fields are the export's snapshot, refreshed by the export — rewriting them would make the
     // Source badge a claim the figures no longer support.
-    expect(within(panel).queryByRole("button", { name: /^Edit$/i })).not.toBeInTheDocument();
+    expect(within(panel).queryByRole("button", { name: /Edit ACWA Power/i })).not.toBeInTheDocument();
     expect(within(panel).getByText(/come from the market export/i)).toBeInTheDocument();
 
     // The note is the mandate's own remark, so it is editable on every company including this one.
@@ -1312,7 +1335,7 @@ describe("TriageStagePage", () => {
 
     await userEvent.click(await screen.findByRole("button", { name: /Open Gulf Industrial/i }));
     const panel = await screen.findByRole("dialog", { name: /Gulf Industrial/i });
-    await userEvent.click(within(panel).getByRole("button", { name: /^Edit$/i }));
+    await userEvent.click(within(panel).getByRole("button", { name: /Edit Gulf Industrial/i }));
 
     await userEvent.clear(within(panel).getByLabelText(/^Employees$/i));
     await userEvent.type(within(panel).getByLabelText(/^Employees$/i), "2400");
@@ -1338,10 +1361,10 @@ describe("TriageStagePage", () => {
     const panel = await screen.findByRole("dialog", { name: /ACWA Power/i });
 
     // Hand-typed, so a colleague would get Edit here — WORK_VIEW does not.
-    expect(within(panel).queryByRole("button", { name: /^Edit$/i })).not.toBeInTheDocument();
+    expect(within(panel).queryByRole("button", { name: /Edit ACWA Power/i })).not.toBeInTheDocument();
     expect(within(panel).queryByRole("button", { name: /^Save$/i })).not.toBeInTheDocument();
     expect(within(panel).queryByRole("button", { name: /^Remove$/i })).not.toBeInTheDocument();
-    expect(within(panel).queryByRole("button", { name: /Add executive/i })).not.toBeInTheDocument();
+    expect(within(panel).queryByRole("button", { name: /Add an executive/i })).not.toBeInTheDocument();
   });
 
   it("gives a client representative the executive columns and none of the writes", async () => {

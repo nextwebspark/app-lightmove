@@ -1,4 +1,4 @@
-import type { FieldSource } from "../api/types";
+import type { FieldSource, Position } from "../api/types";
 
 /** The Role Brief's own `fieldSources` keys — mirrors the backend's `PositionFieldKeys.DETAILS`. */
 export const DETAILS_FIELD_KEYS: ReadonlySet<string> = new Set([
@@ -47,4 +47,29 @@ export function markManualFrom(
     fieldSources,
     Object.keys(patch).filter((key) => trackedKeys.has(key)),
   );
+}
+
+/**
+ * Whether nothing on the brief is a person's own writing — the one condition under which a template
+ * may be applied without asking, since applying one replaces responsibilities, the org chart, the
+ * competencies and the benefits wholesale, typed rows included. An absent `fieldSources` key is
+ * unclaimed rather than edited; a row with no `source` counts as typed, as `documentFill` reads it.
+ *
+ * <p>Blind to what carries no provenance at all: the role title (never renamed by the automatic path)
+ * and compensation's scalars.
+ */
+export function isUntouched(brief: Position): boolean {
+  const maps = [brief.details.fieldSources, brief.context.fieldSources, brief.reporting.fieldSources];
+  if (maps.some((sources) => Object.values(sources).includes("MANUAL"))) return false;
+
+  const rows: { source?: FieldSource }[] = [
+    ...brief.details.responsibilities,
+    ...brief.context.strategicPriorities,
+    ...brief.reporting.orgChart,
+    ...brief.assessment.criteria,
+    ...brief.assessment.technical,
+    ...brief.assessment.behavioural,
+    ...brief.compensation.benefits,
+  ];
+  return rows.every((row) => (row.source ?? "MANUAL") !== "MANUAL");
 }

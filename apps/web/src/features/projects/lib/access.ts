@@ -23,3 +23,18 @@ export function canExecuteProjectWork(
   const seat = project.team.find((member) => member.userId === userId);
   return seat?.projectRoles.some((role) => role !== "CLIENT") ?? false;
 }
+
+/**
+ * Whether this user may seat staff and grant hiring managers sight of a mandate — the client mirror
+ * of `TEAM_MANAGE` and `CLIENT_ACCESS_MANAGE`, both the lead's (a workspace admin is implicitly one).
+ * A researcher holds `WORK_EXECUTE` but neither of these. UX only, as above.
+ */
+export function canManageProjectAccess(
+  project: Project,
+  userId: string | undefined,
+  workspaceRoles: WorkspaceRole[] | undefined,
+): boolean {
+  if (workspaceRoles?.includes("ADMIN")) return true;
+  const seat = project.team.find((member) => member.userId === userId);
+  return seat?.projectRoles.includes("LEAD") ?? false;
+}

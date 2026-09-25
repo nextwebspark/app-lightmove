@@ -11,11 +11,20 @@ import { Icon, ICONS } from "../layout/Icon";
 export function DateInput({
   value,
   onChange,
+  min,
+  max,
+  ariaLabel,
   className,
 }: {
   /** ISO yyyy-MM-dd as the API speaks it; "" when unset. */
   value: string;
   onChange: (isoDate: string) => void;
+  /** ISO yyyy-MM-dd: the earliest day the picker offers. */
+  min?: string;
+  /** ISO yyyy-MM-dd: the latest day the picker offers. */
+  max?: string;
+  /** For a date shown without a `Field` label around it. */
+  ariaLabel?: string;
   className?: string;
 }) {
   const inputRef = useRef<HTMLInputElement>(null);
@@ -33,19 +42,22 @@ export function DateInput({
   return (
     <div
       className={cn(
-        "relative flex w-full items-center justify-between rounded-lg border border-line bg-panel2",
-        "px-3 py-2.5 font-mono text-[13px] transition focus-within:border-sky",
+        "relative flex w-full items-center justify-between rounded-[6px] border border-u-border-strong bg-u-raised",
+        "px-3 py-2.5 font-mono text-[13px] transition focus-within:border-u-accent",
         className,
       )}
     >
-      <span className={value ? "text-text" : "text-text3"}>
+      <span className={value ? "text-u-text" : "text-u-text3"}>
         {value ? formatDate(value) : "Select date"}
       </span>
-      <Icon d={ICONS.calendar} size={14} className="text-text3" />
+      <Icon d={ICONS.calendar} size={14} className="text-u-text3" />
       <input
         ref={inputRef}
         type="date"
         value={value}
+        min={min}
+        max={max}
+        aria-label={ariaLabel}
         onChange={(event) => onChange(event.target.value)}
         onClick={openPicker}
         className="absolute inset-0 cursor-pointer opacity-0"

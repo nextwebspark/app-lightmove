@@ -1,5 +1,5 @@
 import { request } from "../../../lib/apiClient";
-import type { Project, StaffRole } from "./types";
+import type { Project, ProjectActivityPage, ProjectType, StaffRole } from "./types";
 
 /**
  * Every call the projects feature makes, plus the query keys its screens share. Clients are their own
@@ -13,10 +13,23 @@ export function projects(): Promise<Project[]> {
   return request<Project[]>("/projects");
 }
 
+export const ACTIVITY_PAGE_SIZE = 20;
+
+export const projectActivityKey = (projectId: string) => ["projects", projectId, "activity"] as const;
+
+/** A page of the mandate's recent activity, newest first. Staff only — a client seat is refused. */
+export function projectActivity(projectId: string, before: number | null): Promise<ProjectActivityPage> {
+  const cursor = before == null ? "" : `&before=${before}`;
+  return request<ProjectActivityPage>(`/projects/${projectId}/activity?limit=${ACTIVITY_PAGE_SIZE}${cursor}`);
+}
+
 export function createProject(payload: {
   clientId: string;
   positionTitle: string;
-  targetDate?: string;
+  projectType: ProjectType;
+  startDate?: string;
+  deliveryDate?: string;
+  mappingTargetDate?: string;
 }): Promise<Project> {
   // No lead to choose: the server seats the creator as the mandate's lead.
   return request<Project>("/projects", { method: "POST", body: payload });

@@ -1,7 +1,9 @@
 import { zodResolver } from "@hookform/resolvers/zod";
+import { DEFAULT_CURRENCY } from "../../../lib/currencies";
 import { useMutation } from "@tanstack/react-query";
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import { useRef, useState, type ReactNode } from "react";
 import { FormProvider, useForm } from "react-hook-form";
+import { Icon, ICONS } from "../../../components/layout/Icon";
 import { Button, FormError, useToast } from "../../../components/ui";
 import { DrawerCloseButton } from "../../../components/ui/Drawer";
 import { codeOf, messageFor } from "../../../lib/errorCodes";
@@ -12,6 +14,7 @@ import * as candidatesApi from "../api/candidatesApi";
 import type { Candidate } from "../api/types";
 import {
   candidateSchema,
+  refineCompensation,
   EMPTY_FORM,
   payloadOf,
   type CandidateForm,
@@ -53,6 +56,7 @@ export function AddCandidateForm({
   defaultCurrency,
   onClose,
   onSaved,
+  onMarkNoExecutiveFound,
 }: {
   projectId: string;
   company: CandidateCompanyContext | null;
@@ -63,6 +67,9 @@ export function AddCandidateForm({
   onClose: () => void;
   /** The created profile — the panel moves on to reading it. */
   onSaved: (saved: Candidate) => void;
+  /** The research's other outcome — flags the company and closes this panel. Only offered when the
+   *  panel was opened from a company's row, where there is a company to flag. */
+  onMarkNoExecutiveFound?: () => void;
 }) {
   const toast = useToast();
   const [submitError, setSubmitError] = useState<string | null>(null);
@@ -71,22 +78,15 @@ export function AddCandidateForm({
   const [customFields, setCustomFields] = useState<CustomFieldValues>({});
 
   const form = useForm<CandidateForm, unknown, ParsedCandidateForm>({
-    resolver: zodResolver(candidateSchema),
+    resolver: zodResolver(candidateSchema.superRefine(refineCompensation)),
     defaultValues: {
       ...EMPTY_FORM,
       employerName: company?.companyName ?? "",
-      currency: defaultCurrency ?? "",
+      currency: defaultCurrency ?? DEFAULT_CURRENCY,
     },
   });
   const { register, formState } = form;
 
-  // The brief's currency can arrive after the panel opened, and only an untouched field may take it:
-  // a consultant who has already picked one is stating this package is quoted in another.
-  useEffect(() => {
-    if (defaultCurrency && !form.getFieldState("currency").isDirty) {
-      form.setValue("currency", defaultCurrency);
-    }
-  }, [defaultCurrency, form]);
   const formEl = useRef<HTMLFormElement>(null);
   const handleSubmitShortcut = useSubmitShortcut(() => formEl.current?.requestSubmit());
 
@@ -111,10 +111,10 @@ export function AddCandidateForm({
 
   return (
     <>
-      <div className="relative flex-none border-b border-line-soft px-5 py-4">
+      <div className="relative flex-none border-b border-u-border px-5 py-4">
         <DrawerCloseButton onClose={onClose} />
         <h2 className="font-sans text-base font-semibold">Add executive</h2>
-        <p className="mt-1 pe-8 font-mono text-[11.5px] text-text3">
+        <p className="mt-1 pe-8 font-mono text-[11.5px] text-u-text3">
           {company
             ? `At ${company.companyName}`
             : "Not tied to a company in this mandate's universe — name their employer below."}
@@ -149,13 +149,13 @@ export function AddCandidateForm({
           <Section title="Contact">
             <div className="mb-4 space-y-4">
               <div>
-                <span className="mb-1.5 block font-mono text-[10px] font-semibold uppercase tracking-[0.12em] text-text3">
+                <span className="mb-1.5 block font-mono text-[10px] font-semibold uppercase tracking-[0.12em] text-u-text3">
                   Email
                 </span>
                 <ContactEntriesFields channel="email" />
               </div>
               <div>
-                <span className="mb-1.5 block font-mono text-[10px] font-semibold uppercase tracking-[0.12em] text-text3">
+                <span className="mb-1.5 block font-mono text-[10px] font-semibold uppercase tracking-[0.12em] text-u-text3">
                   Phone
                 </span>
                 <ContactEntriesFields channel="phone" />
@@ -177,9 +177,10 @@ export function AddCandidateForm({
             <CompensationFields
               register={register}
               errors={formState.errors}
+              control={form.control}
               watch={form.watch}
               setValue={form.setValue}
-              storedCurrency={defaultCurrency}
+              briefCurrency={defaultCurrency}
             />
           </Section>
 
@@ -194,7 +195,20 @@ export function AddCandidateForm({
           />
         </div>
 
-        <div className="flex flex-none justify-end gap-2 border-t border-line-soft px-5 py-3">
+        <div className="flex flex-none justify-end gap-2 border-t border-u-border px-5 py-3">
+          {company && onMarkNoExecutiveFound && (
+            <Button
+              type="button"
+              variant="secondary"
+              className="me-auto"
+              title={`Mark ${company.companyName} as researched — nobody suitable found`}
+              onClick={onMarkNoExecutiveFound}
+              disabled={save.isPending}
+            >
+              <Icon d={ICONS.userX} size={14} />
+              No executive found
+            </Button>
+          )}
           <Button type="button" variant="secondary" onClick={onClose} disabled={save.isPending}>
             Cancel
           </Button>
@@ -210,8 +224,8 @@ export function AddCandidateForm({
 
 function Section({ title, children }: { title: string; children: ReactNode }) {
   return (
-    <section className="mb-2 border-b border-line-soft pb-2 last:border-b-0">
-      <h3 className="mb-3 font-mono text-[10.5px] font-semibold uppercase tracking-[0.1em] text-text3">
+    <section className="mb-2 border-b border-u-border pb-2 last:border-b-0">
+      <h3 className="mb-3 font-mono text-[10.5px] font-semibold uppercase tracking-[0.1em] text-u-text3">
         {title}
       </h3>
       {children}

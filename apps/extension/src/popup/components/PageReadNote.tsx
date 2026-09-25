@@ -22,12 +22,12 @@ export function PageReadNote({
       ? `${workspaceOrigin}/projects/${selectedProjectId}/companies/universe`
       : `${workspaceOrigin}/`;
     return (
-      <div className="mb-3.5 rounded-lg border border-line-soft bg-panel2 px-2.5 py-2 text-[11.5px] leading-[1.5] text-text2">
+      <div className="mb-3.5 rounded-lg border border-u-border bg-u-raised px-2.5 py-2 text-[11.5px] leading-[1.5] text-u-text2">
         <p>{error.message}</p>
         <button
           type="button"
           onClick={() => void chrome.tabs.create({ url })}
-          className="mt-2 rounded-md bg-amber-btn px-2.5 py-1.5 text-[11.5px] font-semibold text-on-amber"
+          className="mt-2 rounded-md bg-u-accent-solid px-2.5 py-1.5 text-[11.5px] font-semibold text-white"
         >
           Open Uncava
         </button>
@@ -38,7 +38,7 @@ export function PageReadNote({
   return (
     <div
       role="alert"
-      className="mb-3.5 rounded-lg border border-line-soft bg-red-dim px-2.5 py-2 text-[11.5px] leading-[1.5] text-red"
+      className="mb-3.5 rounded-lg border border-u-border bg-u-offlimits-tint px-2.5 py-2 text-[11.5px] leading-[1.5] text-u-offlimits"
     >
       <p>{error.message}</p>
     </div>

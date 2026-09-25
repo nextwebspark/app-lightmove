@@ -1,6 +1,6 @@
 import { request } from "../../../lib/apiClient";
 import type { InviteRequest, WorkspaceRole } from "../../auth/api/types";
-import type { Invitation, Member, WorkspaceDetail } from "./types";
+import type { Invitation, Member, WorkspaceDetail, WorkspacePersona } from "./types";
 
 /** Every call workspace management makes (roster, invitations, settings), plus shared query keys. */
 
@@ -14,10 +14,16 @@ export function workspace(): Promise<WorkspaceDetail> {
 
 export function updateWorkspace(payload: {
   name: string;
+  /** Required: an empty string files the typed name with no company, clearing any snapshot the workspace held. */
+  apolloAccountId: string;
   defaultRegion?: string;
   defaultCurrency?: string;
 }): Promise<WorkspaceDetail> {
   return request<WorkspaceDetail>("/workspace", { method: "PATCH", body: payload });
+}
+
+export function updatePersona(persona: WorkspacePersona): Promise<WorkspaceDetail> {
+  return request<WorkspaceDetail>("/workspace/persona", { method: "PUT", body: persona });
 }
 
 export function deleteWorkspace(confirmName: string): Promise<void> {

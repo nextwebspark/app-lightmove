@@ -110,20 +110,20 @@ try {
   // account, so the rail offers it to every staff member and lands them on that section. The workspace
   // sections behind it are still admin-gated — S2.1 and S2.2 are what hold that line.
   check("S1.4", "a plain member is offered Settings — their own account", true, memberNav.some((i) => /settings/i.test(i)));
-  check("S1.5", "but is offered Clients", true, memberNav.some((i) => /clients/i.test(i)));
+  check("S1.5", "but is offered Business units", true, memberNav.some((i) => /business units/i.test(i)));
   check("S1.6", "and Team", true, memberNav.some((i) => /team/i.test(i)));
 
   const client = await signIn(cast.CLIENT_EMAIL, "client");
   const clientNav = await navOf(client.page);
   note("S1.7", `PURE CLIENT nav: ${clientNav.join(" | ")}`);
-  check("S1.8", "a pure client is offered no Clients registry", false, clientNav.some((i) => /clients/i.test(i)));
+  check("S1.8", "a pure client is offered no Business units registry", false, clientNav.some((i) => /business units/i.test(i)));
   check("S1.9", "no Team", false, clientNav.some((i) => /team/i.test(i)));
   check("S1.10", "and no Settings", false, clientNav.some((i) => /settings/i.test(i)));
 
   const dual = await signIn(cast.DUAL_EMAIL, "dual");
   const dualNav = await navOf(dual.page);
   note("S1.11", `DUAL (staff + client) nav: ${dualNav.join(" | ")}`);
-  check("S1.12", "the dual-role member keeps the staff nav", true, dualNav.some((i) => /clients/i.test(i)));
+  check("S1.12", "the dual-role member keeps the staff nav", true, dualNav.some((i) => /business units/i.test(i)));
   check("S1.13", "and is not demoted to the portal view", true, dualNav.some((i) => /team/i.test(i)));
 
   // ------------------------------------------------------------------ S2
@@ -145,9 +145,9 @@ try {
   check("S2.3", "a pure client deep-linking to /clients is bounced", "/", await landsOn(client.page, "/clients"));
   await client.page.screenshot({ path: join(SHOTS, "roles-client-clients-deeplink.png"), fullPage: true });
   const clientsPageText = await client.page.locator("body").innerText();
-  check("S2.3b", "and is not offered a New client button", 0,
-    await client.page.getByRole("button", { name: /new client/i }).count());
-  check("S2.3c", "nor told the firm has zero clients", false, /0 clients/.test(clientsPageText));
+  check("S2.3b", "and is not offered a New business unit button", 0,
+    await client.page.getByRole("button", { name: /new business unit/i }).count());
+  check("S2.3c", "nor told the firm has zero business units", false, /0 business units/.test(clientsPageText));
 
   check("S2.4", "a pure client deep-linking to /team is bounced", "/", await landsOn(client.page, "/team"));
   await client.page.screenshot({ path: join(SHOTS, "roles-client-team-deeplink.png"), fullPage: true });

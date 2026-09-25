@@ -7,930 +7,1331 @@
 </head>
 <body>
 <x-dc>
+
 <helmet>
   <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700;900&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="">
+  <link rel="stylesheet" href="uncava-tokens.css">
+  <script src="./image-slot.js"></script>
   <style>
-    :root{--bg:#f8f9fb;--panel:#ffffff;--panel2:#f3f4f6;--line:#e2e4e9;--line-soft:#edeef2;--text:#111113;--text2:#475569;--text3:#64748b;--amber:#a67c2e;--amber-btn:#e2b65c;--amber-dim:rgba(226,182,92,.14);--sky:#2563eb;--sky-dim:rgba(37,99,235,.10);--red:#dc2626;--red-dim:rgba(220,38,38,.08);--green:#059669;--green-dim:rgba(5,150,105,.10);--shadow:0 8px 28px rgba(15,23,42,.10);--mono:'Geist','Inter',system-ui,sans-serif;--sans:'Geist','Inter',system-ui,sans-serif}
-    body.dark{--bg:#0c0d0e;--panel:#16171a;--panel2:#131316;--line:#2a2a2e;--line-soft:#212326;--text:#f8fafc;--text2:#cbd5e1;--text3:#94a3b8;--amber:#e2b65c;--amber-dim:rgba(226,182,92,.16);--sky:#60a5fa;--sky-dim:rgba(96,165,250,.16);--red:#f87171;--red-dim:rgba(248,113,113,.14);--green:#34d399;--green-dim:rgba(52,211,153,.16);--shadow:0 8px 28px rgba(0,0,0,.5)}
+    :root{
+      --amber:var(--u-accent);--amber-btn:var(--u-accent-solid);--amber-dim:var(--u-accent-tint);--on-amber:#ffffff;
+      --sky:var(--u-accent);--sky-dim:var(--u-accent-tint);--ring:var(--u-accent-ring);
+      --red:var(--u-offlimits);--red-dim:var(--u-offlimits-tint);
+      --green:var(--u-direct);--green-dim:var(--u-direct-tint);
+      --ai:var(--u-inferred);--ai2:var(--u-adjacent);--ai-line:var(--u-accent);--ai-dim:var(--u-inferred-tint);--ai-soft:var(--u-inferred-tint);
+      --bg:var(--u-bg);--panel:var(--u-surface);--panel2:var(--u-raised);--line:var(--u-border-strong);--line-soft:var(--u-border);
+      --text:var(--u-text);--text2:var(--u-text2);--text3:var(--u-text3);
+      --shadow:var(--u-e3);--radius-panel:var(--u-r-modal);
+      --mono:var(--u-font-ui);--sans:var(--u-font-ui);
+      --u-text2:var(--u-text-2);--u-text3:var(--u-text-3);--u-num:var(--u-font-num);
+    }
     *{box-sizing:border-box}
     html,body{height:100%;margin:0}
     body{background:var(--bg);color:var(--text);font:400 14px/1.45 var(--sans);-webkit-font-smoothing:antialiased}
     a{color:var(--sky);text-decoration:none}
-    a:hover{text-decoration:underline}
     input::placeholder,textarea::placeholder{color:var(--text3)}
-    @keyframes fadeUp{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+    button{font-family:inherit}
+    @keyframes fadeUp{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
+    @keyframes spin{to{transform:rotate(360deg)}}
+    @keyframes slideInEnd{from{transform:translateX(100%)}to{transform:none}}
   </style>
+  <script>try{var t=localStorage.getItem('lm-theme');document.documentElement.setAttribute('data-theme', t==='light'?'light':'dark');}catch(e){}</script>
 </helmet>
-<div data-screen-label="Workspace" style="height:100vh;display:flex;overflow:hidden">
+<div data-screen-label="Workspace" style="height:100vh;display:flex;flex-direction:column;overflow:hidden">
 
-    <nav style="width:{{ sideWidth }};flex:none;padding:14px 10px;display:flex;flex-direction:column;overflow-y:auto;overflow-x:hidden;transition:width .18s ease">
-      <div style="position:relative;margin:0 2px 12px">
-      <button onClick="{{ toggleWsMenu }}" style="display:flex;align-items:center;gap:8px;padding:4px 6px 4px 4px;border-radius:7px;background:none;border:none;cursor:pointer;color:var(--text)" style-hover="background:var(--panel2)">
-        <span style="width:24px;height:24px;border-radius:6px;background:#e2b65c;color:#1a1712;display:grid;place-items:center;font:700 12px var(--sans);flex:none">L</span>
-        <span style="display:{{ labelDisp }};font:700 14px var(--sans);letter-spacing:.01em;white-space:nowrap">LightMove</span>
-        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" style="color:var(--text3)"><path d="m6 9 6 6 6-6"></path></svg>
-      </button>
-      <sc-if value="{{ wsMenuOpen }}" hint-placeholder-val="{{ false }}">
-        <div style="position:absolute;top:40px;left:0;width:268px;background:var(--panel);border:1px solid var(--line);border-radius:10px;box-shadow:var(--shadow);padding:6px;z-index:80">
-          <div style="display:flex;align-items:center;gap:10px;padding:10px;border-bottom:1px solid var(--line-soft);margin-bottom:6px">
-            <span style="width:30px;height:30px;border-radius:8px;background:#e2b65c;color:#1a1712;display:grid;place-items:center;font:700 13px var(--mono)">L</span>
-            <div>
-              <div style="font:600 13px var(--mono)">LightMove</div>
-              <div style="font:400 11px var(--mono);color:var(--text3)">{{ memberCountLabel }} · Pro plan</div>
+  <header data-screen-label="Topbar" style="height:46px;flex:none;display:flex;align-items:center;gap:12px;padding:0 14px;position:relative;z-index:60">
+    <div style="flex:1;min-width:0;display:flex;align-items:center">
+      <div style="position:relative">
+        <button onClick="{{ toggleWsMenu }}" style="display:flex;align-items:center;gap:10px;padding:5px 10px 5px 6px;border-radius:6px;background:none;border:none;cursor:pointer" style-hover="background:var(--panel2)">
+          <svg viewBox="-36 -51 72 104" fill="none" stroke="currentColor" style="height:30px;width:auto;flex:none;color:var(--text)" aria-hidden="true"><path d="M-32 10 L 0 -8 L 32 10 L 0 28 Z M-32 10 V 32 L 0 50 L 32 32 V 10 M0 28 V 50" stroke-width="2.6" stroke-linejoin="round"></path><path d="M0 -48 L 32 -30 L 0 -12 L -32 -30 Z" fill="currentColor" stroke="none"></path></svg>
+          <span style="font:200 14px var(--u-font-brand);text-transform:uppercase;letter-spacing:.38em;color:var(--text)">Uncava</span>
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color:var(--text3)"><path d="m6 9 6 6 6-6"></path></svg>
+        </button>
+        <sc-if value="{{ wsMenuOpen }}" hint-placeholder-val="{{ false }}">
+          <div onClick="{{ closeWsMenu }}" style="position:fixed;inset:0;z-index:79"></div>
+          <div data-screen-label="Workspace menu" style="position:absolute;left:0;top:40px;z-index:80;width:268px;border-radius:10px;border:1px solid var(--line);background:var(--panel);padding:6px;box-shadow:var(--shadow)">
+            <div style="display:flex;align-items:center;gap:10px;padding:10px;border-bottom:1px solid var(--line-soft);margin-bottom:6px">
+              <img src="assets/al-futtaim-logo.png" alt="Al-Futtaim" style="width:30px;height:30px;object-fit:contain;flex:none">
+              <div style="font:600 13px var(--mono);color:var(--text)">Al-Futtaim</div>
             </div>
+            <a href="Settings.dc.html?section=profile" style="display:flex;align-items:center;gap:10px;width:100%;padding:8px 10px;border-radius:6px;font:400 13px var(--sans);color:var(--text2);text-decoration:none" style-hover="background:var(--panel2);color:var(--text)">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex:none"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2M16 7a4 4 0 1 1-8 0 4 4 0 0 1 8 0"></path></svg>
+              Your profile
+            </a>
+            <div style="height:1px;background:var(--line-soft);margin:6px 4px"></div>
+            <sc-if value="{{ isAdmin }}" hint-placeholder-val="{{ true }}">
+              <a href="Settings.dc.html?section=general" style="display:flex;align-items:center;gap:10px;width:100%;padding:8px 10px;border-radius:6px;font:400 13px var(--sans);color:var(--text2);text-decoration:none" style-hover="background:var(--panel2);color:var(--text)">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex:none"><path d="{{ icons.settings }}"></path></svg>
+                Workspace settings
+              </a>
+              <a href="Settings.dc.html?section=members" style="display:flex;align-items:center;gap:10px;width:100%;padding:8px 10px;border-radius:6px;font:400 13px var(--sans);color:var(--text2);text-decoration:none" style-hover="background:var(--panel2);color:var(--text)">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex:none"><path d="{{ icons.members }}"></path></svg>
+                Members
+              </a>
+              <div style="height:1px;background:var(--line-soft);margin:6px 4px"></div>
+            </sc-if>
+            <a href="Login.dc.html" style="display:flex;align-items:center;gap:10px;width:100%;padding:8px 10px;border-radius:6px;font:400 13px var(--sans);color:var(--text2);text-decoration:none" style-hover="background:var(--panel2);color:var(--text)">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex:none"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9"></path></svg>
+              Sign out
+            </a>
           </div>
-          <button onClick="{{ menuSettings }}" style="display:flex;align-items:center;gap:10px;width:100%;padding:8px 10px;border-radius:7px;font:400 13px var(--sans);color:var(--text2);text-align:left;background:none;border:none;cursor:pointer" style-hover="background:var(--panel2);color:var(--text)">
-            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex:none"><circle cx="12" cy="12" r="3"></circle><path d="M12 1v4m0 14v4M4.2 4.2l2.8 2.8m10 10 2.8 2.8M1 12h4m14 0h4M4.2 19.8 7 17m10-10 2.8-2.8"></path></svg>
-            Workspace settings
-          </button>
-          <button onClick="{{ menuMembers }}" style="display:flex;align-items:center;gap:10px;width:100%;padding:8px 10px;border-radius:7px;font:400 13px var(--sans);color:var(--text2);text-align:left;background:none;border:none;cursor:pointer" style-hover="background:var(--panel2);color:var(--text)">
-            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex:none"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2M13 7a4 4 0 1 1-8 0 4 4 0 0 1 8 0M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"></path></svg>
-            Members
-          </button>
-          <div style="height:1px;background:var(--line-soft);margin:6px 4px"></div>
-          <a href="Login.dc.html" style="display:flex;align-items:center;gap:10px;width:100%;padding:8px 10px;border-radius:7px;font:400 13px var(--sans);color:var(--text2);text-align:left;text-decoration:none" style-hover="background:var(--panel2);color:var(--text);text-decoration:none">
-            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex:none"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9"></path></svg>
-            Sign out
-          </a>
-        </div>
-      </sc-if>
+        </sc-if>
       </div>
-      <div style="display:{{ groupDisp }};font:600 10px var(--mono);letter-spacing:.14em;text-transform:uppercase;color:var(--text3);padding:0 10px 6px">Projects</div>
-      <sc-for list="{{ projNav }}" as="it" hint-placeholder-count="2">
-        <button onClick="{{ setView }}" data-view="{{ it.key }}" title="{{ it.label }}" style="display:flex;align-items:center;justify-content:{{ navJustify }};gap:10px;width:100%;padding:8px 10px;border-radius:7px;font:400 13.5px var(--sans);color:{{ it.color }};background:{{ it.bg }};border:none;text-align:left;cursor:pointer" style-hover="background:var(--panel2);color:var(--text)">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex:none;color:{{ it.iconColor }}"><path d="{{ it.icon }}"></path></svg>
-          <span style="display:{{ labelDisp }};white-space:nowrap">{{ it.label }}</span>
-          <span style="display:{{ labelDisp }};margin-left:auto;font:500 11px var(--mono);color:var(--text3)">{{ it.count }}</span>
-        </button>
+    </div>
+    <div style="flex:none;display:flex;align-items:center;gap:10px">
+      <image-slot id="{{ me.slotId }}" title="{{ me.name }}" shape="circle" style="width:26px;height:26px" placeholder=""></image-slot>
+    </div>
+  </header>
+
+  <div style="flex:1;min-height:0;display:flex;padding:0 14px 14px">
+
+    <nav data-screen-label="Sidebar" style="width:{{ sideWidth }};flex:none;padding:14px 10px;display:flex;flex-direction:column;overflow-y:auto;overflow-x:hidden;transition:width .18s ease">
+      <sc-for list="{{ navGroups }}" as="g" hint-placeholder-count="2">
+        <div>
+          <div style="display:{{ labelDisp }};padding:14px 10px 6px;font:600 10px var(--mono);letter-spacing:.14em;text-transform:uppercase;color:var(--text3)">{{ g.label }}</div>
+          <sc-for list="{{ g.items }}" as="it" hint-placeholder-count="3">
+            <a href="{{ it.href }}" onClick="{{ onNav }}" data-view="{{ it.view }}" title="{{ it.label }}" style="display:flex;align-items:center;justify-content:{{ navJustify }};gap:10px;width:100%;padding:8px 10px;border-radius:6px;font:400 13.5px var(--sans);color:{{ it.color }};background:{{ it.bg }};text-decoration:none;cursor:pointer" style-hover="background:var(--panel2);color:var(--text)">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex:none;color:{{ it.iconColor }}"><path d="{{ it.icon }}"></path></svg>
+              <span style="display:{{ labelDisp }};white-space:nowrap">{{ it.label }}</span>
+              <span style="display:{{ it.countDisp }};margin-left:auto;font:500 11px var(--mono);color:var(--text3)">{{ it.count }}</span>
+            </a>
+          </sc-for>
+        </div>
       </sc-for>
-      <div style="display:{{ groupDisp }};font:600 10px var(--mono);letter-spacing:.14em;text-transform:uppercase;color:var(--text3);padding:14px 10px 6px">Workspace</div>
-      <sc-for list="{{ wsNav }}" as="it" hint-placeholder-count="3">
-        <button onClick="{{ setView }}" data-view="{{ it.key }}" title="{{ it.label }}" style="display:flex;align-items:center;justify-content:{{ navJustify }};gap:10px;width:100%;padding:8px 10px;border-radius:7px;font:400 13.5px var(--sans);color:{{ it.color }};background:{{ it.bg }};border:none;text-align:left;cursor:pointer" style-hover="background:var(--panel2);color:var(--text)">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex:none;color:{{ it.iconColor }}"><path d="{{ it.icon }}"></path></svg>
-          <span style="display:{{ labelDisp }};white-space:nowrap">{{ it.label }}</span>
-          <span style="display:{{ labelDisp }};margin-left:auto;font:500 11px var(--mono);color:var(--text3)">{{ it.count }}</span>
-        </button>
-      </sc-for>
-      <div style="margin-top:auto;padding-top:12px;border-top:1px solid var(--line-soft)">
-        <button onClick="{{ toggleTheme }}" title="{{ themeLabel }}" style="display:flex;align-items:center;justify-content:{{ navJustify }};gap:10px;width:100%;padding:8px 10px;border-radius:7px;font:400 13.5px var(--sans);color:var(--text2);background:none;border:none;text-align:left;cursor:pointer" style-hover="background:var(--panel2);color:var(--text)">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex:none"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79Z"></path></svg>
+      <div style="margin-top:auto;border-top:1px solid var(--line-soft);padding-top:12px">
+        <button onClick="{{ toggleTheme }}" title="{{ themeLabel }}" style="display:flex;align-items:center;justify-content:{{ navJustify }};gap:10px;width:100%;padding:8px 10px;border-radius:6px;font:400 13.5px var(--sans);color:var(--text2);background:none;border:none;text-align:left;cursor:pointer" style-hover="background:var(--panel2);color:var(--text)">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex:none"><path d="{{ themeIcon }}"></path></svg>
           <span style="display:{{ labelDisp }};white-space:nowrap">{{ themeLabel }}</span>
         </button>
-        <button onClick="{{ toggleCollapse }}" title="{{ collapseTitle }}" style="display:flex;align-items:center;justify-content:{{ navJustify }};gap:10px;width:100%;padding:8px 10px;border-radius:7px;font:400 13.5px var(--sans);color:var(--text2);background:none;border:none;text-align:left;cursor:pointer" style-hover="background:var(--panel2);color:var(--text)">
+        <button onClick="{{ toggleCollapse }}" title="{{ collapseTitle }}" style="display:flex;align-items:center;justify-content:{{ navJustify }};gap:10px;width:100%;padding:8px 10px;border-radius:6px;font:400 13.5px var(--sans);color:var(--text2);background:none;border:none;text-align:left;cursor:pointer" style-hover="background:var(--panel2);color:var(--text)">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex:none"><path d="{{ collapseIcon }}"></path></svg>
           <span style="display:{{ labelDisp }};white-space:nowrap">Collapse</span>
         </button>
-        <div style="padding:8px 10px 0"><span style="display:{{ labelDisp }};font:400 11px var(--mono);color:var(--text3)">v1.4.0</span></div>
+        <p style="display:{{ labelDisp }};margin:0;padding:8px 10px 0;font:400 11px var(--mono);color:var(--text3)">v2026.09.22</p>
       </div>
     </nav>
 
-    <div style="flex:1;display:flex;flex-direction:column;min-width:0;padding:10px 10px 10px 0">
-    <main style="flex:1;min-height:0;background:var(--panel);border:1px solid var(--line);border-radius:15px;min-width:0;display:flex;flex-direction:column;overflow:hidden">
-      <div style="flex:none;display:flex;align-items:center;gap:18px;padding:16px 32px 14px;border-bottom:1px solid var(--line)">
-        <div style="font:700 20px var(--sans);color:var(--text);letter-spacing:-.01em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ pageTitle }}</div>
-        <div style="margin-left:auto;display:flex;align-items:center;gap:10px">
-          <span title="Yara Haddad" style="width:26px;height:26px;border-radius:50%;display:grid;place-items:center;font:600 10px var(--mono);background:var(--sky-dim);color:var(--sky)">YH</span>
-        </div>
-      </div>
-      <div style="flex:1;overflow-y:auto;min-height:0">
-      <div style="max-width:1440px;padding:22px 32px 60px">
+    <main style="flex:1;min-width:0;overflow-y:auto;border-radius:10px;border:1px solid var(--line);background:var(--panel)">
+      <div style="max-width:1440px;margin:0 auto;padding:28px 28px 60px">
+
+        <sc-if value="{{ showProjectsHeader }}" hint-placeholder-val="{{ true }}">
+          <div style="margin-bottom:18px;display:flex;align-items:flex-start;gap:16px">
+            <div>
+              <div style="font:600 19px/1.25 var(--sans);color:var(--text)">{{ pageTitle }}</div>
+              <div style="margin-top:4px;font:400 12px var(--mono);color:var(--text3)">{{ pageSub }}</div>
+            </div>
+            <sc-if value="{{ showNewProject }}" hint-placeholder-val="{{ true }}">
+              <div style="margin-left:auto;display:flex;flex-wrap:wrap;gap:8px">
+                <button onClick="{{ openModal }}" style="display:flex;align-items:center;justify-content:center;gap:8px;border-radius:6px;padding:7px 14px;font:500 13px var(--sans);background:var(--amber-btn);border:1px solid var(--amber-btn);color:var(--on-amber);cursor:pointer" style-hover="filter:brightness(1.05)">
+                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"></path></svg>
+                  New position
+                </button>
+              </div>
+            </sc-if>
+          </div>
+        </sc-if>
+
+        <sc-if value="{{ showSkeleton }}" hint-placeholder-val="{{ false }}">
+          <div data-screen-label="Positions loading" role="status" aria-label="Loading" style="overflow-x:auto">
+            <table style="width:100%;min-width:820px;border-collapse:collapse">
+              <thead>
+                <tr>
+                  <sc-for list="{{ skeletonCols }}" as="c" hint-placeholder-count="7">
+                    <th style="white-space:nowrap;border-bottom:1px solid var(--line);padding:9px 12px;text-align:left;font:600 10.5px var(--mono);text-transform:uppercase;letter-spacing:.12em;color:var(--text3)">{{ c }}</th>
+                  </sc-for>
+                </tr>
+              </thead>
+              <tbody>
+                <sc-for list="{{ skeletonRows }}" as="row" hint-placeholder-count="6">
+                  <tr>
+                    <sc-for list="{{ row.cells }}" as="w" hint-placeholder-count="7">
+                      <td style="border-bottom:1px solid var(--line-soft);padding:15px 12px"><div style="height:14px;width:{{ w }};border-radius:4px;background:var(--panel2)"></div></td>
+                    </sc-for>
+                  </tr>
+                </sc-for>
+              </tbody>
+            </table>
+          </div>
+        </sc-if>
 
         <sc-if value="{{ showEmpty }}" hint-placeholder-val="{{ false }}">
-          <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;padding:90px 20px 70px;text-align:center;animation:fadeUp .5s ease both">
-            <div style="width:52px;height:52px;border-radius:14px;background:var(--amber-dim);display:grid;place-items:center;margin-bottom:18px">
-              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="var(--amber)" stroke-width="2"><path d="M20 7H4a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2ZM16 7V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v2"></path></svg>
+          <div data-screen-label="Empty workspace" style="display:flex;flex-direction:column;align-items:center;justify-content:center;padding:90px 20px 70px;text-align:center;animation:fadeUp .5s ease both">
+            <div style="margin-bottom:18px;width:52px;height:52px;border-radius:8px;background:var(--amber-dim);color:var(--amber);display:grid;place-items:center">
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="{{ icons.briefcase }}"></path></svg>
             </div>
-            <div style="font:600 19px var(--sans);margin-bottom:6px">Create your first project</div>
-            <div style="font:400 13px var(--sans);color:var(--text2);max-width:420px;margin-bottom:22px">A project holds one search mandate end to end — brief, company universe, sourcing and candidates.</div>
-            <button onClick="{{ openModal }}" style="display:inline-flex;align-items:center;gap:7px;background:var(--amber-btn);border:1px solid var(--amber-btn);color:#1a1712;font:600 13px var(--sans);padding:9px 16px;border-radius:8px;cursor:pointer" style-hover="filter:brightness(1.05)">
-              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M12 5v14M5 12h14"></path></svg>
-              New project
-            </button>
-            <div style="display:flex;align-items:center;gap:10px;margin-top:34px;font:500 11px var(--mono);letter-spacing:.06em;text-transform:uppercase;color:var(--text3)">
-              <span>Brief</span><span style="opacity:.5">→</span><span>Universe</span><span style="opacity:.5">→</span><span>Mapping</span><span style="opacity:.5">→</span><span>Shortlist</span>
-            </div>
+            <div style="margin-bottom:6px;font:600 19px var(--sans);color:var(--text)">{{ emptyTitle }}</div>
+            <div style="margin-bottom:22px;max-width:420px;font:400 13px/1.5 var(--sans);color:var(--text2)">{{ emptyBody }}</div>
+            <sc-if value="{{ showNewProject }}" hint-placeholder-val="{{ true }}">
+              <button onClick="{{ openModal }}" style="display:flex;align-items:center;justify-content:center;gap:8px;border-radius:6px;padding:7px 14px;font:500 13px var(--sans);background:var(--amber-btn);border:1px solid var(--amber-btn);color:var(--on-amber);cursor:pointer" style-hover="filter:brightness(1.05)">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"></path></svg>
+                New position
+              </button>
+              <div style="margin-top:34px;display:flex;align-items:center;gap:10px;font:500 11px var(--mono);text-transform:uppercase;letter-spacing:.06em;color:var(--text3)">
+                <span>Brief</span><span style="opacity:.5">→</span><span>Universe</span><span style="opacity:.5">→</span><span>Mapping</span><span style="opacity:.5">→</span><span>Shortlist</span>
+              </div>
+            </sc-if>
           </div>
         </sc-if>
 
         <sc-if value="{{ showProjects }}" hint-placeholder-val="{{ true }}">
-          <div style="display:flex;align-items:center;gap:16px;margin-bottom:14px">
-            <div style="color:var(--text3);font:400 12px var(--mono);letter-spacing:.02em">{{ pageSub }}</div>
-            <div style="margin-left:auto;display:flex;gap:8px">
-              <button onClick="{{ openModal }}" style="display:inline-flex;align-items:center;gap:7px;padding:7px 13px;border-radius:8px;font:600 13px var(--sans);background:var(--amber-btn);border:1px solid var(--amber-btn);color:#1a1712;cursor:pointer" style-hover="filter:brightness(1.05)">
-                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M12 5v14M5 12h14"></path></svg>
-                New project
-              </button>
-            </div>
-          </div>
-          <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px;flex-wrap:wrap">
-            <div style="display:flex;align-items:center;gap:8px;background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:7px 11px;width:300px">
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--text3)" stroke-width="2"><circle cx="11" cy="11" r="8"></circle><path d="m21 21-4.3-4.3"></path></svg>
-              <input value="{{ q }}" onInput="{{ onSearch }}" placeholder="Search client or position…" style="background:none;border:none;outline:none;width:100%;font:400 13px var(--mono);color:var(--text)">
-            </div>
-            <div style="display:flex;gap:6px;flex-wrap:wrap">
-              <sc-for list="{{ chips }}" as="c" hint-placeholder-count="6">
-                <button onClick="{{ setChip }}" data-chip="{{ c.key }}" style="padding:5px 11px;border-radius:999px;border:1px solid {{ c.border }};font:500 12px var(--mono);color:{{ c.color }};background:{{ c.bg }};cursor:pointer" style-hover="color:var(--text)">{{ c.label }}</button>
-              </sc-for>
-            </div>
-          </div>
-          <table style="width:100%;border-collapse:collapse">
-            <thead>
-              <tr>
-                <sc-for list="{{ headers }}" as="h" hint-placeholder-count="8">
-                  <th onClick="{{ setSort }}" data-key="{{ h.key }}" style="font:600 10.5px var(--mono);letter-spacing:.12em;text-transform:uppercase;color:var(--text3);text-align:left;padding:9px 12px;border-bottom:1px solid var(--line);white-space:nowrap;width:{{ h.width }};cursor:{{ h.cursor }}">{{ h.label }} <span style="color:var(--amber)">{{ h.arrow }}</span></th>
-                </sc-for>
-              </tr>
-            </thead>
-            <tbody>
-              <sc-for list="{{ rows }}" as="r" hint-placeholder-count="5">
-                <tr onClick="{{ openRow }}" data-id="{{ r.id }}" style="cursor:pointer" style-hover="background:var(--panel2)">
-                  <td style="padding:11px 12px;border-bottom:1px solid var(--line-soft);font:500 12.5px var(--mono);color:var(--text2);white-space:nowrap">{{ r.client }}</td>
-                  <td style="padding:11px 12px;border-bottom:1px solid var(--line-soft);white-space:nowrap">
-                    <span style="font:600 13px var(--sans);color:var(--text)">{{ r.pos }}</span>
-                    <span style="display:block;font:400 11px var(--mono);color:var(--text3);margin-top:2px">Lead · {{ r.leadName }}</span>
-                  </td>
-                  <td style="padding:11px 12px;border-bottom:1px solid var(--line-soft)">
-                    <span style="display:inline-flex;align-items:center;gap:6px;padding:3px 9px;border-radius:6px;font:600 10.5px var(--mono);letter-spacing:.06em;text-transform:uppercase;white-space:nowrap;color:{{ r.stageColor }};background:{{ r.stageBg }};border:1px solid {{ r.stageBorder }}">
-                      <span style="width:6px;height:6px;border-radius:50%;background:currentColor"></span>
-                      {{ r.stageLabel }}
-                    </span>
-                  </td>
-                  <td style="padding:11px 12px;border-bottom:1px solid var(--line-soft)">
-                    <span style="display:inline-flex;align-items:center;gap:6px;font:600 12.5px var(--sans);white-space:nowrap;color:{{ r.healthText }}">
-                      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex:none"><path d="{{ r.healthIcon }}"></path></svg>
-                      {{ r.healthLabel }}
-                    </span>
-                  </td>
-                  <td style="padding:11px 12px;border-bottom:1px solid var(--line-soft)">
-                    <span style="display:flex;align-items:center">
-                      <sc-for list="{{ r.team }}" as="m" hint-placeholder-count="2">
-                        <span title="{{ m.name }}" style="width:28px;height:28px;border-radius:50%;display:grid;place-items:center;font:700 10.5px var(--mono);background:{{ m.bg }};color:{{ m.fg }};border:2px solid var(--panel);margin-left:{{ m.ml }};flex:none">{{ m.initials }}</span>
-                      </sc-for>
-                    </span>
-                  </td>
-                  <td style="padding:11px 12px;border-bottom:1px solid var(--line-soft);font:400 12px var(--mono);color:var(--text2);white-space:nowrap">{{ r.dateLabel }}</td>
-                  <td style="padding:11px 12px;border-bottom:1px solid var(--line-soft);font:400 12px var(--mono);color:var(--text2);white-space:nowrap"><b style="color:var(--text);font-weight:600">{{ r.cos }}</b> cos · <b style="color:var(--text);font-weight:600">{{ r.cand }}</b> cand</td>
-                  <td style="padding:11px 10px 11px 12px;border-bottom:1px solid var(--line-soft);text-align:right;white-space:nowrap">
-                    <a href="Project.dc.html" onClick="{{ stopClick }}" title="Open {{ r.pos }}" style="display:inline-flex;align-items:center;gap:6px;padding:5px 11px;border-radius:7px;font:600 12px var(--sans);border:1px solid var(--line);color:var(--text2);text-decoration:none" style-hover="color:var(--text);border-color:var(--text3);background:var(--panel);text-decoration:none">
-                      Open
-                      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M5 12h14M13 6l6 6-6 6"></path></svg>
-                    </a>
-                  </td>
-                </tr>
-              </sc-for>
-            </tbody>
-          </table>
-          <sc-if value="{{ noResults }}" hint-placeholder-val="{{ false }}">
-            <div style="padding:48px;text-align:center;color:var(--text3);font:400 13px var(--mono)">No projects match. Clear filters or create a new project.</div>
-          </sc-if>
-        </sc-if>
-
-        <sc-if value="{{ showClients }}" hint-placeholder-val="{{ false }}">
-          <div style="display:flex;align-items:flex-start;gap:16px;margin-bottom:18px">
-            <div>
-              <div style="font:600 19px/1.2 var(--sans)">Clients</div>
-              <div style="color:var(--text3);font:400 12px var(--mono);margin-top:4px">Hiring entity registry · projects inherit these records one-way</div>
-            </div>
-            <div style="margin-left:auto">
-              <button onClick="{{ toastClients }}" style="display:inline-flex;align-items:center;gap:7px;padding:7px 13px;border-radius:8px;font:500 13px var(--sans);border:1px solid var(--line);color:var(--text2);background:none;cursor:pointer" style-hover="color:var(--text);border-color:var(--text3)">
-                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M12 5v14M5 12h14"></path></svg>
-                New client
-              </button>
-            </div>
-          </div>
-          <sc-if value="{{ hasClients }}" hint-placeholder-val="{{ true }}">
-            <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:12px">
-              <sc-for list="{{ clients }}" as="c" hint-placeholder-count="4">
-                <div style="background:var(--panel2);border:1px solid var(--line-soft);border-radius:10px;padding:14px">
-                  <h4 style="font:600 13px var(--mono);margin:0 0 4px">{{ c.name }}</h4>
-                  <p style="font:400 11.5px var(--mono);color:var(--text3);margin:0">{{ c.meta }}</p>
-                  <div style="display:flex;align-items:center;gap:10px;margin-top:10px">
-                    <button onClick="{{ toastRecord }}" style="padding:5px 10px;font:500 12px var(--sans);border:1px solid var(--line);border-radius:8px;color:var(--text2);background:none;cursor:pointer" style-hover="color:var(--text);border-color:var(--text3)">View record</button>
-                  </div>
-                </div>
-              </sc-for>
-            </div>
-          </sc-if>
-          <sc-if value="{{ noClients }}" hint-placeholder-val="{{ false }}">
-            <div style="padding:48px;text-align:center;color:var(--text3);font:400 13px var(--mono)">No clients yet — a client record is created with your first project.</div>
-          </sc-if>
-        </sc-if>
-
-        <sc-if value="{{ showTeam }}" hint-placeholder-val="{{ false }}">
-          <div style="display:flex;align-items:flex-start;gap:16px;margin-bottom:18px">
-            <div>
-              <div style="font:600 19px/1.2 var(--sans)">Team</div>
-              <div style="color:var(--text3);font:400 12px var(--mono);margin-top:4px">{{ teamSub }}</div>
-            </div>
-            <div style="margin-left:auto">
-              <button onClick="{{ toastInvite }}" style="display:inline-flex;align-items:center;gap:7px;padding:7px 13px;border-radius:8px;font:500 13px var(--sans);border:1px solid var(--line);color:var(--text2);background:none;cursor:pointer" style-hover="color:var(--text);border-color:var(--text3)">
-                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M12 5v14M5 12h14"></path></svg>
-                Invite
-              </button>
-            </div>
-          </div>
-          <sc-for list="{{ teamRows }}" as="m" hint-placeholder-count="5">
-            <div style="position:relative;display:flex;align-items:center;gap:10px;padding:8px;border-radius:7px" style-hover="background:var(--panel2)">
-              <span style="width:26px;height:26px;border-radius:50%;display:grid;place-items:center;font:600 10px var(--mono);background:{{ m.bg }};color:{{ m.fg }};flex:none">{{ m.initials }}</span>
-              <div style="min-width:0">
-                <div style="display:flex;align-items:center;gap:7px">
-                  <span style="font-size:13px">{{ m.name }}</span>
-                  <sc-if value="{{ m.suspended }}" hint-placeholder-val="{{ false }}">
-                    <span style="font:600 9.5px var(--mono);letter-spacing:.07em;padding:2px 6px;border-radius:5px;color:var(--text3);background:var(--panel2);border:1px solid var(--line)">SUSPENDED</span>
-                  </sc-if>
-                </div>
-                <div style="font:400 11px var(--mono);color:var(--text3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ m.role }} · {{ m.email }}</div>
+          <div data-screen-label="Positions list">
+            <div style="margin-bottom:14px;display:flex;flex-wrap:wrap;align-items:center;gap:10px">
+              <div style="display:flex;align-items:center;gap:8px;width:300px;border-radius:6px;border:1px solid var(--line);background:var(--panel2);padding:7px 11px">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex:none;color:var(--text3)"><path d="{{ icons.search }}"></path></svg>
+                <input value="{{ q }}" onInput="{{ onSearch }}" placeholder="Search business unit or position…" aria-label="Search business unit or position…" style="width:100%;background:transparent;border:none;outline:none;font:400 13px var(--mono);color:var(--text)">
               </div>
-              <div style="margin-left:auto;font:400 11px var(--mono);color:var(--text3);flex:none">{{ m.activeLabel }}</div>
-              <button onClick="{{ toggleTeamMenu }}" data-id="{{ m.id }}" aria-label="Member actions" style="flex:none;width:24px;height:24px;display:grid;place-items:center;border-radius:6px;border:1px solid transparent;background:none;color:var(--text3);cursor:pointer" style-hover="color:var(--text);border-color:var(--line)">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="5" r="1.6"></circle><circle cx="12" cy="12" r="1.6"></circle><circle cx="12" cy="19" r="1.6"></circle></svg>
-              </button>
-              <sc-if value="{{ m.menuOpen }}" hint-placeholder-val="{{ false }}">
-                <div style="position:absolute;top:36px;right:6px;width:224px;background:var(--panel);border:1px solid var(--line);border-radius:10px;box-shadow:var(--shadow);padding:5px;z-index:60">
-                  <sc-if value="{{ m.menuNormal }}" hint-placeholder-val="{{ true }}">
-                    <button onClick="{{ copyMemberEmail }}" data-email="{{ m.email }}" style="display:flex;align-items:center;gap:9px;width:100%;padding:7px 9px;border-radius:7px;border:none;background:none;cursor:pointer;text-align:left;font:500 12.5px var(--sans);color:var(--text)" style-hover="background:var(--panel2)">
-                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--text3)" stroke-width="2"><rect x="2" y="4" width="20" height="16" rx="2"></rect><path d="m2 7 10 6 10-6"></path></svg>
-                      Copy email
-                    </button>
-                    <sc-if value="{{ m.canRestore }}" hint-placeholder-val="{{ false }}">
-                      <button onClick="{{ restoreMember }}" data-id="{{ m.id }}" style="display:flex;align-items:center;gap:9px;width:100%;padding:7px 9px;border-radius:7px;border:none;background:none;cursor:pointer;text-align:left;font:500 12.5px var(--sans);color:var(--text)" style-hover="background:var(--panel2)">
-                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--text3)" stroke-width="2"><path d="M21 12a9 9 0 1 1-3-6.7L21 8"></path><path d="M21 3v5h-5"></path></svg>
-                        Restore access
-                      </button>
+              <div style="display:flex;flex-wrap:wrap;gap:6px">
+                <sc-for list="{{ chips }}" as="c" hint-placeholder-count="6">
+                  <button onClick="{{ setChip }}" data-chip="{{ c.key }}" style="border-radius:999px;border:1px solid {{ c.border }};background:{{ c.bg }};padding:5px 11px;font:500 12px var(--mono);color:{{ c.color }};cursor:pointer" style-hover="color:var(--text)">{{ c.label }}</button>
+                </sc-for>
+              </div>
+              <div style="margin-left:auto;display:flex;align-items:center;gap:6px">
+                <div style="position:relative">
+                  <button onClick="{{ togglePicker }}" style="display:inline-flex;align-items:center;gap:6px;white-space:nowrap;border-radius:6px;padding:8px;font:400 13px var(--sans);color:var(--text3);background:none;border:none;cursor:pointer" style-hover="background:var(--panel);color:var(--text)">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex:none"><path d="{{ icons.columns }}"></path></svg>
+                    Columns
+                    <sc-if value="{{ hasHidden }}" hint-placeholder-val="{{ false }}">
+                      <span style="border-radius:4px;background:var(--sky-dim);padding:2px 5px;font:700 10px var(--sans);color:var(--sky)">{{ hiddenLabel }}</span>
                     </sc-if>
-                    <div style="height:1px;background:var(--line-soft);margin:4px 6px"></div>
-                    <sc-if value="{{ m.canSuspend }}" hint-placeholder-val="{{ false }}">
-                      <button onClick="{{ askSuspendMember }}" style="display:flex;align-items:center;gap:9px;width:100%;padding:7px 9px;border-radius:7px;border:none;background:none;cursor:pointer;text-align:left;font:500 12.5px var(--sans);color:var(--text2)" style-hover="background:var(--panel2);color:var(--text)">
-                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="10" rx="2"></rect><path d="M8 11V7a4 4 0 0 1 8 0"></path></svg>
-                        Suspend access
-                      </button>
-                    </sc-if>
-                    <button onClick="{{ askRemoveMember }}" style="display:flex;align-items:center;gap:9px;width:100%;padding:7px 9px;border-radius:7px;border:none;background:none;cursor:pointer;text-align:left;font:500 12.5px var(--sans);color:var(--red)" style-hover="background:var(--red-dim)">
-                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M8 6V4h8v2M6 6l1 14h10l1-14"></path></svg>
-                      Remove from workspace
-                    </button>
-                  </sc-if>
-                  <sc-if value="{{ m.confirming }}" hint-placeholder-val="{{ false }}">
-                    <div style="padding:8px 8px 4px">
-                      <div style="font:500 12.5px var(--sans);color:var(--text);line-height:1.45">{{ m.confirmMsg }}</div>
-                      <div style="display:flex;justify-content:flex-end;gap:7px;margin-top:10px">
-                        <button onClick="{{ closeTeamMenu }}" style="padding:5px 10px;border-radius:7px;font:500 12px var(--sans);border:1px solid var(--line);color:var(--text2);background:none;cursor:pointer" style-hover="color:var(--text);border-color:var(--text3)">Keep</button>
-                        <button onClick="{{ confirmTeamAction }}" data-id="{{ m.id }}" style="padding:5px 10px;border-radius:7px;font:600 12px var(--sans);border:1px solid var(--red);color:#fff;background:var(--red);cursor:pointer" style-hover="filter:brightness(1.06)">{{ m.confirmBtn }}</button>
-                      </div>
+                  </button>
+                  <sc-if value="{{ pickerOpen }}" hint-placeholder-val="{{ false }}">
+                    <div onClick="{{ closePicker }}" style="position:fixed;inset:0;z-index:79"></div>
+                    <div data-screen-label="Columns menu" style="position:absolute;right:0;top:40px;z-index:80;width:220px;max-height:70vh;overflow-y:auto;border-radius:10px;border:1px solid var(--line);background:var(--panel);padding:8px;box-shadow:var(--shadow)">
+                      <sc-for list="{{ pickerRows }}" as="p" hint-placeholder-count="5">
+                        <button onClick="{{ toggleColumn }}" data-col="{{ p.id }}" role="checkbox" style="display:flex;width:100%;align-items:center;justify-content:space-between;border-radius:5px;padding:5px 4px;text-align:left;background:none;border:none;cursor:pointer" style-hover="background:var(--panel2)">
+                          <span style="display:flex;align-items:center;gap:8px">
+                            <span style="width:15px;height:15px;flex:none;display:grid;place-items:center;border-radius:4px;box-shadow:inset 0 0 0 1.5px currentColor;background:{{ p.boxBg }};color:{{ p.boxColor }}">
+                              <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.2" style="color:var(--amber);opacity:{{ p.tickOpacity }}"><path d="M20 6 9 17l-5-5"></path></svg>
+                            </span>
+                            <span style="font:500 12px var(--sans);color:var(--text)">{{ p.label }}</span>
+                          </span>
+                        </button>
+                      </sc-for>
+                      <div style="height:1px;background:var(--line-soft);margin:6px 4px"></div>
+                      <button onClick="{{ resetColumns }}" style="width:100%;border-radius:5px;padding:7px 4px;text-align:left;font:500 12px var(--sans);color:var(--text3);background:none;border:none;cursor:pointer" style-hover="background:var(--panel2);color:var(--text)">Reset to default</button>
                     </div>
                   </sc-if>
                 </div>
-              </sc-if>
+              </div>
             </div>
-          </sc-for>
 
-          <sc-if value="{{ hasPending }}" hint-placeholder-val="{{ true }}">
-            <div style="display:flex;align-items:center;gap:8px;margin:24px 0 6px;padding:0 8px">
-              <span style="font:600 10px var(--mono);letter-spacing:.14em;text-transform:uppercase;color:var(--text3)">Pending invites</span>
-              <span style="font:400 10.5px var(--mono);color:var(--text3)">· {{ pendingCount }}</span>
-            </div>
-            <sc-for list="{{ pendingRows }}" as="m" hint-placeholder-count="2">
-              <div style="position:relative;display:flex;align-items:center;gap:10px;padding:8px;border-radius:7px" style-hover="background:var(--panel2)">
-                <span style="width:26px;height:26px;border-radius:50%;display:grid;place-items:center;font:600 10px var(--mono);color:var(--text3);border:1px dashed var(--line);flex:none">{{ m.initials }}</span>
-                <div style="min-width:0">
-                  <div style="display:flex;align-items:center;gap:7px">
-                    <span style="font-size:13px;color:var(--text2)">{{ m.name }}</span>
-                    <span style="font:600 9.5px var(--mono);letter-spacing:.07em;padding:2px 6px;border-radius:5px;color:var(--amber);background:var(--amber-dim)">INVITED</span>
-                  </div>
-                  <div style="font:400 11px var(--mono);color:var(--text3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ m.role }} · {{ m.email }}</div>
-                </div>
-                <div style="margin-left:auto;font:400 11px var(--mono);color:var(--text3);flex:none">{{ m.sent }}</div>
-                <button onClick="{{ toggleTeamMenu }}" data-id="{{ m.id }}" aria-label="Invite actions" style="flex:none;width:24px;height:24px;display:grid;place-items:center;border-radius:6px;border:1px solid transparent;background:none;color:var(--text3);cursor:pointer" style-hover="color:var(--text);border-color:var(--line)">
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="5" r="1.6"></circle><circle cx="12" cy="12" r="1.6"></circle><circle cx="12" cy="19" r="1.6"></circle></svg>
-                </button>
-                <sc-if value="{{ m.menuOpen }}" hint-placeholder-val="{{ false }}">
-                  <div style="position:absolute;top:36px;right:6px;width:224px;background:var(--panel);border:1px solid var(--line);border-radius:10px;box-shadow:var(--shadow);padding:5px;z-index:60">
-                    <sc-if value="{{ m.menuNormal }}" hint-placeholder-val="{{ true }}">
-                      <button onClick="{{ resendMemberInvite }}" data-email="{{ m.email }}" style="display:flex;align-items:center;gap:9px;width:100%;padding:7px 9px;border-radius:7px;border:none;background:none;cursor:pointer;text-align:left;font:500 12.5px var(--sans);color:var(--text)" style-hover="background:var(--panel2)">
-                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--text3)" stroke-width="2"><path d="M21 12a9 9 0 1 1-3-6.7L21 8"></path><path d="M21 3v5h-5"></path></svg>
-                        Resend invite
-                      </button>
-                      <div style="height:1px;background:var(--line-soft);margin:4px 6px"></div>
-                      <button onClick="{{ askCancelMemberInvite }}" style="display:flex;align-items:center;gap:9px;width:100%;padding:7px 9px;border-radius:7px;border:none;background:none;cursor:pointer;text-align:left;font:500 12.5px var(--sans);color:var(--red)" style-hover="background:var(--red-dim)">
-                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6 6 18M6 6l12 12"></path></svg>
-                        Cancel invite
-                      </button>
-                    </sc-if>
-                    <sc-if value="{{ m.confirming }}" hint-placeholder-val="{{ false }}">
-                      <div style="padding:8px 8px 4px">
-                        <div style="font:500 12.5px var(--sans);color:var(--text);line-height:1.45">{{ m.confirmMsg }}</div>
-                        <div style="display:flex;justify-content:flex-end;gap:7px;margin-top:10px">
-                          <button onClick="{{ closeTeamMenu }}" style="padding:5px 10px;border-radius:7px;font:500 12px var(--sans);border:1px solid var(--line);color:var(--text2);background:none;cursor:pointer" style-hover="color:var(--text);border-color:var(--text3)">Keep</button>
-                          <button onClick="{{ confirmTeamAction }}" data-id="{{ m.id }}" style="padding:5px 10px;border-radius:7px;font:600 12px var(--sans);border:1px solid var(--red);color:#fff;background:var(--red);cursor:pointer" style-hover="filter:brightness(1.06)">{{ m.confirmBtn }}</button>
+            <div style="display:flex;flex-direction:column;gap:12px">
+              <div style="display:flex;flex-direction:column;overflow:hidden;border-radius:12px;border:1px solid var(--line);background:var(--panel)">
+                <div role="table" aria-label="Positions" style="display:flex;flex-direction:column;overflow:auto">
+                  <div style="min-width:{{ gridMin }};position:sticky;top:0;z-index:20;flex:none;border-bottom:1px solid var(--line);background:var(--panel2)">
+                    <div role="row" style="display:grid;grid-template-columns:{{ gridCols }};min-width:{{ gridMin }};align-items:center;gap:12px;padding:10px 0">
+                      <sc-for list="{{ headers }}" as="h" hint-placeholder-count="8">
+                        <div role="columnheader" onClick="{{ setSort }}" data-key="{{ h.key }}" style="min-width:0;padding:{{ h.pad }};cursor:{{ h.cursor }};box-shadow:{{ h.shadow }}">
+                          <span style="display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font:600 11px var(--sans);text-transform:uppercase;letter-spacing:.04em;color:{{ h.color }}">{{ h.label }}{{ h.arrow }}</span>
                         </div>
+                      </sc-for>
+                    </div>
+                  </div>
+                  <div>
+                    <sc-for list="{{ groups }}" as="grp" hint-placeholder-count="3">
+                      <div>
+                        <div style="min-width:{{ gridMin }};padding:9px 16px;background:var(--panel2);border-bottom:1px solid var(--line-soft)">
+                          <span style="font:600 10.5px var(--mono);text-transform:uppercase;letter-spacing:.1em;color:var(--text3)">{{ grp.name }} · {{ grp.count }}</span>
+                        </div>
+                        <sc-for list="{{ grp.rows }}" as="r" hint-placeholder-count="3">
+                          <div role="row" onClick="{{ openRow }}" data-id="{{ r.id }}" style="display:grid;grid-template-columns:{{ gridCols }};min-width:{{ gridMin }};height:52px;align-items:center;gap:12px;border-bottom:1px solid var(--line-soft);cursor:pointer" style-hover="background:var(--panel2)">
+                            <div role="cell" style="min-width:0;padding-left:16px;box-shadow:1px 0 0 0 var(--line-soft);align-self:stretch;display:flex;align-items:center">
+                              <span style="display:block;min-width:0">
+                                <span style="display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font:600 13px var(--sans);color:var(--text)">{{ r.pos }}</span>
+                                <span style="display:block;margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font:400 11px var(--mono);color:var(--text3)">{{ r.leadLine }}</span>
+                              </span>
+                            </div>
+                            <sc-if value="{{ r.showStage }}" hint-placeholder-val="{{ true }}">
+                              <div role="cell" style="min-width:0">
+                                <span style="display:inline-flex;align-items:center;gap:6px;white-space:nowrap;border-radius:6px;border:1px solid {{ r.stageBorder }};background:{{ r.stageBg }};color:{{ r.stageColor }};padding:3px 9px;font:600 10.5px var(--mono);text-transform:uppercase;letter-spacing:.06em">
+                                  <span style="width:6px;height:6px;border-radius:50%;background:currentColor"></span>{{ r.stageLabel }}
+                                </span>
+                              </div>
+                            </sc-if>
+                            <sc-if value="{{ r.showHealth }}" hint-placeholder-val="{{ true }}">
+                              <div role="cell" style="min-width:0">
+                                <span style="display:inline-flex;align-items:center;gap:5px;white-space:nowrap;border-radius:999px;background:{{ r.healthBg }};padding:4px 9px 4px 7px;font:500 11px var(--sans);color:{{ r.healthText }}">
+                                  <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="flex:none"><path d="{{ r.healthIcon }}"></path></svg>{{ r.healthLabel }}
+                                </span>
+                              </div>
+                            </sc-if>
+                            <sc-if value="{{ r.showTeam }}" hint-placeholder-val="{{ true }}">
+                              <div role="cell" style="min-width:0">
+                                <span style="display:flex">
+                                  <sc-for list="{{ r.team }}" as="m" hint-placeholder-count="3">
+                                    <image-slot id="{{ m.slotId }}" title="{{ m.name }}" shape="circle" style="width:24px;height:24px;flex:none;border:2px solid var(--panel);margin-left:{{ m.ml }}" placeholder=""></image-slot>
+                                  </sc-for>
+                                </span>
+                              </div>
+                            </sc-if>
+                            <sc-if value="{{ r.showTarget }}" hint-placeholder-val="{{ true }}">
+                              <div role="cell" style="min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font:400 13px var(--sans);color:var(--text2)">{{ r.target }}</div>
+                            </sc-if>
+                            <sc-if value="{{ r.showPipeline }}" hint-placeholder-val="{{ true }}">
+                              <div role="cell" style="min-width:0">
+                                <span style="white-space:nowrap;font:400 12px var(--mono);color:var(--text2)"><b style="font-weight:600;color:var(--text)">{{ r.cos }}</b> cos · <b style="font-weight:600;color:var(--text)">{{ r.cand }}</b> cand</span>
+                              </div>
+                            </sc-if>
+                            <div role="cell" style="min-width:0;padding-right:16px">
+                              <a href="{{ r.openHref }}" onClick="{{ stopClick }}" aria-label="{{ r.openTitle }}" title="{{ r.openTitle }}" style="display:inline-flex;align-items:center;gap:6px;white-space:nowrap;border-radius:6px;border:1px solid var(--line);padding:5px 11px;font:600 12px var(--sans);color:var(--text2);text-decoration:none" style-hover="border-color:var(--text3);background:var(--panel);color:var(--text)">
+                                Open
+                                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14M13 6l6 6-6 6"></path></svg>
+                              </a>
+                            </div>
+                          </div>
+                        </sc-for>
+                      </div>
+                    </sc-for>
+                    <sc-if value="{{ noResults }}" hint-placeholder-val="{{ false }}">
+                      <div style="padding:40px 16px;text-align:center;font:400 13px var(--mono);color:var(--text3)">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="display:block;margin:0 auto 8px;color:var(--text3)"><path d="{{ icons.search }}"></path></svg>
+                        {{ noResultsMsg }}
                       </div>
                     </sc-if>
                   </div>
-                </sc-if>
+                </div>
               </div>
-            </sc-for>
-          </sc-if>
+            </div>
+          </div>
         </sc-if>
 
-      </div>
-      </div>
-    </main>
-    </div>
-
-  <sc-if value="{{ drawerOpen }}" hint-placeholder-val="{{ false }}">
-    <div onClick="{{ closeDrawer }}" style="position:fixed;inset:0;background:rgba(15,20,30,.4);z-index:90"></div>
-    <aside style="position:fixed;top:10px;right:10px;bottom:10px;width:520px;max-width:94vw;background:var(--panel);border:1px solid var(--line);border-radius:10px;box-shadow:var(--shadow);z-index:95;display:flex;flex-direction:column;animation:fadeUp .22s ease both">
-      <div style="padding:18px 20px 14px;border-bottom:1px solid var(--line-soft);position:relative">
-        <button onClick="{{ closeDrawer }}" aria-label="Close" style="position:absolute;top:14px;right:14px;color:var(--text3);padding:6px;border-radius:6px;background:none;border:none;cursor:pointer" style-hover="color:var(--text);background:var(--panel2)">✕</button>
-        <div style="font:500 11px var(--mono);color:var(--text3);letter-spacing:.08em;text-transform:uppercase">{{ drawer.client }}</div>
-        <div style="font:600 17px var(--sans);margin-top:4px">{{ drawer.pos }}</div>
-        <div style="display:flex;align-items:center;gap:8px;margin-top:10px;flex-wrap:wrap">
-          <span style="display:inline-flex;align-items:center;font:600 10px var(--mono);letter-spacing:.06em;text-transform:uppercase;padding:3px 9px;border-radius:999px;color:{{ drawer.stageColor }};background:{{ drawer.stageBg }};border:1px solid {{ drawer.stageBorder }}">{{ drawer.stageLabel }}</span>
-          <span style="display:inline-flex;align-items:center;gap:6px;font:600 12.5px var(--sans);color:{{ drawer.healthText }}">
-            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex:none"><path d="{{ drawer.healthIcon }}"></path></svg>
-            {{ drawer.healthLabel }}
-          </span>
-        </div>
-      </div>
-      <div style="padding:16px 20px 20px;overflow-y:auto;flex:1">
-
-        <a href="Project.dc.html" style="display:flex;align-items:center;justify-content:center;gap:7px;padding:10px 13px;border-radius:8px;font:600 13px var(--sans);background:var(--amber-btn);border:1px solid var(--amber-btn);color:#1a1712;text-decoration:none;margin-bottom:4px" style-hover="filter:brightness(1.05);text-decoration:none">
-          Open project
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M5 12h14M13 6l6 6-6 6"></path></svg>
-        </a>
-
-        <div style="font:600 10px var(--mono);letter-spacing:.14em;text-transform:uppercase;color:var(--text3);margin:22px 0 8px">Pipeline</div>
-        <div style="display:flex;gap:10px">
-          <div style="flex:1;background:var(--panel2);border:1px solid var(--line-soft);border-radius:8px;padding:10px 12px">
-            <b style="display:block;font:600 17px var(--mono);color:var(--text)">{{ drawer.cos }}</b>
-            <span style="font:400 10.5px var(--mono);color:var(--text3);letter-spacing:.06em;text-transform:uppercase">Companies</span>
-          </div>
-          <div style="flex:1;background:var(--panel2);border:1px solid var(--line-soft);border-radius:8px;padding:10px 12px">
-            <b style="display:block;font:600 17px var(--mono);color:var(--text)">{{ drawer.cand }}</b>
-            <span style="font:400 10.5px var(--mono);color:var(--text3);letter-spacing:.06em;text-transform:uppercase">Candidates</span>
-          </div>
-          <div style="flex:1;background:var(--panel2);border:1px solid var(--line-soft);border-radius:8px;padding:10px 12px">
-            <b style="display:block;font:600 17px var(--mono);color:var(--text)">{{ drawer.dateShort }}</b>
-            <span style="font:400 10.5px var(--mono);color:var(--text3);letter-spacing:.06em;text-transform:uppercase">Target</span>
-          </div>
-        </div>
-
-        <div style="font:600 10px var(--mono);letter-spacing:.14em;text-transform:uppercase;color:var(--text3);margin:22px 0 10px">Stage gates &amp; health</div>
-        <div style="display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:14px;align-items:start">
-          <div>
-            <sc-for list="{{ drawer.gates }}" as="g" hint-placeholder-count="6">
-              <div style="display:flex;align-items:center;gap:10px;padding:6px 0;font:{{ g.font }};color:{{ g.color }}">
-                <span style="width:14px;height:14px;border-radius:50%;border:1.5px solid {{ g.dotBorder }};background:{{ g.dotBg }};flex:none;display:grid;place-items:center">
-                  <span style="width:6px;height:6px;border-radius:50%;background:{{ g.dotInner }}"></span>
-                </span>
-                {{ g.label }}
+        <sc-if value="{{ showTeam }}" hint-placeholder-val="{{ false }}">
+          <div data-screen-label="Team">
+            <div style="margin-bottom:18px;display:flex;align-items:flex-start;gap:16px">
+              <div>
+                <div style="font:600 19px/1.25 var(--sans);color:var(--text)">Team</div>
+                <div style="margin-top:4px;font:400 12px var(--mono);color:var(--text3)">{{ teamSub }}</div>
               </div>
-            </sc-for>
-          </div>
-          <div style="background:var(--panel2);border:1px solid var(--line-soft);border-radius:8px;padding:12px">
-            <div style="display:flex;align-items:center;gap:7px;font:700 14px var(--sans);white-space:nowrap;margin-bottom:8px;color:{{ drawer.healthText }}">
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex:none"><path d="{{ drawer.healthIcon }}"></path></svg>
-              {{ drawer.healthLabel }}
+              <sc-if value="{{ isAdmin }}" hint-placeholder-val="{{ true }}">
+                <div style="margin-left:auto;display:flex;flex-wrap:wrap;gap:8px">
+                  <button onClick="{{ openInvite }}" style="display:flex;align-items:center;justify-content:center;gap:8px;border-radius:6px;padding:7px 14px;font:500 13px var(--sans);background:var(--panel);border:1px solid var(--line);color:var(--text2);cursor:pointer" style-hover="color:var(--text);border-color:var(--text3)">
+                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"></path></svg>
+                    Invite
+                  </button>
+                </div>
+              </sc-if>
             </div>
-            <sc-for list="{{ drawer.healthLines }}" as="l" hint-placeholder-count="2">
-              <div style="font:400 11.5px var(--sans);color:var(--text2);padding:3px 0;line-height:1.4">{{ l }}</div>
-            </sc-for>
-          </div>
-        </div>
 
-        <div style="display:flex;align-items:baseline;gap:8px;margin:22px 0 8px">
-          <div style="font:600 10px var(--mono);letter-spacing:.14em;text-transform:uppercase;color:var(--text3)">Project team</div>
-          <span style="font:500 11px var(--mono);color:var(--text3)">{{ drawer.teamCount }}</span>
-        </div>
-        <div style="border:1px solid var(--line-soft);border-radius:10px;overflow:hidden;margin-bottom:8px">
-          <sc-for list="{{ drawer.members }}" as="m" hint-placeholder-count="3">
-            <div style="display:flex;align-items:center;gap:11px;padding:11px 13px;border-bottom:1px solid var(--line-soft);background:var(--panel)">
-              <span style="width:30px;height:30px;border-radius:50%;display:grid;place-items:center;font:700 10.5px var(--mono);background:{{ m.bg }};color:{{ m.fg }};flex:none">{{ m.initials }}</span>
-              <div style="flex:1;min-width:0">
-                <div style="font:500 13px var(--sans);color:var(--text)">{{ m.name }}</div>
+            <div style="margin-bottom:14px;display:flex;justify-content:flex-end">
+              <div style="position:relative">
+                <button onClick="{{ togglePicker }}" style="display:inline-flex;align-items:center;gap:6px;white-space:nowrap;border-radius:6px;padding:8px;font:400 13px var(--sans);color:var(--text3);background:none;border:none;cursor:pointer" style-hover="background:var(--panel);color:var(--text)">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex:none"><path d="{{ icons.columns }}"></path></svg>
+                  Columns
+                  <sc-if value="{{ hasHidden }}" hint-placeholder-val="{{ false }}">
+                    <span style="border-radius:4px;background:var(--sky-dim);padding:2px 5px;font:700 10px var(--sans);color:var(--sky)">{{ hiddenLabel }}</span>
+                  </sc-if>
+                </button>
+                <sc-if value="{{ pickerOpen }}" hint-placeholder-val="{{ false }}">
+                  <div onClick="{{ closePicker }}" style="position:fixed;inset:0;z-index:79"></div>
+                  <div style="position:absolute;right:0;top:40px;z-index:80;width:220px;border-radius:10px;border:1px solid var(--line);background:var(--panel);padding:8px;box-shadow:var(--shadow)">
+                    <sc-for list="{{ pickerRows }}" as="p" hint-placeholder-count="3">
+                      <button onClick="{{ toggleColumn }}" data-col="{{ p.id }}" role="checkbox" style="display:flex;width:100%;align-items:center;justify-content:space-between;border-radius:5px;padding:5px 4px;text-align:left;background:none;border:none;cursor:pointer" style-hover="background:var(--panel2)">
+                        <span style="display:flex;align-items:center;gap:8px">
+                          <span style="width:15px;height:15px;flex:none;display:grid;place-items:center;border-radius:4px;box-shadow:inset 0 0 0 1.5px currentColor;background:{{ p.boxBg }};color:{{ p.boxColor }}">
+                            <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.2" style="color:var(--amber);opacity:{{ p.tickOpacity }}"><path d="M20 6 9 17l-5-5"></path></svg>
+                          </span>
+                          <span style="font:500 12px var(--sans);color:var(--text)">{{ p.label }}</span>
+                        </span>
+                      </button>
+                    </sc-for>
+                    <div style="height:1px;background:var(--line-soft);margin:6px 4px"></div>
+                    <button onClick="{{ resetColumns }}" style="width:100%;border-radius:5px;padding:7px 4px;text-align:left;font:500 12px var(--sans);color:var(--text3);background:none;border:none;cursor:pointer" style-hover="background:var(--panel2);color:var(--text)">Reset to default</button>
+                  </div>
+                </sc-if>
               </div>
-              <div style="display:flex;gap:5px;flex-wrap:wrap;justify-content:flex-end;flex:none;max-width:52%">
-                <sc-for list="{{ m.roles }}" as="r" hint-placeholder-count="1">
-                  <span style="font:600 9px var(--mono);letter-spacing:.05em;text-transform:uppercase;padding:3px 8px;border-radius:999px;white-space:nowrap;color:{{ r.color }};background:{{ r.bg }};border:1px solid {{ r.border }}">{{ r.label }}</span>
+            </div>
+
+            <div style="display:flex;flex-direction:column;overflow:hidden;border-radius:12px;border:1px solid var(--line);background:var(--panel)">
+              <div role="table" aria-label="Team" style="display:flex;flex-direction:column;overflow:auto">
+                <div style="min-width:{{ gridMin }};position:sticky;top:0;z-index:20;flex:none;border-bottom:1px solid var(--line);background:var(--panel2)">
+                  <div role="row" style="display:grid;grid-template-columns:{{ gridCols }};min-width:{{ gridMin }};align-items:center;gap:12px;padding:10px 0">
+                    <sc-for list="{{ headers }}" as="h" hint-placeholder-count="4">
+                      <div role="columnheader" onClick="{{ setSort }}" data-key="{{ h.key }}" style="min-width:0;padding:{{ h.pad }};cursor:{{ h.cursor }};box-shadow:{{ h.shadow }}">
+                        <span style="display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font:600 11px var(--sans);text-transform:uppercase;letter-spacing:.04em;color:{{ h.color }}">{{ h.label }}{{ h.arrow }}</span>
+                      </div>
+                    </sc-for>
+                  </div>
+                </div>
+                <sc-for list="{{ memberRows }}" as="m" hint-placeholder-count="5">
+                  <div role="row" style="display:grid;grid-template-columns:{{ gridCols }};min-width:{{ gridMin }};height:52px;align-items:center;gap:12px;border-bottom:1px solid var(--line-soft)" style-hover="background:var(--panel2)">
+                    <div role="cell" style="min-width:0;padding-left:16px;padding-right:{{ m.namePadRight }};box-shadow:1px 0 0 0 var(--line-soft);align-self:stretch;display:flex;align-items:center">
+                      <span style="display:flex;min-width:0;align-items:center;gap:10px">
+                        <image-slot id="{{ m.slotId }}" title="{{ m.name }}" shape="circle" style="width:26px;height:26px;flex:none" placeholder=""></image-slot>
+                        <span style="min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font:400 13px var(--sans);color:var(--text)">{{ m.name }}</span>
+                      </span>
+                    </div>
+                    <sc-if value="{{ m.showEmail }}" hint-placeholder-val="{{ true }}">
+                      <div role="cell" style="min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font:400 13px var(--sans);color:var(--text3);padding-right:{{ m.emailPadRight }}">{{ m.email }}</div>
+                    </sc-if>
+                    <sc-if value="{{ m.showRoles }}" hint-placeholder-val="{{ true }}">
+                      <div role="cell" style="min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font:400 13px var(--sans);color:var(--text2);padding-right:{{ m.rolesPadRight }}">{{ m.roles }}</div>
+                    </sc-if>
+                    <sc-if value="{{ m.showProjects }}" hint-placeholder-val="{{ true }}">
+                      <div role="cell" style="min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font:400 13px var(--sans);color:var(--text3);padding-right:16px">{{ m.activeLabel }}</div>
+                    </sc-if>
+                  </div>
                 </sc-for>
               </div>
             </div>
-          </sc-for>
-        </div>
-        <div style="font:600 10px var(--mono);letter-spacing:.14em;text-transform:uppercase;color:var(--text3);margin:22px 0 8px">Client</div>
-        <div style="border:1px solid var(--line-soft);border-radius:10px;overflow:hidden;margin-bottom:10px">
-          <div style="display:flex;align-items:center;gap:11px;padding:11px 13px;background:var(--panel)">
-            <span style="width:30px;height:30px;border-radius:8px;background:var(--panel2);border:1px solid var(--line);display:grid;place-items:center;font:700 10.5px var(--mono);color:var(--text2);flex:none">{{ drawer.clientInitials }}</span>
-            <div style="flex:1;min-width:0">
-              <div style="font:500 13px var(--sans);color:var(--text)">{{ drawer.client }}</div>
-              <div style="font:400 11px var(--mono);color:var(--text3);margin-top:2px">{{ drawer.clientMeta }}</div>
+          </div>
+        </sc-if>
+
+        <sc-if value="{{ showNotFound }}" hint-placeholder-val="{{ false }}">
+          <div data-screen-label="Not found" style="display:flex;flex-direction:column;align-items:center;justify-content:center;padding:90px 20px 70px;text-align:center;animation:fadeUp .5s ease both">
+            <div style="margin-bottom:18px;width:52px;height:52px;border-radius:8px;background:var(--amber-dim);color:var(--amber);display:grid;place-items:center">
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="{{ icons.search }}"></path></svg>
             </div>
-            <span style="font:600 9px var(--mono);letter-spacing:.05em;text-transform:uppercase;padding:3px 8px;border-radius:999px;white-space:nowrap;color:var(--text2);background:var(--panel2);border:1px solid var(--line);flex:none">Hiring entity</span>
+            <div style="margin-bottom:6px;font:600 19px var(--sans);color:var(--text)">We couldn't open that page</div>
+            <div style="margin-bottom:22px;max-width:420px;font:400 13px/1.5 var(--sans);color:var(--text2)">The address may be mistyped, the link may be out of date, or it may point somewhere you don't have access to.</div>
+            <button onClick="{{ goMy }}" style="display:flex;align-items:center;justify-content:center;gap:8px;border-radius:6px;padding:10px 14px;font:500 13.5px var(--sans);background:var(--panel);border:1px solid var(--line);color:var(--text2);cursor:pointer" style-hover="color:var(--text);border-color:var(--text3)">Go to My positions</button>
+          </div>
+        </sc-if>
+
+      </div>
+    </main>
+  </div>
+
+  <sc-if value="{{ showLauncher }}" hint-placeholder-val="{{ true }}">
+    <a href="Assistant.dc.html?context=workspace" title="Ask the assistant" style="position:fixed;bottom:20px;right:20px;z-index:110;height:44px;display:inline-flex;align-items:center;gap:10px;padding:0 17px 0 14px;border-radius:22px;border:1px solid var(--ai-line);background:linear-gradient(135deg,var(--ai),var(--ai2));color:#fff;font:600 13px var(--sans);box-shadow:0 8px 24px -6px rgba(79,70,229,.5);text-decoration:none" style-hover="filter:brightness(1.1)">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex:none"><path d="{{ icons.sparkle }}"></path></svg>
+      Ask
+    </a>
+  </sc-if>
+
+  <sc-if value="{{ drawerVisible }}" hint-placeholder-val="{{ false }}">
+    <div onClick="{{ closeDrawer }}" style="position:fixed;inset:0;z-index:90;background:rgba(15,20,30,.4)"></div>
+    <aside data-screen-label="Position drawer" role="dialog" aria-modal="true" aria-label="{{ drawer.ariaLabel }}" style="position:fixed;top:10px;right:10px;bottom:10px;z-index:95;width:420px;max-width:92vw;display:flex;flex-direction:column;border-radius:10px;border:1px solid var(--line);background:var(--panel);box-shadow:var(--shadow);animation:fadeUp .2s ease both">
+      <div style="position:relative;border-bottom:1px solid var(--line-soft);padding:18px 20px 14px">
+        <button onClick="{{ closeDrawer }}" aria-label="Close" style="position:absolute;right:14px;top:14px;border-radius:6px;padding:6px;color:var(--text3);background:none;border:none;cursor:pointer;display:grid;place-items:center" style-hover="background:var(--panel2);color:var(--text)">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6 6 18M6 6l12 12"></path></svg>
+        </button>
+        <div style="font:500 11px var(--mono);text-transform:uppercase;letter-spacing:.08em;color:var(--text3)">{{ drawer.department }}</div>
+        <div style="margin-top:4px;font:600 17px var(--sans);color:var(--text)">{{ drawer.pos }}</div>
+        <div style="margin-top:10px;display:flex;flex-wrap:wrap;gap:6px">
+          <span style="display:inline-flex;align-items:center;gap:6px;white-space:nowrap;border-radius:6px;border:1px solid {{ drawer.stageBorder }};background:{{ drawer.stageBg }};color:{{ drawer.stageColor }};padding:3px 9px;font:600 10.5px var(--mono);text-transform:uppercase;letter-spacing:.06em">
+            <span style="width:6px;height:6px;border-radius:50%;background:currentColor"></span>{{ drawer.stageLabel }}
+          </span>
+          <span style="display:inline-flex;align-items:center;gap:6px;white-space:nowrap;border-radius:6px;background:{{ drawer.healthBg }};color:{{ drawer.healthColor }};padding:3px 9px;font:600 10.5px var(--mono);text-transform:uppercase;letter-spacing:.06em">{{ drawer.healthLabel }}</span>
+        </div>
+      </div>
+
+      <div style="flex:1;overflow-y:auto;padding:18px 20px">
+        <div style="display:flex;align-items:baseline;justify-content:space-between;margin-bottom:8px">
+          <span style="font:600 10px var(--mono);text-transform:uppercase;letter-spacing:.14em;color:var(--text3)">Phase pipeline</span>
+          <span style="font:600 11px var(--mono);color:{{ drawer.stageColor }}">{{ drawer.stageLabel }}</span>
+        </div>
+        <div style="height:6px;border-radius:999px;border:1px solid var(--line);background:transparent;overflow:hidden;display:flex">
+          <div style="height:100%;width:{{ drawer.donePct }};background:var(--green);flex:none"></div>
+          <div style="height:100%;width:{{ drawer.currentFillPct }};background:{{ drawer.currentFillColor }};flex:none"></div>
+        </div>
+        <div style="margin-top:8px;display:flex;align-items:baseline;justify-content:space-between;font:400 11px var(--mono);color:var(--text3)">
+          <span>Started: {{ drawer.startedLabel }}</span>
+          <span>Target: {{ drawer.targetLabel }}</span>
+        </div>
+        <div style="margin-top:6px;display:flex;align-items:center;gap:6px;font:600 11px var(--mono);color:{{ drawer.daysRemainingColor }}">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"></circle><path d="M12 7v5l3 3"></path></svg>{{ drawer.daysRemainingLabel }}
+        </div>
+
+        <sc-if value="{{ drawer.showWarning }}" hint-placeholder-val="{{ false }}">
+          <div style="margin-top:16px;border-radius:8px;background:var(--amber-dim);padding:11px 13px;display:flex;gap:9px">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex:none;margin-top:1px;color:var(--amber)"><path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0ZM12 9v4M12 17h.01"></path></svg>
+            <span style="font:400 12.5px/1.5 var(--sans);color:var(--text)">{{ drawer.warningText }}</span>
+          </div>
+        </sc-if>
+
+        <div style="margin:18px 0 8px;font:600 10px var(--mono);text-transform:uppercase;letter-spacing:.14em;color:var(--text3)">Key metrics</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+          <div style="border-radius:12px;border:1px solid var(--line-soft);background:var(--panel2);padding:10px 12px">
+            <b style="display:block;font:600 17px var(--mono);color:var(--text)">{{ drawer.cos }}</b>
+            <span style="font:400 10.5px var(--mono);text-transform:uppercase;letter-spacing:.06em;color:var(--text3)">Universe companies</span>
+          </div>
+          <div style="border-radius:12px;border:1px solid var(--line-soft);background:var(--panel2);padding:10px 12px">
+            <b style="display:block;font:600 17px var(--mono);color:var(--text)">{{ drawer.cand }}</b>
+            <span style="font:400 10.5px var(--mono);text-transform:uppercase;letter-spacing:.06em;color:var(--text3)">Candidates mapped</span>
+          </div>
+          <div style="border-radius:12px;border:1px solid var(--line-soft);background:var(--panel2);padding:10px 12px">
+            <b style="display:block;font:600 17px var(--mono);color:var(--text)">{{ drawer.qualified }}</b>
+            <span style="font:400 10.5px var(--mono);text-transform:uppercase;letter-spacing:.06em;color:var(--text3)">Qualified matches</span>
+          </div>
+          <div style="border-radius:12px;border:1px solid var(--line-soft);background:var(--panel2);padding:10px 12px">
+            <b style="display:block;font:600 17px var(--mono);color:var(--text)">{{ drawer.velocity }}</b>
+            <span style="font:400 10.5px var(--mono);text-transform:uppercase;letter-spacing:.06em;color:var(--text3)">Mapping velocity</span>
           </div>
         </div>
-        <a href="Project.dc.html?page=team" style="display:inline-flex;align-items:center;gap:6px;font:500 12px var(--sans);color:var(--text2);text-decoration:none" style-hover="color:var(--text);text-decoration:underline">
-          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6ZM19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09a1.65 1.65 0 0 0-1-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09a1.65 1.65 0 0 0 1.51-1 1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1Z"></path></svg>
-          Manage team &amp; client access in project settings
+
+        <div style="margin:18px 0 10px;font:600 10px var(--mono);text-transform:uppercase;letter-spacing:.14em;color:var(--text3)">Stage gates</div>
+        <div style="width:{{ drawer.gatesWidthPct }};margin:0 auto;display:flex;align-items:flex-start">
+          <sc-for list="{{ drawer.gates }}" as="gt" hint-placeholder-count="6">
+            <div style="display:flex;flex-direction:column;align-items:center;gap:6px;flex:none;width:52px;opacity:{{ gt.opacity }}">
+              <span style="width:16px;height:16px;flex:none;display:grid;place-items:center;border-radius:50%;border:1.5px solid {{ gt.ring }};background:{{ gt.fill }}">
+                <sc-if value="{{ gt.done }}" hint-placeholder-val="{{ false }}">
+                  <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="var(--green)" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"></path></svg>
+                </sc-if>
+                <sc-if value="{{ gt.notDone }}" hint-placeholder-val="{{ true }}">
+                  <span style="width:6px;height:6px;border-radius:50%;background:{{ gt.dot }}"></span>
+                </sc-if>
+              </span>
+              <span style="text-align:center;font:{{ gt.weight }} 9.5px var(--mono);text-transform:uppercase;letter-spacing:.04em;color:{{ gt.color }}">{{ gt.label }}</span>
+            </div>
+            <div style="flex:1;min-width:0;height:1.5px;margin:8px 2px 0;background:{{ gt.connectorDisplay }}"></div>
+          </sc-for>
+        </div>
+
+        <div style="margin:18px 0 8px;display:flex;align-items:baseline;justify-content:space-between"><span style="font:600 10px var(--mono);text-transform:uppercase;letter-spacing:.14em;color:var(--text3)">Recruiting team</span><span style="font:500 11.5px var(--sans);color:var(--green)">+ Invite</span></div>
+        <div style="overflow:hidden;border-radius:10px;border:1px solid var(--line-soft)">
+          <sc-for list="{{ drawer.staff }}" as="s" hint-placeholder-count="3">
+            <div style="display:flex;align-items:center;gap:11px;border-bottom:{{ s.divider }};padding:11px 13px">
+              <image-slot id="{{ s.slotId }}" title="{{ s.name }}" shape="circle" style="width:30px;height:30px;flex:none" placeholder=""></image-slot>
+              <div style="min-width:0;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font:500 13px var(--sans);color:var(--text)">{{ s.name }}</div>
+              <span style="flex:none;white-space:nowrap;border-radius:999px;border:1px solid {{ s.chipBorder }};background:{{ s.chipBg }};color:{{ s.chipColor }};padding:3px 8px;font:600 9px var(--mono);text-transform:uppercase;letter-spacing:.05em">{{ s.role }}</span>
+            </div>
+          </sc-for>
+          <sc-if value="{{ drawer.noStaff }}" hint-placeholder-val="{{ false }}">
+            <div style="padding:11px 13px;font:400 11px var(--mono);color:var(--text3)">No one staffed yet</div>
+          </sc-if>
+        </div>
+
+        <div style="margin:18px 0 8px;display:flex;align-items:baseline;justify-content:space-between"><span style="font:600 10px var(--mono);text-transform:uppercase;letter-spacing:.14em;color:var(--text3)">Hiring managers</span><span style="font:500 11.5px var(--sans);color:var(--green)">+ Invite</span></div>
+        <div style="overflow:hidden;border-radius:10px;border:1px solid var(--line-soft)">
+          <sc-for list="{{ drawer.reps }}" as="rp" hint-placeholder-count="2">
+            <div style="display:flex;align-items:center;gap:11px;{{ rp.divider }};padding:11px 13px">
+              <image-slot id="{{ rp.slotId }}" title="{{ rp.name }}" shape="circle" style="width:30px;height:30px;flex:none" placeholder=""></image-slot>
+              <div style="min-width:0;flex:1">
+                <div style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font:500 13px var(--sans);color:var(--text)">{{ rp.name }}</div>
+                <div style="margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font:400 11px var(--mono);color:var(--text3)">{{ rp.sub }}</div>
+              </div>
+              <span style="flex:none;white-space:nowrap;border-radius:999px;border:1px solid transparent;background:{{ rp.chipBg }};color:{{ rp.chipColor }};padding:3px 8px;font:600 9px var(--mono);text-transform:uppercase;letter-spacing:.05em">{{ rp.status }}</span>
+            </div>
+          </sc-for>
+          <sc-if value="{{ drawer.noReps }}" hint-placeholder-val="{{ false }}">
+            <div style="border-top:1px solid var(--line-soft);padding:11px 13px;font:400 11px var(--mono);color:var(--text3)">No hiring managers on this position</div>
+          </sc-if>
+        </div>
+
+        <a href="Position.dc.html?page=team" style="margin-top:12px;display:inline-flex;align-items:center;gap:6px;font:500 12px var(--sans);color:var(--text2);text-decoration:none" style-hover="color:var(--text);text-decoration:underline">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="{{ icons.settings }}"></path></svg>
+          Manage team &amp; hiring manager access in position settings
         </a>
 
+        <div style="margin:18px 0 8px;font:600 10px var(--mono);text-transform:uppercase;letter-spacing:.14em;color:var(--text3)">Recent activity</div>
+        <div style="display:flex;flex-direction:column;gap:10px">
+          <sc-for list="{{ drawer.activity }}" as="a" hint-placeholder-count="4">
+            <div style="border-left:2px solid var(--line);padding-left:10px">
+              <div style="font:600 12.5px var(--sans);color:var(--text)">{{ a.text }}</div>
+              <div style="margin-top:2px;font:400 11px var(--mono);color:var(--text3)">{{ a.time }}</div>
+            </div>
+          </sc-for>
+          <sc-if value="{{ drawer.noActivity }}" hint-placeholder-val="{{ false }}">
+            <div style="font:400 11px var(--mono);color:var(--text3)">No recent activity</div>
+          </sc-if>
+        </div>
+      </div>
+
+      <div style="flex:none;border-top:1px solid var(--line-soft);padding:14px 20px">
+        <a href="{{ drawer.openHref }}" style="width:100%;display:flex;align-items:center;justify-content:center;gap:8px;border-radius:6px;padding:11px 14px;font:600 13.5px var(--sans);background:var(--amber-btn);border:1px solid var(--amber-btn);color:var(--on-amber);text-decoration:none" style-hover="filter:brightness(1.05)">Open position →</a>
       </div>
     </aside>
   </sc-if>
 
-  <sc-if value="{{ modalOpen }}" hint-placeholder-val="{{ false }}">
-    <div onClick="{{ closeModal }}" style="position:fixed;inset:0;background:rgba(15,20,30,.4);z-index:100;display:grid;place-items:center">
-      <div onClick="{{ stopClick }}" style="width:440px;max-width:94vw;background:var(--panel);border:1px solid var(--line);border-radius:12px;box-shadow:var(--shadow);padding:22px;animation:fadeUp .22s ease both">
-        <div style="font:600 16px var(--sans);margin-bottom:16px">New project</div>
-        <label style="display:block;font:600 10px var(--mono);letter-spacing:.12em;text-transform:uppercase;color:var(--text3);margin:0 0 6px">Client</label>
-        <select onChange="{{ draftClient }}" style="width:100%;background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:8px 11px;font:400 13px var(--mono);color:var(--text);outline:none" style-focus="border-color:var(--sky)">
-          <sc-for list="{{ clientOptions }}" as="c" hint-placeholder-count="3">
-            <option value="{{ c }}">{{ c }}</option>
-          </sc-for>
-        </select>
-        <div style="font:400 11px var(--mono);color:var(--text3);margin-top:6px">Inherits jurisdiction, group structure and off-limits from the client record.</div>
-        <label style="display:block;font:600 10px var(--mono);letter-spacing:.12em;text-transform:uppercase;color:var(--text3);margin:14px 0 6px">Position</label>
-        <input onInput="{{ draftPos }}" placeholder="e.g. Chief Financial Officer" style="width:100%;background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:8px 11px;font:400 13px var(--mono);color:var(--text);outline:none" style-focus="border-color:var(--sky)">
-        <label style="display:block;font:600 10px var(--mono);letter-spacing:.12em;text-transform:uppercase;color:var(--text3);margin:14px 0 6px">Lead</label>
-        <select onChange="{{ draftLead }}" style="width:100%;background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:8px 11px;font:400 13px var(--mono);color:var(--text);outline:none" style-focus="border-color:var(--sky)">
-          <sc-for list="{{ leadOptions }}" as="m" hint-placeholder-count="3">
-            <option value="{{ m.id }}">{{ m.name }}</option>
-          </sc-for>
-        </select>
-        <label style="display:block;font:600 10px var(--mono);letter-spacing:.12em;text-transform:uppercase;color:var(--text3);margin:14px 0 6px">Target date</label>
-        <input type="date" onInput="{{ draftDate }}" style="width:100%;background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:8px 11px;font:400 13px var(--mono);color:var(--text);outline:none" style-focus="border-color:var(--sky)">
-        <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:20px">
-          <button onClick="{{ closeModal }}" style="display:inline-flex;align-items:center;padding:7px 13px;border-radius:8px;font:500 13px var(--sans);border:1px solid var(--line);color:var(--text2);background:none;cursor:pointer" style-hover="color:var(--text);border-color:var(--text3)">Cancel</button>
-          <button onClick="{{ createProject }}" style="display:inline-flex;align-items:center;padding:7px 13px;border-radius:8px;font:600 13px var(--sans);background:var(--amber-btn);border:1px solid var(--amber-btn);color:#1a1712;cursor:pointer" style-hover="filter:brightness(1.05)">Create project</button>
+  <sc-if value="{{ modalVisible }}" hint-placeholder-val="{{ false }}">
+    <div onClick="{{ closeModal }}" style="position:fixed;inset:0;z-index:100;display:grid;place-items:center;background:rgba(15,20,30,.4)">
+      <div data-screen-label="New position modal" role="dialog" aria-modal="true" aria-label="New position" onClick="{{ stopClick }}" style="width:440px;max-width:94vw;max-height:90vh;overflow-y:auto;border-radius:12px;border:1px solid var(--line);background:var(--panel);padding:22px;box-shadow:var(--shadow);animation:fadeUp .2s ease both">
+        <div style="margin-bottom:16px;font:600 16px var(--sans);color:var(--text)">New position</div>
+
+        <label style="display:block;margin-bottom:16px">
+          <span style="display:flex;align-items:baseline;justify-content:space-between;margin-bottom:6px"><span style="font:600 10px var(--mono);text-transform:uppercase;letter-spacing:.12em;color:var(--text3)">Business unit</span></span>
+          <select value="{{ clientSelect }}" onChange="{{ onClientChange }}" style="width:100%;border-radius:6px;border:1px solid var(--line);background:var(--panel2);padding:10px 12px;font:400 13px var(--mono);color:var(--text);outline:none" style-focus="border-color:var(--sky)">
+            <sc-for list="{{ clientOptions }}" as="o" hint-placeholder-count="5">
+              <option value="{{ o.id }}">{{ o.label }}</option>
+            </sc-for>
+          </select>
+        </label>
+
+        <sc-if value="{{ creatingClient }}" hint-placeholder-val="{{ false }}">
+          <label style="display:block;margin-bottom:16px">
+            <span style="display:flex;align-items:baseline;justify-content:space-between;margin-bottom:6px"><span style="font:600 10px var(--mono);text-transform:uppercase;letter-spacing:.12em;color:var(--text3)">New business unit name</span></span>
+            <input value="{{ companyQuery }}" onInput="{{ onCompanyQuery }}" placeholder="e.g. Data &amp; Analytics" style="width:100%;border-radius:6px;border:1px solid {{ companyBorder }};background:var(--panel2);padding:10px 12px;font:400 13px var(--mono);color:var(--text);outline:none" style-focus="border-color:var(--sky)">
+            <sc-if value="{{ hasClientError }}" hint-placeholder-val="{{ false }}">
+              <span style="display:block;margin-top:6px;font:400 11px var(--mono);color:var(--red)">{{ clientError }}</span>
+            </sc-if>
+          </label>
+        </sc-if>
+
+        <div style="display:block;margin-bottom:16px">
+          <span style="display:flex;align-items:baseline;justify-content:space-between;margin-bottom:6px"><span style="font:600 10px var(--mono);text-transform:uppercase;letter-spacing:.12em;color:var(--text3)">Position</span></span>
+          <div style="position:relative">
+            <span style="position:relative;display:block">
+              <input value="{{ positionTitle }}" onInput="{{ onTitleInput }}" onFocus="{{ openTitleList }}" onBlur="{{ closeTitleListSoon }}" role="combobox" autoComplete="off" placeholder="e.g. Senior Backend Engineer" style="width:100%;border-radius:6px;border:1px solid {{ titleBorder }};background:var(--panel2);padding:10px 36px 10px 12px;font:500 13px var(--sans);color:var(--text);outline:none" style-focus="border-color:var(--sky)">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="pointer-events:none;position:absolute;right:12px;top:12px;color:{{ titleCheckColor }}"><path d="M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18M8.5 12.2l2.3 2.3 4.7-4.7"></path></svg>
+            </span>
+            <sc-if value="{{ showTitleList }}" hint-placeholder-val="{{ false }}">
+              <ul role="listbox" aria-label="Role templates" style="position:absolute;z-index:10;margin:4px 0 0;padding:4px 0;list-style:none;max-height:288px;width:100%;overflow:auto;border-radius:10px;border:1px solid var(--line);background:var(--panel);box-shadow:var(--shadow)">
+                <sc-for list="{{ titleMatches }}" as="t" hint-placeholder-count="8">
+                  <li role="option" onMouseDown="{{ pickTitle }}" data-title="{{ t.title }}" style="display:flex;cursor:pointer;align-items:baseline;gap:10px;padding:7px 12px;color:var(--text2)" style-hover="background:var(--panel2);color:var(--text)">
+                    <span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font:500 13px var(--sans);color:var(--text)">{{ t.title }}</span>
+                    <span style="min-width:0;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;text-align:right;font:400 11px var(--mono);color:var(--text3)">{{ t.seniority }}</span>
+                  </li>
+                </sc-for>
+              </ul>
+            </sc-if>
+          </div>
+          <sc-if value="{{ hasTitleError }}" hint-placeholder-val="{{ false }}">
+            <span style="display:block;margin-top:6px;font:400 11px var(--mono);color:var(--red)">{{ titleError }}</span>
+          </sc-if>
+        </div>
+
+        <div style="margin-bottom:16px">
+          <span style="display:block;margin-bottom:6px;font:600 10px var(--mono);text-transform:uppercase;letter-spacing:.12em;color:var(--text3)">Project type</span>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+            <button type="button" onClick="{{ setMapping }}" style="{{ mappingCardStyle }}">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="margin-bottom:8px;color:var(--sky)"><circle cx="12" cy="12" r="9"></circle></svg>
+              <div style="font:600 13px var(--sans);color:var(--text)">Mapping</div>
+              <div style="margin-top:2px;font:400 11.5px var(--sans);color:var(--text3)">Deliver a mapped executive universe</div>
+            </button>
+            <button type="button" onClick="{{ setExecutive }}" style="{{ execCardStyle }}">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="margin-bottom:8px;color:var(--sky)"><path d="M8 7V5a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2M4 7h16a1 1 0 0 1 1 1v9a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V8a1 1 0 0 1 1-1Z"></path></svg>
+              <div style="font:600 13px var(--sans);color:var(--text)">Search</div>
+              <div style="margin-top:2px;font:400 11.5px var(--sans);color:var(--text3)">Full search through to placement</div>
+            </button>
+          </div>
+        </div>
+
+        <div style="margin:20px 0 16px;padding-top:16px;border-top:1px solid var(--line-soft);font:600 10px var(--mono);text-transform:uppercase;letter-spacing:.14em;color:var(--text3)">Timeline</div>
+
+        <label style="display:block;margin-bottom:16px">
+          <span style="display:flex;align-items:baseline;justify-content:space-between;margin-bottom:6px"><span style="font:600 10px var(--mono);text-transform:uppercase;letter-spacing:.12em;color:var(--text3)">Project start date</span></span>
+          <div style="position:relative;display:flex;width:100%;align-items:center;justify-content:space-between;border-radius:6px;border:1px solid var(--line);background:var(--panel2);padding:10px 12px;font:400 13px var(--mono)">
+            <span style="color:{{ dateColor }}">{{ dateLabel }}</span>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color:var(--text3)"><path d="{{ icons.calendar }}"></path></svg>
+            <input type="date" value="{{ targetDate }}" onChange="{{ onDateChange }}" style="position:absolute;inset:0;cursor:pointer;opacity:0;width:100%">
+          </div>
+          <span style="display:block;margin-top:6px;font:400 11px var(--sans);color:var(--text3)">Defaults to today. Edit if the position starts later or was kicked off earlier.</span>
+        </label>
+
+        <label style="display:block;margin-bottom:16px">
+          <span style="display:flex;align-items:baseline;justify-content:space-between;margin-bottom:6px"><span style="font:600 10px var(--mono);text-transform:uppercase;letter-spacing:.12em;color:var(--text3)">{{ deliveryLabelText }}</span></span>
+          <div style="position:relative;display:flex;width:100%;align-items:center;justify-content:space-between;border-radius:6px;border:1px solid var(--line);background:var(--panel2);padding:10px 12px;font:400 13px var(--mono)">
+            <span style="color:{{ deliveryDateColor }}">{{ deliveryDateLabel }}</span>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color:var(--text3)"><path d="{{ icons.calendar }}"></path></svg>
+            <input type="date" value="{{ deliveryDate }}" min="{{ minDeliveryDate }}" onChange="{{ onDeliveryChange }}" style="position:absolute;inset:0;cursor:pointer;opacity:0;width:100%">
+          </div>
+          <span style="display:block;margin-top:6px;font:400 11px var(--sans);color:var(--text3)">{{ deliveryHelpText }}</span>
+          <sc-if value="{{ dateOrderError }}" hint-placeholder-val="{{ false }}">
+            <span style="display:block;margin-top:4px;font:400 11px var(--mono);color:var(--red)">{{ dateOrderError }}</span>
+          </sc-if>
+        </label>
+
+        <sc-if value="{{ showMappingTarget }}" hint-placeholder-val="{{ false }}">
+          <div style="border-radius:8px;border:1px solid var(--sky);background:var(--sky-dim);padding:12px 14px;margin-bottom:16px">
+            <div style="display:flex;align-items:center;gap:6px;margin-bottom:6px"><span style="width:6px;height:6px;border-radius:50%;background:var(--sky)"></span><span style="font:600 10px var(--mono);text-transform:uppercase;letter-spacing:.1em;color:var(--sky)">Target</span></div>
+            <div style="font:600 13.5px var(--sans);color:var(--text)">{{ targetSummary }}</div>
+            <div style="margin-top:2px;font:400 11.5px var(--mono);color:var(--text2)">{{ daysFromStartLabel }}</div>
+          </div>
+        </sc-if>
+        <sc-if value="{{ showExecTarget }}" hint-placeholder-val="{{ false }}">
+            <div style="border-radius:8px;border:1px solid var(--sky);background:var(--sky-dim);padding:14px;margin-bottom:16px">
+              <div style="display:flex;align-items:center;gap:6px;margin-bottom:10px"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color:var(--sky)"><path d="M12 2l1.5 4.5L18 8l-4.5 1.5L12 14l-1.5-4.5L6 8l4.5-1.5L12 2z"></path></svg><span style="font:600 10px var(--mono);text-transform:uppercase;letter-spacing:.1em;color:var(--sky)">Auto-calculated milestones</span></div>
+              <div style="display:flex;align-items:flex-start;gap:8px;padding:8px 0;border-top:1px solid var(--line-soft)">
+                <span style="margin-top:5px;width:6px;height:6px;flex:none;border-radius:50%;background:var(--sky)"></span>
+                <div style="flex:1;min-width:0">
+                  <div style="display:flex;align-items:center;justify-content:space-between;gap:8px">
+                    <span style="font:600 10px var(--mono);text-transform:uppercase;letter-spacing:.06em;color:var(--text3)">Mapping target</span>
+                    <span style="display:flex;align-items:center;gap:6px;font:600 12.5px var(--sans);color:var(--text)">{{ mappingTargetLabel }}<span style="position:relative;display:inline-flex;cursor:pointer"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color:var(--text3)"><path d="{{ icons.calendar }}"></path></svg><input type="date" value="{{ mappingTargetLabelIso }}" onChange="{{ onMappingTargetChange }}" title="Edit the mapping target date" style="position:absolute;inset:-4px;opacity:0;cursor:pointer"></span></span>
+                  </div>
+                  <div style="margin-top:2px;font:400 11px var(--sans);color:var(--text3)">{{ mappingTargetSub }}</div>
+                </div>
+              </div>
+              <div style="display:flex;align-items:flex-start;gap:8px;padding:8px 0;border-top:1px solid var(--line-soft)">
+                <span style="margin-top:5px;width:6px;height:6px;flex:none;border-radius:50%;background:var(--amber)"></span>
+                <div style="flex:1;min-width:0">
+                  <div style="display:flex;align-items:center;justify-content:space-between;gap:8px">
+                    <span style="font:600 10px var(--mono);text-transform:uppercase;letter-spacing:.06em;color:var(--text3)">Shortlist target</span>
+                    <span style="display:flex;align-items:center;gap:6px;font:600 12.5px var(--sans);color:var(--text)">{{ shortlistTargetLabel }}<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color:var(--text3)"><path d="M19 11H5a2 2 0 0 0-2 2v6a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-6a2 2 0 0 0-2-2ZM7 11V7a5 5 0 0 1 10 0v4"></path></svg></span>
+                  </div>
+                  <div style="margin-top:2px;font:400 11px var(--sans);color:var(--text3)">Matches shortlist delivery date</div>
+                </div>
+              </div>
+              <div style="margin-top:8px;padding-top:8px;border-top:1px solid var(--line-soft);font:400 11px var(--sans);color:var(--text3)">Auto-calculated from the start and shortlist dates.</div>
+            </div>
+        </sc-if>
+
+        <div style="margin-top:20px;display:flex;justify-content:flex-end;gap:8px">
+          <button onClick="{{ closeModal }}" style="display:flex;align-items:center;justify-content:center;gap:8px;border-radius:6px;padding:10px 14px;font:500 13.5px var(--sans);background:var(--panel);border:1px solid var(--line);color:var(--text2);cursor:pointer" style-hover="color:var(--text);border-color:var(--text3)">Cancel</button>
+          <button onClick="{{ createProject }}" style="display:flex;align-items:center;justify-content:center;gap:8px;border-radius:6px;padding:10px 14px;font:500 13.5px var(--sans);background:var(--amber-btn);border:1px solid var(--amber-btn);color:var(--on-amber);cursor:pointer" style-hover="filter:brightness(1.05)">Create position</button>
         </div>
       </div>
     </div>
   </sc-if>
 
-  <sc-if value="{{ toastVisible }}" hint-placeholder-val="{{ false }}">
-    <div style="position:fixed;bottom:22px;left:50%;transform:translateX(-50%);background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:9px 16px;font:500 12px var(--mono);color:var(--text2);box-shadow:var(--shadow);z-index:120;animation:fadeUp .2s ease both">{{ toastMsg }}</div>
+  <sc-if value="{{ inviteVisible }}" hint-placeholder-val="{{ false }}">
+    <div onClick="{{ closeInvite }}" style="position:fixed;inset:0;z-index:100;display:grid;place-items:center;background:rgba(15,20,30,.4)">
+      <div data-screen-label="Invite modal" role="dialog" aria-modal="true" aria-label="Invite a colleague" onClick="{{ stopClick }}" style="width:440px;max-width:94vw;border-radius:12px;border:1px solid var(--line);background:var(--panel);padding:22px;box-shadow:var(--shadow);animation:fadeUp .2s ease both">
+        <div style="margin-bottom:16px;font:600 16px var(--sans);color:var(--text)">Invite a colleague</div>
+        <label style="display:block;margin-bottom:16px">
+          <span style="display:flex;align-items:baseline;justify-content:space-between;margin-bottom:6px"><span style="font:600 10px var(--mono);text-transform:uppercase;letter-spacing:.12em;color:var(--text3)">Email</span></span>
+          <input type="email" value="{{ inviteEmail }}" onInput="{{ onInviteEmail }}" placeholder="colleague@company.com" style="width:100%;border-radius:6px;border:1px solid {{ inviteBorder }};background:var(--panel2);padding:10px 12px;font:400 13px var(--mono);color:var(--text);outline:none" style-focus="border-color:var(--sky)">
+          <sc-if value="{{ hasInviteError }}" hint-placeholder-val="{{ false }}">
+            <span style="display:block;margin-top:6px;font:400 11px var(--mono);color:var(--red)">{{ inviteError }}</span>
+          </sc-if>
+          <sc-if value="{{ noInviteError }}" hint-placeholder-val="{{ true }}">
+            <span style="display:block;margin-top:6px;font:400 11px var(--mono);color:var(--text3)">Invitees get access immediately — your naming them is the approval.</span>
+          </sc-if>
+        </label>
+        <label style="display:block;margin-bottom:16px">
+          <span style="display:flex;align-items:baseline;justify-content:space-between;margin-bottom:6px"><span style="font:600 10px var(--mono);text-transform:uppercase;letter-spacing:.12em;color:var(--text3)">Role</span></span>
+          <select value="{{ inviteRole }}" onChange="{{ onInviteRole }}" style="width:100%;border-radius:6px;border:1px solid var(--line);background:var(--panel2);padding:10px 12px;font:400 13px var(--mono);color:var(--text);outline:none" style-focus="border-color:var(--sky)">
+            <option value="MEMBER">Member</option>
+            <option value="ADMIN">Admin</option>
+          </select>
+        </label>
+        <div style="margin-top:20px;display:flex;justify-content:flex-end;gap:8px">
+          <button onClick="{{ closeInvite }}" style="display:flex;align-items:center;justify-content:center;gap:8px;border-radius:6px;padding:10px 14px;font:500 13.5px var(--sans);background:var(--panel);border:1px solid var(--line);color:var(--text2);cursor:pointer" style-hover="color:var(--text);border-color:var(--text3)">Cancel</button>
+          <button onClick="{{ sendInvite }}" style="display:flex;align-items:center;justify-content:center;gap:8px;border-radius:6px;padding:10px 14px;font:500 13.5px var(--sans);background:var(--amber-btn);border:1px solid var(--amber-btn);color:var(--on-amber);cursor:pointer" style-hover="filter:brightness(1.05)">Send invite</button>
+        </div>
+      </div>
+    </div>
+  </sc-if>
+
+  <sc-if value="{{ hasToast }}" hint-placeholder-val="{{ false }}">
+    <div role="status" style="position:fixed;bottom:22px;left:50%;transform:translateX(-50%);z-index:120;max-width:calc(100vw - 24px);background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:9px 16px;font:500 12px var(--mono);color:var(--text2);box-shadow:var(--shadow);animation:fadeUp .2s ease both">{{ toast }}</div>
   </sc-if>
 
 </div>
+<template id="__bundler_thumbnail"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><rect width="100" height="100" fill="#16171a"></rect><g transform="translate(50 40) scale(.42)" fill="none" stroke="#f8fafc"><path d="M-32 10 L 0 -8 L 32 10 L 0 28 Z M-32 10 V 32 L 0 50 L 32 32 V 10 M0 28 V 50" stroke-width="3" stroke-linejoin="round"></path><path d="M0 -48 L 32 -30 L 0 -12 L -32 -30 Z" fill="#f8fafc" stroke="none"></path></g><text x="50" y="86" fill="#e2b65c" font-family="Geist,Inter,sans-serif" font-size="13" font-weight="700" letter-spacing="2" text-anchor="middle">WS</text></svg></template>
 
-<template id="__bundler_thumbnail"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><rect width="100" height="100" fill="#16171a"></rect><text x="50" y="50" fill="#e2b65c" font-family="Montserrat,sans-serif" font-size="26" font-weight="700" text-anchor="middle" dominant-baseline="central">LM</text></svg></template>
 </x-dc>
-<script type="text/x-dc" data-dc-script data-props="{&quot;startEmpty&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;State&quot;},&quot;defaultView&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;default&quot;:&quot;my&quot;,&quot;options&quot;:[&quot;my&quot;,&quot;all&quot;,&quot;clients&quot;,&quot;team&quot;],&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;State&quot;}}">
+<script type="text/x-dc" data-dc-script>
 class Component extends DCLogic {
   constructor(props) {
     super(props);
-    const fresh = (typeof location !== 'undefined' && location.search.includes('fresh=1')) || !!props.startEmpty;
+    const params = typeof location !== 'undefined' ? new URLSearchParams(location.search) : new URLSearchParams('');
+    const flag = (name, prop) => (params.has(name) ? params.get(name) === '1' || params.get(name) === 'true' : !!prop);
+    const VIEWS = ['my', 'all', 'team', 'not-found'];
+    const askedView = params.get('view') || props.view || 'my';
+    const empty = flag('fresh', props.empty) || flag('empty', props.empty);
+    const pureClient = flag('pureClient', props.pureClient);
+
+    this.ICONS = {
+      myProjects: 'M12 2a10 10 0 1 0 .01 0M12 8a4 4 0 1 0 .01 0',
+      allProjects: 'M3 3h7v7H3zM14 3h7v7h-7zM3 14h7v7H3zM14 14h7v7h-7z',
+      units: 'M3 21h18M5 21V7l7-4 7 4v14M9 9h.01M9 13h.01M9 17h.01M15 9h.01M15 13h.01M15 17h.01',
+      team: 'M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2M13 7a4 4 0 1 1-8 0 4 4 0 0 1 8 0M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75',
+      members: 'M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2M13 7a4 4 0 1 1-8 0 4 4 0 0 1 8 0M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75',
+      settings: 'M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6ZM19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09a1.65 1.65 0 0 0-1-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09a1.65 1.65 0 0 0 1.51-1 1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33h.01a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51h.01a1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82v.01a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1Z',
+      moon: 'M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79Z',
+      sun: 'M12 16a4 4 0 1 0 0-8 4 4 0 0 0 0 8ZM12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4',
+      collapse: 'm11 17-5-5 5-5M18 17l-5-5 5-5',
+      expand: 'm13 17 5-5-5-5M6 17l5-5-5-5',
+      search: 'M11 3a8 8 0 1 0 0 16 8 8 0 0 0 0-16Zm10 18-4.3-4.3',
+      columns: 'M3 4h18v16H3zM9 4v16M15 4v16',
+      briefcase: 'M20 7H4a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2ZM16 7V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v2',
+      calendar: 'M8 2v4M16 2v4M3 10h18M5 4h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2Z',
+      sparkle: 'M9.9 2.6 11 5.9a2 2 0 0 0 1.3 1.3l3.3 1.1-3.3 1.1a2 2 0 0 0-1.3 1.3L9.9 14l-1.1-3.3a2 2 0 0 0-1.3-1.3L4.2 8.3l3.3-1.1a2 2 0 0 0 1.3-1.3ZM18 14l.6 1.8 1.8.6-1.8.6-.6 1.8-.6-1.8-1.8-.6 1.8-.6Z',
+    };
+
+    this.TINTS = [
+      ['var(--u-accent-tint)', 'var(--u-accent)'], ['color-mix(in srgb, var(--u-chart-5) 16%, transparent)', 'var(--u-chart-5)'], ['var(--panel2)', 'var(--text2)'],
+    ];
     this.MEMBERS = [
-      { id: 'yh', name: 'Yara Haddad', initials: 'YH', role: 'Admin', email: 'yara@lightmove.app', bg: 'var(--sky-dim)', fg: 'var(--sky)' },
-      { id: 'yi', name: 'Yousef Iman', initials: 'YI', role: 'Consultant', email: 'yousef@lightmove.app', bg: 'var(--amber-dim)', fg: 'var(--amber)' },
-      { id: 'sa', name: 'Sara Al-Mansour', initials: 'SA', role: 'Consultant', email: 'sara@lightmove.app', bg: 'var(--green-dim)', fg: 'var(--green)' },
-      { id: 'ok', name: 'Omar Khalil', initials: 'OK', role: 'Researcher', email: 'omar@lightmove.app', bg: 'var(--red-dim)', fg: 'var(--red)' },
-      { id: 'da', name: 'Dana Aboud', initials: 'DA', role: 'Researcher', email: 'dana@lightmove.app', bg: 'var(--panel2)', fg: 'var(--text2)' },
+      { id: 'yh', name: 'Yara Haddad', initials: 'YH', roles: ['ADMIN'], email: 'yara@alfuttaim.com', tint: 0 },
+      { id: 'yi', name: 'Yousef Iman', initials: 'YI', roles: ['MEMBER'], email: 'yousef@alfuttaim.com', tint: 1 },
+      { id: 'sa', name: 'Sara Al-Mansour', initials: 'SA', roles: ['MEMBER'], email: 'sara@alfuttaim.com', tint: 2 },
+      { id: 'ok', name: 'Omar Khalil', initials: 'OK', roles: ['MEMBER'], email: 'omar@alfuttaim.com', tint: 3 },
+      { id: 'da', name: 'Dana Aboud', initials: 'DA', roles: ['MEMBER'], email: 'dana@alfuttaim.com', tint: 4 },
     ];
-    this.INVITES = [
-      { id: 'ra', name: 'Rana Aziz', initials: 'RA', role: 'Researcher', email: 'rana@lightmove.app', sent: 'Sent 2 days ago', bg: 'var(--panel2)', fg: 'var(--text2)' },
-      { id: 'mf', name: 'Marwan Fares', initials: 'MF', role: 'Consultant', email: 'marwan@lightmove.app', sent: 'Sent 6 hours ago', bg: 'var(--panel2)', fg: 'var(--text2)' },
-    ];
-    this.TEAM_CONFIRM = {
-      cancel: ['Cancel the invite for {name}? The link stops working immediately.', 'Cancel invite'],
-      revoke: ['Suspend {name}? They keep their project assignments but lose access.', 'Suspend'],
-      remove: ['Remove {name} from this workspace?', 'Remove'],
+    this.REPS = {
+      khalid: { name: 'Khalid Al Marzooqi', initials: 'KA', sub: 'VP Automotive Operations · khalid.almarzooqi@alfuttaim.com', status: 'ACTIVE', tint: 2 },
+      mariam: { name: 'Mariam Al Suwaidi', initials: 'MA', sub: 'Aftersales Director · mariam.alsuwaidi@alfuttaim.com', status: 'INVITED', tint: 0 },
     };
-    this.ROLE_BADGE = {
-      lead: { label: 'Lead', color: 'var(--amber)', bg: 'var(--amber-dim)', border: 'var(--amber)' },
-      admin: { label: 'Admin', color: 'var(--sky)', bg: 'var(--sky-dim)', border: 'transparent' },
-      consultant: { label: 'Consultant', color: 'var(--green)', bg: 'var(--green-dim)', border: 'transparent' },
-      researcher: { label: 'Researcher', color: 'var(--text2)', bg: 'var(--panel2)', border: 'var(--line)' },
-    };
-    this.CLIENTS = [
-      { id: 'mer', name: 'Meridian Energy Group', hq: 'UAE', note: '2 active mandates' },
-      { id: 'alr', name: 'Al Rabie Saudi Foods', hq: 'Saudi Arabia', note: '1 active mandate' },
-      { id: 'bdw', name: 'Bindawood Holding', hq: 'Saudi Arabia', note: '1 active mandate' },
-      { id: 'agt', name: 'Agthia Group', hq: 'UAE', note: '1 delivered' },
-    ];
-    this.STAGES = [
-      { key: 'brief', label: 'Brief', color: 'var(--text2)', bg: 'transparent', border: 'var(--line)' },
-      { key: 'universe', label: 'Universe', color: 'var(--sky)', bg: 'var(--sky-dim)', border: 'transparent' },
-      { key: 'locked', label: 'Universe locked', color: 'var(--sky)', bg: 'transparent', border: 'var(--sky)' },
-      { key: 'mapping', label: 'Mapping', color: 'var(--amber)', bg: 'var(--amber-dim)', border: 'transparent' },
-      { key: 'outreach', label: 'Outreach live', color: 'var(--amber)', bg: 'transparent', border: 'var(--amber)' },
-      { key: 'delivered', label: 'Shortlist delivered', color: 'var(--green)', bg: 'var(--green-dim)', border: 'transparent' },
-      { key: 'closed', label: 'Closed', color: 'var(--text3)', bg: 'transparent', border: 'var(--line-soft)' },
-    ];
-    this.HEALTH_ICON = {
-      ok: 'M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20M8 12.5 10.5 15 16 9',
-      done: 'M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20M8 12.5 10.5 15 16 9',
-      risk: 'M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0M12 9v4M12 16.5v.01',
-      off: 'M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20M14.5 9.5l-5 5M9.5 9.5l5 5',
+    this.STAGE_ORDER = ['BRIEF', 'UNIVERSE', 'MAPPING', 'OUTREACH', 'DELIVERED', 'CLOSED'];
+    this.STAGES = {
+      BRIEF: { label: 'Brief', color: 'var(--text2)', bg: 'var(--panel2)', border: 'transparent' },
+      UNIVERSE: { label: 'Universe', color: 'var(--sky)', bg: 'var(--sky-dim)', border: 'transparent' },
+      MAPPING: { label: 'Mapping', color: 'var(--amber)', bg: 'var(--amber-dim)', border: 'transparent' },
+      OUTREACH: { label: 'Outreach live', color: 'var(--amber)', bg: 'var(--amber-dim)', border: 'transparent' },
+      DELIVERED: { label: 'Shortlist delivered', color: 'var(--green)', bg: 'var(--green-dim)', border: 'transparent' },
+      CLOSED: { label: 'Closed', color: 'var(--text3)', bg: 'transparent', border: 'var(--line-soft)' },
     };
     this.HEALTH = {
-      ok: { dot: 'var(--green)', text: 'var(--text2)', label: 'On track' },
-      risk: { dot: 'var(--amber)', text: 'var(--amber)', label: 'At risk' },
-      off: { dot: 'var(--red)', text: 'var(--red)', label: 'Off track' },
-      done: { dot: 'var(--text3)', text: 'var(--text3)', label: 'Complete' },
+      OK: { label: 'On track', text: 'var(--green)', bg: 'var(--green-dim)', icon: 'M20 6 9 17l-5-5' },
+      RISK: { label: 'At risk', text: 'var(--u-signal)', bg: 'var(--u-signal-tint)', icon: 'M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0ZM12 9v4M12 17h.01' },
+      OFF: { label: 'Off track', text: 'var(--red)', bg: 'var(--red-dim)', icon: 'M18 6 6 18M6 6l12 12' },
+      DONE: { label: 'Complete', text: 'var(--text3)', bg: 'var(--panel2)', icon: 'M20 6 9 17l-5-5' },
     };
-    const seed = fresh ? [] : [
-      { id: 1, client: 'Meridian Energy Group', pos: 'Chief Financial Officer', stage: 'mapping', lead: 'yh', team: ['yh', 'yi', 'ok'], date: '2026-09-15', cos: 21, cand: 14, health: 'ok' },
-      { id: 2, client: 'Meridian Energy Group', pos: 'VP, Renewables', stage: 'universe', lead: 'sa', team: ['sa', 'da'], date: '2026-10-30', cos: 34, cand: 0, health: 'ok' },
-      { id: 3, client: 'Al Rabie Saudi Foods', pos: 'Chief Human Resources Officer', stage: 'outreach', lead: 'yh', team: ['yh', 'da'], date: '2026-08-07', cos: 18, cand: 22, health: 'risk' },
-      { id: 4, client: 'Bindawood Holding', pos: 'Chief Digital Officer', stage: 'locked', lead: 'yi', team: ['yi', 'ok'], date: '2026-11-20', cos: 27, cand: 0, health: 'ok' },
-      { id: 5, client: 'Al Rabie Saudi Foods', pos: 'Supply Chain Director', stage: 'brief', lead: 'sa', team: ['sa'], date: '2026-12-04', cos: 0, cand: 0, health: 'ok' },
-      { id: 6, client: 'Agthia Group', pos: 'Chief Executive Officer', stage: 'delivered', lead: 'yh', team: ['yh', 'yi', 'sa'], date: '2026-06-01', cos: 42, cand: 31, health: 'done' },
-      { id: 7, client: 'Bindawood Holding', pos: 'Head of eCommerce', stage: 'mapping', lead: 'ok', team: ['ok', 'da'], date: '2026-08-25', cos: 15, cand: 6, health: 'off' },
+    this.CHIPS = [
+      { key: 'active', label: 'Active' }, { key: 'allstages', label: 'All stages' }, { key: 'UNIVERSE', label: 'Universe' },
+      { key: 'MAPPING', label: 'Mapping' }, { key: 'OUTREACH', label: 'Outreach' }, { key: 'DELIVERED', label: 'Delivered' },
     ];
+    this.PROJECT_COLUMNS = [
+      { id: 'position', label: 'Position', share: 30, min: 220, sortable: true, hideable: false },
+      { id: 'stage', label: 'Stage', share: 0, min: 148, sortable: true, hideable: true },
+      { id: 'health', label: 'Health', share: 0, min: 92, sortable: false, hideable: true },
+      { id: 'team', label: 'Team', share: 0, min: 116, sortable: false, hideable: true },
+      { id: 'target', label: 'Target', share: 0, min: 104, sortable: true, hideable: true },
+      { id: 'pipeline', label: 'Pipeline', share: 0, min: 132, sortable: false, hideable: true },
+      { id: 'open', label: '', share: 0, min: 96, sortable: false, hideable: false },
+    ];
+    this.MEMBER_COLUMNS = [
+      { id: 'name', label: 'Member', share: 26, min: 220, sortable: true, hideable: false },
+      { id: 'email', label: 'Email', share: 26, min: 200, sortable: true, hideable: true },
+      { id: 'roles', label: 'Workspace roles', share: 20, min: 160, sortable: false, hideable: true },
+      { id: 'projects', label: 'Active positions', share: 0, min: 132, sortable: true, hideable: true },
+    ];
+    this.TEMPLATES = [
+      'Senior Manager, Product Planning (Toyota & Lexus)', 'Aftersales Operations Manager', 'Regional Service Manager',
+      'Buying Director, IKEA UAE', 'Regional Store Operations Manager', 'Category Manager, Fashion & Lifestyle',
+      'Leasing Director, Mixed-Use Retail', 'Development Manager', 'Facilities & Asset Manager',
+      'Head of Credit Risk', 'Insurance Product Manager', 'Financial Planning & Analysis Manager',
+    ].map((title) => ({ title, seniority: 'Mid–Senior' }));
+
+    const seed = [
+      { id: 'p1', department: 'Automotive', pos: 'Senior Manager, Product Planning (Toyota & Lexus)', type: 'executive', stage: 'MAPPING', health: 'OK', target: '2026-10-15', cos: 19, cand: 14, team: [['yh', 'LEAD'], ['yi', 'RESEARCHER'], ['ok', 'RESEARCHER']], reps: ['khalid', 'mariam'] },
+      { id: 'p2', department: 'Automotive', pos: 'Aftersales Operations Manager', type: 'mapping', stage: 'UNIVERSE', health: 'OK', target: '2026-10-30', cos: 22, cand: 0, team: [['sa', 'LEAD'], ['yh', 'RESEARCHER'], ['da', 'RESEARCHER']], reps: ['khalid'] },
+      { id: 'p3', department: 'Real Estate', pos: 'Leasing Director, Mixed-Use Retail', type: 'executive', stage: 'OUTREACH', health: 'RISK', target: '2026-11-07', cos: 14, cand: 22, team: [['yh', 'LEAD'], ['da', 'RESEARCHER']], reps: [] },
+      { id: 'p4', department: 'Retail', pos: 'Buying Director, IKEA UAE', type: 'executive', stage: 'MAPPING', health: 'OK', target: '2026-11-20', cos: 21, cand: 0, team: [['yi', 'LEAD'], ['yh', 'RESEARCHER'], ['ok', 'RESEARCHER']], reps: [] },
+      { id: 'p5', department: 'Real Estate', pos: 'Development Manager', type: 'mapping', stage: 'BRIEF', health: 'OK', target: '2026-12-04', cos: 0, cand: 0, team: [['sa', 'LEAD'], ['yh', 'RESEARCHER']], reps: [] },
+      { id: 'p6', department: 'Financial Services', pos: 'Head of Credit Risk', type: 'executive', stage: 'DELIVERED', health: 'DONE', target: '2026-06-01', cos: 33, cand: 31, team: [['yh', 'LEAD'], ['yi', 'RESEARCHER'], ['sa', 'RESEARCHER']], reps: [] },
+      { id: 'p7', department: 'Retail', pos: 'Regional Store Operations Manager, M&S', type: 'mapping', stage: 'MAPPING', health: 'OFF', target: '2026-10-25', cos: 17, cand: 6, team: [['ok', 'LEAD'], ['da', 'RESEARCHER']], reps: [] },
+    ];
+    const projects = empty ? [] : pureClient ? seed.filter((p) => p.reps.includes('khalid')) : seed;
+    const clients = empty ? [] : ['Automotive', 'Retail', 'Real Estate', 'Financial Services'];
+
+    let view = VIEWS.includes(askedView) ? askedView : 'my';
+    if (pureClient && (view === 'team' || view === 'all')) view = 'my';
+
     this.state = {
-      fresh, projects: seed,
-      view: (typeof location !== 'undefined' && new URLSearchParams(location.search).get('view')) || props.defaultView || 'my', q: '', chip: 'active', sortKey: 'date', sortDir: 1,
-      drawerId: null, modalOpen: false, wsMenuOpen: false, dark: false, toast: '',
-      memberStatus: {}, removedMembers: [], teamMenu: null, teamConfirm: '',
+      view, empty, pureClient, projects, clients,
+      loading: flag('loading', props.loading),
+      q: '', chip: 'active',
+      sort: { field: 'target', dir: 'asc' },
+      memberSort: { field: 'name', dir: 'asc' },
+      hiddenProject: {}, hiddenMember: {}, pickerOpen: false,
+      drawerId: null, wsMenuOpen: false, dark: true, toast: '',
       collapsed: (() => { try { return localStorage.getItem('lm-side-collapsed') === '1'; } catch (e) { return false; } })(),
+      modalOpen: flag('modal', props.modalOpen),
+      inviteOpen: flag('invite', props.inviteOpen) && !pureClient,
+      draft: this.blankDraft(),
+      invite: { email: '', role: 'MEMBER', error: '' },
     };
-    this.draft = {};
-    this.ME = 'yh';
-  }
-
-  componentDidMount() {
-    try {
-      const t = localStorage.getItem('lm-theme');
-      if (t !== 'light') { document.body.classList.add('dark'); this.setState({ dark: true }); }
-    } catch (e) {}
-    this._esc = (e) => {
-      if (e.key !== 'Escape') return;
-      if (this.state.teamMenu) { this.setState({ teamMenu: null, teamConfirm: '' }); return; }
-      this.setState({ drawerId: null, modalOpen: false, wsMenuOpen: false });
-    };
-    document.addEventListener('keydown', this._esc);
-  }
-  componentWillUnmount() { document.removeEventListener('keydown', this._esc); }
-
-  member(id) { return this.MEMBERS.find(m => m.id === id); }
-  teamMenuVals(m, status) {
-    const st = this.state;
-    const c = this.TEAM_CONFIRM[st.teamConfirm];
-    return {
-      menuOpen: st.teamMenu === m.id,
-      menuNormal: st.teamMenu === m.id && !st.teamConfirm,
-      confirming: st.teamMenu === m.id && !!st.teamConfirm,
-      confirmMsg: c ? c[0].replace('{name}', m.name) : '',
-      confirmBtn: c ? c[1] : '',
-      canSuspend: status === 'active',
-      canRestore: status === 'suspended',
-      isInvite: status === 'invited',
-    };
-  }
-  stageIdx(k) { return this.STAGES.findIndex(s => s.key === k); }
-  fmtDate(d) { return new Date(d + 'T00:00:00').toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }); }
-  showToast(msg) {
-    this.setState({ toast: msg });
-    clearTimeout(this._tx);
-    this._tx = setTimeout(() => this.setState({ toast: '' }), 2200);
-  }
-  members() { return this.state.fresh ? [this.MEMBERS[0]] : this.MEMBERS; }
-  clients() { return this.state.fresh ? [] : this.CLIENTS; }
-
-  filtered() {
-    const { view, chip, q, sortKey, sortDir, projects } = this.state;
-    let rows = projects.filter(p => view === 'all' || p.team.includes(this.ME));
-    if (chip === 'active') rows = rows.filter(p => !['delivered', 'closed'].includes(p.stage));
-    else if (chip !== 'allstages') rows = rows.filter(p => p.stage === chip);
-    if (q) rows = rows.filter(p => (p.client + ' ' + p.pos).toLowerCase().includes(q.toLowerCase()));
-    rows = [...rows].sort((a, b) => {
-      let va, vb;
-      if (sortKey === 'client') { va = a.client; vb = b.client; }
-      else if (sortKey === 'stage') { va = this.stageIdx(a.stage); vb = this.stageIdx(b.stage); }
-      else { va = a.date; vb = b.date; }
-      return (va < vb ? -1 : va > vb ? 1 : 0) * sortDir;
-    });
-    return rows;
-  }
-
-  componentDidMount() {
-    if (this._ttLoad) return;
-    this._ttLoad = true;
-    import('https://esm.sh/@tanstack/table-core@8.20.5')
-      .then(m => { this.TT = m; this.forceUpdate(); })
-      .catch(() => {});
-  }
-
-  // Column definitions — the single source of truth for every table in the app.
-  projectColumns() {
-    return [
-      { id: 'client', header: 'Client', accessorKey: 'client', meta: { w: '12%' } },
-      { id: 'pos', header: 'Position', accessorKey: 'pos', enableSorting: false, meta: { w: '20%' } },
-      { id: 'stage', header: 'Stage', accessorFn: r => this.stageIdx(r.stage), enableGlobalFilter: false, meta: { w: '12%' } },
-      { id: 'health', header: 'Health', accessorKey: 'health', enableSorting: false, enableGlobalFilter: false, meta: { w: '10%' } },
-      { id: 'team', header: 'Team', accessorFn: r => r.team.length, enableSorting: false, enableGlobalFilter: false, meta: { w: '9%' } },
-      { id: 'date', header: 'Target', accessorKey: 'date', enableGlobalFilter: false, meta: { w: '10%' } },
-      { id: 'pipeline', header: 'Pipeline', accessorFn: r => r.cand, enableSorting: false, enableGlobalFilter: false, meta: { w: '14%' } },
-      { id: 'actions', header: '', enableSorting: false, enableGlobalFilter: false, meta: { w: '9%' } },
-    ];
-  }
-
-  // Scope filters (view + stage chip) stay outside the table; search + sort are the table's.
-  scoped() {
-    const { projects, view, chip } = this.state;
-    let rows = projects.filter(p => view === 'all' || p.team.includes(this.ME));
-    if (chip === 'active') rows = rows.filter(p => !['delivered', 'closed'].includes(p.stage));
-    else if (chip !== 'allstages') rows = rows.filter(p => p.stage === chip);
-    return rows;
-  }
-
-  table() {
-    const m = this.TT;
-    if (!m) return null;
-    try {
-      return this.buildTable(m);
-    } catch (e) {
-      this.TT = null; // fall back to the built-in sort/filter path
-      return null;
+    if (flag('drawer', props.drawerOpen)) {
+      const first = this.projectRows(this.state)[0];
+      if (first) this.state.drawerId = first.id;
     }
   }
 
-  buildTable(m) {
-    const st = this.state;
-    const sorting = st.sorting && st.sorting.length ? st.sorting : [{ id: 'date', desc: false }];
-    this.tbl = m.createTable({
-      data: this.scoped(),
-      columns: this.projectColumns(),
-      state: {
-        columnPinning: { left: [], right: [] },
-        columnVisibility: {},
-        columnOrder: [],
-        columnSizing: {},
-        columnSizingInfo: { startOffset: null, startSize: null, deltaOffset: null, deltaPercentage: null, isResizingColumn: false, columnSizingStart: [] },
-        rowSelection: {},
-        expanded: {},
-        grouping: [],
-        columnFilters: [],
-        sorting,
-        globalFilter: st.q || '',
-      },
-      onStateChange: () => {},
-      renderFallbackValue: null,
-      enableSortingRemoval: false,
-      globalFilterFn: (row, colId, value) => String(row.getValue(colId) ?? '').toLowerCase().includes(String(value).toLowerCase()),
-      onSortingChange: (up) => this.setState(s => ({ sorting: typeof up === 'function' ? up(s.sorting && s.sorting.length ? s.sorting : [{ id: 'date', desc: false }]) : up })),
-      onGlobalFilterChange: (v) => this.setState({ q: v }),
-      getCoreRowModel: m.getCoreRowModel(),
-      getFilteredRowModel: m.getFilteredRowModel(),
-      getSortedRowModel: m.getSortedRowModel(),
+  blankDraft() {
+    const today = new Date().toISOString().slice(0, 10);
+    return { clientId: null, companyQuery: '', positionTitle: '', titleListOpen: false, clientError: '', titleError: '', projectType: 'mapping', startDate: today, mapDeliveryDate: '', shortlistDeliveryDate: '', mappingTargetOverride: '' };
+  }
+
+  componentDidMount() {
+    this.setState({ dark: document.documentElement.getAttribute('data-theme') !== 'light' });
+    this._esc = (e) => {
+      if (e.key !== 'Escape') return;
+      if (this.state.modalOpen) this.setState({ modalOpen: false, draft: this.blankDraft() });
+      else if (this.state.inviteOpen) this.setState({ inviteOpen: false });
+      else if (this.state.drawerId) this.setState({ drawerId: null });
+      else if (this.state.wsMenuOpen || this.state.pickerOpen) this.setState({ wsMenuOpen: false, pickerOpen: false });
+    };
+    document.addEventListener('keydown', this._esc);
+  }
+
+  componentWillUnmount() {
+    if (this._esc) document.removeEventListener('keydown', this._esc);
+    clearTimeout(this._toastTimer);
+  }
+
+  showToast(msg) {
+    clearTimeout(this._toastTimer);
+    this.setState({ toast: msg });
+    this._toastTimer = setTimeout(() => this.setState({ toast: '' }), 2200);
+  }
+
+  member(id) { return this.MEMBERS.find((m) => m.id === id); }
+
+  formatDate(iso) {
+    if (!iso) return '—';
+    return new Date(iso + 'T00:00:00').toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+  }
+
+  isActive(p) { return p.stage !== 'DELIVERED' && p.stage !== 'CLOSED'; }
+
+  leadName(p) {
+    const seat = p.team.find((s) => s[1] === 'LEAD');
+    return seat ? this.member(seat[0]).name : '—';
+  }
+
+  projectRows(st) {
+    const q = st.q.trim().toLowerCase();
+    const view = st.pureClient ? 'all' : st.view;
+    const rows = st.projects.filter((p) => {
+      if (view === 'my' && !p.team.some((s) => s[0] === 'yh')) return false;
+      if (st.chip === 'active' && !this.isActive(p)) return false;
+      if (st.chip !== 'active' && st.chip !== 'allstages' && p.stage !== st.chip) return false;
+      if (q && !(p.department + ' ' + p.pos).toLowerCase().includes(q)) return false;
+      return true;
     });
-    return this.tbl;
+    const key = {
+      position: (p) => p.pos.toLowerCase(),
+      stage: (p) => this.STAGE_ORDER.indexOf(p.stage),
+      target: (p) => p.target || '9999',
+    }[st.sort.field];
+    const dir = st.sort.dir === 'asc' ? 1 : -1;
+    return rows.slice().sort((a, b) => (key(a) < key(b) ? -dir : key(a) > key(b) ? dir : 0));
+  }
+
+  activeCount(memberId) {
+    return this.state.projects.filter((p) => this.isActive(p) && p.team.some((s) => s[0] === memberId)).length;
+  }
+
+  gridOf(columns, hidden) {
+    const visible = columns.filter((c) => !hidden[c.id]);
+    const cols = visible.map((c) => (c.share > 0 ? 'minmax(' + c.min + 'px, ' + c.share + 'fr)' : c.min + 'px')).join(' ');
+    const min = visible.reduce((sum, c) => sum + c.min, (visible.length - 1) * 12);
+    return { visible, cols, min: min + 'px' };
+  }
+
+  headersOf(visible, sort) {
+    return visible.map((c, i) => {
+      const sorted = sort.field === c.id;
+      const first = i === 0;
+      const last = i === visible.length - 1;
+      return {
+        key: c.id,
+        label: c.label,
+        arrow: sorted ? (sort.dir === 'asc' ? ' ↑' : ' ↓') : '',
+        color: sorted ? 'var(--text)' : 'var(--text3)',
+        cursor: c.sortable ? 'pointer' : 'default',
+        pad: first ? '0 0 0 16px' : last ? '0 16px 0 0' : '0',
+        shadow: first ? '1px 0 0 0 var(--line-soft)' : 'none',
+        sortable: c.sortable,
+      };
+    });
   }
 
   renderVals() {
     const st = this.state;
-    const isProjects = st.view === 'my' || st.view === 'all';
-    let tbl = isProjects ? this.table() : null;
-    let hdrs = null;
-    if (tbl) {
-      try { hdrs = tbl.getHeaderGroups()[0].headers; }
-      catch (e) { this.TT = null; this.tbl = null; tbl = null; }
-    }
-    const rowsRaw = !isProjects ? [] : tbl ? tbl.getRowModel().rows.map(r => r.original) : this.filtered();
-    const headers = hdrs
-      ? hdrs.map(h => {
-          const dir = h.column.getIsSorted();
-          return {
-            key: h.column.id,
-            label: typeof h.column.columnDef.header === 'string' ? h.column.columnDef.header : '',
-            width: (h.column.columnDef.meta || {}).w || 'auto',
-            cursor: h.column.getCanSort() ? 'pointer' : 'default',
-            arrow: dir === 'asc' ? '↑' : dir === 'desc' ? '↓' : '',
-          };
-        })
-      : this.projectColumns().map(c => ({ key: c.id, label: typeof c.header === 'string' ? c.header : '', width: (c.meta || {}).w || 'auto', cursor: c.enableSorting === false ? 'default' : 'pointer', arrow: '' }));
-    const active = (v) => st.view === v;
-    const navItem = (key, label, icon, count) => ({
-      key, label, icon, count: count === undefined ? '' : String(count),
-      color: active(key) ? 'var(--text)' : 'var(--text2)',
-      bg: active(key) ? 'var(--panel2)' : 'transparent',
-      iconColor: active(key) ? 'var(--amber)' : 'currentColor',
-    });
-    const myCount = st.projects.filter(p => p.team.includes(this.ME) && !['delivered', 'closed'].includes(p.stage)).length;
-    const arrow = (k) => st.sortKey === k ? (st.sortDir === 1 ? '↑' : '↓') : '';
+    const tint = (i) => ({ bg: this.TINTS[i % this.TINTS.length][0], fg: this.TINTS[i % this.TINTS.length][1] });
+    const isAdmin = !st.pureClient;
+    const onProjects = st.view === 'my' || st.view === 'all';
+    const onTeam = st.view === 'team';
 
-    const rows = rowsRaw.map(p => {
-      const s = this.STAGES[this.stageIdx(p.stage)];
-      const h = this.HEALTH[p.health];
+    const activeProjects = st.projects.filter((p) => this.isActive(p));
+    const myCount = activeProjects.filter((p) => p.team.some((s) => s[0] === 'yh')).length;
+    const countsKnown = !st.loading;
+    const navItem = (view, label, icon, count, href) => {
+      const active = st.view === view;
       return {
-        id: String(p.id), client: p.client, pos: p.pos, leadName: this.member(p.lead).name,
-        stageLabel: s.label, stageColor: s.color, stageBg: s.bg, stageBorder: s.border,
-        healthDot: h.dot, healthText: h.text, healthLabel: h.label, healthIcon: this.HEALTH_ICON[p.health],
-        team: p.team.map((id, i) => { const m = this.member(id); return { initials: m.initials, bg: m.bg, fg: m.fg, name: m.name, ml: i === 0 ? '0' : '-7px' }; }),
-        dateLabel: this.fmtDate(p.date), cos: String(p.cos), cand: String(p.cand),
+        view, label, icon, href: href || ('Workspace.dc.html?view=' + view),
+        count: count === undefined ? '' : count,
+        countDisp: count === undefined || !countsKnown || st.collapsed ? 'none' : 'inline',
+        color: active ? 'var(--text)' : 'var(--text2)',
+        bg: active ? 'var(--panel2)' : 'transparent',
+        iconColor: active ? 'var(--amber)' : 'currentColor',
+      };
+    };
+    const navGroups = st.pureClient
+      ? [{ label: 'Positions', items: [navItem('my', 'My positions', this.ICONS.myProjects, undefined)] }]
+      : [
+          { label: 'Positions', items: [
+            navItem('my', 'My positions', this.ICONS.myProjects, myCount),
+            navItem('all', 'All positions', this.ICONS.allProjects, st.projects.length),
+          ] },
+          { label: 'Workspace', items: [
+            navItem('units', 'Business units', this.ICONS.units, st.clients.length, 'Clients.dc.html'),
+            navItem('team', 'Team', this.ICONS.team, this.MEMBERS.length),
+            navItem('settings', 'Settings', this.ICONS.settings, undefined, 'Settings.dc.html?section=profile'),
+          ] },
+        ];
+
+    const rows = this.projectRows(st);
+    const projectGrid = this.gridOf(this.PROJECT_COLUMNS, st.hiddenProject);
+    const memberGrid = this.gridOf(this.MEMBER_COLUMNS, st.hiddenMember);
+    const grid = onTeam ? memberGrid : projectGrid;
+    const hp = st.hiddenProject;
+    const hm = st.hiddenMember;
+
+    const projectRowItems = rows.map((p) => {
+      const stage = this.STAGES[p.stage];
+      const health = this.HEALTH[p.health];
+      return {
+        id: p.id, department: p.department, pos: p.pos,
+        leadLine: 'Lead · ' + this.leadName(p),
+        stageLabel: stage.label, stageColor: stage.color, stageBg: stage.bg, stageBorder: stage.border,
+        healthLabel: health.label, healthText: health.text, healthBg: health.bg, healthIcon: health.icon,
+        team: p.team.map((s, i) => { const m = this.member(s[0]); return { name: m.name, slotId: 'team-' + p.id + '-' + m.id, ml: i > 0 ? '-7px' : '0' }; }),
+        target: this.formatDate(p.target), cos: p.cos, cand: p.cand,
+        openTitle: 'Open ' + p.pos,
+        openHref: 'Position.dc.html?page=universe&unit=' + encodeURIComponent(p.department) + '&pos=' + encodeURIComponent(p.pos),
+        showStage: !hp.stage, showHealth: !hp.health, showTeam: !hp.team, showTarget: !hp.target, showPipeline: !hp.pipeline,
+      };
+    });
+    const deptOrder = ['Automotive', 'Retail', 'Real Estate', 'Financial Services'];
+    const groups = deptOrder.map((name) => ({ name, rows: projectRowItems.filter((r) => r.department === name) }))
+      .filter((g) => g.rows.length > 0)
+      .map((g) => ({ ...g, count: g.rows.length }));
+
+    const memberKey = { name: (m) => m.name.toLowerCase(), email: (m) => m.email, projects: (m) => this.activeCount(m.id) }[st.memberSort.field];
+    const mdir = st.memberSort.dir === 'asc' ? 1 : -1;
+    const lastMemberCol = memberGrid.visible[memberGrid.visible.length - 1].id;
+    const memberRows = this.MEMBERS.slice().sort((a, b) => (memberKey(a) < memberKey(b) ? -mdir : memberKey(a) > memberKey(b) ? mdir : 0)).map((m) => {
+      const n = this.activeCount(m.id);
+      return {
+        name: m.name, initials: m.initials, email: m.email, slotId: 'member-' + m.id, ...tint(m.tint),
+        roles: m.roles.map((r) => r.charAt(0) + r.slice(1).toLowerCase()).join(' · '),
+        activeLabel: n + ' active ' + (n === 1 ? 'position' : 'positions'),
+        showEmail: !hm.email, showRoles: !hm.roles, showProjects: !hm.projects,
+        namePadRight: lastMemberCol === 'name' ? '16px' : '0',
+        emailPadRight: lastMemberCol === 'email' ? '16px' : '0',
+        rolesPadRight: lastMemberCol === 'roles' ? '16px' : '0',
       };
     });
 
-    const chips = [['active', 'Active'], ['allstages', 'All stages'], ['universe', 'Universe'], ['mapping', 'Mapping'], ['outreach', 'Outreach'], ['delivered', 'Delivered']].map(([key, label]) => ({
-      key, label,
-      on: st.chip === key,
-      color: st.chip === key ? 'var(--amber)' : 'var(--text2)',
-      bg: st.chip === key ? 'var(--amber-dim)' : 'transparent',
-      border: st.chip === key ? 'var(--amber)' : 'var(--line)',
+    const pickerSource = onTeam ? this.MEMBER_COLUMNS : this.PROJECT_COLUMNS;
+    const hidden = onTeam ? hm : hp;
+    const pickerRows = pickerSource.filter((c) => c.hideable).map((c) => ({
+      id: c.id, label: c.label,
+      boxBg: hidden[c.id] ? 'transparent' : 'var(--amber-dim)',
+      boxColor: hidden[c.id] ? 'var(--line)' : 'var(--amber)',
+      tickOpacity: hidden[c.id] ? '0' : '1',
     }));
+    const hiddenCount = pickerSource.filter((c) => c.hideable && hidden[c.id]).length;
 
-    let drawer = { stageLabel: '', stageColor: '', stageBg: '', stageBorder: '', healthDot: '', healthText: '', healthLabel: '', healthIcon: '', healthLines: [], client: '', clientInitials: '', clientMeta: '', pos: '', cos: '', cand: '', dateShort: '', gates: [], members: [], teamCount: '' };
-    const dp = st.projects.find(p => p.id === st.drawerId);
-    if (dp) {
-      const cur = this.stageIdx(dp.stage);
-      const ds = this.STAGES[cur], dh = this.HEALTH[dp.health];
+    const drawerProject = st.drawerId ? st.projects.find((p) => p.id === st.drawerId) : null;
+    let drawer = {};
+    if (drawerProject) {
+      const p = drawerProject;
+      const stage = this.STAGES[p.stage];
+      const current = this.STAGE_ORDER.indexOf(p.stage);
+      const staff = p.team.slice().sort((a, b) => Number(b[1] === 'LEAD') - Number(a[1] === 'LEAD'));
+      const health = this.HEALTH[p.health] || this.HEALTH.OK;
+      const gateKeys = this.STAGE_ORDER.filter((s) => s !== 'CLOSED');
+      const gatesWidthPct = '100%';
+      const gateCurrent = gateKeys.indexOf(p.stage);
+      const totalStages = gateKeys.length;
+      const targetDateObj = new Date(p.target + 'T00:00:00');
+      const todayObj = new Date(); todayObj.setHours(0, 0, 0, 0);
+      const daysRemaining = Math.round((targetDateObj - todayObj) / 86400000);
+      const windowDays = Math.max(30, (current + 2) * 18);
+      const startedObj = new Date(targetDateObj.getTime() - windowDays * 86400000);
+      const totalWindowMs = targetDateObj - startedObj;
+      const elapsedMs = todayObj - startedObj;
+      const elapsedPct = totalWindowMs > 0 ? Math.min(100, Math.max(0, Math.round((elapsedMs / totalWindowMs) * 100))) : 0;
+      const segments = Math.max(1, totalStages - 1);
+      const segWidth = 100 / segments;
+      const donePhasePct = Math.min(100, gateCurrent * segWidth);
+      const currentFillRaw = elapsedPct - donePhasePct;
+      const currentFillPct = Math.max(0, Math.min(segWidth, currentFillRaw));
+      const currentFillColor = daysRemaining < 0 ? 'var(--red)' : stage.color;
+      const weeksSinceStart = Math.max(1, Math.round((todayObj - startedObj) / (7 * 86400000)));
+      const qualified = Math.round(p.cand * 0.35);
+      const velocity = weeksSinceStart ? (p.cand / weeksSinceStart).toFixed(1) : '0.0';
+      const actNames = staff.map((s) => this.member(s[0]).name);
+      const repNames = p.reps.map((k) => this.REPS[k].name);
+      const activityPool = [
+        actNames[0] ? `${actNames[0].split(' ')[0]} contacted 2 candidates` : null,
+        actNames[1] ? `${actNames[1].split(' ')[0]} qualified a candidate` : null,
+        repNames[0] ? `${repNames[0].split(' ')[0]} viewed candidate profiles` : null,
+        actNames[0] ? `${actNames[0].split(' ')[0]} added 3 companies` : null,
+        actNames[1] ? `${actNames[1].split(' ')[0]} completed market mapping` : null,
+      ].filter(Boolean);
+      const activityTimes = ['2 hours ago', 'Yesterday', 'Yesterday', '3 days ago', '4 days ago'];
+
       drawer = {
-        stageLabel: ds.label, stageColor: ds.color, stageBg: ds.bg, stageBorder: ds.border,
-        healthDot: dh.dot, healthText: dh.text, healthLabel: dh.label, healthIcon: this.HEALTH_ICON[dp.health],
-        healthLines: (() => {
-          const days = Math.round((Date.parse(dp.date) - Date.now()) / 86400000);
-          const lines = [dp.cos + ' companies in universe, ' + dp.cand + ' candidates engaged'];
-          const plural = (n, w) => n + ' ' + w + (n === 1 ? '' : 's');
-          if (dp.health === 'done') lines.push('Delivered · viewer access expires 30 days post-delivery');
-          else if (days < 0) lines.push('Target date passed ' + plural(Math.abs(days), 'day') + ' ago');
-          else lines.push(plural(days, 'day') + ' to target · ' + this.fmtDate(dp.date));
-          if (dp.health === 'risk') lines.push('Candidate response rate below plan');
-          if (dp.health === 'off') lines.push('Mapping stalled — no activity this week');
-          return lines;
-        })(),
-        client: dp.client, pos: dp.pos, cos: String(dp.cos), cand: String(dp.cand),
-        clientInitials: dp.client.split(/\s+/).slice(0, 2).map(w => w[0]).join('').toUpperCase(),
-        clientMeta: (() => { const c = this.CLIENTS.find(x => x.name === dp.client); return c ? c.hq + ' · ' + c.note : 'Client record'; })(),
-        dateShort: this.fmtDate(dp.date).slice(0, 6),
-        gates: this.STAGES.filter(s => s.key !== 'closed').map((s, i) => {
-          const done = i < cur, now = i === cur;
+        ariaLabel: p.pos + ' — ' + p.department,
+        department: p.department, deptSlotId: 'drawer-dept-' + p.id, pos: p.pos,
+        openHref: 'Position.dc.html?page=universe&unit=' + encodeURIComponent(p.department) + '&pos=' + encodeURIComponent(p.pos),
+        stageLabel: stage.label, stageColor: stage.color, stageBg: stage.bg, stageBorder: stage.border,
+        gatesWidthPct,
+        healthLabel: health.label, healthColor: health.text, healthBg: health.bg,
+        cos: String(p.cos), cand: String(p.cand), targetShort: this.formatDate(p.target).slice(0, 6),
+        donePct: donePhasePct + '%', currentFillPct: currentFillPct + '%', currentFillColor,
+        startedLabel: this.formatDate(startedObj.toISOString().slice(0, 10)),
+        targetLabel: this.formatDate(p.target),
+        prevPhaseLabel: gateCurrent > 0 ? this.STAGES[gateKeys[gateCurrent - 1]].label : '',
+        showPrevPhase: gateCurrent > 0,
+        daysRemainingLabel: daysRemaining >= 0 ? `${daysRemaining} days remaining` : `${Math.abs(daysRemaining)} days overdue`,
+        daysRemainingColor: daysRemaining < 0 ? 'var(--red)' : daysRemaining <= 14 ? 'var(--amber)' : 'var(--text2)',
+        showWarning: p.health === 'RISK' || p.health === 'OFF',
+        warningText: p.health === 'RISK'
+          ? `Engagement pace is below target. ${qualified} of ${p.cand} candidates qualified so far.`
+          : 'This position currently has no active outreach. Assign a lead to resume progress.',
+        qualified: String(qualified), velocity: `${velocity}/wk`,
+        activity: activityPool.slice(0, 4).map((text, i) => ({ text, time: activityTimes[i] })),
+        noActivity: activityPool.length === 0,
+        gates: gateKeys.map((s, i) => {
+          const done = i < gateCurrent;
+          const now = i === gateCurrent;
           return {
-            label: s.label,
-            font: now ? '600 12.5px var(--mono)' : '400 12.5px var(--mono)',
+            label: this.STAGES[s].label,
+            weight: now ? '600' : '400',
             color: now ? 'var(--amber)' : done ? 'var(--text2)' : 'var(--text3)',
-            dotBorder: done ? 'var(--green)' : now ? 'var(--amber)' : 'var(--line)',
-            dotBg: done ? 'var(--green-dim)' : 'transparent',
-            dotInner: done ? 'var(--green)' : now ? 'var(--amber)' : 'transparent',
+            ring: done ? 'var(--green)' : now ? 'var(--amber)' : 'var(--line)',
+            fill: done ? 'var(--green-dim)' : 'transparent',
+            dot: done ? 'var(--green)' : now ? 'var(--amber)' : 'transparent',
+            opacity: '1',
+            done, notDone: !done,
+            connectorDisplay: i === gateKeys.length - 1 ? 'transparent' : (done ? 'var(--green)' : 'var(--line)'),
           };
         }),
-        members: dp.team.map(id => {
-          const m = this.member(id);
-          const roles = [];
-          if (dp.lead === id) roles.push('lead');
-          const base = (m.role || '').toLowerCase();
-          if (base && base !== 'lead') roles.push(base);
+        staff: staff.map((s, i) => {
+          const m = this.member(s[0]);
+          const lead = s[1] === 'LEAD';
           return {
-            id: m.id, name: m.name, initials: m.initials, bg: m.bg, fg: m.fg,
-            roles: roles.filter(r => this.ROLE_BADGE[r]).map(r => ({ ...this.ROLE_BADGE[r] })),
+            name: m.name, initials: m.initials, slotId: 'drawer-staff-' + m.id, ...tint(m.tint),
+            role: lead ? 'Lead' : 'Researcher',
+            chipColor: lead ? 'var(--amber)' : 'var(--text2)',
+            chipBg: lead ? 'var(--amber-dim)' : 'var(--panel2)',
+            chipBorder: lead ? 'transparent' : 'var(--line)',
+            divider: i < staff.length - 1 ? '1px solid var(--line-soft)' : 'none',
           };
         }),
-        teamCount: dp.team.length + (dp.team.length === 1 ? ' member' : ' members'),
+        noStaff: staff.length === 0,
+        reps: p.reps.map((key, i) => {
+          const r = this.REPS[key];
+          const active = r.status === 'ACTIVE';
+          return {
+            name: r.name, initials: r.initials, slotId: 'drawer-rep-' + r.name.replace(/\s+/g, ''), sub: r.sub, ...tint(r.tint),
+            status: active ? 'Active' : 'Invite sent',
+            chipBg: active ? 'var(--green-dim)' : 'var(--amber-dim)',
+            chipColor: active ? 'var(--green)' : 'var(--amber)',
+            divider: i > 0 ? 'border-top:1px solid var(--line-soft)' : '',
+          };
+        }),
+        noReps: p.reps.length === 0,
       };
     }
+
+    const d = st.draft;
+    const clientId = d.clientId || st.clients[0] || '__new__';
+    const creatingClient = clientId === '__new__';
+    const deliveryDate = d.projectType === 'mapping' ? d.mapDeliveryDate : d.shortlistDeliveryDate;
+    const daysFromStart = (d.startDate && deliveryDate) ? Math.round((new Date(deliveryDate + 'T00:00:00') - new Date(d.startDate + 'T00:00:00')) / 86400000) : null;
+    const mappingTargetAuto = (d.projectType === 'executive' && d.startDate && deliveryDate && daysFromStart > 0)
+      ? new Date(new Date(d.startDate + 'T00:00:00').getTime() + Math.round(daysFromStart * 0.6) * 86400000).toISOString().slice(0, 10)
+      : null;
+    const mappingTargetDate = d.mappingTargetOverride || mappingTargetAuto;
+    const mappingTargetDays = mappingTargetDate ? Math.round((new Date(mappingTargetDate + 'T00:00:00') - new Date(d.startDate + 'T00:00:00')) / 86400000) : null;
+    const needle = d.positionTitle.trim().toLowerCase();
+    const titleMatches = (needle ? this.TEMPLATES.filter((t) => t.title.toLowerCase().includes(needle)) : this.TEMPLATES).slice(0, 8);
+
+    const pageTitle = st.view === 'all' ? 'All positions' : 'My positions';
+    const wsName = 'Al-Futtaim';
 
     return {
+      icons: this.ICONS,
+      isAdmin,
+      me: st.pureClient
+        ? { name: 'Khalid Al Marzooqi', slotId: 'me-khalid' }
+        : { name: 'Yara Haddad', slotId: 'me-yara' },
       wsMenuOpen: st.wsMenuOpen,
-      memberCountLabel: this.members().length + (this.members().length === 1 ? ' member' : ' members'),
-      themeLabel: st.dark ? 'Light mode' : 'Dark mode',
-      sideWidth: st.collapsed ? '56px' : '240px',
-      labelDisp: st.collapsed ? 'none' : 'inline',
-      groupDisp: st.collapsed ? 'none' : 'block',
-      navJustify: st.collapsed ? 'center' : 'flex-start',
-      collapseIcon: st.collapsed ? 'm13 17 5-5-5-5M6 17l5-5-5-5' : 'm11 17-5-5 5-5M18 17l-5-5 5-5',
-      collapseTitle: st.collapsed ? 'Expand sidebar' : 'Collapse sidebar',
-      toggleCollapse: () => {
-        const collapsed = !this.state.collapsed;
-        try { localStorage.setItem('lm-side-collapsed', collapsed ? '1' : '0'); } catch (e) {}
-        this.setState({ collapsed });
-      },
-      projNav: [
-        navItem('my', 'My projects', 'M12 2a10 10 0 1 0 .01 0M12 8a4 4 0 1 0 .01 0', myCount),
-        navItem('all', 'All projects', 'M3 3h7v7H3zM14 3h7v7h-7zM3 14h7v7H3zM14 14h7v7h-7z', st.projects.length),
-      ],
-      wsNav: [
-        navItem('clients', 'Clients', 'M3 21h18M5 21V7l7-4 7 4v14M9 9h.01M9 13h.01M9 17h.01M15 9h.01M15 13h.01M15 17h.01', this.clients().length),
-        navItem('team', 'Team', 'M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2M13 7a4 4 0 1 1-8 0 4 4 0 0 1 8 0M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75', this.members().length),
-        { ...navItem('settings', 'Settings', 'M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6ZM19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09a1.65 1.65 0 0 0-1-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09a1.65 1.65 0 0 0 1.51-1 1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33h.01a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51h.01a1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82v.01a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1Z'), count: '' },
-      ],
-      showEmpty: isProjects && st.projects.length === 0,
-      showProjects: isProjects && st.projects.length > 0,
-      showClients: st.view === 'clients',
-      showTeam: st.view === 'team',
-      pageTitle: st.view === 'my' ? 'My projects' : 'All projects',
-      pageSub: rows.length + (rows.length === 1 ? ' project' : ' projects') + ' · workspace LightMove',
-      q: st.q,
-      chips, rows, headers,
-      noResults: rows.length === 0,
-      arrowClient: arrow('client'), arrowStage: arrow('stage'), arrowDate: arrow('date'),
-      clients: this.clients().map(c => ({ name: c.name, meta: c.hq + ' · ' + c.note })),
-      hasClients: this.clients().length > 0,
-      noClients: this.clients().length === 0,
-      teamSub: this.members().length + (this.members().length === 1 ? ' member' : ' members') + ' · roles apply per project',
-      teamRows: this.members().filter(m => !st.removedMembers.includes(m.id)).map(m => {
-        const n = this.state.projects.filter(p => p.team.includes(m.id) && !['delivered', 'closed'].includes(p.stage)).length;
-        const status = st.memberStatus[m.id] || 'active';
-        return {
-          ...m,
-          activeLabel: n + (n === 1 ? ' active project' : ' active projects'),
-          suspended: status === 'suspended',
-          isActive: status === 'active',
-          ...this.teamMenuVals(m, status === 'suspended' ? 'suspended' : 'active'),
-        };
-      }),
-      pendingRows: this.INVITES.filter(i => !st.removedMembers.includes(i.id)).map(i => ({ ...i, ...this.teamMenuVals(i, 'invited') })),
-      hasPending: this.INVITES.some(i => !st.removedMembers.includes(i.id)),
-      pendingCount: this.INVITES.filter(i => !st.removedMembers.includes(i.id)).length + ' pending',
-      drawerOpen: !!dp, drawer,
-      modalOpen: st.modalOpen,
-      clientOptions: (this.clients().length ? this.clients() : this.CLIENTS).map(c => c.name),
-      leadOptions: this.members().map(m => ({ id: m.id, name: m.name })),
-      toastVisible: !!st.toast, toastMsg: st.toast,
+      toggleWsMenu: () => this.setState({ wsMenuOpen: !st.wsMenuOpen }),
+      closeWsMenu: () => this.setState({ wsMenuOpen: false }),
 
-      toggleWsMenu: () => this.setState(s => ({ wsMenuOpen: !s.wsMenuOpen })),
-      menuSettings: () => { window.location.href = 'Settings.dc.html?section=general'; },
-      menuMembers: () => this.setState({ wsMenuOpen: false, view: 'team' }),
-      setView: (e) => {
-        const v = e.currentTarget.dataset.view;
-        if (v === 'settings') { window.location.href = 'Settings.dc.html'; return; }
-        if (v === 'clients') { window.location.href = 'Clients.dc.html'; return; }
-        this.setState({ view: v, wsMenuOpen: false });
+      navGroups,
+      sideWidth: st.collapsed ? '56px' : '210px',
+      labelDisp: st.collapsed ? 'none' : 'block',
+      navJustify: st.collapsed ? 'center' : 'flex-start',
+      onNav: (e) => {
+        const view = e.currentTarget.dataset.view;
+        if (view === 'my' || view === 'all' || view === 'team') {
+          e.preventDefault();
+          this.setState({ view, drawerId: null, pickerOpen: false, q: '', chip: 'active' });
+        }
       },
+      themeLabel: st.dark ? 'Light mode' : 'Dark mode',
+      themeIcon: st.dark ? this.ICONS.sun : this.ICONS.moon,
+      toggleTheme: () => {
+        const dk = !st.dark;
+        document.documentElement.setAttribute('data-theme', dk ? 'dark' : 'light');
+        try { localStorage.setItem('lm-theme', dk ? 'dark' : 'light'); } catch (e) {}
+        this.setState({ dark: dk });
+      },
+      collapseTitle: st.collapsed ? 'Expand sidebar' : 'Collapse sidebar',
+      collapseIcon: st.collapsed ? this.ICONS.expand : this.ICONS.collapse,
+      toggleCollapse: () => {
+        const c = !st.collapsed;
+        try { localStorage.setItem('lm-side-collapsed', c ? '1' : '0'); } catch (e) {}
+        this.setState({ collapsed: c });
+      },
+
+      showProjectsHeader: onProjects && (st.loading || st.projects.length > 0),
+      pageTitle,
+      pageSub: st.loading ? 'workspace ' + wsName : rows.length + ' ' + (rows.length === 1 ? 'position' : 'positions') + ' · workspace ' + wsName,
+      showNewProject: !st.pureClient,
+      openModal: () => this.setState({ modalOpen: true, draft: this.blankDraft() }),
+
+      showSkeleton: onProjects && st.loading,
+      skeletonCols: ['Position', 'Stage', 'Health', 'Team', 'Target', 'Pipeline'],
+      skeletonRows: [0, 1, 2, 3, 4, 5].map((r) => ({ cells: [0, 1, 2, 3, 4, 5, 6].map((c) => ['96px', '64px', '112px', '48px', '80px'][(r + c) % 5]) })),
+
+      showEmpty: onProjects && !st.loading && st.projects.length === 0,
+      emptyTitle: st.pureClient ? 'No positions shared with you yet' : 'Open your first position',
+      emptyBody: st.pureClient
+        ? 'When the TA team attaches you to a position, it will appear here.'
+        : 'A position holds one open role end to end — brief, company universe, triage and candidates.',
+
+      showProjects: onProjects && !st.loading && st.projects.length > 0,
+      q: st.q,
+      onSearch: (e) => this.setState({ q: e.target.value }),
+      chips: this.CHIPS.map((c) => {
+        const on = st.chip === c.key;
+        return { ...c, border: on ? 'var(--amber)' : 'var(--line)', bg: on ? 'var(--amber-dim)' : 'transparent', color: on ? 'var(--amber)' : 'var(--text2)' };
+      }),
       setChip: (e) => this.setState({ chip: e.currentTarget.dataset.chip }),
+
+      pickerOpen: st.pickerOpen,
+      togglePicker: () => this.setState({ pickerOpen: !st.pickerOpen }),
+      closePicker: () => this.setState({ pickerOpen: false }),
+      pickerRows,
+      hasHidden: hiddenCount > 0,
+      hiddenLabel: hiddenCount + ' hidden',
+      toggleColumn: (e) => {
+        const id = e.currentTarget.dataset.col;
+        const keyName = onTeam ? 'hiddenMember' : 'hiddenProject';
+        const next = { ...st[keyName], [id]: !st[keyName][id] };
+        const sortKey = onTeam ? 'memberSort' : 'sort';
+        const patch = { [keyName]: next };
+        if (next[id] && st[sortKey].field === id) patch[sortKey] = onTeam ? { field: 'name', dir: 'asc' } : { field: 'target', dir: 'asc' };
+        this.setState(patch);
+      },
+      resetColumns: () => this.setState(onTeam ? { hiddenMember: {} } : { hiddenProject: {} }),
+
+      gridCols: grid.cols,
+      gridMin: grid.min,
+      headers: onTeam ? this.headersOf(memberGrid.visible, st.memberSort) : this.headersOf(projectGrid.visible, st.sort),
       setSort: (e) => {
-        const k = e.currentTarget.dataset.key;
-        if (this.tbl) {
-          const col = this.tbl.getColumn(k);
-          if (col && col.getCanSort()) col.toggleSorting();
+        const key = e.currentTarget.dataset.key;
+        const cols = onTeam ? this.MEMBER_COLUMNS : this.PROJECT_COLUMNS;
+        const col = cols.find((c) => c.id === key);
+        if (!col || !col.sortable) return;
+        const sortKey = onTeam ? 'memberSort' : 'sort';
+        const cur = st[sortKey];
+        this.setState({ [sortKey]: { field: key, dir: cur.field === key && cur.dir === 'asc' ? 'desc' : 'asc' } });
+      },
+      rows: projectRowItems,
+      groups,
+      noResults: projectRowItems.length === 0,
+      noResultsMsg: st.pureClient ? 'No positions match. Clear filters.' : 'No positions match. Clear filters or open a new position.',
+      openRow: (e) => this.setState({ drawerId: e.currentTarget.dataset.id }),
+      stopClick: (e) => e.stopPropagation(),
+
+      showTeam: onTeam,
+      teamSub: this.MEMBERS.length + ' ' + (this.MEMBERS.length === 1 ? 'member' : 'members') + ' · roles apply per position',
+      memberRows,
+      openInvite: () => this.setState({ inviteOpen: true, invite: { email: '', role: 'MEMBER', error: '' } }),
+
+      showNotFound: st.view === 'not-found',
+      goMy: () => this.setState({ view: 'my' }),
+
+      showLauncher: !st.drawerId,
+
+      drawerVisible: !!drawerProject,
+      drawer,
+      closeDrawer: () => this.setState({ drawerId: null }),
+
+      modalVisible: st.modalOpen,
+      closeModal: () => this.setState({ modalOpen: false, draft: this.blankDraft() }),
+      clientSelect: clientId,
+      clientOptions: st.clients.map((n) => ({ id: n, label: n }))
+        .concat([{ id: '__new__', label: '＋ New business unit…' }]),
+      onClientChange: (e) => this.setState({ draft: { ...d, clientId: e.target.value, companyQuery: '', clientError: '' } }),
+      creatingClient,
+      companyQuery: d.companyQuery,
+      onCompanyQuery: (e) => this.setState({ draft: { ...d, companyQuery: e.target.value, clientError: '' } }),
+      companyBorder: d.clientError ? 'var(--red)' : 'var(--line)',
+      hasClientError: !!d.clientError,
+      clientError: d.clientError,
+
+      positionTitle: d.positionTitle,
+      onTitleInput: (e) => this.setState({ draft: { ...d, positionTitle: e.target.value, titleListOpen: true, titleError: '' } }),
+      openTitleList: () => this.setState({ draft: { ...this.state.draft, titleListOpen: true } }),
+      closeTitleListSoon: () => setTimeout(() => this.setState({ draft: { ...this.state.draft, titleListOpen: false } }), 120),
+      showTitleList: d.titleListOpen && titleMatches.length > 0,
+      titleMatches,
+      pickTitle: (e) => this.setState({ draft: { ...d, positionTitle: e.currentTarget.dataset.title, titleListOpen: false, titleError: '' } }),
+      titleBorder: d.titleError ? 'var(--red)' : 'var(--line)',
+      titleCheckColor: d.positionTitle.trim() && !d.titleError ? 'var(--green)' : 'var(--line)',
+      hasTitleError: !!d.titleError,
+      titleError: d.titleError,
+
+      targetDate: d.startDate,
+      dateLabel: d.startDate ? this.formatDate(d.startDate) : 'Select date',
+      dateColor: d.startDate ? 'var(--text)' : 'var(--text3)',
+      onDateChange: (e) => this.setState({ draft: { ...d, startDate: e.target.value, mappingTargetOverride: '' } }),
+
+      isMapping: d.projectType === 'mapping',
+      mappingCardStyle: d.projectType === 'mapping'
+        ? 'border-radius:8px;border:1.5px solid var(--sky);background:var(--sky-dim);padding:14px;text-align:left;cursor:pointer'
+        : 'border-radius:8px;border:1px solid var(--line);background:var(--panel2);padding:14px;text-align:left;cursor:pointer',
+      execCardStyle: d.projectType === 'executive'
+        ? 'border-radius:8px;border:1.5px solid var(--sky);background:var(--sky-dim);padding:14px;text-align:left;cursor:pointer'
+        : 'border-radius:8px;border:1px solid var(--line);background:var(--panel2);padding:14px;text-align:left;cursor:pointer',
+      setMapping: () => this.setState({ draft: { ...d, projectType: 'mapping' } }),
+      setExecutive: () => this.setState({ draft: { ...d, projectType: 'executive', mappingTargetOverride: '' } }),
+
+      deliveryLabelText: d.projectType === 'mapping' ? 'Map delivery date' : 'Shortlist delivery date',
+      deliveryHelpText: d.projectType === 'mapping' ? 'When does the business unit expect the completed universe map?' : 'When does the business unit expect the shortlist?',
+      deliveryDate: deliveryDate,
+      deliveryDateLabel: deliveryDate ? this.formatDate(deliveryDate) : 'Select date',
+      deliveryDateColor: deliveryDate ? 'var(--text)' : 'var(--text3)',
+      onDeliveryChange: (e) => this.setState({ draft: d.projectType === 'mapping' ? { ...d, mapDeliveryDate: e.target.value } : { ...d, shortlistDeliveryDate: e.target.value, mappingTargetOverride: '' } }),
+      minDeliveryDate: d.startDate,
+      dateOrderError: (d.startDate && deliveryDate && deliveryDate <= d.startDate) ? `${d.projectType === 'mapping' ? 'Map' : 'Shortlist'} delivery date must be after the project start date.` : '',
+
+      showTarget: !!(d.startDate && deliveryDate) && !(deliveryDate <= d.startDate),
+      showMappingTarget: !!(d.startDate && deliveryDate && d.projectType === 'mapping') && !(deliveryDate <= d.startDate),
+      showExecTarget: !!(d.startDate && deliveryDate && d.projectType === 'executive') && !(deliveryDate <= d.startDate),
+      targetSummary: d.projectType === 'mapping'
+        ? `Map delivery: ${deliveryDate ? this.formatDate(deliveryDate) : ''} · Starting ${this.formatDate(d.startDate)}`
+        : '',
+      daysFromStartLabel: daysFromStart != null ? `${daysFromStart} days from start` : '',
+      mappingTargetLabel: mappingTargetDate ? this.formatDate(mappingTargetDate) : '',
+      mappingTargetLabelIso: mappingTargetDate || '',
+      mappingTargetSub: mappingTargetDays != null ? `~60% of window · ${mappingTargetDays} days from start${d.mappingTargetOverride ? ' · edited' : ''}` : '',
+      onMappingTargetChange: (e) => this.setState({ draft: { ...d, mappingTargetOverride: e.target.value } }),
+      shortlistTargetLabel: deliveryDate ? this.formatDate(deliveryDate) : '',
+
+      createProject: () => {
+        if (creatingClient && !d.companyQuery.trim()) {
+          this.setState({ draft: { ...d, clientError: 'Enter the business unit name' } });
           return;
         }
-        this.setState(s => s.sortKey === k ? { sortDir: -s.sortDir } : { sortKey: k, sortDir: 1 });
+        const title = d.positionTitle.trim();
+        if (!title) { this.setState({ draft: { ...d, titleError: 'Enter the position title' } }); return; }
+        if (title.length > 160) { this.setState({ draft: { ...d, titleError: 'That title is too long — keep it to 160 characters or fewer' } }); return; }
+        const department = creatingClient ? d.companyQuery.trim() : clientId;
+        const clients = st.clients.includes(department) ? st.clients : st.clients.concat([department]);
+        const project = { id: 'p' + Date.now(), department, pos: title, type: d.projectType, stage: 'BRIEF', health: 'OK', target: deliveryDate, cos: 0, cand: 0, team: [['yh', 'LEAD']], reps: [] };
+        this.setState({ projects: [project].concat(st.projects), clients, modalOpen: false, draft: this.blankDraft(), chip: 'active', q: '' });
+        this.showToast("Position created — you're its admin and lead");
       },
-      onSearch: (e) => { if (this.tbl) this.tbl.setGlobalFilter(e.target.value); else this.setState({ q: e.target.value }); },
-      openRow: (e) => this.setState({ drawerId: +e.currentTarget.dataset.id }),
-      closeDrawer: () => this.setState({ drawerId: null }),
-      toggleMember: (e) => {
-        const mid = e.currentTarget.dataset.mid;
-        const p = this.state.projects.find(x => x.id === this.state.drawerId);
-        if (!p || p.lead === mid) { if (p && p.lead === mid) this.showToast('Lead cannot be removed'); return; }
-        if (p.team.includes(mid)) { p.team = p.team.filter(x => x !== mid); this.showToast(this.member(mid).name + ' removed from project'); }
-        else { p.team = [...p.team, mid]; this.showToast(this.member(mid).name + ' added to project'); }
-        this.forceUpdate();
+
+      inviteVisible: st.inviteOpen,
+      closeInvite: () => this.setState({ inviteOpen: false }),
+      inviteEmail: st.invite.email,
+      inviteRole: st.invite.role,
+      onInviteEmail: (e) => this.setState({ invite: { ...st.invite, email: e.target.value, error: '' } }),
+      onInviteRole: (e) => this.setState({ invite: { ...st.invite, role: e.target.value } }),
+      inviteBorder: st.invite.error ? 'var(--red)' : 'var(--line)',
+      hasInviteError: !!st.invite.error,
+      noInviteError: !st.invite.error,
+      inviteError: st.invite.error,
+      sendInvite: () => {
+        const email = st.invite.email.trim().toLowerCase();
+        if (!email) { this.setState({ invite: { ...st.invite, error: 'Enter an email address' } }); return; }
+        const already = this.MEMBERS.some((m) => m.email === email);
+        this.setState({ inviteOpen: false });
+        this.showToast(already ? "They're already a member" : 'Invitation sent');
       },
-      openModal: () => {
-        this.draft = { client: (this.clients().length ? this.clients() : this.CLIENTS)[0].name, pos: '', lead: this.members()[0].id, date: '' };
-        this.setState({ modalOpen: true });
-      },
-      closeModal: () => this.setState({ modalOpen: false }),
-      stopClick: (e) => e.stopPropagation(),
-      draftClient: (e) => { this.draft.client = e.target.value; },
-      draftPos: (e) => { this.draft.pos = e.target.value; },
-      draftLead: (e) => { this.draft.lead = e.target.value; },
-      draftDate: (e) => { this.draft.date = e.target.value; },
-      createProject: () => {
-        const d = this.draft;
-        if (!d.pos || !d.pos.trim()) { this.showToast('Position title is required'); return; }
-        const proj = { id: Date.now(), client: d.client, pos: d.pos.trim(), stage: 'brief', lead: d.lead, team: [d.lead], date: d.date || '2026-12-31', cos: 0, cand: 0, health: 'ok' };
-        this.setState(s => ({ projects: [proj, ...s.projects], modalOpen: false, chip: 'active' }));
-        this.showToast('Project created — starts at Brief');
-      },
-      toggleTheme: () => {
-        const dark = !this.state.dark;
-        document.body.classList.toggle('dark', dark);
-        try { localStorage.setItem('lm-theme', dark ? 'dark' : 'light'); } catch (e) {}
-        this.setState({ dark });
-      },
-      toastClients: () => this.showToast('Entity registry form — separate build'),
-      toastRecord: () => this.showToast('Opens read-only entity record'),
-      toastInvite: () => this.showToast('Invite flow — see Signup step 3'),
-      toggleTeamMenu: (e) => {
-        const id = e.currentTarget.dataset.id;
-        this.setState(s => ({ teamMenu: s.teamMenu === id ? null : id, teamConfirm: '' }));
-      },
-      closeTeamMenu: () => this.setState({ teamMenu: null, teamConfirm: '' }),
-      copyMemberEmail: (e) => {
-        const email = e.currentTarget.dataset.email;
-        try { navigator.clipboard.writeText(email); } catch (err) {}
-        this.setState({ teamMenu: null, teamConfirm: '' });
-        this.showToast('Email copied');
-      },
-      resendMemberInvite: (e) => {
-        const email = e.currentTarget.dataset.email;
-        this.setState({ teamMenu: null, teamConfirm: '' });
-        this.showToast('Invite re-sent to ' + email);
-      },
-      restoreMember: (e) => {
-        const id = e.currentTarget.dataset.id;
-        this.setState(s => ({ memberStatus: { ...s.memberStatus, [id]: 'active' }, teamMenu: null, teamConfirm: '' }));
-        this.showToast('Access restored');
-      },
-      askSuspendMember: () => this.setState({ teamConfirm: 'revoke' }),
-      askCancelMemberInvite: () => this.setState({ teamConfirm: 'cancel' }),
-      askRemoveMember: () => this.setState({ teamConfirm: 'remove' }),
-      confirmTeamAction: (e) => {
-        const id = e.currentTarget.dataset.id;
-        const kind = this.state.teamConfirm;
-        if (kind === 'revoke') {
-          this.setState(s => ({ memberStatus: { ...s.memberStatus, [id]: 'suspended' }, teamMenu: null, teamConfirm: '' }));
-          this.showToast('Access suspended');
-        } else {
-          this.setState(s => ({ removedMembers: [...s.removedMembers, id], teamMenu: null, teamConfirm: '' }));
-          this.showToast(kind === 'cancel' ? 'Invite cancelled' : 'Member removed from workspace');
-        }
-      },
+
+      hasToast: !!st.toast,
+      toast: st.toast,
     };
   }
 }
+
 </script>
 </body>
 </html>

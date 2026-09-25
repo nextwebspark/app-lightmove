@@ -80,7 +80,7 @@ export function SignupPage() {
 
       <Card className="w-[480px] max-w-[94vw] [animation-delay:80ms]">
         <h1 className="text-[19px] font-semibold leading-tight">Create your account</h1>
-        <p className="mb-6 mt-1 font-mono text-xs text-text3">Step 1 of 4 · your details</p>
+        <p className="mb-6 mt-1 font-mono text-xs text-u-text3">Step 1 of 4 · your details</p>
 
         <FormError message={formError} />
 
@@ -110,11 +110,11 @@ export function SignupPage() {
           </Field>
 
           {registeredEmail && (
-            <p className="-mt-2 mb-4 text-[12.5px] text-text2">
+            <p className="-mt-2 mb-4 text-[12.5px] text-u-text2">
               <Link
                 to="/login"
                 state={{ email: registeredEmail }}
-                className="font-medium text-sky hover:underline"
+                className="font-medium text-u-accent hover:underline"
               >
                 Log in instead →
               </Link>
@@ -145,13 +145,13 @@ export function SignupPage() {
             />
           </Field>
 
-          <p className="mb-5 text-[11.5px] leading-relaxed text-text3">
+          <p className="mb-5 text-[11.5px] leading-relaxed text-u-text3">
             By continuing you agree to the{" "}
-            <a href="/terms" className="text-sky hover:underline">
+            <a href="/terms" className="text-u-accent hover:underline">
               Terms
             </a>{" "}
             and{" "}
-            <a href="/privacy" className="text-sky hover:underline">
+            <a href="/privacy" className="text-u-accent hover:underline">
               Privacy Policy
             </a>
             .
@@ -168,9 +168,9 @@ export function SignupPage() {
         <OAuthButtons onError={setFormError} />
       </Card>
 
-      <p className="animate-fade-up text-[12.5px] text-text2 [animation-delay:120ms]">
+      <p className="animate-fade-up text-[12.5px] text-u-text2 [animation-delay:120ms]">
         Already have an account?{" "}
-        <Link to="/login" className="text-sky hover:underline">
+        <Link to="/login" className="text-u-accent hover:underline">
           Sign in
         </Link>
       </p>

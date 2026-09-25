@@ -1,4 +1,5 @@
 import { request, setAccessToken } from "../../../lib/apiClient";
+import type { CompanySuggestion } from "../../strategy/api/types";
 import type {
   ActiveSession,
   AuthProviders,
@@ -155,6 +156,22 @@ export function updateWorkspace(payload: CreateWorkspaceRequest): Promise<User> 
 
 export function createWorkspace(payload: CreateWorkspaceRequest): Promise<User> {
   return request<User>("/onboarding/workspace", { method: "POST", body: payload });
+}
+
+export const ONBOARDING_COMPANY_SEARCH_KEY = (query: string) => ["onboardingCompanySearch", query] as const;
+
+/**
+ * The organisation step's own read of the universe: `/companies/search` needs a workspace, which the
+ * person on this step is in the middle of creating.
+ */
+export function searchOnboardingCompanies(
+  query: string,
+  signal?: AbortSignal,
+): Promise<CompanySuggestion[]> {
+  const params = new URLSearchParams({ q: query });
+  return request<{ companies: CompanySuggestion[] }>(`/onboarding/companies?${params}`, { signal }).then(
+    (page) => page.companies,
+  );
 }
 
 export function invite(invites: InviteRequest[]): Promise<{ sent: number }> {

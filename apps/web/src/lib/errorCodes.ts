@@ -39,7 +39,9 @@ export type ApiErrorCode =
   | "TRIAGE_COMPANY_NOT_EDITABLE"
   | "CANDIDATE_ALREADY_MAPPED"
   | "STRATEGY_SEARCH_NAME_TAKEN"
-  | "ASSISTANT_TURN_STILL_ANSWERING"
+  | "ASSISTANT_UNAVAILABLE"
+  | "ASSISTANT_BUSY"
+  | "ASSISTANT_STILL_ANSWERING"
   | "ASSISTANT_PROPOSAL_ALREADY_ACCEPTED"
   | "FILE_TOO_LARGE"
   | "UNSUPPORTED_FILE_TYPE"
@@ -74,16 +76,19 @@ export type ApiErrorCode =
 // — each names its configured ceiling, and the ceiling is the part the reader needs.
 // TEMPLATE_FILE_UNREADABLE likewise: its detail may name the template limit or the format version.
 const MESSAGES: Partial<Record<ApiErrorCode, string>> = {
-  ASSISTANT_TURN_STILL_ANSWERING: "Wait for the answer to finish before filing what it found.",
+  ASSISTANT_UNAVAILABLE: "The assistant could not answer just now. Try again in a moment.",
+  ASSISTANT_BUSY: "The assistant is busy answering other questions. Try again in a moment.",
+  ASSISTANT_STILL_ANSWERING:
+    "This is taking longer than usual. The answer will appear in this chat's history when it is ready — no need to ask again.",
   ASSISTANT_PROPOSAL_ALREADY_ACCEPTED: "These companies have already been filed.",
   TEMPLATE_STALE: "Someone saved this template after you opened it. Reload to see their version.",
   TEMPLATE_FALLBACK_REQUIRED:
     "The fallback template can't be archived or hidden — a title nothing else matches is drafted from it.",
   TEMPLATE_IMPORT_INVALID: "Some templates in the file are invalid, so none were imported.",
   LAST_ADMIN: "A workspace must keep at least one admin.",
-  MEMBER_LEADS_PROJECTS: "They are the only lead on active projects — hand those over first.",
-  CLIENT_ALREADY_EXISTS: "A client with this name already exists.",
-  PROJECT_LAST_LEAD: "A project must keep at least one lead.",
+  MEMBER_LEADS_PROJECTS: "They are the only lead on active positions — hand those over first.",
+  CLIENT_ALREADY_EXISTS: "A business unit with this name already exists.",
+  PROJECT_LAST_LEAD: "A position must keep at least one lead.",
   WORKSPACE_NAME_MISMATCH: "Type the workspace name exactly to confirm.",
   FORBIDDEN: "You don't have permission to do this.",
   RATE_LIMITED: "Too many requests — slow down a little.",

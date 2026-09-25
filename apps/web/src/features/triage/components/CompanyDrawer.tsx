@@ -19,6 +19,10 @@ import { AddCompanyPanel } from "./AddCompanyPanel";
 import { CompanyFactsForm, editPayloadOf } from "./CompanyFactsForm";
 import { CompanyFactsSections } from "./CompanyFactsSections";
 
+/** The corner icons share the close button's footprint so the row reads as one control strip. */
+const CORNER_BUTTON =
+  "rounded-md p-1.5 transition hover:bg-u-raised disabled:opacity-40 disabled:hover:bg-transparent";
+
 /**
  * One company, in the mandate's own terms — the panel the mockup's `coDrawer` describes, finally
  * built, and the form that adds a new one.
@@ -149,46 +153,51 @@ export function CompanyDrawer({
               className={SOURCE_STYLES[company.source].className}
             />
             <DetailPill label={stageByStatus(company.status).label} />
+            {company.noExecutiveFound && (
+              <span title="Researched — nobody suitable found. Adding an executive here clears this.">
+                <DetailPill label="No executive found" />
+              </span>
+            )}
           </>
         }
-        action={
+        cornerActions={
           !editing && (canWrite || canEdit) && (
-            <span className="flex flex-none items-center gap-2">
+            <>
               {canWrite && (
-                <Button
+                <button
                   type="button"
-                  variant="secondary"
+                  title="Add executive"
+                  aria-label={`Add an executive at ${company.companyName}`}
                   onClick={() => onAddExecutive(company)}
+                  className={`${CORNER_BUTTON} text-u-accent hover:text-u-accent-hover`}
                 >
-                  <Icon d={ICONS.userPlus} size={14} />
-                  Add executive
-                </Button>
-              )}
-              {canWrite && company.noExecutiveFound && (
-                <span
-                  title="Researched — nobody suitable found. Adding an executive here clears this."
-                  className="font-mono text-[11px] uppercase tracking-[0.04em] text-text3"
-                >
-                  No executive found
-                </span>
+                  <Icon d={ICONS.userPlus} size={16} />
+                </button>
               )}
               {canWrite && !company.noExecutiveFound && (
-                <Button
+                <button
                   type="button"
-                  variant="secondary"
+                  title="Mark as researched — nobody suitable found"
+                  aria-label={`Mark ${company.companyName} as no executive found`}
                   disabled={markingNoExecutiveFound}
                   onClick={() => onMarkNoExecutiveFound(company)}
+                  className={`${CORNER_BUTTON} text-u-text3 hover:text-u-offlimits`}
                 >
-                  No executive found
-                </Button>
+                  <Icon d={ICONS.userX} size={16} />
+                </button>
               )}
               {canEdit && (
-                <Button type="button" variant="secondary" onClick={() => setEditing(true)}>
-                  <Icon d={ICONS.pencil} size={14} />
-                  Edit
-                </Button>
+                <button
+                  type="button"
+                  title="Edit company"
+                  aria-label={`Edit ${company.companyName}`}
+                  onClick={() => setEditing(true)}
+                  className={`${CORNER_BUTTON} text-u-text3 hover:text-u-text`}
+                >
+                  <Icon d={ICONS.pencil} size={16} />
+                </button>
               )}
-            </span>
+            </>
           )
         }
       />
@@ -224,7 +233,7 @@ export function CompanyDrawer({
                 <DetailTile label="Country" value={company.companyCountry} />
               </DetailGrid>
               {!isMandateSupplied && (
-                <p className="mt-3 font-mono text-[11px]/[1.6] text-text3">
+                <p className="mt-3 font-mono text-[11px]/[1.6] text-u-text3">
                   These fields come from the market export and are refreshed by it, so they are not
                   editable here. Your note below is yours.
                 </p>
@@ -250,7 +259,7 @@ export function CompanyDrawer({
                     type="button"
                     onClick={() => saveNote.mutate({ company, note })}
                     disabled={saveNote.isPending}
-                    className="font-mono text-[11px] font-semibold uppercase tracking-[0.06em] text-amber transition hover:underline disabled:opacity-50"
+                    className="font-mono text-[11px] font-semibold uppercase tracking-[0.06em] text-u-accent transition hover:underline disabled:opacity-50"
                   >
                     Save
                   </button>
@@ -270,7 +279,7 @@ export function CompanyDrawer({
           </div>
 
           {canWrite && (
-            <div className="flex flex-none flex-wrap items-center gap-2 border-t border-line-soft px-5 py-3">
+            <div className="flex flex-none flex-wrap items-center gap-2 border-t border-u-border px-5 py-3">
               {MOVES[company.status].map((move) => (
                 <Button
                   key={move.status}
@@ -286,7 +295,7 @@ export function CompanyDrawer({
               <Button
                 type="button"
                 variant="secondary"
-                className="ms-auto text-red"
+                className="ms-auto text-u-offlimits"
                 title={removeTooltip(company.companyName)}
                 onClick={() => onDelete(company)}
               >
@@ -334,7 +343,7 @@ function MandateColumnsSection({
             type="button"
             onClick={onSave}
             disabled={saving}
-            className="font-mono text-[11px] font-semibold uppercase tracking-[0.06em] text-amber transition hover:underline disabled:opacity-50"
+            className="font-mono text-[11px] font-semibold uppercase tracking-[0.06em] text-u-accent transition hover:underline disabled:opacity-50"
           >
             Save
           </button>

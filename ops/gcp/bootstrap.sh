@@ -96,8 +96,10 @@ done
 say "Runtime roles (lightmove-api)"
 # cloudsql.client because the app dials Cloud SQL through the Java connector, authenticating as itself.
 # The logging/monitoring roles are not optional for a custom SA: without them the service runs but is
-# silent, and you debug the first incident with no logs.
-for role in roles/cloudsql.client roles/logging.logWriter roles/monitoring.metricWriter; do
+# silent, and you debug the first incident with no logs. aiplatform.user because the assistant, the
+# position document reading and the import's header mapping all call Gemini on Vertex as this SA —
+# without it every call is a 403 the app swallows into "could not answer just now".
+for role in roles/cloudsql.client roles/logging.logWriter roles/monitoring.metricWriter roles/aiplatform.user; do
     gcloud projects add-iam-policy-binding "$PROJECT" \
         --member="serviceAccount:${RUNTIME_SA_EMAIL}" --role="$role" --condition=None --quiet >/dev/null
     echo "  ✓ $role"

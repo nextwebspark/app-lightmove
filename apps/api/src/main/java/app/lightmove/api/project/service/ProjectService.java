@@ -26,8 +26,8 @@ import app.lightmove.api.project.model.Client;
 import app.lightmove.api.project.model.ClientRepresentative;
 import app.lightmove.api.project.model.PendingRepresentativeAttachment;
 import app.lightmove.api.project.model.Project;
-import app.lightmove.api.project.model.ProjectFacts;
 import app.lightmove.api.project.model.ProjectMember;
+import app.lightmove.api.project.model.ProjectTimeline;
 import app.lightmove.api.project.repository.ClientRepository;
 import app.lightmove.api.project.repository.ClientRepresentativeRepository;
 import app.lightmove.api.project.repository.PendingRepresentativeAttachmentRepository;
@@ -42,7 +42,6 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
-import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
 import java.util.function.Function;
@@ -102,26 +101,6 @@ public class ProjectService {
         return all.stream().map(project -> toResponse(project, assembly)).toList();
     }
 
-    /**
-     * One mandate, named rather than assembled.
-     *
-     * <p>Scoped on the workspace by the finder itself, so a mandate of another firm is absent
-     * rather than refused — the caller asked whether this workspace has one, and it does not.
-     *
-     * <p>Exists because a caller outside this feature had no way to learn a mandate's title without
-     * {@code list}, which assembles every mandate in the workspace, or reaching into two of these
-     * repositories. Widening the public surface is the sanctioned answer to both.
-     */
-    @Transactional(readOnly = true)
-    public Optional<ProjectFacts> factsOf(UUID workspaceId, UUID projectId) {
-        return projects.findByIdAndWorkspaceId(projectId, workspaceId)
-                .map(project -> new ProjectFacts(project.getId(), project.getPositionTitle(),
-                        clients.findByIdAndWorkspaceId(project.getClientId(), workspaceId)
-                                .map(Client::getName)
-                                .orElse(null),
-                        project.getStage(), project.getTargetDate()));
-    }
-
     /** The mandates of one client, fully assembled (team, health) — the client drawer reads this. */
     @Transactional(readOnly = true)
     public List<ProjectResponse> listForClient(UUID workspaceId, UUID clientId) {
@@ -131,6 +110,13 @@ public class ProjectService {
         }
         Assembly assembly = assemblyFor(workspaceId, forClient);
         return forClient.stream().map(project -> toResponse(project, assembly)).toList();
+    }
+
+    /** One mandate's seats, named — the report's researcher breakdown reads who staffs it. */
+    @Transactional(readOnly = true)
+    public List<TeamMemberResponse> teamOf(UUID workspaceId, UUID projectId) {
+        Project project = requireProject(projectId, workspaceId);
+        return toResponse(project, assemblyFor(workspaceId, List.of(project))).team();
     }
 
     /**
@@ -143,8 +129,11 @@ public class ProjectService {
         WorkspaceMember creator = access.requireActiveMember(userId, workspaceId);
         Client client = requireClient(request.clientId(), workspaceId);
 
-        Project project = projects.save(Project.create(
-                workspaceId, request.clientId(), request.positionTitle(), request.targetDate(), userId));
+        ProjectTimeline timeline = ProjectTimeline.resolve(request.projectType(), request.startDate(),
+                request.deliveryDate(), request.mappingTargetDate());
+
+        Project project = projects.save(Project.create(workspaceId, request.clientId(),
+                request.positionTitle(), request.targetDate(), request.projectType(), timeline, userId));
         seats.save(ProjectMember.of(project.getId(), creator.getId(),
                 rbac.projectRoles(EnumSet.of(ProjectRole.LEAD)), userId));
         // Seeded from the role-template library, and handed the facts it needs rather than the
@@ -156,6 +145,7 @@ public class ProjectService {
         audit.event(ProjectEventType.PROJECT_CREATED)
                 .actor(userId).workspace(workspaceId).target("project", project.getId()).from(httpRequest)
                 .detail("position", project.getPositionTitle())
+                .detail("type", project.getProjectType().name())
                 .record();
 
         return toResponse(project, assemblyFor(workspaceId, List.of(project)));
@@ -190,7 +180,7 @@ public class ProjectService {
         // Clients are attached via attachRepresentative, never seated here.
         if (role == ProjectRole.CLIENT) {
             throw ApiException.userFacing(ErrorCode.VALIDATION_FAILED,
-                    "Clients are invited to a project, not seated on the team");
+                    "Hiring managers are invited to a position, not seated on the team");
         }
 
         ProjectMember seat = seats.findByProjectIdAndMemberId(projectId, memberId).orElse(null);
@@ -451,7 +441,7 @@ public class ProjectService {
                 .orElseThrow(() -> ApiException.of(ErrorCode.NOT_FOUND));
         if (!representative.getClientId().equals(project.getClientId())) {
             throw ApiException.userFacing(ErrorCode.VALIDATION_FAILED,
-                    "That representative belongs to a different client");
+                    "That hiring manager belongs to a different business unit");
         }
         return representative;
     }
@@ -520,7 +510,9 @@ public class ProjectService {
 
         return new Assembly(seatsByProject, memberById, userById, clientById,
                 repsByClientId, pendingRepIdsByProjectId, companyCounter.countByProject(ids),
-                candidateCounter.countByProject(ids), LocalDate.now());
+                candidateCounter.countByProject(ids), candidateCounter.countMappedByProject(ids),
+                candidateCounter.countEngagedByProject(ids),
+                candidateCounter.countMappedCompaniesByProject(ids), LocalDate.now());
     }
 
     private ProjectResponse toResponse(Project project, Assembly assembly) {
@@ -579,10 +571,14 @@ public class ProjectService {
                 client == null ? "" : client.getName(),
                 client == null ? null : client.getLogoUrl(),
                 project.getPositionTitle(), project.getStage(),
-                ProjectHealth.derive(project.getStage(), project.getTargetDate(), assembly.today()),
-                project.getTargetDate(), team, attachedRepresentatives,
+                ProjectHealth.derive(project.getStage(), project.deadline(), assembly.today()),
+                project.getTargetDate(), project.getProjectType(), project.getStartDate(),
+                project.getDeliveryDate(), project.getMappingTargetDate(), team, attachedRepresentatives,
                 assembly.companyCountByProject().getOrDefault(project.getId(), 0L),
                 assembly.candidateCountByProject().getOrDefault(project.getId(), 0L),
+                assembly.mappedCandidateCountByProject().getOrDefault(project.getId(), 0L),
+                assembly.engagedCountByProject().getOrDefault(project.getId(), 0L),
+                assembly.mappedCompanyCountByProject().getOrDefault(project.getId(), 0L),
                 project.getCreatedAt());
     }
 
@@ -602,6 +598,9 @@ public class ProjectService {
                             Map<UUID, Set<UUID>> pendingRepIdsByProjectId,
                             Map<UUID, Long> companyCountByProject,
                             Map<UUID, Long> candidateCountByProject,
+                            Map<UUID, Long> mappedCandidateCountByProject,
+                            Map<UUID, Long> engagedCountByProject,
+                            Map<UUID, Long> mappedCompanyCountByProject,
                             LocalDate today) {
     }
 }

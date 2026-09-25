@@ -1,6 +1,7 @@
 package app.lightmove.api.strategy.service;
 
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import org.springframework.stereotype.Component;
 import tools.jackson.databind.ObjectMapper;
@@ -32,6 +33,12 @@ public class IndustryAdjacency {
                         "%s has '%s' beside '%s' but not the reverse".formatted(RESOURCE, neighbour, industry));
             }
         }));
+    }
+
+    /** The industries beside one, whatever its case; empty for an industry the list does not hold. */
+    public List<String> neighboursOf(String industry) {
+        return industry == null ? List.of()
+                : neighboursByIndustry.getOrDefault(industry.strip().toLowerCase(Locale.ROOT), List.of());
     }
 
     /** Every industry, with the industries beside it. */

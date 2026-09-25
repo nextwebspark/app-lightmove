@@ -38,9 +38,9 @@ export function SectionEditButton({
       disabled={disabled}
       onClick={onClick}
       className={cn(
-        "rounded-md p-1.5 text-text3 opacity-60 transition",
-        "group-hover:opacity-100 hover:bg-panel2 hover:text-text focus-visible:opacity-100",
-        "disabled:cursor-not-allowed disabled:opacity-30 disabled:hover:bg-transparent disabled:hover:text-text3",
+        "rounded-md p-1.5 text-u-text3 opacity-60 transition",
+        "group-hover:opacity-100 hover:bg-u-raised hover:text-u-text focus-visible:opacity-100",
+        "disabled:cursor-not-allowed disabled:opacity-30 disabled:hover:bg-transparent disabled:hover:text-u-text3",
       )}
     >
       <Icon d={ICONS.pencil} size={13} />
@@ -59,6 +59,7 @@ export function ProfileSectionForm({
   saving,
   error,
   saveLabel = "Save",
+  footer = "ruled",
   children,
 }: {
   onSubmit: (event: FormEvent<HTMLFormElement>) => void;
@@ -66,6 +67,8 @@ export function ProfileSectionForm({
   saving: boolean;
   error: string | null;
   saveLabel?: string;
+  /** `plain` is the Compensation editor's row in the mockup: no rule, no shortcut hint, larger buttons. */
+  footer?: "ruled" | "plain";
   children: ReactNode;
 }) {
   const form = useRef<HTMLFormElement>(null);
@@ -93,18 +96,30 @@ export function ProfileSectionForm({
     <form ref={form} onSubmit={onSubmit} onKeyDown={handleKeyDown} noValidate className="pt-1">
       <FormError message={error} />
       {children}
-      <div className="flex items-center justify-end gap-2 border-t border-line-soft pt-3">
-        <span className="me-auto font-mono text-[10.5px] text-text3">Esc cancels · ⌘/Ctrl ↵ saves</span>
+      <div
+        className={cn(
+          "flex items-center justify-end gap-2",
+          footer === "ruled" ? "border-t border-u-border pt-3" : "mt-3.5",
+        )}
+      >
+        {footer === "ruled" && (
+          <span className="me-auto font-mono text-[10.5px] text-u-text3">Esc cancels · ⌘/Ctrl ↵ saves</span>
+        )}
         <Button
           type="button"
           variant="secondary"
           onClick={onCancel}
           disabled={saving}
-          className="px-3 py-1.5 text-[12.5px]"
+          className={cn("text-[12.5px]", footer === "ruled" ? "px-3 py-1.5" : "px-4 py-2 font-semibold")}
         >
           Cancel
         </Button>
-        <Button type="submit" variant="primary" loading={saving} className="px-3.5 py-1.5 text-[12.5px]">
+        <Button
+          type="submit"
+          variant="primary"
+          loading={saving}
+          className={cn("text-[12.5px]", footer === "ruled" ? "px-3.5 py-1.5" : "px-4 py-2 font-semibold")}
+        >
           {saveLabel}
         </Button>
       </div>
@@ -125,6 +140,7 @@ export function SectionEditor<S extends ProfileFormSection>({
   doneMessage,
   onDone,
   onCancel,
+  footer,
   children,
 }: {
   section: S;
@@ -134,6 +150,7 @@ export function SectionEditor<S extends ProfileFormSection>({
   doneMessage: string;
   onDone: (saved: Candidate) => void;
   onCancel: () => void;
+  footer?: "ruled" | "plain";
   children: (form: UseFormReturn<CandidateForm, unknown, SectionValues<S>>) => ReactNode;
 }) {
   const toast = useToast();
@@ -173,6 +190,7 @@ export function SectionEditor<S extends ProfileFormSection>({
       onCancel={onCancel}
       saving={saving.isPending}
       error={submitError}
+      footer={footer}
     >
       {children(form)}
     </ProfileSectionForm>

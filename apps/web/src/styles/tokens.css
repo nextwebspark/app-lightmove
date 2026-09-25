@@ -1,7 +1,9 @@
 @import "tailwindcss";
 
 /*
- * The design system, lifted verbatim from claude-design/*.dc.html.
+ * The design system: UNCAVA, lifted verbatim from claude-design/uncava-tokens.css. There is one
+ * palette and its names are `u-*`; the app's old names (panel, amber, sky, …) are gone, so a class
+ * written against one of them compiles to nothing.
  *
  * These values are not "inspired by" the mockups — they are the mockups' own CSS variables, copied
  * across. That is deliberate: it means a screen built from a mockup matches it exactly, and when a
@@ -13,46 +15,12 @@
 @custom-variant dark (&:where(.dark, .dark *));
 
 @theme {
-  /* ── Light (mockup :root) ───────────────────────────────────────────────── */
-  --color-bg: #f8f9fb;
-  --color-panel: #ffffff;
-  --color-panel2: #f3f4f6;
-  --color-line: #e2e4e9;
-  --color-line-soft: #edeef2;
-
-  --color-text: #111113;
-  --color-text2: #475569;
-  --color-text3: #64748b;
-
-  /* Amber is the brand: the logo tile and every primary action. */
-  --color-amber: #a67c2e;
-  --color-amber-btn: #e2b65c;
-  --color-amber-dim: rgba(226, 182, 92, 0.14);
-
-  /* Sky is for links and informational states. */
-  --color-sky: #2563eb;
-  --color-sky-dim: rgba(37, 99, 235, 0.1);
-
-  --color-red: #dc2626;
-  --color-red-dim: rgba(220, 38, 38, 0.08);
-  --color-green: #059669;
-  --color-green-dim: rgba(5, 150, 105, 0.1);
-
-  /* Indigo is the assistant, and only the assistant. Amber is the brand and sky is information —
-     a third voice is what keeps a machine's suggestion visibly distinct from the firm's own data. */
-  --color-ai: #6366f1;
-  --color-ai2: #3b82f6;
-  --color-ai-line: #4f46e5;
-  --color-ai-dim: rgba(99, 102, 241, 0.1);
-  --color-ai-soft: rgba(99, 102, 241, 0.06);
-
-  /* The one colour that never inverts: text on an amber button, in either theme. */
-  --color-on-amber: #1a1712;
-
   /* The mockups dropped the monospace face: --mono now resolves to Geist too. The token stays so
      existing font-mono call sites keep matching the mockups without a rename. */
   --font-sans: "Geist", "Inter", system-ui, sans-serif;
   --font-mono: "Geist", "Inter", system-ui, sans-serif;
+  /* The wordmark's face, and nothing else's. */
+  --font-brand: "Montserrat", sans-serif;
 
   /* ── Type scale ───────────────────────────────────────────────────────────
    *
@@ -81,15 +49,22 @@
   --text-figure: 27px;
   --text-figure--line-height: 1.15;
 
-  --shadow-panel: 0 8px 28px rgba(15, 23, 42, 0.1);
-  --radius-panel: 14px;
+  --tracking-label: 0.02em;
+  --tracking-tag: 0.06em;
+  --tracking-title: -0.01em;
+  --tracking-figure: -0.02em;
 
-  /* ── UNCAVA (claude-design/color-pallate) ───────────────────────────────────
+  --leading-narrative: 1.7;
+
+  /* UNCAVA's radius ladder: a control, a chip, a card, a modal. */
+  --radius-u-control: 6px;
+  --radius-u-chip: 8px;
+  --radius-u-card: 12px;
+  --radius-u-modal: 16px;
+
+  /* ── UNCAVA (the --u-* block in every claude-design/*.dc.html helmet) ───────────────────────────────────
    *
-   * A second palette, beside the first rather than replacing it. Only the Reports chapters and the
-   * Position brief read these; every other screen keeps the tokens above, so adopting Uncava app-wide
-   * later is a rename and not a rewrite. That does mean those two tabs carry a different accent from
-   * the nav around them until that happens — a known, deliberate seam.
+   * The one palette, and every screen reads these names directly.
    *
    * THE LIGHT AND DARK SETS ARE SWAPPED RELATIVE TO THEIR SOURCE, AND THAT IS NOT A MISTAKE.
    * Uncava is dark-first: its `:root` holds the DARK values and `[data-theme="light"]` the light
@@ -113,7 +88,9 @@
   --color-u-text3: #6b7382;
 
   --color-u-accent: #4a56d6;
+  --color-u-accent-hover: #3a46c4;
   --color-u-accent-solid: #4a56d6;
+  --color-u-accent-solid-hover: #3a46c4;
   --color-u-accent-tint: rgba(74, 86, 214, 0.09);
   --color-u-accent-ring: rgba(74, 86, 214, 0.4);
 
@@ -156,40 +133,15 @@
 
   /* Uncava's elevation ladder: e1 lifts a card off the page, e3 a panel off the screen. */
   --shadow-u-e1: 0 1px 2px rgba(3, 7, 18, 0.06);
+  --shadow-u-e2: 0 4px 14px -2px rgba(3, 7, 18, 0.12);
   --shadow-u-e3: 0 18px 44px -10px rgba(3, 7, 18, 0.2);
 }
 
 /*
  * Dark mode overrides the token values themselves rather than adding `dark:` variants at every call
- * site. A component written once against `bg-panel` is then correct in both themes, and cannot drift.
+ * site. A component written once against `bg-u-surface` is then correct in both themes, and cannot drift.
  */
 .dark {
-  --color-bg: #0c0d0e;
-  --color-panel: #16171a;
-  --color-panel2: #131316;
-  --color-line: #2a2a2e;
-  --color-line-soft: #212326;
-
-  --color-text: #f8fafc;
-  --color-text2: #cbd5e1;
-  --color-text3: #94a3b8;
-
-  --color-amber: #e2b65c;
-  --color-amber-dim: rgba(226, 182, 92, 0.16);
-  --color-sky: #60a5fa;
-  --color-sky-dim: rgba(96, 165, 250, 0.16);
-  --color-red: #f87171;
-  --color-red-dim: rgba(248, 113, 113, 0.14);
-  --color-green: #34d399;
-  --color-green-dim: rgba(52, 211, 153, 0.16);
-  --color-ai: #818cf8;
-  --color-ai2: #60a5fa;
-  --color-ai-line: #6366f1;
-  --color-ai-dim: rgba(129, 140, 248, 0.16);
-  --color-ai-soft: rgba(129, 140, 248, 0.09);
-
-  --shadow-panel: 0 8px 28px rgba(0, 0, 0, 0.5);
-
   /* UNCAVA's own `:root` — its dark-first default. See the note above for why it lands here. */
   --color-u-bg: #08090b;
   --color-u-surface: #0e1013;
@@ -204,7 +156,9 @@
   --color-u-text3: #7c8493;
 
   --color-u-accent: #6e79f2;
+  --color-u-accent-hover: #8189f7;
   --color-u-accent-solid: #4a56d6;
+  --color-u-accent-solid-hover: #5a66e6;
   --color-u-accent-tint: rgba(110, 121, 242, 0.14);
   --color-u-accent-ring: rgba(110, 121, 242, 0.45);
 
@@ -236,7 +190,59 @@
   --color-u-grid-axis: rgba(255, 255, 255, 0.1);
   --color-u-grid-line: rgba(255, 255, 255, 0.055);
 
-  /* On a dark ground a card is lifted by its surface step and border, never by a shadow. */
-  --shadow-u-e1: 0 0 #0000;
+  --shadow-u-e1: 0 1px 2px rgba(0, 0, 0, 0.5);
+  --shadow-u-e2: 0 4px 14px -2px rgba(0, 0, 0, 0.65);
   --shadow-u-e3: 0 18px 44px -10px rgba(0, 0, 0, 0.8);
+}
+
+/* Type roles: each is one recurring text style of claude-design/Position.dc.html, colour left to the caller. */
+@utility type-label {
+  font-size: var(--text-note);
+  line-height: var(--text-note--line-height);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: var(--tracking-label);
+}
+
+@utility type-summary-label {
+  font-size: var(--text-eyebrow);
+  line-height: var(--text-eyebrow--line-height);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: var(--tracking-tag);
+}
+
+@utility type-tag {
+  font-size: var(--text-eyebrow);
+  line-height: var(--text-eyebrow--line-height);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: var(--tracking-tag);
+}
+
+@utility type-title {
+  font-size: var(--text-title);
+  line-height: var(--text-title--line-height);
+  font-weight: 600;
+  letter-spacing: var(--tracking-title);
+}
+
+@utility type-heading {
+  font-size: var(--text-body);
+  line-height: var(--text-body--line-height);
+  font-weight: 600;
+}
+
+@utility type-figure {
+  font-family: var(--font-u-num);
+  font-size: var(--text-figure);
+  line-height: var(--text-figure--line-height);
+  font-weight: 500;
+}
+
+@utility type-figure-input {
+  font-family: var(--font-u-num);
+  font-size: var(--text-lead);
+  line-height: var(--text-lead--line-height);
+  font-weight: 400;
 }

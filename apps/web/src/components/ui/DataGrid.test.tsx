@@ -9,11 +9,16 @@ import {
   type ColumnOrderState,
   type Updater,
 } from "@tanstack/react-table";
-import { fireEvent, render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { useState } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { DataGrid, type DataGridColumnFilter, type DataGridColumnLayout } from "./DataGrid";
+import {
+  DataGrid,
+  type DataGridColumnFilter,
+  type DataGridColumnLayout,
+  type DataGridGrouping,
+} from "./DataGrid";
 import { EMPTY_GRID_LAYOUT, layoutColumnsOf, type GridLayout } from "../../lib/useGridLayout";
 
 interface Row {
@@ -65,17 +70,21 @@ function Harness({
   columnFilters,
   columnDefs = columns,
   onEditColumn,
+  data = DATA,
+  groupBy,
 }: {
   onLayout?: (layout: GridLayout) => void;
   columnFilters?: Record<string, DataGridColumnFilter>;
   columnDefs?: typeof columns | typeof columnsWithCustom;
   onEditColumn?: (columnId: string) => void;
+  data?: Row[];
+  groupBy?: DataGridGrouping<Row>;
 }) {
   const [layout, setLayout] = useState<GridLayout>(EMPTY_GRID_LAYOUT);
   const table = useTable({
     features,
     columns: columnDefs,
-    data: DATA,
+    data,
     getRowId: (row) => row.name,
     initialState: { columnPinning: { start: ["name"], end: [] } },
     manualSorting: true,
@@ -101,6 +110,7 @@ function Harness({
       }}
       columnFilters={columnFilters}
       onEditColumn={onEditColumn}
+      groupBy={groupBy}
     />
   );
 }
@@ -325,6 +335,47 @@ describe("DataGrid columns", () => {
   });
 });
 
+describe("DataGrid groupBy", () => {
+  const GROUPED_DATA: Row[] = [
+    { name: "Zain", sector: "Telecom", revenue: "$2bn" },
+    { name: "Aramco", sector: "Energy", revenue: "$1bn" },
+    { name: "Stc", sector: "Telecom", revenue: "$3bn" },
+  ];
+
+  const groupBySector: DataGridGrouping<Row> = {
+    keyOf: (row) => row.sector,
+    compare: (a, b) => a.localeCompare(b),
+  };
+
+  it("renders one header per group, in compare order, with each row under its own", () => {
+    render(<Harness data={GROUPED_DATA} groupBy={groupBySector} />);
+
+    const groups = screen.getAllByRole("rowgroup");
+    expect(groups).toHaveLength(2);
+
+    expect(within(groups[0]).getByText("Energy · 1")).toBeInTheDocument();
+    expect(within(groups[0]).getByText("Aramco")).toBeInTheDocument();
+
+    expect(within(groups[1]).getByText("Telecom · 2")).toBeInTheDocument();
+    expect(within(groups[1]).getByText("Zain")).toBeInTheDocument();
+    expect(within(groups[1]).getByText("Stc")).toBeInTheDocument();
+  });
+
+  it("changes nothing for a grid that names no groupBy", () => {
+    render(<Harness data={GROUPED_DATA} />);
+
+    expect(screen.queryByRole("rowgroup")).not.toBeInTheDocument();
+    expect(screen.getByText("Aramco")).toBeInTheDocument();
+  });
+
+  it("shows the one empty message, and no group headers, when nothing matches", () => {
+    render(<Harness data={[]} groupBy={groupBySector} />);
+
+    expect(screen.getByText("nothing")).toBeInTheDocument();
+    expect(screen.queryByRole("rowgroup")).not.toBeInTheDocument();
+  });
+});
+
 describe("DataGrid header menu — Filter by", () => {
   beforeEach(() => vi.resetAllMocks());
 
@@ -419,7 +470,7 @@ describe("DataGrid header menu — a checkbox filter", () => {
         }}
       />,
     );
-    expect(screen.getByRole("button", { name: "Sector column menu" })).not.toHaveClass("text-sky");
+    expect(screen.getByRole("button", { name: "Sector column menu" })).not.toHaveClass("text-u-accent");
 
     rerender(
       <Harness
@@ -428,7 +479,7 @@ describe("DataGrid header menu — a checkbox filter", () => {
         }}
       />,
     );
-    expect(screen.getByRole("button", { name: "Sector column menu" })).toHaveClass("text-sky");
+    expect(screen.getByRole("button", { name: "Sector column menu" })).toHaveClass("text-u-accent");
   });
 });
 

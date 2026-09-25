@@ -60,6 +60,6 @@ class PackagesTest {
 
     private static CandidateCompensationDto compensation(String currency, Long base, Long bonus,
                                                          Long allowances, Long longTermIncentive) {
-        return new CandidateCompensationDto(currency, base, bonus, allowances, longTermIncentive, null);
+        return new CandidateCompensationDto(currency, base, bonus, allowances, longTermIncentive, null, null, null);
     }
 }

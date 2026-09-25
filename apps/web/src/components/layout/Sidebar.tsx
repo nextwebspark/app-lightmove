@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { NavLink } from "react-router-dom";
 import { useTheme } from "../../features/theme/useTheme";
 import { cn } from "../../lib/cn";
@@ -28,19 +28,32 @@ export interface SidebarGroup {
  * <p>Below `lg` it slides in over the content as a drawer, ignoring the collapsed preference — a
  * 56px icon-only overlay would be all cost and no benefit on a phone. There it <i>is</i> a card: the
  * border, fill and shadow in the base classes are the drawer's, and the `lg:` group strips them.
+ *
+ * <p>`assistantOpen` collapses it without touching the stored preference, so shutting the assistant
+ * restores whatever the user had chosen.
  */
 export function Sidebar({
   groups,
   backLink,
   open = false,
   onClose,
+  assistantOpen = false,
 }: {
   groups: SidebarGroup[];
   backLink?: SidebarItem;
   open?: boolean;
   onClose?: () => void;
+  assistantOpen?: boolean;
 }) {
-  const { collapsed, toggle } = useSidebarCollapsed();
+  const preference = useSidebarCollapsed();
+  const [expandedBesideAssistant, setExpandedBesideAssistant] = useState(false);
+  const [assistantWasOpen, setAssistantWasOpen] = useState(assistantOpen);
+  if (assistantWasOpen !== assistantOpen) {
+    setAssistantWasOpen(assistantOpen);
+    setExpandedBesideAssistant(false);
+  }
+  const collapsed = assistantOpen ? !expandedBesideAssistant : preference.collapsed;
+  const toggle = assistantOpen ? () => setExpandedBesideAssistant((expanded) => !expanded) : preference.toggle;
   const { theme, toggle: toggleTheme } = useTheme();
   const dark = theme === "dark";
   const navRef = useRef<HTMLElement>(null);
@@ -55,7 +68,7 @@ export function Sidebar({
   const rowClass = (extra?: string) =>
     cn(
       "flex w-full items-center gap-2.5 rounded-[7px] px-2.5 py-2 text-left text-[13.5px] transition",
-      "hover:bg-panel2 hover:text-text",
+      "hover:bg-u-raised hover:text-u-text",
       collapsed && "lg:justify-center",
       extra,
     );
@@ -69,10 +82,10 @@ export function Sidebar({
       tabIndex={-1}
       aria-label="Main"
       className={cn(
-        "flex flex-none flex-col overflow-y-auto overflow-x-hidden rounded-[10px] border border-line bg-panel px-2.5 py-3.5 outline-none",
+        "flex flex-none flex-col overflow-y-auto overflow-x-hidden rounded-[10px] border border-u-border-strong bg-u-surface px-2.5 py-3.5 outline-none",
         // `lg:z-auto` is load-bearing: a flex item keeps its stacking context while static, so
         // without the reset the rail floats above an open drawer's scrim instead of dimming.
-        "fixed bottom-3.5 left-3.5 top-[52px] z-[95] w-60 shadow-panel transition-transform duration-200",
+        "fixed bottom-3.5 left-3.5 top-[52px] z-[95] w-60 shadow-u-e3 transition-transform duration-200",
         open ? "translate-x-0" : "-translate-x-[calc(100%+18px)]",
         "lg:static lg:z-auto lg:translate-x-0 lg:rounded-none lg:border-0 lg:bg-transparent",
         "lg:shadow-none lg:transition-[width] lg:duration-[180ms]",
@@ -84,12 +97,12 @@ export function Sidebar({
           <NavLink
             to={backLink.to}
             title={backLink.label}
-            className={rowClass("mb-1.5 font-medium text-text2")}
+            className={rowClass("mb-1.5 font-medium text-u-text2")}
           >
             <Icon d={backLink.icon} className="flex-none" />
             <span className={cn("whitespace-nowrap", labelsHidden)}>{backLink.label}</span>
           </NavLink>
-          <div className="mx-1 mb-1.5 h-px bg-line-soft" />
+          <div className="mx-1 mb-1.5 h-px bg-u-border" />
         </>
       )}
 
@@ -97,7 +110,7 @@ export function Sidebar({
         <div key={group.label}>
           <div
             className={cn(
-              "px-2.5 pb-1.5 pt-3.5 font-mono text-[10px] font-semibold uppercase tracking-[0.14em] text-text3",
+              "px-2.5 pb-1.5 pt-3.5 font-mono text-[10px] font-semibold uppercase tracking-[0.14em] text-u-text3",
               labelsHidden,
             )}
           >
@@ -110,7 +123,7 @@ export function Sidebar({
               end={item.end}
               title={item.label}
               className={({ isActive }) =>
-                rowClass(isActive ? "bg-panel2 text-text [&_svg]:text-amber" : "text-text2")
+                rowClass(isActive ? "bg-u-raised text-u-text [&_svg]:text-u-accent" : "text-u-text2")
               }
             >
               <Icon d={item.icon} className="flex-none" />
@@ -118,7 +131,7 @@ export function Sidebar({
               {item.count !== undefined && (
                 <span
                   className={cn(
-                    "ml-auto font-mono text-[11px] font-medium text-text3",
+                    "ml-auto font-mono text-[11px] font-medium text-u-text3",
                     labelsHidden,
                   )}
                 >
@@ -130,12 +143,12 @@ export function Sidebar({
         </div>
       ))}
 
-      <div className="mt-auto border-t border-line-soft pt-3">
+      <div className="mt-auto border-t border-u-border pt-3">
         <button
           type="button"
           onClick={toggleTheme}
           title={dark ? "Light mode" : "Dark mode"}
-          className={rowClass("text-text2")}
+          className={rowClass("text-u-text2")}
         >
           <Icon d={dark ? ICONS.sun : ICONS.moon} className="flex-none" />
           <span className={cn("whitespace-nowrap", labelsHidden)}>
@@ -146,7 +159,7 @@ export function Sidebar({
           type="button"
           onClick={toggle}
           title={collapsed ? "Expand sidebar" : "Collapse sidebar"}
-          className={rowClass("hidden text-text2 lg:flex")}
+          className={rowClass("hidden text-u-text2 lg:flex")}
         >
           <Icon d={collapsed ? ICONS.expand : ICONS.collapse} className="flex-none" />
           <span className={cn("whitespace-nowrap", labelsHidden)}>Collapse</span>
@@ -154,12 +167,12 @@ export function Sidebar({
         <button
           type="button"
           onClick={onClose}
-          className={rowClass("text-text2 lg:hidden")}
+          className={rowClass("text-u-text2 lg:hidden")}
         >
           <Icon d={ICONS.close} className="flex-none" />
           <span className="whitespace-nowrap">Close menu</span>
         </button>
-        <p className={cn("px-2.5 pt-2 font-mono text-[11px] text-text3", labelsHidden)}>
+        <p className={cn("px-2.5 pt-2 font-mono text-[11px] text-u-text3", labelsHidden)}>
           {APP_VERSION}
         </p>
       </div>

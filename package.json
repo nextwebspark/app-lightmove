@@ -20,6 +20,7 @@
     "dev:db:psql": "./ops/dev/db.sh psql",
     "dev:db:apollo": "./ops/dev/db.sh apollo-pull",
     "dev:db:seed-report": "./ops/dev/db.sh seed-report",
+    "dev:db:seed-firm": "./ops/dev/db.sh seed-firm",
     "dev:cloud": "concurrently -n api,web -c yellow,cyan \"npm:dev:api:cloud\" \"npm:dev:web\"",
     "dev:api:cloud": "cd apps/api && ./mvnw spring-boot:run -Dspring-boot.run.profiles=local",
     "build": "npm run build:api && npm run build:web && npm run build:extension",

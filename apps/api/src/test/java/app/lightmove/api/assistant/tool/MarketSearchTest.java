@@ -15,6 +15,7 @@ import app.lightmove.api.strategy.constant.SortDirection;
 import app.lightmove.api.strategy.model.CompanyRow;
 import app.lightmove.api.strategy.model.CompanyScope;
 import app.lightmove.api.strategy.service.ApolloCompanyQueryService;
+import app.lightmove.api.strategy.service.UniverseFacets;
 import java.util.List;
 import java.util.stream.IntStream;
 import org.junit.jupiter.api.DisplayName;
@@ -29,6 +30,7 @@ class MarketSearchTest {
     private static final int VOCABULARY = 250;
 
     private final ApolloCompanyQueryService companies = mock(ApolloCompanyQueryService.class);
+    private final UniverseFacets facets = mock(UniverseFacets.class);
 
     @Test
     @DisplayName("the total is the market's, not the page's")
@@ -78,7 +80,7 @@ class MarketSearchTest {
         // "ORDER BY count(*) DESC LIMIT", so the row limit would quietly make this the top 25 by
         // company count while both search tools call its spellings authoritative — and a country the
         // model never saw spelled is a search that matches nothing and says nothing about why.
-        verify(companies).countByCountry(any(), eq(VOCABULARY));
+        verify(facets).countries(VOCABULARY);
     }
 
     private MarketSearch searchOver(long matched, List<CompanyRow> page) {
@@ -87,7 +89,7 @@ class MarketSearchTest {
         LightMoveProperties properties = mock(LightMoveProperties.class, RETURNS_DEEP_STUBS);
         when(properties.assistant().toolRowLimit()).thenReturn(CAP);
         when(properties.assistant().vocabularyLimit()).thenReturn(VOCABULARY);
-        return new MarketSearch(companies, properties);
+        return new MarketSearch(companies, facets, properties);
     }
 
     private static List<CompanyRow> rows(int count) {
