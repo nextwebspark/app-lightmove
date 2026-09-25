@@ -122,6 +122,10 @@ public class Candidate extends BaseEntity {
     private String noticePeriod;
 
     @JdbcTypeCode(SqlTypes.JSON)
+    @Column(name = "compensation_breakdown", nullable = false)
+    private CompensationBreakdown compensationBreakdown = CompensationBreakdown.empty();
+
+    @JdbcTypeCode(SqlTypes.JSON)
     @Column(name = "profile", nullable = false)
     private CandidateProfile profile = CandidateProfile.empty();
 
@@ -213,6 +217,7 @@ public class Candidate extends BaseEntity {
         this.allowances = details.compensation().allowances();
         this.longTermIncentive = details.compensation().longTermIncentive();
         this.noticePeriod = details.compensation().noticePeriod();
+        this.compensationBreakdown = details.compensation().breakdown();
         // Not a plain replace: the drawer resubmits only the components it renders (career,
         // languages), and a wholesale overwrite here silently wiped enrichment's fields on the first
         // edit after a capture was enriched.
@@ -425,6 +430,6 @@ public class Candidate extends BaseEntity {
 
     public CandidateCompensation compensation() {
         return new CandidateCompensation(compensationCurrency, baseSalary, bonus, allowances,
-                longTermIncentive, noticePeriod);
+                longTermIncentive, noticePeriod, compensationBreakdown);
     }
 }

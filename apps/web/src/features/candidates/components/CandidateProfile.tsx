@@ -67,6 +67,7 @@ export function CandidateProfile({
   candidate,
   customColumns,
   canWrite,
+  briefCurrency,
   onClose,
   onSaved,
   onRemove,
@@ -76,6 +77,8 @@ export function CandidateProfile({
   customColumns: readonly CustomColumn[];
   /** False for a client representative, who reads a mandate's people and changes nothing about them. */
   canWrite: boolean;
+  /** The brief's currency, which the Compensation editor follows until somebody overrides it. */
+  briefCurrency?: string | null;
   onClose: () => void;
   /** Every write's answer — the caller keeps showing what the server now holds. */
   onSaved: (saved: Candidate) => void;
@@ -315,16 +318,19 @@ export function CandidateProfile({
               section="compensation"
               candidate={candidate}
               save={replace}
-              doneMessage="Compensation saved"
+              doneMessage="Compensation updated"
               onDone={finish}
               onCancel={() => setEditing(null)}
+              footer="plain"
             >
               {(form) => (
                 <CompensationFields
                   register={form.register}
                   errors={form.formState.errors}
+                  control={form.control}
                   watch={form.watch}
                   setValue={form.setValue}
+                  briefCurrency={briefCurrency}
                   storedCurrency={compensation.currency}
                   storedNoticePeriod={compensation.noticePeriod}
                 />

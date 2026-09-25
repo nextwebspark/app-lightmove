@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { TemplateCompetency, TemplateDetail } from "../api/types";
-import { draftOf, draftProblems, requestOf } from "./templateDraft";
+import { blankDraft, draftOf, draftProblems, requestOf } from "./templateDraft";
 
 const cfo = (overrides: Partial<TemplateDetail> = {}): TemplateDetail => ({
   code: "chief-financial-officer",
@@ -45,6 +45,10 @@ const cfo = (overrides: Partial<TemplateDetail> = {}): TemplateDetail => ({
 });
 
 describe("templateDraft — the editor's copy of a template", () => {
+  it("starts a new template's package in AED", () => {
+    expect(blankDraft().currency).toBe("AED");
+  });
+
   it("sends back exactly what it was given when nothing is edited", () => {
     const detail = cfo();
     const { title, discipline, seniority, summary, keywords, body, version } = detail;

@@ -37,7 +37,7 @@ export function CandidateDrawer({
   customColumns: readonly CustomColumn[];
   /** False for a client representative, who reads a mandate's people and changes nothing about them. */
   canWrite: boolean;
-  /** The brief's currency, offered to a new executive's package. Absent leaves the picker unset. */
+  /** The brief's currency, which a package follows until somebody overrides it. Absent leaves the picker unset. */
   defaultCurrency?: string | null;
   onClose: () => void;
   /** Every write's answer, so the caller keeps this panel on what the server now holds. */
@@ -58,6 +58,7 @@ export function CandidateDrawer({
           candidate={candidate}
           customColumns={customColumns}
           canWrite={canWrite}
+          briefCurrency={defaultCurrency}
           onClose={onClose}
           onSaved={onSaved}
           onRemove={canWrite ? onDelete : undefined}

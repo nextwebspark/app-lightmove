@@ -200,7 +200,7 @@ const yasmin: Candidate = {
   note: null,
   compensation: {
     currency: null, baseSalary: null, bonus: null, allowances: null,
-    longTermIncentive: null, noticePeriod: null,
+    longTermIncentive: null, noticePeriod: null, allowanceLines: [], longTermIncentiveTypes: [],
   },
   career: [],
   education: [],
@@ -830,7 +830,8 @@ describe("TriageStagePage", () => {
 
     await userEvent.click(await screen.findByRole("button", { name: "Add executive" }));
 
-    expect(await screen.findByLabelText(/^Currency$/i)).toHaveValue("SAR");
+    expect(await screen.findByText(/^From brief$/i)).toBeInTheDocument();
+    expect(screen.getByLabelText(/^Currency$/i)).toHaveTextContent("SAR - Saudi Riyal");
   });
 
   it("never asks a client representative's page view for the brief", async () => {

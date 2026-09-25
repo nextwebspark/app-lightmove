@@ -33,7 +33,8 @@ class WorkspaceSettingsIntegrationTest extends FlowTestSupport {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.name").value("Detail Firm"))
                 .andExpect(jsonPath("$.memberCount").value(2))
-                .andExpect(jsonPath("$.emailDomain").value(domain));
+                .andExpect(jsonPath("$.emailDomain").value(domain))
+                .andExpect(jsonPath("$.defaultCurrency").value("AED"));
     }
 
     @Test
@@ -47,12 +48,12 @@ class WorkspaceSettingsIntegrationTest extends FlowTestSupport {
                         .header("Authorization", "Bearer " + admin)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
-                                {"name":"Zeta Advisory","apolloAccountId":"","defaultRegion":"MENA","defaultCurrency":"AED"}"""))
+                                {"name":"Zeta Advisory","apolloAccountId":"","defaultRegion":"MENA","defaultCurrency":"SAR"}"""))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.name").value("Zeta Advisory"))
                 .andExpect(jsonPath("$.logoMark").value("Z"))
                 .andExpect(jsonPath("$.defaultRegion").value("MENA"))
-                .andExpect(jsonPath("$.defaultCurrency").value("AED"))
+                .andExpect(jsonPath("$.defaultCurrency").value("SAR"))
                 .andExpect(jsonPath("$.slug", org.hamcrest.Matchers.startsWith("old-name-firm")));
     }
 

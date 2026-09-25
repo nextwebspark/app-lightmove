@@ -1,6 +1,7 @@
 package app.lightmove.api.workspace.model;
 import app.lightmove.api.workspace.constant.WorkspaceStatus;
 
+import app.lightmove.api.common.constant.DefaultCurrency;
 import app.lightmove.api.core.error.constant.ErrorCode;
 import app.lightmove.api.core.error.model.ApiException;
 import app.lightmove.api.core.persistence.model.BaseEntity;
@@ -91,7 +92,7 @@ public class Workspace extends BaseEntity {
 
     @Setter
     @Column(name = "default_currency", nullable = false, length = 8)
-    private String defaultCurrency = "USD";
+    private String defaultCurrency = DefaultCurrency.CODE;
 
     @Column(nullable = false, length = 32)
     private String plan = "FREE";

@@ -1,6 +1,7 @@
 import { zodResolver } from "@hookform/resolvers/zod";
+import { DEFAULT_CURRENCY } from "../../../lib/currencies";
 import { useMutation } from "@tanstack/react-query";
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import { useRef, useState, type ReactNode } from "react";
 import { FormProvider, useForm } from "react-hook-form";
 import { Icon, ICONS } from "../../../components/layout/Icon";
 import { Button, FormError, useToast } from "../../../components/ui";
@@ -13,6 +14,7 @@ import * as candidatesApi from "../api/candidatesApi";
 import type { Candidate } from "../api/types";
 import {
   candidateSchema,
+  refineCompensation,
   EMPTY_FORM,
   payloadOf,
   type CandidateForm,
@@ -76,22 +78,15 @@ export function AddCandidateForm({
   const [customFields, setCustomFields] = useState<CustomFieldValues>({});
 
   const form = useForm<CandidateForm, unknown, ParsedCandidateForm>({
-    resolver: zodResolver(candidateSchema),
+    resolver: zodResolver(candidateSchema.superRefine(refineCompensation)),
     defaultValues: {
       ...EMPTY_FORM,
       employerName: company?.companyName ?? "",
-      currency: defaultCurrency ?? "",
+      currency: defaultCurrency ?? DEFAULT_CURRENCY,
     },
   });
   const { register, formState } = form;
 
-  // The brief's currency can arrive after the panel opened, and only an untouched field may take it:
-  // a consultant who has already picked one is stating this package is quoted in another.
-  useEffect(() => {
-    if (defaultCurrency && !form.getFieldState("currency").isDirty) {
-      form.setValue("currency", defaultCurrency);
-    }
-  }, [defaultCurrency, form]);
   const formEl = useRef<HTMLFormElement>(null);
   const handleSubmitShortcut = useSubmitShortcut(() => formEl.current?.requestSubmit());
 
@@ -182,9 +177,10 @@ export function AddCandidateForm({
             <CompensationFields
               register={register}
               errors={formState.errors}
+              control={form.control}
               watch={form.watch}
               setValue={form.setValue}
-              storedCurrency={defaultCurrency}
+              briefCurrency={defaultCurrency}
             />
           </Section>
 

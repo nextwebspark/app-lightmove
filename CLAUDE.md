@@ -384,6 +384,14 @@ nothing to key it on.
 V56 adds `app_lm_project_candidate.gender` (`FEMALE | MALE | OTHER`), nullable with no default:
 NULL is "nobody recorded it" and is deliberately not a fourth value, because "not recorded" and
 "recorded as other" are different facts and the report counts them apart.
+V76 adds `app_lm_project_candidate.compensation_breakdown` jsonb — the drawer's allowance lines and
+LTIP instruments. `allowances` stays the total every reader sums; `CandidateCompensation` keeps the
+two agreeing (lines supply a missing total, a contradicting total drops them). The editor's
+Annual/Monthly and %-of-base toggles are how a figure was typed, never stored.
+V77 makes AED the default currency (`DefaultCurrency` / the SPA's `DEFAULT_CURRENCY`): new workspaces,
+briefs and templates start in it, and it moved the shared library, never-saved briefs (`version = 0`)
+and workspace defaults off USD — a saved brief and a firm's own template keep what somebody chose.
+Revenue in the universe and the Strategy filter stays USD: that is what the data is in.
 `app_lm_position_template` (V42) is the role-template library — the identity a picker lists as columns,
 the drafted brief as one `jsonb` body (V30's idiom, not V39's child tables: a template is a
 heterogeneous document read and written whole), and the match keywords as a child table because they

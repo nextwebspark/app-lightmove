@@ -2,6 +2,7 @@ package app.lightmove.api.position.model;
 
 import app.lightmove.api.common.constant.BaseSalaryMode;
 import app.lightmove.api.common.constant.BonusBasis;
+import app.lightmove.api.common.constant.DefaultCurrency;
 import app.lightmove.api.common.constant.EmploymentType;
 import app.lightmove.api.common.constant.IncentiveType;
 import app.lightmove.api.common.constant.NoticeUnit;
@@ -136,7 +137,7 @@ public class Position extends BaseEntity {
     // Step 4 · Compensation package
 
     @Column(name = "currency", nullable = false, length = 3)
-    private String currency = "USD";
+    private String currency = DefaultCurrency.CODE;
 
     @Column(name = "salary_min")
     private Long salaryMin;

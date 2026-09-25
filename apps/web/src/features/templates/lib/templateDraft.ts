@@ -1,3 +1,4 @@
+import { DEFAULT_CURRENCY } from "../../../lib/currencies";
 import type {
   BaseSalaryMode,
   BenefitFrequency,
@@ -111,7 +112,7 @@ export function blankDraft(): TemplateDraft {
     directReports: [],
     noticeValue: 3,
     noticeUnit: "MONTHS",
-    currency: "USD",
+    currency: DEFAULT_CURRENCY,
     baseSalaryMode: "ANNUAL",
     bonusValue: null,
     bonusBasis: null,
