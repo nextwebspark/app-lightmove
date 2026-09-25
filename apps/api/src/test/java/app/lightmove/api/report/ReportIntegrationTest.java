@@ -1,6 +1,7 @@
 package app.lightmove.api.report;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
@@ -286,6 +287,29 @@ class ReportIntegrationTest extends FlowTestSupport {
     }
 
     @Test
+    @DisplayName("an admin with no seat who files is a lead; a researcher unseated since is a former member")
+    void unseatedFilersAreNamedByWhatTheyStillAre() throws Exception {
+        Fixture f = fixture("Report Team Unseated Firm");
+        String nadia = "nadia@" + domain;
+        inviteAndAccept(f.admin, "Nadia Salloum", nadia, "ADMIN");
+        candidate(login(nadia), f.projectId, """
+                {"fullName":"Filed By An Admin"}""");
+        seat(f.admin, f.projectId, f.saraId, "RESEARCHER");
+        candidate(login(f.saraEmail), f.projectId, """
+                {"fullName":"Filed By Sara"}""");
+        mvc.perform(delete("/api/v1/projects/" + f.projectId + "/members/" + f.saraId)
+                        .header("Authorization", "Bearer " + f.admin))
+                .andExpect(status().is2xxSuccessful());
+
+        JsonNode researchers = body(mvc.perform(get(teamUrl(f.projectId)).header("Authorization", "Bearer " + f.admin))
+                .andExpect(status().isOk())
+                .andReturn()).get("researchers");
+
+        assertThat(roleOf(researchers, "Nadia Salloum")).isEqualTo("LEAD");
+        assertThat(roleOf(researchers, "Sara Al-Mansour")).isEqualTo("FORMER");
+    }
+
+    @Test
     @DisplayName("a range that starts after it ends is refused")
     void backwardsRangeIsRefused() throws Exception {
         Fixture f = fixture("Report Team Range Firm");
@@ -298,6 +322,15 @@ class ReportIntegrationTest extends FlowTestSupport {
 
     private static String reportUrl(String projectId) {
         return "/api/v1/projects/" + projectId + "/report";
+    }
+
+    private static String roleOf(JsonNode researchers, String name) {
+        for (JsonNode researcher : researchers) {
+            if (researcher.get("name").asText().equals(name)) {
+                return researcher.get("role").asText();
+            }
+        }
+        throw new AssertionError("No researcher named " + name);
     }
 
     private static String teamUrl(String projectId) {

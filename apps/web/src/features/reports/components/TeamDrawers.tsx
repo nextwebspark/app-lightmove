@@ -16,11 +16,9 @@ const MAX_ACTIVITY = 5;
 /** One researcher over the range: where their executives stand, how complete, and when they worked. */
 export function ResearcherDrawer({
   researcher,
-  days,
   onClose,
 }: {
   researcher: Researcher | null;
-  days: number;
   onClose: () => void;
 }) {
   if (!researcher) return null;
@@ -45,7 +43,7 @@ export function ResearcherDrawer({
       </DrawerSection>
       {researcher.executives === 0 ? (
         <DrawerSection>
-          <p className="text-xs leading-[1.6] text-u-text3">Nobody filed in this range.</p>
+          <p className="text-xs leading-[1.6] text-u-text3">Nothing filed in this range.</p>
         </DrawerSection>
       ) : (
         <>
@@ -60,7 +58,7 @@ export function ResearcherDrawer({
                 Active {activeDays} of {spark.length} days
               </span>
             </div>
-            <Sparkline counts={spark} label={`Executives filed per day over ${days} days`} />
+            <Sparkline counts={spark} label={`Executives filed per day over the last ${spark.length} days`} />
           </DrawerSection>
           <DrawerSection label="Recently added executives">
             {researcher.recent.map((executive) => (

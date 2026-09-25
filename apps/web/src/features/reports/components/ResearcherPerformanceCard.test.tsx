@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { render, screen, waitFor, within } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { SAMPLE_REPORT } from "../../../test/sampleReport";
@@ -42,6 +42,22 @@ describe("ResearcherPerformanceCard", () => {
 
     await userEvent.click(screen.getByRole("button", { name: "Reset filters" }));
     expect(screen.getByRole("radio", { name: "Last 30 days" })).toHaveAttribute("aria-checked", "true");
+  });
+
+  it("never sends a custom range whose start is after its end, and says why", async () => {
+    renderCard();
+    await screen.findByRole("button", { name: /Omar Khoury/ });
+    await userEvent.click(screen.getByRole("radio", { name: "Custom" }));
+    await waitFor(() => expect(reportApi.getTeamPerformance).toHaveBeenLastCalledWith("p1", { from: "2026-07-21", to: "2026-09-08" }, expect.anything()));
+    const calls = vi.mocked(reportApi.getTeamPerformance).mock.calls.length;
+
+    fireEvent.change(screen.getByLabelText("From"), { target: { value: "2026-09-05" } });
+    fireEvent.change(screen.getByLabelText("To"), { target: { value: "2026-08-01" } });
+
+    expect(await screen.findByRole("alert")).toHaveTextContent("The start date must be on or before the end date.");
+    expect(reportApi.getTeamPerformance).toHaveBeenCalledTimes(calls + 1);
+    expect(screen.getByRole("button", { name: /Omar Khoury/ })).toBeInTheDocument();
+    expect(screen.queryByText(/could not be loaded/)).not.toBeInTheDocument();
   });
 
   it("states every researcher's figures from the read, and the coverage it credits", async () => {

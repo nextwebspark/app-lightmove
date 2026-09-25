@@ -70,8 +70,10 @@ class TeamPerformanceReporter {
                 latest == null ? null : latest.mappedAt(),
                 latest == null ? null : nameOf.get(addedBy(latest, team)));
 
+        Map<UUID, Integer> shares = sharesSummingToHundred(inRange, team);
         List<ResearcherDto> researchers = team.researchers().values().stream()
-                .map(identity -> researcher(identity, all, inRange, range, team, nameOf))
+                .map(identity -> researcher(identity, all, inRange, range, team, nameOf,
+                        shares.getOrDefault(identity.userId(), 0)))
                 .filter(row -> row.role() != ResearcherRole.FORMER || row.executives() > 0)
                 .sorted(Comparator.comparingInt(ResearcherDto::executives).reversed())
                 .toList();
@@ -84,7 +86,7 @@ class TeamPerformanceReporter {
 
     private static ResearcherDto researcher(ResearcherIdentity identity, List<ExecutiveRow> all,
                                             List<ExecutiveRow> inRange, ReportRange range, TeamSources team,
-                                            Map<UUID, String> nameOf) {
+                                            Map<UUID, String> nameOf, int sharePct) {
         Predicate<ExecutiveRow> theirs = row -> identity.userId().equals(addedBy(row, team));
         List<ExecutiveRow> filed = inRange.stream().filter(theirs).toList();
         Instant lastAddedAt = all.stream().filter(theirs).map(ExecutiveRow::mappedAt)
@@ -96,7 +98,7 @@ class TeamPerformanceReporter {
         filed.forEach(row -> daily[range.indexOf(ReportCalendar.dateOf(row.mappedAt()))]++);
 
         return new ResearcherDto(identity.userId(), identity.name(), identity.avatarUrl(), identity.role(),
-                filed.size(), companies, filed.size() / (double) range.days(), percent(filed.size(), inRange.size()),
+                filed.size(), companies, filed.size() / (double) range.days(), sharePct,
                 lastAddedAt, filed.isEmpty() ? null : quality(filed), statusMix(filed),
                 Arrays.stream(daily).boxed().toList(), newestFirst(filed, MAX_RECENT, team, nameOf));
     }
@@ -120,6 +122,32 @@ class TeamPerformanceReporter {
                 .sorted(Comparator.comparingInt(CompanyCoverageDto::executives).reversed()
                         .thenComparing(CompanyCoverageDto::name, String.CASE_INSENSITIVE_ORDER))
                 .toList();
+    }
+
+    /**
+     * Each filer's share of the range, rounded by largest remainder so the column adds up to the
+     * Total row's 100% — rounding each share alone left thirds reading 33 + 33 + 33.
+     */
+    private static Map<UUID, Integer> sharesSummingToHundred(List<ExecutiveRow> inRange, TeamSources team) {
+        Map<UUID, Integer> filed = new LinkedHashMap<>();
+        inRange.stream().map(row -> addedBy(row, team)).filter(Objects::nonNull)
+                .forEach(user -> filed.merge(user, 1, Integer::sum));
+        if (inRange.isEmpty()) {
+            return Map.of();
+        }
+        Map<UUID, Integer> shares = new HashMap<>();
+        Map<UUID, Double> remainders = new HashMap<>();
+        filed.forEach((user, count) -> {
+            double exact = count * 100.0 / inRange.size();
+            shares.put(user, (int) Math.floor(exact));
+            remainders.put(user, exact - Math.floor(exact));
+        });
+        int left = 100 - shares.values().stream().mapToInt(Integer::intValue).sum();
+        remainders.entrySet().stream()
+                .sorted(Map.Entry.<UUID, Double>comparingByValue().reversed())
+                .limit(Math.max(left, 0))
+                .forEach(entry -> shares.merge(entry.getKey(), 1, Integer::sum));
+        return shares;
     }
 
     /** Company id → the user who filed its first executive, for every universe company that has one. */

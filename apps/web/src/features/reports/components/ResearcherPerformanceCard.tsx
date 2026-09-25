@@ -40,10 +40,14 @@ export function ResearcherPerformanceCard({ projectId, progress }: { projectId: 
   const [rangeKey, setRangeKey] = useState<TeamRangeKey>(DEFAULT_TEAM_RANGE);
   const [custom, setCustom] = useState<TeamRange>({ from: progress.kickoff, to: progress.asOf });
   const range = teamRangeOf(rangeKey, progress.asOf, custom);
-  const { data: team, isPending, isError } = useQuery({
+  // The date inputs' min/max bound the picker, not a typed date, so a backwards range is caught here
+  // rather than sent: the server would refuse it, and the card would read as broken.
+  const isBackwards = Boolean(range.from && range.to && range.from > range.to);
+  const { data: team, isError } = useQuery({
     queryKey: reportApi.TEAM_REPORT_KEY(projectId, range),
     queryFn: ({ signal }) => reportApi.getTeamPerformance(projectId, range, signal),
     placeholderData: keepPreviousData,
+    enabled: !isBackwards,
     staleTime: 0,
   });
   const [open, setOpen] = useState<OpenDrawer>(null);
@@ -65,6 +69,7 @@ export function ResearcherPerformanceCard({ projectId, progress }: { projectId: 
           custom={custom}
           onCustomChange={setCustom}
           bounds={{ min: progress.kickoff, max: progress.asOf }}
+          isBackwards={isBackwards}
         />
       }
       note={
@@ -77,9 +82,9 @@ export function ResearcherPerformanceCard({ projectId, progress }: { projectId: 
         ) : undefined
       }
     >
-      {isError ? (
+      {isError && !isBackwards ? (
         <ChartEmpty>Researcher performance could not be loaded. Reload the page to try again.</ChartEmpty>
-      ) : isPending ? (
+      ) : !team ? (
         <div className="mt-[18px] h-[220px] animate-pulse rounded-[9px] bg-u-sunken" aria-label="Loading researcher performance" />
       ) : (
         <TeamBody team={team} progress={progress} onOpen={setOpen} />
@@ -87,7 +92,6 @@ export function ResearcherPerformanceCard({ projectId, progress }: { projectId: 
       {team && open?.kind === "researcher" && (
         <ResearcherDrawer
           researcher={team.researchers.find((row) => row.userId === open.id) ?? null}
-          days={team.days}
           onClose={() => setOpen(null)}
         />
       )}
@@ -110,7 +114,7 @@ function TeamBody({
   progress: ReportProgress;
   onOpen: (drawer: OpenDrawer) => void;
 }) {
-  const seriesOf = new Map(team.researchers.map((row, index) => [row.userId, SERIES[index] ?? TAIL]));
+  const seriesOf = seriesByResearcher(team);
   const { kpis } = team;
   const projection = projectCoverage(progress, "recent");
   const firstWeek = projection.lastWeek === 0;
@@ -326,6 +330,20 @@ function CompanyCoverageGrid({
   );
 }
 
+/**
+ * A researcher's colour, fixed whatever the range: the coverage credit (mandate-wide, not ranged)
+ * orders it, then everyone else by name. Ordering by the ranged table recoloured the same person in
+ * the donut and the table each time a pill was pressed.
+ */
+function seriesByResearcher(team: TeamPerformance): Map<string, { fill: string; stroke: string }> {
+  const covered = team.coverage.map((share) => share.userId);
+  const rest = team.researchers
+    .filter((row) => !covered.includes(row.userId))
+    .sort((left, right) => left.name.localeCompare(right.name))
+    .map((row) => row.userId);
+  return new Map([...covered, ...rest].map((userId, index) => [userId, SERIES[index] ?? TAIL]));
+}
+
 /** A projection past this year says its year — "9 May" alone would read as the coming May. */
 function formatProjectedDate(isoDate: string, asOf: string): string {
   const short = formatShortDate(isoDate);
@@ -345,6 +363,7 @@ function RangePills({
   custom,
   onCustomChange,
   bounds,
+  isBackwards,
 }: {
   active: TeamRangeKey;
   onChange: (key: TeamRangeKey) => void;
@@ -352,6 +371,7 @@ function RangePills({
   custom: TeamRange;
   onCustomChange: (range: TeamRange) => void;
   bounds: { min: string; max: string };
+  isBackwards: boolean;
 }) {
   return (
     <div className="flex flex-col items-end gap-2">
@@ -406,6 +426,11 @@ function RangePills({
             />
           </label>
         </div>
+      )}
+      {active === "custom" && isBackwards && (
+        <p role="alert" className="text-[11.5px] font-medium text-u-signal">
+          The start date must be on or before the end date.
+        </p>
       )}
     </div>
   );

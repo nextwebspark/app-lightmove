@@ -92,6 +92,22 @@ class TeamPerformanceReporterTest {
     }
 
     @Test
+    @DisplayName("shares are rounded so the column adds up to the Total row's 100%")
+    void sharesSumToHundred() {
+        TriageCompanyResponse almarai = company("Almarai", null);
+        ExecutiveRow first = executive("First", almarai, null, null, null, at("2026-07-20"));
+        ExecutiveRow second = executive("Second", almarai, null, null, null, at("2026-07-21"));
+        ExecutiveRow third = executive("Third", almarai, null, null, null, at("2026-07-22"));
+
+        TeamPerformanceDto report = new TeamPerformanceReporter().report(
+                sources(List.of(almarai), List.of(first, second, third)), THREE_WEEKS, LAST_WEEK,
+                team(Map.of(first.executive().id(), yara, second.executive().id(), omar,
+                        third.executive().id(), leaver)));
+
+        assertThat(report.researchers()).extracting(ResearcherDto::sharePct).containsExactlyInAnyOrder(34, 33, 33);
+    }
+
+    @Test
     @DisplayName("a requested range is clamped into the calendar, and a backwards one answers nothing")
     void rangeIsClamped() {
         ReportRange clamped = ReportRange.within(THREE_WEEKS, LocalDate.parse("2026-01-01"), LocalDate.parse("2027-01-01"));
