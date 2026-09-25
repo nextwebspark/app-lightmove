@@ -25,3 +25,6 @@ export function currencyOptionLabel(code: string): string {
   const name = (CURRENCY_NAMES as Record<string, string | undefined>)[code];
   return name ? `${code} - ${name}` : code;
 }
+
+/** What a workspace, a brief, a template and an executive's package start in until somebody picks another. */
+export const DEFAULT_CURRENCY: Currency = "AED";

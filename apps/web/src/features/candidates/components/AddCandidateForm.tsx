@@ -1,4 +1,5 @@
 import { zodResolver } from "@hookform/resolvers/zod";
+import { DEFAULT_CURRENCY } from "../../../lib/currencies";
 import { useMutation } from "@tanstack/react-query";
 import { useRef, useState, type ReactNode } from "react";
 import { FormProvider, useForm } from "react-hook-form";
@@ -81,7 +82,7 @@ export function AddCandidateForm({
     defaultValues: {
       ...EMPTY_FORM,
       employerName: company?.companyName ?? "",
-      currency: defaultCurrency ?? "",
+      currency: defaultCurrency ?? DEFAULT_CURRENCY,
     },
   });
   const { register, formState } = form;

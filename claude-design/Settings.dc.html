@@ -293,7 +293,7 @@
                 <label style="display:block;margin-bottom:16px">
                   <span style="display:block;margin-bottom:6px;font:600 10px var(--mono);letter-spacing:.12em;text-transform:uppercase;color:var(--text3)">Default currency</span>
                   <select value="{{ wsCurrency }}" onChange="{{ onWsCurrency }}" style="width:100%;border-radius:6px;border:1px solid var(--line);background:var(--panel);padding:10px 12px;font:400 13px var(--mono);color:var(--text);outline:none" style-focus="border-color:var(--sky)">
-                    <option>USD</option><option>AED</option><option>SAR</option><option>EUR</option>
+                    <option>AED</option><option>SAR</option><option>QAR</option><option>KWD</option><option>BHD</option><option>OMR</option><option>USD</option><option>GBP</option><option>EUR</option>
                   </select>
                 </label>
               </div>
@@ -1126,7 +1126,7 @@ class Component extends DCLogic {
         { id: 's2', device: 'iPhone — Safari', kind: 'MOBILE', meta: '5.31.44.120 · 3 hours ago', current: false },
         { id: 's3', device: 'Uncava Capture (browser extension)', kind: 'EXTENSION', meta: '94.204.12.8 · 2 days ago', current: false },
       ],
-      wsName: 'Al-Futtaim', wsRegion: 'GCC', wsCurrency: 'USD',
+      wsName: 'Al-Futtaim', wsRegion: 'GCC', wsCurrency: 'AED',
       deleteOpen: !!props.deleteOpen, confirmName: '',
       members: [
         { id: 'yh', name: 'Yara Haddad', initials: 'YH', email: 'yara@alfuttaim.com', role: 'ADMIN', tint: 'sky' },
@@ -1227,7 +1227,7 @@ class Component extends DCLogic {
 
   draftFor(r) {
     if (!r) {
-      return { title: '', discipline: 'EXECUTIVE', seniority: 'C_SUITE', summary: '', keywords: [], department: '', employmentType: 'FULL_TIME_PERMANENT', narrative: '', responsibilities: [], strategicPriorities: [], reportsTo: '', directReports: [], notice: '3 months', currency: 'USD', baseSalaryMode: 'ANNUAL', bonusValue: '', bonusBasis: '', incentiveType: '', incentiveVesting: '', benefits: [], criteria: [], technical: [], behavioural: [] };
+      return { title: '', discipline: 'EXECUTIVE', seniority: 'C_SUITE', summary: '', keywords: [], department: '', employmentType: 'FULL_TIME_PERMANENT', narrative: '', responsibilities: [], strategicPriorities: [], reportsTo: '', directReports: [], notice: '3 months', currency: 'AED', baseSalaryMode: 'ANNUAL', bonusValue: '', bonusBasis: '', incentiveType: '', incentiveVesting: '', benefits: [], criteria: [], technical: [], behavioural: [] };
     }
     const cfo = r.code === 'chief-financial-officer';
     const comp = (list) => list.map(([name, description, weight], i) => ({ id: r.code + name + i, name, description, weight }));
@@ -1239,7 +1239,7 @@ class Component extends DCLogic {
       strategicPriorities: ['Capital discipline', 'Governance & controls', 'Portfolio growth', 'Operational excellence', 'Talent development'],
       reportsTo: r.code === 'chief-executive-officer' ? 'Board of Directors' : 'Group CEO',
       directReports: cfo ? ['Financial Controller', 'Head of Treasury', 'Head of FP&A', 'Head of Investor Relations'] : [],
-      notice: '3 months', currency: 'USD', baseSalaryMode: 'ANNUAL',
+      notice: '3 months', currency: 'AED', baseSalaryMode: 'ANNUAL',
       bonusValue: cfo ? '40' : '', bonusBasis: cfo ? 'PERCENT_OF_BASE' : '', incentiveType: cfo ? 'LTIP_CASH' : '',
       incentiveVesting: cfo ? 'Three-year performance cycle, vesting one third annually' : '',
       benefits: [['Housing allowance', 'MONTHLY'], ['Transport allowance', 'MONTHLY'], ['Family medical cover', 'YEARLY'], ["Children's education", 'YEARLY'], ['Annual home leave flights', 'YEARLY']].map(([name, frequency]) => ({ name, frequency })),

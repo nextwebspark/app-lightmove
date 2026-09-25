@@ -15,7 +15,7 @@ import { Field, Input, Select, TextArea } from "../../../components/ui";
 import { CountryField } from "../../../components/ui/CountryField";
 import { SegmentedControl, type SegmentedOption } from "../../../components/ui/SegmentedControl";
 import { cn } from "../../../lib/cn";
-import { CURRENCIES, currencyOptionLabel } from "../../../lib/currencies";
+import { CURRENCIES, currencyOptionLabel, DEFAULT_CURRENCY } from "../../../lib/currencies";
 import { formatNumber } from "../../../lib/format";
 import { NOTICE_PERIODS } from "../../../lib/noticePeriod";
 import { toReadableUrl } from "../../../lib/url";
@@ -291,12 +291,15 @@ export function CompensationFields<TTransformed extends FieldValues>({
       (currencyMode === "auto" && (!storedCurrency || storedCurrency === briefCurrency)));
 
   // The brief is read beside the grid and can land after the form opened; while the package follows
-  // it, it takes it. Once overridden, nothing here touches the pick.
+  // it, it takes it. With no brief and nothing on file, the package starts in the default currency.
+  // Once overridden, nothing here touches the pick.
   useEffect(() => {
     if (followsBrief && briefCurrency && currency !== briefCurrency) {
       setValue("currency", briefCurrency, { shouldDirty: true });
+    } else if (!briefCurrency && !storedCurrency && currencyMode === "auto" && !currency) {
+      setValue("currency", DEFAULT_CURRENCY, { shouldDirty: true });
     }
-  }, [followsBrief, briefCurrency, currency, setValue]);
+  }, [followsBrief, briefCurrency, storedCurrency, currencyMode, currency, setValue]);
 
   const currencyField = register("currency");
   const bonusPercentField = register("bonus");

@@ -308,6 +308,18 @@ describe("CandidateDrawer", () => {
     expect(screen.getByLabelText(/^Currency$/i)).toHaveTextContent("SAR - Saudi Riyal");
   });
 
+  it("opens a package with no currency on file and no brief in AED", async () => {
+    renderDrawer({
+      candidate: { ...yasmin, compensation: { ...yasmin.compensation, currency: null } },
+      company: null,
+    });
+
+    await userEvent.click(screen.getByRole("button", { name: /Edit compensation/i }));
+
+    expect(screen.getByLabelText(/^Currency$/i)).toHaveValue("AED");
+    expect(screen.queryByText(/^From brief$/i)).not.toBeInTheDocument();
+  });
+
   it("opens a stored currency other than the brief's as overridden", async () => {
     renderDrawer({ candidate: yasmin, company: null, defaultCurrency: "SAR" });
 
@@ -446,7 +458,8 @@ describe("CandidateDrawer", () => {
     renderDrawer({}, BriefArrivesLate);
 
     const currency = () => screen.getByLabelText(/^Currency$/i);
-    expect(currency()).toHaveValue("");
+    // No brief read yet: the package starts in the default currency, not "Not set".
+    expect(currency()).toHaveValue("AED");
 
     await userEvent.selectOptions(currency(), "QAR");
     await userEvent.click(screen.getByRole("button", { name: /brief read/i }));

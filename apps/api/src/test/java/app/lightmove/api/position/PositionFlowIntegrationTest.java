@@ -66,7 +66,7 @@ class PositionFlowIntegrationTest extends FlowTestSupport {
                 // A template states the shape of a package and never its numbers.
                 .andExpect(jsonPath("$.compensation.benefits[0].amount").isEmpty())
                 .andExpect(jsonPath("$.compensation.salaryMin").isEmpty())
-                .andExpect(jsonPath("$.compensation.currency").value("USD"))
+                .andExpect(jsonPath("$.compensation.currency").value("AED"))
                 .andExpect(jsonPath("$.compensation.baseSalaryMode").value("ANNUAL"))
                 // The brief opens on the priority palette, none of it lit.
                 .andExpect(jsonPath("$.context.strategicPriorities.length()").value(5))

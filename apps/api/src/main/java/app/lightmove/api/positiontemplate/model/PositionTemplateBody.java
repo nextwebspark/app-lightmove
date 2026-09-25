@@ -4,6 +4,7 @@ import app.lightmove.api.common.constant.BaseSalaryMode;
 import app.lightmove.api.common.constant.BenefitFrequency;
 import app.lightmove.api.common.constant.BonusBasis;
 import app.lightmove.api.common.constant.CriterionMode;
+import app.lightmove.api.common.constant.DefaultCurrency;
 import app.lightmove.api.common.constant.EmploymentType;
 import app.lightmove.api.common.constant.IncentiveType;
 import app.lightmove.api.common.constant.NoticeUnit;
@@ -60,7 +61,7 @@ public record PositionTemplateBody(
         benefits = copyOrEmpty(benefits);
         criteria = copyOrEmpty(criteria);
         competencies = copyOrEmpty(competencies);
-        currency = currency == null ? "USD" : currency;
+        currency = currency == null ? DefaultCurrency.CODE : currency;
         baseSalaryMode = baseSalaryMode == null ? BaseSalaryMode.ANNUAL : baseSalaryMode;
     }
 

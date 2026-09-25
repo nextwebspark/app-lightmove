@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import { PageHeader } from "../../../components/layout/PageHeader";
 import { Button, Field, FormError, Input, Modal, Select, useToast } from "../../../components/ui";
 import { CompanyLogo } from "../../../components/ui/CompanyLogo";
+import { CURRENCIES, DEFAULT_CURRENCY } from "../../../lib/currencies";
 import { messageFor } from "../../../lib/errorCodes";
 import { useAuth } from "../../auth/AuthProvider";
 import type { WorkspaceCompany } from "../../auth/api/types";
@@ -16,7 +17,6 @@ import * as workspaceApi from "../../workspace/api/workspaceApi";
 import { WorkspacePersonaCard } from "../components/WorkspacePersonaCard";
 
 const REGIONS = ["GCC", "MENA", "Europe", "Global"];
-const CURRENCIES = ["USD", "AED", "SAR", "EUR"];
 
 /**
  * Settings → General: identity card, the firm (picked from the universe, as at signup) and defaults,
@@ -34,7 +34,7 @@ export function SettingsGeneralPage() {
 
   const [pick, setPick] = useState<CompanyPick | null>(null);
   const [region, setRegion] = useState("GCC");
-  const [currency, setCurrency] = useState("USD");
+  const [currency, setCurrency] = useState<string>(DEFAULT_CURRENCY);
   const [deleteOpen, setDeleteOpen] = useState(false);
 
   useEffect(() => {
@@ -124,7 +124,8 @@ export function SettingsGeneralPage() {
           </Field>
           <Field label="Default currency">
             <Select value={currency} onChange={(event) => setCurrency(event.target.value)} className="!bg-u-surface">
-              {CURRENCIES.map((c) => (
+              {/* A code stored before the list grew stays offered: an unmatched select would post blank. */}
+              {[...new Set([currency, ...CURRENCIES])].map((c) => (
                 <option key={c}>{c}</option>
               ))}
             </Select>
