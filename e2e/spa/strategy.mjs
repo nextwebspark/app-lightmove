@@ -100,7 +100,7 @@ const clientId = (await api("/clients", { method: "POST", token, body: { customN
 const PROJECT = (await api("/projects", { method: "POST", token, body: { clientId, positionTitle: "Chief Technology Officer" } })).body.id;
 const STRATEGY_URL = `${WEB}/projects/${PROJECT}/strategy`;
 
-const browser = await chromium.launch();
+const browser = await chromium.launch(process.env.CHROMIUM_PATH ? { executablePath: process.env.CHROMIUM_PATH } : {});
 const context = await browser.newContext({ viewport: { width: 1680, height: 1050 } });
 const page = await context.newPage();
 let facets = null;
@@ -140,11 +140,27 @@ async function waitTotal(want, timeoutMs = 25000) {
 const allRows = () => page.locator('[role="table"] [role="row"]');
 const cellsOf = (index) => allRows().nth(index + 1).locator('[role="cell"]').allInnerTexts();
 const rowCount = async () => (await allRows().count()) - 1;
-const columnValues = async (column) => {
+// Looked up by header, not by position: the grid gained a selection box, a Links column and a Fit
+// column in front of the figures, and every fixed index here silently read the wrong one.
+const columnIndex = async (name) => {
+  const headers = await page.locator('[role="table"] [role="columnheader"]').allInnerTexts();
+  const index = headers.findIndex((header) => new RegExp(`^${name}`, "i").test(header.trim()));
+  if (index < 0) throw new Error(`no ${name} column among ${headers.join(" | ")}`);
+  return index;
+};
+// A company cell leads with its logo, or an initials tile where there is none, so the name is the
+// cell's last line.
+const columnValues = async (name) => {
+  const column = await columnIndex(name);
   const out = [];
-  for (let i = 0, n = await rowCount(); i < n; i++) out.push((await cellsOf(i))[column]);
+  for (let i = 0, n = await rowCount(); i < n; i++) out.push((await cellsOf(i))[column].split("\n").pop());
   return out;
 };
+// The grid's page size is the SPA's, read from the source rather than copied: this file said 25 for
+// months after the SPA moved to 50, and every paging case read a page boundary that no longer existed.
+const PAGE_SIZE = Number(readFileSync(join(HERE, "..", "..", "apps", "web", "src", "lib", "paging.ts"), "utf8")
+  .match(/DEFAULT_PAGE_SIZE\s*=\s*(\d+)/)[1]);
+const pageRange = (pageNumber) => `${(pageNumber - 1) * PAGE_SIZE + 1} - ${pageNumber * PAGE_SIZE}`;
 // Location starts open, so a blind click on its header would close it.
 const openAccordion = async (label) => {
   const header = page.getByRole("button", { name: new RegExp(`^${label}`) }).first();
@@ -336,7 +352,7 @@ try {
     await freshFilter();
     await sortHeader("COMPANY").click();
     await page.waitForTimeout(2000);
-    const names = await columnValues(0);
+    const names = await columnValues("COMPANY");
     // Expected comes from the database, not from JS. localeCompare is ICU and Postgres sorts in its
     // own collation; the two disagree on punctuation, so a name beginning with ' or " or # made this
     // fail against a sort that was correct. Every other case in this file reads psql for the same
@@ -350,9 +366,9 @@ try {
     await freshFilter();
     const header = sortHeader("REVENUE");
     await header.click(); await page.waitForTimeout(1800);   // descending
-    const descending = await columnValues(4);
+    const descending = await columnValues("REVENUE");
     await header.click(); await page.waitForTimeout(1800);   // ascending
-    const ascending = await columnValues(4);
+    const ascending = await columnValues("REVENUE");
     check("S5.2a", "descending revenue opens on real figures", false, descending[0] === "—");
     // Apollo publishes a figure on one row in ten; without NULLS LAST this is nine pages of blanks.
     check("S5.2b", "ascending revenue does not open on the nine-in-ten blank rows", false, ascending[0] === "—");
@@ -363,34 +379,34 @@ try {
     await freshFilter();
     await page.getByRole("button", { name: "Next page" }).click();
     await page.waitForTimeout(1500);
-    const onPageTwo = (await barText()).startsWith("26");
+    const onPageTwo = (await barText()).startsWith(`${PAGE_SIZE + 1} - `);
     await sortHeader("COMPANY").click();
     await page.waitForTimeout(2000);
-    check("S5.3", "changing the sort returns to page 1", true, onPageTwo && (await barText()).startsWith("1 - 25"));
+    check("S5.3", "changing the sort returns to page 1", true, onPageTwo && (await barText()).startsWith(`${pageRange(1)} `));
   });
 
   // ---------------------------------------------------------------- S6 paging
   section("S6  paging");
+  // Paged over the largest market, which is the one guaranteed to run past three pages.
   await step("S6.1", "paging through a filtered result", async () => {
     await freshFilter();
     await openAccordion("Location");
-    await page.getByRole("button", { name: new RegExp(`^${SECOND_COUNTRY}`) }).first().click();
-    await waitTotal(num(`SELECT count(*) FROM app_lm_apollo_companies WHERE company_country = '${SECOND_COUNTRY.replace(/'/g, "''")}'`));
+    await page.getByRole("button", { name: new RegExp(`^${TOP_COUNTRY}`) }).first().click();
+    await waitTotal(num(`SELECT count(*) FROM app_lm_apollo_companies WHERE company_country = '${TOP_COUNTRY.replace(/'/g, "''")}'`));
     check("S6.1a", "Previous is disabled on page 1", true, await page.getByRole("button", { name: "Previous page" }).isDisabled());
     await page.getByRole("button", { name: "Next page" }).click();
     await page.waitForTimeout(1500);
-    check("S6.1b", "page 2 counts from 26", true, (await barText()).startsWith("26 - 50 of"));
+    check("S6.1b", `page 2 counts from ${PAGE_SIZE + 1}`, true, (await barText()).startsWith(`${pageRange(2)} of`));
     await shot("page-two");
   });
   await step("S6.2", "a filter change deep in the pages returns to page 1", async () => {
     await page.getByRole("button", { name: "Next page" }).click(); await page.waitForTimeout(1200);
-    await page.getByRole("button", { name: "Next page" }).click(); await page.waitForTimeout(1200);
-    const deep = (await barText()).startsWith("76 - 100");
-    await page.getByRole("button", { name: new RegExp(`^${TOP_COUNTRY}`) }).first().click();
+    const deep = (await barText()).startsWith(pageRange(3));
+    await page.getByRole("button", { name: new RegExp(`^${SECOND_COUNTRY}`) }).first().click();
     await page.waitForTimeout(2500);
-    // Staying on page 4 of a filter that now matches two companies shows an empty table over a
-    // non-empty result, which is the bug the page reset exists to prevent.
-    check("S6.2", "adding a country while on page 4 returns to page 1", true, deep && (await barText()).startsWith("1 - 25 of"));
+    // Staying on page 3 of a filter that has just changed shows whatever that page of the new result
+    // is, or an empty table over a non-empty one, which is the bug the page reset exists to prevent.
+    check("S6.2", "adding a country while on page 3 returns to page 1", true, deep && (await barText()).startsWith(`${pageRange(1)} of`));
   });
 
   // ---------------------------------------------------------------- S7 off-limits
@@ -401,13 +417,15 @@ try {
     await page.getByRole("button", { name: new RegExp(`^${SECOND_COUNTRY}`) }).first().click();
     const scope = num(`SELECT count(*) FROM app_lm_apollo_companies WHERE company_country = '${SECOND_COUNTRY.replace(/'/g, "''")}'`);
     await waitTotal(scope);
-    const target = (await cellsOf(0))[0].split("\n").pop();
+    const target = (await columnValues("COMPANY"))[0];
     await openAccordion("Off-limits");
-    await page.getByPlaceholder(/search/i).last().fill(target.slice(0, 14));
+    // The whole name, not a prefix: a prefix picked whichever of several similarly named companies
+    // the list offered first, and the case then watched for the wrong one to disappear.
+    await page.getByPlaceholder(/search/i).last().fill(target);
     await page.waitForTimeout(1200);
-    await page.locator('[role="option"], li, button').filter({ hasText: target.slice(0, 14) }).first().click();
+    await page.locator('[role="option"], li, button').filter({ hasText: target }).first().click();
     check("S7.1a", "the barred company drops out of the count", scope - 1, await waitTotal(scope - 1));
-    check("S7.1b", "…and never appears in the page", false, (await columnValues(0)).some((name) => name.endsWith(target)));
+    check("S7.1b", "…and never appears in the page", false, (await columnValues("COMPANY")).includes(target));
     await shot("off-limits");
     // The picker clears its input on a pick but never closes its list, and keepPreviousData holds the
     // old rows, so the dropdown stays open over the EXCLUDED chips it just added to — see the UAT
@@ -418,7 +436,7 @@ try {
     await page.waitForTimeout(300);
     // Named, not just scoped to the rail: every collapsed accordion now summarises itself with
     // "Remove <value>" pills, so the first one in the rail is whichever axis sits highest.
-    const barred = target.slice(0, 14).replace(/"/g, '\\"');
+    const barred = target.replace(/"/g, '\\"');
     const chip = page.locator(`[aria-label="Filters"] [aria-label^="Remove "][aria-label*="${barred}"]`).first();
     if (!(await chip.isVisible().catch(() => false))) await openAccordion("Off-limits");
     await chip.waitFor({ state: "visible", timeout: 15000 });
@@ -534,18 +552,35 @@ try {
 
   // ---------------------------------------------------------------- S9 triage hand-off
   section("S9  what the mandate takes from the market");
-  await step("S9.1", "the row's + files one company", async () => {
+  // A row carries a tick box, not a +: a selection raises a floating bar whose three buttons file every
+  // ticked company at one stage in one request (POST /triage/bulk).
+  const tick = (name) => page.getByRole("checkbox", { name: `Select ${name}`, exact: true }).click();
+  const filedAt = (status) => num(`SELECT count(*) FROM app_lm_project_triage_company WHERE project_id = '${PROJECT}' AND status = '${status}'`);
+  await step("S9.1", "ticked rows are filed at the stage the bar names", async () => {
     await freshFilter();
+    const names = await columnValues("COMPANY");
     const before = num(`SELECT count(*) FROM app_lm_project_triage_company WHERE project_id = '${PROJECT}'`);
-    await page.locator('[aria-label^="Add "][aria-label$=" to universe"]').first().click();
-    await page.waitForTimeout(1500);
-    note("S9.1a", `toast: "${await toastText()}"`);
-    check("S9.1", "the row's + files exactly one company", before + 1,
+    await tick(names[0]); await tick(names[1]);
+    check("S9.1a", "the bar counts the selection", 1, await page.locator('[aria-label="2 companies selected"]').count());
+    await page.getByRole("button", { name: /^In universe/ }).last().click();
+    await page.waitForTimeout(2000);
+    note("S9.1b", `toast: "${await toastText()}"`);
+    check("S9.1c", "both ticked companies are filed in universe", 2, filedAt("IN_UNIVERSE"));
+    check("S9.1d", "and nothing else is", before + 2,
       num(`SELECT count(*) FROM app_lm_project_triage_company WHERE project_id = '${PROJECT}'`));
-    await page.locator('[aria-label^="Add "][aria-label$=" to universe"]').first().click();
-    await page.waitForTimeout(1500);
-    check("S9.1b", "a second click on the same row does not file it twice", before + 1,
-      num(`SELECT count(*) FROM app_lm_project_triage_company WHERE project_id = '${PROJECT}'`));
+    // Filed companies leave the market list, so the next two rows are fresh ones.
+    await page.waitForTimeout(1000);
+    const next = await columnValues("COMPANY");
+    check("S9.1e", "a filed company no longer appears in the market", false, next.includes(names[0]) || next.includes(names[1]));
+    await tick(next[0]);
+    await page.getByRole("button", { name: /^Shortlisted/ }).last().click();
+    await page.waitForTimeout(2000);
+    check("S9.1f", "the bar files a shortlist in one step", 1, filedAt("SHORTLISTED"));
+    await tick(next[1]);
+    await page.getByRole("button", { name: /^Declined/ }).last().click();
+    await page.waitForTimeout(2000);
+    check("S9.1g", "and declines without taking the company into the universe first", 1, filedAt("DECLINED"));
+    await shot("bulk-filed");
   });
   await step("S9.2", "'Add all' over the whole universe is refused, out loud", async () => {
     await freshFilter();
@@ -560,7 +595,7 @@ try {
     await shot("add-all-refused");
   });
   await step("S9.3", "the Triage screen shows what Strategy filed", async () => {
-    await page.goto(`${WEB}/projects/${PROJECT}/triage`);
+    await page.goto(`${WEB}/projects/${PROJECT}/companies/universe`);
     await page.waitForTimeout(2500);
     const inUniverse = num(`SELECT count(*) FROM app_lm_project_triage_company WHERE project_id = '${PROJECT}' AND status = 'IN_UNIVERSE'`);
     check("S9.3", "the In universe count matches the database", true, (await page.locator("body").innerText()).includes(String(inUniverse)));
@@ -575,7 +610,9 @@ try {
     await page.getByRole("button", { name: /Columns/ }).click();
     await page.waitForTimeout(300);
     await shot("columns");
-    await page.getByText("Sector", { exact: true }).first().click();
+    // The picker's rows are role=checkbox; a bare text match hits the table's own SECTOR header first
+    // and sorts by it instead.
+    await page.getByRole("checkbox", { name: "Sector", exact: true }).click();
     await page.keyboard.press("Escape");
     await page.waitForTimeout(500);
     check("S10.1a", "the column disappears", false,

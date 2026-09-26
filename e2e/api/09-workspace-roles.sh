@@ -94,7 +94,9 @@ section "R3  workspace settings"
 row R3.1 "GET /workspace" GET /workspace "" \
   admin=200 member=200 dual=200 client=403:FORBIDDEN
 
-row R3.2 "PATCH /workspace" PATCH /workspace "$(jq -nc --arg n "$WORKSPACE_NAME" '{name:$n}')" \
+# apolloAccountId is required since V68 (an empty string is "typed name, no company"); without it the
+# body fails validation before the role gate is ever asked, and every row reads 400.
+row R3.2 "PATCH /workspace" PATCH /workspace "$(jq -nc --arg n "$WORKSPACE_NAME" '{name:$n, apolloAccountId:""}')" \
   member=403:FORBIDDEN dual=403:FORBIDDEN client=403:FORBIDDEN
 
 row R3.3 "DELETE /workspace — the gate nothing tested" \
