@@ -81,6 +81,7 @@ public class ProjectImportService {
     private final CustomColumnService customColumns;
     private final TriageCompanyService triage;
     private final CandidateService candidates;
+    private final ImportRequestBuilder requests;
     private final ProjectRepository projects;
     private final AuditService audit;
 
@@ -186,7 +187,7 @@ public class ProjectImportService {
                     : ImportTargetField.fromValue(mapping.targetField().trim());
             if (field != null) {
                 if (claimedFields.putIfAbsent(field, mapping.index()) == null) {
-                    resolved.put(mapping.index(), ResolvedColumn.onto(field));
+                    resolved.put(mapping.index(), new ResolvedColumn.BuiltInColumn(field));
                 }
                 continue;
             }
@@ -206,7 +207,7 @@ public class ProjectImportService {
                 byKey.put(column.target() + ":" + column.fieldKey(), column);
             }
             if (column != null) {
-                resolved.put(mapping.index(), ResolvedColumn.into(column));
+                resolved.put(mapping.index(), new ResolvedColumn.DefinedCustomColumn(column));
             }
         }
         return resolved;
@@ -266,7 +267,7 @@ public class ProjectImportService {
                 triage.findCompanyOfProjectByName(projectId, companyName);
         if (existing.isEmpty()) {
             TriageCompanyResponse created = triage.capture(userId, workspaceId, projectId,
-                    captureRequestFor(companyName, fields), httpRequest);
+                    requests.captureRequestFor(companyName, fields), httpRequest);
             tally.companyCreated();
             return created;
         }
@@ -279,7 +280,7 @@ public class ProjectImportService {
         // universe is badged `extension` and carries one all the same.
         if (held.apolloAccountId() == null) {
             TriageCompanyResponse updated = triage.edit(userId, workspaceId, projectId, held.id(),
-                    editRequestFor(held, companyName, fields), httpRequest);
+                    requests.editRequestFor(held, companyName, fields), httpRequest);
             tally.companyUpdated();
             return updated;
         }
@@ -304,140 +305,16 @@ public class ProjectImportService {
 
         if (existing.isEmpty()) {
             candidates.add(userId, workspaceId, projectId,
-                    candidateRequestFor(null, triageCompanyId, companyName, personName, fields),
+                    requests.candidateRequestFor(null, triageCompanyId, companyName, personName, fields),
                     httpRequest);
             tally.candidateCreated();
             return;
         }
         CandidateResponse held = existing.get();
         candidates.replace(userId, workspaceId, projectId, held.id(),
-                candidateRequestFor(held, triageCompanyId, companyName, personName, fields),
+                requests.candidateRequestFor(held, triageCompanyId, companyName, personName, fields),
                 ContactSource.CSV, httpRequest);
         tally.candidateUpdated();
-    }
-
-    private CaptureCompanyRequest captureRequestFor(String companyName, RowFields fields) {
-        return new CaptureCompanyRequest(
-                RowValues.text(companyName, 200),
-                // The import is its own door, recorded so the grid's Source badge can say a figure
-                // came out of somebody's spreadsheet rather than out of the market.
-                "csv",
-                "inUniverse",
-                RowValues.text(fields.field(ImportTargetField.COMPANY_INDUSTRY), 200),
-                RowValues.text(fields.field(ImportTargetField.COMPANY_COUNTRY), 100),
-                RowValues.text(fields.field(ImportTargetField.COMPANY_CITY), 100),
-                RowValues.integer(fields.field(ImportTargetField.COMPANY_EMPLOYEES)),
-                RowValues.number(fields.field(ImportTargetField.COMPANY_REVENUE)),
-                foundedYearOf(fields),
-                RowValues.text(fields.field(ImportTargetField.COMPANY_WEBSITE), 500),
-                RowValues.text(fields.field(ImportTargetField.COMPANY_LINKEDIN), 500),
-                RowValues.text(fields.field(ImportTargetField.COMPANY_DESCRIPTION), 2000),
-                null,
-                RowValues.text(fields.field(ImportTargetField.COMPANY_NOTE), 2000),
-                fields.customValues(CustomColumnTarget.COMPANY));
-    }
-
-    /**
-     * The stored row with the file's non-blank cells laid over it — an edit replaces a company whole,
-     * so anything the file does not carry has to be restated or it is lost.
-     */
-    private EditTriageCompanyRequest editRequestFor(TriageCompanyResponse held, String companyName,
-                                                    RowFields fields) {
-        return new EditTriageCompanyRequest(
-                firstOf(RowValues.text(companyName, 200), held.companyName()),
-                firstOf(RowValues.text(fields.field(ImportTargetField.COMPANY_INDUSTRY), 200), held.industry()),
-                firstOf(RowValues.text(fields.field(ImportTargetField.COMPANY_COUNTRY), 100), held.companyCountry()),
-                firstOf(RowValues.text(fields.field(ImportTargetField.COMPANY_CITY), 100), held.companyCity()),
-                firstOf(RowValues.integer(fields.field(ImportTargetField.COMPANY_EMPLOYEES)), held.numEmployees()),
-                firstOf(RowValues.number(fields.field(ImportTargetField.COMPANY_REVENUE)), held.annualRevenue()),
-                firstOf(foundedYearOf(fields), held.foundedYear()),
-                firstOf(RowValues.text(fields.field(ImportTargetField.COMPANY_WEBSITE), 500), held.website()),
-                firstOf(RowValues.text(fields.field(ImportTargetField.COMPANY_LINKEDIN), 500), held.companyLinkedinUrl()),
-                firstOf(RowValues.text(fields.field(ImportTargetField.COMPANY_DESCRIPTION), 2000), held.shortDescription()),
-                fields.customValues(CustomColumnTarget.COMPANY));
-    }
-
-    /**
-     * The same overlay for a person. {@code held} is null when creating, in which case every stored
-     * value is simply absent and the file's own cells stand alone.
-     */
-    private SaveCandidateRequest candidateRequestFor(CandidateResponse held, UUID triageCompanyId,
-                                                     String companyName, String personName,
-                                                     RowFields fields) {
-        return new SaveCandidateRequest(
-                triageCompanyId,
-                firstOf(RowValues.text(personName, 200), held == null ? null : held.fullName()),
-                firstOf(RowValues.text(fields.field(ImportTargetField.CANDIDATE_TITLE), 200),
-                        held == null ? null : held.title()),
-                firstOf(RowValues.seniority(fields.field(ImportTargetField.CANDIDATE_SENIORITY)),
-                        held == null ? null : held.seniority()),
-                // Never from the file: a "status" column in somebody's spreadsheet is their pipeline,
-                // and overwriting this mandate's own decision with it would undo a researcher's work.
-                held == null ? null : held.status(),
-                firstOf(RowValues.text(companyName, 200), held == null ? null : held.companyName()),
-                // A cell's address or number joins the person's ledger; what they already hold is
-                // never re-sent, because the ledger keeps it regardless.
-                RowValues.text(fields.field(ImportTargetField.CANDIDATE_EMAIL), 320),
-                RowValues.text(fields.field(ImportTargetField.CANDIDATE_PHONE), 50),
-                null,
-                null,
-                firstOf(RowValues.text(fields.field(ImportTargetField.CANDIDATE_LINKEDIN), 500),
-                        held == null ? null : held.linkedinUrl()),
-                firstOf(RowValues.text(fields.field(ImportTargetField.CANDIDATE_COUNTRY), 100),
-                        held == null ? null : held.locationCountry()),
-                firstOf(RowValues.text(fields.field(ImportTargetField.CANDIDATE_CITY), 100),
-                        held == null ? null : held.locationCity()),
-                firstOf(RowValues.text(fields.field(ImportTargetField.CANDIDATE_NATIONALITY), 100),
-                        held == null ? null : held.nationality()),
-                firstOf(RowValues.gender(fields.field(ImportTargetField.CANDIDATE_GENDER)),
-                        held == null ? null : held.gender()),
-                firstOf(yearsExperienceOf(fields), held == null ? null : held.yearsExperience()),
-                firstOf(RowValues.text(fields.field(ImportTargetField.CANDIDATE_SUMMARY), 4000),
-                        held == null ? null : held.summary()),
-                firstOf(RowValues.text(fields.field(ImportTargetField.CANDIDATE_NOTE), 2000),
-                        held == null ? null : held.note()),
-                compensationFor(held, fields),
-                held == null ? null : held.career(),
-                held == null ? null : held.languages(),
-                held == null ? "csv" : held.source(),
-                held == null ? null : held.sourceUrl(),
-                fields.customValues(CustomColumnTarget.CANDIDATE),
-                null);
-    }
-
-    private app.lightmove.api.candidate.dto.CandidateCompensationDto compensationFor(
-            CandidateResponse held, RowFields fields) {
-        var stored = held == null ? null : held.compensation();
-        return new app.lightmove.api.candidate.dto.CandidateCompensationDto(
-                firstOf(RowValues.currency(fields.field(ImportTargetField.CANDIDATE_CURRENCY)),
-                        stored == null ? null : stored.currency()),
-                firstOf(RowValues.number(fields.field(ImportTargetField.CANDIDATE_BASE_SALARY)),
-                        stored == null ? null : stored.baseSalary()),
-                firstOf(RowValues.number(fields.field(ImportTargetField.CANDIDATE_BONUS)),
-                        stored == null ? null : stored.bonus()),
-                firstOf(RowValues.number(fields.field(ImportTargetField.CANDIDATE_ALLOWANCES)),
-                        stored == null ? null : stored.allowances()),
-                firstOf(RowValues.number(fields.field(ImportTargetField.CANDIDATE_LONG_TERM_INCENTIVE)),
-                        stored == null ? null : stored.longTermIncentive()),
-                firstOf(RowValues.noticePeriod(fields.field(ImportTargetField.CANDIDATE_NOTICE_PERIOD)),
-                        stored == null ? null : stored.noticePeriod()),
-                stored == null ? null : stored.allowanceLines(),
-                stored == null ? null : stored.longTermIncentiveTypes());
-    }
-
-    /** Refused rather than truncated by the DTO's own {@code @Max}: a bad year is not a year. */
-    private static Integer foundedYearOf(RowFields fields) {
-        Integer year = RowValues.integer(fields.field(ImportTargetField.COMPANY_FOUNDED));
-        return year == null || year < 1800 || year > 2100 ? null : year;
-    }
-
-    private static Integer yearsExperienceOf(RowFields fields) {
-        Integer years = RowValues.integer(fields.field(ImportTargetField.CANDIDATE_YEARS_EXPERIENCE));
-        return years == null || years < 0 || years > 70 ? null : years;
-    }
-
-    private static <T> T firstOf(T fromFile, T stored) {
-        return fromFile != null ? fromFile : stored;
     }
 
     private static CustomColumnTarget customTargetOf(ProposedColumnMappingDto mapping) {
@@ -470,72 +347,5 @@ public class ProjectImportService {
                 mapping.customLabel(),
                 mapping.customColumnTarget() == null ? null : mapping.customColumnTarget().value(),
                 mapping.customType() == null ? null : mapping.customType().value());
-    }
-
-    /** What one sheet column turned out to be: a built-in field, or a custom column of the mandate's. */
-    private record ResolvedColumn(ImportTargetField field, CustomColumnDto customColumn) {
-
-        static ResolvedColumn onto(ImportTargetField field) {
-            return new ResolvedColumn(field, null);
-        }
-
-        static ResolvedColumn into(CustomColumnDto customColumn) {
-            return new ResolvedColumn(null, customColumn);
-        }
-    }
-
-    /**
-     * One row's cells, indexed by what they mean rather than by where they sit — so the writers above
-     * read as the fields they build rather than as arithmetic on column positions.
-     */
-    private record RowFields(Map<ImportTargetField, String> byField,
-                             Map<CustomColumnTarget, Map<String, String>> customByTarget) {
-
-        static RowFields read(ParsedSheet sheet, List<String> row, Map<Integer, ResolvedColumn> resolved) {
-            Map<ImportTargetField, String> byField = new EnumMap<>(ImportTargetField.class);
-            Map<CustomColumnTarget, Map<String, String>> custom = new EnumMap<>(CustomColumnTarget.class);
-            custom.put(CustomColumnTarget.COMPANY, new HashMap<>());
-            custom.put(CustomColumnTarget.CANDIDATE, new HashMap<>());
-
-            resolved.forEach((columnIndex, column) -> {
-                String value = sheet.cell(row, columnIndex);
-                if (value == null) {
-                    return;
-                }
-                if (column.field() != null) {
-                    byField.put(column.field(), value);
-                } else {
-                    CustomColumnDto defined = column.customColumn();
-                    custom.get(CustomColumnTarget.fromValue(defined.target()))
-                            .put(defined.fieldKey(), value);
-                }
-            });
-            return new RowFields(byField, custom);
-        }
-
-        String field(ImportTargetField field) {
-            return byField.get(field);
-        }
-
-        Map<String, String> customValues(CustomColumnTarget target) {
-            return Map.copyOf(customByTarget.get(target));
-        }
-
-        /**
-         * The person's name, joined from first and last when the file splits them — which most
-         * LinkedIn and ATS exports do, and which would otherwise import as no person at all.
-         */
-        String personName() {
-            String full = byField.get(ImportTargetField.CANDIDATE_NAME);
-            if (full != null) {
-                return full;
-            }
-            String first = byField.get(ImportTargetField.CANDIDATE_FIRST_NAME);
-            String last = byField.get(ImportTargetField.CANDIDATE_LAST_NAME);
-            if (first == null && last == null) {
-                return null;
-            }
-            return (first == null ? "" : first + " ") .concat(last == null ? "" : last).trim();
-        }
     }
 }
