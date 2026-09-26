@@ -101,6 +101,11 @@ step api/15-extension-capture.sh
 step_node spa/run.mjs
 step_node spa/roles.mjs
 step_node spa/strategy.mjs
+# The mandate's screens, each over a cast of its own. None presses an AI button or attaches a document.
+step_node spa/position.mjs
+step_node spa/companies.mjs
+step_node spa/import-export.mjs
+step_node spa/reports.mjs
 # Stubs /api/v1 itself and needs only Vite: every screen at phone, tablet and desktop width.
 step_node spa/responsive.mjs
 
