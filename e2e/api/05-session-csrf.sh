@@ -141,9 +141,9 @@ UNVERIFIED_TOKEN=$(json '.accessToken')
 get /auth/me -H "$(auth_header "$UNVERIFIED_TOKEN")"
 check_status N25.1 "/auth/me is reachable while unverified (by design)" 200
 
-get /workspaces/current -H "$(auth_header "$UNVERIFIED_TOKEN")"
-check N25.2 "a tenant route is refused while unverified" "true" \
-  "$(test "$LAST_STATUS" = "403" -o "$LAST_STATUS" = "404" && echo true || echo false)"
+# A real tenant route: /workspaces/current never existed, so it answered 404 whatever the gate did.
+get /workspace -H "$(auth_header "$UNVERIFIED_TOKEN")"
+check_code N25.2 "a tenant route is refused while unverified" 403 EMAIL_NOT_VERIFIED
 note N25.3 "tenant route while unverified -> $LAST_STATUS $(ecode)"
 
 get /projects -H "$(auth_header "$UNVERIFIED_TOKEN")"
