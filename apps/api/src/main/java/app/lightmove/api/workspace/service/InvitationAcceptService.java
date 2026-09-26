@@ -50,15 +50,8 @@ public class InvitationAcceptService {
     private final ApplicationEventPublisher events;
 
     /**
-     * What an invitation says, to whoever is holding its link — before they have an account, let alone a
-     * session.
-     *
-     * <p>Readable unauthenticated, because the person clicking the link out of their inbox is usually
-     * a stranger: the signup form needs the invited address so it can fix it rather than let them
-     * create an account we would then refuse.
-     *
-     * <p>It discloses a workspace name, an inviter's name and the invited address to a caller holding
-     * a 256-bit token mailed to that address. The email already said all three things.
+     * Unauthenticated, since the invitee usually has no account yet. Discloses only what the email
+     * already said, and only to a holder of the 256-bit token mailed to that address.
      */
     @Transactional(readOnly = true)
     public InvitationPreview preview(String plaintextToken) {
@@ -78,14 +71,10 @@ public class InvitationAcceptService {
                 inviterName);
     }
 
-    /** What the invitee is shown before they sign in. See {@link #preview}. */
     public record InvitationPreview(String email, String role, String workspaceName,
                                     String inviterName) {}
 
-    /**
-     * Accepts an invitation by its emailed token. The invitee lands ACTIVE straight away — no approval
-     * step, because an admin naming them was the approval.
-     */
+    /** The invitee lands ACTIVE at once: an admin naming them was the approval. */
     @Transactional
     public WorkspaceMember accept(String plaintextToken, UUID userId, HttpServletRequest request) {
         Instant now = Instant.now();
@@ -94,12 +83,8 @@ public class InvitationAcceptService {
     }
 
     /**
-     * Accepts the caller's own outstanding invitation, with no token.
-     *
-     * <p>The token's only job was proving control of the invited mailbox, and an authenticated,
-     * <b>email-verified</b> user whose address matches has already proven that. It is what lets an
-     * invitee who verified in a fresh tab — where the emailed token lives in another tab's
-     * sessionStorage — still land in the right workspace rather than create-your-own.
+     * Token-less: the token only proves the mailbox, which an <b>email-verified</b> user with the
+     * matching address already has — e.g. one who verified in a tab without the token.
      */
     @Transactional
     public WorkspaceMember acceptForUser(UUID userId, HttpServletRequest request) {
@@ -115,17 +100,9 @@ public class InvitationAcceptService {
     }
 
     /**
-     * Accepts an invitation by creating the invited account in one step — the door in for an invitee who
-     * has no account yet, which is the common case.
-     *
-     * <p><b>No email-verification round-trip.</b> The invitation token was mailed only to
-     * {@code invitation.email}, so holding it is proof of that mailbox — the same proof verification
-     * exists to give. The account's address is the invitation's, never the request's, so the token can
-     * only mint the identity it was addressed to; that binding, plus the existing-account guard in
-     * {@code createVerifiedLocalUser}, is the security of this path.
-     *
-     * <p>Plain {@code @Transactional}: the account, membership, invitation-accept and refresh token
-     * roll back together.
+     * Creates the invited account, <b>already verified</b>: the token was mailed only to that address,
+     * which is the proof verification gives. The address is the invitation's, never the request's —
+     * that binding plus {@code createVerifiedLocalUser}'s existing-account guard is this path's security.
      */
     @Transactional
     public AuthenticatedSession acceptWithNewLocalUser(String plaintextToken, String fullName,
@@ -134,9 +111,7 @@ public class InvitationAcceptService {
         Invitation invitation = resolveRedeemable(plaintextToken, now);
         rateLimit.checkSignup(invitation.getEmail(), request);
 
-        // The email is the invitation's, so the account is bound to the address the token was mailed
-        // to. createVerifiedLocalUser rejects an address that already has an account, so that person
-        // is sent to log in rather than silently gaining a second identity.
+        // Bound to the invited address; an existing account is sent to log in, not given a second identity.
         User user = authentication.createVerifiedLocalUser(
                 invitation.getEmail(), fullName, password, request);
         WorkspaceMember member = redeem(invitation, user, now, request);
@@ -144,12 +119,7 @@ public class InvitationAcceptService {
         return tokens.issue(user, member, request);
     }
 
-    /**
-     * The shared tail of both accept paths: the guards, the membership, the audit trail.
-     *
-     * <p>Their email must match the address that was invited. An invitation is addressed to a person,
-     * and a link forwarded to somebody else must not let that somebody else in.
-     */
+    /** The email must match the invited address: a forwarded link must not let somebody else in. */
     private WorkspaceMember redeem(Invitation invitation, User user, Instant now,
                                    HttpServletRequest request) {
         if (!user.getEmail().equalsIgnoreCase(invitation.getEmail())) {
@@ -160,8 +130,7 @@ public class InvitationAcceptService {
                     "Invitation was addressed to a different email");
         }
 
-        // An unverified address is an unproven claim to be this person. Accepting on it would let
-        // whoever intercepted the invitation email walk in as its intended recipient.
+        // An unverified address is an unproven claim; accepting on it would let an interceptor walk in.
         if (!user.isEmailVerified()) {
             throw ApiException.of(ErrorCode.EMAIL_NOT_VERIFIED);
         }
@@ -184,8 +153,7 @@ public class InvitationAcceptService {
                 .detail("role", invitation.getRole().getName())
                 .record();
 
-        // Published within this transaction, so the membership and the representative row's
-        // activation commit together.
+        // Within this transaction, so membership and representative activation commit together.
         if (invitation.getClientId() != null) {
             events.publishEvent(new ClientRepresentativeAcceptedEvent(
                     invitation.getWorkspaceId(), invitation.getClientId(), user.getEmail(), user.getId()));
@@ -194,11 +162,7 @@ public class InvitationAcceptService {
         return member;
     }
 
-    /**
-     * Resolves an invitation from its emailed token, or fails with the reason it cannot be redeemed: an
-     * unknown or already-consumed token is {@code INVITATION_INVALID}, a lapsed one
-     * {@code INVITATION_EXPIRED}. Shared by preview and every accept path.
-     */
+    /** Unknown or consumed is {@code INVITATION_INVALID}; lapsed is {@code INVITATION_EXPIRED}. */
     private Invitation resolveRedeemable(String plaintextToken, Instant now) {
         Invitation invitation = invitations.findByTokenHash(Tokens.hash(plaintextToken))
                 .orElseThrow(() -> ApiException.of(ErrorCode.INVITATION_INVALID));

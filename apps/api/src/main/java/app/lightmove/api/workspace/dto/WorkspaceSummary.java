@@ -12,18 +12,13 @@ public record WorkspaceSummary(
         String slug,
         String logoMark,
 
-        /**
-         * Null for a pure client. It is an internal signal — what the firm's own colleagues'
-         * addresses are expected to look like — and a hiring-company contact has no use for it.
-         * The name, slug and mark stay: that is the brand they are dealing with, and the portal
-         * renders it.
-         */
+        /** Null for a pure client: an internal signal a hiring-company contact has no use for. */
         String emailDomain,
 
-        /** The caller's workspace roles — a set, sorted for stable rendering. */
+        /** Sorted for stable rendering. */
         List<WorkspaceRole> roles,
 
-        /** When this membership became active. Settings → Profile reads it as "joined Mar 2026". */
+        /** When this membership became active. */
         Instant joinedAt,
 
         /** The universe company the firm was picked as at signup; null for one typed in by hand. */

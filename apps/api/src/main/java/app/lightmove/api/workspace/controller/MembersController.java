@@ -36,12 +36,8 @@ import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
 /**
- * The roster. Membership is invitation-only, so there is nothing pending here — only active members,
- * their roles, and removal.
- *
- * <p>Every method takes the workspace from the authenticated principal, never from the path, and the
- * {@code @PreAuthorize} guards re-read the caller's membership from the database — a revoked admin's
- * still-valid token gets refused.
+ * The roster of active members. The workspace is the principal's, never the path's, and the guards
+ * re-read membership from the database, so a revoked admin's still-valid token is refused.
  */
 @RestController
 @RequestMapping("/api/v1/members")
@@ -52,7 +48,7 @@ public class MembersController {
     private final WorkspaceAccess access;
     private final UserRepository users;
 
-    /** The active roster, visible to any staff member. */
+    /** Visible to any staff member. */
     @GetMapping
     @PreAuthorize("@workspaceAuthorizer.staff(principal)")
     public List<MemberResponse> list(@AuthenticationPrincipal AuthPrincipal principal) {

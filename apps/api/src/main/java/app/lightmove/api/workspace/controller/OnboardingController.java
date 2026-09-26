@@ -40,9 +40,8 @@ import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
 /**
- * The organisation and invite steps of signup, and invitation redemption — the only authenticated
- * area a user with no workspace can reach. Everything else needs a tenant claim, which nobody has
- * until they create a workspace or accept an invitation.
+ * Signup's organisation and invite steps and invitation redemption — the only authenticated area
+ * reachable without a tenant claim.
  */
 @RestController
 @RequestMapping("/api/v1/onboarding")
@@ -60,10 +59,7 @@ public class OnboardingController {
     private final CompanySuggestionSearch suggestions;
     private final RateLimitGuard rateLimit;
 
-    /**
-     * Signup step 3 — create your workspace. The client must then call {@code /auth/refresh}: the
-     * access token it holds was minted before the workspace existed and carries no tenant claim.
-     */
+    /** The client must then call {@code /auth/refresh}: its access token carries no tenant claim yet. */
     @PostMapping("/workspace")
     @ResponseStatus(HttpStatus.CREATED)
     public UserResponse createWorkspace(@AuthenticationPrincipal AuthPrincipal principal,
@@ -78,10 +74,7 @@ public class OnboardingController {
         return currentUser(principal);
     }
 
-    /**
-     * Corrects a workspace you already run — what "Back" means once the step has committed. The
-     * workspace id comes from the principal: as a parameter it would let anyone edit anyone's.
-     */
+    /** "Back" after the step committed. The workspace id is the principal's, never a parameter. */
     @PatchMapping("/workspace")
     public UserResponse updateWorkspace(@AuthenticationPrincipal AuthPrincipal principal,
                                         @Valid @RequestBody CreateWorkspaceRequest request,
@@ -96,11 +89,8 @@ public class OnboardingController {
     }
 
     /**
-     * The organisation step's company picker. {@code /companies/search} is gated on
-     * {@code PROJECT_BROWSE}, which nobody holds before their workspace exists, so the step reads the
-     * same universe typeahead here. Existence of a company is not secret, but each query is an
-     * unindexable scan reachable by any verified session, so it carries its own per-account and per-IP
-     * budget; a query shorter than the picker's minimum answers nothing.
+     * The picker before {@code PROJECT_BROWSE} exists. Each query is an unindexable scan any verified
+     * session can reach, hence its own per-account and per-IP budget.
      */
     @GetMapping("/companies")
     public CompanySuggestionsResponse searchCompanies(@AuthenticationPrincipal AuthPrincipal principal,
@@ -111,18 +101,13 @@ public class OnboardingController {
                 suggestions.suggest(query, null, MIN_COMPANY_QUERY_LENGTH));
     }
 
-    /**
-     * Signup step 4 — invite colleagues. Optional; "Skip for now" simply never calls this.
-     *
-     * @return how many invitations went out. Fewer than asked for means some recipients were already
-     *         members, which is not an error.
-     */
+    /** @return invitations sent; fewer than asked means some were already members, not an error */
     @PostMapping("/invitations")
     public InviteResult invite(@AuthenticationPrincipal AuthPrincipal principal,
                                @RequestBody List<@Valid InviteRequest> requests,
                                HttpServletRequest httpRequest) {
         List<InviteCommand> commands = requests.stream()
-                // The mockup's dropdown defaults to Member; an omitted role must not become null.
+
                 .map(r -> new InviteCommand(r.email(), r.role() == null ? WorkspaceRole.MEMBER : r.role()))
                 .toList();
 
@@ -130,23 +115,13 @@ public class OnboardingController {
         return new InviteResult(sent);
     }
 
-    /**
-     * What an invitation link leads to, readable before the invitee has an account.
-     *
-     * <p>Anonymous on purpose — see {@code InvitationAcceptService.preview}. The signup form has to know
-     * which address the invitation names so it can pin the field there; without it the invitee signs
-     * up with any address and acceptance refuses them for a mismatch they were never shown.
-     */
+    /** Anonymous on purpose: the signup form pins the invited address, or acceptance would refuse a mismatch. */
     @GetMapping("/invitations/preview")
     public InvitationAcceptService.InvitationPreview previewInvitation(
             @RequestParam("token") String token) {
         return invitationAccept.preview(token);
     }
 
-    /**
-     * Redeems an invitation link. The invitee lands ACTIVE immediately — an admin naming them was the
-     * approval.
-     */
     @PostMapping("/invitations/accept")
     public UserResponse acceptInvitation(@AuthenticationPrincipal AuthPrincipal principal,
                                          @Valid @RequestBody AcceptInvitationRequest request,
@@ -155,12 +130,7 @@ public class OnboardingController {
         return currentUser(principal);
     }
 
-    /**
-     * Redeems the caller's own outstanding invitation, with no token.
-     *
-     * <p>For the invitee who verifies in a fresh tab, where the emailed token lives in another tab's
-     * sessionStorage. A verified address is the very thing the token existed to prove.
-     */
+    /** Token-less: a verified address is what the token existed to prove. */
     @PostMapping("/accept-invitation")
     public UserResponse acceptPendingInvitation(@AuthenticationPrincipal AuthPrincipal principal,
                                                 HttpServletRequest httpRequest) {
@@ -168,11 +138,7 @@ public class OnboardingController {
         return currentUser(principal);
     }
 
-    /**
-     * Accept an invitation by creating the invited account in one step. Public: they have no session
-     * to authenticate with, and the invitation token in the body is the credential. Returns a full
-     * session, so they land in the workspace with no second login and no verification step.
-     */
+    /** Public: the invitation token in the body is the credential. Answers a full session. */
     @PostMapping("/accept-invitation-signup")
     public ResponseEntity<AuthResponse> acceptInvitationSignup(
             @Valid @RequestBody AcceptInvitationSignupRequest request, HttpServletRequest httpRequest) {

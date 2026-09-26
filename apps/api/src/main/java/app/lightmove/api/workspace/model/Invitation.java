@@ -20,12 +20,8 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 
 /**
- * An offer to join a workspace, the <b>only</b> way anyone becomes a member of an existing one.
- * Addressed to an email rather than a user id, because the invitee usually does not exist as a user
- * yet.
- *
- * <p>The token is stored as a SHA-256 hash, like every other token here: possession of the emailed
- * link is the credential, and the database holds only proof of it.
+ * An offer to join a workspace — the <b>only</b> way into an existing one — addressed to an email.
+ * The token is stored as a SHA-256 hash: the emailed link is the credential, the row only its proof.
  */
 @Entity
 @Table(name = "app_lm_invitation")
@@ -39,16 +35,12 @@ public class Invitation extends BaseEntity {
     @Column(nullable = false)
     private String email;
 
-    /** The workspace role the acceptor lands with. A catalog row, so the grant survives role edits. */
+    /** A catalog row, so the grant survives role edits. */
     @ManyToOne(fetch = FetchType.EAGER, optional = false)
     @JoinColumn(name = "role_id", nullable = false)
     private Role role;
 
-    /**
-     * The client whose portal this invitation admits a representative to. Null for a staff invitation.
-     * The database CHECK ties this to the CLIENT role: a CLIENT invite names a client, a staff invite
-     * names none.
-     */
+    /** Null for a staff invitation; a CHECK ties a non-null client to the CLIENT role. */
     @Column(name = "client_id")
     private UUID clientId;
 
@@ -76,10 +68,7 @@ public class Invitation extends BaseEntity {
         return build(workspaceId, null, email, role, tokenHash, invitedBy, expiresAt);
     }
 
-    /**
-     * A client-portal invitation: the same token machinery, naming the client its acceptor
-     * represents. The CLIENT role and a non-null client id satisfy the {@code client_id} CHECK.
-     */
+    /** The CLIENT role and a non-null client id satisfy the {@code client_id} CHECK. */
     public static Invitation createForClient(UUID workspaceId, UUID clientId, String email, Role role,
                                              String tokenHash, UUID invitedBy, Instant expiresAt) {
         return build(workspaceId, clientId, email, role, tokenHash, invitedBy, expiresAt);
@@ -119,10 +108,7 @@ public class Invitation extends BaseEntity {
         this.status = InvitationStatus.REVOKED;
     }
 
-    /**
-     * Re-issues the token on a resend, so the previously emailed link stops working. Without this,
-     * every resend would leave another live credential in another inbox.
-     */
+    /** Rotates the token, so no resend leaves another live credential in an inbox. */
     public void refresh(String newTokenHash, Instant newExpiry) {
         this.tokenHash = newTokenHash;
         this.expiresAt = newExpiry;

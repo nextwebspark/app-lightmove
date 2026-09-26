@@ -27,10 +27,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
-/**
- * Settings → General. The workspace is always the caller's own — no id in the path. Tier gating is
- * declared here: reading is a staff matter, changing it is the WORKSPACE_MANAGE action.
- */
+/** Settings → General, always the caller's own workspace; changing it is WORKSPACE_MANAGE. */
 @RestController
 @RequestMapping("/api/v1/workspace")
 @RequiredArgsConstructor
@@ -56,7 +53,7 @@ public class WorkspaceController {
                 httpRequest));
     }
 
-    /** The firm persona the assistant will read — an admin's to write, like the rest of this page. */
+    /** The firm persona the assistant reads. */
     @PutMapping("/persona")
     @RequireWorkspacePermission(WorkspaceAction.WORKSPACE_MANAGE)
     public WorkspaceResponse updatePersona(@AuthenticationPrincipal AuthPrincipal principal,

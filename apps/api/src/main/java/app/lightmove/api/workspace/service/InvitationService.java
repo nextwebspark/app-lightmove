@@ -42,17 +42,11 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 /**
- * Invitations — the <b>only</b> way into an existing workspace. An admin naming a person <i>is</i> the
- * approval, so an invited person lands active immediately; there is no queue and no waiting state.
+ * Invitations — the <b>only</b> way into an existing workspace; an admin naming a person is the
+ * approval. Any domain may be invited, but the address passes signup's work-email gate.
  *
- * <p>Invitees are not restricted to the workspace's own domain — a firm works with contractors and
- * advisors who have their own addresses — but the address must still be a real, non-disposable work
- * address, the same gate signup applies.
- *
- * <p>Keeps its own imperative admin checks rather than {@code @PreAuthorize}: it is called both from
- * authenticated controllers and from the anonymous
- * {@code /onboarding/accept-invitation-signup} endpoint, outside any request's SecurityContext, where
- * method security would evaluate no authentication at all.
+ * <p>Imperative admin checks, not {@code @PreAuthorize}: it is also reached from the anonymous
+ * accept-invitation-signup path, where method security would see no authentication at all.
  */
 @Service
 @RequiredArgsConstructor
@@ -91,11 +85,9 @@ public class InvitationService {
         for (InviteCommand command : commands) {
             String email = EmailAddressValidator.normalise(command.email());
 
-            // Same gate as signup: a real, deliverable, non-disposable work address.
             emailValidator.validateWorkEmail(email);
 
-            // A client is invited to a project, not to the workspace. Refusing here keeps the
-            // invitation CHECK's client-to-project rule trivially true.
+            // A client is invited to a project, which keeps the invitation CHECK trivially true.
             if (command.role() == WorkspaceRole.CLIENT) {
                 throw ApiException.userFacing(ErrorCode.VALIDATION_FAILED,
                         "Hiring managers are invited to a position, not to the workspace");
@@ -114,10 +106,8 @@ public class InvitationService {
     }
 
     /**
-     * Re-inviting someone with an outstanding invitation refreshes it rather than creating a second.
-     *
-     * <p>Refreshing rotates the token, which kills the link in the earlier email. That matters: without
-     * it, every resend would leave another live credential sitting in an inbox.
+     * Refreshes an outstanding invitation rather than creating a second, rotating the token so no
+     * resend leaves another live credential in an inbox.
      */
     private Invitation issueOrRefresh(Workspace workspace, User inviter, String email,
                                       WorkspaceRole role, Instant expiry, HttpServletRequest request) {
@@ -148,13 +138,8 @@ public class InvitationService {
     }
 
     /**
-     * Invites a client representative to the portal for one client — the sanctioned project-to-workspace
-     * seam, since invitations are the only door in and a representative is a CLIENT-role member. Takes
-     * primitives so this feature stays ignorant of the {@code ClientRepresentative} the project side
-     * keeps.
-     *
-     * <p>Not gated with {@code @PreAuthorize}: the calling controller already gates on
-     * {@code CLIENT_RECORD_MANAGE}. The work-email rule still applies.
+     * The sanctioned project-to-workspace seam, taking primitives only. The calling controller gates on
+     * {@code CLIENT_RECORD_MANAGE}; the work-email rule still applies.
      */
     @Transactional
     public Invitation inviteClientRepresentative(UUID workspaceId, UUID clientId, String clientName,
@@ -180,7 +165,6 @@ public class InvitationService {
                 .orElseGet(() -> invitations.save(Invitation.createForClient(
                         workspaceId, clientId, email, clientRole, hash, invitedBy, expiry)));
 
-        // The same accept link staff use; only the email copy is portal-specific.
         emailSender.send(templates.buildClientInvitationEmail(
                 email, inviter.getFullName(), workspace.getName(), clientName, acceptLink(plaintext)));
 
@@ -193,11 +177,7 @@ public class InvitationService {
         return invitation;
     }
 
-    /**
-     * Onboards a client representative. An existing active member skips the invitation entirely and
-     * gains the CLIENT role on their current membership, because a user is unique to a workspace and
-     * this person is already in; a stranger gets the ordinary invitation flow.
-     */
+    /** An active member gains the CLIENT role on their membership; a stranger gets an invitation. */
     @Transactional
     public ClientRepresentativeOnboarding onboardClientRepresentative(
             UUID workspaceId, UUID clientId, String clientName, String rawEmail, UUID addedBy,
@@ -234,17 +214,13 @@ public class InvitationService {
         return new ClientRepresentativeOnboarding(true, member.getUserId(), null);
     }
 
-    /**
-     * Outstanding <b>staff</b> invitations, for the Members screen. Client-rep invitations carry a
-     * client id, never surface here, and their ids are not reachable by the revoke/resend below.
-     */
+    /** Staff invitations only: a client-rep invitation never surfaces, nor is reachable by revoke/resend. */
     @Transactional(readOnly = true)
     public List<Invitation> pending(UUID userId, UUID workspaceId) {
         access.requireAdmin(userId, workspaceId);
         return invitations.findByWorkspaceIdAndClientIdIsNullAndStatus(workspaceId, InvitationStatus.PENDING);
     }
 
-    /** Withdraws an invitation — the emailed link stops working immediately. */
     @Transactional
     public void revoke(UUID userId, UUID workspaceId, UUID invitationId, HttpServletRequest request) {
         access.requireAdmin(userId, workspaceId);

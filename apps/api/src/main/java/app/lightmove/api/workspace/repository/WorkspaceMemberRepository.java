@@ -14,21 +14,15 @@ import org.springframework.data.repository.query.Param;
 public interface WorkspaceMemberRepository extends JpaRepository<WorkspaceMember, UUID> {
 
     /**
-     * The user's workspace. Singular: a user has at most one <i>active</i> membership, enforced by a
-     * partial unique index on {@code user_id WHERE status = 'ACTIVE'}.
-     *
-     * <p>Roles ride along eagerly: this row is what auth responses are assembled from, usually outside
-     * a transaction, where a lazy collection would explode instead of loading.
+     * Singular: at most one ACTIVE membership per user (partial unique index on {@code user_id}). Roles
+     * load eagerly — auth responses are assembled outside a transaction, where lazy loading throws.
      */
     @EntityGraph(attributePaths = "roles")
     Optional<WorkspaceMember> findByUserIdAndStatus(UUID userId, MemberStatus status);
 
     /**
-     * The tenant-isolation check, and the reason it takes both ids.
-     *
-     * <p>Asking "is this user a member of <i>this</i> workspace?" in one query is what stops a caller
-     * naming someone else's workspace id and being served their data. Nothing workspace-scoped should
-     * load without this returning an active member first.
+     * The tenant-isolation check: both ids in one query, so a caller naming another workspace's id is
+     * not served its data. Nothing workspace-scoped loads before this finds an active member.
      */
     @EntityGraph(attributePaths = "roles")
     Optional<WorkspaceMember> findByWorkspaceIdAndUserIdAndStatus(UUID workspaceId, UUID userId, MemberStatus status);
@@ -36,11 +30,7 @@ public interface WorkspaceMemberRepository extends JpaRepository<WorkspaceMember
     @EntityGraph(attributePaths = "roles")
     List<WorkspaceMember> findByWorkspaceIdAndStatus(UUID workspaceId, MemberStatus status);
 
-    /**
-     * The staff roster — every member who is not a <b>pure</b> client representative. A member holding
-     * only the CLIENT role is a client guest and must not surface among colleagues; a member who holds
-     * CLIENT alongside a staff role is staff and does appear. The Team screen and its count use this.
-     */
+    /** The staff roster: everyone but a <b>pure</b> client (CLIENT alongside a staff role is staff). */
     @EntityGraph(attributePaths = "roles")
     @Query("""
             select m from WorkspaceMember m
@@ -56,21 +46,18 @@ public interface WorkspaceMemberRepository extends JpaRepository<WorkspaceMember
     @EntityGraph(attributePaths = "roles")
     Optional<WorkspaceMember> findByIdAndWorkspaceId(UUID id, UUID workspaceId);
 
-    /**
-     * The membership's workspace-role names, straight from the assignment table. A projection rather
-     * than a lazy walk because authorisation runs in {@code @PreAuthorize}, outside any transaction.
-     */
+    /** A projection, not a lazy walk: authorisation runs in {@code @PreAuthorize}, outside a transaction. */
     @Query("select r.name from WorkspaceMember m join m.roles r where m.id = :memberId")
     Set<String> findRoleNames(@Param("memberId") UUID memberId);
 
-    /** The union of the membership's roles' actions — the answer authorisation actually wants. */
+    /** The union of the membership's roles' actions. */
     @Query("""
             select a.name from WorkspaceMember m join m.roles r join r.actions a
             where m.id = :memberId
             """)
     Set<String> findActionNames(@Param("memberId") UUID memberId);
 
-    /** Backs the last-admin guard: a workspace must never lose its only active ADMIN-role holder. */
+    /** Backs the last-admin guard. */
     @Query("""
             select count(distinct m.id) from WorkspaceMember m join m.roles r
             where m.workspaceId = :workspaceId and m.status = :status and r.name = :roleName
