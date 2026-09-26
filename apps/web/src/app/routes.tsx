@@ -129,8 +129,6 @@ export function AppRoutes() {
         <Route path="/settings" element={<Navigate to="/settings/profile" replace />} />
         <Route path="/settings/profile" element={<SettingsProfilePage />} />
         <Route path="/settings/security" element={<SettingsSecurityPage />} />
-        {/* Everyone's, like Profile: a member of two firms switches here, and the roster of what you
-            belong to is your own. Only the Create button inside is staff-gated, and by the server. */}
         <Route path="/settings/workspaces" element={<SettingsWorkspacesPage />} />
         <Route element={<RequireAdmin><Outlet /></RequireAdmin>}>
           <Route path="/settings/general" element={<SettingsGeneralPage />} />

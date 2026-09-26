@@ -9,11 +9,18 @@ import {
   useState,
   type ReactNode,
 } from "react";
-import { onSessionExpired, restoreSession, setAccessToken, switchWorkspaceSession } from "../../lib/apiClient";
+import {
+  onSessionExpired,
+  onWorkspaceMoved,
+  restoreSession,
+  setAccessToken,
+  switchWorkspaceSession,
+} from "../../lib/apiClient";
 import { forgetOpenAssistant } from "../assistant/assistantStorage";
 import * as authApi from "./api/authApi";
 import { isReturningSignInPopup } from "./oauthPopup";
 import type { User } from "./api/types";
+import { describeWorkspaceMove, rememberWorkspaceMove } from "./workspaceMoveNotice";
 
 /**
  * Who is signed in, for the whole app.
@@ -41,11 +48,15 @@ interface AuthContextValue {
   /** Re-reads the user from the server. Call after anything that changes their workspace or role. */
   reload: () => Promise<User | null>;
   /**
-   * Moves the session into another of the user's workspaces — the only way the tenant changes. The
-   * query cache is cleared first: nothing in it is keyed by workspace, so every cached answer belongs
-   * to the one just left. Other tabs share the cookie and follow.
+   * Moves the session into another of the user's workspaces. The query cache is cleared: nothing in it
+   * is keyed by workspace. Other tabs share the cookie and follow.
    */
   switchWorkspace: (workspaceId: string) => Promise<User>;
+  /**
+   * Accepts an invitation and moves into the workspace it joined. When the move fails the user is
+   * re-read, so the joined workspace is listed and the spent invitation is not.
+   */
+  acceptAndSwitch: (accept: () => Promise<User>) => Promise<User>;
   /** Adopts a session established elsewhere — the OAuth callback, after a full-page redirect. */
   adopt: (token: string, user: User) => void;
   /**
@@ -64,7 +75,6 @@ interface AuthContextValue {
 
 const AuthContext = createContext<AuthContextValue | null>(null);
 
-/** Where a tab announces a workspace switch to the others. */
 const WORKSPACE_CHANNEL = "lm-workspace";
 
 export function AuthProvider({ children }: { children: ReactNode }) {
@@ -149,16 +159,29 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (typeof BroadcastChannel === "undefined") return;
     const channel = new BroadcastChannel(WORKSPACE_CHANNEL);
-    channel.onmessage = () => {
-      startFreshSession();
-      window.location.replace("/");
-    };
+    channel.onmessage = () => window.location.replace("/");
     workspaceChannel.current = channel;
     return () => {
       channel.close();
       workspaceChannel.current = null;
     };
-  }, [startFreshSession]);
+  }, []);
+
+  /**
+   * A refresh moved the session because the membership it was in ended. Everything on screen belongs
+   * to the workspace left, so the tab starts again from the top, and says why once it has.
+   */
+  const userRef = useRef(user);
+  useEffect(() => {
+    userRef.current = user;
+  }, [user]);
+  useEffect(() => {
+    onWorkspaceMoved((moved) => {
+      rememberWorkspaceMove(describeWorkspaceMove(userRef.current?.workspace ?? null, moved));
+      forgetOpenAssistant();
+      window.location.replace("/");
+    });
+  }, []);
 
   const switchWorkspace = useCallback(
     async (workspaceId: string) => {
@@ -270,6 +293,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
+  const acceptAndSwitch = useCallback(
+    async (accept: () => Promise<User>) => {
+      const joined = await accept();
+      if (!joined.workspace) throw new Error("The invitation led to no workspace");
+      try {
+        return await switchWorkspace(joined.workspace.id);
+      } catch (error) {
+        await reload();
+        throw error;
+      }
+    },
+    [switchWorkspace, reload],
+  );
+
   /**
    * Takes on a session that was established somewhere other than here — currently the Google callback,
    * which is handed a token by the server rather than exchanging credentials for one.
@@ -322,6 +359,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       signOut,
       reload,
       switchWorkspace,
+      acceptAndSwitch,
       adopt,
       adoptRestoredSession,
     }),
@@ -336,6 +374,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       signOut,
       reload,
       switchWorkspace,
+      acceptAndSwitch,
       adopt,
       adoptRestoredSession,
     ],

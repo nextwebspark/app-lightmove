@@ -12,17 +12,26 @@ vi.mock("../../lib/apiClient", async (importOriginal) => ({
   restoreSession: vi.fn(),
   setAccessToken: vi.fn(),
   switchWorkspaceSession: vi.fn(),
+  onWorkspaceMoved: vi.fn(),
 }));
 
-const { restoreSession, switchWorkspaceSession } = await import("../../lib/apiClient");
+const { onWorkspaceMoved, restoreSession, switchWorkspaceSession } = await import("../../lib/apiClient");
+const { takeWorkspaceMove } = await import("./workspaceMoveNotice");
 
 function SwitchButton() {
-  const { user, switchWorkspace } = useAuth();
+  const { user, switchWorkspace, acceptAndSwitch } = useAuth();
   return (
     <>
       <span data-testid="current">{user?.workspace?.name}</span>
+      <span data-testid="count">{user?.workspaces.length}</span>
       <button type="button" onClick={() => void switchWorkspace("w2")}>
         switch
+      </button>
+      <button
+        type="button"
+        onClick={() => void acceptAndSwitch(() => authApi.acceptInvitationById("inv-1")).catch(() => undefined)}
+      >
+        accept
       </button>
     </>
   );
@@ -89,5 +98,35 @@ describe("AuthProvider — workspace switch broadcast", () => {
     otherTab.close();
 
     await waitFor(() => expect(replace).toHaveBeenCalledWith("/"));
+  });
+
+  it("when a refresh lands in another workspace, restarts from the top and says why", async () => {
+    renderProvider();
+    await waitFor(() => expect(screen.getByTestId("current").textContent).toBe("NextWebSpark Search"));
+    const handler = vi.mocked(onWorkspaceMoved).mock.calls.at(-1)![0];
+
+    handler(aUser({ workspace: second, workspaces: [second] }));
+
+    expect(replace).toHaveBeenCalledWith("/");
+    expect(takeWorkspaceMove()).toBe(
+      "You no longer have access to NextWebSpark Search — you're now in Meridian Search Partners.",
+    );
+  });
+
+  it("re-reads the user when accepting joined but the switch failed", async () => {
+    const joined = aUser({ workspace: second, workspaces: [home, second] });
+    vi.mocked(authApi.acceptInvitationById).mockResolvedValue(joined);
+    vi.mocked(switchWorkspaceSession).mockRejectedValue(new Error("expired"));
+    vi.mocked(authApi.me).mockResolvedValue(aUser({ workspace: home, workspaces: [home] }));
+    renderProvider();
+    await waitFor(() => expect(screen.getByTestId("count").textContent).toBe("1"));
+    await waitFor(() => expect(screen.getByTestId("current").textContent).toBe("NextWebSpark Search"));
+    vi.mocked(authApi.me).mockResolvedValue(aUser({ workspace: home, workspaces: [home, second] }));
+
+    await userEvent.click(screen.getByRole("button", { name: "accept" }));
+
+    await waitFor(() => expect(authApi.me).toHaveBeenCalledTimes(2));
+    expect(screen.getByTestId("current").textContent).toBe("NextWebSpark Search");
+    expect(screen.getByTestId("count").textContent).toBe("2");
   });
 });

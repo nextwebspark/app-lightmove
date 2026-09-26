@@ -5,6 +5,7 @@ import { useForm } from "react-hook-form";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { Button, Card, Field, FormError, Input, Logo, Notice } from "../../../components/ui";
 import { ApiRequestError } from "../../../lib/apiClient";
+import { messageFor } from "../../../lib/errorCodes";
 import { useAuth } from "../AuthProvider";
 import * as authApi from "../api/authApi";
 import type { InvitationPreview } from "../api/types";
@@ -135,9 +136,7 @@ function AcceptSignupForm({ token, invitation }: { token: string; invitation: In
         setAlreadyRegistered(true);
         return;
       }
-      setFormError(
-        error instanceof ApiRequestError ? error.problem.detail : "Could not accept the invitation.",
-      );
+      setFormError(messageFor(error));
     }
   };
 
@@ -218,7 +217,7 @@ function AcceptSignupForm({ token, invitation }: { token: string; invitation: In
 // ── Arrival with no token: an already-signed-in invitee, routed here by the server ───────────────────
 
 function ServerDerivedArrival() {
-  const { user, switchWorkspace } = useAuth();
+  const { user, acceptAndSwitch } = useAuth();
   const navigate = useNavigate();
 
   const [accepting, setAccepting] = useState<string | null>(null);
@@ -227,18 +226,14 @@ function ServerDerivedArrival() {
   const invitations = user!.pendingInvitations;
   const invitation = invitations[0];
 
-  // Accepting joins and switches: the session lands in the workspace just joined, not wherever the
-  // token happened to be.
   const accept = async (invitationId: string) => {
     setAccepting(invitationId);
     setError(null);
     try {
-      const joined = await authApi.acceptInvitationById(invitationId);
-      if (!joined.workspace) throw new Error("The invitation led to no workspace");
-      await switchWorkspace(joined.workspace.id);
+      await acceptAndSwitch(() => authApi.acceptInvitationById(invitationId));
       navigate("/", { replace: true });
     } catch (err) {
-      setError(err instanceof ApiRequestError ? err.problem.detail : "Could not accept the invitation.");
+      setError(messageFor(err));
       setAccepting(null);
     }
   };
@@ -263,11 +258,11 @@ function ServerDerivedArrival() {
           {invitations.map((candidate) => (
             <div key={candidate.id} className="flex items-center gap-3 rounded-lg border border-u-border p-3">
               <div className="min-w-0 flex-1">
-                <div className="truncate text-[13px] font-medium">{candidate.workspaceName}</div>
-                <div className="font-mono text-[11px] text-u-text3">as {titleCase(candidate.role)}</div>
+                <div className="truncate text-body font-medium">{candidate.workspaceName}</div>
+                <div className="font-mono text-meta text-u-text3">as {titleCase(candidate.role)}</div>
               </div>
               <Button
-                className="!px-3.5 !py-[6px] !text-[12px]"
+                className="!px-3.5 !py-[6px] !text-note"
                 loading={accepting === candidate.id}
                 disabled={accepting !== null && accepting !== candidate.id}
                 onClick={() => void accept(candidate.id)}
@@ -307,7 +302,7 @@ function SignedInBody({
   invitation: { email: string; workspaceName: string };
   token: string;
 }) {
-  const { user, switchWorkspace, signOut } = useAuth();
+  const { user, acceptAndSwitch, signOut } = useAuth();
   const navigate = useNavigate();
   const [accepting, setAccepting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -332,14 +327,12 @@ function SignedInBody({
     setAccepting(true);
     setError(null);
     try {
-      const joined = await authApi.acceptInvitation(token);
-      if (!joined.workspace) throw new Error("The invitation led to no workspace");
-      // Mints a token carrying the joined workspace's claim. Without it the token in memory still
-      // names wherever they were — or nothing — and the workspace they just joined refuses them.
-      await switchWorkspace(joined.workspace.id);
+      // The switch mints a token carrying the joined workspace's claim. Without it the token in memory
+      // still names wherever they were — or nothing — and the workspace they just joined refuses them.
+      await acceptAndSwitch(() => authApi.acceptInvitation(token));
       navigate("/", { replace: true });
     } catch (err) {
-      setError(err instanceof ApiRequestError ? err.problem.detail : "Could not accept the invitation.");
+      setError(messageFor(err));
       setAccepting(false);
     }
   };

@@ -30,11 +30,7 @@ export function deleteWorkspace(confirmName: string): Promise<void> {
   return request<void>("/workspace", { method: "DELETE", body: { confirmName } });
 }
 
-/**
- * A further workspace, founded from Settings → Workspaces by a staff member of the current one. The
- * answer's `workspace` is the new one — the caller's session still names the old one until it
- * switches, which is what `switchWorkspace` on the auth context is for.
- */
+/** The answer's `workspace` is the new one; the session stays where it was until it switches. */
 export function createWorkspace(payload: CreateWorkspaceRequest): Promise<User> {
   return request<User>("/workspaces", { method: "POST", body: payload });
 }

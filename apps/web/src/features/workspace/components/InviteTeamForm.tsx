@@ -1,9 +1,9 @@
 import { useState, type ReactNode } from "react";
 import { Button, FormError, Input, Notice, Select } from "../../../components/ui";
-import { ApiRequestError } from "../../../lib/apiClient";
 import { titleCase } from "../../../lib/format";
 import type { InviteRequest, WorkspaceRole } from "../../auth/api/types";
 import { INVITE_ROLES, inviteSchema } from "../../auth/schemas";
+import { messageFor } from "../../../lib/errorCodes";
 
 interface InviteRow {
   id: number;
@@ -32,7 +32,7 @@ export function InviteTeamForm({
   onDone: () => Promise<void> | void;
   onSkip: () => void;
   /** Rendered beside the finish button — the wizard's Back. */
-  before?: ReactNode;
+  before?: (submitting: boolean) => ReactNode;
   finishLabel?: string;
 }) {
   const [rows, setRows] = useState<InviteRow[]>([
@@ -94,7 +94,7 @@ export function InviteTeamForm({
       await submit(filled);
       await onDone();
     } catch (err) {
-      setError(err instanceof ApiRequestError ? err.problem.detail : "Could not send the invitations.");
+      setError(messageFor(err));
       setSubmitting(false);
     }
   };
@@ -143,7 +143,7 @@ export function InviteTeamForm({
             </button>
 
             {rowErrors.has(row.id) && (
-              <span className="w-full font-mono text-[11px] text-u-offlimits">{rowErrors.get(row.id)}</span>
+              <span className="w-full font-mono text-meta text-u-offlimits">{rowErrors.get(row.id)}</span>
             )}
           </div>
         ))}
@@ -163,7 +163,7 @@ export function InviteTeamForm({
       <Notice>Invitees get access to projects you add them to — roles apply per project.</Notice>
 
       <div className="flex items-center gap-2.5">
-        {before}
+        {before?.(submitting)}
         <Button onClick={finish} loading={submitting} className="flex-1">
           {finishLabel}
         </Button>

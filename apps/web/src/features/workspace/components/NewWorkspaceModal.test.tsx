@@ -20,8 +20,9 @@ vi.mock("../api/workspaceApi", async (importOriginal) => ({
 }));
 
 const switchWorkspace = vi.fn();
+const reload = vi.fn();
 vi.mock("../../auth/AuthProvider", () => ({
-  useAuth: () => ({ user: aUser(), switchWorkspace }),
+  useAuth: () => ({ user: aUser(), switchWorkspace, reload }),
 }));
 
 const meridian: CompanySuggestion = {
@@ -47,7 +48,7 @@ describe("NewWorkspaceModal", () => {
     render(
       <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
         <MemoryRouter initialEntries={["/settings/workspaces"]}>
-          <NewWorkspaceModal open onClose={onClose} />
+          <NewWorkspaceModal onClose={onClose} />
           <Routes>
             <Route path="*" element={<Pathname />} />
           </Routes>
@@ -103,5 +104,28 @@ describe("NewWorkspaceModal", () => {
     expect(workspaceApi.invite).not.toHaveBeenCalled();
     expect(onClose).toHaveBeenCalled();
     await waitFor(() => expect(screen.getByTestId("pathname").textContent).toBe("/"));
+  });
+
+  it("a failed switch is retried without founding the workspace twice", async () => {
+    const { ApiRequestError } = await import("../../../lib/apiClient");
+    switchWorkspace.mockRejectedValueOnce(
+      new ApiRequestError({ code: "REFRESH_TOKEN_INVALID", detail: "expired", status: 401, correlationId: "c1" }),
+    );
+    const user = userEvent.setup();
+    renderModal();
+
+    await user.type(screen.getByPlaceholderText("Search company database…"), "Merid");
+    await user.click(await screen.findByRole("button", { name: /Meridian Search Partners/ }));
+    await user.click(screen.getByRole("button", { name: "Continue" }));
+
+    // The workspace exists now, so the user is re-read to list it, and the stage stays open.
+    await waitFor(() => expect(reload).toHaveBeenCalledOnce());
+    expect(screen.queryByText("Invite your team")).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "Continue" }));
+
+    expect(await screen.findByText("Invite your team")).toBeInTheDocument();
+    expect(workspaceApi.createWorkspace).toHaveBeenCalledOnce();
+    expect(switchWorkspace).toHaveBeenCalledTimes(2);
   });
 });

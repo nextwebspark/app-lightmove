@@ -34,7 +34,7 @@ export function SettingsWorkspacesPage() {
         subtitle={`${workspaces.length} ${workspaces.length === 1 ? "workspace" : "workspaces"} · each with its own positions, team and settings`}
         action={
           canCreate ? (
-            <Button className="!px-3.5 !py-[7px] !text-[13px]" onClick={() => setCreateOpen(true)}>
+            <Button className="!px-3.5 !py-[7px] !text-body" onClick={() => setCreateOpen(true)}>
               <Icon d={ICONS.plus} size={15} />
               Create workspace
             </Button>
@@ -61,7 +61,7 @@ export function SettingsWorkspacesPage() {
         </section>
       )}
 
-      {createOpen && <NewWorkspaceModal open onClose={() => setCreateOpen(false)} />}
+      {createOpen && <NewWorkspaceModal onClose={() => setCreateOpen(false)} />}
     </>
   );
 }
@@ -81,8 +81,8 @@ function WorkspaceRow({ workspace, current }: { workspace: WorkspaceSummary; cur
     <div className="flex flex-wrap items-center gap-x-3 gap-y-2 border-t border-u-border py-3 first:border-t-0">
       <WorkspaceMark workspace={workspace} size={30} />
       <div className="min-w-0 flex-1">
-        <div className="truncate text-[13px] font-medium">{workspace.name}</div>
-        <div className="mt-0.5 truncate font-mono text-[11px] text-u-text3">
+        <div className="truncate text-body font-medium">{workspace.name}</div>
+        <div className="mt-0.5 truncate font-mono text-meta text-u-text3">
           {workspace.roles.map(titleCase).join(", ")}
         </div>
       </div>
@@ -92,7 +92,7 @@ function WorkspaceRow({ workspace, current }: { workspace: WorkspaceSummary; cur
           Current
         </span>
       ) : (
-        <Button variant="secondary" className="!px-3.5 !py-[6px] !text-[12px]" loading={open.isPending} onClick={() => open.mutate()}>
+        <Button variant="secondary" className="!px-3.5 !py-[6px] !text-note" loading={open.isPending} onClick={() => open.mutate()}>
           Open
         </Button>
       )}
@@ -100,18 +100,13 @@ function WorkspaceRow({ workspace, current }: { workspace: WorkspaceSummary; cur
   );
 }
 
-/** Accepting joins <i>and</i> switches: the natural next thing after joining a workspace is to look at it. */
 function InvitationRow({ invitation }: { invitation: PendingInvitation }) {
-  const { switchWorkspace } = useAuth();
+  const { acceptAndSwitch } = useAuth();
   const navigate = useNavigate();
   const toast = useToast();
 
   const accept = useMutation({
-    mutationFn: async () => {
-      const joined = await authApi.acceptInvitationById(invitation.id);
-      if (!joined.workspace) throw new Error("The invitation led to no workspace");
-      await switchWorkspace(joined.workspace.id);
-    },
+    mutationFn: () => acceptAndSwitch(() => authApi.acceptInvitationById(invitation.id)),
     onSuccess: () => navigate("/"),
     onError: (error) => toast(messageFor(error)),
   });
@@ -119,13 +114,13 @@ function InvitationRow({ invitation }: { invitation: PendingInvitation }) {
   return (
     <div className="flex flex-wrap items-center gap-x-3 gap-y-2 border-t border-u-border py-3 first:border-t-0">
       <div className="min-w-0 flex-1">
-        <div className="truncate text-[13px] font-medium">{invitation.workspaceName}</div>
-        <div className="mt-0.5 truncate font-mono text-[11px] text-u-text3">
+        <div className="truncate text-body font-medium">{invitation.workspaceName}</div>
+        <div className="mt-0.5 truncate font-mono text-meta text-u-text3">
           {invitation.inviterName ? `${invitation.inviterName} invited you` : "You were invited"} as{" "}
           {titleCase(invitation.role)}
         </div>
       </div>
-      <Button className="!px-3.5 !py-[6px] !text-[12px]" loading={accept.isPending} onClick={() => accept.mutate()}>
+      <Button className="!px-3.5 !py-[6px] !text-note" loading={accept.isPending} onClick={() => accept.mutate()}>
         Accept
       </Button>
     </div>

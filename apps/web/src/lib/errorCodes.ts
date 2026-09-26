@@ -24,6 +24,7 @@ export type ApiErrorCode =
   | "SESSION_NOT_FOUND"
   | "CURRENT_SESSION_NOT_REVOCABLE"
   | "WORKSPACE_NOT_FOUND"
+  | "ALREADY_IN_WORKSPACE"
   | "NOT_A_MEMBER"
   | "FORBIDDEN"
   | "INVITATION_INVALID"
@@ -90,6 +91,7 @@ const MESSAGES: Partial<Record<ApiErrorCode, string>> = {
   WORKSPACE_NAME_MISMATCH: "Type the workspace name exactly to confirm.",
   FORBIDDEN: "You don't have permission to do this.",
   RATE_LIMITED: "Too many requests — slow down a little.",
+  ALREADY_IN_WORKSPACE: "You already belong to a workspace. Found another from Settings → Workspaces.",
   EMAIL_NOT_VERIFIED: "Verify your email address to continue.",
   ACCOUNT_SUSPENDED: "This account has been suspended.",
   EMAIL_NOT_WORK_ADDRESS: "Use your work email — the domain identifies your organization.",

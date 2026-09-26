@@ -43,11 +43,16 @@ export function InviteStepPage() {
           onSkip={() => navigate("/", { replace: true })}
           // Back beside Continue, as the mockup has it. Safe because step 3 edits the workspace it
           // already created rather than trying to create a second one.
-          before={
-            <Button variant="secondary" className="shrink-0" onClick={() => navigate("/signup/workspace")}>
+          before={(submitting) => (
+            <Button
+              variant="secondary"
+              className="shrink-0"
+              disabled={submitting}
+              onClick={() => navigate("/signup/workspace")}
+            >
               Back
             </Button>
-          }
+          )}
         />
       </Card>
     </div>

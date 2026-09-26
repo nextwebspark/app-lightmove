@@ -1,4 +1,4 @@
-import type { ApiError, AuthResponse } from "../features/auth/api/types";
+import type { ApiError, AuthResponse, User } from "../features/auth/api/types";
 import { readCookie } from "./cookies";
 import { createSseParser, type SseEvent } from "./sse";
 
@@ -32,6 +32,25 @@ export function setAccessToken(token: string | null): void {
 
 export function onSessionExpired(handler: () => void): void {
   onSessionLost = handler;
+}
+
+/** Called when a refresh answers a session in a different workspace from the one this tab was in. */
+let onWorkspaceLeft: ((user: User) => void) | null = null;
+
+export function onWorkspaceMoved(handler: (user: User) => void): void {
+  onWorkspaceLeft = handler;
+}
+
+/** Read to notice that a refresh moved the session, never to authorise anything: the server decides. */
+function workspaceClaimOf(token: string | null): string | null {
+  const payload = token?.split(".")[1];
+  if (!payload) return null;
+  try {
+    const claims = JSON.parse(atob(payload.replace(/-/g, "+").replace(/_/g, "/"))) as { wsId?: unknown };
+    return typeof claims.wsId === "string" ? claims.wsId : null;
+  } catch {
+    return null;
+  }
 }
 
 /** Thrown for any non-2xx. Carries the server's own ProblemDetail so a form can render field errors. */
@@ -93,37 +112,49 @@ async function refreshAccessToken(): Promise<string> {
     return refreshInFlight;
   }
 
-  refreshInFlight = withRefreshLock(async () => {
-    try {
-      // The refresh endpoint is CSRF-protected, because it authenticates with a cookie the browser
-      // attaches automatically — including on a request another site provoked. The double-submit
-      // token proves the request came from our own JavaScript, which can read the cookie; a cross-site
-      // attacker can cause the cookie to be sent but cannot read it.
-      const response = await sendWithCsrf((csrf) =>
-        fetch(`${API}/auth/refresh`, {
-          method: "POST",
-          credentials: "include",
-          headers: csrf ? { "X-XSRF-TOKEN": csrf } : {},
-        }),
-      );
-
-      if (!response.ok) {
-        throw new ApiRequestError(await problemFrom(response));
-      }
-
-      const body = (await response.json()) as { accessToken: string };
-      accessToken = body.accessToken;
-      return body.accessToken;
-    } catch (error) {
-      accessToken = null;
-      onSessionLost?.();
-      throw error;
-    }
-  }).finally(() => {
+  refreshInFlight = withRefreshLock(rotateRefreshCookie).finally(() => {
     refreshInFlight = null;
   });
 
   return refreshInFlight;
+}
+
+/**
+ * The refresh itself, for a caller already holding the lock — `navigator.locks` is not re-entrant, so
+ * taking it again from inside would wait on itself forever.
+ */
+async function rotateRefreshCookie(): Promise<string> {
+  try {
+    // The refresh endpoint is CSRF-protected, because it authenticates with a cookie the browser
+    // attaches automatically — including on a request another site provoked. The double-submit
+    // token proves the request came from our own JavaScript, which can read the cookie; a cross-site
+    // attacker can cause the cookie to be sent but cannot read it.
+    const response = await sendWithCsrf((csrf) =>
+      fetch(`${API}/auth/refresh`, {
+        method: "POST",
+        credentials: "include",
+        headers: csrf ? { "X-XSRF-TOKEN": csrf } : {},
+      }),
+    );
+
+    if (!response.ok) {
+      throw new ApiRequestError(await problemFrom(response));
+    }
+
+    const body = (await response.json()) as AuthResponse;
+    const left = workspaceClaimOf(accessToken);
+    accessToken = body.accessToken;
+    // A refresh moves the session only when the membership it was in has ended, and the cache and
+    // routes on screen still belong to the workspace left.
+    if (left && workspaceClaimOf(body.accessToken) !== left && body.user) {
+      onWorkspaceLeft?.(body.user);
+    }
+    return body.accessToken;
+  } catch (error) {
+    accessToken = null;
+    onSessionLost?.();
+    throw error;
+  }
 }
 
 /**
@@ -133,25 +164,33 @@ async function refreshAccessToken(): Promise<string> {
  * Under the same cross-tab lock as a refresh, and for the same reason: a background refresh in
  * another tab racing this would present a cookie the switch has just rotated away, and the server
  * would read that as theft and revoke the family. The bearer goes along because the server refuses
- * to move a cookie that is not the bearer's.
+ * to move a cookie that is not the bearer's — so an expired one is renewed inside the lock and the
+ * switch sent once more.
  *
  * A refused switch — not a member, cookie mismatch — changes nothing on either side: the token in
  * memory stays, the cookie was not spent, and the caller is told why. It is not a lost session.
  */
 export async function switchWorkspaceSession(workspaceId: string): Promise<AuthResponse> {
   return withRefreshLock(async () => {
-    const response = await sendWithCsrf((csrf) =>
-      fetch(`${API}/auth/switch-workspace`, {
-        method: "POST",
-        credentials: "include",
-        headers: {
-          "Content-Type": "application/json",
-          ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
-          ...(csrf ? { "X-XSRF-TOKEN": csrf } : {}),
-        },
-        body: JSON.stringify({ workspaceId }),
-      }),
-    );
+    const send = () =>
+      sendWithCsrf((csrf) =>
+        fetch(`${API}/auth/switch-workspace`, {
+          method: "POST",
+          credentials: "include",
+          headers: {
+            "Content-Type": "application/json",
+            ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
+            ...(csrf ? { "X-XSRF-TOKEN": csrf } : {}),
+          },
+          body: JSON.stringify({ workspaceId }),
+        }),
+      );
+
+    let response = await send();
+    if (response.status === 401) {
+      await rotateRefreshCookie();
+      response = await send();
+    }
 
     if (!response.ok) {
       throw new ApiRequestError(await problemFrom(response));

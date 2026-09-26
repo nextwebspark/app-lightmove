@@ -2,7 +2,6 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { useRef, useState } from "react";
 import { useForm } from "react-hook-form";
 import { Button, Field, FormError, Select } from "../../../components/ui";
-import { ApiRequestError } from "../../../lib/apiClient";
 import * as authApi from "../../auth/api/authApi";
 import type { CreateWorkspaceRequest, User, WorkspaceSummary } from "../../auth/api/types";
 import {
@@ -14,6 +13,7 @@ import {
 } from "../../auth/schemas";
 import { CompanyPicker, type CompanySearchSource } from "../../clients/components/CompanyPicker";
 import { pickedCompanyName, workspaceCompanyPick, type CompanyPick } from "../../clients/lib/companyPick";
+import { messageFor } from "../../../lib/errorCodes";
 
 /**
  * The "About your organization" form — Signup.dc.html's step 3, and the first stage of the New
@@ -89,9 +89,7 @@ export function OrganisationForm({
     try {
       await onDone(await submit(payload));
     } catch (error) {
-      setFormError(
-        error instanceof ApiRequestError ? error.problem.detail : "Could not save your workspace.",
-      );
+      setFormError(messageFor(error));
     }
   };
 

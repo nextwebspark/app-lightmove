@@ -3,6 +3,7 @@ import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "../../features/auth/AuthProvider";
 import type { PendingInvitation, WorkspaceSummary } from "../../features/auth/api/types";
 import * as authApi from "../../features/auth/api/authApi";
+import { takeWorkspaceMove } from "../../features/auth/workspaceMoveNotice";
 import { WorkspaceMark } from "../../features/workspace/components/WorkspaceMark";
 import { AppIcon, Avatar, useToast } from "../ui";
 import { messageFor } from "../../lib/errorCodes";
@@ -23,6 +24,12 @@ export function Topbar({
   onMenuClick?: () => void;
 }) {
   const { user } = useAuth();
+  const toast = useToast();
+
+  useEffect(() => {
+    const moved = takeWorkspaceMove();
+    if (moved) toast(moved);
+  }, [toast]);
 
   return (
     <header className="relative z-[60] flex h-[46px] flex-none items-center gap-2 px-3.5 sm:gap-3">
@@ -57,7 +64,7 @@ function CurrentWorkspaceLabel({ workspace }: { workspace: WorkspaceSummary }) {
       className="flex min-w-0 items-center gap-2 rounded-[7px] border border-u-border px-1.5 py-1 sm:pr-2.5"
     >
       <WorkspaceMark workspace={workspace} size={18} />
-      <span className="hidden max-w-[220px] truncate font-mono text-[12px] font-medium text-u-text2 sm:inline">
+      <span className="hidden max-w-[220px] truncate font-mono text-note font-medium text-u-text2 sm:inline">
         {workspace.name}
       </span>
     </span>
@@ -113,14 +120,8 @@ export function SettingsBreadcrumb({ section }: { section: string }) {
   );
 }
 
-/**
- * The dropdown under the mark. Its header is the workspace the session is in; when the user belongs
- * to others, or is invited to one, a Workspaces section lists them — switching is one click, and
- * accepting an invitation joins and switches. Manage workspaces (everyone's) is where a further one
- * is founded.
- */
 function WorkspaceMenu({ compact = false }: { compact?: boolean }) {
-  const { user, signOut, switchWorkspace } = useAuth();
+  const { user, signOut, switchWorkspace, acceptAndSwitch } = useAuth();
   const navigate = useNavigate();
   const toast = useToast();
   const [open, setOpen] = useState(false);
@@ -168,13 +169,8 @@ function WorkspaceMenu({ compact = false }: { compact?: boolean }) {
 
   const handleSwitch = (target: WorkspaceSummary) => moveTo(() => switchWorkspace(target.id));
 
-  // Joining is followed by switching: the natural next thing after accepting is to look at the place.
   const handleAccept = (invitation: PendingInvitation) =>
-    moveTo(async () => {
-      const joined = await authApi.acceptInvitationById(invitation.id);
-      if (!joined.workspace) throw new Error("The invitation led to no workspace");
-      await switchWorkspace(joined.workspace.id);
-    });
+    moveTo(() => acceptAndSwitch(() => authApi.acceptInvitationById(invitation.id)));
 
   return (
     <div className="relative" ref={ref}>
@@ -201,7 +197,7 @@ function WorkspaceMenu({ compact = false }: { compact?: boolean }) {
           <div className="mb-1.5 flex items-center gap-2.5 border-b border-u-border p-2.5">
             <WorkspaceMark workspace={workspace} size={30} />
             <div className="min-w-0">
-              <div className="truncate font-mono text-[13px] font-semibold">{workspace.name}</div>
+              <div className="truncate font-mono text-body font-semibold">{workspace.name}</div>
               {others.length > 0 && (
                 <div className="font-mono text-[10px] text-u-text3">Current workspace</div>
               )}
@@ -235,7 +231,7 @@ function WorkspaceMenu({ compact = false }: { compact?: boolean }) {
                 >
                   <Icon d={ICONS.userPlus} size={15} className="flex-none" />
                   <span className="min-w-0 flex-1 truncate">Invited to {invitation.workspaceName}</span>
-                  <span className="flex-none text-[11px] font-medium text-u-accent">Accept</span>
+                  <span className="flex-none text-meta font-medium text-u-accent">Accept</span>
                 </button>
               ))}
               <div className="mx-1 my-1.5 h-px bg-u-border" />
