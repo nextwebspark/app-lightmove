@@ -106,6 +106,24 @@ describe("Topbar — workspace menu", () => {
     await waitFor(() => expect(switchWorkspaceSession).toHaveBeenCalledWith("w3"));
   });
 
+  it("names the current workspace beside the avatar, and follows a switch", async () => {
+    vi.mocked(authApi.me).mockResolvedValue(aUser({ workspace: home, workspaces: [home, second] }));
+    vi.mocked(switchWorkspaceSession).mockResolvedValue({
+      accessToken: "in-w2",
+      expiresIn: 900,
+      user: aUser({ workspace: second, workspaces: [home, second] }),
+    });
+    renderAt();
+
+    expect(await screen.findByTitle(`Current workspace: ${home.name}`)).toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole("button", { name: /uncava/i }));
+    await userEvent.click(screen.getByRole("button", { name: /Meridian Search Partners/ }));
+
+    expect(await screen.findByTitle("Current workspace: Meridian Search Partners")).toBeInTheDocument();
+    expect(screen.queryByTitle(`Current workspace: ${home.name}`)).not.toBeInTheDocument();
+  });
+
   it("leaves the session where it was when the switch is refused", async () => {
     vi.mocked(authApi.me).mockResolvedValue(aUser({ workspace: home, workspaces: [home, second] }));
     const { ApiRequestError } = await import("../../lib/apiClient");

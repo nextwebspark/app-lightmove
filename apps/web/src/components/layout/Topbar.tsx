@@ -41,10 +41,26 @@ export function Topbar({
 
       <div className="flex min-w-0 flex-1 items-center">{breadcrumb ?? <WorkspaceMenu />}</div>
 
-      <div className="flex flex-none items-center gap-2.5">
+      <div className="flex min-w-0 flex-none items-center gap-2.5">
+        {user?.workspace && <CurrentWorkspaceLabel workspace={user.workspace} />}
         {user && <Avatar id={user.id} name={user.fullName} src={user.avatarUrl} />}
       </div>
     </header>
+  );
+}
+
+/** Which workspace the session is in, beside the avatar on every screen; a phone keeps only the mark. */
+function CurrentWorkspaceLabel({ workspace }: { workspace: WorkspaceSummary }) {
+  return (
+    <span
+      title={`Current workspace: ${workspace.name}`}
+      className="flex min-w-0 items-center gap-2 rounded-[7px] border border-u-border px-1.5 py-1 sm:pr-2.5"
+    >
+      <WorkspaceMark workspace={workspace} size={18} />
+      <span className="hidden max-w-[220px] truncate font-mono text-[12px] font-medium text-u-text2 sm:inline">
+        {workspace.name}
+      </span>
+    </span>
   );
 }
 
