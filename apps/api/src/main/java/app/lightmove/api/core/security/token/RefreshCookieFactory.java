@@ -8,21 +8,9 @@ import org.springframework.stereotype.Component;
 import org.springframework.util.StringUtils;
 
 /**
- * Builds the cookie that carries the refresh token.
- *
- * <p>Every attribute here is a defence, not a formality:
- *
- * <ul>
- *   <li><b>httpOnly</b> — script cannot read it. This is the whole reason the refresh token lives in
- *       a cookie instead of {@code localStorage}: one compromised npm dependency in the SPA can read
- *       {@code localStorage}, and would walk away with a 30-day credential to a product holding
- *       executive-candidate PII.
- *   <li><b>Secure</b> — never sent over plain HTTP. False only in local dev, where there is no TLS.
- *   <li><b>SameSite=Strict</b> — the browser will not attach it to a request originating from another
- *       site, which is the primary CSRF defence for {@code /auth/refresh}.
- *   <li><b>Path=/api/v1/auth</b> — the cookie is attached only to the auth endpoints, not to every
- *       API call. A token that is not on the wire cannot be captured from it.
- * </ul>
+ * The refresh-token cookie; every attribute is a defence. <b>httpOnly</b>, so a compromised npm
+ * dependency cannot read a 30-day credential; <b>Secure</b> outside local dev; <b>SameSite=Strict</b>,
+ * the CSRF defence for {@code /auth/refresh}; <b>Path=/api/v1/auth</b>, so it is off the wire elsewhere.
  */
 @Component
 public class RefreshCookieFactory {

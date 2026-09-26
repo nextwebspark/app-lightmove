@@ -22,17 +22,10 @@ import tools.jackson.databind.PropertyNamingStrategies;
 import tools.jackson.databind.annotation.JsonNaming;
 
 /**
- * Mapbox Geocoding v6, forward: a name in, a point out.
- *
- * <p>A city is asked for as {@code place, locality, district} — Mapbox files several Gulf cities under
- * the latter two — and pinned to its country's ISO code when the name is one we can translate, so
- * "Salalah" cannot come back as somewhere in Yemen. A hit is checked against that code again before
- * it is trusted, because a filter is a request and the answer is the evidence.
- *
- * <p>The point is read from the named {@code properties.coordinates} pair rather than the positional
- * GeoJSON {@code geometry.coordinates}, whose longitude-first ordering is the classic way to put Dubai
- * in the Indian Ocean. The token travels as a query parameter, added by the vendor client factory
- * rather than here, so no URI this class builds ever carries it.
+ * Mapbox Geocoding v6, forward. A city is asked as {@code place, locality, district} and pinned to its
+ * country's code, and the hit is checked against that code again ("Salalah" is not in Yemen). The
+ * point is read from {@code properties.coordinates}, not the longitude-first GeoJSON geometry. The
+ * token is added by the vendor client factory, so no URI built here carries it.
  */
 @Slf4j
 public class MapboxGeocoder implements Geocoder {
@@ -140,7 +133,7 @@ public class MapboxGeocoder implements Geocoder {
     record MapboxFeatureProperties(String name, String featureType, MapboxCoordinates coordinates,
                                    MapboxContext context) {
 
-        /** The country a hit sits in — from its context, or itself when the hit is a country. */
+        /** From the hit's context, or itself when the hit is a country. */
         String countryCode() {
             if (context != null && context.country() != null && context.country().countryCode() != null) {
                 return context.country().countryCode();

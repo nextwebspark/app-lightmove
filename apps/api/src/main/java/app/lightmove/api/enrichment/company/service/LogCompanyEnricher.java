@@ -4,10 +4,7 @@ import app.lightmove.api.enrichment.company.model.VendorCompanyRecord;
 import java.util.Optional;
 import lombok.extern.slf4j.Slf4j;
 
-/**
- * Answers every company research request with nothing — the default, so a fresh clone runs the whole
- * capture flow with no vendor account and captured rows keep what the plugin read.
- */
+/** The default: answers nothing, so a fresh clone runs the capture flow with no vendor account. */
 @Slf4j
 public class LogCompanyEnricher implements LinkedInCompanyEnricher {
 

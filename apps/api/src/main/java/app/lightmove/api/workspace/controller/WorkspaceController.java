@@ -1,19 +1,21 @@
 package app.lightmove.api.workspace.controller;
 
 import app.lightmove.api.core.security.model.AuthPrincipal;
+import app.lightmove.api.core.security.rbac.RequireWorkspacePermission;
+import app.lightmove.api.core.security.rbac.WorkspaceAction;
 import app.lightmove.api.workspace.dto.DeleteWorkspaceRequest;
-import app.lightmove.api.workspace.dto.WorkspaceCompanyResponse;
 import app.lightmove.api.workspace.dto.UpdateWorkspacePersonaRequest;
 import app.lightmove.api.workspace.dto.UpdateWorkspaceSettingsRequest;
+import app.lightmove.api.workspace.dto.WorkspaceCompanyResponse;
 import app.lightmove.api.workspace.dto.WorkspaceResponse;
 import app.lightmove.api.workspace.model.Workspace;
 import app.lightmove.api.workspace.model.WorkspacePersona;
-import app.lightmove.api.workspace.service.WorkspaceSettingsService;
 import app.lightmove.api.workspace.service.WorkspaceSettingsService.WorkspaceDetail;
+import app.lightmove.api.workspace.service.WorkspaceSettingsService;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
-import org.springframework.http.ResponseEntity;
+import org.springframework.http.HttpStatus;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.DeleteMapping;
@@ -22,12 +24,10 @@ import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
-/**
- * Settings → General. The workspace is always the caller's own — no id in the path. Tier gating is
- * declared here: reading is a staff matter, changing it is the WORKSPACE_MANAGE action.
- */
+/** Settings → General, always the caller's own workspace; changing it is WORKSPACE_MANAGE. */
 @RestController
 @RequestMapping("/api/v1/workspace")
 @RequiredArgsConstructor
@@ -37,42 +37,42 @@ public class WorkspaceController {
 
     @GetMapping
     @PreAuthorize("@workspaceAuthorizer.staff(principal)")
-    public ResponseEntity<WorkspaceResponse> get(@AuthenticationPrincipal AuthPrincipal principal) {
-        return ResponseEntity.ok(toResponse(
-                settings.get(principal.requireWorkspaceId())));
+    public WorkspaceResponse get(@AuthenticationPrincipal AuthPrincipal principal) {
+        return toResponse(
+                settings.get(principal.requireWorkspaceId()));
     }
 
     @PatchMapping
-    @PreAuthorize("@workspaceAuthorizer.can(principal, 'WORKSPACE_MANAGE')")
-    public ResponseEntity<WorkspaceResponse> update(@AuthenticationPrincipal AuthPrincipal principal,
-                                                    @Valid @RequestBody UpdateWorkspaceSettingsRequest request,
-                                                    HttpServletRequest httpRequest) {
-        return ResponseEntity.ok(toResponse(settings.update(
+    @RequireWorkspacePermission(WorkspaceAction.WORKSPACE_MANAGE)
+    public WorkspaceResponse update(@AuthenticationPrincipal AuthPrincipal principal,
+                                    @Valid @RequestBody UpdateWorkspaceSettingsRequest request,
+                                    HttpServletRequest httpRequest) {
+        return toResponse(settings.update(
                 principal.userId(), principal.requireWorkspaceId(),
                 request.name(), request.apolloAccountId(), request.defaultRegion(), request.defaultCurrency(),
-                httpRequest)));
+                httpRequest));
     }
 
-    /** The firm persona the assistant will read — an admin's to write, like the rest of this page. */
+    /** The firm persona the assistant reads. */
     @PutMapping("/persona")
-    @PreAuthorize("@workspaceAuthorizer.can(principal, 'WORKSPACE_MANAGE')")
-    public ResponseEntity<WorkspaceResponse> updatePersona(@AuthenticationPrincipal AuthPrincipal principal,
-                                                           @Valid @RequestBody UpdateWorkspacePersonaRequest request,
-                                                           HttpServletRequest httpRequest) {
+    @RequireWorkspacePermission(WorkspaceAction.WORKSPACE_MANAGE)
+    public WorkspaceResponse updatePersona(@AuthenticationPrincipal AuthPrincipal principal,
+                                           @Valid @RequestBody UpdateWorkspacePersonaRequest request,
+                                           HttpServletRequest httpRequest) {
         WorkspacePersona persona = new WorkspacePersona(request.summary(), request.sectors(),
                 request.competitors(), request.geographies(), request.notes());
-        return ResponseEntity.ok(toResponse(settings.updatePersona(
-                principal.userId(), principal.requireWorkspaceId(), persona, httpRequest)));
+        return toResponse(settings.updatePersona(
+                principal.userId(), principal.requireWorkspaceId(), persona, httpRequest));
     }
 
     @DeleteMapping
-    @PreAuthorize("@workspaceAuthorizer.can(principal, 'WORKSPACE_MANAGE')")
-    public ResponseEntity<Void> delete(@AuthenticationPrincipal AuthPrincipal principal,
-                                       @Valid @RequestBody DeleteWorkspaceRequest request,
-                                       HttpServletRequest httpRequest) {
+    @RequireWorkspacePermission(WorkspaceAction.WORKSPACE_MANAGE)
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void delete(@AuthenticationPrincipal AuthPrincipal principal,
+                       @Valid @RequestBody DeleteWorkspaceRequest request,
+                       HttpServletRequest httpRequest) {
         settings.delete(principal.userId(), principal.requireWorkspaceId(),
                 request.confirmName(), httpRequest);
-        return ResponseEntity.noContent().build();
     }
 
     private WorkspaceResponse toResponse(WorkspaceDetail detail) {

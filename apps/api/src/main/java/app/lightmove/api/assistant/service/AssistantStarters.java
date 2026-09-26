@@ -22,11 +22,8 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
 /**
- * The questions an empty chat offers, drawn from the firm the workspace is: its sector, the sectors
- * whose executives move well into it, and companies of its size. The sector an admin wrote into the
- * persona wins over the picked company's universe industry, which is often a neighbour of the firm's
- * real business (an online retailer filed under internet); a firm with neither is offered retail's.
- * The first two sectors each get a prompt of their own; neighbours and size follow the first.
+ * The questions an empty chat offers, drawn from the firm: its sectors, their neighbours, and companies
+ * of its size. The persona's sectors win over the company's universe industry, often only a neighbour.
  */
 @Service
 @RequiredArgsConstructor
@@ -71,7 +68,6 @@ public class AssistantStarters {
         return new AssistantStartersResponse(recorded.isEmpty(), List.copyOf(starters));
     }
 
-    /** The persona's first sectors, or the company's industry when it names none; one prompt each. */
     private static List<String> recordedSectors(List<String> personaSectors, String industry) {
         Map<String, String> distinct = new LinkedHashMap<>();
         (personaSectors == null ? List.<String>of() : personaSectors).stream()
@@ -85,7 +81,6 @@ public class AssistantStarters {
         return distinct.values().stream().limit(MAX_SECTOR_STARTERS).toList();
     }
 
-    /** The firm's own sectors first, when the list puts them beside its industry; then the list's order. */
     private List<String> neighboursPreferringPersona(String sector, List<String> personaSectors) {
         List<String> neighbours = adjacency.neighboursOf(sector).stream()
                 .filter(neighbour -> !neighbour.equalsIgnoreCase(sector))

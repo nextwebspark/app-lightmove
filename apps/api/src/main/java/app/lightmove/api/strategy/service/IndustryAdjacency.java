@@ -6,10 +6,7 @@ import java.util.Map;
 import org.springframework.stereotype.Component;
 import tools.jackson.databind.ObjectMapper;
 
-/**
- * Which industries sit beside which — the panel's "Adjacent Industries" chips. Editorial judgement
- * about transferable talent, so a classpath resource like the taxonomy beside it.
- */
+/** The "Adjacent Industries" chips: editorial judgement, kept as a classpath resource. */
 @Component
 public class IndustryAdjacency {
 
@@ -22,10 +19,7 @@ public class IndustryAdjacency {
         checkSymmetric(neighboursByIndustry);
     }
 
-    /**
-     * Fails at startup on a one-way edge. It would put the chip under one industry and not the
-     * other, which reads as the suggestions having an opinion they do not have.
-     */
+    /** Fails at startup on a one-way edge. */
     private static void checkSymmetric(Map<String, List<String>> neighbours) {
         neighbours.forEach((industry, listed) -> listed.forEach(neighbour -> {
             if (!neighbours.getOrDefault(neighbour, List.of()).contains(industry)) {
@@ -35,13 +29,12 @@ public class IndustryAdjacency {
         }));
     }
 
-    /** The industries beside one, whatever its case; empty for an industry the list does not hold. */
+    /** Case-insensitive; empty for an industry the list does not hold. */
     public List<String> neighboursOf(String industry) {
         return industry == null ? List.of()
                 : neighboursByIndustry.getOrDefault(industry.strip().toLowerCase(Locale.ROOT), List.of());
     }
 
-    /** Every industry, with the industries beside it. */
     public Map<String, List<String>> neighbours() {
         return neighboursByIndustry;
     }

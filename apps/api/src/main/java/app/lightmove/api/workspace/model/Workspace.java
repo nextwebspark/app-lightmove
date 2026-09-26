@@ -37,16 +37,11 @@ public class Workspace extends BaseEntity {
     @Column(nullable = false, unique = true)
     private String slug;
 
-    /**
-     * The domain of the address that created this workspace, e.g. {@code nextwebspark.com}.
-     *
-     * <p>Not unique: one firm may run several workspaces. It is how colleagues <i>find</i> each other
-     * at signup, not a claim on the domain.
-     */
+    /** The creator's email domain. Not unique: one firm may run several workspaces. */
     @Column(name = "email_domain", nullable = false, updatable = false)
     private String emailDomain;
 
-    /** One or two characters for the sidebar avatar, e.g. "L". */
+    /** One or two characters for the sidebar avatar. */
     @Setter
     @Column(name = "logo_mark", length = 4)
     private String logoMark;
@@ -118,17 +113,12 @@ public class Workspace extends BaseEntity {
         workspace.logoMark = deriveLogoMark(name);
         workspace.identifyAs(company);
         workspace.persona = WorkspacePersona.seededFrom(company);
-        // The region they work in is the sensible default for the region their projects will be in.
+
         workspace.defaultRegion = primaryRegion != null ? primaryRegion : "GCC";
         return workspace;
     }
 
-    /**
-     * Corrects the details the organisation was described with.
-     *
-     * <p>Notably <b>not</b> the slug, which is in URLs and bookmarks, and not the email domain, which
-     * was never the user's to choose. A workspace can be re-described; it cannot be re-identified.
-     */
+    /** Never the slug (in URLs) or the email domain: a workspace can be re-described, not re-identified. */
     public void describe(String name, WorkspaceCompany company,
                          String companySize, String primaryRegion, String teamFocus) {
         this.name = name;
@@ -164,11 +154,7 @@ public class Workspace extends BaseEntity {
         this.logoUrl = company == null ? null : company.logoUrl();
     }
 
-    /**
-     * The Settings → General form. Re-derives the logo mark and re-files the company snapshot, which a
-     * null company clears; identity (slug, domain) stays put. The persona's sectors and country follow
-     * the company, and the rest of it stays the admin's own text.
-     */
+    /** Settings → General: re-files the company snapshot and the persona's sectors and country; identity stays. */
     public void applySettings(String name, WorkspaceCompany company, String defaultRegion, String defaultCurrency) {
         this.name = name;
         this.logoMark = deriveLogoMark(name);
@@ -190,7 +176,7 @@ public class Workspace extends BaseEntity {
         this.status = WorkspaceStatus.DELETED;
     }
 
-    /** First letter of the name, upper-cased — matches the "L" tile in the mockups. */
+    /** First letter of the name, upper-cased. */
     private static String deriveLogoMark(String name) {
         String trimmed = name == null ? "" : name.trim();
         return trimmed.isEmpty() ? "?" : trimmed.substring(0, 1).toUpperCase(Locale.ROOT);

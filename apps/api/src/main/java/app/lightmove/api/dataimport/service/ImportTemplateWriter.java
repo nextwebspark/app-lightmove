@@ -1,5 +1,6 @@
 package app.lightmove.api.dataimport.service;
 
+import app.lightmove.api.core.text.service.CsvFormatter;
 import app.lightmove.api.customcolumn.dto.CustomColumnDto;
 import app.lightmove.api.dataimport.constant.ImportTargetField;
 import java.util.ArrayList;
@@ -8,19 +9,13 @@ import java.util.Map;
 import org.springframework.stereotype.Service;
 
 /**
- * Builds the blank CSV a consultant can download, fill in and upload back.
- *
- * <p>Optional, never required. What the template buys is that a file built from it needs no model
- * call at all: every header here is a spelling {@link HeuristicColumnMatcher} matches with certainty.
- * {@code ImportTemplateWriterTest} pins that, because a label edited out of step with the synonym
- * table would quietly cost a call per import.
- *
- * <p>A dozen fields rather than all thirty-one; the rest stay importable, just not pre-drawn.
+ * The downloadable blank CSV. Every header is a spelling {@link HeuristicColumnMatcher} knows for
+ * certain, so a file built from it needs no model call ({@code ImportTemplateWriterTest} pins that).
  */
 @Service
 public class ImportTemplateWriter {
 
-    /** The fields people actually fill in, in the order a row reads: the company, then the person. */
+    /** The fields people actually fill in, company then person; the rest stay importable. */
     private static final List<ImportTargetField> COMMON_FIELDS = List.of(
             ImportTargetField.COMPANY_NAME,
             ImportTargetField.COMPANY_INDUSTRY,
@@ -35,7 +30,6 @@ public class ImportTemplateWriter {
             ImportTargetField.CANDIDATE_PHONE,
             ImportTargetField.CANDIDATE_LINKEDIN);
 
-    /** One filled row, so the shape of a value is shown rather than described. */
     private static final Map<ImportTargetField, String> EXAMPLE_ROW = Map.ofEntries(
             Map.entry(ImportTargetField.COMPANY_NAME, "ACWA Power"),
             Map.entry(ImportTargetField.COMPANY_INDUSTRY, "Oil & Energy"),
@@ -52,12 +46,7 @@ public class ImportTemplateWriter {
 
     public static final String FILE_NAME = "lightmove-import-template.csv";
 
-    /**
-     * The template for one mandate.
-     *
-     * <p>Project-scoped because the mandate's own custom columns are appended: without them a second
-     * import of the same shape would pay for a model call to be told what it already knew.
-     */
+    /** Appends the mandate's custom columns, so a second import of the same shape needs no model call. */
     public String templateFor(List<CustomColumnDto> customColumns) {
         List<String> headers = new ArrayList<>(COMMON_FIELDS.stream().map(ImportTargetField::label).toList());
         List<String> example = new ArrayList<>(COMMON_FIELDS.stream().map(EXAMPLE_ROW::get).toList());
@@ -67,22 +56,6 @@ public class ImportTemplateWriter {
                     headers.add(column.label());
                     example.add("");
                 });
-        return row(headers) + "\r\n" + row(example) + "\r\n";
-    }
-
-    /**
-     * CRLF and RFC 4180 quoting: this file is opened in Excel far more often than by a parser, and a
-     * header carrying a comma would otherwise be two columns the moment it is saved and sent back.
-     */
-    private static String row(List<String> values) {
-        return String.join(",", values.stream().map(ImportTemplateWriter::quoted).toList());
-    }
-
-    private static String quoted(String value) {
-        String safe = value == null ? "" : value;
-        if (safe.contains(",") || safe.contains("\"") || safe.contains("\n") || safe.contains("\r")) {
-            return '"' + safe.replace("\"", "\"\"") + '"';
-        }
-        return safe;
+        return CsvFormatter.row(headers) + "\r\n" + CsvFormatter.row(example) + "\r\n";
     }
 }

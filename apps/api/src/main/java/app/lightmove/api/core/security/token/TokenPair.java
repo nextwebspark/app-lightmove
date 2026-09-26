@@ -3,15 +3,8 @@ package app.lightmove.api.core.security.token;
 import java.time.Duration;
 
 /**
- * What a successful authentication yields.
- *
- * <p>The two halves leave the server by different routes and that is the point: {@code accessToken}
- * goes in the JSON body for the SPA to hold in memory, while {@code refreshToken} is put straight into
- * an httpOnly cookie by the controller and is never visible to JavaScript. Script that cannot read a
- * token cannot exfiltrate it.
- *
- * <p>{@code toString} is overridden because these end up in log lines and stack traces by accident,
- * and a record's default would print both credentials in full.
+ * The access token travels in the JSON body for the SPA's memory, the refresh token only in an
+ * httpOnly cookie. {@code toString} is overridden so a log line never prints either.
  */
 public record TokenPair(
         String accessToken,

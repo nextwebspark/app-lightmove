@@ -14,21 +14,9 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 
 /**
- * One issued refresh token, stored only as a SHA-256 hash.
- *
- * <p>Tokens rotate: redeeming one issues a successor and revokes the original, chaining them through
- * {@link #replacedById} inside a shared {@link #familyId}. A family is one login session — it begins
- * at sign-in and ends at logout, expiry, or theft.
- *
- * <p><b>Reuse detection.</b> A token that has already been rotated away should never be seen again.
- * If it is, one of two things happened: an attacker stole it and is redeeming it, or the attacker
- * stole and redeemed it already and this is the legitimate user arriving with a token that is now
- * stale. We cannot tell those apart, and in both cases someone unauthorised holds a valid credential.
- * So the entire family is revoked and both parties are forced to sign in again. Losing a session is
- * an acceptable price; leaving a thief with a live token is not.
- *
- * <p>Not a {@code BaseEntity}: a refresh token is never updated in place except to be revoked, and it
- * has no meaningful {@code updated_at} — it is an event, not a mutable record.
+ * One refresh token, stored only as a SHA-256 hash. Rotation chains tokens in a {@link #familyId},
+ * one per login session. <b>Reuse detection:</b> a rotated-away token seen again means someone
+ * unauthorised holds a credential, so the whole family is revoked. Not a {@code BaseEntity}: an event.
  */
 @Entity
 @Table(name = "app_lm_refresh_token")
@@ -53,12 +41,7 @@ public class RefreshToken {
     @Column(name = "family_id", nullable = false)
     private UUID familyId;
 
-    /**
-     * The workspace this session is in — the one the access token's {@code wsId} names. Carried by the
-     * family so a refresh re-reads the membership <i>there</i>. Moved by {@code /auth/switch-workspace},
-     * or by a web refresh once that membership has ended; an extension family never moves. Null for a
-     * session in no workspace.
-     */
+    /** The session's workspace, re-read at each refresh; moved by a switch or once the membership ends. */
     @Column(name = "workspace_id")
     private UUID workspaceId;
 

@@ -1,20 +1,19 @@
 package app.lightmove.api.core.security.service;
-import app.lightmove.api.core.security.token.RefreshCookieFactory;
-import app.lightmove.api.core.security.repository.UserIdentityRepository;
-import app.lightmove.api.core.security.repository.UserRepository;
-
-import app.lightmove.api.core.security.model.AuthenticatedSession;
-import app.lightmove.api.core.security.token.TokenPair;
-import app.lightmove.api.core.security.token.TokenService;
-import app.lightmove.api.core.security.model.User;
-import app.lightmove.api.core.security.model.UserIdentity;
 import app.lightmove.api.core.audit.constant.AuthEventType;
 import app.lightmove.api.core.audit.service.AuditService;
 import app.lightmove.api.core.config.LightMoveProperties;
-import app.lightmove.api.core.error.model.ApiException;
-import app.lightmove.api.core.error.constant.ErrorCode;
 import app.lightmove.api.core.email.service.EmailAddressValidator;
-import app.lightmove.api.workspace.model.WorkspaceMember;
+import app.lightmove.api.core.error.constant.ErrorCode;
+import app.lightmove.api.core.error.model.ApiException;
+import app.lightmove.api.core.security.constant.PrivacyPolicy;
+import app.lightmove.api.core.security.model.AuthenticatedSession;
+import app.lightmove.api.core.security.model.User;
+import app.lightmove.api.core.security.model.UserIdentity;
+import app.lightmove.api.core.security.repository.UserIdentityRepository;
+import app.lightmove.api.core.security.repository.UserRepository;
+import app.lightmove.api.core.security.token.RefreshCookieFactory;
+import app.lightmove.api.core.security.token.TokenPair;
+import app.lightmove.api.core.security.token.TokenService;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
@@ -34,28 +33,14 @@ import org.springframework.transaction.support.TransactionTemplate;
 import org.springframework.web.util.UriComponentsBuilder;
 
 /**
- * What happens after an identity provider says who you are.
- *
- * <p>The important boundary: <b>the provider authenticates, it does not get to be our session.</b>
- * We mint our own access and refresh tokens, so every downstream check works identically whether
- * someone signed in with a password, with Google, or with LinkedIn.
- *
- * <p><b>Nothing here names a provider.</b> Which one authenticated is the OAuth registration id, and
- * every claim read is standard OIDC ({@code sub}, {@code email}, {@code email_verified},
- * {@code name}, {@code picture}). That is what makes adding a provider a yml block and no code at
- * all — a branch on the provider here would quietly undo it.
- *
- * <p>The work-email rule applies here too: a {@code @gmail.com} federated account is still a
- * {@code @gmail.com} address, and is refused when the blocklist is on.
+ * After an identity provider says who you are: the provider authenticates, but we mint our own tokens.
+ * Nothing here names a provider — every claim read is standard OIDC — so a provider stays a yml block.
  */
 @Component
 @RequiredArgsConstructor
 @Slf4j
 public class OAuth2LoginSuccessHandler implements AuthenticationSuccessHandler {
 
-    private static final String PRIVACY_POLICY_VERSION = "2026-07-01";
-
-    /** Comfortably above any real CDN URL, and far below what fills a text column. */
     private static final int MAX_AVATAR_URL_LENGTH = 2048;
 
     private final UserRepository users;
@@ -74,9 +59,7 @@ public class OAuth2LoginSuccessHandler implements AuthenticationSuccessHandler {
                                         Authentication authentication) throws IOException {
         if (!(authentication.getPrincipal() instanceof OidcUser oidcUser)
                 || !(authentication instanceof OAuth2AuthenticationToken oauthToken)) {
-            // Overwhelmingly a registration configured without the `openid` scope, which yields a
-            // plain OAuth2User. Naming what arrived is the difference between a one-line config fix
-            // and an afternoon: the browser only ever sees ?error=INVALID_CREDENTIALS.
+            // Usually a registration without the `openid` scope; the browser only sees INVALID_CREDENTIALS.
             log.warn("OAuth sign-in produced no OIDC identity: authentication={}, principal={}",
                     authentication.getClass().getSimpleName(),
                     authentication.getPrincipal() == null
@@ -86,8 +69,6 @@ public class OAuth2LoginSuccessHandler implements AuthenticationSuccessHandler {
             return;
         }
 
-        // The registration id is the provider's whole identity to us: it names the yml block, the
-        // callback path Spring listened on, and the value we store against the account.
         String provider = oauthToken.getAuthorizedClientRegistrationId().toUpperCase(Locale.ROOT);
 
         try {
@@ -95,12 +76,9 @@ public class OAuth2LoginSuccessHandler implements AuthenticationSuccessHandler {
                     .execute(status -> establishSession(provider, oidcUser, request));
             TokenPair pair = session.tokens();
 
-            // The refresh token leaves as an httpOnly cookie, exactly as it does for a password login.
             response.addHeader(HttpHeaders.SET_COOKIE, refreshCookie.create(pair.refreshToken()).toString());
 
-            // The access token rides back in the URL fragment, not the query string. A fragment is
-            // never sent to the server, so it stays out of access logs, out of the Referer header, and
-            // out of browser history sync. The SPA reads it, stores it in memory, and clears it.
+            // In the fragment, not the query: it is never sent to a server, so stays out of logs and Referer.
             String target = UriComponentsBuilder
                     .fromUriString(properties.web().baseUrl() + properties.web().oauthSuccessPath())
                     .build()
@@ -112,29 +90,20 @@ public class OAuth2LoginSuccessHandler implements AuthenticationSuccessHandler {
             log.info("{} sign-in refused: {} ({})", provider, ex.getCode(), ex.getMessage());
             loginErrors.send(response, ex.getCode());
         } catch (Exception ex) {
-            // Invoked by the security filter chain, so GlobalExceptionHandler never sees what
-            // escapes it — an uncaught exception here is a raw container error page. Two concurrent
-            // first sign-ins of the same new user race into register() and the loser dies on the
-            // unique email constraint; whatever lands here, the browser must still return to the SPA.
+            // Inside the filter chain, where GlobalExceptionHandler does not exist. Two concurrent first
+            // sign-ins race into register() and the loser dies on the unique email; still redirect.
             log.error("{} sign-in failed unexpectedly", provider, ex);
             loginErrors.send(response, ErrorCode.OAUTH_FAILED);
         }
     }
 
     /**
-     * Finds or creates the local user behind a federated account, and issues our tokens.
-     *
-     * <p>Matched on the provider's stable subject id where possible, and only then on email: an
-     * address can be renamed at the provider, and matching solely on it would lose the link or attach
-     * a provider account to whoever now holds a recycled address.
+     * Finds or creates the local user and issues our tokens. Matched on the provider's subject first:
+     * matching on email alone would attach the account to whoever now holds a recycled address.
      */
-    // No @Transactional: this is called from onAuthenticationSuccess on this same bean, so the proxy
-    // is bypassed and the annotation would be inert — the TransactionTemplate around the call is what
-    // actually owns the transaction. See the trap list in CLAUDE.md.
+    // No @Transactional: a self-call bypasses the proxy; the TransactionTemplate owns the transaction.
     AuthenticatedSession establishSession(String provider, OidcUser oidcUser, HttpServletRequest request) {
-        // 'LOCAL' is not a provider: it marks a password we hashed ourselves, and the identity table is
-        // keyed on (provider, providerUserId). A registration id that collided with it would let a
-        // federated identity masquerade as a local one.
+        // A registration id colliding with 'LOCAL' would let a federated identity masquerade as a password one.
         if (UserIdentity.LOCAL_PROVIDER.equals(provider)) {
             throw new ApiException(ErrorCode.INVALID_CREDENTIALS,
                     "Registration id 'local' is reserved for password identities");
@@ -146,9 +115,7 @@ public class OAuth2LoginSuccessHandler implements AuthenticationSuccessHandler {
         if (email == null || email.isBlank()) {
             throw new ApiException(ErrorCode.INVALID_CREDENTIALS, provider + " returned no email address");
         }
-        // A provider will happily say the address is unverified. Believing it anyway would let
-        // someone attach an address they do not own — and here that address decides which firm they
-        // join, and links them into an account that already exists.
+        // An unverified address decides which firm they join and links into an existing account.
         if (!emailProvenBy(provider, oidcUser)) {
             throw new ApiException(ErrorCode.EMAIL_NOT_VERIFIED,
                     provider + " did not confirm this address is verified");
@@ -168,27 +135,16 @@ public class OAuth2LoginSuccessHandler implements AuthenticationSuccessHandler {
         audit.event(AuthEventType.OAUTH_LOGIN_SUCCEEDED).actor(user.getId()).from(request)
                 .detail("provider", provider).record();
 
-        WorkspaceMember membership = selection.select(user, user.getLastWorkspaceId()).orElse(null);
-        selection.remember(user, membership);
-
-        return tokens.issue(user, membership, request);
+        return tokens.issue(user, selection.signIn(user), request);
     }
 
-    /**
-     * No identity from this provider on file. Either this is an existing user signing in with it for
-     * the first time — in which case the accounts are linked — or a brand new person.
-     */
     private User linkOrRegister(String provider, String email, String subject, OidcUser oidcUser,
                                 HttpServletRequest request) {
         return users.findByEmail(email)
                 .map(existing -> {
-                    // Same address, so the same person: the provider has verified it, and only the
-                    // mailbox's owner could have. Linking rather than creating a second account is
-                    // what the schema's unique email requires anyway.
+                    // The provider verified the address, so only the mailbox's owner could be here.
                     identities.save(UserIdentity.link(existing.getId(), provider, subject, email));
 
-                    // Signing in with the provider proves the same mailbox a verification email exists
-                    // to collect.
                     existing.markEmailVerified(Instant.now());
 
                     log.info("Linked {} account to existing user {}", provider, existing.getId());
@@ -201,8 +157,7 @@ public class OAuth2LoginSuccessHandler implements AuthenticationSuccessHandler {
 
     private User register(String provider, String email, String subject, OidcUser oidcUser,
                           HttpServletRequest request) {
-        // The same gate the password signup applies, and the same code path — a federated account is
-        // not a way around the work-email rule. A @gmail.com Google account is still @gmail.com.
+        // A federated account is no way around the work-email rule.
         String domain = emailValidator.validateWorkEmail(email);
 
         Instant now = Instant.now();
@@ -212,7 +167,7 @@ public class OAuth2LoginSuccessHandler implements AuthenticationSuccessHandler {
                 usablePictureUrl(oidcUser),
                 provider,
                 now,
-                PRIVACY_POLICY_VERSION));
+                PrivacyPolicy.CURRENT_VERSION));
 
         identities.save(UserIdentity.link(user.getId(), provider, subject, email));
 
@@ -223,14 +178,7 @@ public class OAuth2LoginSuccessHandler implements AuthenticationSuccessHandler {
         return user;
     }
 
-    /**
-     * Re-stamps the picture on every sign-in, because we store the provider's CDN URL rather than a
-     * copy of the image and LinkedIn's expire within weeks. A user who signs in keeps a working
-     * avatar; one who does not falls back to initials in the SPA.
-     *
-     * <p>The name is only ever backfilled. It is editable in the product, and a provider must not
-     * overwrite what someone typed.
-     */
+    /** Re-stamps the picture (provider CDN URLs expire); the name is only backfilled, never overwritten. */
     private void refreshProfile(String provider, User user, OidcUser oidcUser, String email) {
         user.adoptAvatarFrom(provider, usablePictureUrl(oidcUser));
         if (user.getFullName() == null || user.getFullName().isBlank()) {
@@ -239,15 +187,8 @@ public class OAuth2LoginSuccessHandler implements AuthenticationSuccessHandler {
     }
 
     /**
-     * Whether a provider's {@code picture} claim is safe to store and hand to every colleague.
-     *
-     * <p>It is rendered in an {@code <img>} on the roster and on each project's team, so it is a URL
-     * the whole workspace fetches. On many identity providers it is also a <i>user-editable profile
-     * field</i>: an unfiltered value lets a member point it at a host they control and collect a
-     * request — viewer IP, user agent, timestamp — every time a colleague opens the team page.
-     * Requiring https keeps it to hosts that at least cannot be tampered with in transit, and the
-     * length cap keeps a hostile provider from filling the column. A rejected picture is simply not
-     * stored: the SPA falls back to initials, which is a normal state rather than an error.
+     * Whether the {@code picture} claim is safe to store: it is often user-editable and every colleague's
+     * browser fetches it, so it must be https and length-capped. A rejected one falls back to initials.
      */
     private static String usablePictureUrl(OidcUser oidcUser) {
         String picture = oidcUser.getPicture();
@@ -259,17 +200,8 @@ public class OAuth2LoginSuccessHandler implements AuthenticationSuccessHandler {
     }
 
     /**
-     * Whether this provider has actually vouched for the address.
-     *
-     * <p>{@code email_verified} is optional in OIDC. Spring coerces anything present to a Boolean
-     * (its {@code ClaimTypeConverter} runs {@code Boolean.valueOf} over both the id_token and the
-     * userinfo response), so the only ambiguous answer is <b>absent</b> — LinkedIn sends nothing at
-     * all, which is why demanding {@code Boolean.TRUE} refused every LinkedIn login.
-     *
-     * <p>Absence is trusted only for the registrations configured as
-     * {@code email-verified-optional-registrations}, never by default. The address decides which firm
-     * someone joins and links them into an account that may already exist, so "the provider did not
-     * say" must not read as "the provider said yes" for a provider nobody has vetted.
+     * Whether the provider vouched for the address. {@code email_verified} may be absent (LinkedIn sends
+     * none); absence is trusted only for {@code email-verified-optional-registrations}, never by default.
      */
     private boolean emailProvenBy(String provider, OidcUser oidcUser) {
         Object claim = oidcUser.getClaims().get("email_verified");

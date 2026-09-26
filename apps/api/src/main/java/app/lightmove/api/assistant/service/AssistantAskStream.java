@@ -23,18 +23,11 @@ import org.springframework.stereotype.Service;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
 /**
- * Answers a question while streaming what the tools are doing: a {@code step} event per step as it
- * starts and finishes, {@code proposal} with the company card the moment it is made — the answer
- * text takes one more model round after it — then {@code done} with the saved turn, or
- * {@code failed} with an error code.
+ * Answers a question on a background thread while streaming {@code step}, {@code proposal}, then
+ * {@code done} or {@code failed} events. A closed tab only stops the sending; the answer is still saved.
  *
- * <p>The answer is worked out on a background thread so the response can flush as it goes. A
- * closed tab only stops the sending: the answer is still saved and appears in the chat history. An
- * answer still being worked out when the stream must close is reported as still answering, never as
- * failed — it is saved when it is ready, and asking again would pay for it twice.
- *
- * <p>Refused before anything is billed when the asker's meter is spent or every answer slot on this
- * instance is taken. The executor is unbounded virtual threads, so the slots are the only cap.
+ * <p>An answer outliving the stream is reported as still answering, never failed — asking again would
+ * pay twice. The executor is unbounded virtual threads, so the slots are the only concurrency cap.
  */
 @Slf4j
 @Service

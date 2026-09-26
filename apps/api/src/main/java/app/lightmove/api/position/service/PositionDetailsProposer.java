@@ -3,9 +3,9 @@ package app.lightmove.api.position.service;
 import app.lightmove.api.common.constant.EmploymentType;
 import app.lightmove.api.common.constant.Seniority;
 import app.lightmove.api.core.llm.model.BlockedAnswer;
-import app.lightmove.api.core.llm.model.PromptGuardSpec;
 import app.lightmove.api.core.llm.model.Pseudonyms;
-import app.lightmove.api.core.llm.service.LlmCallPolicy;
+import app.lightmove.api.core.llm.service.StructuredPrompt;
+import app.lightmove.api.core.llm.service.StructuredPromptFactory;
 import app.lightmove.api.core.llm.service.TextPseudonymiser.Redaction;
 import app.lightmove.api.core.ratelimit.service.LlmBudget;
 import app.lightmove.api.core.ratelimit.service.LlmBudgetGuard;
@@ -18,39 +18,15 @@ import app.lightmove.api.position.model.ModelDetailsAnswer;
 import app.lightmove.api.position.model.ProposedPositionDetails;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
-import java.util.function.Consumer;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.ai.chat.client.ChatClient;
-import org.springframework.ai.google.genai.GoogleGenAiChatOptions;
-import org.springframework.beans.factory.annotation.Value;
-import org.springframework.core.io.Resource;
 import org.springframework.stereotype.Service;
 
 /**
- * Asks the model to read a position description into step-one proposals — the structural twin of
- * {@code dataimport}'s {@code ColumnMappingProposer}: the same shared {@code ChatClient}, a system
- * prompt and structured answer of its own, and the same three call options a lookup-shaped task
- * wants that the shortlist prompt beside it does not.
- *
- * <p><b>The document is redacted before it is sent, and re-hydrated after.</b> See {@link
- * PositionDocumentRedactor} for what is removed and why. Every value and snippet the model returns is
- * re-hydrated; a surviving placeholder after re-hydration means the field is dropped rather than
- * surfaced, and a snippet that does not literally occur in the original document is dropped and its
- * field's confidence downgraded rather than trusted as a quote.
- *
- * <p><b>The heuristic reader never seeds this call.</b> {@link HeuristicBriefReader}'s answer stays
- * local: it is the fallback when the model cannot be reached or is blocked, and it feeds exactly one
- * cross-check — where the model and the heuristic agree on the role title, that field's confidence is
- * upgraded, because two independent readings landing on the same title is worth more than either
- * alone.
- *
- * <p><b>A field neither path found stays unproposed.</b> Earlier drafts backfilled it from the
- * mandate's matched brief template, at flat {@code LOW} confidence with no snippet — dead weight once
- * a mandate is already seeded from that same template: {@code TEMPLATE} is a no-op there, and
- * {@code DOCUMENT} would draw a marker over a value with nothing to point at.
+ * Reads a position description into step-one proposals, falling back to {@link HeuristicBriefReader}.
+ * The document is redacted and re-hydrated ({@link PositionDocumentRedactor}); a surviving placeholder
+ * or a non-literal snippet is dropped.
  */
 @Service
 @Slf4j
@@ -59,19 +35,7 @@ public class PositionDetailsProposer {
     private static final String PROMPT_ID = "position-extract-details";
     private static final String LABEL = "Position extraction";
 
-    /** Extraction has one right answer per field, so variance only buys answers that will not bind. */
-    private static final double EXTRACTION_TEMPERATURE = 0.0;
-
-    /** See {@code ColumnMappingProposer}'s identical constant: native JSON avoids a markdown fence. */
-    private static final String ANSWER_MIME_TYPE = "application/json";
-
-    /** No reasoning step: reading a document into fixed fields is not a problem thinking improves. */
-    private static final int EXTRACTION_THINKING_BUDGET = 0;
-
-    /**
-     * What the guard answers with when it blocks a call. Binds to {@link ModelDetailsAnswer}, whose
-     * only required field is {@code roleTitle} — the same reason the schema requires it.
-     */
+    /** The guard's answer when it blocks a call; binds to {@link ModelDetailsAnswer}'s one required field. */
     private static final String BLOCKED = "{\"roleTitle\":\"" + BlockedAnswer.MARKER + "\"}";
 
     private static final int ROLE_TITLE_MAX_LENGTH = 160;
@@ -81,36 +45,25 @@ public class PositionDetailsProposer {
     private static final int RESPONSIBILITY_MAX_LENGTH = 200;
     private static final int RESPONSIBILITY_MAX_COUNT = 5;
 
-    private final ChatClient chatClient;
     private final HeuristicBriefReader heuristics;
     private final PositionDocumentRedactor redactor;
     private final ExtractedFieldReader fieldReader;
-    private final Resource systemPrompt;
-    private final Consumer<ChatClient.AdvisorSpec> guarded;
+    private final StructuredPrompt prompt;
     private final LlmBudgetGuard llmBudget;
 
-    // Hand-written rather than @RequiredArgsConstructor: Lombok cannot annotate a constructor
-    // parameter with @Value, matching ColumnMappingProposer's own exemption.
-    public PositionDetailsProposer(ChatClient chatClient,
+    public PositionDetailsProposer(StructuredPromptFactory prompts,
                                    HeuristicBriefReader heuristics,
                                    PositionDocumentRedactor redactor,
                                    ExtractedFieldReader fieldReader,
-                                   @Value("classpath:prompts/position-extract-details-system.st") Resource systemPrompt,
-                                   @Value("classpath:prompts/position-extract-details-schema.json") Resource answerSchema,
-                                   LlmCallPolicy llmCalls,
                                    LlmBudgetGuard llmBudget) {
-        this.chatClient = chatClient;
         this.heuristics = heuristics;
         this.redactor = redactor;
         this.fieldReader = fieldReader;
-        this.systemPrompt = systemPrompt;
-        this.guarded = llmCalls.forPrompt(PromptGuardSpec.structured(PROMPT_ID, answerSchema, BLOCKED));
+        this.prompt = prompts.create(PROMPT_ID, BLOCKED);
         this.llmBudget = llmBudget;
     }
 
     public ProposedPositionDetails propose(UUID userId, String documentText, UUID clientId, UUID workspaceId) {
-        // Run first and kept local: the heuristic's reading never reaches the prompt, but it is both
-        // the ultimate fallback and the one cross-check a model answer gets.
         ProposedPositionDetails heuristic = heuristics.propose(workspaceId, documentText);
 
         llmBudget.require(LlmBudget.POSITION_EXTRACT, userId);
@@ -128,30 +81,18 @@ public class PositionDetailsProposer {
             }
             return finish(reconcile(answered, redaction.pseudonyms(), documentText, heuristic));
         } catch (RuntimeException e) {
-            // Deliberately broad and deliberately quiet, exactly as ColumnMappingProposer's catch is:
-            // every way this call can fail has the same right answer, the heuristic's own reading, and
-            // the response says which of the two produced it rather than claiming the model did.
+            // Deliberately broad: every failure has the same right answer, the heuristic's reading.
             log.warn("Position extraction fell back to the heuristic reader: {}", e.toString());
             return finish(heuristic);
         }
     }
 
     private ModelDetailsAnswer ask(String redactedText) {
-        return chatClient.prompt()
-                .advisors(guarded)
-                .options(GoogleGenAiChatOptions.builder()
-                        .temperature(EXTRACTION_TEMPERATURE)
-                        .responseMimeType(ANSWER_MIME_TYPE)
-                        .thinkingBudget(EXTRACTION_THINKING_BUDGET)
-                        .labels(Map.of("prompt", PROMPT_ID)))
-                .system(systemPrompt)
-                .user(user -> user.text("""
-                        Position description text:
-                        {text}
-                        """)
-                        .param("text", redactedText))
-                .call()
-                .entity(ModelDetailsAnswer.class);
+        return prompt.ask(ModelDetailsAnswer.class, user -> user.text("""
+                Position description text:
+                {text}
+                """)
+                .param("text", redactedText));
     }
 
     private static boolean wasBlocked(ModelDetailsAnswer answered) {
@@ -212,10 +153,8 @@ public class PositionDetailsProposer {
     }
 
     /**
-     * The model and the heuristic both read where a role sits as one line of prose, because that is how
-     * a document writes it. The brief stores two halves (V66), so the line is split here — the one seam
-     * both paths pass through — and each half is proposed, filled and marked on its own. A line naming
-     * only a country proposes only the country; a tail the catalog cannot place stays whole as the city.
+     * Splits the one location line both readers produce into the brief's city and country (V66); a tail
+     * the catalog cannot place stays whole as the city.
      */
     private static List<ExtractedField> splitLocation(List<ExtractedField> fields) {
         List<ExtractedField> split = new ArrayList<>();
@@ -228,7 +167,6 @@ public class PositionDetailsProposer {
             if (line.isEmpty()) {
                 continue;
             }
-            // Both halves came from the same sentence, so both carry its snippet and its confidence.
             if (line.city() != null) {
                 split.add(new ExtractedField("locationCity", line.city(), field.confidence(),
                         field.snippet(), field.origin()));
@@ -241,10 +179,7 @@ public class PositionDetailsProposer {
         return split;
     }
 
-    /**
-     * Pre-truncates every value to {@code PutPositionDetailsRequest}'s own ceilings, on both the model
-     * and the heuristic path, so accepting a proposal can never 400 the autosave it is handed to.
-     */
+    /** Truncates to {@code PutPositionDetailsRequest}'s ceilings, so accepting a proposal can never 400 the autosave. */
     private List<ExtractedField> truncateToCeilings(List<ExtractedField> fields) {
         List<ExtractedField> truncated = new ArrayList<>();
         int responsibilityCount = 0;

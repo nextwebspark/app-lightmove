@@ -27,12 +27,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 /**
- * How a user ends up in a workspace: creating one — at signup, or later from Settings → Workspaces —
- * where they are its ADMIN, or being invited, where the admin naming them was the decision.
- *
- * <p>There is deliberately no "ask to join". Finding a workspace on your email domain proves you share
- * an employer's mail system, not that you should see an executive-search pipeline — so signup does not
- * look.
+ * Creating a workspace — at signup or from Settings — as its ADMIN. Deliberately no "ask to join":
+ * sharing an email domain does not entitle anyone to a firm's pipeline, so signup does not look.
  */
 @Service
 @RequiredArgsConstructor
@@ -49,30 +45,17 @@ public class OnboardingService {
     private final WorkspaceSelection selection;
     private final RateLimitGuard rateLimit;
 
-    /**
-     * Signup's organisation step. {@code /onboarding/**} is gated on verification alone, so this door
-     * must stay shut to anyone already in a workspace: a client representative's portal seat would
-     * otherwise found a firm here around the staff gate on {@code POST /workspaces}.
-     */
+    /** Signup's door, gated on verification alone — so shut to anyone already in a workspace. */
     @Transactional
     public Workspace createFirstWorkspace(UUID userId, CreateWorkspaceCommand command,
                                           HttpServletRequest request) {
-        if (!members.findAllByUserIdAndStatusOrderByJoinedAtAsc(userId, MemberStatus.ACTIVE).isEmpty()) {
-            throw ApiException.of(ErrorCode.ALREADY_IN_WORKSPACE);
-        }
+        requireNoExistingMembership(userId);
         return createWorkspace(userId, command, request);
     }
 
     /**
-     * Creates a workspace with the caller as its ADMIN. Verification is signup's step 2, so the caller
-     * is already verified; {@code SecurityConfig} refuses {@code /onboarding/**} to an unverified session.
-     *
-     * <p>The domain is taken from the user's own address, never from the request — that is the
-     * difference between recording which firm a workspace belongs to and letting anyone claim any
-     * company's by typing it into a form.
-     *
-     * <p>The new workspace becomes the one the next sign-in opens in; the session that created it
-     * still has to switch (or refresh) to carry it, since the token it holds was minted before.
+     * The caller is verified ({@code SecurityConfig} refuses {@code /onboarding/**} otherwise). The
+     * domain comes from the user's own address, never the request, so nobody can claim another firm's.
      */
     @Transactional
     public Workspace createWorkspace(UUID userId, CreateWorkspaceCommand command,
@@ -88,9 +71,8 @@ public class OnboardingService {
                 identity.name(), slug, domain, userId, identity.company(),
                 command.companySize(), command.primaryRegion(), command.teamFocus()));
 
-        WorkspaceMember member = members.save(WorkspaceMember.invite(
-                workspace.getId(), userId, Set.of(rbac.role(WorkspaceRole.ADMIN)), userId));
-        selection.remember(user, member);
+        selection.remember(user, members.save(WorkspaceMember.invite(
+                workspace.getId(), userId, Set.of(rbac.role(WorkspaceRole.ADMIN)), userId)));
 
         log.info("Workspace {} ({}) created by user {} on domain {}", workspace.getId(), slug, userId, domain);
         audit.event(WorkspaceEventType.WORKSPACE_CREATED)
@@ -102,14 +84,8 @@ public class OnboardingService {
     }
 
     /**
-     * Corrects the details of a workspace the caller already runs.
-     *
-     * <p>The organisation step <i>commits</i>, so a Back button that dropped the user on an empty
-     * create form would only ever produce "you already have a workspace". Going back means editing
-     * what is already there.
-     *
-     * <p>Admin only, and the role is re-read from the database rather than taken from the caller's
-     * JWT: that claim was minted up to fifteen minutes ago and may since have been revoked.
+     * Signup's Back, the step having committed. Admin only, re-read from the database — the JWT's roles
+     * may be fifteen minutes stale.
      */
     @Transactional
     public Workspace updateWorkspace(UUID userId, UUID workspaceId, CreateWorkspaceCommand command,
@@ -129,6 +105,12 @@ public class OnboardingService {
                 .record();
 
         return workspace;
+    }
+
+    private void requireNoExistingMembership(UUID userId) {
+        if (!members.findAllByUserIdAndStatusOrderByJoinedAtAsc(userId, MemberStatus.ACTIVE).isEmpty()) {
+            throw ApiException.of(ErrorCode.ALREADY_IN_WORKSPACE);
+        }
     }
 
     private User requireUser(UUID userId) {

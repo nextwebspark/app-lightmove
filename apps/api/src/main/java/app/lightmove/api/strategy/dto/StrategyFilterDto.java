@@ -7,12 +7,8 @@ import jakarta.validation.constraints.Size;
 import java.util.List;
 
 /**
- * The Strategy sidebar's whole selection, travelling in both directions.
- *
- * <p>Every list holds wire tokens, never display labels and never sector group names — a group is
- * expanded to its industries client-side. The size caps are a scope rather than an attack: the
- * universe carries 148 industries and a handful of countries, so a request naming hundreds is a
- * client bug worth failing loudly.
+ * The Strategy sidebar's whole selection, both directions. Lists hold wire tokens only; the size caps
+ * catch client bugs, since the universe has 148 industries.
  */
 public record StrategyFilterDto(
         @NotNull(message = "industries must be present, even if empty")
@@ -39,8 +35,7 @@ public record StrategyFilterDto(
         @Size(max = 20, message = "Too many revenue bands selected")
         List<@Size(max = 32) String> revenueBands,
 
-        // Both are @Valid so the nested range's bounds check runs: validation on a nested record is
-        // opt-in, and without it a negative or inverted range would reach the query builder.
+        // @Valid so the nested range's bounds check runs; nested validation is opt-in.
         @Valid NumericRangeDto employeeRange,
 
         @Valid NumericRangeDto revenueRange

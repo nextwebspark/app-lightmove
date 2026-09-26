@@ -2,11 +2,7 @@ package app.lightmove.api.workspace.model;
 
 import app.lightmove.api.strategy.model.CompanyRow;
 
-/**
- * The universe company a workspace was identified as at signup — copied once from the resolved row and
- * owned by the workspace afterwards, like a client's snapshot (V48), because the pipeline reloads the
- * universe wholesale.
- */
+/** The universe company a workspace was picked as at signup, as a write-time snapshot. */
 public record WorkspaceCompany(
         String apolloAccountId,
         String industry,

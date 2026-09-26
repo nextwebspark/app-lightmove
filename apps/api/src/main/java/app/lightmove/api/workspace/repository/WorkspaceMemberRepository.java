@@ -14,39 +14,27 @@ import org.springframework.data.repository.query.Param;
 public interface WorkspaceMemberRepository extends JpaRepository<WorkspaceMember, UUID> {
 
     /**
-     * Every workspace the user is in, oldest first. A user may hold several since V81, so there is
-     * deliberately no singular by-user lookup: an {@code Optional} over two rows throws, and "the user's
-     * workspace" is a question only a session can answer ({@code WorkspaceSelection}).
-     *
-     * <p>Roles ride along eagerly: these rows are what auth responses are assembled from, usually
-     * outside a transaction, where a lazy collection would explode instead of loading.
+     * Oldest first; no singular by-user lookup, since a user may hold several (V81). Roles load eagerly —
+     * auth responses are assembled outside a transaction, where lazy loading throws.
      */
     @EntityGraph(attributePaths = "roles")
     List<WorkspaceMember> findAllByUserIdAndStatusOrderByJoinedAtAsc(UUID userId, MemberStatus status);
 
     /**
-     * The tenant-isolation check, and the reason it takes both ids.
-     *
-     * <p>Asking "is this user a member of <i>this</i> workspace?" in one query is what stops a caller
-     * naming someone else's workspace id and being served their data. Nothing workspace-scoped should
-     * load without this returning an active member first. It is also how a session's own membership
-     * is read — the workspace being the access token's {@code wsId}.
+     * The tenant-isolation check: both ids in one query, so a caller naming another workspace's id is
+     * not served its data. Nothing workspace-scoped loads before this finds an active member.
      */
     @EntityGraph(attributePaths = "roles")
     Optional<WorkspaceMember> findByWorkspaceIdAndUserIdAndStatus(UUID workspaceId, UUID userId, MemberStatus status);
 
-    /** The row whatever its status — for an invitation that may be reactivating a removed member. */
+    /** Whatever its status — an invitation may be reactivating a removed member. */
     @EntityGraph(attributePaths = "roles")
     Optional<WorkspaceMember> findByWorkspaceIdAndUserId(UUID workspaceId, UUID userId);
 
     @EntityGraph(attributePaths = "roles")
     List<WorkspaceMember> findByWorkspaceIdAndStatus(UUID workspaceId, MemberStatus status);
 
-    /**
-     * The staff roster — every member who is not a <b>pure</b> client representative. A member holding
-     * only the CLIENT role is a client guest and must not surface among colleagues; a member who holds
-     * CLIENT alongside a staff role is staff and does appear. The Team screen and its count use this.
-     */
+    /** The staff roster: everyone but a <b>pure</b> client (CLIENT alongside a staff role is staff). */
     @EntityGraph(attributePaths = "roles")
     @Query("""
             select m from WorkspaceMember m
@@ -62,21 +50,18 @@ public interface WorkspaceMemberRepository extends JpaRepository<WorkspaceMember
     @EntityGraph(attributePaths = "roles")
     Optional<WorkspaceMember> findByIdAndWorkspaceId(UUID id, UUID workspaceId);
 
-    /**
-     * The membership's workspace-role names, straight from the assignment table. A projection rather
-     * than a lazy walk because authorisation runs in {@code @PreAuthorize}, outside any transaction.
-     */
+    /** A projection, not a lazy walk: authorisation runs in {@code @PreAuthorize}, outside a transaction. */
     @Query("select r.name from WorkspaceMember m join m.roles r where m.id = :memberId")
     Set<String> findRoleNames(@Param("memberId") UUID memberId);
 
-    /** The union of the membership's roles' actions — the answer authorisation actually wants. */
+    /** The union of the membership's roles' actions. */
     @Query("""
             select a.name from WorkspaceMember m join m.roles r join r.actions a
             where m.id = :memberId
             """)
     Set<String> findActionNames(@Param("memberId") UUID memberId);
 
-    /** Backs the last-admin guard: a workspace must never lose its only active ADMIN-role holder. */
+    /** Backs the last-admin guard. */
     @Query("""
             select count(distinct m.id) from WorkspaceMember m join m.roles r
             where m.workspaceId = :workspaceId and m.status = :status and r.name = :roleName

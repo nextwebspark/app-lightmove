@@ -2,13 +2,14 @@ package app.lightmove.api.enrichment.candidate.controller;
 
 import app.lightmove.api.candidate.service.CandidateService;
 import app.lightmove.api.core.security.model.AuthPrincipal;
+import app.lightmove.api.core.security.rbac.ProjectAction;
+import app.lightmove.api.core.security.rbac.RequireProjectPermission;
 import app.lightmove.api.enrichment.candidate.dto.CandidateAiAssessmentResponse;
 import app.lightmove.api.enrichment.candidate.service.CandidateAiEnrichService;
 import jakarta.servlet.http.HttpServletRequest;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
-import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -29,7 +30,7 @@ public class CandidateAiEnrichController {
     private final CandidateService candidates;
 
     @PostMapping("/ai-enrich")
-    @PreAuthorize("@projectAuthorizer.can(principal, #projectId, 'WORK_EXECUTE')")
+    @RequireProjectPermission(ProjectAction.WORK_EXECUTE)
     public ResponseEntity<Void> enrich(@AuthenticationPrincipal AuthPrincipal principal,
                                        @PathVariable UUID projectId,
                                        @PathVariable UUID candidateId,
@@ -39,7 +40,7 @@ public class CandidateAiEnrichController {
     }
 
     @GetMapping("/ai-assessment")
-    @PreAuthorize("@projectAuthorizer.can(principal, #projectId, 'WORK_EXECUTE')")
+    @RequireProjectPermission(ProjectAction.WORK_EXECUTE)
     public ResponseEntity<CandidateAiAssessmentResponse> assessment(
             @AuthenticationPrincipal AuthPrincipal principal,
             @PathVariable UUID projectId,

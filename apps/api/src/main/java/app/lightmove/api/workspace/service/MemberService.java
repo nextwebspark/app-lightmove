@@ -21,11 +21,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 /**
- * The active roster: role changes and removals. Distinct from onboarding, which decides who gets in.
- *
- * <p>Tier gating (who may call this at all) lives on the controller as {@code @PreAuthorize} — the
- * guard beans re-read the database, so a revoked admin's stale token still gets refused. What stays
- * here are the invariants that need loaded state: the last-admin rule and the CLIENT exclusion.
+ * Roster role changes and removals. Gating is the controller's {@code @PreAuthorize}; the invariants
+ * needing loaded state stay here: the last-admin rule and the CLIENT exclusion.
  */
 @Service
 @RequiredArgsConstructor
@@ -38,17 +35,13 @@ public class MemberService {
     private final MemberDetachment detachment;
     private final AuditService audit;
 
-    /**
-     * Replace-set: the caller states the full set of workspace roles the member holds afterwards.
-     * Self-demotion is allowed — under the same last-admin rule as everyone else.
-     */
+    /** Replace-set semantics; self-demotion is allowed under the same last-admin rule. */
     @Transactional
     public WorkspaceMember changeRoles(UUID actorId, UUID workspaceId, UUID memberId,
                                        Set<WorkspaceRole> newRoles, HttpServletRequest request) {
         WorkspaceMember member = access.requireActiveMemberRow(memberId, workspaceId);
 
-        // Clients are invited to a project, never granted through the roster. Groundwork guard: it
-        // keeps the CLIENT role unreachable until the portal exists to receive one.
+        // CLIENT comes from a project invitation, never the roster.
         if (newRoles.contains(WorkspaceRole.CLIENT)) {
             throw ApiException.userFacing(ErrorCode.VALIDATION_FAILED,
                     "Hiring managers are invited to a position, not granted through the roster");
@@ -71,7 +64,7 @@ public class MemberService {
         return member;
     }
 
-    /** Self-removal is how someone leaves; their session falls through to another workspace at its next refresh. */
+    /** Self-removal is how someone leaves; their session moves to another workspace at its next refresh. */
     @Transactional
     public void remove(UUID actorId, UUID workspaceId, UUID memberId, HttpServletRequest request) {
         WorkspaceMember member = access.requireActiveMemberRow(memberId, workspaceId);

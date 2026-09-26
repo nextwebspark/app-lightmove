@@ -107,8 +107,8 @@ public class AssistantService {
     }
 
     /**
-     * The chat a question continues, or null for a new one. Called before the answer starts
-     * streaming, so someone else's chat, or one from another project, is a plain 404.
+     * Null for a new chat. Called before the answer starts streaming, so someone else's chat, or one
+     * from another project, is a plain 404.
      */
     public AssistantThread requireThread(UUID userId, UUID workspaceId, UUID projectId, UUID threadId) {
         if (threadId == null) {
@@ -142,7 +142,7 @@ public class AssistantService {
             return AssistantTurnResponse.of(turn);
         });
         audit.event(ProjectEventType.ASSISTANT_ASKED)
-                .actor(userId).workspace(workspaceId).target("project", projectId)
+                .actor(userId).workspace(workspaceId).target(AuditService.PROJECT_TARGET, projectId)
                 .detail("threadId", saved.threadId().toString())
                 .detail("turnId", saved.id().toString())
                 .detail("vendorSearches", String.valueOf(recorder.vendorSearches()))
@@ -153,11 +153,9 @@ public class AssistantService {
     }
 
     /**
-     * Deliberately not {@code LlmCallPolicy.forPrompt}: its SafeGuardAdvisor refuses text matching a
-     * phrase list, which is right for a spreadsheet header and wrong for conversation — "ignore the
-     * declined ones" would be refused, and a tool result quoting one of those phrases would block the
-     * turn. #429 owns what replaces it. The ChatCallLog attribution is kept, since that is what keeps
-     * prompt and answer content out of the logs.
+     * Deliberately not {@code LlmCallPolicy.forPrompt}: its SafeGuardAdvisor phrase list would refuse
+     * ordinary conversation ("ignore the declined ones"); #429 owns the replacement. The ChatCallLog
+     * attribution is kept, since that keeps prompt and answer content out of the logs.
      */
     private String callModel(String question, List<AssistantTurn> history, AssistantToolContext context) {
         try {

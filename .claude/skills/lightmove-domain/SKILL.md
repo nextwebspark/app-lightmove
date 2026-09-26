@@ -119,7 +119,7 @@ database** on every check and enforce by throwing `ApiException`, so denials kee
 the 404 masking. The JWT's `roles` claim is coarse material only — up to 15 minutes stale, never trusted
 for a role-sensitive decision.
 Annotations live on **controllers only**: services reachable outside a request's SecurityContext
-(everything `InvitationService` does for the anonymous accept-invitation-signup endpoint) keep imperative checks.
+(everything `InvitationAcceptService` does for the anonymous accept-invitation-signup endpoint) keep imperative checks.
 Invariants that need loaded state stay imperative too — a workspace keeps ≥1 holder of the workspace
 `ADMIN` role (`LAST_ADMIN`) and every project ≥1 holder of `LEAD` (`PROJECT_LAST_LEAD`), and a project
 seat holds no more than one staff role.

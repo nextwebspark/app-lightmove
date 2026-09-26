@@ -5,12 +5,8 @@ import java.time.LocalDate;
 import java.util.List;
 
 /**
- * One company in the Strategy screen's results table. Carries every field the table can show, since
- * the visible set is a client-side preference.
- *
- * <p>{@code annualRevenue} is null on roughly nine rows in ten and the funding fields are sparser
- * still — the data, not a read failure. There is no off-limits flag: a barred company never reaches
- * this response at all.
+ * One company in the Strategy results, with every field the table can show. No off-limits flag: a
+ * barred company never reaches this response.
  */
 public record CompanyResultDto(
         String apolloAccountId,
@@ -42,7 +38,6 @@ public record CompanyResultDto(
         List<String> naicsCodes
 ) {
 
-    /** Here rather than in a caller: two reads answer with this record, and the fields are positional. */
     public static CompanyResultDto of(CompanyRow row) {
         return new CompanyResultDto(
                 row.apolloAccountId(),

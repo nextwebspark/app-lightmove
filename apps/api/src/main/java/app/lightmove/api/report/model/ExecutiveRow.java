@@ -9,9 +9,8 @@ import java.time.Instant;
 import java.util.Optional;
 
 /**
- * One mapped executive paired with the universe company they sit at, where they sit at one. The
- * pairing is the report's own — {@code triagecompany} never learns that people exist — and it is
- * what gives an executive a sector.
+ * An executive paired with their universe company, where there is one — the pairing that gives an
+ * executive a sector, done here so {@code triagecompany} never learns people exist.
  */
 public record ExecutiveRow(CandidateResponse executive, TriageCompanyResponse company) {
 

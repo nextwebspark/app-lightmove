@@ -44,16 +44,9 @@ import tools.jackson.core.JacksonException;
 import tools.jackson.databind.ObjectMapper;
 
 /**
- * The template file ({@code lightmove.position-templates}, version 1): what Export writes, what Import
- * reads, and what {@code position-templates.schema.json} publishes for anyone — or any model — writing
- * one outside the app.
- *
- * <p>Reading checks the file against the format before binding it, because binding alone forgives too
- * much: {@link PositionTemplateBody} ignores unknown keys so a retired field never breaks a stored
- * template, and that would let a misspelt key in a hand-written file vanish without a word.
- *
- * <p>Its limits are {@link PositionTemplateSettings}. There is no content-type check: the bytes
- * are parsed as JSON whatever the part claims.
+ * The template file format: what Export writes, Import reads and the schema publishes. Reading checks
+ * structure before binding, since {@link PositionTemplateBody} ignores unknown keys and a misspelt key
+ * would otherwise vanish silently.
  */
 @Component
 @RequiredArgsConstructor
@@ -92,7 +85,7 @@ class PositionTemplateExchange {
         }
     }
 
-    /** One entry per template in the file, in file order. File-level faults refuse the whole file. */
+    /** File-level faults refuse the whole file. */
     List<ImportedTemplate> read(MultipartFile file) {
         PositionTemplateSettings limits = properties.position().template();
         if (file.getSize() > limits.maxImportFileSizeBytes()) {
@@ -149,7 +142,7 @@ class PositionTemplateExchange {
         return new ImportedTemplate(code, title, problems.isEmpty() ? draft : null, problems);
     }
 
-    /** A file may leave the code out; the title's slug is then the code, so a library title reuses its template. */
+    /** A missing code is the title's slug, so a library title reuses its template. */
     private static String codeOf(Object given, String title, List<TemplateProblem> problems) {
         if (given == null) {
             return PositionTemplateCodes.slugOf(title);
@@ -161,10 +154,7 @@ class PositionTemplateExchange {
         return null;
     }
 
-    /**
-     * Types and field names, before anything is bound. A competency's weight is required here because a
-     * missing one would bind to 0 rather than fail, and quietly unbalance the panel.
-     */
+    /** A competency's weight is required here: a missing one would bind to 0 and quietly unbalance the panel. */
     private static void checkStructure(Map<?, ?> fields, List<TemplateProblem> problems) {
         unknownFields("", fields, TEMPLATE_FIELDS, problems);
         text("title", fields.get("title"), problems);

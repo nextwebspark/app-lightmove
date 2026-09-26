@@ -14,16 +14,9 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 
 /**
- * One extra column a mandate has added to its Companies grid.
- *
- * <p>This is a <b>definition, not a schema change</b>. The values live in a {@code custom_fields}
- * jsonb bag on the triage-company and candidate rows (V46), keyed by {@link #fieldKey}. A column per
- * tenant in real DDL would be unmigratable and would need the runtime role to hold the
- * {@code CREATE} privilege {@code harden.sql} exists to take away.
- *
- * <p>{@link #fieldKey} and {@link #label} are two fields on purpose and only one of them moves. The
- * key is slugged once and never rewritten, because every value already stored points at it; a key
- * that could be renamed would orphan a mandate's data the first time somebody fixed a typo.
+ * A column a mandate added to its grid — a <b>definition, not DDL</b>, which would need the
+ * {@code CREATE} privilege {@code harden.sql} revokes. {@link #fieldKey} is slugged once and never
+ * rewritten, since stored values point at it; {@link #label} is what renames.
  */
 @Entity
 @Table(name = "app_lm_project_custom_column")

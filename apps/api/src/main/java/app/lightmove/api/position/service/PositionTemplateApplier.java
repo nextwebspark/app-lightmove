@@ -27,20 +27,9 @@ import java.util.UUID;
 import java.util.stream.Collectors;
 
 /**
- * Writes a template's content onto a brief. One class for both callers on purpose: a mandate seeded
- * at creation and one whose consultant picked a different template afterwards must end up with the
- * same brief.
- *
- * <p><b>What the template writes, and what survives it.</b> Everything the template speaks for is
- * replaced — the responsibilities, the narrative, the org chart, the package's shape, the criteria
- * and both competency panels, every one of them stamped {@code TEMPLATE}. What survives is what is
- * not the template's to have an opinion about: every field a template does not carry (the location,
- * the salary band, the publication stamp); a criterion somebody wrote or a document reading filled in,
- * which {@code source} has marked since V7 (as {@code fromBrief}) for exactly this; and which
- * strategic priorities are lit.
- *
- * <p>The org chart is rebuilt rather than merged: a chart is a tree of seats around <i>this</i> role,
- * and a merge of two roles' charts is neither.
+ * Writes a template's content onto a brief, for both seeding and a later re-pick, so both end up with
+ * the same brief. Everything the template speaks for is replaced and stamped {@code TEMPLATE}; fields
+ * it does not carry, criteria not template-drafted, and which priorities are lit survive.
  */
 final class PositionTemplateApplier {
 
@@ -82,8 +71,7 @@ final class PositionTemplateApplier {
                 .toList();
     }
 
-    /** Only the scalars the template actually carries — never location, mandateReason, businessDriver
-     * or teamSize, which this applier always leaves exactly as it found them. */
+    /** Only the scalars the template actually carries. */
     private static Map<String, FieldSource> detailsFieldSources(PositionTemplateBody body, Seniority seniority) {
         Map<String, FieldSource> sources = new LinkedHashMap<>();
         claim(sources, "department", body.department());
@@ -106,7 +94,7 @@ final class PositionTemplateApplier {
         }
     }
 
-    /** The benefit lines as the brief stores them — the amount is the mandate's to fill in. */
+    /** The amount is the mandate's to fill in. */
     private static List<PositionBenefit> draftedBenefits(PositionTemplateBody body) {
         return body.benefits().stream()
                 .map(benefit -> PositionBenefit.of(benefit.name(), null,
@@ -115,17 +103,13 @@ final class PositionTemplateApplier {
                 .toList();
     }
 
-    /**
-     * The chart a template draws: the seat above, the mandate's own, and the seats the role usually
-     * owns beneath it. A template that names no manager makes the mandate seat the root rather than
-     * hanging it under an empty box.
-     */
+    /** Rebuilt, never merged; a template naming no manager makes the mandate seat the root. */
     private static List<PositionOrgNode> seededChart(PositionTemplateBody body) {
         boolean hasManager = body.reportsTo() != null && !body.reportsTo().isBlank();
         UUID managerId = hasManager ? UUID.randomUUID() : null;
         UUID seatId = UUID.randomUUID();
 
-        // The mandate seat leads the list — Position#mandateSeatFirst explains why that matters.
+        // The mandate seat leads the list — see Position#mandateSeatFirst.
         List<PositionOrgNode> chart = new ArrayList<>();
         chart.add(PositionOrgNode.mandateSeat(seatId, managerId, FieldSource.TEMPLATE));
         if (hasManager) {
@@ -140,11 +124,8 @@ final class PositionTemplateApplier {
     }
 
     /**
-     * The template's palette, keeping every choice already made against it — selection and
-     * provenance alike — with anything the consultant added of their own appended.
-     *
-     * <p>Matched on the lower-cased name, the identity {@code PositionService} enforces uniqueness
-     * on: merging on anything looser would produce the same-looking pair that write refuses.
+     * The template's palette keeping existing selection and provenance, then the consultant's own.
+     * Matched on the lower-cased name — the identity {@code PositionService} refuses duplicates on.
      */
     private static List<PositionPriority> mergedPriorities(List<PositionPriority> current,
                                                            List<String> palette) {
@@ -174,7 +155,6 @@ final class PositionTemplateApplier {
         return name.trim().toLowerCase(Locale.ROOT);
     }
 
-    /** The template's criteria, then whatever the consultant wrote or a document reading filled in. */
     private static List<PositionCriterion> draftedCriteria(Position position, PositionTemplateBody body) {
         List<PositionCriterion> criteria = new ArrayList<>(body.criteria().stream()
                 .map(criterion -> PositionCriterion.of(

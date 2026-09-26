@@ -5,17 +5,12 @@ import app.lightmove.api.common.location.service.Countries;
 import java.util.Optional;
 
 /**
- * One line of prose naming where a role sits, read into the two halves the brief stores
- * ({@code location_city} and {@code location_country}, V66). A document writes "Dubai, United Arab
- * Emirates" on one line; the screen has a free-text city beside a country picker.
+ * One line of prose naming where a role sits, split into the brief's city and country (V66).
  *
- * <p>The catalog decides, never the comma. A tail that names no country the catalog knows keeps the
- * whole line as the city — "Chicago, IL" is one place a person will finish, not a city in Israel —
- * which is why this asks {@link Countries#resolveSpelling} rather than {@link Countries#resolve}:
- * the former refuses a bare alpha-2 code for exactly that reason.
+ * <p>The catalog decides, never the comma, via {@link Countries#resolveSpelling} rather than
+ * {@link Countries#resolve}: it refuses a bare alpha-2 code, so "Chicago, IL" stays a city, not Israel.
  *
- * @param city    the free-text half, or null where the line names a country alone
- * @param country the catalog's own spelling of the country, or null where none was recognised
+ * @param country the catalog's own spelling, or null where none was recognised
  */
 public record LocationLine(String city, String country) {
 
@@ -38,7 +33,6 @@ public record LocationLine(String city, String country) {
             return new LocationLine(Countries.cityOf(trimmed), null);
         }
 
-        // No comma: the whole line is one or the other. "Saudi Arabia" is a country, "Dubai" a city.
         return Countries.resolveSpelling(trimmed)
                 .map(country -> new LocationLine(null, country.name()))
                 .orElseGet(() -> new LocationLine(Countries.cityOf(trimmed), null));
@@ -48,7 +42,6 @@ public record LocationLine(String city, String country) {
         return city == null && country == null;
     }
 
-    /** Punctuation alone names no place: a stray "," or "-" proposes neither half rather than a city. */
     private static boolean namesSomewhere(String line) {
         return line.codePoints().anyMatch(Character::isLetterOrDigit);
     }

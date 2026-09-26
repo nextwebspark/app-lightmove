@@ -15,30 +15,21 @@ public interface InvitationRepository extends JpaRepository<Invitation, UUID> {
     Optional<Invitation> findByWorkspaceIdAndEmailAndStatus(UUID workspaceId, String email, InvitationStatus status);
 
     /**
-     * A <b>staff</b> invitation to an address — the client-portal invites (V15) share the
-     * {@code (workspace_id, email)} space, so the staff dedup must exclude them or a staff re-invite
-     * would refresh a client invitation (silently landing the acceptor as a CLIENT) or, once two rows
-     * exist, throw a non-unique-result 500.
+     * Staff only: client invites share {@code (workspace_id, email)}, and a staff re-invite refreshing
+     * one would land the acceptor as a CLIENT, or 500 on a non-unique result.
      */
     Optional<Invitation> findByWorkspaceIdAndEmailAndClientIdIsNullAndStatus(
             UUID workspaceId, String email, InvitationStatus status);
 
     List<Invitation> findByWorkspaceIdAndStatus(UUID workspaceId, InvitationStatus status);
 
-    /** The staff roster's pending invitations only — client-rep invites never surface on Members. */
+    /** Client-rep invites never surface on Members. */
     List<Invitation> findByWorkspaceIdAndClientIdIsNullAndStatus(UUID workspaceId, InvitationStatus status);
 
-    /**
-     * A client representative's outstanding invitation. Scoped by client id too, so re-inviting the same
-     * address for a client refreshes that invitation without colliding with an unrelated staff invite to
-     * the same email.
-     */
+    /** Scoped by client too, so it never collides with a staff invite to the same email. */
     Optional<Invitation> findByWorkspaceIdAndClientIdAndEmailAndStatus(
             UUID workspaceId, UUID clientId, String email, InvitationStatus status);
 
-    /**
-     * The caller's own outstanding invitations, for {@code /me} and the token-less accept. A person may
-     * be invited to several workspaces at once, so this is a list, newest first.
-     */
+    /** For {@code /me}; a person may be invited to several workspaces at once. Newest first. */
     List<Invitation> findByEmailAndStatusOrderByCreatedAtDesc(String email, InvitationStatus status);
 }

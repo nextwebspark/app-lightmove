@@ -23,18 +23,8 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 
 /**
- * A user's membership of one workspace, and the workspace roles they hold there.
- *
- * <p>This is the join that makes tenancy real: authorisation asks this table — not the user — what
- * someone may do, and always in the context of a specific workspace.
- *
- * <p>There is exactly one way in: {@link #invite} — the workspace's creator granting themselves ADMIN,
- * or an admin naming someone. An admin naming a person <i>is</i> the decision, so every membership is
- * {@link MemberStatus#ACTIVE} from its first moment. Nobody can ask their way in; membership is
- * invitation-only.
- *
- * <p>Roles are a set, not a single value — a member may hold several, and their permissions are the
- * union of the roles' actions (see {@code core/security/rbac}).
+ * A user's membership of one workspace and its role set — what authorisation asks, never the user.
+ * The one way in is {@link #invite}, and invitation-only means ACTIVE from the first moment.
  */
 @Entity
 @Table(name = "app_lm_workspace_member")
@@ -62,14 +52,13 @@ public class WorkspaceMember extends BaseEntity {
     @Column(name = "joined_at")
     private Instant joinedAt;
 
-    /** Who let them in. Compliance wants to know who named someone. */
+    /** Who let them in, for compliance. */
     @Column(name = "decided_by")
     private UUID decidedBy;
 
     @Column(name = "decided_at")
     private Instant decidedAt;
 
-    /** The workspace's creator, or someone an admin invited. Active from the start. */
     public static WorkspaceMember invite(UUID workspaceId, UUID userId, Set<Role> roles, UUID invitedBy) {
         WorkspaceMember member = new WorkspaceMember();
         member.workspaceId = workspaceId;
@@ -103,12 +92,8 @@ public class WorkspaceMember extends BaseEntity {
         this.status = MemberStatus.REMOVED;
     }
 
-    /**
-     * A removed member accepting a fresh invitation. Reactivates the row rather than inserting a
-     * second: {@code (workspace_id, user_id)} is unique whatever the status, so the insert would fail.
-     * The roles are the new invitation's — nothing from the earlier tenure carries over.
-     */
-    public void rejoin(Set<Role> roles, UUID invitedBy) {
+    /** A re-invited member reactivates the row — {@code (workspace_id, user_id)} is unique whatever the status. */
+    public WorkspaceMember rejoin(Set<Role> roles, UUID invitedBy) {
         if (status != MemberStatus.REMOVED) {
             throw new ApiException(ErrorCode.CONFLICT, "Only a removed membership can rejoin, was " + status);
         }
@@ -118,5 +103,6 @@ public class WorkspaceMember extends BaseEntity {
         this.joinedAt = Instant.now();
         this.decidedBy = invitedBy;
         this.decidedAt = Instant.now();
+        return this;
     }
 }

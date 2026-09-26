@@ -21,7 +21,7 @@ import app.lightmove.api.triagecompany.constant.TriageCompanyStatus;
 import app.lightmove.api.triagecompany.dto.TriageCompaniesResponse;
 import app.lightmove.api.triagecompany.model.TriageCompanyFilters;
 import app.lightmove.api.triagecompany.dto.TriageCompanyResponse;
-import app.lightmove.api.triagecompany.service.TriageCompanyService;
+import app.lightmove.api.triagecompany.service.TriageCompanyReadService;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -36,7 +36,7 @@ class ReportSourceLoaderTest {
     private static final UUID WORKSPACE = UUID.randomUUID();
     private static final UUID PROJECT = UUID.randomUUID();
 
-    private final TriageCompanyService triage = mock(TriageCompanyService.class);
+    private final TriageCompanyReadService triage = mock(TriageCompanyReadService.class);
     private final ProjectRepository projects = mock(ProjectRepository.class);
     private final CandidateService candidates = mock(CandidateService.class);
     private final PositionService positions = mock(PositionService.class);

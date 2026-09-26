@@ -31,12 +31,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 /**
- * Self-service password recovery.
- *
- * <p>The emailed token <i>is</i> the credential: whoever holds it controls the mailbox, and the
- * mailbox is what the account is anchored to. So the request side answers identically for known and
- * unknown addresses, and the redeem side treats the token as proof enough to set a password, clear a
- * lockout, verify the address and sign the user in.
+ * Self-service password recovery. The emailed token is the mailbox proof: enough to set a password,
+ * clear a lockout, verify the address and sign in. Requests answer identically for unknown addresses.
  */
 @Service
 @RequiredArgsConstructor
@@ -56,11 +52,8 @@ public class PasswordResetService {
     private final LightMoveProperties properties;
 
     /**
-     * Issues a reset link and emails it.
-     *
-     * <p>Succeeds silently for an unknown, suspended or deleted account: reporting either is an
-     * enumeration oracle. A Google-only account gets the email too — redeeming <i>attaches</i> a local
-     * password — and there is no verified-email filter, because redeeming proves the mailbox anyway.
+     * Silent for an unknown, suspended or deleted account (an enumeration oracle otherwise). A
+     * provider-only account gets the email too: redeeming attaches a local password.
      */
     @Transactional
     public void requestReset(String email, HttpServletRequest request) {
@@ -75,13 +68,8 @@ public class PasswordResetService {
     }
 
     /**
-     * Redeems a reset link: sets the new password and signs the user in.
-     *
-     * <p>Signing in here is the same judgement invitation-accept made: a token mailed only to this
-     * address proves the mailbox, which is what a login proves.
-     *
-     * <p>Every failure is thrown <i>before</i> the token is consumed or any credential changes, so a
-     * rejected attempt leaves the link redeemable — no {@code noRollbackFor} needed, unlike login.
+     * Sets the new password and signs the user in. Every failure is thrown before the token is consumed,
+     * so a rejected attempt leaves the link redeemable — no {@code noRollbackFor} needed, unlike login.
      */
     @Transactional
     public AuthenticatedSession reset(String plaintextToken, String newPassword, HttpServletRequest request) {
@@ -91,15 +79,12 @@ public class PasswordResetService {
                 .orElseThrow(() -> ApiException.of(ErrorCode.TOKEN_INVALID));
 
         if (!token.isRedeemable(now)) {
-            // Consumed and expired are separated for the user's sake: "this link has expired" tells
-            // them to request another, where "not valid" would leave them stuck guessing.
             throw ApiException.of(token.getConsumedAt() != null
                     ? ErrorCode.TOKEN_INVALID
                     : ErrorCode.TOKEN_EXPIRED);
         }
         if (token.getPurpose() != TokenPurpose.PASSWORD_RESET) {
-            // The mirror of VerificationService's guard: a 24-hour verification token must never act
-            // as a 30-minute password-changing credential.
+            // A 24-hour verification token must never act as a 30-minute password-changing credential.
             throw new ApiException(ErrorCode.TOKEN_INVALID, "Wrong token purpose: " + token.getPurpose());
         }
 
@@ -115,8 +100,7 @@ public class PasswordResetService {
 
         String passwordProblem = passwords.validate(newPassword);
         if (passwordProblem != null) {
-            // Before consume(): a weak password must not burn the link, or the user's only retry is
-            // a fresh email round-trip.
+            // Before consume(): a weak password must not burn the link.
             throw ApiException.withField(ErrorCode.VALIDATION_FAILED, "password", passwordProblem);
         }
 
@@ -124,8 +108,7 @@ public class PasswordResetService {
 
         boolean attached = !user.hasPassword();
         if (attached) {
-            // A federated-only account gaining a local password. The LOCAL identity row keeps the signup
-            // invariant "local password ⇔ LOCAL identity" intact.
+            // Keeps the invariant "local password ⇔ LOCAL identity".
             user.attachLocalPassword(passwords.hash(newPassword));
             if (identities.findByProviderAndProviderUserId(UserIdentity.LOCAL_PROVIDER, user.getEmail()).isEmpty()) {
                 identities.save(UserIdentity.link(user.getId(), UserIdentity.LOCAL_PROVIDER, user.getEmail(), user.getEmail()));
@@ -134,18 +117,15 @@ public class PasswordResetService {
             user.changePassword(passwords.hash(newPassword));
         }
 
-        // A reset is the lockout recovery path — proving the mailbox beats waiting out the window —
-        // and since we issue a session below, it genuinely is a login.
+        // A reset is the lockout recovery path, and it issues a session: it is a login.
         user.recordSuccessfulLogin(now);
 
-        // The reset link is the same mailbox proof the verification email exists to collect, and it is
-        // what lets the session issued below pass the require-verified-email gate.
         boolean verifiedByReset = !user.isEmailVerified();
         if (verifiedByReset) {
             user.markEmailVerified(now);
         }
 
-        // Whoever knew the old password is out — before issuing, so the fresh session survives.
+        // Before issuing, so the fresh session survives.
         tokens.revokeAllSessions(user.getId(), RevokeReason.PASSWORD_CHANGED);
 
         log.info("Password reset completed for user {}", user.getId());
@@ -156,15 +136,13 @@ public class PasswordResetService {
                 .detail("emailVerifiedByReset", String.valueOf(verifiedByReset))
                 .record();
 
-        WorkspaceMember membership = selection.select(user, user.getLastWorkspaceId()).orElse(null);
-        selection.remember(user, membership);
+        WorkspaceMember membership = selection.signIn(user);
         return tokens.issue(user, membership, request);
     }
 
     private void sendResetEmail(User user, HttpServletRequest request) {
         Instant now = Instant.now();
-        // Burn outstanding reset tokens first, so three impatient clicks on "send link" leave exactly
-        // one live credential in the inbox, not three.
+        // Three clicks on "send link" leave exactly one live credential, not three.
         verificationTokens.consumeOutstanding(user.getId(), TokenPurpose.PASSWORD_RESET, now);
 
         String plaintext = Tokens.generate();
@@ -174,8 +152,6 @@ public class PasswordResetService {
                 TokenPurpose.PASSWORD_RESET,
                 now.plus(properties.auth().passwordResetTokenTtl())));
 
-        // The link points at the SPA, not at the API — the frontend owns the "choose a new password"
-        // screen and calls the API from there.
         String link = "%s/auth/reset-password?token=%s".formatted(
                 properties.web().baseUrl(),
                 URLEncoder.encode(plaintext, StandardCharsets.UTF_8));

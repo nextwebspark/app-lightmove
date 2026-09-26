@@ -22,12 +22,7 @@ import org.springframework.security.oauth2.jwt.JwtEncoderParameters;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-/**
- * Issues, rotates and revokes sessions.
- *
- * <p>Everything about the shape of a LightMove session lives here: what an access token claims, how a
- * refresh token rotates, and what happens when a stolen one is replayed.
- */
+/** Issues, rotates and revokes sessions: access-token claims, refresh rotation, and replay detection. */
 @Service
 @Slf4j
 public class TokenService {
@@ -47,7 +42,6 @@ public class TokenService {
         this.config = properties.auth();
     }
 
-    /** A fresh login: a new access token and a refresh token that opens a new family. */
     @Transactional
     public AuthenticatedSession issue(User user, WorkspaceMember membership, HttpServletRequest request) {
         return issue(user, membership, request, SessionClient.WEB_APP);
@@ -75,20 +69,12 @@ public class TokenService {
     }
 
     /**
-     * Redeems a refresh token for a new pair, and burns the one presented.
+     * Redeems a refresh token and burns it; a rotated-away token reappearing revokes the whole family.
      *
-     * <p>Where theft is caught: a token already rotated away should never reappear, so if one does
-     * the whole family is revoked. A lost session is an acceptable cost; a thief's working token
-     * is not.
+     * <p><b>{@code noRollbackFor = ApiException.class} makes the revocation stick:</b> otherwise
+     * {@link #handleReuse} throws and the revocation rolls back, leaving every stolen token working.
      *
-     * <p><b>{@code noRollbackFor = ApiException.class} is what makes the revocation stick:</b> otherwise
-     * {@link #handleReuse} revokes the family, throws REFRESH_TOKEN_REUSED, and the revocation is rolled
-     * back with the transaction — detection that leaves every stolen token working.
-     *
-     * @param membershipLookup resolves the membership in the workspace this session is in, so a role
-     *                         change or removal takes effect at the next refresh rather than persisting
-     *                         for the session's life — and a removal falls through to another workspace
-     *                         the user still belongs to.
+     * @param membershipLookup re-read at every refresh, so a role change takes effect then
      */
     @Transactional(noRollbackFor = ApiException.class)
     public AuthenticatedSession rotate(String presentedToken, HttpServletRequest request,
@@ -104,25 +90,22 @@ public class TokenService {
         Instant now = Instant.now();
         String presentedHash = Tokens.hash(presentedToken);
 
-        // FOR UPDATE, and it has to be: two concurrent refreshes of the same token would both read it
-        // un-revoked, both mint a successor, and reuse detection would never fire. Racing the victim
-        // with a stolen token is the shape of the attack; the lock makes the loser read it revoked.
+        // FOR UPDATE: two concurrent refreshes would both read it un-revoked and reuse detection would
+        // never fire — racing the victim is the attack; the lock makes the loser read it revoked.
         RefreshToken existing = refreshTokens.findByTokenHashForUpdate(presentedHash)
                 .orElseThrow(() -> new ApiException(ErrorCode.REFRESH_TOKEN_INVALID,
                         "No refresh token matches the presented hash"));
 
-        // Hard in both directions. A web refresh token exists only as an httpOnly SameSite=Strict
-        // cookie; redeemed at /auth/extension/refresh its successor would come back in a plaintext
-        // body, laundering a credential kept out of script's reach.
+        // Both directions: a web cookie token redeemed at /auth/extension/refresh would return its
+        // successor in a plaintext body, laundering a credential kept out of script's reach.
         if (existing.getClient() != client) {
             throw new ApiException(ErrorCode.REFRESH_TOKEN_INVALID,
                     "Refresh token belongs to a different client than " + client);
         }
 
         if (existing.isRevoked()) {
-            // Why it was revoked, not merely that it was. A logout or a password change leaves a dead
-            // token behind by design, and calling that theft revoked the family, alarmed the user, and
-            // burned the reuse alert on routine events. A null reason is unexplained, so it fails closed.
+            // Why, not merely that: calling a logout's dead token theft alarmed the user and burned the
+            // reuse alert on routine events. A null reason is unexplained, so it fails closed.
             RevokeReason reason = existing.getRevokedReason();
             if (reason == null || reason.indicatesTheftOnReplay()) {
                 handleReuse(existing, request, now);
@@ -137,15 +120,13 @@ public class TokenService {
         User user = userLookup.byId(existing.getUserId())
                 .orElseThrow(() -> new ApiException(ErrorCode.REFRESH_TOKEN_INVALID, "User no longer exists"));
 
-        // A user suspended mid-session should not be able to refresh their way through the suspension.
         if (!user.getStatus().canAuthenticate()) {
             refreshTokens.revokeFamily(existing.getFamilyId(), RevokeReason.ADMIN_REVOKED, now);
             throw new ApiException(ErrorCode.REFRESH_TOKEN_INVALID, "User cannot authenticate: " + user.getStatus());
         }
 
-        // Resolved BEFORE the successor is written. This method is noRollbackFor ApiException, so a
-        // refusal thrown after existing.rotateTo(successor) would commit the rotation while the browser
-        // kept the burned cookie — and its next refresh would read as theft and revoke the family.
+        // Before the successor is written: this method is noRollbackFor ApiException, so a refusal after
+        // rotateTo would commit the rotation while the browser kept the burned cookie.
         WorkspaceMember membership = membershipLookup.forUser(user.getId(), existing.getWorkspaceId())
                 .orElse(null);
 
@@ -169,17 +150,12 @@ public class TokenService {
         return new AuthenticatedSession(pair, user, membership);
     }
 
-    /**
-     * Whose session a presented refresh token is, without spending it. For a caller that must refuse
-     * a cookie that is not the bearer's <i>before</i> rotating: a rotation this method's
-     * {@code noRollbackFor} sibling would commit is a burned cookie in the victim's browser.
-     */
+    /** Whose session a cookie is, without spending it — so a switch can refuse another's before rotating. */
     @Transactional(readOnly = true)
     public Optional<UUID> ownerOf(String presentedToken) {
         return refreshTokens.findByTokenHash(Tokens.hash(presentedToken)).map(RefreshToken::getUserId);
     }
 
-    /** Ends one session. Idempotent — signing out twice is not an error. */
     @Transactional
     public void revoke(String presentedToken, HttpServletRequest request) {
         revoke(presentedToken, request, null);
@@ -192,9 +168,7 @@ public class TokenService {
             if (client != null && token.getClient() != client) {
                 return;
             }
-            // Only for a session this call actually ended. RefreshToken.revoke is idempotent, so signing
-            // out a token something else already killed — a re-pair's SUPERSEDED, a password change —
-            // would otherwise write a LOGOUT that never happened.
+            // Otherwise a token already killed (SUPERSEDED, a password change) records a LOGOUT that never happened.
             if (token.isRevoked()) {
                 return;
             }
@@ -203,14 +177,12 @@ public class TokenService {
         });
     }
 
-    /** Signs a user out everywhere. Used on password change: whoever knew the old password is out. */
     @Transactional
     public void revokeAllSessions(UUID userId, RevokeReason reason) {
         int revoked = refreshTokens.revokeAllForUser(userId, reason, Instant.now());
         log.debug("Revoked {} session(s) for user {} ({})", revoked, userId, reason);
     }
 
-    /** Ends the account's sessions on one client, leaving the other client's alone. */
     @Transactional
     public void revokeSessionsForClient(UUID userId, SessionClient client, RevokeReason reason) {
         int revoked = refreshTokens.revokeAllForUserAndClient(userId, client, reason, Instant.now());
@@ -220,8 +192,7 @@ public class TokenService {
     private void handleReuse(RefreshToken replayed, HttpServletRequest request, Instant now) {
         int killed = refreshTokens.revokeFamily(replayed.getFamilyId(), RevokeReason.REUSE_DETECTED, now);
 
-        // The one event in the system that should page a human: a refresh token was replayed, which
-        // means one leaked.
+        // The one event that should page a human: a refresh token leaked.
         log.warn("Refresh token reuse detected for user {} — revoked {} token(s) in family {}",
                 replayed.getUserId(), killed, replayed.getFamilyId());
 
@@ -238,19 +209,9 @@ public class TokenService {
     }
 
     /**
-     * The access token. Short-lived, signed RS256, and carrying just enough to authorise a request
-     * without a database round-trip.
-     *
-     * <p>{@code wsId} and {@code roles} are the tenant claims — signed, so a caller cannot alter them.
-     * Both are absent for a user who has no workspace: they exist but belong nowhere, and the filter
-     * chain lets them reach only the onboarding endpoints. A user in several workspaces still gets
-     * exactly one {@code wsId} — the session's — and changes it only through
-     * {@code /auth/switch-workspace}.
-     *
-     * <p>The trade-off in putting roles in the token is staleness: revoking someone's admin rights
-     * does not reach an already-minted token. That window is bounded by {@code accessTokenTtl} — 15
-     * minutes — because the next refresh re-reads the membership. It is also why the claim is coarse
-     * material only: every role-sensitive decision re-reads the database (see the rbac guard beans).
+     * The RS256 access token. {@code wsId} and {@code roles} are absent before onboarding; {@code roles}
+     * can be stale for {@code accessTokenTtl}, which is why no decision trusts it — the rbac guard beans
+     * re-read the database.
      */
     private String mintAccessToken(User user, WorkspaceMember membership, Instant now) {
         JwtClaimsSet.Builder claims = JwtClaimsSet.builder()
@@ -260,7 +221,6 @@ public class TokenService {
                 .subject(user.getId().toString())
                 .claim("email", user.getEmail())
                 .claim("emailVerified", user.isEmailVerified())
-                // A unique id per token, so a specific one can be denylisted later without a scheme change.
                 .id(UUID.randomUUID().toString());
 
         if (membership != null && membership.isActive()) {
@@ -292,27 +252,17 @@ public class TokenService {
         return value != null && value.length() > 512 ? value.substring(0, 512) : value;
     }
 
-    /**
-     * Lookups passed in rather than injected, to keep this service free of a dependency on the user
-     * and workspace repositories — it deals in tokens. It also breaks what would otherwise be a
-     * circular wiring between TokenService and AuthenticationService.
-     */
+    /** Passed in rather than injected, which also breaks a cycle with AuthenticationService. */
     @FunctionalInterface
     public interface UserLookup {
         java.util.Optional<User> byId(UUID userId);
     }
 
-    /**
-     * Answers the membership a rotated session should carry. {@code sessionWorkspaceId} is the
-     * workspace the presented token was in (null for a user who had none); the lookup decides whether
-     * the user is still a member there, and what to fall back to if not.
-     */
     @FunctionalInterface
     public interface MembershipLookup {
         java.util.Optional<WorkspaceMember> forUser(UUID userId, UUID sessionWorkspaceId);
     }
 
-    /** Exposed for the controller, which needs it to decide how long the refresh cookie lives. */
     public java.time.Duration refreshTokenTtl() {
         return config.refreshTokenTtl();
     }

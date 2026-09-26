@@ -23,24 +23,16 @@ public class WorkspaceSelection {
 
     @Transactional(readOnly = true)
     public Optional<WorkspaceMember> select(User user, UUID preferredWorkspaceId) {
-        Optional<WorkspaceMember> preferred = membershipIn(user.getId(), preferredWorkspaceId);
-        if (preferred.isPresent()) {
-            return preferred;
-        }
-        Optional<WorkspaceMember> lastChosen = membershipIn(user.getId(), user.getLastWorkspaceId());
-        if (lastChosen.isPresent()) {
-            return lastChosen;
-        }
-        return all(user.getId()).stream().findFirst();
+        return membershipIn(user.getId(), preferredWorkspaceId)
+                .or(() -> membershipIn(user.getId(), user.getLastWorkspaceId()))
+                .or(() -> all(user.getId()).stream().findFirst());
     }
 
     /** The user's active membership in exactly this workspace, with no fallback — a miss is a miss. */
     @Transactional(readOnly = true)
     public Optional<WorkspaceMember> membershipIn(UUID userId, UUID workspaceId) {
-        if (workspaceId == null) {
-            return Optional.empty();
-        }
-        return members.findByWorkspaceIdAndUserIdAndStatus(workspaceId, userId, MemberStatus.ACTIVE);
+        return workspaceId == null ? Optional.empty()
+                : members.findByWorkspaceIdAndUserIdAndStatus(workspaceId, userId, MemberStatus.ACTIVE);
     }
 
     /** Every workspace the user is in, oldest first — what the switcher lists. */
@@ -49,10 +41,17 @@ public class WorkspaceSelection {
         return members.findAllByUserIdAndStatusOrderByJoinedAtAsc(userId, MemberStatus.ACTIVE);
     }
 
+    /** Where a fresh sign-in opens, remembered as the user's choice. Null for a user in no workspace. */
+    @Transactional
+    public WorkspaceMember signIn(User user) {
+        WorkspaceMember membership = select(user, null).orElse(null);
+        remember(user, membership);
+        return membership;
+    }
+
     /**
-     * Records an explicit choice, so the next sign-in opens there. Called on sign-in, switch, create
-     * and accept — and deliberately <b>not</b> on refresh, or two browsers open in two workspaces
-     * would overwrite each other's choice every fifteen minutes.
+     * An explicit choice — sign-in, switch, create, accept — and never a refresh, or two browsers in two
+     * workspaces would overwrite each other's every fifteen minutes.
      */
     public void remember(User user, WorkspaceMember membership) {
         if (membership == null || membership.getWorkspaceId().equals(user.getLastWorkspaceId())) {

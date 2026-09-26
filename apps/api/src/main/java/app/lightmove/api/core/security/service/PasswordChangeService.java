@@ -20,15 +20,9 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 /**
- * Settings → Security: changing a password you already know.
- *
- * <p>The sibling of {@link PasswordResetService}, not a variant of it. A reset is anchored to an
- * emailed token that also proves the mailbox, clears a lockout and verifies the address; this is
- * anchored to the current password and does none of those. Sharing an implementation would mean one
- * of the two carrying the other's decisions.
- *
- * <p>What they do share is the ending, and it is deliberate: every other session dies, and the caller
- * is handed a fresh one so that changing a password does not sign you out of the tab you did it in.
+ * Settings → Security's password change, anchored to the current password — deliberately a sibling of
+ * {@link PasswordResetService}, not a variant. Like it, it ends every other session and hands the
+ * caller a fresh one.
  */
 @Service
 @RequiredArgsConstructor
@@ -49,8 +43,8 @@ public class PasswordChangeService {
      * exactly as it was — no {@code noRollbackFor} needed, unlike {@code login()}.
      */
     @Transactional
-    public AuthenticatedSession change(UUID userId, UUID sessionWorkspaceId, String currentPassword, String newPassword,
-                                       HttpServletRequest request) {
+    public AuthenticatedSession change(UUID userId, UUID sessionWorkspaceId, String currentPassword,
+                                       String newPassword, HttpServletRequest request) {
         User user = authentication.requireUser(userId);
 
         // This endpoint mints a session, so it carries the same status gate as login, refresh, OAuth and

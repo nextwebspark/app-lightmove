@@ -1,45 +1,28 @@
 package app.lightmove.api.candidate.service;
 
-import app.lightmove.api.common.constant.Seniority;
 import app.lightmove.api.candidate.constant.AiEnrichTrigger;
 import app.lightmove.api.candidate.constant.CandidateSource;
-import app.lightmove.api.candidate.constant.CandidateStatus;
 import app.lightmove.api.candidate.constant.ContactChannel;
-import app.lightmove.api.candidate.constant.ContactKind;
 import app.lightmove.api.candidate.constant.ContactSource;
-import app.lightmove.api.candidate.constant.Gender;
-import app.lightmove.api.candidate.constant.LongTermIncentiveType;
-import app.lightmove.api.candidate.dto.AllowanceLineDto;
-import app.lightmove.api.candidate.dto.CandidateCareerEntryDto;
-import app.lightmove.api.candidate.dto.CandidateCompensationDto;
-import app.lightmove.api.candidate.dto.CandidateContactsDto;
-import app.lightmove.api.candidate.dto.ContactEntryDto;
-import app.lightmove.api.candidate.dto.CandidateEmailDto;
-import app.lightmove.api.candidate.dto.CandidatePhoneDto;
-import app.lightmove.api.candidate.dto.CandidateEducationEntryDto;
 import app.lightmove.api.candidate.dto.CandidateListCriteria;
 import app.lightmove.api.candidate.dto.CandidateResponse;
 import app.lightmove.api.candidate.dto.CandidatesResponse;
 import app.lightmove.api.candidate.dto.SaveCandidateRequest;
 import app.lightmove.api.candidate.dto.UpdateCandidateContactsRequest;
 import app.lightmove.api.candidate.dto.UpdateCandidateStatusRequest;
-import app.lightmove.api.candidate.model.AllowanceLine;
 import app.lightmove.api.candidate.model.Candidate;
 import app.lightmove.api.candidate.model.CandidateAiEnrichRequested;
 import app.lightmove.api.candidate.model.CandidateAiEnrichState;
 import app.lightmove.api.candidate.model.CandidateAiEnrichment;
 import app.lightmove.api.candidate.model.CandidateAttribution;
 import app.lightmove.api.candidate.model.CandidateCapturedEvent;
-import app.lightmove.api.candidate.model.CandidateCareerEntry;
-import app.lightmove.api.candidate.model.CandidateCompensation;
 import app.lightmove.api.candidate.model.CandidateContact;
 import app.lightmove.api.candidate.model.CandidateContactState;
-import app.lightmove.api.candidate.model.ContactEntry;
 import app.lightmove.api.candidate.model.CandidateDetails;
 import app.lightmove.api.candidate.model.CandidateDossier;
 import app.lightmove.api.candidate.model.CandidatePhoto;
 import app.lightmove.api.candidate.model.CandidateProfile;
-import app.lightmove.api.candidate.model.CompensationBreakdown;
+import app.lightmove.api.candidate.model.ContactEntry;
 import app.lightmove.api.candidate.model.EnrichedProfile;
 import app.lightmove.api.candidate.model.FoundEmails;
 import app.lightmove.api.candidate.model.FoundPhones;
@@ -62,13 +45,10 @@ import app.lightmove.api.triagecompany.dto.TriageCompanyResponse;
 import app.lightmove.api.triagecompany.model.CapturedCompanyDetails;
 import app.lightmove.api.triagecompany.service.TriageCompanyService;
 import jakarta.servlet.http.HttpServletRequest;
-import java.util.ArrayList;
 import java.util.Comparator;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
-import java.util.Set;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.stream.Collectors;
@@ -100,8 +80,6 @@ public class CandidateService {
     private static final Sort FIRST_MAPPED_FIRST =
             Sort.by(Sort.Direction.ASC, "createdAt").and(Sort.by(Sort.Direction.ASC, "fullName"));
 
-    private static final int MAX_CONTACTS_PER_CHANNEL = 10;
-
     private final CandidateRepository candidates;
     private final CandidatePhotoRepository photos;
     private final ProjectRepository projects;
@@ -110,17 +88,22 @@ public class CandidateService {
     private final AuditService audit;
     private final ApplicationEventPublisher events;
     private final ProjectStreamPublisher stream;
+    private final CandidateRequestReader requests;
+    private final CandidateResponseMapper responses;
     private final CompanyListSettings listConfig;
 
     public CandidateService(CandidateRepository candidates, CandidatePhotoRepository photos,
                             ProjectRepository projects, TriageCompanyService triage,
                             CustomColumnService customColumns, AuditService audit,
                             ApplicationEventPublisher events, ProjectStreamPublisher stream,
+                            CandidateRequestReader requests, CandidateResponseMapper responses,
                             LightMoveProperties properties) {
         this.candidates = candidates;
         this.photos = photos;
         this.projects = projects;
         this.triage = triage;
+        this.requests = requests;
+        this.responses = responses;
         this.customColumns = customColumns;
         this.audit = audit;
         this.events = events;
@@ -141,14 +124,8 @@ public class CandidateService {
     public CandidatesResponse list(UUID workspaceId, UUID projectId, CandidateListCriteria criteria) {
         int page = criteria.page() == null ? 0 : criteria.page();
         int size = criteria.size() == null ? unpagedSizeFor(criteria) : criteria.size();
-        if (page < 0) {
-            throw new ApiException(ErrorCode.VALIDATION_FAILED, "page must not be negative");
-        }
-        if (size < 1 || size > listConfig.maxPageSize()) {
-            throw new ApiException(ErrorCode.VALIDATION_FAILED,
-                    "size must be between 1 and " + listConfig.maxPageSize());
-        }
-        requireProject(projectId, workspaceId);
+        listConfig.requireValidPage(page, size);
+        projects.requireInWorkspace(projectId, workspaceId);
 
         List<UUID> companyIds = criteria.triageCompanyIds();
         if (companyIds != null && companyIds.size() > listConfig.maxPageSize()) {
@@ -164,16 +141,14 @@ public class CandidateService {
         Page<Candidate> found = findPage(projectId, criteria, companyIds, nameQuery, pageRequest);
 
         return new CandidatesResponse(
-                found.getContent().stream().map(CandidateService::toDto).toList(),
+                found.getContent().stream().map(responses::toDto).toList(),
                 found.getTotalElements(), page, size);
     }
 
     @Transactional(readOnly = true)
     public CandidateResponse get(UUID workspaceId, UUID projectId, UUID candidateId) {
-        requireProject(projectId, workspaceId);
-        return candidates.findByIdAndProjectId(candidateId, projectId)
-                .map(CandidateService::toDto)
-                .orElseThrow(() -> ApiException.of(ErrorCode.NOT_FOUND));
+        projects.requireInWorkspace(projectId, workspaceId);
+        return responses.toDto(candidates.requireInProject(candidateId, projectId));
     }
 
     /**
@@ -186,10 +161,10 @@ public class CandidateService {
      */
     @Transactional(readOnly = true)
     public CandidatesResponse listAllOfProject(UUID workspaceId, UUID projectId, int cap) {
-        requireProject(projectId, workspaceId);
+        projects.requireInWorkspace(projectId, workspaceId);
         Page<Candidate> found = candidates.findByProjectId(projectId, PageRequest.of(0, cap, FIRST_MAPPED_FIRST));
         return new CandidatesResponse(
-                found.getContent().stream().map(CandidateService::toDto).toList(),
+                found.getContent().stream().map(responses::toDto).toList(),
                 found.getTotalElements(), 0, cap);
     }
 
@@ -199,7 +174,7 @@ public class CandidateService {
      */
     @Transactional(readOnly = true)
     public Map<UUID, UUID> addedByOf(UUID workspaceId, UUID projectId) {
-        requireProject(projectId, workspaceId);
+        projects.requireInWorkspace(projectId, workspaceId);
         return candidates.findAttributionByProjectId(projectId).stream()
                 .collect(Collectors.toMap(CandidateAttribution::getCandidateId, CandidateAttribution::getAddedBy));
     }
@@ -221,7 +196,7 @@ public class CandidateService {
                     .stream()
                     .min(Comparator.comparing(Candidate::getCreatedAt));
             if (byEmail.isPresent()) {
-                return byEmail.map(CandidateService::toDto);
+                return byEmail.map(responses::toDto);
             }
         }
         if (fullName == null || fullName.isBlank()) {
@@ -232,15 +207,15 @@ public class CandidateService {
                 : candidates.findByProjectIdAndTriageCompanyIdAndFullNameIgnoreCase(projectId, triageCompanyId, fullName.trim());
         return byName.stream()
                 .min(Comparator.comparing(Candidate::getCreatedAt))
-                .map(CandidateService::toDto);
+                .map(responses::toDto);
     }
 
     @Transactional
     public CandidateResponse add(UUID userId, UUID workspaceId, UUID projectId,
                                  SaveCandidateRequest request, HttpServletRequest httpRequest) {
-        requireProject(projectId, workspaceId);
-        CandidateSource source = resolveSource(request.source());
-        CandidateDetails details = detailsOf(projectId, request, null);
+        projects.requireInWorkspace(projectId, workspaceId);
+        CandidateSource source = requests.resolveSource(request.source());
+        CandidateDetails details = requests.detailsOf(projectId, request, null);
 
         refuseDuplicate(projectId, request.triageCompanyId(), details.fullName(), null);
         refuseHeldProfile(projectId, details.linkedinUrl(), null);
@@ -256,12 +231,11 @@ public class CandidateService {
         }
         stream.publish(projectId, ProjectStreamKind.CANDIDATE_CAPTURED);
 
-        audit.event(ProjectEventType.CANDIDATE_ADDED)
-                .actor(userId).workspace(workspaceId).target("project", projectId).from(httpRequest)
+        audit.projectEvent(ProjectEventType.CANDIDATE_ADDED, userId, workspaceId, projectId, httpRequest)
                 .detail("candidateId", candidate.getId().toString())
                 .detail("source", source.name())
                 .record();
-        return toDto(candidate);
+        return responses.toDto(candidate);
     }
 
     /**
@@ -285,11 +259,10 @@ public class CandidateService {
     public CandidateResponse replace(UUID userId, UUID workspaceId, UUID projectId, UUID candidateId,
                                      SaveCandidateRequest request, ContactSource door,
                                      HttpServletRequest httpRequest) {
-        requireProject(projectId, workspaceId);
-        Candidate candidate = candidates.findByIdAndProjectId(candidateId, projectId)
-                .orElseThrow(() -> ApiException.of(ErrorCode.NOT_FOUND));
+        projects.requireInWorkspace(projectId, workspaceId);
+        Candidate candidate = candidates.requireInProject(candidateId, projectId);
 
-        CandidateDetails details = detailsOf(projectId, request, candidate.getTriageCompanyId());
+        CandidateDetails details = requests.detailsOf(projectId, request, candidate.getTriageCompanyId());
         refuseDuplicate(projectId, request.triageCompanyId(), details.fullName(), candidateId);
         refuseHeldProfile(projectId, details.linkedinUrl(), candidateId);
         refuseRetypedCapturedProfile(candidate, details.linkedinUrl());
@@ -299,15 +272,14 @@ public class CandidateService {
         if (Boolean.TRUE.equals(request.confirmBackground())) {
             candidate.confirmBackground();
         }
-        refuseOverfullChannels(candidate);
+        requests.refuseOverfullChannels(candidate);
         candidate.describeCustomFields(customColumns.applyTo(projectId, CustomColumnTarget.CANDIDATE,
                 candidate.getCustomFields(), request.customFields()));
 
-        audit.event(ProjectEventType.CANDIDATE_UPDATED)
-                .actor(userId).workspace(workspaceId).target("project", projectId).from(httpRequest)
+        audit.projectEvent(ProjectEventType.CANDIDATE_UPDATED, userId, workspaceId, projectId, httpRequest)
                 .detail("candidateId", candidateId.toString())
                 .record();
-        return toDto(candidate);
+        return responses.toDto(candidate);
     }
 
     /**
@@ -319,18 +291,16 @@ public class CandidateService {
     public CandidateResponse changeStatus(UUID userId, UUID workspaceId, UUID projectId,
                                           UUID candidateId, UpdateCandidateStatusRequest request,
                                           HttpServletRequest httpRequest) {
-        requireProject(projectId, workspaceId);
-        Candidate candidate = candidates.findByIdAndProjectId(candidateId, projectId)
-                .orElseThrow(() -> ApiException.of(ErrorCode.NOT_FOUND));
+        projects.requireInWorkspace(projectId, workspaceId);
+        Candidate candidate = candidates.requireInProject(candidateId, projectId);
 
-        candidate.moveTo(resolveStatus(request.status()));
+        candidate.moveTo(requests.resolveStatus(request.status()));
 
-        audit.event(ProjectEventType.CANDIDATE_UPDATED)
-                .actor(userId).workspace(workspaceId).target("project", projectId).from(httpRequest)
+        audit.projectEvent(ProjectEventType.CANDIDATE_UPDATED, userId, workspaceId, projectId, httpRequest)
                 .detail("candidateId", candidateId.toString())
                 .detail("status", request.status())
                 .record();
-        return toDto(candidate);
+        return responses.toDto(candidate);
     }
 
     /**
@@ -360,9 +330,8 @@ public class CandidateService {
     /** Confirms the candidate is one of this workspace's before an AI enrichment is paid for. */
     @Transactional(readOnly = true)
     public void requireCandidate(UUID workspaceId, UUID projectId, UUID candidateId) {
-        requireProject(projectId, workspaceId);
-        candidates.findByIdAndProjectId(candidateId, projectId)
-                .orElseThrow(() -> ApiException.of(ErrorCode.NOT_FOUND));
+        projects.requireInWorkspace(projectId, workspaceId);
+        candidates.requireInProject(candidateId, projectId);
     }
 
     /**
@@ -387,20 +356,15 @@ public class CandidateService {
      */
     @Transactional(readOnly = true)
     public Optional<CandidateAiEnrichState> aiAssessmentOf(UUID workspaceId, UUID projectId, UUID candidateId) {
-        requireProject(projectId, workspaceId);
-        Candidate candidate = candidates.findByIdAndProjectId(candidateId, projectId)
-                .orElseThrow(() -> ApiException.of(ErrorCode.NOT_FOUND));
+        projects.requireInWorkspace(projectId, workspaceId);
+        Candidate candidate = candidates.requireInProject(candidateId, projectId);
         if (candidate.getAiAssessment() == null && candidate.getAiEnrichFailedAt() == null) {
             return Optional.empty();
         }
         return Optional.of(new CandidateAiEnrichState(candidate.getAiAssessment(), candidate.getAiEnrichFailedAt()));
     }
 
-    /**
-     * The AI enrichment's own write: background into whichever fields are still empty, and the
-     * assessment replaced whole. {@code REQUIRES_NEW} for {@link #applyResearch}'s reason; a racing
-     * drawer edit wins by {@code @Version} the same way.
-     */
+    /** Stamps a run that produced nothing, so the drawer says so at once; a later success clears it. */
     @Transactional(propagation = Propagation.REQUIRES_NEW)
     public void recordAiEnrichFailure(UUID projectId, UUID candidateId) {
         candidates.findByIdAndProjectId(candidateId, projectId).ifPresent(candidate -> {
@@ -409,6 +373,11 @@ public class CandidateService {
         });
     }
 
+    /**
+     * The AI enrichment's own write: background into whichever fields are still empty, and the
+     * assessment replaced whole. {@code REQUIRES_NEW} for {@link #applyResearch}'s reason; a racing
+     * drawer edit wins by {@code @Version} the same way.
+     */
     @Transactional(propagation = Propagation.REQUIRES_NEW)
     public void applyAiEnrichment(UUID projectId, UUID candidateId, CandidateAiEnrichment enrichment) {
         candidates.findByIdAndProjectId(candidateId, projectId).ifPresent(candidate -> {
@@ -427,22 +396,20 @@ public class CandidateService {
     public CandidateResponse replaceContacts(UUID userId, UUID workspaceId, UUID projectId,
                                              UUID candidateId, UpdateCandidateContactsRequest request,
                                              HttpServletRequest httpRequest) {
-        requireProject(projectId, workspaceId);
-        Candidate candidate = candidates.findByIdAndProjectId(candidateId, projectId)
-                .orElseThrow(() -> ApiException.of(ErrorCode.NOT_FOUND));
+        projects.requireInWorkspace(projectId, workspaceId);
+        Candidate candidate = candidates.requireInProject(candidateId, projectId);
 
-        List<ContactEntry> emails = entriesOf(ContactChannel.EMAIL, request.emails(), null);
-        List<ContactEntry> phones = entriesOf(ContactChannel.PHONE, request.phones(), null);
+        List<ContactEntry> emails = requests.entriesOf(ContactChannel.EMAIL, request.emails(), null);
+        List<ContactEntry> phones = requests.entriesOf(ContactChannel.PHONE, request.phones(), null);
         candidate.replaceContacts(ContactChannel.EMAIL, emails, ContactSource.MANUAL);
         candidate.replaceContacts(ContactChannel.PHONE, phones, ContactSource.MANUAL);
         stream.publish(projectId, ProjectStreamKind.CANDIDATE_ENRICHED);
 
-        audit.event(ProjectEventType.CANDIDATE_UPDATED)
-                .actor(userId).workspace(workspaceId).target("project", projectId).from(httpRequest)
+        audit.projectEvent(ProjectEventType.CANDIDATE_UPDATED, userId, workspaceId, projectId, httpRequest)
                 .detail("candidateId", candidateId.toString())
                 .detail("section", "contacts")
                 .record();
-        return toDto(candidate);
+        return responses.toDto(candidate);
     }
 
     /**
@@ -457,81 +424,16 @@ public class CandidateService {
     }
 
     /**
-     * What a write lists for one channel, plus the one value a cell or a capture supplies, as ledger
-     * entries — the Contact section's save and the profile's own both come through here, so the rules
-     * below cannot differ by endpoint. A single value that keys to nothing — a dash where a number
-     * should be — is skipped rather than refused, as it always was: a spreadsheet says "unknown" a
-     * dozen ways.
-     */
-    private static List<ContactEntry> entriesOf(ContactChannel channel, List<ContactEntryDto> listed,
-                                                String single) {
-        List<ContactEntry> entries = new ArrayList<>();
-        if (listed != null) {
-            listed.forEach(entry -> entries.add(entryOf(channel, entry)));
-        }
-        if (single != null && !CandidateContact.keyOf(channel, single).isEmpty()) {
-            entries.add(ContactEntry.of(single));
-        }
-        return distinct(channel, entries);
-    }
-
-    /**
-     * Two spellings of one address or number in the same save is a slip, and letting the second win
-     * silently would hide it; ten of either is a paste error.
-     */
-    private static List<ContactEntry> distinct(ContactChannel channel, List<ContactEntry> entries) {
-        if (entries.size() > MAX_CONTACTS_PER_CHANNEL) {
-            throw ApiException.of(ErrorCode.CONTACT_LIMIT_REACHED);
-        }
-        Set<String> keys = new HashSet<>();
-        for (ContactEntry entry : entries) {
-            String key = CandidateContact.keyOf(channel, entry.value());
-            if (key.isEmpty()) {
-                throw ApiException.userFacing(ErrorCode.VALIDATION_FAILED,
-                        "That is not " + (channel == ContactChannel.EMAIL ? "an email" : "a phone number") + " anyone could use");
-            }
-            if (!keys.add(key)) {
-                throw ApiException.userFacing(ErrorCode.VALIDATION_FAILED,
-                        "The same " + channel.value() + " is listed twice");
-            }
-        }
-        return entries;
-    }
-
-    /** A profile write adds to the ledger and removes nothing, so the cap is checked on what it holds after. */
-    private static void refuseOverfullChannels(Candidate candidate) {
-        if (candidate.emailContacts().size() > MAX_CONTACTS_PER_CHANNEL
-                || candidate.phoneContacts().size() > MAX_CONTACTS_PER_CHANNEL) {
-            throw ApiException.of(ErrorCode.CONTACT_LIMIT_REACHED);
-        }
-    }
-
-    private static ContactEntry entryOf(ContactChannel channel, ContactEntryDto listed) {
-        String value = listed.value() == null ? null : listed.value().trim();
-        if (channel == ContactChannel.EMAIL && value != null && !looksLikeAnEmail(value)) {
-            throw ApiException.userFacing(ErrorCode.VALIDATION_FAILED, "That doesn't look like a valid email");
-        }
-        return new ContactEntry(value, ContactKind.fromValue(listed.kind()), Boolean.TRUE.equals(listed.verified()));
-    }
-
-    private static boolean looksLikeAnEmail(String value) {
-        int at = value.indexOf('@');
-        return at > 0 && at < value.length() - 1 && value.indexOf('@', at + 1) < 0
-                && !value.contains(" ");
-    }
-
-    /**
      * What a contact lookup needs before it decides whether to spend a credit, in one read.
      */
     @Transactional(readOnly = true)
     public CandidateContactState contactStateOf(UUID workspaceId, UUID projectId, UUID candidateId) {
-        requireProject(projectId, workspaceId);
-        Candidate candidate = candidates.findByIdAndProjectId(candidateId, projectId)
-                .orElseThrow(() -> ApiException.of(ErrorCode.NOT_FOUND));
+        projects.requireInWorkspace(projectId, workspaceId);
+        Candidate candidate = candidates.requireInProject(candidateId, projectId);
         return new CandidateContactState(candidate.getLinkedinUrl(),
                 candidate.hasAskedForEmails(), candidate.hasAskedForPhones(),
                 candidate.hasFoundEmails(), candidate.hasFoundPhones(),
-                toDto(candidate));
+                responses.toDto(candidate));
     }
 
     /**
@@ -543,27 +445,25 @@ public class CandidateService {
      */
     @Transactional
     public CandidateResponse applyFoundEmails(UUID projectId, UUID candidateId, FoundEmails found) {
-        Candidate candidate = candidates.findByIdAndProjectId(candidateId, projectId)
-                .orElseThrow(() -> ApiException.of(ErrorCode.NOT_FOUND));
+        Candidate candidate = candidates.requireInProject(candidateId, projectId);
         if (candidate.hasAskedForEmails()) {
-            return toDto(candidate);
+            return responses.toDto(candidate);
         }
         candidate.recordFoundEmails(found);
         stream.publish(projectId, ProjectStreamKind.CANDIDATE_ENRICHED);
-        return toDto(candidate);
+        return responses.toDto(candidate);
     }
 
     /** The phone half of {@link #applyFoundEmails}. */
     @Transactional
     public CandidateResponse applyFoundPhones(UUID projectId, UUID candidateId, FoundPhones found) {
-        Candidate candidate = candidates.findByIdAndProjectId(candidateId, projectId)
-                .orElseThrow(() -> ApiException.of(ErrorCode.NOT_FOUND));
+        Candidate candidate = candidates.requireInProject(candidateId, projectId);
         if (candidate.hasAskedForPhones()) {
-            return toDto(candidate);
+            return responses.toDto(candidate);
         }
         candidate.recordFoundPhones(found);
         stream.publish(projectId, ProjectStreamKind.CANDIDATE_ENRICHED);
-        return toDto(candidate);
+        return responses.toDto(candidate);
     }
 
     /**
@@ -612,7 +512,7 @@ public class CandidateService {
     /** The stored profile photo, or NOT_FOUND — "no photo" and "no such candidate" read the same. */
     @Transactional(readOnly = true)
     public StoredPhoto photoOf(UUID workspaceId, UUID projectId, UUID candidateId) {
-        requireProject(projectId, workspaceId);
+        projects.requireInWorkspace(projectId, workspaceId);
         // Existence, not content: a grid of avatars asks this per row, and loading each whole row —
         // profile jsonb included — to throw it away is a scan the scoping does not need.
         if (!candidates.existsByIdAndProjectId(candidateId, projectId)) {
@@ -626,16 +526,14 @@ public class CandidateService {
     @Transactional
     public void remove(UUID userId, UUID workspaceId, UUID projectId, UUID candidateId,
                        HttpServletRequest httpRequest) {
-        requireProject(projectId, workspaceId);
-        Candidate candidate = candidates.findByIdAndProjectId(candidateId, projectId)
-                .orElseThrow(() -> ApiException.of(ErrorCode.NOT_FOUND));
+        projects.requireInWorkspace(projectId, workspaceId);
+        Candidate candidate = candidates.requireInProject(candidateId, projectId);
 
         candidates.delete(candidate);
 
         // The name is recorded because the row carrying it is about to stop existing, and an audit
         // entry naming only an unresolvable id answers no question later.
-        audit.event(ProjectEventType.CANDIDATE_REMOVED)
-                .actor(userId).workspace(workspaceId).target("project", projectId).from(httpRequest)
+        audit.projectEvent(ProjectEventType.CANDIDATE_REMOVED, userId, workspaceId, projectId, httpRequest)
                 .detail("candidateId", candidateId.toString())
                 .detail("fullName", candidate.getFullName())
                 .record();
@@ -663,36 +561,6 @@ public class CandidateService {
         }
         return candidates.findByProjectIdAndFullNameContainingIgnoreCase(
                 projectId, nameQuery, pageRequest);
-    }
-
-    /**
-     * Where a candidate sits. A named company is resolved through {@code triagecompany}'s public seam,
-     * which proves it belongs to this mandate — so one cannot be filed against another project's — and
-     * clears that company's {@code noExecutiveFound} flag as a side effect of the resolution, but only
-     * when {@code previousTriageCompanyId} shows this call is newly making that mapping: an executive
-     * being mapped here is what disproves the flag, but a save that merely still names the company they
-     * were already mapped to is an unrelated edit and must not revive it.
-     */
-    private CandidateDetails detailsOf(UUID projectId, SaveCandidateRequest request,
-                                       UUID previousTriageCompanyId) {
-        CandidateDetails details = new CandidateDetails(
-                request.fullName(), request.title(), resolveSeniority(request.seniority()),
-                resolveStatus(request.status()), request.employerName(),
-                entriesOf(ContactChannel.EMAIL, request.emails(), request.email()),
-                entriesOf(ContactChannel.PHONE, request.phones(), request.phone()),
-                request.linkedinUrl(), request.locationCountry(),
-                request.locationCity(), request.nationality(), resolveGender(request.gender()),
-                request.yearsExperience(),
-                request.summary(), request.note(), compensationOf(request.compensation()),
-                profileOf(request), request.sourceUrl());
-
-        if (request.triageCompanyId() == null) {
-            return details;
-        }
-        boolean newMapping = !request.triageCompanyId().equals(previousTriageCompanyId);
-        TriageCompanyResponse company =
-                triage.requireCompanyOfProject(projectId, request.triageCompanyId(), newMapping);
-        return details.employedAt(company.companyName());
     }
 
     /**
@@ -745,162 +613,11 @@ public class CandidateService {
         }
     }
 
-    private static CandidateCompensation compensationOf(CandidateCompensationDto supplied) {
-        if (supplied == null) {
-            return CandidateCompensation.unknown();
-        }
-        return new CandidateCompensation(supplied.currency(), supplied.baseSalary(), supplied.bonus(),
-                supplied.allowances(), supplied.longTermIncentive(), supplied.noticePeriod(),
-                breakdownOf(supplied));
-    }
-
-    private static CompensationBreakdown breakdownOf(CandidateCompensationDto supplied) {
-        List<AllowanceLine> lines = supplied.allowanceLines() == null ? List.of()
-                : supplied.allowanceLines().stream()
-                        .filter(Objects::nonNull)
-                        .map(line -> new AllowanceLine(line.label(), line.amount()))
-                        .toList();
-        List<LongTermIncentiveType> types = supplied.longTermIncentiveTypes() == null ? List.of()
-                : supplied.longTermIncentiveTypes().stream().map(CandidateService::resolveIncentiveType).toList();
-        return new CompensationBreakdown(lines, types);
-    }
-
-    private static LongTermIncentiveType resolveIncentiveType(String token) {
-        LongTermIncentiveType type = LongTermIncentiveType.fromValue(token);
-        if (type == null) {
-            throw new ApiException(ErrorCode.VALIDATION_FAILED, "Unknown long-term incentive type: " + token);
-        }
-        return type;
-    }
-
-    private static CandidateProfile profileOf(SaveCandidateRequest request) {
-        List<CandidateCareerEntry> career = request.career() == null ? List.of()
-                : request.career().stream()
-                        .map(entry -> new CandidateCareerEntry(entry.company(), entry.title(), entry.period()))
-                        .toList();
-        return new CandidateProfile(career, request.languages(), null, null, null);
-    }
-
     /**
      * Only a page the plugin actually read is worth a billed call, and "worth billing" is exactly "a
      * slug came back" — the providers key on the slug, so gate and lookup must agree.
      */
     private static boolean isLinkedInProfileUrl(String url) {
         return LinkedInUrls.profileSlugOrNull(url) != null;
-    }
-
-    /** Omitted means identified — where every profile starts, and the only honest default. */
-    private static CandidateStatus resolveStatus(String token) {
-        if (token == null || token.isBlank()) {
-            return CandidateStatus.IDENTIFIED;
-        }
-        CandidateStatus status = CandidateStatus.fromValue(token);
-        if (status == null) {
-            throw new ApiException(ErrorCode.VALIDATION_FAILED, "Unknown candidate status: " + token);
-        }
-        return status;
-    }
-
-    /** Null when nobody named a level, which is not the same as naming an unknown one. */
-    private static Seniority resolveSeniority(String token) {
-        if (token == null || token.isBlank()) {
-            return null;
-        }
-        Seniority seniority = Seniority.fromValue(token);
-        if (seniority == null) {
-            throw new ApiException(ErrorCode.VALIDATION_FAILED, "Unknown seniority level: " + token);
-        }
-        return seniority;
-    }
-
-    /** Null when nobody recorded it. Absent is not {@code OTHER}, and the report counts them apart. */
-    private static Gender resolveGender(String token) {
-        if (token == null || token.isBlank()) {
-            return null;
-        }
-        Gender gender = Gender.fromValue(token);
-        if (gender == null) {
-            throw new ApiException(ErrorCode.VALIDATION_FAILED, "Unknown gender: " + token);
-        }
-        return gender;
-    }
-
-    private static CandidateSource resolveSource(String token) {
-        if (token == null || token.isBlank()) {
-            return CandidateSource.MANUAL;
-        }
-        CandidateSource source = CandidateSource.fromValue(token);
-        if (source == null) {
-            throw new ApiException(ErrorCode.VALIDATION_FAILED, "Unknown candidate source: " + token);
-        }
-        return source;
-    }
-
-    private void requireProject(UUID projectId, UUID workspaceId) {
-        projects.findByIdAndWorkspaceId(projectId, workspaceId)
-                .orElseThrow(() -> ApiException.of(ErrorCode.NOT_FOUND));
-    }
-
-    private static CandidateResponse toDto(Candidate candidate) {
-        CandidateCompensation compensation = candidate.compensation();
-        return new CandidateResponse(
-                candidate.getId(),
-                candidate.getTriageCompanyId(),
-                candidate.getCompanyName(),
-                candidate.getFullName(),
-                candidate.getTitle(),
-                candidate.getSeniorityLevel() == null ? null : candidate.getSeniorityLevel().value(),
-                candidate.getStatus().value(),
-                candidate.getLinkedinUrl(),
-                candidate.getLocationCountry(),
-                candidate.getLocationCity(),
-                candidate.getNationality(),
-                candidate.getGender() == null ? null : candidate.getGender().value(),
-                candidate.getYearsExperience(),
-                candidate.getAiInferredFields(),
-                candidate.getSummary(),
-                candidate.getNote(),
-                new CandidateCompensationDto(compensation.currency(), compensation.baseSalary(),
-                        compensation.bonus(), compensation.allowances(),
-                        compensation.longTermIncentive(), compensation.noticePeriod(),
-                        compensation.breakdown().allowanceLines().stream()
-                                .map(line -> new AllowanceLineDto(line.label(), line.amount()))
-                                .toList(),
-                        compensation.breakdown().longTermIncentiveTypes().stream()
-                                .map(LongTermIncentiveType::value)
-                                .toList()),
-                candidate.getProfile().career().stream()
-                        .map(entry -> new CandidateCareerEntryDto(entry.company(), entry.title(), entry.period()))
-                        .toList(),
-                candidate.getProfile().languages(),
-                candidate.getProfile().education().stream()
-                        .map(school -> new CandidateEducationEntryDto(school.school(), school.degree(),
-                                school.period()))
-                        .toList(),
-                candidate.getProfile().skills(),
-                candidate.getSource().value(),
-                candidate.getSourceUrl(),
-                candidate.getCustomFields().asMap(),
-                candidate.getCreatedAt(),
-                candidate.getProfile().enrichedAt(),
-                contactsOf(candidate));
-    }
-
-    private static CandidateContactsDto contactsOf(Candidate candidate) {
-        return new CandidateContactsDto(
-                candidate.emailContacts().stream()
-                        .map(contact -> new CandidateEmailDto(contact.getValue(),
-                                contact.getKind() == null ? null : contact.getKind().value(),
-                                contact.isVerified(), contact.getStatus(),
-                                contact.getSource().value(), contact.getFoundAt()))
-                        .toList(),
-                candidate.phoneContacts().stream()
-                        .map(contact -> new CandidatePhoneDto(contact.getValue(),
-                                contact.getKind() == null ? null : contact.getKind().value(),
-                                contact.isVerified(), contact.getStatus(),
-                                contact.getSource().value(), contact.getFoundAt()))
-                        .toList(),
-                candidate.getEmailsLookedUpAt(), candidate.getPhonesLookedUpAt(),
-                candidate.getContactsLookedUpVia());
     }
 }

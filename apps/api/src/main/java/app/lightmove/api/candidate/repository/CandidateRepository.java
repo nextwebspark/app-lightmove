@@ -4,6 +4,8 @@ import app.lightmove.api.candidate.constant.CandidateStatus;
 import app.lightmove.api.candidate.model.Candidate;
 import app.lightmove.api.candidate.model.CandidateAttribution;
 import app.lightmove.api.candidate.model.CandidateCount;
+import app.lightmove.api.core.error.constant.ErrorCode;
+import app.lightmove.api.core.error.model.ApiException;
 import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
@@ -44,6 +46,10 @@ public interface CandidateRepository extends JpaRepository<Candidate, UUID> {
             UUID projectId, String fullName, Pageable pageable);
 
     Optional<Candidate> findByIdAndProjectId(UUID id, UUID projectId);
+
+    default Candidate requireInProject(UUID id, UUID projectId) {
+        return findByIdAndProjectId(id, projectId).orElseThrow(() -> ApiException.of(ErrorCode.NOT_FOUND));
+    }
 
     /**
      * The projects list's "Candidates" number, for every mandate on the page at once so the list stays
@@ -172,7 +178,7 @@ public interface CandidateRepository extends JpaRepository<Candidate, UUID> {
      * Native rather than JPQL: {@code group by t.id} relies on Postgres's rule that grouping by a
      * primary key lets every other column of that row through ungrouped, which is a Postgres extension
      * JPQL does not model. The same literal spelling is mirrored in
-     * {@code TriageCompanyService.EXECUTIVE_STATUS_TOKENS} and
+     * {@code TriageCompanyReadService.EXECUTIVE_STATUS_TOKENS} and
      * {@code MappedExecutiveLookupAdapter#triageCompanyIdsWithExecutiveStatusIn} — {@code @Query} needs
      * a compile-time constant, so none of the three can reference the enum directly, and a rename has
      * to update all three by hand. {@code CandidateRepositoryStatusOrderTest} pins this one against the

@@ -19,19 +19,10 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
 /**
- * Points for a set of places: from the cache where it can, from the vendor where it must, and never
- * more of the latter than one read is allowed to spend.
- *
- * <p>Deliberately not {@code @Transactional} — the read and write each open their own in
- * {@link GeocodedPlaceStore}, and the vendor call sits between them in none.
- *
- * <p>A vendor that cannot answer costs the read that place and the ones after it, not the read: the
- * map renders with what the cache held and the caller reports the rest as pending. One failure stops
- * the loop because the failures that reach here are the same for every place in it.
- *
- * <p>A vendor that is merely <b>slow</b> never throws, so the count alone would let fifty read
- * timeouts run past the gateway's — and a request killed there reports nothing, not even the places it
- * did resolve. Hence the deadline beside the count.
+ * Points for a set of places, from the cache or the vendor. Not {@code @Transactional}: the vendor
+ * call sits between {@link GeocodedPlaceStore}'s own transactions. One vendor failure stops the loop
+ * and the rest are reported pending; a deadline beside the count stops a merely slow vendor running
+ * past the gateway's timeout, which would lose even the places resolved.
  */
 @Service
 @Slf4j
@@ -71,8 +62,7 @@ public class GeocodingService {
             held.point().ifPresent(point -> points.put(place, point));
         }
 
-        // Nothing is asked and nothing remembered: with geocoding off, "no point" is not a finding,
-        // and a stored miss would outlive the day someone configures a token by the cache's whole TTL.
+        // With geocoding off a stored miss would outlive the day someone configures a token.
         if (!geocoder.isEnabled()) {
             return new GeocodingResult(Map.copyOf(points), 0);
         }
@@ -102,7 +92,7 @@ public class GeocodingService {
         return new GeocodingResult(Map.copyOf(points), unresolved.size() - asked);
     }
 
-    /** The city if it can be placed, else the country it is in, else nothing. */
+    /** The city if it can be placed, else its country. */
     private Optional<GeoPoint> lookup(PlaceKey place) {
         if (place.hasCity()) {
             Optional<GeoPoint> city = geocoder.city(place.city(), place.country());

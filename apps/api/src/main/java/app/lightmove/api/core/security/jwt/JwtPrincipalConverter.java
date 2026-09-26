@@ -17,27 +17,13 @@ import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.stereotype.Component;
 
 /**
- * Turns a verified JWT into the {@link AuthPrincipal} the application actually reasons about.
- *
- * <p>By the time this runs, Spring Security has already checked the signature, the expiry and the
- * issuer. So the claims can be trusted — which is exactly why the workspace id must arrive as a claim
- * and never as a request parameter.
- *
- * <p>Two kinds of authority are derived, and the distinction matters:
- *
- * <ul>
- *   <li>{@code ROLE_ADMIN} / {@code ROLE_MEMBER} (one per held workspace role) — <b>coarse route
- *       material only</b>. Every role-sensitive decision re-reads the database through the rbac guard
- *       beans, because these were minted up to 15 minutes ago.
- *   <li>{@code SCOPE_VERIFIED} — whether you have proved you own your email address. Since the email
- *       domain is what places a user in an organisation, an unverified user has proved nothing, and
- *       the filter chain keeps them out of every workspace endpoint.
- * </ul>
+ * Turns a verified JWT into the {@link AuthPrincipal}; the workspace id comes from the signed claim, never
+ * a request parameter. {@code ROLE_*} authorities are coarse route material only — every role-sensitive
+ * decision re-reads the database.
  */
 @Component
 public class JwtPrincipalConverter implements Converter<Jwt, AbstractAuthenticationToken> {
 
-    /** Granted only to users who have clicked their verification link. */
     public static final String VERIFIED_AUTHORITY = "SCOPE_VERIFIED";
 
     @Override
@@ -46,8 +32,7 @@ public class JwtPrincipalConverter implements Converter<Jwt, AbstractAuthenticat
         String email = jwt.getClaimAsString("email");
         boolean emailVerified = Boolean.TRUE.equals(jwt.getClaim("emailVerified"));
 
-        // Absent for a user who has signed up but not yet created their workspace. They exist, they
-        // can authenticate, and they can reach only the onboarding endpoints.
+        // Absent before onboarding: such a user reaches only the onboarding endpoints.
         String workspaceClaim = jwt.getClaimAsString("wsId");
         UUID workspaceId = workspaceClaim == null ? null : UUID.fromString(workspaceClaim);
 
@@ -55,11 +40,7 @@ public class JwtPrincipalConverter implements Converter<Jwt, AbstractAuthenticat
         return new JwtPrincipalAuthentication(jwt, principal, authorities(principal));
     }
 
-    /**
-     * Multi-role claim, with one release of tolerance: tokens minted before the RBAC change carry a
-     * single {@code role} string instead of a {@code roles} array. They die within the 15-minute
-     * access TTL, but until then they must not 500 — read the old shape as a one-element set.
-     */
+    /** Also reads a legacy single {@code role} claim as a one-element set, so an old token does not 500. */
     private static Set<WorkspaceRole> roles(Jwt jwt) {
         List<String> claim = jwt.getClaimAsStringList("roles");
         if (claim == null) {
@@ -81,11 +62,7 @@ public class JwtPrincipalConverter implements Converter<Jwt, AbstractAuthenticat
         return authorities;
     }
 
-    /**
-     * Carries the {@link AuthPrincipal} as the principal, so a controller's
-     * {@code @AuthenticationPrincipal AuthPrincipal} parameter resolves to the domain type rather than a
-     * raw {@link Jwt} that every call site would have to re-parse.
-     */
+    /** Carries the {@link AuthPrincipal}, so {@code @AuthenticationPrincipal AuthPrincipal} resolves. */
     static final class JwtPrincipalAuthentication extends AbstractAuthenticationToken {
 
         private final transient Jwt jwt;

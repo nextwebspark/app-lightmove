@@ -8,24 +8,10 @@ import java.util.List;
 import org.springframework.stereotype.Service;
 
 /**
- * Turns an attached position description's stored bytes into plain text.
+ * Turns an attached position description's stored bytes into plain text, through the first
+ * {@link PositionDocumentFormatReader} (in {@code @Order}) that supports them.
  *
- * <p><b>The format is decided by the bytes' own signature, never the declared content type</b> — the
- * same rule {@code dataimport}'s {@code SpreadsheetReader} already established, for the same reason:
- * a claim made by whatever sent the request decides nothing on its own.
- *
- * <p><b>Adding a format means writing a {@link PositionDocumentFormatReader}, not editing this
- * class.</b> Spring collects every bean of that type into {@code formatReaders}, tried in {@code
- * @Order}; the first whose {@link PositionDocumentFormatReader#supports} answers true wins, and
- * {@link PlainTextFormatReader}'s catch-all is ordered last so a real signature check always gets
- * first refusal. A {@code .pptx} or {@code .xlsx} reader — {@link PdfFormatReader}, {@link
- * DocxFormatReader} and {@link LegacyOfficeFormatReader} are the shipped examples to follow — is a
- * new class implementing that interface; this orchestrator does not change to gain one.
- *
- * <p>The caps enforced here — no empty text layer, the character ceiling — apply whichever format
- * answered, because a corrupted or image-only file of any format can equally extract to nothing.
- * Format-specific caps (a PDF's page count, a future format's sheet or slide count) are each reader's
- * own concern, checked inside its own {@code extractText}.
+ * <p>The format is decided by the bytes' own signature, never the declared content type.
  */
 @Service
 public class PositionDocumentTextReader {
@@ -33,8 +19,6 @@ public class PositionDocumentTextReader {
     private final List<PositionDocumentFormatReader> formatReaders;
     private final PositionExtractionSettings settings;
 
-    // Hand-written rather than @RequiredArgsConstructor: it derives the settings branch from the
-    // properties root rather than taking it, which is the one case the Lombok rule exempts.
     public PositionDocumentTextReader(List<PositionDocumentFormatReader> formatReaders,
                                       LightMoveProperties properties) {
         this.formatReaders = formatReaders;
@@ -45,8 +29,6 @@ public class PositionDocumentTextReader {
         PositionDocumentFormatReader reader = formatReaders.stream()
                 .filter(candidate -> candidate.supports(content))
                 .findFirst()
-                // Unreachable in practice — PlainTextFormatReader answers every signature — but a
-                // caller must not see a null-pointer if that catch-all is ever misconfigured away.
                 .orElseThrow(() -> ApiException.of(ErrorCode.POSITION_DOCUMENT_UNREADABLE));
 
         String trimmed = reader.extractText(content, settings).strip();
@@ -56,8 +38,7 @@ public class PositionDocumentTextReader {
                             + "Save it as .docx or PDF, with a text layer, and try again.");
         }
         if (trimmed.length() > settings.maxCharacters()) {
-            // Refused whole rather than read in part, matching PdfFormatReader's page cap: taking the
-            // first N characters would silently decide which half of the document mattered.
+            // Refused whole: taking the first N characters would silently decide what mattered.
             throw ApiException.userFacing(ErrorCode.POSITION_DOCUMENT_UNREADABLE,
                     "That document has more than " + settings.maxCharacters() + " characters. "
                             + "Extraction only works on a mandate-length brief.");

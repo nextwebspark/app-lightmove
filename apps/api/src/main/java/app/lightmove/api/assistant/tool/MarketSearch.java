@@ -27,20 +27,15 @@ class MarketSearch {
         this.maxVocabulary = properties.assistant().vocabularyLimit();
     }
 
-    /**
-     * The count is a second query and worth it: without it the answer cannot say whether the page is
-     * the market or a corner of it, which is the one thing a model reading a capped list gets wrong.
-     */
+    /** The count tells the model whether the capped page is the market or a corner of it. */
     CompanyMatches matching(CompanyScope scope) {
         return CompanyMatches.of(companies.count(scope),
                 companies.search(scope, BY_SIZE, SortDirection.DESC, 0, maxRows));
     }
 
     /**
-     * The countries take the vocabulary limit and not the row limit. Every other axis here ships
-     * whole — the sectors, the segments and both band sets are closed lists — and the countries are
-     * the one that goes through a {@code LIMIT}, so the row limit would silently make this the top
-     * twenty-five by company count while the search tools call its spellings authoritative.
+     * The countries take the vocabulary limit, not the row limit, which would silently cut the list the
+     * search tools call authoritative to the top twenty-five.
      */
     MarketShape shape() {
         return new MarketShape(facets.sectorGroups(), facets.countries(maxVocabulary),

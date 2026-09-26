@@ -54,10 +54,7 @@ public class AuthResponseAssembler {
                 user(user, membership));
     }
 
-    /**
-     * @param membership the workspace this <i>session</i> is in, or null. Never "the user's workspace":
-     *                   a user may be in several, and which one a token names is the session's business.
-     */
+    /** @param membership the workspace this <i>session</i> is in, or null — never "the user's", of several */
     public UserResponse user(User user, WorkspaceMember membership) {
         List<WorkspaceMember> memberships = selection.all(user.getId());
         Map<UUID, Workspace> byId = workspacesOf(memberships);
@@ -80,11 +77,7 @@ public class AuthResponseAssembler {
                 platform.actionsOf(user.getId()));
     }
 
-    /**
-     * The user answered as a member of exactly this workspace, or of none: no fallback, so the body
-     * describes the session it answers for — or the workspace just created or joined, for the SPA to
-     * switch into by id.
-     */
+    /** As a member of exactly this workspace, or none — the session's, or one just created or joined. */
     public UserResponse userIn(UUID userId, UUID workspaceId) {
         User user = users.findById(userId).orElseThrow(() -> ApiException.of(ErrorCode.INVALID_CREDENTIALS));
         return user(user, selection.membershipIn(userId, workspaceId).orElse(null));
@@ -100,8 +93,7 @@ public class AuthResponseAssembler {
     /**
      * The caller's own outstanding invitations, so routing can be derived from the server instead of a
      * tab's sessionStorage — an invitee who verifies in a fresh tab must land on "join {workspace}",
-     * not on create-your-own — and so someone already placed learns of an invitation to a second
-     * workspace without opening the email. One to a workspace they are already in is moot and hidden.
+     * not on create-your-own — or to a second workspace. One to a workspace they are already in is hidden.
      *
      * <p>Carries <b>no token</b>. The emailed token only ever proved control of the invited mailbox,
      * and an authenticated user whose verified address matches the invitation has proven exactly that

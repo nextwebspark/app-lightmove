@@ -1,5 +1,10 @@
 package app.lightmove.api.candidate.constant;
 
+import app.lightmove.api.common.constant.ApiValueEnum;
+import lombok.Getter;
+import lombok.RequiredArgsConstructor;
+import lombok.experimental.Accessors;
+
 /**
  * An executive's gender, for the report's diversity chapter.
  *
@@ -9,7 +14,10 @@ package app.lightmove.api.candidate.constant;
  * <p>Absent is not {@link #OTHER}: a null column means nobody said or confirmed one, {@code OTHER}
  * means somebody did. The two are counted separately for that reason.
  */
-public enum Gender {
+@Getter
+@Accessors(fluent = true)
+@RequiredArgsConstructor
+public enum Gender implements ApiValueEnum {
 
     FEMALE("female"),
 
@@ -17,22 +25,9 @@ public enum Gender {
 
     OTHER("other");
 
-    private final String wireToken;
-
-    Gender(String wireToken) {
-        this.wireToken = wireToken;
-    }
-
-    public String value() {
-        return wireToken;
-    }
+    private final String value;
 
     public static Gender fromValue(String value) {
-        for (Gender gender : values()) {
-            if (gender.wireToken.equals(value)) {
-                return gender;
-            }
-        }
-        return null;
+        return ApiValueEnum.fromValue(Gender.class, value);
     }
 }

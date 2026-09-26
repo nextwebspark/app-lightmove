@@ -17,16 +17,9 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
 /**
- * What every call to the model gets, whichever feature makes it: log attribution, a refusal of text
- * that reads like an instruction, and — where the reply is a document — one corrected try at an answer
- * that does not fit.
- *
- * <p>Here rather than at each call site because none of it is a property of any one prompt. What
- * varies is a {@link PromptGuardSpec}; the policy does not.
- *
- * <p><b>It is opt-in, and cannot be otherwise.</b> The shared {@code ChatClient} is a bean of a
- * framework type, so any feature can inject it and call the model unguarded — nothing here prevents
- * that, and a reviewer noticing a {@code chatClient.prompt()} without a spec is the only check.
+ * What every model call gets: log attribution, an injection-phrase guard, and a schema repair try.
+ * <b>Opt-in, and cannot be otherwise</b>: a {@code chatClient.prompt()} without a spec is unguarded,
+ * and review is the only check.
  */
 @Service
 @Slf4j
@@ -39,14 +32,8 @@ public class LlmCallPolicy {
     }
 
     /**
-     * The advisors and log attribution one prompt is called with, as {@code .advisors(...)} takes them.
-     *
-     * <p>Resolve it once in the caller's constructor and hold the result: any schema is read here, so
-     * one that will not load fails the context at startup rather than every request that needed it.
-     *
-     * <p>Deliberately not the shared {@code ChatClient} bean's default advisors: a block answers in
-     * place of the model, so its canned answer has to bind to whatever <i>that</i> call expects back,
-     * and one default cannot serve both a prose reply and a typed record.
+     * Resolve once in the caller's constructor, so a schema that will not load fails at startup. Not the
+     * bean's default advisors: a block's canned answer must bind to what that call expects back.
      */
     public Consumer<ChatClient.AdvisorSpec> forPrompt(PromptGuardSpec spec) {
         List<Advisor> advisors = new ArrayList<>(2);
@@ -55,8 +42,7 @@ public class LlmCallPolicy {
                 .failureResponse(spec.blockedAnswer())
                 .build());
         if (spec.answerSchema() != null) {
-            // Order left at its default, which places this inside the guard above: in front of it, a
-            // blocked call's canned answer would be re-asked as though the model had answered badly.
+            // Default order places this inside the guard: in front, a blocked answer would be re-asked.
             advisors.add(StructuredOutputValidationAdvisor.builder()
                     .outputJsonSchema(AnswerSchemas.readFrom(spec.answerSchema()))
                     .maxRepeatAttempts(settings.answerRepairAttempts())
@@ -67,12 +53,7 @@ public class LlmCallPolicy {
                 .advisors(advisors);
     }
 
-    /**
-     * The model's own answer, or a refusal — never the guard's canned reply passed off as one.
-     *
-     * <p>Here rather than at each call site because forgetting the check serves a canned refusal as a
-     * real answer. A null reply is refused for the same reason: {@code content()} is nullable.
-     */
+    /** The model's own answer, or a refusal — never the guard's canned reply, nor a null {@code content()}. */
     public String requireModelAnswer(String promptId, String answer) {
         if (BlockedAnswer.matches(answer)) {
             log.warn("Prompt {} was blocked before reaching the model: the caller's text matched the "
@@ -86,7 +67,6 @@ public class LlmCallPolicy {
         return answer;
     }
 
-    /** The configured baseline, plus anything this prompt refuses on top of it. */
     private List<String> injectionPhrasesFor(PromptGuardSpec spec) {
         if (spec.additionalInjectionPhrases().isEmpty()) {
             return settings.injectionPhrases();

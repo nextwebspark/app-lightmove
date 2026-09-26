@@ -10,23 +10,17 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
-import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
 /**
- * Settings → Workspaces: a further workspace, created from inside the app by someone who already has
- * one. The same creation as signup's organisation step ({@code /onboarding/workspace}), gated
- * differently: <b>staff</b> of the current workspace, so a pure client representative — an outside
- * contact seated on a mandate — cannot found a firm's workspace from a portal seat. The creator is the
- * new workspace's ADMIN, exactly as at signup.
- *
- * <p>Answers with the new workspace as {@code user.workspace}; the caller's session still names the
- * old one until it switches, which is what {@code /auth/switch-workspace} is for.
+ * A further workspace, founded from Settings by staff of the current one — so not from a client's portal
+ * seat. Answers with the new one as {@code workspace}; the session moves only when the SPA switches.
  */
 @RestController
 @RequestMapping("/api/v1/workspaces")
@@ -37,11 +31,12 @@ public class WorkspacesController {
     private final AuthResponseAssembler assembler;
 
     @PostMapping
+    @ResponseStatus(HttpStatus.CREATED)
     @PreAuthorize("@workspaceAuthorizer.staff(principal)")
-    public ResponseEntity<UserResponse> create(@AuthenticationPrincipal AuthPrincipal principal,
-                                               @Valid @RequestBody CreateWorkspaceRequest request,
-                                               HttpServletRequest httpRequest) {
+    public UserResponse create(@AuthenticationPrincipal AuthPrincipal principal,
+                               @Valid @RequestBody CreateWorkspaceRequest request,
+                               HttpServletRequest httpRequest) {
         Workspace workspace = onboarding.createWorkspace(principal.userId(), request.toCommand(), httpRequest);
-        return ResponseEntity.status(HttpStatus.CREATED).body(assembler.userIn(principal.userId(), workspace.getId()));
+        return assembler.userIn(principal.userId(), workspace.getId());
     }
 }

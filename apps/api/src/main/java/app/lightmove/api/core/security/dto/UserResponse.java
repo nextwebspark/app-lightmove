@@ -27,20 +27,15 @@ public record UserResponse(
         /** The language tag the user picked in Settings → Profile. Stored ahead of the app being translated. */
         String locale,
 
-        /**
-         * The workspace this session is in — the access token's {@code wsId}. Null until the user has
-         * one; the frontend routes into the app or back into the wizard on it.
-         */
+        /** The session's workspace — the token's {@code wsId} — or null; the frontend routes on it. */
         WorkspaceSummary workspace,
 
-        /** Every workspace the user is an active member of, oldest first. What the switcher lists. */
+        /** Every active membership, oldest first — what the switcher lists. */
         List<WorkspaceSummary> workspaces,
 
         /**
-         * The redeemable invitations addressed to this user, to workspaces they are not yet in.
-         * Server-derived so an invitee is routed to "join {workspace}" from any tab — the emailed token
-         * lives in one tab's sessionStorage, but this survives everywhere the session does — and so a
-         * placed user sees the invitation to a second workspace without opening the email.
+         * Redeemable invitations to workspaces the user is not yet in. Server-derived so an invitee is
+         * routed to "join {workspace}" from any tab, not only the one holding the emailed token.
          */
         List<PendingInvitationSummary> pendingInvitations,
 

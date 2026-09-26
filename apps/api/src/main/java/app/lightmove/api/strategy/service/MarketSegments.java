@@ -8,25 +8,10 @@ import org.springframework.stereotype.Component;
 import tools.jackson.databind.ObjectMapper;
 
 /**
- * How a company goes to market — B2B, SaaS, Fintech, Retail and the rest — mapped onto the keywords
- * that actually express it in the universe.
- *
- * <p>{@code app_lm_apollo_companies} has no market-segment column; what it has is {@code keywords},
- * a free-text array populated on 67,306 of 71,822 rows and carrying exactly these tokens. So a
- * segment is a small set of keyword aliases, and the filter is an array-overlap test. The aliases
- * are the point: the universe spells the same segment two ways ({@code e-commerce} on 10,670 rows
- * and {@code ecommerce} on 778; {@code non-profit} on 2,548 and {@code nonprofit} on 21), and a
- * one-token-per-segment enum would quietly lose those rows.
- *
- * <p><b>Keywords are lower-case throughout the table</b> — zero rows carry a mixed-case one — which is
- * why the match can run as a plain {@code keywords && ARRAY[…]} and use the existing
- * {@code idx_lm_apollo_kw} GIN index rather than lower-casing every element per row and losing it.
- * The aliases below must therefore be written lower-case; {@code MarketSegmentsTest} asserts that.
- *
- * <p><b>The segment name is what a filter stores</b>, not its aliases — the opposite of
- * {@link SectorTaxonomy}, where storing the group would let a re-tuned taxonomy widen a saved
- * mandate. A segment has no sub-chips, so adding an alias later improves an existing saved search
- * rather than leaving it on the old spelling.
+ * Go-to-market segments (B2B, SaaS, Fintech…) mapped onto the universe's {@code keywords} aliases,
+ * since the universe has no segment column and spells one segment several ways. Aliases must be
+ * lower-case so the overlap test keeps the {@code idx_lm_apollo_kw} GIN index. A filter stores the
+ * segment name, not its aliases.
  */
 @Component
 public class MarketSegments {
@@ -39,20 +24,16 @@ public class MarketSegments {
         this.keywordsBySegment = ClasspathVocabulary.read(json, RESOURCE);
     }
 
-    /** Every segment in file order, which is the order the accordion renders. */
+    /** In file order, which is the order the accordion renders. */
     public Map<String, List<String>> segments() {
         return keywordsBySegment;
     }
 
-    /** The keyword aliases for one segment, or empty if the name is not one we carry. */
     public List<String> keywordsOf(String segment) {
         return keywordsBySegment.getOrDefault(segment, List.of());
     }
 
-    /**
-     * The keywords covering all the named segments, de-duplicated. An unknown name contributes
-     * nothing rather than throwing: a client holding a stale list should lose a chip, not the request.
-     */
+    /** An unknown name contributes nothing: a client with a stale list loses a chip, not the request. */
     public List<String> keywordsOfAll(List<String> segments) {
         Set<String> keywords = new LinkedHashSet<>();
         for (String segment : segments) {

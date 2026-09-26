@@ -3,14 +3,9 @@ package app.lightmove.api.core.config;
 import org.springframework.boot.context.properties.bind.DefaultValue;
 
 /**
- * Reading an attached position description into proposals for steps one, two, three and five — {@code
- * lightmove.position.extraction.*}.
- *
- * <p>Caps here bound both a decompression bomb and the model's own per-call cost — {@code maxPages}
- * against the PDF itself, {@code maxCharacters} against the text every format produces, since the
- * 10 MB upload ceiling does not bound how much text a well-compressed file decompresses into. Both
- * are refused whole rather than read in part: a truncated read is a silent guess at which half of
- * the document mattered.
+ * Reading an attached position description — {@code lightmove.position.extraction.*}. The caps bound
+ * a decompression bomb and the model's cost, since 10 MB of upload can decompress into far more text;
+ * past either the file is refused whole rather than silently read in part.
  */
 public record PositionExtractionSettings(
         /** Off leaves the upload/download path untouched and turns "Read from document" off alone. */

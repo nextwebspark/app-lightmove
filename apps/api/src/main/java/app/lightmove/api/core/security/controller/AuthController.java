@@ -1,29 +1,29 @@
 package app.lightmove.api.core.security.controller;
 
+import app.lightmove.api.core.error.constant.ErrorCode;
+import app.lightmove.api.core.error.model.ApiException;
+import app.lightmove.api.core.ratelimit.service.RateLimitGuard;
 import app.lightmove.api.core.security.dto.AuthResponse;
 import app.lightmove.api.core.security.dto.ChangePasswordRequest;
 import app.lightmove.api.core.security.dto.ForgotPasswordRequest;
 import app.lightmove.api.core.security.dto.LoginRequest;
+import app.lightmove.api.core.security.dto.SwitchWorkspaceRequest;
 import app.lightmove.api.core.security.dto.ResendVerificationRequest;
 import app.lightmove.api.core.security.dto.ResetPasswordRequest;
 import app.lightmove.api.core.security.dto.SignupRequest;
-import app.lightmove.api.core.security.dto.SwitchWorkspaceRequest;
 import app.lightmove.api.core.security.dto.UpdateProfileRequest;
 import app.lightmove.api.core.security.dto.UserResponse;
 import app.lightmove.api.core.security.dto.VerifyEmailRequest;
+import app.lightmove.api.core.security.model.AuthPrincipal;
+import app.lightmove.api.core.security.model.AuthenticatedSession;
+import app.lightmove.api.core.security.model.ProfileUpdateCommand;
+import app.lightmove.api.core.security.model.SignupCommand;
 import app.lightmove.api.core.security.service.AuthenticationService;
 import app.lightmove.api.core.security.service.PasswordChangeService;
 import app.lightmove.api.core.security.service.PasswordResetService;
 import app.lightmove.api.core.security.service.UserProfileService;
-import app.lightmove.api.core.security.model.AuthenticatedSession;
-import app.lightmove.api.core.security.model.ProfileUpdateCommand;
-import app.lightmove.api.core.security.model.SignupCommand;
 import app.lightmove.api.core.security.service.VerificationService;
 import app.lightmove.api.core.security.token.RefreshCookieFactory;
-import app.lightmove.api.core.error.model.ApiException;
-import app.lightmove.api.core.error.constant.ErrorCode;
-import app.lightmove.api.core.ratelimit.service.RateLimitGuard;
-import app.lightmove.api.core.security.model.AuthPrincipal;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import jakarta.validation.Valid;
@@ -44,12 +44,10 @@ import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
-/**
- * The auth endpoints. Thin on purpose, and owning one piece of knowledge the services do not: the
- * refresh token belongs in an httpOnly cookie and must never appear in a response body.
- */
+/** The auth endpoints. The refresh token belongs in an httpOnly cookie, never a response body. */
 @RestController
 @RequestMapping("/api/v1/auth")
 @RequiredArgsConstructor
@@ -64,13 +62,9 @@ public class AuthController {
     private final RateLimitGuard rateLimit;
     private final AuthResponseAssembler assembler;
 
-    /** Absent unless at least one OAuth client is configured. See SecurityConfig. */
+    /** Absent unless at least one OAuth client is configured. */
     private final ObjectProvider<ClientRegistrationRepository> oauthRegistrations;
 
-    /**
-     * Signup step 1. Returns 201 with a session but <i>no workspace</i>: the token carries no tenant
-     * claim, so the filter chain admits them only to the onboarding endpoints.
-     */
     @PostMapping("/signup")
     public ResponseEntity<AuthResponse> signup(@Valid @RequestBody SignupRequest request,
                                                HttpServletRequest httpRequest) {
@@ -88,10 +82,6 @@ public class AuthController {
                 authentication.login(request.email(), request.password(), httpRequest));
     }
 
-    /**
-     * Exchanges the refresh cookie for a new session — how the SPA recovers one after a page reload.
-     * The cookie being the credential is why this is one of only two CSRF-protected routes.
-     */
     @PostMapping("/refresh")
     public ResponseEntity<AuthResponse> refresh(
             @CookieValue(name = "${lightmove.auth.cookie.name}", required = false) String refreshToken,
@@ -105,15 +95,13 @@ public class AuthController {
         try {
             return respond(HttpStatus.OK, authentication.refresh(refreshToken, httpRequest));
         } catch (ApiException e) {
-            // Expire the cookie on the way out: leaving a rejected token in place has the browser
-            // re-present it every page load, an endless stream of TOKEN_REUSE_DETECTED. The header is
-            // set before the handler sees the exception, so it survives onto the 401.
+            // A rejected token left in place is re-presented every page load, an endless stream of
+            // TOKEN_REUSE_DETECTED. Set before the handler sees the exception, it survives onto the 401.
             httpResponse.addHeader(HttpHeaders.SET_COOKIE, refreshCookie.expire().toString());
             throw e;
         }
     }
 
-    /** Revokes the refresh token and clears the cookie. Idempotent — signing out twice is not an error. */
     @PostMapping("/logout")
     public ResponseEntity<Void> logout(
             @CookieValue(name = "${lightmove.auth.cookie.name}", required = false) String refreshToken,
@@ -126,22 +114,13 @@ public class AuthController {
                 .build();
     }
 
-    /**
-     * Redeems a verification link and signs the user straight in: the token proved the mailbox, which
-     * is everything a login would have proved.
-     */
     @PostMapping("/verify")
     public ResponseEntity<AuthResponse> verify(@Valid @RequestBody VerifyEmailRequest request,
                                                HttpServletRequest httpRequest) {
         return respond(HttpStatus.OK, verification.verify(request.token(), httpRequest));
     }
 
-    /**
-     * Resends the verification email.
-     *
-     * <p>Always 202, even for an address we have never seen. Confirming which addresses exist would
-     * turn this endpoint into a free account-enumeration oracle.
-     */
+    /** Always 202, even for an unknown address: anything else is an account-enumeration oracle. */
     @PostMapping("/verify/resend")
     public ResponseEntity<Void> resendVerification(@Valid @RequestBody ResendVerificationRequest request,
                                                    HttpServletRequest httpRequest) {
@@ -150,9 +129,7 @@ public class AuthController {
         return ResponseEntity.accepted().build();
     }
 
-    /**
-     * Emails a password-reset link. Always 202, for {@code /verify/resend}'s reason.
-     */
+    /** Always 202, for {@code /verify/resend}'s reason. */
     @PostMapping("/password/forgot")
     public ResponseEntity<Void> forgotPassword(@Valid @RequestBody ForgotPasswordRequest request,
                                                HttpServletRequest httpRequest) {
@@ -161,25 +138,18 @@ public class AuthController {
         return ResponseEntity.accepted().build();
     }
 
-    /**
-     * Redeems the emailed link and signs the user straight in, as {@code /verify} does.
-     */
     @PostMapping("/password/reset")
     public ResponseEntity<AuthResponse> resetPassword(@Valid @RequestBody ResetPasswordRequest request,
                                                       HttpServletRequest httpRequest) {
         return respond(HttpStatus.OK, passwordReset.reset(request.token(), request.password(), httpRequest));
     }
 
-    /**
-     * Settings → Security: change a password you already know. Answers a full session because the
-     * change revokes every session including the caller's, so the tab that made it stays signed in.
-     */
+    /** Answers a session because the change revokes every session, the caller's included. */
     @PostMapping("/password/change")
     public ResponseEntity<AuthResponse> changePassword(@AuthenticationPrincipal AuthPrincipal principal,
                                                        @Valid @RequestBody ChangePasswordRequest request,
                                                        HttpServletRequest httpRequest) {
-        // The only brake on guessing the current password: a wrong attempt here does not feed the login
-        // lockout counter, since the caller already holds a session and locking would only lock them out.
+        // The only brake on guessing the current password: it does not feed the login lockout counter.
         rateLimit.checkPasswordChange(principal.email(), httpRequest);
 
         return respond(HttpStatus.OK, passwordChange.change(
@@ -188,9 +158,8 @@ public class AuthController {
     }
 
     /**
-     * Bearer <i>and</i> cookie: the bearer says who is asking and is the cross-site defence (another
-     * origin can attach the cookie, never supply the token), the cookie is the session being moved. A
-     * refusal burns nothing, so unlike {@code /refresh} the cookie is never expired on error.
+     * Bearer and cookie: the bearer says who asks and is the cross-site defence, the cookie is the
+     * session moved. A refusal burns nothing, so unlike {@code /refresh} the cookie is never expired.
      */
     @PostMapping("/switch-workspace")
     public ResponseEntity<AuthResponse> switchWorkspace(
@@ -198,66 +167,49 @@ public class AuthController {
             @Valid @RequestBody SwitchWorkspaceRequest request,
             @CookieValue(name = "${lightmove.auth.cookie.name}", required = false) String refreshToken,
             HttpServletRequest httpRequest) {
-
         if (refreshToken == null || refreshToken.isBlank()) {
             throw new ApiException(ErrorCode.REFRESH_TOKEN_INVALID, "No refresh cookie on the request");
         }
-
         return respond(HttpStatus.OK, authentication.switchWorkspace(
                 principal.userId(), request.workspaceId(), refreshToken, httpRequest));
     }
 
-    /** The current user. The SPA calls this on boot to rehydrate. */
+    /** For the token's exact workspace, never another: the body describes the session it answers for. */
     @GetMapping("/me")
-    public ResponseEntity<UserResponse> me(@AuthenticationPrincipal AuthPrincipal principal) {
-        return ResponseEntity.ok(assembler.userIn(principal.userId(), principal.workspaceId()));
+    public UserResponse me(@AuthenticationPrincipal AuthPrincipal principal) {
+        return assembler.userIn(principal.userId(), principal.workspaceId());
     }
 
-    /**
-     * Settings → Profile. Which user is edited comes from the principal and never from the request,
-     * so there is nothing to authorise.
-     *
-     * <p>CSRF-protected like every state change under {@code /auth}, and authenticated but <b>not</b>
-     * verified-email gated: this row is the caller's own account, not tenant data.
-     */
+    /** The user comes from the principal, never the request; not verified-email gated, as it is not tenant data. */
     @PatchMapping("/me")
-    public ResponseEntity<UserResponse> updateProfile(@AuthenticationPrincipal AuthPrincipal principal,
-                                                      @Valid @RequestBody UpdateProfileRequest request,
-                                                      HttpServletRequest httpRequest) {
+    public UserResponse updateProfile(@AuthenticationPrincipal AuthPrincipal principal,
+                                      @Valid @RequestBody UpdateProfileRequest request,
+                                      HttpServletRequest httpRequest) {
         userProfile.update(
                 principal.userId(),
                 principal.workspaceId(),
                 new ProfileUpdateCommand(
                         request.fullName(), request.title(), request.timezone(), request.locale()),
                 httpRequest);
-
-        return ResponseEntity.ok(assembler.userIn(principal.userId(), principal.workspaceId()));
+        return assembler.userIn(principal.userId(), principal.workspaceId());
     }
 
     /**
-     * Hands the SPA a CSRF token before it calls {@code /refresh} or {@code /logout}.
-     *
-     * <p><b>{@code token.getToken()} must not be removed as redundant.</b> Spring loads the CSRF token
-     * lazily and writes the {@code XSRF-TOKEN} cookie only if something reads it; skip the read and the
-     * SPA has nothing to echo, so every refresh 401s. The cookie is the response, not the empty body.
+     * <b>{@code token.getToken()} is not redundant.</b> Spring loads the CSRF token lazily and writes the
+     * {@code XSRF-TOKEN} cookie only if something reads it; without the read every refresh 401s.
      */
     @GetMapping("/csrf")
-    public ResponseEntity<Void> csrf(CsrfToken token) {
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void csrf(CsrfToken token) {
         token.getToken();
-        return ResponseEntity.noContent().build();
     }
 
-    /**
-     * Which sign-in methods this deployment offers, as OAuth registration ids rather than a fixed set
-     * of flags — so wiring up another provider stays a yml block. The id is both the button and the
-     * authorisation path, and the SPA falls back to a generic label for one it has no icon for.
-     */
+    /** The configured OAuth registration ids, so a new provider stays a yml block. */
     @GetMapping("/providers")
-    public ResponseEntity<AuthProviders> providers() {
+    public AuthProviders providers() {
         ClientRegistrationRepository registrations = oauthRegistrations.getIfAvailable();
 
-        // Only the in-memory repository can be enumerated; a lazily-resolving one cannot be asked
-        // what it holds, and offering no buttons beats offering a broken one.
+        // Only the in-memory repository can be enumerated; no buttons beats a broken one.
         List<String> configured = registrations instanceof Iterable<?> iterable
                 ? StreamSupport.stream(iterable.spliterator(), false)
                         .map(registration -> ((ClientRegistration) registration).getRegistrationId())
@@ -265,13 +217,13 @@ public class AuthController {
                         .toList()
                 : List.of();
 
-        return ResponseEntity.ok(new AuthProviders(configured));
+        return new AuthProviders(configured);
     }
 
     public record AuthProviders(List<String> providers) {
     }
 
-    /** The one place the refresh token is written to a cookie, and why it never reaches a response body. */
+    /** The one place the refresh token is written, to a cookie and never the body. */
     private ResponseEntity<AuthResponse> respond(HttpStatus status, AuthenticatedSession session) {
         return ResponseEntity.status(status)
                 .header(HttpHeaders.SET_COOKIE, refreshCookie.create(session.tokens().refreshToken()).toString())

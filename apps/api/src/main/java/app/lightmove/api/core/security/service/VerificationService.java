@@ -17,7 +17,6 @@ import app.lightmove.api.core.security.token.Tokens;
 import app.lightmove.api.core.email.service.EmailAddressValidator;
 import app.lightmove.api.core.email.service.EmailSender;
 import app.lightmove.api.core.email.service.EmailTemplates;
-import app.lightmove.api.workspace.model.WorkspaceMember;
 import jakarta.servlet.http.HttpServletRequest;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
@@ -27,11 +26,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-/**
- * Proves that a user controls the email address they signed up with. Their domain decides which
- * organisation they belong to, so this is the step that turns a typed address into evidence; until it
- * happens, {@code require-verified-email} keeps them out of every workspace endpoint.
- */
+/** Proves a user controls their address; until then {@code require-verified-email} keeps them out of workspace endpoints. */
 @Service
 @RequiredArgsConstructor
 @Slf4j
@@ -46,12 +41,7 @@ public class VerificationService {
     private final AuditService audit;
     private final LightMoveProperties properties;
 
-    /**
-     * Issues a fresh verification link and emails it.
-     *
-     * <p>Any outstanding token is burned first, so three clicks on "resend" leave one working link
-     * rather than three live credentials in an inbox.
-     */
+    /** Burns any outstanding token first, so repeated resends leave one live credential. */
     @Transactional
     public void sendVerificationEmail(User user, HttpServletRequest request) {
         Instant now = Instant.now();
@@ -64,7 +54,6 @@ public class VerificationService {
                 TokenPurpose.EMAIL_VERIFICATION,
                 now.plus(properties.auth().verificationTokenTtl())));
 
-        // The link points at the SPA, not the API: the frontend owns the "verifying…" screen.
         String link = "%s/auth/verify?token=%s".formatted(
                 properties.web().baseUrl(),
                 URLEncoder.encode(plaintext, StandardCharsets.UTF_8));
@@ -77,12 +66,7 @@ public class VerificationService {
                 .record();
     }
 
-    /**
-     * Redeems a verification link and signs the user straight in.
-     *
-     * <p>The same judgement {@code PasswordResetService.reset} makes. It matters because the mail
-     * client opens the link in whatever browser it likes — usually not the one holding the session.
-     */
+    /** Signs the user in, as a reset does: the link often opens in a browser without the session. */
     @Transactional
     public AuthenticatedSession verify(String plaintextToken, HttpServletRequest request) {
         Instant now = Instant.now();
@@ -91,24 +75,19 @@ public class VerificationService {
                 .orElseThrow(() -> ApiException.of(ErrorCode.TOKEN_INVALID));
 
         if (!token.isRedeemable(now)) {
-            // Consumed and expired are separated for the user's sake: "this link has expired" tells
-            // them to request another, where "not valid" would leave them stuck guessing.
             throw ApiException.of(token.getConsumedAt() != null
                     ? ErrorCode.TOKEN_INVALID
                     : ErrorCode.TOKEN_EXPIRED);
         }
         if (token.getPurpose() != TokenPurpose.EMAIL_VERIFICATION) {
-            // A password-reset token must not double as a verification token, or the weaker flow
-            // becomes a way into the stronger one.
+            // A reset token must not double as a verification token.
             throw new ApiException(ErrorCode.TOKEN_INVALID, "Wrong token purpose: " + token.getPurpose());
         }
 
         User user = users.findById(token.getUserId())
                 .orElseThrow(() -> new ApiException(ErrorCode.TOKEN_INVALID, "Token references a missing user"));
 
-        // Before consume, and mirroring PasswordResetService.reset: this issues a session, so it owes
-        // the same status check. Nothing sets SUSPENDED today, which is why it is easy to leave out —
-        // and why whoever builds that surface would inherit a link that signs one straight back in.
+        // This issues a session, so it owes reset's status check, though nothing sets SUSPENDED yet.
         if (user.getStatus() == UserStatus.SUSPENDED || user.getStatus() == UserStatus.DELETED) {
             audit.event(AuthEventType.EMAIL_VERIFIED).failed().actor(user.getId()).from(request)
                     .reason("status_" + user.getStatus()).record();
@@ -121,19 +100,10 @@ public class VerificationService {
         log.info("Email verified for user {}", user.getId());
         audit.event(AuthEventType.EMAIL_VERIFIED).actor(user.getId()).from(request).record();
 
-        // Usually null: verification gates the creator, whose organisation is the step after this one.
-        WorkspaceMember membership = selection.select(user, user.getLastWorkspaceId()).orElse(null);
-        selection.remember(user, membership);
-
-        return tokens.issue(user, membership, request);
+        return tokens.issue(user, selection.signIn(user), request);
     }
 
-    /**
-     * Resends the link.
-     *
-     * <p>Succeeds silently for an unknown or already-verified address: reporting either would make
-     * this an account-enumeration oracle.
-     */
+    /** Silent for an unknown or already-verified address, or this is an enumeration oracle. */
     @Transactional
     public void resend(String email, HttpServletRequest request) {
         String normalised = EmailAddressValidator.normalise(email);

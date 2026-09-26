@@ -33,7 +33,7 @@ class MappedExecutiveLookupAdapter implements MappedExecutiveLookup {
     /**
      * {@code CandidateStatus::valueOf} fails loud on a name it does not recognise — unlike
      * {@code CandidateRepository}'s ranking {@code CASE} and
-     * {@code TriageCompanyService.EXECUTIVE_STATUS_TOKENS}, which mirror the same enum-name spelling as
+     * {@code TriageCompanyReadService.EXECUTIVE_STATUS_TOKENS}, which mirror the same enum-name spelling as
      * string literals and would degrade silently instead. A rename should grep for all three regardless.
      */
     @Override
