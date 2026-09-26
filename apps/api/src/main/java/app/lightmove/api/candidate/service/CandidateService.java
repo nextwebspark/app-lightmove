@@ -364,11 +364,7 @@ public class CandidateService {
         return Optional.of(new CandidateAiEnrichState(candidate.getAiAssessment(), candidate.getAiEnrichFailedAt()));
     }
 
-    /**
-     * The AI enrichment's own write: background into whichever fields are still empty, and the
-     * assessment replaced whole. {@code REQUIRES_NEW} for {@link #applyResearch}'s reason; a racing
-     * drawer edit wins by {@code @Version} the same way.
-     */
+    /** Stamps a run that produced nothing, so the drawer says so at once; a later success clears it. */
     @Transactional(propagation = Propagation.REQUIRES_NEW)
     public void recordAiEnrichFailure(UUID projectId, UUID candidateId) {
         candidates.findByIdAndProjectId(candidateId, projectId).ifPresent(candidate -> {
@@ -377,6 +373,11 @@ public class CandidateService {
         });
     }
 
+    /**
+     * The AI enrichment's own write: background into whichever fields are still empty, and the
+     * assessment replaced whole. {@code REQUIRES_NEW} for {@link #applyResearch}'s reason; a racing
+     * drawer edit wins by {@code @Version} the same way.
+     */
     @Transactional(propagation = Propagation.REQUIRES_NEW)
     public void applyAiEnrichment(UUID projectId, UUID candidateId, CandidateAiEnrichment enrichment) {
         candidates.findByIdAndProjectId(candidateId, projectId).ifPresent(candidate -> {
