@@ -1,4 +1,5 @@
 import { createContext, useCallback, useContext, useMemo, useState, type ReactNode } from "react";
+import { ASSISTANT_OPEN_KEY } from "./assistantStorage";
 
 /**
  * Whether the assistant is open, and which chat it shows.
@@ -20,8 +21,6 @@ type AssistantState = {
   /** Shows a chat, or `null` for a new one. */
   showThread: (projectId: string, threadId: string | null) => void;
 };
-
-const OPEN_KEY = "lm.assistant.open";
 
 const AssistantContext = createContext<AssistantState>({
   isOpenFor: () => false,
@@ -45,8 +44,8 @@ export function AssistantProvider({ children }: { children: ReactNode }) {
     setOpenProjectId(projectId);
     setToggledByUser(true);
     try {
-      if (projectId) localStorage.setItem(OPEN_KEY, projectId);
-      else localStorage.removeItem(OPEN_KEY);
+      if (projectId) localStorage.setItem(ASSISTANT_OPEN_KEY, projectId);
+      else localStorage.removeItem(ASSISTANT_OPEN_KEY);
     } catch {
       // A private window refuses this, and the panel opening is not worth failing over.
     }
@@ -74,7 +73,7 @@ export function AssistantProvider({ children }: { children: ReactNode }) {
 /** Closed by default: the panel takes 400px of the page, so opening it is the user's decision. */
 function readStoredOpenProject(): string | null {
   try {
-    return localStorage.getItem(OPEN_KEY);
+    return localStorage.getItem(ASSISTANT_OPEN_KEY);
   } catch {
     return null;
   }

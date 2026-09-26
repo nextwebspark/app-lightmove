@@ -29,6 +29,7 @@ import { SettingsGeneralPage } from "../features/settings/pages/SettingsGeneralP
 import { SettingsMembersPage } from "../features/settings/pages/SettingsMembersPage";
 import { SettingsProfilePage } from "../features/settings/pages/SettingsProfilePage";
 import { SettingsSecurityPage } from "../features/settings/pages/SettingsSecurityPage";
+import { SettingsWorkspacesPage } from "../features/settings/pages/SettingsWorkspacesPage";
 import { TriageStagePage } from "../features/triage/pages/TriageStagePage";
 import { StrategyPage } from "../features/strategy/pages/StrategyPage";
 import { TemplateEditorPage } from "../features/templates/pages/TemplateEditorPage";
@@ -128,6 +129,9 @@ export function AppRoutes() {
         <Route path="/settings" element={<Navigate to="/settings/profile" replace />} />
         <Route path="/settings/profile" element={<SettingsProfilePage />} />
         <Route path="/settings/security" element={<SettingsSecurityPage />} />
+        {/* Everyone's, like Profile: a member of two firms switches here, and the roster of what you
+            belong to is your own. Only the Create button inside is staff-gated, and by the server. */}
+        <Route path="/settings/workspaces" element={<SettingsWorkspacesPage />} />
         <Route element={<RequireAdmin><Outlet /></RequireAdmin>}>
           <Route path="/settings/general" element={<SettingsGeneralPage />} />
           <Route path="/settings/members" element={<SettingsMembersPage />} />

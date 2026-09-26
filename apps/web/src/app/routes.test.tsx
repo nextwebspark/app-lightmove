@@ -54,7 +54,8 @@ const userWith = (roles: ("ADMIN" | "MEMBER" | "CLIENT")[]) => ({
   timezone: "Asia/Dubai",
   locale: "en",
   platformActions: [],
-  pendingInvitation: null,
+  pendingInvitations: [],
+  workspaces: [],
   workspace: {
     id: "w1",
     name: "Meridian",
@@ -81,7 +82,8 @@ const unverifiedUser = () => ({
   timezone: "Asia/Dubai",
   locale: "en",
   platformActions: [],
-  pendingInvitation: null,
+  pendingInvitations: [],
+  workspaces: [],
   workspace: null,
 });
 

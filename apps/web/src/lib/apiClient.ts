@@ -1,4 +1,4 @@
-import type { ApiError } from "../features/auth/api/types";
+import type { ApiError, AuthResponse } from "../features/auth/api/types";
 import { readCookie } from "./cookies";
 import { createSseParser, type SseEvent } from "./sse";
 
@@ -124,6 +124,43 @@ async function refreshAccessToken(): Promise<string> {
   });
 
   return refreshInFlight;
+}
+
+/**
+ * Moves the session into another of the user's workspaces: `POST /auth/switch-workspace`, which
+ * rotates the refresh cookie exactly as a refresh does and answers a session in the target.
+ *
+ * Under the same cross-tab lock as a refresh, and for the same reason: a background refresh in
+ * another tab racing this would present a cookie the switch has just rotated away, and the server
+ * would read that as theft and revoke the family. The bearer goes along because the server refuses
+ * to move a cookie that is not the bearer's.
+ *
+ * A refused switch — not a member, cookie mismatch — changes nothing on either side: the token in
+ * memory stays, the cookie was not spent, and the caller is told why. It is not a lost session.
+ */
+export async function switchWorkspaceSession(workspaceId: string): Promise<AuthResponse> {
+  return withRefreshLock(async () => {
+    const response = await sendWithCsrf((csrf) =>
+      fetch(`${API}/auth/switch-workspace`, {
+        method: "POST",
+        credentials: "include",
+        headers: {
+          "Content-Type": "application/json",
+          ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
+          ...(csrf ? { "X-XSRF-TOKEN": csrf } : {}),
+        },
+        body: JSON.stringify({ workspaceId }),
+      }),
+    );
+
+    if (!response.ok) {
+      throw new ApiRequestError(await problemFrom(response));
+    }
+
+    const session = (await response.json()) as AuthResponse;
+    accessToken = session.accessToken;
+    return session;
+  });
 }
 
 /**

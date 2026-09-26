@@ -33,7 +33,8 @@ const verifiedUser: User = {
   timezone: "Asia/Dubai",
   locale: "en",
   platformActions: [],
-  pendingInvitation: null,
+  pendingInvitations: [],
+  workspaces: [],
   workspace: null,
 };
 
@@ -80,7 +81,7 @@ describe("VerifyEmailPage", () => {
    * The tab that was waiting on this link polls, so it advances the moment the link is clicked and the
    * wizard is normally finished over there — organisation, invitations, into the app — while this card
    * is still open. Routing on the snapshot taken at redemption sent that user back to a create form
-   * that then answers ALREADY_IN_WORKSPACE.
+   * for a workspace they already had.
    */
   it("re-reads before routing, so a workspace created in the other tab is honoured", async () => {
     vi.mocked(authApi.verifyEmail).mockResolvedValue(session);

@@ -1,5 +1,5 @@
 import { request } from "../../../lib/apiClient";
-import type { InviteRequest, WorkspaceRole } from "../../auth/api/types";
+import type { CreateWorkspaceRequest, InviteRequest, User, WorkspaceRole } from "../../auth/api/types";
 import type { Invitation, Member, WorkspaceDetail, WorkspacePersona } from "./types";
 
 /** Every call workspace management makes (roster, invitations, settings), plus shared query keys. */
@@ -28,6 +28,15 @@ export function updatePersona(persona: WorkspacePersona): Promise<WorkspaceDetai
 
 export function deleteWorkspace(confirmName: string): Promise<void> {
   return request<void>("/workspace", { method: "DELETE", body: { confirmName } });
+}
+
+/**
+ * A further workspace, founded from Settings → Workspaces by a staff member of the current one. The
+ * answer's `workspace` is the new one — the caller's session still names the old one until it
+ * switches, which is what `switchWorkspace` on the auth context is for.
+ */
+export function createWorkspace(payload: CreateWorkspaceRequest): Promise<User> {
+  return request<User>("/workspaces", { method: "POST", body: payload });
 }
 
 export function members(): Promise<Member[]> {

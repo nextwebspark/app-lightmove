@@ -8,7 +8,8 @@ import {
   useState,
   type ReactNode,
 } from "react";
-import { onSessionExpired, restoreSession, setAccessToken } from "../../lib/apiClient";
+import { onSessionExpired, restoreSession, setAccessToken, switchWorkspaceSession } from "../../lib/apiClient";
+import { forgetOpenAssistant } from "../assistant/assistantStorage";
 import * as authApi from "./api/authApi";
 import { isReturningSignInPopup } from "./oauthPopup";
 import type { User } from "./api/types";
@@ -38,6 +39,12 @@ interface AuthContextValue {
 
   /** Re-reads the user from the server. Call after anything that changes their workspace or role. */
   reload: () => Promise<User | null>;
+  /**
+   * Moves the session into another of the user's workspaces — the only way the tenant changes. The
+   * query cache is cleared first: nothing in it is keyed by workspace, so every cached answer belongs
+   * to the one just left. Other tabs share the cookie and follow.
+   */
+  switchWorkspace: (workspaceId: string) => Promise<User>;
   /** Adopts a session established elsewhere — the OAuth callback, after a full-page redirect. */
   adopt: (token: string, user: User) => void;
   /**
@@ -55,6 +62,9 @@ interface AuthContextValue {
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null);
+
+/** Where a tab announces a workspace switch to the others. */
+const WORKSPACE_CHANNEL = "lm-workspace";
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
@@ -127,6 +137,38 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setUser(null);
     });
   }, [startFreshSession]);
+
+  /**
+   * Other tabs share the refresh cookie, so a switch here moves them too — at their next refresh, up to
+   * fifteen minutes away, until which they would keep serving the old workspace's cache under the new
+   * token. Told at once instead, they reload from the top, which is what a tab in the wrong tenant
+   * should do.
+   */
+  useEffect(() => {
+    if (typeof BroadcastChannel === "undefined") return;
+    const channel = new BroadcastChannel(WORKSPACE_CHANNEL);
+    channel.onmessage = () => {
+      startFreshSession();
+      window.location.replace("/");
+    };
+    return () => channel.close();
+  }, [startFreshSession]);
+
+  const switchWorkspace = useCallback(
+    async (workspaceId: string) => {
+      const session = await switchWorkspaceSession(workspaceId);
+      startFreshSession();
+      forgetOpenAssistant();
+      setUser(session.user);
+      if (typeof BroadcastChannel !== "undefined") {
+        const channel = new BroadcastChannel(WORKSPACE_CHANNEL);
+        channel.postMessage({ workspaceId });
+        channel.close();
+      }
+      return session.user;
+    },
+    [startFreshSession],
+  );
 
   const signIn = useCallback(
     async (email: string, password: string) => {
@@ -274,6 +316,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       resetPassword,
       signOut,
       reload,
+      switchWorkspace,
       adopt,
       adoptRestoredSession,
     }),
@@ -287,6 +330,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       resetPassword,
       signOut,
       reload,
+      switchWorkspace,
       adopt,
       adoptRestoredSession,
     ],
