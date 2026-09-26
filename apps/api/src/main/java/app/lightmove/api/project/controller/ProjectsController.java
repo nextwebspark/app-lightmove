@@ -15,6 +15,7 @@ import app.lightmove.api.project.dto.UpdateProjectRequest;
 import app.lightmove.api.project.service.ClientRepresentativeService;
 import app.lightmove.api.project.service.ProjectActivityService;
 import app.lightmove.api.project.service.ProjectService;
+import app.lightmove.api.project.service.ProjectTeamService;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import java.util.List;
@@ -49,6 +50,7 @@ import org.springframework.web.bind.annotation.RestController;
 public class ProjectsController {
 
     private final ProjectService projects;
+    private final ProjectTeamService team;
     private final ClientRepresentativeService representatives;
     private final ProjectActivityService activity;
 
@@ -101,7 +103,7 @@ public class ProjectsController {
                                      @PathVariable UUID memberId,
                                      @Valid @RequestBody PutTeamMemberRequest request,
                                      HttpServletRequest httpRequest) {
-        return projects.putMember(
+        return team.putMember(
                 principal.userId(), principal.requireWorkspaceId(), projectId, memberId,
                 request.role(), httpRequest);
     }
@@ -112,7 +114,7 @@ public class ProjectsController {
                                         @PathVariable UUID projectId,
                                         @PathVariable UUID memberId,
                                         HttpServletRequest httpRequest) {
-        return projects.removeMember(
+        return team.removeMember(
                 principal.userId(), principal.requireWorkspaceId(), projectId, memberId, httpRequest);
     }
 
@@ -124,7 +126,7 @@ public class ProjectsController {
             @PathVariable UUID projectId,
             @Valid @RequestBody AttachRepresentativeRequest request,
             HttpServletRequest httpRequest) {
-        return projects.attachRepresentative(
+        return team.attachRepresentative(
                 principal.userId(), principal.requireWorkspaceId(), projectId,
                 request.representativeId(), httpRequest);
     }
@@ -155,7 +157,7 @@ public class ProjectsController {
                                                 @PathVariable UUID projectId,
                                                 @PathVariable UUID representativeId,
                                                 HttpServletRequest httpRequest) {
-        return projects.detachRepresentative(
+        return team.detachRepresentative(
                 principal.userId(), principal.requireWorkspaceId(), projectId,
                 representativeId, httpRequest);
     }

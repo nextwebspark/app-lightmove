@@ -388,7 +388,7 @@ plus an informational email — no invite, because a user is unique to a workspa
 a **stranger** gets the ordinary invitation, and *acceptance* flows back as a
 `ClientRepresentativeAcceptedEvent` the project side listens for — so `workspace` announces the accept in
 primitives and never depends on `project` (mirrors `EmailVerifiedEvent`). Attaching a representative to a
-mandate is a plain project seat (`ProjectService.attachRepresentative`), no seam. This is a deliberate
+mandate is a plain project seat (`ProjectTeamService.attachRepresentative`), no seam. This is a deliberate
 trade of the old ports/adapters layering for a uniform, type-based shape, so
 `EmailSender`/`RateLimiter` are plain `service` interfaces rather than declared ports.
 

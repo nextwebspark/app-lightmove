@@ -21,7 +21,7 @@ import lombok.NoArgsConstructor;
  * physically cannot contain a member of another workspace.
  *
  * <p>The column models a <i>set</i> of project roles, but the rules that fill it are narrower and live
- * in {@code ProjectService}: a seat holds one staff role (LEAD or RESEARCHER), CLIENT may accompany it
+ * in {@code ProjectTeamService}: a seat holds one staff role (LEAD or RESEARCHER), CLIENT may accompany it
  * when the same person is also a client representative on the mandate, and a project never loses its
  * last LEAD-role seat. Permissions are the union of the roles' actions. The set is kept because
  * re-admitting a second staff role must not cost a migration.

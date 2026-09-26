@@ -44,7 +44,7 @@ public class ClientRepresentativeService {
     private final ClientRepresentativeRepository representatives;
     private final ProjectRepository projectRepository;
     private final InvitationService invitations;
-    private final ProjectService projects;
+    private final ProjectTeamService team;
     private final AuditService audit;
 
     /**
@@ -92,7 +92,7 @@ public class ClientRepresentativeService {
         // The second INVITED→ACTIVE path: a previously-invited address re-invited once it is already a
         // member activates right here, with no acceptance event — pending attachments must not orphan.
         if (onboarding.existingMember()) {
-            projects.seatAcceptedRepresentative(representative);
+            team.seatAcceptedRepresentative(representative);
         }
 
         audit.event(ProjectEventType.CLIENT_REP_INVITED)
@@ -110,7 +110,7 @@ public class ClientRepresentativeService {
      * them, as one transaction. Splitting it across two calls left a representative stranded on the
      * client with no seat whenever the second failed.
      *
-     * <p>Lives here rather than in {@code ProjectService}, which must not depend back on this bean.
+     * <p>Lives here rather than in {@code ProjectTeamService}, which must not depend back on this bean.
      * The inner {@code invite} is a self-call, so its {@code @Transactional} is inert through the
      * proxy — harmless, because this method already opened the transaction it would have joined.
      */
@@ -125,7 +125,7 @@ public class ClientRepresentativeService {
 
         // announce = false: whichever notice this person was owed has just gone out, and the attach
         // notice would be a second mail for the same click.
-        return projects.attachRepresentative(
+        return team.attachRepresentative(
                 actorId, workspaceId, projectId, invited.id(), false, request);
     }
 
@@ -143,7 +143,7 @@ public class ClientRepresentativeService {
                 .ifPresentOrElse(
                         representative -> {
                             representative.activate(event.userId());
-                            projects.seatAcceptedRepresentative(representative);
+                            team.seatAcceptedRepresentative(representative);
                             audit.event(ProjectEventType.CLIENT_REP_ACCEPTED)
                                     .actor(event.userId()).workspace(event.workspaceId())
                                     .target("client", event.clientId())
