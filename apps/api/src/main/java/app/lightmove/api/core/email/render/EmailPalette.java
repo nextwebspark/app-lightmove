@@ -1,15 +1,8 @@
 package app.lightmove.api.core.email.render;
 
 /**
- * The one place an email's colours and type are decided — the Uncava light palette, from
- * {@code claude-design/uncava-tokens.css}.
- *
- * <p>Light only. A mail client's dark mode is its own inversion and cannot be reached from here, so
- * the header pairs the mark with the wordmark as text: whatever a client does to the picture, the
- * brand still reads.
- *
- * <p>The font is the system stack rather than the product's Geist — a webfont does not load in most
- * mail clients, and a half-loaded brand font is worse than none.
+ * An email's colours and type — the Uncava light palette. Light only, since a client's dark mode
+ * cannot be reached, and the system font stack, since webfonts rarely load in mail clients.
  */
 final class EmailPalette {
 

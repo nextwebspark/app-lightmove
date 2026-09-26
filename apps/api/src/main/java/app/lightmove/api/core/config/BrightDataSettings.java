@@ -4,13 +4,9 @@ import java.time.Duration;
 import org.springframework.boot.context.properties.bind.DefaultValue;
 
 /**
- * Credentials and datasets for the Bright Data Marketplace lookups —
- * {@code lightmove.enrichment.brightdata.*}. The dataset ids name Bright Data's LinkedIn people and
- * company datasets, two of the few their sync Search API serves.
- *
- * <p>The timeout and the retry budget are configuration rather than constants because the search's
- * latency is the vendor's to change, and has: a lookup that answered in ~0.7s when this was written
- * was measured at 8–25s, and past 60s Bright Data closes the connection itself.
+ * Bright Data Marketplace credentials and datasets — {@code lightmove.enrichment.brightdata.*}. The
+ * timeout and retries are configuration because the vendor's latency moves (measured at 8–25s; it
+ * closes the connection itself past 60s).
  */
 public record BrightDataSettings(
         String apiKey,

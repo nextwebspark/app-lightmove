@@ -11,22 +11,10 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
 /**
- * The project-tier mirror of {@link WorkspaceAccess}: "may this user perform this action on this
- * project?" — re-read from the database on every check, for the same staleness reason.
- *
- * <p>The ladder, in order:
- *
- * <ol>
- *   <li>an active workspace membership, else 404 ({@code NOT_A_MEMBER} masking);
- *   <li>the project exists in this workspace, else 404 (a foreign id confirms nothing) — checked
- *       <b>before</b> the admin bypass, so the guard stands on its own and a workspace admin is never
- *       authorised against a project outside their tenant;
- *   <li>the workspace-ADMIN bypass — a workspace admin is implicitly a lead on every project in
- *       their own workspace, so a departed mandate owner can never strand a search;
- *   <li>a seat on the team, else 403 — projects are browsable to staff, so existence is not a secret,
- *       but working one requires being on it;
- *   <li>the action, from the union of the seat's roles, else 403.
- * </ol>
+ * The project-tier mirror of {@link WorkspaceAccess}, re-read from the database every check. The
+ * ladder: active membership, else 404; the project in this workspace, else 404 — <b>before</b> the
+ * admin bypass, so an admin is never authorised outside their tenant; the workspace-ADMIN bypass; a
+ * seat, else 403; the action from the seat's roles, else 403.
  */
 @Service
 @RequiredArgsConstructor

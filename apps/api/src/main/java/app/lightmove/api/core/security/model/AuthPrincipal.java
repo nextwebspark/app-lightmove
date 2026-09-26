@@ -7,19 +7,12 @@ import java.util.Set;
 import java.util.UUID;
 
 /**
- * Who is making this request, and in which workspace.
+ * Who is making this request, rebuilt from signed token claims every request — never a request
+ * parameter, which is the whole of tenant isolation. The roles are coarse only, up to 15 minutes
+ * stale: nothing branches on them to grant or refuse.
  *
- * <p>Rebuilt from the access token's claims on every request — never from a request parameter. That
- * distinction is the whole of tenant isolation: {@link #workspaceId()} is a claim we signed, so a
- * caller cannot name someone else's workspace and be served their data.
- *
- * <p>The roles here are <b>coarse material only</b> — they were minted up to 15 minutes ago. Anything
- * role-sensitive re-reads the database through the rbac access services; nothing should branch on
- * this set to grant or refuse.
- *
- * @param workspaceId null before the user has completed signup step 2 — they exist, but have no
- *                    tenant yet, and may only reach the onboarding endpoints.
- * @param roles       the user's workspace roles in {@code workspaceId}; empty when that is null.
+ * @param workspaceId null before signup's organisation step; only onboarding is reachable then
+ * @param roles       the workspace roles in {@code workspaceId}; empty when that is null
  */
 public record AuthPrincipal(
         UUID userId,

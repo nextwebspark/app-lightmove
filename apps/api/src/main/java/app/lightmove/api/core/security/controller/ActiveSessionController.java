@@ -19,14 +19,8 @@ import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
 /**
- * Settings → Security's session list.
- *
- * <p>Mapped under {@code /auth} rather than under a settings path because the refresh cookie is scoped
- * to {@code /api/v1/auth}: nowhere else does the browser send the one thing that says which of these
- * sessions is the caller's.
- *
- * <p>No {@code @PreAuthorize}. Which user's sessions these are comes from the principal and never from
- * the path, so there is nothing to authorise — the same reasoning as {@code /auth/me}.
+ * Settings → Security's session list, under {@code /auth} because only there is the refresh cookie
+ * sent. No {@code @PreAuthorize}: the user is the principal, never the path.
  */
 @RestController
 @RequestMapping("/api/v1/auth/sessions")

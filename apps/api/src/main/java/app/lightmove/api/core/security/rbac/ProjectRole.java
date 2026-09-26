@@ -1,14 +1,8 @@
 package app.lightmove.api.core.security.rbac;
 
 /**
- * Code-side names for the seeded PROJECT-scope roles in {@code app_lm_role}.
- *
- * <p>Orthogonal to the workspace tier — a workspace MEMBER may hold LEAD on one project and RESEARCHER
- * on another. A seat holds <b>one</b> staff role, LEAD or RESEARCHER, enforced in {@code ProjectTeamService}
- * rather than by a constraint: the assignment table still models a set, so admitting a second staff role
- * later is a code change. CLIENT is the exception and sits outside that rule — it comes from attaching a
- * client representative, so a dual-role person holds it <i>alongside</i> their staff role. A seat's
- * permissions are the union of its roles' actions.
+ * The seeded PROJECT-scope roles, orthogonal to the workspace tier. A seat holds one staff role
+ * ({@code ProjectTeamService}'s rule, not a constraint), plus CLIENT alongside it for a dual-role person.
  */
 public enum ProjectRole {
 

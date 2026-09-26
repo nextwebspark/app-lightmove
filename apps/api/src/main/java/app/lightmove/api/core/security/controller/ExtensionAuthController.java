@@ -22,19 +22,12 @@ import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
 /**
- * The browser extension's session, which is deliberately not the web app's.
+ * The browser extension's session, deliberately not the web app's: its origin cannot be given the
+ * {@code SameSite=Strict} refresh cookie, so the signed-in web app <b>pairs</b> it with its own token.
  *
- * <p>LightMove Capture runs on a {@code chrome-extension://} origin, so it cannot be given the refresh
- * cookie — that cookie is {@code SameSite=Strict}, host-only and path-scoped, and letting another
- * origin present it means taking those attributes off. It is <b>paired</b> instead: the signed-in web
- * app mints a refresh token of the extension's own and hands it over.
- *
- * <p>{@code /tokens} mints a credential, so it alone requires an authenticated caller, and the account
- * paired is the principal's — never one the request names. {@code /refresh} and {@code /logout} carry
- * the token in the body, which is the whole credential and the reason they are CSRF-exempt.
- *
- * <p>All three refuse a family opened for a different client: {@code app_lm_refresh_token.client}
- * decides, so a cookie-only credential cannot be laundered into a body-carried one.
+ * <p>{@code /tokens} pairs the principal's account, never one the request names. {@code /refresh} and
+ * {@code /logout} carry the token in the body (hence CSRF-exempt), and all three refuse a family
+ * opened for another client, so a cookie credential cannot be laundered into a body-carried one.
  */
 @RestController
 @RequestMapping("/api/v1/auth/extension")

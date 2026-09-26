@@ -6,15 +6,8 @@ import java.util.Locale;
 import java.util.Set;
 
 /**
- * Throwaway-inbox domains, rejected at signup.
- *
- * <p>LightMove is sold to search firms and its signup asks for a <i>work</i> email. A ten-minute
- * mailbox is not one, and an account behind one cannot be recovered, cannot be audited, and cannot be
- * held to a contract.
- *
- * <p>A blocklist is inherently a losing race — new domains appear daily. It is worth keeping anyway
- * because it costs one hash lookup and turns away the low-effort majority. It is not a security
- * control, and nothing downstream should treat a non-disposable domain as proof of anything.
+ * Throwaway-inbox domains, rejected at signup. A cheap blocklist that turns away the low-effort
+ * majority — <b>not</b> a security control; nothing should treat a non-disposable domain as proof.
  */
 final class DisposableDomains {
 
