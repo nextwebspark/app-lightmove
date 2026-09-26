@@ -8,16 +8,8 @@ import lombok.RequiredArgsConstructor;
 import lombok.experimental.Accessors;
 
 /**
- * Every field of a Companies-grid row a spreadsheet column can be mapped onto — the catalogue the
- * mapping step offers, the model chooses from, and the heuristic matches against.
- *
- * <p>One enum rather than a company list and a candidate list, because a mapping is a flat decision
- * per header and the target is what says which half of the row it lands on. {@link #synonyms} are the
- * headers consultants' files actually carry, not a tidy alias per field.
- *
- * <p>Deliberately absent: anything the mandate decides rather than the file. An import lands every
- * company In universe, and a spreadsheet's "status" column is the sender's pipeline, not this
- * mandate's.
+ * Every row field a spreadsheet column can map onto. Deliberately absent: anything the mandate
+ * decides, such as a stage or status — a file's "status" column is its sender's pipeline.
  */
 @Getter
 @Accessors(fluent = true)
@@ -104,14 +96,12 @@ public enum ImportTargetField implements ApiValueEnum {
     CANDIDATE_NOTICE_PERIOD(CustomColumnTarget.CANDIDATE, "candidateNoticePeriod", "Notice period",
             List.of("notice", "notice period", "availability", "notice weeks", "notice months"));
 
-    /** Which half of the row this field lands on. */
     private final CustomColumnTarget target;
     private final String value;
 
-    /** What the mapping step shows beside the file's own header. */
     private final String label;
 
-    /** Lower-cased, space-separated header spellings this field answers to. */
+    /** Lower-cased, space-separated header spellings real files carry. */
     private final List<String> synonyms;
 
     public static ImportTargetField fromValue(String value) {

@@ -48,28 +48,12 @@ import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 
 /**
- * Imports a spreadsheet into a mandate's Companies grid.
+ * Imports a spreadsheet into a mandate's Companies grid. <b>Writes nothing itself</b>: it builds the
+ * drawer's own {@link CaptureCompanyRequest}, {@link EditTriageCompanyRequest} and
+ * {@link SaveCandidateRequest} for {@link TriageCompanyService} and {@link CandidateService}.
  *
- * <p><b>This service writes nothing itself.</b> It builds the very requests the Companies drawer
- * posts — a {@link CaptureCompanyRequest}, an {@link EditTriageCompanyRequest}, a
- * {@link SaveCandidateRequest} — and hands them to {@link TriageCompanyService} and
- * {@link CandidateService}, so every scope check, duplicate rule and audit event stays where it
- * already lives.
- *
- * <p>Two calls and no import session between them: the browser still holds the file, so re-posting it
- * with the confirmed mapping costs one parse and saves a staging table and its sweeper.
- *
- * <p><b>A blank cell never clears a stored value.</b> Both update paths replace a row whole, so an
- * update is built from what the row already holds with the file's non-blank cells laid over it.
- *
- * <p><b>Neither method is {@code @Transactional}, and that is the design rather than an omission.</b>
- * A file of a thousand rows will have a bad one in it, and the useful answer is to import the other
- * nine hundred and ninety-nine. Spring marks a transaction rollback-only on <i>any</i> unchecked
- * exception, {@code ApiException} included, so the first refused row poisons the transaction and the
- * commit that follows throws {@code UnexpectedRollbackException} — every row lost. Each call into
- * {@code TriageCompanyService} and {@code CandidateService} therefore runs in its own transaction.
- * Preview stays out of one for a second reason: it calls Vertex, and an open transaction must not
- * wait on a network round trip.
+ * <p><b>Deliberately not {@code @Transactional}:</b> the first refused row would mark it rollback-only
+ * and lose every row; each service call runs in its own transaction. (Preview also calls Vertex.)
  */
 @Service
 @RequiredArgsConstructor
@@ -122,9 +106,7 @@ public class ProjectImportService {
         ParsedSheet sheet = reader.read(file);
         ImportTally tally = new ImportTally();
 
-        // Columns first, in their own pass: a value written in the row loop needs its column to exist
-        // and to have a field key, and defining one lazily halfway through would leave the rows before
-        // it without the column the rows after it got.
+        // Columns first: defined lazily mid-loop, earlier rows would miss a column later rows got.
         Map<Integer, ResolvedColumn> resolved = resolveColumns(projectId, userId, workspaceId, request, tally);
 
         for (int rowIndex = 0; rowIndex < sheet.rows().size(); rowIndex++) {
@@ -133,15 +115,8 @@ public class ProjectImportService {
             try {
                 importRow(userId, workspaceId, projectId, sheet, row, resolved, tally, httpRequest);
             } catch (ApiException | DataAccessException e) {
-                // One unusable row must not lose the other nine hundred. The message is the internal
-                // detail rather than the user-facing sentence: it names the row's actual problem and
-                // reaches only the person who uploaded the file.
-                //
-                // DataAccessException because a row can lose a version race it did not start:
-                // enrichment writes the same company or candidate from its own REQUIRES_NEW
-                // transaction, and the optimistic-lock failure that surfaces is not an ApiException.
-                // Not RuntimeException — a genuine bug must still fail loudly rather than be filed as
-                // one bad row.
+                // The internal detail reaches only the uploader. DataAccessException: a row can lose an
+                // optimistic-lock race to enrichment. Not RuntimeException — a real bug must fail loudly.
                 tally.rowFailed(rowIndex + 1, e.getMessage());
             }
         }
@@ -160,14 +135,7 @@ public class ProjectImportService {
                 tally.customColumnsCreated(), tally.rowErrors());
     }
 
-    /**
-     * Turns the confirmed mapping into something the row loop can use, defining any new custom column
-     * as it goes.
-     *
-     * <p>A field claimed by two columns keeps the first. This is the last place that can tell, and the
-     * failure it prevents is silent: the second column would overwrite the first on every row and the
-     * import would report success.
-     */
+    /** A field claimed by two columns keeps the first, or the second would silently overwrite it per row. */
     private Map<Integer, ResolvedColumn> resolveColumns(UUID projectId, UUID userId, UUID workspaceId,
                                                         CommitImportRequest request, ImportTally tally) {
         List<CustomColumnDto> existing = customColumns.list(workspaceId, projectId).columns();
@@ -199,8 +167,7 @@ public class ProjectImportService {
             }
             if (column == null && mapping.customLabel() != null && !mapping.customLabel().isBlank()) {
                 column = defineColumnFor(mapping, projectId, userId, target);
-                // "Created" is measured against what the project held when the commit began, so the
-                // summary says what changed rather than what was looked up.
+                // "Created" is against what the project held when the commit began.
                 if (heldAtStart.add(column.target() + ":" + column.fieldKey())) {
                     tally.customColumnCreated(column.label());
                 }
@@ -213,14 +180,7 @@ public class ProjectImportService {
         return resolved;
     }
 
-    /**
-     * Defines the custom column one uploaded column asked for, attributing a refusal to that column.
-     *
-     * <p>This runs before the row loop and outside its per-row catch, so a name clash or the
-     * per-project ceiling fails the whole commit. Keyed to the column's index — the one the mapping
-     * step renders its rows by — so the refusal points at the row to change rather than being a dead
-     * end the Import button repeats.
-     */
+    /** A refusal here fails the whole commit, so it names the column's index for the mapping step to point at. */
     private CustomColumnDto defineColumnFor(ProposedColumnMappingDto mapping, UUID projectId,
                                             UUID userId, CustomColumnTarget target) {
         try {
@@ -273,11 +233,7 @@ public class ProjectImportService {
         }
 
         TriageCompanyResponse held = existing.get();
-        // A company carrying a universe id keeps the export's figures, and TriageCompanyService
-        // refuses the edit anyway. Its custom columns are still the mandate's to fill, so those go
-        // through the edit the row does accept.
-        // Keyed on the id rather than on the badge: a plugin capture that resolved against the
-        // universe is badged `extension` and carries one all the same.
+        // Keyed on the id, not the badge: a market company takes only its custom columns.
         if (held.apolloAccountId() == null) {
             TriageCompanyResponse updated = triage.edit(userId, workspaceId, projectId, held.id(),
                     requests.editRequestFor(held, companyName, fields), httpRequest);

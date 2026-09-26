@@ -28,11 +28,8 @@ import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.multipart.MultipartFile;
 
 /**
- * Importing a spreadsheet into a mandate's Companies grid. Both calls are WORK_EXECUTE: an import
- * writes companies and people, so a client representative — who may read the mandate's content — must
- * not be able to start one.
- *
- * <p>Two calls carrying the same file, with nothing held open server-side between them.
+ * Spreadsheet import: preview then commit, the same file posted twice with nothing held between.
+ * WORK_EXECUTE, since an import writes — a client seat must not start one.
  */
 @RestController
 @RequestMapping("/api/v1/projects/{projectId}/import")
@@ -42,12 +39,8 @@ public class ProjectImportController {
     private final ProjectImportService imports;
 
     /**
-     * A blank CSV to fill in and upload back. Optional — the import maps whatever headers arrive — but
-     * a file built from this needs no model call, because every header in it is one the matcher knows.
-     *
-     * <p>Served as {@code text/csv} rather than the {@code application/octet-stream} the position
-     * document uses: that rule exists because it echoes caller-supplied bytes back, and this content is
-     * generated here.
+     * A file built from this needs no model call. {@code text/csv} is safe here, unlike the position
+     * document's echoed bytes: this content is generated.
      */
     @GetMapping("/template")
     @RequireProjectPermission(ProjectAction.WORK_EXECUTE)
@@ -65,12 +58,7 @@ public class ProjectImportController {
                 .body(csv);
     }
 
-    /**
-     * Reads the file and answers with a mapping to confirm. Writes nothing.
-     *
-     * <p>The model budget is spent inside the mapping, not here: most previews never reach Vertex,
-     * and refusing one that would not have called it would be a lie the caller cannot act on.
-     */
+    /** Writes nothing. The model budget is spent inside the mapping, since most previews never reach Vertex. */
     @PostMapping("/preview")
     @RequireProjectPermission(ProjectAction.WORK_EXECUTE)
     public ImportPreviewResponse preview(@AuthenticationPrincipal AuthPrincipal principal,
@@ -80,13 +68,7 @@ public class ProjectImportController {
                 projectId, file);
     }
 
-    /**
-     * Applies the confirmed mapping.
-     *
-     * <p>{@code @RequestPart} rather than the {@code @RequestParam} every other upload here uses: this
-     * request carries a file <i>and</i> a JSON document that has to be bound and validated as one,
-     * which a form field of JSON text could not be.
-     */
+    /** {@code @RequestPart}, unlike other uploads: the JSON mapping must be bound and validated as one. */
     @PostMapping("/commit")
     @RequireProjectPermission(ProjectAction.WORK_EXECUTE)
     public ImportSummaryResponse commit(@AuthenticationPrincipal AuthPrincipal principal,

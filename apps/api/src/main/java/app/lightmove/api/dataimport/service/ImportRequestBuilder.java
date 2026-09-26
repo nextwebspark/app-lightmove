@@ -20,8 +20,7 @@ class ImportRequestBuilder {
     CaptureCompanyRequest captureRequestFor(String companyName, RowFields fields) {
         return new CaptureCompanyRequest(
                 RowValues.text(companyName, 200),
-                // The import is its own door, recorded so the grid's Source badge can say a figure
-                // came out of somebody's spreadsheet rather than out of the market.
+                // Its own door, so the Source badge says the figure came from a spreadsheet.
                 "csv",
                 "inUniverse",
                 RowValues.text(fields.field(COMPANY_INDUSTRY), 200),
@@ -38,10 +37,7 @@ class ImportRequestBuilder {
                 fields.customValues(CustomColumnTarget.COMPANY));
     }
 
-    /**
-     * The stored row with the file's non-blank cells laid over it — an edit replaces a company whole,
-     * so anything the file does not carry has to be restated or it is lost.
-     */
+    /** An edit replaces a company whole, so a blank cell restates the stored value rather than clearing it. */
     EditTriageCompanyRequest editRequestFor(TriageCompanyResponse held, String companyName, RowFields fields) {
         return new EditTriageCompanyRequest(
                 firstOf(RowValues.text(companyName, 200), held.companyName()),
@@ -57,10 +53,7 @@ class ImportRequestBuilder {
                 fields.customValues(CustomColumnTarget.COMPANY));
     }
 
-    /**
-     * The same overlay for a person. {@code held} is null when creating, in which case every stored
-     * value is simply absent and the file's own cells stand alone.
-     */
+    /** The same overlay for a person; {@code held} is null when creating. */
     SaveCandidateRequest candidateRequestFor(CandidateResponse held, UUID triageCompanyId,
                                              String companyName, String personName, RowFields fields) {
         return new SaveCandidateRequest(
@@ -68,12 +61,10 @@ class ImportRequestBuilder {
                 overlay(RowValues.text(personName, 200), held, CandidateResponse::fullName),
                 overlay(RowValues.text(fields.field(CANDIDATE_TITLE), 200), held, CandidateResponse::title),
                 overlay(RowValues.seniority(fields.field(CANDIDATE_SENIORITY)), held, CandidateResponse::seniority),
-                // Never from the file: a "status" column in somebody's spreadsheet is their pipeline,
-                // and overwriting this mandate's own decision with it would undo a researcher's work.
+                // Never from the file: a spreadsheet's "status" is its sender's pipeline, not this mandate's.
                 storedOf(held, CandidateResponse::status),
                 overlay(RowValues.text(companyName, 200), held, CandidateResponse::companyName),
-                // A cell's address or number joins the person's ledger; what they already hold is
-                // never re-sent, because the ledger keeps it regardless.
+                // Only the file's contacts: the ledger keeps what the person already holds.
                 RowValues.text(fields.field(CANDIDATE_EMAIL), 320),
                 RowValues.text(fields.field(CANDIDATE_PHONE), 50),
                 null,

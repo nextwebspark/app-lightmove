@@ -8,10 +8,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-/**
- * One row's cells, indexed by what they mean rather than by where they sit — so the request builders
- * read as the fields they build rather than as arithmetic on column positions.
- */
+/** One row's cells, indexed by meaning rather than position. */
 record RowFields(Map<ImportTargetField, String> byField,
                  Map<CustomColumnTarget, Map<String, String>> customByTarget) {
 
@@ -43,10 +40,7 @@ record RowFields(Map<ImportTargetField, String> byField,
         return Map.copyOf(customByTarget.get(target));
     }
 
-    /**
-     * The person's name, joined from first and last when the file splits them — which most
-     * LinkedIn and ATS exports do, and which would otherwise import as no person at all.
-     */
+    /** Joined from first and last when the file splits them, as most LinkedIn and ATS exports do. */
     String personName() {
         String full = byField.get(ImportTargetField.CANDIDATE_NAME);
         if (full != null) {

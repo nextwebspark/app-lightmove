@@ -34,16 +34,9 @@ import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 
 /**
- * Turns an uploaded CSV or Excel file into a {@link ParsedSheet}.
- *
- * <p><b>The file's declared content type decides nothing.</b> Browsers disagree about what a
- * {@code .csv} is and several send {@code application/vnd.ms-excel} for one, so the format is decided
- * by the bytes: a workbook starts with a recognisable signature, and anything else is read as
- * delimited text. The allowlist in {@link SpreadsheetImportSettings} only keeps obviously wrong
- * uploads out before any of this runs.
- *
- * <p>Only the first sheet is read: importing all of them would silently merge tables that do not
- * share a header row.
+ * Turns an uploaded CSV or Excel file into a {@link ParsedSheet}. The bytes decide the format, never
+ * the declared content type (browsers disagree about {@code .csv}); {@link SpreadsheetImportSettings}'
+ * allowlist only screens out the obviously wrong. Only the first sheet is read.
  */
 @Service
 public class SpreadsheetReader {
@@ -56,9 +49,9 @@ public class SpreadsheetReader {
     private static final char[] CANDIDATE_DELIMITERS = {',', ';', '\t', '|'};
     private static final DateTimeFormatter ISO_DATE = DateTimeFormatter.ISO_LOCAL_DATE;
 
-    /** Enough rows to judge a column's shape without holding the whole file to do it. */
+    /** Enough rows to judge a column's shape. */
     private static final int SHAPE_SAMPLE_ROWS = 50;
-    /** How many distinct values the mapping step shows back to the person confirming it. */
+    /** Distinct values the mapping step shows back. */
     private static final int SAMPLE_VALUES = 3;
 
     private final SpreadsheetImportSettings settings;
@@ -94,7 +87,7 @@ public class SpreadsheetReader {
         }
     }
 
-    /** Whole megabytes, rounded down — the ceiling is set in round numbers and reads as one. */
+    /** Whole megabytes, rounded down. */
     private static long megabytes(long bytes) {
         return bytes / (1024 * 1024);
     }
@@ -124,8 +117,7 @@ public class SpreadsheetReader {
             List<List<String>> table = new ArrayList<>();
             for (Row row : sheet) {
                 List<String> values = new ArrayList<>();
-                // getLastCellNum, not the row's iterator: the iterator skips cells that were never
-                // written, which would shift every value after a blank one into the wrong column.
+                // Not the row's iterator: it skips never-written cells, shifting later values left.
                 for (int column = 0; column < Math.max(row.getLastCellNum(), 0); column++) {
                     values.add(stringValueOf(row.getCell(column)));
                 }
@@ -142,14 +134,8 @@ public class SpreadsheetReader {
     }
 
     /**
-     * Reads a cell as the text a person looking at the sheet would see.
-     *
-     * <p>A formula is read as its <b>cached result</b>, never evaluated: evaluating means running
-     * arbitrary spreadsheet logic — including external links and volatile functions — out of a file an
-     * untrusted caller uploaded, and the value a consultant saw when they saved is the value they
-     * meant to send.
-     *
-     * <p>A whole number comes back without the {@code .0} Excel's double-typed cells would add.
+     * A formula is read as its <b>cached result</b>, never evaluated: that would run arbitrary logic,
+     * external links included, out of an untrusted upload.
      */
     private static String stringValueOf(Cell cell) {
         if (cell == null) {
@@ -196,11 +182,8 @@ public class SpreadsheetReader {
     }
 
     /**
-     * Drops the apostrophe a spreadsheet puts in front of a cell it is keeping out of the formula
-     * parser — Excel writes one on "Save as CSV", and so does our own exporter
-     * ({@code CompaniesCsvWriter}), which is why a phone number that left as {@code +966 …} must not
-     * come back as {@code '+966 …}. Only ahead of a character that would have been read as a formula:
-     * an apostrophe anywhere else is somebody's data.
+     * Drops the formula-guard apostrophe Excel and {@code CompaniesCsvWriter} write, so {@code +966 …}
+     * round-trips — only before a formula character; elsewhere an apostrophe is data.
      */
     private static String unescapedFormulaGuard(String value) {
         return value.length() > 1 && value.charAt(0) == '\''
@@ -209,7 +192,7 @@ public class SpreadsheetReader {
                 : value;
     }
 
-    /** A UTF-8 BOM would otherwise become part of the first header, so the first column matches nothing. */
+    /** A UTF-8 BOM would otherwise make the first header match nothing. */
     private static byte[] stripByteOrderMark(byte[] content) {
         if (content.length >= 3
                 && (content[0] & 0xFF) == 0xEF && (content[1] & 0xFF) == 0xBB && (content[2] & 0xFF) == 0xBF) {
@@ -221,11 +204,8 @@ public class SpreadsheetReader {
     }
 
     /**
-     * Which character separates the columns, judged from the header line.
-     *
-     * <p>Excel's "Save as CSV" writes semicolons in every locale with a decimal comma — most of
-     * Europe and much of the Gulf — and a file read with the wrong delimiter parses as one very wide
-     * column and imports nothing. Whichever candidate appears most often wins; a tie falls to the comma.
+     * Judged from the header line: Excel writes semicolons wherever the decimal mark is a comma. The
+     * most frequent candidate wins; a tie falls to the comma.
      */
     private static char sniffDelimiter(String text) {
         int lineEnd = text.indexOf('\n');
@@ -248,10 +228,7 @@ public class SpreadsheetReader {
         return best;
     }
 
-    /**
-     * Turns the raw table into the sheet the rest of the import works from: the first non-empty row is
-     * the header, every later row is data padded to the header's width, and each column is profiled.
-     */
+    /** The first non-empty row is the header; later rows are padded to its width. */
     private ParsedSheet toSheet(List<List<String>> table) {
         int headerIndex = -1;
         for (int i = 0; i < table.size(); i++) {
@@ -291,13 +268,7 @@ public class SpreadsheetReader {
         return new ParsedSheet(columns, rows);
     }
 
-    /**
-     * Gives every column a usable, distinct header.
-     *
-     * <p>A blank header becomes {@code Column 4} rather than being dropped: the cells under it are
-     * still data, and dropping the column would shift every column after it. A repeated header — and
-     * exports do repeat them — gets a numeric suffix, so the mapping step can tell the two apart.
-     */
+    /** A blank header becomes {@code Column 4}, never dropped; a repeated one gets a numeric suffix. */
     private static List<String> namedHeaders(List<String> rawHeaders) {
         List<String> headers = new ArrayList<>(rawHeaders.size());
         Set<String> taken = new HashSet<>();
