@@ -22,13 +22,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 /**
- * A mandate's recent activity for the projects list's side panel, read off the audit trail.
- *
- * <p>An allowlist in both directions: only the events that describe the work (companies, people, the
- * brief, the market) and only the metadata keys the panel phrases. Team and access changes, contact
- * lookups and column housekeeping stay in the ledger — the first because who was let into a mandate is
- * not a progress line, the rest because they are noise beside it. Request-level fields (IP, user agent)
- * are never read at all.
+ * The side panel's recent activity, read off the audit trail through an allowlist of event types and
+ * metadata keys; team and access changes stay out, and IP and user agent are never read.
  */
 @Service
 @RequiredArgsConstructor

@@ -37,12 +37,8 @@ import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
 /**
- * Mandates of the caller's workspace. The workspace comes from the principal, never the path.
- *
- * <p>Authorisation is declared here, per <b>action</b>: browsing and creating are workspace actions;
- * editing and team changes are project actions, resolved from the caller's seat (with the
- * workspace-admin bypass). The guard beans re-read the database on every check — the JWT's roles
- * claim can be 15 minutes stale.
+ * Mandates of the caller's workspace, which comes from the principal, never the path. Gated per
+ * action; the guard beans re-read the database, since the JWT's roles can be 15 minutes stale.
  */
 @RestController
 @RequestMapping("/api/v1/projects")
@@ -71,10 +67,7 @@ public class ProjectsController {
         return created;
     }
 
-    /**
-     * The side panel's recent activity. Staff only ({@code WORK_EXECUTE}): the lines name the firm's
-     * own people and what they did, which a client representative's read-only seat does not cover.
-     */
+    /** Staff only: the lines name the firm's own people, which a client seat must not see. */
     @GetMapping("/{projectId}/activity")
     @RequireProjectPermission(ProjectAction.WORK_EXECUTE)
     public ProjectActivityResponse activity(
@@ -95,7 +88,6 @@ public class ProjectsController {
                 principal.userId(), principal.requireWorkspaceId(), projectId, request, httpRequest);
     }
 
-    /** Seats the member with this staff role, or moves an existing seat to it. Idempotent. */
     @PutMapping("/{projectId}/members/{memberId}")
     @RequireProjectPermission(ProjectAction.TEAM_MANAGE)
     public ProjectResponse putMember(@AuthenticationPrincipal AuthPrincipal principal,
@@ -132,11 +124,8 @@ public class ProjectsController {
     }
 
     /**
-     * Create a client contact and give them this mandate in one decision — the modal's "Invite by
-     * email" tab. Gated on <b>both</b> tiers, because it does one thing from each: minting a
-     * representative writes the registry ({@code CLIENT_RECORD_MANAGE}, any staff member), and giving
-     * them sight of this search is the lead's ({@code CLIENT_ACCESS_MANAGE}). A member who is not this
-     * mandate's lead can still do the first, through the registry — just not both at once, here.
+     * Gated on both tiers, doing one thing from each: minting a representative is the registry's
+     * ({@code CLIENT_RECORD_MANAGE}), giving them this mandate is the lead's ({@code CLIENT_ACCESS_MANAGE}).
      */
     @PostMapping("/{projectId}/representatives/invitations")
     @PreAuthorize("@projectAuthorizer.can(principal, #projectId, 'CLIENT_ACCESS_MANAGE') "

@@ -22,7 +22,7 @@ public interface ProjectMemberRepository extends JpaRepository<ProjectMember, UU
     @EntityGraph(attributePaths = "roles")
     Optional<ProjectMember> findByProjectIdAndMemberId(UUID projectId, UUID memberId);
 
-    /** Every seat a workspace member holds — the mandates a client representative may see. */
+    /** The mandates a client representative may see. */
     List<ProjectMember> findByMemberId(UUID memberId);
 
     /**
@@ -35,18 +35,14 @@ public interface ProjectMemberRepository extends JpaRepository<ProjectMember, UU
             """)
     Set<String> findActionNames(@Param("seatId") UUID seatId);
 
-    /** Backs the last-lead guard: a project must never lose its only LEAD-role seat. */
+    /** Backs the last-lead guard. */
     @Query("""
             select count(distinct pm.id) from ProjectMember pm join pm.roles r
             where pm.projectId = :projectId and r.name = :roleName
             """)
     long countByRoleName(@Param("projectId") UUID projectId, @Param("roleName") String roleName);
 
-    /**
-     * Whether removing this workspace member would leave a live mandate without any lead — seats where
-     * this member holds LEAD and nobody else on the project does. Delivered/closed mandates don't
-     * count; blocking on finished work would make removal impossible over time.
-     */
+    /** Live mandates where this member is the sole LEAD; delivered/closed ones don't count. */
     @Query("""
             select count(distinct pm.id) from ProjectMember pm join pm.roles r, Project p
             where p.id = pm.projectId and pm.memberId = :memberId

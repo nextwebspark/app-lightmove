@@ -28,12 +28,8 @@ import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
 /**
- * The client registry of the caller's workspace — the Clients screen. Every endpoint gates on
- * {@code CLIENT_RECORD_MANAGE}, held by workspace ADMIN and MEMBER. The workspace comes from the
- * principal, never the path.
- *
- * <p>The New-client modal's company search reuses {@code GET /api/v1/companies/search} (gated
- * {@code PROJECT_BROWSE}); there is no company endpoint here.
+ * The client registry, gated on {@code CLIENT_RECORD_MANAGE} (ADMIN and MEMBER). The workspace comes
+ * from the principal, never the path.
  */
 @RestController
 @RequestMapping("/api/v1/clients")

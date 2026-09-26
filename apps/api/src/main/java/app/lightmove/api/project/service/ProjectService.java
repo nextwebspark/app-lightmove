@@ -91,7 +91,7 @@ public class ProjectService {
         return all.stream().map(project -> toResponse(project, assembly)).toList();
     }
 
-    /** The mandates of one client, fully assembled (team, health) — the client drawer reads this. */
+    /** The client drawer's mandates, fully assembled. */
     @Transactional(readOnly = true)
     public List<ProjectResponse> listForClient(UUID workspaceId, UUID clientId) {
         List<Project> forClient = projects.findByWorkspaceIdAndClientIdOrderByCreatedAtDesc(workspaceId, clientId);
@@ -102,17 +102,13 @@ public class ProjectService {
         return forClient.stream().map(project -> toResponse(project, assembly)).toList();
     }
 
-    /** One mandate's seats, named — the report's researcher breakdown reads who staffs it. */
     @Transactional(readOnly = true)
     public List<TeamMemberResponse> teamOf(UUID workspaceId, UUID projectId) {
         Project project = projects.requireInWorkspace(projectId, workspaceId);
         return responseFor(workspaceId, project).team();
     }
 
-    /**
-     * The creator is the mandate's LEAD from birth — they own it and run it. Handover is an ordinary
-     * seat change: promote a second lead, then demote or remove the first.
-     */
+    /** The creator is the mandate's LEAD from birth; handover is an ordinary seat change. */
     @Transactional
     public ProjectResponse create(UUID userId, UUID workspaceId, CreateProjectRequest request,
                                   HttpServletRequest httpRequest) {
@@ -126,8 +122,6 @@ public class ProjectService {
                 request.positionTitle(), request.targetDate(), request.projectType(), timeline, userId));
         seats.save(ProjectMember.of(project.getId(), creator.getId(),
                 rbac.projectRoles(EnumSet.of(ProjectRole.LEAD)), userId));
-        // Seeded from the role-template library, and handed the facts it needs rather than the
-        // mandate itself: the project row is this package's.
         positionService.seedFor(workspaceId, project.getId(), project.getPositionTitle(),
                 client.getHqCountry());
 
@@ -211,8 +205,7 @@ public class ProjectService {
                             names(member.getRoles(), WorkspaceRole::valueOf),
                             names(seat.getRoles(), ProjectRole::valueOf)));
                 })
-                // Sorted here, not in the query: the seat rows come back in whatever order the join
-                // produced, so the Team & access table would otherwise reshuffle between fetches.
+                // Sorted here, or the Team & access table reshuffles between fetches.
                 .sorted(Comparator.comparing(TeamMemberResponse::fullName, String.CASE_INSENSITIVE_ORDER))
                 .toList();
 
@@ -236,12 +229,9 @@ public class ProjectService {
     }
 
     private List<AttachedRepresentativeResponse> attachedRepresentativesOf(Project project, Assembly assembly) {
-        // The client-side contacts on this mandate. Seated wins over a stale pending row, and the
-        // reported status is the attachment's ("Active" vs invitation still out), not the registry's.
-        //
-        // Which means a REVOKED representative whose CLIENT seat was never dropped would still read
-        // "Active" here. Nothing revokes today, so nothing is wrong yet — but whoever adds that flow
-        // must drop the CLIENT seat and any pending row with it, not merely flip the registry status.
+        // Seated wins over a stale pending row; the status is the attachment's, not the registry's.
+        // So whoever builds revocation must drop the CLIENT seat and pending row, not just flip the
+        // registry status — or a REVOKED representative reads "Active" here.
         Set<UUID> clientSeatUserIds = assembly.seatsByProject()
                 .getOrDefault(project.getId(), List.of()).stream()
                 .filter(seat -> seat.getRoles().stream().anyMatch(role -> role.is(ProjectRole.CLIENT)))

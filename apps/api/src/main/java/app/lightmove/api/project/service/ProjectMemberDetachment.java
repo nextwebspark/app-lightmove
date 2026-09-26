@@ -11,10 +11,8 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
 /**
- * What projects require of a workspace-member removal: no live mandate may lose its <i>only</i> lead,
- * and the member's seats go with them. A RESEARCHER seat never blocks — nothing depends on it.
- * Deliberately, a sole-lead seat on a DELIVERED/CLOSED mandate does not block either — blocking on
- * closed work would make removal impossible over time.
+ * Member removal: no live mandate may lose its only lead, and the seats go too. A sole lead on a
+ * DELIVERED/CLOSED mandate deliberately does not block, or removal would become impossible over time.
  */
 @Service
 @RequiredArgsConstructor

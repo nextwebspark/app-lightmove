@@ -38,8 +38,8 @@ import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
 /**
- * Who sits on a mandate — staff seats and client representatives' read-only CLIENT seats. Holds the seat
- * invariants: a project never loses its last LEAD-role seat, and a seat never holds more than one staff role.
+ * Who sits on a mandate — staff seats and representatives' read-only CLIENT seats. A project never
+ * loses its last LEAD, and a seat never holds more than one staff role.
  */
 @Service
 @RequiredArgsConstructor
@@ -60,10 +60,7 @@ public class ProjectTeamService {
     private final EmailTemplates templates;
     private final LightMoveProperties properties;
 
-    /**
-     * PUT of a seat: the member holds this one staff role on the mandate afterwards — seated if they
-     * had no seat, moved if they did. Idempotent — a PUT of the role they already hold changes nothing.
-     */
+    /** Seats the member with this one staff role, or moves them to it. Idempotent. */
     @Transactional
     public ProjectResponse putMember(UUID userId, UUID workspaceId, UUID projectId, UUID memberId,
                                      ProjectRole role, HttpServletRequest httpRequest) {
@@ -85,17 +82,14 @@ public class ProjectTeamService {
             return projectService.responseFor(workspaceId, project);
         }
 
-        // A seat carrying only CLIENT belongs to a representative who is now being staffed: they are
-        // joining the team, not moving within it, and the notice below says so.
+        // A CLIENT-only seat being staffed is joining the team, not moving within it.
         boolean heldStaffRole = seat.getRoles().stream().anyMatch(held -> !held.is(ProjectRole.CLIENT));
 
-        // The staff role is replaced; a CLIENT role the seat already carries survives, so staffing a
-        // client's representative does not revoke the read access they were granted separately.
+        // The staff role is replaced; a CLIENT role survives, being a separately granted access.
         Set<Role> granted = new HashSet<>();
         granted.add(rbac.role(role));
         seat.getRoles().stream().filter(existing -> existing.is(ProjectRole.CLIENT)).forEach(granted::add);
 
-        // A PUT of the current role set changes nothing, in side effects as well as in the response.
         if (!granted.equals(seat.getRoles())) {
             if (holdsLead(seat) && role != ProjectRole.LEAD) {
                 requireAnotherProjectLead(projectId);
@@ -125,10 +119,8 @@ public class ProjectTeamService {
     }
 
     /**
-     * Attaches a client representative to a mandate. An ACTIVE one is seated at once — their
-     * membership gains the read-only CLIENT project role, so they may view this project and no other.
-     * An INVITED one has no membership to seat yet, so the intent is parked and converted when they
-     * accept ({@link #seatAcceptedRepresentative}). Idempotent on both paths.
+     * An ACTIVE representative gains the read-only CLIENT seat at once; an INVITED one's intent is
+     * parked until they accept ({@link #seatAcceptedRepresentative}). Idempotent.
      */
     @Transactional
     public ProjectResponse attachRepresentative(UUID actorId, UUID workspaceId, UUID projectId,
@@ -136,12 +128,7 @@ public class ProjectTeamService {
         return attachRepresentative(actorId, workspaceId, projectId, representativeId, true, httpRequest);
     }
 
-    /**
-     * The attach above, with the courtesy notice made optional.
-     *
-     * @param announce false when the caller has already mailed this person about the same decision —
-     *                 the invite-and-attach flow. Two mails for one click reads as a bug.
-     */
+    /** @param announce false when the caller already mailed this person (invite-and-attach). */
     @Transactional
     public ProjectResponse attachRepresentative(UUID actorId, UUID workspaceId, UUID projectId,
                                                 UUID representativeId, boolean announce,
@@ -154,8 +141,7 @@ public class ProjectTeamService {
             case REVOKED -> throw ApiException.userFacing(ErrorCode.VALIDATION_FAILED,
                     "That representative's access was revoked — re-invite them first");
             case ACTIVE -> {
-                // ACTIVE without an account is an invariant break, not a state a caller can act on.
-                // Masked as NOT_FOUND: there is no request that would make it true.
+                // An invariant break no request can fix, masked as NOT_FOUND.
                 if (representative.getUserId() == null) {
                     log.error("Representative {} is ACTIVE with no bound account", representativeId);
                     throw ApiException.of(ErrorCode.NOT_FOUND);
@@ -185,11 +171,7 @@ public class ProjectTeamService {
         return projectService.responseFor(workspaceId, project);
     }
 
-    /**
-     * Detaches a representative from a mandate: cancels any pending attachment, and drops only the
-     * CLIENT role from an existing seat — a dual-role member who also staffs the project keeps their
-     * staff seat; the seat is deleted only when nothing remains.
-     */
+    /** Drops only the CLIENT role: a dual-role member keeps their staff seat. */
     @Transactional
     public ProjectResponse detachRepresentative(UUID actorId, UUID workspaceId, UUID projectId,
                                                 UUID representativeId, HttpServletRequest httpRequest) {
@@ -223,9 +205,8 @@ public class ProjectTeamService {
     }
 
     /**
-     * Turns every parked attach intent for a just-activated representative into a real CLIENT seat.
-     * MANDATORY: it must join the activating transaction, on both INVITED-to-ACTIVE paths, so the
-     * seats and the activation land or roll back as one.
+     * Seats a just-activated representative's parked attachments. MANDATORY: joins the activating
+     * transaction on both INVITED-to-ACTIVE paths, so seats and activation commit or roll back as one.
      */
     @Transactional(propagation = Propagation.MANDATORY)
     public void seatAcceptedRepresentative(ClientRepresentative representative) {
@@ -249,47 +230,29 @@ public class ProjectTeamService {
         pendingAttachments.deleteAll(pending);
     }
 
-    /**
-     * A courtesy notice to an already-active representative that a mandate was just shared with them —
-     * a person with a working login gets no other signal. Only the ACTIVE attach path sends it: an
-     * INVITED representative's signal is the portal invitation already in their inbox, and the seat
-     * granted on accept is the thing that invitation promised.
-     */
+    /** ACTIVE path only: an INVITED representative's signal is the invitation already in their inbox. */
     private void notifyRepresentativeAttached(UUID actorId, Project project,
                                               ClientRepresentative representative) {
         String adderName = users.findById(actorId).map(User::getFullName).orElse("A colleague");
         String clientName = clients.findByIdAndWorkspaceId(project.getClientId(), project.getWorkspaceId())
                 .map(Client::getName).orElse("your client");
-        // Sent inline, and last: mail is the one side effect a rollback cannot undo, so the discipline
-        // here — as in ClientRepresentativeService.invite — is to order the code so nothing that can
-        // throw comes after it, not to defer the send. Deferring only this one would be worse than
-        // useless: the "added as a representative" notice from the same transaction is sent inline too.
+        // Sent inline and last: a rollback cannot unsend mail, so nothing that can throw may follow it.
         emailSender.send(templates.buildAttachedToMandateEmail(
                 representative.getEmail(), representative.getFullName(), adderName, clientName,
                 project.getPositionTitle()));
     }
 
     /**
-     * Tells a staff member they were put on a mandate, or that their role on one changed — the only
-     * signal either gives, since neither touches their workspace membership and nothing is sent when
-     * they next sign in.
+     * Never sent to the actor themselves; inline and last, as in {@link #notifyRepresentativeAttached}.
      *
-     * <p>Never sent to the person who made the change: a lead who seats themselves at project
-     * creation, or hands the mandate over by demoting their own seat, does not need telling.
-     *
-     * <p>Sent inline and last, for {@link #notifyRepresentativeAttached}'s reason — mail is the one
-     * side effect a rollback cannot undo, so the ordering is the discipline, not a deferred send.
-     *
-     * @param firstSeat true when they are joining the mandate, false when they already staffed it and
-     *                  only their role moved — the difference between the two notices.
+     * @param firstSeat true when joining the mandate, false when only their role moved
      */
     private void notifySeated(UUID actorId, Project project, WorkspaceMember membership,
                               ProjectRole role, boolean firstSeat) {
         if (actorId.equals(membership.getUserId())) {
             return;
         }
-        // A membership always names a user. If that ever stops being true there is nobody left to
-        // tell, and a seat change must not fail over the notice it could not send.
+        // A seat change must not fail over a notice it could not send.
         User recipient = users.findById(membership.getUserId()).orElse(null);
         if (recipient == null) {
             return;
@@ -323,10 +286,7 @@ public class ProjectTeamService {
         return false;
     }
 
-    /**
-     * The representative a mandate names, whatever their lifecycle state. Must belong to the project's
-     * own client: a rep of one client must never be granted a view of another client's mandate.
-     */
+    /** Must belong to the project's own client: a rep must never see another client's mandate. */
     private ClientRepresentative requireRepresentativeOfClient(UUID representativeId, Project project) {
         ClientRepresentative representative = representatives
                 .findByIdAndWorkspaceId(representativeId, project.getWorkspaceId())
@@ -342,7 +302,7 @@ public class ProjectTeamService {
         return seat.getRoles().stream().anyMatch(role -> role.is(ProjectRole.LEAD));
     }
 
-    /** The project-tier mirror of the workspace's last-admin rule: a mandate always has someone running it. */
+    /** The project-tier mirror of the workspace's last-admin rule. */
     private void requireAnotherProjectLead(UUID projectId) {
         if (seats.countByRoleName(projectId, ProjectRole.LEAD.name()) <= 1) {
             throw ApiException.of(ErrorCode.PROJECT_LAST_LEAD);
@@ -356,7 +316,6 @@ public class ProjectTeamService {
                 .record();
     }
 
-    /** The pending-attachment counterpart of {@link #auditTeamChange} — there is no member to name yet. */
     private void auditRepresentativeChange(UUID actorId, UUID workspaceId, UUID projectId,
                                            UUID representativeId, String action,
                                            HttpServletRequest request) {

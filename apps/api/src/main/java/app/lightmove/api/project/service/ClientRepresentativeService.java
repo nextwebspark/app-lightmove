@@ -28,12 +28,9 @@ import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
 /**
- * Client representatives — the portal guests attached to a client record.
- *
- * <p>Invite issuance goes through {@code workspace}'s {@link InvitationService}: a representative is a
- * CLIENT-role workspace member, and invitations are the only door in. That is the sanctioned project →
- * workspace seam. Acceptance comes back the other way as a {@link ClientRepresentativeAcceptedEvent}, so
- * this feature never has to be reached into by {@code workspace}.
+ * Client representatives — the portal guests attached to a client record. Invitations are the only
+ * door in, so issuance goes through {@link InvitationService}; acceptance comes back as a
+ * {@link ClientRepresentativeAcceptedEvent}, so {@code workspace} never reaches in here.
  */
 @Service
 @RequiredArgsConstructor
@@ -48,9 +45,8 @@ public class ClientRepresentativeService {
     private final AuditService audit;
 
     /**
-     * Invites a representative to a client's portal. A duplicate of an ACTIVE representative is refused
-     * before any membership or email side effect; otherwise an existing row (outstanding or revoked) is
-     * reused, never duplicated.
+     * An ACTIVE duplicate is refused before any membership or email side effect; an outstanding or
+     * revoked row is reused, never duplicated.
      */
     @Transactional
     public RepresentativeResponse invite(UUID actorId, UUID workspaceId, UUID clientId, String fullName,
@@ -58,11 +54,9 @@ public class ClientRepresentativeService {
         Client client = clients.findByIdAndWorkspaceId(clientId, workspaceId)
                 .orElseThrow(() -> ApiException.of(ErrorCode.NOT_FOUND));
 
-        // Normalise once so the representative row and the invitation store the identical address.
         String email = EmailAddressValidator.normalise(rawEmail);
 
-        // Refused before onboarding runs: its notice email is not transactional, so a throw after it
-        // would still have mailed the person.
+        // Before onboarding: its email is not transactional, so a later throw would still have mailed.
         Optional<ClientRepresentative> existing = representatives
                 .findByClientIdAndEmailIgnoreCase(clientId, email);
         if (existing.filter(row -> row.getStatus() == ClientRepStatus.ACTIVE).isPresent()) {
@@ -89,8 +83,7 @@ public class ClientRepresentativeService {
                         : ClientRepresentative.invited(workspaceId, clientId, fullName, position, email,
                                 onboarding.invitation().getId(), actorId)));
 
-        // The second INVITED→ACTIVE path: a previously-invited address re-invited once it is already a
-        // member activates right here, with no acceptance event — pending attachments must not orphan.
+        // The second INVITED→ACTIVE path (no acceptance event): pending attachments must not orphan.
         if (onboarding.existingMember()) {
             team.seatAcceptedRepresentative(representative);
         }
@@ -106,13 +99,8 @@ public class ClientRepresentativeService {
     }
 
     /**
-     * Invites a representative <i>to a mandate</i>: creates them on the project's client and attaches
-     * them, as one transaction. Splitting it across two calls left a representative stranded on the
-     * client with no seat whenever the second failed.
-     *
-     * <p>Lives here rather than in {@code ProjectTeamService}, which must not depend back on this bean.
-     * The inner {@code invite} is a self-call, so its {@code @Transactional} is inert through the
-     * proxy — harmless, because this method already opened the transaction it would have joined.
+     * Invite and attach in one transaction: two calls stranded a seatless representative when the
+     * second failed. The inner {@code invite} is a self-call, joined to this transaction.
      */
     @Transactional
     public ProjectResponse inviteToMandate(UUID actorId, UUID workspaceId, UUID projectId,
@@ -123,17 +111,12 @@ public class ClientRepresentativeService {
         RepresentativeResponse invited = invite(
                 actorId, workspaceId, project.getClientId(), fullName, position, rawEmail, request);
 
-        // announce = false: whichever notice this person was owed has just gone out, and the attach
-        // notice would be a second mail for the same click.
+        // announce = false: their notice just went out; a second mail for one click reads as a bug.
         return team.attachRepresentative(
                 actorId, workspaceId, projectId, invited.id(), false, request);
     }
 
-    /**
-     * A representative accepted their portal invitation — flip the matching row ACTIVE and bind the
-     * account. Runs in the accepting transaction (the event is published before commit), so the
-     * membership and the activation are one atomic step.
-     */
+    /** Runs in the accepting transaction, so membership and activation are one atomic step. */
     @EventListener
     @Transactional(propagation = Propagation.MANDATORY)
     public void onRepresentativeAccepted(ClientRepresentativeAcceptedEvent event) {
