@@ -8,15 +8,8 @@ import jakarta.validation.constraints.Size;
 import java.util.Map;
 
 /**
- * A company the mandate supplies itself — typed in on the Companies screen, or read off a live page
- * by the browser plugin.
- *
- * <p>The mirror image of {@link AddTriageCompanyRequest}: there is no universe row to resolve
- * against, so the caller carries the fields, {@code source} must say so, and {@code strategy} is
- * refused — a company claiming to come from the market must come through the endpoint that reads it.
- *
- * <p>{@code status} is the landing stage, for the plugin's two destination buttons. Omitted, it lands
- * in universe.
+ * A company the mandate supplies itself, typed or captured by the plugin. The caller carries the
+ * fields, so {@code source} {@code strategy} is refused. {@code status} defaults to in universe.
  */
 public record CaptureCompanyRequest(
         @NotBlank(message = "A company name is required")
@@ -38,8 +31,7 @@ public record CaptureCompanyRequest(
         @Size(max = 100)
         String companyCity,
 
-        // A headcount, not a population: the ceiling is a typo guard, and zero is a legitimate figure
-        // for a holding company or a newly incorporated entity.
+        // The ceiling is a typo guard; zero is legitimate for a holding company.
         @PositiveOrZero(message = "Employees cannot be negative")
         @Max(value = 10_000_000, message = "That headcount looks like a typo")
         Integer numEmployees,
@@ -60,16 +52,12 @@ public record CaptureCompanyRequest(
         @Size(max = 2000)
         String shortDescription,
 
-        /** Where the plugin captured this from. Ignored for a company typed in by hand. */
         @Size(max = 1000)
         String sourceUrl,
 
         @Size(max = 2000, message = "A note must be 2000 characters or fewer")
         String note,
 
-        /**
-         * Values for this mandate's custom columns, keyed by each column's {@code fieldKey}.
-         * CustomColumnService.applyTo states what a row may store.
-         */
+        /** Keyed by {@code fieldKey}; {@code CustomColumnService.applyTo} decides what may be stored. */
         Map<String, String> customFields
 ) {}

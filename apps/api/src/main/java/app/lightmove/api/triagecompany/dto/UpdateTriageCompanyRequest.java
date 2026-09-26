@@ -3,12 +3,8 @@ package app.lightmove.api.triagecompany.dto;
 import jakarta.validation.constraints.Size;
 
 /**
- * A triage change: a new status, a new note, a new no-executive-found flag, or any mix of the three.
- * Every field is optional and a null leaves that half alone — moving a company to Declined should not
- * silently clear the note explaining why, and flagging "no executive found" must not touch the stage.
- *
- * <p>Clearing a note is therefore an explicit empty string rather than a null, which is the one
- * distinction this shape has to carry.
+ * Any mix of status, note and flag; a null leaves that field alone, so clearing a note is an explicit
+ * empty string.
  */
 public record UpdateTriageCompanyRequest(
         @Size(max = 32)

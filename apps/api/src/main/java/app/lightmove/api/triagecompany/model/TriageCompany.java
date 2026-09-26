@@ -19,17 +19,8 @@ import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.type.SqlTypes;
 
 /**
- * A company a mandate has taken a position on — the row "Add to Universe" writes, the Companies
- * screens move between stages, and Delete removes. There is no untriaged state: a company nobody has
- * acted on has no row here.
- *
- * <p>The snapshot columns are the same contract as {@link StrategyCompanyRef}'s, with one addition:
- * {@code note} is the consultant's remark on this company <i>for this mandate</i>, unlike Apollo's
- * {@code short_description}. {@code apolloAccountId} is null when there is no universe id to carry,
- * and V34's CHECK keeps the pair honest — a {@code STRATEGY} row without an id cannot exist.
- *
- * <p>{@code status} and {@code source} are stored as enum names, not wire tokens, matching the CHECK
- * constraints in V32 and V34: the wire token is the client's vocabulary and is free to change.
+ * A mandate's decision about one company, with a write-time snapshot; no row means untriaged.
+ * {@code status} and {@code source} are stored as enum names (V32/V34 CHECKs), never wire tokens.
  */
 @Entity
 @Table(name = "app_lm_project_triage_company")
@@ -55,12 +46,7 @@ public class TriageCompany extends BaseEntity {
     @Column(name = "note")
     private String note;
 
-    /**
-     * Set once the mandate has looked and concluded nobody here fits — orthogonal to {@code status},
-     * since a company can be shortlisted and still carry this. Cleared automatically the moment an
-     * executive is actually mapped here, by hand or through research; see
-     * {@code TriageCompanyService.requireCompanyOfProject} and {@code .captureFromResearch}.
-     */
+    /** "Nobody here fits" — orthogonal to {@code status}; cleared once an executive is mapped here. */
     @Column(name = "no_executive_found", nullable = false)
     private boolean noExecutiveFound = false;
 
@@ -70,11 +56,7 @@ public class TriageCompany extends BaseEntity {
     @Column(name = "industry")
     private String industry;
 
-    /**
-     * Derived from {@link #industry} and written with it by {@link #fileUnder}, never separately.
-     * {@code industryV2Label} on an Apollo-backed row is V1 renamed rather than a finer fact — the
-     * universe never recorded the leaf.
-     */
+    /** Derived from {@link #industry} by {@link #fileUnder}, never written separately. */
     @Column(name = "industry_v2_code")
     private Integer industryV2Code;
 
@@ -115,10 +97,7 @@ public class TriageCompany extends BaseEntity {
     @Column(name = "logo_url")
     private String logoUrl;
 
-    /**
-     * Values for this project's COMPANY custom columns, keyed by the column's {@code field_key}.
-     * Nothing here validates a key: {@code CustomColumnService.applyTo} is the only writer.
-     */
+    /** Keyed by {@code field_key}; unvalidated here because {@code CustomColumnService.applyTo} is the only writer. */
     @JdbcTypeCode(SqlTypes.JSON)
     @Column(name = "custom_fields", nullable = false)
     private CustomFieldValues customFields = CustomFieldValues.empty();
@@ -126,11 +105,7 @@ public class TriageCompany extends BaseEntity {
     @Column(name = "added_by", nullable = false, updatable = false)
     private UUID addedBy;
 
-    /**
-     * A company the mandate supplied itself. Not for {@link TriageCompanySource#STRATEGY} rows —
-     * {@code TriageCompanyWriter} writes those in one multi-row statement so a bulk add can skip what
-     * the mandate already holds rather than racing a read against it.
-     */
+    /** Not for {@link TriageCompanySource#STRATEGY} rows, which {@code TriageCompanyWriter} inserts race-free. */
     public static TriageCompany captured(UUID projectId, UUID addedBy, TriageCompanySource source,
                                          TriageCompanyStatus status, CapturedCompanyDetails details) {
         TriageCompany company = new TriageCompany();
@@ -154,10 +129,7 @@ public class TriageCompany extends BaseEntity {
         return company;
     }
 
-    /**
-     * Fills in what research found, and only where nobody has filled anything in — a consultant's
-     * capture never loses a field to a vendor. Name, note, stage and provenance are never touched.
-     */
+    /** Fills only empty fields: a consultant's capture never loses a value to a vendor. */
     public void enrichFacts(CapturedCompanyDetails details) {
         if (industry == null) {
             fileUnder(details.industry());
@@ -191,11 +163,7 @@ public class TriageCompany extends BaseEntity {
         }
     }
 
-    /**
-     * Replaces the company's own facts. Only reached for a company the mandate supplied itself, and
-     * {@code apolloAccountId}, {@code source} and {@code sourceUrl} are {@code updatable = false} so
-     * provenance cannot travel through here by mistake. {@code note} has its own write.
-     */
+    /** Replaces the company's own facts; provenance columns are {@code updatable = false}. */
     public void describe(CapturedCompanyDetails details) {
         this.companyName = details.companyName();
         fileUnder(details.industry());
@@ -209,11 +177,7 @@ public class TriageCompany extends BaseEntity {
         this.shortDescription = details.shortDescription();
     }
 
-    /**
-     * The one place the industry and the three forms derived from it are written, so a row can never
-     * hold a sector that disagrees with its own industry. A label nobody can resolve keeps itself and
-     * leaves the rest null.
-     */
+    /** The single writer of the industry and its three derived forms, so they always agree. */
     private void fileUnder(String suppliedIndustry) {
         ResolvedIndustry resolved = Industries.resolve(suppliedIndustry);
         this.industry = resolved == null ? null : resolved.label();
@@ -223,13 +187,8 @@ public class TriageCompany extends BaseEntity {
     }
 
     /**
-     * True for a company the mandate supplied itself, which is the only kind it may rewrite.
-     *
-     * <p><b>Keyed on the snapshot, not the door.</b> {@code source != STRATEGY} used to mean the same
-     * thing, because only Strategy wrote market rows — until a plugin capture began resolving against
-     * the universe and landing a full snapshot badged EXTENSION or MANUAL. Those rows carry an
-     * {@code apolloAccountId} the ETL owns and re-keys, so rewriting one is rewriting the export;
-     * what a mandate may edit is the row nobody else authored.
+     * Keyed on the snapshot, not the door: a plugin capture can resolve to a market row badged
+     * EXTENSION or MANUAL, and that row is the ETL's, not the mandate's to rewrite.
      */
     public boolean isMandateSupplied() {
         return apolloAccountId == null;
@@ -239,10 +198,7 @@ public class TriageCompany extends BaseEntity {
         this.status = newStatus;
     }
 
-    /**
-     * Replaces the whole bag: {@code CustomColumnService.applyTo} has already merged it, and an
-     * entity with a second opinion about which keys are real would be a second place to get it wrong.
-     */
+    /** Replaces the whole bag, already merged by {@code CustomColumnService.applyTo}. */
     public void describeCustomFields(CustomFieldValues values) {
         this.customFields = values == null ? CustomFieldValues.empty() : values;
     }
@@ -252,12 +208,10 @@ public class TriageCompany extends BaseEntity {
         this.note = newNote == null || newNote.isBlank() ? null : newNote.trim();
     }
 
-    /** The grid's own quick action: the mandate looked and nobody here fits. */
     public void flagNoExecutiveFound() {
         this.noExecutiveFound = true;
     }
 
-    /** An executive is mapped here now, whatever "nobody fits" meant before. */
     public void unflagNoExecutiveFound() {
         this.noExecutiveFound = false;
     }

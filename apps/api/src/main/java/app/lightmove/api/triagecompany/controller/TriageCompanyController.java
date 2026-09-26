@@ -34,11 +34,7 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
-/**
- * A mandate's triaged companies. Gated per method rather than per class: reading is WORK_VIEW, held
- * by every seated role including CLIENT, while every write is WORK_EXECUTE — a client representative
- * may see that a company was shortlisted without being able to shortlist one.
- */
+/** A mandate's triaged companies. Reads are WORK_VIEW (a client seat included), every write WORK_EXECUTE. */
 @RestController
 @RequestMapping("/api/v1/projects/{projectId}/triage")
 @RequiredArgsConstructor
@@ -76,11 +72,7 @@ public class TriageCompanyController {
         return added;
     }
 
-    /**
-     * A company the market does not carry. Separate from {@code POST /} because the trust model is
-     * the opposite: there the client names an id and the server resolves every field, here the client
-     * carries the fields and the row records that it did.
-     */
+    /** The opposite trust model to {@code POST /}: the client carries the fields, and the row says so. */
     @PostMapping("/capture")
     @RequireProjectPermission(ProjectAction.WORK_EXECUTE)
     @ResponseStatus(HttpStatus.CREATED)
@@ -103,10 +95,6 @@ public class TriageCompanyController {
                 principal.requireWorkspaceId(), projectId, httpRequest);
     }
 
-    /**
-     * The companies ticked on Strategy, taken in at one stage. Every id is still resolved and
-     * off-limits-checked server-side.
-     */
     @PostMapping("/bulk")
     @RequireProjectPermission(ProjectAction.WORK_EXECUTE)
     public TriageBulkAddResponse addSelected(@AuthenticationPrincipal AuthPrincipal principal,
@@ -129,11 +117,7 @@ public class TriageCompanyController {
                 projectId, triageCompanyId, request, httpRequest);
     }
 
-    /**
-     * Replaces a company's own facts — the Companies panel's Edit form. A PUT beside the PATCH above
-     * because the two mean different things: there a null leaves the other half alone, here an
-     * omitted field is a cleared one. Refused outright for a company taken from the market.
-     */
+    /** Unlike the PATCH, an omitted field is cleared. Refused for a company taken from the market. */
     @PutMapping("/{triageCompanyId}")
     @RequireProjectPermission(ProjectAction.WORK_EXECUTE)
     public TriageCompanyResponse edit(
@@ -146,15 +130,7 @@ public class TriageCompanyController {
                 projectId, triageCompanyId, request, httpRequest);
     }
 
-    /**
-     * Removes this mandate's decision about a company. The company itself is untouched: the Apollo
-     * universe is read-only to this application.
-     */
-    /**
-     * The mandate's own columns for one company — the only edit a market-sourced company accepts. Its
-     * own route because the PUT above is refused for such a company and this must not be: the export's
-     * facts are not the mandate's to rewrite, but the columns it added to its own grid are its own.
-     */
+    /** The mandate's own columns — the only edit a market-sourced company accepts. */
     @PatchMapping("/{triageCompanyId}/custom-fields")
     @RequireProjectPermission(ProjectAction.WORK_EXECUTE)
     public TriageCompanyResponse editCustomFields(

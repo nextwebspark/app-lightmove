@@ -6,13 +6,8 @@ import lombok.RequiredArgsConstructor;
 import lombok.experimental.Accessors;
 
 /**
- * The columns a mandate's triaged companies can be sorted by — the allowlist that keeps a
- * caller-supplied string out of an ORDER BY. The wire tokens deliberately match
- * {@code CompanySortField}'s, because the Companies and Strategy grids are one table over two sources.
- *
- * <p>Unlike Strategy's, these are <b>JPA property names</b> rather than SQL fragments: Spring Data
- * builds the ORDER BY, so there is no string to inject into. {@link #ADDED} exists only here — when a
- * company entered this mandate is a fact about the decision, not about the market.
+ * The sort allowlist, mapping wire tokens (matching {@code CompanySortField}'s) to JPA property names
+ * that Spring Data orders by — no caller string reaches an ORDER BY.
  */
 @Getter
 @Accessors(fluent = true)
@@ -30,7 +25,6 @@ public enum TriageCompanySortField implements ApiValueEnum {
 
     private final String value;
 
-    /** The entity property Spring Data orders by — never the caller's string. */
     private final String property;
 
     public static TriageCompanySortField fromValue(String value) {
