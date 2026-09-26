@@ -1,5 +1,7 @@
 package app.lightmove.api.strategy.service;
 
+import app.lightmove.api.common.constant.ApiValueEnum;
+import app.lightmove.api.strategy.constant.CompanySizeBand;
 import app.lightmove.api.strategy.constant.CompanySortField;
 import app.lightmove.api.strategy.constant.EmployeeBand;
 import app.lightmove.api.strategy.constant.RevenueBand;
@@ -68,8 +70,8 @@ public class ApolloCompanyQueryService {
     /** How many companies the scope matches. An empty scope is the whole universe, not nothing. */
     public long count(CompanyScope scope) {
         WhereClause where = buildWhere(scope);
-        return bind(jdbc.sql("SELECT count(*) FROM app_lm_apollo_companies a WHERE " + where.sql()),
-                where.params()).query(Long.class).single();
+        return jdbc.sql("SELECT count(*) FROM app_lm_apollo_companies a WHERE " + where.sql())
+                .params(where.params()).query(Long.class).single();
     }
 
     /**
@@ -89,7 +91,7 @@ public class ApolloCompanyQueryService {
                 """.formatted(ROW_COLUMNS, where.sql(), sort.orderByTerms(direction));
         params.put("size", size);
         params.put("offset", (long) page * size);
-        return bind(jdbc.sql(sql), params).query(COMPANY_ROW_MAPPER).list();
+        return jdbc.sql(sql).params(params).query(COMPANY_ROW_MAPPER).list();
     }
 
     /**
@@ -240,7 +242,7 @@ public class ApolloCompanyQueryService {
                     FROM app_lm_apollo_companies
                     WHERE keywords && %s
                     """.formatted(arrayLiteral(keywords, "segKw", params));
-            long count = bind(jdbc.sql(sql), params).query(Long.class).single();
+            long count = jdbc.sql(sql).params(params).query(Long.class).single();
             facets.add(new FacetCount(segment, segment, count));
         });
         return facets;
@@ -277,21 +279,19 @@ public class ApolloCompanyQueryService {
      * counts and the filter behind it cannot disagree. Bands come back in enum order, zeroes included.
      */
     public List<FacetCount> employeeBandFacets() {
-        Map<String, Object> params = new LinkedHashMap<>();
-        Map<String, Long> counts = bandCounts(employeeBandCase(params), params);
-        return Arrays.stream(EmployeeBand.values())
-                .map(band -> new FacetCount(band.value(), band.label(),
-                        counts.getOrDefault(band.value(), 0L)))
-                .toList();
+        return bandFacets(EmployeeBand.values(), "num_employees", "emp");
     }
 
     /** The Revenue accordion, Unknown included — see {@link RevenueBand#R_UNKNOWN}. */
     public List<FacetCount> revenueBandFacets() {
+        return bandFacets(RevenueBand.values(), "annual_revenue", "rev");
+    }
+
+    private List<FacetCount> bandFacets(CompanySizeBand[] bands, String column, String prefix) {
         Map<String, Object> params = new LinkedHashMap<>();
-        Map<String, Long> counts = bandCounts(revenueBandCase(params), params);
-        return Arrays.stream(RevenueBand.values())
-                .map(band -> new FacetCount(band.value(), band.label(),
-                        counts.getOrDefault(band.value(), 0L)))
+        Map<String, Long> counts = bandCounts(bandCase(bands, column, prefix, params), params);
+        return Arrays.stream(bands)
+                .map(band -> new FacetCount(band.value(), band.label(), counts.getOrDefault(band.value(), 0L)))
                 .toList();
     }
 
@@ -318,7 +318,7 @@ public class ApolloCompanyQueryService {
                 ORDER BY count(*) DESC, 1
                 LIMIT :groupLimit
                 """.formatted(column, where.sql(), presenceCondition);
-        return bind(jdbc.sql(sql), params).query(ScopeBreakdown.class).list();
+        return jdbc.sql(sql).params(params).query(ScopeBreakdown.class).list();
     }
 
     /**
@@ -350,13 +350,13 @@ public class ApolloCompanyQueryService {
         // that, not "and also 201-500".
         String employeeClause = scope.employeeRange() != null
                 ? rangeClause("num_employees", scope.employeeRange(), "empRange", params)
-                : employeeBandClause(scope.employeeBands(), params);
+                : bandClause(scope.employeeBands(), EmployeeBand.class, "num_employees", "emp", params);
         if (employeeClause != null) {
             clauses.add(employeeClause);
         }
         String revenueClause = scope.revenueRange() != null
                 ? rangeClause("annual_revenue", scope.revenueRange(), "revRange", params)
-                : revenueBandClause(scope.revenueBands(), params);
+                : bandClause(scope.revenueBands(), RevenueBand.class, "annual_revenue", "rev", params);
         if (revenueClause != null) {
             clauses.add(revenueClause);
         }
@@ -393,39 +393,24 @@ public class ApolloCompanyQueryService {
         return bounds.isEmpty() ? null : "(" + String.join(" AND ", bounds) + ")";
     }
 
-    /** Selected headcount bands as an OR of closed numeric ranges. */
-    private static String employeeBandClause(List<String> bandValues, Map<String, Object> params) {
-        List<String> ranges = new ArrayList<>();
-        int index = 0;
-        for (String bandValue : bandValues) {
-            EmployeeBand band = EmployeeBand.fromValue(bandValue);
-            if (band == null) {
-                continue;
-            }
-            ranges.add(boundsClause("num_employees", band.lowerBound(), band.upperBound(),
-                    "emp", index++, params));
-        }
-        return ranges.isEmpty() ? null : "(" + String.join(" OR ", ranges) + ")";
-    }
-
     /**
-     * Selected revenue bands as an OR of numeric ranges, with Unknown joining as a null test. A row
-     * with no figure falls in no numeric band, so Unknown is how those 64,690 companies are reached.
+     * Selected bands as an OR of closed numeric ranges, with Unknown joining as a null test. A row with
+     * no figure falls in no numeric band, so Unknown is how those 64,690 revenue-less companies are reached.
      */
-    private static String revenueBandClause(List<String> bandValues, Map<String, Object> params) {
+    private static <B extends Enum<B> & CompanySizeBand> String bandClause(
+            List<String> bandValues, Class<B> type, String column, String prefix, Map<String, Object> params) {
         List<String> ranges = new ArrayList<>();
         int index = 0;
         for (String bandValue : bandValues) {
-            RevenueBand band = RevenueBand.fromValue(bandValue);
+            B band = ApiValueEnum.fromValue(type, bandValue);
             if (band == null) {
                 continue;
             }
             if (band.isUnknown()) {
-                ranges.add("annual_revenue IS NULL");
+                ranges.add(column + " IS NULL");
                 continue;
             }
-            ranges.add(boundsClause("annual_revenue", band.lowerBound(), band.upperBound(),
-                    "rev", index++, params));
+            ranges.add(boundsClause(column, band.lowerBound(), band.upperBound(), prefix, index++, params));
         }
         return ranges.isEmpty() ? null : "(" + String.join(" OR ", ranges) + ")";
     }
@@ -443,35 +428,28 @@ public class ApolloCompanyQueryService {
         return "%s BETWEEN :%s AND :%s".formatted(column, lowParam, highParam);
     }
 
-    /** A CASE mapping each headcount to its band's wire token, built from the enum's own bounds. */
-    private static String employeeBandCase(Map<String, Object> params) {
+    /**
+     * A CASE mapping each value to its band's wire token, built from the enum's own bounds, with the
+     * Unknown band's null test first so it wins before any range is considered.
+     */
+    private static String bandCase(CompanySizeBand[] bands, String column, String prefix,
+                                   Map<String, Object> params) {
         StringBuilder expression = new StringBuilder("CASE");
-        int index = 0;
-        for (EmployeeBand band : EmployeeBand.values()) {
-            expression.append(" WHEN ")
-                    .append(boundsClause("num_employees", band.lowerBound(), band.upperBound(),
-                            "empCase", index, params))
-                    .append(" THEN :empLabel").append(index);
-            params.put("empLabel" + index, band.value());
-            index++;
+        for (CompanySizeBand band : bands) {
+            if (band.isUnknown()) {
+                expression.append(" WHEN ").append(column).append(" IS NULL THEN :").append(prefix).append("Unknown");
+                params.put(prefix + "Unknown", band.value());
+            }
         }
-        return expression.append(" END").toString();
-    }
-
-    /** The same for revenue, with the null case first so it wins before any range is considered. */
-    private static String revenueBandCase(Map<String, Object> params) {
-        StringBuilder expression = new StringBuilder("CASE WHEN annual_revenue IS NULL THEN :revUnknown");
-        params.put("revUnknown", RevenueBand.R_UNKNOWN.value());
         int index = 0;
-        for (RevenueBand band : RevenueBand.values()) {
+        for (CompanySizeBand band : bands) {
             if (band.isUnknown()) {
                 continue;
             }
             expression.append(" WHEN ")
-                    .append(boundsClause("annual_revenue", band.lowerBound(), band.upperBound(),
-                            "revCase", index, params))
-                    .append(" THEN :revLabel").append(index);
-            params.put("revLabel" + index, band.value());
+                    .append(boundsClause(column, band.lowerBound(), band.upperBound(), prefix + "Case", index, params))
+                    .append(" THEN :").append(prefix).append("Label").append(index);
+            params.put(prefix + "Label" + index, band.value());
             index++;
         }
         return expression.append(" END").toString();
@@ -485,7 +463,7 @@ public class ApolloCompanyQueryService {
                 FROM app_lm_apollo_companies
                 GROUP BY 1
                 """.formatted(bandExpression);
-        bind(jdbc.sql(sql), params).query(ScopeBreakdown.class).list()
+        jdbc.sql(sql).params(params).query(ScopeBreakdown.class).list()
                 .forEach(row -> counts.put(row.label(), row.count()));
         return counts;
     }
@@ -580,13 +558,5 @@ public class ApolloCompanyQueryService {
     /** Backslash-escape LIKE's wildcards so the user's text matches literally. */
     private static String escapeLikePattern(String query) {
         return query.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_");
-    }
-
-    private static JdbcClient.StatementSpec bind(JdbcClient.StatementSpec spec, Map<String, Object> params) {
-        JdbcClient.StatementSpec bound = spec;
-        for (Map.Entry<String, Object> entry : params.entrySet()) {
-            bound = bound.param(entry.getKey(), entry.getValue());
-        }
-        return bound;
     }
 }

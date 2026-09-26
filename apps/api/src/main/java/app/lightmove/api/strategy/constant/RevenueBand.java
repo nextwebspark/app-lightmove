@@ -18,7 +18,7 @@ import lombok.experimental.Accessors;
 @Getter
 @Accessors(fluent = true)
 @RequiredArgsConstructor
-public enum RevenueBand implements ApiValueEnum {
+public enum RevenueBand implements CompanySizeBand {
 
     R_UNDER_1M("under-1m", "< $1M", 0L, 999_999L),
     R_1M_10M("1m-10m", "$1M - $10M", 1_000_000L, 9_999_999L),
@@ -45,6 +45,7 @@ public enum RevenueBand implements ApiValueEnum {
     private final Long upperBound;
 
     /** The band that means "no figure published", which is most of the universe. */
+    @Override
     public boolean isUnknown() {
         return this == R_UNKNOWN;
     }

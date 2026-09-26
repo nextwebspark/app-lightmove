@@ -203,10 +203,8 @@ public class AuthenticationService {
 
         Optional<User> found = users.findByEmail(email);
         if (found.isEmpty()) {
-            passwords.equaliseFailureCost(password);
-            audit.event(AuthEventType.LOGIN_FAILED).failed().from(request)
-                    .reason("no_such_user").detail("email", email).record();
-            throw ApiException.of(ErrorCode.INVALID_CREDENTIALS);
+            throw refuseLogin(password, audit.event(AuthEventType.LOGIN_FAILED).failed().from(request)
+                    .reason("no_such_user").detail("email", email));
         }
 
         User user = found.get();
@@ -216,17 +214,13 @@ public class AuthenticationService {
         // leaks when a guess against a locked account was the right one. The decoy comparison replaces
         // the cost it skips, so the refusal is not faster than the wrong-password one it imitates.
         if (user.isLocked(now)) {
-            passwords.equaliseFailureCost(password);
-            audit.event(AuthEventType.LOGIN_FAILED).failed().actor(user.getId()).from(request)
-                    .reason("account_locked").record();
-            throw ApiException.of(ErrorCode.INVALID_CREDENTIALS);
+            throw refuseLogin(password, audit.event(AuthEventType.LOGIN_FAILED).failed().actor(user.getId())
+                    .from(request).reason("account_locked"));
         }
 
         if (user.getStatus() == UserStatus.SUSPENDED || user.getStatus() == UserStatus.DELETED) {
-            passwords.equaliseFailureCost(password);
-            audit.event(AuthEventType.LOGIN_FAILED).failed().actor(user.getId()).from(request)
-                    .reason("status_" + user.getStatus()).record();
-            throw ApiException.of(ErrorCode.INVALID_CREDENTIALS);
+            throw refuseLogin(password, audit.event(AuthEventType.LOGIN_FAILED).failed().actor(user.getId())
+                    .from(request).reason("status_" + user.getStatus()));
         }
 
         if (!passwords.matches(password, user.getPasswordHash())) {
@@ -261,6 +255,13 @@ public class AuthenticationService {
         // Null for a user who has not finished onboarding — the token then carries no tenant claim.
         WorkspaceMember membership = activeMembership(user.getId()).orElse(null);
         return tokens.issue(user, membership, request);
+    }
+
+    /** A refusal ahead of the password check: it pays the BCrypt cost it skips, records why, and says nothing. */
+    private ApiException refuseLogin(String password, AuditService.Builder failure) {
+        passwords.equaliseFailureCost(password);
+        failure.record();
+        return ApiException.of(ErrorCode.INVALID_CREDENTIALS);
     }
 
     /**
