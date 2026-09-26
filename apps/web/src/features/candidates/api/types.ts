@@ -25,10 +25,14 @@ export type CandidateStatus =
 export type CandidateSeniority = SeniorityToken;
 
 /**
- * Gender as a researcher recorded it, for the report's diversity chapter. Never inferred from a
- * name, and `null` — nobody recorded it — is a different fact from `other`, which somebody did.
+ * Gender, for the report's diversity chapter. A researcher's own entry, or a captured profile's
+ * AI-suggested value — see `aiInferredFields` — flagged until reviewed either way. `null` — nobody
+ * recorded or confirmed one — is a different fact from `other`, which somebody did.
  */
 export type CandidateGender = "female" | "male" | "other";
+
+/** The three background fields `aiInferredFields` can flag as an unreviewed AI suggestion. */
+export type CandidateBackgroundField = "nationality" | "gender" | "yearsExperience";
 
 /** Which door a profile came through. Only `manual` is reachable today. */
 export type CandidateSource = "manual" | "csv" | "extension";
@@ -92,6 +96,8 @@ export interface Candidate {
   nationality: string | null;
   gender: CandidateGender | null;
   yearsExperience: number | null;
+  /** Which of nationality/gender/yearsExperience hold a value AI proposed, not yet reviewed. */
+  aiInferredFields: CandidateBackgroundField[];
   summary: string | null;
   note: string | null;
   compensation: CandidateCompensation;
@@ -201,4 +207,32 @@ export interface SaveCandidatePayload {
   languages?: string[];
   /** Omitted leaves every custom column alone; a blank value clears that one column. */
   customFields?: CustomFieldValues;
+  /** Sent only by the Background section's save: its AI-proposed values are now reviewed. */
+  confirmBackground?: boolean;
+}
+
+/** One competency panel's AI reading: a 1–10 score (null when the model could not judge) and why. */
+export interface CompetencyPanelAssessment {
+  score: number | null;
+  positives: string[];
+  negatives: string[];
+}
+
+/** A web page the AI assessment relied on, as the model reported it. */
+export interface AssessmentSourceLink {
+  url: string;
+  title: string | null;
+}
+
+/**
+ * A candidate's last AI assessment and last failed run — staff-only, read on its own and never
+ * carried on `Candidate`. The assessment fields are null until a run has succeeded.
+ */
+export interface CandidateAiAssessment {
+  summary: string | null;
+  technical: CompetencyPanelAssessment | null;
+  behavioural: CompetencyPanelAssessment | null;
+  sources: AssessmentSourceLink[];
+  assessedAt: string | null;
+  failedAt: string | null;
 }

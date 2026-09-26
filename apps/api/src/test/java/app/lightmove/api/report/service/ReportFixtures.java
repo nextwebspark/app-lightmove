@@ -14,6 +14,7 @@ import app.lightmove.api.triagecompany.dto.TriageCompanyResponse;
 import java.time.Instant;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 
 /** The rows a reporter reads, built with only the fields a chapter looks at. */
@@ -32,8 +33,8 @@ final class ReportFixtures {
                                   String nationality, Instant addedAt) {
         CandidateResponse person = new CandidateResponse(UUID.randomUUID(), company == null ? null : company.id(),
                 company == null ? "Somewhere Untriaged" : company.companyName(), fullName, null, seniority,
-                "identified", null, country, null, nationality, null, null, null, null, null, List.of(), List.of(),
-                List.of(), List.of(), "manual", null, Map.of(), addedAt, null, null);
+                "identified", null, country, null, nationality, null, null, Set.of(), null, null, null,
+                List.of(), List.of(), List.of(), List.of(), "manual", null, Map.of(), addedAt, null, null);
         return new ExecutiveRow(person, company);
     }
 

@@ -25,10 +25,12 @@ import {
 } from "../lib/candidateVocabulary";
 import { careerSummary } from "../lib/careerTimeline";
 import { packageOf } from "../lib/compensation";
+import { useAiEnrichment } from "../lib/useAiEnrichment";
 import { useChangeCandidateStatus } from "../lib/useChangeCandidateStatus";
 import { useProfileSections, type ProfileSection } from "../lib/useProfileSections";
 import { CandidateAvatar } from "./CandidateAvatar";
 import {
+  AiInferredBadge,
   BackgroundFields,
   CareerFields,
   CompensationFields,
@@ -38,6 +40,7 @@ import {
 import { CareerTimeline } from "./CareerTimeline";
 import { CompensationSummary } from "./CompensationSummary";
 import { ProfileSectionForm, SectionEditButton, SectionEditor } from "./ProfileSectionForm";
+import { AiAssessmentBody, AiEnrichButton, aiAssessmentSummary } from "./AiAssessmentSection";
 
 /** What a pencil opens: one of the form's sections, or the mandate's own columns. */
 type EditableSection = Exclude<ProfileFormSection, "note"> | "columns";
@@ -107,6 +110,7 @@ export function CandidateProfile({
   };
 
   const changeStatus = useChangeCandidateStatus(projectId, onSaved);
+  const aiEnrichment = useAiEnrichment(projectId, candidate.id, canWrite);
 
   const startEditing = (section: EditableSection) => {
     setEditing(section);
@@ -188,6 +192,7 @@ export function CandidateProfile({
                   className={candidateStatusStyle(candidate.status).className}
                 />
               )}
+              {canWrite && <AiEnrichButton enrichment={aiEnrichment} />}
             </div>
           </div>
         </div>
@@ -247,6 +252,18 @@ export function CandidateProfile({
             </p>
           )}
         </CollapsibleSection>
+
+        {canWrite && (
+          <CollapsibleSection
+            id="ai"
+            open={sections.isOpen("ai")}
+            onToggle={() => sections.toggle("ai")}
+            title="AI assessment"
+            summary={aiAssessmentSummary(aiEnrichment)}
+          >
+            <AiAssessmentBody enrichment={aiEnrichment} />
+          </CollapsibleSection>
+        )}
 
         <CollapsibleSection
           {...foldProps("experience")}
@@ -365,17 +382,29 @@ export function CandidateProfile({
                   register={form.register}
                   errors={form.formState.errors}
                   storedNationality={candidate.nationality}
+                  aiInferred={new Set(candidate.aiInferredFields)}
                 />
               )}
             </SectionEditor>
           ) : (
             <>
               <DetailGrid>
-                <DetailTile label="Nationality" value={candidate.nationality} />
-                <DetailTile label="Gender" value={candidateGenderLabel(candidate.gender)} />
+                <DetailTile
+                  label="Nationality"
+                  value={candidate.nationality}
+                  badge={candidate.aiInferredFields.includes("nationality") ? <AiInferredBadge /> : undefined}
+                />
+                <DetailTile
+                  label="Gender"
+                  value={candidateGenderLabel(candidate.gender)}
+                  badge={candidate.aiInferredFields.includes("gender") ? <AiInferredBadge /> : undefined}
+                />
                 <DetailTile
                   label="Experience"
                   value={candidate.yearsExperience ? `${candidate.yearsExperience} years` : null}
+                  badge={
+                    candidate.aiInferredFields.includes("yearsExperience") ? <AiInferredBadge /> : undefined
+                  }
                 />
               </DetailGrid>
               <PillRow label="Languages" values={candidate.languages} empty="No languages recorded." />

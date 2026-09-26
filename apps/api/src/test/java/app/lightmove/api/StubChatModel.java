@@ -21,11 +21,22 @@ public class StubChatModel implements ChatModel {
     private static final String REPLY = "stubbed response";
 
     private volatile Prompt lastPrompt;
+    private volatile String reply = REPLY;
 
     @Override
     public ChatResponse call(Prompt prompt) {
         lastPrompt = prompt;
-        return chunk(REPLY);
+        return chunk(reply);
+    }
+
+    /** Answers every prompt with {@code text} until {@link #reset}; the context is shared, so reset it. */
+    public void answerWith(String text) {
+        reply = text;
+    }
+
+    public void reset() {
+        reply = REPLY;
+        lastPrompt = null;
     }
 
     /** The last prompt sent, so a test can see what the model was told. */

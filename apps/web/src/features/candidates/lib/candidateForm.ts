@@ -433,6 +433,7 @@ const PATCHES: {
     };
   },
   background: (parsed) => ({
+    confirmBackground: true,
     nationality: parsed.nationality || undefined,
     gender: parsed.gender || undefined,
     yearsExperience: parsed.yearsExperience,

@@ -3,6 +3,7 @@ import { useCallback, useEffect, useState } from "react";
 /** The folds on the profile panel, in the order they appear. */
 export const PROFILE_SECTIONS = [
   "summary",
+  "ai",
   "experience",
   "education",
   "compensation",
@@ -19,6 +20,7 @@ type OpenState = Record<ProfileSection, boolean>;
 /** What a first visit shows: the three things a consultant reads before deciding to call. */
 const DEFAULTS: OpenState = {
   summary: true,
+  ai: true,
   experience: true,
   education: false,
   compensation: true,

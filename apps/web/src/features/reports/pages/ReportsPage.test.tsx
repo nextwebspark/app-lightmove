@@ -305,6 +305,7 @@ describe("ReportsPage", () => {
       nationality: "Saudi",
       gender: null,
       yearsExperience: null,
+      aiInferredFields: [],
       summary: null,
       note: null,
       compensation: {
