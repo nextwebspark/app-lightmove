@@ -19,7 +19,7 @@ import app.lightmove.api.triagecompany.constant.TriageCompanyStatus;
 import app.lightmove.api.triagecompany.dto.TriageCompaniesResponse;
 import app.lightmove.api.triagecompany.model.TriageCompanyFilters;
 import app.lightmove.api.triagecompany.dto.TriageCompanyResponse;
-import app.lightmove.api.triagecompany.service.TriageCompanyService;
+import app.lightmove.api.triagecompany.service.TriageCompanyReadService;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -36,13 +36,13 @@ import org.springframework.stereotype.Service;
 @Service
 public class TalentMapService {
 
-    private final TriageCompanyService triage;
+    private final TriageCompanyReadService triage;
     private final CandidateService candidates;
     private final GeocodingService geocoding;
     private final MapboxSettings mapbox;
     private final TalentMapSettings caps;
 
-    public TalentMapService(TriageCompanyService triage, CandidateService candidates,
+    public TalentMapService(TriageCompanyReadService triage, CandidateService candidates,
                             GeocodingService geocoding, LightMoveProperties properties) {
         this.triage = triage;
         this.candidates = candidates;

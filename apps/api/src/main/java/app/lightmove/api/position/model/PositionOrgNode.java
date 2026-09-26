@@ -1,6 +1,6 @@
 package app.lightmove.api.position.model;
 
-import app.lightmove.api.core.text.service.TextUtils;
+import app.lightmove.api.core.text.service.SuppliedText;
 import app.lightmove.api.position.constant.FieldSource;
 import jakarta.persistence.Column;
 import jakarta.persistence.Embeddable;
@@ -51,8 +51,8 @@ public class PositionOrgNode {
         PositionOrgNode node = new PositionOrgNode();
         node.nodeId = nodeId;
         node.parentNodeId = parentNodeId;
-        node.title = TextUtils.blankToNull(title);
-        node.name = TextUtils.blankToNull(name);
+        node.title = SuppliedText.blankToNull(title);
+        node.name = SuppliedText.blankToNull(name);
         node.mandateSeat = mandateSeat;
         node.canvasX = canvasX;
         node.canvasY = canvasY;

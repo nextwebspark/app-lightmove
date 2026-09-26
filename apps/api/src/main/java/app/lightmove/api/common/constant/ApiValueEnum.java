@@ -2,10 +2,6 @@ package app.lightmove.api.common.constant;
 
 import app.lightmove.api.core.error.constant.ErrorCode;
 import app.lightmove.api.core.error.model.ApiException;
-import java.util.Arrays;
-import java.util.Map;
-import java.util.function.Function;
-import java.util.stream.Collectors;
 
 /** An enum the API spells by a stable token rather than by its constant name. */
 public interface ApiValueEnum {
@@ -14,7 +10,7 @@ public interface ApiValueEnum {
 
     /** The constant spelled {@code token}, or null when none is. */
     static <E extends Enum<E> & ApiValueEnum> E fromValue(Class<E> type, String token) {
-        return token == null ? null : type.cast(TokenIndex.BY_TYPE.get(type).get(token));
+        return token == null ? null : type.cast(ApiValueTokenIndex.lookup(type, token));
     }
 
     /** {@code whenBlank} for an absent token, otherwise as {@link #require}. */
@@ -29,19 +25,5 @@ public interface ApiValueEnum {
             throw new ApiException(ErrorCode.VALIDATION_FAILED, "Unknown " + label + ": " + token);
         }
         return resolved;
-    }
-
-    final class TokenIndex {
-
-        private static final ClassValue<Map<String, Object>> BY_TYPE = new ClassValue<>() {
-            @Override
-            protected Map<String, Object> computeValue(Class<?> type) {
-                return Arrays.stream(type.getEnumConstants())
-                        .collect(Collectors.toUnmodifiableMap(
-                                constant -> ((ApiValueEnum) constant).value(), Function.identity()));
-            }
-        };
-
-        private TokenIndex() {}
     }
 }

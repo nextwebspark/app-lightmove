@@ -2,7 +2,7 @@ package app.lightmove.api.common.industry.service;
 
 import app.lightmove.api.common.industry.model.ResolvedIndustry;
 import app.lightmove.api.common.service.ClasspathJsonLoader;
-import app.lightmove.api.core.text.service.TextUtils;
+import app.lightmove.api.core.text.service.SuppliedText;
 import java.text.Normalizer;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
@@ -59,7 +59,7 @@ public final class Industries {
 
     /** The universe's label where the map knows one, else the caller's own, trimmed; blank → null. */
     public static String nameOf(String spelling) {
-        String trimmed = TextUtils.collapseWhitespaceToNull(spelling);
+        String trimmed = SuppliedText.collapseWhitespaceToNull(spelling);
         if (trimmed == null) {
             return null;
         }
@@ -82,7 +82,7 @@ public final class Industries {
 
     /** Whether the universe publishes this industry, however it is spelled. */
     public static boolean isKnown(String spelling) {
-        String trimmed = TextUtils.collapseWhitespaceToNull(spelling);
+        String trimmed = SuppliedText.collapseWhitespaceToNull(spelling);
         return trimmed != null && INDUSTRY_BY_SPELLING.containsKey(fold(trimmed));
     }
 

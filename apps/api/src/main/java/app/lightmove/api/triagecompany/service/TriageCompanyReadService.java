@@ -5,7 +5,7 @@ import app.lightmove.api.core.config.CompanyListSettings;
 import app.lightmove.api.core.config.LightMoveProperties;
 import app.lightmove.api.core.error.constant.ErrorCode;
 import app.lightmove.api.core.error.model.ApiException;
-import app.lightmove.api.core.text.service.TextUtils;
+import app.lightmove.api.core.text.service.SuppliedText;
 import app.lightmove.api.project.repository.ProjectRepository;
 import app.lightmove.api.strategy.constant.SortDirection;
 import app.lightmove.api.triagecompany.constant.TriageCompanySortField;
@@ -71,8 +71,8 @@ public class TriageCompanyReadService {
         TriageCompanyStatus status = TriageCompanyStatus.parseOrInUniverse(criteria.status());
         projects.requireInWorkspace(projectId, workspaceId);
 
-        String companyName = TextUtils.blankToNull(criteria.nameQuery());
-        String executiveName = TextUtils.blankToNull(criteria.executiveQuery());
+        String companyName = SuppliedText.blankToNull(criteria.nameQuery());
+        String executiveName = SuppliedText.blankToNull(criteria.executiveQuery());
         List<String> executiveStatuses = resolveExecutiveStatuses(criteria.executiveStatuses());
         Page<TriageCompany> found = EXECUTIVE_STATUS_SORT_TOKEN.equals(criteria.sort())
                 ? findOrderedByExecutiveStatus(projectId, status, companyName, executiveName,
@@ -81,7 +81,7 @@ public class TriageCompanyReadService {
                         PageRequest.of(page, size, resolveSort(criteria)));
 
         return new TriageCompaniesResponse(
-                found.getContent().stream().map(TriageCompanyService::toDto).toList(),
+                found.getContent().stream().map(TriageCompanyResponseMapper::toDto).toList(),
                 found.getTotalElements(), page, size, countsFor(projectId));
     }
 
@@ -166,10 +166,10 @@ public class TriageCompanyReadService {
         PageRequest wholeStage = PageRequest.of(0, cap, Sort.by(Sort.Direction.ASC, "companyName")
                 .and(NEWEST_FIRST));
         Page<TriageCompany> found = findWithFilters(projectId, status,
-                TextUtils.blankToNull(filters.companyName()), TextUtils.blankToNull(filters.executiveName()),
+                SuppliedText.blankToNull(filters.companyName()), SuppliedText.blankToNull(filters.executiveName()),
                 resolveExecutiveStatuses(filters.executiveStatuses()), wholeStage);
         return new TriageCompaniesResponse(
-                found.getContent().stream().map(TriageCompanyService::toDto).toList(),
+                found.getContent().stream().map(TriageCompanyResponseMapper::toDto).toList(),
                 found.getTotalElements(), 0, cap, countsFor(projectId));
     }
 

@@ -22,8 +22,6 @@ import lombok.experimental.Accessors;
  * expanded into {@link #WEBSITE} and {@link #COMPANY_LINKEDIN}; figures leave unformatted so a
  * spreadsheet can sum them.
  */
-@Getter
-@Accessors(fluent = true)
 @RequiredArgsConstructor
 public enum ExportColumn {
 
@@ -75,6 +73,8 @@ public enum ExportColumn {
     /** Every value in one cell, where the grid shows the first and a {@code +N}. */
     private static final String CONTACT_SEPARATOR = "; ";
 
+    @Getter
+    @Accessors(fluent = true)
     private final String header;
     private final Function<ExportRow, String> extractor;
 

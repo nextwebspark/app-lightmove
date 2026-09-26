@@ -1,7 +1,7 @@
 package app.lightmove.api.triagecompany.model;
 
-import static app.lightmove.api.core.text.service.TextUtils.blankToNull;
-import static app.lightmove.api.core.text.service.TextUtils.browsableUrlOrNull;
+import static app.lightmove.api.core.text.service.SuppliedText.blankToNull;
+import static app.lightmove.api.core.text.service.SuppliedText.browsableUrlOrNull;
 
 import app.lightmove.api.common.industry.service.Industries;
 import app.lightmove.api.common.location.service.Countries;

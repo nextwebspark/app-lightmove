@@ -2,7 +2,7 @@ package app.lightmove.api.common.location.service;
 
 import app.lightmove.api.common.location.model.Country;
 import app.lightmove.api.common.service.ClasspathJsonLoader;
-import app.lightmove.api.core.text.service.TextUtils;
+import app.lightmove.api.core.text.service.SuppliedText;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
@@ -52,7 +52,7 @@ public final class Countries {
 
     /** The catalog's English name where it knows one, else the caller's own, trimmed. */
     public static String nameOf(String spelling) {
-        String trimmed = TextUtils.collapseWhitespaceToNull(spelling);
+        String trimmed = SuppliedText.collapseWhitespaceToNull(spelling);
         return trimmed == null ? null : resolve(trimmed).map(Country::name).orElse(trimmed);
     }
 
@@ -81,7 +81,7 @@ public final class Countries {
 
     /** A city in the catalog's casing ("khobar" → "Al Khobar"); an unknown city keeps its spelling. */
     public static String cityOf(String spelling) {
-        String trimmed = TextUtils.collapseWhitespaceToNull(spelling);
+        String trimmed = SuppliedText.collapseWhitespaceToNull(spelling);
         if (trimmed == null) {
             return null;
         }
@@ -109,7 +109,7 @@ public final class Countries {
     }
 
     static String normalise(String value) {
-        String collapsed = TextUtils.collapseWhitespaceToNull(value);
+        String collapsed = SuppliedText.collapseWhitespaceToNull(value);
         return collapsed == null ? "" : collapsed.toLowerCase(Locale.ROOT);
     }
 

@@ -25,13 +25,11 @@ import app.lightmove.api.triagecompany.dto.AddTriageCompanyRequest;
 import app.lightmove.api.triagecompany.dto.CaptureCompanyRequest;
 import app.lightmove.api.triagecompany.dto.EditTriageCompanyRequest;
 import app.lightmove.api.triagecompany.dto.TriageBulkAddResponse;
-import app.lightmove.api.triagecompany.dto.TriageCompaniesResponse;
 import app.lightmove.api.triagecompany.dto.TriageCompanyResponse;
 import app.lightmove.api.triagecompany.dto.UpdateTriageCompanyRequest;
 import app.lightmove.api.triagecompany.model.CapturedCompanyDetails;
 import app.lightmove.api.triagecompany.model.TriageCompany;
 import app.lightmove.api.triagecompany.model.TriageCompanyCapturedEvent;
-import app.lightmove.api.triagecompany.model.TriageCompanyFilters;
 import app.lightmove.api.triagecompany.repository.TriageCompanyRepository;
 import app.lightmove.api.triagecompany.repository.TriageCompanyWriter;
 import jakarta.servlet.http.HttpServletRequest;
@@ -78,13 +76,6 @@ public class TriageCompanyService {
     private final ApplicationEventPublisher events;
     private final ProjectStreamPublisher stream;
     private final LightMoveProperties properties;
-    private final TriageCompanyReadService reads;
-
-    @Transactional(readOnly = true)
-    public TriageCompaniesResponse listAllOfStage(UUID workspaceId, UUID projectId, TriageCompanyStatus status,
-                                                  TriageCompanyFilters filters, int cap) {
-        return reads.listAllOfStage(workspaceId, projectId, status, filters, cap);
-    }
 
     /**
      * The seam {@code candidate} maps an executive through; scoped to the project, so a candidate
@@ -97,7 +88,7 @@ public class TriageCompanyService {
         if (newMapping) {
             company.unflagNoExecutiveFound();
         }
-        return toDto(company);
+        return TriageCompanyResponseMapper.toDto(company);
     }
 
     /** How an import resolves a company cell. Oldest wins: Apollo can publish two accounts under one name. */
@@ -108,7 +99,7 @@ public class TriageCompanyService {
         }
         return triaged.findByProjectIdAndCompanyNameIgnoreCase(projectId, companyName.trim()).stream()
                 .min(Comparator.comparing(TriageCompany::getCreatedAt))
-                .map(TriageCompanyService::toDto);
+                .map(TriageCompanyResponseMapper::toDto);
     }
 
     @Transactional
@@ -122,7 +113,7 @@ public class TriageCompanyService {
         // Already held answers with the row untouched, so re-adding cannot un-decline a company.
         Optional<TriageCompany> held = triaged.findByProjectIdAndApolloAccountId(projectId, accountId);
         if (held.isPresent()) {
-            return toDto(held.get());
+            return TriageCompanyResponseMapper.toDto(held.get());
         }
 
         CompanyScope scope = strategy.scopeOf(workspaceId, projectId);
@@ -147,7 +138,7 @@ public class TriageCompanyService {
                     .detail("apolloAccountId", accountId)
                     .record();
         }
-        return toDto(taken);
+        return TriageCompanyResponseMapper.toDto(taken);
     }
 
     /**
@@ -190,7 +181,7 @@ public class TriageCompanyService {
             announceForResearch(captured, projectId);
         }
         stream.publish(projectId, ProjectStreamKind.COMPANY_CAPTURED);
-        return toDto(captured);
+        return TriageCompanyResponseMapper.toDto(captured);
     }
 
     /**
@@ -206,7 +197,7 @@ public class TriageCompanyService {
         if (resolved.created()) {
             announceForResearch(resolved.company(), projectId);
         }
-        return toDto(resolved.company());
+        return TriageCompanyResponseMapper.toDto(resolved.company());
     }
 
     /** Files the assistant's researched company card. False when the mandate already held it. */
@@ -440,7 +431,7 @@ public class TriageCompanyService {
                 .detailIfPresent("status", request.status())
                 .detailIfPresent("noExecutiveFound", Objects.toString(request.noExecutiveFound(), null))
                 .record();
-        return toDto(company);
+        return TriageCompanyResponseMapper.toDto(company);
     }
 
     /**
@@ -479,7 +470,7 @@ public class TriageCompanyService {
         audit.projectEvent(ProjectEventType.TRIAGE_COMPANY_EDITED, userId, workspaceId, projectId, httpRequest)
                 .detail("triageCompanyId", triageCompanyId.toString())
                 .record();
-        return toDto(company);
+        return TriageCompanyResponseMapper.toDto(company);
     }
 
     /** Custom-column values only — the one edit a market company, which {@link #edit} refuses, allows. */
@@ -497,7 +488,7 @@ public class TriageCompanyService {
                 .detail("triageCompanyId", triageCompanyId.toString())
                 .detail("customFieldsOnly", "true")
                 .record();
-        return toDto(company);
+        return TriageCompanyResponseMapper.toDto(company);
     }
 
     /**
@@ -527,16 +518,5 @@ public class TriageCompanyService {
             throw new ApiException(ErrorCode.VALIDATION_FAILED, "Unknown capture source: " + token);
         }
         return source;
-    }
-
-    static TriageCompanyResponse toDto(TriageCompany company) {
-        return new TriageCompanyResponse(company.getId(), company.getApolloAccountId(),
-                company.getSource().value(), company.getStatus().value(), company.getNote(),
-                company.isNoExecutiveFound(),
-                company.getCompanyName(), company.getIndustry(), company.getCompanyCountry(),
-                company.getCompanyCity(), company.getNumEmployees(), company.getAnnualRevenue(),
-                company.getWebsite(), company.getCompanyLinkedinUrl(), company.getFoundedYear(),
-                company.getShortDescription(), company.getSourceUrl(), company.getLogoUrl(),
-                company.getCustomFields().asMap(), company.getCreatedAt());
     }
 }

@@ -3,7 +3,6 @@ package app.lightmove.api.position.service;
 import app.lightmove.api.common.constant.CompetencyPanel;
 import app.lightmove.api.common.constant.CriterionMode;
 import app.lightmove.api.core.llm.model.BlockedAnswer;
-import app.lightmove.api.core.llm.model.PromptGuardSpec;
 import app.lightmove.api.core.llm.model.Pseudonyms;
 import app.lightmove.api.core.llm.service.StructuredPrompt;
 import app.lightmove.api.core.llm.service.StructuredPromptFactory;

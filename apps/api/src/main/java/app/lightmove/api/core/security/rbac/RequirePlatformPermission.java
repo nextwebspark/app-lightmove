@@ -1,5 +1,6 @@
 package app.lightmove.api.core.security.rbac;
 
+import java.lang.annotation.Documented;
 import java.lang.annotation.ElementType;
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
@@ -8,6 +9,7 @@ import org.springframework.security.access.prepost.PreAuthorize;
 
 /** Gates a controller method on one platform action. */
 @Target(ElementType.METHOD)
+@Documented
 @Retention(RetentionPolicy.RUNTIME)
 @PreAuthorize("@platformAuthorizer.can(principal, '{value}')")
 public @interface RequirePlatformPermission {

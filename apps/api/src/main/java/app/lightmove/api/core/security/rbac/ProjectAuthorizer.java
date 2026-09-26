@@ -10,8 +10,8 @@ import org.springframework.stereotype.Component;
  * {@code @RequireProjectPermission(ProjectAction.TEAM_MANAGE)}.
  *
  * <p>Same contract as {@link WorkspaceAuthorizer}: database re-read, enforcement by throwing,
- * controllers only. The action string resolves through {@link ProjectAction#valueOf}, so a typo in
- * an annotation fails the first request loudly instead of silently granting nothing.
+ * controllers only. {@code @RequireProjectPermission} takes a {@link ProjectAction}, so a misspelled
+ * action is a compile error; the {@code valueOf} here still refuses anything a raw expression passes.
  */
 @Component("projectAuthorizer")
 @RequiredArgsConstructor

@@ -4,8 +4,9 @@ import app.lightmove.api.common.location.service.Countries;
 import java.util.Arrays;
 
 /**
- * A one-line place ("Dubai, United Arab Emirates") read as its city and country. Only the tail is
- * tested against the country catalog; a line whose last segment names no country is all city.
+ * A one-line place ("Dubai, United Arab Emirates") read as its city and country — one parser because
+ * three enrichers each split by hand, and one wrote a bare country code into the country column. Only
+ * the tail is tested against the country catalog; a line whose last segment names no country is all city.
  */
 public record LocationLine(String city, String country) {
 

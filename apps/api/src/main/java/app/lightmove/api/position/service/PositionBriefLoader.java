@@ -15,6 +15,7 @@ import org.springframework.stereotype.Component;
 /**
  * Resolves the brief behind a mandate, drafting one when there is none. Every load goes through the
  * project's {@code (id, workspaceId)} lookup, so a foreign mandate 404s before any brief row is touched.
+ * Drafting runs on two paths — at creation, and lazily on first read — and must behave the same on both.
  */
 @Component
 @RequiredArgsConstructor

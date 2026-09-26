@@ -315,7 +315,7 @@ method plus the records it returns — never another feature's internals:
   (`TriagedCompanyLookupAdapter`) — so the compile-time dependency stays one-way; only a bean
   satisfying the interface crosses back.
 - `candidate` calls `triagecompany` through exactly two public methods, both answering in
-  triagecompany's own DTO: `CandidateService.save` calls
+  triagecompany's own DTO: saving a candidate (`CandidateRequestReader`) calls
   `TriageCompanyService.requireCompanyOfProject` to resolve and scope-check the company an executive
   is being mapped to, and `CandidateService.applyResearch` calls `captureFromResearch` to file a
   captured executive's researched employer into the mandate's universe — that one takes
@@ -327,7 +327,7 @@ method plus the records it returns — never another feature's internals:
   embedding candidates in the company list — and why the employer is filed by a call rather than by an
   event triagecompany would have to know to listen for.
 - `talentmap` reads through two seams built for it and answering in the owning feature's DTO:
-  `TriageCompanyService.listAllOfStage` (one stage, unpaged, capped) and
+  `TriageCompanyReadService.listAllOfStage` (one stage, unpaged, capped) and
   `CandidateService.listAllOfProject` (every executive, capped). It pairs people with companies
   itself, so `triagecompany` still never learns that people exist. `GeocodingService.resolve` is
   the third seam, taking bare city/country pairs — which company or person asked never reaches

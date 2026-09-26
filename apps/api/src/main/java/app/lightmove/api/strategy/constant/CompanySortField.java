@@ -10,8 +10,6 @@ import lombok.experimental.Accessors;
  * The allowlist that keeps a caller's string out of ORDER BY. {@code NULLIF} guards the columns where
  * Apollo encodes "unknown" as zero, which {@code NULLS LAST} would otherwise not sink.
  */
-@Getter
-@Accessors(fluent = true)
 @RequiredArgsConstructor
 public enum CompanySortField implements ApiValueEnum {
 
@@ -23,6 +21,8 @@ public enum CompanySortField implements ApiValueEnum {
     REVENUE("revenue", List.of("NULLIF(annual_revenue, 0)")),
     FOUNDED("founded", List.of("NULLIF(founded_year, 0)"));
 
+    @Getter
+    @Accessors(fluent = true)
     private final String value;
     private final List<String> columns;
 

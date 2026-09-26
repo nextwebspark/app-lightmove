@@ -14,8 +14,9 @@ public class PasswordPolicy {
     public static final int MIN_LENGTH = 8;
 
     /**
-     * BCrypt's limit. Bytes, not characters: {@code encode} throws on a 73-byte input, so measuring
-     * characters let 41 accented ones (83 bytes) past validation and turned signup into a 500.
+     * BCrypt's limit, rejected rather than truncated: two passwords sharing a 72-byte prefix would
+     * otherwise open the same account. Bytes, not characters: {@code encode} throws on a 73-byte input,
+     * so measuring characters let 41 accented ones (83 bytes) past validation and 500'd signup.
      */
     private static final int MAX_BYTES = 72;
 

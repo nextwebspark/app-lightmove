@@ -3,12 +3,13 @@ package app.lightmove.api.core.text.service;
 import java.net.URI;
 
 /**
- * Normalisation for free text. An untouched input posts as {@code ""}, which stored would render as a
- * present-but-blank cell and sort ahead of real values, so "supplied but empty" becomes null once.
+ * Normalisation for text a client supplied directly — a typed-in field or a value the plugin scraped —
+ * where the server has nothing to resolve it against. "Supplied but empty" becomes null once, rather
+ * than rendering as a blank cell that sorts ahead of real values.
  */
-public final class TextUtils {
+public final class SuppliedText {
 
-    private TextUtils() {}
+    private SuppliedText() {}
 
     /** Trimmed, or null when nothing is left. */
     public static String blankToNull(String value) {

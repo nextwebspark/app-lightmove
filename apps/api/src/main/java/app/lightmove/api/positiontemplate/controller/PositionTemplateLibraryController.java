@@ -25,6 +25,7 @@ import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -54,11 +55,11 @@ public class PositionTemplateLibraryController {
 
     @PostMapping
     @RequirePlatformPermission(PlatformAction.TEMPLATE_LIBRARY_MANAGE)
-    public ResponseEntity<PositionTemplateDetail> create(@AuthenticationPrincipal AuthPrincipal principal,
-                                                         @Valid @RequestBody PositionTemplateWriteRequest request,
-                                                         HttpServletRequest httpRequest) {
-        return ResponseEntity.status(HttpStatus.CREATED)
-                .body(library.create(principal.userId(), request, httpRequest));
+    @ResponseStatus(HttpStatus.CREATED)
+    public PositionTemplateDetail create(@AuthenticationPrincipal AuthPrincipal principal,
+                                         @Valid @RequestBody PositionTemplateWriteRequest request,
+                                         HttpServletRequest httpRequest) {
+        return library.create(principal.userId(), request, httpRequest);
     }
 
     @PutMapping("/{code}")

@@ -16,7 +16,7 @@ import app.lightmove.api.triagecompany.constant.TriageCompanyStatus;
 import app.lightmove.api.triagecompany.dto.TriageCompaniesResponse;
 import app.lightmove.api.triagecompany.dto.TriageCompanyResponse;
 import app.lightmove.api.triagecompany.model.TriageCompanyFilters;
-import app.lightmove.api.triagecompany.service.TriageCompanyService;
+import app.lightmove.api.triagecompany.service.TriageCompanyReadService;
 import jakarta.servlet.http.HttpServletRequest;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
@@ -33,14 +33,14 @@ import org.springframework.stereotype.Service;
 @Service
 public class ProjectExportService {
 
-    private final TriageCompanyService triage;
+    private final TriageCompanyReadService triage;
     private final CandidateService candidates;
     private final CustomColumnService customColumns;
     private final CompaniesCsvWriter writer;
     private final AuditService audit;
     private final ExportSettings caps;
 
-    public ProjectExportService(TriageCompanyService triage, CandidateService candidates,
+    public ProjectExportService(TriageCompanyReadService triage, CandidateService candidates,
                                 CustomColumnService customColumns, CompaniesCsvWriter writer,
                                 AuditService audit, LightMoveProperties properties) {
         this.triage = triage;
