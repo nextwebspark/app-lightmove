@@ -405,7 +405,8 @@ V78 adds `app_lm_project_candidate.ai_inferred_fields` jsonb — the keys (`nati
 V79 adds `app_lm_project_candidate.ai_assessment` jsonb — the AI enrichment's summary, per-panel
 score with positives and negatives, and source links; the model's own reading, replaced whole per run.
 V80 adds `ai_enrich_failed_at` — the last AI enrichment run that produced nothing, so the drawer says
-so at once; a later success clears it.
+so at once; a later success clears it. Saving the drawer's Background section (`confirmBackground`)
+confirms its AI values and clears `ai_inferred_fields`.
 V81 lets a person belong to several workspaces: it drops V1's `app_lm_workspace_member_single_org_per_user_uk`
 (the `(workspace_id, user_id)` unique stays — one row per person per workspace whatever its status, so a
 removed member who is re-invited **rejoins** that row rather than inserting) and records which workspace
@@ -414,8 +415,7 @@ through to another the user is still in), and where the next sign-in opens on `a
 (written on every explicit choice — sign-in, switch, create, accept — never by a background refresh).
 Both are backfilled before the index is dropped, while it still guarantees one row to copy from.
 `WorkspaceSelection` is the one place that rule lives; `WorkspaceMemberRepository` deliberately has no
-singular by-user lookup any more, because an `Optional` over two rows throws. Saving the drawer's Background section (`confirmBackground`)
-confirms its AI values and clears `ai_inferred_fields`.
+singular by-user lookup any more, because an `Optional` over two rows throws.
 V76 adds `app_lm_project_candidate.compensation_breakdown` jsonb — the drawer's allowance lines and
 LTIP instruments. `allowances` stays the total every reader sums; `CandidateCompensation` keeps the
 two agreeing (lines supply a missing total, a contradicting total drops them). The editor's

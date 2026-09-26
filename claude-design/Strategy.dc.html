@@ -1250,7 +1250,8 @@ class Component extends DCLogic {
     const stageLabel = (status) => this.STAGES.find((s) => s.status === status).label;
     const countKey = (status) => this.STAGES.find((s) => s.status === status).count;
 
-    const wsMode = (this.props || {}).workspaces || 'one';
+    const wsMode = (() => { try { return new URLSearchParams(location.search).get('workspaces'); } catch (e) { return null; } })()
+      || (this.props || {}).workspaces || 'one';
     const otherWorkspaces = wsMode === 'one' ? [] : [{ id: 'meridian', name: 'Meridian Search Partners', mark: 'M' }];
     const workspaceInvitations = wsMode === 'several-with-invite' ? [{ id: 'inv-northgate', name: 'Northgate Search' }] : [];
     return {

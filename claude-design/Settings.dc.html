@@ -1636,7 +1636,8 @@ class Component extends DCLogic {
     const summary = ['CREATE', 'UPDATE', 'CUSTOMISE', 'UNCHANGED', 'INVALID'].map((a) => [a, plan.rows.filter((r) => r.action === a).length]).filter((p) => p[1] > 0).map((p) => p[1] + ' ' + ACT[p[0]][0].toLowerCase()).join(' · ');
 
     const pwErr = st.pwErr;
-    const wsMode = (this.props || {}).workspaces || 'one';
+    const wsMode = (() => { try { return new URLSearchParams(location.search).get('workspaces'); } catch (e) { return null; } })()
+      || (this.props || {}).workspaces || 'one';
     const otherWorkspaces = wsMode === 'one' ? [] : [{ id: 'meridian', name: 'Meridian Search Partners', mark: 'M' }];
     const workspaceInvitations = wsMode === 'several-with-invite' ? [{ id: 'inv-northgate', name: 'Northgate Search' }] : [];
     const deleteBlocked = st.confirmName.trim().toLowerCase() !== st.wsName.toLowerCase();
