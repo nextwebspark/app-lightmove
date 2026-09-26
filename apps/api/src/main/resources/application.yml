@@ -233,6 +233,10 @@ lightmove:
   # a gate, so each is additionally capped per user. Same in-memory-per-instance caveat as the auth
   # rate limiter above.
   llm:
+    # false boots with no model at all (DisabledLlmConfig): every AI feature then behaves as if Vertex
+    # were unreachable. Needs spring.ai.model.chat and .embedding.text set to none beside it, which
+    # application-e2e.yml does — the one runtime here that holds no GCP credentials.
+    enabled: ${LLM_ENABLED:true}
     # Ceiling on one model call. Applied through the provider's own HttpOptions (see
     # GoogleGenAiClientConfig) rather than a wrapper, so the SDK abandons the request rather than
     # leaving a thread waiting on a socket nobody is going to answer.
