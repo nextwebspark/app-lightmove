@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
-# Phase 2e — the seams around onboarding: the one-workspace-per-user constraint, the verified-email
-# gate in front of the organisation and invite steps, and the invitation redemption paths.
+# Phase 2e — the seams around onboarding: a user in several workspaces and the session that is in
+# one of them, the verified-email gate in front of the organisation and invite steps, and the
+# invitation redemption paths.
 set -uo pipefail
 . "$(dirname "${BASH_SOURCE[0]}")/lib.sh"
 
@@ -25,7 +26,7 @@ relogin() {
   json '.accessToken'
 }
 
-section "N27  one workspace per user"
+section "N27  several workspaces per user, one per session"
 
 OWNER=$(new_email owner)
 OWNER_TOKEN=$(signup_verified "$OWNER" "Owen Owner")
@@ -33,16 +34,21 @@ WS1="Owner Co $(date +%s)$RANDOM"
 make_workspace "$OWNER_TOKEN" "$WS1"
 check_status N27.1 "a verified user creates a workspace outright" 201
 
-make_workspace "$OWNER_TOKEN" "Second Co $RANDOM"
-check_code N27.2 "the same user creating a second workspace" 409 ALREADY_IN_WORKSPACE
+# A user may hold several workspaces since V81; the wizard endpoint no longer refuses a second one
+# (homeFor never sends a placed user back to it, but the API is not what stops them).
+WS2="Second Co $(date +%s)$RANDOM"
+make_workspace "$OWNER_TOKEN" "$WS2"
+check_status N27.2 "the same user creating a second workspace" 201
+WS2_ID=$(json '.workspace.id')
 
-check N27.3 "the partial unique index holds at one active membership" "1" \
+check N27.3 "two active memberships for one user" "2" \
   "$(sql "SELECT count(*) FROM app_lm_workspace_member m JOIN app_lm_user u ON u.id = m.user_id
           WHERE u.email = '$OWNER' AND m.status = 'ACTIVE'")"
 
 # The token minted before the workspace existed carries no wsId; the API must re-read membership.
 get /auth/me -H "$(auth_header "$OWNER_TOKEN")"
-check N27.4 "/auth/me reflects the new workspace on the old token" "$WS1" "$(json '.workspace.name')"
+check N27.4 "/auth/me falls back to the workspace last chosen on a token with none" "$WS2" "$(json '.workspace.name')"
+check N27.4b "/auth/me lists both workspaces" "2" "$(json '.workspaces | length')"
 
 # ...but a tenant route does not, because the gate reads wsId off the token.
 get /invitations -H "$(auth_header "$OWNER_TOKEN")"
@@ -52,6 +58,27 @@ note N27.6 "pre-workspace token on a tenant route -> $LAST_STATUS $(ecode); a ne
 OWNER_TOKEN=$(relogin "$OWNER")
 get /invitations -H "$(auth_header "$OWNER_TOKEN")"
 check_status N27.7 "the same route after re-issuing the token" 200
+
+# Creating was an explicit choice, so the sign-in opened in the second workspace. Switching is the
+# only way a session moves: bearer + cookie, the cookie rotating as a refresh does.
+check N27.8 "the sign-in opened in the workspace created last" "$WS2_ID" \
+  "$(jwt_claims "$OWNER_TOKEN" | jq -r '.wsId')"
+post_json /auth/login "$(jq -nc --arg e "$OWNER" --arg p "$PASSWORD" '{email:$e, password:$p}')" -c "$(jar owner)" >/dev/null
+OWNER_TOKEN=$(json '.accessToken')
+WS1_ID=$(json '.workspaces[0].id')
+http POST /auth/switch-workspace -H 'Content-Type: application/json' -H "$(auth_header "$OWNER_TOKEN")" \
+  -b "$(jar owner)" -c "$(jar owner)" -H "$(csrf_header owner)" -d "$(jq -nc --arg w "$WS1_ID" '{workspaceId:$w}')"
+check_status N27.9 "POST /auth/switch-workspace to the first workspace" 200
+OWNER_TOKEN=$(json '.accessToken')
+check N27.10 "the new token names the workspace switched to" "$WS1_ID" "$(jwt_claims "$OWNER_TOKEN" | jq -r '.wsId')"
+check N27.11 "and /me agrees" "$WS1" "$(json '.user.workspace.name')"
+
+http POST /auth/switch-workspace -H 'Content-Type: application/json' -H "$(auth_header "$OWNER_TOKEN")" \
+  -b "$(jar owner)" -c "$(jar owner)" -H "$(csrf_header owner)" -d '{"workspaceId":"00000000-0000-0000-0000-000000000000"}'
+check_code N27.12 "switching to a workspace you are not in" 404 NOT_A_MEMBER
+http POST /auth/refresh -b "$(jar owner)" -c "$(jar owner)" -H "$(csrf_header owner)"
+check_status N27.13 "the cookie was not spent by the refused switch" 200
+check N27.14 "and the refreshed session stays where the switch put it" "$WS1_ID" "$(jwt_claims "$(json '.accessToken')" | jq -r '.wsId')"
 
 section "N28  the organisation step is shut until the mailbox is proved"
 
@@ -175,30 +202,31 @@ check_status N33.3 "inviting somebody already in this workspace" 200
 check N33.3b "reports nothing sent, rather than counting it as sent" "0" "$(json '.sent')"
 check N33.3c "and mails them nothing" "$LOCKED_MAILS" "$(email_count "invited you to")"
 
-# The interesting case: a user belongs to at most one workspace, enforced by a partial unique index.
-# A rival workspace may still address an invitation at them; acceptance is where it has to fail.
+# The interesting case since V81: a rival workspace addresses an invitation at a member of another
+# workspace, and acceptance ADDS a membership rather than failing — the two firms stay walled apart by
+# the session's wsId, not by refusing the second membership.
 OTHER_OWNER=$(new_email otherowner)
 OTHER_TOKEN=$(signup_verified "$OTHER_OWNER" "Ozzy Other")
-make_workspace "$OTHER_TOKEN" "Rival Co $RANDOM" >/dev/null
+RIVAL_NAME="Rival Co $RANDOM"
+make_workspace "$OTHER_TOKEN" "$RIVAL_NAME" >/dev/null
 OTHER_TOKEN=$(relogin "$OTHER_OWNER")
 
 post_json /invitations "$(jq -nc --arg a "$OWNER" '[{email:$a, role:"MEMBER"}]')" \
   -H "$(auth_header "$OTHER_TOKEN")"
-note N33.4 "a rival workspace inviting a member of another workspace -> $LAST_STATUS $(ecode)"
+check_status N33.4 "a rival workspace inviting a member of another workspace" 200
 
-if [ "$LAST_STATUS" = "200" ]; then
-  RIVAL_TOKEN=$(token_for "$OWNER" accept-invite)
-  post_json /onboarding/invitations/accept "$(jq -nc --arg t "$RIVAL_TOKEN" '{token:$t}')" \
-    -H "$(auth_header "$OWNER_TOKEN")"
-  note N33.5 "the already-placed member accepting it -> $LAST_STATUS $(ecode)"
-  check N33.6 "they still belong to exactly one workspace" "1" \
-    "$(sql "SELECT count(*) FROM app_lm_workspace_member m JOIN app_lm_user u ON u.id = m.user_id
-            WHERE u.email = '$OWNER' AND m.status = 'ACTIVE'")"
-  check N33.7 "and it is still their original workspace" "$WS1 Renamed" \
-    "$(sql "SELECT w.name FROM app_lm_workspace w
-              JOIN app_lm_workspace_member m ON m.workspace_id = w.id
-              JOIN app_lm_user u ON u.id = m.user_id
-            WHERE u.email = '$OWNER' AND m.status = 'ACTIVE'")"
-fi
+get /auth/me -H "$(auth_header "$OWNER_TOKEN")"
+check N33.5 "the invitation shows on /me beside the workspaces they are already in" "$RIVAL_NAME" \
+  "$(json '.pendingInvitations[0].workspaceName')"
+RIVAL_TOKEN=$(token_for "$OWNER" accept-invite)
+post_json /onboarding/invitations/accept "$(jq -nc --arg t "$RIVAL_TOKEN" '{token:$t}')" \
+  -H "$(auth_header "$OWNER_TOKEN")"
+check_status N33.6 "the already-placed member accepting it" 200
+check N33.7 "answers the workspace joined" "$RIVAL_NAME" "$(json '.workspace.name')"
+check N33.8 "they now belong to three workspaces" "3" \
+  "$(sql "SELECT count(*) FROM app_lm_workspace_member m JOIN app_lm_user u ON u.id = m.user_id
+          WHERE u.email = '$OWNER' AND m.status = 'ACTIVE'")"
+# The token they hold still names the first workspace: joining moved nothing until they switch.
+check N33.9 "and the session they accepted with is where it was" "$WS1_ID" "$(jwt_claims "$OWNER_TOKEN" | jq -r '.wsId')"
 
 summary

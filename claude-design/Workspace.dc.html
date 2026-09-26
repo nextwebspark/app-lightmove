@@ -53,8 +53,33 @@
           <div data-screen-label="Workspace menu" style="position:absolute;left:0;top:40px;z-index:80;width:268px;border-radius:10px;border:1px solid var(--line);background:var(--panel);padding:6px;box-shadow:var(--shadow)">
             <div style="display:flex;align-items:center;gap:10px;padding:10px;border-bottom:1px solid var(--line-soft);margin-bottom:6px">
               <img src="assets/al-futtaim-logo.png" alt="Al-Futtaim" style="width:30px;height:30px;object-fit:contain;flex:none">
-              <div style="font:600 13px var(--mono);color:var(--text)">Al-Futtaim</div>
+              <div style="min-width:0">
+                <div style="font:600 13px var(--mono);color:var(--text)">Al-Futtaim</div>
+                <sc-if value="{{ hasWorkspaceList }}" hint-placeholder-val="{{ false }}"><div style="font:400 10px var(--mono);color:var(--text3)">Current workspace</div></sc-if>
+              </div>
             </div>
+            <sc-if value="{{ hasWorkspaceList }}" hint-placeholder-val="{{ false }}">
+              <div style="padding:6px 10px 4px;font:600 10px var(--mono);letter-spacing:.14em;text-transform:uppercase;color:var(--text3)">Workspaces</div>
+              <sc-for list="{{ otherWorkspaces }}" as="w" hint-placeholder-count="1">
+                <button data-id="{{ w.id }}" onClick="{{ switchWorkspace }}" style="display:flex;width:100%;align-items:center;gap:10px;border-radius:6px;padding:8px 10px;text-align:left;font:400 13px var(--sans);color:var(--text2);background:none;border:none;cursor:pointer" style-hover="background:var(--panel2);color:var(--text)">
+                  <span style="width:20px;height:20px;flex:none;border-radius:5px;background:var(--amber-btn);color:var(--on-amber);font:700 10px var(--mono);display:grid;place-items:center">{{ w.mark }}</span>
+                  <span style="min-width:0;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ w.name }}</span>
+                </button>
+              </sc-for>
+              <sc-for list="{{ workspaceInvitations }}" as="inv" hint-placeholder-count="1">
+                <button data-id="{{ inv.id }}" onClick="{{ acceptInvitation }}" style="display:flex;width:100%;align-items:center;gap:10px;border-radius:6px;padding:8px 10px;text-align:left;font:400 13px var(--sans);color:var(--text2);background:none;border:none;cursor:pointer" style-hover="background:var(--panel2);color:var(--text)">
+                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex:none"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8ZM19 8v6M22 11h-6"></path></svg>
+                  <span style="min-width:0;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">Invited to {{ inv.name }}</span>
+                  <span style="flex:none;font:500 11px var(--sans);color:var(--amber)">Accept</span>
+                </button>
+              </sc-for>
+              <div style="margin:6px 4px;height:1px;background:var(--line-soft)"></div>
+            </sc-if>
+            <a href="Settings.dc.html?section=workspaces" style="display:flex;align-items:center;gap:10px;width:100%;padding:8px 10px;border-radius:6px;font:400 13px var(--sans);color:var(--text2);text-decoration:none" style-hover="background:var(--panel2);color:var(--text)">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex:none"><path d="M3 3h7v7H3zM14 3h7v7h-7zM3 14h7v7H3zM14 14h7v7h-7z"></path></svg>
+              Manage workspaces
+            </a>
+            <div style="margin:6px 4px;height:1px;background:var(--line-soft)"></div>
             <a href="Settings.dc.html?section=profile" style="display:flex;align-items:center;gap:10px;width:100%;padding:8px 10px;border-radius:6px;font:400 13px var(--sans);color:var(--text2);text-decoration:none" style-hover="background:var(--panel2);color:var(--text)">
               <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex:none"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2M16 7a4 4 0 1 1-8 0 4 4 0 0 1 8 0"></path></svg>
               Your profile
@@ -701,7 +726,7 @@
 <template id="__bundler_thumbnail"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><rect width="100" height="100" fill="#16171a"></rect><g transform="translate(50 40) scale(.42)" fill="none" stroke="#f8fafc"><path d="M-32 10 L 0 -8 L 32 10 L 0 28 Z M-32 10 V 32 L 0 50 L 32 32 V 10 M0 28 V 50" stroke-width="3" stroke-linejoin="round"></path><path d="M0 -48 L 32 -30 L 0 -12 L -32 -30 Z" fill="#f8fafc" stroke="none"></path></g><text x="50" y="86" fill="#e2b65c" font-family="Geist,Inter,sans-serif" font-size="13" font-weight="700" letter-spacing="2" text-anchor="middle">WS</text></svg></template>
 
 </x-dc>
-<script type="text/x-dc" data-dc-script>
+<script type="text/x-dc" data-dc-script data-props="{&quot;workspaces&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;default&quot;:&quot;one&quot;,&quot;options&quot;:[&quot;one&quot;,&quot;several&quot;,&quot;several-with-invite&quot;],&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;State&quot;}}">
 class Component extends DCLogic {
   constructor(props) {
     super(props);
@@ -1118,6 +1143,10 @@ class Component extends DCLogic {
 
     const pageTitle = st.view === 'all' ? 'All positions' : 'My positions';
     const wsName = 'Al-Futtaim';
+    // The switcher: which of the user's other workspaces the menu lists, and who has invited them.
+    const wsMode = (this.props || {}).workspaces || 'one';
+    const otherWorkspaces = wsMode === 'one' ? [] : [{ id: 'meridian', name: 'Meridian Search Partners', mark: 'M' }];
+    const workspaceInvitations = wsMode === 'several-with-invite' ? [{ id: 'inv-northgate', name: 'Northgate Search' }] : [];
 
     return {
       icons: this.ICONS,
@@ -1128,6 +1157,10 @@ class Component extends DCLogic {
       wsMenuOpen: st.wsMenuOpen,
       toggleWsMenu: () => this.setState({ wsMenuOpen: !st.wsMenuOpen }),
       closeWsMenu: () => this.setState({ wsMenuOpen: false }),
+      hasWorkspaceList: otherWorkspaces.length > 0 || workspaceInvitations.length > 0,
+      otherWorkspaces, workspaceInvitations,
+      switchWorkspace: () => this.setState({ wsMenuOpen: false, toast: 'Switched to Meridian Search Partners' }),
+      acceptInvitation: () => this.setState({ wsMenuOpen: false, toast: 'Joined Northgate Search' }),
 
       navGroups,
       sideWidth: st.collapsed ? '56px' : '210px',

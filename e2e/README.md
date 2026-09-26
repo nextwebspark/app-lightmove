@@ -21,7 +21,7 @@ run-all.sh                the whole matrix, all three boot variants, one exit co
 stack/up.sh  down.sh      bring the stack up / tear it down
 api/lib.sh                curl + assertion helpers, sourced by every script
 api/fixtures.sh           builds the cast (cast.env) that 09-13 and spa/roles.mjs source
-api/01..15*.sh            the matrix, in dependency order
+api/01..16*.sh            the matrix, in dependency order
 spa/run.mjs               headless Chromium over the real SPA
 spa/roles.mjs             the same, once per workspace role
 spa/strategy.mjs          the Strategy screen over the company universe

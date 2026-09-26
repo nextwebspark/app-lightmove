@@ -207,7 +207,7 @@ workspace/                 # feature template — project / position / strategy 
   # model/(Strategy, StrategyFilter, StrategySearch, CompanyScope, CompanyRow) repository/
   # service/(StrategyService, ApolloCompanyQueryService, SectorTaxonomy, …) controller/ dto/
   constant/   MemberStatus, WorkspaceStatus, InvitationStatus
-  model/      Workspace, WorkspaceMember, PendingOnboarding, Invitation,
+  model/      Workspace, WorkspaceMember, Invitation,
               CreateWorkspaceCommand, InviteCommand
   repository/ service/ controller/ dto/(one record per file: WorkspaceSummary, InviteRequest, …)
 
@@ -384,7 +384,7 @@ A further seam is sanctioned for client representatives: `project`'s `ClientRepr
 calls `workspace`'s `InvitationService.onboardClientRepresentative` to grant membership (a representative
 is a CLIENT-role workspace member, and membership is the workspace's to grant). That call chooses the
 path: an email that is **already an active member** gains the `CLIENT` role on their existing membership
-plus an informational email — no invite, because a user is unique to a workspace and this person is in;
+plus an informational email — no invite, because a user holds one row per workspace and this person is in;
 a **stranger** gets the ordinary invitation, and *acceptance* flows back as a
 `ClientRepresentativeAcceptedEvent` the project side listens for — so `workspace` announces the accept in
 primitives and never depends on `project` (mirrors `EmailVerifiedEvent`). Attaching a representative to a

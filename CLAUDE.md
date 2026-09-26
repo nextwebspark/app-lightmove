@@ -12,7 +12,11 @@ workspace `CLIENT` role grants nothing; access is the project `CLIENT` seat, whi
 (read a mandate's content, never edit).
 
 **Built so far: auth, workspace management, projects, the RBAC layer, and the search layer.** Signup
-(3 steps), login, OAuth sign-in (Google and LinkedIn, run in a popup), invitations, the roster, the projects/clients
+(4 steps), login, OAuth sign-in (Google and LinkedIn, run in a popup), invitations, the roster, **several
+workspaces per user** (V81: a staff member founds a further one from Settings → Workspaces through the
+wizard's organisation and invite steps in a modal, an invitation to a second workspace is accepted from
+the topbar menu or the emailed link, and the topbar menu switches — a session is in exactly one
+workspace, `wsId`, and `POST /auth/switch-workspace` is the only thing that moves it), the projects/clients
 screens, a project's Team & access tab, the client registry with representative invites and their
 scoped read-only project access, and **Strategy → Companies**: a filter over the company universe, the
 searches saved against it, and the three Companies pages (In universe / Shortlisted / Declined) where a
@@ -295,7 +299,7 @@ its area — the invariants below are the summary; the skills hold the rationale
 
 - Identity is a **work email**; the domain signals the firm but is **not** unique — a domain does not own a workspace.
 - **Membership is invitation-only**; the one second door is a staff member naming a client representative.
-- A user holds **at most one active workspace** (partial unique index on `user_id`).
+- A user may hold **several** active memberships (V81 dropped V1's partial unique index), but a session is in exactly **one** workspace — the `wsId` claim, chosen at sign-in from `last_workspace_id`, remembered per refresh-token family, and changed only by `POST /auth/switch-workspace`, which is a 404 unless the caller is an active member of the target.
 - Verification gates the *proof of mailbox*, not the channel — an invite token or a password reset proves it too.
 - **Tenant isolation:** every workspace-scoped query filters by `AuthPrincipal.requireWorkspaceId()`, never a request parameter.
 - **Authorise by action, never by role** (`@PreAuthorize` + `@workspaceAuthorizer`/`@projectAuthorizer`); guard beans re-read the DB every check; the JWT `roles` claim is never trusted for a decision.
@@ -401,7 +405,16 @@ V78 adds `app_lm_project_candidate.ai_inferred_fields` jsonb — the keys (`nati
 V79 adds `app_lm_project_candidate.ai_assessment` jsonb — the AI enrichment's summary, per-panel
 score with positives and negatives, and source links; the model's own reading, replaced whole per run.
 V80 adds `ai_enrich_failed_at` — the last AI enrichment run that produced nothing, so the drawer says
-so at once; a later success clears it. Saving the drawer's Background section (`confirmBackground`)
+so at once; a later success clears it.
+V81 lets a person belong to several workspaces: it drops V1's `app_lm_workspace_member_single_org_per_user_uk`
+(the `(workspace_id, user_id)` unique stays — one row per person per workspace whatever its status, so a
+removed member who is re-invited **rejoins** that row rather than inserting) and records which workspace
+a session is in on `app_lm_refresh_token.workspace_id` (a refresh re-reads the membership there and falls
+through to another the user is still in), and where the next sign-in opens on `app_lm_user.last_workspace_id`
+(written on every explicit choice — sign-in, switch, create, accept — never by a background refresh).
+Both are backfilled before the index is dropped, while it still guarantees one row to copy from.
+`WorkspaceSelection` is the one place that rule lives; `WorkspaceMemberRepository` deliberately has no
+singular by-user lookup any more, because an `Optional` over two rows throws. Saving the drawer's Background section (`confirmBackground`)
 confirms its AI values and clears `ai_inferred_fields`.
 V76 adds `app_lm_project_candidate.compensation_breakdown` jsonb — the drawer's allowance lines and
 LTIP instruments. `allowances` stays the total every reader sums; `CandidateCompensation` keeps the
