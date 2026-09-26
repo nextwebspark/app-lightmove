@@ -14,9 +14,7 @@ import app.lightmove.api.core.config.LightMoveProperties;
 import app.lightmove.api.core.error.model.ApiException;
 import app.lightmove.api.core.error.constant.ErrorCode;
 import app.lightmove.api.core.email.service.EmailAddressValidator;
-import app.lightmove.api.workspace.constant.MemberStatus;
 import app.lightmove.api.workspace.model.WorkspaceMember;
-import app.lightmove.api.workspace.repository.WorkspaceMemberRepository;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
@@ -62,7 +60,7 @@ public class OAuth2LoginSuccessHandler implements AuthenticationSuccessHandler {
 
     private final UserRepository users;
     private final UserIdentityRepository identities;
-    private final WorkspaceMemberRepository members;
+    private final WorkspaceSelection selection;
     private final TokenService tokens;
     private final RefreshCookieFactory refreshCookie;
     private final EmailAddressValidator emailValidator;
@@ -170,9 +168,8 @@ public class OAuth2LoginSuccessHandler implements AuthenticationSuccessHandler {
         audit.event(AuthEventType.OAUTH_LOGIN_SUCCEEDED).actor(user.getId()).from(request)
                 .detail("provider", provider).record();
 
-        WorkspaceMember membership = members
-                .findByUserIdAndStatus(user.getId(), MemberStatus.ACTIVE)
-                .orElse(null);
+        WorkspaceMember membership = selection.select(user, user.getLastWorkspaceId()).orElse(null);
+        selection.remember(user, membership);
 
         return tokens.issue(user, membership, request);
     }

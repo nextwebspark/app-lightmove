@@ -287,7 +287,7 @@ public class SecurityConfig {
                         // The token-less variant is verified-only for the same reason stated the other
                         // way round: a verified matching address is the proof the token existed to give.
                         .requestMatchers(API + "/onboarding/invitations/accept").access(verified)
-                        .requestMatchers(API + "/onboarding/accept-invitation").access(verified)
+                        .requestMatchers(API + "/onboarding/invitations/*/accept").access(verified)
 
                         // The rest of onboarding is verified-only: nothing may exist on a firm's
                         // domain on the strength of an address nobody has opened. Safe only because

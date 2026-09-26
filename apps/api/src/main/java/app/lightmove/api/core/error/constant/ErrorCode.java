@@ -47,9 +47,6 @@ public enum ErrorCode {
     EMAIL_NOT_WORK_ADDRESS(HttpStatus.BAD_REQUEST,
             "Please sign up with your work email. Uncava is for search firms, and your email domain identifies your organization"),
 
-    /** The user already has an active workspace. One at a time. */
-    ALREADY_IN_WORKSPACE(HttpStatus.CONFLICT, "You already belong to a workspace"),
-
     TOKEN_INVALID(HttpStatus.BAD_REQUEST, "This link is not valid"),
     TOKEN_EXPIRED(HttpStatus.BAD_REQUEST, "This link has expired"),
 
@@ -71,7 +68,6 @@ public enum ErrorCode {
 
     CURRENT_SESSION_NOT_REVOCABLE(HttpStatus.CONFLICT, "Use sign out to end the session you are using"),
 
-    WORKSPACE_ALREADY_EXISTS(HttpStatus.CONFLICT, "You have already created a workspace"),
     WORKSPACE_NOT_FOUND(HttpStatus.NOT_FOUND, "Workspace not found"),
 
     /**

@@ -10,7 +10,7 @@ import app.lightmove.api.core.security.rbac.RbacService;
 import app.lightmove.api.core.security.rbac.WorkspaceAccess;
 import app.lightmove.api.core.security.rbac.WorkspaceRole;
 import app.lightmove.api.core.security.repository.UserRepository;
-import app.lightmove.api.workspace.constant.MemberStatus;
+import app.lightmove.api.core.security.service.WorkspaceSelection;
 import app.lightmove.api.workspace.model.CreateWorkspaceCommand;
 import app.lightmove.api.workspace.model.Workspace;
 import app.lightmove.api.workspace.model.WorkspaceMember;
@@ -25,8 +25,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 /**
- * How a user ends up in a workspace: creating one at signup, where they are its ADMIN, or being
- * invited, where the admin naming them was the decision.
+ * How a user ends up in a workspace: creating one — at signup, or later from Settings → Workspaces —
+ * where they are its ADMIN, or being invited, where the admin naming them was the decision.
  *
  * <p>There is deliberately no "ask to join". Finding a workspace on your email domain proves you share
  * an employer's mail system, not that you should see an executive-search pipeline — so signup does not
@@ -44,20 +44,25 @@ public class OnboardingService {
     private final RbacService rbac;
     private final AuditService audit;
     private final WorkspaceCompanyResolver companyResolver;
+    private final WorkspaceSelection selection;
 
     /**
-     * Signup step 3 — "create my workspace". Verification is step 2, so the caller is already verified;
-     * {@code SecurityConfig} refuses {@code /onboarding/**} to an unverified session.
+     * "Create my workspace" — signup step 3 for the first, Settings → Workspaces for any further one.
+     * Verification is step 2, so the caller is already verified; {@code SecurityConfig} refuses
+     * {@code /onboarding/**} to an unverified session. A user may run several workspaces, so nothing
+     * here asks whether they already have one.
      *
      * <p>The domain is taken from the user's own address, never from the request — that is the
      * difference between recording which firm a workspace belongs to and letting anyone claim any
      * company's by typing it into a form.
+     *
+     * <p>The new workspace becomes the one the next sign-in opens in; the session that created it
+     * still has to switch (or refresh) to carry it, since the token it holds was minted before.
      */
     @Transactional
     public Workspace createWorkspace(UUID userId, CreateWorkspaceCommand command,
                                      HttpServletRequest request) {
         User user = requireUser(userId);
-        requireNoExistingMembership(userId);
 
         String domain = EmailAddressValidator.domainOf(user.getEmail());
         WorkspaceIdentity identity = companyResolver.resolve(command.name(), command.apolloAccountId());
@@ -67,8 +72,9 @@ public class OnboardingService {
                 identity.name(), slug, domain, userId, identity.company(),
                 command.companySize(), command.primaryRegion(), command.teamFocus()));
 
-        members.save(WorkspaceMember.invite(
+        WorkspaceMember member = members.save(WorkspaceMember.invite(
                 workspace.getId(), userId, Set.of(rbac.role(WorkspaceRole.ADMIN)), userId));
+        selection.remember(user, member);
 
         log.info("Workspace {} ({}) created by user {} on domain {}", workspace.getId(), slug, userId, domain);
         audit.event(WorkspaceEventType.WORKSPACE_CREATED)
@@ -107,12 +113,6 @@ public class OnboardingService {
                 .record();
 
         return workspace;
-    }
-
-    private void requireNoExistingMembership(UUID userId) {
-        if (members.findByUserIdAndStatus(userId, MemberStatus.ACTIVE).isPresent()) {
-            throw ApiException.of(ErrorCode.ALREADY_IN_WORKSPACE);
-        }
     }
 
     private User requireUser(UUID userId) {

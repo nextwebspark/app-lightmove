@@ -14,24 +14,30 @@ import org.springframework.data.repository.query.Param;
 public interface WorkspaceMemberRepository extends JpaRepository<WorkspaceMember, UUID> {
 
     /**
-     * The user's workspace. Singular: a user has at most one <i>active</i> membership, enforced by a
-     * partial unique index on {@code user_id WHERE status = 'ACTIVE'}.
+     * Every workspace the user is in, oldest first. A user may hold several since V81, so there is
+     * deliberately no singular by-user lookup: an {@code Optional} over two rows throws, and "the user's
+     * workspace" is a question only a session can answer ({@code WorkspaceSelection}).
      *
-     * <p>Roles ride along eagerly: this row is what auth responses are assembled from, usually outside
-     * a transaction, where a lazy collection would explode instead of loading.
+     * <p>Roles ride along eagerly: these rows are what auth responses are assembled from, usually
+     * outside a transaction, where a lazy collection would explode instead of loading.
      */
     @EntityGraph(attributePaths = "roles")
-    Optional<WorkspaceMember> findByUserIdAndStatus(UUID userId, MemberStatus status);
+    List<WorkspaceMember> findAllByUserIdAndStatusOrderByJoinedAtAsc(UUID userId, MemberStatus status);
 
     /**
      * The tenant-isolation check, and the reason it takes both ids.
      *
      * <p>Asking "is this user a member of <i>this</i> workspace?" in one query is what stops a caller
      * naming someone else's workspace id and being served their data. Nothing workspace-scoped should
-     * load without this returning an active member first.
+     * load without this returning an active member first. It is also how a session's own membership
+     * is read — the workspace being the access token's {@code wsId}.
      */
     @EntityGraph(attributePaths = "roles")
     Optional<WorkspaceMember> findByWorkspaceIdAndUserIdAndStatus(UUID workspaceId, UUID userId, MemberStatus status);
+
+    /** The row whatever its status — for an invitation that may be reactivating a removed member. */
+    @EntityGraph(attributePaths = "roles")
+    Optional<WorkspaceMember> findByWorkspaceIdAndUserId(UUID workspaceId, UUID userId);
 
     @EntityGraph(attributePaths = "roles")
     List<WorkspaceMember> findByWorkspaceIdAndStatus(UUID workspaceId, MemberStatus status);

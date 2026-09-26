@@ -95,11 +95,28 @@ public class WorkspaceMember extends BaseEntity {
         this.roles.addAll(newRoles);
     }
 
-    /** Frees the one-active-membership index, so the person can join or create another workspace. */
+    /** Self-removal is how someone leaves; the row stays, so a later invitation can {@link #rejoin} it. */
     public void remove() {
         if (!isActive()) {
             throw new ApiException(ErrorCode.CONFLICT, "Only an active membership can be removed, was " + status);
         }
         this.status = MemberStatus.REMOVED;
+    }
+
+    /**
+     * A removed member accepting a fresh invitation. Reactivates the row rather than inserting a
+     * second: {@code (workspace_id, user_id)} is unique whatever the status, so the insert would fail.
+     * The roles are the new invitation's — nothing from the earlier tenure carries over.
+     */
+    public void rejoin(Set<Role> roles, UUID invitedBy) {
+        if (status != MemberStatus.REMOVED) {
+            throw new ApiException(ErrorCode.CONFLICT, "Only a removed membership can rejoin, was " + status);
+        }
+        this.roles.clear();
+        this.roles.addAll(roles);
+        this.status = MemberStatus.ACTIVE;
+        this.joinedAt = Instant.now();
+        this.decidedBy = invitedBy;
+        this.decidedAt = Instant.now();
     }
 }

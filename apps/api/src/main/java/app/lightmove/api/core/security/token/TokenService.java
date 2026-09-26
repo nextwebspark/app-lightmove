@@ -61,6 +61,7 @@ public class TokenService {
         String plaintext = Tokens.generate();
         RefreshToken token = RefreshToken.issue(
                 user.getId(),
+                workspaceIdOf(membership),
                 client,
                 Tokens.hash(plaintext),
                 now.plus(refreshTokenTtl(client)),
@@ -83,8 +84,10 @@ public class TokenService {
      * {@link #handleReuse} revokes the family, throws REFRESH_TOKEN_REUSED, and the revocation is rolled
      * back with the transaction — detection that leaves every stolen token working.
      *
-     * @param membershipLookup resolves current membership, so a role change or removal takes effect at
-     *                         the next refresh rather than persisting for the session's life.
+     * @param membershipLookup resolves the membership in the workspace this session is in, so a role
+     *                         change or removal takes effect at the next refresh rather than persisting
+     *                         for the session's life — and a removal falls through to another workspace
+     *                         the user still belongs to.
      */
     @Transactional(noRollbackFor = ApiException.class)
     public AuthenticatedSession rotate(String presentedToken, HttpServletRequest request,
@@ -139,9 +142,16 @@ public class TokenService {
             throw new ApiException(ErrorCode.REFRESH_TOKEN_INVALID, "User cannot authenticate: " + user.getStatus());
         }
 
+        // Resolved BEFORE the successor is written. This method is noRollbackFor ApiException, so a
+        // refusal thrown after existing.rotateTo(successor) would commit the rotation while the browser
+        // kept the burned cookie — and its next refresh would read as theft and revoke the family.
+        WorkspaceMember membership = membershipLookup.forUser(user.getId(), existing.getWorkspaceId())
+                .orElse(null);
+
         String plaintext = Tokens.generate();
         RefreshToken successor = RefreshToken.issueInFamily(
                 user.getId(),
+                workspaceIdOf(membership),
                 existing.getClient(),
                 Tokens.hash(plaintext),
                 existing.getFamilyId(),
@@ -154,9 +164,18 @@ public class TokenService {
 
         audit.event(AuthEventType.TOKEN_REFRESHED).actor(user.getId()).from(request).record();
 
-        WorkspaceMember membership = membershipLookup.forUser(user.getId()).orElse(null);
         TokenPair pair = new TokenPair(mintAccessToken(user, membership, now), config.accessTokenTtl(), plaintext);
         return new AuthenticatedSession(pair, user, membership);
+    }
+
+    /**
+     * Whose session a presented refresh token is, without spending it. For a caller that must refuse
+     * a cookie that is not the bearer's <i>before</i> rotating: a rotation this method's
+     * {@code noRollbackFor} sibling would commit is a burned cookie in the victim's browser.
+     */
+    @Transactional(readOnly = true)
+    public java.util.Optional<UUID> ownerOf(String presentedToken) {
+        return refreshTokens.findByTokenHash(Tokens.hash(presentedToken)).map(RefreshToken::getUserId);
     }
 
     /** Ends one session. Idempotent — signing out twice is not an error. */
@@ -222,8 +241,10 @@ public class TokenService {
      * without a database round-trip.
      *
      * <p>{@code wsId} and {@code roles} are the tenant claims — signed, so a caller cannot alter them.
-     * Both are absent for a user who has not yet finished signup step 2: they exist but have no
-     * workspace, and the filter chain lets them reach only the onboarding endpoints.
+     * Both are absent for a user who has no workspace: they exist but belong nowhere, and the filter
+     * chain lets them reach only the onboarding endpoints. A user in several workspaces still gets
+     * exactly one {@code wsId} — the session's — and changes it only through
+     * {@code /auth/switch-workspace}.
      *
      * <p>The trade-off in putting roles in the token is staleness: revoking someone's admin rights
      * does not reach an already-minted token. That window is bounded by {@code accessTokenTtl} — 15
@@ -252,6 +273,10 @@ public class TokenService {
         return jwtEncoder.encode(JwtEncoderParameters.from(claims.build())).getTokenValue();
     }
 
+    private static UUID workspaceIdOf(WorkspaceMember membership) {
+        return membership == null || !membership.isActive() ? null : membership.getWorkspaceId();
+    }
+
     private Duration refreshTokenTtl(SessionClient client) {
         return client == SessionClient.BROWSER_EXTENSION
                 ? config.extension().refreshTokenTtl()
@@ -276,9 +301,14 @@ public class TokenService {
         java.util.Optional<User> byId(UUID userId);
     }
 
+    /**
+     * Answers the membership a rotated session should carry. {@code sessionWorkspaceId} is the
+     * workspace the presented token was in (null for a user who had none); the lookup decides whether
+     * the user is still a member there, and what to fall back to if not.
+     */
     @FunctionalInterface
     public interface MembershipLookup {
-        java.util.Optional<WorkspaceMember> forUser(UUID userId);
+        java.util.Optional<WorkspaceMember> forUser(UUID userId, UUID sessionWorkspaceId);
     }
 
     /** Exposed for the controller, which needs it to decide how long the refresh cookie lives. */

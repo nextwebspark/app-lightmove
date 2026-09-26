@@ -49,6 +49,7 @@ public class PasswordResetService {
     private final PasswordPolicy passwords;
     private final TokenService tokens;
     private final AuthenticationService authentication;
+    private final WorkspaceSelection selection;
     private final EmailSender emailSender;
     private final EmailTemplates templates;
     private final AuditService audit;
@@ -155,7 +156,8 @@ public class PasswordResetService {
                 .detail("emailVerifiedByReset", String.valueOf(verifiedByReset))
                 .record();
 
-        WorkspaceMember membership = authentication.activeMembership(user.getId()).orElse(null);
+        WorkspaceMember membership = selection.select(user, user.getLastWorkspaceId()).orElse(null);
+        selection.remember(user, membership);
         return tokens.issue(user, membership, request);
     }
 

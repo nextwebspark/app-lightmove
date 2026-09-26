@@ -9,6 +9,7 @@ import jakarta.persistence.Enumerated;
 import jakarta.persistence.Table;
 import java.time.Duration;
 import java.time.Instant;
+import java.util.UUID;
 import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
@@ -86,6 +87,15 @@ public class User extends BaseEntity {
 
     @Column(name = "privacy_policy_version", length = 32)
     private String privacyPolicyVersion;
+
+    /**
+     * The workspace the next sign-in opens in. Written on every explicit choice — sign-in, switch,
+     * creating or joining a workspace — and never by a background refresh, so two browsers open in two
+     * workspaces do not flip it every fifteen minutes. May name a workspace the user has since left;
+     * {@code WorkspaceSelection} checks the membership before honouring it.
+     */
+    @Column(name = "last_workspace_id")
+    private UUID lastWorkspaceId;
 
     /**
      * Offers a picture from {@code source}, and takes it only if that source is entitled to.
@@ -189,6 +199,10 @@ public class User extends BaseEntity {
         this.failedLoginAttempts = 0;
         this.lockedUntil = null;
         this.lastLoginAt = now;
+    }
+
+    public void rememberWorkspace(UUID workspaceId) {
+        this.lastWorkspaceId = workspaceId;
     }
 
     public void changePassword(String newPasswordHash) {

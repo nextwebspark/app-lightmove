@@ -9,6 +9,7 @@ import app.lightmove.api.core.security.model.AuthenticatedSession;
 import app.lightmove.api.core.security.model.User;
 import app.lightmove.api.core.security.rbac.WorkspaceRole;
 import app.lightmove.api.core.security.service.AuthenticationService;
+import app.lightmove.api.core.security.service.WorkspaceSelection;
 import app.lightmove.api.core.security.token.RefreshCookieFactory;
 import app.lightmove.api.strategy.dto.CompanySuggestionsResponse;
 import app.lightmove.api.strategy.service.CompanySuggestionSearch;
@@ -18,12 +19,14 @@ import app.lightmove.api.workspace.dto.CreateWorkspaceRequest;
 import app.lightmove.api.workspace.dto.InviteRequest;
 import app.lightmove.api.workspace.model.CreateWorkspaceCommand;
 import app.lightmove.api.workspace.model.InviteCommand;
+import app.lightmove.api.workspace.model.Workspace;
 import app.lightmove.api.workspace.model.WorkspaceMember;
 import app.lightmove.api.workspace.service.InvitationService;
 import app.lightmove.api.workspace.service.OnboardingService;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import java.util.List;
+import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
@@ -31,6 +34,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -56,22 +60,24 @@ public class OnboardingController {
     private final RefreshCookieFactory refreshCookie;
     private final CompanySuggestionSearch suggestions;
     private final RateLimitGuard rateLimit;
+    private final WorkspaceSelection selection;
 
     /**
-     * Signup step 3 — create your workspace. The client must then call {@code /auth/refresh}: the
-     * access token it holds was minted before the workspace existed and carries no tenant claim.
+     * Signup step 3 — create your workspace. Answers with the new workspace as the user's
+     * {@code workspace}, but the client must then call {@code /auth/refresh}: the access token it holds
+     * was minted before the workspace existed and carries no tenant claim.
      */
     @PostMapping("/workspace")
     public ResponseEntity<UserResponse> createWorkspace(@AuthenticationPrincipal AuthPrincipal principal,
                                                         @Valid @RequestBody CreateWorkspaceRequest request,
                                                         HttpServletRequest httpRequest) {
-        onboarding.createWorkspace(
+        Workspace workspace = onboarding.createWorkspace(
                 principal.userId(),
                 new CreateWorkspaceCommand(request.name(), request.apolloAccountId(), request.companySize(),
                         request.primaryRegion(), request.teamFocus()),
                 httpRequest);
 
-        return ResponseEntity.status(HttpStatus.CREATED).body(currentUser(principal));
+        return ResponseEntity.status(HttpStatus.CREATED).body(userIn(principal, workspace.getId()));
     }
 
     /**
@@ -147,21 +153,23 @@ public class OnboardingController {
     public ResponseEntity<UserResponse> acceptInvitation(@AuthenticationPrincipal AuthPrincipal principal,
                                                          @Valid @RequestBody AcceptInvitationRequest request,
                                                          HttpServletRequest httpRequest) {
-        invitations.accept(request.token(), principal.userId(), httpRequest);
-        return ResponseEntity.ok(currentUser(principal));
+        WorkspaceMember member = invitations.accept(request.token(), principal.userId(), httpRequest);
+        return ResponseEntity.ok(joined(principal, member));
     }
 
     /**
-     * Redeems the caller's own outstanding invitation, with no token.
-     *
-     * <p>For the invitee who verifies in a fresh tab, where the emailed token lives in another tab's
-     * sessionStorage. A verified address is the very thing the token existed to prove.
+     * Redeems one of the caller's own outstanding invitations — the ones {@code /me} lists — with no
+     * token. For the invitee who verifies in a fresh tab, where the emailed token lives in another
+     * tab's sessionStorage, and for a placed user joining a second workspace from the app. A verified
+     * matching address is the very thing the token existed to prove; an id that is not addressed to
+     * the caller redeems nothing.
      */
-    @PostMapping("/accept-invitation")
-    public ResponseEntity<UserResponse> acceptPendingInvitation(@AuthenticationPrincipal AuthPrincipal principal,
-                                                                 HttpServletRequest httpRequest) {
-        invitations.acceptForUser(principal.userId(), httpRequest);
-        return ResponseEntity.ok(currentUser(principal));
+    @PostMapping("/invitations/{invitationId}/accept")
+    public ResponseEntity<UserResponse> acceptInvitationById(@AuthenticationPrincipal AuthPrincipal principal,
+                                                             @PathVariable UUID invitationId,
+                                                             HttpServletRequest httpRequest) {
+        WorkspaceMember member = invitations.acceptById(invitationId, principal.userId(), httpRequest);
+        return ResponseEntity.ok(joined(principal, member));
     }
 
     /**
@@ -179,10 +187,24 @@ public class OnboardingController {
                 .body(assembler.assemble(session.tokens(), session.user(), session.membership()));
     }
 
+    /** The caller as their session sees them — the workspace being the token's, not a guess. */
     private UserResponse currentUser(AuthPrincipal principal) {
         User user = authentication.requireUser(principal.userId());
-        WorkspaceMember membership = authentication.activeMembership(user.getId()).orElse(null);
-        return assembler.user(user, membership);
+        return assembler.user(user, authentication.membershipForSession(user.getId(), principal.workspaceId())
+                .orElse(null));
+    }
+
+    /**
+     * The caller with the workspace they just created or joined as {@code workspace}, so the SPA can
+     * switch into it by id. Their token still names the old one until it does.
+     */
+    private UserResponse userIn(AuthPrincipal principal, UUID workspaceId) {
+        User user = authentication.requireUser(principal.userId());
+        return assembler.user(user, selection.membershipIn(user.getId(), workspaceId).orElse(null));
+    }
+
+    private UserResponse joined(AuthPrincipal principal, WorkspaceMember member) {
+        return assembler.user(authentication.requireUser(principal.userId()), member);
     }
 
     public record InviteResult(int sent) {

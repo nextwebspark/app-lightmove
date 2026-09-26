@@ -20,9 +20,7 @@ import app.lightmove.api.core.ratelimit.service.RateLimitGuard;
 import app.lightmove.api.core.email.service.EmailAddressValidator;
 import app.lightmove.api.core.email.service.EmailSender;
 import app.lightmove.api.core.email.service.EmailTemplates;
-import app.lightmove.api.workspace.constant.MemberStatus;
 import app.lightmove.api.workspace.model.WorkspaceMember;
-import app.lightmove.api.workspace.repository.WorkspaceMemberRepository;
 import jakarta.servlet.http.HttpServletRequest;
 import java.time.Instant;
 import java.util.Optional;
@@ -36,7 +34,8 @@ import org.springframework.transaction.annotation.Transactional;
  *
  * <p>Signup creates a user and stops there, deliberately: an email domain says which <i>firm</i>
  * someone works at, not which <i>workspace</i>, since one firm may run several and membership is
- * invitation-only. Step 2 has them create their own or accept an invitation.
+ * invitation-only. The wizard's organisation step has them create their own or accept an invitation,
+ * and a session opens in whichever of their workspaces {@link WorkspaceSelection} settles on.
  */
 @Service
 @Slf4j
@@ -47,7 +46,7 @@ public class AuthenticationService {
 
     private final UserRepository users;
     private final UserIdentityRepository identities;
-    private final WorkspaceMemberRepository members;
+    private final WorkspaceSelection selection;
     private final PasswordPolicy passwords;
     private final TokenService tokens;
     private final VerificationService verification;
@@ -59,14 +58,14 @@ public class AuthenticationService {
     private final AuthSettings config;
 
     public AuthenticationService(UserRepository users, UserIdentityRepository identities,
-                                 WorkspaceMemberRepository members, PasswordPolicy passwords,
+                                 WorkspaceSelection selection, PasswordPolicy passwords,
                                  TokenService tokens, VerificationService verification,
                                  EmailAddressValidator emailValidator, RateLimitGuard rateLimit,
                                  AuditService audit, EmailSender emailSender,
                                  EmailTemplates templates, LightMoveProperties properties) {
         this.users = users;
         this.identities = identities;
-        this.members = members;
+        this.selection = selection;
         this.passwords = passwords;
         this.tokens = tokens;
         this.verification = verification;
@@ -262,7 +261,8 @@ public class AuthenticationService {
         audit.event(AuthEventType.LOGIN_SUCCEEDED).actor(user.getId()).from(request).record();
 
         // Null for a user who has not finished onboarding — the token then carries no tenant claim.
-        WorkspaceMember membership = activeMembership(user.getId()).orElse(null);
+        WorkspaceMember membership = selection.select(user, user.getLastWorkspaceId()).orElse(null);
+        selection.remember(user, membership);
         return tokens.issue(user, membership, request);
     }
 
@@ -275,7 +275,39 @@ public class AuthenticationService {
      */
     @Transactional(noRollbackFor = ApiException.class)
     public AuthenticatedSession refresh(String refreshToken, HttpServletRequest request) {
-        return tokens.rotate(refreshToken, request, users::findById, this::activeMembership);
+        return tokens.rotate(refreshToken, request, users::findById, this::membershipForSession);
+    }
+
+    /**
+     * Moves the session into another of the caller's workspaces — the <b>only</b> way {@code wsId}
+     * changes. The target membership is checked first, so a refusal burns nothing: the presented
+     * cookie stays valid and the caller stays where they were. A miss is {@code NOT_A_MEMBER}, the
+     * same 404 a stranger gets, so the existence of a workspace is never confirmed to an outsider.
+     *
+     * <p>Rotates the family like a refresh (same theft detection, same client fence), and refuses a
+     * cookie that belongs to a different user than the bearer: a token for A must never rotate B's
+     * session.
+     */
+    @Transactional(noRollbackFor = ApiException.class)
+    public AuthenticatedSession switchWorkspace(UUID userId, UUID workspaceId, String refreshToken,
+                                                HttpServletRequest request) {
+        WorkspaceMember target = selection.membershipIn(userId, workspaceId)
+                .orElseThrow(() -> ApiException.of(ErrorCode.NOT_A_MEMBER));
+
+        // Checked before rotating, not after: rotate() commits even when this method then throws, and
+        // a cookie rotated on someone else's behalf is a cookie its owner can no longer present.
+        if (!tokens.ownerOf(refreshToken).filter(userId::equals).isPresent()) {
+            throw new ApiException(ErrorCode.REFRESH_TOKEN_INVALID,
+                    "Refresh cookie is not the bearer's, or does not exist");
+        }
+
+        AuthenticatedSession session = tokens.rotate(refreshToken, request, users::findById,
+                (tokenUserId, ignoredSessionWorkspace) -> Optional.of(target));
+
+        selection.remember(session.user(), target);
+        audit.event(AuthEventType.WORKSPACE_SWITCHED).actor(userId).workspace(workspaceId).from(request)
+                .record();
+        return session;
     }
 
     @Transactional
@@ -327,12 +359,14 @@ public class AuthenticationService {
      * credential would otherwise stay live for its full TTL.
      */
     @Transactional
-    public AuthenticatedSession pairExtension(UUID userId, HttpServletRequest request) {
+    public AuthenticatedSession pairExtension(UUID userId, UUID pairedWorkspaceId, HttpServletRequest request) {
         User user = requireUser(userId);
         tokens.revokeSessionsForClient(userId, SessionClient.BROWSER_EXTENSION, RevokeReason.SUPERSEDED);
 
-        AuthenticatedSession paired = tokens.issue(user, activeMembership(userId).orElse(null), request,
-                SessionClient.BROWSER_EXTENSION);
+        // The extension is paired into the workspace the web session is in, and its own family keeps
+        // that workspace afterwards: switching the web app moves nothing here. Re-pairing does.
+        WorkspaceMember membership = selection.select(user, pairedWorkspaceId).orElse(null);
+        AuthenticatedSession paired = tokens.issue(user, membership, request, SessionClient.BROWSER_EXTENSION);
 
         audit.event(AuthEventType.EXTENSION_PAIRED).actor(userId).from(request).record();
         return paired;
@@ -345,13 +379,18 @@ public class AuthenticationService {
      */
     @Transactional(noRollbackFor = ApiException.class)
     public AuthenticatedSession refreshExtension(String refreshToken, HttpServletRequest request) {
-        return tokens.rotate(refreshToken, request, users::findById, this::activeMembership,
+        return tokens.rotate(refreshToken, request, users::findById, this::membershipForSession,
                 SessionClient.BROWSER_EXTENSION);
     }
 
+    /**
+     * The membership a session carries: the one in the workspace the session is already in, whether
+     * that is the access token's {@code wsId} or the refresh token's. Falls back through
+     * {@link WorkspaceSelection} when the user has since left it.
+     */
     @Transactional(readOnly = true)
-    public Optional<WorkspaceMember> activeMembership(UUID userId) {
-        return members.findByUserIdAndStatus(userId, MemberStatus.ACTIVE);
+    public Optional<WorkspaceMember> membershipForSession(UUID userId, UUID sessionWorkspaceId) {
+        return users.findById(userId).flatMap(user -> selection.select(user, sessionWorkspaceId));
     }
 
     @Transactional(readOnly = true)

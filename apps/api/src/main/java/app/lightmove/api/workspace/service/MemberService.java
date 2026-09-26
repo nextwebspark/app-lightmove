@@ -71,7 +71,7 @@ public class MemberService {
         return member;
     }
 
-    /** Removal frees the one-active-membership index; self-removal is how someone leaves. */
+    /** Self-removal is how someone leaves; their session falls through to another workspace at its next refresh. */
     @Transactional
     public void remove(UUID actorId, UUID workspaceId, UUID memberId, HttpServletRequest request) {
         WorkspaceMember member = access.requireActiveMemberRow(memberId, workspaceId);

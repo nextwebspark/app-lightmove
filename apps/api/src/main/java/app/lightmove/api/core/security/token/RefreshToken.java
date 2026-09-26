@@ -53,6 +53,15 @@ public class RefreshToken {
     @Column(name = "family_id", nullable = false)
     private UUID familyId;
 
+    /**
+     * The workspace this session is in — the one the access token's {@code wsId} names. Carried by the
+     * family so a refresh re-reads the membership <i>there</i>, rather than guessing which of a user's
+     * workspaces they meant; {@code /auth/switch-workspace} is the only thing that changes it. Null for
+     * a user who has no workspace yet.
+     */
+    @Column(name = "workspace_id")
+    private UUID workspaceId;
+
     @Column(name = "expires_at", nullable = false)
     private Instant expiresAt;
 
@@ -80,16 +89,18 @@ public class RefreshToken {
     private Instant createdAt = Instant.now();
 
     /** Opens a new family: this is a fresh login, not a continuation of an existing session. */
-    public static RefreshToken issue(UUID userId, SessionClient client, String tokenHash, Instant expiresAt,
-                                     String userAgent, String ipAddress) {
-        return issueInFamily(userId, client, tokenHash, UUID.randomUUID(), expiresAt, userAgent, ipAddress);
+    public static RefreshToken issue(UUID userId, UUID workspaceId, SessionClient client, String tokenHash,
+                                     Instant expiresAt, String userAgent, String ipAddress) {
+        return issueInFamily(userId, workspaceId, client, tokenHash, UUID.randomUUID(), expiresAt,
+                userAgent, ipAddress);
     }
 
     /** Continues an existing family: the same session, one rotation later. */
-    public static RefreshToken issueInFamily(UUID userId, SessionClient client, String tokenHash, UUID familyId,
-                                             Instant expiresAt, String userAgent, String ipAddress) {
+    public static RefreshToken issueInFamily(UUID userId, UUID workspaceId, SessionClient client, String tokenHash,
+                                             UUID familyId, Instant expiresAt, String userAgent, String ipAddress) {
         RefreshToken token = new RefreshToken();
         token.userId = userId;
+        token.workspaceId = workspaceId;
         token.client = client;
         token.tokenHash = tokenHash;
         token.familyId = familyId;

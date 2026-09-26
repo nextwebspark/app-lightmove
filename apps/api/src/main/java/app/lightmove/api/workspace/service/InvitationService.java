@@ -18,6 +18,7 @@ import app.lightmove.api.core.security.rbac.WorkspaceAccess;
 import app.lightmove.api.core.security.rbac.WorkspaceRole;
 import app.lightmove.api.core.security.repository.UserRepository;
 import app.lightmove.api.core.security.service.AuthenticationService;
+import app.lightmove.api.core.security.service.WorkspaceSelection;
 import app.lightmove.api.core.security.token.TokenService;
 import app.lightmove.api.core.security.token.Tokens;
 import app.lightmove.api.workspace.constant.InvitationStatus;
@@ -80,6 +81,7 @@ public class InvitationService {
     private final TokenService tokens;
     private final RateLimitGuard rateLimit;
     private final ApplicationEventPublisher events;
+    private final WorkspaceSelection selection;
 
     /** Invites colleagues. Skippable — the wizard's "Skip for now" simply sends an empty list. */
     @Transactional
@@ -217,8 +219,8 @@ public class InvitationService {
 
     /**
      * Onboards a client representative. An existing active member skips the invitation entirely and
-     * gains the CLIENT role on their current membership, because a user is unique to a workspace and
-     * this person is already in; a stranger gets the ordinary invitation flow.
+     * gains the CLIENT role on their current membership, because a user holds one row per workspace
+     * and this person is already in; a stranger gets the ordinary invitation flow.
      */
     @Transactional
     public ClientRepresentativeOnboarding onboardClientRepresentative(
@@ -306,20 +308,22 @@ public class InvitationService {
     }
 
     /**
-     * Accepts the caller's own outstanding invitation, with no token.
+     * Accepts one of the caller's own outstanding invitations by id, with no token.
      *
      * <p>The token's only job was proving control of the invited mailbox, and an authenticated,
      * <b>email-verified</b> user whose address matches has already proven that. It is what lets an
      * invitee who verified in a fresh tab — where the emailed token lives in another tab's
-     * sessionStorage — still land in the right workspace rather than create-your-own.
+     * sessionStorage — still land in the right workspace, and a placed user join a second one from the
+     * app. An id that is not addressed to the caller is {@code INVITATION_INVALID}, indistinguishable
+     * from one that does not exist, so ids confirm nothing about other people's invitations.
      */
     @Transactional
-    public WorkspaceMember acceptForUser(UUID userId, HttpServletRequest request) {
+    public WorkspaceMember acceptById(UUID invitationId, UUID userId, HttpServletRequest request) {
         Instant now = Instant.now();
         User user = requireUser(userId);
 
-        Invitation invitation = invitations
-                .findFirstByEmailAndStatusOrderByCreatedAtDesc(user.getEmail(), InvitationStatus.PENDING)
+        Invitation invitation = invitations.findById(invitationId)
+                .filter(found -> found.getEmail().equalsIgnoreCase(user.getEmail()))
                 .filter(found -> found.isRedeemable(now))
                 .orElseThrow(() -> ApiException.of(ErrorCode.INVITATION_INVALID));
 
@@ -378,14 +382,22 @@ public class InvitationService {
             throw ApiException.of(ErrorCode.EMAIL_NOT_VERIFIED);
         }
 
-        if (members.findByUserIdAndStatus(user.getId(), MemberStatus.ACTIVE).isPresent()) {
-            throw ApiException.of(ErrorCode.ALREADY_IN_WORKSPACE);
-        }
-
         invitation.accept(user.getId(), now);
-        WorkspaceMember member = members.save(WorkspaceMember.invite(
-                invitation.getWorkspaceId(), user.getId(), Set.of(invitation.getRole()),
-                invitation.getInvitedBy()));
+
+        // One row per person per workspace, whatever its status. A member who left and was invited
+        // back reactivates that row — inserting a second would trip the unique constraint — and one
+        // who is somehow already active keeps what they have: the invitation is moot, not an error.
+        WorkspaceMember member = members.findByWorkspaceIdAndUserId(invitation.getWorkspaceId(), user.getId())
+                .map(existing -> {
+                    if (!existing.isActive()) {
+                        existing.rejoin(Set.of(invitation.getRole()), invitation.getInvitedBy());
+                    }
+                    return existing;
+                })
+                .orElseGet(() -> members.save(WorkspaceMember.invite(
+                        invitation.getWorkspaceId(), user.getId(), Set.of(invitation.getRole()),
+                        invitation.getInvitedBy())));
+        selection.remember(user, member);
 
         log.info("User {} accepted invitation to workspace {} as {}",
                 user.getId(), invitation.getWorkspaceId(), invitation.getRole().getName());

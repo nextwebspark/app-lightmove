@@ -37,9 +37,8 @@ public interface InvitationRepository extends JpaRepository<Invitation, UUID> {
             UUID workspaceId, UUID clientId, String email, InvitationStatus status);
 
     /**
-     * The caller's own outstanding invitation, for the server-derived invitee routing on {@code /me}
-     * and the token-less accept. Most recent first, because a person can hold several dead invitations
-     * from workspaces that since re-invited or gave up.
+     * The caller's own outstanding invitations, for {@code /me} and the token-less accept. A person may
+     * be invited to several workspaces at once, so this is a list, newest first.
      */
-    Optional<Invitation> findFirstByEmailAndStatusOrderByCreatedAtDesc(String email, InvitationStatus status);
+    List<Invitation> findByEmailAndStatusOrderByCreatedAtDesc(String email, InvitationStatus status);
 }

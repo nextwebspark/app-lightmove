@@ -54,8 +54,11 @@ public class ExtensionAuthController {
         // Rate-limited despite being authenticated; RateLimitGuard.checkExtensionPairing says why.
         rateLimit.checkExtensionPairing(principal.email(), httpRequest);
 
+        // Paired into the workspace the web session is in. The extension's family keeps it from
+        // here on; switching the web app later does not move an already-paired extension.
         return ResponseEntity.status(HttpStatus.CREATED)
-                .body(toSession(authentication.pairExtension(principal.userId(), httpRequest)));
+                .body(toSession(authentication.pairExtension(
+                        principal.userId(), principal.workspaceId(), httpRequest)));
     }
 
     /**
