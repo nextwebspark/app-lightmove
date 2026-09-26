@@ -19,6 +19,7 @@ import app.lightmove.api.workspace.dto.InviteRequest;
 import app.lightmove.api.workspace.model.CreateWorkspaceCommand;
 import app.lightmove.api.workspace.model.InviteCommand;
 import app.lightmove.api.workspace.model.WorkspaceMember;
+import app.lightmove.api.workspace.service.InvitationAcceptService;
 import app.lightmove.api.workspace.service.InvitationService;
 import app.lightmove.api.workspace.service.OnboardingService;
 import jakarta.servlet.http.HttpServletRequest;
@@ -52,6 +53,7 @@ public class OnboardingController {
 
     private final OnboardingService onboarding;
     private final InvitationService invitations;
+    private final InvitationAcceptService invitationAccept;
     private final AuthenticationService authentication;
     private final AuthResponseAssembler assembler;
     private final RefreshCookieFactory refreshCookie;
@@ -131,14 +133,14 @@ public class OnboardingController {
     /**
      * What an invitation link leads to, readable before the invitee has an account.
      *
-     * <p>Anonymous on purpose — see {@code InvitationService.preview}. The signup form has to know
+     * <p>Anonymous on purpose — see {@code InvitationAcceptService.preview}. The signup form has to know
      * which address the invitation names so it can pin the field there; without it the invitee signs
      * up with any address and acceptance refuses them for a mismatch they were never shown.
      */
     @GetMapping("/invitations/preview")
-    public InvitationService.InvitationPreview previewInvitation(
+    public InvitationAcceptService.InvitationPreview previewInvitation(
             @RequestParam("token") String token) {
-        return invitations.preview(token);
+        return invitationAccept.preview(token);
     }
 
     /**
@@ -149,7 +151,7 @@ public class OnboardingController {
     public UserResponse acceptInvitation(@AuthenticationPrincipal AuthPrincipal principal,
                                          @Valid @RequestBody AcceptInvitationRequest request,
                                          HttpServletRequest httpRequest) {
-        invitations.accept(request.token(), principal.userId(), httpRequest);
+        invitationAccept.accept(request.token(), principal.userId(), httpRequest);
         return currentUser(principal);
     }
 
@@ -162,7 +164,7 @@ public class OnboardingController {
     @PostMapping("/accept-invitation")
     public UserResponse acceptPendingInvitation(@AuthenticationPrincipal AuthPrincipal principal,
                                                 HttpServletRequest httpRequest) {
-        invitations.acceptForUser(principal.userId(), httpRequest);
+        invitationAccept.acceptForUser(principal.userId(), httpRequest);
         return currentUser(principal);
     }
 
@@ -174,7 +176,7 @@ public class OnboardingController {
     @PostMapping("/accept-invitation-signup")
     public ResponseEntity<AuthResponse> acceptInvitationSignup(
             @Valid @RequestBody AcceptInvitationSignupRequest request, HttpServletRequest httpRequest) {
-        AuthenticatedSession session = invitations.acceptWithNewLocalUser(
+        AuthenticatedSession session = invitationAccept.acceptWithNewLocalUser(
                 request.token(), request.fullName(), request.password(), httpRequest);
         return ResponseEntity.status(HttpStatus.CREATED)
                 .header(HttpHeaders.SET_COOKIE, refreshCookie.create(session.tokens().refreshToken()).toString())

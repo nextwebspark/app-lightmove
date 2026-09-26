@@ -3,7 +3,7 @@ package app.lightmove.api.workspace.model;
 import java.util.UUID;
 
 /**
- * A client representative accepted their portal invitation. Published by {@code InvitationService} when
+ * A client representative accepted their portal invitation. Published by {@code InvitationAcceptService} when
  * a CLIENT invitation is redeemed, and consumed by the project feature to flip the representative row to
  * ACTIVE.
  *
