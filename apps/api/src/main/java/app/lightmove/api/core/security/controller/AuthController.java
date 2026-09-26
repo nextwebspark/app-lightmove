@@ -7,6 +7,7 @@ import app.lightmove.api.core.security.dto.AuthResponse;
 import app.lightmove.api.core.security.dto.ChangePasswordRequest;
 import app.lightmove.api.core.security.dto.ForgotPasswordRequest;
 import app.lightmove.api.core.security.dto.LoginRequest;
+import app.lightmove.api.core.security.dto.SwitchWorkspaceRequest;
 import app.lightmove.api.core.security.dto.ResendVerificationRequest;
 import app.lightmove.api.core.security.dto.ResetPasswordRequest;
 import app.lightmove.api.core.security.dto.SignupRequest;
@@ -17,14 +18,12 @@ import app.lightmove.api.core.security.model.AuthPrincipal;
 import app.lightmove.api.core.security.model.AuthenticatedSession;
 import app.lightmove.api.core.security.model.ProfileUpdateCommand;
 import app.lightmove.api.core.security.model.SignupCommand;
-import app.lightmove.api.core.security.model.User;
 import app.lightmove.api.core.security.service.AuthenticationService;
 import app.lightmove.api.core.security.service.PasswordChangeService;
 import app.lightmove.api.core.security.service.PasswordResetService;
 import app.lightmove.api.core.security.service.UserProfileService;
 import app.lightmove.api.core.security.service.VerificationService;
 import app.lightmove.api.core.security.token.RefreshCookieFactory;
-import app.lightmove.api.workspace.model.WorkspaceMember;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import jakarta.validation.Valid;
@@ -154,13 +153,31 @@ public class AuthController {
         rateLimit.checkPasswordChange(principal.email(), httpRequest);
 
         return respond(HttpStatus.OK, passwordChange.change(
-                principal.userId(), request.currentPassword(), request.newPassword(), httpRequest));
+                principal.userId(), principal.workspaceId(), request.currentPassword(), request.newPassword(),
+                httpRequest));
     }
 
+    /**
+     * Bearer and cookie: the bearer says who asks and is the cross-site defence, the cookie is the
+     * session moved. A refusal burns nothing, so unlike {@code /refresh} the cookie is never expired.
+     */
+    @PostMapping("/switch-workspace")
+    public ResponseEntity<AuthResponse> switchWorkspace(
+            @AuthenticationPrincipal AuthPrincipal principal,
+            @Valid @RequestBody SwitchWorkspaceRequest request,
+            @CookieValue(name = "${lightmove.auth.cookie.name}", required = false) String refreshToken,
+            HttpServletRequest httpRequest) {
+        if (refreshToken == null || refreshToken.isBlank()) {
+            throw new ApiException(ErrorCode.REFRESH_TOKEN_INVALID, "No refresh cookie on the request");
+        }
+        return respond(HttpStatus.OK, authentication.switchWorkspace(
+                principal.userId(), request.workspaceId(), refreshToken, httpRequest));
+    }
+
+    /** For the token's exact workspace, never another: the body describes the session it answers for. */
     @GetMapping("/me")
     public UserResponse me(@AuthenticationPrincipal AuthPrincipal principal) {
-        User user = authentication.requireUser(principal.userId());
-        return assembler.user(user, membershipOf(user));
+        return assembler.userIn(principal.userId(), principal.workspaceId());
     }
 
     /** The user comes from the principal, never the request; not verified-email gated, as it is not tenant data. */
@@ -168,14 +185,13 @@ public class AuthController {
     public UserResponse updateProfile(@AuthenticationPrincipal AuthPrincipal principal,
                                       @Valid @RequestBody UpdateProfileRequest request,
                                       HttpServletRequest httpRequest) {
-        User user = userProfile.update(
+        userProfile.update(
                 principal.userId(),
                 principal.workspaceId(),
                 new ProfileUpdateCommand(
                         request.fullName(), request.title(), request.timezone(), request.locale()),
                 httpRequest);
-
-        return assembler.user(user, membershipOf(user));
+        return assembler.userIn(principal.userId(), principal.workspaceId());
     }
 
     /**
@@ -205,10 +221,6 @@ public class AuthController {
     }
 
     public record AuthProviders(List<String> providers) {
-    }
-
-    private WorkspaceMember membershipOf(User user) {
-        return authentication.activeMembership(user.getId()).orElse(null);
     }
 
     /** The one place the refresh token is written, to a cookie and never the body. */

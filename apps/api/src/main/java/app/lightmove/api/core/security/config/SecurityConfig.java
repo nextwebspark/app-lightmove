@@ -201,7 +201,7 @@ public class SecurityConfig {
                         // forwarded link is not proof of the mailbox. The token-less variant relies on the
                         // verified matching address as that proof.
                         .requestMatchers(API + "/onboarding/invitations/accept").access(verified)
-                        .requestMatchers(API + "/onboarding/accept-invitation").access(verified)
+                        .requestMatchers(API + "/onboarding/invitations/*/accept").access(verified)
 
                         // Nothing may exist on a firm's domain on the strength of an unopened address.
                         // Safe only because the wizard asks for the emailed link at step 2.

@@ -18,6 +18,7 @@ import app.lightmove.api.RecordingEmailSender;
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.ObjectMapper;
 import jakarta.servlet.http.Cookie;
+import java.util.UUID;
 import java.util.concurrent.atomic.AtomicInteger;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -440,7 +441,7 @@ class AuthFlowIntegrationTest {
     /**
      * The server-derived invitee marker. The emailed token lives in one browser tab's sessionStorage;
      * an invitee who verifies in a fresh tab still has to be routed to "join {workspace}" and not into
-     * create-your-own — so {@code /me} carries the invitation, from the database, in every tab.
+     * create-your-own — so {@code /me} carries the invitations, from the database, in every tab.
      */
     @Test
     @DisplayName("an invited, unplaced user sees their invitation on /me — and it clears once placed")
@@ -451,20 +452,26 @@ class AuthFlowIntegrationTest {
 
         String sara = verifiedUser("Sara Al-Mansour", saraEmail);
 
-        mvc.perform(get("/api/v1/auth/me").header("Authorization", "Bearer " + sara))
+        MvcResult me = mvc.perform(get("/api/v1/auth/me").header("Authorization", "Bearer " + sara))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.workspace").doesNotExist())
-                .andExpect(jsonPath("$.pendingInvitation.workspaceName").value("NextWebSpark Search"))
-                .andExpect(jsonPath("$.pendingInvitation.role").value("MEMBER"));
+                .andExpect(jsonPath("$.workspaces").isEmpty())
+                .andExpect(jsonPath("$.pendingInvitations[0].workspaceName").value("NextWebSpark Search"))
+                .andExpect(jsonPath("$.pendingInvitations[0].role").value("MEMBER"))
+                .andExpect(jsonPath("$.pendingInvitations[0].inviterName").value("Alok Kumar"))
+                .andReturn();
 
-        mvc.perform(post("/api/v1/onboarding/accept-invitation")
+        mvc.perform(post("/api/v1/onboarding/invitations/" + pendingInvitationId(me) + "/accept")
                         .header("Authorization", "Bearer " + sara))
                 .andExpect(status().isOk());
 
+        // /me answers for the token's exact workspace: hers predates the membership and carries no
+        // tenant claim, so it names none — until a switch or refresh — while listing the one joined.
         mvc.perform(get("/api/v1/auth/me").header("Authorization", "Bearer " + sara))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.workspace.name").value("NextWebSpark Search"))
-                .andExpect(jsonPath("$.pendingInvitation").doesNotExist());
+                .andExpect(jsonPath("$.workspace").doesNotExist())
+                .andExpect(jsonPath("$.workspaces[0].name").value("NextWebSpark Search"))
+                .andExpect(jsonPath("$.pendingInvitations").isEmpty());
     }
 
     /**
@@ -474,23 +481,25 @@ class AuthFlowIntegrationTest {
      * token path applies.
      */
     @Test
-    @DisplayName("a verified invitee can accept without the token, exactly once")
+    @DisplayName("a verified invitee can accept by id without the token, exactly once")
     void tokenLessAcceptLandsTheInvitee() throws Exception {
         String alok = verifiedUser("Alok Kumar", alokEmail);
         createWorkspace(alok, "NextWebSpark Search");
         invite(tokenWithWorkspace(alokEmail), saraEmail, "MEMBER");
 
         String sara = verifiedUser("Sara Al-Mansour", saraEmail);
+        String invitationId = pendingInvitationId(
+                mvc.perform(get("/api/v1/auth/me").header("Authorization", "Bearer " + sara)).andReturn());
 
-        MvcResult accepted = mvc.perform(post("/api/v1/onboarding/accept-invitation")
+        MvcResult accepted = mvc.perform(post("/api/v1/onboarding/invitations/" + invitationId + "/accept")
                         .header("Authorization", "Bearer " + sara))
                 .andExpect(status().isOk())
                 .andReturn();
         assertThat(body(accepted).at("/workspace/roles/0").asText()).isEqualTo("MEMBER");
 
-        // Consumed. The invitation went ACCEPTED with the first redeem, so there is no pending
-        // invitation left to find — the second call has nothing to redeem.
-        MvcResult again = mvc.perform(post("/api/v1/onboarding/accept-invitation")
+        // Consumed. The invitation went ACCEPTED with the first redeem, so the id names nothing
+        // redeemable — the second call has nothing to redeem.
+        MvcResult again = mvc.perform(post("/api/v1/onboarding/invitations/" + invitationId + "/accept")
                         .header("Authorization", "Bearer " + sara))
                 .andReturn();
         assertThat(codeOf(again)).isEqualTo("INVITATION_INVALID");
@@ -506,20 +515,36 @@ class AuthFlowIntegrationTest {
         // Sara signed up but never clicked her link. Her session is real; her address is a claim.
         String unverified = signup("Sara Al-Mansour", saraEmail, PASSWORD).get("accessToken").asText();
 
-        mvc.perform(post("/api/v1/onboarding/accept-invitation")
+        mvc.perform(post("/api/v1/onboarding/invitations/" + UUID.randomUUID() + "/accept")
                         .header("Authorization", "Bearer " + unverified))
                 .andExpect(status().isForbidden());
     }
 
+    /**
+     * Someone else's invitation id redeems nothing for the caller, and is indistinguishable from an
+     * id that does not exist — so ids confirm nothing about other people's invitations.
+     */
     @Test
-    @DisplayName("with no outstanding invitation, the token-less accept has nothing to redeem")
-    void tokenLessAcceptWithoutInvitationIsRefused() throws Exception {
+    @DisplayName("an invitation addressed to somebody else cannot be accepted by id")
+    void tokenLessAcceptOfSomebodyElsesInvitationIsRefused() throws Exception {
+        String alok = verifiedUser("Alok Kumar", alokEmail);
+        createWorkspace(alok, "NextWebSpark Search");
+        invite(tokenWithWorkspace(alokEmail), saraEmail, "MEMBER");
+        String sara = verifiedUser("Sara Al-Mansour", saraEmail);
+        String sarasInvitation = pendingInvitationId(
+                mvc.perform(get("/api/v1/auth/me").header("Authorization", "Bearer " + sara)).andReturn());
+
         String nobody = verifiedUser("No Invite", "noinvite@" + domain);
 
-        MvcResult refused = mvc.perform(post("/api/v1/onboarding/accept-invitation")
+        MvcResult refused = mvc.perform(post("/api/v1/onboarding/invitations/" + sarasInvitation + "/accept")
                         .header("Authorization", "Bearer " + nobody))
                 .andReturn();
         assertThat(codeOf(refused)).isEqualTo("INVITATION_INVALID");
+
+        MvcResult unknown = mvc.perform(post("/api/v1/onboarding/invitations/" + UUID.randomUUID() + "/accept")
+                        .header("Authorization", "Bearer " + nobody))
+                .andReturn();
+        assertThat(codeOf(unknown)).isEqualTo("INVITATION_INVALID");
     }
 
     @Test
@@ -920,6 +945,12 @@ class AuthFlowIntegrationTest {
                                 {"token":"%s"}
                                 """.formatted(token)))
                 .andExpect(status().isOk());
+    }
+
+    private String pendingInvitationId(MvcResult me) throws Exception {
+        JsonNode id = body(me).at("/pendingInvitations/0/id");
+        assertThat(id.isMissingNode()).as("no pending invitation on /me: %s", body(me)).isFalse();
+        return id.asText();
     }
 
     private Cookie refreshCookie(MvcResult result) {

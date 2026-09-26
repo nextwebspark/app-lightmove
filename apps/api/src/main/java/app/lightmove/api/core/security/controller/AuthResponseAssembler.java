@@ -1,5 +1,7 @@
 package app.lightmove.api.core.security.controller;
 
+import app.lightmove.api.core.error.constant.ErrorCode;
+import app.lightmove.api.core.error.model.ApiException;
 import app.lightmove.api.core.security.dto.AuthResponse;
 import app.lightmove.api.core.security.dto.PendingInvitationSummary;
 import app.lightmove.api.core.security.dto.UserResponse;
@@ -7,10 +9,13 @@ import app.lightmove.api.core.security.model.User;
 import app.lightmove.api.core.security.rbac.PlatformAccess;
 import app.lightmove.api.core.security.rbac.Role;
 import app.lightmove.api.core.security.rbac.WorkspaceRole;
+import app.lightmove.api.core.security.repository.UserRepository;
+import app.lightmove.api.core.security.service.WorkspaceSelection;
 import app.lightmove.api.core.security.token.TokenPair;
 import app.lightmove.api.workspace.constant.InvitationStatus;
 import app.lightmove.api.workspace.dto.WorkspaceCompanyResponse;
 import app.lightmove.api.workspace.dto.WorkspaceSummary;
+import app.lightmove.api.workspace.model.Invitation;
 import app.lightmove.api.workspace.model.Workspace;
 import app.lightmove.api.workspace.model.WorkspaceMember;
 import app.lightmove.api.workspace.repository.InvitationRepository;
@@ -18,6 +23,11 @@ import app.lightmove.api.workspace.repository.WorkspaceRepository;
 import java.time.Instant;
 import java.util.Comparator;
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.UUID;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 
@@ -33,6 +43,8 @@ public class AuthResponseAssembler {
 
     private final WorkspaceRepository workspaces;
     private final InvitationRepository invitations;
+    private final UserRepository users;
+    private final WorkspaceSelection selection;
     private final PlatformAccess platform;
 
     public AuthResponse assemble(TokenPair tokens, User user, WorkspaceMember membership) {
@@ -42,8 +54,10 @@ public class AuthResponseAssembler {
                 user(user, membership));
     }
 
+    /** @param membership the workspace this <i>session</i> is in, or null — never "the user's", of several */
     public UserResponse user(User user, WorkspaceMember membership) {
-        WorkspaceSummary workspace = workspaceSummary(membership);
+        List<WorkspaceMember> memberships = selection.all(user.getId());
+        Map<UUID, Workspace> byId = workspacesOf(memberships);
         return new UserResponse(
                 user.getId(),
                 user.getEmail(),
@@ -54,39 +68,75 @@ public class AuthResponseAssembler {
                 user.hasPassword(),
                 user.getTimezone(),
                 user.getLocale(),
-                workspace,
-                workspace == null ? pendingInvitation(user) : null,
+                currentSummary(membership, byId),
+                memberships.stream()
+                        .filter(member -> byId.containsKey(member.getWorkspaceId()))
+                        .map(member -> toSummary(byId.get(member.getWorkspaceId()), member))
+                        .toList(),
+                pendingInvitations(user, memberships),
                 platform.actionsOf(user.getId()));
     }
 
+    /** As a member of exactly this workspace, or none — the session's, or one just created or joined. */
+    public UserResponse userIn(UUID userId, UUID workspaceId) {
+        User user = users.findById(userId).orElseThrow(() -> ApiException.of(ErrorCode.INVALID_CREDENTIALS));
+        return user(user, selection.membershipIn(userId, workspaceId).orElse(null));
+    }
+
+    private Map<UUID, Workspace> workspacesOf(List<WorkspaceMember> memberships) {
+        return workspaces
+                .findAllById(memberships.stream().map(WorkspaceMember::getWorkspaceId).toList())
+                .stream()
+                .collect(Collectors.toMap(Workspace::getId, Function.identity()));
+    }
+
     /**
-     * The caller's own outstanding invitation, so routing can be derived from the server instead of a
+     * The caller's own outstanding invitations, so routing can be derived from the server instead of a
      * tab's sessionStorage — an invitee who verifies in a fresh tab must land on "join {workspace}",
-     * not on create-your-own.
+     * not on create-your-own — or to a second workspace. One to a workspace they are already in is hidden.
      *
      * <p>Carries <b>no token</b>. The emailed token only ever proved control of the invited mailbox,
      * and an authenticated user whose verified address matches the invitation has proven exactly that
-     * — the token-less accept endpoint applies the same guards. (The anonymous preview endpoint already
+     * — the accept-by-id endpoint applies the same guards. (The anonymous preview endpoint already
      * exposes the same fields to any token holder; this is strictly less.)
      */
-    private PendingInvitationSummary pendingInvitation(User user) {
-        return invitations
-                .findFirstByEmailAndStatusOrderByCreatedAtDesc(user.getEmail(), InvitationStatus.PENDING)
-                .filter(invitation -> invitation.isRedeemable(Instant.now()))
-                .flatMap(invitation -> workspaces.findById(invitation.getWorkspaceId())
-                        .map(workspace -> new PendingInvitationSummary(
-                                workspace.getName(), invitation.getRole().getName())))
-                .orElse(null);
+    private List<PendingInvitationSummary> pendingInvitations(User user, List<WorkspaceMember> memberships) {
+        Instant now = Instant.now();
+        Set<UUID> alreadyIn = memberships.stream().map(WorkspaceMember::getWorkspaceId).collect(Collectors.toSet());
+        List<Invitation> outstanding = invitations
+                .findByEmailAndStatusOrderByCreatedAtDesc(user.getEmail(), InvitationStatus.PENDING)
+                .stream()
+                .filter(invitation -> invitation.isRedeemable(now))
+                .filter(invitation -> !alreadyIn.contains(invitation.getWorkspaceId()))
+                .toList();
+        if (outstanding.isEmpty()) {
+            return List.of();
+        }
+
+        Map<UUID, String> workspaceNames = workspaces
+                .findAllById(outstanding.stream().map(Invitation::getWorkspaceId).distinct().toList())
+                .stream()
+                .collect(Collectors.toMap(Workspace::getId, Workspace::getName));
+        Map<UUID, String> inviterNames = users
+                .findAllById(outstanding.stream().map(Invitation::getInvitedBy).distinct().toList())
+                .stream()
+                .collect(Collectors.toMap(User::getId, User::getFullName));
+
+        return outstanding.stream()
+                .filter(invitation -> workspaceNames.containsKey(invitation.getWorkspaceId()))
+                .map(invitation -> new PendingInvitationSummary(
+                        invitation.getId(),
+                        workspaceNames.get(invitation.getWorkspaceId()),
+                        invitation.getRole().getName(),
+                        inviterNames.get(invitation.getInvitedBy())))
+                .toList();
     }
 
-    /** Null when the user has signed up but not yet created their organisation. */
-    private WorkspaceSummary workspaceSummary(WorkspaceMember membership) {
-        if (membership == null || !membership.isActive()) {
+    private static WorkspaceSummary currentSummary(WorkspaceMember membership, Map<UUID, Workspace> byId) {
+        if (membership == null || !membership.isActive() || !byId.containsKey(membership.getWorkspaceId())) {
             return null;
         }
-        return workspaces.findById(membership.getWorkspaceId())
-                .map(workspace -> toSummary(workspace, membership))
-                .orElse(null);
+        return toSummary(byId.get(membership.getWorkspaceId()), membership);
     }
 
     /**

@@ -30,6 +30,6 @@ public interface InvitationRepository extends JpaRepository<Invitation, UUID> {
     Optional<Invitation> findByWorkspaceIdAndClientIdAndEmailAndStatus(
             UUID workspaceId, UUID clientId, String email, InvitationStatus status);
 
-    /** For {@code /me} routing and the token-less accept; newest first, as older ones may be dead. */
-    Optional<Invitation> findFirstByEmailAndStatusOrderByCreatedAtDesc(String email, InvitationStatus status);
+    /** For {@code /me}; a person may be invited to several workspaces at once. Newest first. */
+    List<Invitation> findByEmailAndStatusOrderByCreatedAtDesc(String email, InvitationStatus status);
 }

@@ -197,12 +197,14 @@ export function acceptInvitation(token: string): Promise<User> {
 }
 
 /**
- * Accepts the caller's own outstanding invitation, token-lessly. For the invitee who verified in a
- * fresh tab: the emailed token lives in another tab's sessionStorage, but the server already knows a
- * redeemable invitation is addressed to this verified email — `user.pendingInvitation` says so.
+ * Accepts one of the caller's own outstanding invitations by id, token-lessly. For the invitee who
+ * verified in a fresh tab — the emailed token lives in another tab's sessionStorage, but the server
+ * already knows a redeemable invitation is addressed to this verified email, and `user.pendingInvitations`
+ * says so — and for someone already placed joining a second workspace from the app. The answer's
+ * `workspace` is the one just joined; the session still has to switch into it.
  */
-export function acceptPendingInvitation(): Promise<User> {
-  return request<User>("/onboarding/accept-invitation", { method: "POST" });
+export function acceptInvitationById(invitationId: string): Promise<User> {
+  return request<User>(`/onboarding/invitations/${invitationId}/accept`, { method: "POST" });
 }
 
 /**

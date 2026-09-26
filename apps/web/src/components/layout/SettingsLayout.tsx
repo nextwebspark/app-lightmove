@@ -16,6 +16,7 @@ import { SettingsBreadcrumb } from "./Topbar";
 const SETTINGS_SECTIONS = [
   { to: "/settings/profile", label: "Profile", icon: ICONS.profile, group: "Account" },
   { to: "/settings/security", label: "Security", icon: ICONS.lock, group: "Account" },
+  { to: "/settings/workspaces", label: "Workspaces", icon: ICONS.allProjects, group: "Account" },
   { to: "/settings/general", label: "General", icon: ICONS.settings, group: "Workspace" },
   { to: "/settings/members", label: "Members", icon: ICONS.members, group: "Workspace" },
   { to: "/settings/templates", label: "Templates", icon: ICONS.file, group: "Workspace" },

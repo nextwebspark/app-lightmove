@@ -17,9 +17,6 @@ import app.lightmove.api.core.security.token.Tokens;
 import app.lightmove.api.core.email.service.EmailAddressValidator;
 import app.lightmove.api.core.email.service.EmailSender;
 import app.lightmove.api.core.email.service.EmailTemplates;
-import app.lightmove.api.workspace.constant.MemberStatus;
-import app.lightmove.api.workspace.model.WorkspaceMember;
-import app.lightmove.api.workspace.repository.WorkspaceMemberRepository;
 import jakarta.servlet.http.HttpServletRequest;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
@@ -37,7 +34,7 @@ public class VerificationService {
 
     private final UserRepository users;
     private final VerificationTokenRepository verificationTokens;
-    private final WorkspaceMemberRepository members;
+    private final WorkspaceSelection selection;
     private final TokenService tokens;
     private final EmailSender emailSender;
     private final EmailTemplates templates;
@@ -103,10 +100,7 @@ public class VerificationService {
         log.info("Email verified for user {}", user.getId());
         audit.event(AuthEventType.EMAIL_VERIFIED).actor(user.getId()).from(request).record();
 
-        WorkspaceMember membership = members.findByUserIdAndStatus(user.getId(), MemberStatus.ACTIVE)
-                .orElse(null);
-
-        return tokens.issue(user, membership, request);
+        return tokens.issue(user, selection.signIn(user), request);
     }
 
     /** Silent for an unknown or already-verified address, or this is an enumeration oracle. */

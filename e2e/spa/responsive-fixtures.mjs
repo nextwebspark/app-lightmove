@@ -27,6 +27,13 @@ export const USER = {
   timezone: "Asia/Dubai",
   locale: "en",
   workspace: WORKSPACE,
+  workspaces: [
+    WORKSPACE,
+    { ...WORKSPACE, id: "ws-2", name: "Northgate Leadership Advisory & Board Search", slug: "northgate", logoMark: "N", roles: ["MEMBER"] },
+  ],
+  pendingInvitations: [
+    { id: "inv-1", workspaceName: "Harbourline Executive Search Partners", role: "MEMBER", inviterName: "Omar Saleh" },
+  ],
 };
 
 const team = (n) =>

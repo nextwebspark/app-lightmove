@@ -14,11 +14,11 @@ import org.springframework.data.repository.query.Param;
 public interface WorkspaceMemberRepository extends JpaRepository<WorkspaceMember, UUID> {
 
     /**
-     * Singular: at most one ACTIVE membership per user (partial unique index on {@code user_id}). Roles
-     * load eagerly — auth responses are assembled outside a transaction, where lazy loading throws.
+     * Oldest first; no singular by-user lookup, since a user may hold several (V81). Roles load eagerly —
+     * auth responses are assembled outside a transaction, where lazy loading throws.
      */
     @EntityGraph(attributePaths = "roles")
-    Optional<WorkspaceMember> findByUserIdAndStatus(UUID userId, MemberStatus status);
+    List<WorkspaceMember> findAllByUserIdAndStatusOrderByJoinedAtAsc(UUID userId, MemberStatus status);
 
     /**
      * The tenant-isolation check: both ids in one query, so a caller naming another workspace's id is
@@ -26,6 +26,10 @@ public interface WorkspaceMemberRepository extends JpaRepository<WorkspaceMember
      */
     @EntityGraph(attributePaths = "roles")
     Optional<WorkspaceMember> findByWorkspaceIdAndUserIdAndStatus(UUID workspaceId, UUID userId, MemberStatus status);
+
+    /** Whatever its status — an invitation may be reactivating a removed member. */
+    @EntityGraph(attributePaths = "roles")
+    Optional<WorkspaceMember> findByWorkspaceIdAndUserId(UUID workspaceId, UUID userId);
 
     @EntityGraph(attributePaths = "roles")
     List<WorkspaceMember> findByWorkspaceIdAndStatus(UUID workspaceId, MemberStatus status);

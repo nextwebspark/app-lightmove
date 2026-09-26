@@ -1,9 +1,13 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "../../features/auth/AuthProvider";
-import { AppIcon, Avatar } from "../ui";
+import type { PendingInvitation, WorkspaceSummary } from "../../features/auth/api/types";
+import * as authApi from "../../features/auth/api/authApi";
+import { takeWorkspaceMove } from "../../features/auth/workspaceMoveNotice";
+import { WorkspaceMark } from "../../features/workspace/components/WorkspaceMark";
+import { AppIcon, Avatar, useToast } from "../ui";
+import { messageFor } from "../../lib/errorCodes";
 import { Icon, ICONS } from "./Icon";
-import { CompanyLogo } from "../ui/CompanyLogo";
 
 /**
  * The 46px header: the workspace dropdown (settings, members, sign out) on the left, the user's
@@ -20,6 +24,12 @@ export function Topbar({
   onMenuClick?: () => void;
 }) {
   const { user } = useAuth();
+  const toast = useToast();
+
+  useEffect(() => {
+    const moved = takeWorkspaceMove();
+    if (moved) toast(moved);
+  }, [toast]);
 
   return (
     <header className="relative z-[60] flex h-[46px] flex-none items-center gap-2 px-3.5 sm:gap-3">
@@ -38,10 +48,26 @@ export function Topbar({
 
       <div className="flex min-w-0 flex-1 items-center">{breadcrumb ?? <WorkspaceMenu />}</div>
 
-      <div className="flex flex-none items-center gap-2.5">
+      <div className="flex min-w-0 flex-none items-center gap-2.5">
+        {user?.workspace && <CurrentWorkspaceLabel workspace={user.workspace} />}
         {user && <Avatar id={user.id} name={user.fullName} src={user.avatarUrl} />}
       </div>
     </header>
+  );
+}
+
+/** Which workspace the session is in, beside the avatar on every screen; a phone keeps only the mark. */
+function CurrentWorkspaceLabel({ workspace }: { workspace: WorkspaceSummary }) {
+  return (
+    <span
+      title={`Current workspace: ${workspace.name}`}
+      className="flex min-w-0 items-center gap-2 rounded-[7px] border border-u-border px-1.5 py-1 sm:pr-2.5"
+    >
+      <WorkspaceMark workspace={workspace} size={18} />
+      <span className="hidden max-w-[220px] truncate font-mono text-note font-medium text-u-text2 sm:inline">
+        {workspace.name}
+      </span>
+    </span>
   );
 }
 
@@ -95,9 +121,11 @@ export function SettingsBreadcrumb({ section }: { section: string }) {
 }
 
 function WorkspaceMenu({ compact = false }: { compact?: boolean }) {
-  const { user, signOut } = useAuth();
+  const { user, signOut, switchWorkspace, acceptAndSwitch } = useAuth();
   const navigate = useNavigate();
+  const toast = useToast();
   const [open, setOpen] = useState(false);
+  const [busy, setBusy] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -119,10 +147,30 @@ function WorkspaceMenu({ compact = false }: { compact?: boolean }) {
   const workspace = user?.workspace;
   if (!workspace) return null;
   const isAdmin = workspace.roles.includes("ADMIN");
+  const others = user.workspaces.filter((candidate) => candidate.id !== workspace.id);
+  const invitations = user.pendingInvitations;
 
   const itemClass =
     "flex w-full items-center gap-2.5 rounded-[7px] px-2.5 py-2 text-left text-[13px] text-u-text2 " +
-    "transition hover:bg-u-raised hover:text-u-text";
+    "transition hover:bg-u-raised hover:text-u-text disabled:opacity-60";
+
+  const moveTo = async (work: () => Promise<unknown>) => {
+    setBusy(true);
+    try {
+      await work();
+      setOpen(false);
+      navigate("/");
+    } catch (error) {
+      toast(messageFor(error));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const handleSwitch = (target: WorkspaceSummary) => moveTo(() => switchWorkspace(target.id));
+
+  const handleAccept = (invitation: PendingInvitation) =>
+    moveTo(() => acceptAndSwitch(() => authApi.acceptInvitationById(invitation.id)));
 
   return (
     <div className="relative" ref={ref}>
@@ -147,13 +195,54 @@ function WorkspaceMenu({ compact = false }: { compact?: boolean }) {
       {open && (
         <div className="absolute left-0 top-10 z-[80] w-[min(268px,calc(100vw-24px))] rounded-[10px] border border-u-border-strong bg-u-surface p-1.5 shadow-u-e3">
           <div className="mb-1.5 flex items-center gap-2.5 border-b border-u-border p-2.5">
-            {workspace.company?.logoUrl ? (
-              <CompanyLogo name={workspace.name} logo={workspace.company.logoUrl} size={30} />
-            ) : (
-              <LogoTile mark={workspace.logoMark ?? workspace.name[0]} size={30} />
-            )}
-            <div className="font-mono text-[13px] font-semibold">{workspace.name}</div>
+            <WorkspaceMark workspace={workspace} size={30} />
+            <div className="min-w-0">
+              <div className="truncate font-mono text-body font-semibold">{workspace.name}</div>
+              {others.length > 0 && (
+                <div className="font-mono text-[10px] text-u-text3">Current workspace</div>
+              )}
+            </div>
           </div>
+
+          {(others.length > 0 || invitations.length > 0) && (
+            <>
+              <div className="px-2.5 pb-1 pt-1.5 font-mono text-[10px] font-semibold uppercase tracking-[0.14em] text-u-text3">
+                Workspaces
+              </div>
+              {others.map((other) => (
+                <button
+                  key={other.id}
+                  type="button"
+                  className={itemClass}
+                  disabled={busy}
+                  onClick={() => void handleSwitch(other)}
+                >
+                  <WorkspaceMark workspace={other} size={20} />
+                  <span className="min-w-0 flex-1 truncate">{other.name}</span>
+                </button>
+              ))}
+              {invitations.map((invitation) => (
+                <button
+                  key={invitation.id}
+                  type="button"
+                  className={itemClass}
+                  disabled={busy}
+                  onClick={() => void handleAccept(invitation)}
+                >
+                  <Icon d={ICONS.userPlus} size={15} className="flex-none" />
+                  <span className="min-w-0 flex-1 truncate">Invited to {invitation.workspaceName}</span>
+                  <span className="flex-none text-meta font-medium text-u-accent">Accept</span>
+                </button>
+              ))}
+              <div className="mx-1 my-1.5 h-px bg-u-border" />
+            </>
+          )}
+
+          <button type="button" className={itemClass} onClick={() => { setOpen(false); navigate("/settings/workspaces"); }}>
+            <Icon d={ICONS.allProjects} size={15} className="flex-none" />
+            Manage workspaces
+          </button>
+          <div className="mx-1 my-1.5 h-px bg-u-border" />
 
           {/* Outside the admin block on purpose: this is the one settings item that is everybody's,
               and for a pure client — whose rail carries no Settings link — it is the only way in. */}
@@ -187,13 +276,3 @@ function WorkspaceMenu({ compact = false }: { compact?: boolean }) {
   );
 }
 
-function LogoTile({ mark, size = 22 }: { mark: string; size?: number }) {
-  return (
-    <span
-      style={{ width: size, height: size }}
-      className="grid place-items-center rounded-md bg-u-accent-solid font-mono text-[11px] font-bold text-white"
-    >
-      {mark}
-    </span>
-  );
-}

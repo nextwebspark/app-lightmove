@@ -49,7 +49,8 @@ public class ExtensionAuthController {
         rateLimit.checkExtensionPairing(principal.email(), httpRequest);
 
         return ResponseEntity.status(HttpStatus.CREATED)
-                .body(toSession(authentication.pairExtension(principal.userId(), httpRequest)));
+                .body(toSession(authentication.pairExtension(
+                        principal.userId(), principal.workspaceId(), httpRequest)));
     }
 
     /**

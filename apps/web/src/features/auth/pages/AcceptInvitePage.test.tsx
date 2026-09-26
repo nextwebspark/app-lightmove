@@ -17,9 +17,10 @@ vi.mock("../../../lib/apiClient", async (importOriginal) => ({
   ...(await importOriginal<typeof import("../../../lib/apiClient")>()),
   restoreSession: vi.fn(),
   setAccessToken: vi.fn(),
+  switchWorkspaceSession: vi.fn(),
 }));
 
-const { restoreSession } = await import("../../../lib/apiClient");
+const { restoreSession, switchWorkspaceSession } = await import("../../../lib/apiClient");
 
 /**
  * Since membership is invitation-only, this page is the only door into an existing workspace. The common
@@ -78,7 +79,8 @@ describe("AcceptInvitePage", () => {
         timezone: "Asia/Dubai",
         locale: "en",
         platformActions: [],
-        pendingInvitation: null,
+        pendingInvitations: [],
+  workspaces: [],
         workspace: {
           id: "w1",
           name: "NextWebSpark Search",
@@ -163,7 +165,8 @@ describe("AcceptInvitePage", () => {
       timezone: "Asia/Dubai",
       locale: "en",
       platformActions: [],
-      pendingInvitation: null,
+      pendingInvitations: [],
+  workspaces: [],
       workspace: null,
     });
 
@@ -192,9 +195,23 @@ describe("AcceptInvitePage", () => {
 
   /**
    * The fresh-tab case for someone who already had an account: no token in this tab, but the server knows
-   * the invitation — `user.pendingInvitation` — and the page accepts from it, token-lessly.
+   * the invitation — `user.pendingInvitations` — and the page accepts it by id, token-lessly, then
+   * switches the session into the workspace just joined.
    */
   it("renders and accepts from the server-derived invitation when there is no token", async () => {
+    const joined = {
+      id: "w1",
+      name: "NextWebSpark Search",
+      slug: "nextwebspark-search",
+      logoMark: "N",
+      emailDomain: "nextwebspark.com",
+      roles: ["MEMBER" as const],
+      joinedAt: "2026-03-14T09:00:00Z",
+      company: null,
+      companySize: null,
+      primaryRegion: null,
+      teamFocus: null,
+    };
     const sara = {
       id: "u3",
       email: "sara@nextwebspark.com",
@@ -206,22 +223,37 @@ describe("AcceptInvitePage", () => {
       timezone: "Asia/Dubai",
       locale: "en",
       platformActions: [],
-      pendingInvitation: { workspaceName: "NextWebSpark Search", role: "MEMBER" as const },
+      pendingInvitations: [
+        { id: "inv-1", workspaceName: "NextWebSpark Search", role: "MEMBER" as const, inviterName: "Alok Kumar" },
+      ],
+      workspaces: [],
       workspace: null,
     };
     vi.mocked(restoreSession).mockResolvedValue("access-token");
     vi.mocked(authApi.me).mockResolvedValue(sara);
-    vi.mocked(authApi.acceptPendingInvitation).mockResolvedValue({ ...sara, pendingInvitation: null });
+    vi.mocked(authApi.acceptInvitationById).mockResolvedValue({
+      ...sara,
+      pendingInvitations: [],
+      workspaces: [joined],
+      workspace: joined,
+    });
+    vi.mocked(switchWorkspaceSession).mockResolvedValue({
+      accessToken: "in-w1",
+      expiresIn: 900,
+      user: { ...sara, pendingInvitations: [], workspaces: [joined], workspace: joined },
+    });
 
     const user = userEvent.setup();
     renderAt(""); // no ?token — the bug this flow exists to fix
 
     expect(await screen.findByText(/Join NextWebSpark Search/)).toBeInTheDocument();
-    expect(screen.getByText(/You were invited as Member/)).toBeInTheDocument();
+    expect(screen.getByText(/Alok Kumar invited you as Member/)).toBeInTheDocument();
 
     await user.click(screen.getByRole("button", { name: /accept invitation/i }));
 
-    await waitFor(() => expect(authApi.acceptPendingInvitation).toHaveBeenCalled());
+    await waitFor(() => expect(authApi.acceptInvitationById).toHaveBeenCalledWith("inv-1"));
+    // Joining is followed by switching: the session lands in the workspace just joined.
+    await waitFor(() => expect(switchWorkspaceSession).toHaveBeenCalledWith("w1"));
     // The token path is never touched — there is no token to redeem.
     expect(authApi.acceptInvitation).not.toHaveBeenCalled();
   });

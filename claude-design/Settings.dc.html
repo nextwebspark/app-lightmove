@@ -53,8 +53,33 @@
             <div data-screen-label="Workspace menu" style="position:absolute;left:0;top:40px;z-index:80;width:268px;border-radius:10px;border:1px solid var(--line);background:var(--panel);padding:6px;box-shadow:var(--shadow)">
               <div style="display:flex;align-items:center;gap:10px;border-bottom:1px solid var(--line-soft);padding:10px;margin-bottom:6px">
                 <span style="width:30px;height:30px;border-radius:6px;background:var(--amber-btn);color:var(--on-amber);font:700 11px var(--mono);display:grid;place-items:center">A</span>
-                <div style="font:600 13px var(--mono);color:var(--text)">Al-Futtaim</div>
+                <div style="min-width:0">
+                  <div style="font:600 13px var(--mono);color:var(--text)">Al-Futtaim</div>
+                  <sc-if value="{{ hasWorkspaceList }}" hint-placeholder-val="{{ false }}"><div style="font:400 10px var(--mono);color:var(--text3)">Current workspace</div></sc-if>
+                </div>
               </div>
+              <sc-if value="{{ hasWorkspaceList }}" hint-placeholder-val="{{ false }}">
+                <div style="padding:6px 10px 4px;font:600 10px var(--mono);letter-spacing:.14em;text-transform:uppercase;color:var(--text3)">Workspaces</div>
+                <sc-for list="{{ otherWorkspaces }}" as="w" hint-placeholder-count="1">
+                  <button data-id="{{ w.id }}" onClick="{{ switchWorkspace }}" style="display:flex;width:100%;align-items:center;gap:10px;border-radius:6px;padding:8px 10px;text-align:left;font:400 13px var(--sans);color:var(--text2);background:none;border:none;cursor:pointer" style-hover="background:var(--panel2);color:var(--text)">
+                    <span style="width:20px;height:20px;flex:none;border-radius:5px;background:var(--amber-btn);color:var(--on-amber);font:700 10px var(--mono);display:grid;place-items:center">{{ w.mark }}</span>
+                    <span style="min-width:0;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ w.name }}</span>
+                  </button>
+                </sc-for>
+                <sc-for list="{{ workspaceInvitations }}" as="inv" hint-placeholder-count="1">
+                  <button data-id="{{ inv.id }}" onClick="{{ acceptInvitation }}" style="display:flex;width:100%;align-items:center;gap:10px;border-radius:6px;padding:8px 10px;text-align:left;font:400 13px var(--sans);color:var(--text2);background:none;border:none;cursor:pointer" style-hover="background:var(--panel2);color:var(--text)">
+                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex:none"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8ZM19 8v6M22 11h-6"></path></svg>
+                    <span style="min-width:0;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">Invited to {{ inv.name }}</span>
+                    <span style="flex:none;font:500 11px var(--sans);color:var(--amber)">Accept</span>
+                  </button>
+                </sc-for>
+                <div style="margin:6px 4px;height:1px;background:var(--line-soft)"></div>
+              </sc-if>
+              <button data-section="workspaces" onClick="{{ goSection }}" style="display:flex;width:100%;align-items:center;gap:10px;border-radius:6px;padding:8px 10px;text-align:left;font:400 13px var(--sans);color:var(--text2);background:none;border:none;cursor:pointer" style-hover="background:var(--panel2);color:var(--text)">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex:none"><path d="M3 3h7v7H3zM14 3h7v7h-7zM3 14h7v7H3zM14 14h7v7h-7z"></path></svg>
+                Manage workspaces
+              </button>
+              <div style="margin:6px 4px;height:1px;background:var(--line-soft)"></div>
               <button data-section="profile" onClick="{{ goSection }}" style="display:flex;width:100%;align-items:center;gap:10px;border-radius:6px;padding:8px 10px;text-align:left;font:400 13px var(--sans);color:var(--text2);background:none;border:none;cursor:pointer" style-hover="background:var(--panel2);color:var(--text)">
                 <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex:none"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2M16 7a4 4 0 1 1-8 0 4 4 0 0 1 8 0"></path></svg>
                 Your profile
@@ -86,6 +111,7 @@
       </div>
     </div>
     <div style="display:flex;flex:none;align-items:center;gap:10px">
+      <span data-screen-label="Current workspace" title="Current workspace: Al-Futtaim" style="display:flex;align-items:center;gap:8px;min-width:0;border:1px solid var(--line-soft);border-radius:7px;padding:4px 10px 4px 6px"><img src="assets/al-futtaim-logo.png" alt="" style="width:18px;height:18px;object-fit:contain;flex:none"><span style="max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font:500 12px var(--mono);color:var(--text2)">Al-Futtaim</span></span>
       <span title="Yara Haddad" style="width:26px;height:26px;border-radius:50%;display:grid;place-items:center;background:var(--sky-dim);color:var(--sky);font:600 10px var(--mono)">YH</span>
     </div>
   </header>
@@ -356,6 +382,59 @@
                       </div>
                       <button data-id="{{ inv.id }}" onClick="{{ resendInvite }}" style="display:flex;align-items:center;justify-content:center;border-radius:6px;padding:6px 14px;font:500 12px var(--sans);background:var(--panel);border:1px solid var(--line);color:var(--text2);cursor:pointer" style-hover="color:var(--text);border-color:var(--text3)">Resend</button>
                       <button data-id="{{ inv.id }}" onClick="{{ revokeInvite }}" style="display:flex;align-items:center;justify-content:center;border-radius:6px;padding:6px 14px;font:500 12px var(--sans);background:transparent;border:none;color:var(--red);cursor:pointer" style-hover="text-decoration:underline">Revoke</button>
+                    </div>
+                  </sc-for>
+                </div>
+              </section>
+            </sc-if>
+          </div>
+        </sc-if>
+
+        <!-- WORKSPACES -->
+        <sc-if value="{{ isWorkspaces }}" hint-placeholder-val="{{ false }}">
+          <div data-screen-label="Workspaces">
+            <div style="margin-bottom:18px;display:flex;align-items:flex-start;gap:16px">
+              <div>
+                <div style="font:600 19px/1.25 var(--sans)">Workspaces</div>
+                <div style="margin-top:4px;font:400 12px var(--mono);color:var(--text3)">{{ workspacesSubtitle }}</div>
+              </div>
+              <sc-if value="{{ canCreateWorkspace }}" hint-placeholder-val="{{ true }}">
+                <div style="margin-left:auto;display:flex;gap:8px">
+                  <button onClick="{{ openNewWorkspace }}" style="display:flex;align-items:center;justify-content:center;gap:8px;border-radius:6px;padding:7px 14px;font:500 13px var(--sans);background:var(--amber-btn);border:1px solid var(--amber-btn);color:var(--on-amber);cursor:pointer" style-hover="filter:brightness(1.05)">
+                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"></path></svg>
+                    Create workspace
+                  </button>
+                </div>
+              </sc-if>
+            </div>
+            <div style="border-radius:10px;border:1px solid var(--line-soft);background:var(--panel2);padding:8px 20px">
+              <sc-for list="{{ myWorkspaces }}" as="w" hint-placeholder-count="2">
+                <div style="{{ w.rowStyle }}">
+                  <span style="width:30px;height:30px;flex:none;border-radius:6px;background:var(--amber-btn);color:var(--on-amber);font:700 11px var(--mono);display:grid;place-items:center">{{ w.mark }}</span>
+                  <div style="min-width:0;flex:1">
+                    <div style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font:500 13px var(--sans)">{{ w.name }}</div>
+                    <div style="margin-top:2px;font:400 11px var(--mono);color:var(--text3)">{{ w.roles }}</div>
+                  </div>
+                  <sc-if value="{{ w.current }}" hint-placeholder-val="{{ true }}">
+                    <span style="border-radius:999px;background:var(--green-dim);color:var(--green);padding:4px 10px;font:600 10px var(--mono);letter-spacing:.12em;text-transform:uppercase">Current</span>
+                  </sc-if>
+                  <sc-if value="{{ w.other }}" hint-placeholder-val="{{ false }}">
+                    <button data-id="{{ w.id }}" onClick="{{ switchWorkspace }}" style="display:flex;align-items:center;justify-content:center;border-radius:6px;padding:6px 14px;font:500 12px var(--sans);background:var(--panel);border:1px solid var(--line);color:var(--text2);cursor:pointer" style-hover="color:var(--text);border-color:var(--text3)">Open</button>
+                  </sc-if>
+                </div>
+              </sc-for>
+            </div>
+            <sc-if value="{{ hasWorkspaceInvitations }}" hint-placeholder-val="{{ false }}">
+              <section style="margin-top:20px">
+                <h3 style="margin:0 0 8px;font:600 10px var(--mono);letter-spacing:.14em;text-transform:uppercase;color:var(--text3)">Invitations</h3>
+                <div style="border-radius:10px;border:1px solid var(--line-soft);background:var(--panel2);padding:8px 20px">
+                  <sc-for list="{{ workspaceInvitationRows }}" as="inv" hint-placeholder-count="1">
+                    <div style="{{ inv.rowStyle }}">
+                      <div style="min-width:0;flex:1">
+                        <div style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font:500 13px var(--sans)">{{ inv.name }}</div>
+                        <div style="margin-top:2px;font:400 11px var(--mono);color:var(--text3)">{{ inv.meta }}</div>
+                      </div>
+                      <button data-id="{{ inv.id }}" onClick="{{ acceptInvitation }}" style="display:flex;align-items:center;justify-content:center;gap:8px;border-radius:6px;padding:6px 14px;font:500 12px var(--sans);background:var(--amber-btn);border:1px solid var(--amber-btn);color:var(--on-amber);cursor:pointer" style-hover="filter:brightness(1.05)">Accept</button>
                     </div>
                   </sc-for>
                 </div>
@@ -942,6 +1021,61 @@
     </div>
   </sc-if>
 
+  <!-- New workspace modal: the wizard's organisation and invite steps, in a dialog -->
+  <sc-if value="{{ newWorkspaceOpen }}" hint-placeholder-val="{{ false }}">
+    <div data-screen-label="New workspace" onClick="{{ closeNewWorkspace }}" style="position:fixed;inset:0;z-index:100;display:grid;place-items:center;background:rgba(15,20,30,.4)">
+      <div role="dialog" aria-modal="true" aria-label="New workspace" onClick="{{ stop }}" style="width:480px;max-width:94vw;max-height:90vh;overflow-y:auto;border-radius:12px;border:1px solid var(--line);background:var(--panel);padding:22px;box-shadow:var(--shadow);animation:fadeUp .2s ease both">
+        <div style="margin-bottom:16px;font:600 16px var(--sans)">New workspace</div>
+        <sc-if value="{{ isNewWorkspaceOrganisation }}" hint-placeholder-val="{{ true }}">
+          <h1 style="margin:0;font:600 19px/1.25 var(--sans)">About your organization</h1>
+          <p style="margin:4px 0 24px;font:400 12px var(--mono);color:var(--text3)">A separate workspace with its own positions and team — you'll be its admin</p>
+          <label style="display:block;margin-bottom:16px">
+            <span style="display:block;margin-bottom:6px;font:600 10px var(--mono);letter-spacing:.12em;text-transform:uppercase;color:var(--text3)">Organization name</span>
+            <input placeholder="e.g. Meridian Search Partners" style="width:100%;border-radius:6px;border:1px solid var(--line);background:var(--panel2);padding:10px 12px;font:400 13px var(--mono);color:var(--text);outline:none;transition:border-color .15s" style-focus="border-color:var(--sky);box-shadow:0 0 0 1px var(--ring)">
+          </label>
+          <div style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));column-gap:16px">
+            <label style="display:block;margin-bottom:16px">
+              <span style="display:block;margin-bottom:6px;font:600 10px var(--mono);letter-spacing:.12em;text-transform:uppercase;color:var(--text3)">Company size</span>
+              <select style="width:100%;border-radius:6px;border:1px solid var(--line);background:var(--panel2);padding:10px 12px;font:400 13px var(--mono);color:var(--text);outline:none;transition:border-color .15s"><sc-for list="{{ companySizes }}" as="o" hint-placeholder-count="4"><option>{{ o }}</option></sc-for></select>
+            </label>
+            <label style="display:block;margin-bottom:16px">
+              <span style="display:block;margin-bottom:6px;font:600 10px var(--mono);letter-spacing:.12em;text-transform:uppercase;color:var(--text3)">Primary region</span>
+              <select style="width:100%;border-radius:6px;border:1px solid var(--line);background:var(--panel2);padding:10px 12px;font:400 13px var(--mono);color:var(--text);outline:none;transition:border-color .15s"><sc-for list="{{ regions }}" as="o" hint-placeholder-count="5"><option>{{ o }}</option></sc-for></select>
+            </label>
+            <label style="display:block;margin-bottom:16px">
+              <span style="display:block;margin-bottom:6px;font:600 10px var(--mono);letter-spacing:.12em;text-transform:uppercase;color:var(--text3)">Team focus</span>
+              <select style="width:100%;border-radius:6px;border:1px solid var(--line);background:var(--panel2);padding:10px 12px;font:400 13px var(--mono);color:var(--text);outline:none;transition:border-color .15s"><sc-for list="{{ teamFocuses }}" as="o" hint-placeholder-count="4"><option>{{ o }}</option></sc-for></select>
+            </label>
+          </div>
+          <button onClick="{{ newWorkspaceContinue }}" style="width:100%;display:flex;align-items:center;justify-content:center;gap:8px;border-radius:6px;padding:10px 14px;font:500 13.5px var(--sans);background:var(--amber-btn);border:1px solid var(--amber-btn);color:var(--on-amber);cursor:pointer" style-hover="filter:brightness(1.05)">Continue</button>
+        </sc-if>
+        <sc-if value="{{ isNewWorkspaceInvite }}" hint-placeholder-val="{{ false }}">
+          <h1 style="margin:0;font:600 19px/1.25 var(--sans)">Invite your team</h1>
+          <p style="margin:4px 0 24px;font:400 12px var(--mono);color:var(--text3)">Optional — invite people later from Members</p>
+          <div style="margin-bottom:12px;display:flex;flex-direction:column;gap:8px">
+            <sc-for list="{{ newWorkspaceInvites }}" as="it" hint-placeholder-count="2">
+              <div style="display:flex;align-items:center;gap:8px">
+                <input type="email" placeholder="colleague@firm.com" aria-label="Colleague's email" style="flex:1;min-width:0;width:100%;border-radius:6px;border:1px solid var(--line);background:var(--panel2);padding:10px 12px;font:400 13px var(--mono);color:var(--text);outline:none;transition:border-color .15s" style-focus="border-color:var(--sky);box-shadow:0 0 0 1px var(--ring)">
+                <select aria-label="Role" style="width:130px;flex:none;width:100%;border-radius:6px;border:1px solid var(--line);background:var(--panel2);padding:10px 12px;font:400 13px var(--mono);color:var(--text);outline:none;transition:border-color .15s"><option value="MEMBER">Member</option><option value="ADMIN">Admin</option></select>
+                <button type="button" aria-label="Remove this invite" style="flex:none;border-radius:6px;padding:6px;background:none;border:none;color:var(--text3);font:400 14px var(--sans);cursor:pointer" style-hover="color:var(--red)">✕</button>
+              </div>
+            </sc-for>
+          </div>
+          <button type="button" style="margin-bottom:20px;display:inline-flex;align-items:center;gap:6px;background:none;border:none;padding:0;cursor:pointer;font:500 12.5px var(--sans);color:var(--sky)" style-hover="text-decoration:underline">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" aria-hidden="true"><path d="M12 5v14M5 12h14"></path></svg>
+            Add another
+          </button>
+          <div style="margin-bottom:20px;display:flex;align-items:center;gap:8px;border-radius:6px;background:var(--sky-dim);padding:10px 12px;font:400 11.5px var(--mono);color:var(--sky)">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true" style="flex:none"><circle cx="12" cy="12" r="9"></circle><path d="M12 8h.01M12 11v5"></path></svg>
+            Invitees get access to projects you add them to — roles apply per project.
+          </div>
+          <button onClick="{{ newWorkspaceFinish }}" style="width:100%;display:flex;align-items:center;justify-content:center;gap:8px;border-radius:6px;padding:10px 14px;font:500 13.5px var(--sans);background:var(--amber-btn);border:1px solid var(--amber-btn);color:var(--on-amber);cursor:pointer" style-hover="filter:brightness(1.05)">Send invites &amp; finish</button>
+          <button onClick="{{ newWorkspaceFinish }}" style="margin-top:16px;width:100%;text-align:center;background:none;border:none;padding:0;cursor:pointer;font:500 12.5px var(--sans);color:var(--text3)" style-hover="color:var(--text2);text-decoration:underline">Skip for now</button>
+        </sc-if>
+      </div>
+    </div>
+  </sc-if>
+
   <!-- Delete workspace modal -->
   <sc-if value="{{ deleteOpen }}" hint-placeholder-val="{{ false }}">
     <div data-screen-label="Delete workspace" onClick="{{ closeDelete }}" style="position:fixed;inset:0;z-index:100;display:grid;place-items:center;background:rgba(15,20,30,.4)">
@@ -1019,7 +1153,7 @@
 </div>
 <template id="__bundler_thumbnail"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><rect width="100" height="100" fill="#16171a"></rect><g transform="translate(50 40) scale(.42)" fill="none" stroke="#f8fafc"><path d="M-32 10 L 0 -8 L 32 10 L 0 28 Z M-32 10 V 32 L 0 50 L 32 32 V 10 M0 28 V 50" stroke-width="3" stroke-linejoin="round"></path><path d="M0 -48 L 32 -30 L 0 -12 L -32 -30 Z" fill="#f8fafc" stroke="none"></path></g><text x="50" y="86" fill="#e2b65c" font-family="Geist,Inter,sans-serif" font-size="13" font-weight="700" letter-spacing="2" text-anchor="middle">SE</text></svg></template>
 </x-dc>
-<script type="text/x-dc" data-dc-script data-props="{&quot;section&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;default&quot;:&quot;profile&quot;,&quot;options&quot;:[&quot;profile&quot;,&quot;security&quot;,&quot;general&quot;,&quot;members&quot;,&quot;templates&quot;,&quot;template-editor&quot;,&quot;library&quot;,&quot;library-editor&quot;],&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;State&quot;},&quot;superAdmin&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:true,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;State&quot;},&quot;isAdmin&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:true,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;State&quot;},&quot;importOpen&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;State&quot;},&quot;deleteOpen&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;State&quot;},&quot;providerOnly&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;State&quot;}}">
+<script type="text/x-dc" data-dc-script data-props="{&quot;section&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;default&quot;:&quot;profile&quot;,&quot;options&quot;:[&quot;profile&quot;,&quot;security&quot;,&quot;workspaces&quot;,&quot;general&quot;,&quot;members&quot;,&quot;templates&quot;,&quot;template-editor&quot;,&quot;library&quot;,&quot;library-editor&quot;],&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;State&quot;},&quot;superAdmin&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:true,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;State&quot;},&quot;isAdmin&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:true,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;State&quot;},&quot;importOpen&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;State&quot;},&quot;deleteOpen&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;State&quot;},&quot;providerOnly&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;State&quot;},&quot;workspaces&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;default&quot;:&quot;one&quot;,&quot;options&quot;:[&quot;one&quot;,&quot;several&quot;,&quot;several-with-invite&quot;],&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;State&quot;},&quot;newWorkspaceOpen&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;State&quot;},&quot;newWorkspaceStage&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;default&quot;:&quot;organisation&quot;,&quot;options&quot;:[&quot;organisation&quot;,&quot;invite&quot;],&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;State&quot;}}">
 class Component extends DCLogic {
   constructor(props) {
     super(props);
@@ -1043,7 +1177,7 @@ class Component extends DCLogic {
     this.DISC_ORDER = Object.keys(this.DISC);
     this.SEN = { BOARD: 'Board', C_SUITE: 'C-Suite', N_MINUS_1: 'N-1', N_MINUS_2: 'N-2', N_MINUS_3: 'N-3' };
     this.SEN_ORDER = Object.keys(this.SEN);
-    this.LABELS = { profile: 'Profile', security: 'Security', general: 'General', members: 'Members', templates: 'Templates', 'template-editor': 'Templates', library: 'Template library', 'library-editor': 'Template library' };
+    this.LABELS = { profile: 'Profile', security: 'Security', workspaces: 'Workspaces', general: 'General', members: 'Members', templates: 'Templates', 'template-editor': 'Templates', library: 'Template library', 'library-editor': 'Template library' };
 
     const t = (code, title, discipline, seniority, summary, keywords, extra) => Object.assign({ code, title, discipline, seniority, summary, keywords, fallback: false, copies: 0, revisedAt: '02 Sep 2026', revisedBy: null }, extra || {});
     this.library = [
@@ -1119,6 +1253,7 @@ class Component extends DCLogic {
 
     this.state = {
       section, dark: true, collapsed, toast: '', wsMenuOpen: false,
+      newWorkspaceOpen: !!props.newWorkspaceOpen, newWorkspaceStage: props.newWorkspaceStage || 'organisation',
       pName: 'Yara Haddad', pTitle: 'Head of Talent Acquisition', pTz: 'Asia/Dubai', pLocale: 'en', pNameError: '',
       pwCurrent: '', pwNew: '', pwConfirm: '', pwErr: {},
       sessions: [
@@ -1308,7 +1443,7 @@ class Component extends DCLogic {
       return { key, label, icon, iconColor: on ? 'var(--amber)' : 'currentColor',
         style: 'display:flex;width:100%;align-items:center;justify-content:' + (c ? 'center' : 'flex-start') + ';gap:10px;border-radius:6px;padding:8px 10px;text-align:left;font:400 13.5px var(--sans);border:none;cursor:pointer;background:' + (on ? 'var(--panel2)' : 'transparent') + ';color:' + (on ? 'var(--text)' : 'var(--text2)') };
     };
-    const navGroups = [{ label: 'Account', items: [item('profile', 'Profile', I.profile), item('security', 'Security', I.lock)] }];
+    const navGroups = [{ label: 'Account', items: [item('profile', 'Profile', I.profile), item('security', 'Security', I.lock), item('workspaces', 'Workspaces', 'M3 3h7v7H3zM14 3h7v7h-7zM3 14h7v7H3zM14 14h7v7h-7z')] }];
     if (isAdmin) navGroups.push({ label: 'Workspace', items: [item('general', 'General', I.settings), item('members', 'Members', I.members), item('templates', 'Templates', I.file)] });
     if (superAdmin) navGroups.push({ label: 'Platform', items: [item('library', 'Template library', I.position)] });
 
@@ -1502,12 +1637,36 @@ class Component extends DCLogic {
     const summary = ['CREATE', 'UPDATE', 'CUSTOMISE', 'UNCHANGED', 'INVALID'].map((a) => [a, plan.rows.filter((r) => r.action === a).length]).filter((p) => p[1] > 0).map((p) => p[1] + ' ' + ACT[p[0]][0].toLowerCase()).join(' · ');
 
     const pwErr = st.pwErr;
+    const wsMode = (() => { try { return new URLSearchParams(location.search).get('workspaces'); } catch (e) { return null; } })()
+      || (this.props || {}).workspaces || 'one';
+    const otherWorkspaces = wsMode === 'one' ? [] : [{ id: 'meridian', name: 'Meridian Search Partners', mark: 'M' }];
+    const workspaceInvitations = wsMode === 'several-with-invite' ? [{ id: 'inv-northgate', name: 'Northgate Search' }] : [];
     const deleteBlocked = st.confirmName.trim().toLowerCase() !== st.wsName.toLowerCase();
 
     return Object.assign({
       I, isAdmin, providerOnly: !!props.providerOnly, hasPassword: !props.providerOnly,
       sectionLabel: this.LABELS[sec] || 'Settings',
       isProfile: sec === 'profile', isSecurity: sec === 'security', isGeneral: sec === 'general', isMembers: sec === 'members', isTplList, isEditor,
+      isWorkspaces: sec === 'workspaces',
+      hasWorkspaceList: otherWorkspaces.length > 0 || workspaceInvitations.length > 0,
+      otherWorkspaces, workspaceInvitations,
+      myWorkspaces: [{ id: 'alfuttaim', name: st.wsName, mark: st.wsName.charAt(0).toUpperCase(), roles: 'Admin', current: true, other: false }]
+        .concat(otherWorkspaces.map((w) => ({ id: w.id, name: w.name, mark: w.mark, roles: 'Member', current: false, other: true })))
+        .map((w, i) => Object.assign(w, { rowStyle: 'display:flex;align-items:center;gap:12px;padding:12px 0' + (i ? ';border-top:1px solid var(--line-soft)' : '') })),
+      workspacesSubtitle: (1 + otherWorkspaces.length) + (otherWorkspaces.length ? ' workspaces' : ' workspace') + ' · each with its own positions, team and settings',
+      canCreateWorkspace: true,
+      hasWorkspaceInvitations: workspaceInvitations.length > 0,
+      workspaceInvitationRows: workspaceInvitations.map((inv, i) => ({ id: inv.id, name: inv.name, meta: 'Omar Haddad invited you as Member', rowStyle: 'display:flex;align-items:center;gap:12px;padding:12px 0' + (i ? ';border-top:1px solid var(--line-soft)' : '') })),
+      switchWorkspace: () => this.setState({ wsMenuOpen: false, toast: 'Switched to Meridian Search Partners' }),
+      acceptInvitation: () => this.setState({ wsMenuOpen: false, toast: 'Joined Northgate Search' }),
+      newWorkspaceOpen: st.newWorkspaceOpen,
+      isNewWorkspaceOrganisation: st.newWorkspaceStage === 'organisation', isNewWorkspaceInvite: st.newWorkspaceStage === 'invite',
+      companySizes: ['1–10 people', '11–50 people', '51–200 people', '200+ people'], regions: ['GCC', 'MENA', 'Europe', 'North America', 'Global'], teamFocuses: ['Executive search', 'Board advisory', 'Talent mapping', 'Mixed'],
+      newWorkspaceInvites: [{ id: 1 }, { id: 2 }],
+      openNewWorkspace: () => this.setState({ newWorkspaceOpen: true, newWorkspaceStage: 'organisation' }),
+      closeNewWorkspace: () => this.setState({ newWorkspaceOpen: false }),
+      newWorkspaceContinue: () => this.setState({ newWorkspaceStage: 'invite', toast: 'Workspace created — you are now in it' }),
+      newWorkspaceFinish: () => this.setState({ newWorkspaceOpen: false, newWorkspaceStage: 'organisation' }),
       contentStyle: isTplList ? 'display:flex;height:100%;width:100%;flex-direction:column' : 'max-width:760px;margin:0 auto;padding:28px 28px 60px',
       wsMenuOpen: st.wsMenuOpen, navGroups,
       sideWidth: c ? '56px' : '210px', labelDisplay: c ? 'none' : 'inline', rowJustify: c ? 'center' : 'flex-start',

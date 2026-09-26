@@ -32,6 +32,7 @@ public class PasswordChangeService {
     private final PasswordPolicy passwords;
     private final TokenService tokens;
     private final AuthenticationService authentication;
+    private final WorkspaceSelection selection;
     private final EmailSender emailSender;
     private final EmailTemplates templates;
     private final AuditService audit;
@@ -42,8 +43,8 @@ public class PasswordChangeService {
      * exactly as it was — no {@code noRollbackFor} needed, unlike {@code login()}.
      */
     @Transactional
-    public AuthenticatedSession change(UUID userId, String currentPassword, String newPassword,
-                                       HttpServletRequest request) {
+    public AuthenticatedSession change(UUID userId, UUID sessionWorkspaceId, String currentPassword,
+                                       String newPassword, HttpServletRequest request) {
         User user = authentication.requireUser(userId);
 
         // This endpoint mints a session, so it carries the same status gate as login, refresh, OAuth and
@@ -88,7 +89,8 @@ public class PasswordChangeService {
         emailSender.send(templates.buildPasswordChangedEmail(
                 user.getEmail(), user.getFullName(), properties.web().baseUrl() + "/forgot-password"));
 
-        WorkspaceMember membership = authentication.activeMembership(userId).orElse(null);
+        // The fresh session stays in the workspace the caller was in, not in whichever they last chose.
+        WorkspaceMember membership = selection.select(user, sessionWorkspaceId).orElse(null);
         return tokens.issue(user, membership, request);
     }
 }

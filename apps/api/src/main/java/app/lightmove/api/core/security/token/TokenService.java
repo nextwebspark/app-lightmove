@@ -13,6 +13,7 @@ import app.lightmove.api.workspace.model.WorkspaceMember;
 import jakarta.servlet.http.HttpServletRequest;
 import java.time.Duration;
 import java.time.Instant;
+import java.util.Optional;
 import java.util.UUID;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.oauth2.jwt.JwtClaimsSet;
@@ -55,6 +56,7 @@ public class TokenService {
         String plaintext = Tokens.generate();
         RefreshToken token = RefreshToken.issue(
                 user.getId(),
+                workspaceIdOf(membership),
                 client,
                 Tokens.hash(plaintext),
                 now.plus(refreshTokenTtl(client)),
@@ -123,9 +125,15 @@ public class TokenService {
             throw new ApiException(ErrorCode.REFRESH_TOKEN_INVALID, "User cannot authenticate: " + user.getStatus());
         }
 
+        // Before the successor is written: this method is noRollbackFor ApiException, so a refusal after
+        // rotateTo would commit the rotation while the browser kept the burned cookie.
+        WorkspaceMember membership = membershipLookup.forUser(user.getId(), existing.getWorkspaceId())
+                .orElse(null);
+
         String plaintext = Tokens.generate();
         RefreshToken successor = RefreshToken.issueInFamily(
                 user.getId(),
+                workspaceIdOf(membership),
                 existing.getClient(),
                 Tokens.hash(plaintext),
                 existing.getFamilyId(),
@@ -138,9 +146,14 @@ public class TokenService {
 
         audit.event(AuthEventType.TOKEN_REFRESHED).actor(user.getId()).from(request).record();
 
-        WorkspaceMember membership = membershipLookup.forUser(user.getId()).orElse(null);
         TokenPair pair = new TokenPair(mintAccessToken(user, membership, now), config.accessTokenTtl(), plaintext);
         return new AuthenticatedSession(pair, user, membership);
+    }
+
+    /** Whose session a cookie is, without spending it — so a switch can refuse another's before rotating. */
+    @Transactional(readOnly = true)
+    public Optional<UUID> ownerOf(String presentedToken) {
+        return refreshTokens.findByTokenHash(Tokens.hash(presentedToken)).map(RefreshToken::getUserId);
     }
 
     @Transactional
@@ -221,6 +234,10 @@ public class TokenService {
         return jwtEncoder.encode(JwtEncoderParameters.from(claims.build())).getTokenValue();
     }
 
+    private static UUID workspaceIdOf(WorkspaceMember membership) {
+        return membership == null || !membership.isActive() ? null : membership.getWorkspaceId();
+    }
+
     private Duration refreshTokenTtl(SessionClient client) {
         return client == SessionClient.BROWSER_EXTENSION
                 ? config.extension().refreshTokenTtl()
@@ -243,7 +260,7 @@ public class TokenService {
 
     @FunctionalInterface
     public interface MembershipLookup {
-        java.util.Optional<WorkspaceMember> forUser(UUID userId);
+        java.util.Optional<WorkspaceMember> forUser(UUID userId, UUID sessionWorkspaceId);
     }
 
     public java.time.Duration refreshTokenTtl() {

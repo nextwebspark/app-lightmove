@@ -9,10 +9,9 @@ import app.lightmove.api.core.security.model.AuthenticatedSession;
 import app.lightmove.api.core.security.model.User;
 import app.lightmove.api.core.security.repository.UserRepository;
 import app.lightmove.api.core.security.service.AuthenticationService;
+import app.lightmove.api.core.security.service.WorkspaceSelection;
 import app.lightmove.api.core.security.token.TokenService;
 import app.lightmove.api.core.security.token.Tokens;
-import app.lightmove.api.workspace.constant.InvitationStatus;
-import app.lightmove.api.workspace.constant.MemberStatus;
 import app.lightmove.api.workspace.model.ClientRepresentativeAcceptedEvent;
 import app.lightmove.api.workspace.model.Invitation;
 import app.lightmove.api.workspace.model.Workspace;
@@ -48,6 +47,7 @@ public class InvitationAcceptService {
     private final TokenService tokens;
     private final RateLimitGuard rateLimit;
     private final ApplicationEventPublisher events;
+    private final WorkspaceSelection selection;
 
     /**
      * Unauthenticated, since the invitee usually has no account yet. Discloses only what the email
@@ -84,15 +84,15 @@ public class InvitationAcceptService {
 
     /**
      * Token-less: the token only proves the mailbox, which an <b>email-verified</b> user with the
-     * matching address already has — e.g. one who verified in a tab without the token.
+     * matching address already has. An id not addressed to the caller reads as one that does not exist.
      */
     @Transactional
-    public WorkspaceMember acceptForUser(UUID userId, HttpServletRequest request) {
+    public WorkspaceMember acceptById(UUID invitationId, UUID userId, HttpServletRequest request) {
         Instant now = Instant.now();
         User user = requireUser(userId);
 
-        Invitation invitation = invitations
-                .findFirstByEmailAndStatusOrderByCreatedAtDesc(user.getEmail(), InvitationStatus.PENDING)
+        Invitation invitation = invitations.findById(invitationId)
+                .filter(found -> found.getEmail().equalsIgnoreCase(user.getEmail()))
                 .filter(found -> found.isRedeemable(now))
                 .orElseThrow(() -> ApiException.of(ErrorCode.INVITATION_INVALID));
 
@@ -135,14 +135,15 @@ public class InvitationAcceptService {
             throw ApiException.of(ErrorCode.EMAIL_NOT_VERIFIED);
         }
 
-        if (members.findByUserIdAndStatus(user.getId(), MemberStatus.ACTIVE).isPresent()) {
-            throw ApiException.of(ErrorCode.ALREADY_IN_WORKSPACE);
-        }
-
         invitation.accept(user.getId(), now);
-        WorkspaceMember member = members.save(WorkspaceMember.invite(
-                invitation.getWorkspaceId(), user.getId(), Set.of(invitation.getRole()),
-                invitation.getInvitedBy()));
+        // One row per person per workspace: a removed member rejoins theirs; an active one is moot.
+        WorkspaceMember member = members.findByWorkspaceIdAndUserId(invitation.getWorkspaceId(), user.getId())
+                .map(existing -> existing.isActive() ? existing
+                        : existing.rejoin(Set.of(invitation.getRole()), invitation.getInvitedBy()))
+                .orElseGet(() -> members.save(WorkspaceMember.invite(
+                        invitation.getWorkspaceId(), user.getId(), Set.of(invitation.getRole()),
+                        invitation.getInvitedBy())));
+        selection.remember(user, member);
 
         log.info("User {} accepted invitation to workspace {} as {}",
                 user.getId(), invitation.getWorkspaceId(), invitation.getRole().getName());

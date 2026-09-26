@@ -6,9 +6,7 @@ import app.lightmove.api.core.security.dto.AuthResponse;
 import app.lightmove.api.core.security.dto.UserResponse;
 import app.lightmove.api.core.security.model.AuthPrincipal;
 import app.lightmove.api.core.security.model.AuthenticatedSession;
-import app.lightmove.api.core.security.model.User;
 import app.lightmove.api.core.security.rbac.WorkspaceRole;
-import app.lightmove.api.core.security.service.AuthenticationService;
 import app.lightmove.api.core.security.token.RefreshCookieFactory;
 import app.lightmove.api.strategy.dto.CompanySuggestionsResponse;
 import app.lightmove.api.strategy.service.CompanySuggestionSearch;
@@ -16,8 +14,8 @@ import app.lightmove.api.workspace.dto.AcceptInvitationRequest;
 import app.lightmove.api.workspace.dto.AcceptInvitationSignupRequest;
 import app.lightmove.api.workspace.dto.CreateWorkspaceRequest;
 import app.lightmove.api.workspace.dto.InviteRequest;
-import app.lightmove.api.workspace.model.CreateWorkspaceCommand;
 import app.lightmove.api.workspace.model.InviteCommand;
+import app.lightmove.api.workspace.model.Workspace;
 import app.lightmove.api.workspace.model.WorkspaceMember;
 import app.lightmove.api.workspace.service.InvitationAcceptService;
 import app.lightmove.api.workspace.service.InvitationService;
@@ -25,6 +23,7 @@ import app.lightmove.api.workspace.service.OnboardingService;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import java.util.List;
+import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
@@ -32,6 +31,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -53,25 +53,19 @@ public class OnboardingController {
     private final OnboardingService onboarding;
     private final InvitationService invitations;
     private final InvitationAcceptService invitationAccept;
-    private final AuthenticationService authentication;
     private final AuthResponseAssembler assembler;
     private final RefreshCookieFactory refreshCookie;
     private final CompanySuggestionSearch suggestions;
     private final RateLimitGuard rateLimit;
 
-    /** The client must then call {@code /auth/refresh}: its access token carries no tenant claim yet. */
+    /** A first workspace only. The client must then refresh: its access token carries no tenant claim yet. */
     @PostMapping("/workspace")
     @ResponseStatus(HttpStatus.CREATED)
     public UserResponse createWorkspace(@AuthenticationPrincipal AuthPrincipal principal,
                                         @Valid @RequestBody CreateWorkspaceRequest request,
                                         HttpServletRequest httpRequest) {
-        onboarding.createWorkspace(
-                principal.userId(),
-                new CreateWorkspaceCommand(request.name(), request.apolloAccountId(), request.companySize(),
-                        request.primaryRegion(), request.teamFocus()),
-                httpRequest);
-
-        return currentUser(principal);
+        Workspace workspace = onboarding.createFirstWorkspace(principal.userId(), request.toCommand(), httpRequest);
+        return assembler.userIn(principal.userId(), workspace.getId());
     }
 
     /** "Back" after the step committed. The workspace id is the principal's, never a parameter. */
@@ -79,12 +73,8 @@ public class OnboardingController {
     public UserResponse updateWorkspace(@AuthenticationPrincipal AuthPrincipal principal,
                                         @Valid @RequestBody CreateWorkspaceRequest request,
                                         HttpServletRequest httpRequest) {
-        CreateWorkspaceCommand command = new CreateWorkspaceCommand(
-                request.name(), request.apolloAccountId(), request.companySize(), request.primaryRegion(),
-                request.teamFocus());
-
-        onboarding.updateWorkspace(principal.userId(), principal.requireWorkspaceId(), command, httpRequest);
-
+        onboarding.updateWorkspace(principal.userId(), principal.requireWorkspaceId(), request.toCommand(),
+                httpRequest);
         return currentUser(principal);
     }
 
@@ -126,16 +116,17 @@ public class OnboardingController {
     public UserResponse acceptInvitation(@AuthenticationPrincipal AuthPrincipal principal,
                                          @Valid @RequestBody AcceptInvitationRequest request,
                                          HttpServletRequest httpRequest) {
-        invitationAccept.accept(request.token(), principal.userId(), httpRequest);
-        return currentUser(principal);
+        WorkspaceMember member = invitationAccept.accept(request.token(), principal.userId(), httpRequest);
+        return assembler.userIn(principal.userId(), member.getWorkspaceId());
     }
 
-    /** Token-less: a verified address is what the token existed to prove. */
-    @PostMapping("/accept-invitation")
-    public UserResponse acceptPendingInvitation(@AuthenticationPrincipal AuthPrincipal principal,
-                                                HttpServletRequest httpRequest) {
-        invitationAccept.acceptForUser(principal.userId(), httpRequest);
-        return currentUser(principal);
+    /** Token-less, one of the invitations {@code /me} lists: a verified address is what the token proved. */
+    @PostMapping("/invitations/{invitationId}/accept")
+    public UserResponse acceptInvitationById(@AuthenticationPrincipal AuthPrincipal principal,
+                                             @PathVariable UUID invitationId,
+                                             HttpServletRequest httpRequest) {
+        WorkspaceMember member = invitationAccept.acceptById(invitationId, principal.userId(), httpRequest);
+        return assembler.userIn(principal.userId(), member.getWorkspaceId());
     }
 
     /** Public: the invitation token in the body is the credential. Answers a full session. */
@@ -150,9 +141,7 @@ public class OnboardingController {
     }
 
     private UserResponse currentUser(AuthPrincipal principal) {
-        User user = authentication.requireUser(principal.userId());
-        WorkspaceMember membership = authentication.activeMembership(user.getId()).orElse(null);
-        return assembler.user(user, membership);
+        return assembler.userIn(principal.userId(), principal.workspaceId());
     }
 
     public record InviteResult(int sent) {

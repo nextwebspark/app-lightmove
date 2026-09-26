@@ -1,5 +1,5 @@
 import { request } from "../../../lib/apiClient";
-import type { InviteRequest, WorkspaceRole } from "../../auth/api/types";
+import type { CreateWorkspaceRequest, InviteRequest, User, WorkspaceRole } from "../../auth/api/types";
 import type { Invitation, Member, WorkspaceDetail, WorkspacePersona } from "./types";
 
 /** Every call workspace management makes (roster, invitations, settings), plus shared query keys. */
@@ -28,6 +28,11 @@ export function updatePersona(persona: WorkspacePersona): Promise<WorkspaceDetai
 
 export function deleteWorkspace(confirmName: string): Promise<void> {
   return request<void>("/workspace", { method: "DELETE", body: { confirmName } });
+}
+
+/** The answer's `workspace` is the new one; the session stays where it was until it switches. */
+export function createWorkspace(payload: CreateWorkspaceRequest): Promise<User> {
+  return request<User>("/workspaces", { method: "POST", body: payload });
 }
 
 export function members(): Promise<Member[]> {

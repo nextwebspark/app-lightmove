@@ -33,6 +33,9 @@ public enum AuthEventType implements AuditEventType {
     OAUTH_LOGIN_SUCCEEDED,
     OAUTH_ACCOUNT_LINKED,
 
+    /** The session moved into another of the user's workspaces; {@code workspace_id} is the destination. */
+    WORKSPACE_SWITCHED,
+
     /**
      * A refresh token was minted for LightMove Capture. Worth its own event: it is a long-lived
      * credential leaving the browser for an extension's storage, and the only record of when a

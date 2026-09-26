@@ -47,6 +47,9 @@ lightmove:
       # production 5 it has one case of headroom, which is the same trap the README documents for
       # password-reset-requests-per-hour.
       extension-pairings-per-hour: 100
+      # Every script founds workspaces from 127.0.0.1, several hundred a run across the matrix.
+      workspace-creations-per-hour: 100
+      workspace-creations-per-hour-per-ip: 1000
 
     cookie:
       # The stack is plain http on localhost, and a Secure cookie is dropped by the browser over http —

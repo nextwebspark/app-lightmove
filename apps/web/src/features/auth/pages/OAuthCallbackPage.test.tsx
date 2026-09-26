@@ -40,7 +40,8 @@ describe("OAuthCallbackPage", () => {
     timezone: "Asia/Dubai",
     locale: "en",
     platformActions: [],
-    pendingInvitation: null,
+    pendingInvitations: [],
+  workspaces: [],
     workspace: null,
   };
 

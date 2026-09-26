@@ -57,7 +57,6 @@ public enum ErrorCode {
 
     CURRENT_SESSION_NOT_REVOCABLE(HttpStatus.CONFLICT, "Use sign out to end the session you are using"),
 
-    WORKSPACE_ALREADY_EXISTS(HttpStatus.CONFLICT, "You have already created a workspace"),
     WORKSPACE_NOT_FOUND(HttpStatus.NOT_FOUND, "Workspace not found"),
 
     /** Also served for a workspace that does not exist: a 403 would confirm it is real. */

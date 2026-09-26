@@ -24,7 +24,9 @@ CSRF is double-submit: `GET /api/v1/auth/csrf` with a cookie jar, then echo the 
 value as `X-XSRF-TOKEN` on every mutating request. Flow: signup → grep the API log for
 `auth/verify?token=` → `POST /api/v1/auth/verify?token=…` → login (returns `accessToken`) →
 `POST /api/v1/onboarding/workspace` → **re-login** (the first token lacks workspace claims) → then
-clients/projects/etc. with `Authorization: Bearer`.
+clients/projects/etc. with `Authorization: Bearer`. A second workspace is `POST /api/v1/workspaces` with
+the same body; the session moves into it with `POST /api/v1/auth/switch-workspace {"workspaceId"}` (bearer +
+refresh cookie + `X-XSRF-TOKEN`), which answers a new `accessToken` and rotates the cookie.
 
 ## Driving the SPA
 

@@ -56,7 +56,8 @@ describe("TeamAccessPage", () => {
     timezone: "Asia/Dubai",
     locale: "en",
     platformActions: [],
-    pendingInvitation: null,
+    pendingInvitations: [],
+  workspaces: [],
     workspace: {
       id: "w1",
       name: "Firm",

@@ -19,5 +19,9 @@ public record RateLimitSettings(
          * Signup's company typeahead: an unindexable scan of the universe that needs only a verified
          * session, not a workspace. Debounced keystrokes fit well inside it.
          */
-        @DefaultValue("60") int onboardingCompanySearchesPerMinute
+        @DefaultValue("60") int onboardingCompanySearchesPerMinute,
+
+        /** Founding a workspace: a handful per account, but a whole firm signs up from one office IP. */
+        @DefaultValue("5") int workspaceCreationsPerHour,
+        @DefaultValue("60") int workspaceCreationsPerHourPerIp
 ) {}

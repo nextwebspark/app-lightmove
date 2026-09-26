@@ -250,8 +250,8 @@ class ClientAccessIntegrationTest extends FlowTestSupport {
 
         ClientRepresentative rep = representatives
                 .findByClientIdAndEmailIgnoreCase(UUID.fromString(clientId), repEmail).orElseThrow();
-        UUID repMemberId = members.findByUserIdAndStatus(rep.getUserId(), MemberStatus.ACTIVE)
-                .orElseThrow().getId();
+        UUID repMemberId = members.findAllByUserIdAndStatusOrderByJoinedAtAsc(rep.getUserId(), MemberStatus.ACTIVE)
+                .getFirst().getId();
 
         String projectId = createProject(admin, clientId, "Chief Financial Officer");
 

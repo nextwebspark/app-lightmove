@@ -245,7 +245,8 @@ class OAuthLoginIntegrationTest extends FlowTestSupport {
                                 """))
                 .andExpect(status().isCreated());
 
-        assertThat(members.findByUserIdAndStatus(user.getId(), MemberStatus.ACTIVE)).isPresent();
+        assertThat(members.findAllByUserIdAndStatusOrderByJoinedAtAsc(user.getId(), MemberStatus.ACTIVE))
+                .hasSize(1);
     }
 
     @Test

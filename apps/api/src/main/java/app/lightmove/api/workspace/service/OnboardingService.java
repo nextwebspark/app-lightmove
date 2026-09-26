@@ -5,11 +5,13 @@ import app.lightmove.api.core.audit.service.AuditService;
 import app.lightmove.api.core.email.service.EmailAddressValidator;
 import app.lightmove.api.core.error.constant.ErrorCode;
 import app.lightmove.api.core.error.model.ApiException;
+import app.lightmove.api.core.ratelimit.service.RateLimitGuard;
 import app.lightmove.api.core.security.model.User;
 import app.lightmove.api.core.security.rbac.RbacService;
 import app.lightmove.api.core.security.rbac.WorkspaceAccess;
 import app.lightmove.api.core.security.rbac.WorkspaceRole;
 import app.lightmove.api.core.security.repository.UserRepository;
+import app.lightmove.api.core.security.service.WorkspaceSelection;
 import app.lightmove.api.workspace.constant.MemberStatus;
 import app.lightmove.api.workspace.model.CreateWorkspaceCommand;
 import app.lightmove.api.workspace.model.Workspace;
@@ -25,8 +27,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 /**
- * Creating a workspace at signup, as its ADMIN. Deliberately no "ask to join": sharing an email
- * domain does not entitle anyone to a firm's pipeline, so signup does not look.
+ * Creating a workspace — at signup or from Settings — as its ADMIN. Deliberately no "ask to join":
+ * sharing an email domain does not entitle anyone to a firm's pipeline, so signup does not look.
  */
 @Service
 @RequiredArgsConstructor
@@ -40,6 +42,16 @@ public class OnboardingService {
     private final RbacService rbac;
     private final AuditService audit;
     private final WorkspaceCompanyResolver companyResolver;
+    private final WorkspaceSelection selection;
+    private final RateLimitGuard rateLimit;
+
+    /** Signup's door, gated on verification alone — so shut to anyone already in a workspace. */
+    @Transactional
+    public Workspace createFirstWorkspace(UUID userId, CreateWorkspaceCommand command,
+                                          HttpServletRequest request) {
+        requireNoExistingMembership(userId);
+        return createWorkspace(userId, command, request);
+    }
 
     /**
      * The caller is verified ({@code SecurityConfig} refuses {@code /onboarding/**} otherwise). The
@@ -49,7 +61,7 @@ public class OnboardingService {
     public Workspace createWorkspace(UUID userId, CreateWorkspaceCommand command,
                                      HttpServletRequest request) {
         User user = requireUser(userId);
-        requireNoExistingMembership(userId);
+        rateLimit.checkWorkspaceCreation(user.getEmail(), request);
 
         String domain = EmailAddressValidator.domainOf(user.getEmail());
         WorkspaceIdentity identity = companyResolver.resolve(command.name(), command.apolloAccountId());
@@ -59,8 +71,8 @@ public class OnboardingService {
                 identity.name(), slug, domain, userId, identity.company(),
                 command.companySize(), command.primaryRegion(), command.teamFocus()));
 
-        members.save(WorkspaceMember.invite(
-                workspace.getId(), userId, Set.of(rbac.role(WorkspaceRole.ADMIN)), userId));
+        selection.remember(user, members.save(WorkspaceMember.invite(
+                workspace.getId(), userId, Set.of(rbac.role(WorkspaceRole.ADMIN)), userId)));
 
         log.info("Workspace {} ({}) created by user {} on domain {}", workspace.getId(), slug, userId, domain);
         audit.event(WorkspaceEventType.WORKSPACE_CREATED)
@@ -96,7 +108,7 @@ public class OnboardingService {
     }
 
     private void requireNoExistingMembership(UUID userId) {
-        if (members.findByUserIdAndStatus(userId, MemberStatus.ACTIVE).isPresent()) {
+        if (!members.findAllByUserIdAndStatusOrderByJoinedAtAsc(userId, MemberStatus.ACTIVE).isEmpty()) {
             throw ApiException.of(ErrorCode.ALREADY_IN_WORKSPACE);
         }
     }

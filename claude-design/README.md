@@ -13,12 +13,12 @@ folder into claude.ai/design and edit it there. `support.js` is the Claude Desig
 |---|---|---|
 | `Login.dc.html` | `/login`, `/forgot-password`, `/auth/reset-password`, `/auth/verify`, `/auth/callback`, `/auth/accept-invite` | `screen`, `showProviders`, `error` |
 | `Signup.dc.html` | `/signup`, `/signup/verify-email`, `/signup/workspace`, `/signup/invite` | `step`, `emailTaken`, `reentered`, `linkSent` |
-| `Workspace.dc.html` | `/`, `/all`, `/team`, not-found | `view`, `empty`, `pureClient`, `loading`, `drawerOpen`, `modalOpen`, `inviteOpen` |
+| `Workspace.dc.html` | `/`, `/all`, `/team`, not-found | `view`, `empty`, `pureClient`, `loading`, `drawerOpen`, `modalOpen`, `inviteOpen`, `workspaces` (the topbar menu's switcher: `one`, `several`, `several-with-invite`) |
 | `Clients.dc.html` | `/clients` | `empty`, `loading`, `drawerOpen`, `modalOpen`, `mandateModalOpen` |
 | `Project.dc.html` | `/projects/:id/companies/{universe,shortlisted,declined}`, `/reports`, `/team`, `/candidates`, `/outreach` | `page`, `view`, `drawer`, `dialog`, `importStep`, `empty`, `clientRep`, `chapter`, `reportDrawer`, `teamModal`, `canManage` |
 | `Position.dc.html` | `/projects/:id` (the brief) | `step`, `published`, `readBack`, `documentAttached`, `provenanceOpen`, `readNotice`, `saving` |
-| `Strategy.dc.html` | `/projects/:id/strategy` | `filtersOpen`, `openFilter`, `selectedCount`, `saveMenuOpen`, `drawerOpen`, `columnsOpen` |
-| `Settings.dc.html` | `/settings/*` incl. Templates and Template library | `section`, `superAdmin`, `isAdmin`, `importOpen`, `deleteOpen`, `providerOnly` |
+| `Strategy.dc.html` | `/projects/:id/strategy` | `filtersOpen`, `openFilter`, `selectedCount`, `saveMenuOpen`, `drawerOpen`, `columnsOpen`, `workspaces` |
+| `Settings.dc.html` | `/settings/*` incl. Workspaces, Templates and Template library | `section`, `superAdmin`, `isAdmin`, `importOpen`, `deleteOpen`, `providerOnly`, `workspaces`, `newWorkspaceOpen`, `newWorkspaceStage` |
 | `Assistant.dc.html` | the docked assistant over Strategy | `panelOpen`, `context`, `turnState` |
 | `Extension.dc.html` | the Chrome popup + `/extension/connect` | `screen` |
 

@@ -33,6 +33,7 @@ const ROUTES = [
   { path: "/team", name: "team" },
   { path: "/settings/profile", name: "settings-profile" },
   { path: "/settings/security", name: "settings-security" },
+  { path: "/settings/workspaces", name: "settings-workspaces" },
   { path: "/settings/general", name: "settings-general" },
   { path: "/settings/members", name: "settings-members" },
   { path: "/projects/proj-1", name: "project-position" },

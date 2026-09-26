@@ -20,9 +20,7 @@ import app.lightmove.api.core.security.repository.UserRepository;
 import app.lightmove.api.core.security.token.RevokeReason;
 import app.lightmove.api.core.security.token.SessionClient;
 import app.lightmove.api.core.security.token.TokenService;
-import app.lightmove.api.workspace.constant.MemberStatus;
 import app.lightmove.api.workspace.model.WorkspaceMember;
-import app.lightmove.api.workspace.repository.WorkspaceMemberRepository;
 import jakarta.servlet.http.HttpServletRequest;
 import java.time.Instant;
 import java.util.Optional;
@@ -41,7 +39,7 @@ public class AuthenticationService {
 
     private final UserRepository users;
     private final UserIdentityRepository identities;
-    private final WorkspaceMemberRepository members;
+    private final WorkspaceSelection selection;
     private final PasswordPolicy passwords;
     private final TokenService tokens;
     private final VerificationService verification;
@@ -53,14 +51,14 @@ public class AuthenticationService {
     private final AuthSettings config;
 
     public AuthenticationService(UserRepository users, UserIdentityRepository identities,
-                                 WorkspaceMemberRepository members, PasswordPolicy passwords,
+                                 WorkspaceSelection selection, PasswordPolicy passwords,
                                  TokenService tokens, VerificationService verification,
                                  EmailAddressValidator emailValidator, RateLimitGuard rateLimit,
                                  AuditService audit, EmailSender emailSender,
                                  EmailTemplates templates, LightMoveProperties properties) {
         this.users = users;
         this.identities = identities;
-        this.members = members;
+        this.selection = selection;
         this.passwords = passwords;
         this.tokens = tokens;
         this.verification = verification;
@@ -217,8 +215,7 @@ public class AuthenticationService {
         user.recordSuccessfulLogin(now);
         audit.event(AuthEventType.LOGIN_SUCCEEDED).actor(user.getId()).from(request).record();
 
-        WorkspaceMember membership = activeMembership(user.getId()).orElse(null);
-        return tokens.issue(user, membership, request);
+        return tokens.issue(user, selection.signIn(user), request);
     }
 
     /** A refusal ahead of the password check: it pays the BCrypt cost it skips, records why, and says nothing. */
@@ -231,7 +228,31 @@ public class AuthenticationService {
     /** {@code noRollbackFor} here too: as the outer transaction it would roll back the family revocation. */
     @Transactional(noRollbackFor = ApiException.class)
     public AuthenticatedSession refresh(String refreshToken, HttpServletRequest request) {
-        return tokens.rotate(refreshToken, request, users::findById, this::activeMembership);
+        return tokens.rotate(refreshToken, request, users::findById,
+                (userId, sessionWorkspaceId) -> membershipForSession(userId, sessionWorkspaceId, request));
+    }
+
+    /**
+     * The one move a caller asks for; the other is a web refresh whose membership ended. A miss is
+     * {@code NOT_A_MEMBER}, the 404 a stranger gets, and burns nothing.
+     */
+    @Transactional(noRollbackFor = ApiException.class)
+    public AuthenticatedSession switchWorkspace(UUID userId, UUID workspaceId, String refreshToken,
+                                                HttpServletRequest request) {
+        WorkspaceMember target = selection.membershipIn(userId, workspaceId)
+                .orElseThrow(() -> ApiException.of(ErrorCode.NOT_A_MEMBER));
+
+        // Before rotating: rotate() commits even when this then throws, burning the owner's cookie.
+        if (tokens.ownerOf(refreshToken).filter(userId::equals).isEmpty()) {
+            throw new ApiException(ErrorCode.REFRESH_TOKEN_INVALID, "Refresh cookie is not the bearer's");
+        }
+
+        AuthenticatedSession session = tokens.rotate(refreshToken, request, users::findById,
+                (tokenUserId, ignoredSessionWorkspace) -> Optional.of(target));
+
+        selection.remember(session.user(), target);
+        audit.event(AuthEventType.WORKSPACE_SWITCHED).actor(userId).workspace(workspaceId).from(request).record();
+        return session;
     }
 
     @Transactional
@@ -275,27 +296,43 @@ public class AuthenticationService {
      * received would otherwise stay live for its full TTL.
      */
     @Transactional
-    public AuthenticatedSession pairExtension(UUID userId, HttpServletRequest request) {
+    public AuthenticatedSession pairExtension(UUID userId, UUID pairedWorkspaceId, HttpServletRequest request) {
         User user = requireUser(userId);
         tokens.revokeSessionsForClient(userId, SessionClient.BROWSER_EXTENSION, RevokeReason.SUPERSEDED);
 
-        AuthenticatedSession paired = tokens.issue(user, activeMembership(userId).orElse(null), request,
-                SessionClient.BROWSER_EXTENSION);
+        // Into the web session's workspace, which the extension's family then keeps: a web switch moves nothing.
+        AuthenticatedSession paired = tokens.issue(user, selection.select(user, pairedWorkspaceId).orElse(null),
+                request, SessionClient.BROWSER_EXTENSION);
 
         audit.event(AuthEventType.EXTENSION_PAIRED).actor(userId).from(request).record();
         return paired;
     }
 
-    /** The TTL and session label come from the client passed here, never from what the caller claims. */
+    /**
+     * The TTL and session label come from the client passed here, never from what the caller claims.
+     * Exact, never falling through: a capture filed after a removal must not land in another firm.
+     */
     @Transactional(noRollbackFor = ApiException.class)
     public AuthenticatedSession refreshExtension(String refreshToken, HttpServletRequest request) {
-        return tokens.rotate(refreshToken, request, users::findById, this::activeMembership,
+        return tokens.rotate(refreshToken, request, users::findById, selection::membershipIn,
                 SessionClient.BROWSER_EXTENSION);
     }
 
-    @Transactional(readOnly = true)
-    public Optional<WorkspaceMember> activeMembership(UUID userId) {
-        return members.findByUserIdAndStatus(userId, MemberStatus.ACTIVE);
+    /** Falls through {@link WorkspaceSelection} once the session's membership ends — audited, since nobody asked. */
+    private Optional<WorkspaceMember> membershipForSession(UUID userId, UUID sessionWorkspaceId,
+                                                           HttpServletRequest request) {
+        Optional<WorkspaceMember> current = selection.membershipIn(userId, sessionWorkspaceId);
+        if (current.isPresent()) {
+            return current;
+        }
+        Optional<WorkspaceMember> landed = users.findById(userId).flatMap(user -> selection.select(user, null));
+        if (sessionWorkspaceId != null) {
+            audit.event(AuthEventType.WORKSPACE_SWITCHED).actor(userId)
+                    .workspace(landed.map(WorkspaceMember::getWorkspaceId).orElse(null))
+                    .target("WORKSPACE", sessionWorkspaceId).reason("MEMBERSHIP_ENDED").from(request)
+                    .record();
+        }
+        return landed;
     }
 
     @Transactional(readOnly = true)

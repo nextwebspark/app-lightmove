@@ -60,17 +60,22 @@ export interface User {
   locale: string;
 
   /**
-   * Null until the user has created a workspace or accepted an invitation. The router reads this to
-   * decide whether someone belongs in the app or back in the onboarding wizard.
+   * The workspace this session is in — the access token's tenant claim. Null until the user has
+   * created a workspace or accepted an invitation. The router reads this to decide whether someone
+   * belongs in the app or back in the onboarding wizard.
    */
   workspace: WorkspaceSummary | null;
 
+  /** Every workspace the user is an active member of, oldest first. What the switcher lists. */
+  workspaces: WorkspaceSummary[];
+
   /**
-   * The redeemable invitation addressed to this user, when they are not yet placed. Server-derived so
-   * an invitee is routed to "join {workspace}" from any tab — the emailed token lives in one tab's
-   * sessionStorage, but this survives everywhere the session does. Null once placed.
+   * The redeemable invitations addressed to this user, to workspaces they are not yet in. Server-derived
+   * so an invitee is routed to "join {workspace}" from any tab — the emailed token lives in one tab's
+   * sessionStorage, but this survives everywhere the session does — and so someone already placed sees
+   * an invitation to a second workspace without opening the email.
    */
-  pendingInvitation: PendingInvitation | null;
+  pendingInvitations: PendingInvitation[];
 
   /**
    * Empty for everyone but LightMove staff. Shows the Platform settings group and nothing more — the
@@ -79,10 +84,12 @@ export interface User {
   platformActions: PlatformAction[];
 }
 
-/** What the invitee is told about their outstanding invitation. Deliberately token-free. */
+/** What the invitee is told about an outstanding invitation. Deliberately token-free: the id redeems it. */
 export interface PendingInvitation {
+  id: string;
   workspaceName: string;
   role: WorkspaceRole;
+  inviterName: string | null;
 }
 
 export interface AuthResponse {
