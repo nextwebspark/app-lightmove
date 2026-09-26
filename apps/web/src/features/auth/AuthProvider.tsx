@@ -5,6 +5,7 @@ import {
   useContext,
   useEffect,
   useMemo,
+  useRef,
   useState,
   type ReactNode,
 } from "react";
@@ -144,6 +145,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
    * token. Told at once instead, they reload from the top, which is what a tab in the wrong tenant
    * should do.
    */
+  const workspaceChannel = useRef<BroadcastChannel | null>(null);
   useEffect(() => {
     if (typeof BroadcastChannel === "undefined") return;
     const channel = new BroadcastChannel(WORKSPACE_CHANNEL);
@@ -151,7 +153,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       startFreshSession();
       window.location.replace("/");
     };
-    return () => channel.close();
+    workspaceChannel.current = channel;
+    return () => {
+      channel.close();
+      workspaceChannel.current = null;
+    };
   }, [startFreshSession]);
 
   const switchWorkspace = useCallback(
@@ -160,11 +166,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       startFreshSession();
       forgetOpenAssistant();
       setUser(session.user);
-      if (typeof BroadcastChannel !== "undefined") {
-        const channel = new BroadcastChannel(WORKSPACE_CHANNEL);
-        channel.postMessage({ workspaceId });
-        channel.close();
-      }
+      // Through the listening channel itself: a channel never receives its own posts, but a second
+      // one of the same name in this tab does — which reloaded the switching tab too, and threw away
+      // the New workspace modal between its two stages.
+      workspaceChannel.current?.postMessage({ workspaceId });
       return session.user;
     },
     [startFreshSession],
