@@ -14,7 +14,24 @@
 # and a placeholder is dead the moment a profile file writes the property literally. 02-signup-validation
 # boots a variant with EMAIL_BLOCK_PUBLIC_DOMAINS=true to exercise the rejecting path, and the MX check
 # has to stay live because the whole N4 section is about which domains it lets through.
+spring:
+  # AI is off in the e2e matrix: a runner holds no GCP credentials, and building the Vertex client
+  # without them killed the boot of every nightly run from #25 to #49. What the model says is the
+  # AI evaluation suite's to judge, not this one's — here every AI feature takes the path it takes
+  # when Vertex is unreachable. Same three settings as application-test.yml, which explains the exclude.
+  ai:
+    model:
+      chat: none
+      embedding:
+        text: none
+  autoconfigure:
+    exclude:
+      - org.springframework.ai.model.google.genai.autoconfigure.embedding.GoogleGenAiEmbeddingConnectionAutoConfiguration
+
 lightmove:
+  llm:
+    enabled: false
+
   auth:
     # The matrix creates dozens of accounts in a row and would otherwise be locked out by its own
     # fourth case. Note 07-rate-limits.sh reboots with tightened budgets to test the limiter for real —
@@ -37,6 +54,11 @@ lightmove:
       # reason the local profile does it: Playwright's cross-tab cases navigate top-level.
       secure: false
       same-site: Lax
+
+  enrichment:
+    # A capture's AI enrichment would only log a failure against a disabled model; not queuing it at all
+    # keeps the API log readable.
+    ai-enrich-on-capture: false
 
   email:
     # up.sh forces LIGHTMOVE_EMAIL_PROVIDER=log on top of this and refuses to continue unless the

@@ -7,9 +7,12 @@ name: E2E
 #
 # Deliberately NOT part of CI, and deliberately not a merge gate. deploy.yml triggers on
 # `workflows: [CI]` by name, so this workflow is invisible to it and a red run here blocks nothing.
-# That is the right trade for now: the run takes ~15 minutes, drives a browser, and the suite still
-# has open failures that are product bugs rather than harness drift. Promote it to a gate by moving
-# the job into ci.yml once it has been green for a while.
+# That is the right trade for now: the run takes ~20 minutes and drives a browser. Promote it to a
+# gate by moving the job into ci.yml once it has been green for a while.
+#
+# AI is off on this stack (application-e2e.yml): a runner holds no GCP credentials, and building the
+# Vertex client without them killed the boot of every run from #25 to #49. What a model says belongs
+# to the AI evaluation suite, not to this one.
 on:
   schedule:
     # 02:00 UTC. A `schedule` trigger only ever runs on the default branch, so nightly means main.
@@ -24,9 +27,9 @@ jobs:
   matrix:
     name: e2e
     runs-on: ubuntu-latest
-    # Three API boots at ~40s each plus 13 shell scripts and two browser phases. Generous, because a
-    # run killed at the cap tells you nothing at all.
-    timeout-minutes: 30
+    # Three API boots at ~40s each, nineteen shell scripts and eight browser phases. Generous, because
+    # a run killed at the cap tells you nothing at all.
+    timeout-minutes: 45
 
     steps:
       - uses: actions/checkout@v7

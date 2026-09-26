@@ -178,6 +178,16 @@ if grep -qm1 '^{"time"' "$RUN_DIR/api.log"; then
 fi
 
 say "migrations: $(grep -m1 'Successfully applied' "$RUN_DIR/api.log" || echo '(already migrated)')"
+
+# The Apollo universe is ETL-owned and pulled with gcloud, so a disposable database has none. Seeded
+# here, after Flyway built the table and before any script reads it, because the API caches the facet
+# counts in memory on first read. A no-op on a table already loaded.
+if [ "${SEED_UNIVERSE:-1}" = "1" ]; then
+  docker exec -i "$PG_CONTAINER" psql -q -U lm_app -d lightmove -v ON_ERROR_STOP=1 \
+    < "$E2E_DIR/stack/seed-universe.sql" >/dev/null \
+    || { say "seeding the synthetic company universe failed"; exit 1; }
+  say "universe:   $(docker exec "$PG_CONTAINER" psql -Atq -U lm_app -d lightmove -c 'SELECT count(*) FROM app_lm_apollo_companies') companies"
+fi
 say "providers:  $(curl -s http://localhost:8080/api/v1/auth/providers)"
 
 # --- 5. web -----------------------------------------------------------------
