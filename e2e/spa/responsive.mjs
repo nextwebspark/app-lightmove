@@ -7,7 +7,7 @@
  *   node e2e/spa/responsive.mjs [baseUrl]
  */
 
-import { mkdirSync } from "node:fs";
+import { appendFileSync, mkdirSync } from "node:fs";
 import { chromium } from "playwright";
 import { payloadFor } from "./responsive-fixtures.mjs";
 
@@ -33,6 +33,7 @@ const ROUTES = [
   { path: "/team", name: "team" },
   { path: "/settings/profile", name: "settings-profile" },
   { path: "/settings/security", name: "settings-security" },
+  { path: "/settings/workspaces", name: "settings-workspaces" },
   { path: "/settings/general", name: "settings-general" },
   { path: "/settings/members", name: "settings-members" },
   { path: "/projects/proj-1", name: "project-position" },
@@ -61,8 +62,12 @@ const ROUTES = [
 let passed = 0;
 const failures = [];
 
+// Under run-all.sh every case also lands in the run's tally; run bare, it only prints.
+const CASES = process.env.RUN_DIR ? `${process.env.RUN_DIR}/cases.tsv` : null;
+
 const check = (id, what, expected, actual) => {
   const ok = expected === actual;
+  if (CASES) appendFileSync(CASES, `${id}\t${ok ? "PASS" : "FAIL"}\t${what}${ok ? "" : ` -- expected ${expected}, got ${actual}`}\n`);
   if (ok) {
     passed += 1;
   } else {
@@ -202,8 +207,10 @@ try {
     const page = await context.newPage();
     await page.goto(`${WEB}/`, { waitUntil: "networkidle" });
     await page.waitForTimeout(350);
-    // The first row of the grid is its header; the mandate list starts on the second.
-    await page.locator('[role="table"] [role="row"]').nth(1).click();
+    // The list is grouped by business unit, so the rows under the header open with a group band; a
+    // position row is the one carrying its "Lead ·" line. Clicked at its title, clear of the Open button.
+    await page.locator('[role="table"] [role="row"]').filter({ hasText: "Lead ·" }).first()
+      .click({ position: { x: 60, y: 12 } });
     await page.waitForTimeout(400);
 
     const dimmed = await page.evaluate(() => {

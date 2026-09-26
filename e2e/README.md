@@ -1,16 +1,18 @@
-# e2e — end-to-end authentication matrix
+# e2e — the end-to-end matrix
 
 Drives a real API and a real browser against a disposable database. Not part of `npm test` or Maven:
-it is plain shell plus two ESM scripts. It runs nightly in GitHub Actions
+it is plain shell plus a handful of ESM scripts. It runs nightly in GitHub Actions
 ([`.github/workflows/e2e.yml`](../.github/workflows/e2e.yml)), on demand from the Actions tab, and by
-hand whenever you want to know whether the auth surface still behaves.
+hand whenever you want to know whether the product still behaves — the auth surface it started as, and
+now the mandate's own work: the brief, companies and executives, the spreadsheet in and out, and the
+report, map and activity reads.
 
 The Java suite proves units and slices. This proves the parts only a running system shows — that a
 verification link clicked in a browser materialises a workspace, that CSRF is actually enforced, that
 the rate limiter (disabled in the test profile) works at all.
 
 It is **not** a merge gate. `deploy.yml` triggers on the `CI` workflow by name, so a red run here
-blocks nothing. Deliberate: the run takes ~7 minutes and drives a browser, and a suite that can block a
+blocks nothing. Deliberate: the run takes ~20 minutes and drives a browser, and a suite that can block a
 merge on its first bad night gets switched off rather than fixed. Now that it is green, promoting it is
 a matter of moving the job into `ci.yml`.
 
@@ -21,10 +23,21 @@ run-all.sh                the whole matrix, all three boot variants, one exit co
 stack/up.sh  down.sh      bring the stack up / tear it down
 api/lib.sh                curl + assertion helpers, sourced by every script
 api/fixtures.sh           builds the cast (cast.env) that 09-13 and spa/roles.mjs source
-api/01..16*.sh            the matrix, in dependency order
+stack/seed-universe.sql   a synthetic 600-company Apollo universe, seeded by up.sh
+api/01..15*.sh            the auth, RBAC, tenant and capture matrix, in dependency order
+api/16-position-brief.sh  the brief: timeline, template draft, every step, publish, document
+api/17-companies-...sh    companies and executives: triage doors, contacts ledger, custom columns
+api/18-import-export.sh   the spreadsheet in (no model call) and the stage out, with its audit
+api/19-reports-...sh      the report's chapters, researcher performance, map, activity, templates
+api/20-workspace-...sh    several workspaces: found one in the app, switch, the tenant wall across it
 spa/run.mjs               headless Chromium over the real SPA
 spa/roles.mjs             the same, once per workspace role
 spa/strategy.mjs          the Strategy screen over the company universe
+spa/position.mjs          the brief's five steps, driven through the screen
+spa/companies.mjs         the Companies grid and its two drawers
+spa/import-export.mjs     the import dialog and the Export download
+spa/reports.mjs           the Reports chapters, the team panel and the position drawer
+spa/responsive.mjs        every screen at phone/tablet/desktop width, API stubbed
 results/current/          per-run logs, cookie jars, cases.tsv  (gitignored)
 spa/screenshots/          browser screenshots                    (gitignored)
 ```
@@ -60,10 +73,13 @@ an empty schema. `up.sh` waits for the API to answer and refuses to continue unl
 is what the caller declared.
 
 **The Apollo universe.** `api/14-strategy-company-search.sh` and `spa/strategy.mjs` read
-`app_lm_apollo_companies`, which is ETL-owned and pulled with gcloud. `stack/up.sh` builds an empty
-database, so on a runner those cases **skip themselves and exit 0** rather than reporting a few
-hundred vacuous passes or one red case about the environment. To make them do real work, point them
-at a database that has the universe:
+`app_lm_apollo_companies`, which is ETL-owned and pulled with gcloud, so a disposable database has
+none. `stack/up.sh` seeds [`stack/seed-universe.sql`](stack/seed-universe.sql) — 600 synthetic
+companies shaped like the market (the eight Location countries, every headcount and revenue band,
+V1 industry labels, keywords, names carrying `%` and `_`) — right after Flyway and before any script
+runs, because the API caches the facet counts on first read. Every expected value those scripts
+assert is read back from the table, so synthetic rows prove the same things real ones do. The seed is
+a no-op on a table already loaded, and `SEED_UNIVERSE=0` skips it. Against the real universe:
 
 ```bash
 npm run dev:db:apollo                                       # once, needs gcloud
@@ -73,7 +89,8 @@ PG_URL=postgresql://lm_app:lm@localhost:55433/lightmove bash api/14-strategy-com
 PG_URL=postgresql://lm_app:lm@localhost:55433/lightmove node spa/strategy.mjs
 ```
 
-`PG_URL` defaults to the e2e stack's **:55432**, not the dev database's :55433 — left at the default
+With fewer than 100 rows those two scripts skip themselves and exit 0. `PG_URL` defaults to the
+e2e stack's **:55432**, not the dev database's :55433 — left at the default
 against `npm run dev` these read the wrong database and find no universe.
 
 **`PROFILE`** picks the Spring profile, defaulting to `local` — your own datasource password and OAuth
@@ -83,7 +100,19 @@ and the only way this runs anywhere but a laptop, since `application-local.yml` 
 `local` on a runner silently inherits `application.yml`'s production defaults — a Secure/Strict refresh
 cookie no browser keeps over plain http, and signup capped at five an hour.
 
-## Four things that will bite you
+## Five things that will bite you
+
+**AI is off here, on purpose.** A runner holds no GCP credentials, and building the Vertex client
+without them killed the API's boot on every nightly run from #25 to #49 — four weeks in which no case
+ran at all. `application-e2e.yml` therefore sets `spring.ai.model.chat` and `.embedding.text` to
+`none` and `lightmove.llm.enabled: false`, which registers a model that fails every call
+(`DisabledLlmConfig`): each AI feature then takes the path it takes when Vertex is unreachable — the
+import's header matcher, the brief's heuristic reader, an empty reading, `ASSISTANT_UNAVAILABLE`.
+**No script here calls an AI route** (`/ai-enrich`, `/ai-assessment`, `/assistant`,
+`/position/document/extract/*`, `/llm/*`), and no SPA journey presses an AI button or attaches a
+document, which reads it. What a model *says* is the AI evaluation suite's to judge, not this one's.
+The one AI-adjacent case left is 18's unknown import header, which proves the mapping falls back
+rather than failing when the model cannot be reached.
 
 **JWT signing keys.** `JwtConfig` lets the API generate its own keypair only on `local`, `dev` and
 `test` — `e2e` is deliberately not one of them, because a profile that mints its own signing key is one
@@ -146,9 +175,18 @@ Two scripts have ordering rules `run-all.sh` encodes and a hand-run must respect
 workspace with exactly one admin, so re-run `api/fixtures.sh` immediately before it;
 `12-tenant-isolation.sh` deletes a workspace and goes last.
 
+**A local Chromium.** Playwright downloads the browser its version pins; a sandbox that ships its own
+build can pass it as `CHROMIUM_PATH=/path/to/chromium` to every `spa/*.mjs`.
+
 ## Known failures
 
 None. The suite is green.
+
+The revival after the four dead weeks found only harness drift, no product bug: `PATCH /workspace`
+gained a required `apolloAccountId` (09 R3.2, roles S3.3), 05 N25.2 probed a route that never existed
+and passed on its 404, and `strategy.mjs` still assumed 25-row pages, fixed cell indexes, a per-row
+"+" and a column picker it clicked past. `responsive.mjs`, left out of `run-all.sh`, had drifted with
+nobody watching; it is in the matrix now.
 
 The two the previous version of this file called open bugs are fixed: an unsupported `Content-Type`
 returns 415 (N6.5), and a space-padded address is trimmed rather than rejected (N5.1, N3.4).

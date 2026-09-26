@@ -72,7 +72,7 @@ async function signupThroughUi(page, address, name = "Spa Tester") {
   await page.getByRole("button", { name: "Continue", exact: true }).click();
 }
 
-const browser = await chromium.launch();
+const browser = await chromium.launch(process.env.CHROMIUM_PATH ? { executablePath: process.env.CHROMIUM_PATH } : {});
 
 try {
   // ---------------------------------------------------------------- S1

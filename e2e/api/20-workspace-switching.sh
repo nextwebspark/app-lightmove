@@ -8,7 +8,7 @@
 set -uo pipefail
 . "$(dirname "${BASH_SOURCE[0]}")/lib.sh"
 
-section "16 — several workspaces, one session"
+section "20 — several workspaces, one session"
 
 signup_verified() { # signup_verified EMAIL FULLNAME JAR -> echoes an access token for a verified, signed-in user
   post_json /auth/signup "$(jq -nc --arg e "$1" --arg p "$PASSWORD" --arg n "$2" \

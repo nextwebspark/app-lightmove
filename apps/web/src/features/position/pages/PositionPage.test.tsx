@@ -7,11 +7,15 @@ import { ToastProvider } from "../../../components/ui";
 import { ApiRequestError } from "../../../lib/apiClient";
 import * as projectsApi from "../../projects/api/projectsApi";
 import type { Project } from "../../projects/api/types";
+import type { WorkspaceRole } from "../../auth/api/types";
 import * as positionApi from "../api/positionApi";
 import type { Position, PositionExtraction, PositionTemplate } from "../api/types";
 import { PositionPage } from "./PositionPage";
 
 vi.mock("../../../lib/countries", () => import("../../../test/countries"));
+// A workspace admin unless a test seats someone else: the editor is WORK_EXECUTE's.
+const viewer: { id: string; workspace: { roles: WorkspaceRole[] } } = { id: "u-admin", workspace: { roles: ["ADMIN"] } };
+vi.mock("../../auth/AuthProvider", () => ({ useAuth: () => ({ user: viewer }) }));
 vi.mock("../api/positionApi", async (importOriginal) => ({
   // Keys are real; only the calls are mocked.
   ...(await importOriginal<typeof import("../api/positionApi")>()),
@@ -185,6 +189,7 @@ describe("PositionPage", () => {
   beforeEach(() => {
     // A vi.fn() keeps its call history across tests; only the calls this test makes may count.
     vi.clearAllMocks();
+    viewer.workspace.roles = ["ADMIN"];
     vi.mocked(positionApi.getPosition).mockResolvedValue(seeded);
     vi.mocked(positionApi.listTemplates).mockResolvedValue(catalog);
   });
@@ -250,6 +255,20 @@ describe("PositionPage", () => {
       expect(within(rail()).getByRole("button", { name: "Save draft" })).toBeDisabled();
       expect(screen.queryByRole("link", { name: /Edit section/ })).not.toBeInTheDocument();
       expect(screen.queryByRole("button", { name: "Withdraw publication" })).not.toBeInTheDocument();
+    });
+
+    it("gives a client seat the brief to read and nothing that edits it", async () => {
+      // A pure client holds WORK_VIEW only; the server refuses every write, so none may be offered.
+      viewer.workspace.roles = ["CLIENT"];
+      renderPage("/?step=compensation");
+
+      expect(await screen.findByRole("heading", { name: "Position brief" })).toBeInTheDocument();
+      expect(screen.queryByRole("complementary")).not.toBeInTheDocument();
+      expect(screen.queryByRole("button", { name: /Publish/ })).not.toBeInTheDocument();
+      expect(screen.queryByRole("button", { name: "Save draft" })).not.toBeInTheDocument();
+      expect(screen.queryByRole("link", { name: /Edit section/ })).not.toBeInTheDocument();
+      expect(screen.queryByRole("link", { name: /^Back to|^Next:/ })).not.toBeInTheDocument();
+      expect(screen.queryByRole("textbox")).not.toBeInTheDocument();
     });
 
     it("shows a refusal rather than an empty brief when the read fails", async () => {

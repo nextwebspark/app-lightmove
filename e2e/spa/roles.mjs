@@ -47,7 +47,7 @@ const section = (title) => console.log(`\n\x1b[1;36m== ${title}\x1b[0m`);
 const check = (id, what, expected, actual) =>
   String(expected) === String(actual) ? pass(id, what) : fail(id, what, `expected [${expected}] got [${actual}]`);
 
-const browser = await chromium.launch();
+const browser = await chromium.launch(process.env.CHROMIUM_PATH ? { executablePath: process.env.CHROMIUM_PATH } : {});
 
 async function signIn(email, label) {
   const context = await browser.newContext({ viewport: { width: 1440, height: 1000 } });
@@ -177,7 +177,7 @@ try {
   const memberDenied = [
     ["S3.1", "GET /invitations", "GET", "/invitations", null, 403],
     ["S3.2", "POST /invitations", "POST", "/invitations", [{ email: "probe@nextwebspark.com", role: "MEMBER" }], 403],
-    ["S3.3", "PATCH /workspace", "PATCH", "/workspace", { name: cast.WORKSPACE_NAME }, 403],
+    ["S3.3", "PATCH /workspace", "PATCH", "/workspace", { name: cast.WORKSPACE_NAME, apolloAccountId: "" }, 403],
     ["S3.4", "DELETE /workspace", "DELETE", "/workspace", { confirmName: cast.WORKSPACE_NAME }, 403],
   ];
   for (const [id, what, method, path, body, want] of memberDenied) {

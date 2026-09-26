@@ -27,6 +27,13 @@ export const USER = {
   timezone: "Asia/Dubai",
   locale: "en",
   workspace: WORKSPACE,
+  workspaces: [
+    WORKSPACE,
+    { ...WORKSPACE, id: "ws-2", name: "Northgate Leadership Advisory & Board Search", slug: "northgate", logoMark: "N", roles: ["MEMBER"] },
+  ],
+  pendingInvitations: [
+    { id: "inv-1", workspaceName: "Harbourline Executive Search Partners", role: "MEMBER", inviterName: "Omar Saleh" },
+  ],
 };
 
 const team = (n) =>
@@ -503,6 +510,50 @@ const WORKSPACE_DETAIL = {
   plan: "PROFESSIONAL",
   memberCount: 4,
   createdAt: "2026-03-01T00:00:00Z",
+  // Settings → General reads the persona (V69) and fell over on a fixture written before it existed.
+  persona: {
+    summary: "Executive search across the GCC's financial services and energy sectors.",
+    sectors: ["Financial Services", "Energy"],
+    competitors: [],
+    geographies: ["United Arab Emirates", "Saudi Arabia"],
+    notes: null,
+  },
+};
+
+/** Researcher performance, the report's staff-only read — two researchers over the last 30 days. */
+const TEAM_PERFORMANCE = {
+  from: "2026-08-10",
+  to: "2026-09-08",
+  days: 30,
+  truncated: false,
+  kpis: {
+    executivesInRange: 40, rangePerWeek: 9.3, mandatePerWeek: 11.6, coveredCompanies: 31,
+    targetCompanies: 42, lastAddedAt: "2026-09-06T09:00:00Z", lastAddedBy: "Yara Haddad",
+  },
+  coverage: [
+    { userId: "u-yara", name: "Yara Haddad", companies: 19 },
+    { userId: "u-omar", name: "Omar Khoury", companies: 12 },
+  ],
+  researchers: [
+    {
+      userId: "u-yara", name: "Yara Haddad", avatarUrl: null, role: "LEAD", executives: 28, companies: 9,
+      perDay: 0.9, sharePct: 70, lastAddedAt: "2026-09-06T09:00:00Z",
+      quality: { contactPct: 64, verifiedPct: 40, compPct: 52, level: "GOOD" },
+      statusMix: [{ status: "identified", count: 18 }, { status: "engaged", count: 10 }],
+      daily: Array.from({ length: 30 }, (_, day) => (day % 3 === 0 ? 2 : 0)),
+      recent: [],
+    },
+    {
+      userId: "u-omar", name: "Omar Khoury", avatarUrl: null, role: "RESEARCHER", executives: 12, companies: 5,
+      perDay: 0.4, sharePct: 30, lastAddedAt: "2026-09-01T09:00:00Z",
+      quality: { contactPct: 20, verifiedPct: 0, compPct: 10, level: "ATTENTION" },
+      statusMix: [{ status: "identified", count: 12 }],
+      daily: Array.from({ length: 30 }, (_, day) => (day % 5 === 0 ? 1 : 0)),
+      recent: [],
+    },
+  ],
+  companies: [],
+  companiesTotal: 31,
 };
 
 const ROUTES = [
@@ -555,6 +606,8 @@ export function payloadFor(pathname, search = "") {
       size: 25,
       counts: TRIAGE_COUNTS,
     };
+  // Before the report itself: /report would match this path too and hand the team panel the wrong shape.
+  if (/\/projects\/[^/]+\/report\/team/.test(pathname)) return TEAM_PERFORMANCE;
   if (/\/projects\/[^/]+\/report/.test(pathname)) return REPORT;
   // The Companies grid asks only for the brief's package, to offer its currency to a new executive.
   if (/\/projects\/[^/]+\/position\/compensation$/.test(pathname)) return POSITION.compensation;

@@ -200,3 +200,15 @@ PASSWORD="${PASSWORD:-Passw0rd123}"
 # Lower-case only: the API normalises addresses on the way in, so an upper-case character here would
 # make every later `WHERE email = ...` and every grep of the mail log miss.
 new_email() { printf 'lm-e2e-%s-%s%s@%s' "${1:-u}" "$(date +%s)" "$RANDOM" "$MAIL_DOMAIN"; }
+
+# --- ids ----------------------------------------------------------------------
+
+# A lower-case random UUID, for payloads whose ids are the client's own (the brief's org chart).
+# uuidgen answers upper-case on macOS; /proc is the fallback on a Linux runner without util-linux.
+new_uuid() {
+  if command -v uuidgen >/dev/null 2>&1; then
+    uuidgen | tr 'A-Z' 'a-z'
+  else
+    cat /proc/sys/kernel/random/uuid
+  fi
+}
