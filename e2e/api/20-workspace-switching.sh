@@ -63,7 +63,7 @@ check W2.1 "sign-in opened in the second workspace" "$SECOND_ID" "$(ws_of "$ALOK
 get /projects -H "$(auth_header "$ALOK_TOKEN")"
 check W2.2 "the first firm's mandate is not on this list" "0" "$(json 'length')"
 get "/projects/$FIRST_PROJECT/activity" -H "$(auth_header "$ALOK_TOKEN")"
-check_code W2.3 "nor reachable by id" 404 NOT_A_MEMBER
+check_code W2.3 "nor reachable by id" 404 NOT_FOUND
 
 section "W3  switching moves the session, and only the session"
 

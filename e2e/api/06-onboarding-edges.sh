@@ -70,7 +70,7 @@ check N27.8 "the sign-in opened in the workspace created last" "$WS2_ID" \
   "$(jwt_claims "$OWNER_TOKEN" | jq -r '.wsId')"
 post_json /auth/login "$(jq -nc --arg e "$OWNER" --arg p "$PASSWORD" '{email:$e, password:$p}')" -c "$(jar owner)" >/dev/null
 OWNER_TOKEN=$(json '.accessToken')
-WS1_ID=$(json '.workspaces[0].id')
+WS1_ID=$(json '.user.workspaces[0].id')
 http POST /auth/switch-workspace -H 'Content-Type: application/json' -H "$(auth_header "$OWNER_TOKEN")" \
   -b "$(jar owner)" -c "$(jar owner)" -H "$(csrf_header owner)" -d "$(jq -nc --arg w "$WS1_ID" '{workspaceId:$w}')"
 check_status N27.9 "POST /auth/switch-workspace to the first workspace" 200
