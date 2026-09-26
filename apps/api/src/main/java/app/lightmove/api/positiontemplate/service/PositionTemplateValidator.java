@@ -19,12 +19,8 @@ import java.util.regex.Pattern;
 import org.springframework.stereotype.Component;
 
 /**
- * The rules a template passes before it is stored, shared by the editor and the import.
- *
- * <p>They mirror the brief's own limits — its {@code Put*Request} DTOs and the position tables'
- * columns — because a template is applied into a brief every time a mandate is created. Content the
- * brief cannot hold would fail there, inside project creation, for every workspace that uses the
- * template.
+ * The rules a template passes before it is stored, shared by the editor and the import. They mirror
+ * the brief's own limits, or an oversized template would fail inside every project creation using it.
  */
 @Component
 class PositionTemplateValidator {
@@ -34,7 +30,7 @@ class PositionTemplateValidator {
     private static final BigDecimal MAX_BONUS = new BigDecimal("999999999999.99");
     private static final int MAX_COMPETENCIES_PER_PANEL = 10;
 
-    /** Normalises the draft and refuses it with every problem at once, keyed by field. */
+    /** Refuses with every problem at once, keyed by field. */
     PositionTemplateDraft requireValid(PositionTemplateDraft draft) {
         PositionTemplateDraft normalised = draft.normalised();
         Map<String, String> problems = problemsByField(normalised);

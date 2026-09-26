@@ -23,16 +23,8 @@ import org.springframework.core.io.Resource;
 import org.springframework.core.io.ResourceLoader;
 
 /**
- * Supplies the RSA keypair that signs and verifies access tokens.
- *
- * <p>RS256 rather than HS256: an HMAC secret both signs and verifies, so anything that can check a
- * token can forge one. With RSA the public key can be handed to any future service, or published at a
- * JWKS endpoint, without being able to mint anything.
- *
- * <p>In development a keypair is generated on first run and written to {@code .keys/}, so a fresh
- * clone needs no setup. Production must supply real keys via {@code JWT_PRIVATE_KEY_LOCATION}: a
- * generated key would differ on every instance and every restart, silently invalidating every token
- * in flight the moment the service scaled or redeployed.
+ * Supplies the RS256 keypair for access tokens. Development generates one into {@code .keys/};
+ * production must supply {@code JWT_PRIVATE_KEY_LOCATION}, as a generated key differs per instance.
  */
 @Slf4j
 public class RsaKeyProvider {
@@ -43,10 +35,7 @@ public class RsaKeyProvider {
     private final RSAPublicKey publicKey;
     private final RSAPrivateKey privateKey;
 
-    /**
-     * @param mayGenerate whether a missing keypair is allowed to be conjured. True only in dev and
-     *                    test. See {@link #requireKeysOrGenerate}.
-     */
+    /** @param mayGenerate true only in dev and test */
     public RsaKeyProvider(JwtSettings config, ResourceLoader resourceLoader,
                           boolean mayGenerate) {
         Resource privateResource = resourceLoader.getResource(config.privateKeyLocation());
@@ -66,13 +55,7 @@ public class RsaKeyProvider {
         log.info("Loaded JWT signing keys from {}", config.privateKeyLocation());
     }
 
-    /**
-     * Refuses to boot on a generated key outside development.
-     *
-     * <p>Silently generating one is the worst failure here, because nothing looks wrong: the service
-     * starts and works until it restarts or scales, at which point every user is signed out for
-     * reasons pointing nowhere near a missing file. In prod a missing key is a startup failure.
-     */
+    /** Outside development a missing key fails startup: a silent one signs everyone out at the next scale-out. */
     private static void requireKeysOrGenerate(JwtSettings config, boolean mayGenerate) {
         if (!mayGenerate) {
             throw new IllegalStateException(
@@ -104,9 +87,6 @@ public class RsaKeyProvider {
             Path publicPath = toWritablePath(config.publicKeyLocation());
 
             if (privatePath == null || publicPath == null) {
-                // A classpath: or a read-only location. We can still run on an in-memory key; every
-                // restart just invalidates outstanding tokens, which is tolerable in a test and
-                // unacceptable in production — hence the warning.
                 log.warn("JWT keys are not at a writable file: location — generated in memory. "
                         + "Tokens will not survive a restart.");
                 return pair;
@@ -154,7 +134,6 @@ public class RsaKeyProvider {
         }
     }
 
-    /** Strips the PEM armour and whitespace, leaving the base64 DER body. */
     private static byte[] decodePem(String pem) {
         String body = pem.replaceAll("-----BEGIN [^-]+-----", "")
                 .replaceAll("-----END [^-]+-----", "")
@@ -168,18 +147,18 @@ public class RsaKeyProvider {
         Files.writeString(path, pem, StandardCharsets.UTF_8);
     }
 
-    /** 0600. A private key readable by every account on the host is not private. */
+    /** 0600. */
     private static void restrictToOwner(Path path) {
         try {
             Files.setPosixFilePermissions(path, Set.of(
                     PosixFilePermission.OWNER_READ, PosixFilePermission.OWNER_WRITE));
         } catch (IOException | UnsupportedOperationException ex) {
-            // Windows has no POSIX permissions. Worth saying out loud rather than pretending we set them.
+            // Windows has no POSIX permissions.
             log.warn("Could not restrict permissions on {}", path);
         }
     }
 
-    /** Resolves a {@code file:} location to a path we can write; null for anything else. */
+    /** Null for anything but a {@code file:} location. */
     private static Path toWritablePath(String location) {
         if (!location.startsWith("file:")) {
             return null;

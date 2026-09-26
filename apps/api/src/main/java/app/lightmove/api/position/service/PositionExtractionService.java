@@ -26,18 +26,11 @@ import java.util.UUID;
 import org.springframework.stereotype.Service;
 
 /**
- * Reads the document already attached to a mandate's brief into a step proposal — the one explicit
- * act that opens {@link PositionDocumentService}'s "never read" boundary, on its own call, never as a
- * side effect of upload. Reads steps one, two, three and five; step four (compensation) is not read
- * at all — most position descriptions state no figure, so the product decision is to stop asking.
+ * Reads the document attached to a mandate's brief into a step proposal — the one explicit act that
+ * opens {@link PositionDocumentService}'s "never read" boundary. Compensation is never read.
  *
- * <p>Its own class rather than more methods on {@link PositionDocumentService} or {@link
- * PositionService}, for the same reason the document service is already split out: this orchestrates
- * a byte-reading, a redaction and a billed model call, none of which belong inside {@link
- * PositionDocumentService#attach}'s write transaction. Every method here is read-only — nothing here
- * writes a row, and nothing should ever make it. None of them are {@code @Transactional} themselves:
- * {@link ExtractionDocumentLoader} holds the one short transaction each needs, so the PDF parse and
- * the Vertex round trip below never pin a database connection.
+ * <p>Writes no row, and is deliberately not {@code @Transactional}: {@link ExtractionDocumentLoader}
+ * holds the one short transaction, so the parse and the model round trip never pin a connection.
  */
 @Service
 public class PositionExtractionService {
@@ -52,8 +45,6 @@ public class PositionExtractionService {
     private final AuditService audit;
     private final PositionExtractionSettings settings;
 
-    // Hand-written rather than @RequiredArgsConstructor: it derives the settings branch from the
-    // properties root rather than taking it, which is the one case the Lombok rule exempts.
     public PositionExtractionService(ExtractionDocumentLoader documentLoader,
                                      PositionDocumentTextReader textReader,
                                      PositionDetailsProposer detailsProposer,
@@ -115,13 +106,7 @@ public class PositionExtractionService {
         return assemble(proposed.source().value(), proposed.fields(), null, usualDirectReports);
     }
 
-    /**
-     * The brief template the extracted role title matches, offered as a separate whole-brief opt-in
-     * — never {@code roleTitle}'s own template-backfill match in {@link PositionDetailsProposer},
-     * which falls back to generic-executive for a field it must fill in either way. This suggestion
-     * has no such obligation, so it stays silent rather than offering a fallback as though it were
-     * a real match.
-     */
+    /** Never the generic fallback: an unmatched title suggests nothing. */
     private PositionTemplateSummary suggestedTemplateFor(List<ExtractedField> fields, UUID workspaceId) {
         return fields.stream()
                 .filter(field -> field.fieldKey().equals("roleTitle"))
@@ -132,10 +117,8 @@ public class PositionExtractionService {
     }
 
     /**
-     * The matched template's own direct reports, for the reporting step's Suggested seats row (#398)
-     * — never the generic fallback, the same title-only lookup {@link PositionAssessmentProposer}'s
-     * controlled vocabulary uses. Trimmed and de-duplicated case-insensitively, since a template's own
-     * list is workspace-writable text, not a reading verified against a document.
+     * For the reporting step's Suggested seats (#398), never from the generic fallback. De-duplicated,
+     * since a template's list is workspace-writable text, not a verified reading.
      */
     private List<String> usualDirectReportsFor(UUID workspaceId, String roleTitle) {
         if (roleTitle == null || roleTitle.isBlank()) {

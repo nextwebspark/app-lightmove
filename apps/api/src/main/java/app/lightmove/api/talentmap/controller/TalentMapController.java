@@ -17,14 +17,9 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 /**
- * The map view's three reads.
- *
- * <p>Both stage reads are {@code WORK_VIEW}, the same gate as the grid they are another rendering
- * of — a client representative who may read a mandate's companies may read them on a globe. The
- * second answers that same map with the rows left off, for the poll that is waiting on places rather
- * than on people. The config read carries no {@code @PreAuthorize} on purpose: {@code /api/v1/**}
- * already requires a verified principal, and a pure {@code CLIENT} holds no workspace action to name
- * here yet must be told the map exists.
+ * The map view's reads. The stage reads are {@code WORK_VIEW}, the grid's gate. The config read has no
+ * {@code @PreAuthorize}: {@code /api/v1/**} requires a verified principal, and a pure {@code CLIENT}
+ * holds no workspace action to name yet must be told the map exists.
  */
 @RestController
 @RequiredArgsConstructor

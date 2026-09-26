@@ -10,18 +10,11 @@ import java.util.List;
 import java.util.Map;
 import org.springframework.stereotype.Service;
 
-/**
- * Writes the Companies grid as a CSV: the built-in columns in the order the grid draws them, then
- * the mandate's own custom columns, then one line per person at a company.
- */
+/** Writes the Companies grid as a CSV: built-in columns in grid order, then the mandate's custom columns. */
 @Service
 public class CompaniesCsvWriter {
 
-    /**
-     * Excel on Windows reads a CSV in the machine's ANSI codepage unless a BOM says otherwise, which
-     * turns every non-ASCII name in a mandate into mojibake. Safe for the round trip back through our
-     * own importer: {@code SpreadsheetReader} strips a leading BOM, and its tests pin that.
-     */
+    /** Without a BOM Excel on Windows reads ANSI and mangles non-ASCII names; our importer strips it. */
     private static final String BYTE_ORDER_MARK = "﻿";
 
     public String write(List<CustomColumnDto> customColumns, List<ExportRow> rows) {
@@ -49,10 +42,7 @@ public class CompaniesCsvWriter {
         return cells;
     }
 
-    /**
-     * A company column repeats down the company's people, as the company's own name does — the fact
-     * is about the employer, and blanking it on the second row would read as missing data.
-     */
+    /** A company column repeats on every one of its people's lines, as the company name does. */
     private static String customValueOf(ExportRow line, CustomColumnDto column) {
         Map<String, String> values = column.target().equals(CustomColumnTarget.COMPANY.value())
                 ? (line.company() == null ? null : line.company().customFields())

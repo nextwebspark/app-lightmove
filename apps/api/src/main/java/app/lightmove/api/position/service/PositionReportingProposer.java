@@ -22,28 +22,13 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
 /**
- * Asks the model to read a position description into step-three proposals — no heuristic reader backs
- * this one up, and any failure degrades to an honest empty reading rather than a guess.
+ * Asks the model to read a position description into step-three proposals; any failure degrades to an
+ * empty reading rather than a guess.
  *
- * <p><b>This proposer never answers with an org chart.</b> The chart already on the brief carries
- * consultant-dragged canvas positions and exactly one seat flagged {@code mandateSeat}, and a proposal
- * that replaced it would violate {@code OrgChartRules.requireExactlyOneMandateSeat} — the model has no
- * way to know which seat that is — and would throw away the layout. So this only ever emits titles: a
- * {@code reportsToTitle} and a list of {@code directReportTitle} rows. Merging an accepted title into
- * the existing chart (renaming the current manager, minting one and re-parenting the mandate seat under
- * it, or appending a child under it) is the frontend's {@code orgChart.ts} merge helpers' job, not this
- * class's — see issue #282.
- *
- * <p>{@code reportsToTitle} is deliberately a title and never a person's name, even when the document
- * names one alongside their title ("Reporting to Ahmed Al-Mansoori, Group CEO") — the prompt is
- * explicit about this, and {@code name} is never populated by an accepted proposal.
- *
- * <p>A field neither the document nor the model found stays unproposed. Earlier drafts backfilled
- * reports-to, direct reports and notice period from the mandate's matched brief template — dead weight
- * once a mandate is already seeded from that same template, the same reasoning
- * {@link PositionDetailsProposer}'s class doc gives. {@code PositionExtractionService} separately
- * offers the matched template's usual direct reports as {@code usualDirectReports}, an explicit opt-in
- * rather than a silent proposal.
+ * <p>It never answers with an org chart, only titles: replacing the chart would lose the canvas layout
+ * and break {@code OrgChartRules.requireExactlyOneMandateSeat}, since the model cannot know which seat is
+ * the mandate's. Merging titles into the chart is the frontend's job (issue #282). {@code reportsToTitle}
+ * is a title, never a person's name.
  */
 @Service
 @Slf4j
@@ -60,12 +45,8 @@ public class PositionReportingProposer {
     private static final int TEAM_SIZE_MAX_LENGTH = 160;
 
     /**
-     * A generous ceiling on how many direct-report rows this proposer will hand back — well short of
-     * {@code PutReportingStructureRequest}'s 60-seat chart cap, which also has to leave room for the
-     * mandate seat, the reports-to seat and whatever the chart already held. The true 60-seat ceiling
-     * is enforced client-side, where the existing chart's size is actually known. Applied to the
-     * model's raw answer before any per-entry work, not after — the schema also caps {@code
-     * directReports} at the same number, so this is defence in depth against a model that ignores it.
+     * Well short of {@code PutReportingStructureRequest}'s 60-seat cap, which must also fit the mandate
+     * seat, the reports-to seat and the existing chart; the true cap is enforced client-side.
      */
     private static final int DIRECT_REPORT_MAX_COUNT = 40;
 
@@ -129,9 +110,8 @@ public class PositionReportingProposer {
                 pseudonyms, haystack).ifPresent(fields::add);
 
         if (answered.directReports() != null) {
-            // Bounded before any per-entry work, not after: the schema already caps this at the same
-            // number, but a model that ignores it must not pay for redaction/verification on entries
-            // that will only be discarded.
+            // Bounded before per-entry work: a model that ignores the schema's cap must not pay for
+            // verifying entries that will only be discarded.
             for (ModelDirectReport directReport : answered.directReports().stream()
                     .limit(DIRECT_REPORT_MAX_COUNT).toList()) {
                 if (directReport != null) {
@@ -149,12 +129,8 @@ public class PositionReportingProposer {
     }
 
     /**
-     * The count and the unit the model read, folded into the one period step three offers for them.
-     *
-     * <p>The prompt still asks for a number and a unit, because that is what a document states and
-     * asking for one of five would make the model bucket rather than read. The fold happens here
-     * instead, and a pair that names no option on offer is dropped the way an unparsable count and
-     * an unrecognised unit already are — a proposal nobody can accept is worse than none.
+     * Folds the model's count and unit into one of the offered notice periods; a pair that names no
+     * option is dropped. The prompt asks for count and unit so the model reads rather than buckets.
      */
     private Optional<ExtractedField> noticePeriodFieldFrom(ModelReportingAnswer answered, Pseudonyms pseudonyms,
                                                            String haystack) {
@@ -193,13 +169,7 @@ public class PositionReportingProposer {
         return new ProposedReportingStructure(proposed.source(), truncateToCeilings(proposed.fields()));
     }
 
-    /**
-     * Pre-truncates every value to {@code PutReportingStructureRequest}'s and {@code OrgNodeDto}'s own
-     * ceilings, so accepting a proposal — and the client-side chart merge it feeds — can never 400 the
-     * autosave it is handed to. {@code directReportTitle} is already bounded to
-     * {@link #DIRECT_REPORT_MAX_COUNT} before {@link #reconcile} runs; the count here is defence in
-     * depth, not the load-bearing cap.
-     */
+    /** Truncates to the write requests' own ceilings, so accepting a proposal can never 400 the autosave. */
     private List<ExtractedField> truncateToCeilings(List<ExtractedField> fields) {
         List<ExtractedField> truncated = new ArrayList<>();
         int directReportCount = 0;

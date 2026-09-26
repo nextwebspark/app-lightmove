@@ -27,25 +27,17 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 /**
- * The named filters a mandate has saved — the toolbar's "Save Search" and the dropdown that loads
- * them back.
- *
- * <p><b>What gets saved is the strategy's stored filter, not a payload from the client.</b> The screen
- * autosaves every chip click, so the stored filter already is what is on screen, and taking the
- * client's word a second time would only create a way for the two to disagree.
- *
- * <p>Two tiers, one gate. {@code PROJECT_EDIT} decides who may leave a search behind; within that, a
- * {@code PRIVATE} search answers only to its author. Every refusal on someone else's private search
- * is a 404 rather than a 403 — telling a teammate the row exists is what the tier prevents.
+ * A mandate's saved searches. What gets saved is the strategy's stored filter, never a client payload.
+ * A {@code PRIVATE} search answers only to its author, and every refusal on someone else's is a 404,
+ * not a 403 — admitting the row exists is what the tier prevents.
  */
 @Service
 @RequiredArgsConstructor
 public class StrategySearchService {
 
-    /** A working ceiling on the team's list. Past this a dropdown stops being a way to find anything. */
     private static final int MAX_SHARED_SEARCHES_PER_PROJECT = 50;
 
-    /** Counted separately, so filling your own list cannot lock the mandate out of saving, or the reverse. */
+    /** Counted apart from the shared cap, so neither list can lock the other out. */
     private static final int MAX_PRIVATE_SEARCHES_PER_USER = 50;
 
     private final StrategySearchRepository searches;
@@ -54,7 +46,6 @@ public class StrategySearchService {
     private final UserRepository users;
     private final AuditService audit;
 
-    /** A project's saved searches, by name — part of the Strategy screen's first read. */
     @Transactional(readOnly = true)
     public List<SavedSearchResponse> list(UUID userId, UUID workspaceId, UUID projectId) {
         projects.requireInWorkspace(projectId, workspaceId);
@@ -74,9 +65,8 @@ public class StrategySearchService {
                 .map(Strategy::getFilter)
                 .orElseGet(StrategyFilter::empty);
 
-        // The partial unique indexes are the real guard: two saves racing on the same name both pass
-        // any pre-check. GlobalExceptionHandler maps both to STRATEGY_SEARCH_NAME_TAKEN, so a race
-        // and the ordinary case answer the same way.
+        // The partial unique indexes are the real guard against two saves racing on one name;
+        // GlobalExceptionHandler maps both to STRATEGY_SEARCH_NAME_TAKEN.
         StrategySearch saved = searches.save(
                 StrategySearch.of(projectId, request.name().trim(), filter, visibility, userId));
         durable();
@@ -97,11 +87,8 @@ public class StrategySearchService {
         boolean movesTier = target != null && target != search.getVisibility();
         String newName = trimmedName(request);
 
-        // Decide first, mutate after: a refusal that has already renamed the row is correct only for
-        // as long as nobody moves this out from under the transaction.
+        // Decide first, mutate after.
         if (movesTier) {
-            // A teammate pulling a shared search private would take the mandate's work out of the
-            // mandate's hands.
             if (!search.getCreatedBy().equals(userId)) {
                 throw ApiException.userFacing(ErrorCode.FORBIDDEN,
                         "Only the person who saved a search can change who it is shared with.");
@@ -187,19 +174,14 @@ public class StrategySearchService {
     }
 
     /**
-     * Forces the pending write out to the database, and must be called <b>before</b> the audit event.
-     * Two reasons, and both bite: the audit write is {@code @Async} in a {@code REQUIRES_NEW}
-     * transaction, so it survives a rollback and would otherwise report a name collision as a
-     * successful edit; and {@code updated_at} is written by {@code @UpdateTimestamp} at flush, so a
-     * response built before it carries the timestamp from before the edit it is reporting.
-     *
-     * <p>{@code delete} needs none of this — there is no constraint left for it to violate.
+     * Must run <b>before</b> the audit event: the {@code @Async REQUIRES_NEW} audit write survives a
+     * rollback and would report a name collision as a success, and {@code updated_at} is only set at flush.
      */
     private void durable() {
         searches.flush();
     }
 
-    /** Absent means "leave the label alone", mirroring an absent visibility. Blank never means that. */
+    /** Absent leaves the name alone; blank is refused. */
     private static String trimmedName(UpdateSearchRequest request) {
         if (request.name() == null) {
             return null;

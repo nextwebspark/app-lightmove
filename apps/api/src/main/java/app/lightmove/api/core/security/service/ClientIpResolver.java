@@ -6,30 +6,12 @@ import java.util.List;
 import org.springframework.stereotype.Component;
 
 /**
- * Who the request actually came from.
+ * Who the request came from — a security boundary: it keys the per-IP rate limit and the audit log.
  *
- * <p>This is a security boundary, not a convenience. The value it returns keys the rate limiter's
- * per-IP budget and is written to the audit log, so a caller who can choose it can mint themselves an
- * unlimited number of login attempts and sign someone else's address to their actions.
- *
- * <p>{@code X-Forwarded-For} is a list each proxy <i>appends</i> to, so a client may send any prefix
- * it likes. Only the entries our own infrastructure appended are trustworthy, and they are at the
- * <b>right</b>-hand end: with {@code n} trusted proxies, the client's real address is the {@code n}-th
- * from the right.
- *
- * <p>Taking the <b>leftmost</b> entry — what this codebase did in three separate places — hands the
- * attacker the pen:
- *
- * <pre>
- *   X-Forwarded-For: 1.2.3.4                 (forged by the client)
- *   → our proxy appends the real peer:
- *   X-Forwarded-For: 1.2.3.4, 203.0.113.9    (203.0.113.9 is the truth)
- *   leftmost  → 1.2.3.4     ← chosen by the attacker; a fresh rate-limit bucket per request
- *   rightmost → 203.0.113.9 ← written by us
- * </pre>
- *
- * <p>With no proxy configured (the default) the header is ignored altogether and the socket's peer
- * address is used, because nothing can forge that.
+ * <p>{@code X-Forwarded-For} is appended to by each proxy, so a client controls its prefix; only the
+ * right-hand entries our proxies appended are trustworthy. The <b>leftmost</b> entry (once read here)
+ * is attacker-chosen: a fresh rate-limit bucket per request. With no proxy configured the header is
+ * ignored and the socket peer is used.
  */
 @Component
 public class ClientIpResolver {
@@ -48,7 +30,6 @@ public class ClientIpResolver {
             return UNKNOWN;
         }
 
-        // Directly exposed: the header is whatever the caller felt like sending. The socket is not.
         if (trustedProxyCount == 0) {
             return orUnknown(request.getRemoteAddr());
         }
@@ -59,10 +40,8 @@ public class ClientIpResolver {
         }
 
         List<String> hops = List.of(header.split(","));
-        // The last `trustedProxyCount` hops were appended by our own proxies; the one before them is
-        // the address the outermost proxy actually saw. Fewer hops than that means the chain is shorter
-        // than configured — someone is bypassing the proxy, or the count is wrong. Either way the header
-        // is not evidence, so fall back to the peer.
+        // The hop before our proxies' is what the outermost one saw. Fewer hops means the proxy was
+        // bypassed or the count is wrong: the header is not evidence, so fall back to the peer.
         int clientIndex = hops.size() - trustedProxyCount - 1;
         if (clientIndex < 0) {
             return orUnknown(request.getRemoteAddr());

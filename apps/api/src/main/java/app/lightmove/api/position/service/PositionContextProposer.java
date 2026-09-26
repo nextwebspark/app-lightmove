@@ -23,22 +23,9 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
 /**
- * Asks the model to read a position description into step-two proposals — the structural twin of
- * {@link PositionDetailsProposer}, simplified: no heuristic reader backs this one up.
- *
- * <p><b>There is no fallback reading.</b> Unlike step one, a key-value header block or a bulleted
- * section gives nothing useful here — {@code mandateReason} is never stated as a keyword, and a
- * heuristic built to guess one would be guessing, exactly what this feature exists to refuse to do. So
- * where {@link PositionDetailsProposer} falls back to {@code HeuristicBriefReader}, this one falls back
- * to nothing at all: an empty {@link ProposedMandateContext} labelled {@link ExtractionSource#NONE}.
- *
- * <p>The document is redacted before it is sent and re-hydrated after, exactly as
- * {@link PositionDetailsProposer} does — see {@link PositionDocumentRedactor}.
- *
- * <p>A field neither the document nor the model found stays unproposed. Earlier drafts backfilled
- * strategic priorities from the mandate's matched brief template — dead weight once a mandate is
- * already seeded from that same template, the same reasoning {@link PositionDetailsProposer}'s class
- * doc gives.
+ * Asks the model to read a position description into step-two proposals, redacted as
+ * {@link PositionDetailsProposer} does. There is no heuristic fallback — a mandate reason is never
+ * stated as a keyword — so a failure answers {@link ExtractionSource#NONE}.
  */
 @Service
 @Slf4j
@@ -84,8 +71,7 @@ public class PositionContextProposer {
             }
             return finish(reconcile(answered, redaction.pseudonyms(), documentText));
         } catch (RuntimeException e) {
-            // Deliberately broad and deliberately quiet, exactly as PositionDetailsProposer's catch
-            // is: every way this call can fail has the same right answer, an honest empty reading.
+            // Deliberately broad: every failure has the same right answer, an empty reading.
             log.warn("Mandate context extraction found nothing to propose", e);
             return finish(empty());
         }
@@ -125,9 +111,7 @@ public class PositionContextProposer {
                 fieldReader.fieldFrom(LABEL, "strategicPriority", priority.name(), priority.snippet(),
                         pseudonyms, haystack)
                         .ifPresent(field -> {
-                            // Never let the proposal itself carry a case-insensitive duplicate: a
-                            // single "Accept all" must not be able to trip PositionService's own
-                            // duplicate-name refusal.
+                            // Never let a proposal trip PositionService's duplicate-name refusal.
                             if (seenCaseInsensitive.add(field.value().toLowerCase(Locale.ROOT))) {
                                 fields.add(field);
                             }
@@ -141,10 +125,7 @@ public class PositionContextProposer {
         return new ProposedMandateContext(proposed.source(), truncateToCeilings(proposed.fields()));
     }
 
-    /**
-     * Pre-truncates every value to {@code PutMandateContextRequest}'s own ceilings, so accepting a
-     * proposal can never 400 the autosave it is handed to.
-     */
+    /** Truncates to {@code PutMandateContextRequest}'s ceilings, so accepting a proposal can never 400 the autosave. */
     private List<ExtractedField> truncateToCeilings(List<ExtractedField> fields) {
         List<ExtractedField> truncated = new ArrayList<>();
         int priorityCount = 0;

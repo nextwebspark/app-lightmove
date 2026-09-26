@@ -9,17 +9,12 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
-/**
- * Saved searches are reached only through their already-scoped project, so these finders carry a
- * project id rather than a workspace id — the same exception {@code StrategyRepository} documents.
- * The service resolves the project against the caller's workspace before ever coming here.
- */
+/** Reached only through a project the service has already scoped to the caller's workspace. */
 public interface StrategySearchRepository extends JpaRepository<StrategySearch, UUID> {
 
     /**
-     * The dropdown's read: the mandate's shared searches plus the caller's own private ones. Other
-     * people's private searches are excluded here rather than filtered afterwards, so no code path
-     * can hold one and then forget to.
+     * The mandate's shared searches plus the caller's own private ones, excluded in the query so no code
+     * path can hold someone else's.
      */
     default List<StrategySearch> findVisibleTo(UUID projectId, UUID userId) {
         return findVisible(projectId, userId, SearchVisibility.SHARED);

@@ -15,9 +15,8 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
 /**
- * The whole-universe counts, held in memory for {@code lightmove.company.facet-cache-ttl}. Together
- * they are fifteen full scans of the universe, and no filter or tenant changes them — only the
- * pipeline's reload does.
+ * The whole-universe counts — fifteen full scans that only a pipeline reload changes — held for
+ * {@code lightmove.company.facet-cache-ttl}.
  */
 @Component
 public class UniverseFacets {

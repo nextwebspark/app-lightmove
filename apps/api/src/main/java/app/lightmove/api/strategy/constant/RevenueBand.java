@@ -6,14 +6,8 @@ import lombok.RequiredArgsConstructor;
 import lombok.experimental.Accessors;
 
 /**
- * The revenue bands the Strategy filter selects from — numeric USD bounds rather than range strings,
- * for {@link EmployeeBand}'s reason, closed on both ends and non-overlapping.
- *
- * <p><b>{@code R_UNKNOWN} is an addition to the wireframe's ten, and the live data is why.</b> Apollo
- * carries a revenue figure on 7,132 of 71,822 rows. Ship the ten bands alone and selecting any one of
- * them silently drops nine companies in ten, with nothing on the panel saying so. It carries no
- * bounds — the query builder renders it as {@code annual_revenue IS NULL} — so any caller reading
- * bounds must check {@link #isUnknown()} first.
+ * Revenue bands in USD. {@code R_UNKNOWN} is added to the wireframe's ten because only about one row in
+ * ten carries a figure; it has no bounds, so check {@link #isUnknown()} before reading them.
  */
 @Getter
 @Accessors(fluent = true)
@@ -32,25 +26,24 @@ public enum RevenueBand implements CompanySizeBand {
     R_10B_PLUS("10b-plus", "$10B+", 10_000_000_000L, null),
     R_UNKNOWN("unknown", "Unknown", null, null);
 
-    /** The wire token a filter stores and a request names. Stable across relabelling. */
+    /** Stable across relabelling. */
     private final String value;
 
-    /** What the row reads. Travels in the facets response; never stored. */
+    /** Travels in the facets response; never stored. */
     private final String label;
 
-    /** Smallest revenue in the band in USD, inclusive, or {@code null} when {@link #isUnknown()}. */
+    /** USD, inclusive; {@code null} when {@link #isUnknown()}. */
     private final Long lowerBound;
 
-    /** Largest revenue in USD, inclusive; {@code null} for the open-ended top band and for Unknown. */
+    /** Inclusive; {@code null} for the open-ended top band and for Unknown. */
     private final Long upperBound;
 
-    /** The band that means "no figure published", which is most of the universe. */
+    /** Most of the universe publishes no figure. */
     @Override
     public boolean isUnknown() {
         return this == R_UNKNOWN;
     }
 
-    /** Resolve a wire token to its band, or {@code null} if unknown. */
     public static RevenueBand fromValue(String value) {
         return ApiValueEnum.fromValue(RevenueBand.class, value);
     }

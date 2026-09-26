@@ -13,18 +13,8 @@ import java.util.Locale;
 import org.springframework.stereotype.Component;
 
 /**
- * Applies the auth endpoints' rate limits, and records it when someone hits one.
- *
- * <p>Each guard checks <b>two</b> budgets, because the two attacks have different shapes:
- *
- * <ul>
- *   <li><b>By IP</b> — one host trying many accounts. Credential stuffing.
- *   <li><b>By email</b> — many hosts trying one account. A botnet spreading attempts across thousands
- *       of addresses defeats an IP limit entirely; only the per-account budget sees it.
- * </ul>
- *
- * <p>Deliberately not a servlet filter: the email lives in the request body, and a filter parsing it
- * would have to buffer and re-serve the stream.
+ * The auth endpoints' rate limits, each checking a per-IP budget (credential stuffing) and a per-email
+ * one (a botnet on one account). Not a filter: the email lives in the request body.
  */
 @Component
 public class RateLimitGuard {
@@ -54,29 +44,17 @@ public class RateLimitGuard {
         checkRateLimit("verify-resend", email, request, config.verificationResendsPerHour(), Duration.ofHours(1));
     }
 
-    /**
-     * Guards the reset <i>request</i> only. Redeeming is deliberately unlimited: the 256-bit token is
-     * the credential and cannot be guessed, and a budget there would let an attacker spend a victim's
-     * redemption attempts and lock them out of their own reset.
-     */
+    /** The request only: a budget on redeeming would let an attacker lock a victim out of their own reset. */
     public void checkPasswordResetRequest(String email, HttpServletRequest request) {
         checkRateLimit("password-reset", email, request, config.passwordResetRequestsPerHour(), Duration.ofHours(1));
     }
 
-    /**
-     * Guards the current-password check in Settings → Security. This is the only brake on guessing it:
-     * a wrong attempt here deliberately does not feed the login lockout counter, because the caller
-     * already holds a live session and locking the account would only lock its owner out.
-     */
+    /** The only brake on guessing the current password, which deliberately does not feed the lockout counter. */
     public void checkPasswordChange(String email, HttpServletRequest request) {
         checkRateLimit("password-change", email, request, config.passwordChangeAttemptsPerHour(), Duration.ofHours(1));
     }
 
-    /**
-     * Guards minting a browser-extension token. Not about guessing but about blast radius: the route
-     * hands back a long-lived refresh token in a response body, and script holding a stolen in-memory
-     * access token must not be able to mint them repeatedly.
-     */
+    /** Blast radius: a stolen access token must not mint long-lived extension refresh tokens repeatedly. */
     public void checkExtensionPairing(String email, HttpServletRequest request) {
         checkRateLimit("extension-pairing", email, request, config.extensionPairingsPerHour(),
                 config.extensionPairingsPerHourPerIp(), Duration.ofHours(1));
@@ -100,9 +78,8 @@ public class RateLimitGuard {
         String ip = clientIp(request);
         String normalisedEmail = email == null ? "" : email.trim().toLowerCase(Locale.ROOT);
 
-        // Both are consumed, not short-circuited: an attempt should count against the account it
-        // targeted even when the IP budget is what refused it, or an attacker could exhaust one
-        // account's budget for free by first tripping their own IP limit.
+        // Both consumed, not short-circuited: an attempt counts against its account even when the IP
+        // budget refused it.
         boolean withinIpBudget = limiter.tryAcquire("%s:ip:%s".formatted(action, ip), ipLimit, window);
         boolean withinEmailBudget =
                 limiter.tryAcquire("%s:email:%s".formatted(action, normalisedEmail), emailLimit, window);
@@ -115,19 +92,13 @@ public class RateLimitGuard {
                 .failed()
                 .from(request)
                 .detail("action", action)
-                // Which budget ran out distinguishes stuffing (ip) from a distributed attack on a
-                // single account (email) — the first thing an investigator wants to know.
                 .detail("exhausted", !withinIpBudget ? "ip" : "email")
                 .record();
 
         throw ApiException.of(ErrorCode.RATE_LIMITED);
     }
 
-    /**
-     * The per-IP budget is only as honest as this value. It used to read the leftmost
-     * {@code X-Forwarded-For} entry, which the caller supplies — so a fresh header meant a fresh bucket,
-     * every request, and the per-IP limit stopped nobody. See {@link ClientIpResolver}.
-     */
+    /** Never the leftmost {@code X-Forwarded-For}: a caller-supplied value made every request a fresh bucket. */
     private String clientIp(HttpServletRequest request) {
         return clientIpResolver.resolve(request);
     }

@@ -30,12 +30,8 @@ import java.util.UUID;
 import org.springframework.stereotype.Service;
 
 /**
- * One stage of a mandate, read as points. Composes the three seams the package doc names and adds
- * nothing of its own beyond the pairing: which of the mandate's people sit at which of the stage's
- * companies, and which sit at none.
- *
- * <p>Not {@code @Transactional}: the geocoding it triggers may call the vendor, and the seams it
- * reads through open and close their own transactions.
+ * One stage of a mandate read as points, pairing people with companies. Not {@code @Transactional}:
+ * the geocoding it triggers may call the vendor.
  */
 @Service
 public class TalentMapService {
@@ -67,17 +63,12 @@ public class TalentMapService {
                 placed.people(), placed.totalCandidates(), located.locations(), located.pending());
     }
 
-    /**
-     * The same read with the companies and people left off — what the screen polls while places are
-     * still resolving. The same two queries, but only the points on the wire, which is all that
-     * changes between polls.
-     */
+    /** The points alone, for the screen's poll while places resolve. */
     public TalentMapLocationsResponse readLocations(UUID workspaceId, UUID projectId, String statusToken) {
         Locations located = locate(place(workspaceId, projectId, statusToken));
         return new TalentMapLocationsResponse(located.locations(), located.pending());
     }
 
-    /** The stage's companies, the people to draw with them, and the place each of those rows sits at. */
     private Placement place(UUID workspaceId, UUID projectId, String statusToken) {
         TriageCompanyStatus status = TriageCompanyStatus.parseOrInUniverse(statusToken);
         TriageCompaniesResponse companies =
@@ -85,8 +76,7 @@ public class TalentMapService {
                         caps.maxCompanies());
         CandidatesResponse everyone = candidates.listAllOfProject(workspaceId, projectId, caps.maxCandidates());
 
-        // The people at this stage's companies, plus — on the universe alone, as the grid does — the
-        // ones mapped at no company of the mandate at all.
+        // This stage's people, plus — on the universe stage alone, as the grid does — those at no company.
         Set<UUID> companyIds = new HashSet<>();
         companies.companies().forEach(company -> companyIds.add(company.id()));
         List<CandidateResponse> people = everyone.candidates().stream()
@@ -95,9 +85,7 @@ public class TalentMapService {
                         : status == TriageCompanyStatus.IN_UNIVERSE)
                 .toList();
 
-        // A company is drawn where its people are, as the grid's Location column already reads an
-        // executive's own city over their employer's. HQ is the fallback for a company nobody has
-        // mapped, and first mapped wins where two disagree.
+        // A company is drawn where its people are; HQ is the fallback, and first mapped wins.
         Map<UUID, PlaceKey> placeOfCompanyPeople = new HashMap<>();
         for (CandidateResponse person : people) {
             if (person.triageCompanyId() == null) {
@@ -144,10 +132,7 @@ public class TalentMapService {
                 labelOf(place, country), country, isoCode);
     }
 
-    /**
-     * One English spelling per country, so "UAE" and "United Arab Emirates" are one group. A name the
-     * catalog does not know keeps the asker's own, title-cased.
-     */
+    /** One English spelling per country; a name the catalog does not know keeps its own, title-cased. */
     static String countryNameOf(PlaceKey place, String isoCode) {
         if (!place.hasCountry()) {
             return null;
@@ -155,7 +140,6 @@ public class TalentMapService {
         return Countries.nameOfCode(isoCode).orElseGet(() -> titleCase(place.country()));
     }
 
-    /** "riyadh, saudi arabia" as the key holds it, read back as "Riyadh, Saudi Arabia". */
     static String labelOf(PlaceKey place, String country) {
         StringBuilder label = new StringBuilder();
         if (place.hasCity()) {

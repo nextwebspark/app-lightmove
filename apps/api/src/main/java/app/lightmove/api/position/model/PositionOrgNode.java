@@ -12,13 +12,8 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 
 /**
- * One seat in the org chart around the mandate.
- *
- * <p>Exactly one node per chart carries {@link #mandateSeat}, and everything the screen used to hold
- * as separate fields reads off it: the manager is that seat's parent and the direct reports are its
- * children. Either half of a seat may be blank — a mandate knows "Group Treasurer" long before it
- * knows who sits there. {@code canvasX}/{@code canvasY} are absent until the box has been dragged; an
- * unarranged chart is laid out from the tree.
+ * One seat in the org chart around the mandate; exactly one per chart carries {@link #mandateSeat}.
+ * Canvas coordinates are absent until the box has been dragged.
  */
 @Embeddable
 @Getter
@@ -28,7 +23,6 @@ public class PositionOrgNode {
     @Column(name = "node_id", nullable = false)
     private UUID nodeId;
 
-    /** Null for a root — the top of the chart, which is usually the mandate's manager. */
     @Column(name = "parent_node_id")
     private UUID parentNodeId;
 

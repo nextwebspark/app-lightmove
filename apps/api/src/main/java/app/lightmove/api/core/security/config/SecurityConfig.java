@@ -33,28 +33,9 @@ import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 
 /**
- * The filter chains.
- *
- * <p>Two of them authenticate, and splitting <i>those</i> is the point — because LightMove authenticates
- * in two different ways, with two different threat models:
- *
- * <ul>
- *   <li><b>Bearer-token routes</b> (almost everything). The caller proves themselves with an
- *       {@code Authorization: Bearer} header that JavaScript had to attach deliberately. A browser
- *       never attaches it on its own, so a cross-site request simply arrives unauthenticated —
- *       CSRF is structurally impossible, and CSRF tokens on these routes would be pure ceremony.
- *   <li><b>Cookie routes</b> ({@code /auth/refresh}, {@code /auth/logout}). The caller proves
- *       themselves with a cookie, which the browser attaches <i>automatically</i>, including on a
- *       request that evil.com made. That is textbook CSRF, and it is why these routes keep CSRF
- *       protection on.
- * </ul>
- *
- * <p>The other two carry no credential at all: Actuator, fenced onto its own socket, and the SPA.
- *
- * <p>Spring Security 7 enables CSRF for API endpoints by default — a change from Spring Security 6,
- * and the single most common reason a Boot 3 auth tutorial fails on Boot 4. The lazy fix,
- * {@code csrf(AbstractHttpConfigurer::disable)} across the board, would also switch it off for the
- * two routes that genuinely need it.
+ * The filter chains. Bearer-token routes need no CSRF protection — a browser never attaches the header
+ * on its own — while the cookie routes ({@code /auth/refresh}, {@code /auth/logout}) keep it on, since a
+ * cross-site request carries the cookie automatically. Never disable CSRF across the board.
  */
 @Configuration
 @EnableMethodSecurity
@@ -62,46 +43,27 @@ public class SecurityConfig {
 
     private static final String API = "/api/v1";
 
-    /**
-     * Resolves the {@code '{value}'} placeholder in {@code @RequireProjectPermission} and its siblings.
-     * Static, because method security reads it while its own infrastructure is being built.
-     */
+    /** Resolves {@code '{value}'} in {@code @RequireProjectPermission}; static, as method security reads it while being built. */
     @Bean
     static AnnotationTemplateExpressionDefaults annotationTemplateExpressionDefaults() {
         return new AnnotationTemplateExpressionDefaults();
     }
 
     /**
-     * Chain 0: Actuator, and <b>only</b> on the management port.
-     *
-     * <p>Actuator listens on its own loopback-bound socket, so a scrape needs no credential — but
-     * matching on path alone would open the app port too, {@code /actuator/prometheus} being the same
-     * path on both. The matcher therefore checks the port the request arrived on.
-     *
-     * <p>This used to be the tenant's own {@code ROLE_ADMIN}, which every workspace creator is
-     * granted: any customer could scrape our metrics. A workspace role is not a system role.
-     *
-     * <p><b>Cloud Run routes exactly one port into a container</b>, so there the two ports are set equal
-     * (`MANAGEMENT_PORT=8080`) and this chain deliberately matches nothing. That is not a loophole: with
-     * Actuator on the app socket, chain 3 governs it, and chain 3 permits only {@code health} and
-     * {@code info} and denies the rest. Metrics stay shut either way — the fence just moves from the
-     * socket to the matcher.
+     * Chain 0: Actuator, matched on the port the request arrived on — a path match alone would open
+     * {@code /actuator/prometheus} on the app port too. On Cloud Run the ports are equal and this chain
+     * deliberately matches nothing; chain 3 then permits only health and info.
      */
     @Bean
     @Order(0)
     SecurityFilterChain actuatorChain(HttpSecurity http, ServerProperties server,
                                       ObjectProvider<ManagementServerProperties> management) throws Exception {
-        // ObjectProvider, not a plain parameter: Spring Boot only registers ManagementServerProperties
-        // when Actuator gets a management context of its own, which it only gets when its port DIFFERS
-        // from the application's. Ask for the bean outright and the same-port case — the one this method
-        // exists to handle, and the one Cloud Run forces — fails to inject and the application does not
-        // start at all. The branch below was unreachable until this became optional.
+        // ObjectProvider: the bean exists only when the management port differs, so a plain parameter
+        // fails to inject in the same-port case Cloud Run forces and the application does not start.
         ManagementServerProperties properties = management.getIfAvailable();
         Integer managementPort = properties == null ? null : properties.getPort();
         int appPort = server.getPort() == null ? 8080 : server.getPort();
 
-        // Same port for both means Actuator is on the app socket, and this chain must not exist — chain
-        // 3's denyAll is the only correct answer there.
         if (managementPort == null || managementPort.equals(appPort)) {
             return http.securityMatcher(request -> false).build();
         }
@@ -114,11 +76,7 @@ public class SecurityConfig {
                 .build();
     }
 
-    /**
-     * Chain 1: the cookie-authenticated auth endpoints. CSRF stays ON.
-     *
-     * <p>Ordered first so it claims {@code /api/v1/auth/**} before the general chain sees it.
-     */
+    /** Chain 1: the cookie-authenticated auth endpoints, CSRF on; ordered before the general chain. */
     @Bean
     @Order(1)
     SecurityFilterChain cookieAuthChain(HttpSecurity http,
@@ -132,20 +90,16 @@ public class SecurityConfig {
                 .securityMatcher(API + "/auth/**")
                 .cors(c -> c.configurationSource(cors))
                 .sessionManagement(s -> s.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
-                // A rejected CSRF token is denied here, in the filter chain, where no
-                // @RestControllerAdvice can see it. Without this it answers a bodiless 403 and the
-                // SPA cannot tell "re-fetch the token and retry" from "you may not do this".
+                // A CSRF refusal happens in the filter chain, where no @RestControllerAdvice sees it;
+                // without this it is a bodiless 403 the SPA cannot tell from a real denial.
                 .exceptionHandling(e -> e.accessDeniedHandler(accessDenied))
 
-                // Double-submit: the SPA reads the XSRF-TOKEN cookie (readable by design — that is
-                // what withHttpOnlyFalse means) and echoes it in the X-XSRF-TOKEN header. Another
-                // origin can cause the cookie to be *sent*, but the same-origin policy stops it being
-                // *read*, so it cannot produce the matching header.
+                // Double-submit: the XSRF-TOKEN cookie is readable by design; another origin can cause
+                // it to be sent but cannot read it to produce the matching header.
                 .csrf(csrf -> csrf
                         .csrfTokenRepository(csrfRepository)
                         .csrfTokenRequestHandler(new CsrfTokenRequestAttributeHandler())
-                        // Entry points, not state changes: these have no cookie to protect and must
-                        // work on a first visit, before any CSRF token exists.
+                        // Entry points with no cookie to protect; they must work before any token exists.
                         .ignoringRequestMatchers(
                                 API + "/auth/signup",
                                 API + "/auth/login",
@@ -153,9 +107,7 @@ public class SecurityConfig {
                                 API + "/auth/verify/resend",
                                 API + "/auth/password/forgot",
                                 API + "/auth/password/reset",
-                                // The extension's own session. Its refresh token travels in the request
-                                // body, not a cookie — so there is nothing for a browser to attach on a
-                                // cross-site page's behalf, and nothing for a CSRF token to defend.
+                                // The extension's refresh token travels in the body, not a cookie.
                                 // Deliberately not /auth/extension/**: minting a token stays protected.
                                 API + "/auth/extension/refresh",
                                 API + "/auth/extension/logout"))
@@ -172,49 +124,25 @@ public class SecurityConfig {
                                 API + "/auth/password/reset",
                                 API + "/auth/csrf",
                                 API + "/auth/providers",
-                                // Authenticated by the body-carried refresh token, exactly as
-                                // /auth/refresh is by its cookie.
                                 API + "/auth/extension/refresh",
                                 API + "/auth/extension/logout")
                         .permitAll()
-                        // Everything else here needs a bearer token — including
-                        // /auth/extension/tokens, which mints a credential and must only ever mint one
-                        // for the caller's own account.
+                        // Including /auth/extension/tokens, which must only mint for the caller's own account.
                         .anyRequest().authenticated())
 
-                // The same converter as the main chain, and it must be. Not every route here is
-                // anonymous — /auth/me is bearer-authenticated and its @AuthenticationPrincipal
-                // AuthPrincipal parameter depends on it. With Spring's default converter the principal
-                // is a raw Jwt, the parameter resolves to null instead of a type mismatch error, and
-                // /auth/me NPEs on a caller holding a perfectly valid token.
+                // Must be the main chain's converter: with Spring's default the principal is a raw Jwt,
+                // the AuthPrincipal parameter resolves to null, and /auth/me NPEs on a valid token.
                 .oauth2ResourceServer(oauth -> oauth
                         .jwt(jwt -> jwt.jwtAuthenticationConverter(principalConverter)))
                 .build();
     }
 
     /**
-     * Chain 2: the SPA — its assets, and the history fallback that serves {@code index.html} for a
-     * route the browser asks for directly.
+     * Chain 2: the SPA's assets and history fallback, matched by exclusion — so any endpoint outside
+     * {@code /api/v1} is public; keep every endpoint under it ({@code SpaSecurityTest}).
      *
-     * <p>The SPA is served from the same origin as the API, and that is not a packaging convenience:
-     * the refresh cookie is {@code SameSite=Strict} and host-only, so a browser will only ever send it
-     * back to the host that served the page. One origin is what makes the auth model work at all — it
-     * is the same reason the Vite dev server proxies {@code /api} rather than pointing at :8080.
-     *
-     * <p>Matched by <i>exclusion</i> — everything that is not the API, Actuator, or the OAuth2
-     * redirect endpoints. Listing the SPA's routes instead rots: the router grows a route, nobody
-     * updates the list, and the new screen answers 401 to a user who is logged in.
-     *
-     * <p>The cost of matching this way: any future endpoint <b>outside</b> {@code /api/v1} is public.
-     * Every endpoint in this codebase lives under {@code /api/v1}. Keep it that way —
-     * {@code SpaSecurityTest} holds that line.
-     *
-     * <p><b>Do not give this chain {@code Cross-Origin-Opener-Policy: same-origin}.</b> OAuth sign-in
-     * runs the provider's consent screen in a popup, and that value severs {@code window.opener}, so
-     * the popup returns unable to reach the tab that opened it — silently, with no console or network
-     * error, just a button hanging on "Connecting…". {@code same-origin-allow-popups} is the
-     * popup-compatible value if the header is ever wanted. {@code SpaSecurityTest} pins that it is
-     * never {@code same-origin}.
+     * <p><b>Never {@code Cross-Origin-Opener-Policy: same-origin}</b>: it severs {@code window.opener}
+     * and the OAuth popup silently hangs on "Connecting…"; {@code same-origin-allow-popups} is safe.
      */
     @Bean
     @Order(2)
@@ -222,20 +150,16 @@ public class SecurityConfig {
         return http
                 .securityMatcher(request -> SpaRequestPaths.isSpaPath(request.getRequestURI()))
                 .authorizeHttpRequests(auth -> auth.anyRequest().permitAll())
-                // Static files. There is no state to forge a request against.
                 .csrf(csrf -> csrf.disable())
                 .sessionManagement(s -> s.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .build();
     }
 
-    /**
-     * Chain 3: everything else. Stateless bearer tokens, CSRF off (see the class note).
-     */
+    /** Chain 3: everything else. Stateless bearer tokens, CSRF off (see the class note). */
     @Bean
     @Order(3)
     SecurityFilterChain apiChain(HttpSecurity http,
-                                 // Qualified because Spring MVC's HandlerMappingIntrospector is also a
-                                 // CorsConfigurationSource, so the type alone is ambiguous.
+                                 // HandlerMappingIntrospector is also a CorsConfigurationSource.
                                  @Qualifier("corsConfigurationSource") CorsConfigurationSource cors,
                                  JwtPrincipalConverter principalConverter,
                                  OAuth2LoginSuccessHandler oauthSuccessHandler,
@@ -253,59 +177,37 @@ public class SecurityConfig {
                 .sessionManagement(s -> s.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .exceptionHandling(e -> e
                         .authenticationEntryPoint(new BearerTokenAuthenticationEntryPoint())
-                        // Every verified-email refusal lands here. The default handler writes an empty
-                        // 403 — which is how the most consequential gate in the product reached users
-                        // as "That request could not be completed."
+                        // Every verified-email refusal lands here; the default writes an empty 403.
                         .accessDeniedHandler(accessDenied))
 
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
 
-                        // Liveness only. Everything else Actuator exposes — metrics, prometheus, env —
-                        // lives on the management port (see application.yml) and is not routed here at
-                        // all. It used to be hasRole("ADMIN"), which is the *tenant* role every
-                        // workspace creator is granted: any customer could scrape our metrics.
-                        // A workspace role must never double as a system-admin role.
+                        // Liveness only. A workspace role must never double as a system role: this was
+                        // once hasRole("ADMIN"), and any customer could scrape our metrics.
                         .requestMatchers("/actuator/health/**", "/actuator/info").permitAll()
                         .requestMatchers("/actuator/**").denyAll()
 
-                        // OAuth sign-in. Spring owns these paths, one pair per configured registration id.
                         .requestMatchers("/oauth2/**", "/login/oauth2/**").permitAll()
 
-                        // Anonymous: the person clicking an invitation link out of their inbox has no
-                        // account yet, and must still be shown what they are being offered. The 256-bit
-                        // token in the URL is the credential, and it was mailed to the address the
-                        // preview names.
+                        // Anonymous: the 256-bit token, mailed to the address the preview names, is the credential.
                         .requestMatchers(HttpMethod.GET, API + "/onboarding/invitations/preview").permitAll()
 
-                        // Accepting by creating the invited account. Public: the invitee has no
-                        // session yet and the 256-bit token in the body is the credential. It needs no
-                        // verified session because the token was mailed only to the invited address,
-                        // so holding it is the mailbox proof verification would supply, and the
-                        // account is bound to that exact address, never a client-supplied one.
-                        // POST-only, so it is not reachable as a navigation.
+                        // Public: the mailed token is the mailbox proof, and the account is bound to the
+                        // invited address, never a client-supplied one. POST-only, never a navigation.
                         .requestMatchers(HttpMethod.POST, API + "/onboarding/accept-invitation-signup").permitAll()
 
-                        // Redeeming an invitation stays verified-only, and is the one onboarding write
-                        // that cannot be *held*: accepting lands you ACTIVE in a real workspace
-                        // immediately, with real access to a real firm's candidate data. Holding the
-                        // link is not proof of the mailbox — an invitation forwarded, or read over a
-                        // shoulder, is a link in the hands of someone it was not sent to.
-                        //
-                        // The token-less variant is verified-only for the same reason stated the other
-                        // way round: a verified matching address is the proof the token existed to give.
+                        // Verified-only: accepting lands you ACTIVE with real candidate data at once, and a
+                        // forwarded link is not proof of the mailbox. The token-less variant relies on the
+                        // verified matching address as that proof.
                         .requestMatchers(API + "/onboarding/invitations/accept").access(verified)
                         .requestMatchers(API + "/onboarding/accept-invitation").access(verified)
 
-                        // The rest of onboarding is verified-only: nothing may exist on a firm's
-                        // domain on the strength of an address nobody has opened. Safe only because
-                        // the wizard asks for the emailed link at step 2 — when verification came
-                        // last, a 403 here was a dead end mid-wizard.
+                        // Nothing may exist on a firm's domain on the strength of an unopened address.
+                        // Safe only because the wizard asks for the emailed link at step 2.
                         .requestMatchers(API + "/onboarding/**").access(verified)
 
-                        // Everything that touches tenant data. Still verified-only, and this is the line
-                        // that matters: an unverified user may describe their organisation, but may not
-                        // read a single candidate record.
+                        // Tenant data: an unverified user may not read a single candidate record.
                         .requestMatchers(API + "/**").access(verified)
 
                         .anyRequest().authenticated())
@@ -313,17 +215,12 @@ public class SecurityConfig {
                 .oauth2ResourceServer(oauth -> oauth
                         .jwt(jwt -> jwt.jwtAuthenticationConverter(principalConverter)));
 
-        // Wired only when a provider is configured: Spring needs a ClientRegistrationRepository to
-        // build this, and enabling it unconditionally would mean a fresh clone cannot start.
-        //
-        // On success the handler mints *our* tokens: the provider proves who you are, it does not get
-        // to be our session. The failure handler is not optional either — Spring's default redirects
-        // to /login?error on *this* host, which in development is the API and answers 404 JSON.
+        // Only when a provider is configured, or a fresh clone cannot start. The failure handler is
+        // required: Spring's default redirects to /login?error on the API host, a 404.
         ClientRegistrationRepository registrations = clientRegistrations.getIfAvailable();
         if (registrations != null) {
-            // The resolver is built here rather than declared as its own bean: the repository is
-            // auto-configured *after* user configuration, so a @ConditionalOnBean on it silently never
-            // matches and the default resolver is used — PKCE and all.
+            // Built here, not as a bean: the repository is auto-configured after user config, so a
+            // @ConditionalOnBean on it silently never matches and the default resolver is used.
             var authorizationRequests = new ProviderQuirkAwareRequestResolver(
                     registrations,
                     properties.auth().oauth().pkceUnsupportedRegistrations(),
@@ -341,17 +238,9 @@ public class SecurityConfig {
     }
 
     /**
-     * Authenticated, and — unless the deployment has opted out — holding a verified email address.
-     *
-     * <p>This guards two different things for the same reason. Tenant data, obviously. But also the
-     * onboarding <i>writes</i>, which are what bind a user to an organisation in the first place: the
-     * email domain is our only evidence that someone works at a firm, and an unverified address is an
-     * unproven claim. Let an unverified user through and they can sign up as
-     * {@code victim@realfirm.com}, never open the mailbox, and become ADMIN of a workspace bound to a
-     * domain that isn't theirs.
-     *
-     * <p>Extracted rather than inlined at each matcher so there is exactly one definition of "verified"
-     * to get wrong.
+     * Authenticated and, unless the deployment opted out, holding a verified email. Guards onboarding
+     * writes too: otherwise anyone could sign up as {@code victim@realfirm.com} and become ADMIN of a
+     * workspace on a domain that isn't theirs.
      */
     private static AuthorizationManager<RequestAuthorizationContext> verifiedEmail(boolean required) {
         return (authentication, context) -> {
@@ -363,11 +252,7 @@ public class SecurityConfig {
         };
     }
 
-    /**
-     * CORS. {@code allowCredentials} is what lets the browser send the refresh cookie cross-origin
-     * (the SPA is on :5173, the API on :8080), and it is precisely why the origin list must be
-     * explicit — a wildcard origin with credentials is forbidden by the spec, and rightly so.
-     */
+    /** {@code allowCredentials} is why the origin list must be explicit: never a wildcard. */
     @Bean
     CorsConfigurationSource corsConfigurationSource(LightMoveProperties properties) {
         CorsConfiguration config = new CorsConfiguration();

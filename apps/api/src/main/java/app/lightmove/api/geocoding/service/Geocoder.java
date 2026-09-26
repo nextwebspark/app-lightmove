@@ -4,27 +4,21 @@ import app.lightmove.api.geocoding.model.GeoPoint;
 import java.util.Optional;
 
 /**
- * The vendor seam: one question per precision, so the caller — not the adapter — decides to fall back
- * from a city nobody could place to the country it is in. Two methods rather than one taking a
- * {@code PlaceKey}, because each is one HTTP call and one retry policy; a method that made both calls
- * would retry both when only the second had failed.
- *
- * <p>Empty means the vendor answered and had nothing; a vendor that could not answer throws
- * {@link app.lightmove.api.core.resilience.model.VendorException} and the caller decides what a read
- * without that place is worth.
+ * The vendor seam, one method per precision so each is one call and one retry policy, and the caller
+ * decides the city-to-country fallback. Empty means the vendor had nothing; a vendor that could not
+ * answer throws {@code VendorException}.
  */
 public interface Geocoder {
 
-    /** The city's point, within the named country when one is known. */
+    /** Within the named country when one is known. */
     Optional<GeoPoint> city(String city, String country);
 
-    /** The country's own point — a centroid, and the fallback when the city could not be placed. */
+    /** A centroid — the fallback when the city could not be placed. */
     Optional<GeoPoint> country(String country);
 
     /**
-     * False for the stand-in that runs with no vendor configured. Its silence is not an answer: a
-     * caller that stored it as a miss would keep every place unlocated for the cache's whole lifetime
-     * after a token is finally set.
+     * False for the no-vendor stand-in, whose silence is not an answer — storing it as a miss would keep
+     * every place unlocated for the cache's lifetime after a token is set.
      */
     default boolean isEnabled() {
         return true;

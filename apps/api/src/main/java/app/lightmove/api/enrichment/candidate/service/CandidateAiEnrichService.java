@@ -15,11 +15,9 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 /**
- * The drawer's AI deep enrich button: checks the candidate is this workspace's, spends the budget up
- * front so an exhausted one is refused to the person who pressed it, and queues the run.
- *
- * <p>{@code @Transactional} because the worker listens {@code AFTER_COMMIT}: published with no
- * transaction bound, the event would never be delivered.
+ * The AI deep enrich button: checks the candidate is this workspace's, spends the budget up front so
+ * an exhausted one is refused to the presser, and queues the run. {@code @Transactional} because the
+ * worker listens {@code AFTER_COMMIT} and an event published outside a transaction is never delivered.
  */
 @Service
 @RequiredArgsConstructor

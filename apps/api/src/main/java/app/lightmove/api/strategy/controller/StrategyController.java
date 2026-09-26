@@ -31,15 +31,8 @@ import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
 /**
- * The search of one mandate: its filter, its off-limits list, the companies they select, and the
- * searches saved against them.
- *
- * <p>Reading needs a seat on the project (WORK_VIEW, which every seated role holds including CLIENT),
- * with the workspace-admin bypass. A mandate's scope is team content, not browsable to the whole
- * workspace — which is the line between this controller and {@code CompanySearchController}, where
- * the market's own shape is a workspace-level read. Writing is PROJECT_EDIT on the seat, saved
- * searches included. Whether a <em>private</em> saved search is the caller's to touch is the
- * service's question, answered with a 404 so a refusal never reports that it exists.
+ * One mandate's filter, off-limits list, results and saved searches. Reading is WORK_VIEW on a seat
+ * (clients included); writing is PROJECT_EDIT. A private search that is not the caller's answers 404.
  */
 @RestController
 @RequestMapping("/api/v1/projects/{projectId}/strategy")
@@ -77,10 +70,6 @@ public class StrategyController {
                 projectId, request, httpRequest);
     }
 
-    /**
-     * The results table. The scope is resolved server-side from the saved filter; the caller supplies
-     * only the name query, the page and the sort, none of which widens what they can see.
-     */
     @GetMapping("/companies")
     @RequireProjectPermission(ProjectAction.WORK_VIEW)
     public StrategyCompaniesResponse companies(
@@ -95,7 +84,6 @@ public class StrategyController {
                 sort, direction, page, size);
     }
 
-    /** Save the mandate's current filter under a name. */
     @PostMapping("/searches")
     @RequireProjectPermission(ProjectAction.PROJECT_EDIT)
     @ResponseStatus(HttpStatus.CREATED)
@@ -119,7 +107,7 @@ public class StrategyController {
                 projectId, searchId, request, httpRequest);
     }
 
-    /** No body, for the same reason saving carries no filter: the server reads the stored one. */
+    /** No body: the server reads the stored filter. */
     @PutMapping("/searches/{searchId}/filter")
     @RequireProjectPermission(ProjectAction.PROJECT_EDIT)
     public SavedSearchResponse putSearchFilter(@AuthenticationPrincipal AuthPrincipal principal,

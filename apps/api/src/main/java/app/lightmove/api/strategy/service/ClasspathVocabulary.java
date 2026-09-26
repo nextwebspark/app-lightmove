@@ -7,11 +7,7 @@ import java.util.Map;
 import tools.jackson.core.type.TypeReference;
 import tools.jackson.databind.ObjectMapper;
 
-/**
- * Reads a name-to-members vocabulary out of the classpath — the shape both
- * {@link SectorTaxonomy} and {@link MarketSegments} are stored in. File order is preserved because
- * it is the order the sidebar renders.
- */
+/** Reads a name-to-members vocabulary from the classpath, in file order — the sidebar's order. */
 final class ClasspathVocabulary {
 
     private ClasspathVocabulary() {

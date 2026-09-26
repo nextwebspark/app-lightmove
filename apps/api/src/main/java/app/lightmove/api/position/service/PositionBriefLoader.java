@@ -13,13 +13,8 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 
 /**
- * Resolves the brief behind a mandate, drafting one when there is none.
- *
- * <p>Every load goes through the project's {@code (id, workspaceId)} lookup, and the workspace id
- * comes from the principal — so a foreign mandate 404s before any brief row is touched.
- *
- * <p>Drafting happens on two paths and must behave identically on both: when a mandate is created,
- * and lazily on first read for the mandates that predate the position tables.
+ * Resolves the brief behind a mandate, drafting one when there is none. Every load goes through the
+ * project's {@code (id, workspaceId)} lookup, so a foreign mandate 404s before any brief row is touched.
  */
 @Component
 @RequiredArgsConstructor
@@ -38,16 +33,13 @@ class PositionBriefLoader {
         return new PositionBrief(project, position);
     }
 
-    /**
-     * The brief as it stands, for a reader that must not write: a mandate nobody has drafted one for
-     * answers empty rather than being drafted on the way past. Scoped like {@link #require}.
-     */
+    /** For a reader that must not write: an undrafted brief answers empty rather than being drafted. */
     Optional<Position> find(UUID workspaceId, UUID projectId) {
         Project project = projects.requireInWorkspace(projectId, workspaceId);
         return positions.findByProjectId(project.getId());
     }
 
-    /** {@link #find} as a whole brief: an undrafted one reads blank and is not saved. */
+    /** An undrafted brief reads blank and is not saved. */
     PositionBrief read(UUID workspaceId, UUID projectId) {
         Project project = projects.requireInWorkspace(projectId, workspaceId);
         Position position = positions.findByProjectId(project.getId())
@@ -55,14 +47,7 @@ class PositionBriefLoader {
         return new PositionBrief(project, position);
     }
 
-    /**
-     * The seeded brief a new mandate starts from: the template its role title matches in the
-     * workspace's catalog, with the client's home country pre-filled as the location's country half.
-     *
-     * <p>The country is written after the template rather than through it: a template has never met
-     * this client. A catalog with nothing in it drafts a blank brief rather than failing project
-     * creation.
-     */
+    /** The matched template's brief, at the client's home country; an empty catalog drafts a blank brief. */
     Position draft(UUID workspaceId, UUID projectId, String positionTitle, String hqCountry) {
         Position position = Position.forProject(projectId, hqCountry);
         templates.matching(workspaceId, positionTitle)

@@ -14,18 +14,10 @@ import java.util.List;
 import java.util.Locale;
 
 /**
- * Everything a role template drafts into a fresh brief — the whole document stored in
- * {@code app_lm_position_template.body}.
+ * Everything a role template drafts into a fresh brief — never a title, date, location or salary band.
  *
- * <p>It deliberately carries no role title, target date, location or salary band: those are the
- * mandate's and the client's, and a template asserting them would be inventing a fact about a search
- * it has never seen. The package it does carry is shape rather than money.
- *
- * <p>Null-tolerant on the way in, and {@code @JsonIgnoreProperties} is load-bearing, both for
- * {@code StrategyFilter}'s reasons: a field retired from this record must not make every stored
- * template unreadable. The two defaults are the two columns the brief stores {@code NOT NULL}, so
- * applying a template can never leave the position unwritable. The import is the one reader that must
- * not forgive an unknown key, and checks for one itself before binding.
+ * <p>{@code @JsonIgnoreProperties} is load-bearing: a retired field must not make stored templates
+ * unreadable. The two defaults are the brief's {@code NOT NULL} columns.
  */
 @JsonIgnoreProperties(ignoreUnknown = true)
 public record PositionTemplateBody(
@@ -34,10 +26,7 @@ public record PositionTemplateBody(
         String narrative,
         List<String> responsibilities,
 
-        /** The seat above the mandate's, drawn as the root of the seeded chart. */
         String reportsTo,
-
-        /** The seats typically beneath the mandate's, as named titles rather than placeholders. */
         List<String> directReports,
 
         List<String> strategicPriorities,
@@ -65,7 +54,6 @@ public record PositionTemplateBody(
         baseSalaryMode = baseSalaryMode == null ? BaseSalaryMode.ANNUAL : baseSalaryMode;
     }
 
-    /** What an unwritten template drafts: nothing, which is a blank brief rather than a broken one. */
     public static PositionTemplateBody empty() {
         return new PositionTemplateBody(null, null, null, null, null, null, null, null, null,
                 null, null, null, null, null, null, null, null, null);
@@ -79,7 +67,7 @@ public record PositionTemplateBody(
         return benefit.frequency() == null ? BenefitFrequency.MONTHLY : benefit.frequency();
     }
 
-    /** Trimmed, blank entries dropped, defaults made explicit — so equal content compares equal. */
+    /** Trimmed and defaults made explicit, so equal content compares equal. */
     public PositionTemplateBody normalised() {
         return new PositionTemplateBody(
                 blankToNull(department), employmentType, blankToNull(narrative), trimmed(responsibilities),

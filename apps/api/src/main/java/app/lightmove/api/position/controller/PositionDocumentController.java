@@ -26,13 +26,8 @@ import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.multipart.MultipartFile;
 
 /**
- * The position description attached to a brief. Gated exactly as the brief's own fields are — reading
- * is WORK_VIEW, so a client representative may see and open the document their mandate was briefed
- * from, while attaching or removing one is PROJECT_EDIT.
- *
- * <p>Uploading and downloading move bytes only. Reading the document for its content is a separate,
- * explicit act — {@link app.lightmove.api.position.controller.PositionExtractionController}, gated
- * PROJECT_EDIT because it costs money, not WORK_VIEW like the download below.
+ * The position description attached to a brief: download is WORK_VIEW, attach and remove PROJECT_EDIT.
+ * These move bytes only; reading the content is {@link PositionExtractionController}'s.
  */
 @RestController
 @RequestMapping("/api/v1/projects/{projectId}/position/document")
@@ -61,12 +56,8 @@ public class PositionDocumentController {
     }
 
     /**
-     * Hands the stored bytes back as a download.
-     *
-     * <p>Always {@code application/octet-stream} with {@code attachment}, never the type the file was
-     * uploaded as: serving caller-supplied bytes under a type the browser will render turns an upload
-     * field into a way to host content on our origin. {@code nosniff} stops the browser guessing its
-     * way back to the same place.
+     * Always {@code application/octet-stream} with {@code attachment} and {@code nosniff}, never the
+     * uploaded type: caller-supplied bytes the browser renders would host content on our origin.
      */
     @GetMapping
     @RequireProjectPermission(ProjectAction.WORK_VIEW)

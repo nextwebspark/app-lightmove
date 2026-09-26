@@ -15,14 +15,9 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 /**
- * Reading the document already attached to a mandate's brief — "Read from document" on steps one, two,
- * three and five. Step four (compensation) is no longer read at all: most position descriptions state
- * no figure, so the product decision is to stop asking rather than propose an empty reading.
- *
- * <p>Gated {@code PROJECT_EDIT}, not {@code WORK_VIEW} like the document's own download: downloading
- * moves bytes for free, this spends a billed model call (or, degraded, a bit of CPU), and a read-only
- * client seat must not be able to run either up. It is also an explicit act and never a side effect
- * of upload or of the ordinary {@code GET} of the brief — every Replace would otherwise re-bill.
+ * "Read from document" on the brief's steps. Gated {@code PROJECT_EDIT}, not {@code WORK_VIEW}: it
+ * spends a billed model call a read-only client seat must not run up, and is never a side effect of
+ * upload or of reading the brief.
  */
 @RestController
 @RequestMapping("/api/v1/projects/{projectId}/position/document/extract")

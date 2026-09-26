@@ -4,9 +4,8 @@ import java.time.LocalDate;
 import java.util.List;
 
 /**
- * Who on the team is mapping the mandate, and how fully — the staff-only half of chapter one.
- * {@code from}–{@code to} is the range the table, the KPIs' pace and each researcher's figures are
- * counted over; coverage and the company cards are the mandate as it stands, whatever the range.
+ * The staff-only half of chapter one. The table, KPI pace and per-researcher figures count over
+ * {@code from}–{@code to}; coverage and company cards are the mandate as it stands.
  */
 public record TeamPerformanceDto(
         LocalDate from,

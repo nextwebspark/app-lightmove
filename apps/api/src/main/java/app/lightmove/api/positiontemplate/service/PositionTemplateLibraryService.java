@@ -32,9 +32,8 @@ import org.springframework.transaction.support.TransactionTemplate;
 import org.springframework.web.multipart.MultipartFile;
 
 /**
- * The LightMove library as a super admin edits it. A change reaches every workspace that has neither
- * copied nor hidden the template, from the next mandate it drafts — never a brief already written.
- * Nothing here reads a workspace's data beyond counting how many firms keep their own copy.
+ * The shared library as a super admin edits it; a change reaches the next brief drafted, never one
+ * already written. Reads no workspace data beyond counting firms' copies.
  */
 @Service
 @RequiredArgsConstructor
@@ -121,10 +120,6 @@ public class PositionTemplateLibraryService {
         return exchange.schema();
     }
 
-    /**
-     * Neither import call parses the file inside a transaction: reading it touches no row, and a pooled
-     * connection held across a megabyte of JSON is one the rest of the app is waiting for.
-     */
     public TemplateImportResponse previewImport(MultipartFile file) {
         List<ImportedTemplate> imported = exchange.read(file);
         return TemplateImportResponse.of(false, plan(imported));

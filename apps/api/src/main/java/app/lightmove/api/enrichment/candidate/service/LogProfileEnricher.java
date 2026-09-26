@@ -4,12 +4,7 @@ import app.lightmove.api.candidate.model.EnrichedProfile;
 import java.util.Optional;
 import lombok.extern.slf4j.Slf4j;
 
-/**
- * Answers every research request with nothing.
- *
- * <p>The default, for the reason {@code LogEmailSender} is: a fresh clone runs the whole capture flow
- * with no HarvestAPI account and no spend — the candidate simply keeps what the plugin read.
- */
+/** The default: answers nothing, so a fresh clone runs the capture flow with no vendor or spend. */
 @Slf4j
 public class LogProfileEnricher implements LinkedInProfileEnricher {
 

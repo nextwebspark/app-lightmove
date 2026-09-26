@@ -6,9 +6,8 @@ import java.util.List;
 import java.util.UUID;
 
 /**
- * One researcher over the range. {@code quality} is null for someone who filed nobody in it — an
- * empty column has no completeness to grade. {@code daily} is one count per day of the range;
- * {@code lastAddedAt} is their latest filing ever, so a quiet week still says when they last worked.
+ * One researcher over the range. {@code quality} is null for someone who filed nobody in it;
+ * {@code lastAddedAt} is their latest filing ever.
  */
 public record ResearcherDto(
         UUID userId,

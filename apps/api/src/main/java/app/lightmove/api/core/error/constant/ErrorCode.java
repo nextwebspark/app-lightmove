@@ -5,12 +5,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.experimental.Accessors;
 import org.springframework.http.HttpStatus;
 
-/**
- * Every failure the API can report, as a stable machine-readable code.
- *
- * <p>The frontend switches on these, not on the human-readable message — so wording can change
- * without breaking a client.
- */
+/** Every failure the API can report, as a stable code the frontend switches on — never on the message. */
 @Getter
 @Accessors(fluent = true)
 @RequiredArgsConstructor
@@ -19,10 +14,8 @@ public enum ErrorCode {
     VALIDATION_FAILED(HttpStatus.BAD_REQUEST, "One or more fields are invalid"),
 
     /**
-     * Deliberately the single answer to "wrong password", "no such account" and "that address is a
-     * Google-only account". Distinguishing them is a free account-enumeration oracle: an attacker
-     * could harvest which of a leaked email list are real customers without guessing a password. The
-     * audit log records which case it was; the client is told only that the pair did not match.
+     * The single answer to wrong password, no such account and provider-only account: distinguishing
+     * them is an account-enumeration oracle. The audit log records which case it was.
      */
     INVALID_CREDENTIALS(HttpStatus.UNAUTHORIZED, "Invalid email or password"),
 
@@ -30,19 +23,10 @@ public enum ErrorCode {
     ACCOUNT_SUSPENDED(HttpStatus.FORBIDDEN, "This account has been suspended"),
     EMAIL_NOT_VERIFIED(HttpStatus.FORBIDDEN, "Please verify your email address to continue"),
 
-    /**
-     * The OAuth exchange failed. It never reaches an API response body — the flow is a browser
-     * redirect, so this travels as {@code ?error=} back to the login screen. The provider's own
-     * message is logged instead, being configuration detail nobody signing in can act on.
-     */
+    /** Travels as {@code ?error=} on the redirect to the login screen, never in a response body. */
     OAUTH_FAILED(HttpStatus.UNAUTHORIZED, "Sign-in did not complete. Please try again"),
 
-    /**
-     * The person said no at the provider's consent screen. Travels the same {@code ?error=} redirect
-     * as {@link #OAUTH_FAILED} and is deliberately kept apart from it: a deliberate "not now" is not
-     * a fault, and answering it with "sign-in did not complete, try again" reads as a broken button.
-     * The SPA shows nothing for this one.
-     */
+    /** Declined at the consent screen; kept apart from {@link #OAUTH_FAILED} so the SPA shows nothing. */
     OAUTH_CANCELLED(HttpStatus.UNAUTHORIZED, "Sign-in was cancelled"),
 
     EMAIL_ALREADY_REGISTERED(HttpStatus.CONFLICT, "An account with this email already exists"),
@@ -53,7 +37,6 @@ public enum ErrorCode {
     EMAIL_NOT_WORK_ADDRESS(HttpStatus.BAD_REQUEST,
             "Please sign up with your work email. Uncava is for search firms, and your email domain identifies your organization"),
 
-    /** The user already has an active workspace. One at a time. */
     ALREADY_IN_WORKSPACE(HttpStatus.CONFLICT, "You already belong to a workspace"),
 
     TOKEN_INVALID(HttpStatus.BAD_REQUEST, "This link is not valid"),
@@ -63,13 +46,10 @@ public enum ErrorCode {
     /** Reuse of a rotated token. The family is already dead by the time this reaches the client. */
     REFRESH_TOKEN_REUSED(HttpStatus.UNAUTHORIZED, "Your session was ended for security reasons. Please sign in again"),
 
-    /**
-     * Named plainly where {@link #INVALID_CREDENTIALS} is deliberately vague: this endpoint is already
-     * authenticated as the account's owner, so there is no enumeration oracle left to protect.
-     */
+    /** Plain where {@link #INVALID_CREDENTIALS} is vague: the caller is already the authenticated owner. */
     CURRENT_PASSWORD_INVALID(HttpStatus.BAD_REQUEST, "That is not your current password"),
 
-    /** Provider-only account. Attaching a local password is the reset flow's job — it proves the mailbox first. */
+    /** Provider-only account: attaching a password is the reset flow's job, which proves the mailbox first. */
     PASSWORD_NOT_SET(HttpStatus.CONFLICT, "This account signs in with a provider and has no password to change"),
 
     /** Also served for a session belonging to somebody else — a 403 would confirm the id names a real one. */
@@ -80,17 +60,13 @@ public enum ErrorCode {
     WORKSPACE_ALREADY_EXISTS(HttpStatus.CONFLICT, "You have already created a workspace"),
     WORKSPACE_NOT_FOUND(HttpStatus.NOT_FOUND, "Workspace not found"),
 
-    /**
-     * Served for "you are not a member of that workspace" as well as "that workspace does not exist".
-     * Same reasoning as INVALID_CREDENTIALS: a 403 would confirm the workspace is real.
-     */
+    /** Also served for a workspace that does not exist: a 403 would confirm it is real. */
     NOT_A_MEMBER(HttpStatus.NOT_FOUND, "Workspace not found"),
     FORBIDDEN(HttpStatus.FORBIDDEN, "You do not have permission to do this"),
 
     INVITATION_INVALID(HttpStatus.BAD_REQUEST, "This invitation is not valid"),
     INVITATION_EXPIRED(HttpStatus.BAD_REQUEST, "This invitation has expired"),
 
-    /** A workspace must always keep someone who can run it. */
     LAST_ADMIN(HttpStatus.CONFLICT, "A workspace must keep at least one admin"),
 
     MEMBER_LEADS_PROJECTS(HttpStatus.CONFLICT,
@@ -98,51 +74,30 @@ public enum ErrorCode {
 
     CLIENT_ALREADY_EXISTS(HttpStatus.CONFLICT, "A client with this name already exists"),
 
-    /** A project must always keep someone who can run it — the mirror of {@link #LAST_ADMIN}. */
     PROJECT_LAST_LEAD(HttpStatus.CONFLICT, "A project must keep at least one lead"),
 
-    /**
-     * "Add all to Universe" against a filter matching more companies than one bulk add may take.
-     * Nothing is written: the caller narrows the filter and tries again.
-     */
+    /** Nothing is written: the caller narrows the filter and tries again. */
     BULK_ADD_SCOPE_TOO_LARGE(HttpStatus.CONFLICT,
             "This filter matches more companies than one bulk add may take"),
 
-    /**
-     * A capture naming a company this mandate already holds. Distinct from CONFLICT so the Companies
-     * screen can say which company, and point at the stage it is already sitting in, rather than
-     * offering "try again" for something retrying will never fix.
-     */
+    /** Distinct from CONFLICT so the screen can name the company rather than offer a futile retry. */
     TRIAGE_COMPANY_ALREADY_HELD(HttpStatus.CONFLICT,
             "This mandate already holds a company with that name"),
 
-    /**
-     * An edit aimed at a company taken from the market. Its fields are the export's snapshot, not the
-     * mandate's, so rewriting them would make the Source badge a lie about where the figures came
-     * from. Distinct from FORBIDDEN because nothing about the caller is wrong — the company is.
-     */
+    /** A market company's fields are the export's snapshot; editing them would make the Source badge lie. */
     TRIAGE_COMPANY_NOT_EDITABLE(HttpStatus.CONFLICT,
             "A company taken from the market cannot be edited"),
 
     /**
-     * An executive already mapped under that name — at the same company, or, for someone whose
-     * employer is not in the universe, anywhere in the mandate. It also answers a capture of a
-     * LinkedIn profile the mandate already maps, which the name scopes cannot see across a research
-     * mapping. Distinct from CONFLICT so the drawer can mark the name field rather than offering
-     * "try again" for something retrying will never fix.
+     * Same name at the same company (or anywhere, for an employer outside the universe), or a LinkedIn
+     * profile already mapped. Distinct from CONFLICT so the drawer can mark the name field.
      */
     CANDIDATE_ALREADY_MAPPED(HttpStatus.CONFLICT,
             "This mandate already maps someone with that name"),
 
-    /**
-     * A saved search reusing a name already taken in the same list. Distinct from CONFLICT so the
-     * Strategy dropdown can say what is wrong with the name rather than offering "try again" for
-     * something retrying will never fix.
-     */
     STRATEGY_SEARCH_NAME_TAKEN(HttpStatus.CONFLICT,
             "A search with that name is already saved here"),
 
-    /** The typed confirmation on workspace deletion did not match. */
     WORKSPACE_NAME_MISMATCH(HttpStatus.BAD_REQUEST,
             "Type the workspace name exactly to confirm deletion"),
 
@@ -151,57 +106,32 @@ public enum ErrorCode {
 
     RATE_LIMITED(HttpStatus.TOO_MANY_REQUESTS, "Too many requests. Please slow down"),
 
-    /**
-     * The CSRF token was missing or did not match. Distinct from FORBIDDEN on purpose: the SPA recovers
-     * from this by re-fetching {@code /auth/csrf} and retrying, and it cannot recover from "you lack
-     * permission". Reporting them as the same thing turns a self-healing case into a dead end.
-     */
+    /** Distinct from FORBIDDEN: the SPA recovers by re-fetching {@code /auth/csrf} and retrying. */
     CSRF_TOKEN_INVALID(HttpStatus.FORBIDDEN, "Your session needs refreshing. Please try again"),
 
-    /** No route and no file at that path. Says nothing about what does exist. */
     NOT_FOUND(HttpStatus.NOT_FOUND, "Not found"),
 
-    /** The route exists; it does not answer to that verb. A GET of a POST-only endpoint lands here. */
     METHOD_NOT_ALLOWED(HttpStatus.METHOD_NOT_ALLOWED, "That method is not supported on this endpoint"),
 
-    /** The body arrived in a format the endpoint does not read. Every endpoint here wants JSON. */
     UNSUPPORTED_MEDIA_TYPE(HttpStatus.UNSUPPORTED_MEDIA_TYPE, "That content type is not supported"),
 
-    /** The caller's Accept header asks for a format we do not produce. */
     NOT_ACCEPTABLE(HttpStatus.NOT_ACCEPTABLE, "No representation matches what you asked to accept"),
 
-    /** An upload exceeded the ceiling — the caller is told the limit, so the message names it. */
     FILE_TOO_LARGE(HttpStatus.PAYLOAD_TOO_LARGE, "That file is too large"),
 
-    /** An upload arrived as a document type this endpoint does not accept. */
     UNSUPPORTED_FILE_TYPE(HttpStatus.BAD_REQUEST, "That file type is not supported"),
 
-    /**
-     * A spreadsheet that opened but could not be read as a table — no header row, a corrupt workbook,
-     * a CSV whose rows do not agree on how many columns they have. Distinct from UNSUPPORTED_FILE_TYPE
-     * because the type was right and the contents were not, which is a different thing to fix.
-     */
+    /** The file type was right but the contents are not a table: no header row, corrupt, ragged rows. */
     IMPORT_FILE_UNREADABLE(HttpStatus.BAD_REQUEST,
             "That file could not be read as a table. Check it has a header row."),
 
-    /**
-     * An import larger than one request should carry. Refused whole rather than truncated: taking the
-     * first N rows would silently decide which half of a consultant's list got imported.
-     */
+    /** Refused whole rather than truncated, which would silently drop part of the list. */
     IMPORT_TOO_MANY_ROWS(HttpStatus.PAYLOAD_TOO_LARGE,
             "That file has more rows than one import can take"),
 
-    /**
-     * A column name already used on the same grid. Distinct from CONFLICT so the dialog can mark the
-     * name field rather than offering "try again" for something retrying will never fix.
-     */
     CUSTOM_COLUMN_NAME_TAKEN(HttpStatus.CONFLICT,
             "This mandate already has a column with that name"),
 
-    /**
-     * The per-project ceiling on custom columns. A grid is a thing a person reads across, and one
-     * very wide sheet of headers could otherwise define a column apiece.
-     */
     CUSTOM_COLUMN_LIMIT_REACHED(HttpStatus.CONFLICT,
             "This mandate has as many custom columns as it can hold"),
 
@@ -213,83 +143,52 @@ public enum ErrorCode {
     TEMPLATE_FALLBACK_REQUIRED(HttpStatus.CONFLICT,
             "The fallback template cannot be archived or hidden"),
 
-    /** Not JSON, not the template format, or more than one import may carry. */
     TEMPLATE_FILE_UNREADABLE(HttpStatus.BAD_REQUEST,
             "That file is not a LightMove template file"),
 
-    /** Committing a file the preview marked invalid. All or nothing: no template in it is written. */
+    /** All or nothing: no template in the file is written. */
     TEMPLATE_IMPORT_INVALID(HttpStatus.BAD_REQUEST,
             "Some templates in that file are invalid, so none were imported"),
 
-    /**
-     * A position description that could not be read as text — encrypted, no text layer, a legacy
-     * {@code .doc}, or a format nobody recognises. Distinct from {@link #IMPORT_FILE_UNREADABLE}:
-     * that is a table that will not parse as rows, this is a document that will not parse as prose,
-     * and the fixes read differently to a person.
-     */
+    /** Encrypted, no text layer, a legacy {@code .doc}, or an unknown format. */
     POSITION_DOCUMENT_UNREADABLE(HttpStatus.BAD_REQUEST,
             "That document could not be read. Save it as .docx or PDF, with a text layer, and try again."),
 
-    /**
-     * No contact provider on this deployment, or the one configured refuses our key. Both are an
-     * operator's problem and neither is anything the person who pressed the button can act on, so
-     * they read the same to them.
-     */
+    /** No provider configured, or it refuses our key: both an operator's problem, so they read the same. */
     CONTACT_LOOKUP_UNAVAILABLE(HttpStatus.SERVICE_UNAVAILABLE,
             "Contact lookup is not available on this deployment"),
 
-    /**
-     * The account's credits for the period are spent. Deliberately not SERVICE_UNAVAILABLE, which
-     * reads as "try again shortly": a monthly quota will not refill shortly, and nothing was written,
-     * so the lookup is still there to run once it does.
-     */
+    /** Not SERVICE_UNAVAILABLE, which reads as "try again shortly": a monthly quota will not refill shortly. */
     CONTACT_LOOKUP_NO_CREDITS(HttpStatus.CONFLICT,
             "Contact lookup has no credits left this period"),
 
-    /** The provider timed out, failed, or answered something unreadable — after the retries. */
     CONTACT_LOOKUP_FAILED(HttpStatus.BAD_GATEWAY,
             "Contact lookup did not answer. Try again in a moment"),
 
-    /**
-     * Nothing to look up: contacts are keyed on a LinkedIn profile. Refused before anything is spent.
-     */
+    /** Contacts are keyed on a LinkedIn profile; refused before anything is spent. */
     CONTACT_LOOKUP_NO_PROFILE(HttpStatus.CONFLICT,
             "Add this person's LinkedIn profile URL first"),
 
-    /** Ten addresses or ten numbers is more than any one person needs; past that it is a paste error. */
     CONTACT_LIMIT_REACHED(HttpStatus.CONFLICT,
             "A profile holds ten email addresses and ten phone numbers at most"),
 
-    /**
-     * The row was captured off a LinkedIn profile page by the plugin, so its URL is the page it came
-     * from and the key research and contact lookup both hang off. Retyping it can only break that.
-     */
+    /** A plugin capture's URL is the page it was read off, and research and contact lookup key on it. */
     CANDIDATE_PROFILE_URL_LOCKED(HttpStatus.CONFLICT,
             "This profile was captured from LinkedIn; its URL is not editable"),
 
-    /**
-     * The model could not be reached or gave no usable answer, and nothing was saved. Never sent for a
-     * stream that ran out of time — that answer may still be saved; see {@link #ASSISTANT_STILL_ANSWERING}.
-     */
+    /** Nothing was saved. Never sent for a stream that ran out of time: see {@link #ASSISTANT_STILL_ANSWERING}. */
     ASSISTANT_UNAVAILABLE(HttpStatus.SERVICE_UNAVAILABLE,
             "The assistant could not answer just now. Try again in a moment"),
 
-    /** Every answer slot on this instance is taken. Refused before anything is asked or billed. */
+    /** Refused before anything is asked or billed. */
     ASSISTANT_BUSY(HttpStatus.SERVICE_UNAVAILABLE,
             "The assistant is busy answering other questions. Try again in a moment"),
 
-    /**
-     * Sent in place of an answer when the stream has to close first. The answer is still being worked
-     * out and is saved to the chat when it is ready, so asking again would pay for it twice.
-     */
+    /** The stream closed first; the answer is saved to the chat when ready, so asking again pays twice. */
     ASSISTANT_STILL_ANSWERING(HttpStatus.ACCEPTED,
             "This is taking longer than usual. The answer will appear in this chat when it is ready"),
 
-    /**
-     * The proposal on this turn has already been filed. A conflict rather than a quiet re-run: the
-     * rows would be deduplicated anyway, so a second accept could only ever report "added 0", which
-     * reads as a failure to a person who just watched the first one work.
-     */
+    /** A conflict rather than a quiet re-run, whose "added 0" would read as a failure. */
     ASSISTANT_PROPOSAL_ALREADY_ACCEPTED(HttpStatus.CONFLICT,
             "This proposal has already been filed"),
 

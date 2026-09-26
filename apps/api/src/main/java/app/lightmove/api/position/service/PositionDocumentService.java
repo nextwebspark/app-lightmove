@@ -21,13 +21,7 @@ import org.springframework.web.multipart.MultipartFile;
 
 /**
  * The position description attached to a brief: store it, replace it, take it away, hand it back.
- *
- * <p><b>This service itself still never opens the file.</b> Storing, replacing and handing back the
- * bytes is all it does. {@link PositionExtractionService} is what reads one, on its own explicit
- * call — attaching, replacing or downloading a document does not trigger it, and never should.
- *
- * <p>Its own class rather than more methods on {@link PositionService}: this is the one class a move
- * to object storage would touch.
+ * It never opens the file; only {@link PositionExtractionService}'s explicit call reads one.
  */
 @Service
 public class PositionDocumentService {
@@ -58,7 +52,6 @@ public class PositionDocumentService {
         String contentType = requireAllowedType(file.getContentType());
         String fileName = FileNameSanitizer.sanitize(file.getOriginalFilename(), "position-description");
 
-        // One document per position: replacing keeps the row rather than accumulating versions.
         documents.findByPositionId(brief.position().getId())
                 .ifPresentOrElse(
                         existing -> existing.replaceWith(fileName, contentType, content),
@@ -108,10 +101,7 @@ public class PositionDocumentService {
         }
     }
 
-    /**
-     * The declared content type is a claim made by whatever sent the request, so the allowlist decides
-     * and an unrecognised type is refused rather than stored and echoed back at download time.
-     */
+    /** The declared type is the sender's claim, so an unrecognised one is refused rather than stored. */
     private String requireAllowedType(String declaredContentType) {
         if (!settings.allows(declaredContentType)) {
             throw new ApiException(ErrorCode.UNSUPPORTED_FILE_TYPE,

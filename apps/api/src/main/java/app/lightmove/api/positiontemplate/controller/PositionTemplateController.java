@@ -13,15 +13,8 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 /**
- * The role templates a workspace can draft a brief from.
- *
- * <p>Workspace-scoped rather than project-scoped, and gated {@code PROJECT_BROWSE} like the company
- * reference reads: the catalog is the firm's own library plus LightMove's, and which mandate is open
- * when somebody browses it says nothing about who may see it. Applying one <i>is</i> project-scoped,
- * and lives on the brief's own controller under the seat gate every other write carries.
- *
- * <p>Editing lives elsewhere: the library on {@link PositionTemplateLibraryController}, a firm's own
- * templates on {@link WorkspacePositionTemplateController}.
+ * The role templates a workspace can draft a brief from — workspace-scoped and gated
+ * {@code PROJECT_BROWSE}; applying one is the brief's own seat-gated write.
  */
 @RestController
 @RequestMapping("/api/v1/position-templates")

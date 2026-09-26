@@ -28,18 +28,9 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 /**
- * The position brief of one mandate. Reading needs a seat on the project (WORK_VIEW, which every
- * project role holds), with the workspace-admin bypass so an admin sees every project — a brief is
- * team content, not browsable to the whole workspace. Every write is PROJECT_EDIT on the seat. The
- * workspace comes from the principal, never the path.
- *
- * <p>One PUT per wizard step rather than one for the whole document: the screen autosaves the step in
- * front of the consultant, and every one of these answers with the whole brief so nothing has to be
- * merged client-side.
- *
- * <p>Publishing is gated PROJECT_EDIT like any other write, and needs no action of its own — V38
- * deleted {@code POSITION_UNLOCK} on purpose, and a {@code POSITION_PUBLISH} beside it would rebuild
- * the same gate under a friendlier name.
+ * The position brief of one mandate: reads are seat-gated WORK_VIEW, every write (publishing included)
+ * PROJECT_EDIT, one PUT per step, each answering with the whole brief. The workspace comes from the
+ * principal, never the path.
  */
 @RestController
 @RequestMapping("/api/v1/projects/{projectId}/position")
@@ -55,12 +46,7 @@ public class PositionController {
         return position.get(principal.requireWorkspaceId(), projectId);
     }
 
-    /**
-     * What the brief pays, for a screen that wants one figure off it — the executive drawer, which
-     * offers the mandate's currency to a new person. Deliberately not {@link #get}: that drafts and
-     * saves a brief for a mandate that has none, and a grid nobody asked for a brief on would then
-     * write a row on every page view.
-     */
+    /** Deliberately not {@link #get}, which drafts and saves a missing brief on every page view. */
     @GetMapping("/compensation")
     @RequireProjectPermission(ProjectAction.WORK_VIEW)
     public CompensationDto getCompensation(@AuthenticationPrincipal AuthPrincipal principal,
@@ -128,10 +114,6 @@ public class PositionController {
                 principal.userId(), principal.requireWorkspaceId(), projectId, request, httpRequest);
     }
 
-    /**
-     * Draft this brief as a different role. PROJECT_EDIT like every other write — it replaces the
-     * drafted half of the brief, and the picker that calls it sits inside the wizard.
-     */
     @PostMapping("/template")
     @RequireProjectPermission(ProjectAction.PROJECT_EDIT)
     public PositionResponse applyTemplate(@AuthenticationPrincipal AuthPrincipal principal,

@@ -5,11 +5,7 @@ import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 import lombok.experimental.Accessors;
 
-/**
- * Which way a chosen sort column runs. Kept separate from {@link CompanySortField} so the client asks
- * for a column and a direction independently — the company table's headers cycle direction without
- * changing which column is active.
- */
+/** Kept apart from {@link CompanySortField} so a header can cycle direction without changing column. */
 @Getter
 @Accessors(fluent = true)
 @RequiredArgsConstructor

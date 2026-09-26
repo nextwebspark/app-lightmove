@@ -18,15 +18,9 @@ import lombok.RequiredArgsConstructor;
 import lombok.experimental.Accessors;
 
 /**
- * Every column of the Companies grid that carries data, in the order the grid draws them.
- *
- * <p>The headers are the grid's own, so a file and the screen read the same way. Two grid columns are
- * deliberately absent: {@code actions}, which is buttons, and {@code links} — which <i>is</i> data,
- * merely drawn as two icons, so it is expanded here into {@link #WEBSITE} and
- * {@link #COMPANY_LINKEDIN} rather than dropped.
- *
- * <p>Figures leave unformatted. The grid prints a revenue as {@code $1.2B}, which is right on a
- * screen and useless in a column a spreadsheet is asked to sum.
+ * Every data column of the Companies grid, in grid order, under the grid's headers. {@code links} is
+ * expanded into {@link #WEBSITE} and {@link #COMPANY_LINKEDIN}; figures leave unformatted so a
+ * spreadsheet can sum them.
  */
 @Getter
 @Accessors(fluent = true)
@@ -75,16 +69,12 @@ public enum ExportColumn {
 
     SOURCE("Source", row -> row.company() == null ? "" : sourceLabel(row.company().source()));
 
-    /**
-     * ISO-8601, in UTC. A spreadsheet reads it as a date whatever locale opens the file, which a
-     * rendered "16 Sep 2026" does not.
-     */
+    /** ISO-8601 UTC, which a spreadsheet reads as a date in any locale. */
     private static final DateTimeFormatter DATE = DateTimeFormatter.ISO_LOCAL_DATE.withZone(ZoneOffset.UTC);
 
-    /** Every value in one cell: the grid shows the first and a {@code +N}, a file has no such excuse. */
+    /** Every value in one cell, where the grid shows the first and a {@code +N}. */
     private static final String CONTACT_SEPARATOR = "; ";
 
-    /** The column's heading, which is the grid's own heading for it. */
     private final String header;
     private final Function<ExportRow, String> extractor;
 
@@ -97,12 +87,8 @@ public enum ExportColumn {
     }
 
     /**
-     * Where a grid line is, taken as a unit.
-     *
-     * <p>Ported from the grid's own {@code rowLocation}: a line is a person at a company and the
-     * person is what it is about, so the executive's own location wins whole and the company's HQ is
-     * what an empty slot falls back to. Field by field, a profile that recorded only a city would
-     * borrow its employer's country and read as somewhere neither of them is.
+     * The executive's own location wins whole, HQ only filling an empty slot — field by field, a city
+     * alone would borrow its employer's country (ported from the grid's {@code rowLocation}).
      */
     private static Place location(ExportRow row) {
         CandidateResponse candidate = row.candidate();
@@ -118,9 +104,8 @@ public enum ExportColumn {
     private record Place(String country, String city) {}
 
     /**
-     * The labels the grid's badges carry, not the wire tokens. Nobody wants {@code notInterested} in
-     * a file they send a client. A deliberate second copy of the SPA's own vocabulary
-     * ({@code candidateVocabulary.ts}, {@code triageVocabulary.ts}) — rename one, rename both.
+     * The badges' labels, not wire tokens. A deliberate copy of {@code candidateVocabulary.ts} and
+     * {@code triageVocabulary.ts} — rename one, rename both.
      */
     private static String statusLabel(String wireToken) {
         CandidateStatus status = CandidateStatus.fromValue(wireToken);

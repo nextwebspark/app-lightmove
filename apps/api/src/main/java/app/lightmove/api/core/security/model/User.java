@@ -14,16 +14,7 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 
-/**
- * A person who can sign in.
- *
- * <p>Deliberately tenant-agnostic — a user belongs to zero or more workspaces through
- * {@code WorkspaceMember}, never directly. That is what lets one human join a second firm later
- * without us cloning their account.
- *
- * <p>The lockout and verification rules live here rather than in a service: they are invariants of
- * what it means to be a user, so no caller can forget to apply them.
- */
+/** A person who can sign in. Tenant-agnostic: workspaces are reached only through {@code WorkspaceMember}. */
 @Entity
 @Table(name = "app_lm_user")
 @Getter
@@ -33,7 +24,7 @@ public class User extends BaseEntity {
     @Column(nullable = false, unique = true)
     private String email;
 
-    /** Null for a federated-only user: there is no local password to check, and that is not an error. */
+    /** Null for a federated-only user. */
     @Column(name = "password_hash")
     private String passwordHash;
 
@@ -41,7 +32,7 @@ public class User extends BaseEntity {
     @Column(name = "full_name", nullable = false, length = 160)
     private String fullName;
 
-    /** Job title, e.g. "Managing Partner". Descriptive; carries no authority. Authority is the workspace role. */
+    /** Descriptive only; authority is the workspace role. */
     @Setter
     @Column(length = 120)
     private String title;
@@ -49,11 +40,7 @@ public class User extends BaseEntity {
     @Column(name = "avatar_url")
     private String avatarUrl;
 
-    /**
-     * Who supplied {@link #avatarUrl} — an uppercased OAuth registration id, or {@code USER} once
-     * someone can upload their own. Deliberately has no setter: it is only ever written together with
-     * the picture it describes, by {@link #adoptAvatarFrom}.
-     */
+    /** An uppercased registration id; no setter, as it is written only with its picture by {@link #adoptAvatarFrom}. */
     @Column(name = "avatar_source", length = 32)
     private String avatarSource;
 
@@ -88,15 +75,8 @@ public class User extends BaseEntity {
     private String privacyPolicyVersion;
 
     /**
-     * Offers a picture from {@code source}, and takes it only if that source is entitled to.
-     *
-     * <p>Whoever supplied the current picture may replace it — the URL is the provider's CDN link and
-     * LinkedIn's expire within weeks, so re-stamping on each sign-in is what keeps it working. Anyone
-     * else may only fill an empty one. Without that rule the last provider used always won, and
-     * signing in with an account that has no photo replaced a real one with a generated monogram.
-     *
-     * <p>A null {@code avatarSource} against an existing picture means it predates the column: the
-     * next sign-in claims it, once, and it is stable thereafter.
+     * Only the current picture's source may replace it; anyone else may only fill an empty one —
+     * otherwise a photo-less account's monogram replaced a real photo. A null source predates the column.
      *
      * @return whether the picture was taken
      */
@@ -116,7 +96,7 @@ public class User extends BaseEntity {
         return true;
     }
 
-    /** Signup with a password. The caller hashes; the domain never sees a plaintext credential. */
+    /** The caller hashes; the domain never sees a plaintext credential. */
     public static User registerLocal(String email, String passwordHash, String fullName,
                                      Instant termsAcceptedAt, String privacyPolicyVersion) {
         User user = new User();
@@ -129,11 +109,7 @@ public class User extends BaseEntity {
         return user;
     }
 
-    /**
-     * First sign-in through an identity provider. It has already proven the address, so the account
-     * starts verified and active — sending our own confirmation email would be asking the user to
-     * prove something we have just been told by a more authoritative source.
-     */
+    /** Starts verified and active: the provider has already proven the address. */
     public static User registerFederated(String email, String fullName, String avatarUrl,
                                          String avatarSource, Instant verifiedAt,
                                          String privacyPolicyVersion) {
@@ -163,7 +139,7 @@ public class User extends BaseEntity {
 
     public void markEmailVerified(Instant now) {
         if (isEmailVerified()) {
-            return; // Clicking the link twice is not an error worth surfacing to anyone.
+            return;
         }
         this.emailVerifiedAt = now;
         if (status == UserStatus.PENDING_VERIFICATION) {
@@ -171,13 +147,7 @@ public class User extends BaseEntity {
         }
     }
 
-    /**
-     * Counts a failed sign-in and locks the account once the threshold is crossed.
-     *
-     * <p>The lock is a fixed window rather than an escalating one: an attacker gains nothing from a
-     * longer lock that the legitimate owner does not also suffer, and an indefinite lock hands them a
-     * denial-of-service against any address they can guess.
-     */
+    /** A fixed lock window, not escalating: an indefinite lock hands an attacker a denial of service. */
     public void recordFailedLogin(Instant now, int maxAttempts, Duration lockDuration) {
         this.failedLoginAttempts++;
         if (this.failedLoginAttempts >= maxAttempts) {
@@ -195,11 +165,6 @@ public class User extends BaseEntity {
         this.passwordHash = newPasswordHash;
     }
 
-    /**
-     * Attaches a local password to an account that has only ever signed in through a provider, so the
-     * same person can later sign in either way rather than being locked out of their own workspace if
-     * that provider account is lost.
-     */
     public void attachLocalPassword(String passwordHash) {
         if (hasPassword()) {
             throw new IllegalStateException("User already has a password");

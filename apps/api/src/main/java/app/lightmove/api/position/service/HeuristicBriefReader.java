@@ -18,32 +18,18 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
 /**
- * Reads step one's fields out of a position description's own conventional structure, with no model
- * call at all. Mirrors {@code dataimport}'s {@code HeuristicColumnMatcher} in spirit rather than
- * shape — a column-header lookup and a reading task have different jobs — but the same reason for
- * existing: Vertex AI needs Application Default Credentials on every path including a plain local
- * run, and a feature that needed them to demo is one most of the team never sees.
+ * Reads step one's fields out of a position description's conventional structure with no model call —
+ * the fallback when the model cannot be reached or is blocked.
  *
- * <p><b>Not a seed for the model.</b> {@code HeuristicColumnMatcher} seeds the mapping prompt, because
- * that is a lookup task; extraction is a <i>reading</i> task, and handing the model a first draft
- * anchors it — it would confirm a wrong heuristic title rather than read the document itself. This
- * reader's answer never reaches the prompt. It is the ultimate fallback when the model cannot be
- * reached or is blocked, and it feeds exactly one cross-check: where the model and this reader agree
- * on the role title, {@link PositionDetailsProposer} upgrades that field's confidence.
- *
- * <p>Four rules, run independently: a key-value header block, a bulleted responsibilities section, an
- * employment-type keyword search, and a seniority reading that reuses {@link PositionTemplateService}
- * rather than duplicating its curated title-to-seniority mapping.
+ * <p>Never a seed for the model: a first draft would anchor it into confirming a wrong title.
  */
 @Service
 @RequiredArgsConstructor
 public class HeuristicBriefReader {
 
     /**
-     * A header line's label and value, separated by a colon <b>or a run of two-or-more spaces or a
-     * tab</b> — the second form is not optional. It is how a PDF's key-value table survives text
-     * extraction: {@code JD_CEO.pdf}'s "Job Title    CEO" carries no colon at all, only the gap a
-     * table cell leaves.
+     * Label and value separated by a colon or a run of two-or-more spaces or a tab — the gap is how a
+     * PDF's key-value table survives extraction ({@code JD_CEO.pdf}'s "Job Title    CEO").
      */
     private static final Pattern HEADER_LINE = Pattern.compile(
             "(?im)^\\s*(Job Title|Position|Role|Title|Company|Department|Division|Function|Location|"
@@ -54,26 +40,17 @@ public class HeuristicBriefReader {
     private static final Pattern COLUMN_GAP = Pattern.compile("[ \\t]{2,}");
 
     /**
-     * A heading-shaped or lead-in sentence naming the responsibilities section. A whole-line match
-     * would miss real documents, which phrase it as a sentence ("Specifically, responsibilities
-     * include the following:") rather than a bare heading — so this only requires the keyword to
-     * appear, guarded by a length ceiling so an ordinary paragraph mentioning "the position" in
-     * passing is not mistaken for one.
+     * Matched anywhere in a line, not the whole line, because documents phrase it as a lead-in sentence;
+     * {@link #HEADING_LINE_MAX_LENGTH} keeps an ordinary paragraph from matching.
      */
     private static final Pattern RESPONSIBILITIES_KEYWORD = Pattern.compile(
             "(?i)\\b(key focus areas|core responsibilities|responsibilities|accountabilities|duties|"
                     + "the position)\\b");
     private static final int HEADING_LINE_MAX_LENGTH = 150;
 
-    /** A short, capitalised, markup-free line — the shape a section heading takes once extracted. */
     private static final Pattern SECTION_HEADING = Pattern.compile("^[A-Z][A-Za-z /&]{1,45}:?$");
 
-    /**
-     * A bullet marker at the start of a line: a dash, any short run of symbol characters (a PDF's
-     * bullet glyph rarely survives extraction as the exact Unicode bullet it was drawn as — {@code
-     * JD_CEO.pdf}'s bullet extracts as a middle dot, another font's as something else entirely), or a
-     * number or letter followed by {@code .}/{@code )}.
-     */
+    /** Any short run of symbols counts as a bullet: a PDF's bullet glyph rarely survives extraction as itself. */
     private static final Pattern BULLET_LINE = Pattern.compile(
             "^\\s*(?:[^\\w\\s]{1,2}|\\d+[.)]|[a-zA-Z][.)])\\s+(.+?)\\s*$");
 
@@ -95,8 +72,6 @@ public class HeuristicBriefReader {
 
         return new ProposedPositionDetails(ExtractionSource.DOCUMENT_HEADINGS, fields);
     }
-
-    // ── Rule 1: the key-value header block ──────────────────────────────────
 
     private record HeaderFields(Optional<ExtractedField> roleTitle, Optional<ExtractedField> department,
                                 Optional<ExtractedField> location, Optional<String> employmentTypeHint) {}
@@ -132,11 +107,7 @@ public class HeuristicBriefReader {
                 Optional.ofNullable(location), Optional.ofNullable(employmentTypeHint));
     }
 
-    /**
-     * The captured remainder of a header line, cut at the first wide gap — the point a table's next
-     * column begins. Without this, a row like {@code "Job Title    CEO                Department"}
-     * would capture the neighbouring column's label as part of this one's value.
-     */
+    /** Cut at the first wide gap, where a table's next column (and its label) begins. */
     private static String valueOf(String captured) {
         Matcher gap = COLUMN_GAP.matcher(captured);
         return (gap.find() ? captured.substring(0, gap.start()) : captured).trim();
@@ -159,17 +130,11 @@ public class HeuristicBriefReader {
         return label.equals("employment type") || label.equals("contract type");
     }
 
-    // ── Rule 2: the bulleted responsibilities section ───────────────────────
-
     /**
-     * Finds the responsibilities heading, then groups every line beneath it into items until the next
-     * section heading. A line starts a new item when it carries an explicit bullet marker, when the
-     * line before it was blank, or — only once the section's own first line establishes a real hanging
-     * indent above column zero — when its indentation returns to that opening level. The indent check
-     * is guarded that way because a real PDF often extracts with <b>no</b> indentation on either a
-     * bullet or its wrapped continuation, carrying only the bullet glyph itself as the boundary; an
-     * unconditional indent comparison would then read every continuation line as indented "no deeper
-     * than" a zero baseline and split each wrapped line into its own item.
+     * Groups the lines under the responsibilities heading into items until the next heading. A line
+     * starts an item on a bullet, after a blank line, or on returning to the opening indent — the last
+     * only when that indent is above zero, since a PDF often extracts bullets and their wrapped
+     * continuations both at column zero, which would split every wrapped line.
      */
     private List<ExtractedField> readResponsibilities(String text) {
         String[] lines = text.split("\n", -1);
@@ -247,25 +212,15 @@ public class HeuristicBriefReader {
                 ProposalOrigin.DOCUMENT);
     }
 
-    // ── Rule 3: employment type by keyword ───────────────────────────────────
-
-    /**
-     * {@code fromHeaderHint} is {@code true} when this ran over an explicit "Employment Type:" (or
-     * similar) header value rather than the whole document — the whole-document path is a keyword
-     * search with no anchor at all, so a stray "permanent" in prose ("a permanent shift in the
-     * market") earns only {@code LOW} confidence, not the same trust an explicit header gets.
-     */
+    /** Without a header hint this is an unanchored search of the whole document, so it earns only {@code LOW}. */
     private static Optional<ExtractedField> readEmploymentType(String text, boolean fromHeaderHint) {
         String lower = text.toLowerCase(Locale.ROOT);
         EmploymentType type = null;
-        // "Permanent" checked ahead of "contract" so "this is a permanent contract" resolves as
-        // permanent rather than fixed-term on the word "contract" alone.
+        // Ordering matters: "permanent" and "temporary" are checked ahead of the weaker "contract".
         if (lower.contains("permanent")) {
             type = EmploymentType.FULL_TIME_PERMANENT;
         } else if (lower.contains("part time") || lower.contains("part-time")) {
             type = EmploymentType.PART_TIME;
-        // Ahead of "contract" for the same reason "permanent" is: a "temporary contract" is what the
-        // document called it, and the bare word "contract" is the weakest signal in this chain.
         } else if (lower.contains("temporary")) {
             type = EmploymentType.TEMPORARY;
         } else if (lower.contains("fixed term") || lower.contains("fixed-term") || lower.contains("contract")) {
@@ -279,21 +234,15 @@ public class HeuristicBriefReader {
             return Optional.empty();
         }
         ProposalConfidence confidence = fromHeaderHint ? ProposalConfidence.MEDIUM : ProposalConfidence.LOW;
-        // The keyword search runs over a hint value or the whole document, neither of which is a
-        // single sentence — so no snippet is offered here rather than one spanning pages.
         return Optional.of(new ExtractedField("employmentType", type.name(), confidence, null,
                 ProposalOrigin.DOCUMENT));
     }
-
-    // ── Rule 4: seniority, by reusing the shipped template catalog ──────────
 
     private Optional<ExtractedField> readSeniority(UUID workspaceId, String roleTitle) {
         return templates.matching(workspaceId, roleTitle).map(template -> {
             ProposalConfidence confidence = PositionTemplateService.FALLBACK_CODE.equals(template.getCode())
                     ? ProposalConfidence.LOW
                     : ProposalConfidence.MEDIUM;
-            // Template-sourced, not document-sourced — same catalog PositionDetailsProposer's own
-            // template backfill draws from for every other step-one field.
             return new ExtractedField("seniority", template.getSeniority().name(), confidence, null,
                     ProposalOrigin.TEMPLATE);
         });

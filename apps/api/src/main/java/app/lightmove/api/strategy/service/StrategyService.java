@@ -43,22 +43,13 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 /**
- * The search behind a project: its saved filter, its off-limits list, and the filtered page of the
- * universe both add up to.
- *
- * <p>Every load is scoped through the project's {@code (id, workspaceId)} lookup, so a foreign
- * project 404s before any strategy row is touched. The strategy is seeded empty on first read.
- *
- * <p>The company list is resolved <b>entirely server-side from the stored filter</b>, never from
- * client-supplied industry or band lists: a mandate's chosen scope is team-only content, which is why
- * this sits behind the project gates while the universe's own facet counts are workspace-level. The
- * name filter, page and sort are the caller's, and none of them widens what they can see — the sort
- * resolves through {@link CompanySortField} rather than being handed to SQL.
+ * A mandate's saved filter, off-limits list, and the page of the universe they select. The company
+ * list is resolved server-side from the stored filter, never from client-supplied criteria; the
+ * caller supplies only the name filter, page and an allowlisted sort.
  */
 @Service
 public class StrategyService {
 
-    /** What the table sorts by until the user picks a column. Largest first is a defensible default. */
     private static final CompanySortField DEFAULT_SORT = CompanySortField.EMPLOYEES;
     private static final SortDirection DEFAULT_DIRECTION = SortDirection.DESC;
 
@@ -85,10 +76,7 @@ public class StrategyService {
         this.searchConfig = properties.company().search();
     }
 
-    /**
-     * The screen's first read. It does not seed: the endpoint is WORK_VIEW, so a client
-     * representative opening the tab would otherwise perform an INSERT to answer their own page load.
-     */
+    /** Does not seed: the endpoint is WORK_VIEW, and a client's page load must not INSERT. */
     @Transactional(readOnly = true)
     public StrategyResponse get(UUID userId, UUID workspaceId, UUID projectId) {
         projects.requireInWorkspace(projectId, workspaceId);
@@ -123,12 +111,7 @@ public class StrategyService {
         return toResponse(strategy, userId, workspaceId, projectId);
     }
 
-    /**
-     * One page of the universe as the mandate's filter narrows it, minus whatever this project has
-     * already triaged — a company stops showing up here once it is filed at any stage, so this is the
-     * one caller of {@link StrategyScope}'s three-argument overload. {@link #scopeOf} keeps the wider
-     * scope for the callers that act on the filter in bulk.
-     */
+    /** Minus whatever this project has already triaged; {@link #scopeOf} keeps the wider scope for bulk writes. */
     @Transactional(readOnly = true)
     public StrategyCompaniesResponse companies(UUID workspaceId, UUID projectId, String query,
                                                String sortToken, String directionToken,
@@ -151,18 +134,13 @@ public class StrategyService {
                 companies.count(scope), page, size);
     }
 
-    /** The scope a mandate's filter currently defines, for the callers that act on it in bulk. */
     @Transactional(readOnly = true)
     public CompanyScope scopeOf(UUID workspaceId, UUID projectId) {
         projects.requireInWorkspace(projectId, workspaceId);
         return savedScopeOf(projectId, CompanyExclusion.NONE);
     }
 
-    /**
-     * The same scope with everything this mandate has already triaged left out — what
-     * {@link #companies} itself reads, so a caller asking what is still out there gets the Strategy
-     * screen's own answer rather than one padded with companies the mandate has already decided on.
-     */
+    /** What {@link #companies} reads: the scope minus everything already triaged. */
     @Transactional(readOnly = true)
     public CompanyScope untriagedScopeOf(UUID workspaceId, UUID projectId) {
         projects.requireInWorkspace(projectId, workspaceId);
@@ -175,9 +153,8 @@ public class StrategyService {
     }
 
     /**
-     * Turn the requested ids into the refs to store. An id already on the list keeps its stored
-     * snapshot: re-resolving would make removing one company fail the whole save the day another
-     * vanishes upstream. Only new ids are resolved, and an unknown one is rejected.
+     * A stored id keeps its snapshot — re-resolving would fail the whole save the day one vanishes
+     * upstream. Only new ids are resolved, and an unknown one is rejected.
      */
     private List<StrategyCompanyRef> resolveOffLimits(List<String> requested,
                                                       List<StrategyCompanyRef> stored) {
@@ -220,10 +197,8 @@ public class StrategyService {
     }
 
     /**
-     * Validate the submitted filter against the catalogs the universe offers. Industries, segments
-     * and countries are free strings, so a value the universe has stopped carrying narrows to nothing
-     * rather than 400ing a save the user cannot fix. Band slugs name a closed catalog this codebase
-     * owns, so an unknown one is a client bug and says so.
+     * Only band slugs are validated — a closed catalog we own. A free string the universe no longer
+     * carries narrows to nothing rather than 400ing a save the user cannot fix.
      */
     private static StrategyFilter toFilter(StrategyFilterDto dto) {
         for (String band : dto.employeeBands()) {
@@ -236,9 +211,7 @@ public class StrategyService {
                 throw new ApiException(ErrorCode.VALIDATION_FAILED, "Unknown revenue band: " + band);
             }
         }
-        // Countries are canonicalised rather than validated: the filter matches company_country
-        // exactly, so a saved "UAE" would narrow to nothing where "United Arab Emirates" narrows to
-        // a third of the universe.
+        // Canonicalised: the filter matches company_country exactly, so a saved "UAE" matched nothing.
         List<String> countries = distinct(dto.countries()).stream()
                 .map(Countries::nameOf)
                 // A blank country canonicalises to null, and StrategyFilter's List.copyOf throws on one.
@@ -251,15 +224,10 @@ public class StrategyService {
                 toRange(dto.employeeRange()), toRange(dto.revenueRange()));
     }
 
-    /**
-     * Selections are sets the client renders as chips, so a repeat only widens the stored document.
-     * De-duplicated in request order rather than rejected: this one has an obvious right answer.
-     */
     private static List<String> distinct(List<String> values) {
         return List.copyOf(new LinkedHashSet<>(values));
     }
 
-    /** Blank is no filter; anything longer than a company name is a mistake, not a search. */
     private String normaliseQuery(String query) {
         if (query == null || query.isBlank()) {
             return null;
@@ -286,12 +254,11 @@ public class StrategyService {
                 .orElseGet(() -> strategies.save(Strategy.forProject(projectId)));
     }
 
-    /** Bounds are already validated by the DTO; this is the shape change only. */
     private static NumericRange toRange(NumericRangeDto dto) {
         return dto == null ? null : new NumericRange(dto.min(), dto.max());
     }
 
-    /** The caller is needed for the searches: the list hides other people's private ones. */
+    /** The caller matters: the searches list hides other people's private ones. */
     private StrategyResponse toResponse(Strategy strategy, UUID userId, UUID workspaceId,
                                         UUID projectId) {
         return new StrategyResponse(

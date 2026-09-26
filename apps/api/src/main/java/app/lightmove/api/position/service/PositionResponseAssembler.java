@@ -34,10 +34,6 @@ import org.springframework.stereotype.Component;
 /**
  * Builds the whole brief the screen reads, out of the mandate, the position row, the attached
  * document's metadata and the name of whoever published.
- *
- * <p>Its own class rather than a method on the service: assembling six step groups from four sources
- * is a job that changes whenever the screen does, which is a different reason to change from the
- * writes. The {@code AuthResponseAssembler} beside {@code AuthController} is the same split.
  */
 @Component
 @RequiredArgsConstructor
@@ -151,11 +147,6 @@ class PositionResponseAssembler {
                 .toList();
     }
 
-    /**
-     * The publisher's name, resolved for display. Read from the user table rather than the audit
-     * ledger: the ledger records the same act, but it is append-only with no read path, so nothing
-     * could render "published by" from it.
-     */
     private String publisherNameOf(UUID publishedBy) {
         return Optional.ofNullable(publishedBy)
                 .flatMap(users::findById)

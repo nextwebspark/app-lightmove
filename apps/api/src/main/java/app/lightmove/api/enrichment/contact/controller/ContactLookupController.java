@@ -15,13 +15,8 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 /**
- * The drawer's Find email and Find phone buttons.
- *
- * <p>Two endpoints rather than one taking a channel: they spend from separate pools, so one can be
- * refused for want of credits while the other still answers, and a single response could not say so.
- *
- * <p>WORK_EXECUTE rather than WORK_VIEW even though a lookup reads a person — it writes to the row and
- * it spends money, and a client representative holds WORK_VIEW.
+ * The Find email and Find phone buttons — two endpoints because the channels spend from separate
+ * pools. WORK_EXECUTE though it reads a person: it writes the row and spends money.
  */
 @RestController
 @RequestMapping("/api/v1/projects/{projectId}/candidates/{candidateId}/contact")

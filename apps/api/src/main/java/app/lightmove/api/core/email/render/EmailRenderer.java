@@ -5,28 +5,14 @@ import java.util.List;
 import org.springframework.web.util.HtmlUtils;
 
 /**
- * Turns an {@link EmailContent} into the two bodies an {@link EmailMessage} carries.
- *
- * <p>This is the whole of the house style: one layout, one palette, one set of type sizes, and one
- * decision per block about what it looks like. A template above it states only what the email says,
- * which is what keeps the HTML half and the plain-text half saying the same thing — they are rendered
- * from the same sentence rather than written twice.
- *
- * <p>Tables and inline styles throughout, because Outlook ignores flexbox and every mail client
- * strips a stylesheet.
- *
- * <p>Deliberately a plain class rather than a bean: it holds one derived string, carries no Spring
- * annotation that construction could render inert, and is worth being able to build with {@code new}
- * in a test.
+ * Renders an {@link EmailContent} into HTML and plain-text bodies from one statement of the content.
+ * Tables and inline styles throughout: Outlook ignores flexbox and mail clients strip stylesheets.
  */
 public class EmailRenderer {
 
     private static final String WORDMARK = "UNCAVA";
 
-    /**
-     * Versioned like {@code og-image-v2.png}, and for a sharper reason: Gmail proxies and caches every
-     * remote image it fetches, so a mark redrawn in place would leave the old one in circulation.
-     */
+    /** Versioned: Gmail caches every remote image, so a mark redrawn in place would stay in circulation. */
     private static final String MARK_PATH = "/brand/uncava-mark-email-v1.png";
 
     private final String markUrl;
@@ -79,13 +65,7 @@ public class EmailRenderer {
         return text.append("--\n").append(WORDMARK).append(" · ").append(siteUrl).append('\n').toString();
     }
 
-    /**
-     * The mark beside the wordmark. Two cells with {@code valign="middle"} rather than one styled box:
-     * that is the only vertical centring every mail client agrees on.
-     *
-     * <p>The wordmark is text, so a client that blocks images — most of them, until the reader says
-     * otherwise — still shows the brand rather than a broken-image box.
-     */
+    /** Two {@code valign="middle"} cells: the only vertical centring every mail client agrees on. */
     private String header() {
         return """
                 <table cellpadding="0" cellspacing="0" border="0" role="presentation"><tr>
@@ -128,11 +108,7 @@ public class EmailRenderer {
                 EmailPalette.MUTED, siteLabel);
     }
 
-    /**
-     * Fills a sentence with its phrases. The sentence is a literal from a template class; only the
-     * phrases carry anything a user typed, which is why escaping can be decided here once and for all
-     * rather than remembered at every call site.
-     */
+    /** The sentence is a template literal; only the phrases carry user input, so escaping is decided here once. */
     private static String fill(String sentence, List<EmailPhrase> values, boolean asHtml) {
         Object[] rendered = values.stream()
                 .map(phrase -> asHtml ? renderHtml(phrase) : phrase.text())

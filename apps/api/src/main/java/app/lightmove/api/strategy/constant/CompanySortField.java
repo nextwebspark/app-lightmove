@@ -7,12 +7,8 @@ import lombok.RequiredArgsConstructor;
 import lombok.experimental.Accessors;
 
 /**
- * The columns a scoped company list can be sorted by — the allowlist that keeps a caller-supplied
- * string out of an ORDER BY. Free-text columns are deliberately absent.
- *
- * <p>{@code NULLIF} guards the columns where Apollo encodes "we don't know" as a zero rather than a
- * null. Only the null form sinks under {@code NULLS LAST}, so an ascending sort would otherwise open
- * on the very rows the ordering means to bury.
+ * The allowlist that keeps a caller's string out of ORDER BY. {@code NULLIF} guards the columns where
+ * Apollo encodes "unknown" as zero, which {@code NULLS LAST} would otherwise not sink.
  */
 @Getter
 @Accessors(fluent = true)
@@ -30,11 +26,7 @@ public enum CompanySortField implements ApiValueEnum {
     private final String value;
     private final List<String> columns;
 
-    /**
-     * The ORDER BY terms for this field. {@code NULLS LAST} regardless of direction: Apollo publishes
-     * a revenue figure on one row in ten, so an ascending revenue sort without it is nine pages of
-     * blanks.
-     */
+    /** {@code NULLS LAST} either way: revenue is blank on nine rows in ten. */
     public String orderByTerms(SortDirection direction) {
         return String.join(", ", columns.stream()
                 .map(column -> column + " " + direction.sqlKeyword() + " NULLS LAST")

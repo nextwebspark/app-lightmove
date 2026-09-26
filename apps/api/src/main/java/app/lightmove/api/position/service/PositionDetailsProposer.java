@@ -25,27 +25,13 @@ import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.stereotype.Service;
 
 /**
- * Asks the model to read a position description into step-one proposals — the structural twin of
- * {@code dataimport}'s {@code ColumnMappingProposer}: the same shared {@code ChatClient}, a system
- * prompt and structured answer of its own, and the same three call options a lookup-shaped task
- * wants that the shortlist prompt beside it does not.
+ * Asks the model to read a position description into step-one proposals, falling back to
+ * {@link HeuristicBriefReader} when the model cannot be reached or is blocked.
  *
- * <p><b>The document is redacted before it is sent, and re-hydrated after.</b> See {@link
- * PositionDocumentRedactor} for what is removed and why. Every value and snippet the model returns is
- * re-hydrated; a surviving placeholder after re-hydration means the field is dropped rather than
- * surfaced, and a snippet that does not literally occur in the original document is dropped and its
- * field's confidence downgraded rather than trusted as a quote.
- *
- * <p><b>The heuristic reader never seeds this call.</b> {@link HeuristicBriefReader}'s answer stays
- * local: it is the fallback when the model cannot be reached or is blocked, and it feeds exactly one
- * cross-check — where the model and the heuristic agree on the role title, that field's confidence is
- * upgraded, because two independent readings landing on the same title is worth more than either
- * alone.
- *
- * <p><b>A field neither path found stays unproposed.</b> Earlier drafts backfilled it from the
- * mandate's matched brief template, at flat {@code LOW} confidence with no snippet — dead weight once
- * a mandate is already seeded from that same template: {@code TEMPLATE} is a no-op there, and
- * {@code DOCUMENT} would draw a marker over a value with nothing to point at.
+ * <p>The document is redacted before it is sent and re-hydrated after (see
+ * {@link PositionDocumentRedactor}): a surviving placeholder drops the field, and a snippet that is not
+ * a literal quote of the original is dropped with its confidence. The heuristic's reading never reaches
+ * the prompt.
  */
 @Service
 @Slf4j
@@ -54,10 +40,7 @@ public class PositionDetailsProposer {
     private static final String PROMPT_ID = "position-extract-details";
     private static final String LABEL = "Position extraction";
 
-    /**
-     * What the guard answers with when it blocks a call. Binds to {@link ModelDetailsAnswer}, whose
-     * only required field is {@code roleTitle} — the same reason the schema requires it.
-     */
+    /** The guard's answer when it blocks a call; binds to {@link ModelDetailsAnswer}'s one required field. */
     private static final String BLOCKED = "{\"roleTitle\":\"" + BlockedAnswer.MARKER + "\"}";
 
     private static final int ROLE_TITLE_MAX_LENGTH = 160;
@@ -86,8 +69,6 @@ public class PositionDetailsProposer {
     }
 
     public ProposedPositionDetails propose(UUID userId, String documentText, UUID clientId, UUID workspaceId) {
-        // Run first and kept local: the heuristic's reading never reaches the prompt, but it is both
-        // the ultimate fallback and the one cross-check a model answer gets.
         ProposedPositionDetails heuristic = heuristics.propose(workspaceId, documentText);
 
         llmBudget.require(LlmBudget.POSITION_EXTRACT, userId);
@@ -105,9 +86,7 @@ public class PositionDetailsProposer {
             }
             return finish(reconcile(answered, redaction.pseudonyms(), documentText, heuristic));
         } catch (RuntimeException e) {
-            // Deliberately broad and deliberately quiet, exactly as ColumnMappingProposer's catch is:
-            // every way this call can fail has the same right answer, the heuristic's own reading, and
-            // the response says which of the two produced it rather than claiming the model did.
+            // Deliberately broad: every failure has the same right answer, the heuristic's reading.
             log.warn("Position extraction fell back to the heuristic reader: {}", e.toString());
             return finish(heuristic);
         }
@@ -179,10 +158,8 @@ public class PositionDetailsProposer {
     }
 
     /**
-     * The model and the heuristic both read where a role sits as one line of prose, because that is how
-     * a document writes it. The brief stores two halves (V66), so the line is split here — the one seam
-     * both paths pass through — and each half is proposed, filled and marked on its own. A line naming
-     * only a country proposes only the country; a tail the catalog cannot place stays whole as the city.
+     * Splits the one location line both readers produce into the brief's city and country (V66); a tail
+     * the catalog cannot place stays whole as the city.
      */
     private static List<ExtractedField> splitLocation(List<ExtractedField> fields) {
         List<ExtractedField> split = new ArrayList<>();
@@ -195,7 +172,6 @@ public class PositionDetailsProposer {
             if (line.isEmpty()) {
                 continue;
             }
-            // Both halves came from the same sentence, so both carry its snippet and its confidence.
             if (line.city() != null) {
                 split.add(new ExtractedField("locationCity", line.city(), field.confidence(),
                         field.snippet(), field.origin()));
@@ -208,10 +184,7 @@ public class PositionDetailsProposer {
         return split;
     }
 
-    /**
-     * Pre-truncates every value to {@code PutPositionDetailsRequest}'s own ceilings, on both the model
-     * and the heuristic path, so accepting a proposal can never 400 the autosave it is handed to.
-     */
+    /** Truncates to {@code PutPositionDetailsRequest}'s ceilings, so accepting a proposal can never 400 the autosave. */
     private List<ExtractedField> truncateToCeilings(List<ExtractedField> fields) {
         List<ExtractedField> truncated = new ArrayList<>();
         int responsibilityCount = 0;

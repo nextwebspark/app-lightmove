@@ -24,14 +24,9 @@ import tools.jackson.databind.PropertyNamingStrategies;
 import tools.jackson.databind.annotation.JsonNaming;
 
 /**
- * Answers from the record Bright Data's LinkedIn company dataset already holds — the same indexed
- * lookup the person enrichment uses, against the companies dataset, whose slug field is {@code id}
- * (verified live; {@code linkedin_id} errors and {@code company_id} is LinkedIn's numeric id). It
- * shares the people lookup's timeout and retry budget because it shares the endpoint that got slow.
- *
- * <p>The response is read as a tree and converted, rather than bound straight to the record: the hit
- * is kept verbatim so {@code app_lm_vendor_company.raw} can be re-mapped when the industry map improves,
- * instead of the company being bought a second time.
+ * Answers from Bright Data's LinkedIn company dataset, whose slug field is {@code id} (verified live;
+ * {@code linkedin_id} errors). The hit is kept verbatim so {@code app_lm_vendor_company.raw} can be
+ * re-mapped instead of re-bought.
  */
 @Slf4j
 public class BrightDataCompanyEnricher implements LinkedInCompanyEnricher {
@@ -84,9 +79,8 @@ public class BrightDataCompanyEnricher implements LinkedInCompanyEnricher {
     }
 
     /**
-     * {@code includes} is a case-insensitive substring match. The country is matched in the codes
-     * array rather than {@code country_code}, which holds "AE,GB,KW" for a company in several; and
-     * the caller's headcount floor keeps a one-person namesake from being billed as a hit.
+     * {@code includes} is a case-insensitive substring match. Country is matched in the codes array, since
+     * {@code country_code} holds "AE,GB,KW" for a multi-country company.
      */
     @Override
     @Retryable(
@@ -144,20 +138,13 @@ public class BrightDataCompanyEnricher implements LinkedInCompanyEnricher {
                 hit.toString()));
     }
 
-    /**
-     * The dataset speaks ISO-2 codes and the Country column speaks names, as the Apollo rows do. The
-     * headquarters line answers where the codes array is empty — it usually ends in the country.
-     */
+    /** ISO-2 codes to a name; the headquarters line answers where the codes array is empty. */
     private static String countryOf(List<String> countryCodes, String headquarters) {
         String code = countryCodes == null || countryCodes.isEmpty() ? null : countryCodes.getFirst();
         return LocationLine.of(headquarters).countryOr(code);
     }
 
-    /**
-     * One comma-separated line on the page — "insurance software, insurance platform" — becomes the
-     * lower-cased keywords the market-segment filter matches, which is how
-     * {@code app_lm_apollo_companies.keywords} already spells them.
-     */
+    /** Lower-cased, as {@code app_lm_apollo_companies.keywords} spells them for the segment filter. */
     private static List<String> keywordsOf(String specialties) {
         if (specialties == null || specialties.isBlank()) {
             return List.of();

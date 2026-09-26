@@ -69,8 +69,7 @@ public class CandidateAiEnricher {
                             panelOf(answered.behavioural()), sourcesOf(answered.sources()),
                             Instant.now().toString())));
         } catch (RuntimeException e) {
-            // No credentials, Vertex unreachable, an answer that will not bind: all mean store nothing
-            // this time, and the candidate keeps what it already had.
+            // No credentials, Vertex unreachable or an unbindable answer: store nothing this time.
             log.warn("Candidate AI enrichment skipped: {}", e.toString());
             return Optional.empty();
         }
@@ -144,7 +143,7 @@ public class CandidateAiEnricher {
                 missing.contains(BackgroundField.YEARS_EXPERIENCE) ? yearsExperienceOf(answered) : null);
     }
 
-    /** One of the nine canonical groups, or null — the model's own spelling is never stored as-is. */
+    /** One of the nine canonical groups, or null — never the model's own spelling. */
     private static String nationalityOf(ModelAnswer answered) {
         NationalityGroup group = NationalityGroup.ofLabel(answered.nationality());
         return group == null ? null : group.value();
@@ -155,7 +154,7 @@ public class CandidateAiEnricher {
                 : Gender.fromValue(answered.gender().trim().toLowerCase(Locale.ROOT));
     }
 
-    /** Discards an implausible figure rather than storing a hallucinated one as though it were sound. */
+    /** An implausible figure is discarded rather than stored as a hallucination. */
     private static Integer yearsExperienceOf(ModelAnswer answered) {
         Integer years = answered.yearsExperience();
         return years == null || years < MIN_PLAUSIBLE_YEARS || years > MAX_PLAUSIBLE_YEARS ? null : years;
@@ -178,10 +177,7 @@ public class CandidateAiEnricher {
                 .toList();
     }
 
-    /**
-     * Absolute http(s) links only, one per URL. LinkedIn is dropped: the profile is already the
-     * dossier, so a LinkedIn link would only cite what the researcher can already see.
-     */
+    /** Absolute http(s) links, one per URL; LinkedIn dropped, since the profile is already the dossier. */
     private static List<AssessmentSourceLink> sourcesOf(List<ModelSource> sources) {
         if (sources == null) {
             return List.of();
@@ -256,7 +252,6 @@ public class CandidateAiEnricher {
                 .collect(Collectors.joining("\n"));
     }
 
-    /** The model's raw reply, bound before any of it is validated against this feature's vocabulary. */
     private record ModelAnswer(String nationality, String gender, Integer yearsExperience, String summary,
                                ModelPanel technical, ModelPanel behavioural, List<ModelSource> sources) {}
 

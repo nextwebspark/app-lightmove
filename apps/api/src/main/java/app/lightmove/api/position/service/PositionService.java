@@ -42,17 +42,10 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 /**
- * The position brief behind a mandate: one read, one write per wizard step, and the publication stamp.
+ * The position brief behind a mandate: one read, one write per step, and the publication stamp.
  *
- * <p><b>A step is the write unit because a step is the edit unit.</b> The screen has no Save button,
- * so a whole-document write would resend five untouched steps on every keystroke and one
- * serialisation slip would blank a section nobody was editing.
- *
- * <p><b>Writes are deliberately lenient.</b> Autosave must be free to persist a half-typed step, so
- * nothing here refuses a band whose minimum exceeds its maximum or a panel that does not total 100.
- *
- * <p>Two fields the screen shows are the mandate's, not the brief's: step one writes the role title
- * through to the project row, and the one target date (V8) is read-only here.
+ * <p>Writes are deliberately lenient: autosave must persist a half-typed step, so nothing refuses an
+ * inverted salary band or a panel that does not total 100.
  */
 @Service
 @RequiredArgsConstructor
@@ -69,10 +62,8 @@ public class PositionService {
     }
 
     /**
-     * What the brief pays, for a reader that must not write. {@link #get} drafts and saves a brief for
-     * a mandate that has none, and the report is open to a client seat, which is read-only by
-     * definition — so this answers the blank compensation an undrafted brief would start from
-     * and persists nothing.
+     * For a reader that must not write (a client seat reads the report): unlike {@link #get}, which
+     * drafts and saves a missing brief, this persists nothing.
      */
     @Transactional(readOnly = true)
     public CompensationDto compensationOf(UUID workspaceId, UUID projectId) {
@@ -81,7 +72,7 @@ public class PositionService {
         return assembler.compensationOf(position);
     }
 
-    /** The brief as it stands, for a reader that must not write: an undrafted one reads blank. */
+    /** For a reader that must not write: an undrafted brief reads blank. */
     @Transactional(readOnly = true)
     public PositionResponse briefOf(UUID workspaceId, UUID projectId) {
         return assembler.assemble(briefs.read(workspaceId, projectId));
@@ -95,7 +86,6 @@ public class PositionService {
                 request.department(), request.locationCity(), request.locationCountry(), request.employmentType(),
                 request.seniority(), responsibilitiesOf(request.responsibilities()), request.narrative(),
                 fieldSourcesOf(request.fieldSources(), PositionFieldKeys.DETAILS)));
-        // The mandate keeps one role title, on the project — the step's "Role title" writes it there.
         brief.project().rename(request.roleTitle());
         return saved(brief, userId, workspaceId, projectId, "details", httpRequest);
     }
@@ -171,10 +161,7 @@ public class PositionService {
         return saved(brief, userId, workspaceId, projectId, "competencies", httpRequest);
     }
 
-    /**
-     * Records that somebody declared the brief ready. Not a lock — V38 retired that — so every step
-     * above stays writable afterwards, and republishing keeps the original stamp rather than moving it.
-     */
+    /** Not a lock (V38): every step stays writable, and republishing keeps the original stamp. */
     @Transactional
     public PositionResponse publish(UUID userId, UUID workspaceId, UUID projectId,
                                     HttpServletRequest httpRequest) {
@@ -199,13 +186,7 @@ public class PositionService {
         return assembler.assemble(brief);
     }
 
-    /**
-     * Re-drafts the brief from a role template the consultant picked.
-     *
-     * <p>A write like any other step, gated the same way. What it replaces and what it leaves alone
-     * is {@link PositionTemplateApplier}'s contract: anything a person typed for this mandate
-     * survives it.
-     */
+    /** Re-drafts the brief from a picked template; what survives is {@link PositionTemplateApplier}'s contract. */
     @Transactional
     public PositionResponse applyTemplate(UUID userId, UUID workspaceId, UUID projectId,
                                           UUID templateId, HttpServletRequest httpRequest) {
@@ -219,12 +200,7 @@ public class PositionService {
         return assembler.assemble(brief);
     }
 
-    /**
-     * Drafts the brief for a newly created mandate, from the template matched on its role title.
-     * Takes primitives rather than the {@code Project}: the mandate is {@code project}'s to own, and a
-     * brief needs four facts about it — the workspace among them, because a firm's own templates are
-     * part of its catalog.
-     */
+    /** Drafts the brief for a newly created mandate, from the template matched on its role title. */
     @Transactional
     public Position seedFor(UUID workspaceId, UUID projectId, String positionTitle, String hqCountry) {
         return briefs.draft(workspaceId, projectId, positionTitle, hqCountry);
@@ -243,13 +219,7 @@ public class PositionService {
                 .record();
     }
 
-    /**
-     * One chip per name, checked here rather than left to the screen.
-     *
-     * <p>Until V40 the priorities were a set keyed on the value, so the schema made a duplicate
-     * impossible; an ordered list of names cannot. Refused rather than quietly de-duplicated, so the
-     * caller is not answered with a brief it did not ask for.
-     */
+    /** A duplicate name is refused rather than quietly de-duplicated; since V40 the schema no longer prevents it. */
     private static List<PositionPriority> prioritiesOf(List<StrategicPriorityDto> sent) {
         List<PositionPriority> priorities = orEmpty(sent).stream()
                 .map(priority -> PositionPriority.of(priority.name(), priority.selected(),
@@ -273,11 +243,7 @@ public class PositionService {
                 .toList();
     }
 
-    /**
-     * A step's provenance as sent, or — when the caller sends no {@code fieldSources} at all —
-     * every one of that step's keys stamped {@code MANUAL}: a client saying nothing about
-     * provenance is read as a person having typed the whole step.
-     */
+    /** No {@code fieldSources} at all is read as a person having typed the whole step: every key {@code MANUAL}. */
     private static Map<String, FieldSource> fieldSourcesOf(Map<String, FieldSource> sent,
                                                             Set<String> allowedKeys) {
         if (sent == null) {
