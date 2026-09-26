@@ -208,10 +208,27 @@ class WorkspaceSwitchIntegrationTest extends FlowTestSupport {
                         .header("Authorization", "Bearer " + saraAdmin))
                 .andExpect(status().isNoContent());
 
+        // Until the refresh, /me answers for the token's workspace exactly — which he is no longer in —
+        // rather than naming another the token does not carry.
+        mvc.perform(get("/api/v1/auth/me").header("Authorization", "Bearer " + bearerOf(session)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.workspace").doesNotExist())
+                .andExpect(jsonPath("$.workspaces.length()").value(1));
+
         MvcResult refreshed = mvc.perform(post("/api/v1/auth/refresh").cookie(refreshCookie(session)).with(csrf()))
                 .andExpect(status().isOk())
+                .andExpect(jsonPath("$.user.workspace.id").value(alokWorkspace))
                 .andReturn();
         assertThat(wsIdOf(bearerOf(refreshed))).isEqualTo(alokWorkspace);
+
+        // A move nobody asked for is still on the record, naming where the session was.
+        assertThat(jdbc.queryForObject("""
+                SELECT count(*) FROM app_lm_audit_event event
+                JOIN app_lm_user actor ON actor.id = event.actor_user_id
+                WHERE event.event_type = 'WORKSPACE_SWITCHED' AND actor.email = ?
+                  AND event.workspace_id = ?::uuid AND event.target_id = ?
+                  AND event.metadata ->> 'reason' = 'MEMBERSHIP_ENDED'
+                """, Integer.class, alokEmail, alokWorkspace, saraWorkspace)).isEqualTo(1);
 
         mvc.perform(post("/api/v1/auth/switch-workspace")
                         .header("Authorization", "Bearer " + bearerOf(refreshed))
@@ -258,6 +275,37 @@ class WorkspaceSwitchIntegrationTest extends FlowTestSupport {
                 .andExpect(status().isOk())
                 .andReturn());
         assertThat(wsIdOf(extensionRefreshed.get("accessToken").asText())).isEqualTo(secondId);
+    }
+
+    @Test
+    @DisplayName("an extension session never falls through: removed from its workspace, it carries none")
+    void extensionDoesNotFollowARemoval() throws Exception {
+        String alokEmail = "alok@" + domain;
+        String saraEmail = "sara@" + domain;
+        createWorkspace(verifiedUser("Alok Kumar", alokEmail), "Alok Firm");
+        String saraWorkspace = createWorkspace(verifiedUser("Sara Al-Mansour", saraEmail), "Sara Firm");
+        String saraAdmin = login(saraEmail);
+        inviteExistingUser(saraAdmin, alokEmail);
+
+        MvcResult session = loginRaw(alokEmail);
+        JsonNode paired = body(mvc.perform(post("/api/v1/auth/extension/tokens")
+                        .header("Authorization", "Bearer " + bearerOf(session)))
+                .andExpect(status().isCreated())
+                .andReturn());
+        assertThat(wsIdOf(paired.get("accessToken").asText())).isEqualTo(saraWorkspace);
+
+        mvc.perform(delete("/api/v1/members/" + memberIdOf(saraAdmin, alokEmail))
+                        .header("Authorization", "Bearer " + saraAdmin))
+                .andExpect(status().isNoContent());
+
+        JsonNode extensionRefreshed = body(mvc.perform(post("/api/v1/auth/extension/refresh")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"refreshToken":"%s"}
+                                """.formatted(paired.get("refreshToken").asText())))
+                .andExpect(status().isOk())
+                .andReturn());
+        assertThat(wsIdOf(extensionRefreshed.get("accessToken").asText())).isNull();
     }
 
     // helpers

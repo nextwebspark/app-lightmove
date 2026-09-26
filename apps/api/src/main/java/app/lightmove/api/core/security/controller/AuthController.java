@@ -19,13 +19,11 @@ import app.lightmove.api.core.security.model.AuthenticatedSession;
 import app.lightmove.api.core.security.model.ProfileUpdateCommand;
 import app.lightmove.api.core.security.model.SignupCommand;
 import app.lightmove.api.core.security.service.VerificationService;
-import app.lightmove.api.core.security.model.User;
 import app.lightmove.api.core.security.token.RefreshCookieFactory;
 import app.lightmove.api.core.error.model.ApiException;
 import app.lightmove.api.core.error.constant.ErrorCode;
 import app.lightmove.api.core.ratelimit.service.RateLimitGuard;
 import app.lightmove.api.core.security.model.AuthPrincipal;
-import app.lightmove.api.workspace.model.WorkspaceMember;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import jakarta.validation.Valid;
@@ -190,14 +188,9 @@ public class AuthController {
     }
 
     /**
-     * Moves the session into another of the caller's workspaces. Bearer <i>and</i> cookie: the bearer
-     * says who is asking, the cookie is the session being moved, and the rotated cookie comes back the
-     * way {@code /refresh} returns one. The bearer is also the cross-site defence — a page on another
-     * origin can make the browser attach the cookie but cannot supply a token held in this app's
-     * memory, which is why the resource-server chain exempts bearer requests from the double-submit
-     * check that guards the cookie-only {@code /refresh}. A refused switch — not a member, or a cookie
-     * that is not the bearer's — leaves the cookie exactly as it was, which is why this does not share
-     * {@code /refresh}'s expire-on-error: nothing was burned.
+     * Bearer <i>and</i> cookie: the bearer says who is asking and is the cross-site defence (another
+     * origin can attach the cookie, never supply the token), the cookie is the session being moved. A
+     * refusal burns nothing, so unlike {@code /refresh} the cookie is never expired on error.
      */
     @PostMapping("/switch-workspace")
     public ResponseEntity<AuthResponse> switchWorkspace(
@@ -217,8 +210,7 @@ public class AuthController {
     /** The current user. The SPA calls this on boot to rehydrate. */
     @GetMapping("/me")
     public ResponseEntity<UserResponse> me(@AuthenticationPrincipal AuthPrincipal principal) {
-        User user = authentication.requireUser(principal.userId());
-        return ResponseEntity.ok(assembler.user(user, membershipOf(principal)));
+        return ResponseEntity.ok(assembler.userIn(principal.userId(), principal.workspaceId()));
     }
 
     /**
@@ -232,14 +224,14 @@ public class AuthController {
     public ResponseEntity<UserResponse> updateProfile(@AuthenticationPrincipal AuthPrincipal principal,
                                                       @Valid @RequestBody UpdateProfileRequest request,
                                                       HttpServletRequest httpRequest) {
-        User user = userProfile.update(
+        userProfile.update(
                 principal.userId(),
                 principal.workspaceId(),
                 new ProfileUpdateCommand(
                         request.fullName(), request.title(), request.timezone(), request.locale()),
                 httpRequest);
 
-        return ResponseEntity.ok(assembler.user(user, membershipOf(principal)));
+        return ResponseEntity.ok(assembler.userIn(principal.userId(), principal.workspaceId()));
     }
 
     /**
@@ -277,11 +269,6 @@ public class AuthController {
     }
 
     public record AuthProviders(List<String> providers) {
-    }
-
-    /** The workspace this session is in — the token's, never "the user's", of which there may be several. */
-    private WorkspaceMember membershipOf(AuthPrincipal principal) {
-        return authentication.membershipForSession(principal.userId(), principal.workspaceId()).orElse(null);
     }
 
     /** The one place the refresh token is written to a cookie, and why it never reaches a response body. */

@@ -47,6 +47,9 @@ public enum ErrorCode {
     EMAIL_NOT_WORK_ADDRESS(HttpStatus.BAD_REQUEST,
             "Please sign up with your work email. Uncava is for search firms, and your email domain identifies your organization"),
 
+    /** Signup's organisation step is for a first workspace; a further one is founded from Settings. */
+    ALREADY_IN_WORKSPACE(HttpStatus.CONFLICT, "You already belong to a workspace"),
+
     TOKEN_INVALID(HttpStatus.BAD_REQUEST, "This link is not valid"),
     TOKEN_EXPIRED(HttpStatus.BAD_REQUEST, "This link has expired"),
 

@@ -13,6 +13,7 @@ import app.lightmove.api.workspace.model.WorkspaceMember;
 import jakarta.servlet.http.HttpServletRequest;
 import java.time.Duration;
 import java.time.Instant;
+import java.util.Optional;
 import java.util.UUID;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.oauth2.jwt.JwtClaimsSet;
@@ -174,7 +175,7 @@ public class TokenService {
      * {@code noRollbackFor} sibling would commit is a burned cookie in the victim's browser.
      */
     @Transactional(readOnly = true)
-    public java.util.Optional<UUID> ownerOf(String presentedToken) {
+    public Optional<UUID> ownerOf(String presentedToken) {
         return refreshTokens.findByTokenHash(Tokens.hash(presentedToken)).map(RefreshToken::getUserId);
     }
 

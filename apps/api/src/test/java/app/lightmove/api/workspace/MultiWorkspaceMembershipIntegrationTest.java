@@ -94,6 +94,15 @@ class MultiWorkspaceMembershipIntegrationTest extends FlowTestSupport {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(workspaceBody("Rep's Own Firm")))
                 .andExpect(status().isForbidden());
+
+        // Nor through the signup wizard's door, which is gated on verification alone.
+        MvcResult wizard = mvc.perform(post("/api/v1/onboarding/workspace")
+                        .header("Authorization", "Bearer " + rep)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(workspaceBody("Rep's Own Firm")))
+                .andExpect(status().isConflict())
+                .andReturn();
+        assertThat(codeOf(wizard)).isEqualTo("ALREADY_IN_WORKSPACE");
     }
 
     @Test
@@ -239,15 +248,20 @@ class MultiWorkspaceMembershipIntegrationTest extends FlowTestSupport {
     }
 
     @Test
-    @DisplayName("the signup wizard's organisation step no longer refuses a user who already has a workspace")
-    void wizardStepCreatesAFurtherWorkspaceToo() throws Exception {
+    @DisplayName("the signup wizard's organisation step is for a first workspace only")
+    void wizardStepRefusesSomeoneAlreadyInAWorkspace() throws Exception {
         String alokEmail = "alok@" + domain;
-        String firstId = createWorkspace(verifiedUser("Alok Kumar", alokEmail), "First Firm");
-        String secondId = createWorkspace(login(alokEmail), "Second Firm");
+        createWorkspace(verifiedUser("Alok Kumar", alokEmail), "First Firm");
 
-        assertThat(secondId).isNotEqualTo(firstId);
+        MvcResult refused = mvc.perform(post("/api/v1/onboarding/workspace")
+                        .header("Authorization", "Bearer " + login(alokEmail))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(workspaceBody("Second Firm")))
+                .andExpect(status().isConflict())
+                .andReturn();
+        assertThat(codeOf(refused)).isEqualTo("ALREADY_IN_WORKSPACE");
         mvc.perform(get("/api/v1/auth/me").header("Authorization", "Bearer " + login(alokEmail)))
-                .andExpect(jsonPath("$.workspaces.length()").value(2));
+                .andExpect(jsonPath("$.workspaces.length()").value(1));
     }
 
     private void invite(String adminToken, String inviteeEmail, String role) throws Exception {

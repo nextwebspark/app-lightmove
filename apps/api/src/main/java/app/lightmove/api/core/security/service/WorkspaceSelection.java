@@ -12,23 +12,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 /**
- * Which of a user's workspaces a session is in.
- *
- * <p>A user may belong to several workspaces (V81) but a session is in exactly one — the access
- * token's {@code wsId}. This is the one place that decides which, so sign-in, refresh, the OAuth
- * callback, a verification link and a password reset cannot drift apart:
- *
- * <ol>
- *   <li>the workspace the caller prefers — the refresh token's own, the one just created or joined,
- *       the one explicitly switched to — if the user is an active member there;</li>
- *   <li>else the workspace they last chose ({@code app_lm_user.last_workspace_id});</li>
- *   <li>else the one they joined first;</li>
- *   <li>else none: the token carries no tenant claim and the SPA routes into the wizard.</li>
- * </ol>
- *
- * <p>A membership that has since been removed is skipped at every step, which is what makes leaving a
- * workspace or being removed from it take effect at the next refresh without anyone clearing a
- * pointer.
+ * Which of a user's workspaces a session is in — the one rule every sign-in path shares: preferred,
+ * else last chosen, else first joined, else none. An ended membership is skipped at every step.
  */
 @Service
 @RequiredArgsConstructor

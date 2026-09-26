@@ -3,10 +3,7 @@ package app.lightmove.api.workspace.controller;
 import app.lightmove.api.core.security.controller.AuthResponseAssembler;
 import app.lightmove.api.core.security.dto.UserResponse;
 import app.lightmove.api.core.security.model.AuthPrincipal;
-import app.lightmove.api.core.security.service.AuthenticationService;
-import app.lightmove.api.core.security.service.WorkspaceSelection;
 import app.lightmove.api.workspace.dto.CreateWorkspaceRequest;
-import app.lightmove.api.workspace.model.CreateWorkspaceCommand;
 import app.lightmove.api.workspace.model.Workspace;
 import app.lightmove.api.workspace.service.OnboardingService;
 import jakarta.servlet.http.HttpServletRequest;
@@ -37,8 +34,6 @@ import org.springframework.web.bind.annotation.RestController;
 public class WorkspacesController {
 
     private final OnboardingService onboarding;
-    private final AuthenticationService authentication;
-    private final WorkspaceSelection selection;
     private final AuthResponseAssembler assembler;
 
     @PostMapping
@@ -46,14 +41,7 @@ public class WorkspacesController {
     public ResponseEntity<UserResponse> create(@AuthenticationPrincipal AuthPrincipal principal,
                                                @Valid @RequestBody CreateWorkspaceRequest request,
                                                HttpServletRequest httpRequest) {
-        Workspace workspace = onboarding.createWorkspace(
-                principal.userId(),
-                new CreateWorkspaceCommand(request.name(), request.apolloAccountId(), request.companySize(),
-                        request.primaryRegion(), request.teamFocus()),
-                httpRequest);
-
-        return ResponseEntity.status(HttpStatus.CREATED).body(assembler.user(
-                authentication.requireUser(principal.userId()),
-                selection.membershipIn(principal.userId(), workspace.getId()).orElse(null)));
+        Workspace workspace = onboarding.createWorkspace(principal.userId(), request.toCommand(), httpRequest);
+        return ResponseEntity.status(HttpStatus.CREATED).body(assembler.userIn(principal.userId(), workspace.getId()));
     }
 }

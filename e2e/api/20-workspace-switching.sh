@@ -118,6 +118,10 @@ http POST /auth/refresh -b "$(jar alok)" -c "$(jar alok)" -H "$(csrf_header alok
 check_status W5.3 "the session's own refresh still works" 200
 check W5.4 "and lands in a workspace he is still in" "true" \
   "$(test "$(ws_of "$(json '.accessToken')")" != "$THIRD_ID" && echo true || echo false)"
+check W5.5 "a move nobody asked for is audited, naming the workspace left" "1" \
+  "$(sql "SELECT count(*) FROM app_lm_audit_event e JOIN app_lm_user u ON u.id = e.actor_user_id
+          WHERE u.email = '$ALOK' AND e.event_type = 'WORKSPACE_SWITCHED'
+            AND e.target_id = '$THIRD_ID' AND e.metadata ->> 'reason' = 'MEMBERSHIP_ENDED'")"
 
 section "W6  a removed member is re-invited onto the same row"
 

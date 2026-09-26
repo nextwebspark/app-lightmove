@@ -1,5 +1,6 @@
 package app.lightmove.api.workspace.dto;
 
+import app.lightmove.api.workspace.model.CreateWorkspaceCommand;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
 
@@ -15,4 +16,9 @@ public record CreateWorkspaceRequest(
         String companySize,
         String primaryRegion,
         String teamFocus
-) {}
+) {
+
+    public CreateWorkspaceCommand toCommand() {
+        return new CreateWorkspaceCommand(name, apolloAccountId, companySize, primaryRegion, teamFocus);
+    }
+}

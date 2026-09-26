@@ -5,12 +5,14 @@ import app.lightmove.api.core.audit.service.AuditService;
 import app.lightmove.api.core.email.service.EmailAddressValidator;
 import app.lightmove.api.core.error.constant.ErrorCode;
 import app.lightmove.api.core.error.model.ApiException;
+import app.lightmove.api.core.ratelimit.service.RateLimitGuard;
 import app.lightmove.api.core.security.model.User;
 import app.lightmove.api.core.security.rbac.RbacService;
 import app.lightmove.api.core.security.rbac.WorkspaceAccess;
 import app.lightmove.api.core.security.rbac.WorkspaceRole;
 import app.lightmove.api.core.security.repository.UserRepository;
 import app.lightmove.api.core.security.service.WorkspaceSelection;
+import app.lightmove.api.workspace.constant.MemberStatus;
 import app.lightmove.api.workspace.model.CreateWorkspaceCommand;
 import app.lightmove.api.workspace.model.Workspace;
 import app.lightmove.api.workspace.model.WorkspaceMember;
@@ -45,12 +47,25 @@ public class OnboardingService {
     private final AuditService audit;
     private final WorkspaceCompanyResolver companyResolver;
     private final WorkspaceSelection selection;
+    private final RateLimitGuard rateLimit;
 
     /**
-     * "Create my workspace" — signup step 3 for the first, Settings → Workspaces for any further one.
-     * Verification is step 2, so the caller is already verified; {@code SecurityConfig} refuses
-     * {@code /onboarding/**} to an unverified session. A user may run several workspaces, so nothing
-     * here asks whether they already have one.
+     * Signup's organisation step. {@code /onboarding/**} is gated on verification alone, so this door
+     * must stay shut to anyone already in a workspace: a client representative's portal seat would
+     * otherwise found a firm here around the staff gate on {@code POST /workspaces}.
+     */
+    @Transactional
+    public Workspace createFirstWorkspace(UUID userId, CreateWorkspaceCommand command,
+                                          HttpServletRequest request) {
+        if (!members.findAllByUserIdAndStatusOrderByJoinedAtAsc(userId, MemberStatus.ACTIVE).isEmpty()) {
+            throw ApiException.of(ErrorCode.ALREADY_IN_WORKSPACE);
+        }
+        return createWorkspace(userId, command, request);
+    }
+
+    /**
+     * Creates a workspace with the caller as its ADMIN. Verification is signup's step 2, so the caller
+     * is already verified; {@code SecurityConfig} refuses {@code /onboarding/**} to an unverified session.
      *
      * <p>The domain is taken from the user's own address, never from the request — that is the
      * difference between recording which firm a workspace belongs to and letting anyone claim any
@@ -63,6 +78,7 @@ public class OnboardingService {
     public Workspace createWorkspace(UUID userId, CreateWorkspaceCommand command,
                                      HttpServletRequest request) {
         User user = requireUser(userId);
+        rateLimit.checkWorkspaceCreation(user.getEmail(), request);
 
         String domain = EmailAddressValidator.domainOf(user.getEmail());
         WorkspaceIdentity identity = companyResolver.resolve(command.name(), command.apolloAccountId());

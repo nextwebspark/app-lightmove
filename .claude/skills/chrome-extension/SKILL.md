@@ -99,6 +99,8 @@ Consequences worth keeping in mind:
 - The extension is paired into **the workspace the web session is in** (the principal's `wsId` at
   `/auth/extension/tokens`), and its family keeps that workspace afterwards: a user in several
   workspaces who switches the web app moves nothing here. Re-pairing at `/extension/connect` does.
+  Nor does a removal: unlike a web refresh, `/auth/extension/refresh` never falls through to another
+  workspace, so a session whose membership ended carries no `wsId` until it is re-paired.
   `lastProjectId` in the extension's storage is therefore per pairing, never per web session.
 
 ## Permissions: least privilege, checked at review

@@ -16,7 +16,8 @@ workspace `CLIENT` role grants nothing; access is the project `CLIENT` seat, whi
 workspaces per user** (V81: a staff member founds a further one from Settings → Workspaces through the
 wizard's organisation and invite steps in a modal, an invitation to a second workspace is accepted from
 the topbar menu or the emailed link, and the topbar menu switches — a session is in exactly one
-workspace, `wsId`, and `POST /auth/switch-workspace` is the only thing that moves it), the projects/clients
+workspace, `wsId`, moved by `POST /auth/switch-workspace` or, audited, by a web refresh once its membership
+has ended), the projects/clients
 screens, a project's Team & access tab, the client registry with representative invites and their
 scoped read-only project access, and **Strategy → Companies**: a filter over the company universe, the
 searches saved against it, and the three Companies pages (In universe / Shortlisted / Declined) where a
@@ -299,7 +300,7 @@ its area — the invariants below are the summary; the skills hold the rationale
 
 - Identity is a **work email**; the domain signals the firm but is **not** unique — a domain does not own a workspace.
 - **Membership is invitation-only**; the one second door is a staff member naming a client representative.
-- A user may hold **several** active memberships (V81 dropped V1's partial unique index), but a session is in exactly **one** workspace — the `wsId` claim, chosen at sign-in from `last_workspace_id`, remembered per refresh-token family, and changed only by `POST /auth/switch-workspace`, which is a 404 unless the caller is an active member of the target.
+- A user may hold **several** active memberships (V81 dropped V1's partial unique index), but a session is in exactly **one** workspace — the `wsId` claim, chosen at sign-in from `last_workspace_id`, remembered per refresh-token family, and changed by `POST /auth/switch-workspace` (a 404 unless the caller is an active member of the target) or by a web refresh whose membership has ended (audited `MEMBERSHIP_ENDED`; `/me` and the extension never fall through). The signup wizard's `POST /onboarding/workspace` founds a *first* workspace only (`ALREADY_IN_WORKSPACE`); a further one is `POST /workspaces`, staff-gated.
 - Verification gates the *proof of mailbox*, not the channel — an invite token or a password reset proves it too.
 - **Tenant isolation:** every workspace-scoped query filters by `AuthPrincipal.requireWorkspaceId()`, never a request parameter.
 - **Authorise by action, never by role** (`@PreAuthorize` + `@workspaceAuthorizer`/`@projectAuthorizer`); guard beans re-read the DB every check; the JWT `roles` claim is never trusted for a decision.
@@ -410,8 +411,8 @@ confirms its AI values and clears `ai_inferred_fields`.
 V81 lets a person belong to several workspaces: it drops V1's `app_lm_workspace_member_single_org_per_user_uk`
 (the `(workspace_id, user_id)` unique stays — one row per person per workspace whatever its status, so a
 removed member who is re-invited **rejoins** that row rather than inserting) and records which workspace
-a session is in on `app_lm_refresh_token.workspace_id` (a refresh re-reads the membership there and falls
-through to another the user is still in), and where the next sign-in opens on `app_lm_user.last_workspace_id`
+a session is in on `app_lm_refresh_token.workspace_id` (a web refresh re-reads the membership there and,
+once it has ended, falls through to another the user is still in, audited; V82 indexes both pointers), and where the next sign-in opens on `app_lm_user.last_workspace_id`
 (written on every explicit choice — sign-in, switch, create, accept — never by a background refresh).
 Both are backfilled before the index is dropped, while it still guarantees one row to copy from.
 `WorkspaceSelection` is the one place that rule lives; `WorkspaceMemberRepository` deliberately has no

@@ -20,7 +20,8 @@ make_workspace() { # make_workspace TOKEN NAME
 }
 
 # A token minted before the workspace existed carries no wsId claim, so every tenant route answers
-# 404 NOT_A_MEMBER until a new one is issued. /auth/me is the exception — it re-reads membership.
+# 404 NOT_A_MEMBER until a new one is issued — and /auth/me, which answers for the token's exact
+# workspace, names none.
 relogin() {
   post_json /auth/login "$(jq -nc --arg e "$1" --arg p "${2:-$PASSWORD}" '{email:$e, password:$p}')" >/dev/null
   json '.accessToken'
@@ -34,21 +35,14 @@ WS1="Owner Co $(date +%s)$RANDOM"
 make_workspace "$OWNER_TOKEN" "$WS1"
 check_status N27.1 "a verified user creates a workspace outright" 201
 
-# A user may hold several workspaces since V81; the wizard endpoint no longer refuses a second one
-# (homeFor never sends a placed user back to it, but the API is not what stops them).
-WS2="Second Co $(date +%s)$RANDOM"
-make_workspace "$OWNER_TOKEN" "$WS2"
-check_status N27.2 "the same user creating a second workspace" 201
-WS2_ID=$(json '.workspace.id')
+# The wizard's door is gated on verification alone, so it founds a first workspace only. A further one
+# is POST /workspaces, gated on being staff of the workspace the session is in.
+make_workspace "$OWNER_TOKEN" "Second Co $RANDOM"
+check_code N27.2 "the wizard refuses a user already in a workspace" 409 ALREADY_IN_WORKSPACE
 
-check N27.3 "two active memberships for one user" "2" \
-  "$(sql "SELECT count(*) FROM app_lm_workspace_member m JOIN app_lm_user u ON u.id = m.user_id
-          WHERE u.email = '$OWNER' AND m.status = 'ACTIVE'")"
-
-# The token minted before the workspace existed carries no wsId; the API must re-read membership.
 get /auth/me -H "$(auth_header "$OWNER_TOKEN")"
-check N27.4 "/auth/me falls back to the workspace last chosen on a token with none" "$WS2" "$(json '.workspace.name')"
-check N27.4b "/auth/me lists both workspaces" "2" "$(json '.workspaces | length')"
+check N27.3 "/auth/me on the pre-workspace token names no workspace" "null" "$(json '.workspace')"
+check N27.4 "but lists the one the user is in" "1" "$(json '.workspaces | length')"
 
 # ...but a tenant route does not, because the gate reads wsId off the token.
 get /invitations -H "$(auth_header "$OWNER_TOKEN")"
@@ -58,6 +52,17 @@ note N27.6 "pre-workspace token on a tenant route -> $LAST_STATUS $(ecode); a ne
 OWNER_TOKEN=$(relogin "$OWNER")
 get /invitations -H "$(auth_header "$OWNER_TOKEN")"
 check_status N27.7 "the same route after re-issuing the token" 200
+
+WS2="Second Co $(date +%s)$RANDOM"
+post_json /workspaces "$(jq -nc --arg n "$WS2" \
+  '{name:$n, companySize:"1-10 people", primaryRegion:"GCC", teamFocus:"Executive search"}')" \
+  -H "$(auth_header "$OWNER_TOKEN")"
+check_status N27.7b "a second workspace is founded from inside the app" 201
+WS2_ID=$(json '.workspace.id')
+check N27.7c "two active memberships for one user" "2" \
+  "$(sql "SELECT count(*) FROM app_lm_workspace_member m JOIN app_lm_user u ON u.id = m.user_id
+          WHERE u.email = '$OWNER' AND m.status = 'ACTIVE'")"
+OWNER_TOKEN=$(relogin "$OWNER")
 
 # Creating was an explicit choice, so the sign-in opened in the second workspace. Switching is the
 # only way a session moves: bearer + cookie, the cookie rotating as a refresh does.

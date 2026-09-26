@@ -87,6 +87,11 @@ public class RateLimitGuard {
                 Duration.ofMinutes(1));
     }
 
+    public void checkWorkspaceCreation(String email, HttpServletRequest request) {
+        checkRateLimit("workspace-creation", email, request, config.workspaceCreationsPerHour(),
+                config.workspaceCreationsPerHourPerIp(), Duration.ofHours(1));
+    }
+
     private void checkRateLimit(String action, String email, HttpServletRequest request, int limit, Duration window) {
         checkRateLimit(action, email, request, limit, limit, window);
     }

@@ -275,18 +275,14 @@ public class AuthenticationService {
      */
     @Transactional(noRollbackFor = ApiException.class)
     public AuthenticatedSession refresh(String refreshToken, HttpServletRequest request) {
-        return tokens.rotate(refreshToken, request, users::findById, this::membershipForSession);
+        return tokens.rotate(refreshToken, request, users::findById,
+                (userId, sessionWorkspaceId) -> membershipForSession(userId, sessionWorkspaceId, request));
     }
 
     /**
-     * Moves the session into another of the caller's workspaces — the <b>only</b> way {@code wsId}
-     * changes. The target membership is checked first, so a refusal burns nothing: the presented
-     * cookie stays valid and the caller stays where they were. A miss is {@code NOT_A_MEMBER}, the
-     * same 404 a stranger gets, so the existence of a workspace is never confirmed to an outsider.
-     *
-     * <p>Rotates the family like a refresh (same theft detection, same client fence), and refuses a
-     * cookie that belongs to a different user than the bearer: a token for A must never rotate B's
-     * session.
+     * Moves the session into another of the caller's workspaces — the only move a caller asks for; the
+     * other is a web refresh falling through when the session's membership has ended. A miss is
+     * {@code NOT_A_MEMBER}, the 404 a stranger gets, and burns nothing.
      */
     @Transactional(noRollbackFor = ApiException.class)
     public AuthenticatedSession switchWorkspace(UUID userId, UUID workspaceId, String refreshToken,
@@ -296,7 +292,7 @@ public class AuthenticationService {
 
         // Checked before rotating, not after: rotate() commits even when this method then throws, and
         // a cookie rotated on someone else's behalf is a cookie its owner can no longer present.
-        if (!tokens.ownerOf(refreshToken).filter(userId::equals).isPresent()) {
+        if (tokens.ownerOf(refreshToken).filter(userId::equals).isEmpty()) {
             throw new ApiException(ErrorCode.REFRESH_TOKEN_INVALID,
                     "Refresh cookie is not the bearer's, or does not exist");
         }
@@ -376,21 +372,37 @@ public class AuthenticationService {
      * The extension's own refresh. Rotation, reuse detection and revocation are the ordinary ones —
      * only the TTL and the session label differ, and both come from the client passed here rather than
      * from anything the caller says about itself.
+     *
+     * <p>Exact, never falling through like a web refresh: a capture filed after a removal must not land
+     * in another firm's workspace. The session loses its tenant claim until the extension is re-paired.
      */
     @Transactional(noRollbackFor = ApiException.class)
     public AuthenticatedSession refreshExtension(String refreshToken, HttpServletRequest request) {
-        return tokens.rotate(refreshToken, request, users::findById, this::membershipForSession,
+        return tokens.rotate(refreshToken, request, users::findById, selection::membershipIn,
                 SessionClient.BROWSER_EXTENSION);
     }
 
     /**
-     * The membership a session carries: the one in the workspace the session is already in, whether
-     * that is the access token's {@code wsId} or the refresh token's. Falls back through
-     * {@link WorkspaceSelection} when the user has since left it.
+     * The session's workspace if the user is still in it, else wherever {@link WorkspaceSelection}
+     * lands. Leaving a workspace this way is a move nobody asked for, so it is audited like a switch;
+     * the SPA sees the workspace change in the refresh answer and resets as a switch does.
      */
-    @Transactional(readOnly = true)
-    public Optional<WorkspaceMember> membershipForSession(UUID userId, UUID sessionWorkspaceId) {
-        return users.findById(userId).flatMap(user -> selection.select(user, sessionWorkspaceId));
+    private Optional<WorkspaceMember> membershipForSession(UUID userId, UUID sessionWorkspaceId,
+                                                           HttpServletRequest request) {
+        Optional<WorkspaceMember> current = selection.membershipIn(userId, sessionWorkspaceId);
+        if (current.isPresent()) {
+            return current;
+        }
+        Optional<WorkspaceMember> landed = users.findById(userId).flatMap(user -> selection.select(user, null));
+        if (sessionWorkspaceId != null) {
+            audit.event(AuthEventType.WORKSPACE_SWITCHED).actor(userId)
+                    .workspace(landed.map(WorkspaceMember::getWorkspaceId).orElse(null))
+                    .target("WORKSPACE", sessionWorkspaceId)
+                    .reason("MEMBERSHIP_ENDED")
+                    .from(request)
+                    .record();
+        }
+        return landed;
     }
 
     @Transactional(readOnly = true)

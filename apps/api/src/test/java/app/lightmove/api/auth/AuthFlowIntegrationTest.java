@@ -465,11 +465,11 @@ class AuthFlowIntegrationTest {
                         .header("Authorization", "Bearer " + sara))
                 .andExpect(status().isOk());
 
-        // /me reports where a session would land: her token predates the membership and carries no
-        // tenant claim, so this is the fallback — the workspace she just joined.
+        // /me answers for the token's exact workspace: hers predates the membership and carries no
+        // tenant claim, so it names none — until a switch or refresh — while listing the one joined.
         mvc.perform(get("/api/v1/auth/me").header("Authorization", "Bearer " + sara))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.workspace.name").value("NextWebSpark Search"))
+                .andExpect(jsonPath("$.workspace").doesNotExist())
                 .andExpect(jsonPath("$.workspaces[0].name").value("NextWebSpark Search"))
                 .andExpect(jsonPath("$.pendingInvitations").isEmpty());
     }

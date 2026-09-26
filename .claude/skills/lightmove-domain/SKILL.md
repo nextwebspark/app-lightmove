@@ -26,7 +26,10 @@ are both refused, while a resolver that times out fails open — our outage must
 
 **Membership is invitation-only.** Signup always creates a workspace (the creator is its `ADMIN`), and a
 staff member founds a further one from Settings → Workspaces (`POST /workspaces`, the same creation gated
-`staff` of the current workspace so a client representative cannot found a firm from a portal seat); the
+`staff` of the current workspace so a client representative cannot found a firm from a portal seat). Signup's
+own door, `POST /onboarding/workspace`, is gated on verification alone, so it founds a *first* workspace
+only and refuses anyone already in one (`ALREADY_IN_WORKSPACE`) — left open, it was a way around that
+staff gate. Both doors share one creation budget per account (`workspace-creations-per-hour`); the
 only way into an existing one is an admin's invitation, and accepting lands `ACTIVE` immediately — an
 admin naming someone *is* the decision. **One second door, deliberately:** any staff member may name a
 client representative (`CLIENT_RECORD_MANAGE` is granted to `MEMBER` as well as `ADMIN`), and that
@@ -53,12 +56,22 @@ session is in has to be decided somewhere. `WorkspaceSelection` is that somewher
 workspace the caller prefers if they are an active member there, else the one they last chose
 (`app_lm_user.last_workspace_id`), else the one they joined first, else none. Sign-in, the OAuth callback,
 a verification link and a password reset all prefer the last chosen; a refresh prefers the refresh
-token's own (`app_lm_refresh_token.workspace_id`), so the family remembers where it is and a removal falls
-through to another workspace at the next refresh without anyone clearing a pointer. `last_workspace_id`
+token's own (`app_lm_refresh_token.workspace_id`), so the family remembers where it is. `last_workspace_id`
 is written on every explicit choice — sign-in, switch, create, accept — and **never by a refresh**, or two
 browsers open in two workspaces would overwrite each other's choice every fifteen minutes.
 
-`POST /auth/switch-workspace` is the **only** way `wsId` changes. It answers `NOT_A_MEMBER` (404, the
+**`wsId` moves two ways, and only two.** A caller asks with `POST /auth/switch-workspace`; or a *web*
+refresh finds the membership its family was in has ended (the member was removed, or the workspace
+deleted) and falls through `WorkspaceSelection` to another. That second move is nobody's request, so it is
+never silent: it is audited as `WORKSPACE_SWITCHED` with reason `MEMBERSHIP_ENDED` and the workspace left
+as the target, and the SPA's `apiClient` compares the refresh's `wsId` with the one it held and, on a
+change, restarts the tab from `/` with a notice ("You no longer have access to A — you're now in B"),
+because its cache and route params belong to the workspace left. `/me` never falls through: it answers
+for the token's exact workspace, or none, so it can never name a workspace the token does not carry. An
+**extension** refresh never falls through either — a capture filed after a removal must not land in
+another firm — so its session drops to no workspace until it is re-paired.
+
+The switch answers `NOT_A_MEMBER` (404, the
 same a stranger gets) unless the caller holds an active membership in the target, and it checks that
 **before** rotating: `TokenService.rotate` is `noRollbackFor ApiException`, so a refusal thrown after the
 rotation would commit it while the browser kept the burned cookie — and its next refresh would read as

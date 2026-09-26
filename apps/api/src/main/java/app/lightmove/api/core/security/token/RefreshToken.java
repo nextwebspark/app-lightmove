@@ -55,9 +55,9 @@ public class RefreshToken {
 
     /**
      * The workspace this session is in — the one the access token's {@code wsId} names. Carried by the
-     * family so a refresh re-reads the membership <i>there</i>, rather than guessing which of a user's
-     * workspaces they meant; {@code /auth/switch-workspace} is the only thing that changes it. Null for
-     * a user who has no workspace yet.
+     * family so a refresh re-reads the membership <i>there</i>. Moved by {@code /auth/switch-workspace},
+     * or by a web refresh once that membership has ended; an extension family never moves. Null for a
+     * session in no workspace.
      */
     @Column(name = "workspace_id")
     private UUID workspaceId;

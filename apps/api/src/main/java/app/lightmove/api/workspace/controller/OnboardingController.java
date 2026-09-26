@@ -6,10 +6,8 @@ import app.lightmove.api.core.security.dto.AuthResponse;
 import app.lightmove.api.core.security.dto.UserResponse;
 import app.lightmove.api.core.security.model.AuthPrincipal;
 import app.lightmove.api.core.security.model.AuthenticatedSession;
-import app.lightmove.api.core.security.model.User;
 import app.lightmove.api.core.security.rbac.WorkspaceRole;
 import app.lightmove.api.core.security.service.AuthenticationService;
-import app.lightmove.api.core.security.service.WorkspaceSelection;
 import app.lightmove.api.core.security.token.RefreshCookieFactory;
 import app.lightmove.api.strategy.dto.CompanySuggestionsResponse;
 import app.lightmove.api.strategy.service.CompanySuggestionSearch;
@@ -17,7 +15,6 @@ import app.lightmove.api.workspace.dto.AcceptInvitationRequest;
 import app.lightmove.api.workspace.dto.AcceptInvitationSignupRequest;
 import app.lightmove.api.workspace.dto.CreateWorkspaceRequest;
 import app.lightmove.api.workspace.dto.InviteRequest;
-import app.lightmove.api.workspace.model.CreateWorkspaceCommand;
 import app.lightmove.api.workspace.model.InviteCommand;
 import app.lightmove.api.workspace.model.Workspace;
 import app.lightmove.api.workspace.model.WorkspaceMember;
@@ -60,7 +57,6 @@ public class OnboardingController {
     private final RefreshCookieFactory refreshCookie;
     private final CompanySuggestionSearch suggestions;
     private final RateLimitGuard rateLimit;
-    private final WorkspaceSelection selection;
 
     /**
      * Signup step 3 — create your workspace. Answers with the new workspace as the user's
@@ -71,13 +67,8 @@ public class OnboardingController {
     public ResponseEntity<UserResponse> createWorkspace(@AuthenticationPrincipal AuthPrincipal principal,
                                                         @Valid @RequestBody CreateWorkspaceRequest request,
                                                         HttpServletRequest httpRequest) {
-        Workspace workspace = onboarding.createWorkspace(
-                principal.userId(),
-                new CreateWorkspaceCommand(request.name(), request.apolloAccountId(), request.companySize(),
-                        request.primaryRegion(), request.teamFocus()),
-                httpRequest);
-
-        return ResponseEntity.status(HttpStatus.CREATED).body(userIn(principal, workspace.getId()));
+        Workspace workspace = onboarding.createFirstWorkspace(principal.userId(), request.toCommand(), httpRequest);
+        return ResponseEntity.status(HttpStatus.CREATED).body(assembler.userIn(principal.userId(), workspace.getId()));
     }
 
     /**
@@ -88,11 +79,8 @@ public class OnboardingController {
     public ResponseEntity<UserResponse> updateWorkspace(@AuthenticationPrincipal AuthPrincipal principal,
                                                         @Valid @RequestBody CreateWorkspaceRequest request,
                                                         HttpServletRequest httpRequest) {
-        CreateWorkspaceCommand command = new CreateWorkspaceCommand(
-                request.name(), request.apolloAccountId(), request.companySize(), request.primaryRegion(),
-                request.teamFocus());
-
-        onboarding.updateWorkspace(principal.userId(), principal.requireWorkspaceId(), command, httpRequest);
+        onboarding.updateWorkspace(principal.userId(), principal.requireWorkspaceId(), request.toCommand(),
+                httpRequest);
 
         return ResponseEntity.ok(currentUser(principal));
     }
@@ -187,20 +175,8 @@ public class OnboardingController {
                 .body(assembler.assemble(session.tokens(), session.user(), session.membership()));
     }
 
-    /** The caller as their session sees them — the workspace being the token's, not a guess. */
     private UserResponse currentUser(AuthPrincipal principal) {
-        User user = authentication.requireUser(principal.userId());
-        return assembler.user(user, authentication.membershipForSession(user.getId(), principal.workspaceId())
-                .orElse(null));
-    }
-
-    /**
-     * The caller with the workspace they just created or joined as {@code workspace}, so the SPA can
-     * switch into it by id. Their token still names the old one until it does.
-     */
-    private UserResponse userIn(AuthPrincipal principal, UUID workspaceId) {
-        User user = authentication.requireUser(principal.userId());
-        return assembler.user(user, selection.membershipIn(user.getId(), workspaceId).orElse(null));
+        return assembler.userIn(principal.userId(), principal.workspaceId());
     }
 
     private UserResponse joined(AuthPrincipal principal, WorkspaceMember member) {

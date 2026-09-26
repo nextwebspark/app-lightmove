@@ -1,5 +1,7 @@
 package app.lightmove.api.core.security.controller;
 
+import app.lightmove.api.core.error.constant.ErrorCode;
+import app.lightmove.api.core.error.model.ApiException;
 import app.lightmove.api.core.security.dto.AuthResponse;
 import app.lightmove.api.core.security.dto.PendingInvitationSummary;
 import app.lightmove.api.core.security.dto.UserResponse;
@@ -57,8 +59,8 @@ public class AuthResponseAssembler {
      *                   a user may be in several, and which one a token names is the session's business.
      */
     public UserResponse user(User user, WorkspaceMember membership) {
-        WorkspaceSummary workspace = workspaceSummary(membership);
         List<WorkspaceMember> memberships = selection.all(user.getId());
+        Map<UUID, Workspace> byId = workspacesOf(memberships);
         return new UserResponse(
                 user.getId(),
                 user.getEmail(),
@@ -69,21 +71,30 @@ public class AuthResponseAssembler {
                 user.hasPassword(),
                 user.getTimezone(),
                 user.getLocale(),
-                workspace,
-                workspaceSummaries(memberships),
+                currentSummary(membership, byId),
+                memberships.stream()
+                        .filter(member -> byId.containsKey(member.getWorkspaceId()))
+                        .map(member -> toSummary(byId.get(member.getWorkspaceId()), member))
+                        .toList(),
                 pendingInvitations(user, memberships),
                 platform.actionsOf(user.getId()));
     }
 
-    private List<WorkspaceSummary> workspaceSummaries(List<WorkspaceMember> memberships) {
-        Map<UUID, Workspace> byId = workspaces
+    /**
+     * The user answered as a member of exactly this workspace, or of none: no fallback, so the body
+     * describes the session it answers for — or the workspace just created or joined, for the SPA to
+     * switch into by id.
+     */
+    public UserResponse userIn(UUID userId, UUID workspaceId) {
+        User user = users.findById(userId).orElseThrow(() -> ApiException.of(ErrorCode.INVALID_CREDENTIALS));
+        return user(user, selection.membershipIn(userId, workspaceId).orElse(null));
+    }
+
+    private Map<UUID, Workspace> workspacesOf(List<WorkspaceMember> memberships) {
+        return workspaces
                 .findAllById(memberships.stream().map(WorkspaceMember::getWorkspaceId).toList())
                 .stream()
                 .collect(Collectors.toMap(Workspace::getId, Function.identity()));
-        return memberships.stream()
-                .filter(membership -> byId.containsKey(membership.getWorkspaceId()))
-                .map(membership -> toSummary(byId.get(membership.getWorkspaceId()), membership))
-                .toList();
     }
 
     /**
@@ -129,14 +140,11 @@ public class AuthResponseAssembler {
                 .toList();
     }
 
-    /** Null when the session is in no workspace — the user has not created or joined one yet. */
-    private WorkspaceSummary workspaceSummary(WorkspaceMember membership) {
-        if (membership == null || !membership.isActive()) {
+    private static WorkspaceSummary currentSummary(WorkspaceMember membership, Map<UUID, Workspace> byId) {
+        if (membership == null || !membership.isActive() || !byId.containsKey(membership.getWorkspaceId())) {
             return null;
         }
-        return workspaces.findById(membership.getWorkspaceId())
-                .map(workspace -> toSummary(workspace, membership))
-                .orElse(null);
+        return toSummary(byId.get(membership.getWorkspaceId()), membership);
     }
 
     /**
