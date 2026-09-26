@@ -12,8 +12,8 @@ import app.lightmove.api.candidate.model.CompetencyPanelAssessment;
 import app.lightmove.api.candidate.model.InferredBackground;
 import app.lightmove.api.common.constant.NationalityGroup;
 import app.lightmove.api.core.llm.model.BlockedAnswer;
-import app.lightmove.api.core.llm.model.PromptGuardSpec;
-import app.lightmove.api.core.llm.service.LlmCallPolicy;
+import app.lightmove.api.core.llm.service.StructuredPrompt;
+import app.lightmove.api.core.llm.service.StructuredPromptFactory;
 import app.lightmove.api.position.dto.AssessmentDto;
 import app.lightmove.api.position.dto.CompetencyDto;
 import app.lightmove.api.position.dto.PositionResponse;
@@ -26,14 +26,9 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
-import java.util.function.Consumer;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.ai.chat.client.ChatClient;
-import org.springframework.ai.google.genai.GoogleGenAiChatOptions;
-import org.springframework.beans.factory.annotation.Value;
-import org.springframework.core.io.Resource;
 import org.springframework.stereotype.Service;
 
 /**
@@ -46,8 +41,6 @@ import org.springframework.stereotype.Service;
 public class CandidateAiEnricher {
 
     private static final String PROMPT_ID = "candidate-ai-enrich";
-    private static final double ENRICH_TEMPERATURE = 0.0;
-    private static final int ENRICH_THINKING_BUDGET = 0;
 
     private static final int MIN_PLAUSIBLE_YEARS = 0;
     private static final int MAX_PLAUSIBLE_YEARS = 60;
@@ -59,18 +52,10 @@ public class CandidateAiEnricher {
 
     private static final String BLOCKED = "{\"summary\":\"" + BlockedAnswer.MARKER + "\"}";
 
-    private final ChatClient chatClient;
-    private final Resource systemPrompt;
-    private final Consumer<ChatClient.AdvisorSpec> guarded;
+    private final StructuredPrompt prompt;
 
-    // Hand-written: Lombok cannot put @Value on a generated constructor parameter.
-    public CandidateAiEnricher(ChatClient chatClient,
-                               @Value("classpath:prompts/candidate-ai-enrich-system.st") Resource systemPrompt,
-                               @Value("classpath:prompts/candidate-ai-enrich-schema.json") Resource answerSchema,
-                               LlmCallPolicy llmCalls) {
-        this.chatClient = chatClient;
-        this.systemPrompt = systemPrompt;
-        this.guarded = llmCalls.forPrompt(PromptGuardSpec.structured(PROMPT_ID, answerSchema, BLOCKED));
+    public CandidateAiEnricher(StructuredPromptFactory prompts) {
+        this.prompt = prompts.createSearchGrounded(PROMPT_ID, BLOCKED);
     }
 
     public Optional<CandidateAiEnrichment> enrich(CandidateDossier dossier, PositionResponse brief) {
@@ -84,8 +69,7 @@ public class CandidateAiEnricher {
                             panelOf(answered.behavioural()), sourcesOf(answered.sources()),
                             Instant.now().toString())));
         } catch (RuntimeException e) {
-            // No credentials, Vertex unreachable, an answer that will not bind: all mean store nothing
-            // this time, and the candidate keeps what it already had.
+            // No credentials, Vertex unreachable or an unbindable answer: store nothing this time.
             log.warn("Candidate AI enrichment skipped: {}", e.toString());
             return Optional.empty();
         }
@@ -93,74 +77,62 @@ public class CandidateAiEnricher {
 
     private ModelAnswer ask(CandidateDossier dossier, PositionResponse brief) {
         AssessmentDto assessment = brief.assessment();
-        return chatClient.prompt()
-                .advisors(guarded)
-                // Google Search grounding cannot be combined with a JSON response type on Gemini 2.5,
-                // so the answer's shape comes from the prompt and the schema advisor instead.
-                .options(GoogleGenAiChatOptions.builder()
-                        .temperature(ENRICH_TEMPERATURE)
-                        .thinkingBudget(ENRICH_THINKING_BUDGET)
-                        .googleSearchRetrieval(true)
-                        .labels(Map.of("prompt", PROMPT_ID)))
-                .system(systemPrompt)
-                .user(user -> user.text("""
-                        THE CANDIDATE (their LinkedIn profile, already researched — do not search it again)
-                        Name: {name}
-                        Current title: {title}
-                        Current employer: {company}
-                        Location: {location}
-                        LinkedIn profile: {linkedin}
-                        About: {about}
+        return prompt.ask(ModelAnswer.class, user -> user.text("""
+                THE CANDIDATE (their LinkedIn profile, already researched — do not search it again)
+                Name: {name}
+                Current title: {title}
+                Current employer: {company}
+                Location: {location}
+                LinkedIn profile: {linkedin}
+                About: {about}
 
-                        Career history, most recent first:
-                        {career}
+                Career history, most recent first:
+                {career}
 
-                        Education:
-                        {education}
+                Education:
+                {education}
 
-                        Skills: {skills}
-                        Languages: {languages}
+                Skills: {skills}
+                Languages: {languages}
 
-                        Background fields still to propose: {missing}
+                Background fields still to propose: {missing}
 
-                        THE ROLE
-                        Title: {roleTitle}
-                        Seniority: {seniority}
-                        Technical share of the assessment: {technicalShare}%
+                THE ROLE
+                Title: {roleTitle}
+                Seniority: {seniority}
+                Technical share of the assessment: {technicalShare}%
 
-                        Technical competencies:
-                        {technical}
+                Technical competencies:
+                {technical}
 
-                        Behavioural competencies:
-                        {behavioural}
+                Behavioural competencies:
+                {behavioural}
 
-                        Selection criteria:
-                        {criteria}
-                        """)
-                        .param("name", orNotStated(dossier.fullName()))
-                        .param("title", orNotStated(dossier.title()))
-                        .param("company", orNotStated(dossier.companyName()))
-                        .param("location", locationOf(dossier))
-                        .param("linkedin", orNotStated(dossier.linkedinUrl()))
-                        .param("about", orNotStated(dossier.summary()))
-                        .param("career", careerOf(dossier.career()))
-                        .param("education", educationOf(dossier.education()))
-                        .param("skills", listOf(dossier.skills()))
-                        .param("languages", listOf(dossier.languages()))
-                        .param("missing", missingOf(dossier.missingBackground()))
-                        .param("roleTitle", orNotStated(brief.details() == null ? null : brief.details().roleTitle()))
-                        .param("seniority", brief.details() == null || brief.details().seniority() == null
-                                ? NOT_STATED : brief.details().seniority().name())
-                        .param("technicalShare", assessment == null ? 50 : assessment.technicalShare())
-                        .param("technical", competenciesOf(assessment == null ? List.of() : assessment.technical()))
-                        .param("behavioural", competenciesOf(assessment == null ? List.of() : assessment.behavioural()))
-                        .param("criteria", assessment == null || assessment.criteria().isEmpty() ? NOT_STATED
-                                : assessment.criteria().stream()
-                                        .map(criterion -> "- (%s) %s".formatted(
-                                                criterion.mode().name().toLowerCase(Locale.ROOT), criterion.text()))
-                                        .collect(Collectors.joining("\n"))))
-                .call()
-                .entity(ModelAnswer.class);
+                Selection criteria:
+                {criteria}
+                """)
+                .param("name", orNotStated(dossier.fullName()))
+                .param("title", orNotStated(dossier.title()))
+                .param("company", orNotStated(dossier.companyName()))
+                .param("location", locationOf(dossier))
+                .param("linkedin", orNotStated(dossier.linkedinUrl()))
+                .param("about", orNotStated(dossier.summary()))
+                .param("career", careerOf(dossier.career()))
+                .param("education", educationOf(dossier.education()))
+                .param("skills", listOf(dossier.skills()))
+                .param("languages", listOf(dossier.languages()))
+                .param("missing", missingOf(dossier.missingBackground()))
+                .param("roleTitle", orNotStated(brief.details() == null ? null : brief.details().roleTitle()))
+                .param("seniority", brief.details() == null || brief.details().seniority() == null
+                        ? NOT_STATED : brief.details().seniority().name())
+                .param("technicalShare", assessment == null ? 50 : assessment.technicalShare())
+                .param("technical", competenciesOf(assessment == null ? List.of() : assessment.technical()))
+                .param("behavioural", competenciesOf(assessment == null ? List.of() : assessment.behavioural()))
+                .param("criteria", assessment == null || assessment.criteria().isEmpty() ? NOT_STATED
+                        : assessment.criteria().stream()
+                                .map(criterion -> "- (%s) %s".formatted(
+                                        criterion.mode().name().toLowerCase(Locale.ROOT), criterion.text()))
+                                .collect(Collectors.joining("\n"))));
     }
 
     /** Only what was missing when the run began; {@code Candidate.proposeBackground} re-checks at write. */
@@ -171,7 +143,7 @@ public class CandidateAiEnricher {
                 missing.contains(BackgroundField.YEARS_EXPERIENCE) ? yearsExperienceOf(answered) : null);
     }
 
-    /** One of the nine canonical groups, or null — the model's own spelling is never stored as-is. */
+    /** One of the nine canonical groups, or null — never the model's own spelling. */
     private static String nationalityOf(ModelAnswer answered) {
         NationalityGroup group = NationalityGroup.ofLabel(answered.nationality());
         return group == null ? null : group.value();
@@ -182,7 +154,7 @@ public class CandidateAiEnricher {
                 : Gender.fromValue(answered.gender().trim().toLowerCase(Locale.ROOT));
     }
 
-    /** Discards an implausible figure rather than storing a hallucinated one as though it were sound. */
+    /** An implausible figure is discarded rather than stored as a hallucination. */
     private static Integer yearsExperienceOf(ModelAnswer answered) {
         Integer years = answered.yearsExperience();
         return years == null || years < MIN_PLAUSIBLE_YEARS || years > MAX_PLAUSIBLE_YEARS ? null : years;
@@ -205,10 +177,7 @@ public class CandidateAiEnricher {
                 .toList();
     }
 
-    /**
-     * Absolute http(s) links only, one per URL. LinkedIn is dropped: the profile is already the
-     * dossier, so a LinkedIn link would only cite what the researcher can already see.
-     */
+    /** Absolute http(s) links, one per URL; LinkedIn dropped, since the profile is already the dossier. */
     private static List<AssessmentSourceLink> sourcesOf(List<ModelSource> sources) {
         if (sources == null) {
             return List.of();
@@ -283,7 +252,6 @@ public class CandidateAiEnricher {
                 .collect(Collectors.joining("\n"));
     }
 
-    /** The model's raw reply, bound before any of it is validated against this feature's vocabulary. */
     private record ModelAnswer(String nationality, String gender, Integer yearsExperience, String summary,
                                ModelPanel technical, ModelPanel behavioural, List<ModelSource> sources) {}
 

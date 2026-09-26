@@ -4,9 +4,7 @@ import java.text.Normalizer;
 import java.util.Locale;
 import java.util.function.Predicate;
 
-/**
- * Turns a workspace name into the URL-safe slug that appears in {@code lightmove.app/w/{slug}}.
- */
+/** Turns a workspace name into its URL-safe slug. */
 final class SlugGenerator {
 
     private static final int MAX_LENGTH = 40;
@@ -15,10 +13,7 @@ final class SlugGenerator {
     private SlugGenerator() {
     }
 
-    /**
-     * @param isTaken asked whether a candidate slug already exists; the generator suffixes -2, -3 …
-     *                until one is free.
-     */
+    /** @param isTaken asked per candidate; the generator suffixes -2, -3 … until one is free */
     static String from(String name, Predicate<String> isTaken) {
         String base = slugify(name);
         if (base.isEmpty()) {
@@ -40,10 +35,7 @@ final class SlugGenerator {
         throw new IllegalStateException("Could not find a free slug for: " + name);
     }
 
-    /**
-     * Strips accents ("Zürich" becomes "zurich") before dropping non-alphanumerics, so an accented
-     * name yields a readable slug rather than a handful of surviving letters.
-     */
+    /** Strips accents first, so "Zürich" becomes "zurich" rather than a few surviving letters. */
     private static String slugify(String name) {
         String normalised = Normalizer.normalize(name == null ? "" : name, Normalizer.Form.NFD)
                 .replaceAll("\\p{M}", "");

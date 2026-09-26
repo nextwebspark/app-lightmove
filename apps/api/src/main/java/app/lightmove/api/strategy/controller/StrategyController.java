@@ -1,6 +1,8 @@
 package app.lightmove.api.strategy.controller;
 
 import app.lightmove.api.core.security.model.AuthPrincipal;
+import app.lightmove.api.core.security.rbac.ProjectAction;
+import app.lightmove.api.core.security.rbac.RequireProjectPermission;
 import app.lightmove.api.strategy.dto.PutOffLimitsRequest;
 import app.lightmove.api.strategy.dto.PutStrategyFilterRequest;
 import app.lightmove.api.strategy.dto.SaveSearchRequest;
@@ -15,8 +17,6 @@ import jakarta.validation.Valid;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
-import org.springframework.http.ResponseEntity;
-import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -27,18 +27,12 @@ import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
 /**
- * The search of one mandate: its filter, its off-limits list, the companies they select, and the
- * searches saved against them.
- *
- * <p>Reading needs a seat on the project (WORK_VIEW, which every seated role holds including CLIENT),
- * with the workspace-admin bypass. A mandate's scope is team content, not browsable to the whole
- * workspace — which is the line between this controller and {@code CompanySearchController}, where
- * the market's own shape is a workspace-level read. Writing is PROJECT_EDIT on the seat, saved
- * searches included. Whether a <em>private</em> saved search is the caller's to touch is the
- * service's question, answered with a 404 so a refusal never reports that it exists.
+ * One mandate's filter, off-limits list, results and saved searches. Reading is WORK_VIEW on a seat
+ * (clients included); writing is PROJECT_EDIT. A private search that is not the caller's answers 404.
  */
 @RestController
 @RequestMapping("/api/v1/projects/{projectId}/strategy")
@@ -49,40 +43,36 @@ public class StrategyController {
     private final StrategySearchService searches;
 
     @GetMapping
-    @PreAuthorize("@projectAuthorizer.can(principal, #projectId, 'WORK_VIEW')")
-    public ResponseEntity<StrategyResponse> get(@AuthenticationPrincipal AuthPrincipal principal,
-                                                @PathVariable UUID projectId) {
-        return ResponseEntity.ok(strategy.get(principal.userId(), principal.requireWorkspaceId(),
-                projectId));
+    @RequireProjectPermission(ProjectAction.WORK_VIEW)
+    public StrategyResponse get(@AuthenticationPrincipal AuthPrincipal principal,
+                                @PathVariable UUID projectId) {
+        return strategy.get(principal.userId(), principal.requireWorkspaceId(),
+                projectId);
     }
 
     @PutMapping("/filter")
-    @PreAuthorize("@projectAuthorizer.can(principal, #projectId, 'PROJECT_EDIT')")
-    public ResponseEntity<StrategyResponse> putFilter(@AuthenticationPrincipal AuthPrincipal principal,
-                                                      @PathVariable UUID projectId,
-                                                      @Valid @RequestBody PutStrategyFilterRequest request,
-                                                      HttpServletRequest httpRequest) {
-        return ResponseEntity.ok(strategy.putFilter(principal.userId(), principal.requireWorkspaceId(),
-                projectId, request, httpRequest));
+    @RequireProjectPermission(ProjectAction.PROJECT_EDIT)
+    public StrategyResponse putFilter(@AuthenticationPrincipal AuthPrincipal principal,
+                                      @PathVariable UUID projectId,
+                                      @Valid @RequestBody PutStrategyFilterRequest request,
+                                      HttpServletRequest httpRequest) {
+        return strategy.putFilter(principal.userId(), principal.requireWorkspaceId(),
+                projectId, request, httpRequest);
     }
 
     @PutMapping("/off-limits")
-    @PreAuthorize("@projectAuthorizer.can(principal, #projectId, 'PROJECT_EDIT')")
-    public ResponseEntity<StrategyResponse> putOffLimits(@AuthenticationPrincipal AuthPrincipal principal,
-                                                         @PathVariable UUID projectId,
-                                                         @Valid @RequestBody PutOffLimitsRequest request,
-                                                         HttpServletRequest httpRequest) {
-        return ResponseEntity.ok(strategy.putOffLimits(principal.userId(), principal.requireWorkspaceId(),
-                projectId, request, httpRequest));
+    @RequireProjectPermission(ProjectAction.PROJECT_EDIT)
+    public StrategyResponse putOffLimits(@AuthenticationPrincipal AuthPrincipal principal,
+                                         @PathVariable UUID projectId,
+                                         @Valid @RequestBody PutOffLimitsRequest request,
+                                         HttpServletRequest httpRequest) {
+        return strategy.putOffLimits(principal.userId(), principal.requireWorkspaceId(),
+                projectId, request, httpRequest);
     }
 
-    /**
-     * The results table. The scope is resolved server-side from the saved filter; the caller supplies
-     * only the name query, the page and the sort, none of which widens what they can see.
-     */
     @GetMapping("/companies")
-    @PreAuthorize("@projectAuthorizer.can(principal, #projectId, 'WORK_VIEW')")
-    public ResponseEntity<StrategyCompaniesResponse> companies(
+    @RequireProjectPermission(ProjectAction.WORK_VIEW)
+    public StrategyCompaniesResponse companies(
             @AuthenticationPrincipal AuthPrincipal principal,
             @PathVariable UUID projectId,
             @RequestParam(name = "q", required = false) String query,
@@ -90,52 +80,52 @@ public class StrategyController {
             @RequestParam(required = false) String direction,
             @RequestParam(required = false) Integer page,
             @RequestParam(required = false) Integer size) {
-        return ResponseEntity.ok(strategy.companies(principal.requireWorkspaceId(), projectId, query,
-                sort, direction, page, size));
+        return strategy.companies(principal.requireWorkspaceId(), projectId, query,
+                sort, direction, page, size);
     }
 
-    /** Save the mandate's current filter under a name. */
     @PostMapping("/searches")
-    @PreAuthorize("@projectAuthorizer.can(principal, #projectId, 'PROJECT_EDIT')")
-    public ResponseEntity<SavedSearchResponse> saveSearch(@AuthenticationPrincipal AuthPrincipal principal,
-                                                          @PathVariable UUID projectId,
-                                                          @Valid @RequestBody SaveSearchRequest request,
-                                                          HttpServletRequest httpRequest) {
+    @RequireProjectPermission(ProjectAction.PROJECT_EDIT)
+    @ResponseStatus(HttpStatus.CREATED)
+    public SavedSearchResponse saveSearch(@AuthenticationPrincipal AuthPrincipal principal,
+                                          @PathVariable UUID projectId,
+                                          @Valid @RequestBody SaveSearchRequest request,
+                                          HttpServletRequest httpRequest) {
         SavedSearchResponse saved = searches.save(principal.userId(), principal.requireWorkspaceId(),
                 projectId, request, httpRequest);
-        return ResponseEntity.status(HttpStatus.CREATED).body(saved);
+        return saved;
     }
 
     @PatchMapping("/searches/{searchId}")
-    @PreAuthorize("@projectAuthorizer.can(principal, #projectId, 'PROJECT_EDIT')")
-    public ResponseEntity<SavedSearchResponse> updateSearch(@AuthenticationPrincipal AuthPrincipal principal,
-                                                            @PathVariable UUID projectId,
-                                                            @PathVariable UUID searchId,
-                                                            @Valid @RequestBody UpdateSearchRequest request,
-                                                            HttpServletRequest httpRequest) {
-        return ResponseEntity.ok(searches.update(principal.userId(), principal.requireWorkspaceId(),
-                projectId, searchId, request, httpRequest));
+    @RequireProjectPermission(ProjectAction.PROJECT_EDIT)
+    public SavedSearchResponse updateSearch(@AuthenticationPrincipal AuthPrincipal principal,
+                                            @PathVariable UUID projectId,
+                                            @PathVariable UUID searchId,
+                                            @Valid @RequestBody UpdateSearchRequest request,
+                                            HttpServletRequest httpRequest) {
+        return searches.update(principal.userId(), principal.requireWorkspaceId(),
+                projectId, searchId, request, httpRequest);
     }
 
-    /** No body, for the same reason saving carries no filter: the server reads the stored one. */
+    /** No body: the server reads the stored filter. */
     @PutMapping("/searches/{searchId}/filter")
-    @PreAuthorize("@projectAuthorizer.can(principal, #projectId, 'PROJECT_EDIT')")
-    public ResponseEntity<SavedSearchResponse> putSearchFilter(@AuthenticationPrincipal AuthPrincipal principal,
-                                                               @PathVariable UUID projectId,
-                                                               @PathVariable UUID searchId,
-                                                               HttpServletRequest httpRequest) {
-        return ResponseEntity.ok(searches.updateFilter(principal.userId(),
-                principal.requireWorkspaceId(), projectId, searchId, httpRequest));
+    @RequireProjectPermission(ProjectAction.PROJECT_EDIT)
+    public SavedSearchResponse putSearchFilter(@AuthenticationPrincipal AuthPrincipal principal,
+                                               @PathVariable UUID projectId,
+                                               @PathVariable UUID searchId,
+                                               HttpServletRequest httpRequest) {
+        return searches.updateFilter(principal.userId(),
+                principal.requireWorkspaceId(), projectId, searchId, httpRequest);
     }
 
     @DeleteMapping("/searches/{searchId}")
-    @PreAuthorize("@projectAuthorizer.can(principal, #projectId, 'PROJECT_EDIT')")
-    public ResponseEntity<Void> deleteSearch(@AuthenticationPrincipal AuthPrincipal principal,
-                                             @PathVariable UUID projectId,
-                                             @PathVariable UUID searchId,
-                                             HttpServletRequest httpRequest) {
+    @RequireProjectPermission(ProjectAction.PROJECT_EDIT)
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void deleteSearch(@AuthenticationPrincipal AuthPrincipal principal,
+                             @PathVariable UUID projectId,
+                             @PathVariable UUID searchId,
+                             HttpServletRequest httpRequest) {
         searches.delete(principal.userId(), principal.requireWorkspaceId(), projectId, searchId,
                 httpRequest);
-        return ResponseEntity.noContent().build();
     }
 }

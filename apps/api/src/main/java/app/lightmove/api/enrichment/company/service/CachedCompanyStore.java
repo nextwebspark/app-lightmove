@@ -21,18 +21,10 @@ import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
 /**
- * The cache's two transactions, on a bean of their own.
- *
- * <p>Its own bean for {@code GeocodedPlaceStore}'s reason: {@code CompanyResearch} calls the vendor
- * between the read and the write, and a vendor call must not sit inside a transaction — a permit wait
- * plus retry backoff would hold a database connection for seconds. {@code REQUIRES_NEW} for
- * {@code TriageCompanyService.applyEnrichment}'s reason: the only caller runs in an
- * {@code AFTER_COMMIT} callback, where the completed transaction's resources are still bound to the
- * thread and joining them writes nothing.
- *
- * <p>The write is an upsert rather than an insert: two mandates capturing the same company at once
- * both research it, and the second must land on the row the first made rather than on the primary
- * key.
+ * The vendor company cache's two transactions, on their own bean so the vendor call between them
+ * holds no connection. {@code REQUIRES_NEW} because the caller runs in an {@code AFTER_COMMIT}
+ * callback, where joining the finished transaction writes nothing. An upsert, so two mandates
+ * capturing one company at once land on one row.
  */
 @Component
 @RequiredArgsConstructor
@@ -58,11 +50,7 @@ public class CachedCompanyStore {
             LIMIT 1
             """;
 
-    /**
-     * The V2 code is looked up rather than passed in: {@code Industries} is static and reads a file
-     * holding one V2 name per universe label, so the code for the vendor's own leaf — which may be
-     * any of the 434 — can only come from {@code app_lm_industry_v2}.
-     */
+    /** The V2 code is looked up in {@code app_lm_industry_v2}: the vendor's leaf may be any of the 434. */
     private static final String UPSERT = """
             INSERT INTO app_lm_vendor_company (
                 linkedin_slug, provider, fetched_at, found, company_name, name_key,
@@ -104,9 +92,8 @@ public class CachedCompanyStore {
     }
 
     /**
-     * The biggest fresh page with at least {@code minEmployees} whose name — without its legal form,
-     * as a live search reads it — is one of {@code spellings}, in {@code country} or anywhere for null.
-     * {@code rawNames} finds a row written before it carried that key.
+     * The biggest fresh page with at least {@code minEmployees} whose legal-form-free name is one of
+     * {@code spellings}, in {@code country} (anywhere when null); {@code rawNames} finds older rows.
      */
     @Transactional(propagation = Propagation.REQUIRES_NEW, readOnly = true)
     public Optional<VendorCompanyRecord> findByName(List<String> spellings, List<String> rawNames,
@@ -123,13 +110,13 @@ public class CachedCompanyStore {
                 : Optional.<VendorCompanyRecord>empty());
     }
 
-    /** Remembers an answer — no answer included, so a slug the provider lacks is not re-bought. */
+    /** A miss included, so a slug the provider lacks is not re-bought. */
     @Transactional(propagation = Propagation.REQUIRES_NEW)
     public void remember(String linkedinSlug, String provider, Optional<VendorCompanyRecord> answer) {
         jdbc.update(UPSERT, ps -> bind(ps, linkedinSlug, provider, answer.orElse(null)));
     }
 
-    /** Every hit of one search, in one transaction — each was billed, and each is kept. */
+    /** Every hit of one search — each was billed, and each is kept. */
     @Transactional(propagation = Propagation.REQUIRES_NEW)
     public void rememberAll(String provider, List<VendorCompanyRecord> hits) {
         if (hits.isEmpty()) {
@@ -153,8 +140,7 @@ public class CachedCompanyStore {
                              VendorCompanyRecord record) throws SQLException {
         ResolvedIndustry resolved =
                 record == null ? null : Industries.resolve(record.industry());
-        // A label nobody could resolve stays in industry_v2_label and leaves industry_v1 null: the
-        // column is a foreign key into app_lm_industry, so the vendor's own spelling cannot go there.
+        // industry_v1 is a foreign key into app_lm_industry, so an unresolved vendor label cannot go there.
         boolean known = resolved != null && resolved.sectorGroup() != null;
 
         int field = 1;

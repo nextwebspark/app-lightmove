@@ -32,16 +32,8 @@ import org.springframework.web.multipart.MaxUploadSizeExceededException;
 import org.springframework.web.servlet.resource.NoResourceFoundException;
 
 /**
- * The single place an exception becomes an HTTP response, in RFC 9457 {@code ProblemDetail} form.
- *
- * <p>Every response carries the correlation id. Nothing not deliberately chosen for the client gets
- * into the body: an unexpected exception's message is logged in full and replaced with an opaque 500,
- * because stack traces and constraint names describe our schema to whoever asked.
- *
- * <p><b>Most of the handlers below exist for one reason:</b> without a handler of its own, a
- * client mistake falls into the catch-all and answers <b>500</b> with an ERROR-level stack trace. That
- * tells the caller we broke when they did, and makes a malformed request indistinguishable from a
- * real fault in our own alerting.
+ * The single place an exception becomes an RFC 9457 {@code ProblemDetail}. Nothing not chosen for the
+ * client reaches the body. Most handlers exist so a client mistake does not fall into the catch-all 500.
  */
 @RestControllerAdvice
 @Slf4j
@@ -55,9 +47,7 @@ public class GlobalExceptionHandler {
     public ProblemDetail handleApiException(ApiException ex, HttpServletRequest request) {
         ErrorCode code = ex.getCode();
 
-        // A 5xx is our failure and gets a stack trace. A 4xx is the API working as designed, but gets
-        // one line naming the rule that fired — the code and the URI only, since the message may
-        // quote input.
+        // A 4xx logs the code and URI only at info: the message may quote input.
         if (code.status().is5xxServerError()) {
             log.error("[{}] {} at {}", code, ex.getMessage(), request.getRequestURI(), ex);
         } else {
@@ -65,9 +55,7 @@ public class GlobalExceptionHandler {
             log.debug("[{}] {}", code, ex.getMessage());
         }
 
-        // The default is the code's own wording: a thrower's message is internal unless it was built
-        // through ApiException.userFacing/withField. Without that distinction every rule's message
-        // would be reflected, and several of them quote the request.
+        // A thrower's message is internal unless built through userFacing/withField: several quote the request.
         ProblemDetail problem = problem(code,
                 ex.getClientDetail() == null ? code.defaultMessage() : ex.getClientDetail());
         if (ex.getFieldErrors() != null) {
@@ -76,13 +64,10 @@ public class GlobalExceptionHandler {
         return problem;
     }
 
-    /** Bean Validation failures, unpacked into a field → message map the form can render inline. */
     @ExceptionHandler(MethodArgumentNotValidException.class)
     public ProblemDetail handleValidation(MethodArgumentNotValidException ex, HttpServletRequest request) {
         Map<String, String> fieldErrors = new LinkedHashMap<>();
         ex.getBindingResult().getFieldErrors().forEach(error ->
-                // First message per field: a field with three broken constraints still only has room
-                // for one line of red text under it.
                 fieldErrors.putIfAbsent(error.getField(), error.getDefaultMessage()));
 
         // Field names, never their values — a rejected password is still a password.
@@ -94,12 +79,7 @@ public class GlobalExceptionHandler {
         return problem;
     }
 
-    /**
-     * A constraint on a controller <i>parameter</i> rather than a field in a request body. A
-     * container-element constraint ({@code List<@Valid InviteRequest>}) raises this instead of
-     * {@link MethodArgumentNotValidException}. Answers in the same {@code fieldErrors} shape, keyed
-     * {@code requests[0].email}.
-     */
+    /** A container-element constraint ({@code List<@Valid InviteRequest>}); keyed {@code requests[0].email}. */
     @ExceptionHandler(HandlerMethodValidationException.class)
     public ProblemDetail handleParameterValidation(HandlerMethodValidationException ex,
                                                    HttpServletRequest request) {
@@ -131,17 +111,13 @@ public class GlobalExceptionHandler {
                 : parameter + "[" + result.getContainerIndex() + "]";
     }
 
-    /** Malformed JSON. Says nothing about which parser choked, or on what. */
     @ExceptionHandler(HttpMessageNotReadableException.class)
     public ProblemDetail handleUnreadable(HttpMessageNotReadableException ex) {
         log.debug("Malformed request body: {}", ex.getMessage());
         return problem(ErrorCode.VALIDATION_FAILED, "Request body could not be read");
     }
 
-    /**
-     * A required query parameter or header is missing, or will not convert. A truncated verification
-     * link ({@code /auth/verify} with no token) is the case that shipped as a 500.
-     */
+    /** A truncated verification link ({@code /auth/verify} with no token) shipped as a 500 before this. */
     @ExceptionHandler({ServletRequestBindingException.class, MethodArgumentTypeMismatchException.class})
     public ProblemDetail handleBadRequestBinding(Exception ex, HttpServletRequest request) {
         log.debug("Bad request binding at {} {}: {}",
@@ -161,21 +137,12 @@ public class GlobalExceptionHandler {
         return problem(ErrorCode.FORBIDDEN, ErrorCode.FORBIDDEN.defaultMessage());
     }
 
-    /**
-     * No handler and no file at that path. Now that this application also serves the SPA, "no such
-     * path" is routine: every bot probing for {@code /wp-login.php} would otherwise bury the one
-     * real 500.
-     */
     @ExceptionHandler(NoResourceFoundException.class)
     public ProblemDetail handleNoResource(NoResourceFoundException ex, HttpServletRequest request) {
         log.debug("No resource at {} {}", request.getMethod(), request.getRequestURI());
         return problem(ErrorCode.NOT_FOUND, ErrorCode.NOT_FOUND.defaultMessage());
     }
 
-    /**
-     * The route exists but not for that verb — a browser opening {@code /api/v1/auth/signup} in the
-     * address bar. A 500 here would tell the client to retry a request that can never succeed.
-     */
     @ExceptionHandler(HttpRequestMethodNotSupportedException.class)
     public ProblemDetail handleMethodNotSupported(HttpRequestMethodNotSupportedException ex,
                                                   HttpServletRequest request) {
@@ -184,11 +151,6 @@ public class GlobalExceptionHandler {
         return problem(ErrorCode.METHOD_NOT_ALLOWED, ErrorCode.METHOD_NOT_ALLOWED.defaultMessage());
     }
 
-    /**
-     * The body arrived as something we do not parse. It affects every endpoint: without it,
-     * {@code curl -H 'Content-Type: text/plain'} against any route is a one-line recipe for generating
-     * server errors at will.
-     */
     @ExceptionHandler(HttpMediaTypeNotSupportedException.class)
     public ProblemDetail handleMediaTypeNotSupported(HttpMediaTypeNotSupportedException ex,
                                                      HttpServletRequest request) {
@@ -197,10 +159,7 @@ public class GlobalExceptionHandler {
         return problem(ErrorCode.UNSUPPORTED_MEDIA_TYPE, ErrorCode.UNSUPPORTED_MEDIA_TYPE.defaultMessage());
     }
 
-    /**
-     * An upload past the container's multipart ceiling. Spring throws before the controller runs, so
-     * no endpoint can answer it.
-     */
+    /** Thrown before the controller runs, so no endpoint can answer it. */
     @ExceptionHandler(MaxUploadSizeExceededException.class)
     public ProblemDetail handleUploadTooLarge(MaxUploadSizeExceededException ex, HttpServletRequest request) {
         log.debug("Upload exceeded the multipart limit at {} {}: {}",
@@ -208,7 +167,6 @@ public class GlobalExceptionHandler {
         return problem(ErrorCode.FILE_TOO_LARGE, ErrorCode.FILE_TOO_LARGE.defaultMessage());
     }
 
-    /** The mirror of {@link #handleMediaTypeNotSupported} for a request's {@code Accept} header. */
     @ExceptionHandler(HttpMediaTypeNotAcceptableException.class)
     public ProblemDetail handleMediaTypeNotAcceptable(HttpMediaTypeNotAcceptableException ex,
                                                       HttpServletRequest request) {
@@ -217,10 +175,7 @@ public class GlobalExceptionHandler {
         return problem(ErrorCode.NOT_ACCEPTABLE, ErrorCode.NOT_ACCEPTABLE.defaultMessage());
     }
 
-    /**
-     * A database constraint beat a service-level pre-check — two requests raced. Mapped to the same
-     * code the pre-check uses, so a race answers 409 rather than 500.
-     */
+    /** A constraint beat a service pre-check (a race): mapped to the pre-check's code, so 409 not 500. */
     @ExceptionHandler(DataIntegrityViolationException.class)
     public ProblemDetail handleDataIntegrity(DataIntegrityViolationException ex, HttpServletRequest request) {
         ErrorCode code = switch (constraintNameOf(ex)) {
@@ -228,10 +183,7 @@ public class GlobalExceptionHandler {
             case "app_lm_project_triage_company_manual_name_uk" -> ErrorCode.TRIAGE_COMPANY_ALREADY_HELD;
             case "app_lm_strategy_search_shared_name_uk", "app_lm_strategy_search_private_name_uk" ->
                     ErrorCode.STRATEGY_SEARCH_NAME_TAKEN;
-            // Both back the same pre-check: the label is what a user types, and the key is slugged
-            // from it, so two requests racing one name lose on whichever index the database reaches
-            // first. One code either way — the dialog marks the name field rather than offering a
-            // "try again" for something retrying will never fix.
+            // The key is slugged from the label, so a race loses on whichever index is reached first.
             case "app_lm_project_custom_column_label_uk", "app_lm_project_custom_column_key_uk" ->
                     ErrorCode.CUSTOM_COLUMN_NAME_TAKEN;
             default -> ErrorCode.CONFLICT;
@@ -240,11 +192,7 @@ public class GlobalExceptionHandler {
         return problem(code, code.defaultMessage());
     }
 
-    /**
-     * Two writes raced the same row's {@code @Version}. An expected concurrency event — two tabs, or
-     * two teammates on one project, since PROJECT_EDIT is not seat-exclusive — so info and 409 rather
-     * than a bug.
-     */
+    /** Two writes raced one row's {@code @Version}: expected (two tabs, two teammates), so 409 at info. */
     @ExceptionHandler(ObjectOptimisticLockingFailureException.class)
     public ProblemDetail handleOptimisticLock(ObjectOptimisticLockingFailureException ex,
                                               HttpServletRequest request) {
@@ -264,35 +212,23 @@ public class GlobalExceptionHandler {
     }
 
     /**
-     * The catch-all. Anything reaching here is a bug: it was not anticipated, so we have no idea what
-     * its message contains and must assume the worst.
+     * The catch-all: a bug whose message must be assumed unsafe. A client that hung up is routine (the SPA
+     * cancels superseded reads) and logs at debug.
      *
-     * <p>Except a client that hung up. The SPA cancels a company read the moment a Strategy save
-     * supersedes it, so a half-written response is routine rather than a fault; logging each one at
-     * error with a stack trace would bury the failures that really are ours.
-     *
-     * @return the problem to write, or {@code null} when the caller is gone and the response is
-     *     already committed — the contract Spring's own {@code ResponseEntityExceptionHandler}
-     *     answers {@code AsyncRequestNotUsableException} with, for the same reason
+     * @return {@code null} when the caller is gone and the response already committed
      */
     @ExceptionHandler(Exception.class)
     public @Nullable ProblemDetail handleUnexpected(Exception ex, HttpServletRequest request) {
         if (isClientDisconnect(ex)) {
             log.debug("Client hung up during {} {}", request.getMethod(), request.getRequestURI());
-            // Returning a body here threw a second exception the resolver logged at warn with a
-            // stack trace, once per closed tab: a project stream is committed as text/event-stream,
-            // and no ProblemDetail converter writes that.
+            // A body here threw again, once per closed tab: no converter writes ProblemDetail as text/event-stream.
             return null;
         }
         log.error("Unhandled exception at {} {}", request.getMethod(), request.getRequestURI(), ex);
         return problem(ErrorCode.INTERNAL_ERROR, ErrorCode.INTERNAL_ERROR.defaultMessage());
     }
 
-    /**
-     * Whether the request died because the client went away rather than because we broke. Matched on
-     * the cause chain: the write failure surfaces wrapped, as {@code HttpMessageNotWritableException}
-     * around Tomcat's {@code ClientAbortException} around the socket's {@code IOException}.
-     */
+    /** Walks the cause chain: the socket's {@code IOException} arrives wrapped in {@code ClientAbortException} and more. */
     private boolean isClientDisconnect(Throwable ex) {
         for (Throwable cause = ex; cause != null; cause = cause.getCause()) {
             if (cause instanceof AsyncRequestNotUsableException
@@ -309,7 +245,6 @@ public class GlobalExceptionHandler {
         return false;
     }
 
-    /** One definition of the error body, shared with ProblemAccessDeniedHandler. See {@link Problems}. */
     private ProblemDetail problem(ErrorCode code, String detail) {
         return Problems.of(code, detail);
     }

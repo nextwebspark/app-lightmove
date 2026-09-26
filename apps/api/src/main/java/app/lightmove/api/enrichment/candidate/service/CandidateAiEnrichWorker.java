@@ -16,8 +16,7 @@ import org.springframework.transaction.event.TransactionPhase;
 import org.springframework.transaction.event.TransactionalEventListener;
 
 /**
- * Runs a candidate's AI enrichment after the request commits and off its thread, so a capture's
- * research and the drawer's button both return before the model is asked. Shaped like
+ * Runs a candidate's AI enrichment after the request commits, off its thread. Shaped like
  * {@link CandidateEnrichmentWorker}, for its reasons.
  */
 @Component

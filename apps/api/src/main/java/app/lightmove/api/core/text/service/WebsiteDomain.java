@@ -5,14 +5,8 @@ import java.net.URISyntaxException;
 import java.util.Locale;
 
 /**
- * The registrable domain inside a website URL — {@code https://www.acwapower.com/en} is
- * {@code acwapower.com}.
- *
- * <p>Parsed rather than pattern-matched. Stripping the scheme by regex and keeping everything up to
- * the first slash also keeps the port and the userinfo, so {@code https://acwapower.com:8080/} stored
- * as {@code acwapower.com:8080} and {@code https://user@host.com} kept the user. {@link URI} knows
- * where the host ends; a value it cannot parse is dropped rather than stored raw, because a domain
- * column holding a URL is worse than one holding nothing.
+ * The registrable domain inside a website URL, parsed with {@link URI} rather than a regex that kept
+ * ports and userinfo. An unparseable value is dropped, never stored raw.
  */
 public final class WebsiteDomain {
 

@@ -3,21 +3,15 @@ package app.lightmove.api.core.text.service;
 import java.net.URI;
 
 /**
- * Normalisation for text a <i>client</i> supplied directly, where the server has no source of truth to
- * resolve the value against — a typed-in form field, or a value the browser plugin scraped off a page.
- *
- * <p>An untouched text input posts as {@code ""}, which stored in a snapshot column renders as a
- * present-but-blank cell and sorts ahead of real values, so "supplied but empty" becomes null once
- * rather than at each place that later asks whether a field is known.
- *
- * <p>The URL rule is a security boundary. {@code acme.com} as an {@code href} is a <i>relative</i>
- * link that navigates inside the SPA, so a bare host gains {@code https://}; anything that is not
- * then http(s) is dropped rather than stored, {@code javascript:} being the interesting case.
+ * Normalisation for text a client supplied directly — a typed-in field or a value the plugin scraped —
+ * where the server has nothing to resolve it against. "Supplied but empty" becomes null once, rather
+ * than rendering as a blank cell that sorts ahead of real values.
  */
 public final class SuppliedText {
 
     private SuppliedText() {}
 
+    /** Trimmed, or null when nothing is left. */
     public static String blankToNull(String value) {
         if (value == null) {
             return null;
@@ -26,9 +20,15 @@ public final class SuppliedText {
         return trimmed.isEmpty() ? null : trimmed;
     }
 
+    /** Trimmed with inner whitespace runs collapsed to one space, or null when nothing is left. */
+    public static String collapseWhitespaceToNull(String value) {
+        return value == null ? null : blankToNull(value.replaceAll("\\s+", " "));
+    }
+
     /**
-     * A browsable http(s) address, or null. A bare host is promoted rather than refused, because that
-     * is what people type and refusing it would lose a field the caller meant to give us.
+     * A browsable http(s) address, or null. A security boundary: {@code acme.com} as an {@code href} is
+     * a relative link inside the SPA, so a bare host gains {@code https://}, and anything that is not
+     * then http(s) — {@code javascript:} being the interesting case — is dropped rather than stored.
      */
     public static String browsableUrlOrNull(String value) {
         String trimmed = blankToNull(value);

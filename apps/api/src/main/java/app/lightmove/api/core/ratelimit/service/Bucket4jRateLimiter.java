@@ -8,14 +8,8 @@ import java.time.Duration;
 import org.springframework.stereotype.Component;
 
 /**
- * In-memory token buckets, one per key, evicted when idle.
- *
- * <p>Caffeine rather than a plain map for a specific reason: the keys are attacker-controlled (an IP,
- * an email), so an unbounded map is itself a denial-of-service — a few million distinct addresses and
- * the process runs out of heap defending itself. Bounded size plus idle expiry makes the limiter's own
- * memory use a constant.
- *
- * <p><b>Single-instance only.</b> See {@link RateLimiter}.
+ * In-memory token buckets, one per key. Caffeine-bounded because the keys are attacker-controlled
+ * and an unbounded map is itself a denial of service. <b>Single-instance only</b> — see {@link RateLimiter}.
  */
 @Component
 public class Bucket4jRateLimiter implements RateLimiter {

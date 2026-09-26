@@ -8,6 +8,8 @@ import app.lightmove.api.candidate.dto.UpdateCandidateStatusRequest;
 import app.lightmove.api.candidate.model.StoredPhoto;
 import app.lightmove.api.candidate.service.CandidateService;
 import app.lightmove.api.core.security.model.AuthPrincipal;
+import app.lightmove.api.core.security.rbac.ProjectAction;
+import app.lightmove.api.core.security.rbac.RequireProjectPermission;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import java.time.Duration;
@@ -18,7 +20,6 @@ import org.springframework.http.CacheControl;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
-import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -29,6 +30,7 @@ import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
 /**
@@ -52,26 +54,26 @@ public class CandidateController {
      * employer is not in the universe at all. Neither means the whole mandate.
      */
     @GetMapping
-    @PreAuthorize("@projectAuthorizer.can(principal, #projectId, 'WORK_VIEW')")
-    public ResponseEntity<CandidatesResponse> list(@AuthenticationPrincipal AuthPrincipal principal,
-                                                   @PathVariable UUID projectId,
-                                                   @RequestParam(required = false) List<UUID> triageCompanyId,
-                                                   @RequestParam(required = false) Boolean unmapped,
-                                                   @RequestParam(required = false) String q,
-                                                   @RequestParam(required = false) Integer page,
-                                                   @RequestParam(required = false) Integer size) {
+    @RequireProjectPermission(ProjectAction.WORK_VIEW)
+    public CandidatesResponse list(@AuthenticationPrincipal AuthPrincipal principal,
+                                   @PathVariable UUID projectId,
+                                   @RequestParam(required = false) List<UUID> triageCompanyId,
+                                   @RequestParam(required = false) Boolean unmapped,
+                                   @RequestParam(required = false) String q,
+                                   @RequestParam(required = false) Integer page,
+                                   @RequestParam(required = false) Integer size) {
         CandidateListCriteria criteria =
                 new CandidateListCriteria(triageCompanyId, unmapped, q, page, size);
-        return ResponseEntity.ok(candidates.list(principal.requireWorkspaceId(), projectId, criteria));
+        return candidates.list(principal.requireWorkspaceId(), projectId, criteria);
     }
 
     /** One executive whole — the report opens a person from a figure that carries only their id. */
     @GetMapping("/{candidateId}")
-    @PreAuthorize("@projectAuthorizer.can(principal, #projectId, 'WORK_VIEW')")
-    public ResponseEntity<CandidateResponse> get(@AuthenticationPrincipal AuthPrincipal principal,
-                                                 @PathVariable UUID projectId,
-                                                 @PathVariable UUID candidateId) {
-        return ResponseEntity.ok(candidates.get(principal.requireWorkspaceId(), projectId, candidateId));
+    @RequireProjectPermission(ProjectAction.WORK_VIEW)
+    public CandidateResponse get(@AuthenticationPrincipal AuthPrincipal principal,
+                                 @PathVariable UUID projectId,
+                                 @PathVariable UUID candidateId) {
+        return candidates.get(principal.requireWorkspaceId(), projectId, candidateId);
     }
 
     /**
@@ -80,7 +82,7 @@ public class CandidateController {
      * image formats only — no caller ever uploads them. {@code nosniff} stays on regardless.
      */
     @GetMapping("/{candidateId}/photo")
-    @PreAuthorize("@projectAuthorizer.can(principal, #projectId, 'WORK_VIEW')")
+    @RequireProjectPermission(ProjectAction.WORK_VIEW)
     public ResponseEntity<byte[]> photo(@AuthenticationPrincipal AuthPrincipal principal,
                                         @PathVariable UUID projectId,
                                         @PathVariable UUID candidateId) {
@@ -93,25 +95,26 @@ public class CandidateController {
     }
 
     @PostMapping
-    @PreAuthorize("@projectAuthorizer.can(principal, #projectId, 'WORK_EXECUTE')")
-    public ResponseEntity<CandidateResponse> add(@AuthenticationPrincipal AuthPrincipal principal,
-                                                 @PathVariable UUID projectId,
-                                                 @Valid @RequestBody SaveCandidateRequest request,
-                                                 HttpServletRequest httpRequest) {
+    @RequireProjectPermission(ProjectAction.WORK_EXECUTE)
+    @ResponseStatus(HttpStatus.CREATED)
+    public CandidateResponse add(@AuthenticationPrincipal AuthPrincipal principal,
+                                 @PathVariable UUID projectId,
+                                 @Valid @RequestBody SaveCandidateRequest request,
+                                 HttpServletRequest httpRequest) {
         CandidateResponse added = candidates.add(principal.userId(), principal.requireWorkspaceId(),
                 projectId, request, httpRequest);
-        return ResponseEntity.status(HttpStatus.CREATED).body(added);
+        return added;
     }
 
     @PutMapping("/{candidateId}")
-    @PreAuthorize("@projectAuthorizer.can(principal, #projectId, 'WORK_EXECUTE')")
-    public ResponseEntity<CandidateResponse> replace(@AuthenticationPrincipal AuthPrincipal principal,
-                                                     @PathVariable UUID projectId,
-                                                     @PathVariable UUID candidateId,
-                                                     @Valid @RequestBody SaveCandidateRequest request,
-                                                     HttpServletRequest httpRequest) {
-        return ResponseEntity.ok(candidates.replace(principal.userId(), principal.requireWorkspaceId(),
-                projectId, candidateId, request, httpRequest));
+    @RequireProjectPermission(ProjectAction.WORK_EXECUTE)
+    public CandidateResponse replace(@AuthenticationPrincipal AuthPrincipal principal,
+                                     @PathVariable UUID projectId,
+                                     @PathVariable UUID candidateId,
+                                     @Valid @RequestBody SaveCandidateRequest request,
+                                     HttpServletRequest httpRequest) {
+        return candidates.replace(principal.userId(), principal.requireWorkspaceId(),
+                projectId, candidateId, request, httpRequest);
     }
 
     /**
@@ -122,26 +125,26 @@ public class CandidateController {
      * screen for a while, only to change its status, would overwrite whatever was edited since.
      */
     @PatchMapping("/{candidateId}")
-    @PreAuthorize("@projectAuthorizer.can(principal, #projectId, 'WORK_EXECUTE')")
-    public ResponseEntity<CandidateResponse> changeStatus(
+    @RequireProjectPermission(ProjectAction.WORK_EXECUTE)
+    public CandidateResponse changeStatus(
             @AuthenticationPrincipal AuthPrincipal principal,
             @PathVariable UUID projectId,
             @PathVariable UUID candidateId,
             @Valid @RequestBody UpdateCandidateStatusRequest request,
             HttpServletRequest httpRequest) {
-        return ResponseEntity.ok(candidates.changeStatus(principal.userId(),
-                principal.requireWorkspaceId(), projectId, candidateId, request, httpRequest));
+        return candidates.changeStatus(principal.userId(),
+                principal.requireWorkspaceId(), projectId, candidateId, request, httpRequest);
     }
 
     /** Removes this mandate's research on a person. Another mandate's row about them is untouched. */
     @DeleteMapping("/{candidateId}")
-    @PreAuthorize("@projectAuthorizer.can(principal, #projectId, 'WORK_EXECUTE')")
-    public ResponseEntity<Void> remove(@AuthenticationPrincipal AuthPrincipal principal,
-                                       @PathVariable UUID projectId,
-                                       @PathVariable UUID candidateId,
-                                       HttpServletRequest httpRequest) {
+    @RequireProjectPermission(ProjectAction.WORK_EXECUTE)
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void remove(@AuthenticationPrincipal AuthPrincipal principal,
+                       @PathVariable UUID projectId,
+                       @PathVariable UUID candidateId,
+                       HttpServletRequest httpRequest) {
         candidates.remove(principal.userId(), principal.requireWorkspaceId(), projectId, candidateId,
                 httpRequest);
-        return ResponseEntity.noContent().build();
     }
 }

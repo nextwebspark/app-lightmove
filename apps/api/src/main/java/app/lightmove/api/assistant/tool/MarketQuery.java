@@ -6,16 +6,9 @@ import app.lightmove.api.strategy.model.NumericRange;
 import java.util.List;
 
 /**
- * Turns what a model asked for into the scope the market reads.
- *
- * <p><b>Headcount arrives as two numbers, not as a band.</b> {@code EmployeeBand} has eleven slugs
- * and {@code RevenueBand} its own set, and a model would have to be taught both to use either.
- * {@code CompanyScope} settles it: a {@code NumericRange} <i>takes precedence over its axis's band
- * list when set</i>, so a range is not a workaround for the bands but the other supported way of
- * saying it.
- *
- * <p>An omitted axis becomes an empty list, which {@code CompanyScope} defines as "no constraint on
- * this axis, never match nothing" — so a question that names only a country reads the whole of it.
+ * Turns what a model asked for into the scope the market reads. Headcount arrives as a
+ * {@code NumericRange} rather than a band, so the model need not learn the band slugs; an omitted axis
+ * is an empty list, meaning no constraint.
  */
 final class MarketQuery {
 

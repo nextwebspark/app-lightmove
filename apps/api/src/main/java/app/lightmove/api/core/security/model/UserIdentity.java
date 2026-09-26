@@ -12,17 +12,9 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 
 /**
- * A link between one of our users and the account that proved who they are.
- *
- * <p>Keyed on {@code (provider, providerUserId)} rather than on the email address, because an email
- * address is not a stable identifier — people rename them, and providers let them. The provider's
- * subject id is the thing that actually persists.
- *
- * <p>{@code provider} is a plain string and deliberately not an enum: {@link #LOCAL_PROVIDER} means
- * an email plus a password we hashed ourselves, and every other value is the <i>uppercased OAuth
- * registration id</i> from configuration ({@code GOOGLE}, {@code LINKEDIN}, …). That is what makes
- * wiring up another identity provider a yml block and nothing else — an enum constant here would
- * drag a recompile and, before V24 dropped it, a schema migration along with it.
+ * Links a user to the account that proved who they are, keyed on {@code (provider, providerUserId)}
+ * since emails change. {@code provider} is a string, not an enum — {@link #LOCAL_PROVIDER} or the
+ * uppercased OAuth registration id — so another identity provider is a yml block and nothing else.
  */
 @Entity
 @Table(name = "app_lm_user_identity")

@@ -15,10 +15,7 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 
-/**
- * One search mandate, always inside exactly one workspace. Starts at BRIEF; no stage mutator exists
- * yet because no screen sets a stage — that arrives with the Project screen.
- */
+/** One search mandate inside exactly one workspace. Starts at BRIEF; no screen sets a stage yet. */
 @Entity
 @Table(name = "app_lm_project")
 @Getter
@@ -58,7 +55,7 @@ public class Project extends BaseEntity {
     @Column(name = "created_by", nullable = false)
     private UUID createdBy;
 
-    /** The mandate keeps one role title, and the Position screen's step one is where it is edited. */
+    /** Edited on the Position screen's step one. */
     public void rename(String positionTitle) {
         this.positionTitle = positionTitle.trim();
     }

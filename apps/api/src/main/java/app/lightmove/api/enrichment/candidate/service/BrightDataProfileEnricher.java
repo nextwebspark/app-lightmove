@@ -26,15 +26,9 @@ import tools.jackson.databind.PropertyNamingStrategies;
 import tools.jackson.databind.annotation.JsonNaming;
 
 /**
- * Answers from the record Bright Data's LinkedIn people dataset already holds — an indexed lookup,
- * not a scrape, though how fast is the vendor's to decide and has moved from ~0.7s to tens of
- * seconds. The search filter keys on {@code linkedin_id} (the {@code /in/} slug): filtering on the
- * {@code url} field matches nothing, because that field is analyzed — verified against the live API
- * before this was written.
- *
- * <p>Dataset records vary in completeness: some carry {@code ***}-masked strings where LinkedIn hid
- * the section from the logged-out crawl. Masked values map to null here, and a record whose whole
- * career maps away is a thin answer the caller treats as a miss (see {@code FallbackProfileEnricher}).
+ * Bright Data's LinkedIn people dataset — an indexed lookup keyed on {@code linkedin_id} (the
+ * {@code url} field is analyzed and matches nothing). Masked values map to null; a record whose career
+ * maps away is a thin answer {@code FallbackProfileEnricher} treats as a miss.
  */
 @Slf4j
 public class BrightDataProfileEnricher implements LinkedInProfileEnricher {
@@ -65,8 +59,7 @@ public class BrightDataProfileEnricher implements LinkedInProfileEnricher {
             multiplierString = "${lightmove.resilience.retry-multiplier}",
             maxDelayString = "${lightmove.resilience.retry-max-delay}")
     public Optional<EnrichedProfile> fetch(String linkedinUrl) {
-        // Lowercased by the helper: the dataset keys profiles by the lowercase slug and matches it
-        // exactly, while LinkedIn treats /in/John-Smith and /in/john-smith as one page.
+        // The dataset keys on the lower-case slug exactly, while LinkedIn treats case as one page.
         String slug = LinkedInUrls.profileSlugOrNull(linkedinUrl);
         if (slug == null) {
             return Optional.empty();
@@ -109,11 +102,7 @@ public class BrightDataProfileEnricher implements LinkedInProfileEnricher {
                 EnrichmentVendor.BRIGHTDATA);
     }
 
-    /**
-     * The current position title. A flat entry's {@code title} IS the position; a company-grouped
-     * entry keeps its positions nested; and a masked record may answer only through the top-level
-     * {@code position} field.
-     */
+    /** A flat entry's {@code title} is the position; grouped entries nest them; a masked record may have only {@code position}. */
     private static String currentTitleOf(BrightDataPerson person) {
         for (BrightDataExperience post : listOf(person.experience())) {
             if (post.positions() != null && !post.positions().isEmpty()) {
@@ -151,10 +140,7 @@ public class BrightDataProfileEnricher implements LinkedInProfileEnricher {
         return link == null ? null : link.split("\\?")[0];
     }
 
-    /**
-     * The current employer's logo: the entry naming that employer, else the most recent — never "any
-     * logo found", which on a name mismatch would brand the row with a past employer's mark.
-     */
+    /** The entry naming the current employer, else the most recent — never any logo, which could be a past employer's. */
     private static String employerLogoUrlOf(BrightDataPerson person) {
         String employer = employerNameOf(person);
         List<BrightDataExperience> experience = listOf(person.experience());
@@ -177,10 +163,7 @@ public class BrightDataProfileEnricher implements LinkedInProfileEnricher {
         return LocationLine.of(unmasked(person.city())).city();
     }
 
-    /**
-     * The country half of the full line, or the code beside it. That code used to be stored raw, which
-     * is how "AE" and "SA" came to sit beside "United Arab Emirates" in one column.
-     */
+    /** Through the catalog: the raw code once put "AE" beside "United Arab Emirates" in one column. */
     private static String countryOf(BrightDataPerson person) {
         return LocationLine.of(unmasked(person.city())).countryOr(unmasked(person.countryCode()));
     }
@@ -198,11 +181,9 @@ public class BrightDataProfileEnricher implements LinkedInProfileEnricher {
             }
             String company = unmasked(post.company());
             String title = unmasked(post.title());
-            // A flat entry whose title repeats the company is LinkedIn's grouping header — the
-            // position then sits in the subtitle (often masked on partial records).
+            // A flat entry whose title repeats the company is a grouping header; the position is the subtitle.
             String position = title != null && title.equals(company) ? unmasked(post.subtitle()) : title;
-            // Skeleton rows — a bare year range naming neither company nor position, seen on live
-            // records — say nothing worth a line in a career history.
+            // Skeleton rows — a bare year range, seen on live records — are not a career line.
             if (company == null && position == null) {
                 continue;
             }
@@ -237,10 +218,7 @@ public class BrightDataProfileEnricher implements LinkedInProfileEnricher {
         return unmasked(duration);
     }
 
-    /**
-     * Skills and languages arrive in no fixed shape — plain strings on some records, {name}/{title}
-     * objects on others, null on most — so they are read as whatever came and named defensively.
-     */
+    /** Skills and languages arrive as strings, {name}/{title} objects or null, so they are read defensively. */
     private static List<String> namesOf(List<Object> items) {
         return listOf(items).stream()
                 .map(BrightDataProfileEnricher::nameOf)
@@ -260,10 +238,7 @@ public class BrightDataProfileEnricher implements LinkedInProfileEnricher {
         return null;
     }
 
-    /**
-     * A masked dataset value ("******* *** ******") is stars and punctuation with no letter or digit
-     * in it — mapped to null so partial records degrade to absent fields, never to star-soup.
-     */
+    /** A masked value ("******* ***") has no letter or digit; it maps to null, never star-soup. */
     private static String unmasked(String value) {
         if (value == null || value.isBlank()) {
             return null;
@@ -275,8 +250,6 @@ public class BrightDataProfileEnricher implements LinkedInProfileEnricher {
     private static <T> List<T> listOf(List<T> value) {
         return value == null ? List.of() : value;
     }
-
-    // The dataset speaks snake_case (current_company_name, start_date, …); these records translate.
 
     record BrightDataSearchResult(List<BrightDataPerson> hits) {}
 

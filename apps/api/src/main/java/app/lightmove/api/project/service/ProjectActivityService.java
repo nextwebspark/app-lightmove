@@ -3,6 +3,7 @@ package app.lightmove.api.project.service;
 import app.lightmove.api.core.audit.constant.ProjectEventType;
 import app.lightmove.api.core.audit.model.AuditEvent;
 import app.lightmove.api.core.audit.repository.AuditEventRepository;
+import app.lightmove.api.core.audit.service.AuditService;
 import app.lightmove.api.core.security.model.User;
 import app.lightmove.api.core.security.repository.UserRepository;
 import app.lightmove.api.project.dto.ProjectActivityEntryResponse;
@@ -21,13 +22,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 /**
- * A mandate's recent activity for the projects list's side panel, read off the audit trail.
- *
- * <p>An allowlist in both directions: only the events that describe the work (companies, people, the
- * brief, the market) and only the metadata keys the panel phrases. Team and access changes, contact
- * lookups and column housekeeping stay in the ledger — the first because who was let into a mandate is
- * not a progress line, the rest because they are noise beside it. Request-level fields (IP, user agent)
- * are never read at all.
+ * The side panel's recent activity, read off the audit trail through an allowlist of event types and
+ * metadata keys; team and access changes stay out, and IP and user agent are never read.
  */
 @Service
 @RequiredArgsConstructor
@@ -69,7 +65,7 @@ public class ProjectActivityService {
     public ProjectActivityResponse list(UUID workspaceId, UUID projectId, Long beforeCursor, int pageSize) {
         int size = Math.clamp(pageSize, 1, MAX_PAGE_SIZE);
         List<AuditEvent> page = events.findLatestForTarget(
-                workspaceId, "project", projectId.toString(),
+                workspaceId, AuditService.PROJECT_TARGET, projectId.toString(),
                 codesOf(SHOWN), codesOf(SHOWN_WHEN_STATUS_CHANGED),
                 beforeCursor == null ? Long.MAX_VALUE : beforeCursor, size + 1);
 

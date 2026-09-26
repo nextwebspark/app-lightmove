@@ -7,8 +7,6 @@ import app.lightmove.api.common.location.service.Countries;
 import app.lightmove.api.core.config.LightMoveProperties;
 import app.lightmove.api.core.config.MapboxSettings;
 import app.lightmove.api.core.config.TalentMapSettings;
-import app.lightmove.api.core.error.constant.ErrorCode;
-import app.lightmove.api.core.error.model.ApiException;
 import app.lightmove.api.geocoding.model.GeoPoint;
 import app.lightmove.api.geocoding.model.GeocodingResult;
 import app.lightmove.api.geocoding.model.PlaceKey;
@@ -21,7 +19,7 @@ import app.lightmove.api.triagecompany.constant.TriageCompanyStatus;
 import app.lightmove.api.triagecompany.dto.TriageCompaniesResponse;
 import app.lightmove.api.triagecompany.model.TriageCompanyFilters;
 import app.lightmove.api.triagecompany.dto.TriageCompanyResponse;
-import app.lightmove.api.triagecompany.service.TriageCompanyService;
+import app.lightmove.api.triagecompany.service.TriageCompanyReadService;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -32,23 +30,19 @@ import java.util.UUID;
 import org.springframework.stereotype.Service;
 
 /**
- * One stage of a mandate, read as points. Composes the three seams the package doc names and adds
- * nothing of its own beyond the pairing: which of the mandate's people sit at which of the stage's
- * companies, and which sit at none.
- *
- * <p>Not {@code @Transactional}: the geocoding it triggers may call the vendor, and the seams it
- * reads through open and close their own transactions.
+ * One stage of a mandate read as points, pairing people with companies. Not {@code @Transactional}:
+ * the geocoding it triggers may call the vendor.
  */
 @Service
 public class TalentMapService {
 
-    private final TriageCompanyService triage;
+    private final TriageCompanyReadService triage;
     private final CandidateService candidates;
     private final GeocodingService geocoding;
     private final MapboxSettings mapbox;
     private final TalentMapSettings caps;
 
-    public TalentMapService(TriageCompanyService triage, CandidateService candidates,
+    public TalentMapService(TriageCompanyReadService triage, CandidateService candidates,
                             GeocodingService geocoding, LightMoveProperties properties) {
         this.triage = triage;
         this.candidates = candidates;
@@ -69,26 +63,20 @@ public class TalentMapService {
                 placed.people(), placed.totalCandidates(), located.locations(), located.pending());
     }
 
-    /**
-     * The same read with the companies and people left off — what the screen polls while places are
-     * still resolving. The same two queries, but only the points on the wire, which is all that
-     * changes between polls.
-     */
+    /** The points alone, for the screen's poll while places resolve. */
     public TalentMapLocationsResponse readLocations(UUID workspaceId, UUID projectId, String statusToken) {
         Locations located = locate(place(workspaceId, projectId, statusToken));
         return new TalentMapLocationsResponse(located.locations(), located.pending());
     }
 
-    /** The stage's companies, the people to draw with them, and the place each of those rows sits at. */
     private Placement place(UUID workspaceId, UUID projectId, String statusToken) {
-        TriageCompanyStatus status = resolveStatus(statusToken);
+        TriageCompanyStatus status = TriageCompanyStatus.parseOrInUniverse(statusToken);
         TriageCompaniesResponse companies =
                 triage.listAllOfStage(workspaceId, projectId, status, TriageCompanyFilters.none(),
                         caps.maxCompanies());
         CandidatesResponse everyone = candidates.listAllOfProject(workspaceId, projectId, caps.maxCandidates());
 
-        // The people at this stage's companies, plus — on the universe alone, as the grid does — the
-        // ones mapped at no company of the mandate at all.
+        // This stage's people, plus — on the universe stage alone, as the grid does — those at no company.
         Set<UUID> companyIds = new HashSet<>();
         companies.companies().forEach(company -> companyIds.add(company.id()));
         List<CandidateResponse> people = everyone.candidates().stream()
@@ -97,9 +85,7 @@ public class TalentMapService {
                         : status == TriageCompanyStatus.IN_UNIVERSE)
                 .toList();
 
-        // A company is drawn where its people are, as the grid's Location column already reads an
-        // executive's own city over their employer's. HQ is the fallback for a company nobody has
-        // mapped, and first mapped wins where two disagree.
+        // A company is drawn where its people are; HQ is the fallback, and first mapped wins.
         Map<UUID, PlaceKey> placeOfCompanyPeople = new HashMap<>();
         for (CandidateResponse person : people) {
             if (person.triageCompanyId() == null) {
@@ -146,10 +132,7 @@ public class TalentMapService {
                 labelOf(place, country), country, isoCode);
     }
 
-    /**
-     * One English spelling per country, so "UAE" and "United Arab Emirates" are one group. A name the
-     * catalog does not know keeps the asker's own, title-cased.
-     */
+    /** One English spelling per country; a name the catalog does not know keeps its own, title-cased. */
     static String countryNameOf(PlaceKey place, String isoCode) {
         if (!place.hasCountry()) {
             return null;
@@ -157,7 +140,6 @@ public class TalentMapService {
         return Countries.nameOfCode(isoCode).orElseGet(() -> titleCase(place.country()));
     }
 
-    /** "riyadh, saudi arabia" as the key holds it, read back as "Riyadh, Saudi Arabia". */
     static String labelOf(PlaceKey place, String country) {
         StringBuilder label = new StringBuilder();
         if (place.hasCity()) {
@@ -180,16 +162,5 @@ public class TalentMapService {
             startOfWord = letter == ' ' || letter == '-';
         }
         return out.toString();
-    }
-
-    private static TriageCompanyStatus resolveStatus(String token) {
-        if (token == null || token.isBlank()) {
-            return TriageCompanyStatus.IN_UNIVERSE;
-        }
-        TriageCompanyStatus status = TriageCompanyStatus.fromValue(token);
-        if (status == null) {
-            throw new ApiException(ErrorCode.VALIDATION_FAILED, "Unknown status: " + token);
-        }
-        return status;
     }
 }

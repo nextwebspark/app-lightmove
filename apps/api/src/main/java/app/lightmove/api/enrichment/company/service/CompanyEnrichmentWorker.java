@@ -10,12 +10,8 @@ import org.springframework.transaction.event.TransactionPhase;
 import org.springframework.transaction.event.TransactionalEventListener;
 
 /**
- * Researches a plugin-captured company, off the capture's thread and after its commit — the same
- * shape as {@code CandidateEnrichmentWorker}, for the same reasons: {@code AFTER_COMMIT} because the
- * write updates a row this listener must be able to see, {@code @Async} because the vendor call takes
- * seconds, the write crossing back into {@link TriageCompanyService#applyEnrichment} so no database
- * connection is held across it, and failures swallowed because a capture broken by its own enrichment
- * is a bug report.
+ * Researches a plugin-captured company after its commit, off the capture's thread — the same shape
+ * as {@code CandidateEnrichmentWorker}, for its reasons.
  */
 @Component
 @RequiredArgsConstructor

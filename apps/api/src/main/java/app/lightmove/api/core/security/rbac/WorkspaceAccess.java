@@ -12,13 +12,8 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
 /**
- * The single answer to "may this user act in this workspace?" — always re-read from the database,
- * never trusted from the JWT's roles claim, which may be up to 15 minutes stale. Membership misses
- * are served as {@link ErrorCode#NOT_A_MEMBER} (404) so probing an id confirms nothing.
- *
- * <p>Permission questions are asked per <b>action</b>, not per role. Role names appear only where the
- * role itself is the subject — the last-admin guard, the CLIENT exclusion — never as a proxy for
- * "may they do X".
+ * "May this user act in this workspace?" — re-read from the database, never the JWT's possibly stale
+ * roles claim, and asked per action; a miss is {@link ErrorCode#NOT_A_MEMBER} (404) so probing confirms nothing.
  */
 @Service
 @RequiredArgsConstructor
@@ -31,11 +26,7 @@ public class WorkspaceAccess {
                 .orElseThrow(() -> ApiException.of(ErrorCode.NOT_A_MEMBER));
     }
 
-    /**
-     * An active member who is <b>not a pure client</b>. Every staff-facing read gates on this rather
-     * than mere membership. A CLIENT role held <i>alongside</i> a staff role fences nobody: a
-     * colleague who also represents a client is still staff.
-     */
+    /** An active member who is not a pure client; every staff-facing read gates on this, not membership. */
     public WorkspaceMember requireStaff(UUID userId, UUID workspaceId) {
         WorkspaceMember member = requireActiveMember(userId, workspaceId);
         if (isPureClient(member.getId())) {
@@ -44,7 +35,7 @@ public class WorkspaceAccess {
         return member;
     }
 
-    /** May this member perform this workspace action? The union of their roles decides. */
+    /** The union of the member's roles decides. */
     public WorkspaceMember requireAction(UUID userId, UUID workspaceId, WorkspaceAction action) {
         WorkspaceMember member = requireActiveMember(userId, workspaceId);
         if (!members.findActionNames(member.getId()).contains(action.name())) {
@@ -53,10 +44,7 @@ public class WorkspaceAccess {
         return member;
     }
 
-    /**
-     * Kept for the places where the ADMIN <i>role</i> itself is the subject — approving role changes and
-     * the last-admin guard — not as a shortcut around {@link #requireAction}.
-     */
+    /** Only where the ADMIN role itself is the subject, never a shortcut around {@link #requireAction}. */
     public WorkspaceMember requireAdmin(UUID userId, UUID workspaceId) {
         WorkspaceMember member = requireActiveMember(userId, workspaceId);
         if (!isAdmin(member)) {
@@ -69,18 +57,13 @@ public class WorkspaceAccess {
         return members.findRoleNames(member.getId()).contains(WorkspaceRole.ADMIN.name());
     }
 
-    /** A membership row by its own id, scoped to the workspace — for sibling features naming a member. */
     public WorkspaceMember requireActiveMemberRow(UUID memberId, UUID workspaceId) {
         return members.findByIdAndWorkspaceId(memberId, workspaceId)
                 .filter(WorkspaceMember::isActive)
                 .orElseThrow(() -> ApiException.of(ErrorCode.NOT_A_MEMBER));
     }
 
-    /**
-     * A membership row that belongs to <b>staff</b> — the by-id counterpart of {@link #requireStaff}.
-     * A CLIENT (portal guest) is never seatable on a project team, so naming one here is refused; the
-     * project's requested-role guard only covers the roles asked for, not the nature of the member.
-     */
+    /** By-id {@link #requireStaff}: the project's requested-role guard does not stop a pure client being seated. */
     public WorkspaceMember requireStaffRow(UUID memberId, UUID workspaceId) {
         WorkspaceMember member = requireActiveMemberRow(memberId, workspaceId);
         if (isPureClient(member.getId())) {
@@ -89,25 +72,17 @@ public class WorkspaceAccess {
         return member;
     }
 
-    /**
-     * A member whose <b>only</b> role is CLIENT — a client representative with no staff role. This, not
-     * "holds CLIENT", is what fences someone out of staff surfaces: a member may hold CLIENT alongside a
-     * staff role and is then treated as staff.
-     */
+    /** Only CLIENT — not "holds CLIENT" — fences someone out of staff surfaces. */
     public boolean isPureClient(UUID memberId) {
         Set<String> roleNames = members.findRoleNames(memberId);
         return roleNames.size() == 1 && roleNames.contains(WorkspaceRole.CLIENT.name());
     }
 
-    /** The active roster, for features that render members. Caller must already be authorised. */
+    /** Caller must already be authorised. */
     public List<WorkspaceMember> activeMembers(UUID workspaceId) {
         return members.findByWorkspaceIdAndStatus(workspaceId, MemberStatus.ACTIVE);
     }
 
-    /**
-     * The active <i>staff</i> roster — everyone in {@link #activeMembers} who is not a client
-     * representative. The Team screen renders this, so a portal guest never appears among colleagues.
-     */
     public List<WorkspaceMember> activeStaff(UUID workspaceId) {
         return members.findStaff(workspaceId, MemberStatus.ACTIVE, WorkspaceRole.CLIENT.name());
     }

@@ -11,23 +11,11 @@ import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestClientException;
 
 /**
- * Wraps one HTTP attempt: takes the rate-limit permit, and makes sure whatever comes back out is a
- * {@link VendorException} rather than a Spring one.
+ * Wraps one HTTP attempt: takes the rate-limit permit and turns transport and body failures, which
+ * never reach the status handler, into {@link VendorException}; anything else propagates untouched.
  *
- * <p>This exists alongside the factory's status handler because two failure kinds never reach that
- * handler — there is no status to hand it. {@code RestClient} raises {@code ResourceAccessException}
- * for a transport failure before any response exists, and wraps an unreadable body as a plain
- * {@code RestClientException}; classifying from status alone would leave a dropped connection
- * unclassified and therefore un-retried.
- *
- * <p>Anything that is not a {@code RestClientException} propagates untouched: a
- * {@code NullPointerException} in our own mapping code is not a vendor failure, and dressing it as one
- * would make it retryable and hide it.
- *
- * <p><b>Call this inside the retry, not around it.</b> The permit must be taken per attempt —
- * outside, three attempts spend one permit and burst straight past the cap the permit exists to
- * respect, generating the 429s being retried. And never inside a transaction: a permit wait plus
- * backoff holds a database connection for seconds.
+ * <p><b>Call inside the retry, never around it</b> — the permit is per attempt, or retries burst past
+ * the cap — and never inside a transaction, where the wait would hold a connection for seconds.
  */
 @Component
 @Slf4j

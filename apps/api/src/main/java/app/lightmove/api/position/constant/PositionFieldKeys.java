@@ -7,10 +7,8 @@ import java.util.Map;
 import java.util.Set;
 
 /**
- * The eleven scalars {@code Position.fieldSources} may name, one allow-list per wizard step. Nothing else
- * validates a {@code fieldSources} key, so without this gate a caller could stamp provenance on a wire
- * name that means nothing — the compensation figures and the role title are deliberately not here,
- * because neither is ever auto-filled.
+ * The scalars {@code Position.fieldSources} may name, one allow-list per step — the only validation a
+ * {@code fieldSources} key gets.
  */
 public final class PositionFieldKeys {
 
@@ -24,7 +22,6 @@ public final class PositionFieldKeys {
     private PositionFieldKeys() {
     }
 
-    /** Refuses a {@code fieldSources} map naming anything outside this step's allow-list. */
     public static void requireKnown(Map<String, FieldSource> fieldSources, Set<String> allowed) {
         for (String key : fieldSources.keySet()) {
             if (!allowed.contains(key)) {
@@ -33,10 +30,6 @@ public final class PositionFieldKeys {
         }
     }
 
-    /**
-     * Every key of a step stamped {@code MANUAL} — the caller sent no provenance for this step at
-     * all, so the conservative reading is that a person typed the whole thing.
-     */
     public static Map<String, FieldSource> allManual(Set<String> keys) {
         Map<String, FieldSource> manual = new LinkedHashMap<>();
         keys.forEach(key -> manual.put(key, FieldSource.MANUAL));

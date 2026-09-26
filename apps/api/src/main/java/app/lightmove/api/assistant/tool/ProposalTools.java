@@ -60,10 +60,7 @@ public class ProposalTools {
         return card.companies().size();
     }
 
-    /**
-     * The card for an answer that found companies but whose model never proposed them — Flash
-     * sometimes answers straight after its lookups, and a card the answer describes must exist.
-     */
+    /** Flash sometimes answers straight after its lookups without proposing, and the card it describes must exist. */
     public void proposeWhatWasFound(AssistantToolContext context) {
         TurnRecorder recorder = context.recorder();
         List<String> found = Stream.concat(recorder.foundAccountIds().stream(),

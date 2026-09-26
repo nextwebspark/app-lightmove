@@ -5,20 +5,9 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 
 /**
- * The workspace-tier guard bean behind {@code @PreAuthorize} — e.g.
- * {@code @PreAuthorize("@workspaceAuthorizer.can(principal, 'MEMBER_INVITE')")}.
- *
- * <p>Every method re-reads the database through {@link WorkspaceAccess}; the JWT's roles claim is
- * coarse material only, up to 15 minutes stale. Methods return {@code true} (the SpEL contract) but
- * enforce by <b>throwing</b> {@code ApiException} — never by returning false — so a denial keeps its
- * precise error code and the 404 masking for non-members, instead of collapsing into a generic 403.
- * Spring rethrows runtime exceptions from SpEL-invoked bean methods unwrapped, so they land in
- * {@code GlobalExceptionHandler.handleApiException} like any imperative check's.
- *
- * <p>Annotations live on <b>controllers only</b>. Services reachable outside a request's
- * SecurityContext — {@code InvitationService}, called from the anonymous
- * {@code /onboarding/accept-invitation-signup} endpoint — keep imperative checks, because method
- * security would evaluate the wrong (or no) authentication there.
+ * The workspace-tier {@code @PreAuthorize} guard, re-reading the database via {@link WorkspaceAccess}.
+ * It enforces by <b>throwing</b> {@code ApiException}, never returning false, so a denial keeps its
+ * code and 404 masking. Controllers only: services reached outside a SecurityContext stay imperative.
  */
 @Component("workspaceAuthorizer")
 @RequiredArgsConstructor

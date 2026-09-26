@@ -7,12 +7,9 @@ import java.util.UUID;
 /**
  * One live session in Settings → Active sessions.
  *
- * @param id           the refresh-token <i>family</i> id, not a row id. A session's rows are replaced
- *                     on every rotation; the family is what survives, so it is what a Revoke names.
- * @param ipAddress    shown in place of a city: we hold no geo data, and an address the owner does not
- *                     recognise is the actual signal that a session is not theirs.
- * @param lastActiveAt when this session last exchanged its refresh token, which trails real activity
- *                     by up to one access-token lifetime.
+ * @param id           the refresh-token <i>family</i> id — what survives rotation, so what Revoke names
+ * @param ipAddress    shown in place of a city: an address the owner does not recognise is the signal
+ * @param lastActiveAt the last refresh, trailing real activity by up to one access-token lifetime
  */
 public record ActiveSessionResponse(
         UUID id,

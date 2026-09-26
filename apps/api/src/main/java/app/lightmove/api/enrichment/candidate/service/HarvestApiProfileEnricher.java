@@ -21,13 +21,8 @@ import org.springframework.resilience.annotation.Retryable;
 import org.springframework.web.client.RestClient;
 
 /**
- * Researches a profile through HarvestAPI's LinkedIn API — one GET, so a plain {@link RestClient}
- * for the reason {@code ResendEmailSender} gives: an SDK would buy nothing but a supply-chain
- * surface. A live scrape (~3–15s), so it serves as the freshness fallback behind the Bright Data
- * dataset lookup rather than the default path.
- *
- * <p>The response records mirror HarvestAPI's published OpenAPI schema and carry only the fields this
- * feature reads; everything else in the payload is ignored.
+ * HarvestAPI's LinkedIn profile scrape (~3–15s): the freshness fallback behind the Bright Data
+ * dataset. The records carry only the fields this feature reads.
  */
 @Slf4j
 public class HarvestApiProfileEnricher implements LinkedInProfileEnricher {
@@ -102,8 +97,7 @@ public class HarvestApiProfileEnricher implements LinkedInProfileEnricher {
                 current == null ? null : current.companyLinkedinUrl(),
                 current == null || current.companyLogo() == null ? null : current.companyLogo().url(),
                 location == null ? null : Countries.cityOf(location.city()),
-                // countryFull is a name, country a code; both go through the catalog so they land as
-                // one spelling whichever the vendor sent.
+                // countryFull is a name, country a code; both go through the catalog.
                 location == null ? null
                         : Countries.nameOf(location.countryFull() != null ? location.countryFull() : location.country()),
                 careerOf(profile.experience()),
@@ -154,10 +148,7 @@ public class HarvestApiProfileEnricher implements LinkedInProfileEnricher {
         return fieldOfStudy == null ? degree : degree + ", " + fieldOfStudy;
     }
 
-    /**
-     * A range from the dates when the provider sent any — {@code duration} is the tenure's <i>length</i>
-     * ("12 yrs 8 mos"), verified against a live payload, and a length is the fallback, not the period.
-     */
+    /** {@code duration} is the tenure's length ("12 yrs 8 mos"), only a fallback for missing dates. */
     private static String periodOf(String duration, HarvestApiDate start, HarvestApiDate end) {
         String started = dateTextOf(start);
         if (started != null) {

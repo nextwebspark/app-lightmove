@@ -1,9 +1,10 @@
 package app.lightmove.api.core.stream;
 
+import app.lightmove.api.core.security.rbac.ProjectAction;
+import app.lightmove.api.core.security.rbac.RequireProjectPermission;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.MediaType;
-import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -23,7 +24,7 @@ public class ProjectStreamController {
     private final ProjectStreamRegistry registry;
 
     @GetMapping(produces = MediaType.TEXT_EVENT_STREAM_VALUE)
-    @PreAuthorize("@projectAuthorizer.can(principal, #projectId, 'WORK_VIEW')")
+    @RequireProjectPermission(ProjectAction.WORK_VIEW)
     public SseEmitter stream(@PathVariable UUID projectId) {
         return registry.subscribe(projectId);
     }

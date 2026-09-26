@@ -16,7 +16,7 @@ import app.lightmove.api.triagecompany.constant.TriageCompanyStatus;
 import app.lightmove.api.triagecompany.dto.TriageCompaniesResponse;
 import app.lightmove.api.triagecompany.dto.TriageCompanyResponse;
 import app.lightmove.api.triagecompany.model.TriageCompanyFilters;
-import app.lightmove.api.triagecompany.service.TriageCompanyService;
+import app.lightmove.api.triagecompany.service.TriageCompanyReadService;
 import jakarta.servlet.http.HttpServletRequest;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
@@ -27,26 +27,20 @@ import java.util.UUID;
 import org.springframework.stereotype.Service;
 
 /**
- * One stage of a mandate's Companies grid, as a CSV.
- *
- * <p>Composes the same three reads the screen makes and pairs them the way the browser does — the
- * stage's companies, the mandate's people, and the mandate's own extra columns. {@code triagecompany}
- * still never learns that people exist.
- *
- * <p>Not {@code @Transactional}: the seams it reads through open and close their own, as
- * {@code TalentMapService} does.
+ * One stage of a mandate's Companies grid as a CSV, composed from the screen's own three reads. Not
+ * {@code @Transactional}: the seams open their own.
  */
 @Service
 public class ProjectExportService {
 
-    private final TriageCompanyService triage;
+    private final TriageCompanyReadService triage;
     private final CandidateService candidates;
     private final CustomColumnService customColumns;
     private final CompaniesCsvWriter writer;
     private final AuditService audit;
     private final ExportSettings caps;
 
-    public ProjectExportService(TriageCompanyService triage, CandidateService candidates,
+    public ProjectExportService(TriageCompanyReadService triage, CandidateService candidates,
                                 CustomColumnService customColumns, CompaniesCsvWriter writer,
                                 AuditService audit, LightMoveProperties properties) {
         this.triage = triage;
@@ -59,7 +53,7 @@ public class ProjectExportService {
 
     public String companies(UUID userId, UUID workspaceId, UUID projectId, String statusToken,
                             TriageCompanyFilters filters, HttpServletRequest httpRequest) {
-        TriageCompanyStatus status = resolveStatus(statusToken);
+        TriageCompanyStatus status = TriageCompanyStatus.parseOrInUniverse(statusToken);
         TriageCompaniesResponse stage =
                 triage.listAllOfStage(workspaceId, projectId, status, filters, caps.maxCompanies());
         refuseIfPast("companies", stage.totalCount(), caps.maxCompanies());
@@ -71,8 +65,7 @@ public class ProjectExportService {
         List<CustomColumnDto> columns = customColumns.list(workspaceId, projectId).columns();
         List<ExportRow> rows = pair(stage, everyone, status, filters);
 
-        audit.event(ProjectEventType.COMPANIES_EXPORTED)
-                .actor(userId).workspace(workspaceId).target("project", projectId).from(httpRequest)
+        audit.projectEvent(ProjectEventType.COMPANIES_EXPORTED, userId, workspaceId, projectId, httpRequest)
                 .detail("stage", status.value())
                 .detail("rows", String.valueOf(rows.size()))
                 .detail("wholeStage", String.valueOf(isUnfiltered(filters)))
@@ -83,18 +76,9 @@ public class ProjectExportService {
     }
 
     /**
-     * The grid's own row model: a company with three executives is three lines with the company
-     * repeated, and one with none keeps a line of its own — the "Add executive" slot on screen.
-     *
-     * <p>The two executive filters are applied here as well as in the query above, and for the reason
-     * the grid applies them twice too: the server's are company-level (does this company have a
-     * matching executive <i>at all</i>), so a kept company would otherwise draw a line for every
-     * colleague of the one person who matched.
-     *
-     * <p>Executives mapped at no company of the mandate are appended, as the grid appends them, on
-     * the universe alone. They are dropped while a company-name search is in force, because that
-     * search narrows companies by name and a person at no company matches none of it — which is
-     * exactly why the screen stops asking for them when the box is filled.
+     * The grid's row model: one line per executive, a company with none keeps its own line. The executive
+     * filters are re-applied per person because the server's are company-level. Executives mapped at no
+     * company are appended on the universe stage, except under a company-name search.
      */
     private static List<ExportRow> pair(TriageCompaniesResponse stage, CandidatesResponse everyone,
                                         TriageCompanyStatus status, TriageCompanyFilters filters) {
@@ -127,7 +111,6 @@ public class ProjectExportService {
         return rows;
     }
 
-    /** Whether the file is the stage entire — worth knowing of an export, and not worth the terms. */
     private static boolean isUnfiltered(TriageCompanyFilters filters) {
         return blank(filters.companyName()) && blank(filters.executiveName())
                 && filters.executiveStatuses().isEmpty();
@@ -137,7 +120,6 @@ public class ProjectExportService {
         return value == null || value.isBlank();
     }
 
-    /** The grid's own predicate, on the wire tokens both sides hold. */
     private static boolean matchesExecutiveFilters(CandidateResponse person, TriageCompanyFilters filters) {
         if (!filters.executiveStatuses().isEmpty()
                 && !filters.executiveStatuses().contains(person.status())) {
@@ -148,29 +130,14 @@ public class ProjectExportService {
                 || person.fullName().toLowerCase(Locale.ROOT).contains(name.trim().toLowerCase(Locale.ROOT));
     }
 
-    /**
-     * Refused rather than truncated. A file carrying the first five thousand of six thousand rows is
-     * indistinguishable from a complete one once it has left the product.
-     */
+    /** Refused rather than truncated: a partial file is indistinguishable from a complete one. */
     private static void refuseIfPast(String what, long total, int cap) {
         if (total > cap) {
-            // Both numbers are the server's own — a configured ceiling and a count it just made — so
-            // they may travel, unlike anything echoed back out of the request.
+            // Both numbers are the server's own, so they may travel in a user-facing message.
             throw ApiException.userFacing(ErrorCode.VALIDATION_FAILED,
                     "This export covers " + total + " " + what + ", past the limit of " + cap
                             + ". Narrow it with the search box, or ask an administrator to raise "
                             + "the export limit.");
         }
-    }
-
-    private static TriageCompanyStatus resolveStatus(String token) {
-        if (token == null || token.isBlank()) {
-            return TriageCompanyStatus.IN_UNIVERSE;
-        }
-        TriageCompanyStatus status = TriageCompanyStatus.fromValue(token);
-        if (status == null) {
-            throw new ApiException(ErrorCode.VALIDATION_FAILED, "Unknown status: " + token);
-        }
-        return status;
     }
 }

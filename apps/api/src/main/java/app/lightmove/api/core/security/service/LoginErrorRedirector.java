@@ -9,20 +9,9 @@ import org.springframework.stereotype.Component;
 import org.springframework.web.util.UriComponentsBuilder;
 
 /**
- * Sends a refused OAuth sign-in back to the SPA with a code it can turn into a sentence.
- *
- * <p>The redirect targets the configured web base URL, never this host: Spring's default lands on
- * {@code /login?error} of the API itself, which in development is another port and answers 404 JSON
- * — so the real error never reaches anyone. Success-path refusals and the failure handler both
- * route through here so every failed sign-in ends the same way, carrying an {@link ErrorCode} name
- * and nothing of the provider's own wording.
- *
- * <p>It lands on the same {@code oauth-success-path} a successful sign-in lands on, rather than
- * {@code /login}, so that <b>one</b> SPA route owns both outcomes. That route is what runs inside
- * the sign-in popup, and it can only close the popup and report back for outcomes it is given: a
- * failure sent straight to {@code /login} would render a whole login screen inside a 500×620 window
- * and strand the app behind it. Outside a popup that route forwards to {@code /login?error=} and the
- * user sees exactly what they saw before.
+ * Sends a refused OAuth sign-in to the SPA's own {@code oauth-success-path}, never this host, with an
+ * {@link ErrorCode} name and none of the provider's wording. One route owns both outcomes because it
+ * runs in the sign-in popup; a failure sent to {@code /login} would strand a login screen in the popup.
  */
 @Component
 @RequiredArgsConstructor

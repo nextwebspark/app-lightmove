@@ -1,6 +1,8 @@
 package app.lightmove.api.customcolumn.controller;
 
 import app.lightmove.api.core.security.model.AuthPrincipal;
+import app.lightmove.api.core.security.rbac.ProjectAction;
+import app.lightmove.api.core.security.rbac.RequireProjectPermission;
 import app.lightmove.api.customcolumn.dto.CustomColumnDto;
 import app.lightmove.api.customcolumn.dto.CustomColumnsResponse;
 import app.lightmove.api.customcolumn.dto.DefineCustomColumnRequest;
@@ -12,8 +14,6 @@ import jakarta.validation.Valid;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
-import org.springframework.http.ResponseEntity;
-import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -23,6 +23,7 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
 /**
@@ -41,32 +42,33 @@ public class CustomColumnController {
     private final CustomColumnService customColumns;
 
     @GetMapping
-    @PreAuthorize("@projectAuthorizer.can(principal, #projectId, 'WORK_VIEW')")
-    public ResponseEntity<CustomColumnsResponse> list(@AuthenticationPrincipal AuthPrincipal principal,
-                                                      @PathVariable UUID projectId) {
-        return ResponseEntity.ok(customColumns.list(principal.requireWorkspaceId(), projectId));
+    @RequireProjectPermission(ProjectAction.WORK_VIEW)
+    public CustomColumnsResponse list(@AuthenticationPrincipal AuthPrincipal principal,
+                                      @PathVariable UUID projectId) {
+        return customColumns.list(principal.requireWorkspaceId(), projectId);
     }
 
     @PostMapping
-    @PreAuthorize("@projectAuthorizer.can(principal, #projectId, 'WORK_EXECUTE')")
-    public ResponseEntity<CustomColumnDto> define(@AuthenticationPrincipal AuthPrincipal principal,
-                                                  @PathVariable UUID projectId,
-                                                  @Valid @RequestBody DefineCustomColumnRequest request,
-                                                  HttpServletRequest httpRequest) {
+    @RequireProjectPermission(ProjectAction.WORK_EXECUTE)
+    @ResponseStatus(HttpStatus.CREATED)
+    public CustomColumnDto define(@AuthenticationPrincipal AuthPrincipal principal,
+                                  @PathVariable UUID projectId,
+                                  @Valid @RequestBody DefineCustomColumnRequest request,
+                                  HttpServletRequest httpRequest) {
         CustomColumnDto defined = customColumns.define(
                 principal.userId(), principal.requireWorkspaceId(), projectId, request, httpRequest);
-        return ResponseEntity.status(HttpStatus.CREATED).body(defined);
+        return defined;
     }
 
     @PatchMapping("/{columnId}")
-    @PreAuthorize("@projectAuthorizer.can(principal, #projectId, 'WORK_EXECUTE')")
-    public ResponseEntity<CustomColumnDto> update(@AuthenticationPrincipal AuthPrincipal principal,
-                                                  @PathVariable UUID projectId,
-                                                  @PathVariable UUID columnId,
-                                                  @Valid @RequestBody UpdateCustomColumnRequest request,
-                                                  HttpServletRequest httpRequest) {
-        return ResponseEntity.ok(customColumns.update(principal.userId(), principal.requireWorkspaceId(),
-                projectId, columnId, request, httpRequest));
+    @RequireProjectPermission(ProjectAction.WORK_EXECUTE)
+    public CustomColumnDto update(@AuthenticationPrincipal AuthPrincipal principal,
+                                  @PathVariable UUID projectId,
+                                  @PathVariable UUID columnId,
+                                  @Valid @RequestBody UpdateCustomColumnRequest request,
+                                  HttpServletRequest httpRequest) {
+        return customColumns.update(principal.userId(), principal.requireWorkspaceId(),
+                projectId, columnId, request, httpRequest);
     }
 
     /**
@@ -74,23 +76,23 @@ public class CustomColumnController {
      * one of them, and applying it twice leaves the same result.
      */
     @PutMapping("/order")
-    @PreAuthorize("@projectAuthorizer.can(principal, #projectId, 'WORK_EXECUTE')")
-    public ResponseEntity<CustomColumnsResponse> reorder(@AuthenticationPrincipal AuthPrincipal principal,
-                                                         @PathVariable UUID projectId,
-                                                         @Valid @RequestBody ReorderCustomColumnsRequest request,
-                                                         HttpServletRequest httpRequest) {
-        return ResponseEntity.ok(customColumns.reorder(principal.userId(), principal.requireWorkspaceId(),
-                projectId, request, httpRequest));
+    @RequireProjectPermission(ProjectAction.WORK_EXECUTE)
+    public CustomColumnsResponse reorder(@AuthenticationPrincipal AuthPrincipal principal,
+                                         @PathVariable UUID projectId,
+                                         @Valid @RequestBody ReorderCustomColumnsRequest request,
+                                         HttpServletRequest httpRequest) {
+        return customColumns.reorder(principal.userId(), principal.requireWorkspaceId(),
+                projectId, request, httpRequest);
     }
 
     @DeleteMapping("/{columnId}")
-    @PreAuthorize("@projectAuthorizer.can(principal, #projectId, 'WORK_EXECUTE')")
-    public ResponseEntity<Void> remove(@AuthenticationPrincipal AuthPrincipal principal,
-                                       @PathVariable UUID projectId,
-                                       @PathVariable UUID columnId,
-                                       HttpServletRequest httpRequest) {
+    @RequireProjectPermission(ProjectAction.WORK_EXECUTE)
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void remove(@AuthenticationPrincipal AuthPrincipal principal,
+                       @PathVariable UUID projectId,
+                       @PathVariable UUID columnId,
+                       HttpServletRequest httpRequest) {
         customColumns.remove(principal.userId(), principal.requireWorkspaceId(), projectId, columnId,
                 httpRequest);
-        return ResponseEntity.noContent().build();
     }
 }

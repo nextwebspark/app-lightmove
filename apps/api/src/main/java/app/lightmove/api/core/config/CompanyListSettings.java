@@ -1,5 +1,7 @@
 package app.lightmove.api.core.config;
 
+import app.lightmove.api.core.error.constant.ErrorCode;
+import app.lightmove.api.core.error.model.ApiException;
 import org.springframework.boot.context.properties.bind.DefaultValue;
 
 /** The Strategy screen's paged company list, and the bulk add that runs off the same filter. */
@@ -35,6 +37,16 @@ public record CompanyListSettings(
             throw new IllegalArgumentException(
                     "lightmove.company.list.bulk-add-limit must be between 1 and " + MAX_BULK_ADD_LIMIT
                             + ", but was " + bulkAddLimit);
+        }
+    }
+
+    /** A 400 for a negative page or a size outside 1..{@link #maxPageSize}. */
+    public void requireValidPage(int page, int size) {
+        if (page < 0) {
+            throw new ApiException(ErrorCode.VALIDATION_FAILED, "page must not be negative");
+        }
+        if (size < 1 || size > maxPageSize) {
+            throw new ApiException(ErrorCode.VALIDATION_FAILED, "size must be between 1 and " + maxPageSize);
         }
     }
 }

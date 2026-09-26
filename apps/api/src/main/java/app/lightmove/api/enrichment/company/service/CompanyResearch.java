@@ -13,23 +13,17 @@ import java.util.Optional;
 import org.springframework.stereotype.Service;
 
 /**
- * What a provider says about a LinkedIn company page: from the cache where it can, from the vendor
- * where it must, and remembered either way.
- *
- * <p>The same company captured in two mandates used to be bought twice — the capture event fires per
- * mandate and nothing held the answer. A cached row is a fact about a public page rather than any
- * firm's research, which is what lets one table answer for every workspace; see V64's header.
- *
- * <p>Deliberately not {@code @Transactional} — the read and write each open their own in
- * {@link CachedCompanyStore}, and the vendor call sits between them in none.
+ * A provider's answer about a LinkedIn company page — cached, fetched, and remembered either way, so
+ * one company captured in two mandates is bought once. Not {@code @Transactional}: the vendor call
+ * sits between {@link CachedCompanyStore}'s own read and write transactions.
  */
 @Service
 public class CompanyResearch {
 
-    /** Smallest page a name search in one country counts — below it, a namesake is likelier than a match. */
+    /** Below this, a namesake is likelier than a match. */
     public static final int MIN_EMPLOYEES_IN_COUNTRY = 50;
 
-    /** Smallest page counted as a global company's own; a name as short as "H&M" otherwise buys strangers. */
+    /** A name as short as "H&M" otherwise buys strangers. */
     public static final int MIN_EMPLOYEES_ANYWHERE = 1_000;
 
     private final LinkedInCompanyEnricher enricher;
@@ -50,8 +44,7 @@ public class CompanyResearch {
             return held.get().found().flatMap(VendorCompanyRecord::asCapturedDetails);
         }
 
-        // Nothing is asked and nothing remembered with enrichment off: "no record" is not a finding
-        // there, and a stored miss would outlive the day someone configures a key by the whole TTL.
+        // With enrichment off a stored miss would outlive the day someone configures a key.
         if (!enricher.isEnabled()) {
             return Optional.empty();
         }
@@ -63,11 +56,8 @@ public class CompanyResearch {
     }
 
     /**
-     * A company someone named, found by its page's name in one country. Every hit a search returns
-     * is remembered under its own slug, because every hit is billed: an "Aldar" search pays for Aldar
-     * Education too, and a later ask for it is a cache read. A name nothing matches is not
-     * remembered — there is no slug to key it on. A search {@code allowance} has no room for is not
-     * made.
+     * Every hit is remembered under its own slug, because every hit is billed. A name nothing matches is
+     * not remembered, and a search the {@code allowance} has no room for is not made.
      */
     public Optional<CapturedCompanyDetails> byName(String name, String country, VendorSearchAllowance allowance) {
         String countryCode = Countries.codeOf(country);
@@ -75,10 +65,7 @@ public class CompanyResearch {
                 : named(name, Countries.nameOf(country), countryCode, MIN_EMPLOYEES_IN_COUNTRY, allowance);
     }
 
-    /**
-     * A global company's own page, wherever it is headquartered — IKEA is Swedish however local the
-     * ask. Only a big one counts: a small namesake abroad is somebody else.
-     */
+    /** Only a big company counts abroad: a small namesake is somebody else. */
     public Optional<CapturedCompanyDetails> byNameAnywhere(String name, VendorSearchAllowance allowance) {
         return named(name, null, null, MIN_EMPLOYEES_ANYWHERE, allowance);
     }

@@ -36,12 +36,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 /**
- * The client registry: the records the Clients screen lists, creates and edits, plus the mandate views
- * the drawer renders. Gated on {@code CLIENT_RECORD_MANAGE} at the controller.
- *
- * <p>A DB-picked client's canonical name and domain are resolved from the company universe at write
- * time (never trusted from the request), the same seam Strategy uses; a custom client is typed in. The
- * case-insensitive name unique index is the belt behind the create-time 409.
+ * The client registry. A DB-picked client's name and domain are resolved from the universe, never
+ * trusted from the request; the case-insensitive unique index backs the create-time 409.
  */
 @Service
 @RequiredArgsConstructor
@@ -149,7 +145,7 @@ public class ClientService {
         return get(workspaceId, clientId);
     }
 
-    /** One client's mandates as the drawer renders them — lead and health resolved. */
+    /** The drawer's mandates, lead and health resolved. */
     private List<ClientMandateResponse> mandatesFor(UUID workspaceId, UUID clientId) {
         return projectService.listForClient(workspaceId, clientId).stream()
                 .map(ClientService::toMandate)
@@ -161,14 +157,12 @@ public class ClientService {
         CompanyRow row = companies.byAccountIds(List.of(accountId)).stream().findFirst()
                 .orElseThrow(() -> ApiException.userFacing(ErrorCode.VALIDATION_FAILED,
                         "That company is no longer in the database"));
-        // Name, domain, city and logo are the universe's, not the request's; sector/HQ country are the
-        // editable overrides. The universe publishes a website rather than a bare domain, so the domain
-        // is derived from it.
+        // Name, domain, city and logo are the universe's, not the request's; the domain is derived from
+        // the website the universe publishes.
         String hqCountry = request.hqCountry() != null ? request.hqCountry() : row.companyCountry();
         return Client.fromUniverse(workspaceId, accountId, row.companyName(), request.sector(),
                 hqCountry, row.companyCity(), WebsiteDomain.of(row.website()), row.logoUrl(), userId);
     }
-
 
     private Client fromCustom(UUID userId, UUID workspaceId, CreateClientRequest request) {
         if (request.customName() == null || request.customName().isBlank()) {

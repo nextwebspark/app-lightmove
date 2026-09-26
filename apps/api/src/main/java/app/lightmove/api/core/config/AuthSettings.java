@@ -12,57 +12,30 @@ public record AuthSettings(
         RateLimitSettings rateLimit,
         ExtensionSettings extension,
 
-        /** How long an access token is usable. Short by design — revocation is via the refresh token. */
+        /** Short by design: revocation is via the refresh token. */
         @DefaultValue("15m") Duration accessTokenTtl,
         @DefaultValue("30d") Duration refreshTokenTtl,
         @DefaultValue("24h") Duration verificationTokenTtl,
 
-        /**
-         * Much shorter than {@link #verificationTokenTtl}: a verification link only proves a mailbox,
-         * where a reset link <i>changes a credential</i> — a stale one sitting in an inbox is a
-         * standing invitation to whoever reads that inbox later.
-         */
+        /** Much shorter than {@link #verificationTokenTtl}: a reset link changes a credential. */
         @DefaultValue("30m") Duration passwordResetTokenTtl,
         @DefaultValue("7d") Duration invitationTtl,
 
-        /**
-         * How long a sign-in has to come back from the identity provider. It is the lifetime of the
-         * cookie carrying the authorisation request — long enough for a consent screen and a second
-         * factor, short enough that an abandoned attempt does not leave a {@code code_verifier} in the
-         * browser for the afternoon.
-         */
+        /** The authorisation-request cookie's lifetime: long enough for consent, short for a {@code code_verifier}. */
         @DefaultValue("10m") Duration oauthRequestTtl,
 
-        /**
-         * When true, an unverified user may sign in but cannot reach any workspace data.
-         *
-         * <p>On, and it must stay on. An email domain decides which organisation a user belongs to,
-         * so an <i>unverified</i> address is an unproven claim: without this gate anyone could type
-         * {@code sara@nextwebspark.com} and be let into that firm's workspace.
-         */
+        /** Must stay on: without it anyone could claim {@code sara@nextwebspark.com} and join that firm. */
         @DefaultValue("true") boolean requireVerifiedEmail,
 
-        /**
-         * Development only: a new signup is marked verified on the spot and no verification email is
-         * sent. It skips one step — proving the mailbox — and moves nothing else.
-         *
-         * <p>Off, and it must stay off outside a developer's machine. On in production, anyone could
-         * claim {@code sara@nextwebspark.com} and be let into that firm's workspace — the address is
-         * what decides which firm someone works at, and this is what proves the address. See
-         * {@link #requireVerifiedEmail}.
-         */
+        /** Development only: skips proving the mailbox, so in production it defeats {@link #requireVerifiedEmail}. */
         @DefaultValue("false") boolean autoVerifyEmail,
 
-        /** BCrypt cost. 12 ≈ 250ms per hash on current hardware — expensive for an attacker, tolerable for us. */
+        /** 12 ≈ 250ms per hash. */
         @DefaultValue("12") int bcryptStrength,
 
         OAuthQuirkSettings oauth
 ) {
 
-    /**
-     * Both branches are absent from yml in the normal case: no provider needs a quirk until one does,
-     * and the extension's defaults are the intended values rather than a placeholder.
-     */
     public AuthSettings {
         oauth = oauth == null ? new OAuthQuirkSettings(List.of(), List.of(), List.of()) : oauth;
         extension = extension == null ? ExtensionSettings.defaults() : extension;

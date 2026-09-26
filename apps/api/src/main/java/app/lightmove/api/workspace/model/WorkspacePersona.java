@@ -12,10 +12,7 @@ import java.util.Set;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
-/**
- * What the firm is — its business, sectors, competitors and geographies — held for the assistant to
- * tailor research to. Stored whole as the workspace's {@code persona} jsonb (V69).
- */
+/** What the firm is, for the assistant to tailor research to; the workspace's {@code persona} jsonb. */
 public record WorkspacePersona(
         String summary,
         List<String> sectors,
@@ -45,9 +42,8 @@ public record WorkspacePersona(
     }
 
     /**
-     * The persona after the firm is re-picked: the sectors and country the previous company filled
-     * give way to the next one's, in front, and everything else the admin wrote stays. A chip typed
-     * with exactly the previous company's spelling cannot be told apart from a filled one and goes too.
+     * The previous company's sectors and country give way to the next one's; the admin's own text
+     * stays — except a chip typed in exactly the previous company's spelling, which is indistinguishable.
      */
     public WorkspacePersona refiledFrom(WorkspaceCompany previous, WorkspaceCompany next) {
         if (previous != null && next != null

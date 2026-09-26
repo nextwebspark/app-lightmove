@@ -14,12 +14,8 @@ import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 import org.springframework.stereotype.Repository;
 
 /**
- * The one triage write JPA cannot express: an insert that ignores a company the mandate already
- * holds.
- *
- * <p>Read-then-insert is a race against {@code app_lm_project_triage_company_uk}. Two "Add all"
- * clicks, or one racing a single-row add, both pass the check and the second fails the whole batch.
- * V32's header describes this statement; this is it.
+ * An insert that ignores companies the mandate already holds. Read-then-insert races
+ * {@code app_lm_project_triage_company_uk}: two "Add all" clicks would fail the second whole batch.
  */
 @Repository
 @RequiredArgsConstructor
@@ -42,15 +38,8 @@ public class TriageCompanyWriter {
     private final NamedParameterJdbcTemplate jdbc;
 
     /**
-     * Snapshots these companies into the mandate's universe and answers how many were new to it.
-     *
-     * <p>One multi-row statement rather than a JDBC batch, because the answer has to be exact: a batch
-     * reports per-statement counts the driver may return as {@code SUCCESS_NO_INFO}, and "added" is a
-     * number the toast states to the user. Every value is bound — the row template generates
-     * placeholder names, never a value.
-     *
-     * <p>{@code status}, {@code note} and {@code sourceUrl} are the caller's rather than the row's, so
-     * they are the same for every company in one statement.
+     * Answers how many rows were new. One multi-row statement, not a JDBC batch, whose counts may come
+     * back {@code SUCCESS_NO_INFO}. Every value is bound; the template generates placeholder names only.
      */
     public int insertIgnoringHeld(UUID projectId, UUID addedBy, List<CompanyRow> rows,
                                   TriageCompanySource source, TriageCompanyStatus status, String note,
@@ -86,9 +75,7 @@ public class TriageCompanyWriter {
     private static String rowPlaceholders(int index, CompanyRow row, Map<String, Object> params) {
         params.put("accountId" + index, row.apolloAccountId());
         params.put("companyName" + index, row.companyName());
-        // The universe's own label is already canonical, so this resolves rather than rewrites — but
-        // the three derived columns have to come from the same call the entity uses, or a bulk add and
-        // a capture of one company would file it under two sectors.
+        // The same call TriageCompany.fileUnder uses, or a bulk add and a capture could disagree on sector.
         ResolvedIndustry industry = Industries.resolve(row.industry());
         params.put("industry" + index, industry == null ? null : industry.label());
         params.put("industryV2Code" + index, industry == null ? null : industry.linkedInCode());

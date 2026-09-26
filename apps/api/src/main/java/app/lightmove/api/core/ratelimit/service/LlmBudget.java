@@ -2,12 +2,14 @@ package app.lightmove.api.core.ratelimit.service;
 
 import app.lightmove.api.core.config.LlmRateLimitSettings;
 import java.util.function.ToIntFunction;
+import lombok.RequiredArgsConstructor;
 
 /**
  * One per-user, per-minute meter {@link LlmBudgetGuard} counts a billed model call against. The meter
  * name and which setting sizes it are data, not a method each — a sixth extraction step wanting its own
  * budget is a new constant here, not a new method on the guard.
  */
+@RequiredArgsConstructor
 public enum LlmBudget {
 
     /** The demo shortlist endpoint's own meter. */
@@ -40,11 +42,6 @@ public enum LlmBudget {
 
     private final String meter;
     private final ToIntFunction<LlmRateLimitSettings> callsPerMinute;
-
-    LlmBudget(String meter, ToIntFunction<LlmRateLimitSettings> callsPerMinute) {
-        this.meter = meter;
-        this.callsPerMinute = callsPerMinute;
-    }
 
     String meter() {
         return meter;

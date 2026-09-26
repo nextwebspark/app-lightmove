@@ -7,9 +7,8 @@ import java.time.ZoneOffset;
 import java.time.temporal.ChronoUnit;
 
 /**
- * The mandate's timeline as the progress chapter buckets it: day 0 and week 0 begin at kickoff, and
- * the last bucket is the one {@code asOf} falls in. Days are counted in UTC, the zone every stored
- * instant is in, so a row filed at 23:30 in Riyadh lands in one bucket on every read.
+ * The progress chapter's buckets: day 0 and week 0 begin at kickoff. Days are counted in UTC, the
+ * zone every stored instant is in, so a row lands in one bucket on every read.
  */
 public record ReportCalendar(LocalDate kickoff, LocalDate asOf, LocalDate targetDate) {
 
@@ -29,7 +28,7 @@ public record ReportCalendar(LocalDate kickoff, LocalDate asOf, LocalDate target
         return weekIndexOf(asOf) + 1;
     }
 
-    /** The bucket a moment falls in, clamped into the calendar: nothing predates kickoff or postdates today. */
+    /** Clamped: nothing predates kickoff or postdates today. */
     public int dayIndexOf(Instant moment) {
         return dayIndexOf(dateOf(moment));
     }

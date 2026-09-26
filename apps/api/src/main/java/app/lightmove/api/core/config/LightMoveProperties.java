@@ -3,14 +3,8 @@ package app.lightmove.api.core.config;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 
 /**
- * Every tunable the application has, in one typed tree.
- *
- * <p>Records make these immutable and fail-fast: a typo in a key surfaces at startup as a binding
- * error, not at 3am as a {@code null} in a token expiry calculation.
- *
- * <p>This is the root only. Each branch is its own {@code *Settings} record in this package, so the
- * yml keys ({@code lightmove.auth.jwt.*}, {@code lightmove.email.validation.*}, …) read straight off
- * the component names here and there.
+ * The root of every tunable, as immutable records: a mistyped key fails at startup, not as a
+ * {@code null} at 3am. Each branch is its own {@code *Settings} record in this package.
  */
 @ConfigurationProperties(prefix = "lightmove")
 public record LightMoveProperties(

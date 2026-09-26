@@ -4,11 +4,8 @@ import java.time.Instant;
 import java.util.Optional;
 
 /**
- * One remembered answer: what a provider said about a slug, or that it had nothing to say.
- *
- * <p>A plain record rather than an entity — the row is replaced whole by {@code CachedCompanyStore}'s
- * upsert, so it carries no version and no updated-at, and it holds a {@code jsonb} and a
- * {@code text[]} that JDBC reads more honestly than a mapping would.
+ * One remembered provider answer, or a stored miss. A plain record: {@code CachedCompanyStore}
+ * replaces the row whole by upsert.
  */
 public record CachedCompany(String provider, Instant fetchedAt, VendorCompanyRecord answer) {
 

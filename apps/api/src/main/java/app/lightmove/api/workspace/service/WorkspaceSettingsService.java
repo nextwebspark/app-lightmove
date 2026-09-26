@@ -19,11 +19,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 /**
- * Settings → General: read, rename/defaults, and soft deletion. Deletion flips statuses rather than
- * deleting rows — the audit trail keeps its referents, and freed members can join elsewhere.
- *
- * <p>Tier gating lives on {@code WorkspaceController} as {@code @PreAuthorize}; what stays here is
- * the typed-name confirmation and the release work itself.
+ * Settings → General. Deletion is soft — statuses flip, so the audit trail keeps its referents and
+ * freed members can join elsewhere.
  */
 @Service
 @RequiredArgsConstructor
@@ -72,7 +69,7 @@ public class WorkspaceSettingsService {
         return detail(workspace);
     }
 
-    /** The typed name is verified here, not only in the browser — the server owns the guard rail. */
+    /** The typed name is verified here, not only in the browser. */
     @Transactional
     public void delete(UUID actorId, UUID workspaceId, String confirmName, HttpServletRequest request) {
         Workspace workspace = requireWorkspace(workspaceId);

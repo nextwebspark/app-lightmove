@@ -8,21 +8,16 @@ import app.lightmove.api.core.email.service.EmailSender;
 import app.lightmove.api.core.email.service.EmailTemplates;
 import app.lightmove.api.core.error.constant.ErrorCode;
 import app.lightmove.api.core.error.model.ApiException;
-import app.lightmove.api.core.ratelimit.service.RateLimitGuard;
 import app.lightmove.api.core.security.model.AuthPrincipal;
-import app.lightmove.api.core.security.model.AuthenticatedSession;
 import app.lightmove.api.core.security.model.User;
 import app.lightmove.api.core.security.rbac.RbacService;
 import app.lightmove.api.core.security.rbac.Role;
 import app.lightmove.api.core.security.rbac.WorkspaceAccess;
 import app.lightmove.api.core.security.rbac.WorkspaceRole;
 import app.lightmove.api.core.security.repository.UserRepository;
-import app.lightmove.api.core.security.service.AuthenticationService;
-import app.lightmove.api.core.security.token.TokenService;
 import app.lightmove.api.core.security.token.Tokens;
 import app.lightmove.api.workspace.constant.InvitationStatus;
 import app.lightmove.api.workspace.constant.MemberStatus;
-import app.lightmove.api.workspace.model.ClientRepresentativeAcceptedEvent;
 import app.lightmove.api.workspace.model.ClientRepresentativeOnboarding;
 import app.lightmove.api.workspace.model.Invitation;
 import app.lightmove.api.workspace.model.InviteCommand;
@@ -43,22 +38,15 @@ import java.util.Set;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 /**
- * Invitations — the <b>only</b> way into an existing workspace. An admin naming a person <i>is</i> the
- * approval, so an invited person lands active immediately; there is no queue and no waiting state.
+ * Invitations — the <b>only</b> way into an existing workspace; an admin naming a person is the
+ * approval. Any domain may be invited, but the address passes signup's work-email gate.
  *
- * <p>Invitees are not restricted to the workspace's own domain — a firm works with contractors and
- * advisors who have their own addresses — but the address must still be a real, non-disposable work
- * address, the same gate signup applies.
- *
- * <p>Keeps its own imperative admin checks rather than {@code @PreAuthorize}: it is called both from
- * authenticated controllers and from the anonymous
- * {@code /onboarding/accept-invitation-signup} endpoint, outside any request's SecurityContext, where
- * method security would evaluate no authentication at all.
+ * <p>Imperative admin checks, not {@code @PreAuthorize}: it is also reached from the anonymous
+ * accept-invitation-signup path, where method security would see no authentication at all.
  */
 @Service
 @RequiredArgsConstructor
@@ -76,10 +64,6 @@ public class InvitationService {
     private final EmailTemplates templates;
     private final AuditService audit;
     private final LightMoveProperties properties;
-    private final AuthenticationService authentication;
-    private final TokenService tokens;
-    private final RateLimitGuard rateLimit;
-    private final ApplicationEventPublisher events;
 
     /** Invites colleagues. Skippable — the wizard's "Skip for now" simply sends an empty list. */
     @Transactional
@@ -92,10 +76,8 @@ public class InvitationService {
         UUID workspaceId = principal.requireWorkspaceId();
         access.requireAdmin(principal.userId(), workspaceId);
 
-        Workspace workspace = workspaces.findById(workspaceId)
-                .orElseThrow(() -> ApiException.of(ErrorCode.WORKSPACE_NOT_FOUND));
-        User inviter = users.findById(principal.userId())
-                .orElseThrow(() -> ApiException.of(ErrorCode.INVALID_CREDENTIALS));
+        Workspace workspace = requireWorkspace(workspaceId);
+        User inviter = requireUser(principal.userId());
 
         Instant expiry = Instant.now().plus(properties.auth().invitationTtl());
         List<Invitation> issued = new ArrayList<>(commands.size());
@@ -103,18 +85,16 @@ public class InvitationService {
         for (InviteCommand command : commands) {
             String email = EmailAddressValidator.normalise(command.email());
 
-            // Same gate as signup: a real, deliverable, non-disposable work address.
             emailValidator.validateWorkEmail(email);
 
-            // A client is invited to a project, not to the workspace. Refusing here keeps the
-            // invitation CHECK's client-to-project rule trivially true.
+            // A client is invited to a project, which keeps the invitation CHECK trivially true.
             if (command.role() == WorkspaceRole.CLIENT) {
                 throw ApiException.userFacing(ErrorCode.VALIDATION_FAILED,
                         "Hiring managers are invited to a position, not to the workspace");
             }
 
             // Already in: skipped rather than failing the other nine invitations in the batch.
-            if (isAlreadyMember(workspaceId, email)) {
+            if (activeMember(workspaceId, email).isPresent()) {
                 log.debug("Skipping invite for {} — already a member", email);
                 continue;
             }
@@ -126,10 +106,8 @@ public class InvitationService {
     }
 
     /**
-     * Re-inviting someone with an outstanding invitation refreshes it rather than creating a second.
-     *
-     * <p>Refreshing rotates the token, which kills the link in the earlier email. That matters: without
-     * it, every resend would leave another live credential sitting in an inbox.
+     * Refreshes an outstanding invitation rather than creating a second, rotating the token so no
+     * resend leaves another live credential in an inbox.
      */
     private Invitation issueOrRefresh(Workspace workspace, User inviter, String email,
                                       WorkspaceRole role, Instant expiry, HttpServletRequest request) {
@@ -147,12 +125,8 @@ public class InvitationService {
                 .orElseGet(() -> invitations.save(Invitation.create(
                         workspace.getId(), email, granted, hash, inviter.getId(), expiry)));
 
-        String link = "%s/auth/accept-invite?token=%s".formatted(
-                properties.web().baseUrl(),
-                URLEncoder.encode(plaintext, StandardCharsets.UTF_8));
-
         emailSender.send(templates.buildInvitationEmail(
-                email, inviter.getFullName(), workspace.getName(), granted.getName(), link));
+                email, inviter.getFullName(), workspace.getName(), granted.getName(), acceptLink(plaintext)));
 
         audit.event(WorkspaceEventType.MEMBER_INVITED)
                 .actor(inviter.getId()).workspace(workspace.getId())
@@ -164,13 +138,8 @@ public class InvitationService {
     }
 
     /**
-     * Invites a client representative to the portal for one client — the sanctioned project-to-workspace
-     * seam, since invitations are the only door in and a representative is a CLIENT-role member. Takes
-     * primitives so this feature stays ignorant of the {@code ClientRepresentative} the project side
-     * keeps.
-     *
-     * <p>Not gated with {@code @PreAuthorize}: the calling controller already gates on
-     * {@code CLIENT_RECORD_MANAGE}. The work-email rule still applies.
+     * The sanctioned project-to-workspace seam, taking primitives only. The calling controller gates on
+     * {@code CLIENT_RECORD_MANAGE}; the work-email rule still applies.
      */
     @Transactional
     public Invitation inviteClientRepresentative(UUID workspaceId, UUID clientId, String clientName,
@@ -178,10 +147,8 @@ public class InvitationService {
         String email = EmailAddressValidator.normalise(rawEmail);
         emailValidator.validateWorkEmail(email);
 
-        Workspace workspace = workspaces.findById(workspaceId)
-                .orElseThrow(() -> ApiException.of(ErrorCode.WORKSPACE_NOT_FOUND));
-        User inviter = users.findById(invitedBy)
-                .orElseThrow(() -> ApiException.of(ErrorCode.INVALID_CREDENTIALS));
+        Workspace workspace = requireWorkspace(workspaceId);
+        User inviter = requireUser(invitedBy);
 
         String plaintext = Tokens.generate();
         String hash = Tokens.hash(plaintext);
@@ -198,13 +165,8 @@ public class InvitationService {
                 .orElseGet(() -> invitations.save(Invitation.createForClient(
                         workspaceId, clientId, email, clientRole, hash, invitedBy, expiry)));
 
-        // The same accept link staff use; only the email copy is portal-specific.
-        String link = "%s/auth/accept-invite?token=%s".formatted(
-                properties.web().baseUrl(),
-                URLEncoder.encode(plaintext, StandardCharsets.UTF_8));
-
         emailSender.send(templates.buildClientInvitationEmail(
-                email, inviter.getFullName(), workspace.getName(), clientName, link));
+                email, inviter.getFullName(), workspace.getName(), clientName, acceptLink(plaintext)));
 
         audit.event(WorkspaceEventType.MEMBER_INVITED)
                 .actor(invitedBy).workspace(workspaceId)
@@ -215,11 +177,7 @@ public class InvitationService {
         return invitation;
     }
 
-    /**
-     * Onboards a client representative. An existing active member skips the invitation entirely and
-     * gains the CLIENT role on their current membership, because a user is unique to a workspace and
-     * this person is already in; a stranger gets the ordinary invitation flow.
-     */
+    /** An active member gains the CLIENT role on their membership; a stranger gets an invitation. */
     @Transactional
     public ClientRepresentativeOnboarding onboardClientRepresentative(
             UUID workspaceId, UUID clientId, String clientName, String rawEmail, UUID addedBy,
@@ -227,9 +185,7 @@ public class InvitationService {
         String email = EmailAddressValidator.normalise(rawEmail);
         emailValidator.validateWorkEmail(email);
 
-        Optional<WorkspaceMember> existing = users.findByEmail(email)
-                .flatMap(user -> members.findByWorkspaceIdAndUserIdAndStatus(
-                        workspaceId, user.getId(), MemberStatus.ACTIVE));
+        Optional<WorkspaceMember> existing = activeMember(workspaceId, email);
         if (existing.isEmpty()) {
             Invitation invitation = inviteClientRepresentative(
                     workspaceId, clientId, clientName, email, addedBy, request);
@@ -243,12 +199,9 @@ public class InvitationService {
             member.changeRoles(roles);
         }
 
-        Workspace workspace = workspaces.findById(workspaceId)
-                .orElseThrow(() -> ApiException.of(ErrorCode.WORKSPACE_NOT_FOUND));
-        User adder = users.findById(addedBy)
-                .orElseThrow(() -> ApiException.of(ErrorCode.INVALID_CREDENTIALS));
-        User recipient = users.findById(member.getUserId())
-                .orElseThrow(() -> ApiException.of(ErrorCode.INVALID_CREDENTIALS));
+        Workspace workspace = requireWorkspace(workspaceId);
+        User adder = requireUser(addedBy);
+        User recipient = requireUser(member.getUserId());
 
         emailSender.send(templates.buildRepresentativeAddedEmail(
                 email, recipient.getFullName(), adder.getFullName(), workspace.getName(), clientName));
@@ -261,178 +214,13 @@ public class InvitationService {
         return new ClientRepresentativeOnboarding(true, member.getUserId(), null);
     }
 
-    /**
-     * What an invitation says, to whoever is holding its link — before they have an account, let alone a
-     * session.
-     *
-     * <p>Readable unauthenticated, because the person clicking the link out of their inbox is usually
-     * a stranger: the signup form needs the invited address so it can fix it rather than let them
-     * create an account we would then refuse.
-     *
-     * <p>It discloses a workspace name, an inviter's name and the invited address to a caller holding
-     * a 256-bit token mailed to that address. The email already said all three things.
-     */
-    @Transactional(readOnly = true)
-    public InvitationPreview preview(String plaintextToken) {
-        Invitation invitation = resolveRedeemable(plaintextToken, Instant.now());
-
-        Workspace workspace = workspaces.findById(invitation.getWorkspaceId())
-                .orElseThrow(() -> ApiException.of(ErrorCode.WORKSPACE_NOT_FOUND));
-
-        String inviterName = users.findById(invitation.getInvitedBy())
-                .map(User::getFullName)
-                .orElse(null);
-
-        return new InvitationPreview(
-                invitation.getEmail(),
-                invitation.getRole().getName(),
-                workspace.getName(),
-                inviterName);
-    }
-
-    /** What the invitee is shown before they sign in. See {@link #preview}. */
-    public record InvitationPreview(String email, String role, String workspaceName,
-                                    String inviterName) {}
-
-    /**
-     * Accepts an invitation by its emailed token. The invitee lands ACTIVE straight away — no approval
-     * step, because an admin naming them was the approval.
-     */
-    @Transactional
-    public WorkspaceMember accept(String plaintextToken, UUID userId, HttpServletRequest request) {
-        Instant now = Instant.now();
-        Invitation invitation = resolveRedeemable(plaintextToken, now);
-        return redeem(invitation, requireUser(userId), now, request);
-    }
-
-    /**
-     * Accepts the caller's own outstanding invitation, with no token.
-     *
-     * <p>The token's only job was proving control of the invited mailbox, and an authenticated,
-     * <b>email-verified</b> user whose address matches has already proven that. It is what lets an
-     * invitee who verified in a fresh tab — where the emailed token lives in another tab's
-     * sessionStorage — still land in the right workspace rather than create-your-own.
-     */
-    @Transactional
-    public WorkspaceMember acceptForUser(UUID userId, HttpServletRequest request) {
-        Instant now = Instant.now();
-        User user = requireUser(userId);
-
-        Invitation invitation = invitations
-                .findFirstByEmailAndStatusOrderByCreatedAtDesc(user.getEmail(), InvitationStatus.PENDING)
-                .filter(found -> found.isRedeemable(now))
-                .orElseThrow(() -> ApiException.of(ErrorCode.INVITATION_INVALID));
-
-        return redeem(invitation, user, now, request);
-    }
-
-    /**
-     * Accepts an invitation by creating the invited account in one step — the door in for an invitee who
-     * has no account yet, which is the common case.
-     *
-     * <p><b>No email-verification round-trip.</b> The invitation token was mailed only to
-     * {@code invitation.email}, so holding it is proof of that mailbox — the same proof verification
-     * exists to give. The account's address is the invitation's, never the request's, so the token can
-     * only mint the identity it was addressed to; that binding, plus the existing-account guard in
-     * {@code createVerifiedLocalUser}, is the security of this path.
-     *
-     * <p>Plain {@code @Transactional}: the account, membership, invitation-accept and refresh token
-     * roll back together.
-     */
-    @Transactional
-    public AuthenticatedSession acceptWithNewLocalUser(String plaintextToken, String fullName,
-                                                       String password, HttpServletRequest request) {
-        Instant now = Instant.now();
-        Invitation invitation = resolveRedeemable(plaintextToken, now);
-        rateLimit.checkSignup(invitation.getEmail(), request);
-
-        // The email is the invitation's, so the account is bound to the address the token was mailed
-        // to. createVerifiedLocalUser rejects an address that already has an account, so that person
-        // is sent to log in rather than silently gaining a second identity.
-        User user = authentication.createVerifiedLocalUser(
-                invitation.getEmail(), fullName, password, request);
-        WorkspaceMember member = redeem(invitation, user, now, request);
-
-        return tokens.issue(user, member, request);
-    }
-
-    /**
-     * The shared tail of both accept paths: the guards, the membership, the audit trail.
-     *
-     * <p>Their email must match the address that was invited. An invitation is addressed to a person,
-     * and a link forwarded to somebody else must not let that somebody else in.
-     */
-    private WorkspaceMember redeem(Invitation invitation, User user, Instant now,
-                                   HttpServletRequest request) {
-        if (!user.getEmail().equalsIgnoreCase(invitation.getEmail())) {
-            audit.event(WorkspaceEventType.INVITATION_ACCEPTED).failed().actor(user.getId())
-                    .workspace(invitation.getWorkspaceId()).from(request)
-                    .reason("email_mismatch").record();
-            throw new ApiException(ErrorCode.INVITATION_INVALID,
-                    "Invitation was addressed to a different email");
-        }
-
-        // An unverified address is an unproven claim to be this person. Accepting on it would let
-        // whoever intercepted the invitation email walk in as its intended recipient.
-        if (!user.isEmailVerified()) {
-            throw ApiException.of(ErrorCode.EMAIL_NOT_VERIFIED);
-        }
-
-        if (members.findByUserIdAndStatus(user.getId(), MemberStatus.ACTIVE).isPresent()) {
-            throw ApiException.of(ErrorCode.ALREADY_IN_WORKSPACE);
-        }
-
-        invitation.accept(user.getId(), now);
-        WorkspaceMember member = members.save(WorkspaceMember.invite(
-                invitation.getWorkspaceId(), user.getId(), Set.of(invitation.getRole()),
-                invitation.getInvitedBy()));
-
-        log.info("User {} accepted invitation to workspace {} as {}",
-                user.getId(), invitation.getWorkspaceId(), invitation.getRole().getName());
-
-        audit.event(WorkspaceEventType.INVITATION_ACCEPTED)
-                .actor(user.getId()).workspace(invitation.getWorkspaceId())
-                .target("invitation", invitation.getId()).from(request)
-                .detail("role", invitation.getRole().getName())
-                .record();
-
-        // Published within this transaction, so the membership and the representative row's
-        // activation commit together.
-        if (invitation.getClientId() != null) {
-            events.publishEvent(new ClientRepresentativeAcceptedEvent(
-                    invitation.getWorkspaceId(), invitation.getClientId(), user.getEmail(), user.getId()));
-        }
-
-        return member;
-    }
-
-    /**
-     * Resolves an invitation from its emailed token, or fails with the reason it cannot be redeemed: an
-     * unknown or already-consumed token is {@code INVITATION_INVALID}, a lapsed one
-     * {@code INVITATION_EXPIRED}. Shared by preview and every accept path.
-     */
-    private Invitation resolveRedeemable(String plaintextToken, Instant now) {
-        Invitation invitation = invitations.findByTokenHash(Tokens.hash(plaintextToken))
-                .orElseThrow(() -> ApiException.of(ErrorCode.INVITATION_INVALID));
-        if (!invitation.isRedeemable(now)) {
-            throw ApiException.of(invitation.getExpiresAt().isBefore(now)
-                    ? ErrorCode.INVITATION_EXPIRED
-                    : ErrorCode.INVITATION_INVALID);
-        }
-        return invitation;
-    }
-
-    /**
-     * Outstanding <b>staff</b> invitations, for the Members screen. Client-rep invitations carry a
-     * client id, never surface here, and their ids are not reachable by the revoke/resend below.
-     */
+    /** Staff invitations only: a client-rep invitation never surfaces, nor is reachable by revoke/resend. */
     @Transactional(readOnly = true)
     public List<Invitation> pending(UUID userId, UUID workspaceId) {
         access.requireAdmin(userId, workspaceId);
         return invitations.findByWorkspaceIdAndClientIdIsNullAndStatus(workspaceId, InvitationStatus.PENDING);
     }
 
-    /** Withdraws an invitation — the emailed link stops working immediately. */
     @Transactional
     public void revoke(UUID userId, UUID workspaceId, UUID invitationId, HttpServletRequest request) {
         access.requireAdmin(userId, workspaceId);
@@ -452,8 +240,7 @@ public class InvitationService {
         access.requireAdmin(userId, workspaceId);
         Invitation invitation = requirePendingInvitation(workspaceId, invitationId);
 
-        Workspace workspace = workspaces.findById(workspaceId)
-                .orElseThrow(() -> ApiException.of(ErrorCode.WORKSPACE_NOT_FOUND));
+        Workspace workspace = requireWorkspace(workspaceId);
         User inviter = requireUser(userId);
 
         issueOrRefresh(workspace, inviter, invitation.getEmail(),
@@ -470,11 +257,21 @@ public class InvitationService {
                 .orElseThrow(() -> ApiException.of(ErrorCode.NOT_FOUND));
     }
 
-    private boolean isAlreadyMember(UUID workspaceId, String email) {
+    private Optional<WorkspaceMember> activeMember(UUID workspaceId, String email) {
         return users.findByEmail(email)
                 .flatMap(user -> members.findByWorkspaceIdAndUserIdAndStatus(
-                        workspaceId, user.getId(), MemberStatus.ACTIVE))
-                .isPresent();
+                        workspaceId, user.getId(), MemberStatus.ACTIVE));
+    }
+
+    private String acceptLink(String plaintextToken) {
+        return "%s/auth/accept-invite?token=%s".formatted(
+                properties.web().baseUrl(),
+                URLEncoder.encode(plaintextToken, StandardCharsets.UTF_8));
+    }
+
+    private Workspace requireWorkspace(UUID workspaceId) {
+        return workspaces.findById(workspaceId)
+                .orElseThrow(() -> ApiException.of(ErrorCode.WORKSPACE_NOT_FOUND));
     }
 
     private User requireUser(UUID userId) {
