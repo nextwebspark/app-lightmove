@@ -12,8 +12,8 @@ import app.lightmove.api.candidate.model.CompetencyPanelAssessment;
 import app.lightmove.api.candidate.model.InferredBackground;
 import app.lightmove.api.common.constant.NationalityGroup;
 import app.lightmove.api.core.llm.model.BlockedAnswer;
-import app.lightmove.api.core.llm.model.PromptGuardSpec;
-import app.lightmove.api.core.llm.service.LlmCallPolicy;
+import app.lightmove.api.core.llm.service.StructuredPrompt;
+import app.lightmove.api.core.llm.service.StructuredPromptFactory;
 import app.lightmove.api.position.dto.AssessmentDto;
 import app.lightmove.api.position.dto.CompetencyDto;
 import app.lightmove.api.position.dto.PositionResponse;
@@ -26,14 +26,9 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
-import java.util.function.Consumer;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.ai.chat.client.ChatClient;
-import org.springframework.ai.google.genai.GoogleGenAiChatOptions;
-import org.springframework.beans.factory.annotation.Value;
-import org.springframework.core.io.Resource;
 import org.springframework.stereotype.Service;
 
 /**
@@ -46,8 +41,6 @@ import org.springframework.stereotype.Service;
 public class CandidateAiEnricher {
 
     private static final String PROMPT_ID = "candidate-ai-enrich";
-    private static final double ENRICH_TEMPERATURE = 0.0;
-    private static final int ENRICH_THINKING_BUDGET = 0;
 
     private static final int MIN_PLAUSIBLE_YEARS = 0;
     private static final int MAX_PLAUSIBLE_YEARS = 60;
@@ -59,18 +52,10 @@ public class CandidateAiEnricher {
 
     private static final String BLOCKED = "{\"summary\":\"" + BlockedAnswer.MARKER + "\"}";
 
-    private final ChatClient chatClient;
-    private final Resource systemPrompt;
-    private final Consumer<ChatClient.AdvisorSpec> guarded;
+    private final StructuredPrompt prompt;
 
-    // Hand-written: Lombok cannot put @Value on a generated constructor parameter.
-    public CandidateAiEnricher(ChatClient chatClient,
-                               @Value("classpath:prompts/candidate-ai-enrich-system.st") Resource systemPrompt,
-                               @Value("classpath:prompts/candidate-ai-enrich-schema.json") Resource answerSchema,
-                               LlmCallPolicy llmCalls) {
-        this.chatClient = chatClient;
-        this.systemPrompt = systemPrompt;
-        this.guarded = llmCalls.forPrompt(PromptGuardSpec.structured(PROMPT_ID, answerSchema, BLOCKED));
+    public CandidateAiEnricher(StructuredPromptFactory prompts) {
+        this.prompt = prompts.createSearchGrounded(PROMPT_ID, BLOCKED);
     }
 
     public Optional<CandidateAiEnrichment> enrich(CandidateDossier dossier, PositionResponse brief) {
@@ -93,74 +78,62 @@ public class CandidateAiEnricher {
 
     private ModelAnswer ask(CandidateDossier dossier, PositionResponse brief) {
         AssessmentDto assessment = brief.assessment();
-        return chatClient.prompt()
-                .advisors(guarded)
-                // Google Search grounding cannot be combined with a JSON response type on Gemini 2.5,
-                // so the answer's shape comes from the prompt and the schema advisor instead.
-                .options(GoogleGenAiChatOptions.builder()
-                        .temperature(ENRICH_TEMPERATURE)
-                        .thinkingBudget(ENRICH_THINKING_BUDGET)
-                        .googleSearchRetrieval(true)
-                        .labels(Map.of("prompt", PROMPT_ID)))
-                .system(systemPrompt)
-                .user(user -> user.text("""
-                        THE CANDIDATE (their LinkedIn profile, already researched — do not search it again)
-                        Name: {name}
-                        Current title: {title}
-                        Current employer: {company}
-                        Location: {location}
-                        LinkedIn profile: {linkedin}
-                        About: {about}
+        return prompt.ask(ModelAnswer.class, user -> user.text("""
+                THE CANDIDATE (their LinkedIn profile, already researched — do not search it again)
+                Name: {name}
+                Current title: {title}
+                Current employer: {company}
+                Location: {location}
+                LinkedIn profile: {linkedin}
+                About: {about}
 
-                        Career history, most recent first:
-                        {career}
+                Career history, most recent first:
+                {career}
 
-                        Education:
-                        {education}
+                Education:
+                {education}
 
-                        Skills: {skills}
-                        Languages: {languages}
+                Skills: {skills}
+                Languages: {languages}
 
-                        Background fields still to propose: {missing}
+                Background fields still to propose: {missing}
 
-                        THE ROLE
-                        Title: {roleTitle}
-                        Seniority: {seniority}
-                        Technical share of the assessment: {technicalShare}%
+                THE ROLE
+                Title: {roleTitle}
+                Seniority: {seniority}
+                Technical share of the assessment: {technicalShare}%
 
-                        Technical competencies:
-                        {technical}
+                Technical competencies:
+                {technical}
 
-                        Behavioural competencies:
-                        {behavioural}
+                Behavioural competencies:
+                {behavioural}
 
-                        Selection criteria:
-                        {criteria}
-                        """)
-                        .param("name", orNotStated(dossier.fullName()))
-                        .param("title", orNotStated(dossier.title()))
-                        .param("company", orNotStated(dossier.companyName()))
-                        .param("location", locationOf(dossier))
-                        .param("linkedin", orNotStated(dossier.linkedinUrl()))
-                        .param("about", orNotStated(dossier.summary()))
-                        .param("career", careerOf(dossier.career()))
-                        .param("education", educationOf(dossier.education()))
-                        .param("skills", listOf(dossier.skills()))
-                        .param("languages", listOf(dossier.languages()))
-                        .param("missing", missingOf(dossier.missingBackground()))
-                        .param("roleTitle", orNotStated(brief.details() == null ? null : brief.details().roleTitle()))
-                        .param("seniority", brief.details() == null || brief.details().seniority() == null
-                                ? NOT_STATED : brief.details().seniority().name())
-                        .param("technicalShare", assessment == null ? 50 : assessment.technicalShare())
-                        .param("technical", competenciesOf(assessment == null ? List.of() : assessment.technical()))
-                        .param("behavioural", competenciesOf(assessment == null ? List.of() : assessment.behavioural()))
-                        .param("criteria", assessment == null || assessment.criteria().isEmpty() ? NOT_STATED
-                                : assessment.criteria().stream()
-                                        .map(criterion -> "- (%s) %s".formatted(
-                                                criterion.mode().name().toLowerCase(Locale.ROOT), criterion.text()))
-                                        .collect(Collectors.joining("\n"))))
-                .call()
-                .entity(ModelAnswer.class);
+                Selection criteria:
+                {criteria}
+                """)
+                .param("name", orNotStated(dossier.fullName()))
+                .param("title", orNotStated(dossier.title()))
+                .param("company", orNotStated(dossier.companyName()))
+                .param("location", locationOf(dossier))
+                .param("linkedin", orNotStated(dossier.linkedinUrl()))
+                .param("about", orNotStated(dossier.summary()))
+                .param("career", careerOf(dossier.career()))
+                .param("education", educationOf(dossier.education()))
+                .param("skills", listOf(dossier.skills()))
+                .param("languages", listOf(dossier.languages()))
+                .param("missing", missingOf(dossier.missingBackground()))
+                .param("roleTitle", orNotStated(brief.details() == null ? null : brief.details().roleTitle()))
+                .param("seniority", brief.details() == null || brief.details().seniority() == null
+                        ? NOT_STATED : brief.details().seniority().name())
+                .param("technicalShare", assessment == null ? 50 : assessment.technicalShare())
+                .param("technical", competenciesOf(assessment == null ? List.of() : assessment.technical()))
+                .param("behavioural", competenciesOf(assessment == null ? List.of() : assessment.behavioural()))
+                .param("criteria", assessment == null || assessment.criteria().isEmpty() ? NOT_STATED
+                        : assessment.criteria().stream()
+                                .map(criterion -> "- (%s) %s".formatted(
+                                        criterion.mode().name().toLowerCase(Locale.ROOT), criterion.text()))
+                                .collect(Collectors.joining("\n"))));
     }
 
     /** Only what was missing when the run began; {@code Candidate.proposeBackground} re-checks at write. */

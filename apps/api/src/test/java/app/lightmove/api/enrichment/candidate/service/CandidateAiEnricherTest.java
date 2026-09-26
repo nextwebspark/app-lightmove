@@ -23,7 +23,6 @@ import java.util.Map;
 import java.util.Set;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
-import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.ai.chat.messages.AssistantMessage;
 import org.springframework.ai.chat.model.ChatModel;
 import org.springframework.ai.chat.model.ChatResponse;
@@ -31,8 +30,6 @@ import org.springframework.ai.chat.model.Generation;
 import org.springframework.ai.chat.prompt.ChatOptions;
 import org.springframework.ai.chat.prompt.Prompt;
 import org.springframework.ai.google.genai.GoogleGenAiChatOptions;
-import org.springframework.core.io.ByteArrayResource;
-import org.springframework.core.io.ClassPathResource;
 
 class CandidateAiEnricherTest {
 
@@ -112,10 +109,7 @@ class CandidateAiEnricherTest {
     }
 
     private static CandidateAiEnricher enricherOver(ChatModel model) {
-        return new CandidateAiEnricher(ChatClient.builder(model).build(),
-                new ByteArrayResource("enrich the candidate".getBytes()),
-                new ClassPathResource("prompts/candidate-ai-enrich-schema.json"),
-                TestLlmCallPolicy.asShipped());
+        return new CandidateAiEnricher(TestLlmCallPolicy.promptsOver(model));
     }
 
     /** Answers as {@code GoogleGenAiChatModel} would, so the call's own Google options are merged onto these. */

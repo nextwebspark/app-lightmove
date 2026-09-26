@@ -5,7 +5,8 @@ import app.lightmove.api.common.constant.CriterionMode;
 import app.lightmove.api.core.llm.model.BlockedAnswer;
 import app.lightmove.api.core.llm.model.PromptGuardSpec;
 import app.lightmove.api.core.llm.model.Pseudonyms;
-import app.lightmove.api.core.llm.service.LlmCallPolicy;
+import app.lightmove.api.core.llm.service.StructuredPrompt;
+import app.lightmove.api.core.llm.service.StructuredPromptFactory;
 import app.lightmove.api.core.llm.service.TextPseudonymiser.Redaction;
 import app.lightmove.api.core.ratelimit.service.LlmBudget;
 import app.lightmove.api.core.ratelimit.service.LlmBudgetGuard;
@@ -20,16 +21,10 @@ import app.lightmove.api.positiontemplate.model.PositionTemplateCompetency;
 import app.lightmove.api.positiontemplate.service.PositionTemplateService;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
-import java.util.function.Consumer;
 import java.util.stream.Collectors;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.ai.chat.client.ChatClient;
-import org.springframework.ai.google.genai.GoogleGenAiChatOptions;
-import org.springframework.beans.factory.annotation.Value;
-import org.springframework.core.io.Resource;
 import org.springframework.stereotype.Service;
 
 /**
@@ -49,9 +44,6 @@ public class PositionAssessmentProposer {
 
     private static final String LABEL = "Assessment extraction";
     private static final String PROMPT_ID = "position-extract-assessment";
-    private static final double EXTRACTION_TEMPERATURE = 0.0;
-    private static final String ANSWER_MIME_TYPE = "application/json";
-    private static final int EXTRACTION_THINKING_BUDGET = 0;
 
     /** Binds to {@link ModelAssessmentAnswer}, whose only required field is {@code criteria}. */
     private static final String BLOCKED =
@@ -70,30 +62,21 @@ public class PositionAssessmentProposer {
      *  segment 2, when present, to be it. */
     private static final String PACK_SEPARATOR = " — ";
 
-    private final ChatClient chatClient;
     private final PositionDocumentRedactor redactor;
     private final PositionTemplateService templates;
     private final ExtractedFieldReader fieldReader;
-    private final Resource systemPrompt;
-    private final Consumer<ChatClient.AdvisorSpec> guarded;
+    private final StructuredPrompt prompt;
     private final LlmBudgetGuard llmBudget;
 
-    // Hand-written rather than @RequiredArgsConstructor: Lombok cannot annotate a constructor
-    // parameter with @Value, matching every other proposer's own exemption.
-    public PositionAssessmentProposer(ChatClient chatClient,
+    public PositionAssessmentProposer(StructuredPromptFactory prompts,
                                       PositionDocumentRedactor redactor,
                                       PositionTemplateService templates,
                                       ExtractedFieldReader fieldReader,
-                                      @Value("classpath:prompts/position-extract-assessment-system.st") Resource systemPrompt,
-                                      @Value("classpath:prompts/position-extract-assessment-schema.json") Resource answerSchema,
-                                      LlmCallPolicy llmCalls,
                                       LlmBudgetGuard llmBudget) {
-        this.chatClient = chatClient;
         this.redactor = redactor;
         this.templates = templates;
         this.fieldReader = fieldReader;
-        this.systemPrompt = systemPrompt;
-        this.guarded = llmCalls.forPrompt(PromptGuardSpec.structured(PROMPT_ID, answerSchema, BLOCKED));
+        this.prompt = prompts.create(PROMPT_ID, BLOCKED);
         this.llmBudget = llmBudget;
     }
 
@@ -120,23 +103,13 @@ public class PositionAssessmentProposer {
     }
 
     private ModelAssessmentAnswer ask(String redactedText, String vocabulary) {
-        return chatClient.prompt()
-                .advisors(guarded)
-                .options(GoogleGenAiChatOptions.builder()
-                        .temperature(EXTRACTION_TEMPERATURE)
-                        .responseMimeType(ANSWER_MIME_TYPE)
-                        .thinkingBudget(EXTRACTION_THINKING_BUDGET)
-                        .labels(Map.of("prompt", PROMPT_ID)))
-                .system(systemPrompt)
-                .user(user -> user.text("""
-                        Position description text:
-                        {text}
-                        {vocabulary}
-                        """)
-                        .param("text", redactedText)
-                        .param("vocabulary", vocabulary))
-                .call()
-                .entity(ModelAssessmentAnswer.class);
+        return prompt.ask(ModelAssessmentAnswer.class, user -> user.text("""
+                Position description text:
+                {text}
+                {vocabulary}
+                """)
+                .param("text", redactedText)
+                .param("vocabulary", vocabulary));
     }
 
     /**

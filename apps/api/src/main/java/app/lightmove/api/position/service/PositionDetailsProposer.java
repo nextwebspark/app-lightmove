@@ -3,9 +3,9 @@ package app.lightmove.api.position.service;
 import app.lightmove.api.common.constant.EmploymentType;
 import app.lightmove.api.common.constant.Seniority;
 import app.lightmove.api.core.llm.model.BlockedAnswer;
-import app.lightmove.api.core.llm.model.PromptGuardSpec;
 import app.lightmove.api.core.llm.model.Pseudonyms;
-import app.lightmove.api.core.llm.service.LlmCallPolicy;
+import app.lightmove.api.core.llm.service.StructuredPrompt;
+import app.lightmove.api.core.llm.service.StructuredPromptFactory;
 import app.lightmove.api.core.llm.service.TextPseudonymiser.Redaction;
 import app.lightmove.api.core.ratelimit.service.LlmBudget;
 import app.lightmove.api.core.ratelimit.service.LlmBudgetGuard;
@@ -18,15 +18,10 @@ import app.lightmove.api.position.model.ModelDetailsAnswer;
 import app.lightmove.api.position.model.ProposedPositionDetails;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
-import java.util.function.Consumer;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.ai.chat.client.ChatClient;
-import org.springframework.ai.google.genai.GoogleGenAiChatOptions;
-import org.springframework.beans.factory.annotation.Value;
-import org.springframework.core.io.Resource;
 import org.springframework.stereotype.Service;
 
 /**
@@ -59,15 +54,6 @@ public class PositionDetailsProposer {
     private static final String PROMPT_ID = "position-extract-details";
     private static final String LABEL = "Position extraction";
 
-    /** Extraction has one right answer per field, so variance only buys answers that will not bind. */
-    private static final double EXTRACTION_TEMPERATURE = 0.0;
-
-    /** See {@code ColumnMappingProposer}'s identical constant: native JSON avoids a markdown fence. */
-    private static final String ANSWER_MIME_TYPE = "application/json";
-
-    /** No reasoning step: reading a document into fixed fields is not a problem thinking improves. */
-    private static final int EXTRACTION_THINKING_BUDGET = 0;
-
     /**
      * What the guard answers with when it blocks a call. Binds to {@link ModelDetailsAnswer}, whose
      * only required field is {@code roleTitle} — the same reason the schema requires it.
@@ -81,30 +67,21 @@ public class PositionDetailsProposer {
     private static final int RESPONSIBILITY_MAX_LENGTH = 200;
     private static final int RESPONSIBILITY_MAX_COUNT = 5;
 
-    private final ChatClient chatClient;
     private final HeuristicBriefReader heuristics;
     private final PositionDocumentRedactor redactor;
     private final ExtractedFieldReader fieldReader;
-    private final Resource systemPrompt;
-    private final Consumer<ChatClient.AdvisorSpec> guarded;
+    private final StructuredPrompt prompt;
     private final LlmBudgetGuard llmBudget;
 
-    // Hand-written rather than @RequiredArgsConstructor: Lombok cannot annotate a constructor
-    // parameter with @Value, matching ColumnMappingProposer's own exemption.
-    public PositionDetailsProposer(ChatClient chatClient,
+    public PositionDetailsProposer(StructuredPromptFactory prompts,
                                    HeuristicBriefReader heuristics,
                                    PositionDocumentRedactor redactor,
                                    ExtractedFieldReader fieldReader,
-                                   @Value("classpath:prompts/position-extract-details-system.st") Resource systemPrompt,
-                                   @Value("classpath:prompts/position-extract-details-schema.json") Resource answerSchema,
-                                   LlmCallPolicy llmCalls,
                                    LlmBudgetGuard llmBudget) {
-        this.chatClient = chatClient;
         this.heuristics = heuristics;
         this.redactor = redactor;
         this.fieldReader = fieldReader;
-        this.systemPrompt = systemPrompt;
-        this.guarded = llmCalls.forPrompt(PromptGuardSpec.structured(PROMPT_ID, answerSchema, BLOCKED));
+        this.prompt = prompts.create(PROMPT_ID, BLOCKED);
         this.llmBudget = llmBudget;
     }
 
@@ -137,21 +114,11 @@ public class PositionDetailsProposer {
     }
 
     private ModelDetailsAnswer ask(String redactedText) {
-        return chatClient.prompt()
-                .advisors(guarded)
-                .options(GoogleGenAiChatOptions.builder()
-                        .temperature(EXTRACTION_TEMPERATURE)
-                        .responseMimeType(ANSWER_MIME_TYPE)
-                        .thinkingBudget(EXTRACTION_THINKING_BUDGET)
-                        .labels(Map.of("prompt", PROMPT_ID)))
-                .system(systemPrompt)
-                .user(user -> user.text("""
-                        Position description text:
-                        {text}
-                        """)
-                        .param("text", redactedText))
-                .call()
-                .entity(ModelDetailsAnswer.class);
+        return prompt.ask(ModelDetailsAnswer.class, user -> user.text("""
+                Position description text:
+                {text}
+                """)
+                .param("text", redactedText));
     }
 
     private static boolean wasBlocked(ModelDetailsAnswer answered) {

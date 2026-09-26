@@ -26,7 +26,6 @@ import java.util.Optional;
 import java.util.UUID;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
-import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.ai.chat.messages.AssistantMessage;
 import org.springframework.ai.chat.messages.Message;
 import org.springframework.ai.chat.model.ChatModel;
@@ -38,7 +37,6 @@ import org.springframework.ai.google.genai.GoogleGenAiChatOptions;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Import;
 import org.springframework.core.io.ClassPathResource;
-import org.springframework.core.io.Resource;
 import org.springframework.http.MediaType;
 import org.springframework.util.StreamUtils;
 
@@ -317,10 +315,8 @@ class PositionReportingProposerTest extends FlowTestSupport {
     // ── helpers ──────────────────────────────────────────────────────────────
 
     private PositionReportingProposer proposerWith(ChatModel model) {
-        Resource prompt = new ClassPathResource("prompts/position-extract-reporting-system.st");
-        Resource schema = new ClassPathResource("prompts/position-extract-reporting-schema.json");
-        return new PositionReportingProposer(ChatClient.builder(model).build(), redactor, fieldReader,
-                prompt, schema, TestLlmCallPolicy.asShipped(), budgetGuard());
+        return new PositionReportingProposer(TestLlmCallPolicy.promptsOver(model), redactor, fieldReader,
+                budgetGuard());
     }
 
     /** A guard whose limiter always says yes: the budget is metered in {@code LlmBudgetGuard}'s own test. */

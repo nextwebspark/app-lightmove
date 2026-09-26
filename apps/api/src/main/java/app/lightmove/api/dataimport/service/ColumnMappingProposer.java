@@ -3,19 +3,19 @@ package app.lightmove.api.dataimport.service;
 import app.lightmove.api.core.config.LightMoveProperties;
 import app.lightmove.api.core.config.SpreadsheetImportSettings;
 import app.lightmove.api.core.llm.model.BlockedAnswer;
-import app.lightmove.api.core.llm.model.PromptGuardSpec;
-import app.lightmove.api.core.llm.service.LlmCallPolicy;
+import app.lightmove.api.core.llm.service.StructuredPrompt;
+import app.lightmove.api.core.llm.service.StructuredPromptFactory;
+import app.lightmove.api.core.ratelimit.service.LlmBudget;
+import app.lightmove.api.core.ratelimit.service.LlmBudgetGuard;
 import app.lightmove.api.customcolumn.constant.CustomColumnTarget;
 import app.lightmove.api.customcolumn.constant.CustomColumnType;
 import app.lightmove.api.customcolumn.dto.CustomColumnDto;
-import app.lightmove.api.core.ratelimit.service.LlmBudget;
-import app.lightmove.api.core.ratelimit.service.LlmBudgetGuard;
 import app.lightmove.api.dataimport.constant.ImportTargetField;
 import app.lightmove.api.dataimport.constant.MappingSource;
 import app.lightmove.api.dataimport.model.ColumnMapping;
 import app.lightmove.api.dataimport.model.HeuristicProposal;
-import app.lightmove.api.dataimport.model.ModelMappingAnswer;
 import app.lightmove.api.dataimport.model.ModelMappingAnswer.ModelMappedColumn;
+import app.lightmove.api.dataimport.model.ModelMappingAnswer;
 import app.lightmove.api.dataimport.model.ParsedSheet;
 import app.lightmove.api.dataimport.model.ProposedColumnMappings;
 import app.lightmove.api.dataimport.model.SheetColumn;
@@ -30,15 +30,11 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
-import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.ai.chat.client.ChatClient;
-import org.springframework.ai.google.genai.GoogleGenAiChatOptions;
-import org.springframework.beans.factory.annotation.Value;
-import org.springframework.core.io.Resource;
 import org.springframework.stereotype.Service;
 
 /**
@@ -85,26 +81,6 @@ public class ColumnMappingProposer {
      */
     private static final Pattern PROMPT_UNSAFE = Pattern.compile("[\\p{Cntrl}\"]+");
 
-    /** Column mapping has one right answer, so variance buys only answers that will not bind. */
-    private static final double MAPPING_TEMPERATURE = 0.0;
-
-    /**
-     * Asked for natively, so there is no markdown fence on the answer.
-     *
-     * <p>Without it Gemini wraps its reply in a {@code ```json} fence, and
-     * {@code StructuredOutputValidationAdvisor} hands the assistant text to Jackson verbatim. Every
-     * preview therefore failed validation on the leading backtick and spent its repair attempt
-     * re-asking a question whose answer came back fenced identically, at twice the Vertex cost.
-     */
-    private static final String ANSWER_MIME_TYPE = "application/json";
-
-    /**
-     * No reasoning step: mapping is a lookup onto a fixed field list, not a problem thinking
-     * improves. Left at the model's default it deliberated before every answer — billed output tokens
-     * and seconds of a preview a person is waiting on.
-     */
-    private static final int MAPPING_THINKING_BUDGET = 0;
-
     /**
      * What the guard answers with when it blocks a call.
      *
@@ -116,25 +92,17 @@ public class ColumnMappingProposer {
     private static final String BLOCKED =
             "{\"columns\":[{\"header\":\"" + BlockedAnswer.MARKER + "\"}]}";
 
-    private final ChatClient chatClient;
     private final HeuristicColumnMatcher heuristics;
-    private final Resource systemPrompt;
-    private final Consumer<ChatClient.AdvisorSpec> guarded;
+    private final StructuredPrompt prompt;
     private final LlmBudgetGuard llmBudget;
     private final SpreadsheetImportSettings settings;
 
-    // Hand-written: Lombok cannot put @Value on a generated constructor parameter.
-    public ColumnMappingProposer(ChatClient chatClient,
+    public ColumnMappingProposer(StructuredPromptFactory prompts,
                                  HeuristicColumnMatcher heuristics,
-                                 @Value("classpath:prompts/import-column-mapping-system.st") Resource systemPrompt,
-                                 @Value("classpath:prompts/import-column-mapping-schema.json") Resource answerSchema,
-                                 LlmCallPolicy llmCalls,
                                  LlmBudgetGuard llmBudget,
                                  LightMoveProperties properties) {
-        this.chatClient = chatClient;
         this.heuristics = heuristics;
-        this.systemPrompt = systemPrompt;
-        this.guarded = llmCalls.forPrompt(PromptGuardSpec.structured(PROMPT_ID, answerSchema, BLOCKED));
+        this.prompt = prompts.create(PROMPT_ID, BLOCKED);
         this.llmBudget = llmBudget;
         this.settings = properties.spreadsheetImport();
     }
@@ -189,29 +157,19 @@ public class ColumnMappingProposer {
      * merge by key rather than being replaced, so the prompt's own is added beside the application's.
      */
     private ModelMappingAnswer ask(ParsedSheet sheet, List<CustomColumnDto> existingColumns) {
-        return chatClient.prompt()
-                .advisors(guarded)
-                .options(GoogleGenAiChatOptions.builder()
-                        .temperature(MAPPING_TEMPERATURE)
-                        .responseMimeType(ANSWER_MIME_TYPE)
-                        .thinkingBudget(MAPPING_THINKING_BUDGET)
-                        .labels(Map.of("prompt", PROMPT_ID)))
-                .system(systemPrompt)
-                .user(user -> user.text("""
-                        Columns in the uploaded file:
-                        {columns}
+        return prompt.ask(ModelMappingAnswer.class, user -> user.text("""
+                Columns in the uploaded file:
+                {columns}
 
-                        Fields available to map onto:
-                        {fields}
+                Fields available to map onto:
+                {fields}
 
-                        Custom columns this project already has:
-                        {existing}
-                        """)
-                        .param("columns", describeColumns(sheet))
-                        .param("fields", describeFields())
-                        .param("existing", describeExisting(existingColumns)))
-                .call()
-                .entity(ModelMappingAnswer.class);
+                Custom columns this project already has:
+                {existing}
+                """)
+                .param("columns", describeColumns(sheet))
+                .param("fields", describeFields())
+                .param("existing", describeExisting(existingColumns)));
     }
 
     private static boolean wasBlocked(ModelMappingAnswer answered) {

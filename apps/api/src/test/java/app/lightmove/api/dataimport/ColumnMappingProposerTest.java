@@ -37,9 +37,6 @@ import org.springframework.ai.chat.model.Generation;
 import org.springframework.ai.chat.prompt.ChatOptions;
 import org.springframework.ai.chat.prompt.Prompt;
 import org.springframework.ai.google.genai.GoogleGenAiChatOptions;
-import org.springframework.core.io.ByteArrayResource;
-import org.springframework.core.io.ClassPathResource;
-import org.springframework.core.io.Resource;
 
 /**
  * What is sent to the model, and what happens when it cannot be reached.
@@ -414,10 +411,8 @@ class ColumnMappingProposerTest {
     }
 
     private static ColumnMappingProposer proposerWith(ChatModel model, boolean sendSamples) {
-        Resource prompt = new ByteArrayResource("map the columns".getBytes());
-        return new ColumnMappingProposer(ChatClient.builder(model).build(), new HeuristicColumnMatcher(),
-                prompt, answerSchema(), TestLlmCallPolicy.asShipped(), budgetGuard(),
-                propertiesWith(sendSamples));
+        return new ColumnMappingProposer(TestLlmCallPolicy.promptsOver(model), new HeuristicColumnMatcher(),
+                budgetGuard(), propertiesWith(sendSamples));
     }
 
     /** A guard whose limiter always says yes: the budget is metered in its own test, not here. */
@@ -426,11 +421,6 @@ class ColumnMappingProposerTest {
                 new LightMoveProperties(null, null, null, null, null,
                         new LlmSettings(new LlmRateLimitSettings(true, 10, 20, 10), 20_000, 1, List.of()),
                         null, null, null, null, null, null, null, null, null));
-    }
-
-    /** The shipped schema, not a stand-in: what it does and does not require is the thing under test. */
-    private static Resource answerSchema() {
-        return new ClassPathResource("prompts/import-column-mapping-schema.json");
     }
 
     private static LightMoveProperties propertiesWith(boolean sendSamples) {
@@ -471,11 +461,10 @@ class ColumnMappingProposerTest {
                 {"columns":[{"header":"Contact","targetField":"candidateEmail"}]}
                 """);
         ContextCapturingAdvisor captured = new ContextCapturingAdvisor();
-        Resource prompt = new ByteArrayResource("map the columns".getBytes());
         ChatClient chatClient = ChatClient.builder(model).defaultAdvisors(captured).build();
 
-        new ColumnMappingProposer(chatClient, new HeuristicColumnMatcher(), prompt, answerSchema(),
-                TestLlmCallPolicy.asShipped(), budgetGuard(), propertiesWith(false))
+        new ColumnMappingProposer(TestLlmCallPolicy.promptsOver(chatClient), new HeuristicColumnMatcher(),
+                budgetGuard(), propertiesWith(false))
                 .propose(SOMEBODY, sheetWithValues(), List.of());
 
         assertThat(captured.context).containsEntry(ChatCallLog.PROMPT_ID_ATTRIBUTE, "import-column-mapping");
