@@ -13,6 +13,7 @@ import app.lightmove.api.triagecompany.dto.TriageCompaniesResponse;
 import app.lightmove.api.triagecompany.dto.TriageCompanyListCriteria;
 import app.lightmove.api.triagecompany.dto.TriageCompanyResponse;
 import app.lightmove.api.triagecompany.dto.UpdateTriageCompanyRequest;
+import app.lightmove.api.triagecompany.service.TriageCompanyReadService;
 import app.lightmove.api.triagecompany.service.TriageCompanyService;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
@@ -44,6 +45,7 @@ import org.springframework.web.bind.annotation.RestController;
 public class TriageCompanyController {
 
     private final TriageCompanyService triage;
+    private final TriageCompanyReadService reads;
 
     @GetMapping
     @RequireProjectPermission(ProjectAction.WORK_VIEW)
@@ -59,7 +61,7 @@ public class TriageCompanyController {
                                         @RequestParam(required = false) Integer size) {
         TriageCompanyListCriteria criteria = new TriageCompanyListCriteria(
                 status, q, executiveQuery, executiveStatuses, sort, direction, page, size);
-        return triage.list(principal.requireWorkspaceId(), projectId, criteria);
+        return reads.list(principal.requireWorkspaceId(), projectId, criteria);
     }
 
     @PostMapping
