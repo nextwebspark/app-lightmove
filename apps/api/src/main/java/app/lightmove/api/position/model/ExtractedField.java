@@ -4,10 +4,9 @@ import app.lightmove.api.position.constant.ProposalConfidence;
 import app.lightmove.api.position.constant.ProposalOrigin;
 
 /**
- * One proposed value for a field of any readable step, with its confidence and source sentence.
+ * One proposed value for a readable step's field.
  *
- * @param fieldKey a step's own field name; a repeatable key (responsibility, priority, direct report,
- *                 criterion, competency) is one row per item, so each carries its own snippet
+ * @param fieldKey a step's own field name; a repeatable key is one row per item, each with its snippet
  * @param value    in the wire format that step's {@code Put...Request} expects — an enum's Java name
  * @param snippet  the source sentence, or null when none could be verified against the document
  * @param origin   always {@link ProposalOrigin#DOCUMENT} today

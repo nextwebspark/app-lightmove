@@ -3,14 +3,9 @@ package app.lightmove.api.common.constant;
 import lombok.RequiredArgsConstructor;
 
 /**
- * The nine groups an executive's nationality is recorded or counted under — the Gulf six by name, and
- * everyone else as Western expat, South Asian or Arab expat, non-GCC.
- *
- * <p>{@code Candidate.nationality} stays a free-text column for {@link NoticePeriod}'s reason: a
- * spreadsheet states whatever it states, and the picker offers an off-vocabulary value back "as
- * recorded" rather than clearing it. This enum exists so every caller that proposes or counts a
- * nationality — the Background section's picker, the report's grouping, an AI inference — reads the
- * same nine spellings from one place instead of three.
+ * The nine groups a nationality is recorded or counted under — the Gulf six by name, then Western
+ * expat, South Asian and Arab expat, non-GCC. {@code Candidate.nationality} stays free text, as
+ * {@link NoticePeriod} explains; this is the one vocabulary every caller reads.
  */
 @RequiredArgsConstructor
 public enum NationalityGroup {

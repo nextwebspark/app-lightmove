@@ -13,14 +13,8 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 /**
- * The country vocabulary, served rather than mirrored. Every country input in the SPA reads it, so
- * one catalog answers the company form, the executive drawer, the client registry and the filter —
- * and a spelling added here reaches all of them without a frontend release.
- *
- * <p>Not folded into {@code /companies/facets}: that response is counts the sidebar draws, and a
- * vocabulary is not a count. The markets beside it are the one country fact that <i>is</i> counted,
- * and they are here rather than there so the sidebar's read does not grow a {@code GROUP BY} over the
- * whole universe — which is the reason there has never been a location facet.
+ * The country vocabulary, served so every SPA picker reads one catalog. Not part of
+ * {@code /companies/facets}: its markets are here so the sidebar read grows no {@code GROUP BY}.
  */
 @RestController
 @RequestMapping("/api/v1/countries")

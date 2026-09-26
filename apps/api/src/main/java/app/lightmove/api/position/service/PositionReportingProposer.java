@@ -22,13 +22,9 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
 /**
- * Asks the model to read a position description into step-three proposals; any failure degrades to an
- * empty reading rather than a guess.
- *
- * <p>It never answers with an org chart, only titles: replacing the chart would lose the canvas layout
- * and break {@code OrgChartRules.requireExactlyOneMandateSeat}, since the model cannot know which seat is
- * the mandate's. Merging titles into the chart is the frontend's job (issue #282). {@code reportsToTitle}
- * is a title, never a person's name.
+ * Reads a position description into step-three proposals; any failure is an empty reading. Titles
+ * only, never an org chart: the model cannot know the mandate's seat
+ * ({@code OrgChartRules.requireExactlyOneMandateSeat}), and {@code reportsToTitle} is never a person.
  */
 @Service
 @Slf4j

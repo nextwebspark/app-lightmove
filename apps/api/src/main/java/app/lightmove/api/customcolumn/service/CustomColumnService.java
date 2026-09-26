@@ -33,14 +33,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 /**
- * A mandate's extra grid columns: defining them, editing them, ordering them, and — the method every
- * other feature actually calls — deciding what a row is allowed to store in them.
- *
- * <p>{@link #applyTo} is the gate. The values live in an open jsonb bag, so without it any caller
- * could write any key into a row and the "columns" would be whatever happened to be in the map.
- *
- * <p>Deleting a column removes the definition and <b>not</b> the values under it, so a column deleted
- * by mistake comes back with its data when it is defined again under the same name.
+ * A mandate's extra grid columns. {@link #applyTo} is the gate on the open jsonb bag. Deleting a
+ * column keeps its values, so redefining it under the same name brings its data back.
  */
 @Service
 public class CustomColumnService {

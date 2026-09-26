@@ -25,13 +25,9 @@ import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.stereotype.Service;
 
 /**
- * Asks the model to read a position description into step-one proposals, falling back to
- * {@link HeuristicBriefReader} when the model cannot be reached or is blocked.
- *
- * <p>The document is redacted before it is sent and re-hydrated after (see
- * {@link PositionDocumentRedactor}): a surviving placeholder drops the field, and a snippet that is not
- * a literal quote of the original is dropped with its confidence. The heuristic's reading never reaches
- * the prompt.
+ * Reads a position description into step-one proposals, falling back to {@link HeuristicBriefReader}.
+ * The document is redacted and re-hydrated ({@link PositionDocumentRedactor}); a surviving placeholder
+ * or a non-literal snippet is dropped.
  */
 @Service
 @Slf4j
