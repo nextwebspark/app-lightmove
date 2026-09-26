@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useMemo, useState } from "react";
+import { createPortal } from "react-dom";
 import { useToast } from "../../../components/ui/Toast";
 import { messageFor } from "../../../lib/errorCodes";
 import { useProjectRowsChanged } from "../../../lib/projectRows";
@@ -81,7 +82,8 @@ export function ReportCandidateDrawer({
 
   const shown = candidateId !== null && candidate.data?.id === candidateId ? candidate.data : null;
 
-  return (
+  // Portalled: the chapter's fade-up section keeps a transform, which would pin a fixed panel inside it.
+  return createPortal(
     <>
       <CandidateDrawer
         open={shown !== null}
@@ -104,6 +106,7 @@ export function ReportCandidateDrawer({
         onCancel={() => setPendingRemoval(null)}
         onConfirm={(removed) => removeCandidate.mutate(removed)}
       />
-    </>
+    </>,
+    document.body,
   );
 }
