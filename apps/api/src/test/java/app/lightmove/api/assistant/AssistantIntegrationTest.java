@@ -12,7 +12,11 @@ import app.lightmove.api.ApolloUniverse;
 import app.lightmove.api.FlowTestSupport;
 import app.lightmove.api.IntegrationTest;
 import app.lightmove.api.StubChatModel;
+import java.time.Duration;
 import java.util.UUID;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
+import org.awaitility.Awaitility;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -29,6 +33,8 @@ import tools.jackson.databind.JsonNode;
  */
 @IntegrationTest
 class AssistantIntegrationTest extends FlowTestSupport {
+
+    private static final Pattern COMPLETE_DONE_EVENT = Pattern.compile("event:done\\ndata:(.+)\\n\\n");
 
     @Autowired
     private JdbcTemplate db;
@@ -223,11 +229,14 @@ class AssistantIntegrationTest extends FlowTestSupport {
         MvcResult stream = mvc.perform(ask(token, projectId, threadId, question))
                 .andExpect(request().asyncStarted())
                 .andReturn();
-        awaitContent(stream, "event:done");
-        String content = stream.getResponse().getContentAsString();
-        String afterDone = content.substring(content.indexOf("event:done"));
-        String data = afterDone.lines().filter(line -> line.startsWith("data:")).findFirst().orElseThrow();
-        return json.readTree(data.substring("data:".length()));
+        // Shipped flake: the event is written in pieces, and reading on "event:done" alone sometimes caught
+        // its data line still empty. The blank line that ends an SSE event is what says it is all there.
+        String data = Awaitility.await()
+                .atMost(Duration.ofMillis(STREAM_WAIT_MS))
+                .pollInterval(Duration.ofMillis(50))
+                .until(() -> COMPLETE_DONE_EVENT.matcher(stream.getResponse().getContentAsString()), Matcher::find)
+                .group(1);
+        return json.readTree(data);
     }
 
     private MockHttpServletRequestBuilder ask(String token, String projectId, String threadId,
