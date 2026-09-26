@@ -1,37 +1,36 @@
 package app.lightmove.api.core.security.config;
-import app.lightmove.api.core.security.jwt.JwtPrincipalConverter;
-import app.lightmove.api.core.security.service.CookieAuthorizationRequestStore;
-import app.lightmove.api.core.security.service.OAuth2LoginFailureHandler;
-import app.lightmove.api.core.security.service.ProviderQuirkAwareRequestResolver;
-import app.lightmove.api.core.security.service.OAuth2LoginSuccessHandler;
-
 import app.lightmove.api.core.config.LightMoveProperties;
 import app.lightmove.api.core.config.SpaRequestPaths;
 import app.lightmove.api.core.error.handler.ProblemAccessDeniedHandler;
-import org.springframework.boot.actuate.autoconfigure.web.server.ManagementServerProperties;
-import org.springframework.boot.web.server.autoconfigure.ServerProperties;
+import app.lightmove.api.core.security.jwt.JwtPrincipalConverter;
+import app.lightmove.api.core.security.service.CookieAuthorizationRequestStore;
+import app.lightmove.api.core.security.service.OAuth2LoginFailureHandler;
+import app.lightmove.api.core.security.service.OAuth2LoginSuccessHandler;
+import app.lightmove.api.core.security.service.ProviderQuirkAwareRequestResolver;
+import java.util.List;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.boot.actuate.autoconfigure.web.server.ManagementServerProperties;
+import org.springframework.boot.web.server.autoconfigure.ServerProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.core.annotation.Order;
 import org.springframework.http.HttpMethod;
-import org.springframework.security.oauth2.client.registration.ClientRegistrationRepository;
 import org.springframework.security.authorization.AuthorizationDecision;
 import org.springframework.security.authorization.AuthorizationManager;
 import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.http.SessionCreationPolicy;
-import org.springframework.security.web.access.intercept.RequestAuthorizationContext;
+import org.springframework.security.core.annotation.AnnotationTemplateExpressionDefaults;
+import org.springframework.security.oauth2.client.registration.ClientRegistrationRepository;
 import org.springframework.security.oauth2.server.resource.web.BearerTokenAuthenticationEntryPoint;
 import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.security.web.access.intercept.RequestAuthorizationContext;
 import org.springframework.security.web.csrf.CookieCsrfTokenRepository;
 import org.springframework.security.web.csrf.CsrfTokenRequestAttributeHandler;
 import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
-
-import java.util.List;
 
 /**
  * The filter chains.
@@ -62,6 +61,15 @@ import java.util.List;
 public class SecurityConfig {
 
     private static final String API = "/api/v1";
+
+    /**
+     * Resolves the {@code '{value}'} placeholder in {@code @RequireProjectPermission} and its siblings.
+     * Static, because method security reads it while its own infrastructure is being built.
+     */
+    @Bean
+    static AnnotationTemplateExpressionDefaults annotationTemplateExpressionDefaults() {
+        return new AnnotationTemplateExpressionDefaults();
+    }
 
     /**
      * Chain 0: Actuator, and <b>only</b> on the management port.

@@ -7,7 +7,7 @@ import org.springframework.stereotype.Component;
 
 /**
  * The project-tier guard bean behind {@code @PreAuthorize} — e.g.
- * {@code @PreAuthorize("@projectAuthorizer.can(principal, #projectId, 'TEAM_MANAGE')")}.
+ * {@code @RequireProjectPermission(ProjectAction.TEAM_MANAGE)}.
  *
  * <p>Same contract as {@link WorkspaceAuthorizer}: database re-read, enforcement by throwing,
  * controllers only. The action string resolves through {@link ProjectAction#valueOf}, so a typo in

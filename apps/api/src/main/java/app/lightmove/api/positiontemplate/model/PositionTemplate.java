@@ -22,6 +22,7 @@ import java.util.UUID;
 import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
+import lombok.Setter;
 import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.type.SqlTypes;
 
@@ -66,6 +67,7 @@ public class PositionTemplate extends BaseEntity {
     @Column(name = "sort_order", nullable = false)
     private int sortOrder;
 
+    @Setter
     @Column(name = "active", nullable = false)
     private boolean active = true;
 
@@ -130,10 +132,6 @@ public class PositionTemplate extends BaseEntity {
         keywords.addAll(draft.keywords());
         revisedAt = now();
         revisedBy = editorId;
-    }
-
-    public void setActive(boolean active) {
-        this.active = active;
     }
 
     public PositionTemplateDraft toDraft() {

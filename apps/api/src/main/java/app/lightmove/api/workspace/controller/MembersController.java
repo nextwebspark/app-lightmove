@@ -4,8 +4,10 @@ import app.lightmove.api.core.error.constant.ErrorCode;
 import app.lightmove.api.core.error.model.ApiException;
 import app.lightmove.api.core.security.model.AuthPrincipal;
 import app.lightmove.api.core.security.model.User;
+import app.lightmove.api.core.security.rbac.RequireWorkspacePermission;
 import app.lightmove.api.core.security.rbac.Role;
 import app.lightmove.api.core.security.rbac.WorkspaceAccess;
+import app.lightmove.api.core.security.rbac.WorkspaceAction;
 import app.lightmove.api.core.security.rbac.WorkspaceRole;
 import app.lightmove.api.core.security.repository.UserRepository;
 import app.lightmove.api.workspace.dto.ChangeRolesRequest;
@@ -21,7 +23,7 @@ import java.util.UUID;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
-import org.springframework.http.ResponseEntity;
+import org.springframework.http.HttpStatus;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.DeleteMapping;
@@ -30,6 +32,7 @@ import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
 /**
@@ -52,7 +55,7 @@ public class MembersController {
     /** The active roster, visible to any staff member. */
     @GetMapping
     @PreAuthorize("@workspaceAuthorizer.staff(principal)")
-    public ResponseEntity<List<MemberResponse>> list(@AuthenticationPrincipal AuthPrincipal principal) {
+    public List<MemberResponse> list(@AuthenticationPrincipal AuthPrincipal principal) {
         List<WorkspaceMember> roster = access.activeStaff(principal.requireWorkspaceId());
 
         Map<UUID, User> byId = users
@@ -60,30 +63,30 @@ public class MembersController {
                 .stream()
                 .collect(Collectors.toMap(User::getId, Function.identity()));
 
-        return ResponseEntity.ok(roster.stream()
+        return roster.stream()
                 .map(member -> toMemberResponse(member, byId.get(member.getUserId())))
-                .toList());
+                .toList();
     }
 
     @PatchMapping("/{memberId}")
-    @PreAuthorize("@workspaceAuthorizer.can(principal, 'MEMBER_MANAGE')")
-    public ResponseEntity<MemberResponse> changeRoles(@AuthenticationPrincipal AuthPrincipal principal,
-                                                      @PathVariable UUID memberId,
-                                                      @Valid @RequestBody ChangeRolesRequest request,
-                                                      HttpServletRequest httpRequest) {
+    @RequireWorkspacePermission(WorkspaceAction.MEMBER_MANAGE)
+    public MemberResponse changeRoles(@AuthenticationPrincipal AuthPrincipal principal,
+                                      @PathVariable UUID memberId,
+                                      @Valid @RequestBody ChangeRolesRequest request,
+                                      HttpServletRequest httpRequest) {
         WorkspaceMember member = memberService.changeRoles(
                 principal.userId(), principal.requireWorkspaceId(), memberId, request.roles(), httpRequest);
 
-        return ResponseEntity.ok(toMemberResponse(member,
-                users.findById(member.getUserId()).orElse(null)));
+        return toMemberResponse(member,
+                users.findById(member.getUserId()).orElse(null));
     }
 
     @DeleteMapping("/{memberId}")
-    @PreAuthorize("@workspaceAuthorizer.can(principal, 'MEMBER_MANAGE')")
-    public ResponseEntity<Void> remove(@AuthenticationPrincipal AuthPrincipal principal,
-                                       @PathVariable UUID memberId, HttpServletRequest httpRequest) {
+    @RequireWorkspacePermission(WorkspaceAction.MEMBER_MANAGE)
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void remove(@AuthenticationPrincipal AuthPrincipal principal,
+                       @PathVariable UUID memberId, HttpServletRequest httpRequest) {
         memberService.remove(principal.userId(), principal.requireWorkspaceId(), memberId, httpRequest);
-        return ResponseEntity.noContent().build();
     }
 
     private MemberResponse toMemberResponse(WorkspaceMember member, User user) {

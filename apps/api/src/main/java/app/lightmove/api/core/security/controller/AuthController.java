@@ -1,5 +1,8 @@
 package app.lightmove.api.core.security.controller;
 
+import app.lightmove.api.core.error.constant.ErrorCode;
+import app.lightmove.api.core.error.model.ApiException;
+import app.lightmove.api.core.ratelimit.service.RateLimitGuard;
 import app.lightmove.api.core.security.dto.AuthResponse;
 import app.lightmove.api.core.security.dto.ChangePasswordRequest;
 import app.lightmove.api.core.security.dto.ForgotPasswordRequest;
@@ -10,20 +13,17 @@ import app.lightmove.api.core.security.dto.SignupRequest;
 import app.lightmove.api.core.security.dto.UpdateProfileRequest;
 import app.lightmove.api.core.security.dto.UserResponse;
 import app.lightmove.api.core.security.dto.VerifyEmailRequest;
+import app.lightmove.api.core.security.model.AuthPrincipal;
+import app.lightmove.api.core.security.model.AuthenticatedSession;
+import app.lightmove.api.core.security.model.ProfileUpdateCommand;
+import app.lightmove.api.core.security.model.SignupCommand;
+import app.lightmove.api.core.security.model.User;
 import app.lightmove.api.core.security.service.AuthenticationService;
 import app.lightmove.api.core.security.service.PasswordChangeService;
 import app.lightmove.api.core.security.service.PasswordResetService;
 import app.lightmove.api.core.security.service.UserProfileService;
-import app.lightmove.api.core.security.model.AuthenticatedSession;
-import app.lightmove.api.core.security.model.ProfileUpdateCommand;
-import app.lightmove.api.core.security.model.SignupCommand;
 import app.lightmove.api.core.security.service.VerificationService;
-import app.lightmove.api.core.security.model.User;
 import app.lightmove.api.core.security.token.RefreshCookieFactory;
-import app.lightmove.api.core.error.model.ApiException;
-import app.lightmove.api.core.error.constant.ErrorCode;
-import app.lightmove.api.core.ratelimit.service.RateLimitGuard;
-import app.lightmove.api.core.security.model.AuthPrincipal;
 import app.lightmove.api.workspace.model.WorkspaceMember;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
@@ -45,6 +45,7 @@ import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
 /**
@@ -189,9 +190,9 @@ public class AuthController {
 
     /** The current user. The SPA calls this on boot to rehydrate. */
     @GetMapping("/me")
-    public ResponseEntity<UserResponse> me(@AuthenticationPrincipal AuthPrincipal principal) {
+    public UserResponse me(@AuthenticationPrincipal AuthPrincipal principal) {
         User user = authentication.requireUser(principal.userId());
-        return ResponseEntity.ok(assembler.user(user, membershipOf(user)));
+        return assembler.user(user, membershipOf(user));
     }
 
     /**
@@ -202,9 +203,9 @@ public class AuthController {
      * verified-email gated: this row is the caller's own account, not tenant data.
      */
     @PatchMapping("/me")
-    public ResponseEntity<UserResponse> updateProfile(@AuthenticationPrincipal AuthPrincipal principal,
-                                                      @Valid @RequestBody UpdateProfileRequest request,
-                                                      HttpServletRequest httpRequest) {
+    public UserResponse updateProfile(@AuthenticationPrincipal AuthPrincipal principal,
+                                      @Valid @RequestBody UpdateProfileRequest request,
+                                      HttpServletRequest httpRequest) {
         User user = userProfile.update(
                 principal.userId(),
                 principal.workspaceId(),
@@ -212,7 +213,7 @@ public class AuthController {
                         request.fullName(), request.title(), request.timezone(), request.locale()),
                 httpRequest);
 
-        return ResponseEntity.ok(assembler.user(user, membershipOf(user)));
+        return assembler.user(user, membershipOf(user));
     }
 
     /**
@@ -223,9 +224,9 @@ public class AuthController {
      * SPA has nothing to echo, so every refresh 401s. The cookie is the response, not the empty body.
      */
     @GetMapping("/csrf")
-    public ResponseEntity<Void> csrf(CsrfToken token) {
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void csrf(CsrfToken token) {
         token.getToken();
-        return ResponseEntity.noContent().build();
     }
 
     /**
@@ -234,7 +235,7 @@ public class AuthController {
      * authorisation path, and the SPA falls back to a generic label for one it has no icon for.
      */
     @GetMapping("/providers")
-    public ResponseEntity<AuthProviders> providers() {
+    public AuthProviders providers() {
         ClientRegistrationRepository registrations = oauthRegistrations.getIfAvailable();
 
         // Only the in-memory repository can be enumerated; a lazily-resolving one cannot be asked
@@ -246,7 +247,7 @@ public class AuthController {
                         .toList()
                 : List.of();
 
-        return ResponseEntity.ok(new AuthProviders(configured));
+        return new AuthProviders(configured);
     }
 
     public record AuthProviders(List<String> providers) {

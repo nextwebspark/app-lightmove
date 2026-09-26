@@ -1,13 +1,13 @@
 package app.lightmove.api.position.controller;
 
 import app.lightmove.api.core.security.model.AuthPrincipal;
+import app.lightmove.api.core.security.rbac.ProjectAction;
+import app.lightmove.api.core.security.rbac.RequireProjectPermission;
 import app.lightmove.api.position.dto.PositionExtractionResponse;
 import app.lightmove.api.position.service.PositionExtractionService;
 import jakarta.servlet.http.HttpServletRequest;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
-import org.springframework.http.ResponseEntity;
-import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -32,38 +32,38 @@ public class PositionExtractionController {
     private final PositionExtractionService extraction;
 
     @PostMapping("/details")
-    @PreAuthorize("@projectAuthorizer.can(principal, #projectId, 'PROJECT_EDIT')")
-    public ResponseEntity<PositionExtractionResponse> extractDetails(
+    @RequireProjectPermission(ProjectAction.PROJECT_EDIT)
+    public PositionExtractionResponse extractDetails(
             @AuthenticationPrincipal AuthPrincipal principal, @PathVariable UUID projectId,
             HttpServletRequest httpRequest) {
-        return ResponseEntity.ok(extraction.extractDetails(
-                principal.userId(), principal.requireWorkspaceId(), projectId, httpRequest));
+        return extraction.extractDetails(
+                principal.userId(), principal.requireWorkspaceId(), projectId, httpRequest);
     }
 
     @PostMapping("/context")
-    @PreAuthorize("@projectAuthorizer.can(principal, #projectId, 'PROJECT_EDIT')")
-    public ResponseEntity<PositionExtractionResponse> extractContext(
+    @RequireProjectPermission(ProjectAction.PROJECT_EDIT)
+    public PositionExtractionResponse extractContext(
             @AuthenticationPrincipal AuthPrincipal principal, @PathVariable UUID projectId,
             HttpServletRequest httpRequest) {
-        return ResponseEntity.ok(extraction.extractContext(
-                principal.userId(), principal.requireWorkspaceId(), projectId, httpRequest));
+        return extraction.extractContext(
+                principal.userId(), principal.requireWorkspaceId(), projectId, httpRequest);
     }
 
     @PostMapping("/assessment")
-    @PreAuthorize("@projectAuthorizer.can(principal, #projectId, 'PROJECT_EDIT')")
-    public ResponseEntity<PositionExtractionResponse> extractAssessment(
+    @RequireProjectPermission(ProjectAction.PROJECT_EDIT)
+    public PositionExtractionResponse extractAssessment(
             @AuthenticationPrincipal AuthPrincipal principal, @PathVariable UUID projectId,
             HttpServletRequest httpRequest) {
-        return ResponseEntity.ok(extraction.extractAssessment(
-                principal.userId(), principal.requireWorkspaceId(), projectId, httpRequest));
+        return extraction.extractAssessment(
+                principal.userId(), principal.requireWorkspaceId(), projectId, httpRequest);
     }
 
     @PostMapping("/reporting")
-    @PreAuthorize("@projectAuthorizer.can(principal, #projectId, 'PROJECT_EDIT')")
-    public ResponseEntity<PositionExtractionResponse> extractReporting(
+    @RequireProjectPermission(ProjectAction.PROJECT_EDIT)
+    public PositionExtractionResponse extractReporting(
             @AuthenticationPrincipal AuthPrincipal principal, @PathVariable UUID projectId,
             HttpServletRequest httpRequest) {
-        return ResponseEntity.ok(extraction.extractReporting(
-                principal.userId(), principal.requireWorkspaceId(), projectId, httpRequest));
+        return extraction.extractReporting(
+                principal.userId(), principal.requireWorkspaceId(), projectId, httpRequest);
     }
 }

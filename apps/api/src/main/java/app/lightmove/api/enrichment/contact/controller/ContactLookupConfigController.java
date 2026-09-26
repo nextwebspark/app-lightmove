@@ -3,7 +3,6 @@ package app.lightmove.api.enrichment.contact.controller;
 import app.lightmove.api.enrichment.contact.dto.ContactLookupConfigResponse;
 import app.lightmove.api.enrichment.contact.service.ContactLookupService;
 import lombok.RequiredArgsConstructor;
-import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -21,7 +20,7 @@ public class ContactLookupConfigController {
     private final ContactLookupService lookups;
 
     @GetMapping("/api/v1/contact-lookup/config")
-    public ResponseEntity<ContactLookupConfigResponse> config() {
-        return ResponseEntity.ok(lookups.config());
+    public ContactLookupConfigResponse config() {
+        return lookups.config();
     }
 }

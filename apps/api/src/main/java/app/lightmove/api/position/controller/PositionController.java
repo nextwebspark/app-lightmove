@@ -1,6 +1,8 @@
 package app.lightmove.api.position.controller;
 
 import app.lightmove.api.core.security.model.AuthPrincipal;
+import app.lightmove.api.core.security.rbac.ProjectAction;
+import app.lightmove.api.core.security.rbac.RequireProjectPermission;
 import app.lightmove.api.position.dto.ApplyPositionTemplateRequest;
 import app.lightmove.api.position.dto.CompensationDto;
 import app.lightmove.api.position.dto.PositionResponse;
@@ -15,8 +17,6 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
-import org.springframework.http.ResponseEntity;
-import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -49,10 +49,10 @@ public class PositionController {
     private final PositionService position;
 
     @GetMapping
-    @PreAuthorize("@projectAuthorizer.can(principal, #projectId, 'WORK_VIEW')")
-    public ResponseEntity<PositionResponse> get(@AuthenticationPrincipal AuthPrincipal principal,
-                                                @PathVariable UUID projectId) {
-        return ResponseEntity.ok(position.get(principal.requireWorkspaceId(), projectId));
+    @RequireProjectPermission(ProjectAction.WORK_VIEW)
+    public PositionResponse get(@AuthenticationPrincipal AuthPrincipal principal,
+                                @PathVariable UUID projectId) {
+        return position.get(principal.requireWorkspaceId(), projectId);
     }
 
     /**
@@ -62,70 +62,70 @@ public class PositionController {
      * write a row on every page view.
      */
     @GetMapping("/compensation")
-    @PreAuthorize("@projectAuthorizer.can(principal, #projectId, 'WORK_VIEW')")
-    public ResponseEntity<CompensationDto> getCompensation(@AuthenticationPrincipal AuthPrincipal principal,
-                                                           @PathVariable UUID projectId) {
-        return ResponseEntity.ok(position.compensationOf(principal.requireWorkspaceId(), projectId));
+    @RequireProjectPermission(ProjectAction.WORK_VIEW)
+    public CompensationDto getCompensation(@AuthenticationPrincipal AuthPrincipal principal,
+                                           @PathVariable UUID projectId) {
+        return position.compensationOf(principal.requireWorkspaceId(), projectId);
     }
 
     @PutMapping("/details")
-    @PreAuthorize("@projectAuthorizer.can(principal, #projectId, 'PROJECT_EDIT')")
-    public ResponseEntity<PositionResponse> putDetails(@AuthenticationPrincipal AuthPrincipal principal,
-                                                       @PathVariable UUID projectId,
-                                                       @Valid @RequestBody PutPositionDetailsRequest request,
-                                                       HttpServletRequest httpRequest) {
-        return ResponseEntity.ok(position.putDetails(
-                principal.userId(), principal.requireWorkspaceId(), projectId, request, httpRequest));
+    @RequireProjectPermission(ProjectAction.PROJECT_EDIT)
+    public PositionResponse putDetails(@AuthenticationPrincipal AuthPrincipal principal,
+                                       @PathVariable UUID projectId,
+                                       @Valid @RequestBody PutPositionDetailsRequest request,
+                                       HttpServletRequest httpRequest) {
+        return position.putDetails(
+                principal.userId(), principal.requireWorkspaceId(), projectId, request, httpRequest);
     }
 
     @PutMapping("/context")
-    @PreAuthorize("@projectAuthorizer.can(principal, #projectId, 'PROJECT_EDIT')")
-    public ResponseEntity<PositionResponse> putContext(@AuthenticationPrincipal AuthPrincipal principal,
-                                                       @PathVariable UUID projectId,
-                                                       @Valid @RequestBody PutMandateContextRequest request,
-                                                       HttpServletRequest httpRequest) {
-        return ResponseEntity.ok(position.putContext(
-                principal.userId(), principal.requireWorkspaceId(), projectId, request, httpRequest));
+    @RequireProjectPermission(ProjectAction.PROJECT_EDIT)
+    public PositionResponse putContext(@AuthenticationPrincipal AuthPrincipal principal,
+                                       @PathVariable UUID projectId,
+                                       @Valid @RequestBody PutMandateContextRequest request,
+                                       HttpServletRequest httpRequest) {
+        return position.putContext(
+                principal.userId(), principal.requireWorkspaceId(), projectId, request, httpRequest);
     }
 
     @PutMapping("/reporting")
-    @PreAuthorize("@projectAuthorizer.can(principal, #projectId, 'PROJECT_EDIT')")
-    public ResponseEntity<PositionResponse> putReporting(@AuthenticationPrincipal AuthPrincipal principal,
-                                                         @PathVariable UUID projectId,
-                                                         @Valid @RequestBody PutReportingStructureRequest request,
-                                                         HttpServletRequest httpRequest) {
-        return ResponseEntity.ok(position.putReporting(
-                principal.userId(), principal.requireWorkspaceId(), projectId, request, httpRequest));
+    @RequireProjectPermission(ProjectAction.PROJECT_EDIT)
+    public PositionResponse putReporting(@AuthenticationPrincipal AuthPrincipal principal,
+                                         @PathVariable UUID projectId,
+                                         @Valid @RequestBody PutReportingStructureRequest request,
+                                         HttpServletRequest httpRequest) {
+        return position.putReporting(
+                principal.userId(), principal.requireWorkspaceId(), projectId, request, httpRequest);
     }
 
     @PutMapping("/compensation")
-    @PreAuthorize("@projectAuthorizer.can(principal, #projectId, 'PROJECT_EDIT')")
-    public ResponseEntity<PositionResponse> putCompensation(@AuthenticationPrincipal AuthPrincipal principal,
-                                                            @PathVariable UUID projectId,
-                                                            @Valid @RequestBody PutCompensationRequest request,
-                                                            HttpServletRequest httpRequest) {
-        return ResponseEntity.ok(position.putCompensation(
-                principal.userId(), principal.requireWorkspaceId(), projectId, request, httpRequest));
+    @RequireProjectPermission(ProjectAction.PROJECT_EDIT)
+    public PositionResponse putCompensation(@AuthenticationPrincipal AuthPrincipal principal,
+                                            @PathVariable UUID projectId,
+                                            @Valid @RequestBody PutCompensationRequest request,
+                                            HttpServletRequest httpRequest) {
+        return position.putCompensation(
+                principal.userId(), principal.requireWorkspaceId(), projectId, request, httpRequest);
     }
 
     @PutMapping("/criteria")
-    @PreAuthorize("@projectAuthorizer.can(principal, #projectId, 'PROJECT_EDIT')")
-    public ResponseEntity<PositionResponse> putCriteria(@AuthenticationPrincipal AuthPrincipal principal,
-                                                        @PathVariable UUID projectId,
-                                                        @Valid @RequestBody PutCriteriaRequest request,
-                                                        HttpServletRequest httpRequest) {
-        return ResponseEntity.ok(position.putCriteria(
-                principal.userId(), principal.requireWorkspaceId(), projectId, request, httpRequest));
+    @RequireProjectPermission(ProjectAction.PROJECT_EDIT)
+    public PositionResponse putCriteria(@AuthenticationPrincipal AuthPrincipal principal,
+                                        @PathVariable UUID projectId,
+                                        @Valid @RequestBody PutCriteriaRequest request,
+                                        HttpServletRequest httpRequest) {
+        return position.putCriteria(
+                principal.userId(), principal.requireWorkspaceId(), projectId, request, httpRequest);
     }
 
     @PutMapping("/competencies")
-    @PreAuthorize("@projectAuthorizer.can(principal, #projectId, 'PROJECT_EDIT')")
-    public ResponseEntity<PositionResponse> putCompetencies(@AuthenticationPrincipal AuthPrincipal principal,
-                                                            @PathVariable UUID projectId,
-                                                            @Valid @RequestBody PutCompetenciesRequest request,
-                                                            HttpServletRequest httpRequest) {
-        return ResponseEntity.ok(position.putCompetencies(
-                principal.userId(), principal.requireWorkspaceId(), projectId, request, httpRequest));
+    @RequireProjectPermission(ProjectAction.PROJECT_EDIT)
+    public PositionResponse putCompetencies(@AuthenticationPrincipal AuthPrincipal principal,
+                                            @PathVariable UUID projectId,
+                                            @Valid @RequestBody PutCompetenciesRequest request,
+                                            HttpServletRequest httpRequest) {
+        return position.putCompetencies(
+                principal.userId(), principal.requireWorkspaceId(), projectId, request, httpRequest);
     }
 
     /**
@@ -133,30 +133,30 @@ public class PositionController {
      * drafted half of the brief, and the picker that calls it sits inside the wizard.
      */
     @PostMapping("/template")
-    @PreAuthorize("@projectAuthorizer.can(principal, #projectId, 'PROJECT_EDIT')")
-    public ResponseEntity<PositionResponse> applyTemplate(@AuthenticationPrincipal AuthPrincipal principal,
-                                                          @PathVariable UUID projectId,
-                                                          @Valid @RequestBody ApplyPositionTemplateRequest request,
-                                                          HttpServletRequest httpRequest) {
-        return ResponseEntity.ok(position.applyTemplate(principal.userId(), principal.requireWorkspaceId(),
-                projectId, request.templateId(), httpRequest));
+    @RequireProjectPermission(ProjectAction.PROJECT_EDIT)
+    public PositionResponse applyTemplate(@AuthenticationPrincipal AuthPrincipal principal,
+                                          @PathVariable UUID projectId,
+                                          @Valid @RequestBody ApplyPositionTemplateRequest request,
+                                          HttpServletRequest httpRequest) {
+        return position.applyTemplate(principal.userId(), principal.requireWorkspaceId(),
+                projectId, request.templateId(), httpRequest);
     }
 
     @PostMapping("/publish")
-    @PreAuthorize("@projectAuthorizer.can(principal, #projectId, 'PROJECT_EDIT')")
-    public ResponseEntity<PositionResponse> publish(@AuthenticationPrincipal AuthPrincipal principal,
-                                                    @PathVariable UUID projectId,
-                                                    HttpServletRequest httpRequest) {
-        return ResponseEntity.ok(position.publish(
-                principal.userId(), principal.requireWorkspaceId(), projectId, httpRequest));
+    @RequireProjectPermission(ProjectAction.PROJECT_EDIT)
+    public PositionResponse publish(@AuthenticationPrincipal AuthPrincipal principal,
+                                    @PathVariable UUID projectId,
+                                    HttpServletRequest httpRequest) {
+        return position.publish(
+                principal.userId(), principal.requireWorkspaceId(), projectId, httpRequest);
     }
 
     @DeleteMapping("/publish")
-    @PreAuthorize("@projectAuthorizer.can(principal, #projectId, 'PROJECT_EDIT')")
-    public ResponseEntity<PositionResponse> withdrawPublication(@AuthenticationPrincipal AuthPrincipal principal,
-                                                                @PathVariable UUID projectId,
-                                                                HttpServletRequest httpRequest) {
-        return ResponseEntity.ok(position.withdrawPublication(
-                principal.userId(), principal.requireWorkspaceId(), projectId, httpRequest));
+    @RequireProjectPermission(ProjectAction.PROJECT_EDIT)
+    public PositionResponse withdrawPublication(@AuthenticationPrincipal AuthPrincipal principal,
+                                                @PathVariable UUID projectId,
+                                                HttpServletRequest httpRequest) {
+        return position.withdrawPublication(
+                principal.userId(), principal.requireWorkspaceId(), projectId, httpRequest);
     }
 }

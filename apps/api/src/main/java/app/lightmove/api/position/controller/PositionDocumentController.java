@@ -1,6 +1,8 @@
 package app.lightmove.api.position.controller;
 
 import app.lightmove.api.core.security.model.AuthPrincipal;
+import app.lightmove.api.core.security.rbac.ProjectAction;
+import app.lightmove.api.core.security.rbac.RequireProjectPermission;
 import app.lightmove.api.position.dto.PositionResponse;
 import app.lightmove.api.position.model.StoredDocument;
 import app.lightmove.api.position.service.PositionDocumentService;
@@ -13,7 +15,6 @@ import org.springframework.http.ContentDisposition;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
-import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -41,22 +42,22 @@ public class PositionDocumentController {
     private final PositionDocumentService documents;
 
     @PostMapping
-    @PreAuthorize("@projectAuthorizer.can(principal, #projectId, 'PROJECT_EDIT')")
-    public ResponseEntity<PositionResponse> attach(@AuthenticationPrincipal AuthPrincipal principal,
-                                                   @PathVariable UUID projectId,
-                                                   @RequestParam("file") MultipartFile file,
-                                                   HttpServletRequest httpRequest) {
-        return ResponseEntity.ok(documents.attach(
-                principal.userId(), principal.requireWorkspaceId(), projectId, file, httpRequest));
+    @RequireProjectPermission(ProjectAction.PROJECT_EDIT)
+    public PositionResponse attach(@AuthenticationPrincipal AuthPrincipal principal,
+                                   @PathVariable UUID projectId,
+                                   @RequestParam("file") MultipartFile file,
+                                   HttpServletRequest httpRequest) {
+        return documents.attach(
+                principal.userId(), principal.requireWorkspaceId(), projectId, file, httpRequest);
     }
 
     @DeleteMapping
-    @PreAuthorize("@projectAuthorizer.can(principal, #projectId, 'PROJECT_EDIT')")
-    public ResponseEntity<PositionResponse> remove(@AuthenticationPrincipal AuthPrincipal principal,
-                                                   @PathVariable UUID projectId,
-                                                   HttpServletRequest httpRequest) {
-        return ResponseEntity.ok(documents.remove(
-                principal.userId(), principal.requireWorkspaceId(), projectId, httpRequest));
+    @RequireProjectPermission(ProjectAction.PROJECT_EDIT)
+    public PositionResponse remove(@AuthenticationPrincipal AuthPrincipal principal,
+                                   @PathVariable UUID projectId,
+                                   HttpServletRequest httpRequest) {
+        return documents.remove(
+                principal.userId(), principal.requireWorkspaceId(), projectId, httpRequest);
     }
 
     /**
@@ -68,7 +69,7 @@ public class PositionDocumentController {
      * way back to the same place.
      */
     @GetMapping
-    @PreAuthorize("@projectAuthorizer.can(principal, #projectId, 'WORK_VIEW')")
+    @RequireProjectPermission(ProjectAction.WORK_VIEW)
     public ResponseEntity<Resource> download(@AuthenticationPrincipal AuthPrincipal principal,
                                              @PathVariable UUID projectId) {
         StoredDocument document = documents.download(principal.requireWorkspaceId(), projectId);

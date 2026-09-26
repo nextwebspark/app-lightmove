@@ -12,7 +12,6 @@ import app.lightmove.api.core.ratelimit.service.LlmBudgetGuard;
 import app.lightmove.api.core.security.model.AuthPrincipal;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
-import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -38,18 +37,18 @@ public class CandidateLlmController {
     private final LlmBudgetGuard llmBudget;
 
     @PostMapping("/shortlist")
-    public ResponseEntity<ShortlistResponse> shortlist(@AuthenticationPrincipal AuthPrincipal principal,
-                                                        @Valid @RequestBody ShortlistRequest request) {
+    public ShortlistResponse shortlist(@AuthenticationPrincipal AuthPrincipal principal,
+                                       @Valid @RequestBody ShortlistRequest request) {
         llmBudget.require(LlmBudget.SHORTLIST, principal.userId());
         String verdict = shortlistService.shortlist(request.jobBrief(), request.candidateProfile());
-        return ResponseEntity.ok(new ShortlistResponse(verdict));
+        return new ShortlistResponse(verdict);
     }
 
     @PostMapping("/embed")
-    public ResponseEntity<EmbedResponse> embed(@AuthenticationPrincipal AuthPrincipal principal,
-                                               @Valid @RequestBody EmbedRequest request) {
+    public EmbedResponse embed(@AuthenticationPrincipal AuthPrincipal principal,
+                               @Valid @RequestBody EmbedRequest request) {
         llmBudget.require(LlmBudget.EMBED, principal.userId());
         float[] vector = embeddingService.embed(request.text());
-        return ResponseEntity.ok(new EmbedResponse(vector.length, vector));
+        return new EmbedResponse(vector.length, vector);
     }
 }

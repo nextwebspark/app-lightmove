@@ -4,6 +4,8 @@ import app.lightmove.api.core.config.CompanySearchSettings;
 import app.lightmove.api.core.config.LightMoveProperties;
 import app.lightmove.api.core.error.constant.ErrorCode;
 import app.lightmove.api.core.error.model.ApiException;
+import app.lightmove.api.core.security.rbac.RequireWorkspacePermission;
+import app.lightmove.api.core.security.rbac.WorkspaceAction;
 import app.lightmove.api.strategy.dto.CompanyResultDto;
 import app.lightmove.api.strategy.dto.CompanySuggestionsResponse;
 import app.lightmove.api.strategy.dto.FacetsResponse;
@@ -13,8 +15,6 @@ import app.lightmove.api.strategy.service.CompanySuggestionSearch;
 import app.lightmove.api.strategy.service.IndustryAdjacency;
 import app.lightmove.api.strategy.service.UniverseFacets;
 import java.util.List;
-import org.springframework.http.ResponseEntity;
-import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -53,14 +53,14 @@ public class CompanySearchController {
 
     /** Everything the filter accordions count over the whole universe — Location is not counted. */
     @GetMapping("/facets")
-    @PreAuthorize("@workspaceAuthorizer.can(principal, 'PROJECT_BROWSE')")
-    public ResponseEntity<FacetsResponse> facets() {
-        return ResponseEntity.ok(new FacetsResponse(
+    @RequireWorkspacePermission(WorkspaceAction.PROJECT_BROWSE)
+    public FacetsResponse facets() {
+        return new FacetsResponse(
                 facets.sectorGroups(),
                 adjacency.neighbours(),
                 facets.marketSegments(),
                 facets.employeeBands(),
-                facets.revenueBands()));
+                facets.revenueBands());
     }
 
     /**
@@ -68,11 +68,11 @@ public class CompanySearchController {
      * universe, which would suggest the six rows were chosen for a reason.
      */
     @GetMapping("/search")
-    @PreAuthorize("@workspaceAuthorizer.can(principal, 'PROJECT_BROWSE')")
-    public ResponseEntity<CompanySuggestionsResponse> search(@RequestParam(name = "q") String query,
-                                                             @RequestParam(name = "limit", required = false)
-                                                             Integer limit) {
-        return ResponseEntity.ok(new CompanySuggestionsResponse(suggestions.suggest(query, limit, 1)));
+    @RequireWorkspacePermission(WorkspaceAction.PROJECT_BROWSE)
+    public CompanySuggestionsResponse search(@RequestParam(name = "q") String query,
+                                             @RequestParam(name = "limit", required = false)
+                                             Integer limit) {
+        return new CompanySuggestionsResponse(suggestions.suggest(query, limit, 1));
     }
 
     /**
@@ -80,14 +80,14 @@ public class CompanySearchController {
      * nothing rather than the head of the universe.
      */
     @GetMapping("/keywords")
-    @PreAuthorize("@workspaceAuthorizer.can(principal, 'PROJECT_BROWSE')")
-    public ResponseEntity<KeywordSuggestionsResponse> keywords(@RequestParam(name = "q") String query) {
+    @RequireWorkspacePermission(WorkspaceAction.PROJECT_BROWSE)
+    public KeywordSuggestionsResponse keywords(@RequestParam(name = "q") String query) {
         String trimmed = suggestions.acceptedQuery(query);
         if (trimmed.length() < searchConfig.keywordMinQueryLength()) {
-            return ResponseEntity.ok(new KeywordSuggestionsResponse(List.of()));
+            return new KeywordSuggestionsResponse(List.of());
         }
-        return ResponseEntity.ok(new KeywordSuggestionsResponse(companies.keywordSuggestions(
-                trimmed, searchConfig.keywordSuggestionLimit(), searchConfig.keywordMinCompanies())));
+        return new KeywordSuggestionsResponse(companies.keywordSuggestions(
+                trimmed, searchConfig.keywordSuggestionLimit(), searchConfig.keywordMinCompanies()));
     }
 
     /**
@@ -100,11 +100,11 @@ public class CompanySearchController {
      * "facets".
      */
     @GetMapping("/{apolloAccountId}")
-    @PreAuthorize("@workspaceAuthorizer.can(principal, 'PROJECT_BROWSE')")
-    public ResponseEntity<CompanyResultDto> byAccountId(@PathVariable String apolloAccountId) {
-        return ResponseEntity.ok(companies.byAccountIds(List.of(apolloAccountId)).stream()
+    @RequireWorkspacePermission(WorkspaceAction.PROJECT_BROWSE)
+    public CompanyResultDto byAccountId(@PathVariable String apolloAccountId) {
+        return companies.byAccountIds(List.of(apolloAccountId)).stream()
                 .findFirst()
                 .map(CompanyResultDto::of)
-                .orElseThrow(() -> ApiException.of(ErrorCode.NOT_FOUND)));
+                .orElseThrow(() -> ApiException.of(ErrorCode.NOT_FOUND));
     }
 }

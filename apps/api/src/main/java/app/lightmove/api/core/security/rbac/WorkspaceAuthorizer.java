@@ -6,7 +6,7 @@ import org.springframework.stereotype.Component;
 
 /**
  * The workspace-tier guard bean behind {@code @PreAuthorize} — e.g.
- * {@code @PreAuthorize("@workspaceAuthorizer.can(principal, 'MEMBER_INVITE')")}.
+ * {@code @RequireWorkspacePermission(WorkspaceAction.MEMBER_INVITE)}.
  *
  * <p>Every method re-reads the database through {@link WorkspaceAccess}; the JWT's roles claim is
  * coarse material only, up to 15 minutes stale. Methods return {@code true} (the SpEL contract) but

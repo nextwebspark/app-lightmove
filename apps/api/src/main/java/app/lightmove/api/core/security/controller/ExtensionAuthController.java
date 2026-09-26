@@ -2,11 +2,11 @@ package app.lightmove.api.core.security.controller;
 
 import app.lightmove.api.core.error.constant.ErrorCode;
 import app.lightmove.api.core.error.model.ApiException;
+import app.lightmove.api.core.ratelimit.service.RateLimitGuard;
 import app.lightmove.api.core.security.dto.ExtensionRefreshRequest;
 import app.lightmove.api.core.security.dto.ExtensionSessionResponse;
 import app.lightmove.api.core.security.model.AuthPrincipal;
 import app.lightmove.api.core.security.model.AuthenticatedSession;
-import app.lightmove.api.core.ratelimit.service.RateLimitGuard;
 import app.lightmove.api.core.security.service.AuthenticationService;
 import app.lightmove.api.core.security.token.SessionClient;
 import jakarta.servlet.http.HttpServletRequest;
@@ -18,6 +18,7 @@ import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
 /**
@@ -63,17 +64,17 @@ public class ExtensionAuthController {
      * moment this returns, so the extension must store the successor before it does anything else.
      */
     @PostMapping("/refresh")
-    public ResponseEntity<ExtensionSessionResponse> refresh(@Valid @RequestBody ExtensionRefreshRequest request,
-                                                            HttpServletRequest httpRequest) {
-        return ResponseEntity.ok(toSession(authentication.refreshExtension(request.refreshToken(), httpRequest)));
+    public ExtensionSessionResponse refresh(@Valid @RequestBody ExtensionRefreshRequest request,
+                                            HttpServletRequest httpRequest) {
+        return toSession(authentication.refreshExtension(request.refreshToken(), httpRequest));
     }
 
     /** Ends the extension's session and leaves every other session alone. Idempotent. */
     @PostMapping("/logout")
-    public ResponseEntity<Void> logout(@Valid @RequestBody ExtensionRefreshRequest request,
-                                       HttpServletRequest httpRequest) {
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void logout(@Valid @RequestBody ExtensionRefreshRequest request,
+                       HttpServletRequest httpRequest) {
         authentication.logout(request.refreshToken(), httpRequest, SessionClient.BROWSER_EXTENSION);
-        return ResponseEntity.noContent().build();
     }
 
     private ExtensionSessionResponse toSession(AuthenticatedSession session) {

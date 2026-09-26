@@ -1,6 +1,8 @@
 package app.lightmove.api.project.controller;
 
 import app.lightmove.api.core.security.model.AuthPrincipal;
+import app.lightmove.api.core.security.rbac.RequireWorkspacePermission;
+import app.lightmove.api.core.security.rbac.WorkspaceAction;
 import app.lightmove.api.project.dto.ClientDetailResponse;
 import app.lightmove.api.project.dto.ClientListResponse;
 import app.lightmove.api.project.dto.CreateClientRequest;
@@ -15,8 +17,6 @@ import java.util.List;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
-import org.springframework.http.ResponseEntity;
-import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
@@ -24,6 +24,7 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
 /**
@@ -43,47 +44,49 @@ public class ClientsController {
     private final ClientRepresentativeService representatives;
 
     @GetMapping
-    @PreAuthorize("@workspaceAuthorizer.can(principal, 'CLIENT_RECORD_MANAGE')")
-    public ResponseEntity<List<ClientListResponse>> list(@AuthenticationPrincipal AuthPrincipal principal) {
-        return ResponseEntity.ok(clients.list(principal.requireWorkspaceId()));
+    @RequireWorkspacePermission(WorkspaceAction.CLIENT_RECORD_MANAGE)
+    public List<ClientListResponse> list(@AuthenticationPrincipal AuthPrincipal principal) {
+        return clients.list(principal.requireWorkspaceId());
     }
 
     @PostMapping
-    @PreAuthorize("@workspaceAuthorizer.can(principal, 'CLIENT_RECORD_MANAGE')")
-    public ResponseEntity<ClientListResponse> create(@AuthenticationPrincipal AuthPrincipal principal,
-                                                     @Valid @RequestBody CreateClientRequest request,
-                                                     HttpServletRequest httpRequest) {
+    @RequireWorkspacePermission(WorkspaceAction.CLIENT_RECORD_MANAGE)
+    @ResponseStatus(HttpStatus.CREATED)
+    public ClientListResponse create(@AuthenticationPrincipal AuthPrincipal principal,
+                                     @Valid @RequestBody CreateClientRequest request,
+                                     HttpServletRequest httpRequest) {
         ClientListResponse created = clients.create(
                 principal.userId(), principal.requireWorkspaceId(), request, httpRequest);
-        return ResponseEntity.status(HttpStatus.CREATED).body(created);
+        return created;
     }
 
     @GetMapping("/{clientId}")
-    @PreAuthorize("@workspaceAuthorizer.can(principal, 'CLIENT_RECORD_MANAGE')")
-    public ResponseEntity<ClientDetailResponse> get(@AuthenticationPrincipal AuthPrincipal principal,
-                                                     @PathVariable UUID clientId) {
-        return ResponseEntity.ok(clients.get(principal.requireWorkspaceId(), clientId));
+    @RequireWorkspacePermission(WorkspaceAction.CLIENT_RECORD_MANAGE)
+    public ClientDetailResponse get(@AuthenticationPrincipal AuthPrincipal principal,
+                                    @PathVariable UUID clientId) {
+        return clients.get(principal.requireWorkspaceId(), clientId);
     }
 
     @PatchMapping("/{clientId}")
-    @PreAuthorize("@workspaceAuthorizer.can(principal, 'CLIENT_RECORD_MANAGE')")
-    public ResponseEntity<ClientDetailResponse> update(@AuthenticationPrincipal AuthPrincipal principal,
-                                                       @PathVariable UUID clientId,
-                                                       @Valid @RequestBody UpdateClientRequest request,
-                                                       HttpServletRequest httpRequest) {
-        return ResponseEntity.ok(clients.update(
-                principal.userId(), principal.requireWorkspaceId(), clientId, request, httpRequest));
+    @RequireWorkspacePermission(WorkspaceAction.CLIENT_RECORD_MANAGE)
+    public ClientDetailResponse update(@AuthenticationPrincipal AuthPrincipal principal,
+                                       @PathVariable UUID clientId,
+                                       @Valid @RequestBody UpdateClientRequest request,
+                                       HttpServletRequest httpRequest) {
+        return clients.update(
+                principal.userId(), principal.requireWorkspaceId(), clientId, request, httpRequest);
     }
 
     @PostMapping("/{clientId}/representatives")
-    @PreAuthorize("@workspaceAuthorizer.can(principal, 'CLIENT_RECORD_MANAGE')")
-    public ResponseEntity<RepresentativeResponse> invite(@AuthenticationPrincipal AuthPrincipal principal,
-                                                         @PathVariable UUID clientId,
-                                                         @Valid @RequestBody InviteRepresentativeRequest request,
-                                                         HttpServletRequest httpRequest) {
+    @RequireWorkspacePermission(WorkspaceAction.CLIENT_RECORD_MANAGE)
+    @ResponseStatus(HttpStatus.CREATED)
+    public RepresentativeResponse invite(@AuthenticationPrincipal AuthPrincipal principal,
+                                         @PathVariable UUID clientId,
+                                         @Valid @RequestBody InviteRepresentativeRequest request,
+                                         HttpServletRequest httpRequest) {
         RepresentativeResponse invited = representatives.invite(
                 principal.userId(), principal.requireWorkspaceId(), clientId,
                 request.fullName(), request.position(), request.email(), httpRequest);
-        return ResponseEntity.status(HttpStatus.CREATED).body(invited);
+        return invited;
     }
 }

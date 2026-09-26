@@ -1,6 +1,8 @@
 package app.lightmove.api.triagecompany.controller;
 
 import app.lightmove.api.core.security.model.AuthPrincipal;
+import app.lightmove.api.core.security.rbac.ProjectAction;
+import app.lightmove.api.core.security.rbac.RequireProjectPermission;
 import app.lightmove.api.triagecompany.dto.AddSelectedTriageCompaniesRequest;
 import app.lightmove.api.triagecompany.dto.AddTriageCompanyRequest;
 import app.lightmove.api.triagecompany.dto.CaptureCompanyRequest;
@@ -18,8 +20,6 @@ import java.util.List;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
-import org.springframework.http.ResponseEntity;
-import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -30,6 +30,7 @@ import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
 /**
@@ -45,31 +46,32 @@ public class TriageCompanyController {
     private final TriageCompanyService triage;
 
     @GetMapping
-    @PreAuthorize("@projectAuthorizer.can(principal, #projectId, 'WORK_VIEW')")
-    public ResponseEntity<TriageCompaniesResponse> list(@AuthenticationPrincipal AuthPrincipal principal,
-                                                        @PathVariable UUID projectId,
-                                                        @RequestParam(required = false) String status,
-                                                        @RequestParam(required = false) String q,
-                                                        @RequestParam(required = false) String executiveQuery,
-                                                        @RequestParam(required = false) List<String> executiveStatuses,
-                                                        @RequestParam(required = false) String sort,
-                                                        @RequestParam(required = false) String direction,
-                                                        @RequestParam(required = false) Integer page,
-                                                        @RequestParam(required = false) Integer size) {
+    @RequireProjectPermission(ProjectAction.WORK_VIEW)
+    public TriageCompaniesResponse list(@AuthenticationPrincipal AuthPrincipal principal,
+                                        @PathVariable UUID projectId,
+                                        @RequestParam(required = false) String status,
+                                        @RequestParam(required = false) String q,
+                                        @RequestParam(required = false) String executiveQuery,
+                                        @RequestParam(required = false) List<String> executiveStatuses,
+                                        @RequestParam(required = false) String sort,
+                                        @RequestParam(required = false) String direction,
+                                        @RequestParam(required = false) Integer page,
+                                        @RequestParam(required = false) Integer size) {
         TriageCompanyListCriteria criteria = new TriageCompanyListCriteria(
                 status, q, executiveQuery, executiveStatuses, sort, direction, page, size);
-        return ResponseEntity.ok(triage.list(principal.requireWorkspaceId(), projectId, criteria));
+        return triage.list(principal.requireWorkspaceId(), projectId, criteria);
     }
 
     @PostMapping
-    @PreAuthorize("@projectAuthorizer.can(principal, #projectId, 'WORK_EXECUTE')")
-    public ResponseEntity<TriageCompanyResponse> add(@AuthenticationPrincipal AuthPrincipal principal,
-                                                     @PathVariable UUID projectId,
-                                                     @Valid @RequestBody AddTriageCompanyRequest request,
-                                                     HttpServletRequest httpRequest) {
+    @RequireProjectPermission(ProjectAction.WORK_EXECUTE)
+    @ResponseStatus(HttpStatus.CREATED)
+    public TriageCompanyResponse add(@AuthenticationPrincipal AuthPrincipal principal,
+                                     @PathVariable UUID projectId,
+                                     @Valid @RequestBody AddTriageCompanyRequest request,
+                                     HttpServletRequest httpRequest) {
         TriageCompanyResponse added = triage.add(principal.userId(), principal.requireWorkspaceId(),
                 projectId, request, httpRequest);
-        return ResponseEntity.status(HttpStatus.CREATED).body(added);
+        return added;
     }
 
     /**
@@ -78,24 +80,25 @@ public class TriageCompanyController {
      * carries the fields and the row records that it did.
      */
     @PostMapping("/capture")
-    @PreAuthorize("@projectAuthorizer.can(principal, #projectId, 'WORK_EXECUTE')")
-    public ResponseEntity<TriageCompanyResponse> capture(@AuthenticationPrincipal AuthPrincipal principal,
-                                                         @PathVariable UUID projectId,
-                                                         @Valid @RequestBody CaptureCompanyRequest request,
-                                                         HttpServletRequest httpRequest) {
+    @RequireProjectPermission(ProjectAction.WORK_EXECUTE)
+    @ResponseStatus(HttpStatus.CREATED)
+    public TriageCompanyResponse capture(@AuthenticationPrincipal AuthPrincipal principal,
+                                         @PathVariable UUID projectId,
+                                         @Valid @RequestBody CaptureCompanyRequest request,
+                                         HttpServletRequest httpRequest) {
         TriageCompanyResponse captured = triage.capture(principal.userId(),
                 principal.requireWorkspaceId(), projectId, request, httpRequest);
-        return ResponseEntity.status(HttpStatus.CREATED).body(captured);
+        return captured;
     }
 
     /** Takes no body: the scope is the stored filter, so a request cannot ask for a wider one. */
     @PostMapping("/from-filter")
-    @PreAuthorize("@projectAuthorizer.can(principal, #projectId, 'WORK_EXECUTE')")
-    public ResponseEntity<TriageBulkAddResponse> addAllInScope(@AuthenticationPrincipal AuthPrincipal principal,
-                                                               @PathVariable UUID projectId,
-                                                               HttpServletRequest httpRequest) {
-        return ResponseEntity.ok(triage.addAllInScope(principal.userId(),
-                principal.requireWorkspaceId(), projectId, httpRequest));
+    @RequireProjectPermission(ProjectAction.WORK_EXECUTE)
+    public TriageBulkAddResponse addAllInScope(@AuthenticationPrincipal AuthPrincipal principal,
+                                               @PathVariable UUID projectId,
+                                               HttpServletRequest httpRequest) {
+        return triage.addAllInScope(principal.userId(),
+                principal.requireWorkspaceId(), projectId, httpRequest);
     }
 
     /**
@@ -103,25 +106,25 @@ public class TriageCompanyController {
      * off-limits-checked server-side.
      */
     @PostMapping("/bulk")
-    @PreAuthorize("@projectAuthorizer.can(principal, #projectId, 'WORK_EXECUTE')")
-    public ResponseEntity<TriageBulkAddResponse> addSelected(@AuthenticationPrincipal AuthPrincipal principal,
-                                                             @PathVariable UUID projectId,
-                                                             @Valid @RequestBody AddSelectedTriageCompaniesRequest request,
-                                                             HttpServletRequest httpRequest) {
-        return ResponseEntity.ok(triage.addSelected(principal.userId(),
-                principal.requireWorkspaceId(), projectId, request, httpRequest));
+    @RequireProjectPermission(ProjectAction.WORK_EXECUTE)
+    public TriageBulkAddResponse addSelected(@AuthenticationPrincipal AuthPrincipal principal,
+                                             @PathVariable UUID projectId,
+                                             @Valid @RequestBody AddSelectedTriageCompaniesRequest request,
+                                             HttpServletRequest httpRequest) {
+        return triage.addSelected(principal.userId(),
+                principal.requireWorkspaceId(), projectId, request, httpRequest);
     }
 
     @PatchMapping("/{triageCompanyId}")
-    @PreAuthorize("@projectAuthorizer.can(principal, #projectId, 'WORK_EXECUTE')")
-    public ResponseEntity<TriageCompanyResponse> update(
+    @RequireProjectPermission(ProjectAction.WORK_EXECUTE)
+    public TriageCompanyResponse update(
             @AuthenticationPrincipal AuthPrincipal principal,
             @PathVariable UUID projectId,
             @PathVariable UUID triageCompanyId,
             @Valid @RequestBody UpdateTriageCompanyRequest request,
             HttpServletRequest httpRequest) {
-        return ResponseEntity.ok(triage.update(principal.userId(), principal.requireWorkspaceId(),
-                projectId, triageCompanyId, request, httpRequest));
+        return triage.update(principal.userId(), principal.requireWorkspaceId(),
+                projectId, triageCompanyId, request, httpRequest);
     }
 
     /**
@@ -130,15 +133,15 @@ public class TriageCompanyController {
      * omitted field is a cleared one. Refused outright for a company taken from the market.
      */
     @PutMapping("/{triageCompanyId}")
-    @PreAuthorize("@projectAuthorizer.can(principal, #projectId, 'WORK_EXECUTE')")
-    public ResponseEntity<TriageCompanyResponse> edit(
+    @RequireProjectPermission(ProjectAction.WORK_EXECUTE)
+    public TriageCompanyResponse edit(
             @AuthenticationPrincipal AuthPrincipal principal,
             @PathVariable UUID projectId,
             @PathVariable UUID triageCompanyId,
             @Valid @RequestBody EditTriageCompanyRequest request,
             HttpServletRequest httpRequest) {
-        return ResponseEntity.ok(triage.edit(principal.userId(), principal.requireWorkspaceId(),
-                projectId, triageCompanyId, request, httpRequest));
+        return triage.edit(principal.userId(), principal.requireWorkspaceId(),
+                projectId, triageCompanyId, request, httpRequest);
     }
 
     /**
@@ -151,26 +154,26 @@ public class TriageCompanyController {
      * facts are not the mandate's to rewrite, but the columns it added to its own grid are its own.
      */
     @PatchMapping("/{triageCompanyId}/custom-fields")
-    @PreAuthorize("@projectAuthorizer.can(principal, #projectId, 'WORK_EXECUTE')")
-    public ResponseEntity<TriageCompanyResponse> editCustomFields(
+    @RequireProjectPermission(ProjectAction.WORK_EXECUTE)
+    public TriageCompanyResponse editCustomFields(
             @AuthenticationPrincipal AuthPrincipal principal,
             @PathVariable UUID projectId,
             @PathVariable UUID triageCompanyId,
             @Valid @RequestBody EditCustomFieldsRequest request,
             HttpServletRequest httpRequest) {
-        return ResponseEntity.ok(triage.editCustomFields(principal.userId(),
+        return triage.editCustomFields(principal.userId(),
                 principal.requireWorkspaceId(), projectId, triageCompanyId, request.customFields(),
-                httpRequest));
+                httpRequest);
     }
 
     @DeleteMapping("/{triageCompanyId}")
-    @PreAuthorize("@projectAuthorizer.can(principal, #projectId, 'WORK_EXECUTE')")
-    public ResponseEntity<Void> remove(@AuthenticationPrincipal AuthPrincipal principal,
-                                       @PathVariable UUID projectId,
-                                       @PathVariable UUID triageCompanyId,
-                                       HttpServletRequest httpRequest) {
+    @RequireProjectPermission(ProjectAction.WORK_EXECUTE)
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void remove(@AuthenticationPrincipal AuthPrincipal principal,
+                       @PathVariable UUID projectId,
+                       @PathVariable UUID triageCompanyId,
+                       HttpServletRequest httpRequest) {
         triage.removeFromProject(principal.userId(), principal.requireWorkspaceId(), projectId,
                 triageCompanyId, httpRequest);
-        return ResponseEntity.noContent().build();
     }
 }

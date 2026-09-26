@@ -1,13 +1,13 @@
 package app.lightmove.api.enrichment.contact.controller;
 
 import app.lightmove.api.core.security.model.AuthPrincipal;
+import app.lightmove.api.core.security.rbac.ProjectAction;
+import app.lightmove.api.core.security.rbac.RequireProjectPermission;
 import app.lightmove.api.enrichment.contact.dto.ContactLookupResponse;
 import app.lightmove.api.enrichment.contact.service.ContactLookupService;
 import jakarta.servlet.http.HttpServletRequest;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
-import org.springframework.http.ResponseEntity;
-import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -31,24 +31,24 @@ public class ContactLookupController {
     private final ContactLookupService lookups;
 
     @PostMapping("/email")
-    @PreAuthorize("@projectAuthorizer.can(principal, #projectId, 'WORK_EXECUTE')")
-    public ResponseEntity<ContactLookupResponse> findEmail(
+    @RequireProjectPermission(ProjectAction.WORK_EXECUTE)
+    public ContactLookupResponse findEmail(
             @AuthenticationPrincipal AuthPrincipal principal,
             @PathVariable UUID projectId,
             @PathVariable UUID candidateId,
             HttpServletRequest httpRequest) {
-        return ResponseEntity.ok(lookups.findEmail(principal.userId(), principal.requireWorkspaceId(),
-                projectId, candidateId, httpRequest));
+        return lookups.findEmail(principal.userId(), principal.requireWorkspaceId(),
+                projectId, candidateId, httpRequest);
     }
 
     @PostMapping("/phone")
-    @PreAuthorize("@projectAuthorizer.can(principal, #projectId, 'WORK_EXECUTE')")
-    public ResponseEntity<ContactLookupResponse> findPhone(
+    @RequireProjectPermission(ProjectAction.WORK_EXECUTE)
+    public ContactLookupResponse findPhone(
             @AuthenticationPrincipal AuthPrincipal principal,
             @PathVariable UUID projectId,
             @PathVariable UUID candidateId,
             HttpServletRequest httpRequest) {
-        return ResponseEntity.ok(lookups.findPhone(principal.userId(), principal.requireWorkspaceId(),
-                projectId, candidateId, httpRequest));
+        return lookups.findPhone(principal.userId(), principal.requireWorkspaceId(),
+                projectId, candidateId, httpRequest);
     }
 }

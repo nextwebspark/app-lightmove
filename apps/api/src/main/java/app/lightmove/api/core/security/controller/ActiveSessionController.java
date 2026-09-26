@@ -7,7 +7,7 @@ import jakarta.servlet.http.HttpServletRequest;
 import java.util.List;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
-import org.springframework.http.ResponseEntity;
+import org.springframework.http.HttpStatus;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.CookieValue;
 import org.springframework.web.bind.annotation.DeleteMapping;
@@ -15,6 +15,7 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
 /**
@@ -35,32 +36,32 @@ public class ActiveSessionController {
     private final ActiveSessionService sessions;
 
     @GetMapping
-    public ResponseEntity<List<ActiveSessionResponse>> list(
+    public List<ActiveSessionResponse> list(
             @AuthenticationPrincipal AuthPrincipal principal,
             @CookieValue(name = "${lightmove.auth.cookie.name}", required = false) String refreshToken) {
 
-        return ResponseEntity.ok(sessions.list(principal.userId(), refreshToken));
+        return sessions.list(principal.userId(), refreshToken);
     }
 
     @DeleteMapping("/{sessionId}")
-    public ResponseEntity<Void> revoke(
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void revoke(
             @AuthenticationPrincipal AuthPrincipal principal,
             @PathVariable UUID sessionId,
             @CookieValue(name = "${lightmove.auth.cookie.name}", required = false) String refreshToken,
             HttpServletRequest httpRequest) {
 
         sessions.revoke(principal.userId(), sessionId, refreshToken, httpRequest);
-        return ResponseEntity.noContent().build();
     }
 
     @PostMapping("/revoke-others")
-    public ResponseEntity<RevokedSessions> revokeOthers(
+    public RevokedSessions revokeOthers(
             @AuthenticationPrincipal AuthPrincipal principal,
             @CookieValue(name = "${lightmove.auth.cookie.name}", required = false) String refreshToken,
             HttpServletRequest httpRequest) {
 
-        return ResponseEntity.ok(new RevokedSessions(
-                sessions.revokeOthers(principal.userId(), refreshToken, httpRequest)));
+        return new RevokedSessions(
+                sessions.revokeOthers(principal.userId(), refreshToken, httpRequest));
     }
 
     public record RevokedSessions(int revoked) {}

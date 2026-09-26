@@ -1,13 +1,14 @@
 package app.lightmove.api.talentmap.controller;
 
 import app.lightmove.api.core.security.model.AuthPrincipal;
+import app.lightmove.api.core.security.rbac.ProjectAction;
+import app.lightmove.api.core.security.rbac.RequireProjectPermission;
 import app.lightmove.api.talentmap.dto.TalentMapConfigResponse;
 import app.lightmove.api.talentmap.dto.TalentMapLocationsResponse;
 import app.lightmove.api.talentmap.dto.TalentMapResponse;
 import app.lightmove.api.talentmap.service.TalentMapService;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
-import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -32,23 +33,23 @@ public class TalentMapController {
     private final TalentMapService talentMap;
 
     @GetMapping("/api/v1/projects/{projectId}/talent-map")
-    @PreAuthorize("@projectAuthorizer.can(principal, #projectId, 'WORK_VIEW')")
-    public ResponseEntity<TalentMapResponse> read(@AuthenticationPrincipal AuthPrincipal principal,
-                                                  @PathVariable UUID projectId,
-                                                  @RequestParam(required = false) String status) {
-        return ResponseEntity.ok(talentMap.read(principal.requireWorkspaceId(), projectId, status));
+    @RequireProjectPermission(ProjectAction.WORK_VIEW)
+    public TalentMapResponse read(@AuthenticationPrincipal AuthPrincipal principal,
+                                  @PathVariable UUID projectId,
+                                  @RequestParam(required = false) String status) {
+        return talentMap.read(principal.requireWorkspaceId(), projectId, status);
     }
 
     @GetMapping("/api/v1/projects/{projectId}/talent-map/locations")
-    @PreAuthorize("@projectAuthorizer.can(principal, #projectId, 'WORK_VIEW')")
-    public ResponseEntity<TalentMapLocationsResponse> locations(@AuthenticationPrincipal AuthPrincipal principal,
-                                                                @PathVariable UUID projectId,
-                                                                @RequestParam(required = false) String status) {
-        return ResponseEntity.ok(talentMap.readLocations(principal.requireWorkspaceId(), projectId, status));
+    @RequireProjectPermission(ProjectAction.WORK_VIEW)
+    public TalentMapLocationsResponse locations(@AuthenticationPrincipal AuthPrincipal principal,
+                                                @PathVariable UUID projectId,
+                                                @RequestParam(required = false) String status) {
+        return talentMap.readLocations(principal.requireWorkspaceId(), projectId, status);
     }
 
     @GetMapping("/api/v1/talent-map/config")
-    public ResponseEntity<TalentMapConfigResponse> config() {
-        return ResponseEntity.ok(talentMap.config());
+    public TalentMapConfigResponse config() {
+        return talentMap.config();
     }
 }

@@ -1,12 +1,12 @@
 package app.lightmove.api.positiontemplate.controller;
 
 import app.lightmove.api.core.security.model.AuthPrincipal;
+import app.lightmove.api.core.security.rbac.RequireWorkspacePermission;
+import app.lightmove.api.core.security.rbac.WorkspaceAction;
 import app.lightmove.api.positiontemplate.dto.PositionTemplateSummary;
 import app.lightmove.api.positiontemplate.service.PositionTemplateService;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
-import org.springframework.http.ResponseEntity;
-import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -31,9 +31,9 @@ public class PositionTemplateController {
     private final PositionTemplateService templates;
 
     @GetMapping
-    @PreAuthorize("@workspaceAuthorizer.can(principal, 'PROJECT_BROWSE')")
-    public ResponseEntity<List<PositionTemplateSummary>> list(
+    @RequireWorkspacePermission(WorkspaceAction.PROJECT_BROWSE)
+    public List<PositionTemplateSummary> list(
             @AuthenticationPrincipal AuthPrincipal principal) {
-        return ResponseEntity.ok(templates.list(principal.requireWorkspaceId()));
+        return templates.list(principal.requireWorkspaceId());
     }
 }

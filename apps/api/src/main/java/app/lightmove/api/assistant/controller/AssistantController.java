@@ -10,6 +10,8 @@ import app.lightmove.api.assistant.service.AssistantProposalService;
 import app.lightmove.api.assistant.service.AssistantService;
 import app.lightmove.api.assistant.service.AssistantStarters;
 import app.lightmove.api.core.security.model.AuthPrincipal;
+import app.lightmove.api.core.security.rbac.ProjectAction;
+import app.lightmove.api.core.security.rbac.RequireProjectPermission;
 import app.lightmove.api.triagecompany.dto.TriageBulkAddResponse;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
@@ -17,7 +19,6 @@ import java.util.List;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.MediaType;
-import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -42,24 +43,24 @@ public class AssistantController {
     private final AssistantStarters starters;
 
     @GetMapping("/api/v1/projects/{projectId}/assistant/starters")
-    @PreAuthorize("@projectAuthorizer.can(principal, #projectId, 'WORK_EXECUTE')")
-    public ResponseEntity<AssistantStartersResponse> starters(
+    @RequireProjectPermission(ProjectAction.WORK_EXECUTE)
+    public AssistantStartersResponse starters(
             @AuthenticationPrincipal AuthPrincipal principal, @PathVariable UUID projectId) {
-        return ResponseEntity.ok(starters.forWorkspace(principal.requireWorkspaceId()));
+        return starters.forWorkspace(principal.requireWorkspaceId());
     }
 
     @GetMapping("/api/v1/projects/{projectId}/assistant/threads")
-    @PreAuthorize("@projectAuthorizer.can(principal, #projectId, 'WORK_EXECUTE')")
-    public ResponseEntity<List<AssistantThreadSummary>> threads(
+    @RequireProjectPermission(ProjectAction.WORK_EXECUTE)
+    public List<AssistantThreadSummary> threads(
             @AuthenticationPrincipal AuthPrincipal principal, @PathVariable UUID projectId) {
-        return ResponseEntity.ok(
-                assistant.threads(principal.userId(), principal.requireWorkspaceId(), projectId));
+        return 
+                assistant.threads(principal.userId(), principal.requireWorkspaceId(), projectId);
     }
 
     /** Streams the steps as they happen, then the saved turn — see {@code AssistantAskStream}. */
     @PostMapping(path = "/api/v1/projects/{projectId}/assistant/ask",
             produces = MediaType.TEXT_EVENT_STREAM_VALUE)
-    @PreAuthorize("@projectAuthorizer.can(principal, #projectId, 'WORK_EXECUTE')")
+    @RequireProjectPermission(ProjectAction.WORK_EXECUTE)
     public SseEmitter ask(@AuthenticationPrincipal AuthPrincipal principal,
                           @PathVariable UUID projectId,
                           @Valid @RequestBody AskRequest request) {
@@ -69,20 +70,20 @@ public class AssistantController {
 
     @GetMapping("/api/v1/assistant/threads/{threadId}")
     @PreAuthorize("@workspaceAuthorizer.member(principal)")
-    public ResponseEntity<AssistantThreadResponse> thread(@AuthenticationPrincipal AuthPrincipal principal,
-                                                          @PathVariable UUID threadId) {
-        return ResponseEntity.ok(
-                assistant.thread(threadId, principal.userId(), principal.requireWorkspaceId()));
+    public AssistantThreadResponse thread(@AuthenticationPrincipal AuthPrincipal principal,
+                                          @PathVariable UUID threadId) {
+        return 
+                assistant.thread(threadId, principal.userId(), principal.requireWorkspaceId());
     }
 
     /** {@code WORK_EXECUTE} is checked inside, against the project the stored chat belongs to. */
     @PostMapping("/api/v1/assistant/turns/{turnId}/accept")
     @PreAuthorize("@workspaceAuthorizer.member(principal)")
-    public ResponseEntity<TriageBulkAddResponse> accept(@AuthenticationPrincipal AuthPrincipal principal,
-                                                        @PathVariable UUID turnId,
-                                                        @Valid @RequestBody AcceptProposalRequest request,
-                                                        HttpServletRequest httpRequest) {
-        return ResponseEntity.ok(proposals.accept(turnId, principal.userId(),
-                principal.requireWorkspaceId(), request, httpRequest));
+    public TriageBulkAddResponse accept(@AuthenticationPrincipal AuthPrincipal principal,
+                                        @PathVariable UUID turnId,
+                                        @Valid @RequestBody AcceptProposalRequest request,
+                                        HttpServletRequest httpRequest) {
+        return proposals.accept(turnId, principal.userId(),
+                principal.requireWorkspaceId(), request, httpRequest);
     }
 }
