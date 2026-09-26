@@ -1,9 +1,16 @@
 package app.lightmove.api.enrichment.contact.constant;
 
+import lombok.Getter;
+import lombok.RequiredArgsConstructor;
+import lombok.experimental.Accessors;
+
 /**
  * What one press of a Find button did — and, read with the audit row's {@code billed} detail, what it
  * cost. {@link #HELD} and a remembered {@link #NONE} spend nothing: the answer came off the row.
  */
+@Getter
+@Accessors(fluent = true)
+@RequiredArgsConstructor
 public enum ContactLookupOutcome {
 
     /** The provider answered with values. */
@@ -16,12 +23,4 @@ public enum ContactLookupOutcome {
     HELD("held");
 
     private final String value;
-
-    ContactLookupOutcome(String value) {
-        this.value = value;
-    }
-
-    public String value() {
-        return value;
-    }
 }

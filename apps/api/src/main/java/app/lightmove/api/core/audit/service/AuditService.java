@@ -2,13 +2,14 @@ package app.lightmove.api.core.audit.service;
 import app.lightmove.api.core.audit.constant.AuditEventType;
 import app.lightmove.api.core.audit.constant.AuditOutcome;
 import app.lightmove.api.core.audit.model.AuditEvent;
-
 import app.lightmove.api.core.logging.service.CorrelationId;
 import app.lightmove.api.core.security.service.ClientIpResolver;
 import jakarta.servlet.http.HttpServletRequest;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
+import lombok.AccessLevel;
+import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
 /**
@@ -19,18 +20,23 @@ import org.springframework.stereotype.Service;
  * for why that separation is load-bearing rather than cosmetic.
  */
 @Service
+@RequiredArgsConstructor(access = AccessLevel.PACKAGE)
 public class AuditService {
+
+    /** The target type of every event about one project — the key the project's activity feed reads by. */
+    public static final String PROJECT_TARGET = "project";
 
     private final AuditEventWriter writer;
     private final ClientIpResolver clientIpResolver;
 
-    AuditService(AuditEventWriter writer, ClientIpResolver clientIpResolver) {
-        this.writer = writer;
-        this.clientIpResolver = clientIpResolver;
-    }
-
     public Builder event(AuditEventType type) {
         return new Builder(this, type);
+    }
+
+    /** An event a user caused on one project, from the request that caused it. */
+    public Builder projectEvent(AuditEventType type, UUID userId, UUID workspaceId, UUID projectId,
+                                HttpServletRequest request) {
+        return event(type).actor(userId).workspace(workspaceId).target(PROJECT_TARGET, projectId).from(request);
     }
 
     /** Package-private: callers go through {@link #event}, which is the only supported entry point. */

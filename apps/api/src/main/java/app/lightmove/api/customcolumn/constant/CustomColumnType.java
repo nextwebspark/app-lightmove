@@ -1,5 +1,10 @@
 package app.lightmove.api.customcolumn.constant;
 
+import app.lightmove.api.common.constant.ApiValueEnum;
+import lombok.Getter;
+import lombok.RequiredArgsConstructor;
+import lombok.experimental.Accessors;
+
 /**
  * What a custom column holds, and therefore how a value entered into it is validated and how the grid
  * aligns it. Four primitives and no option list: a select column needs an options table, an editor for
@@ -9,29 +14,19 @@ package app.lightmove.api.customcolumn.constant;
  * is <i>accepted</i>, not how it is kept, so correcting a column's type after an import does not
  * silently discard the values already in it.
  */
-public enum CustomColumnType {
+@Getter
+@Accessors(fluent = true)
+@RequiredArgsConstructor
+public enum CustomColumnType implements ApiValueEnum {
 
     TEXT("text"),
     NUMBER("number"),
     DATE("date"),
     BOOLEAN("boolean");
 
-    private final String wireToken;
-
-    CustomColumnType(String wireToken) {
-        this.wireToken = wireToken;
-    }
-
-    public String value() {
-        return wireToken;
-    }
+    private final String value;
 
     public static CustomColumnType fromValue(String value) {
-        for (CustomColumnType type : values()) {
-            if (type.wireToken.equals(value)) {
-                return type;
-            }
-        }
-        return null;
+        return ApiValueEnum.fromValue(CustomColumnType.class, value);
     }
 }

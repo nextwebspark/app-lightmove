@@ -59,7 +59,7 @@ public class ProjectExportService {
 
     public String companies(UUID userId, UUID workspaceId, UUID projectId, String statusToken,
                             TriageCompanyFilters filters, HttpServletRequest httpRequest) {
-        TriageCompanyStatus status = resolveStatus(statusToken);
+        TriageCompanyStatus status = TriageCompanyStatus.parseOrInUniverse(statusToken);
         TriageCompaniesResponse stage =
                 triage.listAllOfStage(workspaceId, projectId, status, filters, caps.maxCompanies());
         refuseIfPast("companies", stage.totalCount(), caps.maxCompanies());
@@ -71,8 +71,7 @@ public class ProjectExportService {
         List<CustomColumnDto> columns = customColumns.list(workspaceId, projectId).columns();
         List<ExportRow> rows = pair(stage, everyone, status, filters);
 
-        audit.event(ProjectEventType.COMPANIES_EXPORTED)
-                .actor(userId).workspace(workspaceId).target("project", projectId).from(httpRequest)
+        audit.projectEvent(ProjectEventType.COMPANIES_EXPORTED, userId, workspaceId, projectId, httpRequest)
                 .detail("stage", status.value())
                 .detail("rows", String.valueOf(rows.size()))
                 .detail("wholeStage", String.valueOf(isUnfiltered(filters)))
@@ -161,16 +160,5 @@ public class ProjectExportService {
                             + ". Narrow it with the search box, or ask an administrator to raise "
                             + "the export limit.");
         }
-    }
-
-    private static TriageCompanyStatus resolveStatus(String token) {
-        if (token == null || token.isBlank()) {
-            return TriageCompanyStatus.IN_UNIVERSE;
-        }
-        TriageCompanyStatus status = TriageCompanyStatus.fromValue(token);
-        if (status == null) {
-            throw new ApiException(ErrorCode.VALIDATION_FAILED, "Unknown status: " + token);
-        }
-        return status;
     }
 }

@@ -1,13 +1,14 @@
 package app.lightmove.api.dataimport.service;
 
+import app.lightmove.api.candidate.constant.ContactSource;
 import app.lightmove.api.candidate.dto.CandidateResponse;
 import app.lightmove.api.candidate.dto.SaveCandidateRequest;
-import app.lightmove.api.candidate.constant.ContactSource;
 import app.lightmove.api.candidate.service.CandidateService;
 import app.lightmove.api.core.audit.constant.ProjectEventType;
 import app.lightmove.api.core.audit.service.AuditService;
 import app.lightmove.api.core.error.constant.ErrorCode;
 import app.lightmove.api.core.error.model.ApiException;
+import app.lightmove.api.core.text.service.FileNameSanitizer;
 import app.lightmove.api.customcolumn.constant.CustomColumnTarget;
 import app.lightmove.api.customcolumn.constant.CustomColumnType;
 import app.lightmove.api.customcolumn.dto.CustomColumnDto;
@@ -85,12 +86,12 @@ public class ProjectImportService {
 
     /** The blank CSV a consultant can fill in — carrying this mandate's own custom columns. */
     public String template(UUID workspaceId, UUID projectId) {
-        requireProject(projectId, workspaceId);
+        projects.requireInWorkspace(projectId, workspaceId);
         return templateWriter.templateFor(customColumns.list(workspaceId, projectId).columns());
     }
 
     public ImportPreviewResponse preview(UUID userId, UUID workspaceId, UUID projectId, MultipartFile file) {
-        requireProject(projectId, workspaceId);
+        projects.requireInWorkspace(projectId, workspaceId);
         ParsedSheet sheet = reader.read(file);
         List<CustomColumnDto> existing = customColumns.list(workspaceId, projectId).columns();
         ProposedColumnMappings proposed = proposer.propose(userId, sheet, existing);
@@ -106,7 +107,7 @@ public class ProjectImportService {
                     toDto(proposed.mappings().get(index))));
         }
         return new ImportPreviewResponse(
-                safeFileNameOf(file.getOriginalFilename()),
+                FileNameSanitizer.sanitize(file.getOriginalFilename(), "import"),
                 sheet.rowCount(),
                 columns,
                 availableFields(),
@@ -116,7 +117,7 @@ public class ProjectImportService {
     public ImportSummaryResponse commit(UUID userId, UUID workspaceId, UUID projectId,
                                         MultipartFile file, CommitImportRequest request,
                                         HttpServletRequest httpRequest) {
-        requireProject(projectId, workspaceId);
+        projects.requireInWorkspace(projectId, workspaceId);
         ParsedSheet sheet = reader.read(file);
         ImportTally tally = new ImportTally();
 
@@ -144,9 +145,8 @@ public class ProjectImportService {
             }
         }
 
-        audit.event(ProjectEventType.SPREADSHEET_IMPORTED)
-                .actor(userId).workspace(workspaceId).target("project", projectId).from(httpRequest)
-                .detail("fileName", safeFileNameOf(file.getOriginalFilename()))
+        audit.projectEvent(ProjectEventType.SPREADSHEET_IMPORTED, userId, workspaceId, projectId, httpRequest)
+                .detail("fileName", FileNameSanitizer.sanitize(file.getOriginalFilename(), "import"))
                 .detail("rowsRead", String.valueOf(tally.rowsRead()))
                 .detail("companiesCreated", String.valueOf(tally.companiesCreated()))
                 .detail("candidatesCreated", String.valueOf(tally.candidatesCreated()))
@@ -470,28 +470,6 @@ public class ProjectImportService {
                 mapping.customLabel(),
                 mapping.customColumnTarget() == null ? null : mapping.customColumnTarget().value(),
                 mapping.customType() == null ? null : mapping.customType().value());
-    }
-
-    /**
-     * The filename is caller-supplied and reaches an audit detail and the preview response, so the
-     * path separators and control characters that would let it forge either are stripped here — the
-     * same guard {@code PositionDocumentService} applies for the same reason.
-     */
-    private static String safeFileNameOf(String originalFileName) {
-        if (originalFileName == null || originalFileName.isBlank()) {
-            return "import";
-        }
-        String withoutPath = originalFileName.replaceAll(".*[/\\\\]", "");
-        String cleaned = withoutPath.replaceAll("[\\p{Cntrl}\"]", "").trim();
-        if (cleaned.isEmpty()) {
-            return "import";
-        }
-        return cleaned.length() > 255 ? cleaned.substring(0, 255) : cleaned;
-    }
-
-    private void requireProject(UUID projectId, UUID workspaceId) {
-        projects.findByIdAndWorkspaceId(projectId, workspaceId)
-                .orElseThrow(() -> ApiException.of(ErrorCode.NOT_FOUND));
     }
 
     /** What one sheet column turned out to be: a built-in field, or a custom column of the mandate's. */

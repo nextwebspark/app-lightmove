@@ -1,5 +1,6 @@
 package app.lightmove.api.strategy.service;
 
+import app.lightmove.api.common.constant.ApiValueEnum;
 import app.lightmove.api.common.location.service.Countries;
 import app.lightmove.api.core.audit.constant.ProjectEventType;
 import app.lightmove.api.core.audit.service.AuditService;
@@ -15,18 +16,18 @@ import app.lightmove.api.strategy.constant.RevenueBand;
 import app.lightmove.api.strategy.constant.SortDirection;
 import app.lightmove.api.strategy.dto.CompanyRefDto;
 import app.lightmove.api.strategy.dto.CompanyResultDto;
+import app.lightmove.api.strategy.dto.NumericRangeDto;
 import app.lightmove.api.strategy.dto.PutOffLimitsRequest;
 import app.lightmove.api.strategy.dto.PutStrategyFilterRequest;
 import app.lightmove.api.strategy.dto.StrategyCompaniesResponse;
-import app.lightmove.api.strategy.dto.NumericRangeDto;
 import app.lightmove.api.strategy.dto.StrategyFilterDto;
 import app.lightmove.api.strategy.dto.StrategyResponse;
 import app.lightmove.api.strategy.model.CompanyExclusion;
 import app.lightmove.api.strategy.model.CompanyRow;
 import app.lightmove.api.strategy.model.CompanyScope;
+import app.lightmove.api.strategy.model.NumericRange;
 import app.lightmove.api.strategy.model.Strategy;
 import app.lightmove.api.strategy.model.StrategyCompanyRef;
-import app.lightmove.api.strategy.model.NumericRange;
 import app.lightmove.api.strategy.model.StrategyFilter;
 import app.lightmove.api.strategy.repository.StrategyRepository;
 import jakarta.servlet.http.HttpServletRequest;
@@ -90,7 +91,7 @@ public class StrategyService {
      */
     @Transactional(readOnly = true)
     public StrategyResponse get(UUID userId, UUID workspaceId, UUID projectId) {
-        requireProject(projectId, workspaceId);
+        projects.requireInWorkspace(projectId, workspaceId);
         return toResponse(strategies.findByProjectId(projectId)
                 .orElseGet(() -> Strategy.forProject(projectId)), userId, workspaceId, projectId);
     }
@@ -103,8 +104,7 @@ public class StrategyService {
         Strategy strategy = load(projectId, workspaceId);
         strategy.replaceFilter(filter);
 
-        audit.event(ProjectEventType.STRATEGY_UPDATED)
-                .actor(userId).workspace(workspaceId).target("project", projectId).from(httpRequest)
+        audit.projectEvent(ProjectEventType.STRATEGY_UPDATED, userId, workspaceId, projectId, httpRequest)
                 .detail("section", "filter")
                 .record();
         return toResponse(strategy, userId, workspaceId, projectId);
@@ -117,8 +117,7 @@ public class StrategyService {
         strategy.replaceOffLimitsCompanies(
                 resolveOffLimits(request.apolloAccountIds(), strategy.getOffLimitsCompanies()));
 
-        audit.event(ProjectEventType.STRATEGY_UPDATED)
-                .actor(userId).workspace(workspaceId).target("project", projectId).from(httpRequest)
+        audit.projectEvent(ProjectEventType.STRATEGY_UPDATED, userId, workspaceId, projectId, httpRequest)
                 .detail("section", "offLimits")
                 .record();
         return toResponse(strategy, userId, workspaceId, projectId);
@@ -136,17 +135,11 @@ public class StrategyService {
                                                Integer requestedPage, Integer requestedSize) {
         int page = requestedPage == null ? 0 : requestedPage;
         int size = requestedSize == null ? listConfig.defaultPageSize() : requestedSize;
-        if (page < 0) {
-            throw new ApiException(ErrorCode.VALIDATION_FAILED, "page must not be negative");
-        }
-        if (size < 1 || size > listConfig.maxPageSize()) {
-            throw new ApiException(ErrorCode.VALIDATION_FAILED,
-                    "size must be between 1 and " + listConfig.maxPageSize());
-        }
+        listConfig.requireValidPage(page, size);
         CompanySortField sort = resolveSort(sortToken);
         SortDirection direction = resolveDirection(directionToken);
 
-        requireProject(projectId, workspaceId);
+        projects.requireInWorkspace(projectId, workspaceId);
         Strategy strategy = strategies.findByProjectId(projectId)
                 .orElseGet(() -> Strategy.forProject(projectId));
         CompanyScope scope = StrategyScope.of(strategy, normaliseQuery(query),
@@ -161,7 +154,7 @@ public class StrategyService {
     /** The scope a mandate's filter currently defines, for the callers that act on it in bulk. */
     @Transactional(readOnly = true)
     public CompanyScope scopeOf(UUID workspaceId, UUID projectId) {
-        requireProject(projectId, workspaceId);
+        projects.requireInWorkspace(projectId, workspaceId);
         return savedScopeOf(projectId, CompanyExclusion.NONE);
     }
 
@@ -172,7 +165,7 @@ public class StrategyService {
      */
     @Transactional(readOnly = true)
     public CompanyScope untriagedScopeOf(UUID workspaceId, UUID projectId) {
-        requireProject(projectId, workspaceId);
+        projects.requireInWorkspace(projectId, workspaceId);
         return savedScopeOf(projectId, triagedLookup.exclusionFor(projectId));
     }
 
@@ -280,36 +273,17 @@ public class StrategyService {
     }
 
     private static CompanySortField resolveSort(String token) {
-        if (token == null || token.isBlank()) {
-            return DEFAULT_SORT;
-        }
-        CompanySortField sort = CompanySortField.fromValue(token);
-        if (sort == null) {
-            throw new ApiException(ErrorCode.VALIDATION_FAILED, "Unknown sort field: " + token);
-        }
-        return sort;
+        return ApiValueEnum.parse(CompanySortField.class, token, DEFAULT_SORT, "sort field");
     }
 
     private static SortDirection resolveDirection(String token) {
-        if (token == null || token.isBlank()) {
-            return DEFAULT_DIRECTION;
-        }
-        SortDirection direction = SortDirection.fromValue(token);
-        if (direction == null) {
-            throw new ApiException(ErrorCode.VALIDATION_FAILED, "Unknown sort direction: " + token);
-        }
-        return direction;
+        return ApiValueEnum.parse(SortDirection.class, token, DEFAULT_DIRECTION, "sort direction");
     }
 
     private Strategy load(UUID projectId, UUID workspaceId) {
-        requireProject(projectId, workspaceId);
+        projects.requireInWorkspace(projectId, workspaceId);
         return strategies.findByProjectId(projectId)
                 .orElseGet(() -> strategies.save(Strategy.forProject(projectId)));
-    }
-
-    private void requireProject(UUID projectId, UUID workspaceId) {
-        projects.findByIdAndWorkspaceId(projectId, workspaceId)
-                .orElseThrow(() -> ApiException.of(ErrorCode.NOT_FOUND));
     }
 
     /** Bounds are already validated by the DTO; this is the shape change only. */
@@ -330,5 +304,4 @@ public class StrategyService {
         return new CompanyRefDto(ref.getApolloAccountId(), ref.getCompanyName(), ref.getIndustry(),
                 ref.getCompanyCity(), ref.getCompanyCountry(), ref.getLogoUrl());
     }
-
 }

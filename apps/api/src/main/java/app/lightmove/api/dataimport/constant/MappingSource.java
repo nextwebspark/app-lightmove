@@ -1,7 +1,14 @@
 package app.lightmove.api.dataimport.constant;
 
+import lombok.Getter;
+import lombok.RequiredArgsConstructor;
+import lombok.experimental.Accessors;
+
 /** What worked out a sheet's column mapping. The mapping step says which, and they differ in how far
  * they are worth trusting. */
+@Getter
+@Accessors(fluent = true)
+@RequiredArgsConstructor
 public enum MappingSource {
 
     /** Every header was a known spelling or an existing column of this project. No model call was made. */
@@ -17,13 +24,5 @@ public enum MappingSource {
      */
     HEADER_MATCHER("headerMatcher");
 
-    private final String wireToken;
-
-    MappingSource(String wireToken) {
-        this.wireToken = wireToken;
-    }
-
-    public String value() {
-        return wireToken;
-    }
+    private final String value;
 }

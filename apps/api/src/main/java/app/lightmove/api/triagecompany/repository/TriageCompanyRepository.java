@@ -1,5 +1,7 @@
 package app.lightmove.api.triagecompany.repository;
 
+import app.lightmove.api.core.error.constant.ErrorCode;
+import app.lightmove.api.core.error.model.ApiException;
 import app.lightmove.api.triagecompany.constant.TriageCompanyStatus;
 import app.lightmove.api.triagecompany.model.TriageCompany;
 import app.lightmove.api.triagecompany.model.TriageCompanyCount;
@@ -51,6 +53,10 @@ public interface TriageCompanyRepository extends JpaRepository<TriageCompany, UU
             Pageable pageable);
 
     Optional<TriageCompany> findByIdAndProjectId(UUID id, UUID projectId);
+
+    default TriageCompany requireInProject(UUID id, UUID projectId) {
+        return findByIdAndProjectId(id, projectId).orElseThrow(() -> ApiException.of(ErrorCode.NOT_FOUND));
+    }
 
     long countByProjectIdAndStatus(UUID projectId, TriageCompanyStatus status);
 

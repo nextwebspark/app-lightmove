@@ -1,5 +1,10 @@
 package app.lightmove.api.triagecompany.constant;
 
+import app.lightmove.api.common.constant.ApiValueEnum;
+import lombok.Getter;
+import lombok.RequiredArgsConstructor;
+import lombok.experimental.Accessors;
+
 /**
  * Which door a company came through into a mandate's universe — provenance the grid shows.
  *
@@ -7,7 +12,10 @@ package app.lightmove.api.triagecompany.constant;
  * {@code apolloAccountId}, and V34's
  * {@code app_lm_project_triage_company_apollo_source_chk} enforces that half in the schema.
  */
-public enum TriageCompanySource {
+@Getter
+@Accessors(fluent = true)
+@RequiredArgsConstructor
+public enum TriageCompanySource implements ApiValueEnum {
 
     /** Taken out of the Apollo universe from the Strategy screen, one row or a whole filter at a time. */
     STRATEGY("strategy"),
@@ -36,22 +44,9 @@ public enum TriageCompanySource {
      */
     ASSISTANT("assistant");
 
-    private final String wireToken;
-
-    TriageCompanySource(String wireToken) {
-        this.wireToken = wireToken;
-    }
-
-    public String value() {
-        return wireToken;
-    }
+    private final String value;
 
     public static TriageCompanySource fromValue(String value) {
-        for (TriageCompanySource source : values()) {
-            if (source.wireToken.equals(value)) {
-                return source;
-            }
-        }
-        return null;
+        return ApiValueEnum.fromValue(TriageCompanySource.class, value);
     }
 }

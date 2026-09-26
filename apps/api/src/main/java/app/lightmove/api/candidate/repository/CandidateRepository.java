@@ -4,6 +4,8 @@ import app.lightmove.api.candidate.constant.CandidateStatus;
 import app.lightmove.api.candidate.model.Candidate;
 import app.lightmove.api.candidate.model.CandidateAttribution;
 import app.lightmove.api.candidate.model.CandidateCount;
+import app.lightmove.api.core.error.constant.ErrorCode;
+import app.lightmove.api.core.error.model.ApiException;
 import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
@@ -44,6 +46,10 @@ public interface CandidateRepository extends JpaRepository<Candidate, UUID> {
             UUID projectId, String fullName, Pageable pageable);
 
     Optional<Candidate> findByIdAndProjectId(UUID id, UUID projectId);
+
+    default Candidate requireInProject(UUID id, UUID projectId) {
+        return findByIdAndProjectId(id, projectId).orElseThrow(() -> ApiException.of(ErrorCode.NOT_FOUND));
+    }
 
     /**
      * The projects list's "Candidates" number, for every mandate on the page at once so the list stays

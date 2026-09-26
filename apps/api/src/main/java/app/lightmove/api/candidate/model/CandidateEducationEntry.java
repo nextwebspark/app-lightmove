@@ -1,6 +1,6 @@
 package app.lightmove.api.candidate.model;
 
-import static app.lightmove.api.core.text.service.SuppliedText.blankToNull;
+import static app.lightmove.api.core.text.service.TextUtils.blankToNull;
 
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 

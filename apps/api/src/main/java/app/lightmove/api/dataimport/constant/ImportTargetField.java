@@ -1,7 +1,11 @@
 package app.lightmove.api.dataimport.constant;
 
+import app.lightmove.api.common.constant.ApiValueEnum;
 import app.lightmove.api.customcolumn.constant.CustomColumnTarget;
 import java.util.List;
+import lombok.Getter;
+import lombok.RequiredArgsConstructor;
+import lombok.experimental.Accessors;
 
 /**
  * Every field of a Companies-grid row a spreadsheet column can be mapped onto — the catalogue the
@@ -15,7 +19,10 @@ import java.util.List;
  * company In universe, and a spreadsheet's "status" column is the sender's pipeline, not this
  * mandate's.
  */
-public enum ImportTargetField {
+@Getter
+@Accessors(fluent = true)
+@RequiredArgsConstructor
+public enum ImportTargetField implements ApiValueEnum {
 
     COMPANY_NAME(CustomColumnTarget.COMPANY, "companyName", "Company",
             List.of("company", "company name", "companyname", "organisation", "organization",
@@ -97,43 +104,17 @@ public enum ImportTargetField {
     CANDIDATE_NOTICE_PERIOD(CustomColumnTarget.CANDIDATE, "candidateNoticePeriod", "Notice period",
             List.of("notice", "notice period", "availability", "notice weeks", "notice months"));
 
-    private final CustomColumnTarget target;
-    private final String wireToken;
-    private final String label;
-    private final List<String> synonyms;
-
-    ImportTargetField(CustomColumnTarget target, String wireToken, String label, List<String> synonyms) {
-        this.target = target;
-        this.wireToken = wireToken;
-        this.label = label;
-        this.synonyms = synonyms;
-    }
-
     /** Which half of the row this field lands on. */
-    public CustomColumnTarget target() {
-        return target;
-    }
-
-    public String value() {
-        return wireToken;
-    }
+    private final CustomColumnTarget target;
+    private final String value;
 
     /** What the mapping step shows beside the file's own header. */
-    public String label() {
-        return label;
-    }
+    private final String label;
 
     /** Lower-cased, space-separated header spellings this field answers to. */
-    public List<String> synonyms() {
-        return synonyms;
-    }
+    private final List<String> synonyms;
 
     public static ImportTargetField fromValue(String value) {
-        for (ImportTargetField field : values()) {
-            if (field.wireToken.equals(value)) {
-                return field;
-            }
-        }
-        return null;
+        return ApiValueEnum.fromValue(ImportTargetField.class, value);
     }
 }

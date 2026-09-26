@@ -178,8 +178,7 @@ public class ContactLookupService {
                                            ContactChannel channel, boolean asked, UUID userId,
                                            UUID workspaceId, UUID projectId, UUID candidateId,
                                            HttpServletRequest httpRequest) {
-        audit.event(ProjectEventType.CANDIDATE_CONTACT_LOOKED_UP)
-                .actor(userId).workspace(workspaceId).target("project", projectId).from(httpRequest)
+        audit.projectEvent(ProjectEventType.CANDIDATE_CONTACT_LOOKED_UP, userId, workspaceId, projectId, httpRequest)
                 .detail("candidateId", candidateId.toString())
                 .detail("channel", channel.value())
                 .detail("outcome", outcome.value())

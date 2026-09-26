@@ -1,5 +1,6 @@
 package app.lightmove.api.dataexport.service;
 
+import app.lightmove.api.core.text.service.CsvFormatter;
 import app.lightmove.api.customcolumn.constant.CustomColumnTarget;
 import app.lightmove.api.customcolumn.dto.CustomColumnDto;
 import app.lightmove.api.dataexport.constant.ExportColumn;
@@ -12,24 +13,9 @@ import org.springframework.stereotype.Service;
 /**
  * Writes the Companies grid as a CSV: the built-in columns in the order the grid draws them, then
  * the mandate's own custom columns, then one line per person at a company.
- *
- * <p>Hand-rolled rather than {@code commons-csv}, matching {@code ImportTemplateWriter}: the same
- * dozen lines, and one idiom for a generated CSV rather than two.
  */
 @Service
 public class CompaniesCsvWriter {
-
-    /**
-     * Excel and Sheets evaluate a cell opening with one of these as a formula, so a company note
-     * reading {@code =HYPERLINK("http://…")} would run on the machine of whoever opened the file. A
-     * leading apostrophe makes the cell text, and it is also what stops a phone number beginning
-     * {@code +966} from being read as arithmetic and shown as {@code #NAME?}.
-     *
-     * <p>The tab and CR are here because a leading whitespace character is how the naive
-     * {@code startsWith("=")} check is bypassed. {@code SpreadsheetReader} undoes exactly this set,
-     * so the round trip back through our own importer is lossless; the two must move together.
-     */
-    private static final String FORMULA_STARTERS = "=+-@\t\r";
 
     /**
      * Excel on Windows reads a CSV in the machine's ANSI codepage unless a BOM says otherwise, which
@@ -78,23 +64,8 @@ public class CompaniesCsvWriter {
         return value == null ? "" : value;
     }
 
-    /**
-     * CRLF and RFC 4180 quoting: this file is opened in Excel far more often than by a parser, and a
-     * value carrying a comma would otherwise be two columns the moment it is saved and sent back.
-     */
     private static String row(List<String> values) {
-        return String.join(",", values.stream().map(CompaniesCsvWriter::quoted).toList()) + "\r\n";
-    }
-
-    private static String quoted(String value) {
-        String safe = defused(value == null ? "" : value);
-        if (safe.contains(",") || safe.contains("\"") || safe.contains("\n") || safe.contains("\r")) {
-            return '"' + safe.replace("\"", "\"\"") + '"';
-        }
-        return safe;
-    }
-
-    private static String defused(String value) {
-        return !value.isEmpty() && FORMULA_STARTERS.indexOf(value.charAt(0)) >= 0 ? "'" + value : value;
+        List<String> defused = values.stream().map(value -> CsvFormatter.defused(value == null ? "" : value)).toList();
+        return CsvFormatter.row(defused) + "\r\n";
     }
 }

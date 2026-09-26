@@ -7,8 +7,6 @@ import app.lightmove.api.common.location.service.Countries;
 import app.lightmove.api.core.config.LightMoveProperties;
 import app.lightmove.api.core.config.MapboxSettings;
 import app.lightmove.api.core.config.TalentMapSettings;
-import app.lightmove.api.core.error.constant.ErrorCode;
-import app.lightmove.api.core.error.model.ApiException;
 import app.lightmove.api.geocoding.model.GeoPoint;
 import app.lightmove.api.geocoding.model.GeocodingResult;
 import app.lightmove.api.geocoding.model.PlaceKey;
@@ -81,7 +79,7 @@ public class TalentMapService {
 
     /** The stage's companies, the people to draw with them, and the place each of those rows sits at. */
     private Placement place(UUID workspaceId, UUID projectId, String statusToken) {
-        TriageCompanyStatus status = resolveStatus(statusToken);
+        TriageCompanyStatus status = TriageCompanyStatus.parseOrInUniverse(statusToken);
         TriageCompaniesResponse companies =
                 triage.listAllOfStage(workspaceId, projectId, status, TriageCompanyFilters.none(),
                         caps.maxCompanies());
@@ -180,16 +178,5 @@ public class TalentMapService {
             startOfWord = letter == ' ' || letter == '-';
         }
         return out.toString();
-    }
-
-    private static TriageCompanyStatus resolveStatus(String token) {
-        if (token == null || token.isBlank()) {
-            return TriageCompanyStatus.IN_UNIVERSE;
-        }
-        TriageCompanyStatus status = TriageCompanyStatus.fromValue(token);
-        if (status == null) {
-            throw new ApiException(ErrorCode.VALIDATION_FAILED, "Unknown status: " + token);
-        }
-        return status;
     }
 }

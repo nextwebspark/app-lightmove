@@ -1,8 +1,8 @@
 package app.lightmove.api.common.location.service;
 
 import app.lightmove.api.common.location.model.Country;
-import java.io.IOException;
-import java.io.InputStream;
+import app.lightmove.api.common.service.ClasspathJsonLoader;
+import app.lightmove.api.core.text.service.TextUtils;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
@@ -10,7 +10,6 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
-import org.springframework.core.io.ClassPathResource;
 import tools.jackson.core.type.TypeReference;
 import tools.jackson.databind.ObjectMapper;
 
@@ -74,7 +73,7 @@ public final class Countries {
      * own, trimmed. Null in, null out.
      */
     public static String nameOf(String spelling) {
-        String trimmed = trimmed(spelling);
+        String trimmed = TextUtils.collapseWhitespaceToNull(spelling);
         return trimmed == null ? null : resolve(trimmed).map(Country::name).orElse(trimmed);
     }
 
@@ -112,7 +111,7 @@ public final class Countries {
      * not carry keeps its own spelling: cities are not a closed vocabulary.
      */
     public static String cityOf(String spelling) {
-        String trimmed = trimmed(spelling);
+        String trimmed = TextUtils.collapseWhitespaceToNull(spelling);
         if (trimmed == null) {
             return null;
         }
@@ -143,15 +142,8 @@ public final class Countries {
     }
 
     static String normalise(String value) {
-        return trimmed(value) == null ? "" : trimmed(value).toLowerCase(Locale.ROOT);
-    }
-
-    private static String trimmed(String value) {
-        if (value == null) {
-            return null;
-        }
-        String collapsed = value.trim().replaceAll("\\s+", " ");
-        return collapsed.isEmpty() ? null : collapsed;
+        String collapsed = TextUtils.collapseWhitespaceToNull(value);
+        return collapsed == null ? "" : collapsed.toLowerCase(Locale.ROOT);
     }
 
     private static Map<String, String> namesByCode() {
@@ -193,11 +185,8 @@ public final class Countries {
     }
 
     private static Map<String, Entry> read() {
-        try (InputStream in = new ClassPathResource(RESOURCE).getInputStream()) {
-            return new ObjectMapper().readValue(in, new TypeReference<LinkedHashMap<String, Entry>>() {});
-        } catch (IOException e) {
-            throw new IllegalStateException("Could not load " + RESOURCE, e);
-        }
+        return ClasspathJsonLoader.load(
+                new ObjectMapper(), RESOURCE, new TypeReference<LinkedHashMap<String, Entry>>() {});
     }
 
     /** One country's entry in the file: what the JDK's catalog does not already answer. */

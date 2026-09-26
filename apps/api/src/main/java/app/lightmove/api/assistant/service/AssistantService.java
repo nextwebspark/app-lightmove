@@ -142,7 +142,7 @@ public class AssistantService {
             return AssistantTurnResponse.of(turn);
         });
         audit.event(ProjectEventType.ASSISTANT_ASKED)
-                .actor(userId).workspace(workspaceId).target("project", projectId)
+                .actor(userId).workspace(workspaceId).target(AuditService.PROJECT_TARGET, projectId)
                 .detail("threadId", saved.threadId().toString())
                 .detail("turnId", saved.id().toString())
                 .detail("vendorSearches", String.valueOf(recorder.vendorSearches()))

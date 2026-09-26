@@ -118,8 +118,7 @@ public class ClientRepresentativeService {
     public ProjectResponse inviteToMandate(UUID actorId, UUID workspaceId, UUID projectId,
                                            String fullName, String position, String rawEmail,
                                            HttpServletRequest request) {
-        Project project = projectRepository.findByIdAndWorkspaceId(projectId, workspaceId)
-                .orElseThrow(() -> ApiException.of(ErrorCode.NOT_FOUND));
+        Project project = projectRepository.requireInWorkspace(projectId, workspaceId);
 
         RepresentativeResponse invited = invite(
                 actorId, workspaceId, project.getClientId(), fullName, position, rawEmail, request);

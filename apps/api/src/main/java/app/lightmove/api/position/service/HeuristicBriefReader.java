@@ -77,8 +77,6 @@ public class HeuristicBriefReader {
     private static final Pattern BULLET_LINE = Pattern.compile(
             "^\\s*(?:[^\\w\\s]{1,2}|\\d+[.)]|[a-zA-Z][.)])\\s+(.+?)\\s*$");
 
-    private static final String FALLBACK_TEMPLATE_CODE = "generic-executive";
-
     private final PositionTemplateService templates;
 
     public ProposedPositionDetails propose(UUID workspaceId, String documentText) {
@@ -291,7 +289,7 @@ public class HeuristicBriefReader {
 
     private Optional<ExtractedField> readSeniority(UUID workspaceId, String roleTitle) {
         return templates.matching(workspaceId, roleTitle).map(template -> {
-            ProposalConfidence confidence = FALLBACK_TEMPLATE_CODE.equals(template.getCode())
+            ProposalConfidence confidence = PositionTemplateService.FALLBACK_CODE.equals(template.getCode())
                     ? ProposalConfidence.LOW
                     : ProposalConfidence.MEDIUM;
             // Template-sourced, not document-sourced — same catalog PositionDetailsProposer's own

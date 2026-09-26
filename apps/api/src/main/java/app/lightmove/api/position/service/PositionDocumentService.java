@@ -6,6 +6,7 @@ import app.lightmove.api.core.config.LightMoveProperties;
 import app.lightmove.api.core.config.PositionDocumentSettings;
 import app.lightmove.api.core.error.constant.ErrorCode;
 import app.lightmove.api.core.error.model.ApiException;
+import app.lightmove.api.core.text.service.FileNameSanitizer;
 import app.lightmove.api.position.dto.PositionResponse;
 import app.lightmove.api.position.model.PositionDocument;
 import app.lightmove.api.position.model.StoredDocument;
@@ -55,7 +56,7 @@ public class PositionDocumentService {
         PositionBrief brief = briefs.require(workspaceId, projectId);
         byte[] content = contentOf(file);
         String contentType = requireAllowedType(file.getContentType());
-        String fileName = safeFileNameOf(file.getOriginalFilename());
+        String fileName = FileNameSanitizer.sanitize(file.getOriginalFilename(), "position-description");
 
         // One document per position: replacing keeps the row rather than accumulating versions.
         documents.findByPositionId(brief.position().getId())
@@ -64,8 +65,7 @@ public class PositionDocumentService {
                         () -> documents.save(PositionDocument.of(
                                 brief.position().getId(), fileName, contentType, content, userId)));
 
-        audit.event(ProjectEventType.POSITION_DOCUMENT_ATTACHED)
-                .actor(userId).workspace(workspaceId).target("project", projectId).from(httpRequest)
+        audit.projectEvent(ProjectEventType.POSITION_DOCUMENT_ATTACHED, userId, workspaceId, projectId, httpRequest)
                 .detail("fileName", fileName)
                 .record();
         return assembler.assemble(brief);
@@ -77,8 +77,7 @@ public class PositionDocumentService {
         PositionBrief brief = briefs.require(workspaceId, projectId);
         documents.findByPositionId(brief.position().getId()).ifPresent(document -> {
             documents.delete(document);
-            audit.event(ProjectEventType.POSITION_DOCUMENT_REMOVED)
-                    .actor(userId).workspace(workspaceId).target("project", projectId).from(httpRequest)
+            audit.projectEvent(ProjectEventType.POSITION_DOCUMENT_REMOVED, userId, workspaceId, projectId, httpRequest)
                     .detail("fileName", document.getFileName())
                     .record();
         });
@@ -119,22 +118,5 @@ public class PositionDocumentService {
                     "rejected content type " + declaredContentType);
         }
         return declaredContentType;
-    }
-
-    /**
-     * The original filename is caller-supplied and reaches a {@code Content-Disposition} header on the
-     * way back out, so the path separators and control characters that would let it forge a header or
-     * name a directory are stripped here rather than at every reader.
-     */
-    private static String safeFileNameOf(String originalFileName) {
-        if (originalFileName == null || originalFileName.isBlank()) {
-            return "position-description";
-        }
-        String withoutPath = originalFileName.replaceAll(".*[/\\\\]", "");
-        String cleaned = withoutPath.replaceAll("[\\p{Cntrl}\"]", "").trim();
-        if (cleaned.isEmpty()) {
-            return "position-description";
-        }
-        return cleaned.length() > 255 ? cleaned.substring(0, 255) : cleaned;
     }
 }

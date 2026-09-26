@@ -57,7 +57,7 @@ public class StrategySearchService {
     /** A project's saved searches, by name — part of the Strategy screen's first read. */
     @Transactional(readOnly = true)
     public List<SavedSearchResponse> list(UUID userId, UUID workspaceId, UUID projectId) {
-        requireProject(projectId, workspaceId);
+        projects.requireInWorkspace(projectId, workspaceId);
         List<StrategySearch> visible = searches.findVisibleTo(projectId, userId);
         Map<UUID, String> authors = authorNames(visible);
         return visible.stream().map(search -> toDto(search, authors)).toList();
@@ -66,7 +66,7 @@ public class StrategySearchService {
     @Transactional
     public SavedSearchResponse save(UUID userId, UUID workspaceId, UUID projectId,
                                     SaveSearchRequest request, HttpServletRequest httpRequest) {
-        requireProject(projectId, workspaceId);
+        projects.requireInWorkspace(projectId, workspaceId);
         SearchVisibility visibility = request.visibility();
         requireRoomFor(projectId, userId, visibility);
 
@@ -81,8 +81,7 @@ public class StrategySearchService {
                 StrategySearch.of(projectId, request.name().trim(), filter, visibility, userId));
         durable();
 
-        audit.event(ProjectEventType.STRATEGY_SEARCH_SAVED)
-                .actor(userId).workspace(workspaceId).target("project", projectId).from(httpRequest)
+        audit.projectEvent(ProjectEventType.STRATEGY_SEARCH_SAVED, userId, workspaceId, projectId, httpRequest)
                 .detail("searchId", saved.getId().toString())
                 .detail("visibility", visibility.name())
                 .record();
@@ -92,7 +91,7 @@ public class StrategySearchService {
     @Transactional
     public SavedSearchResponse update(UUID userId, UUID workspaceId, UUID projectId, UUID searchId,
                                       UpdateSearchRequest request, HttpServletRequest httpRequest) {
-        requireProject(projectId, workspaceId);
+        projects.requireInWorkspace(projectId, workspaceId);
         StrategySearch search = requireEditable(searchId, projectId, userId);
         SearchVisibility target = request.visibility();
         boolean movesTier = target != null && target != search.getVisibility();
@@ -121,15 +120,14 @@ public class StrategySearchService {
 
         // Two edits, two events: folding them into one lost whichever half was not chosen.
         if (renames) {
-            audit.event(ProjectEventType.STRATEGY_SEARCH_RENAMED)
-                    .actor(userId).workspace(workspaceId).target("project", projectId).from(httpRequest)
+            audit.projectEvent(ProjectEventType.STRATEGY_SEARCH_RENAMED, userId, workspaceId, projectId, httpRequest)
                     .detail("searchId", searchId.toString())
                     .detail("name", search.getName())
                     .record();
         }
         if (movesTier) {
-            audit.event(ProjectEventType.STRATEGY_SEARCH_VISIBILITY_CHANGED)
-                    .actor(userId).workspace(workspaceId).target("project", projectId).from(httpRequest)
+            audit.projectEvent(ProjectEventType.STRATEGY_SEARCH_VISIBILITY_CHANGED,
+                    userId, workspaceId, projectId, httpRequest)
                     .detail("searchId", searchId.toString())
                     .detail("visibility", search.getVisibility().name())
                     .record();
@@ -140,7 +138,7 @@ public class StrategySearchService {
     @Transactional
     public SavedSearchResponse updateFilter(UUID userId, UUID workspaceId, UUID projectId, UUID searchId,
                                             HttpServletRequest httpRequest) {
-        requireProject(projectId, workspaceId);
+        projects.requireInWorkspace(projectId, workspaceId);
         StrategySearch search = requireEditable(searchId, projectId, userId);
         search.replaceFilter(strategies.findByProjectId(projectId)
                 .map(Strategy::getFilter)
@@ -148,8 +146,7 @@ public class StrategySearchService {
 
         durable();
 
-        audit.event(ProjectEventType.STRATEGY_SEARCH_FILTER_UPDATED)
-                .actor(userId).workspace(workspaceId).target("project", projectId).from(httpRequest)
+        audit.projectEvent(ProjectEventType.STRATEGY_SEARCH_FILTER_UPDATED, userId, workspaceId, projectId, httpRequest)
                 .detail("searchId", searchId.toString())
                 .record();
         return toDto(search);
@@ -158,19 +155,12 @@ public class StrategySearchService {
     @Transactional
     public void delete(UUID userId, UUID workspaceId, UUID projectId, UUID searchId,
                        HttpServletRequest httpRequest) {
-        requireProject(projectId, workspaceId);
+        projects.requireInWorkspace(projectId, workspaceId);
         searches.delete(requireEditable(searchId, projectId, userId));
 
-        audit.event(ProjectEventType.STRATEGY_SEARCH_DELETED)
-                .actor(userId).workspace(workspaceId).target("project", projectId).from(httpRequest)
+        audit.projectEvent(ProjectEventType.STRATEGY_SEARCH_DELETED, userId, workspaceId, projectId, httpRequest)
                 .detail("searchId", searchId.toString())
                 .record();
-    }
-
-    /** The tenant-isolation choke point: a project outside the caller's workspace 404s before any read. */
-    private void requireProject(UUID projectId, UUID workspaceId) {
-        projects.findByIdAndWorkspaceId(projectId, workspaceId)
-                .orElseThrow(() -> ApiException.of(ErrorCode.NOT_FOUND));
     }
 
     private StrategySearch requireEditable(UUID searchId, UUID projectId, UUID userId) {

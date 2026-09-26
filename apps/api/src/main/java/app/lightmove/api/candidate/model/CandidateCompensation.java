@@ -1,6 +1,6 @@
 package app.lightmove.api.candidate.model;
 
-import static app.lightmove.api.core.text.service.SuppliedText.blankToNull;
+import static app.lightmove.api.core.text.service.TextUtils.blankToNull;
 
 import app.lightmove.api.candidate.constant.LongTermIncentiveType;
 import java.util.List;

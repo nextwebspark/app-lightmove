@@ -169,8 +169,7 @@ public class PositionExtractionService {
 
     private void recordAudit(UUID userId, UUID workspaceId, UUID projectId, HttpServletRequest httpRequest,
                              String extractionSource) {
-        audit.event(ProjectEventType.POSITION_DOCUMENT_EXTRACTED)
-                .actor(userId).workspace(workspaceId).target("project", projectId).from(httpRequest)
+        audit.projectEvent(ProjectEventType.POSITION_DOCUMENT_EXTRACTED, userId, workspaceId, projectId, httpRequest)
                 .detail("extractionSource", extractionSource)
                 .record();
     }

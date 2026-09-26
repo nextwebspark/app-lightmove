@@ -1,5 +1,8 @@
 package app.lightmove.api.core.error.constant;
 
+import lombok.Getter;
+import lombok.RequiredArgsConstructor;
+import lombok.experimental.Accessors;
 import org.springframework.http.HttpStatus;
 
 /**
@@ -8,6 +11,9 @@ import org.springframework.http.HttpStatus;
  * <p>The frontend switches on these, not on the human-readable message — so wording can change
  * without breaking a client.
  */
+@Getter
+@Accessors(fluent = true)
+@RequiredArgsConstructor
 public enum ErrorCode {
 
     VALIDATION_FAILED(HttpStatus.BAD_REQUEST, "One or more fields are invalid"),
@@ -291,17 +297,4 @@ public enum ErrorCode {
 
     private final HttpStatus status;
     private final String defaultMessage;
-
-    ErrorCode(HttpStatus status, String defaultMessage) {
-        this.status = status;
-        this.defaultMessage = defaultMessage;
-    }
-
-    public HttpStatus status() {
-        return status;
-    }
-
-    public String defaultMessage() {
-        return defaultMessage;
-    }
 }

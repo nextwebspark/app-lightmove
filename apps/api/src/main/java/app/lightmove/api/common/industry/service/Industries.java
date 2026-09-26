@@ -1,8 +1,8 @@
 package app.lightmove.api.common.industry.service;
 
 import app.lightmove.api.common.industry.model.ResolvedIndustry;
-import java.io.IOException;
-import java.io.InputStream;
+import app.lightmove.api.common.service.ClasspathJsonLoader;
+import app.lightmove.api.core.text.service.TextUtils;
 import java.text.Normalizer;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
@@ -11,7 +11,6 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 import java.util.stream.Stream;
-import org.springframework.core.io.ClassPathResource;
 import tools.jackson.core.type.TypeReference;
 import tools.jackson.databind.ObjectMapper;
 
@@ -87,7 +86,7 @@ public final class Industries {
      * caller's own, trimmed. Null or blank in, null out.
      */
     public static String nameOf(String spelling) {
-        String trimmed = trimmed(spelling);
+        String trimmed = TextUtils.collapseWhitespaceToNull(spelling);
         if (trimmed == null) {
             return null;
         }
@@ -114,7 +113,7 @@ public final class Industries {
 
     /** Whether the universe publishes this industry, however it is spelled. */
     public static boolean isKnown(String spelling) {
-        String trimmed = trimmed(spelling);
+        String trimmed = TextUtils.collapseWhitespaceToNull(spelling);
         return trimmed != null && INDUSTRY_BY_SPELLING.containsKey(fold(trimmed));
     }
 
@@ -153,20 +152,9 @@ public final class Industries {
         return ampersanded.replaceAll("[^a-z0-9]+", "");
     }
 
-    private static String trimmed(String value) {
-        if (value == null) {
-            return null;
-        }
-        String collapsed = value.trim().replaceAll("\\s+", " ");
-        return collapsed.isEmpty() ? null : collapsed;
-    }
-
     private static Map<String, Entry> read() {
-        try (InputStream in = new ClassPathResource(RESOURCE).getInputStream()) {
-            return new ObjectMapper().readValue(in, new TypeReference<LinkedHashMap<String, Entry>>() {});
-        } catch (IOException e) {
-            throw new IllegalStateException("Could not load " + RESOURCE, e);
-        }
+        return ClasspathJsonLoader.load(
+                new ObjectMapper(), RESOURCE, new TypeReference<LinkedHashMap<String, Entry>>() {});
     }
 
     /**

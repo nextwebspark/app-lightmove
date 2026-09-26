@@ -13,6 +13,9 @@ import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.function.Function;
 import java.util.stream.Stream;
+import lombok.Getter;
+import lombok.RequiredArgsConstructor;
+import lombok.experimental.Accessors;
 
 /**
  * Every column of the Companies grid that carries data, in the order the grid draws them.
@@ -25,6 +28,9 @@ import java.util.stream.Stream;
  * <p>Figures leave unformatted. The grid prints a revenue as {@code $1.2B}, which is right on a
  * screen and useless in a column a spreadsheet is asked to sum.
  */
+@Getter
+@Accessors(fluent = true)
+@RequiredArgsConstructor
 public enum ExportColumn {
 
     COMPANY("Company", row -> row.company() != null
@@ -78,18 +84,9 @@ public enum ExportColumn {
     /** Every value in one cell: the grid shows the first and a {@code +N}, a file has no such excuse. */
     private static final String CONTACT_SEPARATOR = "; ";
 
+    /** The column's heading, which is the grid's own heading for it. */
     private final String header;
     private final Function<ExportRow, String> extractor;
-
-    ExportColumn(String header, Function<ExportRow, String> extractor) {
-        this.header = header;
-        this.extractor = extractor;
-    }
-
-    /** The column's heading, which is the grid's own heading for it. */
-    public String header() {
-        return header;
-    }
 
     public String valueOf(ExportRow row) {
         return text(extractor.apply(row));

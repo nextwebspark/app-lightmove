@@ -1,7 +1,7 @@
 package app.lightmove.api.triagecompany.model;
 
-import static app.lightmove.api.core.text.service.SuppliedText.blankToNull;
-import static app.lightmove.api.core.text.service.SuppliedText.browsableUrlOrNull;
+import static app.lightmove.api.core.text.service.TextUtils.blankToNull;
+import static app.lightmove.api.core.text.service.TextUtils.browsableUrlOrNull;
 
 import app.lightmove.api.common.industry.service.Industries;
 import app.lightmove.api.common.location.service.Countries;
@@ -12,7 +12,7 @@ import app.lightmove.api.common.location.service.Countries;
  * incomplete row would push the consultant back to a spreadsheet.
  *
  * <p>The compact constructor is where "supplied but empty" becomes null and where every URL field is
- * made safe to render ({@link app.lightmove.api.core.text.service.SuppliedText}). It has to happen
+ * made safe to render ({@link app.lightmove.api.core.text.service.TextUtils}). It has to happen
  * server-side: the plugin posts here directly and never sees the form's validation.
  * {@code sourceUrl} goes through the same gate though nothing renders it yet, so the first screen to
  * show "captured from …" as a link does not inherit a stored XSS from older rows.

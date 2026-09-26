@@ -1,19 +1,19 @@
 package app.lightmove.api.core.security.service;
-import app.lightmove.api.core.security.token.RefreshCookieFactory;
-import app.lightmove.api.core.security.repository.UserIdentityRepository;
-import app.lightmove.api.core.security.repository.UserRepository;
-
-import app.lightmove.api.core.security.model.AuthenticatedSession;
-import app.lightmove.api.core.security.token.TokenPair;
-import app.lightmove.api.core.security.token.TokenService;
-import app.lightmove.api.core.security.model.User;
-import app.lightmove.api.core.security.model.UserIdentity;
 import app.lightmove.api.core.audit.constant.AuthEventType;
 import app.lightmove.api.core.audit.service.AuditService;
 import app.lightmove.api.core.config.LightMoveProperties;
-import app.lightmove.api.core.error.model.ApiException;
-import app.lightmove.api.core.error.constant.ErrorCode;
 import app.lightmove.api.core.email.service.EmailAddressValidator;
+import app.lightmove.api.core.error.constant.ErrorCode;
+import app.lightmove.api.core.error.model.ApiException;
+import app.lightmove.api.core.security.constant.PrivacyPolicy;
+import app.lightmove.api.core.security.model.AuthenticatedSession;
+import app.lightmove.api.core.security.model.User;
+import app.lightmove.api.core.security.model.UserIdentity;
+import app.lightmove.api.core.security.repository.UserIdentityRepository;
+import app.lightmove.api.core.security.repository.UserRepository;
+import app.lightmove.api.core.security.token.RefreshCookieFactory;
+import app.lightmove.api.core.security.token.TokenPair;
+import app.lightmove.api.core.security.token.TokenService;
 import app.lightmove.api.workspace.constant.MemberStatus;
 import app.lightmove.api.workspace.model.WorkspaceMember;
 import app.lightmove.api.workspace.repository.WorkspaceMemberRepository;
@@ -54,8 +54,6 @@ import org.springframework.web.util.UriComponentsBuilder;
 @RequiredArgsConstructor
 @Slf4j
 public class OAuth2LoginSuccessHandler implements AuthenticationSuccessHandler {
-
-    private static final String PRIVACY_POLICY_VERSION = "2026-07-01";
 
     /** Comfortably above any real CDN URL, and far below what fills a text column. */
     private static final int MAX_AVATAR_URL_LENGTH = 2048;
@@ -215,7 +213,7 @@ public class OAuth2LoginSuccessHandler implements AuthenticationSuccessHandler {
                 usablePictureUrl(oidcUser),
                 provider,
                 now,
-                PRIVACY_POLICY_VERSION));
+                PrivacyPolicy.CURRENT_VERSION));
 
         identities.save(UserIdentity.link(user.getId(), provider, subject, email));
 

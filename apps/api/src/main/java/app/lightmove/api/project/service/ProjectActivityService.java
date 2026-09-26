@@ -3,6 +3,7 @@ package app.lightmove.api.project.service;
 import app.lightmove.api.core.audit.constant.ProjectEventType;
 import app.lightmove.api.core.audit.model.AuditEvent;
 import app.lightmove.api.core.audit.repository.AuditEventRepository;
+import app.lightmove.api.core.audit.service.AuditService;
 import app.lightmove.api.core.security.model.User;
 import app.lightmove.api.core.security.repository.UserRepository;
 import app.lightmove.api.project.dto.ProjectActivityEntryResponse;
@@ -69,7 +70,7 @@ public class ProjectActivityService {
     public ProjectActivityResponse list(UUID workspaceId, UUID projectId, Long beforeCursor, int pageSize) {
         int size = Math.clamp(pageSize, 1, MAX_PAGE_SIZE);
         List<AuditEvent> page = events.findLatestForTarget(
-                workspaceId, "project", projectId.toString(),
+                workspaceId, AuditService.PROJECT_TARGET, projectId.toString(),
                 codesOf(SHOWN), codesOf(SHOWN_WHEN_STATUS_CHANGED),
                 beforeCursor == null ? Long.MAX_VALUE : beforeCursor, size + 1);
 

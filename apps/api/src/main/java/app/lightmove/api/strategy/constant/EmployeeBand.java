@@ -1,5 +1,10 @@
 package app.lightmove.api.strategy.constant;
 
+import app.lightmove.api.common.constant.ApiValueEnum;
+import lombok.Getter;
+import lombok.RequiredArgsConstructor;
+import lombok.experimental.Accessors;
+
 /**
  * The headcount bands the Strategy filter selects from.
  *
@@ -16,7 +21,10 @@ package app.lightmove.api.strategy.constant;
  * unreachable through the Employees panel even with every band selected.
  * {@code docs/strategy-company-search-uat.md} measured it.
  */
-public enum EmployeeBand {
+@Getter
+@Accessors(fluent = true)
+@RequiredArgsConstructor
+public enum EmployeeBand implements ApiValueEnum {
 
     B_1_10("1-10", "1-10", 1, 10L),
     B_11_20("11-20", "11-20", 11, 20L),
@@ -30,45 +38,20 @@ public enum EmployeeBand {
     B_5001_10000("5001-10000", "5001-10000", 5_001, 10_000L),
     B_10000_PLUS("10000-plus", "10001+", 10_001, null);
 
-    private final String value;
-    private final String label;
-    private final long lowerBound;
-    private final Long upperBound;
-
-    EmployeeBand(String value, String label, long lowerBound, Long upperBound) {
-        this.value = value;
-        this.label = label;
-        this.lowerBound = lowerBound;
-        this.upperBound = upperBound;
-    }
-
     /** The wire token a filter stores and a request names. Stable across relabelling. */
-    public String value() {
-        return value;
-    }
+    private final String value;
 
     /** What the row reads. Travels in the facets response; never stored. */
-    public String label() {
-        return label;
-    }
+    private final String label;
 
     /** Smallest headcount in the band, inclusive. */
-    public long lowerBound() {
-        return lowerBound;
-    }
+    private final long lowerBound;
 
     /** Largest headcount in the band, inclusive, or {@code null} for the open-ended top band. */
-    public Long upperBound() {
-        return upperBound;
-    }
+    private final Long upperBound;
 
     /** Resolve a wire token to its band, or {@code null} if unknown. */
     public static EmployeeBand fromValue(String value) {
-        for (EmployeeBand band : values()) {
-            if (band.value.equals(value)) {
-                return band;
-            }
-        }
-        return null;
+        return ApiValueEnum.fromValue(EmployeeBand.class, value);
     }
 }

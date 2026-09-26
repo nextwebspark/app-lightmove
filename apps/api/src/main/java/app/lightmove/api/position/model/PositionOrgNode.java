@@ -1,5 +1,6 @@
 package app.lightmove.api.position.model;
 
+import app.lightmove.api.core.text.service.TextUtils;
 import app.lightmove.api.position.constant.FieldSource;
 import jakarta.persistence.Column;
 import jakarta.persistence.Embeddable;
@@ -56,8 +57,8 @@ public class PositionOrgNode {
         PositionOrgNode node = new PositionOrgNode();
         node.nodeId = nodeId;
         node.parentNodeId = parentNodeId;
-        node.title = trimmedOrNull(title);
-        node.name = trimmedOrNull(name);
+        node.title = TextUtils.blankToNull(title);
+        node.name = TextUtils.blankToNull(name);
         node.mandateSeat = mandateSeat;
         node.canvasX = canvasX;
         node.canvasY = canvasY;
@@ -68,13 +69,5 @@ public class PositionOrgNode {
     /** The mandate's own seat is drawn from the role title, so it holds no title of its own. */
     public static PositionOrgNode mandateSeat(UUID nodeId, UUID parentNodeId, FieldSource source) {
         return of(nodeId, parentNodeId, null, null, true, null, null, source);
-    }
-
-    private static String trimmedOrNull(String value) {
-        if (value == null) {
-            return null;
-        }
-        String trimmed = value.trim();
-        return trimmed.isEmpty() ? null : trimmed;
     }
 }

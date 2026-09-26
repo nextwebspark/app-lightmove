@@ -1,7 +1,15 @@
 package app.lightmove.api.candidate.constant;
 
+import app.lightmove.api.common.constant.ApiValueEnum;
+import lombok.Getter;
+import lombok.RequiredArgsConstructor;
+import lombok.experimental.Accessors;
+
 /** What an executive's long-term incentive is paid in. {@link #NONE} is a recorded "no LTIP", never "not established". */
-public enum LongTermIncentiveType {
+@Getter
+@Accessors(fluent = true)
+@RequiredArgsConstructor
+public enum LongTermIncentiveType implements ApiValueEnum {
 
     OPTIONS("options"),
 
@@ -11,22 +19,9 @@ public enum LongTermIncentiveType {
 
     NONE("none");
 
-    private final String wireToken;
-
-    LongTermIncentiveType(String wireToken) {
-        this.wireToken = wireToken;
-    }
-
-    public String value() {
-        return wireToken;
-    }
+    private final String value;
 
     public static LongTermIncentiveType fromValue(String value) {
-        for (LongTermIncentiveType type : values()) {
-            if (type.wireToken.equals(value)) {
-                return type;
-            }
-        }
-        return null;
+        return ApiValueEnum.fromValue(LongTermIncentiveType.class, value);
     }
 }

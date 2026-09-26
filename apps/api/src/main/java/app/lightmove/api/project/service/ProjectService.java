@@ -115,7 +115,7 @@ public class ProjectService {
     /** One mandate's seats, named — the report's researcher breakdown reads who staffs it. */
     @Transactional(readOnly = true)
     public List<TeamMemberResponse> teamOf(UUID workspaceId, UUID projectId) {
-        Project project = requireProject(projectId, workspaceId);
+        Project project = projects.requireInWorkspace(projectId, workspaceId);
         return toResponse(project, assemblyFor(workspaceId, List.of(project))).team();
     }
 
@@ -142,8 +142,7 @@ public class ProjectService {
                 client.getHqCountry());
 
         log.info("User {} created project {} in workspace {}", userId, project.getId(), workspaceId);
-        audit.event(ProjectEventType.PROJECT_CREATED)
-                .actor(userId).workspace(workspaceId).target("project", project.getId()).from(httpRequest)
+        audit.projectEvent(ProjectEventType.PROJECT_CREATED, userId, workspaceId, project.getId(), httpRequest)
                 .detail("position", project.getPositionTitle())
                 .detail("type", project.getProjectType().name())
                 .record();
@@ -154,14 +153,13 @@ public class ProjectService {
     @Transactional
     public ProjectResponse update(UUID userId, UUID workspaceId, UUID projectId,
                                   UpdateProjectRequest request, HttpServletRequest httpRequest) {
-        Project project = requireProject(projectId, workspaceId);
+        Project project = projects.requireInWorkspace(projectId, workspaceId);
 
         if (request.targetDate() != null) {
             project.setTargetDate(request.targetDate());
         }
 
-        audit.event(ProjectEventType.PROJECT_UPDATED)
-                .actor(userId).workspace(workspaceId).target("project", projectId).from(httpRequest)
+        audit.projectEvent(ProjectEventType.PROJECT_UPDATED, userId, workspaceId, projectId, httpRequest)
                 .record();
 
         return toResponse(project, assemblyFor(workspaceId, List.of(project)));
@@ -174,7 +172,7 @@ public class ProjectService {
     @Transactional
     public ProjectResponse putMember(UUID userId, UUID workspaceId, UUID projectId, UUID memberId,
                                      ProjectRole role, HttpServletRequest httpRequest) {
-        Project project = requireProject(projectId, workspaceId);
+        Project project = projects.requireInWorkspace(projectId, workspaceId);
         WorkspaceMember membership = access.requireStaffRow(memberId, workspaceId);
 
         // Clients are attached via attachRepresentative, never seated here.
@@ -218,7 +216,7 @@ public class ProjectService {
     @Transactional
     public ProjectResponse removeMember(UUID userId, UUID workspaceId, UUID projectId, UUID memberId,
                                         HttpServletRequest httpRequest) {
-        Project project = requireProject(projectId, workspaceId);
+        Project project = projects.requireInWorkspace(projectId, workspaceId);
 
         ProjectMember seat = seats.findByProjectIdAndMemberId(projectId, memberId)
                 .orElseThrow(() -> ApiException.of(ErrorCode.NOT_FOUND));
@@ -253,7 +251,7 @@ public class ProjectService {
     public ProjectResponse attachRepresentative(UUID actorId, UUID workspaceId, UUID projectId,
                                                 UUID representativeId, boolean announce,
                                                 HttpServletRequest httpRequest) {
-        Project project = requireProject(projectId, workspaceId);
+        Project project = projects.requireInWorkspace(projectId, workspaceId);
         ClientRepresentative representative = requireRepresentativeOfClient(representativeId, project);
 
         if (representative.getStatus() == ClientRepStatus.REVOKED) {
@@ -301,7 +299,7 @@ public class ProjectService {
     @Transactional
     public ProjectResponse detachRepresentative(UUID actorId, UUID workspaceId, UUID projectId,
                                                 UUID representativeId, HttpServletRequest httpRequest) {
-        Project project = requireProject(projectId, workspaceId);
+        Project project = projects.requireInWorkspace(projectId, workspaceId);
         ClientRepresentative representative = requireRepresentativeOfClient(representativeId, project);
 
         if (pendingAttachments.deleteByProjectIdAndRepresentativeId(projectId, representativeId) > 0) {
@@ -348,7 +346,7 @@ public class ProjectService {
             if (seatRepresentative(attachment.getProjectId(), membership, attachment.getCreatedBy())) {
                 audit.event(ProjectEventType.PROJECT_TEAM_CHANGED)
                         .actor(representative.getUserId()).workspace(representative.getWorkspaceId())
-                        .target("project", attachment.getProjectId())
+                        .target(AuditService.PROJECT_TARGET, attachment.getProjectId())
                         .detail("memberId", membership.getId().toString())
                         .detail("action", "attach-client-accepted")
                         .record();
@@ -457,11 +455,6 @@ public class ProjectService {
         }
     }
 
-    private Project requireProject(UUID projectId, UUID workspaceId) {
-        return projects.findByIdAndWorkspaceId(projectId, workspaceId)
-                .orElseThrow(() -> ApiException.of(ErrorCode.NOT_FOUND));
-    }
-
     private Client requireClient(UUID clientId, UUID workspaceId) {
         return clients.findByIdAndWorkspaceId(clientId, workspaceId)
                 .orElseThrow(() -> ApiException.of(ErrorCode.NOT_FOUND));
@@ -469,8 +462,7 @@ public class ProjectService {
 
     private void auditTeamChange(UUID actorId, UUID workspaceId, UUID projectId, UUID memberId,
                                  String action, HttpServletRequest request) {
-        audit.event(ProjectEventType.PROJECT_TEAM_CHANGED)
-                .actor(actorId).workspace(workspaceId).target("project", projectId).from(request)
+        audit.projectEvent(ProjectEventType.PROJECT_TEAM_CHANGED, actorId, workspaceId, projectId, request)
                 .detail("memberId", memberId.toString()).detail("action", action)
                 .record();
     }
@@ -479,8 +471,7 @@ public class ProjectService {
     private void auditRepresentativeChange(UUID actorId, UUID workspaceId, UUID projectId,
                                            UUID representativeId, String action,
                                            HttpServletRequest request) {
-        audit.event(ProjectEventType.PROJECT_TEAM_CHANGED)
-                .actor(actorId).workspace(workspaceId).target("project", projectId).from(request)
+        audit.projectEvent(ProjectEventType.PROJECT_TEAM_CHANGED, actorId, workspaceId, projectId, request)
                 .detail("representativeId", representativeId.toString()).detail("action", action)
                 .record();
     }

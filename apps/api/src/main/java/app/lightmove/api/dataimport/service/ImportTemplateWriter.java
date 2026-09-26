@@ -1,5 +1,6 @@
 package app.lightmove.api.dataimport.service;
 
+import app.lightmove.api.core.text.service.CsvFormatter;
 import app.lightmove.api.customcolumn.dto.CustomColumnDto;
 import app.lightmove.api.dataimport.constant.ImportTargetField;
 import java.util.ArrayList;
@@ -67,22 +68,6 @@ public class ImportTemplateWriter {
                     headers.add(column.label());
                     example.add("");
                 });
-        return row(headers) + "\r\n" + row(example) + "\r\n";
-    }
-
-    /**
-     * CRLF and RFC 4180 quoting: this file is opened in Excel far more often than by a parser, and a
-     * header carrying a comma would otherwise be two columns the moment it is saved and sent back.
-     */
-    private static String row(List<String> values) {
-        return String.join(",", values.stream().map(ImportTemplateWriter::quoted).toList());
-    }
-
-    private static String quoted(String value) {
-        String safe = value == null ? "" : value;
-        if (safe.contains(",") || safe.contains("\"") || safe.contains("\n") || safe.contains("\r")) {
-            return '"' + safe.replace("\"", "\"\"") + '"';
-        }
-        return safe;
+        return CsvFormatter.row(headers) + "\r\n" + CsvFormatter.row(example) + "\r\n";
     }
 }

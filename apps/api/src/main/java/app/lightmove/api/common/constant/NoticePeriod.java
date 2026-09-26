@@ -1,6 +1,7 @@
 package app.lightmove.api.common.constant;
 
 import java.util.Map;
+import lombok.RequiredArgsConstructor;
 
 /**
  * How long a mandate plans to wait for somebody — one of five, on both halves of a search.
@@ -16,6 +17,7 @@ import java.util.Map;
  * before anybody asked. Both screens offer that blank above these five, the way every sibling
  * picker does.
  */
+@RequiredArgsConstructor
 public enum NoticePeriod {
 
     NONE("None", 0),
@@ -31,11 +33,6 @@ public enum NoticePeriod {
     private final String label;
 
     private final int months;
-
-    NoticePeriod(String label, int months) {
-        this.label = label;
-        this.months = months;
-    }
 
     public String value() {
         return label;

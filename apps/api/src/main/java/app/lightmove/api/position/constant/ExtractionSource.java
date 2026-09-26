@@ -1,10 +1,17 @@
 package app.lightmove.api.position.constant;
 
+import lombok.Getter;
+import lombok.RequiredArgsConstructor;
+import lombok.experimental.Accessors;
+
 /**
  * What produced a step-one proposal. Mirrors {@code dataimport}'s {@code MappingSource}: the panel
  * says which, because the two are worth different amounts of scrutiny — a reading straight from the
  * model needs a glance, one the heuristic fell back to needs reading.
  */
+@Getter
+@Accessors(fluent = true)
+@RequiredArgsConstructor
 public enum ExtractionSource {
 
     /** Gemini read the document. */
@@ -26,13 +33,5 @@ public enum ExtractionSource {
      */
     NONE("none");
 
-    private final String wireToken;
-
-    ExtractionSource(String wireToken) {
-        this.wireToken = wireToken;
-    }
-
-    public String value() {
-        return wireToken;
-    }
+    private final String value;
 }

@@ -1,5 +1,7 @@
 package app.lightmove.api.common.constant;
 
+import lombok.RequiredArgsConstructor;
+
 /**
  * The nine groups an executive's nationality is recorded or counted under — the Gulf six by name, and
  * everyone else as Western expat, South Asian or Arab expat, non-GCC.
@@ -10,6 +12,7 @@ package app.lightmove.api.common.constant;
  * nationality — the Background section's picker, the report's grouping, an AI inference — reads the
  * same nine spellings from one place instead of three.
  */
+@RequiredArgsConstructor
 public enum NationalityGroup {
 
     SAUDI("Saudi", true),
@@ -24,11 +27,6 @@ public enum NationalityGroup {
 
     private final String label;
     private final boolean gcc;
-
-    NationalityGroup(String label, boolean gcc) {
-        this.label = label;
-        this.gcc = gcc;
-    }
 
     public String value() {
         return label;

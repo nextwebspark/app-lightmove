@@ -1,11 +1,19 @@
 package app.lightmove.api.triagecompany.constant;
 
+import app.lightmove.api.common.constant.ApiValueEnum;
+import lombok.Getter;
+import lombok.RequiredArgsConstructor;
+import lombok.experimental.Accessors;
+
 /**
  * Where a company stands in a mandate's triage. A company enters the universe from the Strategy
  * screen and moves between these as the team triages it; there is no "untriaged" state, because a
  * company nobody has taken a position on simply has no row.
  */
-public enum TriageCompanyStatus {
+@Getter
+@Accessors(fluent = true)
+@RequiredArgsConstructor
+public enum TriageCompanyStatus implements ApiValueEnum {
 
     /** Taken into the mandate's working set. What "Add to Universe" writes. */
     IN_UNIVERSE("inUniverse"),
@@ -19,22 +27,14 @@ public enum TriageCompanyStatus {
      */
     DECLINED("declined");
 
-    private final String wireToken;
-
-    TriageCompanyStatus(String wireToken) {
-        this.wireToken = wireToken;
-    }
-
-    public String value() {
-        return wireToken;
-    }
+    private final String value;
 
     public static TriageCompanyStatus fromValue(String value) {
-        for (TriageCompanyStatus status : values()) {
-            if (status.wireToken.equals(value)) {
-                return status;
-            }
-        }
-        return null;
+        return ApiValueEnum.fromValue(TriageCompanyStatus.class, value);
+    }
+
+    /** Omitted means the landing stage — where a company arrives from Strategy and a capture lands. */
+    public static TriageCompanyStatus parseOrInUniverse(String token) {
+        return ApiValueEnum.parse(TriageCompanyStatus.class, token, IN_UNIVERSE, "status");
     }
 }

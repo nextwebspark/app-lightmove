@@ -31,7 +31,7 @@ public class PositionTemplateService {
      * position: the library is ordered for a picker, and reordering it must not change what an
      * unrecognised mandate is drafted as.
      */
-    private static final String FALLBACK_CODE = "generic-executive";
+    public static final String FALLBACK_CODE = "generic-executive";
 
     private final PositionTemplateRepository templates;
 

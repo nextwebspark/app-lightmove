@@ -213,8 +213,7 @@ public class PositionService {
         PositionTemplate template = templates.require(workspaceId, templateId);
         PositionTemplateApplier.applyTo(brief.position(), template);
 
-        audit.event(ProjectEventType.POSITION_TEMPLATE_APPLIED)
-                .actor(userId).workspace(workspaceId).target("project", projectId).from(httpRequest)
+        audit.projectEvent(ProjectEventType.POSITION_TEMPLATE_APPLIED, userId, workspaceId, projectId, httpRequest)
                 .detail("template", template.getCode())
                 .record();
         return assembler.assemble(brief);
@@ -239,12 +238,9 @@ public class PositionService {
 
     private void auditChange(ProjectEventType event, UUID userId, UUID workspaceId, UUID projectId,
                              String section, HttpServletRequest httpRequest) {
-        AuditService.Builder entry = audit.event(event)
-                .actor(userId).workspace(workspaceId).target("project", projectId).from(httpRequest);
-        if (section != null) {
-            entry.detail("section", section);
-        }
-        entry.record();
+        audit.projectEvent(event, userId, workspaceId, projectId, httpRequest)
+                .detailIfPresent("section", section)
+                .record();
     }
 
     /**

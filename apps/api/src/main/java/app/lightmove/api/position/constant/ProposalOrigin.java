@@ -1,5 +1,9 @@
 package app.lightmove.api.position.constant;
 
+import lombok.Getter;
+import lombok.RequiredArgsConstructor;
+import lombok.experimental.Accessors;
+
 /**
  * What a proposal's <b>value</b> was drawn from — distinct from {@link ExtractionSource}, which says
  * how the whole document was read. Every proposal answers {@link #DOCUMENT} today: template backfill,
@@ -9,6 +13,9 @@ package app.lightmove.api.position.constant;
  * would draw a marker over a value with no snippet to point at. {@link #TEMPLATE} stays on the wire
  * for now rather than being deleted outright.
  */
+@Getter
+@Accessors(fluent = true)
+@RequiredArgsConstructor
 public enum ProposalOrigin {
 
     /** Read from the document itself, by the model or, on step one, the heuristic fallback. */
@@ -17,13 +24,5 @@ public enum ProposalOrigin {
     /** No longer produced by any proposer — see the class doc. */
     TEMPLATE("template");
 
-    private final String wireToken;
-
-    ProposalOrigin(String wireToken) {
-        this.wireToken = wireToken;
-    }
-
-    public String value() {
-        return wireToken;
-    }
+    private final String value;
 }

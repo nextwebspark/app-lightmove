@@ -1,5 +1,6 @@
 package app.lightmove.api.triagecompany.service;
 
+import app.lightmove.api.common.constant.ApiValueEnum;
 import app.lightmove.api.core.audit.constant.ProjectEventType;
 import app.lightmove.api.core.audit.service.AuditService;
 import app.lightmove.api.core.config.CompanyListSettings;
@@ -9,6 +10,7 @@ import app.lightmove.api.core.error.model.ApiException;
 import app.lightmove.api.core.stream.ProjectStreamKind;
 import app.lightmove.api.core.stream.ProjectStreamPublisher;
 import app.lightmove.api.core.text.service.LinkedInUrls;
+import app.lightmove.api.core.text.service.TextUtils;
 import app.lightmove.api.customcolumn.constant.CustomColumnTarget;
 import app.lightmove.api.customcolumn.service.CustomColumnService;
 import app.lightmove.api.project.repository.ProjectRepository;
@@ -33,8 +35,8 @@ import app.lightmove.api.triagecompany.dto.TriageCountsDto;
 import app.lightmove.api.triagecompany.dto.UpdateTriageCompanyRequest;
 import app.lightmove.api.triagecompany.model.CapturedCompanyDetails;
 import app.lightmove.api.triagecompany.model.TriageCompany;
-import app.lightmove.api.triagecompany.model.TriageCompanyFilters;
 import app.lightmove.api.triagecompany.model.TriageCompanyCapturedEvent;
+import app.lightmove.api.triagecompany.model.TriageCompanyFilters;
 import app.lightmove.api.triagecompany.repository.TriageCompanyRepository;
 import app.lightmove.api.triagecompany.repository.TriageCompanyWriter;
 import jakarta.servlet.http.HttpServletRequest;
@@ -141,18 +143,12 @@ public class TriageCompanyService {
                                         TriageCompanyListCriteria criteria) {
         int page = criteria.page() == null ? 0 : criteria.page();
         int size = criteria.size() == null ? listConfig.defaultPageSize() : criteria.size();
-        if (page < 0) {
-            throw new ApiException(ErrorCode.VALIDATION_FAILED, "page must not be negative");
-        }
-        if (size < 1 || size > listConfig.maxPageSize()) {
-            throw new ApiException(ErrorCode.VALIDATION_FAILED,
-                    "size must be between 1 and " + listConfig.maxPageSize());
-        }
-        TriageCompanyStatus status = resolveStatus(criteria.status());
-        requireProject(projectId, workspaceId);
+        listConfig.requireValidPage(page, size);
+        TriageCompanyStatus status = TriageCompanyStatus.parseOrInUniverse(criteria.status());
+        projects.requireInWorkspace(projectId, workspaceId);
 
-        String companyName = blankToNull(criteria.nameQuery());
-        String executiveName = blankToNull(criteria.executiveQuery());
+        String companyName = TextUtils.blankToNull(criteria.nameQuery());
+        String executiveName = TextUtils.blankToNull(criteria.executiveQuery());
         List<String> executiveStatuses = resolveExecutiveStatuses(criteria.executiveStatuses());
         Page<TriageCompany> found = EXECUTIVE_STATUS_SORT_TOKEN.equals(criteria.sort())
                 ? findOrderedByExecutiveStatus(projectId, status, companyName, executiveName,
@@ -260,15 +256,6 @@ public class TriageCompanyService {
         }).collect(Collectors.toList());
     }
 
-    /** Null means "no opinion" to the query below; a caller's blank string means the same thing. */
-    private static String blankToNull(String value) {
-        if (value == null) {
-            return null;
-        }
-        String trimmed = value.trim();
-        return trimmed.isEmpty() ? null : trimmed;
-    }
-
     /**
      * The whole of one stage, unpaged — the seam {@code talentmap} and {@code dataexport} read
      * companies through, because neither a globe nor a file has a page two. Takes a cap the caller
@@ -284,11 +271,11 @@ public class TriageCompanyService {
     public TriageCompaniesResponse listAllOfStage(UUID workspaceId, UUID projectId,
                                                   TriageCompanyStatus status,
                                                   TriageCompanyFilters filters, int cap) {
-        requireProject(projectId, workspaceId);
+        projects.requireInWorkspace(projectId, workspaceId);
         PageRequest wholeStage = PageRequest.of(0, cap, Sort.by(Sort.Direction.ASC, "companyName")
                 .and(NEWEST_FIRST));
         Page<TriageCompany> found = findWithFilters(projectId, status,
-                blankToNull(filters.companyName()), blankToNull(filters.executiveName()),
+                TextUtils.blankToNull(filters.companyName()), TextUtils.blankToNull(filters.executiveName()),
                 resolveExecutiveStatuses(filters.executiveStatuses()), wholeStage);
         return new TriageCompaniesResponse(
                 found.getContent().stream().map(TriageCompanyService::toDto).toList(),
@@ -307,8 +294,7 @@ public class TriageCompanyService {
      */
     @Transactional
     public TriageCompanyResponse requireCompanyOfProject(UUID projectId, UUID triageCompanyId, boolean newMapping) {
-        TriageCompany company = triaged.findByIdAndProjectId(triageCompanyId, projectId)
-                .orElseThrow(() -> ApiException.of(ErrorCode.NOT_FOUND));
+        TriageCompany company = triaged.requireInProject(triageCompanyId, projectId);
         if (newMapping) {
             company.unflagNoExecutiveFound();
         }
@@ -333,11 +319,11 @@ public class TriageCompanyService {
     @Transactional
     public TriageCompanyResponse add(UUID userId, UUID workspaceId, UUID projectId,
                                      AddTriageCompanyRequest request, HttpServletRequest httpRequest) {
-        requireProject(projectId, workspaceId);
+        projects.requireInWorkspace(projectId, workspaceId);
         String accountId = request.apolloAccountId();
         // Resolved before the held check, so an unknown stage is a 400 whether or not the mandate
         // already holds the company — the same reason resolveSort settles both its tokens up front.
-        TriageCompanyStatus landingStatus = resolveStatus(request.status());
+        TriageCompanyStatus landingStatus = TriageCompanyStatus.parseOrInUniverse(request.status());
 
         // Already held is not an error: a second click means the same thing as the first. Returning
         // the existing row leaves its stage and note untouched, so re-adding cannot walk a declined
@@ -365,8 +351,7 @@ public class TriageCompanyService {
                 .orElseThrow(() -> ApiException.of(ErrorCode.NOT_FOUND));
 
         if (inserted > 0) {
-            audit.event(ProjectEventType.TRIAGE_COMPANY_ADDED)
-                    .actor(userId).workspace(workspaceId).target("project", projectId).from(httpRequest)
+            audit.projectEvent(ProjectEventType.TRIAGE_COMPANY_ADDED, userId, workspaceId, projectId, httpRequest)
                     .detail("apolloAccountId", accountId)
                     .record();
         }
@@ -387,10 +372,10 @@ public class TriageCompanyService {
     @Transactional
     public TriageCompanyResponse capture(UUID userId, UUID workspaceId, UUID projectId,
                                          CaptureCompanyRequest request, HttpServletRequest httpRequest) {
-        requireProject(projectId, workspaceId);
+        projects.requireInWorkspace(projectId, workspaceId);
 
         TriageCompanySource source = resolveCapturableSource(request.source());
-        TriageCompanyStatus status = resolveStatus(request.status());
+        TriageCompanyStatus status = TriageCompanyStatus.parseOrInUniverse(request.status());
         CapturedCompanyDetails details = new CapturedCompanyDetails(
                 request.companyName(), request.industry(), request.companyCountry(),
                 request.companyCity(), request.numEmployees(), request.annualRevenue(),
@@ -418,14 +403,7 @@ public class TriageCompanyService {
         captured.describeCustomFields(customColumns.applyTo(
                 projectId, CustomColumnTarget.COMPANY, captured.getCustomFields(), request.customFields()));
 
-        var event = audit.event(ProjectEventType.TRIAGE_COMPANY_CAPTURED)
-                .actor(userId).workspace(workspaceId).target("project", projectId).from(httpRequest)
-                .detail("source", source.name())
-                .detail("triageCompanyId", captured.getId().toString());
-        if (captured.getApolloAccountId() != null) {
-            event = event.detail("apolloAccountId", captured.getApolloAccountId());
-        }
-        event.record();
+        auditCaptured(captured, source, userId, workspaceId, projectId, httpRequest);
         if (SUPPLIED_ONE_AT_A_TIME.contains(source)) {
             announceForResearch(captured, projectId);
         }
@@ -465,22 +443,25 @@ public class TriageCompanyService {
     public boolean captureResearched(UUID userId, UUID workspaceId, UUID projectId,
                                      CapturedCompanyDetails details, TriageCompanySource source,
                                      String status, HttpServletRequest httpRequest) {
-        requireProject(projectId, workspaceId);
-        ResolvedCapture resolved = resolveCapture(projectId, userId, details, source, resolveStatus(status));
+        projects.requireInWorkspace(projectId, workspaceId);
+        ResolvedCapture resolved = resolveCapture(
+                projectId, userId, details, source, TriageCompanyStatus.parseOrInUniverse(status));
         if (!resolved.created()) {
             return false;
         }
         TriageCompany captured = resolved.company();
-        var event = audit.event(ProjectEventType.TRIAGE_COMPANY_CAPTURED)
-                .actor(userId).workspace(workspaceId).target("project", projectId).from(httpRequest)
-                .detail("source", source.name())
-                .detail("triageCompanyId", captured.getId().toString());
-        if (captured.getApolloAccountId() != null) {
-            event = event.detail("apolloAccountId", captured.getApolloAccountId());
-        }
-        event.record();
+        auditCaptured(captured, source, userId, workspaceId, projectId, httpRequest);
         stream.publish(projectId, ProjectStreamKind.COMPANY_CAPTURED);
         return true;
+    }
+
+    private void auditCaptured(TriageCompany captured, TriageCompanySource source, UUID userId, UUID workspaceId,
+                               UUID projectId, HttpServletRequest httpRequest) {
+        audit.projectEvent(ProjectEventType.TRIAGE_COMPANY_CAPTURED, userId, workspaceId, projectId, httpRequest)
+                .detail("source", source.name())
+                .detail("triageCompanyId", captured.getId().toString())
+                .detailIfPresent("apolloAccountId", captured.getApolloAccountId())
+                .record();
     }
 
     /**
@@ -625,8 +606,7 @@ public class TriageCompanyService {
         int added = writer.insertIgnoringHeld(projectId, userId, rows,
                 TriageCompanySource.STRATEGY, TriageCompanyStatus.IN_UNIVERSE, null, null);
 
-        audit.event(ProjectEventType.TRIAGE_BULK_ADDED)
-                .actor(userId).workspace(workspaceId).target("project", projectId).from(httpRequest)
+        audit.projectEvent(ProjectEventType.TRIAGE_BULK_ADDED, userId, workspaceId, projectId, httpRequest)
                 .detail("added", String.valueOf(added))
                 .record();
         return new TriageBulkAddResponse(added, rows.size() - added);
@@ -657,7 +637,7 @@ public class TriageCompanyService {
                                              AddSelectedTriageCompaniesRequest request,
                                              TriageCompanySource source,
                                              HttpServletRequest httpRequest) {
-        TriageCompanyStatus landingStatus = resolveStatus(request.status());
+        TriageCompanyStatus landingStatus = TriageCompanyStatus.parseOrInUniverse(request.status());
         // Distinct and ordered: a duplicate id in the request would bind two placeholder sets for one
         // company, and ON CONFLICT DO NOTHING cannot deduplicate rows inside the statement writing them.
         List<String> accountIds = request.apolloAccountIds().stream().distinct().toList();
@@ -677,8 +657,7 @@ public class TriageCompanyService {
         int added = writer.insertIgnoringHeld(projectId, userId, rows, source, landingStatus,
                 null, null);
 
-        audit.event(ProjectEventType.TRIAGE_BULK_ADDED)
-                .actor(userId).workspace(workspaceId).target("project", projectId).from(httpRequest)
+        audit.projectEvent(ProjectEventType.TRIAGE_BULK_ADDED, userId, workspaceId, projectId, httpRequest)
                 .detail("added", String.valueOf(added))
                 .detail("status", landingStatus.name())
                 .detail("source", source.name())
@@ -690,9 +669,8 @@ public class TriageCompanyService {
     public TriageCompanyResponse update(UUID userId, UUID workspaceId, UUID projectId,
                                         UUID triageCompanyId, UpdateTriageCompanyRequest request,
                                         HttpServletRequest httpRequest) {
-        requireProject(projectId, workspaceId);
-        TriageCompany company = triaged.findByIdAndProjectId(triageCompanyId, projectId)
-                .orElseThrow(() -> ApiException.of(ErrorCode.NOT_FOUND));
+        projects.requireInWorkspace(projectId, workspaceId);
+        TriageCompany company = triaged.requireInProject(triageCompanyId, projectId);
 
         // Null leaves that half alone: moving a company to Declined must not clear the note saying
         // why, so clearing one is an explicit empty string rather than an omission.
@@ -717,16 +695,11 @@ public class TriageCompanyService {
         // The event type is the pre-existing one regardless of which fields moved: this endpoint has
         // always answered a note-only edit the same way. The detail flags make that legible rather than
         // renaming the event, so a note edit or a flag toggle does not read as a stage change.
-        var event = audit.event(ProjectEventType.TRIAGE_COMPANY_MOVED)
-                .actor(userId).workspace(workspaceId).target("project", projectId).from(httpRequest)
-                .detail("triageCompanyId", triageCompanyId.toString());
-        if (request.status() != null) {
-            event = event.detail("status", request.status());
-        }
-        if (request.noExecutiveFound() != null) {
-            event = event.detail("noExecutiveFound", String.valueOf(request.noExecutiveFound()));
-        }
-        event.record();
+        audit.projectEvent(ProjectEventType.TRIAGE_COMPANY_MOVED, userId, workspaceId, projectId, httpRequest)
+                .detail("triageCompanyId", triageCompanyId.toString())
+                .detailIfPresent("status", request.status())
+                .detailIfPresent("noExecutiveFound", Objects.toString(request.noExecutiveFound(), null))
+                .record();
         return toDto(company);
     }
 
@@ -742,9 +715,8 @@ public class TriageCompanyService {
     public TriageCompanyResponse edit(UUID userId, UUID workspaceId, UUID projectId,
                                       UUID triageCompanyId, EditTriageCompanyRequest request,
                                       HttpServletRequest httpRequest) {
-        requireProject(projectId, workspaceId);
-        TriageCompany company = triaged.findByIdAndProjectId(triageCompanyId, projectId)
-                .orElseThrow(() -> ApiException.of(ErrorCode.NOT_FOUND));
+        projects.requireInWorkspace(projectId, workspaceId);
+        TriageCompany company = triaged.requireInProject(triageCompanyId, projectId);
 
         if (!company.isMandateSupplied()) {
             throw ApiException.of(ErrorCode.TRIAGE_COMPANY_NOT_EDITABLE);
@@ -768,8 +740,7 @@ public class TriageCompanyService {
         company.describeCustomFields(customColumns.applyTo(
                 projectId, CustomColumnTarget.COMPANY, company.getCustomFields(), request.customFields()));
 
-        audit.event(ProjectEventType.TRIAGE_COMPANY_EDITED)
-                .actor(userId).workspace(workspaceId).target("project", projectId).from(httpRequest)
+        audit.projectEvent(ProjectEventType.TRIAGE_COMPANY_EDITED, userId, workspaceId, projectId, httpRequest)
                 .detail("triageCompanyId", triageCompanyId.toString())
                 .record();
         return toDto(company);
@@ -786,15 +757,13 @@ public class TriageCompanyService {
     public TriageCompanyResponse editCustomFields(UUID userId, UUID workspaceId, UUID projectId,
                                                   UUID triageCompanyId, Map<String, String> customFields,
                                                   HttpServletRequest httpRequest) {
-        requireProject(projectId, workspaceId);
-        TriageCompany company = triaged.findByIdAndProjectId(triageCompanyId, projectId)
-                .orElseThrow(() -> ApiException.of(ErrorCode.NOT_FOUND));
+        projects.requireInWorkspace(projectId, workspaceId);
+        TriageCompany company = triaged.requireInProject(triageCompanyId, projectId);
 
         company.describeCustomFields(customColumns.applyTo(
                 projectId, CustomColumnTarget.COMPANY, company.getCustomFields(), customFields));
 
-        audit.event(ProjectEventType.TRIAGE_COMPANY_EDITED)
-                .actor(userId).workspace(workspaceId).target("project", projectId).from(httpRequest)
+        audit.projectEvent(ProjectEventType.TRIAGE_COMPANY_EDITED, userId, workspaceId, projectId, httpRequest)
                 .detail("triageCompanyId", triageCompanyId.toString())
                 .detail("customFieldsOnly", "true")
                 .record();
@@ -812,16 +781,14 @@ public class TriageCompanyService {
     @Transactional
     public void removeFromProject(UUID userId, UUID workspaceId, UUID projectId, UUID triageCompanyId,
                                   HttpServletRequest httpRequest) {
-        requireProject(projectId, workspaceId);
-        TriageCompany company = triaged.findByIdAndProjectId(triageCompanyId, projectId)
-                .orElseThrow(() -> ApiException.of(ErrorCode.NOT_FOUND));
+        projects.requireInWorkspace(projectId, workspaceId);
+        TriageCompany company = triaged.requireInProject(triageCompanyId, projectId);
 
         triaged.delete(company);
 
         // The name is recorded because the row carrying it is about to stop existing, and an audit
         // entry naming only an unresolvable id answers no question later.
-        audit.event(ProjectEventType.TRIAGE_COMPANY_REMOVED)
-                .actor(userId).workspace(workspaceId).target("project", projectId).from(httpRequest)
+        audit.projectEvent(ProjectEventType.TRIAGE_COMPANY_REMOVED, userId, workspaceId, projectId, httpRequest)
                 .detail("triageCompanyId", triageCompanyId.toString())
                 .detail("companyName", company.getCompanyName())
                 .record();
@@ -864,14 +831,7 @@ public class TriageCompanyService {
 
     /** Null when the caller named no field, which is not the same as naming an unknown one. */
     private static TriageCompanySortField resolveSortField(String token) {
-        if (token == null || token.isBlank()) {
-            return null;
-        }
-        TriageCompanySortField field = TriageCompanySortField.fromValue(token);
-        if (field == null) {
-            throw new ApiException(ErrorCode.VALIDATION_FAILED, "Unknown sort field: " + token);
-        }
-        return field;
+        return ApiValueEnum.parse(TriageCompanySortField.class, token, null, "sort field");
     }
 
     private static Sort newestFirstIn(Sort.Direction direction) {
@@ -880,26 +840,7 @@ public class TriageCompanyService {
 
     /** Omitted means DESC: the grid opens newest-first, and an absent direction must not reverse it. */
     private static SortDirection resolveDirection(String token) {
-        if (token == null || token.isBlank()) {
-            return SortDirection.DESC;
-        }
-        SortDirection direction = SortDirection.fromValue(token);
-        if (direction == null) {
-            throw new ApiException(ErrorCode.VALIDATION_FAILED, "Unknown sort direction: " + token);
-        }
-        return direction;
-    }
-
-    /** The landing stage is where a company arrives from Strategy, and where a capture lands by default. */
-    private static TriageCompanyStatus resolveStatus(String token) {
-        if (token == null || token.isBlank()) {
-            return TriageCompanyStatus.IN_UNIVERSE;
-        }
-        TriageCompanyStatus status = TriageCompanyStatus.fromValue(token);
-        if (status == null) {
-            throw new ApiException(ErrorCode.VALIDATION_FAILED, "Unknown status: " + token);
-        }
-        return status;
+        return ApiValueEnum.parse(SortDirection.class, token, SortDirection.DESC, "sort direction");
     }
 
     /**
@@ -909,21 +850,13 @@ public class TriageCompanyService {
      * and a constraint violation is a worse way to learn it.
      */
     private static TriageCompanySource resolveCapturableSource(String token) {
-        if (token == null || token.isBlank()) {
-            return TriageCompanySource.MANUAL;
-        }
-        TriageCompanySource source = TriageCompanySource.fromValue(token);
-        if (source == null || !CAPTURABLE_SOURCES.contains(source)) {
+        TriageCompanySource source = ApiValueEnum.parse(
+                TriageCompanySource.class, token, TriageCompanySource.MANUAL, "capture source");
+        if (!CAPTURABLE_SOURCES.contains(source)) {
             throw new ApiException(ErrorCode.VALIDATION_FAILED, "Unknown capture source: " + token);
         }
         return source;
     }
-
-    private void requireProject(UUID projectId, UUID workspaceId) {
-        projects.findByIdAndWorkspaceId(projectId, workspaceId)
-                .orElseThrow(() -> ApiException.of(ErrorCode.NOT_FOUND));
-    }
-
 
     private static TriageCompanyResponse toDto(TriageCompany company) {
         return new TriageCompanyResponse(company.getId(), company.getApolloAccountId(),

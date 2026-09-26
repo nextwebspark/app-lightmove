@@ -1,7 +1,5 @@
 package app.lightmove.api.position.service;
 
-import app.lightmove.api.core.error.constant.ErrorCode;
-import app.lightmove.api.core.error.model.ApiException;
 import app.lightmove.api.position.model.Position;
 import app.lightmove.api.position.repository.PositionRepository;
 import app.lightmove.api.positiontemplate.service.PositionTemplateService;
@@ -33,8 +31,7 @@ class PositionBriefLoader {
     private final PositionTemplateService templates;
 
     PositionBrief require(UUID workspaceId, UUID projectId) {
-        Project project = projects.findByIdAndWorkspaceId(projectId, workspaceId)
-                .orElseThrow(() -> ApiException.of(ErrorCode.NOT_FOUND));
+        Project project = projects.requireInWorkspace(projectId, workspaceId);
         Position position = positions.findByProjectId(project.getId())
                 .orElseGet(() -> draft(workspaceId, project.getId(), project.getPositionTitle(),
                         hqCountryOf(project.getClientId(), workspaceId)));
@@ -46,15 +43,13 @@ class PositionBriefLoader {
      * answers empty rather than being drafted on the way past. Scoped like {@link #require}.
      */
     Optional<Position> find(UUID workspaceId, UUID projectId) {
-        Project project = projects.findByIdAndWorkspaceId(projectId, workspaceId)
-                .orElseThrow(() -> ApiException.of(ErrorCode.NOT_FOUND));
+        Project project = projects.requireInWorkspace(projectId, workspaceId);
         return positions.findByProjectId(project.getId());
     }
 
     /** {@link #find} as a whole brief: an undrafted one reads blank and is not saved. */
     PositionBrief read(UUID workspaceId, UUID projectId) {
-        Project project = projects.findByIdAndWorkspaceId(projectId, workspaceId)
-                .orElseThrow(() -> ApiException.of(ErrorCode.NOT_FOUND));
+        Project project = projects.requireInWorkspace(projectId, workspaceId);
         Position position = positions.findByProjectId(project.getId())
                 .orElseGet(() -> Position.forProject(project.getId(), null));
         return new PositionBrief(project, position);

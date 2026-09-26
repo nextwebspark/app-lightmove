@@ -1,5 +1,6 @@
 package app.lightmove.api.customcolumn.service;
 
+import app.lightmove.api.common.constant.ApiValueEnum;
 import app.lightmove.api.core.audit.constant.ProjectEventType;
 import app.lightmove.api.core.audit.service.AuditService;
 import app.lightmove.api.core.config.CustomColumnSettings;
@@ -59,7 +60,7 @@ public class CustomColumnService {
 
     @Transactional(readOnly = true)
     public CustomColumnsResponse list(UUID workspaceId, UUID projectId) {
-        requireProject(projectId, workspaceId);
+        projects.requireInWorkspace(projectId, workspaceId);
         return new CustomColumnsResponse(
                 columns.findByProjectIdOrderByTargetAscDisplayOrderAscLabelAsc(projectId).stream()
                         .map(CustomColumnService::toDto)
@@ -77,14 +78,13 @@ public class CustomColumnService {
     @Transactional
     public CustomColumnDto define(UUID userId, UUID workspaceId, UUID projectId,
                                   DefineCustomColumnRequest request, HttpServletRequest httpRequest) {
-        requireProject(projectId, workspaceId);
+        projects.requireInWorkspace(projectId, workspaceId);
         CustomColumnTarget target = requireTarget(request.target());
         CustomColumnType dataType = resolveType(request.dataType());
 
         ProjectCustomColumn defined = defineWithin(projectId, userId, target, request.label(), dataType);
 
-        audit.event(ProjectEventType.CUSTOM_COLUMN_DEFINED)
-                .actor(userId).workspace(workspaceId).target("project", projectId).from(httpRequest)
+        audit.projectEvent(ProjectEventType.CUSTOM_COLUMN_DEFINED, userId, workspaceId, projectId, httpRequest)
                 .detail("customColumnId", defined.getId().toString())
                 .detail("target", target.name())
                 .detail("fieldKey", defined.getFieldKey())
@@ -112,7 +112,7 @@ public class CustomColumnService {
     @Transactional
     public CustomColumnDto update(UUID userId, UUID workspaceId, UUID projectId, UUID columnId,
                                   UpdateCustomColumnRequest request, HttpServletRequest httpRequest) {
-        requireProject(projectId, workspaceId);
+        projects.requireInWorkspace(projectId, workspaceId);
         ProjectCustomColumn column = require(projectId, columnId);
 
         if (request.label() != null) {
@@ -136,8 +136,7 @@ public class CustomColumnService {
             }
         }
 
-        audit.event(ProjectEventType.CUSTOM_COLUMN_UPDATED)
-                .actor(userId).workspace(workspaceId).target("project", projectId).from(httpRequest)
+        audit.projectEvent(ProjectEventType.CUSTOM_COLUMN_UPDATED, userId, workspaceId, projectId, httpRequest)
                 .detail("customColumnId", columnId.toString())
                 .record();
         return toDto(column);
@@ -154,7 +153,7 @@ public class CustomColumnService {
     @Transactional
     public CustomColumnsResponse reorder(UUID userId, UUID workspaceId, UUID projectId,
                                          ReorderCustomColumnsRequest request, HttpServletRequest httpRequest) {
-        requireProject(projectId, workspaceId);
+        projects.requireInWorkspace(projectId, workspaceId);
 
         List<ProjectCustomColumn> ordered = new ArrayList<>();
         for (String rawId : request.columnIds()) {
@@ -177,8 +176,7 @@ public class CustomColumnService {
             ordered.get(position).moveTo(position);
         }
 
-        audit.event(ProjectEventType.CUSTOM_COLUMN_REORDERED)
-                .actor(userId).workspace(workspaceId).target("project", projectId).from(httpRequest)
+        audit.projectEvent(ProjectEventType.CUSTOM_COLUMN_REORDERED, userId, workspaceId, projectId, httpRequest)
                 .detail("count", String.valueOf(ordered.size()))
                 .record();
         return list(workspaceId, projectId);
@@ -187,7 +185,7 @@ public class CustomColumnService {
     @Transactional
     public void remove(UUID userId, UUID workspaceId, UUID projectId, UUID columnId,
                        HttpServletRequest httpRequest) {
-        requireProject(projectId, workspaceId);
+        projects.requireInWorkspace(projectId, workspaceId);
         ProjectCustomColumn column = require(projectId, columnId);
         String fieldKey = column.getFieldKey();
 
@@ -195,8 +193,7 @@ public class CustomColumnService {
         // name brings the data back.
         columns.delete(column);
 
-        audit.event(ProjectEventType.CUSTOM_COLUMN_REMOVED)
-                .actor(userId).workspace(workspaceId).target("project", projectId).from(httpRequest)
+        audit.projectEvent(ProjectEventType.CUSTOM_COLUMN_REMOVED, userId, workspaceId, projectId, httpRequest)
                 .detail("customColumnId", columnId.toString())
                 .detail("fieldKey", fieldKey)
                 .record();
@@ -316,11 +313,6 @@ public class CustomColumnService {
                 .orElseThrow(() -> ApiException.of(ErrorCode.NOT_FOUND));
     }
 
-    private void requireProject(UUID projectId, UUID workspaceId) {
-        projects.findByIdAndWorkspaceId(projectId, workspaceId)
-                .orElseThrow(() -> ApiException.of(ErrorCode.NOT_FOUND));
-    }
-
     private static String requireLabel(String rawLabel) {
         String label = rawLabel == null ? "" : rawLabel.trim();
         if (label.isEmpty()) {
@@ -330,24 +322,16 @@ public class CustomColumnService {
     }
 
     private static CustomColumnTarget requireTarget(String value) {
-        CustomColumnTarget target = CustomColumnTarget.fromValue(value);
-        if (target == null) {
-            throw new ApiException(ErrorCode.VALIDATION_FAILED, "unknown custom column target " + value);
-        }
-        return target;
+        return ApiValueEnum.require(CustomColumnTarget.class, value, "custom column target");
     }
 
     /** An absent type is text, which is what an unmapped spreadsheet column is until told otherwise. */
     private static CustomColumnType resolveType(String value) {
-        return value == null || value.isBlank() ? CustomColumnType.TEXT : requireType(value);
+        return ApiValueEnum.parse(CustomColumnType.class, value, CustomColumnType.TEXT, "custom column type");
     }
 
     private static CustomColumnType requireType(String value) {
-        CustomColumnType type = CustomColumnType.fromValue(value);
-        if (type == null) {
-            throw new ApiException(ErrorCode.VALIDATION_FAILED, "unknown custom column type " + value);
-        }
-        return type;
+        return ApiValueEnum.require(CustomColumnType.class, value, "custom column type");
     }
 
     private static UUID requireUuid(String value) {

@@ -35,8 +35,7 @@ public class CandidateAiEnrichService {
                         HttpServletRequest httpRequest) {
         candidates.requireCandidate(workspaceId, projectId, candidateId);
         llmBudget.require(LlmBudget.CANDIDATE_AI_ENRICH, userId);
-        audit.event(ProjectEventType.CANDIDATE_AI_ENRICH_REQUESTED)
-                .actor(userId).workspace(workspaceId).target("project", projectId).from(httpRequest)
+        audit.projectEvent(ProjectEventType.CANDIDATE_AI_ENRICH_REQUESTED, userId, workspaceId, projectId, httpRequest)
                 .detail("candidateId", candidateId.toString())
                 .record();
         events.publishEvent(new CandidateAiEnrichRequested(candidateId, projectId, workspaceId, userId,

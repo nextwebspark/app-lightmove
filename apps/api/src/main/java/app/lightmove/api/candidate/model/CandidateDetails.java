@@ -1,7 +1,7 @@
 package app.lightmove.api.candidate.model;
 
-import static app.lightmove.api.core.text.service.SuppliedText.blankToNull;
-import static app.lightmove.api.core.text.service.SuppliedText.browsableUrlOrNull;
+import static app.lightmove.api.core.text.service.TextUtils.blankToNull;
+import static app.lightmove.api.core.text.service.TextUtils.browsableUrlOrNull;
 
 import app.lightmove.api.common.constant.Seniority;
 import app.lightmove.api.candidate.constant.CandidateStatus;
@@ -18,7 +18,7 @@ import java.util.List;
  * a spreadsheet, one capture from the plugin, a list from the Add form. They add; only the Contact
  * section's own write removes. {@code employerName} is the company as the row will remember it — overwritten with the triaged
  * company's name where the candidate is mapped to one, so the two cannot drift.
- * {@code linkedinUrl} goes through {@link app.lightmove.api.core.text.service.SuppliedText}, being
+ * {@code linkedinUrl} goes through {@link app.lightmove.api.core.text.service.TextUtils}, being
  * the field most likely to be pasted from somewhere else.
  */
 public record CandidateDetails(String fullName, String title, Seniority seniority,

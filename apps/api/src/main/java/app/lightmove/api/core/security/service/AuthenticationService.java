@@ -1,25 +1,25 @@
 package app.lightmove.api.core.security.service;
-import app.lightmove.api.core.security.token.SessionClient;
-import app.lightmove.api.core.security.token.TokenService;
-import app.lightmove.api.core.security.model.AuthenticatedSession;
-import app.lightmove.api.core.security.model.SignupCommand;
-
-import app.lightmove.api.core.security.token.RevokeReason;
-import app.lightmove.api.core.security.model.User;
-import app.lightmove.api.core.security.model.UserIdentity;
-import app.lightmove.api.core.security.constant.UserStatus;
-import app.lightmove.api.core.security.repository.UserIdentityRepository;
-import app.lightmove.api.core.security.repository.UserRepository;
 import app.lightmove.api.core.audit.constant.AuthEventType;
 import app.lightmove.api.core.audit.service.AuditService;
 import app.lightmove.api.core.config.AuthSettings;
 import app.lightmove.api.core.config.LightMoveProperties;
-import app.lightmove.api.core.error.model.ApiException;
-import app.lightmove.api.core.error.constant.ErrorCode;
-import app.lightmove.api.core.ratelimit.service.RateLimitGuard;
 import app.lightmove.api.core.email.service.EmailAddressValidator;
 import app.lightmove.api.core.email.service.EmailSender;
 import app.lightmove.api.core.email.service.EmailTemplates;
+import app.lightmove.api.core.error.constant.ErrorCode;
+import app.lightmove.api.core.error.model.ApiException;
+import app.lightmove.api.core.ratelimit.service.RateLimitGuard;
+import app.lightmove.api.core.security.constant.PrivacyPolicy;
+import app.lightmove.api.core.security.constant.UserStatus;
+import app.lightmove.api.core.security.model.AuthenticatedSession;
+import app.lightmove.api.core.security.model.SignupCommand;
+import app.lightmove.api.core.security.model.User;
+import app.lightmove.api.core.security.model.UserIdentity;
+import app.lightmove.api.core.security.repository.UserIdentityRepository;
+import app.lightmove.api.core.security.repository.UserRepository;
+import app.lightmove.api.core.security.token.RevokeReason;
+import app.lightmove.api.core.security.token.SessionClient;
+import app.lightmove.api.core.security.token.TokenService;
 import app.lightmove.api.workspace.constant.MemberStatus;
 import app.lightmove.api.workspace.model.WorkspaceMember;
 import app.lightmove.api.workspace.repository.WorkspaceMemberRepository;
@@ -41,9 +41,6 @@ import org.springframework.transaction.annotation.Transactional;
 @Service
 @Slf4j
 public class AuthenticationService {
-
-    /** Recorded against the user, so we can prove later what they agreed to. */
-    private static final String PRIVACY_POLICY_VERSION = "2026-07-01";
 
     private final UserRepository users;
     private final UserIdentityRepository identities;
@@ -113,7 +110,7 @@ public class AuthenticationService {
                 passwords.hash(command.password()),
                 command.fullName().trim(),
                 now,
-                PRIVACY_POLICY_VERSION));
+                PrivacyPolicy.CURRENT_VERSION));
 
         identities.save(UserIdentity.link(user.getId(), UserIdentity.LOCAL_PROVIDER, email, email));
 
@@ -165,7 +162,7 @@ public class AuthenticationService {
 
         Instant now = Instant.now();
         User user = users.save(User.registerLocal(
-                email, passwords.hash(rawPassword), fullName.trim(), now, PRIVACY_POLICY_VERSION));
+                email, passwords.hash(rawPassword), fullName.trim(), now, PrivacyPolicy.CURRENT_VERSION));
         identities.save(UserIdentity.link(user.getId(), UserIdentity.LOCAL_PROVIDER, email, email));
 
         // Verified before the session is issued, so the token handed back already carries emailVerified

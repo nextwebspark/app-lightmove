@@ -41,10 +41,9 @@ public class ProjectAccess {
 
         // Scope the project to this workspace first, so the gate stands on its own — a workspace admin is
         // bypassed only for a project that is actually theirs, never for a foreign id they were never
-        // entitled to name. (Service methods re-scope via requireProject too, but the gate must not
-        // depend on that: a future endpoint that trusts the gate alone would otherwise act cross-tenant.)
-        projects.findByIdAndWorkspaceId(projectId, workspaceId)
-                .orElseThrow(() -> ApiException.of(ErrorCode.NOT_FOUND));
+        // entitled to name. (Services re-scope too, but the gate must not depend on that: a future
+        // endpoint that trusts the gate alone would otherwise act cross-tenant.)
+        projects.requireInWorkspace(projectId, workspaceId);
 
         if (workspaceAccess.isAdmin(member)) {
             return;

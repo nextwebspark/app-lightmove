@@ -1,11 +1,9 @@
 package app.lightmove.api.strategy.service;
 
-import java.io.IOException;
-import java.io.InputStream;
+import app.lightmove.api.common.service.ClasspathJsonLoader;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import org.springframework.core.io.ClassPathResource;
 import tools.jackson.core.type.TypeReference;
 import tools.jackson.databind.ObjectMapper;
 
@@ -20,10 +18,6 @@ final class ClasspathVocabulary {
     }
 
     static Map<String, List<String>> read(ObjectMapper json, String resource) {
-        try (InputStream in = new ClassPathResource(resource).getInputStream()) {
-            return json.readValue(in, new TypeReference<LinkedHashMap<String, List<String>>>() {});
-        } catch (IOException e) {
-            throw new IllegalStateException("Could not load " + resource, e);
-        }
+        return ClasspathJsonLoader.load(json, resource, new TypeReference<LinkedHashMap<String, List<String>>>() {});
     }
 }
