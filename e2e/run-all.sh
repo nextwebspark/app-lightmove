@@ -102,6 +102,16 @@ step_node spa/run.mjs
 step_node spa/roles.mjs
 step_node spa/strategy.mjs
 
+# The mandate's own work, over the API: the brief, companies and executives, the spreadsheet in and the
+# stage out, and the report, map, activity and template reads. After the SPA phase because 16 and 17
+# seat the cast's client on mandates of their own, and roles.mjs counts that client's one mandate.
+# AI is off on this stack (application-e2e.yml): none of these calls an AI route, and the one import
+# header nobody knows proves the mapping falls back to the header matcher rather than failing.
+step api/16-position-brief.sh
+step api/17-companies-executives.sh
+step api/18-import-export.sh
+step api/19-reports-map-activity.sh
+
 # 10 mutates the cast it runs against, so it gets a fresh one. 12 goes after it and last.
 step api/fixtures.sh
 step api/10-role-invariants.sh
