@@ -101,6 +101,8 @@ step api/15-extension-capture.sh
 step_node spa/run.mjs
 step_node spa/roles.mjs
 step_node spa/strategy.mjs
+# Stubs /api/v1 itself and needs only Vite: every screen at phone, tablet and desktop width.
+step_node spa/responsive.mjs
 
 # The mandate's own work, over the API: the brief, companies and executives, the spreadsheet in and the
 # stage out, and the report, map, activity and template reads. After the SPA phase because 16 and 17
