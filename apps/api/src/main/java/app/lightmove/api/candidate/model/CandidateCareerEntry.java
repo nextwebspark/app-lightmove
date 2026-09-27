@@ -26,7 +26,11 @@ public record CandidateCareerEntry(String company, String title, String period, 
         location = blankToNull(location);
     }
 
-    /** A row where the researcher filled nothing in — the empty trailing row every repeatable list grows. */
+    /**
+     * A row where the researcher filled nothing in — the empty trailing row every repeatable list grows.
+     * {@code location} is deliberately not consulted: it describes a post, and a place with no company,
+     * title or period is not one — kept, it would reach a prompt as "unknown role, unknown company".
+     */
     public boolean isEmpty() {
         return company == null && title == null && period == null;
     }
