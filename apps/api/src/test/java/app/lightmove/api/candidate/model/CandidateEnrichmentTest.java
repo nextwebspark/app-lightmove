@@ -8,6 +8,7 @@ import app.lightmove.api.candidate.constant.CandidateStatus;
 import app.lightmove.api.candidate.constant.ContactSource;
 import app.lightmove.api.candidate.constant.EnrichmentVendor;
 import app.lightmove.api.candidate.constant.Gender;
+import app.lightmove.api.common.constant.Seniority;
 import java.util.List;
 import java.util.UUID;
 import org.junit.jupiter.api.DisplayName;
@@ -23,12 +24,14 @@ class CandidateEnrichmentTest {
             "Group CFO", "Finance leader across GCC retail.", "Al Rawabi Dairy",
             "https://www.linkedin.com/company/alrawabi/", "https://media.example.com/alrawabi.png",
             "Dubai", "United Arab Emirates",
-            List.of(new CandidateCareerEntry("Al Rawabi Dairy", "Group CFO", "2021 – Present")),
+            List.of(new CandidateCareerEntry("Al Rawabi Dairy", "Group CFO", "2021 – Present", null)),
             List.of(new CandidateEducationEntry("AUC", "MBA, Finance", "2010 - 2012")),
             List.of("Financial Planning"), List.of("English", "Arabic"), null,
             EnrichmentVendor.BRIGHTDATA);
 
-    private static final InferredBackground PROPOSED = new InferredBackground("Emirati", Gender.FEMALE, 14);
+    private static final InferredBackground PROPOSED = new InferredBackground(Gender.FEMALE, 14, Seniority.N_MINUS_1);
+
+    private static final NationalityReading DECISIVE = reading("Emirati", "high");
 
     @Test
     @DisplayName("research fills in what nobody typed")
@@ -66,7 +69,7 @@ class CandidateEnrichmentTest {
                 null, null, "UAE", "Abu Dhabi", null, null, null, "Our own read of them.", null,
                 CandidateCompensation.unknown(),
                 new CandidateProfile(
-                        List.of(new CandidateCareerEntry("The Firm They Told Us", "CFO", "2019 –")),
+                        List.of(new CandidateCareerEntry("The Firm They Told Us", "CFO", "2019 –", null)),
                         List.of("French"), null, null, null),
                 null);
         Candidate candidate = captured(typed);
@@ -92,24 +95,28 @@ class CandidateEnrichmentTest {
 
         assertThat(candidate.proposeBackground(PROPOSED)).isTrue();
 
-        assertThat(candidate.getNationality()).isEqualTo("Emirati");
         assertThat(candidate.getGender()).isEqualTo(Gender.FEMALE);
         assertThat(candidate.getYearsExperience()).isEqualTo(14);
+        assertThat(candidate.getSeniorityLevel()).isEqualTo(Seniority.N_MINUS_1);
+        assertThat(candidate.getNationality()).isNull();
         assertThat(candidate.getAiInferredFields()).containsExactlyInAnyOrder(
-                "nationality", "gender", "yearsExperience");
+                "gender", "yearsExperience", "seniority");
     }
 
     @Test
     @DisplayName("a proposal never overwrites a background already on the row, and flags nothing")
     void aProposalNeverOverwritesAnExistingBackground() {
-        Candidate candidate = captured(detailsWithBackground("Emirati", Gender.MALE, 20));
+        Candidate candidate = captured(detailsWithBackground("Omani", Gender.MALE, 20, Seniority.C_SUITE));
 
         assertThat(candidate.proposeBackground(PROPOSED)).isFalse();
+        candidate.recordNationalityReading(DECISIVE);
 
-        assertThat(candidate.getNationality()).isEqualTo("Emirati");
+        assertThat(candidate.getNationality()).isEqualTo("Omani");
         assertThat(candidate.getGender()).isEqualTo(Gender.MALE);
         assertThat(candidate.getYearsExperience()).isEqualTo(20);
+        assertThat(candidate.getSeniorityLevel()).isEqualTo(Seniority.C_SUITE);
         assertThat(candidate.getAiInferredFields()).isEmpty();
+        assertThat(candidate.getAiNationalityReading()).isEqualTo(DECISIVE);
     }
 
     @Test
@@ -117,11 +124,13 @@ class CandidateEnrichmentTest {
     void editingAnInferredValueClearsItsFlag() {
         Candidate candidate = captured(details("Sample Person", null, null, null, null, null));
         candidate.proposeBackground(PROPOSED);
+        candidate.recordNationalityReading(DECISIVE);
 
-        candidate.describe(detailsWithBackground("Western expat", Gender.FEMALE, 14), ContactSource.MANUAL);
+        candidate.describe(detailsWithBackground("Western expat", Gender.FEMALE, 14, Seniority.N_MINUS_2),
+                ContactSource.MANUAL);
 
-        // Only nationality changed (Emirati -> Western expat); gender and yearsExperience were
-        // resubmitted unchanged, so nothing about them was actually reviewed and their flags stand.
+        // Nationality and seniority changed; gender and yearsExperience were resubmitted unchanged, so
+        // nothing about them was actually reviewed and their flags stand.
         assertThat(candidate.getAiInferredFields()).containsExactlyInAnyOrder("gender", "yearsExperience");
     }
 
@@ -130,11 +139,13 @@ class CandidateEnrichmentTest {
     void resubmittingTheSameInferredValueLeavesItFlagged() {
         Candidate candidate = captured(details("Sample Person", null, null, null, null, null));
         candidate.proposeBackground(PROPOSED);
+        candidate.recordNationalityReading(DECISIVE);
 
-        candidate.describe(detailsWithBackground("Emirati", Gender.FEMALE, 14), ContactSource.MANUAL);
+        candidate.describe(detailsWithBackground("Emirati", Gender.FEMALE, 14, Seniority.N_MINUS_1),
+                ContactSource.MANUAL);
 
         assertThat(candidate.getAiInferredFields()).containsExactlyInAnyOrder(
-                "nationality", "gender", "yearsExperience");
+                "nationality", "gender", "yearsExperience", "seniority");
     }
 
     @Test
@@ -142,11 +153,13 @@ class CandidateEnrichmentTest {
     void confirmingTheBackgroundClearsEveryFlag() {
         Candidate candidate = captured(details("Sample Person", null, null, null, null, null));
         candidate.proposeBackground(PROPOSED);
+        candidate.recordNationalityReading(DECISIVE);
 
         candidate.confirmBackground();
 
         assertThat(candidate.getAiInferredFields()).isEmpty();
         assertThat(candidate.getNationality()).isEqualTo("Emirati");
+        assertThat(candidate.getSeniorityLevel()).isEqualTo(Seniority.N_MINUS_1);
     }
 
     @Test
@@ -164,10 +177,37 @@ class CandidateEnrichmentTest {
     @Test
     @DisplayName("only the fields still empty are named as missing")
     void missingBackgroundNamesOnlyTheEmptyFields() {
-        Candidate candidate = captured(detailsWithBackground(null, null, 20));
+        Candidate candidate = captured(detailsWithBackground(null, null, 20, null));
 
-        assertThat(candidate.missingBackground())
-                .containsExactlyInAnyOrder(BackgroundField.NATIONALITY, BackgroundField.GENDER);
+        assertThat(candidate.missingBackground()).containsExactlyInAnyOrder(
+                BackgroundField.NATIONALITY, BackgroundField.GENDER, BackgroundField.SENIORITY);
+    }
+
+    @Test
+    @DisplayName("a high-confidence nationality reading fills the empty field and flags it")
+    void aDecisiveReadingFillsAndFlags() {
+        Candidate candidate = captured(details("Sample Person", null, null, null, null, null));
+
+        candidate.recordNationalityReading(DECISIVE);
+
+        assertThat(candidate.getNationality()).isEqualTo("Emirati");
+        assertThat(candidate.getAiInferredFields()).containsExactly("nationality");
+        assertThat(candidate.getAiNationalityReading()).isEqualTo(DECISIVE);
+    }
+
+    @Test
+    @DisplayName("a medium, low or Unknown reading is kept as a suggestion and never fills the field")
+    void anIndecisiveReadingIsOnlyKept() {
+        for (NationalityReading reading : List.of(reading("Emirati", "medium"),
+                reading("Emirati", "low"), reading(NationalityReading.UNKNOWN, "high"))) {
+            Candidate candidate = captured(details("Sample Person", null, null, null, null, null));
+
+            candidate.recordNationalityReading(reading);
+
+            assertThat(candidate.getNationality()).isNull();
+            assertThat(candidate.getAiInferredFields()).isEmpty();
+            assertThat(candidate.getAiNationalityReading()).isEqualTo(reading);
+        }
     }
 
     @Test
@@ -190,7 +230,7 @@ class CandidateEnrichmentTest {
         String enrichedAt = candidate.getProfile().enrichedAt();
 
         candidate.describe(details("Sample Person", "CFO", null, null,
-                List.of(new CandidateCareerEntry("Corrected Employer", "CFO", "2020 –")),
+                List.of(new CandidateCareerEntry("Corrected Employer", "CFO", "2020 –", null)),
                 List.of("English")), ContactSource.MANUAL);
 
         assertThat(candidate.getProfile().career().getFirst().company()).isEqualTo("Corrected Employer");
@@ -228,9 +268,14 @@ class CandidateEnrichmentTest {
                 new CandidateProfile(career, languages, null, null, null), null);
     }
 
+    private static NationalityReading reading(String category, String confidence) {
+        return new NationalityReading(category, confidence, List.of("evidence"), List.of(), "none",
+                "2026-09-27T10:00:00Z");
+    }
+
     private static CandidateDetails detailsWithBackground(String nationality, Gender gender,
-                                                           Integer yearsExperience) {
-        return new CandidateDetails("Sample Person", null, null, CandidateStatus.IDENTIFIED, null,
+                                                           Integer yearsExperience, Seniority seniority) {
+        return new CandidateDetails("Sample Person", null, seniority, CandidateStatus.IDENTIFIED, null,
                 null, null, "https://www.linkedin.com/in/sample-profile", null, null, nationality,
                 gender, yearsExperience, null, null, CandidateCompensation.unknown(),
                 CandidateProfile.empty(), null);

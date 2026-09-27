@@ -13,6 +13,7 @@ vi.mock("../api/candidatesApi", async (importOriginal) => ({
   getCandidate: vi.fn(),
   getAiAssessment: vi.fn(),
   requestAiEnrich: vi.fn(),
+  updateCandidate: vi.fn(),
 }));
 
 vi.mock("../../contactlookup/api/contactLookupApi", async (importOriginal) => ({
@@ -79,17 +80,20 @@ const assessed: CandidateAiAssessment = {
   technical: { score: 8, positives: ["Led a dairy IPO"], negatives: ["No energy exposure"] },
   behavioural: { score: null, positives: [], negatives: [] },
   assessedAt: "2026-09-20T10:00:00Z",
+  nationalityReading: null,
   failedAt: null,
 };
 
-const renderDrawer = (canWrite = true) =>
+const unrecorded: Candidate = { ...yasmin, nationality: null };
+
+const renderDrawer = (canWrite = true, candidate: Candidate = yasmin) =>
   render(
     <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
       <ToastProvider>
         <CandidateDrawer
           open
           projectId="p1"
-          candidate={yasmin}
+          candidate={candidate}
           company={null}
           customColumns={[]}
           canWrite={canWrite}
@@ -149,6 +153,75 @@ describe("AI assessment", () => {
       .toBeInTheDocument();
     expect(screen.getByRole("button", { name: "AI deep enrich" })).toBeEnabled();
     expect(screen.getByText(/Last AI enrichment failed/)).toBeInTheDocument();
+  });
+
+  it("offers a medium nationality reading as a suggestion, and Accept records it", async () => {
+    const user = userEvent.setup();
+    vi.mocked(candidatesApi.getAiAssessment).mockResolvedValue({
+      ...assessed,
+      nationalityReading: {
+        category: "Arab expat, non-GCC",
+        confidence: "medium",
+        evidenceFor: ["BCom, Cairo University"],
+        evidenceAgainst: ["Career entirely in Dubai"],
+        rule: "B",
+        readAt: "2026-09-27T10:00:00Z",
+      },
+    });
+    vi.mocked(candidatesApi.getCandidate).mockResolvedValue(unrecorded);
+    vi.mocked(candidatesApi.updateCandidate).mockResolvedValue({ ...unrecorded, nationality: "Arab expat, non-GCC" });
+    renderDrawer(true, unrecorded);
+
+    // The fold starts shut, so its one-line summary is where the suggestion is first seen.
+    await user.click(await screen.findByRole("button", { name: /Background.*AI suggests Arab expat, non-GCC/ }));
+    expect(await screen.findByText("Arab expat, non-GCC")).toBeInTheDocument();
+    expect(screen.getByText("(medium confidence)")).toBeInTheDocument();
+    expect(screen.getByText("BCom, Cairo University")).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "Accept" }));
+
+    await waitFor(() => expect(candidatesApi.updateCandidate).toHaveBeenCalled());
+    const payload = vi.mocked(candidatesApi.updateCandidate).mock.calls[0][2];
+    expect(payload.nationality).toBe("Arab expat, non-GCC");
+    expect(payload.confirmBackground).toBeUndefined();
+  });
+
+  it("says when the classifier could not tell, and offers nothing to accept", async () => {
+    vi.mocked(candidatesApi.getAiAssessment).mockResolvedValue({
+      ...assessed,
+      nationalityReading: {
+        category: "Unknown",
+        confidence: "low",
+        evidenceFor: [],
+        evidenceAgainst: [],
+        rule: "E",
+        readAt: "2026-09-27T10:00:00Z",
+      },
+    });
+    vi.mocked(candidatesApi.getCandidate).mockResolvedValue(unrecorded);
+    renderDrawer(true, unrecorded);
+
+    await userEvent.click(await screen.findByRole("button", { name: /^Background/ }));
+    expect(await screen.findByText("AI couldn't tell this executive's nationality.")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Accept" })).not.toBeInTheDocument();
+  });
+
+  it("shows no suggestion once a nationality is on the row", async () => {
+    vi.mocked(candidatesApi.getAiAssessment).mockResolvedValue({
+      ...assessed,
+      nationalityReading: {
+        category: "Western expat",
+        confidence: "medium",
+        evidenceFor: [],
+        evidenceAgainst: [],
+        rule: "none",
+        readAt: "2026-09-27T10:00:00Z",
+      },
+    });
+    renderDrawer();
+
+    expect(await screen.findByText("A proven GCC finance leader.")).toBeInTheDocument();
+    expect(screen.queryByText(/AI suggests nationality/)).not.toBeInTheDocument();
   });
 
   it("offers a client seat neither the fold nor the button, and never asks for the assessment", async () => {

@@ -75,6 +75,8 @@ export function useAiEnrichment(projectId: string, candidateId: string, canWrite
   return {
     /** The last successful assessment, or null when no run has succeeded yet. */
     assessment: read.data && assessedAt !== null ? { ...read.data, assessedAt } : null,
+    /** The nationality classifier's last reading — a suggestion, or "Unknown" — or null when never asked. */
+    nationalityReading: read.data?.nationalityReading ?? null,
     /** When the last run failed; the server clears it on a success, so it is always the newer news. */
     lastFailedAt: read.data?.failedAt ?? null,
     isLoading: read.isPending && canWrite,

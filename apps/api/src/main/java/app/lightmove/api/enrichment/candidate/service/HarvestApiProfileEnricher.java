@@ -125,7 +125,7 @@ public class HarvestApiProfileEnricher implements LinkedInProfileEnricher {
         }
         return experience.stream()
                 .map(post -> new CandidateCareerEntry(post.companyName(), post.position(),
-                        periodOf(post.duration(), post.startDate(), post.endDate())))
+                        periodOf(post.duration(), post.startDate(), post.endDate()), null))
                 .toList();
     }
 

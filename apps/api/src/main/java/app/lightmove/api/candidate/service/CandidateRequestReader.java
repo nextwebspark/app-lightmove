@@ -161,7 +161,8 @@ class CandidateRequestReader {
     private static CandidateProfile profileOf(SaveCandidateRequest request) {
         List<CandidateCareerEntry> career = request.career() == null ? List.of()
                 : request.career().stream()
-                        .map(entry -> new CandidateCareerEntry(entry.company(), entry.title(), entry.period()))
+                        .map(entry -> new CandidateCareerEntry(entry.company(), entry.title(), entry.period(),
+                                entry.location()))
                         .toList();
         return new CandidateProfile(career, request.languages(), null, null, null);
     }

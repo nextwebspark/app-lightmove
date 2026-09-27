@@ -47,13 +47,19 @@ class CandidateEnrichmentIntegrationTest extends FlowTestSupport {
             "Group CFO", "Finance leader across GCC retail.", "Al Rawabi Dairy",
             "https://www.linkedin.com/company/alrawabi/", "https://media.example.com/alrawabi.png",
             "Dubai", "United Arab Emirates",
-            List.of(new CandidateCareerEntry("Al Rawabi Dairy", "Group CFO", "2021 – Present")),
+            List.of(new CandidateCareerEntry("Al Rawabi Dairy", "Group CFO", "2021 – Present", null)),
             List.of(new CandidateEducationEntry("AUC", "MBA, Finance", "2010 - 2012")),
             List.of("Financial Planning"), List.of("English", "Arabic"),
             new EnrichedPhoto(PHOTO_BYTES, "image/jpeg"), EnrichmentVendor.BRIGHTDATA);
 
+    /**
+     * The stub answers both prompts of a run with this one document, so it carries both shapes: the
+     * assessment's fields and the nationality classifier's. Each call binds the half it asked for.
+     */
     private static final String AI_ENRICHMENT = """
-            {"nationality":"Emirati","gender":"female","yearsExperience":14,
+            {"category":"Emirati","confidence":"high","evidence_for":["Emiratisation graduate programme"],
+             "evidence_against":[],"rule_applied":"none",
+             "gender":"female","yearsExperience":14,"seniority":"N-1",
              "summary":"A proven GCC finance leader.",
              "technical":{"score":8,"positives":["Led a dairy IPO"],"negatives":["No energy exposure"]},
              "behavioural":{"score":6,"positives":["Board-facing"],"negatives":[]}}""";
@@ -270,7 +276,7 @@ class CandidateEnrichmentIntegrationTest extends FlowTestSupport {
     void researchWithoutAnEmployerLeavesThePersonUnmapped() throws Exception {
         String projectId = mandate("Employerless Research Firm");
         enricher.answerWith(new EnrichedProfile("Advisor", null, null, null, null, null, null,
-                List.of(new CandidateCareerEntry("Somewhere", "Advisor", "2020 –")),
+                List.of(new CandidateCareerEntry("Somewhere", "Advisor", "2020 –", null)),
                 null, null, null, null, EnrichmentVendor.HARVESTAPI));
 
         String candidateId = capture(projectId, "Sample Person", "sample-profile");
@@ -297,8 +303,9 @@ class CandidateEnrichmentIntegrationTest extends FlowTestSupport {
         assertThat(researched.get("nationality").asText()).isEqualTo("Emirati");
         assertThat(researched.get("gender").asText()).isEqualTo("female");
         assertThat(researched.get("yearsExperience").asInt()).isEqualTo(14);
+        assertThat(researched.get("seniority").asText()).isEqualTo("N-1");
         assertThat(researched.get("aiInferredFields")).extracting(JsonNode::asText)
-                .containsExactlyInAnyOrder("nationality", "gender", "yearsExperience");
+                .containsExactlyInAnyOrder("nationality", "gender", "yearsExperience", "seniority");
         assertThat(model.lastPrompt().getUserMessage().getText()).contains("Group CFO at Al Rawabi Dairy");
     }
 
@@ -315,7 +322,7 @@ class CandidateEnrichmentIntegrationTest extends FlowTestSupport {
         assertThat(researched.get("yearsExperience").asInt()).isEqualTo(20);
         assertThat(researched.get("nationality").asText()).isEqualTo("Emirati");
         assertThat(researched.get("aiInferredFields")).extracting(JsonNode::asText)
-                .containsExactlyInAnyOrder("nationality", "gender");
+                .containsExactlyInAnyOrder("nationality", "gender", "seniority");
     }
 
     @Test
@@ -325,13 +332,16 @@ class CandidateEnrichmentIntegrationTest extends FlowTestSupport {
         enricher.answerWith(RESEARCH);
         model.answerWith(AI_ENRICHMENT);
 
-        captureWith(projectId, "\"yearsExperience\":20,\"nationality\":\"Saudi\",\"gender\":\"male\"");
+        captureWith(projectId,
+                "\"yearsExperience\":20,\"nationality\":\"Saudi\",\"gender\":\"male\",\"seniority\":\"C-Suite\"");
 
         JsonNode researched = firstCandidateOf(projectId);
         assertThat(researched.get("nationality").asText()).isEqualTo("Saudi");
         assertThat(researched.get("aiInferredFields")).isEmpty();
         JsonNode assessment = assessmentOf(projectId, researched.get("id").asText(), adminToken);
         assertThat(assessment.get("technical").get("score").asInt()).isEqualTo(8);
+        // Nationality was on the row, so the classifier was never asked and no reading is stored.
+        assertThat(assessment.get("nationalityReading").isNull()).isTrue();
     }
 
     @Test
@@ -349,8 +359,16 @@ class CandidateEnrichmentIntegrationTest extends FlowTestSupport {
                 .containsExactly("Led a dairy IPO");
         assertThat(assessment.get("behavioural").get("score").asInt()).isEqualTo(6);
         assertThat(assessment.get("assessedAt").isNull()).isFalse();
-        // The candidate read is also a client's read, so the assessment never rides on it.
-        assertThat(firstCandidateOf(projectId).has("aiAssessment")).isFalse();
+        JsonNode reading = assessment.get("nationalityReading");
+        assertThat(reading.get("category").asText()).isEqualTo("Emirati");
+        assertThat(reading.get("confidence").asText()).isEqualTo("high");
+        assertThat(reading.get("evidenceFor")).extracting(JsonNode::asText)
+                .containsExactly("Emiratisation graduate programme");
+        // The candidate read is also a client's read, so neither the assessment nor the reading rides on it.
+        JsonNode row = firstCandidateOf(projectId);
+        assertThat(row.has("aiAssessment")).isFalse();
+        assertThat(row.has("aiNationalityReading")).isFalse();
+        assertThat(row.has("nationalityReading")).isFalse();
     }
 
     @Test
@@ -377,9 +395,9 @@ class CandidateEnrichmentIntegrationTest extends FlowTestSupport {
                         .header("Authorization", "Bearer " + adminToken))
                 .andExpect(status().isAccepted());
 
-        String prompt = model.lastPrompt().getUserMessage().getText();
-        assertThat(prompt).contains("Hand Typed", "Group CFO")
-                .doesNotContain("hand.typed@example.com", "555", "987654", "private-note-text");
+        assertThat(model.prompts()).hasSize(2).allSatisfy(sent ->
+                assertThat(sent.getUserMessage().getText()).contains("Hand Typed", "Group CFO")
+                        .doesNotContain("hand.typed@example.com", "555", "987654", "private-note-text"));
         JsonNode enriched = firstCandidateOf(projectId);
         assertThat(enriched.get("nationality").asText()).isEqualTo("Emirati");
         assertThat(assessmentOf(projectId, candidateId, adminToken).get("technical").get("score").asInt())
@@ -432,12 +450,29 @@ class CandidateEnrichmentIntegrationTest extends FlowTestSupport {
         String candidateId = capture(projectId, "Sample Person", "sample-profile");
 
         saveProfile(projectId, candidateId, "\"note\":\"Called on Monday\"");
-        assertThat(firstCandidateOf(projectId).get("aiInferredFields")).hasSize(3);
+        assertThat(firstCandidateOf(projectId).get("aiInferredFields")).hasSize(4);
 
         saveProfile(projectId, candidateId, "\"confirmBackground\":true");
         JsonNode confirmed = firstCandidateOf(projectId);
         assertThat(confirmed.get("aiInferredFields")).isEmpty();
         assertThat(confirmed.get("nationality").asText()).isEqualTo("Emirati");
+    }
+
+    @Test
+    @DisplayName("a medium reading is kept as a suggestion on the staff read and leaves nationality empty")
+    void aMediumReadingIsOnlyASuggestion() throws Exception {
+        String projectId = mandate("Medium Reading Firm");
+        enricher.answerWith(RESEARCH);
+        model.answerWith(AI_ENRICHMENT.replace("\"confidence\":\"high\"", "\"confidence\":\"medium\""));
+
+        String candidateId = capture(projectId, "Sample Person", "sample-profile");
+
+        JsonNode row = firstCandidateOf(projectId);
+        assertThat(row.get("nationality").isNull()).isTrue();
+        assertThat(row.get("aiInferredFields")).extracting(JsonNode::asText).doesNotContain("nationality");
+        JsonNode reading = assessmentOf(projectId, candidateId, adminToken).get("nationalityReading");
+        assertThat(reading.get("category").asText()).isEqualTo("Emirati");
+        assertThat(reading.get("confidence").asText()).isEqualTo("medium");
     }
 
     @Test
@@ -469,11 +504,11 @@ class CandidateEnrichmentIntegrationTest extends FlowTestSupport {
                         .header("Authorization", "Bearer " + adminToken)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
-                                {"fullName":"%s","linkedinUrl":"%s","source":"extension",
+                                {"fullName":"%s","linkedinUrl":"%s","source":"extension","seniority":"%s",
                                  "nationality":"%s","gender":"%s","yearsExperience":%d,%s}
                                 """.formatted(row.get("fullName").asText(), row.get("linkedinUrl").asText(),
-                                row.get("nationality").asText(), row.get("gender").asText(),
-                                row.get("yearsExperience").asInt(), patch)))
+                                row.get("seniority").asText(), row.get("nationality").asText(),
+                                row.get("gender").asText(), row.get("yearsExperience").asInt(), patch)))
                 .andExpect(status().isOk());
     }
 
