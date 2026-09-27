@@ -1,6 +1,7 @@
 import { Input } from "../../../components/ui";
 import { useComboboxList } from "../../../lib/useComboboxList";
 import type { Client } from "../../clients/api/types";
+import { useWorkspaceVocabulary } from "../../workspace/lib/vocabulary";
 
 const LIST_ID = "business-unit-options";
 
@@ -20,6 +21,7 @@ export function BusinessUnitCombobox({
   invalid?: boolean;
   onChange: (name: string) => void;
 }) {
+  const vocabulary = useWorkspaceVocabulary();
   const query = value.trim().toLowerCase();
   const matches = query ? clients.filter((client) => client.name.toLowerCase().includes(query)) : clients;
   const offerNew = query !== "" && !clients.some((client) => client.name.toLowerCase() === query);
@@ -51,7 +53,7 @@ export function BusinessUnitCombobox({
         aria-activedescendant={showList && list.active >= 0 ? `${LIST_ID}-${list.active}` : undefined}
         autoComplete="off"
         value={value}
-        placeholder="Search or name a new business unit"
+        placeholder={`Search or name a new ${vocabulary.unitLower}`}
         onChange={(event) => {
           onChange(event.target.value);
           list.setActive(-1);
@@ -64,7 +66,7 @@ export function BusinessUnitCombobox({
         <ul
           id={LIST_ID}
           role="listbox"
-          aria-label="Business units"
+          aria-label={vocabulary.units}
           className="absolute z-10 mt-1 max-h-60 w-full overflow-auto rounded-[10px] border border-u-border-strong bg-u-surface py-1 shadow-u-e3"
         >
           {matches.map((client, index) => (

@@ -5,6 +5,7 @@ import type { ReactNode } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { ToastProvider } from "../../../components/ui";
 import { ApiRequestError } from "../../../lib/apiClient";
+import { aUser } from "../../../test/fixtures/user";
 import * as clientsApi from "../../clients/api/clientsApi";
 import type { Client } from "../../clients/api/types";
 import * as positionApi from "../../position/api/positionApi";
@@ -12,6 +13,10 @@ import type { PositionTemplate } from "../../position/api/types";
 import * as projectsApi from "../api/projectsApi";
 import type { Project } from "../api/types";
 import { NewProjectModal } from "./NewProjectModal";
+
+vi.mock("../../auth/AuthProvider", () => ({
+  useAuth: () => ({ user: aUser() }),
+}));
 
 vi.mock("../api/projectsApi", async (importOriginal) => ({
   ...(await importOriginal<typeof import("../api/projectsApi")>()),

@@ -21,6 +21,7 @@ import * as clientsApi from "../../clients/api/clientsApi";
 import type { Client } from "../../clients/api/types";
 import * as positionApi from "../../position/api/positionApi";
 import { RoleTitleCombobox } from "../../position/components/RoleTitleCombobox";
+import { useWorkspaceVocabulary } from "../../workspace/lib/vocabulary";
 import * as projectsApi from "../api/projectsApi";
 import type { ProjectType } from "../api/types";
 import {
@@ -78,6 +79,7 @@ export function NewProjectModal({
 }) {
   const queryClient = useQueryClient();
   const toast = useToast();
+  const vocabulary = useWorkspaceVocabulary();
 
   const [businessUnitName, setBusinessUnitName] = useState("");
   const [positionTitle, setPositionTitle] = useState("");
@@ -197,7 +199,7 @@ export function NewProjectModal({
     const title = positionTitle.trim();
     const refused: Partial<Record<ProjectField, string>> = {};
     if (!lockedClientId && !unitName) {
-      refused.businessUnit = "Choose a business unit or name a new one";
+      refused.businessUnit = `Choose a ${vocabulary.unitLower} or name a new one`;
     } else if (creatingClient && unitName.length > MAX_BUSINESS_UNIT_NAME_LENGTH) {
       refused.businessUnit = `That name is too long — keep it to ${MAX_BUSINESS_UNIT_NAME_LENGTH} characters or fewer`;
     }
@@ -246,12 +248,12 @@ export function NewProjectModal({
           mode — Field renders the hint inside the wrapping <label>, so it reaches the accessible name
           even when the control itself never gets focus. */}
       <Field
-        label="Business unit"
+        label={vocabulary.unit}
         hint={
           locked
             ? `This position belongs to ${locked.name}.`
             : creatingClient
-              ? "A new business unit — it is created with the position."
+              ? `A new ${vocabulary.unitLower} — it is created with the position.`
               : undefined
         }
         error={fieldErrors.businessUnit}
@@ -260,7 +262,7 @@ export function NewProjectModal({
           // Disabled rather than replaced by plain text: the user still sees which unit the position
           // is for, and the label keeps a control to name.
           <Select value={lockedClientId} disabled className="cursor-not-allowed opacity-60">
-            <option value={lockedClientId}>{locked?.name ?? "Selected business unit"}</option>
+            <option value={lockedClientId}>{locked?.name ?? `Selected ${vocabulary.unitLower}`}</option>
           </Select>
         ) : (
           <BusinessUnitCombobox
@@ -314,8 +316,8 @@ export function NewProjectModal({
         label={isMapping ? "Map delivery date" : "Shortlist delivery date"}
         hint={
           isMapping
-            ? "When does the business unit expect the completed universe map?"
-            : "When does the business unit expect the shortlist?"
+            ? `When does the ${vocabulary.unitLower} expect the completed universe map?`
+            : `When does the ${vocabulary.unitLower} expect the shortlist?`
         }
         error={dateOrderError ?? fieldErrors.deliveryDate}
       >

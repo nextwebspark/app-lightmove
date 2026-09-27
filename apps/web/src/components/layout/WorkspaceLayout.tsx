@@ -6,6 +6,7 @@ import { isPureClient } from "../../features/auth/roles";
 import * as clientsApi from "../../features/clients/api/clientsApi";
 import * as projectsApi from "../../features/projects/api/projectsApi";
 import * as workspaceApi from "../../features/workspace/api/workspaceApi";
+import { useWorkspaceVocabulary } from "../../features/workspace/lib/vocabulary";
 import { AppShell } from "./AppShell";
 import { ICONS } from "./Icon";
 import { type SidebarGroup } from "./Sidebar";
@@ -32,6 +33,7 @@ export function WorkspaceShell({ children }: { children: ReactNode }) {
   const { user } = useAuth();
   const roles = user?.workspace?.roles ?? [];
   const clientOnly = isPureClient(roles);
+  const vocabulary = useWorkspaceVocabulary();
 
   const { data: projects } = useQuery({
     queryKey: projectsApi.PROJECTS_KEY,
@@ -74,7 +76,7 @@ export function WorkspaceShell({ children }: { children: ReactNode }) {
         {
           label: "Workspace",
           items: [
-            { to: "/clients", label: "Business units", icon: ICONS.clients, count: clients?.length },
+            { to: "/clients", label: vocabulary.units, icon: ICONS.clients, count: clients?.length },
             { to: "/team", label: "Team", icon: ICONS.team, count: members?.length },
             // Every staff member's, not just an admin's: the rail lands on the section everyone can
             // read (Profile), and the shell hides the workspace sections from a non-admin. An admin

@@ -16,14 +16,15 @@ import { isValidEmail } from "../../../lib/email";
 import { messageFor } from "../../../lib/errorCodes";
 import { formatDate } from "../../../lib/format";
 import { STAGE_ORDER } from "../../projects/lib/filtering";
+import { useWorkspaceVocabulary } from "../../workspace/lib/vocabulary";
 import * as clientsApi from "../api/clientsApi";
 import type { ClientDetail, ClientMandate, ClientRepresentative } from "../api/types";
-import { BusinessUnitGlyph } from "./BusinessUnitGlyph";
 import { openPositionsLabel } from "../lib/openPositions";
+import { ClientMark } from "./ClientMark";
 
 /**
- * The business unit drawer (`Clients.dc.html`): name and notes, the hiring managers with an inline
- * invite, and the unit's positions — one of which can be opened into a read-only sub-view without leaving.
+ * The client record drawer (`Clients.dc.html`): name and notes, the client's people with an inline
+ * invite, and its positions — one of which can be opened into a read-only sub-view without leaving.
  */
 export function ClientDrawer({
   clientId,
@@ -34,6 +35,7 @@ export function ClientDrawer({
   onClose: () => void;
   onNewMandate: () => void;
 }) {
+  const vocabulary = useWorkspaceVocabulary();
   const [mandateId, setMandateId] = useState<string | null>(null);
 
   // Always land on the record view: reopening a client (or switching to another) must not resurrect the
@@ -51,7 +53,7 @@ export function ClientDrawer({
   const mandate = client?.mandates.find((m) => m.id === mandateId) ?? null;
 
   return (
-    <Drawer open={clientId !== null} onClose={onClose} label={client?.name ?? "Business unit"}>
+    <Drawer open={clientId !== null} onClose={onClose} label={client?.name ?? vocabulary.unit}>
       {!client ? (
         <div className="grid flex-1 place-items-center font-mono text-[12px] text-u-text3">Loading…</div>
       ) : mandate ? (
@@ -84,6 +86,7 @@ function ClientView({
 }) {
   const queryClient = useQueryClient();
   const toast = useToast();
+  const vocabulary = useWorkspaceVocabulary();
 
   const [name, setName] = useState(client.name);
   const [notes, setNotes] = useState(client.notes ?? "");
@@ -99,7 +102,7 @@ function ClientView({
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: clientsApi.clientKey(client.id) });
       void queryClient.invalidateQueries({ queryKey: clientsApi.CLIENTS_KEY });
-      toast("Business unit saved");
+      toast(`${vocabulary.unit} saved`);
     },
     onError: (error) => toast(messageFor(error)),
   });
@@ -121,10 +124,10 @@ function ClientView({
           ✕
         </button>
         <div className="font-mono text-[11px] font-medium uppercase tracking-[0.08em] text-u-text3">
-          Business unit record
+          {vocabulary.unit} record
         </div>
         <div className="mt-1 flex items-start gap-2.5">
-          <BusinessUnitGlyph size={32} />
+          <ClientMark name={client.name} logoUrl={client.logoUrl} size={32} />
           <div className="min-w-0">
             <div className="text-[17px] font-semibold">{client.name}</div>
             <div className="mt-0.5 font-mono text-[11px] text-u-text3">
@@ -149,7 +152,7 @@ function ClientView({
             </span>
           )}
         </div>
-        <DrawerField label="Business unit name">
+        <DrawerField label={`${vocabulary.unit} name`}>
           <Input value={name} onChange={(event) => setName(event.target.value)} />
         </DrawerField>
         <DrawerField label="Notes">
@@ -181,7 +184,7 @@ function ClientView({
         <SectionLabel className="mt-[18px]">Open positions</SectionLabel>
         {client.mandates.length === 0 ? (
           <p className="py-2 font-mono text-[12px] text-u-text3">
-            No positions yet — open one for this business unit.
+            No positions yet — open one for this {vocabulary.unitLower}.
           </p>
         ) : (
           client.mandates.map((m) => (
@@ -217,6 +220,7 @@ function ClientView({
 function Representatives({ client }: { client: ClientDetail }) {
   const queryClient = useQueryClient();
   const toast = useToast();
+  const vocabulary = useWorkspaceVocabulary();
   const [open, setOpen] = useState(false);
   const [fullName, setFullName] = useState("");
   const [position, setPosition] = useState("");
@@ -259,7 +263,7 @@ function Representatives({ client }: { client: ClientDetail }) {
   return (
     <>
       <div className="mb-2 mt-[18px] flex items-center justify-between">
-        <SectionLabel>Hiring managers</SectionLabel>
+        <SectionLabel>{vocabulary.contacts}</SectionLabel>
         {!open && (
           <button
             type="button"
@@ -273,7 +277,7 @@ function Representatives({ client }: { client: ClientDetail }) {
 
       {client.representatives.length === 0 && !open && (
         <p className="py-1 font-mono text-[12px] text-u-text3">
-          No hiring managers yet. Invite one to give them access to their positions.
+          No {vocabulary.contactsLower} yet. Invite one to give them access to their positions.
         </p>
       )}
 

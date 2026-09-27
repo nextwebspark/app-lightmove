@@ -286,7 +286,7 @@ function NewCompanyForm({
           autoFocus
         />
       </Field>
-      <Field label="Domain · optional, helps us match the business unit">
+      <Field label="Domain · optional, helps us match the company">
         <Input
           value={domain}
           onChange={(event) => setDomain(event.target.value)}

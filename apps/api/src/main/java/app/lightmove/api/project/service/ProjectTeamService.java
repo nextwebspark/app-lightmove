@@ -70,7 +70,7 @@ public class ProjectTeamService {
         // Clients are attached via attachRepresentative, never seated here.
         if (role == ProjectRole.CLIENT) {
             throw ApiException.userFacing(ErrorCode.VALIDATION_FAILED,
-                    "Hiring managers are invited to a position, not seated on the team");
+                    "Representatives are invited to a position, not seated on the team");
         }
 
         ProjectMember seat = seats.findByProjectIdAndMemberId(projectId, memberId).orElse(null);
@@ -293,7 +293,7 @@ public class ProjectTeamService {
                 .orElseThrow(() -> ApiException.of(ErrorCode.NOT_FOUND));
         if (!representative.getClientId().equals(project.getClientId())) {
             throw ApiException.userFacing(ErrorCode.VALIDATION_FAILED,
-                    "That hiring manager belongs to a different business unit");
+                    "That representative belongs to a different organisation");
         }
         return representative;
     }
