@@ -31,8 +31,8 @@ export type CandidateSeniority = SeniorityToken;
  */
 export type CandidateGender = "female" | "male" | "other";
 
-/** The three background fields `aiInferredFields` can flag as an unreviewed AI suggestion. */
-export type CandidateBackgroundField = "nationality" | "gender" | "yearsExperience";
+/** The fields `aiInferredFields` can flag as an unreviewed AI suggestion. */
+export type CandidateBackgroundField = "nationality" | "gender" | "yearsExperience" | "seniority";
 
 /** Which door a profile came through. Only `manual` is reachable today. */
 export type CandidateSource = "manual" | "csv" | "extension";
@@ -209,6 +209,8 @@ export interface SaveCandidatePayload {
   customFields?: CustomFieldValues;
   /** Sent only by the Background section's save: its AI-proposed values are now reviewed. */
   confirmBackground?: boolean;
+  /** Sent only by the Details section's save: an AI-proposed seniority is now reviewed. */
+  confirmSeniority?: boolean;
 }
 
 /** One competency panel's AI reading: a 1–10 score (null when the model could not judge) and why. */

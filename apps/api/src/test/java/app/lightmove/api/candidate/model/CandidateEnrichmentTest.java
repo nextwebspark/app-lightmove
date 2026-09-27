@@ -8,6 +8,7 @@ import app.lightmove.api.candidate.constant.CandidateStatus;
 import app.lightmove.api.candidate.constant.ContactSource;
 import app.lightmove.api.candidate.constant.EnrichmentVendor;
 import app.lightmove.api.candidate.constant.Gender;
+import app.lightmove.api.common.constant.Seniority;
 import java.util.List;
 import java.util.UUID;
 import org.junit.jupiter.api.DisplayName;
@@ -28,7 +29,8 @@ class CandidateEnrichmentTest {
             List.of("Financial Planning"), List.of("English", "Arabic"), null,
             EnrichmentVendor.BRIGHTDATA);
 
-    private static final InferredBackground PROPOSED = new InferredBackground("Emirati", Gender.FEMALE, 14);
+    private static final InferredBackground PROPOSED = new InferredBackground("Emirati", Gender.FEMALE, 14,
+            Seniority.N_MINUS_1);
 
     @Test
     @DisplayName("research fills in what nobody typed")
@@ -95,20 +97,22 @@ class CandidateEnrichmentTest {
         assertThat(candidate.getNationality()).isEqualTo("Emirati");
         assertThat(candidate.getGender()).isEqualTo(Gender.FEMALE);
         assertThat(candidate.getYearsExperience()).isEqualTo(14);
+        assertThat(candidate.getSeniorityLevel()).isEqualTo(Seniority.N_MINUS_1);
         assertThat(candidate.getAiInferredFields()).containsExactlyInAnyOrder(
-                "nationality", "gender", "yearsExperience");
+                "nationality", "gender", "yearsExperience", "seniority");
     }
 
     @Test
     @DisplayName("a proposal never overwrites a background already on the row, and flags nothing")
     void aProposalNeverOverwritesAnExistingBackground() {
-        Candidate candidate = captured(detailsWithBackground("Emirati", Gender.MALE, 20));
+        Candidate candidate = captured(detailsWithBackground("Emirati", Gender.MALE, 20, Seniority.C_SUITE));
 
         assertThat(candidate.proposeBackground(PROPOSED)).isFalse();
 
         assertThat(candidate.getNationality()).isEqualTo("Emirati");
         assertThat(candidate.getGender()).isEqualTo(Gender.MALE);
         assertThat(candidate.getYearsExperience()).isEqualTo(20);
+        assertThat(candidate.getSeniorityLevel()).isEqualTo(Seniority.C_SUITE);
         assertThat(candidate.getAiInferredFields()).isEmpty();
     }
 
@@ -118,11 +122,12 @@ class CandidateEnrichmentTest {
         Candidate candidate = captured(details("Sample Person", null, null, null, null, null));
         candidate.proposeBackground(PROPOSED);
 
-        candidate.describe(detailsWithBackground("Western expat", Gender.FEMALE, 14), ContactSource.MANUAL);
+        candidate.describe(detailsWithBackground("Western expat", Gender.FEMALE, 14, Seniority.N_MINUS_1), ContactSource.MANUAL);
 
         // Only nationality changed (Emirati -> Western expat); gender and yearsExperience were
         // resubmitted unchanged, so nothing about them was actually reviewed and their flags stand.
-        assertThat(candidate.getAiInferredFields()).containsExactlyInAnyOrder("gender", "yearsExperience");
+        assertThat(candidate.getAiInferredFields()).containsExactlyInAnyOrder("gender", "yearsExperience",
+                "seniority");
     }
 
     @Test
@@ -131,22 +136,48 @@ class CandidateEnrichmentTest {
         Candidate candidate = captured(details("Sample Person", null, null, null, null, null));
         candidate.proposeBackground(PROPOSED);
 
-        candidate.describe(detailsWithBackground("Emirati", Gender.FEMALE, 14), ContactSource.MANUAL);
+        candidate.describe(detailsWithBackground("Emirati", Gender.FEMALE, 14, Seniority.N_MINUS_1),
+                ContactSource.MANUAL);
 
         assertThat(candidate.getAiInferredFields()).containsExactlyInAnyOrder(
-                "nationality", "gender", "yearsExperience");
+                "nationality", "gender", "yearsExperience", "seniority");
     }
 
     @Test
-    @DisplayName("saving the Background section confirms every AI-proposed value in it")
-    void confirmingTheBackgroundClearsEveryFlag() {
+    @DisplayName("saving the Background section confirms every AI-proposed value in it, and only those")
+    void confirmingTheBackgroundClearsItsFlags() {
         Candidate candidate = captured(details("Sample Person", null, null, null, null, null));
         candidate.proposeBackground(PROPOSED);
 
         candidate.confirmBackground();
 
-        assertThat(candidate.getAiInferredFields()).isEmpty();
+        assertThat(candidate.getAiInferredFields()).containsExactly("seniority");
         assertThat(candidate.getNationality()).isEqualTo("Emirati");
+    }
+
+    @Test
+    @DisplayName("saving the identity section confirms an AI-proposed seniority")
+    void confirmingTheSeniorityClearsItsFlag() {
+        Candidate candidate = captured(details("Sample Person", null, null, null, null, null));
+        candidate.proposeBackground(PROPOSED);
+
+        candidate.confirmSeniority();
+
+        assertThat(candidate.getAiInferredFields()).containsExactlyInAnyOrder(
+                "nationality", "gender", "yearsExperience");
+        assertThat(candidate.getSeniorityLevel()).isEqualTo(Seniority.N_MINUS_1);
+    }
+
+    @Test
+    @DisplayName("a researcher changing an inferred seniority clears its flag")
+    void editingAnInferredSeniorityClearsItsFlag() {
+        Candidate candidate = captured(details("Sample Person", null, null, null, null, null));
+        candidate.proposeBackground(PROPOSED);
+
+        candidate.describe(detailsWithBackground("Emirati", Gender.FEMALE, 14, Seniority.C_SUITE),
+                ContactSource.MANUAL);
+
+        assertThat(candidate.getAiInferredFields()).doesNotContain("seniority");
     }
 
     @Test
@@ -164,7 +195,7 @@ class CandidateEnrichmentTest {
     @Test
     @DisplayName("only the fields still empty are named as missing")
     void missingBackgroundNamesOnlyTheEmptyFields() {
-        Candidate candidate = captured(detailsWithBackground(null, null, 20));
+        Candidate candidate = captured(detailsWithBackground(null, null, 20, Seniority.C_SUITE));
 
         assertThat(candidate.missingBackground())
                 .containsExactlyInAnyOrder(BackgroundField.NATIONALITY, BackgroundField.GENDER);
@@ -229,8 +260,8 @@ class CandidateEnrichmentTest {
     }
 
     private static CandidateDetails detailsWithBackground(String nationality, Gender gender,
-                                                           Integer yearsExperience) {
-        return new CandidateDetails("Sample Person", null, null, CandidateStatus.IDENTIFIED, null,
+                                                           Integer yearsExperience, Seniority seniority) {
+        return new CandidateDetails("Sample Person", null, seniority, CandidateStatus.IDENTIFIED, null,
                 null, null, "https://www.linkedin.com/in/sample-profile", null, null, nationality,
                 gender, yearsExperience, null, null, CandidateCompensation.unknown(),
                 CandidateProfile.empty(), null);

@@ -90,9 +90,10 @@ ungrounded Gemini call (`CandidateAiEnricher`, no web search — grounding was t
 `CandidateAiEnrichWorker` after a capture's vendor research lands, and again from the drawer's
 **AI deep enrich** button (`POST …/candidates/{id}/ai-enrich`, 202, `WORK_EXECUTE`). It reads the
 profile alone and always proposes its most probable value — never "unknown" — for whichever of gender,
-nationality (one of the nine groups) and years of experience are still empty — a value already on the
-row always stands, and each filled one is flagged in `ai_inferred_fields` (V78, an "AI" badge) until a
-researcher changes it — and scores the executive 1–10 on the brief's technical and behavioural
+nationality (one of the nine groups), years of experience and seniority level are still empty — a value
+already on the row always stands, and each filled one is flagged in `ai_inferred_fields` (V78, an "AI"
+badge) until a researcher changes it; seniority is proposed because the report's gender pyramid is
+drawn by level, and a mandate whose captures carry none drew five empty rungs — and scores the executive 1–10 on the brief's technical and behavioural
 competencies with at most five positives and five negatives each, and a summary (V79 `ai_assessment`,
 replaced whole per run; a `sources` key left by earlier grounded runs is ignored on read). **The model never sees a
 candidate's contacts, compensation, note or custom fields**: its input is the `CandidateDossier`
@@ -397,12 +398,12 @@ V56 adds `app_lm_project_candidate.gender` (`FEMALE | MALE | OTHER`), nullable w
 NULL is "nobody recorded it" and is deliberately not a fourth value, because "not recorded" and
 "recorded as other" are different facts and the report counts them apart.
 V78 adds `app_lm_project_candidate.ai_inferred_fields` jsonb — the keys (`nationality`, `gender`,
-`yearsExperience`) holding a model's proposal that no researcher has changed since.
+`yearsExperience`, `seniority`) holding a model's proposal that no researcher has changed since.
 V79 adds `app_lm_project_candidate.ai_assessment` jsonb — the AI enrichment's summary, per-panel
 score with positives and negatives, and source links; the model's own reading, replaced whole per run.
 V80 adds `ai_enrich_failed_at` — the last AI enrichment run that produced nothing, so the drawer says
 so at once; a later success clears it. Saving the drawer's Background section (`confirmBackground`)
-confirms its AI values and clears `ai_inferred_fields`.
+confirms its three AI values, and saving Details (`confirmSeniority`) confirms the seniority.
 V76 adds `app_lm_project_candidate.compensation_breakdown` jsonb — the drawer's allowance lines and
 LTIP instruments. `allowances` stays the total every reader sums; `CandidateCompensation` keeps the
 two agreeing (lines supply a missing total, a contradicting total drops them). The editor's

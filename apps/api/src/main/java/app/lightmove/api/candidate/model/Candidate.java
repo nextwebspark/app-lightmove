@@ -218,6 +218,7 @@ public class Candidate extends BaseEntity {
     public void describe(CandidateDetails details, ContactSource door) {
         this.fullName = details.fullName();
         this.title = details.title();
+        confirmIfChanged(BackgroundField.SENIORITY, seniorityLevel, details.seniority());
         this.seniorityLevel = details.seniority();
         this.status = details.status();
         this.companyName = details.employerName();
@@ -243,7 +244,7 @@ public class Candidate extends BaseEntity {
     }
 
     /**
-     * A researcher changing one of the three background fields is what confirms it; resubmitting the
+     * A researcher changing one of the background fields is what confirms it; resubmitting the
      * same value leaves its AI flag standing, since nothing was actually reviewed.
      */
     private void describeBackground(CandidateDetails details) {
@@ -257,7 +258,20 @@ public class Candidate extends BaseEntity {
 
     /** A researcher saved the Background section: every AI-proposed value in it is now theirs. */
     public void confirmBackground() {
-        aiInferredFields = new HashSet<>();
+        confirm(BackgroundField.NATIONALITY, BackgroundField.GENDER, BackgroundField.YEARS_EXPERIENCE);
+    }
+
+    /** A researcher saved the identity section, where seniority is edited. */
+    public void confirmSeniority() {
+        confirm(BackgroundField.SENIORITY);
+    }
+
+    private void confirm(BackgroundField... fields) {
+        Set<String> remaining = new HashSet<>(aiInferredFields);
+        for (BackgroundField field : fields) {
+            remaining.remove(field.key());
+        }
+        aiInferredFields = remaining;
     }
 
     private void confirmIfChanged(BackgroundField field, Object before, Object after) {
@@ -366,6 +380,9 @@ public class Candidate extends BaseEntity {
         if (yearsExperience == null) {
             missing.add(BackgroundField.YEARS_EXPERIENCE);
         }
+        if (seniorityLevel == null) {
+            missing.add(BackgroundField.SENIORITY);
+        }
         return missing;
     }
 
@@ -387,6 +404,10 @@ public class Candidate extends BaseEntity {
         if (yearsExperience == null && proposed.yearsExperience() != null) {
             yearsExperience = proposed.yearsExperience();
             inferred.add(BackgroundField.YEARS_EXPERIENCE.key());
+        }
+        if (seniorityLevel == null && proposed.seniority() != null) {
+            seniorityLevel = proposed.seniority();
+            inferred.add(BackgroundField.SENIORITY.key());
         }
         boolean filled = !inferred.equals(aiInferredFields);
         aiInferredFields = inferred;

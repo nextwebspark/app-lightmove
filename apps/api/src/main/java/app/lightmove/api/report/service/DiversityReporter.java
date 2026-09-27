@@ -86,12 +86,14 @@ class DiversityReporter {
     }
 
     /**
-     * The gender split of each level, over the rows that carry one. A level nobody recorded answers
-     * three zeros rather than being left out, so the chapter can say it is unmeasured.
+     * The gender split of each level somebody on the map holds, over the rows that carry one. A level
+     * nobody holds is left out — five empty rungs read as a fault — while one whose people have no
+     * gender on file answers three zeros, so the chapter can say it is unmeasured.
      */
     private static List<GenderLevelRowDto> genderByLevel(List<ExecutiveRow> executives) {
         Map<Seniority, List<ExecutiveRow>> byLevel = byLevel(executives);
         return Arrays.stream(Seniority.values())
+                .filter(byLevel::containsKey)
                 .map(level -> {
                     List<ExecutiveRow> here = byLevel.getOrDefault(level, List.of());
                     return new GenderLevelRowDto(level.value(), count(here, Gender.FEMALE),

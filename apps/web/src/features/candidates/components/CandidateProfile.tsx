@@ -162,7 +162,12 @@ export function CandidateProfile({
                 .join(" · ") || "No employer or location recorded"}
             </p>
             <div className="mt-2 flex flex-wrap items-center gap-2">
-              {candidate.seniority && <DetailPill label={candidate.seniority} />}
+              {candidate.seniority && (
+                <span className="inline-flex items-center gap-1">
+                  <DetailPill label={candidate.seniority} />
+                  {candidate.aiInferredFields.includes("seniority") && <AiInferredBadge confirmedBy="Details" />}
+                </span>
+              )}
               <DetailPill
                 label={CANDIDATE_SOURCE_STYLES[candidate.source].label}
                 className={CANDIDATE_SOURCE_STYLES[candidate.source].className}
@@ -216,6 +221,7 @@ export function CandidateProfile({
                   errors={form.formState.errors}
                   control={form.control}
                   employerLocked={candidate.triageCompanyId !== null}
+                  seniorityInferred={candidate.aiInferredFields.includes("seniority")}
                 />
               )}
             </SectionEditor>

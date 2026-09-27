@@ -166,6 +166,7 @@ export interface ReportDiversity {
   nationalities: NationalityRow[];
   unknownNationality: number;
   gccNationals: number;
+  /** Only the levels some executive on the map holds, board first. */
   genderByLevel: GenderLevelRow[];
   /** Recorded genders of executives with no seniority on file, which no level's split can hold. */
   genderWithoutLevel: GenderSplit;
