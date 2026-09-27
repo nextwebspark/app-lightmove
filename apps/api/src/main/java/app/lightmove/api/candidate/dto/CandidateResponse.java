@@ -28,7 +28,7 @@ public record CandidateResponse(
         /** A {@code Gender} wire token, or null where nobody recorded or confirmed one. */
         String gender,
         Integer yearsExperience,
-        /** Which of nationality/gender/yearsExperience/seniority hold a model's proposal no researcher has changed. */
+        /** Which of nationality/gender/yearsExperience hold a model's proposal no researcher has changed. */
         Set<String> aiInferredFields,
         String summary,
         String note,

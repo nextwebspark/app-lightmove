@@ -10,7 +10,6 @@ import app.lightmove.api.candidate.model.CandidateEducationEntry;
 import app.lightmove.api.candidate.model.CompetencyPanelAssessment;
 import app.lightmove.api.candidate.model.InferredBackground;
 import app.lightmove.api.common.constant.NationalityGroup;
-import app.lightmove.api.common.constant.Seniority;
 import app.lightmove.api.core.llm.model.BlockedAnswer;
 import app.lightmove.api.core.llm.model.PromptGuardSpec;
 import app.lightmove.api.core.llm.service.LlmCallPolicy;
@@ -168,22 +167,7 @@ public class CandidateAiEnricher {
         return new InferredBackground(
                 missing.contains(BackgroundField.NATIONALITY) ? nationalityOf(answered) : null,
                 missing.contains(BackgroundField.GENDER) ? genderOf(answered) : null,
-                missing.contains(BackgroundField.YEARS_EXPERIENCE) ? yearsExperienceOf(answered) : null,
-                missing.contains(BackgroundField.SENIORITY) ? seniorityOf(answered) : null);
-    }
-
-    /** One rung of the ladder, by its label ("N-1") or its tier name ("N_MINUS_1"), or null. */
-    private static Seniority seniorityOf(ModelAnswer answered) {
-        if (answered.seniority() == null) {
-            return null;
-        }
-        String spoken = answered.seniority().trim();
-        for (Seniority tier : Seniority.values()) {
-            if (tier.value().equalsIgnoreCase(spoken) || tier.name().equalsIgnoreCase(spoken)) {
-                return tier;
-            }
-        }
-        return null;
+                missing.contains(BackgroundField.YEARS_EXPERIENCE) ? yearsExperienceOf(answered) : null);
     }
 
     /** One of the nine canonical groups, or null — the model's own spelling is never stored as-is. */
@@ -269,8 +253,8 @@ public class CandidateAiEnricher {
     }
 
     /** The model's raw reply, bound before any of it is validated against this feature's vocabulary. */
-    private record ModelAnswer(String nationality, String gender, Integer yearsExperience, String seniority,
-                               String summary, ModelPanel technical, ModelPanel behavioural) {}
+    private record ModelAnswer(String nationality, String gender, Integer yearsExperience, String summary,
+                               ModelPanel technical, ModelPanel behavioural) {}
 
     private record ModelPanel(Integer score, List<String> positives, List<String> negatives) {}
 }

@@ -1,12 +1,11 @@
 package app.lightmove.api.candidate.constant;
 
-/** The fields a model may propose on a researched executive; the keys of {@code Candidate.aiInferredFields}. */
+/** The three fields a model may propose on a researched executive; the keys of {@code Candidate.aiInferredFields}. */
 public enum BackgroundField {
 
     NATIONALITY("nationality"),
     GENDER("gender"),
-    YEARS_EXPERIENCE("yearsExperience"),
-    SENIORITY("seniority");
+    YEARS_EXPERIENCE("yearsExperience");
 
     private final String key;
 

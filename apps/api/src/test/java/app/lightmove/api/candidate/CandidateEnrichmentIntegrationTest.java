@@ -53,7 +53,7 @@ class CandidateEnrichmentIntegrationTest extends FlowTestSupport {
             new EnrichedPhoto(PHOTO_BYTES, "image/jpeg"), EnrichmentVendor.BRIGHTDATA);
 
     private static final String AI_ENRICHMENT = """
-            {"nationality":"Emirati","gender":"female","yearsExperience":14,"seniority":"N-1",
+            {"nationality":"Emirati","gender":"female","yearsExperience":14,
              "summary":"A proven GCC finance leader.",
              "technical":{"score":8,"positives":["Led a dairy IPO"],"negatives":["No energy exposure"]},
              "behavioural":{"score":6,"positives":["Board-facing"],"negatives":[]}}""";
@@ -297,9 +297,8 @@ class CandidateEnrichmentIntegrationTest extends FlowTestSupport {
         assertThat(researched.get("nationality").asText()).isEqualTo("Emirati");
         assertThat(researched.get("gender").asText()).isEqualTo("female");
         assertThat(researched.get("yearsExperience").asInt()).isEqualTo(14);
-        assertThat(researched.get("seniority").asText()).isEqualTo("N-1");
         assertThat(researched.get("aiInferredFields")).extracting(JsonNode::asText)
-                .containsExactlyInAnyOrder("nationality", "gender", "yearsExperience", "seniority");
+                .containsExactlyInAnyOrder("nationality", "gender", "yearsExperience");
         assertThat(model.lastPrompt().getUserMessage().getText()).contains("Group CFO at Al Rawabi Dairy");
     }
 
@@ -316,7 +315,7 @@ class CandidateEnrichmentIntegrationTest extends FlowTestSupport {
         assertThat(researched.get("yearsExperience").asInt()).isEqualTo(20);
         assertThat(researched.get("nationality").asText()).isEqualTo("Emirati");
         assertThat(researched.get("aiInferredFields")).extracting(JsonNode::asText)
-                .containsExactlyInAnyOrder("nationality", "gender", "seniority");
+                .containsExactlyInAnyOrder("nationality", "gender");
     }
 
     @Test
@@ -326,8 +325,7 @@ class CandidateEnrichmentIntegrationTest extends FlowTestSupport {
         enricher.answerWith(RESEARCH);
         model.answerWith(AI_ENRICHMENT);
 
-        captureWith(projectId,
-                "\"yearsExperience\":20,\"nationality\":\"Saudi\",\"gender\":\"male\",\"seniority\":\"C-Suite\"");
+        captureWith(projectId, "\"yearsExperience\":20,\"nationality\":\"Saudi\",\"gender\":\"male\"");
 
         JsonNode researched = firstCandidateOf(projectId);
         assertThat(researched.get("nationality").asText()).isEqualTo("Saudi");
@@ -434,16 +432,12 @@ class CandidateEnrichmentIntegrationTest extends FlowTestSupport {
         String candidateId = capture(projectId, "Sample Person", "sample-profile");
 
         saveProfile(projectId, candidateId, "\"note\":\"Called on Monday\"");
-        assertThat(firstCandidateOf(projectId).get("aiInferredFields")).hasSize(4);
+        assertThat(firstCandidateOf(projectId).get("aiInferredFields")).hasSize(3);
 
         saveProfile(projectId, candidateId, "\"confirmBackground\":true");
         JsonNode confirmed = firstCandidateOf(projectId);
-        assertThat(confirmed.get("aiInferredFields")).extracting(JsonNode::asText).containsExactly("seniority");
+        assertThat(confirmed.get("aiInferredFields")).isEmpty();
         assertThat(confirmed.get("nationality").asText()).isEqualTo("Emirati");
-
-        saveProfile(projectId, candidateId, "\"confirmSeniority\":true");
-        assertThat(firstCandidateOf(projectId).get("aiInferredFields")).isEmpty();
-        assertThat(firstCandidateOf(projectId).get("seniority").asText()).isEqualTo("N-1");
     }
 
     @Test
@@ -476,10 +470,10 @@ class CandidateEnrichmentIntegrationTest extends FlowTestSupport {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {"fullName":"%s","linkedinUrl":"%s","source":"extension",
-                                 "nationality":"%s","gender":"%s","yearsExperience":%d,"seniority":"%s",%s}
+                                 "nationality":"%s","gender":"%s","yearsExperience":%d,%s}
                                 """.formatted(row.get("fullName").asText(), row.get("linkedinUrl").asText(),
                                 row.get("nationality").asText(), row.get("gender").asText(),
-                                row.get("yearsExperience").asInt(), row.get("seniority").asText(), patch)))
+                                row.get("yearsExperience").asInt(), patch)))
                 .andExpect(status().isOk());
     }
 

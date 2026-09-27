@@ -10,7 +10,6 @@ import app.lightmove.api.candidate.model.CandidateCareerEntry;
 import app.lightmove.api.candidate.model.CandidateDossier;
 import app.lightmove.api.candidate.model.InferredBackground;
 import app.lightmove.api.common.constant.CriterionMode;
-import app.lightmove.api.common.constant.Seniority;
 import app.lightmove.api.position.dto.AssessmentDto;
 import app.lightmove.api.position.dto.CompetencyDto;
 import app.lightmove.api.position.dto.CriterionResponse;
@@ -47,7 +46,7 @@ class CandidateAiEnricherTest {
             null, null);
 
     private static final String FULL_ANSWER = """
-            {"nationality":"western EXPAT","gender":"Female","yearsExperience":14,"seniority":" n-1 ",
+            {"nationality":"western EXPAT","gender":"Female","yearsExperience":14,
              "summary":" A proven finance leader. ",
              "technical":{"score":8,"positives":["a","b","c","d","e","f"],"negatives":["g"]},
              "behavioural":{"score":6,"positives":["h"],"negatives":[" ", "i"]}}""";
@@ -59,8 +58,7 @@ class CandidateAiEnricherTest {
 
         CandidateAiEnrichment enriched = enricherOver(model).enrich(dossier(ALL_MISSING), BRIEF).orElseThrow();
 
-        assertThat(enriched.background()).isEqualTo(new InferredBackground("Western expat", Gender.FEMALE, 14,
-                Seniority.N_MINUS_1));
+        assertThat(enriched.background()).isEqualTo(new InferredBackground("Western expat", Gender.FEMALE, 14));
         assertThat(enriched.assessment().summary()).isEqualTo("A proven finance leader.");
         assertThat(enriched.assessment().technical().score()).isEqualTo(8);
         assertThat(enriched.assessment().technical().positives()).containsExactly("a", "b", "c", "d", "e");
@@ -77,12 +75,12 @@ class CandidateAiEnricherTest {
     @DisplayName("an out-of-range score is dropped, and only missing background is answered")
     void outOfRangeAndPresentFieldsAreDropped() {
         CandidateAiEnrichment enriched = enricherOver(new RecordingChatModel("""
-                {"nationality":"Saudi","gender":"male","yearsExperience":75,"seniority":"C-Suite",
+                {"nationality":"Saudi","gender":"male","yearsExperience":75,
                  "technical":{"score":11},"behavioural":null}"""))
                 .enrich(dossier(EnumSet.of(BackgroundField.NATIONALITY, BackgroundField.YEARS_EXPERIENCE)), BRIEF)
                 .orElseThrow();
 
-        assertThat(enriched.background()).isEqualTo(new InferredBackground("Saudi", null, null, null));
+        assertThat(enriched.background()).isEqualTo(new InferredBackground("Saudi", null, null));
         assertThat(enriched.assessment().technical().score()).isNull();
         assertThat(enriched.assessment().behavioural().score()).isNull();
     }

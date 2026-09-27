@@ -402,7 +402,6 @@ public class ProjectImportService {
                 held == null ? "csv" : held.source(),
                 held == null ? null : held.sourceUrl(),
                 fields.customValues(CustomColumnTarget.CANDIDATE),
-                null,
                 null);
     }
 

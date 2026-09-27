@@ -112,8 +112,5 @@ public record SaveCandidateRequest(
         Map<String, String> customFields,
 
         /** True from the drawer's Background save: the reader has reviewed its AI-proposed values. */
-        Boolean confirmBackground,
-
-        /** True from the drawer's identity save, where an AI-proposed seniority is reviewed. */
-        Boolean confirmSeniority
+        Boolean confirmBackground
 ) {}

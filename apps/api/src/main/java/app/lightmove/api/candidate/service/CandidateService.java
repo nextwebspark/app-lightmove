@@ -299,9 +299,6 @@ public class CandidateService {
         if (Boolean.TRUE.equals(request.confirmBackground())) {
             candidate.confirmBackground();
         }
-        if (Boolean.TRUE.equals(request.confirmSeniority())) {
-            candidate.confirmSeniority();
-        }
         refuseOverfullChannels(candidate);
         candidate.describeCustomFields(customColumns.applyTo(projectId, CustomColumnTarget.CANDIDATE,
                 candidate.getCustomFields(), request.customFields()));

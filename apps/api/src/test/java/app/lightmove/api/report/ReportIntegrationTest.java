@@ -79,7 +79,8 @@ class ReportIntegrationTest extends FlowTestSupport {
                 .andExpect(jsonPath("$.remuneration.disclosures").isEmpty())
                 .andExpect(jsonPath("$.diversity.nationalities").isEmpty())
                 .andExpect(jsonPath("$.diversity.genderUnrecorded").value(0))
-                .andExpect(jsonPath("$.diversity.genderByLevel").isEmpty())
+                .andExpect(jsonPath("$.diversity.genderByLevel[4].level").value("N-3"))
+                .andExpect(jsonPath("$.diversity.genderByLevel[0].female").value(0))
                 .andExpect(jsonPath("$.diversity.genderWithoutLevel.female").value(0));
     }
 
@@ -173,8 +174,6 @@ class ReportIntegrationTest extends FlowTestSupport {
         assertThat(level(diversity, "C-Suite").get("female").asInt()).isEqualTo(1);
         assertThat(level(diversity, "C-Suite").get("male").asInt()).isZero();
         assertThat(level(diversity, "N-1").get("male").asInt()).isEqualTo(1);
-        // Only the levels somebody holds get a row; nobody here sits at Board or below N-1.
-        assertThat(diversity.get("genderByLevel")).hasSize(2);
         assertThat(diversity.get("genderUnrecorded").asInt()).isEqualTo(1);
     }
 
@@ -192,7 +191,7 @@ class ReportIntegrationTest extends FlowTestSupport {
                 .andExpect(jsonPath("$.diversity.genderWithoutLevel.female").value(1))
                 .andExpect(jsonPath("$.diversity.genderWithoutLevel.male").value(0))
                 .andExpect(jsonPath("$.diversity.genderUnrecorded").value(1))
-                .andExpect(jsonPath("$.diversity.genderByLevel").isEmpty());
+                .andExpect(jsonPath("$.diversity.genderByLevel[1].female").value(0));
     }
 
     @Test

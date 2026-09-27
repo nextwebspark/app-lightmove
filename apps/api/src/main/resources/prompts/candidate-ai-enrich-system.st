@@ -14,12 +14,6 @@ is always more useful than no answer. Answer null for every field that is not li
   - yearsExperience: total years of professional experience as a whole number, reasoned against
     today's date from the earliest dated role; without one, from the year they graduated; without
     either, estimated from the seniority of their titles.
-  - seniority: where their current seat sits relative to the chief executive, exactly one of
-    "Board" (a non-executive seat: chair, board member, advisor to the board), "C-Suite" (the chief
-    executive of the business or the region, and the executive committee who are their peers),
-    "N-1" (reports to the C-suite — a functional head), "N-2" or "N-3". Read it from their current
-    title and the size of their current employer: a "Head of" at a global group sits lower than the
-    same title at a family business.
 
 ASSESSMENT.
   - technical and behavioural: score the executive from 1 (weak) to 10 (outstanding) against that

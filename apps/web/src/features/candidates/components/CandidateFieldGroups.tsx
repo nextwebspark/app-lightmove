@@ -58,7 +58,6 @@ export function IdentityFields<TTransformed>({
   employerLocked,
   autoFocus,
   statusField,
-  seniorityInferred,
 }: FieldGroupProps & {
   control: Control<CandidateForm, unknown, TTransformed>;
   /** True where the employer is one of the mandate's companies — the mapping and the name must not disagree. */
@@ -66,8 +65,6 @@ export function IdentityFields<TTransformed>({
   autoFocus?: boolean;
   /** The Status select, which the add form places beside the employer and the editor leaves to the header. */
   statusField?: ReactNode;
-  /** The stored seniority is an AI proposal nobody has reviewed yet. */
-  seniorityInferred?: boolean;
 }) {
   return (
     <>
@@ -83,11 +80,7 @@ export function IdentityFields<TTransformed>({
         <Field label="Title" error={errors.title?.message}>
           <Input {...register("title")} placeholder="VP Finance" />
         </Field>
-        <Field
-          label="Seniority"
-          error={errors.seniority?.message}
-          action={seniorityInferred ? <AiInferredBadge confirmedBy="Details" /> : undefined}
-        >
+        <Field label="Seniority" error={errors.seniority?.message}>
           <Select {...register("seniority")}>
             <option value="">Not established</option>
             {CANDIDATE_SENIORITIES.map((level) => (
@@ -670,12 +663,12 @@ function AmountField({
  * Marks a value an AI inference proposed that nobody has reviewed yet — `Candidate.aiInferredFields`.
  * The same sparkle, size and ink the brief's {@link ProvenanceMarker} wears, so AI-filled reads alike on both screens.
  */
-export function AiInferredBadge({ confirmedBy = "Background" }: { confirmedBy?: "Background" | "Details" }) {
+export function AiInferredBadge() {
   return (
     <span
       role="img"
       aria-label="AI-suggested"
-      title={`AI-suggested — saving the ${confirmedBy} section confirms it`}
+      title="AI-suggested — saving the Background section confirms it"
       className="grid size-4 flex-none place-items-center text-u-inferred"
     >
       <Icon d={ICONS.sparkle} size={13} />

@@ -393,7 +393,6 @@ const PATCHES: {
   ) => Partial<SaveCandidatePayload>;
 } = {
   identity: (parsed, mapped) => ({
-    confirmSeniority: true,
     fullName: parsed.fullName,
     title: parsed.title || undefined,
     seniority: (parsed.seniority as CandidateSeniority) || undefined,

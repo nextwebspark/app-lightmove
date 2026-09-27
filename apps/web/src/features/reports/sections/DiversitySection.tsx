@@ -234,8 +234,6 @@ export function DiversitySection({ diversity }: { diversity: ReportDiversity }) 
       >
         {gender.recorded === 0 ? (
           <ChartEmpty>Nobody on this mandate has a gender recorded.</ChartEmpty>
-        ) : gender.levels.length === 0 ? (
-          <ChartEmpty>Nobody on this mandate has a seniority level recorded yet.</ChartEmpty>
         ) : (
           <GenderPyramid stats={gender} />
         )}
