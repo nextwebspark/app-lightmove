@@ -4,9 +4,9 @@ import app.lightmove.api.assistant.constant.StarterKind;
 import app.lightmove.api.assistant.dto.AssistantStarter;
 import app.lightmove.api.assistant.dto.AssistantStartersResponse;
 import app.lightmove.api.common.industry.service.Industries;
+import app.lightmove.api.common.persona.model.HiringCompanyProfile;
+import app.lightmove.api.common.persona.model.HiringPersona;
 import app.lightmove.api.strategy.service.IndustryAdjacency;
-import app.lightmove.api.workspace.model.FirmFacts;
-import app.lightmove.api.workspace.model.WorkspacePersona;
 import app.lightmove.api.workspace.service.FirmService;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -38,8 +38,8 @@ public class AssistantStarters {
     private final IndustryAdjacency adjacency;
 
     public AssistantStartersResponse forWorkspace(UUID workspaceId) {
-        FirmFacts firm = firms.firmOf(workspaceId);
-        WorkspacePersona persona = firm.persona() == null ? WorkspacePersona.empty() : firm.persona();
+        HiringCompanyProfile firm = firms.firmOf(workspaceId).profile();
+        HiringPersona persona = firm.persona() == null ? HiringPersona.empty() : firm.persona();
         List<String> recorded = recordedSectors(persona.sectors(), firm.industry());
         String sector = recorded.isEmpty() ? ASSUMED_SECTOR : recorded.getFirst();
         String place = firstPresent(firm.country(), first(persona.geographies()));

@@ -8,6 +8,7 @@ import app.lightmove.api.project.dto.ClientListResponse;
 import app.lightmove.api.project.dto.CreateClientRequest;
 import app.lightmove.api.project.dto.InviteRepresentativeRequest;
 import app.lightmove.api.project.dto.RepresentativeResponse;
+import app.lightmove.api.project.dto.UpdateClientPersonaRequest;
 import app.lightmove.api.project.dto.UpdateClientRequest;
 import app.lightmove.api.project.service.ClientRepresentativeService;
 import app.lightmove.api.project.service.ClientService;
@@ -22,6 +23,7 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.ResponseStatus;
@@ -71,6 +73,17 @@ public class ClientsController {
                                        HttpServletRequest httpRequest) {
         return clients.update(
                 principal.userId(), principal.requireWorkspaceId(), clientId, request, httpRequest);
+    }
+
+    /** An agency client's persona, the hiring context the assistant reads for this client's mandates. */
+    @PutMapping("/{clientId}/persona")
+    @RequireWorkspacePermission(WorkspaceAction.CLIENT_RECORD_MANAGE)
+    public ClientDetailResponse updatePersona(@AuthenticationPrincipal AuthPrincipal principal,
+                                              @PathVariable UUID clientId,
+                                              @Valid @RequestBody UpdateClientPersonaRequest request,
+                                              HttpServletRequest httpRequest) {
+        return clients.updatePersona(principal.userId(), principal.requireWorkspaceId(), clientId,
+                request.toPersona(), httpRequest);
     }
 
     @PostMapping("/{clientId}/representatives")

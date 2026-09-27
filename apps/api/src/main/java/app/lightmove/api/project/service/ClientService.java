@@ -1,5 +1,7 @@
 package app.lightmove.api.project.service;
 
+import app.lightmove.api.common.persona.model.HiringCompanyProfile;
+import app.lightmove.api.common.persona.model.HiringPersona;
 import app.lightmove.api.core.audit.constant.ProjectEventType;
 import app.lightmove.api.core.audit.service.AuditService;
 import app.lightmove.api.core.error.constant.ErrorCode;
@@ -87,9 +89,10 @@ public class ClientService {
                         rep.getId(), rep.getFullName(), rep.getPosition(), rep.getEmail(), rep.getStatus()))
                 .toList();
 
-        return new ClientDetailResponse(client.getId(), client.getName(), client.getSector(),
-                client.getHqCountry(), client.getHqCity(), client.getLogoUrl(), client.getDomain(),
-                client.getOffLimitsNote(), client.getNotes(), active, mandates.size() - active, reps, mandates);
+        return new ClientDetailResponse(client.getId(), client.getName(), client.universeAccountId(),
+                client.getSector(), client.getHqCountry(), client.getHqCity(), client.getLogoUrl(),
+                client.getDomain(), client.getOffLimitsNote(), client.getNotes(), client.getPersona(),
+                active, mandates.size() - active, reps, mandates);
     }
 
     @Transactional
@@ -143,6 +146,36 @@ public class ClientService {
                 .record();
 
         return get(workspaceId, clientId);
+    }
+
+    @Transactional
+    public ClientDetailResponse updatePersona(UUID userId, UUID workspaceId, UUID clientId, HiringPersona persona,
+                                              HttpServletRequest httpRequest) {
+        requireClient(workspaceId, clientId).describePersona(persona);
+
+        audit.event(ProjectEventType.CLIENT_UPDATED)
+                .actor(userId).workspace(workspaceId).target("client", clientId).from(httpRequest)
+                .detail("section", "persona")
+                .record();
+
+        return get(workspaceId, clientId);
+    }
+
+    /**
+     * The client a mandate hires for, as the assistant is told about it. Its headcount is the universe's
+     * live figure where the record was picked from it, never a stored copy.
+     */
+    @Transactional(readOnly = true)
+    public HiringCompanyProfile hiringProfileOfProject(UUID workspaceId, UUID projectId) {
+        Project project = projects.requireInWorkspace(projectId, workspaceId);
+        Client client = requireClient(workspaceId, project.getClientId());
+        String accountId = client.universeAccountId();
+        Integer employees = accountId == null ? null : companies.byAccountIds(List.of(accountId)).stream()
+                .findFirst()
+                .map(CompanyRow::numEmployees)
+                .orElse(null);
+        return new HiringCompanyProfile(client.getName(), client.getSector(), client.getHqCity(),
+                client.getHqCountry(), client.getDomain(), employees, client.getPersona());
     }
 
     /** The drawer's mandates, lead and health resolved. */

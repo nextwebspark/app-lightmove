@@ -1,6 +1,8 @@
 package app.lightmove.api.workspace.model;
 
 import app.lightmove.api.common.constant.DefaultCurrency;
+import app.lightmove.api.common.persona.model.HiringPersona;
+import app.lightmove.api.common.persona.model.PersonaSeed;
 import app.lightmove.api.core.error.constant.ErrorCode;
 import app.lightmove.api.core.error.model.ApiException;
 import app.lightmove.api.core.persistence.model.BaseEntity;
@@ -84,7 +86,7 @@ public class Workspace extends BaseEntity {
 
     @JdbcTypeCode(SqlTypes.JSON)
     @Column(name = "persona", nullable = false)
-    private WorkspacePersona persona = WorkspacePersona.empty();
+    private HiringPersona persona = HiringPersona.empty();
 
     @Setter
     @Column(name = "default_region", nullable = false, length = 32)
@@ -118,7 +120,7 @@ public class Workspace extends BaseEntity {
         workspace.teamFocus = teamFocus;
         workspace.logoMark = deriveLogoMark(name);
         workspace.identifyAs(company);
-        workspace.persona = WorkspacePersona.seededFrom(company);
+        workspace.persona = HiringPersona.seededFrom(seedOf(company));
 
         workspace.defaultRegion = primaryRegion != null ? primaryRegion : "GCC";
         return workspace;
@@ -133,7 +135,7 @@ public class Workspace extends BaseEntity {
         this.primaryRegion = primaryRegion;
         this.teamFocus = teamFocus;
         this.logoMark = deriveLogoMark(name);
-        this.persona = persona.refiledFrom(getCompany(), company);
+        this.persona = persona.refiledFrom(seedOf(getCompany()), seedOf(company));
         identifyAs(company);
     }
 
@@ -141,8 +143,8 @@ public class Workspace extends BaseEntity {
         this.mode = mode;
     }
 
-    public void describePersona(WorkspacePersona persona) {
-        this.persona = persona == null ? WorkspacePersona.empty() : persona;
+    public void describePersona(HiringPersona persona) {
+        this.persona = persona == null ? HiringPersona.empty() : persona;
     }
 
     /** Null when the firm was typed in by hand rather than picked from the universe. */
@@ -169,7 +171,7 @@ public class Workspace extends BaseEntity {
     public void applySettings(String name, WorkspaceCompany company, String defaultRegion, String defaultCurrency) {
         this.name = name;
         this.logoMark = deriveLogoMark(name);
-        this.persona = persona.refiledFrom(getCompany(), company);
+        this.persona = persona.refiledFrom(seedOf(getCompany()), seedOf(company));
         identifyAs(company);
         if (defaultRegion != null) {
             this.defaultRegion = defaultRegion;
@@ -185,6 +187,10 @@ public class Workspace extends BaseEntity {
             throw new ApiException(ErrorCode.CONFLICT, "Workspace is already deleted");
         }
         this.status = WorkspaceStatus.DELETED;
+    }
+
+    private static PersonaSeed seedOf(WorkspaceCompany company) {
+        return company == null ? null : company.personaSeed();
     }
 
     /** First letter of the name, upper-cased. */
