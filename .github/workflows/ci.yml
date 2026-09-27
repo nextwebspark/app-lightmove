@@ -3,7 +3,9 @@ name: CI
 # The gate. deploy.yml will not run unless this is green on the same commit.
 on:
   push:
-    branches: [main]
+    # A hotfix branch is cut from an older tag, so its PR conflicts with main and GitHub runs no
+    # pull_request workflow on it; this push is the only CI the Release gate can find there.
+    branches: [main, 'hotfix/**']
   pull_request:
   # The merge queue's batch branch. The ruleset requires API / Web / Extension on every entry, and a
   # check that never reports leaves the entry stuck until the queue times it out.
