@@ -45,6 +45,7 @@ describe("SettingsSecurityPage", () => {
       name: "NextWebSpark Search",
       slug: "nextwebspark-search",
       logoMark: "N",
+      mode: "COMPANY",
       emailDomain: "nextwebspark.com",
       joinedAt: "2026-03-14T09:00:00Z",
       company: null,

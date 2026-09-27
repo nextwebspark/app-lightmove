@@ -417,6 +417,15 @@ once it has ended, falls through to another the user is still in, audited; V82 i
 Both are backfilled before the index is dropped, while it still guarantees one row to copy from.
 `WorkspaceSelection` is the one place that rule lives; `WorkspaceMemberRepository` deliberately has no
 singular by-user lookup any more, because an `Optional` over two rows throws.
+V83 adds `app_lm_workspace.mode` (`AGENCY | COMPANY`, V34's CHECK idiom; every existing row `COMPANY`):
+who a workspace hires for — client companies, or its own business units. Chosen at creation with **no
+default** (`CreateWorkspaceRequest.mode` is required, the organisation step preselects nothing) and
+switched by an admin through `PUT /workspace/mode` (`WORKSPACE_MANAGE`, audited as a `mode` section) —
+the signup wizard's Back (`PATCH /onboarding/workspace`) goes through the same audited switch, so no
+path changes the mode unrecorded.
+It changes labels, what a client record shows and whose persona the assistant reads — **never what is
+stored or who may do what**, which is why a switch migrates no row. It rides `WorkspaceSummary`, so a
+pure client reads the same labels as staff. The phased plan is `docs/workspace-modes.md`.
 V76 adds `app_lm_project_candidate.compensation_breakdown` jsonb — the drawer's allowance lines and
 LTIP instruments. `allowances` stays the total every reader sums; `CandidateCompensation` keeps the
 two agreeing (lines supply a missing total, a contradicting total drops them). The editor's

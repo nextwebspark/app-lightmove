@@ -21,7 +21,7 @@ post_json /auth/signup "$(jq -nc --arg e "$LEAD_EMAIL" --arg p "$PASSWORD" \
 post_json /auth/verify "$(jq -nc --arg t "$(token_for "$LEAD_EMAIL" verify)" '{token:$t}')" >/dev/null
 post_json /auth/login "$(jq -nc --arg e "$LEAD_EMAIL" --arg p "$PASSWORD" '{email:$e,password:$p}')" >/dev/null
 post_json /onboarding/workspace "$(jq -nc --arg n "Capture UAT $(date +%s)$RANDOM" \
-  '{name:$n, companySize:"11-50 people", primaryRegion:"GCC", teamFocus:"Executive search"}')" \
+  '{mode:"COMPANY", name:$n, companySize:"11-50 people", primaryRegion:"GCC", teamFocus:"Executive search"}')" \
   -H "$(auth_header "$(json '.accessToken')")" >/dev/null
 # A token minted before the workspace existed carries no wsId, so every tenant route 404s until reissued.
 post_json /auth/login "$(jq -nc --arg e "$LEAD_EMAIL" --arg p "$PASSWORD" '{email:$e,password:$p}')" >/dev/null

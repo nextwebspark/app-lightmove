@@ -63,6 +63,7 @@ describe("TeamAccessPage", () => {
       name: "Firm",
       slug: "firm",
       logoMark: "F",
+      mode: "COMPANY" as const,
       emailDomain: "firm.example",
       joinedAt: null,
       company: null,

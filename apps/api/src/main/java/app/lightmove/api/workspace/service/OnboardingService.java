@@ -44,6 +44,7 @@ public class OnboardingService {
     private final WorkspaceCompanyResolver companyResolver;
     private final WorkspaceSelection selection;
     private final RateLimitGuard rateLimit;
+    private final WorkspaceSettingsService settings;
 
     /** Signup's door, gated on verification alone — so shut to anyone already in a workspace. */
     @Transactional
@@ -68,7 +69,7 @@ public class OnboardingService {
         String slug = SlugGenerator.from(identity.name(), workspaces::existsBySlug);
 
         Workspace workspace = workspaces.save(Workspace.create(
-                identity.name(), slug, domain, userId, identity.company(),
+                identity.name(), slug, domain, userId, command.mode(), identity.company(),
                 command.companySize(), command.primaryRegion(), command.teamFocus()));
 
         selection.remember(user, members.save(WorkspaceMember.invite(
@@ -77,7 +78,7 @@ public class OnboardingService {
         log.info("Workspace {} ({}) created by user {} on domain {}", workspace.getId(), slug, userId, domain);
         audit.event(WorkspaceEventType.WORKSPACE_CREATED)
                 .actor(userId).workspace(workspace.getId()).from(request)
-                .detail("domain", domain).detail("slug", slug)
+                .detail("domain", domain).detail("slug", slug).detail("mode", workspace.getMode().name())
                 .record();
 
         return workspace;
@@ -98,6 +99,9 @@ public class OnboardingService {
         WorkspaceIdentity identity = companyResolver.resolve(command.name(), command.apolloAccountId());
         workspace.describe(identity.name(), identity.company(), command.companySize(),
                 command.primaryRegion(), command.teamFocus());
+        // Through the settings' switch, not describe: an admin can call this route at any time, and a mode
+        // changed here must leave the same audit record as one changed in Settings.
+        settings.changeMode(userId, workspaceId, command.mode(), request);
 
         audit.event(WorkspaceEventType.WORKSPACE_UPDATED)
                 .actor(userId).workspace(workspaceId).from(request)

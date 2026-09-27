@@ -1,5 +1,11 @@
 import { request } from "../../../lib/apiClient";
-import type { CreateWorkspaceRequest, InviteRequest, User, WorkspaceRole } from "../../auth/api/types";
+import type {
+  CreateWorkspaceRequest,
+  InviteRequest,
+  User,
+  WorkspaceMode,
+  WorkspaceRole,
+} from "../../auth/api/types";
 import type { Invitation, Member, WorkspaceDetail, WorkspacePersona } from "./types";
 
 /** Every call workspace management makes (roster, invitations, settings), plus shared query keys. */
@@ -24,6 +30,11 @@ export function updateWorkspace(payload: {
 
 export function updatePersona(persona: WorkspacePersona): Promise<WorkspaceDetail> {
   return request<WorkspaceDetail>("/workspace/persona", { method: "PUT", body: persona });
+}
+
+/** Changes labels, screens and whose persona the assistant reads; no stored record moves. */
+export function changeMode(mode: WorkspaceMode): Promise<WorkspaceDetail> {
+  return request<WorkspaceDetail>("/workspace/mode", { method: "PUT", body: { mode } });
 }
 
 export function deleteWorkspace(confirmName: string): Promise<void> {

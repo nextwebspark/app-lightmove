@@ -6,6 +6,7 @@ import app.lightmove.api.core.error.constant.ErrorCode;
 import app.lightmove.api.core.error.model.ApiException;
 import app.lightmove.api.workspace.constant.InvitationStatus;
 import app.lightmove.api.workspace.constant.MemberStatus;
+import app.lightmove.api.workspace.constant.WorkspaceMode;
 import app.lightmove.api.workspace.model.Workspace;
 import app.lightmove.api.workspace.model.WorkspacePersona;
 import app.lightmove.api.workspace.repository.InvitationRepository;
@@ -66,6 +67,24 @@ public class WorkspaceSettingsService {
                 .detail("section", "persona")
                 .record();
 
+        return detail(workspace);
+    }
+
+    /** Nothing stored changes with the mode, so a switch migrates no row; a no-op switch records nothing. */
+    @Transactional
+    public WorkspaceDetail changeMode(UUID actorId, UUID workspaceId, WorkspaceMode mode,
+                                      HttpServletRequest request) {
+        Workspace workspace = requireWorkspace(workspaceId);
+        WorkspaceMode previous = workspace.getMode();
+        if (previous != mode) {
+            workspace.changeMode(mode);
+            audit.event(WorkspaceEventType.WORKSPACE_UPDATED)
+                    .actor(actorId).workspace(workspaceId).from(request)
+                    .detail("section", "mode")
+                    .detail("from", previous.name())
+                    .detail("to", mode.name())
+                    .record();
+        }
         return detail(workspace);
     }
 

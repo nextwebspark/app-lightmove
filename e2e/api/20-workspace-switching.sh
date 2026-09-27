@@ -33,7 +33,7 @@ ALOK=$(new_email alok)
 ALOK_TOKEN=$(signup_verified "$ALOK" "Alok Kumar" alok)
 FIRST_NAME="First Firm $(date +%s)$RANDOM"
 post_json /onboarding/workspace "$(jq -nc --arg n "$FIRST_NAME" \
-  '{name:$n, companySize:"11-50 people", primaryRegion:"GCC", teamFocus:"Executive search"}')" \
+  '{mode:"COMPANY", name:$n, companySize:"11-50 people", primaryRegion:"GCC", teamFocus:"Executive search"}')" \
   -H "$(auth_header "$ALOK_TOKEN")" >/dev/null
 FIRST_ID=$(json '.workspace.id')
 ALOK_TOKEN=$(login_as "$ALOK" alok)
@@ -47,7 +47,7 @@ section "W1  a staff member founds a second workspace from the app"
 
 SECOND_NAME="Second Firm $(date +%s)$RANDOM"
 post_json /workspaces "$(jq -nc --arg n "$SECOND_NAME" \
-  '{name:$n, companySize:"1-10 people", primaryRegion:"GCC", teamFocus:"Talent mapping"}')" \
+  '{mode:"COMPANY", name:$n, companySize:"1-10 people", primaryRegion:"GCC", teamFocus:"Talent mapping"}')" \
   -H "$(auth_header "$ALOK_TOKEN")"
 check_status W1.1 "POST /workspaces" 201
 SECOND_ID=$(json '.workspace.id')
@@ -85,7 +85,7 @@ SARA=$(new_email sara)
 SARA_TOKEN=$(signup_verified "$SARA" "Sara Al-Mansour" sara)
 THIRD_NAME="Third Firm $(date +%s)$RANDOM"
 post_json /onboarding/workspace "$(jq -nc --arg n "$THIRD_NAME" \
-  '{name:$n, companySize:"1-10 people", primaryRegion:"GCC", teamFocus:"Executive search"}')" \
+  '{mode:"COMPANY", name:$n, companySize:"1-10 people", primaryRegion:"GCC", teamFocus:"Executive search"}')" \
   -H "$(auth_header "$SARA_TOKEN")" >/dev/null
 THIRD_ID=$(json '.workspace.id')
 SARA_TOKEN=$(login_as "$SARA" sara)

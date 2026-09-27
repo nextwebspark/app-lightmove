@@ -38,7 +38,7 @@ class WorkspaceCreationBudgetTest extends FlowTestSupport {
                 .header("Authorization", "Bearer " + bearerToken)
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("""
-                        {"name":"%s","companySize":"11-50 people","primaryRegion":"GCC",
+                        {"mode":"COMPANY","name":"%s","companySize":"11-50 people","primaryRegion":"GCC",
                          "teamFocus":"Executive search"}
                         """.formatted(name)));
     }

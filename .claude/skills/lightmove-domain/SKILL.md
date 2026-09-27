@@ -90,6 +90,14 @@ back **rejoins** that row (`WorkspaceMember.rejoin`, roles replaced) — the ins
 tripped the constraint. An invitation to a workspace the user is already active in is moot, accepted and
 hidden from `/me`, never an error.
 
+**A workspace's mode is presentation, never permission.** `AGENCY` (clients are separate hiring
+companies) and `COMPANY` (clients are the firm's own business units) share one data model, one set of
+routes and one RBAC catalog: nothing may branch an authorisation decision on the mode, and no row is
+rewritten when it changes. That is what makes the admin's switch (`PUT /workspace/mode`,
+`WORKSPACE_MANAGE`) safe to offer at all. It has no default at creation because the two modes draw
+different screens, and a firm left in the wrong one by not noticing the question is worse than one
+more required field.
+
 **Verification is not cosmetic.** An unverified address is an unproven claim, so `require-verified-email`
 is on and an unverified user reaches no workspace data. It gates the *creator* path — someone who typed
 their own address into signup. An invited user skips it: the invitation link already proved the mailbox,

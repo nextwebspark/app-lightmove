@@ -1,16 +1,18 @@
 package app.lightmove.api.workspace.model;
-import app.lightmove.api.workspace.constant.WorkspaceStatus;
 
 import app.lightmove.api.common.constant.DefaultCurrency;
 import app.lightmove.api.core.error.constant.ErrorCode;
 import app.lightmove.api.core.error.model.ApiException;
 import app.lightmove.api.core.persistence.model.BaseEntity;
+import app.lightmove.api.workspace.constant.WorkspaceMode;
+import app.lightmove.api.workspace.constant.WorkspaceStatus;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
 import jakarta.persistence.Table;
 import java.util.Locale;
+import java.util.Objects;
 import java.util.UUID;
 import lombok.AccessLevel;
 import lombok.Getter;
@@ -54,6 +56,10 @@ public class Workspace extends BaseEntity {
 
     @Column(name = "team_focus", length = 32)
     private String teamFocus;
+
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false, length = 16)
+    private WorkspaceMode mode;
 
     /** The universe row this firm was picked as at signup; null for a firm typed in by hand (V68). */
     @Column(name = "apollo_account_id")
@@ -100,13 +106,14 @@ public class Workspace extends BaseEntity {
     private UUID createdBy;
 
     public static Workspace create(String name, String slug, String emailDomain, UUID createdBy,
-                                   WorkspaceCompany company,
+                                   WorkspaceMode mode, WorkspaceCompany company,
                                    String companySize, String primaryRegion, String teamFocus) {
         Workspace workspace = new Workspace();
         workspace.name = name;
         workspace.slug = slug;
         workspace.emailDomain = emailDomain.toLowerCase(Locale.ROOT);
         workspace.createdBy = createdBy;
+        workspace.mode = Objects.requireNonNull(mode, "mode");
         workspace.companySize = companySize;
         workspace.primaryRegion = primaryRegion;
         workspace.teamFocus = teamFocus;
@@ -128,6 +135,11 @@ public class Workspace extends BaseEntity {
         this.logoMark = deriveLogoMark(name);
         this.persona = persona.refiledFrom(getCompany(), company);
         identifyAs(company);
+    }
+
+    /** The one write of the mode after creation, so every switch passes the audited path that calls it. */
+    public void changeMode(WorkspaceMode mode) {
+        this.mode = Objects.requireNonNull(mode, "mode");
     }
 
     public void describePersona(WorkspacePersona persona) {

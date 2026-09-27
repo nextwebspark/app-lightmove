@@ -62,6 +62,7 @@ describe("TeamPage — a refused read", () => {
         name: "Meridian",
         slug: "meridian",
         logoMark: "M",
+        mode: "COMPANY",
         emailDomain: "firm.example",
         joinedAt: null,
         company: null,

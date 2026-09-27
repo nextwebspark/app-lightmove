@@ -1,4 +1,4 @@
-import type { WorkspaceCompany } from "../../auth/api/types";
+import type { WorkspaceCompany, WorkspaceMode } from "../../auth/api/types";
 import type { WorkspaceRole } from "../../auth/api/types";
 
 /** The workspace-management API contract, hand-mirrored like the auth module's. */
@@ -9,6 +9,7 @@ export interface WorkspaceDetail {
   slug: string;
   logoMark: string | null;
   emailDomain: string;
+  mode: WorkspaceMode;
   defaultRegion: string;
   defaultCurrency: string;
   plan: string;

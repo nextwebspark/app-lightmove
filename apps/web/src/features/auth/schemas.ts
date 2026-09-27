@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { WORKSPACE_MODES } from "./api/types";
 
 /**
  * Client-side validation, mirroring the server's Bean Validation rules.
@@ -81,6 +82,9 @@ export const resetPasswordSchema = z
   });
 
 export const workspaceSchema = z.object({
+  // Deliberately no default: an agency and an in-house team see different screens, so nobody is
+  // put in one by not noticing the question.
+  mode: z.enum(WORKSPACE_MODES, { message: "Choose who you hire for" }),
   name: z.string().min(1, "Enter your organization's name").max(160, "That name is too long"),
   companySize: z.string(),
   primaryRegion: z.string(),

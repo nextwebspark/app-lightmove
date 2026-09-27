@@ -92,6 +92,7 @@ describe("VerifyEmailPage", () => {
         name: "Meridian",
         slug: "meridian",
         logoMark: "M",
+        mode: "COMPANY",
         emailDomain: "nextwebspark.com",
         joinedAt: null,
         company: null,
