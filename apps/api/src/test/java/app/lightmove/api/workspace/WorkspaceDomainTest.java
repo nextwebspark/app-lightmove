@@ -3,6 +3,7 @@ package app.lightmove.api.workspace;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+import app.lightmove.api.common.persona.model.HiringPersona;
 import app.lightmove.api.core.error.constant.ErrorCode;
 import app.lightmove.api.core.error.model.ApiException;
 import app.lightmove.api.core.security.rbac.Role;
@@ -14,7 +15,6 @@ import app.lightmove.api.workspace.constant.WorkspaceMode;
 import app.lightmove.api.workspace.model.Invitation;
 import app.lightmove.api.workspace.model.Workspace;
 import app.lightmove.api.workspace.model.WorkspaceMember;
-import app.lightmove.api.workspace.model.WorkspacePersona;
 import java.time.Instant;
 import java.util.List;
 import java.util.Set;
@@ -110,7 +110,7 @@ class WorkspaceDomainTest {
     @Test
     @DisplayName("a persona is trimmed, blanks dropped, and repeated list entries kept once")
     void personaIsTidied() {
-        WorkspacePersona persona = new WorkspacePersona("  Search  ", java.util.Arrays.asList("Energy", " ENERGY", null, " "),
+        HiringPersona persona = new HiringPersona("  Search  ", java.util.Arrays.asList("Energy", " ENERGY", null, " "),
                 null, List.of("GCC"), "");
 
         assertThat(persona.summary()).isEqualTo("Search");

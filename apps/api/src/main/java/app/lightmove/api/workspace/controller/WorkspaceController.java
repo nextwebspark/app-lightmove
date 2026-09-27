@@ -1,5 +1,6 @@
 package app.lightmove.api.workspace.controller;
 
+import app.lightmove.api.common.persona.model.HiringPersona;
 import app.lightmove.api.core.security.model.AuthPrincipal;
 import app.lightmove.api.core.security.rbac.RequireWorkspacePermission;
 import app.lightmove.api.core.security.rbac.WorkspaceAction;
@@ -10,7 +11,6 @@ import app.lightmove.api.workspace.dto.UpdateWorkspaceSettingsRequest;
 import app.lightmove.api.workspace.dto.WorkspaceCompanyResponse;
 import app.lightmove.api.workspace.dto.WorkspaceResponse;
 import app.lightmove.api.workspace.model.Workspace;
-import app.lightmove.api.workspace.model.WorkspacePersona;
 import app.lightmove.api.workspace.service.WorkspaceSettingsService.WorkspaceDetail;
 import app.lightmove.api.workspace.service.WorkspaceSettingsService;
 import jakarta.servlet.http.HttpServletRequest;
@@ -60,7 +60,7 @@ public class WorkspaceController {
     public WorkspaceResponse updatePersona(@AuthenticationPrincipal AuthPrincipal principal,
                                            @Valid @RequestBody UpdateWorkspacePersonaRequest request,
                                            HttpServletRequest httpRequest) {
-        WorkspacePersona persona = new WorkspacePersona(request.summary(), request.sectors(),
+        HiringPersona persona = new HiringPersona(request.summary(), request.sectors(),
                 request.competitors(), request.geographies(), request.notes());
         return toResponse(settings.updatePersona(
                 principal.userId(), principal.requireWorkspaceId(), persona, httpRequest));

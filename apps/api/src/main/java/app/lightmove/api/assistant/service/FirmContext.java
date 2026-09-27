@@ -1,7 +1,7 @@
 package app.lightmove.api.assistant.service;
 
-import app.lightmove.api.workspace.model.FirmFacts;
-import app.lightmove.api.workspace.model.WorkspacePersona;
+import app.lightmove.api.common.persona.model.HiringCompanyProfile;
+import app.lightmove.api.common.persona.model.HiringPersona;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -21,7 +21,7 @@ final class FirmContext {
     private FirmContext() {
     }
 
-    static String render(FirmFacts firm) {
+    static String render(HiringCompanyProfile firm) {
         List<String> lines = new ArrayList<>();
         line(lines, "Name", firm.name());
         line(lines, "Industry", firm.industry());
@@ -29,7 +29,7 @@ final class FirmContext {
         line(lines, "Headcount", firm.employees() == null ? null
                 : String.format(Locale.ROOT, "%,d", firm.employees()));
         line(lines, "Website", firm.website());
-        WorkspacePersona persona = firm.persona();
+        HiringPersona persona = firm.persona();
         if (persona != null) {
             line(lines, "What it does", persona.summary());
             line(lines, "Sectors", listed(persona.sectors()));

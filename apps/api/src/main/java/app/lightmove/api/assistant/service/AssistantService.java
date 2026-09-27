@@ -167,7 +167,7 @@ public class AssistantService {
                             .thinkingBudget(settings.thinkingBudget())
                             .labels(Map.of("prompt", PROMPT_ID)))
                     .system(system -> system.text(systemPrompt)
-                            .param("firm", FirmContext.render(firms.firmOf(context.workspaceId()))))
+                            .param("firm", FirmContext.render(firms.firmOf(context.workspaceId()).profile())))
                     .messages(conversation(history, question))
                     .tools(mandateTools, searchTools, namedCompanyTools, sectorTools, proposalTools)
                     .toolContext(context.asMap())

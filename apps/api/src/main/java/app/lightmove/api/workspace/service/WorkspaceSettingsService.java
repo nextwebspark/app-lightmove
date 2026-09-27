@@ -1,5 +1,6 @@
 package app.lightmove.api.workspace.service;
 
+import app.lightmove.api.common.persona.model.HiringPersona;
 import app.lightmove.api.core.audit.constant.WorkspaceEventType;
 import app.lightmove.api.core.audit.service.AuditService;
 import app.lightmove.api.core.error.constant.ErrorCode;
@@ -8,7 +9,6 @@ import app.lightmove.api.workspace.constant.InvitationStatus;
 import app.lightmove.api.workspace.constant.MemberStatus;
 import app.lightmove.api.workspace.constant.WorkspaceMode;
 import app.lightmove.api.workspace.model.Workspace;
-import app.lightmove.api.workspace.model.WorkspacePersona;
 import app.lightmove.api.workspace.repository.InvitationRepository;
 import app.lightmove.api.workspace.repository.WorkspaceMemberRepository;
 import app.lightmove.api.workspace.repository.WorkspaceRepository;
@@ -57,7 +57,7 @@ public class WorkspaceSettingsService {
     }
 
     @Transactional
-    public WorkspaceDetail updatePersona(UUID actorId, UUID workspaceId, WorkspacePersona persona,
+    public WorkspaceDetail updatePersona(UUID actorId, UUID workspaceId, HiringPersona persona,
                                          HttpServletRequest request) {
         Workspace workspace = requireWorkspace(workspaceId);
         workspace.describePersona(persona);
