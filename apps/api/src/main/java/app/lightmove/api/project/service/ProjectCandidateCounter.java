@@ -19,6 +19,9 @@ public interface ProjectCandidateCounter {
     /** Executives who have answered: engaged or interested. */
     Map<UUID, Long> countEngagedByProject(Collection<UUID> projectIds);
 
+    /** Executives approached at all, answered or not — what puts a mandate into outreach. */
+    Map<UUID, Long> countReachedOutByProject(Collection<UUID> projectIds);
+
     /** Companies with an executive mapped; declined ones left out, or coverage could pass 100%. */
     Map<UUID, Long> countMappedCompaniesByProject(Collection<UUID> projectIds);
 }

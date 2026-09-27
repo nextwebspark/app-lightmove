@@ -13,6 +13,7 @@ import app.lightmove.api.core.security.rbac.WorkspaceRole;
 import app.lightmove.api.core.security.repository.UserRepository;
 import app.lightmove.api.position.service.PositionService;
 import app.lightmove.api.project.constant.ProjectHealth;
+import app.lightmove.api.project.constant.ProjectStage;
 import app.lightmove.api.project.dto.AttachedRepresentativeResponse;
 import app.lightmove.api.project.dto.CreateProjectRequest;
 import app.lightmove.api.project.dto.ProjectResponse;
@@ -186,7 +187,8 @@ public class ProjectService {
                 repsByClientId, pendingRepIdsByProjectId, companyCounter.countByProject(ids),
                 candidateCounter.countByProject(ids), candidateCounter.countMappedByProject(ids),
                 candidateCounter.countEngagedByProject(ids),
-                candidateCounter.countMappedCompaniesByProject(ids), LocalDate.now());
+                candidateCounter.countMappedCompaniesByProject(ids),
+                candidateCounter.countReachedOutByProject(ids), LocalDate.now());
     }
 
     private ProjectResponse toResponse(Project project, Assembly assembly) {
@@ -211,20 +213,25 @@ public class ProjectService {
 
         List<AttachedRepresentativeResponse> attachedRepresentatives = attachedRepresentativesOf(project, assembly);
 
+        long companies = assembly.companyCountByProject().getOrDefault(project.getId(), 0L);
+        long mappedCompanies = assembly.mappedCompanyCountByProject().getOrDefault(project.getId(), 0L);
+        ProjectStage stage = ProjectStage.reached(project.getStage(), companies, mappedCompanies,
+                assembly.reachedOutCountByProject().getOrDefault(project.getId(), 0L));
+
         Client client = assembly.clientById().get(project.getClientId());
         return new ProjectResponse(
                 project.getId(), project.getClientId(),
                 client == null ? "" : client.getName(),
                 client == null ? null : client.getLogoUrl(),
-                project.getPositionTitle(), project.getStage(),
-                ProjectHealth.derive(project.getStage(), project.deadline(), assembly.today()),
+                project.getPositionTitle(), stage,
+                ProjectHealth.derive(stage, project.deadline(), assembly.today()),
                 project.getTargetDate(), project.getProjectType(), project.getStartDate(),
                 project.getDeliveryDate(), project.getMappingTargetDate(), team, attachedRepresentatives,
-                assembly.companyCountByProject().getOrDefault(project.getId(), 0L),
+                companies,
                 assembly.candidateCountByProject().getOrDefault(project.getId(), 0L),
                 assembly.mappedCandidateCountByProject().getOrDefault(project.getId(), 0L),
                 assembly.engagedCountByProject().getOrDefault(project.getId(), 0L),
-                assembly.mappedCompanyCountByProject().getOrDefault(project.getId(), 0L),
+                mappedCompanies,
                 project.getCreatedAt());
     }
 
@@ -275,6 +282,7 @@ public class ProjectService {
                             Map<UUID, Long> mappedCandidateCountByProject,
                             Map<UUID, Long> engagedCountByProject,
                             Map<UUID, Long> mappedCompanyCountByProject,
+                            Map<UUID, Long> reachedOutCountByProject,
                             LocalDate today) {
     }
 }

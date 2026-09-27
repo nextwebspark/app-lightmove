@@ -15,7 +15,7 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 
-/** One search mandate inside exactly one workspace. Starts at BRIEF; no screen sets a stage yet. */
+/** One search mandate inside exactly one workspace. Its gate is {@link ProjectStage#reached}, not the stored stage. */
 @Entity
 @Table(name = "app_lm_project")
 @Getter

@@ -37,6 +37,10 @@ class ProjectCandidateCounterAdapter implements ProjectCandidateCounter {
     private static final Set<CandidateStatus> ENGAGED = EnumSet.of(
             CandidateStatus.ENGAGED, CandidateStatus.INTERESTED);
 
+    private static final Set<CandidateStatus> REACHED_OUT = EnumSet.of(
+            CandidateStatus.CONTACTED, CandidateStatus.ENGAGED, CandidateStatus.INTERESTED,
+            CandidateStatus.NOT_INTERESTED);
+
     private final CandidateRepository candidates;
 
     @Override
@@ -61,6 +65,14 @@ class ProjectCandidateCounterAdapter implements ProjectCandidateCounter {
             return Map.of();
         }
         return byProject(candidates.countByProjectIdInAndStatusIn(projectIds, ENGAGED));
+    }
+
+    @Override
+    public Map<UUID, Long> countReachedOutByProject(Collection<UUID> projectIds) {
+        if (projectIds.isEmpty()) {
+            return Map.of();
+        }
+        return byProject(candidates.countByProjectIdInAndStatusIn(projectIds, REACHED_OUT));
     }
 
     @Override
