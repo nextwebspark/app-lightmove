@@ -494,14 +494,16 @@ describe("CandidateDrawer", () => {
     expect(vi.mocked(candidatesApi.updateCandidate).mock.calls[0][2].gender).toBe("male");
   });
 
-  it("offers nationality as the nine groups, and saves the one picked", async () => {
+  it("offers nationality as the eleven groups, and saves the one picked", async () => {
     vi.mocked(candidatesApi.updateCandidate).mockResolvedValue({ ...yasmin, nationality: "Emirati" });
     renderDrawer({ candidate: { ...yasmin, nationality: null }, company: null });
 
     await userEvent.click(screen.getByRole("button", { name: /Edit background/i }));
     const nationality = screen.getByLabelText(/^Nationality/i);
     expect(nationality).toHaveValue("");
-    expect(within(nationality).getAllByRole("option")).toHaveLength(10);
+    expect(within(nationality).getAllByRole("option")).toHaveLength(12);
+    expect(within(nationality).getByRole("option", { name: "Asian" })).toBeInTheDocument();
+    expect(within(nationality).getByRole("option", { name: "Other expat" })).toBeInTheDocument();
 
     await userEvent.selectOptions(nationality, "Emirati");
     await userEvent.click(screen.getByRole("button", { name: /^Save$/i }));
@@ -510,7 +512,7 @@ describe("CandidateDrawer", () => {
     expect(vi.mocked(candidatesApi.updateCandidate).mock.calls[0][2].nationality).toBe("Emirati");
   });
 
-  it("keeps a stored nationality the nine do not carry", async () => {
+  it("keeps a stored nationality the eleven do not carry", async () => {
     vi.mocked(candidatesApi.updateCandidate).mockResolvedValue(yasmin);
     renderDrawer({ candidate: yasmin, company: null });
 

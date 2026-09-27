@@ -44,14 +44,16 @@ export const CANDIDATE_SENIORITIES: CandidateSeniority[] = SENIORITY_TOKENS;
 export { NOTICE_PERIODS as CANDIDATE_NOTICE_PERIODS } from "../../../lib/noticePeriod";
 
 /**
- * The nine groups a mandate counts nationality in, in the order the firm lists them. The label is
+ * The eleven groups a mandate counts nationality in, in the order the firm lists them. The label is
  * the stored value. A row may still hold something else — a spreadsheet states whatever it states —
  * and the report folds that into one of these when it reads it.
  */
 export const CANDIDATE_NATIONALITIES: string[] = [
   "Western expat",
   "South Asian",
+  "Asian",
   "Arab expat, non-GCC",
+  "Other expat",
   "Saudi",
   "Emirati",
   "Qatari",

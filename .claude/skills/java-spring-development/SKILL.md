@@ -348,7 +348,8 @@ method plus the records it returns — never another feature's internals:
   is no report table. It states what the rows carry and nothing more — no inferred gender, no
   pipeline outcome, no currency conversion — so a chapter never reports a guess as a finding.
   Nationality is the one thing it folds: `NationalityCatalog` counts a row's free-text value under
-  one of nine groups at read time and never rewrites what is stored.
+  one of eleven groups at read time — a country it resolves but no other group claims is Other
+  expat — and never rewrites what is stored.
 - `position`'s `PositionService` reads `project`'s repositories for the mandate a brief belongs to,
   the same way `CandidateService` does — a brief cannot be scoped, titled or dated without it — and
   `project`'s `ProjectService.create` seeds the new mandate's brief through one call taking primitives
