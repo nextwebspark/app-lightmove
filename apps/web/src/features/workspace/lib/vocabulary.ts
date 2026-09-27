@@ -13,6 +13,11 @@ export interface WorkspaceVocabulary {
   contactsLower: string;
   /** The registry's empty state: what one of these is, for someone who has none yet. */
   unitExplainer: string;
+  /** Whose profile the assistant's starters are drawn from — the firm in-house, the client at an agency. */
+  hiringCompanyPossessive: string;
+  sectorStarterTag: string;
+  /** Where to record that profile when the starters had to assume a sector. */
+  hiringProfileHint: string;
 }
 
 const COMPANY_VOCABULARY: WorkspaceVocabulary = Object.freeze({
@@ -26,6 +31,9 @@ const COMPANY_VOCABULARY: WorkspaceVocabulary = Object.freeze({
   contactsLower: "hiring managers",
   unitExplainer:
     "A business unit groups the hiring managers and open positions for one part of the org — Engineering, Sales, and so on.",
+  hiringCompanyPossessive: "your firm's",
+  sectorStarterTag: "Your sector",
+  hiringProfileHint: "add your company in Settings → General",
 });
 
 const AGENCY_VOCABULARY: WorkspaceVocabulary = Object.freeze({
@@ -38,6 +46,9 @@ const AGENCY_VOCABULARY: WorkspaceVocabulary = Object.freeze({
   contactLower: "client contact",
   contactsLower: "client contacts",
   unitExplainer: "A client is a company you search for — its contacts and open positions live here.",
+  hiringCompanyPossessive: "your client's",
+  sectorStarterTag: "Client's sector",
+  hiringProfileHint: "add sectors to this client's persona under Clients",
 });
 
 export function vocabularyFor(mode: WorkspaceMode): WorkspaceVocabulary {

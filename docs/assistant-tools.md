@@ -17,8 +17,10 @@ Panel ──POST /api/v1/projects/{projectId}/assistant/ask {question, threadId?
       still saved; every answered ask records ASSISTANT_ASKED with its Bright Data searches
         ├─ find my chat in this project (or start one titled from the question)
         ├─ last N question/answer pairs → history
-        ├─ system prompt carries the firm: FirmService.firmOf → FirmContext, the workspace's company
-        │  (V68) and the persona its admins wrote in Settings → General (V69), framed as data
+        ├─ system prompt carries the hiring company: HiringSideResolver → HiringContext. In-house,
+        │  the workspace's company (V68) and the persona its admins wrote in Settings → General (V69);
+        │  at an agency (V83), the mandate's client and the persona recorded in its drawer (V84), with
+        │  the agency named in one line. Framed as data, never instructions
         ├─ ChatClient.call() with the tools + ToolContext {workspaceId, projectId, TurnRecorder}
         │     readMandateBrief       → the position only (never compensation or internal notes)
         │     describeMarket         → exact country / industry spellings
