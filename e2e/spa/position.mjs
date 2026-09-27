@@ -91,7 +91,7 @@ const REP_EMAIL = `lm-e2e-position-rep-${STAMP}@${DOMAIN}`;
 await api("/auth/signup", { method: "POST", body: { fullName: "Pia Position", email: EMAIL, password: PASSWORD, termsAccepted: true } });
 await api("/auth/verify", { method: "POST", body: { token: linkFor(EMAIL, "verify").split("token=")[1] } });
 let token = (await api("/auth/login", { method: "POST", body: { email: EMAIL, password: PASSWORD } })).body.accessToken;
-await api("/onboarding/workspace", { method: "POST", token, body: { name: `Position SPA ${STAMP}`, companySize: "11-50 people", primaryRegion: "GCC", teamFocus: "Executive search" } });
+await api("/onboarding/workspace", { method: "POST", token, body: { mode: "COMPANY", name: `Position SPA ${STAMP}`, companySize: "11-50 people", primaryRegion: "GCC", teamFocus: "Executive search" } });
 // A token minted before the workspace existed carries no wsId, so every tenant route 404s until reissued.
 token = (await api("/auth/login", { method: "POST", body: { email: EMAIL, password: PASSWORD } })).body.accessToken;
 const UNIT = `Gulf Energy Holding ${STAMP}`;

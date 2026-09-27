@@ -68,7 +68,7 @@ public class OnboardingService {
         String slug = SlugGenerator.from(identity.name(), workspaces::existsBySlug);
 
         Workspace workspace = workspaces.save(Workspace.create(
-                identity.name(), slug, domain, userId, identity.company(),
+                identity.name(), slug, domain, userId, command.mode(), identity.company(),
                 command.companySize(), command.primaryRegion(), command.teamFocus()));
 
         selection.remember(user, members.save(WorkspaceMember.invite(
@@ -77,7 +77,7 @@ public class OnboardingService {
         log.info("Workspace {} ({}) created by user {} on domain {}", workspace.getId(), slug, userId, domain);
         audit.event(WorkspaceEventType.WORKSPACE_CREATED)
                 .actor(userId).workspace(workspace.getId()).from(request)
-                .detail("domain", domain).detail("slug", slug)
+                .detail("domain", domain).detail("slug", slug).detail("mode", workspace.getMode().name())
                 .record();
 
         return workspace;
@@ -96,7 +96,7 @@ public class OnboardingService {
                 .orElseThrow(() -> ApiException.of(ErrorCode.WORKSPACE_NOT_FOUND));
 
         WorkspaceIdentity identity = companyResolver.resolve(command.name(), command.apolloAccountId());
-        workspace.describe(identity.name(), identity.company(), command.companySize(),
+        workspace.describe(identity.name(), command.mode(), identity.company(), command.companySize(),
                 command.primaryRegion(), command.teamFocus());
 
         audit.event(WorkspaceEventType.WORKSPACE_UPDATED)

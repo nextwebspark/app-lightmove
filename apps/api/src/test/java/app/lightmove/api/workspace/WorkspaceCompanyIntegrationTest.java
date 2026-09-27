@@ -57,7 +57,7 @@ class WorkspaceCompanyIntegrationTest extends FlowTestSupport {
                         .header("Authorization", "Bearer " + token)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
-                                {"name":"Anything Typed","apolloAccountId":"apollo-af",
+                                {"mode":"COMPANY","name":"Anything Typed","apolloAccountId":"apollo-af",
                                  "companySize":"200+ people","primaryRegion":"GCC","teamFocus":"Mixed"}"""))
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.workspace.name").value("Al-Futtaim"))
@@ -91,7 +91,7 @@ class WorkspaceCompanyIntegrationTest extends FlowTestSupport {
                         .header("Authorization", "Bearer " + token)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
-                                {"name":"Ghost Co","apolloAccountId":"apollo-missing"}"""))
+                                {"mode":"COMPANY","name":"Ghost Co","apolloAccountId":"apollo-missing"}"""))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.code").value("VALIDATION_FAILED"));
     }
@@ -105,14 +105,14 @@ class WorkspaceCompanyIntegrationTest extends FlowTestSupport {
                         .header("Authorization", "Bearer " + token)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
-                                {"name":"Al-Futtaim","apolloAccountId":"apollo-af"}"""))
+                                {"mode":"COMPANY","name":"Al-Futtaim","apolloAccountId":"apollo-af"}"""))
                 .andExpect(status().isCreated());
 
         mvc.perform(patch("/api/v1/onboarding/workspace")
                         .header("Authorization", "Bearer " + login(alok))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
-                                {"name":"Nimbus Partners","apolloAccountId":null}"""))
+                                {"mode":"COMPANY","name":"Nimbus Partners","apolloAccountId":null}"""))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.workspace.name").value("Nimbus Partners"))
                 .andExpect(jsonPath("$.workspace.company").value(org.hamcrest.Matchers.nullValue()));
@@ -156,7 +156,7 @@ class WorkspaceCompanyIntegrationTest extends FlowTestSupport {
                         .header("Authorization", "Bearer " + verifiedUser("Alok Kumar", alok))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
-                                {"name":"Al-Futtaim","apolloAccountId":"apollo-af"}"""))
+                                {"mode":"COMPANY","name":"Al-Futtaim","apolloAccountId":"apollo-af"}"""))
                 .andExpect(status().isCreated());
 
         mvc.perform(patch("/api/v1/workspace")
@@ -199,7 +199,7 @@ class WorkspaceCompanyIntegrationTest extends FlowTestSupport {
                         .header("Authorization", "Bearer " + verifiedUser("Alok Kumar", alok))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
-                                {"name":"Al-Futtaim","apolloAccountId":"apollo-af"}"""))
+                                {"mode":"COMPANY","name":"Al-Futtaim","apolloAccountId":"apollo-af"}"""))
                 .andExpect(status().isCreated());
         String admin = login(alok);
 

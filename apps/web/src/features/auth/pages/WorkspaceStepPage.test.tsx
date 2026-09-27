@@ -54,6 +54,7 @@ describe("WorkspaceStepPage — the organization is picked from the company data
     const user = userEvent.setup();
     renderPage();
 
+    await user.click(screen.getByRole("radio", { name: /Search agency/ }));
     await user.type(screen.getByPlaceholderText("Search company database…"), "Al-Fut");
     await user.click(await screen.findByRole("button", { name: /Al-Futtaim/ }));
     await user.click(screen.getByRole("button", { name: "Continue" }));
@@ -61,6 +62,7 @@ describe("WorkspaceStepPage — the organization is picked from the company data
     await waitFor(() => expect(authApi.createWorkspace).toHaveBeenCalled());
     expect(authApi.createWorkspace).toHaveBeenCalledWith(
       expect.objectContaining({
+        mode: "AGENCY",
         name: "Al-Futtaim",
         apolloAccountId: "apollo-af",
         companySize: "200+ people",
@@ -73,14 +75,29 @@ describe("WorkspaceStepPage — the organization is picked from the company data
     vi.mocked(authApi.searchOnboardingCompanies).mockResolvedValue([]);
     renderPage();
 
+    await user.click(screen.getByRole("radio", { name: /In-house team/ }));
     await user.type(screen.getByPlaceholderText("Search company database…"), "Nimbus Partners");
     await user.click(await screen.findByRole("button", { name: /None of these/ }));
     await user.click(screen.getByRole("button", { name: "Continue" }));
 
     await waitFor(() => expect(authApi.createWorkspace).toHaveBeenCalled());
     expect(authApi.createWorkspace).toHaveBeenCalledWith(
-      expect.objectContaining({ name: "Nimbus Partners", apolloAccountId: null }),
+      expect.objectContaining({ mode: "COMPANY", name: "Nimbus Partners", apolloAccountId: null }),
     );
+  });
+
+  it("refuses to continue until the firm says who it hires for", async () => {
+    const user = userEvent.setup();
+    renderPage();
+
+    await user.type(screen.getByPlaceholderText("Search company database…"), "Al-Fut");
+    await user.click(await screen.findByRole("button", { name: /Al-Futtaim/ }));
+    await user.click(screen.getByRole("button", { name: "Continue" }));
+
+    expect(await screen.findByText("Choose who you hire for")).toBeInTheDocument();
+    expect(screen.getByRole("radio", { name: /Search agency/ })).toHaveAttribute("aria-checked", "false");
+    expect(screen.getByRole("radio", { name: /In-house team/ })).toHaveAttribute("aria-checked", "false");
+    expect(authApi.createWorkspace).not.toHaveBeenCalled();
   });
 
   it("refuses to continue on typed text that was never picked", async () => {
@@ -100,6 +117,7 @@ describe("WorkspaceStepPage — the organization is picked from the company data
     const user = userEvent.setup();
     renderPage();
 
+    await user.click(screen.getByRole("radio", { name: /In-house team/ }));
     await user.type(screen.getByPlaceholderText("Search company database…"), "Al-Fut");
     await user.click(await screen.findByRole("button", { name: /Al-Futtaim/ }));
     await user.click(screen.getByRole("button", { name: "Change" }));
@@ -123,6 +141,7 @@ describe("WorkspaceStepPage — the organization is picked from the company data
         name: "Nimbus Partners",
         slug: "nimbus",
         logoMark: "N",
+        mode: "AGENCY",
         emailDomain: "nimbus.example",
         roles: ["ADMIN"],
         joinedAt: null,
@@ -140,6 +159,7 @@ describe("WorkspaceStepPage — the organization is picked from the company data
     await waitFor(() => expect(authApi.updateWorkspace).toHaveBeenCalled());
     expect(authApi.updateWorkspace).toHaveBeenCalledWith(
       expect.objectContaining({
+        mode: "AGENCY",
         name: "Nimbus Partners",
         companySize: "51–200 people",
         primaryRegion: "Europe",

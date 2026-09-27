@@ -91,6 +91,7 @@ describe("ResetPasswordPage", () => {
           name: "NextWebSpark",
           slug: "nextwebspark",
           logoMark: null,
+          mode: "COMPANY",
           emailDomain: "nextwebspark.com",
           joinedAt: null,
           company: null,

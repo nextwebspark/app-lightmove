@@ -1,10 +1,11 @@
 package app.lightmove.api.workspace.model;
-import app.lightmove.api.workspace.constant.WorkspaceStatus;
 
 import app.lightmove.api.common.constant.DefaultCurrency;
 import app.lightmove.api.core.error.constant.ErrorCode;
 import app.lightmove.api.core.error.model.ApiException;
 import app.lightmove.api.core.persistence.model.BaseEntity;
+import app.lightmove.api.workspace.constant.WorkspaceMode;
+import app.lightmove.api.workspace.constant.WorkspaceStatus;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
@@ -55,6 +56,10 @@ public class Workspace extends BaseEntity {
     @Column(name = "team_focus", length = 32)
     private String teamFocus;
 
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false, length = 16)
+    private WorkspaceMode mode;
+
     /** The universe row this firm was picked as at signup; null for a firm typed in by hand (V68). */
     @Column(name = "apollo_account_id")
     private String apolloAccountId;
@@ -100,13 +105,14 @@ public class Workspace extends BaseEntity {
     private UUID createdBy;
 
     public static Workspace create(String name, String slug, String emailDomain, UUID createdBy,
-                                   WorkspaceCompany company,
+                                   WorkspaceMode mode, WorkspaceCompany company,
                                    String companySize, String primaryRegion, String teamFocus) {
         Workspace workspace = new Workspace();
         workspace.name = name;
         workspace.slug = slug;
         workspace.emailDomain = emailDomain.toLowerCase(Locale.ROOT);
         workspace.createdBy = createdBy;
+        workspace.mode = mode;
         workspace.companySize = companySize;
         workspace.primaryRegion = primaryRegion;
         workspace.teamFocus = teamFocus;
@@ -119,15 +125,20 @@ public class Workspace extends BaseEntity {
     }
 
     /** Never the slug (in URLs) or the email domain: a workspace can be re-described, not re-identified. */
-    public void describe(String name, WorkspaceCompany company,
+    public void describe(String name, WorkspaceMode mode, WorkspaceCompany company,
                          String companySize, String primaryRegion, String teamFocus) {
         this.name = name;
+        this.mode = mode;
         this.companySize = companySize;
         this.primaryRegion = primaryRegion;
         this.teamFocus = teamFocus;
         this.logoMark = deriveLogoMark(name);
         this.persona = persona.refiledFrom(getCompany(), company);
         identifyAs(company);
+    }
+
+    public void changeMode(WorkspaceMode mode) {
+        this.mode = mode;
     }
 
     public void describePersona(WorkspacePersona persona) {

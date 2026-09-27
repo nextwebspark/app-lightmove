@@ -102,7 +102,7 @@ class AutoVerifyEmailTest {
                         .header("Authorization", token)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
-                                {"name":"NextWebSpark Search","companySize":"11-50 people",
+                                {"mode":"COMPANY","name":"NextWebSpark Search","companySize":"11-50 people",
                                  "primaryRegion":"GCC","teamFocus":"Executive search"}
                                 """))
                 .andExpect(status().isCreated())

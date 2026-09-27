@@ -8,6 +8,9 @@
 
 export type WorkspaceRole = "ADMIN" | "MEMBER" | "CLIENT";
 
+/** Mirrors the API's `WorkspaceMode`: who the workspace hires for — client companies, or its own business units. */
+export type WorkspaceMode = "AGENCY" | "COMPANY";
+
 /** Mirrors the API's `PlatformAction`: what a user may do outside any workspace. */
 export type PlatformAction = "TEMPLATE_LIBRARY_MANAGE";
 
@@ -16,6 +19,7 @@ export interface WorkspaceSummary {
   name: string;
   slug: string;
   logoMark: string | null;
+  mode: WorkspaceMode;
   /** Null for a pure client: it describes the firm's own people, and a portal guest is not one. */
   emailDomain: string | null;
   /** The caller's workspace roles — a set. Admin checks read `roles.includes("ADMIN")`. */
@@ -147,6 +151,7 @@ export interface ActiveSession {
 
 export interface CreateWorkspaceRequest {
   name: string;
+  mode: WorkspaceMode;
   /** The universe company picked; null for a firm typed in by hand. The server files it under its own name. */
   apolloAccountId: string | null;
   companySize: string;

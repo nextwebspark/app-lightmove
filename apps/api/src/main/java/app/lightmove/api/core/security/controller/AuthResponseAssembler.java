@@ -159,6 +159,7 @@ public class AuthResponseAssembler {
                 workspace.getName(),
                 workspace.getSlug(),
                 workspace.getLogoMark(),
+                workspace.getMode(),
                 WorkspaceRole.isStaff(roles) ? workspace.getEmailDomain() : null,
                 roles,
                 membership.getJoinedAt(),

@@ -4,6 +4,7 @@ import app.lightmove.api.core.security.model.AuthPrincipal;
 import app.lightmove.api.core.security.rbac.RequireWorkspacePermission;
 import app.lightmove.api.core.security.rbac.WorkspaceAction;
 import app.lightmove.api.workspace.dto.DeleteWorkspaceRequest;
+import app.lightmove.api.workspace.dto.UpdateWorkspaceModeRequest;
 import app.lightmove.api.workspace.dto.UpdateWorkspacePersonaRequest;
 import app.lightmove.api.workspace.dto.UpdateWorkspaceSettingsRequest;
 import app.lightmove.api.workspace.dto.WorkspaceCompanyResponse;
@@ -65,6 +66,15 @@ public class WorkspaceController {
                 principal.userId(), principal.requireWorkspaceId(), persona, httpRequest));
     }
 
+    @PutMapping("/mode")
+    @RequireWorkspacePermission(WorkspaceAction.WORKSPACE_MANAGE)
+    public WorkspaceResponse changeMode(@AuthenticationPrincipal AuthPrincipal principal,
+                                        @Valid @RequestBody UpdateWorkspaceModeRequest request,
+                                        HttpServletRequest httpRequest) {
+        return toResponse(settings.changeMode(
+                principal.userId(), principal.requireWorkspaceId(), request.mode(), httpRequest));
+    }
+
     @DeleteMapping
     @RequireWorkspacePermission(WorkspaceAction.WORKSPACE_MANAGE)
     @ResponseStatus(HttpStatus.NO_CONTENT)
@@ -78,7 +88,7 @@ public class WorkspaceController {
     private WorkspaceResponse toResponse(WorkspaceDetail detail) {
         Workspace ws = detail.workspace();
         return new WorkspaceResponse(ws.getId(), ws.getName(), ws.getSlug(), ws.getLogoMark(),
-                ws.getEmailDomain(), ws.getDefaultRegion(), ws.getDefaultCurrency(), ws.getPlan(),
+                ws.getEmailDomain(), ws.getMode(), ws.getDefaultRegion(), ws.getDefaultCurrency(), ws.getPlan(),
                 detail.memberCount(), ws.getCreatedAt(), ws.getPersona(),
                 WorkspaceCompanyResponse.of(ws.getCompany()));
     }

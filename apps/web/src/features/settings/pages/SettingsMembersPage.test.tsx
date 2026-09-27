@@ -50,6 +50,7 @@ describe("SettingsMembersPage — the roster", () => {
       name: "NextWebSpark Search",
       slug: "nextwebspark-search",
       logoMark: "N",
+      mode: "COMPANY" as const,
       emailDomain: "nextwebspark.com",
       joinedAt: null,
       company: null,

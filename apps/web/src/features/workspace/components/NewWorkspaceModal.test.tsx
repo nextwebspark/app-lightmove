@@ -69,13 +69,18 @@ describe("NewWorkspaceModal", () => {
     const user = userEvent.setup();
     renderModal();
 
+    await user.click(screen.getByRole("radio", { name: /Search agency/ }));
     await user.type(screen.getByPlaceholderText("Search company database…"), "Merid");
     await user.click(await screen.findByRole("button", { name: /Meridian Search Partners/ }));
     await user.click(screen.getByRole("button", { name: "Continue" }));
 
     await waitFor(() =>
       expect(workspaceApi.createWorkspace).toHaveBeenCalledWith(
-        expect.objectContaining({ name: "Meridian Search Partners", apolloAccountId: "apollo-meridian" }),
+        expect.objectContaining({
+          mode: "AGENCY",
+          name: "Meridian Search Partners",
+          apolloAccountId: "apollo-meridian",
+        }),
       ),
     );
     // Switched before the invite stage is shown, so the invitations land on the new roster.
@@ -96,6 +101,7 @@ describe("NewWorkspaceModal", () => {
     const user = userEvent.setup();
     renderModal();
 
+    await user.click(screen.getByRole("radio", { name: /Search agency/ }));
     await user.type(screen.getByPlaceholderText("Search company database…"), "Merid");
     await user.click(await screen.findByRole("button", { name: /Meridian Search Partners/ }));
     await user.click(screen.getByRole("button", { name: "Continue" }));
@@ -114,6 +120,7 @@ describe("NewWorkspaceModal", () => {
     const user = userEvent.setup();
     renderModal();
 
+    await user.click(screen.getByRole("radio", { name: /Search agency/ }));
     await user.type(screen.getByPlaceholderText("Search company database…"), "Merid");
     await user.click(await screen.findByRole("button", { name: /Meridian Search Partners/ }));
     await user.click(screen.getByRole("button", { name: "Continue" }));

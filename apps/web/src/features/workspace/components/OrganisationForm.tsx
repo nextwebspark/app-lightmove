@@ -1,6 +1,6 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useRef, useState } from "react";
-import { useForm } from "react-hook-form";
+import { Controller, useForm } from "react-hook-form";
 import { Button, Field, FormError, Select } from "../../../components/ui";
 import * as authApi from "../../auth/api/authApi";
 import type { CreateWorkspaceRequest, User, WorkspaceSummary } from "../../auth/api/types";
@@ -14,13 +14,14 @@ import {
 import { CompanyPicker, type CompanySearchSource } from "../../clients/components/CompanyPicker";
 import { pickedCompanyName, workspaceCompanyPick, type CompanyPick } from "../../clients/lib/companyPick";
 import { messageFor } from "../../../lib/errorCodes";
+import { WorkspaceModeChoice } from "./WorkspaceModeChoice";
 
 /**
  * The "About your organization" form — Signup.dc.html's step 3, and the first stage of the New
  * workspace modal. One form, because a workspace is described the same way whether it is the firm's
- * first or its third: the company picked from the universe, its size, region and focus. Which
- * endpoint it posts to is the caller's: the wizard creates (or corrects) through onboarding, the
- * modal through `/workspaces`.
+ * first or its third: who it hires for, the company picked from the universe, its size, region and
+ * focus. Which endpoint it posts to is the caller's: the wizard creates (or corrects) through
+ * onboarding, the modal through `/workspaces`.
  */
 export function OrganisationForm({
   editing,
@@ -44,6 +45,7 @@ export function OrganisationForm({
   );
 
   const {
+    control,
     register,
     handleSubmit,
     setValue,
@@ -53,6 +55,7 @@ export function OrganisationForm({
   } = useForm<WorkspaceValues>({
     resolver: zodResolver(workspaceSchema),
     defaultValues: {
+      mode: editing?.mode,
       name: editing?.name ?? "",
       // The mockup's dropdowns open on their first option; ours were opening on the second.
       companySize: editing?.companySize ?? COMPANY_SIZES[0],
@@ -101,6 +104,18 @@ export function OrganisationForm({
       <FormError message={formError} />
 
       <form onSubmit={handleSubmit(onSubmit)} noValidate>
+        <Controller
+          control={control}
+          name="mode"
+          render={({ field, fieldState }) => (
+            <WorkspaceModeChoice
+              value={field.value ?? null}
+              onChange={field.onChange}
+              error={fieldState.error?.message}
+            />
+          )}
+        />
+
         {pick && (
           <span className="mb-1.5 block font-mono text-[10px] font-semibold uppercase tracking-[0.12em] text-u-text3">
             Organization name

@@ -14,13 +14,14 @@ import {
   type CompanyPick,
 } from "../../clients/lib/companyPick";
 import * as workspaceApi from "../../workspace/api/workspaceApi";
+import { WorkspaceModeCard } from "../components/WorkspaceModeCard";
 import { WorkspacePersonaCard } from "../components/WorkspacePersonaCard";
 
 const REGIONS = ["GCC", "MENA", "Europe", "Global"];
 
 /**
  * Settings → General: identity card, the firm (picked from the universe, as at signup) and defaults,
- * and the typed-confirmation danger zone.
+ * who the workspace hires for, the firm persona, and the typed-confirmation danger zone.
  */
 export function SettingsGeneralPage() {
   const { reload } = useAuth();
@@ -138,6 +139,8 @@ export function SettingsGeneralPage() {
           </Button>
         </div>
       </div>
+
+      <WorkspaceModeCard mode={workspace.mode} />
 
       {/* Keyed on the firm too: a re-pick refiles the persona's sectors and country server-side. */}
       <WorkspacePersonaCard

@@ -10,6 +10,7 @@ import app.lightmove.api.core.security.rbac.RoleScope;
 import app.lightmove.api.core.security.rbac.WorkspaceRole;
 import app.lightmove.api.workspace.constant.InvitationStatus;
 import app.lightmove.api.workspace.constant.MemberStatus;
+import app.lightmove.api.workspace.constant.WorkspaceMode;
 import app.lightmove.api.workspace.model.Invitation;
 import app.lightmove.api.workspace.model.Workspace;
 import app.lightmove.api.workspace.model.WorkspaceMember;
@@ -64,7 +65,8 @@ class WorkspaceDomainTest {
     @DisplayName("deleting a workspace is final")
     void workspaceDeleteIsFinal() {
         Workspace workspace = Workspace.create(
-                "Acme Search", "acme-search", "acme.example", someone, null, null, null, null);
+                "Acme Search", "acme-search", "acme.example", someone, WorkspaceMode.COMPANY,
+                null, null, null, null);
 
         workspace.delete();
 

@@ -168,6 +168,15 @@
       <h1 style="margin:0;font:600 19px/1.25 var(--sans)">About your organization</h1>
       <p style="margin:4px 0 24px;font:400 12px var(--mono);color:var(--text3)">{{ step3Subtitle }}</p>
 
+      <!-- Who the workspace hires for: no default, so neither card starts selected. -->
+      <div data-screen-label="Workspace type" style="margin-bottom:16px">
+        <span style="display:block;margin-bottom:6px;font:600 10px var(--mono);letter-spacing:.12em;text-transform:uppercase;color:var(--text3)">Who do you hire for?</span>
+        <div role="radiogroup" aria-label="Who do you hire for?" style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px">
+          <div role="radio" aria-checked="false" style="display:flex;align-items:flex-start;justify-content:space-between;gap:16px;border-radius:10px;border:1px solid var(--line);background:var(--panel2);padding:14px 16px;cursor:pointer"><span><span style="display:block;font:600 13px var(--sans);color:var(--text2)">Search agency</span><span style="display:block;margin-top:4px;font:400 11.5px var(--mono);color:var(--text3)">You hire for client companies — each client is a separate business.</span></span><span aria-hidden="true" style="margin-top:4px;width:12px;height:12px;flex:none;border-radius:50%;border:1px solid var(--line)"></span></div>
+          <div role="radio" aria-checked="false" style="display:flex;align-items:flex-start;justify-content:space-between;gap:16px;border-radius:10px;border:1px solid var(--line);background:var(--panel2);padding:14px 16px;cursor:pointer"><span><span style="display:block;font:600 13px var(--sans);color:var(--text2)">In-house team</span><span style="display:block;margin-top:4px;font:400 11.5px var(--mono);color:var(--text3)">You hire for your own organisation — each business unit is a client.</span></span><span aria-hidden="true" style="margin-top:4px;width:12px;height:12px;flex:none;border-radius:50%;border:1px solid var(--line)"></span></div>
+        </div>
+      </div>
+
       <label style="display:block;margin-bottom:16px">
         <span style="display:flex;align-items:baseline;justify-content:space-between;margin-bottom:6px"><span style="font:600 10px var(--mono);letter-spacing:.12em;text-transform:uppercase;color:var(--text3)">Organization name</span></span>
         <input placeholder="e.g. Uncava Search Partners" value="{{ orgName }}" onInput="{{ setOrgName }}" style="width:100%;border-radius:6px;border:1px solid var(--line);background:var(--panel2);padding:10px 12px;font:400 13px var(--mono);color:var(--text);outline:none;transition:border-color .15s" style-focus="border-color:var(--sky);box-shadow:0 0 0 1px var(--ring)">
