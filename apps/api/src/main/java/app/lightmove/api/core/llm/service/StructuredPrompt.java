@@ -34,15 +34,13 @@ public final class StructuredPrompt {
     private final String promptId;
     private final Resource systemPrompt;
     private final Consumer<ChatClient.AdvisorSpec> guarded;
-    private final boolean searchGrounded;
 
     StructuredPrompt(ChatClient chatClient, String promptId, Resource systemPrompt,
-                     Consumer<ChatClient.AdvisorSpec> guarded, boolean searchGrounded) {
+                     Consumer<ChatClient.AdvisorSpec> guarded) {
         this.chatClient = chatClient;
         this.promptId = promptId;
         this.systemPrompt = systemPrompt;
         this.guarded = guarded;
-        this.searchGrounded = searchGrounded;
     }
 
     /** The model's answer bound to {@code answerType}, or null when it answered nothing. */
@@ -57,12 +55,10 @@ public final class StructuredPrompt {
     }
 
     private GoogleGenAiChatOptions.Builder options() {
-        GoogleGenAiChatOptions.Builder options = GoogleGenAiChatOptions.builder()
+        return GoogleGenAiChatOptions.builder()
                 .temperature(TEMPERATURE)
                 .thinkingBudget(THINKING_BUDGET)
-                .labels(Map.of("prompt", promptId));
-        // Google Search grounding cannot be combined with a JSON response type on Gemini 2.5, so a
-        // grounded answer's shape comes from the prompt and the schema advisor instead.
-        return searchGrounded ? options.googleSearchRetrieval(true) : options.responseMimeType(ANSWER_MIME_TYPE);
+                .labels(Map.of("prompt", promptId))
+                .responseMimeType(ANSWER_MIME_TYPE);
     }
 }

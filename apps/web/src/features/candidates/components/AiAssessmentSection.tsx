@@ -1,13 +1,12 @@
-import { useState } from "react";
 import { cn } from "../../../lib/cn";
 import { formatInstantDate } from "../../../lib/format";
-import type { AssessmentSourceLink, CompetencyPanelAssessment } from "../api/types";
+import type { CompetencyPanelAssessment } from "../api/types";
 import type { AiEnrichment } from "../lib/useAiEnrichment";
 import { AiInferredBadge } from "./CandidateFieldGroups";
 
 /**
  * The body of the profile's AI assessment fold: the model's summary, a 1–10 reading per competency
- * panel with its positives and negatives, and the web pages it relied on.
+ * panel with its positives and negatives.
  */
 export function AiAssessmentBody({ enrichment }: { enrichment: AiEnrichment }) {
   const { assessment } = enrichment;
@@ -28,8 +27,8 @@ export function AiAssessmentBody({ enrichment }: { enrichment: AiEnrichment }) {
         {lastFailure}
         <p className="font-mono text-[12.5px] text-u-text3">
           {enrichment.isRunning
-            ? "Searching the web and scoring against the brief…"
-            : "Not assessed yet. AI deep enrich reads the profile, searches the web and scores this executive against the brief's competencies."}
+            ? "Reading the profile and scoring against the brief…"
+            : "Not assessed yet. AI deep enrich reads the profile and scores this executive against the brief's competencies."}
         </p>
       </div>
     );
@@ -46,7 +45,6 @@ export function AiAssessmentBody({ enrichment }: { enrichment: AiEnrichment }) {
         <PanelCard title="Technical" panel={assessment.technical} />
         <PanelCard title="Behavioural" panel={assessment.behavioural} />
       </div>
-      <SourceList sources={assessment.sources} />
     </div>
   );
 }
@@ -112,48 +110,4 @@ function PointList({ points, tone }: { points: readonly string[]; tone: "positiv
       ))}
     </ul>
   );
-}
-
-/** The pages behind the reading, two lines of them until the reader asks for the rest. */
-function SourceList({ sources }: { sources: readonly AssessmentSourceLink[] }) {
-  const [expanded, setExpanded] = useState(false);
-  if (sources.length === 0) return null;
-  return (
-    <div>
-      <div className="mb-1.5 font-mono text-[9.5px] font-semibold uppercase tracking-[0.08em] text-u-text3">
-        Sources
-      </div>
-      <ul className={cn("text-[12.5px] leading-[1.6]", !expanded && "line-clamp-2")}>
-        {sources.map((source) => (
-          <li key={source.url} className="inline after:mx-1.5 after:text-u-text3 after:content-['·'] last:after:content-none">
-            <a
-              href={source.url}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="text-u-accent underline-offset-2 hover:underline"
-            >
-              {source.title ?? hostOf(source.url)}
-            </a>
-          </li>
-        ))}
-      </ul>
-      {sources.length > 1 && (
-        <button
-          type="button"
-          onClick={() => setExpanded((current) => !current)}
-          className="mt-1 font-mono text-[11px] text-u-text3 transition hover:text-u-text"
-        >
-          {expanded ? "See less" : "See more"}
-        </button>
-      )}
-    </div>
-  );
-}
-
-function hostOf(url: string): string {
-  try {
-    return new URL(url).hostname.replace(/^www\./, "");
-  } catch {
-    return url;
-  }
 }

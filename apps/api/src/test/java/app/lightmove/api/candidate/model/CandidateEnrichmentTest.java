@@ -156,7 +156,7 @@ class CandidateEnrichmentTest {
         candidate.recordAiEnrichFailure();
         assertThat(candidate.getAiEnrichFailedAt()).isNotNull();
 
-        candidate.recordAiAssessment(new CandidateAiAssessment("Read.", null, null, List.of(), "2026-09-25T10:00:00Z"));
+        candidate.recordAiAssessment(new CandidateAiAssessment("Read.", null, null, "2026-09-25T10:00:00Z"));
 
         assertThat(candidate.getAiEnrichFailedAt()).isNull();
     }

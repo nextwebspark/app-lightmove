@@ -1,7 +1,6 @@
 package app.lightmove.api.candidate.model;
 
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
-import java.util.List;
 
 /**
  * The model's reading of a candidate against the mandate's competencies, stored whole on the row
@@ -10,10 +9,4 @@ import java.util.List;
  */
 @JsonIgnoreProperties(ignoreUnknown = true)
 public record CandidateAiAssessment(String summary, CompetencyPanelAssessment technical,
-                                    CompetencyPanelAssessment behavioural,
-                                    List<AssessmentSourceLink> sources, String assessedAt) {
-
-    public CandidateAiAssessment {
-        sources = sources == null ? List.of() : List.copyOf(sources);
-    }
-}
+                                    CompetencyPanelAssessment behavioural, String assessedAt) {}

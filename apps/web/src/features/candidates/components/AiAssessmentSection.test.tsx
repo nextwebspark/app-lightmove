@@ -78,10 +78,6 @@ const assessed: CandidateAiAssessment = {
   summary: "A proven GCC finance leader.",
   technical: { score: 8, positives: ["Led a dairy IPO"], negatives: ["No energy exposure"] },
   behavioural: { score: null, positives: [], negatives: [] },
-  sources: [
-    { url: "https://news.example.com/a", title: "CFO profile" },
-    { url: "https://www.example.org/b", title: null },
-  ],
   assessedAt: "2026-09-20T10:00:00Z",
   failedAt: null,
 };
@@ -105,9 +101,8 @@ const renderDrawer = (canWrite = true) =>
   );
 
 /**
- * The profile's AI assessment: staff read two scores with their reasons and the pages behind them,
- * the sources fold to two lines, and a client seat is never shown the fold or the button — the
- * server would refuse the read anyway.
+ * The profile's AI assessment: staff read two scores with their reasons, and a client seat is never
+ * shown the fold or the button — the server would refuse the read anyway.
  */
 describe("AI assessment", () => {
   beforeEach(() => {
@@ -126,23 +121,6 @@ describe("AI assessment", () => {
     expect(within(screen.getByRole("list", { name: "Negatives" })).getByText("No energy exposure"))
       .toBeInTheDocument();
     expect(screen.getByText("Not enough in the brief or the evidence to judge.")).toBeInTheDocument();
-  });
-
-  it("links each source in a new tab and folds the list to two lines until asked", async () => {
-    const user = userEvent.setup();
-    renderDrawer();
-
-    const link = await screen.findByRole("link", { name: "CFO profile" });
-    expect(link).toHaveAttribute("href", "https://news.example.com/a");
-    expect(link).toHaveAttribute("target", "_blank");
-    expect(link).toHaveAttribute("rel", "noopener noreferrer");
-    expect(screen.getByRole("link", { name: "example.org" })).toBeInTheDocument();
-    const sources = link.closest("ul")!;
-    expect(sources).toHaveClass("line-clamp-2");
-
-    await user.click(screen.getByRole("button", { name: "See more" }));
-    expect(sources).not.toHaveClass("line-clamp-2");
-    expect(screen.getByRole("button", { name: "See less" })).toBeInTheDocument();
   });
 
   it("queues a deep enrichment from the header button", async () => {
