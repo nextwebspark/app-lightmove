@@ -209,7 +209,48 @@ class AssistantIntegrationTest extends FlowTestSupport {
                 .contains("- Name: Assistant Persona Firm")
                 .contains("- Sectors: Retail, Real Estate")
                 .contains("- Competitors: Majid Al Futtaim")
-                .doesNotContain("{firm}");
+                .contains("departments or business units")
+                .doesNotContain("{hiring}");
+    }
+
+    @Test
+    @DisplayName("at an agency, every question carries the mandate's client and its persona, not the agency's")
+    void tellsTheModelAboutTheClient() throws Exception {
+        String alok = "alok@" + domain;
+        createWorkspace(verifiedUser("Alok Kumar", alok), "Gulf Search Partners", "AGENCY");
+        String admin = login(alok);
+        String clientId = body(mvc.perform(post("/api/v1/clients")
+                        .header("Authorization", "Bearer " + admin)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"customName":"Harbour Health","hqCountry":"Saudi Arabia"}"""))
+                .andReturn()).get("id").asText();
+        mvc.perform(put("/api/v1/clients/" + clientId + "/persona")
+                        .header("Authorization", "Bearer " + admin)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"summary":"Private hospital operator","sectors":["Hospitals"],
+                                 "competitors":["Dallah Health"]}"""))
+                .andExpect(status().isOk());
+        String projectId = body(mvc.perform(post("/api/v1/projects")
+                        .header("Authorization", "Bearer " + admin)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"clientId":"%s","positionTitle":"Chief Medical Officer"}
+                                """.formatted(clientId)))
+                .andReturn()).get("id").asText();
+
+        askAndAwait(admin, projectId, null, "Top hospital groups");
+
+        String system = model.lastPrompt().getSystemMessage().getText();
+        assertThat(system)
+                .contains("The consultant works for Gulf Search Partners, a search agency")
+                .contains("- Name: Harbour Health")
+                .contains("- Headquarters: Saudi Arabia")
+                .contains("- Sectors: Hospitals")
+                .contains("- Competitors: Dallah Health")
+                .doesNotContain("departments or business units")
+                .doesNotContain("{hiring}");
     }
 
     private String turnWithCard(Firm firm) throws Exception {

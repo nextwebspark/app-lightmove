@@ -46,7 +46,7 @@ public class AssistantController {
     @RequireProjectPermission(ProjectAction.WORK_EXECUTE)
     public AssistantStartersResponse starters(
             @AuthenticationPrincipal AuthPrincipal principal, @PathVariable UUID projectId) {
-        return starters.forWorkspace(principal.requireWorkspaceId());
+        return starters.forProject(principal.requireWorkspaceId(), projectId);
     }
 
     @GetMapping("/api/v1/projects/{projectId}/assistant/threads")
