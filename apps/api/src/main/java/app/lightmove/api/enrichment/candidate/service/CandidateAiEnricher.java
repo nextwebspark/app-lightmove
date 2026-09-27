@@ -2,7 +2,6 @@ package app.lightmove.api.enrichment.candidate.service;
 
 import app.lightmove.api.candidate.constant.BackgroundField;
 import app.lightmove.api.candidate.constant.Gender;
-import app.lightmove.api.candidate.model.AssessmentSourceLink;
 import app.lightmove.api.candidate.model.CandidateAiAssessment;
 import app.lightmove.api.candidate.model.CandidateAiEnrichment;
 import app.lightmove.api.candidate.model.CandidateCareerEntry;
@@ -17,9 +16,9 @@ import app.lightmove.api.core.llm.service.LlmCallPolicy;
 import app.lightmove.api.position.dto.AssessmentDto;
 import app.lightmove.api.position.dto.CompetencyDto;
 import app.lightmove.api.position.dto.PositionResponse;
-import java.net.URI;
 import java.time.Instant;
-import java.util.LinkedHashMap;
+import java.time.LocalDate;
+import java.time.ZoneOffset;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -37,8 +36,8 @@ import org.springframework.core.io.Resource;
 import org.springframework.stereotype.Service;
 
 /**
- * One Google-grounded model call over a candidate's {@link CandidateDossier} and the mandate's brief:
- * the background still missing, and a 1–10 technical and behavioural reading with the pages behind it.
+ * One model call over a candidate's {@link CandidateDossier} and the mandate's brief: the most probable
+ * background still missing, and a 1–10 technical and behavioural reading.
  * Every failure answers empty — nothing is ever stored in place of a real answer.
  */
 @Service
@@ -54,8 +53,9 @@ public class CandidateAiEnricher {
     private static final int MIN_SCORE = 1;
     private static final int MAX_SCORE = 10;
     private static final int MAX_POINTS_PER_LIST = 5;
-    private static final int MAX_SOURCES = 8;
     private static final String NOT_STATED = "not stated";
+
+    private static final String ANSWER_MIME_TYPE = "application/json";
 
     private static final String BLOCKED = "{\"summary\":\"" + BlockedAnswer.MARKER + "\"}";
 
@@ -81,8 +81,7 @@ public class CandidateAiEnricher {
             }
             return Optional.of(new CandidateAiEnrichment(backgroundOf(answered, dossier.missingBackground()),
                     new CandidateAiAssessment(trimmed(answered.summary()), panelOf(answered.technical()),
-                            panelOf(answered.behavioural()), sourcesOf(answered.sources()),
-                            Instant.now().toString())));
+                            panelOf(answered.behavioural()), Instant.now().toString())));
         } catch (RuntimeException e) {
             // No credentials, Vertex unreachable, an answer that will not bind: all mean store nothing
             // this time, and the candidate keeps what it already had.
@@ -95,16 +94,14 @@ public class CandidateAiEnricher {
         AssessmentDto assessment = brief.assessment();
         return chatClient.prompt()
                 .advisors(guarded)
-                // Google Search grounding cannot be combined with a JSON response type on Gemini 2.5,
-                // so the answer's shape comes from the prompt and the schema advisor instead.
                 .options(GoogleGenAiChatOptions.builder()
                         .temperature(ENRICH_TEMPERATURE)
                         .thinkingBudget(ENRICH_THINKING_BUDGET)
-                        .googleSearchRetrieval(true)
+                        .responseMimeType(ANSWER_MIME_TYPE)
                         .labels(Map.of("prompt", PROMPT_ID)))
                 .system(systemPrompt)
                 .user(user -> user.text("""
-                        THE CANDIDATE (their LinkedIn profile, already researched — do not search it again)
+                        THE CANDIDATE (their LinkedIn profile)
                         Name: {name}
                         Current title: {title}
                         Current employer: {company}
@@ -122,6 +119,7 @@ public class CandidateAiEnricher {
                         Languages: {languages}
 
                         Background fields still to propose: {missing}
+                        Today's date: {today}
 
                         THE ROLE
                         Title: {roleTitle}
@@ -148,6 +146,7 @@ public class CandidateAiEnricher {
                         .param("skills", listOf(dossier.skills()))
                         .param("languages", listOf(dossier.languages()))
                         .param("missing", missingOf(dossier.missingBackground()))
+                        .param("today", LocalDate.now(ZoneOffset.UTC).toString())
                         .param("roleTitle", orNotStated(brief.details() == null ? null : brief.details().roleTitle()))
                         .param("seniority", brief.details() == null || brief.details().seniority() == null
                                 ? NOT_STATED : brief.details().seniority().name())
@@ -205,36 +204,6 @@ public class CandidateAiEnricher {
                 .toList();
     }
 
-    /**
-     * Absolute http(s) links only, one per URL. LinkedIn is dropped: the profile is already the
-     * dossier, so a LinkedIn link would only cite what the researcher can already see.
-     */
-    private static List<AssessmentSourceLink> sourcesOf(List<ModelSource> sources) {
-        if (sources == null) {
-            return List.of();
-        }
-        Map<String, AssessmentSourceLink> kept = new LinkedHashMap<>();
-        for (ModelSource source : sources) {
-            String url = source == null ? null : trimmed(source.url());
-            if (url != null && isCitableWebPage(url) && kept.size() < MAX_SOURCES) {
-                kept.putIfAbsent(url, new AssessmentSourceLink(url, trimmed(source.title())));
-            }
-        }
-        return List.copyOf(kept.values());
-    }
-
-    private static boolean isCitableWebPage(String url) {
-        try {
-            URI uri = URI.create(url);
-            String scheme = uri.getScheme() == null ? "" : uri.getScheme().toLowerCase(Locale.ROOT);
-            String host = uri.getHost() == null ? "" : uri.getHost().toLowerCase(Locale.ROOT);
-            return (scheme.equals("https") || scheme.equals("http")) && !host.isEmpty()
-                    && !host.equals("linkedin.com") && !host.endsWith(".linkedin.com");
-        } catch (IllegalArgumentException malformed) {
-            return false;
-        }
-    }
-
     private static String trimmed(String value) {
         return value == null || value.isBlank() ? null : value.trim();
     }
@@ -285,9 +254,7 @@ public class CandidateAiEnricher {
 
     /** The model's raw reply, bound before any of it is validated against this feature's vocabulary. */
     private record ModelAnswer(String nationality, String gender, Integer yearsExperience, String summary,
-                               ModelPanel technical, ModelPanel behavioural, List<ModelSource> sources) {}
+                               ModelPanel technical, ModelPanel behavioural) {}
 
     private record ModelPanel(Integer score, List<String> positives, List<String> negatives) {}
-
-    private record ModelSource(String url, String title) {}
 }

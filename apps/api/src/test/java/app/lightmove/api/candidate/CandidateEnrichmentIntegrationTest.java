@@ -56,9 +56,7 @@ class CandidateEnrichmentIntegrationTest extends FlowTestSupport {
             {"nationality":"Emirati","gender":"female","yearsExperience":14,
              "summary":"A proven GCC finance leader.",
              "technical":{"score":8,"positives":["Led a dairy IPO"],"negatives":["No energy exposure"]},
-             "behavioural":{"score":6,"positives":["Board-facing"],"negatives":[]},
-             "sources":[{"url":"https://news.example.com/cfo-profile","title":"CFO profile"},
-                        {"url":"https://www.linkedin.com/in/sample-profile","title":"LinkedIn"}]}""";
+             "behavioural":{"score":6,"positives":["Board-facing"],"negatives":[]}}""";
 
     @Autowired private RecordingProfileEnricher enricher;
     @Autowired private StubChatModel model;
@@ -337,7 +335,7 @@ class CandidateEnrichmentIntegrationTest extends FlowTestSupport {
     }
 
     @Test
-    @DisplayName("a capture's enrichment stores the assessment, its sources without LinkedIn, and never on the row")
+    @DisplayName("a capture's enrichment stores the assessment, and never on the row")
     void aCaptureStoresTheAssessment() throws Exception {
         String projectId = mandate("Assessed Capture Firm");
         enricher.answerWith(RESEARCH);
@@ -350,9 +348,6 @@ class CandidateEnrichmentIntegrationTest extends FlowTestSupport {
         assertThat(assessment.get("technical").get("positives")).extracting(JsonNode::asText)
                 .containsExactly("Led a dairy IPO");
         assertThat(assessment.get("behavioural").get("score").asInt()).isEqualTo(6);
-        assertThat(assessment.get("sources")).hasSize(1);
-        assertThat(assessment.get("sources").get(0).get("url").asText())
-                .isEqualTo("https://news.example.com/cfo-profile");
         assertThat(assessment.get("assessedAt").isNull()).isFalse();
         // The candidate read is also a client's read, so the assessment never rides on it.
         assertThat(firstCandidateOf(projectId).has("aiAssessment")).isFalse();
