@@ -45,6 +45,8 @@ const detail: ClientDetail = {
   notes: null,
   activeMandates: 2,
   deliveredMandates: 1,
+  apolloAccountId: null,
+  persona: { summary: null, sectors: [], competitors: [], geographies: [], notes: null },
   representatives: [],
   mandates: [],
 };
@@ -73,7 +75,7 @@ describe("ClientDrawer — saving details", () => {
   });
 });
 
-describe("ClientDrawer — named by the workspace's mode", () => {
+describe("ClientDrawer — an in-house workspace's business unit", () => {
   beforeEach(() => {
     vi.resetAllMocks();
     vi.mocked(clientsApi.client).mockResolvedValue({ ...detail, logoUrl: "https://logos.example/automotive.png" });
@@ -87,15 +89,5 @@ describe("ClientDrawer — named by the workspace's mode", () => {
     expect(await screen.findByText("Business unit record")).toBeInTheDocument();
     expect(screen.getByText("Hiring managers")).toBeInTheDocument();
     expect(container.ownerDocument.querySelector("img")).toBeNull();
-  });
-
-  it("files an agency's record as a client with client contacts, under its company logo", async () => {
-    currentUser = aUser({ workspace: aWorkspace({ mode: "AGENCY" }) });
-
-    const { container } = renderDrawer();
-
-    expect(await screen.findByText("Client record")).toBeInTheDocument();
-    expect(screen.getByText("Client contacts")).toBeInTheDocument();
-    expect(container.ownerDocument.querySelector('img[src="https://logos.example/automotive.png"]')).not.toBeNull();
   });
 });

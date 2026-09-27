@@ -180,6 +180,11 @@ There is no central vocabulary today. The strings are inlined in about 15 files.
 
 ## Phase 4: Agency client screens
 
+> **Drawer and persona built** (PR #565): the agency drawer is `AgencyClientView` (the company panel, persona,
+> contacts, positions), the persona is V84 (V85 below was folded into it), and the assistant reads the
+> mandate's client at an agency. Still open from this phase: the agency New client / New position flows and
+> the grid's company columns.
+
 These are the screens that change most. Company mode stays exactly as today.
 
 ### New client (`features/clients/components/NewClientModal.tsx`)

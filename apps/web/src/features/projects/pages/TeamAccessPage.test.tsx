@@ -191,6 +191,8 @@ describe("TeamAccessPage", () => {
     notes: null,
     activeMandates: 1,
     deliveredMandates: 0,
+    apolloAccountId: null,
+    persona: { summary: null, sectors: [], competitors: [], geographies: [], notes: null },
     representatives: [],
     mandates: [],
   };
@@ -332,6 +334,8 @@ describe("TeamAccessPage", () => {
       notes: null,
       activeMandates: 1,
       deliveredMandates: 0,
+      apolloAccountId: null,
+      persona: { summary: null, sectors: [], competitors: [], geographies: [], notes: null },
       representatives: [],
       mandates: [],
     });
@@ -359,6 +363,8 @@ describe("TeamAccessPage", () => {
       notes: null,
       activeMandates: 1,
       deliveredMandates: 0,
+      apolloAccountId: null,
+      persona: { summary: null, sectors: [], competitors: [], geographies: [], notes: null },
       representatives: [],
       mandates: [],
     });
@@ -384,6 +390,8 @@ describe("TeamAccessPage", () => {
       notes: null,
       activeMandates: 1,
       deliveredMandates: 0,
+      apolloAccountId: null,
+      persona: { summary: null, sectors: [], competitors: [], geographies: [], notes: null },
       representatives: [
         { id: "r1", fullName: "Seated Rep", position: "Chair", email: "seated@beta-client.example", status: "ACTIVE" },
         { id: "r3", fullName: "Fresh Rep", position: null, email: "fresh@beta-client.example", status: "INVITED" },
@@ -415,6 +423,8 @@ describe("TeamAccessPage", () => {
       notes: null,
       activeMandates: 1,
       deliveredMandates: 0,
+      apolloAccountId: null,
+      persona: { summary: null, sectors: [], competitors: [], geographies: [], notes: null },
       representatives: [],
       mandates: [],
     });

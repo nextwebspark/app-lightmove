@@ -456,9 +456,17 @@ fall back to it (`Project.deadline()`, the SPA's `deadlineOf`).
 V69 adds the workspace's `persona` jsonb — main business, sectors, competitors, geographies, notes —
 for the assistant to tailor research to: seeded at signup with the picked company's industry, its
 sector group and its country — and re-filed when Settings re-picks the firm, the old company's chips
-giving way to the new one's (`WorkspacePersona.refiledFrom`) — written by an admin through
+giving way to the new one's (`HiringPersona.refiledFrom`, `common/persona`) — written by an admin through
 `PUT /workspace/persona` (Settings → General), read by staff on `GET /workspace` and never carried
 on `/me`. The assistant's empty chat offers a sector starter for each of its first two sectors.
+V84 gives `app_lm_client` the same `persona` jsonb, for an **agency**: seeded from the picked company's
+industry and country, edited in the agency client drawer through `PUT /clients/{id}/persona`
+(`CLIENT_RECORD_MANAGE`, audited as a `persona` section) and never on `ProjectResponse`, which a client
+seat reads. At an agency the assistant's prompt and starters read the **mandate's client** as the hiring
+company (`HiringSideResolver` → `HiringContext`, the agency named in one line); in-house they read the
+firm, as before. That drawer is the company panel Strategy opens — `CompanyDrawerHeader` and
+`CompanyFactsSections` from the universe (`GET /companies/{apolloAccountId}`, the id on the client
+detail), or editable basics for a client typed in by hand — never the business-unit record.
 V57 adds the `PLATFORM` role scope and `app_lm_user_platform_role` — written by
 `grant-platform-role.sh`, never by the application.
 `app_lm_position_document` holds the attached position description inline (`bytea`) — one small file per

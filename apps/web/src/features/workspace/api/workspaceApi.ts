@@ -6,7 +6,7 @@ import type {
   WorkspaceMode,
   WorkspaceRole,
 } from "../../auth/api/types";
-import type { Invitation, Member, WorkspaceDetail, WorkspacePersona } from "./types";
+import type { HiringPersona, Invitation, Member, WorkspaceDetail } from "./types";
 
 /** Every call workspace management makes (roster, invitations, settings), plus shared query keys. */
 
@@ -28,7 +28,7 @@ export function updateWorkspace(payload: {
   return request<WorkspaceDetail>("/workspace", { method: "PATCH", body: payload });
 }
 
-export function updatePersona(persona: WorkspacePersona): Promise<WorkspaceDetail> {
+export function updatePersona(persona: HiringPersona): Promise<WorkspaceDetail> {
   return request<WorkspaceDetail>("/workspace/persona", { method: "PUT", body: persona });
 }
 

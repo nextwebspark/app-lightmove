@@ -1,20 +1,20 @@
 import { useQuery } from "@tanstack/react-query";
 import { Icon, ICONS } from "../../../components/layout/Icon";
 import { cn } from "../../../lib/cn";
+import { useWorkspaceVocabulary, type WorkspaceVocabulary } from "../../workspace/lib/vocabulary";
 import * as assistantApi from "../api/assistantApi";
 import type { AssistantStarter } from "../api/types";
 
-const KIND_TAGS: Record<AssistantStarter["kind"], string> = {
-  SECTOR: "Your sector",
-  ADJACENT: "Adjacent · transferable talent",
-  SIZE: "Similar size",
-};
+function kindTagOf(kind: AssistantStarter["kind"], vocabulary: WorkspaceVocabulary): string {
+  if (kind === "SECTOR") return vocabulary.sectorStarterTag;
+  return kind === "ADJACENT" ? "Adjacent · transferable talent" : "Similar size";
+}
 
 const FALLBACK: AssistantStarter[] = [{ kind: "SECTOR", prompt: "Top 10 Retail companies" }];
 
 /**
- * The empty chat's suggestions, drawn from the firm the workspace is. Pressing one asks it straight
- * away; the adjacent sectors are marked out because they are where transferable talent sits.
+ * The empty chat's suggestions, drawn from the hiring company — the firm in-house, the mandate's client
+ * at an agency. Pressing one asks it straight away; the adjacent sectors are marked out because they are where transferable talent sits.
  */
 export function AssistantStarters({
   projectId,
@@ -25,6 +25,7 @@ export function AssistantStarters({
   disabled: boolean;
   onPick: (prompt: string) => void;
 }) {
+  const vocabulary = useWorkspaceVocabulary();
   const suggestions = useQuery({
     queryKey: assistantApi.ASSISTANT_STARTERS_KEY(projectId),
     queryFn: () => assistantApi.listStarters(projectId),
@@ -37,7 +38,7 @@ export function AssistantStarters({
     <div className="my-auto">
       <div className="mb-4 text-center">
         <p className="font-sans text-[13px] text-u-text2">Find companies for this mandate.</p>
-        <p className="mt-1 font-mono text-[11px] text-u-text3">Suggested from your firm's sector</p>
+        <p className="mt-1 font-mono text-[11px] text-u-text3">Suggested from {vocabulary.hiringCompanyPossessive} sector</p>
       </div>
 
       {suggestions.isLoading ? (
@@ -50,7 +51,12 @@ export function AssistantStarters({
         <ul className="space-y-1.5">
           {starters.map((starter) => (
             <li key={starter.prompt}>
-              <StarterButton starter={starter} disabled={disabled} onPick={onPick} />
+              <StarterButton
+                starter={starter}
+                tag={kindTagOf(starter.kind, vocabulary)}
+                disabled={disabled}
+                onPick={onPick}
+              />
             </li>
           ))}
         </ul>
@@ -58,7 +64,7 @@ export function AssistantStarters({
 
       {suggestions.data?.sectorAssumed && (
         <p className="mt-3 text-center font-mono text-[10.5px] text-u-text3">
-          Assuming retail — add your company in Settings → General to tailor these.
+          Assuming retail — {vocabulary.hiringProfileHint} to tailor these.
         </p>
       )}
     </div>
@@ -67,10 +73,12 @@ export function AssistantStarters({
 
 function StarterButton({
   starter,
+  tag,
   disabled,
   onPick,
 }: {
   starter: AssistantStarter;
+  tag: string;
   disabled: boolean;
   onPick: (prompt: string) => void;
 }) {
@@ -92,7 +100,7 @@ function StarterButton({
             adjacent ? "bg-u-inferred-tint text-u-inferred" : "text-u-text3",
           )}
         >
-          {KIND_TAGS[starter.kind]}
+          {tag}
         </span>
         <span className="block font-sans text-xs leading-[1.45] text-u-text2 group-hover:text-u-text">
           {starter.prompt}

@@ -287,6 +287,12 @@
 
   <sc-if value="{{ drawerShown }}" hint-placeholder-val="{{ false }}">
     <div onClick="{{ closeDrawer }}" style="position:fixed;inset:0;z-index:90;background:rgba(15,20,30,.4)"></div>
+    <!-- Agency workspaces (V83 mode AGENCY) do not draw this record. A client there is a company, so its
+         drawer is the company panel of Strategy.dc.html: the shared header (logo, name, website and
+         LinkedIn, "industry · city · country"), then About and Scale snapshot read from the universe
+         for a client picked from it, or editable Name / Sector / Country / Website for one typed in by
+         hand; then Details (Notes), a "Client persona" section with Settings.dc.html's Firm persona
+         fields, Client contacts, Open positions, and the Close / + New position foot. No stat tiles. -->
     <aside role="dialog" aria-modal="true" aria-label="{{ dv.name }}" data-screen-label="Business unit drawer" style="position:fixed;right:10px;top:10px;bottom:10px;z-index:95;width:420px;max-width:92vw;display:flex;flex-direction:column;border-radius:10px;border:1px solid var(--line);background:var(--panel);box-shadow:var(--shadow);animation:fadeUp .5s ease both">
 
       <sc-if value="{{ buView }}" hint-placeholder-val="{{ true }}">
