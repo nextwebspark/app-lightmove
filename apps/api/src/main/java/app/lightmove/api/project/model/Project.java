@@ -16,8 +16,8 @@ import lombok.NoArgsConstructor;
 import lombok.Setter;
 
 /**
- * One search mandate, always inside exactly one workspace. Starts at BRIEF; no stage mutator exists
- * yet because no screen sets a stage — that arrives with the Project screen.
+ * One search mandate, always inside exactly one workspace. The stored stage starts at BRIEF and no
+ * screen moves it; the stage a reader sees is {@link ProjectStage#reached}, derived from the rows.
  */
 @Entity
 @Table(name = "app_lm_project")

@@ -29,6 +29,9 @@ public interface ProjectCandidateCounter {
     /** Executives who have answered: engaged or interested. */
     Map<UUID, Long> countEngagedByProject(Collection<UUID> projectIds);
 
+    /** Executives approached at all, answered or not — what puts a mandate into outreach. */
+    Map<UUID, Long> countReachedOutByProject(Collection<UUID> projectIds);
+
     /**
      * Universe companies with at least one executive mapped at them. Declined companies are left out
      * for the same reason they are left out of the universe count this is read against — otherwise
