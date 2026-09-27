@@ -394,6 +394,32 @@ class ProjectFlowIntegrationTest extends FlowTestSupport {
     }
 
     @Test
+    @DisplayName("the stage gate follows the work: universe, then mapping, then outreach")
+    void stageFollowsTheWork() throws Exception {
+        String admin = adminOf("Stage Firm");
+        String projectId = createProject(admin, createClient(admin, "Agthia Group"), "Group CFO");
+        assertThat(stageOf(admin, projectId)).isEqualTo("BRIEF");
+
+        // An executive at no universe company maps nothing: the gate reads coverage.
+        mapExecutive(admin, projectId, null, "Omar Farouk", null);
+        String company = captureCompany(admin, projectId, "ACWA Power");
+        assertThat(stageOf(admin, projectId)).isEqualTo("UNIVERSE");
+
+        mapExecutive(admin, projectId, company, "Yasmin El-Sayed", null);
+        assertThat(stageOf(admin, projectId)).isEqualTo("MAPPING");
+
+        mapExecutive(admin, projectId, company, "Hana Aziz", "contacted");
+        assertThat(stageOf(admin, projectId)).isEqualTo("OUTREACH");
+    }
+
+    private String stageOf(String token, String projectId) throws Exception {
+        return projectIn(body(mvc.perform(get("/api/v1/projects")
+                        .header("Authorization", "Bearer " + token))
+                .andExpect(status().isOk())
+                .andReturn()), projectId).get("stage").asText();
+    }
+
+    @Test
     @DisplayName("activity lists the mandate's work newest first, pages by cursor, and stays in its tenant")
     void activityFeed() throws Exception {
         String admin = adminOf("Activity Firm");
