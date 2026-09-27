@@ -123,7 +123,8 @@ describe("SettingsGeneralPage — who the workspace hires for", () => {
     renderPage();
 
     await user.click(await screen.findByRole("radio", { name: /Search agency/ }));
-    expect(screen.getByRole("dialog", { name: "Switch to Search agency?" })).toBeInTheDocument();
+    const warning = screen.getByRole("dialog", { name: "Switch to Search agency?" });
+    expect(warning).toHaveTextContent("This changes the workspace for everyone in it");
     await user.click(screen.getByRole("button", { name: "Cancel" }));
 
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
@@ -135,7 +136,7 @@ describe("SettingsGeneralPage — who the workspace hires for", () => {
     renderPage();
 
     await user.click(await screen.findByRole("radio", { name: /Search agency/ }));
-    await user.click(screen.getByRole("button", { name: "Switch" }));
+    await user.click(screen.getByRole("button", { name: "Switch to Search agency" }));
 
     await waitFor(() => expect(workspaceApi.changeMode).toHaveBeenCalledWith("AGENCY"));
     await waitFor(() => expect(reload).toHaveBeenCalled());
