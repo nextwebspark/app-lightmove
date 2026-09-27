@@ -3,6 +3,7 @@ import { useState } from "react";
 import { Button, Field, FormError, Input, Modal, useToast } from "../../../components/ui";
 import { isValidEmail } from "../../../lib/email";
 import { messageFor } from "../../../lib/errorCodes";
+import { useWorkspaceVocabulary } from "../../workspace/lib/vocabulary";
 import * as clientsApi from "../api/clientsApi";
 import type { CompanyPick } from "../lib/companyPick";
 import { CompanyPicker } from "./CompanyPicker";
@@ -28,6 +29,7 @@ export function NewClientModal({
 }) {
   const queryClient = useQueryClient();
   const toast = useToast();
+  const vocabulary = useWorkspaceVocabulary();
 
   const [pick, setPick] = useState<CompanyPick | null>(null);
   const [contactName, setContactName] = useState("");
@@ -55,7 +57,7 @@ export function NewClientModal({
       toast(
         contactEmail.trim()
           ? `${client.name} added — invite sent to ${contactEmail.trim()}`
-          : `${client.name} added as a business unit`,
+          : `${client.name} added as a ${vocabulary.unitLower}`,
       );
       onCreated(client);
       onClose();
@@ -83,13 +85,13 @@ export function NewClientModal({
     create.mutate();
   };
 
-  const createLabel = contactEmail.trim() ? "Create & send invite" : "Create business unit";
+  const createLabel = contactEmail.trim() ? "Create & send invite" : `Create ${vocabulary.unitLower}`;
 
   return (
     <Modal
       open={open}
       onClose={onClose}
-      title="New business unit"
+      title={`New ${vocabulary.unitLower}`}
       footer={
         // The actions arrive with the pick: until a company is chosen there is nothing to create.
         pick && (
@@ -105,7 +107,7 @@ export function NewClientModal({
       }
     >
       <p className="-mt-2 mb-4 font-mono text-[11.5px] text-u-text3">
-        Search the company database first — or add a business unit that isn't listed.
+        Search the company database first — or add a {vocabulary.unitLower} that isn&apos;t listed.
       </p>
       <FormError message={error} />
 
@@ -113,16 +115,16 @@ export function NewClientModal({
         pick={pick}
         onPick={handlePick}
         existingNames={existingNames}
-        onRejectExisting={(name) => toast(`${name} is already a business unit`)}
+        onRejectExisting={(name) => toast(`${name} is already a ${vocabulary.unitLower}`)}
         autoFocus
       />
 
       {pick && (
         <>
           <div className="mb-3 font-mono text-[10px] font-semibold uppercase tracking-[0.12em] text-u-text3">
-            Primary hiring manager
+            Primary {vocabulary.contactLower}
             <span className="ml-1 font-normal normal-case tracking-normal text-u-text3">
-              · optional — gets an invite. Add more from the business unit panel later.
+              · optional — gets an invite. Add more from the {vocabulary.unitLower} panel later.
             </span>
           </div>
           <div className="flex gap-2.5">

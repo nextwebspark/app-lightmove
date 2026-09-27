@@ -198,7 +198,10 @@ string says Uncava — the mockups included — while the code, packages, persis
 keep the `lightmove` name — a deliberate split, not drift. The same split holds for the domain
 vocabulary: where a mockup says **Position** and **Business unit** (and **Hiring manager** for a
 client representative), the screen says so, while the code, routes, API and tables keep
-`project` and `client`; a screen whose mockup still says project or client keeps saying it. It is served at `https://beta.uncava.com` (Cloud Run domain mapping,
+`project` and `client`; a screen whose mockup still says project or client keeps saying it. Business
+unit and Hiring manager are an in-house workspace's words: an agency (V83 `mode`) says **Client** and
+**Client contact**, and every such label comes from `useWorkspaceVocabulary`
+(`features/workspace/lib/vocabulary.ts`), never a literal. It is served at `https://beta.uncava.com` (Cloud Run domain mapping,
 Cloudflare DNS with the proxy off; README, "Custom domain"), and a link to it pasted into a chat app
 draws a card from the Open Graph tags in `apps/web/index.html` over `public/og-image-v2.png` — static,
 because no crawler runs the bundle (README, "Link previews"). Publishing stamps who

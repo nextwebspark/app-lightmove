@@ -44,7 +44,7 @@ public class MemberService {
         // CLIENT comes from a project invitation, never the roster.
         if (newRoles.contains(WorkspaceRole.CLIENT)) {
             throw ApiException.userFacing(ErrorCode.VALIDATION_FAILED,
-                    "Hiring managers are invited to a position, not granted through the roster");
+                    "Representatives are invited to a position, not granted through the roster");
         }
 
         boolean isAdmin = holds(member, WorkspaceRole.ADMIN);

@@ -4,6 +4,8 @@ import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { ToastProvider } from "../../../components/ui";
+import { aUser, aWorkspace } from "../../../test/fixtures/user";
+import type { User } from "../../auth/api/types";
 import * as clientsApi from "../api/clientsApi";
 import type { ClientDetail } from "../api/types";
 import { ClientDrawer } from "./ClientDrawer";
@@ -13,6 +15,23 @@ vi.mock("../api/clientsApi", async (importOriginal) => ({
   client: vi.fn(),
   updateClient: vi.fn(),
 }));
+
+let currentUser: User = aUser();
+
+vi.mock("../../auth/AuthProvider", () => ({
+  useAuth: () => ({ user: currentUser }),
+}));
+
+const renderDrawer = () =>
+  render(
+    <MemoryRouter>
+      <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
+        <ToastProvider>
+          <ClientDrawer clientId="c1" onClose={() => {}} onNewMandate={() => {}} />
+        </ToastProvider>
+      </QueryClientProvider>
+    </MemoryRouter>,
+  );
 
 const detail: ClientDetail = {
   id: "c1",
@@ -35,26 +54,48 @@ const detail: ClientDetail = {
  * would write back a snapshot taken when the drawer opened, over anything saved since.
  */
 describe("ClientDrawer — saving details", () => {
-  beforeEach(() => vi.resetAllMocks());
+  beforeEach(() => {
+    vi.resetAllMocks();
+    currentUser = aUser();
+  });
 
   it("sends only the name and the notes", async () => {
     vi.mocked(clientsApi.client).mockResolvedValue(detail);
     vi.mocked(clientsApi.updateClient).mockResolvedValue({ ...detail, notes: "Freeze lifted" });
 
-    render(
-      <MemoryRouter>
-        <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
-          <ToastProvider>
-            <ClientDrawer clientId="c1" onClose={() => {}} onNewMandate={() => {}} />
-          </ToastProvider>
-        </QueryClientProvider>
-      </MemoryRouter>,
-    );
+    renderDrawer();
 
     const user = userEvent.setup();
     await user.type(await screen.findByPlaceholderText(/hiring freeze lifted Q1/), "Freeze lifted");
     await user.click(screen.getByRole("button", { name: "Save changes" }));
 
     expect(clientsApi.updateClient).toHaveBeenCalledWith("c1", { name: "Automotive", notes: "Freeze lifted" });
+  });
+});
+
+describe("ClientDrawer — named by the workspace's mode", () => {
+  beforeEach(() => {
+    vi.resetAllMocks();
+    vi.mocked(clientsApi.client).mockResolvedValue({ ...detail, logoUrl: "https://logos.example/automotive.png" });
+  });
+
+  it("files an in-house record as a business unit with hiring managers, under the team glyph", async () => {
+    currentUser = aUser({ workspace: aWorkspace({ mode: "COMPANY" }) });
+
+    const { container } = renderDrawer();
+
+    expect(await screen.findByText("Business unit record")).toBeInTheDocument();
+    expect(screen.getByText("Hiring managers")).toBeInTheDocument();
+    expect(container.ownerDocument.querySelector("img")).toBeNull();
+  });
+
+  it("files an agency's record as a client with client contacts, under its company logo", async () => {
+    currentUser = aUser({ workspace: aWorkspace({ mode: "AGENCY" }) });
+
+    const { container } = renderDrawer();
+
+    expect(await screen.findByText("Client record")).toBeInTheDocument();
+    expect(screen.getByText("Client contacts")).toBeInTheDocument();
+    expect(container.ownerDocument.querySelector('img[src="https://logos.example/automotive.png"]')).not.toBeNull();
   });
 });

@@ -3,6 +3,8 @@ import { render, screen } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { ToastProvider } from "../../../components/ui";
+import { aUser, aWorkspace } from "../../../test/fixtures/user";
+import type { User } from "../../auth/api/types";
 import * as clientsApi from "../api/clientsApi";
 import { ClientsPage } from "./ClientsPage";
 
@@ -11,24 +13,33 @@ vi.mock("../api/clientsApi", async (importOriginal) => ({
   clients: vi.fn(),
 }));
 
+let currentUser: User = aUser();
+
+vi.mock("../../auth/AuthProvider", () => ({
+  useAuth: () => ({ user: currentUser }),
+}));
+
+const renderPage = () =>
+  render(
+    <MemoryRouter>
+      <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
+        <ToastProvider>
+          <ClientsPage />
+        </ToastProvider>
+      </QueryClientProvider>
+    </MemoryRouter>,
+  );
+
 /**
  * A refused read is not an empty registry. The list falls back to [] on any failure, so rendering the
  * empty state over a 403 told a caller the firm has no clients — a count they were never allowed to
  * read — and handed them a create button whose every call the server refuses.
  */
 describe("ClientsPage — a refused read", () => {
-  const renderPage = () =>
-    render(
-      <MemoryRouter>
-        <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
-          <ToastProvider>
-            <ClientsPage />
-          </ToastProvider>
-        </QueryClientProvider>
-      </MemoryRouter>,
-    );
-
-  beforeEach(() => vi.resetAllMocks());
+  beforeEach(() => {
+    vi.resetAllMocks();
+    currentUser = aUser();
+  });
 
   it("says the registry could not be loaded, and offers nothing", async () => {
     vi.mocked(clientsApi.clients).mockRejectedValue(new Error("403"));
@@ -47,5 +58,32 @@ describe("ClientsPage — a refused read", () => {
     renderPage();
 
     expect(await screen.findByText("Add your first business unit")).toBeInTheDocument();
+  });
+});
+
+describe("ClientsPage — named by the workspace's mode", () => {
+  beforeEach(() => {
+    vi.resetAllMocks();
+    vi.mocked(clientsApi.clients).mockResolvedValue([]);
+  });
+
+  it("calls an in-house workspace's clients business units", async () => {
+    currentUser = aUser({ workspace: aWorkspace({ mode: "COMPANY" }) });
+
+    renderPage();
+
+    expect(await screen.findByText("Add your first business unit")).toBeInTheDocument();
+    expect(screen.getByText("Business units")).toBeInTheDocument();
+  });
+
+  it("calls an agency's clients clients", async () => {
+    currentUser = aUser({ workspace: aWorkspace({ mode: "AGENCY" }) });
+
+    renderPage();
+
+    expect(await screen.findByText("Add your first client")).toBeInTheDocument();
+    expect(screen.getByText("Clients")).toBeInTheDocument();
+    expect(screen.getAllByRole("button", { name: /new client/i }).length).toBeGreaterThan(0);
+    expect(screen.queryByText(/business unit/i)).not.toBeInTheDocument();
   });
 });

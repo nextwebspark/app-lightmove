@@ -13,8 +13,9 @@ import {
 import { TruncatedText } from "../../../components/ui/TruncatedText";
 import { compareNumber, compareText } from "../../../lib/gridSortFns";
 import { initials } from "../../../lib/format";
+import type { WorkspaceVocabulary } from "../../workspace/lib/vocabulary";
 import type { Client, ClientRepStatus, ViewerSummary } from "../api/types";
-import { BusinessUnitGlyph } from "../components/BusinessUnitGlyph";
+import { ClientMark } from "../components/ClientMark";
 import { openPositionsLabel } from "./openPositions";
 
 /** The registry is one query of tens of rows, so the grid sorts and pages it itself. */
@@ -26,54 +27,57 @@ export const clientTableFeatures = tableFeatures({
 
 const helper = createColumnHelper<typeof clientTableFeatures, Client>();
 
-export const clientColumns = helper.columns([
-  helper.accessor("name", {
-    id: "name",
-    header: "Business unit",
-    enableHiding: false,
-    meta: { share: 0, min: 300 },
-    sortFn: (a, b) => compareText(a.original.name, b.original.name),
-    cell: (info) => (
-      <span className="flex min-w-0 items-center gap-2.5">
-        <BusinessUnitGlyph size={26} />
-        <span className="min-w-0">
-          <TruncatedText
-            value={info.getValue()}
-            className="block font-sans text-[13px] font-semibold text-u-text"
-          />
-          <TruncatedText
-            value={openPositionsLabel(info.row.original.activeMandates)}
-            className="block font-mono text-[11px] text-u-text3"
-          />
+/** Built per vocabulary: the headers are what the workspace calls its clients and their people. */
+export function clientColumnsFor(vocabulary: WorkspaceVocabulary) {
+  return helper.columns([
+    helper.accessor("name", {
+      id: "name",
+      header: vocabulary.unit,
+      enableHiding: false,
+      meta: { share: 0, min: 300 },
+      sortFn: (a, b) => compareText(a.original.name, b.original.name),
+      cell: (info) => (
+        <span className="flex min-w-0 items-center gap-2.5">
+          <ClientMark name={info.getValue()} logoUrl={info.row.original.logoUrl} size={26} />
+          <span className="min-w-0">
+            <TruncatedText
+              value={info.getValue()}
+              className="block font-sans text-[13px] font-semibold text-u-text"
+            />
+            <TruncatedText
+              value={openPositionsLabel(info.row.original.activeMandates)}
+              className="block font-mono text-[11px] text-u-text3"
+            />
+          </span>
         </span>
-      </span>
-    ),
-  }),
+      ),
+    }),
 
-  helper.display({
-    id: "contacts",
-    header: "Hiring managers",
-    enableSorting: false,
-    meta: { share: 0, min: 148 },
-    cell: (info) => <RepStack contacts={info.row.original.contacts} />,
-  }),
+    helper.display({
+      id: "contacts",
+      header: vocabulary.contacts,
+      enableSorting: false,
+      meta: { share: 0, min: 148 },
+      cell: (info) => <RepStack contacts={info.row.original.contacts} />,
+    }),
 
-  helper.accessor("activeMandates", {
-    id: "mandates",
-    header: "Open positions",
-    meta: { share: 0, min: 104 },
-    sortFn: (a, b) => compareNumber(a.original.activeMandates, b.original.activeMandates),
-    cell: (info) => <DataGridCell value={String(info.getValue())} />,
-  }),
+    helper.accessor("activeMandates", {
+      id: "mandates",
+      header: "Open positions",
+      meta: { share: 0, min: 104 },
+      sortFn: (a, b) => compareNumber(a.original.activeMandates, b.original.activeMandates),
+      cell: (info) => <DataGridCell value={String(info.getValue())} />,
+    }),
 
-  helper.display({
-    id: "viewers",
-    header: "Viewers",
-    enableSorting: false,
-    meta: { share: 1, min: 140 },
-    cell: (info) => <ViewerCell viewers={info.row.original.viewers} />,
-  }),
-]);
+    helper.display({
+      id: "viewers",
+      header: "Viewers",
+      enableSorting: false,
+      meta: { share: 1, min: 140 },
+      cell: (info) => <ViewerCell viewers={info.row.original.viewers} />,
+    }),
+  ]);
+}
 
 export const CLIENT_SORT_FIELDS = ["name", "mandates"] as const;
 

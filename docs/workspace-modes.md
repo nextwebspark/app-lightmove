@@ -126,6 +126,11 @@ Load the `java-spring-development`, `react`, `lightmove-domain` and `db-ops` ski
 
 ## Phase 2: A shared vocabulary in the SPA
 
+> **Built** (PR #565) as `features/workspace/lib/vocabulary.ts` (`vocabularyFor`, `useWorkspaceMode`,
+> `useWorkspaceVocabulary`) plus `ClientMark`. `TeamAccessPage` and `AddClientContactModal` keep
+> "Client" as their mockup does; the backend's seven fixed sentences now read true in both modes
+> ("Representatives are invited to a position…"). The notes below are the original plan.
+
 There is no central vocabulary today. The strings are inlined in about 15 files.
 
 **New module `apps/web/src/lib/workspaceVocabulary.ts`:**
