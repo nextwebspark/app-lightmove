@@ -5,7 +5,6 @@ import static org.assertj.core.api.Assertions.assertThat;
 import app.lightmove.api.TestLlmCallPolicy;
 import app.lightmove.api.candidate.constant.BackgroundField;
 import app.lightmove.api.candidate.constant.Gender;
-import app.lightmove.api.candidate.model.AssessmentSourceLink;
 import app.lightmove.api.candidate.model.CandidateAiEnrichment;
 import app.lightmove.api.candidate.model.CandidateCareerEntry;
 import app.lightmove.api.candidate.model.CandidateDossier;
@@ -47,16 +46,11 @@ class CandidateAiEnricherTest {
             {"nationality":"western EXPAT","gender":"Female","yearsExperience":14,
              "summary":" A proven finance leader. ",
              "technical":{"score":8,"positives":["a","b","c","d","e","f"],"negatives":["g"]},
-             "behavioural":{"score":6,"positives":["h"],"negatives":[" ", "i"]},
-             "sources":[{"url":"https://news.example.com/a","title":"A"},
-                        {"url":"https://news.example.com/a","title":"A again"},
-                        {"url":"https://uk.linkedin.com/in/someone","title":"LinkedIn"},
-                        {"url":"javascript:alert(1)","title":"Bad"},
-                        {"url":"not a url","title":"Bad"}]}""";
+             "behavioural":{"score":6,"positives":["h"],"negatives":[" ", "i"]}}""";
 
     @Test
-    @DisplayName("a grounded answer maps to canonical background, clamped panels and clean sources")
-    void aGroundedAnswerIsMapped() {
+    @DisplayName("an answer maps to canonical background and clamped panels, asked as JSON without web search")
+    void anAnswerIsMapped() {
         RecordingChatModel model = new RecordingChatModel(FULL_ANSWER);
 
         CandidateAiEnrichment enriched = enricherOver(model).enrich(dossier(ALL_MISSING), BRIEF).orElseThrow();
@@ -66,10 +60,10 @@ class CandidateAiEnricherTest {
         assertThat(enriched.assessment().technical().score()).isEqualTo(8);
         assertThat(enriched.assessment().technical().positives()).containsExactly("a", "b", "c", "d", "e");
         assertThat(enriched.assessment().behavioural().negatives()).containsExactly("i");
-        assertThat(enriched.assessment().sources())
-                .containsExactly(new AssessmentSourceLink("https://news.example.com/a", "A"));
         assertThat(enriched.assessment().assessedAt()).isNotNull();
-        assertThat(((GoogleGenAiChatOptions) model.options.getLast()).getGoogleSearchRetrieval()).isTrue();
+        GoogleGenAiChatOptions options = (GoogleGenAiChatOptions) model.options.getLast();
+        assertThat(options.getGoogleSearchRetrieval()).isNotEqualTo(true);
+        assertThat(options.getResponseMimeType()).isEqualTo("application/json");
         assertThat(model.prompts.getLast()).contains("Capital markets (weight 60)", "Board presence (weight 40)",
                 "(required) Listed-company CFO", "Group CFO");
     }
@@ -79,7 +73,7 @@ class CandidateAiEnricherTest {
     void outOfRangeAndPresentFieldsAreDropped() {
         CandidateAiEnrichment enriched = enricherOver(new RecordingChatModel("""
                 {"nationality":"Saudi","gender":"male","yearsExperience":75,
-                 "technical":{"score":11},"behavioural":null,"sources":[]}"""))
+                 "technical":{"score":11},"behavioural":null}"""))
                 .enrich(dossier(EnumSet.of(BackgroundField.NATIONALITY, BackgroundField.YEARS_EXPERIENCE)), BRIEF)
                 .orElseThrow();
 

@@ -218,12 +218,6 @@ export interface CompetencyPanelAssessment {
   negatives: string[];
 }
 
-/** A web page the AI assessment relied on, as the model reported it. */
-export interface AssessmentSourceLink {
-  url: string;
-  title: string | null;
-}
-
 /**
  * A candidate's last AI assessment and last failed run — staff-only, read on its own and never
  * carried on `Candidate`. The assessment fields are null until a run has succeeded.
@@ -232,7 +226,6 @@ export interface CandidateAiAssessment {
   summary: string | null;
   technical: CompetencyPanelAssessment | null;
   behavioural: CompetencyPanelAssessment | null;
-  sources: AssessmentSourceLink[];
   assessedAt: string | null;
   failedAt: string | null;
 }

@@ -91,15 +91,15 @@ status but no pipeline outcome, and a package in another currency is counted rat
 **Gender (V56) is recorded on a candidate, or proposed and flagged — never silently inferred** — the
 chapter divides by the executives who have one on file, not by the headcount, so a mandate nobody has
 recorded reads as unmeasured rather than as a pool of one gender. **AI enrichment** is one
-Google-grounded Gemini call (`CandidateAiEnricher`, Spring AI `googleSearchRetrieval`) run by
+ungrounded Gemini call (`CandidateAiEnricher`, no web search — grounding was too slow) run by
 `CandidateAiEnrichWorker` after a capture's vendor research lands, and again from the drawer's
 **AI deep enrich** button (`POST …/candidates/{id}/ai-enrich`, 202, `WORK_EXECUTE`). It reads the
-profile as given and searches the web only for what LinkedIn does not say. It proposes whichever of gender,
+profile alone and always proposes its most probable value — never "unknown" — for whichever of gender,
 nationality (one of the nine groups) and years of experience are still empty — a value already on the
 row always stands, and each filled one is flagged in `ai_inferred_fields` (V78, an "AI" badge) until a
 researcher changes it — and scores the executive 1–10 on the brief's technical and behavioural
-competencies with at most five positives and five negatives each, a summary, and the pages it relied
-on (V79 `ai_assessment`, replaced whole per run, LinkedIn links dropped). **The model never sees a
+competencies with at most five positives and five negatives each, and a summary (V79 `ai_assessment`,
+replaced whole per run; a `sources` key left by earlier grounded runs is ignored on read). **The model never sees a
 candidate's contacts, compensation, note or custom fields**: its input is the `CandidateDossier`
 allowlist. The assessment ranks a person, so it is staff-only — its own read
 (`GET …/ai-assessment`, `WORK_EXECUTE`) and never on `CandidateResponse`, which a client seat reads. **Nationality is counted in nine groups** — the Gulf six by name,

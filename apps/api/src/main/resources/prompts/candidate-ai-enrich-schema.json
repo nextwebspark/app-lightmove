@@ -7,18 +7,7 @@
     "yearsExperience": { "type": ["integer", "null"] },
     "summary": { "type": ["string", "null"] },
     "technical": { "$ref": "#/$defs/panel" },
-    "behavioural": { "$ref": "#/$defs/panel" },
-    "sources": {
-      "type": "array",
-      "items": {
-        "type": "object",
-        "properties": {
-          "url": { "type": "string" },
-          "title": { "type": ["string", "null"] }
-        },
-        "required": ["url"]
-      }
-    }
+    "behavioural": { "$ref": "#/$defs/panel" }
   },
   "$defs": {
     "panel": {
