@@ -18,5 +18,9 @@ public record CandidateCareerEntryDto(
         String title,
 
         @Size(max = 60)
-        String period
+        String period,
+
+        /** Where the post was held, as research found it; the drawer carries it back unedited. */
+        @Size(max = 200)
+        String location
 ) {}

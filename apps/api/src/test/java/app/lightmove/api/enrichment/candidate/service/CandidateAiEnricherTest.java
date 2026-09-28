@@ -10,23 +10,20 @@ import app.lightmove.api.candidate.model.CandidateCareerEntry;
 import app.lightmove.api.candidate.model.CandidateDossier;
 import app.lightmove.api.candidate.model.InferredBackground;
 import app.lightmove.api.common.constant.CriterionMode;
+import app.lightmove.api.common.constant.Seniority;
 import app.lightmove.api.position.dto.AssessmentDto;
 import app.lightmove.api.position.dto.CompetencyDto;
 import app.lightmove.api.position.dto.CriterionResponse;
 import app.lightmove.api.position.dto.PositionDetailsDto;
 import app.lightmove.api.position.dto.PositionResponse;
-import java.util.ArrayList;
 import java.util.EnumSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
-import org.springframework.ai.chat.messages.AssistantMessage;
 import org.springframework.ai.chat.model.ChatModel;
 import org.springframework.ai.chat.model.ChatResponse;
-import org.springframework.ai.chat.model.Generation;
-import org.springframework.ai.chat.prompt.ChatOptions;
 import org.springframework.ai.chat.prompt.Prompt;
 import org.springframework.ai.google.genai.GoogleGenAiChatOptions;
 
@@ -43,7 +40,7 @@ class CandidateAiEnricherTest {
             null, null);
 
     private static final String FULL_ANSWER = """
-            {"nationality":"western EXPAT","gender":"Female","yearsExperience":14,
+            {"gender":"Female","yearsExperience":14,"seniority":"N-1",
              "summary":" A proven finance leader. ",
              "technical":{"score":8,"positives":["a","b","c","d","e","f"],"negatives":["g"]},
              "behavioural":{"score":6,"positives":["h"],"negatives":[" ", "i"]}}""";
@@ -55,7 +52,7 @@ class CandidateAiEnricherTest {
 
         CandidateAiEnrichment enriched = enricherOver(model).enrich(dossier(ALL_MISSING), BRIEF).orElseThrow();
 
-        assertThat(enriched.background()).isEqualTo(new InferredBackground("Western expat", Gender.FEMALE, 14));
+        assertThat(enriched.background()).isEqualTo(new InferredBackground(Gender.FEMALE, 14, Seniority.N_MINUS_1));
         assertThat(enriched.assessment().summary()).isEqualTo("A proven finance leader.");
         assertThat(enriched.assessment().technical().score()).isEqualTo(8);
         assertThat(enriched.assessment().technical().positives()).containsExactly("a", "b", "c", "d", "e");
@@ -64,22 +61,34 @@ class CandidateAiEnricherTest {
         GoogleGenAiChatOptions options = (GoogleGenAiChatOptions) model.options.getLast();
         assertThat(options.getGoogleSearchRetrieval()).isNotEqualTo(true);
         assertThat(options.getResponseMimeType()).isEqualTo("application/json");
+        assertThat(options.getTemperature()).isEqualTo(0.0);
         assertThat(model.prompts.getLast()).contains("Capital markets (weight 60)", "Board presence (weight 40)",
                 "(required) Listed-company CFO", "Group CFO");
     }
 
     @Test
-    @DisplayName("an out-of-range score is dropped, and only missing background is answered")
+    @DisplayName("an out-of-range score or level is dropped, and only missing background is answered")
     void outOfRangeAndPresentFieldsAreDropped() {
         CandidateAiEnrichment enriched = enricherOver(new RecordingChatModel("""
-                {"nationality":"Saudi","gender":"male","yearsExperience":75,
+                {"gender":"male","yearsExperience":75,"seniority":"Chief",
                  "technical":{"score":11},"behavioural":null}"""))
-                .enrich(dossier(EnumSet.of(BackgroundField.NATIONALITY, BackgroundField.YEARS_EXPERIENCE)), BRIEF)
+                .enrich(dossier(EnumSet.of(BackgroundField.SENIORITY, BackgroundField.YEARS_EXPERIENCE)), BRIEF)
                 .orElseThrow();
 
-        assertThat(enriched.background()).isEqualTo(new InferredBackground("Saudi", null, null));
+        assertThat(enriched.background()).isEqualTo(InferredBackground.NONE);
         assertThat(enriched.assessment().technical().score()).isNull();
         assertThat(enriched.assessment().behavioural().score()).isNull();
+    }
+
+    @Test
+    @DisplayName("nationality is never asked of the assessment call — the classifier answers it")
+    void nationalityIsNotAsked() {
+        RecordingChatModel model = new RecordingChatModel(FULL_ANSWER);
+
+        enricherOver(model).enrich(dossier(EnumSet.of(BackgroundField.NATIONALITY)), BRIEF).orElseThrow();
+
+        assertThat(model.prompts.getLast()).contains("Background fields still to propose: none")
+                .doesNotContain("Western expat");
     }
 
     @Test
@@ -98,36 +107,11 @@ class CandidateAiEnricherTest {
     private static CandidateDossier dossier(Set<BackgroundField> missing) {
         return new CandidateDossier("Sample Person", "Group CFO", "Al Rawabi Dairy", "Dubai",
                 "United Arab Emirates", "https://www.linkedin.com/in/sample-profile", "Finance leader.",
-                List.of(new CandidateCareerEntry("Al Rawabi Dairy", "Group CFO", "2011 – Present")),
+                List.of(new CandidateCareerEntry("Al Rawabi Dairy", "Group CFO", "2011 – Present", null)),
                 List.of(), List.of("Treasury"), List.of("English"), missing);
     }
 
     private static CandidateAiEnricher enricherOver(ChatModel model) {
         return new CandidateAiEnricher(TestLlmCallPolicy.promptsOver(model));
-    }
-
-    /** Answers as {@code GoogleGenAiChatModel} would, so the call's own Google options are merged onto these. */
-    private static final class RecordingChatModel implements ChatModel {
-
-        private final String reply;
-        private final List<String> prompts = new ArrayList<>();
-        private final List<ChatOptions> options = new ArrayList<>();
-
-        private RecordingChatModel(String reply) {
-            this.reply = reply;
-        }
-
-        @Override
-        public ChatOptions getOptions() {
-            return GoogleGenAiChatOptions.builder().model("gemini-2.5-flash").build();
-        }
-
-        @Override
-        public ChatResponse call(Prompt prompt) {
-            prompts.add(prompt.getInstructions().stream().map(message -> message.getText())
-                    .reduce("", (all, text) -> all + text + "\n"));
-            options.add(prompt.getOptions());
-            return new ChatResponse(List.of(new Generation(new AssistantMessage(reply))));
-        }
     }
 }

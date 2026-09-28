@@ -15,14 +15,14 @@ import org.junit.jupiter.api.Test;
 class FallbackProfileEnricherTest {
 
     private static final EnrichedProfile RICH = profile(
-            List.of(new CandidateCareerEntry("RetailCo", "CEO", "2025 – Present")),
+            List.of(new CandidateCareerEntry("RetailCo", "CEO", "2025 – Present", null)),
             EnrichmentVendor.BRIGHTDATA);
     // The dataset's skeleton shape, seen live: a company and a year range, every title null.
     private static final EnrichedProfile THIN = profile(
-            List.of(new CandidateCareerEntry("RetailCo", null, "2017 – 2018")),
+            List.of(new CandidateCareerEntry("RetailCo", null, "2017 – 2018", null)),
             EnrichmentVendor.BRIGHTDATA);
     private static final EnrichedProfile LIVE = profile(
-            List.of(new CandidateCareerEntry("LiveCo", "CFO", "2020 – Present")),
+            List.of(new CandidateCareerEntry("LiveCo", "CFO", "2020 – Present", null)),
             EnrichmentVendor.HARVESTAPI);
 
     @Test

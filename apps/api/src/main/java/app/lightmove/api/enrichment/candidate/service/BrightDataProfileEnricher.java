@@ -175,7 +175,8 @@ public class BrightDataProfileEnricher implements LinkedInProfileEnricher {
                 for (BrightDataPosition held : post.positions()) {
                     career.add(new CandidateCareerEntry(unmasked(post.company()),
                             unmasked(held.title()),
-                            periodOf(held.startDate(), held.endDate(), null)));
+                            periodOf(held.startDate(), held.endDate(), null),
+                            unmasked(post.location())));
                 }
                 continue;
             }
@@ -188,7 +189,7 @@ public class BrightDataProfileEnricher implements LinkedInProfileEnricher {
                 continue;
             }
             career.add(new CandidateCareerEntry(company, position,
-                    periodOf(post.startDate(), post.endDate(), post.duration())));
+                    periodOf(post.startDate(), post.endDate(), post.duration()), unmasked(post.location())));
         }
         return career;
     }
@@ -266,7 +267,7 @@ public class BrightDataProfileEnricher implements LinkedInProfileEnricher {
 
     @JsonNaming(PropertyNamingStrategies.SnakeCaseStrategy.class)
     record BrightDataExperience(String company, String title, String subtitle, String duration,
-                                String companyLogoUrl, String startDate, String endDate,
+                                String companyLogoUrl, String startDate, String endDate, String location,
                                 List<BrightDataPosition> positions) {}
 
     @JsonNaming(PropertyNamingStrategies.SnakeCaseStrategy.class)

@@ -2,7 +2,7 @@
 --
 -- A fresh local mandate is a day old and holds a handful of captures, so the report's four chapters
 -- draw almost nothing. This files 42 companies and 116 fictional executives — levels, countries, the
--- nine nationality groups, gender, statuses, disclosed packages — spread over eight weeks, and moves
+-- nationality groups, gender, statuses, disclosed packages — spread over eight weeks, and moves
 -- the mandate's kickoff back so the progress chapter has a curve to draw.
 --
 -- Re-runnable: every row it writes has an id derived from the project's, so a second run replaces the
@@ -310,8 +310,9 @@ UPDATE app_lm_project_candidate c
 SET seniority_level = COALESCE(c.seniority_level,
         (ARRAY['C_SUITE','N_MINUS_1','N_MINUS_2'])[1 + mod(abs(hashtext(c.id::text)::bigint), 3)]),
     nationality = COALESCE(NULLIF(btrim(c.nationality), ''),
-        (ARRAY['Western expat','South Asian','Arab expat, non-GCC','Saudi','Emirati','Qatari','Kuwaiti','Omani','Bahraini'])
-            [1 + mod(abs(hashtext(c.id::text || ':nationality')::bigint), 9)]),
+        (ARRAY['Western expat','South Asian','Asian','Arab expat, non-GCC','Other expat','Saudi','Emirati','Qatari',
+               'Kuwaiti','Omani','Bahraini'])
+            [1 + mod(abs(hashtext(c.id::text || ':nationality')::bigint), 11)]),
     gender = COALESCE(c.gender,
         CASE WHEN mod(abs(hashtext(c.id::text || ':gender')::bigint), 3) = 0 THEN 'FEMALE' ELSE 'MALE' END)
 WHERE c.project_id = :'project_id'

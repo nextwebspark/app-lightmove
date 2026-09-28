@@ -1,6 +1,7 @@
 package app.lightmove.api;
 
 import java.util.List;
+import java.util.concurrent.CopyOnWriteArrayList;
 import org.springframework.ai.chat.messages.AssistantMessage;
 import org.springframework.ai.chat.model.ChatModel;
 import org.springframework.ai.chat.model.ChatResponse;
@@ -21,11 +22,13 @@ public class StubChatModel implements ChatModel {
     private static final String REPLY = "stubbed response";
 
     private volatile Prompt lastPrompt;
+    private final List<Prompt> prompts = new CopyOnWriteArrayList<>();
     private volatile String reply = REPLY;
 
     @Override
     public ChatResponse call(Prompt prompt) {
         lastPrompt = prompt;
+        prompts.add(prompt);
         return chunk(reply);
     }
 
@@ -37,11 +40,17 @@ public class StubChatModel implements ChatModel {
     public void reset() {
         reply = REPLY;
         lastPrompt = null;
+        prompts.clear();
     }
 
     /** The last prompt sent, so a test can see what the model was told. */
     public Prompt lastPrompt() {
         return lastPrompt;
+    }
+
+    /** Every prompt sent since the last {@link #reset}, in order. */
+    public List<Prompt> prompts() {
+        return List.copyOf(prompts);
     }
 
     private static ChatResponse chunk(String text) {

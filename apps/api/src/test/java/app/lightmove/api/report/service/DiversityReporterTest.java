@@ -14,7 +14,7 @@ import java.util.List;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
-/** Chapter four past its cap: the nine groups always named, and the spellings nobody could place folded. */
+/** Chapter four past its cap: the eleven groups always named, and the spellings nobody could place folded. */
 class DiversityReporterTest {
 
     @Test
@@ -25,13 +25,13 @@ class DiversityReporterTest {
                 national("Egyptian", "C-Suite"), national("Lebanese", "C-Suite"),
                 national("Emirati", "N-1"),
                 national("Indian", "C-Suite"),
-                national("Turkish", "C-Suite"), national("Turkish", "N-1"),
-                national("Chinese", "C-Suite"),
-                national("Nigerian", "C-Suite"),
+                national("Martian", "C-Suite"), national("Martian", "N-1"),
+                national("Wakandan", "C-Suite"),
+                national("Atlantean", "C-Suite"),
                 national(null, "C-Suite"));
 
         assertThat(diversity.nationalities()).extracting(NationalityRowDto::nationality)
-                .containsExactly("Saudi", "Arab expat, non-GCC", "Turkish", "Emirati", "South Asian", "Other");
+                .containsExactly("Saudi", "Arab expat, non-GCC", "Martian", "Emirati", "South Asian", "Other");
         NationalityRowDto saudi = diversity.nationalities().get(0);
         assertThat(saudi.total()).isEqualTo(3);
         assertThat(saudi.unclassified()).isEqualTo(1);
@@ -44,10 +44,10 @@ class DiversityReporterTest {
 
     @Test
     @DisplayName("a small Gulf group is never the one folded, however many larger spellings compete for the cap")
-    void theNineAreNeverFolded() {
+    void theElevenAreNeverFolded() {
         DiversityDto diversity = reportCappedAt(2,
-                national("Turkish", "C-Suite"), national("Turkish", "C-Suite"), national("Turkish", "N-1"),
-                national("Chinese", "C-Suite"), national("Chinese", "N-1"),
+                national("Martian", "C-Suite"), national("Martian", "C-Suite"), national("Martian", "N-1"),
+                national("Wakandan", "C-Suite"), national("Wakandan", "N-1"),
                 national("Saudi", "C-Suite"),
                 national("Bahraini", "N-1"),
                 national("British", "C-Suite"));

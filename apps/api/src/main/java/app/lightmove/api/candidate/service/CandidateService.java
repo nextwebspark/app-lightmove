@@ -351,17 +351,19 @@ public class CandidateService {
     }
 
     /**
-     * The last AI assessment and the last failed run, staff-only — neither is carried on
+     * The last AI assessment, nationality reading and failed run, staff-only — none is carried on
      * {@link CandidateResponse}. Empty when the candidate has never been enriched.
      */
     @Transactional(readOnly = true)
     public Optional<CandidateAiEnrichState> aiAssessmentOf(UUID workspaceId, UUID projectId, UUID candidateId) {
         projects.requireInWorkspace(projectId, workspaceId);
         Candidate candidate = candidates.requireInProject(candidateId, projectId);
-        if (candidate.getAiAssessment() == null && candidate.getAiEnrichFailedAt() == null) {
+        if (candidate.getAiAssessment() == null && candidate.getAiNationalityReading() == null
+                && candidate.getAiEnrichFailedAt() == null) {
             return Optional.empty();
         }
-        return Optional.of(new CandidateAiEnrichState(candidate.getAiAssessment(), candidate.getAiEnrichFailedAt()));
+        return Optional.of(new CandidateAiEnrichState(candidate.getAiAssessment(),
+                candidate.getAiNationalityReading(), candidate.getAiEnrichFailedAt()));
     }
 
     /** Stamps a run that produced nothing, so the drawer says so at once; a later success clears it. */
@@ -374,15 +376,23 @@ public class CandidateService {
     }
 
     /**
-     * The AI enrichment's own write: background into whichever fields are still empty, and the
-     * assessment replaced whole. {@code REQUIRES_NEW} for {@link #applyResearch}'s reason; a racing
+     * The AI enrichment's own write: background into whichever fields are still empty, the assessment
+     * and the nationality reading each replaced whole. A run whose assessment failed is stamped as
+     * failed even when its nationality reading landed. {@code REQUIRES_NEW} for {@link #applyResearch}'s reason; a racing
      * drawer edit wins by {@code @Version} the same way.
      */
     @Transactional(propagation = Propagation.REQUIRES_NEW)
     public void applyAiEnrichment(UUID projectId, UUID candidateId, CandidateAiEnrichment enrichment) {
         candidates.findByIdAndProjectId(candidateId, projectId).ifPresent(candidate -> {
-            candidate.proposeBackground(enrichment.background());
-            candidate.recordAiAssessment(enrichment.assessment());
+            if (enrichment.isAssessed()) {
+                candidate.proposeBackground(enrichment.background());
+                candidate.recordAiAssessment(enrichment.assessment());
+            } else {
+                candidate.recordAiEnrichFailure();
+            }
+            if (enrichment.nationalityReading() != null) {
+                candidate.recordNationalityReading(enrichment.nationalityReading());
+            }
             stream.publish(projectId, ProjectStreamKind.CANDIDATE_ENRICHED);
         });
     }
