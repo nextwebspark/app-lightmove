@@ -423,7 +423,9 @@ singular by-user lookup any more, because an `Optional` over two rows throws.
 V83 adds `app_lm_workspace.mode` (`AGENCY | COMPANY`, V34's CHECK idiom; every existing row `COMPANY`):
 who a workspace hires for — client companies, or its own business units. Chosen at creation with **no
 default** (`CreateWorkspaceRequest.mode` is required, the organisation step preselects nothing) and
-switched by an admin through `PUT /workspace/mode` (`WORKSPACE_MANAGE`, audited as a `mode` section).
+switched by an admin through `PUT /workspace/mode` (`WORKSPACE_MANAGE`, audited as a `mode` section) —
+the signup wizard's Back (`PATCH /onboarding/workspace`) goes through the same audited switch, so no
+path changes the mode unrecorded.
 It changes labels, what a client record shows and whose persona the assistant reads — **never what is
 stored or who may do what**, which is why a switch migrates no row. It rides `WorkspaceSummary`, so a
 pure client reads the same labels as staff. The phased plan is `docs/workspace-modes.md`.

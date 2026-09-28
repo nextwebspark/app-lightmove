@@ -37,7 +37,9 @@ export function ClientDrawer({
   onNewMandate: () => void;
 }) {
   const vocabulary = useWorkspaceVocabulary();
-  const RecordView = useWorkspaceMode() === "AGENCY" ? AgencyClientView : ClientRecordView;
+  // An agency's client is a company, so it opens as the company panels do: wide, the company view.
+  const isAgency = useWorkspaceMode() === "AGENCY";
+  const RecordView = isAgency ? AgencyClientView : ClientRecordView;
   const [mandateId, setMandateId] = useState<string | null>(null);
 
   // Always land on the record view: reopening a client (or switching to another) must not resurrect the
@@ -55,7 +57,7 @@ export function ClientDrawer({
   const mandate = client?.mandates.find((m) => m.id === mandateId) ?? null;
 
   return (
-    <Drawer open={clientId !== null} onClose={onClose} label={client?.name ?? vocabulary.unit}>
+    <Drawer open={clientId !== null} onClose={onClose} wide={isAgency} label={client?.name ?? vocabulary.unit}>
       {!client ? (
         <div className="grid flex-1 place-items-center font-mono text-[12px] text-u-text3">Loading…</div>
       ) : mandate ? (

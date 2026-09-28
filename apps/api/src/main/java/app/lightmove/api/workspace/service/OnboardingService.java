@@ -44,6 +44,7 @@ public class OnboardingService {
     private final WorkspaceCompanyResolver companyResolver;
     private final WorkspaceSelection selection;
     private final RateLimitGuard rateLimit;
+    private final WorkspaceSettingsService settings;
 
     /** Signup's door, gated on verification alone — so shut to anyone already in a workspace. */
     @Transactional
@@ -96,8 +97,11 @@ public class OnboardingService {
                 .orElseThrow(() -> ApiException.of(ErrorCode.WORKSPACE_NOT_FOUND));
 
         WorkspaceIdentity identity = companyResolver.resolve(command.name(), command.apolloAccountId());
-        workspace.describe(identity.name(), command.mode(), identity.company(), command.companySize(),
+        workspace.describe(identity.name(), identity.company(), command.companySize(),
                 command.primaryRegion(), command.teamFocus());
+        // Through the settings' switch, not describe: an admin can call this route at any time, and a mode
+        // changed here must leave the same audit record as one changed in Settings.
+        settings.changeMode(userId, workspaceId, command.mode(), request);
 
         audit.event(WorkspaceEventType.WORKSPACE_UPDATED)
                 .actor(userId).workspace(workspaceId).from(request)

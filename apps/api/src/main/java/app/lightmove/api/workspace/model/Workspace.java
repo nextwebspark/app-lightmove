@@ -14,6 +14,7 @@ import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
 import jakarta.persistence.Table;
 import java.util.Locale;
+import java.util.Objects;
 import java.util.UUID;
 import lombok.AccessLevel;
 import lombok.Getter;
@@ -114,7 +115,7 @@ public class Workspace extends BaseEntity {
         workspace.slug = slug;
         workspace.emailDomain = emailDomain.toLowerCase(Locale.ROOT);
         workspace.createdBy = createdBy;
-        workspace.mode = mode;
+        workspace.mode = Objects.requireNonNull(mode, "mode");
         workspace.companySize = companySize;
         workspace.primaryRegion = primaryRegion;
         workspace.teamFocus = teamFocus;
@@ -127,10 +128,9 @@ public class Workspace extends BaseEntity {
     }
 
     /** Never the slug (in URLs) or the email domain: a workspace can be re-described, not re-identified. */
-    public void describe(String name, WorkspaceMode mode, WorkspaceCompany company,
+    public void describe(String name, WorkspaceCompany company,
                          String companySize, String primaryRegion, String teamFocus) {
         this.name = name;
-        this.mode = mode;
         this.companySize = companySize;
         this.primaryRegion = primaryRegion;
         this.teamFocus = teamFocus;
@@ -139,8 +139,9 @@ public class Workspace extends BaseEntity {
         identifyAs(company);
     }
 
+    /** The one write of the mode after creation, so every switch passes the audited path that calls it. */
     public void changeMode(WorkspaceMode mode) {
-        this.mode = mode;
+        this.mode = Objects.requireNonNull(mode, "mode");
     }
 
     public void describePersona(HiringPersona persona) {

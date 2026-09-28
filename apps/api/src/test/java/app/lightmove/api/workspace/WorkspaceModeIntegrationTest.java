@@ -2,6 +2,7 @@ package app.lightmove.api.workspace;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -91,6 +92,22 @@ class WorkspaceModeIntegrationTest extends FlowTestSupport {
     }
 
     @Test
+    @DisplayName("a mode changed by the signup wizard's Back leaves the same record as one changed in Settings")
+    void wizardSwitchIsOnTheRecord() throws Exception {
+        String alok = "alok@" + domain;
+        String workspaceId = createWorkspace(verifiedUser("Alok Kumar", alok), "Wizard Firm");
+        String admin = login(alok);
+
+        redescribe(admin, "AGENCY");
+        redescribe(admin, "AGENCY");
+
+        mvc.perform(get("/api/v1/auth/me").header("Authorization", "Bearer " + admin))
+                .andExpect(jsonPath("$.workspace.mode").value("AGENCY"));
+        assertThat(modeSwitchesRecordedIn(workspaceId, "COMPANY", "AGENCY")).isEqualTo(1);
+        assertThat(modeSwitchesRecordedIn(workspaceId, "AGENCY", "AGENCY")).isZero();
+    }
+
+    @Test
     @DisplayName("a member may not switch the mode")
     void memberCannotSwitchMode() throws Exception {
         String alok = "alok@" + domain;
@@ -104,6 +121,16 @@ class WorkspaceModeIntegrationTest extends FlowTestSupport {
                         .content("""
                                 {"mode":"AGENCY"}"""))
                 .andExpect(status().isForbidden());
+    }
+
+    private void redescribe(String bearerToken, String mode) throws Exception {
+        mvc.perform(patch("/api/v1/onboarding/workspace")
+                        .header("Authorization", "Bearer " + bearerToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"mode":"%s","name":"Wizard Firm","companySize":"11-50 people"}
+                                """.formatted(mode)))
+                .andExpect(status().isOk());
     }
 
     private int modeSwitchesRecordedIn(String workspaceId, String from, String to) {

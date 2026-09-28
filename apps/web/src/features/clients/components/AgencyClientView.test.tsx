@@ -119,6 +119,14 @@ describe("AgencyClientView — a client picked from the company database", () =>
   });
 });
 
+describe("AgencyClientView — the panel", () => {
+  it("opens as wide as the company panels do", async () => {
+    renderDrawer("c1");
+
+    expect(await screen.findByRole("dialog", { name: "Harbour Health" })).toHaveClass("sm:w-[560px]");
+  });
+});
+
 describe("AgencyClientView — a client typed in by hand", () => {
   it("offers its sector, country and website to edit, and asks the universe nothing", async () => {
     vi.mocked(clientsApi.updateClient).mockResolvedValue(typedClient);

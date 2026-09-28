@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { WORKSPACE_MODES } from "./api/types";
 
 /**
  * Client-side validation, mirroring the server's Bean Validation rules.
@@ -79,8 +80,6 @@ export const resetPasswordSchema = z
     message: "Those passwords don't match",
     path: ["confirmPassword"],
   });
-
-export const WORKSPACE_MODES = ["AGENCY", "COMPANY"] as const;
 
 export const workspaceSchema = z.object({
   // Deliberately no default: an agency and an in-house team see different screens, so nobody is

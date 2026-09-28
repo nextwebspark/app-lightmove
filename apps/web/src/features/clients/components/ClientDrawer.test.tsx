@@ -89,5 +89,6 @@ describe("ClientDrawer — an in-house workspace's business unit", () => {
     expect(await screen.findByText("Business unit record")).toBeInTheDocument();
     expect(screen.getByText("Hiring managers")).toBeInTheDocument();
     expect(container.ownerDocument.querySelector("img")).toBeNull();
+    expect(screen.getByRole("dialog", { name: "Automotive" })).toHaveClass("sm:w-[420px]");
   });
 });
