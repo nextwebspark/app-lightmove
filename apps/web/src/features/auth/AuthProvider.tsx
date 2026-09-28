@@ -4,6 +4,7 @@ import {
   useCallback,
   useContext,
   useEffect,
+  useLayoutEffect,
   useMemo,
   useRef,
   useState,
@@ -172,7 +173,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
    * to the workspace left, so the tab starts again from the top, and says why once it has.
    */
   const userRef = useRef(user);
-  useEffect(() => {
+  useLayoutEffect(() => {
     userRef.current = user;
   }, [user]);
   useEffect(() => {
