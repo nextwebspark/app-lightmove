@@ -140,3 +140,39 @@ describe("Topbar — workspace menu", () => {
     expect(await screen.findByText(/Workspace not found/)).toBeInTheDocument();
   });
 });
+
+/** A project header draws its people where every other screen draws the user's own avatar. */
+describe("Topbar — actions", () => {
+  const renderWith = (actions?: React.ReactNode) =>
+    render(
+      <MemoryRouter>
+        <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
+          <AuthProvider>
+            <ToastProvider>
+              <Topbar actions={actions} />
+            </ToastProvider>
+          </AuthProvider>
+        </QueryClientProvider>
+      </MemoryRouter>,
+    );
+
+  beforeEach(() => {
+    vi.resetAllMocks();
+    vi.mocked(restoreSession).mockResolvedValue("token");
+    vi.mocked(authApi.me).mockResolvedValue(aUser({ fullName: "Alok Kumar" }));
+  });
+
+  it("draws the user's avatar when no screen supplies actions", async () => {
+    renderWith();
+
+    expect(await screen.findByTitle("Alok Kumar")).toBeInTheDocument();
+  });
+
+  it("draws the actions in its place, keeping the workspace label", async () => {
+    renderWith(<span>People bar</span>);
+
+    expect(await screen.findByTitle(/^Current workspace:/)).toBeInTheDocument();
+    expect(screen.getByText("People bar")).toBeInTheDocument();
+    expect(screen.queryByTitle("Alok Kumar")).not.toBeInTheDocument();
+  });
+});

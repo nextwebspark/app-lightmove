@@ -135,6 +135,7 @@ describe("TeamAccessPage", () => {
         fullName: "Seated Rep",
         position: "Chair",
         email: "seated@beta-client.example",
+        avatarUrl: null,
         status: "ACTIVE",
       },
       {
@@ -142,6 +143,7 @@ describe("TeamAccessPage", () => {
         fullName: "Pending Rep",
         position: "CHRO",
         email: "pending@beta-client.example",
+        avatarUrl: null,
         status: "INVITED",
       },
     ],
