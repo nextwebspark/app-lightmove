@@ -15,6 +15,7 @@ export function AppShell({
   navGroups,
   navBackLink,
   breadcrumb,
+  topbarActions,
   contentClassName,
   assistantContext = "Workspace",
   assistantProjectId = null,
@@ -23,6 +24,7 @@ export function AppShell({
   navGroups: SidebarGroup[];
   navBackLink?: SidebarItem;
   breadcrumb?: ReactNode;
+  topbarActions?: ReactNode;
   contentClassName?: string;
   /** Which mandate the assistant is asking about here. A workspace screen has none. */
   assistantContext?: string;
@@ -46,7 +48,7 @@ export function AppShell({
 
   return (
     <div className="flex h-dvh flex-col overflow-hidden">
-      <Topbar breadcrumb={breadcrumb} navOpen={navOpen} onMenuClick={() => setNavOpen(true)} />
+      <Topbar breadcrumb={breadcrumb} actions={topbarActions} navOpen={navOpen} onMenuClick={() => setNavOpen(true)} />
 
       <div className="flex min-h-0 flex-1 px-3.5 pb-3.5">
         {navOpen && (

@@ -561,8 +561,10 @@ public class ProjectService {
                 .map(rep -> {
                     boolean seated = rep.getUserId() != null
                             && clientSeatUserIds.contains(rep.getUserId());
+                    User account = seated ? assembly.userById().get(rep.getUserId()) : null;
                     return new AttachedRepresentativeResponse(
                             rep.getId(), rep.getFullName(), rep.getPosition(), rep.getEmail(),
+                            account == null ? null : account.getAvatarUrl(),
                             seated ? ClientRepStatus.ACTIVE : ClientRepStatus.INVITED);
                 })
                 .toList();

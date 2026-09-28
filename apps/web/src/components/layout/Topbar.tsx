@@ -7,15 +7,18 @@ import { CompanyLogo } from "../ui/CompanyLogo";
 
 /**
  * The 46px header: the workspace dropdown (settings, members, sign out) on the left, the user's
- * avatar on the right. Settings screens pass a breadcrumb instead of the dropdown. Below `lg` it
- * also carries the nav drawer's button.
+ * avatar on the right — or, in a project, its people. Settings screens pass a breadcrumb instead of
+ * the dropdown. Below `lg` it also carries the nav drawer's button.
  */
 export function Topbar({
   breadcrumb,
+  actions,
   navOpen = false,
   onMenuClick,
 }: {
   breadcrumb?: ReactNode;
+  /** Drawn in place of the user's avatar — a project header's people. */
+  actions?: ReactNode;
   navOpen?: boolean;
   onMenuClick?: () => void;
 }) {
@@ -38,8 +41,9 @@ export function Topbar({
 
       <div className="flex min-w-0 flex-1 items-center">{breadcrumb ?? <WorkspaceMenu />}</div>
 
-      <div className="flex flex-none items-center gap-2.5">
-        {user && <Avatar id={user.id} name={user.fullName} src={user.avatarUrl} />}
+      <div className="flex min-w-0 flex-none items-center gap-2.5">
+        {actions}
+        {!actions && user && <Avatar id={user.id} name={user.fullName} src={user.avatarUrl} />}
       </div>
     </header>
   );
@@ -58,14 +62,14 @@ export function ProjectBreadcrumb({
       <WorkspaceMenu compact />
       <Link
         to="/"
-        className="hidden whitespace-nowrap rounded-md px-1.5 py-1 font-mono text-[13px] font-medium text-u-text3 hover:bg-u-raised hover:text-u-text md:inline"
+        className="hidden whitespace-nowrap rounded-md px-1.5 py-1 font-mono text-[13px] font-medium text-u-text3 hover:bg-u-raised hover:text-u-text lg:inline"
       >
         Positions
       </Link>
-      <span className="hidden text-xs text-u-text3 opacity-40 md:inline">/</span>
-      <span className="hidden items-center gap-1.5 whitespace-nowrap font-mono text-[13px] font-medium text-u-text2 sm:flex">
-        <span className="size-1.5 rounded-full bg-u-accent" />
-        {clientName}
+      <span className="hidden text-xs text-u-text3 opacity-40 lg:inline">/</span>
+      <span className="hidden min-w-0 items-center gap-1.5 whitespace-nowrap font-mono text-[13px] font-medium text-u-text2 sm:flex">
+        <span className="size-1.5 flex-none rounded-full bg-u-accent" />
+        <span className="truncate">{clientName}</span>
       </span>
       <span className="hidden text-xs text-u-text3 opacity-40 sm:inline">/</span>
       <span className="min-w-0 flex-1 truncate text-sm font-semibold text-u-text lg:max-w-[280px] lg:flex-none">
