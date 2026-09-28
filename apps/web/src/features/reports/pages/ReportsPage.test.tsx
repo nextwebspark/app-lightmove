@@ -464,6 +464,20 @@ describe("ReportsPage", () => {
     expect(areaOf(screen.getByRole("img", { name: "Other — 2 companies, 4.8% of the sectored universe" }))).toBeCloseTo(4.8, 1);
   });
 
+  it("gives every sector tile its own hue, so a long tail does not read as one block", async () => {
+    vi.mocked(reportApi.getReport).mockResolvedValue(SAMPLE_REPORT);
+
+    renderPage("market");
+    await screen.findByText("Companies by sector");
+
+    const hues = screen
+      .getAllByRole("img", { name: /of the sectored universe$/ })
+      .map((tile) => tile.className.match(/\bbg-u-[\w-]+/)?.[0]);
+    expect(hues.length).toBeGreaterThan(1);
+    expect(hues.every(Boolean)).toBe(true);
+    expect(new Set(hues).size).toBe(hues.length);
+  });
+
   it("heads a chapter with its question alone, not with a screen counter", async () => {
     vi.mocked(reportApi.getReport).mockResolvedValue(SAMPLE_REPORT);
 

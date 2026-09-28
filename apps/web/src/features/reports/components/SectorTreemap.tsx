@@ -1,6 +1,5 @@
 import { cn } from "../../../lib/cn";
 import type { Breakdown } from "../api/types";
-import { RAMP_BG, RAMP_GROUND_LABEL_FROM, rampStop } from "../lib/ramp";
 import { squarify } from "../lib/treemap";
 import { ChartEmpty } from "./ChartEmpty";
 import { ReportPanel } from "./ReportCard";
@@ -17,13 +16,23 @@ const FIGURES_FROM_AREA = 2.4;
 /** And below this it has no room for even a label. */
 const LABEL_FROM_AREA = 0.7;
 
+// Seven UNCAVA hues for at most six named sectors and the folded "Other". A sequential ramp shaded
+// every tail sector on its palest stop once one sector dominated, so four tiles read as one block.
+const SERIES = [
+  "bg-u-chart-1",
+  "bg-u-chart-2",
+  "bg-u-chart-3",
+  "bg-u-chart-4",
+  "bg-u-chart-5",
+  "bg-u-chart-6",
+  "bg-u-adjacent",
+] as const;
+
 /**
  * Companies by sector, as area. A bar list ranks sectors; this says what share of the universe each
  * one <i>is</i>, which is the question the chapter asks.
  *
- * <p>Shaded on UNCAVA's five-stop sequential ramp — the same scale the sector × seniority matrix
- * uses, so the two heat surfaces on this chapter cannot be read as two different scales, and the
- * block is right in both themes because the ramp itself is defined per theme.
+ * <p>Area carries the count; colour only tells the tiles apart, one UNCAVA hue per tile in rank order.
  *
  * <p>It carries its own header rather than taking {@code ReportCard}'s: the universe it counts is
  * named beside the title, where a caption would bury it. The surface underneath is still the
@@ -34,7 +43,6 @@ export function SectorTreemap({ rows, universeCount }: { rows: Breakdown[]; univ
     rows.map((row) => ({ key: row.label, value: row.count })),
     ASPECT,
   );
-  const fullest = Math.max(0, ...rows.map((row) => row.count));
   const counted = rows.reduce((sum, row) => sum + row.count, 0);
 
   return (
@@ -54,8 +62,7 @@ export function SectorTreemap({ rows, universeCount }: { rows: Breakdown[]; univ
         <ChartEmpty>No company of the universe has a sector on file yet.</ChartEmpty>
       ) : (
         <div className="relative w-full" style={{ aspectRatio: String(ASPECT) }}>
-          {tiles.map((tile) => {
-            const stop = rampStop(tile.row.value, fullest);
+          {tiles.map((tile, rank) => {
             // The tile's percentage of the block is its percentage of the total, by construction.
             const share = tile.width * tile.height * 0.01;
             // A tail tile draws neither figure, so without this it would carry no text at all — and
@@ -68,9 +75,8 @@ export function SectorTreemap({ rows, universeCount }: { rows: Breakdown[]; univ
                 aria-label={description}
                 title={description}
                 className={cn(
-                  "absolute overflow-hidden rounded-[5px] p-2.5 sm:p-3",
-                  RAMP_BG[stop],
-                  stop >= RAMP_GROUND_LABEL_FROM ? "text-u-bg" : "text-u-text",
+                  "absolute overflow-hidden rounded-[7px] border-2 border-u-surface p-2.5 text-u-bg sm:p-3",
+                  SERIES[rank % SERIES.length],
                 )}
                 style={{
                   insetInlineStart: `${tile.x}%`,
