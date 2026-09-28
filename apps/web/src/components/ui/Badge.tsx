@@ -1,8 +1,9 @@
 import type { ProjectHealth, ProjectStage } from "../../features/projects/api/types";
+import { Icon, ICONS } from "../layout/Icon";
 
 /**
- * The mockups' stage pills and health dots, colour maps lifted from Workspace.dc.html's STAGES and
- * HEALTH tables.
+ * The mockups' stage pills, colour map lifted from Workspace.dc.html's STAGES table, and the health
+ * indicators.
  */
 const STAGE_STYLES: Record<ProjectStage, { label: string; className: string }> = {
   BRIEF: { label: "Brief", className: "text-u-text2 border-u-border-strong" },
@@ -30,30 +31,51 @@ export function StagePill({ stage }: { stage: ProjectStage }) {
   );
 }
 
-const HEALTH_STYLES: Record<ProjectHealth, { label: string; dot: string; text: string; pill: string }> = {
-  OK: { label: "On track", dot: "bg-u-direct", text: "text-u-text2", pill: "bg-u-direct-tint text-u-direct" },
-  RISK: { label: "At risk", dot: "bg-u-signal", text: "text-u-signal", pill: "bg-u-signal-tint text-u-signal" },
-  OFF: { label: "Off track", dot: "bg-u-offlimits", text: "text-u-offlimits", pill: "bg-u-offlimits-tint text-u-offlimits" },
-  DONE: { label: "Complete", dot: "bg-u-text3", text: "text-u-text3", pill: "bg-u-raised text-u-text3" },
+type HealthGlyph = "trendingUp" | "warning" | "trendingDown" | "checkCircle";
+
+/** Icon-led health indicators (Uncava status spec), so the state never rests on colour alone. */
+const HEALTH_STYLES: Record<ProjectHealth, { label: string; icon: HealthGlyph; tone: string; tint: string }> = {
+  OK: { label: "On track", icon: "trendingUp", tone: "text-u-direct", tint: "bg-u-direct-tint" },
+  RISK: { label: "At risk", icon: "warning", tone: "text-u-signal", tint: "bg-u-signal-tint" },
+  OFF: { label: "Off track", icon: "trendingDown", tone: "text-u-offlimits", tint: "bg-u-offlimits-tint" },
+  DONE: { label: "Complete", icon: "checkCircle", tone: "text-u-text3", tint: "bg-u-raised" },
 };
 
+/** Badge variant — headers, overview cards and drawers. */
 export function HealthPill({ health }: { health: ProjectHealth }) {
-  const { label, pill } = HEALTH_STYLES[health];
+  const { label, icon, tone, tint } = HEALTH_STYLES[health];
   return (
     <span
-      className={`inline-flex items-center whitespace-nowrap rounded-md px-[9px] py-[3px] text-[10.5px] font-semibold uppercase tracking-[0.06em] ${pill}`}
+      className={`inline-flex items-center gap-1.5 whitespace-nowrap rounded-md px-[9px] py-[3px] text-[11px] font-semibold ${tone} ${tint}`}
     >
+      <Icon d={ICONS[icon]} size={13} className="shrink-0" />
       {label}
     </span>
   );
 }
 
-export function HealthDot({ health }: { health: ProjectHealth }) {
-  const { label, dot, text } = HEALTH_STYLES[health];
+/** Inline variant — dense tables and list rows: a coloured glyph beside a neutral label. */
+export function HealthInline({ health }: { health: ProjectHealth }) {
+  const { label, icon, tone } = HEALTH_STYLES[health];
   return (
-    <span className={`inline-flex items-center gap-1.5 whitespace-nowrap font-mono text-xs font-medium ${text}`}>
-      <span className={`size-[7px] rounded-full ${dot}`} />
+    <span className="inline-flex items-center gap-1.5 whitespace-nowrap text-xs font-medium text-u-text">
+      <Icon d={ICONS[icon]} size={14} className={`shrink-0 ${tone}`} />
       {label}
+    </span>
+  );
+}
+
+/** Icon-only variant — ultra-compact grids; the label rides on the tooltip and the accessible name. */
+export function HealthIcon({ health }: { health: ProjectHealth }) {
+  const { label, icon, tone, tint } = HEALTH_STYLES[health];
+  return (
+    <span
+      role="img"
+      aria-label={label}
+      title={label}
+      className={`inline-flex size-7 shrink-0 items-center justify-center rounded-full ${tone} ${tint}`}
+    >
+      <Icon d={ICONS[icon]} size={14} />
     </span>
   );
 }

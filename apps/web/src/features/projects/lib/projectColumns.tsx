@@ -6,7 +6,7 @@ import {
 } from "@tanstack/react-table";
 import { Link } from "react-router-dom";
 import { Icon, ICONS } from "../../../components/layout/Icon";
-import { Avatar, HealthDot, StagePill } from "../../../components/ui";
+import { Avatar, HealthInline, StagePill } from "../../../components/ui";
 import {
   LOCAL_ROW_MODELS,
   DATA_GRID_FEATURES,
@@ -73,7 +73,7 @@ export const projectColumns = helper.columns([
     header: "Health",
     enableSorting: false,
     meta: { share: 0, min: 92 },
-    cell: (info) => <HealthDot health={info.getValue()} />,
+    cell: (info) => <HealthInline health={info.getValue()} />,
   }),
 
   helper.display({
