@@ -43,6 +43,9 @@ class BrightDataProfileEnricherTest {
         assertThat(enriched.career().get(1).title()).isEqualTo("General Manager");
         assertThat(enriched.career().get(1).period()).isEqualTo("Feb 2023 – Jan 2025");
         assertThat(enriched.career().get(2).title()).isEqualTo("Senior Manager");
+        assertThat(enriched.career().get(0).location()).isNull();
+        assertThat(enriched.career().get(1).location()).isEqualTo("Luxembourg");
+        assertThat(enriched.career().get(2).location()).isEqualTo("Luxembourg");
 
         assertThat(enriched.education()).hasSize(2);
         assertThat(enriched.education().get(0).school()).isEqualTo("Sample Institute of Management");
@@ -61,7 +64,7 @@ class BrightDataProfileEnricherTest {
         BrightDataPerson masked = new BrightDataPerson(null, null, null, null, null,
                 "Known Employer", null, null, null,
                 List.of(new BrightDataExperience("******* ***", "******* ***", "******",
-                        null, null, null, null, null)),
+                        null, null, null, null, null, null)),
                 null, null, null);
 
         EnrichedProfile enriched = BrightDataProfileEnricher.toEnrichedProfile(masked);

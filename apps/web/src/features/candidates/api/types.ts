@@ -31,8 +31,8 @@ export type CandidateSeniority = SeniorityToken;
  */
 export type CandidateGender = "female" | "male" | "other";
 
-/** The three background fields `aiInferredFields` can flag as an unreviewed AI suggestion. */
-export type CandidateBackgroundField = "nationality" | "gender" | "yearsExperience";
+/** The four fields `aiInferredFields` can flag as an unreviewed AI suggestion. */
+export type CandidateBackgroundField = "nationality" | "gender" | "yearsExperience" | "seniority";
 
 /** Which door a profile came through. Only `manual` is reachable today. */
 export type CandidateSource = "manual" | "csv" | "extension";
@@ -42,6 +42,8 @@ export interface CandidateCareerEntry {
   company: string | null;
   title: string | null;
   period: string | null;
+  /** Where the post was held, as research found it; no screen edits it, the drawer carries it back. */
+  location?: string | null;
 }
 
 /** One school, shaped like a career post and written only by enrichment — no screen edits it yet. */
@@ -218,14 +220,31 @@ export interface CompetencyPanelAssessment {
   negatives: string[];
 }
 
+/** How strongly the classifier's evidence supports its category; only `high` fills the field. */
+export type NationalityConfidence = "high" | "medium" | "low";
+
 /**
- * A candidate's last AI assessment and last failed run — staff-only, read on its own and never
- * carried on `Candidate`. The assessment fields are null until a run has succeeded.
+ * The nationality classifier's last reading. `category` is one of the groups, or "Unknown" when the
+ * evidence did not decide it. Staff-only: its evidence reasons about a person's origin.
+ */
+export interface NationalityReading {
+  category: string;
+  confidence: NationalityConfidence;
+  evidenceFor: string[];
+  evidenceAgainst: string[];
+  rule: string;
+  readAt: string;
+}
+
+/**
+ * A candidate's last AI assessment, nationality reading and last failed run — staff-only, read on
+ * its own and never carried on `Candidate`. The assessment fields are null until a run has succeeded.
  */
 export interface CandidateAiAssessment {
   summary: string | null;
   technical: CompetencyPanelAssessment | null;
   behavioural: CompetencyPanelAssessment | null;
   assessedAt: string | null;
+  nationalityReading: NationalityReading | null;
   failedAt: string | null;
 }

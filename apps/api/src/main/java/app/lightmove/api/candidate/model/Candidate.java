@@ -111,6 +111,11 @@ public class Candidate extends BaseEntity {
     @Column(name = "ai_assessment")
     private CandidateAiAssessment aiAssessment;
 
+    /** The nationality classifier's last reading (V83) — staff-only, never on {@code CandidateResponse}. */
+    @JdbcTypeCode(SqlTypes.JSON)
+    @Column(name = "ai_nationality_reading")
+    private NationalityReading aiNationalityReading;
+
     /** The last AI enrichment run that produced nothing (V80); a later success clears it. */
     @Column(name = "ai_enrich_failed_at")
     private Instant aiEnrichFailedAt;
@@ -218,6 +223,7 @@ public class Candidate extends BaseEntity {
     public void describe(CandidateDetails details, ContactSource door) {
         this.fullName = details.fullName();
         this.title = details.title();
+        confirmIfChanged(BackgroundField.SENIORITY, seniorityLevel, details.seniority());
         this.seniorityLevel = details.seniority();
         this.status = details.status();
         this.companyName = details.employerName();
@@ -243,7 +249,7 @@ public class Candidate extends BaseEntity {
     }
 
     /**
-     * A researcher changing one of the three background fields is what confirms it; resubmitting the
+     * A researcher changing one of the background fields is what confirms it; resubmitting the
      * same value leaves its AI flag standing, since nothing was actually reviewed.
      */
     private void describeBackground(CandidateDetails details) {
@@ -366,6 +372,9 @@ public class Candidate extends BaseEntity {
         if (yearsExperience == null) {
             missing.add(BackgroundField.YEARS_EXPERIENCE);
         }
+        if (seniorityLevel == null) {
+            missing.add(BackgroundField.SENIORITY);
+        }
         return missing;
     }
 
@@ -376,10 +385,6 @@ public class Candidate extends BaseEntity {
      */
     public boolean proposeBackground(InferredBackground proposed) {
         Set<String> inferred = new HashSet<>(aiInferredFields);
-        if (nationality == null && proposed.nationality() != null) {
-            nationality = proposed.nationality();
-            inferred.add(BackgroundField.NATIONALITY.key());
-        }
         if (gender == null && proposed.gender() != null) {
             gender = proposed.gender();
             inferred.add(BackgroundField.GENDER.key());
@@ -388,9 +393,28 @@ public class Candidate extends BaseEntity {
             yearsExperience = proposed.yearsExperience();
             inferred.add(BackgroundField.YEARS_EXPERIENCE.key());
         }
+        if (seniorityLevel == null && proposed.seniority() != null) {
+            seniorityLevel = proposed.seniority();
+            inferred.add(BackgroundField.SENIORITY.key());
+        }
         boolean filled = !inferred.equals(aiInferredFields);
         aiInferredFields = inferred;
         return filled;
+    }
+
+    /**
+     * Keeps the classifier's reading, replacing the last, and fills an empty nationality only from a
+     * {@link NationalityReading#isDecisive decisive} one — a medium or low reading stays a suggestion the
+     * researcher accepts, and Unknown leaves the field null. A value already there always stands.
+     */
+    public void recordNationalityReading(NationalityReading reading) {
+        this.aiNationalityReading = reading;
+        if (nationality == null && reading.isDecisive()) {
+            nationality = reading.category();
+            Set<String> inferred = new HashSet<>(aiInferredFields);
+            inferred.add(BackgroundField.NATIONALITY.key());
+            aiInferredFields = inferred;
+        }
     }
 
     /** Replaces the last AI assessment whole — it is the model's own reading, not anybody's edit. */

@@ -27,6 +27,7 @@ export function Avatar({
   name,
   src,
   size = "md",
+  title,
   className,
 }: {
   id: string;
@@ -34,6 +35,8 @@ export function Avatar({
   /** A picture from the user's identity provider, if they signed in with one. */
   src?: string | null;
   size?: keyof typeof SIZES;
+  /** The tooltip, when it should say more than the name. */
+  title?: string;
   className?: string;
 }) {
   // What we hold is the provider's CDN URL, not a copy of the image, and LinkedIn's expire within
@@ -51,7 +54,7 @@ export function Avatar({
         // Named, not decorative: in the projects table and the topbar this image is the only thing
         // identifying the person, and the initials it replaces were readable.
         alt={name}
-        title={name}
+        title={title ?? name}
         loading="lazy"
         referrerPolicy="no-referrer"
         onError={() => setFailedSrc(src)}
@@ -65,7 +68,7 @@ export function Avatar({
 
   return (
     <span
-      title={name}
+      title={title ?? name}
       className={cn(
         "grid shrink-0 place-items-center rounded-full font-mono font-semibold",
         SIZES[size],

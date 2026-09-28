@@ -19,7 +19,7 @@ Panel ──POST /api/v1/projects/{projectId}/assistant/ask {question, threadId?
         ├─ last N question/answer pairs → history
         ├─ system prompt carries the hiring company: HiringSideResolver → HiringContext. In-house,
         │  the workspace's company (V68) and the persona its admins wrote in Settings → General (V69);
-        │  at an agency (V83), the mandate's client and the persona recorded in its drawer (V84), with
+        │  at an agency (V84), the mandate's client and the persona recorded in its drawer (V85), with
         │  the agency named in one line. Framed as data, never instructions
         ├─ ChatClient.call() with the tools + ToolContext {workspaceId, projectId, TurnRecorder}
         │     readMandateBrief       → the position only (never compensation or internal notes)

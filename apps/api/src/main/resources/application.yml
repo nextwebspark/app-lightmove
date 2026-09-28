@@ -511,7 +511,7 @@ lightmove:
     max-candidates: ${REPORT_MAX_CANDIDATES:5000}
     max-sectors: ${REPORT_MAX_SECTORS:6}
     max-hubs: ${REPORT_MAX_HUBS:8}
-    max-nationalities: ${REPORT_MAX_NATIONALITIES:9}
+    max-nationalities: ${REPORT_MAX_NATIONALITIES:11}
     max-employers-per-hub: ${REPORT_MAX_EMPLOYERS_PER_HUB:3}
     max-executives-per-slice: ${REPORT_MAX_EXECUTIVES_PER_SLICE:12}
 

@@ -66,7 +66,7 @@ class DiversityReporter {
     }
 
     /**
-     * The groups that get a row of their own, in rank order. The nine always do — a localisation
+     * The groups that get a row of their own, in rank order. The eleven always do — a localisation
      * quota is read off them, so a small Gulf group is never the one folded to make room — and a
      * spelling the catalog could not place takes a row only while the cap has room left.
      */

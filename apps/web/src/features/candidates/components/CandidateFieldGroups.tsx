@@ -58,8 +58,11 @@ export function IdentityFields<TTransformed>({
   employerLocked,
   autoFocus,
   statusField,
+  aiInferred,
 }: FieldGroupProps & {
   control: Control<CandidateForm, unknown, TTransformed>;
+  /** Which background fields hold a value AI proposed, not yet reviewed — seniority is drawn here. */
+  aiInferred?: ReadonlySet<CandidateBackgroundField>;
   /** True where the employer is one of the mandate's companies — the mapping and the name must not disagree. */
   employerLocked: boolean;
   autoFocus?: boolean;
@@ -80,7 +83,11 @@ export function IdentityFields<TTransformed>({
         <Field label="Title" error={errors.title?.message}>
           <Input {...register("title")} placeholder="VP Finance" />
         </Field>
-        <Field label="Seniority" error={errors.seniority?.message}>
+        <Field
+          label="Seniority"
+          error={errors.seniority?.message}
+          action={backgroundBadge(aiInferred, "seniority")}
+        >
           <Select {...register("seniority")}>
             <option value="">Not established</option>
             {CANDIDATE_SENIORITIES.map((level) => (
@@ -682,7 +689,7 @@ function backgroundBadge(aiInferred: ReadonlySet<CandidateBackgroundField> | und
 }
 
 /**
- * A nationality outside the nine groups — typed before the picker existed, or stated by an import —
+ * A nationality outside the eleven groups — typed before the picker existed, or stated by an import —
  * stays offered, for the reason a stored currency does: see {@link CompensationFields}.
  */
 export function BackgroundFields({

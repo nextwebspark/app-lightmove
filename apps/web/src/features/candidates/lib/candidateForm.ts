@@ -142,6 +142,7 @@ export const candidateSchema = z.object({
         company: z.string().trim().max(200),
         title: z.string().trim().max(200),
         period: z.string().trim().max(60),
+        location: z.string().nullable().optional(),
       }),
     )
     .max(25, "A career history holds 25 posts at most"),
@@ -311,6 +312,7 @@ export function formOf(candidate: Candidate): CandidateForm {
       company: entry.company ?? "",
       title: entry.title ?? "",
       period: entry.period ?? "",
+      location: entry.location ?? null,
     })),
   };
 }
@@ -408,6 +410,8 @@ const PATCHES: {
         company: entry.company || null,
         title: entry.title || null,
         period: entry.period || null,
+        // Research's own field, carried back so a save does not wipe it; a typed row has none.
+        ...(entry.location ? { location: entry.location } : {}),
       })),
   }),
   compensation: (parsed) => {

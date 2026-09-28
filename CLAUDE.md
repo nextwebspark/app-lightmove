@@ -90,21 +90,34 @@ theme opens dark. It states only what the rows carry: a candidate's
 status but no pipeline outcome, and a package in another currency is counted rather than converted.
 **Gender (V56) is recorded on a candidate, or proposed and flagged — never silently inferred** — the
 chapter divides by the executives who have one on file, not by the headcount, so a mandate nobody has
-recorded reads as unmeasured rather than as a pool of one gender. **AI enrichment** is one
-ungrounded Gemini call (`CandidateAiEnricher`, no web search — grounding was too slow) run by
+recorded reads as unmeasured rather than as a pool of one gender. **AI enrichment** is two
+ungrounded Gemini calls at temperature 0 (no web search — grounding was too slow) run by
 `CandidateAiEnrichWorker` after a capture's vendor research lands, and again from the drawer's
-**AI deep enrich** button (`POST …/candidates/{id}/ai-enrich`, 202, `WORK_EXECUTE`). It reads the
-profile alone and always proposes its most probable value — never "unknown" — for whichever of gender,
-nationality (one of the nine groups) and years of experience are still empty — a value already on the
-row always stands, and each filled one is flagged in `ai_inferred_fields` (V78, an "AI" badge) until a
-researcher changes it — and scores the executive 1–10 on the brief's technical and behavioural
-competencies with at most five positives and five negatives each, and a summary (V79 `ai_assessment`,
-replaced whole per run; a `sources` key left by earlier grounded runs is ignored on read). **The model never sees a
+**AI deep enrich** button (`POST …/candidates/{id}/ai-enrich`, 202, `WORK_EXECUTE`), one budget unit
+for both. The assessment call (`CandidateAiEnricher`) reads the profile alone and always proposes its
+most probable value — never "unknown" — for whichever of gender, years of experience and seniority
+level are still empty — a value already on the row always stands, and each filled one is flagged in
+`ai_inferred_fields` (V78, an "AI" badge) until a researcher changes it — and scores the executive 1–10
+on the brief's technical and behavioural competencies with at most five positives and five negatives
+each, and a summary (V79 `ai_assessment`, replaced whole per run; a `sources` key left by earlier
+grounded runs is ignored on read). **Nationality is the deliberate exception: it may be "Unknown"**,
+because a wrong one costs more than a blank. It is `CandidateNationalityClassifier`'s, asked only while
+the field is empty, against an evidence rubric (`candidate-nationality-system.st`: residence, a GCC
+employer and a regional business school are not evidence; a GCC nationality needs positive evidence;
+name alone is low confidence; conflicting signals are Unknown), with the career sent oldest first. Its
+reading — category, confidence, evidence for and against, rule — is kept whole (V83
+`ai_nationality_reading`); only a `high` one fills the field and flags it, a `medium` or `low` one is
+a suggestion the drawer's Background section offers to accept in one click, and Unknown leaves the
+field null and the drawer says the AI could not tell. `NationalityEval` (`@Tag("eval")`, excluded from
+`./mvnw test`) scores both prompts against a golden set that never enters the repository — real
+profiles, exported by `ops/eval/export-golden.sh` — and appends counts to `docs/eval/nationality-eval.md`. **The model never sees a
 candidate's contacts, compensation, note or custom fields**: its input is the `CandidateDossier`
-allowlist. The assessment ranks a person, so it is staff-only — its own read
-(`GET …/ai-assessment`, `WORK_EXECUTE`) and never on `CandidateResponse`, which a client seat reads. **Nationality is counted in nine groups** — the Gulf six by name,
-and everyone else as Western expat, South Asian or Arab expat, non-GCC: the drawer offers exactly those
-nine and stores the label, while a spreadsheet's "Egyptian" is folded into its group by `report` at read
+allowlist. The assessment ranks a person and the nationality reading reasons about their origin, so both are
+staff-only — one read (`GET …/ai-assessment`, `WORK_EXECUTE`) and never on `CandidateResponse`, which a
+client seat reads; a filled seniority, like gender, is a mapping fact and is. **Nationality is counted
+in eleven groups** — the Gulf six by name, and everyone else as Western expat (all of Europe, the east
+included), South Asian, Asian (East and South-East), Arab expat, non-GCC, or Other expat (any country
+no other group claims): the drawer offers exactly those eleven and stores the label, while a spreadsheet's "Egyptian" is folded into its group by `report` at read
 time and never rewritten. **A notice period is one of five** — None, 1, 2, 3 or 6 months — on both halves
 of a mandate: the brief keeps the months as its own `noticeValue`/`noticeUnit` pair and an executive keeps
 the option's label, neither column narrowed to them, so a brief already stating ninety days and a row
@@ -199,7 +212,7 @@ keep the `lightmove` name — a deliberate split, not drift. The same split hold
 vocabulary: where a mockup says **Position** and **Business unit** (and **Hiring manager** for a
 client representative), the screen says so, while the code, routes, API and tables keep
 `project` and `client`; a screen whose mockup still says project or client keeps saying it. Business
-unit and Hiring manager are an in-house workspace's words: an agency (V83 `mode`) says **Client** and
+unit and Hiring manager are an in-house workspace's words: an agency (V84 `mode`) says **Client** and
 **Client contact**, and every such label comes from `useWorkspaceVocabulary`
 (`features/workspace/lib/vocabulary.ts`), never a literal. It is served at `https://beta.uncava.com` (Cloud Run domain mapping,
 Cloudflare DNS with the proxy off; README, "Custom domain"), and a link to it pasted into a chat app
@@ -405,12 +418,15 @@ V56 adds `app_lm_project_candidate.gender` (`FEMALE | MALE | OTHER`), nullable w
 NULL is "nobody recorded it" and is deliberately not a fourth value, because "not recorded" and
 "recorded as other" are different facts and the report counts them apart.
 V78 adds `app_lm_project_candidate.ai_inferred_fields` jsonb — the keys (`nationality`, `gender`,
-`yearsExperience`) holding a model's proposal that no researcher has changed since.
+`yearsExperience`, and since #563 `seniority`) holding a model's proposal that no researcher has
+changed since.
 V79 adds `app_lm_project_candidate.ai_assessment` jsonb — the AI enrichment's summary, per-panel
 score with positives and negatives, and source links; the model's own reading, replaced whole per run.
 V80 adds `ai_enrich_failed_at` — the last AI enrichment run that produced nothing, so the drawer says
 so at once; a later success clears it. Saving the drawer's Background section (`confirmBackground`)
 confirms its AI values and clears `ai_inferred_fields`.
+V83 adds `app_lm_project_candidate.ai_nationality_reading` jsonb — the nationality classifier's last
+reading (category or Unknown, confidence, evidence, rule), replaced whole per run and staff-only.
 V81 lets a person belong to several workspaces: it drops V1's `app_lm_workspace_member_single_org_per_user_uk`
 (the `(workspace_id, user_id)` unique stays — one row per person per workspace whatever its status, so a
 removed member who is re-invited **rejoins** that row rather than inserting) and records which workspace
@@ -420,7 +436,7 @@ once it has ended, falls through to another the user is still in, audited; V82 i
 Both are backfilled before the index is dropped, while it still guarantees one row to copy from.
 `WorkspaceSelection` is the one place that rule lives; `WorkspaceMemberRepository` deliberately has no
 singular by-user lookup any more, because an `Optional` over two rows throws.
-V83 adds `app_lm_workspace.mode` (`AGENCY | COMPANY`, V34's CHECK idiom; every existing row `COMPANY`):
+V84 adds `app_lm_workspace.mode` (`AGENCY | COMPANY`, V34's CHECK idiom; every existing row `COMPANY`):
 who a workspace hires for — client companies, or its own business units. Chosen at creation with **no
 default** (`CreateWorkspaceRequest.mode` is required, the organisation step preselects nothing) and
 switched by an admin through `PUT /workspace/mode` (`WORKSPACE_MANAGE`, audited as a `mode` section) —
@@ -461,7 +477,7 @@ sector group and its country — and re-filed when Settings re-picks the firm, t
 giving way to the new one's (`HiringPersona.refiledFrom`, `common/persona`) — written by an admin through
 `PUT /workspace/persona` (Settings → General), read by staff on `GET /workspace` and never carried
 on `/me`. The assistant's empty chat offers a sector starter for each of its first two sectors.
-V84 gives `app_lm_client` the same `persona` jsonb, for an **agency**: seeded from the picked company's
+V85 gives `app_lm_client` the same `persona` jsonb, for an **agency**: seeded from the picked company's
 industry and country, edited in the agency client drawer through `PUT /clients/{id}/persona`
 (`CLIENT_RECORD_MANAGE`, audited as a `persona` section) and never on `ProjectResponse`, which a client
 seat reads. At an agency the assistant's prompt and starters read the **mandate's client** as the hiring

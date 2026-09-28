@@ -46,7 +46,8 @@ class CandidateResponseMapper {
                                 .map(LongTermIncentiveType::value)
                                 .toList()),
                 candidate.getProfile().career().stream()
-                        .map(entry -> new CandidateCareerEntryDto(entry.company(), entry.title(), entry.period()))
+                        .map(entry -> new CandidateCareerEntryDto(entry.company(), entry.title(), entry.period(),
+                                entry.location()))
                         .toList(),
                 candidate.getProfile().languages(),
                 candidate.getProfile().education().stream()

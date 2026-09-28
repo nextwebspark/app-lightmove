@@ -9,7 +9,7 @@ import app.lightmove.api.candidate.model.CandidateDossier;
 import app.lightmove.api.candidate.model.CandidateEducationEntry;
 import app.lightmove.api.candidate.model.CompetencyPanelAssessment;
 import app.lightmove.api.candidate.model.InferredBackground;
-import app.lightmove.api.common.constant.NationalityGroup;
+import app.lightmove.api.common.constant.Seniority;
 import app.lightmove.api.core.llm.model.BlockedAnswer;
 import app.lightmove.api.core.llm.service.StructuredPrompt;
 import app.lightmove.api.core.llm.service.StructuredPromptFactory;
@@ -31,7 +31,8 @@ import org.springframework.stereotype.Service;
 
 /**
  * One model call over a candidate's {@link CandidateDossier} and the mandate's brief: the most probable
- * background still missing, and a 1–10 technical and behavioural reading.
+ * gender, years of experience and seniority still missing, and a 1–10 technical and behavioural
+ * reading. Nationality is {@link CandidateNationalityClassifier}'s, never this call's.
  * Every failure answers empty — nothing is ever stored in place of a real answer.
  */
 @Service
@@ -63,7 +64,7 @@ public class CandidateAiEnricher {
             }
             return Optional.of(new CandidateAiEnrichment(backgroundOf(answered, dossier.missingBackground()),
                     new CandidateAiAssessment(trimmed(answered.summary()), panelOf(answered.technical()),
-                            panelOf(answered.behavioural()), Instant.now().toString())));
+                            panelOf(answered.behavioural()), Instant.now().toString()), null));
         } catch (RuntimeException e) {
             // No credentials, Vertex unreachable or an unbindable answer: store nothing this time.
             log.warn("Candidate AI enrichment skipped: {}", e.toString());
@@ -136,15 +137,14 @@ public class CandidateAiEnricher {
     /** Only what was missing when the run began; {@code Candidate.proposeBackground} re-checks at write. */
     private static InferredBackground backgroundOf(ModelAnswer answered, Set<BackgroundField> missing) {
         return new InferredBackground(
-                missing.contains(BackgroundField.NATIONALITY) ? nationalityOf(answered) : null,
                 missing.contains(BackgroundField.GENDER) ? genderOf(answered) : null,
-                missing.contains(BackgroundField.YEARS_EXPERIENCE) ? yearsExperienceOf(answered) : null);
+                missing.contains(BackgroundField.YEARS_EXPERIENCE) ? yearsExperienceOf(answered) : null,
+                missing.contains(BackgroundField.SENIORITY) ? seniorityOf(answered) : null);
     }
 
-    /** One of the nine canonical groups, or null — never the model's own spelling. */
-    private static String nationalityOf(ModelAnswer answered) {
-        NationalityGroup group = NationalityGroup.ofLabel(answered.nationality());
-        return group == null ? null : group.value();
+    /** One of the five levels, spelled as the candidate API spells it ("N-1"), or null. */
+    private static Seniority seniorityOf(ModelAnswer answered) {
+        return answered.seniority() == null ? null : Seniority.fromValue(answered.seniority().trim());
     }
 
     private static Gender genderOf(ModelAnswer answered) {
@@ -194,8 +194,13 @@ public class CandidateAiEnricher {
         return values.isEmpty() ? NOT_STATED : String.join(", ", values);
     }
 
+    /** Nationality is never listed here: the classifier answers it, and this call must not. */
     private static String missingOf(Set<BackgroundField> missing) {
-        return missing.isEmpty() ? "none" : missing.stream().map(BackgroundField::key).collect(Collectors.joining(", "));
+        String listed = missing.stream()
+                .filter(field -> field != BackgroundField.NATIONALITY)
+                .map(BackgroundField::key)
+                .collect(Collectors.joining(", "));
+        return listed.isEmpty() ? "none" : listed;
     }
 
     private static String careerOf(List<CandidateCareerEntry> career) {
@@ -223,7 +228,7 @@ public class CandidateAiEnricher {
                 .collect(Collectors.joining("\n"));
     }
 
-    private record ModelAnswer(String nationality, String gender, Integer yearsExperience, String summary,
+    private record ModelAnswer(String gender, Integer yearsExperience, String seniority, String summary,
                                ModelPanel technical, ModelPanel behavioural) {}
 
     private record ModelPanel(Integer score, List<String> positives, List<String> negatives) {}

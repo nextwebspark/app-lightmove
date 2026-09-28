@@ -9,8 +9,9 @@ const CIRCUMFERENCE = 2 * Math.PI * RADIUS;
 const OTHER = "Other";
 
 // The categorical ramp is assigned in order and stops at six: the palette has no seventh hue. A
-// mandate can name nine groups, so the three past it step through the neutrals rather than sharing
-// one grey and reading as a single arc; the tail row the API folds together stays the faintest.
+// mandate can name eleven groups, so the five past it step through the neutrals and the sequential
+// ramp rather than sharing one grey and reading as a single arc; the tail row the API folds together
+// stays the faintest.
 const SERIES = [
   { stroke: "stroke-u-chart-1", swatch: "bg-u-chart-1" },
   { stroke: "stroke-u-chart-2", swatch: "bg-u-chart-2" },
@@ -20,6 +21,9 @@ const SERIES = [
   { stroke: "stroke-u-chart-6", swatch: "bg-u-chart-6" },
   { stroke: "stroke-u-text2", swatch: "bg-u-text2" },
   { stroke: "stroke-u-border-strong", swatch: "bg-u-border-strong" },
+  { stroke: "stroke-u-seq-4", swatch: "bg-u-seq-4" },
+  { stroke: "stroke-u-seq-2", swatch: "bg-u-seq-2" },
+  { stroke: "stroke-u-grid-axis", swatch: "bg-u-grid-axis" },
 ];
 const TAIL = { stroke: "stroke-u-text3", swatch: "bg-u-text3" };
 

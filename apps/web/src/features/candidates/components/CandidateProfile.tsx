@@ -40,7 +40,12 @@ import {
 import { CareerTimeline } from "./CareerTimeline";
 import { CompensationSummary } from "./CompensationSummary";
 import { ProfileSectionForm, SectionEditButton, SectionEditor } from "./ProfileSectionForm";
-import { AiAssessmentBody, AiEnrichButton, aiAssessmentSummary } from "./AiAssessmentSection";
+import {
+  AiAssessmentBody,
+  AiEnrichButton,
+  aiAssessmentSummary,
+  NationalitySuggestion,
+} from "./AiAssessmentSection";
 
 /** What a pencil opens: one of the form's sections, or the mandate's own columns. */
 type EditableSection = Exclude<ProfileFormSection, "note"> | "columns";
@@ -111,6 +116,17 @@ export function CandidateProfile({
 
   const changeStatus = useChangeCandidateStatus(projectId, onSaved);
   const aiEnrichment = useAiEnrichment(projectId, candidate.id, canWrite);
+  const toast = useToast();
+  // Accepting is the researcher recording the value, so it lands unflagged and confirms nothing else.
+  const acceptNationality = useMutation({
+    mutationFn: (group: string) => replace({ nationality: group }),
+    onSuccess: (saved) => {
+      toast("Nationality saved");
+      onSaved(saved);
+    },
+    onError: (error) => toast(messageFor(error)),
+  });
+  const nationalityReading = canWrite && !candidate.nationality ? aiEnrichment.nationalityReading : null;
 
   const startEditing = (section: EditableSection) => {
     setEditing(section);
@@ -162,7 +178,12 @@ export function CandidateProfile({
                 .join(" · ") || "No employer or location recorded"}
             </p>
             <div className="mt-2 flex flex-wrap items-center gap-2">
-              {candidate.seniority && <DetailPill label={candidate.seniority} />}
+              {candidate.seniority && (
+                <span className="inline-flex items-center gap-1">
+                  <DetailPill label={candidate.seniority} />
+                  {candidate.aiInferredFields.includes("seniority") && <AiInferredBadge />}
+                </span>
+              )}
               <DetailPill
                 label={CANDIDATE_SOURCE_STYLES[candidate.source].label}
                 className={CANDIDATE_SOURCE_STYLES[candidate.source].className}
@@ -216,6 +237,7 @@ export function CandidateProfile({
                   errors={form.formState.errors}
                   control={form.control}
                   employerLocked={candidate.triageCompanyId !== null}
+                  aiInferred={new Set(candidate.aiInferredFields)}
                 />
               )}
             </SectionEditor>
@@ -362,7 +384,10 @@ export function CandidateProfile({
           {...foldProps("background")}
           title="Background"
           summary={joinFacts([
-            candidate.nationality,
+            candidate.nationality ??
+              (nationalityReading && nationalityReading.category !== "Unknown"
+                ? `AI suggests ${nationalityReading.category}`
+                : null),
             candidate.yearsExperience ? `${candidate.yearsExperience} yrs` : null,
             candidate.languages.length > 0 ? countOf(candidate.languages.length, "language") : null,
           ])}
@@ -407,6 +432,13 @@ export function CandidateProfile({
                   }
                 />
               </DetailGrid>
+              {nationalityReading && (
+                <NationalitySuggestion
+                  reading={nationalityReading}
+                  onAccept={(group) => acceptNationality.mutate(group)}
+                  isAccepting={acceptNationality.isPending}
+                />
+              )}
               <PillRow label="Languages" values={candidate.languages} empty="No languages recorded." />
               {candidate.skills.length > 0 && <PillRow label="Skills" values={candidate.skills} />}
             </>

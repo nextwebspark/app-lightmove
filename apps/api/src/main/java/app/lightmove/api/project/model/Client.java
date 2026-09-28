@@ -70,7 +70,7 @@ public class Client extends BaseEntity {
     @Column(name = "company_source_id")
     private String companySourceId;
 
-    /** An agency client's persona, for the assistant to tailor research to (V84). */
+    /** An agency client's persona, for the assistant to tailor research to (V85). */
     @JdbcTypeCode(SqlTypes.JSON)
     @Column(name = "persona", nullable = false)
     private HiringPersona persona = HiringPersona.empty();

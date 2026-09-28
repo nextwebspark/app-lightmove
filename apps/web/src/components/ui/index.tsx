@@ -8,8 +8,9 @@ import type {
 import { cn } from "../../lib/cn";
 
 export { Avatar } from "./Avatar";
+export { AvatarStack, type StackedPerson } from "./AvatarStack";
 export { CompanyLogo } from "./CompanyLogo";
-export { HealthDot, HealthPill, StagePill, stageLabel } from "./Badge";
+export { HealthIcon, HealthInline, HealthPill, StagePill, stageLabel } from "./Badge";
 export { DateInput } from "./DateInput";
 export { Drawer } from "./Drawer";
 export { EmptyState } from "./EmptyState";

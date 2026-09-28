@@ -2,9 +2,9 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "type": "object",
   "properties": {
-    "nationality": { "type": ["string", "null"] },
     "gender": { "type": ["string", "null"] },
     "yearsExperience": { "type": ["integer", "null"] },
+    "seniority": { "type": ["string", "null"] },
     "summary": { "type": ["string", "null"] },
     "technical": { "$ref": "#/$defs/panel" },
     "behavioural": { "$ref": "#/$defs/panel" }

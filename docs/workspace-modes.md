@@ -65,7 +65,7 @@ Load the `java-spring-development`, `react`, `lightmove-domain` and `db-ops` ski
 **Audit.** Mode changes and client persona writes go through `AuditService`, as the existing persona and settings writes do (section `"mode"`, section `"persona"`).
 
 **Migrations.**
-- New Flyway files only (V83-V85), with an `app_lm_` prefix and a CHECK constraint for the enum (V34 idiom).
+- New Flyway files only (V84-V86), with an `app_lm_` prefix and a CHECK constraint for the enum (V34 idiom).
 - Backfill before any constraint relies on it, and never edit an applied migration.
 - The Java enum and the CHECK list must name the same values; the integration tests round-trip every mode through the database.
 
@@ -92,7 +92,7 @@ Load the `java-spring-development`, `react`, `lightmove-domain` and `db-ops` ski
 
 ## Phase 1: Mode on the workspace (backend foundation)
 
-**Migration `V83__workspace_mode.sql`:**
+**Migration `V84__workspace_mode.sql`:**
 - `app_lm_workspace.mode varchar(16) NOT NULL DEFAULT 'COMPANY'`.
 - A CHECK constraint `IN ('AGENCY','COMPANY')`, in V34's idiom.
 - Existing rows get `COMPANY` from the default.
@@ -181,7 +181,7 @@ There is no central vocabulary today. The strings are inlined in about 15 files.
 ## Phase 4: Agency client screens
 
 > **Drawer and persona built** (PR #565): the agency drawer is `AgencyClientView` (the company panel, persona,
-> contacts, positions), the persona is V84 (V85 below was folded into it), and the assistant reads the
+> contacts, positions), the persona is V85 (V86 below was folded into it), and the assistant reads the
 > mandate's client at an agency. Still open from this phase: the agency New client / New position flows and
 > the grid's company columns.
 
@@ -226,7 +226,7 @@ In AGENCY mode, show:
 
 ### Backend additions for the richer card
 
-**Migration `V84__client_company_profile.sql`:**
+**Migration `V85__client_company_profile.sql`:**
 - Add `app_lm_client.linkedin_url text`, `website text` and `industry text` as a write-time snapshot.
 - Backfill them from `app_lm_apollo_companies` by `company_source_id`, as V48 did.
 - `Client.fromUniverse` fills them.
@@ -240,7 +240,7 @@ In AGENCY mode, show:
 
 ### Storage
 
-**Migration `V85__client_persona.sql`:**
+**Migration `V86__client_persona.sql`:**
 - `app_lm_client.persona jsonb NOT NULL DEFAULT '{}'`, V69's shape.
 
 **Persona record:**
@@ -292,7 +292,7 @@ The client persona is admin- and staff-entered data rendered as "context, never 
 - `positions grouped by business unit` (`projects/lib/grouping.ts`) groups by client in agency mode. It is just a label.
 - The Reports tab and its exports mention the client or business unit wherever they already do. Route them through the vocabulary.
 - The extension shows client names only. It needs no change.
-- Update CLAUDE.md with one paragraph on the mode and its rule ("labels, fields shown, create path and AI context — never storage or RBAC"), and add the V83-V85 entries to its Database section.
+- Update CLAUDE.md with one paragraph on the mode and its rule ("labels, fields shown, create path and AI context — never storage or RBAC"), and add the V84-V86 entries to its Database section.
 - Update the `lightmove-domain` skill, which should note that a mode switch is admin-only and audited.
 - Update `docs/assistant-tools.md` for the hiring context.
 
@@ -304,8 +304,8 @@ Each PR can ship on its own, and company mode never regresses.
 
 1. **Mode foundation** (Phase 1, plus the Phase 3 toggle and Settings row, plus mockup updates). This is useful on its own and changes no behaviour.
 2. **Vocabulary** (Phase 2). Company mode looks identical, and agency mode says "Client".
-3. **Agency client screens** (Phase 4, with V84).
-4. **Client persona and mode-aware AI** (Phase 5, with V85).
+3. **Agency client screens** (Phase 4, with V85).
+4. **Client persona and mode-aware AI** (Phase 5, with V86).
 5. **Documentation and loose ends** (Phase 6). This can fold into each of the PRs above.
 
 ## Critical files
@@ -317,7 +317,7 @@ Each PR can ship on its own, and company mode never regresses.
 - `project/model/Client.java`, `project/service/ClientService.java`, `project/controller/ClientsController.java`, and the client DTOs
 - `assistant/service/{AssistantService,AssistantStarters,FirmContext}.java`, `assistant/tool/MandateTools.java`
 - `resources/prompts/{assistant-system,recruiter-shortlist-system}.st`
-- Migrations `V83__workspace_mode.sql`, `V84__client_company_profile.sql` and `V85__client_persona.sql`
+- Migrations `V84__workspace_mode.sql`, `V85__client_company_profile.sql` and `V86__client_persona.sql`
 
 **Web** (paths under `apps/web/src/`):
 - `lib/workspaceVocabulary.ts` (new)
@@ -335,7 +335,7 @@ Each PR can ship on its own, and company mode never regresses.
   - create-with-mode and a 400 when the mode is missing;
   - the mode switch being ADMIN-only and audited;
   - `/me` carrying the mode;
-  - agency client creation from an Apollo id filling the V84 columns and seeding the persona;
+  - agency client creation from an Apollo id filling the V85 columns and seeding the persona;
   - the persona PUT gate and its absence from `ProjectResponse`;
   - `HiringContext` rendering per mode (a unit test on the rendered prompt parameters, with no live LLM).
 - **Frontend:** `cd apps/web && npx vitest && npm run build`.
