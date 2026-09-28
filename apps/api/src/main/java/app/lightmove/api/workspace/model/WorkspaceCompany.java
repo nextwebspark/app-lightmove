@@ -1,5 +1,6 @@
 package app.lightmove.api.workspace.model;
 
+import app.lightmove.api.common.persona.model.PersonaSeed;
 import app.lightmove.api.strategy.model.CompanyRow;
 
 /** The universe company a workspace was picked as at signup, as a write-time snapshot. */
@@ -16,5 +17,9 @@ public record WorkspaceCompany(
     public static WorkspaceCompany of(CompanyRow row) {
         return new WorkspaceCompany(row.apolloAccountId(), row.industry(), row.companyCity(),
                 row.companyCountry(), row.website(), row.companyLinkedinUrl(), row.logoUrl());
+    }
+
+    public PersonaSeed personaSeed() {
+        return new PersonaSeed(apolloAccountId, industry, country);
     }
 }

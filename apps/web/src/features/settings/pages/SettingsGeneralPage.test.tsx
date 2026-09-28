@@ -13,6 +13,7 @@ vi.mock("../../workspace/api/workspaceApi", async (importOriginal) => ({
   ...(await importOriginal<typeof import("../../workspace/api/workspaceApi")>()),
   workspace: vi.fn(),
   updateWorkspace: vi.fn(),
+  changeMode: vi.fn(),
 }));
 
 vi.mock("../../strategy/api/companiesApi", async (importOriginal) => ({
@@ -42,6 +43,7 @@ const typedWorkspace = {
   name: "Typed Firm",
   slug: "typed-firm",
   logoMark: "T",
+  mode: "COMPANY",
   emailDomain: "typed.example",
   defaultRegion: "GCC",
   defaultCurrency: "USD",
@@ -65,6 +67,7 @@ beforeEach(() => {
   vi.clearAllMocks();
   vi.mocked(workspaceApi.workspace).mockResolvedValue(typedWorkspace);
   vi.mocked(workspaceApi.updateWorkspace).mockResolvedValue(typedWorkspace);
+  vi.mocked(workspaceApi.changeMode).mockResolvedValue({ ...typedWorkspace, mode: "AGENCY" });
   vi.mocked(companiesApi.searchCompanies).mockResolvedValue({ companies: [alFuttaim] });
 });
 
@@ -104,5 +107,39 @@ describe("SettingsGeneralPage — the workspace's firm", () => {
     await user.click(await screen.findByRole("button", { name: "Change" }));
 
     expect(screen.getByRole("button", { name: "Save changes" })).toBeDisabled();
+  });
+});
+
+describe("SettingsGeneralPage — who the workspace hires for", () => {
+  it("shows the mode in force", async () => {
+    renderPage();
+
+    expect(await screen.findByRole("radio", { name: /In-house team/ })).toHaveAttribute("aria-checked", "true");
+    expect(screen.getByRole("radio", { name: /Search agency/ })).toHaveAttribute("aria-checked", "false");
+  });
+
+  it("asks before switching, and a cancel switches nothing", async () => {
+    const user = userEvent.setup();
+    renderPage();
+
+    await user.click(await screen.findByRole("radio", { name: /Search agency/ }));
+    const warning = screen.getByRole("dialog", { name: "Switch to Search agency?" });
+    expect(warning).toHaveTextContent("This changes the workspace for everyone in it");
+    await user.click(screen.getByRole("button", { name: "Cancel" }));
+
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    expect(workspaceApi.changeMode).not.toHaveBeenCalled();
+  });
+
+  it("switches once confirmed, and re-reads the session so every screen relabels", async () => {
+    const user = userEvent.setup();
+    renderPage();
+
+    await user.click(await screen.findByRole("radio", { name: /Search agency/ }));
+    await user.click(screen.getByRole("button", { name: "Switch to Search agency" }));
+
+    await waitFor(() => expect(workspaceApi.changeMode).toHaveBeenCalledWith("AGENCY"));
+    await waitFor(() => expect(reload).toHaveBeenCalled());
+    expect(await screen.findByRole("radio", { name: /Search agency/ })).toHaveAttribute("aria-checked", "true");
   });
 });

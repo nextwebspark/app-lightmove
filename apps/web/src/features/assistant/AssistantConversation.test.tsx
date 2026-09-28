@@ -3,6 +3,7 @@ import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { ToastProvider } from "../../components/ui/Toast";
+import { aUser } from "../../test/fixtures/user";
 import type { AssistantThread, AssistantTurn, LiveStep } from "./api/types";
 import { AssistantProvider } from "./AssistantProvider";
 import { AssistantPanel } from "./components/AssistantPanel";
@@ -12,6 +13,10 @@ const getThread = vi.hoisted(() => vi.fn());
 const listThreads = vi.hoisted(() => vi.fn());
 const acceptProposal = vi.hoisted(() => vi.fn());
 const listStarters = vi.hoisted(() => vi.fn());
+vi.mock("../auth/AuthProvider", () => ({
+  useAuth: () => ({ user: aUser() }),
+}));
+
 vi.mock("./api/assistantApi", async (importOriginal) => ({
   ...(await importOriginal<typeof import("./api/assistantApi")>()),
   ask,

@@ -211,7 +211,10 @@ string says Uncava — the mockups included — while the code, packages, persis
 keep the `lightmove` name — a deliberate split, not drift. The same split holds for the domain
 vocabulary: where a mockup says **Position** and **Business unit** (and **Hiring manager** for a
 client representative), the screen says so, while the code, routes, API and tables keep
-`project` and `client`; a screen whose mockup still says project or client keeps saying it. It is served at `https://beta.uncava.com` (Cloud Run domain mapping,
+`project` and `client`; a screen whose mockup still says project or client keeps saying it. Business
+unit and Hiring manager are an in-house workspace's words: an agency (V84 `mode`) says **Client** and
+**Client contact**, and every such label comes from `useWorkspaceVocabulary`
+(`features/workspace/lib/vocabulary.ts`), never a literal. It is served at `https://beta.uncava.com` (Cloud Run domain mapping,
 Cloudflare DNS with the proxy off; README, "Custom domain"), and a link to it pasted into a chat app
 draws a card from the Open Graph tags in `apps/web/index.html` over `public/og-image-v2.png` — static,
 because no crawler runs the bundle (README, "Link previews"). Publishing stamps who
@@ -433,6 +436,15 @@ once it has ended, falls through to another the user is still in, audited; V82 i
 Both are backfilled before the index is dropped, while it still guarantees one row to copy from.
 `WorkspaceSelection` is the one place that rule lives; `WorkspaceMemberRepository` deliberately has no
 singular by-user lookup any more, because an `Optional` over two rows throws.
+V84 adds `app_lm_workspace.mode` (`AGENCY | COMPANY`, V34's CHECK idiom; every existing row `COMPANY`):
+who a workspace hires for — client companies, or its own business units. Chosen at creation with **no
+default** (`CreateWorkspaceRequest.mode` is required, the organisation step preselects nothing) and
+switched by an admin through `PUT /workspace/mode` (`WORKSPACE_MANAGE`, audited as a `mode` section) —
+the signup wizard's Back (`PATCH /onboarding/workspace`) goes through the same audited switch, so no
+path changes the mode unrecorded.
+It changes labels, what a client record shows and whose persona the assistant reads — **never what is
+stored or who may do what**, which is why a switch migrates no row. It rides `WorkspaceSummary`, so a
+pure client reads the same labels as staff. The phased plan is `docs/workspace-modes.md`.
 V76 adds `app_lm_project_candidate.compensation_breakdown` jsonb — the drawer's allowance lines and
 LTIP instruments. `allowances` stays the total every reader sums; `CandidateCompensation` keeps the
 two agreeing (lines supply a missing total, a contradicting total drops them). The editor's
@@ -462,9 +474,17 @@ fall back to it (`Project.deadline()`, the SPA's `deadlineOf`).
 V69 adds the workspace's `persona` jsonb — main business, sectors, competitors, geographies, notes —
 for the assistant to tailor research to: seeded at signup with the picked company's industry, its
 sector group and its country — and re-filed when Settings re-picks the firm, the old company's chips
-giving way to the new one's (`WorkspacePersona.refiledFrom`) — written by an admin through
+giving way to the new one's (`HiringPersona.refiledFrom`, `common/persona`) — written by an admin through
 `PUT /workspace/persona` (Settings → General), read by staff on `GET /workspace` and never carried
 on `/me`. The assistant's empty chat offers a sector starter for each of its first two sectors.
+V85 gives `app_lm_client` the same `persona` jsonb, for an **agency**: seeded from the picked company's
+industry and country, edited in the agency client drawer through `PUT /clients/{id}/persona`
+(`CLIENT_RECORD_MANAGE`, audited as a `persona` section) and never on `ProjectResponse`, which a client
+seat reads. At an agency the assistant's prompt and starters read the **mandate's client** as the hiring
+company (`HiringSideResolver` → `HiringContext`, the agency named in one line); in-house they read the
+firm, as before. That drawer is the company panel Strategy opens — `CompanyDrawerHeader` and
+`CompanyFactsSections` from the universe (`GET /companies/{apolloAccountId}`, the id on the client
+detail), or editable basics for a client typed in by hand — never the business-unit record.
 V57 adds the `PLATFORM` role scope and `app_lm_user_platform_role` — written by
 `grant-platform-role.sh`, never by the application.
 `app_lm_position_document` holds the attached position description inline (`bytea`) — one small file per

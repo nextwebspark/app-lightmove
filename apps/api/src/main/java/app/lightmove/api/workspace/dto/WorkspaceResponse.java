@@ -1,6 +1,7 @@
 package app.lightmove.api.workspace.dto;
 
-import app.lightmove.api.workspace.model.WorkspacePersona;
+import app.lightmove.api.common.persona.model.HiringPersona;
+import app.lightmove.api.workspace.constant.WorkspaceMode;
 import java.time.Instant;
 import java.util.UUID;
 
@@ -11,11 +12,12 @@ public record WorkspaceResponse(
         String slug,
         String logoMark,
         String emailDomain,
+        WorkspaceMode mode,
         String defaultRegion,
         String defaultCurrency,
         String plan,
         long memberCount,
         Instant createdAt,
-        WorkspacePersona persona,
+        HiringPersona persona,
         WorkspaceCompanyResponse company
 ) {}

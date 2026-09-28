@@ -61,7 +61,7 @@ public class ClientRepresentativeService {
                 .findByClientIdAndEmailIgnoreCase(clientId, email);
         if (existing.filter(row -> row.getStatus() == ClientRepStatus.ACTIVE).isPresent()) {
             throw ApiException.userFacing(ErrorCode.VALIDATION_FAILED,
-                    "That person is already a hiring manager of this business unit");
+                    "That person is already one of its representatives");
         }
 
         ClientRepresentativeOnboarding onboarding = invitations.onboardClientRepresentative(

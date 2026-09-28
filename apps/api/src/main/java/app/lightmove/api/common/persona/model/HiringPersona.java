@@ -1,4 +1,4 @@
-package app.lightmove.api.workspace.model;
+package app.lightmove.api.common.persona.model;
 
 import app.lightmove.api.common.industry.model.ResolvedIndustry;
 import app.lightmove.api.common.industry.service.Industries;
@@ -12,8 +12,11 @@ import java.util.Set;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
-/** What the firm is, for the assistant to tailor research to; the workspace's {@code persona} jsonb. */
-public record WorkspacePersona(
+/**
+ * What a hiring company is, for the assistant to tailor research to: the in-house firm's own
+ * ({@code app_lm_workspace.persona}) or an agency client's ({@code app_lm_client.persona}).
+ */
+public record HiringPersona(
         String summary,
         List<String> sectors,
         List<String> competitors,
@@ -21,10 +24,10 @@ public record WorkspacePersona(
         String notes
 ) {
 
-    /** Mirrors the {@code @Size} cap on every list of {@code UpdateWorkspacePersonaRequest}. */
+    /** Mirrors the {@code @Size} cap on every list of {@code UpdateHiringPersonaRequest}. */
     public static final int MAX_LIST_ITEMS = 20;
 
-    public WorkspacePersona {
+    public HiringPersona {
         summary = blankToNull(summary);
         notes = blankToNull(notes);
         sectors = distinct(sectors);
@@ -32,12 +35,12 @@ public record WorkspacePersona(
         geographies = distinct(geographies);
     }
 
-    public static WorkspacePersona empty() {
-        return new WorkspacePersona(null, List.of(), List.of(), List.of(), null);
+    public static HiringPersona empty() {
+        return new HiringPersona(null, List.of(), List.of(), List.of(), null);
     }
 
-    /** Signup's starting point: the picked company's industry, its sector and its country. */
-    public static WorkspacePersona seededFrom(WorkspaceCompany company) {
+    /** The starting point for a company picked from the universe: its industry, its sector and its country. */
+    public static HiringPersona seededFrom(PersonaSeed company) {
         return empty().refiledFrom(null, company);
     }
 
@@ -45,19 +48,19 @@ public record WorkspacePersona(
      * The previous company's sectors and country give way to the next one's; the admin's own text
      * stays — except a chip typed in exactly the previous company's spelling, which is indistinguishable.
      */
-    public WorkspacePersona refiledFrom(WorkspaceCompany previous, WorkspaceCompany next) {
+    public HiringPersona refiledFrom(PersonaSeed previous, PersonaSeed next) {
         if (previous != null && next != null
                 && Objects.equals(previous.apolloAccountId(), next.apolloAccountId())) {
             return this;
         }
-        return new WorkspacePersona(summary,
+        return new HiringPersona(summary,
                 refiled(sectors, sectorsOf(previous), sectorsOf(next)),
                 competitors,
                 refiled(geographies, countryOf(previous), countryOf(next)),
                 notes);
     }
 
-    private static List<String> sectorsOf(WorkspaceCompany company) {
+    private static List<String> sectorsOf(PersonaSeed company) {
         ResolvedIndustry industry = company == null ? null : Industries.resolve(company.industry());
         if (industry == null) {
             return List.of();
@@ -67,7 +70,7 @@ public record WorkspacePersona(
                 .toList();
     }
 
-    private static List<String> countryOf(WorkspaceCompany company) {
+    private static List<String> countryOf(PersonaSeed company) {
         return company == null || company.country() == null ? List.of() : List.of(company.country());
     }
 

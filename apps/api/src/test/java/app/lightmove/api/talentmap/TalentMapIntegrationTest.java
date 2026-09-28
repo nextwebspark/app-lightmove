@@ -23,6 +23,8 @@ import tools.jackson.databind.JsonNode;
  *
  * <p>City names carry the test's own namespace because the geocoding cache is global by design — a
  * "Riyadh" one test placed would answer the next test from the cache and hide the call it asserts on.
+ * Company names carry it for the same reason: the universe is shared too, and a capture whose name
+ * matches a row another class left there is filed as that market row, city and all.
  */
 @IntegrationTest
 class TalentMapIntegrationTest extends FlowTestSupport {
@@ -179,7 +181,7 @@ class TalentMapIntegrationTest extends FlowTestSupport {
         return body(mvc.perform(post("/api/v1/projects/" + projectId + "/triage/capture")
                         .header("Authorization", "Bearer " + token)
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"companyName\":\"" + name + "\"" + cityField + countryField + "}"))
+                        .content("{\"companyName\":\"" + name + " " + domain + "\"" + cityField + countryField + "}"))
                 .andExpect(status().isCreated())
                 .andReturn()).get("id").asText();
     }

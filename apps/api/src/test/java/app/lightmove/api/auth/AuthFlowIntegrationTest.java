@@ -258,7 +258,7 @@ class AuthFlowIntegrationTest {
                         .header("Authorization", "Bearer " + token)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
-                                {"name":"NextWebSpark Search","companySize":"11-50 people",
+                                {"mode":"COMPANY","name":"NextWebSpark Search","companySize":"11-50 people",
                                  "primaryRegion":"GCC","teamFocus":"Executive search"}
                                 """))
                 .andExpect(status().isCreated())
@@ -299,7 +299,7 @@ class AuthFlowIntegrationTest {
                         .header("Authorization", unverified)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
-                                {"name":"Squatted Firm","companySize":"11-50 people","primaryRegion":"GCC",
+                                {"mode":"COMPANY","name":"Squatted Firm","companySize":"11-50 people","primaryRegion":"GCC",
                                  "teamFocus":"Executive search"}
                                 """))
                 .andExpect(status().isForbidden())
@@ -343,7 +343,7 @@ class AuthFlowIntegrationTest {
                         .header("Authorization", "Bearer " + admin)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
-                                {"name":"NextWebSpark Executive","companySize":"51-200 people",
+                                {"mode":"COMPANY","name":"NextWebSpark Executive","companySize":"51-200 people",
                                  "primaryRegion":"MENA","teamFocus":"Board advisory"}
                                 """))
                 .andExpect(status().isOk())
@@ -367,7 +367,7 @@ class AuthFlowIntegrationTest {
                         .header("Authorization", "Bearer " + tokenWithWorkspace(saraEmail))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
-                                {"name":"Sara's Firm Now","companySize":"1-10 people","primaryRegion":"GCC",
+                                {"mode":"COMPANY","name":"Sara's Firm Now","companySize":"1-10 people","primaryRegion":"GCC",
                                  "teamFocus":"Executive search"}
                                 """))
                 .andExpect(status().isForbidden());
@@ -904,7 +904,7 @@ class AuthFlowIntegrationTest {
                         .header("Authorization", "Bearer " + bearerToken)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
-                                {"name":"%s","companySize":"11-50 people","primaryRegion":"GCC",
+                                {"mode":"COMPANY","name":"%s","companySize":"11-50 people","primaryRegion":"GCC",
                                  "teamFocus":"Executive search"}
                                 """.formatted(name)))
                 .andExpect(status().isCreated())

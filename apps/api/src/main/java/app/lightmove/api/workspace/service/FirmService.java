@@ -1,10 +1,11 @@
 package app.lightmove.api.workspace.service;
 
+import app.lightmove.api.common.persona.model.HiringCompanyProfile;
 import app.lightmove.api.core.error.constant.ErrorCode;
 import app.lightmove.api.core.error.model.ApiException;
 import app.lightmove.api.strategy.model.CompanyRow;
 import app.lightmove.api.strategy.service.ApolloCompanyQueryService;
-import app.lightmove.api.workspace.model.FirmFacts;
+import app.lightmove.api.workspace.model.Firm;
 import app.lightmove.api.workspace.model.Workspace;
 import app.lightmove.api.workspace.model.WorkspaceCompany;
 import app.lightmove.api.workspace.repository.WorkspaceRepository;
@@ -23,18 +24,23 @@ public class FirmService {
     private final ApolloCompanyQueryService universe;
 
     @Transactional(readOnly = true)
-    public FirmFacts firmOf(UUID workspaceId) {
+    public Firm firmOf(UUID workspaceId) {
         Workspace workspace = workspaces.findById(workspaceId)
                 .orElseThrow(() -> ApiException.of(ErrorCode.NOT_FOUND));
+        return new Firm(workspace.getMode(), profileOf(workspace));
+    }
+
+    private HiringCompanyProfile profileOf(Workspace workspace) {
         WorkspaceCompany company = workspace.getCompany();
         if (company == null) {
-            return new FirmFacts(workspace.getName(), null, null, null, null, null, workspace.getPersona());
+            return new HiringCompanyProfile(workspace.getName(), null, null, null, null, null,
+                    workspace.getPersona());
         }
         Integer employees = universe.byAccountIds(List.of(company.apolloAccountId())).stream()
                 .findFirst()
                 .map(CompanyRow::numEmployees)
                 .orElse(null);
-        return new FirmFacts(workspace.getName(), company.industry(), company.city(), company.country(),
-                company.website(), employees, workspace.getPersona());
+        return new HiringCompanyProfile(workspace.getName(), company.industry(), company.city(),
+                company.country(), company.website(), employees, workspace.getPersona());
     }
 }

@@ -1,4 +1,5 @@
 import type { ProjectHealth, ProjectStage } from "../../projects/api/types";
+import type { HiringPersona } from "../../workspace/api/types";
 
 /**
  * The client-registry API contract, hand-mirrored like the projects module's. A client is either
@@ -59,6 +60,8 @@ export interface ClientMandate {
 export interface ClientDetail {
   id: string;
   name: string;
+  /** The universe company the record was picked as; null for one typed in by hand. */
+  apolloAccountId: string | null;
   sector: string | null;
   hqCountry: string | null;
   hqCity: string | null;
@@ -66,6 +69,8 @@ export interface ClientDetail {
   domain: string | null;
   offLimitsNote: string | null;
   notes: string | null;
+  /** The hiring context the assistant reads for this client's mandates at an agency. */
+  persona: HiringPersona;
   activeMandates: number;
   deliveredMandates: number;
   representatives: ClientRepresentative[];

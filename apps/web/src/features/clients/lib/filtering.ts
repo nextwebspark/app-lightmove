@@ -1,3 +1,4 @@
+import type { WorkspaceVocabulary } from "../../workspace/lib/vocabulary";
 import type { Client } from "../api/types";
 
 /**
@@ -5,13 +6,15 @@ import type { Client } from "../api/types";
  * mirroring the projects feature's own filtering module.
  */
 
-export const CHIPS = [
-  { key: "all", label: "All business units" },
-  { key: "active", label: "Active positions" },
-  { key: "noreps", label: "No hiring manager" },
-] as const;
+export type ChipKey = "all" | "active" | "noreps";
 
-export type ChipKey = (typeof CHIPS)[number]["key"];
+export function chipsFor(vocabulary: WorkspaceVocabulary): { key: ChipKey; label: string }[] {
+  return [
+    { key: "all", label: `All ${vocabulary.unitsLower}` },
+    { key: "active", label: "Active positions" },
+    { key: "noreps", label: `No ${vocabulary.contactLower}` },
+  ];
+}
 
 export function filterClients(
   clients: Client[],

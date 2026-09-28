@@ -86,7 +86,7 @@ const MESSAGES: Partial<Record<ApiErrorCode, string>> = {
   TEMPLATE_IMPORT_INVALID: "Some templates in the file are invalid, so none were imported.",
   LAST_ADMIN: "A workspace must keep at least one admin.",
   MEMBER_LEADS_PROJECTS: "They are the only lead on active positions — hand those over first.",
-  CLIENT_ALREADY_EXISTS: "A business unit with this name already exists.",
+  CLIENT_ALREADY_EXISTS: "That name is already taken.",
   PROJECT_LAST_LEAD: "A position must keep at least one lead.",
   WORKSPACE_NAME_MISMATCH: "Type the workspace name exactly to confirm.",
   FORBIDDEN: "You don't have permission to do this.",

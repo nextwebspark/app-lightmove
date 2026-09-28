@@ -1,15 +1,16 @@
 package app.lightmove.api.workspace.controller;
 
+import app.lightmove.api.common.persona.model.HiringPersona;
 import app.lightmove.api.core.security.model.AuthPrincipal;
 import app.lightmove.api.core.security.rbac.RequireWorkspacePermission;
 import app.lightmove.api.core.security.rbac.WorkspaceAction;
 import app.lightmove.api.workspace.dto.DeleteWorkspaceRequest;
+import app.lightmove.api.workspace.dto.UpdateWorkspaceModeRequest;
 import app.lightmove.api.workspace.dto.UpdateWorkspacePersonaRequest;
 import app.lightmove.api.workspace.dto.UpdateWorkspaceSettingsRequest;
 import app.lightmove.api.workspace.dto.WorkspaceCompanyResponse;
 import app.lightmove.api.workspace.dto.WorkspaceResponse;
 import app.lightmove.api.workspace.model.Workspace;
-import app.lightmove.api.workspace.model.WorkspacePersona;
 import app.lightmove.api.workspace.service.WorkspaceSettingsService.WorkspaceDetail;
 import app.lightmove.api.workspace.service.WorkspaceSettingsService;
 import jakarta.servlet.http.HttpServletRequest;
@@ -59,10 +60,19 @@ public class WorkspaceController {
     public WorkspaceResponse updatePersona(@AuthenticationPrincipal AuthPrincipal principal,
                                            @Valid @RequestBody UpdateWorkspacePersonaRequest request,
                                            HttpServletRequest httpRequest) {
-        WorkspacePersona persona = new WorkspacePersona(request.summary(), request.sectors(),
+        HiringPersona persona = new HiringPersona(request.summary(), request.sectors(),
                 request.competitors(), request.geographies(), request.notes());
         return toResponse(settings.updatePersona(
                 principal.userId(), principal.requireWorkspaceId(), persona, httpRequest));
+    }
+
+    @PutMapping("/mode")
+    @RequireWorkspacePermission(WorkspaceAction.WORKSPACE_MANAGE)
+    public WorkspaceResponse changeMode(@AuthenticationPrincipal AuthPrincipal principal,
+                                        @Valid @RequestBody UpdateWorkspaceModeRequest request,
+                                        HttpServletRequest httpRequest) {
+        return toResponse(settings.changeMode(
+                principal.userId(), principal.requireWorkspaceId(), request.mode(), httpRequest));
     }
 
     @DeleteMapping
@@ -78,7 +88,7 @@ public class WorkspaceController {
     private WorkspaceResponse toResponse(WorkspaceDetail detail) {
         Workspace ws = detail.workspace();
         return new WorkspaceResponse(ws.getId(), ws.getName(), ws.getSlug(), ws.getLogoMark(),
-                ws.getEmailDomain(), ws.getDefaultRegion(), ws.getDefaultCurrency(), ws.getPlan(),
+                ws.getEmailDomain(), ws.getMode(), ws.getDefaultRegion(), ws.getDefaultCurrency(), ws.getPlan(),
                 detail.memberCount(), ws.getCreatedAt(), ws.getPersona(),
                 WorkspaceCompanyResponse.of(ws.getCompany()));
     }

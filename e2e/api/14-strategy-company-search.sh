@@ -40,7 +40,7 @@ post_json /auth/verify "$(jq -nc --arg t "$(token_for "$LEAD_EMAIL" verify)" '{t
 post_json /auth/login "$(jq -nc --arg e "$LEAD_EMAIL" --arg p "$PASSWORD" '{email:$e,password:$p}')" >/dev/null
 TOKEN=$(json '.accessToken')
 post_json /onboarding/workspace "$(jq -nc --arg n "Strategy UAT $(date +%s)$RANDOM" \
-  '{name:$n, companySize:"11-50 people", primaryRegion:"GCC", teamFocus:"Executive search"}')" \
+  '{mode:"COMPANY", name:$n, companySize:"11-50 people", primaryRegion:"GCC", teamFocus:"Executive search"}')" \
   -H "$(auth_header "$TOKEN")" >/dev/null
 # A token minted before the workspace existed carries no wsId, so every tenant route 404s until reissued.
 post_json /auth/login "$(jq -nc --arg e "$LEAD_EMAIL" --arg p "$PASSWORD" '{email:$e,password:$p}')" >/dev/null
@@ -274,7 +274,7 @@ post_json /auth/verify "$(jq -nc --arg t "$(token_for "$OUT_EMAIL" verify)" '{to
 post_json /auth/login "$(jq -nc --arg e "$OUT_EMAIL" --arg p "$PASSWORD" '{email:$e,password:$p}')" >/dev/null
 OUT_TOKEN=$(json '.accessToken')
 post_json /onboarding/workspace "$(jq -nc --arg n "Rival Search $(date +%s)$RANDOM" \
-  '{name:$n, companySize:"11-50 people", primaryRegion:"GCC", teamFocus:"Executive search"}')" \
+  '{mode:"COMPANY", name:$n, companySize:"11-50 people", primaryRegion:"GCC", teamFocus:"Executive search"}')" \
   -H "$(auth_header "$OUT_TOKEN")" >/dev/null
 post_json /auth/login "$(jq -nc --arg e "$OUT_EMAIL" --arg p "$PASSWORD" '{email:$e,password:$p}')" >/dev/null
 OUT_AUTH="$(auth_header "$(json '.accessToken')")"

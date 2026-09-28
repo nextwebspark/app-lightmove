@@ -108,7 +108,7 @@ post_json /auth/verify "$(jq -nc --arg t "$(token_for "$DOOMED_ADMIN" verify)" '
 post_json /auth/login "$(jq -nc --arg e "$DOOMED_ADMIN" --arg p "$PASSWORD" '{email:$e, password:$p}')" >/dev/null
 DOOMED_ADMIN_TOKEN=$(json '.accessToken')
 post_json /onboarding/workspace "$(jq -nc --arg n "$DOOMED_NAME" \
-  '{name:$n, companySize:"1-10 people", primaryRegion:"GCC", teamFocus:"Executive search"}')" \
+  '{mode:"COMPANY", name:$n, companySize:"1-10 people", primaryRegion:"GCC", teamFocus:"Executive search"}')" \
   -H "$(auth_header "$DOOMED_ADMIN_TOKEN")" >/dev/null
 post_json /auth/login "$(jq -nc --arg e "$DOOMED_ADMIN" --arg p "$PASSWORD" '{email:$e, password:$p}')" >/dev/null
 DOOMED_ADMIN_TOKEN=$(json '.accessToken')

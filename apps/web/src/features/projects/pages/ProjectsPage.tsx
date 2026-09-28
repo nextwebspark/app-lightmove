@@ -14,6 +14,7 @@ import { useAuth } from "../../auth/AuthProvider";
 import { isPureClient } from "../../auth/roles";
 import * as clientsApi from "../../clients/api/clientsApi";
 import * as workspaceApi from "../../workspace/api/workspaceApi";
+import { useWorkspaceVocabulary } from "../../workspace/lib/vocabulary";
 import * as projectsApi from "../api/projectsApi";
 import { NewProjectModal } from "../components/NewProjectModal";
 import { ProjectDrawer } from "../components/ProjectDrawer";
@@ -38,6 +39,7 @@ const DEFAULT_PROJECT_SORT = { field: "target", direction: "asc" } as const;
  */
 export function ProjectsPage({ view }: { view: "my" | "all" }) {
   const { user } = useAuth();
+  const vocabulary = useWorkspaceVocabulary();
   // The registry and roster are staff surfaces a pure client can't read; the server already scopes
   // their project list to the mandates they're attached to, so that list IS "my projects" for them.
   const clientOnly = isPureClient(user?.workspace?.roles ?? []);
@@ -184,7 +186,7 @@ export function ProjectsPage({ view }: { view: "my" | "all" }) {
       <ListToolbar
         query={query}
         onQueryChange={setQuery}
-        placeholder="Search business unit or position…"
+        placeholder={`Search ${vocabulary.unitLower} or position…`}
         chips={CHIPS}
         activeChip={chip}
         onChipChange={setChip}

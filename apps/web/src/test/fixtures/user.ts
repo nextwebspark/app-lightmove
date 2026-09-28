@@ -11,6 +11,7 @@ export function aWorkspace(overrides: Partial<WorkspaceSummary> = {}): Workspace
     name: "NextWebSpark Search",
     slug: "nextwebspark-search",
     logoMark: "N",
+    mode: "COMPANY",
     emailDomain: "nextwebspark.com",
     roles: ["ADMIN"],
     joinedAt: "2026-03-14T09:00:00Z",

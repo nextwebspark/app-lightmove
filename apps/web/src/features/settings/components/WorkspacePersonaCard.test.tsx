@@ -4,7 +4,7 @@ import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { ToastProvider } from "../../../components/ui";
 import * as workspaceApi from "../../workspace/api/workspaceApi";
-import type { WorkspaceDetail, WorkspacePersona } from "../../workspace/api/types";
+import type { HiringPersona, WorkspaceDetail } from "../../workspace/api/types";
 import { WorkspacePersonaCard } from "./WorkspacePersonaCard";
 
 vi.mock("../../workspace/api/workspaceApi", async (importOriginal) => ({
@@ -12,7 +12,7 @@ vi.mock("../../workspace/api/workspaceApi", async (importOriginal) => ({
   updatePersona: vi.fn(),
 }));
 
-const persona: WorkspacePersona = {
+const persona: HiringPersona = {
   summary: null,
   sectors: ["retail"],
   competitors: [],

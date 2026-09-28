@@ -1,9 +1,14 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { beforeEach, describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+import { aUser } from "../../test/fixtures/user";
 import { AssistantProvider, useAssistant } from "./AssistantProvider";
 import { AssistantDock } from "./components/AssistantDock";
+
+vi.mock("../auth/AuthProvider", () => ({
+  useAuth: () => ({ user: aUser() }),
+}));
 
 /**
  * That the assistant opens, closes, and never takes the page hostage while it is open.

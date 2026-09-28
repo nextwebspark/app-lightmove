@@ -60,6 +60,7 @@ describe("ProjectsPage — pure client", () => {
       name: "Access Firm",
       slug: "access-firm",
       logoMark: "A",
+      mode: "COMPANY" as const,
       emailDomain: "access-firm.com",
       joinedAt: null,
       company: null,

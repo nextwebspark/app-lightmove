@@ -96,13 +96,17 @@ public abstract class FlowTestSupport {
 
     /** @return the new workspace's id. The caller's token stays stale; re-login for tenant claims. */
     protected String createWorkspace(String bearerToken, String name) throws Exception {
+        return createWorkspace(bearerToken, name, "COMPANY");
+    }
+
+    protected String createWorkspace(String bearerToken, String name, String mode) throws Exception {
         MvcResult result = mvc.perform(post("/api/v1/onboarding/workspace")
                         .header("Authorization", "Bearer " + bearerToken)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
-                                {"name":"%s","companySize":"11-50 people","primaryRegion":"GCC",
+                                {"mode":"%s","name":"%s","companySize":"11-50 people","primaryRegion":"GCC",
                                  "teamFocus":"Executive search"}
-                                """.formatted(name)))
+                                """.formatted(mode, name)))
                 .andExpect(status().isCreated())
                 .andReturn();
         return body(result).at("/workspace/id").asText();

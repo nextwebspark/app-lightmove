@@ -31,7 +31,7 @@ login_as() { # login_as EMAIL -> a fresh access token carrying whatever membersh
 
 make_workspace() { # make_workspace TOKEN NAME
   post_json /onboarding/workspace "$(jq -nc --arg n "$2" \
-    '{name:$n, companySize:"11-50 people", primaryRegion:"GCC", teamFocus:"Executive search"}')" \
+    '{mode:"COMPANY", name:$n, companySize:"11-50 people", primaryRegion:"GCC", teamFocus:"Executive search"}')" \
     -H "$(auth_header "$1")" >/dev/null
 }
 

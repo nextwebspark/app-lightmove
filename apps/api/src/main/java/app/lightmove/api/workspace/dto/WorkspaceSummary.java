@@ -1,6 +1,7 @@
 package app.lightmove.api.workspace.dto;
 
 import app.lightmove.api.core.security.rbac.WorkspaceRole;
+import app.lightmove.api.workspace.constant.WorkspaceMode;
 import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
@@ -11,6 +12,9 @@ public record WorkspaceSummary(
         String name,
         String slug,
         String logoMark,
+
+        /** Carried to a pure client too: a hiring-company contact needs the same labels as staff. */
+        WorkspaceMode mode,
 
         /** Null for a pure client: an internal signal a hiring-company contact has no use for. */
         String emailDomain,

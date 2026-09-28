@@ -1,6 +1,8 @@
 package app.lightmove.api.project.model;
 
 import app.lightmove.api.common.location.service.Countries;
+import app.lightmove.api.common.persona.model.HiringPersona;
+import app.lightmove.api.common.persona.model.PersonaSeed;
 import app.lightmove.api.core.persistence.model.BaseEntity;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -10,6 +12,8 @@ import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
 
 /**
  * The hiring entity a mandate is run for, with a write-time company snapshot. The
@@ -66,6 +70,11 @@ public class Client extends BaseEntity {
     @Column(name = "company_source_id")
     private String companySourceId;
 
+    /** An agency client's persona, for the assistant to tailor research to (V85). */
+    @JdbcTypeCode(SqlTypes.JSON)
+    @Column(name = "persona", nullable = false)
+    private HiringPersona persona = HiringPersona.empty();
+
     @Column(name = "created_by", nullable = false)
     private UUID createdBy;
 
@@ -78,6 +87,7 @@ public class Client extends BaseEntity {
         client.companySourceId = apolloAccountId;
         client.hqCity = Countries.cityOf(hqCity);
         client.logoUrl = logoUrl;
+        client.persona = HiringPersona.seededFrom(new PersonaSeed(apolloAccountId, sector, client.hqCountry));
         return client;
     }
 
@@ -107,6 +117,15 @@ public class Client extends BaseEntity {
         this.domain = patched(domain, this.domain);
         this.offLimitsNote = patched(offLimitsNote, this.offLimitsNote);
         this.notes = patched(notes, this.notes);
+    }
+
+    public void describePersona(HiringPersona persona) {
+        this.persona = persona == null ? HiringPersona.empty() : persona;
+    }
+
+    /** The source id when the record was picked from the universe; null for one typed in by hand. */
+    public String universeAccountId() {
+        return UNIVERSE_SOURCE.equals(companySource) ? companySourceId : null;
     }
 
     private static String patched(String incoming, String current) {

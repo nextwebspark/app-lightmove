@@ -7,6 +7,7 @@ import { DrawerCloseButton } from "../../../components/ui/Drawer";
 import { cn } from "../../../lib/cn";
 import { formatDate, formatNumber } from "../../../lib/format";
 import { useAuth } from "../../auth/AuthProvider";
+import { useWorkspaceVocabulary } from "../../workspace/lib/vocabulary";
 import { projectActivity, projectActivityKey } from "../api/projectsApi";
 import type {
   AttachedRepresentative,
@@ -33,6 +34,7 @@ export function ProjectDrawer({ project, onClose }: { project: Project | null; o
 
 function ProjectDrawerPanel({ project, onClose }: { project: Project; onClose: () => void }) {
   const { user } = useAuth();
+  const vocabulary = useWorkspaceVocabulary();
   const isStaff = canExecuteProjectWork(project, user?.id, user?.workspace?.roles);
   const canManageAccess = canManageProjectAccess(project, user?.id, user?.workspace?.roles);
   const staff = staffLeadsFirst(project.team);
@@ -84,11 +86,11 @@ function ProjectDrawerPanel({ project, onClose }: { project: Project; onClose: (
         </div>
 
         <SectionLabel className="mt-[18px]" action={canManageAccess ? <InviteLink projectId={project.id} /> : null}>
-          Hiring managers
+          {vocabulary.contacts}
         </SectionLabel>
         <div className="overflow-hidden rounded-[10px] border border-u-border">
           {project.representatives.length === 0 ? (
-            <EmptyRow>No hiring managers on this position</EmptyRow>
+            <EmptyRow>{`No ${vocabulary.contactsLower} on this position`}</EmptyRow>
           ) : (
             project.representatives.map((representative) => (
               <HiringManagerRow key={representative.representativeId} representative={representative} />
@@ -102,7 +104,7 @@ function ProjectDrawerPanel({ project, onClose }: { project: Project; onClose: (
             className="mt-3 inline-flex items-center gap-1.5 text-note font-medium text-u-text2 hover:text-u-text hover:underline"
           >
             <Icon d={ICONS.settings} size={13} />
-            Manage team &amp; hiring manager access in position settings
+            Manage team &amp; {vocabulary.contactLower} access in position settings
           </Link>
         )}
 

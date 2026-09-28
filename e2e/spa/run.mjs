@@ -140,6 +140,8 @@ try {
 
     // Finish the wizard in the original tab, so everything downstream has a workspace as before.
     if (page.url().includes("/signup/workspace")) {
+      // Who the firm hires for has no default; the rest of the run exercises today's in-house screens.
+      await page.getByRole("radio", { name: /In-house team/ }).click();
       // The name is a pick from the company universe; a test firm is not in it, so it is added as new.
       await page.getByPlaceholder("Search company database…").fill(WS);
       await page.getByRole("button", { name: /None of these/ }).click();

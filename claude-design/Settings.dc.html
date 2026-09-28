@@ -327,6 +327,17 @@
                 <button onClick="{{ saveWorkspace }}" disabled="{{ wsNameBlank }}" style="{{ wsSaveStyle }}" style-hover="filter:brightness(1.05)">Save changes</button>
               </div>
             </div>
+            <!-- Who the workspace hires for. Choosing the other card opens a confirmation: every colleague's labels and screens change with it, no record does. -->
+            <div data-screen-label="Workspace type" style="margin-top:16px;border-radius:10px;border:1px solid var(--line);background:var(--panel2);padding:20px">
+              <div style="margin-bottom:16px">
+                <div style="font:600 14px var(--sans)">Workspace type</div>
+                <div style="margin-top:2px;font:400 11.5px var(--mono);color:var(--text3)">Who you hire for — it decides what your clients are called and how they are shown. Only admins can change it.</div>
+              </div>
+              <div role="radiogroup" aria-label="Workspace type" style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px">
+                <div role="radio" aria-checked="false" style="display:flex;align-items:flex-start;justify-content:space-between;gap:16px;border-radius:10px;border:1px solid var(--line);background:var(--panel);padding:14px 16px;cursor:pointer"><span><span style="display:block;font:600 13px var(--sans);color:var(--text2)">Search agency</span><span style="display:block;margin-top:4px;font:400 11.5px var(--mono);color:var(--text3)">You hire for client companies — each client is a separate business.</span></span><span aria-hidden="true" style="margin-top:4px;width:12px;height:12px;flex:none;border-radius:50%;border:1px solid var(--line);background:transparent"></span></div>
+                <div role="radio" aria-checked="true" style="display:flex;align-items:flex-start;justify-content:space-between;gap:16px;border-radius:10px;border:1px solid var(--amber);background:var(--amber-dim);padding:14px 16px;cursor:pointer"><span><span style="display:block;font:600 13px var(--sans);color:var(--text)">In-house team</span><span style="display:block;margin-top:4px;font:400 11.5px var(--mono);color:var(--text3)">You hire for your own organisation — each business unit is a client.</span></span><span aria-hidden="true" style="margin-top:4px;width:12px;height:12px;flex:none;border-radius:50%;border:1px solid var(--amber);background:var(--amber)"></span></div>
+              </div>
+            </div>
             <div style="margin-top:16px;border-radius:10px;border:1px solid var(--red);background:var(--red-dim);padding:20px">
               <div style="display:flex;align-items:center;gap:12px">
                 <div style="flex:1">

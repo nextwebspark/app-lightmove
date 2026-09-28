@@ -1,5 +1,6 @@
 package app.lightmove.api.project.dto;
 
+import app.lightmove.api.common.persona.model.HiringPersona;
 import java.util.List;
 import java.util.UUID;
 
@@ -7,6 +8,10 @@ import java.util.UUID;
 public record ClientDetailResponse(
         UUID id,
         String name,
+
+        /** The universe company the record was picked as; null for one typed in by hand. */
+        String apolloAccountId,
+
         String sector,
         String hqCountry,
         String hqCity,
@@ -14,6 +19,7 @@ public record ClientDetailResponse(
         String domain,
         String offLimitsNote,
         String notes,
+        HiringPersona persona,
         long activeMandates,
         long deliveredMandates,
         List<RepresentativeResponse> representatives,
