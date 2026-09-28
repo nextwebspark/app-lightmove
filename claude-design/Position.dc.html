@@ -2483,14 +2483,15 @@ class Component extends DCLogic {
       ["Automotive", 0, 0, 55, 100], ["Retail", 55, 0, 45, 45], ["Real Estate", 55, 45, 45, 40],
       ["Luxury Retail", 55, 85, 22.5, 15], ["Financial Services", 77.5, 85, 22.5, 15]
     ];
-    const fullest = Math.max(...Object.values(bySector), 1);
     const counted = uni.length;
-    const tiles = tileLayout.map(([label, x, y, w, h]) => {
+    // Colour tells the tiles apart and area carries the count: one hue per tile in rank order, a
+    // neutral past the last hue. A ramp flattened every tail sector onto one pale stop.
+    const tileHues = ["--u-chart-1", "--u-chart-2", "--u-chart-3", "--u-chart-4", "--u-chart-5", "--u-chart-6", "--u-adjacent"];
+    const tiles = tileLayout.map(([label, x, y, w, h], rank) => {
       const n = bySector[label] || 0;
-      const stop = stopOf(n, fullest);
       const share = counted ? ((n / counted) * 100).toFixed(1) : "0.0";
       return { label, n, share, desc: `${label} — ${n} companies, ${share}% of the sectored universe`,
-        style: `position:absolute;overflow:hidden;border-radius:5px;padding:12px;left:${x}%;top:${y}%;width:calc(${w}% - 3px);height:calc(${h}% - 3px);background:var(--u-seq-${stop + 1});color:${stop >= 3 ? "var(--u-bg)" : "var(--u-text)"}` };
+        style: `position:absolute;overflow:hidden;border-radius:7px;padding:12px;left:${x}%;top:${y}%;width:calc(${w}% - 3px);height:calc(${h}% - 3px);background:var(${tileHues[rank] || "--u-text3"});color:var(--u-bg)` };
     });
     const lede = deepest
       ? `**${deepest.sector} leads** the universe, deepest at ${deepest.level}. ${board === 0 ? "**Nobody is mapped at Board level**" : `Board-level coverage is **${board} executives**`} across ${m.sectors.length} sectors, and ${totalCells - filled} of ${totalCells} sector × seniority pockets are still empty.`
