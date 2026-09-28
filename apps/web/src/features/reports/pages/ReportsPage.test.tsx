@@ -478,6 +478,28 @@ describe("ReportsPage", () => {
     expect(new Set(hues).size).toBe(hues.length);
   });
 
+  it("draws sectors past the last hue in a neutral, never repeating a hue", async () => {
+    vi.mocked(reportApi.getReport).mockResolvedValue({
+      ...SAMPLE_REPORT,
+      market: {
+        ...SAMPLE_REPORT.market,
+        companiesBySector: Array.from({ length: 9 }, (_, i) => ({ label: `Sector ${i + 1}`, count: 20 - i })),
+      },
+    });
+
+    renderPage("market");
+    await screen.findByText("Companies by sector");
+
+    const hues = screen
+      .getAllByRole("img", { name: /of the sectored universe$/ })
+      .map((tile) => tile.className.match(/\bbg-u-[\w-]+/)?.[0]);
+    expect(hues).toHaveLength(9);
+    const coloured = hues.filter((hue) => hue !== "bg-u-text3");
+    expect(coloured).toHaveLength(7);
+    expect(new Set(coloured).size).toBe(7);
+    expect(hues.slice(7)).toEqual(["bg-u-text3", "bg-u-text3"]);
+  });
+
   it("heads a chapter with its question alone, not with a screen counter", async () => {
     vi.mocked(reportApi.getReport).mockResolvedValue(SAMPLE_REPORT);
 

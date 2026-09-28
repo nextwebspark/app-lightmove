@@ -16,8 +16,10 @@ const FIGURES_FROM_AREA = 2.4;
 /** And below this it has no room for even a label. */
 const LABEL_FROM_AREA = 0.7;
 
-// Seven UNCAVA hues for at most six named sectors and the folded "Other". A sequential ramp shaded
+// Seven UNCAVA hues for the default six named sectors and the folded "Other". A sequential ramp shaded
 // every tail sector on its palest stop once one sector dominated, so four tiles read as one block.
+// `report.max-sectors` is configurable, so a tile past the last hue goes neutral rather than wrapping
+// round to a hue a larger tile already wears.
 const SERIES = [
   "bg-u-chart-1",
   "bg-u-chart-2",
@@ -27,6 +29,7 @@ const SERIES = [
   "bg-u-chart-6",
   "bg-u-adjacent",
 ] as const;
+const PAST_SERIES = "bg-u-text3";
 
 /**
  * Companies by sector, as area. A bar list ranks sectors; this says what share of the universe each
@@ -76,7 +79,7 @@ export function SectorTreemap({ rows, universeCount }: { rows: Breakdown[]; univ
                 title={description}
                 className={cn(
                   "absolute overflow-hidden rounded-[7px] border-2 border-u-surface p-2.5 text-u-bg sm:p-3",
-                  SERIES[rank % SERIES.length],
+                  SERIES[rank] ?? PAST_SERIES,
                 )}
                 style={{
                   insetInlineStart: `${tile.x}%`,
