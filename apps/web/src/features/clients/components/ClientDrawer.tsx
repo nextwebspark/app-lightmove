@@ -5,7 +5,7 @@ import {
   Avatar,
   Button,
   Drawer,
-  HealthDot,
+  HealthInline,
   Input,
   StagePill,
   stageLabel,
@@ -368,7 +368,7 @@ function MandateView({
       <div className="flex-1 overflow-y-auto px-5 py-[18px]">
         <div className="mb-4 flex items-center justify-between">
           <StagePill stage={mandate.stage} />
-          <HealthDot health={mandate.health} />
+          <HealthInline health={mandate.health} />
         </div>
 
         <SectionLabel>Stage</SectionLabel>
