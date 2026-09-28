@@ -55,6 +55,7 @@ const project: Project = {
       fullName: "Rita Rep",
       position: "HR Director",
       email: "rita@automotive.example",
+      avatarUrl: null,
       status: "INVITED",
     },
   ],

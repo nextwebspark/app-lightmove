@@ -42,6 +42,8 @@ export interface AttachedRepresentative {
   fullName: string;
   position: string | null;
   email: string;
+  /** The account photo of a seated representative; null while their invitation is still out. */
+  avatarUrl: string | null;
   status: "INVITED" | "ACTIVE";
 }
 
