@@ -1,5 +1,5 @@
 import type { ColumnVisibilityState, OnChangeFn, PaginationState } from "@tanstack/react-table";
-import { CompanyLogo, HealthDot, StagePill } from "../../../components/ui";
+import { CompanyLogo, HealthInline, StagePill } from "../../../components/ui";
 import { DataGrid } from "../../../components/ui/DataGrid";
 import { useDataGridTable } from "../../../lib/useDataGridTable";
 import type { GridLayout } from "../../../lib/useGridLayout";
@@ -97,7 +97,7 @@ function ProjectCard({ project, onOpen }: { project: Project; onOpen: () => void
             </div>
             <div className="mt-0.5 text-[13.5px] font-semibold text-u-text">{project.positionTitle}</div>
           </div>
-          <HealthDot health={project.health} />
+          <HealthInline health={project.health} />
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
