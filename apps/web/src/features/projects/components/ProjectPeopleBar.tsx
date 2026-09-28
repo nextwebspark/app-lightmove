@@ -82,7 +82,7 @@ export function ProjectPeopleBar({ project }: { project: Project }) {
         )}
         {clientPeople.length > 0 && <AvatarStack people={clientPeople} max={CLIENTS_SHOWN} />}
         {clientPeople.length === 0 && invited === 0 && (
-          <span className="font-mono text-meta text-u-text3">None yet</span>
+          <span className="whitespace-nowrap font-mono text-meta text-u-text3">No client rep</span>
         )}
       </Link>
 

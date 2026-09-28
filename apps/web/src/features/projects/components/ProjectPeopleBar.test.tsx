@@ -100,7 +100,7 @@ describe("ProjectPeopleBar", () => {
     renderBar(project({ team: staffed }));
 
     const clients = screen.getByRole("link", { name: "Hiring managers: 0 people. Open Team & access" });
-    expect(within(clients).getByText("None yet")).toBeInTheDocument();
+    expect(within(clients).getByText("No client rep")).toBeInTheDocument();
   });
 
   it("offers Invite to the lead, pointing at Team & access", () => {
