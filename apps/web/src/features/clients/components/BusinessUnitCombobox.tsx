@@ -1,6 +1,6 @@
 import { Input } from "../../../components/ui";
 import { useComboboxList } from "../../../lib/useComboboxList";
-import type { Client } from "../../clients/api/types";
+import type { Client } from "../api/types";
 import { useWorkspaceVocabulary } from "../../workspace/lib/vocabulary";
 
 const LIST_ID = "business-unit-options";

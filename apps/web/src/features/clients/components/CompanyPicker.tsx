@@ -22,18 +22,19 @@ export interface CompanySearchSource {
   search: (query: string, signal: AbortSignal) => Promise<CompanySuggestion[]>;
 }
 
+// Its own key under Strategy's: those readers cache the `{ companies }` page under COMPANY_SEARCH_KEY,
+// and this source caches the bare list, so sharing the key handed one of them the other's shape.
 const WORKSPACE_COMPANY_SEARCH: CompanySearchSource = {
-  key: COMPANY_SEARCH_KEY,
+  key: (query) => [...COMPANY_SEARCH_KEY(query), "list"],
   search: (query, signal) => searchCompanies(query, undefined, signal).then((page) => page.companies),
 };
 
 /**
- * The company step of creating a client, shared by both entrances — the registry's New-client modal and
- * the New-project modal's inline client — and signup's organisation step, which passes its own
- * `source` and takes a typed name with no further details.
+ * The company step of an agency's New-client modal, also used to pick the workspace's own firm in
+ * Settings and signup's organisation step — which passes its own `source` — taking a typed name there
+ * with no further details.
  *
- * <p>It reads the Apollo universe through the same `/companies/search` call and the same query key
- * Strategy's own pickers use, so a keystroke typed here is answered from the cache they filled.
+ * <p>It reads the Apollo universe through the same `/companies/search` call Strategy's own pickers use.
  *
  * <p>A company the market does not carry is the escape hatch, not the default — it is offered under the
  * results, once the search has settled, so it never competes with the rows that are still arriving.

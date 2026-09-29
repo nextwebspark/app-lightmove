@@ -185,6 +185,7 @@ export function ClientsPage() {
         <NewClientModal
           open
           onClose={() => setNewClientOpen(false)}
+          clients={clients}
           existingNames={existingNames}
           onCreated={(client) => setOpenClientId(client.id)}
         />

@@ -19,9 +19,12 @@ import { fieldErrorsFrom } from "../../../lib/formErrors";
 import { formatDate } from "../../../lib/format";
 import * as clientsApi from "../../clients/api/clientsApi";
 import type { Client } from "../../clients/api/types";
+import { BusinessUnitCombobox } from "../../clients/components/BusinessUnitCombobox";
+import { ClientCombobox } from "../../clients/components/ClientCombobox";
 import * as positionApi from "../../position/api/positionApi";
 import { RoleTitleCombobox } from "../../position/components/RoleTitleCombobox";
-import { useWorkspaceVocabulary } from "../../workspace/lib/vocabulary";
+import type { CompanySuggestion } from "../../strategy/api/types";
+import { useWorkspaceMode, useWorkspaceVocabulary } from "../../workspace/lib/vocabulary";
 import * as projectsApi from "../api/projectsApi";
 import type { ProjectType } from "../api/types";
 import {
@@ -32,7 +35,6 @@ import {
   mappingTargetFits,
   todayIso,
 } from "../lib/timeline";
-import { BusinessUnitCombobox } from "./BusinessUnitCombobox";
 
 /** Mirrors `@Size(max = 160)` on CreateProjectRequest.positionTitle, so the cap is met at the field. */
 const MAX_POSITION_TITLE_LENGTH = 160;
@@ -80,8 +82,10 @@ export function NewProjectModal({
   const queryClient = useQueryClient();
   const toast = useToast();
   const vocabulary = useWorkspaceVocabulary();
+  const isAgency = useWorkspaceMode() === "AGENCY";
 
   const [businessUnitName, setBusinessUnitName] = useState("");
+  const [pickedCompany, setPickedCompany] = useState<CompanySuggestion | null>(null);
   const [positionTitle, setPositionTitle] = useState("");
   const [projectType, setProjectType] = useState<ProjectType>("MAPPING");
   const [startDate, setStartDate] = useState(todayIso);
@@ -109,6 +113,8 @@ export function NewProjectModal({
   const unitName = businessUnitName.trim();
   const knownUnit = clientsByName.get(unitName.toLowerCase());
   const creatingClient = !lockedClientId && !!unitName && !knownUnit;
+  // Only while the field still reads the company's name: typing over a pick makes it a typed name again.
+  const companyToFile = creatingClient && pickedCompany?.companyName === unitName ? pickedCompany : null;
 
   const isMapping = projectType === "MAPPING";
   const windowDays = startDate && deliveryDate ? daysBetween(startDate, deliveryDate) : null;
@@ -123,7 +129,10 @@ export function NewProjectModal({
       let resolvedClientId = lockedClientId || knownUnit?.id;
       if (!resolvedClientId) {
         try {
-          resolvedClientId = (await clientsApi.createClient({ customName: unitName })).id;
+          const payload = companyToFile
+            ? clientsApi.createClientPayloadFor({ source: "universe", company: companyToFile })
+            : { customName: unitName };
+          resolvedClientId = (await clientsApi.createClient(payload)).id;
         } catch (clientError) {
           if (codeOf(clientError) !== "CLIENT_ALREADY_EXISTS") throw clientError;
           // The user meant that unit. Re-fetch rather than trust the prop — a colleague may have
@@ -167,6 +176,12 @@ export function NewProjectModal({
 
   const clearFieldError = (field: ProjectField) =>
     setFieldErrors((current) => (current[field] ? { ...current, [field]: undefined } : current));
+
+  const handleBusinessUnitChange = (name: string) => {
+    setBusinessUnitName(name);
+    setPickedCompany(null);
+    clearFieldError("businessUnit");
+  };
 
   const handlePositionTitleChange = (title: string) => {
     setPositionTitle(title);
@@ -252,9 +267,11 @@ export function NewProjectModal({
         hint={
           locked
             ? `This position belongs to ${locked.name}.`
-            : creatingClient
-              ? `A new ${vocabulary.unitLower} — it is created with the position.`
-              : undefined
+            : companyToFile
+              ? `A new ${vocabulary.unitLower} from the company database — it is created with the position.`
+              : creatingClient
+                ? `A new ${vocabulary.unitLower} — it is created with the position.`
+                : undefined
         }
         error={fieldErrors.businessUnit}
       >
@@ -265,15 +282,25 @@ export function NewProjectModal({
             <option value={lockedClientId}>{locked?.name ?? `Selected ${vocabulary.unitLower}`}</option>
           </Select>
         ) : (
-          <BusinessUnitCombobox
-            value={businessUnitName}
-            clients={clients}
-            invalid={!!fieldErrors.businessUnit}
-            onChange={(name) => {
-              setBusinessUnitName(name);
-              clearFieldError("businessUnit");
-            }}
-          />
+          isAgency ? (
+            <ClientCombobox
+              value={businessUnitName}
+              clients={clients}
+              invalid={!!fieldErrors.businessUnit}
+              onChange={handleBusinessUnitChange}
+              onPickCompany={(company) => {
+                handleBusinessUnitChange(company.companyName);
+                setPickedCompany(company);
+              }}
+            />
+          ) : (
+            <BusinessUnitCombobox
+              value={businessUnitName}
+              clients={clients}
+              invalid={!!fieldErrors.businessUnit}
+              onChange={handleBusinessUnitChange}
+            />
+          )
         )}
       </Field>
 

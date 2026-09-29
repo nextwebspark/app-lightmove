@@ -182,8 +182,9 @@ There is no central vocabulary today. The strings are inlined in about 15 files.
 
 > **Drawer and persona built** (PR #565): the agency drawer is `AgencyClientView` (the company panel, persona,
 > contacts, positions), the persona is V85 (V86 below was folded into it), and the assistant reads the
-> mandate's client at an agency. Still open from this phase: the agency New client / New position flows and
-> the grid's company columns.
+> mandate's client at an agency. **New client / New position built**: an in-house New client names a unit
+> through `BusinessUnitCombobox` with no universe search, and an agency New position offers the database
+> through `ClientCombobox`. Still open from this phase: the grid's company columns.
 
 These are the screens that change most. Company mode stays exactly as today.
 
