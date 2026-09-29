@@ -2,7 +2,6 @@ package app.lightmove.api.enrichment.sourcing.service;
 
 import app.lightmove.api.candidate.dto.SaveCandidateRequest;
 import app.lightmove.api.candidate.model.CandidateAiAssessment;
-import app.lightmove.api.candidate.model.CompetencyPanelAssessment;
 import app.lightmove.api.candidate.model.EnrichedProfile;
 import app.lightmove.api.candidate.service.CandidateService;
 import app.lightmove.api.core.audit.constant.ProjectEventType;
@@ -51,6 +50,10 @@ import org.springframework.transaction.event.TransactionalEventListener;
 @Component
 @Slf4j
 class ExecutiveSourcingWorker {
+
+    private static final int MAX_NAME = 200;
+    private static final List<String> NAME_INDEXES = List.of("app_lm_project_candidate_at_company_uk",
+            "app_lm_project_candidate_unmapped_name_uk");
 
     private final SourcingRunStore store;
     private final CachedPeopleSearch peopleSearch;
@@ -108,7 +111,7 @@ class ExecutiveSourcingWorker {
 
         try (ExecutorService pool = Executors.newFixedThreadPool(settings.parallelism(),
                 Thread.ofVirtual().factory())) {
-            companies.forEach(company -> pool.submit(() -> run.record(run.sourceOne(company))));
+            companies.forEach(company -> pool.execute(() -> run.record(company, run.sourceOne(company))));
         }
 
         store.finish(request.runId()).ifPresent(finished -> audit
@@ -146,11 +149,18 @@ class ExecutiveSourcingWorker {
         private final Instant deadline;
         private final ReentrantLock recording = new ReentrantLock();
 
-        /** Serialised: the run row is one aggregate under {@code @Version}, and the companies finish on their own threads. */
-        void record(CompanyOutcome outcome) {
+        /**
+         * Serialised: the run row is one aggregate under {@code @Version}, and the companies finish on
+         * their own threads. An outcome that will not save is recorded as a failure instead, so the run
+         * never finishes a company short.
+         */
+        void record(SourcingCompany company, CompanyOutcome outcome) {
             recording.lock();
             try {
                 store.recordOutcome(request.runId(), outcome);
+            } catch (RuntimeException unsaved) {
+                log.error("Sourcing outcome at {} was not saved", company.companyName(), unsaved);
+                store.recordOutcome(request.runId(), CompanyOutcome.of(company, SourcingOutcome.FAILED));
             } finally {
                 recording.unlock();
             }
@@ -194,12 +204,10 @@ class ExecutiveSourcingWorker {
         private ExecutivePick file(SourcingCompany company, BrightDataPerson person, RerankedHit pick) {
             EnrichedProfile research = BrightDataPersonProfiles.toEnrichedProfile(person)
                     .withPhoto(photos.fetchOrNull(person.usableAvatarUrl()));
-            String name = person.name() == null || person.name().isBlank() ? person.linkedinId() : person.name().strip();
+            String name = nameOf(person);
             SaveCandidateRequest filing = SaveCandidateRequest.ofFoundExecutive(company.triageCompanyId(), name,
                     research.title(), person.profileUrl(), research.locationCountry(), research.locationCity());
-            CandidateAiAssessment fitReading = new CandidateAiAssessment(pick.reason(),
-                    new CompetencyPanelAssessment(null, List.of(), List.of()),
-                    new CompetencyPanelAssessment(null, List.of(), List.of()), Instant.now().toString());
+            CandidateAiAssessment fitReading = CandidateAiAssessment.summaryOnly(pick.reason(), Instant.now());
             try {
                 UUID candidateId = candidates.addSourced(request.requestedBy(), request.workspaceId(),
                         request.projectId(), filing, research, fitReading, request.runId()).id();
@@ -211,8 +219,23 @@ class ExecutiveSourcingWorker {
                 }
                 return new ExecutivePick(name, pick.score(), pick.reason(), null);
             } catch (DataIntegrityViolationException raced) {
+                if (!isNameCollision(raced)) {
+                    throw raced;
+                }
                 return new ExecutivePick(name, pick.score(), pick.reason(), null);
             }
+        }
+
+        /** Vendor text, so bounded to what the request accepts. */
+        private static String nameOf(BrightDataPerson person) {
+            String name = person.name() == null || person.name().isBlank() ? person.linkedinId() : person.name().strip();
+            return name.length() <= MAX_NAME ? name : name.substring(0, MAX_NAME);
+        }
+
+        /** V36's two name indexes: someone of that name was filed at the company between the check and the insert. */
+        private static boolean isNameCollision(DataIntegrityViolationException raced) {
+            String cause = String.valueOf(raced.getMostSpecificCause().getMessage());
+            return NAME_INDEXES.stream().anyMatch(cause::contains);
         }
 
         /** Hits with a slug to key on, not already mapped in the mandate — including by this run. */

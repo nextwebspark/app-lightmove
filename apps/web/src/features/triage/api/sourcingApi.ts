@@ -15,6 +15,8 @@ export interface SourcingConfig {
   maxCompaniesPerRun: number;
   hitsPerCompany: number;
   picksPerCompany: number;
+  /** A run still in progress this long after it started was lost with its server. */
+  lostAfterSeconds: number;
 }
 
 export type SourcingRunStatus = "QUEUED" | "RUNNING" | "COMPLETED" | "FAILED";

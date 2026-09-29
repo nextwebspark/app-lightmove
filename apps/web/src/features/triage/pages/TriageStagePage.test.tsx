@@ -345,7 +345,7 @@ const renderStage = (slug = "universe", proj: Project = project) => render(stage
 /** The strip is the nearest `role="status"` box around one of its lines. */
 const stripAround = (line: HTMLElement) => line.closest('[role="status"]') as HTMLElement;
 
-const SOURCING_OFF = { enabled: false, maxCompaniesPerRun: 5, hitsPerCompany: 10, picksPerCompany: 3 };
+const SOURCING_OFF = { enabled: false, maxCompaniesPerRun: 5, hitsPerCompany: 10, picksPerCompany: 3, lostAfterSeconds: 240 };
 
 const runOf = (overrides: Partial<SourcingRun> = {}): SourcingRun => ({
   id: "run1",

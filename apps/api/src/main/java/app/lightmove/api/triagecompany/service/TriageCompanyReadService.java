@@ -11,6 +11,7 @@ import app.lightmove.api.strategy.constant.SortDirection;
 import app.lightmove.api.triagecompany.constant.TriageCompanySortField;
 import app.lightmove.api.triagecompany.constant.TriageCompanyStatus;
 import app.lightmove.api.triagecompany.dto.TriageCompaniesResponse;
+import app.lightmove.api.triagecompany.dto.TriageCompanyResponse;
 import app.lightmove.api.triagecompany.dto.TriageCompanyListCriteria;
 import app.lightmove.api.triagecompany.dto.TriageCountsDto;
 import app.lightmove.api.triagecompany.model.TriageCompany;
@@ -24,6 +25,7 @@ import java.util.Set;
 import java.util.UUID;
 import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Limit;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
@@ -171,6 +173,31 @@ public class TriageCompanyReadService {
         return new TriageCompaniesResponse(
                 found.getContent().stream().map(TriageCompanyResponseMapper::toDto).toList(),
                 found.getTotalElements(), 0, cap, countsFor(projectId));
+    }
+
+    /** The stage's companies among {@code ids}; an id elsewhere, or in another mandate, is simply absent. */
+    @Transactional(readOnly = true)
+    public List<TriageCompanyResponse> findOfStage(UUID workspaceId, UUID projectId, TriageCompanyStatus status,
+                                                   Set<UUID> ids) {
+        projects.requireInWorkspace(projectId, workspaceId);
+        return triaged.findByProjectIdAndStatusAndIdIn(projectId, status, ids).stream()
+                .map(TriageCompanyResponseMapper::toDto)
+                .toList();
+    }
+
+    /**
+     * The first {@code limit} of the stage in the grid's name order, leaving out {@code excludedIds} and
+     * any company marked as having no executive to find.
+     */
+    @Transactional(readOnly = true)
+    public List<TriageCompanyResponse> firstOfStageExcluding(UUID workspaceId, UUID projectId,
+                                                             TriageCompanyStatus status, Set<UUID> excludedIds,
+                                                             int limit) {
+        projects.requireInWorkspace(projectId, workspaceId);
+        return triaged.findByProjectIdAndStatusAndNoExecutiveFoundFalseAndIdNotIn(projectId, status, excludedIds,
+                        Sort.by(Sort.Direction.ASC, "companyName").and(NEWEST_FIRST), Limit.of(limit)).stream()
+                .map(TriageCompanyResponseMapper::toDto)
+                .toList();
     }
 
     private TriageCountsDto countsFor(UUID projectId) {

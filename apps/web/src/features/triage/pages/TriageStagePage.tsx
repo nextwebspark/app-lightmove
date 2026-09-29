@@ -1,5 +1,5 @@
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Navigate, useOutletContext, useParams } from "react-router-dom";
 import type { ProjectOutletContext } from "../../../components/layout/ProjectLayout";
 import { ICONS } from "../../../components/layout/Icon";
@@ -40,7 +40,6 @@ import type { TriageCompany, TriageCompanyStatus, TriageSortField } from "../api
 import { CompanyDrawer } from "../components/CompanyDrawer";
 import { ExecutiveSourcingBanner } from "../components/ExecutiveSourcingBanner";
 import { FindExecutivesDialog } from "../components/FindExecutivesDialog";
-import { companiesOf } from "../lib/sourcingSummary";
 import { ImportSpreadsheetDialog } from "../components/ImportSpreadsheetDialog";
 import { ManageColumnsDialog } from "../components/ManageColumnsDialog";
 import { RemoveCompanyDialog } from "../components/RemoveCompanyDialog";
@@ -53,6 +52,7 @@ import {
 } from "../lib/triageCompanyColumns";
 import { awaitingResearch, toTriageRows } from "../lib/triageRows";
 import { stageBySlug, TRIAGE_STAGES } from "../lib/triageStages";
+import { useCompanySelection } from "../lib/useCompanySelection";
 import { useExecutiveSourcing } from "../lib/useExecutiveSourcing";
 import { useProjectStream, type ProjectStreamKind } from "../lib/useProjectStream";
 import { useSaveCompanyNote } from "../lib/useSaveCompanyNote";
@@ -153,8 +153,7 @@ function TriageStage() {
   const profileCompany = profile?.company ?? null;
   const [pendingCandidateRemoval, setPendingCandidateRemoval] = useState<Candidate | null>(null);
   const [importing, setImporting] = useState(false);
-  /** Companies ticked for Find executives — by company id, since a grid line is a person at one. */
-  const [selectedCompanyIds, setSelectedCompanyIds] = useState<ReadonlySet<string>>(() => new Set());
+  const companySelection = useCompanySelection();
   const [confirmingFindExecutives, setConfirmingFindExecutives] = useState(false);
   const [managingColumns, setManagingColumns] = useState(false);
   /** Set when "Edit field" is opened from a header menu, so the dialog lands already renaming it. */
@@ -245,7 +244,7 @@ function TriageStage() {
     () => {
       setPage(0);
       // A tick made on one reading of the stage must not ride silently into another.
-      setSelectedCompanyIds(new Set());
+      companySelection.clear();
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [debouncedQuery, debouncedExecutiveQuery, executiveStatuses.join(","), sort],
@@ -311,40 +310,10 @@ function TriageStage() {
   const sourcing = useExecutiveSourcing(project.id, canWrite && stage.status === "inUniverse", streamIsLive);
   const findExecutivesOffered = canWrite && stage.status === "inUniverse" && view === "table" && sourcing.offered;
   const selectionCap = sourcing.config?.maxCompaniesPerRun ?? 0;
-  const clearCompanySelection = useCallback(() => setSelectedCompanyIds(new Set()), []);
-
-  const handleToggleCompany = (companyId: string) => {
-    const next = new Set(selectedCompanyIds);
-    if (next.has(companyId)) {
-      next.delete(companyId);
-    } else if (next.size >= selectionCap) {
-      toast(`Find executives takes ${companiesOf(selectionCap)} at a time`);
-      return;
-    } else {
-      next.add(companyId);
-    }
-    setSelectedCompanyIds(next);
-  };
-
-  const handleToggleAllCompanies = (companyIds: string[]) => {
-    const next = new Set(selectedCompanyIds);
-    if (companyIds.every((id) => next.has(id))) {
-      companyIds.forEach((id) => next.delete(id));
-      setSelectedCompanyIds(next);
-      return;
-    }
-    const room = Math.max(0, selectionCap - next.size);
-    const adding = companyIds.filter((id) => !next.has(id));
-    adding.slice(0, room).forEach((id) => next.add(id));
-    if (adding.length > room) {
-      toast(`Find executives takes ${companiesOf(selectionCap)} at a time — the first ${selectionCap} are ticked`);
-    }
-    setSelectedCompanyIds(next);
-  };
 
   const handleStartFindExecutives = () =>
-    sourcing.start([...selectedCompanyIds], () => {
-      clearCompanySelection();
+    sourcing.start([...companySelection.selectedIds], () => {
+      companySelection.clear();
       setConfirmingFindExecutives(false);
     });
 
@@ -668,7 +637,7 @@ function TriageStage() {
         <FindExecutivesDialog
           open={confirmingFindExecutives}
           config={sourcing.config}
-          selectedCount={selectedCompanyIds.size}
+          selectedCount={companySelection.selectedIds.size}
           starting={sourcing.isStarting}
           onCancel={() => setConfirmingFindExecutives(false)}
           onConfirm={handleStartFindExecutives}
@@ -791,20 +760,20 @@ function TriageStage() {
           selection={
             findExecutivesOffered
               ? {
-                  selectedIds: selectedCompanyIds,
-                  onToggle: handleToggleCompany,
-                  onToggleAll: handleToggleAllCompanies,
+                  selectedIds: companySelection.selectedIds,
+                  onToggle: (companyId) => companySelection.toggle(companyId, selectionCap),
+                  onToggleAll: (companyIds) => companySelection.toggleAll(companyIds, selectionCap),
                 }
               : undefined
           }
         />
 
-        {findExecutivesOffered && selectedCompanyIds.size > 0 && !confirmingFindExecutives && (
+        {findExecutivesOffered && companySelection.selectedIds.size > 0 && !confirmingFindExecutives && (
           <SelectionActionBar
-            count={selectedCompanyIds.size}
+            count={companySelection.selectedIds.size}
             noun="company"
             plural="companies"
-            onClear={clearCompanySelection}
+            onClear={companySelection.clear}
           >
             <SelectionAction
               icon={ICONS.search}
@@ -916,7 +885,6 @@ function TriageStage() {
     </div>
   );
 }
-
 
 /**
  * One line naming what a capped read left out, or null when it left nothing out. `totalCount` is the

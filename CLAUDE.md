@@ -450,7 +450,9 @@ them with no vendor call, and otherwise reads back the fitting people on file at
 asks the vendor only for the rest with every person on file excluded (`linkedin_id not_in`, nested in
 an `and` to stay under four rules a group) — a returned record is billed whether or not it was new.
 `BrightDataProfileEnricher` reads the same table first, so a capture of someone a run bought is free.
-Both age out after `lightmove.enrichment.people-cache-ttl` (30d). The exclusion is the employer's
+Both age out after `lightmove.enrichment.people-cache-ttl` (30d), and every billed call purges what
+has aged past it (V89 indexes `fetched_at` for that), so a third party's record is never held longer
+than it may be read. The exclusion is the employer's
 people on file, never a mandate's own roster: the answer is shared by every workspace.
 `app_lm_executive_sourcing_run` (V86) is one Find executives run — the companies frozen at request
 time, the spec the model proposed, and an outcome per company as each finishes — kept as a row so the

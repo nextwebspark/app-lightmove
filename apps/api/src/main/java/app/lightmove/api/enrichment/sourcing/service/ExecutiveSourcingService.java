@@ -22,10 +22,8 @@ import app.lightmove.api.enrichment.sourcing.model.SourcingCompany;
 import app.lightmove.api.enrichment.sourcing.repository.ExecutiveSourcingRunRepository;
 import app.lightmove.api.triagecompany.constant.TriageCompanyStatus;
 import app.lightmove.api.triagecompany.dto.TriageCompanyResponse;
-import app.lightmove.api.triagecompany.model.TriageCompanyFilters;
 import app.lightmove.api.triagecompany.service.TriageCompanyReadService;
 import jakarta.servlet.http.HttpServletRequest;
-import java.time.Duration;
 import java.time.Instant;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -47,12 +45,6 @@ import org.springframework.transaction.annotation.Transactional;
  */
 @Service
 public class ExecutiveSourcingService {
-
-    /** Well past any stage: the whole stage is read once to settle the request against it. */
-    private static final int STAGE_READ_CAP = 5_000;
-
-    /** Past the worker's own deadline by this much, a run still marked in progress was lost with its instance. */
-    private static final Duration LOST_AFTER_DEADLINE = Duration.ofMinutes(1);
 
     private final ExecutiveSourcingRunRepository runs;
     private final TriageCompanyReadService companies;
@@ -81,7 +73,7 @@ public class ExecutiveSourcingService {
 
     public ExecutiveSourcingConfigResponse config() {
         return new ExecutiveSourcingConfigResponse(peopleSearch.isOffered(), settings.maxCompaniesPerRun(),
-                settings.hitsPerCompany(), settings.picksPerCompany());
+                settings.hitsPerCompany(), settings.picksPerCompany(), settings.lostAfter().toSeconds());
     }
 
     /**
@@ -103,11 +95,9 @@ public class ExecutiveSourcingService {
         }
         refuseRunInProgress(workspaceId, projectId);
 
-        List<TriageCompanyResponse> stage = companies.listAllOfStage(workspaceId, projectId,
-                TriageCompanyStatus.IN_UNIVERSE, TriageCompanyFilters.none(), STAGE_READ_CAP).companies();
         List<SourcingCompany> chosen = asked.isEmpty()
-                ? firstWithoutExecutive(stage, candidates.companiesWithExecutivesOf(workspaceId, projectId), cap)
-                : named(stage, asked);
+                ? firstWithoutExecutive(workspaceId, projectId, cap)
+                : named(workspaceId, projectId, asked);
         if (chosen.isEmpty()) {
             throw ApiException.withField(ErrorCode.VALIDATION_FAILED, "triageCompanyIds",
                     "Every In-universe company already has an executive mapped");
@@ -141,7 +131,7 @@ public class ExecutiveSourcingService {
 
     /** A run lost with its instance is failed here, so it never holds the mandate's one slot for good. */
     private void refuseRunInProgress(UUID workspaceId, UUID projectId) {
-        Instant cutoff = Instant.now().minus(settings.runDeadline()).minus(LOST_AFTER_DEADLINE);
+        Instant cutoff = Instant.now().minus(settings.lostAfter());
         for (ExecutiveSourcingRun inProgress : runs.findByWorkspaceIdAndProjectIdAndStatusIn(workspaceId, projectId,
                 SourcingRunStatus.IN_PROGRESS)) {
             if (!inProgress.isLostBefore(cutoff)) {
@@ -162,20 +152,18 @@ public class ExecutiveSourcingService {
     }
 
     /** The grid's name order, skipping companies with an executive mapped or marked as having none. */
-    private static List<SourcingCompany> firstWithoutExecutive(List<TriageCompanyResponse> stage,
-                                                               Set<UUID> withExecutives, int cap) {
-        return stage.stream()
-                .filter(company -> !withExecutives.contains(company.id()) && !company.noExecutiveFound())
-                .limit(cap)
+    private List<SourcingCompany> firstWithoutExecutive(UUID workspaceId, UUID projectId, int cap) {
+        return companies.firstOfStageExcluding(workspaceId, projectId, TriageCompanyStatus.IN_UNIVERSE,
+                        candidates.companiesWithExecutivesOf(workspaceId, projectId), cap).stream()
                 .map(ExecutiveSourcingService::toSourcingCompany)
                 .toList();
     }
 
-    private static List<SourcingCompany> named(List<TriageCompanyResponse> stage, List<UUID> asked) {
-        Map<UUID, TriageCompanyResponse> byId = stage.stream()
+    private List<SourcingCompany> named(UUID workspaceId, UUID projectId, List<UUID> asked) {
+        Map<UUID, TriageCompanyResponse> byId = companies.findOfStage(workspaceId, projectId,
+                        TriageCompanyStatus.IN_UNIVERSE, Set.copyOf(asked)).stream()
                 .collect(Collectors.toMap(TriageCompanyResponse::id, Function.identity()));
-        Set<UUID> unknown = asked.stream().filter(id -> !byId.containsKey(id)).collect(Collectors.toSet());
-        if (!unknown.isEmpty()) {
+        if (byId.size() < asked.size()) {
             throw ApiException.withField(ErrorCode.VALIDATION_FAILED, "triageCompanyIds",
                     "Only In-universe companies of this mandate can be searched");
         }

@@ -37,6 +37,7 @@ public class ExecutiveReranker {
     private static final int MAX_CAREER_LINES = 3;
     private static final int MIN_SCORE = 1;
     private static final int MAX_SCORE = 10;
+    private static final int MAX_REASON = 300;
 
     private static final String BLOCKED = "{\"picks\":[],\"note\":\"" + BlockedAnswer.MARKER + "\"}";
 
@@ -48,7 +49,7 @@ public class ExecutiveReranker {
 
     /** Picks over {@code hits}, by index into it, best first; empty when nobody fits or the call failed. */
     public List<RerankedHit> pick(SourcingBrief brief, SourcingSpec spec, String companyName,
-                                            List<BrightDataPerson> hits, int picks) {
+                                  List<BrightDataPerson> hits, int picks) {
         try {
             ModelAnswer answered = prompt.ask(ModelAnswer.class, user -> user.text("""
                     THE ROLE
@@ -94,11 +95,19 @@ public class ExecutiveReranker {
                 continue;
             }
             int score = pick.score() == null ? MIN_SCORE : Math.max(MIN_SCORE, Math.min(MAX_SCORE, pick.score()));
-            kept.add(new RerankedHit(pick.hit() - 1, score,
-                    pick.reason() == null || pick.reason().isBlank() ? null : pick.reason().strip()));
+            kept.add(new RerankedHit(pick.hit() - 1, score, reasonOf(pick.reason())));
         }
         kept.sort((left, right) -> Integer.compare(right.score(), left.score()));
         return kept.stream().limit(picks).toList();
+    }
+
+    /** Model output read off profile text, so capped before it is stored and shown. */
+    private static String reasonOf(String reason) {
+        if (reason == null || reason.isBlank()) {
+            return null;
+        }
+        String stripped = reason.strip();
+        return stripped.length() <= MAX_REASON ? stripped : stripped.substring(0, MAX_REASON) + "…";
     }
 
     static String peopleOf(List<BrightDataPerson> hits) {

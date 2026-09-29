@@ -10,8 +10,10 @@ import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
+import org.springframework.data.domain.Limit;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -42,6 +44,12 @@ public interface TriageCompanyRepository extends JpaRepository<TriageCompany, UU
             Pageable pageable);
 
     Optional<TriageCompany> findByIdAndProjectId(UUID id, UUID projectId);
+
+    List<TriageCompany> findByProjectIdAndStatusAndIdIn(UUID projectId, TriageCompanyStatus status,
+                                                         Collection<UUID> ids);
+
+    List<TriageCompany> findByProjectIdAndStatusAndNoExecutiveFoundFalseAndIdNotIn(
+            UUID projectId, TriageCompanyStatus status, Collection<UUID> excludedIds, Sort sort, Limit limit);
 
     default TriageCompany requireInProject(UUID id, UUID projectId) {
         return findByIdAndProjectId(id, projectId).orElseThrow(() -> ApiException.of(ErrorCode.NOT_FOUND));

@@ -84,6 +84,7 @@ public class BrightDataProfileEnricher implements LinkedInProfileEnricher {
             log.debug("Bright Data dataset holds no record for {}", slug);
             return Optional.empty();
         }
+        people.purgeFetchedBefore(Instant.now().minus(peopleCacheTtl));
         people.rememberAll(VENDOR, result);
         return Optional.of(withPhoto(result.hits().getFirst()));
     }

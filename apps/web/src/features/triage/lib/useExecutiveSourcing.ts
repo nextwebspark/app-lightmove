@@ -10,9 +10,6 @@ import { companiesOf, summaryOf } from "./sourcingSummary";
 const POLL_EVERY_MS = 3_000;
 const POLL_WHILE_STREAMING_MS = 15_000;
 
-/** Past the server's three-minute deadline, a run still marked running has been lost by its worker. */
-const STALE_AFTER_MS = 4 * 60_000;
-
 /**
  * Find executives for one mandate: whether it is offered, the latest run, and the start. The stream
  * refreshes a running run; the slow poll beside it is what lets a lost run time out on screen.
@@ -29,13 +26,14 @@ export function useExecutiveSourcing(projectId: string, canWrite: boolean, strea
     staleTime: Infinity,
   });
   const offered = config.data?.enabled === true;
+  const lostAfterMs = (config.data?.lostAfterSeconds ?? 0) * 1000;
 
   const latest = useQuery({
     queryKey: sourcingApi.SOURCING_LATEST_KEY(projectId),
     queryFn: ({ signal }) => sourcingApi.getLatestSourcingRun(projectId, signal),
     enabled: canWrite && offered,
     refetchInterval: ({ state: { data } }) => {
-      if (!data || !isSourcingInProgress(data) || ageOf(data) > STALE_AFTER_MS) return false;
+      if (!data || !isSourcingInProgress(data) || isLost(data, lostAfterMs)) return false;
       return streamIsLive ? POLL_WHILE_STREAMING_MS : POLL_EVERY_MS;
     },
   });
@@ -72,7 +70,7 @@ export function useExecutiveSourcing(projectId: string, canWrite: boolean, strea
     onError: (error) => toast(messageFor(error)),
   });
 
-  const isStale = run !== null && isSourcingInProgress(run) && ageOf(run) > STALE_AFTER_MS;
+  const isStale = run !== null && isSourcingInProgress(run) && isLost(run, lostAfterMs);
   const isRunning = (isSourcingInProgress(run) && !isStale) || start.isPending;
 
   return {
@@ -92,9 +90,9 @@ export function useExecutiveSourcing(projectId: string, canWrite: boolean, strea
 
 export type ExecutiveSourcing = ReturnType<typeof useExecutiveSourcing>;
 
-function ageOf(run: SourcingRun): number {
+function isLost(run: SourcingRun, lostAfterMs: number): boolean {
   const since = Date.parse(run.startedAt ?? run.requestedAt);
-  return Number.isNaN(since) ? 0 : Date.now() - since;
+  return lostAfterMs > 0 && !Number.isNaN(since) && Date.now() - since > lostAfterMs;
 }
 
 const dismissedKey = (projectId: string) => `lightmove.sourcing.dismissed.${projectId}`;

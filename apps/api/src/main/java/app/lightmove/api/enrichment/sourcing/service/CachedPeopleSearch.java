@@ -69,6 +69,7 @@ public class CachedPeopleSearch {
                     excluded, stillWanted);
             bought = answered.hits();
             matched = answered.totalHits() == null ? null : matched + answered.totalHits();
+            store.purgeFetchedBefore(freshAfter);
             store.rememberAll(vendor.provider(), answered);
         }
         List<BrightDataPerson> answer = Stream.concat(fitting.stream(), bought.stream()).toList();

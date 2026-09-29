@@ -40,6 +40,11 @@ public record ExecutiveSourcingSettings(
         @DefaultValue({"AE", "SA", "QA", "KW", "BH", "OM"}) List<String> neighbourCountryCodes
 ) {
 
+    /** Past this a run still marked in progress was lost with its instance: the deadline, and a minute's grace. */
+    public Duration lostAfter() {
+        return runDeadline.plusMinutes(1);
+    }
+
     public ExecutiveSourcingSettings {
         if (maxCompaniesPerRun < 1 || hitsPerCompany < 1 || picksPerCompany < 1 || parallelism < 1) {
             throw new IllegalArgumentException(

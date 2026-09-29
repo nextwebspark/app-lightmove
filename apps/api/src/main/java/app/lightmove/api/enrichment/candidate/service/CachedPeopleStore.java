@@ -80,9 +80,8 @@ public class CachedPeopleStore {
 
     /**
      * The people one earlier search returned, in the order it returned them, and how many it matched in
-     * all — empty when the search
-     * is not on file or has aged out, and also when any of its people has, since a partial answer to a
-     * cached question would silently be a smaller one.
+     * all — empty when the search is not on file or has aged out, and also when any of its people has,
+     * since a partial answer to a cached question would silently be a smaller one.
      */
     @Transactional(propagation = Propagation.REQUIRES_NEW, readOnly = true)
     public Optional<BrightDataPeopleHits> answerTo(String queryKey, Instant freshAfter) {
@@ -146,6 +145,14 @@ public class CachedPeopleStore {
                 return keyed.size();
             }
         });
+    }
+
+    /** Deletes what has aged past the TTL, so a record is held no longer than it may be read. */
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
+    public void purgeFetchedBefore(Instant cutoff) {
+        Timestamp before = Timestamp.from(cutoff);
+        jdbc.update("DELETE FROM app_lm_vendor_people_search WHERE fetched_at < ?", before);
+        jdbc.update("DELETE FROM app_lm_vendor_person WHERE fetched_at < ?", before);
     }
 
     @Transactional(propagation = Propagation.REQUIRES_NEW)

@@ -61,6 +61,22 @@ class PeopleCacheIntegrationTest {
     }
 
     @Test
+    @DisplayName("a purge deletes what aged past the cutoff and keeps what is fresh, with its vendor record whole")
+    void aPurgeDeletesOnlyTheAged() {
+        people.rememberAll("brightdata", new BrightDataPeopleHits(List.of(person("aged-one"), person("fresh-one")),
+                List.of("{\"linkedin_id\":\"aged-one\",\"unbound_field\":1}", "{\"linkedin_id\":\"fresh-one\"}"),
+                null));
+        db.update("UPDATE app_lm_vendor_person SET fetched_at = now() - interval '40 days' WHERE linkedin_slug = 'aged-one'");
+
+        people.purgeFetchedBefore(Instant.now().minus(Duration.ofDays(30)));
+
+        assertThat(db.queryForList("SELECT linkedin_slug FROM app_lm_vendor_person", String.class))
+                .containsExactly("fresh-one");
+        assertThat(db.queryForObject("SELECT raw->>'linkedin_id' FROM app_lm_vendor_person", String.class))
+                .isEqualTo("fresh-one");
+    }
+
+    @Test
     @DisplayName("an aged-out record is not trusted: the vendor is asked again")
     void anAgedOutRecordIsAskedAgain() {
         people.rememberAll("brightdata", BrightDataPeopleHits.of(List.of(person("sample-person")), null));
