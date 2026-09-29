@@ -17,17 +17,14 @@ public record ExecutiveSourcingSettings(
         /** Records bought per company at most. */
         @DefaultValue("10") int hitsPerCompany,
 
-        /** Executives filed per company at most; the model may pick fewer. */
+        /** Executives filed per company at most, in the order the search returned them. */
         @DefaultValue("3") int picksPerCompany,
-
-        /**
-         * The lowest rerank score (1–10) a pick is filed at. Below it the model is saying "nearest
-         * available", not "fits" — a divisional finance head scored 6 for a group CFO seat.
-         */
-        @DefaultValue("7") int minPickScore,
 
         /** Companies searched at once — each holds a vendor call and then a model call. */
         @DefaultValue("4") int parallelism,
+
+        /** Searches per company at most: the first, and each rewording while a search finds nobody. */
+        @DefaultValue("3") int maxSearchRounds,
 
         /** How long the whole run may take before the companies not reached are reported as such. */
         @DefaultValue("180s") Duration runDeadline,
@@ -46,16 +43,14 @@ public record ExecutiveSourcingSettings(
     }
 
     public ExecutiveSourcingSettings {
-        if (maxCompaniesPerRun < 1 || hitsPerCompany < 1 || picksPerCompany < 1 || parallelism < 1) {
+        if (maxCompaniesPerRun < 1 || hitsPerCompany < 1 || picksPerCompany < 1 || parallelism < 1
+                || maxSearchRounds < 1) {
             throw new IllegalArgumentException(
-                    "lightmove.enrichment.sourcing's company, hit, pick and parallelism limits must be positive");
+                    "lightmove.enrichment.sourcing's company, hit, pick, parallelism and round limits must be positive");
         }
         if (picksPerCompany > hitsPerCompany) {
             throw new IllegalArgumentException(
                     "lightmove.enrichment.sourcing.picks-per-company cannot exceed hits-per-company");
-        }
-        if (minPickScore < 1 || minPickScore > 10) {
-            throw new IllegalArgumentException("lightmove.enrichment.sourcing.min-pick-score must be 1 to 10");
         }
         if (runDeadline == null || runDeadline.isNegative() || runDeadline.isZero()) {
             throw new IllegalArgumentException("lightmove.enrichment.sourcing.run-deadline must be positive");

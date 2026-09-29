@@ -4,8 +4,14 @@ import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import java.util.UUID;
 
 /**
- * One person the model chose at a company, as the run records it: who, how well they fit and why,
- * and the row they became — null when filing them was refused as already mapped.
+ * One person a run filed at a company: who, and the row they became — null when filing them was
+ * refused as already mapped. {@code score} and {@code reason} are a retired rerank's, read back only on
+ * runs recorded before it went, and null since.
  */
 @JsonIgnoreProperties(ignoreUnknown = true)
-public record ExecutivePick(String name, int score, String reason, UUID candidateId) {}
+public record ExecutivePick(String name, Integer score, String reason, UUID candidateId) {
+
+    public static ExecutivePick of(String name, UUID candidateId) {
+        return new ExecutivePick(name, null, null, candidateId);
+    }
+}

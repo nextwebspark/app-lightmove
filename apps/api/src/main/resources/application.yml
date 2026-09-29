@@ -365,8 +365,8 @@ lightmove:
       max-companies-per-run: ${SOURCING_MAX_COMPANIES_PER_RUN:5}
       hits-per-company: ${SOURCING_HITS_PER_COMPANY:10}
       picks-per-company: ${SOURCING_PICKS_PER_COMPANY:3}
-      min-pick-score: ${SOURCING_MIN_PICK_SCORE:7}
       parallelism: ${SOURCING_PARALLELISM:4}
+      max-search-rounds: ${SOURCING_MAX_SEARCH_ROUNDS:3}
       run-deadline: ${SOURCING_RUN_DEADLINE:180s}
 
   # How a paid third-party API is called: timeouts, retry and outbound pacing, shared by every vendor

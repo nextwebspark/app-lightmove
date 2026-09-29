@@ -27,8 +27,8 @@ export function FindExecutivesDialog({
         {selectedCount > 0
           ? `Uncava will search the ${companies} you ticked for people whose current title fits this position.`
           : `Uncava will search the first ${companies} in the universe with no executive mapped yet.`}{" "}
-        It buys up to {config.hitsPerCompany} profiles per company and files the{" "}
-        {config.picksPerCompany} that fit best, researched, as executives.
+        It buys up to {config.hitsPerCompany} profiles per company and files the first{" "}
+        {config.picksPerCompany}, researched, as executives.
       </p>
       {selectedCount === 0 && (
         <p className="mt-2.5 text-body text-u-text3">

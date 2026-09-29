@@ -68,4 +68,15 @@ class SourcingSpecTest {
     void anOlderSpecHasNoExclusions() {
         assertThat(new SourcingSpec(List.of("Chief"), List.of("Finance"), null, null).excludedWords()).isEmpty();
     }
+
+    @Test
+    @DisplayName("two specs asking the same words in another order or case share a key; other words do not")
+    void wordKeys() {
+        SourcingSpec spec = SourcingSpec.of(List.of("Chief", "Head"), List.of("Finance"), List.of("Assistant"), "A CFO.");
+
+        assertThat(SourcingSpec.of(List.of("head", "CHIEF"), List.of("finance"), List.of("assistant"), null).wordKey())
+                .isEqualTo(spec.wordKey());
+        assertThat(SourcingSpec.of(List.of("Chief", "Head"), List.of("Treasury"), List.of("Assistant"), null).wordKey())
+                .isNotEqualTo(spec.wordKey());
+    }
 }

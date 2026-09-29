@@ -89,12 +89,18 @@ sent as `not_includes`, four words each — the vendor refuses a fifth rule, run
 and matches a word inside longer ones, so an exclusion hiding in a senior title word is dropped),
 one **synchronous** Bright Data people search per company keys on the company's LinkedIn slug
 (`current_company_company_id`; the numeric id matches nothing) with the brief's country and the Gulf
-neighbours only — nobody living elsewhere is searched for, and a brief with no country searches everywhere — one Gemini rerank per company picks at
-most `picks-per-company`, and each pick is filed through `CandidateService.addSourced` — the search
-hit *is* the research, so no second vendor call — as `AI_SOURCED` (no badge on the grid; the drawer's source reads "Sourced") — only a pick scored
-`min-pick-score` (7) or above — with the rerank's reason as its assessment summary until the same deep enrichment a capture gets replaces
-it, fired with the `SOURCING` trigger that skips the per-user LLM meter. Every returned hit is
-billed, so `max-companies-per-run × hits-per-company` is one press's ceiling (5 × 10 for the trial).
+neighbours only — nobody living elsewhere is searched for, and a brief with no country searches everywhere.
+**No model judges the people**: the first `picks-per-company` hits not already mapped, in the vendor's
+order, are each filed through `CandidateService.addSourced` — the search hit *is* the research, so no
+second vendor call — as `AI_SOURCED` (no badge on the grid; the drawer's source reads "Sourced"), and
+the same deep enrichment a capture gets writes the assessment, fired with the `SOURCING` trigger that
+skips the per-user LLM meter. A company whose search finds **nobody** is searched again with other title
+words (`SourcingSpecRefiner`), up to `max-search-rounds`: the first search that finds anybody is the
+last. The refiner reads the brief and every word each earlier round tried — its own earlier answers
+included, replayed as one conversation because the model keeps nothing between calls; words a round
+already searched are re-asked once, then given up. Every returned hit is billed and a search finding
+nobody costs nothing, so `max-companies-per-run × hits-per-company` is still one press's ceiling
+(5 × 10 for the trial).
 Offered only where `provider: brightdata`; a client seat sees none of it. The **Reports**
 tab is the mandate's talent mapping report (`GET /projects/{id}/report`): four chapters — mapping
 progress, shape of the market, remuneration, diversity — aggregated live by `report` from the same

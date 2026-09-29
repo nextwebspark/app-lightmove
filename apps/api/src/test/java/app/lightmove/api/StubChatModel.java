@@ -1,6 +1,8 @@
 package app.lightmove.api;
 
 import java.util.List;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
 import org.springframework.ai.chat.messages.AssistantMessage;
 import org.springframework.ai.chat.model.ChatModel;
@@ -24,12 +26,23 @@ public class StubChatModel implements ChatModel {
     private volatile Prompt lastPrompt;
     private final List<Prompt> prompts = new CopyOnWriteArrayList<>();
     private volatile String reply = REPLY;
+    private final Map<String, String> repliesBySystemText = new ConcurrentHashMap<>();
 
     @Override
     public ChatResponse call(Prompt prompt) {
         lastPrompt = prompt;
         prompts.add(prompt);
-        return chunk(reply);
+        String system = prompt.getSystemMessage().getText();
+        return chunk(repliesBySystemText.entrySet().stream()
+                .filter(marked -> system != null && system.contains(marked.getKey()))
+                .map(Map.Entry::getValue)
+                .findFirst()
+                .orElse(reply));
+    }
+
+    /** Answers a prompt whose system text contains {@code marker} with {@code text}, ahead of {@link #answerWith}. */
+    public void answerWhenSystemContains(String marker, String text) {
+        repliesBySystemText.put(marker, text);
     }
 
     /** Answers every prompt with {@code text} until {@link #reset}; the context is shared, so reset it. */
@@ -39,6 +52,7 @@ public class StubChatModel implements ChatModel {
 
     public void reset() {
         reply = REPLY;
+        repliesBySystemText.clear();
         lastPrompt = null;
         prompts.clear();
     }

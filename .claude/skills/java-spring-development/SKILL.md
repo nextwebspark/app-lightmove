@@ -220,10 +220,10 @@ enrichment/                # the one feature split twice: by subject first, then
                        CompanyEnrichmentWorker)    config/(CompanyEnrichmentConfig)
   common/     service/(BrightDataSearch)
   sourcing/   Find executives — constant/(SourcingRunStatus, SourcingOutcome)
-              model/(ExecutiveSourcingRun, SourcingCompany, SourcingSpec, SourcingBrief, CompanyOutcome,
+              model/(ExecutiveSourcingRun, SourcingCompany, SourcingSpec, SourcingBrief, CompanyOutcome, SourcingRound,
                      ExecutivePick, ExecutiveSourcingRequested)  repository/
               service/(PeopleSearch, BrightDataPeopleSearch, LogPeopleSearch, CachedPeopleSearch, ExecutiveSourcingService,
-                       ExecutiveSourcingWorker, SourcingRunStore, SourcingSpecProposer, ExecutiveReranker)
+                       ExecutiveSourcingWorker, SourcingRunStore, SourcingSpecProposer, SourcingSpecRefiner)
               config/(ExecutiveSourcingConfig)  controller/  dto/
 
 geocoding/                 # a city+country pair becomes a point, once — global cache, no tenant data

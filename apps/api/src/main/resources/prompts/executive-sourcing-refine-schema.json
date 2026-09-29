@@ -1,0 +1,11 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "seniorityWords": { "type": "array", "items": { "type": "string" }, "maxItems": 4 },
+    "functionWords": { "type": "array", "items": { "type": "string" }, "maxItems": 4 },
+    "excludedWords": { "type": "array", "items": { "type": "string" }, "maxItems": 4 },
+    "why": { "type": ["string", "null"] }
+  },
+  "required": ["seniorityWords", "functionWords", "excludedWords"]
+}
