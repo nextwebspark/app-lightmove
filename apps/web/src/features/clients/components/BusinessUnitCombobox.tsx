@@ -2,6 +2,7 @@ import { Input } from "../../../components/ui";
 import { useComboboxList } from "../../../lib/useComboboxList";
 import type { Client } from "../api/types";
 import { useWorkspaceVocabulary } from "../../workspace/lib/vocabulary";
+import { ComboboxOption, NewNameOption } from "./ComboboxRows";
 
 const LIST_ID = "business-unit-options";
 
@@ -37,10 +38,6 @@ export function BusinessUnitCombobox({
   });
 
   const showList = list.open && optionCount > 0;
-  const optionClass = (index: number) =>
-    `flex cursor-pointer items-center gap-2 px-3 py-[7px] font-sans text-body ${
-      index === list.active ? "bg-u-raised text-u-text" : "text-u-text2"
-    }`;
 
   return (
     <div className="relative">
@@ -70,34 +67,14 @@ export function BusinessUnitCombobox({
           className="absolute z-10 mt-1 max-h-60 w-full overflow-auto rounded-[10px] border border-u-border-strong bg-u-surface py-1 shadow-u-e3"
         >
           {matches.map((client, index) => (
-            <li
-              key={client.id}
-              id={`${LIST_ID}-${index}`}
-              role="option"
-              aria-selected={index === list.active}
-              onMouseDown={(event) => list.commitFromPointer(event, index)}
-              onMouseEnter={() => list.setActive(index)}
-              className={optionClass(index)}
-            >
+            <ComboboxOption key={client.id} listId={LIST_ID} index={index} list={list}>
               <span className="truncate font-medium text-u-text">{client.name}</span>
-            </li>
+            </ComboboxOption>
           ))}
           {offerNew && (
-            <li
-              id={`${LIST_ID}-${matches.length}`}
-              role="option"
-              aria-selected={matches.length === list.active}
-              onMouseDown={(event) => list.commitFromPointer(event, matches.length)}
-              onMouseEnter={() => list.setActive(matches.length)}
-              className={`${optionClass(matches.length)} ${matches.length > 0 ? "border-t border-u-border" : ""}`}
-            >
-              <span aria-hidden="true" className="text-u-accent">
-                ＋
-              </span>
-              <span className="truncate">
-                Create <span className="font-medium text-u-text">“{value.trim()}”</span>
-              </span>
-            </li>
+            <NewNameOption listId={LIST_ID} index={matches.length} list={list}>
+              Create <span className="font-medium text-u-text">“{value.trim()}”</span>
+            </NewNameOption>
           )}
         </ul>
       )}

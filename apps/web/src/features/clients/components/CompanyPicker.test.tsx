@@ -57,6 +57,24 @@ describe("CompanyPicker", () => {
     expect(companiesApi.searchCompanies).not.toHaveBeenCalled();
   });
 
+  // Strategy caches the `{ companies }` page under COMPANY_SEARCH_KEY and this picker the bare list: a
+  // shared key once handed the picker a page it then tried to map over.
+  it("does not read the page Strategy's search cached for the same query", async () => {
+    const user = userEvent.setup();
+    // The app's 30s staleTime (main.tsx) is what serves the cached entry without a refetch.
+    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false, staleTime: 30_000 } } });
+    queryClient.setQueryData(companiesApi.COMPANY_SEARCH_KEY("Meridian"), { companies: [] });
+    render(
+      <QueryClientProvider client={queryClient}>
+        <CompanyPicker pick={null} onPick={vi.fn()} />
+      </QueryClientProvider>,
+    );
+
+    await user.type(screen.getByPlaceholderText("Search company database…"), "Meridian");
+
+    expect(await screen.findByText("Meridian Energy Group")).toBeInTheDocument();
+  });
+
   it("shows the mark, the name, the location and the industry on a suggestion", async () => {
     const user = userEvent.setup();
     const onPick = renderPicker();

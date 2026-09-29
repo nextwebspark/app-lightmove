@@ -52,7 +52,6 @@ const renderModal = () =>
           open
           onClose={vi.fn()}
           clients={CLIENTS}
-          existingNames={new Set(CLIENTS.map((unit) => unit.name.toLowerCase()))}
           onCreated={vi.fn()}
         />
       </ToastProvider>

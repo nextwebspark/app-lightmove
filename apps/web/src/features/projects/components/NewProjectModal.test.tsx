@@ -6,13 +6,13 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { ToastProvider } from "../../../components/ui";
 import { ApiRequestError } from "../../../lib/apiClient";
 import { aUser, aWorkspace } from "../../../test/fixtures/user";
+import type { WorkspaceMode } from "../../auth/api/types";
 import * as clientsApi from "../../clients/api/clientsApi";
 import type { Client } from "../../clients/api/types";
 import * as positionApi from "../../position/api/positionApi";
 import type { PositionTemplate } from "../../position/api/types";
 import * as companiesApi from "../../strategy/api/companiesApi";
 import type { CompanySuggestion } from "../../strategy/api/types";
-import type { WorkspaceMode } from "../../auth/api/types";
 import * as projectsApi from "../api/projectsApi";
 import type { Project } from "../api/types";
 import { NewProjectModal } from "./NewProjectModal";
@@ -41,6 +41,7 @@ vi.mock("../../position/api/positionApi", async (importOriginal) => ({
 vi.mock("../../clients/api/clientsApi", async (importOriginal) => ({
   ...(await importOriginal<typeof import("../../clients/api/clientsApi")>()),
   createClient: vi.fn(),
+  clients: vi.fn(),
 }));
 
 beforeEach(() => {
@@ -674,6 +675,36 @@ describe("NewProjectModal — an agency's client field", () => {
 
     expect(await screen.findByRole("option", { name: /Meridian Energy Group/ })).toBeInTheDocument();
     expect(screen.getAllByRole("option", { name: "Globex" })).toHaveLength(1);
+  });
+
+  it("files a database pick a colleague has just made a client under that client", async () => {
+    vi.mocked(clientsApi.createClient).mockRejectedValue(
+      new ApiRequestError({ code: "CLIENT_ALREADY_EXISTS", detail: "exists", status: 409, correlationId: "c1" }),
+    );
+    vi.mocked(clientsApi.clients).mockResolvedValue([...CLIENTS, client("meridian", "Meridian Energy Group")]);
+    vi.mocked(projectsApi.createProject).mockResolvedValue(created("meridian"));
+    const user = userEvent.setup();
+    render(wrap(<NewProjectModal open onClose={vi.fn()} clients={CLIENTS} />));
+
+    await user.type(screen.getByRole("combobox", { name: /Client/ }), "meri");
+    await user.click(await screen.findByRole("option", { name: /Meridian Energy Group/ }));
+    await user.type(screen.getByRole("combobox", { name: "Position" }), "CFO");
+    await user.click(screen.getByRole("button", { name: "Create position" }));
+
+    await waitFor(() =>
+      expect(projectsApi.createProject).toHaveBeenCalledWith(expect.objectContaining({ clientId: "meridian" })),
+    );
+  });
+
+  it("keeps a long client list from pushing the company database out of view", async () => {
+    const many = Array.from({ length: 10 }, (_, index) => client(`c${index}`, `Mercury ${index}`));
+    const user = userEvent.setup();
+    render(wrap(<NewProjectModal open onClose={vi.fn()} clients={many} />));
+
+    await user.type(screen.getByRole("combobox", { name: /Client/ }), "me");
+
+    expect(await screen.findByRole("option", { name: /Meridian Energy Group/ })).toBeInTheDocument();
+    expect(screen.getAllByRole("option", { name: /^Mercury/ })).toHaveLength(6);
   });
 
   it("files a name typed over a database pick by that name alone", async () => {

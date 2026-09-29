@@ -3,7 +3,7 @@ import { useState } from "react";
 import { Button, Field, Input, Spinner } from "../../../components/ui";
 import { CountryField } from "../../../components/ui/CountryField";
 import { CompanyLogo } from "../../../components/ui/CompanyLogo";
-import { COMPANY_SEARCH_KEY, searchCompanies } from "../../strategy/api/companiesApi";
+import { searchCompanies } from "../../strategy/api/companiesApi";
 import type { CompanySuggestion } from "../../strategy/api/types";
 import { useDebouncedValue } from "../../../lib/useComboboxList";
 import {
@@ -22,10 +22,12 @@ export interface CompanySearchSource {
   search: (query: string, signal: AbortSignal) => Promise<CompanySuggestion[]>;
 }
 
-// Its own key under Strategy's: those readers cache the `{ companies }` page under COMPANY_SEARCH_KEY,
-// and this source caches the bare list, so sharing the key handed one of them the other's shape.
+// Not COMPANY_SEARCH_KEY: Strategy's readers cache the `{ companies }` page there and this source caches
+// the bare list, so a shared key handed one of them the other's shape.
+export const COMPANY_PICKER_SEARCH_KEY = (query: string) => ["companySearchList", query] as const;
+
 const WORKSPACE_COMPANY_SEARCH: CompanySearchSource = {
-  key: (query) => [...COMPANY_SEARCH_KEY(query), "list"],
+  key: COMPANY_PICKER_SEARCH_KEY,
   search: (query, signal) => searchCompanies(query, undefined, signal).then((page) => page.companies),
 };
 

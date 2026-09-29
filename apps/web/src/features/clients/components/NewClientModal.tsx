@@ -1,5 +1,5 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { Button, Field, FormError, Input, Modal, useToast } from "../../../components/ui";
 import { isValidEmail } from "../../../lib/email";
 import { messageFor } from "../../../lib/errorCodes";
@@ -23,20 +23,18 @@ export function NewClientModal({
   open,
   onClose,
   clients,
-  existingNames,
   onCreated,
 }: {
   open: boolean;
   onClose: () => void;
   clients: Client[];
-  /** Lower-cased names of the current clients — a search hit already on the books shows a CLIENT badge. */
-  existingNames: Set<string>;
   onCreated: (client: { id: string; name: string }) => void;
 }) {
   const queryClient = useQueryClient();
   const toast = useToast();
   const vocabulary = useWorkspaceVocabulary();
   const isAgency = useWorkspaceMode() === "AGENCY";
+  const existingNames = useMemo(() => new Set(clients.map((client) => client.name.toLowerCase())), [clients]);
 
   const [pick, setPick] = useState<CompanyPick | null>(null);
   const [unitName, setUnitName] = useState("");

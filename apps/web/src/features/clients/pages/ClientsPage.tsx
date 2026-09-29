@@ -61,10 +61,6 @@ export function ClientsPage() {
   });
 
   const rows = useMemo(() => filterClients(clients, { chip, query }), [clients, chip, query]);
-  const existingNames = useMemo(
-    () => new Set(clients.map((client) => client.name.toLowerCase())),
-    [clients],
-  );
 
   // Narrowing the registry returns to the first page — page 3 of a two-row result is a blank grid —
   // and a registry that shrank under the reader is clamped back onto its last page.
@@ -186,7 +182,6 @@ export function ClientsPage() {
           open
           onClose={() => setNewClientOpen(false)}
           clients={clients}
-          existingNames={existingNames}
           onCreated={(client) => setOpenClientId(client.id)}
         />
       )}

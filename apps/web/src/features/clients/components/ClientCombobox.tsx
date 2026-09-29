@@ -7,15 +7,14 @@ import type { CompanySuggestion } from "../../strategy/api/types";
 import { useWorkspaceVocabulary } from "../../workspace/lib/vocabulary";
 import type { Client } from "../api/types";
 import { companyLocation } from "../lib/companyPick";
+import { ComboboxGroupLabel, ComboboxNote, ComboboxOption, NewNameOption } from "./ComboboxRows";
 
 const LIST_ID = "client-options";
 const MIN_QUERY_LENGTH = 2;
+/** Enough to recognise a client; more would push the database group out of the list's height. */
+const MAX_CLIENT_MATCHES = 6;
 
-/**
- * An agency's client field: the clients already on the books, then the company database, then the
- * typed name as a new client. Like {@link BusinessUnitCombobox} the text is the value — a database
- * pick is reported separately so the caller can file the client under that company.
- */
+/** An agency's client field: its clients, then the company database, then the typed name as a new client. */
 export function ClientCombobox({
   value,
   clients,
@@ -42,7 +41,9 @@ export function ClientCombobox({
   });
 
   const clientNames = new Set(clients.map((client) => client.name.toLowerCase()));
-  const matches = query ? clients.filter((client) => client.name.toLowerCase().includes(query)) : clients;
+  const matches = (
+    query ? clients.filter((client) => client.name.toLowerCase().includes(query)) : clients
+  ).slice(0, MAX_CLIENT_MATCHES);
   const hits =
     trimmed.length >= MIN_QUERY_LENGTH
       ? (data?.companies ?? []).filter((company) => !clientNames.has(company.companyName.toLowerCase()))
@@ -69,13 +70,6 @@ export function ClientCombobox({
 
   const isSearching = trimmed.length >= MIN_QUERY_LENGTH && isFetching && hits.length === 0;
   const showList = list.open && (optionCount > 0 || isSearching || isError);
-  const optionClass = (index: number) =>
-    `flex cursor-pointer items-center gap-2 px-3 py-[7px] font-sans text-body ${
-      index === list.active ? "bg-u-raised text-u-text" : "text-u-text2"
-    }`;
-  const groupClass =
-    "border-t border-u-border px-3 pb-1 pt-2 font-mono text-[10px] font-semibold uppercase tracking-[0.12em] text-u-text3 first:border-t-0";
-  const newIndex = matches.length + hits.length;
 
   return (
     <div className="relative">
@@ -104,80 +98,40 @@ export function ClientCombobox({
           aria-label={vocabulary.units}
           className="absolute z-10 mt-1 max-h-72 w-full overflow-auto rounded-[10px] border border-u-border-strong bg-u-surface py-1 shadow-u-e3"
         >
-          {matches.length > 0 && (
-            <li role="presentation" className={groupClass}>
-              Your {vocabulary.unitsLower}
-            </li>
-          )}
+          {matches.length > 0 && <ComboboxGroupLabel>Your {vocabulary.unitsLower}</ComboboxGroupLabel>}
           {matches.map((client, index) => (
-            <li
-              key={client.id}
-              id={`${LIST_ID}-${index}`}
-              role="option"
-              aria-selected={index === list.active}
-              onMouseDown={(event) => list.commitFromPointer(event, index)}
-              onMouseEnter={() => list.setActive(index)}
-              className={optionClass(index)}
-            >
+            <ComboboxOption key={client.id} listId={LIST_ID} index={index} list={list}>
               <span className="truncate font-medium text-u-text">{client.name}</span>
-            </li>
+            </ComboboxOption>
           ))}
 
           {(hits.length > 0 || isSearching || isError) && (
-            <li role="presentation" className={groupClass}>
-              From the company database
-            </li>
+            <ComboboxGroupLabel>From the company database</ComboboxGroupLabel>
           )}
-          {isSearching && (
-            <li role="presentation" className="px-3 py-2 font-mono text-[11.5px] text-u-text3">
-              Searching…
-            </li>
-          )}
+          {isSearching && <ComboboxNote>Searching…</ComboboxNote>}
           {/* A refused read is not an empty universe: say so rather than leave only the new-client row. */}
-          {isError && (
-            <li role="presentation" className="px-3 py-2 font-mono text-[11.5px] text-u-offlimits">
-              Couldn&apos;t reach the company database.
-            </li>
-          )}
-          {hits.map((company, offset) => {
-            const index = matches.length + offset;
-            return (
-              <li
-                key={company.apolloAccountId}
-                id={`${LIST_ID}-${index}`}
-                role="option"
-                aria-selected={index === list.active}
-                onMouseDown={(event) => list.commitFromPointer(event, index)}
-                onMouseEnter={() => list.setActive(index)}
-                className={optionClass(index)}
-              >
-                <CompanyLogo name={company.companyName} logo={company.logoUrl} size={22} />
-                <span className="min-w-0 flex-1">
-                  <span className="block truncate font-medium text-u-text">{company.companyName}</span>
-                  <span className="block truncate font-mono text-[11px] text-u-text3">
-                    {companyLocation(company) || "—"}
-                  </span>
+          {isError && <ComboboxNote tone="error">Couldn&apos;t reach the company database.</ComboboxNote>}
+          {hits.map((company, offset) => (
+            <ComboboxOption
+              key={company.apolloAccountId}
+              listId={LIST_ID}
+              index={matches.length + offset}
+              list={list}
+            >
+              <CompanyLogo name={company.companyName} logo={company.logoUrl} size={22} />
+              <span className="min-w-0 flex-1">
+                <span className="block truncate font-medium text-u-text">{company.companyName}</span>
+                <span className="block truncate font-mono text-[11px] text-u-text3">
+                  {companyLocation(company) || "—"}
                 </span>
-              </li>
-            );
-          })}
+              </span>
+            </ComboboxOption>
+          ))}
 
           {offerNew && (
-            <li
-              id={`${LIST_ID}-${newIndex}`}
-              role="option"
-              aria-selected={newIndex === list.active}
-              onMouseDown={(event) => list.commitFromPointer(event, newIndex)}
-              onMouseEnter={() => list.setActive(newIndex)}
-              className={`${optionClass(newIndex)} ${newIndex > 0 ? "border-t border-u-border" : ""}`}
-            >
-              <span aria-hidden="true" className="text-u-accent">
-                ＋
-              </span>
-              <span className="truncate">
-                Add <span className="font-medium text-u-text">“{trimmed}”</span> as a new {vocabulary.unitLower}
-              </span>
-            </li>
+            <NewNameOption listId={LIST_ID} index={matches.length + hits.length} list={list}>
+              Add <span className="font-medium text-u-text">“{trimmed}”</span> as a new {vocabulary.unitLower}
+            </NewNameOption>
           )}
         </ul>
       )}

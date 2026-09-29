@@ -237,6 +237,48 @@ export function NewProjectModal({
     create.mutate();
   };
 
+  const unitHint = (() => {
+    if (locked) return `This position belongs to ${locked.name}.`;
+    if (companyToFile)
+      return `A new ${vocabulary.unitLower} from the company database — it is created with the position.`;
+    if (creatingClient) return `A new ${vocabulary.unitLower} — it is created with the position.`;
+    return undefined;
+  })();
+
+  const unitControl = (() => {
+    if (lockedClientId) {
+      // Disabled rather than replaced by plain text: the user still sees which unit the position
+      // is for, and the label keeps a control to name.
+      return (
+        <Select value={lockedClientId} disabled className="cursor-not-allowed opacity-60">
+          <option value={lockedClientId}>{locked?.name ?? `Selected ${vocabulary.unitLower}`}</option>
+        </Select>
+      );
+    }
+    if (isAgency) {
+      return (
+        <ClientCombobox
+          value={businessUnitName}
+          clients={clients}
+          invalid={!!fieldErrors.businessUnit}
+          onChange={handleBusinessUnitChange}
+          onPickCompany={(company) => {
+            handleBusinessUnitChange(company.companyName);
+            setPickedCompany(company);
+          }}
+        />
+      );
+    }
+    return (
+      <BusinessUnitCombobox
+        value={businessUnitName}
+        clients={clients}
+        invalid={!!fieldErrors.businessUnit}
+        onChange={handleBusinessUnitChange}
+      />
+    );
+  })();
+
   const showSummary = windowDays !== null && windowDays > 0;
   const mappingTargetDays = mappingTarget ? daysBetween(startDate, mappingTarget) : null;
 
@@ -262,46 +304,8 @@ export function NewProjectModal({
       {/* The hint carries the name because a disabled <select> is skipped in a screen reader's forms
           mode — Field renders the hint inside the wrapping <label>, so it reaches the accessible name
           even when the control itself never gets focus. */}
-      <Field
-        label={vocabulary.unit}
-        hint={
-          locked
-            ? `This position belongs to ${locked.name}.`
-            : companyToFile
-              ? `A new ${vocabulary.unitLower} from the company database — it is created with the position.`
-              : creatingClient
-                ? `A new ${vocabulary.unitLower} — it is created with the position.`
-                : undefined
-        }
-        error={fieldErrors.businessUnit}
-      >
-        {lockedClientId ? (
-          // Disabled rather than replaced by plain text: the user still sees which unit the position
-          // is for, and the label keeps a control to name.
-          <Select value={lockedClientId} disabled className="cursor-not-allowed opacity-60">
-            <option value={lockedClientId}>{locked?.name ?? `Selected ${vocabulary.unitLower}`}</option>
-          </Select>
-        ) : (
-          isAgency ? (
-            <ClientCombobox
-              value={businessUnitName}
-              clients={clients}
-              invalid={!!fieldErrors.businessUnit}
-              onChange={handleBusinessUnitChange}
-              onPickCompany={(company) => {
-                handleBusinessUnitChange(company.companyName);
-                setPickedCompany(company);
-              }}
-            />
-          ) : (
-            <BusinessUnitCombobox
-              value={businessUnitName}
-              clients={clients}
-              invalid={!!fieldErrors.businessUnit}
-              onChange={handleBusinessUnitChange}
-            />
-          )
-        )}
+      <Field label={vocabulary.unit} hint={unitHint} error={fieldErrors.businessUnit}>
+        {unitControl}
       </Field>
 
       {/* Picking a template only fills the title: creation seeds the brief from the title on the
