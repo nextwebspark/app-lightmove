@@ -11,6 +11,7 @@ import app.lightmove.api.candidate.dto.SaveCandidateRequest;
 import app.lightmove.api.candidate.dto.UpdateCandidateContactsRequest;
 import app.lightmove.api.candidate.dto.UpdateCandidateStatusRequest;
 import app.lightmove.api.candidate.model.Candidate;
+import app.lightmove.api.candidate.model.CandidateAiAssessment;
 import app.lightmove.api.candidate.model.CandidateAiEnrichRequested;
 import app.lightmove.api.candidate.model.CandidateAiEnrichState;
 import app.lightmove.api.candidate.model.CandidateAiEnrichment;
@@ -50,6 +51,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
 import java.util.stream.Collectors;
 import lombok.extern.slf4j.Slf4j;
@@ -325,6 +327,64 @@ public class CandidateService {
                     new CandidateAiEnrichRequested(candidateId, projectId, project.getWorkspaceId(),
                             candidate.getAddedBy(), AiEnrichTrigger.CAPTURE)));
         }, () -> log.info("Candidate {} was removed before its research landed", candidateId));
+    }
+
+    /**
+     * A Find executives pick, filed and researched in one write: the search hit is the profile, so
+     * there is no vendor call to wait for and no {@code CandidateCapturedEvent}. The fit reading is
+     * the rerank's one-line reason, kept as the assessment until the deep enrichment this queues
+     * replaces it whole.
+     *
+     * <p>{@code REQUIRES_NEW} for {@link #applyResearch}'s reason: the run's worker calls this per person
+     * from an {@code AFTER_COMMIT} callback. The duplicate guards throw {@code CANDIDATE_ALREADY_MAPPED},
+     * which the caller counts as a skip rather than a failure of the run.
+     */
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
+    public CandidateResponse addSourced(UUID userId, UUID workspaceId, UUID projectId,
+                                        SaveCandidateRequest request, EnrichedProfile research,
+                                        CandidateAiAssessment fitReading, UUID runId) {
+        projects.requireInWorkspace(projectId, workspaceId);
+        CandidateDetails details = requests.detailsOf(projectId, request, null);
+
+        refuseDuplicate(projectId, request.triageCompanyId(), details.fullName(), null);
+        refuseHeldProfile(projectId, details.linkedinUrl(), null);
+
+        Candidate candidate = candidates.save(Candidate.mapped(projectId, userId,
+                request.triageCompanyId(), CandidateSource.AI_SOURCED, details));
+        candidate.enrich(research);
+        keepPhoto(candidate.getId(), research);
+        candidate.recordAiAssessment(fitReading);
+        stream.publish(projectId, ProjectStreamKind.CANDIDATE_CAPTURED);
+        events.publishEvent(new CandidateAiEnrichRequested(candidate.getId(), projectId, workspaceId,
+                userId, AiEnrichTrigger.SOURCING));
+
+        audit.event(ProjectEventType.CANDIDATE_ADDED)
+                .actor(userId).workspace(workspaceId).target(AuditService.PROJECT_TARGET, projectId)
+                .detail("candidateId", candidate.getId().toString())
+                .detail("source", CandidateSource.AI_SOURCED.name())
+                .detail("runId", runId.toString())
+                .record();
+        return responses.toDto(candidate);
+    }
+
+    /**
+     * The LinkedIn slugs of everyone the mandate already maps — what a sourcing run drops from a
+     * vendor's hits before ranking them, so nobody already held is scored or filed twice.
+     */
+    @Transactional(readOnly = true)
+    public Set<String> mappedProfileSlugsOf(UUID workspaceId, UUID projectId) {
+        projects.requireInWorkspace(projectId, workspaceId);
+        return candidates.findLinkedinUrlsByProjectId(projectId).stream()
+                .map(LinkedInUrls::profileSlugOrNull)
+                .filter(Objects::nonNull)
+                .collect(Collectors.toSet());
+    }
+
+    /** The mandate's triaged companies with at least one executive mapped at them. */
+    @Transactional(readOnly = true)
+    public Set<UUID> companiesWithExecutivesOf(UUID workspaceId, UUID projectId) {
+        projects.requireInWorkspace(projectId, workspaceId);
+        return candidates.findTriageCompanyIdsByProjectId(projectId);
     }
 
     /** Confirms the candidate is one of this workspace's before an AI enrichment is paid for. */

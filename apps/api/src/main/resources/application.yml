@@ -340,6 +340,11 @@ lightmove:
     # result before raising it; they are not Mapbox's, and this default is only the cautious one.
     company-cache-ttl: ${COMPANY_CACHE_TTL:30d}
 
+    # The same for people (V87): every record the people dataset returns — a Find executives hit or a
+    # capture's lookup — is kept, so the same person is never bought twice inside this window, and the
+    # same search asked twice costs nothing the second time.
+    people-cache-ttl: ${PEOPLE_CACHE_TTL:30d}
+
     # The candidate drawer's Find email / Find phone buttons, answered by ContactOut. Deliberately not
     # selected by `provider` above: contact lookup is a separate account with a separate bill, and
     # turning profile research off must not take the buttons with it. Left empty they are not offered.
@@ -347,6 +352,22 @@ lightmove:
     # free, and a value already held is never asked for twice.
     contactout:
       api-key: ${CONTACTOUT_API_KEY:}
+
+    # Find executives on the In-universe page: one Bright Data people search per company (sync
+    # Search API, ~2s), one model call to turn the brief into title words, one per company to pick
+    # the best fits, and the usual AI enrichment per person filed. Offered only when `provider` is
+    # brightdata. Every hit returned is billed ($2.5 per 1,000), so max-companies-per-run ×
+    # hits-per-company is the cost ceiling of one press — at the defaults, 50 records (~$0.13). The
+    # search is narrowed to the position's country plus the Gulf neighbours; nobody living elsewhere
+    # is searched for.
+    # Kept small for the trial; raise max-companies-per-run to 25 once the picks look right.
+    sourcing:
+      max-companies-per-run: ${SOURCING_MAX_COMPANIES_PER_RUN:5}
+      hits-per-company: ${SOURCING_HITS_PER_COMPANY:10}
+      picks-per-company: ${SOURCING_PICKS_PER_COMPANY:3}
+      min-pick-score: ${SOURCING_MIN_PICK_SCORE:7}
+      parallelism: ${SOURCING_PARALLELISM:4}
+      run-deadline: ${SOURCING_RUN_DEADLINE:180s}
 
   # How a paid third-party API is called: timeouts, retry and outbound pacing, shared by every vendor
   # adapter. These are spelled out rather than left to the record's @DefaultValue because @Retryable

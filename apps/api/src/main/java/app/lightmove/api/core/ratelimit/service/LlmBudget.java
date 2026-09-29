@@ -38,7 +38,10 @@ public enum LlmBudget {
     ASSISTANT("assistant", LlmRateLimitSettings::defaultRequestsPerMinute),
 
     /** A candidate's AI enrichment — background and competency assessment. */
-    CANDIDATE_AI_ENRICH("candidate-ai-enrich", LlmRateLimitSettings::defaultRequestsPerMinute);
+    CANDIDATE_AI_ENRICH("candidate-ai-enrich", LlmRateLimitSettings::defaultRequestsPerMinute),
+
+    /** One Find executives run — spent when it is requested, whatever it goes on to call. */
+    EXECUTIVE_SOURCING("executive-sourcing", LlmRateLimitSettings::defaultRequestsPerMinute);
 
     private final String meter;
     private final ToIntFunction<LlmRateLimitSettings> callsPerMinute;

@@ -17,6 +17,8 @@ import * as talentMapApi from "../../talentmap/api/talentMapApi";
 import type { TalentMapPage } from "../../talentmap/api/types";
 import type { CompanyResult, Facets } from "../../strategy/api/types";
 import * as exportApi from "../api/exportApi";
+import * as sourcingApi from "../api/sourcingApi";
+import type { SourcingRun } from "../api/sourcingApi";
 import * as triageApi from "../api/triageApi";
 import type { TriageCompaniesPage, TriageCompany } from "../api/types";
 import { stubFullscreenApi } from "../../../test/fullscreen";
@@ -47,6 +49,13 @@ vi.mock("../../position/api/positionApi", async (importOriginal) => ({
   // Keys are real; only the call is mocked.
   ...(await importOriginal<typeof positionApi>()),
   getBriefCompensation: vi.fn(),
+}));
+vi.mock("../api/sourcingApi", async (importOriginal) => ({
+  // Keys and the in-progress predicate are real; only the calls are mocked.
+  ...(await importOriginal<typeof sourcingApi>()),
+  getSourcingConfig: vi.fn(),
+  getLatestSourcingRun: vi.fn(),
+  startSourcing: vi.fn(),
 }));
 vi.mock("../api/importApi", async (importOriginal) => ({
   ...(await importOriginal<typeof import("../api/importApi")>()),
@@ -333,6 +342,30 @@ const stageTree = (slug: string, proj: Project) => (
 
 const renderStage = (slug = "universe", proj: Project = project) => render(stageTree(slug, proj));
 
+/** The strip is the nearest `role="status"` box around one of its lines. */
+const stripAround = (line: HTMLElement) => line.closest('[role="status"]') as HTMLElement;
+
+const SOURCING_OFF = { enabled: false, maxCompaniesPerRun: 5, hitsPerCompany: 10, picksPerCompany: 3 };
+
+const runOf = (overrides: Partial<SourcingRun> = {}): SourcingRun => ({
+  id: "run1",
+  status: "RUNNING",
+  companyNames: ["ACWA Power", "Hand Typed Co"],
+  companiesTotal: 2,
+  companiesDone: 0,
+  executivesFiled: 0,
+  vendorHits: 0,
+  cachedHits: 0,
+  searchedFor: null,
+  outcomes: [],
+  // Now, not a fixed date: a run marked running for more than a few minutes reads as lost.
+  requestedAt: new Date().toISOString(),
+  startedAt: new Date().toISOString(),
+  finishedAt: null,
+  error: null,
+  ...overrides,
+});
+
 /**
  * The Companies section: three stages of a mandate's triaged universe, each its own page, rendered in
  * the same grid Strategy uses — plus the three writes the section added (move, remove, capture).
@@ -354,8 +387,109 @@ describe("TriageStagePage", () => {
     vi.mocked(positionApi.getBriefCompensation).mockResolvedValue(BRIEF_PACKAGE);
     vi.mocked(talentMapApi.getTalentMapConfig).mockResolvedValue({ enabled: false, publicToken: null });
     vi.mocked(talentMapApi.getTalentMap).mockResolvedValue(mapPageOf());
+    // Off unless a test turns it on: most of this suite is about the grid, not Find executives.
+    vi.mocked(sourcingApi.getSourcingConfig).mockResolvedValue(SOURCING_OFF);
+    vi.mocked(sourcingApi.getLatestSourcingRun).mockResolvedValue(null);
     streamListeners.length = 0;
     localStorage.clear();
+    sessionStorage.clear();
+  });
+
+  describe("Find executives", () => {
+    const offered = () =>
+      vi.mocked(sourcingApi.getSourcingConfig).mockResolvedValue({ ...SOURCING_OFF, enabled: true });
+
+    it("is not drawn until the deployment says it offers the run, and never for a client seat", async () => {
+      renderStage();
+      await screen.findByText("ACWA Power");
+      await waitFor(() => expect(sourcingApi.getSourcingConfig).toHaveBeenCalled());
+      expect(screen.queryByRole("button", { name: /Find executives/i })).not.toBeInTheDocument();
+      expect(screen.queryByRole("checkbox", { name: /Select ACWA Power/i })).not.toBeInTheDocument();
+    });
+
+    it("with nothing ticked, says it takes the first few without an executive and starts over the server's pick", async () => {
+      offered();
+      vi.mocked(sourcingApi.startSourcing).mockResolvedValue(runOf({ status: "RUNNING", companiesDone: 1 }));
+      renderStage();
+
+      await userEvent.click(await screen.findByRole("button", { name: /^Find executives$/i }));
+      const dialog = screen.getByRole("dialog", { name: /Find executives\?/i });
+      expect(dialog).toHaveTextContent("the first 5 companies in the universe with no executive mapped yet");
+      expect(dialog).toHaveTextContent("tick them first");
+      await userEvent.click(within(dialog).getByRole("button", { name: /^Find executives$/i }));
+
+      await waitFor(() => expect(sourcingApi.startSourcing).toHaveBeenCalledWith("p1", []));
+      // The strip takes over and the button is held while the run is in progress.
+      // Exact: the held toolbar button also reads "Finding executives… 1/2".
+      const strip = stripAround(await screen.findByText("Finding executives"));
+      expect(strip).toHaveTextContent("1/2 companies");
+      expect(screen.getByRole("button", { name: /Finding executives… 1\/2/i })).toBeDisabled();
+    });
+
+    it("with companies ticked, runs over exactly those and caps the ticks at the server's number", async () => {
+      offered();
+      vi.mocked(sourcingApi.getSourcingConfig).mockResolvedValue({ ...SOURCING_OFF, enabled: true, maxCompaniesPerRun: 1 });
+      const second = { ...acwa, id: "u2", apolloAccountId: "a2", companyName: "Emirates NBD" };
+      vi.mocked(triageApi.getTriageCompanies).mockResolvedValue(pageOf({ companies: [acwa, second], totalCount: 2 }));
+      vi.mocked(sourcingApi.startSourcing).mockResolvedValue(runOf({ status: "QUEUED", companiesTotal: 1 }));
+      renderStage();
+
+      await userEvent.click(await screen.findByRole("checkbox", { name: "Select ACWA Power" }));
+      const bar = screen.getByRole("region", { name: "1 company selected" });
+      await userEvent.click(screen.getByRole("checkbox", { name: "Select Emirates NBD" }));
+      expect(await screen.findByText(/takes 1 company at a time/i)).toBeInTheDocument();
+      expect(screen.getByRole("checkbox", { name: "Select Emirates NBD" })).not.toBeChecked();
+
+      await userEvent.click(within(bar).getByRole("button", { name: /Find executives/i }));
+      const dialog = screen.getByRole("dialog", { name: /Find executives\?/i });
+      expect(dialog).toHaveTextContent("the 1 company you ticked");
+      await userEvent.click(within(dialog).getByRole("button", { name: /^Find executives$/i }));
+
+      await waitFor(() => expect(sourcingApi.startSourcing).toHaveBeenCalledWith("p1", ["u1"]));
+      await waitFor(() => expect(screen.queryByRole("region", { name: /selected/ })).not.toBeInTheDocument());
+    });
+
+    it("reads a finished run back after a reload, summarised, with its details behind a fold and a dismiss", async () => {
+      offered();
+      vi.mocked(sourcingApi.getLatestSourcingRun).mockResolvedValue(runOf({
+        status: "COMPLETED",
+        companiesDone: 2,
+        executivesFiled: 3,
+        finishedAt: "2026-09-28T10:03:00Z",
+        searchedFor: { seniorityWords: ["Chief", "CFO"], functionWords: ["Finance"], excludedWords: ["Assistant"] },
+        outcomes: [
+          { triageCompanyId: "u1", companyName: "ACWA Power", outcome: "FILED", seen: 10, matched: 27, filed: 3, skipped: 0,
+            picks: [{ name: "Risalat Rehman", score: 9, reason: "Holds the seat", candidateId: "c9" }] },
+          { triageCompanyId: "u2", companyName: "Hand Typed Co", outcome: "NO_LINKEDIN_PAGE", seen: 0, matched: null, filed: 0, skipped: 0, picks: [] },
+        ],
+      }));
+      renderStage();
+
+      const strip = stripAround(await screen.findByText(/Found 3 executives at 1 of 2 companies/i));
+      await userEvent.click(within(strip).getByRole("button", { name: /Show details/i }));
+      expect(strip).toHaveTextContent("No LinkedIn page on this company");
+      expect(strip).toHaveTextContent("Risalat Rehman");
+      expect(strip).toHaveTextContent("(10 of 27 matched)");
+      expect(strip).toHaveTextContent("Titles with Chief / CFO and Finance, without Assistant");
+      expect(screen.getByRole("button", { name: /^Find executives$/i })).toBeEnabled();
+
+      await userEvent.click(within(strip).getByRole("button", { name: "Dismiss" }));
+      expect(screen.queryByText(/Found 3 executives/i)).not.toBeInTheDocument();
+    });
+
+    it("re-reads the run when the stream says it moved", async () => {
+      offered();
+      vi.mocked(sourcingApi.getLatestSourcingRun).mockResolvedValue(runOf({ status: "RUNNING" }));
+      renderStage();
+      await screen.findByText("Finding executives");
+      vi.mocked(sourcingApi.getLatestSourcingRun).mockResolvedValue(runOf({ status: "COMPLETED", companiesDone: 2 }));
+
+      act(() => {
+        for (const listener of streamListeners) listener({ name: "change", data: '{"kind":"executive-sourcing"}' });
+      });
+
+      await screen.findByText(/Found no executives to add at 2 companies/i);
+    });
   });
 
   it("reads the stage from the URL and asks the API for that status", async () => {

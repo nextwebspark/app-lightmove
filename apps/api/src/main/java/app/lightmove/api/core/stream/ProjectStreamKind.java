@@ -9,7 +9,9 @@ public enum ProjectStreamKind {
     CANDIDATE_CAPTURED,
     CANDIDATE_ENRICHED,
     COMPANY_CAPTURED,
-    COMPANY_ENRICHED;
+    COMPANY_ENRICHED,
+    /** A Find executives run moved: started, a company finished, or the run ended. */
+    EXECUTIVE_SOURCING;
 
     /**
      * The wire form the browser sees: {@code candidate-enriched}. {@code Locale.ROOT} because the

@@ -191,6 +191,18 @@ public enum ErrorCode {
     ASSISTANT_PROPOSAL_ALREADY_ACCEPTED(HttpStatus.CONFLICT,
             "This proposal has already been filed"),
 
+    /** Nothing is spent: the deployment has no people-search provider configured. */
+    EXECUTIVE_SOURCING_UNAVAILABLE(HttpStatus.CONFLICT,
+            "Find executives is not set up on this deployment"),
+
+    /** Nothing is written: the caller ticks fewer companies; the cap is on the sourcing config read. */
+    EXECUTIVE_SOURCING_TOO_MANY_COMPANIES(HttpStatus.BAD_REQUEST,
+            "That is more companies than one run may take"),
+
+    /** One run at a time per mandate, so a second tab cannot double-spend. */
+    EXECUTIVE_SOURCING_IN_PROGRESS(HttpStatus.CONFLICT,
+            "A Find executives run is already in progress for this mandate"),
+
     INTERNAL_ERROR(HttpStatus.INTERNAL_SERVER_ERROR, "Something went wrong on our end");
 
     private final HttpStatus status;

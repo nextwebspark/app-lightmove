@@ -2,6 +2,7 @@ package app.lightmove.api.enrichment.candidate.config;
 
 import app.lightmove.api.core.config.EnrichmentSettings;
 import app.lightmove.api.enrichment.candidate.service.BrightDataProfileEnricher;
+import app.lightmove.api.enrichment.candidate.service.CachedPeopleStore;
 import app.lightmove.api.enrichment.candidate.service.FallbackProfileEnricher;
 import app.lightmove.api.enrichment.candidate.service.HarvestApiProfileEnricher;
 import app.lightmove.api.enrichment.candidate.service.LinkedInProfileEnricher;
@@ -18,6 +19,7 @@ import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.web.client.RestClient;
+import tools.jackson.databind.ObjectMapper;
 
 /**
  * Picks the {@link LinkedInProfileEnricher}. Each adapter is its own {@code @Bean}, null (absent)
@@ -33,14 +35,16 @@ public class CandidateEnrichmentConfig {
                                                         VendorClientFactory clientFactory,
                                                         VendorRateLimiter rateLimiter,
                                                         VendorCallGuard guard,
-                                                        ProfilePhotoDownloader photos) {
+                                                        ProfilePhotoDownloader photos,
+                                                        CachedPeopleStore people,
+                                                        ObjectMapper json) {
         EnrichmentSettings config = properties.enrichment();
         if (!"brightdata".equalsIgnoreCase(config.provider())) {
             return null;
         }
         requireKey(config.brightdata().apiKey(), "BRIGHTDATA_API_KEY");
         return new BrightDataProfileEnricher(config.brightdata(), clientFactory, rateLimiter, guard,
-                photos, RestClient.builder());
+                photos, people, config.peopleCacheTtl(), RestClient.builder(), json);
     }
 
     @Bean(defaultCandidate = false)

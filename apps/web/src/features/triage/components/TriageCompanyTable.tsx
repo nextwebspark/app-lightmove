@@ -1,6 +1,7 @@
 import type { ColumnVisibilityState, OnChangeFn } from "@tanstack/react-table";
 import { useMemo } from "react";
 import { DataGrid, type DataGridColumnFilter } from "../../../components/ui/DataGrid";
+import { SelectionCheckbox } from "../../../components/ui/SelectionCheckbox";
 import { useDataGridTable } from "../../../lib/useDataGridTable";
 import type { GridLayout } from "../../../lib/useGridLayout";
 import type { GridSort } from "../../../lib/useGridSort";
@@ -52,6 +53,7 @@ export function TriageCompanyTable({
   canWrite,
   onEditColumn,
   columnFilters,
+  selection,
 }: {
   rows: TriageCompanyRow[];
   label: string;
@@ -83,6 +85,17 @@ export function TriageCompanyTable({
   onEditColumn?: (customColumnId: string) => void;
   /** The grid's own Company and Executive header filters, keyed by their built-in column ids. */
   columnFilters?: Record<string, DataGridColumnFilter>;
+  /**
+   * Tick boxes for Find executives, offered only where that run is. Keyed by company rather than
+   * by grid line: a line is a person at a company, so ticking through TanStack's own row selection
+   * would tick three lines for one company. Only a company's first line carries the box.
+   */
+  selection?: {
+    selectedIds: ReadonlySet<string>;
+    onToggle: (companyId: string) => void;
+    /** Ticks or clears every company on the page, in its order. */
+    onToggleAll: (companyIds: string[]) => void;
+  };
 }) {
   // Rebuilt only when the project's column set changes: a fresh array every render would rebuild
   // every column def and lose the grid's own per-column state with it.
@@ -115,10 +128,50 @@ export function TriageCompanyTable({
     },
   });
 
+  // Which line of each company carries its tick box: the first one the page hands over.
+  const firstLineByCompany = useMemo(() => {
+    const first = new Map<string, string>();
+    for (const row of rows) {
+      if (row.company && !first.has(row.company.id)) first.set(row.company.id, triageRowId(row));
+    }
+    return first;
+  }, [rows]);
+  const pageCompanyIds = useMemo(() => [...firstLineByCompany.keys()], [firstLineByCompany]);
+  const allOnPageSelected =
+    pageCompanyIds.length > 0 && pageCompanyIds.every((id) => selection?.selectedIds.has(id));
+  const someOnPageSelected = pageCompanyIds.some((id) => selection?.selectedIds.has(id));
+
   return (
     <DataGrid
       table={table}
       label={label}
+      headerLead={
+        selection && (
+          <SelectionCheckbox
+            checked={allOnPageSelected}
+            indeterminate={!allOnPageSelected && someOnPageSelected}
+            label="Select all companies on this page"
+            onChange={() => selection.onToggleAll(pageCompanyIds)}
+          />
+        )
+      }
+      rowLead={
+        selection &&
+        ((row: TriageCompanyRow) => {
+          if (!row.company) return null;
+          if (firstLineByCompany.get(row.company.id) !== triageRowId(row)) {
+            // A later line of the same company keeps the column aligned without a second box.
+            return <span aria-hidden className="size-4 flex-none" />;
+          }
+          return (
+            <SelectionCheckbox
+              checked={selection.selectedIds.has(row.company.id)}
+              label={`Select ${row.company.companyName}`}
+              onChange={() => selection.onToggle(row.company!.id)}
+            />
+          );
+        })
+      }
       layout={layout}
       onLayoutChange={onLayoutChange}
       loading={loading}

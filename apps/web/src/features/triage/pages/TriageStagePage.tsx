@@ -1,9 +1,11 @@
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Navigate, useOutletContext, useParams } from "react-router-dom";
 import type { ProjectOutletContext } from "../../../components/layout/ProjectLayout";
+import { ICONS } from "../../../components/layout/Icon";
 import { FullscreenButton } from "../../../components/ui";
 import { PaginationBar } from "../../../components/ui/PaginationBar";
+import { SelectionAction, SelectionActionBar } from "../../../components/ui/SelectionActionBar";
 import { useToast } from "../../../components/ui/Toast";
 import { cn } from "../../../lib/cn";
 import { messageFor } from "../../../lib/errorCodes";
@@ -32,9 +34,13 @@ import type * as talentMapTypes from "../../talentmap/api/types";
 import { TalentMapView } from "../../talentmap/components/TalentMapView";
 import { useTalentMapPreferences } from "../../talentmap/lib/useTalentMapPreferences";
 import * as exportApi from "../api/exportApi";
+import * as sourcingApi from "../api/sourcingApi";
 import * as triageApi from "../api/triageApi";
 import type { TriageCompany, TriageCompanyStatus, TriageSortField } from "../api/types";
 import { CompanyDrawer } from "../components/CompanyDrawer";
+import { ExecutiveSourcingBanner } from "../components/ExecutiveSourcingBanner";
+import { FindExecutivesDialog } from "../components/FindExecutivesDialog";
+import { companiesOf } from "../lib/sourcingSummary";
 import { ImportSpreadsheetDialog } from "../components/ImportSpreadsheetDialog";
 import { ManageColumnsDialog } from "../components/ManageColumnsDialog";
 import { RemoveCompanyDialog } from "../components/RemoveCompanyDialog";
@@ -47,6 +53,7 @@ import {
 } from "../lib/triageCompanyColumns";
 import { awaitingResearch, toTriageRows } from "../lib/triageRows";
 import { stageBySlug, TRIAGE_STAGES } from "../lib/triageStages";
+import { useExecutiveSourcing } from "../lib/useExecutiveSourcing";
 import { useProjectStream, type ProjectStreamKind } from "../lib/useProjectStream";
 import { useSaveCompanyNote } from "../lib/useSaveCompanyNote";
 
@@ -146,6 +153,9 @@ function TriageStage() {
   const profileCompany = profile?.company ?? null;
   const [pendingCandidateRemoval, setPendingCandidateRemoval] = useState<Candidate | null>(null);
   const [importing, setImporting] = useState(false);
+  /** Companies ticked for Find executives — by company id, since a grid line is a person at one. */
+  const [selectedCompanyIds, setSelectedCompanyIds] = useState<ReadonlySet<string>>(() => new Set());
+  const [confirmingFindExecutives, setConfirmingFindExecutives] = useState(false);
   const [managingColumns, setManagingColumns] = useState(false);
   /** Set when "Edit field" is opened from a header menu, so the dialog lands already renaming it. */
   const [editColumnId, setEditColumnId] = useState<string | null>(null);
@@ -232,7 +242,11 @@ function TriageStage() {
   // Any change to what is being asked returns to the first page. Staying on page 4 of a search that
   // now matches two companies shows an empty grid over a non-empty result.
   useEffect(
-    () => setPage(0),
+    () => {
+      setPage(0);
+      // A tick made on one reading of the stage must not ride silently into another.
+      setSelectedCompanyIds(new Set());
+    },
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [debouncedQuery, debouncedExecutiveQuery, executiveStatuses.join(","), sort],
   );
@@ -283,12 +297,56 @@ function TriageStage() {
     if (kinds.some((kind) => kind.startsWith("candidate-"))) {
       refreshPeople();
     }
+    if (kinds.includes("executive-sourcing")) {
+      void queryClient.invalidateQueries({ queryKey: sourcingApi.SOURCING_LATEST_KEY(project.id) });
+    }
     // Both halves are points on the globe. Free while the grid is the view: the map's reads are
     // disabled there, and an inactive query is marked stale rather than refetched.
     refreshMap();
   };
 
   const streamIsLive = useProjectStream(project.id, refreshWhatMoved);
+
+  /** Offered on the universe's table view only, and only where the deployment has a people search. */
+  const sourcing = useExecutiveSourcing(project.id, canWrite && stage.status === "inUniverse", streamIsLive);
+  const findExecutivesOffered = canWrite && stage.status === "inUniverse" && view === "table" && sourcing.offered;
+  const selectionCap = sourcing.config?.maxCompaniesPerRun ?? 0;
+  const clearCompanySelection = useCallback(() => setSelectedCompanyIds(new Set()), []);
+
+  const handleToggleCompany = (companyId: string) => {
+    const next = new Set(selectedCompanyIds);
+    if (next.has(companyId)) {
+      next.delete(companyId);
+    } else if (next.size >= selectionCap) {
+      toast(`Find executives takes ${companiesOf(selectionCap)} at a time`);
+      return;
+    } else {
+      next.add(companyId);
+    }
+    setSelectedCompanyIds(next);
+  };
+
+  const handleToggleAllCompanies = (companyIds: string[]) => {
+    const next = new Set(selectedCompanyIds);
+    if (companyIds.every((id) => next.has(id))) {
+      companyIds.forEach((id) => next.delete(id));
+      setSelectedCompanyIds(next);
+      return;
+    }
+    const room = Math.max(0, selectionCap - next.size);
+    const adding = companyIds.filter((id) => !next.has(id));
+    adding.slice(0, room).forEach((id) => next.add(id));
+    if (adding.length > room) {
+      toast(`Find executives takes ${companiesOf(selectionCap)} at a time — the first ${selectionCap} are ticked`);
+    }
+    setSelectedCompanyIds(next);
+  };
+
+  const handleStartFindExecutives = () =>
+    sourcing.start([...selectedCompanyIds], () => {
+      clearCompanySelection();
+      setConfirmingFindExecutives(false);
+    });
 
   /**
    * The screen's ordinary freshness is the project stream above: the server says when something
@@ -587,9 +645,35 @@ function TriageStage() {
         onManageColumns={() => setManagingColumns(true)}
         canWrite={canWrite}
         canImport={stage.status === "inUniverse"}
+        findExecutives={
+          findExecutivesOffered
+            ? {
+                onPress: () => setConfirmingFindExecutives(true),
+                running: sourcing.isRunning,
+                progress: sourcing.run && sourcing.isRunning
+                  ? `${sourcing.run.companiesDone}/${sourcing.run.companiesTotal}`
+                  : undefined,
+              }
+            : undefined
+        }
         view={view}
         onViewChange={mapOffered ? (next) => setMapPreferences({ view: next }) : undefined}
       />
+
+      {findExecutivesOffered && sourcing.run && !sourcing.isDismissed && (
+        <ExecutiveSourcingBanner run={sourcing.run} onDismiss={sourcing.dismiss} />
+      )}
+
+      {sourcing.config && (
+        <FindExecutivesDialog
+          open={confirmingFindExecutives}
+          config={sourcing.config}
+          selectedCount={selectedCompanyIds.size}
+          starting={sourcing.isStarting}
+          onCancel={() => setConfirmingFindExecutives(false)}
+          onConfirm={handleStartFindExecutives}
+        />
+      )}
 
       <ImportSpreadsheetDialog
         open={importing}
@@ -704,7 +788,32 @@ function TriageStage() {
           onOpenCompany={(company) => setOpenCompany({ company })}
           busyIds={busyIds}
           canWrite={canWrite}
+          selection={
+            findExecutivesOffered
+              ? {
+                  selectedIds: selectedCompanyIds,
+                  onToggle: handleToggleCompany,
+                  onToggleAll: handleToggleAllCompanies,
+                }
+              : undefined
+          }
         />
+
+        {findExecutivesOffered && selectedCompanyIds.size > 0 && !confirmingFindExecutives && (
+          <SelectionActionBar
+            count={selectedCompanyIds.size}
+            noun="company"
+            plural="companies"
+            onClear={clearCompanySelection}
+          >
+            <SelectionAction
+              icon={ICONS.search}
+              label="Find executives"
+              disabled={sourcing.isRunning}
+              onClick={() => setConfirmingFindExecutives(true)}
+            />
+          </SelectionActionBar>
+        )}
 
         {unlisted.map((line) => (
           <p key={line} role="status" className="flex-none font-mono text-[11.5px] text-u-text3">
@@ -807,6 +916,7 @@ function TriageStage() {
     </div>
   );
 }
+
 
 /**
  * One line naming what a capped read left out, or null when it left nothing out. `totalCount` is the

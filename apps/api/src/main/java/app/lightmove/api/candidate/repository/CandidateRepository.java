@@ -135,6 +135,10 @@ public interface CandidateRepository extends JpaRepository<Candidate, UUID> {
             + "and lower(c.linkedinUrl) like concat('%/in/', :slug, '%')")
     List<Candidate> findByProjectIdAndProfileSlugLike(UUID projectId, String slug);
 
+    /** Every profile URL the mandate holds — a sourcing run's "already mapped" set, settled on the slug by the caller. */
+    @Query("select c.linkedinUrl from Candidate c where c.projectId = :projectId and c.linkedinUrl is not null")
+    List<String> findLinkedinUrlsByProjectId(UUID projectId);
+
     /**
      * Ids of the mandate's triaged companies with a mapped executive whose name matches — the seam
      * behind {@code MappedExecutiveLookupAdapter}'s answer to {@code triagecompany}'s Executive-name
@@ -147,6 +151,10 @@ public interface CandidateRepository extends JpaRepository<Candidate, UUID> {
             + "and lower(c.fullName) like lower(concat('%', cast(:executiveName as string), '%'))")
     Set<UUID> findTriageCompanyIdsByProjectIdAndFullNameContainingIgnoreCase(
             UUID projectId, String executiveName);
+
+    @Query("select distinct c.triageCompanyId from Candidate c "
+            + "where c.projectId = :projectId and c.triageCompanyId is not null")
+    Set<UUID> findTriageCompanyIdsByProjectId(UUID projectId);
 
     /**
      * Ids of the mandate's triaged companies with a mapped executive in one of these statuses — the

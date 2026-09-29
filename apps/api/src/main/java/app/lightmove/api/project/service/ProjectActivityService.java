@@ -47,7 +47,9 @@ public class ProjectActivityService {
             ProjectEventType.CANDIDATE_ADDED,
             ProjectEventType.CANDIDATE_REMOVED,
             ProjectEventType.SPREADSHEET_IMPORTED,
-            ProjectEventType.COMPANIES_EXPORTED);
+            ProjectEventType.COMPANIES_EXPORTED,
+            ProjectEventType.EXECUTIVE_SOURCING_REQUESTED,
+            ProjectEventType.EXECUTIVE_SOURCING_COMPLETED);
 
     /** Shown only when they record a status: the same types also cover note and profile edits. */
     private static final Set<ProjectEventType> SHOWN_WHEN_STATUS_CHANGED = EnumSet.of(

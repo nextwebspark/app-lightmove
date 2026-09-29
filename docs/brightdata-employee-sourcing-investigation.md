@@ -1,7 +1,22 @@
 # Bright Data as the people source — investigation
 
-**Status: findings, not a decision · Probed live 2026-08-31 against the account key in
-`apps/api/src/main/resources/application-local.yml` (`lightmove.vendor.BrightData.api-key`).**
+**Status: superseded for the people search by the synchronous Search API — see the 2026-09-28 note
+below. Probed live 2026-08-31 against the account key in
+`apps/api/src/main/resources/application-local.yml` (`lightmove.enrichment.brightdata.api-key`).**
+
+> **2026-09-28 — what Find executives actually ships on.** `POST /datasets/search/{dataset_id}`
+> (the Search API, Elasticsearch, alpha) answers the same filter grammar in ~2s with the full records
+> and `total_hits`, at the same $2.5/1k per record *returned* — so the async Filter flow below, its
+> minutes of latency and its 120/hour cap, are not used. Probed on `dp-world`: the field names are as
+> listed below; **the 4-rules-per-group limit holds on Search too** (a fifth is `Filter validation
+> failed`); **a multi-word `includes` is a phrase query at 9–13s each, and a nested group of them
+> times out at the vendor's 60s** — so `BrightDataSearch.currentEmployeesTitled` sends single words
+> only; `country_code in [...]` (the position's country plus the Gulf six) is cheap (3.5s) and is the
+> only pass — a world-wide fallback was built and removed, the mandate's region being the ask; `size: 0` is refused, so a count costs one hit.
+> **2026-09-29 — never twice.** `linkedin_id not_in [...]` excludes on Search (7 → 5 at dp-world), a
+> list of 1,000 slugs answers in under 3s, and an `and` nested inside the top-level `and` validates —
+> which is how the exclusion fits beside employer, country and two title groups. The people cache
+> (V87) is built on these three facts.
 
 Every number below with a ✅ was measured against the live API on that date, not read from a docs
 page. Everything else is their published figure and is marked as such. Re-check before implementing:

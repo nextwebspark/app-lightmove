@@ -3,9 +3,9 @@ package app.lightmove.api.enrichment.candidate.service;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import app.lightmove.api.candidate.model.EnrichedProfile;
-import app.lightmove.api.enrichment.candidate.service.BrightDataProfileEnricher.BrightDataExperience;
-import app.lightmove.api.enrichment.candidate.service.BrightDataProfileEnricher.BrightDataPerson;
-import app.lightmove.api.enrichment.candidate.service.BrightDataProfileEnricher.BrightDataSearchResult;
+import app.lightmove.api.enrichment.candidate.model.BrightDataPeopleHits;
+import app.lightmove.api.enrichment.candidate.model.BrightDataPerson;
+import app.lightmove.api.enrichment.candidate.model.BrightDataPerson.BrightDataExperience;
 import java.io.InputStream;
 import java.util.List;
 import org.junit.jupiter.api.DisplayName;
@@ -24,7 +24,7 @@ class BrightDataProfileEnricherTest {
     @Test
     @DisplayName("a dataset hit maps into the profile a researcher would have typed")
     void aDatasetHitMaps() {
-        EnrichedProfile enriched = BrightDataProfileEnricher.toEnrichedProfile(fixturePerson());
+        EnrichedProfile enriched = BrightDataPersonProfiles.toEnrichedProfile(fixturePerson());
 
         // The current position, never the "position" field's "Title - Company" mashup.
         assertThat(enriched.title()).isEqualTo("Chief Executive Officer");
@@ -61,13 +61,13 @@ class BrightDataProfileEnricherTest {
     @Test
     @DisplayName("a masked partial record degrades to absent fields, never to star-soup")
     void aMaskedRecordDegradesToThin() {
-        BrightDataPerson masked = new BrightDataPerson(null, null, null, null, null,
+        BrightDataPerson masked = new BrightDataPerson(null, null, null, null, null, null, null, null, null,
                 "Known Employer", null, null, null,
                 List.of(new BrightDataExperience("******* ***", "******* ***", "******",
                         null, null, null, null, null, null)),
                 null, null, null);
 
-        EnrichedProfile enriched = BrightDataProfileEnricher.toEnrichedProfile(masked);
+        EnrichedProfile enriched = BrightDataPersonProfiles.toEnrichedProfile(masked);
 
         assertThat(enriched.employerName()).isEqualTo("Known Employer");
         assertThat(enriched.title()).isNull();
@@ -78,6 +78,6 @@ class BrightDataProfileEnricherTest {
     private static BrightDataPerson fixturePerson() {
         InputStream recorded = BrightDataProfileEnricherTest.class
                 .getResourceAsStream("/brightdata/linkedin-profile.json");
-        return JSON.readValue(recorded, BrightDataSearchResult.class).hits().getFirst();
+        return JSON.readValue(recorded, BrightDataPeopleHits.class).hits().getFirst();
     }
 }
