@@ -42,4 +42,9 @@ public record EnrichedProfile(String title, String about, String employerName,
         languages = languages == null ? List.of()
                 : languages.stream().filter(language -> blankToNull(language) != null).toList();
     }
+
+    public EnrichedProfile withPhoto(EnrichedPhoto fetched) {
+        return new EnrichedProfile(title, about, employerName, employerLinkedinUrl, employerLogoUrl,
+                locationCity, locationCountry, career, education, skills, languages, fetched, vendor);
+    }
 }

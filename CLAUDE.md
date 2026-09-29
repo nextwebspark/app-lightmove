@@ -79,7 +79,23 @@ per executive and the same two drawers opened from a pin's popup or a panel row.
 coordinate, so `geocoding` resolves each distinct city + country once through Mapbox and keeps it in
 `app_lm_geocoded_place`; `talentmap` composes the stage's companies, people and points into one
 unpaged, capped read (`GET /projects/{id}/talent-map`), with `…/talent-map/locations` answering the
-same map as points alone for the poll that waits on places rather than on people. The **Reports**
+same map as points alone for the poll that waits on places rather than on people. **Find executives** (`enrichment/sourcing`, V86) is the fifth door and the one that fills a
+universe by itself: a button on the In-universe toolbar takes the ticked companies — or, with none
+ticked, the first `max-companies-per-run` with nobody mapped — and answers 202 with a run row that
+the strip under the toolbar polls (and the project stream announces). Off the request thread, one
+Gemini call turns the brief into single-word title tokens (`SourcingSpec`: a seniority group, a
+function group — never empty, since "Chief" alone bought every Chief Accountant — and an excluded group
+sent as `not_includes`, four words each — the vendor refuses a fifth rule, runs a phrase at ten seconds
+and matches a word inside longer ones, so an exclusion hiding in a senior title word is dropped),
+one **synchronous** Bright Data people search per company keys on the company's LinkedIn slug
+(`current_company_company_id`; the numeric id matches nothing) with the brief's country and the Gulf
+neighbours only — nobody living elsewhere is searched for, and a brief with no country searches everywhere — one Gemini rerank per company picks at
+most `picks-per-company`, and each pick is filed through `CandidateService.addSourced` — the search
+hit *is* the research, so no second vendor call — as `AI_SOURCED` (no badge on the grid; the drawer's source reads "Sourced") — only a pick scored
+`min-pick-score` (7) or above — with the rerank's reason as its assessment summary until the same deep enrichment a capture gets replaces
+it, fired with the `SOURCING` trigger that skips the per-user LLM meter. Every returned hit is
+billed, so `max-companies-per-run × hits-per-company` is one press's ceiling (5 × 10 for the trial).
+Offered only where `provider: brightdata`; a client seat sees none of it. The **Reports**
 tab is the mandate's talent mapping report (`GET /projects/{id}/report`): four chapters — mapping
 progress, shape of the market, remuneration, diversity — aggregated live by `report` from the same
 rows, so nothing is stored and nothing goes stale. It reads one chapter at a time behind a numbered
@@ -225,7 +241,7 @@ the mockups: if a screen isn't being built this session, its tables and entities
 
 | Path | What |
 |---|---|
-| `apps/api` | Spring Boot 4.1 (Java 21, Maven). Features: `core`, `common`, `workspace`, `project`, `position`, `positiontemplate`, `strategy`, `triagecompany`, `candidate`, `enrichment`, `customcolumn`, `dataimport`, `dataexport`, `geocoding`, `talentmap`, `report`, `assistant` |
+| `apps/api` | Spring Boot 4.1 (Java 21, Maven). Features: `core`, `common`, `workspace`, `project`, `position`, `positiontemplate`, `strategy`, `triagecompany`, `candidate`, `enrichment` (with `sourcing`, the Find executives run), `customcolumn`, `dataimport`, `dataexport`, `geocoding`, `talentmap`, `report`, `assistant` |
 | `apps/web` | React 19 SPA (Vite 8, TypeScript, Tailwind v4) |
 | `apps/extension` | LightMove Capture — the Chrome extension (Manifest V3, React 19, Vite 8). Its own workspace; shares no code with `apps/web`. |
 | `claude-design/` | HTML mockups — **the source of truth for all UI**. Read the relevant `*.dc.html` before building a screen. |
@@ -427,6 +443,25 @@ so at once; a later success clears it. Saving the drawer's Background section (`
 confirms its AI values and clears `ai_inferred_fields`.
 V83 adds `app_lm_project_candidate.ai_nationality_reading` jsonb — the nationality classifier's last
 reading (category or Unknown, confidence, evidence, rule), replaced whole per run and staff-only.
+`app_lm_vendor_person` and `app_lm_vendor_people_search` (V87) are the people cache, V64's shape and
+tenant rule for people: every record a billed search or lookup returned, keyed on the profile slug,
+and which slugs each normalised search returned. `CachedPeopleSearch` answers a repeated search from
+them with no vendor call, and otherwise reads back the fitting people on file at that employer and
+asks the vendor only for the rest with every person on file excluded (`linkedin_id not_in`, nested in
+an `and` to stay under four rules a group) — a returned record is billed whether or not it was new.
+`BrightDataProfileEnricher` reads the same table first, so a capture of someone a run bought is free.
+Both age out after `lightmove.enrichment.people-cache-ttl` (30d), and every billed call purges what
+has aged past it (V89 indexes `fetched_at` for that), so a third party's record is never held longer
+than it may be read. The exclusion is the employer's
+people on file, never a mandate's own roster: the answer is shared by every workspace.
+`app_lm_executive_sourcing_run` (V86) is one Find executives run — the companies frozen at request
+time, the spec the model proposed, and an outcome per company as each finishes — kept as a row so the
+screen can poll it, read it back after a reload and be refused a second one while it runs. V86 also
+adds `AI_SOURCED` to both source CHECKs (the contact ledger's only because `ContactSource.ofDoor` is
+exhaustive; nothing writes it).
+V88 holds a mandate to one run in progress (a partial unique index behind the service's own check), and
+the next request fails a run still marked in progress past `run-deadline`, since its worker died with
+the instance.
 V81 lets a person belong to several workspaces: it drops V1's `app_lm_workspace_member_single_org_per_user_uk`
 (the `(workspace_id, user_id)` unique stays — one row per person per workspace whatever its status, so a
 removed member who is re-invited **rejoins** that row rather than inserting) and records which workspace

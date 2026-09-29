@@ -1,11 +1,6 @@
 package app.lightmove.api.enrichment.candidate.service;
 
-import app.lightmove.api.candidate.constant.EnrichmentVendor;
-import app.lightmove.api.candidate.model.CandidateCareerEntry;
-import app.lightmove.api.candidate.model.CandidateEducationEntry;
 import app.lightmove.api.candidate.model.EnrichedProfile;
-import app.lightmove.api.common.location.model.LocationLine;
-import app.lightmove.api.common.location.service.Countries;
 import app.lightmove.api.core.config.BrightDataSettings;
 import app.lightmove.api.core.resilience.model.VendorCall;
 import app.lightmove.api.core.resilience.model.VendorClientSpec;
@@ -14,21 +9,24 @@ import app.lightmove.api.core.resilience.service.VendorClientFactory;
 import app.lightmove.api.core.resilience.service.VendorRateLimiter;
 import app.lightmove.api.core.resilience.service.VendorRetryPredicate;
 import app.lightmove.api.core.text.service.LinkedInUrls;
+import app.lightmove.api.enrichment.candidate.model.BrightDataPeopleHits;
+import app.lightmove.api.enrichment.candidate.model.BrightDataPerson;
 import app.lightmove.api.enrichment.common.service.BrightDataSearch;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Map;
+import java.time.Duration;
+import java.time.Instant;
 import java.util.Optional;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.resilience.annotation.Retryable;
 import org.springframework.web.client.RestClient;
-import tools.jackson.databind.PropertyNamingStrategies;
-import tools.jackson.databind.annotation.JsonNaming;
+import tools.jackson.databind.JsonNode;
+import tools.jackson.databind.ObjectMapper;
 
 /**
  * Bright Data's LinkedIn people dataset — an indexed lookup keyed on {@code linkedin_id} (the
  * {@code url} field is analyzed and matches nothing). Masked values map to null; a record whose career
- * maps away is a thin answer {@code FallbackProfileEnricher} treats as a miss.
+ * maps away is a thin answer {@code FallbackProfileEnricher} treats as a miss. The people cache (V87)
+ * is read first and written after, so a person a Find executives run already bought costs a capture
+ * nothing, and a person captured once is free to every later run.
  */
 @Slf4j
 public class BrightDataProfileEnricher implements LinkedInProfileEnricher {
@@ -39,12 +37,19 @@ public class BrightDataProfileEnricher implements LinkedInProfileEnricher {
     private final String datasetId;
     private final VendorCallGuard guard;
     private final ProfilePhotoDownloader photos;
+    private final CachedPeopleStore people;
+    private final Duration peopleCacheTtl;
+    private final ObjectMapper json;
 
     public BrightDataProfileEnricher(BrightDataSettings config, VendorClientFactory clientFactory,
                                      VendorRateLimiter rateLimiter, VendorCallGuard guard,
-                                     ProfilePhotoDownloader photos, RestClient.Builder builder) {
+                                     ProfilePhotoDownloader photos, CachedPeopleStore people,
+                                     Duration peopleCacheTtl, RestClient.Builder builder, ObjectMapper json) {
+        this.json = json;
         this.guard = guard;
         this.photos = photos;
+        this.people = people;
+        this.peopleCacheTtl = peopleCacheTtl;
         this.datasetId = config.datasetId();
         this.client = clientFactory.create(VendorClientSpec.bearer(VENDOR, config.baseUrl(),
                 config.apiKey(), config.readTimeout(), config.requestsPerSecond()), builder, rateLimiter);
@@ -64,216 +69,28 @@ public class BrightDataProfileEnricher implements LinkedInProfileEnricher {
         if (slug == null) {
             return Optional.empty();
         }
-        BrightDataSearchResult result = guard.call(VendorCall.of(VENDOR, "profile-search"),
+        Optional<BrightDataPerson> onFile = people.find(slug, Instant.now().minus(peopleCacheTtl));
+        if (onFile.isPresent()) {
+            return Optional.of(withPhoto(onFile.get()));
+        }
+        BrightDataPeopleHits result = BrightDataPeopleHits.read(guard.call(VendorCall.of(VENDOR, "profile-search"),
                 () -> client.post()
                         .uri("/datasets/search/{datasetId}", datasetId)
                         .body(BrightDataSearch.exactlyOneWhere("linkedin_id", slug))
                         .retrieve()
-                        .body(BrightDataSearchResult.class));
+                        .body(JsonNode.class)), json);
 
-        if (result == null || result.hits() == null || result.hits().isEmpty()) {
+        if (result.hits().isEmpty()) {
             log.debug("Bright Data dataset holds no record for {}", slug);
             return Optional.empty();
         }
-        BrightDataPerson person = result.hits().getFirst();
-        EnrichedProfile enriched = toEnrichedProfile(person);
-        String avatar = Boolean.TRUE.equals(person.defaultAvatar()) ? null : person.avatar();
-        return Optional.of(new EnrichedProfile(enriched.title(), enriched.about(),
-                enriched.employerName(), enriched.employerLinkedinUrl(), enriched.employerLogoUrl(),
-                enriched.locationCity(), enriched.locationCountry(), enriched.career(),
-                enriched.education(), enriched.skills(), enriched.languages(),
-                photos.fetchOrNull(avatar), EnrichmentVendor.BRIGHTDATA));
+        people.purgeFetchedBefore(Instant.now().minus(peopleCacheTtl));
+        people.rememberAll(VENDOR, result);
+        return Optional.of(withPhoto(result.hits().getFirst()));
     }
 
-    static EnrichedProfile toEnrichedProfile(BrightDataPerson person) {
-        return new EnrichedProfile(
-                currentTitleOf(person),
-                unmasked(person.about()),
-                employerNameOf(person),
-                employerLinkedinUrlOf(person),
-                employerLogoUrlOf(person),
-                cityOf(person),
-                countryOf(person),
-                careerOf(person.experience()),
-                educationOf(person.education()),
-                namesOf(person.skills()),
-                namesOf(person.languages()),
-                null,
-                EnrichmentVendor.BRIGHTDATA);
+    private EnrichedProfile withPhoto(BrightDataPerson person) {
+        return BrightDataPersonProfiles.toEnrichedProfile(person)
+                .withPhoto(photos.fetchOrNull(person.usableAvatarUrl()));
     }
-
-    /** A flat entry's {@code title} is the position; grouped entries nest them; a masked record may have only {@code position}. */
-    private static String currentTitleOf(BrightDataPerson person) {
-        for (BrightDataExperience post : listOf(person.experience())) {
-            if (post.positions() != null && !post.positions().isEmpty()) {
-                String nested = unmasked(post.positions().getFirst().title());
-                if (nested != null) {
-                    return nested;
-                }
-                continue;
-            }
-            String title = unmasked(post.title());
-            if (title != null && !title.equals(unmasked(post.company()))) {
-                return title;
-            }
-        }
-        return unmasked(person.position());
-    }
-
-    private static String employerNameOf(BrightDataPerson person) {
-        String name = unmasked(person.currentCompanyName());
-        if (name != null) {
-            return name;
-        }
-        return person.currentCompany() == null ? null : unmasked(person.currentCompany().name());
-    }
-
-    private static String employerLinkedinUrlOf(BrightDataPerson person) {
-        if (person.currentCompany() == null) {
-            return null;
-        }
-        String companyId = person.currentCompany().companyId();
-        if (companyId != null && !companyId.isBlank()) {
-            return "https://www.linkedin.com/company/" + companyId + "/";
-        }
-        String link = person.currentCompany().link();
-        return link == null ? null : link.split("\\?")[0];
-    }
-
-    /** The entry naming the current employer, else the most recent — never any logo, which could be a past employer's. */
-    private static String employerLogoUrlOf(BrightDataPerson person) {
-        String employer = employerNameOf(person);
-        List<BrightDataExperience> experience = listOf(person.experience());
-        if (employer != null) {
-            for (BrightDataExperience post : experience) {
-                if (employer.equalsIgnoreCase(unmasked(post.company())) && post.companyLogoUrl() != null) {
-                    return post.companyLogoUrl();
-                }
-            }
-        }
-        return experience.isEmpty() ? null : experience.getFirst().companyLogoUrl();
-    }
-
-    /** {@code location} is the short city ("Dubai"); {@code city} is the full line with the country. */
-    private static String cityOf(BrightDataPerson person) {
-        String city = unmasked(person.location());
-        if (city != null) {
-            return Countries.cityOf(city);
-        }
-        return LocationLine.of(unmasked(person.city())).city();
-    }
-
-    /** Through the catalog: the raw code once put "AE" beside "United Arab Emirates" in one column. */
-    private static String countryOf(BrightDataPerson person) {
-        return LocationLine.of(unmasked(person.city())).countryOr(unmasked(person.countryCode()));
-    }
-
-    private static List<CandidateCareerEntry> careerOf(List<BrightDataExperience> experience) {
-        List<CandidateCareerEntry> career = new ArrayList<>();
-        for (BrightDataExperience post : listOf(experience)) {
-            if (post.positions() != null && !post.positions().isEmpty()) {
-                for (BrightDataPosition held : post.positions()) {
-                    career.add(new CandidateCareerEntry(unmasked(post.company()),
-                            unmasked(held.title()),
-                            periodOf(held.startDate(), held.endDate(), null),
-                            unmasked(post.location())));
-                }
-                continue;
-            }
-            String company = unmasked(post.company());
-            String title = unmasked(post.title());
-            // A flat entry whose title repeats the company is a grouping header; the position is the subtitle.
-            String position = title != null && title.equals(company) ? unmasked(post.subtitle()) : title;
-            // Skeleton rows — a bare year range, seen on live records — are not a career line.
-            if (company == null && position == null) {
-                continue;
-            }
-            career.add(new CandidateCareerEntry(company, position,
-                    periodOf(post.startDate(), post.endDate(), post.duration()), unmasked(post.location())));
-        }
-        return career;
-    }
-
-    private static List<CandidateEducationEntry> educationOf(List<BrightDataEducation> education) {
-        return listOf(education).stream()
-                .map(school -> new CandidateEducationEntry(
-                        unmasked(school.title()),
-                        degreeOf(unmasked(school.degree()), unmasked(school.field())),
-                        periodOf(school.startYear(), school.endYear(), null)))
-                .toList();
-    }
-
-    private static String degreeOf(String degree, String field) {
-        if (degree == null) {
-            return field;
-        }
-        return field == null ? degree : degree + ", " + field;
-    }
-
-    private static String periodOf(String start, String end, String duration) {
-        String started = unmasked(start);
-        if (started != null) {
-            String ended = unmasked(end);
-            return started + " – " + (ended == null ? "Present" : ended);
-        }
-        return unmasked(duration);
-    }
-
-    /** Skills and languages arrive as strings, {name}/{title} objects or null, so they are read defensively. */
-    private static List<String> namesOf(List<Object> items) {
-        return listOf(items).stream()
-                .map(BrightDataProfileEnricher::nameOf)
-                .map(BrightDataProfileEnricher::unmasked)
-                .filter(java.util.Objects::nonNull)
-                .toList();
-    }
-
-    private static String nameOf(Object item) {
-        if (item instanceof String text) {
-            return text;
-        }
-        if (item instanceof Map<?, ?> shaped) {
-            Object name = shaped.get("name") != null ? shaped.get("name") : shaped.get("title");
-            return name == null ? null : name.toString();
-        }
-        return null;
-    }
-
-    /** A masked value ("******* ***") has no letter or digit; it maps to null, never star-soup. */
-    private static String unmasked(String value) {
-        if (value == null || value.isBlank()) {
-            return null;
-        }
-        boolean readable = value.chars().anyMatch(Character::isLetterOrDigit);
-        return readable ? value.trim() : null;
-    }
-
-    private static <T> List<T> listOf(List<T> value) {
-        return value == null ? List.of() : value;
-    }
-
-    record BrightDataSearchResult(List<BrightDataPerson> hits) {}
-
-    @JsonNaming(PropertyNamingStrategies.SnakeCaseStrategy.class)
-    record BrightDataPerson(String about, String position, String location, String city,
-                            String countryCode, String currentCompanyName,
-                            BrightDataCurrentCompany currentCompany, String avatar,
-                            Boolean defaultAvatar, List<BrightDataExperience> experience,
-                            List<BrightDataEducation> education, List<Object> skills,
-                            List<Object> languages) {}
-
-    @JsonNaming(PropertyNamingStrategies.SnakeCaseStrategy.class)
-    record BrightDataCurrentCompany(String name, String companyId, String link) {}
-
-    @JsonNaming(PropertyNamingStrategies.SnakeCaseStrategy.class)
-    record BrightDataExperience(String company, String title, String subtitle, String duration,
-                                String companyLogoUrl, String startDate, String endDate, String location,
-                                List<BrightDataPosition> positions) {}
-
-    @JsonNaming(PropertyNamingStrategies.SnakeCaseStrategy.class)
-    record BrightDataPosition(String title, String startDate, String endDate) {}
-
-    @JsonNaming(PropertyNamingStrategies.SnakeCaseStrategy.class)
-    record BrightDataEducation(String title, String degree, String field,
-                               String startYear, String endYear) {}
 }

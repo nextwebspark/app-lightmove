@@ -113,4 +113,14 @@ public record SaveCandidateRequest(
 
         /** True from the drawer's Background save: the reader has reviewed its AI-proposed values. */
         Boolean confirmBackground
-) {}
+) {
+
+    /** An executive found by a people search: who and where they are, everything else left to research. */
+    public static SaveCandidateRequest ofFoundExecutive(UUID triageCompanyId, String fullName, String title,
+                                                        String linkedinUrl, String locationCountry,
+                                                        String locationCity) {
+        return new SaveCandidateRequest(triageCompanyId, fullName, title, null, null, null, null, null, null, null,
+                linkedinUrl, locationCountry, locationCity, null, null, null, null, null, null, null, null, null,
+                null, null, null);
+    }
+}

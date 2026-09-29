@@ -212,12 +212,19 @@ workspace/                 # feature template — project / position / strategy 
   repository/ service/ controller/ dto/(one record per file: WorkspaceSummary, InviteRequest, …)
 
 enrichment/                # the one feature split twice: by subject first, then by type
-  candidate/  service/(LinkedInProfileEnricher, BrightDataProfileEnricher, HarvestApiProfileEnricher,
+  candidate/  model/(BrightDataPerson, BrightDataPeopleHits)
+              service/(LinkedInProfileEnricher, BrightDataProfileEnricher, HarvestApiProfileEnricher, CachedPeopleStore,
                        FallbackProfileEnricher, LogProfileEnricher, ProfilePhotoDownloader,
                        CandidateEnrichmentWorker)  config/(CandidateEnrichmentConfig)
   company/    service/(LinkedInCompanyEnricher, BrightDataCompanyEnricher, LogCompanyEnricher,
                        CompanyEnrichmentWorker)    config/(CompanyEnrichmentConfig)
   common/     service/(BrightDataSearch)
+  sourcing/   Find executives — constant/(SourcingRunStatus, SourcingOutcome)
+              model/(ExecutiveSourcingRun, SourcingCompany, SourcingSpec, SourcingBrief, CompanyOutcome,
+                     ExecutivePick, ExecutiveSourcingRequested)  repository/
+              service/(PeopleSearch, BrightDataPeopleSearch, LogPeopleSearch, CachedPeopleSearch, ExecutiveSourcingService,
+                       ExecutiveSourcingWorker, SourcingRunStore, SourcingSpecProposer, ExecutiveReranker)
+              config/(ExecutiveSourcingConfig)  controller/  dto/
 
 geocoding/                 # a city+country pair becomes a point, once — global cache, no tenant data
   constant/(GeoPrecision)  model/(PlaceKey, GeoPoint, GeocodingResult, GeocodedPlace)  repository/

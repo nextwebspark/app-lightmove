@@ -81,4 +81,5 @@ export const CANDIDATE_SOURCE_STYLES: Record<CandidateSource, { label: string; c
   manual: { label: "Manual", className: "text-u-accent bg-u-accent-tint" },
   csv: { label: "Import", className: "text-u-text2 bg-u-border" },
   extension: { label: "Plugin", className: "text-u-direct bg-u-direct-tint" },
+  ai_sourced: { label: "Sourced", className: "text-u-text2 bg-u-border" },
 };

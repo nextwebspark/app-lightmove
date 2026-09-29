@@ -35,7 +35,7 @@ export type CandidateGender = "female" | "male" | "other";
 export type CandidateBackgroundField = "nationality" | "gender" | "yearsExperience" | "seniority";
 
 /** Which door a profile came through. Only `manual` is reachable today. */
-export type CandidateSource = "manual" | "csv" | "extension";
+export type CandidateSource = "manual" | "csv" | "extension" | "ai_sourced";
 
 /** One post in a career history. Free-text period, because that is the precision sources publish. */
 export interface CandidateCareerEntry {

@@ -51,12 +51,12 @@ class CandidateAiEnrichWorker {
     @Async
     @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
     void enrich(CandidateAiEnrichRequested request) {
-        boolean fromCapture = request.trigger() == AiEnrichTrigger.CAPTURE;
-        if (fromCapture && !settings.aiEnrichOnCapture()) {
+        boolean automatic = request.trigger() != AiEnrichTrigger.BUTTON;
+        if (automatic && !settings.aiEnrichOnCapture()) {
             return;
         }
         try {
-            if (fromCapture) {
+            if (request.trigger() == AiEnrichTrigger.CAPTURE) {
                 // The button spent this before answering 202; a capture spends it here.
                 llmBudget.require(LlmBudget.CANDIDATE_AI_ENRICH, request.requestedBy());
             }

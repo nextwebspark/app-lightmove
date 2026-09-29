@@ -24,7 +24,13 @@ public enum CandidateSource implements ApiValueEnum {
     CSV("csv"),
 
     /** Read off a live profile page by the browser plugin, and the capture enrichment researches. */
-    EXTENSION("extension");
+    EXTENSION("extension"),
+
+    /**
+     * Found by a Find executives run: a vendor search hit the model picked. Like {@link #CSV} it is a
+     * label and never evidence — the profile came from a stored dataset, not from anybody who met them.
+     */
+    AI_SOURCED("ai_sourced");
 
     private final String value;
 

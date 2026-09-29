@@ -55,6 +55,9 @@ export type ApiErrorCode =
   | "CONTACT_LOOKUP_NO_PROFILE"
   | "CONTACT_LIMIT_REACHED"
   | "CANDIDATE_PROFILE_URL_LOCKED"
+  | "EXECUTIVE_SOURCING_UNAVAILABLE"
+  | "EXECUTIVE_SOURCING_TOO_MANY_COMPANIES"
+  | "EXECUTIVE_SOURCING_IN_PROGRESS"
   | "WORKSPACE_NAME_MISMATCH"
   | "TEMPLATE_STALE"
   | "TEMPLATE_FALLBACK_REQUIRED"
@@ -117,6 +120,9 @@ const MESSAGES: Partial<Record<ApiErrorCode, string>> = {
   CONTACT_LIMIT_REACHED: "A profile holds ten email addresses and ten phone numbers at most.",
   CANDIDATE_PROFILE_URL_LOCKED:
     "This profile was captured from LinkedIn, so its URL is not editable.",
+  EXECUTIVE_SOURCING_UNAVAILABLE: "Find executives is not set up on this deployment.",
+  EXECUTIVE_SOURCING_TOO_MANY_COMPANIES: "Too many companies ticked — Find executives takes a limited batch at a time.",
+  EXECUTIVE_SOURCING_IN_PROGRESS: "A Find executives run is already in progress for this position.",
 };
 
 /**

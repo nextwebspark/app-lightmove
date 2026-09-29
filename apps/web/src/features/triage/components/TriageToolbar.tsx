@@ -3,6 +3,7 @@ import { useMemo } from "react";
 import { Icon, ICONS } from "../../../components/layout/Icon";
 import { ColumnPicker, hideableColumnsOf } from "../../../components/ui/ColumnPicker";
 import { SegmentedControl } from "../../../components/ui/SegmentedControl";
+import { cn } from "../../../lib/cn";
 import type { CustomColumn } from "../../customcolumns/api/types";
 import type { CompaniesView } from "../../talentmap/lib/useTalentMapPreferences";
 import {
@@ -51,6 +52,7 @@ export function TriageToolbar({
   onManageColumns,
   canWrite,
   canImport,
+  findExecutives,
   view = "table",
   onViewChange,
 }: {
@@ -72,6 +74,13 @@ export function TriageToolbar({
   canWrite: boolean;
   /** An imported company lands in the universe, so the other two stages do not offer the button. */
   canImport: boolean;
+  /** Find executives over the universe's companies; takes no second press while a run is in progress. */
+  findExecutives?: {
+    onPress: () => void;
+    running: boolean;
+    /** "3/5" while a run is in progress. */
+    progress?: string;
+  };
   /** How the screen is being read; the control renders only when `onViewChange` is given. */
   view?: CompaniesView;
   onViewChange?: (view: CompaniesView) => void;
@@ -145,6 +154,29 @@ export function TriageToolbar({
               <button type="button" onClick={onImport} className={TOOLBAR_BUTTON}>
                 <Icon d={ICONS.importInto} size={14} className="flex-none" />
                 Import
+              </button>
+            )}
+            {findExecutives && (
+              <button
+                type="button"
+                onClick={findExecutives.onPress}
+                disabled={findExecutives.running}
+                aria-busy={findExecutives.running}
+                title={
+                  findExecutives.running
+                    ? "A run is in progress"
+                    : "Find the best-fitting executives at these companies"
+                }
+                className={cn(TOOLBAR_BUTTON, "disabled:opacity-60")}
+              >
+                <Icon
+                  d={ICONS.search}
+                  size={14}
+                  className={cn("flex-none", findExecutives.running && "animate-pulse")}
+                />
+                {findExecutives.running
+                  ? `Finding executives… ${findExecutives.progress ?? ""}`.trimEnd()
+                  : "Find executives"}
               </button>
             )}
             <button
