@@ -10,7 +10,10 @@
 -- that revision reads is removed or rekeyed here: the moved columns stay on app_lm_project_candidate,
 -- and app_lm_candidate_contact / app_lm_candidate_photo are copied rather than moved. A later contract
 -- migration drops them once no revision reads them. What the old revision cannot do in the window is
--- insert a candidate (person_id is required) — accepted, and brief.
+-- insert a candidate (person_id is required). Nor is anything it writes in the window carried over: an
+-- edit, contact save, lookup or enrichment landing on the old columns or the old ledger after this
+-- backfill never reaches the person, and the new revision reads the person. Deploy at a quiet hour, or
+-- drain the previous revision first.
 --
 -- The backfill folds existing rows into people on a key that identifies a human rather than describes
 -- one: the LinkedIn profile slug, or a shared email address, within one workspace. A name alone never
@@ -63,7 +66,6 @@ COMMENT ON TABLE app_lm_person IS
     'One executive per workspace, shared by every mandate that maps them. Tenant data: every read filters by workspace_id.';
 
 CREATE INDEX app_lm_person_workspace_idx ON app_lm_person (workspace_id);
-CREATE INDEX app_lm_person_workspace_name_idx ON app_lm_person (workspace_id, lower(full_name));
 
 CREATE TRIGGER app_lm_person_touch BEFORE UPDATE ON app_lm_person
     FOR EACH ROW EXECUTE FUNCTION app_lm_touch_updated_at();
@@ -197,8 +199,9 @@ BEGIN
            (array_agg(g.full_name ORDER BY g.ord))[1],
            (array_agg(g.title ORDER BY g.ord) FILTER (WHERE g.title IS NOT NULL))[1],
            (array_agg(g.seniority_level ORDER BY g.ord) FILTER (WHERE g.seniority_level IS NOT NULL))[1],
-           (array_agg(g.linkedin_url ORDER BY g.ord) FILTER (WHERE g.linkedin_url IS NOT NULL))[1],
-           bool_or(g.source = 'EXTENSION' AND g.linkedin_url IS NOT NULL),
+           (array_agg(g.linkedin_url ORDER BY g.slug IS NULL, g.ord) FILTER (WHERE g.linkedin_url IS NOT NULL))[1],
+           -- Locked only on the page a capture read: one profile in the group, and a capture of it.
+           bool_or(g.source = 'EXTENSION' AND g.slug IS NOT NULL) AND count(DISTINCT g.slug) = 1,
            (array_agg(g.location_country ORDER BY g.ord) FILTER (WHERE g.location_country IS NOT NULL))[1],
            (array_agg(g.location_city ORDER BY g.ord) FILTER (WHERE g.location_city IS NOT NULL))[1],
            (array_agg(g.nationality ORDER BY g.ord) FILTER (WHERE g.nationality IS NOT NULL))[1],
@@ -215,7 +218,18 @@ BEGIN
                     '{}'::jsonb),
            coalesce((array_agg(g.profile ORDER BY (g.profile ->> 'enrichedAt') IS NULL, g.ord)
                      FILTER (WHERE g.profile <> '{}'::jsonb))[1], '{}'::jsonb),
-           (array_agg(g.ai_inferred_fields ORDER BY g.ord))[1],
+           -- A value keeps its AI flag only if the row it came from had flagged it, so a model's guess
+           -- never reads as a researcher's, nor a researcher's as a guess.
+           to_jsonb(array_remove(ARRAY[
+               CASE WHEN (array_agg(g.ai_inferred_fields ? 'nationality' ORDER BY g.ord)
+                              FILTER (WHERE g.nationality IS NOT NULL))[1] THEN 'nationality' END,
+               CASE WHEN (array_agg(g.ai_inferred_fields ? 'gender' ORDER BY g.ord)
+                              FILTER (WHERE g.gender IS NOT NULL))[1] THEN 'gender' END,
+               CASE WHEN (array_agg(g.ai_inferred_fields ? 'yearsExperience' ORDER BY g.ord)
+                              FILTER (WHERE g.years_experience IS NOT NULL))[1] THEN 'yearsExperience' END,
+               CASE WHEN (array_agg(g.ai_inferred_fields ? 'seniority' ORDER BY g.ord)
+                              FILTER (WHERE g.seniority_level IS NOT NULL))[1] THEN 'seniority' END
+           ], NULL)),
            (array_agg(g.ai_nationality_reading ORDER BY g.ord) FILTER (WHERE g.ai_nationality_reading IS NOT NULL))[1],
            (array_agg(g.enriched_by ORDER BY (g.profile ->> 'enrichedAt') IS NULL, g.ord)
                 FILTER (WHERE g.enriched_by IS NOT NULL))[1],
@@ -228,7 +242,7 @@ BEGIN
            (array_agg(g.added_by ORDER BY g.ord))[1],
            min(g.created_at),
            max(g.updated_at)
-    FROM (SELECT c.*, r.ord, r.label, r.workspace_id,
+    FROM (SELECT c.*, r.ord, r.label, r.workspace_id, r.slug,
                  (c.compensation_currency IS NOT NULL OR c.base_salary IS NOT NULL OR c.bonus IS NOT NULL
                   OR c.allowances IS NOT NULL OR c.long_term_incentive IS NOT NULL
                   OR c.notice_period IS NOT NULL) AS has_compensation

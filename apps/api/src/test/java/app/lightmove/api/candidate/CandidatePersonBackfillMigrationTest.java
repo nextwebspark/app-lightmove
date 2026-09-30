@@ -47,6 +47,10 @@ class CandidatePersonBackfillMigrationTest {
     private static final UUID CHAIN_BACK_ON_CFO = id(9);
     private static final UUID NAMESAKE_ON_CFO = id(10);
     private static final UUID NAMESAKE_ON_CREDIT = id(11);
+    private static final UUID FLAGGED_ON_CFO = id(12);
+    private static final UUID FLAGGED_ON_CREDIT = id(13);
+    private static final UUID SEARCH_URL_ON_CFO = id(14);
+    private static final UUID CAPTURED_ON_CREDIT = id(15);
 
     @Test
     @DisplayName("V91 folds rows into people on a profile or an email, and never on a name")
@@ -77,6 +81,21 @@ class CandidatePersonBackfillMigrationTest {
                         FROM app_lm_person WHERE id = ?""", SLUG_ON_CFO))
                         .containsExactly("CFO", "Emirati", "AED", "100", "true", "EXTENSION");
 
+                // Each value keeps the AI flag of the row it came from, and no flag outlives its value.
+                assertThat(personOf(connection, FLAGGED_ON_CREDIT)).isEqualTo(FLAGGED_ON_CFO);
+                assertThat(strings(connection, """
+                        SELECT nationality, gender, years_experience::text,
+                               (SELECT string_agg(f, ',' ORDER BY f) FROM jsonb_array_elements_text(ai_inferred_fields) f)
+                        FROM app_lm_person WHERE id = ?""", FLAGGED_ON_CFO))
+                        .containsExactly("Emirati", "MALE", "10", "gender,nationality");
+
+                // A URL that names no profile gives way to the one a capture read, and only that is locked.
+                assertThat(personOf(connection, CAPTURED_ON_CREDIT)).isEqualTo(SEARCH_URL_ON_CFO);
+                assertThat(strings(connection, """
+                        SELECT linkedin_url, linkedin_url_locked::text FROM app_lm_person WHERE id = ?""",
+                        SEARCH_URL_ON_CFO))
+                        .containsExactly("https://www.linkedin.com/in/locked-page", "true");
+
                 // One address in two cases is one row, and the verified reading wins.
                 assertThat(strings(connection, """
                         SELECT value || ':' || verified FROM app_lm_person_contact
@@ -94,9 +113,9 @@ class CandidatePersonBackfillMigrationTest {
 
                 assertThat(scalar(connection, "SELECT count(*) FROM app_lm_project_candidate WHERE person_id IS NULL"))
                         .isEqualTo(0L);
-                assertThat(scalar(connection, "SELECT count(*) FROM app_lm_person")).isEqualTo(8L);
+                assertThat(scalar(connection, "SELECT count(*) FROM app_lm_person")).isEqualTo(10L);
                 // The previous revision still reads these while the deploy finishes.
-                assertThat(scalar(connection, "SELECT count(*) FROM app_lm_candidate_contact")).isEqualTo(9L);
+                assertThat(scalar(connection, "SELECT count(*) FROM app_lm_candidate_contact")).isEqualTo(13L);
                 assertThat(scalar(connection, "SELECT count(*) FROM app_lm_candidate_photo")).isEqualTo(2L);
             }
         }
@@ -129,6 +148,12 @@ class CandidatePersonBackfillMigrationTest {
         candidate(connection, CHAIN_BACK_ON_CFO, CFO, "Chain R", null, null, "MANUAL", 9, null, null, null);
         candidate(connection, NAMESAKE_ON_CFO, CFO, "Name Only", null, null, "MANUAL", 10, null, null, null);
         candidate(connection, NAMESAKE_ON_CREDIT, CREDIT, "Name Only", null, null, "MANUAL", 11, null, null, null);
+        candidate(connection, FLAGGED_ON_CFO, CFO, "Flagged", null, null, "MANUAL", 12, null, null, null);
+        candidate(connection, FLAGGED_ON_CREDIT, CREDIT, "Flagged", null, null, "MANUAL", 13, "Emirati", null, null);
+        candidate(connection, SEARCH_URL_ON_CFO, CFO, "Search Url", null,
+                "https://www.linkedin.com/search/results/people/?keywords=locked", "MANUAL", 14, null, null, null);
+        candidate(connection, CAPTURED_ON_CREDIT, CREDIT, "Search Url", null,
+                "https://www.linkedin.com/in/locked-page", "EXTENSION", 15, null, null, null);
 
         email(connection, EMAIL_ON_CFO, "share@x.example", false, "MANUAL");
         email(connection, EMAIL_ON_LEASING, "SHARE@x.example", true, "CSV");
@@ -138,6 +163,10 @@ class CandidatePersonBackfillMigrationTest {
         email(connection, CHAIN_ON_CREDIT, "chain@x.example", false, "MANUAL");
         email(connection, CHAIN_ON_CREDIT, "r@x.example", false, "MANUAL");
         email(connection, CHAIN_BACK_ON_CFO, "r@x.example", false, "MANUAL");
+        email(connection, FLAGGED_ON_CFO, "flag@x.example", false, "MANUAL");
+        email(connection, FLAGGED_ON_CREDIT, "flag@x.example", false, "MANUAL");
+        email(connection, SEARCH_URL_ON_CFO, "lock@x.example", false, "MANUAL");
+        email(connection, CAPTURED_ON_CREDIT, "lock@x.example", false, "EXTENSION");
         try (Statement statement = connection.createStatement()) {
             statement.execute("""
                     INSERT INTO app_lm_candidate_contact (candidate_id, channel, value, value_key, source)
@@ -146,6 +175,14 @@ class CandidatePersonBackfillMigrationTest {
                     INSERT INTO app_lm_candidate_photo (candidate_id, content, content_type)
                     VALUES ('%s', '\\x01', 'image/jpeg'), ('%s', '\\x02', 'image/png')"""
                     .formatted(SLUG_ON_CFO, SLUG_ON_CREDIT));
+            // The oldest row's flags name a value it never held; the younger row's name the one it did.
+            statement.execute("""
+                    UPDATE app_lm_project_candidate SET gender = 'MALE', ai_inferred_fields = '["gender", "yearsExperience"]'
+                    WHERE id = '%s'""".formatted(FLAGGED_ON_CFO));
+            statement.execute("""
+                    UPDATE app_lm_project_candidate SET gender = 'FEMALE', years_experience = 10,
+                                                        ai_inferred_fields = '["nationality"]'
+                    WHERE id = '%s'""".formatted(FLAGGED_ON_CREDIT));
         }
     }
 
