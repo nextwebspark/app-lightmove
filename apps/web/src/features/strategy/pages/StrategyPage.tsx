@@ -1,7 +1,7 @@
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import type { RowSelectionState } from "@tanstack/react-table";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { useOutletContext } from "react-router-dom";
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { useOutletContext, useSearchParams } from "react-router-dom";
 import type { ProjectOutletContext } from "../../../components/layout/ProjectLayout";
 import { FullscreenButton } from "../../../components/ui";
 import { useToast } from "../../../components/ui/Toast";
@@ -36,6 +36,9 @@ import { FilterSidebar } from "../components/FilterSidebar";
 import { PaginationBar } from "../../../components/ui/PaginationBar";
 import { SelectionAction, SelectionActionBar } from "../../../components/ui/SelectionActionBar";
 import { StrategyToolbar } from "../components/StrategyToolbar";
+import { StrategyModeToggle, type StrategyMode } from "../components/StrategyModeToggle";
+import { canExecuteProjectWork } from "../../projects/lib/access";
+import { PeopleStrategyEditor } from "./PeopleStrategyEditor";
 
 const COMPANY_LAYOUT_COLUMNS = layoutColumnsOf(companyColumns);
 
@@ -58,9 +61,30 @@ const NO_FILTER: StrategyFilter = {
 
 export function StrategyPage() {
   const { project } = useOutletContext<ProjectOutletContext>();
+  const { user } = useAuth();
+  const [searchParams, setSearchParams] = useSearchParams();
+  // People mode spends search credits, so it is staff-only like every other WORK_EXECUTE surface.
+  const canSearchPeople = canExecuteProjectWork(project, user?.id, user?.workspace?.roles);
+  const mode: StrategyMode = canSearchPeople && searchParams.get("mode") === "people" ? "people" : "companies";
+
+  const handleMode = (next: StrategyMode) =>
+    setSearchParams(
+      (params) => {
+        if (next === "people") params.set("mode", "people");
+        else params.delete("mode");
+        return params;
+      },
+      { replace: true },
+    );
+  const toggle = canSearchPeople ? <StrategyModeToggle mode={mode} onChange={handleMode} /> : null;
+
   // Keyed on the project so switching mandates remounts with that mandate's filter rather than
   // carrying the last one's draft across.
-  return <StrategyEditor key={project.id} />;
+  return mode === "people" ? (
+    <PeopleStrategyEditor key={project.id} projectId={project.id} toggle={toggle} />
+  ) : (
+    <StrategyEditor key={project.id} toggle={toggle} />
+  );
 }
 
 /**
@@ -71,7 +95,7 @@ export function StrategyPage() {
  * left running would resolve after the invalidation and reinstate the pre-edit companies as fresh for
  * the whole staleTime.
  */
-function StrategyEditor() {
+function StrategyEditor({ toggle }: { toggle: ReactNode }) {
   const { project } = useOutletContext<ProjectOutletContext>();
   const queryClient = useQueryClient();
   const toast = useToast();
@@ -374,9 +398,10 @@ function StrategyEditor() {
        than guessed from a hard-coded 98px of chrome that any topbar change would falsify. */
     <div className={cn("flex min-h-0 flex-1 flex-col", isFullscreen && FULLSCREEN_PANEL)}>
       <StrategyToolbar
+        leading={toggle}
         filter={filter}
         filterPending={!data}
-        searches={data?.searches ?? []}
+        searches={(data?.searches ?? []).filter((search) => search.kind !== "PEOPLE")}
         viewerId={user?.id ?? null}
         showFilters={showFilters}
         onToggleFilters={() => setShowFilters((shown) => !shown)}

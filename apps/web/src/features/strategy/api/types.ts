@@ -78,6 +78,9 @@ export interface CompanyRef {
   logoUrl: string | null;
 }
 
+/** Which of Strategy's two questions a saved search keeps. */
+export type SearchKind = "COMPANIES" | "PEOPLE";
+
 /** Who a saved search is for: one person's scratch list, or the mandate's. */
 export type SearchVisibility = "PRIVATE" | "SHARED";
 
@@ -91,7 +94,10 @@ export type SearchVisibility = "PRIVATE" | "SHARED";
 export interface SavedSearch {
   id: string;
   name: string;
+  kind: SearchKind;
   filter: StrategyFilter;
+  /** Set on a PEOPLE search only; its company `filter` is then empty. */
+  peopleFilter: PeopleFilter | null;
   visibility: SearchVisibility;
   createdById: string;
   createdByName: string | null;
@@ -103,6 +109,7 @@ export interface SavedSearch {
 /** Everything the screen needs before it draws. */
 export interface Strategy {
   filter: StrategyFilter;
+  peopleFilter: PeopleFilter;
   offLimits: CompanyRef[];
   searches: SavedSearch[];
 }
@@ -182,3 +189,108 @@ export interface CompanySort {
   direction: SortDirection;
 }
 
+
+/** Which roles the job titles are matched against: now, before, or either. */
+export type TitleMatch = "current" | "past" | "both";
+
+/** Which employers the companies are matched against. */
+export type CompanyMatch = "current" | "both" | "past_only";
+
+export type ContactDataType = "personal_email" | "work_email" | "phone";
+
+export interface PeopleLanguage {
+  language: string;
+  proficiencies: string[];
+}
+
+/**
+ * The People sidebar's whole selection — ContactOut's People Search filter, stored per mandate. The
+ * vocabulary lists hold ContactOut's accepted values verbatim; everything else is free text. A null
+ * match mode is the vendor's default of current roles only.
+ */
+export interface PeopleFilter {
+  name: string | null;
+  jobTitles: string[];
+  titleMatch: TitleMatch | null;
+  includeRelatedTitles: boolean;
+  recentlyChangedJobs: boolean;
+  excludedJobTitles: string[];
+  seniorities: string[];
+  jobFunctions: string[];
+  skills: string[];
+  yearsInCurrentRole: string[];
+  yearsOfExperience: string[];
+  locations: string[];
+  /** Miles around the one city in `locations`; ignored otherwise. */
+  locationRadius: number | null;
+  companies: string[];
+  domains: string[];
+  companyMatch: CompanyMatch | null;
+  excludedCompanies: string[];
+  companySizes: string[];
+  industries: string[];
+  excludedIndustries: string[];
+  languages: PeopleLanguage[];
+  education: string[];
+  keyword: string | null;
+  contactTypes: ContactDataType[];
+}
+
+/** ContactOut's closed vocabularies for the People sidebar. */
+export interface PeopleFacets {
+  seniorities: FacetOption[];
+  jobFunctions: FacetOption[];
+  companySizes: FacetOption[];
+  yearsOfExperience: FacetOption[];
+  yearsInCurrentRole: FacetOption[];
+  languageProficiencies: FacetOption[];
+  industries: string[];
+}
+
+/** The stored people filter counted, free. The estimates are ContactOut's own, never a promise. */
+export interface PeopleCount {
+  offered: boolean;
+  total: number;
+  estimatedPersonalEmails: number;
+  estimatedWorkEmails: number;
+  estimatedPhones: number;
+}
+
+/** One person on a page of results. `held`: this mandate already maps them. */
+export interface PersonResult {
+  linkedinSlug: string;
+  fullName: string | null;
+  title: string | null;
+  companyName: string | null;
+  companyLinkedinUrl: string | null;
+  location: string | null;
+  countryCode: string | null;
+  photoUrl: string | null;
+  profileUrl: string | null;
+  held: boolean;
+}
+
+/** One page of the search; `billed` is the credits it spent, zero when it came from the cache. */
+export interface PeopleSearchPage {
+  people: PersonResult[];
+  page: number;
+  pageSize: number;
+  total: number;
+  billed: number;
+  cached: number;
+}
+
+export interface AddPeopleResult {
+  added: number;
+  skipped: number;
+  unavailable: number;
+}
+
+export type PlaceKind = "COUNTRY" | "AREA" | "CITY";
+
+/** A place the Location box offers: `label` is shown, `value` is what the search sends. */
+export interface PlaceSuggestion {
+  label: string;
+  value: string;
+  kind: PlaceKind;
+}
