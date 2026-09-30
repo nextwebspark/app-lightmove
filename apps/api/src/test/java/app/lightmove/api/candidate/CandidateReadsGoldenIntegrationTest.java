@@ -40,7 +40,8 @@ import tools.jackson.databind.node.ObjectNode;
 @IntegrationTest
 class CandidateReadsGoldenIntegrationTest extends FlowTestSupport {
 
-    private static final Path GOLDEN = Path.of("src/test/resources/golden/candidate-reads");
+    /** The source tree, not target/: a recording is written back where it is committed from. */
+    private static final Path GOLDEN = moduleRoot().resolve("src/test/resources/golden/candidate-reads");
     private static final Pattern UUID_TEXT =
             Pattern.compile("[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}");
     private static final Pattern INSTANT_TEXT =
@@ -112,7 +113,17 @@ class CandidateReadsGoldenIntegrationTest extends FlowTestSupport {
                 scrub(read(admin, "/api/v1/projects/" + cfo + "/export/companies?status=shortlisted")));
     }
 
-    private String alias(String id, String name) {
+    /** apps/api, found from target/test-classes so an IDE started anywhere reads the same files. */
+    private static Path moduleRoot() {
+        try {
+            return Path.of(CandidateReadsGoldenIntegrationTest.class.getProtectionDomain().getCodeSource()
+                    .getLocation().toURI()).getParent().getParent();
+        } catch (java.net.URISyntaxException unreadable) {
+            throw new IllegalStateException(unreadable);
+        }
+    }
+
+        private String alias(String id, String name) {
         aliases.put(id, "<" + name + ">");
         return id;
     }

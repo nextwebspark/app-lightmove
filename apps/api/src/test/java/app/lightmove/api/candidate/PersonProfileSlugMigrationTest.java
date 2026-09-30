@@ -52,7 +52,10 @@ class PersonProfileSlugMigrationTest {
             "https://www.linkedin.com/in/bad%zzescape",
             "linkedin.com/in/no-scheme",
             "https://notlinkedin.com/in/impostor",
-            "not a url at all");
+            "not a url at all",
+            "https://www.linkedin.com/in/bracketed[1]",
+            "https://my_host.linkedin.com/in/underscored-host",
+            "https://uk.linkedin.com/in/o-brien-3a4b5c6d");
 
     @Test
     @DisplayName("V92 stores each person's slug as LinkedInUrls reads it, and leaves V91's frozen copies alone")

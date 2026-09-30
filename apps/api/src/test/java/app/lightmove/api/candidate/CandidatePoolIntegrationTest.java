@@ -323,6 +323,47 @@ class CandidatePoolIntegrationTest extends FlowTestSupport {
     }
 
     @Test
+    @DisplayName("a person sharing a profile with another can still be edited, and never takes the key from them")
+    void aSharedProfileCanBeEditedWithoutTakingTheKey() throws Exception {
+        String first = mandate("Shared Key Firm", "Chief Financial Officer");
+        String second = mandateInSameWorkspace("Head of Credit Risk");
+        String holder = add(first, """
+                {"fullName":"Reem Al Qasimi","linkedinUrl":"https://www.linkedin.com/in/reem-alqasimi"}""")
+                .get("personId").asText();
+        // What V92 leaves when V91 had already founded two people on one profile: the younger keeps the URL
+        // and no key.
+        String twinMapping = shareProfileWith(holder, second, "Reem Qasimi");
+
+        edit(second, twinMapping, """
+                {"fullName":"Reem Qasimi","title":"Group CFO","linkedinUrl":"https://www.linkedin.com/in/reem-alqasimi"}""");
+        edit(second, twinMapping, """
+                {"fullName":"Reem Qasimi","title":"Group CFO","linkedinUrl":"https://linkedin.com/in/Reem-AlQasimi/"}""");
+        String twin = read(second, twinMapping).get("personId").asText();
+        assertThat(read(second, twinMapping).get("title").asText()).isEqualTo("Group CFO");
+        assertThat(slugOf(twin)).isNull();
+        assertThat(slugOf(holder)).isEqualTo("reem-alqasimi");
+
+        edit(second, twinMapping, """
+                {"fullName":"Reem Qasimi","linkedinUrl":"https://www.linkedin.com/in/reem-qasimi-2"}""");
+        assertThat(slugOf(twin)).isEqualTo("reem-qasimi-2");
+    }
+
+    @Test
+    @DisplayName("a key the backfill read differently from LinkedInUrls heals on the person's next save")
+    void aDriftedKeyHealsOnTheNextSave() throws Exception {
+        String projectId = mandate("Healed Key Firm", "Chief Financial Officer");
+        JsonNode filed = add(projectId, """
+                {"fullName":"Hamdan Saeed","linkedinUrl":"https://www.linkedin.com/in/hamdan-saeed"}""");
+        String personId = filed.get("personId").asText();
+        db.update("update app_lm_person set profile_slug = 'hamdan%2dsaeed' where id = ?::uuid", personId);
+
+        edit(projectId, filed.get("id").asText(), """
+                {"fullName":"Hamdan Saeed","linkedinUrl":"https://www.linkedin.com/in/hamdan-saeed"}""");
+
+        assertThat(slugOf(personId)).isEqualTo("hamdan-saeed");
+    }
+
+    @Test
     @DisplayName("a capture replaces a held URL that names no profile, and locks only the page it read")
     void aCaptureLocksThePageItRead() throws Exception {
         String first = mandate("Search Url Firm", "Chief Financial Officer");
@@ -406,6 +447,26 @@ class CandidatePoolIntegrationTest extends FlowTestSupport {
                         .header("Authorization", "Bearer " + adminToken))
                 .andExpect(status().isOk())
                 .andReturn());
+    }
+
+    /** A second person of {@code holder}'s workspace on the same URL with no key, mapped on {@code projectId}. */
+    private String shareProfileWith(String holder, String projectId, String fullName) {
+        String twin = db.queryForObject("""
+                insert into app_lm_person (workspace_id, full_name, linkedin_url, source, created_by)
+                select workspace_id, ?, linkedin_url, 'MANUAL', created_by from app_lm_person where id = ?::uuid
+                returning id::text""", String.class, fullName, holder);
+        return db.queryForObject("""
+                insert into app_lm_project_candidate (project_id, person_id, source, added_by)
+                select ?::uuid, id, 'MANUAL', created_by from app_lm_person where id = ?::uuid
+                returning id::text""", String.class, projectId, twin);
+    }
+
+    private void edit(String projectId, String candidateId, String body) throws Exception {
+        mvc.perform(put(candidatesUrl(projectId) + "/" + candidateId)
+                        .header("Authorization", "Bearer " + adminToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(body))
+                .andExpect(status().isOk());
     }
 
     private String slugOf(String personId) {

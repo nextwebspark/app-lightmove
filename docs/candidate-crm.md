@@ -21,7 +21,9 @@ Decided and approved 2026-09-30; phases carry a `> **Built**` callout as they la
    (`dev:cloud` against a copy; needs gcloud). Both have only run on seeded data
    (`CandidatePersonBackfillMigrationTest`, `PersonProfileSlugMigrationTest`). Paste the counts into the PRs:
    V91's people founded, rows folded, contacts and photos copied and activity lines, and V92's `NOTICE`
-   of people left without a slug because an older person holds their profile.
+   of people left without a slug because an older person holds their profile, with the `lc_ctype` it
+   reports. Spot-check the slugs most likely to differ from Java:
+   `SELECT linkedin_url, profile_slug FROM app_lm_person WHERE linkedin_url ~ '%' OR linkedin_url ~ '[^\x01-\x7f]'`.
 3. **Deploy #602 at a quiet hour, or drain the previous revision first.** Between V91 running and the new
    revision taking traffic, the old revision still writes edits, contacts, lookups and enrichment to the old
    columns and ledger, and none of that reaches the person. V92 only adds, so it can ride any deploy
@@ -403,10 +405,17 @@ spelled one way. So:
 > - **Duplicates are not folded.** Where two people of one workspace already share a profile, the older
 >   keeps the slug and the younger keeps its URL with a null slug. This is the answer `PersonMatcher` has
 >   always given (oldest first), the merge tool (Phase 4) is how they are joined, and the migration
->   `RAISE NOTICE`s the count. `Person` rewrites the slug only when the URL changes, so saving that younger
->   person never claims the older one's key. For the same reason the mandate-scoped checks
->   (`refuseHeldProfile`, `mappedProfileSlugsOf`) still read URLs; only the workspace-wide lookups
->   (`PersonMatcher.find`, `isHeldByAnother`) use the stored slug.
+>   `RAISE NOTICE`s the count and the database's `lc_ctype`. That younger person can still be edited:
+>   `PersonMatcher.claimOf` answers `SHARED` when the URL names the profile they already carry, and
+>   `CandidateService.replace` saves the edit and has the person `yieldProfileKey()`, so the older one
+>   keeps it. A URL another person holds that this one does not already carry is `HELD` (409). The
+>   mandate-scoped checks (`refuseHeldProfile`, `mappedProfileSlugsOf`) still read URLs, since the younger
+>   person's key is null; only the workspace-wide lookups (`PersonMatcher.find`, `claimOf`) use the
+>   stored slug.
+> - **The key heals.** `Person` re-derives the slug from the URL on every save, so anything V92's SQL
+>   reads differently from `LinkedInUrls` — a non-UTF-8 escape (Java substitutes U+FFFD, V92 stores
+>   null), a `C`-ctype `lower()` — is corrected on the person's next edit. V92 also refuses a bracket in
+>   the path and a host `URI` would not parse (an underscore), as Java does.
 > - **Races**: `app_lm_person_profile_slug_uk` answers `PERSON_PROFILE_HELD` (409) through
 >   `GlobalExceptionHandler`, and a sourcing run treats it as a raced pick (skipped), as it does V91's
 >   `app_lm_project_candidate_person_uk`.

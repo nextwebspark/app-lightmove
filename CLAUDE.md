@@ -400,9 +400,11 @@ nothing reads or writes them, so they are a frozen copy of every executive as V9
 fallback until the final cleanup migration drops them once the CRM phases are built and deployed
 (`docs/candidate-crm.md`, issue #606). V92 stores `app_lm_person.profile_slug` — written by `Person`
 with every URL change, `LinkedInUrls.profileSlugOrNull`'s reading, percent-decoded as `URI.getPath()`
-decodes — unique per workspace, so `PersonMatcher` finds a profile by equality and two doors racing to
-found one answer `PERSON_PROFILE_HELD`. A person V91 left sharing a profile with an older one keeps the
-URL and a null slug until the merge tool folds them. `app_lm_position` and its six owned-list
+decodes, and re-derived on every save so a backfilled key that read differently heals — unique per
+workspace, so `PersonMatcher` finds a profile by equality and two doors racing to found one answer
+`PERSON_PROFILE_HELD`. A person V91 left sharing a profile with an older one keeps the URL and a null
+slug until the merge tool folds them, and can still be edited (`ProfileClaim.SHARED`: the save goes
+through and the person yields the key). `app_lm_position` and its six owned-list
 tables are the brief (V7, grown by V39): every list a step edits is a child table replaced wholesale by
 its step's write, so the aggregate keeps one idiom rather than mixing rows and jsonb. V66 splits its
 `location` into `location_city` + `location_country` (backfilled from the one line; a comma-less value

@@ -254,15 +254,15 @@ public class Person extends BaseEntity {
         linkedinUrlLocked = linkedinUrlLocked || isThatPage;
     }
 
-    /**
-     * The slug moves only with the URL. V92 left a person who shares a profile with an older one without
-     * it, and a save that keeps their URL must not claim the key the older person holds.
-     */
+    /** Re-derived on every write, so a key V92's SQL read differently from Java heals on the next save. */
     private void recordLinkedinUrl(String url) {
-        if (!Objects.equals(url, linkedinUrl)) {
-            linkedinUrl = url;
-            profileSlug = LinkedInUrls.profileSlugOrNull(url);
-        }
+        linkedinUrl = url;
+        profileSlug = LinkedInUrls.profileSlugOrNull(url);
+    }
+
+    /** Another person of the workspace holds this profile; the merge tool is what folds the two. */
+    public void yieldProfileKey() {
+        profileSlug = null;
     }
 
     private void describeCompensation(CandidateCompensation compensation) {

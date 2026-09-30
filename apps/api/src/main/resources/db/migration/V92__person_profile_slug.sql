@@ -12,8 +12,11 @@ ALTER TABLE app_lm_person ADD COLUMN profile_slug text;
 
 -- LinkedInUrls.profileSlugOrNull, in SQL: an http(s)-shaped URL on linkedin.com or a subdomain, its
 -- path percent-decoded — java.net.URI.getPath() decodes, so /in/j%C3%A9r%C3%B4me is the slug jérôme —
--- starting /in/<slug>, lower-cased. What URI.create would refuse (a space, a stray %, an unwise
--- character) names no profile. One row at a time, because a decoding that is not UTF-8 raises.
+-- starting /in/<slug>, lower-cased. What URI.create would refuse (a space, a stray %, a bracket, an unwise
+-- character) or leave without a host (an underscore in it) names no profile. One row at a time, because
+-- a decoding that is not UTF-8 raises. lower() folds by the database's LC_CTYPE, which is Unicode-aware on
+-- Cloud SQL (en_US.UTF8) as Locale.ROOT is; the notice below reports it. Whatever this reads differently
+-- from Java heals on the person's next save, which re-derives the key.
 DO $$
 DECLARE
     person  record;
@@ -26,10 +29,11 @@ BEGIN
         FROM app_lm_person
         WHERE linkedin_url ~* 'linkedin\.com'
     LOOP
-        CONTINUE WHEN person.url ~ '[\x01-\x20"<>\\^`{|}]';
+        CONTINUE WHEN person.url ~ '[][\x01-\x20"<>\\^`{|}]';
         parts := regexp_match(person.url,
                               '^[A-Za-z][A-Za-z0-9+.-]*://(?:[^/?#@]*@)?([^/?#:]*)(?::[0-9]*)?([^?#]*)');
         CONTINUE WHEN parts IS NULL
+            OR parts[1] !~ '^[A-Za-z0-9.-]+$'
             OR NOT (lower(parts[1]) = 'linkedin.com' OR lower(parts[1]) LIKE '%.linkedin.com');
         path := parts[2];
         CONTINUE WHEN path !~ '^/in/' OR path ~ '%($|[^0-9A-Fa-f]|[0-9A-Fa-f]($|[^0-9A-Fa-f]))';
@@ -65,7 +69,8 @@ BEGIN
     FROM ranked r
     WHERE p.id = r.id AND r.rank > 1;
     GET DIAGNOSTICS released = ROW_COUNT;
-    RAISE NOTICE 'V92: % person(s) share a profile with an older person of their workspace; their slug is left null', released;
+    RAISE NOTICE 'V92: % person(s) share a profile with an older person of their workspace; their slug is left null (lc_ctype %)',
+        released, (SELECT datctype FROM pg_database WHERE datname = current_database());
 END $$;
 
 CREATE UNIQUE INDEX app_lm_person_profile_slug_uk ON app_lm_person (workspace_id, profile_slug)

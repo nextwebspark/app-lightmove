@@ -1,6 +1,7 @@
 package app.lightmove.api.candidate.service;
 
 import app.lightmove.api.candidate.constant.ContactChannel;
+import app.lightmove.api.candidate.constant.ProfileClaim;
 import app.lightmove.api.candidate.model.CandidateContact;
 import app.lightmove.api.candidate.model.CandidateDetails;
 import app.lightmove.api.candidate.model.ContactEntry;
@@ -55,15 +56,19 @@ class PersonMatcher {
     }
 
     /**
-     * Whether a person other than {@code personId} is already the profile {@code linkedinUrl} names.
-     * An edit writes the URL onto the workspace's person, so a mandate-scoped check cannot guard it:
-     * two people on one slug would leave every later capture of it mapped to whichever is older.
+     * Whether saving {@code linkedinUrl} onto {@code person} may take that profile's key. An edit writes the
+     * URL onto the workspace's person, so a mandate-scoped check cannot guard it: two people on one slug
+     * would leave every later capture of it mapped to whichever is older.
      */
-    boolean isHeldByAnother(UUID workspaceId, String linkedinUrl, UUID personId) {
+    ProfileClaim claimOf(UUID workspaceId, String linkedinUrl, Person person) {
         String slug = LinkedInUrls.profileSlugOrNull(linkedinUrl);
-        return slug != null && people.findByWorkspaceIdAndProfileSlug(workspaceId, slug)
-                .filter(holder -> !holder.getId().equals(personId))
+        boolean heldByAnother = slug != null && people.findByWorkspaceIdAndProfileSlug(workspaceId, slug)
+                .filter(holder -> !holder.getId().equals(person.getId()))
                 .isPresent();
+        if (!heldByAnother) {
+            return ProfileClaim.FREE;
+        }
+        return slug.equals(slugOf(person)) ? ProfileClaim.SHARED : ProfileClaim.HELD;
     }
 
     /**
