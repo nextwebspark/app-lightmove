@@ -1,13 +1,12 @@
--- The contract half of V91 (docs/candidate-crm.md, Phase 2), and the person's profile slug stored.
---
--- V91 moved the human onto app_lm_person but left the person's columns on app_lm_project_candidate,
--- and V54's and V44's tables beside V91's copies, for the revision still serving while Flyway ran. No
--- revision reads them now, so they go. This must never ship in the deploy that carried V91.
+-- Each person's LinkedIn profile slug, stored (docs/candidate-crm.md, Phase 2).
 --
 -- The slug is what identifies a person across mandates. PersonMatcher used to find it by scanning
 -- every LinkedIn URL of the workspace with LIKE on each filing; stored, it is one indexed equality,
 -- and the unique index turns two doors racing to found one profile into a conflict rather than two
 -- people.
+--
+-- Additive only. V91's copies on app_lm_project_candidate and the V54/V44 tables stay, frozen at the
+-- moment V91 ran, until the final cleanup migration once every CRM phase is built and deployed.
 
 ALTER TABLE app_lm_person ADD COLUMN profile_slug text;
 
@@ -74,37 +73,3 @@ CREATE UNIQUE INDEX app_lm_person_profile_slug_uk ON app_lm_person (workspace_id
 
 COMMENT ON COLUMN app_lm_person.profile_slug IS
     'LinkedInUrls.profileSlugOrNull(linkedin_url), written with the URL: the key a filing finds the person by.';
-
-ALTER TABLE app_lm_project_candidate
-    DROP COLUMN full_name,
-    DROP COLUMN title,
-    DROP COLUMN seniority_level,
-    DROP COLUMN linkedin_url,
-    DROP COLUMN location_country,
-    DROP COLUMN location_city,
-    DROP COLUMN nationality,
-    DROP COLUMN gender,
-    DROP COLUMN years_experience,
-    DROP COLUMN summary,
-    DROP COLUMN compensation_currency,
-    DROP COLUMN base_salary,
-    DROP COLUMN bonus,
-    DROP COLUMN allowances,
-    DROP COLUMN long_term_incentive,
-    DROP COLUMN notice_period,
-    DROP COLUMN compensation_breakdown,
-    DROP COLUMN profile,
-    DROP COLUMN ai_inferred_fields,
-    DROP COLUMN ai_nationality_reading,
-    DROP COLUMN enriched_by,
-    DROP COLUMN emails_looked_up_at,
-    DROP COLUMN phones_looked_up_at,
-    DROP COLUMN contacts_looked_up_via;
-
-DROP TABLE app_lm_candidate_contact;
-DROP TABLE app_lm_candidate_photo;
-
-COMMENT ON TABLE app_lm_project_candidate IS
-    'One workspace person on one mandate: the mandate''s status, note, custom-column values, AI assessment against its brief, and the triaged company it maps them at.';
-COMMENT ON COLUMN app_lm_project_candidate.source IS
-    'Which door this mandate filed the person through: MANUAL, CSV, EXTENSION or AI_SOURCED. The person keeps the first door.';

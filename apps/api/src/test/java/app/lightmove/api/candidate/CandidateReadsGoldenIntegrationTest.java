@@ -30,17 +30,17 @@ import tools.jackson.databind.node.ObjectNode;
 
 /**
  * The three whole-mandate reads — talent map, export and report — on one seeded mandate, against
- * answers recorded before V92 dropped the person's columns from the mandate row. V92 changes what is
- * stored, never what is read, so these files must not move with it.
+ * answers recorded on V91's schema. The final cleanup migration drops V91's frozen copies from the
+ * mandate row; it changes what is stored, never what is read, so these files must not move with it.
  *
  * <p>Ids and times differ on every run, so a response is compared after naming each id the fixture
  * created, blanking the rest, and sorting object keys. Run with {@code -Dgolden.record=true} to
  * rewrite the files after a deliberate change to one of the reads.
  */
 @IntegrationTest
-class CandidateContractGoldenIntegrationTest extends FlowTestSupport {
+class CandidateReadsGoldenIntegrationTest extends FlowTestSupport {
 
-    private static final Path GOLDEN = Path.of("src/test/resources/golden/candidate-contract");
+    private static final Path GOLDEN = Path.of("src/test/resources/golden/candidate-reads");
     private static final Pattern UUID_TEXT =
             Pattern.compile("[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}");
     private static final Pattern INSTANT_TEXT =
@@ -53,7 +53,7 @@ class CandidateContractGoldenIntegrationTest extends FlowTestSupport {
     private final Map<String, String> aliases = new LinkedHashMap<>();
 
     @Test
-    @DisplayName("the talent map, the export and the report read the same after the contract")
+    @DisplayName("the talent map, the export and the report read as recorded")
     void wholeMandateReadsAreUnchanged() throws Exception {
         geocoder.placeCity(CITY, 24.7136, 46.6753);
         String admin = adminOf("Golden Contract Firm");

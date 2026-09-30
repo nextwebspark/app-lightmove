@@ -21,14 +21,13 @@ import org.testcontainers.postgresql.PostgreSQLContainer;
 import org.testcontainers.utility.DockerImageName;
 
 /**
- * V92: the person's columns leave the mandate row and V54/V44's tables go, while every mapping keeps
- * its own decision; and each person's profile slug is stored exactly as {@link LinkedInUrls} reads it,
- * the one a filing will look it up by.
+ * V92 stores each person's profile slug exactly as {@link LinkedInUrls} reads it — the key a filing
+ * looks them up by — and removes nothing: V91's frozen copies wait for the final cleanup migration.
  *
  * <p>Its own container and Flyway run, stopped at V91 to seed and carried on to V92, for
  * {@link CandidatePersonBackfillMigrationTest}'s reason.
  */
-class CandidateContractMigrationTest {
+class PersonProfileSlugMigrationTest {
 
     private static final UUID USER = UUID.fromString("00000000-0000-0000-0000-0000000000a1");
     private static final UUID WORKSPACE = UUID.fromString("00000000-0000-0000-0000-0000000000b1");
@@ -55,13 +54,9 @@ class CandidateContractMigrationTest {
             "https://notlinkedin.com/in/impostor",
             "not a url at all");
 
-    private static final String ALL_COLUMNS_OF_THE_MAPPING = """
-            added_by,ai_assessment,ai_enrich_failed_at,company_name,created_at,custom_fields,id,note,\
-            person_id,project_id,source,source_url,status,triage_company_id,updated_at,version""";
-
     @Test
-    @DisplayName("V92 stores each person's slug as LinkedInUrls reads it and drops what the mandate row no longer holds")
-    void contractsTheMandateRow() throws Exception {
+    @DisplayName("V92 stores each person's slug as LinkedInUrls reads it, and leaves V91's frozen copies alone")
+    void storesTheProfileSlug() throws Exception {
         try (PostgreSQLContainer postgres = new PostgreSQLContainer(DockerImageName.parse("postgres:16-alpine"))) {
             postgres.start();
             migrateTo(postgres, "91");
@@ -108,19 +103,15 @@ class CandidateContractMigrationTest {
                         .containsExactly("https://linkedin.com/in/Held-Twice/");
                 assertThat(slugOf(connection, elsewhere)).isEqualTo("held-twice");
 
-                assertThat(String.join(",", strings(connection, """
-                        SELECT column_name FROM information_schema.columns
-                        WHERE table_name = 'app_lm_project_candidate' AND table_schema = ?
-                        ORDER BY column_name""", "public")))
-                        .isEqualTo(ALL_COLUMNS_OF_THE_MAPPING);
-                assertThat(scalar(connection, """
-                        SELECT count(*) FROM information_schema.tables
-                        WHERE table_name IN ('app_lm_candidate_contact', 'app_lm_candidate_photo')""")).isEqualTo(0L);
-
                 assertThat(strings(connection, """
                         SELECT person_id::text || ' ' || status || ' ' || note || ' ' || (custom_fields ->> 'ethnicity')
+                               || ' ' || full_name || ' ' || base_salary || ' ' || compensation_currency
                         FROM app_lm_project_candidate WHERE id = ?""", mapping))
-                        .containsExactly(older + " ENGAGED Keep this note. Arab");
+                        .containsExactly(older + " ENGAGED Keep this note. Arab Stale Copy 900 USD");
+                assertThat(scalar(connection, "SELECT count(*) FROM app_lm_candidate_contact WHERE candidate_id = ?", mapping))
+                        .isEqualTo(1L);
+                assertThat(scalar(connection, "SELECT count(*) FROM app_lm_candidate_photo WHERE candidate_id = ?", mapping))
+                        .isEqualTo(1L);
                 assertThat(strings(connection, """
                         SELECT full_name || ' ' || coalesce(base_salary::text, 'none') FROM app_lm_person WHERE id = ?""",
                         older)).containsExactly("Person 100 none");
@@ -163,7 +154,7 @@ class CandidateContractMigrationTest {
         }
     }
 
-    /** A mapping still carrying V91's copy of the person — stale values the contract throws away. */
+    /** A mapping still carrying V91's frozen copy of the person, which V92 must leave as it found it. */
     private static void mapping(Connection connection, UUID id, UUID personId) throws SQLException {
         try (Statement statement = connection.createStatement()) {
             statement.execute("""

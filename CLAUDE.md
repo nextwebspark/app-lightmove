@@ -394,9 +394,11 @@ removing a company from a mandate unmaps its executives rather than deleting the
 and languages one `profile` jsonb column for V30's reasons), background, package and research — once
 per mandate (`app_lm_project_candidate_person_uk`). V91's backfill folded existing rows into one person
 on a shared profile slug or email within a workspace, never two rows of one mandate, and wrote each row
-an `ADDED_TO_POOL` or `MAPPED` line under its `added_by`. V91 only expanded; **V92 is its contract**,
-shipped in a later deploy: the person's columns left the mandate row and `app_lm_candidate_contact` /
-`app_lm_candidate_photo` were dropped. V92 also stores `app_lm_person.profile_slug` — written by `Person`
+an `ADDED_TO_POOL` or `MAPPED` line under its `added_by`. V91 is **expand-only**: the person's columns
+are still on the mandate row, and `app_lm_candidate_contact` / `app_lm_candidate_photo` still exist —
+nothing reads or writes them, so they are a frozen copy of every executive as V91 found them, kept as a
+fallback until the final cleanup migration drops them once the CRM phases are built and deployed
+(`docs/candidate-crm.md`, issue #606). V92 stores `app_lm_person.profile_slug` — written by `Person`
 with every URL change, `LinkedInUrls.profileSlugOrNull`'s reading, percent-decoded as `URI.getPath()`
 decodes — unique per workspace, so `PersonMatcher` finds a profile by equality and two doors racing to
 found one answer `PERSON_PROFILE_HELD`. A person V91 left sharing a profile with an older one keeps the

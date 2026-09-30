@@ -26,7 +26,7 @@ import org.testcontainers.utility.DockerImageName;
  *
  * <p>Its own container and Flyway run, stopped at V90 to seed and carried on to V91, for
  * {@code PositionLocationBackfillMigrationTest}'s reason: the shared context's schema is already past it.
- * It stays pinned at V91 for good: V92 drops the mandate-row columns and the two tables it seeds.
+ * It stays pinned at V91 for good: the final cleanup migration drops the columns and tables it seeds.
  */
 class CandidatePersonBackfillMigrationTest {
 
