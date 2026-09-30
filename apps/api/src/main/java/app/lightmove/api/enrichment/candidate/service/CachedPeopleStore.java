@@ -117,6 +117,23 @@ public class CachedPeopleStore {
         return Optional.of(BrightDataPeopleHits.of(ordered, totalHits));
     }
 
+    /**
+     * Where the people on file live, as LinkedIn spells it, most common first: the place alone, never
+     * who lives there. What a location box can offer that a vendor search is sure to recognise.
+     */
+    @Transactional(propagation = Propagation.REQUIRES_NEW, readOnly = true)
+    public List<String> placesStartingWith(String prefix, int limit) {
+        String pattern = prefix.toLowerCase(Locale.ROOT).replace("\\", "\\\\").replace("%", "\\%")
+                .replace("_", "\\_") + "%";
+        return jdbc.queryForList("""
+                        SELECT raw ->> 'city' AS place FROM app_lm_vendor_person
+                        WHERE raw ->> 'city' IS NOT NULL AND lower(raw ->> 'city') LIKE ?
+                        GROUP BY raw ->> 'city'
+                        ORDER BY count(*) DESC, raw ->> 'city'
+                        LIMIT ?
+                        """, String.class, pattern, limit);
+    }
+
     /** Every record a vendor call returned — each was billed, and each is kept. Records with no slug are not. */
     @Transactional(propagation = Propagation.REQUIRES_NEW)
     public void rememberAll(String provider, BrightDataPeopleHits answer) {

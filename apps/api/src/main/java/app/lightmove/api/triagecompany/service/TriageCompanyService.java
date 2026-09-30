@@ -191,8 +191,15 @@ public class TriageCompanyService {
     @Transactional
     public TriageCompanyResponse captureFromResearch(UUID projectId, UUID addedBy,
                                                      CapturedCompanyDetails details) {
-        ResolvedCapture resolved = resolveCapture(projectId, addedBy, details,
-                TriageCompanySource.EXTENSION, TriageCompanyStatus.IN_UNIVERSE);
+        return captureFromResearch(projectId, addedBy, details, TriageCompanySource.EXTENSION);
+    }
+
+    /** As above, filed as having come through {@code source} when the mandate did not already hold it. */
+    @Transactional
+    public TriageCompanyResponse captureFromResearch(UUID projectId, UUID addedBy,
+                                                     CapturedCompanyDetails details, TriageCompanySource source) {
+        ResolvedCapture resolved = resolveCapture(projectId, addedBy, details, source,
+                TriageCompanyStatus.IN_UNIVERSE);
         resolved.company().unflagNoExecutiveFound();
         if (resolved.created()) {
             announceForResearch(resolved.company(), projectId);

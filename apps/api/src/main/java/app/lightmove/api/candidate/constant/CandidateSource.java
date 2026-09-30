@@ -30,7 +30,10 @@ public enum CandidateSource implements ApiValueEnum {
      * Found by a Find executives run: a vendor search hit the model picked. Like {@link #CSV} it is a
      * label and never evidence — the profile came from a stored dataset, not from anybody who met them.
      */
-    AI_SOURCED("ai_sourced");
+    AI_SOURCED("ai_sourced"),
+
+    /** Ticked on a page of Strategy's People mode: the search hit is the research, like {@link #AI_SOURCED}. */
+    PEOPLE_SEARCH("people_search");
 
     private final String value;
 

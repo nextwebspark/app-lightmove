@@ -19,8 +19,8 @@ import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.type.SqlTypes;
 
 /**
- * The search behind a project, 1:1. The filter (jsonb, V30) and the off-limits list are saved by two
- * PUTs, so a chip click never rewrites the exclusion list.
+ * The search behind a project, 1:1. The company filter (jsonb, V30), the people filter (V91) and the
+ * off-limits list are saved by three PUTs, so a chip click never rewrites another of them.
  */
 @Entity
 @Table(name = "app_lm_strategy")
@@ -34,6 +34,10 @@ public class Strategy extends BaseEntity {
     @JdbcTypeCode(SqlTypes.JSON)
     @Column(name = "filter", nullable = false)
     private StrategyFilter filter = StrategyFilter.empty();
+
+    @JdbcTypeCode(SqlTypes.JSON)
+    @Column(name = "people_filter", nullable = false)
+    private PeopleFilter peopleFilter = PeopleFilter.empty();
 
     @ElementCollection(fetch = FetchType.LAZY)
     @CollectionTable(name = "app_lm_strategy_off_limits_company",
@@ -49,6 +53,10 @@ public class Strategy extends BaseEntity {
 
     public void replaceFilter(StrategyFilter newFilter) {
         this.filter = newFilter;
+    }
+
+    public void replacePeopleFilter(PeopleFilter newPeopleFilter) {
+        this.peopleFilter = newPeopleFilter;
     }
 
     public void replaceOffLimitsCompanies(List<StrategyCompanyRef> newOffLimitsCompanies) {

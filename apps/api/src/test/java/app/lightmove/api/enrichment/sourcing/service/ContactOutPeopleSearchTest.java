@@ -10,7 +10,9 @@ import app.lightmove.api.enrichment.candidate.model.BrightDataPerson;
 import app.lightmove.api.enrichment.candidate.service.BrightDataPersonProfiles;
 import app.lightmove.api.enrichment.sourcing.model.SearchedEmployer;
 import app.lightmove.api.enrichment.sourcing.model.SourcingSpec;
-import app.lightmove.api.enrichment.sourcing.service.ContactOutPeopleRecords.ContactOutSearchAnswer;
+import app.lightmove.api.enrichment.common.service.ContactOutPeopleRecords;
+import app.lightmove.api.enrichment.common.service.ContactOutPeopleRecords.ContactOutEmployerKey;
+import app.lightmove.api.enrichment.common.service.ContactOutPeopleRecords.ContactOutSearchAnswer;
 import java.io.InputStream;
 import java.util.List;
 import java.util.Map;
@@ -26,6 +28,7 @@ class ContactOutPeopleSearchTest {
     private static final JsonMapper JSON = JsonMapper.builder().build();
     private static final SearchedEmployer HARBOUR = new SearchedEmployer("harbour-group", "harbour.example",
             "Harbour Group");
+    private static final ContactOutEmployerKey HARBOUR_KEY = new ContactOutEmployerKey("harbour-group", "Harbour Group");
 
     @Test
     @DisplayName("the company is its domain, current titles only, the codes where the role is")
@@ -97,7 +100,7 @@ class ContactOutPeopleSearchTest {
     @Test
     @DisplayName("a hit is filed under the searched company, its role there first, and credited to ContactOut")
     void readsAnAnswer() throws Exception {
-        BrightDataPeopleHits hits = ContactOutPeopleRecords.toHits(fixture(), HARBOUR, JSON);
+        BrightDataPeopleHits hits = ContactOutPeopleRecords.toHits(fixture(), HARBOUR_KEY, JSON);
 
         assertThat(hits.totalHits()).isEqualTo(14);
         assertThat(hits.hits()).singleElement().satisfies(person -> {
@@ -123,13 +126,23 @@ class ContactOutPeopleSearchTest {
     }
 
     @Test
+    @DisplayName("a people-first answer files each person under the employer their own profile names")
+    void filesAPeopleFirstHitUnderItsOwnEmployer() throws Exception {
+        BrightDataPerson person = ContactOutPeopleRecords.toHits(fixture(), JSON).hits().getFirst();
+
+        assertThat(person.currentCompany().companyId()).isEqualTo("harbour-group");
+        assertThat(person.currentCompany().name()).isEqualTo("Harbour Group");
+        assertThat(person.experience().getFirst().title()).isEqualTo("Chief Executive Officer, Port Division");
+    }
+
+    @Test
     @DisplayName("an answer with nobody in it sends profiles as an empty array, and reads as no hits")
     void readsAnEmptyAnswer() {
         ContactOutSearchAnswer empty = JSON.readValue("""
                 {"status_code":200,"metadata":{"page":1,"page_size":25,"total_results":0},"profiles":[]}""",
                 ContactOutSearchAnswer.class);
 
-        BrightDataPeopleHits hits = ContactOutPeopleRecords.toHits(empty, HARBOUR, JSON);
+        BrightDataPeopleHits hits = ContactOutPeopleRecords.toHits(empty, HARBOUR_KEY, JSON);
 
         assertThat(hits.hits()).isEmpty();
         assertThat(hits.totalHits()).isZero();

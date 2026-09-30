@@ -24,6 +24,7 @@ import app.lightmove.api.candidate.model.CandidatePhoto;
 import app.lightmove.api.candidate.model.CandidateProfile;
 import app.lightmove.api.candidate.model.ContactEntry;
 import app.lightmove.api.candidate.model.EnrichedProfile;
+import app.lightmove.api.candidate.model.ResearchedFiling;
 import app.lightmove.api.candidate.model.FoundEmails;
 import app.lightmove.api.candidate.model.FoundPhones;
 import app.lightmove.api.candidate.model.StoredPhoto;
@@ -329,17 +330,18 @@ public class CandidateService {
     }
 
     /**
-     * A Find executives hit, filed and researched in one write: the search hit is the profile, so
-     * there is no vendor call to wait for and no {@code CandidateCapturedEvent}; the deep enrichment
-     * this queues writes the assessment.
+     * A vendor search hit, filed and researched in one write — a Find executives pick or a People search
+     * tick: the hit is the profile, so there is no vendor call to wait for and no
+     * {@code CandidateCapturedEvent}. The deep enrichment is queued only where {@code filing} asks.
      *
      * <p>{@code REQUIRES_NEW} for {@link #applyResearch}'s reason: the run's worker calls this per person
      * from an {@code AFTER_COMMIT} callback. The duplicate guards throw {@code CANDIDATE_ALREADY_MAPPED},
-     * which the caller counts as a skip rather than a failure of the run.
+     * which the caller counts as a skip rather than a failure.
      */
     @Transactional(propagation = Propagation.REQUIRES_NEW)
-    public CandidateResponse addSourced(UUID userId, UUID workspaceId, UUID projectId,
-                                        SaveCandidateRequest request, EnrichedProfile research, UUID runId) {
+    public CandidateResponse addResearched(UUID userId, UUID workspaceId, UUID projectId,
+                                           SaveCandidateRequest request, EnrichedProfile research,
+                                           ResearchedFiling filing) {
         projects.requireInWorkspace(projectId, workspaceId);
         CandidateDetails details = requests.detailsOf(projectId, request, null);
 
@@ -347,18 +349,20 @@ public class CandidateService {
         refuseHeldProfile(projectId, details.linkedinUrl(), null);
 
         Candidate candidate = candidates.save(Candidate.mapped(projectId, userId,
-                request.triageCompanyId(), CandidateSource.AI_SOURCED, details));
+                request.triageCompanyId(), filing.source(), details));
         candidate.enrich(research);
         keepPhoto(candidate.getId(), research);
         stream.publish(projectId, ProjectStreamKind.CANDIDATE_CAPTURED);
-        events.publishEvent(new CandidateAiEnrichRequested(candidate.getId(), projectId, workspaceId,
-                userId, AiEnrichTrigger.SOURCING));
+        if (filing.enrichTrigger() != null) {
+            events.publishEvent(new CandidateAiEnrichRequested(candidate.getId(), projectId, workspaceId,
+                    userId, filing.enrichTrigger()));
+        }
 
         audit.event(ProjectEventType.CANDIDATE_ADDED)
                 .actor(userId).workspace(workspaceId).target(AuditService.PROJECT_TARGET, projectId)
                 .detail("candidateId", candidate.getId().toString())
-                .detail("source", CandidateSource.AI_SOURCED.name())
-                .detail("runId", runId.toString())
+                .detail("source", filing.source().name())
+                .detailIfPresent("runId", filing.runId() == null ? null : filing.runId().toString())
                 .record();
         return responses.toDto(candidate);
     }
