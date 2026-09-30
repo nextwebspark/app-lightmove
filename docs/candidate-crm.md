@@ -18,10 +18,14 @@ Decided and approved 2026-09-30; phases carry a `> **Built**` callout as they la
    first: CI, review threads, and the rehearsal below.
 2. **Rehearse V91 on a copy of the shared dev database** before it reaches anyone else (`dev:cloud` against a
    copy; needs gcloud). It has only run on seeded data (`CandidatePersonBackfillMigrationTest`, plus a manual
-   run on a seeded V90 database), never on real duplicates.
-3. Load `java-spring-development` and `db-ops` for Phase 2; add `lightmove-domain` for Phase 3's action and
+   run on a seeded V90 database), never on real duplicates. Paste the counts into #602: people founded,
+   rows folded, contacts and photos copied, activity lines.
+3. **Deploy #602 at a quiet hour, or drain the previous revision first.** Between V91 running and the new
+   revision taking traffic, the old revision still writes edits, contacts, lookups and enrichment to the old
+   columns and ledger, and none of that reaches the person.
+4. Load `java-spring-development` and `db-ops` for Phase 2; add `lightmove-domain` for Phase 3's action and
    `react` for any SPA work. Read the Phase 0 mockups before any screen.
-4. Migration numbers below are the next free ones at the time of writing (V92 contract, V93 notes, V94
+5. Migration numbers below are the next free ones at the time of writing (V92 contract, V93 notes, V94
    action, V95 owner/tags). Check `apps/api/src/main/resources/db/migration/` for the next free number
    before writing one.
 
@@ -396,6 +400,13 @@ expand and the contract in separate deploys.
   version`.
 - `grep -rn` the repository for every dropped column and both tables (`apps/`, `ops/`, `e2e/`), migrations
   aside. Nothing should still name them.
+- **`profile_slug` on `app_lm_person`** (review of #602): written by the entity from
+  `LinkedInUrls.profileSlugOrNull` on every URL write, backfilled with V91's regex, with a partial unique
+  index `(workspace_id, profile_slug) WHERE profile_slug IS NOT NULL`. `PersonMatcher` and
+  `isHeldByAnother` become one equality lookup instead of today's `LIKE '%/in/<slug>%'` scan of the whole
+  workspace on every filing, and two doors racing to found one new profile hit a 409 instead of leaving two
+  people on one slug. Count the duplicate slugs on the dev copy first: the index cannot be built over them,
+  so V92 folds or reports them before creating it.
 - Tests: the golden before/after comparison (talent map, export CSV, report on a seeded mandate) and the
   import test carried over from Phase 1. `CandidatePersonBackfillMigrationTest` already stops at V91,
   and must stay pinned there: V92 drops the columns it seeds.
