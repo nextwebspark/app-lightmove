@@ -232,7 +232,7 @@ enrichment/                # the one feature split twice: by subject first, then
                        SourcedHitRanking)
               config/(ExecutiveSourcingConfig)  controller/  dto/
   peoplesearch/ Strategy's People mode — model/(PeoplePage)
-              service/(StrategyPeopleService, CachedContactOutPeopleQuery, PeopleFilterBody, LocationSuggestions)
+              service/(StrategyPeopleService, PeopleSearchFiling, CachedContactOutPeopleQuery, PeopleFilterBody, LocationSuggestions)
               controller/(StrategyPeopleController, LocationSuggestionController)  dto/
 
 geocoding/                 # a city+country pair becomes a point, once — global cache, no tenant data

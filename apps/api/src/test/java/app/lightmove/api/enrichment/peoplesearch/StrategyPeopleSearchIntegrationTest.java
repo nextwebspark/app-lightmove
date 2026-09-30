@@ -58,7 +58,7 @@ class StrategyPeopleSearchIntegrationTest extends FlowTestSupport {
     }
 
     @Test
-    @DisplayName("the saved filter is counted free as ContactOut's own body, the mandate's declined companies excluded")
+    @DisplayName("the count leaves out the mandate's declined companies, and the cached search never asks it to")
     void countsTheSavedFilter() throws Exception {
         String projectId = mandate("Count Firm");
         declined(projectId, "Old Rival Group");
@@ -80,6 +80,11 @@ class StrategyPeopleSearchIntegrationTest extends FlowTestSupport {
                 .containsEntry("exclude_companies", List.of("Old Rival Group"))
                 .containsEntry("exclude_companies_filter", "current")
                 .doesNotContainKeys("data_types", "page", "reveal_info", "name", "keyword");
+
+        search(projectId, 1);
+        assertThat(contactOut.searches().getFirst().body())
+                .as("a page is cached for every workspace, so one mandate's declines never shape it")
+                .doesNotContainKeys("exclude_companies", "exclude_companies_filter");
     }
 
     @Test

@@ -249,7 +249,8 @@ class ExecutiveSourcingWorker {
                     research.title(), person.profileUrl(), research.locationCountry(), research.locationCity());
             try {
                 UUID candidateId = candidates.addResearched(request.requestedBy(), request.workspaceId(),
-                        request.projectId(), filing, research, ResearchedFiling.ofSourcingRun(request.runId())).id();
+                        request.projectId(), filing, research, ResearchedFiling.ofSourcingRun(request.runId()))
+                        .candidate().id();
                 heldSlugs.add(person.linkedinId());
                 return ExecutivePick.of(name, candidateId);
             } catch (ApiException refused) {

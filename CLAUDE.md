@@ -136,9 +136,10 @@ API). The filter autosaves as `app_lm_strategy.people_filter` and is counted fre
 (`POST …/strategy/people/search?page=`), the top 25 in ContactOut's order — it offers no other — and
 Load more the next 25. Every page goes through the V87 cache keyed on the body and the page, so the
 same question and page is never bought twice, by anyone, and the screen reopens on the pages already
-bought (`GET …/strategy/people/results`, which never buys). The mandate's declined companies are sent
-as `exclude_companies` but kept **out of the key** — declining someone must not turn a paid page into a
-new question — and a cached page drops people at a company declined since. A person already mapped
+bought (`GET …/strategy/people/results`, which never buys). The mandate's declined companies narrow only
+the free count: the search asks exactly the question it is cached under, since that page answers every
+workspace, and people at declined companies — the whole stage, by name or LinkedIn slug — are left off
+the page as it is read, so declining someone never turns a paid page into a new question. A person already mapped
 comes back, and is billed, because ContactOut cannot exclude one — the grid marks them "In mandate".
 The selection bar and the person panel file the ticked people at **In universe, Shortlisted or
 Declined** — the stage lands on their employer, filed by `captureFromResearch` as `PEOPLE_SEARCH` and

@@ -15,23 +15,14 @@ import com.github.benmanes.caffeine.cache.Caffeine;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.Collection;
-import java.util.Comparator;
-import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.TreeMap;
 import org.springframework.stereotype.Service;
 import tools.jackson.databind.ObjectMapper;
 
 /**
- * ContactOut's People Search asked people-first, through the V87 cache so nothing is bought twice: a page
- * already asked inside {@code people-cache-ttl} is answered from {@code app_lm_vendor_people_search} and
- * {@code app_lm_vendor_person} with no vendor call, for any workspace, and every page bought is kept. The
- * key hashes the whole body and the page, so page two of a question is its own row, and a page whose
- * people have aged out is asked again rather than answered short.
- *
- * <p>Counts are free but rate-limited, so they are held briefly in memory only — a count is not a
- * third party's record, and a stale one costs nothing but a slightly wrong number.
+ * ContactOut's People Search through the V87 cache: a page is keyed on the whole body and its number and
+ * bought at most once per TTL, for every workspace. Counts are free and held in memory for minutes only.
  */
 @Service
 public class CachedContactOutPeopleQuery {
@@ -60,7 +51,7 @@ public class CachedContactOutPeopleQuery {
     }
 
     public ContactOutCount count(Map<String, Object> body) {
-        return counts.get(canonical(body), ignored -> client.count(body));
+        return counts.get(PeopleQueryKeys.canonical(body, json), ignored -> client.count(body));
     }
 
     /** The page as an earlier search bought it, while every person on it may still be read. */
@@ -69,14 +60,10 @@ public class CachedContactOutPeopleQuery {
                 .map(asked -> new PeoplePage(asked.hits(), totalOf(asked), 0, asked.hits().size()));
     }
 
-    /**
-     * Asks ContactOut with {@code sent}, keeps every profile it billed, and files the page under
-     * {@code question} — the body less what only narrows it for one mandate, so declining a company
-     * does not turn a page already paid for into a new question.
-     */
-    public PeoplePage buyPage(Map<String, Object> question, Map<String, Object> sent, int page) {
+    /** Asks ContactOut, keeps every profile it billed, and files the page under the question. */
+    public PeoplePage buyPage(Map<String, Object> question, int page) {
         BrightDataPeopleHits bought = ContactOutPeopleRecords.toHits(
-                client.search(sent, page, ContactOutPeopleClient.MAX_PAGE_SIZE), json);
+                client.search(question, page, ContactOutPeopleClient.MAX_PAGE_SIZE), json);
         store.purgeFetchedBefore(freshAfter());
         store.rememberAll(PROVIDER, bought);
         store.rememberSearch(queryKeyOf(question, page), null,
@@ -95,31 +82,12 @@ public class CachedContactOutPeopleQuery {
     }
 
     private String queryKeyOf(Map<String, Object> body, int page) {
-        return PeopleQueryKeys.of(String.join("|", PROVIDER, "people", canonical(body), "page=" + page,
+        return PeopleQueryKeys.of(String.join("|", PROVIDER, "people", PeopleQueryKeys.canonical(body, json), "page=" + page,
                 "size=" + ContactOutPeopleClient.MAX_PAGE_SIZE));
     }
 
     private Instant freshAfter() {
         return Instant.now().minus(ttl);
-    }
-
-    /** The body with its keys and every list sorted, so one question in any order is one key. */
-    private String canonical(Map<String, Object> body) {
-        return json.writeValueAsString(sorted(body));
-    }
-
-    private Object sorted(Object value) {
-        if (value instanceof Map<?, ?> map) {
-            Map<String, Object> ordered = new TreeMap<>();
-            map.forEach((key, entry) -> ordered.put(String.valueOf(key), sorted(entry)));
-            return ordered;
-        }
-        if (value instanceof List<?> list) {
-            return list.stream().map(this::sorted)
-                    .sorted(Comparator.comparing(json::writeValueAsString))
-                    .toList();
-        }
-        return value;
     }
 
     private static long totalOf(BrightDataPeopleHits hits) {

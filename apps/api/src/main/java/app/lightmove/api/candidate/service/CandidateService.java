@@ -25,6 +25,8 @@ import app.lightmove.api.candidate.model.CandidateDossier;
 import app.lightmove.api.candidate.model.CandidateProfile;
 import app.lightmove.api.candidate.model.ContactEntry;
 import app.lightmove.api.candidate.model.EnrichedProfile;
+import app.lightmove.api.candidate.model.ResearchedCandidate;
+import app.lightmove.api.candidate.model.ResearchedEmployer;
 import app.lightmove.api.candidate.model.ResearchedFiling;
 import app.lightmove.api.candidate.model.FoundEmails;
 import app.lightmove.api.candidate.model.FoundPhones;
@@ -384,21 +386,32 @@ public class CandidateService {
      * tick: the hit is the profile, so there is no vendor call to wait for and no
      * {@code CandidateCapturedEvent}. The deep enrichment is queued only where {@code filing} asks.
      *
+     * <p>The employer a filing names is captured in the same transaction, so a person refused by the
+     * duplicate guards — {@code CANDIDATE_ALREADY_MAPPED}, which the caller counts as a skip — or failing
+     * any other way leaves no company behind at the stage it was filed for.
+     *
      * <p>{@code REQUIRES_NEW} for {@link #applyResearch}'s reason: the run's worker calls this per person
-     * from an {@code AFTER_COMMIT} callback. The duplicate guards throw {@code CANDIDATE_ALREADY_MAPPED},
-     * which the caller counts as a skip rather than a failure.
+     * from an {@code AFTER_COMMIT} callback.
      */
     @Transactional(propagation = Propagation.REQUIRES_NEW)
-    public CandidateResponse addResearched(UUID userId, UUID workspaceId, UUID projectId,
-                                           SaveCandidateRequest request, EnrichedProfile research,
-                                           ResearchedFiling filing) {
+    public ResearchedCandidate addResearched(UUID userId, UUID workspaceId, UUID projectId,
+                                             SaveCandidateRequest request, EnrichedProfile research,
+                                             ResearchedFiling filing) {
         projects.requireInWorkspace(projectId, workspaceId);
         CandidateDetails details = requests.detailsOf(projectId, request, null);
+        UUID triageCompanyId = request.triageCompanyId();
+        TriageCompanyResponse employer = null;
+        if (filing.employer() != null && triageCompanyId == null) {
+            ResearchedEmployer named = filing.employer();
+            employer = triage.captureFromResearch(projectId, userId, named.details(), named.source(), named.stage());
+            triageCompanyId = employer.id();
+            details = details.employedAt(employer.companyName());
+        }
 
-        refuseDuplicate(projectId, request.triageCompanyId(), details.fullName(), null);
+        refuseDuplicate(projectId, triageCompanyId, details.fullName(), null);
         refuseHeldProfile(projectId, details.linkedinUrl(), null);
 
-        Filed filed = file(userId, workspaceId, projectId, request.triageCompanyId(), filing.source(), details);
+        Filed filed = file(userId, workspaceId, projectId, triageCompanyId, filing.source(), details);
         Candidate candidate = filed.candidate();
         Person person = candidate.getPerson();
         if (!person.isResearched()) {
@@ -421,7 +434,7 @@ public class CandidateService {
                 .detailIfPresent("runId", filing.runId() == null ? null : filing.runId().toString())
                 .detail("mappedExisting", filed.personWasKnown())
                 .record();
-        return responses.toDto(candidate);
+        return new ResearchedCandidate(responses.toDto(candidate), employer);
     }
 
     /**

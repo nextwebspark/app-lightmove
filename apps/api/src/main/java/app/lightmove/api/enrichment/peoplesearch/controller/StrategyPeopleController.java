@@ -8,6 +8,7 @@ import app.lightmove.api.enrichment.peoplesearch.dto.AddPeopleResponse;
 import app.lightmove.api.enrichment.peoplesearch.dto.PeopleCountResponse;
 import app.lightmove.api.enrichment.peoplesearch.dto.PeopleSearchPageResponse;
 import app.lightmove.api.enrichment.peoplesearch.dto.PeopleSearchResultsResponse;
+import app.lightmove.api.enrichment.peoplesearch.service.PeopleSearchFiling;
 import app.lightmove.api.enrichment.peoplesearch.service.StrategyPeopleService;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
@@ -33,6 +34,7 @@ import org.springframework.web.bind.annotation.RestController;
 public class StrategyPeopleController {
 
     private final StrategyPeopleService people;
+    private final PeopleSearchFiling filing;
 
     @GetMapping("/count")
     @RequireProjectPermission(ProjectAction.WORK_EXECUTE)
@@ -62,6 +64,6 @@ public class StrategyPeopleController {
     public AddPeopleResponse add(@AuthenticationPrincipal AuthPrincipal principal,
                                  @PathVariable UUID projectId,
                                  @Valid @RequestBody AddPeopleRequest request) {
-        return people.add(principal.userId(), principal.requireWorkspaceId(), projectId, request);
+        return filing.add(principal.userId(), principal.requireWorkspaceId(), projectId, request);
     }
 }

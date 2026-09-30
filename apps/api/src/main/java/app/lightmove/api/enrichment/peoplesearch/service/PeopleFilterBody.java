@@ -75,8 +75,12 @@ public final class PeopleFilterBody {
         return body;
     }
 
-    public static Map<String, Object> searchBody(PeopleFilter filter, List<String> declinedCompanies) {
-        Map<String, Object> body = countBody(filter, declinedCompanies);
+    /**
+     * The mandate's own filter and nothing of its triage: a page is cached for every workspace under this
+     * body, so what one mandate declined must not narrow what another is answered.
+     */
+    public static Map<String, Object> searchBody(PeopleFilter filter) {
+        Map<String, Object> body = countBody(filter, List.of());
         putList(body, "data_types", filter.contactTypes());
         return body;
     }
