@@ -353,11 +353,14 @@ lightmove:
     contactout:
       api-key: ${CONTACTOUT_API_KEY:}
 
-    # Find executives on the In-universe page: one Bright Data people search per company (sync
-    # Search API, ~2s), one model call to turn the brief into title words, one per company to pick
-    # the best fits, and the usual AI enrichment per person filed. Offered only when `provider` is
-    # brightdata. Every hit returned is billed ($2.5 per 1,000), so max-companies-per-run ×
-    # hits-per-company is the cost ceiling of one press — at the defaults, 50 records (~$0.13). The
+    # Find executives on the In-universe page: one people search per company, one model call to turn
+    # the brief into title words, and the usual AI enrichment per person filed. `people-source` picks
+    # the index: `brightdata` (the dataset, sync Search API ~2s, offered only when `provider` is
+    # brightdata, $2.5 per 1,000 records returned — but its titles are a cache frozen when LinkedIn
+    # locked them on 13 Nov 2025) or `contactout` (People Search on the contactout key above, current
+    # titles, one search credit per profile returned from the plan's monthly pool; with `provider:
+    # brightdata` too, the dataset is asked wherever ContactOut finds nobody or fails). Either way
+    # max-companies-per-run × hits-per-company is the most one press returns — 50 at the defaults. The
     # search is narrowed to the position's country plus the Gulf neighbours; nobody living elsewhere
     # is searched for.
     # Kept small for the trial; raise max-companies-per-run to 25 once the picks look right.
@@ -368,6 +371,7 @@ lightmove:
       parallelism: ${SOURCING_PARALLELISM:4}
       max-search-rounds: ${SOURCING_MAX_SEARCH_ROUNDS:3}
       run-deadline: ${SOURCING_RUN_DEADLINE:180s}
+      people-source: ${SOURCING_PEOPLE_SOURCE:brightdata}
 
   # How a paid third-party API is called: timeouts, retry and outbound pacing, shared by every vendor
   # adapter. These are spelled out rather than left to the record's @DefaultValue because @Retryable

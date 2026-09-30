@@ -18,6 +18,29 @@ below. Probed live 2026-08-31 against the account key in
 > which is how the exclusion fits beside employer, country and two title groups. The people cache
 > (V87) is built on these three facts.
 
+> **2026-09-30 — the titles are frozen, and ContactOut beside it.** Bright Data's own docs
+> (`products/scrapers/linkedin/data-policy-change`): on 13 Nov 2025 LinkedIn put Position, Experience and
+> Education behind its login wall; fill rates fell from 50–64% to ~2%, and those three fields are now
+> served from cache as last refreshed before that date — on the dataset, the live scraper and Enrich
+> alike. `current_company` still refreshes. So every title Find executives matches on is ≤ Nov 2025.
+> ContactOut's People Search (same account as contact lookup), probed live with the local key:
+> `/v1/people/count` is free; `/v1/people/search` bills one search credit per profile returned, from a
+> **2,000/month** pool that was untouched; 60 requests/min. `job_title` takes a Boolean
+> (`(Chief OR CFO OR Head OR Director) AND (Finance OR Financial OR CFO)` → 149 at `dpworld.com`, 35 in
+> the Gulf six) and matches whole words (`Head AND HR` → 11). The company is keyed by `domain` or
+> `company` name — a company LinkedIn URL answers 0. Seniority values that validate: `CXO`, `Partner`,
+> `VP`, `Director`, `Head`, `Manager`, `Senior`, `Entry` — but the per-profile `seniority`/`job_function`
+> are sparsely filled, so the title carries the search. Records came back `updated_at` Aug 2026 with
+> dated current roles — one DP World CFO shown as CEO since 2026, a move the frozen dataset cannot
+> know. `/v1/people/decision-makers` bills a credit per profile and returned 25 mixed-seniority rows
+> for one company — not useful here. Wired as `sourcing.people-source: contactout`.
+> First real runs (Head of Technology, N-1): the search asks the **seat's** titles first (Head/Director/VP
+> for an N-1 — asking Chief first filed three C-suite people); `location` and `current_work_location`
+> together are too strict (Landmark 23 → 4), so only the latter is sent and a hit living outside the
+> searched countries is dropped after; ContactOut matches whole words, so `IT`/`HR`/`PR` go back into
+> the title (dnata 3 → 6). A company whose Apollo domain is a non-Gulf entity (`sobhaconstructions.com`,
+> where the Gulf business is Sobha Realty) finds nobody — a universe data issue, not a search one.
+
 Every number below with a ✅ was measured against the live API on that date, not read from a docs
 page. Everything else is their published figure and is marked as such. Re-check before implementing:
 this is a vendor's product surface, and the last such note (`CoresignalEmployeeClient`'s class doc)

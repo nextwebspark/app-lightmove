@@ -2,6 +2,7 @@ package app.lightmove.api.enrichment.sourcing.service;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import app.lightmove.api.common.constant.Seniority;
 import app.lightmove.api.enrichment.candidate.model.BrightDataPerson;
 import app.lightmove.api.enrichment.candidate.model.BrightDataPerson.BrightDataExperience;
 import app.lightmove.api.enrichment.sourcing.model.SourcingSpec;
@@ -31,23 +32,29 @@ class CachedPeopleSearchTest {
     }
 
     @Test
-    @DisplayName("the same question in another order or case is one key; another size, country or exclusion is not")
+    @DisplayName("the same question in another order or case is one key; another size, country, exclusion, provider or seat is not")
     void queryKeysAreCanonical() {
-        String key = CachedPeopleSearch.queryKeyOf("DP-World",
-                spec(List.of("Chief", "Head"), List.of("Finance"), List.of("Assistant")), List.of("SA", "AE"), 10);
+        String key = CachedPeopleSearch.queryKeyOf("brightdata", "DP-World",
+                spec(List.of("Chief", "Head"), List.of("Finance"), List.of("Assistant")), null, List.of("SA", "AE"), 10);
 
-        assertThat(CachedPeopleSearch.queryKeyOf("dp-world",
-                spec(List.of("head", "chief"), List.of("FINANCE"), List.of("assistant")), List.of("AE", "SA"), 10))
+        assertThat(CachedPeopleSearch.queryKeyOf("brightdata", "dp-world",
+                spec(List.of("head", "chief"), List.of("FINANCE"), List.of("assistant")), null, List.of("AE", "SA"), 10))
                 .isEqualTo(key);
-        assertThat(CachedPeopleSearch.queryKeyOf("dp-world",
-                spec(List.of("Chief", "Head"), List.of("Finance"), List.of("Assistant")), List.of("AE", "SA"), 5))
+        assertThat(CachedPeopleSearch.queryKeyOf("brightdata", "dp-world",
+                spec(List.of("Chief", "Head"), List.of("Finance"), List.of("Assistant")), null, List.of("AE", "SA"), 5))
                 .isNotEqualTo(key);
-        assertThat(CachedPeopleSearch.queryKeyOf("dp-world",
-                spec(List.of("Chief", "Head"), List.of("Finance"), List.of("Assistant")), List.of(), 10))
+        assertThat(CachedPeopleSearch.queryKeyOf("brightdata", "dp-world",
+                spec(List.of("Chief", "Head"), List.of("Finance"), List.of("Assistant")), null, List.of(), 10))
                 .isNotEqualTo(key);
-        assertThat(CachedPeopleSearch.queryKeyOf("dp-world",
-                spec(List.of("Chief", "Head"), List.of("Finance"), List.of()), List.of("AE", "SA"), 10))
+        assertThat(CachedPeopleSearch.queryKeyOf("brightdata", "dp-world",
+                spec(List.of("Chief", "Head"), List.of("Finance"), List.of()), null, List.of("AE", "SA"), 10))
                 .isNotEqualTo(key);
+        assertThat(CachedPeopleSearch.queryKeyOf("contactout", "dp-world",
+                spec(List.of("Chief", "Head"), List.of("Finance"), List.of("Assistant")), null, List.of("AE", "SA"), 10))
+                .isNotEqualTo(key);
+        assertThat(CachedPeopleSearch.queryKeyOf("brightdata", "dp-world",
+                spec(List.of("Chief", "Head"), List.of("Finance"), List.of("Assistant")), Seniority.N_MINUS_1,
+                List.of("AE", "SA"), 10)).isNotEqualTo(key);
     }
 
     private static SourcingSpec spec(List<String> seniority, List<String> function, List<String> excluded) {

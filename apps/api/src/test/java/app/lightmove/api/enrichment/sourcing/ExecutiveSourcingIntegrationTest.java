@@ -142,6 +142,25 @@ class ExecutiveSourcingIntegrationTest extends FlowTestSupport {
     }
 
     @Test
+    @DisplayName("the picks are the hits whose current role fits the seat best, not the first the vendor returned")
+    void thePicksAreTheBestFitsNotTheFirstReturned() throws Exception {
+        String projectId = mandate("Ranking Firm");
+        String dpWorld = company(projectId, "DP World", "https://www.linkedin.com/company/dp-world/");
+        db.update("UPDATE app_lm_position SET seniority = 'C_SUITE' WHERE project_id = ?::uuid", projectId);
+        peopleSearch.answerWith("dp-world", List.of(
+                person("finance-manager", "Finance Manager", "Finance Manager"),
+                person("head-of-finance", "Head of Finance", "Head of Finance"),
+                person("finance-director", "Finance Director", "Group Finance Director"),
+                person("the-cfo", "The CFO", "Chief Financial Officer")));
+
+        String runId = start(projectId, "[]");
+
+        JsonNode outcome = outcomeFor(runOf(projectId, runId).get("outcomes"), dpWorld);
+        assertThat(outcome.get("picks")).extracting(pick -> pick.get("name").asText())
+                .containsExactly("The CFO", "Head of Finance", "Finance Director");
+    }
+
+    @Test
     @DisplayName("someone the mandate already maps is left out, and a hit that collides with a held name is a skip")
     void alreadyMappedPeopleAreSkipped() throws Exception {
         String projectId = mandate("Held Firm");

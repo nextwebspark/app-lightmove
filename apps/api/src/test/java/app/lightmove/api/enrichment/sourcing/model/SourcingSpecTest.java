@@ -54,13 +54,31 @@ class SourcingSpecTest {
     }
 
     @Test
-    @DisplayName("an abbreviation hiding inside ordinary words is never searched")
+    @DisplayName("an abbreviation hiding inside ordinary words is never searched; a function's is spelled out")
     void dropsNoiseWords() {
-        SourcingSpec spec = SourcingSpec.of(List.of("Head", "MD"), List.of("Technology", "IT", "Digital", "HR"),
+        SourcingSpec spec = SourcingSpec.of(List.of("Head", "MD"), List.of("Technology", "IT", "Digital"),
                 List.of(), null);
+        SourcingSpec people = SourcingSpec.of(List.of("Head"), List.of("HR", "Human"), List.of(), null);
 
         assertThat(spec.seniorityWords()).containsExactly("Head");
-        assertThat(spec.functionWords()).containsExactly("Technology", "Digital", "HR");
+        assertThat(spec.functionWords()).containsExactly("Technology", "CIO", "CTO", "Digital");
+        assertThat(people.functionWords()).containsExactly("Human", "People", "CHRO");
+    }
+
+    @Test
+    @DisplayName("words that spell a function out name its abbreviation back")
+    void namesTheAbbreviationsBack() {
+        assertThat(SourcingSpec.abbreviationsOf(List.of("Technology", "Human", "Finance"))).containsExactly("HR", "IT");
+        assertThat(SourcingSpec.abbreviationsOf(List.of("Finance"))).isEmpty();
+    }
+
+    @Test
+    @DisplayName("a title's abbreviation falls back to its spellings, never to the top-seat pairing")
+    void theFallbackSpellsAnAbbreviationOut() {
+        SourcingSpec spec = SourcingSpec.defaultFor("Head of HR", Seniority.N_MINUS_2);
+
+        assertThat(spec.seniorityWords()).containsExactly("Manager", "Head", "Senior", "Principal");
+        assertThat(spec.functionWords()).containsExactly("Human", "People", "CHRO");
     }
 
     @Test

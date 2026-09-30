@@ -17,7 +17,7 @@ public record ExecutiveSourcingSettings(
         /** Records bought per company at most. */
         @DefaultValue("10") int hitsPerCompany,
 
-        /** Executives filed per company at most, in the order the search returned them. */
+        /** Executives filed per company at most, best fit first. */
         @DefaultValue("3") int picksPerCompany,
 
         /** Companies searched at once — each holds a vendor call and then a model call. */
@@ -34,8 +34,21 @@ public record ExecutiveSourcingSettings(
          * for a Dubai seat is as often in Riyadh. Empty means the position's country alone. Nobody
          * living outside them is searched for.
          */
-        @DefaultValue({"AE", "SA", "QA", "KW", "BH", "OM"}) List<String> neighbourCountryCodes
+        @DefaultValue({"AE", "SA", "QA", "KW", "BH", "OM"}) List<String> neighbourCountryCodes,
+
+        /**
+         * Which index the run searches: {@code brightdata} — the people dataset, offered only when the
+         * enrichment provider is Bright Data — or {@code contactout}, offered when a ContactOut key is set.
+         */
+        @DefaultValue("brightdata") String peopleSource
 ) {
+
+    private static final String BRIGHT_DATA_SOURCE = "brightdata";
+    private static final String CONTACT_OUT_SOURCE = "contactout";
+
+    public boolean searchesContactOut() {
+        return CONTACT_OUT_SOURCE.equalsIgnoreCase(peopleSource);
+    }
 
     /** Past this a run still marked in progress was lost with its instance: the deadline, and a minute's grace. */
     public Duration lostAfter() {
@@ -54,6 +67,11 @@ public record ExecutiveSourcingSettings(
         }
         if (runDeadline == null || runDeadline.isNegative() || runDeadline.isZero()) {
             throw new IllegalArgumentException("lightmove.enrichment.sourcing.run-deadline must be positive");
+        }
+        if (peopleSource == null || !(BRIGHT_DATA_SOURCE.equalsIgnoreCase(peopleSource)
+                || CONTACT_OUT_SOURCE.equalsIgnoreCase(peopleSource))) {
+            throw new IllegalArgumentException(
+                    "lightmove.enrichment.sourcing.people-source must be brightdata or contactout");
         }
         neighbourCountryCodes = neighbourCountryCodes == null ? List.of()
                 : neighbourCountryCodes.stream().filter(code -> code != null && !code.isBlank()).toList();
