@@ -290,6 +290,9 @@ public class CandidateService {
         CandidateDetails details = requests.detailsOf(projectId, request, candidate.getTriageCompanyId());
         refuseDuplicate(projectId, request.triageCompanyId(), details.fullName(), candidateId);
         refuseHeldProfile(projectId, details.linkedinUrl(), candidateId);
+        if (matcher.isHeldByAnother(workspaceId, details.linkedinUrl(), person.getId())) {
+            throw ApiException.of(ErrorCode.PERSON_PROFILE_HELD);
+        }
         refuseRetypedCapturedProfile(person, details.linkedinUrl());
 
         boolean confirmBackground = Boolean.TRUE.equals(request.confirmBackground());
@@ -304,8 +307,8 @@ public class CandidateService {
         requests.refuseOverfullChannels(person);
         candidate.describeCustomFields(customColumns.applyTo(projectId, CustomColumnTarget.CANDIDATE,
                 candidate.getCustomFields(), request.customFields()));
-        activity.record(candidate, userId, PersonActivityKind.PROFILE_EDITED,
-                "door", door.name(), "backgroundConfirmed", confirmBackground ? true : null);
+        activity.record(candidate, userId, PersonActivityKind.PROFILE_EDITED, PersonActivityDetails
+                .of("door", door.name()).and("backgroundConfirmed", confirmBackground));
 
         audit.projectEvent(ProjectEventType.CANDIDATE_UPDATED, userId, workspaceId, projectId, httpRequest)
                 .detail("candidateId", candidateId.toString())
@@ -330,7 +333,7 @@ public class CandidateService {
         candidate.moveTo(to);
         if (from != to) {
             activity.record(candidate, userId, PersonActivityKind.STATUS_CHANGED,
-                    "from", from.value(), "to", to.value());
+                    PersonActivityDetails.of("from", from.value()).and("to", to.value()));
         }
 
         audit.projectEvent(ProjectEventType.CANDIDATE_UPDATED, userId, workspaceId, projectId, httpRequest)
@@ -363,7 +366,7 @@ public class CandidateService {
                 person.enrich(enriched);
                 keepPhoto(person.getId(), enriched);
                 activity.record(candidate, candidate.getAddedBy(), PersonActivityKind.RESEARCHED,
-                        "vendor", enriched.vendor() == null ? null : enriched.vendor().name());
+                        PersonActivityDetails.of("vendor", enriched.vendor()));
             }
             candidate.adoptEmployer(enriched.employerName());
             mapToEmployer(projectId, candidate, enriched);
@@ -400,7 +403,7 @@ public class CandidateService {
             person.enrich(research);
             keepPhoto(person.getId(), research);
             activity.record(candidate, userId, PersonActivityKind.RESEARCHED,
-                    "vendor", research.vendor() == null ? null : research.vendor().name(), "runId", runId.toString());
+                    PersonActivityDetails.of("vendor", research.vendor()).and("runId", runId));
         }
         candidate.adoptEmployer(research.employerName());
         stream.publish(projectId, ProjectStreamKind.CANDIDATE_CAPTURED);
@@ -530,7 +533,7 @@ public class CandidateService {
         person.replaceContacts(ContactChannel.EMAIL, emails, ContactSource.MANUAL);
         person.replaceContacts(ContactChannel.PHONE, phones, ContactSource.MANUAL);
         activity.record(candidate, userId, PersonActivityKind.CONTACTS_EDITED,
-                "emails", emails.size(), "phones", phones.size());
+                PersonActivityDetails.of("emails", emails.size()).and("phones", phones.size()));
         stream.publish(projectId, ProjectStreamKind.CANDIDATE_ENRICHED);
 
         audit.projectEvent(ProjectEventType.CANDIDATE_UPDATED, userId, workspaceId, projectId, httpRequest)
@@ -581,7 +584,8 @@ public class CandidateService {
         }
         person.recordFoundEmails(found);
         activity.record(candidate, userId, PersonActivityKind.CONTACT_FOUND,
-                "channel", ContactChannel.EMAIL.name(), "found", found.emails().size(), "via", found.source());
+                PersonActivityDetails.of("channel", ContactChannel.EMAIL)
+                        .and("found", found.emails().size()).and("via", found.source()));
         stream.publish(projectId, ProjectStreamKind.CANDIDATE_ENRICHED);
         return responses.toDto(candidate);
     }
@@ -596,7 +600,8 @@ public class CandidateService {
         }
         person.recordFoundPhones(found);
         activity.record(candidate, userId, PersonActivityKind.CONTACT_FOUND,
-                "channel", ContactChannel.PHONE.name(), "found", found.phones().size(), "via", found.source());
+                PersonActivityDetails.of("channel", ContactChannel.PHONE)
+                        .and("found", found.phones().size()).and("via", found.source()));
         stream.publish(projectId, ProjectStreamKind.CANDIDATE_ENRICHED);
         return responses.toDto(candidate);
     }
@@ -766,14 +771,14 @@ public class CandidateService {
             person.fillFrom(details, ContactSource.ofDoor(source));
         }
         if (source == CandidateSource.EXTENSION) {
-            person.lockProfileUrl();
+            person.lockProfileUrl(details.linkedinUrl());
         }
         requests.refuseOverfullChannels(person);
         Candidate candidate = candidates.save(Candidate.mapped(projectId, userId, triageCompanyId, person,
                 source, details));
         activity.record(candidate, userId,
                 known.isPresent() ? PersonActivityKind.MAPPED : PersonActivityKind.ADDED_TO_POOL,
-                "door", source.name());
+                PersonActivityDetails.of("door", source));
         return new Filed(candidate, known.isPresent());
     }
 

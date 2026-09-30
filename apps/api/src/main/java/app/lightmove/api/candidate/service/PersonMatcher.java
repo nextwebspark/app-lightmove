@@ -56,6 +56,17 @@ class PersonMatcher {
         return Optional.empty();
     }
 
+    /**
+     * Whether a person other than {@code personId} is already the profile {@code linkedinUrl} names.
+     * An edit writes the URL onto the workspace's person, so a mandate-scoped check cannot guard it:
+     * two people on one slug would leave every later capture of it mapped to whichever is older.
+     */
+    boolean isHeldByAnother(UUID workspaceId, String linkedinUrl, UUID personId) {
+        String slug = LinkedInUrls.profileSlugOrNull(linkedinUrl);
+        return slug != null && people.findByWorkspaceIdAndProfileSlugLike(workspaceId, slug).stream()
+                .anyMatch(person -> !person.getId().equals(personId) && slug.equals(slugOf(person)));
+    }
+
     private static String slugOf(Person person) {
         return LinkedInUrls.profileSlugOrNull(person.getLinkedinUrl());
     }

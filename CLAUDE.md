@@ -41,7 +41,8 @@ workspace already knows them — by LinkedIn profile slug, or by an email the le
 name different profiles; never by phone (a switchboard is on everyone) and never by name alone — and a
 match is **mapped, not duplicated**: what the new mandate brings only fills what nobody recorded, an
 edit through one mandate is what every other reads, and removing someone from a mandate keeps the
-person. A plugin capture of someone already researched spends no second vendor call. Every change to a
+person. A profile is one person's: an edit that would give a second person of the workspace the same
+LinkedIn profile is refused (`PERSON_PROFILE_HELD`). A plugin capture of someone already researched spends no second vendor call. Every change to a
 person — added, mapped, unmapped, status, profile, contacts, research, AI — is a line of
 `app_lm_person_activity` naming who did it, on which mandate, and when, written in the same transaction
 as the change (`PersonActivityRecorder`); the security audit trail is written as before, beside it.

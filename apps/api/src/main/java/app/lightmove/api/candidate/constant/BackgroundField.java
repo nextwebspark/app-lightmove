@@ -4,7 +4,7 @@ import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 import lombok.experimental.Accessors;
 
-/** The four fields a model may propose on a researched executive; the keys of {@code Candidate.aiInferredFields}. */
+/** The four fields a model may propose on a researched executive; the keys of {@code Person.aiInferredFields}. */
 @Getter
 @Accessors(fluent = true)
 @RequiredArgsConstructor

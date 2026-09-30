@@ -90,8 +90,6 @@ public interface CandidateRepository extends JpaRepository<Candidate, UUID> {
             nativeQuery = true)
     List<CandidateCount> countMappedCompaniesByProjectIdIn(Collection<UUID> projectIds, String declinedStatus);
 
-    boolean existsByIdAndProjectId(UUID id, UUID projectId);
-
     /** The person behind one of the mandate's rows, without loading either — the photo endpoint's read. */
     @Query("select c.person.id from Candidate c where c.id = :id and c.projectId = :projectId")
     Optional<UUID> findPersonIdByIdAndProjectId(UUID id, UUID projectId);

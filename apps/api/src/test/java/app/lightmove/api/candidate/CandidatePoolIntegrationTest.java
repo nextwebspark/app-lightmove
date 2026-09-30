@@ -267,6 +267,92 @@ class CandidatePoolIntegrationTest extends FlowTestSupport {
         assertThat((String) lines.get(2).get("details")).contains("\"from\": \"identified\"", "\"to\": \"contacted\"");
     }
 
+    @Test
+    @DisplayName("an edit may not point a person at a profile another person in the workspace already is")
+    void anEditCannotTakeAnotherPersonsProfile() throws Exception {
+        String first = mandate("Held Profile Firm", "Chief Financial Officer");
+        String second = mandateInSameWorkspace("Head of Credit Risk");
+        add(first, """
+                {"fullName":"Layla Hassan","linkedinUrl":"https://www.linkedin.com/in/layla-hassan"}""");
+        String other = add(second, """
+                {"fullName":"Maya Hassan","linkedinUrl":"https://www.linkedin.com/in/maya-hassan"}""")
+                .get("id").asText();
+
+        String code = codeOf(mvc.perform(put(candidatesUrl(second) + "/" + other)
+                        .header("Authorization", "Bearer " + adminToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"fullName":"Maya Hassan","linkedinUrl":"https://linkedin.com/in/Layla-Hassan/"}"""))
+                .andExpect(status().isConflict())
+                .andReturn());
+
+        assertThat(code).isEqualTo("PERSON_PROFILE_HELD");
+        assertThat(read(second, other).get("linkedinUrl").asText()).isEqualTo("https://www.linkedin.com/in/maya-hassan");
+    }
+
+    @Test
+    @DisplayName("a capture replaces a held URL that names no profile, and locks only the page it read")
+    void aCaptureLocksThePageItRead() throws Exception {
+        String first = mandate("Search Url Firm", "Chief Financial Officer");
+        String second = mandateInSameWorkspace("Head of Credit Risk");
+        JsonNode typed = add(first, """
+                {"fullName":"Tariq Aziz","email":"tariq@aziz.example",
+                 "linkedinUrl":"https://www.linkedin.com/search/results/people/?keywords=tariq"}""");
+        JsonNode captured = add(second, """
+                {"fullName":"Tariq Aziz","source":"extension","email":"tariq@aziz.example",
+                 "linkedinUrl":"https://www.linkedin.com/in/tariq-aziz"}""");
+
+        assertThat(captured.get("personId").asText()).isEqualTo(typed.get("personId").asText());
+        assertThat(read(first, typed.get("id").asText()).get("linkedinUrl").asText())
+                .isEqualTo("https://www.linkedin.com/in/tariq-aziz");
+        String code = codeOf(mvc.perform(put(candidatesUrl(first) + "/" + typed.get("id").asText())
+                        .header("Authorization", "Bearer " + adminToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"fullName":"Tariq Aziz","linkedinUrl":"https://www.linkedin.com/in/someone-else"}"""))
+                .andExpect(status().isConflict())
+                .andReturn());
+        assertThat(code).isEqualTo("CANDIDATE_PROFILE_URL_LOCKED");
+    }
+
+    @Test
+    @DisplayName("a client seat reads its own mandate's decision about a shared person, never another's")
+    void aClientSeatReadsOnlyItsMandate() throws Exception {
+        String first = mandate("Client Seat Pool Firm", "Chief Financial Officer");
+        String second = mandateInSameWorkspace("Head of Credit Risk");
+        String onFirst = add(first, """
+                {"fullName":"Aisha Karim","linkedinUrl":"https://www.linkedin.com/in/aisha-karim",
+                 "status":"engaged","note":"Shortlist for the board."}""").get("id").asText();
+        add(second, """
+                {"fullName":"Aisha Karim","linkedinUrl":"https://www.linkedin.com/in/aisha-karim",
+                 "status":"notInterested","note":"Declined the credit role: competing client."}""");
+
+        String clientEmail = "client@pool-client-" + domain;
+        mvc.perform(post("/api/v1/projects/" + first + "/representatives/invitations")
+                        .header("Authorization", "Bearer " + adminToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"fullName":"A Client","position":"Chair","email":"%s"}
+                                """.formatted(clientEmail)))
+                .andExpect(status().isOk());
+        String clientToken = body(mvc.perform(post("/api/v1/onboarding/accept-invitation-signup")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"token":"%s","fullName":"A Client","password":"%s"}
+                                """.formatted(email.latestTokenFor(clientEmail), PASSWORD)))
+                .andExpect(status().isCreated())
+                .andReturn()).get("accessToken").asText();
+
+        String seen = mvc.perform(get(candidatesUrl(first) + "/" + onFirst)
+                        .header("Authorization", "Bearer " + clientToken))
+                .andExpect(status().isOk())
+                .andReturn().getResponse().getContentAsString();
+        assertThat(seen).contains("Shortlist for the board.", "\"engaged\"")
+                .doesNotContain("competing client", "notInterested", second, "Head of Credit Risk");
+        mvc.perform(get(candidatesUrl(second)).header("Authorization", "Bearer " + clientToken))
+                .andExpect(status().isForbidden());
+    }
+
     private JsonNode add(String projectId, String body) throws Exception {
         return body(mvc.perform(post(candidatesUrl(projectId))
                         .header("Authorization", "Bearer " + adminToken)

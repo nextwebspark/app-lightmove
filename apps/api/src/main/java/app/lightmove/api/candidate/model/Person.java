@@ -9,6 +9,7 @@ import app.lightmove.api.candidate.constant.EnrichmentVendor;
 import app.lightmove.api.candidate.constant.Gender;
 import app.lightmove.api.common.constant.Seniority;
 import app.lightmove.api.core.persistence.model.BaseEntity;
+import app.lightmove.api.core.text.service.LinkedInUrls;
 import jakarta.persistence.CollectionTable;
 import jakarta.persistence.Column;
 import jakarta.persistence.ElementCollection;
@@ -207,7 +208,12 @@ public class Person extends BaseEntity {
     public void fillFrom(CandidateDetails details, ContactSource door) {
         title = title == null ? details.title() : title;
         seniorityLevel = seniorityLevel == null ? details.seniority() : seniorityLevel;
-        linkedinUrl = linkedinUrl == null ? details.linkedinUrl() : linkedinUrl;
+        // A held URL that names no profile (a search page, a company page) is not a profile anybody
+        // recorded; a filing that brings one replaces it, unless a capture already locked it.
+        if (linkedinUrl == null || (!linkedinUrlLocked && LinkedInUrls.profileSlugOrNull(linkedinUrl) == null
+                && LinkedInUrls.profileSlugOrNull(details.linkedinUrl()) != null)) {
+            linkedinUrl = details.linkedinUrl();
+        }
         locationCountry = locationCountry == null ? details.locationCountry() : locationCountry;
         locationCity = locationCity == null ? details.locationCity() : locationCity;
         nationality = nationality == null ? details.nationality() : nationality;
@@ -226,9 +232,19 @@ public class Person extends BaseEntity {
         remember(ContactChannel.PHONE, details.phones(), door);
     }
 
-    /** The plugin read this person off their profile page, so the URL is the page's from here on. */
-    public void lockProfileUrl() {
-        this.linkedinUrlLocked = linkedinUrl != null;
+    /**
+     * The plugin read this person off {@code capturedUrl}, so the URL is the page's from here on — but
+     * only when the person's URL is that page: a lock on a URL the plugin never read would keep a wrong
+     * one from ever being corrected.
+     */
+    public void lockProfileUrl(String capturedUrl) {
+        if (linkedinUrl == null) {
+            return;
+        }
+        String held = LinkedInUrls.profileSlugOrNull(linkedinUrl);
+        boolean isThatPage = linkedinUrl.equals(capturedUrl)
+                || (held != null && held.equals(LinkedInUrls.profileSlugOrNull(capturedUrl)));
+        linkedinUrlLocked = linkedinUrlLocked || isThatPage;
     }
 
     private void describeCompensation(CandidateCompensation compensation) {
