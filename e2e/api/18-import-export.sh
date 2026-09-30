@@ -220,20 +220,20 @@ check 18.39 "…with no universe id, because an import is never resolved against
 check 18.40 "every person landed with source CSV" "4" \
   "$(sql "SELECT count(*) FROM app_lm_project_candidate WHERE project_id = '$PROJECT' AND source = 'CSV'")"
 check 18.41 "each address is a contact row that came through the CSV door" "4" \
-  "$(sql "SELECT count(*) FROM app_lm_candidate_contact cc
-            JOIN app_lm_project_candidate c ON c.id = cc.candidate_id
+  "$(sql "SELECT count(*) FROM app_lm_person_contact cc
+            JOIN app_lm_project_candidate c ON c.person_id = cc.person_id
           WHERE c.project_id = '$PROJECT' AND cc.channel = 'EMAIL' AND cc.source = 'CSV'")"
 check 18.42 "…and so is each phone" "3" \
-  "$(sql "SELECT count(*) FROM app_lm_candidate_contact cc
-            JOIN app_lm_project_candidate c ON c.id = cc.candidate_id
+  "$(sql "SELECT count(*) FROM app_lm_person_contact cc
+            JOIN app_lm_project_candidate c ON c.person_id = cc.person_id
           WHERE c.project_id = '$PROJECT' AND cc.channel = 'PHONE' AND cc.source = 'CSV'")"
 check 18.43 "the two Falcon people are mapped at the one Falcon row" "2" \
   "$(sql "SELECT count(*) FROM app_lm_project_candidate c
             JOIN app_lm_project_triage_company t ON t.id = c.triage_company_id
           WHERE c.project_id = '$PROJECT' AND t.company_name = 'Falcon Logistics'")"
 check 18.44 "the person with no company is filed unmapped" "1" \
-  "$(sql "SELECT count(*) FROM app_lm_project_candidate
-          WHERE project_id = '$PROJECT' AND full_name = 'Unplaced Person' AND triage_company_id IS NULL")"
+  "$(sql "SELECT count(*) FROM app_lm_project_candidate c JOIN app_lm_person p ON p.id = c.person_id
+          WHERE c.project_id = '$PROJECT' AND p.full_name = 'Unplaced Person' AND c.triage_company_id IS NULL")"
 check 18.45 "the import is on the audit trail with its tally" "5/3/4" \
   "$(await_sql "SELECT metadata->>'rowsRead' || '/' || (metadata->>'companiesCreated') || '/' || (metadata->>'candidatesCreated')
                 FROM app_lm_audit_event WHERE event_type = 'SPREADSHEET_IMPORTED' AND target_id = '$PROJECT'
@@ -281,8 +281,8 @@ check 18.64 "the mandate still holds four people" "4" \
 check 18.65 "…and three companies" "3" \
   "$(sql "SELECT count(*) FROM app_lm_project_triage_company WHERE project_id = '$PROJECT'")"
 check 18.66 "…and still one contact row per address" "4" \
-  "$(sql "SELECT count(*) FROM app_lm_candidate_contact cc
-            JOIN app_lm_project_candidate c ON c.id = cc.candidate_id
+  "$(sql "SELECT count(*) FROM app_lm_person_contact cc
+            JOIN app_lm_project_candidate c ON c.person_id = cc.person_id
           WHERE c.project_id = '$PROJECT' AND cc.channel = 'EMAIL'")"
 PEOPLE=$(candidates_json)
 check 18.67 "\"negotiable\" leaves the hand-recorded notice period standing" "1 month" \

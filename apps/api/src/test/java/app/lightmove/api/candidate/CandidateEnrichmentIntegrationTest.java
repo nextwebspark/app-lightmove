@@ -141,7 +141,7 @@ class CandidateEnrichmentIntegrationTest extends FlowTestSupport {
 
         // Which provider answered is recorded, so the dataset's share of the work is countable.
         assertThat(db.queryForObject(
-                "select enriched_by from app_lm_project_candidate where id = ?::uuid",
+                "select p.enriched_by from app_lm_person p join app_lm_project_candidate c on c.person_id = p.id where c.id = ?::uuid",
                 String.class, candidateId)).isEqualTo("BRIGHTDATA");
 
         // The employer went into the universe — logo and all — and the person is mapped at it.

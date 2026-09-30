@@ -186,7 +186,7 @@ check_status N17.4.8 "an executive with nobody's view of their gender" 201
 OMAR=$(json '.id')
 check N17.4.9 "reads back with none" "null" "$(json '.gender')"
 check N17.4.10 "…and the rows keep not-recorded apart from other" "OTHER|" \
-  "$(sql "SELECT coalesce(gender, '') FROM app_lm_project_candidate WHERE id = '$LAYLA'")|$(sql "SELECT coalesce(gender, '') FROM app_lm_project_candidate WHERE id = '$OMAR'")"
+  "$(sql "SELECT coalesce(p.gender, '') FROM app_lm_project_candidate c JOIN app_lm_person p ON p.id = c.person_id WHERE c.id = '$LAYLA'")|$(sql "SELECT coalesce(p.gender, '') FROM app_lm_project_candidate c JOIN app_lm_person p ON p.id = c.person_id WHERE c.id = '$OMAR'")"
 check N17.4.11 "an unmapped executive has no company row" "" "$(json '.triageCompanyId // empty')"
 
 post_json "$PEOPLE" "$(person "Omar Nasser $RUN_TAG")" -H "$LEAD_AUTH"
@@ -245,7 +245,7 @@ check N17.5.5 "the held address took the new kind and the researcher's verificat
 check N17.5.6 "the same number spelt without spaces is the same row, respelt" "1 +971501234567" \
   "$(json '.contacts.phones | length') $(json '.contacts.phones[0].number')"
 check N17.5.7 "…one row in the ledger, keyed on its digits" "1|971501234567" \
-  "$(sql "SELECT count(*) || '|' || max(value_key) FROM app_lm_candidate_contact WHERE candidate_id = '$RANIA' AND upper(channel) = 'PHONE'")"
+  "$(sql "SELECT count(*) || '|' || max(value_key) FROM app_lm_person_contact k JOIN app_lm_project_candidate c ON c.person_id = k.person_id WHERE c.id = '$RANIA' AND upper(k.channel) = 'PHONE'")"
 
 put_json "$CONTACTS" '{"emails":[{"value":"r.saleh@example.org"}],"phones":[{"value":"+971501234567"}]}' -H "$LEAD_AUTH"
 check N17.5.8 "an address left out of the list is removed" "r.saleh@example.org" "$(json '[.contacts.emails[].address] | join(",")')"
@@ -394,6 +394,7 @@ capture "$LEAD_AUTH" "$GAMMA"
 GAMMA_ID=$(json '.id')
 post_json "$PEOPLE" "$(person "Faris Kanaan $RUN_TAG" ".triageCompanyId = \"$GAMMA_ID\" | .email = \"faris@example.com\"")" -H "$LEAD_AUTH"
 FARIS=$(json '.id')
+FARIS_PERSON=$(json '.personId')
 check N17.8.1 "an executive is mapped at the doomed company" "$GAMMA_ID" "$(json '.triageCompanyId')"
 
 http DELETE "$TRIAGE/$GAMMA_ID" -H "$LEAD_AUTH"
@@ -414,8 +415,8 @@ http DELETE "$PEOPLE/$FARIS" -H "$LEAD_AUTH"
 check_status N17.8.9 "an executive is removed" 204
 get "$PEOPLE/$FARIS" -H "$LEAD_AUTH"
 check_code N17.8.10 "…and is gone" 404 NOT_FOUND
-check N17.8.11 "…taking their contact rows with them" "0" \
-  "$(sql "SELECT count(*) FROM app_lm_candidate_contact WHERE candidate_id = '$FARIS'")"
+check N17.8.11 "…while the workspace's person keeps their contact rows" "1" \
+  "$(sql "SELECT count(*) FROM app_lm_person_contact WHERE person_id = '$FARIS_PERSON'")"
 
 section "N17.9  the client seat reads, and writes nothing"
 
