@@ -218,7 +218,10 @@ enrichment/                # the one feature split twice: by subject first, then
                        CandidateEnrichmentWorker)  config/(CandidateEnrichmentConfig)
   company/    service/(LinkedInCompanyEnricher, BrightDataCompanyEnricher, LogCompanyEnricher,
                        CompanyEnrichmentWorker)    config/(CompanyEnrichmentConfig)
-  common/     service/(BrightDataSearch)
+  common/     model/(ContactOutCount)
+              service/(BrightDataSearch, ContactOutPeopleIndex, ContactOutPeopleClient,
+                       UnconfiguredContactOutPeopleIndex, ContactOutPeopleRecords, PeopleQueryKeys,
+                       SearchHitFiling)  config/(ContactOutPeopleIndexConfig)
   sourcing/   Find executives — constant/(SourcingRunStatus, SourcingOutcome, TitleLevel)
               model/(ExecutiveSourcingRun, SourcingCompany, SearchedEmployer, SourcingSpec, SourcingBrief, CompanyOutcome,
                      SourcingRound, ExecutivePick, ExecutiveSourcingRequested)  repository/
@@ -228,6 +231,9 @@ enrichment/                # the one feature split twice: by subject first, then
                        ExecutiveSourcingWorker, SourcingRunStore, SourcingSpecProposer, SourcingSpecRefiner,
                        SourcedHitRanking)
               config/(ExecutiveSourcingConfig)  controller/  dto/
+  peoplesearch/ Strategy's People mode — model/(PeoplePage)
+              service/(StrategyPeopleService, CachedContactOutPeopleQuery, PeopleFilterBody, LocationSuggestions)
+              controller/(StrategyPeopleController, LocationSuggestionController)  dto/
 
 geocoding/                 # a city+country pair becomes a point, once — global cache, no tenant data
   constant/(GeoPrecision)  model/(PlaceKey, GeoPoint, GeocodingResult, GeocodedPlace)  repository/
@@ -360,6 +366,13 @@ method plus the records it returns — never another feature's internals:
   Nationality is the one thing it folds: `NationalityCatalog` counts a row's free-text value under
   one of eleven groups at read time — a country it resolves but no other group claims is Other
   expat — and never rewrites what is stored.
+- `enrichment/peoplesearch` (Strategy's People mode) sits in `enrichment`, not `strategy`, though it is
+  a search: it files people, so it depends on `candidate` and `triagecompany`, which already depend on
+  `strategy` — placed in `strategy` it would close the loop. `strategy` owns what a search is expressed
+  in (`PeopleFilter` on its own row, `PeopleSearchVocabulary`, `PeopleFilterReader`, the saved search's
+  `kind`); `peoplesearch` reads the stored filter through `StrategyService.peopleFilterOf`, the declined
+  companies through `TriageCompanyReadService.listAllOfStage`, and files through
+  `CandidateService.addResearched` and `TriageCompanyService.captureFromResearch`.
 - `position`'s `PositionService` reads `project`'s repositories for the mandate a brief belongs to,
   the same way `CandidateService` does — a brief cannot be scoped, titled or dated without it — and
   `project`'s `ProjectService.create` seeds the new mandate's brief through one call taking primitives
