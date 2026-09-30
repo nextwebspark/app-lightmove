@@ -66,6 +66,13 @@ class SourcingSpecTest {
     }
 
     @Test
+    @DisplayName("words that spell a function out name its abbreviation back")
+    void namesTheAbbreviationsBack() {
+        assertThat(SourcingSpec.abbreviationsOf(List.of("Technology", "Human", "Finance"))).containsExactly("HR", "IT");
+        assertThat(SourcingSpec.abbreviationsOf(List.of("Finance"))).isEmpty();
+    }
+
+    @Test
     @DisplayName("a title's abbreviation falls back to its spellings, never to the top-seat pairing")
     void theFallbackSpellsAnAbbreviationOut() {
         SourcingSpec spec = SourcingSpec.defaultFor("Head of HR", Seniority.N_MINUS_2);

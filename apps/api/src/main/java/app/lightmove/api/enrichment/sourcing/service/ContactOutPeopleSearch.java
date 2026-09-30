@@ -22,6 +22,8 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
+import java.util.regex.Pattern;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.MediaType;
 import org.springframework.web.client.RestClient;
@@ -30,16 +32,9 @@ import tools.jackson.databind.PropertyNamingStrategies;
 import tools.jackson.databind.annotation.JsonNaming;
 
 /**
- * ContactOut's People Search as the Find executives index — its titles are the current experience's,
- * kept fresh by its own data, where Bright Data's are a cache frozen when LinkedIn locked them on
- * 13 Nov 2025. The run's words become one Boolean title ({@code (seniority OR …) AND (function OR …)}),
- * matched on whole words rather than substrings, and the company is keyed on its website domain, or
- * its name when the row has none — a company LinkedIn URL matches nothing here.
- *
- * <p>Probed live 2026-09-30: seniority and function taxonomies exist but are sparsely filled, so the
- * title carries the search; {@code people/count} is free and {@code people/search} bills one search
- * credit per profile returned (the plan's own monthly pool), and returns them in no useful order. It
- * cannot exclude profiles by slug, so a person already on file may be returned, and billed, again.
+ * ContactOut's People Search, matched on current titles as whole words. The company is keyed by website
+ * domain or name (a company LinkedIn URL matches nothing), {@code people/count} is free and each profile
+ * {@code people/search} returns is billed, in no useful order. Findings: the sourcing investigation doc.
  */
 @Slf4j
 public class ContactOutPeopleSearch implements PeopleSearch {
@@ -51,18 +46,23 @@ public class ContactOutPeopleSearch implements PeopleSearch {
 
     private static final int MAX_PAGE_SIZE = 25;
 
-    /** A tier finding this many is enough — the default picks per company — and the wider one is not asked. */
-    static final int ENOUGH_FROM_A_TIER = 3;
+    /** ContactOut's own operators; a word spelling one would change the query rather than join it. */
+    private static final Set<String> OPERATORS = Set.of("and", "or", "not");
+
+    private static final Pattern SEARCHABLE_WORD = Pattern.compile("[\\p{L}\\p{N}][\\p{L}\\p{N}&.-]*");
 
     private final RestClient client;
     private final VendorCallGuard guard;
     private final ObjectMapper json;
+    private final int enoughFromATier;
 
+    /** @param enoughFromATier the people a tier must find before a wider one is not asked — the picks per company */
     public ContactOutPeopleSearch(ContactOutSettings config, VendorClientFactory clientFactory,
                                   VendorRateLimiter rateLimiter, VendorCallGuard guard, RestClient.Builder builder,
-                                  ObjectMapper json) {
+                                  ObjectMapper json, int enoughFromATier) {
         this.guard = guard;
         this.json = json;
+        this.enoughFromATier = enoughFromATier;
         this.client = clientFactory.create(VendorClientSpec.header(VENDOR, config.baseUrl(), "token",
                 config.apiKey(), READ_TIMEOUT, config.searchRequestsPerSecond()), builder, rateLimiter);
     }
@@ -78,13 +78,9 @@ public class ContactOutPeopleSearch implements PeopleSearch {
     }
 
     /**
-     * The seat's own titles first: each tier is counted free, then fetched whole when it fits one page —
-     * a first page of a broad search is an arbitrary slice, and at DP World it held one of the seven CFOs
-     * and missed the Group CFO. The next tier is asked only while fewer than {@link #ENOUGH_FROM_A_TIER}
-     * have been found, and never returns anyone an earlier tier did.
-     *
-     * <p>Not {@code @Retryable}: a retry would repeat the tiers already bought, and a failure is handed
-     * to Bright Data by {@code CachedPeopleSearch} instead.
+     * The seat's own titles first, each tier counted free before anything is bought; a wider tier only
+     * while fewer than {@code enoughFromATier} are found. Not {@code @Retryable}: a retry would re-buy the
+     * tiers already fetched, and a failure falls back to Bright Data instead.
      */
     @Override
     public BrightDataPeopleHits currentEmployeesTitled(SearchedEmployer employer, SourcingSpec spec, Seniority seat,
@@ -108,7 +104,7 @@ public class ContactOutPeopleSearch implements PeopleSearch {
                         .filter(person -> livesIn(person, countryCodes))
                         .toList());
             }
-            if (found.size() >= ENOUGH_FROM_A_TIER || found.size() >= size) {
+            if (found.size() >= enoughFromATier || found.size() >= size) {
                 break;
             }
         }
@@ -145,10 +141,9 @@ public class ContactOutPeopleSearch implements PeopleSearch {
     }
 
     /**
-     * Everything but the title: the company by domain or name, the exclusions, current titles only, and
-     * the countries as where the role is. Not also as {@code location}: both together cut Landmark's
-     * technology heads from 23 to 4, and a hit living elsewhere is dropped after the answer instead.
-     * Empty when the company has neither a domain nor a name.
+     * Everything but the title, empty when the company has neither a domain nor a name. The countries go
+     * as where the role is only: adding where the person lives as well cut matches several-fold, so a hit
+     * living elsewhere is dropped after the answer instead.
      */
     static Optional<Map<String, Object>> baseFilter(SearchedEmployer employer, SourcingSpec spec,
                                                     List<String> countryCodes) {
@@ -175,35 +170,33 @@ public class ContactOutPeopleSearch implements PeopleSearch {
     }
 
     /**
-     * The Boolean titles to ask, the seat's level first: the seniority words at the brief's level
-     * ("Chief", "CFO" for a C-suite seat; "Head", "Director", "VP" for an N-1) with the function, then
-     * the rest with the function and {@code NOT} the first ones, so the two tiers never return one person
-     * twice. One tier when the words do not split. ContactOut's operators must be upper case to count.
+     * The Boolean titles to ask, the seat's level first — the seniority words at the brief's level with
+     * the function — then the rest with the function and {@code NOT} the first ones, so no one is bought
+     * twice. One tier when the words do not split; none when no word is searchable.
      */
     static List<String> titleTiers(SourcingSpec spec, Seniority seat) {
         TitleLevel wanted = TitleLevel.ofSeat(seat);
-        List<String> atSeat = spec.seniorityWords().stream()
-                .filter(word -> SourcedHitRanking.levelOf(word) == wanted)
-                .toList();
-        List<String> rest = spec.seniorityWords().stream().filter(word -> !atSeat.contains(word)).toList();
-        String function = anyOf(wholeWordFunction(spec.functionWords()));
+        List<String> seniority = searchable(spec.seniorityWords());
+        List<String> atSeat = seniority.stream().filter(word -> SourcedHitRanking.levelOf(word) == wanted).toList();
+        List<String> rest = seniority.stream().filter(word -> !atSeat.contains(word)).toList();
+        List<String> functionWords = new ArrayList<>(searchable(spec.functionWords()));
+        SourcingSpec.abbreviationsOf(functionWords).stream()
+                .filter(abbreviation -> functionWords.stream().noneMatch(abbreviation::equalsIgnoreCase))
+                .forEach(functionWords::add);
+        String function = anyOf(functionWords);
         if (atSeat.isEmpty() || rest.isEmpty()) {
-            return List.of(both(anyOf(spec.seniorityWords()), function));
+            String only = both(anyOf(seniority), function);
+            return only == null ? List.of() : List.of(only);
         }
         return List.of(both(anyOf(atSeat), function), "(" + both(anyOf(rest), function) + ") NOT " + anyOf(atSeat));
     }
 
-    /** The spelled-out abbreviations put back: ContactOut matches whole words, and at dnata "IT" doubled the heads. */
-    static List<String> wholeWordFunction(List<String> functionWords) {
-        List<String> words = new ArrayList<>(functionWords);
-        SourcedHitRanking.ABBREVIATION_SPELLINGS.forEach((abbreviation, spellings) -> {
-            boolean spelled = functionWords.stream()
-                    .anyMatch(word -> spellings.contains(word.toLowerCase(Locale.ROOT)));
-            if (spelled && words.stream().noneMatch(abbreviation::equalsIgnoreCase)) {
-                words.add(abbreviation);
-            }
-        });
-        return words;
+    /** Words the model proposed, kept only when they are plain terms — never an operator or a bracket. */
+    private static List<String> searchable(List<String> words) {
+        return words.stream()
+                .filter(word -> word != null && SEARCHABLE_WORD.matcher(word).matches())
+                .filter(word -> !OPERATORS.contains(word.toLowerCase(Locale.ROOT)))
+                .toList();
     }
 
     /** The vendor's location filters are loose; a hit known to live outside the searched countries is dropped. */

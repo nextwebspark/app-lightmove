@@ -21,7 +21,6 @@ import java.util.Locale;
 import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Stream;
-import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
 /**
@@ -34,72 +33,26 @@ import org.springframework.stereotype.Service;
  * <p>The exclusion is everyone on file at the employer, never a mandate's own mapped people: the
  * search's answer is remembered for every workspace, and one firm's roster must not shape it.
  *
- * <p>Everything read back is the answering provider's own: a question key names the provider, and the
- * people on file are only those that provider returned — Bright Data's titles are a pre-November-2025
- * cache, and must not answer a search asked of a fresher index.
+ * <p>Everything read back is the asked provider's own, so a stale dataset record never answers a search
+ * of a fresher index.
  */
 @Service
-@Slf4j
 public class CachedPeopleSearch {
 
     /** Read back per employer at most; the vendor's exclusion list holds a thousand. */
     private static final int MAX_ON_FILE = BrightDataSearch.MAX_EXCLUDED;
 
-    private final PeopleSearchChain providers;
     private final CachedPeopleStore store;
     private final Duration ttl;
 
-    public CachedPeopleSearch(PeopleSearchChain providers, CachedPeopleStore store, LightMoveProperties properties) {
-        this.providers = providers;
+    public CachedPeopleSearch(CachedPeopleStore store, LightMoveProperties properties) {
         this.store = store;
         this.ttl = properties.enrichment().peopleCacheTtl();
     }
 
-    /**
-     * Each provider in turn until one finds somebody: a provider finding nobody, or failing — out of
-     * credits, refused, down — hands the company to the next. The spend of every provider asked is
-     * summed. A company every provider answered empty is an empty answer; one where the last provider
-     * failed after an earlier one answered empty is that empty answer too, and only a company no
-     * provider could answer at all throws.
-     */
-    public PeopleFound currentEmployeesTitled(SearchedEmployer employer, SourcingSpec spec, Seniority seat,
-                                              List<String> countryCodes, int size) {
-        List<PeopleSearch> order = providers.inOrder();
-        int billed = 0;
-        int cached = 0;
-        PeopleFound answeredEmpty = null;
-        for (int index = 0; index < order.size(); index++) {
-            PeopleSearch vendor = order.get(index);
-            boolean last = index == order.size() - 1;
-            try {
-                PeopleFound found = searchWith(vendor, employer, spec, seat, countryCodes, size);
-                billed += found.billed();
-                cached += found.cached();
-                if (!found.people().isEmpty() || last) {
-                    return found.spending(billed, cached);
-                }
-                answeredEmpty = found;
-                log.info("{} found nobody at {}; asking {}", vendor.provider(), employer.linkedinSlug(),
-                        order.get(index + 1).provider());
-            } catch (RuntimeException failed) {
-                if (last) {
-                    if (answeredEmpty != null) {
-                        log.warn("{} people search at {} failed after an earlier provider found nobody: {}",
-                                vendor.provider(), employer.linkedinSlug(), failed.toString());
-                        return answeredEmpty.spending(billed, cached);
-                    }
-                    throw failed;
-                }
-                log.warn("{} people search at {} failed ({}); asking {}", vendor.provider(),
-                        employer.linkedinSlug(), failed.toString(), order.get(index + 1).provider());
-            }
-        }
-        throw new IllegalStateException("A people search chain is never empty");
-    }
-
     /** One provider, cache first; one person appears once, since ContactOut cannot exclude those read back. */
-    private PeopleFound searchWith(PeopleSearch vendor, SearchedEmployer employer, SourcingSpec spec, Seniority seat,
-                                   List<String> countryCodes, int size) {
+    public PeopleFound currentEmployeesTitled(PeopleSearch vendor, SearchedEmployer employer, SourcingSpec spec,
+                                              Seniority seat, List<String> countryCodes, int size) {
         String companySlug = employer.linkedinSlug();
         Instant freshAfter = Instant.now().minus(ttl);
         String queryKey = queryKeyOf(vendor.provider(), companySlug, spec, seat, countryCodes, size);

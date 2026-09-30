@@ -72,6 +72,18 @@ class ContactOutPeopleSearchTest {
     }
 
     @Test
+    @DisplayName("a proposed word that is an operator or carries a bracket never reaches the query")
+    void dropsWordsThatWouldChangeTheQuery() {
+        SourcingSpec hostile = new SourcingSpec(List.of("Chief", "OR", "Head) OR (Intern"),
+                List.of("Finance", "not", "\"CFO\""), List.of(), null);
+
+        assertThat(ContactOutPeopleSearch.titleTiers(hostile, Seniority.C_SUITE))
+                .containsExactly("(Chief) AND (Finance)");
+        assertThat(ContactOutPeopleSearch.titleTiers(new SourcingSpec(List.of("AND"), List.of("("), List.of(), null),
+                Seniority.C_SUITE)).isEmpty();
+    }
+
+    @Test
     @DisplayName("an abbreviation Bright Data could not search is asked again as a whole word")
     void asksTheAbbreviationBack() {
         SourcingSpec technology = SourcingSpec.of(List.of("Head"), List.of("Technology", "Digital", "IT"), List.of(),

@@ -223,7 +223,8 @@ enrichment/                # the one feature split twice: by subject first, then
               model/(ExecutiveSourcingRun, SourcingCompany, SearchedEmployer, SourcingSpec, SourcingBrief, CompanyOutcome,
                      SourcingRound, ExecutivePick, ExecutiveSourcingRequested)  repository/
               service/(PeopleSearch, BrightDataPeopleSearch, ContactOutPeopleSearch, ContactOutPeopleRecords,
-                       LogPeopleSearch, CachedPeopleSearch, ExecutiveSourcingService,
+                       LogPeopleSearch, CachedPeopleSearch, PeopleSearchChain, ChainedPeopleSearch,
+                       ExecutiveSourcingService,
                        ExecutiveSourcingWorker, SourcingRunStore, SourcingSpecProposer, SourcingSpecRefiner,
                        SourcedHitRanking)
               config/(ExecutiveSourcingConfig)  controller/  dto/

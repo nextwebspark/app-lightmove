@@ -10,19 +10,14 @@ import java.util.Arrays;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Locale;
-import java.util.Map;
 import java.util.Set;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
 /**
- * Orders a company's hits so the picks are the best fits rather than the first the vendor happened to
- * return — the Search API sends no relevance order for a filter. The vendor matched the words anywhere in
- * the headline, so the current role's own title, less the employer's name, is read here: first whether it
- * carries a function word (a headline quoting a past seat, "ex-CFO", does not), then how near its level
- * sits to the brief's seat,
- * the higher of two equally near, and the vendor's order last. No model call, and nothing more bought.
+ * Orders a company's hits best fit first, since no vendor sends a relevance order: by the current role's
+ * title, less the employer's name — a function word first, then its level against the brief's seat.
  */
 final class SourcedHitRanking {
 
@@ -36,15 +31,6 @@ final class SourcedHitRanking {
 
     /** A seat served rather than held: "Business Advisor to the Chief Digital Officer" reads as an advisor. */
     private static final Pattern SERVING = Pattern.compile("\\s+to\\s+(?:the\\s+)?", Pattern.CASE_INSENSITIVE);
-
-    /**
-     * The function abbreviations {@code SourcingSpec} spells out, since Bright Data finds "IT" inside
-     * "Kuwait": read here, and asked of ContactOut, as whole words beside the spellings that imply them.
-     */
-    static final Map<String, Set<String>> ABBREVIATION_SPELLINGS = Map.of(
-            "IT", Set.of("technology", "cio", "cto", "information"),
-            "HR", Set.of("human", "people", "chro"),
-            "PR", Set.of("communications"));
 
     private static final Set<String> TOP_WORDS = Set.of("chief", "ceo", "cfo", "coo", "cto", "cio", "chro", "cmo",
             "cso", "cco", "cdo", "cpo", "cro", "cao", "ciso", "chairman", "chairwoman", "chairperson");
@@ -151,16 +137,14 @@ final class SourcedHitRanking {
             level = TitleLevel.NONE;
         }
         boolean steppedDown = words.stream().anyMatch(STEP_DOWN_WORDS::contains);
-        return steppedDown && level != TitleLevel.NONE ? TitleLevel.values()[level.ordinal() - 1] : level;
+        return steppedDown ? level.oneDown() : level;
     }
 
     /** "Head of IT" for technology words: the abbreviation as a whole word, never inside another. */
     private static boolean hasAbbreviationOf(String title, List<String> functionWords) {
         List<String> words = List.of(NOT_A_LETTER.split(title.toLowerCase(Locale.ROOT)));
-        return ABBREVIATION_SPELLINGS.entrySet().stream()
-                .filter(entry -> functionWords.stream()
-                        .anyMatch(word -> entry.getValue().contains(word.toLowerCase(Locale.ROOT))))
-                .anyMatch(entry -> words.contains(entry.getKey().toLowerCase(Locale.ROOT)));
+        return SourcingSpec.abbreviationsOf(functionWords).stream()
+                .anyMatch(abbreviation -> words.contains(abbreviation.toLowerCase(Locale.ROOT)));
     }
 
     /** The vendor's own rule — a case-insensitive substring — so a title the search matched still matches here. */

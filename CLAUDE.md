@@ -110,7 +110,7 @@ website domain or name (a company LinkedIn URL matches nothing there), one searc
 returned; each hit is read into Bright Data's record shape (`ContactOutPeopleRecords`) so the cache,
 the ranking and the filing are unchanged, and is filed `enriched_by = CONTACTOUT` (V90). The people
 cache answers a search only from the provider it asks. Where Bright Data is also configured it stands
-behind ContactOut (`PeopleSearchChain`): a company ContactOut finds nobody at, cannot key, or fails on —
+behind ContactOut (`PeopleSearchChain`, walked by `ChainedPeopleSearch`, the cache wrapping each provider): a company ContactOut finds nobody at, cannot key, or fails on —
 out of credits included — is searched on the dataset, and filed `enriched_by = BRIGHTDATA`; the run's
 outcome records the `source` that answered. Offered where the chosen index is configured
 (`provider: brightdata`, or a ContactOut key); a client seat sees none of it. The **Reports**

@@ -50,10 +50,11 @@ public record SourcingSpec(List<String> seniorityWords, List<String> functionWor
      */
     private static final Set<String> NOISE_WORDS = Set.of("it", "md", "gm", "pr", "ai", "ea", "hr");
 
-    private static final Map<String, List<String>> NOISE_WORD_SPELLINGS = Map.of(
-            "hr", List.of("Human", "People", "CHRO"),
-            "it", List.of("Technology", "CIO", "CTO"),
-            "pr", List.of("Communications"));
+    /** The function abbreviations among the noise words, and the words that stand in for each. */
+    private static final Map<String, List<String>> ABBREVIATION_SPELLINGS = Map.of(
+            "HR", List.of("Human", "People", "CHRO"),
+            "IT", List.of("Technology", "CIO", "CTO"),
+            "PR", List.of("Communications"));
 
     private static final List<String> BOARD_WORDS = List.of("Chairman", "Board", "President", "Chief");
     private static final List<String> EXECUTIVE_WORDS = List.of("Chief", "Head", "Director", "VP");
@@ -123,6 +124,20 @@ public record SourcingSpec(List<String> seniorityWords, List<String> functionWor
         return spelledOut(tokensOf(words)).stream().limit(MAX_WORDS).toList();
     }
 
+    /**
+     * The abbreviations {@code words} spell out — "IT" for "Technology" — for a reader that matches whole
+     * words, where an abbreviation is not found inside longer ones.
+     */
+    public static List<String> abbreviationsOf(List<String> words) {
+        Set<String> folded = new LinkedHashSet<>(words.stream().map(word -> word.toLowerCase(Locale.ROOT)).toList());
+        return ABBREVIATION_SPELLINGS.entrySet().stream()
+                .filter(entry -> entry.getValue().stream()
+                        .anyMatch(spelling -> folded.contains(spelling.toLowerCase(Locale.ROOT))))
+                .map(Map.Entry::getKey)
+                .sorted()
+                .toList();
+    }
+
     /** Each noise word replaced by its spellings, or dropped when it has none; repeats dropped. */
     private static List<String> spelledOut(List<String> words) {
         Set<String> seen = new LinkedHashSet<>();
@@ -130,7 +145,7 @@ public record SourcingSpec(List<String> seniorityWords, List<String> functionWor
         for (String word : words) {
             String folded = word.toLowerCase(Locale.ROOT);
             List<String> spellings = NOISE_WORDS.contains(folded)
-                    ? NOISE_WORD_SPELLINGS.getOrDefault(folded, List.of())
+                    ? ABBREVIATION_SPELLINGS.getOrDefault(folded.toUpperCase(Locale.ROOT), List.of())
                     : List.of(word);
             spellings.stream().filter(spelling -> seen.add(spelling.toLowerCase(Locale.ROOT))).forEach(kept::add);
         }

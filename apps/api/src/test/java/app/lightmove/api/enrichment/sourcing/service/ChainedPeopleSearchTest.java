@@ -25,7 +25,7 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 /** ContactOut first, Bright Data wherever it finds nobody or fails — and one person only once in an answer. */
-class PeopleSearchFallbackTest {
+class ChainedPeopleSearchTest {
 
     private static final SearchedEmployer DP_WORLD = new SearchedEmployer("dp-world", "dpworld.com", "DP World");
     private static final SourcingSpec CFO_WORDS = SourcingSpec.of(List.of("Chief"), List.of("Finance"), List.of(),
@@ -102,7 +102,8 @@ class PeopleSearchFallbackTest {
         when(store.atCompany(anyString(), anyString(), any(), anyInt())).thenReturn(List.of());
         LightMoveProperties properties = mock(LightMoveProperties.class, RETURNS_DEEP_STUBS);
         when(properties.enrichment().peopleCacheTtl()).thenReturn(Duration.ofDays(30));
-        return new CachedPeopleSearch(new PeopleSearchChain(List.of(inOrder)), store, properties)
+        CachedPeopleSearch cache = new CachedPeopleSearch(store, properties);
+        return new ChainedPeopleSearch(new PeopleSearchChain(List.of(inOrder)), cache)
                 .currentEmployeesTitled(DP_WORLD, CFO_WORDS, Seniority.C_SUITE, List.of("AE"), 10);
     }
 

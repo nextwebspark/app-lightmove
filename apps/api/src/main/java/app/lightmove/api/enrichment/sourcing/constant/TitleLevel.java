@@ -19,6 +19,16 @@ public enum TitleLevel {
         };
     }
 
+    /** The level below; the lowest stays itself. */
+    public TitleLevel oneDown() {
+        return switch (this) {
+            case NONE, MANAGER -> NONE;
+            case HEAD -> MANAGER;
+            case SENIOR_VICE_PRESIDENT -> HEAD;
+            case TOP -> SENIOR_VICE_PRESIDENT;
+        };
+    }
+
     public int distanceTo(TitleLevel other) {
         return Math.abs(ordinal() - other.ordinal());
     }

@@ -53,7 +53,8 @@ public class ExecutiveSourcingConfig {
         if (!config.sourcing().searchesContactOut() || contactOut == null || !contactOut.isConfigured()) {
             return null;
         }
-        return new ContactOutPeopleSearch(contactOut, clientFactory, rateLimiter, guard, RestClient.builder(), json);
+        return new ContactOutPeopleSearch(contactOut, clientFactory, rateLimiter, guard, RestClient.builder(), json,
+                config.sourcing().picksPerCompany());
     }
 
     @Bean

@@ -58,7 +58,7 @@ class ExecutiveSourcingWorker {
             "app_lm_project_candidate_unmapped_name_uk");
 
     private final SourcingRunStore store;
-    private final CachedPeopleSearch peopleSearch;
+    private final ChainedPeopleSearch peopleSearch;
     private final SourcingSpecProposer specs;
     private final SourcingSpecRefiner refiner;
     private final CandidateService candidates;
@@ -67,7 +67,7 @@ class ExecutiveSourcingWorker {
     private final AuditService audit;
     private final ExecutiveSourcingSettings settings;
 
-    ExecutiveSourcingWorker(SourcingRunStore store, CachedPeopleSearch peopleSearch, SourcingSpecProposer specs,
+    ExecutiveSourcingWorker(SourcingRunStore store, ChainedPeopleSearch peopleSearch, SourcingSpecProposer specs,
                             SourcingSpecRefiner refiner, CandidateService candidates, PositionService positions,
                             ProfilePhotoDownloader photos, AuditService audit, LightMoveProperties properties) {
         this.store = store;
