@@ -6,7 +6,6 @@ import app.lightmove.api.core.config.LightMoveProperties;
 import app.lightmove.api.strategy.model.CompanyRow;
 import app.lightmove.api.strategy.service.ApolloCompanyQueryService;
 import app.lightmove.api.strategy.service.StrategyService;
-import app.lightmove.api.triagecompany.constant.TriageCompanyStatus;
 import app.lightmove.api.triagecompany.model.CapturedCompanyDetails;
 import app.lightmove.api.triagecompany.model.MandateStages;
 import app.lightmove.api.triagecompany.service.TriageCompanyReadService;
@@ -136,8 +135,8 @@ public class ProposalTools {
                 found.stream().map(ProposedCompany::apolloAccountId).filter(Objects::nonNull).toList(),
                 found.stream().map(ProposedCompany::companyName).toList());
         List<ProposedCompany> companies = found.stream()
-                .map(company -> company.inMandateAs(stageToken(
-                        stages.stageOf(company.apolloAccountId(), company.companyName()))))
+                .map(company -> company.inMandateAs(
+                        stages.stageTokenOf(company.apolloAccountId(), company.companyName())))
                 .sorted(Comparator.comparing(ProposedCompany::alreadyInMandate)
                         .thenComparing(ProposedCompany::employees,
                                 Comparator.nullsLast(Comparator.reverseOrder())))
@@ -158,10 +157,6 @@ public class ProposalTools {
     private static ProposedCompany fromLinkedIn(String slug, CapturedCompanyDetails page, String operates) {
         return new ProposedCompany(null, slug, page.companyName(), page.companyCountry(),
                 page.numEmployees(), page.logoUrl(), operates, null);
-    }
-
-    private static String stageToken(TriageCompanyStatus stage) {
-        return stage == null ? null : stage.value();
     }
 
     private static String oneLine(String title) {

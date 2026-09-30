@@ -199,17 +199,29 @@ public class AssistantService {
         }
     }
 
-    /** Each earlier answer carries the card it showed, which the answer's own text never lists. */
+    /**
+     * Each earlier answer carries the card it showed, which the answer's own text never lists — the
+     * newest {@link CardMemory#CARDS_LISTED_IN_FULL} row by row, older ones as a title and a count.
+     */
     private static List<Message> conversation(List<AssistantTurn> history, String question) {
         List<Message> messages = new ArrayList<>(history.size() * 2 + 1);
+        int cardsLeft = (int) history.stream().filter(AssistantService::hasCard).count();
         for (AssistantTurn turn : history) {
             messages.add(new UserMessage(turn.getQuestion()));
-            messages.add(new AssistantMessage(turn.getProposal() == null || turn.getProposal().companies().isEmpty()
-                    ? turn.getAnswer()
-                    : turn.getAnswer() + "\n\n" + CardMemory.render(turn.getProposal(), turn.getProposalAccepted())));
+            if (!hasCard(turn)) {
+                messages.add(new AssistantMessage(turn.getAnswer()));
+                continue;
+            }
+            boolean listed = cardsLeft-- <= CardMemory.CARDS_LISTED_IN_FULL;
+            messages.add(new AssistantMessage(turn.getAnswer() + "\n\n"
+                    + CardMemory.render(turn.getProposal(), turn.getProposalAccepted(), listed)));
         }
         messages.add(new UserMessage(question));
         return messages;
+    }
+
+    private static boolean hasCard(AssistantTurn turn) {
+        return turn.getProposal() != null && !turn.getProposal().companies().isEmpty();
     }
 
     private static String titleOf(String question) {

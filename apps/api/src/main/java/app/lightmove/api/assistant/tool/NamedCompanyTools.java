@@ -8,9 +8,9 @@ import static app.lightmove.api.assistant.tool.NamedCompanyFinding.Status.UNVERI
 
 import app.lightmove.api.core.config.LightMoveProperties;
 import app.lightmove.api.strategy.service.StrategyService;
+import app.lightmove.api.triagecompany.model.CapturedCompanyDetails;
 import app.lightmove.api.triagecompany.model.MandateStages;
 import app.lightmove.api.triagecompany.service.TriageCompanyReadService;
-import app.lightmove.api.triagecompany.model.CapturedCompanyDetails;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
@@ -82,7 +82,7 @@ public class NamedCompanyTools {
         for (NamedCompanyResolver.ResolvedName one : resolution.names()) {
             NamedCompanyFinding finding = one.finding().status() == UNIVERSE || one.finding().status() == RESEARCHED
                     ? one.finding().inMandateAs(
-                            stages.stageOf(one.finding().apolloAccountId(), one.finding().companyName()))
+                            stages.stageTokenOf(one.finding().apolloAccountId(), one.finding().companyName()))
                     : one.finding();
             findings.add(finding);
             record(recorder, finding, one.details());

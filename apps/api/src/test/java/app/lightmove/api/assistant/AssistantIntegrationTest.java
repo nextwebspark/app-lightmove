@@ -180,8 +180,8 @@ class AssistantIntegrationTest extends FlowTestSupport {
                 .asString()
                 .startsWith("stubbed response")
                 .contains("<card title=\"Two utilities\">")
-                .contains("- a1 · ACWA Power · Saudi Arabia")
-                .contains("- a2 · Marafiq · Saudi Arabia")
+                .contains("- [new] a1 · ACWA Power · Saudi Arabia")
+                .contains("- [new] a2 · Marafiq · Saudi Arabia")
                 .contains("Filed 1 as Shortlisted");
     }
 

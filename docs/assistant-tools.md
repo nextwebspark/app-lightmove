@@ -17,7 +17,8 @@ Panel ──POST /api/v1/projects/{projectId}/assistant/ask {question, threadId?
       still saved; every answered ask records ASSISTANT_ASKED with its Bright Data searches
         ├─ find my chat in this project (or start one titled from the question)
         ├─ last N question/answer pairs → history; each answer carries its card as a <card> block
-        │  (CardMemory: key · name · country · staff · stage, and what was filed), because the
+        │  (CardMemory: "[new|already <stage>] key · name · country · staff", and what was filed;
+        │  the newest three cards row by row, older ones as title + count only), because the
         │  answer text never lists the companies. Researched pages on those cards are remembered,
         │  so a follow-up can propose them again without a second Bright Data search
         ├─ system prompt carries the hiring company: HiringSideResolver → HiringContext. In-house,
@@ -53,9 +54,9 @@ Card button ──POST /api/v1/assistant/turns/{turnId}/accept {companyIds, stat
 
 The request itself streams its progress: no queue, no event table, no reconnect. It waits for
 Gemini (Flash, usually 5–15s) and the stream closes at 55s, inside Cloud Run's 60s request timeout.
-If the model call fails, nothing is saved, the panel shows `ASSISTANT_UNAVAILABLE`, puts the question
-back in the composer and offers Try again. `ASSISTANT_STILL_ANSWERING` offers no retry — that answer
-is still being saved, and asking again would pay twice. If the tab closes mid-answer, the answer is
+If the model call fails, nothing is saved, the panel shows `ASSISTANT_UNAVAILABLE` and puts the
+question back in the composer to send again. `ASSISTANT_STILL_ANSWERING` does not — that answer is
+still being saved, and asking again would pay twice. If the tab closes mid-answer, the answer is
 still saved and shows up in History.
 
 A card's stage is the one the mandate held when the card was made (`TriageCompanyReadService.stagesOf`:

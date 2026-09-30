@@ -17,17 +17,35 @@ import java.util.regex.Pattern;
  */
 final class CardMemory {
 
+    /**
+     * Cards replayed row by row, newest first; an older card is its title and count only. Every row is
+     * billed again on every follow-up, and a follow-up is almost always about the last card or two.
+     */
+    static final int CARDS_LISTED_IN_FULL = 3;
+
+    /** Long enough for a legal name, short enough that no name reads as a paragraph of instructions. */
+    private static final int MAX_TEXT = 80;
+
     private static final Pattern CARD_BLOCK = Pattern.compile("(?s)<card\\b[^>]*>.*?</card>");
-    private static final Pattern TAG_CHARACTERS = Pattern.compile("[<>\"]");
+    private static final Pattern MARKUP_CHARACTERS = Pattern.compile("[<>\"\\[\\]]");
 
     private CardMemory() {
     }
 
-    static String render(AssistantProposal card, ProposalOutcome outcome) {
+    /**
+     * {@code listed} false leaves the rows out and says how many there were. Each row opens with its
+     * state in brackets — written here, never taken from third-party text, which cannot contain a
+     * bracket — so a company name that reads "already shortlisted" cannot pass for one.
+     */
+    static String render(AssistantProposal card, ProposalOutcome outcome, boolean listed) {
         List<String> lines = new ArrayList<>();
         lines.add("<card title=\"" + plain(card.title()) + "\">");
-        for (ProposedCompany company : card.companies()) {
-            lines.add("- " + describe(company));
+        if (listed) {
+            for (ProposedCompany company : card.companies()) {
+                lines.add("- " + describe(company));
+            }
+        } else {
+            lines.add("(" + card.companies().size() + " companies, not listed again here)");
         }
         if (outcome != null) {
             lines.add("Filed " + outcome.added() + " as " + stageLabel(outcome.status())
@@ -42,7 +60,7 @@ final class CardMemory {
         return CARD_BLOCK.matcher(answer).replaceAll("").strip();
     }
 
-    /** "5a1b… · Lulu Group · United Arab Emirates · 42,000 staff · operates Carrefour · already shortlisted". */
+    /** "[shortlisted] 5a1b… · Lulu Group · United Arab Emirates · 42,000 staff · operates Carrefour". */
     private static String describe(ProposedCompany company) {
         List<String> parts = new ArrayList<>();
         parts.add(company.key());
@@ -59,10 +77,10 @@ final class CardMemory {
         if (company.operates() != null) {
             parts.add("operates " + plain(company.operates()));
         }
-        if (company.alreadyInMandate()) {
-            parts.add("already " + stageLabel(company.stage()).toLowerCase(Locale.ROOT));
-        }
-        return String.join(" · ", parts);
+        String state = company.alreadyInMandate()
+                ? "already " + stageLabel(company.stage()).toLowerCase(Locale.ROOT)
+                : "new";
+        return "[" + state + "] " + String.join(" · ", parts);
     }
 
     private static String stageLabel(String token) {
@@ -77,11 +95,12 @@ final class CardMemory {
         };
     }
 
-    /** Names are third-party text: flattened, and kept from closing the block they sit in. */
+    /** Names are third-party text: flattened, cut short, and kept from closing or forging markup. */
     private static String plain(String value) {
         if (value == null) {
             return "";
         }
-        return TAG_CHARACTERS.matcher(value.replaceAll("\\s+", " ")).replaceAll("").strip();
+        String flat = MARKUP_CHARACTERS.matcher(value.replaceAll("\\s+", " ")).replaceAll("").strip();
+        return flat.length() <= MAX_TEXT ? flat : flat.substring(0, MAX_TEXT).strip() + "…";
     }
 }

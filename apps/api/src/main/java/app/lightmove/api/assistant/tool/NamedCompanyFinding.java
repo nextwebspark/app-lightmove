@@ -1,7 +1,5 @@
 package app.lightmove.api.assistant.tool;
 
-import app.lightmove.api.triagecompany.constant.TriageCompanyStatus;
-
 /**
  * What one name the model remembered turned out to be. {@code UNIVERSE} carries an Apollo account id,
  * {@code RESEARCHED} a LinkedIn slug; every figure is the universe's or the provider's, never the
@@ -21,9 +19,8 @@ public record NamedCompanyFinding(String askedName, Status status, String apollo
                 null, null, false, null);
     }
 
-    NamedCompanyFinding inMandateAs(TriageCompanyStatus stage) {
+    NamedCompanyFinding inMandateAs(String stageToken) {
         return new NamedCompanyFinding(askedName, status, apolloAccountId, linkedinSlug, companyName, country,
-                industry, city, employees, foundedYear, about, operates, global,
-                stage == null ? null : stage.value());
+                industry, city, employees, foundedYear, about, operates, global, stageToken);
     }
 }

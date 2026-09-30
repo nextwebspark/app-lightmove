@@ -25,4 +25,10 @@ public record MandateStages(Map<String, TriageCompanyStatus> byAccountId,
         }
         return companyName == null ? null : byLowerCaseName.get(companyName.toLowerCase(Locale.ROOT));
     }
+
+    /** {@link #stageOf} as the API's stage token, null when the mandate holds no row for it. */
+    public String stageTokenOf(String apolloAccountId, String companyName) {
+        TriageCompanyStatus stage = stageOf(apolloAccountId, companyName);
+        return stage == null ? null : stage.value();
+    }
 }

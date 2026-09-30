@@ -1,7 +1,6 @@
 package app.lightmove.api.assistant.tool;
 
 import app.lightmove.api.strategy.model.CompanyRow;
-import app.lightmove.api.triagecompany.constant.TriageCompanyStatus;
 
 /**
  * One company of the market, as much of it as the model is worth showing.
@@ -22,8 +21,8 @@ public record MarketCompanySummary(String apolloAccountId, String companyName, S
                 row.website(), null);
     }
 
-    MarketCompanySummary inMandateAs(TriageCompanyStatus stage) {
+    MarketCompanySummary inMandateAs(String stageToken) {
         return new MarketCompanySummary(apolloAccountId, companyName, industry, country, city, employees,
-                foundedYear, website, stage == null ? null : stage.value());
+                foundedYear, website, stageToken);
     }
 }

@@ -23,7 +23,7 @@ public record CompanyMatches(long matched, int showing, List<MarketCompanySummar
     CompanyMatches withMandateStages(MandateStages stages) {
         return new CompanyMatches(matched, showing, companies.stream()
                 .map(company -> company.inMandateAs(
-                        stages.stageOf(company.apolloAccountId(), company.companyName())))
+                        stages.stageTokenOf(company.apolloAccountId(), company.companyName())))
                 .toList(), adjacentIndustries);
     }
 
