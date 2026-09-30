@@ -146,7 +146,7 @@ check 19.4 "five executives are mapped, three by the lead and two by the researc
   "$(sql "SELECT count(*) FILTER (WHERE u.email = '$LEAD_EMAIL') || '/' || count(*) FILTER (WHERE u.email = '$RESEARCHER_EMAIL')
           FROM app_lm_project_candidate c JOIN app_lm_user u ON u.id = c.added_by WHERE c.project_id = '$PROJECT'")"
 check 19.5 "gender is not recorded for one of them — NULL, not a fourth value" "1" \
-  "$(sql "SELECT count(*) FROM app_lm_project_candidate WHERE project_id = '$PROJECT' AND gender IS NULL")"
+  "$(sql "SELECT count(*) FROM app_lm_project_candidate c JOIN app_lm_person p ON p.id = c.person_id WHERE c.project_id = '$PROJECT' AND p.gender IS NULL")"
 
 http PATCH "/projects/$PROJECT/candidates/$FATIMA" -H 'Content-Type: application/json' \
   -d '{"status":"engaged"}' -H "$LEAD"
@@ -210,7 +210,7 @@ check 19.43 "diversity: N-1 is one man — the unrecorded one is not counted as 
 check 19.44 "diversity: \"Egyptian\" is folded into its group at read time" "2" \
   "$(rj '.diversity.nationalities[] | select(.nationality == "Arab expat, non-GCC") | .total')"
 check 19.45 "…and never rewritten on the row" "Egyptian" \
-  "$(sql "SELECT nationality FROM app_lm_project_candidate WHERE id = '$KARIM'")"
+  "$(sql "SELECT p.nationality FROM app_lm_project_candidate c JOIN app_lm_person p ON p.id = c.person_id WHERE c.id = '$KARIM'")"
 check 19.46 "diversity: British counts as Western expat" "1" \
   "$(rj '.diversity.nationalities[] | select(.nationality == "Western expat") | .total')"
 check 19.47 "diversity: the Gulf nationals are Emirati and Saudi" "2" "$(rj '.diversity.gccNationals')"

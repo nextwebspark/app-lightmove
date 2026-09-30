@@ -272,6 +272,12 @@ jobs:
           elif [ "${{ vars.ENRICHMENT_PROVIDER }}" = "harvestapi" ]; then
             ENRICHMENT_SECRETS=",HARVESTAPI_API_KEY=lightmove-harvestapi-api-key:latest"
           fi
+          # Find executives' index: `contactout` searches ContactOut first (it needs CONTACTOUT_ENABLED
+          # below for the key), with Bright Data behind it when ENRICHMENT_PROVIDER is brightdata. Unset
+          # is the Bright Data dataset alone. A var, not a console edit: --set-env-vars replaces them all.
+          if [ -n "${{ vars.SOURCING_PEOPLE_SOURCE }}" ]; then
+            ENRICHMENT_ENV="${ENRICHMENT_ENV}|SOURCING_PEOPLE_SOURCE=${{ vars.SOURCING_PEOPLE_SOURCE }}"
+          fi
 
           # The Companies screen's map view, same shape again: off unless MAPBOX_ENABLED=true, because
           # the branch mounts a secret gcloud refuses to name unless it exists. Prerequisite:

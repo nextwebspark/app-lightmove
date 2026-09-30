@@ -351,6 +351,37 @@
         </sc-if>
 
         <!-- MEMBERS -->
+        <sc-if value="{{ isCandidateTags }}" hint-placeholder-val="{{ false }}">
+          <div data-screen-label="Candidate tags">
+            <div style="margin-bottom:18px">
+              <div style="font:600 19px/1.25 var(--sans)">Candidate tags</div>
+              <div style="margin-top:4px;max-width:620px;font:400 12px/1.5 var(--mono);color:var(--text3)">Your team's own labels on candidates, shared by every position. Anyone on the team tags a person or creates a tag from the candidate drawer; an admin renames, recolours and retires them here.</div>
+            </div>
+            <div style="margin-bottom:14px;display:flex;flex-wrap:wrap;align-items:center;gap:8px">
+              <input value="{{ ctNew }}" onChange="{{ onCtNew }}" placeholder="New tag, e.g. Board-ready" aria-label="New tag" style="width:260px;max-width:100%;border-radius:6px;border:1px solid var(--line);background:var(--panel);padding:8px 11px;font:400 13px var(--mono);color:var(--text);outline:none">
+              <button onClick="{{ addCtag }}" style="display:flex;align-items:center;gap:8px;border-radius:6px;padding:8px 14px;font:500 13px var(--sans);background:var(--amber-btn);border:1px solid var(--amber-btn);color:var(--on-amber);cursor:pointer;opacity:{{ ctAddOpacity }}"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"></path></svg>Add tag</button>
+            </div>
+            <div style="border-radius:10px;border:1px solid var(--line-soft);background:var(--panel2);padding:4px 16px">
+              <sc-for list="{{ ctRows }}" as="t" hint-placeholder-count="6">
+                <div style="display:flex;flex-wrap:wrap;align-items:center;gap:12px;border-bottom:1px solid var(--line-soft);padding:11px 0;opacity:{{ t.opacity }}">
+                  <div role="radiogroup" aria-label="Colour of {{ t.label }}" style="display:flex;gap:4px">
+                    <sc-for list="{{ t.swatches }}" as="sw"><button onClick="{{ recolourCtag }}" data-id="{{ t.id }}" data-colour="{{ sw.key }}" role="radio" aria-checked="{{ sw.on }}" aria-label="{{ sw.key }}" style="{{ sw.style }}"></button></sc-for>
+                  </div>
+                  <sc-if value="{{ t.editing }}"><input value="{{ ctDraft }}" onChange="{{ onCtDraft }}" aria-label="Tag name" style="width:200px;border-radius:6px;border:1px solid var(--sky);background:var(--panel);padding:5px 9px;font:400 13px var(--mono);color:var(--text);outline:none"></sc-if>
+                  <sc-if value="{{ t.reading }}"><span style="{{ t.style }}">{{ t.label }}</span></sc-if>
+                  <span style="font:400 12px var(--mono);color:var(--text3)">{{ t.usage }}</span>
+                  <span style="margin-left:auto;display:flex;gap:4px">
+                    <sc-if value="{{ t.editing }}"><button onClick="{{ saveCtag }}" data-id="{{ t.id }}" style="border-radius:5px;padding:4px 9px;font:500 12px var(--sans);color:var(--sky);background:none;border:none;cursor:pointer">Save</button></sc-if>
+                    <sc-if value="{{ t.reading }}"><button onClick="{{ renameCtag }}" data-id="{{ t.id }}" style="border-radius:5px;padding:4px 9px;font:500 12px var(--sans);color:var(--text3);background:none;border:none;cursor:pointer" style-hover="background:var(--panel);color:var(--text)">Rename</button></sc-if>
+                    <button onClick="{{ retireCtag }}" data-id="{{ t.id }}" title="{{ t.retireTitle }}" style="border-radius:5px;padding:4px 9px;font:500 12px var(--sans);color:var(--text3);background:none;border:none;cursor:pointer" style-hover="background:var(--panel);color:var(--text)">{{ t.retireLabel }}</button>
+                  </span>
+                </div>
+              </sc-for>
+            </div>
+            <p style="margin:12px 2px 0;max-width:620px;font:400 11.5px/1.5 var(--mono);color:var(--text3)">A retired tag stays on the people who have it and in their timeline, but can no longer be picked. A rename reaches every person at once, because a person holds the tag, not its spelling.</p>
+          </div>
+        </sc-if>
+
         <sc-if value="{{ isMembers }}" hint-placeholder-val="{{ false }}">
           <div data-screen-label="Members">
             <div style="margin-bottom:18px;display:flex;align-items:flex-start;gap:16px">
@@ -1164,7 +1195,7 @@
 </div>
 <template id="__bundler_thumbnail"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><rect width="100" height="100" fill="#16171a"></rect><g transform="translate(50 40) scale(.42)" fill="none" stroke="#f8fafc"><path d="M-32 10 L 0 -8 L 32 10 L 0 28 Z M-32 10 V 32 L 0 50 L 32 32 V 10 M0 28 V 50" stroke-width="3" stroke-linejoin="round"></path><path d="M0 -48 L 32 -30 L 0 -12 L -32 -30 Z" fill="#f8fafc" stroke="none"></path></g><text x="50" y="86" fill="#e2b65c" font-family="Geist,Inter,sans-serif" font-size="13" font-weight="700" letter-spacing="2" text-anchor="middle">SE</text></svg></template>
 </x-dc>
-<script type="text/x-dc" data-dc-script data-props="{&quot;section&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;default&quot;:&quot;profile&quot;,&quot;options&quot;:[&quot;profile&quot;,&quot;security&quot;,&quot;workspaces&quot;,&quot;general&quot;,&quot;members&quot;,&quot;templates&quot;,&quot;template-editor&quot;,&quot;library&quot;,&quot;library-editor&quot;],&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;State&quot;},&quot;superAdmin&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:true,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;State&quot;},&quot;isAdmin&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:true,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;State&quot;},&quot;importOpen&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;State&quot;},&quot;deleteOpen&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;State&quot;},&quot;providerOnly&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;State&quot;},&quot;workspaces&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;default&quot;:&quot;one&quot;,&quot;options&quot;:[&quot;one&quot;,&quot;several&quot;,&quot;several-with-invite&quot;],&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;State&quot;},&quot;newWorkspaceOpen&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;State&quot;},&quot;newWorkspaceStage&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;default&quot;:&quot;organisation&quot;,&quot;options&quot;:[&quot;organisation&quot;,&quot;invite&quot;],&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;State&quot;}}">
+<script type="text/x-dc" data-dc-script data-props="{&quot;section&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;default&quot;:&quot;profile&quot;,&quot;options&quot;:[&quot;profile&quot;,&quot;security&quot;,&quot;workspaces&quot;,&quot;general&quot;,&quot;members&quot;,&quot;candidate-tags&quot;,&quot;templates&quot;,&quot;template-editor&quot;,&quot;library&quot;,&quot;library-editor&quot;],&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;State&quot;},&quot;superAdmin&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:true,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;State&quot;},&quot;isAdmin&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:true,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;State&quot;},&quot;importOpen&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;State&quot;},&quot;deleteOpen&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;State&quot;},&quot;providerOnly&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;State&quot;},&quot;workspaces&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;default&quot;:&quot;one&quot;,&quot;options&quot;:[&quot;one&quot;,&quot;several&quot;,&quot;several-with-invite&quot;],&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;State&quot;},&quot;newWorkspaceOpen&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;State&quot;},&quot;newWorkspaceStage&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;default&quot;:&quot;organisation&quot;,&quot;options&quot;:[&quot;organisation&quot;,&quot;invite&quot;],&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;State&quot;}}">
 class Component extends DCLogic {
   constructor(props) {
     super(props);
@@ -1188,7 +1219,7 @@ class Component extends DCLogic {
     this.DISC_ORDER = Object.keys(this.DISC);
     this.SEN = { BOARD: 'Board', C_SUITE: 'C-Suite', N_MINUS_1: 'N-1', N_MINUS_2: 'N-2', N_MINUS_3: 'N-3' };
     this.SEN_ORDER = Object.keys(this.SEN);
-    this.LABELS = { profile: 'Profile', security: 'Security', workspaces: 'Workspaces', general: 'General', members: 'Members', templates: 'Templates', 'template-editor': 'Templates', library: 'Template library', 'library-editor': 'Template library' };
+    this.LABELS = { 'candidate-tags': 'Candidate tags', profile: 'Profile', security: 'Security', workspaces: 'Workspaces', general: 'General', members: 'Members', templates: 'Templates', 'template-editor': 'Templates', library: 'Template library', 'library-editor': 'Template library' };
 
     const t = (code, title, discipline, seniority, summary, keywords, extra) => Object.assign({ code, title, discipline, seniority, summary, keywords, fallback: false, copies: 0, revisedAt: '02 Sep 2026', revisedBy: null }, extra || {});
     this.library = [
@@ -1264,6 +1295,9 @@ class Component extends DCLogic {
 
     this.state = {
       section, dark: true, collapsed, toast: '', wsMenuOpen: false,
+      ctags: [['openWork', 'Open to work', 'green', 4], ['relocate', 'Open to relocate', 'accent', 4], ['passive', 'Passive', 'neutral', 2], ['referral', 'Referral', 'violet', 2], ['prior', 'Prior placement', 'adjacent', 1], ['interviewed', 'Interviewed before', 'inferred', 1], ['boardReady', 'Board-ready', 'neutral', 0, true]]
+        .map(([id, label, colour, count, retired]) => ({ id, label, colour, count, retired: !!retired })),
+      ctNew: '', ctEditing: null, ctDraft: '',
       newWorkspaceOpen: !!props.newWorkspaceOpen, newWorkspaceStage: props.newWorkspaceStage || 'organisation',
       pName: 'Yara Haddad', pTitle: 'Head of Talent Acquisition', pTz: 'Asia/Dubai', pLocale: 'en', pNameError: '',
       pwCurrent: '', pwNew: '', pwConfirm: '', pwErr: {},
@@ -1441,7 +1475,7 @@ class Component extends DCLogic {
     const st = this.state, I = this.I, props = this.props;
     const isAdmin = props.isAdmin !== false, superAdmin = props.superAdmin !== false;
     let sec = st.section;
-    if (!isAdmin && ['general', 'members', 'templates', 'template-editor'].includes(sec)) sec = 'profile';
+    if (!isAdmin && ['general', 'members', 'candidate-tags', 'templates', 'template-editor'].includes(sec)) sec = 'profile';
     if (!superAdmin && ['library', 'library-editor'].includes(sec)) sec = 'profile';
     const scope = this.scopeOf(sec);
     const isTplList = sec === 'templates' || sec === 'library';
@@ -1455,7 +1489,7 @@ class Component extends DCLogic {
         style: 'display:flex;width:100%;align-items:center;justify-content:' + (c ? 'center' : 'flex-start') + ';gap:10px;border-radius:6px;padding:8px 10px;text-align:left;font:400 13.5px var(--sans);border:none;cursor:pointer;background:' + (on ? 'var(--panel2)' : 'transparent') + ';color:' + (on ? 'var(--text)' : 'var(--text2)') };
     };
     const navGroups = [{ label: 'Account', items: [item('profile', 'Profile', I.profile), item('security', 'Security', I.lock), item('workspaces', 'Workspaces', 'M3 3h7v7H3zM14 3h7v7h-7zM3 14h7v7H3zM14 14h7v7h-7z')] }];
-    if (isAdmin) navGroups.push({ label: 'Workspace', items: [item('general', 'General', I.settings), item('members', 'Members', I.members), item('templates', 'Templates', I.file)] });
+    if (isAdmin) navGroups.push({ label: 'Workspace', items: [item('general', 'General', I.settings), item('members', 'Members', I.members), item('candidate-tags', 'Candidate tags', 'M12.6 2.6A2 2 0 0 0 11.2 2H4a2 2 0 0 0-2 2v7.2a2 2 0 0 0 .6 1.4l8.7 8.7a2.4 2.4 0 0 0 3.4 0l6.6-6.6a2.4 2.4 0 0 0 0-3.4ZM7.5 8a.5.5 0 1 0 0-1 .5.5 0 0 0 0 1Z'), item('templates', 'Templates', I.file)] });
     if (superAdmin) navGroups.push({ label: 'Platform', items: [item('library', 'Template library', I.position)] });
 
     const inputStyle = (err, bg) => 'width:100%;border-radius:6px;border:1px solid ' + (err ? 'var(--red)' : 'var(--line)') + ';background:' + (bg || 'var(--panel)') + ';padding:10px 12px;font:400 13px var(--mono);color:var(--text);outline:none';
@@ -1659,6 +1693,17 @@ class Component extends DCLogic {
       sectionLabel: this.LABELS[sec] || 'Settings',
       isProfile: sec === 'profile', isSecurity: sec === 'security', isGeneral: sec === 'general', isMembers: sec === 'members', isTplList, isEditor,
       isWorkspaces: sec === 'workspaces',
+      isCandidateTags: sec === 'candidate-tags', ctNew: st.ctNew, ctDraft: st.ctDraft, ctAddOpacity: st.ctNew.trim() ? 1 : 0.5,
+      ctRows: st.ctags.map((t) => {
+        const COLOURS = { green: ['var(--u-direct)', 'var(--u-direct-tint)'], accent: ['var(--u-accent)', 'var(--u-accent-tint)'], neutral: ['var(--text2)', 'var(--panel)'], violet: ['var(--u-chart-5)', 'color-mix(in srgb, var(--u-chart-5) 16%, transparent)'], adjacent: ['var(--u-adjacent)', 'var(--u-adjacent-tint)'], inferred: ['var(--u-inferred)', 'var(--u-inferred-tint)'] };
+        const [fg, bg] = COLOURS[t.colour];
+        const editing = st.ctEditing === t.id;
+        return { id: t.id, label: t.label, editing, reading: !editing, opacity: t.retired ? 0.55 : 1,
+          style: 'display:inline-flex;align-items:center;white-space:nowrap;border-radius:999px;padding:3px 11px;font:500 12.5px var(--sans);color:' + fg + ';background:' + bg,
+          usage: (t.count === 1 ? '1 person' : t.count + ' people') + (t.retired ? ' · retired' : ''),
+          retireLabel: t.retired ? 'Restore' : 'Retire', retireTitle: t.retired ? 'Offer this tag again' : 'Stop offering this tag; people keep it',
+          swatches: Object.keys(COLOURS).map((key) => ({ key, on: t.colour === key, style: 'width:14px;height:14px;border-radius:50%;padding:0;cursor:pointer;background:' + COLOURS[key][0] + ';border:2px solid ' + (t.colour === key ? 'var(--text)' : 'transparent') })) };
+      }),
       hasWorkspaceList: otherWorkspaces.length > 0 || workspaceInvitations.length > 0,
       otherWorkspaces, workspaceInvitations,
       myWorkspaces: [{ id: 'alfuttaim', name: st.wsName, mark: st.wsName.charAt(0).toUpperCase(), roles: 'Admin', current: true, other: false }]
@@ -1795,6 +1840,24 @@ class Component extends DCLogic {
       resendInvite: () => this.showToast('Invitation re-sent'),
       revokeInvite: (e) => { const id = e.currentTarget.dataset.id; this.setState({ invitations: st.invitations.filter((v) => v.id !== id) }); this.showToast('Invitation revoked'); },
       openInvite: () => this.setState({ inviteOpen: true, inviteEmail: '', inviteRole: 'MEMBER', inviteError: '' }),
+      onCtNew: (e) => this.setState({ ctNew: e.target.value }),
+      addCtag: () => {
+        const label = st.ctNew.trim();
+        if (!label) return;
+        if (st.ctags.some((t) => t.label.toLowerCase() === label.toLowerCase())) { this.showToast('That tag already exists'); return; }
+        this.setState({ ctags: [...st.ctags, { id: 't' + Date.now(), label, colour: 'neutral', count: 0, retired: false }], ctNew: '' });
+        this.showToast('Tag added for the whole team');
+      },
+      renameCtag: (e) => { const id = e.currentTarget.dataset.id; this.setState({ ctEditing: id, ctDraft: st.ctags.find((t) => t.id === id).label }); },
+      onCtDraft: (e) => this.setState({ ctDraft: e.target.value }),
+      saveCtag: (e) => {
+        const id = e.currentTarget.dataset.id; const label = st.ctDraft.trim();
+        if (!label) return;
+        this.setState({ ctags: st.ctags.map((t) => (t.id === id ? Object.assign({}, t, { label }) : t)), ctEditing: null });
+        this.showToast('Renamed on every person who has it');
+      },
+      recolourCtag: (e) => { const d = e.currentTarget.dataset; this.setState({ ctags: st.ctags.map((t) => (t.id === d.id ? Object.assign({}, t, { colour: d.colour }) : t)) }); },
+      retireCtag: (e) => { const id = e.currentTarget.dataset.id; this.setState({ ctags: st.ctags.map((t) => (t.id === id ? Object.assign({}, t, { retired: !t.retired }) : t)) }); },
       closeInvite: () => this.setState({ inviteOpen: false }),
       onInviteEmail: (e) => this.setState({ inviteEmail: e.target.value, inviteError: '' }),
       onInviteRole: (e) => this.setState({ inviteRole: e.target.value }),

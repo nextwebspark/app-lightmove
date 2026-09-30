@@ -175,6 +175,10 @@ public enum ErrorCode {
     CANDIDATE_PROFILE_URL_LOCKED(HttpStatus.CONFLICT,
             "This profile was captured from LinkedIn; its URL is not editable"),
 
+    /** Another person in the workspace is that LinkedIn profile; the mandate may map them instead. */
+    PERSON_PROFILE_HELD(HttpStatus.CONFLICT,
+            "Another candidate in this workspace already has that LinkedIn profile"),
+
     /** Nothing was saved. Never sent for a stream that ran out of time: see {@link #ASSISTANT_STILL_ANSWERING}. */
     ASSISTANT_UNAVAILABLE(HttpStatus.SERVICE_UNAVAILABLE,
             "The assistant could not answer just now. Try again in a moment"),

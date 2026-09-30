@@ -44,6 +44,22 @@ ALTER TABLE app_lm_candidate_contact
     ADD CONSTRAINT app_lm_candidate_contact_source_chk
         CHECK (source IN ('MANUAL', 'CSV', 'EXTENSION', 'CONTACTOUT', 'AI_SOURCED', 'PEOPLE_SEARCH'));
 
+-- V91 moved the person into the workspace pool, and the pool records the door a person first came
+-- through; its contact ledger widens with it for ContactSource.ofDoor's reason.
+ALTER TABLE app_lm_person
+    DROP CONSTRAINT app_lm_person_source_chk;
+
+ALTER TABLE app_lm_person
+    ADD CONSTRAINT app_lm_person_source_chk
+        CHECK (source IN ('MANUAL', 'CSV', 'EXTENSION', 'AI_SOURCED', 'PEOPLE_SEARCH'));
+
+ALTER TABLE app_lm_person_contact
+    DROP CONSTRAINT app_lm_person_contact_source_chk;
+
+ALTER TABLE app_lm_person_contact
+    ADD CONSTRAINT app_lm_person_contact_source_chk
+        CHECK (source IN ('MANUAL', 'CSV', 'EXTENSION', 'CONTACTOUT', 'AI_SOURCED', 'PEOPLE_SEARCH'));
+
 -- The employer a people-search hit is filed under arrives through the same door, resolved against the
 -- universe first (V34: only STRATEGY promises an Apollo id, so a matched one here is a bonus, not a rule).
 ALTER TABLE app_lm_project_triage_company

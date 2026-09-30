@@ -19,7 +19,7 @@ import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.type.SqlTypes;
 
 /**
- * The search behind a project, 1:1. The company filter (jsonb, V30), the people filter (V91) and the
+ * The search behind a project, 1:1. The company filter (jsonb, V30), the people filter (V93) and the
  * off-limits list are saved by three PUTs, so a chip click never rewrites another of them.
  */
 @Entity

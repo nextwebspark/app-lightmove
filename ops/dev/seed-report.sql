@@ -15,6 +15,7 @@
 \endif
 
 SELECT p.id AS project_id,
+       p.workspace_id AS workspace_id,
        p.created_by AS seeded_by,
        p.position_title AS mandate,
        EXISTS (SELECT 1 FROM app_lm_project_candidate c
@@ -40,6 +41,11 @@ BEGIN;
 DELETE FROM app_lm_project_candidate
 WHERE project_id = :'project_id'
   AND id IN (SELECT md5('seed-report:' || :'project_id' || ':executive:' || n)::uuid FROM generate_series(1, 200) n);
+-- A seeded person another mandate has since mapped stays theirs; the insert below skips it.
+DELETE FROM app_lm_person p
+WHERE p.workspace_id = :'workspace_id'
+  AND p.id IN (SELECT md5('seed-report:' || :'project_id' || ':executive:' || n)::uuid FROM generate_series(1, 200) n)
+  AND NOT EXISTS (SELECT 1 FROM app_lm_project_candidate c WHERE c.person_id = p.id);
 DELETE FROM app_lm_project_triage_company
 WHERE project_id = :'project_id'
   AND id IN (SELECT md5('seed-report:' || :'project_id' || ':company:' || n)::uuid FROM generate_series(1, 200) n);
@@ -226,16 +232,13 @@ SELECT md5('seed-report:' || :'project_id' || ':executive:' || p.n)::uuid AS id,
             ELSE p.employer_country END AS country
 FROM named p;
 
-INSERT INTO app_lm_project_candidate
-    (id, project_id, triage_company_id, company_name, full_name, title, seniority_level, status,
-     location_country, location_city, nationality, gender, years_experience, note,
+-- The executive is a workspace person the mandate maps (V91); both rows take the executive's id.
+INSERT INTO app_lm_person
+    (id, workspace_id, full_name, title, seniority_level,
+     location_country, location_city, nationality, gender, years_experience,
      compensation_currency, base_salary, allowances, bonus, long_term_incentive,
-     source, added_by, created_at, updated_at)
-SELECT x.id, :'project_id',
-       (SELECT held.id FROM app_lm_project_triage_company held
-        WHERE held.project_id = :'project_id' AND lower(held.company_name) = lower(x.employer)
-        ORDER BY held.created_at LIMIT 1),
-       x.employer, x.full_name,
+     source, created_by, created_at, updated_at)
+SELECT x.id, :'workspace_id', x.full_name,
        CASE x.lvl
             WHEN 'BOARD'     THEN (ARRAY['Board Member','Non-Executive Director'])[1 + x.n % 2]
             WHEN 'C_SUITE'   THEN (ARRAY['Chief Financial Officer','Group CFO','Regional CFO','CFO'])[1 + x.n % 4]
@@ -243,14 +246,6 @@ SELECT x.id, :'project_id',
             ELSE                  (ARRAY['Senior Finance Manager','Head of Treasury','FP&A Manager','Financial Controller'])[1 + x.n % 4]
        END,
        x.lvl,
-       COALESCE(pk.status,
-                CASE WHEN (x.n * 71) % 116 < 46  THEN 'IDENTIFIED'
-                     WHEN (x.n * 71) % 116 < 66  THEN 'CONTACTED'
-                     WHEN (x.n * 71) % 116 < 82  THEN 'ENGAGED'
-                     WHEN (x.n * 71) % 116 < 96  THEN 'INTERESTED'
-                     WHEN (x.n * 71) % 116 < 108 THEN 'NOT_INTERESTED'
-                     WHEN (x.n * 71) % 116 < 113 THEN 'OFF_LIMITS'
-                     ELSE 'OUT_OF_SCOPE' END),
        x.country,
        CASE x.country WHEN 'United Arab Emirates' THEN (ARRAY['Dubai','Abu Dhabi'])[1 + x.n % 2]
                       WHEN 'Saudi Arabia' THEN (ARRAY['Riyadh','Jeddah'])[1 + x.n % 2]
@@ -258,7 +253,6 @@ SELECT x.id, :'project_id',
                       WHEN 'Qatar' THEN 'Doha' ELSE 'Manama' END,
        x.nationality, x.gender,
        (CASE x.lvl WHEN 'BOARD' THEN 28 WHEN 'C_SUITE' THEN 20 WHEN 'N_MINUS_1' THEN 15 ELSE 10 END) + x.n % 6,
-       pk.note,
        CASE WHEN pk.rank IS NULL THEN NULL WHEN pk.in_brief_currency THEN :'brief_currency'
             WHEN :'brief_currency' = 'AED' THEN 'SAR' ELSE 'AED' END,
        pk.base, pk.allowances, pk.bonus, pk.lti,
@@ -276,7 +270,30 @@ CROSS JOIN LATERAL (
               + (x.n * 13) % 5, current_date)
         + make_interval(hours => 8 + x.n % 9, mins => (x.n * 7) % 60),
         now()) AS at
-) filed;
+) filed
+ON CONFLICT (id) DO NOTHING;
+
+INSERT INTO app_lm_project_candidate
+    (id, project_id, person_id, triage_company_id, company_name, status, note,
+     source, added_by, created_at, updated_at)
+SELECT x.id, :'project_id', x.id,
+       (SELECT held.id FROM app_lm_project_triage_company held
+        WHERE held.project_id = :'project_id' AND lower(held.company_name) = lower(x.employer)
+        ORDER BY held.created_at LIMIT 1),
+       x.employer,
+       COALESCE(pk.status,
+                CASE WHEN (x.n * 71) % 116 < 46  THEN 'IDENTIFIED'
+                     WHEN (x.n * 71) % 116 < 66  THEN 'CONTACTED'
+                     WHEN (x.n * 71) % 116 < 82  THEN 'ENGAGED'
+                     WHEN (x.n * 71) % 116 < 96  THEN 'INTERESTED'
+                     WHEN (x.n * 71) % 116 < 108 THEN 'NOT_INTERESTED'
+                     WHEN (x.n * 71) % 116 < 113 THEN 'OFF_LIMITS'
+                     ELSE 'OUT_OF_SCOPE' END),
+       pk.note,
+       'MANUAL', :'seeded_by', person.created_at, person.created_at
+FROM seed_executive x
+JOIN app_lm_person person ON person.id = x.id
+LEFT JOIN seed_package pk ON pk.rank = x.package_rank;
 
 -- Researcher performance attributes by added_by, so the seeded executives are shared across the
 -- mandate's staff seats (LEAD / RESEARCHER, never a client seat) — unevenly, so the table ranks.
@@ -297,16 +314,17 @@ WHERE c.id = x.id AND sized.seats > 1
 
 -- A work address for most of the first seat's people and fewer of everyone else's, a third of them
 -- verified, so the researcher table's quality column has a spread to show. Deleted with the row.
-INSERT INTO app_lm_candidate_contact (candidate_id, channel, value, value_key, kind, verified, source)
-SELECT c.id, 'EMAIL', v.address, v.address, 'WORK', x.n % 3 = 0, 'MANUAL'
+INSERT INTO app_lm_person_contact (person_id, channel, value, value_key, kind, verified, source)
+SELECT c.person_id, 'EMAIL', v.address, v.address, 'WORK', x.n % 3 = 0, 'MANUAL'
 FROM seed_executive x
 JOIN app_lm_project_candidate c ON c.id = x.id
 CROSS JOIN LATERAL (SELECT lower(regexp_replace(x.full_name, '[^A-Za-z]+', '.', 'g')) || '@example.com' AS address) v
-WHERE x.n % 10 < 4 OR x.n % 3 = 0;
+WHERE x.n % 10 < 4 OR x.n % 3 = 0
+ON CONFLICT DO NOTHING;
 
 -- What the mandate already held keeps everything it has; only its blanks are filled, so the captures
 -- count in the matrix and the diversity chapter instead of under "not on file".
-UPDATE app_lm_project_candidate c
+UPDATE app_lm_person c
 SET seniority_level = COALESCE(c.seniority_level,
         (ARRAY['C_SUITE','N_MINUS_1','N_MINUS_2'])[1 + mod(abs(hashtext(c.id::text)::bigint), 3)]),
     nationality = COALESCE(NULLIF(btrim(c.nationality), ''),
@@ -315,8 +333,10 @@ SET seniority_level = COALESCE(c.seniority_level,
             [1 + mod(abs(hashtext(c.id::text || ':nationality')::bigint), 11)]),
     gender = COALESCE(c.gender,
         CASE WHEN mod(abs(hashtext(c.id::text || ':gender')::bigint), 3) = 0 THEN 'FEMALE' ELSE 'MALE' END)
-WHERE c.project_id = :'project_id'
-  AND c.id NOT IN (SELECT id FROM seed_executive)
+FROM app_lm_project_candidate m
+WHERE m.person_id = c.id
+  AND m.project_id = :'project_id'
+  AND m.id NOT IN (SELECT id FROM seed_executive)
   AND (c.seniority_level IS NULL OR NULLIF(btrim(c.nationality), '') IS NULL OR c.gender IS NULL);
 
 COMMIT;
@@ -325,5 +345,7 @@ COMMIT;
 \echo 'seed-report: seeded' :'mandate' '(' :project_id ') — kickoff' :kickoff
 SELECT (SELECT count(*) FROM app_lm_project_triage_company WHERE project_id = :'project_id') AS companies,
        (SELECT count(*) FROM app_lm_project_candidate WHERE project_id = :'project_id') AS executives,
-       (SELECT count(*) FROM app_lm_project_candidate WHERE project_id = :'project_id' AND base_salary IS NOT NULL) AS packages,
-       (SELECT count(DISTINCT nationality) FROM app_lm_project_candidate WHERE project_id = :'project_id') AS nationality_groups;
+       (SELECT count(*) FROM app_lm_project_candidate c JOIN app_lm_person p ON p.id = c.person_id
+        WHERE c.project_id = :'project_id' AND p.base_salary IS NOT NULL) AS packages,
+       (SELECT count(DISTINCT p.nationality) FROM app_lm_project_candidate c JOIN app_lm_person p ON p.id = c.person_id
+        WHERE c.project_id = :'project_id') AS nationality_groups;

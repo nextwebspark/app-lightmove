@@ -169,8 +169,10 @@ class StrategyPeopleSearchIntegrationTest extends FlowTestSupport {
         assertThat(candidate.get("fullName").asText()).isEqualTo("Sample Cfo");
         assertThat(candidate.get("companyName").asText()).isEqualTo("Harbour Group");
         assertThat(candidate.get("linkedinUrl").asText()).isEqualTo("https://www.linkedin.com/in/sample-cfo-12ab/");
-        assertThat(db.queryForObject("select enriched_by from app_lm_project_candidate where id = ?::uuid",
-                String.class, candidate.get("id").asText())).isEqualTo("CONTACTOUT");
+        assertThat(db.queryForMap("select p.enriched_by, p.source from app_lm_person p "
+                + "join app_lm_project_candidate c on c.person_id = p.id where c.id = ?::uuid", candidate.get("id").asText()))
+                .containsEntry("enriched_by", "CONTACTOUT")
+                .containsEntry("source", "PEOPLE_SEARCH");
         assertThat(addedAnswer.get("filed").get(0).get("candidateId").asText()).isEqualTo(candidate.get("id").asText());
         Map<String, Object> employer = db.queryForMap("select source, website, industry from "
                 + "app_lm_project_triage_company where id = ?", UUID.fromString(candidate.get("triageCompanyId").asText()));

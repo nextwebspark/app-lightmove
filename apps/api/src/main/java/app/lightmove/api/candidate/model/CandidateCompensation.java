@@ -45,4 +45,9 @@ public record CandidateCompensation(String currency, Long baseSalary, Long bonus
     public static CandidateCompensation unknown() {
         return new CandidateCompensation(null, null, null, null, null, null, CompensationBreakdown.empty());
     }
+
+    /** Nothing about the package is established — no figure, no currency, no notice, no breakdown. */
+    public boolean isUnknown() {
+        return equals(unknown());
+    }
 }

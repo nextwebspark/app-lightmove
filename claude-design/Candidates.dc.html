@@ -1,0 +1,1568 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+
+
+<helmet>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="uncava-tokens.css">
+  <script src="./image-slot.js"></script>
+  <style>
+    :root{
+      --amber:var(--u-accent);--amber-btn:var(--u-accent-solid);--amber-dim:var(--u-accent-tint);--on-amber:#ffffff;
+      --sky:var(--u-accent);--sky-dim:var(--u-accent-tint);--ring:var(--u-accent-ring);
+      --red:var(--u-offlimits);--red-dim:var(--u-offlimits-tint);
+      --green:var(--u-direct);--green-dim:var(--u-direct-tint);
+      --ai:var(--u-inferred);--ai2:var(--u-adjacent);--ai-line:var(--u-accent);--ai-dim:var(--u-inferred-tint);--ai-soft:var(--u-inferred-tint);
+      --bg:var(--u-bg);--panel:var(--u-surface);--panel2:var(--u-raised);--line:var(--u-border-strong);--line-soft:var(--u-border);
+      --text:var(--u-text);--text2:var(--u-text2);--text3:var(--u-text3);
+      --shadow:var(--u-e3);--radius-panel:var(--u-r-modal);
+      --mono:var(--u-font-ui);--sans:var(--u-font-ui);
+      --u-text2:var(--u-text-2);--u-text3:var(--u-text-3);--u-num:var(--u-font-num);
+    }
+    *{box-sizing:border-box}
+    html,body{height:100%;margin:0}
+    body{background:var(--bg);color:var(--text);font:400 14px/1.45 var(--sans);-webkit-font-smoothing:antialiased}
+    a{color:var(--sky);text-decoration:none}
+    input::placeholder,textarea::placeholder{color:var(--text3)}
+    button{font-family:inherit}
+    @keyframes fadeUp{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
+    @keyframes spin{to{transform:rotate(360deg)}}
+    @keyframes slideInEnd{from{transform:translateX(100%)}to{transform:none}}
+  </style>
+  <script>try{var t=localStorage.getItem('lm-theme');document.documentElement.setAttribute('data-theme', t==='light'?'light':'dark');}catch(e){}</script>
+</helmet>
+<div data-screen-label="Candidates" style="height:100vh;display:flex;flex-direction:column;overflow:hidden">
+
+  <header data-screen-label="Topbar" style="height:46px;flex:none;display:flex;align-items:center;gap:12px;padding:0 14px;position:relative;z-index:60">
+    <div style="flex:1;min-width:0;display:flex;align-items:center">
+      <div style="position:relative">
+        <button onClick="{{ toggleWsMenu }}" style="display:flex;align-items:center;gap:10px;padding:5px 10px 5px 6px;border-radius:8px;background:none;border:none;cursor:pointer" style-hover="background:var(--panel2)">
+          <svg viewBox="-36 -51 72 104" fill="none" stroke="currentColor" style="height:30px;width:auto;flex:none;color:var(--text)" aria-hidden="true"><path d="M-32 10 L 0 -8 L 32 10 L 0 28 Z M-32 10 V 32 L 0 50 L 32 32 V 10 M0 28 V 50" stroke-width="2.6" stroke-linejoin="round"></path><path d="M0 -48 L 32 -30 L 0 -12 L -32 -30 Z" fill="currentColor" stroke="none"></path></svg>
+          <span style="font:200 14px var(--u-font-brand);text-transform:uppercase;letter-spacing:.38em;color:var(--text)">Uncava</span>
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color:var(--text3)"><path d="m6 9 6 6 6-6"></path></svg>
+        </button>
+        <sc-if value="{{ wsMenuOpen }}" hint-placeholder-val="{{ false }}">
+          <div style="position:absolute;left:0;top:40px;z-index:80;width:268px;border-radius:10px;border:1px solid var(--line);background:var(--panel);padding:6px;box-shadow:var(--shadow)">
+            <div style="display:flex;align-items:center;gap:10px;padding:10px;border-bottom:1px solid var(--line-soft);margin-bottom:6px">
+              <img src="assets/al-futtaim-logo.png" alt="Al-Futtaim" style="width:30px;height:30px;object-fit:contain;flex:none">
+              <div style="font:600 13px var(--mono)">Al-Futtaim</div>
+            </div>
+            <a href="Settings.dc.html?section=profile" style="display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:6px;font-size:13px;color:var(--text2)" style-hover="background:var(--panel2);color:var(--text)">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex:none"><path d="{{ ic.profile }}"></path></svg>
+              Your profile
+            </a>
+            <div style="height:1px;background:var(--line-soft);margin:6px 4px"></div>
+            <a href="Settings.dc.html?section=general" style="display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:6px;font-size:13px;color:var(--text2)" style-hover="background:var(--panel2);color:var(--text)">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex:none"><path d="{{ ic.settings }}"></path></svg>
+              Workspace settings
+            </a>
+            <a href="Settings.dc.html?section=candidate-tags" style="display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:6px;font-size:13px;color:var(--text2)" style-hover="background:var(--panel2);color:var(--text)">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex:none"><path d="{{ ic.tag }}"></path></svg>
+              Candidate tags
+            </a>
+            <div style="height:1px;background:var(--line-soft);margin:6px 4px"></div>
+            <a href="Login.dc.html" style="display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:6px;font-size:13px;color:var(--text2)" style-hover="background:var(--panel2);color:var(--text)">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex:none"><path d="{{ ic.signOut }}"></path></svg>
+              Sign out
+            </a>
+          </div>
+        </sc-if>
+      </div>
+    </div>
+    <div style="display:flex;flex:none;align-items:center;gap:10px">
+      <span title="Current workspace: Al-Futtaim" style="display:flex;align-items:center;gap:8px;min-width:0;border:1px solid var(--line-soft);border-radius:7px;padding:4px 10px 4px 6px"><img src="assets/al-futtaim-logo.png" alt="" style="width:18px;height:18px;object-fit:contain;flex:none"><span style="font:500 12px var(--mono);color:var(--text2)">Al-Futtaim</span></span>
+      <span title="Yara Haddad" style="width:26px;height:26px;border-radius:50%;display:grid;place-items:center;background:var(--sky-dim);color:var(--sky);font:600 10px var(--mono)">YH</span>
+    </div>
+  </header>
+
+  <div style="flex:1;min-height:0;display:flex;padding:0 14px 14px">
+
+    <nav aria-label="Main" style="width:{{ sideWidth }};flex:none;padding:14px 10px;display:flex;flex-direction:column;overflow-y:auto;overflow-x:hidden;transition:width .18s">
+      <sc-for list="{{ navGroups }}" as="g" hint-placeholder-count="2">
+        <div>
+          <sc-if value="{{ labelsShown }}" hint-placeholder-val="{{ true }}">
+            <div style="padding:14px 10px 6px;font:600 10px var(--mono);letter-spacing:.14em;text-transform:uppercase;color:var(--text3)">{{ g.label }}</div>
+          </sc-if>
+          <sc-for list="{{ g.items }}" as="it" hint-placeholder-count="2">
+            <a href="{{ it.href }}" title="{{ it.label }}" style="display:flex;align-items:center;justify-content:{{ navJustify }};gap:10px;padding:8px 10px;border-radius:6px;font-size:13.5px;color:{{ it.color }};background:{{ it.bg }}" style-hover="background:var(--panel2);color:var(--text)">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex:none;color:{{ it.iconColor }}"><path d="{{ it.icon }}"></path></svg>
+              <sc-if value="{{ labelsShown }}" hint-placeholder-val="{{ true }}">
+                <span style="white-space:nowrap">{{ it.label }}</span>
+                <span style="margin-left:auto;font:500 11px var(--mono);color:var(--text3)">{{ it.count }}</span>
+              </sc-if>
+            </a>
+          </sc-for>
+        </div>
+      </sc-for>
+      <div style="margin-top:auto;border-top:1px solid var(--line-soft);padding-top:12px">
+        <button onClick="{{ toggleTheme }}" title="{{ themeLabel }}" style="display:flex;align-items:center;justify-content:{{ navJustify }};gap:10px;width:100%;padding:8px 10px;border-radius:6px;font-size:13.5px;color:var(--text2);background:none;border:none;text-align:left;cursor:pointer" style-hover="background:var(--panel2);color:var(--text)">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex:none"><path d="{{ themeIcon }}"></path></svg>
+          <sc-if value="{{ labelsShown }}" hint-placeholder-val="{{ true }}"><span style="white-space:nowrap">{{ themeLabel }}</span></sc-if>
+        </button>
+        <button onClick="{{ toggleCollapse }}" title="{{ collapseTitle }}" style="display:flex;align-items:center;justify-content:{{ navJustify }};gap:10px;width:100%;padding:8px 10px;border-radius:6px;font-size:13.5px;color:var(--text2);background:none;border:none;text-align:left;cursor:pointer" style-hover="background:var(--panel2);color:var(--text)">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex:none"><path d="{{ collapseIcon }}"></path></svg>
+          <sc-if value="{{ labelsShown }}" hint-placeholder-val="{{ true }}"><span style="white-space:nowrap">Collapse</span></sc-if>
+        </button>
+        <sc-if value="{{ labelsShown }}" hint-placeholder-val="{{ true }}">
+          <p style="margin:0;padding:8px 10px 0;font:400 11px var(--mono);color:var(--text3)">v2026.09.22</p>
+        </sc-if>
+      </div>
+    </nav>
+
+    <main style="flex:1;min-width:0;overflow-y:auto;border-radius:10px;border:1px solid var(--line);background:var(--panel)">
+      <div style="max-width:1440px;margin:0 auto;padding:28px 28px 96px">
+
+        <div data-screen-label="Page header" style="margin-bottom:14px;display:flex;flex-wrap:wrap;align-items:flex-start;gap:16px">
+          <div style="min-width:0">
+            <div style="font:600 19px/1.25 var(--sans)">Candidates</div>
+            <div style="margin-top:4px;font:400 12px var(--mono);color:var(--text3)">{{ pageSub }}</div>
+          </div>
+          <sc-if value="{{ showExport }}" hint-placeholder-val="{{ true }}">
+            <div style="margin-left:auto;display:flex;gap:8px">
+              <button onClick="{{ exportView }}" title="Download every person this view shows as a CSV — recorded in the audit trail" style="display:inline-flex;align-items:center;gap:8px;border-radius:8px;padding:7px 12px;font:500 13px var(--sans);background:var(--panel);border:1px solid var(--line);color:var(--text2);cursor:pointer" style-hover="color:var(--text);border-color:var(--text3)">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="{{ ic.importInto }}"></path></svg>
+                Export
+              </button>
+            </div>
+          </sc-if>
+        </div>
+
+        <div role="tablist" aria-label="Candidates views" style="margin-bottom:18px;display:flex;gap:4px;border-bottom:1px solid var(--line-soft)">
+          <sc-for list="{{ viewTabs }}" as="vt" hint-placeholder-count="2">
+            <a href="{{ vt.href }}" role="tab" aria-selected="{{ vt.selected }}" style="{{ vt.style }}">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex:none"><path d="{{ vt.icon }}"></path></svg>
+              {{ vt.label }}
+            </a>
+          </sc-for>
+        </div>
+
+        <sc-if value="{{ isLoading }}" hint-placeholder-val="{{ false }}">
+          <div data-screen-label="Loading" role="status" aria-label="Loading" style="display:flex;flex-direction:column;gap:10px">
+            <sc-for list="{{ skeletonRows }}" as="sr" hint-placeholder-count="7">
+              <div style="display:flex;align-items:center;gap:14px;border-bottom:1px solid var(--line-soft);padding:12px 4px">
+                <div style="width:28px;height:28px;border-radius:50%;background:var(--panel2)"></div>
+                <div style="height:13px;width:{{ sr.a }};border-radius:4px;background:var(--panel2)"></div>
+                <div style="height:13px;width:{{ sr.b }};border-radius:4px;background:var(--panel2)"></div>
+                <div style="margin-left:auto;height:13px;width:{{ sr.c }};border-radius:4px;background:var(--panel2)"></div>
+              </div>
+            </sc-for>
+          </div>
+        </sc-if>
+
+        <sc-if value="{{ isEmpty }}" hint-placeholder-val="{{ false }}">
+          <div data-screen-label="Empty" style="display:flex;flex-direction:column;align-items:center;justify-content:center;padding:80px 20px 70px;text-align:center;animation:fadeUp .5s ease both">
+            <div style="margin-bottom:18px;width:52px;height:52px;border-radius:14px;display:grid;place-items:center;background:var(--amber-dim);color:var(--amber)">
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="{{ ic.candidates }}"></path></svg>
+            </div>
+            <div style="margin-bottom:6px;font-size:19px;font-weight:600">No candidates yet</div>
+            <div style="margin-bottom:22px;max-width:460px;font-size:13px;color:var(--text2)">Everyone your team maps on a position lands here — added by hand, captured with the plugin, imported from a spreadsheet, or found by Find executives. Someone who is already here is added to the next position, never duplicated.</div>
+            <a href="Workspace.dc.html" style="display:flex;align-items:center;justify-content:center;gap:8px;border-radius:8px;padding:7px 14px;font:600 13px var(--sans);background:var(--amber-btn);border:1px solid var(--amber-btn);color:var(--on-amber)" style-hover="filter:brightness(1.05)">Go to your positions</a>
+          </div>
+        </sc-if>
+
+        <sc-if value="{{ isPeople }}" hint-placeholder-val="{{ true }}">
+          <div data-screen-label="Toolbar" style="margin-bottom:12px;display:flex;flex-wrap:wrap;align-items:center;gap:10px">
+            <div style="display:flex;width:320px;max-width:100%;align-items:center;gap:8px;border-radius:8px;border:1px solid var(--line);background:var(--panel2);padding:7px 11px">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color:var(--text3);flex:none"><path d="{{ ic.search }}"></path></svg>
+              <input value="{{ q }}" onChange="{{ onSearch }}" placeholder="Search name, title, company or email…" aria-label="Search candidates" style="width:100%;background:transparent;border:none;font:400 13px var(--mono);color:var(--text);outline:none">
+            </div>
+            <div style="display:flex;flex-wrap:wrap;gap:6px">
+              <sc-for list="{{ quickViews }}" as="c" hint-placeholder-count="5">
+                <button onClick="{{ setQuick }}" data-id="{{ c.key }}" style="display:inline-flex;align-items:center;gap:6px;border-radius:999px;border:1px solid {{ c.border }};padding:5px 11px;font:500 12px var(--mono);color:{{ c.color }};background:{{ c.bg }};cursor:pointer" style-hover="color:var(--text)">{{ c.label }}<span style="font:500 11px var(--mono);color:var(--text3)">{{ c.count }}</span></button>
+              </sc-for>
+            </div>
+            <button onClick="{{ toggleFilters }}" aria-expanded="{{ filtersOpen }}" style="margin-left:auto;display:inline-flex;align-items:center;gap:7px;border-radius:8px;padding:7px 12px;font:500 13px var(--sans);background:{{ filterBtnBg }};border:1px solid {{ filterBtnBorder }};color:var(--text);cursor:pointer" style-hover="border-color:var(--text3)">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="{{ ic.filter }}"></path></svg>
+              Filters
+              <sc-if value="{{ hasActiveFilters }}" hint-placeholder-val="{{ false }}"><span style="border-radius:4px;background:var(--sky-dim);padding:1px 6px;font:700 10.5px var(--sans);color:var(--sky)">{{ activeFilterCount }}</span></sc-if>
+            </button>
+          </div>
+
+          <sc-if value="{{ filtersOpen }}" hint-placeholder-val="{{ true }}">
+            <div data-screen-label="Filter panel" style="margin-bottom:12px;border-radius:10px;border:1px solid var(--line);background:var(--panel2);padding:14px 16px;animation:fadeUp .2s ease both">
+              <div style="display:flex;flex-wrap:wrap;align-items:center;gap:10px">
+                <span style="width:72px;flex:none;font:600 10px var(--mono);text-transform:uppercase;letter-spacing:.12em;color:var(--text3)">Tags</span>
+                <div role="radiogroup" aria-label="Match tags" style="display:inline-flex;border-radius:7px;border:1px solid var(--line);background:var(--panel);padding:2px">
+                  <sc-for list="{{ tagModes }}" as="tm" hint-placeholder-count="3">
+                    <button onClick="{{ setTagMode }}" data-id="{{ tm.key }}" role="radio" aria-checked="{{ tm.on }}" style="{{ tm.style }}">{{ tm.label }}</button>
+                  </sc-for>
+                </div>
+                <div style="display:flex;flex-wrap:wrap;gap:6px">
+                  <sc-for list="{{ tagToggles }}" as="tt" hint-placeholder-count="6">
+                    <button onClick="{{ toggleTagFilter }}" data-id="{{ tt.id }}" role="checkbox" aria-checked="{{ tt.on }}" style="{{ tt.style }}">
+                      <sc-if value="{{ tt.on }}"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="{{ ic.check }}"></path></svg></sc-if>
+                      {{ tt.label }}<span style="opacity:.7">{{ tt.count }}</span>
+                    </button>
+                  </sc-for>
+                </div>
+              </div>
+              <div style="margin-top:12px;display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:10px">
+                <sc-for list="{{ selectFilters }}" as="sf" hint-placeholder-count="4">
+                  <label style="display:block;min-width:0">
+                    <span style="display:block;margin-bottom:4px;font:600 10px var(--mono);text-transform:uppercase;letter-spacing:.12em;color:var(--text3)">{{ sf.label }}</span>
+                    <select value="{{ sf.value }}" onChange="{{ setSelectFilter }}" data-id="{{ sf.key }}" aria-label="{{ sf.label }}" style="width:100%;border-radius:7px;border:1px solid var(--line);background:var(--panel);padding:7px 9px;font:400 12.5px var(--mono);color:var(--text);outline:none">
+                      <sc-for list="{{ sf.options }}" as="op"><option value="{{ op.value }}">{{ op.label }}</option></sc-for>
+                    </select>
+                  </label>
+                </sc-for>
+              </div>
+              <p style="margin:10px 0 0;font:400 11px var(--mono);color:var(--text3)">Tags are your team's own labels — set them from a person's drawer or on many people at once. Status reads from the positions a person is in.</p>
+            </div>
+          </sc-if>
+
+          <sc-if value="{{ hasActiveFilters }}" hint-placeholder-val="{{ false }}">
+            <div data-screen-label="Active filters" style="margin-bottom:12px;display:flex;flex-wrap:wrap;align-items:center;gap:6px">
+              <sc-for list="{{ activeFilters }}" as="af" hint-placeholder-count="2">
+                <span style="display:inline-flex;align-items:center;gap:6px;border-radius:999px;border:1px solid var(--line);background:var(--panel2);padding:3px 4px 3px 10px;font:500 12px var(--mono);color:var(--text2)">
+                  {{ af.label }}
+                  <button onClick="{{ clearFilter }}" data-id="{{ af.key }}" aria-label="Remove filter {{ af.label }}" style="display:grid;width:18px;height:18px;place-items:center;border-radius:50%;background:none;border:none;color:var(--text3);cursor:pointer" style-hover="background:var(--panel);color:var(--text)"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="{{ ic.close }}"></path></svg></button>
+                </span>
+              </sc-for>
+              <button onClick="{{ clearAllFilters }}" style="font:500 12px var(--mono);color:var(--sky);background:none;border:none;cursor:pointer" style-hover="text-decoration:underline">Clear all</button>
+              <span style="margin-left:auto;font:400 12px var(--mono);color:var(--text3)">{{ resultLine }}</span>
+            </div>
+          </sc-if>
+
+          <div data-screen-label="Candidates grid" role="table" aria-label="Candidates" style="display:flex;flex-direction:column;overflow:hidden;border-radius:8px;border:1px solid var(--line);background:var(--panel)">
+            <div style="overflow:auto">
+              <div style="position:sticky;top:0;z-index:20;border-bottom:1px solid var(--line);background:var(--panel2);min-width:{{ gridMin }}">
+                <div role="row" style="display:grid;grid-template-columns:{{ gridCols }};align-items:center;gap:12px;padding:10px 0">
+                  <div role="columnheader" style="display:flex;justify-content:center;padding-left:6px">
+                    <button onClick="{{ toggleAll }}" role="checkbox" aria-checked="{{ allChecked }}" aria-label="Select every person shown" style="display:grid;place-items:center;width:16px;height:16px;border-radius:4px;border:none;padding:0;cursor:pointer;box-shadow:inset 0 0 0 1.5px {{ allBox.color }};background:{{ allBox.bg }}"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.2" style="color:var(--on-amber);opacity:{{ allBox.tick }}"><path d="{{ allBox.icon }}"></path></svg></button>
+                  </div>
+                  <sc-for list="{{ headers }}" as="h" hint-placeholder-count="6">
+                    <div role="columnheader" style="min-width:0;padding-right:{{ h.pr }}">
+                      <button onClick="{{ sortBy }}" data-id="{{ h.id }}" disabled="{{ h.fixed }}" style="display:block;width:100%;text-align:left;background:none;border:none;padding:0;cursor:{{ h.cursor }}">
+                        <span style="display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font:600 11px var(--sans);text-transform:uppercase;letter-spacing:.04em;color:{{ h.color }}">{{ h.label }}{{ h.arrow }}</span>
+                      </button>
+                    </div>
+                  </sc-for>
+                </div>
+              </div>
+
+              <sc-for list="{{ rows }}" as="r" hint-placeholder-count="8">
+                <div role="row" onClick="{{ openRow }}" data-id="{{ r.id }}" style="display:grid;grid-template-columns:{{ gridCols }};min-width:{{ gridMin }};min-height:56px;align-items:center;gap:12px;border-bottom:1px solid var(--line-soft);background:{{ r.bg }};cursor:pointer" style-hover="background:var(--panel2)">
+                  <div role="cell" style="display:flex;justify-content:center;padding-left:6px">
+                    <button onClick="{{ toggleRow }}" data-id="{{ r.id }}" role="checkbox" aria-checked="{{ r.checked }}" aria-label="Select {{ r.name }}" style="display:grid;place-items:center;width:16px;height:16px;border-radius:4px;border:none;padding:0;cursor:pointer;box-shadow:inset 0 0 0 1.5px {{ r.boxColor }};background:{{ r.boxBg }}"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.2" style="color:var(--on-amber);opacity:{{ r.tick }}"><path d="{{ ic.check }}"></path></svg></button>
+                  </div>
+                  <div role="cell" style="min-width:0;display:flex;align-items:center;gap:10px">
+                    <span style="{{ r.avStyle }}">{{ r.initials }}</span>
+                    <span style="min-width:0">
+                      <span style="display:flex;align-items:center;gap:6px;min-width:0">
+                        <span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font:600 13px var(--sans);color:var(--text)">{{ r.name }}</span>
+                        <sc-if value="{{ r.dnc }}"><span title="Do not contact" style="display:inline-flex;flex:none;color:var(--red)"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="{{ ic.ban }}"></path></svg></span></sc-if>
+                      </span>
+                      <span style="display:flex;align-items:center;gap:6px;min-width:0">
+                        <sc-if value="{{ r.dup }}"><span title="{{ r.dupTitle }}" style="flex:none;border-radius:4px;padding:1px 5px;font:700 9px var(--mono);text-transform:uppercase;letter-spacing:.05em;background:var(--u-signal-tint);color:var(--u-signal)">Possible duplicate</span></sc-if>
+                        <span style="min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font:400 11.5px var(--mono);color:var(--text3)">{{ r.headline }}</span>
+                      </span>
+                    </span>
+                  </div>
+                  <div role="cell" style="min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font:400 12.5px var(--sans);color:{{ r.locColor }}">{{ r.location }}</div>
+                  <div role="cell" style="min-width:0;display:flex;flex-wrap:wrap;gap:4px">
+                    <sc-for list="{{ r.chips }}" as="pc" hint-placeholder-count="2">
+                      <span title="{{ pc.title }}" style="{{ pc.style }}"><span style="width:6px;height:6px;flex:none;border-radius:50%;background:{{ pc.dot }}"></span>{{ pc.label }}</span>
+                    </sc-for>
+                    <sc-if value="{{ r.moreChips }}"><span style="font:500 11px var(--mono);color:var(--text3);align-self:center">{{ r.moreLabel }}</span></sc-if>
+                    <sc-if value="{{ r.noPositions }}"><span style="font:400 12px var(--mono);color:var(--text3)">Not in a position</span></sc-if>
+                  </div>
+                  <div role="cell" style="min-width:0;display:flex;flex-wrap:wrap;gap:4px">
+                    <sc-for list="{{ r.tags }}" as="tg" hint-placeholder-count="2"><span style="{{ tg.style }}">{{ tg.label }}</span></sc-for>
+                    <sc-if value="{{ r.moreTags }}"><span style="font:500 11px var(--mono);color:var(--text3);align-self:center">{{ r.moreTagLabel }}</span></sc-if>
+                  </div>
+                  <div role="cell" style="min-width:0">
+                    <sc-if value="{{ r.hasOwner }}"><span title="Owner · {{ r.ownerName }}" style="{{ r.ownerStyle }}">{{ r.ownerInitials }}</span></sc-if>
+                    <sc-if value="{{ r.noOwner }}"><span style="font:400 12px var(--mono);color:var(--text3)">—</span></sc-if>
+                  </div>
+                  <div role="cell" style="min-width:0;padding-right:16px">
+                    <span style="display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font:400 12.5px var(--sans);color:var(--text2)">{{ r.lastWhat }}</span>
+                    <span style="display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font:400 11px var(--mono);color:var(--text3)">{{ r.lastWho }} · {{ r.lastWhen }}</span>
+                  </div>
+                </div>
+              </sc-for>
+
+              <sc-if value="{{ noResults }}" hint-placeholder-val="{{ false }}">
+                <div data-screen-label="No results" style="padding:40px 16px;text-align:center;font:400 13px var(--mono);color:var(--text3)">
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="display:block;margin:0 auto 8px;color:var(--text3)"><path d="{{ ic.search }}"></path></svg>
+                  Nobody matches. Loosen a filter or clear the search.
+                </div>
+              </sc-if>
+            </div>
+          </div>
+        </sc-if>
+
+        <sc-if value="{{ isActivity }}" hint-placeholder-val="{{ false }}">
+          <div data-screen-label="Activity toolbar" style="margin-bottom:16px;display:flex;flex-wrap:wrap;align-items:center;gap:10px">
+            <sc-for list="{{ activitySelects }}" as="as" hint-placeholder-count="3">
+              <label style="display:inline-flex;align-items:center;gap:8px">
+                <span style="font:600 10px var(--mono);text-transform:uppercase;letter-spacing:.12em;color:var(--text3)">{{ as.label }}</span>
+                <select value="{{ as.value }}" onChange="{{ setActivitySelect }}" data-id="{{ as.key }}" aria-label="{{ as.label }}" style="border-radius:7px;border:1px solid var(--line);background:var(--panel2);padding:6px 9px;font:400 12.5px var(--mono);color:var(--text);outline:none">
+                  <sc-for list="{{ as.options }}" as="op"><option value="{{ op.value }}">{{ op.label }}</option></sc-for>
+                </select>
+              </label>
+            </sc-for>
+          </div>
+          <div style="margin-bottom:16px;display:flex;flex-wrap:wrap;gap:6px">
+            <sc-for list="{{ kindChips }}" as="kc" hint-placeholder-count="6">
+              <button onClick="{{ setActivityKind }}" data-id="{{ kc.key }}" style="border-radius:999px;border:1px solid {{ kc.border }};padding:5px 11px;font:500 12px var(--mono);color:{{ kc.color }};background:{{ kc.bg }};cursor:pointer" style-hover="color:var(--text)">{{ kc.label }}</button>
+            </sc-for>
+          </div>
+
+          <div data-screen-label="Activity feed" role="feed" aria-label="Candidate activity" style="max-width:920px">
+            <sc-for list="{{ feedDays }}" as="fd" hint-placeholder-count="3">
+              <section style="margin-bottom:18px">
+                <div style="position:sticky;top:0;z-index:5;background:var(--panel);padding:6px 0 8px;font:600 10.5px var(--mono);text-transform:uppercase;letter-spacing:.12em;color:var(--text3)">{{ fd.label }}</div>
+                <sc-for list="{{ fd.entries }}" as="fe" hint-placeholder-count="4">
+                  <article onClick="{{ openFromFeed }}" data-id="{{ fe.person }}" style="display:flex;align-items:flex-start;gap:12px;border-radius:8px;padding:10px 12px;cursor:pointer" style-hover="background:var(--panel2)">
+                    <span title="{{ fe.actorName }}" style="{{ fe.avStyle }}">{{ fe.actorInitials }}</span>
+                    <div style="min-width:0;flex:1">
+                      <p style="margin:0;font:400 13px/1.5 var(--sans);color:var(--text2)"><sc-for list="{{ fe.parts }}" as="pt"><span style="{{ pt.style }}">{{ pt.t }}</span></sc-for></p>
+                      <sc-if value="{{ fe.hasDetail }}"><p style="margin:2px 0 0;font:400 11.5px var(--mono);color:var(--text3)">{{ fe.detail }}</p></sc-if>
+                      <sc-if value="{{ fe.hasExcerpt }}"><p style="margin:6px 0 0;border-left:2px solid var(--line);padding:2px 0 2px 10px;font:400 12.5px/1.5 var(--sans);color:var(--text2)">{{ fe.excerpt }}</p></sc-if>
+                    </div>
+                    <span style="display:inline-flex;flex:none;align-items:center;gap:6px;font:400 11.5px var(--mono);color:var(--text3)" title="{{ fe.exact }}">
+                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="{{ fe.icon }}"></path></svg>
+                      {{ fe.time }}
+                    </span>
+                  </article>
+                </sc-for>
+              </section>
+            </sc-for>
+            <sc-if value="{{ noFeed }}" hint-placeholder-val="{{ false }}">
+              <div style="padding:40px 16px;text-align:center;font:400 13px var(--mono);color:var(--text3)">Nothing recorded for this filter. Widen the date range or pick everyone.</div>
+            </sc-if>
+            <sc-if value="{{ feedHasMore }}" hint-placeholder-val="{{ true }}">
+              <button onClick="{{ loadMore }}" style="margin:4px 0 0 12px;font:500 12px var(--mono);color:var(--sky);background:none;border:none;cursor:pointer" style-hover="text-decoration:underline">Load older activity</button>
+            </sc-if>
+          </div>
+        </sc-if>
+      </div>
+    </main>
+  </div>
+
+  <sc-if value="{{ hasSelection }}" hint-placeholder-val="{{ false }}">
+    <div style="pointer-events:none;position:fixed;left:0;right:0;bottom:30px;z-index:70;display:flex;justify-content:center;padding:0 12px">
+      <div role="region" aria-label="{{ selectionAria }}" data-screen-label="Selection bar" style="pointer-events:auto;display:flex;max-width:100%;flex-wrap:wrap;align-items:center;column-gap:4px;row-gap:8px;border-radius:10px;border:1px solid var(--line);background:var(--panel);padding:8px 10px;box-shadow:var(--shadow);animation:fadeUp .2s ease both">
+        <span style="white-space:nowrap;padding:0 6px;font:600 13px var(--sans);color:var(--text)"><span style="color:var(--amber)">{{ selectedTotal }}</span> selected</span>
+        <span style="margin:0 2px;height:20px;width:1px;flex:none;background:var(--line)"></span>
+        <sc-for list="{{ bulkActions }}" as="ba" hint-placeholder-count="4">
+          <button onClick="{{ runBulk }}" data-id="{{ ba.key }}" style="display:inline-flex;flex:none;align-items:center;gap:8px;white-space:nowrap;border-radius:6px;padding:8px 12px;font:500 13px var(--sans);color:var(--text2);background:none;border:none;cursor:pointer" style-hover="background:var(--panel2);color:var(--text)">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex:none"><path d="{{ ba.icon }}"></path></svg>{{ ba.label }}</button>
+        </sc-for>
+        <span style="margin:0 2px;height:20px;width:1px;flex:none;background:var(--line)"></span>
+        <button onClick="{{ clearSelection }}" aria-label="Clear selection" title="Clear selection (Esc)" style="display:grid;width:32px;height:32px;flex:none;place-items:center;border-radius:6px;color:var(--text3);background:none;border:none;cursor:pointer" style-hover="background:var(--panel2);color:var(--text)">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="{{ ic.close }}"></path></svg>
+        </button>
+      </div>
+    </div>
+  </sc-if>
+
+  <sc-if value="{{ askVisible }}" hint-placeholder-val="{{ true }}">
+  <a href="Assistant.dc.html" title="Ask the assistant" style="position:fixed;bottom:20px;right:20px;z-index:60;height:44px;display:inline-flex;align-items:center;gap:10px;padding:0 17px 0 14px;border-radius:22px;border:1px solid var(--ai-line);background:linear-gradient(135deg,var(--ai),var(--ai2));color:#fff;font:600 13px var(--sans);box-shadow:0 8px 24px -6px rgba(79,70,229,.5);text-decoration:none" style-hover="filter:brightness(1.1)">
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex:none"><path d="{{ ic.sparkle }}"></path></svg>
+    Ask
+  </a>
+  </sc-if>
+
+  <sc-if value="{{ drawerShown }}" hint-placeholder-val="{{ false }}">
+    <div onClick="{{ closeDrawer }}" style="position:fixed;inset:0;z-index:90;background:rgba(15,20,30,.4)"></div>
+    <!-- One person, whichever position they were opened from. The same drawer opens from a position's
+         Companies grid and Candidates page (Position.dc.html), where it also knows the position it came
+         from: the note composer defaults to that position and its row is first under Positions. A client
+         contact never reaches this drawer — Positions, Notes and Timeline are staff-only. -->
+    <aside role="dialog" aria-modal="true" aria-label="{{ dv.name }}" data-screen-label="Candidate drawer" style="position:fixed;right:10px;top:10px;bottom:10px;z-index:95;width:600px;max-width:94vw;display:flex;flex-direction:column;border-radius:10px;border:1px solid var(--line);background:var(--panel);box-shadow:var(--shadow);animation:fadeUp .2s ease both">
+      <div style="position:relative;flex:none;padding:16px 20px 0">
+        <button onClick="{{ closeDrawer }}" aria-label="Close" style="position:absolute;right:14px;top:14px;border-radius:6px;padding:6px;color:var(--text3);background:none;border:none;cursor:pointer" style-hover="background:var(--panel2);color:var(--text)"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="{{ ic.close }}"></path></svg></button>
+        <div style="display:flex;align-items:flex-start;gap:12px;padding-right:32px">
+          <span style="{{ dv.avStyle }}">{{ dv.initials }}</span>
+          <div style="min-width:0;flex:1">
+            <span style="display:flex;align-items:center;gap:6px">
+              <h2 style="margin:0;font:600 16px var(--sans)">{{ dv.name }}</h2>
+              <sc-if value="{{ dv.hasLi }}"><a href="#" aria-label="LinkedIn profile" style="display:flex;flex:none;align-items:center;opacity:.8"><span style="width:16px;height:15px;border-radius:2px;background:var(--text);color:var(--panel);font:700 10px/15px var(--sans);text-align:center">in</span></a></sc-if>
+              <button title="Edit details" style="border-radius:6px;padding:6px;color:var(--text3);opacity:.6;background:none;border:none;cursor:pointer" style-hover="background:var(--panel2);color:var(--text);opacity:1"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="{{ ic.pencil }}"></path></svg></button>
+            </span>
+            <p style="margin:2px 0 0;font:400 12.5px var(--mono);color:var(--text2)">{{ dv.title }}</p>
+            <p style="margin:4px 0 0;font:400 11.5px var(--mono);color:var(--text3)">{{ dv.context }}</p>
+            <div style="margin-top:8px;display:flex;flex-wrap:wrap;align-items:center;gap:8px">
+              <sc-if value="{{ dv.hasLevel }}"><span style="display:inline-flex;align-items:center;border-radius:5px;padding:2px 7px;font:700 9.5px var(--mono);text-transform:uppercase;letter-spacing:.06em;background:var(--line-soft);color:var(--text2)">{{ dv.level }}</span></sc-if>
+              <label style="display:inline-flex;align-items:center;gap:6px;font:400 11.5px var(--mono);color:var(--text3)">Owner
+                <select value="{{ dv.owner }}" onChange="{{ setOwner }}" aria-label="Owner" style="width:auto;border-radius:6px;border:1px solid var(--line);background:var(--panel2);padding:3px 7px;font:400 12px var(--mono);color:var(--text);outline:none">
+                  <sc-for list="{{ ownerOptions }}" as="oo"><option value="{{ oo.value }}">{{ oo.label }}</option></sc-for>
+                </select>
+              </label>
+              <button onClick="{{ toggleDnc }}" title="{{ dv.dncTitle }}" style="{{ dv.dncBtnStyle }}"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="{{ ic.ban }}"></path></svg>{{ dv.dncBtnLabel }}</button>
+            </div>
+          </div>
+        </div>
+
+        <sc-if value="{{ dv.dnc }}">
+          <div role="note" data-screen-label="Do not contact" style="margin-top:12px;display:flex;gap:10px;border-radius:8px;border:1px solid color-mix(in srgb,var(--red) 35%,transparent);background:var(--red-dim);padding:9px 12px">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex:none;margin-top:1px;color:var(--red)"><path d="{{ ic.ban }}"></path></svg>
+            <div style="min-width:0">
+              <div style="font:600 12.5px var(--sans);color:var(--red)">Do not contact</div>
+              <div style="margin-top:2px;font:400 12px/1.5 var(--sans);color:var(--text2)">{{ dv.dncReason }}</div>
+              <div style="margin-top:2px;font:400 11px var(--mono);color:var(--text3)">{{ dv.dncBy }}</div>
+            </div>
+          </div>
+        </sc-if>
+
+        <div data-screen-label="Tags" style="position:relative;margin-top:12px;display:flex;flex-wrap:wrap;align-items:center;gap:6px">
+          <sc-for list="{{ dv.tags }}" as="t" hint-placeholder-count="2">
+            <span style="{{ t.style }}">{{ t.label }}<button onClick="{{ removeTag }}" data-id="{{ t.id }}" aria-label="Remove tag {{ t.label }}" style="display:grid;width:14px;height:14px;place-items:center;border-radius:50%;margin-left:2px;padding:0;background:none;border:none;color:inherit;opacity:.7;cursor:pointer" style-hover="opacity:1"><svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6"><path d="{{ ic.close }}"></path></svg></button></span>
+          </sc-for>
+          <button onClick="{{ toggleTagPicker }}" aria-expanded="{{ tagPickerOpen }}" style="display:inline-flex;align-items:center;gap:5px;border-radius:999px;border:1px dashed var(--line);padding:2px 9px;font:500 11.5px var(--mono);color:var(--text3);background:none;cursor:pointer" style-hover="color:var(--text);border-color:var(--text3)"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="{{ ic.plus }}"></path></svg>Tag</button>
+          <sc-if value="{{ tagPickerOpen }}" hint-placeholder-val="{{ false }}">
+            <div data-screen-label="Tag picker" style="position:absolute;left:0;top:30px;z-index:20;width:260px;border-radius:10px;border:1px solid var(--line);background:var(--panel);padding:8px;box-shadow:var(--shadow);animation:fadeUp .15s ease both">
+              <input value="{{ tagQuery }}" onChange="{{ onTagQuery }}" placeholder="Find or create a tag…" aria-label="Find or create a tag" style="width:100%;border-radius:6px;border:1px solid var(--line);background:var(--panel2);padding:7px 9px;font:400 12.5px var(--mono);color:var(--text);outline:none">
+              <div style="margin-top:6px;display:flex;flex-direction:column">
+                <sc-for list="{{ tagOptions }}" as="to" hint-placeholder-count="5">
+                  <button onClick="{{ pickTag }}" data-id="{{ to.id }}" role="checkbox" aria-checked="{{ to.on }}" style="display:flex;width:100%;align-items:center;gap:8px;border-radius:5px;padding:6px;text-align:left;background:none;border:none;cursor:pointer" style-hover="background:var(--panel2)">
+                    <span style="display:grid;flex:none;place-items:center;width:15px;height:15px;border-radius:4px;box-shadow:inset 0 0 0 1.5px {{ to.boxColor }};background:{{ to.boxBg }}"><svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.2" style="color:var(--on-amber);opacity:{{ to.tick }}"><path d="{{ ic.check }}"></path></svg></span>
+                    <span style="{{ to.style }}">{{ to.label }}</span>
+                    <span style="margin-left:auto;font:400 11px var(--mono);color:var(--text3)">{{ to.count }}</span>
+                  </button>
+                </sc-for>
+                <sc-if value="{{ canCreateTag }}">
+                  <button onClick="{{ createTag }}" style="display:flex;width:100%;align-items:center;gap:8px;border-radius:5px;padding:7px 6px;text-align:left;font:500 12.5px var(--sans);color:var(--sky);background:none;border:none;cursor:pointer" style-hover="background:var(--panel2)"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="{{ ic.plus }}"></path></svg>Create “{{ tagQueryTrim }}”</button>
+                </sc-if>
+              </div>
+              <div style="margin:6px 2px 0;border-top:1px solid var(--line-soft);padding-top:6px;font:400 11px var(--mono);color:var(--text3)">Tags are shared by your whole team. Rename or retire them in <a href="Settings.dc.html?section=candidate-tags">Settings</a>.</div>
+            </div>
+          </sc-if>
+        </div>
+
+        <div role="tablist" aria-label="Candidate sections" style="margin-top:12px;display:flex;gap:2px;border-bottom:1px solid var(--line-soft)">
+          <sc-for list="{{ drawerTabs }}" as="dt" hint-placeholder-count="3">
+            <button onClick="{{ setDrawerTab }}" data-id="{{ dt.key }}" role="tab" aria-selected="{{ dt.on }}" style="{{ dt.style }}">{{ dt.label }}<sc-if value="{{ dt.hasCount }}"><span style="border-radius:4px;background:var(--panel2);padding:1px 6px;font:600 10px var(--mono);color:var(--text3)">{{ dt.count }}</span></sc-if></button>
+          </sc-for>
+        </div>
+      </div>
+
+      <div style="min-height:0;flex:1;overflow-y:auto;padding:0 20px">
+        <sc-if value="{{ tabProfile }}" hint-placeholder-val="{{ true }}">
+          <div data-screen-label="Positions" style="padding:16px 0 10px;border-bottom:1px solid var(--line-soft)">
+            <div style="margin-bottom:10px;display:flex;align-items:center;justify-content:space-between">
+              <span style="display:inline-flex;align-items:center;gap:8px;font:600 10.5px var(--mono);text-transform:uppercase;letter-spacing:.1em;color:var(--text3)">Positions<span style="border-radius:4px;background:var(--panel2);padding:1px 6px;font:600 9.5px var(--mono)">{{ dv.positionCount }}</span></span>
+              <button onClick="{{ addOneToPosition }}" style="display:inline-flex;align-items:center;gap:6px;font:500 12px var(--mono);color:var(--sky);background:none;border:none;cursor:pointer" style-hover="text-decoration:underline"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="{{ ic.plus }}"></path></svg>Add to position</button>
+            </div>
+            <sc-for list="{{ dv.mappings }}" as="m" hint-placeholder-count="2">
+              <div style="margin-bottom:8px;display:flex;align-items:flex-start;gap:10px;border-radius:8px;border:1px solid var(--line-soft);padding:10px 12px">
+                <span style="display:grid;width:26px;height:26px;flex:none;place-items:center;border-radius:6px;background:var(--panel2);color:var(--text3)"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="{{ ic.position }}"></path></svg></span>
+                <div style="min-width:0;flex:1">
+                  <a href="{{ m.href }}" style="display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font:600 13px var(--sans);color:var(--text)" style-hover="color:var(--sky)">{{ m.title }}</a>
+                  <div style="font:400 11.5px var(--mono);color:var(--text3)">{{ m.unit }} · {{ m.stage }}</div>
+                  <div style="margin-top:4px;font:400 11px var(--mono);color:var(--text3)">{{ m.added }}</div>
+                </div>
+                <select value="{{ m.status }}" onChange="{{ setMappingStatus }}" data-id="{{ m.pos }}" aria-label="Status on {{ m.title }}" style="flex:none;border-radius:6px;border:1px solid var(--line);background:var(--panel2);padding:4px 8px;font:400 12px var(--mono);color:var(--text);outline:none">
+                  <sc-for list="{{ statusOptions }}" as="so"><option value="{{ so.value }}">{{ so.label }}</option></sc-for>
+                </select>
+              </div>
+            </sc-for>
+            <sc-if value="{{ dv.noMappings }}"><p style="margin:0 0 8px;font:400 12px var(--mono);color:var(--text3)">Not in any position right now. Everything below stays on file for the next search.</p></sc-if>
+          </div>
+
+          <sc-for list="{{ dv.sections }}" as="sx" hint-placeholder-count="5">
+            <section style="border-bottom:1px solid var(--line-soft)">
+              <button onClick="{{ toggleSec }}" data-id="{{ sx.id }}" style="margin:0 -8px;display:flex;width:calc(100% + 16px);min-width:0;align-items:center;gap:8px;border-radius:6px;padding:14px 8px;text-align:left;background:none;border:none;cursor:pointer" style-hover="background:var(--panel2)">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="{{ sx.chev }}"><path d="{{ ic.chevronDown }}"></path></svg>
+                <span style="flex:none;font:600 10.5px var(--mono);text-transform:uppercase;letter-spacing:.1em;color:var(--text3)">{{ sx.title }}</span>
+                <sc-if value="{{ sx.showSummary }}"><span style="min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;padding-left:4px;font:400 11.5px var(--mono);color:var(--text3)">{{ sx.summary }}</span></sc-if>
+              </button>
+              <sc-if value="{{ sx.open }}">
+                <div style="padding-bottom:16px">
+                  <sc-if value="{{ sx.isSummary }}"><p style="margin:0;font-size:13px;line-height:1.6;color:var(--text2)">{{ dv.summary }}</p></sc-if>
+                  <sc-if value="{{ sx.isExperience }}">
+                    <ol style="margin:0 0 0 5px;list-style:none;border-left:1px solid var(--line);padding-left:16px">
+                      <sc-for list="{{ dv.career }}" as="cg">
+                        <li style="position:relative;padding-bottom:14px">
+                          <span style="{{ cg.dotStyle }}"></span>
+                          <div style="font:600 13px var(--sans);color:var(--text)">{{ cg.company }}</div>
+                          <div style="margin-top:2px;font:500 13px var(--sans);color:var(--text2)">{{ cg.title }}</div>
+                          <div style="margin-top:2px;font:400 11.5px var(--mono);color:var(--text3)">{{ cg.period }}</div>
+                        </li>
+                      </sc-for>
+                    </ol>
+                  </sc-if>
+                  <sc-if value="{{ sx.isComp }}">
+                    <div style="display:grid;grid-template-columns:1fr 1fr;column-gap:12px;row-gap:10px">
+                      <sc-for list="{{ dv.compTiles }}" as="t"><div style="min-width:0"><div style="margin-bottom:4px;font:600 9.5px var(--mono);text-transform:uppercase;letter-spacing:.08em;color:var(--text3)">{{ t.label }}</div><div style="{{ t.style }}">{{ t.value }}</div></div></sc-for>
+                    </div>
+                    <p style="margin:10px 0 0;font:400 11px var(--mono);color:var(--text3)">One package on file for this person, read by every position they are in.</p>
+                  </sc-if>
+                  <sc-if value="{{ sx.isBackground }}">
+                    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;column-gap:12px;row-gap:10px">
+                      <sc-for list="{{ dv.bgTiles }}" as="t"><div style="min-width:0"><div style="margin-bottom:4px;font:600 9.5px var(--mono);text-transform:uppercase;letter-spacing:.08em;color:var(--text3)">{{ t.label }}</div><div style="{{ t.style }}">{{ t.value }}</div></div></sc-for>
+                    </div>
+                  </sc-if>
+                  <sc-if value="{{ sx.isContact }}">
+                    <sc-for list="{{ dv.contactLines }}" as="cl">
+                      <div style="display:flex;align-items:center;gap:8px;padding:5px 0">
+                        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex:none;color:var(--text3)"><path d="{{ cl.icon }}"></path></svg>
+                        <span style="min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font:400 13px var(--mono);color:var(--text)">{{ cl.value }}</span>
+                        <sc-if value="{{ cl.hasKind }}"><span style="{{ cl.kindStyle }}">{{ cl.kind }}</span></sc-if>
+                        <sc-if value="{{ cl.verified }}"><span title="Verified" style="display:inline-flex;color:var(--green)"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="{{ ic.check }}"></path></svg></span></sc-if>
+                      </div>
+                    </sc-for>
+                    <sc-if value="{{ dv.noContacts }}"><p style="margin:0;font:400 12px var(--mono);color:var(--text3)">No email or phone on file.</p></sc-if>
+                    <div style="margin-top:8px;display:flex;flex-wrap:wrap;gap:8px">
+                      <sc-for list="{{ dv.findButtons }}" as="fb">
+                        <button disabled="{{ fb.disabled }}" title="{{ fb.title }}" style="{{ fb.style }}"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="{{ fb.icon }}"></path></svg>{{ fb.label }}</button>
+                      </sc-for>
+                    </div>
+                  </sc-if>
+                </div>
+              </sc-if>
+            </section>
+          </sc-for>
+          <p style="margin:0;padding:16px 0;font:400 11px var(--mono);color:var(--text3)">{{ dv.footer }}</p>
+        </sc-if>
+
+        <sc-if value="{{ tabNotes }}" hint-placeholder-val="{{ false }}">
+          <div data-screen-label="Note composer" style="margin-top:16px;border-radius:10px;border:1px solid var(--line);background:var(--panel2);padding:12px">
+            <div role="radiogroup" aria-label="Kind of note" style="display:flex;flex-wrap:wrap;gap:4px">
+              <sc-for list="{{ noteKinds }}" as="nk" hint-placeholder-count="4">
+                <button onClick="{{ setNoteKind }}" data-id="{{ nk.key }}" role="radio" aria-checked="{{ nk.on }}" style="{{ nk.style }}"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="{{ nk.icon }}"></path></svg>{{ nk.label }}</button>
+              </sc-for>
+            </div>
+            <textarea value="{{ noteText }}" onChange="{{ onNoteText }}" rows="3" maxLength="4000" aria-label="Note" placeholder="{{ notePlaceholder }}" style="margin-top:8px;width:100%;resize:vertical;border-radius:6px;border:1px solid var(--line);background:var(--panel);padding:10px 12px;font:400 13px/1.55 var(--sans);color:var(--text);outline:none" style-focus="border-color:var(--sky)"></textarea>
+            <div style="margin-top:8px;display:flex;flex-wrap:wrap;align-items:center;gap:8px">
+              <label style="display:inline-flex;min-width:0;align-items:center;gap:6px;font:400 11.5px var(--mono);color:var(--text3)">About
+                <select value="{{ notePos }}" onChange="{{ setNotePos }}" aria-label="Position this note is about" style="max-width:280px;border-radius:6px;border:1px solid var(--line);background:var(--panel);padding:4px 8px;font:400 12px var(--mono);color:var(--text);outline:none">
+                  <sc-for list="{{ notePosOptions }}" as="np"><option value="{{ np.value }}">{{ np.label }}</option></sc-for>
+                </select>
+              </label>
+              <button onClick="{{ saveNote }}" style="margin-left:auto;border-radius:8px;padding:7px 14px;font:600 13px var(--sans);background:var(--amber-btn);border:1px solid var(--amber-btn);color:var(--on-amber);cursor:pointer;opacity:{{ saveNoteOpacity }}" style-hover="filter:brightness(1.05)">Save note</button>
+            </div>
+          </div>
+          <p style="margin:8px 2px 14px;font:400 11px var(--mono);color:var(--text3)">Shared with your whole team, on every position this person is in. Client contacts never see notes.</p>
+          <sc-for list="{{ dv.notes }}" as="n" hint-placeholder-count="3">
+            <article style="margin-bottom:10px;border-radius:8px;border:1px solid {{ n.border }};background:{{ n.bg }};padding:11px 13px">
+              <div style="display:flex;flex-wrap:wrap;align-items:center;gap:8px">
+                <span style="{{ n.avStyle }}">{{ n.initials }}</span>
+                <span style="font:600 12.5px var(--sans);color:var(--text)">{{ n.author }}</span>
+                <span style="{{ n.kindStyle }}">{{ n.kind }}</span>
+                <sc-if value="{{ n.pinned }}"><span style="display:inline-flex;align-items:center;gap:4px;font:600 10px var(--mono);text-transform:uppercase;letter-spacing:.06em;color:var(--amber)"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="{{ ic.pin }}"></path></svg>Pinned</span></sc-if>
+                <span title="{{ n.exact }}" style="margin-left:auto;font:400 11px var(--mono);color:var(--text3)">{{ n.when }}</span>
+              </div>
+              <p style="margin:8px 0 0;white-space:pre-wrap;font:400 13px/1.55 var(--sans);color:var(--text)">{{ n.body }}</p>
+              <div style="margin-top:8px;display:flex;flex-wrap:wrap;align-items:center;gap:8px">
+                <sc-if value="{{ n.hasPos }}"><span style="display:inline-flex;align-items:center;gap:5px;border-radius:5px;background:var(--panel2);padding:2px 7px;font:500 11px var(--mono);color:var(--text2)"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="{{ ic.position }}"></path></svg>{{ n.pos }}</span></sc-if>
+                <sc-if value="{{ n.edited }}"><span style="font:400 11px var(--mono);color:var(--text3)">{{ n.editedLine }}</span></sc-if>
+                <span style="margin-left:auto;display:flex;gap:2px">
+                  <button onClick="{{ togglePin }}" data-id="{{ n.id }}" style="border-radius:5px;padding:3px 7px;font:500 11px var(--mono);color:var(--text3);background:none;border:none;cursor:pointer" style-hover="background:var(--panel2);color:var(--text)">{{ n.pinLabel }}</button>
+                  <sc-if value="{{ n.canEdit }}">
+                    <button style="border-radius:5px;padding:3px 7px;font:500 11px var(--mono);color:var(--text3);background:none;border:none;cursor:pointer" style-hover="background:var(--panel2);color:var(--text)">Edit</button>
+                    <button onClick="{{ deleteNote }}" data-id="{{ n.id }}" style="border-radius:5px;padding:3px 7px;font:500 11px var(--mono);color:var(--text3);background:none;border:none;cursor:pointer" style-hover="background:var(--panel2);color:var(--red)">Delete</button>
+                  </sc-if>
+                </span>
+              </div>
+            </article>
+          </sc-for>
+          <sc-if value="{{ dv.noNotes }}"><p style="margin:0;padding:20px 0;text-align:center;font:400 12.5px var(--mono);color:var(--text3)">No notes yet. The first call or meeting you log will sit here for the whole team.</p></sc-if>
+        </sc-if>
+
+        <sc-if value="{{ tabTimeline }}" hint-placeholder-val="{{ false }}">
+          <div style="margin-top:16px;display:flex;flex-wrap:wrap;gap:6px">
+            <sc-for list="{{ tlChips }}" as="kc" hint-placeholder-count="5">
+              <button onClick="{{ setTlKind }}" data-id="{{ kc.key }}" style="border-radius:999px;border:1px solid {{ kc.border }};padding:4px 10px;font:500 11.5px var(--mono);color:{{ kc.color }};background:{{ kc.bg }};cursor:pointer" style-hover="color:var(--text)">{{ kc.label }}</button>
+            </sc-for>
+          </div>
+          <p style="margin:10px 2px 4px;font:400 11px var(--mono);color:var(--text3)">Everything done to this person, by whom and when, on every position. Nothing here can be edited.</p>
+          <div data-screen-label="Timeline" role="feed" aria-label="Timeline">
+            <sc-for list="{{ dv.tlDays }}" as="td" hint-placeholder-count="3">
+              <section style="padding-top:10px">
+                <div style="padding:4px 0 6px;font:600 10px var(--mono);text-transform:uppercase;letter-spacing:.12em;color:var(--text3)">{{ td.label }}</div>
+                <sc-for list="{{ td.entries }}" as="te" hint-placeholder-count="3">
+                  <div style="display:flex;gap:12px;padding:7px 0">
+                    <span style="display:grid;width:26px;height:26px;flex:none;place-items:center;border-radius:50%;background:{{ te.iconBg }};color:{{ te.iconFg }}"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="{{ te.icon }}"></path></svg></span>
+                    <div style="min-width:0;flex:1">
+                      <p style="margin:0;font:400 13px/1.5 var(--sans);color:var(--text2)"><sc-for list="{{ te.parts }}" as="pt"><span style="{{ pt.style }}">{{ pt.t }}</span></sc-for></p>
+                      <p title="{{ te.exact }}" style="margin:1px 0 0;font:400 11px var(--mono);color:var(--text3)">{{ te.time }}{{ te.detailSuffix }}</p>
+                      <sc-if value="{{ te.hasExcerpt }}"><p style="margin:5px 0 0;border-left:2px solid var(--line);padding:1px 0 1px 10px;font:400 12.5px/1.5 var(--sans);color:var(--text2)">{{ te.excerpt }}</p></sc-if>
+                    </div>
+                  </div>
+                </sc-for>
+              </section>
+            </sc-for>
+            <sc-if value="{{ dv.noTimeline }}"><p style="margin:0;padding:20px 0;text-align:center;font:400 12.5px var(--mono);color:var(--text3)">Nothing of this kind recorded yet.</p></sc-if>
+          </div>
+        </sc-if>
+      </div>
+
+      <div style="display:flex;flex:none;align-items:center;justify-content:space-between;border-top:1px solid var(--line-soft);padding:12px 20px">
+        <button onClick="{{ openMerge }}" title="Fold another record of the same person into this one" style="display:flex;align-items:center;gap:8px;border-radius:8px;padding:9px 12px;font:500 13px var(--sans);background:var(--panel);border:1px solid var(--line);color:var(--text2);cursor:pointer" style-hover="color:var(--text);border-color:var(--text3)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="{{ ic.merge }}"></path></svg>Merge a duplicate…</button>
+        <button onClick="{{ closeDrawer }}" style="border-radius:8px;padding:9px 14px;font:500 13px var(--sans);background:transparent;border:none;color:var(--text3);cursor:pointer" style-hover="color:var(--text2);text-decoration:underline">Close</button>
+      </div>
+    </aside>
+  </sc-if>
+
+  <sc-if value="{{ showAddToPosition }}" hint-placeholder-val="{{ false }}">
+    <div onClick="{{ closeDialog }}" style="position:fixed;inset:0;z-index:100;display:grid;place-items:center;background:rgba(15,20,30,.4)">
+      <div role="dialog" aria-modal="true" aria-label="Add to a position" data-screen-label="Add to position" onClick="{{ stop }}" style="width:540px;max-width:94vw;max-height:90vh;overflow-y:auto;border-radius:12px;border:1px solid var(--line);background:var(--panel);padding:22px;box-shadow:var(--shadow);animation:fadeUp .2s ease both">
+        <div style="font:600 16px var(--sans)">Add {{ targetLabel }} to a position</div>
+        <p style="margin:4px 0 14px;font-size:13px;color:var(--text2)">They are added as Identified and appear on that position's Candidates page. Their notes, contacts and history come with them.</p>
+        <div role="radiogroup" aria-label="Position" style="display:flex;flex-direction:column;gap:6px">
+          <sc-for list="{{ positionChoices }}" as="pc" hint-placeholder-count="4">
+            <button onClick="{{ pickBulkPosition }}" data-id="{{ pc.id }}" role="radio" aria-checked="{{ pc.on }}" style="display:flex;width:100%;align-items:center;gap:10px;border-radius:8px;border:1px solid {{ pc.border }};background:{{ pc.bg }};padding:10px 12px;text-align:left;cursor:pointer" style-hover="border-color:var(--text3)">
+              <span style="width:14px;height:14px;flex:none;border-radius:50%;box-shadow:inset 0 0 0 {{ pc.ring }} var(--amber)"></span>
+              <span style="min-width:0;flex:1">
+                <span style="display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font:600 13px var(--sans);color:var(--text)">{{ pc.title }}</span>
+                <span style="display:block;font:400 11.5px var(--mono);color:var(--text3)">{{ pc.meta }}</span>
+              </span>
+              <sc-if value="{{ pc.hasAlready }}"><span style="flex:none;font:400 11px var(--mono);color:var(--text3)">{{ pc.already }}</span></sc-if>
+            </button>
+          </sc-for>
+        </div>
+        <div style="margin-top:14px;border-radius:8px;background:var(--panel2);padding:10px 12px;font:400 12.5px/1.5 var(--sans);color:var(--text2)">{{ addSummary }}</div>
+        <div style="margin-top:18px;display:flex;justify-content:flex-end;gap:8px">
+          <button onClick="{{ closeDialog }}" style="border-radius:8px;padding:10px 14px;font:500 13.5px var(--sans);background:var(--panel);border:1px solid var(--line);color:var(--text2);cursor:pointer" style-hover="color:var(--text);border-color:var(--text3)">Cancel</button>
+          <button onClick="{{ confirmAddToPosition }}" style="border-radius:8px;padding:10px 14px;font:600 13.5px var(--sans);background:var(--amber-btn);border:1px solid var(--amber-btn);color:var(--on-amber);cursor:pointer;opacity:{{ addOpacity }}" style-hover="filter:brightness(1.05)">{{ addLabel }}</button>
+        </div>
+      </div>
+    </div>
+  </sc-if>
+
+  <sc-if value="{{ showTagDialog }}" hint-placeholder-val="{{ false }}">
+    <div onClick="{{ closeDialog }}" style="position:fixed;inset:0;z-index:100;display:grid;place-items:center;background:rgba(15,20,30,.4)">
+      <div role="dialog" aria-modal="true" aria-label="Tag people" data-screen-label="Tag people" onClick="{{ stop }}" style="width:460px;max-width:94vw;border-radius:12px;border:1px solid var(--line);background:var(--panel);padding:22px;box-shadow:var(--shadow);animation:fadeUp .2s ease both">
+        <div style="font:600 16px var(--sans)">Tag {{ targetLabel }}</div>
+        <div role="radiogroup" aria-label="Add or remove" style="margin:12px 0;display:inline-flex;border-radius:7px;border:1px solid var(--line);background:var(--panel2);padding:2px">
+          <sc-for list="{{ bulkTagModes }}" as="tm" hint-placeholder-count="2"><button onClick="{{ setBulkTagMode }}" data-id="{{ tm.key }}" role="radio" aria-checked="{{ tm.on }}" style="{{ tm.style }}">{{ tm.label }}</button></sc-for>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:2px">
+          <sc-for list="{{ bulkTagOptions }}" as="to" hint-placeholder-count="6">
+            <button onClick="{{ toggleBulkTag }}" data-id="{{ to.id }}" role="checkbox" aria-checked="{{ to.on }}" style="display:flex;width:100%;align-items:center;gap:10px;border-radius:6px;padding:7px 6px;text-align:left;background:none;border:none;cursor:pointer" style-hover="background:var(--panel2)">
+              <span style="display:grid;flex:none;place-items:center;width:15px;height:15px;border-radius:4px;box-shadow:inset 0 0 0 1.5px {{ to.boxColor }};background:{{ to.boxBg }}"><svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.2" style="color:var(--on-amber);opacity:{{ to.tick }}"><path d="{{ ic.check }}"></path></svg></span>
+              <span style="{{ to.style }}">{{ to.label }}</span>
+              <span style="margin-left:auto;font:400 11px var(--mono);color:var(--text3)">{{ to.have }}</span>
+            </button>
+          </sc-for>
+        </div>
+        <div style="margin-top:18px;display:flex;justify-content:flex-end;gap:8px">
+          <button onClick="{{ closeDialog }}" style="border-radius:8px;padding:10px 14px;font:500 13.5px var(--sans);background:var(--panel);border:1px solid var(--line);color:var(--text2);cursor:pointer" style-hover="color:var(--text);border-color:var(--text3)">Cancel</button>
+          <button onClick="{{ confirmBulkTag }}" style="border-radius:8px;padding:10px 14px;font:600 13.5px var(--sans);background:var(--amber-btn);border:1px solid var(--amber-btn);color:var(--on-amber);cursor:pointer;opacity:{{ bulkTagOpacity }}" style-hover="filter:brightness(1.05)">{{ bulkTagLabel }}</button>
+        </div>
+      </div>
+    </div>
+  </sc-if>
+
+  <sc-if value="{{ showOwnerDialog }}" hint-placeholder-val="{{ false }}">
+    <div onClick="{{ closeDialog }}" style="position:fixed;inset:0;z-index:100;display:grid;place-items:center;background:rgba(15,20,30,.4)">
+      <div role="dialog" aria-modal="true" aria-label="Set owner" data-screen-label="Set owner" onClick="{{ stop }}" style="width:440px;max-width:94vw;border-radius:12px;border:1px solid var(--line);background:var(--panel);padding:22px;box-shadow:var(--shadow);animation:fadeUp .2s ease both">
+        <div style="font:600 16px var(--sans)">Set the owner of {{ targetLabel }}</div>
+        <p style="margin:4px 0 14px;font-size:13px;color:var(--text2)">The owner keeps the relationship across searches. It changes nobody's access.</p>
+        <div role="radiogroup" aria-label="Owner" style="display:flex;flex-direction:column;gap:2px">
+          <sc-for list="{{ ownerChoices }}" as="oc" hint-placeholder-count="5">
+            <button onClick="{{ pickBulkOwner }}" data-id="{{ oc.id }}" role="radio" aria-checked="{{ oc.on }}" style="display:flex;width:100%;align-items:center;gap:10px;border-radius:6px;padding:7px 6px;text-align:left;background:{{ oc.bg }};border:none;cursor:pointer" style-hover="background:var(--panel2)">
+              <span style="{{ oc.avStyle }}">{{ oc.initials }}</span>
+              <span style="font:500 13px var(--sans);color:var(--text)">{{ oc.name }}</span>
+              <sc-if value="{{ oc.on }}"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" style="margin-left:auto;color:var(--amber)"><path d="{{ ic.check }}"></path></svg></sc-if>
+            </button>
+          </sc-for>
+        </div>
+        <div style="margin-top:18px;display:flex;justify-content:flex-end;gap:8px">
+          <button onClick="{{ closeDialog }}" style="border-radius:8px;padding:10px 14px;font:500 13.5px var(--sans);background:var(--panel);border:1px solid var(--line);color:var(--text2);cursor:pointer" style-hover="color:var(--text);border-color:var(--text3)">Cancel</button>
+          <button onClick="{{ confirmBulkOwner }}" style="border-radius:8px;padding:10px 14px;font:600 13.5px var(--sans);background:var(--amber-btn);border:1px solid var(--amber-btn);color:var(--on-amber);cursor:pointer" style-hover="filter:brightness(1.05)">Set owner</button>
+        </div>
+      </div>
+    </div>
+  </sc-if>
+
+  <sc-if value="{{ showMerge }}" hint-placeholder-val="{{ false }}">
+    <div onClick="{{ closeDialog }}" style="position:fixed;inset:0;z-index:110;display:grid;place-items:center;background:rgba(15,20,30,.4)">
+      <div role="dialog" aria-modal="true" aria-label="Merge a duplicate" data-screen-label="Merge dialog" onClick="{{ stop }}" style="width:640px;max-width:94vw;max-height:92vh;overflow-y:auto;border-radius:12px;border:1px solid var(--line);background:var(--panel);padding:22px;box-shadow:var(--shadow);animation:fadeUp .2s ease both">
+        <div style="font:600 16px var(--sans)">Merge a duplicate into {{ mv.survivor }}</div>
+        <p style="margin:4px 0 14px;font-size:13px;color:var(--text2)">Pick the other record of the same person. Its positions, notes, contacts and history move across, and the other record is removed.</p>
+        <div style="display:flex;align-items:center;gap:8px;border-radius:8px;border:1px solid var(--line);background:var(--panel2);padding:7px 11px">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color:var(--text3);flex:none"><path d="{{ ic.search }}"></path></svg>
+          <input value="{{ mergeQuery }}" onChange="{{ onMergeQuery }}" placeholder="Search your candidates…" aria-label="Search your candidates" style="width:100%;background:transparent;border:none;font:400 13px var(--mono);color:var(--text);outline:none">
+        </div>
+        <div style="margin-top:8px;display:flex;flex-direction:column;gap:4px">
+          <sc-for list="{{ mv.options }}" as="mo" hint-placeholder-count="2">
+            <button onClick="{{ pickMerge }}" data-id="{{ mo.id }}" style="display:flex;width:100%;align-items:center;gap:10px;border-radius:8px;border:1px solid {{ mo.border }};background:{{ mo.bg }};padding:8px 10px;text-align:left;cursor:pointer" style-hover="border-color:var(--text3)">
+              <span style="{{ mo.avStyle }}">{{ mo.initials }}</span>
+              <span style="min-width:0;flex:1">
+                <span style="display:flex;align-items:center;gap:6px"><span style="font:600 13px var(--sans);color:var(--text)">{{ mo.name }}</span><sc-if value="{{ mo.suggested }}"><span style="border-radius:4px;padding:1px 5px;font:700 9px var(--mono);text-transform:uppercase;letter-spacing:.05em;background:var(--u-signal-tint);color:var(--u-signal)">Suggested</span></sc-if></span>
+                <span style="display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font:400 11.5px var(--mono);color:var(--text3)">{{ mo.meta }}</span>
+              </span>
+            </button>
+          </sc-for>
+        </div>
+        <sc-if value="{{ mv.hasPick }}" hint-placeholder-val="{{ true }}">
+          <div style="margin-top:16px;font:600 10px var(--mono);text-transform:uppercase;letter-spacing:.12em;color:var(--text3)">Where the two disagree, keep</div>
+          <div style="margin-top:8px;border-radius:8px;border:1px solid var(--line-soft)">
+            <sc-for list="{{ mv.fields }}" as="mf" hint-placeholder-count="3">
+              <div style="display:grid;grid-template-columns:110px 1fr 1fr;align-items:center;gap:8px;border-bottom:1px solid var(--line-soft);padding:8px 10px">
+                <span style="font:600 10px var(--mono);text-transform:uppercase;letter-spacing:.08em;color:var(--text3)">{{ mf.label }}</span>
+                <button onClick="{{ pickMergeField }}" data-id="{{ mf.key }}" data-side="a" style="{{ mf.aStyle }}">{{ mf.a }}</button>
+                <button onClick="{{ pickMergeField }}" data-id="{{ mf.key }}" data-side="b" style="{{ mf.bStyle }}">{{ mf.b }}</button>
+              </div>
+            </sc-for>
+          </div>
+          <div style="margin-top:14px;font:600 10px var(--mono);text-transform:uppercase;letter-spacing:.12em;color:var(--text3)">Moves across</div>
+          <ul style="margin:6px 0 0;padding-left:18px;font:400 13px/1.7 var(--sans);color:var(--text2)">
+            <sc-for list="{{ mv.moves }}" as="mm" hint-placeholder-count="3"><li>{{ mm }}</li></sc-for>
+          </ul>
+          <div role="note" style="margin-top:14px;display:flex;gap:10px;border-radius:8px;border:1px solid color-mix(in srgb,var(--red) 35%,transparent);background:var(--red-dim);padding:9px 12px;font:400 12.5px/1.5 var(--sans);color:var(--text2)">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex:none;margin-top:2px;color:var(--red)"><path d="{{ ic.info }}"></path></svg>
+            <span>A merge cannot be undone. The timeline keeps a line saying who merged the two records, and when.</span>
+          </div>
+        </sc-if>
+        <div style="margin-top:18px;display:flex;justify-content:flex-end;gap:8px">
+          <button onClick="{{ closeDialog }}" style="border-radius:8px;padding:10px 14px;font:500 13.5px var(--sans);background:var(--panel);border:1px solid var(--line);color:var(--text2);cursor:pointer" style-hover="color:var(--text);border-color:var(--text3)">Cancel</button>
+          <button onClick="{{ confirmMerge }}" style="border-radius:8px;padding:10px 14px;font:600 13.5px var(--sans);background:var(--amber-btn);border:1px solid var(--amber-btn);color:var(--on-amber);cursor:pointer;opacity:{{ mergeOpacity }}" style-hover="filter:brightness(1.05)">Merge records</button>
+        </div>
+      </div>
+    </div>
+  </sc-if>
+
+  <sc-if value="{{ hasToast }}" hint-placeholder-val="{{ false }}">
+    <div role="status" style="position:fixed;bottom:22px;left:50%;transform:translateX(-50%);z-index:130;background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:9px 16px;font:500 12px var(--mono);color:var(--text2);box-shadow:var(--shadow);animation:fadeUp .2s ease both">{{ toast }}</div>
+  </sc-if>
+</div>
+<template id="__bundler_thumbnail"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><rect width="100" height="100" fill="#16171a"></rect><g transform="translate(50 40) scale(.42)" fill="none" stroke="#f8fafc"><path d="M-32 10 L 0 -8 L 32 10 L 0 28 Z M-32 10 V 32 L 0 50 L 32 32 V 10 M0 28 V 50" stroke-width="3" stroke-linejoin="round"></path><path d="M0 -48 L 32 -30 L 0 -12 L -32 -30 Z" fill="#f8fafc" stroke="none"></path></g><text x="50" y="86" fill="#e2b65c" font-family="Geist,Inter,sans-serif" font-size="12" font-weight="700" letter-spacing="2" text-anchor="middle">PEOPLE</text></svg></template>
+
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;view&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;default&quot;:&quot;people&quot;,&quot;options&quot;:[&quot;people&quot;,&quot;activity&quot;],&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;State&quot;},&quot;filtersOpen&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;State&quot;},&quot;selectedCount&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;default&quot;:&quot;0&quot;,&quot;options&quot;:[&quot;0&quot;,&quot;3&quot;],&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;State&quot;},&quot;drawerOpen&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;State&quot;},&quot;drawerTab&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;default&quot;:&quot;profile&quot;,&quot;options&quot;:[&quot;profile&quot;,&quot;notes&quot;,&quot;timeline&quot;],&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;State&quot;},&quot;tagPickerOpen&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;State&quot;},&quot;dialog&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;default&quot;:&quot;none&quot;,&quot;options&quot;:[&quot;none&quot;,&quot;addToPosition&quot;,&quot;tag&quot;,&quot;owner&quot;,&quot;merge&quot;],&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;State&quot;},&quot;empty&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;State&quot;},&quot;loading&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;State&quot;}}">
+const I = {
+  profile: "M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2M16 7a4 4 0 1 1-8 0 4 4 0 0 1 8 0",
+  settings: "M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6ZM19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09a1.65 1.65 0 0 0-1-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09a1.65 1.65 0 0 0 1.51-1 1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33h.01a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51h.01a1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82v.01a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1Z",
+  members: "M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2M13 7a4 4 0 1 1-8 0 4 4 0 0 1 8 0M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75",
+  team: "M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2M13 7a4 4 0 1 1-8 0 4 4 0 0 1 8 0M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75",
+  signOut: "M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9",
+  back: "M19 12H5M12 19l-7-7 7-7",
+  moon: "M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79Z",
+  sun: "M12 16a4 4 0 1 0 0-8 4 4 0 0 0 0 8ZM12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4",
+  collapse: "m11 17-5-5 5-5M18 17l-5-5 5-5",
+  expand: "m13 17 5-5-5-5M6 17l5-5-5-5",
+  plus: "M12 5v14M5 12h14",
+  sparkle: "M9.9 2.6 11 5.9a2 2 0 0 0 1.3 1.3l3.3 1.1-3.3 1.1a2 2 0 0 0-1.3 1.3L9.9 14l-1.1-3.3a2 2 0 0 0-1.3-1.3L4.2 8.3l3.3-1.1a2 2 0 0 0 1.3-1.3ZM18 14l.6 1.8 1.8.6-1.8.6-.6 1.8-.6-1.8-1.8-.6 1.8-.6Z",
+  arrowRight: "M5 12h14M13 6l6 6-6 6",
+  uploadCloud: "M12 13v8m0-8-3 3m3-3 3 3M20 16.7A4.5 4.5 0 0 0 17.5 8h-1.8A7 7 0 1 0 4 14.9",
+  importInto: "M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3",
+  exportOut: "M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M17 8l-5-5-5 5M12 3v12",
+  lock: "M19 11H5a2 2 0 0 0-2 2v6a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-6a2 2 0 0 0-2-2ZM7 11V7a5 5 0 0 1 10 0v4",
+  info: "M12 16v-4M12 8h.01M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20Z",
+  phone: "M7 2h10v20H7zM11 19h2",
+  trash: "M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2m2 0v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6M10 11v6M14 11v6",
+  search: "M11 3a8 8 0 1 0 0 16 8 8 0 0 0 0-16Zm10 18-4.3-4.3",
+  globe: "M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18ZM3.5 9h17M3.5 15h17M12 3a14 14 0 0 1 0 18 14 14 0 0 1 0-18Z",
+  chevronDown: "m6 9 6 6 6-6",
+  chevronRight: "m9 18 6-6-6-6",
+  table: "M3 5h18v14H3zM3 10h18M3 15h18M9 5v14",
+  mapPin: "M20 10c0 6-8 12-8 12S4 16 4 10a8 8 0 0 1 16 0ZM12 13a3 3 0 1 0 0-6 3 3 0 0 0 0 6Z",
+  building: "M6 22V4a1 1 0 0 1 1-1h10a1 1 0 0 1 1 1v18M2 22h20M9 7h2M13 7h2M9 11h2M13 11h2M9 15h2M13 15h2M10 22v-4h4v4",
+  eye: "M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12Zm10 3a3 3 0 1 0 0-6 3 3 0 0 0 0 6Z",
+  eyeOff: "M17.9 17.9A10.5 10.5 0 0 1 12 19c-6.5 0-10-7-10-7a17 17 0 0 1 4.1-4.9M9.9 5.2A9.9 9.9 0 0 1 12 5c6.5 0 10 7 10 7a17 17 0 0 1-2 2.9M14.1 14.1a3 3 0 1 1-4.2-4.2M2 2l20 20",
+  fit: "M8 3H5a2 2 0 0 0-2 2v3M16 3h3a2 2 0 0 1 2 2v3M8 21H5a2 2 0 0 1-2-2v-3M16 21h3a2 2 0 0 0 2-2v-3M9 9h6v6H9z",
+  check: "m5 13 4 4L19 7",
+  columns: "M3 4h18v16H3zM9 4v16M15 4v16",
+  position: "M12 2 3 7l9 5 9-5-9-5ZM3 12l9 5 9-5M3 17l9 5 9-5",
+  strategy: "M12 20V10M18 20V4M6 20v-4",
+  star: "m12 3 2.6 5.6 6 .8-4.4 4.2 1.1 6-5.3-2.9-5.3 2.9 1.1-6L3.4 9.4l6-.8L12 3Z",
+  close: "M18 6 6 18M6 6l12 12",
+  candidates: "M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8Z",
+  userPlus: "M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2M8.5 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8ZM20 8v6M23 11h-6",
+  outreach: "M22 2 11 13M22 2l-7 20-4-9-9-4 20-7Z",
+  reports: "M9 12h6m-6 4h6M9 8h1M5 21h14a2 2 0 0 0 2-2V7l-5-5H5a2 2 0 0 0-2 2v15a2 2 0 0 0 2 2Z",
+  pencil: "M12 20h9M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4 12.5-12.5Z",
+  fullscreen: "M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7",
+  mail: "M4 4h16a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2Zm18 2-10 7L2 6",
+  copy: "M9 9h11a1 1 0 0 1 1 1v10a1 1 0 0 1-1 1H9a1 1 0 0 1-1-1V10a1 1 0 0 1 1-1ZM5 15H4a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1h10a1 1 0 0 1 1 1v1",
+  externalLink: "M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6M15 3h6v6M10 14 21 3",
+  trendingUp: "m3 17 6-6 4 4 8-8M15 7h6v6",
+  currency: "M12 2v20M17 6.5C17 4.6 14.8 3.5 12 3.5S7 4.6 7 6.5s2.2 3 5 3.5 5 1.6 5 3.5-2.2 3-5 3-5-1.1-5-3",
+  tag: "M12.6 2.6A2 2 0 0 0 11.2 2H4a2 2 0 0 0-2 2v7.2a2 2 0 0 0 .6 1.4l8.7 8.7a2.4 2.4 0 0 0 3.4 0l6.6-6.6a2.4 2.4 0 0 0 0-3.4ZM7.5 8a.5.5 0 1 0 0-1 .5.5 0 0 0 0 1Z",
+  pin: "M12 17v5M9 10.8a2 2 0 0 1-1.1 1.8l-1.8.9A2 2 0 0 0 5 15.2V17h14v-1.8a2 2 0 0 0-1.1-1.8l-1.8-.9A2 2 0 0 1 15 10.8V7a1 1 0 0 1 1-1 2 2 0 0 0 0-4H8a2 2 0 0 0 0 4 1 1 0 0 1 1 1Z",
+  filter: "M22 3H2l8 9.5V19l4 2v-8.5L22 3Z",
+  note: "M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2Z",
+  ban: "M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20ZM4.9 4.9l14.2 14.2",
+  merge: "M18 21a3 3 0 1 0 0-6 3 3 0 0 0 0 6ZM6 9a3 3 0 1 0 0-6 3 3 0 0 0 0 6ZM6 21V9a9 9 0 0 0 9 9",
+  activity: "M22 12h-4l-3 9L9 3l-3 9H2",
+  minus: "M5 12h14",
+  myProjects: "M12 2a10 10 0 1 0 .01 0M12 8a4 4 0 1 0 .01 0",
+  allProjects: "M3 3h7v7H3zM14 3h7v7h-7zM3 14h7v7H3zM14 14h7v7h-7z",
+  units: "M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2M13 7a4 4 0 1 1-8 0 4 4 0 0 1 8 0M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"
+};
+
+const ASOF = "2026-09-22";
+const ME = "yh";
+const TINTS = [["var(--u-accent-tint)", "var(--u-accent)"], ["color-mix(in srgb, var(--u-chart-5) 16%, transparent)", "var(--u-chart-5)"], ["var(--u-direct-tint)", "var(--u-direct)"], ["var(--u-adjacent-tint)", "var(--u-adjacent)"], ["var(--panel2)", "var(--text2)"]];
+const MEMBERS = {
+  yh: { name: "Yara Haddad", tint: 0 }, yi: { name: "Yousef Iman", tint: 1 }, sa: { name: "Sara Al-Mansour", tint: 2 },
+  ok: { name: "Omar Khalil", tint: 3 }, da: { name: "Dana Aboud", tint: 4 }
+};
+const MEMBER_ORDER = ["yh", "yi", "sa", "ok", "da"];
+
+const POSITIONS = [
+  { id: "cfo", title: "Chief Financial Officer", short: "CFO", unit: "Group Finance", stage: "Mapping", active: true, href: "Position.dc.html?page=candidates" },
+  { id: "credit", title: "Head of Credit Risk", short: "Credit Risk", unit: "Financial Services", stage: "Shortlist delivered", active: false, href: "Position.dc.html?page=candidates&unit=Financial%20Services&pos=Head%20of%20Credit%20Risk" },
+  { id: "leasing", title: "Leasing Director, Mixed-Use Retail", short: "Leasing Director", unit: "Real Estate", stage: "Outreach live", active: true, href: "Position.dc.html?page=candidates&unit=Real%20Estate&pos=Leasing%20Director%2C%20Mixed-Use%20Retail" },
+  { id: "planning", title: "Senior Manager, Product Planning (Toyota & Lexus)", short: "Product Planning", unit: "Automotive", stage: "Mapping", active: true, href: "Position.dc.html?page=candidates&unit=Automotive&pos=Senior%20Manager%2C%20Product%20Planning%20(Toyota%20%26%20Lexus)" }
+];
+const POS = Object.fromEntries(POSITIONS.map((p) => [p.id, p]));
+
+const STATUSES = [
+  { value: "identified", label: "Identified", fg: "var(--text2)", bg: "var(--line-soft)" },
+  { value: "contacted", label: "Contacted", fg: "var(--sky)", bg: "var(--sky-dim)" },
+  { value: "engaged", label: "Engaged", fg: "var(--sky)", bg: "var(--sky-dim)" },
+  { value: "interested", label: "Interested", fg: "var(--green)", bg: "var(--green-dim)" },
+  { value: "notInterested", label: "Not interested", fg: "var(--text3)", bg: "var(--panel2)" },
+  { value: "offLimits", label: "Off-limits", fg: "var(--red)", bg: "var(--red-dim)" },
+  { value: "outOfScope", label: "Out of scope", fg: "var(--amber)", bg: "var(--amber-dim)" }
+];
+const STATUS = Object.fromEntries(STATUSES.map((s) => [s.value, s]));
+
+const TAG_SEED = [
+  { id: "openWork", label: "Open to work", fg: "var(--u-direct)", bg: "var(--u-direct-tint)" },
+  { id: "relocate", label: "Open to relocate", fg: "var(--u-accent)", bg: "var(--u-accent-tint)" },
+  { id: "passive", label: "Passive", fg: "var(--text2)", bg: "var(--panel2)" },
+  { id: "referral", label: "Referral", fg: "var(--u-chart-5)", bg: "color-mix(in srgb, var(--u-chart-5) 16%, transparent)" },
+  { id: "prior", label: "Prior placement", fg: "var(--u-adjacent)", bg: "var(--u-adjacent-tint)" },
+  { id: "interviewed", label: "Interviewed before", fg: "var(--u-inferred)", bg: "var(--u-inferred-tint)" }
+];
+
+const DOORS = { manual: "Added by hand", extension: "Plugin", csv: "Import", ai_sourced: "Find executives" };
+
+const NOTE_KINDS = [
+  { key: "general", label: "Note", icon: I.note, fg: "var(--text2)", bg: "var(--panel2)" },
+  { key: "call", label: "Call", icon: I.phone, fg: "var(--u-accent)", bg: "var(--u-accent-tint)" },
+  { key: "meeting", label: "Meeting", icon: I.members, fg: "var(--u-adjacent)", bg: "var(--u-adjacent-tint)" },
+  { key: "email", label: "Email", icon: I.mail, fg: "var(--u-chart-5)", bg: "color-mix(in srgb, var(--u-chart-5) 16%, transparent)" }
+];
+const NOTE_KIND = Object.fromEntries(NOTE_KINDS.map((k) => [k.key, k]));
+
+const person = (id, name, title, company, city, country, nat, gender, level, owner, tags, maps, extra) => Object.assign({
+  id, name, title, company, city, country, nat, gender, level, owner, tags,
+  maps: maps.map(([pos, status, by, at, door]) => ({ pos, status, by, at, door })),
+  emails: [], phones: [], li: null, comp: null, summary: null, career: null, years: null, dnc: null, dup: null, origin: null, eLooked: false, pLooked: false
+}, extra || {});
+
+const PEOPLE = [
+  person("e01", "Fatima Al Mazrouei", "Group Finance Director", "Al Naboodah Group", "Abu Dhabi", "United Arab Emirates", "Emirati", "Female", "N-1", "yh", ["relocate", "referral"],
+    [["credit", "interested", "yh", "2026-04-14T10:12", "manual"], ["cfo", "engaged", "yi", "2026-09-08T14:40", "extension"]],
+    { emails: [["fatima.almazrouei@alnaboodah.com", "Work", 1], ["f.almazrouei@gmail.com", "Personal", 0]], li: "fatima-almazrouei", years: 16, eLooked: true,
+      comp: ["AED", 1450000, 580000, 560000, 1010000, "3 months"], dup: "e15",
+      summary: "Group Finance Director at Al Naboodah Group since 2022, running group treasury, tax and corporate finance across the construction and automotive portfolio. Led the 2023 sukuk refinancing. Chartered accountant; previously at Al Rostamani Group.",
+      career: [["Al Naboodah Group", "Group Finance Director", "Mar 2022 – Present", true], ["Al Naboodah Group", "Head of Corporate Finance", "Jan 2018 – Feb 2022", false], ["Al Rostamani Group", "VP Finance", "2013 – 2017", false]] }),
+  person("e02", "Abdullah Al Rashid", "Non-Executive Director", "Al Naboodah Group", "Abu Dhabi", "United Arab Emirates", "Emirati", "Male", "Board", "yh", ["passive"],
+    [["cfo", "identified", "yh", "2026-09-19T09:30", "manual"]], { li: "abdullah-alrashid", years: 24 }),
+  person("e03", "Priya Raman", "Head of FP&A", "Al Naboodah Group", "Abu Dhabi", "United Arab Emirates", "South Asian", "Female", "N-2", "ok", ["openWork"],
+    [["cfo", "identified", "da", "2026-09-19T11:02", "csv"]], { emails: [["priya.raman@alnaboodah.com", "Work", 0]], phones: [["+971 50 441 2087", "Work", 0]], li: "priya-raman-fpa", years: 12, comp: ["AED", 1450000, 300000, 420000, 0, "2 months"] }),
+  person("e04", "Rajesh Menon", "VP Finance", "Al Habtoor Group", "Abu Dhabi", "United Arab Emirates", "South Asian", "Male", "N-1", "da", [],
+    [["cfo", "identified", "da", "2026-09-17T16:20", "csv"]], { emails: [["rajesh.menon@alhabtoorgroup.com", "Work", 0]], phones: [["+971 2 653 3333", null, 0]], li: "rajesh-menon", years: 15, pLooked: true, comp: ["AED", 1050000, 350000, 480000, 520000, "2 months"] }),
+  person("e05", "James Whitfield", "Chief Financial Officer", "Al Rostamani Group", "Dubai", "United Arab Emirates", "Western expat", "Male", "C-Suite", "ok", ["interviewed"],
+    [["credit", "notInterested", "yi", "2026-04-10T12:00", "manual"], ["cfo", "notInterested", "ok", "2026-09-15T10:45", "extension"]],
+    { emails: [["james.whitfield@alrostamanigroup.com", "Work", 1]], phones: [["+971 55 102 7781", "Personal", 1]], li: "jameswhitfield", years: 22, eLooked: true, pLooked: true, comp: ["AED", 1800000, 810000, 690000, 1000000, "6 months"],
+      dnc: { by: "ok", at: "2026-09-16T17:05", reason: "Asked not to be approached again for twelve months after declining the CFO brief." } }),
+  person("e06", "Omar Farouk", "Chief Financial Officer", "Trading Enterprises", "Riyadh", "Saudi Arabia", "Arab expat, non-GCC", "Male", "C-Suite", "yi", ["relocate"],
+    [["cfo", "contacted", "yi", "2026-09-10T09:15", "manual"]], { emails: [["o.farouk@tradingenterprises.ae", "Work", 0], ["omar.farouk@outlook.com", "Personal", 0]], phones: [["+966 50 318 4402", null, 0]], li: "omar-farouk-cfo", years: 19, comp: ["AED", 1500000, 600000, 600000, 950000, "3 months"] }),
+  person("e07", "Mohammed Al Qahtani", "Finance Director", "AGMC", "Jubail", "Saudi Arabia", "Saudi", "Male", "N-1", "yi", [],
+    [["cfo", "contacted", "yi", "2026-09-08T11:30", "manual"]], { emails: [["m.alqahtani@agmc.ae", "Work", 0]], li: "malqahtani", years: 17, pLooked: true, comp: ["SAR", 1650000, 400000, 520000, 0, "2 months"] }),
+  person("e08", "Sarah Collins", "Chief Financial Officer", "Jumbo Group", "Riyadh", "Saudi Arabia", "Western expat", "Female", "C-Suite", "sa", ["openWork", "relocate"],
+    [["cfo", "notInterested", "sa", "2026-09-03T15:10", "extension"]], { emails: [["sarah.collins@jumbo.ae", "Work", 1]], phones: [["+966 55 290 1146", "Work", 1]], li: "sarahcollinscfo", years: 20, eLooked: true, pLooked: true }),
+  person("e09", "Hind Al Suwaidi", "VP Treasury", "Chalhoub Group", "Dubai", "United Arab Emirates", "Emirati", "Female", "N-2", "sa", ["referral"],
+    [["credit", "identified", "yi", "2026-04-02T13:40", "manual"], ["cfo", "engaged", "sa", "2026-08-31T10:05", "manual"]], { emails: [["hind.alsuwaidi@chalhoubgroup.com", "Work", 0]], phones: [["+971 50 667 0193", "Personal", 0]], li: "hind-alsuwaidi", years: 14, comp: ["AED", 1150000, 380000, 500000, 620000, "1 month"] }),
+  person("e10", "Ahmed Al Balushi", "Finance Director", "Landmark Group", "Muscat", "Oman", "Omani", "Male", "N-1", "da", [],
+    [["cfo", "identified", "da", "2026-08-27T14:00", "manual"]], { emails: [["ahmed.albalushi@landmarkgroup.com", "Work", 0]], li: "ahmed-albalushi", years: 18 }),
+  person("e11", "Youssef El Amin", "Chief Financial Officer", "GMG", "Dubai", "United Arab Emirates", "Arab expat, non-GCC", null, "C-Suite", "yi", [],
+    [["cfo", "identified", "yi", "2026-08-18T12:25", "extension"]], { li: "youssef-elamin" }),
+  person("e12", "Khalid Al Harbi", "Chief Financial Officer", "Mashreq", "Riyadh", "Saudi Arabia", "Saudi", "Male", "C-Suite", "yh", ["prior", "relocate"],
+    [["credit", "interested", "yh", "2026-03-28T09:00", "extension"], ["cfo", "interested", "yh", "2026-09-02T08:50", "extension"]], { emails: [["khalid.alharbi@mashreq.com", "Work", 1]], phones: [["+966 50 771 3308", "Work", 1]], li: "khalid-alharbi", years: 21, eLooked: true, pLooked: true, comp: ["AED", 1700000, 680000, 620000, 950000, "3 months"] }),
+  person("e13", "Noura Al Thani", "Chief Financial Officer", "Abu Dhabi Commercial Bank (ADCB)", "Doha", "Qatar", "Qatari", "Female", "C-Suite", "yh", ["openWork"],
+    [["cfo", "interested", "yh", "2026-08-26T15:30", "manual"]], { emails: [["noura.althani@adcb.com", "Work", 0]], phones: [["+974 5512 8870", "Work", 0]], li: "noura-althani", years: 18, comp: ["AED", 1550000, 620000, 600000, 980000, "3 months"] }),
+  person("e14", "Martin Keller", "CFO, Middle East", "Mekong Advisory", null, null, "Western expat", null, "C-Suite", "da", [],
+    [["cfo", "identified", "da", "2026-09-16T10:10", "manual"]], { emails: [["martin.keller@mekongadvisory.com", "Work", 0]], years: 23 }),
+  person("e15", "Fatima Mazrouei", "Group Finance Director", "Al Naboodah Group", "Abu Dhabi", "United Arab Emirates", null, null, "N-1", null, [],
+    [["credit", "identified", "da", "2026-04-20T11:00", "csv"]], { emails: [["fatima.m@outlook.com", "Personal", 0]], dup: "e01" }),
+  person("e16", "Layla Nasser", "Director of Leasing", "Aldar Properties", "Abu Dhabi", "United Arab Emirates", "Arab expat, non-GCC", "Female", "N-1", "yh", ["openWork"],
+    [["leasing", "engaged", "yh", "2026-09-12T07:45", "ai_sourced"]], { li: "layla-nasser-leasing", years: 13 }),
+  person("e17", "Tariq Al Nuaimi", "Head of Retail Leasing", "Majid Al Futtaim", "Dubai", "United Arab Emirates", "Emirati", "Male", "N-2", "yh", [],
+    [["leasing", "contacted", "da", "2026-09-14T13:20", "manual"]], { emails: [["tariq.alnuaimi@maf.ae", "Work", 0]], li: "tariq-alnuaimi", years: 11 }),
+  person("e18", "Daniel Brooks", "Product Planning Manager", "Arabian Automobiles", "Dubai", "United Arab Emirates", "Western expat", "Male", "N-2", "ok", [],
+    [["planning", "engaged", "ok", "2026-09-11T10:30", "extension"]], { emails: [["daniel.brooks@arabianautomobiles.com", "Work", 1]], li: "danielbrooks-auto", years: 12, eLooked: true }),
+  person("e19", "Reem Al Hashimi", "Leasing Manager", "Emaar Properties", "Dubai", "United Arab Emirates", "Emirati", "Female", "N-3", "da", ["passive"], [],
+    { li: "reem-alhashimi", years: 9, origin: { pos: "leasing", by: "da", at: "2026-08-20T10:00", door: "manual" } })
+];
+
+const ev = (at, actor, personId, kind, data) => Object.assign({ at, actor, person: personId, kind }, data || {});
+const EXTRA_EVENTS = [
+  ev("2026-04-22T10:30", "yh", "e01", "STATUS_CHANGED", { pos: "credit", from: "identified", to: "interested" }),
+  ev("2026-09-08T14:41", "yi", "e01", "RESEARCHED"),
+  ev("2026-09-08T14:52", "yi", "e01", "CONTACT_FOUND", { channel: "work email" }),
+  ev("2026-09-12T09:20", "sa", "e01", "STATUS_CHANGED", { pos: "cfo", from: "identified", to: "contacted" }),
+  ev("2026-09-14T11:24", "sa", "e01", "STATUS_CHANGED", { pos: "cfo", from: "contacted", to: "engaged" }),
+  ev("2026-09-14T11:26", "sa", "e01", "TAGGED", { tag: "relocate" }),
+  ev("2026-09-15T08:10", "yh", "e01", "OWNER_CHANGED", { owner: "yh" }),
+  ev("2026-09-18T16:30", "yi", "e01", "AI_ASSESSED", { detail: "Scored 8 of 10 against the Chief Financial Officer brief" }),
+  ev("2026-09-16T17:02", "ok", "e05", "STATUS_CHANGED", { pos: "cfo", from: "contacted", to: "notInterested" }),
+  ev("2026-09-16T17:05", "ok", "e05", "DNC_SET", { detail: "Asked not to be approached for twelve months" }),
+  ev("2026-09-11T10:02", "yi", "e06", "STATUS_CHANGED", { pos: "cfo", from: "identified", to: "contacted" }),
+  ev("2026-09-11T10:04", "yi", "e06", "CONTACTS_EDITED", { detail: "Added a personal email" }),
+  ev("2026-09-09T12:00", "yi", "e07", "STATUS_CHANGED", { pos: "cfo", from: "identified", to: "contacted" }),
+  ev("2026-09-06T09:40", "sa", "e08", "STATUS_CHANGED", { pos: "cfo", from: "contacted", to: "notInterested" }),
+  ev("2026-09-05T15:10", "sa", "e09", "STATUS_CHANGED", { pos: "cfo", from: "contacted", to: "engaged" }),
+  ev("2026-09-02T08:52", "yh", "e12", "TAGGED", { tag: "prior" }),
+  ev("2026-09-19T17:20", "yh", "e12", "STATUS_CHANGED", { pos: "cfo", from: "engaged", to: "interested" }),
+  ev("2026-09-20T12:15", "yh", "e13", "STATUS_CHANGED", { pos: "cfo", from: "engaged", to: "interested" }),
+  ev("2026-09-17T11:00", "da", "e16", "STATUS_CHANGED", { pos: "leasing", from: "contacted", to: "engaged" }),
+  ev("2026-09-16T14:05", "da", "e17", "STATUS_CHANGED", { pos: "leasing", from: "identified", to: "contacted" }),
+  ev("2026-09-19T15:45", "ok", "e18", "STATUS_CHANGED", { pos: "planning", from: "contacted", to: "engaged" }),
+  ev("2026-09-09T16:30", "da", "e19", "UNMAPPED", { pos: "leasing" }),
+  ev("2026-09-22T09:05", "sa", "e03", "TAGGED", { tag: "openWork" }),
+  ev("2026-09-22T11:48", "yi", "e04", "CONTACT_FOUND", { channel: "phone" }),
+  ev("2026-09-22T14:10", "ok", "e18", "TAGGED", { tag: "relocate" }),
+  ev("2026-09-21T16:40", "da", "e14", "PROFILE_EDITED", { detail: "Compensation" })
+];
+
+const note = (id, personId, author, kind, at, pos, body, extra) => Object.assign({ id, person: personId, author, kind, at, pos, body, pinned: false, edited: null }, extra || {});
+const NOTE_SEED = [
+  note("n1", "e01", "sa", "call", "2026-09-14T11:20", "cfo", "Spoke 14 Sep — open to a group CFO move if the remit includes the international portfolio. Follow up after Q3 close.", { pinned: true }),
+  note("n2", "e01", "yi", "general", "2026-09-08T14:45", "cfo", "Captured from LinkedIn. Led the 2023 sukuk refinancing — worth raising with the business unit."),
+  note("n3", "e01", "yh", "meeting", "2026-04-22T10:25", "credit", "Coffee at DIFC. Strong on treasury and funding, lighter on credit portfolio work — kept at Interested but not shortlisted."),
+  note("n4", "e01", "da", "email", "2026-09-22T10:12", null, "Sent the group structure overview Fatima asked for; reply expected next week.", { edited: { by: "da", at: "2026-09-22T10:20" } }),
+  note("n5", "e12", "yh", "call", "2026-09-19T17:15", "cfo", "Open to a move if the role carries group scope; wants clarity on LTIP vesting.", { pinned: true }),
+  note("n6", "e12", "yh", "general", "2026-03-28T09:05", "credit", "We placed Khalid as Mashreq CFO in 2023 — go through Yara before any approach."),
+  note("n7", "e05", "ok", "call", "2026-09-16T17:00", "cfo", "Declined at the current band — would reconsider above AED 4.6M. Asked not to be approached again for twelve months."),
+  note("n8", "e09", "sa", "call", "2026-09-05T15:05", "cfo", "Interested in principle; one month's notice. Wants a treasury-heavy remit."),
+  note("n9", "e16", "da", "email", "2026-09-22T13:30", "leasing", "Confirmed a first conversation for Thursday at 11:00.")
+];
+
+const KIND_GROUP = {
+  ADDED_TO_POOL: "positions", MAPPED: "positions", UNMAPPED: "positions", STATUS_CHANGED: "positions", NOTE_ADDED: "notes",
+  CONTACT_FOUND: "contacts", CONTACTS_EDITED: "contacts", DNC_SET: "contacts", DNC_CLEARED: "contacts",
+  RESEARCHED: "profile", AI_ASSESSED: "profile", PROFILE_EDITED: "profile", MERGED: "profile",
+  TAGGED: "tags", UNTAGGED: "tags", OWNER_CHANGED: "tags"
+};
+const KIND_CHIPS = [["all", "Everything"], ["positions", "Positions & status"], ["notes", "Notes"], ["contacts", "Contacts"], ["profile", "Profile & AI"], ["tags", "Tags & owner"]];
+const KIND_ICON = {
+  ADDED_TO_POOL: I.userPlus, MAPPED: I.position, UNMAPPED: I.close, STATUS_CHANGED: I.arrowRight, NOTE_ADDED: I.note,
+  CONTACT_FOUND: I.mail, CONTACTS_EDITED: I.pencil, DNC_SET: I.ban, DNC_CLEARED: I.ban, RESEARCHED: I.externalLink,
+  AI_ASSESSED: I.sparkle, PROFILE_EDITED: I.pencil, MERGED: I.merge, TAGGED: I.tag, UNTAGGED: I.tag, OWNER_CHANGED: I.profile
+};
+const KIND_TONE = {
+  positions: ["var(--u-accent-tint)", "var(--u-accent)"], notes: ["var(--u-adjacent-tint)", "var(--u-adjacent)"],
+  contacts: ["var(--u-direct-tint)", "var(--u-direct)"], profile: ["var(--u-inferred-tint)", "var(--u-inferred)"], tags: ["var(--panel2)", "var(--text2)"]
+};
+const RANGES = [["7", "Last 7 days"], ["30", "Last 30 days"], ["365", "Last 12 months"], ["all", "All time"]];
+
+const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+const WEEKDAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+const dateGB = (d) => `${Number(d.slice(8, 10))} ${MONTHS[Number(d.slice(5, 7)) - 1]} ${d.slice(0, 4)}`;
+const shortDay = (d) => `${Number(d.slice(8, 10))} ${MONTHS[Number(d.slice(5, 7)) - 1]}${d.slice(0, 4) === ASOF.slice(0, 4) ? "" : ` ${d.slice(0, 4)}`}`;
+const daysBefore = (d) => Math.round((new Date(`${ASOF}T12:00:00`) - new Date(`${d}T12:00:00`)) / 86400000);
+const dayLabel = (d) => {
+  const n = daysBefore(d);
+  if (n === 0) return "Today";
+  if (n === 1) return "Yesterday";
+  return `${WEEKDAYS[new Date(`${d}T12:00:00`).getDay()]} ${shortDay(d)}`;
+};
+const timeOf = (at) => at.slice(11, 16);
+const exactOf = (at) => `${dateGB(at.slice(0, 10))}, ${timeOf(at)}`;
+const whenOf = (at) => (at.slice(0, 10) === ASOF ? `Today ${timeOf(at)}` : shortDay(at.slice(0, 10)));
+const initials = (n) => { const p = n.trim().split(/\s+/); return (p[0][0] + (p.length > 1 ? p[p.length - 1][0] : "")).toUpperCase(); };
+const tintOf = (id) => { let h = 0; for (const ch of id) h = (h * 31 + ch.charCodeAt(0)) >>> 0; return TINTS[h % TINTS.length]; };
+const avatar = (id, size, extra) => { const [bg, fg] = tintOf(id); return `width:${size}px;height:${size}px;flex:none;border-radius:50%;display:grid;place-items:center;font:600 ${size > 30 ? 13 : 10}px var(--mono);background:${bg};color:${fg};${extra || ""}`; };
+const memberAvatar = (m, size) => { const [bg, fg] = TINTS[MEMBERS[m].tint]; return `width:${size}px;height:${size}px;flex:none;border-radius:50%;display:grid;place-items:center;font:600 ${size > 24 ? 10 : 9}px var(--mono);background:${bg};color:${fg}`; };
+const num = (v) => v.toLocaleString("en-GB");
+const pill = (fg, bg) => `display:inline-flex;align-items:center;gap:4px;white-space:nowrap;border-radius:5px;padding:2px 7px;font:600 11px var(--mono);color:${fg};background:${bg}`;
+const tagStyle = (t) => `display:inline-flex;align-items:center;white-space:nowrap;border-radius:999px;padding:2px 9px;font:500 11.5px var(--sans);color:${t.fg};background:${t.bg}`;
+const tile = (value) => { const empty = value === null || value === undefined || value === ""; return { value: empty ? "—" : value, style: `min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;border-radius:6px;border:1px solid var(--line-soft);background:var(--panel2);padding:7px 10px;font:400 13px var(--mono);color:${empty ? "var(--text3)" : "var(--text)"}` }; };
+const chipStyle = (on) => ({ border: on ? "transparent" : "var(--line)", bg: on ? "var(--amber-dim)" : "transparent", color: on ? "var(--amber)" : "var(--text2)" });
+const segStyle = (on) => `border-radius:5px;padding:5px 10px;font:500 12px var(--sans);border:none;cursor:pointer;${on ? "background:var(--amber-dim);color:var(--text)" : "background:none;color:var(--text3)"}`;
+const STRONG = "font-weight:600;color:var(--text)";
+const S = (t) => ({ t, style: STRONG });
+const T = (t) => ({ t, style: "" });
+
+class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+    const q = typeof location !== "undefined" ? new URLSearchParams(location.search) : new URLSearchParams();
+    const p = props || {};
+    const pick = (k, d) => q.get(k) || (p[k] !== undefined ? String(p[k]) : d);
+    const flag = (k, d) => { const v = q.get(k); if (v !== null) return v === "true" || v === "1" || v === ""; return p[k] !== undefined ? !!p[k] : d; };
+    let collapsed = false;
+    try { collapsed = localStorage.getItem("lm-side-collapsed") === "1"; } catch (e) { collapsed = false; }
+
+    const dialog = pick("dialog", "none");
+    const bulkDialog = ["addToPosition", "tag", "owner"].includes(dialog);
+    let selectedCount = Number(pick("selectedCount", "0")) || 0;
+    if (bulkDialog && selectedCount === 0) selectedCount = 3;
+    const drawerOpen = flag("drawerOpen", false) || dialog === "merge";
+
+    const people = PEOPLE.map((x) => Object.assign({}, x, { maps: x.maps.map((m) => Object.assign({}, m)), tags: [...x.tags], emails: x.emails.map((e) => [...e]) }));
+    const events = [];
+    people.forEach((x) => {
+      const entries = [...x.maps];
+      if (x.origin) entries.push(x.origin);
+      entries.sort((a, b) => a.at.localeCompare(b.at));
+      entries.forEach((m, i) => events.push(ev(m.at, m.by, x.id, i === 0 ? "ADDED_TO_POOL" : "MAPPED", { pos: m.pos, door: m.door })));
+    });
+    events.push(...EXTRA_EVENTS);
+
+    this.state = {
+      dark: true, collapsed, wsMenuOpen: false, toast: null,
+      view: pick("view", "people") === "activity" ? "activity" : "people",
+      empty: flag("empty", false), loading: flag("loading", false),
+      people, events, notes: NOTE_SEED.map((n) => Object.assign({}, n)), tags: TAG_SEED.map((t) => Object.assign({}, t)),
+      q: "", quick: "all", filtersOpen: flag("filtersOpen", false),
+      tagMode: "any", tagSel: {}, fPos: "all", fStatus: "all", fOwner: "all", fCountry: "all",
+      sortField: "activity", sortDir: "desc", sel: {},
+      openId: drawerOpen ? "e01" : null, drawerTab: pick("drawerTab", "profile"),
+      sec: { summary: true, experience: true, compensation: false, background: false, contact: true },
+      tagPickerOpen: flag("tagPickerOpen", false), tagQuery: "",
+      noteKind: "call", notePos: "none", noteText: "", tlKind: "all",
+      dialog, dialogTarget: "selection", bulkPos: "leasing", bulkTagMode: "add", bulkTagSel: { relocate: true }, bulkOwner: "yh",
+      mergeQuery: "", mergePick: dialog === "merge" ? "e15" : null, mergeKeep: {},
+      aActor: "all", aPos: "all", aRange: "30", aKind: "all", feedLimit: 24, tick: 0
+    };
+    if (selectedCount > 0) {
+      const ids = this.visibleRows(this.state).slice(0, selectedCount).map((x) => x.id);
+      this.state.sel = Object.fromEntries(ids.map((id) => [id, true]));
+    }
+  }
+
+  componentDidMount() { this.setState({ dark: document.documentElement.getAttribute("data-theme") !== "light" }); }
+
+  showToast(msg) {
+    clearTimeout(this._t);
+    this.setState({ toast: msg });
+    this._t = setTimeout(() => this.setState({ toast: null }), 2400);
+  }
+
+  now() {
+    const minutes = 15 * 60 + 40 + this.state.tick;
+    const pad = (n) => String(n).padStart(2, "0");
+    return `${ASOF}T${pad(Math.floor(minutes / 60) % 24)}:${pad(minutes % 60)}`;
+  }
+
+  record(entries, patch) {
+    const at = this.now();
+    this.setState(Object.assign({ events: [...this.state.events, ...entries.map((e) => Object.assign({ at, actor: ME }, e))], tick: this.state.tick + 1 }, patch || {}));
+  }
+
+  allEvents(s) {
+    const fromNotes = s.notes.map((n) => ({ at: n.at, actor: n.author, person: n.person, kind: "NOTE_ADDED", pos: n.pos, noteKind: n.kind, excerpt: n.body }));
+    return [...s.events, ...fromNotes].filter((e) => s.people.some((x) => x.id === e.person)).sort((a, b) => b.at.localeCompare(a.at));
+  }
+
+  lastOf(s, id) { return this.allEvents(s).find((e) => e.person === id) || null; }
+
+  matches(x, s, skipQuick) {
+    const query = s.q.trim().toLowerCase();
+    if (query && ![x.name, x.title, x.company, ...x.emails.map((e) => e[0])].filter(Boolean).join(" ").toLowerCase().includes(query)) return false;
+    if (!skipQuick) {
+      if (s.quick === "mine" && x.owner !== ME) return false;
+      if (s.quick === "active" && !x.maps.some((m) => POS[m.pos].active)) return false;
+      if (s.quick === "none" && x.maps.length > 0) return false;
+      if (s.quick === "dups" && !x.dup) return false;
+    }
+    const tagIds = Object.keys(s.tagSel).filter((k) => s.tagSel[k]);
+    if (tagIds.length) {
+      if (s.tagMode === "any" && !tagIds.some((t) => x.tags.includes(t))) return false;
+      if (s.tagMode === "all" && !tagIds.every((t) => x.tags.includes(t))) return false;
+      if (s.tagMode === "none" && tagIds.some((t) => x.tags.includes(t))) return false;
+    }
+    if (s.fPos !== "all" && !x.maps.some((m) => m.pos === s.fPos)) return false;
+    if (s.fStatus !== "all" && !x.maps.some((m) => m.status === s.fStatus && (s.fPos === "all" || m.pos === s.fPos))) return false;
+    if (s.fOwner === "none" && x.owner) return false;
+    if (s.fOwner !== "all" && s.fOwner !== "none" && x.owner !== s.fOwner) return false;
+    if (s.fCountry !== "all" && x.country !== s.fCountry) return false;
+    return true;
+  }
+
+  visibleRows(s) {
+    const rows = s.empty ? [] : s.people.filter((x) => this.matches(x, s));
+    const last = (x) => { const e = this.lastOf(s, x.id); return e ? e.at : ""; };
+    const key = { name: (x) => x.name, location: (x) => [x.city, x.country].filter(Boolean).join(", ") || "~", positions: (x) => x.maps.length, activity: last }[s.sortField];
+    const dir = s.sortDir === "asc" ? 1 : -1;
+    return [...rows].sort((a, b) => { const ka = key(a); const kb = key(b); return (typeof ka === "number" ? ka - kb : String(ka).localeCompare(String(kb))) * dir; });
+  }
+
+  phrase(e, s, withPerson) {
+    const x = s.people.find((y) => y.id === e.person);
+    const who = withPerson && x ? x.name : null;
+    const pos = e.pos ? POS[e.pos].title : null;
+    const tag = e.tag ? (s.tags.find((t) => t.id === e.tag) || { label: e.tag }).label : null;
+    switch (e.kind) {
+      case "ADDED_TO_POOL": return who ? [T("added "), S(who), T(" to the candidates from "), S(pos)] : [T("added to the candidates from "), S(pos)];
+      case "MAPPED": return who ? [T("added "), S(who), T(" to "), S(pos)] : [T("added to "), S(pos)];
+      case "UNMAPPED": return who ? [T("removed "), S(who), T(" from "), S(pos)] : [T("removed from "), S(pos)];
+      case "STATUS_CHANGED": return who ? [T("marked "), S(who), T(" "), S(STATUS[e.to].label), T(" on "), S(pos)] : [T("marked "), S(STATUS[e.to].label), T(" on "), S(pos)];
+      case "NOTE_ADDED": {
+        const label = NOTE_KIND[e.noteKind].label.toLowerCase();
+        const k = e.noteKind === "general" ? "wrote a note" : `logged ${/^[aeiou]/.test(label) ? "an" : "a"} ${label}`;
+        const out = who ? [T(`${k} on `), S(who)] : [T(k)];
+        if (pos) out.push(T(" about "), S(pos));
+        return out;
+      }
+      case "CONTACT_FOUND": return who ? [T(`found a ${e.channel} for `), S(who), T(" through ContactOut")] : [T(`found a ${e.channel} through ContactOut`)];
+      case "CONTACTS_EDITED": return who ? [T("edited the contacts of "), S(who)] : [T("edited the contacts")];
+      case "RESEARCHED": return who ? [T("captured "), S(who), T(" with the plugin")] : [T("captured with the plugin — profile refreshed")];
+      case "AI_ASSESSED": return who ? [T("ran AI deep enrich on "), S(who)] : [T("ran AI deep enrich")];
+      case "PROFILE_EDITED": return who ? [T("edited "), S(who)] : [T("edited the profile")];
+      case "TAGGED": return who ? [T("tagged "), S(who), T(" "), S(tag)] : [T("tagged "), S(tag)];
+      case "UNTAGGED": return who ? [T("removed "), S(tag), T(" from "), S(who)] : [T("removed the tag "), S(tag)];
+      case "OWNER_CHANGED":
+        if (!e.owner) return who ? [T("cleared the owner of "), S(who)] : [T("cleared the owner")];
+        return who ? [T("made "), S(MEMBERS[e.owner].name), T(" the owner of "), S(who)] : [T("made "), S(MEMBERS[e.owner].name), T(" the owner")];
+      case "DNC_SET": return who ? [T("marked "), S(who), T(" do not contact")] : [T("marked do not contact")];
+      case "DNC_CLEARED": return who ? [T("cleared do not contact on "), S(who)] : [T("cleared do not contact")];
+      case "MERGED": return who ? [T("merged a duplicate record into "), S(who)] : [T("merged a duplicate record into this one")];
+      default: return [T(e.kind)];
+    }
+  }
+
+  detailOf(e) {
+    if (e.kind === "STATUS_CHANGED") return `${STATUS[e.from].label} → ${STATUS[e.to].label}`;
+    if (e.kind === "ADDED_TO_POOL") return DOORS[e.door];
+    if (e.kind === "MAPPED") return `${DOORS[e.door]} · already in the candidates, so added rather than duplicated`;
+    return e.detail || "";
+  }
+
+  entryVals(e, s, withPerson) {
+    const group = KIND_GROUP[e.kind];
+    const tone = e.kind === "DNC_SET" ? ["var(--red-dim)", "var(--red)"] : KIND_TONE[group];
+    const detail = this.detailOf(e);
+    return {
+      person: e.person, actorName: MEMBERS[e.actor].name, actorInitials: initials(MEMBERS[e.actor].name), avStyle: memberAvatar(e.actor, 28),
+      parts: [S(MEMBERS[e.actor].name), T(" "), ...this.phrase(e, s, withPerson)],
+      hasDetail: !!detail, detail, detailSuffix: detail ? ` · ${detail}` : "",
+      hasExcerpt: !!e.excerpt, excerpt: e.excerpt || "",
+      icon: KIND_ICON[e.kind], iconBg: tone[0], iconFg: tone[1],
+      time: timeOf(e.at), exact: exactOf(e.at)
+    };
+  }
+
+  byDay(entries, s, withPerson) {
+    const days = [];
+    entries.forEach((e) => {
+      const d = e.at.slice(0, 10);
+      let day = days[days.length - 1];
+      if (!day || day.key !== d) { day = { key: d, label: dayLabel(d), entries: [] }; days.push(day); }
+      day.entries.push(this.entryVals(e, s, withPerson));
+    });
+    return days;
+  }
+
+  targets(s) {
+    if (s.dialogTarget === "one" && s.openId) return [s.openId];
+    return Object.keys(s.sel).filter((k) => s.sel[k] && s.people.some((x) => x.id === k));
+  }
+
+  updatePerson(id, fn) { return this.state.people.map((x) => (x.id === id ? fn(x) : x)); }
+
+  drawerVals(s, x) {
+    const all = this.allEvents(s).filter((e) => e.person === x.id);
+    const first = [...all].reverse().find((e) => e.kind === "ADDED_TO_POOL");
+    const context = [x.company, x.city, x.country].filter(Boolean).join(" · ") || "No employer or location recorded";
+    const career = x.career || [[x.company || "—", x.title || "—", x.years ? `${2026 - Math.min(x.years, 6)} – Present` : "— – Present", true]];
+    const comp = x.comp;
+    const amt = (v) => (comp && v ? `${comp[0]} ${num(v)}` : null);
+    const total = comp ? comp[1] + comp[2] + comp[3] + comp[4] : 0;
+    const secDefs = [
+      { id: "summary", title: "Summary", summary: x.summary ? `${x.summary.slice(0, 90)}…` : "Not written yet" },
+      { id: "experience", title: "Experience", summary: `${x.title || "—"} at ${x.company || "—"}` },
+      { id: "compensation", title: "Compensation", summary: comp ? `${comp[0]} ${num(total)} · ${comp[5]} notice` : "Nothing on file" },
+      { id: "background", title: "Background", summary: [x.nat, x.gender, x.years ? `${x.years} yrs` : null].filter(Boolean).join(" · ") || "Nothing on file" },
+      { id: "contact", title: "Contact", summary: [x.emails[0] && x.emails[0][0], x.phones[0] && x.phones[0][0]].filter(Boolean).join(" · ") || "No email or phone" }
+    ];
+    const notes = s.notes.filter((n) => n.person === x.id).sort((a, b) => (b.pinned - a.pinned) || b.at.localeCompare(a.at));
+    const timeline = all.filter((e) => s.tlKind === "all" || KIND_GROUP[e.kind] === s.tlKind);
+    const kindStyle = (k) => `display:inline-flex;align-items:center;border-radius:4px;padding:1px 6px;font:700 9.5px var(--mono);text-transform:uppercase;letter-spacing:.05em;color:${k.fg};background:${k.bg}`;
+    const lookupOff = !!x.dnc;
+    const findBtn = (label, icon, show) => ({ show, label, icon, disabled: lookupOff, title: lookupOff ? "Do not contact is set — lookups are off for this person" : `Spends one ContactOut credit`,
+      style: `display:inline-flex;align-items:center;gap:6px;border-radius:6px;border:1px solid var(--line);background:var(--panel);padding:6px 10px;font:500 12px var(--sans);color:var(--text2);cursor:${lookupOff ? "not-allowed" : "pointer"};opacity:${lookupOff ? 0.5 : 1}` });
+    return {
+      name: x.name, initials: initials(x.name), avStyle: avatar(x.id, 44, "border-radius:10px;border:1px solid var(--line)"),
+      hasLi: !!x.li, title: x.title || "—", context, hasLevel: !!x.level, level: x.level || "", owner: x.owner || "none",
+      dnc: !!x.dnc, dncReason: x.dnc ? x.dnc.reason : "", dncBy: x.dnc ? `Set by ${MEMBERS[x.dnc.by].name} · ${exactOf(x.dnc.at)}` : "",
+      dncTitle: x.dnc ? "Clear do not contact" : "Mark do not contact — shown on every position and turns off contact lookups",
+      dncBtnLabel: x.dnc ? "Do not contact" : "Do not contact",
+      dncBtnStyle: `display:inline-flex;align-items:center;gap:5px;border-radius:6px;padding:3px 8px;font:500 11.5px var(--mono);cursor:pointer;${x.dnc ? "border:1px solid transparent;background:var(--red-dim);color:var(--red)" : "border:1px solid var(--line);background:none;color:var(--text3)"}`,
+      tags: x.tags.map((id) => s.tags.find((t) => t.id === id)).filter(Boolean).map((t) => ({ id: t.id, label: t.label, style: tagStyle(t) })),
+      positionCount: x.maps.length, noMappings: x.maps.length === 0,
+      mappings: [...x.maps].sort((a, b) => b.at.localeCompare(a.at)).map((m) => ({ pos: m.pos, title: POS[m.pos].title, unit: POS[m.pos].unit, stage: POS[m.pos].stage, href: POS[m.pos].href, status: m.status,
+        added: `Added by ${MEMBERS[m.by].name} · ${dateGB(m.at.slice(0, 10))} · ${DOORS[m.door]}` })),
+      sections: secDefs.map((d) => { const open = !!s.sec[d.id]; return { id: d.id, title: d.title, open, showSummary: !open, summary: d.summary,
+        chev: `flex:none;color:var(--text3);transition:transform .2s;transform:${open ? "none" : "rotate(-90deg)"}`,
+        isSummary: d.id === "summary", isExperience: d.id === "experience", isComp: d.id === "compensation", isBackground: d.id === "background", isContact: d.id === "contact" }; }),
+      summary: x.summary || "No summary written yet.",
+      career: career.map((c) => ({ company: c[0], title: c[1], period: c[2], dotStyle: `position:absolute;left:-21px;top:5px;width:9px;height:9px;border-radius:50%;border:2px solid var(--panel);background:${c[3] ? "var(--sky)" : "var(--line)"}` })),
+      compTiles: [["Base", amt(comp && comp[1])], ["Bonus", amt(comp && comp[2])], ["Allowances", amt(comp && comp[3])], ["LTIP", amt(comp && comp[4])], ["Total", comp ? `${comp[0]} ${num(total)}` : null], ["Notice period", comp ? comp[5] : null]].map(([label, v]) => Object.assign({ label }, tile(v))),
+      bgTiles: [["Nationality", x.nat], ["Gender", x.gender], ["Experience", x.years ? `${x.years} years` : null]].map(([label, v]) => Object.assign({ label }, tile(v))),
+      contactLines: [...x.emails.map((e) => ({ icon: I.mail, value: e[0], kind: e[1] || "", hasKind: !!e[1], verified: !!e[2] })), ...x.phones.map((e) => ({ icon: I.phone, value: e[0], kind: e[1] || "", hasKind: !!e[1], verified: !!e[2] }))]
+        .map((c) => Object.assign(c, { kindStyle: `display:inline-flex;border-radius:5px;padding:2px 7px;font:700 9.5px var(--mono);text-transform:uppercase;letter-spacing:.06em;${c.kind === "Work" ? "background:var(--sky-dim);color:var(--sky)" : "background:var(--amber-dim);color:var(--amber)"}` })),
+      noContacts: x.emails.length + x.phones.length === 0,
+      findButtons: [findBtn("Find email", I.mail, !x.eLooked), findBtn("Find phone", I.phone, !x.pLooked)].filter((b) => b.show),
+      footer: first ? `Added to the candidates ${exactOf(first.at)} by ${MEMBERS[first.actor].name} · ${DOORS[first.door]}` : "",
+      notes: notes.map((n) => { const k = NOTE_KIND[n.kind]; return { id: n.id, author: MEMBERS[n.author].name, initials: initials(MEMBERS[n.author].name), avStyle: memberAvatar(n.author, 22),
+        kind: k.label, kindStyle: kindStyle(k), pinned: n.pinned, pinLabel: n.pinned ? "Unpin" : "Pin", when: whenOf(n.at), exact: exactOf(n.at), body: n.body,
+        hasPos: !!n.pos, pos: n.pos ? POS[n.pos].title : "", edited: !!n.edited, editedLine: n.edited ? `Edited by ${MEMBERS[n.edited.by].name} · ${exactOf(n.edited.at)}` : "",
+        canEdit: true, border: n.pinned ? "color-mix(in srgb,var(--amber) 45%,transparent)" : "var(--line-soft)", bg: n.pinned ? "var(--panel2)" : "var(--panel)" }; }),
+      noNotes: notes.length === 0, noteCount: notes.length,
+      tlDays: this.byDay(timeline, s, false), noTimeline: timeline.length === 0, eventCount: all.length
+    };
+  }
+
+  navVals(count) {
+    const item = (label, icon, href, n, active) => ({ label, icon, href, count: n === undefined ? "" : n,
+      color: active ? "var(--text)" : "var(--text2)", bg: active ? "var(--panel2)" : "transparent", iconColor: active ? "var(--amber)" : "currentColor" });
+    return [
+      { label: "Positions", items: [item("My positions", I.myProjects, "Workspace.dc.html", 5), item("All positions", I.allProjects, "Workspace.dc.html?view=all", 7)] },
+      { label: "Workspace", items: [
+        item("Candidates", I.candidates, "Candidates.dc.html", count, true),
+        item("Business units", I.units, "Clients.dc.html", 4),
+        item("Team", I.team, "Workspace.dc.html?view=team", 5),
+        item("Settings", I.settings, "Settings.dc.html?section=profile")
+      ] }
+    ];
+  }
+
+  renderVals() {
+    const s = this.state;
+    const pool = s.empty ? [] : s.people;
+    const rows = this.visibleRows(s);
+    const isPeople = !s.loading && pool.length > 0 && s.view === "people";
+    const isActivity = !s.loading && pool.length > 0 && s.view === "activity";
+
+    const COLS = [
+      { id: "name", label: "Candidate", track: "minmax(250px,2.3fr)", min: 250 },
+      { id: "location", label: "Location", track: "150px", min: 150 },
+      { id: "positions", label: "Positions", track: "minmax(200px,1.6fr)", min: 200 },
+      { id: "tags", label: "Tags", track: "minmax(170px,1.3fr)", min: 170, fixed: true },
+      { id: "owner", label: "Owner", track: "64px", min: 64, fixed: true },
+      { id: "activity", label: "Last activity", track: "minmax(210px,1.5fr)", min: 210 }
+    ];
+    const headers = COLS.map((c) => { const on = s.sortField === c.id; return { id: c.id, label: c.label, fixed: !!c.fixed, cursor: c.fixed ? "default" : "pointer",
+      arrow: on ? (s.sortDir === "asc" ? " ↑" : " ↓") : "", color: on ? "var(--text)" : "var(--text3)", pr: c.id === "activity" ? "16px" : "0" }; });
+
+    const selIds = Object.keys(s.sel).filter((k) => s.sel[k]);
+    const allOn = rows.length > 0 && rows.every((x) => s.sel[x.id]);
+    const someOn = rows.some((x) => s.sel[x.id]);
+    const box = (on) => ({ boxColor: on ? "var(--amber-btn)" : "var(--line)", boxBg: on ? "var(--amber-btn)" : "transparent", tick: on ? 1 : 0 });
+
+    const tableRows = rows.map((x) => {
+      const last = this.lastOf(s, x.id);
+      const maps = [...x.maps].sort((a, b) => b.at.localeCompare(a.at));
+      const tags = x.tags.map((id) => s.tags.find((t) => t.id === id)).filter(Boolean);
+      const b = box(!!s.sel[x.id]);
+      return Object.assign({
+        id: x.id, name: x.name, initials: initials(x.name), avStyle: avatar(x.id, 30),
+        headline: [x.title, x.company].filter(Boolean).join(" · ") || "—",
+        location: [x.city, x.country].filter(Boolean).join(", ") || "Not recorded", locColor: x.city || x.country ? "var(--text2)" : "var(--text3)",
+        dnc: !!x.dnc, dup: !!x.dup && s.people.some((y) => y.id === x.dup), dupTitle: x.dup ? `Same name at the same employer as ${(s.people.find((y) => y.id === x.dup) || { name: "" }).name} — open to merge` : "",
+        chips: maps.slice(0, 2).map((m) => ({ label: `${POS[m.pos].short} · ${STATUS[m.status].label}`, title: `${POS[m.pos].title} — ${STATUS[m.status].label}`, dot: STATUS[m.status].fg,
+          style: `display:inline-flex;max-width:100%;align-items:center;gap:5px;overflow:hidden;white-space:nowrap;border-radius:5px;border:1px solid var(--line-soft);background:var(--panel2);padding:2px 7px;font:500 11.5px var(--sans);color:var(--text2)` })),
+        moreChips: maps.length > 2, moreLabel: `+${maps.length - 2}`, noPositions: maps.length === 0,
+        tags: tags.slice(0, 2).map((t) => ({ label: t.label, style: tagStyle(t) })), moreTags: tags.length > 2, moreTagLabel: `+${tags.length - 2}`,
+        hasOwner: !!x.owner, noOwner: !x.owner, ownerName: x.owner ? MEMBERS[x.owner].name : "", ownerInitials: x.owner ? initials(MEMBERS[x.owner].name) : "", ownerStyle: x.owner ? memberAvatar(x.owner, 24) : "",
+        lastWhat: last ? this.phrase(last, s, false).map((p) => p.t).join("").replace(/^./, (c) => c.toUpperCase()) : "—",
+        lastWho: last ? MEMBERS[last.actor].name : "", lastWhen: last ? whenOf(last.at) : "",
+        checked: !!s.sel[x.id], bg: s.sel[x.id] ? "color-mix(in srgb,var(--amber) 7%,transparent)" : "transparent"
+      }, b);
+    });
+
+    const tagIds = Object.keys(s.tagSel).filter((k) => s.tagSel[k]);
+    const activeFilters = [];
+    if (tagIds.length) activeFilters.push({ key: "tags", label: `${{ any: "Any of", all: "All of", none: "None of" }[s.tagMode]}: ${tagIds.map((id) => (s.tags.find((t) => t.id === id) || {}).label).join(", ")}` });
+    if (s.fPos !== "all") activeFilters.push({ key: "fPos", label: `Position: ${POS[s.fPos].title}` });
+    if (s.fStatus !== "all") activeFilters.push({ key: "fStatus", label: `Status: ${STATUS[s.fStatus].label}` });
+    if (s.fOwner !== "all") activeFilters.push({ key: "fOwner", label: `Owner: ${s.fOwner === "none" ? "Nobody" : MEMBERS[s.fOwner].name}` });
+    if (s.fCountry !== "all") activeFilters.push({ key: "fCountry", label: `Country: ${s.fCountry}` });
+
+    const countries = [...new Set(pool.map((x) => x.country).filter(Boolean))].sort();
+    const selectFilters = [
+      { key: "fPos", label: "Position", value: s.fPos, options: [{ value: "all", label: "Any position" }, ...POSITIONS.map((p) => ({ value: p.id, label: p.title }))] },
+      { key: "fStatus", label: "Status", value: s.fStatus, options: [{ value: "all", label: "Any status" }, ...STATUSES.map((x) => ({ value: x.value, label: x.label }))] },
+      { key: "fOwner", label: "Owner", value: s.fOwner, options: [{ value: "all", label: "Anyone" }, { value: "none", label: "Nobody" }, ...MEMBER_ORDER.map((m) => ({ value: m, label: MEMBERS[m].name }))] },
+      { key: "fCountry", label: "Country", value: s.fCountry, options: [{ value: "all", label: "Any country" }, ...countries.map((c) => ({ value: c, label: c }))] }
+    ];
+    const QUICK = [["all", "All"], ["mine", "Owned by me"], ["active", "In an active position"], ["none", "Not in a position"], ["dups", "Possible duplicates"]];
+    const quickCount = (k) => pool.filter((x) => this.matches(x, Object.assign({}, s, { quick: k }))).length;
+
+    const feedAll = this.allEvents(s).filter((e) => (s.aActor === "all" || e.actor === s.aActor) && (s.aPos === "all" || e.pos === s.aPos)
+      && (s.aRange === "all" || daysBefore(e.at.slice(0, 10)) < Number(s.aRange)) && (s.aKind === "all" || KIND_GROUP[e.kind] === s.aKind));
+    const feed = feedAll.slice(0, s.feedLimit);
+
+    const x = s.openId ? s.people.find((y) => y.id === s.openId) : null;
+    const dv = x ? this.drawerVals(s, x) : { tags: [], mappings: [], sections: [], notes: [], tlDays: [], career: [], compTiles: [], bgTiles: [], contactLines: [], findButtons: [] };
+
+    const tq = s.tagQuery.trim();
+    const tagCount = (id) => pool.filter((y) => y.tags.includes(id)).length;
+    const tagOptions = s.tags.filter((t) => !tq || t.label.toLowerCase().includes(tq.toLowerCase())).map((t) => {
+      const on = !!x && x.tags.includes(t.id);
+      return Object.assign({ id: t.id, label: t.label, on, style: tagStyle(t), count: tagCount(t.id) }, box(on));
+    });
+
+    const targets = this.targets(s);
+    const targetPeople = targets.map((id) => s.people.find((y) => y.id === id)).filter(Boolean);
+    const targetLabel = targetPeople.length === 1 ? targetPeople[0].name : `${targetPeople.length} people`;
+    const alreadyIn = (pos) => targetPeople.filter((y) => y.maps.some((m) => m.pos === pos)).length;
+    const already = alreadyIn(s.bulkPos);
+    const adding = targetPeople.length - already;
+    const addSummary = `${adding === 0 ? "Nobody new" : adding === 1 ? "1 person" : `${adding} people`} will be added as Identified.${already ? ` ${already === 1 ? "1 is" : `${already} are`} already in this position and ${already === 1 ? "stays" : "stay"} as ${already === 1 ? "is" : "they are"}.` : ""}`;
+
+    const merge = (() => {
+      if (!x) return { options: [], fields: [], moves: [] };
+      const mq = s.mergeQuery.trim().toLowerCase();
+      const candidates = s.people.filter((y) => y.id !== x.id && (mq ? y.name.toLowerCase().includes(mq) : (y.dup === x.id || x.dup === y.id)));
+      const other = s.mergePick ? s.people.find((y) => y.id === s.mergePick) : null;
+      const out = {
+        survivor: x.name,
+        options: candidates.slice(0, 5).map((y) => { const on = s.mergePick === y.id; const first = [...y.maps].sort((a, b) => a.at.localeCompare(b.at))[0];
+          return { id: y.id, name: y.name, initials: initials(y.name), avStyle: avatar(y.id, 28), suggested: y.dup === x.id || x.dup === y.id,
+            meta: [y.title, y.company, first ? `added ${dateGB(first.at.slice(0, 10))} by ${MEMBERS[first.by].name} · ${DOORS[first.door]}` : null].filter(Boolean).join(" · "),
+            border: on ? "var(--amber)" : "var(--line-soft)", bg: on ? "var(--amber-dim)" : "var(--panel)" }; }),
+        hasPick: !!other, fields: [], moves: []
+      };
+      if (other) {
+        const F = [["name", "Name", (y) => y.name], ["title", "Title", (y) => y.title], ["li", "LinkedIn", (y) => (y.li ? `linkedin.com/in/${y.li}` : null)], ["nat", "Nationality", (y) => y.nat], ["gender", "Gender", (y) => y.gender], ["owner", "Owner", (y) => (y.owner ? MEMBERS[y.owner].name : null)]];
+        out.fields = F.filter(([, , get]) => get(x) !== get(other)).map(([key, label, get]) => {
+          const a = get(x); const b = get(other);
+          const keep = s.mergeKeep[key] || (a ? "a" : "b");
+          const st = (on, empty) => `min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;border-radius:6px;padding:6px 9px;text-align:left;font:400 12.5px var(--mono);cursor:pointer;${on ? "border:1px solid var(--amber);background:var(--amber-dim);color:var(--text)" : "border:1px solid var(--line-soft);background:none;color:var(--text3)"}${empty ? ";font-style:italic" : ""}`;
+          return { key, label, a: a || "Empty", b: b || "Empty", aStyle: st(keep === "a", !a), bStyle: st(keep === "b", !b) };
+        });
+        other.maps.forEach((m) => {
+          const held = x.maps.find((k) => k.pos === m.pos);
+          out.moves.push(held ? `${POS[m.pos].title} — already here as ${STATUS[held.status].label}; the duplicate's ${STATUS[m.status].label} row folds into it` : `${POS[m.pos].title} — ${STATUS[m.status].label}, added by ${MEMBERS[m.by].name}`);
+        });
+        const nNotes = s.notes.filter((n) => n.person === other.id).length;
+        if (nNotes) out.moves.push(`${nNotes} ${nNotes === 1 ? "note" : "notes"}`);
+        const newEmails = other.emails.filter((e) => !x.emails.some((k) => k[0].toLowerCase() === e[0].toLowerCase()));
+        if (newEmails.length) out.moves.push(`${newEmails.length === 1 ? "1 email" : `${newEmails.length} emails`} (${newEmails.map((e) => e[0]).join(", ")})`);
+        const nEvents = this.allEvents(s).filter((e) => e.person === other.id).length;
+        out.moves.push(`${nEvents} ${nEvents === 1 ? "line" : "lines"} of history, kept with who did what and when`);
+      }
+      return out;
+    })();
+
+    const bulkTagIds = Object.keys(s.bulkTagSel).filter((k) => s.bulkTagSel[k]);
+
+    return {
+      ic: I,
+      sideWidth: s.collapsed ? "56px" : "210px", labelsShown: !s.collapsed, navJustify: s.collapsed ? "center" : "flex-start",
+      navGroups: this.navVals(s.loading ? undefined : pool.length),
+      themeLabel: s.dark ? "Light mode" : "Dark mode", themeIcon: s.dark ? I.sun : I.moon,
+      collapseTitle: s.collapsed ? "Expand sidebar" : "Collapse sidebar", collapseIcon: s.collapsed ? I.expand : I.collapse,
+      wsMenuOpen: s.wsMenuOpen,
+
+      pageSub: s.loading ? "Everyone your team has mapped" : `${pool.length} ${pool.length === 1 ? "person" : "people"} · shared across every position in Al-Futtaim`,
+      showExport: isPeople,
+      viewTabs: [["people", "People", I.candidates, "Candidates.dc.html"], ["activity", "Activity", I.activity, "Candidates.dc.html?view=activity"]].map(([key, label, icon, href]) => {
+        const on = s.view === key;
+        return { key, label, icon, href, selected: on, style: `display:inline-flex;align-items:center;gap:7px;margin-bottom:-1px;padding:9px 12px;font:500 13px var(--sans);text-decoration:none;border-bottom:2px solid ${on ? "var(--amber)" : "transparent"};color:${on ? "var(--text)" : "var(--text3)"}` };
+      }),
+      isLoading: s.loading, isEmpty: !s.loading && pool.length === 0, isPeople, isActivity,
+      skeletonRows: [0, 1, 2, 3, 4, 5, 6].map((i) => ({ a: ["180px", "140px", "200px"][i % 3], b: ["90px", "120px", "70px"][i % 3], c: ["150px", "110px", "130px"][i % 3] })),
+
+      q: s.q,
+      quickViews: QUICK.map(([key, label]) => Object.assign({ key, label, count: quickCount(key) }, chipStyle(s.quick === key))),
+      filtersOpen: s.filtersOpen, filterBtnBg: s.filtersOpen ? "var(--panel2)" : "var(--panel)", filterBtnBorder: s.filtersOpen ? "var(--text3)" : "var(--line)",
+      hasActiveFilters: activeFilters.length > 0, activeFilterCount: activeFilters.length, activeFilters,
+      resultLine: `${rows.length} of ${pool.length} people`,
+      tagModes: [["any", "Any of"], ["all", "All of"], ["none", "None of"]].map(([key, label]) => ({ key, label, on: s.tagMode === key, style: segStyle(s.tagMode === key) })),
+      tagToggles: s.tags.map((t) => { const on = !!s.tagSel[t.id]; return { id: t.id, label: t.label, on, count: tagCount(t.id),
+        style: `display:inline-flex;align-items:center;gap:5px;border-radius:999px;padding:4px 10px;font:500 12px var(--sans);cursor:pointer;${on ? `border:1px solid ${t.fg};background:${t.bg};color:${t.fg}` : "border:1px solid var(--line);background:var(--panel);color:var(--text2)"}` }; }),
+      selectFilters,
+
+      gridCols: `40px ${COLS.map((c) => c.track).join(" ")}`,
+      gridMin: `${40 + COLS.reduce((t, c) => t + c.min, 0) + 12 * COLS.length + 16}px`,
+      headers, rows: tableRows, noResults: tableRows.length === 0,
+      allChecked: allOn, allBox: { color: someOn ? "var(--amber-btn)" : "var(--line)", bg: someOn ? "var(--amber-btn)" : "transparent", tick: someOn ? 1 : 0, icon: allOn ? I.check : I.minus },
+
+      hasSelection: isPeople && selIds.length > 0, selectedTotal: selIds.length, selectionAria: `${selIds.length} people selected`,
+      bulkActions: [["addToPosition", "Add to position", I.position], ["tag", "Tag", I.tag], ["owner", "Set owner", I.profile], ["export", "Export", I.importInto]].map(([key, label, icon]) => ({ key, label, icon })),
+
+      activitySelects: [
+        { key: "aActor", label: "Who", value: s.aActor, options: [{ value: "all", label: "Everyone" }, ...MEMBER_ORDER.map((m) => ({ value: m, label: MEMBERS[m].name }))] },
+        { key: "aPos", label: "Position", value: s.aPos, options: [{ value: "all", label: "Every position" }, ...POSITIONS.map((p) => ({ value: p.id, label: p.title }))] },
+        { key: "aRange", label: "When", value: s.aRange, options: RANGES.map(([value, label]) => ({ value, label })) }
+      ],
+      kindChips: KIND_CHIPS.map(([key, label]) => Object.assign({ key, label }, chipStyle(s.aKind === key))),
+      feedDays: this.byDay(feed, s, true), noFeed: feed.length === 0, feedHasMore: feedAll.length > feed.length,
+
+      askVisible: !x && selIds.length === 0,
+      drawerShown: !!x, dv, ownerOptions: [{ value: "none", label: "Nobody" }, ...MEMBER_ORDER.map((m) => ({ value: m, label: MEMBERS[m].name }))],
+      statusOptions: STATUSES.map((st) => ({ value: st.value, label: st.label })),
+      drawerTabs: [["profile", "Profile", null], ["notes", "Notes", dv.noteCount], ["timeline", "Timeline", dv.eventCount]].map(([key, label, count]) => {
+        const on = s.drawerTab === key;
+        return { key, label, on, hasCount: count !== null, count, style: `display:inline-flex;align-items:center;gap:7px;margin-bottom:-1px;padding:9px 12px;font:500 13px var(--sans);background:none;border:none;border-bottom:2px solid ${on ? "var(--amber)" : "transparent"};color:${on ? "var(--text)" : "var(--text3)"};cursor:pointer` };
+      }),
+      tabProfile: s.drawerTab === "profile", tabNotes: s.drawerTab === "notes", tabTimeline: s.drawerTab === "timeline",
+      tagPickerOpen: s.tagPickerOpen, tagQuery: s.tagQuery, tagQueryTrim: tq, tagOptions, canCreateTag: !!tq && !s.tags.some((t) => t.label.toLowerCase() === tq.toLowerCase()),
+      noteKinds: NOTE_KINDS.map((k) => { const on = s.noteKind === k.key; return { key: k.key, label: k.label, icon: k.icon, on,
+        style: `display:inline-flex;align-items:center;gap:6px;border-radius:6px;padding:5px 10px;font:500 12px var(--sans);cursor:pointer;${on ? `border:1px solid transparent;background:${k.bg};color:${k.fg}` : "border:1px solid var(--line);background:var(--panel);color:var(--text3)"}` }; }),
+      noteText: s.noteText, notePos: s.notePos,
+      notePlaceholder: { general: "What your team should know about this person…", call: "What was said on the call, and what happens next…", meeting: "Where you met, what came out of it…", email: "What was sent or received, and the reply…" }[s.noteKind],
+      notePosOptions: [{ value: "none", label: "No position — about the person" }, ...(x ? x.maps.map((m) => ({ value: m.pos, label: POS[m.pos].title })) : [])],
+      saveNoteOpacity: s.noteText.trim() ? 1 : 0.5,
+      tlChips: KIND_CHIPS.map(([key, label]) => Object.assign({ key, label }, chipStyle(s.tlKind === key))),
+
+      showAddToPosition: s.dialog === "addToPosition" && targetPeople.length > 0, showTagDialog: s.dialog === "tag" && targetPeople.length > 0,
+      showOwnerDialog: s.dialog === "owner" && targetPeople.length > 0, showMerge: s.dialog === "merge" && !!x,
+      targetLabel,
+      positionChoices: POSITIONS.map((p) => { const on = s.bulkPos === p.id; const n = alreadyIn(p.id); return { id: p.id, title: p.title, meta: `${p.unit} · ${p.stage}`, on,
+        hasAlready: n > 0, already: targetPeople.length === 1 ? "Already in it" : `${n} already in it`, border: on ? "var(--amber)" : "var(--line-soft)", bg: on ? "var(--amber-dim)" : "var(--panel)", ring: on ? "4px" : "1.5px" }; }),
+      addSummary, addLabel: adding > 0 ? `Add ${adding === 1 ? "1 person" : `${adding} people`}` : "Nothing to add", addOpacity: adding > 0 ? 1 : 0.5,
+      bulkTagModes: [["add", "Add tags"], ["remove", "Remove tags"]].map(([key, label]) => ({ key, label, on: s.bulkTagMode === key, style: segStyle(s.bulkTagMode === key) })),
+      bulkTagOptions: s.tags.map((t) => { const on = !!s.bulkTagSel[t.id]; const have = targetPeople.filter((y) => y.tags.includes(t.id)).length;
+        return Object.assign({ id: t.id, label: t.label, on, style: tagStyle(t), have: `${have} of ${targetPeople.length} have it` }, box(on)); }),
+      bulkTagLabel: `${s.bulkTagMode === "add" ? "Add" : "Remove"} ${bulkTagIds.length === 1 ? "1 tag" : `${bulkTagIds.length} tags`}`, bulkTagOpacity: bulkTagIds.length ? 1 : 0.5,
+      ownerChoices: [...MEMBER_ORDER, "none"].map((m) => { const on = s.bulkOwner === m; return { id: m, name: m === "none" ? "Nobody" : MEMBERS[m].name, initials: m === "none" ? "—" : initials(MEMBERS[m].name),
+        avStyle: m === "none" ? "width:24px;height:24px;flex:none;border-radius:50%;display:grid;place-items:center;font:600 10px var(--mono);background:var(--panel2);color:var(--text3)" : memberAvatar(m, 24), on, bg: on ? "var(--panel2)" : "none" }; }),
+      mv: merge, mergeQuery: s.mergeQuery, mergeOpacity: merge.hasPick ? 1 : 0.5,
+
+      hasToast: !!s.toast, toast: s.toast || "",
+
+      stop: (e) => e.stopPropagation(),
+      toggleWsMenu: () => this.setState({ wsMenuOpen: !s.wsMenuOpen }),
+      toggleTheme: () => { const d = !s.dark; document.documentElement.setAttribute("data-theme", d ? "dark" : "light"); try { localStorage.setItem("lm-theme", d ? "dark" : "light"); } catch (e) {} this.setState({ dark: d }); },
+      toggleCollapse: () => { const c = !s.collapsed; try { localStorage.setItem("lm-side-collapsed", c ? "1" : "0"); } catch (e) {} this.setState({ collapsed: c }); },
+
+      onSearch: (e) => this.setState({ q: e.target.value }),
+      setQuick: (e) => this.setState({ quick: e.currentTarget.dataset.id }),
+      toggleFilters: () => this.setState({ filtersOpen: !s.filtersOpen }),
+      setTagMode: (e) => this.setState({ tagMode: e.currentTarget.dataset.id }),
+      toggleTagFilter: (e) => { const id = e.currentTarget.dataset.id; this.setState({ tagSel: Object.assign({}, s.tagSel, { [id]: !s.tagSel[id] }) }); },
+      setSelectFilter: (e) => this.setState({ [e.currentTarget.dataset.id]: e.target.value }),
+      clearFilter: (e) => { const k = e.currentTarget.dataset.id; this.setState(k === "tags" ? { tagSel: {} } : { [k]: "all" }); },
+      clearAllFilters: () => this.setState({ tagSel: {}, fPos: "all", fStatus: "all", fOwner: "all", fCountry: "all" }),
+      sortBy: (e) => { const id = e.currentTarget.dataset.id; if (["tags", "owner"].includes(id)) return; if (s.sortField === id) this.setState({ sortDir: s.sortDir === "asc" ? "desc" : "asc" }); else this.setState({ sortField: id, sortDir: id === "activity" ? "desc" : "asc" }); },
+      toggleRow: (e) => { e.stopPropagation(); const id = e.currentTarget.dataset.id; this.setState({ sel: Object.assign({}, s.sel, { [id]: !s.sel[id] }) }); },
+      toggleAll: () => this.setState({ sel: allOn ? {} : Object.fromEntries(rows.map((y) => [y.id, true])) }),
+      clearSelection: () => this.setState({ sel: {} }),
+      runBulk: (e) => {
+        const key = e.currentTarget.dataset.id;
+        if (key === "export") { this.showToast(`Exported ${selIds.length} people as a CSV — recorded in the audit trail`); return; }
+        this.setState({ dialog: key, dialogTarget: "selection", bulkTagSel: {}, bulkTagMode: "add" });
+      },
+      exportView: () => this.showToast(`Exported ${rows.length} people as a CSV — recorded in the audit trail`),
+      openRow: (e) => this.setState({ openId: e.currentTarget.dataset.id, drawerTab: "profile", tagPickerOpen: false, notePos: "none", noteText: "", tlKind: "all" }),
+      openFromFeed: (e) => this.setState({ openId: e.currentTarget.dataset.id, drawerTab: "timeline", tagPickerOpen: false, notePos: "none", noteText: "", tlKind: "all" }),
+      closeDrawer: () => this.setState({ openId: null, tagPickerOpen: false }),
+
+      setActivitySelect: (e) => this.setState({ [e.currentTarget.dataset.id]: e.target.value, feedLimit: 24 }),
+      setActivityKind: (e) => this.setState({ aKind: e.currentTarget.dataset.id, feedLimit: 24 }),
+      loadMore: () => this.setState({ feedLimit: s.feedLimit + 24 }),
+
+      setDrawerTab: (e) => this.setState({ drawerTab: e.currentTarget.dataset.id }),
+      toggleSec: (e) => { const id = e.currentTarget.dataset.id; this.setState({ sec: Object.assign({}, s.sec, { [id]: !s.sec[id] }) }); },
+      setOwner: (e) => {
+        const owner = e.target.value === "none" ? null : e.target.value;
+        this.record([{ person: x.id, kind: "OWNER_CHANGED", owner }], { people: this.updatePerson(x.id, (y) => Object.assign({}, y, { owner })) });
+      },
+      toggleDnc: () => {
+        if (x.dnc) { this.record([{ person: x.id, kind: "DNC_CLEARED" }], { people: this.updatePerson(x.id, (y) => Object.assign({}, y, { dnc: null })) }); return; }
+        const dnc = { by: ME, at: this.now(), reason: "Marked from the candidate drawer." };
+        this.record([{ person: x.id, kind: "DNC_SET" }], { people: this.updatePerson(x.id, (y) => Object.assign({}, y, { dnc })) });
+      },
+      setMappingStatus: (e) => {
+        const pos = e.currentTarget.dataset.id; const to = e.target.value; const from = x.maps.find((m) => m.pos === pos).status;
+        if (from === to) return;
+        this.record([{ person: x.id, kind: "STATUS_CHANGED", pos, from, to }], { people: this.updatePerson(x.id, (y) => Object.assign({}, y, { maps: y.maps.map((m) => (m.pos === pos ? Object.assign({}, m, { status: to }) : m)) })) });
+        this.showToast(`Marked ${STATUS[to].label} on ${POS[pos].title}`);
+      },
+      addOneToPosition: () => this.setState({ dialog: "addToPosition", dialogTarget: "one" }),
+      toggleTagPicker: () => this.setState({ tagPickerOpen: !s.tagPickerOpen, tagQuery: "" }),
+      onTagQuery: (e) => this.setState({ tagQuery: e.target.value }),
+      pickTag: (e) => {
+        const id = e.currentTarget.dataset.id; const has = x.tags.includes(id);
+        this.record([{ person: x.id, kind: has ? "UNTAGGED" : "TAGGED", tag: id }], { people: this.updatePerson(x.id, (y) => Object.assign({}, y, { tags: has ? y.tags.filter((t) => t !== id) : [...y.tags, id] })) });
+      },
+      removeTag: (e) => { const id = e.currentTarget.dataset.id; this.record([{ person: x.id, kind: "UNTAGGED", tag: id }], { people: this.updatePerson(x.id, (y) => Object.assign({}, y, { tags: y.tags.filter((t) => t !== id) })) }); },
+      createTag: () => {
+        const id = `t${Date.now()}`;
+        const t = { id, label: tq, fg: "var(--text2)", bg: "var(--panel2)" };
+        this.record([{ person: x.id, kind: "TAGGED", tag: id }], { tags: [...s.tags, t], tagQuery: "", people: this.updatePerson(x.id, (y) => Object.assign({}, y, { tags: [...y.tags, id] })) });
+        this.showToast(`Created the tag “${tq}” for your team`);
+      },
+      setNoteKind: (e) => this.setState({ noteKind: e.currentTarget.dataset.id }),
+      onNoteText: (e) => this.setState({ noteText: e.target.value }),
+      setNotePos: (e) => this.setState({ notePos: e.target.value }),
+      saveNote: () => {
+        const body = s.noteText.trim(); if (!body) return;
+        const n = { id: `n${Date.now()}`, person: x.id, author: ME, kind: s.noteKind, at: this.now(), pos: s.notePos === "none" ? null : s.notePos, body, pinned: false, edited: null };
+        this.setState({ notes: [...s.notes, n], noteText: "", tick: s.tick + 1 });
+        this.showToast("Note saved — your team sees it on every position");
+      },
+      togglePin: (e) => { const id = e.currentTarget.dataset.id; this.setState({ notes: s.notes.map((n) => (n.id === id ? Object.assign({}, n, { pinned: !n.pinned }) : n)) }); },
+      deleteNote: (e) => { const id = e.currentTarget.dataset.id; this.setState({ notes: s.notes.filter((n) => n.id !== id) }); this.showToast("Note deleted — the timeline keeps a line saying so"); },
+      setTlKind: (e) => this.setState({ tlKind: e.currentTarget.dataset.id }),
+
+      closeDialog: () => this.setState({ dialog: "none" }),
+      pickBulkPosition: (e) => this.setState({ bulkPos: e.currentTarget.dataset.id }),
+      confirmAddToPosition: () => {
+        const fresh = targetPeople.filter((y) => !y.maps.some((m) => m.pos === s.bulkPos));
+        if (!fresh.length) return;
+        const at = this.now();
+        const ids = new Set(fresh.map((y) => y.id));
+        this.record(fresh.map((y) => ({ person: y.id, kind: "MAPPED", pos: s.bulkPos, door: "manual" })), {
+          people: s.people.map((y) => (ids.has(y.id) ? Object.assign({}, y, { maps: [...y.maps, { pos: s.bulkPos, status: "identified", by: ME, at, door: "manual" }] }) : y)),
+          dialog: "none", sel: s.dialogTarget === "one" ? s.sel : {}
+        });
+        this.showToast(`Added ${fresh.length === 1 ? fresh[0].name : `${fresh.length} people`} to ${POS[s.bulkPos].title}`);
+      },
+      setBulkTagMode: (e) => this.setState({ bulkTagMode: e.currentTarget.dataset.id }),
+      toggleBulkTag: (e) => { const id = e.currentTarget.dataset.id; this.setState({ bulkTagSel: Object.assign({}, s.bulkTagSel, { [id]: !s.bulkTagSel[id] }) }); },
+      confirmBulkTag: () => {
+        if (!bulkTagIds.length) return;
+        const adding = s.bulkTagMode === "add"; const entries = [];
+        const people = s.people.map((y) => {
+          if (!targets.includes(y.id)) return y;
+          let tags = [...y.tags];
+          bulkTagIds.forEach((t) => {
+            if (adding && !tags.includes(t)) { tags.push(t); entries.push({ person: y.id, kind: "TAGGED", tag: t }); }
+            if (!adding && tags.includes(t)) { tags = tags.filter((k) => k !== t); entries.push({ person: y.id, kind: "UNTAGGED", tag: t }); }
+          });
+          return Object.assign({}, y, { tags });
+        });
+        this.record(entries, { people, dialog: "none", sel: {} });
+        this.showToast(`${adding ? "Tagged" : "Untagged"} ${targetLabel}`);
+      },
+      pickBulkOwner: (e) => this.setState({ bulkOwner: e.currentTarget.dataset.id }),
+      confirmBulkOwner: () => {
+        const owner = s.bulkOwner === "none" ? null : s.bulkOwner;
+        const changed = targetPeople.filter((y) => y.owner !== owner);
+        this.record(changed.map((y) => ({ person: y.id, kind: "OWNER_CHANGED", owner })), { people: s.people.map((y) => (targets.includes(y.id) ? Object.assign({}, y, { owner }) : y)), dialog: "none", sel: {} });
+        this.showToast(owner ? `${MEMBERS[owner].name} now owns ${targetLabel}` : `Cleared the owner of ${targetLabel}`);
+      },
+      openMerge: () => this.setState({ dialog: "merge", mergeQuery: "", mergePick: null, mergeKeep: {} }),
+      onMergeQuery: (e) => this.setState({ mergeQuery: e.target.value }),
+      pickMerge: (e) => this.setState({ mergePick: e.currentTarget.dataset.id, mergeKeep: {} }),
+      pickMergeField: (e) => { const d = e.currentTarget.dataset; this.setState({ mergeKeep: Object.assign({}, s.mergeKeep, { [d.id]: d.side }) }); },
+      confirmMerge: () => {
+        const other = s.people.find((y) => y.id === s.mergePick); if (!other) return;
+        const keepB = (k) => s.mergeKeep[k] === "b" || (!s.mergeKeep[k] && !x[k === "li" ? "li" : k] && other[k === "li" ? "li" : k]);
+        const merged = Object.assign({}, x, {
+          name: keepB("name") ? other.name : x.name, title: keepB("title") ? other.title : x.title, li: keepB("li") ? other.li : x.li,
+          nat: keepB("nat") ? other.nat : x.nat, gender: keepB("gender") ? other.gender : x.gender, owner: keepB("owner") ? other.owner : x.owner,
+          maps: [...x.maps, ...other.maps.filter((m) => !x.maps.some((k) => k.pos === m.pos))],
+          emails: [...x.emails, ...other.emails.filter((e) => !x.emails.some((k) => k[0].toLowerCase() === e[0].toLowerCase()))],
+          tags: [...new Set([...x.tags, ...other.tags])], dup: null
+        });
+        const at = this.now();
+        this.setState({
+          people: s.people.filter((y) => y.id !== other.id).map((y) => (y.id === x.id ? merged : y)),
+          notes: s.notes.map((n) => (n.person === other.id ? Object.assign({}, n, { person: x.id }) : n)),
+          events: [...s.events.map((e) => (e.person === other.id ? Object.assign({}, e, { person: x.id }) : e)), { at, actor: ME, person: x.id, kind: "MERGED", detail: `Folded in “${other.name}”` }],
+          dialog: "none", tick: s.tick + 1, sel: Object.assign({}, s.sel, { [other.id]: false })
+        });
+        this.showToast(`Merged ${other.name} into ${x.name}`);
+      }
+    };
+  }
+}
+
+</script>
+</body>
+</html>
