@@ -69,7 +69,7 @@ BEGIN
     FROM ranked r
     WHERE p.id = r.id AND r.rank > 1;
     GET DIAGNOSTICS released = ROW_COUNT;
-    RAISE NOTICE 'V92: % person(s) share a profile with an older person of their workspace; their slug is left null (lc_ctype %)',
+    RAISE NOTICE 'V95: % person(s) share a profile with an older person of their workspace; their slug is left null (lc_ctype %)',
         released, (SELECT datctype FROM pg_database WHERE datname = current_database());
 END $$;
 

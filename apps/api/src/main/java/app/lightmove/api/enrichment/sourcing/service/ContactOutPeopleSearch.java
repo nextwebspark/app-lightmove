@@ -3,19 +3,15 @@ package app.lightmove.api.enrichment.sourcing.service;
 import app.lightmove.api.candidate.constant.EnrichmentVendor;
 import app.lightmove.api.common.constant.Seniority;
 import app.lightmove.api.common.location.service.Countries;
-import app.lightmove.api.core.config.ContactOutSettings;
-import app.lightmove.api.core.resilience.model.VendorCall;
-import app.lightmove.api.core.resilience.model.VendorClientSpec;
-import app.lightmove.api.core.resilience.service.VendorCallGuard;
-import app.lightmove.api.core.resilience.service.VendorClientFactory;
-import app.lightmove.api.core.resilience.service.VendorRateLimiter;
 import app.lightmove.api.enrichment.candidate.model.BrightDataPeopleHits;
 import app.lightmove.api.enrichment.candidate.model.BrightDataPerson;
+import app.lightmove.api.enrichment.common.service.ContactOutPeopleClient;
+import app.lightmove.api.enrichment.common.service.ContactOutPeopleIndex;
+import app.lightmove.api.enrichment.common.service.ContactOutPeopleRecords;
+import app.lightmove.api.enrichment.common.service.ContactOutPeopleRecords.ContactOutEmployerKey;
 import app.lightmove.api.enrichment.sourcing.constant.TitleLevel;
 import app.lightmove.api.enrichment.sourcing.model.SearchedEmployer;
 import app.lightmove.api.enrichment.sourcing.model.SourcingSpec;
-import app.lightmove.api.enrichment.sourcing.service.ContactOutPeopleRecords.ContactOutSearchAnswer;
-import java.time.Duration;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -25,11 +21,7 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.regex.Pattern;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.http.MediaType;
-import org.springframework.web.client.RestClient;
 import tools.jackson.databind.ObjectMapper;
-import tools.jackson.databind.PropertyNamingStrategies;
-import tools.jackson.databind.annotation.JsonNaming;
 
 /**
  * ContactOut's People Search, matched on current titles as whole words. The company is keyed by website
@@ -39,32 +31,20 @@ import tools.jackson.databind.annotation.JsonNaming;
 @Slf4j
 public class ContactOutPeopleSearch implements PeopleSearch {
 
-    static final String VENDOR = "contactout-search";
-
-    /** An indexed search on their side; probed at a second or two. */
-    private static final Duration READ_TIMEOUT = Duration.ofSeconds(20);
-
-    private static final int MAX_PAGE_SIZE = 25;
-
     /** ContactOut's own operators; a word spelling one would change the query rather than join it. */
     private static final Set<String> OPERATORS = Set.of("and", "or", "not");
 
     private static final Pattern SEARCHABLE_WORD = Pattern.compile("[\\p{L}\\p{N}][\\p{L}\\p{N}&.-]*");
 
-    private final RestClient client;
-    private final VendorCallGuard guard;
+    private final ContactOutPeopleIndex client;
     private final ObjectMapper json;
     private final int enoughFromATier;
 
     /** @param enoughFromATier the people a tier must find before a wider one is not asked — the picks per company */
-    public ContactOutPeopleSearch(ContactOutSettings config, VendorClientFactory clientFactory,
-                                  VendorRateLimiter rateLimiter, VendorCallGuard guard, RestClient.Builder builder,
-                                  ObjectMapper json, int enoughFromATier) {
-        this.guard = guard;
+    public ContactOutPeopleSearch(ContactOutPeopleIndex client, ObjectMapper json, int enoughFromATier) {
+        this.client = client;
         this.json = json;
         this.enoughFromATier = enoughFromATier;
-        this.client = clientFactory.create(VendorClientSpec.header(VENDOR, config.baseUrl(), "token",
-                config.apiKey(), READ_TIMEOUT, config.searchRequestsPerSecond()), builder, rateLimiter);
     }
 
     @Override
@@ -96,11 +76,13 @@ public class ContactOutPeopleSearch implements PeopleSearch {
         for (String title : titleTiers(spec, seat)) {
             Map<String, Object> filter = new LinkedHashMap<>(base.get());
             filter.put("job_title", List.of(title));
-            long count = count(filter);
+            long count = client.count(filter).total();
             matched += count;
-            int wanted = (int) Math.min(Math.min(count, size - found.size()), MAX_PAGE_SIZE);
+            int wanted = (int) Math.min(Math.min(count, size - found.size()), ContactOutPeopleClient.MAX_PAGE_SIZE);
             if (wanted > 0) {
-                found.addAll(ContactOutPeopleRecords.toHits(search(filter, wanted), employer, json).hits().stream()
+                ContactOutEmployerKey searched = new ContactOutEmployerKey(employer.linkedinSlug(), employer.name());
+                found.addAll(ContactOutPeopleRecords.toHits(client.search(filter, 1, wanted), searched, json).hits()
+                        .stream()
                         .filter(person -> livesIn(person, countryCodes))
                         .toList());
             }
@@ -111,33 +93,6 @@ public class ContactOutPeopleSearch implements PeopleSearch {
         log.debug("ContactOut people search at {} matched {} in all, returned {}", employer.linkedinSlug(), matched,
                 found.size());
         return BrightDataPeopleHits.of(found, matched);
-    }
-
-    private long count(Map<String, Object> filter) {
-        ContactOutCount answer = guard.call(VendorCall.of(VENDOR, "people-count"), () -> client.post()
-                .uri("/v1/people/count")
-                .contentType(MediaType.APPLICATION_JSON)
-                .accept(MediaType.APPLICATION_JSON)
-                .body(filter)
-                .retrieve()
-                .body(ContactOutCount.class));
-        return answer == null || answer.totalResults() == null ? 0 : answer.totalResults();
-    }
-
-    private ContactOutSearchAnswer search(Map<String, Object> filter, int pageSize) {
-        Map<String, Object> body = new LinkedHashMap<>(filter);
-        body.put("page", 1);
-        body.put("page_size", pageSize);
-        body.put("detailed_experience", true);
-        body.put("detailed_education", true);
-        body.put("reveal_info", false);
-        return guard.call(VendorCall.of(VENDOR, "people-search"), () -> client.post()
-                .uri("/v1/people/search")
-                .contentType(MediaType.APPLICATION_JSON)
-                .accept(MediaType.APPLICATION_JSON)
-                .body(body)
-                .retrieve()
-                .body(ContactOutSearchAnswer.class));
     }
 
     /**
@@ -215,7 +170,4 @@ public class ContactOutPeopleSearch implements PeopleSearch {
     private static String anyOf(List<String> words) {
         return words.isEmpty() ? null : "(" + String.join(" OR ", words) + ")";
     }
-
-    @JsonNaming(PropertyNamingStrategies.SnakeCaseStrategy.class)
-    record ContactOutCount(Long totalResults) {}
 }

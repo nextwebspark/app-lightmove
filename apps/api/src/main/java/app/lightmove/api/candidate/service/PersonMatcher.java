@@ -72,7 +72,7 @@ class PersonMatcher {
     }
 
     /**
-     * Read off the URL rather than the stored key: V92 left the key null on a person who shares a profile
+     * Read off the URL rather than the stored key: V95 left the key null on a person who shares a profile
      * with an older one, and that person's URL still names the profile an address must not be crossed with.
      */
     private static String slugOf(Person person) {

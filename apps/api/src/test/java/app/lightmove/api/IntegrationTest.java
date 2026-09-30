@@ -42,6 +42,7 @@ import java.lang.annotation.Target;
 @Import({SynchronousAuditWrites.class, StubChatModel.Config.class, StubEmbeddingModel.Config.class,
         RecordingEmailSender.Config.class, RecordingProfileEnricher.Config.class,
         RecordingCompanyEnricher.Config.class, StubGeocoder.Config.class,
-        RecordingContactFinder.Config.class, RecordingPeopleSearch.Config.class})
+        RecordingContactFinder.Config.class, RecordingPeopleSearch.Config.class,
+        RecordingContactOutPeopleIndex.Config.class})
 public @interface IntegrationTest {
 }

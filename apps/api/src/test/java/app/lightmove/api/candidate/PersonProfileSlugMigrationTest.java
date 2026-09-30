@@ -21,10 +21,10 @@ import org.testcontainers.postgresql.PostgreSQLContainer;
 import org.testcontainers.utility.DockerImageName;
 
 /**
- * V92 stores each person's profile slug exactly as {@link LinkedInUrls} reads it — the key a filing
+ * V95 stores each person's profile slug exactly as {@link LinkedInUrls} reads it — the key a filing
  * looks them up by — and removes nothing: V91's frozen copies wait for the final cleanup migration.
  *
- * <p>Its own container and Flyway run, stopped at V91 to seed and carried on to V92, for
+ * <p>Its own container and Flyway run, stopped at V91 to seed and carried on to V95, for
  * {@link CandidatePersonBackfillMigrationTest}'s reason.
  */
 class PersonProfileSlugMigrationTest {
@@ -58,7 +58,7 @@ class PersonProfileSlugMigrationTest {
             "https://uk.linkedin.com/in/o-brien-3a4b5c6d");
 
     @Test
-    @DisplayName("V92 stores each person's slug as LinkedInUrls reads it, and leaves V91's frozen copies alone")
+    @DisplayName("V95 stores each person's slug as LinkedInUrls reads it, and leaves V91's frozen copies alone")
     void storesTheProfileSlug() throws Exception {
         try (PostgreSQLContainer postgres = new PostgreSQLContainer(DockerImageName.parse("postgres:16-alpine"))) {
             postgres.start();
@@ -87,7 +87,7 @@ class PersonProfileSlugMigrationTest {
                 mapping(connection, mapping, older);
             }
 
-            migrateTo(postgres, "92");
+            migrateTo(postgres, "95");
 
             try (Connection connection = connect(postgres)) {
                 for (Map.Entry<UUID, String> entry : urls.entrySet()) {
@@ -157,7 +157,7 @@ class PersonProfileSlugMigrationTest {
         }
     }
 
-    /** A mapping still carrying V91's frozen copy of the person, which V92 must leave as it found it. */
+    /** A mapping still carrying V91's frozen copy of the person, which V95 must leave as it found it. */
     private static void mapping(Connection connection, UUID id, UUID personId) throws SQLException {
         try (Statement statement = connection.createStatement()) {
             statement.execute("""

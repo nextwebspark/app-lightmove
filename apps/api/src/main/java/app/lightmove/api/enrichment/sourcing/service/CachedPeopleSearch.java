@@ -6,16 +6,13 @@ import app.lightmove.api.enrichment.candidate.model.BrightDataPeopleHits;
 import app.lightmove.api.enrichment.candidate.model.BrightDataPerson;
 import app.lightmove.api.enrichment.candidate.service.CachedPeopleStore;
 import app.lightmove.api.enrichment.common.service.BrightDataSearch;
+import app.lightmove.api.enrichment.common.service.PeopleQueryKeys;
 import app.lightmove.api.enrichment.sourcing.model.SearchedEmployer;
 import app.lightmove.api.enrichment.sourcing.model.SourcingSpec;
-import java.nio.charset.StandardCharsets;
-import java.security.MessageDigest;
-import java.security.NoSuchAlgorithmException;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.HashSet;
-import java.util.HexFormat;
 import java.util.List;
 import java.util.Locale;
 import java.util.Optional;
@@ -119,12 +116,7 @@ public class CachedPeopleSearch {
                 seat == null ? "-" : seat.name(),
                 sortedLower(spec.seniorityWords()), sortedLower(spec.functionWords()),
                 "-" + sortedLower(spec.excludedWords()), sortedLower(countryCodes), Integer.toString(size));
-        try {
-            byte[] digest = MessageDigest.getInstance("SHA-256").digest(canonical.getBytes(StandardCharsets.UTF_8));
-            return HexFormat.of().formatHex(digest);
-        } catch (NoSuchAlgorithmException impossible) {
-            throw new IllegalStateException(impossible);
-        }
+        return PeopleQueryKeys.of(canonical);
     }
 
     private static boolean containsAny(String title, List<String> words) {

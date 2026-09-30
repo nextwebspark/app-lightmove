@@ -70,7 +70,7 @@ public class Person extends BaseEntity {
 
     /**
      * The profile {@link #linkedinUrl} names, as {@link LinkedInUrls#profileSlugOrNull} reads it: the key a
-     * filing finds this person by, unique within the workspace (V92).
+     * filing finds this person by, unique within the workspace (V95).
      */
     @Column(name = "profile_slug")
     private String profileSlug;
@@ -254,7 +254,7 @@ public class Person extends BaseEntity {
         linkedinUrlLocked = linkedinUrlLocked || isThatPage;
     }
 
-    /** Re-derived on every write, so a key V92's SQL read differently from Java heals on the next save. */
+    /** Re-derived on every write, so a key V95's SQL read differently from Java heals on the next save. */
     private void recordLinkedinUrl(String url) {
         linkedinUrl = url;
         profileSlug = LinkedInUrls.profileSlugOrNull(url);

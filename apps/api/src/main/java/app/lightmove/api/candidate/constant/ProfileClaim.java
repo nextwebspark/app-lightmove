@@ -5,7 +5,7 @@ public enum ProfileClaim {
     /** Nobody else holds the profile, or the URL names none. */
     FREE,
     /**
-     * Another person already holds the profile this person's URL names — V92 left the two sharing it.
+     * Another person already holds the profile this person's URL names — V95 left the two sharing it.
      * The save goes through and the key stays where it is until the merge tool folds them.
      */
     SHARED,

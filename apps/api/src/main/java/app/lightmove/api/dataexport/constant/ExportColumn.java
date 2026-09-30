@@ -134,6 +134,7 @@ public enum ExportColumn {
             case EXTENSION -> "Plugin";
             case CSV -> "Import";
             case ASSISTANT -> "Assistant";
+            case PEOPLE_SEARCH -> "People search";
         };
     }
 

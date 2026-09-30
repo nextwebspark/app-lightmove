@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Icon, ICONS } from "../../../components/layout/Icon";
 import { cn } from "../../../lib/cn";
 import { formatInstantDate } from "../../../lib/format";
-import type { SavedSearch, SearchVisibility, StrategyFilter } from "../api/types";
+import type { SavedSearch, SearchVisibility } from "../api/types";
 
 const ROW_ACTION =
   "grid size-6 flex-none place-items-center rounded-[5px] text-u-text3 opacity-0 transition " +
@@ -36,7 +36,7 @@ export function SavedSearchRow({
   isMine: boolean;
   /** Its filter is the one the sidebar is showing. */
   isActive: boolean;
-  onLoad: (filter: StrategyFilter) => void;
+  onLoad: () => void;
   onRename: (searchId: string, name: string) => void;
   onSetVisibility: (searchId: string, visibility: SearchVisibility) => void;
   onOverwrite: (searchId: string) => void;
@@ -90,7 +90,7 @@ export function SavedSearchRow({
     <div className="group flex items-center gap-1 rounded-[7px] px-1 transition hover:bg-u-raised">
       <button
         type="button"
-        onClick={() => onLoad(search.filter)}
+        onClick={onLoad}
         className="min-w-0 flex-1 px-1.5 py-[7px] text-left transition"
       >
         <span className="flex items-center gap-1.5">

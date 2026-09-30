@@ -330,7 +330,7 @@ class CandidatePoolIntegrationTest extends FlowTestSupport {
         String holder = add(first, """
                 {"fullName":"Reem Al Qasimi","linkedinUrl":"https://www.linkedin.com/in/reem-alqasimi"}""")
                 .get("personId").asText();
-        // What V92 leaves when V91 had already founded two people on one profile: the younger keeps the URL
+        // What V95 leaves when V91 had already founded two people on one profile: the younger keeps the URL
         // and no key.
         String twinMapping = shareProfileWith(holder, second, "Reem Qasimi");
 

@@ -2,8 +2,7 @@ import { useState } from "react";
 import { Icon, ICONS } from "../../../components/layout/Icon";
 import { Popover } from "../../../components/ui/Popover";
 import { cn } from "../../../lib/cn";
-import type { SavedSearch, SearchVisibility, StrategyFilter } from "../api/types";
-import { sameFilter } from "../lib/filterIdentity";
+import type { SavedSearch, SearchVisibility } from "../api/types";
 import { SavedSearchRow } from "./SavedSearchRow";
 
 type TabId = "mine" | "shared";
@@ -26,7 +25,7 @@ const CHIP = "inline-flex items-center gap-1 rounded-[6px] px-2 py-[5px] font-sa
  */
 export function SaveSearchMenu({
   searches,
-  currentFilter,
+  isActive,
   viewerId,
   onSave,
   onLoad,
@@ -36,11 +35,13 @@ export function SaveSearchMenu({
   onDelete,
   saving,
 }: {
+  /** One kind's searches: the mode on screen decides which, and which filter "active" compares. */
   searches: SavedSearch[];
-  currentFilter: StrategyFilter;
+  /** The search's filter is the one the sidebar is showing. */
+  isActive: (search: SavedSearch) => boolean;
   viewerId: string | null;
   onSave: (name: string, visibility: SearchVisibility) => void;
-  onLoad: (filter: StrategyFilter) => void;
+  onLoad: (search: SavedSearch) => void;
   onRename: (searchId: string, name: string) => void;
   onSetVisibility: (searchId: string, visibility: SearchVisibility) => void;
   onOverwrite: (searchId: string) => void;
@@ -166,13 +167,13 @@ export function SaveSearchMenu({
                 search={search}
                 tab={selected}
                 isMine={search.createdById === viewerId}
-                isActive={sameFilter(currentFilter, search.filter)}
+                isActive={isActive(search)}
                 onRename={onRename}
                 onSetVisibility={onSetVisibility}
                 onOverwrite={onOverwrite}
                 onDelete={onDelete}
-                onLoad={(filter) => {
-                  onLoad(filter);
+                onLoad={() => {
+                  onLoad(search);
                   close();
                 }}
               />

@@ -1,11 +1,11 @@
 package app.lightmove.api.enrichment.sourcing.config;
 
-import app.lightmove.api.core.config.ContactOutSettings;
 import app.lightmove.api.core.config.EnrichmentSettings;
 import app.lightmove.api.core.config.LightMoveProperties;
 import app.lightmove.api.core.resilience.service.VendorCallGuard;
 import app.lightmove.api.core.resilience.service.VendorClientFactory;
 import app.lightmove.api.core.resilience.service.VendorRateLimiter;
+import app.lightmove.api.enrichment.common.service.ContactOutPeopleIndex;
 import app.lightmove.api.enrichment.sourcing.service.BrightDataPeopleSearch;
 import app.lightmove.api.enrichment.sourcing.service.ContactOutPeopleSearch;
 import app.lightmove.api.enrichment.sourcing.service.LogPeopleSearch;
@@ -45,16 +45,13 @@ public class ExecutiveSourcingConfig {
     }
 
     @Bean(defaultCandidate = false)
-    ContactOutPeopleSearch contactOutPeopleSearch(LightMoveProperties properties, VendorClientFactory clientFactory,
-                                                  VendorRateLimiter rateLimiter, VendorCallGuard guard,
-                                                  ObjectMapper json) {
+    ContactOutPeopleSearch contactOutPeopleSearch(LightMoveProperties properties,
+                                                  ContactOutPeopleIndex index, ObjectMapper json) {
         EnrichmentSettings config = properties.enrichment();
-        ContactOutSettings contactOut = config.contactout();
-        if (!config.sourcing().searchesContactOut() || contactOut == null || !contactOut.isConfigured()) {
+        if (!config.sourcing().searchesContactOut() || !index.isOffered()) {
             return null;
         }
-        return new ContactOutPeopleSearch(contactOut, clientFactory, rateLimiter, guard, RestClient.builder(), json,
-                config.sourcing().picksPerCompany());
+        return new ContactOutPeopleSearch(index, json, config.sourcing().picksPerCompany());
     }
 
     @Bean

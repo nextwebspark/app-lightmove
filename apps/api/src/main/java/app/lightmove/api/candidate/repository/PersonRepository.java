@@ -13,7 +13,7 @@ import org.springframework.data.jpa.repository.Query;
  */
 public interface PersonRepository extends JpaRepository<Person, UUID> {
 
-    /** The person the workspace holds a LinkedIn profile as — one at most, by V92's unique index. */
+    /** The person the workspace holds a LinkedIn profile as — one at most, by V95's unique index. */
     Optional<Person> findByWorkspaceIdAndProfileSlug(UUID workspaceId, String profileSlug);
 
     /** The people holding one address, on the key the ledger dedupes by. */

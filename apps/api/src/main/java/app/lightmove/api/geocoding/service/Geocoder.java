@@ -1,6 +1,8 @@
 package app.lightmove.api.geocoding.service;
 
 import app.lightmove.api.geocoding.model.GeoPoint;
+import app.lightmove.api.geocoding.model.PlaceSuggestion;
+import java.util.List;
 import java.util.Optional;
 
 /**
@@ -15,6 +17,11 @@ public interface Geocoder {
 
     /** A centroid — the fallback when the city could not be placed. */
     Optional<GeoPoint> country(String country);
+
+    /** Places whose name starts with {@code prefix}, for a location box; nothing where the vendor offers none. */
+    default List<PlaceSuggestion> suggest(String prefix, int limit) {
+        return List.of();
+    }
 
     /**
      * False for the no-vendor stand-in, whose silence is not an answer — storing it as a miss would keep

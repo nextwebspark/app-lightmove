@@ -218,7 +218,10 @@ enrichment/                # the one feature split twice: by subject first, then
                        CandidateEnrichmentWorker)  config/(CandidateEnrichmentConfig)
   company/    service/(LinkedInCompanyEnricher, BrightDataCompanyEnricher, LogCompanyEnricher,
                        CompanyEnrichmentWorker)    config/(CompanyEnrichmentConfig)
-  common/     service/(BrightDataSearch)
+  common/     model/(ContactOutCount)
+              service/(BrightDataSearch, ContactOutPeopleIndex, ContactOutPeopleClient,
+                       UnconfiguredContactOutPeopleIndex, ContactOutPeopleRecords, PeopleQueryKeys,
+                       SearchHitFiling)  config/(ContactOutPeopleIndexConfig)
   sourcing/   Find executives — constant/(SourcingRunStatus, SourcingOutcome, TitleLevel)
               model/(ExecutiveSourcingRun, SourcingCompany, SearchedEmployer, SourcingSpec, SourcingBrief, CompanyOutcome,
                      SourcingRound, ExecutivePick, ExecutiveSourcingRequested)  repository/
@@ -228,6 +231,9 @@ enrichment/                # the one feature split twice: by subject first, then
                        ExecutiveSourcingWorker, SourcingRunStore, SourcingSpecProposer, SourcingSpecRefiner,
                        SourcedHitRanking)
               config/(ExecutiveSourcingConfig)  controller/  dto/
+  peoplesearch/ Strategy's People mode — model/(PeoplePage)
+              service/(StrategyPeopleService, PeopleSearchFiling, CachedContactOutPeopleQuery, PeopleFilterBody, LocationSuggestions)
+              controller/(StrategyPeopleController, LocationSuggestionController)  dto/
 
 geocoding/                 # a city+country pair becomes a point, once — global cache, no tenant data
   constant/(GeoPrecision)  model/(PlaceKey, GeoPoint, GeocodingResult, GeocodedPlace)  repository/
@@ -304,9 +310,9 @@ are that mandate's), and carries a triage company only when the employer happens
 Every door files through `CandidateService`'s one filing step: `PersonMatcher` finds the person the
 workspace already knows (profile slug, then email; never phone or name alone) or a new one is founded,
 and `PersonActivityRecorder` writes the timeline line in the same transaction. The slug is a stored,
-per-workspace-unique column (`Person.profileSlug`, V92) that `Person` rewrites whenever its URL changes;
+per-workspace-unique column (`Person.profileSlug`, V95) that `Person` rewrites whenever its URL changes;
 a mandate-scoped check (`refuseHeldProfile`, `mappedProfileSlugsOf`) still reads the URLs themselves,
-because V92 leaves the slug null on a person sharing a profile with an older one. `PersonRepository`'s
+because V95 leaves the slug null on a person sharing a profile with an older one. `PersonRepository`'s
 finders all take the workspace id, as `CandidateRepository`'s all take the project id.
 The employer name is snapshotted beside the link so V36's `ON DELETE SET NULL` can unmap without
 deleting: removing a company from a mandate drops the mandate's decision about the company, never the
@@ -368,6 +374,13 @@ method plus the records it returns — never another feature's internals:
   Nationality is the one thing it folds: `NationalityCatalog` counts a row's free-text value under
   one of eleven groups at read time — a country it resolves but no other group claims is Other
   expat — and never rewrites what is stored.
+- `enrichment/peoplesearch` (Strategy's People mode) sits in `enrichment`, not `strategy`, though it is
+  a search: it files people, so it depends on `candidate` and `triagecompany`, which already depend on
+  `strategy` — placed in `strategy` it would close the loop. `strategy` owns what a search is expressed
+  in (`PeopleFilter` on its own row, `PeopleSearchVocabulary`, `PeopleFilterReader`, the saved search's
+  `kind`); `peoplesearch` reads the stored filter through `StrategyService.peopleFilterOf`, the declined
+  companies through `TriageCompanyReadService.listAllOfStage`, and files through
+  `CandidateService.addResearched` and `TriageCompanyService.captureFromResearch`.
 - `position`'s `PositionService` reads `project`'s repositories for the mandate a brief belongs to,
   the same way `CandidateService` does — a brief cannot be scoped, titled or dated without it — and
   `project`'s `ProjectService.create` seeds the new mandate's brief through one call taking primitives

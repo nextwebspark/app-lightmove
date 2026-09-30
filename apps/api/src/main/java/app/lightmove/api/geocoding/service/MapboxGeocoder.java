@@ -9,11 +9,15 @@ import app.lightmove.api.core.resilience.service.VendorClientFactory;
 import app.lightmove.api.core.resilience.service.VendorRateLimiter;
 import app.lightmove.api.core.resilience.service.VendorRetryPredicate;
 import app.lightmove.api.geocoding.constant.GeoPrecision;
+import app.lightmove.api.geocoding.constant.PlaceKind;
 import app.lightmove.api.geocoding.model.GeoPoint;
+import app.lightmove.api.geocoding.model.PlaceSuggestion;
 import java.net.URI;
 import java.time.Duration;
 import java.util.List;
 import java.util.Optional;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.resilience.annotation.Retryable;
 import org.springframework.web.client.RestClient;
@@ -35,6 +39,9 @@ public class MapboxGeocoder implements Geocoder {
     private static final String VENDOR = "mapbox";
     private static final String CITY_TYPES = "place,locality,district";
     private static final String COUNTRY_TYPES = "country";
+
+    /** No district or neighbourhood: LinkedIn names no place that fine, so a search on one finds nobody. */
+    private static final String SUGGESTION_TYPES = "country,region,place,locality";
 
     private final RestClient client;
     private final VendorCallGuard guard;
@@ -85,6 +92,51 @@ public class MapboxGeocoder implements Geocoder {
                         .retrieve()
                         .body(MapboxFeatureCollection.class));
         return firstPoint(answer, isoCode.orElse(null), GeoPrecision.COUNTRY);
+    }
+
+    /**
+     * Temporary geocoding whatever {@code permanent-geocoding} says: a suggestion is shown and dropped,
+     * never stored. The value sent on is the place and its country only, since Mapbox's region names
+     * ("Dublin") are not LinkedIn's ("County Dublin").
+     */
+    @Override
+    public List<PlaceSuggestion> suggest(String prefix, int limit) {
+        MapboxFeatureCollection answer = guard.call(VendorCall.of(VENDOR, "suggest"),
+                () -> client.get()
+                        .uri(uri -> uri.path("/search/geocode/v6/forward")
+                                .queryParam("q", prefix)
+                                .queryParam("types", SUGGESTION_TYPES)
+                                .queryParam("autocomplete", true)
+                                .queryParam("limit", limit)
+                                .queryParam("language", "en")
+                                .build())
+                        .retrieve()
+                        .body(MapboxFeatureCollection.class));
+        if (answer == null || answer.features() == null) {
+            return List.of();
+        }
+        return answer.features().stream()
+                .map(MapboxFeature::properties)
+                .filter(properties -> properties != null && properties.name() != null)
+                .map(MapboxGeocoder::suggestionOf)
+                .toList();
+    }
+
+    static PlaceSuggestion suggestionOf(MapboxFeatureProperties place) {
+        if ("country".equals(place.featureType())) {
+            return new PlaceSuggestion(place.name(), place.name(), PlaceKind.COUNTRY);
+        }
+        String country = place.context() == null || place.context().country() == null ? null
+                : place.context().country().name();
+        String region = place.context() == null || place.context().region() == null ? null
+                : place.context().region().name();
+        PlaceKind kind = "region".equals(place.featureType()) ? PlaceKind.AREA : PlaceKind.CITY;
+        String value = country == null ? place.name() : place.name() + ", " + country;
+        String label = Stream.of(place.name(), kind == PlaceKind.CITY ? region : null, country)
+                .filter(part -> part != null && !part.isBlank())
+                .distinct()
+                .collect(Collectors.joining(", "));
+        return new PlaceSuggestion(label, value, kind);
     }
 
     private URI forward(UriBuilder uri, String query, String types, String isoCode) {
@@ -144,7 +196,9 @@ public class MapboxGeocoder implements Geocoder {
 
     record MapboxCoordinates(double longitude, double latitude) {}
 
-    record MapboxContext(MapboxCountry country) {}
+    record MapboxContext(MapboxCountry country, MapboxRegion region) {}
+
+    record MapboxRegion(String name) {}
 
     @JsonNaming(PropertyNamingStrategies.SnakeCaseStrategy.class)
     record MapboxCountry(String name, String countryCode) {}

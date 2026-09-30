@@ -10,9 +10,11 @@ import app.lightmove.api.strategy.dto.CompanyResultDto;
 import app.lightmove.api.strategy.dto.CompanySuggestionsResponse;
 import app.lightmove.api.strategy.dto.FacetsResponse;
 import app.lightmove.api.strategy.dto.KeywordSuggestionsResponse;
+import app.lightmove.api.strategy.dto.PeopleFacetsResponse;
 import app.lightmove.api.strategy.service.ApolloCompanyQueryService;
 import app.lightmove.api.strategy.service.CompanySuggestionSearch;
 import app.lightmove.api.strategy.service.IndustryAdjacency;
+import app.lightmove.api.strategy.service.PeopleSearchVocabulary;
 import app.lightmove.api.strategy.service.UniverseFacets;
 import java.util.List;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -34,15 +36,17 @@ public class CompanySearchController {
     private final UniverseFacets facets;
     private final IndustryAdjacency adjacency;
     private final CompanySuggestionSearch suggestions;
+    private final PeopleSearchVocabulary peopleVocabulary;
     private final CompanySearchSettings searchConfig;
 
     public CompanySearchController(ApolloCompanyQueryService companies, UniverseFacets facets,
                                    IndustryAdjacency adjacency, CompanySuggestionSearch suggestions,
-                                   LightMoveProperties properties) {
+                                   PeopleSearchVocabulary peopleVocabulary, LightMoveProperties properties) {
         this.companies = companies;
         this.facets = facets;
         this.adjacency = adjacency;
         this.suggestions = suggestions;
+        this.peopleVocabulary = peopleVocabulary;
         this.searchConfig = properties.company().search();
     }
 
@@ -56,6 +60,13 @@ public class CompanySearchController {
                 facets.marketSegments(),
                 facets.employeeBands(),
                 facets.revenueBands());
+    }
+
+    /** ContactOut's accepted values for the People sidebar; not counted — the count is the vendor's. */
+    @GetMapping("/people-facets")
+    @RequireWorkspacePermission(WorkspaceAction.PROJECT_BROWSE)
+    public PeopleFacetsResponse peopleFacets() {
+        return peopleVocabulary.facets();
     }
 
     /** A blank query returns nothing rather than the head of the universe. */
