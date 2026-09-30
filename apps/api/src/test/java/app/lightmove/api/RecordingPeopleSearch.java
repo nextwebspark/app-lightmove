@@ -1,7 +1,10 @@
 package app.lightmove.api;
 
+import app.lightmove.api.candidate.constant.EnrichmentVendor;
+import app.lightmove.api.common.constant.Seniority;
 import app.lightmove.api.enrichment.candidate.model.BrightDataPeopleHits;
 import app.lightmove.api.enrichment.candidate.model.BrightDataPerson;
+import app.lightmove.api.enrichment.sourcing.model.SearchedEmployer;
 import app.lightmove.api.enrichment.sourcing.model.SourcingSpec;
 import app.lightmove.api.enrichment.sourcing.service.PeopleSearch;
 import java.util.List;
@@ -34,9 +37,10 @@ public class RecordingPeopleSearch implements PeopleSearch {
     private volatile boolean offered = true;
 
     @Override
-    public BrightDataPeopleHits currentEmployeesTitled(String companySlug, SourcingSpec spec,
+    public BrightDataPeopleHits currentEmployeesTitled(SearchedEmployer employer, SourcingSpec spec, Seniority seat,
                                                        List<String> countryCodes, List<String> excludedSlugs,
                                                        int size) {
+        String companySlug = employer.linkedinSlug();
         asked.add(new Asked(companySlug, spec.seniorityWords(), spec.functionWords(), spec.excludedWords(),
                 countryCodes, List.copyOf(excludedSlugs), size));
         if (failure != null) {
@@ -56,6 +60,11 @@ public class RecordingPeopleSearch implements PeopleSearch {
     @Override
     public String provider() {
         return "recording";
+    }
+
+    @Override
+    public EnrichmentVendor researchedBy() {
+        return EnrichmentVendor.BRIGHTDATA;
     }
 
     @Override

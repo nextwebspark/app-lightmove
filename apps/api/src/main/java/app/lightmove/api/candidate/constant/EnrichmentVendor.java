@@ -14,5 +14,8 @@ public enum EnrichmentVendor {
     BRIGHTDATA,
 
     /** HarvestAPI's live scrape — the fallback when the dataset misses, is thin, or fails. */
-    HARVESTAPI
+    HARVESTAPI,
+
+    /** ContactOut's people index — a Find executives hit when the run searches it (V90). */
+    CONTACTOUT
 }

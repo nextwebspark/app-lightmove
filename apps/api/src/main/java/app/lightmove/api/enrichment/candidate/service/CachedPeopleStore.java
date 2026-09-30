@@ -66,15 +66,15 @@ public class CachedPeopleStore {
                 .stream().findFirst().flatMap(this::personOf);
     }
 
-    /** Everyone fresh on file at one employer, newest first. */
+    /** Everyone fresh on file at one employer that one provider returned, newest first. */
     @Transactional(propagation = Propagation.REQUIRES_NEW, readOnly = true)
-    public List<BrightDataPerson> atCompany(String companySlug, Instant freshAfter, int limit) {
+    public List<BrightDataPerson> atCompany(String companySlug, String provider, Instant freshAfter, int limit) {
         return jdbc.query("""
                         SELECT raw FROM app_lm_vendor_person
-                        WHERE current_company_slug = ? AND fetched_at > ?
+                        WHERE current_company_slug = ? AND provider = ? AND fetched_at > ?
                         ORDER BY fetched_at DESC LIMIT ?
                         """,
-                (rs, row) -> rs.getString("raw"), key(companySlug), Timestamp.from(freshAfter), limit)
+                (rs, row) -> rs.getString("raw"), key(companySlug), provider, Timestamp.from(freshAfter), limit)
                 .stream().flatMap(raw -> personOf(raw).stream()).toList();
     }
 

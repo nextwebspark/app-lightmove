@@ -219,11 +219,13 @@ enrichment/                # the one feature split twice: by subject first, then
   company/    service/(LinkedInCompanyEnricher, BrightDataCompanyEnricher, LogCompanyEnricher,
                        CompanyEnrichmentWorker)    config/(CompanyEnrichmentConfig)
   common/     service/(BrightDataSearch)
-  sourcing/   Find executives — constant/(SourcingRunStatus, SourcingOutcome)
-              model/(ExecutiveSourcingRun, SourcingCompany, SourcingSpec, SourcingBrief, CompanyOutcome, SourcingRound,
-                     ExecutivePick, ExecutiveSourcingRequested)  repository/
-              service/(PeopleSearch, BrightDataPeopleSearch, LogPeopleSearch, CachedPeopleSearch, ExecutiveSourcingService,
-                       ExecutiveSourcingWorker, SourcingRunStore, SourcingSpecProposer, SourcingSpecRefiner)
+  sourcing/   Find executives — constant/(SourcingRunStatus, SourcingOutcome, TitleLevel)
+              model/(ExecutiveSourcingRun, SourcingCompany, SearchedEmployer, SourcingSpec, SourcingBrief, CompanyOutcome,
+                     SourcingRound, ExecutivePick, ExecutiveSourcingRequested)  repository/
+              service/(PeopleSearch, BrightDataPeopleSearch, ContactOutPeopleSearch, ContactOutPeopleRecords,
+                       LogPeopleSearch, CachedPeopleSearch, ExecutiveSourcingService,
+                       ExecutiveSourcingWorker, SourcingRunStore, SourcingSpecProposer, SourcingSpecRefiner,
+                       SourcedHitRanking)
               config/(ExecutiveSourcingConfig)  controller/  dto/
 
 geocoding/                 # a city+country pair becomes a point, once — global cache, no tenant data

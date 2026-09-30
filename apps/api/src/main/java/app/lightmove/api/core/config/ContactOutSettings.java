@@ -3,8 +3,8 @@ package app.lightmove.api.core.config;
 import org.springframework.boot.context.properties.bind.DefaultValue;
 
 /**
- * The ContactOut account behind the candidate drawer's Find email / Find phone buttons —
- * {@code lightmove.enrichment.contactout.*}.
+ * The ContactOut account behind the candidate drawer's Find email / Find phone buttons, and behind
+ * Find executives when it searches ContactOut — {@code lightmove.enrichment.contactout.*}.
  *
  * <p>A blank key means the buttons are not offered at all, so a fresh clone runs with no ContactOut
  * account. Unlike {@code lightmove.enrichment.provider}, there is no provider name to contradict here:
@@ -16,6 +16,9 @@ public record ContactOutSettings(
 
         /** Their published ceiling for this endpoint family is 150 a minute; paced well under. */
         @DefaultValue("2") int requestsPerSecond,
+
+        /** Find executives' People Search: their published ceiling is 60 a minute, so one a second. */
+        @DefaultValue("1") int searchRequestsPerSecond,
 
         /**
          * How many lookups one user may run a minute, per channel. The per-candidate guard stops a
