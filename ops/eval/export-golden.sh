@@ -49,13 +49,13 @@ read -r -a psql_command <<< "${PSQL:-docker exec -i ${PG_CONTAINER:-lm-dev-pg} p
 
 "${psql_command[@]}" -v ON_ERROR_STOP=1 -tA <<SQL > "$output"
 SELECT json_build_object(
-         'id', c.id,
+         'id', m.id,
          'labelSource', 'model_draft',
          'note', '',
          'profile', json_build_object(
              'fullName', c.full_name,
              'title', c.title,
-             'companyName', c.company_name,
+             'companyName', m.company_name,
              'locationCity', c.location_city,
              'locationCountry', c.location_country,
              'summary', c.summary,
@@ -75,8 +75,9 @@ SELECT json_build_object(
                      WHEN 'N_MINUS_3' THEN 'N-3'
                  END
              END))
-FROM app_lm_project_candidate c
-WHERE c.id IN ($ids)
+FROM app_lm_project_candidate m
+JOIN app_lm_person c ON c.id = m.person_id
+WHERE m.id IN ($ids)
 ORDER BY c.full_name;
 SQL
 
