@@ -8,6 +8,8 @@ import type { TriageCompanyStatus } from "../../triage/api/types";
 import { TRIAGE_STAGES } from "../../triage/lib/triageStages";
 import { companyKey, type AssistantProposal, type ProposalOutcome, type ProposedCompany } from "../api/types";
 
+const STAGE_BY_STATUS = new Map(TRIAGE_STAGES.map((stage) => [stage.status, stage]));
+
 const ACCEPT_LABELS: Record<TriageCompanyStatus, string> = {
   inUniverse: "Universe",
   shortlisted: "Shortlist",
@@ -32,7 +34,7 @@ export function AssistantProposalCard({
   const [ticked, setTicked] = useState<string[]>(() =>
     proposal.companies.filter((company) => !company.stage).map(companyKey),
   );
-  const allHeld = proposal.companies.every((company) => company.stage);
+  const allHeld = proposal.companies.length > 0 && proposal.companies.every((company) => company.stage);
 
   if (outcome) {
     return (
@@ -62,7 +64,7 @@ export function AssistantProposalCard({
         {proposal.companies.map((company) => {
           const key = companyKey(company);
           const on = ticked.includes(key);
-          const held = company.stage ? TRIAGE_STAGES.find((stage) => stage.status === company.stage) : undefined;
+          const held = company.stage ? STAGE_BY_STATUS.get(company.stage) : undefined;
           return (
             <li
               key={key}

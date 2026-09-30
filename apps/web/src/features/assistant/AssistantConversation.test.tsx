@@ -252,11 +252,10 @@ describe("a chat with the assistant", () => {
     await send("Top retailers in UAE");
 
     expect(await screen.findByText(/no need to ask again/)).toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: "Try again" })).not.toBeInTheDocument();
     expect(screen.getByRole("textbox", { name: "Ask the assistant" })).toHaveValue("");
   });
 
-  it("keeps a question the assistant could not answer, and asks it again in one press", async () => {
+  it("puts a question the assistant could not answer back in the composer, ready to send again", async () => {
     const { ApiRequestError } = await import("../../lib/apiClient");
     ask.mockRejectedValueOnce(new ApiRequestError({
       code: "ASSISTANT_UNAVAILABLE", detail: "", status: 503, correlationId: "none",
@@ -267,14 +266,14 @@ describe("a chat with the assistant", () => {
     mount();
     await send("Top retailers in UAE");
 
-    const retry = await screen.findByRole("button", { name: "Try again" });
-    expect(screen.getByRole("textbox", { name: "Ask the assistant" })).toHaveValue("Top retailers in UAE");
+    const composer = screen.getByRole("textbox", { name: "Ask the assistant" });
+    await waitFor(() => expect(composer).toHaveValue("Top retailers in UAE"));
 
-    await userEvent.click(retry);
+    await userEvent.click(screen.getByRole("button", { name: "Send" }));
 
     expect(await screen.findByText("Answer t1")).toBeInTheDocument();
     expect(ask).toHaveBeenLastCalledWith("p1", "Top retailers in UAE", null, expect.any(Function), expect.any(Function));
-    expect(screen.getByRole("textbox", { name: "Ask the assistant" })).toHaveValue("");
+    expect(composer).toHaveValue("");
   });
 
   it("shows a sent question once, acknowledged at once, and follows the chat down as it grows", async () => {
