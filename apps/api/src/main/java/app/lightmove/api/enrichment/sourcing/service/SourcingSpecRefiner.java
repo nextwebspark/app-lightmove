@@ -38,7 +38,7 @@ public class SourcingSpecRefiner {
         this.json = json;
     }
 
-    RefineConversation open(SourcingBrief brief, String companyName) {
+    RefineConversation open(SourcingBrief brief, String companyName, Integer employeeCount) {
         RefineConversation conversation = new RefineConversation();
         conversation.tell("""
                 THE ROLE
@@ -47,9 +47,11 @@ public class SourcingSpecRefiner {
                 Department: %s
                 Location: %s
 
-                THE COMPANY: %s""".formatted(orNotStated(brief.roleTitle()),
+                THE COMPANY: %s
+                Employees: %s""".formatted(orNotStated(brief.roleTitle()),
                 brief.seniority() == null ? NOT_STATED : brief.seniority().name(),
-                orNotStated(brief.department()), orNotStated(brief.locationLine()), companyName));
+                orNotStated(brief.department()), orNotStated(brief.locationLine()), companyName,
+                employeeCount == null ? NOT_STATED : String.valueOf(employeeCount)));
         return conversation;
     }
 

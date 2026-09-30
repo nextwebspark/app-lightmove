@@ -25,6 +25,11 @@ public final class BrightDataPersonProfiles {
     }
 
     public static EnrichedProfile toEnrichedProfile(BrightDataPerson person) {
+        return toEnrichedProfile(person, EnrichmentVendor.BRIGHTDATA);
+    }
+
+    /** The same reading of a record another vendor's answer was mapped into, credited to that vendor. */
+    public static EnrichedProfile toEnrichedProfile(BrightDataPerson person, EnrichmentVendor vendor) {
         return new EnrichedProfile(
                 currentTitleOf(person),
                 unmasked(person.about()),
@@ -38,7 +43,7 @@ public final class BrightDataPersonProfiles {
                 namesOf(person.skills()),
                 namesOf(person.languages()),
                 null,
-                EnrichmentVendor.BRIGHTDATA);
+                vendor);
     }
 
     /** A flat entry's {@code title} is the position; grouped entries nest them; a masked record may have only {@code position}. */

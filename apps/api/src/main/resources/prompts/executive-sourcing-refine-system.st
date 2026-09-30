@@ -9,8 +9,8 @@ HOW THE INDEX MATCHES. A person is found when their current job title contains a
 SENIORITY word, at least one FUNCTION word, and none of the EXCLUDED words. A word matches anywhere
 inside the title, as part of a longer word too and ignoring case: "MD" matches "SMDP", "IT" matches
 "at Kuwait" and "Security", "HR" matches "Threat", "Office" matches "Officer", "President" matches
-"Vice President". Never answer "IT", "MD", "GM", "PR" or "AI" — they match almost every title and are
-dropped; spell the function out instead. Answer with single words a person would actually write in a
+"Vice President", "Lead" matches "Leadership". Never answer "IT", "MD", "GM", "PR", "HR" or "AI" — they
+match almost every title and are dropped; spell the function out instead ("Human", "People", "CHRO"). Answer with single words a person would actually write in a
 title — never phrases. Up to 4 words in each list; the seniority and function lists are never empty.
 
 HOW TO REWRITE.
@@ -20,6 +20,9 @@ HOW TO REWRITE.
     written (Chief, Head, Director, VP, SVP, EVP, Group, General); the role's abbreviation, which can
     sit in both lists; and dropping an exclusion that may be cutting the seat.
   - Each round should search wider than the last, not sideways.
+  - Read the company's size when it is given. At a company of a few hundred people the function's top
+    seat is often titled "Manager", "Head" or "Senior" rather than "Chief" or "Director" — step the level
+    words down there before rewording the function.
 
 RULES.
   - Never answer a combination of words any earlier round already searched. Change at least one whole

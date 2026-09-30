@@ -1,10 +1,12 @@
 package app.lightmove.api.enrichment.sourcing.service;
 
+import app.lightmove.api.common.constant.Seniority;
 import app.lightmove.api.core.config.LightMoveProperties;
 import app.lightmove.api.enrichment.candidate.model.BrightDataPeopleHits;
 import app.lightmove.api.enrichment.candidate.model.BrightDataPerson;
 import app.lightmove.api.enrichment.candidate.service.CachedPeopleStore;
 import app.lightmove.api.enrichment.common.service.BrightDataSearch;
+import app.lightmove.api.enrichment.sourcing.model.SearchedEmployer;
 import app.lightmove.api.enrichment.sourcing.model.SourcingSpec;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
@@ -12,10 +14,12 @@ import java.security.NoSuchAlgorithmException;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.HexFormat;
 import java.util.List;
 import java.util.Locale;
 import java.util.Optional;
+import java.util.Set;
 import java.util.stream.Stream;
 import org.springframework.stereotype.Service;
 
@@ -28,6 +32,9 @@ import org.springframework.stereotype.Service;
  *
  * <p>The exclusion is everyone on file at the employer, never a mandate's own mapped people: the
  * search's answer is remembered for every workspace, and one firm's roster must not shape it.
+ *
+ * <p>Everything read back is the asked provider's own, so a stale dataset record never answers a search
+ * of a fresher index.
  */
 @Service
 public class CachedPeopleSearch {
@@ -35,27 +42,28 @@ public class CachedPeopleSearch {
     /** Read back per employer at most; the vendor's exclusion list holds a thousand. */
     private static final int MAX_ON_FILE = BrightDataSearch.MAX_EXCLUDED;
 
-    private final PeopleSearch vendor;
     private final CachedPeopleStore store;
     private final Duration ttl;
 
-    public CachedPeopleSearch(PeopleSearch vendor, CachedPeopleStore store, LightMoveProperties properties) {
-        this.vendor = vendor;
+    public CachedPeopleSearch(CachedPeopleStore store, LightMoveProperties properties) {
         this.store = store;
         this.ttl = properties.enrichment().peopleCacheTtl();
     }
 
-    public PeopleFound currentEmployeesTitled(String companySlug, SourcingSpec spec, List<String> countryCodes,
-                                              int size) {
+    /** One provider, cache first; one person appears once, since ContactOut cannot exclude those read back. */
+    public PeopleFound currentEmployeesTitled(PeopleSearch vendor, SearchedEmployer employer, SourcingSpec spec,
+                                              Seniority seat, List<String> countryCodes, int size) {
+        String companySlug = employer.linkedinSlug();
         Instant freshAfter = Instant.now().minus(ttl);
-        String queryKey = queryKeyOf(companySlug, spec, countryCodes, size);
+        String queryKey = queryKeyOf(vendor.provider(), companySlug, spec, seat, countryCodes, size);
         Optional<BrightDataPeopleHits> asked = store.answerTo(queryKey, freshAfter);
         if (asked.isPresent()) {
             List<BrightDataPerson> people = asked.get().hits();
-            return new PeopleFound(people, 0, people.size(), asked.get().totalHits());
+            return new PeopleFound(people, 0, people.size(), asked.get().totalHits(), vendor.provider(),
+                    vendor.researchedBy());
         }
 
-        List<BrightDataPerson> onFile = store.atCompany(companySlug, freshAfter, MAX_ON_FILE);
+        List<BrightDataPerson> onFile = store.atCompany(companySlug, vendor.provider(), freshAfter, MAX_ON_FILE);
         List<BrightDataPerson> fittingOnFile = onFile.stream()
                 .filter(person -> fits(person, spec, countryCodes))
                 .toList();
@@ -65,19 +73,24 @@ public class CachedPeopleSearch {
         int stillWanted = size - fitting.size();
         if (stillWanted > 0) {
             List<String> excluded = onFile.stream().map(BrightDataPerson::linkedinId).toList();
-            BrightDataPeopleHits answered = vendor.currentEmployeesTitled(companySlug, spec, countryCodes,
+            BrightDataPeopleHits answered = vendor.currentEmployeesTitled(employer, spec, seat, countryCodes,
                     excluded, stillWanted);
             bought = answered.hits();
             matched = answered.totalHits() == null ? null : matched + answered.totalHits();
             store.purgeFetchedBefore(freshAfter);
             store.rememberAll(vendor.provider(), answered);
         }
-        List<BrightDataPerson> answer = Stream.concat(fitting.stream(), bought.stream()).toList();
+        Set<String> seen = new HashSet<>();
+        List<BrightDataPerson> answer = Stream.concat(fitting.stream(), bought.stream())
+                .filter(person -> person.linkedinId() == null
+                        || seen.add(person.linkedinId().toLowerCase(Locale.ROOT)))
+                .toList();
         store.rememberSearch(queryKey, companySlug, answer.stream()
                 .map(BrightDataPerson::linkedinId)
                 .filter(slug -> slug != null && !slug.isBlank())
                 .toList(), matched);
-        return new PeopleFound(answer, bought.size(), fitting.size(), matched);
+        return new PeopleFound(answer, bought.size(), fitting.size(), matched, vendor.provider(),
+                vendor.researchedBy());
     }
 
     /**
@@ -96,9 +109,14 @@ public class CachedPeopleSearch {
         return !title.isEmpty() && senior && function && !excluded && placed;
     }
 
-    /** The same question in any word order, spelt in any case, is the same key. */
-    static String queryKeyOf(String companySlug, SourcingSpec spec, List<String> countryCodes, int size) {
-        String canonical = String.join("|", companySlug.toLowerCase(Locale.ROOT),
+    /**
+     * The same question in any word order, spelt in any case, to the same provider, for the same seat, is
+     * the same key — the seat decides which titles a provider asks first.
+     */
+    static String queryKeyOf(String provider, String companySlug, SourcingSpec spec, Seniority seat,
+                             List<String> countryCodes, int size) {
+        String canonical = String.join("|", provider.toLowerCase(Locale.ROOT), companySlug.toLowerCase(Locale.ROOT),
+                seat == null ? "-" : seat.name(),
                 sortedLower(spec.seniorityWords()), sortedLower(spec.functionWords()),
                 "-" + sortedLower(spec.excludedWords()), sortedLower(countryCodes), Integer.toString(size));
         try {

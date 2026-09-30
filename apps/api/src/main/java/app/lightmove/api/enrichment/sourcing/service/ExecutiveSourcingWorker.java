@@ -1,5 +1,6 @@
 package app.lightmove.api.enrichment.sourcing.service;
 
+import app.lightmove.api.candidate.constant.EnrichmentVendor;
 import app.lightmove.api.candidate.dto.SaveCandidateRequest;
 import app.lightmove.api.candidate.model.EnrichedProfile;
 import app.lightmove.api.candidate.service.CandidateService;
@@ -57,7 +58,7 @@ class ExecutiveSourcingWorker {
             "app_lm_project_candidate_unmapped_name_uk");
 
     private final SourcingRunStore store;
-    private final CachedPeopleSearch peopleSearch;
+    private final ChainedPeopleSearch peopleSearch;
     private final SourcingSpecProposer specs;
     private final SourcingSpecRefiner refiner;
     private final CandidateService candidates;
@@ -66,7 +67,7 @@ class ExecutiveSourcingWorker {
     private final AuditService audit;
     private final ExecutiveSourcingSettings settings;
 
-    ExecutiveSourcingWorker(SourcingRunStore store, CachedPeopleSearch peopleSearch, SourcingSpecProposer specs,
+    ExecutiveSourcingWorker(SourcingRunStore store, ChainedPeopleSearch peopleSearch, SourcingSpecProposer specs,
                             SourcingSpecRefiner refiner, CandidateService candidates, PositionService positions,
                             ProfilePhotoDownloader photos, AuditService audit, LightMoveProperties properties) {
         this.store = store;
@@ -181,8 +182,8 @@ class ExecutiveSourcingWorker {
 
         /**
          * A search finding nobody is reworded by the model and run again, up to {@code max-search-rounds};
-         * the first that finds anybody is the last, and its hits not already mapped are filed in the
-         * vendor's order.
+         * the first that finds anybody is the last, and its hits not already mapped are filed best fit
+         * first ({@link SourcedHitRanking}).
          */
         private CompanyOutcome search(SourcingCompany company) {
             if (company.linkedinSlug() == null) {
@@ -196,19 +197,19 @@ class ExecutiveSourcingWorker {
             int modelCalls = 0;
             for (int round = 1; ; round++) {
                 triedWords.putIfAbsent(searching.wordKey(), round);
-                PeopleFound found = peopleSearch.currentEmployeesTitled(company.linkedinSlug(), searching,
-                        searchedCountries, settings.hitsPerCompany());
+                PeopleFound found = peopleSearch.currentEmployeesTitled(company.employer(), searching,
+                        brief.seniority(), searchedCountries, settings.hitsPerCompany());
                 billed += found.billed();
                 cached += found.cached();
-                PeopleFound total = new PeopleFound(found.people(), billed, cached, found.matched());
+                PeopleFound total = found.spending(billed, cached);
                 if (!found.people().isEmpty()) {
-                    return file(company, total, modelCalls);
+                    return file(company, total, modelCalls, searching);
                 }
                 if (round >= settings.maxSearchRounds() || Instant.now().isAfter(deadline)) {
                     return outcome(company, SourcingOutcome.NO_HITS, total, modelCalls, List.of());
                 }
                 if (conversation == null) {
-                    conversation = refiner.open(brief, company.companyName());
+                    conversation = refiner.open(brief, company.companyName(), company.employeeCount());
                 }
                 refiner.reportNobodyFound(conversation, round, searching);
                 Optional<SourcingSpec> next = refiner.refine(conversation, round + 1, spec.roleSummary());
@@ -226,14 +227,15 @@ class ExecutiveSourcingWorker {
             }
         }
 
-        private CompanyOutcome file(SourcingCompany company, PeopleFound found, int modelCalls) {
-            List<BrightDataPerson> usable = usable(found.people());
+        private CompanyOutcome file(SourcingCompany company, PeopleFound found, int modelCalls, SourcingSpec searched) {
+            List<BrightDataPerson> usable = SourcedHitRanking.ranked(usable(found.people()), searched,
+                    brief.seniority());
             if (usable.isEmpty()) {
                 return outcome(company, SourcingOutcome.ALL_ALREADY_MAPPED, found, modelCalls, List.of());
             }
             List<ExecutivePick> picks = usable.stream()
                     .limit(settings.picksPerCompany())
-                    .map(person -> file(company, person))
+                    .map(person -> file(company, person, found.researchedBy()))
                     .toList();
             boolean anyFiled = picks.stream().anyMatch(pick -> pick.candidateId() != null);
             return outcome(company, anyFiled ? SourcingOutcome.FILED : SourcingOutcome.NOTHING_FIT, found, modelCalls,
@@ -241,8 +243,8 @@ class ExecutiveSourcingWorker {
         }
 
         /** A hit refused as already mapped, or losing a race to the same name, is counted as skipped. */
-        private ExecutivePick file(SourcingCompany company, BrightDataPerson person) {
-            EnrichedProfile research = BrightDataPersonProfiles.toEnrichedProfile(person)
+        private ExecutivePick file(SourcingCompany company, BrightDataPerson person, EnrichmentVendor researchedBy) {
+            EnrichedProfile research = BrightDataPersonProfiles.toEnrichedProfile(person, researchedBy)
                     .withPhoto(photos.fetchOrNull(person.usableAvatarUrl()));
             String name = nameOf(person);
             SaveCandidateRequest filing = SaveCandidateRequest.ofFoundExecutive(company.triageCompanyId(), name,
@@ -289,7 +291,7 @@ class ExecutiveSourcingWorker {
                                               int modelCalls, List<ExecutivePick> picks) {
             int filed = (int) picks.stream().filter(pick -> pick.candidateId() != null).count();
             return new CompanyOutcome(company.triageCompanyId(), company.companyName(), outcome, found.billed(),
-                    found.cached(), found.matched(), modelCalls, filed, picks.size() - filed, picks);
+                    found.cached(), found.matched(), modelCalls, filed, picks.size() - filed, picks, found.source());
         }
     }
 }

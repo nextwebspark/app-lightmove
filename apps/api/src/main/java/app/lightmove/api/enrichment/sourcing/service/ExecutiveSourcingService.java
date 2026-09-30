@@ -12,6 +12,7 @@ import app.lightmove.api.core.ratelimit.service.LlmBudgetGuard;
 import app.lightmove.api.core.stream.ProjectStreamKind;
 import app.lightmove.api.core.stream.ProjectStreamPublisher;
 import app.lightmove.api.core.text.service.LinkedInUrls;
+import app.lightmove.api.core.text.service.WebsiteDomain;
 import app.lightmove.api.enrichment.sourcing.constant.SourcingRunStatus;
 import app.lightmove.api.enrichment.sourcing.dto.ExecutiveSourcingConfigResponse;
 import app.lightmove.api.enrichment.sourcing.dto.ExecutiveSourcingRunResponse;
@@ -172,6 +173,7 @@ public class ExecutiveSourcingService {
 
     private static SourcingCompany toSourcingCompany(TriageCompanyResponse company) {
         return new SourcingCompany(company.id(), company.companyName(),
-                LinkedInUrls.companySlugOrNull(company.companyLinkedinUrl()));
+                LinkedInUrls.companySlugOrNull(company.companyLinkedinUrl()), WebsiteDomain.of(company.website()),
+                company.numEmployees());
     }
 }
