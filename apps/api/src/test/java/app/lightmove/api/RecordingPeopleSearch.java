@@ -8,6 +8,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.function.Predicate;
 import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Primary;
@@ -24,7 +25,10 @@ public class RecordingPeopleSearch implements PeopleSearch {
                         List<String> excludedWords, List<String> countryCodes, List<String> excludedSlugs,
                         int size) {}
 
+    private record ScriptedAnswer(String companySlug, Predicate<SourcingSpec> asked, List<BrightDataPerson> people) {}
+
     private final Map<String, List<BrightDataPerson>> answers = new ConcurrentHashMap<>();
+    private final List<ScriptedAnswer> answersWhenAsked = new CopyOnWriteArrayList<>();
     private final List<Asked> asked = new CopyOnWriteArrayList<>();
     private volatile RuntimeException failure;
     private volatile boolean offered = true;
@@ -38,7 +42,12 @@ public class RecordingPeopleSearch implements PeopleSearch {
         if (failure != null) {
             throw failure;
         }
-        List<BrightDataPerson> matching = answers.getOrDefault(companySlug, List.of()).stream()
+        List<BrightDataPerson> scripted = answersWhenAsked.stream()
+                .filter(answer -> answer.companySlug().equals(companySlug) && answer.asked().test(spec))
+                .map(ScriptedAnswer::people)
+                .findFirst()
+                .orElseGet(() -> answers.getOrDefault(companySlug, List.of()));
+        List<BrightDataPerson> matching = scripted.stream()
                 .filter(person -> !excludedSlugs.contains(person.linkedinId()))
                 .toList();
         return BrightDataPeopleHits.of(matching.stream().limit(size).toList(), (long) matching.size());
@@ -58,6 +67,11 @@ public class RecordingPeopleSearch implements PeopleSearch {
         answers.put(companySlug, people);
     }
 
+    /** Answers {@code people} only to a search at {@code companySlug} that {@code asked} accepts; checked first. */
+    public void answerWhen(String companySlug, Predicate<SourcingSpec> asked, List<BrightDataPerson> people) {
+        answersWhenAsked.add(new ScriptedAnswer(companySlug, asked, people));
+    }
+
     public void failWith(RuntimeException exception) {
         this.failure = exception;
     }
@@ -68,6 +82,7 @@ public class RecordingPeopleSearch implements PeopleSearch {
 
     public void clear() {
         answers.clear();
+        answersWhenAsked.clear();
         asked.clear();
         failure = null;
         offered = true;

@@ -1,8 +1,10 @@
 package app.lightmove.api.core.llm.service;
 
+import java.util.List;
 import java.util.Map;
 import java.util.function.Consumer;
 import org.springframework.ai.chat.client.ChatClient;
+import org.springframework.ai.chat.messages.Message;
 import org.springframework.ai.google.genai.GoogleGenAiChatOptions;
 import org.springframework.core.io.Resource;
 
@@ -45,10 +47,19 @@ public final class StructuredPrompt {
 
     /** The model's answer bound to {@code answerType}, or null when it answered nothing. */
     public <T> T ask(Class<T> answerType, Consumer<ChatClient.PromptUserSpec> user) {
+        return ask(answerType, List.of(), user);
+    }
+
+    /**
+     * The same, continuing a conversation: {@code history} is replayed between the system text and this
+     * turn, because the model keeps nothing between calls. The guard reads every turn, not only the last.
+     */
+    public <T> T ask(Class<T> answerType, List<Message> history, Consumer<ChatClient.PromptUserSpec> user) {
         return chatClient.prompt()
                 .advisors(guarded)
                 .options(options())
                 .system(systemPrompt)
+                .messages(history)
                 .user(user)
                 .call()
                 .entity(answerType);

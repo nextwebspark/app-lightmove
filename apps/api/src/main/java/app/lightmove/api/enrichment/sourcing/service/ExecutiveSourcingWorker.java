@@ -1,7 +1,6 @@
 package app.lightmove.api.enrichment.sourcing.service;
 
 import app.lightmove.api.candidate.dto.SaveCandidateRequest;
-import app.lightmove.api.candidate.model.CandidateAiAssessment;
 import app.lightmove.api.candidate.model.EnrichedProfile;
 import app.lightmove.api.candidate.service.CandidateService;
 import app.lightmove.api.core.audit.constant.ProjectEventType;
@@ -23,7 +22,9 @@ import app.lightmove.api.enrichment.sourcing.model.SourcingCompany;
 import app.lightmove.api.enrichment.sourcing.model.SourcingSpec;
 import app.lightmove.api.position.service.PositionService;
 import java.time.Instant;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
@@ -42,8 +43,8 @@ import org.springframework.transaction.event.TransactionalEventListener;
 
 /**
  * Runs a Find executives request after it commits, off its thread: one model call for the search
- * words, then the companies a few at a time — a vendor search, a rerank, and a filing per pick —
- * recording each company as it finishes so the strip moves. Not {@code @Transactional}: every vendor
+ * words, then the companies a few at a time — a vendor search, reworded while it finds nobody, and a
+ * filing per hit — recording each company as it finishes so the strip moves. Not {@code @Transactional}: every vendor
  * and model call is made with no connection held, and the writes go through {@link SourcingRunStore}
  * and {@code CandidateService.addSourced}, each its own transaction.
  */
@@ -58,7 +59,7 @@ class ExecutiveSourcingWorker {
     private final SourcingRunStore store;
     private final CachedPeopleSearch peopleSearch;
     private final SourcingSpecProposer specs;
-    private final ExecutiveReranker reranker;
+    private final SourcingSpecRefiner refiner;
     private final CandidateService candidates;
     private final PositionService positions;
     private final ProfilePhotoDownloader photos;
@@ -66,12 +67,12 @@ class ExecutiveSourcingWorker {
     private final ExecutiveSourcingSettings settings;
 
     ExecutiveSourcingWorker(SourcingRunStore store, CachedPeopleSearch peopleSearch, SourcingSpecProposer specs,
-                            ExecutiveReranker reranker, CandidateService candidates, PositionService positions,
+                            SourcingSpecRefiner refiner, CandidateService candidates, PositionService positions,
                             ProfilePhotoDownloader photos, AuditService audit, LightMoveProperties properties) {
         this.store = store;
         this.peopleSearch = peopleSearch;
         this.specs = specs;
-        this.reranker = reranker;
+        this.refiner = refiner;
         this.candidates = candidates;
         this.positions = positions;
         this.photos = photos;
@@ -178,51 +179,89 @@ class ExecutiveSourcingWorker {
             }
         }
 
+        /**
+         * A search finding nobody is reworded by the model and run again, up to {@code max-search-rounds};
+         * the first that finds anybody is the last, and its hits not already mapped are filed in the
+         * vendor's order.
+         */
         private CompanyOutcome search(SourcingCompany company) {
             if (company.linkedinSlug() == null) {
                 return CompanyOutcome.of(company, SourcingOutcome.NO_LINKEDIN_PAGE);
             }
-            PeopleFound found = peopleSearch.currentEmployeesTitled(company.linkedinSlug(), spec,
-                    searchedCountries, settings.hitsPerCompany());
-            if (found.people().isEmpty()) {
-                return outcome(company, SourcingOutcome.NO_HITS, found, 0, List.of());
+            Map<String, Integer> triedWords = new HashMap<>();
+            RefineConversation conversation = null;
+            SourcingSpec searching = spec;
+            int billed = 0;
+            int cached = 0;
+            int modelCalls = 0;
+            for (int round = 1; ; round++) {
+                triedWords.putIfAbsent(searching.wordKey(), round);
+                PeopleFound found = peopleSearch.currentEmployeesTitled(company.linkedinSlug(), searching,
+                        searchedCountries, settings.hitsPerCompany());
+                billed += found.billed();
+                cached += found.cached();
+                PeopleFound total = new PeopleFound(found.people(), billed, cached, found.matched());
+                if (!found.people().isEmpty()) {
+                    return file(company, total, modelCalls);
+                }
+                if (round >= settings.maxSearchRounds() || Instant.now().isAfter(deadline)) {
+                    return outcome(company, SourcingOutcome.NO_HITS, total, modelCalls, List.of());
+                }
+                if (conversation == null) {
+                    conversation = refiner.open(brief, company.companyName());
+                }
+                refiner.reportNobodyFound(conversation, round, searching);
+                Optional<SourcingSpec> next = refiner.refine(conversation, round + 1, spec.roleSummary());
+                modelCalls += 1;
+                Integer repeated = next.map(words -> triedWords.get(words.wordKey())).orElse(null);
+                if (repeated != null) {
+                    refiner.reportRepeat(conversation, repeated);
+                    next = refiner.refine(conversation, round + 1, spec.roleSummary());
+                    modelCalls += 1;
+                }
+                if (next.isEmpty() || triedWords.containsKey(next.get().wordKey())) {
+                    return outcome(company, SourcingOutcome.NO_HITS, total, modelCalls, List.of());
+                }
+                searching = next.get();
             }
-            List<BrightDataPerson> usable = usable(found.people());
-            if (usable.isEmpty()) {
-                return outcome(company, SourcingOutcome.ALL_ALREADY_MAPPED, found, 0, List.of());
-            }
-            List<ExecutivePick> picks = reranker.pick(brief, spec, company.companyName(), usable,
-                            settings.picksPerCompany()).stream()
-                    .filter(pick -> pick.score() >= settings.minPickScore())
-                    .map(pick -> file(company, usable.get(pick.index()), pick))
-                    .toList();
-            boolean anyFiled = picks.stream().anyMatch(pick -> pick.candidateId() != null);
-            return outcome(company, anyFiled ? SourcingOutcome.FILED : SourcingOutcome.NOTHING_FIT, found, 1, picks);
         }
 
-        /** A pick refused as already mapped, or losing a race to the same name, is counted as skipped. */
-        private ExecutivePick file(SourcingCompany company, BrightDataPerson person, RerankedHit pick) {
+        private CompanyOutcome file(SourcingCompany company, PeopleFound found, int modelCalls) {
+            List<BrightDataPerson> usable = usable(found.people());
+            if (usable.isEmpty()) {
+                return outcome(company, SourcingOutcome.ALL_ALREADY_MAPPED, found, modelCalls, List.of());
+            }
+            List<ExecutivePick> picks = usable.stream()
+                    .limit(settings.picksPerCompany())
+                    .map(person -> file(company, person))
+                    .toList();
+            boolean anyFiled = picks.stream().anyMatch(pick -> pick.candidateId() != null);
+            return outcome(company, anyFiled ? SourcingOutcome.FILED : SourcingOutcome.NOTHING_FIT, found, modelCalls,
+                    picks);
+        }
+
+        /** A hit refused as already mapped, or losing a race to the same name, is counted as skipped. */
+        private ExecutivePick file(SourcingCompany company, BrightDataPerson person) {
             EnrichedProfile research = BrightDataPersonProfiles.toEnrichedProfile(person)
                     .withPhoto(photos.fetchOrNull(person.usableAvatarUrl()));
             String name = nameOf(person);
             SaveCandidateRequest filing = SaveCandidateRequest.ofFoundExecutive(company.triageCompanyId(), name,
                     research.title(), person.profileUrl(), research.locationCountry(), research.locationCity());
-            CandidateAiAssessment fitReading = CandidateAiAssessment.summaryOnly(pick.reason(), Instant.now());
             try {
                 UUID candidateId = candidates.addSourced(request.requestedBy(), request.workspaceId(),
-                        request.projectId(), filing, research, fitReading, request.runId()).id();
+                        request.projectId(), filing, research, request.runId()).id();
                 heldSlugs.add(person.linkedinId());
-                return new ExecutivePick(name, pick.score(), pick.reason(), candidateId);
+                return ExecutivePick.of(name, candidateId);
             } catch (ApiException refused) {
                 if (refused.getCode() != ErrorCode.CANDIDATE_ALREADY_MAPPED) {
                     throw refused;
                 }
-                return new ExecutivePick(name, pick.score(), pick.reason(), null);
+                return ExecutivePick.of(name, null);
             } catch (DataIntegrityViolationException raced) {
                 if (!isNameCollision(raced)) {
                     throw raced;
                 }
-                return new ExecutivePick(name, pick.score(), pick.reason(), null);
+                return ExecutivePick.of(name, null);
             }
         }
 

@@ -11,7 +11,6 @@ import app.lightmove.api.candidate.dto.SaveCandidateRequest;
 import app.lightmove.api.candidate.dto.UpdateCandidateContactsRequest;
 import app.lightmove.api.candidate.dto.UpdateCandidateStatusRequest;
 import app.lightmove.api.candidate.model.Candidate;
-import app.lightmove.api.candidate.model.CandidateAiAssessment;
 import app.lightmove.api.candidate.model.CandidateAiEnrichRequested;
 import app.lightmove.api.candidate.model.CandidateAiEnrichState;
 import app.lightmove.api.candidate.model.CandidateAiEnrichment;
@@ -330,10 +329,9 @@ public class CandidateService {
     }
 
     /**
-     * A Find executives pick, filed and researched in one write: the search hit is the profile, so
-     * there is no vendor call to wait for and no {@code CandidateCapturedEvent}. The fit reading is
-     * the rerank's one-line reason, kept as the assessment until the deep enrichment this queues
-     * replaces it whole.
+     * A Find executives hit, filed and researched in one write: the search hit is the profile, so
+     * there is no vendor call to wait for and no {@code CandidateCapturedEvent}; the deep enrichment
+     * this queues writes the assessment.
      *
      * <p>{@code REQUIRES_NEW} for {@link #applyResearch}'s reason: the run's worker calls this per person
      * from an {@code AFTER_COMMIT} callback. The duplicate guards throw {@code CANDIDATE_ALREADY_MAPPED},
@@ -341,8 +339,7 @@ public class CandidateService {
      */
     @Transactional(propagation = Propagation.REQUIRES_NEW)
     public CandidateResponse addSourced(UUID userId, UUID workspaceId, UUID projectId,
-                                        SaveCandidateRequest request, EnrichedProfile research,
-                                        CandidateAiAssessment fitReading, UUID runId) {
+                                        SaveCandidateRequest request, EnrichedProfile research, UUID runId) {
         projects.requireInWorkspace(projectId, workspaceId);
         CandidateDetails details = requests.detailsOf(projectId, request, null);
 
@@ -353,7 +350,6 @@ public class CandidateService {
                 request.triageCompanyId(), CandidateSource.AI_SOURCED, details));
         candidate.enrich(research);
         keepPhoto(candidate.getId(), research);
-        candidate.recordAiAssessment(fitReading);
         stream.publish(projectId, ProjectStreamKind.CANDIDATE_CAPTURED);
         events.publishEvent(new CandidateAiEnrichRequested(candidate.getId(), projectId, workspaceId,
                 userId, AiEnrichTrigger.SOURCING));
@@ -369,7 +365,7 @@ public class CandidateService {
 
     /**
      * The LinkedIn slugs of everyone the mandate already maps — what a sourcing run drops from a
-     * vendor's hits before ranking them, so nobody already held is scored or filed twice.
+     * vendor's hits before filing them, so nobody already held is filed twice.
      */
     @Transactional(readOnly = true)
     public Set<String> mappedProfileSlugsOf(UUID workspaceId, UUID projectId) {

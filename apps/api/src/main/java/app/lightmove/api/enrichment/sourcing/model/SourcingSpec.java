@@ -12,7 +12,7 @@ import java.util.stream.Stream;
 
 /**
  * What one run searches for: the single words a fitting title carries — one from each of the first two
- * lists and none of the third — and the role in a sentence for the rerank. Every word is one token with
+ * lists and none of the third — and the role in a sentence. Every word is one token with
  * no whitespace, because the vendor runs a phrase query otherwise; {@link #of} enforces that whatever
  * the model answered.
  */
@@ -99,6 +99,16 @@ public record SourcingSpec(List<String> seniorityWords, List<String> functionWor
             case N_MINUS_2, N_MINUS_3 -> MANAGER_WORDS;
         };
         return new SourcingSpec(seniorityWords, functionWords, SUPPORT_WORDS, summary);
+    }
+
+    /** The words as a search sees them — order and case ignored — so two specs asking the same question share it. */
+    public String wordKey() {
+        return String.join("|", sortedLower(seniorityWords), sortedLower(functionWords),
+                "-" + sortedLower(excludedWords));
+    }
+
+    private static String sortedLower(List<String> words) {
+        return String.join(",", words.stream().map(word -> word.toLowerCase(Locale.ROOT)).sorted().toList());
     }
 
     private static List<String> cleaned(List<String> words) {

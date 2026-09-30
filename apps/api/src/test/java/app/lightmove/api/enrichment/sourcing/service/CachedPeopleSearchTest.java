@@ -1,8 +1,9 @@
 package app.lightmove.api.enrichment.sourcing.service;
 
-import static app.lightmove.api.enrichment.sourcing.service.ExecutiveRerankerTest.person;
 import static org.assertj.core.api.Assertions.assertThat;
 
+import app.lightmove.api.enrichment.candidate.model.BrightDataPerson;
+import app.lightmove.api.enrichment.candidate.model.BrightDataPerson.BrightDataExperience;
 import app.lightmove.api.enrichment.sourcing.model.SourcingSpec;
 import java.util.List;
 import org.junit.jupiter.api.DisplayName;
@@ -51,5 +52,13 @@ class CachedPeopleSearchTest {
 
     private static SourcingSpec spec(List<String> seniority, List<String> function, List<String> excluded) {
         return new SourcingSpec(seniority, function, excluded, null);
+    }
+
+    private static BrightDataPerson person(String slug, String name, String position, String countryCode) {
+        return new BrightDataPerson(slug, slug, name, "https://www.linkedin.com/in/" + slug, "About " + name,
+                position, "Dubai", "Dubai, United Arab Emirates", countryCode, "DP World",
+                new BrightDataPerson.BrightDataCurrentCompany("DP World", "dp-world", null), null, true,
+                List.of(new BrightDataExperience("DP World", position, null, null, null, "2020", null, null, null)),
+                List.of(), List.of(), List.of());
     }
 }

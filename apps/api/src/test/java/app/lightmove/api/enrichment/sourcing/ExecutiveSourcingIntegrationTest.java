@@ -26,11 +26,12 @@ import tools.jackson.databind.JsonNode;
 /**
  * Find executives end to end: the POST answers 202 with the run, the worker runs inline (see
  * {@code SynchronousAuditWrites}) against the recording people search and the stub model, and the
- * picks land as AI-sourced executives at their companies.
+ * hits land as AI-sourced executives at their companies.
  *
  * <p>The stub answers every prompt of a run with one document, so it carries every shape the run
- * asks for: the spec's words, the rerank's picks, and the deep enrichment's assessment and
- * nationality. Each call binds the half it asked for.
+ * asks for: the spec's words, and the deep enrichment's assessment and nationality. Each call binds
+ * the half it asked for. Asked to reword, it answers the spec's words again — a repeat, so a company
+ * finding nobody stops after one search unless a test scripts the rewording.
  */
 @IntegrationTest
 class ExecutiveSourcingIntegrationTest extends FlowTestSupport {
@@ -39,14 +40,13 @@ class ExecutiveSourcingIntegrationTest extends FlowTestSupport {
             {"seniorityWords":["Chief","Head"],"functionWords":["Finance","Financial"],
              "excludedWords":["Assistant","Office"],
              "roleSummary":"The group's finance chief.",
-             "picks":[{"hit":1,"score":9,"reason":"Holds the seat"},{"hit":2,"score":7,"reason":"One step below"},
-                      {"hit":3,"score":5,"reason":"Nearest available"}],
-             "note":null,
              "category":"Emirati","confidence":"high","evidence_for":[],"evidence_against":[],"rule_applied":"none",
              "gender":"male","yearsExperience":20,"seniority":"C-Suite",
              "summary":"A proven finance leader.",
              "technical":{"score":8,"positives":[],"negatives":[]},
              "behavioural":{"score":7,"positives":[],"negatives":[]}}""";
+
+    private static final String REFINE_PROMPT = "rewrite the search words";
 
     @Autowired private RecordingPeopleSearch peopleSearch;
     @Autowired private StubChatModel model;
@@ -66,7 +66,7 @@ class ExecutiveSourcingIntegrationTest extends FlowTestSupport {
     }
 
     @Test
-    @DisplayName("a run files the model's picks at or above the score floor, researched from the hit, and enriches them")
+    @DisplayName("a run files the search's hits, up to the per-company cap, researched from the hit, and enriches them")
     void aRunFilesThePicks() throws Exception {
         String projectId = mandate("Sourcing Firm");
         String dpWorld = company(projectId, "DP World", "https://www.linkedin.com/company/dp-world/");
@@ -74,7 +74,8 @@ class ExecutiveSourcingIntegrationTest extends FlowTestSupport {
         peopleSearch.answerWith("dp-world", List.of(
                 person("risalat-rehman", "Risalat Rehman", "Chief Financial Officer at DP World Jeddah"),
                 person("group-director", "Group Director", "Group Director - Financial Accounts"),
-                person("third-person", "Third Person", "Head of Finance Transformation")));
+                person("third-person", "Third Person", "Head of Finance Transformation"),
+                person("fourth-person", "Fourth Person", "Head of Finance Operations")));
 
         JsonNode started = body(mvc.perform(post(sourcingUrl(projectId))
                         .header("Authorization", "Bearer " + adminToken)
@@ -88,18 +89,18 @@ class ExecutiveSourcingIntegrationTest extends FlowTestSupport {
         assertThat(run.get("status").asText()).isEqualTo("COMPLETED");
         assertThat(run.get("companiesTotal").asInt()).isEqualTo(2);
         assertThat(run.get("companiesDone").asInt()).isEqualTo(2);
-        assertThat(run.get("executivesFiled").asInt()).isEqualTo(2);
-        assertThat(run.get("vendorHits").asInt()).isEqualTo(3);
+        assertThat(run.get("executivesFiled").asInt()).isEqualTo(3);
+        assertThat(run.get("vendorHits").asInt()).isEqualTo(4);
         JsonNode outcomes = run.get("outcomes");
         assertThat(outcomes).hasSize(2);
         JsonNode filed = outcomeFor(outcomes, dpWorld);
         assertThat(filed.get("outcome").asText()).isEqualTo("FILED");
-        assertThat(filed.get("filed").asInt()).isEqualTo(2);
-        assertThat(filed.get("picks").get(0).get("name").asText()).isEqualTo("Risalat Rehman");
-        assertThat(filed.get("picks").get(0).get("reason").asText()).isEqualTo("Holds the seat");
-        assertThat(filed.get("picks")).hasSize(2);
-        assertThat(filed.get("seen").asInt()).isEqualTo(3);
-        assertThat(filed.get("matched").asLong()).isEqualTo(3);
+        assertThat(filed.get("filed").asInt()).isEqualTo(3);
+        assertThat(filed.get("picks")).extracting(pick -> pick.get("name").asText())
+                .containsExactly("Risalat Rehman", "Group Director", "Third Person");
+        assertThat(filed.get("picks").get(0).get("score").isNull()).isTrue();
+        assertThat(filed.get("seen").asInt()).isEqualTo(4);
+        assertThat(filed.get("matched").asLong()).isEqualTo(4);
         assertThat(outcomeFor(outcomes, noPage).get("outcome").asText()).isEqualTo("NO_LINKEDIN_PAGE");
         assertThat(run.get("searchedFor").get("excludedWords")).extracting(JsonNode::asText)
                 .containsExactly("Assistant");
@@ -113,8 +114,14 @@ class ExecutiveSourcingIntegrationTest extends FlowTestSupport {
         assertThat(search.countryCodes()).isEmpty();
 
         JsonNode people = candidatesOf(projectId);
-        assertThat(people).hasSize(2);
-        JsonNode cfo = people.get(0).get("fullName").asText().equals("Risalat Rehman") ? people.get(0) : people.get(1);
+        assertThat(people).hasSize(3);
+        JsonNode cfo = null;
+        for (JsonNode person : people) {
+            if (person.get("fullName").asText().equals("Risalat Rehman")) {
+                cfo = person;
+            }
+        }
+        assertThat(cfo).isNotNull();
         assertThat(cfo.get("source").asText()).isEqualTo("ai_sourced");
         assertThat(cfo.get("triageCompanyId").asText()).isEqualTo(dpWorld);
         assertThat(cfo.get("companyName").asText()).isEqualTo("DP World");
@@ -135,7 +142,7 @@ class ExecutiveSourcingIntegrationTest extends FlowTestSupport {
     }
 
     @Test
-    @DisplayName("someone the mandate already maps is left out of the rerank, and a pick that collides is a skip")
+    @DisplayName("someone the mandate already maps is left out, and a hit that collides with a held name is a skip")
     void alreadyMappedPeopleAreSkipped() throws Exception {
         String projectId = mandate("Held Firm");
         String dpWorld = company(projectId, "DP World", "https://www.linkedin.com/company/dp-world/");
@@ -161,7 +168,6 @@ class ExecutiveSourcingIntegrationTest extends FlowTestSupport {
 
         JsonNode outcome = outcomeFor(runOf(projectId, runId).get("outcomes"), dpWorld);
         assertThat(outcome.get("outcome").asText()).isEqualTo("FILED");
-        assertThat(model.prompts().getFirst().getUserMessage().getText()).doesNotContain("Already Held");
         assertThat(outcome.get("filed").asInt()).isEqualTo(1);
         assertThat(outcome.get("skipped").asInt()).isEqualTo(1);
         assertThat(outcome.get("picks").get(1).get("candidateId").isNull()).isTrue();
@@ -325,6 +331,58 @@ class ExecutiveSourcingIntegrationTest extends FlowTestSupport {
                 .containsExactly("AE", "SA", "QA", "KW", "BH", "OM");
         assertThat(outcomeFor(runOf(projectId, runId).get("outcomes"), dpWorld).get("outcome").asText())
                 .isEqualTo("NO_HITS");
+    }
+
+    @Test
+    @DisplayName("a search finding nobody is searched again with the model's other title words, and its hits filed")
+    void aSearchFindingNobodyIsReworded() throws Exception {
+        String projectId = mandate("Rewording Firm");
+        String dpWorld = company(projectId, "DP World", "https://www.linkedin.com/company/dp-world/");
+        peopleSearch.answerWhen("dp-world", asked -> asked.functionWords().contains("Treasury"),
+                List.of(person("group-treasurer", "Group Treasurer", "Group Treasury Director")));
+        model.answerWhenSystemContains(REFINE_PROMPT, """
+                {"seniorityWords":["Group","Director"],"functionWords":["Treasury"],"excludedWords":[],
+                 "why":"Chief and Finance found nobody; Group and Treasury are the usual spelling."}""");
+
+        String runId = start(projectId, "[]");
+
+        JsonNode run = runOf(projectId, runId);
+        JsonNode outcome = outcomeFor(run.get("outcomes"), dpWorld);
+        assertThat(outcome.get("outcome").asText()).isEqualTo("FILED");
+        assertThat(outcome.get("picks").get(0).get("name").asText()).isEqualTo("Group Treasurer");
+        assertThat(run.get("vendorHits").asInt()).isEqualTo(1);
+
+        assertThat(peopleSearch.searches()).extracting(RecordingPeopleSearch.Asked::functionWords)
+                .containsExactly(List.of("Finance", "Financial"), List.of("Treasury"));
+        assertThat(refinePrompts()).singleElement().asString().contains("ROUND 1 SEARCHED — found nobody",
+                "Seniority: Chief, Head", "Function: Finance, Financial", "Propose the words for round 2");
+        assertThat(candidatesOf(projectId)).hasSize(1);
+    }
+
+    @Test
+    @DisplayName("a rewording repeating words a round already searched is re-asked once, naming the round, then the company stops")
+    void aRepeatedRewordingStops() throws Exception {
+        String projectId = mandate("Repeating Firm");
+        String dpWorld = company(projectId, "DP World", "https://www.linkedin.com/company/dp-world/");
+        model.answerWhenSystemContains(REFINE_PROMPT, """
+                {"seniorityWords":["head","CHIEF"],"functionWords":["financial","Finance"],
+                 "excludedWords":["Assistant"],"why":"Try again."}""");
+
+        String runId = start(projectId, "[]");
+
+        JsonNode outcome = outcomeFor(runOf(projectId, runId).get("outcomes"), dpWorld);
+        assertThat(outcome.get("outcome").asText()).isEqualTo("NO_HITS");
+        assertThat(peopleSearch.searches()).hasSize(1);
+        List<String> refinePrompts = refinePrompts();
+        assertThat(refinePrompts).hasSize(2);
+        assertThat(refinePrompts.getLast()).contains("Try again.", "repeats the words round 1 already searched");
+    }
+
+    private List<String> refinePrompts() {
+        return model.prompts().stream()
+                .filter(prompt -> prompt.getSystemMessage().getText().contains(REFINE_PROMPT))
+                .map(prompt -> prompt.getContents())
+                .toList();
     }
 
     @Test

@@ -32,7 +32,8 @@ export type SourcingOutcome =
 
 export interface SourcingPick {
   name: string;
-  score: number;
+  /** Null since a rerank stopped choosing the picks. */
+  score: number | null;
   reason: string | null;
   /** Null when filing the pick was refused — someone of that name was already mapped there. */
   candidateId: string | null;
