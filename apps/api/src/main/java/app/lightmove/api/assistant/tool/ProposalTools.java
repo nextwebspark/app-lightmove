@@ -6,11 +6,15 @@ import app.lightmove.api.core.config.LightMoveProperties;
 import app.lightmove.api.strategy.model.CompanyRow;
 import app.lightmove.api.strategy.service.ApolloCompanyQueryService;
 import app.lightmove.api.strategy.service.StrategyService;
+import app.lightmove.api.triagecompany.constant.TriageCompanyStatus;
 import app.lightmove.api.triagecompany.model.CapturedCompanyDetails;
+import app.lightmove.api.triagecompany.model.MandateStages;
+import app.lightmove.api.triagecompany.service.TriageCompanyReadService;
 import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 import java.util.stream.Stream;
 import org.springframework.ai.chat.model.ToolContext;
@@ -29,24 +33,27 @@ public class ProposalTools {
 
     private final ApolloCompanyQueryService market;
     private final StrategyService strategies;
+    private final TriageCompanyReadService triaged;
     private final int maxRows;
 
     public ProposalTools(ApolloCompanyQueryService market, StrategyService strategies,
-                         LightMoveProperties properties) {
+                         TriageCompanyReadService triaged, LightMoveProperties properties) {
         this.market = market;
         this.strategies = strategies;
+        this.triaged = triaged;
         this.maxRows = properties.assistant().toolRowLimit();
     }
 
     @Tool(description = """
             Show companies to the user as a card they can tick and add to the mandate. Call it every \
             time an answer puts forward companies. Pass the Apollo account ids a search returned, and \
-            the LinkedIn slugs of RESEARCHED companies lookUpCompaniesByName returned. The answer says \
-            how many the card holds: companies the client has ruled off limits, or that were never \
-            found, are dropped.""")
-    public int proposeCompanies(
+            the LinkedIn slugs of RESEARCHED companies lookUpCompaniesByName returned, in this answer \
+            or on an earlier card of this chat. The answer says how many the card holds and how many \
+            of those the mandate has already filed (shown with their stage, not offered again); \
+            companies the client has ruled off limits, or that were never found, are left out.""")
+    public CardResult proposeCompanies(
             @ToolParam(description = "One short line saying what these companies are") String title,
-            @ToolParam(description = "Apollo account ids, and LinkedIn slugs of researched companies, from this conversation")
+            @ToolParam(description = "Apollo account ids, and LinkedIn slugs of researched companies, from this chat")
             List<String> companyIds,
             ToolContext toolContext) {
         AssistantToolContext context = AssistantToolContext.from(toolContext);
@@ -55,9 +62,9 @@ public class ProposalTools {
                 + (asked.size() == 1 ? "company" : "companies"));
         AssistantProposal card = card(context, oneLine(title), asked);
         context.recorder().propose(card);
-        context.recorder().finishStep(step,
-                describeCard(card.companies().size(), asked.size() - card.companies().size()));
-        return card.companies().size();
+        CardResult result = resultOf(card, asked.size());
+        context.recorder().finishStep(step, describeCard(result));
+        return result;
     }
 
     /** Flash sometimes answers straight after its lookups without proposing, and the card it describes must exist. */
@@ -71,12 +78,24 @@ public class ProposalTools {
         int step = recorder.startStep("Preparing the card");
         AssistantProposal card = card(context, "Companies found", found);
         recorder.propose(card);
-        recorder.finishStep(step, describeCard(card.companies().size(), 0));
+        recorder.finishStep(step, describeCard(resultOf(card, card.companies().size())));
     }
 
-    private static String describeCard(int carried, int leftOut) {
-        String onCard = carried + " on the card";
-        return leftOut == 0 ? onCard : onCard + ", " + leftOut + " left out (off limits or not found)";
+    private static CardResult resultOf(AssistantProposal card, int asked) {
+        int held = (int) card.companies().stream().filter(ProposedCompany::alreadyInMandate).count();
+        return new CardResult(card.companies().size(), held, Math.max(0, asked - card.companies().size()));
+    }
+
+    /** "8 on the card, 2 already in the mandate, 1 left out (off limits or not found)". */
+    static String describeCard(CardResult result) {
+        StringBuilder described = new StringBuilder(result.onCard() + " on the card");
+        if (result.alreadyInMandate() > 0) {
+            described.append(", ").append(result.alreadyInMandate()).append(" already in the mandate");
+        }
+        if (result.leftOut() > 0) {
+            described.append(", ").append(result.leftOut()).append(" left out (off limits or not found)");
+        }
+        return described.toString();
     }
 
     private List<String> requested(List<String> companyIds) {
@@ -92,11 +111,13 @@ public class ProposalTools {
 
     /**
      * Names and figures come from the universe row or the researched page, so the card never shows a
-     * company the model made up: a slug counts only if this answer researched it.
+     * company the model made up: a slug counts only if this answer, or an earlier card of the chat,
+     * researched it. A company the mandate already holds stays on the card with its stage, after the
+     * new ones, so the consultant sees the whole answer and what is already decided.
      */
     private AssistantProposal card(AssistantToolContext context, String title, List<String> keys) {
         TurnRecorder recorder = context.recorder();
-        Map<String, CapturedCompanyDetails> researched = recorder.researched();
+        Map<String, CapturedCompanyDetails> researched = recorder.proposablePages();
         Map<String, String> operated = recorder.operatedBrands();
         Set<String> offLimits = Set.copyOf(
                 strategies.scopeOf(context.workspaceId(), context.projectId()).offLimitsAccountIds());
@@ -110,9 +131,16 @@ public class ProposalTools {
                 .filter(researched::containsKey)
                 .map(slug -> fromLinkedIn(slug, researched.get(slug), operated.get(slug)));
 
-        List<ProposedCompany> companies = Stream.concat(fromUniverse, fromLinkedIn)
-                .sorted(Comparator.comparing(ProposedCompany::employees,
-                        Comparator.nullsLast(Comparator.reverseOrder())))
+        List<ProposedCompany> found = Stream.concat(fromUniverse, fromLinkedIn).toList();
+        MandateStages stages = triaged.stagesOf(context.workspaceId(), context.projectId(),
+                found.stream().map(ProposedCompany::apolloAccountId).filter(Objects::nonNull).toList(),
+                found.stream().map(ProposedCompany::companyName).toList());
+        List<ProposedCompany> companies = found.stream()
+                .map(company -> company.inMandateAs(stageToken(
+                        stages.stageOf(company.apolloAccountId(), company.companyName()))))
+                .sorted(Comparator.comparing(ProposedCompany::alreadyInMandate)
+                        .thenComparing(ProposedCompany::employees,
+                                Comparator.nullsLast(Comparator.reverseOrder())))
                 .limit(maxRows)
                 .toList();
         Map<String, CapturedCompanyDetails> carried = new LinkedHashMap<>();
@@ -124,12 +152,16 @@ public class ProposalTools {
 
     private static ProposedCompany fromUniverse(CompanyRow row, String operates) {
         return new ProposedCompany(row.apolloAccountId(), null, row.companyName(), row.companyCountry(),
-                row.numEmployees(), row.logoUrl(), operates);
+                row.numEmployees(), row.logoUrl(), operates, null);
     }
 
     private static ProposedCompany fromLinkedIn(String slug, CapturedCompanyDetails page, String operates) {
         return new ProposedCompany(null, slug, page.companyName(), page.companyCountry(),
-                page.numEmployees(), page.logoUrl(), operates);
+                page.numEmployees(), page.logoUrl(), operates, null);
+    }
+
+    private static String stageToken(TriageCompanyStatus stage) {
+        return stage == null ? null : stage.value();
     }
 
     private static String oneLine(String title) {

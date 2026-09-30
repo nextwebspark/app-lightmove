@@ -27,6 +27,7 @@ public class TurnRecorder {
     private final Consumer<AssistantProposal> onProposal;
     private final Set<String> foundAccountIds = new LinkedHashSet<>();
     private final Map<String, CapturedCompanyDetails> researched = new LinkedHashMap<>();
+    private final Map<String, CapturedCompanyDetails> remembered = new LinkedHashMap<>();
     private final Map<String, String> operatedBrands = new LinkedHashMap<>();
     private boolean namesLookedUp;
     private int vendorSearches;
@@ -85,6 +86,22 @@ public class TurnRecorder {
 
     public Map<String, CapturedCompanyDetails> researched() {
         return Collections.unmodifiableMap(new LinkedHashMap<>(researched));
+    }
+
+    /**
+     * A page an earlier answer of this chat researched, so its company can be proposed again. Kept apart
+     * from {@link #researched()}: a remembered company was not found by this answer and must not be
+     * carded unasked.
+     */
+    public void remember(String linkedinSlug, CapturedCompanyDetails details) {
+        remembered.put(linkedinSlug, details);
+    }
+
+    /** Every page this answer may card: its own research, then what earlier answers researched. */
+    public Map<String, CapturedCompanyDetails> proposablePages() {
+        Map<String, CapturedCompanyDetails> pages = new LinkedHashMap<>(remembered);
+        pages.putAll(researched);
+        return Collections.unmodifiableMap(pages);
     }
 
     /** Records that the company under {@code companyKey} runs {@code brand} locally, as a franchise partner does. */

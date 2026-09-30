@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import app.lightmove.api.strategy.model.CompanyScope;
 import app.lightmove.api.strategy.model.NumericRange;
+import java.util.List;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
@@ -13,7 +14,7 @@ class MarketQueryTest {
     @Test
     @DisplayName("a named country and industry land on their own axes")
     void placesTheAxesItWasGiven() {
-        CompanyScope scope = MarketQuery.scopeOf("Saudi Arabia", "oil & energy", null, null, null, null);
+        CompanyScope scope = MarketQuery.scopeOf(List.of("Saudi Arabia"), List.of("oil & energy"), null, null, null, null);
 
         assertThat(scope.countries()).containsExactly("Saudi Arabia");
         assertThat(scope.industries()).containsExactly("oil & energy");
@@ -33,7 +34,7 @@ class MarketQueryTest {
     @Test
     @DisplayName("an omitted axis constrains nothing")
     void leavesAnOmittedAxisOpen() {
-        CompanyScope scope = MarketQuery.scopeOf("Saudi Arabia", null, null, null, null, null);
+        CompanyScope scope = MarketQuery.scopeOf(List.of("Saudi Arabia"), null, null, null, null, null);
 
         // Empty is CompanyScope's "no constraint on this axis". A blank string reaching a list would
         // read as a constraint nothing satisfies, so the question would come back with zero rows and
@@ -48,9 +49,20 @@ class MarketQueryTest {
     @Test
     @DisplayName("a blank argument is an omitted one")
     void treatsABlankArgumentAsOmitted() {
-        CompanyScope scope = MarketQuery.scopeOf("  ", "", null, null, null, null);
+        CompanyScope scope = MarketQuery.scopeOf(List.of("  "), List.of(""), null, null, null, null);
 
         assertThat(scope.countries()).isEmpty();
         assertThat(scope.industries()).isEmpty();
+    }
+
+    @Test
+    @DisplayName("several values on one axis are stripped, de-duplicated and capped")
+    void cleansSeveralValues() {
+        CompanyScope scope = MarketQuery.scopeOf(
+                List.of(" Qatar", "Qatar", "Oman", "Kuwait", "Bahrain", "Saudi Arabia", "Egypt"),
+                List.of("retail", "retail "), null, null, null, null);
+
+        assertThat(scope.countries()).containsExactly("Qatar", "Oman", "Kuwait", "Bahrain", "Saudi Arabia");
+        assertThat(scope.industries()).containsExactly("retail");
     }
 }

@@ -1,6 +1,7 @@
 package app.lightmove.api.assistant.tool;
 
 import app.lightmove.api.strategy.model.CompanyRow;
+import app.lightmove.api.triagecompany.constant.TriageCompanyStatus;
 
 /**
  * One company of the market, as much of it as the model is worth showing.
@@ -8,15 +9,21 @@ import app.lightmove.api.strategy.model.CompanyRow;
  * <p>Narrower than {@code CompanyRow} on purpose. Every field handed back is spent twice — once in
  * the model's context window and again in the bill — and the twenty-seven a universe row carries
  * are a grid's worth, not an answer's. The account id is here because it is the key a later
- * proposal has to name in order to be filed through the door that already exists.
+ * proposal has to name in order to be filed through the door that already exists. {@code mandateStage}
+ * is the stage this mandate already filed it at, null when it has not.
  */
 public record MarketCompanySummary(String apolloAccountId, String companyName, String industry,
                                    String country, String city, Integer employees,
-                                   Integer foundedYear, String website) {
+                                   Integer foundedYear, String website, String mandateStage) {
 
     public static MarketCompanySummary of(CompanyRow row) {
         return new MarketCompanySummary(row.apolloAccountId(), row.companyName(), row.industry(),
                 row.companyCountry(), row.companyCity(), row.numEmployees(), row.foundedYear(),
-                row.website());
+                row.website(), null);
+    }
+
+    MarketCompanySummary inMandateAs(TriageCompanyStatus stage) {
+        return new MarketCompanySummary(apolloAccountId, companyName, industry, country, city, employees,
+                foundedYear, website, stage == null ? null : stage.value());
     }
 }

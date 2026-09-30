@@ -65,20 +65,29 @@ public class AssistantProposalService {
                     "Every company must be one this proposal offered");
         }
 
-        List<String> accountIds = chosen.stream().filter(key -> !card.researched().containsKey(key)).toList();
+        // A company the card showed as already filed keeps its stage: filing it again would only ever be
+        // skipped, and a stale tab must not be the way a declined company comes back.
+        Set<String> held = card.companies().stream()
+                .filter(ProposedCompany::alreadyInMandate)
+                .map(ProposedCompany::key)
+                .collect(Collectors.toSet());
+        List<String> fileable = chosen.stream().filter(key -> !held.contains(key)).toList();
+
+        List<String> accountIds = fileable.stream().filter(key -> !card.researched().containsKey(key)).toList();
         TriageBulkAddResponse fromUniverse = accountIds.isEmpty() ? new TriageBulkAddResponse(0, 0)
                 : triage.addSelected(userId, workspaceId, projectId,
                         new AddSelectedTriageCompaniesRequest(accountIds, request.status()),
                         TriageCompanySource.ASSISTANT, httpRequest);
-        long researchedAdded = chosen.stream()
+        long researchedAdded = fileable.stream()
                 .filter(card.researched()::containsKey)
                 .filter(slug -> triage.captureResearched(userId, workspaceId, projectId,
                         card.researched().get(slug), TriageCompanySource.ASSISTANT, request.status(), httpRequest))
                 .count();
-        int researchedChosen = chosen.size() - accountIds.size();
+        int researchedChosen = fileable.size() - accountIds.size();
         TriageBulkAddResponse filed = new TriageBulkAddResponse(
                 fromUniverse.added() + (int) researchedAdded,
-                fromUniverse.skipped() + researchedChosen - (int) researchedAdded);
+                fromUniverse.skipped() + researchedChosen - (int) researchedAdded
+                        + chosen.size() - fileable.size());
         turn.recordAccepted(new ProposalOutcome(request.status(), filed.added(), filed.skipped()));
         turns.save(turn);
         return filed;
