@@ -1,0 +1,263 @@
+{
+  "diversity" : {
+    "gccNationals" : 2,
+    "genderByLevel" : [ {
+      "female" : 0,
+      "level" : "Board",
+      "male" : 0,
+      "other" : 0
+    }, {
+      "female" : 1,
+      "level" : "C-Suite",
+      "male" : 0,
+      "other" : 0
+    }, {
+      "female" : 0,
+      "level" : "N-1",
+      "male" : 1,
+      "other" : 0
+    }, {
+      "female" : 0,
+      "level" : "N-2",
+      "male" : 0,
+      "other" : 0
+    }, {
+      "female" : 0,
+      "level" : "N-3",
+      "male" : 0,
+      "other" : 0
+    } ],
+    "genderUnrecorded" : 1,
+    "genderWithoutLevel" : {
+      "female" : 0,
+      "male" : 0,
+      "other" : 0
+    },
+    "levels" : [ "Board", "C-Suite", "N-1", "N-2", "N-3" ],
+    "nationalities" : [ {
+      "byLevel" : [ {
+        "count" : 0,
+        "level" : "Board"
+      }, {
+        "count" : 1,
+        "level" : "C-Suite"
+      }, {
+        "count" : 0,
+        "level" : "N-1"
+      }, {
+        "count" : 0,
+        "level" : "N-2"
+      }, {
+        "count" : 0,
+        "level" : "N-3"
+      } ],
+      "gcc" : true,
+      "nationality" : "Saudi",
+      "total" : 1,
+      "unclassified" : 0
+    }, {
+      "byLevel" : [ {
+        "count" : 0,
+        "level" : "Board"
+      }, {
+        "count" : 0,
+        "level" : "C-Suite"
+      }, {
+        "count" : 1,
+        "level" : "N-1"
+      }, {
+        "count" : 0,
+        "level" : "N-2"
+      }, {
+        "count" : 0,
+        "level" : "N-3"
+      } ],
+      "gcc" : false,
+      "nationality" : "Arab expat, non-GCC",
+      "total" : 1,
+      "unclassified" : 0
+    }, {
+      "byLevel" : [ {
+        "count" : 0,
+        "level" : "Board"
+      }, {
+        "count" : 0,
+        "level" : "C-Suite"
+      }, {
+        "count" : 0,
+        "level" : "N-1"
+      }, {
+        "count" : 0,
+        "level" : "N-2"
+      }, {
+        "count" : 0,
+        "level" : "N-3"
+      } ],
+      "gcc" : true,
+      "nationality" : "Emirati",
+      "total" : 1,
+      "unclassified" : 1
+    } ],
+    "unknownNationality" : 0
+  },
+  "head" : {
+    "executivesMapped" : 3,
+    "generatedAt" : "<instant>",
+    "truncated" : false,
+    "universeCount" : 2
+  },
+  "market" : {
+    "cells" : [ {
+      "count" : 0,
+      "level" : "Board",
+      "sector" : "food & beverages"
+    }, {
+      "count" : 1,
+      "level" : "C-Suite",
+      "sector" : "food & beverages"
+    }, {
+      "count" : 0,
+      "level" : "N-1",
+      "sector" : "food & beverages"
+    }, {
+      "count" : 0,
+      "level" : "N-2",
+      "sector" : "food & beverages"
+    }, {
+      "count" : 0,
+      "level" : "N-3",
+      "sector" : "food & beverages"
+    }, {
+      "count" : 0,
+      "level" : "Board",
+      "sector" : "retail"
+    }, {
+      "count" : 0,
+      "level" : "C-Suite",
+      "sector" : "retail"
+    }, {
+      "count" : 1,
+      "level" : "N-1",
+      "sector" : "retail"
+    }, {
+      "count" : 0,
+      "level" : "N-2",
+      "sector" : "retail"
+    }, {
+      "count" : 0,
+      "level" : "N-3",
+      "sector" : "retail"
+    } ],
+    "companiesBySector" : [ {
+      "count" : 1,
+      "label" : "food & beverages"
+    }, {
+      "count" : 1,
+      "label" : "retail"
+    } ],
+    "elsewhere" : 0,
+    "hubs" : [ {
+      "count" : 1,
+      "country" : "Saudi Arabia",
+      "depth" : [ {
+        "count" : 1,
+        "level" : "C-Suite"
+      } ],
+      "employers" : [ "Golden Contract Foods" ],
+      "female" : 1,
+      "gccNationals" : 1,
+      "interested" : 1,
+      "medianPackage" : 370000,
+      "point" : null,
+      "recordedGender" : 1
+    }, {
+      "count" : 1,
+      "country" : "United Arab Emirates",
+      "depth" : [ {
+        "count" : 1,
+        "level" : "N-1"
+      } ],
+      "employers" : [ "Golden Contract Retail" ],
+      "female" : 0,
+      "gccNationals" : 0,
+      "interested" : 0,
+      "medianPackage" : null,
+      "point" : null,
+      "recordedGender" : 1
+    }, {
+      "count" : 1,
+      "country" : "Oman",
+      "depth" : [ ],
+      "employers" : [ "Somewhere Untriaged" ],
+      "female" : 0,
+      "gccNationals" : 1,
+      "interested" : 0,
+      "medianPackage" : null,
+      "point" : null,
+      "recordedGender" : 0
+    } ],
+    "levels" : [ "Board", "C-Suite", "N-1", "N-2", "N-3" ],
+    "sectors" : [ "food & beverages", "retail" ],
+    "slices" : [ {
+      "companies" : [ "Golden Contract Foods" ],
+      "executives" : [ {
+        "company" : "Golden Contract Foods",
+        "fullName" : "Yasmin El-Sayed",
+        "id" : "<candidate:yasmin@cfo>",
+        "status" : "interested"
+      } ],
+      "level" : "C-Suite",
+      "sector" : "food & beverages"
+    }, {
+      "companies" : [ "Golden Contract Retail" ],
+      "executives" : [ {
+        "company" : "Golden Contract Retail",
+        "fullName" : "Omar Haddad",
+        "id" : "<candidate:omar@cfo>",
+        "status" : "identified"
+      } ],
+      "level" : "N-1",
+      "sector" : "retail"
+    } ],
+    "unlocated" : 0,
+    "withoutSector" : 1,
+    "withoutSeniority" : 1
+  },
+  "progress" : {
+    "asOf" : "<date>",
+    "companiesCumulative" : [ 2 ],
+    "daily" : [ 3 ],
+    "daysSinceLastExecutive" : 0,
+    "kickoff" : "<date>",
+    "targetCompanies" : 2,
+    "targetDate" : null,
+    "weekly" : [ {
+      "identified" : 3,
+      "weekEnding" : "<date>"
+    } ]
+  },
+  "remuneration" : {
+    "currency" : "USD",
+    "disclosures" : [ {
+      "company" : "Golden Contract Foods",
+      "country" : "Saudi Arabia",
+      "fixed" : 320000,
+      "fullName" : "Yasmin El-Sayed",
+      "id" : "<candidate:yasmin@cfo>",
+      "nationality" : "Saudi",
+      "note" : "Board-ready.",
+      "status" : "interested",
+      "title" : "CFO",
+      "totalPackage" : 370000
+    } ],
+    "fixedBand" : {
+      "high" : 300000,
+      "low" : 240000
+    },
+    "otherCurrency" : 1,
+    "packageBand" : {
+      "high" : 460000,
+      "low" : 388000
+    }
+  }
+}

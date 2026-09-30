@@ -320,6 +320,43 @@ class SpreadsheetImportIntegrationTest extends FlowTestSupport {
     }
 
     @Test
+    @DisplayName("a row whose email a person on another mandate holds maps that person, however it spells the name")
+    void mapsThePersonAnotherMandateHoldsByEmail() throws Exception {
+        String admin = adminOf("Import Pool Firm");
+        String first = project(admin);
+        String second = project(admin);
+        String personId = body(mvc.perform(post("/api/v1/projects/" + first + "/candidates")
+                        .header("Authorization", "Bearer " + admin)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"fullName":"Layla Haddad","title":"Chief Financial Officer",
+                                 "email":"Layla.Haddad@acwa.example"}"""))
+                .andExpect(status().isCreated())
+                .andReturn()).get("personId").asText();
+
+        JsonNode summary = importFile(admin, second, """
+                Full Name,Job Title,Work Email
+                L. Haddad,CFO,layla.haddad@ACWA.example
+                """);
+
+        assertThat(summary.get("rowErrors")).isEmpty();
+        assertThat(summary.get("candidatesCreated").asInt()).isEqualTo(1);
+        JsonNode mapped = candidates(admin, second).get("candidates").get(0);
+        assertThat(mapped.get("personId").asText()).isEqualTo(personId);
+        assertThat(mapped.get("fullName").asText()).isEqualTo("Layla Haddad");
+        assertThat(db.queryForObject("""
+                SELECT count(*) FROM app_lm_person p JOIN app_lm_workspace_member m ON m.workspace_id = p.workspace_id
+                JOIN app_lm_user u ON u.id = m.user_id WHERE u.email = ?""", Integer.class, "alok@" + domain))
+                .isEqualTo(1);
+        assertThat(db.queryForObject("SELECT source FROM app_lm_project_candidate WHERE project_id = ?::uuid",
+                String.class, second)).isEqualTo("CSV");
+        assertThat(db.queryForList("""
+                SELECT kind || ' ' || (details ->> 'door') FROM app_lm_person_activity
+                WHERE person_id = ?::uuid ORDER BY id""", String.class, personId))
+                .containsExactly("ADDED_TO_POOL MANUAL", "MAPPED CSV");
+    }
+
+    @Test
     @DisplayName("another workspace's project is not found, not forbidden")
     void refusesAProjectOutsideTheCallersWorkspace() throws Exception {
         String owner = adminOf("Import Tenant Firm");
