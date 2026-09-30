@@ -19,6 +19,10 @@
       "Bash(gcloud storage buckets delete*)",
       "Bash(gsutil rm*)",
       "Bash(gsutil rb*)"
+    ],
+    "ask": [
+      "Bash(gh workflow run*)",
+      "Bash(gh release create*)"
     ]
   },
   "hooks": {
@@ -31,6 +35,12 @@
             "command": "bash \"$CLAUDE_PROJECT_DIR/.claude/hooks/gcp-mutation-ask.sh\"",
             "timeout": 10,
             "statusMessage": "Checking GCP command"
+          },
+          {
+            "type": "command",
+            "command": "bash \"$CLAUDE_PROJECT_DIR/.claude/hooks/block-merge-to-main.sh\"",
+            "timeout": 15,
+            "statusMessage": "Checking for a merge to main"
           }
         ]
       }
