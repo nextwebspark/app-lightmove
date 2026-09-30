@@ -7,7 +7,9 @@ import java.util.Set;
 import java.util.UUID;
 
 /**
- * One executive mapped for a mandate, as the Companies grid and the profile drawer read them.
+ * One executive mapped for a mandate, as the Companies grid and the profile drawer read them. The
+ * profile is the workspace person's, shared with every other mandate mapping them; {@code status},
+ * {@code note}, {@code source} and {@code customFields} are this mandate's own.
  *
  * <p>{@code companyName} is carried rather than joined: it is the employer snapshotted when the row
  * was written, so it renders identically whether the person is still mapped to one of the mandate's
@@ -44,6 +46,8 @@ public record CandidateResponse(
         Instant addedAt,
         /** When enrichment last filled this profile in; null while research is pending or off. */
         String enrichedAt,
-        /** Every email and phone the mandate knows for them, and when each channel was last looked up. */
-        CandidateContactsDto contacts
+        /** Every email and phone known for them on any mandate, and when each channel was last looked up. */
+        CandidateContactsDto contacts,
+        /** The workspace's person this row maps — one id across every mandate that holds them (V91). */
+        UUID personId
 ) {}

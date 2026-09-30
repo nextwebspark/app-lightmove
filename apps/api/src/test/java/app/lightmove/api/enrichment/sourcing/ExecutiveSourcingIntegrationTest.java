@@ -129,7 +129,7 @@ class ExecutiveSourcingIntegrationTest extends FlowTestSupport {
         assertThat(cfo.get("title").asText()).isEqualTo("Chief Financial Officer at DP World Jeddah");
         assertThat(cfo.get("enrichedAt").isNull()).isFalse();
         assertThat(cfo.get("nationality").asText()).isEqualTo("Emirati");
-        assertThat(db.queryForObject("select enriched_by from app_lm_project_candidate where id = ?::uuid",
+        assertThat(db.queryForObject("select p.enriched_by from app_lm_person p join app_lm_project_candidate c on c.person_id = p.id where c.id = ?::uuid",
                 String.class, cfo.get("id").asText())).isEqualTo("BRIGHTDATA");
 
         assertThat(db.queryForObject("select count(*) from app_lm_audit_event where target_id = ? and event_type in "

@@ -184,8 +184,8 @@ class ContactLookupIntegrationTest extends FlowTestSupport {
         String candidateId = executive(projectId, "Sample Person", "sample-profile");
 
         // Both presses pass the guard before either writes, so both reach here with their own answer.
-        candidates.applyFoundEmails(UUID.fromString(projectId), UUID.fromString(candidateId), EMAILS);
-        CandidateResponse loser = candidates.applyFoundEmails(UUID.fromString(projectId),
+        candidates.applyFoundEmails(null, UUID.fromString(projectId), UUID.fromString(candidateId), EMAILS);
+        CandidateResponse loser = candidates.applyFoundEmails(null, UUID.fromString(projectId),
                 UUID.fromString(candidateId),
                 new FoundEmails("contactout",
                         List.of(new CandidateEmail("later@retailco.example", CandidateEmail.WORK, null))));

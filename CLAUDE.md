@@ -33,6 +33,18 @@ that sits the **people half**: an executive mapped for a mandate, optionally aga
 companies, added by hand from the Companies grid — where a row is a *person at a company*, so a company
 with three of them is three lines and one with none keeps its "Add executive" slot. An executive is also
 captured by the plugin, through the same endpoint the drawer posts to (`source: "extension"`).
+**Every executive is a workspace person first (V91, `docs/candidate-crm.md`)**: `app_lm_person` is the
+human — profile, background, package, contact ledger, research — owned by the workspace, and a mandate's
+`Candidate` row maps that person and keeps only the mandate's own status, note, custom-column values and
+brief-specific AI assessment. Whichever door files someone, `PersonMatcher` first asks whether the
+workspace already knows them — by LinkedIn profile slug, or by an email the ledger holds unless the two
+name different profiles; never by phone (a switchboard is on everyone) and never by name alone — and a
+match is **mapped, not duplicated**: what the new mandate brings only fills what nobody recorded, an
+edit through one mandate is what every other reads, and removing someone from a mandate keeps the
+person. A plugin capture of someone already researched spends no second vendor call. Every change to a
+person — added, mapped, unmapped, status, profile, contacts, research, AI — is a line of
+`app_lm_person_activity` naming who did it, on which mandate, and when, written in the same transaction
+as the change (`PersonActivityRecorder`); the security audit trail is written as before, beside it.
 An executive's drawer also **finds their contacts**: two buttons in the Contact section ask ContactOut
 for an email or a phone, one channel per press because the two bill from separate pools. Every email
 and phone the mandate knows is a row of `app_lm_candidate_contact` (V54, the only store since V55
@@ -285,9 +297,10 @@ every band/facet/taxonomy the search is expressed in. A *strategy company* is a 
 belongs to nobody. **`triagecompany` is the mapping side** — one project↔company row per decision,
 carrying a triage stage (in universe / shortlisted / declined) and a write-time snapshot. A *triage
 company* is a decision. Searching goes in `strategy` however company-shaped its name; `triagecompany`
-holds only what a mandate *did* about a company. **`candidate` is the people side** — one row per
-executive a mandate has mapped, belonging to the *project* and only optionally to one of its triaged
-companies, because a researcher meets people at companies the universe does not carry. It depends on
+holds only what a mandate *did* about a company. **`candidate` is the people side** — a workspace
+`Person` per human, and one `Candidate` row per mandate that maps them, belonging to the *project* and
+only optionally to one of its triaged companies, because a researcher meets people at companies the
+universe does not carry. It depends on
 `triagecompany` through two public methods — resolving the company an executive is mapped to, and
 filing a researched employer into the universe — and `triagecompany` never depends back.
 **`customcolumn` is the columns a mandate added to its own grid** — definitions only, plus the one
@@ -375,8 +388,14 @@ nullable and `source` records which door the row came through (V34).
 left in place rather than dropped. A mandate's whole filter is one `jsonb` column on `app_lm_strategy`
 (V30 explains why). `app_lm_project_candidate` (V36) is the people half: `project_id` is the mapping and
 `triage_company_id` is nullable with **ON DELETE SET NULL** beside a snapshotted `company_name`, so
-removing a company from a mandate unmaps its executives rather than deleting them; career history and
-languages are one `profile` jsonb column for V30's reasons. `app_lm_position` and its six owned-list
+removing a company from a mandate unmaps its executives rather than deleting them. Since V91 it maps a
+`person_id` — `app_lm_person`, tenant data scoped by `workspace_id`, holding the profile (career history
+and languages one `profile` jsonb column for V30's reasons), background, package and research — once
+per mandate (`app_lm_project_candidate_person_uk`). V91 is **expand-only**: the person's columns are
+still on the mandate row, and `app_lm_candidate_contact` / `app_lm_candidate_photo` still exist, for the
+revision serving while Flyway runs; nothing reads them, and a contract migration drops them. Its backfill
+folded existing rows into one person on a shared profile slug or email within a workspace, never two rows
+of one mandate, and wrote each row an `ADDED_TO_POOL` or `MAPPED` line under its `added_by`. `app_lm_position` and its six owned-list
 tables are the brief (V7, grown by V39): every list a step edits is a child table replaced wholesale by
 its step's write, so the aggregate keeps one idiom rather than mixing rows and jsonb. V66 splits its
 `location` into `location_city` + `location_country` (backfilled from the one line; a comma-less value
@@ -409,12 +428,13 @@ tenant-scoped** — a centroid is not client data and carries no PII — and nev
 re-asked after `lightmove.mapbox.cache-ttl` unless the account holds Mapbox's permanent-geocoding
 entitlement (`permanent-geocoding: true`), because their terms forbid storing a temporary result
 indefinitely.
-`app_lm_candidate_contact` (V54) is every email and phone known for an executive, one row each, with
+`app_lm_person_contact` (V91, V54's `app_lm_candidate_contact` keyed on the person) is every email and
+phone known for an executive, one row each, with
 `source` naming the door (`MANUAL` / `CSV` / `EXTENSION` / `CONTACTOUT`) and `kind` / `verified` only
-ever what the provider said. V39's owned-list idiom: `Candidate` rewrites it from its own methods, and
+ever what the provider said. V39's owned-list idiom: `Person` rewrites it from its own methods, and
 its identity is `value_key` (lower-cased address, digits of a number) because providers spell one
 number three ways. A miss is not a row — it is `emails_looked_up_at` / `phones_looked_up_at` on the
-candidate with nothing from the provider beside it. V54 moved the old `profile.contacts` jsonb into
+person with nothing from the provider beside it, so a lookup bought through one mandate answers every other. V54 moved the old `profile.contacts` jsonb into
 the table and V55 dropped the row's `email` and `phone` columns: the ledger is the only store, the
 importer matches a person on any address they hold, and the grid lists them all.
 V61 is the industry catch-up, V50's shape for a second column: the universe publishes LinkedIn's

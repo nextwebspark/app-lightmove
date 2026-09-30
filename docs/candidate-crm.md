@@ -270,6 +270,26 @@ spelled one way. So:
 
 ### Phase 1 — The pool: person/mapping split + auto-map (backend, V91)
 
+> **Built.** Where the build departs from the notes below, the build is what stands:
+> - **Names.** The human is `Person` (`app_lm_person`); `Candidate` stays the mandate's row
+>   (`app_lm_project_candidate`), so every route, id and `CandidateResponse` field the SPA, extension and
+>   importer hold is unchanged. The response gains `personId`. The ledger, photo and timeline are
+>   `app_lm_person_contact`, `app_lm_person_photo` and `app_lm_person_activity`.
+> - **Expand only.** V91 copies contacts and photos into the person tables rather than rekeying V54/V44's,
+>   and leaves the person's columns on the mandate row, because the previous revision is still serving
+>   while Flyway runs. The contract migration (Phase 2) drops them.
+> - **Matching** is profile slug, then email unless the two records name different profiles. **Phone is
+>   not a key** — a switchboard is on every executive of a company. A name alone never matches; the
+>   possible-duplicate 409 and its dialog ship with the SPA phase that draws the dialog, so until then a
+>   name-only match simply founds a second person, which the merge tool will fold.
+> - **Activity kinds** in V91: `ADDED_TO_POOL, MAPPED, UNMAPPED, STATUS_CHANGED, PROFILE_EDITED,
+>   CONTACTS_EDITED, CONTACT_FOUND, RESEARCHED, AI_ASSESSED`. The door rides in `details` (so no
+>   `IMPORTED`), and a confirmed background is a `PROFILE_EDITED` detail.
+> - **Research once.** A plugin capture of someone already researched spends no vendor call; the new
+>   mandate still has them scored against its own brief.
+> - The within-mandate name rule (`CANDIDATE_ALREADY_MAPPED` for a second person of one name at one
+>   company) is held by the service alone now that V36's name indexes are gone.
+
 - **V91** creates `app_lm_candidate`, adds `candidate_id` to `app_lm_project_candidate`, backfills as above,
   re-points `app_lm_candidate_contact` and `app_lm_candidate_photo` (recreate with the new FK, copy rows,
   union on the PK), sets `candidate_id NOT NULL`, adds the unique `(project_id, candidate_id)` and drops

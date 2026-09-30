@@ -193,7 +193,7 @@ class CompaniesCsvWriterTest {
         return new PersonBuilder(new CandidateResponse(UUID.randomUUID(), null, null, name, null, null,
                 "identified", null, null, null, null, null, null, Set.of(), null, null, null,
                 List.of(), List.of(), List.of(), List.of(), "manual", null, Map.of(), null, null,
-                new CandidateContactsDto(List.of(), List.of(), null, null, null)));
+                new CandidateContactsDto(List.of(), List.of(), null, null, null), null));
     }
 
     /**
@@ -298,7 +298,7 @@ class CompaniesCsvWriterTest {
                     response.yearsExperience(), response.aiInferredFields(), response.summary(),
                     response.note(), response.compensation(), response.career(), response.languages(),
                     response.education(), response.skills(), response.source(), response.sourceUrl(),
-                    customFields, response.addedAt(), response.enrichedAt(), contacts));
+                    customFields, response.addedAt(), response.enrichedAt(), contacts, response.personId()));
         }
     }
 

@@ -254,7 +254,10 @@ an `EditTriageCompanyRequest`, a `SaveCandidateRequest` — and hands them to `T
 `CandidateService`. Every scope check, duplicate rule, source resolution, snapshot and audit event
 therefore stays in the one place that already owns it, and an import cannot drift from what the screen
 does. The only genuinely new seams are two reads: find a company of this project by name, find a person
-of this project by email or by name at a company.
+of this project by email or by name at a company. A row matching nobody on this mandate still goes
+through the add every door shares, so someone the workspace already knows from another mandate — by
+LinkedIn profile or email — is mapped rather than duplicated, and the file only fills what nobody
+recorded (V91, `docs/candidate-crm.md`).
 
 Three consequences worth naming:
 

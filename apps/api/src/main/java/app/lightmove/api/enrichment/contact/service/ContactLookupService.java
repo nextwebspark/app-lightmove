@@ -66,7 +66,7 @@ public class ContactLookupService {
         }
         requireBudget(ContactChannel.EMAIL, userId);
         FoundEmails found = ask(() -> finder.findEmails(state.linkedinUrl()));
-        CandidateResponse candidate = candidates.applyFoundEmails(projectId, candidateId, found);
+        CandidateResponse candidate = candidates.applyFoundEmails(userId, projectId, candidateId, found);
         boolean foundNothing = foundNothing(
                 candidate.contacts().emails().stream().map(CandidateEmailDto::source), found.source());
         return answered(outcomeOf(foundNothing), candidate,
@@ -82,7 +82,7 @@ public class ContactLookupService {
         }
         requireBudget(ContactChannel.PHONE, userId);
         FoundPhones found = ask(() -> finder.findPhones(state.linkedinUrl()));
-        CandidateResponse candidate = candidates.applyFoundPhones(projectId, candidateId, found);
+        CandidateResponse candidate = candidates.applyFoundPhones(userId, projectId, candidateId, found);
         boolean foundNothing = foundNothing(
                 candidate.contacts().phones().stream().map(CandidatePhoneDto::source), found.source());
         return answered(outcomeOf(foundNothing), candidate,

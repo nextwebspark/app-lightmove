@@ -83,7 +83,7 @@ class CandidateAiEnrichWorker {
         CandidateAiEnrichment enrichment = assessed
                 .map(found -> new CandidateAiEnrichment(found.background(), found.assessment(), reading))
                 .orElseGet(() -> new CandidateAiEnrichment(null, null, reading));
-        candidates.applyAiEnrichment(request.projectId(), request.candidateId(), enrichment);
+        candidates.applyAiEnrichment(request.projectId(), request.candidateId(), request.requestedBy(), enrichment);
     }
 
     /** Best-effort: the drawer waiting on this run is told it failed rather than left to time out. */
