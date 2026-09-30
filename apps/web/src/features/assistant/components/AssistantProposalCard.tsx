@@ -30,8 +30,9 @@ export function AssistantProposalCard({
   onAccept: (companyIds: string[], status: TriageCompanyStatus) => void;
 }) {
   const [ticked, setTicked] = useState<string[]>(() =>
-    proposal.companies.map(companyKey),
+    proposal.companies.filter((company) => !company.stage).map(companyKey),
   );
+  const allHeld = proposal.companies.every((company) => company.stage);
 
   if (outcome) {
     return (
@@ -61,6 +62,7 @@ export function AssistantProposalCard({
         {proposal.companies.map((company) => {
           const key = companyKey(company);
           const on = ticked.includes(key);
+          const held = company.stage ? TRIAGE_STAGES.find((stage) => stage.status === company.stage) : undefined;
           return (
             <li
               key={key}
@@ -71,7 +73,8 @@ export function AssistantProposalCard({
             >
               <SelectionCheckbox
                 checked={on}
-                label={`Include ${company.companyName}`}
+                disabled={Boolean(held)}
+                label={held ? `${company.companyName} is already ${held.label}` : `Include ${company.companyName}`}
                 onChange={() => toggle(key)}
               />
               <CompanyLogo name={company.companyName} logo={company.logoUrl} size={22} />
@@ -94,6 +97,17 @@ export function AssistantProposalCard({
                       LinkedIn
                     </a>
                   )}
+                  {held && (
+                    <span
+                      title={`Already in this mandate as ${held.label}`}
+                      className={cn(
+                        "ms-1.5 rounded bg-u-raised px-1 py-px align-middle font-mono text-[9.5px] font-normal text-u-text2",
+                        held.status === "declined" && "text-u-offlimits",
+                      )}
+                    >
+                      {held.label}
+                    </span>
+                  )}
                 </p>
                 <p className="truncate font-mono text-[10.5px] text-u-text3">{meta(company)}</p>
                 {company.operates && company.operates !== company.companyName && (
@@ -107,7 +121,7 @@ export function AssistantProposalCard({
 
       <div className="border-t border-u-border bg-u-raised px-3 py-2.5">
         <p className="mb-[7px] font-mono text-[11px] text-u-text3">
-          {acceptCountLabel(ticked.length)}
+          {allHeld ? "All already in this mandate" : acceptCountLabel(ticked.length)}
         </p>
         <div className="flex flex-wrap items-center gap-1.5">
           {TRIAGE_STAGES.map((stage) => (

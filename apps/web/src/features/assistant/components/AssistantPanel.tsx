@@ -23,6 +23,11 @@ function withWritingStep(steps: LiveStep[]): LiveStep[] {
   return [...steps, { index: steps.length, label: "Writing the answer", detail: null, done: false }];
 }
 
+/** A slow answer is still being saved: asking again would pay for it twice. */
+function isStillAnswering(error: unknown): boolean {
+  return error instanceof ApiRequestError && error.code === "ASSISTANT_STILL_ANSWERING";
+}
+
 /**
  * Stands in for the card until the turn is saved: a card drawn early is redrawn under the answer
  * once it lands, which read as a glitch.
@@ -110,22 +115,32 @@ export function AssistantPanel({ contextLabel, projectId }: { contextLabel: stri
       queryClient.setQueryData(key, fresh);
       showThread(projectId, turn.threadId);
     },
-    // A slow answer is still saved, so it is looked for again rather than asked for again.
-    onError: (error) => {
+    // A slow answer is still saved, so it is looked for again rather than asked for again. Any other
+    // failure saved nothing, so the question goes back in the composer rather than being lost.
+    onError: (error, question) => {
       setPendingQuestion(null);
       setLiveProposal(null);
-      if (error instanceof ApiRequestError && error.code === "ASSISTANT_STILL_ANSWERING") {
-        void queryClient.invalidateQueries({ queryKey: assistantApi.ASSISTANT_THREADS_KEY(projectId) });
-        if (threadId) {
-          const key = assistantApi.ASSISTANT_THREAD_KEY(threadId);
-          window.setTimeout(() => void queryClient.invalidateQueries({ queryKey: key }), STILL_ANSWERING_RECHECK_MS);
-        }
+      if (!isStillAnswering(error)) {
+        setDraft((current) => current || question);
+        return;
+      }
+      void queryClient.invalidateQueries({ queryKey: assistantApi.ASSISTANT_THREADS_KEY(projectId) });
+      if (threadId) {
+        const key = assistantApi.ASSISTANT_THREAD_KEY(threadId);
+        window.setTimeout(() => void queryClient.invalidateQueries({ queryKey: key }), STILL_ANSWERING_RECHECK_MS);
       }
     },
   });
 
   const handleSend = () => {
     const question = draft.trim();
+    if (!question || asking.isPending) return;
+    setDraft("");
+    asking.mutate(question);
+  };
+
+  const handleRetry = () => {
+    const question = asking.variables;
     if (!question || asking.isPending) return;
     setDraft("");
     asking.mutate(question);
@@ -262,9 +277,20 @@ export function AssistantPanel({ contextLabel, projectId }: { contextLabel: stri
         )}
 
         {asking.isError && (
-          <p role="alert" className="font-sans text-[11.5px] text-u-offlimits">
-            {messageFor(asking.error)}
-          </p>
+          <div className="flex items-start gap-2">
+            <p role="alert" className="flex-1 font-sans text-[11.5px] text-u-offlimits">
+              {messageFor(asking.error)}
+            </p>
+            {!isStillAnswering(asking.error) && (
+              <button
+                type="button"
+                onClick={handleRetry}
+                className="flex-none rounded-md border border-u-border-strong bg-u-surface px-2 py-1 font-sans text-[11.5px] font-medium text-u-text2 transition hover:border-u-inferred hover:text-u-text"
+              >
+                Try again
+              </button>
+            )}
+          </div>
         )}
 
         {empty && !threadId && (

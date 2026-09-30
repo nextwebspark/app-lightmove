@@ -252,6 +252,29 @@ describe("a chat with the assistant", () => {
     await send("Top retailers in UAE");
 
     expect(await screen.findByText(/no need to ask again/)).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Try again" })).not.toBeInTheDocument();
+    expect(screen.getByRole("textbox", { name: "Ask the assistant" })).toHaveValue("");
+  });
+
+  it("keeps a question the assistant could not answer, and asks it again in one press", async () => {
+    const { ApiRequestError } = await import("../../lib/apiClient");
+    ask.mockRejectedValueOnce(new ApiRequestError({
+      code: "ASSISTANT_UNAVAILABLE", detail: "", status: 503, correlationId: "none",
+    }));
+    ask.mockResolvedValueOnce(turn("t1", "th1", { question: "Top retailers in UAE" }));
+    getThread.mockResolvedValue(thread("th1", [turn("t1", "th1", { question: "Top retailers in UAE" })]));
+
+    mount();
+    await send("Top retailers in UAE");
+
+    const retry = await screen.findByRole("button", { name: "Try again" });
+    expect(screen.getByRole("textbox", { name: "Ask the assistant" })).toHaveValue("Top retailers in UAE");
+
+    await userEvent.click(retry);
+
+    expect(await screen.findByText("Answer t1")).toBeInTheDocument();
+    expect(ask).toHaveBeenLastCalledWith("p1", "Top retailers in UAE", null, expect.any(Function), expect.any(Function));
+    expect(screen.getByRole("textbox", { name: "Ask the assistant" })).toHaveValue("");
   });
 
   it("shows a sent question once, acknowledged at once, and follows the chat down as it grows", async () => {
