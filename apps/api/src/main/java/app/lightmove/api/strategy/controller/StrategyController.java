@@ -4,6 +4,7 @@ import app.lightmove.api.core.security.model.AuthPrincipal;
 import app.lightmove.api.core.security.rbac.ProjectAction;
 import app.lightmove.api.core.security.rbac.RequireProjectPermission;
 import app.lightmove.api.strategy.dto.PutOffLimitsRequest;
+import app.lightmove.api.strategy.dto.PutPeopleFilterRequest;
 import app.lightmove.api.strategy.dto.PutStrategyFilterRequest;
 import app.lightmove.api.strategy.dto.SaveSearchRequest;
 import app.lightmove.api.strategy.dto.SavedSearchResponse;
@@ -57,6 +58,16 @@ public class StrategyController {
                                       @Valid @RequestBody PutStrategyFilterRequest request,
                                       HttpServletRequest httpRequest) {
         return strategy.putFilter(principal.userId(), principal.requireWorkspaceId(),
+                projectId, request, httpRequest);
+    }
+
+    @PutMapping("/people/filter")
+    @RequireProjectPermission(ProjectAction.PROJECT_EDIT)
+    public StrategyResponse putPeopleFilter(@AuthenticationPrincipal AuthPrincipal principal,
+                                            @PathVariable UUID projectId,
+                                            @Valid @RequestBody PutPeopleFilterRequest request,
+                                            HttpServletRequest httpRequest) {
+        return strategy.putPeopleFilter(principal.userId(), principal.requireWorkspaceId(),
                 projectId, request, httpRequest);
     }
 

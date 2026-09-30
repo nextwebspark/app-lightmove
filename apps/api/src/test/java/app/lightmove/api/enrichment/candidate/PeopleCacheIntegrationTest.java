@@ -65,7 +65,7 @@ class PeopleCacheIntegrationTest {
     void aPurgeDeletesOnlyTheAged() {
         people.rememberAll("brightdata", new BrightDataPeopleHits(List.of(person("aged-one"), person("fresh-one")),
                 List.of("{\"linkedin_id\":\"aged-one\",\"unbound_field\":1}", "{\"linkedin_id\":\"fresh-one\"}"),
-                null));
+                List.of(), null));
         db.update("UPDATE app_lm_vendor_person SET fetched_at = now() - interval '40 days' WHERE linkedin_slug = 'aged-one'");
 
         people.purgeFetchedBefore(Instant.now().minus(Duration.ofDays(30)));

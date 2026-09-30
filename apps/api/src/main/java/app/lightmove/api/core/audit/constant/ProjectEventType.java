@@ -45,6 +45,9 @@ public enum ProjectEventType implements AuditEventType {
     EXECUTIVE_SOURCING_REQUESTED,
     EXECUTIVE_SOURCING_COMPLETED,
 
+    /** A page of Strategy's people search, recorded because a page not already cached is bought. */
+    PEOPLE_SEARCH_PAGE_FETCHED,
+
     CUSTOM_COLUMN_DEFINED,
     CUSTOM_COLUMN_UPDATED,
     CUSTOM_COLUMN_REORDERED,

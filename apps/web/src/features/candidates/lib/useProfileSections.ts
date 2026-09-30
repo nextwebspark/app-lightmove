@@ -1,13 +1,19 @@
 import { useCallback, useEffect, useState } from "react";
 
-/** The folds on the profile panel, in the order they appear. */
+/** The folds on an executive's profile panel — the candidate drawer and the People preview — in order. */
 export const PROFILE_SECTIONS = [
+  "company",
   "summary",
   "ai",
   "experience",
   "education",
   "compensation",
+  "profile",
   "background",
+  "certifications",
+  "publications",
+  "projects",
+  "volunteering",
   "contact",
   "columns",
   "note",
@@ -19,12 +25,18 @@ type OpenState = Record<ProfileSection, boolean>;
 
 /** What a first visit shows: the three things a consultant reads before deciding to call. */
 const DEFAULTS: OpenState = {
+  company: false,
   summary: true,
   ai: true,
   experience: true,
   education: false,
   compensation: true,
+  profile: false,
   background: false,
+  certifications: false,
+  publications: false,
+  projects: false,
+  volunteering: false,
   contact: false,
   columns: false,
   note: false,

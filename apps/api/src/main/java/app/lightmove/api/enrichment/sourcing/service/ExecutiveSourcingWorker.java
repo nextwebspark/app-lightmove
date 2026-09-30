@@ -3,6 +3,7 @@ package app.lightmove.api.enrichment.sourcing.service;
 import app.lightmove.api.candidate.constant.EnrichmentVendor;
 import app.lightmove.api.candidate.dto.SaveCandidateRequest;
 import app.lightmove.api.candidate.model.EnrichedProfile;
+import app.lightmove.api.candidate.model.ResearchedFiling;
 import app.lightmove.api.candidate.service.CandidateService;
 import app.lightmove.api.core.audit.constant.ProjectEventType;
 import app.lightmove.api.core.audit.service.AuditService;
@@ -12,6 +13,7 @@ import app.lightmove.api.core.error.constant.ErrorCode;
 import app.lightmove.api.core.error.model.ApiException;
 import app.lightmove.api.enrichment.candidate.model.BrightDataPerson;
 import app.lightmove.api.enrichment.candidate.service.BrightDataPersonProfiles;
+import app.lightmove.api.enrichment.common.service.SearchHitFiling;
 import app.lightmove.api.enrichment.candidate.service.ProfilePhotoDownloader;
 import app.lightmove.api.enrichment.sourcing.constant.SourcingOutcome;
 import app.lightmove.api.enrichment.sourcing.model.CompanyOutcome;
@@ -47,15 +49,11 @@ import org.springframework.transaction.event.TransactionalEventListener;
  * words, then the companies a few at a time — a vendor search, reworded while it finds nobody, and a
  * filing per hit — recording each company as it finishes so the strip moves. Not {@code @Transactional}: every vendor
  * and model call is made with no connection held, and the writes go through {@link SourcingRunStore}
- * and {@code CandidateService.addSourced}, each its own transaction.
+ * and {@code CandidateService.addResearched}, each its own transaction.
  */
 @Component
 @Slf4j
 class ExecutiveSourcingWorker {
-
-    private static final int MAX_NAME = 200;
-    /** V91's one row per project-person — what a race to file the same executive twice collides on. */
-    private static final List<String> NAME_INDEXES = List.of("app_lm_project_candidate_person_uk");
 
     private final SourcingRunStore store;
     private final ChainedPeopleSearch peopleSearch;
@@ -246,12 +244,13 @@ class ExecutiveSourcingWorker {
         private ExecutivePick file(SourcingCompany company, BrightDataPerson person, EnrichmentVendor researchedBy) {
             EnrichedProfile research = BrightDataPersonProfiles.toEnrichedProfile(person, researchedBy)
                     .withPhoto(photos.fetchOrNull(person.usableAvatarUrl()));
-            String name = nameOf(person);
+            String name = SearchHitFiling.nameOf(person);
             SaveCandidateRequest filing = SaveCandidateRequest.ofFoundExecutive(company.triageCompanyId(), name,
                     research.title(), person.profileUrl(), research.locationCountry(), research.locationCity());
             try {
-                UUID candidateId = candidates.addSourced(request.requestedBy(), request.workspaceId(),
-                        request.projectId(), filing, research, request.runId()).id();
+                UUID candidateId = candidates.addResearched(request.requestedBy(), request.workspaceId(),
+                        request.projectId(), filing, research, ResearchedFiling.ofSourcingRun(request.runId()))
+                        .candidate().id();
                 heldSlugs.add(person.linkedinId());
                 return ExecutivePick.of(name, candidateId);
             } catch (ApiException refused) {
@@ -260,23 +259,11 @@ class ExecutiveSourcingWorker {
                 }
                 return ExecutivePick.of(name, null);
             } catch (DataIntegrityViolationException raced) {
-                if (!isNameCollision(raced)) {
+                if (!SearchHitFiling.isNameCollision(raced)) {
                     throw raced;
                 }
                 return ExecutivePick.of(name, null);
             }
-        }
-
-        /** Vendor text, so bounded to what the request accepts. */
-        private static String nameOf(BrightDataPerson person) {
-            String name = person.name() == null || person.name().isBlank() ? person.linkedinId() : person.name().strip();
-            return name.length() <= MAX_NAME ? name : name.substring(0, MAX_NAME);
-        }
-
-        /** V36's two name indexes: someone of that name was filed at the company between the check and the insert. */
-        private static boolean isNameCollision(DataIntegrityViolationException raced) {
-            String cause = String.valueOf(raced.getMostSpecificCause().getMessage());
-            return NAME_INDEXES.stream().anyMatch(cause::contains);
         }
 
         /** Hits with a slug to key on, not already mapped in the mandate — including by this run. */

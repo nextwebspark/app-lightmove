@@ -7,11 +7,14 @@ import app.lightmove.api.core.error.model.ApiException;
 import app.lightmove.api.core.security.model.User;
 import app.lightmove.api.core.security.repository.UserRepository;
 import app.lightmove.api.project.repository.ProjectRepository;
+import app.lightmove.api.strategy.constant.SearchKind;
 import app.lightmove.api.strategy.constant.SearchVisibility;
 import app.lightmove.api.strategy.dto.SaveSearchRequest;
 import app.lightmove.api.strategy.dto.SavedSearchResponse;
+import app.lightmove.api.strategy.dto.PeopleFilterDto;
 import app.lightmove.api.strategy.dto.StrategyFilterDto;
 import app.lightmove.api.strategy.dto.UpdateSearchRequest;
+import app.lightmove.api.strategy.model.PeopleFilter;
 import app.lightmove.api.strategy.model.Strategy;
 import app.lightmove.api.strategy.model.StrategyFilter;
 import app.lightmove.api.strategy.model.StrategySearch;
@@ -20,6 +23,7 @@ import app.lightmove.api.strategy.repository.StrategySearchRepository;
 import jakarta.servlet.http.HttpServletRequest;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.UUID;
 import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
@@ -61,14 +65,17 @@ public class StrategySearchService {
         SearchVisibility visibility = request.visibility();
         requireRoomFor(projectId, userId, visibility);
 
-        StrategyFilter filter = strategies.findByProjectId(projectId)
-                .map(Strategy::getFilter)
-                .orElseGet(StrategyFilter::empty);
+        Optional<Strategy> strategy = strategies.findByProjectId(projectId);
+        String name = request.name().trim();
+        StrategySearch search = request.kind() == SearchKind.PEOPLE
+                ? StrategySearch.ofPeople(projectId, name,
+                        strategy.map(Strategy::getPeopleFilter).orElseGet(PeopleFilter::empty), visibility, userId)
+                : StrategySearch.of(projectId, name,
+                        strategy.map(Strategy::getFilter).orElseGet(StrategyFilter::empty), visibility, userId);
 
         // The partial unique indexes are the real guard against two saves racing on one name;
         // GlobalExceptionHandler maps both to STRATEGY_SEARCH_NAME_TAKEN.
-        StrategySearch saved = searches.save(
-                StrategySearch.of(projectId, request.name().trim(), filter, visibility, userId));
+        StrategySearch saved = searches.save(search);
         durable();
 
         audit.projectEvent(ProjectEventType.STRATEGY_SEARCH_SAVED, userId, workspaceId, projectId, httpRequest)
@@ -127,9 +134,12 @@ public class StrategySearchService {
                                             HttpServletRequest httpRequest) {
         projects.requireInWorkspace(projectId, workspaceId);
         StrategySearch search = requireEditable(searchId, projectId, userId);
-        search.replaceFilter(strategies.findByProjectId(projectId)
-                .map(Strategy::getFilter)
-                .orElseGet(StrategyFilter::empty));
+        Optional<Strategy> strategy = strategies.findByProjectId(projectId);
+        if (search.getKind() == SearchKind.PEOPLE) {
+            search.replacePeopleFilter(strategy.map(Strategy::getPeopleFilter).orElseGet(PeopleFilter::empty));
+        } else {
+            search.replaceFilter(strategy.map(Strategy::getFilter).orElseGet(StrategyFilter::empty));
+        }
 
         durable();
 
@@ -205,8 +215,10 @@ public class StrategySearchService {
     }
 
     private static SavedSearchResponse toDto(StrategySearch search, Map<UUID, String> authors) {
-        return new SavedSearchResponse(search.getId(), search.getName(),
-                StrategyFilterDto.of(search.getFilter()), search.getVisibility(),
+        return new SavedSearchResponse(search.getId(), search.getName(), search.getKind(),
+                StrategyFilterDto.of(search.getFilter()),
+                search.getPeopleFilter() == null ? null : PeopleFilterDto.of(search.getPeopleFilter()),
+                search.getVisibility(),
                 search.getCreatedBy(), authors.get(search.getCreatedBy()),
                 search.getCreatedAt(), search.getUpdatedAt());
     }

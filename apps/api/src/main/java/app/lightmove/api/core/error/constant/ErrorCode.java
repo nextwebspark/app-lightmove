@@ -207,6 +207,29 @@ public enum ErrorCode {
     EXECUTIVE_SOURCING_IN_PROGRESS(HttpStatus.CONFLICT,
             "A Find executives run is already in progress for this mandate"),
 
+    /** No ContactOut key, or it refuses ours: an operator's problem either way, so they read the same. */
+    PEOPLE_SEARCH_UNAVAILABLE(HttpStatus.SERVICE_UNAVAILABLE,
+            "People search is not available on this deployment"),
+
+    /** CONTACT_LOOKUP_NO_CREDITS' reason: a spent search quota will not refill shortly. */
+    PEOPLE_SEARCH_NO_CREDITS(HttpStatus.CONFLICT,
+            "People search has no credits left this period"),
+
+    PEOPLE_SEARCH_FAILED(HttpStatus.BAD_GATEWAY,
+            "People search did not answer. Try again in a moment"),
+
+    /** ContactOut refused the question itself; the filter's own checks exist so this is never reached. */
+    PEOPLE_SEARCH_REJECTED(HttpStatus.BAD_REQUEST,
+            "People search could not run that filter. Loosen or change it and try again"),
+
+    /** A search would answer ContactOut's whole index; nothing is spent on it. */
+    PEOPLE_SEARCH_EMPTY_FILTER(HttpStatus.BAD_REQUEST,
+            "Add at least one filter before searching"),
+
+    /** Only a person a search on this mandate returned can be added from it; nothing is bought to add one. */
+    PEOPLE_SEARCH_PERSON_UNKNOWN(HttpStatus.CONFLICT,
+            "That person is no longer in the search results. Search again and add them from there"),
+
     INTERNAL_ERROR(HttpStatus.INTERNAL_SERVER_ERROR, "Something went wrong on our end");
 
     private final HttpStatus status;

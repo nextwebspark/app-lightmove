@@ -1,4 +1,4 @@
-package app.lightmove.api.enrichment.sourcing.service;
+package app.lightmove.api.enrichment.common.service;
 
 import app.lightmove.api.common.location.service.Countries;
 import app.lightmove.api.core.text.service.LinkedInUrls;
@@ -7,7 +7,6 @@ import app.lightmove.api.enrichment.candidate.model.BrightDataPerson;
 import app.lightmove.api.enrichment.candidate.model.BrightDataPerson.BrightDataCurrentCompany;
 import app.lightmove.api.enrichment.candidate.model.BrightDataPerson.BrightDataEducation;
 import app.lightmove.api.enrichment.candidate.model.BrightDataPerson.BrightDataExperience;
-import app.lightmove.api.enrichment.sourcing.model.SearchedEmployer;
 import java.time.Month;
 import java.time.format.TextStyle;
 import java.util.ArrayList;
@@ -22,50 +21,92 @@ import tools.jackson.databind.annotation.JsonNaming;
 
 /**
  * ContactOut's People Search answer read into Bright Data's record shape, which the people cache, the
- * ranking and the filing all speak. The employer's slug is the searched company's, so the cache files
- * the person where a later search at that company looks; the searched company's current role is put
- * first in the career, where the ranking and the profile read the title held now.
+ * ranking and the filing all speak. A search keyed on one company files everyone under that company's
+ * slug, so a later search there finds them; a people-first search files each person under the employer
+ * their own profile names. The employer's current role is put first in the career, where the ranking
+ * and the profile read the title held now.
  */
-final class ContactOutPeopleRecords {
+public final class ContactOutPeopleRecords {
 
     private ContactOutPeopleRecords() {
     }
 
     /** {@code profiles} is an object keyed by profile URL, but an empty answer sends {@code []}, which no Map binds. */
-    static BrightDataPeopleHits toHits(ContactOutSearchAnswer answer, SearchedEmployer employer, ObjectMapper json) {
+    public static BrightDataPeopleHits toHits(ContactOutSearchAnswer answer, ObjectMapper json) {
+        return toHits(answer, null, json);
+    }
+
+    /** {@code searched} null files each person under their own profile's employer. */
+    public static BrightDataPeopleHits toHits(ContactOutSearchAnswer answer, ContactOutEmployerKey searched,
+                                              ObjectMapper json) {
         if (answer == null || answer.profiles() == null || !answer.profiles().isObject()) {
             return BrightDataPeopleHits.of(List.of(), answer == null || answer.metadata() == null ? 0L
                     : answer.metadata().totalResults());
         }
-        List<BrightDataPerson> people = answer.profiles().properties().stream()
-                .map(entry -> toPerson(entry.getKey(), json.treeToValue(entry.getValue(), ContactOutPerson.class),
-                        employer))
-                .filter(Objects::nonNull)
-                .toList();
+        List<BrightDataPerson> people = new ArrayList<>();
+        List<String> sources = new ArrayList<>();
+        answer.profiles().properties().forEach(entry -> {
+            BrightDataPerson person = toPerson(entry.getKey(),
+                    json.treeToValue(entry.getValue(), ContactOutPerson.class), searched);
+            if (person != null) {
+                people.add(person);
+                sources.add(entry.getValue().toString());
+            }
+        });
         Long total = answer.metadata() == null ? null : answer.metadata().totalResults();
-        return BrightDataPeopleHits.of(people, total);
+        return BrightDataPeopleHits.mappedFrom(people, sources, total);
     }
 
     /** Null for a profile whose URL names no {@code /in/} slug — nothing to key or file it on. */
-    static BrightDataPerson toPerson(String profileUrl, ContactOutPerson profile, SearchedEmployer employer) {
+    static BrightDataPerson toPerson(String profileUrl, ContactOutPerson profile, ContactOutEmployerKey searched) {
         String slug = LinkedInUrls.profileSlugOrNull(profileUrl);
         if (slug == null || profile == null) {
             return null;
         }
         List<ContactOutExperience> experience = profile.experience() == null ? List.of() : profile.experience();
-        String companyName = profile.company() == null ? employer.name() : profile.company().name();
+        ContactOutEmployerKey employer = searched != null ? searched : ownEmployerOf(profile, experience);
+        String companyName = profile.company() == null || isBlank(profile.company().name()) ? employer.name()
+                : profile.company().name();
+        String photo = isBlank(profile.profilePictureUrl()) ? null : profile.profilePictureUrl();
+        String companyLink = employer.linkedinSlug() == null ? null
+                : "https://www.linkedin.com/company/" + employer.linkedinSlug() + "/";
         return new BrightDataPerson(slug, slug, profile.fullName(), "https://www.linkedin.com/in/" + slug + "/",
                 profile.summary(), profile.title(), null, profile.location(), Countries.codeOf(profile.country()),
-                companyName,
-                new BrightDataCurrentCompany(companyName, employer.linkedinSlug(),
-                        "https://www.linkedin.com/company/" + employer.linkedinSlug() + "/"),
-                profile.profilePictureUrl(), profile.profilePictureUrl() == null,
+                companyName, new BrightDataCurrentCompany(companyName, employer.linkedinSlug(), companyLink),
+                photo, photo == null,
                 careerOf(experience, employer.linkedinSlug()), educationOf(profile.education()),
                 profile.skills() == null ? List.of() : List.copyOf(profile.skills()),
                 profile.languages() == null ? List.of() : List.copyOf(profile.languages()));
     }
 
-    /** Current roles at the searched company first, then the rest in ContactOut's order. */
+    /**
+     * The profile's own {@code company}, or — ContactOut leaves it blank for someone holding several
+     * current roles — the current role whose title is the profile's title, else the first current one.
+     */
+    private static ContactOutEmployerKey ownEmployerOf(ContactOutPerson profile,
+                                                       List<ContactOutExperience> experience) {
+        ContactOutEmployer company = profile.company();
+        if (company != null && !isBlank(company.name())) {
+            return new ContactOutEmployerKey(LinkedInUrls.companySlugOrNull(company.url()), company.name().strip());
+        }
+        List<ContactOutExperience> current = experience.stream()
+                .filter(role -> role != null && Boolean.TRUE.equals(role.isCurrent()) && !isBlank(role.companyName()))
+                .toList();
+        return current.stream()
+                .filter(role -> profile.title() != null && profile.title().strip().equalsIgnoreCase(
+                        role.title() == null ? "" : role.title().strip()))
+                .findFirst()
+                .or(() -> current.stream().findFirst())
+                .map(role -> new ContactOutEmployerKey(LinkedInUrls.companySlugOrNull(role.linkedinUrl()),
+                        role.companyName().strip()))
+                .orElse(ContactOutEmployerKey.NONE);
+    }
+
+    private static boolean isBlank(String value) {
+        return value == null || value.isBlank();
+    }
+
+    /** Current roles at the employer first, then the rest in ContactOut's order. */
     private static List<BrightDataExperience> careerOf(List<ContactOutExperience> experience, String companySlug) {
         List<ContactOutExperience> ordered = new ArrayList<>(experience.stream().filter(Objects::nonNull).toList());
         ordered.sort(Comparator.comparing(role -> !isCurrentAt(role, companySlug)));
@@ -107,11 +148,17 @@ final class ContactOutPeopleRecords {
         return value == null ? null : value.toString();
     }
 
+    /** The company a person is filed under: its LinkedIn slug, which the cache keys on, and its name. */
+    public record ContactOutEmployerKey(String linkedinSlug, String name) {
+
+        static final ContactOutEmployerKey NONE = new ContactOutEmployerKey(null, null);
+    }
+
     /** One page of People Search; profiles are keyed by their LinkedIn URL. */
-    record ContactOutSearchAnswer(ContactOutSearchMetadata metadata, JsonNode profiles) {}
+    public record ContactOutSearchAnswer(ContactOutSearchMetadata metadata, JsonNode profiles) {}
 
     @JsonNaming(PropertyNamingStrategies.SnakeCaseStrategy.class)
-    record ContactOutSearchMetadata(Integer page, Integer pageSize, Long totalResults) {}
+    public record ContactOutSearchMetadata(Integer page, Integer pageSize, Long totalResults) {}
 
     /** {@code title} is the current role's; {@code experience} the detailed shape {@code detailed_experience} asks for. */
     @JsonNaming(PropertyNamingStrategies.SnakeCaseStrategy.class)
@@ -120,7 +167,7 @@ final class ContactOutPeopleRecords {
                             List<ContactOutEducation> education, List<Object> skills, List<Object> languages,
                             String profilePictureUrl) {}
 
-    record ContactOutEmployer(String name) {}
+    record ContactOutEmployer(String name, String url, String domain) {}
 
     @JsonNaming(PropertyNamingStrategies.SnakeCaseStrategy.class)
     record ContactOutExperience(String title, String companyName, String locality, Integer startDateYear,

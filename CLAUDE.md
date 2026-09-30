@@ -126,7 +126,33 @@ cache answers a search only from the provider it asks. Where Bright Data is also
 behind ContactOut (`PeopleSearchChain`, walked by `ChainedPeopleSearch`, the cache wrapping each provider): a company ContactOut finds nobody at, cannot key, or fails on —
 out of credits included — is searched on the dataset, and filed `enriched_by = BRIGHTDATA`; the run's
 outcome records the `source` that answered. Offered where the chosen index is configured
-(`provider: brightdata`, or a ContactOut key); a client seat sees none of it. The **Reports**
+(`provider: brightdata`, or a ContactOut key); a client seat sees none of it. **Strategy → People**
+(`enrichment/peoplesearch`, V93) is the sixth door: a Companies | People toggle on the Strategy
+toolbar (`?mode=people`, staff only) swaps the company filter for ContactOut's People Search filter —
+only parameters its API reference lists, the values its accepted-values sheet lists
+(`data/contactout-people-vocabulary.json`; the dashboard's Revenue, Gender and exclude lists have no
+API). The filter autosaves as `app_lm_strategy.people_filter` and is counted free and live
+(`GET …/strategy/people/count`, its own 10/s pacer beside search's 60/min); **Search** is a press
+(`POST …/strategy/people/search?page=`), the top 25 in ContactOut's order — it offers no other — and
+Load more the next 25. Every page goes through the V87 cache keyed on the body and the page, so the
+same question and page is never bought twice, by anyone, and the screen reopens on the pages already
+bought (`GET …/strategy/people/results`, which never buys). The mandate's declined companies narrow only
+the free count: the search asks exactly the question it is cached under, since that page answers every
+workspace, and people at declined companies — the whole stage, by name or LinkedIn slug — are left off
+the page as it is read, so declining someone never turns a paid page into a new question. A person already mapped
+comes back, and is billed, because ContactOut cannot exclude one — the grid marks them "In mandate".
+The selection bar and the person panel file the ticked people at **In universe, Shortlisted or
+Declined** — the stage lands on their employer, filed by `captureFromResearch` as `PEOPLE_SEARCH` and
+matched to the market where it can be, while an employer already held keeps its stage — from the
+cache, never the vendor (`addResearched`, `PEOPLE_SEARCH`, `enriched_by = CONTACTOUT`, no AI
+enrichment). V94 keeps each ContactOut profile whole (`source_record`) beside the Bright Data-shaped
+`raw`, so the panel shows everything it sent — headline, company facts, certifications, projects, the
+free contact-availability flags — a fold per part, drawn only when it has something; once the person is
+in the mandate the panel's Contact fold is the candidate drawer's, Find email and phone included. The
+results read as a Table or as Cards (a per-viewer localStorage choice). The Location box suggests from
+two letters: countries, then LinkedIn's own spellings of where people on file live (`raw ->> 'city'`),
+then Mapbox, sent as `City, Country`. Saved searches carry a `kind`.
+The **Reports**
 tab is the mandate's talent mapping report (`GET /projects/{id}/report`): four chapters — mapping
 progress, shape of the market, remuneration, diversity — aggregated live by `report` from the same
 rows, so nothing is stored and nothing goes stale. It reads one chapter at a time behind a numbered
@@ -272,7 +298,7 @@ the mockups: if a screen isn't being built this session, its tables and entities
 
 | Path | What |
 |---|---|
-| `apps/api` | Spring Boot 4.1 (Java 21, Maven). Features: `core`, `common`, `workspace`, `project`, `position`, `positiontemplate`, `strategy`, `triagecompany`, `candidate`, `enrichment` (with `sourcing`, the Find executives run), `customcolumn`, `dataimport`, `dataexport`, `geocoding`, `talentmap`, `report`, `assistant` |
+| `apps/api` | Spring Boot 4.1 (Java 21, Maven). Features: `core`, `common`, `workspace`, `project`, `position`, `positiontemplate`, `strategy`, `triagecompany`, `candidate`, `enrichment` (with `sourcing`, the Find executives run, and `peoplesearch`, Strategy's People mode), `customcolumn`, `dataimport`, `dataexport`, `geocoding`, `talentmap`, `report`, `assistant` |
 | `apps/web` | React 19 SPA (Vite 8, TypeScript, Tailwind v4) |
 | `apps/extension` | LightMove Capture — the Chrome extension (Manifest V3, React 19, Vite 8). Its own workspace; shares no code with `apps/web`. |
 | `claude-design/` | HTML mockups — **the source of truth for all UI**. Read the relevant `*.dc.html` before building a screen. |
@@ -501,6 +527,13 @@ exhaustive; nothing writes it).
 V88 holds a mandate to one run in progress (a partial unique index behind the service's own check), and
 the next request fails a run still marked in progress past `run-deadline`, since its worker died with
 the instance.
+V93 is Strategy's People mode: `app_lm_strategy.people_filter` and `app_lm_strategy_search.kind` +
+`people_filter` (a people search leaves the company `filter` empty rather than null), a nullable
+`app_lm_vendor_people_search.company_slug` (a people-first page is asked of no company), an index over
+the cached people's LinkedIn place line for the Location box, and `PEOPLE_SEARCH` on the candidate,
+contact-ledger, person-pool and triage-company source CHECKs.
+V94 adds `app_lm_vendor_person.source_record` — a provider's own record, untouched, where `raw` holds it
+read into Bright Data's shape (ContactOut's); null for a Bright Data row. It ages out with the row.
 V81 lets a person belong to several workspaces: it drops V1's `app_lm_workspace_member_single_org_per_user_uk`
 (the `(workspace_id, user_id)` unique stays — one row per person per workspace whatever its status, so a
 removed member who is re-invited **rejoins** that row rather than inserting) and records which workspace

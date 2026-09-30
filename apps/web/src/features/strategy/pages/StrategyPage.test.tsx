@@ -11,6 +11,7 @@ import * as strategyApi from "../api/strategyApi";
 import type { CompanyPage, Facets, SavedSearch, Strategy, StrategyFilter } from "../api/types";
 import * as triageApi from "../../triage/api/triageApi";
 import { stubFullscreenApi } from "../../../test/fullscreen";
+import { NO_PEOPLE_FILTER } from "./PeopleStrategyEditor";
 import { StrategyPage } from "./StrategyPage";
 
 vi.mock("../../../lib/countries", () => import("../../../test/countries"));
@@ -44,7 +45,7 @@ vi.mock("../api/companiesApi", async (importOriginal) => ({
   searchKeywords: vi.fn(),
 }));
 
-const project = { id: "p1", positionTitle: "CFO" } as Project;
+const project = { id: "p1", positionTitle: "CFO", team: [] } as unknown as Project;
 
 const EMPTY_FILTER: StrategyFilter = {
   industries: [],
@@ -90,7 +91,9 @@ const FACETS: Facets = {
 const savedSearchOf = (overrides: Partial<SavedSearch> = {}): SavedSearch => ({
   id: "s1",
   name: "GCC energy",
+  kind: "COMPANIES",
   filter: EMPTY_FILTER,
+  peopleFilter: null,
   visibility: "SHARED",
   createdById: "u1",
   createdByName: "Nadia Haddad",
@@ -101,6 +104,7 @@ const savedSearchOf = (overrides: Partial<SavedSearch> = {}): SavedSearch => ({
 
 const strategyOf = (filter: StrategyFilter = EMPTY_FILTER, searches: SavedSearch[] = []): Strategy => ({
   filter,
+  peopleFilter: NO_PEOPLE_FILTER,
   offLimits: [],
   searches,
 });

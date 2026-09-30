@@ -25,7 +25,10 @@ public enum TriageCompanySource implements ApiValueEnum {
     CSV("csv"),
 
     /** Proposed by the assistant and accepted — a machine chose it, a person agreed. */
-    ASSISTANT("assistant");
+    ASSISTANT("assistant"),
+
+    /** The employer of a person filed from Strategy's People mode, matched to the universe where it can be. */
+    PEOPLE_SEARCH("people_search");
 
     private final String value;
 
