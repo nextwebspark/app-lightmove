@@ -247,6 +247,12 @@ spelled one way. So:
 
 ### Phase 0 — Mockups (`claude-design/`)
 
+> **Built** (PR #600): `Candidates.dc.html` draws the pool, the Activity tab, the person drawer (Profile, Notes,
+> Timeline) and the bulk, merge and tag dialogs. `Position.dc.html` draws the position's Candidates page, Add
+> from your candidates, the possible-duplicate check, and the executive drawer's Positions, Notes and
+> Timeline sections. `Settings.dc.html` draws Candidate tags, and every workspace shell lists Candidates.
+> The notes below are the original plan.
+
 - New **`Candidates.dc.html`**: (a) the workspace Candidates pool `/candidates` — table (name + avatar,
   current title & company, location, mandates as status chips, owner, last activity, tags), search, a
   filter panel, saved-view chips, tick boxes with a bulk bar (add to position, tag, set owner, export);
@@ -301,9 +307,11 @@ spelled one way. So:
 ### Phase 3 — Notes, timeline reads, and the new action (V94, V95)
 
 - **V94** `app_lm_candidate_note`; migrate each non-empty mapping `note` into a `GENERAL` note with that
-  mandate as context, author `added_by`, `created_at = updated_at` of the row, and **keep** the column
-  (the drawer's autosaving "Note" box stays as the mandate's scratch note; the Notes stream is the shared
-  record — two things, two names: *Mandate note* and *Notes*).
+  mandate as context, author `added_by`, `created_at = updated_at` of the row. The drawer's one autosaving
+  "Note" box is **replaced** by the shared Notes, whose composer defaults to the position the drawer was
+  opened from (settled in the Phase 0 mockups: two note surfaces read as two stores). The import's
+  `CANDIDATE_NOTE` cell becomes a note row with the position as context, and the mapping's `note` column
+  is dropped by the next contract migration once nothing reads it.
 - **V95** seeds `CANDIDATE_POOL_MANAGE` to ADMIN and MEMBER (`RbacCatalogTest`).
 - Endpoints (`api/candidate/controller/`):
   - `GET /candidates?query=&owner=&tag=&status=&position=&cursor=` — the pool, `CANDIDATE_POOL_MANAGE`.
