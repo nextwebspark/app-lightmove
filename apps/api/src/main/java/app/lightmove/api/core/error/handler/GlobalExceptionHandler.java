@@ -181,6 +181,7 @@ public class GlobalExceptionHandler {
         ErrorCode code = switch (constraintNameOf(ex)) {
             case "app_lm_client_workspace_name_uk" -> ErrorCode.CLIENT_ALREADY_EXISTS;
             case "app_lm_project_triage_company_manual_name_uk" -> ErrorCode.TRIAGE_COMPANY_ALREADY_HELD;
+            case "app_lm_person_profile_slug_uk" -> ErrorCode.PERSON_PROFILE_HELD;
             case "app_lm_strategy_search_shared_name_uk", "app_lm_strategy_search_private_name_uk" ->
                     ErrorCode.STRATEGY_SEARCH_NAME_TAKEN;
             // The key is slugged from the label, so a race loses on whichever index is reached first.

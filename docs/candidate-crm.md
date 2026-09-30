@@ -8,26 +8,28 @@ Decided and approved 2026-09-30; phases carry a `> **Built**` callout as they la
 | Phase | State |
 |---|---|
 | 0 — Mockups | **Done**, merged (#600): `claude-design/Candidates.dc.html`, `Position.dc.html`, `Settings.dc.html` |
-| 1 — Person/mapping split, auto-map, activity log (V91) | **Built** in #602 (`feat/candidate-pool`); merge it before starting Phase 2 |
-| 2 — Contract migration | **Next.** Ships only after #602 is **deployed**, never in the same deploy |
-| 3 — Notes, timeline reads, `CANDIDATE_POOL_MANAGE` | To do |
+| 1 — Person/mapping split, auto-map, activity log (V91) | **Built**, merged (#602) |
+| 2 — Contract migration + stored profile slug (V92) | **Built** on `claude/laughing-hamilton-9mg6wh`. Merges only once #602 is **deployed**, never in the same deploy |
+| 3 — Notes, timeline reads, `CANDIDATE_POOL_MANAGE` | **Next** |
 | 4 — Screens, owner/tags/do-not-contact, merge, possible-duplicate | To do |
 
 **Starting a new session on this plan:**
-1. Confirm #602 is merged (`git log origin/main --oneline | grep -i person`) and deployed. If it isn't merged, finish it
-   first: CI, review threads, and the rehearsal below.
-2. **Rehearse V91 on a copy of the shared dev database** before it reaches anyone else (`dev:cloud` against a
-   copy; needs gcloud). It has only run on seeded data (`CandidatePersonBackfillMigrationTest`, plus a manual
-   run on a seeded V90 database), never on real duplicates. Paste the counts into #602: people founded,
-   rows folded, contacts and photos copied, activity lines.
+1. Confirm #602 is **deployed** and the Phase 2 PR is merged (`git log origin/main --oneline | grep -i contract`).
+   If Phase 2 is still open, finish it first: CI, review threads, and the rehearsal below.
+2. **Rehearse V91 and V92 on a copy of the shared dev database** before either reaches anyone else
+   (`dev:cloud` against a copy; needs gcloud). Both have only run on seeded data
+   (`CandidatePersonBackfillMigrationTest`, `CandidateContractMigrationTest`). Paste the counts into the PRs:
+   V91's people founded, rows folded, contacts and photos copied and activity lines, and V92's `NOTICE`
+   of people left without a slug because an older person holds their profile.
 3. **Deploy #602 at a quiet hour, or drain the previous revision first.** Between V91 running and the new
    revision taking traffic, the old revision still writes edits, contacts, lookups and enrichment to the old
-   columns and ledger, and none of that reaches the person.
-4. Load `java-spring-development` and `db-ops` for Phase 2; add `lightmove-domain` for Phase 3's action and
-   `react` for any SPA work. Read the Phase 0 mockups before any screen.
-5. Migration numbers below are the next free ones at the time of writing (V92 contract, V93 notes, V94
-   action, V95 owner/tags). Check `apps/api/src/main/resources/db/migration/` for the next free number
-   before writing one.
+   columns and ledger, and none of that reaches the person. V92 then goes out in a **later** deploy: run
+   against the revision before #602, it would drop the columns that revision still reads.
+4. Load `java-spring-development` and `db-ops` for any migration; add `lightmove-domain` for Phase 3's
+   action and `react` for any SPA work. Read the Phase 0 mockups before any screen.
+5. Migration numbers below are the next free ones at the time of writing (V93 notes, V94 action, V95
+   owner/tags). Check `apps/api/src/main/resources/db/migration/` for the next free number before writing
+   one.
 
 **Names as built.** This plan was written before Phase 1. Where it says one name, the code has another,
 and the **code's name stands** for every later phase:
@@ -385,6 +387,36 @@ spelled one way. So:
 
 ### Phase 2 — Contract migration (V92)
 
+> **Built.** Where the build departs from the notes below, the build is what stands:
+> - **V92** drops the 24 person columns from `app_lm_project_candidate` (their CHECKs go with them; `source`
+>   and its CHECK stay, since it is the door the mandate used), and drops `app_lm_candidate_contact` and
+>   `app_lm_candidate_photo`. The mapping is now exactly `id, project_id, person_id, triage_company_id,
+>   company_name, status, note, ai_assessment, ai_enrich_failed_at, custom_fields, source, source_url,
+>   added_by, created_at, updated_at, version`.
+> - **`app_lm_person.profile_slug`** is backfilled in plain SQL (deploy runs the Redgate Flyway CLI over the
+>   SQL folder, so a Java migration is not possible). The trap is that **`LinkedInUrls` slugs
+>   `URI.getPath()`, which is percent-decoded**, while V91's regex read the raw string: `/in/j%C3%A9r%C3%B4me`
+>   is the slug `jérôme`, and a raw backfill would store a key no filing ever looks up. V92 decodes, and
+>   refuses what `URI.create` refuses (a space, a stray `%`). `CandidateContractMigrationTest` checks the
+>   SQL against `LinkedInUrls` itself over sixteen spellings. A path whose escapes are not UTF-8 is where
+>   the two can still differ: Java substitutes U+FFFD, V92 stores null.
+> - **Duplicates are not folded.** Where two people of one workspace already share a profile, the older
+>   keeps the slug and the younger keeps its URL with a null slug. This is the answer `PersonMatcher` has
+>   always given (oldest first), the merge tool (Phase 4) is how they are joined, and the migration
+>   `RAISE NOTICE`s the count. `Person` rewrites the slug only when the URL changes, so saving that younger
+>   person never claims the older one's key. For the same reason the mandate-scoped checks
+>   (`refuseHeldProfile`, `mappedProfileSlugsOf`) still read URLs; only the workspace-wide lookups
+>   (`PersonMatcher.find`, `isHeldByAnother`) use the stored slug.
+> - **Races**: `app_lm_person_profile_slug_uk` answers `PERSON_PROFILE_HELD` (409) through
+>   `GlobalExceptionHandler`, and a sourcing run treats it as a raced pick (skipped), as it does V91's
+>   `app_lm_project_candidate_person_uk`.
+> - **Tests**: `CandidateContractGoldenIntegrationTest` holds recordings of the talent map, both export
+>   stages and the report on one seeded mandate, made on the V91 schema before V92 existed and unchanged
+>   after it (`-Dgolden.record=true` rewrites them after a deliberate change). The import test carried over
+>   from Phase 1 is `SpreadsheetImportIntegrationTest.mapsThePersonAnotherMandateHoldsByEmail`.
+>
+> The notes below are the original plan.
+
 Precondition: #602 is **deployed** to production, so no serving revision reads the old columns. Keep the
 expand and the contract in separate deploys.
 
@@ -508,7 +540,7 @@ CLAUDE.md and the skill paragraphs in the same PR as the behaviour.
 `dataimport/service/{ProjectImportService,ImportRequestBuilder}.java`,
 `enrichment/sourcing/service/ExecutiveSourcingWorker.java`, `enrichment/contact/service/ContactLookupService.java`,
 `enrichment/candidate/service/{CandidateEnrichmentWorker,CandidateAiEnrichWorker}.java`,
-migrations `V91__candidate_person_pool.sql` (built), then `V92__project_candidate_contract.sql`,
+migrations `V91__candidate_person_pool.sql` and `V92__project_candidate_contract.sql` (built), then
 `V93__person_notes.sql`, `V94__candidate_pool_action.sql`, `V95__person_owner_tags.sql`, `ops/cloudsql/harden.sql`.
 Scripts that touch the tables directly: `ops/dev/seed-report.sql`, `ops/eval/export-golden.sh`, `e2e/api/{17,18,19}-*.sh`,
 `e2e/spa/{companies,import-export}.mjs`.
@@ -527,10 +559,10 @@ Scripts that touch the tables directly: `ops/dev/seed-report.sql`, `ops/eval/exp
 ## Verification
 
 - **Backend**: `cd apps/api && ./mvnw test` (Testcontainers). Phase 1's are in
-  `candidate/CandidatePoolIntegrationTest` and `candidate/CandidatePersonBackfillMigrationTest`; still to add: notes CRUD and who-may-edit; timeline merges notes and activity in order with actor and time;
-  `GET /candidates` 404s for a pure client and for a stranger; `RbacCatalogTest` after V94; the golden
-  before/after comparison of `GET /projects/{id}/talent-map`, the export CSV and `GET /projects/{id}/report`
-  on a seeded mandate.
+  `candidate/CandidatePoolIntegrationTest` and `candidate/CandidatePersonBackfillMigrationTest`, Phase 2's in
+  `candidate/CandidateContractMigrationTest` and `candidate/CandidateContractGoldenIntegrationTest`; still to
+  add: notes CRUD and who-may-edit; timeline merges notes and activity in order with actor and time;
+  `GET /candidates` 404s for a pure client and for a stranger; `RbacCatalogTest` after V94.
 - **Frontend**: `cd apps/web && npx vitest && npm run build`. Render tests: drawer Notes/Timeline sections
   show author and time; possible-duplicate dialog offers map/add; pool page filters; activity phrasing.
 - **Extension**: `npm test` (its suite) after the 409 handling.

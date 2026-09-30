@@ -1,6 +1,7 @@
 package app.lightmove.api.candidate;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
@@ -22,6 +23,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.MediaType;
 import org.springframework.jdbc.core.JdbcTemplate;
 import tools.jackson.databind.JsonNode;
@@ -291,6 +293,36 @@ class CandidatePoolIntegrationTest extends FlowTestSupport {
     }
 
     @Test
+    @DisplayName("the profile a person is filed under is stored as LinkedIn names it, moves with the URL, and is one person's")
+    void theProfileSlugIsStoredAndHeldOnce() throws Exception {
+        String projectId = mandate("Stored Slug Firm", "Chief Financial Officer");
+        JsonNode filed = add(projectId, """
+                {"fullName":"Jérôme Dubois","linkedinUrl":"https://ae.linkedin.com/in/J%C3%A9r%C3%B4me-Dubois/?trk=x"}""");
+        String personId = filed.get("personId").asText();
+        assertThat(slugOf(personId)).isEqualTo("jérôme-dubois");
+
+        String workspaceId = db.queryForObject("select workspace_id::text from app_lm_person where id = ?::uuid",
+                String.class, personId);
+        // What a second door founding the same profile in the same instant meets at its insert.
+        assertThatThrownBy(() -> db.update("""
+                insert into app_lm_person (workspace_id, full_name, linkedin_url, profile_slug, source, created_by)
+                select workspace_id, 'Racer', linkedin_url, profile_slug, 'MANUAL', created_by
+                from app_lm_person where id = ?::uuid""", personId))
+                .isInstanceOf(DataIntegrityViolationException.class)
+                .hasMessageContaining("app_lm_person_profile_slug_uk");
+        assertThat(db.queryForObject("select count(*) from app_lm_person where workspace_id = ?::uuid",
+                Integer.class, workspaceId)).isEqualTo(1);
+
+        mvc.perform(put(candidatesUrl(projectId) + "/" + filed.get("id").asText())
+                        .header("Authorization", "Bearer " + adminToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"fullName":"Jérôme Dubois"}"""))
+                .andExpect(status().isOk());
+        assertThat(slugOf(personId)).isNull();
+    }
+
+    @Test
     @DisplayName("a capture replaces a held URL that names no profile, and locks only the page it read")
     void aCaptureLocksThePageItRead() throws Exception {
         String first = mandate("Search Url Firm", "Chief Financial Officer");
@@ -374,6 +406,10 @@ class CandidatePoolIntegrationTest extends FlowTestSupport {
                         .header("Authorization", "Bearer " + adminToken))
                 .andExpect(status().isOk())
                 .andReturn());
+    }
+
+    private String slugOf(String personId) {
+        return db.queryForObject("select profile_slug from app_lm_person where id = ?::uuid", String.class, personId);
     }
 
     private static String candidatesUrl(String projectId) {

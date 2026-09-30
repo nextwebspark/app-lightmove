@@ -37,7 +37,7 @@ captured by the plugin, through the same endpoint the drawer posts to (`source: 
 human — profile, background, package, contact ledger, research — owned by the workspace, and a mandate's
 `Candidate` row maps that person and keeps only the mandate's own status, note, custom-column values and
 brief-specific AI assessment. Whichever door files someone, `PersonMatcher` first asks whether the
-workspace already knows them — by LinkedIn profile slug, or by an email the ledger holds unless the two
+workspace already knows them — by LinkedIn profile slug (stored, V92), or by an email the ledger holds unless the two
 name different profiles; never by phone (a switchboard is on everyone) and never by name alone — and a
 match is **mapped, not duplicated**: what the new mandate brings only fills what nobody recorded, an
 edit through one mandate is what every other reads, and removing someone from a mandate keeps the
@@ -392,11 +392,15 @@ left in place rather than dropped. A mandate's whole filter is one `jsonb` colum
 removing a company from a mandate unmaps its executives rather than deleting them. Since V91 it maps a
 `person_id` — `app_lm_person`, tenant data scoped by `workspace_id`, holding the profile (career history
 and languages one `profile` jsonb column for V30's reasons), background, package and research — once
-per mandate (`app_lm_project_candidate_person_uk`). V91 is **expand-only**: the person's columns are
-still on the mandate row, and `app_lm_candidate_contact` / `app_lm_candidate_photo` still exist, for the
-revision serving while Flyway runs; nothing reads them, and a contract migration drops them. Its backfill
-folded existing rows into one person on a shared profile slug or email within a workspace, never two rows
-of one mandate, and wrote each row an `ADDED_TO_POOL` or `MAPPED` line under its `added_by`. `app_lm_position` and its six owned-list
+per mandate (`app_lm_project_candidate_person_uk`). V91's backfill folded existing rows into one person
+on a shared profile slug or email within a workspace, never two rows of one mandate, and wrote each row
+an `ADDED_TO_POOL` or `MAPPED` line under its `added_by`. V91 only expanded; **V92 is its contract**,
+shipped in a later deploy: the person's columns left the mandate row and `app_lm_candidate_contact` /
+`app_lm_candidate_photo` were dropped. V92 also stores `app_lm_person.profile_slug` — written by `Person`
+with every URL change, `LinkedInUrls.profileSlugOrNull`'s reading, percent-decoded as `URI.getPath()`
+decodes — unique per workspace, so `PersonMatcher` finds a profile by equality and two doors racing to
+found one answer `PERSON_PROFILE_HELD`. A person V91 left sharing a profile with an older one keeps the
+URL and a null slug until the merge tool folds them. `app_lm_position` and its six owned-list
 tables are the brief (V7, grown by V39): every list a step edits is a child table replaced wholesale by
 its step's write, so the aggregate keeps one idiom rather than mixing rows and jsonb. V66 splits its
 `location` into `location_city` + `location_country` (backfilled from the one line; a comma-less value

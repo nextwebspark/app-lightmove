@@ -34,9 +34,7 @@ class PersonMatcher {
     Optional<Person> find(UUID workspaceId, CandidateDetails details) {
         String slug = LinkedInUrls.profileSlugOrNull(details.linkedinUrl());
         if (slug != null) {
-            Optional<Person> byProfile = people.findByWorkspaceIdAndProfileSlugLike(workspaceId, slug).stream()
-                    .filter(person -> slug.equals(slugOf(person)))
-                    .min(OLDEST_FIRST);
+            Optional<Person> byProfile = people.findByWorkspaceIdAndProfileSlug(workspaceId, slug);
             if (byProfile.isPresent()) {
                 return byProfile;
             }
@@ -63,10 +61,15 @@ class PersonMatcher {
      */
     boolean isHeldByAnother(UUID workspaceId, String linkedinUrl, UUID personId) {
         String slug = LinkedInUrls.profileSlugOrNull(linkedinUrl);
-        return slug != null && people.findByWorkspaceIdAndProfileSlugLike(workspaceId, slug).stream()
-                .anyMatch(person -> !person.getId().equals(personId) && slug.equals(slugOf(person)));
+        return slug != null && people.findByWorkspaceIdAndProfileSlug(workspaceId, slug)
+                .filter(holder -> !holder.getId().equals(personId))
+                .isPresent();
     }
 
+    /**
+     * Read off the URL rather than the stored key: V92 left the key null on a person who shares a profile
+     * with an older one, and that person's URL still names the profile an address must not be crossed with.
+     */
     private static String slugOf(Person person) {
         return LinkedInUrls.profileSlugOrNull(person.getLinkedinUrl());
     }

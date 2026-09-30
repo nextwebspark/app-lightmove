@@ -303,7 +303,10 @@ mandate it was filed on (its status, note, custom-column values and the AI asses
 are that mandate's), and carries a triage company only when the employer happens to be in the universe.
 Every door files through `CandidateService`'s one filing step: `PersonMatcher` finds the person the
 workspace already knows (profile slug, then email; never phone or name alone) or a new one is founded,
-and `PersonActivityRecorder` writes the timeline line in the same transaction. `PersonRepository`'s
+and `PersonActivityRecorder` writes the timeline line in the same transaction. The slug is a stored,
+per-workspace-unique column (`Person.profileSlug`, V92) that `Person` rewrites whenever its URL changes;
+a mandate-scoped check (`refuseHeldProfile`, `mappedProfileSlugsOf`) still reads the URLs themselves,
+because V92 leaves the slug null on a person sharing a profile with an older one. `PersonRepository`'s
 finders all take the workspace id, as `CandidateRepository`'s all take the project id.
 The employer name is snapshotted beside the link so V36's `ON DELETE SET NULL` can unmap without
 deleting: removing a company from a mandate drops the mandate's decision about the company, never the

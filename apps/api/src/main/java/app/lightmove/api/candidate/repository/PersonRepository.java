@@ -2,6 +2,7 @@ package app.lightmove.api.candidate.repository;
 
 import app.lightmove.api.candidate.model.Person;
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
@@ -12,14 +13,8 @@ import org.springframework.data.jpa.repository.Query;
  */
 public interface PersonRepository extends JpaRepository<Person, UUID> {
 
-    /**
-     * The people who might be one LinkedIn profile — narrowing only, as
-     * {@code CandidateRepository.findByProjectIdAndProfileSlugLike} is: the column holds whatever was
-     * pasted or read off the page, so the caller settles identity on the slug itself.
-     */
-    @Query("select p from Person p where p.workspaceId = :workspaceId "
-            + "and lower(p.linkedinUrl) like concat('%/in/', :slug, '%')")
-    List<Person> findByWorkspaceIdAndProfileSlugLike(UUID workspaceId, String slug);
+    /** The person the workspace holds a LinkedIn profile as — one at most, by V92's unique index. */
+    Optional<Person> findByWorkspaceIdAndProfileSlug(UUID workspaceId, String profileSlug);
 
     /** The people holding one address, on the key the ledger dedupes by. */
     @Query("""

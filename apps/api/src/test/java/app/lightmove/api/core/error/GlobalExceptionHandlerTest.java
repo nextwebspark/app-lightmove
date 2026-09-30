@@ -50,6 +50,16 @@ class GlobalExceptionHandlerTest {
     }
 
     @Test
+    @DisplayName("two doors founding one profile at once answer PERSON_PROFILE_HELD, same as the pre-check")
+    void profileSlugConstraintMapsToItsBusinessError() {
+        ProblemDetail problem = handler.handleDataIntegrity(
+                violation("app_lm_person_profile_slug_uk"), new MockHttpServletRequest());
+
+        assertThat(problem.getStatus()).isEqualTo(409);
+        assertThat(problem.getProperties()).containsEntry("code", "PERSON_PROFILE_HELD");
+    }
+
+    @Test
     @DisplayName("any other constraint answers a generic 409, never a 500")
     void unknownConstraintIsAConflictNotAServerError() {
         ProblemDetail problem = handler.handleDataIntegrity(

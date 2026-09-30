@@ -54,8 +54,12 @@ import org.springframework.transaction.event.TransactionalEventListener;
 class ExecutiveSourcingWorker {
 
     private static final int MAX_NAME = 200;
-    /** V91's one row per project-person — what a race to file the same executive twice collides on. */
-    private static final List<String> NAME_INDEXES = List.of("app_lm_project_candidate_person_uk");
+    /**
+     * What a race to file the same executive twice collides on: V91's one row per project-person, and
+     * V92's one person per profile, when another door founded them between the match and the insert.
+     */
+    private static final List<String> FILING_RACE_INDEXES =
+            List.of("app_lm_project_candidate_person_uk", "app_lm_person_profile_slug_uk");
 
     private final SourcingRunStore store;
     private final ChainedPeopleSearch peopleSearch;
@@ -260,7 +264,7 @@ class ExecutiveSourcingWorker {
                 }
                 return ExecutivePick.of(name, null);
             } catch (DataIntegrityViolationException raced) {
-                if (!isNameCollision(raced)) {
+                if (!isFilingRace(raced)) {
                     throw raced;
                 }
                 return ExecutivePick.of(name, null);
@@ -273,10 +277,9 @@ class ExecutiveSourcingWorker {
             return name.length() <= MAX_NAME ? name : name.substring(0, MAX_NAME);
         }
 
-        /** V36's two name indexes: someone of that name was filed at the company between the check and the insert. */
-        private static boolean isNameCollision(DataIntegrityViolationException raced) {
+        private static boolean isFilingRace(DataIntegrityViolationException raced) {
             String cause = String.valueOf(raced.getMostSpecificCause().getMessage());
-            return NAME_INDEXES.stream().anyMatch(cause::contains);
+            return FILING_RACE_INDEXES.stream().anyMatch(cause::contains);
         }
 
         /** Hits with a slug to key on, not already mapped in the mandate — including by this run. */
