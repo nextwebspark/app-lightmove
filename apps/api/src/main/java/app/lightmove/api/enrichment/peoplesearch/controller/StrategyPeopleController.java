@@ -7,6 +7,7 @@ import app.lightmove.api.enrichment.peoplesearch.dto.AddPeopleRequest;
 import app.lightmove.api.enrichment.peoplesearch.dto.AddPeopleResponse;
 import app.lightmove.api.enrichment.peoplesearch.dto.PeopleCountResponse;
 import app.lightmove.api.enrichment.peoplesearch.dto.PeopleSearchPageResponse;
+import app.lightmove.api.enrichment.peoplesearch.dto.PeopleSearchResultsResponse;
 import app.lightmove.api.enrichment.peoplesearch.service.StrategyPeopleService;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
@@ -47,6 +48,13 @@ public class StrategyPeopleController {
                                            @RequestParam(defaultValue = "1") int page,
                                            HttpServletRequest httpRequest) {
         return people.search(principal.userId(), principal.requireWorkspaceId(), projectId, page, httpRequest);
+    }
+
+    @GetMapping("/results")
+    @RequireProjectPermission(ProjectAction.WORK_EXECUTE)
+    public PeopleSearchResultsResponse results(@AuthenticationPrincipal AuthPrincipal principal,
+                                               @PathVariable UUID projectId) {
+        return people.results(principal.requireWorkspaceId(), projectId);
     }
 
     @PostMapping("/add")

@@ -14,6 +14,7 @@ import com.github.benmanes.caffeine.cache.Cache;
 import com.github.benmanes.caffeine.cache.Caffeine;
 import java.time.Duration;
 import java.time.Instant;
+import java.util.Collection;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
@@ -68,13 +69,17 @@ public class CachedContactOutPeopleQuery {
                 .map(asked -> new PeoplePage(asked.hits(), totalOf(asked), 0, asked.hits().size()));
     }
 
-    /** Asks ContactOut, keeps every profile it billed, and files the page under the question. */
-    public PeoplePage buyPage(Map<String, Object> body, int page) {
+    /**
+     * Asks ContactOut with {@code sent}, keeps every profile it billed, and files the page under
+     * {@code question} — the body less what only narrows it for one mandate, so declining a company
+     * does not turn a page already paid for into a new question.
+     */
+    public PeoplePage buyPage(Map<String, Object> question, Map<String, Object> sent, int page) {
         BrightDataPeopleHits bought = ContactOutPeopleRecords.toHits(
-                client.search(body, page, ContactOutPeopleClient.MAX_PAGE_SIZE), json);
+                client.search(sent, page, ContactOutPeopleClient.MAX_PAGE_SIZE), json);
         store.purgeFetchedBefore(freshAfter());
         store.rememberAll(PROVIDER, bought);
-        store.rememberSearch(queryKeyOf(body, page), null,
+        store.rememberSearch(queryKeyOf(question, page), null,
                 bought.hits().stream().map(BrightDataPerson::linkedinId).toList(), bought.totalHits());
         return new PeoplePage(bought.hits(), totalOf(bought), bought.hits().size(), 0);
     }
@@ -82,6 +87,11 @@ public class CachedContactOutPeopleQuery {
     /** A person a search returned, while their record may still be read; nothing is bought to read it. */
     public Optional<BrightDataPerson> onFile(String linkedinSlug) {
         return store.find(linkedinSlug, freshAfter());
+    }
+
+    /** ContactOut's own record of each person, where the cache kept one, by slug. */
+    public Map<String, String> sourceRecordsOf(Collection<String> linkedinSlugs) {
+        return store.sourceRecordsOf(linkedinSlugs, freshAfter());
     }
 
     private String queryKeyOf(Map<String, Object> body, int page) {

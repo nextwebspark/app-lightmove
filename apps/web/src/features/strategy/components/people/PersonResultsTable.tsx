@@ -1,96 +1,101 @@
-import { Icon, ICONS } from "../../../../components/layout/Icon";
-import { Avatar } from "../../../../components/ui/Avatar";
+import type { ColumnVisibilityState, OnChangeFn, RowSelectionState } from "@tanstack/react-table";
+import { DataGrid } from "../../../../components/ui/DataGrid";
 import { SelectionCheckbox } from "../../../../components/ui/SelectionCheckbox";
+import { useDataGridTable } from "../../../../lib/useDataGridTable";
+import { layoutColumnsOf, useGridLayout } from "../../../../lib/useGridLayout";
 import type { PersonResult } from "../../api/types";
+import { PersonCard } from "./PersonCard";
+import { PERSON_COLUMN_PINNING, personColumns, personTableFeatures } from "../../lib/personColumns";
+
+const PERSON_LAYOUT_COLUMNS = layoutColumnsOf(personColumns);
+
+/** ContactOut's order is the only order: the grid takes a sort it never changes. */
+const UNSORTED = { field: "name", direction: "asc" } as const;
+const ALL_COLUMNS: ColumnVisibilityState = {};
 
 /**
- * The people a search returned, in ContactOut's order — its API states no sort and no relevance, so
- * neither does this table. A person the mandate already maps is marked and cannot be ticked: they
- * came back, and were billed, because ContactOut cannot leave a person out.
+ * The people a search returned over the shared {@link DataGrid}, so they read like the Companies
+ * screens: pinned name, logos, LinkedIn marks, ticks in the leading slot. A person already in the
+ * mandate has no tick — they came back, and were billed, because ContactOut cannot leave one out.
  */
 export function PersonResultsTable({
   people,
-  selected,
-  onToggle,
-  onToggleAll,
+  loading,
+  rowSelection,
+  onRowSelectionChange,
+  onOpen,
 }: {
   people: PersonResult[];
-  selected: Set<string>;
-  onToggle: (linkedinSlug: string) => void;
-  onToggleAll: (linkedinSlugs: string[]) => void;
+  loading: boolean;
+  rowSelection: RowSelectionState;
+  onRowSelectionChange: OnChangeFn<RowSelectionState>;
+  /** Reads the whole profile, from the page already fetched. */
+  onOpen: (person: PersonResult) => void;
 }) {
-  const tickable = people.filter((person) => !person.held).map((person) => person.linkedinSlug);
-  const tickedCount = tickable.filter((slug) => selected.has(slug)).length;
+  const [layout, setLayout] = useGridLayout("strategyPeople", PERSON_LAYOUT_COLUMNS);
+  const table = useDataGridTable<typeof personTableFeatures, PersonResult, string>({
+    features: personTableFeatures,
+    columns: personColumns,
+    data: people,
+    getRowId: (person) => person.linkedinSlug,
+    pinning: PERSON_COLUMN_PINNING,
+    sort: UNSORTED,
+    onSortChange: () => undefined,
+    columnVisibility: ALL_COLUMNS,
+    onColumnVisibilityChange: () => undefined,
+    layout,
+    onLayoutChange: setLayout,
+    rowSelection,
+    onRowSelectionChange,
+  });
+
+  const tickable = people.filter((person) => !person.held);
+  const tickedCount = tickable.filter((person) => rowSelection[person.linkedinSlug]).length;
 
   return (
-    <div className="min-h-0 flex-1 overflow-auto rounded-[8px] border border-u-border bg-u-surface">
-      <table className="w-full min-w-[720px] border-collapse text-left">
-        <thead className="sticky top-0 z-[1] bg-u-raised">
-          <tr className="border-b border-u-border text-meta font-semibold uppercase tracking-[0.06em] text-u-text3">
-            <th className="w-10 px-3 py-2.5">
-              <SelectionCheckbox
-                checked={tickable.length > 0 && tickedCount === tickable.length}
-                indeterminate={tickedCount > 0 && tickedCount < tickable.length}
-                label="Select everyone on this list"
-                onChange={() => onToggleAll(tickable)}
-              />
-            </th>
-            <th className="px-3 py-2.5">Person</th>
-            <th className="px-3 py-2.5">Company</th>
-            <th className="px-3 py-2.5">Location</th>
-            <th className="w-32 px-3 py-2.5" />
-          </tr>
-        </thead>
-        <tbody>
-          {people.map((person) => (
-            <tr key={person.linkedinSlug} className="border-b border-u-border last:border-b-0 hover:bg-u-raised">
-              <td className="px-3 py-2.5 align-top">
-                {!person.held && (
-                  <SelectionCheckbox
-                    checked={selected.has(person.linkedinSlug)}
-                    label={`Select ${person.fullName ?? person.linkedinSlug}`}
-                    onChange={() => onToggle(person.linkedinSlug)}
-                  />
-                )}
-              </td>
-              <td className="px-3 py-2.5 align-top">
-                <div className="flex items-start gap-2.5">
-                  <Avatar id={person.linkedinSlug} name={person.fullName ?? person.linkedinSlug} src={person.photoUrl} size="sm" />
-                  <div className="min-w-0">
-                    <a
-                      href={person.profileUrl ?? undefined}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="inline-flex items-center gap-1 text-note font-semibold text-u-text hover:text-u-accent"
-                    >
-                      {person.fullName ?? person.linkedinSlug}
-                      <Icon d={ICONS.externalLink} size={11} className="flex-none text-u-text3" />
-                    </a>
-                    <p className="text-meta text-u-text2">{person.title ?? "—"}</p>
-                  </div>
-                </div>
-              </td>
-              <td className="px-3 py-2.5 align-top text-note text-u-text2">
-                {person.companyLinkedinUrl ? (
-                  <a href={person.companyLinkedinUrl} target="_blank" rel="noreferrer" className="hover:text-u-accent">
-                    {person.companyName ?? "—"}
-                  </a>
-                ) : (
-                  (person.companyName ?? "—")
-                )}
-              </td>
-              <td className="px-3 py-2.5 align-top text-note text-u-text2">{person.location ?? "—"}</td>
-              <td className="px-3 py-2.5 align-top text-right">
-                {person.held && (
-                  <span className="rounded-[4px] bg-u-accent-tint px-1.5 py-[2px] text-meta font-semibold text-u-accent">
-                    In universe
-                  </span>
-                )}
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    </div>
+    <DataGrid
+      table={table}
+      label="People"
+      layout={layout}
+      onLayoutChange={setLayout}
+      loading={loading}
+      error={false}
+      errorMessage="Those people could not be loaded."
+      emptyMessage="Nobody matched."
+      onRowClick={onOpen}
+      renderCard={(person) => (
+        <PersonCard
+          person={person}
+          selected={Boolean(rowSelection[person.linkedinSlug])}
+          onToggle={person.held ? undefined : () => table.getRow(person.linkedinSlug).toggleSelected()}
+          onOpen={onOpen}
+        />
+      )}
+      headerLead={
+        <SelectionCheckbox
+          checked={tickable.length > 0 && tickedCount === tickable.length}
+          indeterminate={tickedCount > 0 && tickedCount < tickable.length}
+          label="Select everyone on this list"
+          onChange={() =>
+            onRowSelectionChange(
+              tickedCount === tickable.length
+                ? {}
+                : Object.fromEntries(tickable.map((person) => [person.linkedinSlug, true])),
+            )
+          }
+        />
+      }
+      rowLead={(person) =>
+        person.held ? (
+          <span aria-hidden className="size-4 flex-none" />
+        ) : (
+          <SelectionCheckbox
+            checked={Boolean(rowSelection[person.linkedinSlug])}
+            label={`Select ${person.fullName ?? person.linkedinSlug}`}
+            onChange={table.getRow(person.linkedinSlug).getToggleSelectedHandler()}
+          />
+        )
+      }
+    />
   );
 }

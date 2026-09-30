@@ -18,6 +18,7 @@ import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -112,7 +113,20 @@ class StrategyPeopleSearchIntegrationTest extends FlowTestSupport {
         assertThat(person.get("companyName").asText()).isEqualTo("Harbour Group");
         assertThat(person.get("companyLinkedinUrl").asText()).isEqualTo("https://www.linkedin.com/company/harbour-group/");
         assertThat(person.get("location").asText()).isEqualTo("Dubai, United Arab Emirates");
+        assertThat(person.get("career")).extracting(post -> post.get("title").asText())
+                .containsExactly("Chief Executive Officer, Port Division", "Senior Advisor", "Chief Financial Officer");
+        assertThat(person.get("education").get(0).get("school").asText()).isEqualTo("Sample University");
+        assertThat(person.get("skills")).extracting(JsonNode::asText).containsExactly("Treasury", "M&A");
         assertThat(person.get("held").asBoolean()).isFalse();
+        assertThat(person.get("candidateId").isNull()).isTrue();
+        JsonNode details = person.get("details");
+        assertThat(details.get("headline").asText()).isEqualTo("Group CFO | Board Member");
+        assertThat(details.get("links").get(0).get("url").asText()).isEqualTo("https://github.com/samplecfo");
+        assertThat(details.get("certifications").get(0).get("title").asText()).isEqualTo("Chartered Accountant");
+        assertThat(details.get("contactAvailability").get("phone").asBoolean()).isTrue();
+        assertThat(details.get("company").get("website").asText()).isEqualTo("https://harbour.example");
+        assertThat(db.queryForObject("select source_record ->> 'headline' from app_lm_vendor_person "
+                + "where linkedin_slug = 'sample-cfo-12ab'", String.class)).isEqualTo("Group CFO | Board Member");
 
         JsonNode again = search(projectId, 1);
         assertThat(again.get("billed").asInt()).isZero();
@@ -138,12 +152,14 @@ class StrategyPeopleSearchIntegrationTest extends FlowTestSupport {
         saveFilter(projectId, CFO_FILTER);
         search(projectId, 1);
 
-        mvc.perform(post(peopleUrl(projectId) + "/add").header("Authorization", "Bearer " + adminToken)
+        JsonNode addedAnswer = body(mvc.perform(post(peopleUrl(projectId) + "/add")
+                        .header("Authorization", "Bearer " + adminToken)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"linkedinSlugs\":[\"sample-cfo-12ab\",\"never-searched\"]}"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.added").value(1))
-                .andExpect(jsonPath("$.unavailable").value(1));
+                .andExpect(jsonPath("$.unavailable").value(1))
+                .andReturn());
 
         JsonNode candidate = body(mvc.perform(get("/api/v1/projects/" + projectId + "/candidates")
                         .header("Authorization", "Bearer " + adminToken))
@@ -155,8 +171,11 @@ class StrategyPeopleSearchIntegrationTest extends FlowTestSupport {
         assertThat(candidate.get("linkedinUrl").asText()).isEqualTo("https://www.linkedin.com/in/sample-cfo-12ab/");
         assertThat(db.queryForObject("select enriched_by from app_lm_project_candidate where id = ?::uuid",
                 String.class, candidate.get("id").asText())).isEqualTo("CONTACTOUT");
-        assertThat(db.queryForObject("select source from app_lm_project_triage_company where id = ?::uuid",
-                String.class, candidate.get("triageCompanyId").asText())).isEqualTo("PEOPLE_SEARCH");
+        assertThat(addedAnswer.get("filed").get(0).get("candidateId").asText()).isEqualTo(candidate.get("id").asText());
+        Map<String, Object> employer = db.queryForMap("select source, website, industry from "
+                + "app_lm_project_triage_company where id = ?", UUID.fromString(candidate.get("triageCompanyId").asText()));
+        assertThat(employer).containsEntry("source", "PEOPLE_SEARCH").containsEntry("website", "https://harbour.example");
+        assertThat(employer.get("industry")).isNotNull();
         assertThat(db.queryForObject("select count(*) from app_lm_audit_event where target_id = ? "
                 + "and event_type = 'CANDIDATE_AI_ENRICH_REQUESTED'", Integer.class, projectId)).isZero();
 
@@ -165,8 +184,61 @@ class StrategyPeopleSearchIntegrationTest extends FlowTestSupport {
                         .content("{\"linkedinSlugs\":[\"Sample-CFO-12ab\"]}"))
                 .andExpect(jsonPath("$.added").value(0))
                 .andExpect(jsonPath("$.skipped").value(1));
-        assertThat(search(projectId, 1).get("people").get(0).get("held").asBoolean()).isTrue();
+        JsonNode heldPerson = search(projectId, 1).get("people").get(0);
+        assertThat(heldPerson.get("held").asBoolean()).isTrue();
+        assertThat(heldPerson.get("candidateId").asText()).isEqualTo(candidate.get("id").asText());
         assertThat(contactOut.searches()).hasSize(1);
+    }
+
+    @Test
+    @DisplayName("the pages bought read back free on return, and declining an employer neither re-bills them nor keeps its people")
+    void readsBackWhatWasBought() throws Exception {
+        String projectId = mandate("Returning Firm");
+        saveFilter(projectId, CFO_FILTER);
+        assertThat(results(projectId).get("pages")).isEmpty();
+
+        search(projectId, 1);
+        search(projectId, 2);
+
+        JsonNode pages = results(projectId).get("pages");
+        assertThat(pages).extracting(page -> page.get("page").asInt()).containsExactly(1, 2);
+        assertThat(pages.get(0).get("billed").asInt()).isZero();
+        assertThat(pages.get(0).get("people").get(0).get("linkedinSlug").asText()).isEqualTo("sample-cfo-12ab");
+
+        declined(projectId, "Harbour Group");
+
+        assertThat(results(projectId).get("pages").get(0).get("people")).isEmpty();
+        assertThat(search(projectId, 1).get("billed").asInt()).isZero();
+        assertThat(contactOut.searches()).hasSize(2);
+    }
+
+    @Test
+    @DisplayName("a person filed to the shortlist takes their employer there, unless the mandate already holds it elsewhere")
+    void filesTheEmployerAtTheChosenStage() throws Exception {
+        String projectId = mandate("Staging Firm");
+        saveFilter(projectId, CFO_FILTER);
+        search(projectId, 1);
+
+        mvc.perform(post(peopleUrl(projectId) + "/add").header("Authorization", "Bearer " + adminToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"linkedinSlugs\":[\"sample-cfo-12ab\"],\"status\":\"shortlisted\"}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.added").value(1))
+                .andExpect(jsonPath("$.elsewhere").value(0));
+        assertThat(db.queryForObject("select status from app_lm_project_triage_company where project_id = ?::uuid",
+                String.class, projectId)).isEqualTo("SHORTLISTED");
+
+        String otherProject = mandate("Declined Staging Firm");
+        declined(otherProject, "Harbour Group");
+        saveFilter(otherProject, CFO_FILTER);
+        search(otherProject, 1);
+        mvc.perform(post(peopleUrl(otherProject) + "/add").header("Authorization", "Bearer " + adminToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"linkedinSlugs\":[\"sample-cfo-12ab\"],\"status\":\"shortlisted\"}"))
+                .andExpect(jsonPath("$.added").value(1))
+                .andExpect(jsonPath("$.elsewhere").value(1));
+        assertThat(db.queryForObject("select status from app_lm_project_triage_company where project_id = ?::uuid",
+                String.class, otherProject)).isEqualTo("DECLINED");
     }
 
     @Test
@@ -292,6 +364,12 @@ class StrategyPeopleSearchIntegrationTest extends FlowTestSupport {
     private JsonNode search(String projectId, int page) throws Exception {
         return body(mvc.perform(post(peopleUrl(projectId) + "/search").param("page", Integer.toString(page))
                         .header("Authorization", "Bearer " + adminToken))
+                .andExpect(status().isOk())
+                .andReturn());
+    }
+
+    private JsonNode results(String projectId) throws Exception {
+        return body(mvc.perform(get(peopleUrl(projectId) + "/results").header("Authorization", "Bearer " + adminToken))
                 .andExpect(status().isOk())
                 .andReturn());
     }

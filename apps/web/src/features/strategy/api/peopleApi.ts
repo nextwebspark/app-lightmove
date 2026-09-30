@@ -1,10 +1,12 @@
 import { request } from "../../../lib/apiClient";
+import type { TriageCompanyStatus } from "../../triage/api/types";
 import type {
   AddPeopleResult,
   PeopleCount,
   PeopleFacets,
   PeopleFilter,
   PeopleSearchPage,
+  PeopleSearchResults,
   PlaceSuggestion,
   Strategy,
 } from "./types";
@@ -20,9 +22,14 @@ export const PEOPLE_COUNT_KEY = (projectId: string) => ["peopleCount", projectId
 
 export const PEOPLE_SEARCH_KEY_PREFIX = (projectId: string) => ["peopleSearch", projectId] as const;
 
-/** `run` is bumped by each Search press, so a new press is a new result set rather than a refetch. */
+/**
+ * `run` is bumped by each Search press, so a new press is a new result set rather than a refetch. Run 0
+ * is what was already bought for the stored filter, read back when the screen opens.
+ */
 export const PEOPLE_SEARCH_KEY = (projectId: string, run: number) =>
   [...PEOPLE_SEARCH_KEY_PREFIX(projectId), run] as const;
+
+export const PEOPLE_RESULTS_KEY = (projectId: string) => ["peopleResults", projectId] as const;
 
 export const LOCATION_SUGGESTIONS_KEY = (query: string) => ["locationSuggestions", query] as const;
 
@@ -48,10 +55,20 @@ export function searchPeople(projectId: string, page: number): Promise<PeopleSea
   });
 }
 
-export function addPeople(projectId: string, linkedinSlugs: string[]): Promise<AddPeopleResult> {
+/** The stored filter's pages already bought, in order — free, and never buys one. */
+export function getPeopleResults(projectId: string): Promise<PeopleSearchResults> {
+  return request<PeopleSearchResults>(`/projects/${projectId}/strategy/people/results`);
+}
+
+/** `status` is the stage each person's employer is filed at; one the mandate holds stays where it is. */
+export function addPeople(
+  projectId: string,
+  linkedinSlugs: string[],
+  status: TriageCompanyStatus,
+): Promise<AddPeopleResult> {
   return request<AddPeopleResult>(`/projects/${projectId}/strategy/people/add`, {
     method: "POST",
-    body: { linkedinSlugs },
+    body: { linkedinSlugs, status },
   });
 }
 

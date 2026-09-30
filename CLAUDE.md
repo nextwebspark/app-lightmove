@@ -121,14 +121,23 @@ only parameters its API reference lists, the values its accepted-values sheet li
 API). The filter autosaves as `app_lm_strategy.people_filter` and is counted free and live
 (`GET …/strategy/people/count`, its own 10/s pacer beside search's 60/min); **Search** is a press
 (`POST …/strategy/people/search?page=`), the top 25 in ContactOut's order — it offers no other — and
-Load more the next 25. Every page goes through the V87 cache keyed on the whole body and the page, so
-the same question and page is never bought twice, by anyone; the mandate's declined companies are sent
-as `exclude_companies`. A person already mapped comes back, and is billed, because ContactOut cannot
-exclude one — the grid marks them. **Add to universe** files the ticked people from the cache, never
-the vendor (`addResearched`, `PEOPLE_SEARCH`, `enriched_by = CONTACTOUT`, no AI enrichment), each under
-their employer filed by `captureFromResearch` as `PEOPLE_SEARCH`, matched to the market where it can
-be. The Location box suggests from two letters: countries, then LinkedIn's own spellings of where people
-on file live (`raw ->> 'city'`), then Mapbox, sent as `City, Country`. Saved searches carry a `kind`.
+Load more the next 25. Every page goes through the V87 cache keyed on the body and the page, so the
+same question and page is never bought twice, by anyone, and the screen reopens on the pages already
+bought (`GET …/strategy/people/results`, which never buys). The mandate's declined companies are sent
+as `exclude_companies` but kept **out of the key** — declining someone must not turn a paid page into a
+new question — and a cached page drops people at a company declined since. A person already mapped
+comes back, and is billed, because ContactOut cannot exclude one — the grid marks them "In mandate".
+The selection bar and the person panel file the ticked people at **In universe, Shortlisted or
+Declined** — the stage lands on their employer, filed by `captureFromResearch` as `PEOPLE_SEARCH` and
+matched to the market where it can be, while an employer already held keeps its stage — from the
+cache, never the vendor (`addResearched`, `PEOPLE_SEARCH`, `enriched_by = CONTACTOUT`, no AI
+enrichment). V92 keeps each ContactOut profile whole (`source_record`) beside the Bright Data-shaped
+`raw`, so the panel shows everything it sent — headline, company facts, certifications, projects, the
+free contact-availability flags — a fold per part, drawn only when it has something; once the person is
+in the mandate the panel's Contact fold is the candidate drawer's, Find email and phone included. The
+results read as a Table or as Cards (a per-viewer localStorage choice). The Location box suggests from
+two letters: countries, then LinkedIn's own spellings of where people on file live (`raw ->> 'city'`),
+then Mapbox, sent as `City, Country`. Saved searches carry a `kind`.
 The **Reports**
 tab is the mandate's talent mapping report (`GET /projects/{id}/report`): four chapters — mapping
 progress, shape of the market, remuneration, diversity — aggregated live by `report` from the same
@@ -501,6 +510,8 @@ V91 is Strategy's People mode: `app_lm_strategy.people_filter` and `app_lm_strat
 `app_lm_vendor_people_search.company_slug` (a people-first page is asked of no company), an index over
 the cached people's LinkedIn place line for the Location box, and `PEOPLE_SEARCH` on the candidate,
 contact-ledger and triage-company source CHECKs.
+V92 adds `app_lm_vendor_person.source_record` — a provider's own record, untouched, where `raw` holds it
+read into Bright Data's shape (ContactOut's); null for a Bright Data row. It ages out with the row.
 V81 lets a person belong to several workspaces: it drops V1's `app_lm_workspace_member_single_org_per_user_uk`
 (the `(workspace_id, user_id)` unique stays — one row per person per workspace whatever its status, so a
 removed member who is re-invited **rejoins** that row rather than inserting) and records which workspace

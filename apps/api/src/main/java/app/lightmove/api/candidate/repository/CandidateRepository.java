@@ -2,6 +2,7 @@ package app.lightmove.api.candidate.repository;
 
 import app.lightmove.api.candidate.constant.CandidateStatus;
 import app.lightmove.api.candidate.model.Candidate;
+import app.lightmove.api.candidate.model.MappedProfile;
 import app.lightmove.api.candidate.model.CandidateAttribution;
 import app.lightmove.api.candidate.model.CandidateCount;
 import app.lightmove.api.core.error.constant.ErrorCode;
@@ -138,6 +139,10 @@ public interface CandidateRepository extends JpaRepository<Candidate, UUID> {
     /** Every profile URL the mandate holds — a sourcing run's "already mapped" set, settled on the slug by the caller. */
     @Query("select c.linkedinUrl from Candidate c where c.projectId = :projectId and c.linkedinUrl is not null")
     List<String> findLinkedinUrlsByProjectId(UUID projectId);
+
+    @Query("select new app.lightmove.api.candidate.model.MappedProfile(c.id, c.linkedinUrl) from Candidate c "
+            + "where c.projectId = :projectId and c.linkedinUrl is not null")
+    List<MappedProfile> findMappedProfilesByProjectId(UUID projectId);
 
     /**
      * Ids of the mandate's triaged companies with a mapped executive whose name matches — the seam

@@ -1,3 +1,5 @@
+import type { CandidateCareerEntry, CandidateEducationEntry } from "../../candidates/api/types";
+
 /** One offerable value: what a filter stores, and what the control reading it says. */
 export interface FacetOption {
   /** What a saved filter stores. A slug for bands, the value itself for industries and countries. */
@@ -256,18 +258,74 @@ export interface PeopleCount {
   estimatedPhones: number;
 }
 
-/** One person on a page of results. `held`: this mandate already maps them. */
+/**
+ * One person on a page of results, read the way a filed candidate's profile is — the preview is what
+ * Add to universe would file. `held`: this mandate already maps them.
+ */
 export interface PersonResult {
   linkedinSlug: string;
   fullName: string | null;
   title: string | null;
   companyName: string | null;
   companyLinkedinUrl: string | null;
+  companyLogoUrl: string | null;
   location: string | null;
   countryCode: string | null;
   photoUrl: string | null;
   profileUrl: string | null;
+  about: string | null;
+  career: CandidateCareerEntry[];
+  education: CandidateEducationEntry[];
+  skills: string[];
+  languages: string[];
+  /** What ContactOut said beyond the profile; null for a record kept before it was stored whole. */
+  details: PersonDetails | null;
+  /** The executive this mandate filed them as, when it holds them. */
+  candidateId: string | null;
   held: boolean;
+}
+
+export interface PersonLink {
+  label: string;
+  url: string;
+}
+
+/** A certification, publication, project or volunteering role, in whichever terms ContactOut gave it. */
+export interface PersonProfileItem {
+  title: string;
+  subtitle: string | null;
+  period: string | null;
+  url: string | null;
+  description: string | null;
+}
+
+export interface PersonDetails {
+  headline: string | null;
+  industry: string | null;
+  jobFunction: string | null;
+  seniority: string | null;
+  workStatus: string | null;
+  followers: number | null;
+  updatedAt: string | null;
+  links: PersonLink[];
+  certifications: PersonProfileItem[];
+  publications: PersonProfileItem[];
+  projects: PersonProfileItem[];
+  volunteering: PersonProfileItem[];
+  /** Whether ContactOut holds each kind of contact — flags only, free; finding one is a paid lookup. */
+  contactAvailability: { personalEmail: boolean; workEmail: boolean; phone: boolean } | null;
+  company: {
+    website: string | null;
+    domain: string | null;
+    industry: string | null;
+    size: string | null;
+    country: string | null;
+    headquarter: string | null;
+    foundedYear: number | null;
+    revenue: string | null;
+    overview: string | null;
+    specialties: string[];
+  } | null;
 }
 
 /** One page of the search; `billed` is the credits it spent, zero when it came from the cache. */
@@ -280,10 +338,17 @@ export interface PeopleSearchPage {
   cached: number;
 }
 
+export interface PeopleSearchResults {
+  pages: PeopleSearchPage[];
+}
+
 export interface AddPeopleResult {
   added: number;
   skipped: number;
   unavailable: number;
+  /** Of the added, how many joined an employer the mandate already holds at another stage. */
+  elsewhere: number;
+  filed: { linkedinSlug: string; candidateId: string }[];
 }
 
 export type PlaceKind = "COUNTRY" | "AREA" | "CITY";

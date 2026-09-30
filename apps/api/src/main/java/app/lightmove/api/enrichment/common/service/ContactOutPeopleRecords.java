@@ -43,13 +43,18 @@ public final class ContactOutPeopleRecords {
             return BrightDataPeopleHits.of(List.of(), answer == null || answer.metadata() == null ? 0L
                     : answer.metadata().totalResults());
         }
-        List<BrightDataPerson> people = answer.profiles().properties().stream()
-                .map(entry -> toPerson(entry.getKey(), json.treeToValue(entry.getValue(), ContactOutPerson.class),
-                        searched))
-                .filter(Objects::nonNull)
-                .toList();
+        List<BrightDataPerson> people = new ArrayList<>();
+        List<String> sources = new ArrayList<>();
+        answer.profiles().properties().forEach(entry -> {
+            BrightDataPerson person = toPerson(entry.getKey(),
+                    json.treeToValue(entry.getValue(), ContactOutPerson.class), searched);
+            if (person != null) {
+                people.add(person);
+                sources.add(entry.getValue().toString());
+            }
+        });
         Long total = answer.metadata() == null ? null : answer.metadata().totalResults();
-        return BrightDataPeopleHits.of(people, total);
+        return BrightDataPeopleHits.mappedFrom(people, sources, total);
     }
 
     /** Null for a profile whose URL names no {@code /in/} slug — nothing to key or file it on. */
@@ -58,25 +63,47 @@ public final class ContactOutPeopleRecords {
         if (slug == null || profile == null) {
             return null;
         }
-        ContactOutEmployerKey employer = searched != null ? searched : ownEmployerOf(profile);
         List<ContactOutExperience> experience = profile.experience() == null ? List.of() : profile.experience();
-        String companyName = profile.company() == null || profile.company().name() == null ? employer.name()
+        ContactOutEmployerKey employer = searched != null ? searched : ownEmployerOf(profile, experience);
+        String companyName = profile.company() == null || isBlank(profile.company().name()) ? employer.name()
                 : profile.company().name();
+        String photo = isBlank(profile.profilePictureUrl()) ? null : profile.profilePictureUrl();
         String companyLink = employer.linkedinSlug() == null ? null
                 : "https://www.linkedin.com/company/" + employer.linkedinSlug() + "/";
         return new BrightDataPerson(slug, slug, profile.fullName(), "https://www.linkedin.com/in/" + slug + "/",
                 profile.summary(), profile.title(), null, profile.location(), Countries.codeOf(profile.country()),
                 companyName, new BrightDataCurrentCompany(companyName, employer.linkedinSlug(), companyLink),
-                profile.profilePictureUrl(), profile.profilePictureUrl() == null,
+                photo, photo == null,
                 careerOf(experience, employer.linkedinSlug()), educationOf(profile.education()),
                 profile.skills() == null ? List.of() : List.copyOf(profile.skills()),
                 profile.languages() == null ? List.of() : List.copyOf(profile.languages()));
     }
 
-    private static ContactOutEmployerKey ownEmployerOf(ContactOutPerson profile) {
+    /**
+     * The profile's own {@code company}, or — ContactOut leaves it blank for someone holding several
+     * current roles — the current role whose title is the profile's title, else the first current one.
+     */
+    private static ContactOutEmployerKey ownEmployerOf(ContactOutPerson profile,
+                                                       List<ContactOutExperience> experience) {
         ContactOutEmployer company = profile.company();
-        return company == null ? ContactOutEmployerKey.NONE
-                : new ContactOutEmployerKey(LinkedInUrls.companySlugOrNull(company.url()), company.name());
+        if (company != null && !isBlank(company.name())) {
+            return new ContactOutEmployerKey(LinkedInUrls.companySlugOrNull(company.url()), company.name().strip());
+        }
+        List<ContactOutExperience> current = experience.stream()
+                .filter(role -> role != null && Boolean.TRUE.equals(role.isCurrent()) && !isBlank(role.companyName()))
+                .toList();
+        return current.stream()
+                .filter(role -> profile.title() != null && profile.title().strip().equalsIgnoreCase(
+                        role.title() == null ? "" : role.title().strip()))
+                .findFirst()
+                .or(() -> current.stream().findFirst())
+                .map(role -> new ContactOutEmployerKey(LinkedInUrls.companySlugOrNull(role.linkedinUrl()),
+                        role.companyName().strip()))
+                .orElse(ContactOutEmployerKey.NONE);
+    }
+
+    private static boolean isBlank(String value) {
+        return value == null || value.isBlank();
     }
 
     /** Current roles at the employer first, then the rest in ContactOut's order. */

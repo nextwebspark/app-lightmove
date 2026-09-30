@@ -4,7 +4,6 @@ import { Button, Select, TextArea, useToast } from "../../../components/ui";
 import { CollapsibleSection } from "../../../components/ui/CollapsibleSection";
 import { DetailGrid, DetailPill, DetailTile } from "../../../components/ui/DetailList";
 import { DrawerCloseButton } from "../../../components/ui/Drawer";
-import { NetworkMark } from "../../../components/ui/NetworkMark";
 import { messageFor } from "../../../lib/errorCodes";
 import { formatInstantDate, formatNumber } from "../../../lib/format";
 import { noticeSummaryOf } from "../../../lib/noticePeriod";
@@ -38,6 +37,7 @@ import {
   SummaryFields,
 } from "./CandidateFieldGroups";
 import { CareerTimeline } from "./CareerTimeline";
+import { EducationList, FoldAllButton, HeaderProfileLink, PillRow } from "./ProfileParts";
 import { CompensationSummary } from "./CompensationSummary";
 import { ProfileSectionForm, SectionEditButton, SectionEditor } from "./ProfileSectionForm";
 import {
@@ -325,21 +325,7 @@ export function CandidateProfile({
             count={candidate.education.length}
             summary={candidate.education[0].school ?? candidate.education[0].degree}
           >
-            <ul className="flex flex-col gap-2.5">
-              {candidate.education.map((school, index) => (
-                <li key={`${school.school}-${school.degree}-${index}`}>
-                  {school.school && (
-                    <div className="font-sans text-[13px] font-semibold text-u-text">{school.school}</div>
-                  )}
-                  {school.degree && (
-                    <div className="mt-0.5 font-sans text-[13px] text-u-text2">{school.degree}</div>
-                  )}
-                  {school.period && (
-                    <div className="mt-0.5 font-mono text-[11.5px] text-u-text3">{school.period}</div>
-                  )}
-                </li>
-              ))}
-            </ul>
+            <EducationList education={candidate.education} />
           </CollapsibleSection>
         )}
 
@@ -668,65 +654,11 @@ function ColumnsEditor({
   );
 }
 
-/** LinkedIn's own mark beside the name, through the same guard as the Contact row's link. */
-function HeaderProfileLink({ linkedinUrl }: { linkedinUrl: string | null }) {
-  const profileUrl = toBrowsableUrl(linkedinUrl);
-  if (!profileUrl) return null;
-  return (
-    <a
-      href={profileUrl}
-      target="_blank"
-      rel="noreferrer noopener"
-      aria-label="LinkedIn profile"
-      className="flex flex-none items-center opacity-80 transition hover:opacity-100"
-    >
-      <NetworkMark network="linkedin" size={16} />
-    </a>
-  );
-}
-
 function SectionHeading({ children }: { children: ReactNode }) {
   return (
     <h3 className="mb-3 font-mono text-[10.5px] font-semibold uppercase tracking-[0.1em] text-u-text3">
       {children}
     </h3>
-  );
-}
-
-function FoldAllButton({ label, onClick }: { label: string; onClick: () => void }) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className="font-mono text-[11px] text-u-text3 transition hover:text-u-text"
-    >
-      {label}
-    </button>
-  );
-}
-
-/** The mockup's language pills, reused for skills: a row of small rounded tags under a tiny label. */
-function PillRow({ label, values, empty }: { label: string; values: readonly string[]; empty?: string }) {
-  return (
-    <div className="mt-3">
-      <div className="mb-1.5 font-mono text-[9.5px] font-semibold uppercase tracking-[0.08em] text-u-text3">
-        {label}
-      </div>
-      {values.length === 0 ? (
-        <p className="font-mono text-[12.5px] text-u-text3">{empty}</p>
-      ) : (
-        <div className="flex flex-wrap gap-1.5">
-          {values.map((value) => (
-            <span
-              key={value}
-              className="inline-flex items-center rounded-full border border-u-border-strong bg-u-raised px-2.5 py-1 font-mono text-[12px] font-medium text-u-text2"
-            >
-              {value}
-            </span>
-          ))}
-        </div>
-      )}
-    </div>
   );
 }
 

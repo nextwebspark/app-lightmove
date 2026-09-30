@@ -553,17 +553,47 @@ function MatchCount({ count, pending, isEmpty }: { count: PeopleCount | undefine
         <p className="text-note text-u-text3">Add a filter to count who matches.</p>
       ) : (
         <>
-          <p className={cn("type-figure text-u-text", pending && "opacity-50")}>
+          <div className="flex items-center justify-between gap-2">
+            <span className="type-summary-label text-u-text3">People match</span>
+            {pending && <span className="text-meta text-u-text3">Updating…</span>}
+          </div>
+          <p
+            className={cn(
+              "mt-0.5 text-title font-semibold tabular-nums tracking-tight text-u-text transition-opacity",
+              pending && "opacity-50",
+            )}
+          >
             {count ? count.total.toLocaleString() : "—"}
-            <span className="ms-1.5 text-note font-normal text-u-text3">people match</span>
           </p>
           {count && count.total > 0 && (
-            <p className="mt-0.5 text-meta text-u-text3">
-              ~{count.estimatedWorkEmails.toLocaleString()} work emails · ~{count.estimatedPhones.toLocaleString()} phones
-            </p>
+            <dl
+              className="mt-2.5 grid grid-cols-3 gap-1.5"
+              title="ContactOut's estimate of how many of them it holds each contact for"
+            >
+              <ContactStat icon={ICONS.mail} label="Work email" value={count.estimatedWorkEmails} />
+              <ContactStat icon={ICONS.mail} label="Personal" value={count.estimatedPersonalEmails} />
+              <ContactStat icon={ICONS.phone} label="Phone" value={count.estimatedPhones} />
+            </dl>
           )}
         </>
       )}
+    </div>
+  );
+}
+
+const COMPACT = new Intl.NumberFormat("en", { notation: "compact", maximumFractionDigits: 1 });
+
+/** One estimated contact figure: compact, because three must share a rail a third of the width each. */
+function ContactStat({ icon, label, value }: { icon: string; label: string; value: number }) {
+  return (
+    <div className="min-w-0 rounded-[6px] border border-u-border bg-u-raised px-2 py-1.5">
+      <dt className="flex items-center gap-1 truncate text-eyebrow text-u-text3">
+        <Icon d={icon} size={11} className="flex-none" />
+        {label}
+      </dt>
+      <dd className="mt-0.5 text-note font-semibold tabular-nums text-u-text2" title={`~${value.toLocaleString()}`}>
+        ~{COMPACT.format(value)}
+      </dd>
     </div>
   );
 }

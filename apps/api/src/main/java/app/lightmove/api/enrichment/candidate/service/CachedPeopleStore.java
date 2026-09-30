@@ -7,6 +7,8 @@ import java.sql.SQLException;
 import java.sql.Timestamp;
 import java.time.Instant;
 import java.util.ArrayList;
+import java.util.Collection;
+import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
@@ -35,15 +37,16 @@ public class CachedPeopleStore {
 
     private static final String UPSERT_PERSON = """
             INSERT INTO app_lm_vendor_person (linkedin_slug, provider, fetched_at, current_company_slug,
-                                              country_code, position, raw)
-            VALUES (?, ?, now(), ?, ?, ?, CAST(? AS jsonb))
+                                              country_code, position, raw, source_record)
+            VALUES (?, ?, now(), ?, ?, ?, CAST(? AS jsonb), CAST(? AS jsonb))
             ON CONFLICT (linkedin_slug) DO UPDATE SET
                 provider             = EXCLUDED.provider,
                 fetched_at           = EXCLUDED.fetched_at,
                 current_company_slug = EXCLUDED.current_company_slug,
                 country_code         = EXCLUDED.country_code,
                 position             = EXCLUDED.position,
-                raw                  = EXCLUDED.raw
+                raw                  = EXCLUDED.raw,
+                source_record        = EXCLUDED.source_record
             """;
 
     private static final String UPSERT_SEARCH = """
@@ -117,6 +120,28 @@ public class CachedPeopleStore {
         return Optional.of(BrightDataPeopleHits.of(ordered, totalHits));
     }
 
+    /** The providers' own records of these people, by slug, where one was kept and is still fresh. */
+    @Transactional(propagation = Propagation.REQUIRES_NEW, readOnly = true)
+    public Map<String, String> sourceRecordsOf(Collection<String> linkedinSlugs, Instant freshAfter) {
+        if (linkedinSlugs.isEmpty()) {
+            return Map.of();
+        }
+        Map<String, String> bySlug = new HashMap<>();
+        jdbc.query(con -> {
+            PreparedStatement ps = con.prepareStatement("""
+                    SELECT linkedin_slug, source_record FROM app_lm_vendor_person
+                    WHERE linkedin_slug = ANY (?) AND fetched_at > ? AND source_record IS NOT NULL
+                    """);
+            ps.setArray(1, con.createArrayOf("text", linkedinSlugs.stream().map(CachedPeopleStore::key)
+                    .toArray(String[]::new)));
+            ps.setTimestamp(2, Timestamp.from(freshAfter));
+            return ps;
+        }, rs -> {
+            bySlug.put(rs.getString("linkedin_slug"), rs.getString("source_record"));
+        });
+        return bySlug;
+    }
+
     /**
      * Where the people on file live, as LinkedIn spells it, most common first: the place alone, never
      * who lives there. What a location box can offer that a vendor search is sure to recognise.
@@ -155,6 +180,7 @@ public class CachedPeopleStore {
                 ps.setString(4, person.countryCode());
                 ps.setString(5, person.position());
                 ps.setString(6, raw != null ? raw : json.writeValueAsString(person));
+                ps.setString(7, answer.sourceRecordOf(keyed.get(index)));
             }
 
             @Override

@@ -6,9 +6,11 @@ import {
   useQueryClient,
   type InfiniteData,
 } from "@tanstack/react-query";
+import type { RowSelectionState } from "@tanstack/react-table";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { Icon, ICONS } from "../../../components/layout/Icon";
 import { EmptyState, FullscreenButton } from "../../../components/ui";
+import { SegmentedControl } from "../../../components/ui/SegmentedControl";
 import { SelectionAction, SelectionActionBar } from "../../../components/ui/SelectionActionBar";
 import { useToast } from "../../../components/ui/Toast";
 import { cn } from "../../../lib/cn";
@@ -19,16 +21,26 @@ import { hasRoomForRails } from "../../../lib/viewport";
 import { useAuth } from "../../auth/AuthProvider";
 import { CANDIDATES_KEY_PREFIX } from "../../candidates/api/candidatesApi";
 import { TRIAGE_KEY_PREFIX } from "../../triage/api/triageApi";
+import type { TriageCompanyStatus } from "../../triage/api/types";
+import { TRIAGE_STAGES, stageByStatus } from "../../triage/lib/triageStages";
 import * as peopleApi from "../api/peopleApi";
 import * as strategyApi from "../api/strategyApi";
-import type { PeopleFilter, PeopleSearchPage, SavedSearch, SearchVisibility } from "../api/types";
+import type { PeopleFilter, PeopleSearchPage, PersonResult, SavedSearch, SearchVisibility } from "../api/types";
 import { SaveSearchMenu } from "../components/SaveSearchMenu";
 import { PeopleFilterSidebar, isEmptyFilter } from "../components/people/PeopleFilterSidebar";
+import { PersonPreviewDrawer } from "../components/people/PersonPreviewDrawer";
+import { PersonCardGrid } from "../components/people/PersonCardGrid";
 import { PersonResultsTable } from "../components/people/PersonResultsTable";
 import { samePeopleFilter } from "../lib/peopleFilterIdentity";
+import { usePeopleView, type PeopleView } from "../lib/usePeopleView";
 
 /** ContactOut states no page limit; forty pages is the server's own ceiling. */
 const MAX_PAGE = 40;
+
+const VIEW_OPTIONS = [
+  { value: "table", label: "Table", icon: <Icon d={ICONS.table} size={13} /> },
+  { value: "cards", label: "Cards", icon: <Icon d={ICONS.allProjects} size={13} /> },
+] as const satisfies readonly { value: PeopleView; label: string; icon: ReactNode }[];
 
 /** What the rail draws until the mandate's stored people filter lands. */
 export const NO_PEOPLE_FILTER: PeopleFilter = {
@@ -65,7 +77,8 @@ export const NO_PEOPLE_FILTER: PeopleFilter = {
  * brings the top 25, and Load more the next 25 — ContactOut's own order, the only one it offers.
  *
  * <p>A page is answered from the server's people cache when anybody has asked the same question in the
- * last month, so paging back, reloading or a colleague repeating the search costs nothing.
+ * last month, so paging back, reloading or a colleague repeating the search costs nothing — and the
+ * screen opens on whatever was already bought for the stored filter, without a press.
  */
 export function PeopleStrategyEditor({
   projectId,
@@ -92,8 +105,10 @@ export function PeopleStrategyEditor({
   const [filter, setFilter] = useState<PeopleFilter>(() => strategy.data?.peopleFilter ?? NO_PEOPLE_FILTER);
   const [showFilters, setShowFilters] = useState(hasRoomForRails);
   const [run, setRun] = useState(0);
-  const [selected, setSelected] = useState<Set<string>>(() => new Set());
+  const [rowSelection, setRowSelection] = useState<RowSelectionState>({});
+  const [previewed, setPreviewed] = useState<PersonResult | null>(null);
   const [isFullscreen, toggleFullscreen] = useFullscreen();
+  const [view, setView] = usePeopleView();
 
   // Adopted the once, for StrategyEditor's reason: a later response would stomp chips clicked since.
   const hasAdoptedStoredFilter = useRef(strategy.data !== undefined);
@@ -128,6 +143,29 @@ export function PeopleStrategyEditor({
     placeholderData: keepPreviousData,
   });
 
+  // Seeds run 0 rather than mirroring into state: the grid, Load more and the held marks then read one
+  // result set whether it was just bought or read back.
+  const restored = useQuery({
+    queryKey: peopleApi.PEOPLE_RESULTS_KEY(projectId),
+    queryFn: async () => {
+      const { pages } = await peopleApi.getPeopleResults(projectId);
+      const key = peopleApi.PEOPLE_SEARCH_KEY(projectId, 0);
+      if (pages.length === 0) {
+        // A set read back on an earlier visit is for a filter that has changed since.
+        await queryClient.resetQueries({ queryKey: key, exact: true });
+      } else {
+        queryClient.setQueryData<InfiniteData<PeopleSearchPage, number>>(key, {
+          pages,
+          pageParams: pages.map((page) => page.page),
+        });
+      }
+      return pages.length;
+    },
+    enabled: run === 0,
+    staleTime: 0,
+    gcTime: 0,
+  });
+
   const results = useInfiniteQuery({
     queryKey: peopleApi.PEOPLE_SEARCH_KEY(projectId, run),
     queryFn: ({ pageParam }) => peopleApi.searchPeople(projectId, pageParam),
@@ -137,6 +175,7 @@ export function PeopleStrategyEditor({
       return loaded < last.total && last.people.length > 0 && last.page < MAX_PAGE ? last.page + 1 : undefined;
     },
     enabled: run > 0,
+    gcTime: Infinity,
     // A retry or a refetch on focus is a second bill for a page not yet cached; neither happens here.
     retry: false,
     staleTime: Infinity,
@@ -154,31 +193,40 @@ export function PeopleStrategyEditor({
   const handleSearch = async () => {
     // The server searches the stored filter, so the last chip click must reach it first.
     await autosave.flush();
-    setSelected(new Set());
+    setRowSelection({});
     setRun((current) => current + 1);
   };
 
   const addPeople = useMutation({
-    mutationFn: (slugs: string[]) => peopleApi.addPeople(projectId, slugs),
-    onSuccess: (result, slugs) => {
+    mutationFn: ({ slugs, status }: { slugs: string[]; status: TriageCompanyStatus }) =>
+      peopleApi.addPeople(projectId, slugs, status),
+    onSuccess: (result, { status }) => {
+      const filedAs = new Map(result.filed.map((filed) => [filed.linkedinSlug.toLowerCase(), filed.candidateId]));
+      const stamp = (person: PersonResult): PersonResult => {
+        const candidateId = filedAs.get(person.linkedinSlug.toLowerCase());
+        return candidateId ? { ...person, held: true, candidateId } : person;
+      };
       // Marked held in place rather than refetched: a refetch re-asks every page, free but not idle.
       queryClient.setQueryData<InfiniteData<PeopleSearchPage>>(peopleApi.PEOPLE_SEARCH_KEY(projectId, run), (data) =>
         data && {
           ...data,
           pages: data.pages.map((page) => ({
             ...page,
-            people: page.people.map((person) =>
-              slugs.includes(person.linkedinSlug) ? { ...person, held: true } : person,
-            ),
+            people: page.people.map(stamp),
           })),
         },
       );
       void queryClient.invalidateQueries({ queryKey: CANDIDATES_KEY_PREFIX(projectId) });
       void queryClient.invalidateQueries({ queryKey: TRIAGE_KEY_PREFIX(projectId) });
-      setSelected(new Set());
+      setRowSelection({});
+      // Left open on the person just filed: their Contact fold is now the one that finds an email.
+      setPreviewed((open) => open && stamp(open));
+      // Mirrors the Companies bar: an employer the mandate already holds keeps its stage, and saying
+      // so is the difference between "moved" and "joined it where it was".
       toast(
-        `${result.added} ${result.added === 1 ? "person" : "people"} added to the universe` +
-          (result.skipped > 0 ? `, ${result.skipped} already there` : "") +
+        `${result.added} ${result.added === 1 ? "person" : "people"} added to ${stageByStatus(status).label}` +
+          (result.elsewhere > 0 ? `, ${result.elsewhere} at a company already at another stage` : "") +
+          (result.skipped > 0 ? `, ${result.skipped} already in this mandate` : "") +
           (result.unavailable > 0 ? `, ${result.unavailable} need a fresh search` : ""),
       );
     },
@@ -226,16 +274,28 @@ export function PeopleStrategyEditor({
     return <div className="p-10 text-center text-note text-u-text3">This mandate&rsquo;s search could not be loaded.</div>;
   }
 
+  const renderResults = (shown: PersonResult[], loading: boolean) =>
+    view === "cards" ? (
+      <PersonCardGrid
+        people={shown}
+        loading={loading}
+        total={total}
+        rowSelection={rowSelection}
+        onRowSelectionChange={setRowSelection}
+        onOpen={setPreviewed}
+      />
+    ) : (
+      <PersonResultsTable
+        people={shown}
+        loading={loading}
+        rowSelection={rowSelection}
+        onRowSelectionChange={setRowSelection}
+        onOpen={setPreviewed}
+      />
+    );
+
   const peopleSearches = (strategy.data?.searches ?? []).filter((search) => search.kind === "PEOPLE");
-  const toggleOne = (slug: string) =>
-    setSelected((current) => {
-      const next = new Set(current);
-      if (next.has(slug)) next.delete(slug);
-      else next.add(slug);
-      return next;
-    });
-  const toggleAll = (slugs: string[]) =>
-    setSelected((current) => (slugs.every((slug) => current.has(slug)) ? new Set() : new Set(slugs)));
+  const selectedSlugs = Object.keys(rowSelection);
 
   return (
     <div className={cn("flex min-h-0 flex-1 flex-col", isFullscreen && FULLSCREEN_PANEL)}>
@@ -262,6 +322,13 @@ export function PeopleStrategyEditor({
           <Icon d="M3 4h18l-7 8v6l-4 2v-8L3 4Z" size={14} className="flex-none" />
           {showFilters ? "Hide Filters" : "Show Filters"}
         </button>
+        <SegmentedControl
+          label="View"
+          options={VIEW_OPTIONS}
+          value={view}
+          onChange={setView}
+          className="hidden md:inline-flex"
+        />
         {results.data && (
           <span className="text-meta text-u-text3 sm:ml-auto">
             {billed > 0 ? `${billed} search credits spent on this search` : "Answered from the cache — no credits spent"}
@@ -289,7 +356,9 @@ export function PeopleStrategyEditor({
 
         <div className="flex min-w-0 flex-1 flex-col gap-3 p-2">
           <div className="relative flex min-h-0 flex-1 flex-col">
-            {run === 0 || (!results.data && !results.isFetching) ? (
+            {(run === 0 && restored.isFetching) || (results.isFetching && !results.data) ? (
+              renderResults([], true)
+            ) : !results.data ? (
               <EmptyState
                 icon={<Icon d={ICONS.members} size={22} />}
                 title="Search ContactOut for people"
@@ -299,8 +368,6 @@ export function PeopleStrategyEditor({
                     : "Press Search to bring in the top 25. A page already fetched by anyone is free."
                 }
               />
-            ) : results.isFetching && !results.data ? (
-              <div className="flex-1 animate-pulse rounded-[8px] border border-u-border bg-u-surface" />
             ) : people.length === 0 ? (
               <EmptyState
                 icon={<Icon d={ICONS.search} size={22} />}
@@ -308,21 +375,25 @@ export function PeopleStrategyEditor({
                 body="Loosen the filter and search again — a search finding nobody spends nothing."
               />
             ) : (
-              <PersonResultsTable people={people} selected={selected} onToggle={toggleOne} onToggleAll={toggleAll} />
+              renderResults(people, results.isFetchingNextPage)
             )}
-            {selected.size > 0 && (
+            {selectedSlugs.length > 0 && (
               <SelectionActionBar
-                count={selected.size}
+                count={selectedSlugs.length}
                 noun="person"
                 plural="people"
-                onClear={() => setSelected(new Set())}
+                onClear={() => setRowSelection({})}
               >
-                <SelectionAction
-                  icon={ICONS.plus}
-                  label="Add to universe"
-                  disabled={addPeople.isPending}
-                  onClick={() => addPeople.mutate([...selected])}
-                />
+                {TRIAGE_STAGES.map((stage) => (
+                  <SelectionAction
+                    key={stage.status}
+                    icon={stage.icon}
+                    label={stage.label}
+                    tone={stage.status === "declined" ? "danger" : "neutral"}
+                    disabled={addPeople.isPending}
+                    onClick={() => addPeople.mutate({ slugs: selectedSlugs, status: stage.status })}
+                  />
+                ))}
               </SelectionActionBar>
             )}
           </div>
@@ -346,6 +417,13 @@ export function PeopleStrategyEditor({
           </div>
         </div>
       </div>
+      <PersonPreviewDrawer
+        projectId={projectId}
+        person={previewed}
+        onClose={() => setPreviewed(null)}
+        onAdd={(person, status) => addPeople.mutate({ slugs: [person.linkedinSlug], status })}
+        adding={addPeople.isPending}
+      />
     </div>
   );
 }

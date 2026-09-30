@@ -47,6 +47,7 @@ import app.lightmove.api.triagecompany.model.CapturedCompanyDetails;
 import app.lightmove.api.triagecompany.service.TriageCompanyService;
 import jakarta.servlet.http.HttpServletRequest;
 import java.util.Comparator;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -371,6 +372,20 @@ public class CandidateService {
      * The LinkedIn slugs of everyone the mandate already maps — what a sourcing run drops from a
      * vendor's hits before filing them, so nobody already held is filed twice.
      */
+    /** As {@link #mappedProfileSlugsOf}, each slug to the executive filed under it. */
+    @Transactional(readOnly = true)
+    public Map<String, UUID> mappedProfileCandidatesOf(UUID workspaceId, UUID projectId) {
+        projects.requireInWorkspace(projectId, workspaceId);
+        Map<String, UUID> bySlug = new HashMap<>();
+        candidates.findMappedProfilesByProjectId(projectId).forEach(mapped -> {
+            String slug = LinkedInUrls.profileSlugOrNull(mapped.linkedinUrl());
+            if (slug != null) {
+                bySlug.putIfAbsent(slug, mapped.candidateId());
+            }
+        });
+        return bySlug;
+    }
+
     @Transactional(readOnly = true)
     public Set<String> mappedProfileSlugsOf(UUID workspaceId, UUID projectId) {
         projects.requireInWorkspace(projectId, workspaceId);
