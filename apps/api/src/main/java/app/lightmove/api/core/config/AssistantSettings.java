@@ -32,7 +32,7 @@ public record AssistantSettings(
         @DefaultValue("10") int maxNamesPerLookup,
 
         /** Names checked at once — each holds database connections, and the pool is small. */
-        @DefaultValue("3") int nameLookupParallelism,
+        @DefaultValue("5") int nameLookupParallelism,
 
         /** How long a lookup waits for its names before reporting the rest as not checked. */
         @DefaultValue("25s") Duration nameLookupDeadline,
