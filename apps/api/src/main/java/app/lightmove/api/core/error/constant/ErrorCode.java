@@ -179,6 +179,9 @@ public enum ErrorCode {
     PERSON_PROFILE_HELD(HttpStatus.CONFLICT,
             "Another candidate in this workspace already has that LinkedIn profile"),
 
+    /** A note may be changed or removed by its author, or by a workspace admin. */
+    PERSON_NOTE_NOT_YOURS(HttpStatus.FORBIDDEN, "Only the person who wrote this note can change it"),
+
     /** Nothing was saved. Never sent for a stream that ran out of time: see {@link #ASSISTANT_STILL_ANSWERING}. */
     ASSISTANT_UNAVAILABLE(HttpStatus.SERVICE_UNAVAILABLE,
             "The assistant could not answer just now. Try again in a moment"),

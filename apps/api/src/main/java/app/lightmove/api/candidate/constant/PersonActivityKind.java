@@ -26,5 +26,10 @@ public enum PersonActivityKind {
     RESEARCHED,
 
     /** The AI enrichment scored the person against a mandate's brief. */
-    AI_ASSESSED
+    AI_ASSESSED,
+
+    /** The line carries the note's id, never its text: deleting a note must take the words with it. */
+    NOTE_ADDED,
+    NOTE_EDITED,
+    NOTE_REMOVED
 }

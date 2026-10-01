@@ -65,8 +65,10 @@ class RbacCatalogTest {
     @Transactional(readOnly = true)
     void roleGrantsMatchTheSeededMap() {
         grantsAre(RoleScope.WORKSPACE, "ADMIN", "WORKSPACE_MANAGE", "MEMBER_MANAGE", "MEMBER_INVITE",
-                "PROJECT_CREATE", "PROJECT_BROWSE", "CLIENT_RECORD_MANAGE", "POSITION_TEMPLATE_MANAGE");
-        grantsAre(RoleScope.WORKSPACE, "MEMBER", "PROJECT_CREATE", "PROJECT_BROWSE", "CLIENT_RECORD_MANAGE");
+                "PROJECT_CREATE", "PROJECT_BROWSE", "CLIENT_RECORD_MANAGE", "POSITION_TEMPLATE_MANAGE",
+                "CANDIDATE_POOL_MANAGE");
+        grantsAre(RoleScope.WORKSPACE, "MEMBER", "PROJECT_CREATE", "PROJECT_BROWSE", "CLIENT_RECORD_MANAGE",
+                "CANDIDATE_POOL_MANAGE");
         grantsAre(RoleScope.WORKSPACE, "CLIENT");
         grantsAre(RoleScope.PROJECT, "LEAD", "PROJECT_EDIT", "TEAM_MANAGE", "WORK_VIEW", "WORK_EXECUTE",
                 "CLIENT_ACCESS_MANAGE");

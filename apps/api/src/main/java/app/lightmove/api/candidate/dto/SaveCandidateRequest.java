@@ -85,7 +85,8 @@ public record SaveCandidateRequest(
         @Size(max = 4000)
         String summary,
 
-        @Size(max = 2000)
+        /** Not stored on the row: filed as a general note on the person, about this mandate (V96). */
+        @Size(max = 4000)
         String note,
 
         @Valid

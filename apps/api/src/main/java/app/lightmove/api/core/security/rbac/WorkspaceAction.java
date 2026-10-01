@@ -29,5 +29,8 @@ public enum WorkspaceAction {
     CLIENT_RECORD_MANAGE,
 
     /** Settings → Templates: the firm's own role templates and its copies of the library's. */
-    POSITION_TEMPLATE_MANAGE
+    POSITION_TEMPLATE_MANAGE,
+
+    /** The workspace's people outside any one mandate: their record, notes and timeline. Never a client. */
+    CANDIDATE_POOL_MANAGE
 }
