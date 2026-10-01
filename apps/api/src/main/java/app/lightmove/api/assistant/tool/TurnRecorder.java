@@ -13,6 +13,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.function.Consumer;
+import lombok.extern.slf4j.Slf4j;
 
 /**
  * What the tools did during one ask: the steps they reported, the companies they found or researched
@@ -20,9 +21,11 @@ import java.util.function.Consumer;
  * change is passed on as it happens, so the panel can show it live; the whole record is saved with
  * the answer.
  */
+@Slf4j
 public class TurnRecorder {
 
     private final List<AssistantStep> steps = new ArrayList<>();
+    private final List<Long> stepStartedAt = new ArrayList<>();
     private final Consumer<AssistantStepEvent> onStep;
     private final Consumer<AssistantProposal> onProposal;
     private final Set<String> foundAccountIds = new LinkedHashSet<>();
@@ -45,6 +48,7 @@ public class TurnRecorder {
 
     public int startStep(String label) {
         steps.add(new AssistantStep(label, null));
+        stepStartedAt.add(System.nanoTime());
         int index = steps.size() - 1;
         onStep.accept(new AssistantStepEvent(index, label, null, false));
         return index;
@@ -53,6 +57,7 @@ public class TurnRecorder {
     public void finishStep(int index, String detail) {
         String label = steps.get(index).label();
         steps.set(index, new AssistantStep(label, detail));
+        log.debug("Assistant step '{}' took {}ms", label, (System.nanoTime() - stepStartedAt.get(index)) / 1_000_000);
         onStep.accept(new AssistantStepEvent(index, label, detail, true));
     }
 
