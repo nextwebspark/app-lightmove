@@ -129,7 +129,7 @@ public class PeopleSearchFiling {
             }
             return Optional.empty();
         } catch (DataIntegrityViolationException raced) {
-            if (!SearchHitFiling.isNameCollision(raced)) {
+            if (!SearchHitFiling.isFilingRace(raced)) {
                 throw raced;
             }
             return Optional.empty();

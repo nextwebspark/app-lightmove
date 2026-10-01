@@ -68,6 +68,13 @@ public class Person extends BaseEntity {
     @Column(name = "linkedin_url")
     private String linkedinUrl;
 
+    /**
+     * The profile {@link #linkedinUrl} names, as {@link LinkedInUrls#profileSlugOrNull} reads it: the key a
+     * filing finds this person by, unique within the workspace (V95).
+     */
+    @Column(name = "profile_slug")
+    private String profileSlug;
+
     /** The plugin read this person off that page; research and contact lookup key on its slug. */
     @Column(name = "linkedin_url_locked", nullable = false)
     private boolean linkedinUrlLocked;
@@ -186,7 +193,7 @@ public class Person extends BaseEntity {
         this.title = details.title();
         confirmIfChanged(BackgroundField.SENIORITY, seniorityLevel, details.seniority());
         this.seniorityLevel = details.seniority();
-        this.linkedinUrl = details.linkedinUrl();
+        recordLinkedinUrl(details.linkedinUrl());
         this.locationCountry = details.locationCountry();
         this.locationCity = details.locationCity();
         describeBackground(details);
@@ -212,7 +219,7 @@ public class Person extends BaseEntity {
         // recorded; a filing that brings one replaces it, unless a capture already locked it.
         if (linkedinUrl == null || (!linkedinUrlLocked && LinkedInUrls.profileSlugOrNull(linkedinUrl) == null
                 && LinkedInUrls.profileSlugOrNull(details.linkedinUrl()) != null)) {
-            linkedinUrl = details.linkedinUrl();
+            recordLinkedinUrl(details.linkedinUrl());
         }
         locationCountry = locationCountry == null ? details.locationCountry() : locationCountry;
         locationCity = locationCity == null ? details.locationCity() : locationCity;
@@ -245,6 +252,17 @@ public class Person extends BaseEntity {
         boolean isThatPage = linkedinUrl.equals(capturedUrl)
                 || (held != null && held.equals(LinkedInUrls.profileSlugOrNull(capturedUrl)));
         linkedinUrlLocked = linkedinUrlLocked || isThatPage;
+    }
+
+    /** Re-derived on every write, so a key V95's SQL read differently from Java heals on the next save. */
+    private void recordLinkedinUrl(String url) {
+        linkedinUrl = url;
+        profileSlug = LinkedInUrls.profileSlugOrNull(url);
+    }
+
+    /** Another person of the workspace holds this profile; the merge tool is what folds the two. */
+    public void yieldProfileKey() {
+        profileSlug = null;
     }
 
     private void describeCompensation(CandidateCompensation compensation) {

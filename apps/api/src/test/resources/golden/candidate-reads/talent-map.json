@@ -1,0 +1,150 @@
+{
+  "candidates" : [ {
+    "addedAt" : "<instant>",
+    "aiInferredFields" : [ ],
+    "career" : [ ],
+    "companyName" : "Golden Contract Foods",
+    "compensation" : {
+      "allowanceLines" : [ ],
+      "allowances" : 20000,
+      "baseSalary" : 300000,
+      "bonus" : 50000,
+      "currency" : "USD",
+      "longTermIncentive" : null,
+      "longTermIncentiveTypes" : [ ],
+      "noticePeriod" : null
+    },
+    "contacts" : {
+      "emails" : [ {
+        "address" : "yasmin@golden.example",
+        "foundAt" : "<instant>",
+        "kind" : null,
+        "source" : "manual",
+        "status" : null,
+        "verified" : false
+      } ],
+      "emailsLookedUpAt" : null,
+      "phones" : [ {
+        "foundAt" : "<instant>",
+        "kind" : null,
+        "number" : "+966 50 111 2222",
+        "source" : "manual",
+        "status" : null,
+        "verified" : false
+      } ],
+      "phonesLookedUpAt" : null,
+      "source" : null
+    },
+    "customFields" : {
+      "ethnicity" : "Arab"
+    },
+    "education" : [ ],
+    "enrichedAt" : null,
+    "fullName" : "Yasmin El-Sayed",
+    "gender" : "female",
+    "id" : "<candidate:yasmin@cfo>",
+    "languages" : [ ],
+    "linkedinUrl" : "https://www.linkedin.com/in/golden-yasmin",
+    "locationCity" : "Goldenvale",
+    "locationCountry" : "Saudi Arabia",
+    "nationality" : "saudi arabian",
+    "note" : "Board-ready.",
+    "personId" : "<person:yasmin>",
+    "seniority" : "C-Suite",
+    "skills" : [ ],
+    "source" : "manual",
+    "sourceUrl" : null,
+    "status" : "interested",
+    "summary" : null,
+    "title" : "CFO",
+    "triageCompanyId" : "<company:foods>",
+    "yearsExperience" : 18
+  }, {
+    "addedAt" : "<instant>",
+    "aiInferredFields" : [ ],
+    "career" : [ ],
+    "companyName" : "Somewhere Untriaged",
+    "compensation" : {
+      "allowanceLines" : [ ],
+      "allowances" : null,
+      "baseSalary" : null,
+      "bonus" : null,
+      "currency" : null,
+      "longTermIncentive" : null,
+      "longTermIncentiveTypes" : [ ],
+      "noticePeriod" : null
+    },
+    "contacts" : {
+      "emails" : [ ],
+      "emailsLookedUpAt" : null,
+      "phones" : [ ],
+      "phonesLookedUpAt" : null,
+      "source" : null
+    },
+    "customFields" : { },
+    "education" : [ ],
+    "enrichedAt" : null,
+    "fullName" : "Lina Said",
+    "gender" : null,
+    "id" : "<candidate:lina@cfo>",
+    "languages" : [ ],
+    "linkedinUrl" : null,
+    "locationCity" : null,
+    "locationCountry" : "Oman",
+    "nationality" : "Emirati",
+    "note" : null,
+    "personId" : "<person:lina>",
+    "seniority" : null,
+    "skills" : [ ],
+    "source" : "manual",
+    "sourceUrl" : null,
+    "status" : "contacted",
+    "summary" : null,
+    "title" : null,
+    "triageCompanyId" : null,
+    "yearsExperience" : null
+  } ],
+  "companies" : [ {
+    "addedAt" : "<instant>",
+    "annualRevenue" : null,
+    "apolloAccountId" : null,
+    "companyCity" : "Goldenvale",
+    "companyCountry" : "Saudi Arabia",
+    "companyLinkedinUrl" : null,
+    "companyName" : "Golden Contract Foods",
+    "customFields" : { },
+    "foundedYear" : null,
+    "id" : "<company:foods>",
+    "industry" : "food & beverages",
+    "logoUrl" : null,
+    "noExecutiveFound" : false,
+    "note" : null,
+    "numEmployees" : null,
+    "shortDescription" : null,
+    "source" : "manual",
+    "sourceUrl" : null,
+    "status" : "inUniverse",
+    "website" : null
+  } ],
+  "geocodingPending" : 0,
+  "locations" : {
+    "<candidate:yasmin@cfo>" : {
+      "country" : "Saudi Arabia",
+      "countryCode" : "SA",
+      "latitude" : 24.7136,
+      "longitude" : 46.6753,
+      "placeLabel" : "Goldenvale, Saudi Arabia",
+      "precision" : "CITY"
+    },
+    "<company:foods>" : {
+      "country" : "Saudi Arabia",
+      "countryCode" : "SA",
+      "latitude" : 24.7136,
+      "longitude" : 46.6753,
+      "placeLabel" : "Goldenvale, Saudi Arabia",
+      "precision" : "CITY"
+    }
+  },
+  "totalCandidates" : 3,
+  "totalCompanies" : 1
+}

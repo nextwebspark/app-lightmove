@@ -1,6 +1,7 @@
 package app.lightmove.api.candidate.service;
 
 import app.lightmove.api.candidate.constant.ContactChannel;
+import app.lightmove.api.candidate.constant.ProfileClaim;
 import app.lightmove.api.candidate.model.CandidateContact;
 import app.lightmove.api.candidate.model.CandidateDetails;
 import app.lightmove.api.candidate.model.ContactEntry;
@@ -34,9 +35,7 @@ class PersonMatcher {
     Optional<Person> find(UUID workspaceId, CandidateDetails details) {
         String slug = LinkedInUrls.profileSlugOrNull(details.linkedinUrl());
         if (slug != null) {
-            Optional<Person> byProfile = people.findByWorkspaceIdAndProfileSlugLike(workspaceId, slug).stream()
-                    .filter(person -> slug.equals(slugOf(person)))
-                    .min(OLDEST_FIRST);
+            Optional<Person> byProfile = people.findByWorkspaceIdAndProfileSlug(workspaceId, slug);
             if (byProfile.isPresent()) {
                 return byProfile;
             }
@@ -57,16 +56,25 @@ class PersonMatcher {
     }
 
     /**
-     * Whether a person other than {@code personId} is already the profile {@code linkedinUrl} names.
-     * An edit writes the URL onto the workspace's person, so a mandate-scoped check cannot guard it:
-     * two people on one slug would leave every later capture of it mapped to whichever is older.
+     * Whether saving {@code linkedinUrl} onto {@code person} may take that profile's key. An edit writes the
+     * URL onto the workspace's person, so a mandate-scoped check cannot guard it: two people on one slug
+     * would leave every later capture of it mapped to whichever is older.
      */
-    boolean isHeldByAnother(UUID workspaceId, String linkedinUrl, UUID personId) {
+    ProfileClaim claimOf(UUID workspaceId, String linkedinUrl, Person person) {
         String slug = LinkedInUrls.profileSlugOrNull(linkedinUrl);
-        return slug != null && people.findByWorkspaceIdAndProfileSlugLike(workspaceId, slug).stream()
-                .anyMatch(person -> !person.getId().equals(personId) && slug.equals(slugOf(person)));
+        boolean heldByAnother = slug != null && people.findByWorkspaceIdAndProfileSlug(workspaceId, slug)
+                .filter(holder -> !holder.getId().equals(person.getId()))
+                .isPresent();
+        if (!heldByAnother) {
+            return ProfileClaim.FREE;
+        }
+        return slug.equals(slugOf(person)) ? ProfileClaim.SHARED : ProfileClaim.HELD;
     }
 
+    /**
+     * Read off the URL rather than the stored key: V95 left the key null on a person who shares a profile
+     * with an older one, and that person's URL still names the profile an address must not be crossed with.
+     */
     private static String slugOf(Person person) {
         return LinkedInUrls.profileSlugOrNull(person.getLinkedinUrl());
     }

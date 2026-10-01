@@ -8,26 +8,31 @@ Decided and approved 2026-09-30; phases carry a `> **Built**` callout as they la
 | Phase | State |
 |---|---|
 | 0 — Mockups | **Done**, merged (#600): `claude-design/Candidates.dc.html`, `Position.dc.html`, `Settings.dc.html` |
-| 1 — Person/mapping split, auto-map, activity log (V91) | **Built** in #602 (`feat/candidate-pool`); merge it before starting Phase 2 |
-| 2 — Contract migration | **Next.** Ships only after #602 is **deployed**, never in the same deploy |
-| 3 — Notes, timeline reads, `CANDIDATE_POOL_MANAGE` | To do |
+| 1 — Person/mapping split, auto-map, activity log (V91) | **Built**, merged (#602) |
+| 2 — Stored profile slug (V95) + golden reads | **Built** in #604. Merges once #602 is deployed |
+| 3 — Notes, timeline reads, `CANDIDATE_POOL_MANAGE` | **Next** |
 | 4 — Screens, owner/tags/do-not-contact, merge, possible-duplicate | To do |
+| Final — Cleanup migration | Last, tracked in #606. Drops V91's frozen copies and the mapping's `note` once 3–4 are deployed |
 
 **Starting a new session on this plan:**
-1. Confirm #602 is merged (`git log origin/main --oneline | grep -i person`) and deployed. If it isn't merged, finish it
-   first: CI, review threads, and the rehearsal below.
-2. **Rehearse V91 on a copy of the shared dev database** before it reaches anyone else (`dev:cloud` against a
-   copy; needs gcloud). It has only run on seeded data (`CandidatePersonBackfillMigrationTest`, plus a manual
-   run on a seeded V90 database), never on real duplicates. Paste the counts into #602: people founded,
-   rows folded, contacts and photos copied, activity lines.
+1. Confirm #602 is **deployed** and #604 (Phase 2) is merged (`git log origin/main --oneline | grep -i slug`).
+   If Phase 2 is still open, finish it first: CI, review threads, and the rehearsal below.
+2. **Rehearse V91 and V95 on a copy of the shared dev database** before either reaches anyone else
+   (`dev:cloud` against a copy; needs gcloud). Both have only run on seeded data
+   (`CandidatePersonBackfillMigrationTest`, `PersonProfileSlugMigrationTest`). Paste the counts into the PRs:
+   V91's people founded, rows folded, contacts and photos copied and activity lines, and V95's `NOTICE`
+   of people left without a slug because an older person holds their profile, with the `lc_ctype` it
+   reports. Spot-check the slugs most likely to differ from Java:
+   `SELECT linkedin_url, profile_slug FROM app_lm_person WHERE linkedin_url ~ '%' OR linkedin_url ~ '[^\x01-\x7f]'`.
 3. **Deploy #602 at a quiet hour, or drain the previous revision first.** Between V91 running and the new
    revision taking traffic, the old revision still writes edits, contacts, lookups and enrichment to the old
-   columns and ledger, and none of that reaches the person.
-4. Load `java-spring-development` and `db-ops` for Phase 2; add `lightmove-domain` for Phase 3's action and
-   `react` for any SPA work. Read the Phase 0 mockups before any screen.
-5. Migration numbers below are the next free ones at the time of writing (V92 contract, V93 notes, V94
-   action, V95 owner/tags). Check `apps/api/src/main/resources/db/migration/` for the next free number
-   before writing one.
+   columns and ledger, and none of that reaches the person. V95 only adds, so it can ride any deploy
+   after #602.
+4. Load `java-spring-development` and `db-ops` for any migration; add `lightmove-domain` for Phase 3's
+   action and `react` for any SPA work. Read the Phase 0 mockups before any screen.
+5. Migration numbers below are the next free ones at the time of writing (V96 notes, V97 action, V98
+   owner/tags; the final cleanup takes whatever is free when it comes). Check `apps/api/src/main/resources/db/migration/` for the next free number before writing
+   one.
 
 **Names as built.** This plan was written before Phase 1. Where it says one name, the code has another,
 and the **code's name stands** for every later phase:
@@ -39,7 +44,7 @@ and the **code's name stands** for every later phase:
 | `CandidateRepository` (person finders) | `PersonRepository`; every finder takes `workspaceId` |
 | `CandidatePoolService.find`, `CandidateMatch` | `PersonMatcher.find` (package-private) called from `CandidateService.file`; no soft match yet, so no `CandidateMatch` |
 | `app_lm_candidate_activity`, `CandidateActivityRecorder`, `CandidateActivityKind` | `app_lm_person_activity`, `PersonActivityRecorder` (`Propagation.MANDATORY`), `PersonActivityKind` |
-| contacts/photo "re-pointed" | copied into `app_lm_person_contact` / `app_lm_person_photo`; the old tables are left for Phase 2 to drop |
+| contacts/photo "re-pointed" | copied into `app_lm_person_contact` / `app_lm_person_photo`; the old tables are left for the final cleanup migration to drop |
 | `CandidateResponse.candidateId` | `CandidateResponse.personId` |
 | `app_lm_candidate_note`, `CandidateNoteService` (Phase 3) | use `app_lm_person_note`, `PersonNote`, `PersonNoteService` |
 | `app_lm_candidate_tag` (Phase 4) | use `app_lm_person_tag` for the owned list; the catalog stays `app_lm_workspace_candidate_tag` |
@@ -184,7 +189,7 @@ REFERENCES app_lm_candidate ON DELETE CASCADE`**, `triage_company_id` (ON DELETE
 Unique `(project_id, candidate_id)`. The person columns are dropped in V92 after the code no longer reads
 them (expand → migrate → contract).
 
-**`app_lm_candidate_note`** (V93): `id uuid`, `workspace_id`, `candidate_id NOT NULL`, `project_id`
+**`app_lm_candidate_note`** (V96): `id uuid`, `workspace_id`, `candidate_id NOT NULL`, `project_id`
 nullable (the *context*, ON DELETE SET NULL, name snapshotted as `project_title` so a deleted mandate's
 notes still read), `kind` CHECK `('GENERAL','CALL','MEETING','EMAIL','FEEDBACK')`, `body text` (≤ 4000),
 `pinned boolean`, `author_user_id NOT NULL`, `created_at`, `edited_at`, `edited_by`. Notes are user-authored
@@ -268,7 +273,7 @@ transaction, and every executive already mapped on any mandate comes out as a po
 5. The migration is tested on a Testcontainers database seeded at V90 with duplicates across mandates, and
    rehearsed on a copy of the shared dev database before it reaches anyone else.
 
-### Tags (Phase 4, V95): "Open to work", "Open to relocate", …
+### Tags (Phase 4, V98): "Open to work", "Open to relocate", …
 
 How the products do it: LinkedIn Recruiter exposes *Open to work* and *Open to relocate* as structured
 filters; the CRMs (Loxo, Greenhouse, Recruit CRM) carry such facts as **tags** on the person, filterable
@@ -323,7 +328,7 @@ spelled one way. So:
 >   `app_lm_person_contact`, `app_lm_person_photo` and `app_lm_person_activity`.
 > - **Expand only.** V91 copies contacts and photos into the person tables rather than rekeying V54/V44's,
 >   and leaves the person's columns on the mandate row, because the previous revision is still serving
->   while Flyway runs. The contract migration (Phase 2) drops them.
+>   while Flyway runs. The final cleanup migration, after Phase 4, drops them.
 > - **Matching** is profile slug, then email unless the two records name different profiles. **Phone is
 >   not a key** — a switchboard is on every executive of a company. A name alone never matches; the
 >   possible-duplicate 409 and its dialog ship with the SPA phase that draws the dialog, so until then a
@@ -383,7 +388,44 @@ spelled one way. So:
   carries no other mandate; every write leaves exactly the expected activity rows with actor and time;
   backfill test on a seeded pre-V91 dataset (Testcontainers, run V90 → insert → V91 → assert).
 
-### Phase 2 — Contract migration (V92)
+### Phase 2 — Stored profile slug (V95), and the drop deferred
+
+> **Built** (#604). Where the build departs from the notes below, the build is what stands:
+> - **Nothing is dropped.** Dropping V91's copies was planned here, but nothing writes them any more, so
+>   they are a frozen record of every executive as V91 found them — the one fallback if the split, or
+>   Phase 3–4's notes and merge, turn out to have lost something. They go in the **final cleanup
+>   migration**, after Phase 4, together with the mapping's `note`. V95 only adds.
+> - **`app_lm_person.profile_slug`** is backfilled in plain SQL (deploy runs the Redgate Flyway CLI over the
+>   SQL folder, so a Java migration is not possible). The trap is that **`LinkedInUrls` slugs
+>   `URI.getPath()`, which is percent-decoded**, while V91's regex read the raw string: `/in/j%C3%A9r%C3%B4me`
+>   is the slug `jérôme`, and a raw backfill would store a key no filing ever looks up. V95 decodes, and
+>   refuses what `URI.create` refuses (a space, a stray `%`). `PersonProfileSlugMigrationTest` checks the
+>   SQL against `LinkedInUrls` itself over sixteen spellings. A path whose escapes are not UTF-8 is where
+>   the two can still differ: Java substitutes U+FFFD, V95 stores null.
+> - **Duplicates are not folded.** Where two people of one workspace already share a profile, the older
+>   keeps the slug and the younger keeps its URL with a null slug. This is the answer `PersonMatcher` has
+>   always given (oldest first), the merge tool (Phase 4) is how they are joined, and the migration
+>   `RAISE NOTICE`s the count and the database's `lc_ctype`. That younger person can still be edited:
+>   `PersonMatcher.claimOf` answers `SHARED` when the URL names the profile they already carry, and
+>   `CandidateService.replace` saves the edit and has the person `yieldProfileKey()`, so the older one
+>   keeps it. A URL another person holds that this one does not already carry is `HELD` (409). The
+>   mandate-scoped checks (`refuseHeldProfile`, `mappedProfileSlugsOf`) still read URLs, since the younger
+>   person's key is null; only the workspace-wide lookups (`PersonMatcher.find`, `claimOf`) use the
+>   stored slug.
+> - **The key heals.** `Person` re-derives the slug from the URL on every save, so anything V95's SQL
+>   reads differently from `LinkedInUrls` — a non-UTF-8 escape (Java substitutes U+FFFD, V95 stores
+>   null), a `C`-ctype `lower()` — is corrected on the person's next edit. V95 also refuses a bracket in
+>   the path and a host `URI` would not parse (an underscore), as Java does.
+> - **Races**: `app_lm_person_profile_slug_uk` answers `PERSON_PROFILE_HELD` (409) through
+>   `GlobalExceptionHandler`, and a sourcing run treats it as a raced pick (skipped), as it does V91's
+>   `app_lm_project_candidate_person_uk`.
+> - **Tests**: `PersonProfileSlugMigrationTest` checks the slug against `LinkedInUrls` and that V91's copies
+>   are untouched. `CandidateReadsGoldenIntegrationTest` holds recordings of the talent map, both export
+>   stages and the report on one seeded mandate, made on the V91 schema — the before/after proof the final
+>   cleanup needs (`-Dgolden.record=true` rewrites them after a deliberate change). The import test carried
+>   over from Phase 1 is `SpreadsheetImportIntegrationTest.mapsThePersonAnotherMandateHoldsByEmail`.
+>
+> The notes below are the original plan.
 
 Precondition: #602 is **deployed** to production, so no serving revision reads the old columns. Keep the
 expand and the contract in separate deploys.
@@ -412,15 +454,15 @@ expand and the contract in separate deploys.
   and must stay pinned there: V92 drops the columns it seeds.
 - Docs: CLAUDE.md's Database section drops the "expand-only" sentence, and this plan gets a Built callout.
 
-### Phase 3 — Notes, timeline reads, and the new action (V93, V94)
+### Phase 3 — Notes, timeline reads, and the new action (V96, V97)
 
-- **V93** `app_lm_person_note` (the target model's `app_lm_candidate_note`); migrate each non-empty mapping `note` into a `GENERAL` note with that
+- **V96** `app_lm_person_note` (the target model's `app_lm_candidate_note`); migrate each non-empty mapping `note` into a `GENERAL` note with that
   mandate as context, author `added_by`, `created_at = updated_at` of the row. The drawer's one autosaving
   "Note" box is **replaced** by the shared Notes, whose composer defaults to the position the drawer was
   opened from (settled in the Phase 0 mockups: two note surfaces read as two stores). The import's
   `CANDIDATE_NOTE` cell becomes a note row with the position as context, and the mapping's `note` column
   is dropped by the next contract migration once nothing reads it.
-- **V94** seeds `CANDIDATE_POOL_MANAGE` to ADMIN and MEMBER (`RbacCatalogTest`).
+- **V97** seeds `CANDIDATE_POOL_MANAGE` to ADMIN and MEMBER (`RbacCatalogTest`).
 - Endpoints (`api/candidate/controller/`):
   - `GET /candidates?query=&owner=&tag=&status=&position=&cursor=` — the pool, `CANDIDATE_POOL_MANAGE`.
   - `GET /candidates/{id}` — person + mandates (status, added by/at) + contacts; `CANDIDATE_POOL_MANAGE`.
@@ -441,13 +483,13 @@ expand and the contract in separate deploys.
   CHECK in the same migration as the notes.
 - `CandidateResponse` gains `linkedinUrlLocked`, and the SPA reads it (carried over from Phase 1).
 
-### Phase 4 — Screens and CRM fields (V95)
+### Phase 4 — Screens and CRM fields (V98)
 
 - Workspace **Candidates** page (`/candidates`, staff nav item, `RequireStaff`), **Activity** tab, **person
   page** (`/candidates/:id`), project **Candidates** pipeline page replacing the placeholder, "Add from pool"
   picker, possible-duplicate dialog, bulk bar (add to position, tag, owner, export via the existing CSV
   writer).
-- **V95**: `owner_user_id`, `do_not_contact` (both on `app_lm_person`), the tag catalog and `app_lm_person_tag` (see Tags above),
+- **V98**: `owner_user_id`, `do_not_contact` (both on `app_lm_person`), the tag catalog and `app_lm_person_tag` (see Tags above),
   `rank` on the mapping. Owner/tag/do-not-contact writes record `OWNER_CHANGED`, `TAGGED`/`UNTAGGED`,
   `DO_NOT_CONTACT_*` and are audited. Do-not-contact **warns** in the drawer and blocks the ContactOut buttons; it does not block a
   mapping (Invenias' warn mode; block can follow).
@@ -458,6 +500,24 @@ expand and the contract in separate deploys.
   `409 CANDIDATE_POSSIBLE_DUPLICATE` with the people it found. "Map existing" posts
   `/projects/{id}/candidates/map {personId}`, "Add as new" resends with `force: true`, and the extension
   offers "map" on the same code.
+
+### Final — Cleanup migration (after Phase 4, #606)
+
+Precondition: Phases 3 and 4 are merged **and deployed**, `CandidateReadsGoldenIntegrationTest` is green,
+and nobody has needed V91's copies for a repair. Take the next free migration number.
+
+- Drop from `app_lm_project_candidate` every column the `Candidate` entity does not map: `full_name, title,
+  seniority_level, linkedin_url, location_country, location_city, nationality, gender, years_experience,
+  summary, compensation_currency, base_salary, bonus, allowances, long_term_incentive, notice_period,
+  compensation_breakdown, profile, ai_inferred_fields, ai_nationality_reading, enriched_by,
+  emails_looked_up_at, phones_looked_up_at, contacts_looked_up_via`, with their CHECKs; and `note`, once
+  Phase 3 has moved it into `app_lm_person_note` and nothing reads it. Diff against
+  `\d app_lm_project_candidate` and the entity first.
+- Drop `app_lm_candidate_contact` and `app_lm_candidate_photo`.
+- `grep -rn` the repository (`apps/`, `ops/`, `e2e/`, migrations aside) for every dropped name.
+- `CandidatePersonBackfillMigrationTest` stays pinned at V91. `PersonProfileSlugMigrationTest`'s check that
+  V91's copies are untouched stays true (it stops at V95). The golden reads must pass unchanged.
+- Docs: CLAUDE.md's "expand-only" sentence goes.
 
 ### Phase 5 — Later (not in this plan's PRs, listed so the tables leave room)
 
@@ -471,9 +531,10 @@ categories (today's seven `CandidateStatus` values stay).
 
 1. Phase 0 mockups (no code) — review the screens first.
 2. Phase 1 backend split + auto-map + activity recorder (V91), docs updated in the same PR.
-3. Phase 2 contract (V92).
-4. Phase 3 notes + timeline + action (V93, V94) with the drawer sections.
-5. Phase 4 screens + owner/tags/do-not-contact + merge + possible duplicate (V95).
+3. Phase 2 stored slug (V95) and golden reads — #604.
+4. Phase 3 notes + timeline + action (V96, V97) with the drawer sections.
+5. Phase 4 screens + owner/tags/do-not-contact + merge + possible duplicate (V98).
+6. Final cleanup migration.
 
 ---
 
@@ -489,7 +550,7 @@ nothing branches on a role or on `WorkspaceMode`. `@Transactional` in services, 
 vendor/LLM call inside a write transaction (the activity recorder is a plain repository write). Errors are
 `ApiException` + `ErrorCode`, fixed `userFacing` sentences; the SPA switches on `code`. Audit through
 `AuditService` as today; the activity row is *additional*, never a replacement. New Flyway files only
-(V91–V95), `app_lm_` prefix, V34's CHECK idiom, backfill before any constraint relies on it; `harden.sql`
+(V91–V98), `app_lm_` prefix, V34's CHECK idiom, backfill before any constraint relies on it; `harden.sql`
 grants for the new tables (`db-ops`). SPA: feature folder `features/candidates`, TanStack keys, Zod schemas,
 labels through `useWorkspaceVocabulary` where the word is Position/Client. Comments only for a *why*. Update
 CLAUDE.md and the skill paragraphs in the same PR as the behaviour.
@@ -508,8 +569,8 @@ CLAUDE.md and the skill paragraphs in the same PR as the behaviour.
 `dataimport/service/{ProjectImportService,ImportRequestBuilder}.java`,
 `enrichment/sourcing/service/ExecutiveSourcingWorker.java`, `enrichment/contact/service/ContactLookupService.java`,
 `enrichment/candidate/service/{CandidateEnrichmentWorker,CandidateAiEnrichWorker}.java`,
-migrations `V91__candidate_person_pool.sql` (built), then `V92__project_candidate_contract.sql`,
-`V93__person_notes.sql`, `V94__candidate_pool_action.sql`, `V95__person_owner_tags.sql`, `ops/cloudsql/harden.sql`.
+migrations `V91__candidate_person_pool.sql` and `V95__person_profile_slug.sql` (built), then
+`V96__person_notes.sql`, `V97__candidate_pool_action.sql`, `V98__person_owner_tags.sql`, `ops/cloudsql/harden.sql`.
 Scripts that touch the tables directly: `ops/dev/seed-report.sql`, `ops/eval/export-golden.sh`, `e2e/api/{17,18,19}-*.sh`,
 `e2e/spa/{companies,import-export}.mjs`.
 
@@ -527,10 +588,10 @@ Scripts that touch the tables directly: `ops/dev/seed-report.sql`, `ops/eval/exp
 ## Verification
 
 - **Backend**: `cd apps/api && ./mvnw test` (Testcontainers). Phase 1's are in
-  `candidate/CandidatePoolIntegrationTest` and `candidate/CandidatePersonBackfillMigrationTest`; still to add: notes CRUD and who-may-edit; timeline merges notes and activity in order with actor and time;
-  `GET /candidates` 404s for a pure client and for a stranger; `RbacCatalogTest` after V94; the golden
-  before/after comparison of `GET /projects/{id}/talent-map`, the export CSV and `GET /projects/{id}/report`
-  on a seeded mandate.
+  `candidate/CandidatePoolIntegrationTest` and `candidate/CandidatePersonBackfillMigrationTest`, Phase 2's in
+  `candidate/PersonProfileSlugMigrationTest` and `candidate/CandidateReadsGoldenIntegrationTest`; still to
+  add: notes CRUD and who-may-edit; timeline merges notes and activity in order with actor and time;
+  `GET /candidates` 404s for a pure client and for a stranger; `RbacCatalogTest` after V97.
 - **Frontend**: `cd apps/web && npx vitest && npm run build`. Render tests: drawer Notes/Timeline sections
   show author and time; possible-duplicate dialog offers map/add; pool page filters; activity phrasing.
 - **Extension**: `npm test` (its suite) after the 409 handling.
@@ -547,7 +608,7 @@ Scripts that touch the tables directly: `ops/dev/seed-report.sql`, `ops/eval/exp
      workspace Activity tab lists the same lines filtered by that researcher.
   7. Reports, Export and Map on A unchanged.
 - **Regression**: `cd e2e && PROFILE=e2e ./run-all.sh`.
-- **Migration**: `npm run dev:db:reset` then boot: V1→V95 clean; a second boot on a copy of the Cloud SQL dev
+- **Migration**: `npm run dev:db:reset` then boot: V1→V98 clean; a second boot on a copy of the Cloud SQL dev
   database (`dev:cloud`) proves the V91 backfill on real duplicates before it reaches the shared database.
 
 ---

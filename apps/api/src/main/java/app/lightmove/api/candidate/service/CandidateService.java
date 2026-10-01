@@ -6,6 +6,7 @@ import app.lightmove.api.candidate.constant.CandidateStatus;
 import app.lightmove.api.candidate.constant.ContactChannel;
 import app.lightmove.api.candidate.constant.ContactSource;
 import app.lightmove.api.candidate.constant.PersonActivityKind;
+import app.lightmove.api.candidate.constant.ProfileClaim;
 import app.lightmove.api.candidate.dto.CandidateListCriteria;
 import app.lightmove.api.candidate.dto.CandidateResponse;
 import app.lightmove.api.candidate.dto.CandidatesResponse;
@@ -294,7 +295,8 @@ public class CandidateService {
         CandidateDetails details = requests.detailsOf(projectId, request, candidate.getTriageCompanyId());
         refuseDuplicate(projectId, request.triageCompanyId(), details.fullName(), candidateId);
         refuseHeldProfile(projectId, details.linkedinUrl(), candidateId);
-        if (matcher.isHeldByAnother(workspaceId, details.linkedinUrl(), person.getId())) {
+        ProfileClaim claim = matcher.claimOf(workspaceId, details.linkedinUrl(), person);
+        if (claim == ProfileClaim.HELD) {
             throw ApiException.of(ErrorCode.PERSON_PROFILE_HELD);
         }
         refuseRetypedCapturedProfile(person, details.linkedinUrl());
@@ -305,6 +307,9 @@ public class CandidateService {
         // The person is the workspace's: an edit made through this mandate is what every other mandate
         // mapping them now reads.
         person.describe(details, door);
+        if (claim == ProfileClaim.SHARED) {
+            person.yieldProfileKey();
+        }
         if (confirmBackground) {
             person.confirmBackground();
         }

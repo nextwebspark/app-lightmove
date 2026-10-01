@@ -8,8 +8,12 @@ import org.springframework.dao.DataIntegrityViolationException;
 public final class SearchHitFiling {
 
     private static final int MAX_NAME = 200;
-    /** V91's one row per project-person — what a race to file the same executive twice collides on. */
-    private static final List<String> NAME_INDEXES = List.of("app_lm_project_candidate_person_uk");
+    /**
+     * What a race to file the same executive twice collides on: V91's one row per project-person, and
+     * V95's one person per profile, when another door founded them between the match and the insert.
+     */
+    private static final List<String> FILING_RACE_INDEXES =
+            List.of("app_lm_project_candidate_person_uk", "app_lm_person_profile_slug_uk");
 
     private SearchHitFiling() {
     }
@@ -20,9 +24,9 @@ public final class SearchHitFiling {
         return name.length() <= MAX_NAME ? name : name.substring(0, MAX_NAME);
     }
 
-    /** Someone of that name was filed in the mandate between the duplicate check and the insert. */
-    public static boolean isNameCollision(DataIntegrityViolationException raced) {
+    /** Someone filed the same executive between the match and the insert. */
+    public static boolean isFilingRace(DataIntegrityViolationException raced) {
         String cause = String.valueOf(raced.getMostSpecificCause().getMessage());
-        return NAME_INDEXES.stream().anyMatch(cause::contains);
+        return FILING_RACE_INDEXES.stream().anyMatch(cause::contains);
     }
 }

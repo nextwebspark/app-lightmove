@@ -259,7 +259,7 @@ class ExecutiveSourcingWorker {
                 }
                 return ExecutivePick.of(name, null);
             } catch (DataIntegrityViolationException raced) {
-                if (!SearchHitFiling.isNameCollision(raced)) {
+                if (!SearchHitFiling.isFilingRace(raced)) {
                     throw raced;
                 }
                 return ExecutivePick.of(name, null);
