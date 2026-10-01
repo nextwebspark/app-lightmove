@@ -33,9 +33,16 @@ class PersonActivityRecorder {
     /** A change made through one mandate: the line names it. */
     @Transactional(propagation = Propagation.MANDATORY)
     public void record(Candidate candidate, UUID actor, PersonActivityKind kind, PersonActivityDetails details) {
-        String title = projects.findById(candidate.getProjectId()).map(Project::getPositionTitle).orElse(null);
-        Person person = candidate.getPerson();
-        activity.save(new PersonActivity(person.getWorkspaceId(), person.getId(), candidate.getProjectId(),
-                title, actor, kind, details.asMap()));
+        record(candidate.getPerson(), candidate.getProjectId(), actor, kind, details);
+    }
+
+    /** A change to the person itself, written about a mandate or about none ({@code projectId} null). */
+    @Transactional(propagation = Propagation.MANDATORY)
+    public void record(Person person, UUID projectId, UUID actor, PersonActivityKind kind,
+                       PersonActivityDetails details) {
+        String title = projectId == null ? null
+                : projects.findById(projectId).map(Project::getPositionTitle).orElse(null);
+        activity.save(new PersonActivity(person.getWorkspaceId(), person.getId(), projectId, title, actor, kind,
+                details.asMap()));
     }
 }

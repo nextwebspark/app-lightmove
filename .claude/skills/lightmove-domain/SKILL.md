@@ -155,6 +155,14 @@ The project *list* rides any active membership (`@workspaceAuthorizer.member`; t
 pure client to the mandates they're seated on), and shared reference data
 (`CompanyReferenceController`) rides `PROJECT_BROWSE`: existence isn't secret, content is.
 
+**The workspace's people are staff-only, and a note is never content a client reads.** A person's notes
+and history (V96) are what the firm thinks of an executive across every mandate — another client's
+search included — so they ride `WORK_EXECUTE` under a position's own routes and workspace
+`CANDIDATE_POOL_MANAGE` (V97: ADMIN and MEMBER, never CLIENT) under `/candidates`, and never
+`CandidateResponse`, which `WORK_VIEW` serves to a client seat. A researcher seated on no mandate still
+reads the pool (decision D2); a pure client reaches none of it by any route. Changing someone else's
+note asks `WORKSPACE_MANAGE` — an action, never the ADMIN role by name.
+
 **A platform role sits above every tenant and inside none.** The role-template library (V42) is the
 first thing no workspace owns that someone still has to edit, so V57 added a third scope, `PLATFORM`,
 with one role (`SUPER_ADMIN`) granting one action (`TEMPLATE_LIBRARY_MANAGE`). Four things about it are

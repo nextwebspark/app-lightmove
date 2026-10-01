@@ -357,6 +357,30 @@ class SpreadsheetImportIntegrationTest extends FlowTestSupport {
     }
 
     @Test
+    @DisplayName("a Note cell becomes a note on the person about this position, and importing it again adds none")
+    void aNoteCellIsFiledOnceAsANote() throws Exception {
+        String admin = adminOf("Import Note Firm");
+        String projectId = project(admin);
+        String sheet = """
+                Full Name,Job Title,Work Email,Note
+                Layla Haddad,CFO,layla@acwa.example,Strong on IFRS 17; wants Riyadh.
+                """;
+
+        importFile(admin, projectId, sheet);
+        importFile(admin, projectId, sheet);
+
+        String candidateId = candidates(admin, projectId).get("candidates").get(0).get("id").asText();
+        JsonNode notes = body(mvc.perform(get("/api/v1/projects/" + projectId + "/candidates/" + candidateId
+                        + "/notes").header("Authorization", "Bearer " + admin))
+                .andExpect(status().isOk())
+                .andReturn());
+        assertThat(notes).hasSize(1);
+        assertThat(notes.get(0).get("body").asText()).isEqualTo("Strong on IFRS 17; wants Riyadh.");
+        assertThat(notes.get(0).get("kind").asText()).isEqualTo("general");
+        assertThat(notes.get(0).get("projectTitle").asText()).isEqualTo("Head of Retail");
+    }
+
+    @Test
     @DisplayName("another workspace's project is not found, not forbidden")
     void refusesAProjectOutsideTheCallersWorkspace() throws Exception {
         String owner = adminOf("Import Tenant Firm");

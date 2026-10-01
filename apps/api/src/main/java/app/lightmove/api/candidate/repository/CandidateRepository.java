@@ -130,6 +130,17 @@ public interface CandidateRepository extends JpaRepository<Candidate, UUID> {
     boolean existsByProjectIdAndPersonId(UUID projectId, UUID personId);
 
     /**
+     * Every mandate mapping one person: the drawer's Positions. The one finder not keyed on a project,
+     * so it is keyed on the person's workspace instead — still never a lookup across firms.
+     */
+    @Query("""
+            select c from Candidate c
+            where c.person.id = :personId and c.person.workspaceId = :workspaceId
+            order by c.createdAt
+            """)
+    List<Candidate> findPositionsOfPerson(UUID workspaceId, UUID personId);
+
+    /**
      * The mandate's rows that might name one LinkedIn profile — the narrowing half of the duplicate
      * guard the name finders above cannot answer. {@code like} rather than equality because the column
      * holds whatever the plugin read off the page, and one profile is written several ways: a trailing

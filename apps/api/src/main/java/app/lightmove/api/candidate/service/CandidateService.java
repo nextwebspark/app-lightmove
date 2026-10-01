@@ -101,6 +101,7 @@ public class CandidateService {
     private final PersonRepository people;
     private final PersonMatcher matcher;
     private final PersonActivityRecorder activity;
+    private final PersonNoteService personNotes;
     private final PersonPhotoRepository photos;
     private final ProjectRepository projects;
     private final TriageCompanyService triage;
@@ -113,7 +114,8 @@ public class CandidateService {
     private final CompanyListSettings listConfig;
 
     public CandidateService(CandidateRepository candidates, PersonRepository people, PersonMatcher matcher,
-                            PersonActivityRecorder activity, PersonPhotoRepository photos,
+                            PersonActivityRecorder activity, PersonNoteService personNotes,
+                            PersonPhotoRepository photos,
                             ProjectRepository projects, TriageCompanyService triage,
                             CustomColumnService customColumns, AuditService audit,
                             ApplicationEventPublisher events, ProjectStreamPublisher stream,
@@ -123,6 +125,7 @@ public class CandidateService {
         this.people = people;
         this.matcher = matcher;
         this.activity = activity;
+        this.personNotes = personNotes;
         this.photos = photos;
         this.projects = projects;
         this.triage = triage;
@@ -318,6 +321,8 @@ public class CandidateService {
                 candidate.getCustomFields(), request.customFields()));
         activity.record(candidate, userId, PersonActivityKind.PROFILE_EDITED, PersonActivityDetails
                 .of("door", door.name()).and("backgroundConfirmed", confirmBackground));
+        // A note sent with an edit (a re-imported sheet's Note column) is filed as a note, once.
+        personNotes.fileFromDoor(candidate, userId, details.note());
 
         audit.projectEvent(ProjectEventType.CANDIDATE_UPDATED, userId, workspaceId, projectId, httpRequest)
                 .detail("candidateId", candidateId.toString())
@@ -815,6 +820,7 @@ public class CandidateService {
         activity.record(candidate, userId,
                 known.isPresent() ? PersonActivityKind.MAPPED : PersonActivityKind.ADDED_TO_POOL,
                 PersonActivityDetails.of("door", source));
+        personNotes.fileFromDoor(candidate, userId, details.note());
         return new Filed(candidate, known.isPresent());
     }
 

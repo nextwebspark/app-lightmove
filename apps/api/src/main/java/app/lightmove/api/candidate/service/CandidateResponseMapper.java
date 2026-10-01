@@ -37,7 +37,6 @@ class CandidateResponseMapper {
                 person.getYearsExperience(),
                 person.getAiInferredFields(),
                 person.getSummary(),
-                candidate.getNote(),
                 new CandidateCompensationDto(compensation.currency(), compensation.baseSalary(),
                         compensation.bonus(), compensation.allowances(),
                         compensation.longTermIncentive(), compensation.noticePeriod(),
@@ -63,10 +62,11 @@ class CandidateResponseMapper {
                 candidate.getCreatedAt(),
                 person.getProfile().enrichedAt(),
                 contactsOf(person),
-                person.getId());
+                person.getId(),
+                person.isLinkedinUrlLocked());
     }
 
-    private static CandidateContactsDto contactsOf(Person person) {
+    static CandidateContactsDto contactsOf(Person person) {
         return new CandidateContactsDto(
                 person.emailContacts().stream()
                         .map(contact -> new CandidateEmailDto(contact.getValue(),

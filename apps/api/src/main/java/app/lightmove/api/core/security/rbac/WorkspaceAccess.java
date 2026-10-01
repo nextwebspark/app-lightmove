@@ -44,6 +44,13 @@ public class WorkspaceAccess {
         return member;
     }
 
+    /** Whether an active member holds the action — for a rule that widens a write rather than gates it. */
+    public boolean holdsAction(UUID userId, UUID workspaceId, WorkspaceAction action) {
+        return members.findByWorkspaceIdAndUserIdAndStatus(workspaceId, userId, MemberStatus.ACTIVE)
+                .map(member -> members.findActionNames(member.getId()).contains(action.name()))
+                .orElse(false);
+    }
+
     /** Only where the ADMIN role itself is the subject, never a shortcut around {@link #requireAction}. */
     public WorkspaceMember requireAdmin(UUID userId, UUID workspaceId) {
         WorkspaceMember member = requireActiveMember(userId, workspaceId);

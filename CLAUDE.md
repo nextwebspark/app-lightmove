@@ -35,7 +35,7 @@ with three of them is three lines and one with none keeps its "Add executive" sl
 captured by the plugin, through the same endpoint the drawer posts to (`source: "extension"`).
 **Every executive is a workspace person first (V91, `docs/candidate-crm.md`)**: `app_lm_person` is the
 human — profile, background, package, contact ledger, research — owned by the workspace, and a mandate's
-`Candidate` row maps that person and keeps only the mandate's own status, note, custom-column values and
+`Candidate` row maps that person and keeps only the mandate's own status, custom-column values and
 brief-specific AI assessment. Whichever door files someone, `PersonMatcher` first asks whether the
 workspace already knows them — by LinkedIn profile slug (stored, V95), or by an email the ledger holds unless the two
 name different profiles; never by phone (a switchboard is on everyone) and never by name alone — and a
@@ -46,6 +46,19 @@ LinkedIn profile is refused (`PERSON_PROFILE_HELD`). A plugin capture of someone
 person — added, mapped, unmapped, status, profile, contacts, research, AI — is a line of
 `app_lm_person_activity` naming who did it, on which mandate, and when, written in the same transaction
 as the change (`PersonActivityRecorder`); the security audit trail is written as before, beside it.
+**Notes are the person's (V96)**, never a field of the row: typed (note, call, meeting, email), authored,
+timed, about a position or about the person, shared by every mandate that maps them and **staff-only** —
+`CandidateResponse`, the talent map and the report carry none, because a client seat reads all three
+(decision D1). A note a door sends (`SaveCandidateRequest.note`: the add form, the plugin, a sheet's
+Note column) is filed once as a note about that mandate; only its author or a `WORKSPACE_MANAGE` holder
+may change or remove one (`PERSON_NOTE_NOT_YOURS`), and a note line on the timeline names the note,
+never quotes it, so a removed note leaves no copy. The executive drawer draws **Positions** (every
+mandate mapping the person, this one first), **Notes** and **Timeline** for staff, through the
+position's own `WORK_EXECUTE` routes (`…/candidates/{id}/positions|notes|timeline`, `PersonCrmController`);
+the workspace's routes (`/api/v1/candidates/{personId}…` and `/candidates/activity`, the feed) take
+person ids and V97's `CANDIDATE_POOL_MANAGE`, ADMIN and MEMBER and never CLIENT, for the Candidates
+screen Phase 4 builds. `CandidateResponse.linkedinUrlLocked` is the server's own lock, which the Contact
+section reads rather than guessing from this mandate's door.
 An executive's drawer also **finds their contacts**: two buttons in the Contact section ask ContactOut
 for an email or a phone, one channel per press because the two bill from separate pools. Every email
 and phone the mandate knows is a row of `app_lm_candidate_contact` (V54, the only store since V55
@@ -430,7 +443,11 @@ decodes, and re-derived on every save so a backfilled key that read differently 
 workspace, so `PersonMatcher` finds a profile by equality and two doors racing to found one answer
 `PERSON_PROFILE_HELD`. A person V91 left sharing a profile with an older one keeps the URL and a null
 slug until the merge tool folds them, and can still be edited (`ProfileClaim.SHARED`: the save goes
-through and the person yields the key). `app_lm_position` and its six owned-list
+through and the person yields the key). V96 adds `app_lm_person_note` — the person's notes, staff-only,
+`project_id` the optional context with its title snapshotted — copies every mandate's `note` into a
+general note about that mandate with a `NOTE_ADDED` line, and widens the activity kinds with
+`NOTE_ADDED`/`NOTE_EDITED`/`NOTE_REMOVED`; the row's `note` column joins V91's frozen copy for #606.
+V97 seeds the workspace action `CANDIDATE_POOL_MANAGE` to ADMIN and MEMBER. `app_lm_position` and its six owned-list
 tables are the brief (V7, grown by V39): every list a step edits is a child table replaced wholesale by
 its step's write, so the aggregate keeps one idiom rather than mixing rows and jsonb. V66 splits its
 `location` into `location_city` + `location_country` (backfilled from the one line; a comma-less value

@@ -101,7 +101,6 @@ export interface Candidate {
   /** Which of nationality/gender/yearsExperience hold a value AI proposed, not yet reviewed. */
   aiInferredFields: CandidateBackgroundField[];
   summary: string | null;
-  note: string | null;
   compensation: CandidateCompensation;
   career: CandidateCareerEntry[];
   languages: string[];
@@ -116,6 +115,10 @@ export interface Candidate {
   /** When enrichment last filled this profile in; null while research is pending or off. */
   enrichedAt: string | null;
   contacts: CandidateContacts;
+  /** The workspace's person this row maps — one id on every mandate that holds them. */
+  personId: string;
+  /** The plugin read this person off that page, so the server refuses a retyped URL. */
+  linkedinUrlLocked: boolean;
 }
 
 /** Which door one contact value came through — the row's three doors plus the lookup provider. */
@@ -203,6 +206,7 @@ export interface SaveCandidatePayload {
   gender?: CandidateGender;
   yearsExperience?: number;
   summary?: string;
+  /** Filed as a general note on the person about this position; never read back on the row. */
   note?: string;
   compensation?: Partial<CandidateCompensation>;
   career?: CandidateCareerEntry[];
@@ -247,4 +251,80 @@ export interface CandidateAiAssessment {
   assessedAt: string | null;
   nationalityReading: NationalityReading | null;
   failedAt: string | null;
+}
+
+/** What a note records, as the composer offers it. */
+export type PersonNoteKind = "general" | "call" | "meeting" | "email";
+
+/** A note on a workspace person, shared by every position that maps them. Staff-only. */
+export interface PersonNote {
+  id: string;
+  kind: PersonNoteKind;
+  body: string;
+  pinned: boolean;
+  /** The position the note is about, or null for a note about the person. */
+  projectId: string | null;
+  projectTitle: string | null;
+  authorUserId: string;
+  authorName: string | null;
+  authorAvatarUrl: string | null;
+  createdAt: string;
+  editedAt: string | null;
+  editedByName: string | null;
+  /** Whether the viewer may change or remove it: its author, or a workspace admin. */
+  editable: boolean;
+}
+
+export interface WritePersonNotePayload {
+  kind: PersonNoteKind;
+  body: string;
+}
+
+/** One mandate a person is mapped on, with that mandate's status and who filed them there. */
+export interface PersonPosition {
+  candidateId: string;
+  projectId: string;
+  positionTitle: string | null;
+  status: CandidateStatus;
+  addedByUserId: string;
+  addedByName: string | null;
+  addedAt: string;
+  source: CandidateSource;
+}
+
+/** The kinds of line a person's history holds; the server's `PersonActivityKind` names. */
+export type PersonActivityKind =
+  | "ADDED_TO_POOL"
+  | "MAPPED"
+  | "UNMAPPED"
+  | "STATUS_CHANGED"
+  | "PROFILE_EDITED"
+  | "CONTACTS_EDITED"
+  | "CONTACT_FOUND"
+  | "RESEARCHED"
+  | "AI_ASSESSED"
+  | "NOTE_ADDED"
+  | "NOTE_EDITED"
+  | "NOTE_REMOVED";
+
+export interface PersonTimelineEntry {
+  id: number;
+  kind: PersonActivityKind;
+  occurredAt: string;
+  actorUserId: string | null;
+  actorName: string | null;
+  actorAvatarUrl: string | null;
+  personId: string;
+  personName: string | null;
+  projectId: string | null;
+  projectTitle: string | null;
+  /** An allowlist: door, from/to, channel, found, vendor, noteId, kind, … — every value a string. */
+  details: Record<string, string>;
+  /** The note's opening words while it exists; null once removed. */
+  noteExcerpt: string | null;
+}
+
+export interface PersonTimelinePage {
+  entries: PersonTimelineEntry[];
+  nextCursor: number | null;
 }

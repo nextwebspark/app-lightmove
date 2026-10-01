@@ -191,9 +191,9 @@ class CompaniesCsvWriterTest {
 
     private static PersonBuilder person(String name) {
         return new PersonBuilder(new CandidateResponse(UUID.randomUUID(), null, null, name, null, null,
-                "identified", null, null, null, null, null, null, Set.of(), null, null, null,
+                "identified", null, null, null, null, null, null, Set.of(), null, null,
                 List.of(), List.of(), List.of(), List.of(), "manual", null, Map.of(), null, null,
-                new CandidateContactsDto(List.of(), List.of(), null, null, null), null));
+                new CandidateContactsDto(List.of(), List.of(), null, null, null), null, false));
     }
 
     /**
@@ -296,9 +296,10 @@ class CompaniesCsvWriterTest {
                     companyName, response.fullName(), response.title(), response.seniority(), status,
                     response.linkedinUrl(), country, city, response.nationality(), response.gender(),
                     response.yearsExperience(), response.aiInferredFields(), response.summary(),
-                    response.note(), response.compensation(), response.career(), response.languages(),
+                    response.compensation(), response.career(), response.languages(),
                     response.education(), response.skills(), response.source(), response.sourceUrl(),
-                    customFields, response.addedAt(), response.enrichedAt(), contacts, response.personId()));
+                    customFields, response.addedAt(), response.enrichedAt(), contacts, response.personId(),
+                    response.linkedinUrlLocked()));
         }
     }
 

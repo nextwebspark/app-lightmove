@@ -38,6 +38,7 @@ export type ApiErrorCode =
   | "TRIAGE_COMPANY_NOT_EDITABLE"
   | "CANDIDATE_ALREADY_MAPPED"
   | "PERSON_PROFILE_HELD"
+  | "PERSON_NOTE_NOT_YOURS"
   | "STRATEGY_SEARCH_NAME_TAKEN"
   | "ASSISTANT_UNAVAILABLE"
   | "ASSISTANT_BUSY"
@@ -112,6 +113,7 @@ const MESSAGES: Partial<Record<ApiErrorCode, string>> = {
   STRATEGY_SEARCH_NAME_TAKEN: "A search with that name is already saved here.",
   CANDIDATE_ALREADY_MAPPED: "Someone with that name is already mapped here.",
   PERSON_PROFILE_HELD: "Another candidate in this workspace already has that LinkedIn profile.",
+  PERSON_NOTE_NOT_YOURS: "Only the person who wrote this note, or an admin, can change it.",
   // Two uploads raise this — the spreadsheet import and the position description — so the wording
   // stays neutral. Naming one screen's file types here misdescribes the other's refusal, and each
   // dropzone already states what it takes.

@@ -1,6 +1,7 @@
 package app.lightmove.api.candidate.dto;
 
 import app.lightmove.api.core.email.service.EmailAddressNormaliser;
+import app.lightmove.api.candidate.model.PersonNote;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.Max;
@@ -85,7 +86,8 @@ public record SaveCandidateRequest(
         @Size(max = 4000)
         String summary,
 
-        @Size(max = 2000)
+        /** Not stored on the row: filed as a general note on the person, about this mandate (V96). */
+        @Size(max = PersonNote.MAX_BODY)
         String note,
 
         @Valid

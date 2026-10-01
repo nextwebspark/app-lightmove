@@ -64,9 +64,6 @@ public class Candidate extends BaseEntity {
     @Column(name = "ai_enrich_failed_at")
     private Instant aiEnrichFailedAt;
 
-    @Column(name = "note")
-    private String note;
-
     /**
      * Values for this project's CANDIDATE custom columns, keyed by the column's {@code field_key}.
      * The columns are the mandate's, so their values are too.
@@ -100,11 +97,10 @@ public class Candidate extends BaseEntity {
         return candidate;
     }
 
-    /** The mandate's half of a save: where the person works for this mandate, how far along, its note. */
+    /** The mandate's half of a save: where the person works for this mandate, and how far along. */
     public void describe(CandidateDetails details) {
         this.status = details.status();
         this.companyName = details.employerName();
-        this.note = details.note();
     }
 
     /** Replaces the last AI assessment whole — it is the model's own reading, not anybody's edit. */

@@ -84,11 +84,9 @@ class CandidatePoolIntegrationTest extends FlowTestSupport {
         assertThat(onSecond.get("yearsExperience").asInt()).isEqualTo(16);
         // Each mandate's decision is its own.
         assertThat(onSecond.get("status").asText()).isEqualTo("identified");
-        assertThat(onSecond.get("note").asText()).isEqualTo("Seen for credit risk.");
 
         JsonNode firstNow = read(first, onFirst.get("id").asText());
         assertThat(firstNow.get("status").asText()).isEqualTo("engaged");
-        assertThat(firstNow.get("note").asText()).isEqualTo("Open to a group CFO move.");
         // The address the second mandate brought is on the one ledger both read.
         assertThat(firstNow.get("contacts").get("emails").get(0).get("address").asText())
                 .isEqualTo("fatima@alnaboodah.example");
@@ -389,7 +387,7 @@ class CandidatePoolIntegrationTest extends FlowTestSupport {
     }
 
     @Test
-    @DisplayName("a client seat reads its own mandate's decision about a shared person, never another's")
+    @DisplayName("a client seat reads its own mandate's status for a shared person, never another's, and no note")
     void aClientSeatReadsOnlyItsMandate() throws Exception {
         String first = mandate("Client Seat Pool Firm", "Chief Financial Officer");
         String second = mandateInSameWorkspace("Head of Credit Risk");
@@ -420,8 +418,10 @@ class CandidatePoolIntegrationTest extends FlowTestSupport {
                         .header("Authorization", "Bearer " + clientToken))
                 .andExpect(status().isOk())
                 .andReturn().getResponse().getContentAsString();
-        assertThat(seen).contains("Shortlist for the board.", "\"engaged\"")
-                .doesNotContain("competing client", "notInterested", second, "Head of Credit Risk");
+        // Notes are staff-only since V96, the client's own mandate's included.
+        assertThat(seen).contains("\"engaged\"")
+                .doesNotContain("Shortlist for the board.", "competing client", "notInterested", second,
+                        "Head of Credit Risk");
         mvc.perform(get(candidatesUrl(second)).header("Authorization", "Bearer " + clientToken))
                 .andExpect(status().isForbidden());
     }

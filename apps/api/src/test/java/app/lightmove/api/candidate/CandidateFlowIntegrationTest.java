@@ -394,7 +394,8 @@ class CandidateFlowIntegrationTest extends FlowTestSupport {
 
         // The point of PUT over PATCH: a field the drawer cleared is a field the row loses.
         assertThat(replaced.get("title").isNull()).isTrue();
-        assertThat(replaced.get("note").isNull()).isTrue();
+        // The note it was filed with is a note on the person now (V96), never on the row a client reads.
+        assertThat(replaced.has("note")).isFalse();
         assertThat(replaced.at("/compensation/baseSalary").isNull()).isTrue();
         assertThat(replaced.get("languages")).isEmpty();
         assertThat(replaced.get("status").asText()).isEqualTo("notInterested");
@@ -711,7 +712,6 @@ class CandidateFlowIntegrationTest extends FlowTestSupport {
         // The whole point of the PATCH beside the PUT: a pill flicked while reading must not
         // re-submit a profile that has been on screen for a while.
         assertThat(moved.get("title").asText()).isEqualTo("CFO");
-        assertThat(moved.get("note").asText()).isEqualTo("Worth a call.");
         assertThat(moved.at("/compensation/baseSalary").asLong()).isEqualTo(300_000L);
         assertThat(moved.get("languages")).hasSize(1);
     }

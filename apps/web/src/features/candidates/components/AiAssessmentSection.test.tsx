@@ -37,7 +37,8 @@ const yasmin: Candidate = {
   yearsExperience: 18,
   aiInferredFields: [],
   summary: null,
-  note: null,
+  personId: "person-1",
+  linkedinUrlLocked: false,
   compensation: {
     currency: "AED",
     baseSalary: 420000,

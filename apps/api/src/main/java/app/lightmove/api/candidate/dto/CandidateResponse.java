@@ -9,7 +9,8 @@ import java.util.UUID;
 /**
  * One executive mapped for a mandate, as the Companies grid and the profile drawer read them. The
  * profile is the workspace person's, shared with every other mandate mapping them; {@code status},
- * {@code note}, {@code source} and {@code customFields} are this mandate's own.
+ * {@code source} and {@code customFields} are this mandate's own. A client seat reads this record, which is
+ * why notes, the AI assessment and who filed the row are never on it.
  *
  * <p>{@code companyName} is carried rather than joined: it is the employer snapshotted when the row
  * was written, so it renders identically whether the person is still mapped to one of the mandate's
@@ -33,7 +34,6 @@ public record CandidateResponse(
         /** Which of nationality/gender/yearsExperience hold a model's proposal no researcher has changed. */
         Set<String> aiInferredFields,
         String summary,
-        String note,
         CandidateCompensationDto compensation,
         List<CandidateCareerEntryDto> career,
         List<String> languages,
@@ -49,5 +49,7 @@ public record CandidateResponse(
         /** Every email and phone known for them on any mandate, and when each channel was last looked up. */
         CandidateContactsDto contacts,
         /** The workspace's person this row maps — one id across every mandate that holds them (V91). */
-        UUID personId
+        UUID personId,
+        /** The plugin read this person off that page, so the URL cannot be retyped (CANDIDATE_PROFILE_URL_LOCKED). */
+        boolean linkedinUrlLocked
 ) {}
