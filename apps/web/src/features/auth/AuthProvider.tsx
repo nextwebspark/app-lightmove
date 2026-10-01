@@ -18,6 +18,7 @@ import {
   switchWorkspaceSession,
 } from "../../lib/apiClient";
 import { forgetOpenAssistant } from "../assistant/assistantStorage";
+import { isReturningMailboxPopup } from "../outreach/lib/mailboxPopup";
 import * as authApi from "./api/authApi";
 import { isReturningSignInPopup } from "./oauthPopup";
 import type { User } from "./api/types";
@@ -103,8 +104,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
    * the server has already rotated, so the opener's own refresh presented the spent token, read as
    * reuse, and revoked the session it had just signed in. Read at render: the callback page consumes
    * the handshake in its own effect, which runs before this one.
+   *
+   * <p>The mailbox connect popup lands back in the app the same way, and is skipped for the same reason.
    */
-  const [isSignInPopup] = useState(isReturningSignInPopup);
+  const [isSignInPopup] = useState(() => isReturningSignInPopup() || isReturningMailboxPopup());
 
   useEffect(() => {
     if (isSignInPopup) {

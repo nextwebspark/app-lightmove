@@ -256,6 +256,31 @@ public enum ErrorCode {
     PEOPLE_SEARCH_PERSON_UNKNOWN(HttpStatus.CONFLICT,
             "That person is no longer in the search results. Search again and add them from there"),
 
+    /** No mail service is configured, so no mailbox can be connected or send. */
+    MAILBOX_UNAVAILABLE(HttpStatus.CONFLICT, "Outreach email is not set up on this deployment"),
+
+    /** Only the mailbox hosts the deployment lists may be connected. */
+    MAILBOX_PROVIDER_UNSUPPORTED(HttpStatus.BAD_REQUEST, "That kind of mailbox cannot be connected"),
+
+    MAILBOX_NOT_CONNECTED(HttpStatus.CONFLICT, "Connect your mailbox first"),
+
+    /** The provider withdrew access (a password change, an admin removing the app); nothing was sent. */
+    MAILBOX_RECONNECT_NEEDED(HttpStatus.CONFLICT, "Your mailbox needs reconnecting before it can send"),
+
+    /**
+     * The consent screen came back with no matching attempt: too late, already used, or in a browser that
+     * never started it. A link handed to someone else ends here and connects nothing.
+     */
+    MAILBOX_CONNECT_EXPIRED(HttpStatus.BAD_REQUEST, "That connection attempt has expired. Start again"),
+
+    /** The consultant backed out on the provider's screen; the SPA says nothing. */
+    MAILBOX_CONNECT_CANCELLED(HttpStatus.BAD_REQUEST, "The mailbox was not connected"),
+
+    MAILBOX_CONNECT_FAILED(HttpStatus.BAD_GATEWAY, "Your mailbox could not be connected. Try again"),
+
+    /** Never retried on our side, so nothing went twice; trying again may still find the first one delivered. */
+    MAILBOX_SEND_FAILED(HttpStatus.BAD_GATEWAY, "The email could not be sent. Try again in a moment"),
+
     INTERNAL_ERROR(HttpStatus.INTERNAL_SERVER_ERROR, "Something went wrong on our end");
 
     private final HttpStatus status;

@@ -328,7 +328,7 @@ the mockups: if a screen isn't being built this session, its tables and entities
 
 | Path | What |
 |---|---|
-| `apps/api` | Spring Boot 4.1 (Java 21, Maven). Features: `core`, `common`, `workspace`, `project`, `position`, `positiontemplate`, `strategy`, `triagecompany`, `candidate`, `enrichment` (with `sourcing`, the Find executives run, and `peoplesearch`, Strategy's People mode), `customcolumn`, `dataimport`, `dataexport`, `geocoding`, `talentmap`, `report`, `assistant` |
+| `apps/api` | Spring Boot 4.1 (Java 21, Maven). Features: `core`, `common`, `workspace`, `project`, `position`, `positiontemplate`, `strategy`, `triagecompany`, `candidate`, `enrichment` (with `sourcing`, the Find executives run, and `peoplesearch`, Strategy's People mode), `customcolumn`, `dataimport`, `dataexport`, `geocoding`, `talentmap`, `report`, `assistant`, `outreach` |
 | `apps/web` | React 19 SPA (Vite 8, TypeScript, Tailwind v4) |
 | `apps/extension` | LightMove Capture — the Chrome extension (Manifest V3, React 19, Vite 8). Its own workspace; shares no code with `apps/web`. |
 | `claude-design/` | HTML mockups — **the source of truth for all UI**. Read the relevant `*.dc.html` before building a screen. |
@@ -370,6 +370,15 @@ already exist. It depends on those three and none of them depends back. **`datae
 three doors outward** — one stage of the Companies grid, composed and written as a CSV, reading
 through the seams `talentmap` already uses; it depends on the same three and on nothing else. Details
 in `java-spring-development`.
+
+`outreach` is **email from a consultant's own mailbox** (epic #620). So far it connects one: Nylas's
+hosted sign-in behind `MailboxGateway` (`lightmove.outreach.nylas.*`; blank leaves it unoffered), a
+grant id per person per workspace (V99), never the provider's tokens. The callback is the one public
+`/api/v1` GET a navigation reaches: its single-use state counts only beside the `lm_mailbox_connect`
+cookie the starting browser holds, so a consent link handed to someone else connects nothing. The
+connect popup lands in the SPA and, like the sign-in popup, must never restore the session there
+(`isReturningMailboxPopup`). A send is never retried — a second approach to an executive is worse than
+a failure.
 
 ## Commands
 

@@ -22,8 +22,10 @@ import { CandidatesPage } from "../features/candidates/pages/CandidatesPage";
 import { ProjectCandidatesPage } from "../features/candidates/pages/ProjectCandidatesPage";
 import { ClientsPage } from "../features/clients/pages/ClientsPage";
 import { ExtensionConnectPage } from "../features/extension/pages/ExtensionConnectPage";
+import { MAILBOX_CALLBACK_PATH } from "../features/outreach/lib/mailboxPopup";
+import { MailboxCallbackPage } from "../features/outreach/pages/MailboxCallbackPage";
+import { OutreachPage } from "../features/outreach/pages/OutreachPage";
 import { PositionPage } from "../features/position/pages/PositionPage";
-import { ProjectPlaceholderPage } from "../features/position/pages/ProjectPlaceholderPage";
 import { ProjectsPage } from "../features/projects/pages/ProjectsPage";
 import { ReportsPage } from "../features/reports/pages/ReportsPage";
 import { TeamAccessPage } from "../features/projects/pages/TeamAccessPage";
@@ -62,6 +64,8 @@ export function AppRoutes() {
           link simply replaces their session with the fresh one the reset returns. */}
       <Route path="/auth/reset-password" element={<ResetPasswordPage />} />
       <Route path="/auth/callback" element={<OAuthCallbackPage />} />
+      {/* Public like /auth/callback: it runs inside the mailbox connect popup, which holds no session. */}
+      <Route path={MAILBOX_CALLBACK_PATH} element={<MailboxCallbackPage />} />
 
       {/* Public, and unguarded on purpose: the invitee may have no account, an unverified one, or be
           signed in as somebody else entirely. The page reads its own state and says which. Guarding it
@@ -120,7 +124,7 @@ export function AppRoutes() {
           element={<Navigate to="../companies/universe" replace relative="path" />}
         />
         <Route path="/projects/:projectId/candidates" element={<ProjectCandidatesPage />} />
-        <Route path="/projects/:projectId/outreach" element={<ProjectPlaceholderPage title="Outreach" icon="outreach" />} />
+        <Route path="/projects/:projectId/outreach" element={<OutreachPage />} />
         <Route path="/projects/:projectId/reports" element={<ReportsPage />} />
         <Route path="/projects/:projectId/team" element={<TeamAccessPage />} />
       </Route>

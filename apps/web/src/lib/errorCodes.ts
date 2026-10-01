@@ -72,6 +72,14 @@ export type ApiErrorCode =
   | "PEOPLE_SEARCH_REJECTED"
   | "PEOPLE_SEARCH_EMPTY_FILTER"
   | "PEOPLE_SEARCH_PERSON_UNKNOWN"
+  | "MAILBOX_UNAVAILABLE"
+  | "MAILBOX_PROVIDER_UNSUPPORTED"
+  | "MAILBOX_NOT_CONNECTED"
+  | "MAILBOX_RECONNECT_NEEDED"
+  | "MAILBOX_CONNECT_EXPIRED"
+  | "MAILBOX_CONNECT_CANCELLED"
+  | "MAILBOX_CONNECT_FAILED"
+  | "MAILBOX_SEND_FAILED"
   | "WORKSPACE_NAME_MISMATCH"
   | "TEMPLATE_STALE"
   | "TEMPLATE_FALLBACK_REQUIRED"
@@ -152,6 +160,13 @@ const MESSAGES: Partial<Record<ApiErrorCode, string>> = {
   PEOPLE_SEARCH_REJECTED: "People search couldn't run that filter. Loosen or change it and try again.",
   PEOPLE_SEARCH_EMPTY_FILTER: "Add at least one filter before searching.",
   PEOPLE_SEARCH_PERSON_UNKNOWN: "That person is no longer in the results. Search again and add them from there.",
+  MAILBOX_UNAVAILABLE: "Outreach email is not set up on this deployment.",
+  MAILBOX_PROVIDER_UNSUPPORTED: "That kind of mailbox can't be connected.",
+  MAILBOX_NOT_CONNECTED: "Connect your mailbox first.",
+  MAILBOX_RECONNECT_NEEDED: "Your mailbox needs reconnecting before it can send.",
+  MAILBOX_CONNECT_EXPIRED: "That connection attempt expired. Start again.",
+  MAILBOX_CONNECT_FAILED: "Your mailbox couldn't be connected. Try again.",
+  MAILBOX_SEND_FAILED: "The email couldn't be sent. Try again in a moment.",
 };
 
 /**
@@ -177,6 +192,11 @@ export function messageFor(error: unknown): string {
     if (error.problem.detail) return error.problem.detail;
   }
   return "Something went wrong. Try again.";
+}
+
+/** The sentence for a code that arrived without a response, such as a redirect's `?error=`. */
+export function messageForCode(code: string): string {
+  return MESSAGES[code as ApiErrorCode] ?? "Something went wrong. Try again.";
 }
 
 /** The code of a failed request, if it was one — for switching on special-cased failures. */
