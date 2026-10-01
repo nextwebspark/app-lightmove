@@ -10,6 +10,7 @@ import { SelectionAction, SelectionActionBar } from "../../../../components/ui/S
 import { SelectionCheckbox } from "../../../../components/ui/SelectionCheckbox";
 import { cn } from "../../../../lib/cn";
 import { messageFor } from "../../../../lib/errorCodes";
+import { useDebouncedValue } from "../../../../lib/useComboboxList";
 import { useDataGridTable } from "../../../../lib/useDataGridTable";
 import { layoutColumnsOf, useGridLayout } from "../../../../lib/useGridLayout";
 import { useGridPaging } from "../../../../lib/useGridPaging";
@@ -59,18 +60,22 @@ export function PeopleView({
   const [rowSelection, setRowSelection] = useState<RowSelectionState>(NOTHING_SELECTED);
   const [dialog, setDialog] = useState<BulkDialog>(null);
   const [layout, setLayout] = useGridLayout("candidatePool", POOL_LAYOUT_COLUMNS);
-  const { reset: resetPaging } = paging;
+  const { reset: resetPaging, clampTo, page: pageIndex, size: pageSize } = paging;
+  const settledQuery = useDebouncedValue(query);
 
   useEffect(() => {
-    if (query === filters.q) return;
-    const timer = setTimeout(() => onFiltersChange({ ...filters, q: query }), 300);
-    return () => clearTimeout(timer);
-  }, [query, filters, onFiltersChange]);
+    if (settledQuery !== filters.q) onFiltersChange({ ...filters, q: settledQuery });
+  }, [settledQuery, filters, onFiltersChange]);
 
+  // The selection is what the bulk actions count and summarise, and they can only see the rows on
+  // screen — so a new question, or a turned page, starts it again.
   useEffect(() => {
     resetPaging();
     setRowSelection(NOTHING_SELECTED);
   }, [filters, resetPaging]);
+  useEffect(() => {
+    setRowSelection(NOTHING_SELECTED);
+  }, [pageIndex, pageSize]);
 
   const page = useQuery({
     queryKey: poolApi.POOL_PAGE_KEY(filters, paging.page, paging.size),
@@ -78,6 +83,10 @@ export function PeopleView({
     placeholderData: keepPreviousData,
   });
   const rows = page.data?.people ?? [];
+  const totalCount = page.data?.totalCount;
+  useEffect(() => {
+    if (totalCount !== undefined) clampTo(totalCount);
+  }, [clampTo, totalCount]);
   const selectedIds = useMemo(() => Object.keys(rowSelection), [rowSelection]);
 
   const columns = useMemo(
@@ -250,30 +259,36 @@ export function PeopleView({
         </SelectionActionBar>
       )}
 
-      <AddToPositionDialog
-        open={dialog === "position"}
-        onClose={() => setDialog(null)}
-        personIds={selectedIds}
-        targetName={selectedPeople === 1 ? (rows.find((row) => rowSelection[row.personId])?.fullName ?? null) : null}
-        alreadyInByPosition={alreadyInByPositionOf(rows, rowSelection)}
-        positions={lookups.positions}
-        onDone={() => setRowSelection(NOTHING_SELECTED)}
-      />
-      <TagPeopleDialog
-        open={dialog === "tag"}
-        onClose={() => setDialog(null)}
-        personIds={selectedIds}
-        holdersByTag={holdersByTagOf(rows, rowSelection)}
-        tags={lookups.offeredTags}
-        onDone={() => setRowSelection(NOTHING_SELECTED)}
-      />
-      <SetOwnerDialog
-        open={dialog === "owner"}
-        onClose={() => setDialog(null)}
-        personIds={selectedIds}
-        staff={lookups.staff}
-        onDone={() => setRowSelection(NOTHING_SELECTED)}
-      />
+      {dialog === "position" && (
+        <AddToPositionDialog
+          open
+          onClose={() => setDialog(null)}
+          personIds={selectedIds}
+          targetName={selectedPeople === 1 ? (rows.find((row) => rowSelection[row.personId])?.fullName ?? null) : null}
+          alreadyInByPosition={alreadyInByPositionOf(rows, rowSelection)}
+          positions={lookups.workablePositions}
+          onDone={() => setRowSelection(NOTHING_SELECTED)}
+        />
+      )}
+      {dialog === "tag" && (
+        <TagPeopleDialog
+          open
+          onClose={() => setDialog(null)}
+          personIds={selectedIds}
+          holdersByTag={holdersByTagOf(rows, rowSelection)}
+          tags={lookups.offeredTags}
+          onDone={() => setRowSelection(NOTHING_SELECTED)}
+        />
+      )}
+      {dialog === "owner" && (
+        <SetOwnerDialog
+          open
+          onClose={() => setDialog(null)}
+          personIds={selectedIds}
+          staff={lookups.staff}
+          onDone={() => setRowSelection(NOTHING_SELECTED)}
+        />
+      )}
     </div>
   );
 }

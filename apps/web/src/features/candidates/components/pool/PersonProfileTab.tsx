@@ -155,14 +155,16 @@ export function PersonProfileTab({ person }: { person: PersonRecord }) {
         {CANDIDATE_SOURCE_STYLES[person.source]?.label ?? person.source}
       </p>
 
-      <AddToPositionDialog
-        open={adding}
-        onClose={() => setAdding(false)}
-        personIds={[person.personId]}
-        targetName={person.fullName}
-        alreadyInByPosition={new Map(person.positions.map((position) => [position.projectId, 1]))}
-        positions={lookups.positions}
-      />
+      {adding && (
+        <AddToPositionDialog
+          open
+          onClose={() => setAdding(false)}
+          personIds={[person.personId]}
+          targetName={person.fullName}
+          alreadyInByPosition={new Map(person.positions.map((position) => [position.projectId, 1]))}
+          positions={lookups.workablePositions}
+        />
+      )}
     </div>
   );
 }

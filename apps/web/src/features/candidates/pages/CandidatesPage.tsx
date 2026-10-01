@@ -4,7 +4,8 @@ import { useSearchParams } from "react-router-dom";
 import { Icon, ICONS } from "../../../components/layout/Icon";
 import { PageHeader } from "../../../components/layout/PageHeader";
 import { Button, useToast } from "../../../components/ui";
-import { cn } from "../../../lib/cn";
+import { TabList } from "../../../components/ui/TabList";
+import { tabPanelProps } from "../../../components/ui/tabPanelProps";
 import { messageFor } from "../../../lib/errorCodes";
 import { saveBlob } from "../../../lib/saveBlob";
 import { useAuth } from "../../auth/AuthProvider";
@@ -37,11 +38,7 @@ export function CandidatesPage() {
     ? (tabParam as PersonDrawerTab)
     : "profile";
 
-  const size = useQuery({
-    queryKey: poolApi.POOL_SIZE_KEY,
-    queryFn: ({ signal }) => poolApi.listPool(NO_POOL_FILTERS, 0, 1, signal),
-    select: (page) => page.poolSize,
-  });
+  const size = useQuery({ queryKey: poolApi.POOL_COUNT_KEY, queryFn: ({ signal }) => poolApi.poolCount(signal) });
 
   const navigate = useCallback(
     (change: Record<string, string | null>) =>
@@ -58,7 +55,8 @@ export function CandidatesPage() {
 
   const exporting = useMutation({
     mutationFn: async (personIds: string[]) => {
-      saveBlob(await poolApi.exportPool(filters, personIds), `uncava-candidates-${new Date().toISOString().slice(0, 10)}.csv`);
+      const file = personIds.length > 0 ? await poolApi.exportPeople(personIds) : await poolApi.exportPool(filters);
+      saveBlob(file, `uncava-candidates-${new Date().toISOString().slice(0, 10)}.csv`);
       return personIds.length;
     },
     onSuccess: (count) =>
@@ -96,39 +94,33 @@ export function CandidatesPage() {
         }
       />
 
-      <div role="tablist" aria-label="Candidates views" className="mb-4 flex gap-5 border-b border-u-border">
-        {[
-          { key: "people", label: "People", icon: ICONS.candidates, selected: !activity },
-          { key: "activity", label: "Activity", icon: ICONS.activity, selected: activity },
-        ].map((view) => (
-          <button
-            key={view.key}
-            type="button"
-            role="tab"
-            aria-selected={view.selected}
-            onClick={() => navigate({ view: view.key === "activity" ? "activity" : null })}
-            className={cn(
-              "-mb-px flex items-center gap-1.5 border-b-2 pb-2.5 text-[13.5px] font-semibold",
-              view.selected ? "border-u-accent text-u-text" : "border-transparent text-u-text3 hover:text-u-text2",
-            )}
-          >
-            <Icon d={view.icon} size={14} />
-            {view.label}
-          </button>
-        ))}
+      <div className="mb-4 border-b border-u-border">
+        <TabList
+          label="Candidates views"
+          idPrefix="candidates-view"
+          className="gap-5"
+          value={activity ? "activity" : "people"}
+          onChange={(view) => navigate({ view: view === "activity" ? "activity" : null })}
+          tabs={[
+            { value: "people", label: "People", icon: <Icon d={ICONS.candidates} size={14} /> },
+            { value: "activity", label: "Activity", icon: <Icon d={ICONS.activity} size={14} /> },
+          ]}
+        />
       </div>
 
-      {activity ? (
-        <ActivityView onOpen={(id) => navigate({ person: id, tab: "timeline" })} />
-      ) : (
-        <PeopleView
-          filters={filters}
-          onFiltersChange={setFilters}
-          onOpen={(id) => navigate({ person: id, tab: null })}
-          onExport={(personIds) => exporting.mutate(personIds)}
-          exporting={exporting.isPending}
-        />
-      )}
+      <div {...tabPanelProps("candidates-view", activity ? "activity" : "people")}>
+        {activity ? (
+          <ActivityView onOpen={(id) => navigate({ person: id, tab: "timeline" })} />
+        ) : (
+          <PeopleView
+            filters={filters}
+            onFiltersChange={setFilters}
+            onOpen={(id) => navigate({ person: id, tab: null })}
+            onExport={(personIds) => exporting.mutate(personIds)}
+            exporting={exporting.isPending}
+          />
+        )}
+      </div>
 
       <PersonDrawer
         personId={personId}

@@ -3,7 +3,9 @@ package app.lightmove.api.candidate.repository;
 import app.lightmove.api.candidate.constant.PoolView;
 import app.lightmove.api.candidate.model.PoolCriteria;
 import app.lightmove.api.candidate.model.PoolViewCounts;
+import app.lightmove.api.project.constant.ProjectStage;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
@@ -25,10 +27,13 @@ import org.springframework.stereotype.Repository;
 @RequiredArgsConstructor
 public class PersonPoolQuery {
 
-    /** A position still being worked: neither delivered nor closed (ProjectStage.isDone). */
+    /** A position still being worked: one whose stage is not {@link ProjectStage#isDone}. */
     private static final String IN_ACTIVE_POSITION = """
             EXISTS (SELECT 1 FROM app_lm_project_candidate m JOIN app_lm_project pr ON pr.id = m.project_id
-                    WHERE m.person_id = p.id AND pr.stage NOT IN ('DELIVERED', 'CLOSED'))""";
+                    WHERE m.person_id = p.id AND pr.stage NOT IN (:doneStages))""";
+
+    private static final List<String> DONE_STAGES = Arrays.stream(ProjectStage.values())
+            .filter(ProjectStage::isDone).map(Enum::name).toList();
 
     private static final String IN_NO_POSITION =
             "NOT EXISTS (SELECT 1 FROM app_lm_project_candidate m WHERE m.person_id = p.id)";
@@ -85,6 +90,7 @@ public class PersonPoolQuery {
         Map<String, Object> params = new HashMap<>();
         params.put("workspaceId", workspaceId);
         params.put("caller", callerId);
+        params.put("doneStages", DONE_STAGES);
         return params;
     }
 

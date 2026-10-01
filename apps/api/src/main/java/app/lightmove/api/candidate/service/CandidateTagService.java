@@ -62,6 +62,9 @@ public class CandidateTagService {
     public CandidateTagResponse create(UUID userId, UUID workspaceId, CreateCandidateTagRequest request,
                                        HttpServletRequest httpRequest) {
         String label = request.label().strip();
+        tags.findByLabel(workspaceId, label).filter(CandidateTag::isRetired).ifPresent(retired -> {
+            throw ApiException.of(ErrorCode.CANDIDATE_TAG_RETIRED);
+        });
         refuseTaken(workspaceId, label, null);
         CandidateTagColour colour = ApiValueEnum.parse(CandidateTagColour.class, request.colour(),
                 CandidateTagColour.NEUTRAL, "tag colour");

@@ -1,14 +1,16 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Icon, ICONS } from "../../../../components/layout/Icon";
-import { Avatar } from "../../../../components/ui/Avatar";
 import { Drawer, DrawerCloseButton } from "../../../../components/ui/Drawer";
 import { Button, Select, useToast } from "../../../../components/ui";
+import { TabList } from "../../../../components/ui/TabList";
+import { tabPanelProps } from "../../../../components/ui/tabPanelProps";
 import { cn } from "../../../../lib/cn";
 import { messageFor } from "../../../../lib/errorCodes";
 import * as poolApi from "../../api/poolApi";
 import type { PersonRecord } from "../../api/types";
 import { usePoolLookups } from "../../lib/usePoolLookups";
 import { HeaderProfileLink } from "../ProfileParts";
+import { PersonAvatar } from "./PersonAvatar";
 import { PersonNotesTab } from "./PersonNotesTab";
 import { PersonProfileTab } from "./PersonProfileTab";
 import { PersonTimelineTab } from "./PersonTimelineTab";
@@ -89,7 +91,9 @@ function PersonDrawerBody({
 
   const changed = (updated: PersonRecord) => {
     queryClient.setQueryData(poolApi.PERSON_RECORD_KEY(updated.personId), updated);
-    void queryClient.invalidateQueries({ queryKey: poolApi.POOL_KEY });
+    for (const queryKey of poolApi.personChangedKeys(updated.personId).slice(1)) {
+      void queryClient.invalidateQueries({ queryKey });
+    }
   };
 
   const owning = useMutation({
@@ -120,7 +124,7 @@ function PersonDrawerBody({
     <>
       <header className="relative border-b border-u-border px-5 pb-3 pt-4">
         <div className="flex items-start gap-3">
-          <Avatar id={person.personId} name={person.fullName} size="xl" />
+          <PersonAvatar person={person} size="xl" />
           <div className="min-w-0 flex-1 pe-8">
             <div className="flex items-center gap-2">
               <h2 className="truncate text-[18px] font-semibold text-u-text">{person.fullName}</h2>
@@ -205,32 +209,20 @@ function PersonDrawerBody({
           <TagPicker person={person} tags={lookups.tags} onChanged={changed} />
         </div>
 
-        <div role="tablist" aria-label="Candidate sections" className="-mb-3 mt-3 flex gap-4">
-          {TABS.map((option) => {
-            const count = option.value === "notes" ? (notes.data?.length ?? 0) : 0;
-            return (
-              <button
-                key={option.value}
-                type="button"
-                role="tab"
-                aria-selected={tab === option.value}
-                onClick={() => onTabChange(option.value)}
-                className={cn(
-                  "flex items-center gap-1.5 border-b-2 pb-2 text-[13px] font-semibold",
-                  tab === option.value ? "border-u-accent text-u-text" : "border-transparent text-u-text3 hover:text-u-text2",
-                )}
-              >
-                {option.label}
-                {count > 0 && (
-                  <span className="rounded-full bg-u-raised px-1.5 font-mono text-[10.5px] text-u-text3">{count}</span>
-                )}
-              </button>
-            );
-          })}
-        </div>
+        <TabList
+          label="Candidate sections"
+          idPrefix="person-drawer"
+          className="-mb-3 mt-3"
+          value={tab}
+          onChange={onTabChange}
+          tabs={TABS.map((option) => ({
+            ...option,
+            count: option.value === "notes" ? (notes.data?.length ?? 0) : undefined,
+          }))}
+        />
       </header>
 
-      <div className="min-h-0 flex-1 overflow-y-auto px-5 py-4" role="tabpanel">
+      <div className="min-h-0 flex-1 overflow-y-auto px-5 py-4" {...tabPanelProps("person-drawer", tab)}>
         {tab === "profile" && <PersonProfileTab person={person} />}
         {tab === "notes" && <PersonNotesTab person={person} notes={notes} />}
         {tab === "timeline" && <PersonTimelineTab personId={person.personId} />}

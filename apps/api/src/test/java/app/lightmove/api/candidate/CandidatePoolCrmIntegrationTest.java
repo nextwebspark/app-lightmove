@@ -50,6 +50,9 @@ class CandidatePoolCrmIntegrationTest extends FlowTestSupport {
         assertThat(namesOf(pool(Map.of("q", "50%")))).isEmpty();
 
         JsonNode everyone = pool(Map.of());
+        assertThat(body(mvc.perform(get("/api/v1/candidates/count").header("Authorization", "Bearer " + admin))
+                .andExpect(status().isOk())
+                .andReturn()).get("count").asLong()).isEqualTo(2);
         assertThat(everyone.get("totalCount").asLong()).isEqualTo(2);
         assertThat(everyone.get("poolSize").asLong()).isEqualTo(2);
         assertThat(everyone.get("viewCounts").get("active").asLong()).isEqualTo(2);
@@ -96,6 +99,8 @@ class CandidatePoolCrmIntegrationTest extends FlowTestSupport {
 
         assertThat(namesOf(pool(Map.of("tag", List.of(openToWork, relocate), "tagMatch", "all"))))
                 .containsExactly("Fatima Al Mazrouei");
+        assertThat(namesOf(pool(Map.of("tag", List.of(openToWork, openToWork), "tagMatch", "all"))))
+                .containsExactlyInAnyOrder("Fatima Al Mazrouei", "Rajesh Menon");
         assertThat(namesOf(pool(Map.of("tag", List.of(relocate), "tagMatch", "any"))))
                 .containsExactly("Fatima Al Mazrouei");
         assertThat(namesOf(pool(Map.of("tag", List.of(relocate), "tagMatch", "none"))))
@@ -110,6 +115,13 @@ class CandidatePoolCrmIntegrationTest extends FlowTestSupport {
                 .andExpect(status().isOk());
         assertThat(codeOf(mvc.perform(put("/api/v1/candidates/" + rajesh + "/tags/" + boardReady)
                         .header("Authorization", "Bearer " + admin))
+                .andExpect(status().isConflict())
+                .andReturn())).isEqualTo("CANDIDATE_TAG_RETIRED");
+        assertThat(codeOf(mvc.perform(post("/api/v1/candidate-tags")
+                        .header("Authorization", "Bearer " + admin)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"label":"Board-Ready"}"""))
                 .andExpect(status().isConflict())
                 .andReturn())).isEqualTo("CANDIDATE_TAG_RETIRED");
 
@@ -148,6 +160,36 @@ class CandidatePoolCrmIntegrationTest extends FlowTestSupport {
         JsonNode line = timeline(person, "tags").get(0);
         assertThat(line.get("details").get("tag").asText()).isEqualTo("Not looking");
         assertThat(labelsOf(catalog())).contains("Not looking").doesNotContain("Passive");
+    }
+
+    @Test
+    @DisplayName("a person's photo is served to staff by person, and to nobody else")
+    void aPhotoIsServedByPerson() throws Exception {
+        firm("Pool Photo Firm");
+        String cfo = mandate("Chief Financial Officer");
+        String person = add(cfo, """
+                {"fullName":"Mariam Saeed"}""").get("personId").asText();
+        String client = clientOn(cfo);
+
+        mvc.perform(get("/api/v1/candidates/" + person + "/photo").header("Authorization", "Bearer " + admin))
+                .andExpect(status().isNotFound());
+
+        byte[] jpeg = {(byte) 0xFF, (byte) 0xD8, (byte) 0xFF, 0};
+        db.update("insert into app_lm_person_photo (person_id, content, content_type) values (?::uuid, ?, ?)",
+                person, jpeg, "image/jpeg");
+        byte[] served = mvc.perform(get("/api/v1/candidates/" + person + "/photo")
+                        .header("Authorization", "Bearer " + admin))
+                .andExpect(status().isOk())
+                .andReturn().getResponse().getContentAsByteArray();
+        assertThat(served).isEqualTo(jpeg);
+
+        mvc.perform(get("/api/v1/candidates/" + person + "/photo").header("Authorization", "Bearer " + client))
+                .andExpect(status().isForbidden());
+        String strangerAddress = "stranger@other-" + domain;
+        createWorkspace(verifiedUser("Stranger", strangerAddress), "Pool Photo Stranger Firm");
+        mvc.perform(get("/api/v1/candidates/" + person + "/photo")
+                        .header("Authorization", "Bearer " + login(strangerAddress)))
+                .andExpect(status().isNotFound());
     }
 
     @Test
@@ -272,6 +314,9 @@ class CandidatePoolCrmIntegrationTest extends FlowTestSupport {
         assertThat(added.get("status").asText()).isEqualTo("identified");
         assertThat(added.get("companyName").asText()).isEqualTo("Aldar Properties");
         assertThat(kindsOf(timeline(fatima, "positions"))).containsExactly("MAPPED", "ADDED_TO_POOL");
+        assertThat(db.queryForObject("""
+                select metadata ->> 'personIds' from app_lm_audit_event
+                where event_type = 'PEOPLE_MAPPED_FROM_POOL'""", String.class)).contains(fatima).doesNotContain(rajesh);
 
         JsonNode record = body(mvc.perform(get("/api/v1/candidates/" + fatima).header("Authorization", "Bearer " + sara))
                 .andExpect(status().isOk())
@@ -331,8 +376,11 @@ class CandidatePoolCrmIntegrationTest extends FlowTestSupport {
         assertThat(all).contains("Fatima Al Mazrouei", "fatima@aldar.example", "Chief Financial Officer (Identified)");
         assertThat(all).contains("'=HYPERLINK");
 
-        String ticked = mvc.perform(get("/api/v1/candidates/export").param("person", fatima)
-                        .header("Authorization", "Bearer " + admin))
+        String ticked = mvc.perform(post("/api/v1/candidates/export")
+                        .header("Authorization", "Bearer " + admin)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"personIds":["%s"]}""".formatted(fatima)))
                 .andExpect(status().isOk())
                 .andReturn().getResponse().getContentAsString();
         assertThat(ticked).contains("Fatima Al Mazrouei").doesNotContain("HYPERLINK");
@@ -354,6 +402,8 @@ class CandidatePoolCrmIntegrationTest extends FlowTestSupport {
         mvc.perform(get("/api/v1/candidates").param("view", "favourites").header("Authorization", "Bearer " + admin))
                 .andExpect(status().isBadRequest());
         mvc.perform(get("/api/v1/candidates").param("owner", "someone").header("Authorization", "Bearer " + admin))
+                .andExpect(status().isBadRequest());
+        mvc.perform(get("/api/v1/candidates").param("direction", "sideways").header("Authorization", "Bearer " + admin))
                 .andExpect(status().isBadRequest());
 
         String outsiderEmail = "nadia@other-" + domain;

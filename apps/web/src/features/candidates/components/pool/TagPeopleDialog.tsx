@@ -2,13 +2,19 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { Icon, ICONS } from "../../../../components/layout/Icon";
 import { Button, Modal, useToast } from "../../../../components/ui";
+import { SegmentedControl } from "../../../../components/ui/SegmentedControl";
 import { cn } from "../../../../lib/cn";
 import { messageFor } from "../../../../lib/errorCodes";
 import * as poolApi from "../../api/poolApi";
 import type { CandidateTag } from "../../api/types";
 import { TagPill } from "./TagPill";
 
-/** Puts tags on every person ticked, or takes them off. */
+const TAG_MODES = [
+  { value: "add", label: "Add tags" },
+  { value: "remove", label: "Remove tags" },
+] as const;
+
+/** Puts tags on every person ticked, or takes them off. Mount it only while open. */
 export function TagPeopleDialog({
   open,
   onClose,
@@ -37,7 +43,6 @@ export function TagPeopleDialog({
       toast(`${remove ? "Untagged" : "Tagged"} ${target}`);
       void queryClient.invalidateQueries({ queryKey: poolApi.POOL_KEY });
       void queryClient.invalidateQueries({ queryKey: poolApi.TAGS_KEY });
-      setChosen([]);
       onDone?.();
       onClose();
     },
@@ -63,26 +68,13 @@ export function TagPeopleDialog({
         </div>
       }
     >
-      <div role="radiogroup" aria-label="Add or remove" className="mb-3 flex rounded-[6px] border border-u-border-strong p-0.5">
-        {[
-          { value: false, label: "Add tags" },
-          { value: true, label: "Remove tags" },
-        ].map((option) => (
-          <button
-            key={option.label}
-            type="button"
-            role="radio"
-            aria-checked={remove === option.value}
-            onClick={() => setRemove(option.value)}
-            className={cn(
-              "flex-1 rounded-[4px] px-2 py-1 font-mono text-[12px]",
-              remove === option.value ? "bg-u-accent-tint text-u-accent" : "text-u-text3",
-            )}
-          >
-            {option.label}
-          </button>
-        ))}
-      </div>
+      <SegmentedControl
+        label="Add or remove"
+        options={TAG_MODES}
+        value={remove ? "remove" : "add"}
+        onChange={(mode) => setRemove(mode === "remove")}
+        className="mb-3"
+      />
       <ul className="flex flex-col gap-1">
         {tags.map((tag) => (
           <li key={tag.id}>

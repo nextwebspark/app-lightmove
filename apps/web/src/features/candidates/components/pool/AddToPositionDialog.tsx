@@ -1,6 +1,7 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { Button, Modal, useToast } from "../../../../components/ui";
+import { useRadioGroupKeys } from "../../../../components/ui/useRadioGroupKeys";
 import { cn } from "../../../../lib/cn";
 import { messageFor } from "../../../../lib/errorCodes";
 import * as projectsApi from "../../../projects/api/projectsApi";
@@ -11,7 +12,7 @@ import * as poolApi from "../../api/poolApi";
 /**
  * Adds the people named to a position as Identified, from the selection bar or one person's drawer.
  * Someone the position already holds stays as they are; the summary says how many that is before the
- * press, and the toast after it.
+ * press, and the toast after it. Mount it only while open, so a cancelled choice is not kept.
  */
 export function AddToPositionDialog({
   open,
@@ -35,6 +36,11 @@ export function AddToPositionDialog({
   const queryClient = useQueryClient();
   const toast = useToast();
   const [chosen, setChosen] = useState<string | null>(null);
+  const keys = useRadioGroupKeys(
+    positions.map((position) => position.id),
+    chosen,
+    setChosen,
+  );
   const target = targetName ?? `${personIds.length} ${personIds.length === 1 ? "person" : "people"}`;
   const alreadyIn = chosen ? (alreadyInByPosition.get(chosen) ?? 0) : 0;
   const toAdd = personIds.length - alreadyIn;
@@ -51,7 +57,6 @@ export function AddToPositionDialog({
       void queryClient.invalidateQueries({ queryKey: poolApi.POOL_KEY });
       void queryClient.invalidateQueries({ queryKey: CANDIDATES_KEY_PREFIX(projectId) });
       void queryClient.invalidateQueries({ queryKey: projectsApi.PROJECTS_KEY });
-      setChosen(null);
       onDone?.();
       onClose();
     },
@@ -82,8 +87,17 @@ export function AddToPositionDialog({
         They are added as Identified and appear on that position&apos;s Candidates page. Their notes, contacts and
         history come with them.
       </p>
-      <div role="radiogroup" aria-label="Position" className="flex max-h-[320px] flex-col gap-1.5 overflow-y-auto">
-        {positions.map((position) => {
+      {positions.length === 0 && (
+        <p className="text-[13px] text-u-text3">You are not on any position you can add people to.</p>
+      )}
+      <div
+        ref={keys.ref}
+        role="radiogroup"
+        aria-label="Position"
+        onKeyDown={keys.onKeyDown}
+        className="flex max-h-[320px] flex-col gap-1.5 overflow-y-auto"
+      >
+        {positions.map((position, index) => {
           const held = alreadyInByPosition.get(position.id) ?? 0;
           return (
             <button
@@ -91,6 +105,7 @@ export function AddToPositionDialog({
               type="button"
               role="radio"
               aria-checked={chosen === position.id}
+              tabIndex={chosen === position.id || (chosen === null && index === 0) ? 0 : -1}
               onClick={() => setChosen(position.id)}
               className={cn(
                 "flex items-center gap-2 rounded-[8px] border px-3 py-2 text-start",

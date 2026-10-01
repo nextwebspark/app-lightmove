@@ -381,7 +381,15 @@ export interface PoolRow {
   locationCity: string | null;
   locationCountry: string | null;
   linkedinUrl: string | null;
+  /** When research last landed; null for someone never researched, who has no photo. */
+  enrichedAt: string | null;
   doNotContact: boolean;
+  yearsExperience: number | null;
+  /** Posts in their recorded career. */
+  careerRoles: number;
+  /** Which channels the contact ledger holds; the values stay in the drawer. */
+  hasEmail: boolean;
+  hasPhone: boolean;
   /** Most recently added first. */
   positions: PersonPosition[];
   tagIds: string[];
@@ -412,6 +420,7 @@ export interface PersonRecord {
   companyName: string | null;
   seniority: CandidateSeniority | null;
   linkedinUrl: string | null;
+  enrichedAt: string | null;
   locationCity: string | null;
   locationCountry: string | null;
   nationality: string | null;

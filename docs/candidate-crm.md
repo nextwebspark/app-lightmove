@@ -551,7 +551,9 @@ expand and the contract in separate deploys.
 >   views with their counts under the other filters, tags any/all/none, position (+ status on it), owner
 >   (a user or `nobody`), country, four sorts, paged (the mockup draws every row; a pool of thousands
 >   cannot). `PersonPoolQuery` answers ids; the rows, mappings and each person's latest line load in
->   batches.
+>   batches. A row reads as Strategy → People draws a person (photo, LinkedIn, title, company,
+>   location, experience, the contact channels on file), then the CRM's columns. `GET /candidates/count`
+>   is the nav's figure, and `GET /candidates/{personId}/photo` the stored photo by person.
 > - **Writes** (all `CANDIDATE_POOL_MANAGE`, each a timeline line and an audit event): owner (a colleague,
 >   `PERSON_OWNER_NOT_STAFF` otherwise), do not contact, tag/untag, bulk tag and bulk owner, and add to a
 >   position (`POST /candidates/bulk/position`, Identified, by hand, at the employer last recorded; the
@@ -560,7 +562,7 @@ expand and the contract in separate deploys.
 >   `CANDIDATE_TAG_EXISTS`, `CANDIDATE_TAG_RETIRED`.
 > - **Do not contact** refuses a contact lookup with `PERSON_DO_NOT_CONTACT` before anything is spent. It
 >   never blocks a mapping.
-> - **Export**: `GET /candidates/export` (the list's filters, or `person=` repeated for the ticked),
+> - **Export**: `GET /candidates/export` (the list's filters) or `POST` naming the people ticked,
 >   audited `CANDIDATES_EXPORTED`, refused past `lightmove.export.max-candidates`.
 > - **SPA**: `/candidates` (staff nav item with the pool's size) with People and Activity views, the
 >   filter panel and chips, the selection bar's Add to position / Tag / Set owner / Export, and a drawer

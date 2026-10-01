@@ -4,7 +4,7 @@ import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { ToastProvider } from "../../../components/ui";
-import { aUser } from "../../../test/fixtures/user";
+import { aUser, aWorkspace } from "../../../test/fixtures/user";
 import type { User } from "../../auth/api/types";
 import * as projectsApi from "../../projects/api/projectsApi";
 import type { Project } from "../../projects/api/types";
@@ -17,6 +17,8 @@ vi.mock("../api/poolApi", async (importOriginal) => ({
   ...(await importOriginal<typeof import("../api/poolApi")>()),
   listPool: vi.fn(),
   exportPool: vi.fn(),
+  exportPeople: vi.fn(),
+  poolCount: vi.fn(),
   getPerson: vi.fn(),
   setOwner: vi.fn(),
   setDoNotContact: vi.fn(),
@@ -27,6 +29,7 @@ vi.mock("../api/poolApi", async (importOriginal) => ({
   addToPosition: vi.fn(),
   getPoolNotes: vi.fn(),
   writePoolNote: vi.fn(),
+  removePoolNote: vi.fn(),
   getPoolTimeline: vi.fn(),
   getActivityFeed: vi.fn(),
   tagCatalog: vi.fn(),
@@ -78,8 +81,13 @@ const fatima: PoolRow = {
   companyName: "Aldar Properties",
   locationCity: "Abu Dhabi",
   locationCountry: "United Arab Emirates",
-  linkedinUrl: null,
+  linkedinUrl: "https://www.linkedin.com/in/fatima-al-mazrouei",
+  enrichedAt: null,
   doNotContact: false,
+  yearsExperience: 18,
+  careerRoles: 4,
+  hasEmail: true,
+  hasPhone: false,
   positions: [
     {
       candidateId: "c1",
@@ -138,6 +146,7 @@ const record: PersonRecord = {
   companyName: "Aldar Properties",
   seniority: null,
   linkedinUrl: null,
+  enrichedAt: null,
   locationCity: "Abu Dhabi",
   locationCountry: "United Arab Emirates",
   nationality: null,
@@ -183,6 +192,7 @@ describe("CandidatesPage", () => {
     vi.resetAllMocks();
     currentUser = aUser();
     vi.mocked(poolApi.listPool).mockResolvedValue(page([fatima, rajesh]));
+    vi.mocked(poolApi.poolCount).mockResolvedValue(2);
     vi.mocked(poolApi.tagCatalog).mockResolvedValue([openToWork, referral]);
     vi.mocked(workspaceApi.members).mockResolvedValue([
       {
@@ -207,7 +217,11 @@ describe("CandidatesPage", () => {
     renderPage();
 
     expect((await screen.findAllByText("Fatima Al Mazrouei")).length).toBeGreaterThan(0);
-    expect(screen.getAllByText("Group CFO · Aldar Properties").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("Group CFO").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("Aldar Properties").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("18 yrs · 4 roles").length).toBeGreaterThan(0);
+    expect(screen.getAllByTitle("An email on file").length).toBeGreaterThan(0);
+    expect(screen.getAllByRole("link", { name: /LinkedIn/ }).length).toBeGreaterThan(0);
     expect(screen.getAllByText("Chief Financial Officer · Engaged").length).toBeGreaterThan(0);
     expect(screen.getAllByText("Open to work").length).toBeGreaterThan(0);
     expect(screen.getAllByText("Marked Engaged on Chief Financial Officer").length).toBeGreaterThan(0);
@@ -276,6 +290,66 @@ describe("CandidatesPage", () => {
     await waitFor(() => expect(poolApi.addToPosition).toHaveBeenCalledWith("p1", ["person-1", "person-2"]));
   });
 
+  it("sets no owner until one is chosen, so opening the dialog cannot clear everyone's", async () => {
+    vi.mocked(poolApi.assignOwners).mockResolvedValue({ changed: 2 });
+    renderPage();
+    await screen.findAllByText("Fatima Al Mazrouei");
+
+    await userEvent.click(screen.getByRole("checkbox", { name: "Select every person shown" }));
+    await userEvent.click(screen.getByRole("button", { name: "Set owner" }));
+    const dialog = screen.getByRole("dialog", { name: /Set the owner of 2 people/ });
+    const confirm = within(dialog).getByRole("button", { name: "Set owner" });
+    expect(confirm).toBeDisabled();
+    expect(within(dialog).getByRole("radio", { name: /Nobody/ })).not.toBeChecked();
+
+    await userEvent.click(within(dialog).getByRole("radio", { name: /Alok Kumar/ }));
+    await userEvent.click(confirm);
+    await waitFor(() => expect(poolApi.assignOwners).toHaveBeenCalledWith(["person-1", "person-2"], "u1"));
+  });
+
+  it("starts a cancelled dialog afresh", async () => {
+    renderPage();
+    await screen.findAllByText("Fatima Al Mazrouei");
+
+    await userEvent.click(screen.getByRole("checkbox", { name: "Select every person shown" }));
+    await userEvent.click(screen.getByRole("button", { name: "Tag" }));
+    await userEvent.click(
+      within(screen.getByRole("dialog", { name: /Tag 2 people/ })).getByRole("checkbox", { name: /Referral/ }),
+    );
+    await userEvent.click(within(screen.getByRole("dialog", { name: /Tag 2 people/ })).getByRole("button", { name: "Cancel" }));
+    await userEvent.click(screen.getByRole("button", { name: "Tag" }));
+
+    expect(
+      within(screen.getByRole("dialog", { name: /Tag 2 people/ })).getByRole("checkbox", { name: /Referral/ }),
+    ).not.toBeChecked();
+  });
+
+  it("offers only the positions the viewer can work on", async () => {
+    currentUser = aUser({ workspace: aWorkspace({ roles: ["MEMBER"] }) });
+    vi.mocked(projectsApi.projects).mockResolvedValue([
+      { ...cfo, team: [] },
+      { ...cfo, id: "p2", positionTitle: "Chief People Officer", team: [
+          {
+            memberId: "m1",
+            userId: "u1",
+            fullName: "Alok Kumar",
+            avatarUrl: null,
+            workspaceRoles: ["MEMBER"],
+            projectRoles: ["RESEARCHER"],
+          },
+        ],
+      },
+    ]);
+    renderPage();
+    await screen.findAllByText("Fatima Al Mazrouei");
+
+    await userEvent.click(screen.getByRole("checkbox", { name: "Select every person shown" }));
+    await userEvent.click(screen.getByRole("button", { name: "Add to position" }));
+    const dialog = screen.getByRole("dialog", { name: /Add 2 people to a position/ });
+    expect(within(dialog).getByRole("radio", { name: /Chief People Officer/ })).toBeInTheDocument();
+    expect(within(dialog).queryByRole("radio", { name: /Chief Financial Officer/ })).not.toBeInTheDocument();
+  });
+
   it("opens a person's drawer and marks them do not contact", async () => {
     const marked: PersonRecord = {
       ...record,
@@ -297,6 +371,36 @@ describe("CandidatesPage", () => {
       expect(poolApi.setDoNotContact).toHaveBeenCalledWith("person-1", true, "Marked from the candidate drawer."),
     );
     expect(await screen.findByRole("note")).toHaveTextContent("Set by Alok Kumar");
+  });
+
+  it("asks before deleting a note", async () => {
+    vi.mocked(poolApi.getPoolNotes).mockResolvedValue([
+      {
+        id: "n1",
+        kind: "call",
+        body: "Open to a move.",
+        pinned: false,
+        projectId: null,
+        projectTitle: null,
+        authorUserId: "u1",
+        authorName: "Alok Kumar",
+        authorAvatarUrl: null,
+        createdAt: "2026-09-22T10:00:00Z",
+        editedAt: null,
+        editedByName: null,
+        editable: true,
+      },
+    ]);
+    vi.mocked(poolApi.removePoolNote).mockResolvedValue(undefined);
+    renderPage("/candidates?person=person-1&tab=notes");
+
+    await userEvent.click(await screen.findByRole("button", { name: "Delete" }));
+    expect(poolApi.removePoolNote).not.toHaveBeenCalled();
+    await userEvent.click(screen.getByRole("button", { name: "No" }));
+    await userEvent.click(screen.getByRole("button", { name: "Delete" }));
+    await userEvent.click(screen.getByRole("button", { name: "Yes, delete" }));
+
+    await waitFor(() => expect(poolApi.removePoolNote).toHaveBeenCalledWith("person-1", "n1"));
   });
 
   it("writes a note about the person rather than a position, unless one is picked", async () => {

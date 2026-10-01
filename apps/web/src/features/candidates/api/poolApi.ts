@@ -22,7 +22,8 @@ import type {
 export const POOL_KEY = ["candidate-pool"] as const;
 export const POOL_PAGE_KEY = (filters: PoolFilters, page: number, size: number) =>
   [...POOL_KEY, "page", filters, page, size] as const;
-export const POOL_SIZE_KEY = [...POOL_KEY, "size"] as const;
+/** Outside {@link POOL_KEY}: a person's change never changes how many people there are. */
+export const POOL_COUNT_KEY = ["candidate-pool-count"] as const;
 export const PERSON_RECORD_KEY = (personId: string) => [...POOL_KEY, "person", personId] as const;
 export const POOL_NOTES_KEY = (personId: string) => [...POOL_KEY, "notes", personId] as const;
 export const POOL_TIMELINE_KEY = (personId: string, group: TimelineGroup | null) =>
@@ -39,7 +40,7 @@ export interface ActivityFilters {
   from: string;
 }
 
-export function poolQueryOf(filters: PoolFilters): URLSearchParams {
+function poolQueryOf(filters: PoolFilters): URLSearchParams {
   const params = new URLSearchParams();
   if (filters.q.trim()) params.set("q", filters.q.trim());
   if (filters.view !== "all") params.set("view", filters.view);
@@ -66,11 +67,29 @@ export function listPool(
   return request<PoolPage>(`/candidates?${params}`, { signal });
 }
 
-/** Everyone the filters show, or exactly the people named, as the CSV the server writes. */
-export function exportPool(filters: PoolFilters, personIds: string[]): Promise<Blob> {
-  const params = poolQueryOf(filters);
-  for (const personId of personIds) params.append("person", personId);
-  return requestBlob(`/candidates/export?${params}`);
+/** Everyone the filters show, as the CSV the server writes. */
+export function exportPool(filters: PoolFilters): Promise<Blob> {
+  return requestBlob(`/candidates/export?${poolQueryOf(filters)}`);
+}
+
+/** Exactly the people ticked — in the body, since a long selection would not fit in a query string. */
+export function exportPeople(personIds: string[]): Promise<Blob> {
+  return requestBlob("/candidates/export", { method: "POST", body: { personIds } });
+}
+
+export async function poolCount(signal?: AbortSignal): Promise<number> {
+  return (await request<{ count: number }>("/candidates/count", { signal })).count;
+}
+
+/** The reads one person's change can alter: them, their notes and timeline, the list and the feed. */
+export function personChangedKeys(personId: string) {
+  return [
+    PERSON_RECORD_KEY(personId),
+    POOL_NOTES_KEY(personId),
+    [...POOL_KEY, "timeline", personId],
+    [...POOL_KEY, "page"],
+    [...POOL_KEY, "activity"],
+  ] as const;
 }
 
 export function getPerson(personId: string, signal?: AbortSignal): Promise<PersonRecord> {

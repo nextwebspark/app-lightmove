@@ -11,7 +11,7 @@ export const TIMELINE_GROUPS: { value: TimelineGroup | ""; label: string }[] = [
 ];
 
 /** "Today", "Yesterday", or "Mon 14 Sep" — with the year once it is not this one. */
-export function dayLabelOf(isoInstant: string, now: Date = new Date()): string {
+function dayLabelOf(isoInstant: string, now: Date = new Date()): string {
   const at = new Date(isoInstant);
   if (Number.isNaN(at.getTime())) return "—";
   const yesterday = new Date(now);

@@ -8,9 +8,10 @@ import { formatInstantDate } from "../../../lib/format";
 import { useSubmitShortcut } from "../../../lib/useSubmitShortcut";
 import { formatActivityTime } from "../../projects/lib/activity";
 import * as personCrmApi from "../api/personCrmApi";
-import type { PersonNote, PersonNoteKind, PersonPosition } from "../api/types";
+import type { PersonNoteKind, PersonPosition } from "../api/types";
 import { timelineLines } from "../lib/candidateActivity";
 import { candidateStatusStyle } from "../lib/candidateVocabulary";
+import { NoteCard, NoteKindPicker } from "./NoteParts";
 
 /**
  * The shared person in a position's drawer — where else they are mapped, the notes on them, and what
@@ -24,15 +25,6 @@ interface PersonSectionProps {
   open: boolean;
   onToggle: () => void;
 }
-
-const NOTE_KINDS: { value: PersonNoteKind; label: string }[] = [
-  { value: "general", label: "Note" },
-  { value: "call", label: "Call" },
-  { value: "meeting", label: "Meeting" },
-  { value: "email", label: "Email" },
-];
-
-const NOTE_KIND_LABELS = Object.fromEntries(NOTE_KINDS.map((kind) => [kind.value, kind.label]));
 
 function usePositions(projectId: string, candidateId: string) {
   return useQuery({
@@ -153,25 +145,7 @@ export function NotesSection({ projectId, candidateId, open, onToggle }: PersonS
     >
       <div className="flex flex-col gap-3 pb-3">
         <div className="rounded-[8px] border border-u-border p-2.5">
-          <div role="radiogroup" aria-label="Kind of note" className="mb-2 flex flex-wrap gap-1.5">
-            {NOTE_KINDS.map((option) => (
-              <button
-                key={option.value}
-                type="button"
-                role="radio"
-                aria-checked={kind === option.value}
-                onClick={() => setKind(option.value)}
-                className={cn(
-                  "rounded-full border px-2.5 py-0.5 font-mono text-[11px] transition",
-                  kind === option.value
-                    ? "border-u-accent bg-u-accent-tint text-u-accent"
-                    : "border-u-border text-u-text3 hover:text-u-text2",
-                )}
-              >
-                {option.label}
-              </button>
-            ))}
-          </div>
+          <NoteKindPicker value={kind} onChange={setKind} />
           <TextArea
             value={text}
             onChange={(event) => setText(event.target.value)}
@@ -216,40 +190,6 @@ export function NotesSection({ projectId, candidateId, open, onToggle }: PersonS
         )}
       </div>
     </CollapsibleSection>
-  );
-}
-
-function NoteCard({ note }: { note: PersonNote }) {
-  return (
-    <li
-      className={cn(
-        "rounded-[8px] border px-3 py-2.5",
-        note.pinned ? "border-u-accent" : "border-u-border",
-      )}
-    >
-      <div className="flex items-center gap-2">
-        <span className="text-[12.5px] font-semibold">{note.authorName ?? "Someone"}</span>
-        <span className="rounded-[4px] bg-u-raised px-1.5 py-px font-mono text-[9.5px] font-semibold uppercase tracking-[0.06em] text-u-text3">
-          {NOTE_KIND_LABELS[note.kind] ?? "Note"}
-        </span>
-        {note.pinned && (
-          <span className="font-mono text-[10px] font-semibold uppercase tracking-[0.06em] text-u-accent">
-            Pinned
-          </span>
-        )}
-        <time
-          dateTime={note.createdAt}
-          title={new Date(note.createdAt).toLocaleString()}
-          className="ms-auto flex-none font-mono text-[11px] text-u-text3"
-        >
-          {formatActivityTime(note.createdAt)}
-        </time>
-      </div>
-      <p className="mt-1.5 whitespace-pre-wrap text-[13px]/[1.55] text-u-text2">{note.body}</p>
-      {note.projectTitle && (
-        <p className="mt-1.5 font-mono text-[11px] text-u-text3">About {note.projectTitle}</p>
-      )}
-    </li>
   );
 }
 

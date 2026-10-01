@@ -4,7 +4,6 @@ import { Outlet } from "react-router-dom";
 import { useAuth } from "../../features/auth/AuthProvider";
 import { isPureClient } from "../../features/auth/roles";
 import * as poolApi from "../../features/candidates/api/poolApi";
-import { NO_POOL_FILTERS } from "../../features/candidates/lib/poolFilters";
 import * as clientsApi from "../../features/clients/api/clientsApi";
 import * as projectsApi from "../../features/projects/api/projectsApi";
 import * as workspaceApi from "../../features/workspace/api/workspaceApi";
@@ -47,9 +46,8 @@ export function WorkspaceShell({ children }: { children: ReactNode }) {
     enabled: !clientOnly,
   });
   const { data: poolSize } = useQuery({
-    queryKey: poolApi.POOL_SIZE_KEY,
-    queryFn: ({ signal }) => poolApi.listPool(NO_POOL_FILTERS, 0, 1, signal),
-    select: (page) => page.poolSize,
+    queryKey: poolApi.POOL_COUNT_KEY,
+    queryFn: ({ signal }) => poolApi.poolCount(signal),
     enabled: !clientOnly,
   });
   const { data: members } = useQuery({

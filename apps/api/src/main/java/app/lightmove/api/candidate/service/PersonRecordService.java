@@ -6,7 +6,9 @@ import app.lightmove.api.candidate.dto.PersonRecordResponse;
 import app.lightmove.api.candidate.model.Candidate;
 import app.lightmove.api.candidate.model.CandidateCareerEntry;
 import app.lightmove.api.candidate.model.Person;
+import app.lightmove.api.candidate.model.StoredPhoto;
 import app.lightmove.api.candidate.repository.CandidateRepository;
+import app.lightmove.api.candidate.repository.PersonPhotoRepository;
 import app.lightmove.api.candidate.repository.PersonRepository;
 import app.lightmove.api.core.error.constant.ErrorCode;
 import app.lightmove.api.core.error.model.ApiException;
@@ -21,6 +23,7 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
 import java.util.UUID;
 import java.util.function.Function;
 import java.util.stream.Collectors;
@@ -38,6 +41,7 @@ import org.springframework.transaction.annotation.Transactional;
 public class PersonRecordService {
 
     private final PersonRepository people;
+    private final PersonPhotoRepository photos;
     private final CandidateRepository candidates;
     private final ProjectRepository projects;
     private final UserRepository users;
@@ -48,6 +52,17 @@ public class PersonRecordService {
     public UUID personOf(UUID workspaceId, UUID projectId, UUID candidateId) {
         projects.requireInWorkspace(projectId, workspaceId);
         return candidates.findPersonIdByIdAndProjectId(candidateId, projectId)
+                .orElseThrow(() -> ApiException.of(ErrorCode.NOT_FOUND));
+    }
+
+    /** The person's stored photo, for the Candidates page; a stranger's id and no photo are the same 404. */
+    @Transactional(readOnly = true)
+    public StoredPhoto photoOf(UUID workspaceId, UUID personId) {
+        if (!people.existsByIdAndWorkspaceId(personId, workspaceId)) {
+            throw ApiException.of(ErrorCode.NOT_FOUND);
+        }
+        return photos.findByPersonId(personId)
+                .map(photo -> new StoredPhoto(photo.getContent(), photo.getContentType()))
                 .orElseThrow(() -> ApiException.of(ErrorCode.NOT_FOUND));
     }
 
@@ -65,7 +80,8 @@ public class PersonRecordService {
         return new PersonRecordResponse(person.getId(), person.getFullName(), person.getTitle(),
                 employerOf(person, mapped),
                 person.getSeniorityLevel() == null ? null : person.getSeniorityLevel().value(),
-                person.getLinkedinUrl(), person.getLocationCity(), person.getLocationCountry(),
+                person.getLinkedinUrl(), person.getProfile().enrichedAt(), person.getLocationCity(),
+                person.getLocationCountry(),
                 person.getNationality(), person.getGender() == null ? null : person.getGender().value(),
                 person.getYearsExperience(), person.getSummary(),
                 CandidateResponseMapper.compensationOf(person), CandidateResponseMapper.careerOf(person),
@@ -106,8 +122,11 @@ public class PersonRecordService {
 
     private List<PersonPositionResponse> positionsOf(UUID userId, UUID workspaceId, List<Candidate> mapped,
                                                      UUID currentProjectId, Map<UUID, User> named) {
-        Map<UUID, Project> mandates = projects.findAllById(mapped.stream().map(Candidate::getProjectId).toList())
+        List<UUID> projectIds = mapped.stream().map(Candidate::getProjectId).distinct().toList();
+        Map<UUID, Project> mandates = projects.findAllById(projectIds)
                 .stream().collect(Collectors.toMap(Project::getId, Function.identity()));
+        Set<UUID> workable = projectAccess.projectsWithAction(userId, workspaceId, projectIds,
+                ProjectAction.WORK_EXECUTE);
         Comparator<Candidate> order = currentProjectId == null
                 ? Comparator.comparing(Candidate::getCreatedAt).reversed()
                 : Comparator.comparing((Candidate row) -> !row.getProjectId().equals(currentProjectId));
@@ -119,9 +138,7 @@ public class PersonRecordService {
                     return new PersonPositionResponse(row.getId(), row.getProjectId(),
                             mandate == null ? null : mandate.getPositionTitle(), row.getStatus().value(),
                             row.getAddedBy(), filer == null ? null : filer.getFullName(), row.getCreatedAt(),
-                            row.getSource().value(),
-                            projectAccess.holdsAction(userId, workspaceId, row.getProjectId(),
-                                    ProjectAction.WORK_EXECUTE));
+                            row.getSource().value(), workable.contains(row.getProjectId()));
                 })
                 .toList();
     }

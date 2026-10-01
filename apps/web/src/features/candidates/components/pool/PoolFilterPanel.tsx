@@ -1,5 +1,6 @@
 import { Icon, ICONS } from "../../../../components/layout/Icon";
 import { Select } from "../../../../components/ui";
+import { SegmentedControl } from "../../../../components/ui/SegmentedControl";
 import { cn } from "../../../../lib/cn";
 import type { Project } from "../../../projects/api/types";
 import type { Member } from "../../../workspace/api/types";
@@ -41,23 +42,12 @@ export function PoolFilterPanel({
     <section aria-label="Filters" className="mb-3 rounded-[10px] border border-u-border bg-u-surface p-4">
       <div className="flex flex-wrap items-center gap-2">
         <span className="type-label me-1 text-u-text3">Tags</span>
-        <div role="radiogroup" aria-label="Match tags" className="flex rounded-[6px] border border-u-border-strong p-0.5">
-          {TAG_MATCHES.map((match) => (
-            <button
-              key={match.value}
-              type="button"
-              role="radio"
-              aria-checked={filters.tagMatch === match.value}
-              onClick={() => onChange({ ...filters, tagMatch: match.value })}
-              className={cn(
-                "rounded-[4px] px-2 py-0.5 font-mono text-[11px]",
-                filters.tagMatch === match.value ? "bg-u-accent-tint text-u-accent" : "text-u-text3 hover:text-u-text2",
-              )}
-            >
-              {match.label}
-            </button>
-          ))}
-        </div>
+        <SegmentedControl
+          label="Match tags"
+          options={TAG_MATCHES}
+          value={filters.tagMatch}
+          onChange={(tagMatch) => onChange({ ...filters, tagMatch })}
+        />
         {tags.map((tag) => {
           const on = filters.tagIds.includes(tag.id);
           return (

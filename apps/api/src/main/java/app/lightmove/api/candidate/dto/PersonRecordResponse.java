@@ -17,6 +17,8 @@ public record PersonRecordResponse(
         /** A {@code Seniority} wire token. */
         String seniority,
         String linkedinUrl,
+        /** When research last landed, ISO-8601; null for someone never researched, who has no photo. */
+        String enrichedAt,
         String locationCity,
         String locationCountry,
         String nationality,

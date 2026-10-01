@@ -3,7 +3,7 @@ import { useState } from "react";
 import { PageHeader } from "../../../components/layout/PageHeader";
 import { Button, Input, useToast } from "../../../components/ui";
 import { cn } from "../../../lib/cn";
-import { codeOf, messageFor } from "../../../lib/errorCodes";
+import { messageFor } from "../../../lib/errorCodes";
 import * as poolApi from "../../candidates/api/poolApi";
 import type { CandidateTag, CandidateTagColour } from "../../candidates/api/types";
 import { TagPill } from "../../candidates/components/pool/TagPill";
@@ -30,7 +30,7 @@ export function SettingsCandidateTagsPage() {
       toast("Tag added for the whole team");
       refresh();
     },
-    onError: (error) => toast(codeOf(error) === "CANDIDATE_TAG_EXISTS" ? "That tag already exists" : messageFor(error)),
+    onError: (error) => toast(messageFor(error)),
   });
 
   return (
@@ -119,13 +119,24 @@ function TagRow({ tag, onChanged }: { tag: CandidateTag; onChanged: () => void }
         ))}
       </div>
       {renaming ? (
-        <Input
-          value={draft}
-          onChange={(event) => setDraft(event.target.value)}
-          aria-label={`Rename ${tag.label}`}
-          maxLength={40}
-          className="max-w-[240px] py-1"
-        />
+        <form
+          id={`rename-${tag.id}`}
+          className="contents"
+          onSubmit={(event) => {
+            event.preventDefault();
+            if (draft.trim()) updating.mutate({ label: draft.trim() });
+          }}
+        >
+          <Input
+            value={draft}
+            onChange={(event) => setDraft(event.target.value)}
+            onKeyDown={(event) => event.key === "Escape" && setRenaming(false)}
+            aria-label={`Rename ${tag.label}`}
+            maxLength={40}
+            autoFocus
+            className="max-w-[240px] py-1"
+          />
+        </form>
       ) : (
         <TagPill tag={tag} />
       )}
@@ -135,15 +146,21 @@ function TagRow({ tag, onChanged }: { tag: CandidateTag; onChanged: () => void }
       </span>
       <span className="ms-auto flex gap-2">
         {renaming ? (
-          <Button
-            variant="secondary"
-            className="px-3 py-1 text-[12px]"
-            disabled={!draft.trim()}
-            loading={updating.isPending}
-            onClick={() => updating.mutate({ label: draft.trim() })}
-          >
-            Save
-          </Button>
+          <>
+            <Button variant="ghost" className="px-3 py-1 text-[12px]" onClick={() => setRenaming(false)}>
+              Cancel
+            </Button>
+            <Button
+              type="submit"
+              form={`rename-${tag.id}`}
+              variant="secondary"
+              className="px-3 py-1 text-[12px]"
+              disabled={!draft.trim()}
+              loading={updating.isPending}
+            >
+              Save
+            </Button>
+          </>
         ) : (
           <Button
             variant="ghost"

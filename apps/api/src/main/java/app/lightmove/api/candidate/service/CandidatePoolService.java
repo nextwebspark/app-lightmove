@@ -1,5 +1,6 @@
 package app.lightmove.api.candidate.service;
 
+import app.lightmove.api.candidate.constant.ContactChannel;
 import app.lightmove.api.candidate.constant.PersonActivityKind;
 import app.lightmove.api.candidate.dto.BulkPeopleChangeResponse;
 import app.lightmove.api.candidate.dto.CandidatePoolResponse;
@@ -89,6 +90,11 @@ public class CandidatePoolService {
         return new CandidatePoolResponse(rowsOf(workspaceId, ids), total,
                 new CandidatePoolViewCountsResponse(counts.all(), counts.mine(), counts.active(), counts.unplaced()),
                 counts.pool(), pool.countries(workspaceId));
+    }
+
+    @Transactional(readOnly = true)
+    public long sizeOf(UUID workspaceId) {
+        return people.countByWorkspaceId(workspaceId);
     }
 
     /**
@@ -267,10 +273,16 @@ public class CandidatePoolService {
             List<Candidate> rows = mapped.getOrDefault(person.getId(), List.of());
             return new CandidatePoolRowResponse(person.getId(), person.getFullName(), person.getTitle(),
                     PersonRecordService.employerOf(person, rows), person.getLocationCity(),
-                    person.getLocationCountry(), person.getLinkedinUrl(), person.isDoNotContact(),
+                    person.getLocationCountry(), person.getLinkedinUrl(), person.getProfile().enrichedAt(),
+                    person.isDoNotContact(), person.getYearsExperience(), person.getProfile().career().size(),
+                    holds(person, ContactChannel.EMAIL), holds(person, ContactChannel.PHONE),
                     chipsOf(rows, mandates), List.copyOf(person.getTagIds()), person.getOwnerUserId(),
                     latest.get(person.getId()));
         }).toList();
+    }
+
+    private static boolean holds(Person person, ContactChannel channel) {
+        return person.getContacts().stream().anyMatch(contact -> contact.getChannel() == channel);
     }
 
     /** Newest first. A chip is what the row draws, so who filed it and whether the caller may work it are left out. */

@@ -5,6 +5,7 @@ import app.lightmove.api.candidate.dto.BulkAssignOwnerRequest;
 import app.lightmove.api.candidate.dto.BulkPeopleChangeResponse;
 import app.lightmove.api.candidate.dto.BulkTagPeopleRequest;
 import app.lightmove.api.candidate.dto.CandidatePoolResponse;
+import app.lightmove.api.candidate.dto.CandidatePoolSizeResponse;
 import app.lightmove.api.candidate.dto.DoNotContactRequest;
 import app.lightmove.api.candidate.dto.MapPeopleToPositionRequest;
 import app.lightmove.api.candidate.dto.MapPeopleToPositionResponse;
@@ -14,6 +15,7 @@ import app.lightmove.api.candidate.dto.PersonTimelineResponse;
 import app.lightmove.api.candidate.dto.PinPersonNoteRequest;
 import app.lightmove.api.candidate.dto.WritePersonNoteRequest;
 import app.lightmove.api.candidate.model.PoolCriteria;
+import app.lightmove.api.candidate.model.StoredPhoto;
 import app.lightmove.api.candidate.service.CandidatePoolService;
 import app.lightmove.api.candidate.service.PersonNoteService;
 import app.lightmove.api.candidate.service.PersonRecordService;
@@ -23,11 +25,15 @@ import app.lightmove.api.core.security.rbac.RequireWorkspacePermission;
 import app.lightmove.api.core.security.rbac.WorkspaceAction;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
+import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.CacheControl;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -94,10 +100,30 @@ public class CandidatePoolController {
         return timeline.feedOf(principal.requireWorkspaceId(), actor, position, group, from, to, before, limit);
     }
 
+    /** The workspace's people, counted — the nav's badge. */
+    @GetMapping("/count")
+    @RequireWorkspacePermission(WorkspaceAction.CANDIDATE_POOL_MANAGE)
+    public CandidatePoolSizeResponse count(@AuthenticationPrincipal AuthPrincipal principal) {
+        return new CandidatePoolSizeResponse(pool.sizeOf(principal.requireWorkspaceId()));
+    }
+
     @GetMapping("/{personId}")
     @RequireWorkspacePermission(WorkspaceAction.CANDIDATE_POOL_MANAGE)
     public PersonRecordResponse get(@AuthenticationPrincipal AuthPrincipal principal, @PathVariable UUID personId) {
         return records.recordOf(principal.userId(), principal.requireWorkspaceId(), personId);
+    }
+
+    /** The stored profile photo, inline — the position route's twin, for staff reading the pool. */
+    @GetMapping("/{personId}/photo")
+    @RequireWorkspacePermission(WorkspaceAction.CANDIDATE_POOL_MANAGE)
+    public ResponseEntity<byte[]> photo(@AuthenticationPrincipal AuthPrincipal principal,
+                                        @PathVariable UUID personId) {
+        StoredPhoto photo = records.photoOf(principal.requireWorkspaceId(), personId);
+        return ResponseEntity.ok()
+                .contentType(MediaType.parseMediaType(photo.contentType()))
+                .header("X-Content-Type-Options", "nosniff")
+                .cacheControl(CacheControl.maxAge(Duration.ofDays(1)).cachePrivate())
+                .body(photo.content());
     }
 
     @PutMapping("/{personId}/owner")

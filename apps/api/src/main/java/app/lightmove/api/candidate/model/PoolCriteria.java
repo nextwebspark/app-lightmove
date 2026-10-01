@@ -1,12 +1,14 @@
 package app.lightmove.api.candidate.model;
 
 import app.lightmove.api.candidate.constant.CandidateStatus;
+import app.lightmove.api.candidate.constant.PoolSortDirection;
 import app.lightmove.api.candidate.constant.PoolSortField;
 import app.lightmove.api.candidate.constant.PoolView;
 import app.lightmove.api.candidate.constant.TagMatch;
 import app.lightmove.api.common.constant.ApiValueEnum;
 import app.lightmove.api.core.error.constant.ErrorCode;
 import app.lightmove.api.core.error.model.ApiException;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.UUID;
 
@@ -33,7 +35,8 @@ public record PoolCriteria(
 
     public PoolCriteria {
         view = view == null ? PoolView.ALL : view;
-        tagIds = tagIds == null ? List.of() : List.copyOf(tagIds);
+        // Distinct, because "all of" counts the tags matched against how many were asked for.
+        tagIds = tagIds == null ? List.of() : List.copyOf(new LinkedHashSet<>(tagIds));
         tagMatch = tagMatch == null ? TagMatch.ANY : tagMatch;
         sort = sort == null ? PoolSortField.ACTIVITY : sort;
         query = query == null || query.isBlank() ? null : query.strip();
@@ -56,9 +59,9 @@ public record PoolCriteria(
             }
         }
         PoolSortField sortField = ApiValueEnum.parse(PoolSortField.class, sort, PoolSortField.ACTIVITY, "sort");
-        boolean ascending = direction == null || direction.isBlank()
-                ? sortField != PoolSortField.ACTIVITY
-                : "asc".equalsIgnoreCase(direction.strip());
+        PoolSortDirection sortDirection = ApiValueEnum.parse(PoolSortDirection.class, direction,
+                sortField == PoolSortField.ACTIVITY ? PoolSortDirection.DESC : PoolSortDirection.ASC, "direction");
+        boolean ascending = sortDirection == PoolSortDirection.ASC;
         return new PoolCriteria(query, ApiValueEnum.parse(PoolView.class, view, PoolView.ALL, "view"), tagIds,
                 ApiValueEnum.parse(TagMatch.class, tagMatch, TagMatch.ANY, "tag match"), projectId,
                 ApiValueEnum.parse(CandidateStatus.class, status, null, "status"), ownerUserId, unowned, country,

@@ -65,7 +65,7 @@ describe("SettingsCandidateTagsPage", () => {
     await waitFor(() => expect(poolApi.updateTag).toHaveBeenCalledWith("t1", { retired: true }));
   });
 
-  it("says a tag already exists in the words the mockup uses", async () => {
+  it("says a tag already exists", async () => {
     vi.mocked(poolApi.createTag).mockRejectedValue(
       new ApiRequestError({ code: "CANDIDATE_TAG_EXISTS", detail: "exists", status: 409, correlationId: "c1" }),
     );
@@ -75,6 +75,6 @@ describe("SettingsCandidateTagsPage", () => {
     await userEvent.type(screen.getByLabelText("New tag"), "passive");
     await userEvent.click(screen.getByRole("button", { name: "Add tag" }));
 
-    expect(await screen.findByText("That tag already exists")).toBeInTheDocument();
+    expect(await screen.findByText("Your team already has that tag.")).toBeInTheDocument();
   });
 });

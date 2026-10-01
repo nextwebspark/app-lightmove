@@ -18,6 +18,10 @@ public interface PersonRepository extends JpaRepository<Person, UUID> {
 
     Optional<Person> findByIdAndWorkspaceId(UUID id, UUID workspaceId);
 
+    long countByWorkspaceId(UUID workspaceId);
+
+    boolean existsByIdAndWorkspaceId(UUID id, UUID workspaceId);
+
     List<Person> findByWorkspaceIdAndIdIn(UUID workspaceId, Collection<UUID> ids);
 
     /** A person of the caller's workspace, or the 404 a stranger's id gets too. */
