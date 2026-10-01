@@ -70,6 +70,16 @@ public enum ProjectEventType implements AuditEventType {
     COMPANIES_EXPORTED,
     CANDIDATES_EXPORTED,
 
+    OUTREACH_SEQUENCE_CREATED,
+    OUTREACH_SEQUENCE_UPDATED,
+    OUTREACH_SEQUENCE_DELETED,
+
+    /** One person put on a sequence; nothing is sent by this alone. */
+    OUTREACH_ENROLLED,
+
+    /** Openers drafted by the model for a review — recorded because it spends model money. */
+    OUTREACH_OPENERS_DRAFTED,
+
     /** A question answered by the assistant — recorded because it spends model and vendor money. */
     ASSISTANT_ASKED;
 

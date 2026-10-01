@@ -35,6 +35,11 @@ public enum CandidateStatus implements ApiValueEnum {
 
     private final String value;
 
+    /** The three ways out of the running: nobody in one is approached again on this position. */
+    public boolean hasLeftTheRunning() {
+        return this == NOT_INTERESTED || this == OFF_LIMITS || this == OUT_OF_SCOPE;
+    }
+
     public static CandidateStatus fromValue(String value) {
         return ApiValueEnum.fromValue(CandidateStatus.class, value);
     }

@@ -41,7 +41,10 @@ public enum LlmBudget {
     CANDIDATE_AI_ENRICH("candidate-ai-enrich", LlmRateLimitSettings::defaultRequestsPerMinute),
 
     /** One Find executives run — spent when it is requested, whatever it goes on to call. */
-    EXECUTIVE_SOURCING("executive-sourcing", LlmRateLimitSettings::defaultRequestsPerMinute);
+    EXECUTIVE_SOURCING("executive-sourcing", LlmRateLimitSettings::defaultRequestsPerMinute),
+
+    /** One press drafting outreach openers — a batch of people or a single redraft. */
+    OUTREACH_DRAFT("outreach-draft", LlmRateLimitSettings::defaultRequestsPerMinute);
 
     private final String meter;
     private final ToIntFunction<LlmRateLimitSettings> callsPerMinute;

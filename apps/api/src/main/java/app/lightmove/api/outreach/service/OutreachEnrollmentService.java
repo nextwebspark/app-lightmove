@@ -1,0 +1,216 @@
+package app.lightmove.api.outreach.service;
+
+import app.lightmove.api.candidate.model.OutreachRecipient;
+import app.lightmove.api.candidate.model.RecipientEmail;
+import app.lightmove.api.candidate.service.CandidateOutreachService;
+import app.lightmove.api.core.audit.constant.ProjectEventType;
+import app.lightmove.api.core.audit.service.AuditService;
+import app.lightmove.api.core.error.constant.ErrorCode;
+import app.lightmove.api.core.error.model.ApiException;
+import app.lightmove.api.core.security.model.User;
+import app.lightmove.api.core.security.repository.UserRepository;
+import app.lightmove.api.outreach.constant.EnrollmentStatus;
+import app.lightmove.api.outreach.constant.OutreachSkipReason;
+import app.lightmove.api.outreach.dto.EnrollPersonRequest;
+import app.lightmove.api.outreach.dto.EnrollmentCandidateResponse;
+import app.lightmove.api.outreach.dto.EnrollmentCandidatesRequest;
+import app.lightmove.api.outreach.dto.EnrollmentCandidatesResponse;
+import app.lightmove.api.outreach.dto.RecipientEmailResponse;
+import app.lightmove.api.outreach.dto.SequenceTokensResponse;
+import app.lightmove.api.outreach.dto.StartSequenceRequest;
+import app.lightmove.api.outreach.dto.StartSequenceResponse;
+import app.lightmove.api.outreach.model.MailboxConnection;
+import app.lightmove.api.outreach.model.OutreachEnrollment;
+import app.lightmove.api.outreach.model.OutreachSequence;
+import app.lightmove.api.outreach.model.ReviewedFirstEmail;
+import app.lightmove.api.outreach.model.SequenceStep;
+import app.lightmove.api.outreach.model.SequenceTokens;
+import app.lightmove.api.outreach.repository.MailboxConnectionRepository;
+import app.lightmove.api.outreach.repository.OutreachEnrollmentRepository;
+import app.lightmove.api.outreach.repository.OutreachSequenceRepository;
+import app.lightmove.api.position.service.PositionService;
+import jakarta.servlet.http.HttpServletRequest;
+import java.time.Clock;
+import java.time.Instant;
+import java.util.Collection;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.UUID;
+import java.util.function.Function;
+import java.util.stream.Collectors;
+import lombok.RequiredArgsConstructor;
+import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionTemplate;
+
+/**
+ * Add to sequence: who may be approached, and putting the reviewed people on a sequence as
+ * {@code SCHEDULED}. Nothing here sends. Every rule the Choose step shows is decided again at Start, so
+ * a person the dialog listed as skippable — or who became so while it was open — is never enrolled.
+ */
+@Service
+@RequiredArgsConstructor
+public class OutreachEnrollmentService {
+
+    private final CandidateOutreachService people;
+    private final OutreachSequenceRepository sequences;
+    private final OutreachEnrollmentRepository enrollments;
+    private final MailboxConnectionRepository mailboxes;
+    private final PositionService positions;
+    private final UserRepository users;
+    private final TransactionTemplate transactions;
+    private final AuditService audit;
+    private final Clock clock;
+
+    @Transactional(readOnly = true)
+    public EnrollmentCandidatesResponse candidates(UUID userId, UUID workspaceId, UUID projectId,
+                                                   EnrollmentCandidatesRequest request) {
+        List<OutreachRecipient> recipients = people.recipientsOf(workspaceId, projectId,
+                request.candidateIdsOrEmpty(), request.triageCompanyIdsOrEmpty());
+        Map<UUID, OutreachEnrollment> live = liveEnrollmentsOf(projectId, recipients);
+        Map<UUID, String> sequenceNames = sequences.findAllById(live.values().stream()
+                        .map(OutreachEnrollment::getSequenceId).distinct().toList()).stream()
+                .collect(Collectors.toMap(OutreachSequence::getId, OutreachSequence::getName));
+        SequenceTokens shared = sharedTokensOf(userId, workspaceId, projectId);
+        return new EnrollmentCandidatesResponse(recipients.stream()
+                .map(recipient -> {
+                    OutreachSkipReason skip = skipReasonOf(recipient, live);
+                    OutreachEnrollment held = live.get(recipient.personId());
+                    return new EnrollmentCandidateResponse(recipient.candidateId(), recipient.personId(),
+                            recipient.triageCompanyId(), recipient.fullName(), recipient.title(),
+                            recipient.companyName(),
+                            recipient.emails().stream().map(RecipientEmailResponse::of).toList(), skip,
+                            held == null ? null : sequenceNames.get(held.getSequenceId()),
+                            SequenceTokensResponse.of(tokensOf(recipient, shared)));
+                })
+                .toList());
+    }
+
+    public StartSequenceResponse start(UUID userId, UUID workspaceId, UUID projectId, UUID sequenceId,
+                                       StartSequenceRequest request, HttpServletRequest httpRequest) {
+        List<UUID> candidateIds = request.people().stream().map(EnrollPersonRequest::candidateId).toList();
+        if (new HashSet<>(candidateIds).size() != candidateIds.size()) {
+            throw ApiException.userFacing(ErrorCode.VALIDATION_FAILED, "Someone is listed twice");
+        }
+        List<OutreachEnrollment> created;
+        try {
+            created = transactions.execute(status -> enroll(userId, workspaceId, projectId, sequenceId, request));
+        } catch (DataIntegrityViolationException alreadyLive) {
+            throw ApiException.of(ErrorCode.OUTREACH_ALREADY_ENROLLED);
+        }
+        for (OutreachEnrollment enrollment : created) {
+            audit.projectEvent(ProjectEventType.OUTREACH_ENROLLED, userId, workspaceId, projectId, httpRequest)
+                    .detail("sequenceId", sequenceId.toString())
+                    .detail("enrollmentId", enrollment.getId().toString())
+                    .detail("candidateId", enrollment.getCandidateId().toString())
+                    .record();
+        }
+        return new StartSequenceResponse(created.size());
+    }
+
+    private List<OutreachEnrollment> enroll(UUID userId, UUID workspaceId, UUID projectId, UUID sequenceId,
+                                            StartSequenceRequest request) {
+        requireSendingMailbox(userId, workspaceId);
+        OutreachSequence sequence = sequences.requireInProject(sequenceId, workspaceId, projectId);
+        List<UUID> candidateIds = request.people().stream().map(EnrollPersonRequest::candidateId).toList();
+        Map<UUID, OutreachRecipient> recipients = people.recipientsOf(workspaceId, projectId, candidateIds, List.of())
+                .stream()
+                .collect(Collectors.toMap(OutreachRecipient::candidateId, Function.identity()));
+        if (recipients.size() != candidateIds.size()) {
+            throw ApiException.of(ErrorCode.NOT_FOUND);
+        }
+        Map<UUID, OutreachEnrollment> live = liveEnrollmentsOf(projectId, recipients.values());
+        if (recipients.values().stream().anyMatch(recipient -> skipReasonOf(recipient, live) != null)) {
+            throw ApiException.of(ErrorCode.OUTREACH_PERSON_SKIPPED);
+        }
+
+        SequenceTokens shared = sharedTokensOf(userId, workspaceId, projectId);
+        SequenceStep first = sequence.firstStep();
+        Instant now = clock.instant();
+        List<OutreachEnrollment> created = request.people().stream()
+                .map(person -> {
+                    OutreachRecipient recipient = recipients.get(person.candidateId());
+                    if (!recipient.holdsEmail(person.toAddress())) {
+                        throw ApiException.of(ErrorCode.OUTREACH_ADDRESS_NOT_ON_FILE);
+                    }
+                    String opener = blankToNull(person.opener());
+                    SequenceTokens tokens = tokensOf(recipient, shared).withOpener(opener);
+                    ReviewedFirstEmail email = new ReviewedFirstEmail(tokens.render(first.getSubject()),
+                            tokens.render(first.getBody()), opener, person.openerEdited());
+                    return OutreachEnrollment.scheduled(sequence, recipient.candidateId(), recipient.personId(),
+                            userId, ledgerSpellingOf(recipient, person.toAddress()), email, now);
+                })
+                .toList();
+        List<OutreachEnrollment> saved = enrollments.saveAllAndFlush(created);
+        saved.forEach(enrollment -> people.recordEnrolled(userId, projectId, enrollment.getCandidateId(),
+                sequence.getId(), sequence.getName()));
+        return saved;
+    }
+
+    private void requireSendingMailbox(UUID userId, UUID workspaceId) {
+        MailboxConnection mailbox = mailboxes.findByWorkspaceIdAndUserId(workspaceId, userId)
+                .orElseThrow(() -> ApiException.of(ErrorCode.MAILBOX_NOT_CONNECTED));
+        if (!mailbox.canSend()) {
+            throw ApiException.of(ErrorCode.MAILBOX_RECONNECT_NEEDED);
+        }
+    }
+
+    private Map<UUID, OutreachEnrollment> liveEnrollmentsOf(UUID projectId,
+                                                            Collection<OutreachRecipient> recipients) {
+        List<UUID> personIds = recipients.stream().map(OutreachRecipient::personId).distinct().toList();
+        if (personIds.isEmpty()) {
+            return Map.of();
+        }
+        return enrollments.findByProjectIdAndPersonIdInAndStatusIn(projectId, personIds, EnrollmentStatus.LIVE)
+                .stream()
+                .collect(Collectors.toMap(OutreachEnrollment::getPersonId, Function.identity(),
+                        (first, second) -> first));
+    }
+
+    private static OutreachSkipReason skipReasonOf(OutreachRecipient recipient,
+                                                   Map<UUID, OutreachEnrollment> live) {
+        if (recipient.doNotContact()) {
+            return OutreachSkipReason.DO_NOT_CONTACT;
+        }
+        if (recipient.status().hasLeftTheRunning()) {
+            return OutreachSkipReason.LEFT_THE_RUNNING;
+        }
+        if (live.containsKey(recipient.personId())) {
+            return OutreachSkipReason.ALREADY_IN_SEQUENCE;
+        }
+        if (recipient.emails().isEmpty()) {
+            return OutreachSkipReason.NO_EMAIL;
+        }
+        return null;
+    }
+
+    /** The position's and the sender's tokens, the same for everyone in one press. */
+    private SequenceTokens sharedTokensOf(UUID userId, UUID workspaceId, UUID projectId) {
+        String positionTitle = positions.briefOf(workspaceId, projectId).details().roleTitle();
+        String senderFirstName = users.findById(userId)
+                .map(User::getFullName)
+                .map(SequenceTokens::firstNameOf)
+                .orElse(null);
+        return new SequenceTokens(null, null, null, positionTitle, null, senderFirstName, null);
+    }
+
+    private static SequenceTokens tokensOf(OutreachRecipient recipient, SequenceTokens shared) {
+        String location = recipient.locationCity() != null ? recipient.locationCity() : recipient.locationCountry();
+        return new SequenceTokens(SequenceTokens.firstNameOf(recipient.fullName()), recipient.title(),
+                recipient.companyName(), shared.positionTitle(), location, shared.senderFirstName(), null);
+    }
+
+    private static String ledgerSpellingOf(OutreachRecipient recipient, String requested) {
+        return recipient.emails().stream()
+                .map(RecipientEmail::address)
+                .filter(address -> address.equalsIgnoreCase(requested.trim()))
+                .findFirst()
+                .orElseThrow();
+    }
+
+    private static String blankToNull(String value) {
+        return value == null || value.isBlank() ? null : value.trim();
+    }
+}

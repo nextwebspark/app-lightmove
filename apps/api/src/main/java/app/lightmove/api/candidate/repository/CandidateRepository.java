@@ -64,6 +64,9 @@ public interface CandidateRepository extends JpaRepository<Candidate, UUID> {
     /** Named rows of one mandate, the staff overlay's batch. */
     List<Candidate> findByProjectIdAndIdIn(UUID projectId, Collection<UUID> ids);
 
+    /** Everyone mapped at these of the mandate's companies, unpaged: outreach's ticked companies. */
+    List<Candidate> findByProjectIdAndTriageCompanyIdIn(UUID projectId, Collection<UUID> triageCompanyIds);
+
     /** The talent map's read: the whole mandate, with no search box above it to narrow. */
     Page<Candidate> findByProjectId(UUID projectId, Pageable pageable);
 
