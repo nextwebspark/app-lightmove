@@ -80,6 +80,10 @@ export type ApiErrorCode =
   | "MAILBOX_CONNECT_CANCELLED"
   | "MAILBOX_CONNECT_FAILED"
   | "MAILBOX_SEND_FAILED"
+  | "OUTREACH_SEQUENCE_IN_USE"
+  | "OUTREACH_PERSON_SKIPPED"
+  | "OUTREACH_ALREADY_ENROLLED"
+  | "OUTREACH_ADDRESS_NOT_ON_FILE"
   | "WORKSPACE_NAME_MISMATCH"
   | "TEMPLATE_STALE"
   | "TEMPLATE_FALLBACK_REQUIRED"
@@ -167,6 +171,10 @@ const MESSAGES: Partial<Record<ApiErrorCode, string>> = {
   MAILBOX_CONNECT_EXPIRED: "That connection attempt expired. Start again.",
   MAILBOX_CONNECT_FAILED: "Your mailbox couldn't be connected. Try again.",
   MAILBOX_SEND_FAILED: "The email couldn't be sent. Try again in a moment.",
+  OUTREACH_SEQUENCE_IN_USE: "People are on this sequence, so it can't be deleted.",
+  OUTREACH_PERSON_SKIPPED: "Someone you chose can no longer be added. Go back and review the list.",
+  OUTREACH_ALREADY_ENROLLED: "Someone you chose is already in a sequence on this position.",
+  OUTREACH_ADDRESS_NOT_ON_FILE: "That address isn't on file for this person.",
 };
 
 /**

@@ -25,6 +25,7 @@ import { ExtensionConnectPage } from "../features/extension/pages/ExtensionConne
 import { MAILBOX_CALLBACK_PATH } from "../features/outreach/lib/mailboxPopup";
 import { MailboxCallbackPage } from "../features/outreach/pages/MailboxCallbackPage";
 import { OutreachPage } from "../features/outreach/pages/OutreachPage";
+import { SequenceEditorPage } from "../features/outreach/pages/SequenceEditorPage";
 import { PositionPage } from "../features/position/pages/PositionPage";
 import { ProjectsPage } from "../features/projects/pages/ProjectsPage";
 import { ReportsPage } from "../features/reports/pages/ReportsPage";
@@ -125,6 +126,14 @@ export function AppRoutes() {
         />
         <Route path="/projects/:projectId/candidates" element={<ProjectCandidatesPage />} />
         <Route path="/projects/:projectId/outreach" element={<OutreachPage />} />
+        <Route
+          path="/projects/:projectId/outreach/sequences/:sequenceId"
+          element={
+            <RequireStaff>
+              <SequenceEditorPage />
+            </RequireStaff>
+          }
+        />
         <Route path="/projects/:projectId/reports" element={<ReportsPage />} />
         <Route path="/projects/:projectId/team" element={<TeamAccessPage />} />
       </Route>
