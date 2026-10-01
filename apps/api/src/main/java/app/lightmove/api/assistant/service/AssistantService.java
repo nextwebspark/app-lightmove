@@ -173,7 +173,9 @@ public class AssistantService {
                             .labels(Map.of("prompt", PROMPT_ID)))
                     .system(system -> system.text(systemPrompt)
                             .param("hiring", HiringContext.render(
-                                    hiringSides.resolve(context.workspaceId(), context.projectId()))))
+                                    hiringSides.resolve(context.workspaceId(), context.projectId())))
+                            .param("brief", BriefContext.render(
+                                    mandateTools.briefOf(context.workspaceId(), context.projectId()))))
                     .messages(conversation(history, question))
                     .tools(mandateTools, searchTools, namedCompanyTools, sectorTools, proposalTools)
                     .toolContext(context.asMap())

@@ -7,6 +7,7 @@ import app.lightmove.api.position.dto.ResponsibilityDto;
 import app.lightmove.api.position.dto.StrategicPriorityDto;
 import app.lightmove.api.position.service.PositionService;
 import java.util.List;
+import java.util.UUID;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import lombok.RequiredArgsConstructor;
@@ -26,8 +27,8 @@ public class MandateTools {
 
     @Tool(description = """
             Read the position this mandate is hiring for: title, seniority, department, location, \
-            responsibilities and why the search exists. Call it before answering anything that \
-            depends on the role, such as which sectors or companies suit this position.""")
+            responsibilities and why the search exists. The same brief is already in your \
+            instructions, so call it only when the consultant says the brief changed during this chat.""")
     public MandateBrief readMandateBrief(ToolContext toolContext) {
         AssistantToolContext context = AssistantToolContext.from(toolContext);
         TurnRecorder recorder = context.recorder();
@@ -35,6 +36,11 @@ public class MandateTools {
         MandateBrief brief = summarise(positions.briefOf(context.workspaceId(), context.projectId()));
         recorder.finishStep(step, describe(brief));
         return brief;
+    }
+
+    /** The same summary the tool returns, for the system prompt; records no step. */
+    public MandateBrief briefOf(UUID workspaceId, UUID projectId) {
+        return summarise(positions.briefOf(workspaceId, projectId));
     }
 
     static MandateBrief summarise(PositionResponse brief) {

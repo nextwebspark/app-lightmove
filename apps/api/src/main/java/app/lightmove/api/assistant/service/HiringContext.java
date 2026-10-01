@@ -91,7 +91,7 @@ final class HiringContext {
         return joined.isEmpty() ? null : joined;
     }
 
-    private static String flattened(String value) {
+    static String flattened(String value) {
         if (value == null || value.isBlank()) {
             return null;
         }

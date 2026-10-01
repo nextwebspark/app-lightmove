@@ -34,7 +34,7 @@ class CompanySearchToolsTest {
     @Test
     @DisplayName("a search is announced as it starts and finished with its count")
     void reportsTheSearchAsAStep() {
-        when(market.matching(any())).thenReturn(new CompanyMatches(342, 25, List.of(), List.of()));
+        when(market.matching(any())).thenReturn(new CompanyMatches(342, 25, List.of(), List.of(), List.of()));
 
         tools().searchCompanyUniverse(List.of("United Arab Emirates"), List.of("retail"), null,
                 null, null, null, context());
@@ -51,7 +51,7 @@ class CompanySearchToolsTest {
     void carriesTheAdjacentIndustries() {
         when(market.matching(any())).thenReturn(new CompanyMatches(2, 2, List.of(
                 new MarketCompanySummary("a1", "Lulu Retail", "retail", "United Arab Emirates", "Abu Dhabi",
-                        55_000, 2000, null, null)), List.of()));
+                        55_000, 2000, null, null)), List.of(), List.of()));
         when(adjacency.neighboursOf("retail")).thenReturn(List.of("apparel & fashion", "consumer goods"));
 
         CompanyMatches matches = tools().searchCompanyUniverse(
@@ -64,7 +64,7 @@ class CompanySearchToolsTest {
     @Test
     @DisplayName("several industries and countries are one search, with every neighbour the search does not cover")
     void searchesSeveralAxesAtOnce() {
-        when(market.matching(any())).thenReturn(new CompanyMatches(40, 25, List.of(), List.of()));
+        when(market.matching(any())).thenReturn(new CompanyMatches(40, 25, List.of(), List.of(), List.of()));
         when(adjacency.neighboursOf("retail")).thenReturn(List.of("hospitality", "consumer goods"));
         when(adjacency.neighboursOf("hospitality")).thenReturn(List.of("retail", "leisure", "consumer goods"));
 
@@ -80,10 +80,27 @@ class CompanySearchToolsTest {
     }
 
     @Test
+    @DisplayName("common spellings are searched as the universe spells them, and an unknown one is reported back")
+    void searchesInTheUniversesSpelling() {
+        when(market.matching(any())).thenReturn(new CompanyMatches(9, 9, List.of(), List.of(), List.of()));
+
+        CompanyMatches matches = tools().searchCompanyUniverse(List.of("UAE", "KSA", "Atlantis"),
+                List.of("Retail", "Underwater Basket Weaving"), null, null, null, null, context());
+
+        verify(market).matching(argThat(scope ->
+                scope.countries().equals(List.of("United Arab Emirates", "Saudi Arabia", "Atlantis"))
+                        && scope.industries().equals(List.of("retail", "Underwater Basket Weaving"))));
+        assertThat(matches.unrecognisedSpellings()).containsExactly("Atlantis", "Underwater Basket Weaving");
+        assertThat(recorder.steps()).singleElement().extracting(AssistantStep::label)
+                .isEqualTo("Searching retail or Underwater Basket Weaving companies in United Arab Emirates or "
+                        + "Saudi Arabia or Atlantis");
+    }
+
+    @Test
     @DisplayName("a company the mandate already filed carries its stage, and the step says how many")
     void marksWhatTheMandateAlreadyHolds() {
         when(market.matching(any())).thenReturn(new CompanyMatches(2, 2, List.of(
-                summary("a1", "Lulu Retail"), summary("a2", "Carrefour")), List.of()));
+                summary("a1", "Lulu Retail"), summary("a2", "Carrefour")), List.of(), List.of()));
         when(triaged.stagesOf(any(), any(), any(), any())).thenReturn(new MandateStages(
                 Map.of("a1", TriageCompanyStatus.SHORTLISTED), Map.of("carrefour", TriageCompanyStatus.DECLINED)));
 
@@ -99,9 +116,9 @@ class CompanySearchToolsTest {
     @Test
     @DisplayName("an empty search says so rather than reporting zero of zero")
     void saysWhenNothingMatched() {
-        assertThat(CompanySearchTools.describeMatches(new CompanyMatches(0, 0, List.of(), List.of())))
+        assertThat(CompanySearchTools.describeMatches(new CompanyMatches(0, 0, List.of(), List.of(), List.of())))
                 .isEqualTo("No companies matched");
-        assertThat(CompanySearchTools.describeMatches(new CompanyMatches(12, 12, List.of(), List.of())))
+        assertThat(CompanySearchTools.describeMatches(new CompanyMatches(12, 12, List.of(), List.of(), List.of())))
                 .isEqualTo("12 matched");
     }
 
