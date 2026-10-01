@@ -15,6 +15,7 @@ import app.lightmove.api.candidate.dto.PersonTimelineEntryResponse;
 import app.lightmove.api.candidate.model.Candidate;
 import app.lightmove.api.candidate.model.CandidateTag;
 import app.lightmove.api.candidate.model.Person;
+import app.lightmove.api.candidate.model.PersonEmployer;
 import app.lightmove.api.candidate.model.PoolCriteria;
 import app.lightmove.api.candidate.model.PoolPersonExport;
 import app.lightmove.api.candidate.model.PoolPositionExport;
@@ -125,7 +126,7 @@ public class CandidatePoolService {
             List<Candidate> rows = mapped.getOrDefault(person.getId(), List.of());
             User owner = person.getOwnerUserId() == null ? null : owners.get(person.getOwnerUserId());
             return new PoolPersonExport(person.getFullName(), person.getTitle(),
-                    PersonRecordService.employerOf(person, rows), person.getLocationCity(),
+                    PersonRecordService.employerOf(person, rows).name(), person.getLocationCity(),
                     person.getLocationCountry(), person.getLinkedinUrl(),
                     person.emailContacts().stream().map(contact -> contact.getValue()).toList(),
                     person.phoneContacts().stream().map(contact -> contact.getValue()).toList(),
@@ -309,10 +310,13 @@ public class CandidatePoolService {
         Map<UUID, List<Candidate>> mapped = mappingsOf(workspaceId, persons.values());
         Map<UUID, Project> mandates = projectsOf(mapped);
         Map<UUID, PersonTimelineEntryResponse> latest = timeline.latestOf(workspaceId, persons.values());
+        Map<UUID, PersonEmployer> employers = persons.values().stream().collect(Collectors.toMap(Person::getId,
+                person -> PersonRecordService.employerOf(person, mapped.getOrDefault(person.getId(), List.of()))));
+        Map<UUID, String> logos = records.employerLogosOf(workspaceId, employers);
         return ids.stream().map(persons::get).filter(Objects::nonNull).map(person -> {
             List<Candidate> rows = mapped.getOrDefault(person.getId(), List.of());
             return new CandidatePoolRowResponse(person.getId(), person.getFullName(), person.getTitle(),
-                    PersonRecordService.employerOf(person, rows), person.getLocationCity(),
+                    employers.get(person.getId()).name(), logos.get(person.getId()), person.getLocationCity(),
                     person.getLocationCountry(), person.getLinkedinUrl(), person.getProfile().enrichedAt(),
                     person.isDoNotContact(), person.getYearsExperience(), person.getProfile().career().size(),
                     holds(person, ContactChannel.EMAIL), holds(person, ContactChannel.PHONE),

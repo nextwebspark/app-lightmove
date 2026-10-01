@@ -6,6 +6,8 @@ import app.lightmove.api.candidate.dto.PersonRecordResponse;
 import app.lightmove.api.candidate.model.Candidate;
 import app.lightmove.api.candidate.model.CandidateCareerEntry;
 import app.lightmove.api.candidate.model.Person;
+import app.lightmove.api.candidate.model.PersonEmployer;
+import app.lightmove.api.candidate.model.ResearchedEmployerMark;
 import app.lightmove.api.candidate.model.StoredPhoto;
 import app.lightmove.api.candidate.repository.CandidateRepository;
 import app.lightmove.api.candidate.repository.PersonPhotoRepository;
@@ -18,8 +20,10 @@ import app.lightmove.api.core.security.rbac.ProjectAction;
 import app.lightmove.api.core.security.repository.UserRepository;
 import app.lightmove.api.project.model.Project;
 import app.lightmove.api.project.repository.ProjectRepository;
+import app.lightmove.api.triagecompany.service.TriageCompanyReadService;
 import java.util.Collection;
 import java.util.Comparator;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -46,6 +50,7 @@ public class PersonRecordService {
     private final ProjectRepository projects;
     private final UserRepository users;
     private final ProjectAccess projectAccess;
+    private final TriageCompanyReadService triageCompanies;
 
     /** The person a mandate's row maps, after checking the mandate is the caller's workspace's. */
     @Transactional(readOnly = true)
@@ -77,8 +82,10 @@ public class PersonRecordService {
         Map<UUID, User> named = usersOf(Stream.concat(Stream.of(person.getCreatedBy(), person.getDoNotContactSetBy()),
                 mapped.stream().map(Candidate::getAddedBy)).toList());
         User filer = named.get(person.getCreatedBy());
+        PersonEmployer employer = employerOf(person, mapped);
         return new PersonRecordResponse(person.getId(), person.getFullName(), person.getTitle(),
-                employerOf(person, mapped),
+                employer.name(),
+                employerLogosOf(person.getWorkspaceId(), Map.of(person.getId(), employer)).get(person.getId()),
                 person.getSeniorityLevel() == null ? null : person.getSeniorityLevel().value(),
                 person.getLinkedinUrl(), person.getProfile().enrichedAt(), person.getLocationCity(),
                 person.getLocationCountry(),
@@ -107,17 +114,41 @@ public class PersonRecordService {
 
     /**
      * The employer the Candidates page names beside a person: what their most recent position recorded,
-     * else the first post of their career.
+     * else the first post of their career. Research's logo is offered only when research named that
+     * same employer — a stale one would otherwise sit beside a new company's name.
      */
-    static String employerOf(Person person, List<Candidate> mappedOldestFirst) {
+    static PersonEmployer employerOf(Person person, List<Candidate> mappedOldestFirst) {
+        ResearchedEmployerMark researched = person.getProfile().employer();
         for (int index = mappedOldestFirst.size() - 1; index >= 0; index--) {
-            String recorded = mappedOldestFirst.get(index).getCompanyName();
+            Candidate row = mappedOldestFirst.get(index);
+            String recorded = row.getCompanyName();
             if (recorded != null && !recorded.isBlank()) {
-                return recorded;
+                return new PersonEmployer(recorded, row.getTriageCompanyId(), researchedLogoOf(researched, recorded));
             }
         }
         return person.getProfile().career().stream()
-                .map(CandidateCareerEntry::company).filter(Objects::nonNull).findFirst().orElse(null);
+                .map(CandidateCareerEntry::company).filter(Objects::nonNull).findFirst()
+                .map(company -> new PersonEmployer(company, null, researchedLogoOf(researched, company)))
+                .orElse(PersonEmployer.NONE);
+    }
+
+    /** Each person's employer logo: the mandate company row's, else research's. Keyed by person id. */
+    Map<UUID, String> employerLogosOf(UUID workspaceId, Map<UUID, PersonEmployer> employers) {
+        Map<UUID, String> filed = triageCompanies.logoUrlsOf(workspaceId, employers.values().stream()
+                .map(PersonEmployer::triageCompanyId).filter(Objects::nonNull).distinct().toList());
+        Map<UUID, String> logos = new HashMap<>();
+        employers.forEach((personId, employer) -> {
+            String logo = employer.triageCompanyId() == null ? null : filed.get(employer.triageCompanyId());
+            logo = logo != null ? logo : employer.researchedLogoUrl();
+            if (logo != null) {
+                logos.put(personId, logo);
+            }
+        });
+        return logos;
+    }
+
+    private static String researchedLogoOf(ResearchedEmployerMark researched, String employer) {
+        return researched != null && researched.names(employer) ? researched.logoUrl() : null;
     }
 
     private List<PersonPositionResponse> positionsOf(UUID userId, UUID workspaceId, List<Candidate> mapped,

@@ -229,6 +229,17 @@ public class TriageCompanyReadService {
         return new MandateStages(byAccountId, byName);
     }
 
+    /** The logo each named row carries, for the Candidates page; a row without one is absent from the map. */
+    @Transactional(readOnly = true)
+    public Map<UUID, String> logoUrlsOf(UUID workspaceId, Collection<UUID> triageCompanyIds) {
+        if (triageCompanyIds.isEmpty()) {
+            return Map.of();
+        }
+        return triaged.findByIdInAndWorkspaceId(Set.copyOf(triageCompanyIds), workspaceId).stream()
+                .filter(row -> row.getLogoUrl() != null)
+                .collect(Collectors.toMap(TriageCompany::getId, TriageCompany::getLogoUrl));
+    }
+
     private TriageCountsDto countsFor(UUID projectId) {
         return new TriageCountsDto(
                 triaged.countByProjectIdAndStatus(projectId, TriageCompanyStatus.IN_UNIVERSE),

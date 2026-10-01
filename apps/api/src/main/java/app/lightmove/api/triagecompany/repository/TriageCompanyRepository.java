@@ -81,4 +81,9 @@ public interface TriageCompanyRepository extends JpaRepository<TriageCompany, UU
             + "where t.projectId = :projectId and lower(t.companyName) in :lowerCaseNames")
     List<TriageCompany> findByProjectIdAndLowerCaseCompanyNameIn(
             @Param("projectId") UUID projectId, @Param("lowerCaseNames") Collection<String> lowerCaseNames);
+
+    @Query("select t from TriageCompany t where t.id in :ids "
+            + "and t.projectId in (select p.id from Project p where p.workspaceId = :workspaceId)")
+    List<TriageCompany> findByIdInAndWorkspaceId(@Param("ids") Collection<UUID> ids,
+                                                 @Param("workspaceId") UUID workspaceId);
 }

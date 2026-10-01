@@ -103,7 +103,7 @@ export function poolColumnsFor(tagsById: Map<string, CandidateTag>, membersByUse
         if (!name) return <DataGridCell value={null} />;
         return (
           <span className="flex min-w-0 items-center gap-2.5">
-            <CompanyLogo name={name} logo={null} size={28} />
+            <CompanyLogo name={name} logo={info.row.original.companyLogoUrl} size={28} />
             <TruncatedText value={name} className="min-w-0 flex-1 font-sans text-[13px] text-u-text2" />
           </span>
         );

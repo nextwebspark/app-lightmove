@@ -14,6 +14,7 @@ public record PersonRecordResponse(
         String fullName,
         String title,
         String companyName,
+        String companyLogoUrl,
         /** A {@code Seniority} wire token. */
         String seniority,
         String linkedinUrl,

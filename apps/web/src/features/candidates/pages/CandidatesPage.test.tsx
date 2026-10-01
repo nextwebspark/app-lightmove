@@ -79,6 +79,7 @@ const fatima: PoolRow = {
   fullName: "Fatima Al Mazrouei",
   title: "Group CFO",
   companyName: "Aldar Properties",
+  companyLogoUrl: "https://logos.example/aldar.png",
   locationCity: "Abu Dhabi",
   locationCountry: "United Arab Emirates",
   linkedinUrl: "https://www.linkedin.com/in/fatima-al-mazrouei",
@@ -125,6 +126,7 @@ const rajesh: PoolRow = {
   fullName: "Rajesh Menon",
   title: "Finance Director",
   companyName: "Emaar",
+  companyLogoUrl: null,
   doNotContact: true,
   tagIds: [],
   positions: [],
@@ -144,6 +146,7 @@ const record: PersonRecord = {
   fullName: "Fatima Al Mazrouei",
   title: "Group CFO",
   companyName: "Aldar Properties",
+  companyLogoUrl: null,
   seniority: null,
   linkedinUrl: null,
   enrichedAt: null,
@@ -219,6 +222,7 @@ describe("CandidatesPage", () => {
     expect((await screen.findAllByText("Fatima Al Mazrouei")).length).toBeGreaterThan(0);
     expect(screen.getAllByText("Group CFO").length).toBeGreaterThan(0);
     expect(screen.getAllByText("Aldar Properties").length).toBeGreaterThan(0);
+    expect(document.querySelector('img[src="https://logos.example/aldar.png"]')).not.toBeNull();
     expect(screen.getAllByText("18 yrs · 4 roles").length).toBeGreaterThan(0);
     expect(screen.getAllByTitle("An email on file").length).toBeGreaterThan(0);
     expect(screen.getAllByRole("link", { name: /LinkedIn/ }).length).toBeGreaterThan(0);

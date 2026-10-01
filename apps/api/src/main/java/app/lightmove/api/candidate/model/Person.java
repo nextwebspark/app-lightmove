@@ -261,7 +261,7 @@ public class Person extends BaseEntity {
         profile = new CandidateProfile(
                 profile.career().isEmpty() ? supplied.career() : profile.career(),
                 profile.languages().isEmpty() ? supplied.languages() : profile.languages(),
-                profile.education(), profile.skills(), profile.enrichedAt());
+                profile.education(), profile.skills(), profile.enrichedAt(), profile.employer());
         remember(ContactChannel.EMAIL, details.emails(), door);
         remember(ContactChannel.PHONE, details.phones(), door);
     }
@@ -402,12 +402,14 @@ public class Person extends BaseEntity {
             locationCountry = enriched.locationCountry();
         }
         this.enrichedBy = enriched.vendor();
+        ResearchedEmployerMark employer = ResearchedEmployerMark.of(enriched);
         this.profile = new CandidateProfile(
                 profile.career().isEmpty() ? enriched.career() : profile.career(),
                 profile.languages().isEmpty() ? enriched.languages() : profile.languages(),
                 enriched.education(),
                 enriched.skills(),
-                Instant.now().toString());
+                Instant.now().toString(),
+                employer != null ? employer : profile.employer());
     }
 
     public boolean isResearched() {

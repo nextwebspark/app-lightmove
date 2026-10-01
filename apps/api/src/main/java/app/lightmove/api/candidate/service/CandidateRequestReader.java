@@ -164,7 +164,7 @@ class CandidateRequestReader {
                         .map(entry -> new CandidateCareerEntry(entry.company(), entry.title(), entry.period(),
                                 entry.location()))
                         .toList();
-        return new CandidateProfile(career, request.languages(), null, null, null);
+        return new CandidateProfile(career, request.languages(), null, null, null, null);
     }
 
     /** Omitted means identified — where every profile starts, and the only honest default. */
