@@ -271,7 +271,7 @@
                 <div style="display:grid;grid-template-columns:120px 1fr;gap:6px 12px;font:400 12.5px/1.5 var(--sans);color:var(--text2)">
                   <span style="color:var(--text3)">Window</span><span>Mon–Fri, 08:00–18:00 in the sender's time zone (Asia/Dubai)</span>
                   <span style="color:var(--text3)">Daily cap</span><span>50 emails per mailbox. Anything over waits for the next window.</span>
-                  <span style="color:var(--text3)">Stops when</span><span>They reply, an email bounces, they are marked do not contact, they leave this position, or their status becomes Not interested, Off-limits or Out of scope.</span>
+                  <span style="color:var(--text3)">Stops when</span><span>They reply, they book a call through your booking link (they also move to Engaged), an email bounces, they are marked do not contact, they leave this position, or their status becomes Not interested, Off-limits or Out of scope.</span>
                 </div>
               </div>
             </div>
@@ -423,6 +423,55 @@
     </div>
   </sc-if>
 
+  <!-- ============ BOOK A CALL ============ -->
+  <sc-if value="{{ showBookCall }}" hint-placeholder-val="{{ false }}">
+    <div onClick="{{ closeBookCall }}" style="position:fixed;inset:0;z-index:110;display:grid;place-items:center;background:rgba(15,20,30,.5)">
+      <div role="dialog" aria-modal="true" aria-label="Book a call" data-screen-label="Book a call" onClick="{{ stop }}" style="width:640px;max-width:95vw;max-height:90vh;display:flex;flex-direction:column;border-radius:12px;border:1px solid var(--line);background:var(--panel);box-shadow:var(--shadow);animation:fadeUp .2s ease both">
+        <div style="flex:none;display:flex;align-items:center;gap:12px;border-bottom:1px solid var(--line-soft);padding:16px 20px">
+          <div>
+            <div style="font:600 16px var(--sans)">Book a call with {{ bk.name }}</div>
+            <div style="margin-top:2px;font:400 12px var(--mono);color:var(--text3)">Free times on yara.haddad@alfuttaim.com · Asia/Dubai</div>
+          </div>
+          <button onClick="{{ closeBookCall }}" aria-label="Close" style="margin-left:auto;border-radius:6px;padding:6px;color:var(--text3);background:none;border:none;cursor:pointer" style-hover="background:var(--panel2);color:var(--text)"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="{{ ic.close }}"></path></svg></button>
+        </div>
+        <div style="flex:1;min-height:0;overflow-y:auto;padding:16px 20px">
+          <div style="display:flex;flex-wrap:wrap;align-items:center;gap:14px;margin-bottom:14px">
+            <div role="radiogroup" aria-label="Length" style="display:inline-flex;border:1px solid var(--line);border-radius:6px;padding:2px">
+              <sc-for list="{{ bk.lengths }}" as="ln" hint-placeholder-count="3"><button onClick="{{ setLength }}" data-id="{{ ln.value }}" style="{{ ln.style }}">{{ ln.label }}</button></sc-for>
+            </div>
+            <label style="display:flex;align-items:center;gap:8px;font:400 12.5px var(--sans);color:var(--text2)">Video
+              <select aria-label="Video link" style="border-radius:6px;border:1px solid var(--line);background:var(--panel2);padding:5px 8px;font:400 12.5px var(--sans);color:var(--text)"><option>Google Meet</option><option>Microsoft Teams</option><option>No video link</option></select>
+            </label>
+          </div>
+          <div style="display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:8px;margin-bottom:16px">
+            <sc-for list="{{ bk.days }}" as="dy" hint-placeholder-count="5">
+              <div>
+                <div style="margin-bottom:6px;font:600 11px var(--mono);color:var(--text2);text-align:center">{{ dy.label }}</div>
+                <div style="display:flex;flex-direction:column;gap:5px">
+                  <sc-for list="{{ dy.slots }}" as="sl" hint-placeholder-count="3">
+                    <button onClick="{{ pickSlot }}" data-id="{{ sl.id }}" style="{{ sl.style }}">{{ sl.time }}</button>
+                  </sc-for>
+                  <sc-if value="{{ dy.full }}" hint-placeholder-val="{{ false }}"><span style="font:400 11px var(--mono);color:var(--text3);text-align:center">Fully booked</span></sc-if>
+                </div>
+              </div>
+            </sc-for>
+          </div>
+          <div style="display:grid;grid-template-columns:72px 1fr;gap:8px 10px;align-items:center;font:400 12.5px var(--mono);color:var(--text2)">
+            <span style="color:var(--text3)">Invite</span>
+            <select aria-label="Invite address" style="border-radius:6px;border:1px solid var(--line);background:var(--panel2);padding:6px 8px;font:400 12.5px var(--mono);color:var(--text)"><sc-for list="{{ bk.emails }}" as="em"><option>{{ em.label }}</option></sc-for></select>
+            <span style="color:var(--text3)">Title</span>
+            <input value="{{ bk.title }}" aria-label="Meeting title" style="border-radius:6px;border:1px solid var(--line);background:var(--panel2);padding:7px 9px;font:400 13px var(--sans);color:var(--text);outline:none">
+          </div>
+          <p style="margin:10px 0 0;font:400 11.5px/1.5 var(--mono);color:var(--text3)">The title is what {{ bk.first }} sees. Keep the business unit out of it unless you mean to name it.</p>
+        </div>
+        <div style="flex:none;display:flex;align-items:center;gap:10px;border-top:1px solid var(--line-soft);padding:12px 20px">
+          <span style="font:400 12px var(--mono);color:var(--text3)">{{ bk.summary }}</span>
+          <button onClick="{{ sendInvite }}" style="margin-left:auto;border-radius:8px;padding:7px 16px;font:600 13px var(--sans);background:var(--amber-btn);border:1px solid var(--amber-btn);color:var(--on-amber);cursor:pointer">Send invite</button>
+        </div>
+      </div>
+    </div>
+  </sc-if>
+
   <!-- ============ EXECUTIVE DRAWER: OUTREACH SECTION ============ -->
   <sc-if value="{{ showDrawer }}" hint-placeholder-val="{{ false }}">
     <div onClick="{{ closeDrawer }}" style="position:fixed;inset:0;z-index:90;background:rgba(15,20,30,.4)"></div>
@@ -458,6 +507,11 @@
               </div>
             </div>
           </sc-if>
+          <sc-if value="{{ dr.booked }}" hint-placeholder-val="{{ false }}">
+            <div style="margin-bottom:12px;border-radius:8px;background:var(--green-dim);padding:10px 12px;font:400 12.5px/1.5 var(--sans);color:var(--text)">
+              <b style="color:var(--green)">{{ dr.first }} booked a call through your link.</b> {{ dr.bookedAt }}. Their sequence stopped and they moved to Engaged.
+            </div>
+          </sc-if>
           <div style="font:500 12.5px var(--sans);color:var(--text2);margin-bottom:6px">{{ dr.seq }} · from {{ dr.sender }}</div>
           <sc-for list="{{ dr.steps }}" as="ds" hint-placeholder-count="3">
             <div style="display:flex;align-items:flex-start;gap:10px;padding:7px 0">
@@ -477,6 +531,48 @@
             </sc-if>
           </div>
         </section>
+        <section data-screen-label="Meetings section" style="border-bottom:1px solid var(--line-soft);padding:14px 0">
+          <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color:var(--text3)"><path d="{{ ic.calendar }}"></path></svg>
+            <span style="font:600 13px var(--sans)">Meetings</span>
+            <span style="font:500 11px var(--mono);color:var(--text3)">{{ mt.count }}</span>
+            <sc-if value="{{ mt.canBook }}" hint-placeholder-val="{{ true }}">
+              <button onClick="{{ openBookCall }}" style="margin-left:auto;display:inline-flex;align-items:center;gap:6px;border-radius:6px;padding:5px 11px;font:600 12px var(--sans);background:var(--amber-btn);border:1px solid var(--amber-btn);color:var(--on-amber);cursor:pointer" style-hover="filter:brightness(1.05)">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="{{ ic.plus }}"></path></svg>Book a call</button>
+            </sc-if>
+          </div>
+          <sc-if value="{{ mt.isEmpty }}" hint-placeholder-val="{{ false }}">
+            <p style="margin:0;font:400 12.5px/1.5 var(--sans);color:var(--text3)">No meetings with {{ dr.first }} on your team's calendars yet.</p>
+          </sc-if>
+          <sc-if value="{{ mt.hasUpcoming }}" hint-placeholder-val="{{ true }}">
+            <div style="margin-bottom:4px;font:600 10px var(--mono);letter-spacing:.12em;text-transform:uppercase;color:var(--text3)">Upcoming</div>
+            <sc-for list="{{ mt.upcoming }}" as="m" hint-placeholder-count="1">
+              <div style="display:flex;align-items:flex-start;gap:12px;padding:8px 0">
+                <span style="width:42px;flex:none;border-radius:7px;border:1px solid var(--line);text-align:center;padding:3px 0">
+                  <span style="display:block;font:600 9.5px var(--mono);text-transform:uppercase;color:var(--amber)">{{ m.month }}</span>
+                  <span style="display:block;font:600 16px/1.2 var(--u-num)">{{ m.day }}</span>
+                </span>
+                <span style="min-width:0;flex:1">
+                  <span style="display:block;font:500 13px var(--sans)">{{ m.title }}</span>
+                  <span style="display:block;font:400 11.5px var(--mono);color:var(--text3)">{{ m.when }} · {{ m.who }}</span>
+                  <sc-if value="{{ m.viaLink }}" hint-placeholder-val="{{ false }}"><span style="display:inline-flex;margin-top:4px;border-radius:5px;padding:1px 7px;font:600 10px var(--mono);background:var(--green-dim);color:var(--green)">Booked through your link</span></sc-if>
+                </span>
+                <a href="#" style="flex:none;display:inline-flex;align-items:center;gap:5px;border-radius:6px;padding:4px 9px;font:500 11.5px var(--sans);border:1px solid var(--line);color:var(--text2)" style-hover="color:var(--text)">
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="{{ ic.video }}"></path></svg>{{ m.join }}</a>
+              </div>
+            </sc-for>
+          </sc-if>
+          <sc-if value="{{ mt.hasPast }}" hint-placeholder-val="{{ true }}">
+            <div style="margin:6px 0 4px;font:600 10px var(--mono);letter-spacing:.12em;text-transform:uppercase;color:var(--text3)">Past</div>
+            <sc-for list="{{ mt.past }}" as="m" hint-placeholder-count="2">
+              <div style="display:flex;align-items:baseline;gap:10px;padding:5px 0;font:400 12.5px var(--sans);color:var(--text2)">
+                <span style="width:52px;flex:none;font:400 11.5px var(--mono);color:var(--text3)">{{ m.date }}</span>
+                <span style="min-width:0;flex:1">{{ m.title }}<span style="font:400 11.5px var(--mono);color:var(--text3)"> · {{ m.who }}</span></span>
+              </div>
+            </sc-for>
+          </sc-if>
+          <p style="margin:8px 0 0;font:400 11px/1.5 var(--mono);color:var(--text3)">From your team's connected calendars. Only meetings with {{ dr.first }}'s addresses are kept, never the rest of anyone's calendar.</p>
+        </section>
         <sc-for list="{{ drawerFolds }}" as="fd" hint-placeholder-count="5">
           <div style="display:flex;align-items:center;gap:8px;border-bottom:1px solid var(--line-soft);padding:13px 0;font:600 13px var(--sans);color:var(--text2)">
             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color:var(--text3)"><path d="{{ ic.chevronRight }}"></path></svg>{{ fd.label }}</div>
@@ -492,7 +588,7 @@
 </div>
 <template id="__bundler_thumbnail"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><rect width="100" height="100" fill="#16171a"></rect><g transform="translate(50 40) scale(.42)" fill="none" stroke="#f8fafc"><path d="M-32 10 L 0 -8 L 32 10 L 0 28 Z M-32 10 V 32 L 0 50 L 32 32 V 10 M0 28 V 50" stroke-width="3" stroke-linejoin="round"></path><path d="M0 -48 L 32 -30 L 0 -12 L -32 -30 Z" fill="#f8fafc" stroke="none"></path></g><text x="50" y="86" fill="#e2b65c" font-family="Geist,Inter,sans-serif" font-size="11" font-weight="700" letter-spacing="2" text-anchor="middle">OUTREACH</text></svg></template>
 </x-dc>
-<script type="text/x-dc" data-dc-script data-props="{&quot;page&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;default&quot;:&quot;overview&quot;,&quot;options&quot;:[&quot;overview&quot;,&quot;sequence&quot;],&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;State&quot;},&quot;mailbox&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;default&quot;:&quot;connected&quot;,&quot;options&quot;:[&quot;connected&quot;,&quot;none&quot;,&quot;error&quot;],&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;State&quot;},&quot;empty&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;State&quot;},&quot;dialog&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;default&quot;:&quot;none&quot;,&quot;options&quot;:[&quot;none&quot;,&quot;enrol&quot;],&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;State&quot;},&quot;enrolStep&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;default&quot;:&quot;choose&quot;,&quot;options&quot;:[&quot;choose&quot;,&quot;review&quot;,&quot;start&quot;],&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;State&quot;},&quot;drawer&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;default&quot;:&quot;none&quot;,&quot;options&quot;:[&quot;none&quot;,&quot;e01&quot;,&quot;e06&quot;,&quot;e09&quot;,&quot;e05&quot;],&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;State&quot;}}">
+<script type="text/x-dc" data-dc-script data-props="{&quot;page&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;default&quot;:&quot;overview&quot;,&quot;options&quot;:[&quot;overview&quot;,&quot;sequence&quot;],&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;State&quot;},&quot;mailbox&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;default&quot;:&quot;connected&quot;,&quot;options&quot;:[&quot;connected&quot;,&quot;none&quot;,&quot;error&quot;],&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;State&quot;},&quot;empty&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;State&quot;},&quot;dialog&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;default&quot;:&quot;none&quot;,&quot;options&quot;:[&quot;none&quot;,&quot;enrol&quot;,&quot;bookCall&quot;],&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;State&quot;},&quot;enrolStep&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;default&quot;:&quot;choose&quot;,&quot;options&quot;:[&quot;choose&quot;,&quot;review&quot;,&quot;start&quot;],&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;State&quot;},&quot;drawer&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;default&quot;:&quot;none&quot;,&quot;options&quot;:[&quot;none&quot;,&quot;e01&quot;,&quot;e06&quot;,&quot;e09&quot;,&quot;e05&quot;],&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;State&quot;}}">
 const I = {
   back: "M19 12H5M12 19l-7-7 7-7",
   plus: "M12 5v14M5 12h14",
@@ -513,8 +609,35 @@ const I = {
   reports: "M9 12h6m-6 4h6M9 8h1M5 21h14a2 2 0 0 0 2-2V7l-5-5H5a2 2 0 0 0-2 2v15a2 2 0 0 0 2 2Z",
   team: "M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2M13 7a4 4 0 1 1-8 0 4 4 0 0 1 8 0M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75",
   moon: "M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79Z",
-  sun: "M12 16a4 4 0 1 0 0-8 4 4 0 0 0 0 8ZM12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"
+  sun: "M12 16a4 4 0 1 0 0-8 4 4 0 0 0 0 8ZM12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4",
+  calendar: "M8 2v4M16 2v4M3 10h18M5 4h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2Z",
+  video: "m22 8-6 4 6 4V8ZM2 6h14v12H2z"
 };
+
+const BOOKING_URL = "uncava.com/book/yara-haddad";
+
+// person id → meetings on the team's connected calendars with one of that person's addresses
+const MEETINGS = {
+  e01: {
+    upcoming: [["OCT", "7", "Tue 7 Oct · 10:00–10:30", "Confidential: Chief Financial Officer, first conversation", "Yara Haddad", "Google Meet", false]],
+    past: [["22 Sep", "Coffee at DIFC", "Sara Al-Mansour"], ["14 Apr", "Head of Credit Risk: intro call", "Yara Haddad"]]
+  },
+  e09: {
+    upcoming: [["OCT", "2", "Thu 2 Oct · 14:00–14:30", "30-minute call with Yara Haddad", "Sara Al-Mansour", "Microsoft Teams", true]],
+    past: [["5 Sep", "Treasury remit, first call", "Sara Al-Mansour"]]
+  },
+  e05: { upcoming: [], past: [["16 Sep", "CFO role: compensation discussion", "Omar Khalil"]] },
+  e06: { upcoming: [], past: [] }
+};
+
+// day label → free start times on the consultant's calendar
+const FREE_SLOTS = [
+  ["Thu 2 Oct", ["11:00", "15:30"]],
+  ["Fri 3 Oct", []],
+  ["Mon 6 Oct", ["09:30", "13:00", "16:00"]],
+  ["Tue 7 Oct", ["11:00", "14:30"]],
+  ["Wed 8 Oct", ["09:00", "10:30", "15:00"]]
+];
 
 const PEOPLE = {
   e01: { name: "Fatima Al Mazrouei", title: "Group Finance Director", company: "Al Naboodah Group", emails: ["fatima.almazrouei@alnaboodah.com · work", "f.almazrouei@gmail.com · personal"], status: "engaged",
@@ -536,7 +659,7 @@ const PEOPLE = {
 };
 
 const STEP_BODIES = [
-  "Hi {{firstName}},\n\n{{opener}}\n\nI'm leading a confidential search for a {{positionTitle}} at a Gulf group: a seat with group-wide remit over finance, treasury and an international portfolio. Given your time as {{currentTitle}} at {{currentCompany}}, I'd value twenty minutes of your view, whether or not the timing is right for you.\n\nWould a short call next week work?\n\n{{senderFirstName}}",
+  "Hi {{firstName}},\n\n{{opener}}\n\nI'm leading a confidential search for a {{positionTitle}} at a Gulf group: a seat with group-wide remit over finance, treasury and an international portfolio. Given your time as {{currentTitle}} at {{currentCompany}}, I'd value twenty minutes of your view, whether or not the timing is right for you.\n\nWould a short call next week work? If it's easier, pick a time that suits you: {{bookingLink}}\n\n{{senderFirstName}}",
   "Hi {{firstName}},\n\nA short follow-up on my note below. I'm happy to share the brief in confidence before any call.\n\n{{senderFirstName}}",
   "Hi {{firstName}},\n\nI'll close the loop here. If the timing changes, or someone in your network comes to mind for this seat, I'd be glad to hear from you.\n\n{{senderFirstName}}"
 ];
@@ -546,7 +669,7 @@ const SUBJECT = "Confidential: {{positionTitle}}";
 const ENROLLED = [
   ["e01", "CFO — first approach", 2, "replied", "—", "2 Oct 14:20", "Yara Haddad"],
   ["e13", "CFO — first approach", 1, "replied", "—", "30 Sep 11:05", "Yara Haddad"],
-  ["e09", "CFO — first approach", 1, "replied", "—", "1 Oct 08:47", "Sara Al-Mansour"],
+  ["e09", "CFO — first approach", 1, "booked", "—", "Call Thu 2 Oct 14:00", "Sara Al-Mansour"],
   ["e06", "CFO — first approach", 2, "active", "Fri 3 Oct · 09:00", "", "Yousef Iman"],
   ["e07", "CFO — first approach", 1, "active", "Mon 6 Oct · 09:00", "", "Yousef Iman"],
   ["e03", "CFO — first approach", 0, "scheduled", "Thu 2 Oct · 09:00", "", "Yara Haddad"],
@@ -559,6 +682,7 @@ const STATE = {
   scheduled: { label: "Scheduled", fg: "var(--text2)", bg: "var(--line-soft)" },
   active: { label: "In sequence", fg: "var(--sky)", bg: "var(--sky-dim)" },
   replied: { label: "Replied", fg: "var(--green)", bg: "var(--green-dim)" },
+  booked: { label: "Booked a call", fg: "var(--green)", bg: "var(--green-dim)" },
   bounced: { label: "Bounced", fg: "var(--red)", bg: "var(--red-dim)" },
   stopped: { label: "Stopped", fg: "var(--text3)", bg: "var(--panel2)" },
   draft: { label: "Draft", fg: "var(--text2)", bg: "var(--line-soft)" },
@@ -576,8 +700,11 @@ const firstOf = (n) => n.split(" ")[0];
 function render(text, id) {
   const p = PEOPLE[id];
   return text.replace(/\{\{firstName\}\}/g, firstOf(p.name)).replace(/\{\{currentTitle\}\}/g, p.title).replace(/\{\{currentCompany\}\}/g, p.company)
-    .replace(/\{\{positionTitle\}\}/g, "Chief Financial Officer").replace(/\{\{senderFirstName\}\}/g, "Yara");
+    .replace(/\{\{positionTitle\}\}/g, "Chief Financial Officer").replace(/\{\{senderFirstName\}\}/g, "Yara")
+    .replace(/\{\{bookingLink\}\}/g, BOOKING_URL);
 }
+
+const isClosed = (st) => st === "replied" || st === "booked" || st === "bounced" || st === "stopped";
 
 class Component extends DCLogic {
   constructor(props) {
@@ -591,7 +718,8 @@ class Component extends DCLogic {
       dialog: pick("dialog", "none"), enrolStep: pick("enrolStep", "choose"), drawer: pick("drawer", "none"),
       filter: "all", seqId: "s1", step: 1, previewId: "e01", reviewId: "e03", seqName: "CFO — first approach",
       bodies: STEP_BODIES.slice(), openers: { e03: PEOPLE.e03.opener, e04: PEOPLE.e04.opener }, edited: {},
-      stoppedIds: {}, statusOf: {}, dark: true, toast: null
+      stoppedIds: {}, statusOf: {}, dark: true, toast: null,
+      bookLength: 30, bookSlot: "Mon 6 Oct|13:00"
     };
   }
 
@@ -610,7 +738,7 @@ class Component extends DCLogic {
     const all = ENROLLED.map((r) => {
       const st = this.stateOf(r);
       const pp = PEOPLE[r.id];
-      const done = st === "replied" || st === "bounced" || st === "stopped";
+      const done = isClosed(st);
       const dots = [0, 1, 2].map((i) => {
         let style = "width:9px;height:9px;border-radius:50%;";
         if (i < r.sent) style += "background:var(--amber)";
@@ -645,10 +773,10 @@ class Component extends DCLogic {
     const sentDates = ["Mon 29 Sep · 09:12", "Thu 2 Oct · 09:05", ""];
     const steps = [0, 1, 2].map((i) => {
       const sent = i < r.sent;
-      const cancelled = !sent && (st === "replied" || st === "bounced" || st === "stopped");
+      const cancelled = !sent && isClosed(st);
       const next = !sent && !cancelled && i === r.sent;
       const title = i === 0 ? "Step 1 · Confidential: Chief Financial Officer" : `Step ${i + 1} · Follow-up in the same thread`;
-      const meta = sent ? `Sent ${sentDates[i]}` : cancelled ? (st === "replied" ? "Not sent: they replied" : st === "bounced" ? "Not sent: the address bounced" : "Not sent: sequence stopped") : next ? `Scheduled ${r.next}` : "Waiting";
+      const meta = sent ? `Sent ${sentDates[i]}` : cancelled ? (st === "replied" ? "Not sent: they replied" : st === "booked" ? "Not sent: they booked a call" : st === "bounced" ? "Not sent: the address bounced" : "Not sent: sequence stopped") : next ? `Scheduled ${r.next}` : "Waiting";
       let dot = "width:10px;height:10px;border-radius:50%;flex:none;margin-top:4px;";
       dot += sent ? "background:var(--amber)" : next ? "border:2px solid var(--amber)" : "border:1.5px solid var(--line)";
       return { title, meta, dot, color: cancelled ? "var(--text3)" : "var(--text)" };
@@ -657,8 +785,37 @@ class Component extends DCLogic {
       show: true, name: pp.name, title: `${pp.title} · ${pp.company}`, initials: initials(pp.name), avStyle: avatar(r.id, 40),
       status: s.statusOf[r.id] || pp.status, dnc: !!pp.dnc, first: firstOf(pp.name),
       state: STATE[st].label, pillStyle: pill(st), replied: st === "replied", repliedAt: r.note,
+      booked: st === "booked", bookedAt: r.note,
       seq: r.seq, sender: r.sender, steps,
       canStop: st === "active" || st === "scheduled", canEnrol: false
+    };
+  }
+
+  meetingVals(dr) {
+    const id = this.state.drawer;
+    const found = MEETINGS[id] || { upcoming: [], past: [] };
+    const upcoming = found.upcoming.map(([month, day, when, title, who, join, viaLink]) => ({ month, day, when, title, who, join, viaLink }));
+    const past = found.past.map(([date, title, who]) => ({ date, title, who }));
+    const total = upcoming.length + past.length;
+    return { upcoming, past, hasUpcoming: upcoming.length > 0, hasPast: past.length > 0, isEmpty: total === 0,
+      count: total === 0 ? "" : String(total), canBook: dr.show && !dr.dnc };
+  }
+
+  bookVals() {
+    const s = this.state;
+    const id = PEOPLE[s.drawer] && !PEOPLE[s.drawer].dnc ? s.drawer : "e01";
+    const pp = PEOPLE[id];
+    const segStyle = (on) => `border:none;cursor:pointer;border-radius:4px;padding:5px 11px;font:500 12px var(--sans);${on ? "background:var(--amber-dim);color:var(--text)" : "background:none;color:var(--text3)"}`;
+    const days = FREE_SLOTS.map(([label, times]) => ({ label, full: times.length === 0,
+      slots: times.map((time) => { const slotId = `${label}|${time}`; const on = slotId === s.bookSlot;
+        return { id: slotId, time, style: `border-radius:6px;padding:6px 0;font:500 12px var(--mono);cursor:pointer;${on ? "background:var(--amber-btn);border:1px solid var(--amber-btn);color:var(--on-amber)" : "background:var(--panel);border:1px solid var(--line);color:var(--text)"}` }; }) }));
+    const [day, time] = s.bookSlot.split("|");
+    return {
+      id, name: pp.name, first: firstOf(pp.name), days,
+      lengths: [15, 30, 45].map((m) => ({ value: m, label: `${m} min`, style: segStyle(s.bookLength === m) })),
+      emails: pp.emails.map((label) => ({ label })),
+      title: "Confidential: Chief Financial Officer, first conversation",
+      summary: `${day} · ${time} · ${s.bookLength} min · invite from yara.haddad@alfuttaim.com`
     };
   }
 
@@ -676,13 +833,13 @@ class Component extends DCLogic {
     ];
 
     const { rows, counts } = this.rowVals();
-    const replied = counts.replied || 0;
+    const replied = (counts.replied || 0) + (counts.booked || 0);
     const sentTotal = ENROLLED.reduce((a, r) => a + r.sent, 0);
     const reached = ENROLLED.filter((r) => r.sent > 0).length;
     const kpis = [
       { label: "Enrolled", value: ENROLLED.length, sub: "on this position", bg: "var(--panel)", color: "var(--text)" },
       { label: "Emails sent", value: sentTotal, sub: `${reached} people reached`, bg: "var(--panel)", color: "var(--text)" },
-      { label: "Replied", value: replied, sub: `${Math.round((replied / reached) * 100)}% of people reached`, bg: "var(--green-dim)", color: "var(--green)" },
+      { label: "Replied or booked", value: replied, sub: `${Math.round((replied / reached) * 100)}% of people reached`, bg: "var(--green-dim)", color: "var(--green)" },
       { label: "In flight", value: counts.inFlight, sub: "next send Thu 2 Oct 09:00", bg: "var(--panel)", color: "var(--text)" },
       { label: "Bounced", value: counts.bounced || 0, sub: "fix the address and re-add", bg: "var(--panel)", color: "var(--text)" }
     ];
@@ -691,15 +848,15 @@ class Component extends DCLogic {
       return { key, label, count: key === "all" ? counts.all : counts[key] || 0,
         style: `display:inline-flex;align-items:center;gap:6px;border-radius:999px;border:1px solid ${on ? "var(--amber)" : "var(--line)"};padding:5px 11px;font:500 12px var(--mono);color:${on ? "var(--text)" : "var(--text2)"};background:${on ? "var(--amber-dim)" : "transparent"};cursor:pointer` };
     };
-    const filterChips = [chip("all", "All"), chip("inFlight", "In flight"), chip("replied", "Replied"), chip("bounced", "Bounced"), chip("stopped", "Stopped")];
+    const filterChips = [chip("all", "All"), chip("inFlight", "In flight"), chip("replied", "Replied"), chip("booked", "Booked a call"), chip("bounced", "Bounced"), chip("stopped", "Stopped")];
     const seqCards = [
       { id: "s1", name: "CFO — first approach", state: "Live", pillStyle: pill("live"), meta: "3 steps · day 0, +3, +5 working days · by Yara Haddad", enrolled: 9, sent: sentTotal, replied },
       { id: "s2", name: "Treasury bench — warm intro", state: "Draft", pillStyle: pill("draft"), meta: "2 steps · day 0, +4 working days · by Sara Al-Mansour", enrolled: 0, sent: 0, replied: 0 }
     ];
 
     const tokenStyle = (ai) => `border-radius:999px;padding:3px 9px;font:500 11.5px var(--mono);cursor:pointer;${ai ? "background:var(--ai-soft);border:1px solid color-mix(in srgb,var(--ai) 45%,transparent);color:var(--ai)" : "background:var(--panel);border:1px solid var(--line);color:var(--text2)"}`;
-    const tokens = [["firstName", "Their first name"], ["currentTitle", "Their current title"], ["currentCompany", "Their current employer"], ["positionTitle", "This position's role title"], ["location", "Their city"], ["senderFirstName", "Your first name"], ["opener", "One or two sentences AI drafts for each person from their profile. You review every one."]]
-      .map(([k, tip]) => ({ label: k === "opener" ? "✦ opener" : `{{${k}}}`, tip, style: tokenStyle(k === "opener") }));
+    const tokens = [["firstName", "Their first name"], ["currentTitle", "Their current title"], ["currentCompany", "Their current employer"], ["positionTitle", "This position's role title"], ["location", "Their city"], ["senderFirstName", "Your first name"], ["bookingLink", "Your booking page: they pick a free slot on your calendar, and their sequence stops"], ["opener", "One or two sentences AI drafts for each person from their profile. You review every one."]]
+      .map(([k, tip]) => ({ label: k === "opener" ? "✦ opener" : k === "bookingLink" ? "▦ booking link" : `{{${k}}}`, tip, style: tokenStyle(k === "opener") }));
     const delays = [null, 3, 5];
     const stepCards = s.bodies.map((body, i) => ({
       n: i + 1, label: i === 0 ? "First email" : i === 1 ? "Follow-up" : "Last follow-up",
@@ -710,10 +867,10 @@ class Component extends DCLogic {
     const stepTabs = [1, 2, 3].map((n) => ({ n, style: `border:none;cursor:pointer;border-radius:4px;padding:4px 10px;font:500 12px var(--sans);${s.step === n ? "background:var(--amber-dim);color:var(--text)" : "background:none;color:var(--text3)"}` }));
     const pid = s.previewId;
     const pvBody = render(s.bodies[s.step - 1], pid);
-    const parts = pvBody.split("{{opener}}");
-    const pvParts = parts.length > 1
-      ? [{ t: parts[0], style: "" }, { t: PEOPLE[pid].opener, style: "background:var(--ai-soft);border-radius:4px;padding:1px 3px;box-shadow:inset 0 -1px 0 var(--ai)" }, { t: parts[1], style: "" }]
-      : [{ t: pvBody, style: "" }];
+    const OPENER_STYLE = "background:var(--ai-soft);border-radius:4px;padding:1px 3px;box-shadow:inset 0 -1px 0 var(--ai)";
+    const LINK_STYLE = "color:var(--sky);text-decoration:underline";
+    const pvParts = pvBody.split(/(\{\{opener\}\}|uncava\.com\/book\/yara-haddad)/).filter((t) => t !== "").map((t) =>
+      t === "{{opener}}" ? { t: PEOPLE[pid].opener, style: OPENER_STYLE } : t === BOOKING_URL ? { t, style: LINK_STYLE } : { t, style: "" });
     const pv = { to: PEOPLE[pid].emails[0].split(" · ")[0], subject: s.step === 1 ? render(SUBJECT, pid) : `Re: ${render(SUBJECT, pid)}`, parts: pvParts, quoted: s.step > 1, first: firstOf(PEOPLE[pid].name) };
     const previewPeople = ["e01", "e03", "e04", "e09", "e13"].map((id) => ({ id, label: `${PEOPLE[id].name} · ${PEOPLE[id].company}` }));
 
@@ -736,6 +893,8 @@ class Component extends DCLogic {
     const rv = { first: firstOf(PEOPLE[rid].name), emails: PEOPLE[rid].emails.map((label) => ({ label })), subject: render(SUBJECT, rid), opener: s.openers[rid], rest: after };
 
     const dr = this.drawerVals();
+    const mt = this.meetingVals(dr);
+    const bk = this.bookVals();
     const set = (o) => this.setState(o);
     return {
       ic: I, navGroups,
@@ -757,7 +916,8 @@ class Component extends DCLogic {
       enCanBack: stepIdx > 0,
       enrolNextLabel: ["Review 2 emails", "Next", "Start sequence"][stepIdx],
       enrolFootNote: ["2 to add · 4 skipped", `Reviewing ${reviewList.findIndex((x) => x.id === rid) + 1} of 2. Edits are kept for this person only.`, "Nothing is sent until you press Start."][stepIdx],
-      showDrawer: dr.show, dr: dr.show ? dr : { steps: [] },
+      showDrawer: dr.show, dr: dr.show ? dr : { steps: [] }, mt,
+      showBookCall: s.dialog === "bookCall", bk,
       statusOptions: STATUSES.map(([value, label]) => ({ value, label })),
       replyChoices: [["engaged", "Engaged"], ["interested", "Interested"], ["notInterested", "Not interested"]].map(([value, label]) => ({ value, label })),
       drawerFolds: ["Positions", "Profile", "Contact", "Notes", "Timeline"].map((label) => ({ label })),
@@ -789,7 +949,16 @@ class Component extends DCLogic {
       },
       pickReview: (e) => set({ reviewId: e.currentTarget.dataset.id }),
       onOpener: (e) => set({ openers: { ...s.openers, [rid]: e.target.value }, edited: { ...s.edited, [rid]: true } }),
-      redraft: () => { set({ openers: { ...s.openers, [rid]: PEOPLE[rid].opener }, edited: { ...s.edited, [rid]: false } }); this.showToast("Opener redrafted."); }
+      redraft: () => { set({ openers: { ...s.openers, [rid]: PEOPLE[rid].opener }, edited: { ...s.edited, [rid]: false } }); this.showToast("Opener redrafted."); },
+      openBookCall: () => set({ dialog: "bookCall" }),
+      closeBookCall: () => set({ dialog: "none" }),
+      setLength: (e) => set({ bookLength: Number(e.currentTarget.dataset.id) }),
+      pickSlot: (e) => set({ bookSlot: e.currentTarget.dataset.id }),
+      sendInvite: () => {
+        const [day, time] = s.bookSlot.split("|");
+        set({ dialog: "none", statusOf: { ...s.statusOf, [bk.id]: "engaged" } });
+        this.showToast(`Invite sent to ${bk.first} for ${day}, ${time}. They moved to Engaged.`);
+      }
     };
   }
 }
