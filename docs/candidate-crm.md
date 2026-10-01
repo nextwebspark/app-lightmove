@@ -11,8 +11,8 @@ Decided and approved 2026-09-30; phases carry a `> **Built**` callout as they la
 | 1 — Person/mapping split, auto-map, activity log (V91) | **Built**, merged (#602) |
 | 2 — Stored profile slug (V95) + golden reads | **Built**, merged (#604) |
 | 3 — Notes, timeline reads, `CANDIDATE_POOL_MANAGE` (V96, V97) | **Built**, merged (#609) |
-| 4a — The Candidates page, owner/tags/do-not-contact, tag settings (V98) | **Built** on `claude/laughing-hamilton-9mg6wh` |
-| 4b — Merge, possible-duplicate, the position's Candidates page | **Next** |
+| 4a — The Candidates page, owner/tags/do-not-contact, tag settings (V98) | **Built**, merged (#612) |
+| 4b — Possible duplicate + map, the position's Candidates page (4b-1); merge (4b-2, V99) | **Next** — planned below, two PRs |
 | Final — Cleanup migration | Last, tracked in #606. Drops V91's frozen copies and the mapping's `note` once 3–4 are deployed |
 
 **Starting a new session on this plan:**
@@ -532,8 +532,8 @@ expand and the contract in separate deploys.
 - **Pool search**: Postgres FTS over name/title/company + the contact ledger's `value_key` (exact).
 - **Possible duplicate** (carried over from Phase 1): a name + employer match on the drawer's add answers
   `409 CANDIDATE_POSSIBLE_DUPLICATE` with the people it found. "Map existing" posts
-  `/projects/{id}/candidates/map {personId}`, "Add as new" resends with `force: true`, and the extension
-  offers "map" on the same code.
+  `/projects/{id}/candidates/map {personId}`, "Add as new" resends with `force: true`. (Superseded by
+  `Position.dc.html`: the plugin is never asked — see Phase 4b.)
 
 > **Phase 4a — Built** (V98, `claude/laughing-hamilton-9mg6wh`). Phase 4 is two PRs, as Phases 1–3 were:
 > 4a is the workspace's own screens and the CRM fields, 4b the screens that act on a position.
@@ -575,6 +575,75 @@ expand and the contract in separate deploys.
 >   (4b, with the dialog), the position drawer's do-not-contact banner (4b, with the position's
 >   Candidates page).
 
+### Phase 4b — Possible duplicate, the position's Candidates page, merge (V99)
+
+Planned 2026-10-01 against the Phase 0 mockups, which decide the UI wherever this doc said otherwise.
+Two PRs: **4b-1** is everything that acts on a position, and **4b-2** is the merge.
+
+**Where the mockups overrule the earlier notes.** `Position.dc.html` asks the possible-duplicate question
+**only** on the drawer's hand-typed add. The plugin, the import and Find executives are never asked, so
+the extension does not change. A hard match is never asked either: a matching LinkedIn URL or email just
+maps the person. Phone is still not a key.
+
+**4b-1 — the possible-duplicate check and mapping a known person**
+- **The soft match** is `PersonMatcher.possibleDuplicates(workspaceId, fullName, employerName)`: people of
+  the workspace with the same `lower(full_name)` who are mapped on any mandate at that employer (the same
+  `company_name` ignoring case, or the same triage company slug). `Person` has no employer column, so the
+  employer comes from the mappings.
+- **Where it is asked.** Only `CandidateService.add`, only for `source` MANUAL, only when `PersonMatcher.find`
+  found nobody, and never when `SaveCandidateRequest.force` is true. A match answers
+  `409 CANDIDATE_POSSIBLE_DUPLICATE` with the people found. Each one carries name, title, employer,
+  location, other positions with their status, tags, owner, note count, and who added them, when and
+  through which door — what the mockup's card draws.
+- **Never from `file()`.** Sourcing and people search only swallow `CANDIDATE_ALREADY_MAPPED`, and the import
+  catches nothing, so a new 409 there would abort a run.
+- **`POST /projects/{id}/candidates/map {personId}`** (`WORK_EXECUTE`) maps a pool person by id through
+  `mapFromPool`. It answers `CANDIDATE_ALREADY_MAPPED` when the person is already on the position, and 404
+  for a person outside the workspace. It writes a `MAPPED` line and audits `CANDIDATE_ADDED` with
+  `mappedExisting: true`.
+- **The position's Candidates page** (`/projects/:id/candidates`, replacing the placeholder):
+  - The existing `GET …/candidates` (`WORK_VIEW`) gains a `status` filter and `statusCounts`. A client seat
+    reads Executive, Status and the date added.
+  - The staff columns come from a separate read, `GET …/candidates/crm` (`WORK_EXECUTE`, after
+    `report/team`): tags, "Also in" (the person's other positions with their status), added by, last
+    activity on this position, and do not contact with its reason. None of it rides `CandidateResponse`.
+  - **Add from your candidates** reuses the pool search and `POST /candidates/bulk/position`, which files
+    people as Identified. There is no new route.
+  - The position drawer shows the **do-not-contact strip**, for staff only.
+
+**4b-2 — merge (V99)**
+- **V99** adds `MERGED` to `app_lm_person_activity_kind_chk`, using V98's idiom. There is no new table.
+- **Preview.** `GET /candidates/{personId}/merge-preview?loserId=` returns the mockup's keep-grid (Name,
+  Title, LinkedIn, Nationality, Gender, Owner, listed only where the two differ) and the "Moves across"
+  list: positions moved or folded, notes, the emails new to the survivor, and the timeline lines.
+- **Merge.** `POST /candidates/{personId}/merge {loserId, keep}` (`CANDIDATE_POOL_MANAGE`), in one
+  transaction:
+  - **Fields:** the survivor's values stand, the loser fills any field the survivor left empty, and `keep`
+    picks the loser's value field by field.
+  - **Contacts and tags** are unioned, contacts by `value_key`.
+  - **Photo:** the survivor's, otherwise the loser's.
+  - **Do not contact and the URL lock:** set if either person had them.
+  - **The profile slug:** the loser's is cleared and flushed before the survivor takes it, so
+    `app_lm_person_profile_slug_uk` never holds two people.
+  - **Mappings are re-pointed.** Where both people are on one position, the survivor's row stays. The
+    loser's custom values fill only keys the survivor's row left empty, and its legacy `note` becomes a
+    `PersonNote` about that position.
+  - **Notes and activity are re-pointed.**
+  - **The loser is deleted**, and its contacts, photo and tags go with it by cascade.
+  - **The record:** a `MERGED` line on the survivor carries the loser's snapshot in `details`, and the
+    merge is audited as `CANDIDATES_MERGED`.
+  - **Refusals:** a merge of a person into themselves answers `PERSON_MERGE_SELF`; another workspace's
+    person answers 404.
+- **Finding duplicates:**
+  - The pool gains a **Possible duplicates** quick view (`PoolView.DUPLICATES`, counted with the other
+    four).
+  - A row gains the badge "Same name at the same employer as {other}".
+  - `GET /candidates/{personId}/duplicates` feeds the merge dialog's "Suggested" list.
+  - The merge dialog opens from the person drawer's footer.
+
+**Not in 4b:** auto-merge (never, Phase 1's rule), undoing a merge (the mockup says it cannot be undone),
+and `rank` on the mapping (no screen ranks people yet).
+
 ### Final — Cleanup migration (after Phase 4, #606)
 
 Precondition: Phases 3 and 4 are merged **and deployed**, `CandidateReadsGoldenIntegrationTest` is green,
@@ -592,6 +661,21 @@ and nobody has needed V91's copies for a repair. Take the next free migration nu
 - `CandidatePersonBackfillMigrationTest` stays pinned at V91. `PersonProfileSlugMigrationTest`'s check that
   V91's copies are untouched stays true (it stops at V95). The golden reads must pass unchanged.
 - Docs: CLAUDE.md's "expand-only" sentence goes.
+- **Readiness, checked 2026-10-01.** Nothing that serves the app reads what this migration drops:
+  - **Photos** are read and written only through `PersonPhoto` (`app_lm_person_photo`), on both photo
+    routes.
+  - **The mandate row:** the `Candidate` entity maps none of the columns listed above.
+  - **Native SQL and scripts** (`CandidateRepository`, `PersonPoolQuery`, `export-golden.sh`,
+    `seed-report.sql`, `e2e/api/{17,18,19}`, `e2e/spa/companies.mjs`) read name, gender, nationality and
+    profile from `app_lm_person`.
+  - **Only the two migration tests** name the old tables, and they run Flyway to a fixed version.
+- **Before the drop**, on the dev copy, both of these must be 0. Paste them into the PR:
+  - photos V91 left behind:
+    `SELECT count(*) FROM app_lm_candidate_photo cp JOIN app_lm_project_candidate c ON c.id = cp.candidate_id LEFT JOIN app_lm_person_photo pp ON pp.person_id = c.person_id WHERE pp.person_id IS NULL`;
+  - the same check for contacts by `value_key`.
+
+  After the drop, open `/candidates` and a position drawer and check that photos and contacts still
+  render.
 
 ### Phase 5 — Later (not in this plan's PRs, listed so the tables leave room)
 
