@@ -1,0 +1,234 @@
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useEffect, useRef, useState } from "react";
+import { Icon, ICONS } from "../../../components/layout/Icon";
+import { Button, EmptyState, useToast } from "../../../components/ui";
+import { messageFor, messageForCode } from "../../../lib/errorCodes";
+import { useAuth } from "../../auth/AuthProvider";
+import { isPureClient } from "../../auth/roles";
+import * as mailboxApi from "../api/mailboxApi";
+import type { ConnectedMailbox, Mailbox } from "../api/mailboxApi";
+import { connectMailboxInPopup } from "../lib/mailboxPopup";
+
+/**
+ * A position's Outreach page (`claude-design/Outreach.dc.html`). For now it is where a consultant
+ * connects their own mailbox; sequences and the people in them arrive with the next stories (#623, #624).
+ */
+export function OutreachPage() {
+  const { user } = useAuth();
+  const isClient = isPureClient(user?.workspace?.roles ?? []);
+
+  if (isClient) {
+    return <NotYetBuilt />;
+  }
+  return <StaffOutreachPage />;
+}
+
+function StaffOutreachPage() {
+  const queryClient = useQueryClient();
+  const toast = useToast();
+  const [connectingProvider, setConnectingProvider] = useState<string | null>(null);
+  const abandonConnect = useRef<() => void>(() => {});
+
+  const mailbox = useQuery({
+    queryKey: mailboxApi.MAILBOX_KEY,
+    queryFn: ({ signal }) => mailboxApi.getMailbox(signal),
+  });
+
+  useEffect(() => () => abandonConnect.current(), []);
+
+  const sendTest = useMutation({
+    mutationFn: mailboxApi.sendMailboxTest,
+    onSuccess: () => toast("Test email sent. Check your inbox."),
+    onError: (error) => {
+      toast(messageFor(error));
+      void queryClient.invalidateQueries({ queryKey: mailboxApi.MAILBOX_KEY });
+    },
+  });
+
+  const disconnect = useMutation({
+    mutationFn: mailboxApi.disconnectMailbox,
+    onSuccess: () => {
+      toast("Mailbox disconnected.");
+      void queryClient.invalidateQueries({ queryKey: mailboxApi.MAILBOX_KEY });
+    },
+    onError: (error) => toast(messageFor(error)),
+  });
+
+  const handleConnect = (provider: string) => {
+    abandonConnect.current();
+    setConnectingProvider(provider);
+    const finish = () => setConnectingProvider(null);
+    abandonConnect.current = connectMailboxInPopup(
+      async () => (await mailboxApi.startMailboxConnect(provider)).authorizationUrl,
+      {
+        onConnected: () => {
+          finish();
+          toast("Mailbox connected.");
+          void queryClient.invalidateQueries({ queryKey: mailboxApi.MAILBOX_KEY });
+        },
+        onError: (code) => {
+          finish();
+          toast(messageForCode(code));
+        },
+        onCancel: finish,
+      },
+    );
+  };
+
+  const connection = mailbox.data?.connection ?? null;
+
+  return (
+    <div className="mx-auto max-w-[1440px] px-4 pb-16 pt-7 md:px-7">
+      <div className="mb-[18px] flex flex-wrap items-start gap-4">
+        <div className="min-w-0">
+          <h1 className="text-[19px]/[1.25] font-semibold">Outreach</h1>
+          <p className="mt-1 font-mono text-[12px] text-u-text3">
+            Personal email from your own mailbox. A sequence stops the moment someone replies.
+          </p>
+        </div>
+        {connection?.status === "ACTIVE" && (
+          <ConnectedMailboxPill
+            connection={connection}
+            isSendingTest={sendTest.isPending}
+            isDisconnecting={disconnect.isPending}
+            onSendTest={() => sendTest.mutate()}
+            onDisconnect={() => disconnect.mutate()}
+          />
+        )}
+      </div>
+
+      {mailbox.isError && (
+        <p role="alert" className="mb-[18px] rounded-[8px] border border-u-border bg-u-surface px-4 py-3 text-[13px] text-u-text3">
+          {messageFor(mailbox.error)}
+        </p>
+      )}
+      {mailbox.isSuccess && (
+        <MailboxState
+          mailbox={mailbox.data}
+          connectingProvider={connectingProvider}
+          onConnect={handleConnect}
+        />
+      )}
+
+      <NotYetBuilt />
+    </div>
+  );
+}
+
+function MailboxState({
+  mailbox,
+  connectingProvider,
+  onConnect,
+}: {
+  mailbox: Mailbox;
+  connectingProvider: string | null;
+  onConnect: (provider: string) => void;
+}) {
+  if (!mailbox.offered) {
+    return (
+      <p className="mb-[18px] rounded-[10px] border border-u-border bg-u-raised px-5 py-4 text-[13px] text-u-text2">
+        Outreach email is not set up on this deployment.
+      </p>
+    );
+  }
+  const connection = mailbox.connection;
+  if (connection?.status === "ERROR") {
+    return (
+      <div role="alert" className="mb-[18px] flex flex-wrap items-center gap-3 rounded-[8px] bg-u-offlimits-tint px-3.5 py-2.5 text-[13px] text-u-text">
+        <span>
+          <b className="text-u-offlimits">{providerLabel(connection.provider)} disconnected.</b> Access to{" "}
+          {connection.address} was withdrawn. Reconnect to send from it again.
+        </span>
+        <Button
+          variant="secondary"
+          className="ms-auto px-[11px] py-[5px] text-[12px]"
+          loading={connectingProvider === connection.provider}
+          onClick={() => onConnect(connection.provider)}
+        >
+          Reconnect
+        </Button>
+      </div>
+    );
+  }
+  if (connection) {
+    return null;
+  }
+  return (
+    <div className="mb-[18px] flex flex-wrap items-center gap-[18px] rounded-[10px] border border-u-border-strong bg-u-raised px-5 py-[18px]">
+      <div className="grid size-10 flex-none place-items-center rounded-[10px] bg-u-accent-tint text-u-accent">
+        <Icon d={ICONS.mail} size={20} />
+      </div>
+      <div className="min-w-[260px] flex-1">
+        <div className="text-[14px] font-semibold">Connect your mailbox to send outreach</div>
+        <div className="mt-[3px] text-[12.5px]/[1.5] text-u-text2">
+          Emails go from your own address and replies land in your own inbox. Uncava only notices that
+          someone replied, so it can stop their sequence. It never keeps what they wrote.
+        </div>
+      </div>
+      <div className="flex flex-wrap gap-2">
+        {mailbox.providers.map((provider) => (
+          <Button
+            key={provider}
+            variant="secondary"
+            className="px-3.5 py-2 text-[13px] font-semibold text-u-text"
+            loading={connectingProvider === provider}
+            disabled={connectingProvider !== null}
+            onClick={() => onConnect(provider)}
+          >
+            Connect {providerLabel(provider)}
+          </Button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function ConnectedMailboxPill({
+  connection,
+  isSendingTest,
+  isDisconnecting,
+  onSendTest,
+  onDisconnect,
+}: {
+  connection: ConnectedMailbox;
+  isSendingTest: boolean;
+  isDisconnecting: boolean;
+  onSendTest: () => void;
+  onDisconnect: () => void;
+}) {
+  return (
+    <div className="ms-auto flex flex-wrap items-center gap-2.5">
+      <span
+        title="Emails you send go from this address; replies land in your inbox"
+        className="inline-flex items-center gap-2 rounded-[7px] border border-u-border px-2.5 py-1.5 font-mono text-[12px] text-u-text2"
+      >
+        <span aria-hidden="true" className="size-[7px] rounded-full bg-u-direct" />
+        {connection.address}
+        <span className="text-u-text3">· up to {connection.dailyCap} a day</span>
+      </span>
+      <Button variant="ghost" className="px-1.5 py-1 text-[12px]" loading={isSendingTest} onClick={onSendTest}>
+        Send a test email
+      </Button>
+      <Button variant="ghost" className="px-1.5 py-1 text-[12px]" loading={isDisconnecting} onClick={onDisconnect}>
+        Disconnect
+      </Button>
+    </div>
+  );
+}
+
+function NotYetBuilt() {
+  return (
+    <EmptyState
+      icon={<Icon d={ICONS.outreach} size={22} />}
+      title="No outreach on this position yet"
+      body="Sequences — a first email and up to two follow-ups in the same thread — arrive in the next phase."
+    />
+  );
+}
+
+/** The mail service's host names, as people know them. A host this list lacks reads as its own name. */
+const PROVIDER_LABELS: Record<string, string> = { google: "Gmail", microsoft: "Outlook" };
+
+function providerLabel(provider: string): string {
+  return PROVIDER_LABELS[provider] ?? provider.charAt(0).toUpperCase() + provider.slice(1);
+}
