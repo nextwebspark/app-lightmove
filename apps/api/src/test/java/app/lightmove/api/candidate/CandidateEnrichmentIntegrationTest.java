@@ -129,11 +129,6 @@ class CandidateEnrichmentIntegrationTest extends FlowTestSupport {
         JsonNode unmapped = poolRow();
         assertThat(unmapped.get("companyName").asText()).isEqualTo("Al Rawabi Dairy");
         assertThat(unmapped.get("companyLogoUrl").asText()).isEqualTo("https://media.example.com/alrawabi.png");
-        String personId = unmapped.get("personId").asText();
-        assertThat(body(mvc.perform(get("/api/v1/candidates/" + personId)
-                        .header("Authorization", "Bearer " + adminToken))
-                .andExpect(status().isOk())
-                .andReturn()).get("companyLogoUrl").asText()).isEqualTo("https://media.example.com/alrawabi.png");
     }
 
     @Test

@@ -358,8 +358,9 @@ holds only what a mandate *did* about a company. **`candidate` is the people sid
 `Person` per human, and one `Candidate` row per mandate that maps them, belonging to the *project* and
 only optionally to one of its triaged companies, because a researcher meets people at companies the
 universe does not carry. It depends on
-`triagecompany` through two public methods — resolving the company an executive is mapped to, and
-filing a researched employer into the universe — and `triagecompany` never depends back.
+`triagecompany` through three public methods — resolving the company an executive is mapped to,
+filing a researched employer into the universe, and reading company rows' logos for the Candidates
+page (`logoUrlsOf`) — and `triagecompany` never depends back.
 **`customcolumn` is the columns a mandate added to its own grid** — definitions only, plus the one
 method (`applyTo`) that decides what a row may store in them, since the bag is open and nothing else
 stands between it and arbitrary caller-chosen keys. `triagecompany` and `candidate` depend on it; it

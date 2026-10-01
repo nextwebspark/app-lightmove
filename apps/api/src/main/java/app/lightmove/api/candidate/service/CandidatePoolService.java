@@ -72,6 +72,7 @@ public class CandidatePoolService {
     private final UserRepository users;
     private final WorkspaceAccess workspaceAccess;
     private final PersonRecordService records;
+    private final PersonEmployerResolver employerResolver;
     private final CandidateService mandates;
     private final ProjectAccess projectAccess;
     private final PersonTimelineService timeline;
@@ -126,7 +127,7 @@ public class CandidatePoolService {
             List<Candidate> rows = mapped.getOrDefault(person.getId(), List.of());
             User owner = person.getOwnerUserId() == null ? null : owners.get(person.getOwnerUserId());
             return new PoolPersonExport(person.getFullName(), person.getTitle(),
-                    PersonRecordService.employerOf(person, rows).name(), person.getLocationCity(),
+                    PersonEmployerResolver.employerOf(person, rows).name(), person.getLocationCity(),
                     person.getLocationCountry(), person.getLinkedinUrl(),
                     person.emailContacts().stream().map(contact -> contact.getValue()).toList(),
                     person.phoneContacts().stream().map(contact -> contact.getValue()).toList(),
@@ -311,8 +312,8 @@ public class CandidatePoolService {
         Map<UUID, Project> mandates = projectsOf(mapped);
         Map<UUID, PersonTimelineEntryResponse> latest = timeline.latestOf(workspaceId, persons.values());
         Map<UUID, PersonEmployer> employers = persons.values().stream().collect(Collectors.toMap(Person::getId,
-                person -> PersonRecordService.employerOf(person, mapped.getOrDefault(person.getId(), List.of()))));
-        Map<UUID, String> logos = records.employerLogosOf(workspaceId, employers);
+                person -> PersonEmployerResolver.employerOf(person, mapped.getOrDefault(person.getId(), List.of()))));
+        Map<UUID, String> logos = employerResolver.logosOf(workspaceId, employers);
         return ids.stream().map(persons::get).filter(Objects::nonNull).map(person -> {
             List<Candidate> rows = mapped.getOrDefault(person.getId(), List.of());
             return new CandidatePoolRowResponse(person.getId(), person.getFullName(), person.getTitle(),
@@ -347,7 +348,7 @@ public class CandidatePoolService {
                 .collect(Collectors.toMap(Person::getId, Function.identity()));
     }
 
-    /** Each person's mappings, oldest first, as {@link PersonRecordService#employerOf} reads them. */
+    /** Each person's mappings, oldest first, as {@link PersonEmployerResolver#employerOf} reads them. */
     private Map<UUID, List<Candidate>> mappingsOf(UUID workspaceId, Collection<Person> persons) {
         if (persons.isEmpty()) {
             return Map.of();

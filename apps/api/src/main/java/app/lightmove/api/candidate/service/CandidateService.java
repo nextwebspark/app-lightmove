@@ -932,7 +932,7 @@ public class CandidateService {
                 continue;
             }
             Candidate candidate = candidates.save(Candidate.mappedFromPool(projectId, userId, person,
-                    PersonRecordService.employerOf(person, rows).name()));
+                    PersonEmployerResolver.employerOf(person, rows).name()));
             activity.record(candidate, userId, PersonActivityKind.MAPPED,
                     PersonActivityDetails.of("door", CandidateSource.MANUAL));
             added.add(person.getId());

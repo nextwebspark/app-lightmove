@@ -424,7 +424,6 @@ export interface PersonRecord {
   fullName: string;
   title: string | null;
   companyName: string | null;
-  companyLogoUrl: string | null;
   seniority: CandidateSeniority | null;
   linkedinUrl: string | null;
   enrichedAt: string | null;

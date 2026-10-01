@@ -258,7 +258,7 @@ class CandidateEnrichmentTest {
         assertThat(person.getProfile().skills()).containsExactly("Financial Planning");
         assertThat(person.getProfile().enrichedAt()).isEqualTo(enrichedAt);
         assertThat(person.getProfile().employer()).isEqualTo(new ResearchedEmployerMark("Al Rawabi Dairy",
-                "alrawabi", "https://media.example.com/alrawabi.png"));
+                "https://media.example.com/alrawabi.png"));
     }
 
     @Test

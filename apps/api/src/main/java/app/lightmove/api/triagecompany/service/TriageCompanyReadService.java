@@ -17,6 +17,7 @@ import app.lightmove.api.triagecompany.dto.TriageCountsDto;
 import app.lightmove.api.triagecompany.model.MandateStages;
 import app.lightmove.api.triagecompany.model.TriageCompany;
 import app.lightmove.api.triagecompany.model.TriageCompanyFilters;
+import app.lightmove.api.triagecompany.model.TriageCompanyLogo;
 import app.lightmove.api.triagecompany.repository.TriageCompanyRepository;
 import java.util.Collection;
 import java.util.HashSet;
@@ -235,9 +236,15 @@ public class TriageCompanyReadService {
         if (triageCompanyIds.isEmpty()) {
             return Map.of();
         }
-        return triaged.findByIdInAndWorkspaceId(Set.copyOf(triageCompanyIds), workspaceId).stream()
-                .filter(row -> row.getLogoUrl() != null)
-                .collect(Collectors.toMap(TriageCompany::getId, TriageCompany::getLogoUrl));
+        List<TriageCompanyLogo> logos = triaged.findLogosByIdIn(Set.copyOf(triageCompanyIds));
+        if (logos.isEmpty()) {
+            return Map.of();
+        }
+        Set<UUID> workspaceProjects = projects.findIdsInWorkspace(workspaceId,
+                logos.stream().map(TriageCompanyLogo::projectId).collect(Collectors.toSet()));
+        return logos.stream()
+                .filter(logo -> workspaceProjects.contains(logo.projectId()))
+                .collect(Collectors.toMap(TriageCompanyLogo::id, TriageCompanyLogo::logoUrl));
     }
 
     private TriageCountsDto countsFor(UUID projectId) {

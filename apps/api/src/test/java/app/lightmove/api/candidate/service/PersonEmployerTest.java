@@ -34,7 +34,7 @@ class PersonEmployerTest {
         Person person = researched();
         UUID companyId = UUID.randomUUID();
 
-        PersonEmployer employer = PersonRecordService.employerOf(person,
+        PersonEmployer employer = PersonEmployerResolver.employerOf(person,
                 List.of(mappedAt(person, companyId, "al rawabi dairy")));
 
         assertThat(employer).isEqualTo(new PersonEmployer("al rawabi dairy", companyId, RESEARCHED_LOGO));
@@ -45,7 +45,7 @@ class PersonEmployerTest {
     void aPositionAtAnotherEmployer() {
         Person person = researched();
 
-        PersonEmployer employer = PersonRecordService.employerOf(person,
+        PersonEmployer employer = PersonEmployerResolver.employerOf(person,
                 List.of(mappedAt(person, null, "Emirates NBD")));
 
         assertThat(employer).isEqualTo(new PersonEmployer("Emirates NBD", null, null));
@@ -54,8 +54,20 @@ class PersonEmployerTest {
     @Test
     @DisplayName("someone on no position is named by their career, with research's logo")
     void noPositionFallsBackToTheCareer() {
-        assertThat(PersonRecordService.employerOf(researched(), List.of()))
+        assertThat(PersonEmployerResolver.employerOf(researched(), List.of()))
                 .isEqualTo(new PersonEmployer("Al Rawabi Dairy", null, RESEARCHED_LOGO));
+    }
+
+    @Test
+    @DisplayName("research naming no employer keeps the last researched logo rather than one that can never match")
+    void anEmployerlessResearchKeepsTheLastMark() {
+        Person person = researched();
+
+        person.enrich(new EnrichedProfile("Group CFO", null, null, "https://www.linkedin.com/company/other/",
+                "https://media.example.com/other.png", null, null, List.of(), List.of(), List.of(), List.of(), null,
+                EnrichmentVendor.BRIGHTDATA));
+
+        assertThat(PersonEmployerResolver.employerOf(person, List.of()).researchedLogoUrl()).isEqualTo(RESEARCHED_LOGO);
     }
 
     private static Person researched() {

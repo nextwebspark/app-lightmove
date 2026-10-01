@@ -146,7 +146,6 @@ const record: PersonRecord = {
   fullName: "Fatima Al Mazrouei",
   title: "Group CFO",
   companyName: "Aldar Properties",
-  companyLogoUrl: null,
   seniority: null,
   linkedinUrl: null,
   enrichedAt: null,
