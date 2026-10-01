@@ -14,6 +14,8 @@ public record CandidatePoolRowResponse(
         String title,
         /** The employer their most recent position recorded, else their current post. */
         String companyName,
+        /** That employer's logo: the position's company row's, else research's; null draws an initial. */
+        String companyLogoUrl,
         String locationCity,
         String locationCountry,
         String linkedinUrl,

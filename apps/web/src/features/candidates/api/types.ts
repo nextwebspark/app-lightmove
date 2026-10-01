@@ -382,6 +382,8 @@ export interface PoolRow {
   fullName: string;
   title: string | null;
   companyName: string | null;
+  /** The position's company row's logo, else research's; null draws an initial. */
+  companyLogoUrl: string | null;
   locationCity: string | null;
   locationCountry: string | null;
   linkedinUrl: string | null;
