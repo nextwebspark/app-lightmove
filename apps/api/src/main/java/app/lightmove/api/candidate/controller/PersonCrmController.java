@@ -49,7 +49,8 @@ public class PersonCrmController {
     public List<PersonPositionResponse> positions(@AuthenticationPrincipal AuthPrincipal principal,
                                                   @PathVariable UUID projectId, @PathVariable UUID candidateId) {
         UUID workspaceId = principal.requireWorkspaceId();
-        return records.positionsOf(workspaceId, records.personOf(workspaceId, projectId, candidateId), projectId);
+        return records.positionsOf(principal.userId(), workspaceId,
+                records.personOf(workspaceId, projectId, candidateId), projectId);
     }
 
     @GetMapping("/notes")

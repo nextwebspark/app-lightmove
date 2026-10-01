@@ -39,4 +39,12 @@ public interface PersonActivityRepository extends JpaRepository<PersonActivity, 
     List<PersonActivity> findWorkspaceFeed(UUID workspaceId, long before, Collection<PersonActivityKind> kinds,
                                            boolean anyActor, UUID actor, boolean anyProject, UUID projectId,
                                            Instant from, Instant to, Limit limit);
+
+    /** Each named person's latest line, at most one each. */
+    @Query(value = """
+            SELECT DISTINCT ON (person_id) * FROM app_lm_person_activity
+            WHERE workspace_id = :workspaceId AND person_id IN (:personIds)
+            ORDER BY person_id, id DESC
+            """, nativeQuery = true)
+    List<PersonActivity> findLatestOfPeople(UUID workspaceId, Collection<UUID> personIds);
 }

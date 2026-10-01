@@ -24,6 +24,16 @@ public class ProjectAccess {
     private final ProjectRepository projects;
     private final ProjectMemberRepository seats;
 
+    /** {@link #requireAction} as a question, for a screen that offers a control only where it would work. */
+    public boolean holdsAction(UUID userId, UUID workspaceId, UUID projectId, ProjectAction action) {
+        try {
+            requireAction(userId, workspaceId, projectId, action);
+            return true;
+        } catch (ApiException refused) {
+            return false;
+        }
+    }
+
     public void requireAction(UUID userId, UUID workspaceId, UUID projectId, ProjectAction action) {
         WorkspaceMember member = workspaceAccess.requireActiveMember(userId, workspaceId);
 

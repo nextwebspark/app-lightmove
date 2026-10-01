@@ -133,6 +133,31 @@ class ContactLookupIntegrationTest extends FlowTestSupport {
     }
 
     @Test
+    @DisplayName("a person marked do not contact is refused before anything is spent, on every position")
+    void doNotContactTurnsLookupsOff() throws Exception {
+        String projectId = mandate("Do Not Contact Firm");
+        String candidateId = executive(projectId, "Sample Person", "sample-profile");
+        String personId = body(mvc.perform(get(candidatesUrl(projectId) + "/" + candidateId)
+                        .header("Authorization", "Bearer " + adminToken))
+                .andExpect(status().isOk())
+                .andReturn()).get("personId").asText();
+        mvc.perform(put("/api/v1/candidates/" + personId + "/do-not-contact")
+                        .header("Authorization", "Bearer " + adminToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"doNotContact":true,"reason":"Asked us not to approach them."}"""))
+                .andExpect(status().isOk());
+        finder.answerEmailsWith(EMAILS);
+
+        assertThat(codeOf(mvc.perform(post(lookupUrl(projectId, candidateId, "email"))
+                        .header("Authorization", "Bearer " + adminToken))
+                .andExpect(status().isConflict())
+                .andReturn()))
+                .isEqualTo("PERSON_DO_NOT_CONTACT");
+        assertThat(finder.askedUrls()).isEmpty();
+    }
+
+    @Test
     @DisplayName("an executive with no LinkedIn profile is refused before anything is spent")
     void noProfileIsRefusedBeforeSpending() throws Exception {
         String projectId = mandate("No Profile Firm");

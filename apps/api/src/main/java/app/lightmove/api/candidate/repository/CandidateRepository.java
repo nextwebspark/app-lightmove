@@ -140,6 +140,14 @@ public interface CandidateRepository extends JpaRepository<Candidate, UUID> {
             """)
     List<Candidate> findPositionsOfPerson(UUID workspaceId, UUID personId);
 
+    /** {@link #findPositionsOfPerson} for a page of people at once, the person loaded with each row. */
+    @Query("""
+            select c from Candidate c join fetch c.person p
+            where p.id in :personIds and p.workspaceId = :workspaceId
+            order by c.createdAt
+            """)
+    List<Candidate> findPositionsOfPeople(UUID workspaceId, Collection<UUID> personIds);
+
     /**
      * The mandate's rows that might name one LinkedIn profile — the narrowing half of the duplicate
      * guard the name finders above cannot answer. {@code like} rather than equality because the column

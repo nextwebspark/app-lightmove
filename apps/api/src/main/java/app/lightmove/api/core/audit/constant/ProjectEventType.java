@@ -46,6 +46,14 @@ public enum ProjectEventType implements AuditEventType {
     PERSON_NOTE_EDITED,
     PERSON_NOTE_REMOVED,
     PERSON_NOTE_PINNED,
+    PERSON_OWNER_CHANGED,
+    PERSON_TAGGED,
+    PERSON_UNTAGGED,
+    PERSON_DO_NOT_CONTACT_SET,
+    PERSON_DO_NOT_CONTACT_CLEARED,
+    PEOPLE_MAPPED_FROM_POOL,
+    CANDIDATE_TAG_CREATED,
+    CANDIDATE_TAG_UPDATED,
     EXECUTIVE_SOURCING_REQUESTED,
     EXECUTIVE_SOURCING_COMPLETED,
 
@@ -60,6 +68,7 @@ public enum ProjectEventType implements AuditEventType {
     SPREADSHEET_IMPORTED,
 
     COMPANIES_EXPORTED,
+    CANDIDATES_EXPORTED,
 
     /** A question answered by the assistant — recorded because it spends model and vendor money. */
     ASSISTANT_ASKED;

@@ -182,6 +182,18 @@ public enum ErrorCode {
     /** A note may be changed or removed by its author, or by a workspace admin. */
     PERSON_NOTE_NOT_YOURS(HttpStatus.FORBIDDEN, "Only the person who wrote this note, or an admin, can change it"),
 
+    /** Tags are unique per workspace whatever their case. */
+    CANDIDATE_TAG_EXISTS(HttpStatus.CONFLICT, "Your team already has that tag"),
+
+    /** A retired tag stays on the people who hold it, but can no longer be put on anyone. */
+    CANDIDATE_TAG_RETIRED(HttpStatus.CONFLICT, "That tag is retired. Restore it in Settings to use it again"),
+
+    /** A person's owner is a colleague: an active member who is not a client representative. */
+    PERSON_OWNER_NOT_STAFF(HttpStatus.BAD_REQUEST, "The owner must be someone on your team"),
+
+    /** Contact lookups are off for a person marked do not contact; nothing was spent. */
+    PERSON_DO_NOT_CONTACT(HttpStatus.CONFLICT, "This person is marked do not contact, so contact lookups are off"),
+
     /** Nothing was saved. Never sent for a stream that ran out of time: see {@link #ASSISTANT_STILL_ANSWERING}. */
     ASSISTANT_UNAVAILABLE(HttpStatus.SERVICE_UNAVAILABLE,
             "The assistant could not answer just now. Try again in a moment"),

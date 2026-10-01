@@ -9,6 +9,7 @@ import app.lightmove.api.candidate.constant.PersonActivityKind;
 import app.lightmove.api.candidate.constant.ProfileClaim;
 import app.lightmove.api.candidate.dto.CandidateListCriteria;
 import app.lightmove.api.candidate.dto.CandidateResponse;
+import app.lightmove.api.candidate.dto.MapPeopleToPositionResponse;
 import app.lightmove.api.candidate.dto.CandidatesResponse;
 import app.lightmove.api.candidate.dto.SaveCandidateRequest;
 import app.lightmove.api.candidate.dto.UpdateCandidateContactsRequest;
@@ -604,7 +605,7 @@ public class CandidateService {
         Person person = candidate.getPerson();
         return new CandidateContactState(person.getLinkedinUrl(),
                 person.hasAskedForEmails(), person.hasAskedForPhones(),
-                person.hasFoundEmails(), person.hasFoundPhones(),
+                person.hasFoundEmails(), person.hasFoundPhones(), person.isDoNotContact(),
                 responses.toDto(candidate));
     }
 
@@ -822,6 +823,35 @@ public class CandidateService {
                 PersonActivityDetails.of("door", source));
         personNotes.fileFromDoor(candidate, userId, details.note());
         return new Filed(candidate, known.isPresent());
+    }
+
+    /**
+     * Adds people the workspace already holds to a mandate, as Identified. Someone it already holds stays
+     * as they are. The caller has checked they may work the mandate.
+     */
+    @Transactional
+    public MapPeopleToPositionResponse mapFromPool(UUID userId, UUID workspaceId, UUID projectId,
+                                                   List<Person> persons, HttpServletRequest httpRequest) {
+        projects.requireInWorkspace(projectId, workspaceId);
+        int added = 0;
+        for (Person person : persons) {
+            if (candidates.existsByProjectIdAndPersonId(projectId, person.getId())) {
+                continue;
+            }
+            String employer = PersonRecordService.employerOf(person,
+                    candidates.findPositionsOfPerson(workspaceId, person.getId()));
+            Candidate candidate = candidates.save(Candidate.mappedFromPool(projectId, userId, person, employer));
+            activity.record(candidate, userId, PersonActivityKind.MAPPED,
+                    PersonActivityDetails.of("door", CandidateSource.MANUAL));
+            added++;
+        }
+        if (added > 0) {
+            stream.publish(projectId, ProjectStreamKind.CANDIDATE_CAPTURED);
+            audit.projectEvent(ProjectEventType.PEOPLE_MAPPED_FROM_POOL, userId, workspaceId, projectId, httpRequest)
+                    .detail("added", added)
+                    .record();
+        }
+        return new MapPeopleToPositionResponse(added, persons.size() - added);
     }
 
     /** A filing's row, and whether it mapped someone the workspace already knew. */

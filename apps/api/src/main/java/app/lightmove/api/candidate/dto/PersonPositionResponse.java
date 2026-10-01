@@ -14,5 +14,7 @@ public record PersonPositionResponse(
         String addedByName,
         Instant addedAt,
         /** A {@code CandidateSource} wire token: the door this mandate filed them through. */
-        String source
+        String source,
+        /** Whether the caller may move this mapping's status — they hold the position's WORK_EXECUTE. */
+        boolean workable
 ) {}
