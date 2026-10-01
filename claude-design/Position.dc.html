@@ -160,6 +160,10 @@
                   <button onClick="{{ openImport }}" style="display:inline-flex;align-items:center;gap:6px;white-space:nowrap;border-radius:6px;border:1px solid var(--line);background:var(--panel);padding:8px 12px;font:500 13px var(--sans);color:var(--text2);cursor:pointer" style-hover="border-color:var(--text3);color:var(--text)">
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style="flex:none"><path d="{{ ic.importInto }}"></path></svg>Import</button>
                 </sc-if>
+                <sc-if value="{{ canOutreach }}" hint-placeholder-val="{{ true }}">
+                  <a href="Outreach.dc.html?dialog=enrol" title="Add the ticked companies' executives to an outreach sequence" style="display:inline-flex;align-items:center;gap:6px;white-space:nowrap;border-radius:6px;border:1px solid var(--line);background:var(--panel);padding:8px 12px;font:500 13px var(--sans);color:var(--text2);cursor:pointer" style-hover="border-color:var(--text3);color:var(--text)">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style="flex:none"><path d="{{ ic.outreach }}"></path></svg>Add to sequence</a>
+                </sc-if>
                 <button style="display:inline-flex;align-items:center;gap:6px;white-space:nowrap;border-radius:6px;border:1px solid var(--line);background:var(--panel);padding:8px 12px;font:500 13px var(--sans);color:var(--text2);cursor:pointer" style-hover="border-color:var(--text3);color:var(--text)">
                   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style="flex:none"><path d="{{ ic.userPlus }}"></path></svg>Add executive</button>
                 <button style="display:inline-flex;align-items:center;gap:6px;white-space:nowrap;border-radius:6px;border:1px solid var(--line);background:var(--panel);padding:8px 12px;font:500 13px var(--sans);color:var(--text2);cursor:pointer" style-hover="border-color:var(--text3);color:var(--text)">
@@ -2250,6 +2254,7 @@ class Component extends DCLogic {
       hiddenCount, hasHidden: hiddenCount > 0,
       pickerCols: hideable.map((c) => { const on = this.visible(c.id); return { id: c.id, label: c.label, on, boxStyle: `display:grid;width:14px;height:14px;flex:none;place-items:center;border-radius:4px;border:1px solid ${on ? "var(--sky)" : "var(--line)"};background:${on ? "var(--sky)" : "transparent"};color:#fff` }; }),
       canImport: stageKey === "u" && cw,
+      canOutreach: stageKey !== "d" && cw,
       mapOffered: stageKey === "u"
     };
   }
@@ -3167,7 +3172,7 @@ class Component extends DCLogic {
     const navGroups = [
       { label: "Position", items: [navItem("Brief", I.position, "Position.dc.html", false), navItem("Strategy", I.strategy, "Strategy.dc.html", false)] },
       { label: "Companies", items: ["u", "s", "d"].map((k) => navItem(STAGES[k].label, STAGES[k].icon, `Position.dc.html?page=${STAGES[k].slug}`, stageKey === k, counts[k])) },
-      { label: "People", items: [navItem("Candidates", I.candidates, "Position.dc.html?page=candidates", s.page === "candidates"), navItem("Outreach", I.outreach, "Position.dc.html?page=outreach", s.page === "outreach")] },
+      { label: "People", items: [navItem("Candidates", I.candidates, "Position.dc.html?page=candidates", s.page === "candidates"), navItem("Outreach", I.outreach, "Outreach.dc.html", false)] },
       { label: "Project", items: [navItem("Reports", I.reports, "Position.dc.html?page=reports", isReports), navItem("Team & access", I.team, "Position.dc.html?page=team", s.page === "team")] }
     ];
     const view = stageKey === "u" ? s.view : "table";
