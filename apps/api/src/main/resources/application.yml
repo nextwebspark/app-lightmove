@@ -540,6 +540,19 @@ lightmove:
     max-employers-per-hub: ${REPORT_MAX_EMPLOYERS_PER_HUB:3}
     max-executives-per-slice: ${REPORT_MAX_EXECUTIVES_PER_SLICE:12}
 
+  # Outreach email goes from each consultant's own Gmail or Outlook, connected through Nylas's hosted
+  # sign-in. A blank key or client id leaves outreach unoffered. The Nylas application must list
+  # <web.base-url>/api/v1/outreach/mailbox/callback as a callback URI, and NYLAS_BASE_URL is
+  # https://api.eu.nylas.com for an EU-region application.
+  outreach:
+    nylas:
+      api-key: ${NYLAS_API_KEY:}
+      client-id: ${NYLAS_CLIENT_ID:}
+      base-url: ${NYLAS_BASE_URL:https://api.us.nylas.com}
+      providers: ${NYLAS_PROVIDERS:google,microsoft}
+    connect-window: ${OUTREACH_CONNECT_WINDOW:10m}
+    daily-cap: ${OUTREACH_DAILY_CAP:50}
+
 # What /actuator/info reports. APP_VERSION is baked into the image by the Dockerfile's build arg, so
 # this is the same release the SPA bundle was built with — one input, and nothing at runtime can move
 # one half without the other.
