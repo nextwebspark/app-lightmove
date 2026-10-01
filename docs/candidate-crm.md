@@ -12,7 +12,7 @@ Decided and approved 2026-09-30; phases carry a `> **Built**` callout as they la
 | 2 — Stored profile slug (V95) + golden reads | **Built**, merged (#604) |
 | 3 — Notes, timeline reads, `CANDIDATE_POOL_MANAGE` (V96, V97) | **Built**, merged (#609) |
 | 4a — The Candidates page, owner/tags/do-not-contact, tag settings (V98) | **Built**, merged (#612) |
-| 4b — Possible duplicate + map, the position's Candidates page (4b-1); merge (4b-2, V99) | **Next** — planned below, two PRs |
+| 4b — Possible duplicate + map, the position's Candidates page (4b-1); merge (4b-2, V99) | 4b-1 **Built** (#614); 4b-2 **Next** |
 | Final — Cleanup migration | Last, tracked in #606. Drops V91's frozen copies and the mapping's `note` once 3–4 are deployed |
 
 **Starting a new session on this plan:**
@@ -585,31 +585,50 @@ Two PRs: **4b-1** is everything that acts on a position, and **4b-2** is the mer
 the extension does not change. A hard match is never asked either: a matching LinkedIn URL or email just
 maps the person. Phone is still not a key.
 
-**4b-1 — the possible-duplicate check and mapping a known person**
-- **The soft match** is `PersonMatcher.possibleDuplicates(workspaceId, fullName, employerName)`: people of
-  the workspace with the same `lower(full_name)` who are mapped on any mandate at that employer (the same
-  `company_name` ignoring case, or the same triage company slug). `Person` has no employer column, so the
-  employer comes from the mappings.
-- **Where it is asked.** Only `CandidateService.add`, only for `source` MANUAL, only when `PersonMatcher.find`
-  found nobody, and never when `SaveCandidateRequest.force` is true. A match answers
-  `409 CANDIDATE_POSSIBLE_DUPLICATE` with the people found. Each one carries name, title, employer,
-  location, other positions with their status, tags, owner, note count, and who added them, when and
-  through which door — what the mockup's card draws.
-- **Never from `file()`.** Sourcing and people search only swallow `CANDIDATE_ALREADY_MAPPED`, and the import
-  catches nothing, so a new 409 there would abort a run.
-- **`POST /projects/{id}/candidates/map {personId}`** (`WORK_EXECUTE`) maps a pool person by id through
-  `mapFromPool`. It answers `CANDIDATE_ALREADY_MAPPED` when the person is already on the position, and 404
-  for a person outside the workspace. It writes a `MAPPED` line and audits `CANDIDATE_ADDED` with
-  `mappedExisting: true`.
-- **The position's Candidates page** (`/projects/:id/candidates`, replacing the placeholder):
-  - The existing `GET …/candidates` (`WORK_VIEW`) gains a `status` filter and `statusCounts`. A client seat
-    reads Executive, Status and the date added.
-  - The staff columns come from a separate read, `GET …/candidates/crm` (`WORK_EXECUTE`, after
-    `report/team`): tags, "Also in" (the person's other positions with their status), added by, last
-    activity on this position, and do not contact with its reason. None of it rides `CandidateResponse`.
-  - **Add from your candidates** reuses the pool search and `POST /candidates/bulk/position`, which files
-    people as Identified. There is no new route.
-  - The position drawer shows the **do-not-contact strip**, for staff only.
+> **4b-1 — Built.** Where the build departs from the plan above, the build stands:
+>
+> - **The soft match.** `PersonMatcher.possibleDuplicates` finds people of the workspace with the same
+>   name (ignoring case) who sit, on any mandate, at the employer being typed.
+>   - The employer is the mapping's snapshotted `company_name`, because the person has no employer column
+>     (`PersonRepository.findNamedAtEmployer`).
+>   - A triage company resolves to its name before the check, so "at that employer" means the same name
+>     whichever way the employer was given.
+> - **Where it is asked.** `CandidateService.personToFile` asks only for a `source` MANUAL add, and only
+>   when `PersonMatcher.find` found nobody.
+>   - A match answers `409 CANDIDATE_POSSIBLE_DUPLICATE`. The problem body carries `personIds` through
+>     `ApiException.withProperty`, which is new: a property channel for server-derived values only.
+>   - The dialog reads each person from the pool (`GET /candidates/{personId}`): the drawer is staff and
+>     the pool record already holds everything the mockup's card draws. So there is no second DTO.
+>   - The plugin, the import, Find executives and Strategy's People mode never ask. `file()` is untouched,
+>     because those doors only swallow `CANDIDATE_ALREADY_MAPPED`.
+> - **The answer is a resend, not a separate `/map` route.** `SaveCandidateRequest` gains two fields,
+>   both read on a hand-typed add only:
+>   - `existingPersonId` ("Yes — add them here") files that workspace person. What the form typed fills
+>     their empty fields, and the form's note is filed, as on any key match. A person outside the
+>     workspace answers 404.
+>   - `addAsNewPerson` ("No — add a different person") founds a new person.
+>
+>   A separate map-by-id route would have dropped everything the form held: the employer row, the note,
+>   the contacts and the custom columns.
+> - **The position's Candidates page** (`/projects/:id/candidates`, `ProjectCandidatesPage`) makes two
+>   reads in `CandidatePipelineController`. The grid's own list is left alone.
+>   - `GET …/candidates/pipeline?q=&status=&page=&size=` (`WORK_VIEW`): a client seat reads it too.
+>     `q` searches name, title and employer; `statusCounts` counts the search without the status filter.
+>   - `GET …/candidates/pipeline/staff?candidateId=…` (`WORK_EXECUTE`, after `report/team`): tags, the
+>     person's other positions, who filed them here, do not contact, and their latest timeline line.
+>     It is capped at the list's maximum page size, and ids that are not this mandate's are dropped.
+>   - A client seat sees Executive, Status (a pill) and the date only, and never makes the second read.
+>   - A row opens the same executive drawer the report uses.
+> - **Add from your candidates** (`AddFromPoolPicker`) searches the pool, disables anyone already on the
+>   position, and files through `POST /candidates/bulk/position` as Identified. There is no new route.
+> - **Do not contact** shows in two places, staff only:
+>   - the drawer's strip (`DoNotContactStrip`, read off the pool record);
+>   - the page's ban icon.
+> - **Tests.**
+>   - Backend: `CandidatePipelineIntegrationTest`.
+>   - Phase 1's `aNameAloneIsNotAMatch` now proves the same rule through the dialog's answer: added as
+>     new, a namesake stays a second person.
+>   - SPA: `ProjectCandidatesPage.test.tsx` and `PossibleDuplicateDialog.test.tsx`.
 
 **4b-2 — merge (V99)**
 - **V99** adds `MERGED` to `app_lm_person_activity_kind_chk`, using V98's idiom. There is no new table.
