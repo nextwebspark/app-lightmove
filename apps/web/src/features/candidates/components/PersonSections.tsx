@@ -8,6 +8,7 @@ import { formatInstantDate } from "../../../lib/format";
 import { useSubmitShortcut } from "../../../lib/useSubmitShortcut";
 import { formatActivityTime } from "../../projects/lib/activity";
 import * as personCrmApi from "../api/personCrmApi";
+import * as poolApi from "../api/poolApi";
 import type { PersonNoteKind, PersonPosition } from "../api/types";
 import { timelineLines } from "../lib/candidateActivity";
 import { candidateStatusStyle } from "../lib/candidateVocabulary";
@@ -31,6 +32,28 @@ function usePositions(projectId: string, candidateId: string) {
     queryKey: personCrmApi.PERSON_POSITIONS_KEY(projectId, candidateId),
     queryFn: ({ signal }) => personCrmApi.getPersonPositions(projectId, candidateId, signal),
   });
+}
+
+/**
+ * The team's "do not contact", shown on every position the person sits on. Staff-only, like the pool
+ * record it is read from: a client seat never reaches this drawer's staff sections.
+ */
+export function DoNotContactStrip({ personId }: { personId: string }) {
+  const record = useQuery({
+    queryKey: poolApi.PERSON_RECORD_KEY(personId),
+    queryFn: ({ signal }) => poolApi.getPerson(personId, signal),
+  });
+  const doNotContact = record.data?.doNotContact;
+  if (!doNotContact) return null;
+  return (
+    <p
+      role="note"
+      className="mt-3 rounded-[8px] border border-u-offlimits/30 bg-u-offlimits-tint px-3 py-2 text-[12.5px] text-u-text2"
+    >
+      <b className="font-semibold text-u-offlimits">Do not contact.</b>
+      {doNotContact.reason ? ` ${doNotContact.reason}` : ""}
+    </p>
+  );
 }
 
 export function PositionsSection({ projectId, candidateId, open, onToggle }: PersonSectionProps) {

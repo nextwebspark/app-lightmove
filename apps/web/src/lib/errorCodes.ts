@@ -37,6 +37,7 @@ export type ApiErrorCode =
   | "TRIAGE_COMPANY_ALREADY_HELD"
   | "TRIAGE_COMPANY_NOT_EDITABLE"
   | "CANDIDATE_ALREADY_MAPPED"
+  | "CANDIDATE_POSSIBLE_DUPLICATE"
   | "PERSON_PROFILE_HELD"
   | "PERSON_NOTE_NOT_YOURS"
   | "CANDIDATE_TAG_EXISTS"
@@ -116,6 +117,7 @@ const MESSAGES: Partial<Record<ApiErrorCode, string>> = {
   CURRENT_SESSION_NOT_REVOCABLE: "Use sign out to end the session you are using.",
   STRATEGY_SEARCH_NAME_TAKEN: "A search with that name is already saved here.",
   CANDIDATE_ALREADY_MAPPED: "Someone with that name is already mapped here.",
+  CANDIDATE_POSSIBLE_DUPLICATE: "Your team already has someone with that name at that employer.",
   PERSON_PROFILE_HELD: "Another candidate in this workspace already has that LinkedIn profile.",
   PERSON_NOTE_NOT_YOURS: "Only the person who wrote this note, or an admin, can change it.",
   CANDIDATE_TAG_EXISTS: "Your team already has that tag.",
