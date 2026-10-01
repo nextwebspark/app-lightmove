@@ -18,7 +18,9 @@ public enum ContactSource {
     EXTENSION,
     CONTACTOUT,
     /** Never written — a search hit carries no contacts — but {@link #ofDoor} must answer for the row door. */
-    AI_SOURCED;
+    AI_SOURCED,
+    /** Never written, for {@link #AI_SOURCED}'s reason. */
+    PEOPLE_SEARCH;
 
     public static ContactSource ofDoor(CandidateSource door) {
         return switch (door) {
@@ -26,6 +28,7 @@ public enum ContactSource {
             case CSV -> CSV;
             case EXTENSION -> EXTENSION;
             case AI_SOURCED -> AI_SOURCED;
+            case PEOPLE_SEARCH -> PEOPLE_SEARCH;
         };
     }
 

@@ -17,6 +17,8 @@ import app.lightmove.api.strategy.constant.SortDirection;
 import app.lightmove.api.strategy.dto.CompanyRefDto;
 import app.lightmove.api.strategy.dto.CompanyResultDto;
 import app.lightmove.api.strategy.dto.NumericRangeDto;
+import app.lightmove.api.strategy.dto.PeopleFilterDto;
+import app.lightmove.api.strategy.dto.PutPeopleFilterRequest;
 import app.lightmove.api.strategy.dto.PutOffLimitsRequest;
 import app.lightmove.api.strategy.dto.PutStrategyFilterRequest;
 import app.lightmove.api.strategy.dto.StrategyCompaniesResponse;
@@ -26,6 +28,7 @@ import app.lightmove.api.strategy.model.CompanyExclusion;
 import app.lightmove.api.strategy.model.CompanyRow;
 import app.lightmove.api.strategy.model.CompanyScope;
 import app.lightmove.api.strategy.model.NumericRange;
+import app.lightmove.api.strategy.model.PeopleFilter;
 import app.lightmove.api.strategy.model.Strategy;
 import app.lightmove.api.strategy.model.StrategyCompanyRef;
 import app.lightmove.api.strategy.model.StrategyFilter;
@@ -59,19 +62,21 @@ public class StrategyService {
     private final AuditService audit;
     private final ApolloCompanyQueryService companies;
     private final TriagedCompanyLookup triagedLookup;
+    private final PeopleFilterReader peopleFilters;
     private final CompanyListSettings listConfig;
     private final CompanySearchSettings searchConfig;
 
     public StrategyService(StrategyRepository strategies, ProjectRepository projects,
                            StrategySearchService searches, AuditService audit,
                            ApolloCompanyQueryService companies, TriagedCompanyLookup triagedLookup,
-                           LightMoveProperties properties) {
+                           PeopleFilterReader peopleFilters, LightMoveProperties properties) {
         this.strategies = strategies;
         this.projects = projects;
         this.searches = searches;
         this.audit = audit;
         this.companies = companies;
         this.triagedLookup = triagedLookup;
+        this.peopleFilters = peopleFilters;
         this.listConfig = properties.company().list();
         this.searchConfig = properties.company().search();
     }
@@ -96,6 +101,29 @@ public class StrategyService {
                 .detail("section", "filter")
                 .record();
         return toResponse(strategy, userId, workspaceId, projectId);
+    }
+
+    @Transactional
+    public StrategyResponse putPeopleFilter(UUID userId, UUID workspaceId, UUID projectId,
+                                            PutPeopleFilterRequest request, HttpServletRequest httpRequest) {
+        PeopleFilter filter = peopleFilters.read(request.filter());
+
+        Strategy strategy = load(projectId, workspaceId);
+        strategy.replacePeopleFilter(filter);
+
+        audit.projectEvent(ProjectEventType.STRATEGY_UPDATED, userId, workspaceId, projectId, httpRequest)
+                .detail("section", "peopleFilter")
+                .record();
+        return toResponse(strategy, userId, workspaceId, projectId);
+    }
+
+    /** The stored people filter, empty for a mandate that never saved one; a search is asked from this alone. */
+    @Transactional(readOnly = true)
+    public PeopleFilter peopleFilterOf(UUID workspaceId, UUID projectId) {
+        projects.requireInWorkspace(projectId, workspaceId);
+        return strategies.findByProjectId(projectId)
+                .map(Strategy::getPeopleFilter)
+                .orElseGet(PeopleFilter::empty);
     }
 
     @Transactional
@@ -263,6 +291,7 @@ public class StrategyService {
                                         UUID projectId) {
         return new StrategyResponse(
                 StrategyFilterDto.of(strategy.getFilter()),
+                PeopleFilterDto.of(strategy.getPeopleFilter()),
                 strategy.getOffLimitsCompanies().stream().map(StrategyService::toDto).toList(),
                 searches.list(userId, workspaceId, projectId));
     }

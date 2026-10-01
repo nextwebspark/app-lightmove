@@ -11,6 +11,7 @@ import app.lightmove.api.candidate.dto.CandidatePhoneDto;
 import app.lightmove.api.candidate.dto.CandidateResponse;
 import app.lightmove.api.candidate.model.Candidate;
 import app.lightmove.api.candidate.model.CandidateCompensation;
+import app.lightmove.api.candidate.model.Person;
 import org.springframework.stereotype.Component;
 
 /** A mapped executive as the drawer and the grid read it — a client seat included. */
@@ -18,23 +19,24 @@ import org.springframework.stereotype.Component;
 class CandidateResponseMapper {
 
     CandidateResponse toDto(Candidate candidate) {
-        CandidateCompensation compensation = candidate.compensation();
+        Person person = candidate.getPerson();
+        CandidateCompensation compensation = person.compensation();
         return new CandidateResponse(
                 candidate.getId(),
                 candidate.getTriageCompanyId(),
                 candidate.getCompanyName(),
-                candidate.getFullName(),
-                candidate.getTitle(),
-                candidate.getSeniorityLevel() == null ? null : candidate.getSeniorityLevel().value(),
+                person.getFullName(),
+                person.getTitle(),
+                person.getSeniorityLevel() == null ? null : person.getSeniorityLevel().value(),
                 candidate.getStatus().value(),
-                candidate.getLinkedinUrl(),
-                candidate.getLocationCountry(),
-                candidate.getLocationCity(),
-                candidate.getNationality(),
-                candidate.getGender() == null ? null : candidate.getGender().value(),
-                candidate.getYearsExperience(),
-                candidate.getAiInferredFields(),
-                candidate.getSummary(),
+                person.getLinkedinUrl(),
+                person.getLocationCountry(),
+                person.getLocationCity(),
+                person.getNationality(),
+                person.getGender() == null ? null : person.getGender().value(),
+                person.getYearsExperience(),
+                person.getAiInferredFields(),
+                person.getSummary(),
                 candidate.getNote(),
                 new CandidateCompensationDto(compensation.currency(), compensation.baseSalary(),
                         compensation.bonus(), compensation.allowances(),
@@ -45,39 +47,40 @@ class CandidateResponseMapper {
                         compensation.breakdown().longTermIncentiveTypes().stream()
                                 .map(LongTermIncentiveType::value)
                                 .toList()),
-                candidate.getProfile().career().stream()
+                person.getProfile().career().stream()
                         .map(entry -> new CandidateCareerEntryDto(entry.company(), entry.title(), entry.period(),
                                 entry.location()))
                         .toList(),
-                candidate.getProfile().languages(),
-                candidate.getProfile().education().stream()
+                person.getProfile().languages(),
+                person.getProfile().education().stream()
                         .map(school -> new CandidateEducationEntryDto(school.school(), school.degree(),
                                 school.period()))
                         .toList(),
-                candidate.getProfile().skills(),
+                person.getProfile().skills(),
                 candidate.getSource().value(),
                 candidate.getSourceUrl(),
                 candidate.getCustomFields().asMap(),
                 candidate.getCreatedAt(),
-                candidate.getProfile().enrichedAt(),
-                contactsOf(candidate));
+                person.getProfile().enrichedAt(),
+                contactsOf(person),
+                person.getId());
     }
 
-    private static CandidateContactsDto contactsOf(Candidate candidate) {
+    private static CandidateContactsDto contactsOf(Person person) {
         return new CandidateContactsDto(
-                candidate.emailContacts().stream()
+                person.emailContacts().stream()
                         .map(contact -> new CandidateEmailDto(contact.getValue(),
                                 contact.getKind() == null ? null : contact.getKind().value(),
                                 contact.isVerified(), contact.getStatus(),
                                 contact.getSource().value(), contact.getFoundAt()))
                         .toList(),
-                candidate.phoneContacts().stream()
+                person.phoneContacts().stream()
                         .map(contact -> new CandidatePhoneDto(contact.getValue(),
                                 contact.getKind() == null ? null : contact.getKind().value(),
                                 contact.isVerified(), contact.getStatus(),
                                 contact.getSource().value(), contact.getFoundAt()))
                         .toList(),
-                candidate.getEmailsLookedUpAt(), candidate.getPhonesLookedUpAt(),
-                candidate.getContactsLookedUpVia());
+                person.getEmailsLookedUpAt(), person.getPhonesLookedUpAt(),
+                person.getContactsLookedUpVia());
     }
 }

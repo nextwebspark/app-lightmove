@@ -15,10 +15,11 @@ folder into claude.ai/design and edit it there. `support.js` is the Claude Desig
 | `Signup.dc.html` | `/signup`, `/signup/verify-email`, `/signup/workspace`, `/signup/invite` | `step`, `emailTaken`, `reentered`, `linkSent` |
 | `Workspace.dc.html` | `/`, `/all`, `/team`, not-found | `view`, `empty`, `pureClient`, `loading`, `drawerOpen`, `modalOpen`, `inviteOpen`, `workspaces` (the topbar menu's switcher: `one`, `several`, `several-with-invite`) |
 | `Clients.dc.html` | `/clients` | `empty`, `loading`, `drawerOpen`, `modalOpen`, `mandateModalOpen` |
-| `Project.dc.html` | `/projects/:id/companies/{universe,shortlisted,declined}`, `/reports`, `/team`, `/candidates`, `/outreach` | `page`, `view`, `drawer`, `dialog`, `importStep`, `empty`, `clientRep`, `chapter`, `reportDrawer`, `teamModal`, `canManage` |
-| `Position.dc.html` | `/projects/:id` (the brief) | `step`, `published`, `readBack`, `documentAttached`, `provenanceOpen`, `readNotice`, `saving` |
+| `Candidates.dc.html` | `/candidates`, `/candidates/activity`, the person drawer | `view`, `filtersOpen`, `selectedCount`, `drawerOpen`, `drawerTab`, `tagPickerOpen`, `dialog` (`addToPosition`, `tag`, `owner`, `merge`), `empty`, `loading` |
+| `Brief.dc.html` | `/projects/:id` (the brief) | `step`, `published`, `readBack`, `documentAttached`, `provenanceOpen`, `readNotice`, `saving` |
+| `Position.dc.html` | `/projects/:id/companies/{universe,shortlisted,declined}`, `/reports`, `/team`, `/candidates` (the position's own candidates, with Add from your candidates and the possible-duplicate check), `/outreach` | `page`, `view`, `drawer`, `dialog` (`import`, `columns`, `remove`, `addFromPool`, `duplicate`), `importStep`, `empty`, `clientRep`, `chapter`, `reportDrawer`, `teamModal`, `canManage` |
 | `Strategy.dc.html` | `/projects/:id/strategy` | `filtersOpen`, `openFilter`, `selectedCount`, `saveMenuOpen`, `drawerOpen`, `columnsOpen`, `workspaces` |
-| `Settings.dc.html` | `/settings/*` incl. Workspaces, Templates and Template library | `section`, `superAdmin`, `isAdmin`, `importOpen`, `deleteOpen`, `providerOnly`, `workspaces`, `newWorkspaceOpen`, `newWorkspaceStage` |
+| `Settings.dc.html` | `/settings/*` incl. Workspaces, Candidate tags, Templates and Template library | `section`, `superAdmin`, `isAdmin`, `importOpen`, `deleteOpen`, `providerOnly`, `workspaces`, `newWorkspaceOpen`, `newWorkspaceStage` |
 | `Assistant.dc.html` | the docked assistant over Strategy | `panelOpen`, `context`, `turnState` |
 | `Extension.dc.html` | the Chrome popup + `/extension/connect` | `screen` |
 

@@ -37,6 +37,7 @@ export type ApiErrorCode =
   | "TRIAGE_COMPANY_ALREADY_HELD"
   | "TRIAGE_COMPANY_NOT_EDITABLE"
   | "CANDIDATE_ALREADY_MAPPED"
+  | "PERSON_PROFILE_HELD"
   | "STRATEGY_SEARCH_NAME_TAKEN"
   | "ASSISTANT_UNAVAILABLE"
   | "ASSISTANT_BUSY"
@@ -58,6 +59,12 @@ export type ApiErrorCode =
   | "EXECUTIVE_SOURCING_UNAVAILABLE"
   | "EXECUTIVE_SOURCING_TOO_MANY_COMPANIES"
   | "EXECUTIVE_SOURCING_IN_PROGRESS"
+  | "PEOPLE_SEARCH_UNAVAILABLE"
+  | "PEOPLE_SEARCH_NO_CREDITS"
+  | "PEOPLE_SEARCH_FAILED"
+  | "PEOPLE_SEARCH_REJECTED"
+  | "PEOPLE_SEARCH_EMPTY_FILTER"
+  | "PEOPLE_SEARCH_PERSON_UNKNOWN"
   | "WORKSPACE_NAME_MISMATCH"
   | "TEMPLATE_STALE"
   | "TEMPLATE_FALLBACK_REQUIRED"
@@ -104,6 +111,7 @@ const MESSAGES: Partial<Record<ApiErrorCode, string>> = {
   CURRENT_SESSION_NOT_REVOCABLE: "Use sign out to end the session you are using.",
   STRATEGY_SEARCH_NAME_TAKEN: "A search with that name is already saved here.",
   CANDIDATE_ALREADY_MAPPED: "Someone with that name is already mapped here.",
+  PERSON_PROFILE_HELD: "Another candidate in this workspace already has that LinkedIn profile.",
   // Two uploads raise this — the spreadsheet import and the position description — so the wording
   // stays neutral. Naming one screen's file types here misdescribes the other's refusal, and each
   // dropzone already states what it takes.
@@ -123,6 +131,13 @@ const MESSAGES: Partial<Record<ApiErrorCode, string>> = {
   EXECUTIVE_SOURCING_UNAVAILABLE: "Find executives is not set up on this deployment.",
   EXECUTIVE_SOURCING_TOO_MANY_COMPANIES: "Too many companies ticked — Find executives takes a limited batch at a time.",
   EXECUTIVE_SOURCING_IN_PROGRESS: "A Find executives run is already in progress for this position.",
+  PEOPLE_SEARCH_UNAVAILABLE: "People search is not set up on this deployment.",
+  // Nothing was bought, so the same button works once the account is topped up.
+  PEOPLE_SEARCH_NO_CREDITS: "No people search credits left this period.",
+  PEOPLE_SEARCH_FAILED: "People search didn't answer. Try again in a moment.",
+  PEOPLE_SEARCH_REJECTED: "People search couldn't run that filter. Loosen or change it and try again.",
+  PEOPLE_SEARCH_EMPTY_FILTER: "Add at least one filter before searching.",
+  PEOPLE_SEARCH_PERSON_UNKNOWN: "That person is no longer in the results. Search again and add them from there.",
 };
 
 /**

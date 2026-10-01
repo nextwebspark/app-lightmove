@@ -3,6 +3,7 @@ import type {
   CompanyPage,
   CompanySort,
   SavedSearch,
+  SearchKind,
   SearchVisibility,
   Strategy,
   StrategyFilter,
@@ -67,12 +68,13 @@ export function saveSearch(
   projectId: string,
   name: string,
   visibility: SearchVisibility,
+  kind: SearchKind = "COMPANIES",
 ): Promise<SavedSearch> {
-  // No filter in the body: the server saves what the mandate has already autosaved, so what is
-  // captured is exactly what is on screen and the two cannot drift.
+  // No filter in the body: the server saves what the mandate has already autosaved — the company or
+  // the people filter, by kind — so what is captured is exactly what is on screen.
   return request<SavedSearch>(`/projects/${projectId}/strategy/searches`, {
     method: "POST",
-    body: { name, visibility },
+    body: { name, visibility, kind },
   });
 }
 

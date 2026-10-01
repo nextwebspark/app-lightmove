@@ -741,6 +741,7 @@ class Component extends DCLogic {
     this.ICONS = {
       myProjects: 'M12 2a10 10 0 1 0 .01 0M12 8a4 4 0 1 0 .01 0',
       allProjects: 'M3 3h7v7H3zM14 3h7v7h-7zM3 14h7v7H3zM14 14h7v7h-7z',
+      candidates: 'M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8Z',
       units: 'M3 21h18M5 21V7l7-4 7 4v14M9 9h.01M9 13h.01M9 17h.01M15 9h.01M15 13h.01M15 17h.01',
       team: 'M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2M13 7a4 4 0 1 1-8 0 4 4 0 0 1 8 0M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75',
       members: 'M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2M13 7a4 4 0 1 1-8 0 4 4 0 0 1 8 0M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75',
@@ -965,6 +966,7 @@ class Component extends DCLogic {
             navItem('all', 'All positions', this.ICONS.allProjects, st.projects.length),
           ] },
           { label: 'Workspace', items: [
+            navItem('candidates', 'Candidates', this.ICONS.candidates, st.clients.length ? 19 : 0, 'Candidates.dc.html'),
             navItem('units', 'Business units', this.ICONS.units, st.clients.length, 'Clients.dc.html'),
             navItem('team', 'Team', this.ICONS.team, this.MEMBERS.length),
             navItem('settings', 'Settings', this.ICONS.settings, undefined, 'Settings.dc.html?section=profile'),

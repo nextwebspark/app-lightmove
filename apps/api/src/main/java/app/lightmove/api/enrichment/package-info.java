@@ -7,7 +7,8 @@
  * project or user — a tenant boundary — and never hold a typed row;
  * {@code app_lm_executive_sourcing_run} (V86) is one mandate's Find executives run, kept so the screen
  * can poll it. Types the owning features consume live with them, so the dependency stays one-way;
- * {@code sourcing} is the one half that writes a mandate's rows, and it does so through
- * {@code CandidateService.addSourced} alone.
+ * {@code sourcing} and {@code peoplesearch} are the halves that write a mandate's rows, and they do so
+ * through {@code CandidateService.addResearched} alone, the employer through
+ * {@code TriageCompanyService.captureFromResearch}.
  */
 package app.lightmove.api.enrichment;

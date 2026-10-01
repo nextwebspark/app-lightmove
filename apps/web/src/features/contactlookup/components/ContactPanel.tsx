@@ -242,7 +242,8 @@ function ContactSectionEditor({
       onDone(saved);
     },
     onError: (error) => {
-      if (codeOf(error) === "CANDIDATE_PROFILE_URL_LOCKED") {
+      const code = codeOf(error);
+      if (code === "CANDIDATE_PROFILE_URL_LOCKED" || code === "PERSON_PROFILE_HELD") {
         form.setError("linkedinUrl", { message: messageFor(error) });
         return;
       }

@@ -406,6 +406,22 @@ describe("ContactPanel", () => {
       expect(screen.getByRole("textbox", { name: "LinkedIn" })).toBeInTheDocument();
     });
 
+    it("puts another candidate's profile refusal on the LinkedIn field", async () => {
+      vi.mocked(candidatesApi.replaceContacts).mockResolvedValue(held);
+      vi.mocked(candidatesApi.updateCandidate).mockRejectedValue(
+        new ApiRequestError({ code: "PERSON_PROFILE_HELD", detail: "held", status: 409, correlationId: "x" }),
+      );
+      renderPanel(held, { editing: true, onSaved: () => {}, onDone: () => {}, onCancel: () => {} });
+
+      const link = screen.getByRole("textbox", { name: "LinkedIn" });
+      await userEvent.clear(link);
+      await userEvent.type(link, "linkedin.com/in/someone-else");
+      await userEvent.click(screen.getByRole("button", { name: "Save" }));
+
+      expect(await screen.findByText(/already has that LinkedIn profile/)).toBeInTheDocument();
+      expect(link).toHaveAttribute("aria-invalid", "true");
+    });
+
     it("locks the LinkedIn line for a person the plugin captured", () => {
       renderPanel({ ...held, source: "extension" }, { editing: true, onDone: () => {}, onCancel: () => {} });
 

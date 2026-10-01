@@ -57,7 +57,7 @@ public class ProjectActivityService {
             ProjectEventType.CANDIDATE_UPDATED);
 
     private static final List<String> DETAIL_KEYS = List.of(
-            "status", "added", "companyName", "fullName", "fileName",
+            "status", "added", "companyName", "fullName", "fileName", "candidateId",
             "companiesCreated", "candidatesCreated", "stage");
 
     private final AuditEventRepository events;

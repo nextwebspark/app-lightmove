@@ -285,7 +285,7 @@ try {
       `${sql(`SELECT count(*) FROM app_lm_project_candidate WHERE project_id = '${PROJECT}' AND source = 'CSV'`)}/${sql(
         `SELECT count(*) FROM app_lm_project_candidate c JOIN app_lm_project_triage_company t ON t.id = c.triage_company_id WHERE c.project_id = '${PROJECT}' AND t.company_name = '${FALCON}'`)}`);
     check("I1.7c", "each address is a contact row that came through the CSV door", "3",
-      sql(`SELECT count(*) FROM app_lm_candidate_contact cc JOIN app_lm_project_candidate c ON c.id = cc.candidate_id WHERE c.project_id = '${PROJECT}' AND cc.channel = 'EMAIL' AND cc.source = 'CSV'`));
+      sql(`SELECT count(*) FROM app_lm_person_contact cc JOIN app_lm_project_candidate c ON c.person_id = cc.person_id WHERE c.project_id = '${PROJECT}' AND cc.channel = 'EMAIL' AND cc.source = 'CSV'`));
     check("I1.7d", "the custom column's value landed on Falcon", "Chair",
       sql(`SELECT custom_fields->>'boardSeat' FROM app_lm_project_triage_company WHERE project_id = '${PROJECT}' AND company_name = '${FALCON}'`));
   });
