@@ -9,6 +9,8 @@ import static app.lightmove.api.assistant.tool.NamedCompanyFinding.Status.UNVERI
 import app.lightmove.api.core.config.LightMoveProperties;
 import app.lightmove.api.strategy.service.StrategyService;
 import app.lightmove.api.triagecompany.model.CapturedCompanyDetails;
+import app.lightmove.api.triagecompany.model.MandateStages;
+import app.lightmove.api.triagecompany.service.TriageCompanyReadService;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
@@ -33,12 +35,14 @@ public class NamedCompanyTools {
 
     private final NamedCompanyResolver resolver;
     private final StrategyService strategies;
+    private final TriageCompanyReadService triaged;
     private final int maxNames;
 
     public NamedCompanyTools(NamedCompanyResolver resolver, StrategyService strategies,
-                             LightMoveProperties properties) {
+                             TriageCompanyReadService triaged, LightMoveProperties properties) {
         this.resolver = resolver;
         this.strategies = strategies;
+        this.triaged = triaged;
         this.maxNames = properties.assistant().maxNamesPerLookup();
     }
 
@@ -52,7 +56,9 @@ public class NamedCompanyTools {
             LinkedIn, with a LinkedIn slug and its real headcount), OFF_LIMITS (ruled out by the \
             client), UNVERIFIED (could not be confirmed anywhere) or NOT_CHECKED. global marks a \
             company found as its own headquarters abroad; operates names the brand a company runs \
-            locally. State figures only as returned here. Call it once per answer.""")
+            locally; mandateStage is set when this mandate has already filed the company \
+            (inUniverse, shortlisted or declined). State figures only as returned here. Call it once \
+            per answer.""")
     public NamedCompanies lookUpCompaniesByName(
             @ToolParam(description = "Companies, at most ten") List<NamedCompanyRequest> companies,
             @ToolParam(description = "Country the companies operate in") String country,
@@ -69,10 +75,17 @@ public class NamedCompanyTools {
         Set<String> offLimits = Set.copyOf(
                 strategies.scopeOf(context.workspaceId(), context.projectId()).offLimitsAccountIds());
         NamedCompanyResolver.Resolution resolution = resolver.resolve(asked, country, offLimits);
+        MandateStages stages = triaged.stagesOf(context.workspaceId(), context.projectId(),
+                resolution.names().stream().map(one -> one.finding().apolloAccountId()).toList(),
+                resolution.names().stream().map(one -> one.finding().companyName()).toList());
         List<NamedCompanyFinding> findings = new ArrayList<>();
         for (NamedCompanyResolver.ResolvedName one : resolution.names()) {
-            findings.add(one.finding());
-            record(recorder, one.finding(), one.details());
+            NamedCompanyFinding finding = one.finding().status() == UNIVERSE || one.finding().status() == RESEARCHED
+                    ? one.finding().inMandateAs(
+                            stages.stageTokenOf(one.finding().apolloAccountId(), one.finding().companyName()))
+                    : one.finding();
+            findings.add(finding);
+            record(recorder, finding, one.details());
         }
         recorder.countVendorSearches(resolution.vendorSearches());
 
@@ -129,6 +142,10 @@ public class NamedCompanyTools {
         long global = findings.stream().filter(NamedCompanyFinding::global).count();
         if (global > 0) {
             parts.add(Math.min(parts.size(), 2), global + " global");
+        }
+        long held = findings.stream().filter(finding -> finding.mandateStage() != null).count();
+        if (held > 0) {
+            parts.add(held + " already in the mandate");
         }
         return parts.isEmpty() ? "Nothing to check" : String.join(" · ", parts);
     }

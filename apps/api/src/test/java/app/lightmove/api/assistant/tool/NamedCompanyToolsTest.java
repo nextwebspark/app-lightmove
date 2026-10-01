@@ -15,8 +15,12 @@ import static org.mockito.Mockito.when;
 import app.lightmove.api.core.config.LightMoveProperties;
 import app.lightmove.api.strategy.model.CompanyScope;
 import app.lightmove.api.strategy.service.StrategyService;
+import app.lightmove.api.triagecompany.constant.TriageCompanyStatus;
 import app.lightmove.api.triagecompany.model.CapturedCompanyDetails;
+import app.lightmove.api.triagecompany.model.MandateStages;
+import app.lightmove.api.triagecompany.service.TriageCompanyReadService;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -28,11 +32,13 @@ class NamedCompanyToolsTest {
 
     private final NamedCompanyResolver resolver = mock(NamedCompanyResolver.class);
     private final StrategyService strategies = mock(StrategyService.class);
+    private final TriageCompanyReadService triaged = mock(TriageCompanyReadService.class);
     private final TurnRecorder recorder = new TurnRecorder(step -> { });
 
     @BeforeEach
     void unfiltered() {
         when(strategies.scopeOf(any(), any())).thenReturn(CompanyScope.unfiltered());
+        when(triaged.stagesOf(any(), any(), any(), any())).thenReturn(MandateStages.NONE);
     }
 
     @Test
@@ -58,13 +64,33 @@ class NamedCompanyToolsTest {
     }
 
     @Test
+    @DisplayName("a company the mandate already filed says at which stage, by id or by a researched page's name")
+    void marksWhatTheMandateAlreadyHolds() {
+        CapturedCompanyDetails ikea = NamedCompanyResolverTest.page("ikea", "IKEA", 160_000);
+        when(resolver.resolve(any(), any(), any())).thenReturn(new NamedCompanyResolver.Resolution(List.of(
+                new NamedCompanyResolver.ResolvedName(finding("Carrefour", UNIVERSE, "a3", null, null, false), null),
+                new NamedCompanyResolver.ResolvedName(finding("IKEA", RESEARCHED, null, "ikea", null, false), ikea),
+                new NamedCompanyResolver.ResolvedName(finding("Lulu", UNIVERSE, "a4", null, null, false), null)), 1));
+        when(triaged.stagesOf(any(), any(), any(), any())).thenReturn(new MandateStages(
+                Map.of("a3", TriageCompanyStatus.SHORTLISTED), Map.of("ikea", TriageCompanyStatus.DECLINED)));
+
+        NamedCompanies found = tools().lookUpCompaniesByName(
+                NamedCompanyResolverTest.names("Carrefour", "IKEA", "Lulu"), "United Arab Emirates", context());
+
+        assertThat(found.companies()).extracting(NamedCompanyFinding::mandateStage)
+                .containsExactly("shortlisted", "declined", null);
+        assertThat(recorder.steps()).singleElement().satisfies(step ->
+                assertThat(step.detail()).endsWith("2 already in the mandate"));
+    }
+
+    @Test
     @DisplayName("names are looked up once per answer, because every lookup is billed")
     void looksUpOncePerAnswer() {
         when(resolver.resolve(any(), any(), any())).thenReturn(new NamedCompanyResolver.Resolution(List.of(), 0));
         tools().lookUpCompaniesByName(NamedCompanyResolverTest.names("Emaar"), "United Arab Emirates", context());
         recorder.startNameLookup();
 
-        NamedCompanies again = new NamedCompanyTools(mock(NamedCompanyResolver.class), strategies, properties())
+        NamedCompanies again = new NamedCompanyTools(mock(NamedCompanyResolver.class), strategies, triaged, properties())
                 .lookUpCompaniesByName(NamedCompanyResolverTest.names("Nakheel"), "United Arab Emirates", context());
 
         assertThat(again.companies()).isEmpty();
@@ -77,7 +103,7 @@ class NamedCompanyToolsTest {
         NamedCompanyResolver capped = mock(NamedCompanyResolver.class);
         when(capped.resolve(any(), any(), any())).thenReturn(new NamedCompanyResolver.Resolution(List.of(), 0));
 
-        new NamedCompanyTools(capped, strategies, properties()).lookUpCompaniesByName(
+        new NamedCompanyTools(capped, strategies, triaged, properties()).lookUpCompaniesByName(
                 NamedCompanyResolverTest.names("A1", "A2", "A3", "A4", "A5", "A6", "A7", "A8", "A9", "A10", "A11"),
                 "Qatar", context());
 
@@ -86,7 +112,7 @@ class NamedCompanyToolsTest {
     }
 
     private NamedCompanyTools tools() {
-        return new NamedCompanyTools(resolver, strategies, properties());
+        return new NamedCompanyTools(resolver, strategies, triaged, properties());
     }
 
     private static LightMoveProperties properties() {
@@ -102,6 +128,6 @@ class NamedCompanyToolsTest {
     private static NamedCompanyFinding finding(String asked, NamedCompanyFinding.Status status, String accountId,
                                                String slug, String operates, boolean global) {
         return new NamedCompanyFinding(asked, status, accountId, slug, asked, "United Arab Emirates", "Retail",
-                "Dubai", 1_000, null, null, operates, global);
+                "Dubai", 1_000, null, null, operates, global, null);
     }
 }

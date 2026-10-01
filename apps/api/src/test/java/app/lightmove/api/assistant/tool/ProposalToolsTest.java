@@ -8,17 +8,23 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 import app.lightmove.api.assistant.model.AssistantProposal;
+import app.lightmove.api.assistant.model.AssistantStep;
 import app.lightmove.api.core.config.LightMoveProperties;
 import app.lightmove.api.strategy.model.CompanyExclusion;
 import app.lightmove.api.strategy.model.CompanyRow;
 import app.lightmove.api.strategy.model.CompanyScope;
 import app.lightmove.api.strategy.service.ApolloCompanyQueryService;
 import app.lightmove.api.strategy.service.StrategyService;
+import app.lightmove.api.triagecompany.constant.TriageCompanyStatus;
 import app.lightmove.api.triagecompany.model.CapturedCompanyDetails;
+import app.lightmove.api.triagecompany.model.MandateStages;
+import app.lightmove.api.triagecompany.service.TriageCompanyReadService;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 import java.util.stream.IntStream;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.ai.chat.model.ToolContext;
@@ -30,6 +36,7 @@ class ProposalToolsTest {
 
     private final ApolloCompanyQueryService market = mock(ApolloCompanyQueryService.class);
     private final StrategyService strategies = mock(StrategyService.class);
+    private final TriageCompanyReadService triaged = mock(TriageCompanyReadService.class);
     private final TurnRecorder recorder = new TurnRecorder(step -> { });
 
     @Test
@@ -55,9 +62,9 @@ class ProposalToolsTest {
                 row("a2", "Barred Co", "Saudi Arabia", 900));
         offLimits("a2");
 
-        int carried = tools().proposeCompanies("Two", List.of("a1", "a2", "gone"), context());
+        CardResult carried = tools().proposeCompanies("Two", List.of("a1", "a2", "gone"), context());
 
-        assertThat(carried).isEqualTo(1);
+        assertThat(carried).isEqualTo(new CardResult(1, 0, 2));
         assertThat(recorder.proposal().companies()).extracting("apolloAccountId").containsExactly("a1");
         assertThat(recorder.steps()).singleElement().satisfies(step -> {
             assertThat(step.label()).isEqualTo("Preparing 3 companies");
@@ -74,10 +81,10 @@ class ProposalToolsTest {
                 .toList();
         marketHolding(many.toArray(CompanyRow[]::new));
 
-        int carried = tools().proposeCompanies("Many",
+        CardResult carried = tools().proposeCompanies("Many",
                 many.stream().map(CompanyRow::apolloAccountId).toList(), context());
 
-        assertThat(carried).isEqualTo(CAP);
+        assertThat(carried.onCard()).isEqualTo(CAP);
     }
 
     @Test
@@ -132,6 +139,41 @@ class ProposalToolsTest {
     }
 
     @Test
+    @DisplayName("a company the mandate already filed stays on the card with its stage, after the new ones")
+    void keepsWhatTheMandateHoldsWithItsStage() {
+        marketHolding(row("a1", "ACWA Power", "Saudi Arabia", 4_000),
+                row("a2", "Marafiq", "Saudi Arabia", 2_400));
+        recorder.researched("ikea", new CapturedCompanyDetails("IKEA", "Retail", "Sweden", "Delft", 160_000,
+                null, null, "https://www.linkedin.com/company/ikea", 1943, null, null, null, null));
+        when(triaged.stagesOf(any(), any(), any(), any())).thenReturn(new MandateStages(
+                Map.of("a1", TriageCompanyStatus.SHORTLISTED), Map.of("ikea", TriageCompanyStatus.DECLINED)));
+
+        CardResult result = tools().proposeCompanies("Three", List.of("a1", "a2", "ikea"), context());
+
+        assertThat(result).isEqualTo(new CardResult(3, 2, 0));
+        assertThat(recorder.proposal().companies()).extracting("companyName", "stage").containsExactly(
+                tuple("Marafiq", null), tuple("IKEA", "declined"), tuple("ACWA Power", "shortlisted"));
+        assertThat(recorder.steps()).singleElement().extracting(AssistantStep::detail)
+                .isEqualTo("3 on the card, 2 already in the mandate");
+    }
+
+    @Test
+    @DisplayName("a page an earlier card researched can be proposed again, but is never carded unasked")
+    void proposesARememberedPageOnlyWhenAsked() {
+        marketHolding(row("a1", "ACWA Power", "Saudi Arabia", 4_000));
+        recorder.remember("ikea", new CapturedCompanyDetails("IKEA", "Retail", "Sweden", "Delft", 160_000,
+                null, null, "https://www.linkedin.com/company/ikea", 1943, null, null, null, null));
+        recorder.found(List.of("a1"));
+
+        tools().proposeWhatWasFound(new AssistantToolContext(UUID.randomUUID(), UUID.randomUUID(), recorder));
+        assertThat(recorder.proposal().companies()).extracting("apolloAccountId").containsExactly("a1");
+
+        tools().proposeCompanies("Again", List.of("ikea"), context());
+        assertThat(recorder.proposal().companies()).extracting("linkedinSlug").containsExactly("ikea");
+        assertThat(recorder.proposal().researched()).containsOnlyKeys("ikea");
+    }
+
+    @Test
     @DisplayName("a card the model proposed is left as it chose it")
     void keepsTheModelsCard() {
         marketHolding(row("a1", "ACWA Power", "Saudi Arabia", 4_000),
@@ -147,7 +189,7 @@ class ProposalToolsTest {
     private ProposalTools tools() {
         LightMoveProperties properties = mock(LightMoveProperties.class, RETURNS_DEEP_STUBS);
         when(properties.assistant().toolRowLimit()).thenReturn(CAP);
-        return new ProposalTools(market, strategies, properties);
+        return new ProposalTools(market, strategies, triaged, properties);
     }
 
     private ToolContext context() {
@@ -161,6 +203,11 @@ class ProposalToolsTest {
             return held.stream().filter(row -> asked.contains(row.apolloAccountId())).toList();
         });
         when(strategies.scopeOf(any(), any())).thenReturn(CompanyScope.unfiltered());
+    }
+
+    @BeforeEach
+    void nothingFiledYet() {
+        when(triaged.stagesOf(any(), any(), any(), any())).thenReturn(MandateStages.NONE);
     }
 
     private void offLimits(String... accountIds) {

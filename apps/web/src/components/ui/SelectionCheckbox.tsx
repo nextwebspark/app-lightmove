@@ -25,9 +25,12 @@ export function SelectionCheckbox({
   checked,
   indeterminate,
   label,
+  disabled,
   onChange,
 }: {
   checked: boolean;
+  /** A row that is shown but cannot be chosen, such as a company already filed. */
+  disabled?: boolean;
   /** A select-all over a part-selected page: a dash, not a tick. */
   indeterminate?: boolean;
   /** The accessible name — "Select Emirates NBD", "Select all companies on this page". */
@@ -49,11 +52,12 @@ export function SelectionCheckbox({
         ref={inputRef}
         type="checkbox"
         checked={checked}
+        disabled={disabled}
         onChange={onChange}
         aria-label={label}
-        className="peer absolute inset-0 z-10 cursor-pointer opacity-0"
+        className="peer absolute inset-0 z-10 cursor-pointer opacity-0 disabled:cursor-not-allowed"
       />
-      <span className="rounded-[5px] peer-focus-visible:outline peer-focus-visible:outline-2 peer-focus-visible:outline-offset-2 peer-focus-visible:outline-u-accent">
+      <span className="rounded-[5px] peer-focus-visible:outline peer-focus-visible:outline-2 peer-focus-visible:outline-offset-2 peer-focus-visible:outline-u-accent peer-disabled:opacity-40">
         <CheckBox checked={indeterminate ? "mixed" : checked} size="sm" />
       </span>
     </span>
