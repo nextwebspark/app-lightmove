@@ -61,6 +61,9 @@ public class GlobalExceptionHandler {
         if (ex.getFieldErrors() != null) {
             problem.setProperty("fieldErrors", ex.getFieldErrors());
         }
+        if (ex.getProperties() != null) {
+            ex.getProperties().forEach(problem::setProperty);
+        }
         return problem;
     }
 

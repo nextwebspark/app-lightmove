@@ -5,6 +5,7 @@ import app.lightmove.api.candidate.model.Candidate;
 import app.lightmove.api.candidate.model.MappedProfile;
 import app.lightmove.api.candidate.model.CandidateAttribution;
 import app.lightmove.api.candidate.model.CandidateCount;
+import app.lightmove.api.candidate.model.CandidateStatusCount;
 import app.lightmove.api.core.error.constant.ErrorCode;
 import app.lightmove.api.core.error.model.ApiException;
 import java.util.Collection;
@@ -35,6 +36,33 @@ public interface CandidateRepository extends JpaRepository<Candidate, UUID> {
 
     @Query("select c.id as candidateId, c.addedBy as addedBy from Candidate c where c.projectId = :projectId")
     List<CandidateAttribution> findAttributionByProjectId(UUID projectId);
+
+    /**
+     * The position's Candidates page: one mandate, at the statuses asked for, matched on the person's
+     * name, their title or the employer this mandate filed them at. {@code like} arrives lower-cased
+     * and wrapped in {@code %}.
+     */
+    @Query("""
+            select c from Candidate c join c.person p
+            where c.projectId = :projectId and c.status in :statuses
+              and (lower(p.fullName) like :like or lower(coalesce(p.title, '')) like :like
+                   or lower(coalesce(c.companyName, '')) like :like)
+            """)
+    Page<Candidate> findPipelinePage(UUID projectId, Collection<CandidateStatus> statuses, String like,
+                                     Pageable pageable);
+
+    /** The same search counted by status, so each chip says what picking it would show. */
+    @Query("""
+            select c.status as status, count(c) as total from Candidate c join c.person p
+            where c.projectId = :projectId
+              and (lower(p.fullName) like :like or lower(coalesce(p.title, '')) like :like
+                   or lower(coalesce(c.companyName, '')) like :like)
+            group by c.status
+            """)
+    List<CandidateStatusCount> countPipelineByStatus(UUID projectId, String like);
+
+    /** Named rows of one mandate, the staff overlay's batch. */
+    List<Candidate> findByProjectIdAndIdIn(UUID projectId, Collection<UUID> ids);
 
     /** The talent map's read: the whole mandate, with no search box above it to narrow. */
     Page<Candidate> findByProjectId(UUID projectId, Pageable pageable);

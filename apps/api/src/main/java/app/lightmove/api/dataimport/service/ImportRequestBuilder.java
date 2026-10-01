@@ -84,7 +84,7 @@ class ImportRequestBuilder {
                 held == null ? "csv" : held.source(),
                 storedOf(held, CandidateResponse::sourceUrl),
                 fields.customValues(CustomColumnTarget.CANDIDATE),
-                null);
+                null, null, null);
     }
 
     private static CandidateCompensationDto compensationFor(CandidateResponse held, RowFields fields) {

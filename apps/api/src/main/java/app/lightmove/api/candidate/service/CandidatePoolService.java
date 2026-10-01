@@ -6,6 +6,8 @@ import app.lightmove.api.candidate.dto.BulkPeopleChangeResponse;
 import app.lightmove.api.candidate.dto.CandidatePoolResponse;
 import app.lightmove.api.candidate.dto.CandidatePoolRowResponse;
 import app.lightmove.api.candidate.dto.CandidatePoolViewCountsResponse;
+import app.lightmove.api.candidate.dto.CandidatePipelineStaffResponse;
+import app.lightmove.api.candidate.dto.CandidatePipelineStaffRowResponse;
 import app.lightmove.api.candidate.dto.MapPeopleToPositionResponse;
 import app.lightmove.api.candidate.dto.PersonPositionResponse;
 import app.lightmove.api.candidate.dto.PersonRecordResponse;
@@ -23,6 +25,7 @@ import app.lightmove.api.candidate.repository.PersonPoolQuery;
 import app.lightmove.api.candidate.repository.PersonRepository;
 import app.lightmove.api.core.audit.constant.ProjectEventType;
 import app.lightmove.api.core.audit.service.AuditService;
+import app.lightmove.api.core.config.LightMoveProperties;
 import app.lightmove.api.core.error.constant.ErrorCode;
 import app.lightmove.api.core.error.model.ApiException;
 import app.lightmove.api.core.security.model.User;
@@ -41,6 +44,7 @@ import java.util.Objects;
 import java.util.UUID;
 import java.util.function.Function;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -73,6 +77,7 @@ public class CandidatePoolService {
     private final PersonTimelineService timeline;
     private final PersonActivityRecorder activity;
     private final AuditService audit;
+    private final LightMoveProperties properties;
 
     @Transactional(readOnly = true)
     public CandidatePoolResponse list(UUID userId, UUID workspaceId, PoolCriteria criteria, Integer page,
@@ -252,6 +257,43 @@ public class CandidatePoolService {
         if (ownerUserId != null && !workspaceAccess.isStaff(ownerUserId, workspaceId)) {
             throw ApiException.of(ErrorCode.PERSON_OWNER_NOT_STAFF);
         }
+    }
+
+    /**
+     * The staff columns of the position's Candidates page, for the rows a page of it drew. Ids that are
+     * not this mandate's are dropped rather than refused: the page asks for what it was just shown.
+     */
+    @Transactional(readOnly = true)
+    public CandidatePipelineStaffResponse pipelineOverlayOf(UUID workspaceId, UUID projectId,
+                                                           List<UUID> candidateIds) {
+        projects.requireInWorkspace(projectId, workspaceId);
+        List<UUID> distinct = candidateIds == null ? List.of() : candidateIds.stream().distinct().toList();
+        if (distinct.isEmpty()) {
+            return new CandidatePipelineStaffResponse(List.of());
+        }
+        int maxRows = properties.company().list().maxPageSize();
+        if (distinct.size() > maxRows) {
+            throw new ApiException(ErrorCode.VALIDATION_FAILED, "candidateId may name " + maxRows + " rows at most");
+        }
+        List<Candidate> shown = candidates.findByProjectIdAndIdIn(projectId, distinct);
+        List<Person> persons = shown.stream().map(Candidate::getPerson).distinct().toList();
+        Map<UUID, List<Candidate>> mapped = mappingsOf(workspaceId, persons);
+        Map<UUID, Project> mandates = projectsOf(mapped);
+        Map<UUID, PersonTimelineEntryResponse> latest = timeline.latestOf(workspaceId, persons);
+        Map<UUID, User> named = users.findAllById(shown.stream()
+                        .flatMap(row -> Stream.of(row.getAddedBy(), row.getPerson().getDoNotContactSetBy()))
+                        .filter(Objects::nonNull).distinct().toList())
+                .stream().collect(Collectors.toMap(User::getId, Function.identity()));
+        return new CandidatePipelineStaffResponse(shown.stream().map(row -> {
+            Person person = row.getPerson();
+            List<Candidate> elsewhere = mapped.getOrDefault(person.getId(), List.of()).stream()
+                    .filter(other -> !other.getProjectId().equals(projectId))
+                    .toList();
+            User filer = named.get(row.getAddedBy());
+            return new CandidatePipelineStaffRowResponse(row.getId(), List.copyOf(person.getTagIds()),
+                    chipsOf(elsewhere, mandates), row.getAddedBy(), filer == null ? null : filer.getFullName(),
+                    PersonRecordService.doNotContactOf(person, named), latest.get(person.getId()));
+        }).toList());
     }
 
     /** Every person named, all of them the caller's workspace's; one stranger's id refuses the batch. */

@@ -142,7 +142,7 @@ class CandidatePoolIntegrationTest extends FlowTestSupport {
     }
 
     @Test
-    @DisplayName("a name alone never folds two people into one")
+    @DisplayName("a name alone never folds two people into one: asked, and added as new, they stay two")
     void aNameAloneIsNotAMatch() throws Exception {
         String first = mandate("Namesake Firm", "Chief Financial Officer");
         String second = mandateInSameWorkspace("Head of Credit Risk");
@@ -150,7 +150,7 @@ class CandidatePoolIntegrationTest extends FlowTestSupport {
         JsonNode onFirst = add(first, """
                 {"fullName":"Omar Farouk","employerName":"Trading Enterprises"}""");
         JsonNode onSecond = add(second, """
-                {"fullName":"Omar Farouk","employerName":"Trading Enterprises"}""");
+                {"fullName":"Omar Farouk","employerName":"Trading Enterprises","addAsNewPerson":true}""");
 
         assertThat(onSecond.get("personId").asText()).isNotEqualTo(onFirst.get("personId").asText());
     }

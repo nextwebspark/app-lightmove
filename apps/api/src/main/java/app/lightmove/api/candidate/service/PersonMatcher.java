@@ -9,6 +9,7 @@ import app.lightmove.api.candidate.model.Person;
 import app.lightmove.api.candidate.repository.PersonRepository;
 import app.lightmove.api.core.text.service.LinkedInUrls;
 import java.util.Comparator;
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
@@ -53,6 +54,19 @@ class PersonMatcher {
             }
         }
         return Optional.empty();
+    }
+
+    /**
+     * Who the workspace holds by the same name at the same employer — never a match, only a question the
+     * hand-typed add asks before founding a second person. Oldest first, as the dialog lists them.
+     */
+    List<Person> possibleDuplicates(UUID workspaceId, CandidateDetails details) {
+        if (details.fullName() == null || details.fullName().isBlank() || details.employerName() == null) {
+            return List.of();
+        }
+        return people.findNamedAtEmployer(workspaceId, details.fullName(), details.employerName()).stream()
+                .sorted(OLDEST_FIRST)
+                .toList();
     }
 
     /**

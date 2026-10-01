@@ -38,4 +38,16 @@ public interface PersonRepository extends JpaRepository<Person, UUID> {
             where p.workspaceId = :workspaceId and k.channel = 'EMAIL' and k.valueKey = :emailKey
             """)
     List<Person> findByWorkspaceIdAndEmailKey(UUID workspaceId, String emailKey);
+
+    /**
+     * People of one name who sit, on any mandate, at one employer — the possible-duplicate check's soft key.
+     * The mapping's snapshotted company name stands for the employer, as no column on the person does.
+     */
+    @Query("""
+            select distinct c.person from Candidate c
+            where c.person.workspaceId = :workspaceId
+              and lower(c.person.fullName) = lower(:fullName)
+              and lower(c.companyName) = lower(:employerName)
+            """)
+    List<Person> findNamedAtEmployer(UUID workspaceId, String fullName, String employerName);
 }
