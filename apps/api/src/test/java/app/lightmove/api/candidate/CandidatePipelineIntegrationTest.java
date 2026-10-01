@@ -101,13 +101,68 @@ class CandidatePipelineIntegrationTest extends FlowTestSupport {
     }
 
     @Test
-    @DisplayName("a person named in answer must be the workspace's own")
-    void anUnknownPersonIsNotFound() throws Exception {
+    @DisplayName("the answer must name one of the namesakes the question named")
+    void theAnswerMustBeANamesake() throws Exception {
         firm("Duplicate Stranger Firm");
+        String leasing = mandate("Leasing Director");
         String cfo = mandate("Chief Financial Officer");
+        add(leasing, LAYLA_AT_ALDAR).andExpect(status().isCreated());
+        String omar = body(add(leasing, """
+                {"fullName":"Omar Saleh","employerName":"Aldar Properties"}""")
+                .andExpect(status().isCreated()).andReturn()).get("personId").asText();
+
         add(cfo, """
-                {"fullName":"Nadia Saleh","existingPersonId":"%s"}""".formatted(UUID.randomUUID()))
-                .andExpect(status().isNotFound());
+                {"fullName":"Layla Nasser","employerName":"Aldar Properties","existingPersonId":"%s"}"""
+                .formatted(UUID.randomUUID())).andExpect(status().isNotFound());
+        add(cfo, """
+                {"fullName":"Layla Nasser","employerName":"Aldar Properties","existingPersonId":"%s"}"""
+                .formatted(omar)).andExpect(status().isNotFound());
+        assertThat(rowsOf(cfo)).isZero();
+    }
+
+    @Test
+    @DisplayName("the keys still decide: an answer naming someone other than whose email was typed is refused")
+    void theKeysOverruleTheAnswer() throws Exception {
+        firm("Duplicate Keys Firm");
+        String leasing = mandate("Leasing Director");
+        String cfo = mandate("Chief Financial Officer");
+        String layla = body(add(leasing, LAYLA_AT_ALDAR).andExpect(status().isCreated()).andReturn())
+                .get("personId").asText();
+        String omar = body(add(leasing, """
+                {"fullName":"Omar Saleh","employerName":"Emaar","emails":[{"value":"omar@emaar.example"}]}""")
+                .andExpect(status().isCreated()).andReturn()).get("personId").asText();
+
+        JsonNode refused = body(add(cfo, """
+                {"fullName":"Layla Nasser","employerName":"Aldar Properties",
+                 "emails":[{"value":"omar@emaar.example"}],"existingPersonId":"%s"}""".formatted(layla))
+                .andExpect(status().isConflict())
+                .andReturn());
+        assertThat(refused.get("code").asText()).isEqualTo("CANDIDATE_KEYS_NAME_ANOTHER");
+        assertThat(db.queryForObject("select count(*) from app_lm_person_contact where person_id = ?::uuid",
+                Long.class, layla)).isZero();
+
+        JsonNode agreed = body(add(cfo, """
+                {"fullName":"Omar Saleh","employerName":"Emaar","emails":[{"value":"omar@emaar.example"}],
+                 "existingPersonId":"%s"}""".formatted(omar))
+                .andExpect(status().isCreated())
+                .andReturn());
+        assertThat(agreed.get("personId").asText()).isEqualTo(omar);
+    }
+
+    @Test
+    @DisplayName("the position page's search treats % and _ as text, not wildcards")
+    void thePositionSearchEscapesWildcards() throws Exception {
+        firm("Position Search Firm");
+        String leasing = mandate("Leasing Director");
+        add(leasing, """
+                {"fullName":"Huda Mansour","title":"Head of 50% Joint Ventures","employerName":"Aldar"}""")
+                .andExpect(status().isCreated());
+        add(leasing, """
+                {"fullName":"Sami Khoury","title":"Head of 500 Stores","employerName":"Aldar"}""")
+                .andExpect(status().isCreated());
+
+        assertThat(namesOf(searched(leasing, "50%"))).containsExactly("Huda Mansour");
+        assertThat(namesOf(searched(leasing, "_"))).isEmpty();
     }
 
     @Test
@@ -220,6 +275,14 @@ class CandidatePipelineIntegrationTest extends FlowTestSupport {
     private JsonNode pipeline(String projectId, String query, String token) throws Exception {
         return body(mvc.perform(get("/api/v1/projects/" + projectId + "/candidates/pipeline" + query)
                         .header("Authorization", "Bearer " + token))
+                .andExpect(status().isOk())
+                .andReturn());
+    }
+
+    private JsonNode searched(String projectId, String query) throws Exception {
+        return body(mvc.perform(get("/api/v1/projects/" + projectId + "/candidates/pipeline")
+                        .param("q", query)
+                        .header("Authorization", "Bearer " + admin))
                 .andExpect(status().isOk())
                 .andReturn());
     }

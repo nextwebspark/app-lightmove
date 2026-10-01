@@ -39,14 +39,14 @@ public interface CandidateRepository extends JpaRepository<Candidate, UUID> {
 
     /**
      * The position's Candidates page: one mandate, at the statuses asked for, matched on the person's
-     * name, their title or the employer this mandate filed them at. {@code like} arrives lower-cased
-     * and wrapped in {@code %}.
+     * name, their title or the employer this mandate filed them at. {@code like} arrives lower-cased,
+     * escaped by {@code LikePatterns} and wrapped in {@code %}.
      */
     @Query("""
             select c from Candidate c join c.person p
             where c.projectId = :projectId and c.status in :statuses
-              and (lower(p.fullName) like :like or lower(coalesce(p.title, '')) like :like
-                   or lower(coalesce(c.companyName, '')) like :like)
+              and (lower(p.fullName) like :like escape '\\' or lower(coalesce(p.title, '')) like :like escape '\\'
+                   or lower(coalesce(c.companyName, '')) like :like escape '\\')
             """)
     Page<Candidate> findPipelinePage(UUID projectId, Collection<CandidateStatus> statuses, String like,
                                      Pageable pageable);
@@ -55,8 +55,8 @@ public interface CandidateRepository extends JpaRepository<Candidate, UUID> {
     @Query("""
             select c.status as status, count(c) as total from Candidate c join c.person p
             where c.projectId = :projectId
-              and (lower(p.fullName) like :like or lower(coalesce(p.title, '')) like :like
-                   or lower(coalesce(c.companyName, '')) like :like)
+              and (lower(p.fullName) like :like escape '\\' or lower(coalesce(p.title, '')) like :like escape '\\'
+                   or lower(coalesce(c.companyName, '')) like :like escape '\\')
             group by c.status
             """)
     List<CandidateStatusCount> countPipelineByStatus(UUID projectId, String like);

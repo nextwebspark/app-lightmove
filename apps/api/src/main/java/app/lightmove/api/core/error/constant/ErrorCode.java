@@ -101,6 +101,10 @@ public enum ErrorCode {
     CANDIDATE_POSSIBLE_DUPLICATE(HttpStatus.CONFLICT,
             "Your team already has someone with that name at that employer"),
 
+    /** The dialog named one person, but the LinkedIn profile or email typed is another's. */
+    CANDIDATE_KEYS_NAME_ANOTHER(HttpStatus.CONFLICT,
+            "The LinkedIn profile or email typed belongs to someone else in your candidates"),
+
     STRATEGY_SEARCH_NAME_TAKEN(HttpStatus.CONFLICT,
             "A search with that name is already saved here"),
 
