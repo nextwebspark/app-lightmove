@@ -10,8 +10,8 @@ Decided and approved 2026-09-30; phases carry a `> **Built**` callout as they la
 | 0 — Mockups | **Done**, merged (#600): `claude-design/Candidates.dc.html`, `Position.dc.html`, `Settings.dc.html` |
 | 1 — Person/mapping split, auto-map, activity log (V91) | **Built**, merged (#602) |
 | 2 — Stored profile slug (V95) + golden reads | **Built** in #604. Merges once #602 is deployed |
-| 3 — Notes, timeline reads, `CANDIDATE_POOL_MANAGE` | **Next** |
-| 4 — Screens, owner/tags/do-not-contact, merge, possible-duplicate | To do |
+| 3 — Notes, timeline reads, `CANDIDATE_POOL_MANAGE` (V96, V97) | **Built** on `claude/candidate-crm-phase-3`, stacked on #604 |
+| 4 — Screens, owner/tags/do-not-contact, merge, possible-duplicate | **Next** |
 | Final — Cleanup migration | Last, tracked in #606. Drops V91's frozen copies and the mapping's `note` once 3–4 are deployed |
 
 **Starting a new session on this plan:**
@@ -455,6 +455,36 @@ expand and the contract in separate deploys.
 - Docs: CLAUDE.md's Database section drops the "expand-only" sentence, and this plan gets a Built callout.
 
 ### Phase 3 — Notes, timeline reads, and the new action (V96, V97)
+
+> **Built** (its own PR, stacked on #604 so V96/V97 follow V95). Where the build departs from the notes
+> below, the build is what stands:
+> - **Notes are staff-only (D1), and the user confirmed it:** the mandate note a client seat used to read
+>   on `CandidateResponse`, the talent map and the report's disclosures is gone from all three. V96
+>   copies each mapping's `note` into a `GENERAL` note about that mandate (author `added_by`, dated the
+>   row's `updated_at`) with a `NOTE_ADDED` line, and leaves the column frozen for #606.
+> - **Kinds** are the four the mockups offer: `GENERAL, CALL, MEETING, EMAIL`. FEEDBACK waits for the
+>   client-feedback work (Phase 5).
+> - **Doors keep sending `note`.** `SaveCandidateRequest.note` (the add form, the plugin, a sheet's Note
+>   column) is filed as a general note about the mandate, once: the same words already there are skipped,
+>   so a re-import adds none.
+> - **Who may change a note:** its author, or a `WORKSPACE_MANAGE` holder; anyone else is
+>   `PERSON_NOTE_NOT_YOURS` (403). Pinning is anyone's and leaves no timeline line.
+> - **The timeline never holds a note's words.** A `NOTE_*` line carries the note's id and kind; the read
+>   adds the live note's first 140 characters, so a removed note leaves only "deleted a note".
+> - **Routes:** a position's drawer uses `…/candidates/{id}/positions|notes|timeline` (`WORK_EXECUTE`,
+>   `PersonCrmController`); the workspace's `/api/v1/candidates/{personId}`, its notes and timeline, and
+>   `/candidates/activity` (filters `actor, position, group, from, to`) take `CANDIDATE_POOL_MANAGE`
+>   (`CandidatePoolController`) for Phase 4's screens. The pool list and search (`GET /candidates`) are
+>   Phase 4's, with its full-text index.
+> - **The drawer** draws Positions, Notes and Timeline as `Position.dc.html` does, staff-only; pin, edit
+>   and delete buttons, the "About" select and the timeline's group chips are the Candidates drawer's
+>   (`Candidates.dc.html`) and come with Phase 4. `linkedinUrlLocked` is on `CandidateResponse` and the
+>   Contact section reads it.
+> - **Tests:** `PersonNotesIntegrationTest`, `PersonNotesBackfillMigrationTest`, the import's
+>   `aNoteCellIsFiledOnceAsANote`; `CandidateReadsGoldenIntegrationTest` was re-recorded on purpose
+>   (`note` left the talent map and report; `linkedinUrlLocked` joined the row).
+>
+> The notes below are the original plan.
 
 - **V96** `app_lm_person_note` (the target model's `app_lm_candidate_note`); migrate each non-empty mapping `note` into a `GENERAL` note with that
   mandate as context, author `added_by`, `created_at = updated_at` of the row. The drawer's one autosaving

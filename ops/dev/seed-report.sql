@@ -38,6 +38,9 @@ SELECT COALESCE((SELECT currency FROM app_lm_position WHERE project_id = :'proje
 
 BEGIN;
 
+DELETE FROM app_lm_person_note
+WHERE project_id = :'project_id'
+  AND person_id IN (SELECT md5('seed-report:' || :'project_id' || ':executive:' || n)::uuid FROM generate_series(1, 200) n);
 DELETE FROM app_lm_project_candidate
 WHERE project_id = :'project_id'
   AND id IN (SELECT md5('seed-report:' || :'project_id' || ':executive:' || n)::uuid FROM generate_series(1, 200) n);
@@ -274,7 +277,7 @@ CROSS JOIN LATERAL (
 ON CONFLICT (id) DO NOTHING;
 
 INSERT INTO app_lm_project_candidate
-    (id, project_id, person_id, triage_company_id, company_name, status, note,
+    (id, project_id, person_id, triage_company_id, company_name, status,
      source, added_by, created_at, updated_at)
 SELECT x.id, :'project_id', x.id,
        (SELECT held.id FROM app_lm_project_triage_company held
@@ -289,11 +292,20 @@ SELECT x.id, :'project_id', x.id,
                      WHEN (x.n * 71) % 116 < 108 THEN 'NOT_INTERESTED'
                      WHEN (x.n * 71) % 116 < 113 THEN 'OFF_LIMITS'
                      ELSE 'OUT_OF_SCOPE' END),
-       pk.note,
        'MANUAL', :'seeded_by', person.created_at, person.created_at
 FROM seed_executive x
 JOIN app_lm_person person ON person.id = x.id
 LEFT JOIN seed_package pk ON pk.rank = x.package_rank;
+
+-- A package's remark is a note on the person about this mandate (V96), never a field of the row.
+INSERT INTO app_lm_person_note (workspace_id, person_id, project_id, project_title, kind, body,
+                                author_user_id, created_at, updated_at)
+SELECT :'workspace_id', x.id, :'project_id', :'mandate', 'GENERAL', pk.note, :'seeded_by',
+       person.created_at, person.created_at
+FROM seed_executive x
+JOIN app_lm_person person ON person.id = x.id
+JOIN seed_package pk ON pk.rank = x.package_rank
+WHERE btrim(coalesce(pk.note, '')) <> '';
 
 -- Researcher performance attributes by added_by, so the seeded executives are shared across the
 -- mandate's staff seats (LEAD / RESEARCHER, never a client seat) — unevenly, so the table ranks.

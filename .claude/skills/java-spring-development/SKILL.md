@@ -305,8 +305,11 @@ write-time snapshot rather than a foreign key because the Apollo pipeline reload
 `candidate` is the *people* side: a workspace `Person` per human (V91) — the profile a consultant works
 from, background, package, contact ledger and research — and one `Candidate` row per mandate that maps
 them. **The project is the mapping and the company is optional** — a candidate row belongs to the
-mandate it was filed on (its status, note, custom-column values and the AI assessment against its brief
+mandate it was filed on (its status, custom-column values and the AI assessment against its brief
 are that mandate's), and carries a triage company only when the employer happens to be in the universe.
+Notes are the person's (`PersonNote`, V96), written and read through `PersonNoteService`, and the
+timeline is `PersonTimelineService`'s read of `app_lm_person_activity`; both are staff-only, so neither
+may ever ride `CandidateResponse`, which a client seat reads.
 Every door files through `CandidateService`'s one filing step: `PersonMatcher` finds the person the
 workspace already knows (profile slug, then email; never phone or name alone) or a new one is founded,
 and `PersonActivityRecorder` writes the timeline line in the same transaction. The slug is a stored,
