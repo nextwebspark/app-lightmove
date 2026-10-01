@@ -48,7 +48,8 @@ const hakan: Candidate = {
   yearsExperience: null,
   aiInferredFields: [],
   summary: null,
-  note: null,
+  personId: "person-1",
+  linkedinUrlLocked: false,
   compensation: {
     currency: null,
     baseSalary: null,
@@ -423,11 +424,24 @@ describe("ContactPanel", () => {
     });
 
     it("locks the LinkedIn line for a person the plugin captured", () => {
-      renderPanel({ ...held, source: "extension" }, { editing: true, onDone: () => {}, onCancel: () => {} });
+      renderPanel(
+        { ...held, source: "manual", linkedinUrlLocked: true },
+        { editing: true, onDone: () => {}, onCancel: () => {} },
+      );
 
       expect(screen.queryByRole("textbox", { name: "LinkedIn" })).not.toBeInTheDocument();
       expect(screen.getByText(/Captured from this profile page/)).toBeInTheDocument();
       expect(screen.getByText("linkedin.com/in/hakan-alac")).toBeInTheDocument();
+    });
+
+    it("takes the lock from the server, not from this position's door", () => {
+      // Captured on this position, but the plugin read another page than the URL now held.
+      renderPanel(
+        { ...held, source: "extension", linkedinUrlLocked: false },
+        { editing: true, onDone: () => {}, onCancel: () => {} },
+      );
+
+      expect(screen.getByRole("textbox", { name: "LinkedIn" })).toBeInTheDocument();
     });
 
     it("cancels without sending anything", async () => {

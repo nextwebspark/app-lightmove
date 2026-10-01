@@ -209,7 +209,9 @@ function ContactSectionEditor({
 }) {
   const toast = useToast();
   const [submitError, setSubmitError] = useState<string | null>(null);
-  const linkLocked = candidate.source === "extension";
+  // The server's own answer: it locks only when the URL is the page the plugin read, which this
+  // mandate's door ("extension") cannot tell — the person may have been captured through another one.
+  const linkLocked = candidate.linkedinUrlLocked;
   const form = useForm<ContactSectionForm, unknown, ParsedContactSectionForm>({
     resolver: zodResolver(contactSectionSchema),
     defaultValues: contactSectionOf(candidate),

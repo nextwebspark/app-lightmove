@@ -1,6 +1,6 @@
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { useRef, useState, type ReactNode } from "react";
-import { Button, Select, TextArea, useToast } from "../../../components/ui";
+import { Button, Select, useToast } from "../../../components/ui";
 import { CollapsibleSection } from "../../../components/ui/CollapsibleSection";
 import { DetailGrid, DetailPill, DetailTile } from "../../../components/ui/DetailList";
 import { DrawerCloseButton } from "../../../components/ui/Drawer";
@@ -8,14 +8,13 @@ import { messageFor } from "../../../lib/errorCodes";
 import { formatInstantDate, formatNumber } from "../../../lib/format";
 import { noticeSummaryOf } from "../../../lib/noticePeriod";
 import { toBrowsableUrl } from "../../../lib/url";
-import { useSubmitShortcut } from "../../../lib/useSubmitShortcut";
 import * as contactLookupApi from "../../contactlookup/api/contactLookupApi";
 import { ContactPanel } from "../../contactlookup/components/ContactPanel";
 import type { CustomColumn, CustomFieldValues } from "../../customcolumns/api/types";
 import { CustomFieldsFieldset } from "../../customcolumns/components/CustomFieldsFieldset";
 import * as candidatesApi from "../api/candidatesApi";
 import type { Candidate, CandidateStatus, SaveCandidatePayload } from "../api/types";
-import { patchOf, replayOf, type ProfileFormSection } from "../lib/candidateForm";
+import { replayOf, type ProfileFormSection } from "../lib/candidateForm";
 import {
   candidateGenderLabel,
   candidateStatusStyle,
@@ -39,6 +38,7 @@ import {
 import { CareerTimeline } from "./CareerTimeline";
 import { EducationList, FoldAllButton, HeaderProfileLink, PillRow } from "./ProfileParts";
 import { CompensationSummary } from "./CompensationSummary";
+import { NotesSection, PositionsSection, TimelineSection } from "./PersonSections";
 import { ProfileSectionForm, SectionEditButton, SectionEditor } from "./ProfileSectionForm";
 import {
   AiAssessmentBody,
@@ -247,6 +247,15 @@ export function CandidateProfile({
             <FoldAllButton label="Expand all" onClick={() => sections.setAll(true)} />
             <FoldAllButton label="Collapse all" onClick={() => sections.setAll(false)} />
           </div>
+        )}
+
+        {canWrite && (
+          <PositionsSection
+            projectId={projectId}
+            candidateId={candidate.id}
+            open={sections.isOpen("positions")}
+            onToggle={() => sections.toggle("positions")}
+          />
         )}
 
         <CollapsibleSection
@@ -485,14 +494,22 @@ export function CandidateProfile({
           </CollapsibleSection>
         )}
 
-        <NoteSection
-          candidate={candidate}
-          canWrite={canWrite}
-          open={sections.isOpen("note")}
-          onToggle={() => sections.toggle("note")}
-          save={replace}
-          onSaved={onSaved}
-        />
+        {canWrite && (
+          <>
+            <NotesSection
+              projectId={projectId}
+              candidateId={candidate.id}
+              open={sections.isOpen("notes")}
+              onToggle={() => sections.toggle("notes")}
+            />
+            <TimelineSection
+              projectId={projectId}
+              candidateId={candidate.id}
+              open={sections.isOpen("timeline")}
+              onToggle={() => sections.toggle("timeline")}
+            />
+          </>
+        )}
 
         <p className="py-4 font-mono text-[11px] text-u-text3">
           Added {formatInstantDate(candidate.addedAt)}
@@ -526,88 +543,6 @@ export function CandidateProfile({
         </div>
       )}
     </>
-  );
-}
-
-/**
- * The note is not behind a pencil: it is always a textarea, and Save appears the moment it differs
- * from what is stored. It is the mandate's own remark rather than a fact about the person — the
- * thing a consultant writes after every call — and a remark that took two clicks to start would
- * not get written. Ctrl/⌘-Enter saves; the same write as every other section, note over profile.
- */
-function NoteSection({
-  candidate,
-  canWrite,
-  open,
-  onToggle,
-  save,
-  onSaved,
-}: {
-  candidate: Candidate;
-  canWrite: boolean;
-  open: boolean;
-  onToggle: () => void;
-  save: (patch: Partial<SaveCandidatePayload>) => Promise<Candidate>;
-  onSaved: (saved: Candidate) => void;
-}) {
-  const toast = useToast();
-  const [note, setNote] = useState(candidate.note ?? "");
-  // What the server holds, by its own last answer — so Save disappears the moment it lands, not
-  // once the caller has got round to re-rendering.
-  const [stored, setStored] = useState(candidate.note ?? "");
-  const dirty = note !== stored;
-
-  const saving = useMutation({
-    mutationFn: (text: string) =>
-      save(patchOf("note", { note: text.trim() }, candidate.triageCompanyId !== null)),
-    onSuccess: (saved) => {
-      setStored(saved.note ?? "");
-      setNote(saved.note ?? "");
-      onSaved(saved);
-      toast("Note saved");
-    },
-    onError: (error) => toast(messageFor(error)),
-  });
-
-  const handleKeyDown = useSubmitShortcut(() => dirty && saving.mutate(note));
-
-  return (
-    <CollapsibleSection
-      id="note"
-      open={open || dirty}
-      onToggle={onToggle}
-      title="Note"
-      summary={firstLine(candidate.note)}
-      action={
-        canWrite && dirty ? (
-          <button
-            type="button"
-            onClick={() => saving.mutate(note)}
-            disabled={saving.isPending}
-            className="font-mono text-[11px] font-semibold uppercase tracking-[0.06em] text-u-accent transition hover:underline disabled:opacity-50"
-          >
-            {saving.isPending ? "Saving…" : "Save note"}
-          </button>
-        ) : undefined
-      }
-    >
-      {canWrite ? (
-        <TextArea
-          value={note}
-          onChange={(event) => setNote(event.target.value)}
-          onKeyDown={handleKeyDown}
-          rows={4}
-          maxLength={2000}
-          aria-label="Note on this executive"
-          placeholder="Your own remark on this person, for this mandate — what they said, what to do next…"
-          className="border-dashed font-sans text-[13px]/[1.55]"
-        />
-      ) : (
-        <p className="whitespace-pre-wrap text-[13px]/[1.6] text-u-text2">
-          {candidate.note ?? "No note on this person for this mandate."}
-        </p>
-      )}
-    </CollapsibleSection>
   );
 }
 

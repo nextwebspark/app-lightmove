@@ -307,7 +307,8 @@ describe("ReportsPage", () => {
       yearsExperience: null,
       aiInferredFields: [],
       summary: null,
-      note: null,
+      personId: "person-1",
+      linkedinUrlLocked: false,
       compensation: {
         currency: "AED",
         baseSalary: null,
