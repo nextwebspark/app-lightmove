@@ -19,12 +19,29 @@ export function useCandidatePhoto(
   projectId: string,
   candidate: Pick<Candidate, "id" | "enrichedAt"> | null,
 ): string | null {
+  return useStoredPhoto(
+    ["candidate-photo", projectId, candidate?.id ?? "none", candidate?.enrichedAt ?? null],
+    candidate ? `/projects/${projectId}/candidates/${candidate.id}/photo` : null,
+    candidate?.enrichedAt != null,
+  );
+}
+
+/** The same photo read by person, for the Candidates page — staff-only, outside any one position. */
+export function usePersonPhoto(person: { personId: string; enrichedAt: string | null } | null): string | null {
+  return useStoredPhoto(
+    ["person-photo", person?.personId ?? "none", person?.enrichedAt ?? null],
+    person ? `/candidates/${person.personId}/photo` : null,
+    person?.enrichedAt != null,
+  );
+}
+
+function useStoredPhoto(queryKey: readonly unknown[], path: string | null, researched: boolean): string | null {
   const photo = useQuery({
-    queryKey: ["candidate-photo", projectId, candidate?.id ?? "none", candidate?.enrichedAt ?? null],
-    queryFn: () => photoOrNothing(projectId, candidate!.id),
-    // Only a candidate the research has touched can have one; skipping the rest keeps a page of
+    queryKey,
+    queryFn: () => photoOrNothing(path!),
+    // Only someone the research has touched can have one; skipping the rest keeps a page of
     // rows from firing a 404 apiece.
-    enabled: candidate?.enrichedAt != null,
+    enabled: path !== null && researched,
     // The bytes are immutable per enrichment, and a 404 today is a 404 tomorrow.
     staleTime: Infinity,
     retry: false,
@@ -52,9 +69,9 @@ export function useCandidatePhoto(
  * ignores `staleTime`: every avatar that remounted asked again for a photo already known not to exist,
  * and the map's tree remounts the lot on every toggle.
  */
-async function photoOrNothing(projectId: string, candidateId: string): Promise<Blob | null> {
+async function photoOrNothing(path: string): Promise<Blob | null> {
   try {
-    return await requestBlob(`/projects/${projectId}/candidates/${candidateId}/photo`);
+    return await requestBlob(path);
   } catch (error) {
     if (error instanceof ApiRequestError && error.code === "NOT_FOUND") {
       return null;

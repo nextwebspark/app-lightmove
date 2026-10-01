@@ -278,6 +278,8 @@ export interface PersonNote {
 export interface WritePersonNotePayload {
   kind: PersonNoteKind;
   body: string;
+  /** Read on the workspace's routes only: the position the note is about, or none. */
+  projectId?: string | null;
 }
 
 /** One mandate a person is mapped on, with that mandate's status and who filed them there. */
@@ -290,6 +292,8 @@ export interface PersonPosition {
   addedByName: string | null;
   addedAt: string;
   source: CandidateSource;
+  /** Whether the viewer may move this mapping's status: they hold the position's WORK_EXECUTE. */
+  workable: boolean;
 }
 
 /** The kinds of line a person's history holds; the server's `PersonActivityKind` names. */
@@ -305,7 +309,15 @@ export type PersonActivityKind =
   | "AI_ASSESSED"
   | "NOTE_ADDED"
   | "NOTE_EDITED"
-  | "NOTE_REMOVED";
+  | "NOTE_REMOVED"
+  | "TAGGED"
+  | "UNTAGGED"
+  | "OWNER_CHANGED"
+  | "DO_NOT_CONTACT_SET"
+  | "DO_NOT_CONTACT_CLEARED";
+
+/** The timeline's filter chips, as the server's `TimelineGroup` tokens. */
+export type TimelineGroup = "positions" | "notes" | "contacts" | "profile" | "tags";
 
 export interface PersonTimelineEntry {
   id: number;
@@ -328,3 +340,108 @@ export interface PersonTimelinePage {
   entries: PersonTimelineEntry[];
   nextCursor: number | null;
 }
+
+/** The six swatches a tag is drawn in; palette roles, so the theme decides the shade. */
+export type CandidateTagColour = "green" | "accent" | "neutral" | "violet" | "adjacent" | "inferred";
+
+/** One of the workspace's own labels on its people. */
+export interface CandidateTag {
+  id: string;
+  label: string;
+  colour: CandidateTagColour;
+  retired: boolean;
+  /** How many of the workspace's people hold it. */
+  holders: number;
+}
+
+export type PoolView = "all" | "mine" | "active" | "unplaced";
+export type TagMatch = "any" | "all" | "none";
+export type PoolSortField = "name" | "location" | "positions" | "activity";
+
+/** What the Candidates page asks of the pool; an empty value is no filter. */
+export interface PoolFilters {
+  q: string;
+  view: PoolView;
+  tagIds: string[];
+  tagMatch: TagMatch;
+  position: string;
+  status: CandidateStatus | "";
+  /** A user id, "nobody" for people nobody owns, or empty for anyone. */
+  owner: string;
+  country: string;
+  sort: PoolSortField;
+  direction: "asc" | "desc";
+}
+
+export interface PoolRow {
+  personId: string;
+  fullName: string;
+  title: string | null;
+  companyName: string | null;
+  locationCity: string | null;
+  locationCountry: string | null;
+  linkedinUrl: string | null;
+  /** When research last landed; null for someone never researched, who has no photo. */
+  enrichedAt: string | null;
+  doNotContact: boolean;
+  yearsExperience: number | null;
+  /** Posts in their recorded career. */
+  careerRoles: number;
+  /** Which channels the contact ledger holds; the values stay in the drawer. */
+  hasEmail: boolean;
+  hasPhone: boolean;
+  /** Most recently added first. */
+  positions: PersonPosition[];
+  tagIds: string[];
+  ownerUserId: string | null;
+  lastActivity: PersonTimelineEntry | null;
+}
+
+export interface PoolPage {
+  people: PoolRow[];
+  totalCount: number;
+  viewCounts: Record<PoolView, number>;
+  poolSize: number;
+  countries: string[];
+}
+
+export interface DoNotContact {
+  reason: string | null;
+  setByUserId: string | null;
+  setByName: string | null;
+  setAt: string | null;
+}
+
+/** A workspace person as the Candidates drawer reads them. Staff-only. */
+export interface PersonRecord {
+  personId: string;
+  fullName: string;
+  title: string | null;
+  companyName: string | null;
+  seniority: CandidateSeniority | null;
+  linkedinUrl: string | null;
+  enrichedAt: string | null;
+  locationCity: string | null;
+  locationCountry: string | null;
+  nationality: string | null;
+  gender: CandidateGender | null;
+  yearsExperience: number | null;
+  summary: string | null;
+  compensation: CandidateCompensation;
+  career: CandidateCareerEntry[];
+  contacts: CandidateContacts;
+  positions: PersonPosition[];
+  ownerUserId: string | null;
+  doNotContact: DoNotContact | null;
+  tagIds: string[];
+  source: CandidateSource;
+  addedAt: string;
+  addedByUserId: string | null;
+  addedByName: string | null;
+}
+
+export interface MapToPositionResult {
+  added: number;
+  alreadyIn: number;
+}
+

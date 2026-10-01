@@ -97,6 +97,21 @@ public class Candidate extends BaseEntity {
         return candidate;
     }
 
+    /**
+     * Someone the workspace already holds, added to a mandate from the Candidates page: Identified, by
+     * hand, at the employer they were last recorded at, and on none of the mandate's companies.
+     */
+    public static Candidate mappedFromPool(UUID projectId, UUID addedBy, Person person, String employerName) {
+        Candidate candidate = new Candidate();
+        candidate.projectId = projectId;
+        candidate.addedBy = addedBy;
+        candidate.person = person;
+        candidate.source = CandidateSource.MANUAL;
+        candidate.status = CandidateStatus.IDENTIFIED;
+        candidate.companyName = employerName;
+        return candidate;
+    }
+
     /** The mandate's half of a save: where the person works for this mandate, and how far along. */
     public void describe(CandidateDetails details) {
         this.status = details.status();

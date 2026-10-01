@@ -163,6 +163,7 @@ describe("CandidateDrawer", () => {
         addedByName: "Alok Kumar",
         addedAt: "2026-08-02T09:00:00Z",
         source: "manual",
+        workable: true,
       },
     ]);
     vi.mocked(personCrmApi.getPersonNotes).mockResolvedValue([]);

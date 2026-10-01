@@ -56,9 +56,23 @@ never quotes it, so a removed note leaves no copy. The executive drawer draws **
 mandate mapping the person, this one first), **Notes** and **Timeline** for staff, through the
 position's own `WORK_EXECUTE` routes (`…/candidates/{id}/positions|notes|timeline`, `PersonCrmController`);
 the workspace's routes (`/api/v1/candidates/{personId}…` and `/candidates/activity`, the feed) take
-person ids and V97's `CANDIDATE_POOL_MANAGE`, ADMIN and MEMBER and never CLIENT, for the Candidates
-screen Phase 4 builds. `CandidateResponse.linkedinUrlLocked` is the server's own lock, which the Contact
-section reads rather than guessing from this mandate's door.
+person ids and V97's `CANDIDATE_POOL_MANAGE`, ADMIN and MEMBER and never CLIENT.
+`CandidateResponse.linkedinUrlLocked` is the server's own lock, which the Contact section reads rather
+than guessing from this mandate's door.
+**The workspace's Candidates page** (`/candidates`, `RequireStaff`, `Candidates.dc.html`, Phase 4) reads
+those routes: a People list the server searches (name, title, employer, an email; a plain scan per
+workspace, V33's reasoning), pages, sorts and narrows — quick views (owned by me, in an active position,
+in none), tags any/all/none, position, status, owner, country — with a selection bar that adds people to
+a position as Identified (that position's `WORK_EXECUTE` too, since filing someone is work on it), tags
+them, sets an owner or exports them (audited, `dataexport`); an Activity feed; and a drawer keyed by
+person id. V98 gives the person the team's own facts — an **owner** (a colleague; it changes nobody's
+access), **do not contact** (warns on every position and refuses a contact lookup,
+`PERSON_DO_NOT_CONTACT`, before anything is spent; it never blocks a mapping) and **tags** from the
+workspace's catalog (any staff member adds one, an admin renames, recolours or retires it in Settings →
+Candidate tags under `WORKSPACE_MANAGE`; a person holds the tag's id, so a rename reaches everyone, and a
+retired one stays where it is but is never put on anyone again). Each is a timeline line and an audit
+event, and none rides `CandidateResponse`. Merge, the possible-duplicate dialog and the position's own
+Candidates page are Phase 4b.
 An executive's drawer also **finds their contacts**: two buttons in the Contact section ask ContactOut
 for an email or a phone, one channel per press because the two bill from separate pools. Every email
 and phone the mandate knows is a row of `app_lm_candidate_contact` (V54, the only store since V55
@@ -224,8 +238,8 @@ people ranked. Every executive counts for whoever filed it (`added_by`, read thr
 `CandidateService.addedByOf`, never put on `CandidateResponse`, which a client seat also reads) and a
 company for whoever filed its first executive. The mock's confidence score, conversion funnel and
 per-company target have no row behind them, so they are not drawn: the drawers show a status *mix*,
-and quality is what is on file (a contact, a verified one, a base salary). The standalone
-Candidates screen, and the pipeline and outreach tables, don't exist yet. A projects-list row opens
+and quality is what is on file (a contact, a verified one, a base salary). A position's own Candidates
+page and the outreach tables don't exist yet. A projects-list row opens
 the **position side panel** (`Workspace.dc.html`'s Position drawer): mapping progress as universe
 companies with an executive mapped (`mappedCompanies` of `companies` on `GET /projects`), key
 metrics, stage gates, the team and hiring managers, and **recent activity** — `GET
@@ -447,7 +461,12 @@ through and the person yields the key). V96 adds `app_lm_person_note` — the pe
 `project_id` the optional context with its title snapshotted — copies every mandate's `note` into a
 general note about that mandate with a `NOTE_ADDED` line, and widens the activity kinds with
 `NOTE_ADDED`/`NOTE_EDITED`/`NOTE_REMOVED`; the row's `note` column joins V91's frozen copy for #606.
-V97 seeds the workspace action `CANDIDATE_POOL_MANAGE` to ADMIN and MEMBER. `app_lm_position` and its six owned-list
+V97 seeds the workspace action `CANDIDATE_POOL_MANAGE` to ADMIN and MEMBER. V98 adds to `app_lm_person`
+`owner_user_id` and `do_not_contact` with its reason, setter and time (a CHECK clears all three with it),
+the workspace tag catalog `app_lm_workspace_candidate_tag` (unique per workspace on `lower(label)`,
+`retired_at` rather than deletion, seeded per workspace — `CandidateTagService` seeds one created later on
+first read) and `app_lm_person_tag (person_id, tag_id)`, and widens the activity kinds with `TAGGED`,
+`UNTAGGED`, `OWNER_CHANGED`, `DO_NOT_CONTACT_SET` and `DO_NOT_CONTACT_CLEARED`. `app_lm_position` and its six owned-list
 tables are the brief (V7, grown by V39): every list a step edits is a child table replaced wholesale by
 its step's write, so the aggregate keeps one idiom rather than mixing rows and jsonb. V66 splits its
 `location` into `location_city` + `location_country` (backfilled from the one line; a comma-less value

@@ -3,6 +3,7 @@ import type { ReactNode } from "react";
 import { Outlet } from "react-router-dom";
 import { useAuth } from "../../features/auth/AuthProvider";
 import { isPureClient } from "../../features/auth/roles";
+import * as poolApi from "../../features/candidates/api/poolApi";
 import * as clientsApi from "../../features/clients/api/clientsApi";
 import * as projectsApi from "../../features/projects/api/projectsApi";
 import * as workspaceApi from "../../features/workspace/api/workspaceApi";
@@ -44,6 +45,11 @@ export function WorkspaceShell({ children }: { children: ReactNode }) {
     queryFn: clientsApi.clients,
     enabled: !clientOnly,
   });
+  const { data: poolSize } = useQuery({
+    queryKey: poolApi.POOL_COUNT_KEY,
+    queryFn: ({ signal }) => poolApi.poolCount(signal),
+    enabled: !clientOnly,
+  });
   const { data: members } = useQuery({
     queryKey: workspaceApi.MEMBERS_KEY,
     queryFn: workspaceApi.members,
@@ -76,6 +82,7 @@ export function WorkspaceShell({ children }: { children: ReactNode }) {
         {
           label: "Workspace",
           items: [
+            { to: "/candidates", label: "Candidates", icon: ICONS.candidates, count: poolSize },
             { to: "/clients", label: vocabulary.units, icon: ICONS.clients, count: clients?.length },
             { to: "/team", label: "Team", icon: ICONS.team, count: members?.length },
             // Every staff member's, not just an admin's: the rail lands on the section everyone can

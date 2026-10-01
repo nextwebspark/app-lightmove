@@ -161,7 +161,11 @@ search included — so they ride `WORK_EXECUTE` under a position's own routes an
 `CANDIDATE_POOL_MANAGE` (V97: ADMIN and MEMBER, never CLIENT) under `/candidates`, and never
 `CandidateResponse`, which `WORK_VIEW` serves to a client seat. A researcher seated on no mandate still
 reads the pool (decision D2); a pure client reaches none of it by any route. Changing someone else's
-note asks `WORKSPACE_MANAGE` — an action, never the ADMIN role by name.
+note asks `WORKSPACE_MANAGE` — an action, never the ADMIN role by name. The same action carries the
+team's own facts about a person (V98: owner, tags, do not contact) and every staff member may create a
+tag; renaming, recolouring and retiring one is `WORKSPACE_MANAGE`'s. Reading the pool never confers work
+on a mandate: filing someone onto a position, or writing a note about one, also asks that position's
+`WORK_EXECUTE`.
 
 **A platform role sits above every tenant and inside none.** The role-template library (V42) is the
 first thing no workspace owns that someone still has to edit, so V57 added a third scope, `PLATFORM`,

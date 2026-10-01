@@ -35,6 +35,13 @@ public class WorkspaceAccess {
         return member;
     }
 
+    /** Whether the user is an active member who is not a pure client — for a value naming a colleague. */
+    public boolean isStaff(UUID userId, UUID workspaceId) {
+        return members.findByWorkspaceIdAndUserIdAndStatus(workspaceId, userId, MemberStatus.ACTIVE)
+                .map(member -> !isPureClient(member.getId()))
+                .orElse(false);
+    }
+
     /** The union of the member's roles decides. */
     public WorkspaceMember requireAction(UUID userId, UUID workspaceId, WorkspaceAction action) {
         WorkspaceMember member = requireActiveMember(userId, workspaceId);

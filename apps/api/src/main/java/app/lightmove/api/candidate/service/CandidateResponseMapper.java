@@ -12,6 +12,7 @@ import app.lightmove.api.candidate.dto.CandidateResponse;
 import app.lightmove.api.candidate.model.Candidate;
 import app.lightmove.api.candidate.model.CandidateCompensation;
 import app.lightmove.api.candidate.model.Person;
+import java.util.List;
 import org.springframework.stereotype.Component;
 
 /** A mapped executive as the drawer and the grid read it — a client seat included. */
@@ -20,7 +21,6 @@ class CandidateResponseMapper {
 
     CandidateResponse toDto(Candidate candidate) {
         Person person = candidate.getPerson();
-        CandidateCompensation compensation = person.compensation();
         return new CandidateResponse(
                 candidate.getId(),
                 candidate.getTriageCompanyId(),
@@ -37,19 +37,8 @@ class CandidateResponseMapper {
                 person.getYearsExperience(),
                 person.getAiInferredFields(),
                 person.getSummary(),
-                new CandidateCompensationDto(compensation.currency(), compensation.baseSalary(),
-                        compensation.bonus(), compensation.allowances(),
-                        compensation.longTermIncentive(), compensation.noticePeriod(),
-                        compensation.breakdown().allowanceLines().stream()
-                                .map(line -> new AllowanceLineDto(line.label(), line.amount()))
-                                .toList(),
-                        compensation.breakdown().longTermIncentiveTypes().stream()
-                                .map(LongTermIncentiveType::value)
-                                .toList()),
-                person.getProfile().career().stream()
-                        .map(entry -> new CandidateCareerEntryDto(entry.company(), entry.title(), entry.period(),
-                                entry.location()))
-                        .toList(),
+                compensationOf(person),
+                careerOf(person),
                 person.getProfile().languages(),
                 person.getProfile().education().stream()
                         .map(school -> new CandidateEducationEntryDto(school.school(), school.degree(),
@@ -64,6 +53,26 @@ class CandidateResponseMapper {
                 contactsOf(person),
                 person.getId(),
                 person.isLinkedinUrlLocked());
+    }
+
+    static CandidateCompensationDto compensationOf(Person person) {
+        CandidateCompensation compensation = person.compensation();
+        return new CandidateCompensationDto(compensation.currency(), compensation.baseSalary(),
+                compensation.bonus(), compensation.allowances(),
+                compensation.longTermIncentive(), compensation.noticePeriod(),
+                compensation.breakdown().allowanceLines().stream()
+                        .map(line -> new AllowanceLineDto(line.label(), line.amount()))
+                        .toList(),
+                compensation.breakdown().longTermIncentiveTypes().stream()
+                        .map(LongTermIncentiveType::value)
+                        .toList());
+    }
+
+    static List<CandidateCareerEntryDto> careerOf(Person person) {
+        return person.getProfile().career().stream()
+                .map(entry -> new CandidateCareerEntryDto(entry.company(), entry.title(), entry.period(),
+                        entry.location()))
+                .toList();
     }
 
     static CandidateContactsDto contactsOf(Person person) {

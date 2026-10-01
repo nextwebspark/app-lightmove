@@ -95,6 +95,9 @@ public class ContactLookupService {
             throw ApiException.of(ErrorCode.CONTACT_LOOKUP_UNAVAILABLE);
         }
         CandidateContactState state = candidates.contactStateOf(workspaceId, projectId, candidateId);
+        if (state.doNotContact()) {
+            throw ApiException.of(ErrorCode.PERSON_DO_NOT_CONTACT);
+        }
         if (LinkedInUrls.profileSlugOrNull(state.linkedinUrl()) == null) {
             throw ApiException.of(ErrorCode.CONTACT_LOOKUP_NO_PROFILE);
         }

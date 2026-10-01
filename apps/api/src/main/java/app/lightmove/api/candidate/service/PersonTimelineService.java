@@ -4,15 +4,18 @@ import app.lightmove.api.candidate.constant.PersonActivityKind;
 import app.lightmove.api.candidate.constant.TimelineGroup;
 import app.lightmove.api.candidate.dto.PersonTimelineEntryResponse;
 import app.lightmove.api.candidate.dto.PersonTimelineResponse;
+import app.lightmove.api.candidate.model.CandidateTag;
 import app.lightmove.api.candidate.model.Person;
 import app.lightmove.api.candidate.model.PersonActivity;
 import app.lightmove.api.candidate.model.PersonNote;
+import app.lightmove.api.candidate.repository.CandidateTagRepository;
 import app.lightmove.api.candidate.repository.PersonActivityRepository;
 import app.lightmove.api.candidate.repository.PersonNoteRepository;
 import app.lightmove.api.candidate.repository.PersonRepository;
 import app.lightmove.api.core.security.model.User;
 import app.lightmove.api.core.security.repository.UserRepository;
 import java.time.Instant;
+import java.util.Collection;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -21,6 +24,7 @@ import java.util.Set;
 import java.util.UUID;
 import java.util.function.Function;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Limit;
 import org.springframework.stereotype.Service;
@@ -39,7 +43,8 @@ public class PersonTimelineService {
     public static final int MAX_PAGE_SIZE = 50;
     private static final int EXCERPT_LENGTH = 140;
     private static final Set<String> DETAIL_KEYS = Set.of("door", "backgroundConfirmed", "from", "to", "vendor",
-            "runId", "emails", "phones", "channel", "found", "via", "noteId", "kind");
+            "runId", "emails", "phones", "channel", "found", "via", "noteId", "kind", "tagId", "tag",
+            "ownerUserId", "owner");
     private static final Set<PersonActivityKind> NOTE_KINDS = TimelineGroup.NOTES.kinds();
     /** Bound when a filter is open, so the parameter is never an untyped null; matches no row. */
     private static final UUID NOBODY = new UUID(0, 0);
@@ -49,6 +54,7 @@ public class PersonTimelineService {
     private final PersonActivityRepository activity;
     private final PersonNoteRepository notes;
     private final UserRepository users;
+    private final CandidateTagRepository tags;
 
     @Transactional(readOnly = true)
     public PersonTimelineResponse timelineOf(UUID workspaceId, UUID personId, String group, Long before,
@@ -77,20 +83,40 @@ public class PersonTimelineService {
         return pageOf(workspaceId, page, size, persons);
     }
 
+    /** Each person's latest line, for the Candidates page's Last activity column. */
+    @Transactional(readOnly = true)
+    public Map<UUID, PersonTimelineEntryResponse> latestOf(UUID workspaceId, Collection<Person> persons) {
+        if (persons.isEmpty()) {
+            return Map.of();
+        }
+        Map<UUID, Person> byId = persons.stream().collect(Collectors.toMap(Person::getId, Function.identity()));
+        return entriesOf(workspaceId, activity.findLatestOfPeople(workspaceId, byId.keySet()), byId).stream()
+                .collect(Collectors.toMap(PersonTimelineEntryResponse::personId, Function.identity()));
+    }
+
     private PersonTimelineResponse pageOf(UUID workspaceId, List<PersonActivity> page, int size,
                                           Map<UUID, Person> persons) {
         boolean hasMore = page.size() > size;
         List<PersonActivity> shown = hasMore ? page.subList(0, size) : page;
+        return new PersonTimelineResponse(entriesOf(workspaceId, shown, persons),
+                hasMore ? shown.getLast().getId() : null);
+    }
 
-        Map<UUID, User> actors = users.findAllById(shown.stream()
-                        .map(PersonActivity::getActorUserId).filter(Objects::nonNull).distinct().toList())
+    private List<PersonTimelineEntryResponse> entriesOf(UUID workspaceId, List<PersonActivity> shown,
+                                                        Map<UUID, Person> persons) {
+        Map<UUID, User> named = users.findAllById(shown.stream()
+                        .flatMap(line -> Stream.of(line.getActorUserId(), idIn(line, "ownerUserId")))
+                        .filter(Objects::nonNull).distinct().toList())
                 .stream().collect(Collectors.toMap(User::getId, Function.identity()));
         Map<UUID, PersonNote> liveNotes = notes.findByWorkspaceIdAndIdIn(workspaceId, shown.stream()
                         .map(PersonTimelineService::noteIdOf).filter(Objects::nonNull).distinct().toList())
                 .stream().collect(Collectors.toMap(PersonNote::getId, Function.identity()));
+        Map<UUID, CandidateTag> liveTags = tags.findByWorkspaceIdAndIdIn(workspaceId, shown.stream()
+                        .map(line -> idIn(line, "tagId")).filter(Objects::nonNull).distinct().toList())
+                .stream().collect(Collectors.toMap(CandidateTag::getId, Function.identity()));
 
-        List<PersonTimelineEntryResponse> entries = shown.stream().map(line -> {
-            User actor = line.getActorUserId() == null ? null : actors.get(line.getActorUserId());
+        return shown.stream().map(line -> {
+            User actor = line.getActorUserId() == null ? null : named.get(line.getActorUserId());
             Person person = persons.get(line.getPersonId());
             UUID noteId = noteIdOf(line);
             PersonNote note = noteId == null ? null : liveNotes.get(noteId);
@@ -98,27 +124,37 @@ public class PersonTimelineService {
                     line.getActorUserId(), actor == null ? null : actor.getFullName(),
                     actor == null ? null : actor.getAvatarUrl(),
                     line.getPersonId(), person == null ? null : person.getFullName(),
-                    line.getProjectId(), line.getProjectTitle(), detailsOf(line),
+                    line.getProjectId(), line.getProjectTitle(), detailsOf(line, named, liveTags),
                     note == null ? null : excerptOf(note.getBody()));
         }).toList();
-        return new PersonTimelineResponse(entries, hasMore ? shown.getLast().getId() : null);
     }
 
-    private static Map<String, String> detailsOf(PersonActivity line) {
+    /** A tag reads as it is spelled today and an owner by their name today; the line keeps the ids. */
+    private static Map<String, String> detailsOf(PersonActivity line, Map<UUID, User> named,
+                                                 Map<UUID, CandidateTag> liveTags) {
         Map<String, String> shown = new LinkedHashMap<>();
         line.getDetails().forEach((key, value) -> {
             if (DETAIL_KEYS.contains(key) && value != null) {
                 shown.put(key, String.valueOf(value));
             }
         });
+        UUID tagId = idIn(line, "tagId");
+        if (tagId != null && liveTags.containsKey(tagId)) {
+            shown.put("tag", liveTags.get(tagId).getLabel());
+        }
+        UUID ownerId = idIn(line, "ownerUserId");
+        if (ownerId != null && named.containsKey(ownerId)) {
+            shown.put("owner", named.get(ownerId).getFullName());
+        }
         return shown;
     }
 
     private static UUID noteIdOf(PersonActivity line) {
-        if (!NOTE_KINDS.contains(line.getKind())) {
-            return null;
-        }
-        Object id = line.getDetails().get("noteId");
+        return NOTE_KINDS.contains(line.getKind()) ? idIn(line, "noteId") : null;
+    }
+
+    private static UUID idIn(PersonActivity line, String key) {
+        Object id = line.getDetails().get(key);
         try {
             return id == null ? null : UUID.fromString(id.toString());
         } catch (IllegalArgumentException notAnId) {

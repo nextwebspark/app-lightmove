@@ -19,6 +19,7 @@ const SETTINGS_SECTIONS = [
   { to: "/settings/workspaces", label: "Workspaces", icon: ICONS.allProjects, group: "Account" },
   { to: "/settings/general", label: "General", icon: ICONS.settings, group: "Workspace" },
   { to: "/settings/members", label: "Members", icon: ICONS.members, group: "Workspace" },
+  { to: "/settings/candidate-tags", label: "Candidate tags", icon: ICONS.tag, group: "Workspace" },
   { to: "/settings/templates", label: "Templates", icon: ICONS.file, group: "Workspace" },
   { to: "/settings/template-library", label: "Template library", icon: ICONS.position, group: "Platform" },
 ] as const;

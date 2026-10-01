@@ -171,6 +171,33 @@ public class Person extends BaseEntity {
     @Column(name = "contacts_looked_up_via", length = 24)
     private String contactsLookedUpVia;
 
+    /** Who keeps the relationship across searches (V98). It changes nobody's access. */
+    @Column(name = "owner_user_id")
+    private UUID ownerUserId;
+
+    /** Warns on every position and turns contact lookups off; never blocks a mapping (V98). */
+    @Column(name = "do_not_contact", nullable = false)
+    private boolean doNotContact;
+
+    @Column(name = "do_not_contact_reason")
+    private String doNotContactReason;
+
+    @Column(name = "do_not_contact_set_by")
+    private UUID doNotContactSetBy;
+
+    @Column(name = "do_not_contact_set_at")
+    private Instant doNotContactSetAt;
+
+    /**
+     * The workspace's tags this person holds (V98), by id, so a rename reaches everyone at once. Who
+     * tagged them, and when, is the timeline's.
+     */
+    @ElementCollection(fetch = FetchType.LAZY)
+    @CollectionTable(name = "app_lm_person_tag", joinColumns = @JoinColumn(name = "person_id"))
+    @Column(name = "tag_id", nullable = false)
+    @BatchSize(size = 500)
+    private Set<UUID> tagIds = new HashSet<>();
+
     public static Person founded(UUID workspaceId, UUID createdBy, CandidateSource source,
                                  CandidateDetails details) {
         Person person = new Person();
@@ -535,6 +562,45 @@ public class Person extends BaseEntity {
             return 2;
         }
         return kind == ContactKind.WORK ? 0 : 1;
+    }
+
+    /** Answers whether anything changed, so a no-op leaves no timeline line. */
+    public boolean assignOwner(UUID newOwner) {
+        if (Objects.equals(ownerUserId, newOwner)) {
+            return false;
+        }
+        this.ownerUserId = newOwner;
+        return true;
+    }
+
+    public boolean markDoNotContact(String reason, UUID setBy) {
+        if (doNotContact) {
+            return false;
+        }
+        this.doNotContact = true;
+        this.doNotContactReason = reason;
+        this.doNotContactSetBy = setBy;
+        this.doNotContactSetAt = Instant.now();
+        return true;
+    }
+
+    public boolean clearDoNotContact() {
+        if (!doNotContact) {
+            return false;
+        }
+        this.doNotContact = false;
+        this.doNotContactReason = null;
+        this.doNotContactSetBy = null;
+        this.doNotContactSetAt = null;
+        return true;
+    }
+
+    public boolean tag(UUID tagId) {
+        return tagIds.add(tagId);
+    }
+
+    public boolean untag(UUID tagId) {
+        return tagIds.remove(tagId);
     }
 
     public CandidateCompensation compensation() {

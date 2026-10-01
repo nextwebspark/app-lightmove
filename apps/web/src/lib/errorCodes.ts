@@ -39,6 +39,10 @@ export type ApiErrorCode =
   | "CANDIDATE_ALREADY_MAPPED"
   | "PERSON_PROFILE_HELD"
   | "PERSON_NOTE_NOT_YOURS"
+  | "CANDIDATE_TAG_EXISTS"
+  | "CANDIDATE_TAG_RETIRED"
+  | "PERSON_OWNER_NOT_STAFF"
+  | "PERSON_DO_NOT_CONTACT"
   | "STRATEGY_SEARCH_NAME_TAKEN"
   | "ASSISTANT_UNAVAILABLE"
   | "ASSISTANT_BUSY"
@@ -114,6 +118,10 @@ const MESSAGES: Partial<Record<ApiErrorCode, string>> = {
   CANDIDATE_ALREADY_MAPPED: "Someone with that name is already mapped here.",
   PERSON_PROFILE_HELD: "Another candidate in this workspace already has that LinkedIn profile.",
   PERSON_NOTE_NOT_YOURS: "Only the person who wrote this note, or an admin, can change it.",
+  CANDIDATE_TAG_EXISTS: "Your team already has that tag.",
+  CANDIDATE_TAG_RETIRED: "That tag is retired. Restore it in Settings to use it again.",
+  PERSON_OWNER_NOT_STAFF: "The owner must be someone on your team.",
+  PERSON_DO_NOT_CONTACT: "This person is marked do not contact, so contact lookups are off.",
   // Two uploads raise this — the spreadsheet import and the position description — so the wording
   // stays neutral. Naming one screen's file types here misdescribes the other's refusal, and each
   // dropzone already states what it takes.

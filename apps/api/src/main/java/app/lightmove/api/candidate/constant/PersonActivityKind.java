@@ -31,5 +31,15 @@ public enum PersonActivityKind {
     /** The line carries the note's id, never its text: deleting a note must take the words with it. */
     NOTE_ADDED,
     NOTE_EDITED,
-    NOTE_REMOVED
+    NOTE_REMOVED,
+
+    /** The line carries the tag's id and its label as it was spelled then; the read prefers today's. */
+    TAGGED,
+    UNTAGGED,
+
+    /** Who keeps the relationship; the line names the new owner, or none when it was cleared. */
+    OWNER_CHANGED,
+
+    DO_NOT_CONTACT_SET,
+    DO_NOT_CONTACT_CLEARED
 }

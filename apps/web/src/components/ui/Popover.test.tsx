@@ -54,4 +54,20 @@ describe("Popover", () => {
     const panel = screen.getByText("content").parentElement as HTMLElement;
     expect(Number(panel.style.left.replace("px", ""))).toBeGreaterThanOrEqual(0);
   });
+
+  it("opens above a drawer and its scrim, so a picker inside one is seen", async () => {
+    stubViewportWidth(1440);
+    stubTriggerRect(100);
+    render(
+      <Popover label="menu" trigger={() => "open"}>
+        {() => <div>content</div>}
+      </Popover>,
+    );
+
+    await userEvent.click(screen.getByRole("button", { name: "menu" }));
+
+    const panel = screen.getByText("content").parentElement as HTMLElement;
+    const layer = Number(/z-\[(\d+)\]/.exec(panel.className)?.[1]);
+    expect(layer).toBeGreaterThan(95);
+  });
 });
