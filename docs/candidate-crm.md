@@ -468,7 +468,10 @@ expand and the contract in separate deploys.
 >   column) is filed as a general note about the mandate, once: the same words already there are skipped,
 >   so a re-import adds none.
 > - **Who may change a note:** its author, or a `WORKSPACE_MANAGE` holder; anyone else is
->   `PERSON_NOTE_NOT_YOURS` (403). Pinning is anyone's and leaves no timeline line.
+>   `PERSON_NOTE_NOT_YOURS` (403). Pinning is anyone's and leaves no timeline line, only an audit
+>   event (`PERSON_NOTE_PINNED`). On the workspace's routes a note's `projectId` needs that mandate's
+>   `WORK_EXECUTE` too: reading the pool is any staff member's (D2), filing work against a mandate is
+>   its team's.
 > - **The timeline never holds a note's words.** A `NOTE_*` line carries the note's id and kind; the read
 >   adds the live note's first 140 characters, so a removed note leaves only "deleted a note".
 > - **Routes:** a position's drawer uses `…/candidates/{id}/positions|notes|timeline` (`WORK_EXECUTE`,

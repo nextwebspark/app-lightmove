@@ -99,10 +99,11 @@ public class PersonCrmController {
     @RequireProjectPermission(ProjectAction.WORK_EXECUTE)
     public PersonNoteResponse pin(@AuthenticationPrincipal AuthPrincipal principal,
                                   @PathVariable UUID projectId, @PathVariable UUID candidateId,
-                                  @PathVariable UUID noteId, @RequestBody PinPersonNoteRequest request) {
+                                  @PathVariable UUID noteId, @Valid @RequestBody PinPersonNoteRequest request,
+                                  HttpServletRequest httpRequest) {
         UUID workspaceId = principal.requireWorkspaceId();
         return notes.pin(principal.userId(), workspaceId, records.personOf(workspaceId, projectId, candidateId),
-                noteId, request.pinned());
+                noteId, request.pinned(), httpRequest);
     }
 
     @GetMapping("/timeline")

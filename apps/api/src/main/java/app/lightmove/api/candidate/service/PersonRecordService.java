@@ -48,7 +48,7 @@ public class PersonRecordService {
         Person person = people.requireInWorkspace(personId, workspaceId);
         return new PersonRecordResponse(person.getId(), person.getFullName(), person.getTitle(),
                 person.getLinkedinUrl(), person.getLocationCity(), person.getLocationCountry(),
-                CandidateResponseMapper.contactsOf(person), positionsOf(workspaceId, personId, null));
+                CandidateResponseMapper.contactsOf(person), positionsOfPerson(workspaceId, personId, null));
     }
 
     /**
@@ -58,6 +58,10 @@ public class PersonRecordService {
     @Transactional(readOnly = true)
     public List<PersonPositionResponse> positionsOf(UUID workspaceId, UUID personId, UUID currentProjectId) {
         people.requireInWorkspace(personId, workspaceId);
+        return positionsOfPerson(workspaceId, personId, currentProjectId);
+    }
+
+    private List<PersonPositionResponse> positionsOfPerson(UUID workspaceId, UUID personId, UUID currentProjectId) {
         List<Candidate> mapped = candidates.findPositionsOfPerson(workspaceId, personId);
         Map<UUID, Project> mandates = projects.findAllById(mapped.stream().map(Candidate::getProjectId).toList())
                 .stream().collect(Collectors.toMap(Project::getId, Function.identity()));

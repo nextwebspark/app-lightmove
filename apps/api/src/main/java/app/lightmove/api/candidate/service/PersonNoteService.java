@@ -14,7 +14,10 @@ import app.lightmove.api.core.audit.constant.ProjectEventType;
 import app.lightmove.api.core.audit.service.AuditService;
 import app.lightmove.api.core.error.constant.ErrorCode;
 import app.lightmove.api.core.error.model.ApiException;
+import app.lightmove.api.common.constant.ApiValueEnum;
 import app.lightmove.api.core.security.model.User;
+import app.lightmove.api.core.security.rbac.ProjectAccess;
+import app.lightmove.api.core.security.rbac.ProjectAction;
 import app.lightmove.api.core.security.rbac.WorkspaceAccess;
 import app.lightmove.api.core.security.rbac.WorkspaceAction;
 import app.lightmove.api.core.security.repository.UserRepository;
@@ -51,6 +54,7 @@ public class PersonNoteService {
     private final ProjectRepository projects;
     private final UserRepository users;
     private final WorkspaceAccess workspaceAccess;
+    private final ProjectAccess projectAccess;
     private final PersonActivityRecorder activity;
     private final AuditService audit;
 
@@ -59,24 +63,29 @@ public class PersonNoteService {
         people.requireInWorkspace(personId, workspaceId);
         List<PersonNote> found = notes.findByWorkspaceIdAndPersonIdOrderByPinnedDescCreatedAtDesc(workspaceId,
                 personId);
-        boolean mayEditAny = workspaceAccess.holdsAction(userId, workspaceId, WorkspaceAction.WORKSPACE_MANAGE);
+        boolean mayEditAny = mayEditAny(userId, workspaceId);
         Map<UUID, User> authors = usersOf(found);
         return found.stream().map(note -> toDto(note, authors, mayEditAny || note.isWrittenBy(userId))).toList();
     }
 
     /**
      * {@code aboutProjectId} is the position the note is about: the route's own under a position, the
-     * request's on the workspace's routes, where it must be a position this person is mapped on.
+     * request's on the workspace's routes. Reading the pool is any staff member's (D2), but filing a note
+     * against a mandate is work on it, so the caller needs that mandate's seat, and the person must be
+     * mapped there.
      */
     @Transactional
     public PersonNoteResponse write(UUID userId, UUID workspaceId, UUID personId, UUID aboutProjectId,
                                     WritePersonNoteRequest request, HttpServletRequest httpRequest) {
         Person person = people.requireInWorkspace(personId, workspaceId);
-        if (aboutProjectId != null && !candidates.existsByProjectIdAndPersonId(aboutProjectId, personId)) {
-            throw ApiException.of(ErrorCode.NOT_FOUND);
+        PersonNoteKind kind = kindOf(request);
+        if (aboutProjectId != null) {
+            projectAccess.requireAction(userId, workspaceId, aboutProjectId, ProjectAction.WORK_EXECUTE);
+            if (!candidates.existsByProjectIdAndPersonId(aboutProjectId, personId)) {
+                throw ApiException.of(ErrorCode.NOT_FOUND);
+            }
         }
-        PersonNote note = save(person, aboutProjectId, PersonNoteKind.fromValue(request.kind()),
-                request.body().strip(), userId);
+        PersonNote note = save(person, aboutProjectId, kind, request.body().strip(), userId);
         audit.event(ProjectEventType.PERSON_NOTE_ADDED).actor(userId).workspace(workspaceId)
                 .target(PERSON_TARGET, personId).from(httpRequest)
                 .detail("noteId", note.getId().toString())
@@ -88,8 +97,9 @@ public class PersonNoteService {
     public PersonNoteResponse revise(UUID userId, UUID workspaceId, UUID personId, UUID noteId,
                                      WritePersonNoteRequest request, HttpServletRequest httpRequest) {
         Person person = people.requireInWorkspace(personId, workspaceId);
+        PersonNoteKind kind = kindOf(request);
         PersonNote note = requireEditable(userId, workspaceId, personId, noteId);
-        note.revise(PersonNoteKind.fromValue(request.kind()), request.body().strip(), userId);
+        note.revise(kind, request.body().strip(), userId);
         activity.record(person, note.getProjectId(), userId, PersonActivityKind.NOTE_EDITED,
                 PersonActivityDetails.of("noteId", note.getId()).and("kind", note.getKind()));
         audit.event(ProjectEventType.PERSON_NOTE_EDITED).actor(userId).workspace(workspaceId)
@@ -112,15 +122,19 @@ public class PersonNoteService {
                 .record();
     }
 
-    /** Pinning orders the list; it is nobody's edit, so it leaves no timeline line. */
+    /** Pinning orders the list; it is nobody's edit, so it leaves no timeline line, only an audit event. */
     @Transactional
-    public PersonNoteResponse pin(UUID userId, UUID workspaceId, UUID personId, UUID noteId, boolean pinned) {
+    public PersonNoteResponse pin(UUID userId, UUID workspaceId, UUID personId, UUID noteId, boolean pinned,
+                                  HttpServletRequest httpRequest) {
         people.requireInWorkspace(personId, workspaceId);
         PersonNote note = notes.requireOnPerson(noteId, workspaceId, personId);
         note.pin(pinned);
-        boolean editable = note.isWrittenBy(userId)
-                || workspaceAccess.holdsAction(userId, workspaceId, WorkspaceAction.WORKSPACE_MANAGE);
-        return toDto(note, usersOf(List.of(note)), editable);
+        audit.event(ProjectEventType.PERSON_NOTE_PINNED).actor(userId).workspace(workspaceId)
+                .target(PERSON_TARGET, personId).from(httpRequest)
+                .detail("noteId", noteId.toString())
+                .detail("pinned", Boolean.toString(pinned))
+                .record();
+        return toDto(note, usersOf(List.of(note)), mayEdit(userId, workspaceId, note));
     }
 
     /**
@@ -150,11 +164,22 @@ public class PersonNoteService {
 
     private PersonNote requireEditable(UUID userId, UUID workspaceId, UUID personId, UUID noteId) {
         PersonNote note = notes.requireOnPerson(noteId, workspaceId, personId);
-        if (!note.isWrittenBy(userId)
-                && !workspaceAccess.holdsAction(userId, workspaceId, WorkspaceAction.WORKSPACE_MANAGE)) {
+        if (!mayEdit(userId, workspaceId, note)) {
             throw ApiException.of(ErrorCode.PERSON_NOTE_NOT_YOURS);
         }
         return note;
+    }
+
+    private boolean mayEdit(UUID userId, UUID workspaceId, PersonNote note) {
+        return note.isWrittenBy(userId) || mayEditAny(userId, workspaceId);
+    }
+
+    private boolean mayEditAny(UUID userId, UUID workspaceId) {
+        return workspaceAccess.holdsAction(userId, workspaceId, WorkspaceAction.WORKSPACE_MANAGE);
+    }
+
+    private static PersonNoteKind kindOf(WritePersonNoteRequest request) {
+        return ApiValueEnum.require(PersonNoteKind.class, request.kind(), "note kind");
     }
 
     private Map<UUID, User> usersOf(List<PersonNote> found) {

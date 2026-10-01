@@ -40,6 +40,10 @@ public class PersonTimelineService {
     private static final int EXCERPT_LENGTH = 140;
     private static final Set<String> DETAIL_KEYS = Set.of("door", "backgroundConfirmed", "from", "to", "vendor",
             "runId", "emails", "phones", "channel", "found", "via", "noteId", "kind");
+    private static final Set<PersonActivityKind> NOTE_KINDS = TimelineGroup.NOTES.kinds();
+    /** Bound when a filter is open, so the parameter is never an untyped null; matches no row. */
+    private static final UUID NOBODY = new UUID(0, 0);
+    private static final Instant FAR_FUTURE = Instant.parse("9999-12-31T00:00:00Z");
 
     private final PersonRepository people;
     private final PersonActivityRepository activity;
@@ -134,9 +138,4 @@ public class PersonTimelineService {
     private static long cursorOf(Long before) {
         return before == null ? Long.MAX_VALUE : before;
     }
-
-    private static final Set<PersonActivityKind> NOTE_KINDS = TimelineGroup.NOTES.kinds();
-    /** Bound when a filter is open, so the parameter is never an untyped null; matches no row. */
-    private static final UUID NOBODY = new UUID(0, 0);
-    private static final Instant FAR_FUTURE = Instant.parse("9999-12-31T00:00:00Z");
 }

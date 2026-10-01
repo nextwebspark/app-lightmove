@@ -102,8 +102,10 @@ public class CandidatePoolController {
     @PatchMapping("/{personId}/notes/{noteId}/pin")
     @RequireWorkspacePermission(WorkspaceAction.CANDIDATE_POOL_MANAGE)
     public PersonNoteResponse pin(@AuthenticationPrincipal AuthPrincipal principal, @PathVariable UUID personId,
-                                  @PathVariable UUID noteId, @RequestBody PinPersonNoteRequest request) {
-        return notes.pin(principal.userId(), principal.requireWorkspaceId(), personId, noteId, request.pinned());
+                                  @PathVariable UUID noteId, @Valid @RequestBody PinPersonNoteRequest request,
+                                  HttpServletRequest httpRequest) {
+        return notes.pin(principal.userId(), principal.requireWorkspaceId(), personId, noteId, request.pinned(),
+                httpRequest);
     }
 
     @GetMapping("/{personId}/timeline")

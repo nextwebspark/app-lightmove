@@ -1,4 +1,4 @@
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { Button, TextArea, useToast } from "../../../components/ui";
 import { CollapsibleSection } from "../../../components/ui/CollapsibleSection";
@@ -254,12 +254,19 @@ function NoteCard({ note }: { note: PersonNote }) {
 }
 
 export function TimelineSection({ projectId, candidateId, open, onToggle }: PersonSectionProps) {
-  const timeline = useQuery({
+  const timeline = useInfiniteQuery({
     queryKey: personCrmApi.PERSON_TIMELINE_KEY(projectId, candidateId),
-    queryFn: ({ signal }) => personCrmApi.getPersonTimeline(projectId, candidateId, null, signal),
+    queryFn: ({ pageParam, signal }) =>
+      personCrmApi.getPersonTimeline(projectId, candidateId, pageParam, signal),
+    initialPageParam: null as number | null,
+    getNextPageParam: (last) => last.nextCursor,
   });
-  const lines = timeline.data ? timelineLines(timeline.data.entries, projectId) : [];
-  const more = timeline.data?.nextCursor != null;
+  const lines = timelineLines(
+    timeline.data?.pages.flatMap((page) => page.entries) ?? [],
+    projectId,
+  );
+  const { hasNextPage, isFetchingNextPage, fetchNextPage } = timeline;
+  const more = hasNextPage ? "+" : "";
 
   return (
     <CollapsibleSection
@@ -267,10 +274,10 @@ export function TimelineSection({ projectId, candidateId, open, onToggle }: Pers
       open={open}
       onToggle={onToggle}
       title="Timeline"
-      count={lines.length > 0 ? `${lines.length}${more ? "+" : ""}` : undefined}
+      count={lines.length > 0 ? `${lines.length}${more}` : undefined}
       summary={
         timeline.isSuccess
-          ? `${lines.length}${more ? "+" : ""} ${lines.length === 1 ? "entry" : "entries"} · who did what, and when`
+          ? `${lines.length}${more} ${lines.length === 1 ? "entry" : "entries"} · who did what, and when`
           : null
       }
     >
@@ -281,19 +288,31 @@ export function TimelineSection({ projectId, candidateId, open, onToggle }: Pers
       ) : lines.length === 0 ? (
         <p className="pb-3 text-[13px] text-u-text3">Nothing recorded yet.</p>
       ) : (
-        <ol className="flex flex-col gap-3 border-s border-dotted border-u-border-strong pb-3 ps-3.5">
-          {lines.map((line) => (
-            <li key={line.key}>
-              <p className="text-[13px]/[1.5] text-u-text2">
-                <span className="font-semibold text-u-text">{line.actorName}</span> {line.text}
-              </p>
-              <p className="mt-0.5 font-mono text-[11px] text-u-text3">
-                <time dateTime={line.occurredAt}>{formatActivityTime(line.occurredAt)}</time>
-                {line.detail && ` · ${line.detail}`}
-              </p>
-            </li>
-          ))}
-        </ol>
+        <div className="pb-3">
+          <ol className="flex flex-col gap-3 border-s border-dotted border-u-border-strong ps-3.5">
+            {lines.map((line) => (
+              <li key={line.key}>
+                <p className="text-[13px]/[1.5] text-u-text2">
+                  <span className="font-semibold text-u-text">{line.actorName}</span> {line.text}
+                </p>
+                <p className="mt-0.5 font-mono text-[11px] text-u-text3">
+                  <time dateTime={line.occurredAt}>{formatActivityTime(line.occurredAt)}</time>
+                  {line.detail && ` · ${line.detail}`}
+                </p>
+              </li>
+            ))}
+          </ol>
+          {hasNextPage && (
+            <button
+              type="button"
+              onClick={() => void fetchNextPage()}
+              disabled={isFetchingNextPage}
+              className="mt-3 text-note font-medium text-u-accent hover:underline disabled:opacity-60"
+            >
+              {isFetchingNextPage ? "Loading…" : "Load more"}
+            </button>
+          )}
+        </div>
       )}
     </CollapsibleSection>
   );

@@ -112,6 +112,113 @@ class PersonNotesIntegrationTest extends FlowTestSupport {
     }
 
     @Test
+    @DisplayName("a kind, group or pin nobody offers is a 400, never a null filed or a 500")
+    void anUnknownTokenIsRefused() throws Exception {
+        firm("Unknown Token Firm");
+        String cfo = mandate("Chief Financial Officer");
+        JsonNode filed = add(cfo, """
+                {"fullName":"Hamad Al Suwaidi"}""");
+        String candidateId = filed.get("id").asText();
+        String noteId = write(admin, cfo, candidateId, "general", "First call booked.").get("id").asText();
+
+        String postRefusal = codeOf(mvc.perform(post(notesUrl(cfo, candidateId))
+                        .header("Authorization", "Bearer " + admin)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"kind":"memo","body":"Filed under a kind nobody offers."}"""))
+                .andExpect(status().isBadRequest())
+                .andReturn());
+        assertThat(postRefusal).isEqualTo("VALIDATION_FAILED");
+        mvc.perform(put(notesUrl(cfo, candidateId) + "/" + noteId)
+                        .header("Authorization", "Bearer " + admin)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"kind":"memo","body":"Revised under a kind nobody offers."}"""))
+                .andExpect(status().isBadRequest());
+        mvc.perform(patch(notesUrl(cfo, candidateId) + "/" + noteId + "/pin")
+                        .header("Authorization", "Bearer " + admin)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{}"))
+                .andExpect(status().isBadRequest());
+
+        mvc.perform(get(timelineUrl(cfo, candidateId)).param("group", "everything")
+                        .header("Authorization", "Bearer " + admin))
+                .andExpect(status().isBadRequest());
+        mvc.perform(get("/api/v1/candidates/" + filed.get("personId").asText() + "/timeline")
+                        .param("group", "everything")
+                        .header("Authorization", "Bearer " + admin))
+                .andExpect(status().isBadRequest());
+        mvc.perform(get("/api/v1/candidates/activity").param("group", "everything")
+                        .header("Authorization", "Bearer " + admin))
+                .andExpect(status().isBadRequest());
+
+        JsonNode kept = notes(admin, cfo, candidateId);
+        assertThat(kept).hasSize(1);
+        assertThat(kept.get(0).get("kind").asText()).isEqualTo("general");
+        assertThat(kept.get(0).get("pinned").asBoolean()).isFalse();
+    }
+
+    @Test
+    @DisplayName("pinning a note is audited, though it leaves no timeline line")
+    void aPinIsAudited() throws Exception {
+        firm("Pin Audit Firm");
+        String cfo = mandate("Chief Financial Officer");
+        String candidateId = add(cfo, """
+                {"fullName":"Mariam Al Kaabi"}""").get("id").asText();
+        String noteId = write(admin, cfo, candidateId, "general", "Strong on treasury.").get("id").asText();
+
+        mvc.perform(patch(notesUrl(cfo, candidateId) + "/" + noteId + "/pin")
+                        .header("Authorization", "Bearer " + admin)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"pinned":true}"""))
+                .andExpect(status().isOk());
+
+        assertThat(db.queryForObject("""
+                SELECT count(*) FROM app_lm_audit_event
+                WHERE event_type = 'PERSON_NOTE_PINNED' AND metadata ->> 'noteId' = ?""", Integer.class, noteId))
+                .isEqualTo(1);
+        assertThat(kindsOf(timeline(cfo, candidateId, "notes").get("entries"))).containsExactly("NOTE_ADDED");
+    }
+
+    @Test
+    @DisplayName("on the workspace's routes a note is filed about a position only by someone seated on it")
+    void aPoolNoteAboutAPositionNeedsItsSeat() throws Exception {
+        firm("Pool Note Firm");
+        String cfo = mandate("Chief Financial Officer");
+        String credit = mandate("Head of Credit Risk");
+        String personId = add(cfo, """
+                {"fullName":"Yousef Haddad","linkedinUrl":"https://www.linkedin.com/in/yousef-pool"}""")
+                .get("personId").asText();
+        add(credit, """
+                {"fullName":"Yousef Haddad","linkedinUrl":"https://www.linkedin.com/in/yousef-pool"}""");
+        String sara = researcherOn(credit);
+
+        mvc.perform(post("/api/v1/candidates/" + personId + "/notes")
+                        .header("Authorization", "Bearer " + sara)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"kind":"general","body":"Filed against a mandate I am not on.","projectId":"%s"}"""
+                                .formatted(cfo)))
+                .andExpect(status().isForbidden());
+        JsonNode onCredit = body(mvc.perform(post("/api/v1/candidates/" + personId + "/notes")
+                        .header("Authorization", "Bearer " + sara)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"kind":"general","body":"Filed against my own mandate.","projectId":"%s"}"""
+                                .formatted(credit)))
+                .andExpect(status().isCreated())
+                .andReturn());
+        assertThat(onCredit.get("projectTitle").asText()).isEqualTo("Head of Credit Risk");
+        mvc.perform(post("/api/v1/candidates/" + personId + "/notes")
+                        .header("Authorization", "Bearer " + sara)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"kind":"general","body":"About no position at all."}"""))
+                .andExpect(status().isCreated());
+    }
+
+    @Test
     @DisplayName("a removed note leaves a line saying so and none of its words")
     void aRemovedNoteLeavesNoWords() throws Exception {
         firm("Removed Note Firm");

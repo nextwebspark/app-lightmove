@@ -24,10 +24,9 @@ public enum TimelineGroup implements ApiValueEnum {
     private final String value;
     private final Set<PersonActivityKind> kinds;
 
-    /** The kinds a filter shows; every kind when no group is asked for. */
+    /** The kinds a filter shows; every kind when no group is asked for, a 400 for a group nobody offers. */
     public static Set<PersonActivityKind> kindsOf(String group) {
-        return group == null || group.isBlank()
-                ? EnumSet.allOf(PersonActivityKind.class)
-                : ApiValueEnum.fromValue(TimelineGroup.class, group).kinds();
+        TimelineGroup chosen = ApiValueEnum.parse(TimelineGroup.class, group, null, "timeline group");
+        return chosen == null ? EnumSet.allOf(PersonActivityKind.class) : chosen.kinds();
     }
 }

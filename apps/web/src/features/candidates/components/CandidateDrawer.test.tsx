@@ -8,7 +8,7 @@ import { ApiRequestError } from "../../../lib/apiClient";
 import * as contactLookupApi from "../../contactlookup/api/contactLookupApi";
 import * as candidatesApi from "../api/candidatesApi";
 import * as personCrmApi from "../api/personCrmApi";
-import type { Candidate, PersonNote } from "../api/types";
+import type { Candidate, PersonNote, PersonTimelineEntry } from "../api/types";
 import { CandidateDrawer } from "./CandidateDrawer";
 
 vi.mock("../api/candidatesApi", async (importOriginal) => ({
@@ -588,6 +588,41 @@ describe("CandidateDrawer", () => {
     expect(candidatesApi.updateCandidate).not.toHaveBeenCalled();
     expect(await screen.findByText("Call in May")).toBeInTheDocument();
     expect(screen.getByText("Alok Kumar", { selector: "span" })).toBeInTheDocument();
+  });
+
+  it("reads the timeline a page at a time, the next from the last one's cursor", async () => {
+    const line = (id: number, kind: PersonTimelineEntry["kind"]): PersonTimelineEntry => ({
+      id,
+      kind,
+      occurredAt: "2026-09-30T10:00:00Z",
+      actorUserId: "u1",
+      actorName: "Alok Kumar",
+      actorAvatarUrl: null,
+      personId: "person-1",
+      personName: "Yasmin El-Sayed",
+      projectId: "p1",
+      projectTitle: "Chief Financial Officer",
+      details: {},
+      noteExcerpt: null,
+    });
+    vi.mocked(personCrmApi.getPersonTimeline).mockImplementation((_project, _candidate, before) =>
+      Promise.resolve(
+        before == null
+          ? { entries: [line(9, "PROFILE_EDITED")], nextCursor: 9 }
+          : { entries: [line(4, "ADDED_TO_POOL")], nextCursor: null },
+      ),
+    );
+    renderDrawer({ candidate: yasmin, company: null });
+
+    await userEvent.click(await screen.findByRole("button", { name: /^Timeline/ }));
+    expect(await screen.findByText("edited the profile")).toBeInTheDocument();
+    expect(screen.queryByText("added to this position")).not.toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole("button", { name: "Load more" }));
+
+    expect(await screen.findByText("added to this position")).toBeInTheDocument();
+    expect(personCrmApi.getPersonTimeline).toHaveBeenLastCalledWith("p1", "c1", 9, expect.anything());
+    expect(screen.queryByRole("button", { name: "Load more" })).not.toBeInTheDocument();
   });
 
   it("moves on to the profile it added rather than back to the grid", async () => {

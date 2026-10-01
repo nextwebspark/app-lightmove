@@ -1,3 +1,5 @@
 package app.lightmove.api.candidate.dto;
 
-public record PinPersonNoteRequest(boolean pinned) {}
+import jakarta.validation.constraints.NotNull;
+
+public record PinPersonNoteRequest(@NotNull Boolean pinned) {}
