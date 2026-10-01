@@ -18,6 +18,7 @@ import { SignupVerifyStepPage } from "../features/auth/pages/SignupVerifyStepPag
 import { VerifyEmailPage } from "../features/auth/pages/VerifyEmailPage";
 import { WorkspaceStepPage } from "../features/auth/pages/WorkspaceStepPage";
 import { isPureClient } from "../features/auth/roles";
+import { CandidatesPage } from "../features/candidates/pages/CandidatesPage";
 import { ClientsPage } from "../features/clients/pages/ClientsPage";
 import { ExtensionConnectPage } from "../features/extension/pages/ExtensionConnectPage";
 import { PositionPage } from "../features/position/pages/PositionPage";
@@ -25,6 +26,7 @@ import { ProjectPlaceholderPage } from "../features/position/pages/ProjectPlaceh
 import { ProjectsPage } from "../features/projects/pages/ProjectsPage";
 import { ReportsPage } from "../features/reports/pages/ReportsPage";
 import { TeamAccessPage } from "../features/projects/pages/TeamAccessPage";
+import { SettingsCandidateTagsPage } from "../features/settings/pages/SettingsCandidateTagsPage";
 import { SettingsGeneralPage } from "../features/settings/pages/SettingsGeneralPage";
 import { SettingsMembersPage } from "../features/settings/pages/SettingsMembersPage";
 import { SettingsProfilePage } from "../features/settings/pages/SettingsProfilePage";
@@ -91,6 +93,7 @@ export function AppRoutes() {
         <Route path="/" element={<ProjectsPage view="my" />} />
         <Route path="/all" element={<ProjectsPage view="all" />} />
         <Route element={<RequireStaff><Outlet /></RequireStaff>}>
+          <Route path="/candidates" element={<CandidatesPage />} />
           <Route path="/clients" element={<ClientsPage />} />
           <Route path="/team" element={<TeamPage />} />
         </Route>
@@ -133,6 +136,7 @@ export function AppRoutes() {
         <Route element={<RequireAdmin><Outlet /></RequireAdmin>}>
           <Route path="/settings/general" element={<SettingsGeneralPage />} />
           <Route path="/settings/members" element={<SettingsMembersPage />} />
+          <Route path="/settings/candidate-tags" element={<SettingsCandidateTagsPage />} />
           <Route path="/settings/templates" element={<TemplateListPage scope="workspace" />} />
           <Route path="/settings/templates/new" element={<TemplateEditorPage scope="workspace" />} />
           <Route path="/settings/templates/:code" element={<TemplateEditorPage scope="workspace" />} />

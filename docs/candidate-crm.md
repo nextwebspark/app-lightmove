@@ -9,9 +9,10 @@ Decided and approved 2026-09-30; phases carry a `> **Built**` callout as they la
 |---|---|
 | 0 — Mockups | **Done**, merged (#600): `claude-design/Candidates.dc.html`, `Position.dc.html`, `Settings.dc.html` |
 | 1 — Person/mapping split, auto-map, activity log (V91) | **Built**, merged (#602) |
-| 2 — Stored profile slug (V95) + golden reads | **Built** in #604. Merges once #602 is deployed |
-| 3 — Notes, timeline reads, `CANDIDATE_POOL_MANAGE` (V96, V97) | **Built** on `claude/candidate-crm-phase-3`, stacked on #604 |
-| 4 — Screens, owner/tags/do-not-contact, merge, possible-duplicate | **Next** |
+| 2 — Stored profile slug (V95) + golden reads | **Built**, merged (#604) |
+| 3 — Notes, timeline reads, `CANDIDATE_POOL_MANAGE` (V96, V97) | **Built**, merged (#609) |
+| 4a — The Candidates page, owner/tags/do-not-contact, tag settings (V98) | **Built** on `claude/laughing-hamilton-9mg6wh` |
+| 4b — Merge, possible-duplicate, the position's Candidates page | **Next** |
 | Final — Cleanup migration | Last, tracked in #606. Drops V91's frozen copies and the mapping's `note` once 3–4 are deployed |
 
 **Starting a new session on this plan:**
@@ -533,6 +534,44 @@ expand and the contract in separate deploys.
   `409 CANDIDATE_POSSIBLE_DUPLICATE` with the people it found. "Map existing" posts
   `/projects/{id}/candidates/map {personId}`, "Add as new" resends with `force: true`, and the extension
   offers "map" on the same code.
+
+> **Phase 4a — Built** (V98, `claude/laughing-hamilton-9mg6wh`). Phase 4 is two PRs, as Phases 1–3 were:
+> 4a is the workspace's own screens and the CRM fields, 4b the screens that act on a position.
+>
+> - **V98** adds `owner_user_id` and `do_not_contact` (+ reason, setter, time) to `app_lm_person`, the
+>   catalog `app_lm_workspace_candidate_tag` (unique per workspace on `lower(label)`, six colours,
+>   `retired_at` instead of deletion; every existing workspace seeded with the starter six, a later one on
+>   its first catalog read) and `app_lm_person_tag (person_id, tag_id)`. Who tagged whom is the timeline's,
+>   not a column: the person holds a `Set<UUID>`. Activity kinds gain `TAGGED`, `UNTAGGED`,
+>   `OWNER_CHANGED`, `DO_NOT_CONTACT_SET`, `DO_NOT_CONTACT_CLEARED`; a line keeps the tag's id and the
+>   owner's id, and the read names them as they are today. `rank` on the mapping is **not** built: no
+>   screen in either mockup ranks people, so it waits for the pipeline that would.
+> - **Pool read**: `GET /candidates` — search over name, title, a mapped employer and an email key
+>   (`ILIKE`, a plain scan per workspace: V33's reasoning, and no trigram extension), the four quick
+>   views with their counts under the other filters, tags any/all/none, position (+ status on it), owner
+>   (a user or `nobody`), country, four sorts, paged (the mockup draws every row; a pool of thousands
+>   cannot). `PersonPoolQuery` answers ids; the rows, mappings and each person's latest line load in
+>   batches.
+> - **Writes** (all `CANDIDATE_POOL_MANAGE`, each a timeline line and an audit event): owner (a colleague,
+>   `PERSON_OWNER_NOT_STAFF` otherwise), do not contact, tag/untag, bulk tag and bulk owner, and add to a
+>   position (`POST /candidates/bulk/position`, Identified, by hand, at the employer last recorded; the
+>   caller needs that position's `WORK_EXECUTE`). Tags: `GET|POST /candidate-tags` for any staff member,
+>   `PATCH /candidate-tags/{id}` (rename, recolour, retire, restore) for `WORKSPACE_MANAGE`.
+>   `CANDIDATE_TAG_EXISTS`, `CANDIDATE_TAG_RETIRED`.
+> - **Do not contact** refuses a contact lookup with `PERSON_DO_NOT_CONTACT` before anything is spent. It
+>   never blocks a mapping.
+> - **Export**: `GET /candidates/export` (the list's filters, or `person=` repeated for the ticked),
+>   audited `CANDIDATES_EXPORTED`, refused past `lightmove.export.max-candidates`.
+> - **SPA**: `/candidates` (staff nav item with the pool's size) with People and Activity views, the
+>   filter panel and chips, the selection bar's Add to position / Tag / Set owner / Export, and a drawer
+>   keyed by person id (`?person=&tab=`) — header with owner, do not contact and tags (the "+ Tag"
+>   picker creates one), Profile (positions with a status select where the viewer may work them, then
+>   the shared profile, read-only), Notes (an "About" select, pin, edit, delete) and Timeline (group
+>   chips, by day). Settings → Candidate tags is the admin's catalog.
+> - **Not in 4a, and why**: the drawer's Find email/phone (lookups are a position's `WORK_EXECUTE`
+>   routes; the drawer offers them from a position), the "Possible duplicates" quick view and the merge
+>   (4b, with the dialog), the position drawer's do-not-contact banner (4b, with the position's
+>   Candidates page).
 
 ### Final — Cleanup migration (after Phase 4, #606)
 

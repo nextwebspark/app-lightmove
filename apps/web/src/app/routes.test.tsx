@@ -162,7 +162,7 @@ describe("routes — the staff guard", () => {
     vi.mocked(workspaceApi.members).mockResolvedValue([]);
   });
 
-  it.each(["/clients", "/team"])("bounces a pure client who types %s", async (path) => {
+  it.each(["/clients", "/team", "/candidates"])("bounces a pure client who types %s", async (path) => {
     vi.mocked(authApi.me).mockResolvedValue(userWith(["CLIENT"]));
 
     renderAt(path);

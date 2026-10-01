@@ -39,9 +39,11 @@ const NOTE_VERBS: Record<string, string> = {
 export function timelineLines(
   entries: readonly PersonTimelineEntry[],
   currentProjectId: string | null,
+  { withPerson = false }: { withPerson?: boolean } = {},
 ): TimelineLine[] {
   return entries.map((entry) => {
-    const { text, detail } = phraseOf(entry, currentProjectId);
+    const person = withPerson ? (entry.personName ?? "someone") : null;
+    const { text, detail } = phraseOf(entry, currentProjectId, person);
     return {
       key: entry.id,
       actorName: entry.actorName ?? "Someone",
@@ -52,66 +54,114 @@ export function timelineLines(
   });
 }
 
+/**
+ * {@code person} is the subject's name in the workspace feed, where a line has to say whom it is
+ * about; in a person's own drawer it is null and the line leaves them out.
+ */
 function phraseOf(
   entry: PersonTimelineEntry,
   currentProjectId: string | null,
+  person: string | null,
 ): { text: string; detail: string | null } {
   const here = entry.projectId !== null && entry.projectId === currentProjectId;
   const where = here ? "this position" : (entry.projectTitle ?? "a position");
   const { details } = entry;
   const door = details.door ? (DOORS[details.door] ?? null) : null;
+  const them = person ? ` ${person}` : "";
+  const onThem = person ? ` on ${person}` : "";
+  const forThem = person ? ` for ${person}` : "";
 
   switch (entry.kind) {
     case "ADDED_TO_POOL":
       return {
-        text: here ? "added to this position" : `added to the candidates from ${where}`,
+        text: here ? `added${them} to this position` : `added${them} to the candidates from ${where}`,
         detail: door,
       };
     case "MAPPED":
       return {
-        text: `added to ${where}`,
+        text: `added${them} to ${where}`,
         detail: [door, "Already in your candidates, so added rather than duplicated"]
           .filter(Boolean)
           .join(" · "),
       };
     case "UNMAPPED":
-      return { text: `removed from ${where}`, detail: null };
+      return { text: `removed${them} from ${where}`, detail: null };
     case "STATUS_CHANGED":
       return {
-        text: `marked ${statusLabel(details.to)} on ${where}`,
+        text: `marked${them} ${statusLabel(details.to)} on ${where}`,
         detail: details.from ? `${statusLabel(details.from)} → ${statusLabel(details.to)}` : null,
       };
     case "PROFILE_EDITED":
       return {
-        text: "edited the profile",
+        text: person ? `edited${them}` : "edited the profile",
         detail: details.backgroundConfirmed === "true" ? "Background confirmed" : null,
       };
     case "CONTACTS_EDITED":
-      return { text: "edited the contacts", detail: null };
+      return { text: person ? `edited the contacts of ${person}` : "edited the contacts", detail: null };
     case "CONTACT_FOUND": {
       const what = details.channel === "PHONE" ? "a phone number" : "an email";
       const found = Number(details.found ?? "0");
       return found > 0
-        ? { text: `found ${what} through ${vendorOf(details.via) ?? "ContactOut"}`, detail: null }
-        : { text: `looked for ${what}`, detail: "None found" };
+        ? { text: `found ${what}${forThem} through ${vendorOf(details.via) ?? "ContactOut"}`, detail: null }
+        : { text: `looked for ${what}${forThem}`, detail: "None found" };
     }
     case "RESEARCHED":
       return {
-        text: "researched the profile",
+        text: person ? `researched ${person}` : "researched the profile",
         detail: vendorOf(details.vendor) ? `Through ${vendorOf(details.vendor)}` : null,
       };
     case "AI_ASSESSED":
-      return { text: "ran AI deep enrich", detail: here ? "Scored against this brief" : null };
+      return { text: `ran AI deep enrich${onThem}`, detail: here ? "Scored against this brief" : null };
     case "NOTE_ADDED":
       return {
-        text: `${NOTE_VERBS[details.kind ?? "GENERAL"] ?? NOTE_VERBS.GENERAL}${aboutOf(entry, here)}`,
+        text: `${NOTE_VERBS[details.kind ?? "GENERAL"] ?? NOTE_VERBS.GENERAL}${onThem}${aboutOf(entry, here)}`,
         detail: entry.noteExcerpt,
       };
     case "NOTE_EDITED":
-      return { text: `edited a note${aboutOf(entry, here)}`, detail: entry.noteExcerpt };
+      return { text: `edited a note${onThem}${aboutOf(entry, here)}`, detail: entry.noteExcerpt };
     case "NOTE_REMOVED":
-      return { text: `deleted a note${aboutOf(entry, here)}`, detail: null };
+      return { text: `deleted a note${onThem}${aboutOf(entry, here)}`, detail: null };
+    case "TAGGED":
+      return { text: `tagged${them} ${details.tag ?? "with a tag"}`, detail: null };
+    case "UNTAGGED":
+      return {
+        text: person ? `removed ${details.tag ?? "a tag"} from ${person}` : `removed the tag ${details.tag ?? ""}`.trim(),
+        detail: null,
+      };
+    case "OWNER_CHANGED":
+      return details.ownerUserId
+        ? { text: `made ${details.owner ?? "someone"} the owner${person ? ` of ${person}` : ""}`, detail: null }
+        : { text: `cleared the owner${person ? ` of ${person}` : ""}`, detail: null };
+    case "DO_NOT_CONTACT_SET":
+      return { text: `marked${them} do not contact`, detail: null };
+    case "DO_NOT_CONTACT_CLEARED":
+      return { text: `cleared do not contact${onThem}`, detail: null };
   }
+}
+
+/**
+ * A person's latest line as the Candidates grid's Last activity cell reads it: what was done, without
+ * the actor, sentence-cased; and who did it, when — "Today 10:12" or "22 Sep".
+ */
+export function lastActivityOf(entry: PersonTimelineEntry, now: Date = new Date()): { text: string; meta: string } {
+  const { text } = phraseOf(entry, null, null);
+  return {
+    text: text.charAt(0).toUpperCase() + text.slice(1),
+    meta: `${entry.actorName ?? "Someone"} · ${shortWhen(entry.occurredAt, now)}`,
+  };
+}
+
+export function shortWhen(isoInstant: string, now: Date = new Date()): string {
+  const at = new Date(isoInstant);
+  if (Number.isNaN(at.getTime())) return "—";
+  if (at.toDateString() === now.toDateString()) {
+    return `Today ${at.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" })}`;
+  }
+  return at.toLocaleDateString("en-GB", {
+    day: "numeric",
+    month: "short",
+    ...(at.getFullYear() === now.getFullYear() ? {} : { year: "numeric" }),
+  });
 }
 
 function aboutOf(entry: PersonTimelineEntry, here: boolean): string {

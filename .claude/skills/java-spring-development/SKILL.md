@@ -310,6 +310,13 @@ are that mandate's), and carries a triage company only when the employer happens
 Notes are the person's (`PersonNote`, V96), written and read through `PersonNoteService`, and the
 timeline is `PersonTimelineService`'s read of `app_lm_person_activity`; both are staff-only, so neither
 may ever ride `CandidateResponse`, which a client seat reads.
+The Candidates page is `CandidatePoolService` over `PersonPoolQuery` (one native `WHERE` built from fixed
+fragments, every value bound; it answers ids, and the rows load through the entities) — owner, tags and
+do not contact (V98) are the person's own methods, each change a timeline line and an audit event — and
+`CandidateTagService` owns the workspace's catalog. A person holds tags as a `Set<UUID>` element
+collection: an embeddable carrying who tagged them would make Hibernate delete by every column, a nullable
+one included, so who and when are the timeline's. The pool's CSV is `dataexport`'s
+(`CandidatePoolExportService`), reading through `CandidatePoolService.exportOf`.
 Every door files through `CandidateService`'s one filing step: `PersonMatcher` finds the person the
 workspace already knows (profile slug, then email; never phone or name alone) or a new one is founded,
 and `PersonActivityRecorder` writes the timeline line in the same transaction. The slug is a stored,
