@@ -69,7 +69,7 @@ class CandidateEnrichmentTest {
                 CandidateCompensation.unknown(),
                 new CandidateProfile(
                         List.of(new CandidateCareerEntry("The Firm They Told Us", "CFO", "2019 –", null)),
-                        List.of("French"), null, null, null),
+                        List.of("French"), null, null, null, null),
                 null);
         Person person = captured(typed);
 
@@ -257,6 +257,8 @@ class CandidateEnrichmentTest {
         assertThat(person.getProfile().education()).hasSize(1);
         assertThat(person.getProfile().skills()).containsExactly("Financial Planning");
         assertThat(person.getProfile().enrichedAt()).isEqualTo(enrichedAt);
+        assertThat(person.getProfile().employer()).isEqualTo(new ResearchedEmployerMark("Al Rawabi Dairy",
+                "https://media.example.com/alrawabi.png"));
     }
 
     @Test
@@ -286,7 +288,7 @@ class CandidateEnrichmentTest {
         return new CandidateDetails(fullName, title, null, CandidateStatus.IDENTIFIED, employerName,
                 null, null, "https://www.linkedin.com/in/sample-profile", null, null, null, null,
                 null, summary, null, CandidateCompensation.unknown(),
-                new CandidateProfile(career, languages, null, null, null), null);
+                new CandidateProfile(career, languages, null, null, null, null), null);
     }
 
     private static NationalityReading reading(String category, String confidence) {

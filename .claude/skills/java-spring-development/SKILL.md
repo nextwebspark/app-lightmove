@@ -348,7 +348,7 @@ method plus the records it returns — never another feature's internals:
   `TriagedCompanyLookup` — an interface `strategy` declares and `triagecompany` implements
   (`TriagedCompanyLookupAdapter`) — so the compile-time dependency stays one-way; only a bean
   satisfying the interface crosses back.
-- `candidate` calls `triagecompany` through exactly two public methods, both answering in
+- `candidate` calls `triagecompany` through exactly three public methods, the first two answering in
   triagecompany's own DTO: saving a candidate (`CandidateRequestReader`) calls
   `TriageCompanyService.requireCompanyOfProject` to resolve and scope-check the company an executive
   is being mapped to, and `CandidateService.applyResearch` calls `captureFromResearch` to file a
@@ -359,7 +359,9 @@ method plus the records it returns — never another feature's internals:
   **`triagecompany` never learns that people exist**, which is why the Companies grid composes the two
   sides in the SPA (one read for the page's companies, one for the people at them) rather than
   embedding candidates in the company list — and why the employer is filed by a call rather than by an
-  event triagecompany would have to know to listen for.
+  event triagecompany would have to know to listen for. The third, `TriageCompanyReadService.logoUrlsOf`,
+  answers a bare id → logo map for `PersonEmployerResolver`: the Candidates page draws a person's
+  employer with their position's company row's logo, ahead of the expiring one research sent.
 - `talentmap` reads through two seams built for it and answering in the owning feature's DTO:
   `TriageCompanyReadService.listAllOfStage` (one stage, unpaged, capped) and
   `CandidateService.listAllOfProject` (every executive, capped). It pairs people with companies

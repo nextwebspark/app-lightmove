@@ -269,6 +269,6 @@ class CandidateContactLedgerTest {
                 phone == null ? List.of() : List.of(ContactEntry.of(phone)),
                 "https://www.linkedin.com/in/sample-profile", null, null, null, null, null,
                 null, null, CandidateCompensation.unknown(),
-                new CandidateProfile(null, null, null, null, null), null);
+                new CandidateProfile(null, null, null, null, null, null), null);
     }
 }

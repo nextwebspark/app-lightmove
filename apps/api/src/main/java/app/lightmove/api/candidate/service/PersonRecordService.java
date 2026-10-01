@@ -4,7 +4,6 @@ import app.lightmove.api.candidate.dto.DoNotContactResponse;
 import app.lightmove.api.candidate.dto.PersonPositionResponse;
 import app.lightmove.api.candidate.dto.PersonRecordResponse;
 import app.lightmove.api.candidate.model.Candidate;
-import app.lightmove.api.candidate.model.CandidateCareerEntry;
 import app.lightmove.api.candidate.model.Person;
 import app.lightmove.api.candidate.model.StoredPhoto;
 import app.lightmove.api.candidate.repository.CandidateRepository;
@@ -78,7 +77,7 @@ public class PersonRecordService {
                 mapped.stream().map(Candidate::getAddedBy)).toList());
         User filer = named.get(person.getCreatedBy());
         return new PersonRecordResponse(person.getId(), person.getFullName(), person.getTitle(),
-                employerOf(person, mapped),
+                PersonEmployerResolver.employerOf(person, mapped).name(),
                 person.getSeniorityLevel() == null ? null : person.getSeniorityLevel().value(),
                 person.getLinkedinUrl(), person.getProfile().enrichedAt(), person.getLocationCity(),
                 person.getLocationCountry(),
@@ -103,21 +102,6 @@ public class PersonRecordService {
         List<Candidate> mapped = candidates.findPositionsOfPerson(workspaceId, personId);
         return positionsOf(userId, workspaceId, mapped, currentProjectId,
                 usersOf(mapped.stream().map(Candidate::getAddedBy).toList()));
-    }
-
-    /**
-     * The employer the Candidates page names beside a person: what their most recent position recorded,
-     * else the first post of their career.
-     */
-    static String employerOf(Person person, List<Candidate> mappedOldestFirst) {
-        for (int index = mappedOldestFirst.size() - 1; index >= 0; index--) {
-            String recorded = mappedOldestFirst.get(index).getCompanyName();
-            if (recorded != null && !recorded.isBlank()) {
-                return recorded;
-            }
-        }
-        return person.getProfile().career().stream()
-                .map(CandidateCareerEntry::company).filter(Objects::nonNull).findFirst().orElse(null);
     }
 
     private List<PersonPositionResponse> positionsOf(UUID userId, UUID workspaceId, List<Candidate> mapped,

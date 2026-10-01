@@ -5,6 +5,7 @@ import app.lightmove.api.core.error.model.ApiException;
 import app.lightmove.api.triagecompany.constant.TriageCompanyStatus;
 import app.lightmove.api.triagecompany.model.TriageCompany;
 import app.lightmove.api.triagecompany.model.TriageCompanyCount;
+import app.lightmove.api.triagecompany.model.TriageCompanyLogo;
 import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
@@ -81,4 +82,8 @@ public interface TriageCompanyRepository extends JpaRepository<TriageCompany, UU
             + "where t.projectId = :projectId and lower(t.companyName) in :lowerCaseNames")
     List<TriageCompany> findByProjectIdAndLowerCaseCompanyNameIn(
             @Param("projectId") UUID projectId, @Param("lowerCaseNames") Collection<String> lowerCaseNames);
+
+    @Query("select new app.lightmove.api.triagecompany.model.TriageCompanyLogo(t.id, t.projectId, t.logoUrl) "
+            + "from TriageCompany t where t.id in :ids and t.logoUrl is not null")
+    List<TriageCompanyLogo> findLogosByIdIn(@Param("ids") Collection<UUID> ids);
 }

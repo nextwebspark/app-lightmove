@@ -1,6 +1,7 @@
 package app.lightmove.api.candidate;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -107,6 +108,27 @@ class CandidateEnrichmentIntegrationTest extends FlowTestSupport {
         assertThat(company.get("industry").asText()).isEqualTo("food & beverages");
         assertThat(company.get("numEmployees").asInt()).isEqualTo(1200);
         assertThat(company.get("source").asText()).isEqualTo("extension");
+    }
+
+    @Test
+    @DisplayName("the Candidates page draws the position's company logo, and research's once that company is removed")
+    void theCandidatesPageDrawsTheEmployerLogo() throws Exception {
+        String projectId = mandate("Employer Logo Firm");
+        enricher.answerWith(RESEARCH);
+        capture(projectId, "Sample Person", "sample-profile");
+        String companyId = firstCandidateOf(projectId).get("triageCompanyId").asText();
+        db.update("UPDATE app_lm_project_triage_company SET logo_url = ? WHERE id = ?::uuid",
+                "https://logos.example/filed.png", companyId);
+
+        assertThat(poolRow().get("companyLogoUrl").asText()).isEqualTo("https://logos.example/filed.png");
+
+        mvc.perform(delete(triageUrl(projectId) + "/" + companyId)
+                        .header("Authorization", "Bearer " + adminToken))
+                .andExpect(status().isNoContent());
+
+        JsonNode unmapped = poolRow();
+        assertThat(unmapped.get("companyName").asText()).isEqualTo("Al Rawabi Dairy");
+        assertThat(unmapped.get("companyLogoUrl").asText()).isEqualTo("https://media.example.com/alrawabi.png");
     }
 
     @Test
@@ -540,6 +562,13 @@ class CandidateEnrichmentIntegrationTest extends FlowTestSupport {
                                  "linkedinUrl":"https://www.linkedin.com/in/sample-profile",%s}
                                 """.formatted(background)))
                 .andExpect(status().isCreated());
+    }
+
+    private JsonNode poolRow() throws Exception {
+        return body(mvc.perform(get("/api/v1/candidates")
+                        .header("Authorization", "Bearer " + adminToken))
+                .andExpect(status().isOk())
+                .andReturn()).get("people").get(0);
     }
 
     private JsonNode firstCandidateOf(String projectId) throws Exception {
