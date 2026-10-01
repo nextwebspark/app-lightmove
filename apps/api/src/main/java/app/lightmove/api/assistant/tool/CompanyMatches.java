@@ -1,6 +1,7 @@
 package app.lightmove.api.assistant.tool;
 
 import app.lightmove.api.strategy.model.CompanyRow;
+import app.lightmove.api.triagecompany.model.MandateStages;
 import java.util.List;
 
 /**
@@ -17,5 +18,16 @@ public record CompanyMatches(long matched, int showing, List<MarketCompanySummar
 
     CompanyMatches withAdjacentIndustries(List<String> adjacent) {
         return new CompanyMatches(matched, showing, companies, adjacent);
+    }
+
+    CompanyMatches withMandateStages(MandateStages stages) {
+        return new CompanyMatches(matched, showing, companies.stream()
+                .map(company -> company.inMandateAs(
+                        stages.stageTokenOf(company.apolloAccountId(), company.companyName())))
+                .toList(), adjacentIndustries);
+    }
+
+    long alreadyInMandate() {
+        return companies.stream().filter(company -> company.mandateStage() != null).count();
     }
 }

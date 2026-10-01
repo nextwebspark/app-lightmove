@@ -76,6 +76,36 @@ describe("the assistant's company card", () => {
     expect(onAccept).toHaveBeenCalledWith(["a1", "ikea"], "shortlisted");
   });
 
+  it("shows a company the mandate already holds with its stage, unticked and not offered for filing", async () => {
+    const { onAccept } = mount({
+      proposal: {
+        title: "Utilities",
+        companies: [company("a1"), company("a2", { stage: "declined" })],
+      },
+    });
+
+    expect(screen.getByText("Declined")).toHaveAttribute("title", "Already in this mandate as Declined");
+    const held = screen.getByRole("checkbox", { name: "Company a2 is already Declined" });
+    expect(held).not.toBeChecked();
+    expect(held).toBeDisabled();
+
+    await userEvent.click(screen.getByRole("button", { name: "Shortlist" }));
+
+    expect(onAccept).toHaveBeenCalledWith(["a1"], "shortlisted");
+  });
+
+  it("offers nothing to file when every company is already in the mandate", () => {
+    mount({
+      proposal: {
+        title: "Utilities",
+        companies: [company("a1", { stage: "inUniverse" }), company("a2", { stage: "shortlisted" })],
+      },
+    });
+
+    expect(screen.getByText("All already in this mandate")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Shortlist" })).toBeDisabled();
+  });
+
   it("shows what was filed instead of the buttons once filed", () => {
     mount({ outcome: { status: null, added: 2, skipped: 1 } });
 

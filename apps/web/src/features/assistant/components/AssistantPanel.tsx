@@ -23,6 +23,11 @@ function withWritingStep(steps: LiveStep[]): LiveStep[] {
   return [...steps, { index: steps.length, label: "Writing the answer", detail: null, done: false }];
 }
 
+/** A slow answer is still being saved: asking again would pay for it twice. */
+function isStillAnswering(error: unknown): boolean {
+  return error instanceof ApiRequestError && error.code === "ASSISTANT_STILL_ANSWERING";
+}
+
 /**
  * Stands in for the card until the turn is saved: a card drawn early is redrawn under the answer
  * once it lands, which read as a glitch.
@@ -110,16 +115,20 @@ export function AssistantPanel({ contextLabel, projectId }: { contextLabel: stri
       queryClient.setQueryData(key, fresh);
       showThread(projectId, turn.threadId);
     },
-    // A slow answer is still saved, so it is looked for again rather than asked for again.
-    onError: (error) => {
+    // A slow answer is still saved, so it is looked for again rather than asked for again. Any other
+    // failure saved nothing, so the question goes back in the composer — the one way to resend it,
+    // editable first — unless the person has already started typing something else.
+    onError: (error, question) => {
       setPendingQuestion(null);
       setLiveProposal(null);
-      if (error instanceof ApiRequestError && error.code === "ASSISTANT_STILL_ANSWERING") {
-        void queryClient.invalidateQueries({ queryKey: assistantApi.ASSISTANT_THREADS_KEY(projectId) });
-        if (threadId) {
-          const key = assistantApi.ASSISTANT_THREAD_KEY(threadId);
-          window.setTimeout(() => void queryClient.invalidateQueries({ queryKey: key }), STILL_ANSWERING_RECHECK_MS);
-        }
+      if (!isStillAnswering(error)) {
+        setDraft((current) => current || question);
+        return;
+      }
+      void queryClient.invalidateQueries({ queryKey: assistantApi.ASSISTANT_THREADS_KEY(projectId) });
+      if (threadId) {
+        const key = assistantApi.ASSISTANT_THREAD_KEY(threadId);
+        window.setTimeout(() => void queryClient.invalidateQueries({ queryKey: key }), STILL_ANSWERING_RECHECK_MS);
       }
     },
   });

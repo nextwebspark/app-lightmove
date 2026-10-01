@@ -74,4 +74,11 @@ public interface TriageCompanyRepository extends JpaRepository<TriageCompany, UU
     boolean existsByProjectIdAndCompanyNameIgnoreCase(UUID projectId, String companyName);
 
     List<TriageCompany> findByProjectIdAndCompanyNameIgnoreCase(UUID projectId, String companyName);
+
+    List<TriageCompany> findByProjectIdAndApolloAccountIdIn(UUID projectId, Collection<String> apolloAccountIds);
+
+    @Query("select t from TriageCompany t "
+            + "where t.projectId = :projectId and lower(t.companyName) in :lowerCaseNames")
+    List<TriageCompany> findByProjectIdAndLowerCaseCompanyNameIn(
+            @Param("projectId") UUID projectId, @Param("lowerCaseNames") Collection<String> lowerCaseNames);
 }
