@@ -83,7 +83,7 @@ export function PossibleDuplicateDialog({
         )}
       </div>
       <p className="mt-3 font-mono text-[11.5px] text-u-text3">
-        A matching LinkedIn URL, email or phone is never asked about — that person is simply added here.
+        A matching LinkedIn URL or email is never asked about — that person is simply added here.
       </p>
     </Modal>
   );

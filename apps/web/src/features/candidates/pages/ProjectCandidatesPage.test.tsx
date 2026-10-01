@@ -29,7 +29,7 @@ vi.mock("../../projects/api/projectsApi", async (importOriginal) => ({
   ...(await importOriginal<typeof import("../../projects/api/projectsApi")>()),
   projects: vi.fn().mockResolvedValue([]),
 }));
-vi.mock("../../reports/components/ReportCandidateDrawer", () => ({ ReportCandidateDrawer: () => null }));
+vi.mock("../components/CandidateDrawerById", () => ({ CandidateDrawerById: () => null }));
 
 let currentUser: User = aUser();
 vi.mock("../../auth/AuthProvider", () => ({ useAuth: () => ({ user: currentUser }) }));

@@ -115,8 +115,9 @@ export function AddCandidateForm({
     },
     onError: (error, payload) => {
       const code = codeOf(error);
-      if (code === "CANDIDATE_POSSIBLE_DUPLICATE" && error instanceof ApiRequestError) {
-        setPausedAdd({ payload, personIds: error.problem.personIds ?? [] });
+      const namesakes = error instanceof ApiRequestError ? (error.problem.personIds ?? []) : [];
+      if (code === "CANDIDATE_POSSIBLE_DUPLICATE" && namesakes.length > 0) {
+        setPausedAdd({ payload, personIds: namesakes });
         return;
       }
       setPausedAdd(null);
@@ -238,7 +239,7 @@ export function AddCandidateForm({
       </form>
       </FormProvider>
 
-      {pausedAdd && pausedAdd.personIds.length > 0 && (
+      {pausedAdd && (
         <PossibleDuplicateDialog
           fullName={pausedAdd.payload.fullName}
           employerName={company?.companyName ?? pausedAdd.payload.employerName ?? ""}

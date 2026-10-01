@@ -10,10 +10,10 @@ import { formatInstantDate } from "../../../lib/format";
 import { useDebouncedValue } from "../../../lib/useComboboxList";
 import { useAuth } from "../../auth/AuthProvider";
 import { canExecuteProjectWork } from "../../projects/lib/access";
-import { ReportCandidateDrawer } from "../../reports/components/ReportCandidateDrawer";
 import * as candidatesApi from "../api/candidatesApi";
 import type { Candidate, CandidatePipelineStaffRow, CandidateStatus } from "../api/types";
 import { AddFromPoolPicker } from "../components/AddFromPoolPicker";
+import { CandidateDrawerById } from "../components/CandidateDrawerById";
 import { CandidateAvatar } from "../components/CandidateAvatar";
 import { TagPill } from "../components/pool/TagPill";
 import { lastActivityOf, shortWhen } from "../lib/candidateActivity";
@@ -198,7 +198,7 @@ export function ProjectCandidatesPage() {
       )}
 
       {isPickerOpen && <AddFromPoolPicker projectId={project.id} onClose={() => setPickerOpen(false)} />}
-      <ReportCandidateDrawer project={project} candidateId={openCandidateId} onClose={() => setOpenCandidateId(null)} />
+      <CandidateDrawerById project={project} candidateId={openCandidateId} onClose={() => setOpenCandidateId(null)} />
     </div>
   );
 }

@@ -604,8 +604,12 @@ maps the person. Phone is still not a key.
 > - **The answer is a resend, not a separate `/map` route.** `SaveCandidateRequest` gains two fields,
 >   both read on a hand-typed add only:
 >   - `existingPersonId` ("Yes — add them here") files that workspace person. What the form typed fills
->     their empty fields, and the form's note is filed, as on any key match. A person outside the
->     workspace answers 404.
+>     their empty fields, and the form's note is filed, as on any key match.
+>     - The keys still decide first. If the typed LinkedIn URL or email is someone else's, the answer is
+>       `409 CANDIDATE_KEYS_NAME_ANOTHER`, because filing it onto the chosen person would give two people
+>       one key.
+>     - Without a key match, only an id `possibleDuplicates` would name is taken. Any other id answers 404,
+>       so a stranger is never mapped under a typed name the mandate's name rule never saw.
 >   - `addAsNewPerson` ("No — add a different person") founds a new person.
 >
 >   A separate map-by-id route would have dropped everything the form held: the employer row, the note,
@@ -613,12 +617,21 @@ maps the person. Phone is still not a key.
 > - **The position's Candidates page** (`/projects/:id/candidates`, `ProjectCandidatesPage`) makes two
 >   reads in `CandidatePipelineController`. The grid's own list is left alone.
 >   - `GET …/candidates/pipeline?q=&status=&page=&size=` (`WORK_VIEW`): a client seat reads it too.
->     `q` searches name, title and employer; `statusCounts` counts the search without the status filter.
+>     `q` searches name, title and employer, with `%` and `_` escaped by `core/text`'s `LikePatterns`.
+>     That is now the one escaper, shared with the pool and the Apollo search. `statusCounts` counts the
+>     search without the status filter.
 >   - `GET …/candidates/pipeline/staff?candidateId=…` (`WORK_EXECUTE`, after `report/team`): tags, the
 >     person's other positions, who filed them here, do not contact, and their latest timeline line.
 >     It is capped at the list's maximum page size, and ids that are not this mandate's are dropped.
 >   - A client seat sees Executive, Status (a pill) and the date only, and never makes the second read.
->   - A row opens the same executive drawer the report uses.
+>   - A row opens `CandidateDrawerById`, which moved from `reports` into `candidates` so the two features
+>     depend one way. The report passes its own refresh as `onChanged`.
+> - **The soft match is a scan.** `findNamedAtEmployer` runs on every hand-typed add the keys miss. It
+>   compares `lower(full_name)` against the mappings' snapshotted `company_name`, a plain scan per
+>   workspace (V33's stance).
+>   - If the pool grows, the index to add is `app_lm_person (workspace_id, lower(full_name))`.
+>   - The query reads the mapping's own `company_name`, which the final cleanup (#606) keeps; it must
+>     not be dropped with the frozen columns.
 > - **Add from your candidates** (`AddFromPoolPicker`) searches the pool, disables anyone already on the
 >   position, and files through `POST /candidates/bulk/position` as Identified. There is no new route.
 > - **Do not contact** shows in two places, staff only:
