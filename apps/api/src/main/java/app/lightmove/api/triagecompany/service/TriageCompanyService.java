@@ -305,7 +305,7 @@ public class TriageCompanyService {
      * Ordered on purpose: an unordered {@code getFirst} mapped people to whichever same-named row
      * Postgres returned, including a declined one where nobody would look for them.
      */
-    private static TriageCompany preferred(List<TriageCompany> rows) {
+    static TriageCompany preferred(List<TriageCompany> rows) {
         return rows.stream()
                 .min(Comparator
                         .comparing((TriageCompany row) -> row.getStatus() == TriageCompanyStatus.DECLINED)

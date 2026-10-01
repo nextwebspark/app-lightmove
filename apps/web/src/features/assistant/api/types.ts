@@ -2,7 +2,8 @@ import type { TriageCompanyStatus } from "../../triage/api/types";
 
 /**
  * A universe company carries its account id; one researched on LinkedIn carries its slug instead.
- * `operates` names the global brand a local partner runs.
+ * `operates` names the global brand a local partner runs. `stage` is where the mandate already held
+ * it when the card was made; such a company is shown but not offered for filing.
  */
 export type ProposedCompany = {
   apolloAccountId: string | null;
@@ -12,6 +13,7 @@ export type ProposedCompany = {
   employees: number | null;
   logoUrl: string | null;
   operates?: string | null;
+  stage?: TriageCompanyStatus | null;
 };
 
 /** How the card and an accept name a company: its account id, else its LinkedIn slug. */

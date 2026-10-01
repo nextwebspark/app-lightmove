@@ -123,12 +123,13 @@ public class AssistantService {
                                      AssistantThread existing, String question,
                                      Consumer<AssistantStepEvent> onStep,
                                      Consumer<AssistantProposal> onProposal) {
-        List<AssistantTurn> history = existing == null ? List.of()
-                : turns.findByThreadIdOrderByCreatedAtAsc(existing.getId());
+        List<AssistantTurn> history = recentOf(existing == null ? List.of()
+                : turns.findByThreadIdOrderByCreatedAtAsc(existing.getId()));
 
         TurnRecorder recorder = new TurnRecorder(onStep, onProposal);
+        rememberEarlierCards(history, recorder);
         AssistantToolContext context = new AssistantToolContext(workspaceId, projectId, recorder);
-        String answer = callModel(question, history, context);
+        String answer = CardMemory.stripFrom(callModel(question, history, context));
         proposalTools.proposeWhatWasFound(context);
 
         AssistantTurnResponse saved = transactions.execute(status -> {
@@ -180,16 +181,47 @@ public class AssistantService {
         }
     }
 
-    private List<Message> conversation(List<AssistantTurn> history, String question) {
-        List<AssistantTurn> recent = history.subList(
-                Math.max(0, history.size() - settings.historyWindow()), history.size());
-        List<Message> messages = new ArrayList<>(recent.size() * 2 + 1);
-        for (AssistantTurn turn : recent) {
+    private List<AssistantTurn> recentOf(List<AssistantTurn> history) {
+        return history.subList(Math.max(0, history.size() - settings.historyWindow()), history.size());
+    }
+
+    /** Researched pages ride on the stored card, so an earlier company can be proposed again unbilled. */
+    private static void rememberEarlierCards(List<AssistantTurn> history, TurnRecorder recorder) {
+        for (AssistantTurn turn : history) {
+            AssistantProposal card = turn.getProposal();
+            if (card == null) {
+                continue;
+            }
+            card.researched().forEach(recorder::remember);
+            card.companies().stream()
+                    .filter(company -> company.operates() != null && company.key() != null)
+                    .forEach(company -> recorder.operates(company.key(), company.operates()));
+        }
+    }
+
+    /**
+     * Each earlier answer carries the card it showed, which the answer's own text never lists — the
+     * newest {@link CardMemory#CARDS_LISTED_IN_FULL} row by row, older ones as a title and a count.
+     */
+    private static List<Message> conversation(List<AssistantTurn> history, String question) {
+        List<Message> messages = new ArrayList<>(history.size() * 2 + 1);
+        int cardsLeft = (int) history.stream().filter(AssistantService::hasCard).count();
+        for (AssistantTurn turn : history) {
             messages.add(new UserMessage(turn.getQuestion()));
-            messages.add(new AssistantMessage(turn.getAnswer()));
+            if (!hasCard(turn)) {
+                messages.add(new AssistantMessage(turn.getAnswer()));
+                continue;
+            }
+            boolean listed = cardsLeft-- <= CardMemory.CARDS_LISTED_IN_FULL;
+            messages.add(new AssistantMessage(turn.getAnswer() + "\n\n"
+                    + CardMemory.render(turn.getProposal(), turn.getProposalAccepted(), listed)));
         }
         messages.add(new UserMessage(question));
         return messages;
+    }
+
+    private static boolean hasCard(AssistantTurn turn) {
+        return turn.getProposal() != null && !turn.getProposal().companies().isEmpty();
     }
 
     private static String titleOf(String question) {

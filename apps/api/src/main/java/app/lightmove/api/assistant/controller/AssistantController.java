@@ -53,8 +53,7 @@ public class AssistantController {
     @RequireProjectPermission(ProjectAction.WORK_EXECUTE)
     public List<AssistantThreadSummary> threads(
             @AuthenticationPrincipal AuthPrincipal principal, @PathVariable UUID projectId) {
-        return 
-                assistant.threads(principal.userId(), principal.requireWorkspaceId(), projectId);
+        return assistant.threads(principal.userId(), principal.requireWorkspaceId(), projectId);
     }
 
     /** Streams the steps as they happen, then the saved turn — see {@code AssistantAskStream}. */
@@ -72,8 +71,7 @@ public class AssistantController {
     @PreAuthorize("@workspaceAuthorizer.member(principal)")
     public AssistantThreadResponse thread(@AuthenticationPrincipal AuthPrincipal principal,
                                           @PathVariable UUID threadId) {
-        return 
-                assistant.thread(threadId, principal.userId(), principal.requireWorkspaceId());
+        return assistant.thread(threadId, principal.userId(), principal.requireWorkspaceId());
     }
 
     /** {@code WORK_EXECUTE} is checked inside, against the project the stored chat belongs to. */
