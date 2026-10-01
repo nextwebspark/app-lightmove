@@ -114,7 +114,19 @@ public record SaveCandidateRequest(
         Map<String, String> customFields,
 
         /** True from the drawer's Background save: the reader has reviewed its AI-proposed values. */
-        Boolean confirmBackground
+        Boolean confirmBackground,
+
+        /**
+         * The possible-duplicate dialog's "add a different person": file a new person even though the
+         * workspace holds someone of that name at that employer. Read on a hand-typed add only.
+         */
+        Boolean addAsNewPerson,
+
+        /**
+         * The same dialog's "add them here": file this workspace person rather than whoever the keys
+         * would find. Read on a hand-typed add only.
+         */
+        UUID existingPersonId
 ) {
 
     /** An executive found by a people search: who and where they are, everything else left to research. */
@@ -123,6 +135,6 @@ public record SaveCandidateRequest(
                                                         String locationCity) {
         return new SaveCandidateRequest(triageCompanyId, fullName, title, null, null, null, null, null, null, null,
                 linkedinUrl, locationCountry, locationCity, null, null, null, null, null, null, null, null, null,
-                null, null, null);
+                null, null, null, null, null);
     }
 }

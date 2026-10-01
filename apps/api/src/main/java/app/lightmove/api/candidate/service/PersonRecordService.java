@@ -143,7 +143,7 @@ public class PersonRecordService {
                 .toList();
     }
 
-    private static DoNotContactResponse doNotContactOf(Person person, Map<UUID, User> named) {
+    static DoNotContactResponse doNotContactOf(Person person, Map<UUID, User> named) {
         if (!person.isDoNotContact()) {
             return null;
         }

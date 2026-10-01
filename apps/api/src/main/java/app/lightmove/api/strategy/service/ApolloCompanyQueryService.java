@@ -1,6 +1,7 @@
 package app.lightmove.api.strategy.service;
 
 import app.lightmove.api.common.constant.ApiValueEnum;
+import app.lightmove.api.core.text.service.LikePatterns;
 import app.lightmove.api.strategy.constant.CompanySizeBand;
 import app.lightmove.api.strategy.constant.CompanySortField;
 import app.lightmove.api.strategy.constant.EmployeeBand;
@@ -93,7 +94,7 @@ public class ApolloCompanyQueryService {
 
     /** Ranked prefix match first, then by size: three letters usually mean the biggest match. */
     public List<CompanyRow> typeahead(String query, int limit) {
-        String pattern = escapeLikePattern(query);
+        String pattern = LikePatterns.escape(query);
         return jdbc.sql("""
                         SELECT %s
                         FROM app_lm_apollo_companies
@@ -116,7 +117,7 @@ public class ApolloCompanyQueryService {
      */
     public Optional<CompanyRow> matchEmployer(String linkedInSlug, String companyName) {
         if (linkedInSlug != null && !linkedInSlug.isBlank()) {
-            String pattern = escapeLikePattern(linkedInSlug.toLowerCase(Locale.ROOT));
+            String pattern = LikePatterns.escape(linkedInSlug.toLowerCase(Locale.ROOT));
             List<CompanyRow> bySlug = jdbc.sql("""
                             SELECT %s
                             FROM app_lm_apollo_companies
@@ -221,7 +222,7 @@ public class ApolloCompanyQueryService {
      * it; {@code LIKE} suffices because every keyword there is lower-case.
      */
     public List<FacetCount> keywordSuggestions(String query, int limit, int minCompanies) {
-        String pattern = escapeLikePattern(query.toLowerCase(Locale.ROOT));
+        String pattern = LikePatterns.escape(query.toLowerCase(Locale.ROOT));
         return jdbc.sql("""
                         SELECT keyword AS label, company_count AS count
                         FROM app_lm_apollo_keywords
@@ -322,7 +323,7 @@ public class ApolloCompanyQueryService {
         }
         if (scope.nameQuery() != null) {
             clauses.add("company_name ILIKE :nameQuery ESCAPE '\\'");
-            params.put("nameQuery", "%" + escapeLikePattern(scope.nameQuery()) + "%");
+            params.put("nameQuery", "%" + LikePatterns.escape(scope.nameQuery()) + "%");
         }
         return new WhereClause(clauses.isEmpty() ? "TRUE" : String.join(" AND ", clauses), params);
     }
@@ -479,9 +480,5 @@ public class ApolloCompanyQueryService {
 
     private static List<String> lowered(List<String> values) {
         return values.stream().map(value -> value.toLowerCase(Locale.ROOT)).toList();
-    }
-
-    private static String escapeLikePattern(String query) {
-        return query.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_");
     }
 }

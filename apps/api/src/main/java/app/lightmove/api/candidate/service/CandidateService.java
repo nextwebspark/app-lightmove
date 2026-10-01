@@ -8,6 +8,7 @@ import app.lightmove.api.candidate.constant.ContactSource;
 import app.lightmove.api.candidate.constant.PersonActivityKind;
 import app.lightmove.api.candidate.constant.ProfileClaim;
 import app.lightmove.api.candidate.dto.CandidateListCriteria;
+import app.lightmove.api.candidate.dto.CandidatePipelineResponse;
 import app.lightmove.api.candidate.dto.CandidateResponse;
 import app.lightmove.api.candidate.dto.CandidatesResponse;
 import app.lightmove.api.candidate.dto.MapPeopleToPositionResponse;
@@ -39,6 +40,7 @@ import app.lightmove.api.candidate.model.StoredPhoto;
 import app.lightmove.api.candidate.repository.CandidateRepository;
 import app.lightmove.api.candidate.repository.PersonPhotoRepository;
 import app.lightmove.api.candidate.repository.PersonRepository;
+import app.lightmove.api.common.constant.ApiValueEnum;
 import app.lightmove.api.core.audit.constant.ProjectEventType;
 import app.lightmove.api.core.audit.service.AuditService;
 import app.lightmove.api.core.config.CompanyListSettings;
@@ -47,6 +49,7 @@ import app.lightmove.api.core.error.constant.ErrorCode;
 import app.lightmove.api.core.error.model.ApiException;
 import app.lightmove.api.core.stream.ProjectStreamKind;
 import app.lightmove.api.core.stream.ProjectStreamPublisher;
+import app.lightmove.api.core.text.service.LikePatterns;
 import app.lightmove.api.core.text.service.LinkedInUrls;
 import app.lightmove.api.customcolumn.constant.CustomColumnTarget;
 import app.lightmove.api.customcolumn.service.CustomColumnService;
@@ -58,7 +61,9 @@ import jakarta.servlet.http.HttpServletRequest;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
@@ -174,6 +179,37 @@ public class CandidateService {
                 found.getTotalElements(), page, size);
     }
 
+    /**
+     * The position's Candidates page: the mandate's executives, searched on name, title and employer,
+     * at one status or all, with each status counted under the same search.
+     */
+    @Transactional(readOnly = true)
+    public CandidatePipelineResponse pipeline(UUID workspaceId, UUID projectId, String query, String statusToken,
+                                              Integer requestedPage, Integer requestedSize) {
+        int page = requestedPage == null ? 0 : requestedPage;
+        int size = requestedSize == null ? listConfig.defaultPageSize() : requestedSize;
+        listConfig.requireValidPage(page, size);
+        projects.requireInWorkspace(projectId, workspaceId);
+
+        List<CandidateStatus> statuses = statusToken == null || statusToken.isBlank()
+                ? List.of(CandidateStatus.values())
+                : List.of(ApiValueEnum.require(CandidateStatus.class, statusToken, "candidate status"));
+        String like = "%" + LikePatterns.escape(query == null ? "" : query.trim().toLowerCase(Locale.ROOT)) + "%";
+
+        Page<Candidate> found = candidates.findPipelinePage(projectId, statuses, like,
+                PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "createdAt").and(Sort.by("id"))));
+        Map<String, Long> counts = new LinkedHashMap<>();
+        candidates.countPipelineByStatus(projectId, like)
+                .forEach(count -> counts.put(count.getStatus().value(), count.getTotal()));
+        return new CandidatePipelineResponse(found.getContent().stream().map(responses::toDto).toList(),
+                counts, found.getTotalElements(), page, size);
+    }
+
+    /** The most rows one page of a mandate's people may hold, and so the most ids a read beside it may name. */
+    public int maxPageSize() {
+        return listConfig.maxPageSize();
+    }
+
     @Transactional(readOnly = true)
     public CandidateResponse get(UUID workspaceId, UUID projectId, UUID candidateId) {
         projects.requireInWorkspace(projectId, workspaceId);
@@ -249,7 +285,8 @@ public class CandidateService {
         refuseDuplicate(projectId, request.triageCompanyId(), details.fullName(), null);
         refuseHeldProfile(projectId, details.linkedinUrl(), null);
 
-        Filed filed = file(userId, workspaceId, projectId, request.triageCompanyId(), source, details);
+        Optional<Person> known = personToFile(workspaceId, source, request, details);
+        Filed filed = file(userId, workspaceId, projectId, request.triageCompanyId(), source, details, known);
         Candidate candidate = filed.candidate();
         candidate.describeCustomFields(customColumns.applyTo(projectId, CustomColumnTarget.CANDIDATE,
                 candidate.getCustomFields(), request.customFields()));
@@ -805,7 +842,12 @@ public class CandidateService {
      */
     private Filed file(UUID userId, UUID workspaceId, UUID projectId, UUID triageCompanyId,
                        CandidateSource source, CandidateDetails details) {
-        Optional<Person> known = matcher.find(workspaceId, details);
+        return file(userId, workspaceId, projectId, triageCompanyId, source, details,
+                matcher.find(workspaceId, details));
+    }
+
+    private Filed file(UUID userId, UUID workspaceId, UUID projectId, UUID triageCompanyId,
+                       CandidateSource source, CandidateDetails details, Optional<Person> known) {
         if (known.isPresent() && candidates.existsByProjectIdAndPersonId(projectId, known.get().getId())) {
             throw ApiException.of(ErrorCode.CANDIDATE_ALREADY_MAPPED);
         }
@@ -824,6 +866,52 @@ public class CandidateService {
                 PersonActivityDetails.of("door", source));
         personNotes.fileFromDoor(candidate, userId, details.note());
         return new Filed(candidate, known.isPresent());
+    }
+
+    /**
+     * Who a hand-typed add files as. A name alone never matches (see {@link PersonMatcher}), so where the
+     * keys find nobody but the workspace holds someone of that name at that employer, the drawer is asked
+     * first; its answer comes back as {@code existingPersonId} or {@code addAsNewPerson}. Every other door
+     * is a capture, a file or a run, which nobody is there to ask and which carries keys of its own.
+     */
+    private Optional<Person> personToFile(UUID workspaceId, CandidateSource source, SaveCandidateRequest request,
+                                          CandidateDetails details) {
+        Optional<Person> known = matcher.find(workspaceId, details);
+        if (source != CandidateSource.MANUAL) {
+            return known;
+        }
+        if (request.existingPersonId() != null) {
+            return Optional.of(answeredPerson(workspaceId, request.existingPersonId(), known, details));
+        }
+        if (known.isEmpty() && !Boolean.TRUE.equals(request.addAsNewPerson())) {
+            List<UUID> namesakes = matcher.possibleDuplicates(workspaceId, details).stream()
+                    .map(Person::getId)
+                    .toList();
+            if (!namesakes.isEmpty()) {
+                throw ApiException.withProperty(ErrorCode.CANDIDATE_POSSIBLE_DUPLICATE, "personIds", namesakes);
+            }
+        }
+        return known;
+    }
+
+    /**
+     * The person the dialog's "add them here" named, held to what the dialog was asked about. The keys
+     * still decide first: filing someone else's LinkedIn profile or email onto the chosen person would give
+     * two people one key. Without a key match, only a namesake the 409 could have named is taken — any
+     * other id would map a stranger under a typed name the mandate's own name rule never saw.
+     */
+    private Person answeredPerson(UUID workspaceId, UUID existingPersonId, Optional<Person> known,
+                                  CandidateDetails details) {
+        if (known.isPresent()) {
+            if (!known.get().getId().equals(existingPersonId)) {
+                throw ApiException.of(ErrorCode.CANDIDATE_KEYS_NAME_ANOTHER);
+            }
+            return known.get();
+        }
+        return matcher.possibleDuplicates(workspaceId, details).stream()
+                .filter(namesake -> namesake.getId().equals(existingPersonId))
+                .findFirst()
+                .orElseThrow(() -> ApiException.of(ErrorCode.NOT_FOUND));
     }
 
     /**

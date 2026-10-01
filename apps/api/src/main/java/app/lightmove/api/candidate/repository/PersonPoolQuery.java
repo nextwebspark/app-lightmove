@@ -3,6 +3,7 @@ package app.lightmove.api.candidate.repository;
 import app.lightmove.api.candidate.constant.PoolView;
 import app.lightmove.api.candidate.model.PoolCriteria;
 import app.lightmove.api.candidate.model.PoolViewCounts;
+import app.lightmove.api.core.text.service.LikePatterns;
 import app.lightmove.api.project.constant.ProjectStage;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -98,8 +99,8 @@ public class PersonPoolQuery {
         List<String> clauses = new ArrayList<>();
         clauses.add("p.workspace_id = :workspaceId");
         if (criteria.query() != null) {
-            params.put("like", "%" + escapeLike(criteria.query()) + "%");
-            params.put("emailLike", "%" + escapeLike(criteria.query().toLowerCase(Locale.ROOT)) + "%");
+            params.put("like", "%" + LikePatterns.escape(criteria.query()) + "%");
+            params.put("emailLike", "%" + LikePatterns.escape(criteria.query().toLowerCase(Locale.ROOT)) + "%");
             clauses.add("""
                     (p.full_name ILIKE :like OR p.title ILIKE :like
                      OR EXISTS (SELECT 1 FROM app_lm_project_candidate m
@@ -163,9 +164,5 @@ public class PersonPoolQuery {
                     + direction + " NULLS LAST";
         };
         return key + ", p.id";
-    }
-
-    private static String escapeLike(String text) {
-        return text.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_");
     }
 }

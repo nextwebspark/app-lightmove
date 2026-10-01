@@ -6,12 +6,13 @@ import { FormProvider, useForm } from "react-hook-form";
 import { Icon, ICONS } from "../../../components/layout/Icon";
 import { Button, FormError, useToast } from "../../../components/ui";
 import { DrawerCloseButton } from "../../../components/ui/Drawer";
+import { ApiRequestError } from "../../../lib/apiClient";
 import { codeOf, messageFor } from "../../../lib/errorCodes";
 import { useSubmitShortcut } from "../../../lib/useSubmitShortcut";
 import type { CustomColumn, CustomFieldValues } from "../../customcolumns/api/types";
 import { CustomFieldsFieldset } from "../../customcolumns/components/CustomFieldsFieldset";
 import * as candidatesApi from "../api/candidatesApi";
-import type { Candidate } from "../api/types";
+import type { Candidate, SaveCandidatePayload } from "../api/types";
 import {
   candidateSchema,
   refineCompensation,
@@ -31,6 +32,13 @@ import {
   StatusField,
   SummaryFields,
 } from "./CandidateFieldGroups";
+import { PossibleDuplicateDialog } from "./PossibleDuplicateDialog";
+
+/** An add the server paused on: the payload as sent, and the people of that name at that employer. */
+interface PausedAdd {
+  payload: SaveCandidatePayload;
+  personIds: string[];
+}
 
 /** The company a new executive is being added at, if the panel was opened from a company's row. */
 export interface CandidateCompanyContext {
@@ -90,18 +98,30 @@ export function AddCandidateForm({
   const formEl = useRef<HTMLFormElement>(null);
   const handleSubmitShortcut = useSubmitShortcut(() => formEl.current?.requestSubmit());
 
+  const [pausedAdd, setPausedAdd] = useState<PausedAdd | null>(null);
+
   const save = useMutation({
-    mutationFn: (parsed: ParsedCandidateForm) =>
-      candidatesApi.createCandidate(projectId, {
-        ...payloadOf(parsed, company?.triageCompanyId ?? null),
-        customFields,
-      }),
-    onSuccess: (saved) => {
-      toast(`${saved.fullName} added`);
+    mutationFn: (payload: SaveCandidatePayload) => candidatesApi.createCandidate(projectId, payload),
+    onSuccess: (saved, payload) => {
+      setPausedAdd(null);
+      if (payload.existingPersonId) {
+        toast(`${saved.fullName} added to this position — their notes, contacts and history came with them`);
+      } else if (payload.addAsNewPerson) {
+        toast(`Added ${saved.fullName} as a new person — the two stay separate until someone merges them`);
+      } else {
+        toast(`${saved.fullName} added`);
+      }
       onSaved(saved);
     },
-    onError: (error) => {
-      if (codeOf(error) === "CANDIDATE_ALREADY_MAPPED") {
+    onError: (error, payload) => {
+      const code = codeOf(error);
+      const namesakes = error instanceof ApiRequestError ? (error.problem.personIds ?? []) : [];
+      if (code === "CANDIDATE_POSSIBLE_DUPLICATE" && namesakes.length > 0) {
+        setPausedAdd({ payload, personIds: namesakes });
+        return;
+      }
+      setPausedAdd(null);
+      if (code === "CANDIDATE_ALREADY_MAPPED") {
         form.setError("fullName", { message: messageFor(error) });
         return;
       }
@@ -126,7 +146,7 @@ export function AddCandidateForm({
         ref={formEl}
         onSubmit={form.handleSubmit((parsed) => {
           setSubmitError(null);
-          save.mutate(parsed);
+          save.mutate({ ...payloadOf(parsed, company?.triageCompanyId ?? null), customFields });
         })}
         onKeyDown={handleSubmitShortcut}
         noValidate
@@ -218,6 +238,18 @@ export function AddCandidateForm({
         </div>
       </form>
       </FormProvider>
+
+      {pausedAdd && (
+        <PossibleDuplicateDialog
+          fullName={pausedAdd.payload.fullName}
+          employerName={company?.companyName ?? pausedAdd.payload.employerName ?? ""}
+          personIds={pausedAdd.personIds}
+          isSaving={save.isPending}
+          onUseExisting={(personId) => save.mutate({ ...pausedAdd.payload, existingPersonId: personId })}
+          onAddAsNew={() => save.mutate({ ...pausedAdd.payload, addAsNewPerson: true })}
+          onClose={() => setPausedAdd(null)}
+        />
+      )}
     </>
   );
 }

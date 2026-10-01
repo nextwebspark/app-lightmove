@@ -5,29 +5,31 @@ import { useToast } from "../../../components/ui/Toast";
 import { messageFor } from "../../../lib/errorCodes";
 import { useProjectRowsChanged } from "../../../lib/projectRows";
 import { useAuth } from "../../auth/AuthProvider";
-import * as candidatesApi from "../../candidates/api/candidatesApi";
-import type { Candidate } from "../../candidates/api/types";
-import { CandidateDrawer } from "../../candidates/components/CandidateDrawer";
-import { RemoveCandidateDialog } from "../../candidates/components/RemoveCandidateDialog";
+import * as candidatesApi from "../api/candidatesApi";
+import type { Candidate } from "../api/types";
+import { CandidateDrawer } from "./CandidateDrawer";
+import { RemoveCandidateDialog } from "./RemoveCandidateDialog";
 import * as customColumnsApi from "../../customcolumns/api/customColumnsApi";
 import * as positionApi from "../../position/api/positionApi";
 import type { Project } from "../../projects/api/types";
 import { canExecuteProjectWork } from "../../projects/lib/access";
-import * as reportApi from "../api/reportApi";
 
 /**
- * The Companies grid's executive panel, opened from a report figure. A figure carries only the
- * person's id, so the profile is read whole before the panel opens; a write re-reads the report,
- * because a corrected package moves the dot it was opened from.
+ * The Companies grid's executive panel, opened from somewhere that holds only the executive's id — a
+ * report figure, a row of the position's Candidates page. The profile is read whole before the panel
+ * opens; every write refreshes the mandate's rows, and `onChanged` whatever else the opener drew from them.
  */
-export function ReportCandidateDrawer({
+export function CandidateDrawerById({
   project,
   candidateId,
   onClose,
+  onChanged,
 }: {
   project: Project;
   candidateId: string | null;
   onClose: () => void;
+  /** After a save or a removal, for a read the mandate's rows do not cover — the report's figures. */
+  onChanged?: () => void;
 }) {
   const { user } = useAuth();
   const canWrite = canExecuteProjectWork(project, user?.id, user?.workspace?.roles);
@@ -64,9 +66,9 @@ export function ReportCandidateDrawer({
     }
   }, [candidateId, candidate.isError, candidate.error, toast, onClose]);
 
-  const refreshReport = () => {
+  const refreshRows = () => {
     void rowsChanged(project.id);
-    void queryClient.invalidateQueries({ queryKey: reportApi.REPORT_KEY(project.id) });
+    onChanged?.();
   };
 
   const removeCandidate = useMutation({
@@ -74,7 +76,7 @@ export function ReportCandidateDrawer({
     onSuccess: (_result, removed) => {
       setPendingRemoval(null);
       onClose();
-      refreshReport();
+      refreshRows();
       toast(`${removed.fullName} removed from this mandate`);
     },
     onError: (error) => toast(messageFor(error)),
@@ -82,7 +84,7 @@ export function ReportCandidateDrawer({
 
   const shown = candidateId !== null && candidate.data?.id === candidateId ? candidate.data : null;
 
-  // Portalled: the chapter's fade-up section keeps a transform, which would pin a fixed panel inside it.
+  // Portalled: a report chapter's fade-up section keeps a transform, which would pin a fixed panel inside it.
   return createPortal(
     <>
       <CandidateDrawer
@@ -96,7 +98,7 @@ export function ReportCandidateDrawer({
         onClose={onClose}
         onSaved={(saved) => {
           queryClient.setQueryData(candidatesApi.CANDIDATE_KEY(project.id, saved.id), saved);
-          refreshReport();
+          refreshRows();
         }}
         onDelete={canWrite ? setPendingRemoval : undefined}
       />

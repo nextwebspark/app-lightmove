@@ -38,7 +38,7 @@ import {
 import { CareerTimeline } from "./CareerTimeline";
 import { EducationList, FoldAllButton, HeaderProfileLink, PillRow } from "./ProfileParts";
 import { CompensationSummary } from "./CompensationSummary";
-import { NotesSection, PositionsSection, TimelineSection } from "./PersonSections";
+import { DoNotContactStrip, NotesSection, PositionsSection, TimelineSection } from "./PersonSections";
 import { ProfileSectionForm, SectionEditButton, SectionEditor } from "./ProfileSectionForm";
 import {
   AiAssessmentBody,
@@ -248,6 +248,8 @@ export function CandidateProfile({
             <FoldAllButton label="Collapse all" onClick={() => sections.setAll(false)} />
           </div>
         )}
+
+        {canWrite && <DoNotContactStrip personId={candidate.personId} />}
 
         {canWrite && (
           <PositionsSection

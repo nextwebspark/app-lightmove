@@ -199,4 +199,6 @@ export interface ApiError {
   correlationId: string;
   /** Present on a validation failure: field name → the message to show beneath it. */
   fieldErrors?: Record<string, string>;
+  /** Present on CANDIDATE_POSSIBLE_DUPLICATE: the workspace people of that name at that employer. */
+  personIds?: string[];
 }

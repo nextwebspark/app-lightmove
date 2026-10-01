@@ -215,6 +215,10 @@ export interface SaveCandidatePayload {
   customFields?: CustomFieldValues;
   /** Sent only by the Background section's save: its AI-proposed values are now reviewed. */
   confirmBackground?: boolean;
+  /** The possible-duplicate dialog's "add a different person". Read on a hand-typed add only. */
+  addAsNewPerson?: boolean;
+  /** The same dialog's "add them here": file this workspace person. Read on a hand-typed add only. */
+  existingPersonId?: string;
 }
 
 /** One competency panel's AI reading: a 1–10 score (null when the model could not judge) and why. */
@@ -445,3 +449,24 @@ export interface MapToPositionResult {
   alreadyIn: number;
 }
 
+
+/** One page of the position's Candidates page; `statusCounts` counts the search without the status filter. */
+export interface CandidatePipelinePage {
+  candidates: Candidate[];
+  statusCounts: Partial<Record<CandidateStatus, number>>;
+  totalCount: number;
+  page: number;
+  size: number;
+}
+
+/** The staff columns beside one row of the position's Candidates page. Never read by a client seat. */
+export interface CandidatePipelineStaffRow {
+  candidateId: string;
+  tagIds: string[];
+  /** The person's other positions, newest first. */
+  alsoIn: PersonPosition[];
+  addedByUserId: string;
+  addedByName: string | null;
+  doNotContact: DoNotContact | null;
+  lastActivity: PersonTimelineEntry | null;
+}

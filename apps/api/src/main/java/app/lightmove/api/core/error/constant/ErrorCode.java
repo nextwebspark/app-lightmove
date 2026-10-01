@@ -94,6 +94,17 @@ public enum ErrorCode {
     CANDIDATE_ALREADY_MAPPED(HttpStatus.CONFLICT,
             "This mandate already maps someone with that name"),
 
+    /**
+     * A hand-typed add names someone the workspace already holds at that employer, by name alone. The
+     * body's {@code personIds} are who; the drawer asks, then resends naming one or adding a new person.
+     */
+    CANDIDATE_POSSIBLE_DUPLICATE(HttpStatus.CONFLICT,
+            "Your team already has someone with that name at that employer"),
+
+    /** The dialog named one person, but the LinkedIn profile or email typed is another's. */
+    CANDIDATE_KEYS_NAME_ANOTHER(HttpStatus.CONFLICT,
+            "The LinkedIn profile or email typed belongs to someone else in your candidates"),
+
     STRATEGY_SEARCH_NAME_TAKEN(HttpStatus.CONFLICT,
             "A search with that name is already saved here"),
 
