@@ -56,14 +56,19 @@ class OutreachOutcomes {
         audited(ProjectEventType.OUTREACH_BOUNCED, enrollment, null, null).record();
     }
 
-    /** A call was booked with the person: like a reply, it ends the run, and {@code actor} is who booked it. */
+    /**
+     * A call was booked with the person: like a reply, it ends the run. {@code actor} is the consultant who
+     * booked it, or null when the executive booked it themselves through the link.
+     */
     @Transactional(propagation = Propagation.MANDATORY)
-    public void booked(OutreachEnrollment enrollment, UUID actor, Instant now, HttpServletRequest request) {
-        enrollment.booked(now);
+    public void booked(OutreachEnrollment enrollment, UUID actor, boolean viaLink, Instant now,
+                       HttpServletRequest request) {
+        enrollment.booked(now, viaLink);
         people.recordStopped(enrollment.getWorkspaceId(), enrollment.getProjectId(), enrollment.getPersonId(), actor,
                 enrollment.getSequenceId(), sequenceNameOf(enrollment), EnrollmentStatus.BOOKED.name());
         audited(ProjectEventType.OUTREACH_STOPPED, enrollment, actor, request)
                 .detail("reason", EnrollmentStatus.BOOKED.name())
+                .detail("viaLink", String.valueOf(viaLink))
                 .record();
     }
 

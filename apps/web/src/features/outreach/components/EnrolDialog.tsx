@@ -7,8 +7,14 @@ import { cn } from "../../../lib/cn";
 import { codeOf, messageFor } from "../../../lib/errorCodes";
 import { MAILBOX_KEY } from "../api/mailboxApi";
 import * as sequenceApi from "../api/sequenceApi";
-import type { EnrollmentCandidate, EnrollmentScope, OutreachSkipReason, Sequence } from "../api/sequenceApi";
-import { render, renderParts } from "../lib/sequenceTokens";
+import type {
+  EnrollmentCandidate,
+  EnrollmentScope,
+  OutreachSkipReason,
+  RecipientTokens,
+  Sequence,
+} from "../api/sequenceApi";
+import { BOOKING_LINK_PLACEHOLDER, render, renderParts } from "../lib/sequenceTokens";
 import { useMailbox } from "../lib/useMailbox";
 
 type EnrolStep = "choose" | "review" | "start";
@@ -304,6 +310,7 @@ export function EnrolDialog({
       )}
       {step === "review" && sequence && reviewing && (
         <ReviewStep
+          bookingLink={mailbox.data?.connection?.bookingLink ?? null}
           sequence={sequence}
           chosen={chosen}
           reviewed={reviewed}
@@ -495,6 +502,7 @@ function ChooseStep({
 }
 
 function ReviewStep({
+  bookingLink,
   sequence,
   chosen,
   reviewed,
@@ -503,6 +511,7 @@ function ReviewStep({
   onChange,
   onRedraft,
 }: {
+  bookingLink: string | null;
   sequence: Sequence;
   chosen: EnrollmentCandidate[];
   reviewed: Record<string, ReviewedEmail>;
@@ -514,7 +523,7 @@ function ReviewStep({
   const email = reviewed[reviewing.candidateId];
   const first = sequence.steps[0];
   const firstName = reviewing.tokens.firstName ?? reviewing.fullName;
-  const parts = renderParts(first.body, reviewing.tokens, null);
+  const parts = renderParts(first.body, withBookingLink(reviewing.tokens, bookingLink), null);
   const openerAt = parts.findIndex((part) => part.isOpener);
   const before = openerAt < 0 ? parts : parts.slice(0, openerAt);
   const after = openerAt < 0 ? [] : parts.slice(openerAt + 1);
@@ -565,7 +574,9 @@ function ReviewStep({
             ))}
           </select>
           <span className="text-u-text3">Subject</span>
-          <span className="font-medium text-u-text">{render(first.subject ?? "", reviewing.tokens, null)}</span>
+          <span className="font-medium text-u-text">
+            {render(first.subject ?? "", withBookingLink(reviewing.tokens, bookingLink), null)}
+          </span>
         </div>
         <div className="whitespace-pre-wrap pt-3 text-[13.5px]/[1.6] text-u-text">
           {/* The opener sits in its own box, so the blank lines around it in the template would double up. */}
@@ -667,6 +678,11 @@ function StartStep({
 }
 
 /** Typing is never blocked on the model: whatever is typed first wins over a draft that lands later. */
+/** Until the sender's first Start makes their real link, the review says where it will go. */
+function withBookingLink(tokens: RecipientTokens, bookingLink: string | null): RecipientTokens {
+  return { ...tokens, bookingLink: tokens.bookingLink ?? bookingLink ?? BOOKING_LINK_PLACEHOLDER };
+}
+
 function openerPlaceholderOf(email: ReviewedEmail): string | undefined {
   if (email.isDrafting) return "Drafting an opener… or write your own.";
   if (email.draftFailed) return "The opener couldn't be drafted. Write one, or redraft.";

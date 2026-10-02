@@ -77,6 +77,7 @@ describe("EnrolDialog", () => {
     vi.mocked(mailboxApi.getMailbox).mockResolvedValue({
       offered: true,
       providers: ["google"],
+      bookingLinkOffered: false,
       connection: {
         address: "yara@firm.example",
         provider: "google",
@@ -178,7 +179,7 @@ describe("EnrolDialog", () => {
   });
 
   it("will not review anyone until a mailbox is connected", async () => {
-    vi.mocked(mailboxApi.getMailbox).mockResolvedValue({ offered: true, providers: ["google"], connection: null });
+    vi.mocked(mailboxApi.getMailbox).mockResolvedValue({ offered: true, providers: ["google"], connection: null, bookingLinkOffered: false });
     vi.mocked(sequenceApi.getEnrollmentCandidates).mockResolvedValue([person("a", "Priya Raman")]);
     renderDialog();
 

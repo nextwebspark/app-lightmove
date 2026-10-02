@@ -14,6 +14,9 @@ import org.springframework.boot.context.properties.bind.DefaultValue;
  * <p>{@code webhookSecret} is the signing secret Nylas issued for the webhook pointed at
  * {@code /api/v1/outreach/webhooks/mailbox}. Blank, every delivery is refused and replies are found by
  * the poll alone.
+ *
+ * <p>{@code schedulerEnabled} says the Nylas plan carries Scheduler (Essentials and up): only then is the
+ * {@code {{bookingLink}}} token offered.
  */
 public record NylasSettings(
         String apiKey,
@@ -21,7 +24,8 @@ public record NylasSettings(
         @DefaultValue("https://api.us.nylas.com") String baseUrl,
         @DefaultValue("google,microsoft") List<String> providers,
         @DefaultValue("5") int requestsPerSecond,
-        String webhookSecret
+        String webhookSecret,
+        @DefaultValue("false") boolean schedulerEnabled
 ) {
 
     public boolean isConfigured() {

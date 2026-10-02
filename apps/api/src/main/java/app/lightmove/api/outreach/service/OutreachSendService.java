@@ -20,6 +20,8 @@ import app.lightmove.api.outreach.model.PreparedSend;
 import app.lightmove.api.outreach.model.SendingWindow;
 import app.lightmove.api.outreach.model.SentEmail;
 import app.lightmove.api.outreach.model.SequenceStep;
+import app.lightmove.api.outreach.model.SequenceTokens;
+import app.lightmove.api.outreach.model.SenderContext;
 import app.lightmove.api.outreach.repository.MailboxConnectionRepository;
 import app.lightmove.api.outreach.repository.OutreachEnrollmentClaims;
 import app.lightmove.api.outreach.repository.OutreachEnrollmentRepository;
@@ -52,6 +54,7 @@ public class OutreachSendService {
 
     private static final Duration RATE_LIMITED_PAUSE = Duration.ofMinutes(1);
 
+    private final BookingPages bookingPages;
     private final OutreachEnrollmentClaims claims;
     private final OutreachEnrollmentRepository enrollments;
     private final OutreachSequenceRepository sequences;
@@ -173,7 +176,7 @@ public class OutreachSendService {
             return null;
         }
         return new PreparedSend(enrollment.getId(), mailbox.getGrantId(),
-                emailOf(enrollment, sequence, recipient.orElseThrow()), enrollment.getNextStep());
+                emailOf(enrollment, sequence, recipient.orElseThrow(), mailbox), enrollment.getNextStep());
     }
 
     /** Everything Add to sequence refused at Start, asked again: any of it may have changed since. */
@@ -195,18 +198,24 @@ public class OutreachSendService {
      * the sequence as it stands now and goes as a reply to the last email, which keeps it in the thread.
      */
     private OutgoingEmail emailOf(OutreachEnrollment enrollment, OutreachSequence sequence,
-                                  OutreachRecipient recipient) {
+                                  OutreachRecipient recipient, MailboxConnection mailbox) {
         int step = enrollment.getNextStep();
         if (step == 0) {
             return new OutgoingEmail(enrollment.getToAddress(), enrollment.getFirstSubject(),
-                    OutreachEmailBody.htmlOf(enrollment.getFirstBody()));
+                    OutreachEmailBody.htmlOf(enrollment.getFirstBody(), bookingPages.linkOf(mailbox)));
         }
         SequenceStep followUp = sequence.getSteps().get(step);
-        String body = OutreachPersonalisation.tokensOf(recipient, personalisation.senderContextOf(
-                        enrollment.getSenderUserId(), enrollment.getWorkspaceId(), enrollment.getProjectId()),
-                enrollment.getOpener()).render(followUp.getBody());
+        SenderContext sender = personalisation.senderContextOf(enrollment.getSenderUserId(),
+                enrollment.getWorkspaceId(), enrollment.getProjectId());
+        // A follow-up edited to carry the link after Start: the slug is all the email needs, the page comes later.
+        if (sender.bookingLink() == null && SequenceTokens.uses(followUp.getBody(), SequenceTokens.BOOKING_LINK)) {
+            sender = new SenderContext(sender.positionTitle(), sender.senderFirstName(),
+                    bookingPages.claimLink(mailbox));
+        }
+        String body = OutreachPersonalisation.tokensOf(recipient, sender, enrollment.getOpener())
+                .render(followUp.getBody());
         return new OutgoingEmail(enrollment.getToAddress(), replySubjectOf(enrollment.getFirstSubject()),
-                OutreachEmailBody.htmlOf(body), enrollment.getLastMessageId());
+                OutreachEmailBody.htmlOf(body, sender.bookingLink()), enrollment.getLastMessageId());
     }
 
     private void recordSent(PreparedSend prepared, SentEmail sent, Instant now) {

@@ -210,6 +210,8 @@ public class SecurityConfig {
                         // A navigation back from a mailbox provider's consent screen, so no bearer token: the
                         // single-use state, bound to the starting browser by a cookie, is the credential.
                         .requestMatchers(HttpMethod.GET, API + "/outreach/mailbox/callback").permitAll()
+                        // The booking link's page: an executive opens it from an email, holding no session.
+                        .requestMatchers(HttpMethod.GET, API + "/outreach/booking/*").permitAll()
 
                         // The mail service's webhook holds no bearer token: the delivery's HMAC signature,
                         // checked by OutreachInboxService before anything is read, is its credential.

@@ -100,6 +100,10 @@ public class OutreachEnrollment extends BaseEntity {
     @Column(name = "sending_since")
     private Instant sendingSince;
 
+    /** The executive booked through the consultant's link (V104), rather than a consultant booking for them. */
+    @Column(name = "booked_via_link", nullable = false)
+    private boolean bookedViaLink;
+
     /** Due at once: the dispatcher holds it to the sender's sending window and daily cap. */
     public static OutreachEnrollment scheduled(OutreachSequence sequence, UUID candidateId, UUID personId,
                                                UUID sender, String toAddress, ReviewedFirstEmail email,
@@ -197,7 +201,8 @@ public class OutreachEnrollment extends BaseEntity {
     }
 
     /** A call was booked with the person; like a reply, nothing more goes. */
-    public void booked(Instant now) {
+    public void booked(Instant now, boolean viaLink) {
+        this.bookedViaLink = viaLink;
         this.status = EnrollmentStatus.BOOKED;
         this.stoppedAt = now;
         this.nextSendAt = null;

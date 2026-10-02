@@ -7,7 +7,7 @@ import org.junit.jupiter.api.Test;
 class SequenceTokensTest {
 
     private final SequenceTokens tokens = new SequenceTokens("Priya", "CFO", "Target Group", "Group CFO", "Dubai",
-            "Yara", "Your move into treasury stood out.");
+            "Yara", "Your move into treasury stood out.", "https://beta.uncava.com/book/yara-haddad");
 
     @Test
     void fillsEveryTokenItOffers() {
@@ -17,13 +17,22 @@ class SequenceTokensTest {
     }
 
     @Test
+    void fillsTheBookingLinkAndSaysWhoUsesIt() {
+        assertThat(tokens.render("Pick a time: {{ bookingLink }}"))
+                .isEqualTo("Pick a time: https://beta.uncava.com/book/yara-haddad");
+        assertThat(SequenceTokens.uses("Pick a time: {{ bookingLink }}", SequenceTokens.BOOKING_LINK)).isTrue();
+        assertThat(SequenceTokens.uses("Hi {{firstName}}", SequenceTokens.BOOKING_LINK)).isFalse();
+        assertThat(SequenceTokens.uses(null, SequenceTokens.BOOKING_LINK)).isFalse();
+    }
+
+    @Test
     void leavesAnUnknownTokenAsTyped() {
         assertThat(tokens.render("Hi {{fristName}}")).isEqualTo("Hi {{fristName}}");
     }
 
     @Test
     void aMissingValueRendersEmptyAndADollarSignSurvives() {
-        SequenceTokens sparse = new SequenceTokens(null, null, null, null, null, null, "Grew revenue to $40m");
+        SequenceTokens sparse = new SequenceTokens(null, null, null, null, null, null, "Grew revenue to $40m", null);
         assertThat(sparse.render("[{{firstName}}] {{opener}}")).isEqualTo("[] Grew revenue to $40m");
     }
 

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { firstNameOf, render, renderParts } from "./sequenceTokens";
+import { firstNameOf, render, renderParts, tokenOptions } from "./sequenceTokens";
 
 const TOKENS = {
   firstName: "Priya",
@@ -37,5 +37,19 @@ describe("sequence tokens", () => {
   it("greets by the first word of a name", () => {
     expect(firstNameOf("  Priya  Raman")).toBe("Priya");
     expect(firstNameOf(" ")).toBeNull();
+  });
+
+  it("draws the booking link as its own part, and leaves it as typed where no link is known", () => {
+    const parts = renderParts("Pick a time: {{ bookingLink }}", { ...TOKENS, bookingLink: "beta.uncava.com/book/yara" }, null);
+    expect(parts).toEqual([
+      { text: "Pick a time: ", isOpener: false },
+      { text: "beta.uncava.com/book/yara", isOpener: false, isLink: true },
+    ]);
+    expect(render("Pick a time: {{bookingLink}}", TOKENS, null)).toBe("Pick a time: {{bookingLink}}");
+  });
+
+  it("offers the booking link only where booking pages are", () => {
+    expect(tokenOptions(false).map((option) => option.token)).not.toContain("{{bookingLink}}");
+    expect(tokenOptions(true).map((option) => option.token)).toContain("{{bookingLink}}");
   });
 });
