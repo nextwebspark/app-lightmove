@@ -30,9 +30,6 @@ import org.springframework.stereotype.Component;
 @RequiredArgsConstructor
 class ProjectCandidateCounterAdapter implements ProjectCandidateCounter {
 
-    /** The enum's own "three ways they leave the running". */
-    private static final Set<CandidateStatus> LEFT_THE_RUNNING = EnumSet.of(
-            CandidateStatus.NOT_INTERESTED, CandidateStatus.OFF_LIMITS, CandidateStatus.OUT_OF_SCOPE);
 
     private static final Set<CandidateStatus> ENGAGED = EnumSet.of(
             CandidateStatus.ENGAGED, CandidateStatus.INTERESTED);
@@ -48,7 +45,8 @@ class ProjectCandidateCounterAdapter implements ProjectCandidateCounter {
         if (projectIds.isEmpty()) {
             return Map.of();
         }
-        return byProject(candidates.countByProjectIdInExcludingStatuses(projectIds, LEFT_THE_RUNNING));
+        return byProject(
+                candidates.countByProjectIdInExcludingStatuses(projectIds, CandidateStatus.LEFT_THE_RUNNING));
     }
 
     @Override

@@ -193,6 +193,15 @@ public enum ErrorCode {
     /** A note may be changed or removed by its author, or by a workspace admin. */
     PERSON_NOTE_NOT_YOURS(HttpStatus.FORBIDDEN, "Only the person who wrote this note, or an admin, can change it"),
 
+    /** The same file is already on this person; the body names the document and version holding it. */
+    PERSON_DOCUMENT_DUPLICATE(HttpStatus.CONFLICT, "That file is already on this candidate"),
+
+    /** A document or version may be removed by whoever uploaded it, or by a workspace admin. */
+    PERSON_DOCUMENT_NOT_YOURS(HttpStatus.FORBIDDEN, "Only the person who uploaded this, or an admin, can remove it"),
+
+    /** Past lightmove.person-documents' ceilings on documents per person or versions per document. */
+    PERSON_DOCUMENT_LIMIT(HttpStatus.CONFLICT, "This candidate has reached the limit for documents"),
+
     /** Tags are unique per workspace whatever their case. */
     CANDIDATE_TAG_EXISTS(HttpStatus.CONFLICT, "Your team already has that tag"),
 
@@ -255,6 +264,73 @@ public enum ErrorCode {
     /** Only a person a search on this mandate returned can be added from it; nothing is bought to add one. */
     PEOPLE_SEARCH_PERSON_UNKNOWN(HttpStatus.CONFLICT,
             "That person is no longer in the search results. Search again and add them from there"),
+
+    /** No mail service is configured, so no mailbox can be connected or send. */
+    MAILBOX_UNAVAILABLE(HttpStatus.CONFLICT, "Outreach email is not set up on this deployment"),
+
+    /** Only the mailbox hosts the deployment lists may be connected. */
+    MAILBOX_PROVIDER_UNSUPPORTED(HttpStatus.BAD_REQUEST, "That kind of mailbox cannot be connected"),
+
+    MAILBOX_NOT_CONNECTED(HttpStatus.CONFLICT, "Connect your mailbox first"),
+
+    /** The provider withdrew access (a password change, an admin removing the app); nothing was sent. */
+    MAILBOX_RECONNECT_NEEDED(HttpStatus.CONFLICT, "Your mailbox needs reconnecting before it can send"),
+
+    /**
+     * The consent screen came back with no matching attempt: too late, already used, or in a browser that
+     * never started it. A link handed to someone else ends here and connects nothing.
+     */
+    MAILBOX_CONNECT_EXPIRED(HttpStatus.BAD_REQUEST, "That connection attempt has expired. Start again"),
+
+    /** The consultant backed out on the provider's screen; the SPA says nothing. */
+    MAILBOX_CONNECT_CANCELLED(HttpStatus.BAD_REQUEST, "The mailbox was not connected"),
+
+    MAILBOX_CONNECT_FAILED(HttpStatus.BAD_GATEWAY, "Your mailbox could not be connected. Try again"),
+
+    /** Never retried on our side, so nothing went twice; trying again may still find the first one delivered. */
+    MAILBOX_SEND_FAILED(HttpStatus.BAD_GATEWAY, "The email could not be sent. Try again in a moment"),
+
+    /** A sequence people are on keeps their history: it can be edited, never deleted. */
+    OUTREACH_SEQUENCE_IN_USE(HttpStatus.CONFLICT, "People are on this sequence, so it cannot be deleted"),
+
+    /**
+     * Someone chosen may not be approached — no email, do not contact, out of the running or already in a
+     * sequence — and nobody was enrolled. The dialog shows each reason; this is the server holding the line.
+     */
+    OUTREACH_PERSON_SKIPPED(HttpStatus.CONFLICT, "Someone you chose can no longer be added. Review the list again"),
+
+    /** One live sequence per person per position; a racing start lost to another. */
+    OUTREACH_ALREADY_ENROLLED(HttpStatus.CONFLICT, "Someone you chose is already in a sequence on this position"),
+
+    /** The To address must be one the person's contact ledger holds. */
+    OUTREACH_ADDRESS_NOT_ON_FILE(HttpStatus.BAD_REQUEST, "That address is not on file for this person"),
+
+    /** Only a sequence still due to send can be stopped; one that ended is already the record. */
+    OUTREACH_NOT_RUNNING(HttpStatus.CONFLICT, "This sequence has already ended"),
+
+    /** Nobody marked do not contact is invited to anything. */
+    MEETING_DO_NOT_CONTACT(HttpStatus.CONFLICT, "This person is marked do not contact"),
+
+    /** The slot was free when offered and is not now; the dialog offers the times again. */
+    MEETING_SLOT_TAKEN(HttpStatus.CONFLICT, "That time is no longer free. Pick another"),
+
+    /** The length, the time or the video link asked for is not one the dialog offers. */
+    MEETING_SLOT_INVALID(HttpStatus.BAD_REQUEST, "That time cannot be booked"),
+
+    /** The consultant's calendar could not be read, so no time was offered and no invite was sent. */
+    MEETING_CALENDAR_UNAVAILABLE(HttpStatus.BAD_GATEWAY, "Your calendar couldn't be read. Try again"),
+
+    /** Never retried on our side: the calendar may still hold the invite, so the consultant checks before trying again. */
+    MEETING_BOOK_FAILED(HttpStatus.BAD_GATEWAY, "The invite could not be sent. Check your calendar before trying again"),
+
+    /** A sequence uses {{bookingLink}} where the mail service's plan offers no booking pages. */
+    OUTREACH_BOOKING_LINK_UNAVAILABLE(HttpStatus.CONFLICT, "Booking links are not set up on this deployment"),
+
+    /** The booking page behind the link could not be made; nothing was started or sent. */
+    OUTREACH_BOOKING_LINK_FAILED(HttpStatus.BAD_GATEWAY, "Your booking page couldn't be set up. Try again"),
+
+    /** A webhook delivery whose signature did not verify, or one this deployment is not set up to read. */
+    MAILBOX_WEBHOOK_REJECTED(HttpStatus.UNAUTHORIZED, "Unauthorized"),
 
     INTERNAL_ERROR(HttpStatus.INTERNAL_SERVER_ERROR, "Something went wrong on our end");
 

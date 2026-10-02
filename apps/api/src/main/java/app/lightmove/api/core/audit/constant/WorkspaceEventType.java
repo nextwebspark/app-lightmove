@@ -24,7 +24,10 @@ public enum WorkspaceEventType implements AuditEventType {
     POSITION_TEMPLATE_DELETED,
     POSITION_TEMPLATE_HIDDEN,
     POSITION_TEMPLATE_SHOWN,
-    POSITION_TEMPLATES_IMPORTED;
+    POSITION_TEMPLATES_IMPORTED,
+
+    MAILBOX_CONNECTED,
+    MAILBOX_DISCONNECTED;
 
     @Override
     public String code() {

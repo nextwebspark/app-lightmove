@@ -70,6 +70,11 @@ public class RateLimitGuard {
                 config.workspaceCreationsPerHourPerIp(), Duration.ofHours(1));
     }
 
+    /** The public booking page, keyed on the caller's IP and the link: nobody signs in to open one. */
+    public void checkBookingPageOpen(String slug, HttpServletRequest request) {
+        checkRateLimit("booking-page-open", slug, request, config.bookingPageOpensPerMinute(), Duration.ofMinutes(1));
+    }
+
     private void checkRateLimit(String action, String email, HttpServletRequest request, int limit, Duration window) {
         checkRateLimit(action, email, request, limit, limit, window);
     }
