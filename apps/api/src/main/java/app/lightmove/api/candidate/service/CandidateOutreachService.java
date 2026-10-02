@@ -1,5 +1,6 @@
 package app.lightmove.api.candidate.service;
 
+import app.lightmove.api.candidate.constant.CandidateStatus;
 import app.lightmove.api.candidate.constant.PersonActivityKind;
 import app.lightmove.api.candidate.model.Candidate;
 import app.lightmove.api.candidate.model.CandidateContact;
@@ -8,11 +9,13 @@ import app.lightmove.api.candidate.model.OutreachRecipient;
 import app.lightmove.api.candidate.model.Person;
 import app.lightmove.api.candidate.model.RecipientEmail;
 import app.lightmove.api.candidate.repository.CandidateRepository;
+import app.lightmove.api.candidate.repository.PersonRepository;
 import app.lightmove.api.project.repository.ProjectRepository;
 import java.util.Collection;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -28,6 +31,7 @@ import org.springframework.transaction.annotation.Transactional;
 public class CandidateOutreachService {
 
     private final CandidateRepository candidates;
+    private final PersonRepository persons;
     private final ProjectRepository projects;
     private final CandidateService candidateService;
     private final PersonActivityRecorder activity;
@@ -61,6 +65,68 @@ public class CandidateOutreachService {
         Candidate candidate = candidates.requireInProject(candidateId, projectId);
         activity.record(candidate, actor, PersonActivityKind.OUTREACH_ENROLLED,
                 PersonActivityDetails.of("sequenceId", sequenceId).and("sequence", sequenceName));
+    }
+
+    /** Names for people whose mapping is gone: an outreach run outlives the person's removal from the position. */
+    @Transactional(readOnly = true)
+    public Map<UUID, String> fullNamesOf(UUID workspaceId, Collection<UUID> personIds) {
+        Map<UUID, String> names = new LinkedHashMap<>();
+        persons.findAllById(personIds).stream()
+                .filter(person -> person.getWorkspaceId().equals(workspaceId))
+                .forEach(person -> names.put(person.getId(), person.getFullName()));
+        return names;
+    }
+
+    /** One executive as they stand now — what a send re-checks. Empty once they are off the position. */
+    @Transactional(readOnly = true)
+    public Optional<OutreachRecipient> currentRecipient(UUID workspaceId, UUID projectId, UUID candidateId) {
+        projects.requireInWorkspace(projectId, workspaceId);
+        return candidates.findByIdAndProjectId(candidateId, projectId).map(CandidateOutreachService::recipientOf);
+    }
+
+    /**
+     * One email went. The first one moves someone still Identified to Contacted — forward only, so a
+     * person a consultant already moved on is left where they were put. Nothing is written for someone
+     * removed from the position while the email was in flight: the email itself is still recorded.
+     */
+    @Transactional(propagation = Propagation.MANDATORY)
+    public void recordEmailSent(UUID sender, UUID projectId, UUID candidateId, UUID sequenceId, String sequenceName,
+                                int stepNumber) {
+        candidates.findByIdAndProjectId(candidateId, projectId).ifPresent(candidate ->
+                recordEmailSent(candidate, sender, sequenceId, sequenceName, stepNumber));
+    }
+
+    private void recordEmailSent(Candidate candidate, UUID sender, UUID sequenceId, String sequenceName,
+                                 int stepNumber) {
+        activity.record(candidate, sender, PersonActivityKind.EMAIL_SENT, PersonActivityDetails
+                .of("sequenceId", sequenceId).and("sequence", sequenceName).and("step", stepNumber));
+        if (candidate.getStatus() == CandidateStatus.IDENTIFIED) {
+            candidate.moveTo(CandidateStatus.CONTACTED);
+            activity.record(candidate, sender, PersonActivityKind.STATUS_CHANGED, PersonActivityDetails
+                    .of("from", CandidateStatus.IDENTIFIED.value()).and("to", CandidateStatus.CONTACTED.value()));
+        }
+    }
+
+    /** Nobody here acted, so the line has no actor; the reply's content is never seen, let alone written. */
+    @Transactional(propagation = Propagation.MANDATORY)
+    public void recordReplied(UUID workspaceId, UUID projectId, UUID personId, UUID sequenceId, String sequenceName) {
+        recordAboutPerson(workspaceId, projectId, personId, null, PersonActivityKind.EMAIL_REPLIED,
+                PersonActivityDetails.of("sequenceId", sequenceId).and("sequence", sequenceName));
+    }
+
+    /** {@code actor} is null when the send-time re-check or a bounce ended the run rather than a person. */
+    @Transactional(propagation = Propagation.MANDATORY)
+    public void recordStopped(UUID workspaceId, UUID projectId, UUID personId, UUID actor, UUID sequenceId,
+                              String sequenceName, String reason) {
+        recordAboutPerson(workspaceId, projectId, personId, actor, PersonActivityKind.OUTREACH_STOPPED,
+                PersonActivityDetails.of("sequenceId", sequenceId).and("sequence", sequenceName).and("reason", reason));
+    }
+
+    /** By person, not by mapping: someone removed from the position since they were enrolled can still reply. */
+    private void recordAboutPerson(UUID workspaceId, UUID projectId, UUID personId, UUID actor,
+                                   PersonActivityKind kind, PersonActivityDetails details) {
+        persons.findByIdAndWorkspaceId(personId, workspaceId)
+                .ifPresent(person -> activity.record(person, projectId, actor, kind, details));
     }
 
     private static OutreachRecipient recipientOf(Candidate candidate) {

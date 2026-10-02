@@ -11,13 +11,15 @@ import * as mailboxApi from "../api/mailboxApi";
 import type { ConnectedMailbox, Mailbox } from "../api/mailboxApi";
 import * as sequenceApi from "../api/sequenceApi";
 import type { Sequence } from "../api/sequenceApi";
+import { CandidateDrawerById } from "../../candidates/components/CandidateDrawerById";
+import { PeopleInOutreach } from "../components/PeopleInOutreach";
 import { SequenceStatePill } from "../components/SequenceStatePill";
 import { connectMailboxInPopup } from "../lib/mailboxPopup";
 import { useMailbox } from "../lib/useMailbox";
 
 /**
- * A position's Outreach page (`claude-design/Outreach.dc.html`): the consultant's own mailbox and the
- * position's sequences. The people in them and what was sent arrive with #624.
+ * A position's Outreach page (`claude-design/Outreach.dc.html`): the consultant's own mailbox, the
+ * counts, the position's sequences and the people in them, each opening their drawer.
  */
 export function OutreachPage() {
   const { user } = useAuth();
@@ -33,6 +35,7 @@ function StaffOutreachPage() {
   const queryClient = useQueryClient();
   const toast = useToast();
   const [connectingProvider, setConnectingProvider] = useState<string | null>(null);
+  const [openCandidateId, setOpenCandidateId] = useState<string | null>(null);
   const abandonConnect = useRef<() => void>(() => {});
 
   const { project } = useOutletContext<ProjectOutletContext>();
@@ -114,7 +117,15 @@ function StaffOutreachPage() {
         />
       )}
 
-      <SequenceCards projectId={project.id} />
+      <PeopleInOutreach projectId={project.id} onOpenCandidate={setOpenCandidateId}>
+        <SequenceCards projectId={project.id} />
+      </PeopleInOutreach>
+      <CandidateDrawerById
+        project={project}
+        candidateId={openCandidateId}
+        onClose={() => setOpenCandidateId(null)}
+        onChanged={() => void queryClient.invalidateQueries({ queryKey: ["outreach", project.id] })}
+      />
     </div>
   );
 }
@@ -183,7 +194,11 @@ function SequenceCard({ projectId, sequence }: { projectId: string; sequence: Se
         <SequenceStatePill isLive={sequence.enrolledCount > 0} />
       </div>
       <div className="mt-1 font-mono text-[11.5px] text-u-text3">{sequenceMetaOf(sequence)}</div>
-      <div className="mt-2 font-mono text-[12px] text-u-text2">{sequence.enrolledCount} enrolled</div>
+      <div className="mt-2.5 flex gap-4 font-mono text-[12px] font-medium text-u-text2">
+        <span>{sequence.enrolledCount} enrolled</span>
+        <span>{sequence.sentCount} sent</span>
+        <span className="text-u-direct">{sequence.repliedCount} replied</span>
+      </div>
     </Link>
   );
 }

@@ -296,6 +296,12 @@ public enum ErrorCode {
     /** The To address must be one the person's contact ledger holds. */
     OUTREACH_ADDRESS_NOT_ON_FILE(HttpStatus.BAD_REQUEST, "That address is not on file for this person"),
 
+    /** Only a sequence still due to send can be stopped; one that ended is already the record. */
+    OUTREACH_NOT_RUNNING(HttpStatus.CONFLICT, "This sequence has already ended"),
+
+    /** A webhook delivery whose signature did not verify, or one this deployment is not set up to read. */
+    MAILBOX_WEBHOOK_REJECTED(HttpStatus.UNAUTHORIZED, "Unauthorized"),
+
     INTERNAL_ERROR(HttpStatus.INTERNAL_SERVER_ERROR, "Something went wrong on our end");
 
     private final HttpStatus status;

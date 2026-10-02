@@ -29,6 +29,18 @@ const VENDORS: Record<string, string> = {
   HARVESTAPI: "HarvestAPI",
 };
 
+/** Why a sequence ended short, as its `reason` detail names it; a consultant's own Stop needs no reason. */
+const STOP_REASONS: Record<string, string> = {
+  DO_NOT_CONTACT: "Marked do not contact",
+  LEFT_THE_RUNNING: "No longer in the running",
+  UNMAPPED: "Removed from the position",
+  ADDRESS_REMOVED: "The address was removed",
+  MAILBOX_INACTIVE: "The sender's mailbox was disconnected",
+  SEND_FAILED: "The mail service refused the email",
+  SEND_UNCERTAIN: "A send may not have gone through, so nothing more was sent",
+  BOUNCED: "The address bounced",
+};
+
 const NOTE_VERBS: Record<string, string> = {
   GENERAL: "wrote a note",
   CALL: "logged a call",
@@ -46,7 +58,7 @@ export function timelineLines(
     const { text, detail } = phraseOf(entry, currentProjectId, person);
     return {
       key: entry.id,
-      actorName: entry.actorName ?? "Someone",
+      actorName: actorNameOf(entry),
       text,
       detail,
       occurredAt: entry.occurredAt,
@@ -141,7 +153,26 @@ function phraseOf(
         text: `added${them} to ${details.sequence ? `the sequence ${details.sequence}` : "a sequence"} on ${where}`,
         detail: null,
       };
+    case "EMAIL_SENT":
+      return {
+        text: `emailed${them} on ${where}`,
+        detail: [details.sequence, details.step ? `step ${details.step}` : null].filter(Boolean).join(", ") || null,
+      };
+    case "EMAIL_REPLIED":
+      return { text: `replied to ${details.sequence ? `the sequence ${details.sequence}` : "a sequence"} on ${where}`, detail: null };
+    case "OUTREACH_STOPPED":
+      return {
+        text: `stopped ${details.sequence ? `the sequence ${details.sequence}` : "a sequence"}${forThem} on ${where}`,
+        detail: details.reason ? (STOP_REASONS[details.reason] ?? null) : null,
+      };
   }
+}
+
+/** A reply is the executive's own act, and a stop nobody pressed is Uncava's. */
+function actorNameOf(entry: PersonTimelineEntry): string {
+  if (entry.kind === "EMAIL_REPLIED") return entry.personName ?? "They";
+  if (entry.kind === "OUTREACH_STOPPED" && entry.actorName === null) return "Uncava";
+  return entry.actorName ?? "Someone";
 }
 
 /**

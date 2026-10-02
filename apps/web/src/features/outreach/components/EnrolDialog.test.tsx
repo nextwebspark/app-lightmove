@@ -31,6 +31,8 @@ const SEQUENCE: Sequence = {
   ],
   createdByName: "Yara Haddad",
   enrolledCount: 0,
+  sentCount: 0,
+  repliedCount: 0,
   updatedAt: "2026-10-01T09:00:00Z",
 };
 

@@ -3,6 +3,7 @@ import { useCallback, useEffect, useState } from "react";
 /** The folds on an executive's profile panel — the candidate drawer and the People preview — in order. */
 export const PROFILE_SECTIONS = [
   "positions",
+  "outreach",
   "company",
   "summary",
   "ai",
@@ -28,6 +29,7 @@ type OpenState = Record<ProfileSection, boolean>;
 /** What a first visit shows: the three things a consultant reads before deciding to call. */
 const DEFAULTS: OpenState = {
   positions: true,
+  outreach: true,
   company: false,
   summary: true,
   ai: true,
