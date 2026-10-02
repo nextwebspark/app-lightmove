@@ -2,6 +2,7 @@ package app.lightmove.api.core.security.config;
 import app.lightmove.api.core.config.LightMoveProperties;
 import app.lightmove.api.core.config.SpaRequestPaths;
 import app.lightmove.api.core.error.handler.ProblemAccessDeniedHandler;
+import app.lightmove.api.core.logging.service.RequestContextFilter;
 import app.lightmove.api.core.security.jwt.JwtPrincipalConverter;
 import app.lightmove.api.core.security.service.CookieAuthorizationRequestStore;
 import app.lightmove.api.core.security.service.OAuth2LoginFailureHandler;
@@ -24,6 +25,7 @@ import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.core.annotation.AnnotationTemplateExpressionDefaults;
 import org.springframework.security.oauth2.client.registration.ClientRegistrationRepository;
 import org.springframework.security.oauth2.server.resource.web.BearerTokenAuthenticationEntryPoint;
+import org.springframework.security.oauth2.server.resource.web.authentication.BearerTokenAuthenticationFilter;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.access.intercept.RequestAuthorizationContext;
 import org.springframework.security.web.csrf.CookieCsrfTokenRepository;
@@ -134,6 +136,7 @@ public class SecurityConfig {
                 // the AuthPrincipal parameter resolves to null, and /auth/me NPEs on a valid token.
                 .oauth2ResourceServer(oauth -> oauth
                         .jwt(jwt -> jwt.jwtAuthenticationConverter(principalConverter)))
+                .addFilterAfter(new RequestContextFilter(), BearerTokenAuthenticationFilter.class)
                 .build();
     }
 
@@ -213,7 +216,9 @@ public class SecurityConfig {
                         .anyRequest().authenticated())
 
                 .oauth2ResourceServer(oauth -> oauth
-                        .jwt(jwt -> jwt.jwtAuthenticationConverter(principalConverter)));
+                        .jwt(jwt -> jwt.jwtAuthenticationConverter(principalConverter)))
+                // After the bearer token is read, before authorisation: a refusal still says whose it was.
+                .addFilterAfter(new RequestContextFilter(), BearerTokenAuthenticationFilter.class);
 
         // Only when a provider is configured, or a fresh clone cannot start. The failure handler is
         // required: Spring's default redirects to /login?error on the API host, a 404.

@@ -11,6 +11,7 @@ import app.lightmove.api.core.config.ExecutiveSourcingSettings;
 import app.lightmove.api.core.config.LightMoveProperties;
 import app.lightmove.api.core.error.constant.ErrorCode;
 import app.lightmove.api.core.error.model.ApiException;
+import app.lightmove.api.core.logging.service.MdcPropagation;
 import app.lightmove.api.enrichment.candidate.model.BrightDataPerson;
 import app.lightmove.api.enrichment.candidate.service.BrightDataPersonProfiles;
 import app.lightmove.api.enrichment.common.service.SearchHitFiling;
@@ -111,7 +112,7 @@ class ExecutiveSourcingWorker {
 
         try (ExecutorService pool = Executors.newFixedThreadPool(settings.parallelism(),
                 Thread.ofVirtual().factory())) {
-            companies.forEach(company -> pool.execute(() -> run.record(company, run.sourceOne(company))));
+            companies.forEach(company -> pool.execute(MdcPropagation.wrap(() -> run.record(company, run.sourceOne(company)))));
         }
 
         store.finish(request.runId()).ifPresent(finished -> audit

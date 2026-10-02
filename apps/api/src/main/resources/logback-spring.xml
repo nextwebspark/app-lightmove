@@ -44,6 +44,9 @@
                           line is filed as DEFAULT and a warning stops looking like a warning in the
                           console — so translate it here rather than discovering it during an incident.
 
+                          The MDC keys are named one by one, never the whole map: a stray key set anywhere
+                          must not put its value in the JSON. Ids only — never an email or a name.
+
                           The logging.googleapis.com/* fields nest the line under Cloud Run's request entry.
                           trace_sampled must be a JSON boolean, and #asBoolean answers null for an absent
                           key, which omitEmptyFields drops like an empty string.
@@ -54,6 +57,9 @@
                               "logger": "%logger{40}",
                               "thread": "%thread",
                               "correlationId": "%mdc{correlationId}",
+                              "userId": "%mdc{userId}",
+                              "workspaceId": "%mdc{workspaceId}",
+                              "projectId": "%mdc{projectId}",
                               "logging.googleapis.com/trace": "%mdc{gcpTrace}",
                               "logging.googleapis.com/spanId": "%mdc{gcpSpanId}",
                               "logging.googleapis.com/trace_sampled": "#asBoolean{%mdc{gcpTraceSampled}}"

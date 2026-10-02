@@ -19,6 +19,11 @@ public final class CorrelationId {
     public static final String SPAN_ID_KEY = "gcpSpanId";
     public static final String TRACE_SAMPLED_KEY = "gcpTraceSampled";
 
+    /** Who and which tenant a line belongs to — ids only, never an email or a name. */
+    public static final String USER_ID_KEY = "userId";
+    public static final String WORKSPACE_ID_KEY = "workspaceId";
+    public static final String PROJECT_ID_KEY = "projectId";
+
     private CorrelationId() {
     }
 
@@ -30,29 +35,5 @@ public final class CorrelationId {
 
     static void set(String value) {
         MDC.put(MDC_KEY, value);
-    }
-
-    /**
-     * Takes on an id resolved elsewhere, for a thread that has no request of its own.
-     *
-     * <p>A background worker's log lines and audit row would otherwise read {@code "none"}, because
-     * {@code current()} answers from MDC and the filter that populates it never ran. The id is read
-     * back from the row the accepting request wrote, so it stays the caller's own rather than being
-     * invented. Always paired with {@link #release()} in a finally block: these threads are pooled,
-     * so an id left behind is attributed to whatever runs next.
-     */
-    public static void adopt(String correlationId) {
-        if (correlationId != null && !correlationId.isBlank()) {
-            set(correlationId);
-        }
-    }
-
-    /** Hands back an adopted id. See {@link #adopt(String)} for why this is not optional. */
-    public static void release() {
-        clear();
-    }
-
-    static void clear() {
-        MDC.remove(MDC_KEY);
     }
 }
