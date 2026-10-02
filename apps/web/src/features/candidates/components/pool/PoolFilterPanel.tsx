@@ -59,13 +59,13 @@ export function PoolFilterPanel({
                 role="checkbox"
                 aria-checked={on}
                 selected={on}
+                count={tag.holders}
                 selectedClassName={cn("border-transparent", tagClassName(tag.colour))}
                 className={cn("gap-1", !on && "bg-u-surface")}
                 onClick={() => toggleTag(tag.id)}
               >
                 {on && <Icon d={ICONS.check} size={11} />}
                 {tag.label}
-                <span className="opacity-70">{tag.holders}</span>
               </Chip>
             );
           })}

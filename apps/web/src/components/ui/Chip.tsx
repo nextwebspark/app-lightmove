@@ -10,19 +10,14 @@ const SIZE_CLASS: Record<ChipSize, string> = {
 
 interface ChipProps extends ButtonHTMLAttributes<HTMLButtonElement> {
   selected: boolean;
-  /** A count beside the label, in the muted colour whatever the chip's own. */
+  /** Muted beside the label; on a chip that brings its own selected colour, a dimmed shade of it. */
   count?: ReactNode;
   size?: ChipSize;
   /** Replaces the accent-tint selected look — the tag chips bring their own colour. */
   selectedClassName?: string;
 }
 
-/**
- * The mockups' one pill: a 12px toggle with a hairline border that fills with the accent tint when
- * chosen. Quick views, kind-of-activity chips and tag toggles are all this chip; the caller supplies
- * the role (`aria-pressed`, `role="radio"`, `role="checkbox"`), since which one it is depends on the
- * group it sits in.
- */
+/** The mockups' one pill. The caller supplies the role — pressed, radio or checkbox — since that depends on its group. */
 export function Chip({ selected, count, size = "default", selectedClassName, className, children, ...rest }: ChipProps) {
   return (
     <button
@@ -38,7 +33,9 @@ export function Chip({ selected, count, size = "default", selectedClassName, cla
       )}
     >
       {children}
-      {count !== undefined && <span className="text-[11px] text-u-text3">{count}</span>}
+      {count !== undefined && (
+        <span className={cn("text-[11px]", selected && selectedClassName ? "opacity-70" : "text-u-text3")}>{count}</span>
+      )}
     </button>
   );
 }

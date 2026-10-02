@@ -30,6 +30,7 @@ export function PillSelect({
     >
       <span className="text-u-text3">{label}</span>
       <select
+        aria-label={label}
         value={value}
         onChange={(event) => onChange(event.target.value)}
         className="cursor-pointer appearance-none bg-transparent py-[7px] pe-8 font-medium text-u-text outline-none"
