@@ -57,6 +57,17 @@ mandate mapping the person, this one first), **Notes** and **Timeline** for staf
 position's own `WORK_EXECUTE` routes (`…/candidates/{id}/positions|notes|timeline`, `PersonCrmController`);
 the workspace's routes (`/api/v1/candidates/{personId}…` and `/candidates/activity`, the feed) take
 person ids and V97's `CANDIDATE_POOL_MANAGE`, ADMIN and MEMBER and never CLIENT.
+**Documents are the person's too (V105, `docs/candidate-documents.md`)**: a CV, cover letter or
+reference is a card whose files are versions — a file sent under a name already on the person is its
+next version unless the upload says `asNewDocument`, the same bytes are refused
+(`PERSON_DOCUMENT_DUPLICATE`), a file is accepted only where its name and its bytes agree
+(`DocumentFormat`), and one CV per person carries the primary mark. Staff-only like notes, through the
+same two doors (`…/candidates/{id}/documents`, `/candidates/{personId}/documents`); removing is the
+uploader's or a `WORKSPACE_MANAGE` holder's (`PERSON_DOCUMENT_NOT_YOURS`), every download is audited,
+and each change is a timeline line that names the document only while it exists. The bytes live in a
+private GCS bucket behind `core/storage`'s `DocumentStore` (`lightmove.storage.*`; the filesystem store
+for `npm run dev` and tests), streamed by the API, never by a signed URL; the drawer's Documents UI waits
+on its mockup.
 `CandidateResponse.linkedinUrlLocked` is the server's own lock, which the Contact section reads rather
 than guessing from this mandate's door.
 **The workspace's Candidates page** (`/candidates`, `RequireStaff`, `Candidates.dc.html`, Phase 4) reads
@@ -655,6 +666,12 @@ V101 gives `app_lm_mailbox_connection` a `time_zone` (default `Asia/Dubai`), the
 last message ids, `last_sent_at`, `replied_at`, `stopped_at`, a `stop_reason` CHECK and the dispatcher's
 `sending_since` claim (with a partial index on due rows), adds `app_lm_outreach_message` (unique per
 enrollment and step), and widens the activity kinds with `EMAIL_SENT`, `EMAIL_REPLIED` and `OUTREACH_STOPPED`.
+V105 adds `app_lm_person_document` (category, title, `name_key` — the latest file's lower-cased name an
+upload is matched on — and a `primary_cv` mark held to one per person by a partial unique index) and
+`app_lm_person_document_version` (one row per file: sanitised name, the type its bytes were read as, size,
+`sha256`, the bucket's `storage_key`; `person_id` beside `document_id` so a duplicate is one lookup), and
+widens the activity kinds with `DOCUMENT_ADDED`, `DOCUMENT_VERSION_ADDED`, `DOCUMENT_REMOVED` and
+`DOCUMENT_VERSION_REMOVED`. No bytes are in the database.
 V84 adds `app_lm_workspace.mode` (`AGENCY | COMPANY`, V34's CHECK idiom; every existing row `COMPANY`):
 who a workspace hires for — client companies, or its own business units. Chosen at creation with **no
 default** (`CreateWorkspaceRequest.mode` is required, the organisation step preselects nothing) and

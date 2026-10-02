@@ -46,6 +46,13 @@ public enum ProjectEventType implements AuditEventType {
     PERSON_NOTE_EDITED,
     PERSON_NOTE_REMOVED,
     PERSON_NOTE_PINNED,
+    PERSON_DOCUMENT_ADDED,
+    PERSON_DOCUMENT_VERSION_ADDED,
+    PERSON_DOCUMENT_UPDATED,
+    PERSON_DOCUMENT_REMOVED,
+    PERSON_DOCUMENT_VERSION_REMOVED,
+    /** A CV leaving as a file is not the same act as reading the drawer, so every download is recorded. */
+    PERSON_DOCUMENT_DOWNLOADED,
     PERSON_OWNER_CHANGED,
     PERSON_TAGGED,
     PERSON_UNTAGGED,
