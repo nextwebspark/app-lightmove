@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
+import { createPortal } from "react-dom";
 import { cn } from "../../lib/cn";
 import { useEscapeKey } from "../../lib/useEscapeKey";
+import { DrawerCloseButton } from "./Drawer";
 
 /**
  * The mockups' centered dialog: dim overlay, 440px card, Escape and overlay-click to close.
@@ -15,6 +17,9 @@ export function Modal({
   title,
   children,
   footer,
+  subtitle,
+  headerAside,
+  closeButton = false,
   className,
 }: {
   open: boolean;
@@ -23,6 +28,12 @@ export function Modal({
   children: ReactNode;
   /** The dialog's actions, pinned beneath the scrolling body. */
   footer?: ReactNode;
+  /** A line under the title that stays put while the body scrolls. */
+  subtitle?: ReactNode;
+  /** Drawn beside the title, such as a step indicator. */
+  headerAside?: ReactNode;
+  /** Draws an X in the header's corner. */
+  closeButton?: boolean;
   className?: string;
 }) {
   // Through the shared stack rather than its own listener: a modal opened over a drawer or the
@@ -32,10 +43,15 @@ export function Modal({
 
   if (!open) return null;
 
-  return (
+  // Portalled: the drawer's fade-up keeps a transform, which pinned this "full-screen" overlay inside
+  // the drawer panel whenever a modal was opened from an executive's drawer.
+  return createPortal(
     <div
       className="fixed inset-0 z-[100] grid place-items-center bg-u-scrim"
-      onClick={onClose}
+      onClick={(event) => {
+        event.stopPropagation();
+        onClose();
+      }}
     >
       <div
         role="dialog"
@@ -52,9 +68,19 @@ export function Modal({
           className={cn(
             "relative z-10 flex-none border-b px-5 pb-1 pt-5 text-base font-semibold transition-[border-color,box-shadow] md:px-[22px] md:pt-[22px]",
             hiddenAbove ? "border-u-border shadow-[0_16px_20px_-14px_var(--color-u-scrim)]" : "border-transparent",
+            closeButton && "pe-12 md:pe-12",
           )}
         >
-          {title}
+          {headerAside ? (
+            <div className="flex flex-wrap items-center gap-x-5 gap-y-2">
+              <span>{title}</span>
+              {headerAside}
+            </div>
+          ) : (
+            title
+          )}
+          {subtitle && <div className="mt-0.5 font-mono text-[12px] font-normal text-u-text3">{subtitle}</div>}
+          {closeButton && <DrawerCloseButton onClose={onClose} />}
         </div>
         <div
           ref={bodyRef}
@@ -81,7 +107,8 @@ export function Modal({
           </div>
         )}
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }
 
