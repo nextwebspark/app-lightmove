@@ -329,6 +329,10 @@ public enum ErrorCode {
     /** The booking page behind the link could not be made; nothing was started or sent. */
     OUTREACH_BOOKING_LINK_FAILED(HttpStatus.BAD_GATEWAY, "Your booking page couldn't be set up. Try again"),
 
+    /** No credential encryption key is configured, so a workspace's own app keys cannot be stored or read. */
+    INTEGRATION_ENCRYPTION_UNAVAILABLE(HttpStatus.CONFLICT,
+            "Your own app's keys cannot be stored on this deployment. Use the shared app"),
+
     /** A webhook delivery whose signature did not verify, or one this deployment is not set up to read. */
     MAILBOX_WEBHOOK_REJECTED(HttpStatus.UNAUTHORIZED, "Unauthorized"),
 

@@ -6,6 +6,7 @@ import app.lightmove.api.common.persona.model.PersonaSeed;
 import app.lightmove.api.core.error.constant.ErrorCode;
 import app.lightmove.api.core.error.model.ApiException;
 import app.lightmove.api.core.persistence.model.BaseEntity;
+import app.lightmove.api.workspace.constant.CalendarSync;
 import app.lightmove.api.workspace.constant.WorkspaceMode;
 import app.lightmove.api.workspace.constant.WorkspaceStatus;
 import jakarta.persistence.Column;
@@ -62,6 +63,10 @@ public class Workspace extends BaseEntity {
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 16)
     private WorkspaceMode mode;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "calendar_sync", nullable = false, length = 16)
+    private CalendarSync calendarSync = CalendarSync.RECALL;
 
     /** The universe row this firm was picked as at signup; null for a firm typed in by hand (V68). */
     @Column(name = "apollo_account_id")
@@ -142,6 +147,11 @@ public class Workspace extends BaseEntity {
     /** The one write of the mode after creation, so every switch passes the audited path that calls it. */
     public void changeMode(WorkspaceMode mode) {
         this.mode = Objects.requireNonNull(mode, "mode");
+    }
+
+    /** The one write of the calendar sync, so every switch passes the audited path that calls it. */
+    public void changeCalendarSync(CalendarSync calendarSync) {
+        this.calendarSync = Objects.requireNonNull(calendarSync, "calendarSync");
     }
 
     public void describePersona(HiringPersona persona) {

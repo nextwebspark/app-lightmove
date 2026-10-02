@@ -200,6 +200,9 @@ core/
   storage/     constant/(DocumentFormat, StorageProvider)  config/(DocumentStoreConfig)
                service/(DocumentStore, GcsDocumentStore, FilesystemDocumentStore)
                                                           (uploaded files' bytes; the bucket, never Cloud SQL)
+  crypto/      model/(EncryptionContext)  config/(SecretCipherConfig)
+               service/(SecretCipher, TinkSecretCipher, UnconfiguredSecretCipher)
+                                                          (every secret the app stores — encrypted, never logged)
   persistence/ model/(BaseEntity)
   logging/     service/(CorrelationId, CorrelationIdFilter)
   config/      LightMoveProperties (root record) + one *Settings record per branch,
@@ -479,6 +482,22 @@ more than one instance).
 - Comments explain *why*, not *what*. Every class carries a class-level doc; the inline comments that
   document shipped bugs (the traps below) are load-bearing and must not be stripped. If a line needs a
   comment to say what it *does*, rename something.
+
+## Secrets the app holds
+
+`core/crypto`'s `SecretCipher` is the only way a secret reaches a column: a workspace's own OAuth client secret
+today, a mailbox's refresh token from #644. Three rules hold for every caller:
+
+- **Encrypt under an `EncryptionContext` naming the owner and the column** (`WorkspaceMailIntegration
+  .clientSecretContext`). It is the ciphertext's associated data, so a value copied onto another workspace's
+  row, or into another column, fails to decrypt rather than handing one tenant's key to another.
+- **Write-only over the API.** A response says a secret is held (`secretSet`), never what it is; a request
+  record carrying one overrides `toString` to redact it, and so does any model record holding it decrypted
+  (`ProviderCredentials`, `OwnAppKeys`). Never trim one — whitespace inside a secret is the secret.
+- **No key is a refusal, not a crash.** Without `lightmove.crypto.keyset` the bean is
+  `UnconfiguredSecretCipher` and a write is `INTEGRATION_ENCRYPTION_UNAVAILABLE`; a keyset that does not parse
+  fails the boot. Tests build one with `TestSecretCiphers.dev()`, the keyset `application-test.yml` and
+  `ops/dev/api.sh` carry.
 
 ## Traps this codebase has already fallen into
 

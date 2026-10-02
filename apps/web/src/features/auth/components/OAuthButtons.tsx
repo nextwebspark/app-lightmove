@@ -2,6 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import { type ReactElement, useCallback, useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "../../../components/ui";
+import { GoogleMark } from "../../../components/ui/BrandMarks";
 import { useAuth } from "../AuthProvider";
 import * as authApi from "../api/authApi";
 import { homeFor } from "../homeFor";
@@ -23,7 +24,7 @@ import { takeReturnTo } from "../returnTo";
  * nothing lost. See `oauthPopup` for the mechanism, including the redirect it falls back to when a
  * browser blocks the popup.
  */
-const PROVIDER_MARKS: Record<string, { label: string; mark: () => ReactElement }> = {
+const PROVIDER_MARKS: Record<string, { label: string; mark: (props: { size?: number }) => ReactElement }> = {
   google: { label: "Google", mark: GoogleMark },
   linkedin: { label: "LinkedIn", mark: LinkedInMark },
 };
@@ -144,17 +145,6 @@ function titleCase(id: string): string {
     .join(" ");
 }
 
-/** Google's own four-colour mark. */
-function GoogleMark() {
-  return (
-    <svg width="15" height="15" viewBox="0 0 24 24" aria-hidden="true">
-      <path fill="#4285F4" d="M23.5 12.3c0-.8-.1-1.6-.2-2.3H12v4.5h6.5a5.6 5.6 0 0 1-2.4 3.6v3h3.9c2.3-2.1 3.5-5.2 3.5-8.8Z" />
-      <path fill="#34A853" d="M12 24c3.2 0 5.9-1.1 7.9-2.9l-3.9-3a7.2 7.2 0 0 1-10.7-3.8h-4v3.1A12 12 0 0 0 12 24Z" />
-      <path fill="#FBBC05" d="M5.3 14.3a7.1 7.1 0 0 1 0-4.6V6.6h-4a12 12 0 0 0 0 10.8l4-3.1Z" />
-      <path fill="#EA4335" d="M12 4.8c1.8 0 3.4.6 4.6 1.8l3.4-3.4A12 12 0 0 0 1.3 6.6l4 3.1A7.2 7.2 0 0 1 12 4.8Z" />
-    </svg>
-  );
-}
 
 /** LinkedIn's mark, in their blue. */
 function LinkedInMark() {

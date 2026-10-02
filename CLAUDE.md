@@ -389,6 +389,22 @@ cookie the starting browser holds, so a consent link handed to someone else conn
 connect popup lands in the SPA and, like the sign-in popup, must never restore the session there
 (`isReturningMailboxPopup`). A send is never retried — a second approach to an executive is worse than
 a failure.
+**In-house gateways (epic #642, V106)** replace Nylas behind the same seam, one PR at a time on
+`feature/inhouse-mail-gateways`; Nylas stays the active gateway until rollout (#650). Each provider (Google,
+Microsoft, Zoom) is connected through an OAuth app chosen per workspace in **Settings → Integrations**
+(`WORKSPACE_MANAGE`, audited as an `integrations` section): Uncava's **shared** app
+(`lightmove.outreach.providers.*`; blank leaves it unoffered) or the workspace's **own**, its keys pasted by
+its admin. `ProviderCredentialsResolver` is the one read: no row is shared. An own app's client secret is
+**write-only** — stored only as `core/crypto` ciphertext, never returned by any read, and discarded when the
+workspace returns to the shared app. This is the epic's deliberate reversal of "never the provider's tokens":
+what the app now holds is held **encrypted** — Tink envelope encryption (a data key per value, wrapped by a
+key-encryption keyset from Secret Manager, `lightmove.crypto.keyset`, not Cloud KMS: a KMS round trip would sit
+in front of every send), bound to its workspace and purpose as associated data so a value copied elsewhere does
+not decrypt. A deployment without a keyset boots and refuses own keys (`INTEGRATION_ENCRYPTION_UNAVAILABLE`);
+`npm run dev` and the tests share one dev-only keyset. The workspace also chooses how calendar events are read,
+`calendar_sync` (`RECALL | DIRECT`, `PUT /workspace/calendar-sync`, audited like `mode`): on Recall the app's
+keys and each consultant's calendar refresh token are handed to Recall.ai (one platform account,
+`lightmove.recall.*`), and the page says so before an admin enters their own app's keys.
 Sequences (V100, #623) are a position's, `WORK_EXECUTE`: up to three emails (V39's owned list), and
 **Add to sequence** — from In universe / Shortlisted (the ticked companies' executives) or the executive
 drawer — chooses, reviews and starts. Choose shows who is skipped and why (no email, do not contact, out
@@ -672,6 +688,10 @@ upload is matched on — and a `primary_cv` mark held to one per person by a par
 `sha256`, the bucket's `storage_key`; `person_id` beside `document_id` so a duplicate is one lookup), and
 widens the activity kinds with `DOCUMENT_ADDED`, `DOCUMENT_VERSION_ADDED`, `DOCUMENT_REMOVED` and
 `DOCUMENT_VERSION_REMOVED`. No bytes are in the database.
+V106 adds `app_lm_workspace_mail_integration` — one row per workspace per provider (`GOOGLE | MICROSOFT |
+ZOOM`), `mode` `SHARED | OWN`, and on `OWN` the client id, `client_secret_encrypted`, the Entra `tenant_id`
+(Microsoft only, by CHECK) and the secret's own expiry; a `SHARED` row holds no key (CHECK), and no row means
+shared — and `app_lm_workspace.calendar_sync` (`RECALL | DIRECT`, default `RECALL`).
 V84 adds `app_lm_workspace.mode` (`AGENCY | COMPANY`, V34's CHECK idiom; every existing row `COMPANY`):
 who a workspace hires for — client companies, or its own business units. Chosen at creation with **no
 default** (`CreateWorkspaceRequest.mode` is required, the organisation step preselects nothing) and

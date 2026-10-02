@@ -32,6 +32,7 @@ import { ProjectsPage } from "../features/projects/pages/ProjectsPage";
 import { ReportsPage } from "../features/reports/pages/ReportsPage";
 import { TeamAccessPage } from "../features/projects/pages/TeamAccessPage";
 import { SettingsCandidateTagsPage } from "../features/settings/pages/SettingsCandidateTagsPage";
+import { SettingsIntegrationsPage } from "../features/settings/pages/SettingsIntegrationsPage";
 import { SettingsGeneralPage } from "../features/settings/pages/SettingsGeneralPage";
 import { SettingsMembersPage } from "../features/settings/pages/SettingsMembersPage";
 import { SettingsProfilePage } from "../features/settings/pages/SettingsProfilePage";
@@ -154,6 +155,7 @@ export function AppRoutes() {
           <Route path="/settings/general" element={<SettingsGeneralPage />} />
           <Route path="/settings/members" element={<SettingsMembersPage />} />
           <Route path="/settings/candidate-tags" element={<SettingsCandidateTagsPage />} />
+          <Route path="/settings/integrations" element={<SettingsIntegrationsPage />} />
           <Route path="/settings/templates" element={<TemplateListPage scope="workspace" />} />
           <Route path="/settings/templates/new" element={<TemplateEditorPage scope="workspace" />} />
           <Route path="/settings/templates/:code" element={<TemplateEditorPage scope="workspace" />} />

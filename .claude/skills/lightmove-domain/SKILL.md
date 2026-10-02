@@ -189,6 +189,15 @@ A workspace's own template edits are a separate, ordinary workspace action (`POS
 ADMIN), and they write the firm's own rows only: a firm's copy shadows the library template of the same
 code for that firm alone, which is what lets the library and every firm's copy of it move independently.
 
+**A workspace's provider apps are its admin's, and their secrets are never read back.** Settings →
+Integrations (V106) chooses, per provider, Uncava's shared OAuth app or the firm's own — `WORKSPACE_MANAGE`
+for the read as well as the writes, because the page lists the firm's app registrations and a client
+seat or a researcher has no use for them. An own app's secret is write-only and encrypted (`core/crypto`), and
+returning to the shared app deletes it rather than parking it. The calendar sync choice (`RECALL | DIRECT`) is
+the same admin's, audited like the mode: on Recall the app's keys and each consultant's calendar refresh
+token go to Recall.ai, a sub-processor, so the screen says so before anyone enters their own keys, and Direct
+is always on offer for an IT department that will not let them leave.
+
 ## An identity provider is configuration, not code
 
 Adding Google, LinkedIn, or anything else that speaks OIDC is a `spring.security.oauth2.client`
