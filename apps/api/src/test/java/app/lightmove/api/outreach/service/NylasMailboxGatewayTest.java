@@ -10,12 +10,16 @@ import app.lightmove.api.core.error.model.ApiException;
 import app.lightmove.api.core.resilience.service.VendorCallGuard;
 import app.lightmove.api.core.resilience.service.VendorClientFactory;
 import app.lightmove.api.core.resilience.service.VendorRateLimiter;
+import app.lightmove.api.outreach.model.CalendarEvent;
+import app.lightmove.api.outreach.model.CalendarEventChanged;
+import app.lightmove.api.outreach.model.CalendarEventRemoved;
 import app.lightmove.api.outreach.model.DeliveryFailure;
 import app.lightmove.api.outreach.model.InboundMessage;
 import app.lightmove.api.outreach.model.MailboxAccessWithdrawn;
 import java.net.URI;
 import java.net.URLDecoder;
 import java.nio.charset.StandardCharsets;
+import java.time.Instant;
 import java.util.HexFormat;
 import java.util.List;
 import javax.crypto.Mac;
@@ -115,6 +119,40 @@ class NylasMailboxGatewayTest {
         assertThat(gateway.readWebhook(signatureOf(expired), expired))
                 .containsExactly(new MailboxAccessWithdrawn("grant-9"));
         assertThat(gateway.readWebhook(signatureOf(other), other)).isEmpty();
+    }
+
+    @Test
+    @DisplayName("a calendar event reads its time, everyone on it, the organizer included, and its video link")
+    void calendarEventsReadAsTheirKind() throws Exception {
+        byte[] created = """
+                {"type":"event.created","data":{"object":{"grant_id":"grant-9","id":"evt-1","title":"First call",
+                 "status":"confirmed","when":{"object":"timespan","start_time":1790000000,"end_time":1790001800},
+                 "participants":[{"email":"priya@target.example","status":"noreply"}],
+                 "organizer":{"email":"consultant@firm.example"},
+                 "conferencing":{"provider":"Google Meet","details":{"url":"https://meet.google.com/abc"}}}}}"""
+                .getBytes(StandardCharsets.UTF_8);
+        byte[] cancelled = """
+                {"type":"event.updated","data":{"object":{"grant_id":"grant-9","id":"evt-1","status":"cancelled",
+                 "when":{"object":"timespan","start_time":1790000000,"end_time":1790001800}}}}"""
+                .getBytes(StandardCharsets.UTF_8);
+        byte[] allDay = """
+                {"type":"event.created","data":{"object":{"grant_id":"grant-9","id":"evt-2",
+                 "when":{"object":"date","date":"2026-10-05"},"participants":[{"email":"priya@target.example"}]}}}"""
+                .getBytes(StandardCharsets.UTF_8);
+        byte[] deleted = """
+                {"type":"event.deleted","data":{"object":{"grant_id":"grant-9","id":"evt-1"}}}"""
+                .getBytes(StandardCharsets.UTF_8);
+
+        assertThat(gateway.readWebhook(signatureOf(created), created)).containsExactly(new CalendarEventChanged(
+                "grant-9", new CalendarEvent("evt-1", "First call", Instant.ofEpochSecond(1790000000),
+                        Instant.ofEpochSecond(1790001800), List.of("priya@target.example", "consultant@firm.example"),
+                        "https://meet.google.com/abc", "Google Meet")));
+        assertThat(gateway.readWebhook(signatureOf(cancelled), cancelled))
+                .containsExactly(new CalendarEventRemoved("grant-9", "evt-1"));
+        assertThat(gateway.readWebhook(signatureOf(allDay), allDay))
+                .containsExactly(new CalendarEventRemoved("grant-9", "evt-2"));
+        assertThat(gateway.readWebhook(signatureOf(deleted), deleted))
+                .containsExactly(new CalendarEventRemoved("grant-9", "evt-1"));
     }
 
     @Test

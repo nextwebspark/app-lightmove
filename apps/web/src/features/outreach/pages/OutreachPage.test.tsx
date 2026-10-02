@@ -44,7 +44,7 @@ vi.mock("../../candidates/components/CandidateDrawerById", () => ({
 const PROJECT = { id: "p1", positionTitle: "Group CFO" };
 
 const NOBODY: OutreachOverview = {
-  counts: { enrolled: 0, emailsSent: 0, reached: 0, replied: 0, inFlight: 0, bounced: 0, stopped: 0 },
+  counts: { enrolled: 0, emailsSent: 0, reached: 0, replied: 0, inFlight: 0, bounced: 0, stopped: 0, booked: 0 },
   nextSendAt: null,
   people: [],
 };
@@ -74,7 +74,7 @@ function run(overrides: Partial<OutreachRun>): OutreachRun {
 }
 
 const WITH_PEOPLE: OutreachOverview = {
-  counts: { enrolled: 3, emailsSent: 4, reached: 3, replied: 1, inFlight: 1, bounced: 0, stopped: 1 },
+  counts: { enrolled: 3, emailsSent: 4, reached: 3, replied: 1, inFlight: 1, bounced: 0, stopped: 1, booked: 0 },
   nextSendAt: "2026-10-09T05:00:00Z",
   people: [
     run({}),

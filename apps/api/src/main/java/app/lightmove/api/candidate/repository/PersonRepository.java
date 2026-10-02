@@ -39,6 +39,13 @@ public interface PersonRepository extends JpaRepository<Person, UUID> {
             """)
     List<Person> findByWorkspaceIdAndEmailKey(UUID workspaceId, String emailKey);
 
+    /** The people holding any of these addresses, on the ledger's key. */
+    @Query("""
+            select distinct p.id from Person p join p.contacts k
+            where p.workspaceId = :workspaceId and k.channel = 'EMAIL' and k.valueKey in :emailKeys
+            """)
+    List<UUID> findIdsByWorkspaceIdAndEmailKeyIn(UUID workspaceId, Collection<String> emailKeys);
+
     /**
      * People of one name who sit, on any mandate, at one employer — the possible-duplicate check's soft key.
      * The mapping's snapshotted company name stands for the employer, as no column on the person does.

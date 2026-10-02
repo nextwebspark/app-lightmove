@@ -53,6 +53,10 @@ public class MailboxConnection extends BaseEntity {
     @Column(name = "time_zone", nullable = false, length = 64)
     private String timeZone = DEFAULT_ZONE.getId();
 
+    /** When the calendar was last read whole (V102); null while that read is still owed. */
+    @Column(name = "calendar_synced_at")
+    private Instant calendarSyncedAt;
+
     public static MailboxConnection connected(UUID workspaceId, UUID userId, GrantedMailbox mailbox, int dailyCap,
                                               Instant now) {
         MailboxConnection connection = new MailboxConnection();
@@ -69,6 +73,11 @@ public class MailboxConnection extends BaseEntity {
         this.grantId = mailbox.grantId();
         this.status = MailboxStatus.ACTIVE;
         this.connectedAt = now;
+        this.calendarSyncedAt = null;
+    }
+
+    public void markCalendarSynced(Instant now) {
+        this.calendarSyncedAt = now;
     }
 
     public void markAccessWithdrawn() {

@@ -404,6 +404,15 @@ is a bounce. Every email is an `app_lm_outreach_message` row (staff-only); every
 `EMAIL_REPLIED` / `OUTREACH_STOPPED` line and an audit event (`OutreachOutcomes`). The Outreach page reads
 `…/outreach/people` (counts and runs, filtered in the SPA), the drawer's Outreach fold
 `…/outreach/candidates/{id}`, and Stop is `…/enrollments/{id}/stop`, all `WORK_EXECUTE`.
+**Meetings (V102, #628)** read the same grant's calendar: an event is kept (`app_lm_person_meeting`, one row
+per matching person) only when an attendee's address is on a person's ledger — nothing else of anyone's
+calendar is stored — through the `event.*` webhook (`MeetingSync`) and a 90-day read either side of today
+when a mailbox is connected (`MeetingBackfill`, retried by the reply poll while `calendar_synced_at` is
+null). The drawer's Meetings section reads `…/candidates/{id}/meetings`; **Book a call** offers the
+consultant's free half-hours in their own window (`FreeSlots`, `…/meetings/slots`) and `POST …/meetings`
+re-checks do not contact, the ledger and the slot, creates the event (never retried), then writes
+`MEETING_BOOKED`, moves Identified or Contacted to Engaged (forward only) and ends a live run as `BOOKED`.
+All `WORK_EXECUTE`. The `{{bookingLink}}` Scheduler page is the next PR.
 
 ## Commands
 

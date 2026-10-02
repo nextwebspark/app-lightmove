@@ -56,6 +56,17 @@ class OutreachOutcomes {
         audited(ProjectEventType.OUTREACH_BOUNCED, enrollment, null, null).record();
     }
 
+    /** A call was booked with the person: like a reply, it ends the run, and {@code actor} is who booked it. */
+    @Transactional(propagation = Propagation.MANDATORY)
+    public void booked(OutreachEnrollment enrollment, UUID actor, Instant now, HttpServletRequest request) {
+        enrollment.booked(now);
+        people.recordStopped(enrollment.getWorkspaceId(), enrollment.getProjectId(), enrollment.getPersonId(), actor,
+                enrollment.getSequenceId(), sequenceNameOf(enrollment), EnrollmentStatus.BOOKED.name());
+        audited(ProjectEventType.OUTREACH_STOPPED, enrollment, actor, request)
+                .detail("reason", EnrollmentStatus.BOOKED.name())
+                .record();
+    }
+
     String sequenceNameOf(OutreachEnrollment enrollment) {
         return sequences.findById(enrollment.getSequenceId()).map(OutreachSequence::getName).orElse(null);
     }

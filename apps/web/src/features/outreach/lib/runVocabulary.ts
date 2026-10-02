@@ -8,6 +8,7 @@ export const RUN_STATES: Record<RunStatus, { label: string; className: string }>
   BOUNCED: { label: "Bounced", className: "bg-u-offlimits-tint text-u-offlimits" },
   STOPPED: { label: "Stopped", className: "bg-u-sunken text-u-text3" },
   COMPLETED: { label: "Completed", className: "bg-u-raised text-u-text3" },
+  BOOKED: { label: "Booked a call", className: "bg-u-direct-tint text-u-direct" },
 };
 
 /** Why a run stopped short, as the table's note under the chip and the drawer say it. */
@@ -22,12 +23,13 @@ export const STOP_NOTES: Record<StopReason, string> = {
   SEND_UNCERTAIN: "A send may not have gone",
 };
 
-export type RunFilter = "all" | "inFlight" | "replied" | "bounced" | "stopped";
+export type RunFilter = "all" | "inFlight" | "replied" | "booked" | "bounced" | "stopped";
 
 export const RUN_FILTERS: { key: RunFilter; label: string }[] = [
   { key: "all", label: "All" },
   { key: "inFlight", label: "In flight" },
   { key: "replied", label: "Replied" },
+  { key: "booked", label: "Booked a call" },
   { key: "bounced", label: "Bounced" },
   { key: "stopped", label: "Stopped" },
 ];
@@ -44,6 +46,8 @@ export function matchesFilter(run: OutreachRun, filter: RunFilter): boolean {
       return isLive(run);
     case "replied":
       return run.status === "REPLIED";
+    case "booked":
+      return run.status === "BOOKED";
     case "bounced":
       return run.status === "BOUNCED";
     case "stopped":
@@ -56,6 +60,8 @@ export function runNoteOf(run: OutreachRun): string {
   switch (run.status) {
     case "REPLIED":
       return run.endedAt ? sendTimeOf(run.endedAt).replace(" · ", " ") : "";
+    case "BOOKED":
+      return run.endedAt ? `Booked ${sendTimeOf(run.endedAt).replace(" · ", " ")}` : "";
     case "BOUNCED":
       return "Address rejected";
     case "STOPPED":

@@ -11,7 +11,8 @@ import org.springframework.stereotype.Component;
 
 /**
  * The timer behind outreach: every minute it sends what is due, and every quarter hour it asks each
- * listening thread whether anyone answered, for the replies a webhook never delivered. Safe on several
+ * listening thread whether anyone answered, for the replies a webhook never delivered, and reads any
+ * calendar still owed its first read. Safe on several
  * instances at once — see {@code OutreachEnrollmentClaims}.
  */
 @Component
@@ -21,6 +22,7 @@ public class OutreachDispatcher {
 
     private final OutreachSendService sends;
     private final OutreachInboxService inbox;
+    private final MeetingBackfill calendars;
     private final MailboxGateway gateway;
     private final Clock clock;
 
@@ -37,6 +39,7 @@ public class OutreachDispatcher {
     public void pollReplies() {
         if (gateway.isOffered()) {
             inbox.pollListeningThreads(clock.instant());
+            calendars.syncOwed();
         }
     }
 

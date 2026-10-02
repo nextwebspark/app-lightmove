@@ -322,7 +322,8 @@ export type PersonActivityKind =
   | "OUTREACH_ENROLLED"
   | "EMAIL_SENT"
   | "EMAIL_REPLIED"
-  | "OUTREACH_STOPPED";
+  | "OUTREACH_STOPPED"
+  | "MEETING_BOOKED";
 
 /** The timeline's filter chips, as the server's `TimelineGroup` tokens. */
 export type TimelineGroup = "positions" | "notes" | "contacts" | "profile" | "tags";

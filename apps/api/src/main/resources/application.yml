@@ -551,8 +551,9 @@ lightmove:
       base-url: ${NYLAS_BASE_URL:https://api.us.nylas.com}
       providers: ${NYLAS_PROVIDERS:google,microsoft}
       # The signing secret of a Nylas webhook pointed at <web.base-url>/api/v1/outreach/webhooks/mailbox,
-      # subscribed to message.created, message.bounce_detected and grant.expired. Blank, replies are
-      # found by the poll alone.
+      # subscribed to message.created, message.bounce_detected, grant.expired and event.created,
+      # event.updated, event.deleted (the drawer's Meetings). Blank, replies are found by the poll alone
+      # and meetings by the read each calendar gets when it is connected.
       webhook-secret: ${NYLAS_WEBHOOK_SECRET:}
     connect-window: ${OUTREACH_CONNECT_WINDOW:10m}
     daily-cap: ${OUTREACH_DAILY_CAP:50}

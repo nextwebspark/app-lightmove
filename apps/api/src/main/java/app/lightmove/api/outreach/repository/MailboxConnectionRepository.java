@@ -1,5 +1,6 @@
 package app.lightmove.api.outreach.repository;
 
+import app.lightmove.api.outreach.constant.MailboxStatus;
 import app.lightmove.api.outreach.model.MailboxConnection;
 import java.util.List;
 import java.util.Optional;
@@ -17,4 +18,7 @@ public interface MailboxConnectionRepository extends JpaRepository<MailboxConnec
      * in two workspaces can come back as one grant.
      */
     List<MailboxConnection> findByGrantId(String grantId);
+
+    /** Calendars still owed their first read. A system job's read, so across workspaces by design; no request path may use it. */
+    List<MailboxConnection> findByStatusAndCalendarSyncedAtIsNull(MailboxStatus status);
 }

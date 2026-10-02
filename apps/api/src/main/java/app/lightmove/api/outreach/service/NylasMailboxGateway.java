@@ -8,11 +8,17 @@ import app.lightmove.api.core.resilience.model.VendorClientSpec;
 import app.lightmove.api.core.resilience.service.VendorCallGuard;
 import app.lightmove.api.core.resilience.service.VendorClientFactory;
 import app.lightmove.api.core.resilience.service.VendorRateLimiter;
+import app.lightmove.api.outreach.constant.MeetingVideo;
+import app.lightmove.api.outreach.model.BusyInterval;
+import app.lightmove.api.outreach.model.CalendarEvent;
+import app.lightmove.api.outreach.model.CalendarEventChanged;
+import app.lightmove.api.outreach.model.CalendarEventRemoved;
 import app.lightmove.api.outreach.model.DeliveryFailure;
 import app.lightmove.api.outreach.model.GrantedMailbox;
 import app.lightmove.api.outreach.model.InboundMessage;
 import app.lightmove.api.outreach.model.MailboxAccessWithdrawn;
 import app.lightmove.api.outreach.model.MailboxEvent;
+import app.lightmove.api.outreach.model.NewCalendarEvent;
 import app.lightmove.api.outreach.model.OutgoingEmail;
 import app.lightmove.api.outreach.model.SentEmail;
 import java.net.URI;
@@ -21,6 +27,7 @@ import java.security.GeneralSecurityException;
 import java.security.MessageDigest;
 import java.time.Duration;
 import java.time.Instant;
+import java.util.ArrayList;
 import java.util.HexFormat;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -56,6 +63,13 @@ public class NylasMailboxGateway implements MailboxGateway {
 
     /** A thread an outreach run writes into is a handful of messages; this is far past any real one. */
     private static final int THREAD_PAGE = 50;
+
+    private static final int EVENT_PAGE = 200;
+
+    /** Two thousand events either side of today is a full diary; a calendar past it is read no further. */
+    private static final int MAX_EVENT_PAGES = 10;
+
+    private static final String PRIMARY_CALENDAR = "primary";
 
     private final NylasSettings config;
     private final RestClient client;
@@ -166,8 +180,152 @@ public class NylasMailboxGateway implements MailboxGateway {
                     firstText(object.path("origin").path("thread_id"), object.path("thread_id")),
                     firstText(object.path("origin").path("id"), object.path("message_id"))));
             case "grant.expired", "grant.deleted" -> List.of(new MailboxAccessWithdrawn(grantId));
+            case "event.created", "event.updated" -> calendarChangeOf(grantId, object);
+            case "event.deleted" -> eventIdOrEmpty(grantId, object);
             default -> List.of();
         };
+    }
+
+    @Override
+    public List<CalendarEvent> calendarEvents(String grantId, Instant from, Instant to) {
+        List<CalendarEvent> events = new ArrayList<>();
+        String pageToken = null;
+        for (int page = 0; page < MAX_EVENT_PAGES; page++) {
+            String token = pageToken;
+            JsonNode answer = guard.call(VendorCall.of(VENDOR, "calendar-events"), () -> client.get()
+                    .uri(builder -> {
+                        builder.path("/v3/grants/{grantId}/events")
+                                .queryParam("calendar_id", PRIMARY_CALENDAR)
+                                .queryParam("start", from.getEpochSecond())
+                                .queryParam("end", to.getEpochSecond())
+                                .queryParam("expand_recurring", true)
+                                .queryParam("limit", EVENT_PAGE);
+                        if (token != null) {
+                            builder.queryParam("page_token", token);
+                        }
+                        return builder.build(grantId);
+                    })
+                    .accept(MediaType.APPLICATION_JSON)
+                    .retrieve()
+                    .body(JsonNode.class));
+            if (answer == null) {
+                break;
+            }
+            for (JsonNode event : answer.path("data")) {
+                if (!isCancelled(event)) {
+                    CalendarEvent read = eventOf(event);
+                    if (read != null) {
+                        events.add(read);
+                    }
+                }
+            }
+            pageToken = textOrNull(answer.path("next_cursor"));
+            if (pageToken == null) {
+                break;
+            }
+        }
+        return events;
+    }
+
+    @Override
+    public List<BusyInterval> busyTimes(String grantId, String address, Instant from, Instant to) {
+        JsonNode answer = guard.call(VendorCall.of(VENDOR, "free-busy"), () -> client.post()
+                .uri("/v3/grants/{grantId}/calendars/free-busy", grantId)
+                .contentType(MediaType.APPLICATION_JSON)
+                .body(Map.of("start_time", from.getEpochSecond(), "end_time", to.getEpochSecond(),
+                        "emails", List.of(address)))
+                .retrieve()
+                .body(JsonNode.class));
+        List<BusyInterval> busy = new ArrayList<>();
+        if (answer == null) {
+            return busy;
+        }
+        for (JsonNode calendar : answer.path("data")) {
+            for (JsonNode slot : calendar.path("time_slots")) {
+                String status = textOrNull(slot.path("status"));
+                if ((status == null || status.equalsIgnoreCase("busy")) && slot.path("start_time").isNumber()
+                        && slot.path("end_time").isNumber()) {
+                    busy.add(new BusyInterval(Instant.ofEpochSecond(slot.path("start_time").asLong()),
+                            Instant.ofEpochSecond(slot.path("end_time").asLong())));
+                }
+            }
+        }
+        return busy;
+    }
+
+    @Override
+    public CalendarEvent createEvent(String grantId, NewCalendarEvent event) {
+        Map<String, Object> body = new LinkedHashMap<>();
+        body.put("title", event.title());
+        body.put("when", Map.of("start_time", event.startsAt().getEpochSecond(),
+                "end_time", event.endsAt().getEpochSecond()));
+        body.put("participants", List.of(Map.of("email", event.inviteeAddress())));
+        String conferencing = conferencingProviderOf(event.video());
+        if (conferencing != null) {
+            body.put("conferencing", Map.of("provider", conferencing, "autocreate", Map.of()));
+        }
+        JsonNode answer = guard.call(VendorCall.of(VENDOR, "create-event"), () -> client.post()
+                .uri(builder -> builder.path("/v3/grants/{grantId}/events")
+                        .queryParam("calendar_id", PRIMARY_CALENDAR)
+                        .queryParam("notify_participants", true)
+                        .build(grantId))
+                .contentType(MediaType.APPLICATION_JSON)
+                .body(body)
+                .retrieve()
+                .body(JsonNode.class));
+        CalendarEvent created = answer == null ? null : eventOf(answer.path("data"));
+        if (created == null) {
+            throw new IllegalStateException("The mail service answered an event create with no timed event");
+        }
+        return created;
+    }
+
+    private static String conferencingProviderOf(MeetingVideo video) {
+        return switch (video) {
+            case GOOGLE_MEET -> "Google Meet";
+            case MICROSOFT_TEAMS -> "Microsoft Teams";
+            case NONE -> null;
+        };
+    }
+
+    /** A cancelled event, or one that stopped being timed, is as good as gone for a meeting list. */
+    private static List<MailboxEvent> calendarChangeOf(String grantId, JsonNode object) {
+        CalendarEvent event = isCancelled(object) ? null : eventOf(object);
+        return event != null ? List.of(new CalendarEventChanged(grantId, event)) : eventIdOrEmpty(grantId, object);
+    }
+
+    private static List<MailboxEvent> eventIdOrEmpty(String grantId, JsonNode object) {
+        String eventId = textOrNull(object.path("id"));
+        return eventId == null ? List.of() : List.of(new CalendarEventRemoved(grantId, eventId));
+    }
+
+    private static boolean isCancelled(JsonNode event) {
+        return "cancelled".equalsIgnoreCase(textOrNull(event.path("status")));
+    }
+
+    /** Null for an event with no id or no start and end time: an all-day event is no call. */
+    static CalendarEvent eventOf(JsonNode event) {
+        String id = textOrNull(event.path("id"));
+        JsonNode when = event.path("when");
+        if (id == null || !when.path("start_time").isNumber() || !when.path("end_time").isNumber()) {
+            return null;
+        }
+        List<String> participants = new ArrayList<>();
+        for (JsonNode participant : event.path("participants")) {
+            String address = textOrNull(participant.path("email"));
+            if (address != null) {
+                participants.add(address);
+            }
+        }
+        String organizer = textOrNull(event.path("organizer").path("email"));
+        if (organizer != null) {
+            participants.add(organizer);
+        }
+        JsonNode conferencing = event.path("conferencing");
+        return new CalendarEvent(id, textOrNull(event.path("title")),
+                Instant.ofEpochSecond(when.path("start_time").asLong()),
+                Instant.ofEpochSecond(when.path("end_time").asLong()), participants,
+                textOrNull(conferencing.path("details").path("url")), textOrNull(conferencing.path("provider")));
     }
 
     @Override

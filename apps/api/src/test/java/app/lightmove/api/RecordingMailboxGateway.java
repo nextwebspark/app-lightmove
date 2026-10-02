@@ -2,8 +2,11 @@ package app.lightmove.api;
 
 import app.lightmove.api.core.error.constant.ErrorCode;
 import app.lightmove.api.core.error.model.ApiException;
+import app.lightmove.api.outreach.model.BusyInterval;
+import app.lightmove.api.outreach.model.CalendarEvent;
 import app.lightmove.api.outreach.model.GrantedMailbox;
 import app.lightmove.api.outreach.model.MailboxEvent;
+import app.lightmove.api.outreach.model.NewCalendarEvent;
 import app.lightmove.api.outreach.model.OutgoingEmail;
 import app.lightmove.api.outreach.model.SentEmail;
 import app.lightmove.api.outreach.service.MailboxGateway;
@@ -38,6 +41,9 @@ public class RecordingMailboxGateway implements MailboxGateway {
     private final Map<String, String> threadOfMessage = new ConcurrentHashMap<>();
     private final Map<String, List<String>> threadWriters = new ConcurrentHashMap<>();
     private volatile List<MailboxEvent> nextWebhook = List.of();
+    private volatile List<CalendarEvent> calendar = List.of();
+    private volatile List<BusyInterval> busy = List.of();
+    private final List<NewCalendarEvent> created = new CopyOnWriteArrayList<>();
 
     @Override
     public boolean isOffered() {
@@ -93,6 +99,40 @@ public class RecordingMailboxGateway implements MailboxGateway {
         return List.copyOf(threadWriters.getOrDefault(threadId, List.of()));
     }
 
+    @Override
+    public List<CalendarEvent> calendarEvents(String grantId, Instant from, Instant to) {
+        return calendar.stream()
+                .filter(event -> event.startsAt().isBefore(to) && event.endsAt().isAfter(from))
+                .toList();
+    }
+
+    @Override
+    public List<BusyInterval> busyTimes(String grantId, String address, Instant from, Instant to) {
+        return busy.stream().filter(interval -> interval.overlaps(from, to)).toList();
+    }
+
+    @Override
+    public CalendarEvent createEvent(String grantId, NewCalendarEvent event) {
+        created.add(event);
+        return new CalendarEvent("created-" + sequence.incrementAndGet(), event.title(), event.startsAt(),
+                event.endsAt(), List.of(granted.address(), event.inviteeAddress()),
+                "https://meet.example/" + created.size(), "Google Meet");
+    }
+
+    /** What the calendar holds when it is read whole. */
+    public void calendarHolds(List<CalendarEvent> events) {
+        this.calendar = List.copyOf(events);
+    }
+
+    /** When the consultant's calendar is taken. */
+    public void busyAt(List<BusyInterval> intervals) {
+        this.busy = List.copyOf(intervals);
+    }
+
+    public List<NewCalendarEvent> created() {
+        return List.copyOf(created);
+    }
+
     /** What the next signed webhook delivery reports. */
     public void deliverNext(List<MailboxEvent> events) {
         this.nextWebhook = List.copyOf(events);
@@ -146,6 +186,9 @@ public class RecordingMailboxGateway implements MailboxGateway {
         threadOfMessage.clear();
         threadWriters.clear();
         nextWebhook = List.of();
+        calendar = List.of();
+        busy = List.of();
+        created.clear();
     }
 
     public record SentRecord(String grantId, OutgoingEmail email) {}

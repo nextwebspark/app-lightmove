@@ -13,6 +13,7 @@ import app.lightmove.api.outreach.dto.ConnectedMailboxResponse;
 import app.lightmove.api.outreach.dto.MailboxResponse;
 import app.lightmove.api.outreach.model.GrantedMailbox;
 import app.lightmove.api.outreach.model.MailboxAuthorization;
+import app.lightmove.api.outreach.model.MailboxCalendarOwed;
 import app.lightmove.api.outreach.model.MailboxConnectStart;
 import app.lightmove.api.outreach.model.MailboxConnection;
 import app.lightmove.api.outreach.model.OutgoingEmail;
@@ -27,6 +28,7 @@ import java.time.Instant;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.support.TransactionTemplate;
@@ -53,6 +55,7 @@ public class MailboxService {
     private final MailboxAuthorizationRepository authorizations;
     private final TransactionTemplate transactions;
     private final AuditService audit;
+    private final ApplicationEventPublisher events;
     private final LightMoveProperties properties;
     private final Clock clock;
 
@@ -163,11 +166,13 @@ public class MailboxService {
                 .map(existing -> {
                     String previous = existing.getGrantId();
                     existing.reconnect(granted, now);
+                    events.publishEvent(new MailboxCalendarOwed(existing.getId()));
                     return previous;
                 })
                 .orElseGet(() -> {
-                    connections.save(MailboxConnection.connected(started.getWorkspaceId(), started.getUserId(),
-                            granted, settings().dailyCap(), now));
+                    MailboxConnection connected = connections.save(MailboxConnection.connected(
+                            started.getWorkspaceId(), started.getUserId(), granted, settings().dailyCap(), now));
+                    events.publishEvent(new MailboxCalendarOwed(connected.getId()));
                     return null;
                 });
     }

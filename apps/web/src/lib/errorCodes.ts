@@ -85,6 +85,10 @@ export type ApiErrorCode =
   | "OUTREACH_ALREADY_ENROLLED"
   | "OUTREACH_ADDRESS_NOT_ON_FILE"
   | "OUTREACH_NOT_RUNNING"
+  | "MEETING_DO_NOT_CONTACT"
+  | "MEETING_SLOT_TAKEN"
+  | "MEETING_SLOT_INVALID"
+  | "MEETING_BOOK_FAILED"
   | "WORKSPACE_NAME_MISMATCH"
   | "TEMPLATE_STALE"
   | "TEMPLATE_FALLBACK_REQUIRED"
@@ -177,6 +181,10 @@ const MESSAGES: Partial<Record<ApiErrorCode, string>> = {
   OUTREACH_ALREADY_ENROLLED: "Someone you chose is already in a sequence on this position.",
   OUTREACH_ADDRESS_NOT_ON_FILE: "That address isn't on file for this person.",
   OUTREACH_NOT_RUNNING: "This sequence has already ended.",
+  MEETING_DO_NOT_CONTACT: "This person is marked do not contact.",
+  MEETING_SLOT_TAKEN: "That time is no longer free. Pick another.",
+  MEETING_SLOT_INVALID: "That time can't be booked. Pick one from the grid.",
+  MEETING_BOOK_FAILED: "The invite couldn't be sent. Check your calendar before trying again.",
 };
 
 /**
