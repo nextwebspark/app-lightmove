@@ -79,7 +79,8 @@ public class OutreachMonitorService {
         return new OutreachCountsResponse(sumOf(tallies, OutreachRunTally::getTotal),
                 sumOf(tallies, OutreachRunTally::getSent), sumOf(tallies, OutreachRunTally::getReached),
                 totalWith(tallies, Set.of(EnrollmentStatus.REPLIED)), totalWith(tallies, EnrollmentStatus.LIVE),
-                totalWith(tallies, Set.of(EnrollmentStatus.BOUNCED)), totalWith(tallies, Set.of(EnrollmentStatus.STOPPED)));
+                totalWith(tallies, Set.of(EnrollmentStatus.BOUNCED)), totalWith(tallies, Set.of(EnrollmentStatus.STOPPED)),
+                totalWith(tallies, Set.of(EnrollmentStatus.BOOKED)));
     }
 
     private static long sumOf(List<OutreachRunTally> tallies, ToLongFunction<OutreachRunTally> value) {
@@ -139,7 +140,7 @@ public class OutreachMonitorService {
     private static Instant endedAtOf(OutreachEnrollment enrollment) {
         return switch (enrollment.getStatus()) {
             case REPLIED -> enrollment.getRepliedAt();
-            case BOUNCED, STOPPED -> enrollment.getStoppedAt();
+            case BOUNCED, STOPPED, BOOKED -> enrollment.getStoppedAt();
             case COMPLETED -> enrollment.getLastSentAt();
             case SCHEDULED, ACTIVE -> null;
         };
@@ -171,7 +172,7 @@ public class OutreachMonitorService {
 
     private static String notSentBecause(OutreachEnrollment enrollment) {
         return switch (enrollment.getStatus()) {
-            case REPLIED, BOUNCED -> enrollment.getStatus().name();
+            case REPLIED, BOUNCED, BOOKED -> enrollment.getStatus().name();
             case STOPPED -> enrollment.getStopReason() == null ? null : enrollment.getStopReason().name();
             case SCHEDULED, ACTIVE, COMPLETED -> null;
         };

@@ -1,22 +1,28 @@
 package app.lightmove.api.candidate.service;
 
 import app.lightmove.api.candidate.constant.CandidateStatus;
+import app.lightmove.api.candidate.constant.ContactChannel;
 import app.lightmove.api.candidate.constant.PersonActivityKind;
 import app.lightmove.api.candidate.model.Candidate;
 import app.lightmove.api.candidate.model.CandidateContact;
 import app.lightmove.api.candidate.model.CandidateDossier;
 import app.lightmove.api.candidate.model.OutreachRecipient;
 import app.lightmove.api.candidate.model.Person;
+import app.lightmove.api.candidate.model.PersonEmailKey;
 import app.lightmove.api.candidate.model.RecipientEmail;
 import app.lightmove.api.candidate.repository.CandidateRepository;
 import app.lightmove.api.candidate.repository.PersonRepository;
 import app.lightmove.api.project.repository.ProjectRepository;
+import java.time.Instant;
 import java.util.Collection;
+import java.util.EnumSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
+import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
@@ -35,6 +41,10 @@ public class CandidateOutreachService {
     private final ProjectRepository projects;
     private final CandidateService candidateService;
     private final PersonActivityRecorder activity;
+
+    /** Where a booked call moves someone from; anyone further on, or out of the running, stays put. */
+    private static final Set<CandidateStatus> BEFORE_ENGAGED = EnumSet.of(CandidateStatus.IDENTIFIED,
+            CandidateStatus.CONTACTED);
 
     /** The named executives plus everyone mapped at the named companies, each once, in that order. */
     @Transactional(readOnly = true)
@@ -120,6 +130,48 @@ public class CandidateOutreachService {
                               String sequenceName, String reason) {
         recordAboutPerson(workspaceId, projectId, personId, actor, PersonActivityKind.OUTREACH_STOPPED,
                 PersonActivityDetails.of("sequenceId", sequenceId).and("sequence", sequenceName).and("reason", reason));
+    }
+
+    /**
+     * The workspace's people holding each of these addresses, keyed by {@link #emailKeyOf} — a calendar event
+     * is kept only for them. One query for a whole calendar's worth of addresses.
+     */
+    @Transactional(readOnly = true)
+    public Map<String, Set<UUID>> personIdsByEmailKey(UUID workspaceId, Collection<String> addresses) {
+        Set<String> keys = addresses.stream()
+                .filter(address -> address != null && !address.isBlank())
+                .map(CandidateOutreachService::emailKeyOf)
+                .collect(Collectors.toSet());
+        if (keys.isEmpty()) {
+            return Map.of();
+        }
+        return persons.findHoldersByWorkspaceIdAndEmailKeyIn(workspaceId, keys).stream()
+                .collect(Collectors.groupingBy(PersonEmailKey::getEmailKey,
+                        Collectors.mapping(PersonEmailKey::getPersonId, Collectors.toSet())));
+    }
+
+    /** The ledger's key for an address, so a differently cased address on an invite still finds its person. */
+    public static String emailKeyOf(String address) {
+        return CandidateContact.keyOf(ContactChannel.EMAIL, address);
+    }
+
+    /**
+     * A call was booked. It moves someone still Identified or Contacted to Engaged — forward only, so a
+     * person a consultant already moved on, or out of the running, is left where they were put.
+     * {@code viaLink} says the executive booked it themselves.
+     */
+    @Transactional(propagation = Propagation.MANDATORY)
+    public void recordMeetingBooked(UUID actor, UUID projectId, UUID candidateId, Instant startsAt, boolean viaLink) {
+        candidates.findByIdAndProjectId(candidateId, projectId).ifPresent(candidate -> {
+            activity.record(candidate, actor, PersonActivityKind.MEETING_BOOKED, PersonActivityDetails
+                    .of("startsAt", startsAt.toString()).and("viaLink", viaLink));
+            CandidateStatus was = candidate.getStatus();
+            if (BEFORE_ENGAGED.contains(was)) {
+                candidate.moveTo(CandidateStatus.ENGAGED);
+                activity.record(candidate, actor, PersonActivityKind.STATUS_CHANGED, PersonActivityDetails
+                        .of("from", was.value()).and("to", CandidateStatus.ENGAGED.value()));
+            }
+        });
     }
 
     /** By person, not by mapping: someone removed from the position since they were enrolled can still reply. */

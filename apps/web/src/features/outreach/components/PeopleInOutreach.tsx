@@ -131,11 +131,12 @@ export function PeopleInOutreach({
 
 function OutreachCounts({ overview }: { overview: OutreachOverview }) {
   const { counts, nextSendAt } = overview;
-  const replyShare = counts.reached > 0 ? Math.round((counts.replied / counts.reached) * 100) : 0;
+  const answered = counts.replied + counts.booked;
+  const replyShare = counts.reached > 0 ? Math.round((answered / counts.reached) * 100) : 0;
   const tiles = [
     { label: "Enrolled", value: counts.enrolled, sub: "on this position" },
     { label: "Emails sent", value: counts.emailsSent, sub: `${counts.reached} people reached` },
-    { label: "Replied", value: counts.replied, sub: `${replyShare}% of people reached`, isGood: true },
+    { label: "Replied or booked", value: answered, sub: `${replyShare}% of people reached`, isGood: true },
     { label: "In flight", value: counts.inFlight, sub: nextSendAt ? `next send ${sendTimeOf(nextSendAt)}` : "nothing due" },
     { label: "Bounced", value: counts.bounced, sub: "fix the address and re-add" },
   ];

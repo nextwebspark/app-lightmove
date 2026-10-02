@@ -82,6 +82,12 @@ export function OutreachSection({
             )}
           </div>
         )}
+        {run.status === "BOOKED" && (
+          <div className="mb-3 rounded-[8px] bg-u-direct-tint px-3 py-2.5 text-[12.5px]/[1.5]">
+            <b className="text-u-direct">A call was booked with {firstName}.</b>{" "}
+            {run.endedAt ? `${sendTimeOf(run.endedAt)}. ` : ""}Their sequence stopped.
+          </div>
+        )}
         <div className="mb-1.5 flex flex-wrap items-center gap-2 text-[12.5px] font-medium text-u-text2">
           <span className={cn("rounded-full px-2 py-[2px] font-mono text-[10.5px] uppercase", state.className)}>
             {state.label}
@@ -152,6 +158,7 @@ function stepMetaOf(step: OutreachStep): string {
 function notSentReasonOf(reason: OutreachStep["notSentBecause"]): string {
   if (reason === "REPLIED") return "they replied";
   if (reason === "BOUNCED") return "the address bounced";
+  if (reason === "BOOKED") return "they booked a call";
   if (reason === null || reason === "MANUAL") return "sequence stopped";
   return STOP_NOTES[reason].toLowerCase();
 }

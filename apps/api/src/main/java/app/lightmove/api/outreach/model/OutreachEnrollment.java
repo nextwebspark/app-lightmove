@@ -196,6 +196,14 @@ public class OutreachEnrollment extends BaseEntity {
         this.sendingSince = null;
     }
 
+    /** A call was booked with the person; like a reply, nothing more goes. */
+    public void booked(Instant now) {
+        this.status = EnrollmentStatus.BOOKED;
+        this.stoppedAt = now;
+        this.nextSendAt = null;
+        this.sendingSince = null;
+    }
+
     /** A reply or a bounce still counts after the last step has gone; only a stopped run is deaf. */
     public boolean isListening() {
         return isLive() || status == EnrollmentStatus.COMPLETED;

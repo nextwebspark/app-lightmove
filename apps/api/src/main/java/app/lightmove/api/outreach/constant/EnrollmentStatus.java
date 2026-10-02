@@ -15,7 +15,10 @@ public enum EnrollmentStatus {
     REPLIED,
     BOUNCED,
     STOPPED,
-    COMPLETED;
+    COMPLETED,
+
+    /** A call was booked with them, which ends the run as a reply does. */
+    BOOKED;
 
     public static final Set<EnrollmentStatus> LIVE = EnumSet.of(SCHEDULED, ACTIVE);
 }

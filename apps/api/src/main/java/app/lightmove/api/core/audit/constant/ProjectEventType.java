@@ -87,6 +87,9 @@ public enum ProjectEventType implements AuditEventType {
     /** A sequence ended short — by a consultant's Stop, or by the send-time re-check. */
     OUTREACH_STOPPED,
 
+    /** A call booked with an executive from a consultant's own calendar. */
+    OUTREACH_MEETING_BOOKED,
+
     /** Openers drafted by the model for a review — recorded because it spends model money. */
     OUTREACH_OPENERS_DRAFTED,
 

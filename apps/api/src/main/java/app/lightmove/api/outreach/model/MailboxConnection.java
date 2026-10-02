@@ -7,6 +7,7 @@ import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
 import jakarta.persistence.Table;
+import java.time.Duration;
 import java.time.Instant;
 import java.time.ZoneId;
 import java.util.UUID;
@@ -53,6 +54,17 @@ public class MailboxConnection extends BaseEntity {
     @Column(name = "time_zone", nullable = false, length = 64)
     private String timeZone = DEFAULT_ZONE.getId();
 
+    /** When the calendar was last read whole (V102); null while that read is still owed. */
+    @Column(name = "calendar_synced_at")
+    private Instant calendarSyncedAt;
+
+    /** Failed reads of the calendar since it was connected (V103); each one waits longer for the next. */
+    @Column(name = "calendar_sync_attempts", nullable = false)
+    private int calendarSyncAttempts;
+
+    @Column(name = "calendar_sync_retry_at")
+    private Instant calendarSyncRetryAt;
+
     public static MailboxConnection connected(UUID workspaceId, UUID userId, GrantedMailbox mailbox, int dailyCap,
                                               Instant now) {
         MailboxConnection connection = new MailboxConnection();
@@ -69,6 +81,20 @@ public class MailboxConnection extends BaseEntity {
         this.grantId = mailbox.grantId();
         this.status = MailboxStatus.ACTIVE;
         this.connectedAt = now;
+        this.calendarSyncedAt = null;
+        this.calendarSyncAttempts = 0;
+        this.calendarSyncRetryAt = null;
+    }
+
+    public void markCalendarSynced(Instant now) {
+        this.calendarSyncedAt = now;
+        this.calendarSyncRetryAt = null;
+    }
+
+    /** The calendar could not be read; the next try waits {@code wait}. */
+    public void markCalendarSyncFailed(Instant now, Duration wait) {
+        this.calendarSyncAttempts = calendarSyncAttempts + 1;
+        this.calendarSyncRetryAt = now.plus(wait);
     }
 
     public void markAccessWithdrawn() {

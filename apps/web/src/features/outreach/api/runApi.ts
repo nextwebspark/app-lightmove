@@ -10,7 +10,8 @@ export const OUTREACH_PEOPLE_KEY = (projectId: string) => ["outreach", projectId
 export const CANDIDATE_OUTREACH_KEY = (projectId: string, candidateId: string) =>
   ["outreach", projectId, "candidate", candidateId] as const;
 
-export type RunStatus = "SCHEDULED" | "ACTIVE" | "REPLIED" | "BOUNCED" | "STOPPED" | "COMPLETED";
+/** BOOKED: a call was booked with them, which ends the run as a reply does. */
+export type RunStatus = "SCHEDULED" | "ACTIVE" | "REPLIED" | "BOUNCED" | "STOPPED" | "COMPLETED" | "BOOKED";
 
 export type StopReason =
   | "MANUAL"
@@ -53,6 +54,7 @@ export interface OutreachCounts {
   inFlight: number;
   bounced: number;
   stopped: number;
+  booked: number;
 }
 
 export interface OutreachOverview {
@@ -69,8 +71,8 @@ export interface OutreachStep {
   subject: string | null;
   state: StepState;
   at: string | null;
-  /** Why a step will never go: REPLIED, BOUNCED, or a stop reason. */
-  notSentBecause: "REPLIED" | "BOUNCED" | StopReason | null;
+  /** Why a step will never go: REPLIED, BOUNCED, BOOKED, or a stop reason. */
+  notSentBecause: "REPLIED" | "BOUNCED" | "BOOKED" | StopReason | null;
 }
 
 export interface CandidateOutreach {

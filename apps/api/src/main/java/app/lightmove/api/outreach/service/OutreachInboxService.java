@@ -2,6 +2,8 @@ package app.lightmove.api.outreach.service;
 
 import app.lightmove.api.core.config.LightMoveProperties;
 import app.lightmove.api.outreach.constant.EnrollmentStatus;
+import app.lightmove.api.outreach.model.CalendarEventChanged;
+import app.lightmove.api.outreach.model.CalendarEventRemoved;
 import app.lightmove.api.outreach.model.DeliveryFailure;
 import app.lightmove.api.outreach.model.InboundMessage;
 import app.lightmove.api.outreach.model.MailboxAccessWithdrawn;
@@ -27,8 +29,9 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.support.TransactionTemplate;
 
 /**
- * What comes back into a sender's mailbox: a reply stops the person's run, a bounce ends it, and a
- * mailbox whose access was withdrawn stops sending. Learned from the mail service's webhook, and from a
+ * What comes back into a sender's mailbox: a reply stops the person's run, a bounce ends it, a
+ * mailbox whose access was withdrawn stops sending, and a calendar event with a mapped person is kept as
+ * their meeting. Learned from the mail service's webhook, and from a
  * poll for whatever a webhook never delivered. Only who wrote and where is ever read — never what.
  */
 @Service
@@ -44,6 +47,7 @@ public class OutreachInboxService {
     private final OutreachEnrollmentRepository enrollments;
     private final OutreachMessageRepository messages;
     private final OutreachOutcomes outcomes;
+    private final MeetingSync meetings;
     private final TransactionTemplate transactions;
     private final LightMoveProperties properties;
     private final Clock clock;
@@ -99,6 +103,10 @@ public class OutreachInboxService {
                             .ifPresent(enrollment -> outcomes.bounced(enrollment, now)));
             case MailboxAccessWithdrawn withdrawn -> mailboxes.findByGrantId(withdrawn.grantId())
                     .forEach(MailboxConnection::markAccessWithdrawn);
+            case CalendarEventChanged changed -> mailboxes.findByGrantId(changed.grantId())
+                    .forEach(mailbox -> meetings.apply(mailbox, changed.event()));
+            case CalendarEventRemoved removed -> mailboxes.findByGrantId(removed.grantId())
+                    .forEach(mailbox -> meetings.remove(mailbox, removed.eventId()));
         }
     }
 

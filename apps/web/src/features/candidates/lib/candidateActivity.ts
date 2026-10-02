@@ -39,6 +39,7 @@ const STOP_REASONS: Record<string, string> = {
   SEND_FAILED: "The mail service refused the email",
   SEND_UNCERTAIN: "A send may not have gone through, so nothing more was sent",
   BOUNCED: "The address bounced",
+  BOOKED: "A call was booked",
 };
 
 const NOTE_VERBS: Record<string, string> = {
@@ -165,12 +166,31 @@ function phraseOf(
         text: `stopped ${details.sequence ? `the sequence ${details.sequence}` : "a sequence"}${forThem} on ${where}`,
         detail: details.reason ? (STOP_REASONS[details.reason] ?? null) : null,
       };
+    case "MEETING_BOOKED":
+      return {
+        text: isBookedThroughLink(entry)
+          ? `booked a call through the booking link on ${where}`
+          : `booked a call${forThem} on ${where}`,
+        detail: details.startsAt ? callTimeOf(details.startsAt) : null,
+      };
   }
 }
 
-/** A reply is the executive's own act, and a stop nobody pressed is Uncava's. */
+function isBookedThroughLink(entry: PersonTimelineEntry): boolean {
+  return entry.kind === "MEETING_BOOKED" && String(entry.details.viaLink) === "true";
+}
+
+/** "Thu 2 Oct, 14:00", in the viewer's zone. */
+function callTimeOf(isoInstant: string): string | null {
+  const at = new Date(isoInstant);
+  if (Number.isNaN(at.getTime())) return null;
+  const day = at.toLocaleDateString("en-GB", { weekday: "short", day: "numeric", month: "short" }).replace(",", "");
+  return `${day}, ${at.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" })}`;
+}
+
+/** A reply, or a call booked through the link, is the executive's own act; a stop nobody pressed is Uncava's. */
 function actorNameOf(entry: PersonTimelineEntry): string {
-  if (entry.kind === "EMAIL_REPLIED") return entry.personName ?? "They";
+  if (entry.kind === "EMAIL_REPLIED" || isBookedThroughLink(entry)) return entry.personName ?? "They";
   if (entry.kind === "OUTREACH_STOPPED" && entry.actorName === null) return "Uncava";
   return entry.actorName ?? "Someone";
 }

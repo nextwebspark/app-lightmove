@@ -53,5 +53,8 @@ public enum PersonActivityKind {
     EMAIL_REPLIED,
 
     /** A sequence ended short of its last step; the line carries why. */
-    OUTREACH_STOPPED
+    OUTREACH_STOPPED,
+
+    /** A call was booked with the person; the line carries when, and whether they booked it themselves. */
+    MEETING_BOOKED
 }
