@@ -142,6 +142,8 @@ describe("MeetingsSection", () => {
       timeZone: "Asia/Dubai",
       provider: "google",
       minutes: 30,
+      earliestDate: "2026-10-05",
+      latestDate: "2027-04-05",
       days: [
         { date: "2026-10-05", starts: ["2026-10-05T06:00:00Z", "2026-10-05T06:30:00Z"] },
         { date: "2026-10-06", starts: [] },
@@ -151,12 +153,13 @@ describe("MeetingsSection", () => {
     renderSection();
 
     await userEvent.click(await screen.findByRole("button", { name: "Book a call" }));
-    expect(await screen.findByText("Fully booked")).toBeInTheDocument();
+    expect(await screen.findByRole("button", { name: "Tue 6 Oct, fully booked" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Mon 5 Oct, 2 free" })).toHaveAttribute("aria-pressed", "true");
     const send = screen.getByRole("button", { name: "Send invite" });
     expect(send).toBeDisabled();
 
     await userEvent.click(screen.getByRole("button", { name: "10:30" }));
-    expect(screen.getByText("Mon 5 Oct · 10:30 · 30 min · invite from yara@firm.example")).toBeInTheDocument();
+    expect(screen.getByText("Mon 5 Oct · 10:30–11:00 · Asia/Dubai")).toBeInTheDocument();
     await userEvent.click(send);
 
     await waitFor(() =>
@@ -169,5 +172,33 @@ describe("MeetingsSection", () => {
       }),
     );
     expect(await screen.findByText(/Invite sent to Priya for Mon 5 Oct, 10:30\. They moved to Engaged\./)).toBeInTheDocument();
+  });
+
+  it("pages the grid to later days, never before today", async () => {
+    vi.mocked(meetingApi.getMeetingSlots).mockImplementation(async (_project, _candidate, minutes, from) => ({
+      address: "yara@firm.example",
+      timeZone: "Asia/Dubai",
+      provider: "google",
+      minutes,
+      earliestDate: "2026-10-05",
+      latestDate: "2027-04-05",
+      days:
+        from === "2026-10-07"
+          ? [{ date: "2026-10-07", starts: ["2026-10-07T06:00:00Z"] }]
+          : [
+              { date: "2026-10-05", starts: ["2026-10-05T06:00:00Z"] },
+              { date: "2026-10-06", starts: [] },
+            ],
+    }));
+    renderSection();
+
+    await userEvent.click(await screen.findByRole("button", { name: "Book a call" }));
+    expect(await screen.findByRole("button", { name: "Earlier days" })).toBeDisabled();
+
+    await userEvent.click(screen.getByRole("button", { name: "Later days" }));
+
+    expect(await screen.findByRole("button", { name: "Wed 7 Oct, 1 free" })).toBeInTheDocument();
+    expect(meetingApi.getMeetingSlots).toHaveBeenLastCalledWith("p1", "c1", 30, "2026-10-07", expect.anything());
+    expect(screen.getByRole("button", { name: "Earlier days" })).toBeEnabled();
   });
 });

@@ -1,7 +1,8 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
-import { Button, Modal, Skeleton, useToast } from "../../../components/ui";
-import { Input, Select } from "../../../components/ui";
+import { Button, Field, Input, Modal, Select, Skeleton, useToast } from "../../../components/ui";
+import { DateInput } from "../../../components/ui/DateInput";
+import { Icon, ICONS } from "../../../components/layout/Icon";
 import { SegmentedControl } from "../../../components/ui/SegmentedControl";
 import { cn } from "../../../lib/cn";
 import { codeOf, messageFor } from "../../../lib/errorCodes";
@@ -9,7 +10,7 @@ import { CANDIDATES_KEY_PREFIX } from "../../candidates/api/candidatesApi";
 import type { CandidateEmail, CandidateStatus } from "../../candidates/api/types";
 import * as meetingApi from "../api/meetingApi";
 import type { MeetingVideo } from "../api/meetingApi";
-import { slotDayLabelOf, slotTimeOf } from "../lib/meetingTimes";
+import { shiftDateOf, slotDayLabelOf, slotDayPartsOf, slotTimeOf } from "../lib/meetingTimes";
 
 type Length = "15" | "30" | "45";
 
@@ -28,8 +29,8 @@ const VIDEO_LINKS: { value: MeetingVideo; label: string }[] = [
 const DEFAULT_TITLE = "Confidential: first conversation";
 
 /**
- * Book a call (`Outreach.dc.html?dialog=bookCall`): the consultant's free times over the next working
- * days, read off their own calendar in their own zone, and an invite sent from it. Booking moves the
+ * Book a call (`Outreach.dc.html?dialog=bookCall`): the consultant's free times a working week at a time,
+ * paged ahead or jumped to a date, read off their own calendar in their own zone, and an invite sent from it. Booking moves the
  * person forward to Engaged and ends their sequence on this position, both on the server.
  */
 export function BookCallDialog({
@@ -54,13 +55,16 @@ export function BookCallDialog({
   const [length, setLength] = useState<Length>("30");
   const [chosenVideo, setChosenVideo] = useState<MeetingVideo | null>(null);
   const [slot, setSlot] = useState<string | null>(null);
+  const [from, setFrom] = useState<string | null>(null);
+  const [chosenDate, setChosenDate] = useState<string | null>(null);
   const [inviteAddress, setInviteAddress] = useState(emails[0]?.address ?? "");
   const [title, setTitle] = useState(DEFAULT_TITLE);
 
   const minutes = Number(length);
   const slots = useQuery({
-    queryKey: meetingApi.MEETING_SLOTS_KEY(projectId, candidateId, minutes),
-    queryFn: ({ signal }) => meetingApi.getMeetingSlots(projectId, candidateId, minutes, signal),
+    queryKey: meetingApi.MEETING_SLOTS_KEY(projectId, candidateId, minutes, from),
+    queryFn: ({ signal }) => meetingApi.getMeetingSlots(projectId, candidateId, minutes, from, signal),
+    placeholderData: (previous) => previous,
   });
   const timeZone = slots.data?.timeZone;
   const video: MeetingVideo = chosenVideo ?? (slots.data?.provider === "microsoft" ? "MICROSOFT_TEAMS" : "GOOGLE_MEET");
@@ -100,18 +104,49 @@ export function BookCallDialog({
     setSlot(null);
   };
 
+  const handleShowFrom = (day: string) => {
+    setFrom(day);
+    setChosenDate(null);
+    setSlot(null);
+  };
+
+  const shownDays = slots.data?.days ?? [];
+  const firstShown = shownDays[0]?.date;
+  const lastShown = shownDays[shownDays.length - 1]?.date;
+  const earliestDate = slots.data?.earliestDate;
+  const latestDate = slots.data?.latestDate;
+  const activeDay =
+    shownDays.find((day) => day.date === chosenDate) ??
+    shownDays.find((day) => day.starts.length > 0) ??
+    shownDays[0];
+  const morning = activeDay && timeZone ? activeDay.starts.filter((start) => slotTimeOf(start, timeZone) < "12:00") : [];
+  const afternoon = activeDay && timeZone ? activeDay.starts.filter((start) => slotTimeOf(start, timeZone) >= "12:00") : [];
+
   const chosenDay = slots.data?.days.find((day) => slot !== null && day.starts.includes(slot));
   const summary =
     slot && chosenDay && timeZone
-      ? `${slotDayLabelOf(chosenDay.date)} · ${slotTimeOf(slot, timeZone)} · ${minutes} min · invite from ${slots.data?.address}`
-      : "Pick a time";
+      ? `${slotDayLabelOf(chosenDay.date)} · ${slotTimeOf(slot, timeZone)}–${slotTimeOf(endOf(slot, minutes), timeZone)} · ${timeZone}`
+      : null;
 
   const footer = (
     <div className="flex w-full items-center gap-2.5">
-      <span className="min-w-0 truncate font-mono text-[12px] text-u-text3">{summary}</span>
+      <div className="min-w-0 flex-1">
+        {summary ? (
+          <>
+            <div className="truncate text-[13px] font-semibold text-u-text">{summary}</div>
+            <div className="truncate font-mono text-[11.5px] text-u-text3">
+              {minutes} min · invite from {slots.data?.address}
+            </div>
+          </>
+        ) : (
+          <span className="font-mono text-[12px] text-u-text3">Pick a day and a time</span>
+        )}
+      </div>
+      <Button type="button" variant="secondary" onClick={onClose}>
+        Cancel
+      </Button>
       <Button
         type="button"
-        className="ms-auto"
         disabled={!isSlotOffered || inviteAddress === "" || title.trim() === ""}
         loading={book.isPending}
         onClick={() => book.mutate()}
@@ -122,94 +157,219 @@ export function BookCallDialog({
   );
 
   return (
-    <Modal open onClose={onClose} title={`Book a call with ${fullName}`} footer={footer} className="md:w-[640px]">
-      <p className="-mt-2 mb-3 font-mono text-[12px] text-u-text3">
-        {slots.data ? `Free times on ${slots.data.address} · ${slots.data.timeZone}` : " "}
-      </p>
-      <div className="mb-3.5 flex flex-wrap items-center gap-3.5">
-        <SegmentedControl label="Length" options={LENGTHS} value={length} onChange={handleLengthChange} />
-        <label className="flex items-center gap-2 text-[12.5px] text-u-text2">
-          Video
-          <Select
-            aria-label="Video link"
-            value={video}
-            onChange={(event) => setChosenVideo(event.target.value as MeetingVideo)}
-            className="w-auto px-2 py-1 text-[12.5px]"
-          >
-            {VIDEO_LINKS.map((option) => (
-              <option key={option.value} value={option.value}>
-                {option.label}
-              </option>
-            ))}
-          </Select>
-        </label>
-      </div>
-
-      {slots.isPending ? (
-        <Skeleton className="mb-4 h-40 w-full" />
-      ) : slots.isError ? (
-        <p role="alert" className="mb-4 text-[12.5px] text-u-offlimits">
-          {messageFor(slots.error)}
-        </p>
-      ) : (
-        <div className="mb-4 grid grid-cols-2 gap-2 sm:grid-cols-5">
-          {slots.data.days.map((day) => (
-            <div key={day.date}>
-              <div className="mb-1.5 text-center font-mono text-[11px] font-semibold text-u-text2">
-                {slotDayLabelOf(day.date)}
+    <Modal
+      open
+      onClose={onClose}
+      title={`Book a call with ${fullName}`}
+      subtitle={slots.data ? `Free times on ${slots.data.address} · ${slots.data.timeZone}` : " "}
+      closeButton
+      footer={footer}
+      className="md:w-[940px]"
+    >
+      <div className="grid gap-6 pb-2 md:grid-cols-[minmax(0,1fr)_280px]">
+        <section aria-label="Time" className="min-w-0">
+          <div className="mb-3 flex items-center gap-2">
+            <span className="type-label text-u-text3">Day</span>
+            {firstShown && lastShown && earliestDate && latestDate && (
+              <div className="ms-auto flex items-center gap-1">
+                <button
+                  type="button"
+                  aria-label="Earlier days"
+                  disabled={firstShown <= earliestDate || slots.isFetching}
+                  onClick={() => handleShowFrom(maxDateOf(shiftDateOf(firstShown, -7), earliestDate))}
+                  className={PAGER_CLASS}
+                >
+                  <Icon d={ICONS.arrowLeft} size={14} />
+                </button>
+                <DateInput
+                  value={firstShown}
+                  min={earliestDate}
+                  max={latestDate}
+                  onChange={(day) => day && handleShowFrom(day)}
+                  ariaLabel="Show times from"
+                  className="w-[148px] px-2.5 py-1.5 text-[12.5px]"
+                />
+                <button
+                  type="button"
+                  aria-label="Later days"
+                  disabled={lastShown >= latestDate || slots.isFetching}
+                  onClick={() => handleShowFrom(shiftDateOf(lastShown, 1))}
+                  className={PAGER_CLASS}
+                >
+                  <Icon d={ICONS.arrowRight} size={14} />
+                </button>
               </div>
-              <div className="flex flex-col gap-[5px]">
-                {day.starts.map((start) => (
-                  <button
-                    key={start}
-                    type="button"
-                    aria-pressed={slot === start}
-                    onClick={() => setSlot(start)}
-                    className={cn(
-                      "rounded-[6px] border px-2 py-[5px] font-mono text-[12px] transition",
-                      slot === start
-                        ? "border-u-accent-solid bg-u-accent-solid text-white"
-                        : "border-u-border text-u-text2 hover:border-u-text3 hover:text-u-text",
-                    )}
-                  >
-                    {slotTimeOf(start, slots.data.timeZone)}
-                  </button>
-                ))}
-                {day.starts.length === 0 && (
-                  <span className="text-center font-mono text-[11px] text-u-text3">Fully booked</span>
+            )}
+          </div>
+
+          {slots.isPending ? (
+            <Skeleton className="h-[300px] w-full" />
+          ) : slots.isError ? (
+            <p role="alert" className="text-[12.5px] text-u-offlimits">
+              {messageFor(slots.error)}
+            </p>
+          ) : (
+            <div
+              aria-busy={slots.isPlaceholderData}
+              className={cn("transition-opacity", slots.isPlaceholderData && "pointer-events-none opacity-50")}
+            >
+              <div className="mb-5 grid grid-cols-5 gap-1.5 sm:gap-2">
+                {shownDays.map((day) => {
+                  const parts = slotDayPartsOf(day.date);
+                  const isActive = day.date === activeDay?.date;
+                  const isFull = day.starts.length === 0;
+                  return (
+                    <button
+                      key={day.date}
+                      type="button"
+                      aria-pressed={isActive}
+                      aria-label={`${slotDayLabelOf(day.date)}, ${isFull ? "fully booked" : `${day.starts.length} free`}`}
+                      onClick={() => setChosenDate(day.date)}
+                      className={cn(
+                        "flex flex-col items-center rounded-[8px] border px-1 py-2 transition",
+                        isActive
+                          ? "border-u-accent bg-u-accent-tint text-u-text"
+                          : "border-u-border text-u-text2 hover:border-u-text3 hover:text-u-text",
+                        isFull && !isActive && "opacity-60",
+                      )}
+                    >
+                      <span className="type-summary-label text-u-text3">{parts.weekday}</span>
+                      <span className="mt-0.5 text-[20px] font-semibold leading-none">{parts.day}</span>
+                      <span className="mt-1 text-[11px] text-u-text3">{parts.month}</span>
+                      <span
+                        className={cn(
+                          "mt-1.5 font-mono text-[10.5px]",
+                          isFull ? "text-u-text3" : "text-u-accent",
+                        )}
+                      >
+                        {isFull ? "Full" : `${day.starts.length} free`}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+
+              <div className="min-h-[220px]">
+                {activeDay && activeDay.starts.length === 0 ? (
+                  <div className="grid h-[220px] place-items-center rounded-[8px] border border-dashed border-u-border text-center">
+                    <div>
+                      <div className="text-[13px] text-u-text2">No free time on {slotDayLabelOf(activeDay.date)}</div>
+                      <div className="mt-1 font-mono text-[11.5px] text-u-text3">Pick another day, or page ahead.</div>
+                    </div>
+                  </div>
+                ) : (
+                  <>
+                    <SlotGroup label="Morning" starts={morning} timeZone={timeZone} chosen={slot} onChoose={setSlot} />
+                    <SlotGroup label="Afternoon" starts={afternoon} timeZone={timeZone} chosen={slot} onChoose={setSlot} />
+                  </>
                 )}
               </div>
             </div>
-          ))}
-        </div>
-      )}
+          )}
+        </section>
 
-      <div className="grid grid-cols-[72px_1fr] items-center gap-x-2.5 gap-y-2 font-mono text-[12.5px] text-u-text2">
-        <span className="text-u-text3">Invite</span>
-        <Select
-          aria-label="Invite address"
-          value={inviteAddress}
-          onChange={(event) => setInviteAddress(event.target.value)}
-          className="px-2 py-1.5 font-mono text-[12.5px]"
+        <section
+          aria-label="Details"
+          className="border-t border-u-border pt-5 md:border-s md:border-t-0 md:ps-6 md:pt-0"
         >
-          {emails.map((email) => (
-            <option key={email.address} value={email.address}>
-              {email.kind ? `${email.address} · ${email.kind}` : email.address}
-            </option>
-          ))}
-        </Select>
-        <span className="text-u-text3">Title</span>
-        <Input
-          aria-label="Meeting title"
-          value={title}
-          maxLength={200}
-          onChange={(event) => setTitle(event.target.value)}
-          className="px-2 py-1.5 text-[13px]"
-        />
+          <div className="mb-4">
+            <span className="mb-1.5 block font-mono text-[10px] font-semibold uppercase tracking-[0.12em] text-u-text3">
+              Length
+            </span>
+            <SegmentedControl label="Length" options={LENGTHS} value={length} onChange={handleLengthChange} />
+          </div>
+          <Field label="Video">
+            <Select
+              aria-label="Video link"
+              value={video}
+              onChange={(event) => setChosenVideo(event.target.value as MeetingVideo)}
+              className="px-2.5 py-2 text-[12.5px]"
+            >
+              {VIDEO_LINKS.map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
+            </Select>
+          </Field>
+          <Field label="Invite">
+            <Select
+              aria-label="Invite address"
+              value={inviteAddress}
+              onChange={(event) => setInviteAddress(event.target.value)}
+              className="px-2.5 py-2 text-[12.5px]"
+            >
+              {emails.map((email) => (
+                <option key={email.address} value={email.address}>
+                  {email.kind ? `${email.address} · ${email.kind}` : email.address}
+                </option>
+              ))}
+            </Select>
+          </Field>
+          <Field
+            label="Title"
+            hint={`What ${firstName} sees. Keep the business unit out of it unless you mean to name it.`}
+          >
+            <Input
+              aria-label="Meeting title"
+              value={title}
+              maxLength={200}
+              onChange={(event) => setTitle(event.target.value)}
+              className="px-2.5 py-2 font-sans text-[13px]"
+            />
+          </Field>
+        </section>
       </div>
-      <p className="mt-2.5 pb-1 font-mono text-[11.5px]/[1.5] text-u-text3">
-        The title is what {firstName} sees. Keep the business unit out of it unless you mean to name it.
-      </p>
     </Modal>
   );
+}
+
+function SlotGroup({
+  label,
+  starts,
+  timeZone,
+  chosen,
+  onChoose,
+}: {
+  label: string;
+  starts: string[];
+  timeZone: string | undefined;
+  chosen: string | null;
+  onChoose: (start: string) => void;
+}) {
+  if (starts.length === 0 || !timeZone) return null;
+  return (
+    <div className="mb-4">
+      <div className="mb-2 font-mono text-[11px] text-u-text3">{label}</div>
+      <div className="grid grid-cols-3 gap-2 sm:grid-cols-4">
+        {starts.map((start) => (
+          <button
+            key={start}
+            type="button"
+            aria-pressed={chosen === start}
+            onClick={() => onChoose(start)}
+            className={cn(
+              "rounded-[6px] border px-2 py-2 font-mono text-[12.5px] transition",
+              chosen === start
+                ? "border-u-accent-solid bg-u-accent-solid text-white"
+                : "border-u-border text-u-text2 hover:border-u-accent hover:text-u-text",
+            )}
+          >
+            {slotTimeOf(start, timeZone)}
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+const PAGER_CLASS =
+  "rounded-md p-1.5 text-u-text3 transition hover:bg-u-raised hover:text-u-text disabled:pointer-events-none disabled:opacity-40";
+
+function endOf(start: string, minutes: number): string {
+  return new Date(Date.parse(start) + minutes * 60_000).toISOString();
+}
+
+function maxDateOf(left: string, right: string): string {
+  return left > right ? left : right;
 }

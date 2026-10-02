@@ -30,6 +30,8 @@ import jakarta.servlet.http.HttpServletRequest;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
+import java.time.LocalDate;
+import java.time.Period;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.LinkedHashMap;
@@ -60,6 +62,9 @@ public class MeetingService {
 
     /** A working week of times, as the dialog's grid shows them. */
     static final int SLOT_DAYS = 5;
+
+    /** How far ahead the grid pages: a first conversation planned further out than this is not yet a meeting. */
+    static final Period SLOT_HORIZON = Period.ofMonths(6);
 
     /** The past is context, not a log: the newest of it is enough. */
     static final int PAST_SHOWN = 20;
@@ -100,18 +105,27 @@ public class MeetingService {
         return new PersonMeetingsResponse(upcoming, past);
     }
 
-    public MeetingSlotsResponse slots(UUID userId, UUID workspaceId, UUID projectId, UUID candidateId, int minutes) {
+    /** A week of free times from {@code from} (today when absent), no further ahead than {@link #SLOT_HORIZON}. */
+    public MeetingSlotsResponse slots(UUID userId, UUID workspaceId, UUID projectId, UUID candidateId, int minutes,
+                                      LocalDate from) {
         Duration length = requireLength(minutes);
         requireRecipient(workspaceId, projectId, candidateId);
         MailboxConnection mailbox = requireMailbox(userId, workspaceId);
         FreeSlots free = freeSlotsOf(mailbox);
         Instant now = clock.instant();
-        List<BusyInterval> busy = busyOf(mailbox, now, free.endOf(now, SLOT_DAYS));
-        List<SlotDayResponse> days = free.offered(now, SLOT_DAYS, length, busy).stream()
+        LocalDate today = free.todayAt(now);
+        LocalDate latest = today.plus(SLOT_HORIZON);
+        LocalDate firstDay = from == null ? today : from;
+        if (firstDay.isAfter(latest)) {
+            throw ApiException.of(ErrorCode.MEETING_SLOT_INVALID);
+        }
+        List<BusyInterval> busy = busyOf(mailbox, free.startOf(now, firstDay, SLOT_DAYS),
+                free.endOf(now, firstDay, SLOT_DAYS));
+        List<SlotDayResponse> days = free.offered(now, firstDay, SLOT_DAYS, length, busy).stream()
                 .map(day -> new SlotDayResponse(day.date(), day.starts()))
                 .toList();
         return new MeetingSlotsResponse(mailbox.getAddress(), mailbox.getTimeZone(), mailbox.getProvider(), minutes,
-                days);
+                today, latest, days);
     }
 
     /**

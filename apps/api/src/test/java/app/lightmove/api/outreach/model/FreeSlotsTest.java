@@ -22,12 +22,13 @@ class FreeSlotsTest {
             Set.of(DayOfWeek.MONDAY, DayOfWeek.TUESDAY, DayOfWeek.WEDNESDAY, DayOfWeek.THURSDAY, DayOfWeek.FRIDAY)),
             DUBAI);
     private static final Duration HALF_HOUR = Duration.ofMinutes(30);
+    private static final LocalDate OCT_1 = LocalDate.of(2026, 10, 1);
 
     @Test
     @DisplayName("five working days from today, the weekend skipped, every half hour the call fits before close")
     void workingDaysOnTheHalfHour() {
         // Thursday 1 Oct 2026, before the day opens.
-        List<SlotDay> days = SLOTS.offered(at(2026, 10, 1, 6, 0), 5, HALF_HOUR, List.of());
+        List<SlotDay> days = SLOTS.offered(at(2026, 10, 1, 6, 0), OCT_1, 5, HALF_HOUR, List.of());
 
         assertThat(days).extracting(SlotDay::date).containsExactly(LocalDate.of(2026, 10, 1),
                 LocalDate.of(2026, 10, 2), LocalDate.of(2026, 10, 5), LocalDate.of(2026, 10, 6),
@@ -36,7 +37,7 @@ class FreeSlotsTest {
         assertThat(days.getFirst().starts().getFirst()).isEqualTo(at(2026, 10, 1, 8, 0));
         assertThat(days.getFirst().starts().getLast()).isEqualTo(at(2026, 10, 1, 17, 30));
 
-        List<SlotDay> long45 = SLOTS.offered(at(2026, 10, 1, 6, 0), 1, Duration.ofMinutes(45), List.of());
+        List<SlotDay> long45 = SLOTS.offered(at(2026, 10, 1, 6, 0), OCT_1, 1, Duration.ofMinutes(45), List.of());
         assertThat(long45.getFirst().starts().getLast()).isEqualTo(at(2026, 10, 1, 17, 0));
     }
 
@@ -46,7 +47,7 @@ class FreeSlotsTest {
         Instant now = at(2026, 10, 1, 9, 10);
         BusyInterval lunch = new BusyInterval(at(2026, 10, 1, 12, 15), at(2026, 10, 1, 13, 0));
 
-        List<Instant> today = SLOTS.offered(now, 1, HALF_HOUR, List.of(lunch)).getFirst().starts();
+        List<Instant> today = SLOTS.offered(now, OCT_1, 1, HALF_HOUR, List.of(lunch)).getFirst().starts();
 
         assertThat(today.getFirst()).isEqualTo(at(2026, 10, 1, 10, 0));
         assertThat(today).contains(at(2026, 10, 1, 11, 30), at(2026, 10, 1, 13, 0))
@@ -58,10 +59,28 @@ class FreeSlotsTest {
     void aFullDayIsEmpty() {
         BusyInterval allDay = new BusyInterval(at(2026, 10, 2, 0, 0), at(2026, 10, 3, 0, 0));
 
-        List<SlotDay> days = SLOTS.offered(at(2026, 10, 1, 6, 0), 2, HALF_HOUR, List.of(allDay));
+        List<SlotDay> days = SLOTS.offered(at(2026, 10, 1, 6, 0), OCT_1, 2, HALF_HOUR, List.of(allDay));
 
         assertThat(days.get(1).date()).isEqualTo(LocalDate.of(2026, 10, 2));
         assertThat(days.get(1).starts()).isEmpty();
+    }
+
+    @Test
+    @DisplayName("a later week starts on the day asked for, and a past day starts today")
+    void pagesFromTheDayAskedFor() {
+        Instant now = at(2026, 10, 1, 9, 10);
+
+        List<SlotDay> later = SLOTS.offered(now, LocalDate.of(2026, 12, 5), 5, HALF_HOUR, List.of());
+        assertThat(later).extracting(SlotDay::date).containsExactly(LocalDate.of(2026, 12, 7),
+                LocalDate.of(2026, 12, 8), LocalDate.of(2026, 12, 9), LocalDate.of(2026, 12, 10),
+                LocalDate.of(2026, 12, 11));
+        assertThat(later.getFirst().starts()).hasSize(20);
+        assertThat(SLOTS.startOf(now, LocalDate.of(2026, 12, 5), 5)).isEqualTo(at(2026, 12, 7, 8, 0));
+        assertThat(SLOTS.endOf(now, LocalDate.of(2026, 12, 5), 5)).isEqualTo(at(2026, 12, 11, 18, 0));
+
+        List<SlotDay> past = SLOTS.offered(now, LocalDate.of(2026, 9, 1), 1, HALF_HOUR, List.of());
+        assertThat(past.getFirst().date()).isEqualTo(OCT_1);
+        assertThat(SLOTS.startOf(now, LocalDate.of(2026, 9, 1), 1)).isEqualTo(now);
     }
 
     @Test
