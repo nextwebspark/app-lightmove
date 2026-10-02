@@ -20,6 +20,7 @@ REPO="${GITHUB_REPO:-nextwebspark/app-lightmove}"
 SERVICE="lightmove"
 AR_REPO="lightmove"
 RUNTIME_SA="lightmove-api"
+DOCUMENTS_BUCKET="${DOCUMENTS_BUCKET:-${PROJECT}-lightmove-documents}"
 DEPLOY_SA="lightmove-deployer"
 POOL="github-pool"            # already exists, created for the other app in this project
 PROVIDER="lightmove-provider" # new: the existing provider is pinned to a different repo
@@ -46,7 +47,7 @@ say() { printf '\n\033[1m▸ %s\033[0m\n' "$1"; }
 say "Enabling APIs"
 gcloud services enable \
     run.googleapis.com artifactregistry.googleapis.com secretmanager.googleapis.com \
-    sqladmin.googleapis.com iamcredentials.googleapis.com \
+    sqladmin.googleapis.com iamcredentials.googleapis.com storage.googleapis.com \
     --project="$PROJECT"
 
 # ── Artifact Registry ─────────────────────────────────────────────────────────
@@ -119,6 +120,22 @@ gcloud iam service-accounts add-iam-policy-binding "$RUNTIME_SA_EMAIL" \
     --member="serviceAccount:${DEPLOY_SA_EMAIL}" --role=roles/iam.serviceAccountUser \
     --project="$PROJECT" --quiet >/dev/null
 echo "  ✓ roles/iam.serviceAccountUser on ${RUNTIME_SA} only"
+
+# ── Documents bucket ──────────────────────────────────────────────────────────
+# Candidates' CVs and references. Private by construction — uniform access and public access prevention
+# enforced — so no object ACL can ever expose one; the API streams every file itself. No object
+# versioning: the application keeps its own, and a removed CV must not linger as a noncurrent copy.
+say "Documents bucket"
+if gcloud storage buckets describe "gs://${DOCUMENTS_BUCKET}" --project="$PROJECT" &>/dev/null; then
+    echo "  ✓ gs://${DOCUMENTS_BUCKET} exists"
+else
+    gcloud storage buckets create "gs://${DOCUMENTS_BUCKET}" --project="$PROJECT" --location="$REGION" \
+        --uniform-bucket-level-access --public-access-prevention
+fi
+# objectUser on this bucket alone: read, write and delete objects, and nothing about the bucket itself.
+gcloud storage buckets add-iam-policy-binding "gs://${DOCUMENTS_BUCKET}" \
+    --member="serviceAccount:${RUNTIME_SA_EMAIL}" --role=roles/storage.objectUser --quiet >/dev/null
+echo "  ✓ ${RUNTIME_SA} may read and write objects in gs://${DOCUMENTS_BUCKET} — and no other bucket"
 
 # ── Secrets ───────────────────────────────────────────────────────────────────
 say "Secrets"

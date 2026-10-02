@@ -1,6 +1,7 @@
 package app.lightmove.api.candidate.repository;
 
 import app.lightmove.api.candidate.model.Person;
+import app.lightmove.api.candidate.model.PersonEmailKey;
 import app.lightmove.api.core.error.constant.ErrorCode;
 import app.lightmove.api.core.error.model.ApiException;
 import java.util.Collection;
@@ -38,6 +39,13 @@ public interface PersonRepository extends JpaRepository<Person, UUID> {
             where p.workspaceId = :workspaceId and k.channel = 'EMAIL' and k.valueKey = :emailKey
             """)
     List<Person> findByWorkspaceIdAndEmailKey(UUID workspaceId, String emailKey);
+
+    /** Who holds each of these addresses, on the ledger's key. */
+    @Query("""
+            select distinct k.valueKey as emailKey, p.id as personId from Person p join p.contacts k
+            where p.workspaceId = :workspaceId and k.channel = 'EMAIL' and k.valueKey in :emailKeys
+            """)
+    List<PersonEmailKey> findHoldersByWorkspaceIdAndEmailKeyIn(UUID workspaceId, Collection<String> emailKeys);
 
     /**
      * People of one name who sit, on any mandate, at one employer — the possible-duplicate check's soft key.

@@ -18,11 +18,15 @@ public enum TimelineGroup implements ApiValueEnum {
     NOTES("notes", EnumSet.of(PersonActivityKind.NOTE_ADDED, PersonActivityKind.NOTE_EDITED,
             PersonActivityKind.NOTE_REMOVED)),
     CONTACTS("contacts", EnumSet.of(PersonActivityKind.CONTACTS_EDITED, PersonActivityKind.CONTACT_FOUND,
-            PersonActivityKind.DO_NOT_CONTACT_SET, PersonActivityKind.DO_NOT_CONTACT_CLEARED)),
+            PersonActivityKind.DO_NOT_CONTACT_SET, PersonActivityKind.DO_NOT_CONTACT_CLEARED,
+            PersonActivityKind.OUTREACH_ENROLLED, PersonActivityKind.EMAIL_SENT, PersonActivityKind.EMAIL_REPLIED,
+            PersonActivityKind.OUTREACH_STOPPED, PersonActivityKind.MEETING_BOOKED)),
     PROFILE("profile", EnumSet.of(PersonActivityKind.PROFILE_EDITED, PersonActivityKind.RESEARCHED,
             PersonActivityKind.AI_ASSESSED)),
     TAGS("tags", EnumSet.of(PersonActivityKind.TAGGED, PersonActivityKind.UNTAGGED,
-            PersonActivityKind.OWNER_CHANGED));
+            PersonActivityKind.OWNER_CHANGED)),
+    DOCUMENTS("documents", EnumSet.of(PersonActivityKind.DOCUMENT_ADDED, PersonActivityKind.DOCUMENT_VERSION_ADDED,
+            PersonActivityKind.DOCUMENT_REMOVED, PersonActivityKind.DOCUMENT_VERSION_REMOVED));
 
     private final String value;
     private final Set<PersonActivityKind> kinds;

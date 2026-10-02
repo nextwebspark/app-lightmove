@@ -20,8 +20,10 @@ spring:
     multipart:
       # The container's own ceiling, ahead of lightmove.position.document.max-file-size-bytes: this one
       # refuses the body before it is buffered, that one is the rule the API states back to the caller.
-      max-file-size: 10MB
-      max-request-size: 12MB
+      # Raised for a person's documents (lightmove.person-documents.max-file-size-bytes, 20MB); every other
+      # upload states its own lower ceiling.
+      max-file-size: 20MB
+      max-request-size: 25MB
 
   jpa:
     hibernate:
@@ -230,6 +232,7 @@ lightmove:
       onboarding-company-searches-per-minute: ${AUTH_ONBOARDING_COMPANY_SEARCHES_PER_MINUTE:60}
       workspace-creations-per-hour: ${AUTH_WORKSPACE_CREATIONS_PER_HOUR:5}
       workspace-creations-per-hour-per-ip: ${AUTH_WORKSPACE_CREATIONS_PER_HOUR_PER_IP:60}
+      booking-page-opens-per-minute: ${AUTH_BOOKING_PAGE_OPENS_PER_MINUTE:30}
 
   # The demo LLM endpoints (/api/v1/llm/*) call billed Vertex AI usage with only authentication as
   # a gate, so each is additionally capped per user. Same in-memory-per-instance caveat as the auth
@@ -539,6 +542,47 @@ lightmove:
     max-nationalities: ${REPORT_MAX_NATIONALITIES:11}
     max-employers-per-hub: ${REPORT_MAX_EMPLOYERS_PER_HUB:3}
     max-executives-per-slice: ${REPORT_MAX_EXECUTIVES_PER_SLICE:12}
+
+  # Outreach email goes from each consultant's own Gmail or Outlook, connected through Nylas's hosted
+  # sign-in. A blank key or client id leaves outreach unoffered. The Nylas application must list
+  # <web.base-url>/api/v1/outreach/mailbox/callback as a callback URI, and NYLAS_BASE_URL is
+  # https://api.eu.nylas.com for an EU-region application.
+  outreach:
+    nylas:
+      api-key: ${NYLAS_API_KEY:}
+      client-id: ${NYLAS_CLIENT_ID:}
+      base-url: ${NYLAS_BASE_URL:https://api.us.nylas.com}
+      providers: ${NYLAS_PROVIDERS:google,microsoft}
+      # The signing secret of a Nylas webhook pointed at <web.base-url>/api/v1/outreach/webhooks/mailbox,
+      # subscribed to message.created, message.bounce_detected, grant.expired and event.created,
+      # event.updated, event.deleted (the drawer's Meetings). Blank, replies are found by the poll alone
+      # and meetings by the read each calendar gets when it is connected.
+      webhook-secret: ${NYLAS_WEBHOOK_SECRET:}
+      # True where the Nylas plan carries Scheduler: sequences may then use {{bookingLink}}, a page at
+      # <web.base-url>/book/<slug> where the executive picks a time. Subscribe the webhook to
+      # booking.created too, so a booking stops their sequence.
+      scheduler-enabled: ${NYLAS_SCHEDULER_ENABLED:false}
+    connect-window: ${OUTREACH_CONNECT_WINDOW:10m}
+    daily-cap: ${OUTREACH_DAILY_CAP:50}
+    window-start: ${OUTREACH_WINDOW_START:08:00}
+    window-end: ${OUTREACH_WINDOW_END:18:00}
+    working-days: ${OUTREACH_WORKING_DAYS:MONDAY,TUESDAY,WEDNESDAY,THURSDAY,FRIDAY}
+    # Read by @Scheduled, which sees the environment and never a binding default, so spelled out here.
+    dispatch-interval: ${OUTREACH_DISPATCH_INTERVAL:60s}
+    reply-poll-interval: ${OUTREACH_REPLY_POLL_INTERVAL:15m}
+
+  # Uploaded files. gcs in every deployment (ops/gcp/deploy.sh sets both): Cloud Run's disk dies with the
+  # instance, so filesystem is for npm run dev and the tests only.
+  storage:
+    provider: ${STORAGE_PROVIDER:filesystem}
+    bucket: ${STORAGE_BUCKET:}
+    directory: ${STORAGE_DIRECTORY:.data/documents}
+
+  # A person's CV, cover letter and references, each a stack of versions.
+  person-documents:
+    max-file-size-bytes: ${PERSON_DOCUMENT_MAX_BYTES:20971520}
+    max-documents-per-person: ${PERSON_DOCUMENT_MAX_PER_PERSON:50}
+    max-versions-per-document: ${PERSON_DOCUMENT_MAX_VERSIONS:20}
 
 # What /actuator/info reports. APP_VERSION is baked into the image by the Dockerfile's build arg, so
 # this is the same release the SPA bundle was built with — one input, and nothing at runtime can move
