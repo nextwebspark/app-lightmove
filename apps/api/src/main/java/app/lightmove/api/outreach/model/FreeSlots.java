@@ -60,6 +60,23 @@ public record FreeSlots(SendingWindow window, ZoneId zone) {
         return now.atZone(zone).toLocalDate();
     }
 
+    /**
+     * Where the page before the one starting on {@code firstShown} starts: {@code dayCount} working days back,
+     * stopping at today. Null when no working day lies between today and {@code firstShown}.
+     */
+    public LocalDate previousFrom(Instant now, LocalDate firstShown, int dayCount) {
+        LocalDate today = todayAt(now);
+        LocalDate day = firstShown;
+        int found = 0;
+        while (found < dayCount && day.isAfter(today)) {
+            day = day.minusDays(1);
+            if (window.workingDays().contains(day.getDayOfWeek())) {
+                found++;
+            }
+        }
+        return found == 0 ? null : day;
+    }
+
     /** The instant the first of those days' windows opens, or now if it already has: where the calendar is read from. */
     public Instant startOf(Instant now, LocalDate from, int dayCount) {
         Instant opening = workingDaysFrom(now, from, dayCount).getFirst().atTime(window.start()).atZone(zone)

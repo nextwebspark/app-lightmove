@@ -50,6 +50,8 @@ export interface MeetingSlots {
   earliestDate: string;
   /** The furthest day the grid pages to, `YYYY-MM-DD`. */
   latestDate: string;
+  /** Where the page before this one starts, a working week back; null on the first page. */
+  previousFrom: string | null;
   days: SlotDay[];
 }
 

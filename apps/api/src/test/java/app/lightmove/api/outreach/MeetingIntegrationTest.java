@@ -240,12 +240,14 @@ class MeetingIntegrationTest extends FlowTestSupport {
         LocalDate today = LocalDate.parse(thisWeek.get("earliestDate").asText());
         LocalDate latest = LocalDate.parse(thisWeek.get("latestDate").asText());
         assertThat(latest).isAfter(today.plusMonths(5));
+        assertThat(thisWeek.get("previousFrom").isNull()).isTrue();
 
         LocalDate asked = today.plusWeeks(8);
         JsonNode later = body(as(consultant, get(meetings(priya) + "/slots").param("from", asked.toString()))
                 .andExpect(status().isOk()).andReturn());
         assertThat(later.get("days")).hasSize(5);
         assertThat(LocalDate.parse(later.get("days").get(0).get("date").asText())).isBetween(asked, asked.plusDays(7));
+        assertThat(LocalDate.parse(later.get("previousFrom").asText())).isBetween(asked.minusDays(9), asked);
         Instant farOff = Instant.parse(later.get("days").get(0).get("starts").get(0).asText());
         book(priya, farOff, 30, "priya@" + domain).andExpect(status().isNoContent());
 

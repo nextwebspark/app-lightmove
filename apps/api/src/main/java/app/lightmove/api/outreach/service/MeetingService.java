@@ -105,7 +105,9 @@ public class MeetingService {
         return new PersonMeetingsResponse(upcoming, past);
     }
 
-    /** A week of free times from {@code from} (today when absent), no further ahead than {@link #SLOT_HORIZON}. */
+    /**
+     * A page of free times from {@code from}: today when absent or past, refused beyond {@link #SLOT_HORIZON}.
+     */
     public MeetingSlotsResponse slots(UUID userId, UUID workspaceId, UUID projectId, UUID candidateId, int minutes,
                                       LocalDate from) {
         Duration length = requireLength(minutes);
@@ -124,8 +126,9 @@ public class MeetingService {
         List<SlotDayResponse> days = free.offered(now, firstDay, SLOT_DAYS, length, busy).stream()
                 .map(day -> new SlotDayResponse(day.date(), day.starts()))
                 .toList();
+        LocalDate previousFrom = free.previousFrom(now, days.getFirst().date(), SLOT_DAYS);
         return new MeetingSlotsResponse(mailbox.getAddress(), mailbox.getTimeZone(), mailbox.getProvider(), minutes,
-                today, latest, days);
+                today, latest, previousFrom, days);
     }
 
     /**

@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Icon, ICONS } from "../../../../components/layout/Icon";
-import { Drawer, DrawerCloseButton } from "../../../../components/ui/Drawer";
+import { Drawer } from "../../../../components/ui/Drawer";
+import { PanelCloseButton } from "../../../../components/ui/PanelCloseButton";
 import { Button, Select, useToast } from "../../../../components/ui";
 import { TabList } from "../../../../components/ui/TabList";
 import { tabPanelProps } from "../../../../components/ui/tabPanelProps";
@@ -54,12 +55,12 @@ export function PersonDrawer({
       <div className="flex h-full flex-col">
         {record.isError ? (
           <div className="relative p-5">
-            <DrawerCloseButton onClose={onClose} />
+            <PanelCloseButton onClose={onClose} />
             <p className="mt-6 text-[13px] text-u-text3">{messageFor(record.error)}</p>
           </div>
         ) : !record.data ? (
           <div className="relative p-5">
-            <DrawerCloseButton onClose={onClose} />
+            <PanelCloseButton onClose={onClose} />
             <p className="mt-6 text-[13px] text-u-text3">Loading…</p>
           </div>
         ) : (
@@ -134,7 +135,7 @@ function PersonDrawerBody({
             <p className="truncate font-mono text-[11.5px] text-u-text3">{context || "No employer or location recorded"}</p>
           </div>
         </div>
-        <DrawerCloseButton onClose={onClose} />
+        <PanelCloseButton onClose={onClose} />
 
         <div className="mt-3 flex flex-wrap items-center gap-2">
           {person.seniority && (

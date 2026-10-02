@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState, type ReactNode } from "react"
 import { createPortal } from "react-dom";
 import { cn } from "../../lib/cn";
 import { useEscapeKey } from "../../lib/useEscapeKey";
-import { DrawerCloseButton } from "./Drawer";
+import { PanelCloseButton } from "./PanelCloseButton";
 
 /**
  * The mockups' centered dialog: dim overlay, 440px card, Escape and overlay-click to close.
@@ -80,7 +80,7 @@ export function Modal({
             title
           )}
           {subtitle && <div className="mt-0.5 font-mono text-[12px] font-normal text-u-text3">{subtitle}</div>}
-          {closeButton && <DrawerCloseButton onClose={onClose} />}
+          {closeButton && <PanelCloseButton onClose={onClose} />}
         </div>
         <div
           ref={bodyRef}

@@ -84,6 +84,19 @@ class FreeSlotsTest {
     }
 
     @Test
+    @DisplayName("the page before starts a working week back, never before today, and the first page has none")
+    void previousPageIsAWorkingWeekBack() {
+        Instant thursdayMorning = at(2026, 10, 1, 9, 10);
+
+        assertThat(SLOTS.previousFrom(thursdayMorning, LocalDate.of(2026, 12, 7), 5)).isEqualTo(LocalDate.of(2026, 11, 30));
+        assertThat(SLOTS.previousFrom(thursdayMorning, LocalDate.of(2026, 10, 8), 5)).isEqualTo(OCT_1);
+        assertThat(SLOTS.previousFrom(thursdayMorning, OCT_1, 5)).isNull();
+
+        Instant saturday = at(2026, 10, 3, 9, 0);
+        assertThat(SLOTS.previousFrom(saturday, LocalDate.of(2026, 10, 5), 5)).isNull();
+    }
+
+    @Test
     @DisplayName("a requested start counts only when it is one the grid could have offered")
     void offersMatchesTheGrid() {
         Instant now = at(2026, 10, 1, 9, 0);

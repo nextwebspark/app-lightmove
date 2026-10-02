@@ -144,6 +144,7 @@ describe("MeetingsSection", () => {
       minutes: 30,
       earliestDate: "2026-10-05",
       latestDate: "2027-04-05",
+      previousFrom: null,
       days: [
         { date: "2026-10-05", starts: ["2026-10-05T06:00:00Z", "2026-10-05T06:30:00Z"] },
         { date: "2026-10-06", starts: [] },
@@ -182,6 +183,7 @@ describe("MeetingsSection", () => {
       minutes,
       earliestDate: "2026-10-05",
       latestDate: "2027-04-05",
+      previousFrom: from === "2026-10-07" ? "2026-10-05" : null,
       days:
         from === "2026-10-07"
           ? [{ date: "2026-10-07", starts: ["2026-10-07T06:00:00Z"] }]
