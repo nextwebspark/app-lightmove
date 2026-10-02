@@ -107,6 +107,18 @@ describe("timelineLines", () => {
     });
   });
 
+  it("names a document by its category, and by its title only while it exists", () => {
+    expect(
+      lineOf({ kind: "DOCUMENT_ADDED", details: { category: "CV", document: "Jane Doe CV", version: "1" } }),
+    ).toMatchObject({ text: "uploaded a CV", detail: "Jane Doe CV" });
+    expect(lineOf({ kind: "DOCUMENT_VERSION_ADDED", details: { category: "COVER_LETTER", version: "3" } })).toMatchObject(
+      { text: "uploaded version 3 of the cover letter", detail: null },
+    );
+    expect(lineOf({ kind: "DOCUMENT_REMOVED", details: { category: "REFERENCE" } }).text).toBe(
+      "deleted a reference",
+    );
+  });
+
   it("names whom a line is about in the workspace feed", () => {
     const feed = (overrides: Partial<PersonTimelineEntry>) =>
       timelineLines([entry(overrides)], null, { withPerson: true })[0].text;

@@ -23,5 +23,7 @@ public record LightMoveProperties(
         ExportSettings export,
         ReportSettings report,
         AssistantSettings assistant,
-        OutreachSettings outreach
+        OutreachSettings outreach,
+        StorageSettings storage,
+        PersonDocumentSettings personDocuments
 ) {}

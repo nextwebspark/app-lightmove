@@ -323,10 +323,14 @@ export type PersonActivityKind =
   | "EMAIL_SENT"
   | "EMAIL_REPLIED"
   | "OUTREACH_STOPPED"
-  | "MEETING_BOOKED";
+  | "MEETING_BOOKED"
+  | "DOCUMENT_ADDED"
+  | "DOCUMENT_VERSION_ADDED"
+  | "DOCUMENT_REMOVED"
+  | "DOCUMENT_VERSION_REMOVED";
 
 /** The timeline's filter chips, as the server's `TimelineGroup` tokens. */
-export type TimelineGroup = "positions" | "notes" | "contacts" | "profile" | "tags";
+export type TimelineGroup = "positions" | "notes" | "contacts" | "profile" | "tags" | "documents";
 
 export interface PersonTimelineEntry {
   id: number;

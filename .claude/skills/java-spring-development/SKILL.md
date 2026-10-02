@@ -197,6 +197,9 @@ core/
   stream/      ProjectStreamPublisher, PostgresStreamListener, ProjectStreamRegistry,
                ProjectStreamController, ProjectStreamKind, ProjectStreamNotification
                                                           (flat concern pkg — SSE push, see below)
+  storage/     constant/(DocumentFormat, StorageProvider)  config/(DocumentStoreConfig)
+               service/(DocumentStore, GcsDocumentStore, FilesystemDocumentStore)
+                                                          (uploaded files' bytes; the bucket, never Cloud SQL)
   persistence/ model/(BaseEntity)
   logging/     service/(CorrelationId, CorrelationIdFilter)
   config/      LightMoveProperties (root record) + one *Settings record per branch,
