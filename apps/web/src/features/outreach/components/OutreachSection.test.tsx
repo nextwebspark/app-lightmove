@@ -4,6 +4,7 @@ import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { ToastProvider } from "../../../components/ui";
 import * as runApi from "../api/runApi";
+import type { CandidateStatus } from "../../candidates/api/types";
 import type { CandidateOutreach, OutreachRun } from "../api/runApi";
 import { OutreachSection } from "./OutreachSection";
 
@@ -34,7 +35,7 @@ const RUN: OutreachRun = {
   senderName: "Yara Haddad",
 };
 
-function renderSection(outreach: CandidateOutreach, onSetStatus = vi.fn()) {
+function renderSection(outreach: CandidateOutreach, onSetStatus = vi.fn(), candidateStatus: CandidateStatus = "contacted") {
   vi.mocked(runApi.getCandidateOutreach).mockResolvedValue(outreach);
   render(
     <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
@@ -43,6 +44,7 @@ function renderSection(outreach: CandidateOutreach, onSetStatus = vi.fn()) {
           projectId="p1"
           candidateId="c1"
           firstName="Fatima"
+          candidateStatus={candidateStatus}
           open
           onToggle={() => {}}
           isSettingStatus={false}
@@ -95,6 +97,20 @@ describe("OutreachSection", () => {
 
     await userEvent.click(screen.getByRole("button", { name: "Interested" }));
     expect(onSetStatus).toHaveBeenCalledWith("interested");
+  });
+
+  it("offers no choice once the person has been moved on, so a reply never moves them back", async () => {
+    renderSection(
+      {
+        run: { ...RUN, status: "REPLIED", nextSendAt: null, endedAt: "2026-10-06T10:20:00Z" },
+        steps: [{ number: 1, subject: "Confidential: CFO", state: "SENT", at: null, notSentBecause: null }],
+      },
+      vi.fn(),
+      "interested",
+    );
+
+    expect(await screen.findByText(/Fatima replied/)).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Engaged" })).not.toBeInTheDocument();
   });
 
   it("draws nothing for someone no sequence has reached for", async () => {

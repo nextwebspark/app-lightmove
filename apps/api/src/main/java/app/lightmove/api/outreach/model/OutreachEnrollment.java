@@ -158,6 +158,11 @@ public class OutreachEnrollment extends BaseEntity {
         this.sendingSince = null;
     }
 
+    /** Lets the next dispatch look at this row again; nothing was sent under the claim. */
+    public void releaseClaim() {
+        this.sendingSince = null;
+    }
+
     /** The sequence was cut shorter than this person had got through: nothing is left to send. */
     public void complete() {
         this.status = EnrollmentStatus.COMPLETED;
@@ -173,16 +178,22 @@ public class OutreachEnrollment extends BaseEntity {
         this.sendingSince = null;
     }
 
+    /**
+     * Clears any claim too: a reply can land while the row waits in a dispatcher's batch, and a claim left
+     * behind would later be taken for a crashed send.
+     */
     public void replied(Instant now) {
         this.status = EnrollmentStatus.REPLIED;
         this.repliedAt = now;
         this.nextSendAt = null;
+        this.sendingSince = null;
     }
 
     public void bounced(Instant now) {
         this.status = EnrollmentStatus.BOUNCED;
         this.stoppedAt = now;
         this.nextSendAt = null;
+        this.sendingSince = null;
     }
 
     /** A reply or a bounce still counts after the last step has gone; only a stopped run is deaf. */

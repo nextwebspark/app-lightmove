@@ -8,6 +8,7 @@ import app.lightmove.api.core.config.LightMoveProperties;
 import app.lightmove.api.core.config.OutreachSettings;
 import app.lightmove.api.core.resilience.constant.VendorFailureKind;
 import app.lightmove.api.core.resilience.model.VendorException;
+import app.lightmove.api.outreach.constant.EnrollmentStatus;
 import app.lightmove.api.outreach.constant.OutreachStopReason;
 import app.lightmove.api.outreach.model.MailboxConnection;
 import app.lightmove.api.outreach.model.OutgoingEmail;
@@ -24,6 +25,7 @@ import app.lightmove.api.outreach.repository.OutreachEnrollmentClaims;
 import app.lightmove.api.outreach.repository.OutreachEnrollmentRepository;
 import app.lightmove.api.outreach.repository.OutreachMessageRepository;
 import app.lightmove.api.outreach.repository.OutreachSequenceRepository;
+import java.time.Duration;
 import java.time.Instant;
 import java.time.ZoneId;
 import java.util.List;
@@ -31,6 +33,7 @@ import java.util.Optional;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.dao.OptimisticLockingFailureException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.support.TransactionTemplate;
 
@@ -46,6 +49,8 @@ import org.springframework.transaction.support.TransactionTemplate;
 public class OutreachSendService {
 
     private static final String REPLY_PREFIX = "Re: ";
+
+    private static final Duration RATE_LIMITED_PAUSE = Duration.ofMinutes(1);
 
     private final OutreachEnrollmentClaims claims;
     private final OutreachEnrollmentRepository enrollments;
@@ -70,7 +75,7 @@ public class OutreachSendService {
      */
     public void stopUncertainClaims(Instant now) {
         transactions.executeWithoutResult(status -> enrollments
-                .findBySendingSinceBefore(now.minus(settings().claimTimeout()))
+                .findByStatusInAndSendingSinceBefore(EnrollmentStatus.LIVE, now.minus(settings().claimTimeout()))
                 .forEach(enrollment -> {
                     log.warn("Outreach enrollment {} was claimed at {} and never released; stopping it unsent",
                             enrollment.getId(), enrollment.getSendingSince());
@@ -99,13 +104,35 @@ public class OutreachSendService {
             transactions.executeWithoutResult(status -> recordFailure(prepared, failed, now));
             return;
         }
-        // Should this fail, the claim stays and stopUncertainClaims ends the run: the email went, and is never sent again.
-        transactions.executeWithoutResult(status -> recordSent(prepared, sent, now));
+        recordDelivered(prepared, sent, now);
+    }
+
+    /**
+     * The email went, so whatever fails from here it is never sent again. A Stop pressed while it was in
+     * flight loses the version race once; the second attempt reads the stopped row, which markSent keeps.
+     */
+    private void recordDelivered(PreparedSend prepared, SentEmail sent, Instant now) {
+        try {
+            try {
+                transactions.executeWithoutResult(status -> recordSent(prepared, sent, now));
+            } catch (OptimisticLockingFailureException raced) {
+                transactions.executeWithoutResult(status -> recordSent(prepared, sent, now));
+            }
+        } catch (RuntimeException failed) {
+            log.error("Outreach email for enrollment {} was sent but could not be recorded; keeping its thread "
+                    + "so a reply is still heard", prepared.enrollmentId(), failed);
+            claims.recordDelivered(prepared.enrollmentId(), sent, now);
+        }
     }
 
     private PreparedSend prepare(UUID enrollmentId, Instant now) {
         OutreachEnrollment enrollment = enrollments.findById(enrollmentId).orElse(null);
-        if (enrollment == null || !enrollment.isLive() || enrollment.getSendingSince() == null) {
+        if (enrollment == null || enrollment.getSendingSince() == null) {
+            return null;
+        }
+        if (!enrollment.isLive()) {
+            // Answered or stopped while it waited in the batch.
+            enrollment.releaseClaim();
             return null;
         }
         MailboxConnection mailbox = mailboxes
@@ -137,6 +164,8 @@ public class OutreachSendService {
             enrollment.deferTo(window.nextOpening(now, zone));
             return null;
         }
+        // A soft cap: one instance counts every send it made, since each commits before the next prepare,
+        // but instances running at once can each pass at the same count and overshoot by one email apiece.
         long sentToday = messages.countByWorkspaceIdAndSenderUserIdAndSentAtGreaterThanEqual(
                 enrollment.getWorkspaceId(), enrollment.getSenderUserId(), window.startOfDay(now, zone));
         if (sentToday >= mailbox.getDailyCap()) {
@@ -204,21 +233,35 @@ public class OutreachSendService {
 
     private void recordFailure(PreparedSend prepared, RuntimeException failed, Instant now) {
         OutreachEnrollment enrollment = enrollments.findById(prepared.enrollmentId()).orElseThrow();
-        OutreachStopReason reason = OutreachStopReason.SEND_FAILED;
-        if (failed instanceof VendorException vendor && MailboxService.isAccessWithdrawn(vendor)) {
+        if (!enrollment.isLive()) {
+            enrollment.releaseClaim();
+            return;
+        }
+        VendorFailureKind kind = failed instanceof VendorException vendor ? vendor.getKind() : null;
+        if (kind == VendorFailureKind.RATE_LIMITED) {
+            // Refused before it left — our own permit, or the service's 429 — so it is simply not yet.
+            log.info("Outreach send for enrollment {} was rate limited; trying again shortly", enrollment.getId());
+            enrollment.deferTo(now.plus(RATE_LIMITED_PAUSE));
+            return;
+        }
+        OutreachStopReason reason = stopReasonOf(failed, kind);
+        if (reason == OutreachStopReason.MAILBOX_INACTIVE) {
             mailboxes.findByWorkspaceIdAndUserId(enrollment.getWorkspaceId(), enrollment.getSenderUserId())
                     .ifPresent(MailboxConnection::markAccessWithdrawn);
-            reason = OutreachStopReason.MAILBOX_INACTIVE;
-        } else if (failed instanceof VendorException vendor && vendor.getKind() == VendorFailureKind.TIMEOUT) {
-            // The mailbox may well have sent it before the answer was lost.
-            reason = OutreachStopReason.SEND_UNCERTAIN;
         }
         log.warn("Outreach send for enrollment {} failed; stopping it as {}", enrollment.getId(), reason, failed);
-        if (enrollment.isLive()) {
-            outcomes.stop(enrollment, reason, null, now, null);
-        } else {
-            enrollment.deferTo(null);
+        outcomes.stop(enrollment, reason, null, now, null);
+    }
+
+    /** A timeout or a 5xx may still have been queued, so it is uncertain; anything else was plainly refused. */
+    private static OutreachStopReason stopReasonOf(RuntimeException failed, VendorFailureKind kind) {
+        if (failed instanceof VendorException vendor && MailboxService.isAccessWithdrawn(vendor)) {
+            return OutreachStopReason.MAILBOX_INACTIVE;
         }
+        if (kind == VendorFailureKind.TIMEOUT || kind == VendorFailureKind.UNAVAILABLE) {
+            return OutreachStopReason.SEND_UNCERTAIN;
+        }
+        return OutreachStopReason.SEND_FAILED;
     }
 
     private ZoneId zoneOf(OutreachEnrollment enrollment) {

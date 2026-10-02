@@ -15,6 +15,7 @@ import app.lightmove.api.outreach.dto.OutreachRunResponse;
 import app.lightmove.api.outreach.dto.OutreachStepStateResponse;
 import app.lightmove.api.outreach.model.OutreachEnrollment;
 import app.lightmove.api.outreach.model.OutreachMessage;
+import app.lightmove.api.outreach.model.OutreachRunTally;
 import app.lightmove.api.outreach.model.OutreachSequence;
 import app.lightmove.api.outreach.repository.OutreachEnrollmentRepository;
 import app.lightmove.api.outreach.repository.OutreachMessageRepository;
@@ -25,10 +26,13 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
 import java.util.UUID;
 import java.util.function.Function;
+import java.util.function.ToLongFunction;
 import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -48,10 +52,11 @@ public class OutreachMonitorService {
 
     @Transactional(readOnly = true)
     public OutreachOverviewResponse overview(UUID workspaceId, UUID projectId) {
-        List<OutreachEnrollment> all = enrollments.findByWorkspaceIdAndProjectIdOrderByEnrolledAtDesc(workspaceId,
-                projectId);
-        List<OutreachEnrollment> shown = all.stream().limit(MAX_PEOPLE).toList();
-        return new OutreachOverviewResponse(countsOf(all), nextSendOf(all), runsOf(workspaceId, projectId, shown));
+        List<OutreachRunTally> tallies = enrollments.tallyByStatus(workspaceId, projectId);
+        List<OutreachEnrollment> shown = enrollments.findByWorkspaceIdAndProjectIdOrderByEnrolledAtDesc(workspaceId,
+                projectId, PageRequest.of(0, MAX_PEOPLE));
+        return new OutreachOverviewResponse(countsOf(tallies), nextSendOf(tallies),
+                runsOf(workspaceId, projectId, shown));
     }
 
     @Transactional(readOnly = true)
@@ -70,22 +75,26 @@ public class OutreachMonitorService {
         return new CandidateOutreachResponse(run, stepsOf(latest, run.stepCount(), sent));
     }
 
-    private static OutreachCountsResponse countsOf(List<OutreachEnrollment> all) {
-        long emailsSent = all.stream().mapToLong(OutreachEnrollment::sentCount).sum();
-        long reached = all.stream().filter(enrollment -> enrollment.sentCount() > 0).count();
-        return new OutreachCountsResponse(all.size(), emailsSent, reached, countWith(all, EnrollmentStatus.REPLIED),
-                all.stream().filter(OutreachEnrollment::isLive).count(), countWith(all, EnrollmentStatus.BOUNCED),
-                countWith(all, EnrollmentStatus.STOPPED));
+    private static OutreachCountsResponse countsOf(List<OutreachRunTally> tallies) {
+        return new OutreachCountsResponse(sumOf(tallies, OutreachRunTally::getTotal),
+                sumOf(tallies, OutreachRunTally::getSent), sumOf(tallies, OutreachRunTally::getReached),
+                totalWith(tallies, Set.of(EnrollmentStatus.REPLIED)), totalWith(tallies, EnrollmentStatus.LIVE),
+                totalWith(tallies, Set.of(EnrollmentStatus.BOUNCED)), totalWith(tallies, Set.of(EnrollmentStatus.STOPPED)));
     }
 
-    private static long countWith(List<OutreachEnrollment> all, EnrollmentStatus status) {
-        return all.stream().filter(enrollment -> enrollment.getStatus() == status).count();
+    private static long sumOf(List<OutreachRunTally> tallies, ToLongFunction<OutreachRunTally> value) {
+        return tallies.stream().mapToLong(value).sum();
     }
 
-    private static Instant nextSendOf(List<OutreachEnrollment> all) {
-        return all.stream()
-                .filter(OutreachEnrollment::isLive)
-                .map(OutreachEnrollment::getNextSendAt)
+    private static long totalWith(List<OutreachRunTally> tallies, Set<EnrollmentStatus> statuses) {
+        return tallies.stream().filter(tally -> statuses.contains(tally.getStatus()))
+                .mapToLong(OutreachRunTally::getTotal).sum();
+    }
+
+    private static Instant nextSendOf(List<OutreachRunTally> tallies) {
+        return tallies.stream()
+                .filter(tally -> EnrollmentStatus.LIVE.contains(tally.getStatus()))
+                .map(OutreachRunTally::getNextSendAt)
                 .filter(Objects::nonNull)
                 .min(Comparator.naturalOrder())
                 .orElse(null);

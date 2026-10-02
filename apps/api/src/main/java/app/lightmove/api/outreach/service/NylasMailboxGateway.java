@@ -24,6 +24,7 @@ import java.time.Instant;
 import java.util.HexFormat;
 import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import javax.crypto.Mac;
 import javax.crypto.spec.SecretKeySpec;
@@ -201,7 +202,7 @@ public class NylasMailboxGateway implements MailboxGateway {
             Mac mac = Mac.getInstance("HmacSHA256");
             mac.init(new SecretKeySpec(secret.getBytes(StandardCharsets.UTF_8), "HmacSHA256"));
             byte[] expected = HexFormat.of().formatHex(mac.doFinal(body)).getBytes(StandardCharsets.US_ASCII);
-            return MessageDigest.isEqual(expected, signature.trim().toLowerCase().getBytes(StandardCharsets.US_ASCII));
+            return MessageDigest.isEqual(expected, signature.trim().toLowerCase(Locale.ROOT).getBytes(StandardCharsets.US_ASCII));
         } catch (GeneralSecurityException unavailable) {
             throw new IllegalStateException("HmacSHA256 is not available", unavailable);
         }

@@ -3,6 +3,7 @@ package app.lightmove.api.outreach.service;
 import app.lightmove.api.candidate.service.CandidateOutreachService;
 import app.lightmove.api.core.audit.constant.ProjectEventType;
 import app.lightmove.api.core.audit.service.AuditService;
+import app.lightmove.api.outreach.constant.EnrollmentStatus;
 import app.lightmove.api.outreach.constant.OutreachStopReason;
 import app.lightmove.api.outreach.model.OutreachEnrollment;
 import app.lightmove.api.outreach.model.OutreachSequence;
@@ -51,7 +52,7 @@ class OutreachOutcomes {
     public void bounced(OutreachEnrollment enrollment, Instant now) {
         enrollment.bounced(now);
         people.recordStopped(enrollment.getWorkspaceId(), enrollment.getProjectId(), enrollment.getPersonId(), null,
-                enrollment.getSequenceId(), sequenceNameOf(enrollment), "BOUNCED");
+                enrollment.getSequenceId(), sequenceNameOf(enrollment), EnrollmentStatus.BOUNCED.name());
         audited(ProjectEventType.OUTREACH_BOUNCED, enrollment, null, null).record();
     }
 

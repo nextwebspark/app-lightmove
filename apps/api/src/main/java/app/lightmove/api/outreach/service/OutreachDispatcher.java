@@ -48,7 +48,7 @@ public class OutreachDispatcher {
             try {
                 sends.sendClaimed(enrollmentId, now);
             } catch (RuntimeException failed) {
-                log.error("Outreach dispatch of enrollment {} failed before anything was sent", enrollmentId, failed);
+                log.error("Outreach dispatch of enrollment {} failed", enrollmentId, failed);
             }
         }
     }

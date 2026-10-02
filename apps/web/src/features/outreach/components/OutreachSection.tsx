@@ -23,6 +23,7 @@ export function OutreachSection({
   projectId,
   candidateId,
   firstName,
+  candidateStatus,
   open,
   onToggle,
   isSettingStatus,
@@ -31,6 +32,8 @@ export function OutreachSection({
   projectId: string;
   candidateId: string;
   firstName: string;
+  /** The choice is offered only while they are still Contacted, the table's rule: never move someone back. */
+  candidateStatus: CandidateStatus;
   open: boolean;
   onToggle: () => void;
   isSettingStatus: boolean;
@@ -61,20 +64,22 @@ export function OutreachSection({
             <b className="text-u-direct">
               {firstName} replied{run.endedAt ? ` ${sendTimeOf(run.endedAt)}` : ""}.
             </b>{" "}
-            Read it in your inbox, then record where they stand.
-            <div className="mt-2 flex flex-wrap gap-1.5">
-              {REPLY_CHOICES.map((choice) => (
-                <button
-                  key={choice.value}
-                  type="button"
-                  disabled={isSettingStatus}
-                  onClick={() => onSetStatus(choice.value)}
-                  className="rounded-[6px] border border-u-border bg-u-surface px-2.5 py-1 text-[12px] font-medium hover:border-u-text3 disabled:opacity-60"
-                >
-                  {choice.label}
-                </button>
-              ))}
-            </div>
+            Read it in your inbox{candidateStatus === "contacted" ? ", then record where they stand." : "."}
+            {candidateStatus === "contacted" && (
+              <div className="mt-2 flex flex-wrap gap-1.5">
+                {REPLY_CHOICES.map((choice) => (
+                  <button
+                    key={choice.value}
+                    type="button"
+                    disabled={isSettingStatus}
+                    onClick={() => onSetStatus(choice.value)}
+                    className="rounded-[6px] border border-u-border bg-u-surface px-2.5 py-1 text-[12px] font-medium hover:border-u-text3 disabled:opacity-60"
+                  >
+                    {choice.label}
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
         )}
         <div className="mb-1.5 flex flex-wrap items-center gap-2 text-[12.5px] font-medium text-u-text2">

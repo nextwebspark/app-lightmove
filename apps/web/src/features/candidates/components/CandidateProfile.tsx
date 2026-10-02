@@ -270,6 +270,7 @@ export function CandidateProfile({
             projectId={projectId}
             candidateId={candidate.id}
             firstName={candidate.fullName.trim().split(/\s+/)[0]}
+            candidateStatus={candidate.status}
             open={sections.isOpen("outreach")}
             onToggle={() => sections.toggle("outreach")}
             isSettingStatus={changeStatus.isPending}

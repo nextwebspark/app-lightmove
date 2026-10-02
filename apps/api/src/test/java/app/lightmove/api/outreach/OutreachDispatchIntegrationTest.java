@@ -12,11 +12,15 @@ import app.lightmove.api.FlowTestSupport;
 import app.lightmove.api.IntegrationTest;
 import app.lightmove.api.RecordingMailboxGateway;
 import app.lightmove.api.RecordingMailboxGateway.SentRecord;
+import app.lightmove.api.core.resilience.constant.VendorFailureKind;
+import app.lightmove.api.core.resilience.model.VendorCall;
+import app.lightmove.api.core.resilience.model.VendorException;
 import app.lightmove.api.outreach.model.DeliveryFailure;
 import app.lightmove.api.outreach.model.InboundMessage;
 import app.lightmove.api.outreach.model.MailboxAccessWithdrawn;
 import app.lightmove.api.outreach.service.OutreachDispatcher;
 import app.lightmove.api.outreach.service.OutreachInboxService;
+import app.lightmove.api.outreach.service.OutreachSendService;
 import jakarta.servlet.http.Cookie;
 import java.net.URI;
 import java.time.DayOfWeek;
@@ -60,6 +64,7 @@ class OutreachDispatchIntegrationTest extends FlowTestSupport {
     @Autowired private RecordingMailboxGateway gateway;
     @Autowired private OutreachDispatcher dispatcher;
     @Autowired private OutreachInboxService inbox;
+    @Autowired private OutreachSendService sends;
     @Autowired private JdbcTemplate jdbc;
 
     private String consultant;
@@ -336,6 +341,51 @@ class OutreachDispatchIntegrationTest extends FlowTestSupport {
 
         assertThat(sentTo("priya@" + domain)).isEmpty();
         assertThat(enrollmentOf(priya)).containsEntry("stop_reason", "SEND_UNCERTAIN");
+    }
+
+    @Test
+    @DisplayName("a reply that lands while the row waits in a claimed batch keeps it Replied, never stopped later")
+    void aReplyBetweenClaimAndSendStands() throws Exception {
+        String priya = executive("Priya Raman", "priya@" + domain);
+        start(createSequence("First approach"), priya, "priya@" + domain, null);
+        dispatcher.dispatchAt(monday);
+        Instant thursday = monday.plus(Duration.ofDays(3));
+        List<java.util.UUID> claimed = sends.claimDue(thursday);
+        java.util.UUID run = java.util.UUID.fromString(enrollmentOf(priya).get("id").toString());
+        assertThat(claimed).contains(run);
+
+        gateway.deliverNext(List.of(new InboundMessage("grant-1", (String) enrollmentOf(priya).get("thread_id"),
+                "priya@" + domain)));
+        webhook();
+        sends.sendClaimed(run, thursday);
+        dispatcher.dispatchAt(thursday.plus(Duration.ofMinutes(11)));
+
+        assertThat(sentTo("priya@" + domain)).hasSize(1);
+        assertThat(enrollmentOf(priya)).containsEntry("status", "REPLIED").containsEntry("sending_since", null);
+        assertThat(activityKinds(priya)).doesNotContain("OUTREACH_STOPPED");
+    }
+
+    @Test
+    @DisplayName("a rate-limited send went nowhere, so it waits a minute and goes; a 5xx may have gone, so it stops")
+    void knownUnsentFailuresWait() throws Exception {
+        String sequenceId = createSequence("First approach");
+        String priya = executive("Priya Raman", "priya@" + domain);
+        start(sequenceId, priya, "priya@" + domain, null);
+        gateway.failSendsWith(new VendorException(VendorCall.of("nylas", "send"), VendorFailureKind.RATE_LIMITED, null));
+
+        dispatcher.dispatchAt(monday);
+
+        assertThat(enrollmentOf(priya)).containsEntry("status", "SCHEDULED").containsEntry("sending_since", null);
+        assertThat(activityKinds(priya)).doesNotContain("OUTREACH_STOPPED");
+        gateway.failSendsWith(null);
+        dispatcher.dispatchAt(monday.plus(Duration.ofMinutes(1)));
+        assertThat(sentTo("priya@" + domain)).hasSize(1);
+
+        String rajesh = executive("Rajesh Menon", "rajesh@" + domain);
+        start(sequenceId, rajesh, "rajesh@" + domain, null);
+        gateway.failSendsWith(new VendorException(VendorCall.of("nylas", "send"), VendorFailureKind.UNAVAILABLE, null));
+        dispatcher.dispatchAt(monday.plus(Duration.ofMinutes(2)));
+        assertThat(enrollmentOf(rajesh)).containsEntry("stop_reason", "SEND_UNCERTAIN");
     }
 
     @Test

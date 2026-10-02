@@ -86,12 +86,18 @@ public class CandidateOutreachService {
 
     /**
      * One email went. The first one moves someone still Identified to Contacted — forward only, so a
-     * person a consultant already moved on is left where they were put.
+     * person a consultant already moved on is left where they were put. Nothing is written for someone
+     * removed from the position while the email was in flight: the email itself is still recorded.
      */
     @Transactional(propagation = Propagation.MANDATORY)
     public void recordEmailSent(UUID sender, UUID projectId, UUID candidateId, UUID sequenceId, String sequenceName,
                                 int stepNumber) {
-        Candidate candidate = candidates.requireInProject(candidateId, projectId);
+        candidates.findByIdAndProjectId(candidateId, projectId).ifPresent(candidate ->
+                recordEmailSent(candidate, sender, sequenceId, sequenceName, stepNumber));
+    }
+
+    private void recordEmailSent(Candidate candidate, UUID sender, UUID sequenceId, String sequenceName,
+                                 int stepNumber) {
         activity.record(candidate, sender, PersonActivityKind.EMAIL_SENT, PersonActivityDetails
                 .of("sequenceId", sequenceId).and("sequence", sequenceName).and("step", stepNumber));
         if (candidate.getStatus() == CandidateStatus.IDENTIFIED) {
