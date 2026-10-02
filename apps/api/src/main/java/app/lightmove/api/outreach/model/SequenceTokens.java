@@ -14,11 +14,6 @@ public record SequenceTokens(String firstName, String currentTitle, String curre
 
     private static final Pattern TOKEN = Pattern.compile("\\{\\{\\s*([A-Za-z]+)\\s*}}");
 
-    public SequenceTokens withOpener(String newOpener) {
-        return new SequenceTokens(firstName, currentTitle, currentCompany, positionTitle, location,
-                senderFirstName, newOpener);
-    }
-
     public String render(String template) {
         if (template == null) {
             return "";

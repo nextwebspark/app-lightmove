@@ -16,6 +16,8 @@ public interface OutreachEnrollmentRepository extends JpaRepository<OutreachEnro
 
     boolean existsBySequenceId(UUID sequenceId);
 
+    long countBySequenceId(UUID sequenceId);
+
     @Query("select e.sequenceId as sequenceId, count(e) as total from OutreachEnrollment e "
             + "where e.projectId = :projectId group by e.sequenceId")
     List<SequenceEnrollmentCount> countBySequenceOfProject(UUID projectId);

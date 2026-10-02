@@ -112,11 +112,7 @@ public class OutreachSequenceService {
     private SequenceResponse toResponse(OutreachSequence sequence) {
         String author = sequence.getCreatedBy() == null ? null
                 : users.findById(sequence.getCreatedBy()).map(User::getFullName).orElse(null);
-        long enrolled = enrollments.countBySequenceOfProject(sequence.getProjectId()).stream()
-                .filter(count -> count.getSequenceId().equals(sequence.getId()))
-                .mapToLong(SequenceEnrollmentCount::getTotal)
-                .sum();
-        return toResponse(sequence, author, enrolled);
+        return toResponse(sequence, author, enrollments.countBySequenceId(sequence.getId()));
     }
 
     private static SequenceResponse toResponse(OutreachSequence sequence, String author, long enrolled) {

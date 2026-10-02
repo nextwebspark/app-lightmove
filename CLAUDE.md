@@ -382,8 +382,8 @@ a failure.
 Sequences (V100, #623) are a position's, `WORK_EXECUTE`: up to three emails (V39's owned list), and
 **Add to sequence** — from In universe / Shortlisted (the ticked companies' executives) or the executive
 drawer — chooses, reviews and starts. Choose shows who is skipped and why (no email, do not contact, out
-of the running, already in a live sequence); Start decides every rule again and enrolls nobody if one
-fails. Each person's first email is rendered and **frozen on their enrollment** with their own opener,
+of the running, already in a live sequence); the openers and Start decide the same rules again
+(`RecipientEligibility`), so nobody skipped is sent to the model, charged for or enrolled. Each person's first email is rendered and **frozen on their enrollment** with their own opener,
 so an edit reaches nobody else; Start creates `SCHEDULED` rows and sends nothing (#624 sends). The
 `{{opener}}` is one Gemini call per person (`OutreachOpenerDrafter`) over the `CandidateDossier` and an
 `OpenerBrief` — role title, level, the client's industry and the brief's location, **never the hiring

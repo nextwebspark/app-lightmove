@@ -49,9 +49,6 @@ public class OutreachEnrollment extends BaseEntity {
     @Column(name = "status", nullable = false, length = 16)
     private EnrollmentStatus status;
 
-    @Column(name = "stop_reason", length = 32)
-    private String stopReason;
-
     /** Zero-based: the step the dispatcher sends next. */
     @Column(name = "next_step", nullable = false)
     private int nextStep;
@@ -59,16 +56,13 @@ public class OutreachEnrollment extends BaseEntity {
     @Column(name = "next_send_at")
     private Instant nextSendAt;
 
-    @Column(name = "thread_id", length = 128)
-    private String threadId;
-
     @Column(name = "opener")
     private String opener;
 
     @Column(name = "opener_edited", nullable = false)
     private boolean openerEdited;
 
-    @Column(name = "first_subject", nullable = false, length = 300)
+    @Column(name = "first_subject", nullable = false)
     private String firstSubject;
 
     @Column(name = "first_body", nullable = false)

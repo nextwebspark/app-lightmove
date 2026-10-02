@@ -52,13 +52,11 @@ CREATE TABLE app_lm_outreach_enrollment (
     status            varchar(16)  NOT NULL
         CONSTRAINT app_lm_outreach_enrollment_status_chk
             CHECK (status IN ('SCHEDULED', 'ACTIVE', 'REPLIED', 'BOUNCED', 'STOPPED', 'COMPLETED')),
-    stop_reason       varchar(32),
     next_step         integer      NOT NULL DEFAULT 0,
     next_send_at      timestamptz,
-    thread_id         varchar(128),
     opener            text,
     opener_edited     boolean      NOT NULL DEFAULT false,
-    first_subject     varchar(300) NOT NULL,
+    first_subject     text         NOT NULL,
     first_body        text         NOT NULL,
     enrolled_by       uuid         REFERENCES app_lm_user (id) ON DELETE SET NULL,
     enrolled_at       timestamptz  NOT NULL,

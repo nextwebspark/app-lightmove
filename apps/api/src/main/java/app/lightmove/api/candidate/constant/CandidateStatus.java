@@ -1,6 +1,8 @@
 package app.lightmove.api.candidate.constant;
 
 import app.lightmove.api.common.constant.ApiValueEnum;
+import java.util.EnumSet;
+import java.util.Set;
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 import lombok.experimental.Accessors;
@@ -36,8 +38,10 @@ public enum CandidateStatus implements ApiValueEnum {
     private final String value;
 
     /** The three ways out of the running: nobody in one is approached again on this position. */
+    public static final Set<CandidateStatus> LEFT_THE_RUNNING = EnumSet.of(NOT_INTERESTED, OFF_LIMITS, OUT_OF_SCOPE);
+
     public boolean hasLeftTheRunning() {
-        return this == NOT_INTERESTED || this == OFF_LIMITS || this == OUT_OF_SCOPE;
+        return LEFT_THE_RUNNING.contains(this);
     }
 
     public static CandidateStatus fromValue(String value) {

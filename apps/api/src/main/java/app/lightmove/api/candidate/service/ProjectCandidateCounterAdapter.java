@@ -5,7 +5,6 @@ import app.lightmove.api.candidate.model.CandidateCount;
 import app.lightmove.api.candidate.repository.CandidateRepository;
 import app.lightmove.api.project.service.ProjectCandidateCounter;
 import app.lightmove.api.triagecompany.constant.TriageCompanyStatus;
-import java.util.Arrays;
 import java.util.Collection;
 import java.util.EnumSet;
 import java.util.List;
@@ -31,8 +30,6 @@ import org.springframework.stereotype.Component;
 @RequiredArgsConstructor
 class ProjectCandidateCounterAdapter implements ProjectCandidateCounter {
 
-    private static final Set<CandidateStatus> LEFT_THE_RUNNING = EnumSet.copyOf(
-            Arrays.stream(CandidateStatus.values()).filter(CandidateStatus::hasLeftTheRunning).toList());
 
     private static final Set<CandidateStatus> ENGAGED = EnumSet.of(
             CandidateStatus.ENGAGED, CandidateStatus.INTERESTED);
@@ -48,7 +45,8 @@ class ProjectCandidateCounterAdapter implements ProjectCandidateCounter {
         if (projectIds.isEmpty()) {
             return Map.of();
         }
-        return byProject(candidates.countByProjectIdInExcludingStatuses(projectIds, LEFT_THE_RUNNING));
+        return byProject(
+                candidates.countByProjectIdInExcludingStatuses(projectIds, CandidateStatus.LEFT_THE_RUNNING));
     }
 
     @Override

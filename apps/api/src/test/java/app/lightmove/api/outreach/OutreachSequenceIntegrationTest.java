@@ -210,6 +210,44 @@ class OutreachSequenceIntegrationTest extends FlowTestSupport {
     }
 
     @Test
+    @DisplayName("no opener is drafted, and nothing spent, for someone who may not be approached")
+    void noOpenerForSomeoneSkipped() throws Exception {
+        String doNotContact = executive("Lina Haddad", "lina@target.example", null);
+        String noEmail = executive("Omar Said", null, null);
+        markDoNotContact(doNotContact);
+
+        for (String skipped : List.of(doNotContact, noEmail)) {
+            MvcResult refused = as(consultant, post(outreach("/openers")).contentType(MediaType.APPLICATION_JSON)
+                    .content("{\"candidateIds\":[\"%s\"]}".formatted(skipped)))
+                    .andExpect(status().isConflict())
+                    .andReturn();
+            assertThat(codeOf(refused)).isEqualTo("OUTREACH_PERSON_SKIPPED");
+        }
+        assertThat(chat.prompts()).isEmpty();
+    }
+
+    @Test
+    @DisplayName("a long subject renders in full rather than failing as someone already enrolled")
+    void aLongRenderedSubjectIsKept() throws Exception {
+        String sequenceId = body(as(consultant, post(outreach("/sequences")).contentType(MediaType.APPLICATION_JSON)
+                .content("""
+                        {"name":"Long subject","steps":[{"delayWorkingDays":0,
+                         "subject":"{{currentTitle}} / {{currentTitle}}","body":"Hi"}]}"""))
+                .andExpect(status().isCreated())
+                .andReturn()).get("id").asText();
+        String longTitle = "Group Chief Financial Officer and Head of Strategy, Treasury, Investor Relations, "
+                + "Mergers and Acquisitions, Procurement and Shared Services for the Gulf region";
+        String priya = executive("Priya Raman", "priya@target.example", ",\"title\":\"%s\"".formatted(longTitle));
+        connectMailbox();
+
+        start(sequenceId, List.of(person(priya, "priya@target.example", null, false))).andExpect(status().isCreated());
+
+        String stored = jdbc.queryForObject("select first_subject from app_lm_outreach_enrollment where project_id = ?::uuid",
+                String.class, projectId);
+        assertThat(stored).isEqualTo(longTitle + " / " + longTitle).hasSizeGreaterThan(300);
+    }
+
+    @Test
     @DisplayName("a client seat is refused on every outreach route")
     void aClientSeatIsRefusedEverywhere() throws Exception {
         String sequenceId = createSequence("First approach");
