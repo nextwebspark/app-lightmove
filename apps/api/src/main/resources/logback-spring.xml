@@ -43,13 +43,20 @@
                           Cloud Logging's LogSeverity enum has WARNING, not Logback's WARN. Left as-is the
                           line is filed as DEFAULT and a warning stops looking like a warning in the
                           console — so translate it here rather than discovering it during an incident.
+
+                          The logging.googleapis.com/* fields nest the line under Cloud Run's request entry.
+                          trace_sampled must be a JSON boolean, and #asBoolean answers null for an absent
+                          key, which omitEmptyFields drops like an empty string.
                         -->
                         <pattern>
                             {
                               "severity": "%replace(%level){'WARN','WARNING'}",
                               "logger": "%logger{40}",
                               "thread": "%thread",
-                              "correlationId": "%mdc{correlationId}"
+                              "correlationId": "%mdc{correlationId}",
+                              "logging.googleapis.com/trace": "%mdc{gcpTrace}",
+                              "logging.googleapis.com/spanId": "%mdc{gcpSpanId}",
+                              "logging.googleapis.com/trace_sampled": "#asBoolean{%mdc{gcpTraceSampled}}"
                             }
                         </pattern>
                     </pattern>

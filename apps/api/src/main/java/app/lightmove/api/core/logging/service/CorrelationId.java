@@ -14,6 +14,11 @@ public final class CorrelationId {
     public static final String MDC_KEY = "correlationId";
     public static final String HEADER = "X-Correlation-Id";
 
+    /** MDC keys the deployed encoder renames to Cloud Logging's {@code logging.googleapis.com/*} trace fields. */
+    public static final String TRACE_KEY = "gcpTrace";
+    public static final String SPAN_ID_KEY = "gcpSpanId";
+    public static final String TRACE_SAMPLED_KEY = "gcpTraceSampled";
+
     private CorrelationId() {
     }
 
