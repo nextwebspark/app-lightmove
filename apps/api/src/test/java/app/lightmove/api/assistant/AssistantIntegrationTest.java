@@ -326,8 +326,10 @@ class AssistantIntegrationTest extends FlowTestSupport {
                 .contains("- Headquarters: Saudi Arabia")
                 .contains("- Sectors: Hospitals")
                 .contains("- Competitors: Dallah Health")
+                .contains("- Role: Chief Medical Officer")
                 .doesNotContain("departments or business units")
-                .doesNotContain("{hiring}");
+                .doesNotContain("{hiring}")
+                .doesNotContain("{brief}");
     }
 
     private String turnWithCard(Firm firm) throws Exception {
