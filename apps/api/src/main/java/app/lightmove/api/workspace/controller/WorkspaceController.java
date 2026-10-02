@@ -5,6 +5,7 @@ import app.lightmove.api.core.security.model.AuthPrincipal;
 import app.lightmove.api.core.security.rbac.RequireWorkspacePermission;
 import app.lightmove.api.core.security.rbac.WorkspaceAction;
 import app.lightmove.api.workspace.dto.DeleteWorkspaceRequest;
+import app.lightmove.api.workspace.dto.UpdateWorkspaceCalendarSyncRequest;
 import app.lightmove.api.workspace.dto.UpdateWorkspaceModeRequest;
 import app.lightmove.api.workspace.dto.UpdateWorkspacePersonaRequest;
 import app.lightmove.api.workspace.dto.UpdateWorkspaceSettingsRequest;
@@ -75,6 +76,15 @@ public class WorkspaceController {
                 principal.userId(), principal.requireWorkspaceId(), request.mode(), httpRequest));
     }
 
+    @PutMapping("/calendar-sync")
+    @RequireWorkspacePermission(WorkspaceAction.WORKSPACE_MANAGE)
+    public WorkspaceResponse changeCalendarSync(@AuthenticationPrincipal AuthPrincipal principal,
+                                                @Valid @RequestBody UpdateWorkspaceCalendarSyncRequest request,
+                                                HttpServletRequest httpRequest) {
+        return toResponse(settings.changeCalendarSync(
+                principal.userId(), principal.requireWorkspaceId(), request.calendarSync(), httpRequest));
+    }
+
     @DeleteMapping
     @RequireWorkspacePermission(WorkspaceAction.WORKSPACE_MANAGE)
     @ResponseStatus(HttpStatus.NO_CONTENT)
@@ -88,7 +98,7 @@ public class WorkspaceController {
     private WorkspaceResponse toResponse(WorkspaceDetail detail) {
         Workspace ws = detail.workspace();
         return new WorkspaceResponse(ws.getId(), ws.getName(), ws.getSlug(), ws.getLogoMark(),
-                ws.getEmailDomain(), ws.getMode(), ws.getDefaultRegion(), ws.getDefaultCurrency(), ws.getPlan(),
+                ws.getEmailDomain(), ws.getMode(), ws.getCalendarSync(), ws.getDefaultRegion(), ws.getDefaultCurrency(), ws.getPlan(),
                 detail.memberCount(), ws.getCreatedAt(), ws.getPersona(),
                 WorkspaceCompanyResponse.of(ws.getCompany()));
     }

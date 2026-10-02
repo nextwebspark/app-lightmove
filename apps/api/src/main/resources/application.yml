@@ -562,6 +562,30 @@ lightmove:
       # <web.base-url>/book/<slug> where the executive picks a time. Subscribe the webhook to
       # booking.created too, so a booking stops their sequence.
       scheduler-enabled: ${NYLAS_SCHEDULER_ENABLED:false}
+    # Uncava's own OAuth apps, which every workspace on the shared mode connects through (epic #642). A blank
+    # client id or secret leaves that provider's shared app unoffered; a workspace may still register its own in
+    # Settings → Integrations. Each app lists <web.base-url>/api/v1/outreach/mailbox/callback as a redirect URI
+    # (Zoom: <web.base-url>/api/v1/outreach/zoom/callback), and the Microsoft app also <web.base-url>/settings/integrations,
+    # where its admin-consent link returns. The scopes are what an admin's own app must be granted.
+    providers:
+      google:
+        client-id: ${GOOGLE_MAIL_CLIENT_ID:}
+        client-secret: ${GOOGLE_MAIL_CLIENT_SECRET:}
+        scopes: ${GOOGLE_MAIL_SCOPES:openid,email,https://www.googleapis.com/auth/gmail.send,https://www.googleapis.com/auth/gmail.metadata,https://www.googleapis.com/auth/calendar.events,https://www.googleapis.com/auth/calendar.freebusy}
+        own-app-guide-url: ${GOOGLE_MAIL_OWN_APP_GUIDE_URL:}
+        shared-app-guide-url: ${GOOGLE_MAIL_SHARED_APP_GUIDE_URL:}
+      microsoft:
+        client-id: ${MICROSOFT_MAIL_CLIENT_ID:}
+        client-secret: ${MICROSOFT_MAIL_CLIENT_SECRET:}
+        scopes: ${MICROSOFT_MAIL_SCOPES:offline_access,User.Read,Mail.Send,Mail.ReadBasic,Calendars.ReadWrite}
+        own-app-guide-url: ${MICROSOFT_MAIL_OWN_APP_GUIDE_URL:}
+        shared-app-guide-url: ${MICROSOFT_MAIL_SHARED_APP_GUIDE_URL:}
+      zoom:
+        client-id: ${ZOOM_CLIENT_ID:}
+        client-secret: ${ZOOM_CLIENT_SECRET:}
+        scopes: ${ZOOM_SCOPES:meeting:write:meeting,meeting:update:meeting,meeting:delete:meeting,user:read:user}
+        own-app-guide-url: ${ZOOM_OWN_APP_GUIDE_URL:}
+        shared-app-guide-url: ${ZOOM_SHARED_APP_GUIDE_URL:}
     connect-window: ${OUTREACH_CONNECT_WINDOW:10m}
     daily-cap: ${OUTREACH_DAILY_CAP:50}
     window-start: ${OUTREACH_WINDOW_START:08:00}
@@ -570,6 +594,22 @@ lightmove:
     # Read by @Scheduled, which sees the environment and never a binding default, so spelled out here.
     dispatch-interval: ${OUTREACH_DISPATCH_INTERVAL:60s}
     reply-poll-interval: ${OUTREACH_REPLY_POLL_INTERVAL:15m}
+
+  # The key-encryption key for the secrets the app holds — a workspace's own OAuth client secret, and from #644
+  # a mailbox's refresh token. A Tink JSON keyset of AES-256-GCM keys, mounted from the lightmove-credential-keyset
+  # secret. Blank, the app boots and no workspace can store its own app's keys. Make one with
+  #   tinkey create-keyset --key-template AES256_GCM --out-format json
+  # and rotate by adding a key and promoting it: what was written under the old one still decrypts.
+  crypto:
+    keyset: ${CREDENTIAL_KEYSET:}
+
+  # Recall.ai's Calendar API: one platform account, never one per workspace. The region is the base URL (each
+  # region is its own account and key; EU is https://eu-central-1.recall.ai). Blank, calendars are read directly
+  # whatever a workspace chose. Nothing calls it before #644.
+  recall:
+    api-key: ${RECALL_API_KEY:}
+    webhook-secret: ${RECALL_WEBHOOK_SECRET:}
+    base-url: ${RECALL_BASE_URL:https://us-east-1.recall.ai}
 
   # Uploaded files. gcs in every deployment (ops/gcp/deploy.sh sets both): Cloud Run's disk dies with the
   # instance, so filesystem is for npm run dev and the tests only.
