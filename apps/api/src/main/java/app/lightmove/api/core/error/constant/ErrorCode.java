@@ -193,6 +193,15 @@ public enum ErrorCode {
     /** A note may be changed or removed by its author, or by a workspace admin. */
     PERSON_NOTE_NOT_YOURS(HttpStatus.FORBIDDEN, "Only the person who wrote this note, or an admin, can change it"),
 
+    /** The same file is already on this person; the body names the document and version holding it. */
+    PERSON_DOCUMENT_DUPLICATE(HttpStatus.CONFLICT, "That file is already on this candidate"),
+
+    /** A document or version may be removed by whoever uploaded it, or by a workspace admin. */
+    PERSON_DOCUMENT_NOT_YOURS(HttpStatus.FORBIDDEN, "Only the person who uploaded this, or an admin, can remove it"),
+
+    /** Past lightmove.person-documents' ceilings on documents per person or versions per document. */
+    PERSON_DOCUMENT_LIMIT(HttpStatus.CONFLICT, "This candidate has reached the limit for documents"),
+
     /** Tags are unique per workspace whatever their case. */
     CANDIDATE_TAG_EXISTS(HttpStatus.CONFLICT, "Your team already has that tag"),
 

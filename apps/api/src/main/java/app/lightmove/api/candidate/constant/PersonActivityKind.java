@@ -44,5 +44,11 @@ public enum PersonActivityKind {
     DO_NOT_CONTACT_CLEARED,
 
     /** Put on an outreach sequence; the line names the sequence. Nothing is sent by this alone. */
-    OUTREACH_ENROLLED
+    OUTREACH_ENROLLED,
+
+    /** The line carries the document's id and version, never its name: the read names it while it exists. */
+    DOCUMENT_ADDED,
+    DOCUMENT_VERSION_ADDED,
+    DOCUMENT_REMOVED,
+    DOCUMENT_VERSION_REMOVED
 }

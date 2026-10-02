@@ -141,7 +141,35 @@ function phraseOf(
         text: `added${them} to ${details.sequence ? `the sequence ${details.sequence}` : "a sequence"} on ${where}`,
         detail: null,
       };
+    case "DOCUMENT_ADDED":
+      return { text: `uploaded ${documentOf(details.category, "a")}${onThem}`, detail: details.document ?? null };
+    case "DOCUMENT_VERSION_ADDED":
+      return {
+        text: `uploaded version ${details.version ?? "?"} of ${documentOf(details.category, "the")}${onThem}`,
+        detail: details.document ?? null,
+      };
+    case "DOCUMENT_VERSION_REMOVED":
+      return {
+        text: `deleted version ${details.version ?? "?"} of ${documentOf(details.category, "the")}${onThem}`,
+        detail: details.document ?? null,
+      };
+    case "DOCUMENT_REMOVED":
+      return { text: `deleted ${documentOf(details.category, "a")}${onThem}`, detail: null };
   }
+}
+
+const DOCUMENT_NOUNS: Record<string, string> = {
+  CV: "CV",
+  COVER_LETTER: "cover letter",
+  REFERENCE: "reference",
+  CERTIFICATE: "certificate",
+  ASSESSMENT: "assessment",
+  OTHER: "document",
+};
+
+/** The line names the category; the document's own title is the detail, and only while it exists. */
+function documentOf(category: string | undefined, article: "a" | "the"): string {
+  return `${article} ${DOCUMENT_NOUNS[category ?? "OTHER"] ?? "document"}`;
 }
 
 /**

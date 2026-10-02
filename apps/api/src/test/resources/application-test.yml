@@ -40,6 +40,15 @@ spring:
       iam_user: ""
 
 lightmove:
+  # Uploaded documents land under target/ and go with mvn clean; no test reaches a bucket.
+  storage:
+    provider: filesystem
+    directory: target/test-documents
+
+  # Small, so the size refusal is reachable with a fixture of a few kilobytes.
+  person-documents:
+    max-file-size-bytes: 4096
+
   auth:
     # Fixed, known keys would be better than generated ones here, but the provider writes a keypair to
     # a temp dir when none exists, which is fine: each test run gets its own and nothing outlives it.
