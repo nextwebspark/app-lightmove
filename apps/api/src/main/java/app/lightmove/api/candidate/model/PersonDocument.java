@@ -14,7 +14,7 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 
 /**
- * A document on a workspace person (V104) — the card a researcher sees, whose files are its
+ * A document on a workspace person (V105) — the card a researcher sees, whose files are its
  * {@link PersonDocumentVersion}s. Staff-only, read from every mandate that maps the person.
  */
 @Entity

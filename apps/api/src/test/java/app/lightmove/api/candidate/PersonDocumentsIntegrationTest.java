@@ -25,7 +25,7 @@ import org.springframework.test.web.servlet.MvcResult;
 import tools.jackson.databind.JsonNode;
 
 /**
- * A person's documents (V104): one library whichever mandate they are read from, a file sent again
+ * A person's documents (V105): one library whichever mandate they are read from, a file sent again
  * under its name stacking as a version, the same bytes refused, a file judged by its bytes rather than
  * its name, every change a timeline line that names the document only while it exists, and no client
  * seat reaching any of it.

@@ -100,7 +100,7 @@ class PersonDocumentWriter {
         return new FiledPersonDocument(PersonDocumentUploadOutcome.NEW_VERSION, document);
     }
 
-    /** Taking the CV mark from another document first, so V104's one-per-person index never sees two. */
+    /** Taking the CV mark from another document first, so V105's one-per-person index never sees two. */
     @Transactional
     public PersonDocument update(UUID workspaceId, UUID personId, UUID documentId, String title,
                                  PersonDocumentCategory category, Boolean primaryCv) {

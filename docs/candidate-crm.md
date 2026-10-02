@@ -13,7 +13,7 @@ Decided and approved 2026-09-30; phases carry a `> **Built**` callout as they la
 | 3 — Notes, timeline reads, `CANDIDATE_POOL_MANAGE` (V96, V97) | **Built**, merged (#609) |
 | 4a — The Candidates page, owner/tags/do-not-contact, tag settings (V98) | **Built**, merged (#612) |
 | 4b — Possible duplicate + map, the position's Candidates page (4b-1); merge (4b-2, V99) | 4b-1 **Built** (#614); 4b-2 **Next** |
-| 5a — Documents on the person: CV, cover letter, references, versioned (V104) | Backend **built** — `docs/candidate-documents.md`; UI waits on its mockup |
+| 5a — Documents on the person: CV, cover letter, references, versioned (V105) | Backend **built** — `docs/candidate-documents.md`; UI waits on its mockup |
 | Final — Cleanup migration | Last, tracked in #606. Drops V91's frozen copies and the mapping's `note` once 3–4 are deployed |
 
 **Starting a new session on this plan:**
@@ -662,7 +662,7 @@ maps the person. Phone is still not a key.
     loser's custom values fill only keys the survivor's row left empty, and its legacy `note` becomes a
     `PersonNote` about that position.
   - **Notes and activity are re-pointed.**
-  - **Documents are re-pointed** (V104 — `person_id` on both the document and its versions, the bytes stay
+  - **Documents are re-pointed** (V105 — `person_id` on both the document and its versions, the bytes stay
     where they are). The loser's CV mark is dropped first when the survivor already has one, so
     `app_lm_person_document_primary_cv_uk` never holds two.
   - **The loser is deleted**, and its contacts, photo and tags go with it by cascade.

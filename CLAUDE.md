@@ -57,7 +57,7 @@ mandate mapping the person, this one first), **Notes** and **Timeline** for staf
 position's own `WORK_EXECUTE` routes (`…/candidates/{id}/positions|notes|timeline`, `PersonCrmController`);
 the workspace's routes (`/api/v1/candidates/{personId}…` and `/candidates/activity`, the feed) take
 person ids and V97's `CANDIDATE_POOL_MANAGE`, ADMIN and MEMBER and never CLIENT.
-**Documents are the person's too (V104, `docs/candidate-documents.md`)**: a CV, cover letter or
+**Documents are the person's too (V105, `docs/candidate-documents.md`)**: a CV, cover letter or
 reference is a card whose files are versions — a file sent under a name already on the person is its
 next version unless the upload says `asNewDocument`, the same bytes are refused
 (`PERSON_DOCUMENT_DUPLICATE`), a file is accepted only where its name and its bytes agree
@@ -666,7 +666,7 @@ V101 gives `app_lm_mailbox_connection` a `time_zone` (default `Asia/Dubai`), the
 last message ids, `last_sent_at`, `replied_at`, `stopped_at`, a `stop_reason` CHECK and the dispatcher's
 `sending_since` claim (with a partial index on due rows), adds `app_lm_outreach_message` (unique per
 enrollment and step), and widens the activity kinds with `EMAIL_SENT`, `EMAIL_REPLIED` and `OUTREACH_STOPPED`.
-V104 adds `app_lm_person_document` (category, title, `name_key` — the latest file's lower-cased name an
+V105 adds `app_lm_person_document` (category, title, `name_key` — the latest file's lower-cased name an
 upload is matched on — and a `primary_cv` mark held to one per person by a partial unique index) and
 `app_lm_person_document_version` (one row per file: sanitised name, the type its bytes were read as, size,
 `sha256`, the bucket's `storage_key`; `person_id` beside `document_id` so a duplicate is one lookup), and
