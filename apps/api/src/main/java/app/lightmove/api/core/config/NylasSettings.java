@@ -10,13 +10,18 @@ import org.springframework.boot.context.properties.bind.DefaultValue;
  *
  * <p>{@code providers} is what Nylas calls the mailbox's host ({@code google}, {@code microsoft}), passed
  * through to its hosted sign-in as configured; nothing branches on one.
+ *
+ * <p>{@code webhookSecret} is the signing secret Nylas issued for the webhook pointed at
+ * {@code /api/v1/outreach/webhooks/mailbox}. Blank, every delivery is refused and replies are found by
+ * the poll alone.
  */
 public record NylasSettings(
         String apiKey,
         String clientId,
         @DefaultValue("https://api.us.nylas.com") String baseUrl,
         @DefaultValue("google,microsoft") List<String> providers,
-        @DefaultValue("5") int requestsPerSecond
+        @DefaultValue("5") int requestsPerSecond,
+        String webhookSecret
 ) {
 
     public boolean isConfigured() {

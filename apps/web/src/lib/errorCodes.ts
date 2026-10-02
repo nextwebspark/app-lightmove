@@ -84,6 +84,7 @@ export type ApiErrorCode =
   | "OUTREACH_PERSON_SKIPPED"
   | "OUTREACH_ALREADY_ENROLLED"
   | "OUTREACH_ADDRESS_NOT_ON_FILE"
+  | "OUTREACH_NOT_RUNNING"
   | "WORKSPACE_NAME_MISMATCH"
   | "TEMPLATE_STALE"
   | "TEMPLATE_FALLBACK_REQUIRED"
@@ -175,6 +176,7 @@ const MESSAGES: Partial<Record<ApiErrorCode, string>> = {
   OUTREACH_PERSON_SKIPPED: "Someone you chose can no longer be added. Go back and review the list.",
   OUTREACH_ALREADY_ENROLLED: "Someone you chose is already in a sequence on this position.",
   OUTREACH_ADDRESS_NOT_ON_FILE: "That address isn't on file for this person.",
+  OUTREACH_NOT_RUNNING: "This sequence has already ended.",
 };
 
 /**

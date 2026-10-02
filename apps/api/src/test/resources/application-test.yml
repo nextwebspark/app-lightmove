@@ -40,6 +40,10 @@ spring:
       iam_user: ""
 
 lightmove:
+  # Scheduled jobs are driven by the tests that cover them, never by a timer.
+  scheduling:
+    enabled: false
+
   auth:
     # Fixed, known keys would be better than generated ones here, but the provider writes a keypair to
     # a temp dir when none exists, which is fine: each test run gets its own and nothing outlives it.

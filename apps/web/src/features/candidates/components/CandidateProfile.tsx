@@ -13,6 +13,7 @@ import { ContactPanel } from "../../contactlookup/components/ContactPanel";
 import type { CustomColumn, CustomFieldValues } from "../../customcolumns/api/types";
 import { CustomFieldsFieldset } from "../../customcolumns/components/CustomFieldsFieldset";
 import { AddToSequenceButton } from "../../outreach/components/AddToSequenceButton";
+import { OutreachSection } from "../../outreach/components/OutreachSection";
 import * as candidatesApi from "../api/candidatesApi";
 import type { Candidate, CandidateStatus, SaveCandidatePayload } from "../api/types";
 import { replayOf, type ProfileFormSection } from "../lib/candidateForm";
@@ -261,6 +262,18 @@ export function CandidateProfile({
             candidateId={candidate.id}
             open={sections.isOpen("positions")}
             onToggle={() => sections.toggle("positions")}
+          />
+        )}
+
+        {canWrite && (
+          <OutreachSection
+            projectId={projectId}
+            candidateId={candidate.id}
+            firstName={candidate.fullName.trim().split(/\s+/)[0]}
+            open={sections.isOpen("outreach")}
+            onToggle={() => sections.toggle("outreach")}
+            isSettingStatus={changeStatus.isPending}
+            onSetStatus={(status) => changeStatus.mutate({ candidateId: candidate.id, status })}
           />
         )}
 

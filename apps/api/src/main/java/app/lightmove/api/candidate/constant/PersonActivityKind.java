@@ -44,5 +44,14 @@ public enum PersonActivityKind {
     DO_NOT_CONTACT_CLEARED,
 
     /** Put on an outreach sequence; the line names the sequence. Nothing is sent by this alone. */
-    OUTREACH_ENROLLED
+    OUTREACH_ENROLLED,
+
+    /** One email of a sequence went; the line names the sequence and the step, never the email. */
+    EMAIL_SENT,
+
+    /** The person answered a sequence. The reply itself stays in the sender's inbox. */
+    EMAIL_REPLIED,
+
+    /** A sequence ended short of its last step; the line carries why. */
+    OUTREACH_STOPPED
 }

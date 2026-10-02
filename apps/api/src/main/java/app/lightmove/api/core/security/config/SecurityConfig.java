@@ -211,6 +211,10 @@ public class SecurityConfig {
                         // single-use state, bound to the starting browser by a cookie, is the credential.
                         .requestMatchers(HttpMethod.GET, API + "/outreach/mailbox/callback").permitAll()
 
+                        // The mail service's webhook holds no bearer token: the delivery's HMAC signature,
+                        // checked by OutreachInboxService before anything is read, is its credential.
+                        .requestMatchers(API + "/outreach/webhooks/mailbox").permitAll()
+
                         // Tenant data: an unverified user may not read a single candidate record.
                         .requestMatchers(API + "/**").access(verified)
 

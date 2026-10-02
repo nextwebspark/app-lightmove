@@ -187,7 +187,7 @@ public class MailboxService {
     }
 
     /** A revoked grant answers as the grant being unknown or unauthorised; either way only reconnecting helps. */
-    private static boolean isAccessWithdrawn(VendorException failed) {
+    static boolean isAccessWithdrawn(VendorException failed) {
         return failed.getKind() == VendorFailureKind.CREDENTIALS || failed.getKind() == VendorFailureKind.NOT_FOUND;
     }
 

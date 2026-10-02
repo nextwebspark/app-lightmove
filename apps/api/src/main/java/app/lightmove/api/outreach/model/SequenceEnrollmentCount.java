@@ -2,10 +2,14 @@ package app.lightmove.api.outreach.model;
 
 import java.util.UUID;
 
-/** How many people a sequence has ever had on it — a sequence card's count. */
+/** A sequence card's counts: everyone ever put on it, how many emails went, and how many people answered. */
 public interface SequenceEnrollmentCount {
 
     UUID getSequenceId();
 
     long getTotal();
+
+    long getSent();
+
+    long getReplied();
 }

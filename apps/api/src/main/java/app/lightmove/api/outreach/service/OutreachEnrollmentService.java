@@ -7,9 +7,8 @@ import app.lightmove.api.core.audit.constant.ProjectEventType;
 import app.lightmove.api.core.audit.service.AuditService;
 import app.lightmove.api.core.error.constant.ErrorCode;
 import app.lightmove.api.core.error.model.ApiException;
-import app.lightmove.api.core.security.model.User;
-import app.lightmove.api.core.security.repository.UserRepository;
 import app.lightmove.api.outreach.constant.OutreachSkipReason;
+import app.lightmove.api.outreach.constant.OutreachStopReason;
 import app.lightmove.api.outreach.dto.EnrollPersonRequest;
 import app.lightmove.api.outreach.dto.EnrollmentCandidateResponse;
 import app.lightmove.api.outreach.dto.EnrollmentCandidatesRequest;
@@ -29,7 +28,6 @@ import app.lightmove.api.outreach.model.SequenceTokens;
 import app.lightmove.api.outreach.repository.MailboxConnectionRepository;
 import app.lightmove.api.outreach.repository.OutreachEnrollmentRepository;
 import app.lightmove.api.outreach.repository.OutreachSequenceRepository;
-import app.lightmove.api.position.service.PositionService;
 import jakarta.servlet.http.HttpServletRequest;
 import java.time.Clock;
 import java.time.Instant;
@@ -58,8 +56,8 @@ public class OutreachEnrollmentService {
     private final OutreachEnrollmentRepository enrollments;
     private final OutreachEligibility eligibility;
     private final MailboxConnectionRepository mailboxes;
-    private final PositionService positions;
-    private final UserRepository users;
+    private final OutreachPersonalisation personalisation;
+    private final OutreachOutcomes outcomes;
     private final TransactionTemplate transactions;
     private final AuditService audit;
     private final Clock clock;
@@ -73,7 +71,7 @@ public class OutreachEnrollmentService {
         Map<UUID, String> sequenceNames = sequences.findAllById(eligible.liveByPerson().values().stream()
                         .map(OutreachEnrollment::getSequenceId).distinct().toList()).stream()
                 .collect(Collectors.toMap(OutreachSequence::getId, OutreachSequence::getName));
-        SenderContext sender = senderContextOf(userId, workspaceId, projectId);
+        SenderContext sender = personalisation.senderContextOf(userId, workspaceId, projectId);
         return new EnrollmentCandidatesResponse(recipients.stream()
                 .map(recipient -> {
                     OutreachSkipReason skip = eligible.skipReasonOf(recipient);
@@ -83,7 +81,7 @@ public class OutreachEnrollmentService {
                             recipient.companyName(),
                             recipient.emails().stream().map(RecipientEmailResponse::of).toList(), skip,
                             held == null ? null : sequenceNames.get(held.getSequenceId()),
-                            SequenceTokensResponse.of(tokensOf(recipient, sender, null)));
+                            SequenceTokensResponse.of(OutreachPersonalisation.tokensOf(recipient, sender, null)));
                 })
                 .toList());
     }
@@ -108,6 +106,18 @@ public class OutreachEnrollmentService {
         return new StartSequenceResponse(created.size());
     }
 
+    /** Nothing more goes to this person on this sequence; what already went stays on the record. */
+    @Transactional
+    public void stop(UUID userId, UUID workspaceId, UUID projectId, UUID enrollmentId, HttpServletRequest httpRequest) {
+        OutreachEnrollment enrollment = enrollments.findByIdAndWorkspaceIdAndProjectId(enrollmentId, workspaceId,
+                        projectId)
+                .orElseThrow(() -> ApiException.of(ErrorCode.NOT_FOUND));
+        if (!enrollment.isLive()) {
+            throw ApiException.of(ErrorCode.OUTREACH_NOT_RUNNING);
+        }
+        outcomes.stop(enrollment, OutreachStopReason.MANUAL, userId, clock.instant(), httpRequest);
+    }
+
     private List<OutreachEnrollment> enroll(UUID userId, UUID workspaceId, UUID projectId, UUID sequenceId,
                                             StartSequenceRequest request) {
         requireSendingMailbox(userId, workspaceId);
@@ -123,7 +133,7 @@ public class OutreachEnrollmentService {
             throw ApiException.of(ErrorCode.OUTREACH_PERSON_SKIPPED);
         }
 
-        SenderContext sender = senderContextOf(userId, workspaceId, projectId);
+        SenderContext sender = personalisation.senderContextOf(userId, workspaceId, projectId);
         SequenceStep first = sequence.firstStep();
         Instant now = clock.instant();
         List<OutreachEnrollment> created = request.people().stream()
@@ -133,7 +143,7 @@ public class OutreachEnrollmentService {
                         throw ApiException.of(ErrorCode.OUTREACH_ADDRESS_NOT_ON_FILE);
                     }
                     String opener = blankToNull(person.opener());
-                    SequenceTokens tokens = tokensOf(recipient, sender, opener);
+                    SequenceTokens tokens = OutreachPersonalisation.tokensOf(recipient, sender, opener);
                     ReviewedFirstEmail email = new ReviewedFirstEmail(tokens.render(first.getSubject()),
                             tokens.render(first.getBody()), opener, person.openerEdited());
                     return OutreachEnrollment.scheduled(sequence, recipient.candidateId(), recipient.personId(),
@@ -152,21 +162,6 @@ public class OutreachEnrollmentService {
         if (!mailbox.canSend()) {
             throw ApiException.of(ErrorCode.MAILBOX_RECONNECT_NEEDED);
         }
-    }
-
-    private SenderContext senderContextOf(UUID userId, UUID workspaceId, UUID projectId) {
-        String positionTitle = positions.briefOf(workspaceId, projectId).details().roleTitle();
-        String senderFirstName = users.findById(userId)
-                .map(User::getFullName)
-                .map(SequenceTokens::firstNameOf)
-                .orElse(null);
-        return new SenderContext(positionTitle, senderFirstName);
-    }
-
-    private static SequenceTokens tokensOf(OutreachRecipient recipient, SenderContext sender, String opener) {
-        String location = recipient.locationCity() != null ? recipient.locationCity() : recipient.locationCountry();
-        return new SequenceTokens(SequenceTokens.firstNameOf(recipient.fullName()), recipient.title(),
-                recipient.companyName(), sender.positionTitle(), location, sender.senderFirstName(), opener);
     }
 
     private static String ledgerSpellingOf(OutreachRecipient recipient, String requested) {

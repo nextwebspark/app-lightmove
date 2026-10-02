@@ -319,7 +319,10 @@ export type PersonActivityKind =
   | "OWNER_CHANGED"
   | "DO_NOT_CONTACT_SET"
   | "DO_NOT_CONTACT_CLEARED"
-  | "OUTREACH_ENROLLED";
+  | "OUTREACH_ENROLLED"
+  | "EMAIL_SENT"
+  | "EMAIL_REPLIED"
+  | "OUTREACH_STOPPED";
 
 /** The timeline's filter chips, as the server's `TimelineGroup` tokens. */
 export type TimelineGroup = "positions" | "notes" | "contacts" | "profile" | "tags";
