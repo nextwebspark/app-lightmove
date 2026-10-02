@@ -2,6 +2,7 @@ package app.lightmove.api;
 
 import app.lightmove.api.core.error.constant.ErrorCode;
 import app.lightmove.api.core.error.model.ApiException;
+import app.lightmove.api.outreach.config.MailboxGatewayConfig;
 import app.lightmove.api.outreach.model.BookingPageSpec;
 import app.lightmove.api.outreach.model.BusyInterval;
 import app.lightmove.api.outreach.model.CalendarEvent;
@@ -18,9 +19,9 @@ import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.atomic.AtomicInteger;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.context.annotation.Bean;
-import org.springframework.context.annotation.Primary;
 import org.springframework.web.util.UriComponentsBuilder;
 
 /**
@@ -246,9 +247,12 @@ public class RecordingMailboxGateway implements MailboxGateway {
     @TestConfiguration(proxyBeanMethods = false)
     public static class Config {
 
-        /** {@code @Primary} so it wins over the unconfigured gateway a test profile without Nylas picks. */
+        /**
+         * Under the Nylas gateway's qualifier, so it takes the place of the unconfigured one a test profile
+         * without Nylas builds — beneath the routing gateway, which every test still talks through.
+         */
         @Bean
-        @Primary
+        @Qualifier(MailboxGatewayConfig.NYLAS)
         public RecordingMailboxGateway recordingMailboxGateway() {
             return new RecordingMailboxGateway();
         }

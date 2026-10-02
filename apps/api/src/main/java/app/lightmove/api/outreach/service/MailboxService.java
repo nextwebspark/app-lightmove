@@ -4,6 +4,7 @@ import app.lightmove.api.core.audit.constant.WorkspaceEventType;
 import app.lightmove.api.core.audit.service.AuditService;
 import app.lightmove.api.core.config.LightMoveProperties;
 import app.lightmove.api.core.config.OutreachSettings;
+import app.lightmove.api.core.crypto.service.SecretCipher;
 import app.lightmove.api.core.error.constant.ErrorCode;
 import app.lightmove.api.core.error.model.ApiException;
 import app.lightmove.api.core.resilience.constant.VendorFailureKind;
@@ -17,6 +18,7 @@ import app.lightmove.api.outreach.model.MailboxConnected;
 import app.lightmove.api.outreach.model.MailboxConnectStart;
 import app.lightmove.api.outreach.model.MailboxConnection;
 import app.lightmove.api.outreach.model.OutgoingEmail;
+import app.lightmove.api.outreach.model.RecallCalendarReleased;
 import app.lightmove.api.outreach.repository.MailboxAuthorizationRepository;
 import app.lightmove.api.outreach.repository.MailboxConnectionRepository;
 import jakarta.servlet.http.HttpServletRequest;
@@ -57,6 +59,8 @@ public class MailboxService {
     private final AuditService audit;
     private final ApplicationEventPublisher events;
     private final BookingPages bookingPages;
+    private final MailboxTokens tokens;
+    private final SecretCipher cipher;
     private final LightMoveProperties properties;
     private final Clock clock;
 
@@ -80,7 +84,8 @@ public class MailboxService {
         String state = Tokens.generate();
         authorizations.save(MailboxAuthorization.started(Tokens.hash(state), workspaceId, userId, provider,
                 clock.instant().plus(settings().connectWindow())));
-        return new MailboxConnectStart(gateway.authorizationUri(provider, loginHint, state, callbackUri()), state);
+        URI consent = gateway.authorizationUri(workspaceId, provider, loginHint, state, callbackUri());
+        return new MailboxConnectStart(consent, state);
     }
 
     /**
@@ -102,7 +107,7 @@ public class MailboxService {
 
         GrantedMailbox granted;
         try {
-            granted = gateway.redeem(code, callbackUri());
+            granted = gateway.redeem(started.getWorkspaceId(), started.getProvider(), code, callbackUri());
         } catch (VendorException failed) {
             log.warn("Mailbox connection for user {} failed at the mail service: {}", started.getUserId(),
                     failed.getKind());
@@ -118,6 +123,7 @@ public class MailboxService {
                 .detail("provider", granted.provider())
                 .record();
         if (replacedGrant != null && !replacedGrant.equals(granted.grantId())) {
+            tokens.forget(replacedGrant);
             revokeQuietly(replacedGrant);
         }
     }
@@ -125,9 +131,14 @@ public class MailboxService {
     public void disconnect(UUID userId, UUID workspaceId, HttpServletRequest request) {
         String grantId = transactions.execute(status -> {
             MailboxConnection connection = requireConnection(userId, workspaceId);
+            String recallCalendar = connection.releaseRecallCalendar();
+            if (recallCalendar != null) {
+                events.publishEvent(new RecallCalendarReleased(recallCalendar));
+            }
             connections.delete(connection);
             return connection.getGrantId();
         });
+        tokens.forget(grantId);
         audit.event(WorkspaceEventType.MAILBOX_DISCONNECTED)
                 .actor(userId)
                 .workspace(workspaceId)
@@ -164,19 +175,33 @@ public class MailboxService {
 
     private String store(MailboxAuthorization started, GrantedMailbox granted) {
         Instant now = clock.instant();
+        String refreshTokenEncrypted = encryptedRefreshToken(started, granted);
         return connections.findByWorkspaceIdAndUserId(started.getWorkspaceId(), started.getUserId())
                 .map(existing -> {
                     String previous = existing.getGrantId();
-                    existing.reconnect(granted, now);
+                    existing.reconnect(granted, refreshTokenEncrypted, now);
                     events.publishEvent(new MailboxConnected(existing.getId()));
                     return previous;
                 })
                 .orElseGet(() -> {
                     MailboxConnection connected = connections.save(MailboxConnection.connected(
-                            started.getWorkspaceId(), started.getUserId(), granted, settings().dailyCap(), now));
+                            started.getWorkspaceId(), started.getUserId(), granted, refreshTokenEncrypted,
+                            settings().dailyCap(), now));
                     events.publishEvent(new MailboxConnected(connected.getId()));
                     return null;
                 });
+    }
+
+    /** Our own gateway's refresh token, sealed before it reaches the row; Nylas's grants carry none. */
+    private String encryptedRefreshToken(MailboxAuthorization started, GrantedMailbox granted) {
+        if (granted.refreshToken() == null) {
+            return null;
+        }
+        if (!cipher.isAvailable()) {
+            throw ApiException.of(ErrorCode.INTEGRATION_ENCRYPTION_UNAVAILABLE);
+        }
+        return cipher.encrypt(granted.refreshToken(),
+                MailboxConnection.refreshTokenContext(started.getWorkspaceId(), started.getUserId()));
     }
 
     private MailboxConnection requireConnection(UUID userId, UUID workspaceId) {

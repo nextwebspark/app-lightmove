@@ -548,6 +548,9 @@ lightmove:
   # <web.base-url>/api/v1/outreach/mailbox/callback as a callback URI, and NYLAS_BASE_URL is
   # https://api.eu.nylas.com for an EU-region application.
   outreach:
+    # Which gateway a new mailbox connects through: nylas, or direct for our own (Google, Microsoft) wherever this
+    # deployment has it, Nylas still answering the rest. A connection already made stays with the gateway that made it.
+    gateway: ${OUTREACH_GATEWAY:nylas}
     nylas:
       api-key: ${NYLAS_API_KEY:}
       client-id: ${NYLAS_CLIENT_ID:}

@@ -1,6 +1,9 @@
 package app.lightmove.api.outreach.model;
 
+import app.lightmove.api.core.crypto.model.EncryptionContext;
 import app.lightmove.api.core.persistence.model.BaseEntity;
+import app.lightmove.api.outreach.constant.IntegrationProvider;
+import app.lightmove.api.outreach.constant.MailboxGatewayKind;
 import app.lightmove.api.outreach.constant.MailboxStatus;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -10,12 +13,17 @@ import jakarta.persistence.Table;
 import java.time.Duration;
 import java.time.Instant;
 import java.time.ZoneId;
+import java.util.Locale;
+import java.util.Objects;
 import java.util.UUID;
 import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 
-/** One consultant's own mailbox in one workspace (V99), held as the mail service's grant id only. */
+/**
+ * One consultant's own mailbox in one workspace (V99). Held through Nylas as its grant id only, or through our own
+ * gateway (V107) with the provider's refresh token as ciphertext bound to this workspace and consultant.
+ */
 @Entity
 @Table(name = "app_lm_mailbox_connection")
 @Getter
@@ -73,17 +81,38 @@ public class MailboxConnection extends BaseEntity {
     @Column(name = "booking_configuration_id", length = 128)
     private String bookingConfigurationId;
 
-    public static MailboxConnection connected(UUID workspaceId, UUID userId, GrantedMailbox mailbox, int dailyCap,
-                                              Instant now) {
+    /** Which gateway made this connection (V107); every call for it goes there. */
+    @Enumerated(EnumType.STRING)
+    @Column(name = "gateway", nullable = false, length = 16)
+    private MailboxGatewayKind gateway = MailboxGatewayKind.NYLAS;
+
+    /** The provider's refresh token, encrypted under {@link #refreshTokenContext()}; a direct connection's only. */
+    @Column(name = "refresh_token_encrypted")
+    private String refreshTokenEncrypted;
+
+    /** The Recall.ai calendar its events are read through, while its workspace syncs calendars through Recall. */
+    @Column(name = "recall_calendar_id", length = 128)
+    private String recallCalendarId;
+
+    /** {@code refreshTokenEncrypted}: the refresh token under {@link #refreshTokenContext}; null for Nylas. */
+    public static MailboxConnection connected(UUID workspaceId, UUID userId, GrantedMailbox mailbox,
+                                              String refreshTokenEncrypted, int dailyCap, Instant now) {
         MailboxConnection connection = new MailboxConnection();
         connection.workspaceId = workspaceId;
         connection.userId = userId;
         connection.dailyCap = dailyCap;
-        connection.reconnect(mailbox, now);
+        connection.reconnect(mailbox, refreshTokenEncrypted, now);
         return connection;
     }
 
-    public void reconnect(GrantedMailbox mailbox, Instant now) {
+    /** The Recall calendar is kept: a reconnect hands it the new refresh token rather than making another. */
+    public void reconnect(GrantedMailbox mailbox, String refreshTokenEncrypted, Instant now) {
+        MailboxGatewayKind kind = MailboxGatewayKind.ofGrant(mailbox.grantId());
+        if ((kind == MailboxGatewayKind.DIRECT) != (refreshTokenEncrypted != null)) {
+            throw new IllegalArgumentException("A direct connection holds a refresh token, and only a direct one");
+        }
+        this.gateway = kind;
+        this.refreshTokenEncrypted = refreshTokenEncrypted;
         this.provider = mailbox.provider();
         this.address = mailbox.address();
         this.grantId = mailbox.grantId();
@@ -116,6 +145,43 @@ public class MailboxConnection extends BaseEntity {
 
     public void markAccessWithdrawn() {
         this.status = MailboxStatus.ERROR;
+    }
+
+    /** What the refresh token is encrypted under: this workspace, this consultant, this column. */
+    public static EncryptionContext refreshTokenContext(UUID workspaceId, UUID userId) {
+        return new EncryptionContext(workspaceId, "mailbox-refresh-token:" + userId);
+    }
+
+    public EncryptionContext refreshTokenContext() {
+        return refreshTokenContext(workspaceId, userId);
+    }
+
+    /** The provider may hand out a new refresh token with an access token; the newest is the one kept. */
+    public void rotateRefreshToken(String refreshTokenEncrypted) {
+        if (!isDirect()) {
+            throw new IllegalStateException("Only a direct connection holds a refresh token");
+        }
+        this.refreshTokenEncrypted = Objects.requireNonNull(refreshTokenEncrypted, "refreshTokenEncrypted");
+    }
+
+    public boolean isDirect() {
+        return gateway == MailboxGatewayKind.DIRECT;
+    }
+
+    /** The provider whose OAuth app the refresh token was issued to. */
+    public IntegrationProvider integrationProvider() {
+        return IntegrationProvider.valueOf(provider.toUpperCase(Locale.ROOT));
+    }
+
+    public void holdRecallCalendar(String calendarId) {
+        this.recallCalendarId = Objects.requireNonNull(calendarId, "calendarId");
+    }
+
+    /** Forgets the Recall calendar and answers its id, for the caller to delete at Recall once this commits. */
+    public String releaseRecallCalendar() {
+        String released = recallCalendarId;
+        this.recallCalendarId = null;
+        return released;
     }
 
     public boolean canSend() {

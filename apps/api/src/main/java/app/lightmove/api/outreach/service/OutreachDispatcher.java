@@ -23,6 +23,7 @@ public class OutreachDispatcher {
     private final OutreachSendService sends;
     private final OutreachInboxService inbox;
     private final MeetingBackfill calendars;
+    private final RecallCalendars recallCalendars;
     private final MailboxGateway gateway;
     private final Clock clock;
 
@@ -40,6 +41,7 @@ public class OutreachDispatcher {
         if (gateway.isOffered()) {
             inbox.pollListeningThreads(clock.instant());
             calendars.syncOwed();
+            recallCalendars.createOwed();
         }
     }
 

@@ -43,6 +43,7 @@ import java.lang.annotation.Target;
         RecordingEmailSender.Config.class, RecordingProfileEnricher.Config.class,
         RecordingCompanyEnricher.Config.class, StubGeocoder.Config.class,
         RecordingContactFinder.Config.class, RecordingPeopleSearch.Config.class,
-        RecordingContactOutPeopleIndex.Config.class, RecordingMailboxGateway.Config.class})
+        RecordingContactOutPeopleIndex.Config.class, RecordingMailboxGateway.Config.class,
+        RecordingRecallCalendarApi.Config.class})
 public @interface IntegrationTest {
 }

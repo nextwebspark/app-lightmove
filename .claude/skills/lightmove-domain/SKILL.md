@@ -198,6 +198,16 @@ the same admin's, audited like the mode: on Recall the app's keys and each consu
 token go to Recall.ai, a sub-processor, so the screen says so before anyone enters their own keys, and Direct
 is always on offer for an IT department that will not let them leave.
 
+**A direct mailbox's refresh token is stored, and is the one thing that can send as that person.** Nylas held
+its own tokens; our own gateway (V107) cannot, so `app_lm_mailbox_connection.refresh_token_encrypted` holds
+the provider's — sealed under the workspace and the consultant, never logged, never returned, decrypted only
+into the token request or the Recall call that spends it. It is spent only through the OAuth app
+`ProviderCredentialsResolver` answers for the connection's own workspace, so a token can never be refreshed
+under another firm's app. A refusal is final: the mailbox goes to `ERROR`, its Recall calendar is released,
+and only the consultant reconnecting brings it back — no retry spends a dead token twice. Recall's webhook can
+take a mailbox out of service, so it is refused unless its Svix signature verifies and is under five minutes
+old; a blank secret refuses everything rather than trusting an unsigned delivery.
+
 ## An identity provider is configuration, not code
 
 Adding Google, LinkedIn, or anything else that speaks OIDC is a `spring.security.oauth2.client`
