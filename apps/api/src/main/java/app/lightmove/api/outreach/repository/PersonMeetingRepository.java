@@ -39,6 +39,11 @@ public interface PersonMeetingRepository extends JpaRepository<PersonMeeting, UU
                 String title, Instant startsAt, Instant endsAt, String joinUrl, String conferencingProvider,
                 UUID bookedByUserId, boolean bookedViaLink);
 
+    /** Which of these events the mailbox already holds a meeting for. */
+    @Query("select distinct m.providerEventId from PersonMeeting m where m.mailboxConnectionId = :mailboxConnectionId "
+            + "and m.providerEventId in :providerEventIds")
+    List<String> findHeldEventIds(UUID mailboxConnectionId, Collection<String> providerEventIds);
+
     /** An event that no longer has these people on it. */
     @Modifying
     @Query("delete from PersonMeeting m where m.mailboxConnectionId = :mailboxConnectionId "

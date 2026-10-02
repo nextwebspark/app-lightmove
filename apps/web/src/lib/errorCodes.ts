@@ -89,6 +89,7 @@ export type ApiErrorCode =
   | "MEETING_SLOT_TAKEN"
   | "MEETING_SLOT_INVALID"
   | "MEETING_BOOK_FAILED"
+  | "MEETING_CALENDAR_UNAVAILABLE"
   | "WORKSPACE_NAME_MISMATCH"
   | "TEMPLATE_STALE"
   | "TEMPLATE_FALLBACK_REQUIRED"
@@ -185,6 +186,7 @@ const MESSAGES: Partial<Record<ApiErrorCode, string>> = {
   MEETING_SLOT_TAKEN: "That time is no longer free. Pick another.",
   MEETING_SLOT_INVALID: "That time can't be booked. Pick one from the grid.",
   MEETING_BOOK_FAILED: "The invite couldn't be sent. Check your calendar before trying again.",
+  MEETING_CALENDAR_UNAVAILABLE: "Your calendar couldn't be read. Try again.",
 };
 
 /**

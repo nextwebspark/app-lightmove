@@ -11,6 +11,7 @@ import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.PlatformTransactionManager;
@@ -29,6 +30,15 @@ import org.springframework.transaction.support.TransactionTemplate;
 public class MeetingBackfill {
 
     static final Duration REACH = Duration.ofDays(90);
+
+    /** One poll reads this many owed calendars at most; the rest wait for the next. */
+    static final int MAX_OWED_PER_POLL = 10;
+
+    /** After this many failed reads a calendar is left until its mailbox is reconnected. */
+    static final int MAX_ATTEMPTS = 5;
+
+    private static final Duration FIRST_RETRY = Duration.ofMinutes(15);
+    private static final Duration LONGEST_RETRY = Duration.ofHours(24);
 
     private final MailboxGateway gateway;
     private final MailboxConnectionRepository mailboxes;
@@ -57,7 +67,8 @@ public class MeetingBackfill {
     }
 
     public void syncOwed() {
-        mailboxes.findByStatusAndCalendarSyncedAtIsNull(MailboxStatus.ACTIVE)
+        mailboxes.findCalendarsOwed(MailboxStatus.ACTIVE, MAX_ATTEMPTS, clock.instant(),
+                        PageRequest.of(0, MAX_OWED_PER_POLL))
                 .forEach(mailbox -> syncCalendar(mailbox.getId()));
     }
 
@@ -74,16 +85,38 @@ public class MeetingBackfill {
         try {
             events = gateway.calendarEvents(grantId, now.minus(REACH), now.plus(REACH));
         } catch (RuntimeException failed) {
-            log.warn("Could not read the calendar of mailbox {} at the mail service; the poll tries again",
-                    mailboxConnectionId, failed);
+            recordFailure(mailboxConnectionId, grantId, now, failed);
             return;
         }
         // A reconnect between the read and this write brought a different grant: its own read is owed.
         transactions.executeWithoutResult(status -> mailboxes.findById(mailboxConnectionId)
                 .filter(fresh -> grantId.equals(fresh.getGrantId()))
                 .ifPresent(fresh -> {
-                    events.forEach(event -> meetings.apply(fresh, event));
+                    meetings.applyAll(fresh, events);
                     fresh.markCalendarSynced(now);
                 }));
+    }
+
+    private void recordFailure(UUID mailboxConnectionId, String grantId, Instant now, RuntimeException failed) {
+        Integer attempts = transactions.execute(status -> mailboxes.findById(mailboxConnectionId)
+                .filter(fresh -> grantId.equals(fresh.getGrantId()))
+                .map(fresh -> {
+                    fresh.markCalendarSyncFailed(now, retryWaitAfter(fresh.getCalendarSyncAttempts() + 1));
+                    return fresh.getCalendarSyncAttempts();
+                })
+                .orElse(null));
+        if (attempts != null && attempts >= MAX_ATTEMPTS) {
+            log.warn("Gave up reading the calendar of mailbox {} after {} attempts; reconnecting it tries again",
+                    mailboxConnectionId, attempts, failed);
+        } else {
+            log.info("Could not read the calendar of mailbox {} (attempt {}); the poll tries again later",
+                    mailboxConnectionId, attempts, failed);
+        }
+    }
+
+    /** 15 minutes after the first failure, doubling each time, never more than a day. */
+    static Duration retryWaitAfter(int attempts) {
+        Duration wait = FIRST_RETRY.multipliedBy(1L << Math.min(Math.max(attempts - 1, 0), 10));
+        return wait.compareTo(LONGEST_RETRY) > 0 ? LONGEST_RETRY : wait;
     }
 }

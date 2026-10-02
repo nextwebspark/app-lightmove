@@ -408,7 +408,9 @@ is a bounce. Every email is an `app_lm_outreach_message` row (staff-only); every
 per matching person) only when an attendee's address is on a person's ledger — nothing else of anyone's
 calendar is stored — through the `event.*` webhook (`MeetingSync`) and a 90-day read either side of today
 when a mailbox is connected (`MeetingBackfill`, retried by the reply poll while `calendar_synced_at` is
-null). The drawer's Meetings section reads `…/candidates/{id}/meetings`; **Book a call** offers the
+null — V103 backs each failed read off from 15 minutes to a day, ten calendars a poll, and gives up after
+five until a reconnect). A recurring series is never kept: Nylas keys it by its master in a webhook and by
+each occurrence in a read. A free/busy answer with an error entry is a failure, never free time. The drawer's Meetings section reads `…/candidates/{id}/meetings`; **Book a call** offers the
 consultant's free half-hours in their own window (`FreeSlots`, `…/meetings/slots`) and `POST …/meetings`
 re-checks do not contact, the ledger and the slot, creates the event (never retried), then writes
 `MEETING_BOOKED`, moves Identified or Contacted to Engaged (forward only) and ends a live run as `BOOKED`.

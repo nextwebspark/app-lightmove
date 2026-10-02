@@ -4,7 +4,10 @@ import app.lightmove.api.candidate.service.CandidateOutreachService;
 import app.lightmove.api.outreach.model.CalendarEvent;
 import app.lightmove.api.outreach.model.MailboxConnection;
 import app.lightmove.api.outreach.repository.PersonMeetingRepository;
+import java.util.Collection;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
@@ -25,16 +28,37 @@ class MeetingSync {
 
     @Transactional(propagation = Propagation.MANDATORY)
     public void apply(MailboxConnection mailbox, CalendarEvent event) {
-        List<String> others = event.participantAddresses().stream()
-                .filter(address -> !address.equalsIgnoreCase(mailbox.getAddress()))
-                .toList();
-        Set<UUID> attending = people.personIdsHolding(mailbox.getWorkspaceId(), others);
-        if (attending.isEmpty()) {
-            meetings.deleteEvent(mailbox.getId(), event.id());
+        applyAll(mailbox, List.of(event));
+    }
+
+    /**
+     * A whole calendar read at once: one query for every address on it, and a delete only for an event
+     * this mailbox already holds — on a first read that is none of them.
+     */
+    @Transactional(propagation = Propagation.MANDATORY)
+    public void applyAll(MailboxConnection mailbox, Collection<CalendarEvent> events) {
+        if (events.isEmpty()) {
             return;
         }
-        meetings.deleteDroppedFromEvent(mailbox.getId(), event.id(), attending);
-        attending.forEach(personId -> keep(mailbox, event, personId, null));
+        Map<String, Set<UUID>> holders = people.personIdsByEmailKey(mailbox.getWorkspaceId(),
+                events.stream().flatMap(event -> othersOn(mailbox, event).stream()).toList());
+        Set<String> held = new HashSet<>(meetings.findHeldEventIds(mailbox.getId(),
+                events.stream().map(CalendarEvent::id).toList()));
+        for (CalendarEvent event : events) {
+            Set<UUID> attending = new HashSet<>();
+            othersOn(mailbox, event).forEach(address ->
+                    attending.addAll(holders.getOrDefault(CandidateOutreachService.emailKeyOf(address), Set.of())));
+            if (attending.isEmpty()) {
+                if (held.contains(event.id())) {
+                    meetings.deleteEvent(mailbox.getId(), event.id());
+                }
+                continue;
+            }
+            if (held.contains(event.id())) {
+                meetings.deleteDroppedFromEvent(mailbox.getId(), event.id(), attending);
+            }
+            attending.forEach(personId -> keep(mailbox, event, personId, null));
+        }
     }
 
     /** {@code bookedBy} is the consultant who booked it through Uncava, or null for an event found on a calendar. */
@@ -48,5 +72,11 @@ class MeetingSync {
     @Transactional(propagation = Propagation.MANDATORY)
     public void remove(MailboxConnection mailbox, String eventId) {
         meetings.deleteEvent(mailbox.getId(), eventId);
+    }
+
+    private static List<String> othersOn(MailboxConnection mailbox, CalendarEvent event) {
+        return event.participantAddresses().stream()
+                .filter(address -> !address.equalsIgnoreCase(mailbox.getAddress()))
+                .toList();
     }
 }

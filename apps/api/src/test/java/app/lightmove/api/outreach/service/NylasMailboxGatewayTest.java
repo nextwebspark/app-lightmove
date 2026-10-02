@@ -7,9 +7,11 @@ import static org.mockito.Mockito.mock;
 import app.lightmove.api.core.config.NylasSettings;
 import app.lightmove.api.core.error.constant.ErrorCode;
 import app.lightmove.api.core.error.model.ApiException;
+import app.lightmove.api.core.resilience.model.VendorException;
 import app.lightmove.api.core.resilience.service.VendorCallGuard;
 import app.lightmove.api.core.resilience.service.VendorClientFactory;
 import app.lightmove.api.core.resilience.service.VendorRateLimiter;
+import app.lightmove.api.outreach.model.BusyInterval;
 import app.lightmove.api.outreach.model.CalendarEvent;
 import app.lightmove.api.outreach.model.CalendarEventChanged;
 import app.lightmove.api.outreach.model.CalendarEventRemoved;
@@ -153,6 +155,43 @@ class NylasMailboxGatewayTest {
                 .containsExactly(new CalendarEventRemoved("grant-9", "evt-2"));
         assertThat(gateway.readWebhook(signatureOf(deleted), deleted))
                 .containsExactly(new CalendarEventRemoved("grant-9", "evt-1"));
+    }
+
+    @Test
+    @DisplayName("an event of a recurring series is not a meeting, whether the master or one occurrence")
+    void recurringEventsAreSkipped() throws Exception {
+        byte[] master = """
+                {"type":"event.updated","data":{"object":{"grant_id":"grant-9","id":"series-1",
+                 "recurrence":["RRULE:FREQ=WEEKLY"],
+                 "when":{"object":"timespan","start_time":1790000000,"end_time":1790001800},
+                 "participants":[{"email":"priya@target.example"}]}}}""".getBytes(StandardCharsets.UTF_8);
+
+        assertThat(gateway.readWebhook(signatureOf(master), master))
+                .containsExactly(new CalendarEventRemoved("grant-9", "series-1"));
+        assertThat(NylasMailboxGateway.eventOf(JSON.readTree("""
+                {"id":"series-1_20261005T060000Z","master_event_id":"series-1",
+                 "when":{"object":"timespan","start_time":1790000000,"end_time":1790001800},
+                 "participants":[{"email":"priya@target.example"}]}"""))).isNull();
+    }
+
+    @Test
+    @DisplayName("free/busy reads its busy slots, and an error entry in place of them is a failure, never free time")
+    void freeBusyErrorsAreNotFreeTime() {
+        assertThat(NylasMailboxGateway.busyIntervalsOf(JSON.readTree("""
+                {"data":[{"object":"free_busy","email":"yara@firm.example","time_slots":[
+                  {"object":"time_slot","status":"busy","start_time":1790000000,"end_time":1790001800}]}]}""")))
+                .containsExactly(new BusyInterval(Instant.ofEpochSecond(1790000000), Instant.ofEpochSecond(1790001800)));
+        assertThat(NylasMailboxGateway.busyIntervalsOf(JSON.readTree("""
+                {"data":[{"object":"free_busy","email":"yara@firm.example","time_slots":[]}]}"""))).isEmpty();
+
+        assertThatThrownBy(() -> NylasMailboxGateway.busyIntervalsOf(JSON.readTree("""
+                {"data":[{"object":"error","email":"yara@firm.example","error":"Calendar is still syncing"}]}""")))
+                .isInstanceOf(VendorException.class);
+        assertThatThrownBy(() -> NylasMailboxGateway.busyIntervalsOf(JSON.readTree("""
+                {"data":[{"object":"free_busy","email":"yara@firm.example"}]}""")))
+                .isInstanceOf(VendorException.class);
+        assertThatThrownBy(() -> NylasMailboxGateway.busyIntervalsOf(JSON.readTree("{}")))
+                .isInstanceOf(VendorException.class);
     }
 
     @Test

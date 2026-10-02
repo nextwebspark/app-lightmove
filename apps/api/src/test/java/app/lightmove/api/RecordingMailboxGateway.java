@@ -44,6 +44,9 @@ public class RecordingMailboxGateway implements MailboxGateway {
     private volatile List<CalendarEvent> calendar = List.of();
     private volatile List<BusyInterval> busy = List.of();
     private final List<NewCalendarEvent> created = new CopyOnWriteArrayList<>();
+    private final AtomicInteger calendarReads = new AtomicInteger();
+    private volatile RuntimeException calendarFailure;
+    private volatile RuntimeException busyFailure;
 
     @Override
     public boolean isOffered() {
@@ -101,6 +104,10 @@ public class RecordingMailboxGateway implements MailboxGateway {
 
     @Override
     public List<CalendarEvent> calendarEvents(String grantId, Instant from, Instant to) {
+        calendarReads.incrementAndGet();
+        if (calendarFailure != null) {
+            throw calendarFailure;
+        }
         return calendar.stream()
                 .filter(event -> event.startsAt().isBefore(to) && event.endsAt().isAfter(from))
                 .toList();
@@ -108,6 +115,9 @@ public class RecordingMailboxGateway implements MailboxGateway {
 
     @Override
     public List<BusyInterval> busyTimes(String grantId, String address, Instant from, Instant to) {
+        if (busyFailure != null) {
+            throw busyFailure;
+        }
         return busy.stream().filter(interval -> interval.overlaps(from, to)).toList();
     }
 
@@ -127,6 +137,19 @@ public class RecordingMailboxGateway implements MailboxGateway {
     /** When the consultant's calendar is taken. */
     public void busyAt(List<BusyInterval> intervals) {
         this.busy = List.copyOf(intervals);
+    }
+
+    /** Every whole read of a calendar from here on fails with {@code failure}; null reads again. */
+    public void failCalendarWith(RuntimeException failure) {
+        this.calendarFailure = failure;
+    }
+
+    public void failBusyWith(RuntimeException failure) {
+        this.busyFailure = failure;
+    }
+
+    public int calendarReads() {
+        return calendarReads.get();
     }
 
     public List<NewCalendarEvent> created() {
@@ -189,6 +212,9 @@ public class RecordingMailboxGateway implements MailboxGateway {
         calendar = List.of();
         busy = List.of();
         created.clear();
+        calendarReads.set(0);
+        calendarFailure = null;
+        busyFailure = null;
     }
 
     public record SentRecord(String grantId, OutgoingEmail email) {}

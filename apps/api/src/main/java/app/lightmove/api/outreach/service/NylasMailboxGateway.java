@@ -3,6 +3,8 @@ package app.lightmove.api.outreach.service;
 import app.lightmove.api.core.config.NylasSettings;
 import app.lightmove.api.core.error.constant.ErrorCode;
 import app.lightmove.api.core.error.model.ApiException;
+import app.lightmove.api.core.resilience.constant.VendorFailureKind;
+import app.lightmove.api.core.resilience.model.VendorException;
 import app.lightmove.api.core.resilience.model.VendorCall;
 import app.lightmove.api.core.resilience.model.VendorClientSpec;
 import app.lightmove.api.core.resilience.service.VendorCallGuard;
@@ -198,7 +200,6 @@ public class NylasMailboxGateway implements MailboxGateway {
                                 .queryParam("calendar_id", PRIMARY_CALENDAR)
                                 .queryParam("start", from.getEpochSecond())
                                 .queryParam("end", to.getEpochSecond())
-                                .queryParam("expand_recurring", true)
                                 .queryParam("limit", EVENT_PAGE);
                         if (token != null) {
                             builder.queryParam("page_token", token);
@@ -236,11 +237,22 @@ public class NylasMailboxGateway implements MailboxGateway {
                         "emails", List.of(address)))
                 .retrieve()
                 .body(JsonNode.class));
-        List<BusyInterval> busy = new ArrayList<>();
-        if (answer == null) {
-            return busy;
+        return busyIntervalsOf(answer);
+    }
+
+    /**
+     * Nylas answers a calendar it could not read with an error entry in place of its time slots. Read as
+     * "nothing busy", that offers every slot as free and books an invite into a taken one, so it is a failure.
+     */
+    static List<BusyInterval> busyIntervalsOf(JsonNode answer) {
+        if (answer == null || !answer.path("data").isArray()) {
+            throw unreadableCalendar();
         }
+        List<BusyInterval> busy = new ArrayList<>();
         for (JsonNode calendar : answer.path("data")) {
+            if (!"free_busy".equals(textOrNull(calendar.path("object"))) || !calendar.path("time_slots").isArray()) {
+                throw unreadableCalendar();
+            }
             for (JsonNode slot : calendar.path("time_slots")) {
                 String status = textOrNull(slot.path("status"));
                 if ((status == null || status.equalsIgnoreCase("busy")) && slot.path("start_time").isNumber()
@@ -251,6 +263,10 @@ public class NylasMailboxGateway implements MailboxGateway {
             }
         }
         return busy;
+    }
+
+    private static VendorException unreadableCalendar() {
+        return new VendorException(VendorCall.of(VENDOR, "free-busy"), VendorFailureKind.UNAVAILABLE, null);
     }
 
     @Override
@@ -299,15 +315,26 @@ public class NylasMailboxGateway implements MailboxGateway {
         return eventId == null ? List.of() : List.of(new CalendarEventRemoved(grantId, eventId));
     }
 
+    private static boolean isRecurring(JsonNode event) {
+        JsonNode recurrence = event.path("recurrence");
+        return textOrNull(event.path("master_event_id")) != null
+                || (recurrence.isArray() && !recurrence.isEmpty());
+    }
+
     private static boolean isCancelled(JsonNode event) {
         return "cancelled".equalsIgnoreCase(textOrNull(event.path("status")));
     }
 
-    /** Null for an event with no id or no start and end time: an all-day event is no call. */
+    /**
+     * Null for an event with no id, no start and end time (an all-day event is no call), or one of a
+     * recurring series: a series is keyed by its master in a webhook and by each occurrence in a read,
+     * so kept at all it would be kept twice and never cleanly removed.
+     */
     static CalendarEvent eventOf(JsonNode event) {
         String id = textOrNull(event.path("id"));
         JsonNode when = event.path("when");
-        if (id == null || !when.path("start_time").isNumber() || !when.path("end_time").isNumber()) {
+        if (id == null || !when.path("start_time").isNumber() || !when.path("end_time").isNumber()
+                || isRecurring(event)) {
             return null;
         }
         List<String> participants = new ArrayList<>();

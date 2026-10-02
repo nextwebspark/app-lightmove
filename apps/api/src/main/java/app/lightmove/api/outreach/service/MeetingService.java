@@ -147,6 +147,20 @@ public class MeetingService {
             throw failedAtMailService(mailbox, failed, ErrorCode.MEETING_BOOK_FAILED);
         }
 
+        try {
+            recordBooked(userId, workspaceId, projectId, candidateId, recipient, mailbox, created, request.minutes(),
+                    now, httpRequest);
+        } catch (RuntimeException failed) {
+            // The invite has gone; without this line nothing would say that an event exists with no booking behind it.
+            log.error("Invite {} went out from mailbox {} for candidate {} on project {} (user {}), but recording "
+                            + "the booking failed", created.id(), mailbox.getId(), candidateId, projectId, userId, failed);
+            throw failed;
+        }
+    }
+
+    private void recordBooked(UUID userId, UUID workspaceId, UUID projectId, UUID candidateId,
+                              OutreachRecipient recipient, MailboxConnection mailbox, CalendarEvent created,
+                              int minutes, Instant now, HttpServletRequest httpRequest) {
         transactions.executeWithoutResult(status -> {
             MailboxConnection fresh = mailboxes.findById(mailbox.getId()).orElse(mailbox);
             meetingSync.keep(fresh, created, recipient.personId(), userId);
@@ -157,7 +171,7 @@ public class MeetingService {
             audit.projectEvent(ProjectEventType.OUTREACH_MEETING_BOOKED, userId, workspaceId, projectId, httpRequest)
                     .detail("candidateId", candidateId.toString())
                     .detail("startsAt", created.startsAt().toString())
-                    .detail("minutes", String.valueOf(request.minutes()))
+                    .detail("minutes", String.valueOf(minutes))
                     .record();
         });
     }
@@ -189,7 +203,7 @@ public class MeetingService {
         try {
             return gateway.busyTimes(mailbox.getGrantId(), mailbox.getAddress(), from, to);
         } catch (VendorException failed) {
-            throw failedAtMailService(mailbox, failed, ErrorCode.MEETING_BOOK_FAILED);
+            throw failedAtMailService(mailbox, failed, ErrorCode.MEETING_CALENDAR_UNAVAILABLE);
         }
     }
 

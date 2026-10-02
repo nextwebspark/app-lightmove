@@ -308,6 +308,9 @@ public enum ErrorCode {
     /** The length, the time or the video link asked for is not one the dialog offers. */
     MEETING_SLOT_INVALID(HttpStatus.BAD_REQUEST, "That time cannot be booked"),
 
+    /** The consultant's calendar could not be read, so no time was offered and no invite was sent. */
+    MEETING_CALENDAR_UNAVAILABLE(HttpStatus.BAD_GATEWAY, "Your calendar couldn't be read. Try again"),
+
     /** Never retried on our side: the calendar may still hold the invite, so the consultant checks before trying again. */
     MEETING_BOOK_FAILED(HttpStatus.BAD_GATEWAY, "The invite could not be sent. Check your calendar before trying again"),
 

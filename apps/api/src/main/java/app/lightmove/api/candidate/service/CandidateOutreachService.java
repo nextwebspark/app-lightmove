@@ -8,6 +8,7 @@ import app.lightmove.api.candidate.model.CandidateContact;
 import app.lightmove.api.candidate.model.CandidateDossier;
 import app.lightmove.api.candidate.model.OutreachRecipient;
 import app.lightmove.api.candidate.model.Person;
+import app.lightmove.api.candidate.model.PersonEmailKey;
 import app.lightmove.api.candidate.model.RecipientEmail;
 import app.lightmove.api.candidate.repository.CandidateRepository;
 import app.lightmove.api.candidate.repository.PersonRepository;
@@ -132,16 +133,26 @@ public class CandidateOutreachService {
     }
 
     /**
-     * The workspace's people holding any of these addresses — a calendar event is kept only for them. By
-     * the ledger's key, so a differently cased address on the invite still finds its person.
+     * The workspace's people holding each of these addresses, keyed by {@link #emailKeyOf} — a calendar event
+     * is kept only for them. One query for a whole calendar's worth of addresses.
      */
     @Transactional(readOnly = true)
-    public Set<UUID> personIdsHolding(UUID workspaceId, Collection<String> addresses) {
+    public Map<String, Set<UUID>> personIdsByEmailKey(UUID workspaceId, Collection<String> addresses) {
         Set<String> keys = addresses.stream()
                 .filter(address -> address != null && !address.isBlank())
-                .map(address -> CandidateContact.keyOf(ContactChannel.EMAIL, address))
+                .map(CandidateOutreachService::emailKeyOf)
                 .collect(Collectors.toSet());
-        return keys.isEmpty() ? Set.of() : Set.copyOf(persons.findIdsByWorkspaceIdAndEmailKeyIn(workspaceId, keys));
+        if (keys.isEmpty()) {
+            return Map.of();
+        }
+        return persons.findHoldersByWorkspaceIdAndEmailKeyIn(workspaceId, keys).stream()
+                .collect(Collectors.groupingBy(PersonEmailKey::getEmailKey,
+                        Collectors.mapping(PersonEmailKey::getPersonId, Collectors.toSet())));
+    }
+
+    /** The ledger's key for an address, so a differently cased address on an invite still finds its person. */
+    public static String emailKeyOf(String address) {
+        return CandidateContact.keyOf(ContactChannel.EMAIL, address);
     }
 
     /**

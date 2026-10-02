@@ -10,11 +10,15 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import app.lightmove.api.FlowTestSupport;
 import app.lightmove.api.IntegrationTest;
 import app.lightmove.api.RecordingMailboxGateway;
+import app.lightmove.api.core.resilience.constant.VendorFailureKind;
+import app.lightmove.api.core.resilience.model.VendorCall;
+import app.lightmove.api.core.resilience.model.VendorException;
 import app.lightmove.api.outreach.model.BusyInterval;
 import app.lightmove.api.outreach.model.CalendarEvent;
 import app.lightmove.api.outreach.model.CalendarEventChanged;
 import app.lightmove.api.outreach.model.CalendarEventRemoved;
 import app.lightmove.api.outreach.model.GrantedMailbox;
+import app.lightmove.api.outreach.service.MeetingBackfill;
 import app.lightmove.api.outreach.service.OutreachDispatcher;
 import jakarta.servlet.http.Cookie;
 import java.net.URI;
@@ -52,6 +56,7 @@ class MeetingIntegrationTest extends FlowTestSupport {
 
     @Autowired private RecordingMailboxGateway gateway;
     @Autowired private OutreachDispatcher dispatcher;
+    @Autowired private MeetingBackfill backfill;
     @Autowired private JdbcTemplate jdbc;
 
     private String grantId;
@@ -225,6 +230,45 @@ class MeetingIntegrationTest extends FlowTestSupport {
     }
 
     @Test
+    @DisplayName("a calendar that cannot be read is said so, never offered as free, and nothing is booked")
+    void anUnreadableCalendarIsNotFree() throws Exception {
+        String priya = executive("Priya Raman", "priya@" + domain);
+        connectMailbox();
+        Instant slot = firstFreeSlot(priya, 30);
+
+        gateway.failBusyWith(unavailable("free-busy"));
+        assertThat(codeOf(as(consultant, get(meetings(priya) + "/slots")).andExpect(status().isBadGateway())
+                .andReturn())).isEqualTo("MEETING_CALENDAR_UNAVAILABLE");
+        assertThat(codeOf(book(priya, slot, 30, "priya@" + domain).andExpect(status().isBadGateway())
+                .andReturn())).isEqualTo("MEETING_CALENDAR_UNAVAILABLE");
+        assertThat(gateway.created()).isEmpty();
+    }
+
+    @Test
+    @DisplayName("a calendar whose read fails is tried again later, not on every poll, and is read once it can be")
+    void aFailedCalendarReadBacksOff() throws Exception {
+        String priya = executive("Priya Raman", "priya@" + domain);
+        gateway.calendarHolds(List.of(event("next", "Second conversation",
+                Instant.now().truncatedTo(ChronoUnit.SECONDS).plus(Duration.ofDays(3)), MAILBOX, "priya@" + domain)));
+        gateway.failCalendarWith(unavailable("calendar-events"));
+
+        connectMailbox();
+        assertThat(gateway.calendarReads()).isEqualTo(1);
+        assertThat(jdbc.queryForObject("select calendar_sync_attempts from app_lm_mailbox_connection "
+                + "where workspace_id = ?::uuid", Integer.class, workspaceId)).isEqualTo(1);
+
+        backfill.syncOwed();
+        assertThat(gateway.calendarReads()).isEqualTo(1);
+
+        gateway.failCalendarWith(null);
+        jdbc.update("update app_lm_mailbox_connection set calendar_sync_retry_at = now() - interval '1 minute' "
+                + "where workspace_id = ?::uuid", workspaceId);
+        backfill.syncOwed();
+        assertThat(gateway.calendarReads()).isEqualTo(2);
+        assertThat(meetingsOf(priya).get("upcoming")).hasSize(1);
+    }
+
+    @Test
     @DisplayName("a client seat sees no meetings and cannot book; another workspace finds nothing")
     void clientSeatsAndOtherWorkspaces() throws Exception {
         String priya = executive("Priya Raman", "priya@" + domain);
@@ -242,6 +286,10 @@ class MeetingIntegrationTest extends FlowTestSupport {
         String outsider = login(outsiderEmail);
         as(outsider, get(meetings(priya))).andExpect(status().isNotFound());
         assertThat(gateway.created()).isEmpty();
+    }
+
+    private static VendorException unavailable(String operation) {
+        return new VendorException(VendorCall.of("nylas", operation), VendorFailureKind.UNAVAILABLE, null);
     }
 
     private void changed(CalendarEvent event) throws Exception {
