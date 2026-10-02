@@ -12,6 +12,7 @@ import * as contactLookupApi from "../../contactlookup/api/contactLookupApi";
 import { ContactPanel } from "../../contactlookup/components/ContactPanel";
 import type { CustomColumn, CustomFieldValues } from "../../customcolumns/api/types";
 import { CustomFieldsFieldset } from "../../customcolumns/components/CustomFieldsFieldset";
+import { AddToSequenceButton } from "../../outreach/components/AddToSequenceButton";
 import * as candidatesApi from "../api/candidatesApi";
 import type { Candidate, CandidateStatus, SaveCandidatePayload } from "../api/types";
 import { replayOf, type ProfileFormSection } from "../lib/candidateForm";
@@ -214,6 +215,9 @@ export function CandidateProfile({
                 />
               )}
               {canWrite && <AiEnrichButton enrichment={aiEnrichment} />}
+              {canWrite && (
+                <AddToSequenceButton projectId={projectId} candidateId={candidate.id} fullName={candidate.fullName} />
+              )}
             </div>
           </div>
         </div>

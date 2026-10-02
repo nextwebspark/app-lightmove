@@ -188,6 +188,8 @@ public class GlobalExceptionHandler {
             case "app_lm_workspace_candidate_tag_label_uk" -> ErrorCode.CANDIDATE_TAG_EXISTS;
             // Two presses adding one person to one position: the second finds them already there.
             case "app_lm_project_candidate_person_uk" -> ErrorCode.CANDIDATE_ALREADY_MAPPED;
+            // Two Starts racing one person onto a position: one live sequence per person per position.
+            case "app_lm_outreach_enrollment_live_uk" -> ErrorCode.OUTREACH_ALREADY_ENROLLED;
             case "app_lm_strategy_search_shared_name_uk", "app_lm_strategy_search_private_name_uk" ->
                     ErrorCode.STRATEGY_SEARCH_NAME_TAKEN;
             // The key is slugged from the label, so a race loses on whichever index is reached first.

@@ -136,6 +136,11 @@ function phraseOf(
       return { text: `marked${them} do not contact`, detail: null };
     case "DO_NOT_CONTACT_CLEARED":
       return { text: `cleared do not contact${onThem}`, detail: null };
+    case "OUTREACH_ENROLLED":
+      return {
+        text: `added${them} to ${details.sequence ? `the sequence ${details.sequence}` : "a sequence"} on ${where}`,
+        detail: null,
+      };
   }
 }
 

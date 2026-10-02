@@ -41,5 +41,8 @@ public enum PersonActivityKind {
     OWNER_CHANGED,
 
     DO_NOT_CONTACT_SET,
-    DO_NOT_CONTACT_CLEARED
+    DO_NOT_CONTACT_CLEARED,
+
+    /** Put on an outreach sequence; the line names the sequence. Nothing is sent by this alone. */
+    OUTREACH_ENROLLED
 }

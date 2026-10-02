@@ -1,11 +1,12 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { MemoryRouter } from "react-router-dom";
+import { MemoryRouter, Outlet, Route, Routes } from "react-router-dom";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { ToastProvider } from "../../../components/ui";
 import * as mailboxApi from "../api/mailboxApi";
 import type { Mailbox } from "../api/mailboxApi";
+import * as sequenceApi from "../api/sequenceApi";
 import { OutreachPage } from "./OutreachPage";
 
 const auth = vi.hoisted(() => ({ roles: ["MEMBER"] as string[] }));
@@ -21,6 +22,13 @@ vi.mock("../api/mailboxApi", async (importOriginal) => ({
   sendMailboxTest: vi.fn(),
   disconnectMailbox: vi.fn(),
 }));
+
+vi.mock("../api/sequenceApi", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("../api/sequenceApi")>()),
+  getSequences: vi.fn(),
+}));
+
+const PROJECT = { id: "p1", positionTitle: "Group CFO" };
 
 const nothingConnected: Mailbox = { offered: true, providers: ["google", "microsoft"], connection: null };
 const connected: Mailbox = {
@@ -39,7 +47,11 @@ function renderPage() {
     <MemoryRouter>
       <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
         <ToastProvider>
-          <OutreachPage />
+          <Routes>
+            <Route element={<Outlet context={{ project: PROJECT }} />}>
+              <Route path="*" element={<OutreachPage />} />
+            </Route>
+          </Routes>
         </ToastProvider>
       </QueryClientProvider>
     </MemoryRouter>,
@@ -50,6 +62,7 @@ describe("OutreachPage", () => {
   beforeEach(() => {
     vi.resetAllMocks();
     auth.roles = ["MEMBER"];
+    vi.mocked(sequenceApi.getSequences).mockResolvedValue([]);
   });
 
   afterEach(() => {

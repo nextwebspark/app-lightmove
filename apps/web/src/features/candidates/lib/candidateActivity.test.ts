@@ -86,6 +86,9 @@ describe("timelineLines", () => {
     );
     expect(lineOf({ kind: "OWNER_CHANGED", details: {} }).text).toBe("cleared the owner");
     expect(lineOf({ kind: "DO_NOT_CONTACT_SET" }).text).toBe("marked do not contact");
+    expect(lineOf({ kind: "OUTREACH_ENROLLED", details: { sequence: "CFO first approach" } }).text).toBe(
+      "added to the sequence CFO first approach on this position",
+    );
   });
 
   it("names whom a line is about in the workspace feed", () => {

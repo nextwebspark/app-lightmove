@@ -1,17 +1,23 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useRef, useState } from "react";
+import { Link, useOutletContext } from "react-router-dom";
+import type { ProjectOutletContext } from "../../../components/layout/ProjectLayout";
 import { Icon, ICONS } from "../../../components/layout/Icon";
-import { Button, EmptyState, useToast } from "../../../components/ui";
+import { Button, EmptyState, Skeleton, useToast } from "../../../components/ui";
 import { messageFor, messageForCode } from "../../../lib/errorCodes";
 import { useAuth } from "../../auth/AuthProvider";
 import { isPureClient } from "../../auth/roles";
 import * as mailboxApi from "../api/mailboxApi";
 import type { ConnectedMailbox, Mailbox } from "../api/mailboxApi";
+import * as sequenceApi from "../api/sequenceApi";
+import type { Sequence } from "../api/sequenceApi";
+import { SequenceStatePill } from "../components/SequenceStatePill";
 import { connectMailboxInPopup } from "../lib/mailboxPopup";
+import { useMailbox } from "../lib/useMailbox";
 
 /**
- * A position's Outreach page (`claude-design/Outreach.dc.html`). For now it is where a consultant
- * connects their own mailbox; sequences and the people in them arrive with the next stories (#623, #624).
+ * A position's Outreach page (`claude-design/Outreach.dc.html`): the consultant's own mailbox and the
+ * position's sequences. The people in them and what was sent arrive with #624.
  */
 export function OutreachPage() {
   const { user } = useAuth();
@@ -29,10 +35,8 @@ function StaffOutreachPage() {
   const [connectingProvider, setConnectingProvider] = useState<string | null>(null);
   const abandonConnect = useRef<() => void>(() => {});
 
-  const mailbox = useQuery({
-    queryKey: mailboxApi.MAILBOX_KEY,
-    queryFn: ({ signal }) => mailboxApi.getMailbox(signal),
-  });
+  const { project } = useOutletContext<ProjectOutletContext>();
+  const mailbox = useMailbox();
 
   useEffect(() => () => abandonConnect.current(), []);
 
@@ -110,9 +114,86 @@ function StaffOutreachPage() {
         />
       )}
 
-      <NotYetBuilt />
+      <SequenceCards projectId={project.id} />
     </div>
   );
+}
+
+function SequenceCards({ projectId }: { projectId: string }) {
+  const sequences = useQuery({
+    queryKey: sequenceApi.SEQUENCES_KEY(projectId),
+    queryFn: ({ signal }) => sequenceApi.getSequences(projectId, signal),
+  });
+  const newSequencePath = `/projects/${projectId}/outreach/sequences/new`;
+
+  if (sequences.isError) {
+    return (
+      <p role="alert" className="text-[13px] text-u-text3">
+        {messageFor(sequences.error)}
+      </p>
+    );
+  }
+  if (sequences.isPending) {
+    return <Skeleton className="h-[96px] w-full" />;
+  }
+  if (sequences.data.length === 0) {
+    return (
+      <EmptyState
+        icon={<Icon d={ICONS.outreach} size={22} />}
+        title="No outreach on this position yet"
+        body="Write a sequence — a first email and up to two follow-ups in the same thread — then add people to it from In universe, Shortlisted or an executive's drawer."
+      >
+        <Link
+          to={newSequencePath}
+          className="rounded-[8px] bg-u-accent-solid px-3.5 py-2 text-[13px] font-semibold text-u-bg hover:bg-u-accent-solid-hover"
+        >
+          Write your first sequence
+        </Link>
+      </EmptyState>
+    );
+  }
+  return (
+    <section>
+      <div className="mb-2.5 flex items-center gap-3">
+        <h2 className="type-label text-u-text3">Sequences</h2>
+        <Link
+          to={newSequencePath}
+          className="ms-auto rounded-[7px] border border-u-border px-3 py-1.5 text-[12.5px] font-medium text-u-text2 hover:text-u-text"
+        >
+          New sequence
+        </Link>
+      </div>
+      <div className="grid gap-3 [grid-template-columns:repeat(auto-fill,minmax(300px,1fr))]">
+        {sequences.data.map((sequence) => (
+          <SequenceCard key={sequence.id} projectId={projectId} sequence={sequence} />
+        ))}
+      </div>
+    </section>
+  );
+}
+
+function SequenceCard({ projectId, sequence }: { projectId: string; sequence: Sequence }) {
+  return (
+    <Link
+      to={`/projects/${projectId}/outreach/sequences/${sequence.id}`}
+      className="block rounded-[10px] border border-u-border bg-u-surface px-4 py-3.5 hover:border-u-border-strong"
+    >
+      <div className="flex items-center gap-2">
+        <span className="min-w-0 flex-1 truncate text-[14px] font-semibold">{sequence.name}</span>
+        <SequenceStatePill isLive={sequence.enrolledCount > 0} />
+      </div>
+      <div className="mt-1 font-mono text-[11.5px] text-u-text3">{sequenceMetaOf(sequence)}</div>
+      <div className="mt-2 font-mono text-[12px] text-u-text2">{sequence.enrolledCount} enrolled</div>
+    </Link>
+  );
+}
+
+/** "3 steps · day 0, +3, +5 working days · by Yara Haddad", as the mockup's card meta reads. */
+function sequenceMetaOf(sequence: Sequence): string {
+  const steps = `${sequence.steps.length} ${sequence.steps.length === 1 ? "step" : "steps"}`;
+  const days = sequence.steps.map((step, index) => (index === 0 ? "day 0" : `+${step.delayWorkingDays}`)).join(", ");
+  const timing = sequence.steps.length > 1 ? ` · ${days} working days` : "";
+  return `${steps}${timing}${sequence.createdByName ? ` · by ${sequence.createdByName}` : ""}`;
 }
 
 function MailboxState({

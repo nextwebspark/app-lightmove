@@ -281,6 +281,21 @@ public enum ErrorCode {
     /** Never retried on our side, so nothing went twice; trying again may still find the first one delivered. */
     MAILBOX_SEND_FAILED(HttpStatus.BAD_GATEWAY, "The email could not be sent. Try again in a moment"),
 
+    /** A sequence people are on keeps their history: it can be edited, never deleted. */
+    OUTREACH_SEQUENCE_IN_USE(HttpStatus.CONFLICT, "People are on this sequence, so it cannot be deleted"),
+
+    /**
+     * Someone chosen may not be approached — no email, do not contact, out of the running or already in a
+     * sequence — and nobody was enrolled. The dialog shows each reason; this is the server holding the line.
+     */
+    OUTREACH_PERSON_SKIPPED(HttpStatus.CONFLICT, "Someone you chose can no longer be added. Review the list again"),
+
+    /** One live sequence per person per position; a racing start lost to another. */
+    OUTREACH_ALREADY_ENROLLED(HttpStatus.CONFLICT, "Someone you chose is already in a sequence on this position"),
+
+    /** The To address must be one the person's contact ledger holds. */
+    OUTREACH_ADDRESS_NOT_ON_FILE(HttpStatus.BAD_REQUEST, "That address is not on file for this person"),
+
     INTERNAL_ERROR(HttpStatus.INTERNAL_SERVER_ERROR, "Something went wrong on our end");
 
     private final HttpStatus status;
