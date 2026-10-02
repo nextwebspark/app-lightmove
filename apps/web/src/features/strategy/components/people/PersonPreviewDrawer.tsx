@@ -7,7 +7,8 @@ import { CollapsibleSection } from "../../../../components/ui/CollapsibleSection
 import { CompanyLinks } from "../../../../components/ui/CompanyLink";
 import { CompanyLogo } from "../../../../components/ui/CompanyLogo";
 import { DetailGrid, DetailPill, DetailTile } from "../../../../components/ui/DetailList";
-import { Drawer, DrawerCloseButton } from "../../../../components/ui/Drawer";
+import { Drawer } from "../../../../components/ui/Drawer";
+import { PanelCloseButton } from "../../../../components/ui/PanelCloseButton";
 import { cn } from "../../../../lib/cn";
 import * as candidatesApi from "../../../candidates/api/candidatesApi";
 import { CareerTimeline } from "../../../candidates/components/CareerTimeline";
@@ -104,7 +105,7 @@ function PersonProfile({
   return (
     <>
       <div className="relative flex-none border-b border-u-border px-5 py-4">
-        <DrawerCloseButton onClose={onClose} />
+        <PanelCloseButton onClose={onClose} />
         <div className="flex items-start gap-3 pe-8">
           <Avatar
             id={person.linkedinSlug}

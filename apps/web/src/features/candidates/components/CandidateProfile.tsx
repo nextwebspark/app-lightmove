@@ -3,7 +3,7 @@ import { useRef, useState, type ReactNode } from "react";
 import { Button, Select, useToast } from "../../../components/ui";
 import { CollapsibleSection } from "../../../components/ui/CollapsibleSection";
 import { DetailGrid, DetailPill, DetailTile } from "../../../components/ui/DetailList";
-import { DrawerCloseButton } from "../../../components/ui/Drawer";
+import { PanelCloseButton } from "../../../components/ui/PanelCloseButton";
 import { messageFor } from "../../../lib/errorCodes";
 import { formatInstantDate, formatNumber } from "../../../lib/format";
 import { noticeSummaryOf } from "../../../lib/noticePeriod";
@@ -161,7 +161,7 @@ export function CandidateProfile({
   return (
     <>
       <div className="relative flex-none border-b border-u-border px-5 py-4">
-        <DrawerCloseButton onClose={onClose} />
+        <PanelCloseButton onClose={onClose} />
         <div className="group flex items-start gap-3 pe-8">
           <CandidateAvatar
             projectId={projectId}

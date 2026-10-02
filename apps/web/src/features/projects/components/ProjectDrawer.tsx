@@ -3,7 +3,7 @@ import { useEffect, useState, type ReactNode } from "react";
 import { Link } from "react-router-dom";
 import { Icon, ICONS } from "../../../components/layout/Icon";
 import { Avatar, Drawer, HealthPill, StagePill } from "../../../components/ui";
-import { DrawerCloseButton } from "../../../components/ui/Drawer";
+import { PanelCloseButton } from "../../../components/ui/PanelCloseButton";
 import { cn } from "../../../lib/cn";
 import { formatDate, formatNumber } from "../../../lib/format";
 import { useAuth } from "../../auth/AuthProvider";
@@ -42,7 +42,7 @@ function ProjectDrawerPanel({ project, onClose }: { project: Project; onClose: (
   return (
     <Drawer open onClose={onClose} label={`${project.positionTitle} — ${project.clientName}`}>
       <div className="relative border-b border-u-border px-5 pb-3.5 pt-[18px]">
-        <DrawerCloseButton onClose={onClose} />
+        <PanelCloseButton onClose={onClose} />
         <div className="pe-8 text-meta font-medium uppercase tracking-[0.08em] text-u-text3">{project.clientName}</div>
         <div className="mt-1 pe-8 text-subhead font-semibold text-u-text">{project.positionTitle}</div>
         <div className="mt-2.5 flex flex-wrap gap-1.5">

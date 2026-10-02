@@ -4,7 +4,7 @@ import { Icon, ICONS } from "../../../components/layout/Icon";
 import { Button, Field, FormError, Input, TextArea, useToast } from "../../../components/ui";
 import { CompanyLinks } from "../../../components/ui/CompanyLink";
 import { CompanyLogo } from "../../../components/ui/CompanyLogo";
-import { DrawerCloseButton } from "../../../components/ui/Drawer";
+import { PanelCloseButton } from "../../../components/ui/PanelCloseButton";
 import { messageFor } from "../../../lib/errorCodes";
 import * as companiesApi from "../../strategy/api/companiesApi";
 import type { CompanySuggestion } from "../../strategy/api/types";
@@ -117,7 +117,7 @@ export function AddCompanyPanel({
   return (
     <>
       <div className="relative flex-none border-b border-u-border px-5 py-4">
-        <DrawerCloseButton onClose={onClose} />
+        <PanelCloseButton onClose={onClose} />
         <h2 className="font-sans text-base font-semibold">Add a company</h2>
         <p className="mt-1 pe-8 font-mono text-[11.5px] text-u-text3">{heading}</p>
       </div>
