@@ -20,8 +20,10 @@ spring:
     multipart:
       # The container's own ceiling, ahead of lightmove.position.document.max-file-size-bytes: this one
       # refuses the body before it is buffered, that one is the rule the API states back to the caller.
-      max-file-size: 10MB
-      max-request-size: 12MB
+      # Raised for a person's documents (lightmove.person-documents.max-file-size-bytes, 20MB); every other
+      # upload states its own lower ceiling.
+      max-file-size: 20MB
+      max-request-size: 25MB
 
   jpa:
     hibernate:
@@ -568,6 +570,19 @@ lightmove:
     # Read by @Scheduled, which sees the environment and never a binding default, so spelled out here.
     dispatch-interval: ${OUTREACH_DISPATCH_INTERVAL:60s}
     reply-poll-interval: ${OUTREACH_REPLY_POLL_INTERVAL:15m}
+
+  # Uploaded files. gcs in every deployment (ops/gcp/deploy.sh sets both): Cloud Run's disk dies with the
+  # instance, so filesystem is for npm run dev and the tests only.
+  storage:
+    provider: ${STORAGE_PROVIDER:filesystem}
+    bucket: ${STORAGE_BUCKET:}
+    directory: ${STORAGE_DIRECTORY:.data/documents}
+
+  # A person's CV, cover letter and references, each a stack of versions.
+  person-documents:
+    max-file-size-bytes: ${PERSON_DOCUMENT_MAX_BYTES:20971520}
+    max-documents-per-person: ${PERSON_DOCUMENT_MAX_PER_PERSON:50}
+    max-versions-per-document: ${PERSON_DOCUMENT_MAX_VERSIONS:20}
 
 # What /actuator/info reports. APP_VERSION is baked into the image by the Dockerfile's build arg, so
 # this is the same release the SPA bundle was built with — one input, and nothing at runtime can move

@@ -56,5 +56,11 @@ public enum PersonActivityKind {
     OUTREACH_STOPPED,
 
     /** A call was booked with the person; the line carries when, and whether they booked it themselves. */
-    MEETING_BOOKED
+    MEETING_BOOKED,
+
+    /** The line carries the document's id and version, never its name: the read names it while it exists. */
+    DOCUMENT_ADDED,
+    DOCUMENT_VERSION_ADDED,
+    DOCUMENT_REMOVED,
+    DOCUMENT_VERSION_REMOVED
 }
