@@ -73,6 +73,7 @@ export type ApiErrorCode =
   | "PEOPLE_SEARCH_EMPTY_FILTER"
   | "PEOPLE_SEARCH_PERSON_UNKNOWN"
   | "MAILBOX_UNAVAILABLE"
+  | "INTEGRATION_ENCRYPTION_UNAVAILABLE"
   | "MAILBOX_PROVIDER_UNSUPPORTED"
   | "MAILBOX_NOT_CONNECTED"
   | "MAILBOX_RECONNECT_NEEDED"
@@ -171,6 +172,7 @@ const MESSAGES: Partial<Record<ApiErrorCode, string>> = {
   PEOPLE_SEARCH_EMPTY_FILTER: "Add at least one filter before searching.",
   PEOPLE_SEARCH_PERSON_UNKNOWN: "That person is no longer in the results. Search again and add them from there.",
   MAILBOX_UNAVAILABLE: "Outreach email is not set up on this deployment.",
+  INTEGRATION_ENCRYPTION_UNAVAILABLE: "Your own app's keys can't be stored on this deployment. Use the shared app.",
   MAILBOX_PROVIDER_UNSUPPORTED: "That kind of mailbox can't be connected.",
   MAILBOX_NOT_CONNECTED: "Connect your mailbox first.",
   MAILBOX_RECONNECT_NEEDED: "Your mailbox needs reconnecting before it can send.",

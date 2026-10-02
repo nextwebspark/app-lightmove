@@ -505,6 +505,7 @@ const WORKSPACE_DETAIL = {
   slug: WORKSPACE.slug,
   logoMark: WORKSPACE.logoMark,
   emailDomain: "meridian-partners.com",
+  calendarSync: "RECALL",
   defaultRegion: "Middle East",
   defaultCurrency: "AED",
   plan: "PROFESSIONAL",
@@ -556,7 +557,63 @@ const TEAM_PERFORMANCE = {
   companiesTotal: 31,
 };
 
+/** Settings → Integrations, one card of each kind: shared with the admin-consent link, shared unoffered, own with its form. */
+const INTEGRATIONS = {
+  ownAppsOffered: true,
+  recallOffered: true,
+  providers: [
+    {
+      provider: "GOOGLE",
+      mode: "SHARED",
+      clientId: null,
+      tenantId: null,
+      secretExpiresAt: null,
+      secretSet: false,
+      sharedOffered: true,
+      redirectUri: "https://beta.uncava.com/api/v1/outreach/mailbox/callback",
+      scopes: ["openid", "email", "https://www.googleapis.com/auth/gmail.send"],
+      adminConsentUrl: null,
+      ownAppGuideUrl: null,
+      sharedAppGuideUrl: null,
+      updatedAt: null,
+    },
+    {
+      provider: "MICROSOFT",
+      mode: "SHARED",
+      clientId: null,
+      tenantId: null,
+      secretExpiresAt: null,
+      secretSet: false,
+      sharedOffered: true,
+      redirectUri: "https://beta.uncava.com/api/v1/outreach/mailbox/callback",
+      scopes: ["offline_access", "User.Read", "Mail.Send", "Mail.ReadBasic", "Calendars.ReadWrite"],
+      // Long and unbroken on purpose: it must wrap at phone width rather than push the page sideways.
+      adminConsentUrl:
+        "https://login.microsoftonline.com/organizations/adminconsent?client_id=6f1c2a7e-0b3d-4c8e-9a51-2d7f3e8b9c10&redirect_uri=https%3A%2F%2Fbeta.uncava.com%2Fsettings%2Fintegrations",
+      ownAppGuideUrl: null,
+      sharedAppGuideUrl: null,
+      updatedAt: null,
+    },
+    {
+      provider: "ZOOM",
+      mode: "OWN",
+      clientId: "Xr2k9QpLT4mVq8ZbN3wE",
+      tenantId: null,
+      secretExpiresAt: "2027-10-01T00:00:00Z",
+      secretSet: true,
+      sharedOffered: false,
+      redirectUri: "https://beta.uncava.com/api/v1/outreach/zoom/callback",
+      scopes: ["meeting:write:meeting", "meeting:update:meeting", "meeting:delete:meeting", "user:read:user"],
+      adminConsentUrl: null,
+      ownAppGuideUrl: "https://uncava.com/help/zoom-own-app",
+      sharedAppGuideUrl: null,
+      updatedAt: "2026-10-02T10:00:00Z",
+    },
+  ],
+};
+
 const ROUTES = [
+  ["/workspace/integrations", INTEGRATIONS],
   ["/companies/facets", FACETS],
   [
     "/countries",

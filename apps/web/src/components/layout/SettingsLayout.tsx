@@ -10,7 +10,7 @@ import { SettingsBreadcrumb } from "./Topbar";
  *
  * One table drives both the sidebar and the breadcrumb, so a section cannot appear in the rail under
  * one name and in the header under another — which is what the two-way ternary this replaced allowed.
- * The mockup's Notifications, Billing and Integrations are absent until their screens are built: an
+ * The mockup's Notifications and Billing are absent until their screens are built: an
  * item that leads nowhere is worse than no item.
  */
 const SETTINGS_SECTIONS = [
@@ -20,6 +20,7 @@ const SETTINGS_SECTIONS = [
   { to: "/settings/general", label: "General", icon: ICONS.settings, group: "Workspace" },
   { to: "/settings/members", label: "Members", icon: ICONS.members, group: "Workspace" },
   { to: "/settings/candidate-tags", label: "Candidate tags", icon: ICONS.tag, group: "Workspace" },
+  { to: "/settings/integrations", label: "Integrations", icon: ICONS.plug, group: "Workspace" },
   { to: "/settings/templates", label: "Templates", icon: ICONS.file, group: "Workspace" },
   { to: "/settings/template-library", label: "Template library", icon: ICONS.position, group: "Platform" },
 ] as const;
