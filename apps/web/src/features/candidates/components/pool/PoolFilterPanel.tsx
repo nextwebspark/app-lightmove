@@ -1,5 +1,6 @@
 import { Icon, ICONS } from "../../../../components/layout/Icon";
 import { Select } from "../../../../components/ui";
+import { Chip } from "../../../../components/ui/Chip";
 import { SegmentedControl } from "../../../../components/ui/SegmentedControl";
 import { cn } from "../../../../lib/cn";
 import type { Project } from "../../../projects/api/types";
@@ -39,38 +40,39 @@ export function PoolFilterPanel({
     });
 
   return (
-    <section aria-label="Filters" className="mb-3 rounded-[10px] border border-u-border bg-u-surface p-4">
-      <div className="flex flex-wrap items-center gap-2">
-        <span className="type-label me-1 text-u-text3">Tags</span>
+    <section aria-label="Filters" className="mb-3 rounded-[10px] border border-u-border-strong bg-u-raised px-4 py-3.5">
+      <div className="flex flex-wrap items-center gap-2.5">
+        <span className="type-micro-label w-[72px] flex-none text-u-text3">Tags</span>
         <SegmentedControl
           label="Match tags"
           options={TAG_MATCHES}
           value={filters.tagMatch}
           onChange={(tagMatch) => onChange({ ...filters, tagMatch })}
         />
-        {tags.map((tag) => {
-          const on = filters.tagIds.includes(tag.id);
-          return (
-            <button
-              key={tag.id}
-              type="button"
-              role="checkbox"
-              aria-checked={on}
-              onClick={() => toggleTag(tag.id)}
-              className={cn(
-                "flex items-center gap-1 rounded-full border px-2.5 py-0.5 font-mono text-[11px]",
-                on ? cn("border-transparent", tagClassName(tag.colour)) : "border-u-border-strong text-u-text2",
-              )}
-            >
-              {on && <Icon d={ICONS.check} size={11} />}
-              {tag.label}
-              <span className="text-u-text3">{tag.holders}</span>
-            </button>
-          );
-        })}
+        <div className="flex flex-wrap gap-1.5">
+          {tags.map((tag) => {
+            const on = filters.tagIds.includes(tag.id);
+            return (
+              <Chip
+                key={tag.id}
+                size="sm"
+                role="checkbox"
+                aria-checked={on}
+                selected={on}
+                count={tag.holders}
+                selectedClassName={cn("border-transparent", tagClassName(tag.colour))}
+                className={cn("gap-1", !on && "bg-u-surface")}
+                onClick={() => toggleTag(tag.id)}
+              >
+                {on && <Icon d={ICONS.check} size={11} />}
+                {tag.label}
+              </Chip>
+            );
+          })}
+        </div>
       </div>
 
-      <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="mt-3 grid grid-cols-1 gap-2.5 sm:grid-cols-2 lg:grid-cols-4">
         <FilterSelect
           label="Position"
           value={filters.position}
@@ -106,7 +108,7 @@ export function PoolFilterPanel({
           options={[{ value: "", label: "Any country" }, ...countries.map((country) => ({ value: country, label: country }))]}
         />
       </div>
-      <p className="mt-3 text-[12px] text-u-text3">
+      <p className="mt-2.5 text-[11px] text-u-text3">
         Tags are your team&apos;s own labels — set them from a person&apos;s drawer or on many people at once. Status reads
         from the positions a person is in.
       </p>
@@ -127,8 +129,8 @@ function FilterSelect({
 }) {
   return (
     <label className="flex flex-col gap-1">
-      <span className="type-label text-u-text3">{label}</span>
-      <Select value={value} onChange={(event) => onChange(event.target.value)} className="text-[13px]">
+      <span className="type-micro-label text-u-text3">{label}</span>
+      <Select density="compact" value={value} onChange={(event) => onChange(event.target.value)} className="bg-u-surface">
         {options.map((option) => (
           <option key={option.value || "any"} value={option.value}>
             {option.label}
@@ -188,14 +190,14 @@ export function ActiveFilters({
       {chips.map((chip) => (
         <span
           key={chip.key}
-          className="flex items-center gap-1 rounded-full border border-u-border-strong bg-u-raised py-0.5 pe-1 ps-2.5 font-mono text-[11px] text-u-text2"
+          className="flex items-center gap-1.5 rounded-full border border-u-border-strong bg-u-raised py-[3px] pe-1 ps-2.5 text-xs font-medium text-u-text2"
         >
           {chip.label}
           <button
             type="button"
             aria-label={`Remove filter ${chip.label}`}
             onClick={chip.clear}
-            className="grid size-4 place-items-center rounded-full text-u-text3 hover:text-u-text"
+            className="grid size-[18px] place-items-center rounded-full text-u-text3 hover:bg-u-surface hover:text-u-text"
           >
             <Icon d={ICONS.close} size={10} />
           </button>
@@ -204,12 +206,12 @@ export function ActiveFilters({
       <button
         type="button"
         onClick={() => onChange({ ...filters, tagIds: [], position: "", status: "", owner: "", country: "" })}
-        className="ms-1 font-mono text-[11px] font-semibold text-u-accent hover:underline"
+        className="ms-1 text-xs font-medium text-u-accent hover:underline"
       >
         Clear all
       </button>
       {shown !== null && pool !== null && (
-        <span className="ms-auto font-mono text-[11px] text-u-text3">
+        <span className="ms-auto text-xs text-u-text3">
           {shown} of {pool} people
         </span>
       )}
