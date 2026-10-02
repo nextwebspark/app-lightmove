@@ -23,6 +23,7 @@ import { ProjectCandidatesPage } from "../features/candidates/pages/ProjectCandi
 import { ClientsPage } from "../features/clients/pages/ClientsPage";
 import { ExtensionConnectPage } from "../features/extension/pages/ExtensionConnectPage";
 import { MAILBOX_CALLBACK_PATH } from "../features/outreach/lib/mailboxPopup";
+import BookingPage from "../features/outreach/pages/BookingPage";
 import { MailboxCallbackPage } from "../features/outreach/pages/MailboxCallbackPage";
 import { OutreachPage } from "../features/outreach/pages/OutreachPage";
 import { SequenceEditorPage } from "../features/outreach/pages/SequenceEditorPage";
@@ -67,6 +68,8 @@ export function AppRoutes() {
       <Route path="/auth/callback" element={<OAuthCallbackPage />} />
       {/* Public like /auth/callback: it runs inside the mailbox connect popup, which holds no session. */}
       <Route path={MAILBOX_CALLBACK_PATH} element={<MailboxCallbackPage />} />
+      {/* Public and unguarded: an executive opens their consultant's booking link from an email. */}
+      <Route path="/book/:slug" element={<BookingPage />} />
 
       {/* Public, and unguarded on purpose: the invitee may have no account, an unverified one, or be
           signed in as somebody else entirely. The page reads its own state and says which. Guarding it

@@ -10,9 +10,13 @@ export interface SequenceTokenOption {
   token: string;
   tip: string;
   isAi?: boolean;
+  isLink?: boolean;
 }
 
 export const OPENER_TOKEN = "{{opener}}";
+export const BOOKING_LINK_TOKEN = "{{bookingLink}}";
+
+const TOKEN = /\{\{\s*([A-Za-z]+)\s*\}\}/g;
 
 export const SEQUENCE_TOKENS: SequenceTokenOption[] = [
   { token: "{{firstName}}", tip: "Their first name" },
@@ -22,17 +26,30 @@ export const SEQUENCE_TOKENS: SequenceTokenOption[] = [
   { token: "{{location}}", tip: "Their city" },
   { token: "{{senderFirstName}}", tip: "Your first name" },
   {
+    token: BOOKING_LINK_TOKEN,
+    tip: "Your booking page: they pick a free slot on your calendar, and their sequence stops",
+    isLink: true,
+  },
+  {
     token: OPENER_TOKEN,
     tip: "One or two sentences AI drafts for each person from their profile. You review every one.",
     isAi: true,
   },
 ];
 
-const TOKEN = /\{\{\s*([A-Za-z]+)\s*\}\}/g;
+/** The bar's tokens; the booking link only where the mail service's plan offers booking pages. */
+export function tokenOptions(bookingLinkOffered: boolean): SequenceTokenOption[] {
+  return SEQUENCE_TOKENS.filter((option) => bookingLinkOffered || !option.isLink);
+}
+
+/** What the link reads as until the sender's first Start makes their real one. */
+export const BOOKING_LINK_PLACEHOLDER = "(your booking link)";
 
 export interface RenderedPart {
   text: string;
   isOpener: boolean;
+  /** The sender's booking link, drawn as a link in the preview. */
+  isLink?: boolean;
 }
 
 /** The template filled in, split so the opener can be highlighted where it landed. */
@@ -56,6 +73,10 @@ export function renderParts(template: string, tokens: RecipientTokens, opener: s
       if (plain) parts.push({ text: plain, isOpener: false });
       plain = "";
       parts.push({ text: opener?.trim() ?? "", isOpener: true });
+    } else if (name === "bookingLink" && tokens.bookingLink !== undefined) {
+      if (plain) parts.push({ text: plain, isOpener: false });
+      plain = "";
+      parts.push({ text: tokens.bookingLink?.trim() ?? "", isOpener: false, isLink: true });
     } else {
       plain += Object.hasOwn(values, name) ? values[name] : match[0];
     }

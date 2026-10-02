@@ -44,6 +44,8 @@ export interface OutreachRun {
   endedAt: string | null;
   senderUserId: string;
   senderName: string | null;
+  /** The executive booked through the sender's link, rather than a consultant booking for them. */
+  bookedViaLink: boolean;
 }
 
 export interface OutreachCounts {

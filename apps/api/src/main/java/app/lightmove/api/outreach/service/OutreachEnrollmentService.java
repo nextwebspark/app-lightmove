@@ -57,6 +57,7 @@ public class OutreachEnrollmentService {
     private final OutreachEligibility eligibility;
     private final MailboxConnectionRepository mailboxes;
     private final OutreachPersonalisation personalisation;
+    private final BookingPages bookingPages;
     private final OutreachOutcomes outcomes;
     private final TransactionTemplate transactions;
     private final AuditService audit;
@@ -91,6 +92,12 @@ public class OutreachEnrollmentService {
         List<UUID> candidateIds = request.people().stream().map(EnrollPersonRequest::candidateId).toList();
         if (new HashSet<>(candidateIds).size() != candidateIds.size()) {
             throw ApiException.userFacing(ErrorCode.VALIDATION_FAILED, "Someone is listed twice");
+        }
+        boolean usesBookingLink = Boolean.TRUE.equals(transactions.execute(status -> sequences
+                .requireInProject(sequenceId, workspaceId, projectId).uses(SequenceTokens.BOOKING_LINK)));
+        if (usesBookingLink) {
+            // Before anything is written: a page the mail service will not make is the consultant's to see now.
+            bookingPages.prepare(userId, workspaceId);
         }
         // A racing Start that lost on the live index is answered OUTREACH_ALREADY_ENROLLED by
         // GlobalExceptionHandler, by constraint name; every other violation keeps its own answer.

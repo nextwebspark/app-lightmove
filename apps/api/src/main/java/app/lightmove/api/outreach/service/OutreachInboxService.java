@@ -2,6 +2,7 @@ package app.lightmove.api.outreach.service;
 
 import app.lightmove.api.core.config.LightMoveProperties;
 import app.lightmove.api.outreach.constant.EnrollmentStatus;
+import app.lightmove.api.outreach.model.BookingMade;
 import app.lightmove.api.outreach.model.CalendarEventChanged;
 import app.lightmove.api.outreach.model.CalendarEventRemoved;
 import app.lightmove.api.outreach.model.DeliveryFailure;
@@ -30,8 +31,8 @@ import org.springframework.transaction.support.TransactionTemplate;
 
 /**
  * What comes back into a sender's mailbox: a reply stops the person's run, a bounce ends it, a
- * mailbox whose access was withdrawn stops sending, and a calendar event with a mapped person is kept as
- * their meeting. Learned from the mail service's webhook, and from a
+ * mailbox whose access was withdrawn stops sending, a calendar event with a mapped person is kept as
+ * their meeting, and a booking through a consultant's link ends that person's run. Learned from the mail service's webhook, and from a
  * poll for whatever a webhook never delivered. Only who wrote and where is ever read — never what.
  */
 @Service
@@ -48,6 +49,7 @@ public class OutreachInboxService {
     private final OutreachMessageRepository messages;
     private final OutreachOutcomes outcomes;
     private final MeetingSync meetings;
+    private final LinkBookings linkBookings;
     private final TransactionTemplate transactions;
     private final LightMoveProperties properties;
     private final Clock clock;
@@ -107,6 +109,8 @@ public class OutreachInboxService {
                     .forEach(mailbox -> meetings.apply(mailbox, changed.event()));
             case CalendarEventRemoved removed -> mailboxes.findByGrantId(removed.grantId())
                     .forEach(mailbox -> meetings.remove(mailbox, removed.eventId()));
+            case BookingMade booking -> mailboxes.findByBookingConfigurationId(booking.configurationId())
+                    .forEach(mailbox -> linkBookings.apply(mailbox, booking, now));
         }
     }
 

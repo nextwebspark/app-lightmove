@@ -12,7 +12,7 @@ import type { Candidate } from "../../candidates/api/types";
 import { useWorkspaceVocabulary } from "../../workspace/lib/vocabulary";
 import * as sequenceApi from "../api/sequenceApi";
 import type { RecipientTokens, Sequence, SequenceStep } from "../api/sequenceApi";
-import { firstNameOf, renderParts, SEQUENCE_TOKENS } from "../lib/sequenceTokens";
+import { BOOKING_LINK_PLACEHOLDER, firstNameOf, renderParts, tokenOptions } from "../lib/sequenceTokens";
 import { useMailbox } from "../lib/useMailbox";
 import { SequenceStatePill } from "../components/SequenceStatePill";
 
@@ -102,6 +102,7 @@ function SequenceEditor({
   const subjectRef = useRef<HTMLInputElement | null>(null);
   const [editingField, setEditingField] = useState<"subject" | "body">("body");
   const [isConfirmingDelete, setIsConfirmingDelete] = useState(false);
+  const mailbox = useMailbox();
   const backToOverview = () => navigate(`/projects/${projectId}/outreach`);
 
   const save = useMutation({
@@ -213,7 +214,7 @@ function SequenceEditor({
         <div className="flex flex-col gap-3">
           <div className="flex flex-wrap items-center gap-1.5 rounded-[8px] border border-u-border bg-u-raised px-2.5 py-2">
             <span className="me-1 font-mono text-[11px] font-medium text-u-text3">Insert</span>
-            {SEQUENCE_TOKENS.map((option) => (
+            {tokenOptions(mailbox.data?.bookingLinkOffered === true).map((option) => (
               <button
                 key={option.token}
                 type="button"
@@ -226,7 +227,7 @@ function SequenceEditor({
                     : "border-u-border bg-u-surface text-u-text2 hover:text-u-text",
                 )}
               >
-                {option.isAi ? "✦ opener" : option.token}
+                {option.isAi ? "✦ opener" : option.isLink ? "▦ booking link" : option.token}
               </button>
             ))}
           </div>
@@ -374,8 +375,9 @@ function SequenceRules() {
         <span>Each mailbox sends up to its daily cap. Anything over waits for the next window.</span>
         <span className="text-u-text3">Stops when</span>
         <span>
-          They reply, an email bounces, they are marked do not contact, they leave this position, or their status
-          becomes Not interested, Off-limits or Out of scope.
+          They reply, they book a call through your booking link (they also move to Engaged), an email bounces, they
+          are marked do not contact, they leave this position, or their status becomes Not interested, Off-limits or
+          Out of scope.
         </span>
       </div>
     </div>
@@ -406,7 +408,8 @@ function SequencePreview({
   const candidates = people.data?.candidates ?? [];
   const person = candidates.find((candidate) => candidate.id === previewId) ?? candidates[0] ?? null;
   const step = steps[Math.min(selectedStep, steps.length - 1)];
-  const tokens = tokensOf(person, positionTitle, user?.fullName ?? null);
+  const tokens = tokensOf(person, positionTitle, user?.fullName ?? null,
+    mailbox.data?.connection?.bookingLink ?? BOOKING_LINK_PLACEHOLDER);
   const firstSubject = steps[0]?.subject ?? "";
   const subjectParts = renderParts(firstSubject, tokens, null);
   const subject = subjectParts.map((part) => part.text).join("");
@@ -467,7 +470,11 @@ function SequencePreview({
         </div>
         <div className="whitespace-pre-wrap pt-3.5 text-[13.5px]/[1.6] text-u-text">
           {renderParts(step?.body ?? "", tokens, PREVIEW_OPENER).map((part, index) =>
-            part.isOpener ? (
+            part.isLink ? (
+              <span key={index} className="text-u-accent underline">
+                {part.text}
+              </span>
+            ) : part.isOpener ? (
               <span
                 key={index}
                 className="rounded-[4px] bg-u-inferred-tint px-[3px] py-px shadow-[inset_0_-1px_0_var(--color-u-inferred)]"
@@ -499,8 +506,14 @@ function SequencePreview({
   );
 }
 
-function tokensOf(person: Candidate | null, positionTitle: string, senderName: string | null): RecipientTokens {
+function tokensOf(
+  person: Candidate | null,
+  positionTitle: string,
+  senderName: string | null,
+  bookingLink: string,
+): RecipientTokens {
   return {
+    bookingLink,
     firstName: firstNameOf(person?.fullName),
     currentTitle: person?.title ?? null,
     currentCompany: person?.companyName ?? null,

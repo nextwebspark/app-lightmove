@@ -69,6 +69,7 @@ function run(overrides: Partial<OutreachRun>): OutreachRun {
     endedAt: null,
     senderUserId: "u1",
     senderName: "Yara Haddad",
+    bookedViaLink: false,
     ...overrides,
   };
 }
@@ -85,7 +86,7 @@ const WITH_PEOPLE: OutreachOverview = {
   ],
 };
 
-const nothingConnected: Mailbox = { offered: true, providers: ["google", "microsoft"], connection: null };
+const nothingConnected: Mailbox = { offered: true, providers: ["google", "microsoft"], connection: null, bookingLinkOffered: false };
 const connected: Mailbox = {
   ...nothingConnected,
   connection: {
@@ -172,7 +173,7 @@ describe("OutreachPage", () => {
   });
 
   it("says outreach is not set up where the deployment has no mail service", async () => {
-    vi.mocked(mailboxApi.getMailbox).mockResolvedValue({ offered: false, providers: [], connection: null });
+    vi.mocked(mailboxApi.getMailbox).mockResolvedValue({ offered: false, providers: [], connection: null, bookingLinkOffered: false });
     renderPage();
 
     expect(await screen.findByText("Outreach email is not set up on this deployment.")).toBeInTheDocument();

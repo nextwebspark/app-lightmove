@@ -2,6 +2,7 @@ package app.lightmove.api;
 
 import app.lightmove.api.core.error.constant.ErrorCode;
 import app.lightmove.api.core.error.model.ApiException;
+import app.lightmove.api.outreach.model.BookingPageSpec;
 import app.lightmove.api.outreach.model.BusyInterval;
 import app.lightmove.api.outreach.model.CalendarEvent;
 import app.lightmove.api.outreach.model.GrantedMailbox;
@@ -47,6 +48,8 @@ public class RecordingMailboxGateway implements MailboxGateway {
     private final AtomicInteger calendarReads = new AtomicInteger();
     private volatile RuntimeException calendarFailure;
     private volatile RuntimeException busyFailure;
+    private volatile boolean bookingPagesOffered = true;
+    private final List<BookingPageSpec> bookingPages = new CopyOnWriteArrayList<>();
 
     @Override
     public boolean isOffered() {
@@ -139,6 +142,25 @@ public class RecordingMailboxGateway implements MailboxGateway {
         this.busy = List.copyOf(intervals);
     }
 
+    @Override
+    public boolean isBookingPageOffered() {
+        return bookingPagesOffered;
+    }
+
+    @Override
+    public String createBookingPage(String grantId, BookingPageSpec page) {
+        bookingPages.add(page);
+        return "booking-page-" + bookingPages.size();
+    }
+
+    public void offerBookingPages(boolean offered) {
+        this.bookingPagesOffered = offered;
+    }
+
+    public List<BookingPageSpec> bookingPages() {
+        return List.copyOf(bookingPages);
+    }
+
     /** Every whole read of a calendar from here on fails with {@code failure}; null reads again. */
     public void failCalendarWith(RuntimeException failure) {
         this.calendarFailure = failure;
@@ -215,6 +237,8 @@ public class RecordingMailboxGateway implements MailboxGateway {
         calendarReads.set(0);
         calendarFailure = null;
         busyFailure = null;
+        bookingPagesOffered = true;
+        bookingPages.clear();
     }
 
     public record SentRecord(String grantId, OutgoingEmail email) {}

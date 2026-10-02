@@ -33,6 +33,7 @@ const RUN: OutreachRun = {
   endedAt: null,
   senderUserId: "u1",
   senderName: "Yara Haddad",
+  bookedViaLink: false,
 };
 
 function renderSection(outreach: CandidateOutreach, onSetStatus = vi.fn(), candidateStatus: CandidateStatus = "contacted") {

@@ -65,6 +65,14 @@ public class MailboxConnection extends BaseEntity {
     @Column(name = "calendar_sync_retry_at")
     private Instant calendarSyncRetryAt;
 
+    /** The booking link's path, {@code /book/<slug>} (V104): kept across a reconnect, so a sent link still works. */
+    @Column(name = "booking_slug", length = 64)
+    private String bookingSlug;
+
+    /** The Scheduler configuration behind the link; a grant's, so a reconnect clears it. */
+    @Column(name = "booking_configuration_id", length = 128)
+    private String bookingConfigurationId;
+
     public static MailboxConnection connected(UUID workspaceId, UUID userId, GrantedMailbox mailbox, int dailyCap,
                                               Instant now) {
         MailboxConnection connection = new MailboxConnection();
@@ -84,6 +92,15 @@ public class MailboxConnection extends BaseEntity {
         this.calendarSyncedAt = null;
         this.calendarSyncAttempts = 0;
         this.calendarSyncRetryAt = null;
+        this.bookingConfigurationId = null;
+    }
+
+    public void claimBookingSlug(String slug) {
+        this.bookingSlug = slug;
+    }
+
+    public void holdBookingPage(String configurationId) {
+        this.bookingConfigurationId = configurationId;
     }
 
     public void markCalendarSynced(Instant now) {

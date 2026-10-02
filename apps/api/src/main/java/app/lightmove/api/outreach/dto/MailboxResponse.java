@@ -7,5 +7,7 @@ import java.util.List;
  *
  * @param providers  the mailbox hosts on offer, in the mail service's names
  * @param connection null until the caller connects one
+ * @param bookingLinkOffered whether sequences may use {@code {{bookingLink}}} here
  */
-public record MailboxResponse(boolean offered, List<String> providers, ConnectedMailboxResponse connection) {}
+public record MailboxResponse(boolean offered, List<String> providers, ConnectedMailboxResponse connection,
+                              boolean bookingLinkOffered) {}

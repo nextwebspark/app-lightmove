@@ -22,6 +22,14 @@ public interface MailboxConnectionRepository extends JpaRepository<MailboxConnec
      */
     List<MailboxConnection> findByGrantId(String grantId);
 
+    /** A public booking page's read: the slug is the link's whole identity, so this finder carries no workspace. */
+    Optional<MailboxConnection> findByBookingSlug(String bookingSlug);
+
+    boolean existsByBookingSlug(String bookingSlug);
+
+    /** A booking webhook names the page and nothing else. A list, like {@link #findByGrantId}. */
+    List<MailboxConnection> findByBookingConfigurationId(String bookingConfigurationId);
+
     /**
      * Calendars still owed their first read and due to be tried, oldest connection first. A system job's
      * read, so across workspaces by design; no request path may use it.

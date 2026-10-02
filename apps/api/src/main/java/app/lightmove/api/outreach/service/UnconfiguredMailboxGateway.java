@@ -2,6 +2,7 @@ package app.lightmove.api.outreach.service;
 
 import app.lightmove.api.core.error.constant.ErrorCode;
 import app.lightmove.api.core.error.model.ApiException;
+import app.lightmove.api.outreach.model.BookingPageSpec;
 import app.lightmove.api.outreach.model.BusyInterval;
 import app.lightmove.api.outreach.model.CalendarEvent;
 import app.lightmove.api.outreach.model.GrantedMailbox;
@@ -68,6 +69,16 @@ public class UnconfiguredMailboxGateway implements MailboxGateway {
 
     @Override
     public CalendarEvent createEvent(String grantId, NewCalendarEvent event) {
+        throw unavailable();
+    }
+
+    @Override
+    public boolean isBookingPageOffered() {
+        return false;
+    }
+
+    @Override
+    public String createBookingPage(String grantId, BookingPageSpec page) {
         throw unavailable();
     }
 

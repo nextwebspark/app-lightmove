@@ -323,6 +323,12 @@ public enum ErrorCode {
     /** Never retried on our side: the calendar may still hold the invite, so the consultant checks before trying again. */
     MEETING_BOOK_FAILED(HttpStatus.BAD_GATEWAY, "The invite could not be sent. Check your calendar before trying again"),
 
+    /** A sequence uses {{bookingLink}} where the mail service's plan offers no booking pages. */
+    OUTREACH_BOOKING_LINK_UNAVAILABLE(HttpStatus.CONFLICT, "Booking links are not set up on this deployment"),
+
+    /** The booking page behind the link could not be made; nothing was started or sent. */
+    OUTREACH_BOOKING_LINK_FAILED(HttpStatus.BAD_GATEWAY, "Your booking page couldn't be set up. Try again"),
+
     /** A webhook delivery whose signature did not verify, or one this deployment is not set up to read. */
     MAILBOX_WEBHOOK_REJECTED(HttpStatus.UNAUTHORIZED, "Unauthorized"),
 
