@@ -22,6 +22,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.UUID;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -45,12 +46,11 @@ public class OutreachSequenceService {
     @Transactional(readOnly = true)
     public SequencesResponse list(UUID workspaceId, UUID projectId) {
         List<OutreachSequence> found = sequences.findByWorkspaceIdAndProjectIdOrderByCreatedAtAsc(workspaceId, projectId);
-        Map<UUID, Long> enrolled = enrollments.countBySequenceOfProject(projectId).stream()
-                .collect(Collectors.toMap(SequenceEnrollmentCount::getSequenceId, SequenceEnrollmentCount::getTotal));
+        Map<UUID, SequenceEnrollmentCount> counts = countsOf(projectId);
         Map<UUID, String> authors = authorNamesOf(found);
         return new SequencesResponse(found.stream()
                 .map(sequence -> toResponse(sequence, authors.get(sequence.getCreatedBy()),
-                        enrolled.getOrDefault(sequence.getId(), 0L)))
+                        counts.get(sequence.getId())))
                 .toList());
     }
 
@@ -112,13 +112,20 @@ public class OutreachSequenceService {
     private SequenceResponse toResponse(OutreachSequence sequence) {
         String author = sequence.getCreatedBy() == null ? null
                 : users.findById(sequence.getCreatedBy()).map(User::getFullName).orElse(null);
-        return toResponse(sequence, author, enrollments.countBySequenceId(sequence.getId()));
+        return toResponse(sequence, author, countsOf(sequence.getProjectId()).get(sequence.getId()));
     }
 
-    private static SequenceResponse toResponse(OutreachSequence sequence, String author, long enrolled) {
+    private Map<UUID, SequenceEnrollmentCount> countsOf(UUID projectId) {
+        return enrollments.countBySequenceOfProject(projectId).stream()
+                .collect(Collectors.toMap(SequenceEnrollmentCount::getSequenceId, Function.identity()));
+    }
+
+    private static SequenceResponse toResponse(OutreachSequence sequence, String author,
+                                               SequenceEnrollmentCount counts) {
         return new SequenceResponse(sequence.getId(), sequence.getName(),
-                sequence.getSteps().stream().map(SequenceStepResponse::of).toList(), author, enrolled,
-                sequence.getUpdatedAt());
+                sequence.getSteps().stream().map(SequenceStepResponse::of).toList(), author,
+                counts == null ? 0 : counts.getTotal(), counts == null ? 0 : counts.getSent(),
+                counts == null ? 0 : counts.getReplied(), sequence.getUpdatedAt());
     }
 
     private Map<UUID, String> authorNamesOf(List<OutreachSequence> found) {

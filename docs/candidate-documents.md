@@ -7,7 +7,7 @@ a later phase.
 | Phase | State |
 |---|---|
 | 0 — Mockups: the Documents tab, upload tray, CV chip, preview, timeline chip | **Next** (Claude Design) |
-| 1 — V101, `core/storage`, `PersonDocumentService`, routes, bucket | **Built** |
+| 1 — V104, `core/storage`, `PersonDocumentService`, routes, bucket | **Built** |
 | 2 — SPA, built from the approved mockup | After 0 |
 | Later | Virus scanning · DOCX→PDF preview · CV parsing · share a document with a client seat · documents in merge · GDPR erasure · retention · orphan sweep |
 

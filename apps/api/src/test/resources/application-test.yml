@@ -40,6 +40,10 @@ spring:
       iam_user: ""
 
 lightmove:
+  # Scheduled jobs are driven by the tests that cover them, never by a timer.
+  scheduling:
+    enabled: false
+
   # Uploaded documents land under target/ and go with mvn clean; no test reaches a bucket.
   storage:
     provider: filesystem

@@ -552,8 +552,19 @@ lightmove:
       client-id: ${NYLAS_CLIENT_ID:}
       base-url: ${NYLAS_BASE_URL:https://api.us.nylas.com}
       providers: ${NYLAS_PROVIDERS:google,microsoft}
+      # The signing secret of a Nylas webhook pointed at <web.base-url>/api/v1/outreach/webhooks/mailbox,
+      # subscribed to message.created, message.bounce_detected, grant.expired and event.created,
+      # event.updated, event.deleted (the drawer's Meetings). Blank, replies are found by the poll alone
+      # and meetings by the read each calendar gets when it is connected.
+      webhook-secret: ${NYLAS_WEBHOOK_SECRET:}
     connect-window: ${OUTREACH_CONNECT_WINDOW:10m}
     daily-cap: ${OUTREACH_DAILY_CAP:50}
+    window-start: ${OUTREACH_WINDOW_START:08:00}
+    window-end: ${OUTREACH_WINDOW_END:18:00}
+    working-days: ${OUTREACH_WORKING_DAYS:MONDAY,TUESDAY,WEDNESDAY,THURSDAY,FRIDAY}
+    # Read by @Scheduled, which sees the environment and never a binding default, so spelled out here.
+    dispatch-interval: ${OUTREACH_DISPATCH_INTERVAL:60s}
+    reply-poll-interval: ${OUTREACH_REPLY_POLL_INTERVAL:15m}
 
   # Uploaded files. gcs in every deployment (ops/gcp/deploy.sh sets both): Cloud Run's disk dies with the
   # instance, so filesystem is for npm run dev and the tests only.

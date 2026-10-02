@@ -91,6 +91,22 @@ describe("timelineLines", () => {
     );
   });
 
+  it("tells an outreach run as it went: each email, the reply, and why it stopped", () => {
+    expect(lineOf({ kind: "EMAIL_SENT", details: { sequence: "CFO first approach", step: "2" } })).toMatchObject({
+      actorName: "Sara Al-Mansour",
+      text: "emailed on this position",
+      detail: "CFO first approach, step 2",
+    });
+    expect(lineOf({ kind: "EMAIL_REPLIED", actorName: null, details: { sequence: "CFO first approach" } }))
+      .toMatchObject({ actorName: "Fatima Al Mazrouei", text: "replied to the sequence CFO first approach on this position" });
+    expect(lineOf({ kind: "OUTREACH_STOPPED", actorName: null, details: { sequence: "CFO", reason: "BOUNCED" } }))
+      .toMatchObject({ actorName: "Uncava", text: "stopped the sequence CFO on this position", detail: "The address bounced" });
+    expect(lineOf({ kind: "OUTREACH_STOPPED", details: { sequence: "CFO", reason: "MANUAL" } })).toMatchObject({
+      actorName: "Sara Al-Mansour",
+      detail: null,
+    });
+  });
+
   it("names a document by its category, and by its title only while it exists", () => {
     expect(
       lineOf({ kind: "DOCUMENT_ADDED", details: { category: "CV", document: "Jane Doe CV", version: "1" } }),

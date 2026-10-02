@@ -305,6 +305,27 @@ public enum ErrorCode {
     /** The To address must be one the person's contact ledger holds. */
     OUTREACH_ADDRESS_NOT_ON_FILE(HttpStatus.BAD_REQUEST, "That address is not on file for this person"),
 
+    /** Only a sequence still due to send can be stopped; one that ended is already the record. */
+    OUTREACH_NOT_RUNNING(HttpStatus.CONFLICT, "This sequence has already ended"),
+
+    /** Nobody marked do not contact is invited to anything. */
+    MEETING_DO_NOT_CONTACT(HttpStatus.CONFLICT, "This person is marked do not contact"),
+
+    /** The slot was free when offered and is not now; the dialog offers the times again. */
+    MEETING_SLOT_TAKEN(HttpStatus.CONFLICT, "That time is no longer free. Pick another"),
+
+    /** The length, the time or the video link asked for is not one the dialog offers. */
+    MEETING_SLOT_INVALID(HttpStatus.BAD_REQUEST, "That time cannot be booked"),
+
+    /** The consultant's calendar could not be read, so no time was offered and no invite was sent. */
+    MEETING_CALENDAR_UNAVAILABLE(HttpStatus.BAD_GATEWAY, "Your calendar couldn't be read. Try again"),
+
+    /** Never retried on our side: the calendar may still hold the invite, so the consultant checks before trying again. */
+    MEETING_BOOK_FAILED(HttpStatus.BAD_GATEWAY, "The invite could not be sent. Check your calendar before trying again"),
+
+    /** A webhook delivery whose signature did not verify, or one this deployment is not set up to read. */
+    MAILBOX_WEBHOOK_REJECTED(HttpStatus.UNAUTHORIZED, "Unauthorized"),
+
     INTERNAL_ERROR(HttpStatus.INTERNAL_SERVER_ERROR, "Something went wrong on our end");
 
     private final HttpStatus status;

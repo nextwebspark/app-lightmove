@@ -46,6 +46,18 @@ public enum PersonActivityKind {
     /** Put on an outreach sequence; the line names the sequence. Nothing is sent by this alone. */
     OUTREACH_ENROLLED,
 
+    /** One email of a sequence went; the line names the sequence and the step, never the email. */
+    EMAIL_SENT,
+
+    /** The person answered a sequence. The reply itself stays in the sender's inbox. */
+    EMAIL_REPLIED,
+
+    /** A sequence ended short of its last step; the line carries why. */
+    OUTREACH_STOPPED,
+
+    /** A call was booked with the person; the line carries when, and whether they booked it themselves. */
+    MEETING_BOOKED,
+
     /** The line carries the document's id and version, never its name: the read names it while it exists. */
     DOCUMENT_ADDED,
     DOCUMENT_VERSION_ADDED,

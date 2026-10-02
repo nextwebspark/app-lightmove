@@ -57,7 +57,7 @@ mandate mapping the person, this one first), **Notes** and **Timeline** for staf
 position's own `WORK_EXECUTE` routes (`…/candidates/{id}/positions|notes|timeline`, `PersonCrmController`);
 the workspace's routes (`/api/v1/candidates/{personId}…` and `/candidates/activity`, the feed) take
 person ids and V97's `CANDIDATE_POOL_MANAGE`, ADMIN and MEMBER and never CLIENT.
-**Documents are the person's too (V101, `docs/candidate-documents.md`)**: a CV, cover letter or
+**Documents are the person's too (V104, `docs/candidate-documents.md`)**: a CV, cover letter or
 reference is a card whose files are versions — a file sent under a name already on the person is its
 next version unless the upload says `asNewDocument`, the same bytes are refused
 (`PERSON_DOCUMENT_DUPLICATE`), a file is accepted only where its name and its bytes agree
@@ -252,8 +252,7 @@ people ranked. Every executive counts for whoever filed it (`added_by`, read thr
 `CandidateService.addedByOf`, never put on `CandidateResponse`, which a client seat also reads) and a
 company for whoever filed its first executive. The mock's confidence score, conversion funnel and
 per-company target have no row behind them, so they are not drawn: the drawers show a status *mix*,
-and quality is what is on file (a contact, a verified one, a base salary). A position's own Candidates
-page and the outreach tables don't exist yet. A projects-list row opens
+and quality is what is on file (a contact, a verified one, a base salary). A projects-list row opens
 the **position side panel** (`Workspace.dc.html`'s Position drawer): mapping progress as universe
 companies with an executive mapped (`mappedCompanies` of `companies` on `GET /projects`), key
 metrics, stage gates, the team and hiring managers, and **recent activity** — `GET
@@ -395,11 +394,38 @@ Sequences (V100, #623) are a position's, `WORK_EXECUTE`: up to three emails (V39
 drawer — chooses, reviews and starts. Choose shows who is skipped and why (no email, do not contact, out
 of the running, already in a live sequence); the openers and Start decide the same rules again
 (`RecipientEligibility`), so nobody skipped is sent to the model, charged for or enrolled. Each person's first email is rendered and **frozen on their enrollment** with their own opener,
-so an edit reaches nobody else; Start creates `SCHEDULED` rows and sends nothing (#624 sends). The
+so an edit reaches nobody else; Start creates `SCHEDULED` rows and sends nothing. The
 `{{opener}}` is one Gemini call per person (`OutreachOpenerDrafter`) over the `CandidateDossier` and an
 `OpenerBrief` — role title, level, the client's industry and the brief's location, **never the hiring
 company's name** — one `LlmBudget.OUTREACH_DRAFT` unit per press. `outreach` reads people and writes
 their `OUTREACH_ENROLLED` line through `candidate`'s `CandidateOutreachService`, and nothing depends back.
+**Sending (V101, #624)** is `OutreachDispatcher`, the codebase's first `@Scheduled` job (`SchedulingConfig`,
+off in tests, which call `dispatchAt(instant)`): every minute it claims due rows in one
+`UPDATE … FOR UPDATE SKIP LOCKED` that commits `sending_since` before the mail service is called, so
+instances never share a row, and a claim nobody released is stopped `SEND_UNCERTAIN`, never resent. Each
+send re-checks what Start checked (do not contact, still mapped, still in the running, address still on the
+ledger, mailbox active) and stops the run with that reason rather than hooking `candidate`; it waits for
+the sender's weekday 08:00–18:00 in their mailbox's `time_zone` and under its daily cap. Step 1 is the
+frozen email; a follow-up is rendered from the sequence as it stands and replies to the last message, which
+threads it. The first send moves Identified to Contacted, forward only. A reply or bounce arrives on the
+public `/api/v1/outreach/webhooks/mailbox`, whose HMAC signature is its credential
+(`lightmove.outreach.nylas.webhook-secret`; blank refuses every delivery), with a 15-minute poll of each
+listening thread as the fallback; only who wrote into a thread is read, never what. A mail daemon's message
+is a bounce. Every email is an `app_lm_outreach_message` row (staff-only); every end is an
+`EMAIL_REPLIED` / `OUTREACH_STOPPED` line and an audit event (`OutreachOutcomes`). The Outreach page reads
+`…/outreach/people` (counts and runs, filtered in the SPA), the drawer's Outreach fold
+`…/outreach/candidates/{id}`, and Stop is `…/enrollments/{id}/stop`, all `WORK_EXECUTE`.
+**Meetings (V102, #628)** read the same grant's calendar: an event is kept (`app_lm_person_meeting`, one row
+per matching person) only when an attendee's address is on a person's ledger — nothing else of anyone's
+calendar is stored — through the `event.*` webhook (`MeetingSync`) and a 90-day read either side of today
+when a mailbox is connected (`MeetingBackfill`, retried by the reply poll while `calendar_synced_at` is
+null — V103 backs each failed read off from 15 minutes to a day, ten calendars a poll, and gives up after
+five until a reconnect). A recurring series is never kept: Nylas keys it by its master in a webhook and by
+each occurrence in a read. A free/busy answer with an error entry is a failure, never free time. The drawer's Meetings section reads `…/candidates/{id}/meetings`; **Book a call** offers the
+consultant's free half-hours in their own window (`FreeSlots`, `…/meetings/slots`) and `POST …/meetings`
+re-checks do not contact, the ledger and the slot, creates the event (never retried), then writes
+`MEETING_BOOKED`, moves Identified or Contacted to Engaged (forward only) and ends a live run as `BOOKED`.
+All `WORK_EXECUTE`. The `{{bookingLink}}` Scheduler page is the next PR.
 
 ## Commands
 
@@ -624,7 +650,11 @@ singular by-user lookup any more, because an `Optional` over two rows throws.
 V100 adds `app_lm_outreach_sequence` + `…_step` and `app_lm_outreach_enrollment` (a partial unique
 index holds one `SCHEDULED`/`ACTIVE` enrollment per person per position; `candidate_id` is SET NULL so
 unmapping keeps the record) and widens the activity kinds with `OUTREACH_ENROLLED`.
-V101 adds `app_lm_person_document` (category, title, `name_key` — the latest file's lower-cased name an
+V101 gives `app_lm_mailbox_connection` a `time_zone` (default `Asia/Dubai`), the enrollment its thread and
+last message ids, `last_sent_at`, `replied_at`, `stopped_at`, a `stop_reason` CHECK and the dispatcher's
+`sending_since` claim (with a partial index on due rows), adds `app_lm_outreach_message` (unique per
+enrollment and step), and widens the activity kinds with `EMAIL_SENT`, `EMAIL_REPLIED` and `OUTREACH_STOPPED`.
+V104 adds `app_lm_person_document` (category, title, `name_key` — the latest file's lower-cased name an
 upload is matched on — and a `primary_cv` mark held to one per person by a partial unique index) and
 `app_lm_person_document_version` (one row per file: sanitised name, the type its bytes were read as, size,
 `sha256`, the bucket's `storage_key`; `person_id` beside `document_id` so a duplicate is one lookup), and

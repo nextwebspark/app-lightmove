@@ -7,7 +7,7 @@ import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 import lombok.experimental.Accessors;
 
-/** What a person's document is. Held to the same list by V101's CHECK. */
+/** What a person's document is. Held to the same list by V104's CHECK. */
 @Getter
 @Accessors(fluent = true)
 @RequiredArgsConstructor

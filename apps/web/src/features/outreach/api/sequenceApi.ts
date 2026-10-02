@@ -24,6 +24,10 @@ export interface Sequence {
   createdByName: string | null;
   /** Everyone ever put on it; a sequence with anyone is Live, one with nobody a Draft. */
   enrolledCount: number;
+  /** Emails it has sent, follow-ups included. */
+  sentCount: number;
+  /** People who answered it. */
+  repliedCount: number;
   updatedAt: string;
 }
 

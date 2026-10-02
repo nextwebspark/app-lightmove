@@ -84,6 +84,19 @@ public enum ProjectEventType implements AuditEventType {
     /** One person put on a sequence; nothing is sent by this alone. */
     OUTREACH_ENROLLED,
 
+    /** One email of a sequence went from the sender's mailbox; the actor is the sender, the dispatcher sent it. */
+    OUTREACH_EMAIL_SENT,
+
+    /** The person answered; only that they did is recorded, never what they said. */
+    OUTREACH_REPLIED,
+    OUTREACH_BOUNCED,
+
+    /** A sequence ended short — by a consultant's Stop, or by the send-time re-check. */
+    OUTREACH_STOPPED,
+
+    /** A call booked with an executive from a consultant's own calendar. */
+    OUTREACH_MEETING_BOOKED,
+
     /** Openers drafted by the model for a review — recorded because it spends model money. */
     OUTREACH_OPENERS_DRAFTED,
 

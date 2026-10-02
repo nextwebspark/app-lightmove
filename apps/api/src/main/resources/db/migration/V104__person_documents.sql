@@ -65,6 +65,7 @@ ALTER TABLE app_lm_person_activity
                         'CONTACTS_EDITED', 'CONTACT_FOUND', 'RESEARCHED', 'AI_ASSESSED',
                         'NOTE_ADDED', 'NOTE_EDITED', 'NOTE_REMOVED',
                         'TAGGED', 'UNTAGGED', 'OWNER_CHANGED', 'DO_NOT_CONTACT_SET', 'DO_NOT_CONTACT_CLEARED',
-                        'OUTREACH_ENROLLED',
+                        'OUTREACH_ENROLLED', 'EMAIL_SENT', 'EMAIL_REPLIED', 'OUTREACH_STOPPED',
+                        'MEETING_BOOKED',
                         'DOCUMENT_ADDED', 'DOCUMENT_VERSION_ADDED', 'DOCUMENT_REMOVED',
                         'DOCUMENT_VERSION_REMOVED'));

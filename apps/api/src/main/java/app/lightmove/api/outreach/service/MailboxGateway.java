@@ -1,9 +1,14 @@
 package app.lightmove.api.outreach.service;
 
+import app.lightmove.api.outreach.model.BusyInterval;
+import app.lightmove.api.outreach.model.CalendarEvent;
 import app.lightmove.api.outreach.model.GrantedMailbox;
+import app.lightmove.api.outreach.model.MailboxEvent;
+import app.lightmove.api.outreach.model.NewCalendarEvent;
 import app.lightmove.api.outreach.model.OutgoingEmail;
 import app.lightmove.api.outreach.model.SentEmail;
 import java.net.URI;
+import java.time.Instant;
 import java.util.List;
 
 /**
@@ -26,8 +31,34 @@ public interface MailboxGateway {
     /** Redeems the one-time code the consent screen sent back. Never retried: a code is single-use. */
     GrantedMailbox redeem(String code, URI redirectUri);
 
+    /** A set {@link OutgoingEmail#replyToMessageId()} sends the email as a reply in that message's thread. */
     SentEmail send(String grantId, OutgoingEmail email);
 
     /** Withdraws the service's access to the mailbox. */
     void revoke(String grantId);
+
+    /**
+     * Reads one webhook delivery: what it says about which mailbox, or nothing for an event outreach
+     * does not listen to. A delivery whose signature does not verify is refused with
+     * {@code MAILBOX_WEBHOOK_REJECTED} — the endpoint is public, and the signature is its only credential.
+     */
+    List<MailboxEvent> readWebhook(String signature, byte[] body);
+
+    /**
+     * Who wrote into a thread of the mailbox since {@code since}, the mailbox itself included: the poll
+     * that finds a reply when a webhook never arrived. Addresses only, never content.
+     */
+    List<String> senderAddressesInThread(String grantId, String threadId, Instant since);
+
+    /** The timed events on the mailbox's own calendar between {@code from} and {@code to}. */
+    List<CalendarEvent> calendarEvents(String grantId, Instant from, Instant to);
+
+    /** When the calendar of {@code address}, the mailbox's own, is taken between {@code from} and {@code to}. */
+    List<BusyInterval> busyTimes(String grantId, String address, Instant from, Instant to);
+
+    /**
+     * Puts a call on the mailbox's calendar and invites the executive to it. Never retried, as {@link #send}
+     * is not: a request that timed out may still have sent the invite.
+     */
+    CalendarEvent createEvent(String grantId, NewCalendarEvent event);
 }

@@ -1,0 +1,71 @@
+package app.lightmove.api.outreach.model;
+
+import java.time.Duration;
+import java.time.Instant;
+import java.time.LocalDate;
+import java.time.ZoneId;
+import java.time.ZonedDateTime;
+import java.util.ArrayList;
+import java.util.List;
+
+/**
+ * The times a consultant can offer a call: on the half hour, inside their working day in their own
+ * zone, starting no sooner than half an hour from now, with the whole call clear of anything on their
+ * calendar. The same window outreach email keeps to.
+ */
+public record FreeSlots(SendingWindow window, ZoneId zone) {
+
+    static final Duration STEP = Duration.ofMinutes(30);
+
+    /** Nobody is booked into a call that starts before they could read the invite. */
+    static final Duration LEAD = Duration.ofMinutes(30);
+
+    /** The next {@code dayCount} working days from today, each with its free starts — empty when fully booked. */
+    public List<SlotDay> offered(Instant now, int dayCount, Duration length, List<BusyInterval> busy) {
+        Duration open = Duration.between(window.start(), window.end());
+        List<SlotDay> days = new ArrayList<>();
+        for (LocalDate day : workingDaysFrom(now, dayCount)) {
+            Instant opening = day.atTime(window.start()).atZone(zone).toInstant();
+            List<Instant> starts = new ArrayList<>();
+            for (Duration offset = Duration.ZERO; offset.plus(length).compareTo(open) <= 0; offset = offset.plus(STEP)) {
+                Instant start = opening.plus(offset);
+                Instant end = start.plus(length);
+                if (!start.isBefore(now.plus(LEAD)) && busy.stream().noneMatch(taken -> taken.overlaps(start, end))) {
+                    starts.add(start);
+                }
+            }
+            days.add(new SlotDay(day, starts));
+        }
+        return days;
+    }
+
+    /** Whether {@code start} is a time {@link #offered} could have offered, the calendar aside. */
+    public boolean offers(Instant now, Instant start, Duration length) {
+        ZonedDateTime local = start.atZone(zone);
+        if (!window.workingDays().contains(local.getDayOfWeek()) || start.isBefore(now.plus(LEAD))) {
+            return false;
+        }
+        Duration offset = Duration.between(local.toLocalDate().atTime(window.start()).atZone(zone), local);
+        return !offset.isNegative()
+                && offset.toNanos() % STEP.toNanos() == 0
+                && offset.plus(length).compareTo(Duration.between(window.start(), window.end())) <= 0;
+    }
+
+    /** The instant the last of those days' windows closes: how far the calendar is asked about. */
+    public Instant endOf(Instant now, int dayCount) {
+        List<LocalDate> days = workingDaysFrom(now, dayCount);
+        return days.getLast().atTime(window.end()).atZone(zone).toInstant();
+    }
+
+    private List<LocalDate> workingDaysFrom(Instant now, int dayCount) {
+        List<LocalDate> days = new ArrayList<>();
+        LocalDate day = now.atZone(zone).toLocalDate();
+        while (days.size() < dayCount) {
+            if (window.workingDays().contains(day.getDayOfWeek())) {
+                days.add(day);
+            }
+            day = day.plusDays(1);
+        }
+        return days;
+    }
+}
