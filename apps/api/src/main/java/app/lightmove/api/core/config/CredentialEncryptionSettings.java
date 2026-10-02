@@ -9,4 +9,10 @@ public record CredentialEncryptionSettings(String keyset) {
     public boolean isConfigured() {
         return keyset != null && !keyset.isBlank();
     }
+
+    /** The keyset decrypts every stored secret, so it never reaches a log line or a bind-failure message. */
+    @Override
+    public String toString() {
+        return "CredentialEncryptionSettings[keyset=<redacted>]";
+    }
 }

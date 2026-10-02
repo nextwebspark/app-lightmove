@@ -16,4 +16,9 @@ public record RecallSettings(
     public boolean isConfigured() {
         return apiKey != null && !apiKey.isBlank();
     }
+
+    @Override
+    public String toString() {
+        return "RecallSettings[apiKey=<redacted>, webhookSecret=<redacted>, baseUrl=" + baseUrl + "]";
+    }
 }

@@ -98,7 +98,8 @@ public class WorkspaceController {
     private WorkspaceResponse toResponse(WorkspaceDetail detail) {
         Workspace ws = detail.workspace();
         return new WorkspaceResponse(ws.getId(), ws.getName(), ws.getSlug(), ws.getLogoMark(),
-                ws.getEmailDomain(), ws.getMode(), ws.getCalendarSync(), ws.getDefaultRegion(), ws.getDefaultCurrency(), ws.getPlan(),
+                ws.getEmailDomain(), ws.getMode(), ws.getCalendarSync(), ws.getDefaultRegion(),
+                ws.getDefaultCurrency(), ws.getPlan(),
                 detail.memberCount(), ws.getCreatedAt(), ws.getPersona(),
                 WorkspaceCompanyResponse.of(ws.getCompany()));
     }

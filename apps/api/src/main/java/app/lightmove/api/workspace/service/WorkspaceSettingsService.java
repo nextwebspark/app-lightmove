@@ -5,9 +5,9 @@ import app.lightmove.api.core.audit.constant.WorkspaceEventType;
 import app.lightmove.api.core.audit.service.AuditService;
 import app.lightmove.api.core.error.constant.ErrorCode;
 import app.lightmove.api.core.error.model.ApiException;
+import app.lightmove.api.workspace.constant.CalendarSync;
 import app.lightmove.api.workspace.constant.InvitationStatus;
 import app.lightmove.api.workspace.constant.MemberStatus;
-import app.lightmove.api.workspace.constant.CalendarSync;
 import app.lightmove.api.workspace.constant.WorkspaceMode;
 import app.lightmove.api.workspace.model.Workspace;
 import app.lightmove.api.workspace.repository.InvitationRepository;
@@ -107,11 +107,6 @@ public class WorkspaceSettingsService {
         return detail(workspace);
     }
 
-    /** How outreach reads this workspace's calendars. */
-    @Transactional(readOnly = true)
-    public CalendarSync calendarSyncOf(UUID workspaceId) {
-        return requireWorkspace(workspaceId).getCalendarSync();
-    }
 
     /** The typed name is verified here, not only in the browser. */
     @Transactional

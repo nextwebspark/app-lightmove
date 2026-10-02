@@ -21,4 +21,10 @@ public record ProviderAppSettings(
     public boolean isConfigured() {
         return clientId != null && !clientId.isBlank() && clientSecret != null && !clientSecret.isBlank();
     }
+
+    @Override
+    public String toString() {
+        return "ProviderAppSettings[clientId=" + clientId + ", clientSecret=<redacted>, scopes=" + scopes
+                + ", ownAppGuideUrl=" + ownAppGuideUrl + ", sharedAppGuideUrl=" + sharedAppGuideUrl + "]";
+    }
 }
