@@ -3,8 +3,9 @@ import { useCallback, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { Icon, ICONS } from "../../../components/layout/Icon";
 import { PageHeader } from "../../../components/layout/PageHeader";
-import { Button, useToast } from "../../../components/ui";
+import { useToast } from "../../../components/ui";
 import { TabList } from "../../../components/ui/TabList";
+import { ToolbarButton } from "../../../components/ui/ToolbarButton";
 import { tabPanelProps } from "../../../components/ui/tabPanelProps";
 import { messageFor } from "../../../lib/errorCodes";
 import { saveBlob } from "../../../lib/saveBlob";
@@ -81,15 +82,14 @@ export function CandidatesPage() {
         subtitle={subtitle}
         action={
           !activity && (
-            <Button
-              variant="secondary"
+            <ToolbarButton
               loading={exporting.isPending}
               title="Download every person this view shows as a CSV — recorded in the audit trail"
               onClick={() => exporting.mutate([])}
             >
               <Icon d={ICONS.exportOut} size={14} />
               Export
-            </Button>
+            </ToolbarButton>
           )
         }
       />

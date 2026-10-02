@@ -1,7 +1,7 @@
 import { useInfiniteQuery } from "@tanstack/react-query";
-import { type ReactNode, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { Avatar } from "../../../../components/ui/Avatar";
-import { Select } from "../../../../components/ui";
+import { PillSelect } from "../../../../components/ui/PillSelect";
 import { cn } from "../../../../lib/cn";
 import { messageFor } from "../../../../lib/errorCodes";
 import * as poolApi from "../../api/poolApi";
@@ -49,33 +49,35 @@ export function ActivityView({ onOpen }: { onOpen: (personId: string) => void })
   const entries = feed.data?.pages.flatMap((page) => page.entries) ?? [];
 
   return (
-    <div>
-      <div className="mb-3 flex flex-wrap items-end gap-3">
-        <InlineSelect label="Who" value={actor} onChange={setActor}>
-          <option value="">Everyone</option>
-          {lookups.staff.map((member) => (
-            <option key={member.userId} value={member.userId}>
-              {member.fullName}
-            </option>
-          ))}
-        </InlineSelect>
-        <InlineSelect label="Position" value={position} onChange={setPosition}>
-          <option value="">Every position</option>
-          {lookups.positions.map((project) => (
-            <option key={project.id} value={project.id}>
-              {project.positionTitle}
-            </option>
-          ))}
-        </InlineSelect>
-        <InlineSelect label="When" value={range} onChange={(value) => setRange(value as RangeDays)}>
-          {RANGES.map((option) => (
-            <option key={option.label} value={option.value}>
-              {option.label}
-            </option>
-          ))}
-        </InlineSelect>
+    <div className="max-w-[1180px]">
+      <div className="mb-2 flex flex-wrap items-center gap-x-4 gap-y-2.5 border-b border-u-border pb-3.5">
+        <GroupChips value={group} onChange={setGroup} />
+        <div className="flex flex-wrap items-center gap-2 lg:ms-auto">
+          <PillSelect label="Who" value={actor} onChange={setActor}>
+            <option value="">Everyone</option>
+            {lookups.staff.map((member) => (
+              <option key={member.userId} value={member.userId}>
+                {member.fullName}
+              </option>
+            ))}
+          </PillSelect>
+          <PillSelect label="Position" value={position} onChange={setPosition} className="max-w-[280px]">
+            <option value="">Every position</option>
+            {lookups.positions.map((project) => (
+              <option key={project.id} value={project.id}>
+                {project.positionTitle}
+              </option>
+            ))}
+          </PillSelect>
+          <PillSelect label="When" value={range} onChange={(value) => setRange(value as RangeDays)}>
+            {RANGES.map((option) => (
+              <option key={option.label} value={option.value}>
+                {option.label}
+              </option>
+            ))}
+          </PillSelect>
+        </div>
       </div>
-      <GroupChips value={group} onChange={setGroup} />
 
       {feed.isError ? (
         <p className="mt-4 text-[13px] text-u-text3">{messageFor(feed.error)}</p>
@@ -86,10 +88,10 @@ export function ActivityView({ onOpen }: { onOpen: (personId: string) => void })
           Nothing recorded for this filter. Widen the date range or pick everyone.
         </p>
       ) : (
-        <div role="feed" aria-label="Candidate activity" className="mt-3 max-w-[920px]">
+        <div role="feed" aria-label="Candidate activity" className="mt-1">
           {groupByDay(entries).map(([day, lines]) => (
             <section key={day} aria-label={day}>
-              <h3 className="type-label sticky top-0 z-[1] bg-u-surface py-2 text-u-text3">{day}</h3>
+              <h3 className="type-micro-label sticky top-0 z-[1] bg-u-surface py-2 text-u-text3">{day}</h3>
               <ul className="flex flex-col">
                 {timelineLines(lines, null, { withPerson: true }).map((line, index) => {
                   const entry = lines[index];
@@ -148,26 +150,5 @@ export function ActivityView({ onOpen }: { onOpen: (personId: string) => void })
         </div>
       )}
     </div>
-  );
-}
-
-function InlineSelect({
-  label,
-  value,
-  onChange,
-  children,
-}: {
-  label: string;
-  value: string;
-  onChange: (value: string) => void;
-  children: ReactNode;
-}) {
-  return (
-    <label className="flex items-center gap-2">
-      <span className="type-label text-u-text3">{label}</span>
-      <Select value={value} onChange={(event) => onChange(event.target.value)} className="w-auto text-[13px]">
-        {children}
-      </Select>
-    </label>
   );
 }

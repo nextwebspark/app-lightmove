@@ -4,10 +4,12 @@ import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { Icon, ICONS } from "../../../../components/layout/Icon";
 import { EmptyState } from "../../../../components/ui";
+import { Chip } from "../../../../components/ui/Chip";
 import { DataGrid } from "../../../../components/ui/DataGrid";
 import { PaginationBar } from "../../../../components/ui/PaginationBar";
 import { SelectionAction, SelectionActionBar } from "../../../../components/ui/SelectionActionBar";
 import { SelectionCheckbox } from "../../../../components/ui/SelectionCheckbox";
+import { ToolbarButton } from "../../../../components/ui/ToolbarButton";
 import { cn } from "../../../../lib/cn";
 import { messageFor } from "../../../../lib/errorCodes";
 import { useDebouncedValue } from "../../../../lib/useComboboxList";
@@ -140,37 +142,30 @@ export function PeopleView({
         </div>
         <div className="flex flex-wrap gap-1.5" role="group" aria-label="Quick views">
           {QUICK_VIEWS.map((view) => (
-            <button
+            <Chip
               key={view.value}
-              type="button"
+              selected={filters.view === view.value}
               aria-pressed={filters.view === view.value}
+              count={page.data?.viewCounts[view.value]}
               onClick={() => onFiltersChange({ ...filters, view: view.value })}
-              className={cn(
-                "rounded-full border px-[11px] py-[5px] font-mono text-xs font-medium transition hover:text-u-text",
-                filters.view === view.value
-                  ? "border-u-accent bg-u-accent-tint text-u-accent"
-                  : "border-u-border-strong text-u-text2",
-              )}
             >
               {view.label}
-              {page.data && <span className="ms-1.5 text-u-text3">{page.data.viewCounts[view.value]}</span>}
-            </button>
+            </Chip>
           ))}
         </div>
-        <button
-          type="button"
+        <ToolbarButton
           aria-expanded={filtersOpen}
           onClick={() => setFiltersOpen((open) => !open)}
-          className="ms-auto flex items-center gap-1.5 rounded-lg border border-u-border-strong px-3 py-[6px] font-mono text-xs font-medium text-u-text2 hover:text-u-text"
+          className={cn("ms-auto text-u-text", filtersOpen && "border-u-text3 bg-u-raised")}
         >
-          <Icon d={ICONS.filter} size={13} />
+          <Icon d={ICONS.filter} size={14} />
           Filters
           {activeFilterCount > 0 && (
-            <span className="rounded-full bg-u-adjacent-tint px-1.5 font-mono text-[10.5px] text-u-adjacent">
+            <span className="rounded-[4px] bg-u-accent-tint px-1.5 py-px text-[10.5px] font-bold text-u-accent">
               {activeFilterCount}
             </span>
           )}
-        </button>
+        </ToolbarButton>
       </div>
 
       {filtersOpen && (
