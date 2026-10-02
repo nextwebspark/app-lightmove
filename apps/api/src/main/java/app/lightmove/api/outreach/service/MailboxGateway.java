@@ -1,5 +1,6 @@
 package app.lightmove.api.outreach.service;
 
+import app.lightmove.api.outreach.model.BookingPageSpec;
 import app.lightmove.api.outreach.model.BusyInterval;
 import app.lightmove.api.outreach.model.CalendarEvent;
 import app.lightmove.api.outreach.model.GrantedMailbox;
@@ -61,4 +62,10 @@ public interface MailboxGateway {
      * is not: a request that timed out may still have sent the invite.
      */
     CalendarEvent createEvent(String grantId, NewCalendarEvent event);
+
+    /** False where the service's plan carries no booking pages; {@code {{bookingLink}}} is then not offered. */
+    boolean isBookingPageOffered();
+
+    /** Creates a public booking page on the mailbox's calendar and answers its id, which the page is opened by. */
+    String createBookingPage(String grantId, BookingPageSpec page);
 }

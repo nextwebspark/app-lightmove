@@ -555,6 +555,10 @@ lightmove:
       # event.updated, event.deleted (the drawer's Meetings). Blank, replies are found by the poll alone
       # and meetings by the read each calendar gets when it is connected.
       webhook-secret: ${NYLAS_WEBHOOK_SECRET:}
+      # True where the Nylas plan carries Scheduler: sequences may then use {{bookingLink}}, a page at
+      # <web.base-url>/book/<slug> where the executive picks a time. Subscribe the webhook to
+      # booking.created too, so a booking stops their sequence.
+      scheduler-enabled: ${NYLAS_SCHEDULER_ENABLED:false}
     connect-window: ${OUTREACH_CONNECT_WINDOW:10m}
     daily-cap: ${OUTREACH_DAILY_CAP:50}
     window-start: ${OUTREACH_WINDOW_START:08:00}

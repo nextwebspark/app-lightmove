@@ -1,5 +1,12 @@
 import { describe, expect, it } from "vitest";
-import { firstNameOf, render, renderParts } from "./sequenceTokens";
+import {
+  bookingLinkPreviewOf,
+  firstNameOf,
+  render,
+  renderParts,
+  tokenOptions,
+  usesBookingLink,
+} from "./sequenceTokens";
 
 const TOKENS = {
   firstName: "Priya",
@@ -37,5 +44,28 @@ describe("sequence tokens", () => {
   it("greets by the first word of a name", () => {
     expect(firstNameOf("  Priya  Raman")).toBe("Priya");
     expect(firstNameOf(" ")).toBeNull();
+  });
+
+  it("draws the booking link as its own part, and leaves it as typed where no link is known", () => {
+    const parts = renderParts("Pick a time: {{ bookingLink }}", { ...TOKENS, bookingLink: "beta.uncava.com/book/yara" }, null);
+    expect(parts).toEqual([
+      { text: "Pick a time: ", isOpener: false },
+      { text: "beta.uncava.com/book/yara", isOpener: false, isLink: true },
+    ]);
+    expect(render("Pick a time: {{bookingLink}}", TOKENS, null)).toBe("Pick a time: {{bookingLink}}");
+  });
+
+  it("offers the booking link only where booking pages are, and knows a template that asks for it", () => {
+    expect(tokenOptions(false).map((option) => option.token)).not.toContain("{{bookingLink}}");
+    expect(tokenOptions(true).map((option) => option.token)).toContain("{{bookingLink}}");
+    expect(usesBookingLink("Pick a time: {{ bookingLink }}")).toBe(true);
+    expect(usesBookingLink("Hi {{firstName}}")).toBe(false);
+    expect(usesBookingLink(null)).toBe(false);
+  });
+
+  it("previews the link a sender's name will get, accents and all", () => {
+    expect(bookingLinkPreviewOf("Yara Haddad", "beta.uncava.com")).toBe("beta.uncava.com/book/yara-haddad");
+    expect(bookingLinkPreviewOf("Zoë Ünal", "beta.uncava.com")).toBe("beta.uncava.com/book/zoe-unal");
+    expect(bookingLinkPreviewOf(null, "beta.uncava.com")).toBe("beta.uncava.com/book/your-name");
   });
 });

@@ -14,6 +14,7 @@ import app.lightmove.api.outreach.dto.SequencesResponse;
 import app.lightmove.api.outreach.model.OutreachSequence;
 import app.lightmove.api.outreach.model.SequenceEnrollmentCount;
 import app.lightmove.api.outreach.model.SequenceStep;
+import app.lightmove.api.outreach.model.SequenceTokens;
 import app.lightmove.api.outreach.repository.OutreachEnrollmentRepository;
 import app.lightmove.api.outreach.repository.OutreachSequenceRepository;
 import jakarta.servlet.http.HttpServletRequest;
@@ -38,6 +39,7 @@ public class OutreachSequenceService {
 
     private static final String TARGET_DETAIL = "sequenceId";
 
+    private final BookingPages bookingPages;
     private final OutreachSequenceRepository sequences;
     private final OutreachEnrollmentRepository enrollments;
     private final UserRepository users;
@@ -64,6 +66,7 @@ public class OutreachSequenceService {
                                    HttpServletRequest httpRequest) {
         OutreachSequence sequence = sequences.save(OutreachSequence.written(workspaceId, projectId, userId,
                 request.name().trim(), stepsOf(request.steps())));
+        refuseUnofferedBookingLink(sequence);
         audited(ProjectEventType.OUTREACH_SEQUENCE_CREATED, userId, workspaceId, projectId, sequence, httpRequest);
         return toResponse(sequence);
     }
@@ -73,6 +76,7 @@ public class OutreachSequenceService {
                                    SaveSequenceRequest request, HttpServletRequest httpRequest) {
         OutreachSequence sequence = sequences.requireInProject(sequenceId, workspaceId, projectId);
         sequence.rewrite(request.name().trim(), stepsOf(request.steps()));
+        refuseUnofferedBookingLink(sequence);
         audited(ProjectEventType.OUTREACH_SEQUENCE_UPDATED, userId, workspaceId, projectId, sequence, httpRequest);
         return toResponse(sequence);
     }
@@ -85,6 +89,13 @@ public class OutreachSequenceService {
         }
         sequences.delete(sequence);
         audited(ProjectEventType.OUTREACH_SEQUENCE_DELETED, userId, workspaceId, projectId, sequence, httpRequest);
+    }
+
+    /** The token would render empty in front of an executive; refused here, inside the write, so nothing is saved. */
+    private void refuseUnofferedBookingLink(OutreachSequence sequence) {
+        if (!bookingPages.isOffered() && sequence.uses(SequenceTokens.BOOKING_LINK)) {
+            throw ApiException.of(ErrorCode.OUTREACH_BOOKING_LINK_UNAVAILABLE);
+        }
     }
 
     /** Step one goes when the consultant starts, so its delay is always zero; only it carries a subject. */

@@ -10,7 +10,9 @@ import java.util.regex.Pattern;
  * left exactly as typed, so a misspelling shows in the review rather than vanishing from the email.
  */
 public record SequenceTokens(String firstName, String currentTitle, String currentCompany, String positionTitle,
-                             String location, String senderFirstName, String opener) {
+                             String location, String senderFirstName, String opener, String bookingLink) {
+
+    public static final String BOOKING_LINK = "bookingLink";
 
     private static final Pattern TOKEN = Pattern.compile("\\{\\{\\s*([A-Za-z]+)\\s*}}");
 
@@ -38,7 +40,22 @@ public record SequenceTokens(String firstName, String currentTitle, String curre
         values.put("location", orBlank(location));
         values.put("senderFirstName", orBlank(senderFirstName));
         values.put("opener", orBlank(opener));
+        values.put(BOOKING_LINK, orBlank(bookingLink));
         return values;
+    }
+
+    /** Whether {@code template} asks for {@code token}, however it is spaced inside the braces. */
+    public static boolean uses(String template, String token) {
+        if (template == null) {
+            return false;
+        }
+        Matcher found = TOKEN.matcher(template);
+        while (found.find()) {
+            if (found.group(1).equals(token)) {
+                return true;
+            }
+        }
+        return false;
     }
 
     private static String orBlank(String value) {

@@ -84,7 +84,9 @@ export function OutreachSection({
         )}
         {run.status === "BOOKED" && (
           <div className="mb-3 rounded-[8px] bg-u-direct-tint px-3 py-2.5 text-[12.5px]/[1.5]">
-            <b className="text-u-direct">A call was booked with {firstName}.</b>{" "}
+            <b className="text-u-direct">
+              {run.bookedViaLink ? `${firstName} booked a call through your link.` : `A call was booked with ${firstName}.`}
+            </b>{" "}
             {run.endedAt ? `${sendTimeOf(run.endedAt)}. ` : ""}Their sequence stopped.
           </div>
         )}

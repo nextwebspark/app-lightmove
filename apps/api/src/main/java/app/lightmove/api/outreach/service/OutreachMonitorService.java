@@ -133,7 +133,8 @@ public class OutreachMonitorService {
                     sequence == null ? null : sequence.getName(), stepCount, enrollment.sentCount(),
                     enrollment.isLive() ? enrollment.getNextSendAt() : null, enrollment.getLastSentAt(),
                     enrollment.getStatus(), enrollment.getStopReason(), endedAtOf(enrollment),
-                    enrollment.getSenderUserId(), senderNames.get(enrollment.getSenderUserId()));
+                    enrollment.getSenderUserId(), senderNames.get(enrollment.getSenderUserId()),
+                    enrollment.isBookedViaLink());
         }).toList();
     }
 

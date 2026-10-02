@@ -11,6 +11,8 @@ export type MailboxStatus = "ACTIVE" | "ERROR";
 
 export interface ConnectedMailbox {
   address: string;
+  /** Null until the owner's first Start that uses `{{bookingLink}}` makes one. */
+  bookingLink?: string | null;
   /** The mail service's name for the host, e.g. `google`, `microsoft`. */
   provider: string;
   status: MailboxStatus;
@@ -23,6 +25,8 @@ export interface Mailbox {
   offered: boolean;
   providers: string[];
   connection: ConnectedMailbox | null;
+  /** Whether sequences may use `{{bookingLink}}`: the mail service's plan carries booking pages. */
+  bookingLinkOffered: boolean;
 }
 
 interface MailboxConnectStart {

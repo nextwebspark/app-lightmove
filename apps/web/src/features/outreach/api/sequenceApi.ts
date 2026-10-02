@@ -52,6 +52,8 @@ export interface RecipientTokens {
   positionTitle: string | null;
   location: string | null;
   senderFirstName: string | null;
+  /** The sender's booking link; null until their first Start that uses it makes one. */
+  bookingLink?: string | null;
 }
 
 export interface EnrollmentCandidate {

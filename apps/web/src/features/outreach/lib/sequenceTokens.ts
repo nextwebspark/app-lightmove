@@ -10,9 +10,13 @@ export interface SequenceTokenOption {
   token: string;
   tip: string;
   isAi?: boolean;
+  isLink?: boolean;
 }
 
 export const OPENER_TOKEN = "{{opener}}";
+export const BOOKING_LINK_TOKEN = "{{bookingLink}}";
+
+const TOKEN = /\{\{\s*([A-Za-z]+)\s*\}\}/g;
 
 export const SEQUENCE_TOKENS: SequenceTokenOption[] = [
   { token: "{{firstName}}", tip: "Their first name" },
@@ -22,17 +26,43 @@ export const SEQUENCE_TOKENS: SequenceTokenOption[] = [
   { token: "{{location}}", tip: "Their city" },
   { token: "{{senderFirstName}}", tip: "Your first name" },
   {
+    token: BOOKING_LINK_TOKEN,
+    tip: "Your booking page: they pick a free slot on your calendar, and their sequence stops",
+    isLink: true,
+  },
+  {
     token: OPENER_TOKEN,
     tip: "One or two sentences AI drafts for each person from their profile. You review every one.",
     isAi: true,
   },
 ];
 
-const TOKEN = /\{\{\s*([A-Za-z]+)\s*\}\}/g;
+/** The bar's tokens; the booking link only where the mail service's plan offers booking pages. */
+export function tokenOptions(bookingLinkOffered: boolean): SequenceTokenOption[] {
+  return SEQUENCE_TOKENS.filter((option) => bookingLinkOffered || !option.isLink);
+}
+
+/** Whether a template asks for the booking link, however it is spaced inside the braces. */
+export function usesBookingLink(template: string | null | undefined): boolean {
+  return [...(template ?? "").matchAll(TOKEN)].some((match) => match[1] === "bookingLink");
+}
+
+/** What a preview shows before the sender's first Start makes their real link. */
+export function bookingLinkPreviewOf(senderName: string | null | undefined, host = window.location.host): string {
+  const slug = (senderName ?? "")
+    .normalize("NFD")
+    .replace(/\p{M}/gu, "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+  return `${host}/book/${slug || "your-name"}`;
+}
 
 export interface RenderedPart {
   text: string;
   isOpener: boolean;
+  /** The sender's booking link, drawn as a link in the preview. */
+  isLink?: boolean;
 }
 
 /** The template filled in, split so the opener can be highlighted where it landed. */
@@ -56,6 +86,10 @@ export function renderParts(template: string, tokens: RecipientTokens, opener: s
       if (plain) parts.push({ text: plain, isOpener: false });
       plain = "";
       parts.push({ text: opener?.trim() ?? "", isOpener: true });
+    } else if (name === "bookingLink" && tokens.bookingLink !== undefined) {
+      if (plain) parts.push({ text: plain, isOpener: false });
+      plain = "";
+      parts.push({ text: tokens.bookingLink?.trim() ?? "", isOpener: false, isLink: true });
     } else {
       plain += Object.hasOwn(values, name) ? values[name] : match[0];
     }

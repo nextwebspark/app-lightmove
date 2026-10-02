@@ -11,6 +11,7 @@ import app.lightmove.api.core.resilience.model.VendorException;
 import app.lightmove.api.core.resilience.service.VendorCallGuard;
 import app.lightmove.api.core.resilience.service.VendorClientFactory;
 import app.lightmove.api.core.resilience.service.VendorRateLimiter;
+import app.lightmove.api.outreach.model.BookingMade;
 import app.lightmove.api.outreach.model.BusyInterval;
 import app.lightmove.api.outreach.model.CalendarEvent;
 import app.lightmove.api.outreach.model.CalendarEventChanged;
@@ -44,7 +45,7 @@ class NylasMailboxGatewayTest {
 
     private final NylasMailboxGateway gateway = new NylasMailboxGateway(
             new NylasSettings("nyk_secret", "client-123", "https://api.us.nylas.com", List.of("google", "microsoft"), 5,
-                    WEBHOOK_SECRET),
+                    WEBHOOK_SECRET, true),
             mock(VendorClientFactory.class), mock(VendorRateLimiter.class), mock(VendorCallGuard.class),
             RestClient.builder());
 
@@ -195,10 +196,38 @@ class NylasMailboxGatewayTest {
     }
 
     @Test
+    @DisplayName("a booking through a page reads as the page, the call and everyone on it, with or without a grant")
+    void bookingsReadAsThePageAndTheCall() throws Exception {
+        byte[] booked = """
+                {"type":"booking.created","data":{"object":{"configuration_id":"page-7","booking_id":"b-1",
+                 "booking_info":{"event_id":"evt-9","title":"30-minute call with Yara Haddad",
+                  "start_time":1790000000,"end_time":1790001800,
+                  "participants":[{"email":"yara@firm.example"},{"email":"priya@target.example","name":"Priya"}]}}}}"""
+                .getBytes(StandardCharsets.UTF_8);
+        byte[] guestOnly = """
+                {"type":"booking.created","data":{"object":{"configuration_id":"page-7","grant_id":"grant-9",
+                 "booking_info":{"event_id":"evt-10","start_time":1790000000,"end_time":1790001800,
+                  "guest_email":"priya@target.example"}}}}""".getBytes(StandardCharsets.UTF_8);
+        byte[] untimed = """
+                {"type":"booking.created","data":{"object":{"configuration_id":"page-7","booking_info":{}}}}"""
+                .getBytes(StandardCharsets.UTF_8);
+
+        assertThat(gateway.readWebhook(signatureOf(booked), booked)).containsExactly(new BookingMade(null, "page-7",
+                "evt-9", "30-minute call with Yara Haddad", Instant.ofEpochSecond(1790000000),
+                Instant.ofEpochSecond(1790001800), List.of("yara@firm.example", "priya@target.example")));
+        assertThat(gateway.readWebhook(signatureOf(guestOnly), guestOnly)).containsExactly(new BookingMade("grant-9",
+                "page-7", "evt-10", null, Instant.ofEpochSecond(1790000000), Instant.ofEpochSecond(1790001800),
+                List.of("priya@target.example")));
+        assertThat(gateway.readWebhook(signatureOf(untimed), untimed)).isEmpty();
+        assertThat(gateway.isBookingPageOffered()).isTrue();
+    }
+
+    @Test
     @DisplayName("without a webhook secret every delivery is refused")
     void noSecretNoWebhook() throws Exception {
         NylasMailboxGateway unsigned = new NylasMailboxGateway(
-                new NylasSettings("nyk_secret", "client-123", "https://api.us.nylas.com", List.of("google"), 5, ""),
+                new NylasSettings("nyk_secret", "client-123", "https://api.us.nylas.com", List.of("google"), 5, "",
+                        false),
                 mock(VendorClientFactory.class), mock(VendorRateLimiter.class), mock(VendorCallGuard.class),
                 RestClient.builder());
         byte[] body = "{}".getBytes(StandardCharsets.UTF_8);

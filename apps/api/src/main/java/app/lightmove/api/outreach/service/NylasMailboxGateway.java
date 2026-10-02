@@ -11,6 +11,8 @@ import app.lightmove.api.core.resilience.service.VendorCallGuard;
 import app.lightmove.api.core.resilience.service.VendorClientFactory;
 import app.lightmove.api.core.resilience.service.VendorRateLimiter;
 import app.lightmove.api.outreach.constant.MeetingVideo;
+import app.lightmove.api.outreach.model.BookingMade;
+import app.lightmove.api.outreach.model.BookingPageSpec;
 import app.lightmove.api.outreach.model.BusyInterval;
 import app.lightmove.api.outreach.model.CalendarEvent;
 import app.lightmove.api.outreach.model.CalendarEventChanged;
@@ -72,6 +74,10 @@ public class NylasMailboxGateway implements MailboxGateway {
     private static final int MAX_EVENT_PAGES = 10;
 
     private static final String PRIMARY_CALENDAR = "primary";
+
+    /** How far ahead an executive may book, and how soon: two weeks out, never within the hour. */
+    private static final int BOOKING_DAYS_AHEAD = 14;
+    private static final int BOOKING_NOTICE_MINUTES = 60;
 
     private final NylasSettings config;
     private final RestClient client;
@@ -172,6 +178,9 @@ public class NylasMailboxGateway implements MailboxGateway {
         }
         JsonNode object = notification.path("data").path("object");
         String grantId = textOrNull(object.path("grant_id"));
+        if ("booking.created".equals(notification.path("type").asString(""))) {
+            return bookingOf(grantId, object);
+        }
         if (grantId == null) {
             return List.of();
         }
@@ -294,6 +303,71 @@ public class NylasMailboxGateway implements MailboxGateway {
             throw new IllegalStateException("The mail service answered an event create with no timed event");
         }
         return created;
+    }
+
+    @Override
+    public boolean isBookingPageOffered() {
+        return config.schedulerEnabled();
+    }
+
+    @Override
+    public String createBookingPage(String grantId, BookingPageSpec page) {
+        Map<String, Object> organizer = new LinkedHashMap<>();
+        organizer.put("email", page.organizerAddress());
+        organizer.put("name", page.organizerName());
+        organizer.put("is_organizer", true);
+        organizer.put("availability", Map.of("calendar_ids", List.of(PRIMARY_CALENDAR)));
+        organizer.put("booking", Map.of("calendar_id", PRIMARY_CALENDAR));
+        Map<String, Object> openHours = Map.of(
+                "days", page.days().stream().map(day -> day.getValue() % 7).sorted().toList(),
+                "timezone", page.zone().getId(),
+                "start", page.dayStart().toString(),
+                "end", page.dayEnd().toString(),
+                "exdates", List.of());
+        Map<String, Object> body = new LinkedHashMap<>();
+        // The page is opened by its id from a public link: an executive holds no Nylas session.
+        body.put("requires_session_auth", false);
+        body.put("participants", List.of(organizer));
+        body.put("availability", Map.of("duration_minutes", page.minutes(), "interval_minutes", page.minutes(),
+                "availability_rules", Map.of("default_open_hours", List.of(openHours))));
+        body.put("event_booking", Map.of("title", page.eventTitle(), "timezone", page.zone().getId()));
+        body.put("scheduler", Map.of("available_days_in_future", BOOKING_DAYS_AHEAD,
+                "min_booking_notice", BOOKING_NOTICE_MINUTES));
+        JsonNode answer = guard.call(VendorCall.of(VENDOR, "create-booking-page"), () -> client.post()
+                .uri("/v3/grants/{grantId}/scheduling/configurations", grantId)
+                .contentType(MediaType.APPLICATION_JSON)
+                .body(body)
+                .retrieve()
+                .body(JsonNode.class));
+        String configurationId = answer == null ? null : textOrNull(answer.path("data").path("id"));
+        if (configurationId == null) {
+            throw new VendorException(VendorCall.of(VENDOR, "create-booking-page"),
+                    VendorFailureKind.MALFORMED_RESPONSE, null);
+        }
+        return configurationId;
+    }
+
+    /** Nothing in a booking without its configuration and a timed slot can be matched to a page or a call. */
+    static List<MailboxEvent> bookingOf(String grantId, JsonNode object) {
+        String configurationId = textOrNull(object.path("configuration_id"));
+        JsonNode booking = object.path("booking_info");
+        if (configurationId == null || !booking.path("start_time").isNumber() || !booking.path("end_time").isNumber()) {
+            return List.of();
+        }
+        List<String> participants = new ArrayList<>();
+        for (JsonNode participant : booking.path("participants")) {
+            String address = textOrNull(participant.path("email"));
+            if (address != null) {
+                participants.add(address);
+            }
+        }
+        String guest = textOrNull(booking.path("guest_email"));
+        if (guest != null && participants.stream().noneMatch(guest::equalsIgnoreCase)) {
+            participants.add(guest);
+        }
+        return List.of(new BookingMade(grantId, configurationId, textOrNull(booking.path("event_id")),
+                textOrNull(booking.path("title")), Instant.ofEpochSecond(booking.path("start_time").asLong()),
+                Instant.ofEpochSecond(booking.path("end_time").asLong()), participants));
     }
 
     private static String conferencingProviderOf(MeetingVideo video) {

@@ -163,11 +163,11 @@ public class MeetingService {
                               int minutes, Instant now, HttpServletRequest httpRequest) {
         transactions.executeWithoutResult(status -> {
             MailboxConnection fresh = mailboxes.findById(mailbox.getId()).orElse(mailbox);
-            meetingSync.keep(fresh, created, recipient.personId(), userId);
+            meetingSync.keep(fresh, created, recipient.personId(), userId, false);
             people.recordMeetingBooked(userId, projectId, candidateId, created.startsAt(), false);
             enrollments.findByProjectIdAndPersonIdInAndStatusIn(projectId, List.of(recipient.personId()),
                             EnrollmentStatus.LIVE)
-                    .forEach(enrollment -> outcomes.booked(enrollment, userId, now, httpRequest));
+                    .forEach(enrollment -> outcomes.booked(enrollment, userId, false, now, httpRequest));
             audit.projectEvent(ProjectEventType.OUTREACH_MEETING_BOOKED, userId, workspaceId, projectId, httpRequest)
                     .detail("candidateId", candidateId.toString())
                     .detail("startsAt", created.startsAt().toString())

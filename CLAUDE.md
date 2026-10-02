@@ -414,7 +414,16 @@ each occurrence in a read. A free/busy answer with an error entry is a failure, 
 consultant's free half-hours in their own window (`FreeSlots`, `…/meetings/slots`) and `POST …/meetings`
 re-checks do not contact, the ledger and the slot, creates the event (never retried), then writes
 `MEETING_BOOKED`, moves Identified or Contacted to Engaged (forward only) and ends a live run as `BOOKED`.
-All `WORK_EXECUTE`. The `{{bookingLink}}` Scheduler page is the next PR.
+All `WORK_EXECUTE`. **The booking link (V104)** is `{{bookingLink}}`, offered only where the Nylas plan
+carries Scheduler (`lightmove.outreach.nylas.scheduler-enabled`; a sequence using it is refused otherwise,
+`OUTREACH_BOOKING_LINK_UNAVAILABLE`): `<web.base-url>/book/<slug>`, the slug the consultant's name, unique
+and kept across a reconnect, and the one anchor `OutreachEmailBody` writes. A send never calls the mail
+service for it — the slug is all an email needs — so `BookingPages.prepare` makes the Scheduler page at
+Start, and the public `GET /api/v1/outreach/booking/{slug}` makes it again after a reconnect cleared it.
+The SPA's `/book/:slug` is public and loads `@nylas/react`'s scheduler lazily (its own chunk). A
+`booking.created` webhook names the page; `LinkBookings` matches the booker's address on the ledger, keeps
+the meeting `booked_via_link`, ends that sender's listening runs with them as `BOOKED` before their next
+step, and moves the person forward to Engaged.
 
 ## Commands
 

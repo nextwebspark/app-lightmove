@@ -61,4 +61,10 @@ public class OutreachSequence extends BaseEntity {
     public SequenceStep firstStep() {
         return steps.getFirst();
     }
+
+    /** Whether any step's subject or body asks for {@code token}. */
+    public boolean uses(String token) {
+        return steps.stream().anyMatch(step -> SequenceTokens.uses(step.getSubject(), token)
+                || SequenceTokens.uses(step.getBody(), token));
+    }
 }

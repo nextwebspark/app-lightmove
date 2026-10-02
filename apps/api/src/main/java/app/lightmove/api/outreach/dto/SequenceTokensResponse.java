@@ -4,10 +4,12 @@ import app.lightmove.api.outreach.model.SequenceTokens;
 
 /** The values the server fills a person's tokens with, so the review shows exactly what Start freezes. */
 public record SequenceTokensResponse(String firstName, String currentTitle, String currentCompany,
-                                     String positionTitle, String location, String senderFirstName) {
+                                     String positionTitle, String location, String senderFirstName,
+                                     String bookingLink) {
 
+    /** {@code bookingLink} is null until the sender's first Start that uses it makes one. */
     public static SequenceTokensResponse of(SequenceTokens tokens) {
         return new SequenceTokensResponse(tokens.firstName(), tokens.currentTitle(), tokens.currentCompany(),
-                tokens.positionTitle(), tokens.location(), tokens.senderFirstName());
+                tokens.positionTitle(), tokens.location(), tokens.senderFirstName(), tokens.bookingLink());
     }
 }

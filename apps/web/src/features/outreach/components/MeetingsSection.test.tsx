@@ -69,6 +69,7 @@ function renderSection({
   vi.mocked(mailboxApi.getMailbox).mockResolvedValue({
     offered,
     providers: ["google"],
+    bookingLinkOffered: false,
     connection: {
       address: "yara@firm.example",
       provider: "google",

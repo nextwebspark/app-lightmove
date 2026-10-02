@@ -57,16 +57,19 @@ class MeetingSync {
             if (held.contains(event.id())) {
                 meetings.deleteDroppedFromEvent(mailbox.getId(), event.id(), attending);
             }
-            attending.forEach(personId -> keep(mailbox, event, personId, null));
+            attending.forEach(personId -> keep(mailbox, event, personId, null, false));
         }
     }
 
-    /** {@code bookedBy} is the consultant who booked it through Uncava, or null for an event found on a calendar. */
+    /**
+     * {@code bookedBy} is the consultant who booked it through Uncava, or null for an event found on a calendar
+     * or one the executive booked through the link ({@code viaLink}).
+     */
     @Transactional(propagation = Propagation.MANDATORY)
-    public void keep(MailboxConnection mailbox, CalendarEvent event, UUID personId, UUID bookedBy) {
+    public void keep(MailboxConnection mailbox, CalendarEvent event, UUID personId, UUID bookedBy, boolean viaLink) {
         meetings.upsert(mailbox.getWorkspaceId(), personId, mailbox.getId(), mailbox.getUserId(), event.id(),
                 event.title(), event.startsAt(), event.endsAt(), event.joinUrl(), event.conferencingProvider(),
-                bookedBy, false);
+                bookedBy, viaLink);
     }
 
     @Transactional(propagation = Propagation.MANDATORY)

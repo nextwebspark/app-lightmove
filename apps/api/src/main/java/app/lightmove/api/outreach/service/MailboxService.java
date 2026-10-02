@@ -56,15 +56,17 @@ public class MailboxService {
     private final TransactionTemplate transactions;
     private final AuditService audit;
     private final ApplicationEventPublisher events;
+    private final BookingPages bookingPages;
     private final LightMoveProperties properties;
     private final Clock clock;
 
     @Transactional(readOnly = true)
     public MailboxResponse view(UUID userId, UUID workspaceId) {
         ConnectedMailboxResponse connection = connections.findByWorkspaceIdAndUserId(workspaceId, userId)
-                .map(ConnectedMailboxResponse::of)
+                .map(mailbox -> ConnectedMailboxResponse.of(mailbox, bookingPages.linkOf(mailbox)))
                 .orElse(null);
-        return new MailboxResponse(gateway.isOffered(), gateway.providers(), connection);
+        return new MailboxResponse(gateway.isOffered(), gateway.providers(), connection,
+                gateway.isOffered() && gateway.isBookingPageOffered());
     }
 
     /** Any attempt the caller left unfinished is dropped, so only the newest consent screen can connect. */
