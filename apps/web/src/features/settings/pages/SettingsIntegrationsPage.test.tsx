@@ -28,7 +28,7 @@ const sharedIntegration = (provider: WorkspaceIntegration["provider"]): Workspac
   mode: "SHARED",
   clientId: null,
   tenantId: null,
-  secretExpiresAt: null,
+  secretExpiresOn: null,
   secretSet: false,
   sharedOffered: provider !== "ZOOM",
   redirectUri:
@@ -59,7 +59,7 @@ const googleOwn: WorkspaceIntegrations = {
       mode: "OWN",
       clientId: "acme-app",
       secretSet: true,
-      secretExpiresAt: "2027-10-01T00:00:00Z",
+      secretExpiresOn: "2027-10-01",
       updatedAt: "2026-10-02T10:00:00Z",
     },
     sharedIntegration("MICROSOFT"),
@@ -136,7 +136,7 @@ describe("SettingsIntegrationsPage", () => {
         clientId: "acme-app",
         clientSecret: " pasted secret ",
         tenantId: undefined,
-        secretExpiresAt: null,
+        secretExpiresOn: null,
       }),
     );
   });
@@ -156,7 +156,7 @@ describe("SettingsIntegrationsPage", () => {
     await waitFor(() =>
       expect(integrationsApi.updateIntegration).toHaveBeenCalledWith(
         "GOOGLE",
-        expect.objectContaining({ clientId: "acme-app", clientSecret: undefined, secretExpiresAt: "2027-10-01T00:00:00Z" }),
+        expect.objectContaining({ clientId: "acme-app", clientSecret: undefined, secretExpiresOn: "2027-10-01" }),
       ),
     );
   });
@@ -209,6 +209,29 @@ describe("SettingsIntegrationsPage", () => {
     await userEvent.click(within(dialog).getByRole("button", { name: "Use the shared app" }));
 
     await waitFor(() => expect(integrationsApi.returnToSharedApp).toHaveBeenCalledWith("GOOGLE"));
+  });
+
+  it("redraws a provider another admin returned to the shared app when the page reads again", async () => {
+    vi.mocked(integrationsApi.integrations).mockResolvedValueOnce(googleOwn).mockResolvedValue(allShared);
+    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    render(
+      <MemoryRouter>
+        <QueryClientProvider client={queryClient}>
+          <ToastProvider>
+            <SettingsIntegrationsPage />
+          </ToastProvider>
+        </QueryClientProvider>
+      </MemoryRouter>,
+    );
+    const google = await card("Google Workspace");
+    expect(within(google).getByRole("radio", { name: "Your own app" })).toHaveAttribute("aria-checked", "true");
+
+    await queryClient.invalidateQueries({ queryKey: integrationsApi.INTEGRATIONS_KEY });
+
+    await waitFor(() =>
+      expect(within(google).getByRole("radio", { name: "Shared app" })).toHaveAttribute("aria-checked", "true"),
+    );
+    expect(within(google).queryByLabelText("Client ID")).not.toBeInTheDocument();
   });
 
   it("explains a deployment that cannot store an own app's keys rather than letting a save fail", async () => {

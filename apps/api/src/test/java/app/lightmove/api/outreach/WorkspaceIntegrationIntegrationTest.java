@@ -72,14 +72,14 @@ class WorkspaceIntegrationIntegrationTest extends FlowTestSupport {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {"mode":"OWN","clientId":"contoso-app","clientSecret":"%s",
-                                 "tenantId":"contoso.onmicrosoft.com","secretExpiresAt":"2027-10-01T00:00:00Z"}
+                                 "tenantId":"contoso.onmicrosoft.com","secretExpiresOn":"2027-10-01"}
                                 """.formatted(SECRET)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.providers[1].mode").value("OWN"))
                 .andExpect(jsonPath("$.providers[1].clientId").value("contoso-app"))
                 .andExpect(jsonPath("$.providers[1].tenantId").value("contoso.onmicrosoft.com"))
                 .andExpect(jsonPath("$.providers[1].secretSet").value(true))
-                .andExpect(jsonPath("$.providers[1].secretExpiresAt").value("2027-10-01T00:00:00Z"))
+                .andExpect(jsonPath("$.providers[1].secretExpiresOn").value("2027-10-01"))
                 .andReturn();
         MvcResult read = mvc.perform(get("/api/v1/workspace/integrations").header("Authorization", "Bearer " + admin))
                 .andExpect(status().isOk())
@@ -118,6 +118,33 @@ class WorkspaceIntegrationIntegrationTest extends FlowTestSupport {
         MvcResult refused = saveOwnGoogleApp(admin, "another-app", "").andReturn();
         assertThat(refused.getResponse().getStatus()).isEqualTo(400);
         assertThat(body(refused).at("/fieldErrors/clientSecret").asText()).isNotBlank();
+    }
+
+    @Test
+    @DisplayName("saving the same app again with nothing changed records nothing")
+    void unchangedSaveRecordsNothing() throws Exception {
+        String admin = adminOfNewWorkspace("Unchanged Firm");
+        saveOwnGoogleApp(admin, "acme-app", SECRET).andExpect(status().isOk());
+
+        saveOwnGoogleApp(admin, "acme-app", "").andExpect(status().isOk());
+
+        assertThat(auditDetailsFor(workspaceOf(admin))).hasSize(1);
+    }
+
+    @Test
+    @DisplayName("keys sent with the shared app are refused rather than dropped")
+    void sharedWithKeysIsRefused() throws Exception {
+        String admin = adminOfNewWorkspace("Shared Keys Firm");
+
+        MvcResult refused = mvc.perform(put("/api/v1/workspace/integrations/GOOGLE")
+                        .header("Authorization", "Bearer " + admin)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"mode":"SHARED","clientId":"acme-app","clientSecret":"%s"}""".formatted(SECRET)))
+                .andReturn();
+
+        assertThat(refused.getResponse().getStatus()).isEqualTo(400);
+        assertThat(body(refused).at("/fieldErrors/mode").asText()).isNotBlank();
     }
 
     @Test

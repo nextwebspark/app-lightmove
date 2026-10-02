@@ -58,7 +58,10 @@ export function IntegrationCard({
 }) {
   const queryClient = useQueryClient();
   const toast = useToast();
-  const [chosenMode, setChosenMode] = useState<CredentialMode>(integration.mode);
+  // Only "opened Own, not saved yet" is local: the saved mode is the server's, so a refetch that finds the
+  // provider returned to the shared app by someone else redraws the card.
+  const [openedOwn, setOpenedOwn] = useState(false);
+  const shownMode: CredentialMode = integration.mode === "OWN" || openedOwn ? "OWN" : "SHARED";
   const [confirmingReturn, setConfirmingReturn] = useState(false);
   const copy = PROVIDER_COPY[integration.provider];
 
@@ -70,7 +73,7 @@ export function IntegrationCard({
     onSuccess: (saved) => {
       showSaved(saved);
       setConfirmingReturn(false);
-      setChosenMode("SHARED");
+      setOpenedOwn(false);
       toast(`${copy.title} uses the shared app`);
     },
     onError: (error) => toast(messageFor(error)),
@@ -81,7 +84,7 @@ export function IntegrationCard({
       setConfirmingReturn(true);
       return;
     }
-    setChosenMode(next);
+    setOpenedOwn(next === "OWN");
   };
 
   const handleSaveOwnApp = async (values: OwnAppValues) => {
@@ -90,9 +93,10 @@ export function IntegrationCard({
       clientId: values.clientId,
       clientSecret: values.clientSecret.trim() ? values.clientSecret : undefined,
       tenantId: values.tenantId || undefined,
-      secretExpiresAt: values.secretExpiresOn ? `${values.secretExpiresOn}T00:00:00Z` : null,
+      secretExpiresOn: values.secretExpiresOn || null,
     });
     showSaved(saved);
+    setOpenedOwn(false);
     toast(`${copy.title} uses your own app`);
   };
 
@@ -108,10 +112,10 @@ export function IntegrationCard({
             <div className="mt-0.5 font-mono text-[11.5px] text-u-text3">{copy.covers}</div>
           </div>
         </div>
-        <SegmentedControl label={`${copy.title} app`} options={MODE_OPTIONS} value={chosenMode} onChange={handleChooseMode} />
+        <SegmentedControl label={`${copy.title} app`} options={MODE_OPTIONS} value={shownMode} onChange={handleChooseMode} />
       </div>
 
-      {chosenMode === "OWN" ? (
+      {shownMode === "OWN" ? (
         <OwnAppForm
           key={integration.updatedAt ?? "new"}
           integration={integration}

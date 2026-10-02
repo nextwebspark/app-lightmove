@@ -9,7 +9,7 @@ import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
 import jakarta.persistence.Table;
-import java.time.Instant;
+import java.time.LocalDate;
 import java.util.Objects;
 import java.util.UUID;
 import lombok.AccessLevel;
@@ -47,8 +47,8 @@ public class WorkspaceMailIntegration extends BaseEntity {
     @Column(name = "tenant_id", length = 64)
     private String tenantId;
 
-    @Column(name = "secret_expires_at")
-    private Instant secretExpiresAt;
+    @Column(name = "secret_expires_on")
+    private LocalDate secretExpiresOn;
 
     @Column(name = "updated_by")
     private UUID updatedBy;
@@ -70,11 +70,20 @@ public class WorkspaceMailIntegration extends BaseEntity {
         return clientSecretContext(workspaceId, provider);
     }
 
-    /** {@code clientSecretEncrypted} null keeps the secret already held, which only an app already in use has. */
-    public void useOwnApp(String clientId, String clientSecretEncrypted, String tenantId, Instant secretExpiresAt,
-                          UUID actorId) {
+    /**
+     * {@code clientSecretEncrypted} null keeps the secret already held, which only an app already in use has.
+     *
+     * @return whether anything changed, so a save that changed nothing is not recorded as a change
+     */
+    public boolean useOwnApp(String clientId, String clientSecretEncrypted, String tenantId, LocalDate secretExpiresOn,
+                             UUID actorId) {
         if (clientSecretEncrypted == null && !holdsSecretFor(clientId)) {
             throw new IllegalStateException("A new app needs its secret");
+        }
+        boolean changed = !isOwnApp() || clientSecretEncrypted != null || !Objects.equals(this.clientId, clientId)
+                || !Objects.equals(this.tenantId, tenantId) || !Objects.equals(this.secretExpiresOn, secretExpiresOn);
+        if (!changed) {
+            return false;
         }
         this.mode = CredentialMode.OWN;
         this.clientId = Objects.requireNonNull(clientId, "clientId");
@@ -82,8 +91,9 @@ public class WorkspaceMailIntegration extends BaseEntity {
             this.clientSecretEncrypted = clientSecretEncrypted;
         }
         this.tenantId = tenantId;
-        this.secretExpiresAt = secretExpiresAt;
+        this.secretExpiresOn = secretExpiresOn;
         this.updatedBy = actorId;
+        return true;
     }
 
     public void useSharedApp(UUID actorId) {
@@ -91,7 +101,7 @@ public class WorkspaceMailIntegration extends BaseEntity {
         this.clientId = null;
         this.clientSecretEncrypted = null;
         this.tenantId = null;
-        this.secretExpiresAt = null;
+        this.secretExpiresOn = null;
         this.updatedBy = actorId;
     }
 

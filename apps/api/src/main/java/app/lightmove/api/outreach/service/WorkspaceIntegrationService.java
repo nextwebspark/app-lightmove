@@ -51,9 +51,35 @@ public class WorkspaceIntegrationService {
                 isRecallOffered());
     }
 
+    /** {@code PUT}: the shared app takes no keys, so keys sent with it are refused rather than dropped. */
     @Transactional
-    public WorkspaceIntegrationsResponse useOwnApp(UUID actorId, UUID workspaceId, IntegrationProvider provider,
-                                                   OwnAppKeys keys, HttpServletRequest request) {
+    public WorkspaceIntegrationsResponse update(UUID actorId, UUID workspaceId, IntegrationProvider provider,
+                                                CredentialMode mode, OwnAppKeys keys, HttpServletRequest request) {
+        if (mode == CredentialMode.OWN) {
+            return useOwnApp(actorId, workspaceId, provider, keys, request);
+        }
+        if (!keys.isEmpty()) {
+            throw ApiException.withField(ErrorCode.VALIDATION_FAILED, "mode", "Keys are only kept for your own app");
+        }
+        return useSharedApp(actorId, workspaceId, provider, request);
+    }
+
+    /** Discards the workspace's own keys. A workspace already on the shared app records nothing. */
+    @Transactional
+    public WorkspaceIntegrationsResponse useSharedApp(UUID actorId, UUID workspaceId, IntegrationProvider provider,
+                                                      HttpServletRequest request) {
+        integrations.findByWorkspaceIdAndProvider(workspaceId, provider)
+                .filter(WorkspaceMailIntegration::isOwnApp)
+                .ifPresent(integration -> {
+                    integration.useSharedApp(actorId);
+                    recordIntegrationChange(actorId, workspaceId, provider, CredentialMode.SHARED, null, request);
+                });
+        return list(workspaceId);
+    }
+
+    /** A save that changes nothing records nothing, as the shared app and the calendar sync do. */
+    private WorkspaceIntegrationsResponse useOwnApp(UUID actorId, UUID workspaceId, IntegrationProvider provider,
+                                                    OwnAppKeys keys, HttpServletRequest request) {
         if (!cipher.isAvailable()) {
             throw ApiException.of(ErrorCode.INTEGRATION_ENCRYPTION_UNAVAILABLE);
         }
@@ -67,35 +93,23 @@ public class WorkspaceIntegrationService {
         }
 
         String encryptedSecret = newSecret == null ? null : cipher.encrypt(newSecret, integration.clientSecretContext());
-        integration.useOwnApp(clientId, encryptedSecret, tenantId, keys.secretExpiresAt(), actorId);
-        integrations.save(integration);
+        if (integration.useOwnApp(clientId, encryptedSecret, tenantId, keys.secretExpiresOn(), actorId)) {
+            integrations.save(integration);
+            recordIntegrationChange(actorId, workspaceId, provider, CredentialMode.OWN, newSecret != null, request);
+        }
+        return list(workspaceId);
+    }
 
+    /** The {@code integrations} section's one shape: the provider and the mode, never a key. */
+    private void recordIntegrationChange(UUID actorId, UUID workspaceId, IntegrationProvider provider,
+                                         CredentialMode mode, Boolean secretChanged, HttpServletRequest request) {
         audit.event(WorkspaceEventType.WORKSPACE_UPDATED)
                 .actor(actorId).workspace(workspaceId).from(request)
                 .detail("section", "integrations")
                 .detail("provider", provider.name())
-                .detail("mode", CredentialMode.OWN.name())
-                .detail("secretChanged", newSecret != null)
+                .detail("mode", mode.name())
+                .detailIfPresent("secretChanged", secretChanged)
                 .record();
-        return list(workspaceId);
-    }
-
-    /** Discards the workspace's own keys. A workspace already on the shared app records nothing. */
-    @Transactional
-    public WorkspaceIntegrationsResponse useSharedApp(UUID actorId, UUID workspaceId, IntegrationProvider provider,
-                                                      HttpServletRequest request) {
-        integrations.findByWorkspaceIdAndProvider(workspaceId, provider)
-                .filter(WorkspaceMailIntegration::isOwnApp)
-                .ifPresent(integration -> {
-                    integration.useSharedApp(actorId);
-                    audit.event(WorkspaceEventType.WORKSPACE_UPDATED)
-                            .actor(actorId).workspace(workspaceId).from(request)
-                            .detail("section", "integrations")
-                            .detail("provider", provider.name())
-                            .detail("mode", CredentialMode.SHARED.name())
-                            .record();
-                });
-        return list(workspaceId);
     }
 
     private WorkspaceIntegrationResponse toDto(IntegrationProvider provider, WorkspaceMailIntegration integration) {
@@ -108,7 +122,7 @@ public class WorkspaceIntegrationService {
                 own ? CredentialMode.OWN : CredentialMode.SHARED,
                 own ? integration.getClientId() : null,
                 own ? integration.getTenantId() : null,
-                own ? integration.getSecretExpiresAt() : null,
+                own ? integration.getSecretExpiresOn() : null,
                 own && integration.hasSecret(),
                 setup.sharedApp(provider).isPresent(),
                 setup.redirectUri(provider).toString(),

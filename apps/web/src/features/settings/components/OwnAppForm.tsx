@@ -41,7 +41,7 @@ export function OwnAppForm({
       clientId: integration.clientId ?? "",
       clientSecret: "",
       tenantId: integration.tenantId ?? "",
-      secretExpiresOn: integration.secretExpiresAt?.slice(0, 10) ?? "",
+      secretExpiresOn: integration.secretExpiresOn ?? "",
     },
   });
 

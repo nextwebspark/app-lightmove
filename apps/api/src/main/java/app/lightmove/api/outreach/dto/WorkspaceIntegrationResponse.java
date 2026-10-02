@@ -3,6 +3,7 @@ package app.lightmove.api.outreach.dto;
 import app.lightmove.api.outreach.constant.CredentialMode;
 import app.lightmove.api.outreach.constant.IntegrationProvider;
 import java.time.Instant;
+import java.time.LocalDate;
 import java.util.List;
 
 /**
@@ -17,7 +18,7 @@ public record WorkspaceIntegrationResponse(
         CredentialMode mode,
         String clientId,
         String tenantId,
-        Instant secretExpiresAt,
+        LocalDate secretExpiresOn,
         boolean secretSet,
         boolean sharedOffered,
         String redirectUri,

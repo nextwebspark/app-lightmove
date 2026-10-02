@@ -17,8 +17,8 @@ CREATE TABLE app_lm_workspace_mail_integration (
     client_secret_encrypted  text,
     -- The customer's Entra directory: a single-tenant app signs in at login.microsoftonline.com/{tenant}.
     tenant_id                varchar(64),
-    -- The secret's own expiry, as the admin read it off the provider's console, so the page can warn ahead of it.
-    secret_expires_at        timestamptz,
+    -- The secret's own expiry date, as the admin read it off the provider's console, so the page can warn ahead of it.
+    secret_expires_on        date,
     updated_by               uuid         REFERENCES app_lm_user (id) ON DELETE SET NULL,
     created_at               timestamptz  NOT NULL DEFAULT now(),
     updated_at               timestamptz  NOT NULL DEFAULT now(),
@@ -28,7 +28,7 @@ CREATE TABLE app_lm_workspace_mail_integration (
         CHECK (mode = 'SHARED' OR (client_id IS NOT NULL AND client_secret_encrypted IS NOT NULL)),
     CONSTRAINT app_lm_workspace_mail_integration_shared_clear_chk
         CHECK (mode = 'OWN' OR (client_id IS NULL AND client_secret_encrypted IS NULL
-                                AND tenant_id IS NULL AND secret_expires_at IS NULL)),
+                                AND tenant_id IS NULL AND secret_expires_on IS NULL)),
     CONSTRAINT app_lm_workspace_mail_integration_tenant_chk
         CHECK (tenant_id IS NULL OR provider = 'MICROSOFT')
 );

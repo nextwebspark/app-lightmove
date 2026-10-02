@@ -11,7 +11,8 @@ export interface WorkspaceIntegration {
   mode: CredentialMode;
   clientId: string | null;
   tenantId: string | null;
-  secretExpiresAt: string | null;
+  /** yyyy-MM-dd, as read off the provider's console. */
+  secretExpiresOn: string | null;
   secretSet: boolean;
   sharedOffered: boolean;
   redirectUri: string;
@@ -37,5 +38,5 @@ export interface UpdateIntegrationRequest {
   clientId?: string;
   clientSecret?: string;
   tenantId?: string;
-  secretExpiresAt?: string | null;
+  secretExpiresOn?: string | null;
 }

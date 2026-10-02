@@ -3,7 +3,6 @@ package app.lightmove.api.outreach.controller;
 import app.lightmove.api.core.security.model.AuthPrincipal;
 import app.lightmove.api.core.security.rbac.RequireWorkspacePermission;
 import app.lightmove.api.core.security.rbac.WorkspaceAction;
-import app.lightmove.api.outreach.constant.CredentialMode;
 import app.lightmove.api.outreach.constant.IntegrationProvider;
 import app.lightmove.api.outreach.dto.UpdateWorkspaceIntegrationRequest;
 import app.lightmove.api.outreach.dto.WorkspaceIntegrationsResponse;
@@ -35,18 +34,17 @@ public class WorkspaceIntegrationController {
         return integrations.list(principal.requireWorkspaceId());
     }
 
+    /** Sets the mode; {@code SHARED} here is the same as {@code DELETE}. */
     @PutMapping("/{provider}")
     @RequireWorkspacePermission(WorkspaceAction.WORKSPACE_MANAGE)
     public WorkspaceIntegrationsResponse update(@AuthenticationPrincipal AuthPrincipal principal,
                                                 @PathVariable IntegrationProvider provider,
                                                 @Valid @RequestBody UpdateWorkspaceIntegrationRequest request,
                                                 HttpServletRequest httpRequest) {
-        if (request.mode() == CredentialMode.SHARED) {
-            return integrations.useSharedApp(principal.userId(), principal.requireWorkspaceId(), provider, httpRequest);
-        }
         OwnAppKeys keys = new OwnAppKeys(request.clientId(), request.clientSecret(), request.tenantId(),
-                request.secretExpiresAt());
-        return integrations.useOwnApp(principal.userId(), principal.requireWorkspaceId(), provider, keys, httpRequest);
+                request.secretExpiresOn());
+        return integrations.update(principal.userId(), principal.requireWorkspaceId(), provider, request.mode(), keys,
+                httpRequest);
     }
 
     @DeleteMapping("/{provider}")

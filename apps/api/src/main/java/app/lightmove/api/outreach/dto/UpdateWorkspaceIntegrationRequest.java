@@ -4,7 +4,7 @@ import app.lightmove.api.outreach.constant.CredentialMode;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
-import java.time.Instant;
+import java.time.LocalDate;
 
 /**
  * Chooses the app a provider is connected through. On {@code OWN}, a blank {@code clientSecret} keeps the one
@@ -26,12 +26,12 @@ public record UpdateWorkspaceIntegrationRequest(
         @Pattern(regexp = "[A-Za-z0-9.-]*", message = "That doesn't look like a tenant ID")
         String tenantId,
 
-        Instant secretExpiresAt
+        LocalDate secretExpiresOn
 ) {
 
     @Override
     public String toString() {
         return "UpdateWorkspaceIntegrationRequest[mode=" + mode + ", clientId=" + clientId + ", tenantId=" + tenantId
-                + ", secretExpiresAt=" + secretExpiresAt + ", clientSecret=<redacted>]";
+                + ", secretExpiresOn=" + secretExpiresOn + ", clientSecret=<redacted>]";
     }
 }
