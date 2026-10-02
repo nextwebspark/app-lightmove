@@ -64,9 +64,10 @@ public class OutreachSequenceService {
     @Transactional
     public SequenceResponse create(UUID userId, UUID workspaceId, UUID projectId, SaveSequenceRequest request,
                                    HttpServletRequest httpRequest) {
+        List<SequenceStep> steps = stepsOf(request.steps());
+        refuseUnofferedBookingLink(steps);
         OutreachSequence sequence = sequences.save(OutreachSequence.written(workspaceId, projectId, userId,
-                request.name().trim(), stepsOf(request.steps())));
-        refuseUnofferedBookingLink(sequence);
+                request.name().trim(), steps));
         audited(ProjectEventType.OUTREACH_SEQUENCE_CREATED, userId, workspaceId, projectId, sequence, httpRequest);
         return toResponse(sequence);
     }
@@ -75,8 +76,9 @@ public class OutreachSequenceService {
     public SequenceResponse update(UUID userId, UUID workspaceId, UUID projectId, UUID sequenceId,
                                    SaveSequenceRequest request, HttpServletRequest httpRequest) {
         OutreachSequence sequence = sequences.requireInProject(sequenceId, workspaceId, projectId);
-        sequence.rewrite(request.name().trim(), stepsOf(request.steps()));
-        refuseUnofferedBookingLink(sequence);
+        List<SequenceStep> steps = stepsOf(request.steps());
+        refuseUnofferedBookingLink(steps);
+        sequence.rewrite(request.name().trim(), steps);
         audited(ProjectEventType.OUTREACH_SEQUENCE_UPDATED, userId, workspaceId, projectId, sequence, httpRequest);
         return toResponse(sequence);
     }
@@ -91,9 +93,9 @@ public class OutreachSequenceService {
         audited(ProjectEventType.OUTREACH_SEQUENCE_DELETED, userId, workspaceId, projectId, sequence, httpRequest);
     }
 
-    /** The token would render empty in front of an executive; refused here, inside the write, so nothing is saved. */
-    private void refuseUnofferedBookingLink(OutreachSequence sequence) {
-        if (!bookingPages.isOffered() && sequence.uses(SequenceTokens.BOOKING_LINK)) {
+    /** Where no booking page can be made, the token would reach an executive as an empty space. */
+    private void refuseUnofferedBookingLink(List<SequenceStep> steps) {
+        if (!bookingPages.isOffered() && OutreachSequence.anyStepUses(steps, SequenceTokens.BOOKING_LINK)) {
             throw ApiException.of(ErrorCode.OUTREACH_BOOKING_LINK_UNAVAILABLE);
         }
     }

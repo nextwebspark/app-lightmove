@@ -41,9 +41,13 @@ public interface OutreachEnrollmentRepository extends JpaRepository<OutreachEnro
     List<OutreachEnrollment> findByWorkspaceIdAndProjectIdAndPersonIdOrderByEnrolledAtDesc(UUID workspaceId,
                                                                                          UUID projectId, UUID personId);
 
-    /** One sender's runs with these people, across the workspace's positions: who a booking through their link ends. */
-    List<OutreachEnrollment> findByWorkspaceIdAndSenderUserIdAndPersonIdIn(UUID workspaceId, UUID senderUserId,
-                                                                         Collection<UUID> personIds);
+    /**
+     * One sender's runs to these addresses (lower-cased), across the workspace's positions: who a booking
+     * through their link can be — someone they actually emailed, at the address they emailed.
+     */
+    @Query("select e from OutreachEnrollment e where e.workspaceId = :workspaceId and e.senderUserId = :senderUserId "
+            + "and lower(e.toAddress) in :addresses")
+    List<OutreachEnrollment> findEmailedBy(UUID workspaceId, UUID senderUserId, Collection<String> addresses);
 
     /** Keyed on the sender's grant as well as the thread: a thread id is only unique within one mailbox. */
     List<OutreachEnrollment> findByWorkspaceIdAndSenderUserIdAndThreadId(UUID workspaceId, UUID senderUserId,

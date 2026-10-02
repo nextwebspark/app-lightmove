@@ -12,7 +12,7 @@ import type { Candidate } from "../../candidates/api/types";
 import { useWorkspaceVocabulary } from "../../workspace/lib/vocabulary";
 import * as sequenceApi from "../api/sequenceApi";
 import type { RecipientTokens, Sequence, SequenceStep } from "../api/sequenceApi";
-import { bookingLinkPreviewOf, firstNameOf, renderParts, tokenOptions } from "../lib/sequenceTokens";
+import { BOOKING_LINK_PLACEHOLDER, firstNameOf, renderParts, tokenOptions } from "../lib/sequenceTokens";
 import { useMailbox } from "../lib/useMailbox";
 import { SequenceStatePill } from "../components/SequenceStatePill";
 
@@ -409,7 +409,7 @@ function SequencePreview({
   const person = candidates.find((candidate) => candidate.id === previewId) ?? candidates[0] ?? null;
   const step = steps[Math.min(selectedStep, steps.length - 1)];
   const tokens = tokensOf(person, positionTitle, user?.fullName ?? null,
-    mailbox.data?.connection?.bookingLink ?? bookingLinkPreviewOf(user?.fullName));
+    mailbox.data?.connection?.bookingLink ?? BOOKING_LINK_PLACEHOLDER);
   const firstSubject = steps[0]?.subject ?? "";
   const subjectParts = renderParts(firstSubject, tokens, null);
   const subject = subjectParts.map((part) => part.text).join("");

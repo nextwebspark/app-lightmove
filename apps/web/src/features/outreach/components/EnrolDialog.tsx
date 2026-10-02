@@ -14,7 +14,7 @@ import type {
   RecipientTokens,
   Sequence,
 } from "../api/sequenceApi";
-import { render, renderParts } from "../lib/sequenceTokens";
+import { BOOKING_LINK_PLACEHOLDER, render, renderParts } from "../lib/sequenceTokens";
 import { useMailbox } from "../lib/useMailbox";
 
 type EnrolStep = "choose" | "review" | "start";
@@ -680,7 +680,7 @@ function StartStep({
 /** Typing is never blocked on the model: whatever is typed first wins over a draft that lands later. */
 /** Until the sender's first Start makes their real link, the review says where it will go. */
 function withBookingLink(tokens: RecipientTokens, bookingLink: string | null): RecipientTokens {
-  return { ...tokens, bookingLink: tokens.bookingLink ?? bookingLink ?? "(your booking link)" };
+  return { ...tokens, bookingLink: tokens.bookingLink ?? bookingLink ?? BOOKING_LINK_PLACEHOLDER };
 }
 
 function openerPlaceholderOf(email: ReviewedEmail): string | undefined {

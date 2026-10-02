@@ -42,21 +42,8 @@ export function tokenOptions(bookingLinkOffered: boolean): SequenceTokenOption[]
   return SEQUENCE_TOKENS.filter((option) => bookingLinkOffered || !option.isLink);
 }
 
-/** Whether a template asks for the booking link, however it is spaced inside the braces. */
-export function usesBookingLink(template: string | null | undefined): boolean {
-  return [...(template ?? "").matchAll(TOKEN)].some((match) => match[1] === "bookingLink");
-}
-
-/** What a preview shows before the sender's first Start makes their real link. */
-export function bookingLinkPreviewOf(senderName: string | null | undefined, host = window.location.host): string {
-  const slug = (senderName ?? "")
-    .normalize("NFD")
-    .replace(/\p{M}/gu, "")
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-+|-+$/g, "");
-  return `${host}/book/${slug || "your-name"}`;
-}
+/** What the link reads as until the sender's first Start makes their real one. */
+export const BOOKING_LINK_PLACEHOLDER = "(your booking link)";
 
 export interface RenderedPart {
   text: string;

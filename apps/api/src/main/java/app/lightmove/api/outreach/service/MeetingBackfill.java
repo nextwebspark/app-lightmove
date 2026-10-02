@@ -2,7 +2,7 @@ package app.lightmove.api.outreach.service;
 
 import app.lightmove.api.outreach.constant.MailboxStatus;
 import app.lightmove.api.outreach.model.CalendarEvent;
-import app.lightmove.api.outreach.model.MailboxCalendarOwed;
+import app.lightmove.api.outreach.model.MailboxConnected;
 import app.lightmove.api.outreach.model.MailboxConnection;
 import app.lightmove.api.outreach.repository.MailboxConnectionRepository;
 import java.time.Clock;
@@ -62,8 +62,8 @@ public class MeetingBackfill {
 
     @Async
     @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
-    void onConnected(MailboxCalendarOwed owed) {
-        syncCalendar(owed.mailboxConnectionId());
+    void onConnected(MailboxConnected connected) {
+        syncCalendar(connected.mailboxConnectionId());
     }
 
     public void syncOwed() {

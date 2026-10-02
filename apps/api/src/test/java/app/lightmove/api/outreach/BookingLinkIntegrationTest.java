@@ -12,6 +12,7 @@ import app.lightmove.api.RecordingMailboxGateway.SentRecord;
 import app.lightmove.api.outreach.model.BookingMade;
 import app.lightmove.api.outreach.model.BookingPageSpec;
 import app.lightmove.api.outreach.model.GrantedMailbox;
+import app.lightmove.api.outreach.model.InboundMessage;
 import app.lightmove.api.outreach.service.OutreachDispatcher;
 import jakarta.servlet.http.Cookie;
 import java.net.URI;
@@ -92,7 +93,7 @@ class BookingLinkIntegrationTest extends FlowTestSupport {
         assertThat(page.eventTitle()).isEqualTo("30-minute call with Yara Haddad");
         Map<String, Object> mailbox = mailboxRow();
         String slug = (String) mailbox.get("booking_slug");
-        assertThat(slug).startsWith("yara-haddad");
+        assertThat(slug).matches("yara-haddad-[a-z0-9]{8}");
         assertThat(mailbox.get("booking_configuration_id")).isEqualTo("booking-page-1");
 
         dispatcher.dispatchAt(monday);
@@ -109,7 +110,7 @@ class BookingLinkIntegrationTest extends FlowTestSupport {
     }
 
     @Test
-    @DisplayName("the public page opens with no session; an unknown, malformed or withdrawn link finds nothing")
+    @DisplayName("the public page only reads: no session, no page made, and an unknown, malformed or withdrawn link finds nothing")
     void thePublicPageOpensTheConsultantsCalendar() throws Exception {
         connectMailbox();
         String priya = executive("Priya Raman", "priya@" + domain);
@@ -124,13 +125,19 @@ class BookingLinkIntegrationTest extends FlowTestSupport {
         mvc.perform(get("/api/v1/outreach/booking/nobody-at-all")).andExpect(status().isNotFound());
         mvc.perform(get("/api/v1/outreach/booking/Not_A_Slug")).andExpect(status().isNotFound());
 
-        // A reconnect brings a new grant, so the page is made again the next time someone opens the link.
+        // A reconnect brings a new grant, so the page is made again once it commits — not by whoever opens the link.
         gateway.grant(new GrantedMailbox(grantId + "-2", MAILBOX, "google"));
         connectMailbox();
-        assertThat(mailboxRow().get("booking_configuration_id")).isNull();
+        assertThat(mailboxRow().get("booking_configuration_id")).isEqualTo("booking-page-2");
         JsonNode reopened = body(mvc.perform(get("/api/v1/outreach/booking/" + slug)).andExpect(status().isOk())
                 .andReturn());
         assertThat(reopened.get("configurationId").asText()).isEqualTo("booking-page-2");
+
+        jdbc.update("update app_lm_mailbox_connection set booking_configuration_id = null where workspace_id = ?::uuid",
+                workspaceId);
+        mvc.perform(get("/api/v1/outreach/booking/" + slug)).andExpect(status().isNotFound());
+        mvc.perform(get("/api/v1/outreach/booking/" + slug)).andExpect(status().isNotFound());
+        assertThat(gateway.bookingPages()).hasSize(2);
 
         gateway.offerBookingPages(false);
         mvc.perform(get("/api/v1/outreach/booking/" + slug)).andExpect(status().isNotFound());
@@ -171,21 +178,49 @@ class BookingLinkIntegrationTest extends FlowTestSupport {
     }
 
     @Test
-    @DisplayName("a booking by someone the workspace does not hold touches nothing")
-    void aStrangersBookingTouchesNothing() throws Exception {
+    @DisplayName("only an address the consultant emailed counts: a stranger, or someone on file never emailed, touches nothing")
+    void aBookingByAnyoneNotEmailedTouchesNothing() throws Exception {
         connectMailbox();
         String priya = executive("Priya Raman", "priya@" + domain);
+        String rajesh = executive("Rajesh Menon", "rajesh@" + domain);
         startSequence(createSequence(), priya, "priya@" + domain);
 
         Instant call = Instant.now().truncatedTo(ChronoUnit.SECONDS).plus(Duration.ofDays(2));
-        gateway.deliverNext(List.of(new BookingMade(null, "booking-page-1", "booked-evt-2", "Call", call,
-                call.plus(Duration.ofMinutes(30)), List.of(MAILBOX, "someone@elsewhere.example"))));
-        webhook();
+        for (String booker : List.of("someone@elsewhere.example", "rajesh@" + domain)) {
+            gateway.deliverNext(List.of(new BookingMade(null, "booking-page-1", "booked-" + booker, "Call", call,
+                    call.plus(Duration.ofMinutes(30)), List.of(MAILBOX, booker))));
+            webhook();
+        }
 
         assertThat(jdbc.queryForObject("select status from app_lm_outreach_enrollment where candidate_id = ?::uuid",
                 String.class, priya)).isEqualTo("SCHEDULED");
+        assertThat(candidateStatus(rajesh)).isEqualTo("identified");
         assertThat(jdbc.queryForObject("select count(*) from app_lm_person_meeting where workspace_id = ?::uuid",
                 Integer.class, workspaceId)).isZero();
+    }
+
+    @Test
+    @DisplayName("a booking after a reply still moves them to Engaged and logs the call, once per position")
+    void aBookingAfterAReplyStillCounts() throws Exception {
+        connectMailbox();
+        String priya = executive("Priya Raman", "priya@" + domain);
+        startSequence(createSequence(), priya, "priya@" + domain);
+        dispatcher.dispatchAt(monday);
+        String thread = jdbc.queryForObject("select thread_id from app_lm_outreach_enrollment where candidate_id = ?::uuid",
+                String.class, priya);
+        gateway.deliverNext(List.of(new InboundMessage(grantId, thread, "priya@" + domain)));
+        webhook();
+        assertThat(candidateStatus(priya)).isEqualTo("contacted");
+
+        Instant call = Instant.now().truncatedTo(ChronoUnit.SECONDS).plus(Duration.ofDays(2));
+        gateway.deliverNext(List.of(new BookingMade(null, "booking-page-1", "booked-evt-3", "Call", call,
+                call.plus(Duration.ofMinutes(30)), List.of(MAILBOX, "priya@" + domain))));
+        webhook();
+
+        assertThat(jdbc.queryForObject("select status from app_lm_outreach_enrollment where candidate_id = ?::uuid",
+                String.class, priya)).isEqualTo("REPLIED");
+        assertThat(candidateStatus(priya)).isEqualTo("engaged");
+        assertThat(activityKinds(priya).stream().filter("MEETING_BOOKED"::equals)).hasSize(1);
     }
 
     @Test

@@ -13,7 +13,7 @@ import app.lightmove.api.outreach.dto.ConnectedMailboxResponse;
 import app.lightmove.api.outreach.dto.MailboxResponse;
 import app.lightmove.api.outreach.model.GrantedMailbox;
 import app.lightmove.api.outreach.model.MailboxAuthorization;
-import app.lightmove.api.outreach.model.MailboxCalendarOwed;
+import app.lightmove.api.outreach.model.MailboxConnected;
 import app.lightmove.api.outreach.model.MailboxConnectStart;
 import app.lightmove.api.outreach.model.MailboxConnection;
 import app.lightmove.api.outreach.model.OutgoingEmail;
@@ -66,7 +66,7 @@ public class MailboxService {
                 .map(mailbox -> ConnectedMailboxResponse.of(mailbox, bookingPages.linkOf(mailbox)))
                 .orElse(null);
         return new MailboxResponse(gateway.isOffered(), gateway.providers(), connection,
-                gateway.isOffered() && gateway.isBookingPageOffered());
+                bookingPages.isOffered());
     }
 
     /** Any attempt the caller left unfinished is dropped, so only the newest consent screen can connect. */
@@ -168,13 +168,13 @@ public class MailboxService {
                 .map(existing -> {
                     String previous = existing.getGrantId();
                     existing.reconnect(granted, now);
-                    events.publishEvent(new MailboxCalendarOwed(existing.getId()));
+                    events.publishEvent(new MailboxConnected(existing.getId()));
                     return previous;
                 })
                 .orElseGet(() -> {
                     MailboxConnection connected = connections.save(MailboxConnection.connected(
                             started.getWorkspaceId(), started.getUserId(), granted, settings().dailyCap(), now));
-                    events.publishEvent(new MailboxCalendarOwed(connected.getId()));
+                    events.publishEvent(new MailboxConnected(connected.getId()));
                     return null;
                 });
     }
