@@ -60,7 +60,6 @@ export interface EnrollmentCandidate {
   emails: RecipientEmail[];
   /** Null: can be added. Otherwise shown dimmed with the reason, and refused at Start. */
   skipReason: OutreachSkipReason | null;
-  /** The sequence already holding them, when that is the reason. */
   inSequence: string | null;
   tokens: RecipientTokens;
 }
@@ -73,7 +72,6 @@ export interface EnrollmentScope {
 
 export interface DraftedOpener {
   candidateId: string;
-  /** Null when the model could not draft one this time; the consultant writes it. */
   opener: string | null;
 }
 
@@ -126,6 +124,9 @@ export function getEnrollmentCandidates(
 
 /** The server takes at most this many per press, and each press is one unit of the AI budget. */
 export const OPENERS_PER_PRESS = 10;
+
+/** `StartSequenceRequest`'s `@Size(max = 50)`: one Start enrolls at most this many. */
+export const MAX_PEOPLE_PER_START = 50;
 
 export function draftOpeners(projectId: string, candidateIds: string[]): Promise<DraftedOpener[]> {
   return request<{ openers: DraftedOpener[] }>(`/projects/${projectId}/outreach/openers`, {

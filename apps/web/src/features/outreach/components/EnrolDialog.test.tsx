@@ -141,6 +141,40 @@ describe("EnrolDialog", () => {
     expect(sequenceApi.draftOpeners).toHaveBeenCalledWith("p1", ["a", "b"]);
   });
 
+  it("drafts nothing while more people are ticked than one Start may enroll", async () => {
+    vi.mocked(sequenceApi.getEnrollmentCandidates).mockResolvedValue(
+      Array.from({ length: 51 }, (_, index) => person(`p${index}`, `Person ${index}`)),
+    );
+    renderDialog();
+
+    expect(await screen.findByText("Add at most 50 people at a time — untick 1")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Review 51 emails" })).toBeDisabled();
+
+    await userEvent.click(screen.getByRole("checkbox", { name: "Person 0" }));
+    expect(screen.getByRole("button", { name: "Review 50 emails" })).toBeEnabled();
+    expect(sequenceApi.draftOpeners).not.toHaveBeenCalled();
+  });
+
+  it("stops drafting after the first press fails, and keeps typed text through a failed redraft", async () => {
+    vi.mocked(sequenceApi.getEnrollmentCandidates).mockResolvedValue(
+      Array.from({ length: 12 }, (_, index) => person(`p${index}`, `Person ${index}`)),
+    );
+    vi.mocked(sequenceApi.draftOpeners).mockRejectedValue(new Error("budget"));
+    renderDialog();
+
+    await userEvent.click(await screen.findByRole("button", { name: "Review 12 emails" }));
+    const opener = await screen.findByRole("textbox", { name: "Opener" });
+    await waitFor(() => expect(opener).toHaveAttribute("placeholder", expect.stringContaining("couldn't be drafted")));
+    expect(sequenceApi.draftOpeners).toHaveBeenCalledTimes(1);
+
+    await userEvent.type(opener, "My own line.");
+    await userEvent.click(screen.getByRole("button", { name: /Redraft/ }));
+    await waitFor(() => expect(sequenceApi.draftOpeners).toHaveBeenCalledTimes(2));
+    expect(opener).toHaveValue("My own line.");
+    expect(screen.getByText("Edited")).toBeInTheDocument();
+    expect(screen.queryByText("Opener redrafted.")).not.toBeInTheDocument();
+  });
+
   it("will not review anyone until a mailbox is connected", async () => {
     vi.mocked(mailboxApi.getMailbox).mockResolvedValue({ offered: true, providers: ["google"], connection: null });
     vi.mocked(sequenceApi.getEnrollmentCandidates).mockResolvedValue([person("a", "Priya Raman")]);

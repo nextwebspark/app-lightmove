@@ -57,7 +57,7 @@ export function renderParts(template: string, tokens: RecipientTokens, opener: s
       plain = "";
       parts.push({ text: opener?.trim() ?? "", isOpener: true });
     } else {
-      plain += name in values ? values[name] : match[0];
+      plain += Object.hasOwn(values, name) ? values[name] : match[0];
     }
   }
   plain += template.slice(last);

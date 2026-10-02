@@ -317,7 +317,7 @@ function TriageStage() {
   const sourcing = useExecutiveSourcing(project.id, canWrite && stage.status === "inUniverse", streamIsLive);
   const findExecutivesOffered = canWrite && stage.status === "inUniverse" && view === "table" && sourcing.offered;
   const findExecutivesCap = sourcing.config?.maxCompaniesPerRun ?? 0;
-  const mailbox = useMailbox();
+  const mailbox = useMailbox(canWrite);
   /** Ticked companies' executives go to Add to sequence; never from Declined. */
   const addToSequenceOffered =
     canWrite && stage.status !== "declined" && view === "table" && mailbox.data?.offered === true;
@@ -639,7 +639,7 @@ function TriageStage() {
         findExecutives={
           findExecutivesOffered
             ? {
-                onPress: () => setConfirmingFindExecutives(true),
+                onPress: handleFindExecutives,
                 running: sourcing.isRunning,
                 progress: sourcing.run && sourcing.isRunning
                   ? `${sourcing.run.companiesDone}/${sourcing.run.companiesTotal}`

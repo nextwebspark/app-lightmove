@@ -5,6 +5,7 @@ import { Icon, ICONS } from "../../../components/layout/Icon";
 import { Avatar, Button, Modal, Skeleton, useToast } from "../../../components/ui";
 import { cn } from "../../../lib/cn";
 import { codeOf, messageFor } from "../../../lib/errorCodes";
+import { MAILBOX_KEY } from "../api/mailboxApi";
 import * as sequenceApi from "../api/sequenceApi";
 import type { EnrollmentCandidate, EnrollmentScope, OutreachSkipReason, Sequence } from "../api/sequenceApi";
 import { render, renderParts } from "../lib/sequenceTokens";
@@ -91,47 +92,45 @@ export function EnrolDialog({
   const addable = everyone.filter((person) => person.skipReason === null);
   const skipped = everyone.filter((person) => person.skipReason !== null);
   const chosen = addable.filter((person) => !unticked.has(person.candidateId));
+  const isOverTheCap = chosen.length > sequenceApi.MAX_PEOPLE_PER_START;
   const connection = mailbox.data?.connection ?? null;
   const canSend = connection?.status === "ACTIVE";
 
-  const draft = async (candidateIds: string[]) => {
+  /**
+   * Drafts in presses of `OPENERS_PER_PRESS` and answers the ids that received an opener. Stops at the
+   * first press that fails: the rest would fail alike (an exhausted budget), each with its own toast.
+   * A batch draft never replaces an opener the consultant has typed; a Redraft (`replaceEdited`) does.
+   */
+  const draft = async (candidateIds: string[], replaceEdited = false): Promise<ReadonlySet<string>> => {
+    const received = new Set<string>();
     setReviewed((current) =>
-      withEach(current, candidateIds, (email) => ({
-        ...email,
-        isDrafting: true,
-        draftFailed: false,
-      })),
+      withEach(current, candidateIds, (email) => ({ ...email, isDrafting: true, draftFailed: false })),
     );
     for (let at = 0; at < candidateIds.length; at += sequenceApi.OPENERS_PER_PRESS) {
       const batch = candidateIds.slice(at, at + sequenceApi.OPENERS_PER_PRESS);
       try {
         const drafted = await sequenceApi.draftOpeners(projectId, batch);
-        if (!isOpen.current) return;
+        if (!isOpen.current) return received;
         const byId = new Map(drafted.map((opener) => [opener.candidateId, opener.opener]));
+        batch.filter((candidateId) => byId.get(candidateId)).forEach((candidateId) => received.add(candidateId));
         setReviewed((current) =>
           withEach(current, batch, (email, candidateId) => {
             const opener = byId.get(candidateId) ?? null;
-            if (email.openerEdited) return { ...email, isDrafting: false };
-            return {
-              ...email,
-              opener: opener ?? email.opener,
-              isDrafting: false,
-              draftFailed: opener === null,
-            };
+            if (opener === null) return { ...email, isDrafting: false, draftFailed: true };
+            if (email.openerEdited && !replaceEdited) return { ...email, isDrafting: false };
+            return { ...email, opener, openerEdited: false, isDrafting: false, draftFailed: false };
           }),
         );
       } catch (error) {
-        if (!isOpen.current) return;
+        if (!isOpen.current) return received;
         toast(messageFor(error));
         setReviewed((current) =>
-          withEach(current, batch, (email) => ({
-            ...email,
-            isDrafting: false,
-            draftFailed: true,
-          })),
+          withEach(current, candidateIds.slice(at), (email) => ({ ...email, isDrafting: false, draftFailed: true })),
         );
+        break;
       }
     }
+    return received;
   };
 
   const handleReview = () => {
@@ -184,9 +183,32 @@ export function EnrolDialog({
       if (code === "OUTREACH_PERSON_SKIPPED" || code === "OUTREACH_ALREADY_ENROLLED") {
         void people.refetch();
         setStep("choose");
+      } else if (code === "MAILBOX_NOT_CONNECTED" || code === "MAILBOX_RECONNECT_NEEDED") {
+        void queryClient.invalidateQueries({ queryKey: MAILBOX_KEY });
+        setStep("choose");
+      } else if (code === "OUTREACH_ADDRESS_NOT_ON_FILE") {
+        void people.refetch();
+        setStep("review");
       }
     },
   });
+
+  // An address taken off the ledger while the dialog was open is replaced by one still on it; the
+  // person's opener is kept. Without this the refused address would be resent on every press.
+  useEffect(() => {
+    if (!people.data) return;
+    setReviewed((current) => {
+      let next = current;
+      for (const person of people.data) {
+        const email = current[person.candidateId];
+        const stillListed = person.emails.some((listed) => listed.address === email?.toAddress);
+        if (email && !stillListed && person.emails.length > 0) {
+          next = { ...next, [person.candidateId]: { ...email, toAddress: person.emails[0].address } };
+        }
+      }
+      return next;
+    });
+  }, [people.data]);
 
   const reviewIndex = Math.max(
     0,
@@ -201,7 +223,10 @@ export function EnrolDialog({
   const footer = (
     <div className="flex w-full flex-wrap items-center gap-2">
       <span className="me-auto font-mono text-[12px] text-u-text3">
-        {step === "choose" && `${chosen.length} to add · ${skipped.length} skipped`}
+        {step === "choose" &&
+          (isOverTheCap
+            ? `Add at most ${sequenceApi.MAX_PEOPLE_PER_START} people at a time — untick ${chosen.length - sequenceApi.MAX_PEOPLE_PER_START}`
+            : `${chosen.length} to add · ${skipped.length} skipped`)}
         {step === "review" && `Reviewing ${reviewIndex + 1} of ${chosen.length}. Edits are kept for this person only.`}
         {step === "start" && "Nothing is sent until you press Start."}
       </span>
@@ -217,7 +242,7 @@ export function EnrolDialog({
       {step === "choose" && (
         <Button
           className="px-3.5 py-2 text-[13px] font-semibold"
-          disabled={!sequence || chosen.length === 0 || !canSend}
+          disabled={!sequence || chosen.length === 0 || isOverTheCap || !canSend}
           onClick={handleReview}
         >
           Review {chosen.length} {chosen.length === 1 ? "email" : "emails"}
@@ -294,14 +319,10 @@ export function EnrolDialog({
             }))
           }
           onRedraft={() => {
-            setReviewed((current) => ({
-              ...current,
-              [reviewing.candidateId]: {
-                ...current[reviewing.candidateId],
-                openerEdited: false,
-              },
-            }));
-            void draft([reviewing.candidateId]).then(() => isOpen.current && toast("Opener redrafted."));
+            const candidateId = reviewing.candidateId;
+            void draft([candidateId], true).then((received) => {
+              if (isOpen.current && received.has(candidateId)) toast("Opener redrafted.");
+            });
           }}
         />
       )}

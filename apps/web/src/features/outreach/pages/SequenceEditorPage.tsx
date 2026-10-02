@@ -3,7 +3,7 @@ import { useRef, useState } from "react";
 import { useNavigate, useOutletContext, useParams } from "react-router-dom";
 import type { ProjectOutletContext } from "../../../components/layout/ProjectLayout";
 import { Icon, ICONS } from "../../../components/layout/Icon";
-import { Button, Skeleton, useToast } from "../../../components/ui";
+import { Button, Modal, Skeleton, useToast } from "../../../components/ui";
 import { cn } from "../../../lib/cn";
 import { messageFor } from "../../../lib/errorCodes";
 import { useAuth } from "../../auth/AuthProvider";
@@ -99,6 +99,9 @@ function SequenceEditor({
   const [steps, setSteps] = useState<SequenceStep[]>(saved?.steps ?? DEFAULT_STEPS);
   const [selectedStep, setSelectedStep] = useState(0);
   const bodyRefs = useRef<(HTMLTextAreaElement | null)[]>([]);
+  const subjectRef = useRef<HTMLInputElement | null>(null);
+  const [editingField, setEditingField] = useState<"subject" | "body">("body");
+  const [isConfirmingDelete, setIsConfirmingDelete] = useState(false);
   const backToOverview = () => navigate(`/projects/${projectId}/outreach`);
 
   const save = useMutation({
@@ -125,6 +128,19 @@ function SequenceEditor({
     onError: (error) => toast(messageFor(error)),
   });
 
+  const remove = useMutation({
+    mutationFn: () => sequenceApi.deleteSequence(projectId, saved!.id),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: sequenceApi.SEQUENCES_KEY(projectId) });
+      toast("Sequence deleted.");
+      backToOverview();
+    },
+    onError: (error) => {
+      setIsConfirmingDelete(false);
+      toast(messageFor(error));
+    },
+  });
+
   const changeStep = (index: number, change: Partial<SequenceStep>) =>
     setSteps((current) => current.map((step, at) => (at === index ? { ...step, ...change } : step)));
 
@@ -138,17 +154,18 @@ function SequenceEditor({
     setSelectedStep(steps.length);
   };
 
+  /** Into whichever field the caret was last in: the first email's subject, or the selected step's body. */
   const insertToken = (token: string) => {
-    const textarea = bodyRefs.current[selectedStep];
-    const body = steps[selectedStep].body;
-    const start = textarea?.selectionStart ?? body.length;
-    const end = textarea?.selectionEnd ?? body.length;
-    changeStep(selectedStep, {
-      body: body.slice(0, start) + token + body.slice(end),
-    });
+    const intoSubject = editingField === "subject" && selectedStep === 0;
+    const field = intoSubject ? subjectRef.current : bodyRefs.current[selectedStep];
+    const text = (intoSubject ? steps[0].subject : steps[selectedStep].body) ?? "";
+    const start = field?.selectionStart ?? text.length;
+    const end = field?.selectionEnd ?? text.length;
+    const inserted = text.slice(0, start) + token + text.slice(end);
+    changeStep(selectedStep, intoSubject ? { subject: inserted } : { body: inserted });
     requestAnimationFrame(() => {
-      textarea?.focus();
-      textarea?.setSelectionRange(start + token.length, start + token.length);
+      field?.focus();
+      field?.setSelectionRange(start + token.length, start + token.length);
     });
   };
 
@@ -173,8 +190,17 @@ function SequenceEditor({
           className="min-w-0 flex-1 rounded-[7px] border border-transparent bg-transparent px-2 py-1.5 text-[18px] font-semibold text-u-text outline-none focus:border-u-border focus:bg-u-raised md:max-w-[420px]"
         />
         <SequenceStatePill isLive={isLive} />
+        {saved && (
+          <Button
+            variant="ghost"
+            className="ms-auto px-2.5 py-[7px] text-[13px]"
+            onClick={() => setIsConfirmingDelete(true)}
+          >
+            Delete sequence
+          </Button>
+        )}
         <Button
-          className="ms-auto px-3.5 py-[7px] text-[13px] font-semibold"
+          className={cn("px-3.5 py-[7px] text-[13px] font-semibold", !saved && "ms-auto")}
           loading={save.isPending}
           disabled={!name.trim()}
           onClick={() => save.mutate()}
@@ -261,8 +287,13 @@ function SequenceEditor({
               )}
               {index === 0 && (
                 <input
+                  ref={subjectRef}
                   value={step.subject ?? ""}
                   aria-label="Subject"
+                  onFocus={() => {
+                    setSelectedStep(0);
+                    setEditingField("subject");
+                  }}
                   maxLength={200}
                   onChange={(event) => changeStep(index, { subject: event.target.value })}
                   className="mb-2 w-full rounded-[6px] border border-u-border bg-u-raised px-2.5 py-2 text-[13px] font-medium text-u-text outline-none"
@@ -276,7 +307,10 @@ function SequenceEditor({
                 aria-label="Email body"
                 rows={index === 0 ? 11 : 6}
                 maxLength={5000}
-                onFocus={() => setSelectedStep(index)}
+                onFocus={() => {
+                  setSelectedStep(index);
+                  setEditingField("body");
+                }}
                 onChange={(event) => changeStep(index, { body: event.target.value })}
                 className="w-full resize-y rounded-[6px] border border-u-border bg-u-raised p-2.5 text-[13px]/[1.55] text-u-text outline-none"
               />
@@ -305,6 +339,26 @@ function SequenceEditor({
           onSelectStep={setSelectedStep}
         />
       </div>
+      <Modal
+        open={isConfirmingDelete}
+        onClose={() => setIsConfirmingDelete(false)}
+        title="Delete this sequence?"
+        footer={
+          <>
+            <Button variant="secondary" className="px-3.5 py-2 text-[13px]" onClick={() => setIsConfirmingDelete(false)}>
+              Cancel
+            </Button>
+            <Button className="px-3.5 py-2 text-[13px] font-semibold" loading={remove.isPending} onClick={() => remove.mutate()}>
+              Delete
+            </Button>
+          </>
+        }
+      >
+        <p className="text-[13px] text-u-text2">
+          {saved?.name} goes for good. A sequence anyone has been put on stays, since it is the record of their
+          approach.
+        </p>
+      </Modal>
     </div>
   );
 }

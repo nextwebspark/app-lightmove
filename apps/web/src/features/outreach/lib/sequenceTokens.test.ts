@@ -23,6 +23,7 @@ describe("sequence tokens", () => {
 
   it("leaves an unknown token as typed", () => {
     expect(render("Hi {{fristName}}", TOKENS, null)).toBe("Hi {{fristName}}");
+    expect(render("{{constructor}} {{toString}}", TOKENS, null)).toBe("{{constructor}} {{toString}}");
   });
 
   it("marks where the opener landed", () => {
