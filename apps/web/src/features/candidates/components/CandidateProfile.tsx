@@ -1,5 +1,5 @@
 import { useMutation, useQuery } from "@tanstack/react-query";
-import { useRef, useState, type ReactNode } from "react";
+import { useCallback, useRef, useState, type ReactNode } from "react";
 import { Button, Select, useToast } from "../../../components/ui";
 import { CollapsibleSection } from "../../../components/ui/CollapsibleSection";
 import { DetailGrid, DetailPill, DetailTile } from "../../../components/ui/DetailList";
@@ -16,7 +16,14 @@ import { AddToSequenceButton } from "../../outreach/components/AddToSequenceButt
 import { OutreachSection } from "../../outreach/components/OutreachSection";
 import { MeetingsSection } from "../../outreach/components/MeetingsSection";
 import * as candidatesApi from "../api/candidatesApi";
-import type { Candidate, CandidateStatus, SaveCandidatePayload } from "../api/types";
+import type { DocumentScope } from "../api/documentsApi";
+import type {
+  Candidate,
+  CandidateStatus,
+  PersonDocument,
+  PersonDocumentVersion,
+  SaveCandidatePayload,
+} from "../api/types";
 import { replayOf, type ProfileFormSection } from "../lib/candidateForm";
 import {
   candidateGenderLabel,
@@ -28,6 +35,7 @@ import { careerSummary } from "../lib/careerTimeline";
 import { packageOf } from "../lib/compensation";
 import { useAiEnrichment } from "../lib/useAiEnrichment";
 import { useChangeCandidateStatus } from "../lib/useChangeCandidateStatus";
+import { usePersonDocuments } from "../lib/usePersonDocuments";
 import { useProfileSections, type ProfileSection } from "../lib/useProfileSections";
 import { CandidateAvatar } from "./CandidateAvatar";
 import {
@@ -41,7 +49,9 @@ import {
 import { CareerTimeline } from "./CareerTimeline";
 import { EducationList, FoldAllButton, HeaderProfileLink, PillRow } from "./ProfileParts";
 import { CompensationSummary } from "./CompensationSummary";
-import { DoNotContactStrip, NotesSection, PositionsSection, TimelineSection } from "./PersonSections";
+import { DocumentPreviewSheet, type PreviewTarget } from "./documents/DocumentPreviewSheet";
+import { PrimaryCvChip } from "./documents/PrimaryCvChip";
+import { DoNotContactStrip, DocumentsSection, NotesSection, PositionsSection, TimelineSection } from "./PersonSections";
 import { ProfileSectionForm, SectionEditButton, SectionEditor } from "./ProfileSectionForm";
 import {
   AiAssessmentBody,
@@ -118,6 +128,12 @@ export function CandidateProfile({
   };
 
   const changeStatus = useChangeCandidateStatus(projectId, onSaved);
+  const documentScope: DocumentScope = { kind: "position", projectId, candidateId: candidate.id };
+  const documents = usePersonDocuments(documentScope, canWrite);
+  const [preview, setPreview] = useState<PreviewTarget | null>(null);
+  const openPreview = (document: PersonDocument, version: PersonDocumentVersion) =>
+    setPreview({ documentId: document.id, versionId: version.id });
+  const closePreview = useCallback(() => setPreview(null), []);
   const aiEnrichment = useAiEnrichment(projectId, candidate.id, canWrite);
   const toast = useToast();
   // Accepting is the researcher recording the value, so it lands unflagged and confirms nothing else.
@@ -216,6 +232,7 @@ export function CandidateProfile({
                   className={candidateStatusStyle(candidate.status).className}
                 />
               )}
+              {canWrite && <PrimaryCvChip documents={documents} onPreview={openPreview} />}
               {canWrite && <AiEnrichButton enrichment={aiEnrichment} />}
               {canWrite && (
                 <AddToSequenceButton projectId={projectId} candidateId={candidate.id} fullName={candidate.fullName} />
@@ -534,6 +551,14 @@ export function CandidateProfile({
               open={sections.isOpen("notes")}
               onToggle={() => sections.toggle("notes")}
             />
+            <DocumentsSection
+              scope={documentScope}
+              documents={documents}
+              personName={candidate.fullName.split(" ")[0]}
+              onPreview={openPreview}
+              open={sections.isOpen("documents")}
+              onToggle={() => sections.toggle("documents")}
+            />
             <TimelineSection
               projectId={projectId}
               candidateId={candidate.id}
@@ -573,6 +598,16 @@ export function CandidateProfile({
             Remove from mandate
           </Button>
         </div>
+      )}
+
+      {canWrite && (
+        <DocumentPreviewSheet
+          scope={documentScope}
+          documents={documents}
+          target={preview}
+          onTargetChange={setPreview}
+          onClose={closePreview}
+        />
       )}
     </>
   );

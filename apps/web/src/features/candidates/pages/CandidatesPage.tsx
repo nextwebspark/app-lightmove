@@ -17,7 +17,7 @@ import { PeopleView } from "../components/pool/PeopleView";
 import { NO_POOL_FILTERS } from "../lib/poolFilters";
 import { PersonDrawer, type PersonDrawerTab } from "../components/pool/PersonDrawer";
 
-const DRAWER_TABS: readonly PersonDrawerTab[] = ["profile", "notes", "timeline"];
+const DRAWER_TABS: readonly PersonDrawerTab[] = ["profile", "notes", "documents", "timeline"];
 
 /**
  * The workspace's Candidates: everyone the team has mapped on any position, as `Candidates.dc.html`

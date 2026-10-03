@@ -1062,6 +1062,12 @@
                 </select>
               </sc-if>
               <sc-if value="{{ readOnly }}" hint-placeholder-val="{{ false }}"><span style="{{ cd.statusPillStyle }}">{{ cd.statusLabel }}</span></sc-if>
+              <sc-if value="{{ cd.hasCv }}">
+                <span data-screen-label="CV chip" style="display:inline-flex;align-items:stretch;border-radius:6px;border:1px solid color-mix(in srgb,var(--amber) 45%,transparent);background:var(--amber-dim);overflow:hidden">
+                  <button onClick="{{ docPreview }}" title="Preview the CV" style="display:inline-flex;align-items:center;gap:5px;padding:3px 8px;font:600 11.5px var(--mono);color:var(--amber);background:none;border:none;cursor:pointer"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="{{ ic.fileText }}"></path></svg>{{ cd.cvLabel }}</button>
+                  <button onClick="{{ docDownload }}" aria-label="Download the CV" title="Download" style="display:grid;place-items:center;padding:0 7px;color:var(--amber);background:none;border:none;border-left:1px solid color-mix(in srgb,var(--amber) 35%,transparent);cursor:pointer"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="{{ ic.importInto }}"></path></svg></button>
+                </span>
+              </sc-if>
             </div>
             <sc-if value="{{ cd.showCrm }}">
               <div style="margin-top:8px;display:flex;flex-wrap:wrap;align-items:center;gap:6px">
@@ -1338,6 +1344,62 @@
                     </div>
                   </sc-for>
                   <sc-if value="{{ cd.noNotes }}"><p style="margin:10px 0 0;font:400 12px var(--mono);color:var(--text3)">No notes yet. A note you save here is shared with the team on every position this person is in.</p></sc-if>
+                </sc-if>
+
+                <sc-if value="{{ sx.isDocuments }}">
+                  <div style="display:flex;align-items:center;gap:10px;border-radius:8px;border:1.5px dashed var(--line);background:var(--panel2);padding:8px 10px">
+                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex:none;color:var(--text3)"><path d="{{ ic.uploadCloud }}"></path></svg>
+                    <span style="min-width:0;flex:1;font:400 11.5px var(--mono);color:var(--text3)">Drop a CV, cover letter or reference here</span>
+                    <button onClick="{{ toggleDocTray }}" style="flex:none;border-radius:6px;padding:5px 11px;font:600 12px var(--sans);background:var(--amber-btn);border:1px solid var(--amber-btn);color:var(--on-amber);cursor:pointer">Upload</button>
+                  </div>
+                  <sc-if value="{{ cd.docTray }}">
+                    <div data-screen-label="Upload tray" style="margin-top:8px;border-radius:8px;border:1px solid var(--line);background:var(--panel);padding:9px 10px">
+                      <div style="display:flex;align-items:center;gap:8px">
+                        <span style="display:grid;width:28px;height:34px;flex:none;place-items:end center;padding-bottom:4px;border-radius:5px;border:1px solid var(--line-soft);background:var(--red-dim);color:var(--red);font:700 8px var(--mono);text-transform:uppercase">pdf</span>
+                        <div style="min-width:0;flex:1"><div style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font:600 12.5px var(--sans);color:var(--text)">Fatima_Al_Mazrouei_CV.pdf</div><div style="margin-top:2px;display:flex;align-items:center;gap:5px;font:500 11.5px var(--sans);color:var(--sky)">New version of Fatima_Al_Mazrouei_CV.pdf (v3 → v4)</div></div>
+                        <span style="flex:none;border-radius:6px;border:1px solid var(--line);background:var(--panel2);padding:3px 8px;font:400 12px var(--mono);color:var(--text)">CV</span>
+                      </div>
+                      <div style="margin-top:8px;display:flex;align-items:center;justify-content:space-between;gap:8px">
+                        <span style="display:inline-flex;align-items:center;gap:7px;font:500 11.5px var(--mono);color:var(--text2)"><span style="position:relative;width:26px;height:15px;border-radius:999px;background:var(--line)"><span style="position:absolute;top:2px;left:2px;width:11px;height:11px;border-radius:50%;background:#fff"></span></span>Keep as a separate document</span>
+                        <button onClick="{{ sendDocTray }}" style="border-radius:6px;padding:5px 11px;font:600 12px var(--sans);background:var(--amber-btn);border:1px solid var(--amber-btn);color:var(--on-amber);cursor:pointer">Upload 1 file</button>
+                      </div>
+                    </div>
+                  </sc-if>
+                  <sc-for list="{{ cd.docs }}" as="dd">
+                    <div style="margin-top:8px;border-radius:8px;border:1px solid {{ dd.border }};padding:9px 11px">
+                      <div style="display:flex;align-items:flex-start;gap:9px">
+                        <span style="{{ dd.badgeStyle }}">{{ dd.ext }}</span>
+                        <div style="min-width:0;flex:1">
+                          <div style="display:flex;flex-wrap:wrap;align-items:center;gap:6px">
+                            <sc-if value="{{ dd.primary }}"><span title="Primary CV" style="display:inline-flex;color:var(--amber)"><svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="1.5"><path d="{{ ic.star }}"></path></svg></span></sc-if>
+                            <span style="min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font:600 12.5px var(--sans);color:var(--text)">{{ dd.title }}</span>
+                            <span style="{{ dd.catStyle }}">{{ dd.cat }}</span>
+                            <span style="border-radius:4px;background:var(--panel2);padding:1px 6px;font:600 10px var(--mono);color:var(--text2)">{{ dd.v }}</span>
+                          </div>
+                          <div style="margin-top:3px;font:400 11px var(--mono);color:var(--text3)">{{ dd.meta }}</div>
+                        </div>
+                        <div style="display:flex;flex:none;gap:2px">
+                          <sc-if value="{{ dd.previewable }}"><button onClick="{{ docPreview }}" title="Preview" style="border-radius:5px;padding:4px;color:var(--text3);background:none;border:none;cursor:pointer" style-hover="background:var(--panel2);color:var(--text)"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="{{ ic.eye }}"></path></svg></button></sc-if>
+                          <button onClick="{{ docDownload }}" title="Download" style="border-radius:5px;padding:4px;color:var(--text3);background:none;border:none;cursor:pointer" style-hover="background:var(--panel2);color:var(--text)"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="{{ ic.importInto }}"></path></svg></button>
+                          <button title="Upload new version · Rename · Change category · Make primary CV · Delete" style="border-radius:5px;padding:4px;color:var(--text3);background:none;border:none;cursor:pointer" style-hover="background:var(--panel2);color:var(--text)"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="{{ ic.moreH }}"></path></svg></button>
+                        </div>
+                      </div>
+                      <sc-if value="{{ dd.hasHistory }}">
+                        <button onClick="{{ toggleDocHist }}" data-id="{{ dd.key }}" style="margin:4px 0 0 31px;padding:2px 0;font:500 11px var(--mono);color:var(--text3);background:none;border:none;cursor:pointer" style-hover="color:var(--text)">{{ dd.historyLabel }}</button>
+                      </sc-if>
+                      <sc-if value="{{ dd.historyOpen }}">
+                        <sc-for list="{{ dd.versions }}" as="dvh">
+                          <div style="margin-left:37px;display:flex;align-items:center;gap:8px;border-top:1px solid var(--line-soft);padding:6px 0;font:400 11px var(--mono);color:var(--text3)">
+                            <span style="flex:none;border-radius:4px;background:var(--panel2);padding:1px 6px;font:600 10px var(--mono);color:var(--text2)">v{{ dvh.no }}</span>
+                            <span style="min-width:0;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ dvh.file }} · {{ dvh.meta }}</span>
+                            <button onClick="{{ docDownload }}" style="flex:none;font:500 11px var(--mono);color:var(--text3);background:none;border:none;cursor:pointer" style-hover="color:var(--text)">Download</button>
+                          </div>
+                        </sc-for>
+                      </sc-if>
+                    </div>
+                  </sc-for>
+                  <sc-if value="{{ cd.noDocs }}"><p style="margin:10px 0 0;font:400 12px var(--mono);color:var(--text3)">No documents yet. A CV filed here is shared with the team on every position this person is in.</p></sc-if>
+                  <a href="Candidates.dc.html?drawerOpen=1&amp;drawerTab=documents" style="display:inline-block;margin-top:8px;font:500 12px var(--mono)">All documents ›</a>
                 </sc-if>
 
                 <sc-if value="{{ sx.isTimeline }}">
@@ -1811,6 +1873,8 @@ const I = {
   table: "M3 5h18v14H3zM3 10h18M3 15h18M9 5v14",
   mapPin: "M20 10c0 6-8 12-8 12S4 16 4 10a8 8 0 0 1 16 0ZM12 13a3 3 0 1 0 0-6 3 3 0 0 0 0 6Z",
   building: "M6 22V4a1 1 0 0 1 1-1h10a1 1 0 0 1 1 1v18M2 22h20M9 7h2M13 7h2M9 11h2M13 11h2M9 15h2M13 15h2M10 22v-4h4v4",
+  fileText: "M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8l-6-6ZM14 2v6h6M8 13h8M8 17h5",
+  moreH: "M5 12h.01M12 12h.01M19 12h.01",
   eye: "M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12Zm10 3a3 3 0 1 0 0-6 3 3 0 0 0 0 6Z",
   eyeOff: "M17.9 17.9A10.5 10.5 0 0 1 12 19c-6.5 0-10-7-10-7a17 17 0 0 1 4.1-4.9M9.9 5.2A9.9 9.9 0 0 1 12 5c6.5 0 10 7 10 7a17 17 0 0 1-2 2.9M14.1 14.1a3 3 0 1 1-4.2-4.2M2 2l20 20",
   fit: "M8 3H5a2 2 0 0 0-2 2v3M16 3h3a2 2 0 0 1 2 2v3M8 21H5a2 2 0 0 1-2-2v-3M16 21h3a2 2 0 0 0 2-2v-3M9 9h6v6H9z",
@@ -1974,8 +2038,8 @@ const CRM = {
     notes: [["Sara Al-Mansour", "Call", "14 Sep", "Chief Financial Officer", "Spoke 14 Sep — open to a group CFO move if the remit includes the international portfolio. Follow up after Q3 close.", true],
       ["Dana Aboud", "Email", "Today 10:12", null, "Sent the group structure overview Fatima asked for; reply expected next week."],
       ["Yara Haddad", "Meeting", "22 Apr", "Head of Credit Risk", "Coffee at DIFC. Strong on treasury and funding, lighter on credit portfolio work."]],
-    timeline: [["Dana Aboud", "logged an email", "Today 10:12", ""], ["Yousef Iman", "ran AI deep enrich", "18 Sep 16:30", "Scored 8 of 10 against this brief"], ["Sara Al-Mansour", "marked Engaged on this position", "14 Sep 11:24", "Contacted → Engaged"],
-      ["Yousef Iman", "added to this position with the plugin", "8 Sep 14:40", "Already in your candidates, so added rather than duplicated"], ["Yara Haddad", "added to the candidates from Head of Credit Risk", "14 Apr 10:12", "Added by hand"]] },
+    timeline: [["Dana Aboud", "logged an email", "Today 10:12", ""], ["Omar Khalil", "uploaded a reference", "18 Sep 11:30", "Reference Al Rostamani Group"], ["Yousef Iman", "ran AI deep enrich", "18 Sep 16:30", "Scored 8 of 10 against this brief"], ["Sara Al-Mansour", "marked Engaged on this position", "14 Sep 11:24", "Contacted → Engaged"],
+      ["Yousef Iman", "uploaded version 3 of the CV", "12 Sep 09:40", "Fatima Al Mazrouei CV"], ["Yousef Iman", "added to this position with the plugin", "8 Sep 14:40", "Already in your candidates, so added rather than duplicated"], ["Yara Haddad", "added to the candidates from Head of Credit Risk", "14 Apr 10:12", "Added by hand"]] },
   e02: { tags: ["Passive"], owner: "Yara Haddad" },
   e03: { tags: ["Open to work"], owner: "Omar Khalil", last: ["Tagged Open to work", "Sara Al-Mansour · Today 09:05"] },
   e05: { tags: ["Interviewed before"], owner: "Omar Khalil", also: [["Head of Credit Risk", "notInterested", "Yousef Iman", "10 Apr 2026"]], dnc: "Asked not to be approached again for twelve months — set by Omar Khalil, 16 Sep 2026.", last: ["Marked do not contact", "Omar Khalil · 16 Sep"],
@@ -1988,7 +2052,18 @@ const CRM = {
     notes: [["Yara Haddad", "Call", "19 Sep", "Chief Financial Officer", "Open to a move if the role carries group scope; wants clarity on LTIP vesting.", true], ["Yara Haddad", "Note", "28 Mar", "Head of Credit Risk", "We placed Khalid as Mashreq CFO in 2023 — go through Yara before any approach."]] },
   e13: { tags: ["Open to work"], owner: "Yara Haddad", last: ["Marked Interested on this position", "Yara Haddad · 20 Sep"] }
 };
-const crmOf = (e) => Object.assign({ tags: [], owner: null, also: [], notes: [], timeline: null, last: null, dnc: null }, CRM[e.id] || {});
+const crmOf = (e) => Object.assign({ tags: [], owner: null, also: [], notes: [], timeline: null, last: null, dnc: null, docs: [] }, CRM[e.id] || {});
+// [category, title, file, size, latest upload, primary CV, versions as [no, file, size, by and when]] — Candidates.dc.html draws the full tab.
+const CRM_DOCS = {
+  e01: [
+    ["CV", "Fatima Al Mazrouei CV", "Fatima_Al_Mazrouei_CV.pdf", "412 KB", "Yousef Iman · 12 Sep", true, [[3, "Fatima_Al_Mazrouei_CV.pdf", "412 KB", "Yousef Iman · 12 Sep 2026, 09:40"], [2, "Fatima_Al_Mazrouei_CV.pdf", "398 KB", "Sara Al-Mansour · 22 Apr 2026, 10:40"], [1, "Fatima_CV_2024.docx", "86 KB", "Yara Haddad · 14 Apr 2026, 10:20"]]],
+    ["Cover letter", "Cover letter Group CFO", "Cover_letter_Group_CFO.pdf", "142 KB", "Sara Al-Mansour · 15 Sep", false, [[1]]],
+    ["Reference", "Reference Al Rostamani Group", "Reference_Al_Rostamani.docx", "54 KB", "Omar Khalil · 18 Sep", false, [[1]]],
+    ["Certificate", "ACCA membership", "ACCA_membership.jpg", "1.2 MB", "Yousef Iman · 8 Sep", false, [[1]]]
+  ],
+  e12: [["CV", "Khalid Al Harbi CV", "Khalid_Al_Harbi_CV.pdf", "380 KB", "Yara Haddad · 2 Sep", true, [[2, "Khalid_Al_Harbi_CV.pdf", "380 KB", "Yara Haddad · 2 Sep 2026, 09:00"], [1, "Khalid_Al_Harbi_CV.pdf", "361 KB", "Yara Haddad · 28 Mar 2026, 09:10"]]]]
+};
+const DOC_TONE = { CV: ["var(--u-accent)", "var(--u-accent-tint)"], "Cover letter": ["var(--u-adjacent)", "var(--u-adjacent-tint)"], Reference: ["var(--u-direct)", "var(--u-direct-tint)"], Certificate: ["var(--u-chart-5)", "color-mix(in srgb, var(--u-chart-5) 16%, transparent)"] };
 const POOL = [
   ["p16", "Layla Nasser", "Director of Leasing", "Aldar Properties", ["Open to work"], "Leasing Director · Engaged"],
   ["p17", "Tariq Al Nuaimi", "Head of Retail Leasing", "Majid Al Futtaim", [], "Leasing Director · Contacted"],
@@ -2121,7 +2196,7 @@ class Component extends DCLogic {
       sort: { field: "added", dir: "desc" },
       vis: { founded: false, description: false, source: false },
       toast: null, coId: "c01", candId: "e01", removeId: "c01", contactEditing: false, compEditing: false, compForm: null,
-      sec: { positions: true, summary: true, experience: true, compensation: true, background: false, contact: true, columns: false, notes: true, timeline: false },
+      sec: { positions: true, summary: true, experience: true, compensation: true, background: false, contact: true, columns: false, notes: true, documents: true, timeline: false }, docHist: {}, docTray: false,
       mapSel: "c01", mapOpen: { "United Arab Emirates": true, "Saudi Arabia": true, Qatar: true, Oman: true, Bahrain: true, c01: true }, mapExecs: true, mapPanel: true,
       basis: "recent", momentum: "weeks", measure: "package", cpCountry: "All countries", cpNat: "All nationalities",
       dvNat: "All nationalities", dvLevel: "All levels",
@@ -2391,6 +2466,8 @@ class Component extends DCLogic {
     const crm = crmOf(e);
     const crmShown = cw;
     const timeline = crm.timeline || [[ADDED_BY[e.id], "added to the candidates from this position", dateGB(e.added), SOURCES[e.source].label]];
+    const docs = CRM_DOCS[e.id] || [];
+    const cvDoc = docs.find((d) => d[5]);
     const secDefs = [
       { id: "summary", title: "Summary", summary: firstLine(summary), pencil: "summary" },
       { id: "experience", title: "Experience", count: postCount, summary: `${e.title} at ${company} · ${countOf(postCount, "post")}`, pencil: "experience" },
@@ -2399,16 +2476,17 @@ class Component extends DCLogic {
       { id: "contact", title: "Contact", summary: facts([e.emails[0] && e.emails[0][0], e.phones[0] && e.phones[0][0], e.emails.some((x) => x[2]) ? "verified" : null]), pencil: "contact" },
       { id: "columns", title: "Your columns", count: 2, summary: facts([e.arabic, e.board]), pencil: "your columns" },
       { id: "notes", title: "Notes", count: crm.notes.length, summary: crm.notes.length ? firstLine(crm.notes[0][4]) : "None yet" },
+      { id: "documents", title: "Documents", count: docs.length, summary: docs.length ? [cvDoc ? `CV ${cvDoc[6].length > 1 ? `v${cvDoc[6][0][0]}` : "v1"}` : null, docs.length - (cvDoc ? 1 : 0) ? `${docs.length - (cvDoc ? 1 : 0)} more` : null].filter(Boolean).join(" · ") : "None yet" },
       { id: "timeline", title: "Timeline", summary: `${timeline.length} ${timeline.length === 1 ? "entry" : "entries"} · who did what, and when` }
     ];
     if (crmShown) secDefs.unshift({ id: "positions", title: "Positions", count: 1 + crm.also.length, summary: crm.also.length ? `Also in ${crm.also.map((a) => a[0]).join(", ")}` : "Only this position" });
-    else secDefs.splice(secDefs.length - 2, 2);
+    else secDefs.splice(secDefs.length - 3, 3);
     const cdSections = secDefs.map((d) => {
       const open = !!s.sec[d.id] || (d.id === "contact" && s.contactEditing);
       return { id: d.id, title: d.title, hasCount: d.count !== undefined, count: d.count, showSummary: !open && !!d.summary, summary: d.summary || "",
         chev: `flex:none;color:var(--text3);transition:transform .2s;transform:${open ? "none" : "rotate(-90deg)"}`, open,
         pencil: cw && !!d.pencil && !(d.id === "contact" && s.contactEditing) && !(d.id === "compensation" && s.compEditing), pencilTitle: `Edit ${d.pencil}`, saveNote: false,
-        isSummary: d.id === "summary", isExperience: d.id === "experience", isComp: d.id === "compensation", isBackground: d.id === "background", isContact: d.id === "contact", isColumns: d.id === "columns", isPositions: d.id === "positions", isNotes: d.id === "notes", isTimeline: d.id === "timeline" };
+        isSummary: d.id === "summary", isExperience: d.id === "experience", isComp: d.id === "compensation", isBackground: d.id === "background", isContact: d.id === "contact", isColumns: d.id === "columns", isPositions: d.id === "positions", isNotes: d.id === "notes", isDocuments: d.id === "documents", isTimeline: d.id === "timeline" };
     });
     const verStyle = (on) => `flex:none;cursor:pointer;border-radius:5px;padding:3px 7px;font:700 9.5px var(--mono);text-transform:uppercase;letter-spacing:.06em;${on ? "border:1px solid transparent;background:var(--green-dim);color:var(--green)" : "border:1px solid var(--line);background:none;color:var(--text3)"}`;
     const editLines = (arr, noun) => arr.map((x, i) => ({ value: x[0], kind: x[1] || "", verStyle: verStyle(!!x[2]), aria: `${noun[0].toUpperCase()}${noun.slice(1)} ${i + 1}`, removeAria: `Remove ${noun} ${i + 1}` }));
@@ -2439,6 +2517,18 @@ class Component extends DCLogic {
       notes: crm.notes.map((n) => ({ author: n[0], kind: n[1], when: n[2], hasPos: !!n[3], pos: n[3] || "", body: n[4], pinned: !!n[5], kindStyle: `${DPILL}background:var(--panel2);color:var(--text2)`,
         border: n[5] ? "color-mix(in srgb,var(--amber) 45%,transparent)" : "var(--line-soft)" })),
       noNotes: crm.notes.length === 0,
+      hasCv: crmShown && !!cvDoc, cvLabel: cvDoc ? `CV · v${cvDoc[6][0][0]} · ${cvDoc[4].split(" · ")[1]}` : "",
+      docs: docs.map((d, i) => {
+        const ext = d[2].split(".").pop();
+        const open = !!s.docHist[`${e.id}:${i}`];
+        const tone = ext === "pdf" ? ["var(--red-dim)", "var(--red)"] : ext === "docx" ? ["var(--sky-dim)", "var(--sky)"] : ["var(--u-direct-tint)", "var(--u-direct)"];
+        return { key: `${e.id}:${i}`, title: d[1], ext, primary: d[5], cat: d[0], catStyle: `${DPILL}color:${DOC_TONE[d[0]][0]};background:${DOC_TONE[d[0]][1]}`,
+          v: `v${d[6][0][0]}`, meta: `${d[3]} · ${d[4]}`, previewable: ext !== "docx", border: d[5] ? "color-mix(in srgb,var(--amber) 45%,transparent)" : "var(--line-soft)",
+          badgeStyle: `display:grid;width:28px;height:34px;flex:none;place-items:end center;padding-bottom:4px;border-radius:5px;border:1px solid var(--line-soft);background:${tone[0]};color:${tone[1]};font:700 8px var(--mono);text-transform:uppercase`,
+          hasHistory: d[6].length > 1, historyOpen: open, historyLabel: `${open ? "Hide" : "Show"} ${d[6].length} versions`,
+          versions: d[6].map((v, j) => ({ no: v[0], file: v[1], meta: `${v[2]} · ${v[3]}`, current: j === 0 })) };
+      }),
+      noDocs: docs.length === 0, docTray: !!s.docTray,
       timeline: timeline.map((t) => ({ who: t[0], what: t[1], when: t[2], detail: t[3] ? ` · ${t[3]}` : "" })),
       footer: `Added ${dateGB(e.added)}${e.source === "extension" ? ` · Researched ${dateGB(e.added)} · Captured from www.linkedin.com` : ""}`,
       cdSections
@@ -3104,6 +3194,11 @@ class Component extends DCLogic {
       clearMapSel: () => set({ mapSel: null }),
       openMapNode: (e) => { e.stopPropagation(); const k = id(e); if (CO[k]) set({ drawer: "company", coId: k }); else set({ drawer: "candidate", candId: k, contactEditing: false }); },
       toggleSec: (e) => { const k = id(e); set({ sec: Object.assign({}, this.state.sec, { [k]: !this.state.sec[k] }) }); },
+      toggleDocHist: (e) => { const k = id(e); set({ docHist: Object.assign({}, this.state.docHist, { [k]: !this.state.docHist[k] }) }); },
+      toggleDocTray: () => set({ docTray: !this.state.docTray }),
+      sendDocTray: () => { set({ docTray: false }); this.showToast("Uploaded as version 4 of the CV — on the timeline"); },
+      docPreview: () => this.showToast("Opens the preview sheet — see Candidates.dc.html?dialog=preview"),
+      docDownload: () => this.showToast("Downloading — recorded in the audit trail"),
       expandAll: () => set({ sec: { summary: true, experience: true, compensation: true, background: true, contact: true, columns: true, note: true } }),
       collapseAll: () => set({ sec: { summary: false, experience: false, compensation: false, background: false, contact: false, columns: false, note: false }, contactEditing: false }),
       toggleCompOverride: () => { const f = this.state.compForm; set({ compForm: Object.assign({}, f, { overridden: !f.overridden, currency: f.overridden ? BRIEF_CURRENCY : f.currency }) }); },

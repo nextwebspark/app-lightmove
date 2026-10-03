@@ -7,11 +7,15 @@ import { messageFor } from "../../../lib/errorCodes";
 import { formatInstantDate } from "../../../lib/format";
 import { useSubmitShortcut } from "../../../lib/useSubmitShortcut";
 import { formatActivityTime } from "../../projects/lib/activity";
+import type { DocumentScope } from "../api/documentsApi";
 import * as personCrmApi from "../api/personCrmApi";
 import * as poolApi from "../api/poolApi";
-import type { PersonNoteKind, PersonPosition } from "../api/types";
+import type { PersonDocument, PersonDocumentVersion, PersonNoteKind, PersonPosition } from "../api/types";
 import { timelineLines } from "../lib/candidateActivity";
 import { candidateStatusStyle } from "../lib/candidateVocabulary";
+import { primaryCvOf } from "../lib/documents";
+import type { PersonDocuments } from "../lib/usePersonDocuments";
+import { DocumentsPanel } from "./documents/DocumentsPanel";
 import { NoteCard, NoteKindPicker } from "./NoteParts";
 
 /**
@@ -212,6 +216,44 @@ export function NotesSection({ projectId, candidateId, open, onToggle }: PersonS
           </ul>
         )}
       </div>
+    </CollapsibleSection>
+  );
+}
+
+export function DocumentsSection({
+  scope,
+  documents,
+  personName,
+  onPreview,
+  open,
+  onToggle,
+}: {
+  scope: DocumentScope;
+  documents: PersonDocuments;
+  personName: string;
+  onPreview: (document: PersonDocument, version: PersonDocumentVersion) => void;
+  open: boolean;
+  onToggle: () => void;
+}) {
+  const list = documents.documents.data ?? [];
+  const cv = primaryCvOf(list);
+  const others = list.length - (cv ? 1 : 0);
+  const summary = documents.documents.isSuccess
+    ? [cv ? `CV v${cv.versions[0].versionNo}` : null, others > 0 ? `${others} more` : null]
+        .filter(Boolean)
+        .join(" · ") || "None yet"
+    : null;
+
+  return (
+    <CollapsibleSection
+      id="documents"
+      open={open}
+      onToggle={onToggle}
+      title="Documents"
+      count={list.length > 0 ? list.length : undefined}
+      summary={summary}
+    >
+      <DocumentsPanel scope={scope} documents={documents} personName={personName} compact onPreview={onPreview} />
     </CollapsibleSection>
   );
 }

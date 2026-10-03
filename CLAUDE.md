@@ -66,8 +66,10 @@ same two doors (`…/candidates/{id}/documents`, `/candidates/{personId}/documen
 uploader's or a `WORKSPACE_MANAGE` holder's (`PERSON_DOCUMENT_NOT_YOURS`), every download is audited,
 and each change is a timeline line that names the document only while it exists. The bytes live in a
 private GCS bucket behind `core/storage`'s `DocumentStore` (`lightmove.storage.*`; the filesystem store
-for `npm run dev` and tests), streamed by the API, never by a signed URL; the drawer's Documents UI waits
-on its mockup.
+for `npm run dev` and tests), streamed by the API, never by a signed URL. The SPA draws them in
+`components/documents`: the Candidates drawer's Documents tab, the executive drawer's Documents section, a
+header chip for the primary CV and a preview sheet (a PDF or image fetched as a blob, never a link); the
+upload tray says what each file will become before sending, and a duplicate is the server's 409.
 `CandidateResponse.linkedinUrlLocked` is the server's own lock, which the Contact section reads rather
 than guessing from this mandate's door.
 **The workspace's Candidates page** (`/candidates`, `RequireStaff`, `Candidates.dc.html`, Phase 4) reads
