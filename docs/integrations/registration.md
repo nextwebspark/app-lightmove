@@ -1,6 +1,6 @@
 # Registering Uncava's provider apps (#649)
 
-The shared apps behind **Settings → Integrations → Uncava's app**, one per provider, and the Recall.ai account.
+The shared apps behind **Settings → Integrations → Shared app**, one per provider, and the Recall.ai account.
 Every value an admin console asks for is below; the reviews take weeks, so start them before anything else.
 Environments: production `https://beta.uncava.com`, staging `<staging base url>`, local `http://localhost:5173`.
 
@@ -84,6 +84,8 @@ printf %s "$VALUE" | gcloud secrets create lightmove-zoom-client-id             
 printf %s "$VALUE" | gcloud secrets create lightmove-zoom-client-secret           --data-file=-
 printf %s "$VALUE" | gcloud secrets create lightmove-recall-api-key               --data-file=-
 printf %s "$VALUE" | gcloud secrets create lightmove-recall-webhook-secret        --data-file=-
+tinkey create-keyset --key-template AES256_GCM --out-format json \
+  | gcloud secrets create lightmove-credential-keyset --data-file=-
 ```
 
 Then the repository variables `deploy.yml` reads, per environment:
@@ -92,7 +94,7 @@ Then the repository variables `deploy.yml` reads, per environment:
 |---|---|
 | `GOOGLE_MAIL_ENABLED`, `MICROSOFT_MAIL_ENABLED`, `ZOOM_ENABLED`, `RECALL_ENABLED` | `true` once that provider's secrets exist |
 | `RECALL_BASE_URL` | the EU URL, for an EU account |
-| `CREDENTIAL_ENCRYPTION_ENABLED` | `true` (needed before any refresh token can be stored) |
+| `CREDENTIAL_ENCRYPTION_ENABLED` | `true` once `lightmove-credential-keyset` exists (needed before any refresh token can be stored) |
 | `OUTREACH_GATEWAY` | stays `nylas` until rollout (#650) |
 | `*_OWN_APP_GUIDE_URL`, `*_SHARED_APP_GUIDE_URL` | where the guides in this folder are published |
 

@@ -6,8 +6,8 @@ unpublished: only users in your account can install it, and Zoom does not review
 1. Sign in to the **Zoom App Marketplace → Develop → Build App → General App**.
 2. Choose **User-managed**.
 3. **Basic information → OAuth information:**
-   - **Redirect URL for OAuth:** the redirect URI shown on Uncava's **Settings → Integrations → Zoom** card (with **Your own app** chosen) (it ends
-     in `/api/v1/outreach/zoom/callback`).
+   - **Redirect URL for OAuth:** paste the **Redirect URI** shown on Uncava's **Settings → Integrations → Zoom** card
+     once **Your own app** is chosen (it ends in `/api/v1/outreach/zoom/callback`).
    - Add the same URL to the **OAuth allow list**.
 4. **Scopes → Add scopes:** `meeting:write:meeting`, `meeting:update:meeting`, `meeting:delete:meeting`,
    `user:read:user`, `user:read:token`.

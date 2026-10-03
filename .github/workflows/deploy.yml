@@ -339,13 +339,8 @@ jobs:
 
           # Our own mail gateways and Zoom (epic #642): Uncava's shared OAuth app at each provider, each off unless
           # its switch is true, for the secret-must-exist reason above. docs/integrations/registration.md gives
-          # every console setting. Prerequisites, per enabled provider, in the deploy project:
-          #   gcloud secrets create lightmove-google-mail-client-id        --data-file=-
-          #   gcloud secrets create lightmove-google-mail-client-secret    --data-file=-
-          #   gcloud secrets create lightmove-microsoft-mail-client-id     --data-file=-
-          #   gcloud secrets create lightmove-microsoft-mail-client-secret --data-file=-
-          #   gcloud secrets create lightmove-zoom-client-id               --data-file=-
-          #   gcloud secrets create lightmove-zoom-client-secret           --data-file=-
+          # every console setting, and its "Secrets and switches" the secrets each switch needs
+          # (lightmove-{google-mail,microsoft-mail,zoom}-client-{id,secret}).
           # OUTREACH_GATEWAY stays nylas until rollout (#650); the guide URLs are where Settings → Integrations
           # links an admin, and are left blank until the guides are published.
           PROVIDER_SECRETS=""
@@ -367,6 +362,7 @@ jobs:
           PROVIDER_ENV="${PROVIDER_ENV}|MICROSOFT_MAIL_OWN_APP_GUIDE_URL=${{ vars.MICROSOFT_MAIL_OWN_APP_GUIDE_URL }}"
           PROVIDER_ENV="${PROVIDER_ENV}|MICROSOFT_MAIL_SHARED_APP_GUIDE_URL=${{ vars.MICROSOFT_MAIL_SHARED_APP_GUIDE_URL }}"
           PROVIDER_ENV="${PROVIDER_ENV}|ZOOM_OWN_APP_GUIDE_URL=${{ vars.ZOOM_OWN_APP_GUIDE_URL }}"
+          PROVIDER_ENV="${PROVIDER_ENV}|ZOOM_SHARED_APP_GUIDE_URL=${{ vars.ZOOM_SHARED_APP_GUIDE_URL }}"
 
           # Recall.ai's Calendar API, one platform account per region. Off unless RECALL_ENABLED=true, for the
           # secret-must-exist reason above. Prerequisites:
