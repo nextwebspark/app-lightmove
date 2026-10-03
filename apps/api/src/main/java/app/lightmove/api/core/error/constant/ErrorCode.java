@@ -333,6 +333,9 @@ public enum ErrorCode {
     INTEGRATION_ENCRYPTION_UNAVAILABLE(HttpStatus.CONFLICT,
             "Your own app's keys cannot be stored on this deployment. Use the shared app"),
 
+    /** An approval for Uncava's shared app on a deployment that offers none at that provider. */
+    INTEGRATION_SHARED_APP_UNAVAILABLE(HttpStatus.CONFLICT, "Uncava's shared app is not offered on this deployment"),
+
     /** A webhook delivery whose signature did not verify, or one this deployment is not set up to read. */
     MAILBOX_WEBHOOK_REJECTED(HttpStatus.UNAUTHORIZED, "Unauthorized"),
 

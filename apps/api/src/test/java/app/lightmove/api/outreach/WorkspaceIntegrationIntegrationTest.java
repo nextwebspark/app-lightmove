@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.hamcrest.Matchers.startsWith;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -197,6 +198,26 @@ class WorkspaceIntegrationIntegrationTest extends FlowTestSupport {
     }
 
     @Test
+    @DisplayName("Microsoft's admin-consent return is recorded for the shared app and audited, whatever the mode")
+    void microsoftAdminConsentIsRecorded() throws Exception {
+        String admin = adminOfNewWorkspace("Consenting Firm");
+        String workspaceId = workspaceOf(admin);
+        String tenant = "8f3a6c1e-2b4d-4e5f-9a0b-1c2d3e4f5a6b";
+
+        recordAdminConsent(admin, tenant)
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.providers[1].provider").value("MICROSOFT"))
+                .andExpect(jsonPath("$.providers[1].mode").value("SHARED"))
+                .andExpect(jsonPath("$.providers[1].adminConsentedAt").isNotEmpty())
+                .andExpect(jsonPath("$.providers[1].adminConsentTenantId").value(tenant))
+                .andExpect(jsonPath("$.providers[0].adminConsentedAt").doesNotExist());
+        assertThat(auditDetailsFor(workspaceId))
+                .anySatisfy(details -> assertThat(details).contains("\"adminConsentTenant\": \"" + tenant + "\""));
+
+        recordAdminConsent(admin, "contoso.onmicrosoft.com/../x").andExpect(status().isBadRequest());
+    }
+
+    @Test
     @DisplayName("members and client representatives can neither read nor change the integrations")
     void refusedForMemberAndClient() throws Exception {
         String alok = "alok@" + domain;
@@ -213,7 +234,15 @@ class WorkspaceIntegrationIntegrationTest extends FlowTestSupport {
             mvc.perform(delete("/api/v1/workspace/integrations/GOOGLE")
                             .header("Authorization", "Bearer " + refusedCaller))
                     .andExpect(status().isForbidden());
+            recordAdminConsent(refusedCaller, "contoso.onmicrosoft.com").andExpect(status().isForbidden());
         }
+    }
+
+    private ResultActions recordAdminConsent(String bearerToken, String tenantId) throws Exception {
+        return mvc.perform(post("/api/v1/workspace/integrations/MICROSOFT/admin-consent")
+                .header("Authorization", "Bearer " + bearerToken)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"tenantId\":\"%s\"}".formatted(tenantId)));
     }
 
     private ResultActions saveOwnGoogleApp(String bearerToken, String clientId, String clientSecret)

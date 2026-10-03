@@ -3,13 +3,14 @@ package app.lightmove.api.outreach.model;
 import java.time.Duration;
 
 /**
- * A provider's answer to a refresh: the access token, how long it lives, and a new refresh token where the
- * provider rotates them (Microsoft does). {@link #toString()} carries neither token.
+ * A token endpoint's answer: the access token, how long it lives, and a refresh token where it sends one — always
+ * for a redeemed code, and on a refresh where the provider rotates them (Microsoft does). {@link #toString()}
+ * carries neither token.
  */
-public record RefreshedAccessToken(String accessToken, Duration expiresIn, String rotatedRefreshToken) {
+public record RefreshedAccessToken(String accessToken, Duration expiresIn, String refreshToken) {
 
     @Override
     public String toString() {
-        return "RefreshedAccessToken[expiresIn=" + expiresIn + ", rotated=" + (rotatedRefreshToken != null) + "]";
+        return "RefreshedAccessToken[expiresIn=" + expiresIn + ", tokens=<redacted>]";
     }
 }

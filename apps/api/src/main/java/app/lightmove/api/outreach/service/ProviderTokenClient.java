@@ -2,8 +2,10 @@ package app.lightmove.api.outreach.service;
 
 import app.lightmove.api.outreach.model.ProviderCredentials;
 import app.lightmove.api.outreach.model.RefreshedAccessToken;
+import java.net.URI;
+import java.util.List;
 
-/** A provider's OAuth token endpoint, asked for an access token from a stored refresh token. */
+/** A provider's OAuth token endpoint: a consent screen's code redeemed, and a stored refresh token spent. */
 public interface ProviderTokenClient {
 
     /**
@@ -12,4 +14,10 @@ public interface ProviderTokenClient {
      * @throws app.lightmove.api.core.resilience.model.VendorException for anything a later try might get past
      */
     RefreshedAccessToken refresh(ProviderCredentials credentials, String refreshToken);
+
+    /**
+     * Redeems the code a consent screen sent back for an access token and a refresh token. Never retried: a code is
+     * single-use. {@code scopes} is sent where the provider asks for it again (Microsoft); empty sends none.
+     */
+    RefreshedAccessToken redeemCode(ProviderCredentials credentials, String code, URI redirectUri, List<String> scopes);
 }

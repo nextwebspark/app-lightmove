@@ -9,6 +9,7 @@ import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
 import jakarta.persistence.Table;
+import java.time.Instant;
 import java.time.LocalDate;
 import java.util.Objects;
 import java.util.UUID;
@@ -52,6 +53,16 @@ public class WorkspaceMailIntegration extends BaseEntity {
 
     @Column(name = "updated_by")
     private UUID updatedBy;
+
+    /** When Microsoft returned an admin having approved Uncava's shared app for their directory (V108). */
+    @Column(name = "admin_consented_at")
+    private Instant adminConsentedAt;
+
+    @Column(name = "admin_consent_tenant_id", length = 64)
+    private String adminConsentTenantId;
+
+    @Column(name = "admin_consented_by")
+    private UUID adminConsentedBy;
 
     public static WorkspaceMailIntegration sharedApp(UUID workspaceId, IntegrationProvider provider) {
         WorkspaceMailIntegration integration = new WorkspaceMailIntegration();
@@ -103,6 +114,16 @@ public class WorkspaceMailIntegration extends BaseEntity {
         this.tenantId = null;
         this.secretExpiresOn = null;
         this.updatedBy = actorId;
+    }
+
+    /** Kept whatever the mode: the approval is the shared app's, and a return to it finds it still in place. */
+    public void recordAdminConsent(String tenantId, UUID actorId, Instant now) {
+        if (provider != IntegrationProvider.MICROSOFT) {
+            throw new IllegalStateException("Only Microsoft has an organisation-wide admin consent");
+        }
+        this.adminConsentTenantId = Objects.requireNonNull(tenantId, "tenantId");
+        this.adminConsentedBy = actorId;
+        this.adminConsentedAt = now;
     }
 
     public boolean isOwnApp() {

@@ -46,8 +46,8 @@ public interface MailboxGateway {
         return redeem(code, redirectUri);
     }
 
-    /** True where a new connection at {@code provider} hands back a refresh token we must store encrypted. */
-    default boolean holdsRefreshTokens(String provider) {
+    /** True where {@code workspaceId}'s next connection at {@code provider} hands back a refresh token to seal. */
+    default boolean holdsRefreshTokens(UUID workspaceId, String provider) {
         return false;
     }
 

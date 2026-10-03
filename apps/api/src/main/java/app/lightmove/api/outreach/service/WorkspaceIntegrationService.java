@@ -16,6 +16,7 @@ import app.lightmove.api.outreach.model.WorkspaceMailIntegration;
 import app.lightmove.api.outreach.repository.WorkspaceMailIntegrationRepository;
 import jakarta.servlet.http.HttpServletRequest;
 import java.net.URI;
+import java.time.Clock;
 import java.util.Arrays;
 import java.util.Map;
 import java.util.UUID;
@@ -38,6 +39,7 @@ public class WorkspaceIntegrationService {
     private final SecretCipher cipher;
     private final AuditService audit;
     private final LightMoveProperties properties;
+    private final Clock clock;
 
     @Transactional(readOnly = true)
     public WorkspaceIntegrationsResponse list(UUID workspaceId) {
@@ -100,6 +102,30 @@ public class WorkspaceIntegrationService {
         return list(workspaceId);
     }
 
+    /**
+     * Microsoft sent an admin back from the admin-consent link with the directory they approved Uncava's shared app
+     * for. Recorded so the page can say so; a consent to an app this deployment does not offer is refused.
+     */
+    @Transactional
+    public WorkspaceIntegrationsResponse recordMicrosoftAdminConsent(UUID actorId, UUID workspaceId, String tenantId,
+                                                                     HttpServletRequest request) {
+        if (setup.sharedApp(IntegrationProvider.MICROSOFT).isEmpty()) {
+            throw ApiException.of(ErrorCode.INTEGRATION_SHARED_APP_UNAVAILABLE);
+        }
+        WorkspaceMailIntegration integration = integrations
+                .findByWorkspaceIdAndProvider(workspaceId, IntegrationProvider.MICROSOFT)
+                .orElseGet(() -> WorkspaceMailIntegration.sharedApp(workspaceId, IntegrationProvider.MICROSOFT));
+        integration.recordAdminConsent(tenantId, actorId, clock.instant());
+        integrations.save(integration);
+        audit.event(WorkspaceEventType.WORKSPACE_UPDATED)
+                .actor(actorId).workspace(workspaceId).from(request)
+                .detail("section", "integrations")
+                .detail("provider", IntegrationProvider.MICROSOFT.name())
+                .detail("adminConsentTenant", tenantId)
+                .record();
+        return list(workspaceId);
+    }
+
     /** The {@code integrations} section's one shape: the provider and the mode, never a key. */
     private void recordIntegrationChange(UUID actorId, UUID workspaceId, IntegrationProvider provider,
                                          CredentialMode mode, Boolean secretChanged, HttpServletRequest request) {
@@ -130,7 +156,9 @@ public class WorkspaceIntegrationService {
                 adminConsentUrl,
                 setup.ownAppGuideUrl(provider).orElse(null),
                 setup.sharedAppGuideUrl(provider).orElse(null),
-                integration == null ? null : integration.getUpdatedAt());
+                integration == null ? null : integration.getUpdatedAt(),
+                integration == null ? null : integration.getAdminConsentedAt(),
+                integration == null ? null : integration.getAdminConsentTenantId());
     }
 
     private static String requireClientId(OwnAppKeys keys) {

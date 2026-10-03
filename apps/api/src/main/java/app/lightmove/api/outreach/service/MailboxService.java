@@ -81,7 +81,7 @@ public class MailboxService {
             throw ApiException.of(ErrorCode.MAILBOX_PROVIDER_UNSUPPORTED);
         }
         // Refused before consent: a refresh token we could not seal would be live at the provider and discarded.
-        if (gateway.holdsRefreshTokens(provider) && !cipher.isAvailable()) {
+        if (gateway.holdsRefreshTokens(workspaceId, provider) && !cipher.isAvailable()) {
             throw ApiException.of(ErrorCode.INTEGRATION_ENCRYPTION_UNAVAILABLE);
         }
         authorizations.forgetStartedBy(userId);

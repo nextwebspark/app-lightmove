@@ -22,6 +22,7 @@ import app.lightmove.api.outreach.model.ProviderCredentials;
 import app.lightmove.api.outreach.model.RecallCalendarReleased;
 import app.lightmove.api.outreach.model.RefreshedAccessToken;
 import app.lightmove.api.outreach.repository.MailboxConnectionRepository;
+import java.net.URI;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
@@ -188,6 +189,12 @@ class MailboxTokensTest {
 
         void refuseTheApp() {
             this.refusingTheApp = true;
+        }
+
+        @Override
+        public RefreshedAccessToken redeemCode(ProviderCredentials credentials, String code, URI redirectUri,
+                                               List<String> scopes) {
+            throw new UnsupportedOperationException("MailboxTokens only refreshes");
         }
 
         @Override

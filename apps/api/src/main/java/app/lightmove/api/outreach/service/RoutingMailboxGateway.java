@@ -68,17 +68,18 @@ public class RoutingMailboxGateway implements MailboxGateway {
 
     @Override
     public URI authorizationUri(UUID workspaceId, String provider, String loginHint, String state, URI redirectUri) {
-        return connectingAt(provider).authorizationUri(workspaceId, provider, loginHint, state, redirectUri);
+        return connectingAt(workspaceId, provider).authorizationUri(workspaceId, provider, loginHint, state,
+                redirectUri);
     }
 
     @Override
     public GrantedMailbox redeem(UUID workspaceId, String provider, String code, URI redirectUri) {
-        return connectingAt(provider).redeem(workspaceId, provider, code, redirectUri);
+        return connectingAt(workspaceId, provider).redeem(workspaceId, provider, code, redirectUri);
     }
 
     @Override
-    public boolean holdsRefreshTokens(String provider) {
-        return connectingAt(provider) instanceof DirectMailboxGateway;
+    public boolean holdsRefreshTokens(UUID workspaceId, String provider) {
+        return connectingAt(workspaceId, provider) instanceof DirectMailboxGateway;
     }
 
     @Override
@@ -128,9 +129,10 @@ public class RoutingMailboxGateway implements MailboxGateway {
         return holding(grantId).createBookingPage(grantId, page);
     }
 
-    MailboxGateway connectingAt(String provider) {
+    /** A workspace with no app at the provider, shared or its own, still connects through Nylas. */
+    MailboxGateway connectingAt(UUID workspaceId, String provider) {
         DirectMailboxGateway direct = directByProvider.get(provider);
-        if (connectDirectly && direct != null && direct.isOffered()) {
+        if (connectDirectly && direct != null && direct.isOffered() && direct.isOfferedTo(workspaceId)) {
             return direct;
         }
         return nylas;

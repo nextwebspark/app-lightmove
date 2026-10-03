@@ -108,8 +108,8 @@ public class MailboxTokens {
                     app.provider(), connection.getWorkspaceId(), appRefused.getMessage());
             throw appRefused;
         }
-        if (refreshed.rotatedRefreshToken() != null && !refreshed.rotatedRefreshToken().equals(refreshToken)) {
-            keepRotated(connection.getId(), grantId, refreshed.rotatedRefreshToken());
+        if (refreshed.refreshToken() != null && !refreshed.refreshToken().equals(refreshToken)) {
+            keepRotated(connection.getId(), grantId, refreshed.refreshToken());
         }
         return new HeldAccessToken(refreshed.accessToken(), refreshed.expiresIn().minus(EXPIRY_MARGIN));
     }

@@ -11,12 +11,15 @@ import app.lightmove.api.outreach.constant.IntegrationProvider;
 import app.lightmove.api.outreach.model.ProviderCredentials;
 import app.lightmove.api.outreach.model.RefreshedAccessToken;
 import java.io.IOException;
+import java.net.URI;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.util.EnumMap;
+import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.client.ClientHttpResponse;
@@ -29,8 +32,8 @@ import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.json.JsonMapper;
 
 /**
- * The refresh-token grant (RFC 6749 §6) at Google, Microsoft and Zoom. The secret travels in the form body
- * ({@code client_secret_post}) except at Zoom, which accepts HTTP Basic only. Never retried here: a refusal is
+ * The authorization-code (RFC 6749 §4.1) and refresh-token (§6) grants at Google, Microsoft and Zoom. The secret
+ * travels in the form body ({@code client_secret_post}) except at Zoom, which accepts HTTP Basic only. Never retried here: a refusal is
  * final, and anything else is the caller's next call to try again.
  */
 @Component
@@ -53,23 +56,49 @@ public class OAuthProviderTokenClient implements ProviderTokenClient {
     private final Map<IntegrationProvider, RestClient> clients = new EnumMap<>(IntegrationProvider.class);
     private final VendorCallGuard guard;
 
+    @Autowired
     public OAuthProviderTokenClient(VendorClientFactory clientFactory, VendorRateLimiter rateLimiter,
                                     VendorCallGuard guard) {
+        this(clientFactory, rateLimiter, guard, Map.of());
+    }
+
+    /** {@code hostOverrides}: a test's recorded endpoints in place of the providers' own. */
+    OAuthProviderTokenClient(VendorClientFactory clientFactory, VendorRateLimiter rateLimiter, VendorCallGuard guard,
+                             Map<IntegrationProvider, String> hostOverrides) {
         this.guard = guard;
         for (IntegrationProvider provider : IntegrationProvider.values()) {
-            VendorClientSpec spec = new VendorClientSpec(vendorOf(provider), tokenHostOf(provider), null, null, null,
-                    null, READ_TIMEOUT, REQUESTS_PER_SECOND);
+            String host = hostOverrides.getOrDefault(provider, tokenHostOf(provider));
+            VendorClientSpec spec = new VendorClientSpec(vendorOf(provider), host, null, null, null, null,
+                    READ_TIMEOUT, REQUESTS_PER_SECOND);
             clients.put(provider, clientFactory.create(spec, RestClient.builder(), rateLimiter));
         }
     }
 
     @Override
     public RefreshedAccessToken refresh(ProviderCredentials credentials, String refreshToken) {
-        IntegrationProvider provider = credentials.provider();
-        VendorCall call = VendorCall.of(vendorOf(provider), "refresh-token");
         MultiValueMap<String, String> form = new LinkedMultiValueMap<>();
         form.add("grant_type", "refresh_token");
         form.add("refresh_token", refreshToken);
+        return exchange(credentials, form, "refresh-token");
+    }
+
+    @Override
+    public RefreshedAccessToken redeemCode(ProviderCredentials credentials, String code, URI redirectUri,
+                                           List<String> scopes) {
+        MultiValueMap<String, String> form = new LinkedMultiValueMap<>();
+        form.add("grant_type", "authorization_code");
+        form.add("code", code);
+        form.add("redirect_uri", redirectUri.toString());
+        if (!scopes.isEmpty()) {
+            form.add("scope", String.join(" ", scopes));
+        }
+        return exchange(credentials, form, "redeem-code");
+    }
+
+    private RefreshedAccessToken exchange(ProviderCredentials credentials, MultiValueMap<String, String> form,
+                                          String operation) {
+        IntegrationProvider provider = credentials.provider();
+        VendorCall call = VendorCall.of(vendorOf(provider), operation);
         boolean basic = provider == IntegrationProvider.ZOOM;
         if (!basic) {
             form.add("client_id", credentials.clientId());
@@ -136,7 +165,8 @@ public class OAuthProviderTokenClient implements ProviderTokenClient {
         };
     }
 
-    private static String tenantOf(ProviderCredentials credentials) {
+    /** A single-tenant app signs in at its own directory; Uncava's multi-tenant one at any organisation's. */
+    static String tenantOf(ProviderCredentials credentials) {
         return credentials.tenantId() == null ? MICROSOFT_ANY_ORGANISATION : credentials.tenantId();
     }
 

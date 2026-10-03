@@ -46,7 +46,7 @@ class OAuthProviderTokenClientTest {
 
         assertThat(token.accessToken()).isEqualTo("ya29.a");
         assertThat(token.expiresIn()).isEqualTo(Duration.ofSeconds(3599));
-        assertThat(token.rotatedRefreshToken()).isEqualTo("1//new");
+        assertThat(token.refreshToken()).isEqualTo("1//new");
         assertThat(token.toString()).doesNotContain("ya29.a").doesNotContain("1//new");
         assertThatThrownBy(() -> OAuthProviderTokenClient.read(CALL, JSON.readTree("{\"token_type\":\"Bearer\"}")))
                 .isInstanceOf(VendorException.class);
