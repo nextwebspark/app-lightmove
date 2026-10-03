@@ -119,7 +119,7 @@ public class AuditService {
 
         public void record() {
             service.record(new AuditEvent(type, outcome, actorUserId, workspaceId, targetType, targetId,
-                    ipAddress, userAgent, CorrelationId.current(), Map.copyOf(metadata)));
+                    ipAddress, userAgent, truncate(CorrelationId.current(), 64), Map.copyOf(metadata)));
         }
 
         private static String truncate(String value, int max) {
