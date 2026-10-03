@@ -175,7 +175,7 @@ public abstract class OAuthDirectMailboxGateway implements DirectMailboxGateway 
         return false;
     }
 
-    /** Booking pages are Nylas Scheduler's: a sequence with {@code {{bookingLink}}} cannot start from this mailbox. */
+    /** A direct mailbox's booking page is Uncava's own ({@code DirectBookingPage}); nothing is made at a provider. */
     @Override
     public String createBookingPage(String grantId, BookingPageSpec page) {
         throw ApiException.of(ErrorCode.OUTREACH_BOOKING_LINK_UNAVAILABLE);

@@ -30,7 +30,7 @@ final class TestAuthSettings {
                 null,
                 new CookieSettings("lm_refresh", "/api/v1/auth", true, true, "Strict", null),
                 new LockoutSettings(5, Duration.ofMinutes(15)),
-                new RateLimitSettings(true, 10, 5, 3, 3, 10, 5, 60, 60, 5, 60, 30),
+                new RateLimitSettings(true, 10, 5, 3, 3, 10, 5, 60, 60, 5, 60, 30, 5),
                 // Null extension and oauth: nothing built here pairs a device or signs in through a
                 // provider, and AuthSettings defaults both.
                 null,

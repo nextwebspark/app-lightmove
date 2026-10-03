@@ -256,6 +256,11 @@ public class MicrosoftMailboxGateway extends OAuthDirectMailboxGateway {
         return !error.isMissingNode() && !error.isNull();
     }
 
+    @Override
+    public MeetingVideo nativeVideoOf(String grantId) {
+        return MeetingVideo.MICROSOFT_TEAMS;
+    }
+
     /**
      * Graph mails the invite itself. A Teams link is made only where the calendar offers Teams — an organisation
      * without a Teams licence or with it turned off does not, and its invite goes without one, as does one asking for
