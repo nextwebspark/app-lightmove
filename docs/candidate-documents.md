@@ -6,9 +6,9 @@ a later phase.
 
 | Phase | State |
 |---|---|
-| 0 — Mockups: the Documents tab, upload tray, CV chip, preview, timeline chip | **Next** (Claude Design) |
+| 0 — Mockups: the Documents tab, upload tray, CV chip, preview, timeline chip | **Drawn** (`Candidates.dc.html`, the executive drawer in `Position.dc.html`) |
 | 1 — V105, `core/storage`, `PersonDocumentService`, routes, bucket | **Built** |
-| 2 — SPA, built from the approved mockup | After 0 |
+| 2 — SPA, built from the approved mockup | **Built** (`apps/web/src/features/candidates/components/documents`) |
 | Later | Virus scanning · DOCX→PDF preview · CV parsing · share a document with a client seat · documents in merge · GDPR erasure · retention · orphan sweep |
 
 ## How established systems do it
