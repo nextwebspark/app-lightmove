@@ -68,6 +68,14 @@ public interface MailboxGateway {
     void revoke(String grantId);
 
     /**
+     * {@link #revoke(String)} with the grant's refresh token, read before the row let it go, for a provider that
+     * revokes by the token itself; null for a grant that holds none.
+     */
+    default void revoke(String grantId, String refreshToken) {
+        revoke(grantId);
+    }
+
+    /**
      * Reads one webhook delivery: what it says about which mailbox, or nothing for an event outreach
      * does not listen to. A delivery whose signature does not verify is refused with
      * {@code MAILBOX_WEBHOOK_REJECTED} — the endpoint is public, and the signature is its only credential.

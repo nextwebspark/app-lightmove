@@ -19,6 +19,7 @@ import app.lightmove.api.outreach.model.MailboxConnectStart;
 import app.lightmove.api.outreach.model.MailboxConnection;
 import app.lightmove.api.outreach.model.OutgoingEmail;
 import app.lightmove.api.outreach.model.RecallCalendarReleased;
+import app.lightmove.api.outreach.model.ReleasedGrant;
 import app.lightmove.api.outreach.repository.MailboxAuthorizationRepository;
 import app.lightmove.api.outreach.repository.MailboxConnectionRepository;
 import jakarta.servlet.http.HttpServletRequest;
@@ -120,7 +121,7 @@ public class MailboxService {
             throw ApiException.of(ErrorCode.MAILBOX_CONNECT_FAILED);
         }
 
-        String replacedGrant = transactions.execute(status -> store(started, granted));
+        ReleasedGrant replaced = transactions.execute(status -> store(started, granted));
         audit.event(WorkspaceEventType.MAILBOX_CONNECTED)
                 .actor(started.getUserId())
                 .workspace(started.getWorkspaceId())
@@ -128,30 +129,31 @@ public class MailboxService {
                 .from(request)
                 .detail("provider", granted.provider())
                 .record();
-        if (replacedGrant != null && !replacedGrant.equals(granted.grantId())) {
-            tokens.forget(replacedGrant);
-            revokeQuietly(replacedGrant);
+        if (replaced != null && !replaced.grantId().equals(granted.grantId())) {
+            tokens.forget(replaced.grantId());
+            revokeQuietly(replaced);
         }
     }
 
     public void disconnect(UUID userId, UUID workspaceId, HttpServletRequest request) {
-        String grantId = transactions.execute(status -> {
+        ReleasedGrant released = transactions.execute(status -> {
             MailboxConnection connection = requireConnection(userId, workspaceId);
             String recallCalendar = connection.releaseRecallCalendar();
             if (recallCalendar != null) {
                 events.publishEvent(new RecallCalendarReleased(recallCalendar));
             }
+            ReleasedGrant grant = releasedGrantOf(connection);
             connections.delete(connection);
-            return connection.getGrantId();
+            return grant;
         });
-        tokens.forget(grantId);
+        tokens.forget(released.grantId());
         audit.event(WorkspaceEventType.MAILBOX_DISCONNECTED)
                 .actor(userId)
                 .workspace(workspaceId)
                 .target(TARGET, userId)
                 .from(request)
                 .record();
-        revokeQuietly(grantId);
+        revokeQuietly(released);
     }
 
     /** Sends one email from the mailbox to itself, which is the only proof that it can send at all. */
@@ -179,12 +181,12 @@ public class MailboxService {
         return URI.create(properties.web().baseUrl() + "/outreach/mailbox/callback");
     }
 
-    private String store(MailboxAuthorization started, GrantedMailbox granted) {
+    private ReleasedGrant store(MailboxAuthorization started, GrantedMailbox granted) {
         Instant now = clock.instant();
         String refreshTokenEncrypted = encryptedRefreshToken(started, granted);
         return connections.findByWorkspaceIdAndUserId(started.getWorkspaceId(), started.getUserId())
                 .map(existing -> {
-                    String previous = existing.getGrantId();
+                    ReleasedGrant previous = releasedGrantOf(existing);
                     String movedFrom = existing.releaseRecallCalendarUnlessFor(granted);
                     if (movedFrom != null) {
                         events.publishEvent(new RecallCalendarReleased(movedFrom));
@@ -219,10 +221,27 @@ public class MailboxService {
                 .orElseThrow(() -> ApiException.of(ErrorCode.MAILBOX_NOT_CONNECTED));
     }
 
-    /** Our row is already gone; a grant the mail service keeps is its housekeeping, not the consultant's problem. */
-    private void revokeQuietly(String grantId) {
+    /**
+     * Read before the row lets it go: a provider that revokes by the refresh token itself needs it, and once the row is
+     * deleted or reconnected nothing holds it any more.
+     */
+    private ReleasedGrant releasedGrantOf(MailboxConnection connection) {
+        if (!connection.isDirect()) {
+            return new ReleasedGrant(connection.getGrantId(), null);
+        }
         try {
-            gateway.revoke(grantId);
+            return new ReleasedGrant(connection.getGrantId(),
+                    cipher.decrypt(connection.getRefreshTokenEncrypted(), connection.refreshTokenContext()));
+        } catch (RuntimeException unreadable) {
+            log.warn("Could not read the refresh token of mailbox {} to revoke it", connection.getId());
+            return new ReleasedGrant(connection.getGrantId(), null);
+        }
+    }
+
+    /** Our row is already gone; a grant the mail service keeps is its housekeeping, not the consultant's problem. */
+    private void revokeQuietly(ReleasedGrant released) {
+        try {
+            gateway.revoke(released.grantId(), released.refreshToken());
         } catch (RuntimeException failed) {
             log.warn("Could not revoke a released mailbox grant at the mail service", failed);
         }

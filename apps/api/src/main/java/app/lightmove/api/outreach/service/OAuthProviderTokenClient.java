@@ -91,6 +91,22 @@ public class OAuthProviderTokenClient implements ProviderTokenClient {
         return exchange(credentials, form, "redeem-code");
     }
 
+    /** RFC 7009 at Google. Microsoft has no per-app revoke; Zoom's is the Zoom gateway's (#648). */
+    @Override
+    public void revoke(IntegrationProvider provider, String token) {
+        if (provider != IntegrationProvider.GOOGLE || token == null) {
+            return;
+        }
+        MultiValueMap<String, String> form = new LinkedMultiValueMap<>();
+        form.add("token", token);
+        guard.call(VendorCall.of(vendorOf(provider), "revoke"), () -> clients.get(provider).post()
+                .uri("/revoke")
+                .contentType(MediaType.APPLICATION_FORM_URLENCODED)
+                .body(form)
+                .retrieve()
+                .toBodilessEntity());
+    }
+
     private ProviderTokenGrant exchange(ProviderCredentials credentials, MultiValueMap<String, String> form,
                                           String operation) {
         IntegrationProvider provider = credentials.provider();

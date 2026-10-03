@@ -10,6 +10,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import app.lightmove.api.FlowTestSupport;
 import app.lightmove.api.IntegrationTest;
 import app.lightmove.api.RecordingMailboxGateway;
+import app.lightmove.api.RecordingProviderTokenClient;
 import app.lightmove.api.RecordingRecallCalendarApi;
 import app.lightmove.api.outreach.model.GrantedMailbox;
 import app.lightmove.api.outreach.model.MailboxGrants;
@@ -41,6 +42,7 @@ class RecallCalendarIntegrationTest extends FlowTestSupport {
 
     @Autowired private RecordingMailboxGateway gateway;
     @Autowired private RecordingRecallCalendarApi recall;
+    @Autowired private RecordingProviderTokenClient tokenEndpoint;
     @Autowired private OutreachDispatcher dispatcher;
     @Autowired private JdbcTemplate jdbc;
 
@@ -51,6 +53,7 @@ class RecallCalendarIntegrationTest extends FlowTestSupport {
     void signInConsultant() throws Exception {
         gateway.clear();
         recall.clear();
+        tokenEndpoint.clear();
         String email = "yara@" + domain;
         createWorkspace(verifiedUser("Yara Haddad", email), "Meridian Search");
         consultant = login(email);
@@ -99,6 +102,9 @@ class RecallCalendarIntegrationTest extends FlowTestSupport {
         mvc.perform(delete(MAILBOX).header("Authorization", "Bearer " + consultant))
                 .andExpect(status().isNoContent());
         assertThat(recall.deleted()).containsExactly(calendarId);
+        assertThat(tokenEndpoint.revoked())
+                .as("the reconnect's replaced grant, then the disconnected one, each revoked by its own token")
+                .containsExactly("GOOGLE:refresh-token-1", "GOOGLE:refresh-token-2");
     }
 
     @Test

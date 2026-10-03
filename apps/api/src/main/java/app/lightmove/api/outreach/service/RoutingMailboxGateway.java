@@ -100,6 +100,11 @@ public class RoutingMailboxGateway implements MailboxGateway {
         holding(grantId).revoke(grantId);
     }
 
+    @Override
+    public void revoke(String grantId, String refreshToken) {
+        holding(grantId).revoke(grantId, refreshToken);
+    }
+
     /** The Nylas endpoint's: our own gateway's providers report through their own routes. */
     @Override
     public List<MailboxEvent> readWebhook(String signature, byte[] body) {
