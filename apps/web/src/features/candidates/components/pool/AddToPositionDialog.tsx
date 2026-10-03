@@ -84,7 +84,7 @@ export function AddToPositionDialog({
       }
     >
       <p className="mb-3 text-[13px]/[1.55] text-u-text2">
-        They are added as Identified and appear on that position&apos;s Candidates page. Their notes, contacts and
+        They are added as Identified and appear on that position&apos;s In universe page. Their notes, contacts and
         history come with them.
       </p>
       {positions.length === 0 && (

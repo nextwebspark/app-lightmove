@@ -8,7 +8,6 @@ import app.lightmove.api.candidate.constant.ContactSource;
 import app.lightmove.api.candidate.constant.PersonActivityKind;
 import app.lightmove.api.candidate.constant.ProfileClaim;
 import app.lightmove.api.candidate.dto.CandidateListCriteria;
-import app.lightmove.api.candidate.dto.CandidatePipelineResponse;
 import app.lightmove.api.candidate.dto.CandidateResponse;
 import app.lightmove.api.candidate.dto.CandidatesResponse;
 import app.lightmove.api.candidate.dto.MapPeopleToPositionResponse;
@@ -40,7 +39,6 @@ import app.lightmove.api.candidate.model.StoredPhoto;
 import app.lightmove.api.candidate.repository.CandidateRepository;
 import app.lightmove.api.candidate.repository.PersonPhotoRepository;
 import app.lightmove.api.candidate.repository.PersonRepository;
-import app.lightmove.api.common.constant.ApiValueEnum;
 import app.lightmove.api.core.audit.constant.ProjectEventType;
 import app.lightmove.api.core.audit.service.AuditService;
 import app.lightmove.api.core.config.CompanyListSettings;
@@ -49,7 +47,6 @@ import app.lightmove.api.core.error.constant.ErrorCode;
 import app.lightmove.api.core.error.model.ApiException;
 import app.lightmove.api.core.stream.ProjectStreamKind;
 import app.lightmove.api.core.stream.ProjectStreamPublisher;
-import app.lightmove.api.core.text.service.LikePatterns;
 import app.lightmove.api.core.text.service.LinkedInUrls;
 import app.lightmove.api.customcolumn.constant.CustomColumnTarget;
 import app.lightmove.api.customcolumn.service.CustomColumnService;
@@ -61,9 +58,7 @@ import jakarta.servlet.http.HttpServletRequest;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashMap;
-import java.util.LinkedHashMap;
 import java.util.List;
-import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
@@ -177,37 +172,6 @@ public class CandidateService {
         return new CandidatesResponse(
                 found.getContent().stream().map(responses::toDto).toList(),
                 found.getTotalElements(), page, size);
-    }
-
-    /**
-     * The position's Candidates page: the mandate's executives, searched on name, title and employer,
-     * at one status or all, with each status counted under the same search.
-     */
-    @Transactional(readOnly = true)
-    public CandidatePipelineResponse pipeline(UUID workspaceId, UUID projectId, String query, String statusToken,
-                                              Integer requestedPage, Integer requestedSize) {
-        int page = requestedPage == null ? 0 : requestedPage;
-        int size = requestedSize == null ? listConfig.defaultPageSize() : requestedSize;
-        listConfig.requireValidPage(page, size);
-        projects.requireInWorkspace(projectId, workspaceId);
-
-        List<CandidateStatus> statuses = statusToken == null || statusToken.isBlank()
-                ? List.of(CandidateStatus.values())
-                : List.of(ApiValueEnum.require(CandidateStatus.class, statusToken, "candidate status"));
-        String like = "%" + LikePatterns.escape(query == null ? "" : query.trim().toLowerCase(Locale.ROOT)) + "%";
-
-        Page<Candidate> found = candidates.findPipelinePage(projectId, statuses, like,
-                PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "createdAt").and(Sort.by("id"))));
-        Map<String, Long> counts = new LinkedHashMap<>();
-        candidates.countPipelineByStatus(projectId, like)
-                .forEach(count -> counts.put(count.getStatus().value(), count.getTotal()));
-        return new CandidatePipelineResponse(found.getContent().stream().map(responses::toDto).toList(),
-                counts, found.getTotalElements(), page, size);
-    }
-
-    /** The most rows one page of a mandate's people may hold, and so the most ids a read beside it may name. */
-    public int maxPageSize() {
-        return listConfig.maxPageSize();
     }
 
     @Transactional(readOnly = true)
