@@ -11,7 +11,10 @@ import jakarta.persistence.Enumerated;
 import jakarta.persistence.Table;
 import java.time.Instant;
 import java.time.LocalDate;
+import java.time.temporal.ChronoUnit;
+import java.util.List;
 import java.util.Objects;
+import java.util.OptionalInt;
 import java.util.UUID;
 import lombok.AccessLevel;
 import lombok.Getter;
@@ -50,6 +53,10 @@ public class WorkspaceMailIntegration extends BaseEntity {
 
     @Column(name = "secret_expires_on")
     private LocalDate secretExpiresOn;
+
+    /** The fewest days left a warning was already sent for, ahead of {@link #secretExpiresOn} (V111). */
+    @Column(name = "secret_expiry_warned_days")
+    private Integer secretExpiryWarnedDays;
 
     @Column(name = "updated_by")
     private UUID updatedBy;
@@ -102,6 +109,9 @@ public class WorkspaceMailIntegration extends BaseEntity {
             this.clientSecretEncrypted = clientSecretEncrypted;
         }
         this.tenantId = tenantId;
+        if (!Objects.equals(this.secretExpiresOn, secretExpiresOn)) {
+            this.secretExpiryWarnedDays = null;
+        }
         this.secretExpiresOn = secretExpiresOn;
         this.updatedBy = actorId;
         return true;
@@ -113,7 +123,27 @@ public class WorkspaceMailIntegration extends BaseEntity {
         this.clientSecretEncrypted = null;
         this.tenantId = null;
         this.secretExpiresOn = null;
+        this.secretExpiryWarnedDays = null;
         this.updatedBy = actorId;
+    }
+
+    /** The threshold a warning is due for today, or empty when none is: each one warns once per expiry date. */
+    public OptionalInt expiryWarningDue(LocalDate today, List<Integer> thresholds) {
+        if (!isOwnApp() || secretExpiresOn == null) {
+            return OptionalInt.empty();
+        }
+        long daysLeft = ChronoUnit.DAYS.between(today, secretExpiresOn);
+        return thresholds.stream()
+                .filter(threshold -> daysLeft <= threshold)
+                .mapToInt(Integer::intValue)
+                .min()
+                .stream()
+                .filter(threshold -> secretExpiryWarnedDays == null || threshold < secretExpiryWarnedDays)
+                .findFirst();
+    }
+
+    public void recordExpiryWarning(int threshold) {
+        this.secretExpiryWarnedDays = threshold;
     }
 
     /** Kept whatever the mode: the approval is the shared app's, and a return to it finds it still in place. */

@@ -2,8 +2,9 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { Button, Modal, SegmentedControl, useToast, type SegmentedOption } from "../../../components/ui";
 import { GoogleMark, MicrosoftMark, ZoomMark } from "../../../components/ui/BrandMarks";
+import { cn } from "../../../lib/cn";
 import { messageFor } from "../../../lib/errorCodes";
-import { formatInstantDate } from "../../../lib/format";
+import { formatDate, formatInstantDate } from "../../../lib/format";
 import * as integrationsApi from "../api/integrationsApi";
 import type { CredentialMode, IntegrationProvider, WorkspaceIntegration } from "../api/types";
 import type { OwnAppValues } from "../lib/ownAppSchema";
@@ -116,6 +117,10 @@ export function IntegrationCard({
         <SegmentedControl label={`${copy.title} app`} options={MODE_OPTIONS} value={shownMode} onChange={handleChooseMode} />
       </div>
 
+      {integration.mode === "OWN" && integration.secretExpiresOn && (
+        <SecretExpiryNotice expiresOn={integration.secretExpiresOn} />
+      )}
+
       {shownMode === "OWN" ? (
         <OwnAppForm
           key={integration.updatedAt ?? "new"}
@@ -152,6 +157,41 @@ export function IntegrationCard({
       )}
     </section>
   );
+}
+
+/** The same 30 days the admins' warning emails start at. */
+const EXPIRY_WARNING_DAYS = 30;
+
+function SecretExpiryNotice({ expiresOn }: { expiresOn: string }) {
+  const daysLeft = daysUntil(expiresOn);
+  if (daysLeft > EXPIRY_WARNING_DAYS) {
+    return null;
+  }
+  const expired = daysLeft <= 0;
+  return (
+    <p
+      role="status"
+      className={cn(
+        "mb-3.5 rounded-[8px] px-3.5 py-2.5 text-[13px] text-u-text",
+        expired ? "bg-u-offlimits-tint" : "bg-u-signal-tint",
+      )}
+    >
+      <b className={expired ? "text-u-offlimits" : "text-u-signal"}>
+        {expired
+          ? `The client secret expired on ${formatDate(expiresOn)}.`
+          : `The client secret expires on ${formatDate(expiresOn)}, in ${daysLeft === 1 ? "1 day" : `${daysLeft} days`}.`}
+      </b>{" "}
+      {expired
+        ? "Mail, calendars and links through this app stop until a new secret is saved below."
+        : "Create a new one in the provider's console and save it below with its expiry date."}
+    </p>
+  );
+}
+
+function daysUntil(isoDate: string): number {
+  const today = new Date();
+  const startOfToday = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+  return Math.round((new Date(`${isoDate}T00:00:00`).getTime() - startOfToday.getTime()) / 86_400_000);
 }
 
 function SharedAppDetails({ integration, setup }: { integration: WorkspaceIntegration; setup: string }) {

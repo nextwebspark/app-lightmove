@@ -86,6 +86,12 @@ function renderPage(path = "/settings/integrations") {
 
 const card = (name: string) => screen.findByRole("region", { name });
 
+function isoDateIn(days: number): string {
+  const day = new Date();
+  day.setDate(day.getDate() + days);
+  return `${day.getFullYear()}-${String(day.getMonth() + 1).padStart(2, "0")}-${String(day.getDate()).padStart(2, "0")}`;
+}
+
 describe("SettingsIntegrationsPage", () => {
   beforeEach(() => {
     vi.resetAllMocks();
@@ -196,6 +202,36 @@ describe("SettingsIntegrationsPage", () => {
     await userEvent.click(within(zoom).getByRole("button", { name: "Save" }));
 
     expect(await within(zoom).findByText("Enter your app's client secret")).toBeInTheDocument();
+  });
+
+  it("warns on the card from 30 days before an own app's secret expires, and says when it has", async () => {
+    const withExpiry = (secretExpiresOn: string): WorkspaceIntegrations => ({
+      ...googleOwn,
+      providers: [{ ...googleOwn.providers[0], secretExpiresOn }, ...googleOwn.providers.slice(1)],
+    });
+    vi.mocked(integrationsApi.integrations).mockResolvedValue(withExpiry(isoDateIn(10)));
+    const { unmount } = renderPage();
+
+    expect(await within(await card("Google Workspace")).findByRole("status")).toHaveTextContent(
+      /The client secret expires on .*, in 10 days\./,
+    );
+    unmount();
+
+    vi.mocked(integrationsApi.integrations).mockResolvedValue(withExpiry(isoDateIn(-2)));
+    renderPage();
+    expect(await within(await card("Google Workspace")).findByRole("status")).toHaveTextContent(
+      /The client secret expired on/,
+    );
+  });
+
+  it("says nothing of an expiry still more than 30 days away", async () => {
+    vi.mocked(integrationsApi.integrations).mockResolvedValue(googleOwn);
+    vi.useFakeTimers({ toFake: ["Date"], now: new Date("2026-10-03T09:00:00") });
+    renderPage();
+
+    await card("Google Workspace");
+    expect(screen.queryByRole("status")).not.toBeInTheDocument();
+    vi.useRealTimers();
   });
 
   it("confirms before returning a saved own app to the shared one, which discards its keys", async () => {
