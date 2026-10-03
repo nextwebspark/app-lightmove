@@ -1,6 +1,7 @@
 package app.lightmove.api.outreach;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -17,8 +18,10 @@ import app.lightmove.api.core.resilience.model.VendorCall;
 import app.lightmove.api.core.resilience.model.VendorException;
 import app.lightmove.api.outreach.service.ProviderAppUnavailable;
 import app.lightmove.api.outreach.model.DeliveryFailure;
+import app.lightmove.api.outreach.model.GrantedMailbox;
 import app.lightmove.api.outreach.model.InboundMessage;
 import app.lightmove.api.outreach.model.MailboxAccessWithdrawn;
+import app.lightmove.api.outreach.model.MailboxGrants;
 import app.lightmove.api.outreach.service.OutreachDispatcher;
 import app.lightmove.api.outreach.service.OutreachInboxService;
 import app.lightmove.api.outreach.service.OutreachSendService;
@@ -126,6 +129,43 @@ class OutreachDispatchIntegrationTest extends FlowTestSupport {
         Integer stored = jdbc.queryForObject("select count(*) from app_lm_outreach_message where enrollment_id = ?::uuid",
                 Integer.class, afterFirst.get("id").toString());
         assertThat(stored).isEqualTo(2);
+    }
+
+    @Test
+    @DisplayName("a reconnect off Nylas stops a run at its next send, never replying into the old thread")
+    void reconnectingOffNylasStopsTheRunAtItsNextSend() throws Exception {
+        String priya = executive("Priya Raman", "priya@" + domain);
+        start(createSequence("First approach"), priya, "priya@" + domain, null);
+        dispatcher.dispatchAt(monday);
+        assertThat(enrollmentOf(priya)).containsEntry("thread_gateway", "NYLAS");
+
+        gateway.grant(new GrantedMailbox(MailboxGrants.mintDirect("google"), MAILBOX, "google", "refresh-token-1"));
+        connectMailbox();
+        assertThat(enrollmentOf(priya).get("status")).isEqualTo("ACTIVE");
+        dispatcher.dispatchAt(monday.plus(Duration.ofDays(3)));
+
+        assertThat(sentTo("priya@" + domain)).hasSize(1);
+        assertThat(enrollmentOf(priya)).containsEntry("status", "STOPPED").containsEntry("stop_reason", "MAILBOX_MOVED");
+        assertThat(activityKinds(priya)).endsWith("OUTREACH_STOPPED");
+        assertThat(jdbc.queryForObject("select count(*) from app_lm_audit_event where event_type = 'OUTREACH_STOPPED' "
+                + "and metadata ->> 'reason' = 'MAILBOX_MOVED' and metadata ->> 'enrollmentId' = ?", Integer.class,
+                enrollmentOf(priya).get("id").toString())).isEqualTo(1);
+    }
+
+    @Test
+    @DisplayName("a disconnect and a fresh connect through another gateway stops the run just the same")
+    void disconnectingThenConnectingElsewhereStopsTheRun() throws Exception {
+        String priya = executive("Priya Raman", "priya@" + domain);
+        start(createSequence("First approach"), priya, "priya@" + domain, null);
+        dispatcher.dispatchAt(monday);
+
+        as(consultant, delete("/api/v1/outreach/mailbox")).andExpect(status().isNoContent());
+        gateway.grant(new GrantedMailbox(MailboxGrants.mintDirect("google"), MAILBOX, "google", "refresh-token-1"));
+        connectMailbox();
+        dispatcher.dispatchAt(monday.plus(Duration.ofDays(3)));
+
+        assertThat(sentTo("priya@" + domain)).hasSize(1);
+        assertThat(enrollmentOf(priya)).containsEntry("stop_reason", "MAILBOX_MOVED");
     }
 
     @Test

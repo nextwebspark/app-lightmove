@@ -10,6 +10,7 @@ import app.lightmove.api.core.error.model.ApiException;
 import app.lightmove.api.core.resilience.constant.VendorFailureKind;
 import app.lightmove.api.core.resilience.model.VendorException;
 import app.lightmove.api.core.security.token.Tokens;
+import app.lightmove.api.outreach.constant.MailboxGatewayKind;
 import app.lightmove.api.outreach.dto.ConnectedMailboxResponse;
 import app.lightmove.api.outreach.dto.MailboxResponse;
 import app.lightmove.api.outreach.model.GrantedMailbox;
@@ -22,6 +23,7 @@ import app.lightmove.api.outreach.model.RecallCalendarReleased;
 import app.lightmove.api.outreach.model.ReleasedGrant;
 import app.lightmove.api.outreach.repository.MailboxAuthorizationRepository;
 import app.lightmove.api.outreach.repository.MailboxConnectionRepository;
+import app.lightmove.api.outreach.repository.OutreachEnrollmentRepository;
 import jakarta.servlet.http.HttpServletRequest;
 import java.net.URI;
 import java.nio.charset.StandardCharsets;
@@ -58,6 +60,7 @@ public class MailboxService {
     private final MailboxAuthorizationRepository authorizations;
     private final TransactionTemplate transactions;
     private final AuditService audit;
+    private final OutreachEnrollmentRepository enrollments;
     private final ApplicationEventPublisher events;
     private final BookingPages bookingPages;
     private final MailboxTokens tokens;
@@ -68,10 +71,18 @@ public class MailboxService {
     @Transactional(readOnly = true)
     public MailboxResponse view(UUID userId, UUID workspaceId) {
         ConnectedMailboxResponse connection = connections.findByWorkspaceIdAndUserId(workspaceId, userId)
-                .map(mailbox -> ConnectedMailboxResponse.of(mailbox, bookingPages.linkOf(mailbox)))
+                .map(mailbox -> responseOf(mailbox, userId, workspaceId))
                 .orElse(null);
         return new MailboxResponse(gateway.isOfferedTo(workspaceId), gateway.providersFor(workspaceId), connection,
                 bookingPages.isOffered());
+    }
+
+    private ConnectedMailboxResponse responseOf(MailboxConnection mailbox, UUID userId, UUID workspaceId) {
+        boolean movesOffNylas = mailbox.getGateway() == MailboxGatewayKind.NYLAS
+                && gateway.holdsRefreshTokens(workspaceId, mailbox.getProvider()) && cipher.isAvailable();
+        int runsStopped = movesOffNylas
+                ? (int) enrollments.countRunningThreadsOf(workspaceId, userId, MailboxGatewayKind.NYLAS) : 0;
+        return ConnectedMailboxResponse.of(mailbox, bookingPages.linkOf(mailbox), movesOffNylas, runsStopped);
     }
 
     /** Any attempt the caller left unfinished is dropped, so only the newest consent screen can connect. */

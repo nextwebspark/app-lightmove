@@ -484,6 +484,13 @@ on-behalf-of token, are set on the app, never asked on the consent screen) by th
 slots): the meeting is made first (`POST /v2/users/me/meetings`, never retried), its `join_url` goes into the
 invite's location and description through whichever calendar sends it, and an invite that fails deletes the meeting
 so no orphan link is left. A read-back event's Zoom link is found in its location (`ZoomLinks`), on every gateway.
+**Moving off Nylas (#650)**: a Nylas mailbox keeps working until its consultant reconnects once; where a reconnect
+would now go through our own gateway (`movesOffNylas` on the mailbox read) the Outreach page offers "Reconnect to move
+off Nylas", counting the runs it stops. A run keeps the gateway that made its thread (V110 `thread_gateway`, set by its
+first send): whichever way the sender came to another gateway — a reconnect, or a disconnect and a fresh connect — the
+run stops at its next send as `MAILBOX_MOVED` and the reply poll leaves its thread alone, since the new gateway may not
+read it. A direct mailbox has no booking page behind its link, so a send that would carry it stops as
+`BOOKING_LINK_UNAVAILABLE`.
 **Registering the shared apps (#649)** is `docs/integrations/registration.md` — every console value, the Secret
 Manager names and the `deploy.yml` switches (`GOOGLE_MAIL_ENABLED`, `MICROSOFT_MAIL_ENABLED`, `ZOOM_ENABLED`,
 `RECALL_ENABLED`, each off until its secrets exist) — and the five admin guides beside it are what the
@@ -781,6 +788,8 @@ Recall's webhook, which names nothing else) and V103's backoff pair for it, `rec
 `recall_calendar_retry_at`.
 V108 gives `app_lm_workspace_mail_integration` Microsoft's admin consent — `admin_consented_at`, the
 `admin_consent_tenant_id` it was given for and who reported it — by CHECK on the Microsoft row alone.
+V110 gives `app_lm_outreach_enrollment` its `thread_gateway` (`NYLAS | DIRECT`, backfilled from the sender's
+mailbox, Nylas where it is gone) and adds `MAILBOX_MOVED` and `BOOKING_LINK_UNAVAILABLE` to its `stop_reason` CHECK.
 V84 adds `app_lm_workspace.mode` (`AGENCY | COMPANY`, V34's CHECK idiom; every existing row `COMPANY`):
 who a workspace hires for — client companies, or its own business units. Chosen at creation with **no
 default** (`CreateWorkspaceRequest.mode` is required, the organisation step preselects nothing) and

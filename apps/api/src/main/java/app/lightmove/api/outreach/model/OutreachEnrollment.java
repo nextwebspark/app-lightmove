@@ -2,6 +2,7 @@ package app.lightmove.api.outreach.model;
 
 import app.lightmove.api.core.persistence.model.BaseEntity;
 import app.lightmove.api.outreach.constant.EnrollmentStatus;
+import app.lightmove.api.outreach.constant.MailboxGatewayKind;
 import app.lightmove.api.outreach.constant.OutreachStopReason;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -79,6 +80,11 @@ public class OutreachEnrollment extends BaseEntity {
     @Column(name = "thread_id")
     private String threadId;
 
+    /** The gateway that made {@link #threadId}: another one may not read the thread or reply in it. */
+    @Enumerated(EnumType.STRING)
+    @Column(name = "thread_gateway", length = 16)
+    private MailboxGatewayKind threadGateway;
+
     /** The last email sent, which the next follow-up replies to. */
     @Column(name = "last_message_id")
     private String lastMessageId;
@@ -141,9 +147,10 @@ public class OutreachEnrollment extends BaseEntity {
      * Records the step that just went. {@code nextSendAt} is when the following step is due, or null
      * when that was the last one.
      */
-    public void markSent(SentEmail sent, Instant now, Instant followingStepDue) {
+    public void markSent(SentEmail sent, MailboxGatewayKind gateway, Instant now, Instant followingStepDue) {
         if (threadId == null) {
             this.threadId = sent.threadId();
+            this.threadGateway = gateway;
         }
         this.lastMessageId = sent.messageId();
         this.lastSentAt = now;
