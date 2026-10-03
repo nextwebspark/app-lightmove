@@ -290,6 +290,19 @@ public enum ErrorCode {
     /** Never retried on our side, so nothing went twice; trying again may still find the first one delivered. */
     MAILBOX_SEND_FAILED(HttpStatus.BAD_GATEWAY, "The email could not be sent. Try again in a moment"),
 
+    /** No Zoom app resolves for the workspace — neither Uncava's nor its own — so Zoom cannot be connected. */
+    ZOOM_UNAVAILABLE(HttpStatus.CONFLICT, "Zoom is not set up for your workspace"),
+
+    ZOOM_NOT_CONNECTED(HttpStatus.CONFLICT, "Connect Zoom first"),
+
+    /** Zoom refused the stored token; nothing was made, and only reconnecting helps. */
+    ZOOM_RECONNECT_NEEDED(HttpStatus.CONFLICT, "Your Zoom account needs reconnecting"),
+
+    /** The consultant backed out on Zoom's screen; the SPA says nothing. */
+    ZOOM_CONNECT_CANCELLED(HttpStatus.BAD_REQUEST, "Zoom was not connected"),
+
+    ZOOM_CONNECT_FAILED(HttpStatus.BAD_GATEWAY, "Zoom could not be connected. Try again"),
+
     /** A sequence people are on keeps their history: it can be edited, never deleted. */
     OUTREACH_SEQUENCE_IN_USE(HttpStatus.CONFLICT, "People are on this sequence, so it cannot be deleted"),
 

@@ -259,6 +259,29 @@ class GoogleMailboxGatewayTest {
     }
 
     @Test
+    @DisplayName("a Zoom call puts its link in the invite's location and description, and is read back as Zoom")
+    void aZoomCallCarriesItsLink() throws Exception {
+        String grantId = MailboxGrants.mintDirect("google");
+        when(mailboxTokens.accessToken(grantId)).thenReturn("access-for-yara");
+
+        gateway.createEvent(grantId, new NewCalendarEvent("Call", Instant.parse("2026-10-06T06:00:00Z"),
+                Instant.parse("2026-10-06T06:30:00Z"), "priya@client.example", MeetingVideo.ZOOM,
+                "https://us05web.zoom.us/j/85746065432?pwd=abc123"));
+
+        JsonNode body = JSON.readTree(google.bodyOf("POST /api/calendar/v3/calendars/primary/events"));
+        assertThat(body.has("conferenceData")).isFalse();
+        assertThat(body.path("location").asString("")).isEqualTo("https://us05web.zoom.us/j/85746065432?pwd=abc123");
+        assertThat(body.path("description").asString("")).contains("https://us05web.zoom.us/j/85746065432");
+        CalendarEvent read = GoogleMailboxGateway.eventOf(JSON.readTree("""
+                {"id":"evt-zoom","status":"confirmed","summary":"Call",
+                 "start":{"dateTime":"2026-10-06T06:00:00Z"},"end":{"dateTime":"2026-10-06T06:30:00Z"},
+                 "location":"https://us05web.zoom.us/j/85746065432?pwd=abc123",
+                 "attendees":[{"email":"priya@client.example"}]}"""));
+        assertThat(read.joinUrl()).isEqualTo("https://us05web.zoom.us/j/85746065432?pwd=abc123");
+        assertThat(read.conferencingProvider()).isEqualTo("Zoom");
+    }
+
+    @Test
     @DisplayName("a revoke forgets the token in memory and revokes the refresh token at Google")
     void revokeWithdrawsTheRefreshToken() {
         String grantId = MailboxGrants.mintDirect("google");

@@ -207,9 +207,10 @@ public class SecurityConfig {
                         // Safe only because the wizard asks for the emailed link at step 2.
                         .requestMatchers(API + "/onboarding/**").access(verified)
 
-                        // A navigation back from a mailbox provider's consent screen, so no bearer token: the
-                        // single-use state, bound to the starting browser by a cookie, is the credential.
+                        // A navigation back from a mailbox provider's or Zoom's consent screen, so no bearer token:
+                        // the single-use state, bound to the starting browser by a cookie, is the credential.
                         .requestMatchers(HttpMethod.GET, API + "/outreach/mailbox/callback").permitAll()
+                        .requestMatchers(HttpMethod.GET, API + "/outreach/zoom/callback").permitAll()
                         // The booking link's page: an executive opens it from an email, holding no session.
                         .requestMatchers(HttpMethod.GET, API + "/outreach/booking/*").permitAll()
 

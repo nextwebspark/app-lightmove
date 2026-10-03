@@ -469,6 +469,19 @@ The connect's 90-day read stays direct on both syncs, since Recall's first sync 
 nothing pushes from (`DIRECT`, or no Recall calendar) is read again when the drawer opens: off the request thread,
 at most every five minutes, a week back and 90 days on, and a meeting that read no longer finds in its window goes
 (`MeetingBackfill.refreshUnpushed`), so a move or delete shows on the next opening.
+**Zoom (#648, V109)** is a consultant's own account, apart from the mailbox: `app_lm_zoom_connection` per person
+per workspace, Zoom's refresh token sealed as a direct mailbox's is (`ZoomConnection.refreshTokenContext`), Zoom's
+user id beside it so a reconnect elsewhere revokes the account it replaced. Connected through the workspace's Zoom
+app (`ProviderCredentialsResolver`, shared or its own; the app's scopes, `user:read:token` included for #651's
+on-behalf-of token, are set on the app, never asked on the consent screen) by the mailbox's popup flow — an
+`app_lm_mailbox_authorization` row with provider `zoom`, the `lm_zoom_connect` cookie, the public
+`/api/v1/outreach/zoom/callback` landing on the SPA's one popup page; neither flow redeems the other's state.
+`ZoomTokens` holds access tokens in memory and keeps Zoom's rotated refresh token; a refusal marks the connection
+`ERROR` (`ZOOM_RECONNECT_NEEDED`, "Reconnect Zoom" in the drawer's Meetings section and on the Outreach page).
+`MeetingVideo.ZOOM` is offered in Book a call only while the consultant's Zoom is usable (`zoomOffered` on the
+slots): the meeting is made first (`POST /v2/users/me/meetings`, never retried), its `join_url` goes into the
+invite's location and description through whichever calendar sends it, and an invite that fails deletes the meeting
+so no orphan link is left. A read-back event's Zoom link is found in its location (`ZoomLinks`), on every gateway.
 Sequences (V100, #623) are a position's, `WORK_EXECUTE`: up to three emails (V39's owned list), and
 **Add to sequence** — from In universe / Shortlisted (the ticked companies' executives) or the executive
 drawer — chooses, reviews and starts. Choose shows who is skipped and why (no email, do not contact, out

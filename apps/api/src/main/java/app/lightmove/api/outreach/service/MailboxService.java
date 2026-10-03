@@ -108,7 +108,8 @@ public class MailboxService {
         MailboxAuthorization started = authorizations.findByStateHash(Tokens.hash(state))
                 .orElseThrow(() -> ApiException.of(ErrorCode.MAILBOX_CONNECT_EXPIRED));
         // Redeemed before anything else, so a state that is refused below can never be tried again.
-        if (authorizations.redeem(started.getId()) == 0 || started.hasExpired(clock.instant())) {
+        if (authorizations.redeem(started.getId()) == 0 || started.hasExpired(clock.instant())
+                || ZoomService.PROVIDER.equals(started.getProvider())) {
             throw ApiException.of(ErrorCode.MAILBOX_CONNECT_EXPIRED);
         }
 

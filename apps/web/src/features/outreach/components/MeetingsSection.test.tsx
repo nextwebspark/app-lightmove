@@ -7,6 +7,7 @@ import * as poolApi from "../../candidates/api/poolApi";
 import type { CandidateEmail, PersonRecord } from "../../candidates/api/types";
 import * as mailboxApi from "../api/mailboxApi";
 import * as meetingApi from "../api/meetingApi";
+import * as zoomApi from "../api/zoomApi";
 import type { PersonMeetings } from "../api/meetingApi";
 import { MeetingsSection } from "./MeetingsSection";
 
@@ -15,6 +16,10 @@ vi.mock("../api/meetingApi", async (importOriginal) => ({
   getMeetings: vi.fn(),
   getMeetingSlots: vi.fn(),
   bookMeeting: vi.fn(),
+}));
+vi.mock("../api/zoomApi", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("../api/zoomApi")>()),
+  getZoom: vi.fn(),
 }));
 vi.mock("../api/mailboxApi", async (importOriginal) => ({
   ...(await importOriginal<typeof import("../api/mailboxApi")>()),
@@ -64,8 +69,15 @@ function renderSection({
   meetings = MEETINGS,
   doNotContact = false,
   offered = true,
-}: { meetings?: PersonMeetings; doNotContact?: boolean; offered?: boolean } = {}) {
+  zoomStatus = null,
+}: {
+  meetings?: PersonMeetings;
+  doNotContact?: boolean;
+  offered?: boolean;
+  zoomStatus?: zoomApi.ZoomAccount["status"];
+} = {}) {
   vi.mocked(meetingApi.getMeetings).mockResolvedValue(meetings);
+  vi.mocked(zoomApi.getZoom).mockResolvedValue({ offered: true, status: zoomStatus, connectedAt: null });
   vi.mocked(mailboxApi.getMailbox).mockResolvedValue({
     offered,
     providers: ["google"],
@@ -142,6 +154,7 @@ describe("MeetingsSection", () => {
       timeZone: "Asia/Dubai",
       provider: "google",
       minutes: 30,
+      zoomOffered: false,
       days: [
         { date: "2026-10-05", starts: ["2026-10-05T06:00:00Z", "2026-10-05T06:30:00Z"] },
         { date: "2026-10-06", starts: [] },
@@ -177,6 +190,7 @@ describe("MeetingsSection", () => {
       timeZone: "Asia/Dubai",
       provider: "google",
       minutes: 30,
+      zoomOffered: false,
       days: [{ date: "2026-10-05", starts: ["2026-10-05T06:00:00Z"] }],
     });
     renderSection();
@@ -188,5 +202,34 @@ describe("MeetingsSection", () => {
       "Google Meet",
       "No video link",
     ]);
+  });
+
+  it("offers Zoom in Book a call only where the consultant's own Zoom account is connected", async () => {
+    vi.mocked(meetingApi.getMeetingSlots).mockResolvedValue({
+      address: "yara@firm.example",
+      timeZone: "Asia/Dubai",
+      provider: "google",
+      minutes: 30,
+      zoomOffered: true,
+      days: [{ date: "2026-10-05", starts: ["2026-10-05T06:00:00Z"] }],
+    });
+    vi.mocked(meetingApi.bookMeeting).mockResolvedValue(undefined);
+    renderSection({ zoomStatus: "ACTIVE" });
+
+    expect(await screen.findByText("Zoom connected")).toBeInTheDocument();
+    await userEvent.click(await screen.findByRole("button", { name: "Book a call" }));
+    await userEvent.click(await screen.findByRole("button", { name: "10:00" }));
+    await userEvent.selectOptions(screen.getByRole("combobox", { name: "Video link" }), "ZOOM");
+    await userEvent.click(screen.getByRole("button", { name: "Send invite" }));
+
+    await waitFor(() =>
+      expect(meetingApi.bookMeeting).toHaveBeenCalledWith("p1", "c1", expect.objectContaining({ video: "ZOOM" })),
+    );
+  });
+
+  it("asks to reconnect a Zoom account Zoom refused", async () => {
+    renderSection({ zoomStatus: "ERROR" });
+
+    expect(await screen.findByRole("button", { name: "Reconnect Zoom" })).toBeInTheDocument();
   });
 });

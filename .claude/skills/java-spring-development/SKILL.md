@@ -515,7 +515,9 @@ redemption and the API client — a provider adds its consent endpoint, its addr
 per workspace, so it answers `isOfferedTo(workspaceId)` and the router hands a workspace with no app to Nylas; its
 tests serve recorded provider answers from a JDK `HttpServer`, every client given its base URLs by its constructor
 (the token client's `PROVIDER_TOKEN_HOSTS` in production). Integration tests never reach a provider: the
-`RecordingProviderTokenClient` stands in for every token endpoint.
+`RecordingProviderTokenClient` stands in for every token endpoint. Zoom is no mailbox and no gateway: `ZoomService` over
+`ZoomApi` (`ZoomClient`; `RecordingZoomApi` in tests), its tokens in `ZoomTokens`, called by `MeetingService` only for
+a call booked with `MeetingVideo.ZOOM`.
 
 ## Traps this codebase has already fallen into
 

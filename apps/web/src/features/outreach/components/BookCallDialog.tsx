@@ -22,14 +22,21 @@ const LENGTHS: { value: Length; label: string }[] = [
 const VIDEO_LINKS: { value: MeetingVideo; label: string }[] = [
   { value: "GOOGLE_MEET", label: "Google Meet" },
   { value: "MICROSOFT_TEAMS", label: "Microsoft Teams" },
+  { value: "ZOOM", label: "Zoom" },
   { value: "NONE", label: "No video link" },
 ];
 
-/** A calendar makes only its own provider's link: Meet from Google, Teams from Microsoft. */
-function videoLinksFor(provider: string | undefined) {
-  if (provider === "google") return VIDEO_LINKS.filter((option) => option.value !== "MICROSOFT_TEAMS");
-  if (provider === "microsoft") return VIDEO_LINKS.filter((option) => option.value !== "GOOGLE_MEET");
-  return VIDEO_LINKS;
+/**
+ * A calendar makes only its own provider's link — Meet from Google, Teams from Microsoft — and Zoom is offered only
+ * where the consultant's own Zoom account is connected.
+ */
+function videoLinksFor(provider: string | undefined, isZoomOffered: boolean) {
+  return VIDEO_LINKS.filter((option) => {
+    if (option.value === "ZOOM") return isZoomOffered;
+    if (option.value === "MICROSOFT_TEAMS") return provider !== "google";
+    if (option.value === "GOOGLE_MEET") return provider !== "microsoft";
+    return true;
+  });
 }
 
 const DEFAULT_TITLE = "Confidential: first conversation";
@@ -70,7 +77,7 @@ export function BookCallDialog({
     queryFn: ({ signal }) => meetingApi.getMeetingSlots(projectId, candidateId, minutes, signal),
   });
   const timeZone = slots.data?.timeZone;
-  const videoLinks = videoLinksFor(slots.data?.provider);
+  const videoLinks = videoLinksFor(slots.data?.provider, slots.data?.zoomOffered === true);
   const video: MeetingVideo =
     chosenVideo !== null && videoLinks.some((option) => option.value === chosenVideo)
       ? chosenVideo

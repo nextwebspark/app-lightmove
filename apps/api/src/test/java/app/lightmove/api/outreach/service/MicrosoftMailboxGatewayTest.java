@@ -354,6 +354,33 @@ class MicrosoftMailboxGatewayTest {
     }
 
     @Test
+    @DisplayName("a Zoom call puts its link in the invite's location and body, asks no Teams, and reads back as Zoom")
+    void aZoomCallCarriesItsLink() throws Exception {
+        String grantId = MailboxGrants.mintDirect("microsoft");
+        when(mailboxTokens.accessToken(grantId)).thenReturn("access-for-yara");
+
+        gateway.createEvent(grantId, new NewCalendarEvent("Call", Instant.parse("2026-10-06T06:00:00Z"),
+                Instant.parse("2026-10-06T06:30:00Z"), "priya@client.example", MeetingVideo.ZOOM,
+                "https://us05web.zoom.us/j/85746065432?pwd=abc123"));
+
+        JsonNode body = JSON.readTree(microsoft.bodyOf("POST /graph/v1.0/me/events"));
+        assertThat(body.has("isOnlineMeeting")).isFalse();
+        assertThat(body.path("location").path("displayName").asString(""))
+                .isEqualTo("https://us05web.zoom.us/j/85746065432?pwd=abc123");
+        assertThat(body.path("body").path("content").asString("")).contains("https://us05web.zoom.us/j/85746065432");
+        assertThat(microsoft.requested()).doesNotContain("GET /graph/v1.0/me/calendar");
+        CalendarEvent read = MicrosoftMailboxGateway.eventOf(JSON.readTree("""
+                {"id":"AAMkZoom","iCalUId":"040000008200E0zoom","subject":"Call","type":"singleInstance",
+                 "isAllDay":false,"isCancelled":false,
+                 "start":{"dateTime":"2026-10-06T06:00:00.0000000","timeZone":"UTC"},
+                 "end":{"dateTime":"2026-10-06T06:30:00.0000000","timeZone":"UTC"},
+                 "location":{"displayName":"https://us05web.zoom.us/j/85746065432?pwd=abc123"},
+                 "onlineMeeting":null,"attendees":[{"emailAddress":{"address":"priya@client.example"}}]}"""));
+        assertThat(read.joinUrl()).isEqualTo("https://us05web.zoom.us/j/85746065432?pwd=abc123");
+        assertThat(read.conferencingProvider()).isEqualTo("Zoom");
+    }
+
+    @Test
     @DisplayName("a revoke forgets the token held in memory; Graph has nothing to call")
     void revokeForgetsTheToken() {
         String grantId = MailboxGrants.mintDirect("microsoft");

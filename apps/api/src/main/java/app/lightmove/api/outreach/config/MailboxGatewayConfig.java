@@ -18,6 +18,8 @@ import app.lightmove.api.outreach.service.ProviderTokenClient;
 import app.lightmove.api.outreach.service.NylasMailboxGateway;
 import app.lightmove.api.outreach.service.RoutingMailboxGateway;
 import app.lightmove.api.outreach.service.UnconfiguredMailboxGateway;
+import app.lightmove.api.outreach.service.ZoomApi;
+import app.lightmove.api.outreach.service.ZoomClient;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.beans.factory.annotation.Qualifier;
@@ -79,6 +81,12 @@ public class MailboxGatewayConfig {
                                               VendorCallGuard guard) {
         return new GoogleMailboxGateway(credentials, tokenEndpoint, mailboxTokens, clientFactory, rateLimiter,
                 guard, GoogleMailboxGateway.API, GoogleMailboxGateway.ACCOUNTS);
+    }
+
+    /** Always registered: Zoom is offered to a workspace with a Zoom app, shared or its own, and to no other. */
+    @Bean
+    ZoomApi zoomApi(VendorClientFactory clientFactory, VendorRateLimiter rateLimiter, VendorCallGuard guard) {
+        return new ZoomClient(clientFactory, rateLimiter, guard, ZoomClient.API, ZoomClient.OAUTH);
     }
 
     @Bean
