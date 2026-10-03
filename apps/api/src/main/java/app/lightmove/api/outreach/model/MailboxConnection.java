@@ -200,9 +200,12 @@ public class MailboxConnection extends BaseEntity {
      * @return the calendar to delete at Recall, or null when the reconnect is to the same mailbox
      */
     public String releaseRecallCalendarUnlessFor(GrantedMailbox mailbox) {
-        boolean sameMailbox = Objects.equals(provider, mailbox.provider())
+        return isSameMailboxAs(mailbox) ? null : releaseRecallCalendar();
+    }
+
+    public boolean isSameMailboxAs(GrantedMailbox mailbox) {
+        return Objects.equals(provider, mailbox.provider())
                 && address != null && address.equalsIgnoreCase(mailbox.address());
-        return sameMailbox ? null : releaseRecallCalendar();
     }
 
     /** Forgets the Recall calendar and answers its id, for the caller to delete at Recall once this commits. */

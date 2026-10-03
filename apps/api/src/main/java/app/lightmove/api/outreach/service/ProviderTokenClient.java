@@ -1,5 +1,6 @@
 package app.lightmove.api.outreach.service;
 
+import app.lightmove.api.outreach.constant.IntegrationProvider;
 import app.lightmove.api.outreach.model.ProviderCredentials;
 import app.lightmove.api.outreach.model.ProviderTokenGrant;
 import java.net.URI;
@@ -20,4 +21,7 @@ public interface ProviderTokenClient {
      * single-use. {@code scopes} is sent where the provider asks for it again (Microsoft); empty sends none.
      */
     ProviderTokenGrant redeemCode(ProviderCredentials credentials, String code, URI redirectUri, List<String> scopes);
+
+    /** Withdraws a token at a provider that revokes by the token itself (Google); a no-op elsewhere. */
+    void revoke(IntegrationProvider provider, String token);
 }

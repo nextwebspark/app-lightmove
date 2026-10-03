@@ -8,6 +8,7 @@ import app.lightmove.api.core.resilience.service.VendorCallGuard;
 import app.lightmove.api.core.resilience.service.VendorClientFactory;
 import app.lightmove.api.core.resilience.service.VendorRateLimiter;
 import app.lightmove.api.outreach.service.DirectMailboxGateway;
+import app.lightmove.api.outreach.service.GoogleMailboxGateway;
 import app.lightmove.api.outreach.service.MailboxGateway;
 import app.lightmove.api.outreach.service.MailboxTokens;
 import app.lightmove.api.outreach.service.MicrosoftMailboxGateway;
@@ -68,6 +69,16 @@ public class MailboxGatewayConfig {
                                                  VendorCallGuard guard) {
         return new MicrosoftMailboxGateway(credentials, tokenEndpoint, mailboxTokens, clientFactory, rateLimiter,
                 guard, MicrosoftMailboxGateway.GRAPH, MicrosoftMailboxGateway.LOGIN);
+    }
+
+    /** Always registered: it is offered to a workspace with a Google app, shared or its own, and to no other. */
+    @Bean
+    DirectMailboxGateway googleMailboxGateway(ProviderCredentialsResolver credentials,
+                                              ProviderTokenClient tokenEndpoint, MailboxTokens mailboxTokens,
+                                              VendorClientFactory clientFactory, VendorRateLimiter rateLimiter,
+                                              VendorCallGuard guard) {
+        return new GoogleMailboxGateway(credentials, tokenEndpoint, mailboxTokens, clientFactory, rateLimiter,
+                guard, GoogleMailboxGateway.API, GoogleMailboxGateway.ACCOUNTS);
     }
 
     @Bean

@@ -10,6 +10,7 @@ import app.lightmove.api.outreach.model.GrantedMailbox;
 import app.lightmove.api.outreach.model.MailboxEvent;
 import app.lightmove.api.outreach.model.NewCalendarEvent;
 import app.lightmove.api.outreach.model.OutgoingEmail;
+import app.lightmove.api.outreach.model.ReleasedGrant;
 import app.lightmove.api.outreach.model.SentEmail;
 import app.lightmove.api.outreach.service.MailboxGateway;
 import java.net.URI;
@@ -194,8 +195,8 @@ public class RecordingMailboxGateway implements MailboxGateway {
     }
 
     @Override
-    public void revoke(String grantId) {
-        revoked.add(grantId);
+    public void revoke(ReleasedGrant released) {
+        revoked.add(released.grantId());
     }
 
     public void grant(GrantedMailbox mailbox) {

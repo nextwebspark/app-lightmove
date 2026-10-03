@@ -192,6 +192,11 @@ class MailboxTokensTest {
         }
 
         @Override
+        public void revoke(IntegrationProvider provider, String token) {
+            throw new UnsupportedOperationException("MailboxTokens never revokes");
+        }
+
+        @Override
         public ProviderTokenGrant redeemCode(ProviderCredentials credentials, String code, URI redirectUri,
                                                List<String> scopes) {
             throw new UnsupportedOperationException("MailboxTokens only refreshes");
