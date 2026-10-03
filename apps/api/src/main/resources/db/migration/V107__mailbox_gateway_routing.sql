@@ -11,6 +11,10 @@ ALTER TABLE app_lm_mailbox_connection
         CONSTRAINT app_lm_mailbox_connection_gateway_chk CHECK (gateway IN ('NYLAS', 'DIRECT')),
     ADD COLUMN refresh_token_encrypted text,
     ADD COLUMN recall_calendar_id varchar(128),
+    -- V103's backoff for the Recall calendar a failed create leaves owed: each failure waits longer, and after a
+    -- few the mailbox is left until it reconnects, so a row that always fails never starves the newer ones.
+    ADD COLUMN recall_calendar_attempts integer NOT NULL DEFAULT 0,
+    ADD COLUMN recall_calendar_retry_at timestamptz,
     ADD CONSTRAINT app_lm_mailbox_connection_refresh_token_chk
         CHECK ((gateway = 'DIRECT') = (refresh_token_encrypted IS NOT NULL));
 

@@ -14,7 +14,6 @@ public interface RecallCalendarApi {
     /** False on a deployment without a Recall key: calendars are then read directly, whatever a workspace chose. */
     boolean isOffered();
 
-    /** Answers the new calendar's id. */
     String create(RecallCalendarSpec spec);
 
     /** Hands an existing calendar a reconnected mailbox's new refresh token. */

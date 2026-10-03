@@ -15,6 +15,8 @@ import app.lightmove.api.outreach.repository.MailboxConnectionRepository;
 import app.lightmove.api.workspace.constant.CalendarSync;
 import app.lightmove.api.workspace.model.CalendarSyncChanged;
 import app.lightmove.api.workspace.service.WorkspaceSettingsService;
+import java.time.Clock;
+import java.time.Instant;
 import java.util.Optional;
 import java.util.UUID;
 import lombok.extern.slf4j.Slf4j;
@@ -37,8 +39,10 @@ import org.springframework.transaction.support.TransactionTemplate;
 @Slf4j
 public class RecallCalendars {
 
-    /** Calendars one poll makes at most; the rest wait for the next. */
     static final int MAX_OWED_PER_POLL = 10;
+
+    /** After this many failed creates the calendar is left until the mailbox reconnects or the sync is switched. */
+    static final int MAX_ATTEMPTS = 5;
 
     private final RecallCalendarApi recall;
     private final MailboxConnectionRepository mailboxes;
@@ -46,11 +50,12 @@ public class RecallCalendars {
     private final SecretCipher cipher;
     private final WorkspaceSettingsService workspaces;
     private final TransactionTemplate transactions;
+    private final Clock clock;
 
     /** Its own transactions, never the caller's: run after a commit, the finished one is still bound to the thread. */
     RecallCalendars(RecallCalendarApi recall, MailboxConnectionRepository mailboxes,
                     ProviderCredentialsResolver credentials, SecretCipher cipher, WorkspaceSettingsService workspaces,
-                    PlatformTransactionManager transactionManager) {
+                    PlatformTransactionManager transactionManager, Clock clock) {
         this.recall = recall;
         this.mailboxes = mailboxes;
         this.credentials = credentials;
@@ -58,12 +63,14 @@ public class RecallCalendars {
         this.workspaces = workspaces;
         this.transactions = new TransactionTemplate(transactionManager);
         this.transactions.setPropagationBehavior(TransactionDefinition.PROPAGATION_REQUIRES_NEW);
+        this.clock = clock;
     }
 
     @Async
     @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
     void onConnected(MailboxConnected connected) {
-        reconcile(connected.mailboxConnectionId(), true);
+        mailboxes.findById(connected.mailboxConnectionId())
+                .ifPresent(mailbox -> reconcile(mailbox, true, null));
     }
 
     @Async
@@ -76,13 +83,14 @@ public class RecallCalendars {
     @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
     void onCalendarSyncChanged(CalendarSyncChanged changed) {
         mailboxes.findByWorkspaceIdAndGateway(changed.workspaceId(), MailboxGatewayKind.DIRECT)
-                .forEach(mailbox -> reconcile(mailbox.getId(), false));
+                .forEach(mailbox -> reconcile(mailbox, false, changed.calendarSync()));
     }
 
-    /** The reply poll's: every calendar a failed call left unmade. */
+    /** The reply poll's: calendars a failed call left unmade, each tried again once its backoff has passed. */
     public void createOwed() {
         if (recall.isOffered()) {
-            mailboxes.findOwedRecallCalendars(MAX_OWED_PER_POLL).forEach(id -> reconcile(id, false));
+            mailboxes.findOwedRecallCalendars(MAX_ATTEMPTS, clock.instant(), MAX_OWED_PER_POLL)
+                    .forEach(mailbox -> reconcile(mailbox, false, CalendarSync.RECALL));
         }
     }
 
@@ -105,14 +113,14 @@ public class RecallCalendars {
         }
     }
 
-    /** {@code newRefreshToken}: the mailbox was just (re)connected, so a calendar it already has is handed it. */
-    void reconcile(UUID mailboxConnectionId, boolean newRefreshToken) {
-        MailboxConnection mailbox = mailboxes.findById(mailboxConnectionId).orElse(null);
-        if (mailbox == null) {
-            return;
-        }
+    /**
+     * {@code newRefreshToken}: the mailbox was just (re)connected, so a calendar it already has is handed it.
+     * {@code calendarSync}: the workspace's, where the caller already knows it; null reads it.
+     */
+    void reconcile(MailboxConnection mailbox, boolean newRefreshToken, CalendarSync calendarSync) {
+        UUID mailboxConnectionId = mailbox.getId();
         String held = mailbox.getRecallCalendarId();
-        if (!isWanted(mailbox)) {
+        if (!isWanted(mailbox, calendarSync)) {
             if (held != null) {
                 release(mailboxConnectionId, held);
             }
@@ -124,6 +132,9 @@ public class RecallCalendars {
         Optional<RecallCalendarSpec> spec = specOf(mailbox);
         if (spec.isEmpty()) {
             log.warn("No OAuth app resolves for mailbox {}; its Recall calendar waits", mailboxConnectionId);
+            if (held == null) {
+                recordFailure(mailbox);
+            }
             return;
         }
         try {
@@ -133,7 +144,9 @@ public class RecallCalendars {
                 recall.update(held, spec.get());
             }
         } catch (VendorException failed) {
-            if (held != null && failed.getKind() == VendorFailureKind.NOT_FOUND) {
+            if (held == null) {
+                recordFailure(mailbox);
+            } else if (failed.getKind() == VendorFailureKind.NOT_FOUND) {
                 forget(mailboxConnectionId, held);
             }
             log.info("Recall calendar for mailbox {} was not {}; the poll tries again", mailboxConnectionId,
@@ -141,9 +154,22 @@ public class RecallCalendars {
         }
     }
 
-    private boolean isWanted(MailboxConnection mailbox) {
-        return recall.isOffered() && mailbox.isDirect() && mailbox.canSend()
-                && workspaces.calendarSyncOf(mailbox.getWorkspaceId()) == CalendarSync.RECALL;
+    private boolean isWanted(MailboxConnection mailbox, CalendarSync knownSync) {
+        if (!recall.isOffered() || !mailbox.isDirect() || !mailbox.canSend()) {
+            return false;
+        }
+        CalendarSync calendarSync = knownSync != null ? knownSync : workspaces.calendarSyncOf(mailbox.getWorkspaceId());
+        return calendarSync == CalendarSync.RECALL;
+    }
+
+    /** V103's backoff, so a mailbox whose calendar always fails never holds the poll's place in line. */
+    private void recordFailure(MailboxConnection mailbox) {
+        String grantId = mailbox.getGrantId();
+        Instant now = clock.instant();
+        transactions.executeWithoutResult(status -> mailboxes.findById(mailbox.getId())
+                .filter(fresh -> grantId.equals(fresh.getGrantId()))
+                .ifPresent(fresh -> fresh.markRecallCalendarFailed(now,
+                        MeetingBackfill.retryWaitAfter(fresh.getRecallCalendarAttempts() + 1))));
     }
 
     private Optional<RecallCalendarSpec> specOf(MailboxConnection mailbox) {

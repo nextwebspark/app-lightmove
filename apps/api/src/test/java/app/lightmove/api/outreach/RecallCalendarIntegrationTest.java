@@ -146,9 +146,59 @@ class RecallCalendarIntegrationTest extends FlowTestSupport {
         assertThat(connectionRow().get("status")).isEqualTo("ACTIVE");
         assertThat(recallCalendarId()).isNull();
 
+        assertThat(connectionRow().get("recall_calendar_attempts")).isEqualTo(1);
+
         recall.failCreates(false);
         dispatcher.pollReplies();
+        assertThat(recallCalendarId()).as("still backing off").isNull();
+
+        jdbc.update("update app_lm_mailbox_connection set recall_calendar_retry_at = now() - interval '1 minute' "
+                + "where workspace_id = ?::uuid", workspaceId);
+        dispatcher.pollReplies();
         assertThat(recallCalendarId()).isNotNull();
+        assertThat(connectionRow().get("recall_calendar_attempts")).isEqualTo(0);
+    }
+
+    @Test
+    @DisplayName("a calendar that keeps failing is given up after five tries, until the mailbox reconnects")
+    void aCalendarThatKeepsFailingIsGivenUp() throws Exception {
+        recall.failCreates(true);
+        connectDirect("refresh-token-1");
+        for (int attempt = 0; attempt < 6; attempt++) {
+            jdbc.update("update app_lm_mailbox_connection set recall_calendar_retry_at = now() - interval '1 minute' "
+                    + "where workspace_id = ?::uuid", workspaceId);
+            dispatcher.pollReplies();
+        }
+        assertThat(connectionRow().get("recall_calendar_attempts")).isEqualTo(5);
+
+        recall.failCreates(false);
+        connectDirect("refresh-token-2");
+        assertThat(recallCalendarId()).isNotNull();
+    }
+
+    @Test
+    @DisplayName("a reconnect at another host or address gets a new calendar; the old one is deleted, not patched")
+    void aReconnectElsewhereReplacesTheCalendar() throws Exception {
+        connectDirect("refresh-token-1");
+        String gmail = recallCalendarId();
+
+        gateway.grant(new GrantedMailbox(MailboxGrants.mintDirect("microsoft"), ADDRESS, "microsoft",
+                "refresh-token-2"));
+        connect();
+
+        assertThat(recall.updates()).isEmpty();
+        assertThat(recall.deleted()).containsExactly(gmail);
+        assertThat(recall.createdSpecs()).hasSize(2);
+        assertThat(recall.createdSpecs().get(1).platform()).isEqualTo("microsoft_outlook");
+        assertThat(recall.createdSpecs().get(1).clientId()).isEqualTo("uncava-microsoft-client");
+        String outlook = recallCalendarId();
+        assertThat(outlook).isNotNull().isNotEqualTo(gmail);
+
+        gateway.grant(new GrantedMailbox(MailboxGrants.mintDirect("microsoft"), "other@firm.example", "microsoft",
+                "refresh-token-3"));
+        connect();
+        assertThat(recall.updates()).isEmpty();
+        assertThat(recall.deleted()).containsExactly(gmail, outlook);
     }
 
     @Test
@@ -187,7 +237,8 @@ class RecallCalendarIntegrationTest extends FlowTestSupport {
     }
 
     private Map<String, Object> connectionRow() {
-        return jdbc.queryForMap("select gateway, status, refresh_token_encrypted, recall_calendar_id "
+        return jdbc.queryForMap("select gateway, status, refresh_token_encrypted, recall_calendar_id, "
+                + "recall_calendar_attempts "
                 + "from app_lm_mailbox_connection where workspace_id = ?::uuid", workspaceId);
     }
 

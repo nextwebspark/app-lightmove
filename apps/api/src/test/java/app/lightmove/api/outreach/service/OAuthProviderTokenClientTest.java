@@ -22,15 +22,17 @@ class OAuthProviderTokenClientTest {
     private static final JsonMapper JSON = JsonMapper.builder().build();
 
     @Test
-    @DisplayName("invalid_grant and interaction_required are refusals; other errors are classified by status")
+    @DisplayName("a dead grant, a refused app and anything else are told apart")
     void refusalsAreToldFromFailures() throws Exception {
         assertThat(refusalOf(HttpStatus.BAD_REQUEST, "{\"error\":\"invalid_grant\",\"error_description\":\"x\"}"))
                 .isInstanceOf(RefreshTokenRefused.class);
         assertThat(refusalOf(HttpStatus.BAD_REQUEST, "{\"error\":\"interaction_required\"}"))
                 .isInstanceOf(RefreshTokenRefused.class);
         assertThat(refusalOf(HttpStatus.UNAUTHORIZED, "{\"error\":\"invalid_client\"}"))
-                .isInstanceOfSatisfying(VendorException.class,
-                        failed -> assertThat(failed.getKind()).isEqualTo(VendorFailureKind.CREDENTIALS));
+                .isInstanceOf(ProviderAppUnavailable.class);
+        assertThat(refusalOf(HttpStatus.BAD_REQUEST, "{\"error\":\"unauthorized_client\"}"))
+                .isInstanceOf(ProviderAppUnavailable.class);
+        assertThat(refusalOf(HttpStatus.UNAUTHORIZED, "")).isInstanceOf(ProviderAppUnavailable.class);
         assertThat(refusalOf(HttpStatus.BAD_REQUEST, "<html>proxy</html>"))
                 .isInstanceOfSatisfying(VendorException.class,
                         failed -> assertThat(failed.getKind()).isEqualTo(VendorFailureKind.BAD_REQUEST));

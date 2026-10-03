@@ -39,5 +39,5 @@ public record OutreachSettings(
          * Which gateway a new mailbox connects through: {@code nylas}, or {@code direct} for our own wherever it
          * covers the provider. A connection already made stays with the gateway that made it.
          */
-        @DefaultValue("nylas") String gateway
+        @DefaultValue("nylas") OutreachGateway gateway
 ) {}

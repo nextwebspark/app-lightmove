@@ -53,6 +53,7 @@ public class OutreachSendService {
     private static final String REPLY_PREFIX = "Re: ";
 
     private static final Duration RATE_LIMITED_PAUSE = Duration.ofMinutes(1);
+    private static final Duration APP_UNAVAILABLE_PAUSE = Duration.ofHours(1);
 
     private final BookingPages bookingPages;
     private final OutreachEnrollmentClaims claims;
@@ -244,6 +245,13 @@ public class OutreachSendService {
         OutreachEnrollment enrollment = enrollments.findById(prepared.enrollmentId()).orElseThrow();
         if (!enrollment.isLive()) {
             enrollment.releaseClaim();
+            return;
+        }
+        if (failed instanceof ProviderAppUnavailable) {
+            // The workspace's OAuth app failed before anything left; the run waits for an admin to fix it.
+            log.warn("Outreach send for enrollment {} waits: its workspace's mail app is unavailable",
+                    enrollment.getId());
+            enrollment.deferTo(now.plus(APP_UNAVAILABLE_PAUSE));
             return;
         }
         VendorFailureKind kind = failed instanceof VendorException vendor ? vendor.getKind() : null;

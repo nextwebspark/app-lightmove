@@ -30,12 +30,11 @@ public class RoutingMailboxGateway implements MailboxGateway {
 
     private final MailboxGateway nylas;
     private final Map<String, DirectMailboxGateway> directByProvider;
-    private final MailboxGatewayKind connectThrough;
+    private final boolean connectDirectly;
 
-    public RoutingMailboxGateway(MailboxGateway nylas, List<DirectMailboxGateway> direct,
-                                 MailboxGatewayKind connectThrough) {
+    public RoutingMailboxGateway(MailboxGateway nylas, List<DirectMailboxGateway> direct, boolean connectDirectly) {
         this.nylas = nylas;
-        this.connectThrough = connectThrough;
+        this.connectDirectly = connectDirectly;
         Map<String, DirectMailboxGateway> byProvider = new LinkedHashMap<>();
         direct.forEach(gateway -> byProvider.put(gateway.provider(), gateway));
         this.directByProvider = Map.copyOf(byProvider);
@@ -75,6 +74,11 @@ public class RoutingMailboxGateway implements MailboxGateway {
     @Override
     public GrantedMailbox redeem(UUID workspaceId, String provider, String code, URI redirectUri) {
         return connectingAt(provider).redeem(workspaceId, provider, code, redirectUri);
+    }
+
+    @Override
+    public boolean holdsRefreshTokens(String provider) {
+        return connectingAt(provider) instanceof DirectMailboxGateway;
     }
 
     @Override
@@ -126,7 +130,7 @@ public class RoutingMailboxGateway implements MailboxGateway {
 
     MailboxGateway connectingAt(String provider) {
         DirectMailboxGateway direct = directByProvider.get(provider);
-        if (connectThrough == MailboxGatewayKind.DIRECT && direct != null && direct.isOffered()) {
+        if (connectDirectly && direct != null && direct.isOffered()) {
             return direct;
         }
         return nylas;
@@ -143,7 +147,7 @@ public class RoutingMailboxGateway implements MailboxGateway {
     }
 
     private List<String> connectableDirectly() {
-        if (connectThrough != MailboxGatewayKind.DIRECT) {
+        if (!connectDirectly) {
             return List.of();
         }
         return directByProvider.values().stream()

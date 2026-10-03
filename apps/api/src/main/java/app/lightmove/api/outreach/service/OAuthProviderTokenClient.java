@@ -45,6 +45,9 @@ public class OAuthProviderTokenClient implements ProviderTokenClient {
     /** The answers that mean the grant itself is gone, not that this attempt failed. */
     static final Set<String> REFUSALS = Set.of("invalid_grant", "interaction_required");
 
+    /** The answers that mean our app was refused, whoever's token it carried. */
+    static final Set<String> APP_REFUSALS = Set.of("invalid_client", "unauthorized_client");
+
     private static final JsonMapper JSON = JsonMapper.builder().build();
 
     private final Map<IntegrationProvider, RestClient> clients = new EnumMap<>(IntegrationProvider.class);
@@ -114,6 +117,10 @@ public class OAuthProviderTokenClient implements ProviderTokenClient {
         }
         if (error != null && REFUSALS.contains(error)) {
             return new RefreshTokenRefused(error);
+        }
+        // A token endpoint's 401 is always about the client: it authenticates nobody else.
+        if ((error != null && APP_REFUSALS.contains(error)) || response.getStatusCode().value() == 401) {
+            return new ProviderAppUnavailable(error == null ? "401" : error);
         }
         HttpStatus status = HttpStatus.resolve(response.getStatusCode().value());
         return new VendorException(call, status == null ? VendorFailureKind.BAD_REQUEST

@@ -11,7 +11,6 @@ import static org.mockito.Mockito.when;
 
 import app.lightmove.api.core.error.constant.ErrorCode;
 import app.lightmove.api.core.error.model.ApiException;
-import app.lightmove.api.outreach.constant.MailboxGatewayKind;
 import app.lightmove.api.outreach.model.MailboxGrants;
 import app.lightmove.api.outreach.model.OutgoingEmail;
 import java.net.URI;
@@ -32,7 +31,7 @@ class RoutingMailboxGatewayTest {
     @Test
     @DisplayName("a connection is answered by the gateway that made it, whatever new connections go through")
     void callsFollowTheGrant() {
-        RoutingMailboxGateway router = router(MailboxGatewayKind.NYLAS);
+        RoutingMailboxGateway router = router(false);
         String directGrant = MailboxGrants.mintDirect("google");
 
         router.send("nylas-grant-uuid", EMAIL);
@@ -48,7 +47,7 @@ class RoutingMailboxGatewayTest {
     @Test
     @DisplayName("a direct grant whose gateway this deployment lacks is refused, never handed to Nylas")
     void anUnknownDirectGrantIsRefused() {
-        RoutingMailboxGateway router = router(MailboxGatewayKind.DIRECT);
+        RoutingMailboxGateway router = router(true);
 
         assertThatThrownBy(() -> router.send(MailboxGrants.mintDirect("microsoft"), EMAIL))
                 .isInstanceOfSatisfying(ApiException.class,
@@ -59,7 +58,7 @@ class RoutingMailboxGatewayTest {
     @Test
     @DisplayName("on nylas every new connection goes to Nylas, even where our own gateway exists")
     void nylasModeConnectsThroughNylas() {
-        RoutingMailboxGateway router = router(MailboxGatewayKind.NYLAS);
+        RoutingMailboxGateway router = router(false);
         UUID workspace = UUID.randomUUID();
 
         router.authorizationUri(workspace, "google", "yara@firm.example", "state", CALLBACK);
@@ -74,7 +73,7 @@ class RoutingMailboxGatewayTest {
     @Test
     @DisplayName("on direct our own gateway connects the providers it covers, and Nylas the rest")
     void directModeConnectsThroughOurOwnWhereItCan() {
-        RoutingMailboxGateway router = router(MailboxGatewayKind.DIRECT);
+        RoutingMailboxGateway router = router(true);
         UUID workspace = UUID.randomUUID();
 
         router.redeem(workspace, "google", "code-g", CALLBACK);
@@ -84,13 +83,15 @@ class RoutingMailboxGatewayTest {
         verify(nylas).redeem(workspace, "microsoft", "code-m", CALLBACK);
         assertThat(router.providers()).containsExactly("google", "microsoft");
         assertThat(router.isOffered()).isTrue();
+        assertThat(router.holdsRefreshTokens("google")).isTrue();
+        assertThat(router.holdsRefreshTokens("microsoft")).isFalse();
     }
 
     @Test
     @DisplayName("a direct gateway with no app to connect through is passed over for Nylas")
     void anUnofferedDirectGatewayIsPassedOver() {
         when(google.isOffered()).thenReturn(false);
-        RoutingMailboxGateway router = router(MailboxGatewayKind.DIRECT);
+        RoutingMailboxGateway router = router(true);
         UUID workspace = UUID.randomUUID();
 
         router.redeem(workspace, "google", "code", CALLBACK);
@@ -101,7 +102,7 @@ class RoutingMailboxGatewayTest {
     @Test
     @DisplayName("the Nylas webhook and booking pages stay Nylas's")
     void webhooksAndBookingPagesStayWithNylas() {
-        RoutingMailboxGateway router = router(MailboxGatewayKind.DIRECT);
+        RoutingMailboxGateway router = router(true);
         when(nylas.isBookingPageOffered()).thenReturn(true);
 
         router.readWebhook("signature", new byte[0]);
@@ -110,10 +111,10 @@ class RoutingMailboxGatewayTest {
         assertThat(router.isBookingPageOffered()).isTrue();
     }
 
-    private RoutingMailboxGateway router(MailboxGatewayKind connectThrough) {
+    private RoutingMailboxGateway router(boolean connectDirectly) {
         when(nylas.isOffered()).thenReturn(true);
         when(nylas.providers()).thenReturn(List.of("google", "microsoft"));
-        return new RoutingMailboxGateway(nylas, List.of(google), connectThrough);
+        return new RoutingMailboxGateway(nylas, List.of(google), connectDirectly);
     }
 
     private static DirectMailboxGateway directAt(String provider) {

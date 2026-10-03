@@ -414,10 +414,15 @@ handed to Nylas. A direct connection keeps the provider's **refresh token, encry
 and consultant), never logged or returned; `MailboxTokens` turns it into an access token through the
 workspace's resolved app, held in memory until two minutes before it expires, keeps a rotated one, and
 treats a refusal (`invalid_grant`, `interaction_required`) as Nylas's `grant.expired` — `ERROR`, and the
-`CREDENTIALS` failure every sender already reads as "reconnect". On `RECALL` sync each direct mailbox has
+`CREDENTIALS` failure every sender already reads as "reconnect". A refused **app** (`invalid_client`,
+`unauthorized_client`, any 401 — an own app's secret expired) is `ProviderAppUnavailable` instead: the
+mailbox stays `ACTIVE` and a send waits an hour rather than stopping the run, because one broken workspace
+app must not take every consultant's mailbox down. On `RECALL` sync each direct mailbox has
 one Recall calendar (`RecallCalendars`): made after the connect commits, handed the new token on a
-reconnect, deleted on a disconnect, a refused refresh or a switch to `DIRECT` (made again on a switch
-back); a failed create never fails the connect — the reply poll makes it. Recall's webhook
+reconnect to the same mailbox — a reconnect at another host or address gets a new one, since a calendar
+keeps the platform it was made for — deleted on a disconnect, a refused refresh or a switch to `DIRECT`
+(made again on a switch back); a failed create never fails the connect — the reply poll makes it, on
+V103's backoff, giving up after five until the mailbox reconnects. Recall's webhook
 (`/api/v1/outreach/webhooks/recall`, public, its Svix signature under `lightmove.recall.webhook-secret` the
 credential; blank refuses every delivery) reporting a calendar `disconnected` marks the mailbox `ERROR`.
 Sequences (V100, #623) are a position's, `WORK_EXECUTE`: up to three emails (V39's owned list), and
@@ -708,8 +713,9 @@ ZOOM`), `mode` `SHARED | OWN`, and on `OWN` the client id, `client_secret_encryp
 (Microsoft only, by CHECK) and the secret's own expiry; a `SHARED` row holds no key (CHECK), and no row means
 shared — and `app_lm_workspace.calendar_sync` (`RECALL | DIRECT`, default `RECALL`).
 V107 gives `app_lm_mailbox_connection` its `gateway` (`NYLAS | DIRECT`, existing rows `NYLAS`),
-`refresh_token_encrypted` (set exactly on a `DIRECT` row, by CHECK) and `recall_calendar_id` (indexed, for
-Recall's webhook, which names nothing else).
+`refresh_token_encrypted` (set exactly on a `DIRECT` row, by CHECK), `recall_calendar_id` (indexed, for
+Recall's webhook, which names nothing else) and V103's backoff pair for it, `recall_calendar_attempts` and
+`recall_calendar_retry_at`.
 V84 adds `app_lm_workspace.mode` (`AGENCY | COMPANY`, V34's CHECK idiom; every existing row `COMPANY`):
 who a workspace hires for — client companies, or its own business units. Chosen at creation with **no
 default** (`CreateWorkspaceRequest.mode` is required, the organisation step preselects nothing) and

@@ -80,6 +80,10 @@ public class MailboxService {
         if (!gateway.providers().contains(provider)) {
             throw ApiException.of(ErrorCode.MAILBOX_PROVIDER_UNSUPPORTED);
         }
+        // Refused before consent: a refresh token we could not seal would be live at the provider and discarded.
+        if (gateway.holdsRefreshTokens(provider) && !cipher.isAvailable()) {
+            throw ApiException.of(ErrorCode.INTEGRATION_ENCRYPTION_UNAVAILABLE);
+        }
         authorizations.forgetStartedBy(userId);
         String state = Tokens.generate();
         authorizations.save(MailboxAuthorization.started(Tokens.hash(state), workspaceId, userId, provider,
@@ -179,6 +183,10 @@ public class MailboxService {
         return connections.findByWorkspaceIdAndUserId(started.getWorkspaceId(), started.getUserId())
                 .map(existing -> {
                     String previous = existing.getGrantId();
+                    String movedFrom = existing.releaseRecallCalendarUnlessFor(granted);
+                    if (movedFrom != null) {
+                        events.publishEvent(new RecallCalendarReleased(movedFrom));
+                    }
                     existing.reconnect(granted, refreshTokenEncrypted, now);
                     events.publishEvent(new MailboxConnected(existing.getId()));
                     return previous;

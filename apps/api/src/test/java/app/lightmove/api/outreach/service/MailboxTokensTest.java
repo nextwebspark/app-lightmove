@@ -68,6 +68,8 @@ class MailboxTokensTest {
         connection.holdRecallCalendar("recall-calendar-1");
         when(connections.findByGrantId(grantId)).thenReturn(List.of(connection));
         when(connections.findById(connection.getId())).thenReturn(Optional.of(connection));
+        when(connections.existsByGrantIdAndStatus(grantId, MailboxStatus.ACTIVE))
+                .thenAnswer(invocation -> connection.getStatus() == MailboxStatus.ACTIVE);
         when(resolver.resolve(workspaceId, IntegrationProvider.GOOGLE)).thenReturn(Optional.of(SHARED_GOOGLE));
         tokens = new MailboxTokens(connections, resolver, cipher, tokenClient,
                 new TransactionTemplate(mock(PlatformTransactionManager.class)), events, clock);
@@ -117,6 +119,31 @@ class MailboxTokensTest {
     }
 
     @Test
+    @DisplayName("a refused workspace app leaves the mailbox active and its calendar in place")
+    void aRefusedAppIsNotAWithdrawnGrant() {
+        tokenClient.refuseTheApp();
+
+        assertThatThrownBy(() -> tokens.accessToken(grantId)).isInstanceOf(ProviderAppUnavailable.class);
+        assertThat(connection.getStatus()).isEqualTo(MailboxStatus.ACTIVE);
+        assertThat(connection.getRecallCalendarId()).isEqualTo("recall-calendar-1");
+        verify(events, never()).publishEvent(any());
+    }
+
+    @Test
+    @DisplayName("a cached token is no longer handed out once its mailbox loses access")
+    void aCachedTokenEndsWithTheMailbox() {
+        tokenClient.answer(new RefreshedAccessToken("access-1", Duration.ofHours(1), null));
+        tokens.accessToken(grantId);
+
+        connection.markAccessWithdrawn();
+
+        assertThatThrownBy(() -> tokens.accessToken(grantId))
+                .isInstanceOfSatisfying(VendorException.class,
+                        failed -> assertThat(failed.getKind()).isEqualTo(VendorFailureKind.CREDENTIALS));
+        assertThat(tokenClient.spentTokens).hasSize(1);
+    }
+
+    @Test
     @DisplayName("a rotated refresh token replaces the stored one, sealed")
     void aRotatedTokenIsKept() {
         tokenClient.answer(new RefreshedAccessToken("access-1", Duration.ofHours(1), "refresh-2"));
@@ -147,14 +174,20 @@ class MailboxTokensTest {
         private final List<ProviderCredentials> apps = new ArrayList<>();
         private RefreshedAccessToken next;
         private boolean refusing;
+        private boolean refusingTheApp;
 
         void answer(RefreshedAccessToken token) {
             this.next = token;
             this.refusing = false;
+            this.refusingTheApp = false;
         }
 
         void refuse() {
             this.refusing = true;
+        }
+
+        void refuseTheApp() {
+            this.refusingTheApp = true;
         }
 
         @Override
@@ -163,6 +196,9 @@ class MailboxTokensTest {
             apps.add(credentials);
             if (refusing) {
                 throw new RefreshTokenRefused("invalid_grant");
+            }
+            if (refusingTheApp) {
+                throw new ProviderAppUnavailable("invalid_client");
             }
             return next;
         }

@@ -2,17 +2,16 @@ package app.lightmove.api.outreach.config;
 
 import app.lightmove.api.core.config.LightMoveProperties;
 import app.lightmove.api.core.config.NylasSettings;
+import app.lightmove.api.core.config.OutreachGateway;
 import app.lightmove.api.core.config.OutreachSettings;
 import app.lightmove.api.core.resilience.service.VendorCallGuard;
 import app.lightmove.api.core.resilience.service.VendorClientFactory;
 import app.lightmove.api.core.resilience.service.VendorRateLimiter;
-import app.lightmove.api.outreach.constant.MailboxGatewayKind;
 import app.lightmove.api.outreach.service.DirectMailboxGateway;
 import app.lightmove.api.outreach.service.MailboxGateway;
 import app.lightmove.api.outreach.service.NylasMailboxGateway;
 import app.lightmove.api.outreach.service.RoutingMailboxGateway;
 import app.lightmove.api.outreach.service.UnconfiguredMailboxGateway;
-import java.util.Locale;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.beans.factory.annotation.Qualifier;
@@ -53,14 +52,9 @@ public class MailboxGatewayConfig {
     @Primary
     RoutingMailboxGateway mailboxGateway(@Qualifier(NYLAS) MailboxGateway nylas,
                                          ObjectProvider<DirectMailboxGateway> direct, LightMoveProperties properties) {
-        MailboxGatewayKind connectThrough = connectThrough(properties.outreach());
-        log.info("New mailboxes connect through {}", connectThrough);
-        return new RoutingMailboxGateway(nylas, direct.orderedStream().toList(), connectThrough);
-    }
-
-    private static MailboxGatewayKind connectThrough(OutreachSettings outreach) {
-        String chosen = outreach == null || outreach.gateway() == null ? "" : outreach.gateway().strip();
-        return chosen.isEmpty() ? MailboxGatewayKind.NYLAS
-                : MailboxGatewayKind.valueOf(chosen.toUpperCase(Locale.ROOT));
+        OutreachSettings outreach = properties.outreach();
+        boolean connectDirectly = outreach != null && outreach.gateway() == OutreachGateway.DIRECT;
+        log.info("New mailboxes connect through {}", connectDirectly ? "our own gateway where it can" : "Nylas");
+        return new RoutingMailboxGateway(nylas, direct.orderedStream().toList(), connectDirectly);
     }
 }

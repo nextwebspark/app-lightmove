@@ -94,6 +94,13 @@ public class MailboxConnection extends BaseEntity {
     @Column(name = "recall_calendar_id", length = 128)
     private String recallCalendarId;
 
+    /** Failed creates of the Recall calendar since the mailbox connected; each waits longer for the next. */
+    @Column(name = "recall_calendar_attempts", nullable = false)
+    private int recallCalendarAttempts;
+
+    @Column(name = "recall_calendar_retry_at")
+    private Instant recallCalendarRetryAt;
+
     /** {@code refreshTokenEncrypted}: the refresh token under {@link #refreshTokenContext}; null for Nylas. */
     public static MailboxConnection connected(UUID workspaceId, UUID userId, GrantedMailbox mailbox,
                                               String refreshTokenEncrypted, int dailyCap, Instant now) {
@@ -122,6 +129,8 @@ public class MailboxConnection extends BaseEntity {
         this.calendarSyncAttempts = 0;
         this.calendarSyncRetryAt = null;
         this.bookingConfigurationId = null;
+        this.recallCalendarAttempts = 0;
+        this.recallCalendarRetryAt = null;
     }
 
     public void claimBookingSlug(String slug) {
@@ -168,13 +177,32 @@ public class MailboxConnection extends BaseEntity {
         return gateway == MailboxGatewayKind.DIRECT;
     }
 
-    /** The provider whose OAuth app the refresh token was issued to. */
     public IntegrationProvider integrationProvider() {
         return IntegrationProvider.valueOf(provider.toUpperCase(Locale.ROOT));
     }
 
     public void holdRecallCalendar(String calendarId) {
         this.recallCalendarId = Objects.requireNonNull(calendarId, "calendarId");
+        this.recallCalendarAttempts = 0;
+        this.recallCalendarRetryAt = null;
+    }
+
+    /** The Recall calendar could not be made; the poll tries again after {@code wait}. */
+    public void markRecallCalendarFailed(Instant now, Duration wait) {
+        this.recallCalendarAttempts = recallCalendarAttempts + 1;
+        this.recallCalendarRetryAt = now.plus(wait);
+    }
+
+    /**
+     * A Recall calendar keeps the host and the address it was made for, so a reconnect elsewhere must not patch
+     * it: it is let go here, before the reconnect, and a new one is made for the new mailbox.
+     *
+     * @return the calendar to delete at Recall, or null when the reconnect is to the same mailbox
+     */
+    public String releaseRecallCalendarUnlessFor(GrantedMailbox mailbox) {
+        boolean sameMailbox = Objects.equals(provider, mailbox.provider())
+                && address != null && address.equalsIgnoreCase(mailbox.address());
+        return sameMailbox ? null : releaseRecallCalendar();
     }
 
     /** Forgets the Recall calendar and answers its id, for the caller to delete at Recall once this commits. */

@@ -46,6 +46,11 @@ public interface MailboxGateway {
         return redeem(code, redirectUri);
     }
 
+    /** True where a new connection at {@code provider} hands back a refresh token we must store encrypted. */
+    default boolean holdsRefreshTokens(String provider) {
+        return false;
+    }
+
     /** A set {@link OutgoingEmail#replyToMessageId()} sends the email as a reply in that message's thread. */
     SentEmail send(String grantId, OutgoingEmail email);
 
