@@ -69,19 +69,21 @@ public class MailboxService {
         ConnectedMailboxResponse connection = connections.findByWorkspaceIdAndUserId(workspaceId, userId)
                 .map(mailbox -> ConnectedMailboxResponse.of(mailbox, bookingPages.linkOf(mailbox)))
                 .orElse(null);
-        return new MailboxResponse(gateway.isOffered(), gateway.providers(), connection,
+        return new MailboxResponse(gateway.isOfferedTo(workspaceId), gateway.providersFor(workspaceId), connection,
                 bookingPages.isOffered());
     }
 
     /** Any attempt the caller left unfinished is dropped, so only the newest consent screen can connect. */
     @Transactional
     public MailboxConnectStart begin(UUID userId, UUID workspaceId, String loginHint, String provider) {
-        requireOffered();
-        if (!gateway.providers().contains(provider)) {
+        if (!gateway.isOfferedTo(workspaceId)) {
+            throw ApiException.of(ErrorCode.MAILBOX_UNAVAILABLE);
+        }
+        if (!gateway.providersFor(workspaceId).contains(provider)) {
             throw ApiException.of(ErrorCode.MAILBOX_PROVIDER_UNSUPPORTED);
         }
         // Refused before consent: a refresh token we could not seal would be live at the provider and discarded.
-        if (gateway.holdsRefreshTokens(provider) && !cipher.isAvailable()) {
+        if (gateway.holdsRefreshTokens(workspaceId, provider) && !cipher.isAvailable()) {
             throw ApiException.of(ErrorCode.INTEGRATION_ENCRYPTION_UNAVAILABLE);
         }
         authorizations.forgetStartedBy(userId);

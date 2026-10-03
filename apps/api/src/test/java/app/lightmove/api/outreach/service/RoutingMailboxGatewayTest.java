@@ -83,20 +83,43 @@ class RoutingMailboxGatewayTest {
         verify(nylas).redeem(workspace, "microsoft", "code-m", CALLBACK);
         assertThat(router.providers()).containsExactly("google", "microsoft");
         assertThat(router.isOffered()).isTrue();
-        assertThat(router.holdsRefreshTokens("google")).isTrue();
-        assertThat(router.holdsRefreshTokens("microsoft")).isFalse();
+        assertThat(router.holdsRefreshTokens(workspace, "google")).isTrue();
+        assertThat(router.holdsRefreshTokens(workspace, "microsoft")).isFalse();
     }
 
     @Test
     @DisplayName("a direct gateway with no app to connect through is passed over for Nylas")
     void anUnofferedDirectGatewayIsPassedOver() {
-        when(google.isOffered()).thenReturn(false);
         RoutingMailboxGateway router = router(true);
+        when(google.isOffered()).thenReturn(false);
+        when(google.isOfferedTo(any())).thenReturn(false);
         UUID workspace = UUID.randomUUID();
 
         router.redeem(workspace, "google", "code", CALLBACK);
 
         verify(nylas).redeem(workspace, "google", "code", CALLBACK);
+    }
+
+    @Test
+    @DisplayName("a workspace with no app at the provider, shared or its own, still connects through Nylas")
+    void aWorkspaceWithoutAnAppConnectsThroughNylas() {
+        UUID withApp = UUID.randomUUID();
+        UUID withoutApp = UUID.randomUUID();
+        when(google.isOfferedTo(withApp)).thenReturn(true);
+        when(google.isOfferedTo(withoutApp)).thenReturn(false);
+        RoutingMailboxGateway router = router(true);
+
+        router.redeem(withApp, "google", "code-1", CALLBACK);
+        router.redeem(withoutApp, "google", "code-2", CALLBACK);
+
+        verify(google).redeem(withApp, "google", "code-1", CALLBACK);
+        verify(nylas).redeem(withoutApp, "google", "code-2", CALLBACK);
+        assertThat(router.holdsRefreshTokens(withoutApp, "google")).isFalse();
+        assertThat(router.providersFor(withApp)).containsExactly("google", "microsoft");
+        when(nylas.isOffered()).thenReturn(false);
+        assertThat(router.providersFor(withoutApp)).isEmpty();
+        assertThat(router.isOfferedTo(withoutApp)).isFalse();
+        assertThat(router.isOfferedTo(withApp)).isTrue();
     }
 
     @Test
@@ -121,6 +144,7 @@ class RoutingMailboxGatewayTest {
         DirectMailboxGateway gateway = mock(DirectMailboxGateway.class);
         when(gateway.provider()).thenReturn(provider);
         when(gateway.isOffered()).thenReturn(true);
+        when(gateway.isOfferedTo(any())).thenReturn(true);
         return gateway;
     }
 }

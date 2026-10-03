@@ -22,6 +22,9 @@ export interface WorkspaceIntegration {
   ownAppGuideUrl: string | null;
   sharedAppGuideUrl: string | null;
   updatedAt: string | null;
+  /** When an admin came back from Microsoft's admin-consent link having approved Uncava's app; Microsoft only. */
+  adminConsentedAt: string | null;
+  adminConsentTenantId: string | null;
 }
 
 export interface WorkspaceIntegrations {

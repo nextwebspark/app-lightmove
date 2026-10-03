@@ -6,8 +6,15 @@ import app.lightmove.api.core.config.ProviderAppSettings;
 import app.lightmove.api.core.config.ProviderAppsSettings;
 import app.lightmove.api.outreach.constant.IntegrationProvider;
 import java.net.URI;
+import java.nio.charset.StandardCharsets;
+import java.security.GeneralSecurityException;
+import java.security.MessageDigest;
+import java.util.Base64;
 import java.util.List;
 import java.util.Optional;
+import java.util.UUID;
+import javax.crypto.Mac;
+import javax.crypto.spec.SecretKeySpec;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.web.util.UriComponentsBuilder;
@@ -55,16 +62,40 @@ public class ProviderAppSetup {
 
     /**
      * The link a Microsoft customer's IT department opens once to approve Uncava's multi-tenant app for the whole
-     * organisation, after which every consultant connects without a consent screen of their own.
+     * organisation, after which every consultant connects without a consent screen of their own. Its {@code state}
+     * is {@link #adminConsentState}, which Microsoft hands back with the approval.
      */
-    public Optional<URI> microsoftAdminConsentUri() {
+    public Optional<URI> microsoftAdminConsentUri(UUID workspaceId) {
         return sharedApp(IntegrationProvider.MICROSOFT).map(app -> UriComponentsBuilder
                 .fromUriString(MICROSOFT_ADMIN_CONSENT)
                 .queryParam("client_id", app.clientId())
                 .queryParam("redirect_uri", properties.web().baseUrl() + ADMIN_CONSENT_RETURN_PATH)
+                .queryParam("state", adminConsentState(workspaceId, app))
                 .encode()
                 .build()
                 .toUri());
+    }
+
+    /**
+     * Whether {@code state} is the one this workspace's link carried. An HMAC of the workspace under the shared app's
+     * secret, so a crafted return link cannot make an admin's session record an approval that never happened.
+     */
+    public boolean isAdminConsentState(UUID workspaceId, String state) {
+        return state != null && sharedApp(IntegrationProvider.MICROSOFT)
+                .map(app -> MessageDigest.isEqual(adminConsentState(workspaceId, app).getBytes(StandardCharsets.UTF_8),
+                        state.getBytes(StandardCharsets.UTF_8)))
+                .orElse(false);
+    }
+
+    private static String adminConsentState(UUID workspaceId, ProviderAppSettings app) {
+        try {
+            Mac mac = Mac.getInstance("HmacSHA256");
+            mac.init(new SecretKeySpec(app.clientSecret().getBytes(StandardCharsets.UTF_8), "HmacSHA256"));
+            byte[] signed = mac.doFinal(("admin-consent:" + workspaceId).getBytes(StandardCharsets.UTF_8));
+            return Base64.getUrlEncoder().withoutPadding().encodeToString(signed);
+        } catch (GeneralSecurityException unavailable) {
+            throw new IllegalStateException("HmacSHA256 is unavailable", unavailable);
+        }
     }
 
     private ProviderAppSettings settingsOf(IntegrationProvider provider) {

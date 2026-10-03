@@ -3,6 +3,7 @@ import { useState } from "react";
 import { Button, Modal, SegmentedControl, useToast, type SegmentedOption } from "../../../components/ui";
 import { GoogleMark, MicrosoftMark, ZoomMark } from "../../../components/ui/BrandMarks";
 import { messageFor } from "../../../lib/errorCodes";
+import { formatInstantDate } from "../../../lib/format";
 import * as integrationsApi from "../api/integrationsApi";
 import type { CredentialMode, IntegrationProvider, WorkspaceIntegration } from "../api/types";
 import type { OwnAppValues } from "../lib/ownAppSchema";
@@ -164,6 +165,12 @@ function SharedAppDetails({ integration, setup }: { integration: WorkspaceIntegr
   return (
     <div className="space-y-2">
       {integration.adminConsentUrl && <CopyableValue label="Admin consent link" value={integration.adminConsentUrl} />}
+      {integration.adminConsentedAt && (
+        <p className="text-note text-u-text2">
+          <span className="text-u-accent">✓</span> Approved for your organisation on{" "}
+          {formatInstantDate(integration.adminConsentedAt)}
+        </p>
+      )}
       <p className="font-mono text-[11.5px] text-u-text3">
         {setup}{" "}
         {integration.sharedAppGuideUrl && (

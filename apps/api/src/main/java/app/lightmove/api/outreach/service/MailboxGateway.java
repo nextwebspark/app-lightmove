@@ -28,6 +28,16 @@ public interface MailboxGateway {
     /** The mailbox hosts a consultant may connect, in the service's own names. */
     List<String> providers();
 
+    /** {@link #isOffered()} for {@code workspaceId}, whose OAuth apps may differ from every other workspace's. */
+    default boolean isOfferedTo(UUID workspaceId) {
+        return isOffered();
+    }
+
+    /** {@link #providers()} a consultant of {@code workspaceId} can actually connect. */
+    default List<String> providersFor(UUID workspaceId) {
+        return providers();
+    }
+
     URI authorizationUri(String provider, String loginHint, String state, URI redirectUri);
 
     /** Redeems the one-time code the consent screen sent back. Never retried: a code is single-use. */
@@ -46,8 +56,8 @@ public interface MailboxGateway {
         return redeem(code, redirectUri);
     }
 
-    /** True where a new connection at {@code provider} hands back a refresh token we must store encrypted. */
-    default boolean holdsRefreshTokens(String provider) {
+    /** True where {@code workspaceId}'s next connection at {@code provider} hands back a refresh token to seal. */
+    default boolean holdsRefreshTokens(UUID workspaceId, String provider) {
         return false;
     }
 

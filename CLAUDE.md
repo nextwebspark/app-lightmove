@@ -425,6 +425,22 @@ keeps the platform it was made for — deleted on a disconnect, a refused refres
 V103's backoff, giving up after five until the mailbox reconnects. Recall's webhook
 (`/api/v1/outreach/webhooks/recall`, public, its Svix signature under `lightmove.recall.webhook-secret` the
 credential; blank refuses every delivery) reporting a calendar `disconnected` marks the mailbox `ERROR`.
+**Microsoft (#645)** is `MicrosoftMailboxGateway`, over Graph: it is offered to a workspace with a Microsoft app,
+shared (`/organizations`) or its own (its tenant), and Nylas answers for one without. It asks
+`offline_access User.Read Mail.ReadWrite Mail.Send Calendars.ReadWrite` — `Mail.ReadWrite` because every email is a
+**draft then a send** (a follow-up a `createReply` on the last message, addressed to the executive), the only way
+Graph answers with the message and conversation ids threading and the reply poll key on, requested immutable so they
+survive the move to Sent Items; `sendMail` answers nothing. A reply drafted on our own message would go back to the
+consultant, so its recipients are set to the executive alone before the send, and a send Graph definitely refuses
+deletes its draft — a finished approach left in Drafts is one click from the second send "never retried" forbids
+(a timeout leaves it: it may have gone). The poll reads `from`, `receivedDateTime`, `isDraft` and the folder, and
+drops drafts and Sent Items, so the consultant's own mail never reads as a reply whatever address it went from.
+Offered to a workspace only with an app (`isOfferedTo`, which the mailbox screen's providers read), and to the
+deployment only where some app exists. No webhook yet, no per-app revoke (the stored token goes with the row), and
+no calendar until #647 (`MAILBOX_CALENDAR_UNSUPPORTED`). Microsoft's admin-consent return lands on Settings →
+Integrations, which records it (`POST /workspace/integrations/MICROSOFT/admin-consent`, `WORKSPACE_MANAGE`,
+audited) only with the `state` our link carried — an HMAC of the workspace under the shared app's secret, so a
+crafted return link records nothing — and the card says "Approved for your organisation"; it gates nothing.
 Sequences (V100, #623) are a position's, `WORK_EXECUTE`: up to three emails (V39's owned list), and
 **Add to sequence** — from In universe / Shortlisted (the ticked companies' executives) or the executive
 drawer — chooses, reviews and starts. Choose shows who is skipped and why (no email, do not contact, out
@@ -716,6 +732,8 @@ V107 gives `app_lm_mailbox_connection` its `gateway` (`NYLAS | DIRECT`, existing
 `refresh_token_encrypted` (set exactly on a `DIRECT` row, by CHECK), `recall_calendar_id` (indexed, for
 Recall's webhook, which names nothing else) and V103's backoff pair for it, `recall_calendar_attempts` and
 `recall_calendar_retry_at`.
+V108 gives `app_lm_workspace_mail_integration` Microsoft's admin consent — `admin_consented_at`, the
+`admin_consent_tenant_id` it was given for and who reported it — by CHECK on the Microsoft row alone.
 V84 adds `app_lm_workspace.mode` (`AGENCY | COMPANY`, V34's CHECK idiom; every existing row `COMPANY`):
 who a workspace hires for — client companies, or its own business units. Chosen at creation with **no
 default** (`CreateWorkspaceRequest.mode` is required, the organisation step preselects nothing) and

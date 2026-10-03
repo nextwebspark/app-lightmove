@@ -12,6 +12,7 @@ import java.util.List;
  *
  * @param adminConsentUrl Microsoft's one-time approval link for Uncava's app; null at the other providers, or
  *                        where this deployment has no shared Microsoft app
+ * @param adminConsentedAt when an admin came back from that link having approved it; informational, it gates nothing
  */
 public record WorkspaceIntegrationResponse(
         IntegrationProvider provider,
@@ -26,5 +27,7 @@ public record WorkspaceIntegrationResponse(
         String adminConsentUrl,
         String ownAppGuideUrl,
         String sharedAppGuideUrl,
-        Instant updatedAt
+        Instant updatedAt,
+        Instant adminConsentedAt,
+        String adminConsentTenantId
 ) {}

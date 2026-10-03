@@ -16,6 +16,7 @@ vi.mock("../api/integrationsApi", async (importOriginal) => ({
   integrations: vi.fn(),
   updateIntegration: vi.fn(),
   returnToSharedApp: vi.fn(),
+  recordMicrosoftAdminConsent: vi.fn(),
 }));
 vi.mock("../../workspace/api/workspaceApi", async (importOriginal) => ({
   ...(await importOriginal<typeof import("../../workspace/api/workspaceApi")>()),
@@ -43,6 +44,8 @@ const sharedIntegration = (provider: WorkspaceIntegration["provider"]): Workspac
   ownAppGuideUrl: null,
   sharedAppGuideUrl: null,
   updatedAt: null,
+  adminConsentedAt: null,
+  adminConsentTenantId: null,
 });
 
 const allShared: WorkspaceIntegrations = {
@@ -69,9 +72,9 @@ const googleOwn: WorkspaceIntegrations = {
 
 const workspace = { id: "ws-1", name: "Acme", mode: "COMPANY", calendarSync: "RECALL" } as WorkspaceDetail;
 
-function renderPage() {
+function renderPage(path = "/settings/integrations") {
   return render(
-    <MemoryRouter>
+    <MemoryRouter initialEntries={[path]}>
       <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
         <ToastProvider>
           <SettingsIntegrationsPage />
@@ -243,5 +246,31 @@ describe("SettingsIntegrationsPage", () => {
 
     expect(within(google).getByRole("alert")).toHaveTextContent("can't be stored on this deployment");
     expect(within(google).getByRole("button", { name: "Save" })).toBeDisabled();
+  });
+
+  it("records Microsoft's admin-consent return once and says the organisation approved Uncava", async () => {
+    vi.mocked(integrationsApi.recordMicrosoftAdminConsent).mockResolvedValue({
+      ...allShared,
+      providers: [
+        sharedIntegration("GOOGLE"),
+        { ...sharedIntegration("MICROSOFT"), adminConsentedAt: "2026-10-03T07:00:00Z", adminConsentTenantId: "t-1" },
+        sharedIntegration("ZOOM"),
+      ],
+    });
+    renderPage("/settings/integrations?admin_consent=True&tenant=t-1&state=signed-state");
+
+    const microsoft = await card("Microsoft 365");
+    await waitFor(() =>
+      expect(within(microsoft).getByText(/Approved for your organisation on/)).toBeInTheDocument(),
+    );
+    expect(integrationsApi.recordMicrosoftAdminConsent).toHaveBeenCalledTimes(1);
+    expect(integrationsApi.recordMicrosoftAdminConsent).toHaveBeenCalledWith("t-1", "signed-state");
+  });
+
+  it("says so when Microsoft returns without an approval, and records nothing", async () => {
+    renderPage("/settings/integrations?error=access_denied&error_description=declined");
+
+    expect(await screen.findByText(/Microsoft did not approve Uncava/)).toBeInTheDocument();
+    expect(integrationsApi.recordMicrosoftAdminConsent).not.toHaveBeenCalled();
   });
 });

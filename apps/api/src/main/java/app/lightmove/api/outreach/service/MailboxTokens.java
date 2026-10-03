@@ -8,7 +8,7 @@ import app.lightmove.api.outreach.constant.MailboxStatus;
 import app.lightmove.api.outreach.model.MailboxConnection;
 import app.lightmove.api.outreach.model.ProviderCredentials;
 import app.lightmove.api.outreach.model.RecallCalendarReleased;
-import app.lightmove.api.outreach.model.RefreshedAccessToken;
+import app.lightmove.api.outreach.model.ProviderTokenGrant;
 import app.lightmove.api.outreach.repository.MailboxConnectionRepository;
 import com.github.benmanes.caffeine.cache.Cache;
 import com.github.benmanes.caffeine.cache.Caffeine;
@@ -95,10 +95,10 @@ public class MailboxTokens {
                 .orElseThrow(() -> new ProviderAppUnavailable("no app resolves"));
         String refreshToken = cipher.decrypt(connection.getRefreshTokenEncrypted(), connection.refreshTokenContext());
 
-        RefreshedAccessToken refreshed;
+        ProviderTokenGrant refreshed;
         try {
             refreshed = tokenClient.refresh(app, refreshToken);
-        } catch (RefreshTokenRefused refused) {
+        } catch (ProviderGrantRefused refused) {
             withdrawAccess(connection.getId(), grantId);
             log.info("The provider refused the refresh token of mailbox {} ({}); it needs reconnecting",
                     connection.getId(), refused.getMessage());
@@ -108,8 +108,8 @@ public class MailboxTokens {
                     app.provider(), connection.getWorkspaceId(), appRefused.getMessage());
             throw appRefused;
         }
-        if (refreshed.rotatedRefreshToken() != null && !refreshed.rotatedRefreshToken().equals(refreshToken)) {
-            keepRotated(connection.getId(), grantId, refreshed.rotatedRefreshToken());
+        if (refreshed.refreshToken() != null && !refreshed.refreshToken().equals(refreshToken)) {
+            keepRotated(connection.getId(), grantId, refreshed.refreshToken());
         }
         return new HeldAccessToken(refreshed.accessToken(), refreshed.expiresIn().minus(EXPIRY_MARGIN));
     }

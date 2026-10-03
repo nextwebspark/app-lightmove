@@ -509,7 +509,9 @@ Everything injects `MailboxGateway` and gets the `@Primary` `RoutingMailboxGatew
 is a bean under `@Qualifier(MailboxGatewayConfig.NYLAS)` marked `@Fallback`, so a test's `RecordingMailboxGateway`
 under the same qualifier replaces it **beneath** the router — a test double registered `@Primary` instead would
 displace the router, and the suite would stop exercising routing at all. Our own gateways are
-`DirectMailboxGateway` beans, collected by provider; none exist yet (#645, #646).
+`DirectMailboxGateway` beans, collected by provider (`MicrosoftMailboxGateway`, #645). A direct gateway's app is
+per workspace, so it answers `isOfferedTo(workspaceId)` and the router hands a workspace with no app to Nylas; its
+tests serve recorded provider answers from a JDK `HttpServer`, with the token client's `hostOverrides` pointing at it.
 
 ## Traps this codebase has already fallen into
 

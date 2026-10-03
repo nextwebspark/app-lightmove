@@ -268,6 +268,9 @@ public enum ErrorCode {
     /** No mail service is configured, so no mailbox can be connected or send. */
     MAILBOX_UNAVAILABLE(HttpStatus.CONFLICT, "Outreach email is not set up on this deployment"),
 
+    /** A mailbox connected through our own gateway, whose calendar is not read yet (#647). */
+    MAILBOX_CALENDAR_UNSUPPORTED(HttpStatus.CONFLICT, "Your mailbox's calendar can't be used from Uncava yet"),
+
     /** Only the mailbox hosts the deployment lists may be connected. */
     MAILBOX_PROVIDER_UNSUPPORTED(HttpStatus.BAD_REQUEST, "That kind of mailbox cannot be connected"),
 
@@ -332,6 +335,9 @@ public enum ErrorCode {
     /** No credential encryption key is configured, so a workspace's own app keys cannot be stored or read. */
     INTEGRATION_ENCRYPTION_UNAVAILABLE(HttpStatus.CONFLICT,
             "Your own app's keys cannot be stored on this deployment. Use the shared app"),
+
+    /** An approval for Uncava's shared app on a deployment that offers none at that provider. */
+    INTEGRATION_SHARED_APP_UNAVAILABLE(HttpStatus.CONFLICT, "Uncava's shared app is not offered on this deployment"),
 
     /** A webhook delivery whose signature did not verify, or one this deployment is not set up to read. */
     MAILBOX_WEBHOOK_REJECTED(HttpStatus.UNAUTHORIZED, "Unauthorized"),

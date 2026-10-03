@@ -20,8 +20,9 @@ import app.lightmove.api.outreach.model.MailboxConnection;
 import app.lightmove.api.outreach.model.MailboxGrants;
 import app.lightmove.api.outreach.model.ProviderCredentials;
 import app.lightmove.api.outreach.model.RecallCalendarReleased;
-import app.lightmove.api.outreach.model.RefreshedAccessToken;
+import app.lightmove.api.outreach.model.ProviderTokenGrant;
 import app.lightmove.api.outreach.repository.MailboxConnectionRepository;
+import java.net.URI;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
@@ -78,7 +79,7 @@ class MailboxTokensTest {
     @Test
     @DisplayName("a refresh spends the decrypted refresh token with the workspace's app and answers the access token")
     void aRefreshSucceeds() {
-        tokenClient.answer(new RefreshedAccessToken("access-1", Duration.ofHours(1), null));
+        tokenClient.answer(new ProviderTokenGrant("access-1", Duration.ofHours(1), null));
 
         assertThat(tokens.accessToken(grantId)).isEqualTo("access-1");
         assertThat(tokenClient.spentTokens).containsExactly("refresh-1");
@@ -88,7 +89,7 @@ class MailboxTokensTest {
     @Test
     @DisplayName("the access token is reused until shortly before it expires, then refreshed again")
     void theCachedTokenIsReused() {
-        tokenClient.answer(new RefreshedAccessToken("access-1", Duration.ofHours(1), null));
+        tokenClient.answer(new ProviderTokenGrant("access-1", Duration.ofHours(1), null));
         tokens.accessToken(grantId);
 
         clock.advance(Duration.ofMinutes(50));
@@ -96,7 +97,7 @@ class MailboxTokensTest {
         assertThat(tokenClient.spentTokens).hasSize(1);
 
         clock.advance(Duration.ofMinutes(9));
-        tokenClient.answer(new RefreshedAccessToken("access-2", Duration.ofHours(1), null));
+        tokenClient.answer(new ProviderTokenGrant("access-2", Duration.ofHours(1), null));
         assertThat(tokens.accessToken(grantId)).isEqualTo("access-2");
         assertThat(tokenClient.spentTokens).hasSize(2);
     }
@@ -113,7 +114,7 @@ class MailboxTokensTest {
         assertThat(connection.getRecallCalendarId()).isNull();
         verify(events).publishEvent(new RecallCalendarReleased("recall-calendar-1"));
 
-        tokenClient.answer(new RefreshedAccessToken("access-1", Duration.ofHours(1), null));
+        tokenClient.answer(new ProviderTokenGrant("access-1", Duration.ofHours(1), null));
         assertThatThrownBy(() -> tokens.accessToken(grantId)).isInstanceOf(VendorException.class);
         assertThat(tokenClient.spentTokens).hasSize(1);
     }
@@ -132,7 +133,7 @@ class MailboxTokensTest {
     @Test
     @DisplayName("a cached token is no longer handed out once its mailbox loses access")
     void aCachedTokenEndsWithTheMailbox() {
-        tokenClient.answer(new RefreshedAccessToken("access-1", Duration.ofHours(1), null));
+        tokenClient.answer(new ProviderTokenGrant("access-1", Duration.ofHours(1), null));
         tokens.accessToken(grantId);
 
         connection.markAccessWithdrawn();
@@ -146,7 +147,7 @@ class MailboxTokensTest {
     @Test
     @DisplayName("a rotated refresh token replaces the stored one, sealed")
     void aRotatedTokenIsKept() {
-        tokenClient.answer(new RefreshedAccessToken("access-1", Duration.ofHours(1), "refresh-2"));
+        tokenClient.answer(new ProviderTokenGrant("access-1", Duration.ofHours(1), "refresh-2"));
 
         tokens.accessToken(grantId);
 
@@ -159,7 +160,7 @@ class MailboxTokensTest {
     @Test
     @DisplayName("a forgotten grant is refreshed again rather than served from memory")
     void aForgottenGrantIsRefreshedAgain() {
-        tokenClient.answer(new RefreshedAccessToken("access-1", Duration.ofHours(1), null));
+        tokenClient.answer(new ProviderTokenGrant("access-1", Duration.ofHours(1), null));
         tokens.accessToken(grantId);
 
         tokens.forget(grantId);
@@ -172,11 +173,11 @@ class MailboxTokensTest {
 
         private final List<String> spentTokens = new ArrayList<>();
         private final List<ProviderCredentials> apps = new ArrayList<>();
-        private RefreshedAccessToken next;
+        private ProviderTokenGrant next;
         private boolean refusing;
         private boolean refusingTheApp;
 
-        void answer(RefreshedAccessToken token) {
+        void answer(ProviderTokenGrant token) {
             this.next = token;
             this.refusing = false;
             this.refusingTheApp = false;
@@ -191,11 +192,17 @@ class MailboxTokensTest {
         }
 
         @Override
-        public RefreshedAccessToken refresh(ProviderCredentials credentials, String refreshToken) {
+        public ProviderTokenGrant redeemCode(ProviderCredentials credentials, String code, URI redirectUri,
+                                               List<String> scopes) {
+            throw new UnsupportedOperationException("MailboxTokens only refreshes");
+        }
+
+        @Override
+        public ProviderTokenGrant refresh(ProviderCredentials credentials, String refreshToken) {
             spentTokens.add(refreshToken);
             apps.add(credentials);
             if (refusing) {
-                throw new RefreshTokenRefused("invalid_grant");
+                throw new ProviderGrantRefused("invalid_grant");
             }
             if (refusingTheApp) {
                 throw new ProviderAppUnavailable("invalid_client");

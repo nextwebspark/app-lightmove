@@ -580,7 +580,7 @@ lightmove:
       microsoft:
         client-id: ${MICROSOFT_MAIL_CLIENT_ID:}
         client-secret: ${MICROSOFT_MAIL_CLIENT_SECRET:}
-        scopes: ${MICROSOFT_MAIL_SCOPES:offline_access,User.Read,Mail.Send,Mail.ReadBasic,Calendars.ReadWrite}
+        scopes: ${MICROSOFT_MAIL_SCOPES:offline_access,User.Read,Mail.ReadWrite,Mail.Send,Calendars.ReadWrite}
         own-app-guide-url: ${MICROSOFT_MAIL_OWN_APP_GUIDE_URL:}
         shared-app-guide-url: ${MICROSOFT_MAIL_SHARED_APP_GUIDE_URL:}
       zoom:

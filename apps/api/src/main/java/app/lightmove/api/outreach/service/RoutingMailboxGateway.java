@@ -20,6 +20,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
+import java.util.function.Predicate;
 
 /**
  * The {@link MailboxGateway} everything above the seam talks to. A connection is always answered by the gateway
@@ -42,17 +43,24 @@ public class RoutingMailboxGateway implements MailboxGateway {
 
     @Override
     public boolean isOffered() {
-        return nylas.isOffered() || !connectableDirectly().isEmpty();
+        return nylas.isOffered() || !connectableDirectly(MailboxGateway::isOffered).isEmpty();
     }
 
     /** Our own gateway's providers first, then whatever Nylas still covers. */
     @Override
     public List<String> providers() {
-        Set<String> providers = new LinkedHashSet<>(connectableDirectly());
-        if (nylas.isOffered()) {
-            providers.addAll(nylas.providers());
-        }
-        return List.copyOf(providers);
+        return withNylas(connectableDirectly(MailboxGateway::isOffered));
+    }
+
+    @Override
+    public boolean isOfferedTo(UUID workspaceId) {
+        return nylas.isOffered() || !connectableDirectly(gateway -> gateway.isOfferedTo(workspaceId)).isEmpty();
+    }
+
+    /** A workspace sees our own gateway's providers only where it has an app to connect them through. */
+    @Override
+    public List<String> providersFor(UUID workspaceId) {
+        return withNylas(connectableDirectly(gateway -> gateway.isOfferedTo(workspaceId)));
     }
 
     /** Names no workspace, so only Nylas, whose one app serves everyone, can answer it. */
@@ -68,17 +76,18 @@ public class RoutingMailboxGateway implements MailboxGateway {
 
     @Override
     public URI authorizationUri(UUID workspaceId, String provider, String loginHint, String state, URI redirectUri) {
-        return connectingAt(provider).authorizationUri(workspaceId, provider, loginHint, state, redirectUri);
+        return connectingAt(workspaceId, provider).authorizationUri(workspaceId, provider, loginHint, state,
+                redirectUri);
     }
 
     @Override
     public GrantedMailbox redeem(UUID workspaceId, String provider, String code, URI redirectUri) {
-        return connectingAt(provider).redeem(workspaceId, provider, code, redirectUri);
+        return connectingAt(workspaceId, provider).redeem(workspaceId, provider, code, redirectUri);
     }
 
     @Override
-    public boolean holdsRefreshTokens(String provider) {
-        return connectingAt(provider) instanceof DirectMailboxGateway;
+    public boolean holdsRefreshTokens(UUID workspaceId, String provider) {
+        return connectingAt(workspaceId, provider) instanceof DirectMailboxGateway;
     }
 
     @Override
@@ -128,9 +137,10 @@ public class RoutingMailboxGateway implements MailboxGateway {
         return holding(grantId).createBookingPage(grantId, page);
     }
 
-    MailboxGateway connectingAt(String provider) {
+    /** A workspace with no app at the provider, shared or its own, still connects through Nylas. */
+    MailboxGateway connectingAt(UUID workspaceId, String provider) {
         DirectMailboxGateway direct = directByProvider.get(provider);
-        if (connectDirectly && direct != null && direct.isOffered()) {
+        if (connectDirectly && direct != null && direct.isOfferedTo(workspaceId)) {
             return direct;
         }
         return nylas;
@@ -146,13 +156,21 @@ public class RoutingMailboxGateway implements MailboxGateway {
                 .orElseThrow(() -> ApiException.of(ErrorCode.MAILBOX_UNAVAILABLE));
     }
 
-    private List<String> connectableDirectly() {
+    private List<String> connectableDirectly(Predicate<DirectMailboxGateway> offered) {
         if (!connectDirectly) {
             return List.of();
         }
         return directByProvider.values().stream()
-                .filter(MailboxGateway::isOffered)
+                .filter(offered)
                 .map(DirectMailboxGateway::provider)
                 .toList();
+    }
+
+    private List<String> withNylas(List<String> direct) {
+        Set<String> providers = new LinkedHashSet<>(direct);
+        if (nylas.isOffered()) {
+            providers.addAll(nylas.providers());
+        }
+        return List.copyOf(providers);
     }
 }
