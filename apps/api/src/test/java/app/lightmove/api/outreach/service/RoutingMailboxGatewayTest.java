@@ -13,6 +13,7 @@ import app.lightmove.api.core.error.constant.ErrorCode;
 import app.lightmove.api.core.error.model.ApiException;
 import app.lightmove.api.outreach.model.MailboxGrants;
 import app.lightmove.api.outreach.model.OutgoingEmail;
+import app.lightmove.api.outreach.model.ReleasedGrant;
 import java.net.URI;
 import java.util.List;
 import java.util.UUID;
@@ -36,11 +37,11 @@ class RoutingMailboxGatewayTest {
 
         router.send("nylas-grant-uuid", EMAIL);
         router.send(directGrant, EMAIL);
-        router.revoke(directGrant);
+        router.revoke(new ReleasedGrant(directGrant, "refresh"));
 
         verify(nylas).send("nylas-grant-uuid", EMAIL);
         verify(google).send(directGrant, EMAIL);
-        verify(google).revoke(directGrant);
+        verify(google).revoke(new ReleasedGrant(directGrant, "refresh"));
         verify(nylas, never()).send(eq(directGrant), any());
     }
 

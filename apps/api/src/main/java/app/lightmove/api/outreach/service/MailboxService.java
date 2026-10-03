@@ -186,7 +186,11 @@ public class MailboxService {
         String refreshTokenEncrypted = encryptedRefreshToken(started, granted);
         return connections.findByWorkspaceIdAndUserId(started.getWorkspaceId(), started.getUserId())
                 .map(existing -> {
-                    ReleasedGrant previous = releasedGrantOf(existing);
+                    // Google's revoke withdraws the account's whole grant to the app, the token just issued included,
+                    // so the same mailbox reconnecting drops its old token rather than revoking it.
+                    ReleasedGrant previous = existing.isSameMailboxAs(granted)
+                            ? new ReleasedGrant(existing.getGrantId(), null)
+                            : releasedGrantOf(existing);
                     String movedFrom = existing.releaseRecallCalendarUnlessFor(granted);
                     if (movedFrom != null) {
                         events.publishEvent(new RecallCalendarReleased(movedFrom));
@@ -226,10 +230,10 @@ public class MailboxService {
      * deleted or reconnected nothing holds it any more.
      */
     private ReleasedGrant releasedGrantOf(MailboxConnection connection) {
-        if (!connection.isDirect()) {
-            return new ReleasedGrant(connection.getGrantId(), null);
-        }
         try {
+            if (!connection.isDirect() || !gateway.revokesByRefreshToken(connection.getGrantId())) {
+                return new ReleasedGrant(connection.getGrantId(), null);
+            }
             return new ReleasedGrant(connection.getGrantId(),
                     cipher.decrypt(connection.getRefreshTokenEncrypted(), connection.refreshTokenContext()));
         } catch (RuntimeException unreadable) {
@@ -241,7 +245,7 @@ public class MailboxService {
     /** Our row is already gone; a grant the mail service keeps is its housekeeping, not the consultant's problem. */
     private void revokeQuietly(ReleasedGrant released) {
         try {
-            gateway.revoke(released.grantId(), released.refreshToken());
+            gateway.revoke(released);
         } catch (RuntimeException failed) {
             log.warn("Could not revoke a released mailbox grant at the mail service", failed);
         }

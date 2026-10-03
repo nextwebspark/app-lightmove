@@ -50,10 +50,6 @@ final class RawEmail {
         return Base64.getUrlEncoder().encodeToString(message.getBytes(StandardCharsets.UTF_8));
     }
 
-    String text() {
-        return message;
-    }
-
     /** The address in a {@code From} header, {@code "Name" <a@b>} or bare; lower-cased like every ledger address. */
     static String addressOf(String fromHeader) {
         if (fromHeader == null) {

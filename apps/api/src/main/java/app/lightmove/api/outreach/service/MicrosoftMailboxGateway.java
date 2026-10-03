@@ -20,6 +20,7 @@ import app.lightmove.api.outreach.model.NewCalendarEvent;
 import app.lightmove.api.outreach.model.OutgoingEmail;
 import app.lightmove.api.outreach.model.ProviderCredentials;
 import app.lightmove.api.outreach.model.ProviderTokenGrant;
+import app.lightmove.api.outreach.model.ReleasedGrant;
 import app.lightmove.api.outreach.model.SentEmail;
 import java.net.URI;
 import java.time.Duration;
@@ -208,9 +209,9 @@ public class MicrosoftMailboxGateway implements DirectMailboxGateway {
 
     /** Graph has no per-app revoke: the stored token goes with the row, and the one in memory goes here. */
     @Override
-    public void revoke(String grantId) {
-        mailboxTokens.forget(grantId);
-        sentItemsFolders.remove(grantId);
+    public void revoke(ReleasedGrant released) {
+        mailboxTokens.forget(released.grantId());
+        sentItemsFolders.remove(released.grantId());
     }
 
     /** Replies are found by the poll; Graph subscriptions are a later follow-up. */

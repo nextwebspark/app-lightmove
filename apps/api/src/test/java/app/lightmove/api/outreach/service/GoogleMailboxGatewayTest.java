@@ -19,6 +19,7 @@ import app.lightmove.api.outreach.model.GrantedMailbox;
 import app.lightmove.api.outreach.model.MailboxGrants;
 import app.lightmove.api.outreach.model.OutgoingEmail;
 import app.lightmove.api.outreach.model.ProviderCredentials;
+import app.lightmove.api.outreach.model.ReleasedGrant;
 import app.lightmove.api.outreach.model.SentEmail;
 import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpServer;
@@ -157,7 +158,7 @@ class GoogleMailboxGatewayTest {
     }
 
     @Test
-    @DisplayName("who wrote into a thread is read from From headers, never the consultant's own sent mail or drafts")
+    @DisplayName("who wrote into a thread is read from From headers: never the consultant's own mail, nor an undated message")
     void threadSendersAreAddressesOnly() {
         String grantId = MailboxGrants.mintDirect("google");
         when(mailboxTokens.accessToken(grantId)).thenReturn("access-for-yara");
@@ -175,11 +176,22 @@ class GoogleMailboxGatewayTest {
     void revokeWithdrawsTheRefreshToken() {
         String grantId = MailboxGrants.mintDirect("google");
 
-        gateway.revoke(grantId, "1//0g-refresh");
+        gateway.revoke(new ReleasedGrant(grantId, "1//0g-refresh"));
 
         verify(mailboxTokens).forget(grantId);
         assertThat(google.requested()).contains("POST /oauth2/revoke");
         assertThat(google.lastForm()).containsEntry("token", "1//0g-refresh");
+    }
+
+    @Test
+    @DisplayName("a grant released without its token is only forgotten: nothing is revoked at Google")
+    void aReleaseWithoutTokenRevokesNothing() {
+        String grantId = MailboxGrants.mintDirect("google");
+
+        gateway.revoke(new ReleasedGrant(grantId, null));
+
+        verify(mailboxTokens).forget(grantId);
+        assertThat(google.requested()).doesNotContain("POST /oauth2/revoke");
     }
 
     @Test
@@ -273,7 +285,9 @@ class GoogleMailboxGatewayTest {
                           {"id":"m3","labelIds":["DRAFT"],"internalDate":"1790940700000",
                            "payload":{"headers":[{"name":"From","value":"Yara Haddad <yara.haddad@meridian.example>"}]}},
                           {"id":"m4","labelIds":["INBOX"],"internalDate":"1790940800000",
-                           "payload":{"headers":[{"name":"From","value":"Mail Delivery Subsystem <mailer-daemon@googlemail.com>"}]}}
+                           "payload":{"headers":[{"name":"From","value":"Mail Delivery Subsystem <mailer-daemon@googlemail.com>"}]}},
+                          {"id":"m5","labelIds":["INBOX"],
+                           "payload":{"headers":[{"name":"From","value":"Undated <undated@client.example>"}]}}
                         ]}""");
             } else {
                 respond(exchange, 404, "{\"error\":{\"code\":404}}");

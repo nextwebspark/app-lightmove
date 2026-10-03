@@ -11,6 +11,7 @@ import app.lightmove.api.outreach.model.MailboxEvent;
 import app.lightmove.api.outreach.model.MailboxGrants;
 import app.lightmove.api.outreach.model.NewCalendarEvent;
 import app.lightmove.api.outreach.model.OutgoingEmail;
+import app.lightmove.api.outreach.model.ReleasedGrant;
 import app.lightmove.api.outreach.model.SentEmail;
 import java.net.URI;
 import java.time.Instant;
@@ -96,13 +97,13 @@ public class RoutingMailboxGateway implements MailboxGateway {
     }
 
     @Override
-    public void revoke(String grantId) {
-        holding(grantId).revoke(grantId);
+    public void revoke(ReleasedGrant released) {
+        holding(released.grantId()).revoke(released);
     }
 
     @Override
-    public void revoke(String grantId, String refreshToken) {
-        holding(grantId).revoke(grantId, refreshToken);
+    public boolean revokesByRefreshToken(String grantId) {
+        return holding(grantId).revokesByRefreshToken(grantId);
     }
 
     /** The Nylas endpoint's: our own gateway's providers report through their own routes. */

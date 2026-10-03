@@ -20,6 +20,7 @@ import app.lightmove.api.outreach.model.NewCalendarEvent;
 import app.lightmove.api.outreach.model.OutgoingEmail;
 import app.lightmove.api.outreach.model.ProviderCredentials;
 import app.lightmove.api.outreach.model.ProviderTokenGrant;
+import app.lightmove.api.outreach.model.ReleasedGrant;
 import app.lightmove.api.outreach.model.SentEmail;
 import java.net.URI;
 import java.time.Duration;
@@ -117,7 +118,6 @@ public class GoogleMailboxGateway implements DirectMailboxGateway {
                 .queryParam("scope", String.join(" ", SCOPES))
                 .queryParam("access_type", "offline")
                 .queryParam("prompt", "consent")
-                .queryParam("include_granted_scopes", "true")
                 .queryParam("state", state);
         if (loginHint != null && !loginHint.isBlank()) {
             uri.queryParam("login_hint", loginHint);
@@ -186,16 +186,18 @@ public class GoogleMailboxGateway implements DirectMailboxGateway {
         return new SentEmail(messageId, threadId);
     }
 
+    /** Google revokes by the refresh token, which the caller read before the row let it go; none means drop it. */
     @Override
-    public void revoke(String grantId) {
-        mailboxTokens.forget(grantId);
+    public void revoke(ReleasedGrant released) {
+        mailboxTokens.forget(released.grantId());
+        if (released.refreshToken() != null) {
+            tokenEndpoint.revoke(IntegrationProvider.GOOGLE, released.refreshToken());
+        }
     }
 
-    /** Google revokes by the refresh token, which the caller read before the row let it go. */
     @Override
-    public void revoke(String grantId, String refreshToken) {
-        mailboxTokens.forget(grantId);
-        tokenEndpoint.revoke(IntegrationProvider.GOOGLE, refreshToken);
+    public boolean revokesByRefreshToken(String grantId) {
+        return true;
     }
 
     /** Replies are found by the poll; Gmail push through Pub/Sub is a later follow-up. */
@@ -229,9 +231,10 @@ public class GoogleMailboxGateway implements DirectMailboxGateway {
             if (hasLabel(message, "SENT") || hasLabel(message, "DRAFT")) {
                 continue;
             }
-            long internalDate = message.path("internalDate").asLong(Long.MAX_VALUE);
+            // A message whose date cannot be read is skipped: read as new, an old one would stop the run.
+            long internalDate = message.path("internalDate").asLong(-1);
             String address = RawEmail.addressOf(headerOf(message, "From"));
-            if (address != null && !Instant.ofEpochMilli(internalDate).isBefore(since)) {
+            if (address != null && internalDate >= 0 && !Instant.ofEpochMilli(internalDate).isBefore(since)) {
                 senders.add(address);
             }
         }

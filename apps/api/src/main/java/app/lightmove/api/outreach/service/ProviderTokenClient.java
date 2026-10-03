@@ -20,8 +20,8 @@ public interface ProviderTokenClient {
      * Redeems the code a consent screen sent back for an access token and a refresh token. Never retried: a code is
      * single-use. {@code scopes} is sent where the provider asks for it again (Microsoft); empty sends none.
      */
+    ProviderTokenGrant redeemCode(ProviderCredentials credentials, String code, URI redirectUri, List<String> scopes);
+
     /** Withdraws a token at a provider that revokes by the token itself (Google); a no-op elsewhere. */
     void revoke(IntegrationProvider provider, String token);
-
-    ProviderTokenGrant redeemCode(ProviderCredentials credentials, String code, URI redirectUri, List<String> scopes);
 }

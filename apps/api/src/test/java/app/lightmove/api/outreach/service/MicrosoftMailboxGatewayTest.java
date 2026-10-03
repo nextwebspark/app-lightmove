@@ -19,6 +19,7 @@ import app.lightmove.api.outreach.model.GrantedMailbox;
 import app.lightmove.api.outreach.model.MailboxGrants;
 import app.lightmove.api.outreach.model.OutgoingEmail;
 import app.lightmove.api.outreach.model.ProviderCredentials;
+import app.lightmove.api.outreach.model.ReleasedGrant;
 import app.lightmove.api.outreach.model.SentEmail;
 import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpServer;
@@ -250,7 +251,7 @@ class MicrosoftMailboxGatewayTest {
     void revokeForgetsTheToken() {
         String grantId = MailboxGrants.mintDirect("microsoft");
 
-        gateway.revoke(grantId);
+        gateway.revoke(new ReleasedGrant(grantId, null));
 
         verify(mailboxTokens).forget(grantId);
         assertThat(microsoft.requested()).isEmpty();

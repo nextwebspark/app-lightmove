@@ -7,6 +7,7 @@ import app.lightmove.api.outreach.model.GrantedMailbox;
 import app.lightmove.api.outreach.model.MailboxEvent;
 import app.lightmove.api.outreach.model.NewCalendarEvent;
 import app.lightmove.api.outreach.model.OutgoingEmail;
+import app.lightmove.api.outreach.model.ReleasedGrant;
 import app.lightmove.api.outreach.model.SentEmail;
 import java.net.URI;
 import java.time.Instant;
@@ -64,15 +65,12 @@ public interface MailboxGateway {
     /** A set {@link OutgoingEmail#replyToMessageId()} sends the email as a reply in that message's thread. */
     SentEmail send(String grantId, OutgoingEmail email);
 
-    /** Withdraws the service's access to the mailbox. */
-    void revoke(String grantId);
+    /** Withdraws the service's access to a mailbox our row has let go. */
+    void revoke(ReleasedGrant released);
 
-    /**
-     * {@link #revoke(String)} with the grant's refresh token, read before the row let it go, for a provider that
-     * revokes by the token itself; null for a grant that holds none.
-     */
-    default void revoke(String grantId, String refreshToken) {
-        revoke(grantId);
+    /** Whether {@link #revoke} needs the grant's refresh token, which the caller then reads before the row goes. */
+    default boolean revokesByRefreshToken(String grantId) {
+        return false;
     }
 
     /**

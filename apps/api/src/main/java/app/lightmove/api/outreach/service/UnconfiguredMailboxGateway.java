@@ -9,6 +9,7 @@ import app.lightmove.api.outreach.model.GrantedMailbox;
 import app.lightmove.api.outreach.model.MailboxEvent;
 import app.lightmove.api.outreach.model.NewCalendarEvent;
 import app.lightmove.api.outreach.model.OutgoingEmail;
+import app.lightmove.api.outreach.model.ReleasedGrant;
 import app.lightmove.api.outreach.model.SentEmail;
 import java.net.URI;
 import java.time.Instant;
@@ -43,7 +44,7 @@ public class UnconfiguredMailboxGateway implements MailboxGateway {
     }
 
     @Override
-    public void revoke(String grantId) {
+    public void revoke(ReleasedGrant released) {
         throw unavailable();
     }
 

@@ -24,6 +24,7 @@ import app.lightmove.api.outreach.model.MailboxAccessWithdrawn;
 import app.lightmove.api.outreach.model.MailboxEvent;
 import app.lightmove.api.outreach.model.NewCalendarEvent;
 import app.lightmove.api.outreach.model.OutgoingEmail;
+import app.lightmove.api.outreach.model.ReleasedGrant;
 import app.lightmove.api.outreach.model.SentEmail;
 import java.net.URI;
 import java.nio.charset.StandardCharsets;
@@ -158,9 +159,9 @@ public class NylasMailboxGateway implements MailboxGateway {
     }
 
     @Override
-    public void revoke(String grantId) {
+    public void revoke(ReleasedGrant released) {
         guard.call(VendorCall.of(VENDOR, "revoke"), () -> client.delete()
-                .uri("/v3/grants/{grantId}", grantId)
+                .uri("/v3/grants/{grantId}", released.grantId())
                 .retrieve()
                 .toBodilessEntity());
     }

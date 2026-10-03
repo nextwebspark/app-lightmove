@@ -15,8 +15,8 @@ class RawEmailTest {
     @Test
     @DisplayName("a follow-up carries In-Reply-To and extends the last message's References")
     void aFollowUpThreads() {
-        String text = RawEmail.of(new OutgoingEmail("priya@client.example", "Re: A CFO role", "<p>Hi</p>"),
-                "<CAB2@mail.gmail.com>", "<CAB1@mail.gmail.com>").text();
+        String text = sent(RawEmail.of(new OutgoingEmail("priya@client.example", "Re: A CFO role", "<p>Hi</p>"),
+                "<CAB2@mail.gmail.com>", "<CAB1@mail.gmail.com>"));
 
         assertThat(text).contains("To: priya@client.example\r\n")
                 .contains("Subject: Re: A CFO role\r\n")
@@ -30,8 +30,8 @@ class RawEmailTest {
     @Test
     @DisplayName("a first email names no thread; a non-ASCII subject is RFC 2047 words that decode back whole")
     void subjectsAreEncoded() {
-        String text = RawEmail.of(new OutgoingEmail("priya@client.example", "A CFO role", "<p>Hi</p>"), null, null)
-                .text();
+        String text = sent(RawEmail.of(new OutgoingEmail("priya@client.example", "A CFO role", "<p>Hi</p>"), null,
+                null));
         assertThat(text).doesNotContain("In-Reply-To").doesNotContain("References");
 
         String subject = "Directeur financier — Émirats arabes unis — rôle confidentiel pour un groupe régional";
@@ -61,5 +61,10 @@ class RawEmailTest {
         assertThat(RawEmail.addressOf("\"Priya Raman\" <Priya@Client.example>")).isEqualTo("priya@client.example");
         assertThat(RawEmail.addressOf("mailer-daemon@googlemail.com")).isEqualTo("mailer-daemon@googlemail.com");
         assertThat(RawEmail.addressOf("Undisclosed")).isNull();
+    }
+
+    /** What Gmail receives: the message as URL-safe Base64, decoded back. */
+    private static String sent(RawEmail email) {
+        return new String(Base64.getUrlDecoder().decode(email.encoded()), StandardCharsets.UTF_8);
     }
 }

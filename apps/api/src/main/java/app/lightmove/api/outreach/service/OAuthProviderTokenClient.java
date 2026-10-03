@@ -91,16 +91,16 @@ public class OAuthProviderTokenClient implements ProviderTokenClient {
         return exchange(credentials, form, "redeem-code");
     }
 
-    /** RFC 7009 at Google. Microsoft has no per-app revoke; Zoom's is the Zoom gateway's (#648). */
     @Override
     public void revoke(IntegrationProvider provider, String token) {
-        if (provider != IntegrationProvider.GOOGLE || token == null) {
+        String path = revocationPathOf(provider);
+        if (path == null || token == null) {
             return;
         }
         MultiValueMap<String, String> form = new LinkedMultiValueMap<>();
         form.add("token", token);
         guard.call(VendorCall.of(vendorOf(provider), "revoke"), () -> clients.get(provider).post()
-                .uri("/revoke")
+                .uri(path)
                 .contentType(MediaType.APPLICATION_FORM_URLENCODED)
                 .body(form)
                 .retrieve()
@@ -180,6 +180,14 @@ public class OAuthProviderTokenClient implements ProviderTokenClient {
     /** A single-tenant app signs in at its own directory; Uncava's multi-tenant one at any organisation's. */
     static String tenantOf(ProviderCredentials credentials) {
         return credentials.tenantId() == null ? MICROSOFT_ANY_ORGANISATION : credentials.tenantId();
+    }
+
+    /** RFC 7009 at Google. Microsoft has no per-app revoke; Zoom's arrives with its gateway (#648). */
+    private static String revocationPathOf(IntegrationProvider provider) {
+        return switch (provider) {
+            case GOOGLE -> "/revoke";
+            case MICROSOFT, ZOOM -> null;
+        };
     }
 
     private static String vendorOf(IntegrationProvider provider) {

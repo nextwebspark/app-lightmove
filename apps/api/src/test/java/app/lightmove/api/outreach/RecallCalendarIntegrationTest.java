@@ -103,8 +103,20 @@ class RecallCalendarIntegrationTest extends FlowTestSupport {
                 .andExpect(status().isNoContent());
         assertThat(recall.deleted()).containsExactly(calendarId);
         assertThat(tokenEndpoint.revoked())
-                .as("the reconnect's replaced grant, then the disconnected one, each revoked by its own token")
-                .containsExactly("GOOGLE:refresh-token-1", "GOOGLE:refresh-token-2");
+                .as("Google's revoke would take the reconnect's new token with the old one, so only the disconnect revokes")
+                .containsExactly("GOOGLE:refresh-token-2");
+    }
+
+    @Test
+    @DisplayName("a reconnect to another Google account revokes the account it replaced")
+    void reconnectElsewhereRevokesTheOldAccount() throws Exception {
+        connectDirect("refresh-token-1");
+
+        gateway.grant(new GrantedMailbox(MailboxGrants.mintDirect("google"), "other@firm.example", "google",
+                "refresh-token-2"));
+        connect();
+
+        assertThat(tokenEndpoint.revoked()).containsExactly("GOOGLE:refresh-token-1");
     }
 
     @Test

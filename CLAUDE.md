@@ -448,8 +448,9 @@ RFC 2822 message (`RawEmail`: UTF-8 HTML, an RFC 2047 subject where it is not AS
 refused); a follow-up names the thread and carries the last message's own `Message-ID` in `In-Reply-To` and
 `References`, read with `format=metadata`, so it threads in the executive's client whatever it is. The poll reads
 `From` headers alone and drops `SENT` and `DRAFT` by label. Google revokes by the refresh token, so
-`MailboxService` decrypts it before a disconnect or a reconnect lets the row go (`ReleasedGrant`) and hands it to
-`revoke(grantId, refreshToken)`. Bounces: a mail daemon's `From` (`mailer-daemon`, `postmaster`, and Exchange
+`MailboxService` decrypts it before a disconnect or a reconnect lets the row go (`ReleasedGrant`, only where the
+gateway `revokesByRefreshToken`) and hands it to `revoke`. A reconnect of the **same mailbox** drops the old token
+without revoking it: Google's revoke withdraws the account's whole grant to the app, the token just issued included. Bounces: a mail daemon's `From` (`mailer-daemon`, `postmaster`, and Exchange
 Online's fixed `MicrosoftExchange329e71ec88ae4615bbc36ab6ce41109e` system mailbox) is a bounce, never a reply.
 Sequences (V100, #623) are a position's, `WORK_EXECUTE`: up to three emails (V39's owned list), and
 **Add to sequence** — from In universe / Shortlisted (the ticked companies' executives) or the executive
