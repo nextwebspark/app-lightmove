@@ -586,7 +586,9 @@ lightmove:
       zoom:
         client-id: ${ZOOM_CLIENT_ID:}
         client-secret: ${ZOOM_CLIENT_SECRET:}
-        scopes: ${ZOOM_SCOPES:meeting:write:meeting,meeting:update:meeting,meeting:delete:meeting,user:read:user}
+        # user:read:token is the on-behalf-of (OBF) token the note taker's bot (#651) needs to join an external
+        # meeting; asked now so nobody reconnects Zoom when it lands. Nothing mints one yet.
+        scopes: ${ZOOM_SCOPES:meeting:write:meeting,meeting:update:meeting,meeting:delete:meeting,user:read:user,user:read:token}
         own-app-guide-url: ${ZOOM_OWN_APP_GUIDE_URL:}
         shared-app-guide-url: ${ZOOM_SHARED_APP_GUIDE_URL:}
     connect-window: ${OUTREACH_CONNECT_WINDOW:10m}

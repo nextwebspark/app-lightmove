@@ -46,7 +46,7 @@ public class GoogleMailboxGateway extends OAuthDirectMailboxGateway {
 
     /** Only what a meeting row keeps: never a description, a location or an attachment. */
     private static final String EVENT_FIELDS = "nextPageToken,items(id,status,summary,start,end,attendees/email,"
-            + "organizer/email,recurringEventId,recurrence,hangoutLink,"
+            + "organizer/email,recurringEventId,recurrence,hangoutLink,location,"
             + "conferenceData(entryPoints,conferenceSolution/name))";
 
     private static final int EVENT_PAGE = 250;
@@ -187,7 +187,10 @@ public class GoogleMailboxGateway extends OAuthDirectMailboxGateway {
         body.put("start", Map.of("dateTime", event.startsAt().toString()));
         body.put("end", Map.of("dateTime", event.endsAt().toString()));
         body.put("attendees", List.of(Map.of("email", event.inviteeAddress())));
-        if (event.video() == MeetingVideo.GOOGLE_MEET) {
+        if (event.joinUrl() != null) {
+            body.put("location", event.joinUrl());
+            body.put("description", event.joinNote());
+        } else if (event.video() == MeetingVideo.GOOGLE_MEET) {
             body.put("conferenceData", Map.of("createRequest", Map.of("requestId", UUID.randomUUID().toString(),
                     "conferenceSolutionKey", Map.of("type", "hangoutsMeet"))));
         }
@@ -223,6 +226,10 @@ public class GoogleMailboxGateway extends OAuthDirectMailboxGateway {
         if (joinUrl == null && hangoutLink != null) {
             joinUrl = hangoutLink;
             provider = provider == null ? "Google Meet" : provider;
+        }
+        if (joinUrl == null) {
+            joinUrl = ZoomLinks.joinUrlIn(textOrNull(event.get("location")));
+            provider = ZoomLinks.PROVIDER;
         }
         return new CalendarEvent(id, textOrNull(event.get("summary")), startsAt, endsAt, participants, joinUrl,
                 joinUrl == null ? null : provider);

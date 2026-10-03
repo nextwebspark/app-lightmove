@@ -62,7 +62,7 @@ public class MicrosoftMailboxGateway extends OAuthDirectMailboxGateway {
 
     /** Only what a meeting row keeps: never a body, a location or an attachment. */
     private static final String EVENT_FIELDS = "id,iCalUId,subject,start,end,isAllDay,isCancelled,type,seriesMasterId,"
-            + "attendees,organizer,onlineMeeting,onlineMeetingProvider";
+            + "attendees,organizer,onlineMeeting,onlineMeetingProvider,location";
 
     private static final int EVENT_PAGE = 250;
 
@@ -270,7 +270,10 @@ public class MicrosoftMailboxGateway extends OAuthDirectMailboxGateway {
         body.put("end", graphTimeOf(event.endsAt()));
         body.put("attendees", List.of(Map.of("emailAddress", Map.of("address", event.inviteeAddress()),
                 "type", "required")));
-        if (event.video() == MeetingVideo.MICROSOFT_TEAMS && offersTeams(accessToken)) {
+        if (event.joinUrl() != null) {
+            body.put("location", Map.of("displayName", event.joinUrl()));
+            body.put("body", Map.of("contentType", "text", "content", event.joinNote()));
+        } else if (event.video() == MeetingVideo.MICROSOFT_TEAMS && offersTeams(accessToken)) {
             body.put("isOnlineMeeting", true);
             body.put("onlineMeetingProvider", TEAMS);
         }
@@ -321,6 +324,10 @@ public class MicrosoftMailboxGateway extends OAuthDirectMailboxGateway {
                 textOrNull(event.path("organizer").path("emailAddress").get("address")));
         String joinUrl = textOrNull(event.path("onlineMeeting").get("joinUrl"));
         String provider = joinUrl == null ? null : videoProviderOf(textOrNull(event.get("onlineMeetingProvider")));
+        if (joinUrl == null) {
+            joinUrl = ZoomLinks.joinUrlIn(textOrNull(event.path("location").get("displayName")));
+            provider = joinUrl == null ? null : ZoomLinks.PROVIDER;
+        }
         return new CalendarEvent(id, textOrNull(event.get("subject")), startsAt, endsAt, participants, joinUrl,
                 provider);
     }

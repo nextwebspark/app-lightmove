@@ -19,8 +19,14 @@ public interface MailboxAuthorizationRepository extends JpaRepository<MailboxAut
     @Query("DELETE FROM MailboxAuthorization a WHERE a.id = :id")
     int redeem(UUID id);
 
+    /** A mailbox attempt and a Zoom one are separate screens, so starting one never drops the other. */
     @Modifying
     @Transactional
-    @Query("DELETE FROM MailboxAuthorization a WHERE a.userId = :userId")
+    @Query("DELETE FROM MailboxAuthorization a WHERE a.userId = :userId AND a.provider <> 'zoom'")
     int forgetStartedBy(UUID userId);
+
+    @Modifying
+    @Transactional
+    @Query("DELETE FROM MailboxAuthorization a WHERE a.userId = :userId AND a.provider = 'zoom'")
+    int forgetZoomStartedBy(UUID userId);
 }

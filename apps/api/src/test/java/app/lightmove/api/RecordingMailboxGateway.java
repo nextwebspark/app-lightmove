@@ -49,6 +49,7 @@ public class RecordingMailboxGateway implements MailboxGateway {
     private final List<NewCalendarEvent> created = new CopyOnWriteArrayList<>();
     private final AtomicInteger calendarReads = new AtomicInteger();
     private volatile RuntimeException calendarFailure;
+    private volatile RuntimeException createEventFailure;
     private volatile RuntimeException busyFailure;
     private volatile boolean bookingPagesOffered = true;
     private final List<BookingPageSpec> bookingPages = new CopyOnWriteArrayList<>();
@@ -128,10 +129,20 @@ public class RecordingMailboxGateway implements MailboxGateway {
 
     @Override
     public CalendarEvent createEvent(String grantId, NewCalendarEvent event) {
+        if (createEventFailure != null) {
+            throw createEventFailure;
+        }
         created.add(event);
+        boolean linkFromElsewhere = event.joinUrl() != null;
         return new CalendarEvent("created-" + sequence.incrementAndGet(), event.title(), event.startsAt(),
                 event.endsAt(), List.of(granted.address(), event.inviteeAddress()),
-                "https://meet.example/" + created.size(), "Google Meet");
+                linkFromElsewhere ? event.joinUrl() : "https://meet.example/" + created.size(),
+                linkFromElsewhere ? "Zoom" : "Google Meet");
+    }
+
+    /** The calendar refuses to make the next events, as a definite refusal or an outage would. */
+    public void failCreatingEvents(RuntimeException failure) {
+        this.createEventFailure = failure;
     }
 
     /** What the calendar holds when it is read whole. */
@@ -238,6 +249,7 @@ public class RecordingMailboxGateway implements MailboxGateway {
         created.clear();
         calendarReads.set(0);
         calendarFailure = null;
+        createEventFailure = null;
         busyFailure = null;
         bookingPagesOffered = true;
         bookingPages.clear();

@@ -14,6 +14,7 @@ import type { Sequence } from "../api/sequenceApi";
 import { CandidateDrawerById } from "../../candidates/components/CandidateDrawerById";
 import { PeopleInOutreach } from "../components/PeopleInOutreach";
 import { SequenceStatePill } from "../components/SequenceStatePill";
+import { ZoomConnectControl } from "../components/ZoomConnectControl";
 import { connectMailboxInPopup } from "../lib/mailboxPopup";
 import { useMailbox } from "../lib/useMailbox";
 
@@ -102,6 +103,7 @@ function StaffOutreachPage() {
             onDisconnect={() => disconnect.mutate()}
           />
         )}
+        {connection?.status === "ACTIVE" && <ZoomConnectControl />}
       </div>
 
       {mailbox.isError && (
