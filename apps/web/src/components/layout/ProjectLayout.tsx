@@ -107,7 +107,6 @@ export function ProjectLayout() {
     {
       label: "People",
       items: [
-        { to: `${base}/candidates`, label: "Candidates", icon: ICONS.candidates },
         { to: `${base}/outreach`, label: "Outreach", icon: ICONS.outreach },
       ],
     },
