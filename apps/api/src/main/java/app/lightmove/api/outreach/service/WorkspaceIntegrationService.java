@@ -47,7 +47,8 @@ public class WorkspaceIntegrationService {
                 .stream()
                 .collect(Collectors.toMap(WorkspaceMailIntegration::getProvider, Function.identity()));
         return new WorkspaceIntegrationsResponse(
-                Arrays.stream(IntegrationProvider.values()).map(provider -> toDto(provider, chosen.get(provider)))
+                Arrays.stream(IntegrationProvider.values())
+                        .map(provider -> toDto(workspaceId, provider, chosen.get(provider)))
                         .toList(),
                 cipher.isAvailable(),
                 isRecallOffered());
@@ -104,13 +105,17 @@ public class WorkspaceIntegrationService {
 
     /**
      * Microsoft sent an admin back from the admin-consent link with the directory they approved Uncava's shared app
-     * for. Recorded so the page can say so; a consent to an app this deployment does not offer is refused.
+     * for. Recorded so the page can say so, and only when it returns the state our link carried.
      */
     @Transactional
     public WorkspaceIntegrationsResponse recordMicrosoftAdminConsent(UUID actorId, UUID workspaceId, String tenantId,
-                                                                     HttpServletRequest request) {
+                                                                     String state, HttpServletRequest request) {
         if (setup.sharedApp(IntegrationProvider.MICROSOFT).isEmpty()) {
             throw ApiException.of(ErrorCode.INTEGRATION_SHARED_APP_UNAVAILABLE);
+        }
+        if (!setup.isAdminConsentState(workspaceId, state)) {
+            throw ApiException.withField(ErrorCode.VALIDATION_FAILED, "state",
+                    "This approval did not come from your workspace's link");
         }
         WorkspaceMailIntegration integration = integrations
                 .findByWorkspaceIdAndProvider(workspaceId, IntegrationProvider.MICROSOFT)
@@ -138,10 +143,11 @@ public class WorkspaceIntegrationService {
                 .record();
     }
 
-    private WorkspaceIntegrationResponse toDto(IntegrationProvider provider, WorkspaceMailIntegration integration) {
+    private WorkspaceIntegrationResponse toDto(UUID workspaceId, IntegrationProvider provider,
+                                               WorkspaceMailIntegration integration) {
         boolean own = integration != null && integration.isOwnApp();
         String adminConsentUrl = provider == IntegrationProvider.MICROSOFT
-                ? setup.microsoftAdminConsentUri().map(URI::toString).orElse(null)
+                ? setup.microsoftAdminConsentUri(workspaceId).map(URI::toString).orElse(null)
                 : null;
         return new WorkspaceIntegrationResponse(
                 provider,

@@ -9,7 +9,7 @@ import app.lightmove.api.core.resilience.service.VendorClientFactory;
 import app.lightmove.api.core.resilience.service.VendorRateLimiter;
 import app.lightmove.api.outreach.constant.IntegrationProvider;
 import app.lightmove.api.outreach.model.ProviderCredentials;
-import app.lightmove.api.outreach.model.RefreshedAccessToken;
+import app.lightmove.api.outreach.model.ProviderTokenGrant;
 import java.io.IOException;
 import java.net.URI;
 import java.nio.charset.StandardCharsets;
@@ -19,11 +19,9 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.client.ClientHttpResponse;
-import org.springframework.stereotype.Component;
 import org.springframework.util.LinkedMultiValueMap;
 import org.springframework.util.MultiValueMap;
 import org.springframework.web.client.RestClient;
@@ -33,10 +31,9 @@ import tools.jackson.databind.json.JsonMapper;
 
 /**
  * The authorization-code (RFC 6749 §4.1) and refresh-token (§6) grants at Google, Microsoft and Zoom. The secret
- * travels in the form body ({@code client_secret_post}) except at Zoom, which accepts HTTP Basic only. Never retried here: a refusal is
- * final, and anything else is the caller's next call to try again.
+ * travels in the form body ({@code client_secret_post}) except at Zoom, which accepts HTTP Basic only. Never retried
+ * here: a refusal is final, and anything else is the caller's next call to try again.
  */
-@Component
 public class OAuthProviderTokenClient implements ProviderTokenClient {
 
     static final Duration READ_TIMEOUT = Duration.ofSeconds(15);
@@ -53,21 +50,20 @@ public class OAuthProviderTokenClient implements ProviderTokenClient {
 
     private static final JsonMapper JSON = JsonMapper.builder().build();
 
+    public static final Map<IntegrationProvider, String> PROVIDER_TOKEN_HOSTS = Map.of(
+            IntegrationProvider.GOOGLE, "https://oauth2.googleapis.com",
+            IntegrationProvider.MICROSOFT, MicrosoftMailboxGateway.LOGIN,
+            IntegrationProvider.ZOOM, "https://zoom.us");
+
     private final Map<IntegrationProvider, RestClient> clients = new EnumMap<>(IntegrationProvider.class);
     private final VendorCallGuard guard;
 
-    @Autowired
+    /** {@code tokenHosts}: each provider's token endpoint host, {@link #PROVIDER_TOKEN_HOSTS} outside a test. */
     public OAuthProviderTokenClient(VendorClientFactory clientFactory, VendorRateLimiter rateLimiter,
-                                    VendorCallGuard guard) {
-        this(clientFactory, rateLimiter, guard, Map.of());
-    }
-
-    /** {@code hostOverrides}: a test's recorded endpoints in place of the providers' own. */
-    OAuthProviderTokenClient(VendorClientFactory clientFactory, VendorRateLimiter rateLimiter, VendorCallGuard guard,
-                             Map<IntegrationProvider, String> hostOverrides) {
+                                    VendorCallGuard guard, Map<IntegrationProvider, String> tokenHosts) {
         this.guard = guard;
         for (IntegrationProvider provider : IntegrationProvider.values()) {
-            String host = hostOverrides.getOrDefault(provider, tokenHostOf(provider));
+            String host = tokenHosts.get(provider);
             VendorClientSpec spec = new VendorClientSpec(vendorOf(provider), host, null, null, null, null,
                     READ_TIMEOUT, REQUESTS_PER_SECOND);
             clients.put(provider, clientFactory.create(spec, RestClient.builder(), rateLimiter));
@@ -75,7 +71,7 @@ public class OAuthProviderTokenClient implements ProviderTokenClient {
     }
 
     @Override
-    public RefreshedAccessToken refresh(ProviderCredentials credentials, String refreshToken) {
+    public ProviderTokenGrant refresh(ProviderCredentials credentials, String refreshToken) {
         MultiValueMap<String, String> form = new LinkedMultiValueMap<>();
         form.add("grant_type", "refresh_token");
         form.add("refresh_token", refreshToken);
@@ -83,7 +79,7 @@ public class OAuthProviderTokenClient implements ProviderTokenClient {
     }
 
     @Override
-    public RefreshedAccessToken redeemCode(ProviderCredentials credentials, String code, URI redirectUri,
+    public ProviderTokenGrant redeemCode(ProviderCredentials credentials, String code, URI redirectUri,
                                            List<String> scopes) {
         MultiValueMap<String, String> form = new LinkedMultiValueMap<>();
         form.add("grant_type", "authorization_code");
@@ -95,7 +91,7 @@ public class OAuthProviderTokenClient implements ProviderTokenClient {
         return exchange(credentials, form, "redeem-code");
     }
 
-    private RefreshedAccessToken exchange(ProviderCredentials credentials, MultiValueMap<String, String> form,
+    private ProviderTokenGrant exchange(ProviderCredentials credentials, MultiValueMap<String, String> form,
                                           String operation) {
         IntegrationProvider provider = credentials.provider();
         VendorCall call = VendorCall.of(vendorOf(provider), operation);
@@ -124,14 +120,14 @@ public class OAuthProviderTokenClient implements ProviderTokenClient {
         return read(call, answer);
     }
 
-    static RefreshedAccessToken read(VendorCall call, JsonNode answer) {
+    static ProviderTokenGrant read(VendorCall call, JsonNode answer) {
         String accessToken = answer == null ? null : textOrNull(answer.get("access_token"));
         if (accessToken == null) {
             throw new VendorException(call, VendorFailureKind.MALFORMED_RESPONSE, null);
         }
         JsonNode expiresIn = answer.get("expires_in");
         long seconds = expiresIn == null || !expiresIn.canConvertToLong() ? 3600 : expiresIn.asLong();
-        return new RefreshedAccessToken(accessToken, Duration.ofSeconds(seconds),
+        return new ProviderTokenGrant(accessToken, Duration.ofSeconds(seconds),
                 textOrNull(answer.get("refresh_token")));
     }
 
@@ -145,7 +141,7 @@ public class OAuthProviderTokenClient implements ProviderTokenClient {
             // Not a token endpoint's answer; classified by its status below.
         }
         if (error != null && REFUSALS.contains(error)) {
-            return new RefreshTokenRefused(error);
+            return new ProviderGrantRefused(error);
         }
         // A token endpoint's 401 is always about the client: it authenticates nobody else.
         if ((error != null && APP_REFUSALS.contains(error)) || response.getStatusCode().value() == 401) {
@@ -168,14 +164,6 @@ public class OAuthProviderTokenClient implements ProviderTokenClient {
     /** A single-tenant app signs in at its own directory; Uncava's multi-tenant one at any organisation's. */
     static String tenantOf(ProviderCredentials credentials) {
         return credentials.tenantId() == null ? MICROSOFT_ANY_ORGANISATION : credentials.tenantId();
-    }
-
-    private static String tokenHostOf(IntegrationProvider provider) {
-        return switch (provider) {
-            case GOOGLE -> "https://oauth2.googleapis.com";
-            case MICROSOFT -> "https://login.microsoftonline.com";
-            case ZOOM -> "https://zoom.us";
-        };
     }
 
     private static String vendorOf(IntegrationProvider provider) {

@@ -52,11 +52,11 @@ public class WorkspaceIntegrationController {
     /** Where the SPA reports Microsoft's admin-consent return; only Microsoft has one. */
     @PostMapping("/MICROSOFT/admin-consent")
     @RequireWorkspacePermission(WorkspaceAction.WORKSPACE_MANAGE)
-    public WorkspaceIntegrationsResponse recordMicrosoftAdminConsent(@AuthenticationPrincipal AuthPrincipal principal,
-                                                                     @Valid @RequestBody RecordAdminConsentRequest request,
-                                                                     HttpServletRequest httpRequest) {
+    public WorkspaceIntegrationsResponse recordMicrosoftAdminConsent(
+            @AuthenticationPrincipal AuthPrincipal principal, @Valid @RequestBody RecordAdminConsentRequest request,
+            HttpServletRequest httpRequest) {
         return integrations.recordMicrosoftAdminConsent(principal.userId(), principal.requireWorkspaceId(),
-                request.tenantId(), httpRequest);
+                request.tenantId(), request.state(), httpRequest);
     }
 
     @DeleteMapping("/{provider}")

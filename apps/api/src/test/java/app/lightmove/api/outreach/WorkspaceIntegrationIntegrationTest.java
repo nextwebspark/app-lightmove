@@ -26,6 +26,7 @@ import org.springframework.http.MediaType;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.web.servlet.MvcResult;
 import org.springframework.test.web.servlet.ResultActions;
+import org.springframework.web.util.UriComponentsBuilder;
 
 /** Settings → Integrations: which OAuth app a workspace connects each provider through, kept by its admin. */
 @IntegrationTest
@@ -203,8 +204,13 @@ class WorkspaceIntegrationIntegrationTest extends FlowTestSupport {
         String admin = adminOfNewWorkspace("Consenting Firm");
         String workspaceId = workspaceOf(admin);
         String tenant = "8f3a6c1e-2b4d-4e5f-9a0b-1c2d3e4f5a6b";
+        String state = adminConsentStateOf(admin);
 
-        recordAdminConsent(admin, tenant)
+        recordAdminConsent(admin, tenant, "a-state-our-link-never-carried").andExpect(status().isBadRequest());
+        recordAdminConsent(admin, "contoso.onmicrosoft.com", state).andExpect(status().isBadRequest());
+        assertThat(auditDetailsFor(workspaceId)).isEmpty();
+
+        recordAdminConsent(admin, tenant, state)
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.providers[1].provider").value("MICROSOFT"))
                 .andExpect(jsonPath("$.providers[1].mode").value("SHARED"))
@@ -213,8 +219,6 @@ class WorkspaceIntegrationIntegrationTest extends FlowTestSupport {
                 .andExpect(jsonPath("$.providers[0].adminConsentedAt").doesNotExist());
         assertThat(auditDetailsFor(workspaceId))
                 .anySatisfy(details -> assertThat(details).contains("\"adminConsentTenant\": \"" + tenant + "\""));
-
-        recordAdminConsent(admin, "contoso.onmicrosoft.com/../x").andExpect(status().isBadRequest());
     }
 
     @Test
@@ -234,15 +238,23 @@ class WorkspaceIntegrationIntegrationTest extends FlowTestSupport {
             mvc.perform(delete("/api/v1/workspace/integrations/GOOGLE")
                             .header("Authorization", "Bearer " + refusedCaller))
                     .andExpect(status().isForbidden());
-            recordAdminConsent(refusedCaller, "contoso.onmicrosoft.com").andExpect(status().isForbidden());
+            recordAdminConsent(refusedCaller, "8f3a6c1e-2b4d-4e5f-9a0b-1c2d3e4f5a6b", "any-state")
+                    .andExpect(status().isForbidden());
         }
     }
 
-    private ResultActions recordAdminConsent(String bearerToken, String tenantId) throws Exception {
+    private ResultActions recordAdminConsent(String bearerToken, String tenantId, String state) throws Exception {
         return mvc.perform(post("/api/v1/workspace/integrations/MICROSOFT/admin-consent")
                 .header("Authorization", "Bearer " + bearerToken)
                 .contentType(MediaType.APPLICATION_JSON)
-                .content("{\"tenantId\":\"%s\"}".formatted(tenantId)));
+                .content("{\"tenantId\":\"%s\",\"state\":\"%s\"}".formatted(tenantId, state)));
+    }
+
+    /** The state the workspace's own admin-consent link carries, as Microsoft would hand it back. */
+    private String adminConsentStateOf(String bearerToken) throws Exception {
+        String link = body(mvc.perform(get("/api/v1/workspace/integrations").header("Authorization", "Bearer " + bearerToken))
+                .andReturn()).get("providers").get(1).get("adminConsentUrl").asText();
+        return UriComponentsBuilder.fromUriString(link).build().getQueryParams().getFirst("state");
     }
 
     private ResultActions saveOwnGoogleApp(String bearerToken, String clientId, String clientSecret)

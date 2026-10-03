@@ -6,7 +6,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import app.lightmove.api.core.resilience.constant.VendorFailureKind;
 import app.lightmove.api.core.resilience.model.VendorCall;
 import app.lightmove.api.core.resilience.model.VendorException;
-import app.lightmove.api.outreach.model.RefreshedAccessToken;
+import app.lightmove.api.outreach.model.ProviderTokenGrant;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import org.junit.jupiter.api.DisplayName;
@@ -25,9 +25,9 @@ class OAuthProviderTokenClientTest {
     @DisplayName("a dead grant, a refused app and anything else are told apart")
     void refusalsAreToldFromFailures() throws Exception {
         assertThat(refusalOf(HttpStatus.BAD_REQUEST, "{\"error\":\"invalid_grant\",\"error_description\":\"x\"}"))
-                .isInstanceOf(RefreshTokenRefused.class);
+                .isInstanceOf(ProviderGrantRefused.class);
         assertThat(refusalOf(HttpStatus.BAD_REQUEST, "{\"error\":\"interaction_required\"}"))
-                .isInstanceOf(RefreshTokenRefused.class);
+                .isInstanceOf(ProviderGrantRefused.class);
         assertThat(refusalOf(HttpStatus.UNAUTHORIZED, "{\"error\":\"invalid_client\"}"))
                 .isInstanceOf(ProviderAppUnavailable.class);
         assertThat(refusalOf(HttpStatus.BAD_REQUEST, "{\"error\":\"unauthorized_client\"}"))
@@ -41,7 +41,7 @@ class OAuthProviderTokenClientTest {
     @Test
     @DisplayName("an answer reads as the access token, its lifetime and any rotated refresh token")
     void anAnswerIsRead() {
-        RefreshedAccessToken token = OAuthProviderTokenClient.read(CALL, JSON.readTree("""
+        ProviderTokenGrant token = OAuthProviderTokenClient.read(CALL, JSON.readTree("""
                 {"access_token":"ya29.a","expires_in":3599,"refresh_token":"1//new","token_type":"Bearer"}"""));
 
         assertThat(token.accessToken()).isEqualTo("ya29.a");

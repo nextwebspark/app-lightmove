@@ -11,6 +11,7 @@ import app.lightmove.api.outreach.service.DirectMailboxGateway;
 import app.lightmove.api.outreach.service.MailboxGateway;
 import app.lightmove.api.outreach.service.MailboxTokens;
 import app.lightmove.api.outreach.service.MicrosoftMailboxGateway;
+import app.lightmove.api.outreach.service.OAuthProviderTokenClient;
 import app.lightmove.api.outreach.service.ProviderCredentialsResolver;
 import app.lightmove.api.outreach.service.ProviderTokenClient;
 import app.lightmove.api.outreach.service.NylasMailboxGateway;
@@ -50,6 +51,13 @@ public class MailboxGatewayConfig {
         }
         log.info("Nylas is configured for outreach email");
         return new NylasMailboxGateway(nylas, clientFactory, rateLimiter, guard, RestClient.builder());
+    }
+
+    @Bean
+    ProviderTokenClient providerTokenClient(VendorClientFactory clientFactory, VendorRateLimiter rateLimiter,
+                                            VendorCallGuard guard) {
+        return new OAuthProviderTokenClient(clientFactory, rateLimiter, guard,
+                OAuthProviderTokenClient.PROVIDER_TOKEN_HOSTS);
     }
 
     /** Always registered: it is offered to a workspace with a Microsoft app, shared or its own, and to no other. */

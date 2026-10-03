@@ -90,8 +90,9 @@ class RoutingMailboxGatewayTest {
     @Test
     @DisplayName("a direct gateway with no app to connect through is passed over for Nylas")
     void anUnofferedDirectGatewayIsPassedOver() {
-        when(google.isOffered()).thenReturn(false);
         RoutingMailboxGateway router = router(true);
+        when(google.isOffered()).thenReturn(false);
+        when(google.isOfferedTo(any())).thenReturn(false);
         UUID workspace = UUID.randomUUID();
 
         router.redeem(workspace, "google", "code", CALLBACK);
@@ -114,6 +115,11 @@ class RoutingMailboxGatewayTest {
         verify(google).redeem(withApp, "google", "code-1", CALLBACK);
         verify(nylas).redeem(withoutApp, "google", "code-2", CALLBACK);
         assertThat(router.holdsRefreshTokens(withoutApp, "google")).isFalse();
+        assertThat(router.providersFor(withApp)).containsExactly("google", "microsoft");
+        when(nylas.isOffered()).thenReturn(false);
+        assertThat(router.providersFor(withoutApp)).isEmpty();
+        assertThat(router.isOfferedTo(withoutApp)).isFalse();
+        assertThat(router.isOfferedTo(withApp)).isTrue();
     }
 
     @Test

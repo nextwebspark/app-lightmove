@@ -257,14 +257,14 @@ describe("SettingsIntegrationsPage", () => {
         sharedIntegration("ZOOM"),
       ],
     });
-    renderPage("/settings/integrations?admin_consent=True&tenant=t-1");
+    renderPage("/settings/integrations?admin_consent=True&tenant=t-1&state=signed-state");
 
     const microsoft = await card("Microsoft 365");
     await waitFor(() =>
       expect(within(microsoft).getByText(/Approved for your organisation on/)).toBeInTheDocument(),
     );
     expect(integrationsApi.recordMicrosoftAdminConsent).toHaveBeenCalledTimes(1);
-    expect(integrationsApi.recordMicrosoftAdminConsent).toHaveBeenCalledWith("t-1");
+    expect(integrationsApi.recordMicrosoftAdminConsent).toHaveBeenCalledWith("t-1", "signed-state");
   });
 
   it("says so when Microsoft returns without an approval, and records nothing", async () => {

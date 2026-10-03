@@ -21,10 +21,13 @@ export function returnToSharedApp(provider: IntegrationProvider): Promise<Worksp
   return request<WorkspaceIntegrations>(`/workspace/integrations/${provider}`, { method: "DELETE" });
 }
 
-/** Records Microsoft's admin-consent return: the directory the approving admin consented for. */
-export function recordMicrosoftAdminConsent(tenantId: string): Promise<WorkspaceIntegrations> {
+/**
+ * Records Microsoft's admin-consent return: the directory the approving admin consented for, and the `state` our link
+ * carried, without which the server records nothing.
+ */
+export function recordMicrosoftAdminConsent(tenantId: string, state: string): Promise<WorkspaceIntegrations> {
   return request<WorkspaceIntegrations>("/workspace/integrations/MICROSOFT/admin-consent", {
     method: "POST",
-    body: { tenantId },
+    body: { tenantId, state },
   });
 }

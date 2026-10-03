@@ -36,6 +36,13 @@ public class ProviderCredentialsResolver {
                 provider, CredentialMode.SHARED, app.clientId(), app.clientSecret(), null));
     }
 
+    /** Whether anyone on this deployment could connect at {@code provider}: the shared app, or some firm's own. */
+    @Transactional(readOnly = true)
+    public boolean isAnyAppAt(IntegrationProvider provider) {
+        return setup.sharedApp(provider).isPresent()
+                || integrations.existsByProviderAndMode(provider, CredentialMode.OWN);
+    }
+
     private ProviderCredentials ownCredentials(WorkspaceMailIntegration integration) {
         String secret = cipher.decrypt(integration.getClientSecretEncrypted(), integration.clientSecretContext());
         return new ProviderCredentials(integration.getProvider(), CredentialMode.OWN, integration.getClientId(),

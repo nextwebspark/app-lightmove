@@ -7,10 +7,10 @@ import java.time.Duration;
  * for a redeemed code, and on a refresh where the provider rotates them (Microsoft does). {@link #toString()}
  * carries neither token.
  */
-public record RefreshedAccessToken(String accessToken, Duration expiresIn, String refreshToken) {
+public record ProviderTokenGrant(String accessToken, Duration expiresIn, String refreshToken) {
 
     @Override
     public String toString() {
-        return "RefreshedAccessToken[expiresIn=" + expiresIn + ", tokens=<redacted>]";
+        return "ProviderTokenGrant[expiresIn=" + expiresIn + ", tokens=<redacted>]";
     }
 }

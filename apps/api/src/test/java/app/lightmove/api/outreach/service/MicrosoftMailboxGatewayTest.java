@@ -80,7 +80,8 @@ class MicrosoftMailboxGatewayTest {
         VendorClientFactory factory = new VendorClientFactory(properties);
         VendorCallGuard guard = new VendorCallGuard(limiter, properties);
         tokenEndpoint = new OAuthProviderTokenClient(factory, limiter, guard,
-                Map.of(IntegrationProvider.MICROSOFT, base + "/login"));
+                Map.of(IntegrationProvider.GOOGLE, base + "/google", IntegrationProvider.MICROSOFT, base + "/login",
+                        IntegrationProvider.ZOOM, base + "/zoom"));
         gateway = new MicrosoftMailboxGateway(resolver, tokenEndpoint, mailboxTokens, factory, limiter, guard,
                 base + "/graph", base + "/login");
         when(resolver.resolve(WORKSPACE, IntegrationProvider.MICROSOFT)).thenReturn(Optional.of(SHARED));
@@ -163,12 +164,20 @@ class MicrosoftMailboxGatewayTest {
         assertThat(reply.path("message").path("toRecipients").get(0).path("emailAddress").path("address")
                 .asString("")).isEqualTo("priya@client.example");
         assertThat(reply.path("message").path("subject").asString("")).isEqualTo("Re: A CFO role");
-        assertThat(microsoft.requested())
-                .contains("POST /graph/v1.0/me/messages/AAkALgAAAAAAHYQDEapmEc2byACqAC-EWg0A-reply/send");
+        JsonNode addressed = JSON.readTree(microsoft.bodyOf(
+                "PATCH /graph/v1.0/me/messages/AAkALgAAAAAAHYQDEapmEc2byACqAC-EWg0A-reply"));
+        assertThat(addressed.path("toRecipients")).hasSize(1);
+        assertThat(addressed.path("toRecipients").get(0).path("emailAddress").path("address").asString(""))
+                .isEqualTo("priya@client.example");
+        assertThat(addressed.path("ccRecipients")).isEmpty();
+        assertThat(addressed.path("bccRecipients")).isEmpty();
+        assertThat(microsoft.requested()).containsSubsequence(
+                "PATCH /graph/v1.0/me/messages/AAkALgAAAAAAHYQDEapmEc2byACqAC-EWg0A-reply",
+                "POST /graph/v1.0/me/messages/AAkALgAAAAAAHYQDEapmEc2byACqAC-EWg0A-reply/send");
     }
 
     @Test
-    @DisplayName("who wrote into a conversation is read by address only, from the send on")
+    @DisplayName("who wrote into a conversation is read by address only, from the send on, never drafts or Sent Items")
     void threadSendersAreAddressesOnly() {
         String grantId = MailboxGrants.mintDirect("microsoft");
         when(mailboxTokens.accessToken(grantId)).thenReturn("access-for-yara");
@@ -176,11 +185,10 @@ class MicrosoftMailboxGatewayTest {
         List<String> writers = gateway.senderAddressesInThread(grantId,
                 "AAQkADAwATM0MDAAMS1iNTcwLWI2NTEtMDACLTAwCgAQAAmsg==", Instant.parse("2026-10-01T00:00:00Z"));
 
-        assertThat(writers).containsExactly("yara.haddad@meridian.example", "priya@client.example",
-                "postmaster@client.example");
+        assertThat(writers).containsExactly("priya@client.example", "postmaster@client.example");
         String query = microsoft.lastQuery();
         assertThat(query).contains("$filter=conversationId eq 'AAQkADAwATM0MDAAMS1iNTcwLWI2NTEtMDACLTAwCgAQAAmsg=='")
-                .contains("$select=from,receivedDateTime");
+                .contains("$select=from,receivedDateTime,isDraft,parentFolderId");
     }
 
     @Test
@@ -189,7 +197,7 @@ class MicrosoftMailboxGatewayTest {
         microsoft.refreshAnswers(400, """
                 {"error":"invalid_grant","error_description":"AADSTS700082: The refresh token has expired"}""");
         assertThatThrownBy(() -> tokenEndpoint.refresh(SHARED, "M.C123_refresh"))
-                .isInstanceOf(RefreshTokenRefused.class);
+                .isInstanceOf(ProviderGrantRefused.class);
 
         microsoft.refreshAnswers(401, """
                 {"error":"invalid_client","error_description":"AADSTS7000215: Invalid client secret provided"}""");
@@ -201,6 +209,40 @@ class MicrosoftMailboxGatewayTest {
         assertThatThrownBy(() -> tokenEndpoint.refresh(SHARED, "M.C123_refresh"))
                 .isInstanceOfSatisfying(VendorException.class,
                         failed -> assertThat(failed.getKind()).isEqualTo(VendorFailureKind.RATE_LIMITED));
+    }
+
+    @Test
+    @DisplayName("a send Graph refuses deletes the unsent draft; one that may have gone leaves it alone")
+    void aRefusedSendDiscardsTheDraft() {
+        String grantId = MailboxGrants.mintDirect("microsoft");
+        when(mailboxTokens.accessToken(grantId)).thenReturn("access-for-yara");
+        OutgoingEmail email = new OutgoingEmail("priya@client.example", "A CFO role", "<p>Hi</p>");
+
+        microsoft.sendAnswers(403);
+        assertThatThrownBy(() -> gateway.send(grantId, email)).isInstanceOfSatisfying(VendorException.class,
+                failed -> assertThat(failed.getKind()).isEqualTo(VendorFailureKind.CREDENTIALS));
+        assertThat(microsoft.requested())
+                .contains("DELETE /graph/v1.0/me/messages/AAkALgAAAAAAHYQDEapmEc2byACqAC-EWg0A-draft");
+
+        microsoft.clearRequests();
+        microsoft.sendAnswers(503);
+        assertThatThrownBy(() -> gateway.send(grantId, email)).isInstanceOfSatisfying(VendorException.class,
+                failed -> assertThat(failed.getKind()).isEqualTo(VendorFailureKind.UNAVAILABLE));
+        assertThat(microsoft.requested()).noneMatch(request -> request.startsWith("DELETE"));
+    }
+
+    @Test
+    @DisplayName("offered only where some app exists to connect through; per workspace, only where that one has one")
+    void offeredOnlyWhereAnAppExists() {
+        when(resolver.isAnyAppAt(IntegrationProvider.MICROSOFT)).thenReturn(false);
+        assertThat(gateway.isOffered()).isFalse();
+        when(resolver.isAnyAppAt(IntegrationProvider.MICROSOFT)).thenReturn(true);
+        assertThat(gateway.isOffered()).isTrue();
+
+        UUID withoutApp = UUID.randomUUID();
+        when(resolver.resolve(withoutApp, IntegrationProvider.MICROSOFT)).thenReturn(Optional.empty());
+        assertThat(gateway.isOfferedTo(WORKSPACE)).isTrue();
+        assertThat(gateway.isOfferedTo(withoutApp)).isFalse();
     }
 
     @Test
@@ -229,6 +271,7 @@ class MicrosoftMailboxGatewayTest {
         private volatile String lastQuery = "";
         private volatile String lastPath = "";
         private volatile int refreshStatus = 200;
+        private volatile int sendStatus = 202;
         private volatile String refreshBody;
 
         void answer(HttpExchange exchange) throws IOException {
@@ -240,7 +283,7 @@ class MicrosoftMailboxGatewayTest {
             lastPath = path;
             lastQuery = exchange.getRequestURI().getQuery() == null ? "" : exchange.getRequestURI().getQuery();
             authorizations.put(path, String.valueOf(exchange.getRequestHeaders().getFirst("Authorization")));
-            prefers.put(path, String.valueOf(exchange.getRequestHeaders().getFirst("Prefer")));
+            prefers.putIfAbsent(path, String.valueOf(exchange.getRequestHeaders().getFirst("Prefer")));
 
             if (path.endsWith("/oauth2/v2.0/token")) {
                 lastForm = body;
@@ -266,13 +309,20 @@ class MicrosoftMailboxGatewayTest {
                         {"id":"AAkALgAAAAAAHYQDEapmEc2byACqAC-EWg0A-reply",
                          "conversationId":"AAQkADAwATM0MDAAMS1iNTcwLWI2NTEtMDACLTAwCgAQAAmsg==","isDraft":true}""");
             } else if (path.endsWith("/send")) {
-                respond(exchange, 202, "");
+                respond(exchange, sendStatus, "");
+            } else if (path.equals("/graph/v1.0/me/mailFolders/sentitems")) {
+                respond(exchange, 200, "{\"id\":\"AAMkSentItems\"}");
+            } else if (exchange.getRequestMethod().equals("PATCH") || exchange.getRequestMethod().equals("DELETE")) {
+                respond(exchange, exchange.getRequestMethod().equals("PATCH") ? 200 : 204,
+                        exchange.getRequestMethod().equals("PATCH") ? "{\"id\":\"patched\"}" : "");
             } else if (key.equals("GET /graph/v1.0/me/messages")) {
                 respond(exchange, 200, """
                         {"value":[
                           {"receivedDateTime":"2026-09-20T09:00:00Z",
                            "from":{"emailAddress":{"name":"Old","address":"someone-earlier@client.example"}}},
-                          {"receivedDateTime":"2026-10-01T09:00:00Z",
+                          {"receivedDateTime":"2026-10-01T09:00:00Z","isDraft":false,"parentFolderId":"AAMkSentItems",
+                           "from":{"emailAddress":{"name":"Yara Haddad","address":"yhaddad@meridian.onmicrosoft.com"}}},
+                          {"receivedDateTime":"2026-10-02T08:00:00Z","isDraft":true,"parentFolderId":"AAMkDrafts",
                            "from":{"emailAddress":{"name":"Yara Haddad","address":"yara.haddad@meridian.example"}}},
                           {"receivedDateTime":"2026-10-02T11:30:00Z",
                            "from":{"emailAddress":{"name":"Priya Raman","address":"priya@client.example"}}},
@@ -282,6 +332,14 @@ class MicrosoftMailboxGatewayTest {
             } else {
                 respond(exchange, 404, "{\"error\":{\"code\":\"ErrorItemNotFound\"}}");
             }
+        }
+
+        void sendAnswers(int status) {
+            this.sendStatus = status;
+        }
+
+        void clearRequests() {
+            requested.clear();
         }
 
         void refreshAnswers(int status, String body) {

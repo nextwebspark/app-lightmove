@@ -61,8 +61,8 @@ export function SettingsIntegrationsPage() {
 }
 
 /**
- * Microsoft sends the approving admin back here from the admin-consent link, with `admin_consent=True&tenant=…` or
- * an `error`. A success is recorded once, so the Microsoft card can say so; either way the query is cleared, so a
+ * Microsoft sends the approving admin back here from the admin-consent link, with `admin_consent=True&tenant=…` and
+ * the `state` the link carried, or an `error`. A success is recorded once, so the Microsoft card can say so; either way the query is cleared, so a
  * reload does not record it again.
  */
 function useAdminConsentReturn(): string | null {
@@ -72,7 +72,8 @@ function useAdminConsentReturn(): string | null {
   const handled = useRef(false);
   const [notice, setNotice] = useState<string | null>(null);
   const record = useMutation({
-    mutationFn: (tenantId: string) => integrationsApi.recordMicrosoftAdminConsent(tenantId),
+    mutationFn: ({ tenantId, state }: { tenantId: string; state: string }) =>
+      integrationsApi.recordMicrosoftAdminConsent(tenantId, state),
     onSuccess: (updated) => {
       queryClient.setQueryData(integrationsApi.INTEGRATIONS_KEY, updated);
       toast("Uncava is approved for your organisation");
@@ -82,18 +83,19 @@ function useAdminConsentReturn(): string | null {
 
   const consented = searchParams.get("admin_consent");
   const tenant = searchParams.get("tenant");
+  const state = searchParams.get("state");
   const error = searchParams.get("error");
 
   useEffect(() => {
     if (handled.current || (consented === null && error === null)) return;
     handled.current = true;
-    if (consented?.toLowerCase() === "true" && tenant) {
-      record.mutate(tenant);
+    if (consented?.toLowerCase() === "true" && tenant && state) {
+      record.mutate({ tenantId: tenant, state });
     } else {
       setNotice("Microsoft did not approve Uncava for your organisation. Your IT department can try the link again.");
     }
     setSearchParams({}, { replace: true });
-  }, [consented, tenant, error, record, setSearchParams]);
+  }, [consented, tenant, state, error, record, setSearchParams]);
 
   return notice;
 }

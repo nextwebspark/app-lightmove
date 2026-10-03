@@ -430,11 +430,17 @@ shared (`/organizations`) or its own (its tenant), and Nylas answers for one wit
 `offline_access User.Read Mail.ReadWrite Mail.Send Calendars.ReadWrite` — `Mail.ReadWrite` because every email is a
 **draft then a send** (a follow-up a `createReply` on the last message, addressed to the executive), the only way
 Graph answers with the message and conversation ids threading and the reply poll key on, requested immutable so they
-survive the move to Sent Items; `sendMail` answers nothing. The poll reads `from` and `receivedDateTime` of the
-conversation and nothing else; there is no webhook yet, no per-app revoke (the stored token goes with the row), and
-no calendar until #647. Microsoft's admin-consent return lands on Settings → Integrations, which records it
-(`POST /workspace/integrations/MICROSOFT/admin-consent`, `WORKSPACE_MANAGE`, audited) so the card says "Approved
-for your organisation" — informational, it gates nothing.
+survive the move to Sent Items; `sendMail` answers nothing. A reply drafted on our own message would go back to the
+consultant, so its recipients are set to the executive alone before the send, and a send Graph definitely refuses
+deletes its draft — a finished approach left in Drafts is one click from the second send "never retried" forbids
+(a timeout leaves it: it may have gone). The poll reads `from`, `receivedDateTime`, `isDraft` and the folder, and
+drops drafts and Sent Items, so the consultant's own mail never reads as a reply whatever address it went from.
+Offered to a workspace only with an app (`isOfferedTo`, which the mailbox screen's providers read), and to the
+deployment only where some app exists. No webhook yet, no per-app revoke (the stored token goes with the row), and
+no calendar until #647 (`MAILBOX_CALENDAR_UNSUPPORTED`). Microsoft's admin-consent return lands on Settings →
+Integrations, which records it (`POST /workspace/integrations/MICROSOFT/admin-consent`, `WORKSPACE_MANAGE`,
+audited) only with the `state` our link carried — an HMAC of the workspace under the shared app's secret, so a
+crafted return link records nothing — and the card says "Approved for your organisation"; it gates nothing.
 Sequences (V100, #623) are a position's, `WORK_EXECUTE`: up to three emails (V39's owned list), and
 **Add to sequence** — from In universe / Shortlisted (the ticked companies' executives) or the executive
 drawer — chooses, reviews and starts. Choose shows who is skipped and why (no email, do not contact, out

@@ -19,7 +19,7 @@ import app.lightmove.api.outreach.model.MailboxGrants;
 import app.lightmove.api.outreach.model.NewCalendarEvent;
 import app.lightmove.api.outreach.model.OutgoingEmail;
 import app.lightmove.api.outreach.model.ProviderCredentials;
-import app.lightmove.api.outreach.model.RefreshedAccessToken;
+import app.lightmove.api.outreach.model.ProviderTokenGrant;
 import app.lightmove.api.outreach.model.SentEmail;
 import java.net.URI;
 import java.time.Duration;
@@ -30,6 +30,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Function;
 import org.springframework.http.MediaType;
 import org.springframework.web.client.RestClient;
@@ -72,6 +73,7 @@ public class MicrosoftMailboxGateway implements DirectMailboxGateway {
     private final VendorCallGuard guard;
     private final RestClient graph;
     private final String loginBaseUrl;
+    private final Map<String, String> sentItemsFolders = new ConcurrentHashMap<>();
 
     public MicrosoftMailboxGateway(ProviderCredentialsResolver credentials, ProviderTokenClient tokenEndpoint,
                                    MailboxTokens mailboxTokens, VendorClientFactory clientFactory,
@@ -91,9 +93,10 @@ public class MicrosoftMailboxGateway implements DirectMailboxGateway {
         return PROVIDER;
     }
 
+    /** Offered where anyone could connect: Uncava's shared app is configured, or some firm brought its own. */
     @Override
     public boolean isOffered() {
-        return true;
+        return credentials.isAnyAppAt(IntegrationProvider.MICROSOFT);
     }
 
     @Override
@@ -135,10 +138,10 @@ public class MicrosoftMailboxGateway implements DirectMailboxGateway {
     public GrantedMailbox redeem(UUID workspaceId, String provider, String code, URI redirectUri) {
         ProviderCredentials app = requireApp(workspaceId);
         VendorCall call = VendorCall.of(VENDOR, "redeem");
-        RefreshedAccessToken token;
+        ProviderTokenGrant token;
         try {
             token = tokenEndpoint.redeemCode(app, code, redirectUri, SCOPES);
-        } catch (RefreshTokenRefused | ProviderAppUnavailable refused) {
+        } catch (ProviderGrantRefused | ProviderAppUnavailable refused) {
             throw new VendorException(call, VendorFailureKind.BAD_REQUEST, refused);
         }
         if (token.refreshToken() == null) {
@@ -161,7 +164,11 @@ public class MicrosoftMailboxGateway implements DirectMailboxGateway {
         return new GrantedMailbox(MailboxGrants.mintDirect(PROVIDER), address, PROVIDER, token.refreshToken());
     }
 
-    /** A draft, then its send; a follow-up is a reply drafted on the last message, which keeps the conversation. */
+    /**
+     * A draft, then its send. A follow-up is a reply drafted on the last message, which keeps the conversation; that
+     * message is our own, so the reply would go back to the consultant — its recipients are set to the executive
+     * alone before it is sent, whatever Graph drafted.
+     */
     @Override
     public SentEmail send(String grantId, OutgoingEmail email) {
         String accessToken = mailboxTokens.accessToken(grantId);
@@ -180,12 +187,22 @@ public class MicrosoftMailboxGateway implements DirectMailboxGateway {
         if (messageId == null || conversationId == null) {
             throw new VendorException(VendorCall.of(VENDOR, "draft"), VendorFailureKind.MALFORMED_RESPONSE, null);
         }
-        guard.call(VendorCall.of(VENDOR, "send"), () -> graph.post()
-                .uri("/v1.0/me/messages/{id}/send", messageId)
-                .header("Authorization", "Bearer " + accessToken)
-                .header("Prefer", IMMUTABLE_IDS)
-                .retrieve()
-                .toBodilessEntity());
+        try {
+            if (email.replyToMessageId() != null) {
+                graphCall("address-reply", accessToken, client -> client.patch()
+                        .uri("/v1.0/me/messages/{id}", messageId)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .body(recipientsOnly(email)));
+            }
+            guard.call(VendorCall.of(VENDOR, "send"), () -> graph.post()
+                    .uri("/v1.0/me/messages/{id}/send", messageId)
+                    .header("Authorization", "Bearer " + accessToken)
+                    .retrieve()
+                    .toBodilessEntity());
+        } catch (VendorException failed) {
+            discardUnsentDraft(accessToken, messageId, failed);
+            throw failed;
+        }
         return new SentEmail(messageId, conversationId);
     }
 
@@ -193,6 +210,7 @@ public class MicrosoftMailboxGateway implements DirectMailboxGateway {
     @Override
     public void revoke(String grantId) {
         mailboxTokens.forget(grantId);
+        sentItemsFolders.remove(grantId);
     }
 
     /** Replies are found by the poll; Graph subscriptions are a later follow-up. */
@@ -201,27 +219,36 @@ public class MicrosoftMailboxGateway implements DirectMailboxGateway {
         return List.of();
     }
 
-    /** Who wrote into the conversation since {@code since}: the sender's address only, never subject or body. */
+    /**
+     * Who wrote into the conversation since {@code since}: the sender's address only, never subject or body. Drafts
+     * and the consultant's own Sent Items are left out by folder, so their own mail never reads as a reply even where
+     * their sending address is not the one the mailbox was connected as.
+     */
     @Override
     public List<String> senderAddressesInThread(String grantId, String threadId, Instant since) {
         String accessToken = mailboxTokens.accessToken(grantId);
+        String sentItems = sentItemsFolders.computeIfAbsent(grantId, grant -> sentItemsFolderId(accessToken));
         String filter = "conversationId eq '" + threadId.replace("'", "''") + "'";
         JsonNode page = graphCall("thread", accessToken, client -> client.get()
                 .uri(builder -> builder.path("/v1.0/me/messages")
                         .queryParam("$filter", "{filter}")
-                        .queryParam("$select", "from,receivedDateTime")
+                        .queryParam("$select", "from,receivedDateTime,isDraft,parentFolderId")
                         .queryParam("$top", THREAD_PAGE)
                         .build(filter))
                 .accept(MediaType.APPLICATION_JSON));
-        return sendersSince(page, since);
+        return sendersSince(page, since, sentItems);
     }
 
-    static List<String> sendersSince(JsonNode page, Instant since) {
+    static List<String> sendersSince(JsonNode page, Instant since, String sentItemsFolderId) {
         List<String> senders = new ArrayList<>();
         if (page == null) {
             return senders;
         }
         for (JsonNode message : page.path("value")) {
+            String folder = textOrNull(message.get("parentFolderId"));
+            if (message.path("isDraft").asBoolean(false) || (folder != null && folder.equals(sentItemsFolderId))) {
+                continue;
+            }
             Instant received = instantOrNull(message.get("receivedDateTime"));
             String address = textOrNull(message.path("from").path("emailAddress").get("address"));
             if (address != null && (received == null || !received.isBefore(since))) {
@@ -257,6 +284,14 @@ public class MicrosoftMailboxGateway implements DirectMailboxGateway {
         throw ApiException.of(ErrorCode.OUTREACH_BOOKING_LINK_UNAVAILABLE);
     }
 
+    /** Every recipient list set outright, so nothing Graph drafted from the replied-to message survives. */
+    static Map<String, Object> recipientsOnly(OutgoingEmail email) {
+        return Map.of(
+                "toRecipients", List.of(Map.of("emailAddress", Map.of("address", email.to()))),
+                "ccRecipients", List.of(),
+                "bccRecipients", List.of());
+    }
+
     static Map<String, Object> messageOf(OutgoingEmail email) {
         Map<String, Object> message = new LinkedHashMap<>();
         message.put("subject", email.subject());
@@ -274,6 +309,37 @@ public class MicrosoftMailboxGateway implements DirectMailboxGateway {
                 .body(JsonNode.class));
     }
 
+    /**
+     * A definite refusal leaves a finished approach in the consultant's Drafts, one click from a second send; it is
+     * deleted. A timeout or an outage may have sent it, so it is left alone.
+     */
+    private void discardUnsentDraft(String accessToken, String messageId, VendorException failed) {
+        if (failed.getKind() == VendorFailureKind.TIMEOUT || failed.getKind() == VendorFailureKind.UNAVAILABLE) {
+            return;
+        }
+        try {
+            guard.call(VendorCall.of(VENDOR, "discard-draft"), () -> graph.delete()
+                    .uri("/v1.0/me/messages/{id}", messageId)
+                    .header("Authorization", "Bearer " + accessToken)
+                    .retrieve()
+                    .toBodilessEntity());
+        } catch (RuntimeException ignored) {
+            // The send's own failure is what the caller needs; a draft left behind is the lesser problem.
+        }
+    }
+
+    /** Sent Items by its well-known name; null when it cannot be read, and the address comparison stands alone. */
+    private String sentItemsFolderId(String accessToken) {
+        try {
+            JsonNode folder = graphCall("sent-items", accessToken, client -> client.get()
+                    .uri("/v1.0/me/mailFolders/sentitems?$select=id")
+                    .accept(MediaType.APPLICATION_JSON));
+            return textOrNull(folder == null ? null : folder.get("id"));
+        } catch (VendorException unreadable) {
+            return null;
+        }
+    }
+
     private ProviderCredentials requireApp(UUID workspaceId) {
         return credentials.resolve(workspaceId, IntegrationProvider.MICROSOFT)
                 .orElseThrow(() -> ApiException.of(ErrorCode.MAILBOX_UNAVAILABLE));
@@ -281,7 +347,7 @@ public class MicrosoftMailboxGateway implements DirectMailboxGateway {
 
     /** The calendar on our own gateway is #647's; until then a direct mailbox's meetings are not read. */
     private static ApiException calendarNotYet() {
-        return ApiException.of(ErrorCode.MAILBOX_UNAVAILABLE);
+        return ApiException.of(ErrorCode.MAILBOX_CALENDAR_UNSUPPORTED);
     }
 
     private static Instant instantOrNull(JsonNode node) {

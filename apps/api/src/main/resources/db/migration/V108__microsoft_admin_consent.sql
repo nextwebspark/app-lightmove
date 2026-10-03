@@ -2,12 +2,15 @@
 --
 -- A customer's IT department approves the multi-tenant app once, through the link Settings → Integrations shows,
 -- and Microsoft sends the approving admin back with the directory it approved for. That return is recorded here so
--- the page can say "Approved for your organisation". Informational only: it gates nothing, since a consultant's own
+-- the page can say "Approved for your organisation" — only with the state our link carried, so a crafted
+-- return link records nothing. Informational only: it gates nothing, since a consultant's own
 -- sign-in is what Microsoft actually checks.
 
 ALTER TABLE app_lm_workspace_mail_integration
     ADD COLUMN admin_consented_at timestamptz,
     ADD COLUMN admin_consent_tenant_id varchar(64),
     ADD COLUMN admin_consented_by uuid REFERENCES app_lm_user (id) ON DELETE SET NULL,
+    -- Both or neither, and Microsoft's alone; who reported it stays free, since it is SET NULL with its user.
     ADD CONSTRAINT app_lm_workspace_mail_integration_admin_consent_chk
-        CHECK (admin_consented_at IS NULL OR provider = 'MICROSOFT');
+        CHECK ((admin_consented_at IS NULL AND admin_consent_tenant_id IS NULL)
+            OR (provider = 'MICROSOFT' AND admin_consented_at IS NOT NULL AND admin_consent_tenant_id IS NOT NULL));
