@@ -424,7 +424,9 @@ keeps the platform it was made for — deleted on a disconnect, a refused refres
 (made again on a switch back); a failed create never fails the connect — the reply poll makes it, on
 V103's backoff, giving up after five until the mailbox reconnects. Recall's webhook
 (`/api/v1/outreach/webhooks/recall`, public, its Svix signature under `lightmove.recall.webhook-secret` the
-credential; blank refuses every delivery) reporting a calendar `disconnected` marks the mailbox `ERROR`.
+credential; blank refuses every delivery) reporting a calendar `disconnected` marks the mailbox `ERROR`, and its
+`calendar.sync_events` is a read of the events changed since (`GET /api/v2/calendar-events/`, only the `cursor` of
+its `next` link taken) fed to `MeetingSync` as a direct read would be — a deleted, cancelled or recurring one removed.
 **Microsoft (#645)** is `MicrosoftMailboxGateway`, over Graph: it is offered to a workspace with a Microsoft app,
 shared (`/organizations`) or its own (its tenant), and Nylas answers for one without. It asks
 `offline_access User.Read Mail.ReadWrite Mail.Send Calendars.ReadWrite` — `Mail.ReadWrite` because every email is a
@@ -460,8 +462,13 @@ error entry is a failure as on Nylas, and Graph offers only `free` and `workingE
 booked call is `events.insert` with `sendUpdates=all` and a Meet `createRequest`, or `POST /me/events` with
 `teamsForBusiness` — asked only where the calendar's `allowedOnlineMeetingProviders` lists it, so in an organisation
 without Teams the invite goes without a link rather than being refused, and Book a call says so. Book a call offers
-only the link the connected calendar can make (Meet on Google, Teams on Microsoft). Recall's push of calendar changes
-is the next PR.
+only the link the connected calendar can make (Meet on Google, Teams on Microsoft). A meeting is keyed on Google's
+event id and on Outlook's `iCalUId` — Recall's copy of an Outlook event carries the ordinary Graph id, never the
+immutable one our reads ask for — so a meeting read, booked or pushed by Recall is one row (`RecallEventReading`).
+The connect's 90-day read stays direct on both syncs, since Recall's first sync lags the connect. A direct calendar
+nothing pushes from (`DIRECT`, or no Recall calendar) is read again when the drawer opens: off the request thread,
+at most every five minutes, a week back and 90 days on, and a meeting that read no longer finds in its window goes
+(`MeetingBackfill.refreshUnpushed`), so a move or delete shows on the next opening.
 Sequences (V100, #623) are a position's, `WORK_EXECUTE`: up to three emails (V39's owned list), and
 **Add to sequence** — from In universe / Shortlisted (the ticked companies' executives) or the executive
 drawer — chooses, reviews and starts. Choose shows who is skipped and why (no email, do not contact, out

@@ -6,17 +6,22 @@ import app.lightmove.api.core.resilience.model.VendorException;
 import app.lightmove.api.outreach.constant.IntegrationProvider;
 import app.lightmove.api.outreach.constant.MailboxGatewayKind;
 import app.lightmove.api.outreach.constant.RecallCalendarStatus;
+import app.lightmove.api.outreach.model.CalendarEvent;
 import app.lightmove.api.outreach.model.MailboxConnected;
 import app.lightmove.api.outreach.model.MailboxConnection;
+import app.lightmove.api.outreach.model.RecallCalendarEvent;
 import app.lightmove.api.outreach.model.RecallCalendarReleased;
 import app.lightmove.api.outreach.model.RecallCalendarSpec;
 import app.lightmove.api.outreach.model.RecallWebhookDelivery;
+import app.lightmove.api.outreach.model.RecallWebhookNotice;
 import app.lightmove.api.outreach.repository.MailboxConnectionRepository;
 import app.lightmove.api.workspace.constant.CalendarSync;
 import app.lightmove.api.workspace.model.CalendarSyncChanged;
 import app.lightmove.api.workspace.service.WorkspaceSettingsService;
 import java.time.Clock;
 import java.time.Instant;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 import lombok.extern.slf4j.Slf4j;
@@ -33,7 +38,8 @@ import org.springframework.transaction.support.TransactionTemplate;
  * connects, handed the new refresh token when it reconnects, deleted when it disconnects, loses access, or its
  * workspace moves to {@code DIRECT}. Recall is called outside any transaction; a call that fails leaves the row
  * without a calendar, and the reply poll makes it again. Recall reporting a calendar {@code disconnected} is a refresh
- * the provider refused, and marks the mailbox for reconnecting.
+ * the provider refused, and marks the mailbox for reconnecting; Recall reporting its events synced is a read of what
+ * changed, kept as meetings exactly as a direct read would be.
  */
 @Component
 @Slf4j
@@ -49,18 +55,20 @@ public class RecallCalendars {
     private final ProviderCredentialsResolver credentials;
     private final SecretCipher cipher;
     private final WorkspaceSettingsService workspaces;
+    private final MeetingSync meetings;
     private final TransactionTemplate transactions;
     private final Clock clock;
 
     /** Its own transactions, never the caller's: run after a commit, the finished one is still bound to the thread. */
     RecallCalendars(RecallCalendarApi recall, MailboxConnectionRepository mailboxes,
                     ProviderCredentialsResolver credentials, SecretCipher cipher, WorkspaceSettingsService workspaces,
-                    PlatformTransactionManager transactionManager, Clock clock) {
+                    MeetingSync meetings, PlatformTransactionManager transactionManager, Clock clock) {
         this.recall = recall;
         this.mailboxes = mailboxes;
         this.credentials = credentials;
         this.cipher = cipher;
         this.workspaces = workspaces;
+        this.meetings = meetings;
         this.transactions = new TransactionTemplate(transactionManager);
         this.transactions.setPropagationBehavior(TransactionDefinition.PROPAGATION_REQUIRES_NEW);
         this.clock = clock;
@@ -96,21 +104,53 @@ public class RecallCalendars {
 
     /** A Recall webhook delivery; refused by the API when its signature does not verify. */
     public void receive(RecallWebhookDelivery delivery) {
-        for (String calendarId : recall.updatedCalendars(delivery)) {
-            if (mailboxes.findByRecallCalendarId(calendarId).isEmpty()) {
+        for (RecallWebhookNotice notice : recall.notices(delivery)) {
+            if (mailboxes.findByRecallCalendarId(notice.calendarId()).isEmpty()) {
                 continue;
             }
-            if (recall.status(calendarId) == RecallCalendarStatus.DISCONNECTED) {
-                transactions.executeWithoutResult(status -> mailboxes.findByRecallCalendarId(calendarId)
-                        .forEach(mailbox -> {
-                            mailbox.markAccessWithdrawn();
-                            mailbox.releaseRecallCalendar();
-                            log.info("Recall lost access to the calendar of mailbox {}; it needs reconnecting",
-                                    mailbox.getId());
-                        }));
-                deleteQuietly(calendarId);
+            switch (notice) {
+                case RecallWebhookNotice.CalendarStateChanged changed -> checkAccess(changed.calendarId());
+                case RecallWebhookNotice.CalendarEventsChanged changed ->
+                        syncEvents(changed.calendarId(), recall.eventsUpdatedSince(changed.calendarId(),
+                                changed.since()));
             }
         }
+    }
+
+    private void checkAccess(String calendarId) {
+        if (recall.status(calendarId) == RecallCalendarStatus.DISCONNECTED) {
+            transactions.executeWithoutResult(status -> mailboxes.findByRecallCalendarId(calendarId)
+                    .forEach(mailbox -> {
+                        mailbox.markAccessWithdrawn();
+                        mailbox.releaseRecallCalendar();
+                        log.info("Recall lost access to the calendar of mailbox {}; it needs reconnecting",
+                                mailbox.getId());
+                    }));
+            deleteQuietly(calendarId);
+        }
+    }
+
+    /** A moved event is kept again; a deleted one, or one that stopped being a call, goes. */
+    private void syncEvents(String calendarId, List<RecallCalendarEvent> changed) {
+        List<CalendarEvent> kept = new ArrayList<>();
+        List<String> gone = new ArrayList<>();
+        for (RecallCalendarEvent event : changed) {
+            CalendarEvent read = RecallEventReading.eventOf(event);
+            if (read != null) {
+                kept.add(read);
+            } else {
+                String key = RecallEventReading.keyOf(event);
+                if (key != null) {
+                    gone.add(key);
+                }
+            }
+        }
+        transactions.executeWithoutResult(status -> mailboxes.findByRecallCalendarId(calendarId).stream()
+                .filter(MailboxConnection::canSend)
+                .forEach(mailbox -> {
+                    meetings.applyAll(mailbox, kept);
+                    gone.forEach(eventId -> meetings.remove(mailbox, eventId));
+                }));
     }
 
     /**

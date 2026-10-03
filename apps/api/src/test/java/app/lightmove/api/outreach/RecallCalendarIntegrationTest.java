@@ -14,10 +14,14 @@ import app.lightmove.api.RecordingProviderTokenClient;
 import app.lightmove.api.RecordingRecallCalendarApi;
 import app.lightmove.api.outreach.model.GrantedMailbox;
 import app.lightmove.api.outreach.model.MailboxGrants;
+import app.lightmove.api.outreach.model.RecallCalendarEvent;
 import app.lightmove.api.outreach.model.RecallCalendarSpec;
 import app.lightmove.api.outreach.service.OutreachDispatcher;
 import jakarta.servlet.http.Cookie;
 import java.net.URI;
+import java.time.Duration;
+import java.time.Instant;
+import java.time.temporal.ChronoUnit;
 import java.util.List;
 import java.util.Map;
 import org.junit.jupiter.api.BeforeEach;
@@ -28,17 +32,20 @@ import org.springframework.http.MediaType;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.web.servlet.MvcResult;
 import org.springframework.web.util.UriComponentsBuilder;
+import tools.jackson.databind.JsonNode;
+import tools.jackson.databind.json.JsonMapper;
 
 /**
  * A direct mailbox's Recall calendar, through every turn of its life: made on connect, handed the new token on a
  * reconnect, deleted on a disconnect, a workspace switch to DIRECT and a Recall-reported disconnection — and the
- * refresh token kept only as ciphertext throughout.
+ * refresh token kept only as ciphertext throughout. Recall's event syncs keep meetings with mapped people current.
  */
 @IntegrationTest
 class RecallCalendarIntegrationTest extends FlowTestSupport {
 
     private static final String MAILBOX = "/api/v1/outreach/mailbox";
     private static final String ADDRESS = "consultant@firm.example";
+    private static final JsonMapper JSON = JsonMapper.builder().build();
 
     @Autowired private RecordingMailboxGateway gateway;
     @Autowired private RecordingRecallCalendarApi recall;
@@ -157,6 +164,49 @@ class RecallCalendarIntegrationTest extends FlowTestSupport {
     }
 
     @Test
+    @DisplayName("Recall's event sync keeps a meeting with a mapped person, follows its move, and drops it when deleted")
+    void eventSyncKeepsMeetingsWithMappedPeople() throws Exception {
+        String projectId = mandate();
+        String priya = executive(projectId, "Priya Raman", "priya@" + domain);
+        connectDirect("refresh-token-1");
+        String calendarId = recallCalendarId();
+        Instant start = Instant.now().truncatedTo(ChronoUnit.SECONDS).plus(Duration.ofDays(2));
+
+        syncEvents(calendarId, googleEvent("evt-dentist", "Dentist", start, false, "front-desk@clinic.example"),
+                googleEvent("evt-call", "First conversation", start, false, "Priya@" + domain));
+        JsonNode upcoming = meetingsOf(projectId, priya).get("upcoming");
+        assertThat(upcoming).hasSize(1);
+        assertThat(upcoming.get(0).get("title").asText()).isEqualTo("First conversation");
+        assertThat(meetingEventIds()).containsExactly("evt-call");
+
+        Instant moved = start.plus(Duration.ofHours(1));
+        syncEvents(calendarId, googleEvent("evt-call", "First conversation", moved, false, "priya@" + domain));
+        upcoming = meetingsOf(projectId, priya).get("upcoming");
+        assertThat(Instant.parse(upcoming.get(0).get("startsAt").asText())).isEqualTo(moved);
+
+        syncEvents(calendarId, googleEvent("evt-call", "First conversation", moved, true, "priya@" + domain));
+        assertThat(meetingEventIds()).isEmpty();
+    }
+
+    @Test
+    @DisplayName("an event sync for a calendar no mailbox holds writes nothing, and a forged one is refused")
+    void eventSyncForAnUnknownCalendarWritesNothing() throws Exception {
+        String projectId = mandate();
+        executive(projectId, "Priya Raman", "priya@" + domain);
+        connectDirect("refresh-token-1");
+        Instant start = Instant.now().truncatedTo(ChronoUnit.SECONDS).plus(Duration.ofDays(2));
+        recall.deliverEventsSync("recall-calendar-unknown",
+                List.of(googleEvent("evt-call", "First conversation", start, false, "priya@" + domain)));
+
+        mvc.perform(post("/api/v1/outreach/webhooks/recall").header("webhook-signature", "v1,forged")
+                        .contentType(MediaType.APPLICATION_JSON).content("{}"))
+                .andExpect(status().isUnauthorized());
+        recallWebhook();
+
+        assertThat(meetingEventIds()).isEmpty();
+    }
+
+    @Test
     @DisplayName("a calendar Recall could not make at connect is made by the next poll; the connect still succeeds")
     void aFailedCreateIsMadeByThePoll() throws Exception {
         recall.failCreates(true);
@@ -229,6 +279,66 @@ class RecallCalendarIntegrationTest extends FlowTestSupport {
         assertThat(row.get("gateway")).isEqualTo("NYLAS");
         assertThat(row.get("refresh_token_encrypted")).isNull();
         assertThat(recall.createdSpecs()).isEmpty();
+    }
+
+    private void syncEvents(String calendarId, RecallCalendarEvent... events) throws Exception {
+        recall.deliverEventsSync(calendarId, List.of(events));
+        recallWebhook();
+    }
+
+    private void recallWebhook() throws Exception {
+        mvc.perform(post("/api/v1/outreach/webhooks/recall")
+                        .header("webhook-signature", RecordingRecallCalendarApi.VALID_SIGNATURE)
+                        .contentType(MediaType.APPLICATION_JSON).content("{}"))
+                .andExpect(status().isOk());
+    }
+
+    /** Google's event as Recall lists it: the provider's own JSON under {@code raw}. */
+    private static RecallCalendarEvent googleEvent(String id, String title, Instant start, boolean deleted,
+                                                   String attendee) {
+        JsonNode raw = JSON.readTree("""
+                {"id":"%s","status":"confirmed","summary":"%s",
+                 "start":{"dateTime":"%s"},"end":{"dateTime":"%s"},
+                 "organizer":{"email":"%s"},"attendees":[{"email":"%s"},{"email":"%s"}]}
+                """.formatted(id, title, start, start.plus(Duration.ofMinutes(30)), ADDRESS, ADDRESS, attendee));
+        return new RecallCalendarEvent("google_calendar", id, id + "@google.com", raw, deleted);
+    }
+
+    private List<String> meetingEventIds() {
+        return jdbc.queryForList("select provider_event_id from app_lm_person_meeting where workspace_id = ?::uuid",
+                String.class, workspaceId);
+    }
+
+    private JsonNode meetingsOf(String projectId, String candidateId) throws Exception {
+        return body(mvc.perform(get("/api/v1/projects/" + projectId + "/outreach/candidates/" + candidateId
+                        + "/meetings").header("Authorization", "Bearer " + consultant))
+                .andExpect(status().isOk())
+                .andReturn());
+    }
+
+    private String executive(String projectId, String fullName, String emailAddress) throws Exception {
+        String slug = fullName.toLowerCase().replace(' ', '-') + "-" + System.nanoTime();
+        return body(mvc.perform(post("/api/v1/projects/" + projectId + "/candidates")
+                        .header("Authorization", "Bearer " + consultant)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"fullName":"%s","title":"Chief Financial Officer","employerName":"Target Group",
+                                 "linkedinUrl":"https://www.linkedin.com/in/%s","email":"%s"}
+                                """.formatted(fullName, slug, emailAddress)))
+                .andExpect(status().isCreated())
+                .andReturn()).get("id").asText();
+    }
+
+    private String mandate() throws Exception {
+        String clientId = body(mvc.perform(post("/api/v1/clients").header("Authorization", "Bearer " + consultant)
+                        .contentType(MediaType.APPLICATION_JSON).content("{\"customName\":\"Acme Holdings\"}"))
+                .andExpect(status().isCreated())
+                .andReturn()).get("id").asText();
+        return body(mvc.perform(post("/api/v1/projects").header("Authorization", "Bearer " + consultant)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"clientId\":\"%s\",\"positionTitle\":\"Group CFO\"}".formatted(clientId)))
+                .andExpect(status().isCreated())
+                .andReturn()).get("id").asText();
     }
 
     private void connectDirect(String refreshToken) throws Exception {
