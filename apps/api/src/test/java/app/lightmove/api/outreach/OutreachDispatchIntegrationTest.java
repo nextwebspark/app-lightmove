@@ -270,6 +270,21 @@ class OutreachDispatchIntegrationTest extends FlowTestSupport {
     }
 
     @Test
+    @DisplayName("Exchange Online's non-delivery report, found by the poll, is a bounce, not a reply")
+    void anExchangeNonDeliveryReportIsABounce() throws Exception {
+        String priya = executive("Priya Raman", "priya@" + domain);
+        start(createSequence("First approach"), priya, "priya@" + domain, null);
+        dispatcher.dispatchAt(monday);
+
+        gateway.writeInto((String) enrollmentOf(priya).get("thread_id"),
+                "MicrosoftExchange329e71ec88ae4615bbc36ab6ce41109e@meridian.example");
+        inbox.pollListeningThreads(monday.plus(Duration.ofHours(1)));
+
+        assertThat(enrollmentOf(priya).get("status")).isEqualTo("BOUNCED");
+        assertThat(activityKinds(priya)).doesNotContain("EMAIL_REPLIED");
+    }
+
+    @Test
     @DisplayName("the poll finds a reply no webhook delivered")
     void thePollFindsAMissedReply() throws Exception {
         String priya = executive("Priya Raman", "priya@" + domain);

@@ -40,8 +40,12 @@ import org.springframework.transaction.support.TransactionTemplate;
 @Slf4j
 public class OutreachInboxService {
 
-    /** Who answers for a mail server that could not deliver: their message in the thread is a bounce, not a reply. */
-    private static final Set<String> DELIVERY_DAEMONS = Set.of("mailer-daemon", "postmaster");
+    /**
+     * Who answers for a mail server that could not deliver: their message in the thread is a bounce, not a reply.
+     * Exchange Online sends its non-delivery reports from this fixed system mailbox, never from postmaster.
+     */
+    private static final Set<String> DELIVERY_DAEMONS = Set.of("mailer-daemon", "postmaster",
+            "microsoftexchange329e71ec88ae4615bbc36ab6ce41109e");
 
     private final MailboxGateway gateway;
     private final MailboxConnectionRepository mailboxes;
