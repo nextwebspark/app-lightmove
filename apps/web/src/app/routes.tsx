@@ -19,7 +19,6 @@ import { VerifyEmailPage } from "../features/auth/pages/VerifyEmailPage";
 import { WorkspaceStepPage } from "../features/auth/pages/WorkspaceStepPage";
 import { isPureClient } from "../features/auth/roles";
 import { CandidatesPage } from "../features/candidates/pages/CandidatesPage";
-import { ProjectCandidatesPage } from "../features/candidates/pages/ProjectCandidatesPage";
 import { ClientsPage } from "../features/clients/pages/ClientsPage";
 import { ExtensionConnectPage } from "../features/extension/pages/ExtensionConnectPage";
 import { MAILBOX_CALLBACK_PATH } from "../features/outreach/lib/mailboxPopup";
@@ -128,7 +127,10 @@ export function AppRoutes() {
           path="/projects/:projectId/triage"
           element={<Navigate to="../companies/universe" replace relative="path" />}
         />
-        <Route path="/projects/:projectId/candidates" element={<ProjectCandidatesPage />} />
+        <Route
+          path="/projects/:projectId/candidates"
+          element={<Navigate to="../companies/universe" replace relative="path" />}
+        />
         <Route path="/projects/:projectId/outreach" element={<OutreachPage />} />
         <Route
           path="/projects/:projectId/outreach/sequences/:sequenceId"

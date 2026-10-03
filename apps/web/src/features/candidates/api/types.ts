@@ -460,28 +460,6 @@ export interface MapToPositionResult {
   alreadyIn: number;
 }
 
-
-/** One page of the position's Candidates page; `statusCounts` counts the search without the status filter. */
-export interface CandidatePipelinePage {
-  candidates: Candidate[];
-  statusCounts: Partial<Record<CandidateStatus, number>>;
-  totalCount: number;
-  page: number;
-  size: number;
-}
-
-/** The staff columns beside one row of the position's Candidates page. Never read by a client seat. */
-export interface CandidatePipelineStaffRow {
-  candidateId: string;
-  tagIds: string[];
-  /** The person's other positions, newest first. */
-  alsoIn: PersonPosition[];
-  addedByUserId: string;
-  addedByName: string | null;
-  doNotContact: DoNotContact | null;
-  lastActivity: PersonTimelineEntry | null;
-}
-
 /** What a person's document is; the server's `PersonDocumentCategory` tokens. */
 export type PersonDocumentCategory = "cv" | "cover_letter" | "reference" | "certificate" | "assessment" | "other";
 
