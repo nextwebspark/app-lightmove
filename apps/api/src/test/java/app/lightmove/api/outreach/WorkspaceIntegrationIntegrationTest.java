@@ -17,6 +17,7 @@ import app.lightmove.api.outreach.constant.CredentialMode;
 import app.lightmove.api.outreach.constant.IntegrationProvider;
 import app.lightmove.api.outreach.model.ProviderCredentials;
 import app.lightmove.api.outreach.model.WorkspaceMailIntegration;
+import app.lightmove.api.outreach.repository.WorkspaceMailIntegrationRepository;
 import app.lightmove.api.outreach.service.IntegrationSecretExpiryWarnings;
 import app.lightmove.api.outreach.service.ProviderCredentialsResolver;
 import java.time.LocalDate;
@@ -42,6 +43,7 @@ class WorkspaceIntegrationIntegrationTest extends FlowTestSupport {
     @Autowired ProviderCredentialsResolver resolver;
     @Autowired IntegrationSecretExpiryWarnings expiryWarnings;
     @Autowired RecordingEmailSender emails;
+    @Autowired WorkspaceMailIntegrationRepository integrations;
 
     @Test
     @DisplayName("every provider starts on the shared app, offered where this deployment has one")
@@ -287,6 +289,10 @@ class WorkspaceIntegrationIntegrationTest extends FlowTestSupport {
         expiryWarnings.warnAt(LocalDate.parse("2031-02-21"));
         assertThat(expiryWarningsTo(adminEmail))
                 .containsExactly("Your Microsoft 365 app's client secret expires on 15 March 2031");
+        UUID integrationId = UUID.fromString(jdbc.queryForObject("SELECT id::text FROM app_lm_workspace_mail_integration "
+                + "WHERE workspace_id = ?::uuid AND provider = 'MICROSOFT'", String.class, workspaceOf(admin)));
+        assertThat(integrations.claimExpiryWarning(integrationId, LocalDate.parse("2031-03-15"), 30))
+                .as("a second instance finds the warning already claimed").isZero();
 
         expiryWarnings.warnAt(LocalDate.parse("2031-03-10"));
         expiryWarnings.warnAt(LocalDate.parse("2031-03-16"));

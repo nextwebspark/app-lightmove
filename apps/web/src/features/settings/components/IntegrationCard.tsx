@@ -4,7 +4,7 @@ import { Button, Modal, SegmentedControl, useToast, type SegmentedOption } from 
 import { GoogleMark, MicrosoftMark, ZoomMark } from "../../../components/ui/BrandMarks";
 import { cn } from "../../../lib/cn";
 import { messageFor } from "../../../lib/errorCodes";
-import { formatDate, formatInstantDate } from "../../../lib/format";
+import { daysUntil, formatDate, formatInstantDate } from "../../../lib/format";
 import * as integrationsApi from "../api/integrationsApi";
 import type { CredentialMode, IntegrationProvider, WorkspaceIntegration } from "../api/types";
 import type { OwnAppValues } from "../lib/ownAppSchema";
@@ -167,7 +167,7 @@ function SecretExpiryNotice({ expiresOn }: { expiresOn: string }) {
   if (daysLeft > EXPIRY_WARNING_DAYS) {
     return null;
   }
-  const expired = daysLeft <= 0;
+  const expired = daysLeft < 0;
   return (
     <p
       role="status"
@@ -179,19 +179,15 @@ function SecretExpiryNotice({ expiresOn }: { expiresOn: string }) {
       <b className={expired ? "text-u-offlimits" : "text-u-signal"}>
         {expired
           ? `The client secret expired on ${formatDate(expiresOn)}.`
-          : `The client secret expires on ${formatDate(expiresOn)}, in ${daysLeft === 1 ? "1 day" : `${daysLeft} days`}.`}
+          : daysLeft === 0
+            ? "The client secret expires today."
+            : `The client secret expires on ${formatDate(expiresOn)}, in ${daysLeft === 1 ? "1 day" : `${daysLeft} days`}.`}
       </b>{" "}
       {expired
         ? "Mail, calendars and links through this app stop until a new secret is saved below."
         : "Create a new one in the provider's console and save it below with its expiry date."}
     </p>
   );
-}
-
-function daysUntil(isoDate: string): number {
-  const today = new Date();
-  const startOfToday = new Date(today.getFullYear(), today.getMonth(), today.getDate());
-  return Math.round((new Date(`${isoDate}T00:00:00`).getTime() - startOfToday.getTime()) / 86_400_000);
 }
 
 function SharedAppDetails({ integration, setup }: { integration: WorkspaceIntegration; setup: string }) {

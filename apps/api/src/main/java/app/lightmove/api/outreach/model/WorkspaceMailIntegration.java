@@ -142,9 +142,6 @@ public class WorkspaceMailIntegration extends BaseEntity {
                 .findFirst();
     }
 
-    public void recordExpiryWarning(int threshold) {
-        this.secretExpiryWarnedDays = threshold;
-    }
 
     /** Kept whatever the mode: the approval is the shared app's, and a return to it finds it still in place. */
     public void recordAdminConsent(String tenantId, UUID actorId, Instant now) {

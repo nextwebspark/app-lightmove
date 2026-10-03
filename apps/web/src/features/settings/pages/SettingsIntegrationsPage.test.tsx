@@ -2,7 +2,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router-dom";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { ToastProvider } from "../../../components/ui";
 import { ApiRequestError } from "../../../lib/apiClient";
 import type { WorkspaceDetail } from "../../workspace/api/types";
@@ -93,6 +93,10 @@ function isoDateIn(days: number): string {
 }
 
 describe("SettingsIntegrationsPage", () => {
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
   beforeEach(() => {
     vi.resetAllMocks();
     vi.mocked(integrationsApi.integrations).mockResolvedValue(allShared);
@@ -231,7 +235,6 @@ describe("SettingsIntegrationsPage", () => {
 
     await card("Google Workspace");
     expect(screen.queryByRole("status")).not.toBeInTheDocument();
-    vi.useRealTimers();
   });
 
   it("confirms before returning a saved own app to the shared one, which discards its keys", async () => {

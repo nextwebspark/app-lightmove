@@ -494,7 +494,8 @@ read it. A direct mailbox has no booking page behind its link, so a send that wo
 **An own app's secret expiry (#650, V111)**: `IntegrationSecretExpiryWarnings` runs daily
 (`lightmove.outreach.secret-expiry-check`, a UTC cron) and emails whoever holds `WORKSPACE_MANAGE` 30 and 7 days
 before an own app's `secret_expires_on` and on the day it lapses — each threshold once per expiry date
-(`secret_expiry_warned_days`, cleared when the date changes or the workspace returns to the shared app) — and the
+(`secret_expiry_warned_days`, claimed by a conditional update committed before any email goes, so of two instances
+only one sends, and cleared when the date changes or the workspace returns to the shared app) — and the
 provider's card in Settings → Integrations says the same from 30 days out.
 **Registering the shared apps (#649)** is `docs/integrations/registration.md` — every console value, the Secret
 Manager names and the `deploy.yml` switches (`GOOGLE_MAIL_ENABLED`, `MICROSOFT_MAIL_ENABLED`, `ZOOM_ENABLED`,
