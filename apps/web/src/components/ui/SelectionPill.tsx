@@ -1,5 +1,5 @@
-import { Icon, ICONS } from "../../../components/layout/Icon";
-import { cn } from "../../../lib/cn";
+import { Icon, ICONS } from "../layout/Icon";
+import { cn } from "../../lib/cn";
 
 type PillTone = "accent" | "offlimits";
 

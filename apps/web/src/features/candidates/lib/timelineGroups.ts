@@ -5,6 +5,7 @@ export const TIMELINE_GROUPS: { value: TimelineGroup | ""; label: string }[] = [
   { value: "", label: "Everything" },
   { value: "positions", label: "Positions & status" },
   { value: "notes", label: "Notes" },
+  { value: "documents", label: "Documents" },
   { value: "contacts", label: "Contacts" },
   { value: "profile", label: "Profile & AI" },
   { value: "tags", label: "Tags & owner" },

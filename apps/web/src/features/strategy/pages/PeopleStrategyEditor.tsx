@@ -9,6 +9,7 @@ import {
 import type { RowSelectionState } from "@tanstack/react-table";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { Icon, ICONS } from "../../../components/layout/Icon";
+import { FilterRailToggle } from "../../../components/ui/FilterRail";
 import { EmptyState, FullscreenButton } from "../../../components/ui";
 import { SegmentedControl } from "../../../components/ui/SegmentedControl";
 import { SelectionAction, SelectionActionBar } from "../../../components/ui/SelectionActionBar";
@@ -313,15 +314,7 @@ export function PeopleStrategyEditor({
           onDelete={(searchId) => deleteSearch.mutate(searchId)}
           saving={saveSearch.isPending}
         />
-        <button
-          type="button"
-          onClick={() => setShowFilters((shown) => !shown)}
-          aria-expanded={showFilters}
-          className="inline-flex items-center gap-1.5 whitespace-nowrap rounded-[6px] p-2 text-note text-u-text3 transition hover:bg-u-surface hover:text-u-text"
-        >
-          <Icon d="M3 4h18l-7 8v6l-4 2v-8L3 4Z" size={14} className="flex-none" />
-          {showFilters ? "Hide Filters" : "Show Filters"}
-        </button>
+        <FilterRailToggle open={showFilters} onToggle={() => setShowFilters((shown) => !shown)} />
         <SegmentedControl
           label="View"
           options={VIEW_OPTIONS}
@@ -338,20 +331,17 @@ export function PeopleStrategyEditor({
 
       <div className="flex min-h-0 flex-1">
         {showFilters && (
-          <>
-            <div className="fixed inset-0 z-[90] bg-u-scrim lg:hidden" onClick={() => setShowFilters(false)} />
-            <PeopleFilterSidebar
-              facets={facets.data}
-              facetsError={facets.isError}
-              filter={filter}
-              count={count.data}
-              countPending={count.isFetching || autosave.status === "saving"}
-              onChange={applyFilter}
-              onSearch={() => void handleSearch()}
-              searching={results.isFetching && !results.isFetchingNextPage}
-              onClose={() => setShowFilters(false)}
-            />
-          </>
+          <PeopleFilterSidebar
+            facets={facets.data}
+            facetsError={facets.isError}
+            filter={filter}
+            count={count.data}
+            countPending={count.isFetching || autosave.status === "saving"}
+            onChange={applyFilter}
+            onSearch={() => void handleSearch()}
+            searching={results.isFetching && !results.isFetchingNextPage}
+            onClose={() => setShowFilters(false)}
+          />
         )}
 
         <div className="flex min-w-0 flex-1 flex-col gap-3 p-2">

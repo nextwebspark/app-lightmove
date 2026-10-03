@@ -1,14 +1,21 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useCallback, useState } from "react";
 import { Icon, ICONS } from "../../../../components/layout/Icon";
-import { Drawer, DrawerCloseButton } from "../../../../components/ui/Drawer";
+import { Drawer } from "../../../../components/ui/Drawer";
+import { PanelCloseButton } from "../../../../components/ui/PanelCloseButton";
 import { Button, Select, useToast } from "../../../../components/ui";
 import { TabList } from "../../../../components/ui/TabList";
 import { tabPanelProps } from "../../../../components/ui/tabPanelProps";
 import { cn } from "../../../../lib/cn";
 import { messageFor } from "../../../../lib/errorCodes";
 import * as poolApi from "../../api/poolApi";
-import type { PersonRecord } from "../../api/types";
+import type { DocumentScope } from "../../api/documentsApi";
+import type { PersonDocument, PersonDocumentVersion, PersonRecord } from "../../api/types";
+import { usePersonDocuments } from "../../lib/usePersonDocuments";
 import { usePoolLookups } from "../../lib/usePoolLookups";
+import { DocumentPreviewSheet, type PreviewTarget } from "../documents/DocumentPreviewSheet";
+import { DocumentsPanel } from "../documents/DocumentsPanel";
+import { PrimaryCvChip } from "../documents/PrimaryCvChip";
 import { HeaderProfileLink } from "../ProfileParts";
 import { PersonAvatar } from "./PersonAvatar";
 import { PersonNotesTab } from "./PersonNotesTab";
@@ -17,11 +24,12 @@ import { PersonTimelineTab } from "./PersonTimelineTab";
 import { TagPicker } from "./TagPicker";
 import { TagPill } from "./TagPill";
 
-export type PersonDrawerTab = "profile" | "notes" | "timeline";
+export type PersonDrawerTab = "profile" | "notes" | "documents" | "timeline";
 
 const TABS: { value: PersonDrawerTab; label: string }[] = [
   { value: "profile", label: "Profile" },
   { value: "notes", label: "Notes" },
+  { value: "documents", label: "Documents" },
   { value: "timeline", label: "Timeline" },
 ];
 
@@ -54,12 +62,12 @@ export function PersonDrawer({
       <div className="flex h-full flex-col">
         {record.isError ? (
           <div className="relative p-5">
-            <DrawerCloseButton onClose={onClose} />
+            <PanelCloseButton onClose={onClose} />
             <p className="mt-6 text-[13px] text-u-text3">{messageFor(record.error)}</p>
           </div>
         ) : !record.data ? (
           <div className="relative p-5">
-            <DrawerCloseButton onClose={onClose} />
+            <PanelCloseButton onClose={onClose} />
             <p className="mt-6 text-[13px] text-u-text3">Loading…</p>
           </div>
         ) : (
@@ -88,6 +96,16 @@ function PersonDrawerBody({
     queryKey: poolApi.POOL_NOTES_KEY(person.personId),
     queryFn: ({ signal }) => poolApi.getPoolNotes(person.personId, signal),
   });
+  const documentScope: DocumentScope = { kind: "person", personId: person.personId };
+  const documents = usePersonDocuments(documentScope);
+  const [preview, setPreview] = useState<PreviewTarget | null>(null);
+  const openPreview = (document: PersonDocument, version: PersonDocumentVersion) =>
+    setPreview({ documentId: document.id, versionId: version.id });
+  const closePreview = useCallback(() => setPreview(null), []);
+  const tabCounts: Partial<Record<PersonDrawerTab, number>> = {
+    notes: notes.data?.length ?? 0,
+    documents: documents.documents.data?.length ?? 0,
+  };
 
   const changed = (updated: PersonRecord) => {
     queryClient.setQueryData(poolApi.PERSON_RECORD_KEY(updated.personId), updated);
@@ -134,7 +152,7 @@ function PersonDrawerBody({
             <p className="truncate font-mono text-[11.5px] text-u-text3">{context || "No employer or location recorded"}</p>
           </div>
         </div>
-        <DrawerCloseButton onClose={onClose} />
+        <PanelCloseButton onClose={onClose} />
 
         <div className="mt-3 flex flex-wrap items-center gap-2">
           {person.seniority && (
@@ -179,6 +197,7 @@ function PersonDrawerBody({
             <Icon d={ICONS.ban} size={12} />
             Do not contact
           </button>
+          <PrimaryCvChip documents={documents} onPreview={openPreview} />
         </div>
 
         {doNotContact && (
@@ -217,7 +236,7 @@ function PersonDrawerBody({
           onChange={onTabChange}
           tabs={TABS.map((option) => ({
             ...option,
-            count: option.value === "notes" ? (notes.data?.length ?? 0) : undefined,
+            count: tabCounts[option.value],
           }))}
         />
       </header>
@@ -225,6 +244,14 @@ function PersonDrawerBody({
       <div className="min-h-0 flex-1 overflow-y-auto px-5 py-4" {...tabPanelProps("person-drawer", tab)}>
         {tab === "profile" && <PersonProfileTab person={person} />}
         {tab === "notes" && <PersonNotesTab person={person} notes={notes} />}
+        {tab === "documents" && (
+          <DocumentsPanel
+            scope={documentScope}
+            documents={documents}
+            personName={person.fullName.split(" ")[0]}
+            onPreview={openPreview}
+          />
+        )}
         {tab === "timeline" && <PersonTimelineTab personId={person.personId} />}
       </div>
 
@@ -233,6 +260,14 @@ function PersonDrawerBody({
           Close
         </Button>
       </footer>
+
+      <DocumentPreviewSheet
+        scope={documentScope}
+        documents={documents}
+        target={preview}
+        onTargetChange={setPreview}
+        onClose={closePreview}
+      />
     </>
   );
 }

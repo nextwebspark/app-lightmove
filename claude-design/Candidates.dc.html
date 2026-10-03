@@ -118,32 +118,86 @@
     </nav>
 
     <main style="flex:1;min-width:0;overflow-y:auto;border-radius:10px;border:1px solid var(--line);background:var(--panel)">
-      <div style="max-width:1440px;margin:0 auto;padding:28px 28px 96px">
+      <div style="display:flex;flex-direction:column;height:100%">
 
-        <div data-screen-label="Page header" style="margin-bottom:14px;display:flex;flex-wrap:wrap;align-items:flex-start;gap:16px">
-          <div style="min-width:0">
-            <div style="font:600 19px/1.25 var(--sans)">Candidates</div>
-            <div style="margin-top:4px;font:400 12px var(--mono);color:var(--text3)">{{ pageSub }}</div>
-          </div>
-          <sc-if value="{{ showExport }}" hint-placeholder-val="{{ true }}">
-            <div style="margin-left:auto;display:flex;gap:8px">
-              <button onClick="{{ exportView }}" title="Download every person this view shows as a CSV — recorded in the audit trail" style="display:inline-flex;align-items:center;gap:8px;border-radius:8px;padding:7px 12px;font:500 13px var(--sans);background:var(--panel);border:1px solid var(--line);color:var(--text2);cursor:pointer" style-hover="color:var(--text);border-color:var(--text3)">
+        <sc-if value="{{ isPeople }}" hint-placeholder-val="{{ true }}">
+          <div data-screen-label="Toolbar" style="display:flex;min-height:44px;flex:none;flex-wrap:wrap;align-items:center;column-gap:14px;row-gap:8px;border-bottom:1px solid var(--line);background:var(--panel2);padding:6px 20px">
+              <div role="radiogroup" aria-label="Candidates view" style="display:inline-flex;border-radius:7px;border:1px solid var(--line);background:var(--panel);padding:2px">
+                <sc-for list="{{ viewModes }}" as="vm" hint-placeholder-count="2">
+                  <a href="{{ vm.href }}" role="radio" aria-checked="{{ vm.on }}" style="{{ vm.style }};text-decoration:none">{{ vm.label }}</a>
+                </sc-for>
+              </div>
+            <button onClick="{{ toggleFilters }}" aria-expanded="{{ filtersOpen }}" style="display:inline-flex;align-items:center;gap:6px;white-space:nowrap;border-radius:6px;padding:8px;font:400 13px var(--sans);color:var(--text3);background:none;border:none;cursor:pointer" style-hover="background:var(--panel);color:var(--text)">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 4h18l-7 8v6l-4 2v-8L3 4Z"></path></svg>
+              {{ filterBtnLabel }}
+              <sc-if value="{{ hasActiveFilters }}" hint-placeholder-val="{{ false }}"><span style="border-radius:4px;background:var(--sky-dim);padding:2px 5px;font:700 10px var(--sans);color:var(--sky)">{{ activeFilterCount }}</span></sc-if>
+            </button>
+            <div style="display:flex;width:260px;max-width:100%;align-items:center;gap:8px;border-radius:6px;border:1px solid var(--line);background:var(--panel);padding:6px 10px">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color:var(--text3);flex:none"><path d="{{ ic.search }}"></path></svg>
+              <input value="{{ q }}" onChange="{{ onSearch }}" placeholder="Search name, title, company or email…" aria-label="Search candidates" style="width:100%;background:transparent;border:none;font:400 13px var(--sans);color:var(--text);outline:none">
+            </div>
+            <div style="display:flex;flex-wrap:wrap;gap:6px">
+              <sc-for list="{{ quickViews }}" as="c" hint-placeholder-count="5">
+                <button onClick="{{ setQuick }}" data-id="{{ c.key }}" style="display:inline-flex;align-items:center;gap:6px;border-radius:999px;border:1px solid {{ c.border }};padding:4px 10px;font:500 12px var(--sans);color:{{ c.color }};background:{{ c.bg }};cursor:pointer" style-hover="color:var(--text)">{{ c.label }}<span style="font:500 11px var(--sans);color:var(--text3)">{{ c.count }}</span></button>
+              </sc-for>
+            </div>
+            <div style="margin-left:auto;display:flex;align-items:center;gap:12px">
+              <span style="font:400 11.5px var(--sans);color:var(--text3)">{{ resultLine }}</span>
+              <button onClick="{{ exportView }}" title="Download every person this view shows as a CSV — recorded in the audit trail" style="display:inline-flex;align-items:center;gap:8px;border-radius:8px;padding:6px 12px;font:500 13px var(--sans);background:var(--panel);border:1px solid var(--line);color:var(--text2);cursor:pointer" style-hover="color:var(--text);border-color:var(--text3)">
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="{{ ic.importInto }}"></path></svg>
                 Export
               </button>
             </div>
-          </sc-if>
-        </div>
+          </div>
 
-        <div role="tablist" aria-label="Candidates views" style="margin-bottom:18px;display:flex;gap:4px;border-bottom:1px solid var(--line-soft)">
-          <sc-for list="{{ viewTabs }}" as="vt" hint-placeholder-count="2">
-            <a href="{{ vt.href }}" role="tab" aria-selected="{{ vt.selected }}" style="{{ vt.style }}">
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex:none"><path d="{{ vt.icon }}"></path></svg>
-              {{ vt.label }}
-            </a>
-          </sc-for>
-        </div>
+          <div style="display:flex;min-height:0;flex:1">
+            <!-- Hidden until asked for, at every width: most visits here are a search or a quick view. -->
+            <sc-if value="{{ filtersOpen }}" hint-placeholder-val="{{ true }}">
+              <div data-screen-label="Filter rail" role="region" aria-label="Filters" style="display:flex;flex-direction:column;width:21%;min-width:280px;max-width:330px;flex:none;border-right:1px solid var(--line);background:var(--panel)">
+                <div style="border-bottom:1px solid var(--line);padding:12px 16px">
+                  <div style="font:600 10px var(--mono);text-transform:uppercase;letter-spacing:.12em;color:var(--text3)">People match</div>
+                  <div style="margin-top:2px;font:600 19px var(--sans);color:var(--text)">{{ railShown }}<span style="margin-left:6px;font:500 13px var(--sans);color:var(--text3)">of {{ railPool }}</span></div>
+                </div>
+                <div style="min-height:0;flex:1;overflow-y:auto">
+                  <sc-for list="{{ railSections }}" as="rs" hint-placeholder-count="5">
+                    <div>
+                      <button onClick="{{ toggleRailSection }}" data-id="{{ rs.key }}" aria-expanded="{{ rs.open }}" style="display:flex;min-height:52px;width:100%;align-items:center;gap:8px;padding:12px 16px;text-align:left;background:none;border:none;border-bottom:1px solid var(--line-soft);cursor:pointer" style-hover="background:var(--panel2)">
+                        <span style="font:{{ rs.weight }} 13px var(--sans);color:var(--text)">{{ rs.label }}</span>
+                        <span style="margin-left:auto;display:flex;align-items:center;gap:8px">
+                          <sc-if value="{{ rs.hasSummary }}"><span style="border-radius:999px;border:1px solid var(--line);padding:2px 8px;font:600 11px var(--sans);color:var(--text2)">{{ rs.summary }}</span></sc-if>
+                          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color:var(--text3)"><path d="{{ rs.chevron }}"></path></svg>
+                        </span>
+                      </button>
+                      <sc-if value="{{ rs.open }}">
+                        <div style="border-bottom:1px solid var(--line-soft);padding:12px 16px">
+                          <sc-if value="{{ rs.isTags }}">
+                            <div role="radiogroup" aria-label="Match tags" style="margin-bottom:10px;display:inline-flex;border-radius:7px;border:1px solid var(--line);background:var(--panel2);padding:2px">
+                              <sc-for list="{{ tagModes }}" as="tm" hint-placeholder-count="3">
+                                <button onClick="{{ setTagMode }}" data-id="{{ tm.key }}" role="radio" aria-checked="{{ tm.on }}" style="{{ tm.style }}">{{ tm.label }}</button>
+                              </sc-for>
+                            </div>
+                          </sc-if>
+                          <sc-for list="{{ rs.rows }}" as="rr" hint-placeholder-count="4">
+                            <button onClick="{{ pickRailRow }}" data-id="{{ rr.id }}" role="checkbox" aria-checked="{{ rr.on }}" style="display:flex;width:100%;align-items:center;justify-content:space-between;border-radius:5px;padding:5px 4px;background:none;border:none;cursor:pointer" style-hover="background:var(--panel2)">
+                              <span style="display:flex;align-items:center;gap:10px">
+                                <span style="display:grid;place-items:center;width:16px;height:16px;flex:none;border-radius:4px;box-shadow:inset 0 0 0 1.5px {{ rr.boxColor }};background:{{ rr.boxBg }}"><svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.2" style="color:var(--on-amber);opacity:{{ rr.tick }}"><path d="{{ ic.check }}"></path></svg></span>
+                                <span style="font:500 13px var(--sans);color:var(--text)">{{ rr.label }}</span>
+                              </span>
+                              <span style="font:500 12px var(--sans);color:var(--text3)">{{ rr.count }}</span>
+                            </button>
+                          </sc-for>
+                        </div>
+                      </sc-if>
+                    </div>
+                  </sc-for>
+                </div>
+                <div style="border-top:1px solid var(--line);padding:12px">
+                  <button onClick="{{ clearAllFilters }}" style="width:100%;border-radius:7px;border:1px solid var(--line);padding:8px 16px;font:600 13px var(--sans);color:var(--text2);background:none;cursor:pointer;opacity:{{ clearAllOpacity }}" style-hover="color:var(--text)">Clear all filters</button>
+                </div>
+              </div>
+            </sc-if>
 
+            <div style="display:flex;min-width:0;flex:1;flex-direction:column;gap:12px;padding:8px">
         <sc-if value="{{ isLoading }}" hint-placeholder-val="{{ false }}">
           <div data-screen-label="Loading" role="status" aria-label="Loading" style="display:flex;flex-direction:column;gap:10px">
             <sc-for list="{{ skeletonRows }}" as="sr" hint-placeholder-count="7">
@@ -156,7 +210,6 @@
             </sc-for>
           </div>
         </sc-if>
-
         <sc-if value="{{ isEmpty }}" hint-placeholder-val="{{ false }}">
           <div data-screen-label="Empty" style="display:flex;flex-direction:column;align-items:center;justify-content:center;padding:80px 20px 70px;text-align:center;animation:fadeUp .5s ease both">
             <div style="margin-bottom:18px;width:52px;height:52px;border-radius:14px;display:grid;place-items:center;background:var(--amber-dim);color:var(--amber)">
@@ -167,59 +220,9 @@
             <a href="Workspace.dc.html" style="display:flex;align-items:center;justify-content:center;gap:8px;border-radius:8px;padding:7px 14px;font:600 13px var(--sans);background:var(--amber-btn);border:1px solid var(--amber-btn);color:var(--on-amber)" style-hover="filter:brightness(1.05)">Go to your positions</a>
           </div>
         </sc-if>
-
-        <sc-if value="{{ isPeople }}" hint-placeholder-val="{{ true }}">
-          <div data-screen-label="Toolbar" style="margin-bottom:12px;display:flex;flex-wrap:wrap;align-items:center;gap:10px">
-            <div style="display:flex;width:320px;max-width:100%;align-items:center;gap:8px;border-radius:8px;border:1px solid var(--line);background:var(--panel2);padding:7px 11px">
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color:var(--text3);flex:none"><path d="{{ ic.search }}"></path></svg>
-              <input value="{{ q }}" onChange="{{ onSearch }}" placeholder="Search name, title, company or email…" aria-label="Search candidates" style="width:100%;background:transparent;border:none;font:400 13px var(--mono);color:var(--text);outline:none">
-            </div>
-            <div style="display:flex;flex-wrap:wrap;gap:6px">
-              <sc-for list="{{ quickViews }}" as="c" hint-placeholder-count="5">
-                <button onClick="{{ setQuick }}" data-id="{{ c.key }}" style="display:inline-flex;align-items:center;gap:6px;border-radius:999px;border:1px solid {{ c.border }};padding:5px 11px;font:500 12px var(--mono);color:{{ c.color }};background:{{ c.bg }};cursor:pointer" style-hover="color:var(--text)">{{ c.label }}<span style="font:500 11px var(--mono);color:var(--text3)">{{ c.count }}</span></button>
-              </sc-for>
-            </div>
-            <button onClick="{{ toggleFilters }}" aria-expanded="{{ filtersOpen }}" style="margin-left:auto;display:inline-flex;align-items:center;gap:7px;border-radius:8px;padding:7px 12px;font:500 13px var(--sans);background:{{ filterBtnBg }};border:1px solid {{ filterBtnBorder }};color:var(--text);cursor:pointer" style-hover="border-color:var(--text3)">
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="{{ ic.filter }}"></path></svg>
-              Filters
-              <sc-if value="{{ hasActiveFilters }}" hint-placeholder-val="{{ false }}"><span style="border-radius:4px;background:var(--sky-dim);padding:1px 6px;font:700 10.5px var(--sans);color:var(--sky)">{{ activeFilterCount }}</span></sc-if>
-            </button>
-          </div>
-
-          <sc-if value="{{ filtersOpen }}" hint-placeholder-val="{{ true }}">
-            <div data-screen-label="Filter panel" style="margin-bottom:12px;border-radius:10px;border:1px solid var(--line);background:var(--panel2);padding:14px 16px;animation:fadeUp .2s ease both">
-              <div style="display:flex;flex-wrap:wrap;align-items:center;gap:10px">
-                <span style="width:72px;flex:none;font:600 10px var(--mono);text-transform:uppercase;letter-spacing:.12em;color:var(--text3)">Tags</span>
-                <div role="radiogroup" aria-label="Match tags" style="display:inline-flex;border-radius:7px;border:1px solid var(--line);background:var(--panel);padding:2px">
-                  <sc-for list="{{ tagModes }}" as="tm" hint-placeholder-count="3">
-                    <button onClick="{{ setTagMode }}" data-id="{{ tm.key }}" role="radio" aria-checked="{{ tm.on }}" style="{{ tm.style }}">{{ tm.label }}</button>
-                  </sc-for>
-                </div>
-                <div style="display:flex;flex-wrap:wrap;gap:6px">
-                  <sc-for list="{{ tagToggles }}" as="tt" hint-placeholder-count="6">
-                    <button onClick="{{ toggleTagFilter }}" data-id="{{ tt.id }}" role="checkbox" aria-checked="{{ tt.on }}" style="{{ tt.style }}">
-                      <sc-if value="{{ tt.on }}"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="{{ ic.check }}"></path></svg></sc-if>
-                      {{ tt.label }}<span style="opacity:.7">{{ tt.count }}</span>
-                    </button>
-                  </sc-for>
-                </div>
-              </div>
-              <div style="margin-top:12px;display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:10px">
-                <sc-for list="{{ selectFilters }}" as="sf" hint-placeholder-count="4">
-                  <label style="display:block;min-width:0">
-                    <span style="display:block;margin-bottom:4px;font:600 10px var(--mono);text-transform:uppercase;letter-spacing:.12em;color:var(--text3)">{{ sf.label }}</span>
-                    <select value="{{ sf.value }}" onChange="{{ setSelectFilter }}" data-id="{{ sf.key }}" aria-label="{{ sf.label }}" style="width:100%;border-radius:7px;border:1px solid var(--line);background:var(--panel);padding:7px 9px;font:400 12.5px var(--mono);color:var(--text);outline:none">
-                      <sc-for list="{{ sf.options }}" as="op"><option value="{{ op.value }}">{{ op.label }}</option></sc-for>
-                    </select>
-                  </label>
-                </sc-for>
-              </div>
-              <p style="margin:10px 0 0;font:400 11px var(--mono);color:var(--text3)">Tags are your team's own labels — set them from a person's drawer or on many people at once. Status reads from the positions a person is in.</p>
-            </div>
-          </sc-if>
-
+              <sc-if value="{{ showChips }}" hint-placeholder-val="{{ false }}">
           <sc-if value="{{ hasActiveFilters }}" hint-placeholder-val="{{ false }}">
-            <div data-screen-label="Active filters" style="margin-bottom:12px;display:flex;flex-wrap:wrap;align-items:center;gap:6px">
+            <div data-screen-label="Active filters" style="display:flex;flex-wrap:wrap;align-items:center;gap:6px">
               <sc-for list="{{ activeFilters }}" as="af" hint-placeholder-count="2">
                 <span style="display:inline-flex;align-items:center;gap:6px;border-radius:999px;border:1px solid var(--line);background:var(--panel2);padding:3px 4px 3px 10px;font:500 12px var(--mono);color:var(--text2)">
                   {{ af.label }}
@@ -227,11 +230,11 @@
                 </span>
               </sc-for>
               <button onClick="{{ clearAllFilters }}" style="font:500 12px var(--mono);color:var(--sky);background:none;border:none;cursor:pointer" style-hover="text-decoration:underline">Clear all</button>
-              <span style="margin-left:auto;font:400 12px var(--mono);color:var(--text3)">{{ resultLine }}</span>
             </div>
           </sc-if>
-
-          <div data-screen-label="Candidates grid" role="table" aria-label="Candidates" style="display:flex;flex-direction:column;overflow:hidden;border-radius:8px;border:1px solid var(--line);background:var(--panel)">
+              </sc-if>
+              <sc-if value="{{ showGrid }}" hint-placeholder-val="{{ true }}">
+          <div data-screen-label="Candidates grid" role="table" aria-label="Candidates" style="display:flex;flex:1;min-height:0;flex-direction:column;overflow:hidden;border-radius:8px;border:1px solid var(--line);background:var(--panel)">
             <div style="overflow:auto">
               <div style="position:sticky;top:0;z-index:20;border-bottom:1px solid var(--line);background:var(--panel2);min-width:{{ gridMin }}">
                 <div role="row" style="display:grid;grid-template-columns:{{ gridCols }};align-items:center;gap:12px;padding:10px 0">
@@ -297,25 +300,35 @@
               </sc-if>
             </div>
           </div>
+              </sc-if>
+            </div>
+          </div>
         </sc-if>
 
         <sc-if value="{{ isActivity }}" hint-placeholder-val="{{ false }}">
-          <div data-screen-label="Activity toolbar" style="margin-bottom:16px;display:flex;flex-wrap:wrap;align-items:center;gap:10px">
-            <sc-for list="{{ activitySelects }}" as="as" hint-placeholder-count="3">
-              <label style="display:inline-flex;align-items:center;gap:8px">
-                <span style="font:600 10px var(--mono);text-transform:uppercase;letter-spacing:.12em;color:var(--text3)">{{ as.label }}</span>
-                <select value="{{ as.value }}" onChange="{{ setActivitySelect }}" data-id="{{ as.key }}" aria-label="{{ as.label }}" style="border-radius:7px;border:1px solid var(--line);background:var(--panel2);padding:6px 9px;font:400 12.5px var(--mono);color:var(--text);outline:none">
-                  <sc-for list="{{ as.options }}" as="op"><option value="{{ op.value }}">{{ op.label }}</option></sc-for>
-                </select>
-              </label>
-            </sc-for>
+          <div data-screen-label="Activity toolbar" style="display:flex;min-height:44px;flex:none;flex-wrap:wrap;align-items:center;column-gap:14px;row-gap:8px;border-bottom:1px solid var(--line);background:var(--panel2);padding:6px 20px">
+              <div role="radiogroup" aria-label="Candidates view" style="display:inline-flex;border-radius:7px;border:1px solid var(--line);background:var(--panel);padding:2px">
+                <sc-for list="{{ viewModes }}" as="vm" hint-placeholder-count="2">
+                  <a href="{{ vm.href }}" role="radio" aria-checked="{{ vm.on }}" style="{{ vm.style }};text-decoration:none">{{ vm.label }}</a>
+                </sc-for>
+              </div>
+            <div style="display:flex;flex-wrap:wrap;gap:6px">
+              <sc-for list="{{ kindChips }}" as="kc" hint-placeholder-count="6">
+                <button onClick="{{ setActivityKind }}" data-id="{{ kc.key }}" style="border-radius:999px;border:1px solid {{ kc.border }};padding:4px 10px;font:500 12px var(--sans);color:{{ kc.color }};background:{{ kc.bg }};cursor:pointer" style-hover="color:var(--text)">{{ kc.label }}</button>
+              </sc-for>
+            </div>
+            <div style="margin-left:auto;display:flex;flex-wrap:wrap;align-items:center;gap:8px">
+              <sc-for list="{{ activitySelects }}" as="as" hint-placeholder-count="3">
+                <label style="display:inline-flex;align-items:center;gap:8px">
+                  <span style="font:600 10px var(--mono);text-transform:uppercase;letter-spacing:.12em;color:var(--text3)">{{ as.label }}</span>
+                  <select value="{{ as.value }}" onChange="{{ setActivitySelect }}" data-id="{{ as.key }}" aria-label="{{ as.label }}" style="border-radius:7px;border:1px solid var(--line);background:var(--panel);padding:5px 9px;font:400 12.5px var(--sans);color:var(--text);outline:none">
+                    <sc-for list="{{ as.options }}" as="op"><option value="{{ op.value }}">{{ op.label }}</option></sc-for>
+                  </select>
+                </label>
+              </sc-for>
+            </div>
           </div>
-          <div style="margin-bottom:16px;display:flex;flex-wrap:wrap;gap:6px">
-            <sc-for list="{{ kindChips }}" as="kc" hint-placeholder-count="6">
-              <button onClick="{{ setActivityKind }}" data-id="{{ kc.key }}" style="border-radius:999px;border:1px solid {{ kc.border }};padding:5px 11px;font:500 12px var(--mono);color:{{ kc.color }};background:{{ kc.bg }};cursor:pointer" style-hover="color:var(--text)">{{ kc.label }}</button>
-            </sc-for>
-          </div>
-
+          <div style="min-height:0;flex:1;overflow-y:auto;padding:0 20px 24px">
           <div data-screen-label="Activity feed" role="feed" aria-label="Candidate activity" style="max-width:920px">
             <sc-for list="{{ feedDays }}" as="fd" hint-placeholder-count="3">
               <section style="margin-bottom:18px">
@@ -342,6 +355,7 @@
             <sc-if value="{{ feedHasMore }}" hint-placeholder-val="{{ true }}">
               <button onClick="{{ loadMore }}" style="margin:4px 0 0 12px;font:500 12px var(--mono);color:var(--sky);background:none;border:none;cursor:pointer" style-hover="text-decoration:underline">Load older activity</button>
             </sc-if>
+          </div>
           </div>
         </sc-if>
       </div>
@@ -399,6 +413,13 @@
                 </select>
               </label>
               <button onClick="{{ toggleDnc }}" title="{{ dv.dncTitle }}" style="{{ dv.dncBtnStyle }}"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="{{ ic.ban }}"></path></svg>{{ dv.dncBtnLabel }}</button>
+              <!-- The primary CV, one click away: opening it is the most common act on a person. -->
+              <sc-if value="{{ dc.hasCv }}" hint-placeholder-val="{{ true }}">
+                <span data-screen-label="CV chip" style="display:inline-flex;align-items:stretch;border-radius:6px;border:1px solid color-mix(in srgb,var(--amber) 45%,transparent);background:var(--amber-dim);overflow:hidden">
+                  <button onClick="{{ openPreview }}" data-id="{{ dc.cvId }}" title="Preview {{ dc.cvTitle }}" style="display:inline-flex;align-items:center;gap:5px;padding:3px 8px;font:600 11.5px var(--mono);color:var(--amber);background:none;border:none;cursor:pointer" style-hover="background:color-mix(in srgb,var(--amber) 14%,transparent)"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="{{ ic.fileText }}"></path></svg>{{ dc.cvLabel }}</button>
+                  <button onClick="{{ downloadDoc }}" data-id="{{ dc.cvId }}" aria-label="Download the CV" title="Download" style="display:grid;place-items:center;padding:0 7px;color:var(--amber);background:none;border:none;border-left:1px solid color-mix(in srgb,var(--amber) 35%,transparent);cursor:pointer" style-hover="background:color-mix(in srgb,var(--amber) 14%,transparent)"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="{{ ic.importInto }}"></path></svg></button>
+                </span>
+              </sc-if>
             </div>
           </div>
         </div>
@@ -595,6 +616,140 @@
             <sc-if value="{{ dv.noTimeline }}"><p style="margin:0;padding:20px 0;text-align:center;font:400 12.5px var(--mono);color:var(--text3)">Nothing of this kind recorded yet.</p></sc-if>
           </div>
         </sc-if>
+
+        <!-- The whole tab is a drop target. A file named like the latest file of a document here becomes
+             its next version unless the tray says to keep it apart; the same bytes are refused. -->
+        <sc-if value="{{ tabDocuments }}" hint-placeholder-val="{{ false }}">
+          <div data-screen-label="Documents" style="position:relative;min-height:100%;padding-bottom:8px">
+            <div data-screen-label="Drop zone" style="margin-top:16px;display:flex;align-items:center;gap:12px;border-radius:10px;border:1.5px dashed var(--line);background:var(--panel2);padding:12px 14px">
+              <span style="display:grid;width:34px;height:34px;flex:none;place-items:center;border-radius:8px;background:var(--panel);color:var(--text3)"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="{{ ic.uploadCloud }}"></path></svg></span>
+              <div style="min-width:0;flex:1">
+                <div style="font:600 13px var(--sans);color:var(--text)">Drop files anywhere on this tab</div>
+                <div style="margin-top:2px;font:400 11.5px var(--mono);color:var(--text3)">PDF, Word, ODT, RTF, TXT, PNG or JPEG · up to 20 MB each</div>
+              </div>
+              <button onClick="{{ pickFiles }}" style="display:inline-flex;flex:none;align-items:center;gap:6px;border-radius:8px;padding:8px 13px;font:600 13px var(--sans);background:var(--amber-btn);border:1px solid var(--amber-btn);color:var(--on-amber);cursor:pointer" style-hover="filter:brightness(1.05)"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="{{ ic.exportOut }}"></path></svg>Upload</button>
+            </div>
+
+            <sc-if value="{{ dc.hasTray }}" hint-placeholder-val="{{ false }}">
+              <div data-screen-label="Upload tray" style="margin-top:12px;border-radius:10px;border:1px solid var(--line);background:var(--panel);box-shadow:var(--shadow)">
+                <div style="display:flex;align-items:center;justify-content:space-between;padding:10px 12px">
+                  <span style="font:600 10.5px var(--mono);text-transform:uppercase;letter-spacing:.1em;color:var(--text3)">Ready to upload</span>
+                  <button onClick="{{ clearTray }}" style="font:500 12px var(--mono);color:var(--text3);background:none;border:none;cursor:pointer" style-hover="color:var(--text)">Clear</button>
+                </div>
+                <sc-for list="{{ dc.tray }}" as="tr" hint-placeholder-count="3">
+                  <div style="{{ tr.rowStyle }}">
+                    <div style="display:flex;align-items:center;gap:10px">
+                      <span style="{{ tr.badgeStyle }}">{{ tr.ext }}</span>
+                      <div style="min-width:0;flex:1">
+                        <div style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font:600 12.5px var(--sans);color:var(--text)">{{ tr.file }}</div>
+                        <div style="margin-top:2px;font:400 11px var(--mono);color:var(--text3)">{{ tr.size }}</div>
+                      </div>
+                      <select value="{{ tr.cat }}" onChange="{{ setTrayCat }}" data-id="{{ tr.id }}" disabled="{{ tr.dup }}" aria-label="Category of {{ tr.file }}" style="flex:none;border-radius:6px;border:1px solid var(--line);background:var(--panel2);padding:4px 8px;font:400 12px var(--mono);color:var(--text);outline:none">
+                        <sc-for list="{{ dc.categoryOptions }}" as="co"><option value="{{ co.value }}">{{ co.label }}</option></sc-for>
+                      </select>
+                      <button onClick="{{ dropTrayItem }}" data-id="{{ tr.id }}" aria-label="Remove {{ tr.file }}" style="flex:none;border-radius:5px;padding:4px;color:var(--text3);background:none;border:none;cursor:pointer" style-hover="background:var(--panel2);color:var(--text)"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="{{ ic.close }}"></path></svg></button>
+                    </div>
+                    <div style="margin:7px 0 0 42px;display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:8px">
+                      <span style="{{ tr.lineStyle }}"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" style="flex:none"><path d="{{ tr.icon }}"></path></svg><span style="min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ tr.line }}</span></span>
+                      <sc-if value="{{ tr.canSeparate }}">
+                        <button onClick="{{ toggleSeparate }}" data-id="{{ tr.id }}" role="switch" aria-checked="{{ tr.separate }}" style="display:inline-flex;align-items:center;gap:7px;font:500 11.5px var(--mono);color:var(--text2);background:none;border:none;cursor:pointer"><span style="{{ tr.switchTrack }}"><span style="{{ tr.switchKnob }}"></span></span>Keep as a separate document</button>
+                      </sc-if>
+                    </div>
+                  </div>
+                </sc-for>
+                <div style="display:flex;align-items:center;gap:12px;border-top:1px solid var(--line-soft);padding:10px 12px">
+                  <span style="min-width:0;flex:1;font:400 11px/1.45 var(--mono);color:var(--text3)">{{ dc.trayNote }}</span>
+                  <button onClick="{{ sendTray }}" style="flex:none;border-radius:8px;padding:8px 14px;font:600 13px var(--sans);background:var(--amber-btn);border:1px solid var(--amber-btn);color:var(--on-amber);cursor:pointer;opacity:{{ dc.uploadOpacity }}" style-hover="filter:brightness(1.05)">{{ dc.uploadLabel }}</button>
+                </div>
+              </div>
+            </sc-if>
+
+            <sc-for list="{{ dc.groups }}" as="g" hint-placeholder-count="2">
+              <section style="margin-top:18px">
+                <div style="margin-bottom:8px;display:flex;align-items:center;gap:8px;font:600 10.5px var(--mono);text-transform:uppercase;letter-spacing:.1em;color:var(--text3)">{{ g.label }}<span style="border-radius:4px;background:var(--panel2);padding:1px 6px;font:600 9.5px var(--mono)">{{ g.count }}</span></div>
+                <sc-for list="{{ g.docs }}" as="d" hint-placeholder-count="2">
+                  <article style="position:relative;margin-bottom:8px;border-radius:8px;border:1px solid {{ d.border }};background:var(--panel);padding:10px 12px">
+                    <div style="display:flex;align-items:flex-start;gap:10px">
+                      <span style="{{ d.badgeStyle }}">{{ d.ext }}</span>
+                      <div style="min-width:0;flex:1">
+                        <div style="display:flex;min-width:0;flex-wrap:wrap;align-items:center;gap:6px">
+                          <sc-if value="{{ d.primary }}"><span title="Primary CV — the one the header opens" style="display:inline-flex;color:var(--amber)"><svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="1.5"><path d="{{ ic.star }}"></path></svg></span></sc-if>
+                          <sc-if value="{{ d.notRenaming }}"><span style="min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font:600 13px var(--sans);color:var(--text)">{{ d.title }}</span></sc-if>
+                          <sc-if value="{{ d.renaming }}">
+                            <input value="{{ renameText }}" onChange="{{ onRenameText }}" aria-label="Document title" style="min-width:0;flex:1;border-radius:6px;border:1px solid var(--sky);background:var(--panel2);padding:4px 8px;font:500 13px var(--sans);color:var(--text);outline:none">
+                            <button onClick="{{ saveRename }}" style="border-radius:6px;padding:4px 9px;font:600 12px var(--sans);background:var(--amber-btn);border:1px solid var(--amber-btn);color:var(--on-amber);cursor:pointer">Save</button>
+                          </sc-if>
+                          <span style="{{ d.catStyle }}">{{ d.cat }}</span>
+                          <span style="border-radius:4px;background:var(--panel2);padding:1px 6px;font:600 10px var(--mono);color:var(--text2)">{{ d.v }}</span>
+                        </div>
+                        <div title="{{ d.exact }}" style="margin-top:4px;font:400 11px var(--mono);color:var(--text3)">{{ d.meta }}</div>
+                      </div>
+                      <div style="display:flex;flex:none;align-items:center;gap:2px">
+                        <sc-if value="{{ d.previewable }}"><button onClick="{{ openPreview }}" data-id="{{ d.id }}" title="Preview" aria-label="Preview {{ d.title }}" style="border-radius:5px;padding:5px;color:var(--text3);background:none;border:none;cursor:pointer" style-hover="background:var(--panel2);color:var(--text)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="{{ ic.eye }}"></path></svg></button></sc-if>
+                        <button onClick="{{ downloadDoc }}" data-id="{{ d.id }}" title="Download" aria-label="Download {{ d.title }}" style="border-radius:5px;padding:5px;color:var(--text3);background:none;border:none;cursor:pointer" style-hover="background:var(--panel2);color:var(--text)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="{{ ic.importInto }}"></path></svg></button>
+                        <button onClick="{{ toggleDocMenu }}" data-id="{{ d.id }}" aria-haspopup="menu" aria-expanded="{{ d.menuOpen }}" aria-label="More for {{ d.title }}" style="border-radius:5px;padding:5px;color:var(--text3);background:none;border:none;cursor:pointer" style-hover="background:var(--panel2);color:var(--text)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="{{ ic.moreH }}"></path></svg></button>
+                      </div>
+                    </div>
+                    <div style="margin:6px 0 0 42px;display:flex;flex-wrap:wrap;align-items:center;gap:4px">
+                      <button onClick="{{ uploadVersion }}" data-id="{{ d.id }}" style="display:inline-flex;align-items:center;gap:5px;border-radius:5px;padding:3px 6px;margin-left:-6px;font:500 11.5px var(--mono);color:var(--sky);background:none;border:none;cursor:pointer" style-hover="background:var(--panel2)"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="{{ ic.exportOut }}"></path></svg>Upload new version</button>
+                      <sc-if value="{{ d.hasHistory }}">
+                        <button onClick="{{ toggleHistory }}" data-id="{{ d.id }}" aria-expanded="{{ d.historyOpen }}" style="display:inline-flex;align-items:center;gap:5px;border-radius:5px;padding:3px 6px;font:500 11.5px var(--mono);color:var(--text3);background:none;border:none;cursor:pointer" style-hover="background:var(--panel2);color:var(--text)"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" style="{{ d.historyChev }}"><path d="{{ ic.chevronDown }}"></path></svg>{{ d.historyLabel }}</button>
+                      </sc-if>
+                    </div>
+                    <sc-if value="{{ d.historyOpen }}">
+                      <ol data-screen-label="Version history" style="margin:8px 0 2px 42px;list-style:none;padding:0;border-top:1px solid var(--line-soft)">
+                        <sc-for list="{{ d.versions }}" as="vh" hint-placeholder-count="3">
+                          <li style="display:flex;align-items:center;gap:8px;border-bottom:1px solid var(--line-soft);padding:7px 0">
+                            <span style="flex:none;border-radius:4px;background:var(--panel2);padding:1px 6px;font:600 10px var(--mono);color:var(--text2)">v{{ vh.no }}</span>
+                            <div style="min-width:0;flex:1">
+                              <div style="display:flex;align-items:center;gap:6px"><span style="min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font:500 12.5px var(--sans);color:var(--text)">{{ vh.file }}</span><sc-if value="{{ vh.current }}"><span style="flex:none;font:600 9.5px var(--mono);text-transform:uppercase;letter-spacing:.06em;color:var(--green)">Current</span></sc-if></div>
+                              <div style="margin-top:1px;font:400 11px var(--mono);color:var(--text3)">{{ vh.meta }}</div>
+                            </div>
+                            <button onClick="{{ downloadDoc }}" data-id="{{ vh.key }}" style="display:inline-flex;align-items:center;gap:5px;border-radius:5px;padding:4px 7px;font:500 11.5px var(--mono);color:var(--text3);background:none;border:none;cursor:pointer" style-hover="background:var(--panel2);color:var(--text)">Download</button>
+                            <button onClick="{{ deleteVersion }}" data-id="{{ vh.key }}" title="{{ vh.delTitle }}" style="{{ vh.delStyle }}" style-hover="background:var(--panel2);color:var(--red)">Delete</button>
+                          </li>
+                        </sc-for>
+                      </ol>
+                    </sc-if>
+                    <sc-if value="{{ d.menuOpen }}">
+                      <div role="menu" data-screen-label="Document menu" style="position:absolute;right:8px;top:40px;z-index:20;width:236px;border-radius:10px;border:1px solid var(--line);background:var(--panel);padding:6px;box-shadow:var(--shadow);animation:fadeUp .15s ease both">
+                        <button onClick="{{ startRename }}" data-id="{{ d.id }}" role="menuitem" style="display:flex;width:100%;align-items:center;gap:8px;border-radius:5px;padding:7px 8px;font:500 12.5px var(--sans);text-align:left;background:none;border:none;color:var(--text);cursor:pointer" style-hover="background:var(--panel2)"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color:var(--text3)"><path d="{{ ic.pencil }}"></path></svg>Rename</button>
+                        <sc-if value="{{ d.canMakePrimary }}">
+                          <button onClick="{{ makePrimary }}" data-id="{{ d.id }}" role="menuitem" style="display:flex;width:100%;align-items:center;gap:8px;border-radius:5px;padding:7px 8px;font:500 12.5px var(--sans);text-align:left;background:none;border:none;color:var(--text);cursor:pointer" style-hover="background:var(--panel2)"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color:var(--amber)"><path d="{{ ic.star }}"></path></svg>Make primary CV</button>
+                        </sc-if>
+                        <div style="padding:8px 8px 4px;font:600 9.5px var(--mono);text-transform:uppercase;letter-spacing:.1em;color:var(--text3)">Category</div>
+                        <div style="display:flex;flex-wrap:wrap;gap:4px;padding:0 8px 8px">
+                          <sc-for list="{{ d.catOptions }}" as="cc"><button onClick="{{ setDocCat }}" data-id="{{ cc.key }}" role="menuitemradio" style="{{ cc.style }}">{{ cc.label }}</button></sc-for>
+                        </div>
+                        <div style="margin:2px 0;border-top:1px solid var(--line-soft)"></div>
+                        <button onClick="{{ deleteDoc }}" data-id="{{ d.id }}" role="menuitem" title="{{ d.delTitle }}" style="{{ d.delStyle }}" style-hover="background:var(--red-dim)"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="{{ ic.trash }}"></path></svg>Delete document</button>
+                      </div>
+                    </sc-if>
+                  </article>
+                </sc-for>
+              </section>
+            </sc-for>
+
+            <sc-if value="{{ dc.none }}" hint-placeholder-val="{{ false }}">
+              <div style="padding:34px 12px 20px;text-align:center">
+                <span style="display:inline-grid;width:40px;height:40px;place-items:center;border-radius:10px;background:var(--panel2);color:var(--text3)"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="{{ ic.fileText }}"></path></svg></span>
+                <p style="margin:10px 0 0;font:600 13px var(--sans);color:var(--text)">No documents yet</p>
+                <p style="margin:4px auto 0;max-width:340px;font:400 12px/1.5 var(--mono);color:var(--text3)">A CV, cover letter or reference filed here is shared by every position this person is in. The first CV becomes the one the header opens.</p>
+              </div>
+            </sc-if>
+            <p style="margin:14px 2px 0;font:400 11px var(--mono);color:var(--text3)">Shared with your whole team. Client contacts never see documents, and every download is recorded.</p>
+
+            <sc-if value="{{ dc.dropping }}" hint-placeholder-val="{{ false }}">
+              <div onClick="{{ endDrop }}" data-screen-label="Dropping files" style="position:absolute;inset:8px -8px 0;z-index:30;display:grid;place-items:center;border-radius:12px;border:2px dashed var(--amber);background:color-mix(in srgb,var(--panel) 82%,var(--amber) 18%);cursor:copy">
+                <div style="text-align:center">
+                  <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" style="color:var(--amber)"><path d="{{ ic.uploadCloud }}"></path></svg>
+                  <div style="margin-top:8px;font:600 14px var(--sans);color:var(--text)">{{ dc.dropLine }}</div>
+                  <div style="margin-top:3px;font:400 11.5px var(--mono);color:var(--text3)">You choose each file's category before anything is uploaded</div>
+                </div>
+              </div>
+            </sc-if>
+          </div>
+        </sc-if>
       </div>
 
       <div style="display:flex;flex:none;align-items:center;justify-content:space-between;border-top:1px solid var(--line-soft);padding:12px 20px">
@@ -724,6 +879,51 @@
     </div>
   </sc-if>
 
+  <!-- The file is fetched as a blob and shown sandboxed — never a public link. Word files download. -->
+  <sc-if value="{{ showPreview }}" hint-placeholder-val="{{ false }}">
+    <div onClick="{{ closePreview }}" style="position:fixed;inset:0;z-index:115;background:rgba(15,20,30,.5)"></div>
+    <aside role="dialog" aria-modal="true" aria-label="Preview {{ pv.title }}" data-screen-label="Document preview" style="position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);z-index:120;width:1020px;max-width:96vw;height:92vh;display:flex;flex-direction:column;border-radius:10px;border:1px solid var(--line);background:var(--panel);box-shadow:var(--shadow)">
+      <div style="display:flex;flex:none;align-items:center;gap:12px;border-bottom:1px solid var(--line-soft);padding:12px 16px">
+        <span style="display:grid;width:30px;height:30px;flex:none;place-items:center;border-radius:7px;background:var(--panel2);color:var(--text3)"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="{{ ic.fileText }}"></path></svg></span>
+        <div style="min-width:0;flex:1">
+          <div style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font:600 14px var(--sans);color:var(--text)">{{ pv.title }}</div>
+          <div style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font:400 11.5px var(--mono);color:var(--text3)">{{ pv.meta }}</div>
+        </div>
+        <select value="{{ pv.versionValue }}" onChange="{{ setPreviewVersion }}" aria-label="Version" style="flex:none;border-radius:6px;border:1px solid var(--line);background:var(--panel2);padding:5px 8px;font:400 12px var(--mono);color:var(--text);outline:none">
+          <sc-for list="{{ pv.versions }}" as="pvv"><option value="{{ pvv.value }}">{{ pvv.label }}</option></sc-for>
+        </select>
+        <button onClick="{{ downloadDoc }}" data-id="{{ pv.docId }}" style="display:inline-flex;flex:none;align-items:center;gap:6px;border-radius:8px;padding:7px 12px;font:500 13px var(--sans);background:var(--panel);border:1px solid var(--line);color:var(--text2);cursor:pointer" style-hover="color:var(--text);border-color:var(--text3)"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="{{ ic.importInto }}"></path></svg>Download</button>
+        <button onClick="{{ closePreview }}" aria-label="Close preview" style="flex:none;border-radius:6px;padding:6px;color:var(--text3);background:none;border:none;cursor:pointer" style-hover="background:var(--panel2);color:var(--text)"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="{{ ic.close }}"></path></svg></button>
+      </div>
+      <div style="min-height:0;flex:1;overflow-y:auto;background:var(--bg);padding:24px">
+        <sc-if value="{{ pv.isPdf }}" hint-placeholder-val="{{ true }}">
+          <div data-screen-label="PDF page" style="margin:0 auto;width:min(620px,100%);aspect-ratio:1/1.414;border-radius:3px;background:#ffffff;box-shadow:0 2px 14px rgba(0,0,0,.25);padding:48px 52px;color:#111827">
+            <div style="font:700 22px var(--sans)">{{ pv.personName }}</div>
+            <div style="margin-top:4px;font:400 12px var(--sans);color:#4b5563">{{ pv.personTitle }}</div>
+            <div style="margin-top:2px;font:400 11px var(--sans);color:#6b7280">{{ pv.personMail }}</div>
+            <div style="margin:22px 0 12px;border-top:2px solid #111827;padding-top:8px;font:700 10px var(--sans);letter-spacing:.12em;text-transform:uppercase">Experience</div>
+            <sc-for list="{{ pv.lines }}" as="pl"><div style="{{ pl.style }}"></div></sc-for>
+          </div>
+        </sc-if>
+        <sc-if value="{{ pv.isImage }}" hint-placeholder-val="{{ false }}">
+          <div data-screen-label="Image" style="margin:0 auto;width:min(680px,100%);aspect-ratio:1.414/1;display:grid;place-items:center;border-radius:4px;background:#f8f5ee;box-shadow:0 2px 14px rgba(0,0,0,.25);color:#3f3a2e;text-align:center">
+            <div><div style="font:700 11px var(--sans);letter-spacing:.2em;text-transform:uppercase;color:#8a7a52">Certificate of membership</div><div style="margin-top:10px;font:600 24px Georgia,serif">{{ pv.personName }}</div><div style="margin-top:8px;font:400 12px var(--sans);color:#6b6252">Scanned image as uploaded</div></div>
+          </div>
+        </sc-if>
+        <sc-if value="{{ pv.cannot }}" hint-placeholder-val="{{ false }}">
+          <div style="display:grid;height:100%;place-items:center;text-align:center">
+            <div>
+              <p style="margin:0;font:600 14px var(--sans);color:var(--text)">Word files can’t be previewed yet</p>
+              <p style="margin:4px 0 14px;font:400 12px var(--mono);color:var(--text3)">Download it to read it. PDFs and images open here.</p>
+              <button onClick="{{ downloadDoc }}" data-id="{{ pv.docId }}" style="border-radius:8px;padding:9px 14px;font:600 13px var(--sans);background:var(--amber-btn);border:1px solid var(--amber-btn);color:var(--on-amber);cursor:pointer">Download</button>
+            </div>
+          </div>
+        </sc-if>
+      </div>
+      <div style="flex:none;border-top:1px solid var(--line-soft);padding:9px 16px;font:400 11px var(--mono);color:var(--text3)">Served by Uncava itself, never through a shareable link. Opening and downloading are both recorded.</div>
+    </aside>
+  </sc-if>
+
   <sc-if value="{{ hasToast }}" hint-placeholder-val="{{ false }}">
     <div role="status" style="position:fixed;bottom:22px;left:50%;transform:translateX(-50%);z-index:130;background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:9px 16px;font:500 12px var(--mono);color:var(--text2);box-shadow:var(--shadow);animation:fadeUp .2s ease both">{{ toast }}</div>
   </sc-if>
@@ -731,7 +931,7 @@
 <template id="__bundler_thumbnail"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><rect width="100" height="100" fill="#16171a"></rect><g transform="translate(50 40) scale(.42)" fill="none" stroke="#f8fafc"><path d="M-32 10 L 0 -8 L 32 10 L 0 28 Z M-32 10 V 32 L 0 50 L 32 32 V 10 M0 28 V 50" stroke-width="3" stroke-linejoin="round"></path><path d="M0 -48 L 32 -30 L 0 -12 L -32 -30 Z" fill="#f8fafc" stroke="none"></path></g><text x="50" y="86" fill="#e2b65c" font-family="Geist,Inter,sans-serif" font-size="12" font-weight="700" letter-spacing="2" text-anchor="middle">PEOPLE</text></svg></template>
 
 </x-dc>
-<script type="text/x-dc" data-dc-script data-props="{&quot;view&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;default&quot;:&quot;people&quot;,&quot;options&quot;:[&quot;people&quot;,&quot;activity&quot;],&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;State&quot;},&quot;filtersOpen&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;State&quot;},&quot;selectedCount&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;default&quot;:&quot;0&quot;,&quot;options&quot;:[&quot;0&quot;,&quot;3&quot;],&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;State&quot;},&quot;drawerOpen&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;State&quot;},&quot;drawerTab&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;default&quot;:&quot;profile&quot;,&quot;options&quot;:[&quot;profile&quot;,&quot;notes&quot;,&quot;timeline&quot;],&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;State&quot;},&quot;tagPickerOpen&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;State&quot;},&quot;dialog&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;default&quot;:&quot;none&quot;,&quot;options&quot;:[&quot;none&quot;,&quot;addToPosition&quot;,&quot;tag&quot;,&quot;owner&quot;,&quot;merge&quot;],&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;State&quot;},&quot;empty&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;State&quot;},&quot;loading&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;State&quot;}}">
+<script type="text/x-dc" data-dc-script data-props="{&quot;view&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;default&quot;:&quot;people&quot;,&quot;options&quot;:[&quot;people&quot;,&quot;activity&quot;],&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;State&quot;},&quot;filtersOpen&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;State&quot;},&quot;selectedCount&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;default&quot;:&quot;0&quot;,&quot;options&quot;:[&quot;0&quot;,&quot;3&quot;],&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;State&quot;},&quot;drawerOpen&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;State&quot;},&quot;drawerTab&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;default&quot;:&quot;profile&quot;,&quot;options&quot;:[&quot;profile&quot;,&quot;notes&quot;,&quot;documents&quot;,&quot;timeline&quot;],&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;State&quot;},&quot;docsState&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;default&quot;:&quot;loaded&quot;,&quot;options&quot;:[&quot;loaded&quot;,&quot;empty&quot;,&quot;history&quot;,&quot;dropping&quot;],&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;State&quot;},&quot;trayState&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;default&quot;:&quot;none&quot;,&quot;options&quot;:[&quot;none&quot;,&quot;newVersion&quot;,&quot;newDocument&quot;,&quot;duplicate&quot;,&quot;mixed&quot;],&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;State&quot;},&quot;tagPickerOpen&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;State&quot;},&quot;dialog&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;default&quot;:&quot;none&quot;,&quot;options&quot;:[&quot;none&quot;,&quot;addToPosition&quot;,&quot;tag&quot;,&quot;owner&quot;,&quot;merge&quot;,&quot;preview&quot;],&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;State&quot;},&quot;empty&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;State&quot;},&quot;loading&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;State&quot;}}">
 const I = {
   profile: "M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2M16 7a4 4 0 1 1-8 0 4 4 0 0 1 8 0",
   settings: "M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6ZM19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09a1.65 1.65 0 0 0-1-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09a1.65 1.65 0 0 0 1.51-1 1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33h.01a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51h.01a1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82v.01a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1Z",
@@ -788,6 +988,10 @@ const I = {
   merge: "M18 21a3 3 0 1 0 0-6 3 3 0 0 0 0 6ZM6 9a3 3 0 1 0 0-6 3 3 0 0 0 0 6ZM6 21V9a9 9 0 0 0 9 9",
   activity: "M22 12h-4l-3 9L9 3l-3 9H2",
   minus: "M5 12h14",
+  fileText: "M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8l-6-6ZM14 2v6h6M8 13h8M8 17h5",
+  moreH: "M5 12h.01M12 12h.01M19 12h.01",
+  clock: "M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20ZM12 6v6l4 2",
+  layers: "M12 2 2 7l10 5 10-5-10-5ZM2 17l10 5 10-5M2 12l10 5 10-5",
   myProjects: "M12 2a10 10 0 1 0 .01 0M12 8a4 4 0 1 0 .01 0",
   allProjects: "M3 3h7v7H3zM14 3h7v7h-7zM3 14h7v7H3zM14 14h7v7h-7z",
   units: "M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2M13 7a4 4 0 1 1-8 0 4 4 0 0 1 8 0M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"
@@ -936,21 +1140,69 @@ const NOTE_SEED = [
   note("n9", "e16", "da", "email", "2026-09-22T13:30", "leasing", "Confirmed a first conversation for Thursday at 11:00.")
 ];
 
+// A document is the card; its versions are the files, newest first. One CV per person carries the
+// primary mark. Who uploaded each file and when is the version's, so the card reads its latest.
+const DOC_CATS = [
+  { key: "cv", label: "CV", noun: "CV", fg: "var(--u-accent)", bg: "var(--u-accent-tint)" },
+  { key: "cover_letter", label: "Cover letter", noun: "cover letter", fg: "var(--u-adjacent)", bg: "var(--u-adjacent-tint)" },
+  { key: "reference", label: "Reference", noun: "reference", fg: "var(--u-direct)", bg: "var(--u-direct-tint)" },
+  { key: "certificate", label: "Certificate", noun: "certificate", fg: "var(--u-chart-5)", bg: "color-mix(in srgb, var(--u-chart-5) 16%, transparent)" },
+  { key: "assessment", label: "Assessment", noun: "assessment", fg: "var(--u-inferred)", bg: "var(--u-inferred-tint)" },
+  { key: "other", label: "Other", noun: "document", fg: "var(--text2)", bg: "var(--panel2)" }
+];
+const DOC_CAT = Object.fromEntries(DOC_CATS.map((c) => [c.key, c]));
+const PREVIEWABLE = ["pdf", "png", "jpg", "jpeg"];
+const extOf = (file) => (file.split(".").pop() || "").toLowerCase();
+const sizeOf = (kb) => (kb >= 1024 ? `${(kb / 1024).toFixed(1)} MB` : `${kb} KB`);
+const docNoun = (cat, article) => { const n = DOC_CAT[cat].noun; return `${article === "a" && /^[aeiou]/i.test(n) ? "an" : article} ${n}`; };
+const guessCat = (file) => {
+  if (/\b(cv|resume|résumé)\b|_cv\b|cv_/i.test(file)) return "cv";
+  if (/cover/i.test(file)) return "cover_letter";
+  if (/referen|referee/i.test(file)) return "reference";
+  if (/certif|diploma|licen[cs]e/i.test(file)) return "certificate";
+  if (/assess|psychometric|hogan|report/i.test(file)) return "assessment";
+  return "other";
+};
+const titleOf = (file) => file.replace(/\.[^.]+$/, "").replace(/[_-]+/g, " ").trim();
+const ver = (no, file, kb, by, at) => ({ no, file, kb, by, at });
+const doc = (id, personId, cat, title, primary, versions) => ({ id, person: personId, cat, title, primary, versions });
+const DOC_SEED = [
+  doc("d1", "e01", "cv", "Fatima Al Mazrouei CV", true, [
+    ver(3, "Fatima_Al_Mazrouei_CV.pdf", 412, "yi", "2026-09-12T09:40"),
+    ver(2, "Fatima_Al_Mazrouei_CV.pdf", 398, "sa", "2026-04-22T10:40"),
+    ver(1, "Fatima_CV_2024.docx", 86, "yh", "2026-04-14T10:20")]),
+  doc("d2", "e01", "cover_letter", "Cover letter Group CFO", false, [ver(1, "Cover_letter_Group_CFO.pdf", 142, "sa", "2026-09-15T16:05")]),
+  doc("d3", "e01", "reference", "Reference Al Rostamani Group", false, [ver(1, "Reference_Al_Rostamani.docx", 54, "ok", "2026-09-18T11:30")]),
+  doc("d4", "e01", "certificate", "ACCA membership", false, [ver(1, "ACCA_membership.jpg", 1240, "yi", "2026-09-08T14:50")]),
+  doc("d5", "e12", "cv", "Khalid Al Harbi CV", true, [ver(2, "Khalid_Al_Harbi_CV.pdf", 380, "yh", "2026-09-02T09:00"), ver(1, "Khalid_Al_Harbi_CV.pdf", 361, "yh", "2026-03-28T09:10")]),
+  doc("d6", "e09", "cv", "Hind Al Suwaidi CV", true, [ver(1, "Hind_Al_Suwaidi_CV.pdf", 290, "sa", "2026-08-31T10:20")])
+];
+// What the file picker hands the tray in each state. `dupOf` stands in for the server's SHA-256 match.
+const TRAY_FILES = {
+  newVersion: [{ file: "Fatima_Al_Mazrouei_CV.pdf", kb: 431 }],
+  newDocument: [{ file: "Board_presentation_2025.pdf", kb: 2310 }],
+  duplicate: [{ file: "Cover_letter_Group_CFO.pdf", kb: 142, dupOf: ["d2", 1] }]
+};
+TRAY_FILES.mixed = [...TRAY_FILES.newVersion, ...TRAY_FILES.newDocument, ...TRAY_FILES.duplicate];
+
 const KIND_GROUP = {
   ADDED_TO_POOL: "positions", MAPPED: "positions", UNMAPPED: "positions", STATUS_CHANGED: "positions", NOTE_ADDED: "notes",
   CONTACT_FOUND: "contacts", CONTACTS_EDITED: "contacts", DNC_SET: "contacts", DNC_CLEARED: "contacts",
   RESEARCHED: "profile", AI_ASSESSED: "profile", PROFILE_EDITED: "profile", MERGED: "profile",
-  TAGGED: "tags", UNTAGGED: "tags", OWNER_CHANGED: "tags"
+  TAGGED: "tags", UNTAGGED: "tags", OWNER_CHANGED: "tags",
+  DOCUMENT_ADDED: "documents", DOCUMENT_VERSION_ADDED: "documents", DOCUMENT_VERSION_REMOVED: "documents", DOCUMENT_REMOVED: "documents"
 };
-const KIND_CHIPS = [["all", "Everything"], ["positions", "Positions & status"], ["notes", "Notes"], ["contacts", "Contacts"], ["profile", "Profile & AI"], ["tags", "Tags & owner"]];
+const KIND_CHIPS = [["all", "Everything"], ["positions", "Positions & status"], ["notes", "Notes"], ["documents", "Documents"], ["contacts", "Contacts"], ["profile", "Profile & AI"], ["tags", "Tags & owner"]];
 const KIND_ICON = {
   ADDED_TO_POOL: I.userPlus, MAPPED: I.position, UNMAPPED: I.close, STATUS_CHANGED: I.arrowRight, NOTE_ADDED: I.note,
   CONTACT_FOUND: I.mail, CONTACTS_EDITED: I.pencil, DNC_SET: I.ban, DNC_CLEARED: I.ban, RESEARCHED: I.externalLink,
-  AI_ASSESSED: I.sparkle, PROFILE_EDITED: I.pencil, MERGED: I.merge, TAGGED: I.tag, UNTAGGED: I.tag, OWNER_CHANGED: I.profile
+  AI_ASSESSED: I.sparkle, PROFILE_EDITED: I.pencil, MERGED: I.merge, TAGGED: I.tag, UNTAGGED: I.tag, OWNER_CHANGED: I.profile,
+  DOCUMENT_ADDED: I.fileText, DOCUMENT_VERSION_ADDED: I.layers, DOCUMENT_VERSION_REMOVED: I.trash, DOCUMENT_REMOVED: I.trash
 };
 const KIND_TONE = {
   positions: ["var(--u-accent-tint)", "var(--u-accent)"], notes: ["var(--u-adjacent-tint)", "var(--u-adjacent)"],
-  contacts: ["var(--u-direct-tint)", "var(--u-direct)"], profile: ["var(--u-inferred-tint)", "var(--u-inferred)"], tags: ["var(--panel2)", "var(--text2)"]
+  contacts: ["var(--u-direct-tint)", "var(--u-direct)"], profile: ["var(--u-inferred-tint)", "var(--u-inferred)"], tags: ["var(--panel2)", "var(--text2)"],
+  documents: ["color-mix(in srgb, var(--u-chart-5) 16%, transparent)", "var(--u-chart-5)"]
 };
 const RANGES = [["7", "Last 7 days"], ["30", "Last 30 days"], ["365", "Last 12 months"], ["all", "All time"]];
 
@@ -996,7 +1248,10 @@ class Component extends DCLogic {
     const bulkDialog = ["addToPosition", "tag", "owner"].includes(dialog);
     let selectedCount = Number(pick("selectedCount", "0")) || 0;
     if (bulkDialog && selectedCount === 0) selectedCount = 3;
-    const drawerOpen = flag("drawerOpen", false) || dialog === "merge";
+    const docsState = pick("docsState", "loaded");
+    const trayState = pick("trayState", "none");
+    const drawerOpen = flag("drawerOpen", false) || dialog === "merge" || dialog === "preview" || docsState !== "loaded" || trayState !== "none";
+    const docTabFirst = docsState !== "loaded" || trayState !== "none";
 
     const people = PEOPLE.map((x) => Object.assign({}, x, { maps: x.maps.map((m) => Object.assign({}, m)), tags: [...x.tags], emails: x.emails.map((e) => [...e]) }));
     const events = [];
@@ -1013,10 +1268,14 @@ class Component extends DCLogic {
       view: pick("view", "people") === "activity" ? "activity" : "people",
       empty: flag("empty", false), loading: flag("loading", false),
       people, events, notes: NOTE_SEED.map((n) => Object.assign({}, n)), tags: TAG_SEED.map((t) => Object.assign({}, t)),
-      q: "", quick: "all", filtersOpen: flag("filtersOpen", false),
+      q: "", quick: "all", filtersOpen: flag("filtersOpen", false), railOpen: null,
       tagMode: "any", tagSel: {}, fPos: "all", fStatus: "all", fOwner: "all", fCountry: "all",
       sortField: "activity", sortDir: "desc", sel: {},
-      openId: drawerOpen ? "e01" : null, drawerTab: pick("drawerTab", "profile"),
+      openId: drawerOpen ? "e01" : null, drawerTab: docTabFirst ? "documents" : pick("drawerTab", "profile"),
+      docs: DOC_SEED.filter((d) => docsState !== "empty" || d.person !== "e01").map((d) => Object.assign({}, d, { versions: d.versions.map((v) => Object.assign({}, v)) })),
+      histOpen: docsState === "history" ? { d1: true } : {}, docMenu: null, renameId: null, renameText: "", dropping: docsState === "dropping",
+      tray: (TRAY_FILES[trayState] || []).map((f, i) => ({ id: `t${i}`, file: f.file, kb: f.kb, cat: guessCat(f.file), dupOf: f.dupOf || null, forDoc: null, separate: false })),
+      preview: dialog === "preview" ? { doc: "d1", no: 3 } : null,
       sec: { summary: true, experience: true, compensation: false, background: false, contact: true },
       tagPickerOpen: flag("tagPickerOpen", false), tagQuery: "",
       noteKind: "call", notePos: "none", noteText: "", tlKind: "all",
@@ -1051,7 +1310,8 @@ class Component extends DCLogic {
 
   allEvents(s) {
     const fromNotes = s.notes.map((n) => ({ at: n.at, actor: n.author, person: n.person, kind: "NOTE_ADDED", pos: n.pos, noteKind: n.kind, excerpt: n.body }));
-    return [...s.events, ...fromNotes].filter((e) => s.people.some((x) => x.id === e.person)).sort((a, b) => b.at.localeCompare(a.at));
+    const fromDocs = s.docs.flatMap((d) => d.versions.map((v) => ({ at: v.at, actor: v.by, person: d.person, kind: v.no === 1 ? "DOCUMENT_ADDED" : "DOCUMENT_VERSION_ADDED", doc: d.id, cat: d.cat, version: v.no })));
+    return [...s.events, ...fromNotes, ...fromDocs].filter((e) => s.people.some((x) => x.id === e.person)).sort((a, b) => b.at.localeCompare(a.at));
   }
 
   lastOf(s, id) { return this.allEvents(s).find((e) => e.person === id) || null; }
@@ -1117,11 +1377,16 @@ class Component extends DCLogic {
       case "DNC_SET": return who ? [T("marked "), S(who), T(" do not contact")] : [T("marked do not contact")];
       case "DNC_CLEARED": return who ? [T("cleared do not contact on "), S(who)] : [T("cleared do not contact")];
       case "MERGED": return who ? [T("merged a duplicate record into "), S(who)] : [T("merged a duplicate record into this one")];
+      case "DOCUMENT_ADDED": return who ? [T(`uploaded ${docNoun(e.cat, "a")} on `), S(who)] : [T(`uploaded ${docNoun(e.cat, "a")}`)];
+      case "DOCUMENT_VERSION_ADDED": return who ? [T(`uploaded version ${e.version} of ${docNoun(e.cat, "the")} on `), S(who)] : [T(`uploaded version ${e.version} of ${docNoun(e.cat, "the")}`)];
+      case "DOCUMENT_VERSION_REMOVED": return who ? [T(`deleted version ${e.version} of ${docNoun(e.cat, "the")} on `), S(who)] : [T(`deleted version ${e.version} of ${docNoun(e.cat, "the")}`)];
+      case "DOCUMENT_REMOVED": return who ? [T(`deleted ${docNoun(e.cat, "a")} on `), S(who)] : [T(`deleted ${docNoun(e.cat, "a")}`)];
       default: return [T(e.kind)];
     }
   }
 
-  detailOf(e) {
+  detailOf(e, s) {
+    if (e.kind.startsWith("DOCUMENT_")) { const d = e.doc && s.docs.find((k) => k.id === e.doc); return d ? d.title : ""; }
     if (e.kind === "STATUS_CHANGED") return `${STATUS[e.from].label} → ${STATUS[e.to].label}`;
     if (e.kind === "ADDED_TO_POOL") return DOORS[e.door];
     if (e.kind === "MAPPED") return `${DOORS[e.door]} · already in the candidates, so added rather than duplicated`;
@@ -1131,7 +1396,7 @@ class Component extends DCLogic {
   entryVals(e, s, withPerson) {
     const group = KIND_GROUP[e.kind];
     const tone = e.kind === "DNC_SET" ? ["var(--red-dim)", "var(--red)"] : KIND_TONE[group];
-    const detail = this.detailOf(e);
+    const detail = this.detailOf(e, s);
     return {
       person: e.person, actorName: MEMBERS[e.actor].name, actorInitials: initials(MEMBERS[e.actor].name), avStyle: memberAvatar(e.actor, 28),
       parts: [S(MEMBERS[e.actor].name), T(" "), ...this.phrase(e, s, withPerson)],
@@ -1213,6 +1478,99 @@ class Component extends DCLogic {
     };
   }
 
+  pastLines(d, versions) {
+    return versions.map((v) => ({ at: v.at, actor: v.by, person: d.person, kind: v.no === 1 ? "DOCUMENT_ADDED" : "DOCUMENT_VERSION_ADDED", cat: d.cat, version: v.no }));
+  }
+
+  trayOutcome(t, docs) {
+    if (t.dupOf) {
+      const d = docs.find((k) => k.id === t.dupOf[0]);
+      return { kind: "duplicate", line: `Already uploaded as ${d ? `${DOC_CAT[d.cat].label} v${t.dupOf[1]}` : "a document here"}` };
+    }
+    const target = t.forDoc ? docs.find((k) => k.id === t.forDoc) : docs.find((k) => k.versions[0].file.toLowerCase() === t.file.toLowerCase());
+    if (target && (t.forDoc || !t.separate)) {
+      const n = target.versions[0].no;
+      return { kind: "version", target, canSeparate: !t.forDoc, line: `New version of ${target.versions[0].file} (v${n} → v${n + 1})` };
+    }
+    return { kind: "new", canSeparate: !!target, line: target ? "New document, kept apart from the file of the same name" : "New document" };
+  }
+
+  docsVals(s, x) {
+    const docs = s.docs.filter((d) => d.person === x.id);
+    const btn = "display:inline-flex;align-items:center;gap:5px;border-radius:5px;padding:4px 7px;font:500 11.5px var(--mono);color:var(--text3);background:none;border:none;cursor:pointer";
+    const badge = (ext) => {
+      const tone = ext === "pdf" ? ["var(--red-dim)", "var(--red)"] : ["doc", "docx", "odt", "rtf"].includes(ext) ? ["var(--sky-dim)", "var(--sky)"] : ["var(--u-direct-tint)", "var(--u-direct)"];
+      return `display:grid;width:32px;height:38px;flex:none;place-items:end center;padding-bottom:5px;border-radius:5px;border:1px solid var(--line-soft);background:${tone[0]};color:${tone[1]};font:700 8.5px var(--mono);text-transform:uppercase;letter-spacing:.04em`;
+    };
+    const catStyle = (c) => `display:inline-flex;align-items:center;border-radius:4px;padding:1px 6px;font:700 9.5px var(--mono);text-transform:uppercase;letter-spacing:.05em;color:${c.fg};background:${c.bg}`;
+    const card = (d) => {
+      const latest = d.versions[0];
+      const ext = extOf(latest.file);
+      const open = !!s.histOpen[d.id];
+      const removable = d.versions[d.versions.length - 1].by === ME;
+      return {
+        id: d.id, title: d.title, primary: d.primary, ext, badgeStyle: badge(ext), cat: DOC_CAT[d.cat].label, catStyle: catStyle(DOC_CAT[d.cat]),
+        v: `v${latest.no}`, meta: `${sizeOf(latest.kb)} · ${MEMBERS[latest.by].name} · ${whenOf(latest.at)}`, exact: exactOf(latest.at),
+        previewable: PREVIEWABLE.includes(ext),
+        border: d.primary ? "color-mix(in srgb,var(--amber) 45%,transparent)" : "var(--line-soft)",
+        hasHistory: d.versions.length > 1, historyOpen: open,
+        historyLabel: `${open ? "Hide" : "Show"} ${d.versions.length} versions`,
+        historyChev: `transition:transform .2s;transform:${open ? "none" : "rotate(-90deg)"}`,
+        versions: d.versions.map((v, i) => {
+          const mine = v.by === ME;
+          return { key: `${d.id}:${v.no}`, no: v.no, file: v.file, current: i === 0, meta: `${sizeOf(v.kb)} · ${MEMBERS[v.by].name} · ${exactOf(v.at)}`,
+            delTitle: mine ? "Delete this file" : "Only whoever uploaded it, or a workspace admin, can delete it",
+            delStyle: `${btn};${mine ? "" : "opacity:.45;cursor:not-allowed"}` };
+        }),
+        menuOpen: s.docMenu === d.id, renaming: s.renameId === d.id, notRenaming: s.renameId !== d.id,
+        canMakePrimary: d.cat === "cv" && !d.primary, removable,
+        delTitle: removable ? "Delete the document and every version" : "Only whoever filed it, or a workspace admin, can delete it",
+        delStyle: `display:flex;width:100%;align-items:center;gap:8px;border-radius:5px;padding:7px 8px;font:500 12.5px var(--sans);text-align:left;background:none;border:none;color:var(--red);cursor:${removable ? "pointer" : "not-allowed"};opacity:${removable ? 1 : 0.45}`,
+        catOptions: DOC_CATS.map((c) => ({ key: `${d.id}:${c.key}`, label: c.label, style: `${catStyle(c)};cursor:pointer;border:1px solid ${c.key === d.cat ? c.fg : "transparent"}` }))
+      };
+    };
+    const order = (a, b) => (b.primary - a.primary) || b.versions[0].at.localeCompare(a.versions[0].at);
+    const groups = DOC_CATS.map((c) => ({ key: c.key, label: c.label, docs: docs.filter((d) => d.cat === c.key).sort(order) }))
+      .filter((g) => g.docs.length).map((g) => ({ key: g.key, label: g.label, count: g.docs.length, docs: g.docs.map(card) }));
+    const tray = s.tray.map((t) => {
+      const o = this.trayOutcome(t, docs);
+      const dup = o.kind === "duplicate";
+      const tone = { version: "var(--sky)", new: "var(--green)", duplicate: "var(--text3)" }[o.kind];
+      return { id: t.id, file: t.file, size: sizeOf(t.kb), ext: extOf(t.file), badgeStyle: badge(extOf(t.file)), cat: t.cat, dup, line: o.line,
+        lineStyle: `display:inline-flex;min-width:0;align-items:center;gap:6px;font:500 12px var(--sans);color:${tone}`,
+        icon: { version: I.layers, new: I.plus, duplicate: I.ban }[o.kind],
+        canSeparate: !!o.canSeparate, separate: t.separate,
+        switchTrack: `position:relative;width:26px;height:15px;flex:none;border-radius:999px;background:${t.separate ? "var(--amber-btn)" : "var(--line)"};transition:background .15s`,
+        switchKnob: `position:absolute;top:2px;left:${t.separate ? 13 : 2}px;width:11px;height:11px;border-radius:50%;background:#fff;transition:left .15s`,
+        rowStyle: `border-top:1px solid var(--line-soft);padding:10px 12px;${dup ? "opacity:.55" : ""}` };
+    });
+    const sending = tray.filter((t) => !t.dup).length;
+    const cv = docs.find((d) => d.primary);
+    return {
+      groups, none: docs.length === 0, count: docs.length, dropLine: `Drop to add to ${x.name.split(" ")[0]}’s documents`, tray, hasTray: tray.length > 0, dropping: s.dropping,
+      uploadLabel: sending ? `Upload ${sending === 1 ? "1 file" : `${sending} files`}` : "Nothing to upload", uploadOpacity: sending ? 1 : 0.5,
+      trayNote: tray.some((t) => t.dup) ? "A file already on this person is skipped — the same bytes are never stored twice." : "A file with the same name as one already here becomes its next version.",
+      hasCv: !!cv, cvId: cv ? cv.id : "", cvLabel: cv ? `CV · v${cv.versions[0].no} · ${shortDay(cv.versions[0].at.slice(0, 10))}` : "",
+      cvTitle: cv ? `${cv.title} — ${cv.versions[0].file}` : "", cvPreviewable: cv ? PREVIEWABLE.includes(extOf(cv.versions[0].file)) : false,
+      categoryOptions: DOC_CATS.map((c) => ({ value: c.key, label: c.label }))
+    };
+  }
+
+  previewVals(s) {
+    const d = s.preview && s.docs.find((k) => k.id === s.preview.doc);
+    if (!d) return { shown: false, versions: [] };
+    const v = d.versions.find((k) => k.no === s.preview.no) || d.versions[0];
+    const ext = extOf(v.file);
+    const x = s.people.find((y) => y.id === d.person);
+    return {
+      shown: true, title: d.title, docId: d.id, meta: `v${v.no} · ${v.file} · ${sizeOf(v.kb)} · ${MEMBERS[v.by].name}, ${exactOf(v.at)}`,
+      isPdf: ext === "pdf", isImage: ["png", "jpg", "jpeg"].includes(ext), cannot: !PREVIEWABLE.includes(ext),
+      versionValue: `${d.id}:${v.no}`, versions: d.versions.map((k) => ({ value: `${d.id}:${k.no}`, label: `Version ${k.no}${k.no === d.versions[0].no ? " (current)" : ""}` })),
+      personName: x ? x.name : "", personTitle: x ? [x.title, x.company].filter(Boolean).join(", ") : "", personMail: x && x.emails[0] ? x.emails[0][0] : "",
+      lines: [92, 84, 88, 60, 0, 95, 80, 86, 72, 0, 90, 83, 77, 64].map((w) => ({ style: w ? `height:7px;width:${w}%;border-radius:2px;background:#e5e7eb;margin-bottom:9px` : "height:10px" }))
+    };
+  }
+
   navVals(count) {
     const item = (label, icon, href, n, active) => ({ label, icon, href, count: n === undefined ? "" : n,
       color: active ? "var(--text)" : "var(--text2)", bg: active ? "var(--panel2)" : "transparent", iconColor: active ? "var(--amber)" : "currentColor" });
@@ -1286,6 +1644,13 @@ class Component extends DCLogic {
       { key: "fOwner", label: "Owner", value: s.fOwner, options: [{ value: "all", label: "Anyone" }, { value: "none", label: "Nobody" }, ...MEMBER_ORDER.map((m) => ({ value: m, label: MEMBERS[m].name }))] },
       { key: "fCountry", label: "Country", value: s.fCountry, options: [{ value: "all", label: "Any country" }, ...countries.map((c) => ({ value: c, label: c }))] }
     ];
+    const tagCount = (id) => pool.filter((y) => y.tags.includes(id)).length;
+    const railSections = [
+      { key: "tags", label: "Tags", picked: tagIds.length, rows: s.tags.map((t) => Object.assign({ id: `tag:${t.id}`, label: t.label, on: !!s.tagSel[t.id], count: tagCount(t.id) }, box(!!s.tagSel[t.id]))) },
+      ...selectFilters.map((sf) => ({ key: sf.key, label: sf.label, picked: sf.value === "all" ? 0 : 1,
+        rows: sf.options.filter((o) => o.value !== "all").map((o) => Object.assign({ id: `${sf.key}:${o.value}`, label: o.label, on: sf.value === o.value, count: "" }, box(sf.value === o.value))) }))
+    ].map((r) => Object.assign(r, { open: s.railOpen === r.key, isTags: r.key === "tags", weight: s.railOpen === r.key ? 700 : 500,
+      chevron: s.railOpen === r.key ? I.chevronDown : I.chevronRight, hasSummary: s.railOpen !== r.key && r.picked > 0, summary: r.picked }));
     const QUICK = [["all", "All"], ["mine", "Owned by me"], ["active", "In an active position"], ["none", "Not in a position"], ["dups", "Possible duplicates"]];
     const quickCount = (k) => pool.filter((x) => this.matches(x, Object.assign({}, s, { quick: k }))).length;
 
@@ -1295,9 +1660,10 @@ class Component extends DCLogic {
 
     const x = s.openId ? s.people.find((y) => y.id === s.openId) : null;
     const dv = x ? this.drawerVals(s, x) : { tags: [], mappings: [], sections: [], notes: [], tlDays: [], career: [], compTiles: [], bgTiles: [], contactLines: [], findButtons: [] };
+    const dc = x ? this.docsVals(s, x) : { groups: [], tray: [], categoryOptions: [] };
+    const pv = this.previewVals(s);
 
     const tq = s.tagQuery.trim();
-    const tagCount = (id) => pool.filter((y) => y.tags.includes(id)).length;
     const tagOptions = s.tags.filter((t) => !tq || t.label.toLowerCase().includes(tq.toLowerCase())).map((t) => {
       const on = !!x && x.tags.includes(t.id);
       return Object.assign({ id: t.id, label: t.label, on, style: tagStyle(t), count: tagCount(t.id) }, box(on));
@@ -1356,24 +1722,18 @@ class Component extends DCLogic {
       collapseTitle: s.collapsed ? "Expand sidebar" : "Collapse sidebar", collapseIcon: s.collapsed ? I.expand : I.collapse,
       wsMenuOpen: s.wsMenuOpen,
 
-      pageSub: s.loading ? "Everyone your team has mapped" : `${pool.length} ${pool.length === 1 ? "person" : "people"} · shared across every position in Al-Futtaim`,
-      showExport: isPeople,
-      viewTabs: [["people", "People", I.candidates, "Candidates.dc.html"], ["activity", "Activity", I.activity, "Candidates.dc.html?view=activity"]].map(([key, label, icon, href]) => {
-        const on = s.view === key;
-        return { key, label, icon, href, selected: on, style: `display:inline-flex;align-items:center;gap:7px;margin-bottom:-1px;padding:9px 12px;font:500 13px var(--sans);text-decoration:none;border-bottom:2px solid ${on ? "var(--amber)" : "transparent"};color:${on ? "var(--text)" : "var(--text3)"}` };
-      }),
+      viewModes: [["people", "People", "Candidates.dc.html"], ["activity", "Activity", "Candidates.dc.html?view=activity"]].map(([key, label, href]) => ({ key, label, href, on: s.view === key, style: segStyle(s.view === key) })),
       isLoading: s.loading, isEmpty: !s.loading && pool.length === 0, isPeople, isActivity,
+      showGrid: !s.loading && pool.length > 0, showChips: !s.filtersOpen && activeFilters.length > 0,
       skeletonRows: [0, 1, 2, 3, 4, 5, 6].map((i) => ({ a: ["180px", "140px", "200px"][i % 3], b: ["90px", "120px", "70px"][i % 3], c: ["150px", "110px", "130px"][i % 3] })),
 
       q: s.q,
       quickViews: QUICK.map(([key, label]) => Object.assign({ key, label, count: quickCount(key) }, chipStyle(s.quick === key))),
-      filtersOpen: s.filtersOpen, filterBtnBg: s.filtersOpen ? "var(--panel2)" : "var(--panel)", filterBtnBorder: s.filtersOpen ? "var(--text3)" : "var(--line)",
+      filtersOpen: s.filtersOpen, filterBtnLabel: s.filtersOpen ? "Hide Filters" : "Show Filters",
+      railShown: rows.length, railPool: pool.length, railSections, clearAllOpacity: activeFilters.length ? 1 : 0.4,
       hasActiveFilters: activeFilters.length > 0, activeFilterCount: activeFilters.length, activeFilters,
       resultLine: `${rows.length} of ${pool.length} people`,
       tagModes: [["any", "Any of"], ["all", "All of"], ["none", "None of"]].map(([key, label]) => ({ key, label, on: s.tagMode === key, style: segStyle(s.tagMode === key) })),
-      tagToggles: s.tags.map((t) => { const on = !!s.tagSel[t.id]; return { id: t.id, label: t.label, on, count: tagCount(t.id),
-        style: `display:inline-flex;align-items:center;gap:5px;border-radius:999px;padding:4px 10px;font:500 12px var(--sans);cursor:pointer;${on ? `border:1px solid ${t.fg};background:${t.bg};color:${t.fg}` : "border:1px solid var(--line);background:var(--panel);color:var(--text2)"}` }; }),
-      selectFilters,
 
       gridCols: `40px ${COLS.map((c) => c.track).join(" ")}`,
       gridMin: `${40 + COLS.reduce((t, c) => t + c.min, 0) + 12 * COLS.length + 16}px`,
@@ -1394,11 +1754,11 @@ class Component extends DCLogic {
       askVisible: !x && selIds.length === 0,
       drawerShown: !!x, dv, ownerOptions: [{ value: "none", label: "Nobody" }, ...MEMBER_ORDER.map((m) => ({ value: m, label: MEMBERS[m].name }))],
       statusOptions: STATUSES.map((st) => ({ value: st.value, label: st.label })),
-      drawerTabs: [["profile", "Profile", null], ["notes", "Notes", dv.noteCount], ["timeline", "Timeline", dv.eventCount]].map(([key, label, count]) => {
+      drawerTabs: [["profile", "Profile", null], ["notes", "Notes", dv.noteCount], ["documents", "Documents", dc.count], ["timeline", "Timeline", dv.eventCount]].map(([key, label, count]) => {
         const on = s.drawerTab === key;
         return { key, label, on, hasCount: count !== null, count, style: `display:inline-flex;align-items:center;gap:7px;margin-bottom:-1px;padding:9px 12px;font:500 13px var(--sans);background:none;border:none;border-bottom:2px solid ${on ? "var(--amber)" : "transparent"};color:${on ? "var(--text)" : "var(--text3)"};cursor:pointer` };
       }),
-      tabProfile: s.drawerTab === "profile", tabNotes: s.drawerTab === "notes", tabTimeline: s.drawerTab === "timeline",
+      tabProfile: s.drawerTab === "profile", tabNotes: s.drawerTab === "notes", tabTimeline: s.drawerTab === "timeline", tabDocuments: s.drawerTab === "documents", dc, pv,
       tagPickerOpen: s.tagPickerOpen, tagQuery: s.tagQuery, tagQueryTrim: tq, tagOptions, canCreateTag: !!tq && !s.tags.some((t) => t.label.toLowerCase() === tq.toLowerCase()),
       noteKinds: NOTE_KINDS.map((k) => { const on = s.noteKind === k.key; return { key: k.key, label: k.label, icon: k.icon, on,
         style: `display:inline-flex;align-items:center;gap:6px;border-radius:6px;padding:5px 10px;font:500 12px var(--sans);cursor:pointer;${on ? `border:1px solid transparent;background:${k.bg};color:${k.fg}` : "border:1px solid var(--line);background:var(--panel);color:var(--text3)"}` }; }),
@@ -1409,7 +1769,7 @@ class Component extends DCLogic {
       tlChips: KIND_CHIPS.map(([key, label]) => Object.assign({ key, label }, chipStyle(s.tlKind === key))),
 
       showAddToPosition: s.dialog === "addToPosition" && targetPeople.length > 0, showTagDialog: s.dialog === "tag" && targetPeople.length > 0,
-      showOwnerDialog: s.dialog === "owner" && targetPeople.length > 0, showMerge: s.dialog === "merge" && !!x,
+      showOwnerDialog: s.dialog === "owner" && targetPeople.length > 0, showMerge: s.dialog === "merge" && !!x, showPreview: pv.shown,
       targetLabel,
       positionChoices: POSITIONS.map((p) => { const on = s.bulkPos === p.id; const n = alreadyIn(p.id); return { id: p.id, title: p.title, meta: `${p.unit} · ${p.stage}`, on,
         hasAlready: n > 0, already: targetPeople.length === 1 ? "Already in it" : `${n} already in it`, border: on ? "var(--amber)" : "var(--line-soft)", bg: on ? "var(--amber-dim)" : "var(--panel)", ring: on ? "4px" : "1.5px" }; }),
@@ -1433,8 +1793,12 @@ class Component extends DCLogic {
       setQuick: (e) => this.setState({ quick: e.currentTarget.dataset.id }),
       toggleFilters: () => this.setState({ filtersOpen: !s.filtersOpen }),
       setTagMode: (e) => this.setState({ tagMode: e.currentTarget.dataset.id }),
-      toggleTagFilter: (e) => { const id = e.currentTarget.dataset.id; this.setState({ tagSel: Object.assign({}, s.tagSel, { [id]: !s.tagSel[id] }) }); },
-      setSelectFilter: (e) => this.setState({ [e.currentTarget.dataset.id]: e.target.value }),
+      toggleRailSection: (e) => { const k = e.currentTarget.dataset.id; this.setState({ railOpen: s.railOpen === k ? null : k }); },
+      pickRailRow: (e) => {
+        const [k, v] = e.currentTarget.dataset.id.split(/:(.*)/);
+        if (k === "tag") { this.setState({ tagSel: Object.assign({}, s.tagSel, { [v]: !s.tagSel[v] }) }); return; }
+        this.setState({ [k]: s[k] === v ? "all" : v });
+      },
       clearFilter: (e) => { const k = e.currentTarget.dataset.id; this.setState(k === "tags" ? { tagSel: {} } : { [k]: "all" }); },
       clearAllFilters: () => this.setState({ tagSel: {}, fPos: "all", fStatus: "all", fOwner: "all", fCountry: "all" }),
       sortBy: (e) => { const id = e.currentTarget.dataset.id; if (["tags", "owner"].includes(id)) return; if (s.sortField === id) this.setState({ sortDir: s.sortDir === "asc" ? "desc" : "asc" }); else this.setState({ sortField: id, sortDir: id === "activity" ? "desc" : "asc" }); },
@@ -1498,6 +1862,84 @@ class Component extends DCLogic {
       togglePin: (e) => { const id = e.currentTarget.dataset.id; this.setState({ notes: s.notes.map((n) => (n.id === id ? Object.assign({}, n, { pinned: !n.pinned }) : n)) }); },
       deleteNote: (e) => { const id = e.currentTarget.dataset.id; this.setState({ notes: s.notes.filter((n) => n.id !== id) }); this.showToast("Note deleted — the timeline keeps a line saying so"); },
       setTlKind: (e) => this.setState({ tlKind: e.currentTarget.dataset.id }),
+
+      pickFiles: () => {
+        const picked = [{ file: "Fatima_Al_Mazrouei_CV.pdf", kb: 431 }, { file: "Hogan_assessment_report.pdf", kb: 860 }];
+        const tray = [...s.tray, ...picked.map((f, i) => ({ id: `t${Date.now()}${i}`, file: f.file, kb: f.kb, cat: guessCat(f.file), dupOf: null, forDoc: null, separate: false }))];
+        this.setState({ tray, dropping: false, docMenu: null });
+      },
+      endDrop: () => this.setState({ dropping: false, tray: s.tray.length ? s.tray : TRAY_FILES.mixed.map((f, i) => ({ id: `t${Date.now()}${i}`, file: f.file, kb: f.kb, cat: guessCat(f.file), dupOf: f.dupOf || null, forDoc: null, separate: false })) }),
+      uploadVersion: (e) => {
+        const d = s.docs.find((k) => k.id === e.currentTarget.dataset.id);
+        const file = d.versions[0].file.replace(/(\.[^.]+)$/, "_rev$1");
+        this.setState({ tray: [...s.tray, { id: `t${Date.now()}`, file, kb: d.versions[0].kb + 12, cat: d.cat, dupOf: null, forDoc: d.id, separate: false }], docMenu: null });
+      },
+      setTrayCat: (e) => { const id = e.currentTarget.dataset.id; this.setState({ tray: s.tray.map((t) => (t.id === id ? Object.assign({}, t, { cat: e.target.value }) : t)) }); },
+      toggleSeparate: (e) => { const id = e.currentTarget.dataset.id; this.setState({ tray: s.tray.map((t) => (t.id === id ? Object.assign({}, t, { separate: !t.separate }) : t)) }); },
+      dropTrayItem: (e) => { const id = e.currentTarget.dataset.id; this.setState({ tray: s.tray.filter((t) => t.id !== id) }); },
+      clearTray: () => this.setState({ tray: [] }),
+      sendTray: () => {
+        const at = this.now();
+        let docs = [...s.docs];
+        let made = 0; let versions = 0;
+        s.tray.forEach((t, i) => {
+          const o = this.trayOutcome(t, docs.filter((d) => d.person === x.id));
+          if (o.kind === "duplicate") return;
+          const v = ver(0, t.file, t.kb, ME, at);
+          if (o.kind === "version") {
+            versions += 1;
+            docs = docs.map((d) => (d.id === o.target.id ? Object.assign({}, d, { versions: [Object.assign(v, { no: d.versions[0].no + 1 }), ...d.versions] }) : d));
+          } else {
+            made += 1;
+            const primary = t.cat === "cv" && !docs.some((d) => d.person === x.id && d.primary);
+            docs.push(doc(`d${Date.now()}${i}`, x.id, t.cat, titleOf(t.file), primary, [Object.assign(v, { no: 1 })]));
+          }
+        });
+        if (!made && !versions) return;
+        this.setState({ docs, tray: [], tick: s.tick + 1 });
+        this.showToast([made ? `${made} new ${made === 1 ? "document" : "documents"}` : null, versions ? `${versions} new ${versions === 1 ? "version" : "versions"}` : null].filter(Boolean).join(" and ") + " — on the timeline");
+      },
+      toggleHistory: (e) => { const id = e.currentTarget.dataset.id; this.setState({ histOpen: Object.assign({}, s.histOpen, { [id]: !s.histOpen[id] }) }); },
+      toggleDocMenu: (e) => { const id = e.currentTarget.dataset.id; this.setState({ docMenu: s.docMenu === id ? null : id }); },
+      startRename: (e) => { const d = s.docs.find((k) => k.id === e.currentTarget.dataset.id); this.setState({ renameId: d.id, renameText: d.title, docMenu: null }); },
+      onRenameText: (e) => this.setState({ renameText: e.target.value }),
+      saveRename: () => {
+        const title = s.renameText.trim();
+        this.setState({ renameId: null, docs: title ? s.docs.map((d) => (d.id === s.renameId ? Object.assign({}, d, { title }) : d)) : s.docs });
+      },
+      setDocCat: (e) => {
+        const [id, cat] = e.currentTarget.dataset.id.split(":");
+        this.setState({ docMenu: null, docs: s.docs.map((d) => (d.id === id ? Object.assign({}, d, { cat, primary: cat === "cv" ? d.primary : false }) : d)) });
+      },
+      makePrimary: (e) => {
+        const id = e.currentTarget.dataset.id;
+        this.setState({ docMenu: null, docs: s.docs.map((d) => (d.person === x.id ? Object.assign({}, d, { primary: d.id === id }) : d)) });
+        this.showToast("Now the primary CV — the one the header opens");
+      },
+      deleteDoc: (e) => {
+        const d = s.docs.find((k) => k.id === e.currentTarget.dataset.id);
+        if (d.versions[d.versions.length - 1].by !== ME) return;
+        let docs = s.docs.filter((k) => k.id !== d.id);
+        if (d.primary) { const next = docs.filter((k) => k.person === x.id && k.cat === "cv").sort((a, b) => b.versions[0].at.localeCompare(a.versions[0].at))[0]; if (next) docs = docs.map((k) => (k.id === next.id ? Object.assign({}, k, { primary: true }) : k)); }
+        this.record([...this.pastLines(d, d.versions), { person: x.id, kind: "DOCUMENT_REMOVED", cat: d.cat }], { docs, docMenu: null });
+        this.showToast("Document deleted — the timeline keeps a line, without its name");
+      },
+      deleteVersion: (e) => {
+        const [id, no] = e.currentTarget.dataset.id.split(":");
+        const d = s.docs.find((k) => k.id === id);
+        const v = d.versions.find((k) => String(k.no) === no);
+        if (v.by !== ME) return;
+        if (d.versions.length === 1) {
+          this.record([...this.pastLines(d, d.versions), { person: x.id, kind: "DOCUMENT_REMOVED", cat: d.cat }], { docs: s.docs.filter((k) => k.id !== id) });
+        } else {
+          this.record([...this.pastLines(d, [v]).map((l) => Object.assign(l, { doc: id })), { person: x.id, kind: "DOCUMENT_VERSION_REMOVED", cat: d.cat, doc: id, version: v.no }], { docs: s.docs.map((k) => (k.id === id ? Object.assign({}, k, { versions: k.versions.filter((w) => w !== v) }) : k)) });
+        }
+        this.showToast(`Deleted version ${v.no}`);
+      },
+      downloadDoc: (e) => this.showToast("Downloading — recorded in the audit trail"),
+      openPreview: (e) => { const d = s.docs.find((k) => k.id === e.currentTarget.dataset.id); this.setState({ preview: { doc: d.id, no: d.versions[0].no }, docMenu: null }); },
+      setPreviewVersion: (e) => { const [id, no] = e.target.value.split(":"); this.setState({ preview: { doc: id, no: Number(no) } }); },
+      closePreview: () => this.setState({ preview: null, dialog: s.dialog === "preview" ? "none" : s.dialog }),
 
       closeDialog: () => this.setState({ dialog: "none" }),
       pickBulkPosition: (e) => this.setState({ bulkPos: e.currentTarget.dataset.id }),

@@ -51,6 +51,8 @@ export const ICONS = {
   exportOut: "M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M17 8l-5-5-5 5M12 3v12",
   /** A page with its corner turned — the attached position description. */
   file: "M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8zM14 2v6h6",
+  fileText: "M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8zM14 2v6h6M8 13h8M8 17h5",
+  more: "M5 11h2v2H5zM11 11h2v2h-2zM17 11h2v2h-2z",
   lock: "M19 11H5a2 2 0 0 0-2 2v6a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-6a2 2 0 0 0-2-2ZM7 11V7a5 5 0 0 1 10 0v4",
   /** The same padlock with its shackle swung open — the off state of a lock toggle. */
   unlock: "M19 11H5a2 2 0 0 0-2 2v6a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-6a2 2 0 0 0-2-2ZM7 11V7a5 5 0 0 1 9.9-1",

@@ -426,7 +426,7 @@
   <!-- ============ BOOK A CALL ============ -->
   <sc-if value="{{ showBookCall }}" hint-placeholder-val="{{ false }}">
     <div onClick="{{ closeBookCall }}" style="position:fixed;inset:0;z-index:110;display:grid;place-items:center;background:rgba(15,20,30,.5)">
-      <div role="dialog" aria-modal="true" aria-label="Book a call" data-screen-label="Book a call" onClick="{{ stop }}" style="width:640px;max-width:95vw;max-height:90vh;display:flex;flex-direction:column;border-radius:12px;border:1px solid var(--line);background:var(--panel);box-shadow:var(--shadow);animation:fadeUp .2s ease both">
+      <div role="dialog" aria-modal="true" aria-label="Book a call" data-screen-label="Book a call" onClick="{{ stop }}" style="width:940px;max-width:95vw;max-height:90vh;display:flex;flex-direction:column;border-radius:12px;border:1px solid var(--line);background:var(--panel);box-shadow:var(--shadow);animation:fadeUp .2s ease both">
         <div style="flex:none;display:flex;align-items:center;gap:12px;border-bottom:1px solid var(--line-soft);padding:16px 20px">
           <div>
             <div style="font:600 16px var(--sans)">Book a call with {{ bk.name }}</div>
@@ -435,38 +435,67 @@
           <button onClick="{{ closeBookCall }}" aria-label="Close" style="margin-left:auto;border-radius:6px;padding:6px;color:var(--text3);background:none;border:none;cursor:pointer" style-hover="background:var(--panel2);color:var(--text)"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="{{ ic.close }}"></path></svg></button>
         </div>
         <div style="flex:1;min-height:0;overflow-y:auto;padding:16px 20px">
-          <div style="display:flex;flex-wrap:wrap;align-items:center;gap:14px;margin-bottom:14px">
-            <div role="radiogroup" aria-label="Length" style="display:inline-flex;border:1px solid var(--line);border-radius:6px;padding:2px">
-              <sc-for list="{{ bk.lengths }}" as="ln" hint-placeholder-count="3"><button onClick="{{ setLength }}" data-id="{{ ln.value }}" style="{{ ln.style }}">{{ ln.label }}</button></sc-for>
-            </div>
-            <label style="display:flex;align-items:center;gap:8px;font:400 12.5px var(--sans);color:var(--text2)">Video
-              <select aria-label="Video link" style="border-radius:6px;border:1px solid var(--line);background:var(--panel2);padding:5px 8px;font:400 12.5px var(--sans);color:var(--text)"><option>Google Meet</option><option>Microsoft Teams</option><option>No video link</option></select>
-            </label>
-          </div>
-          <div style="display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:8px;margin-bottom:16px">
-            <sc-for list="{{ bk.days }}" as="dy" hint-placeholder-count="5">
-              <div>
-                <div style="margin-bottom:6px;font:600 11px var(--mono);color:var(--text2);text-align:center">{{ dy.label }}</div>
-                <div style="display:flex;flex-direction:column;gap:5px">
-                  <sc-for list="{{ dy.slots }}" as="sl" hint-placeholder-count="3">
-                    <button onClick="{{ pickSlot }}" data-id="{{ sl.id }}" style="{{ sl.style }}">{{ sl.time }}</button>
-                  </sc-for>
-                  <sc-if value="{{ dy.full }}" hint-placeholder-val="{{ false }}"><span style="font:400 11px var(--mono);color:var(--text3);text-align:center">Fully booked</span></sc-if>
-                </div>
+          <div style="display:grid;grid-template-columns:minmax(0,1fr) 280px;gap:24px">
+            <section aria-label="Time" style="min-width:0">
+              <div style="display:flex;align-items:center;gap:6px;margin-bottom:12px">
+                <span style="font:600 11px var(--mono);letter-spacing:.12em;text-transform:uppercase;color:var(--text3)">Day</span>
+                <button aria-label="Earlier days" disabled style="margin-left:auto;border:none;background:none;border-radius:6px;padding:6px;color:var(--text3);opacity:.4"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 12H5M12 19l-7-7 7-7"></path></svg></button>
+                <span style="display:inline-flex;align-items:center;gap:10px;border:1px solid var(--line);border-radius:6px;background:var(--panel2);padding:5px 10px;font:400 12.5px var(--mono);color:var(--text)">2 Oct 2026 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color:var(--text3)"><rect x="3" y="4" width="18" height="18" rx="2"></rect><path d="M16 2v4M8 2v4M3 10h18"></path></svg></span>
+                <button aria-label="Later days" style="border:none;background:none;border-radius:6px;padding:6px;color:var(--text3);cursor:pointer" style-hover="background:var(--panel2);color:var(--text)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14M13 6l6 6-6 6"></path></svg></button>
               </div>
-            </sc-for>
+              <div style="display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:8px;margin-bottom:20px">
+                <sc-for list="{{ bk.days }}" as="dy" hint-placeholder-count="5">
+                  <button onClick="{{ pickDay }}" data-id="{{ dy.label }}" aria-pressed="{{ dy.on }}" style="{{ dy.style }}">
+                    <span style="font:600 10px var(--mono);letter-spacing:.1em;color:var(--text3)">{{ dy.weekday }}</span>
+                    <span style="margin-top:2px;font:600 20px/1 var(--sans)">{{ dy.day }}</span>
+                    <span style="margin-top:4px;font:400 11px var(--sans);color:var(--text3)">{{ dy.month }}</span>
+                    <span style="{{ dy.countStyle }}">{{ dy.count }}</span>
+                  </button>
+                </sc-for>
+              </div>
+              <div style="min-height:220px">
+                <sc-if value="{{ bk.dayFull }}" hint-placeholder-val="{{ false }}">
+                  <div style="height:220px;display:grid;place-items:center;border:1px dashed var(--line);border-radius:8px;text-align:center">
+                    <div><div style="font:400 13px var(--sans);color:var(--text2)">No free time on {{ bk.dayLabel }}</div><div style="margin-top:4px;font:400 11.5px var(--mono);color:var(--text3)">Pick another day, or page ahead.</div></div>
+                  </div>
+                </sc-if>
+                <sc-for list="{{ bk.groups }}" as="gr" hint-placeholder-count="2">
+                  <div style="margin-bottom:16px">
+                    <div style="margin-bottom:8px;font:400 11px var(--mono);color:var(--text3)">{{ gr.label }}</div>
+                    <div style="display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px">
+                      <sc-for list="{{ gr.slots }}" as="sl" hint-placeholder-count="3">
+                        <button onClick="{{ pickSlot }}" data-id="{{ sl.id }}" style="{{ sl.style }}">{{ sl.time }}</button>
+                      </sc-for>
+                    </div>
+                  </div>
+                </sc-for>
+              </div>
+            </section>
+            <section aria-label="Details" style="border-left:1px solid var(--line);padding-left:24px">
+              <div style="margin-bottom:6px;font:600 10px var(--mono);letter-spacing:.12em;text-transform:uppercase;color:var(--text3)">Length</div>
+              <div role="radiogroup" aria-label="Length" style="display:inline-flex;border:1px solid var(--line);border-radius:6px;padding:2px;margin-bottom:16px">
+                <sc-for list="{{ bk.lengths }}" as="ln" hint-placeholder-count="3"><button onClick="{{ setLength }}" data-id="{{ ln.value }}" style="{{ ln.style }}">{{ ln.label }}</button></sc-for>
+              </div>
+              <label style="display:block;margin-bottom:16px"><span style="display:block;margin-bottom:6px;font:600 10px var(--mono);letter-spacing:.12em;text-transform:uppercase;color:var(--text3)">Video</span>
+                <select aria-label="Video link" style="width:100%;border-radius:6px;border:1px solid var(--line);background:var(--panel2);padding:8px 10px;font:400 12.5px var(--mono);color:var(--text)"><option>Google Meet</option><option>Microsoft Teams</option><option>No video link</option></select>
+              </label>
+              <label style="display:block;margin-bottom:16px"><span style="display:block;margin-bottom:6px;font:600 10px var(--mono);letter-spacing:.12em;text-transform:uppercase;color:var(--text3)">Invite</span>
+                <select aria-label="Invite address" style="width:100%;border-radius:6px;border:1px solid var(--line);background:var(--panel2);padding:8px 10px;font:400 12.5px var(--mono);color:var(--text)"><sc-for list="{{ bk.emails }}" as="em"><option>{{ em.label }}</option></sc-for></select>
+              </label>
+              <label style="display:block"><span style="display:block;margin-bottom:6px;font:600 10px var(--mono);letter-spacing:.12em;text-transform:uppercase;color:var(--text3)">Title</span>
+                <input value="{{ bk.title }}" aria-label="Meeting title" style="width:100%;box-sizing:border-box;border-radius:6px;border:1px solid var(--line);background:var(--panel2);padding:8px 10px;font:400 13px var(--sans);color:var(--text);outline:none">
+                <span style="display:block;margin-top:6px;font:400 11px/1.5 var(--mono);color:var(--text3)">What {{ bk.first }} sees. Keep the business unit out of it unless you mean to name it.</span>
+              </label>
+            </section>
           </div>
-          <div style="display:grid;grid-template-columns:72px 1fr;gap:8px 10px;align-items:center;font:400 12.5px var(--mono);color:var(--text2)">
-            <span style="color:var(--text3)">Invite</span>
-            <select aria-label="Invite address" style="border-radius:6px;border:1px solid var(--line);background:var(--panel2);padding:6px 8px;font:400 12.5px var(--mono);color:var(--text)"><sc-for list="{{ bk.emails }}" as="em"><option>{{ em.label }}</option></sc-for></select>
-            <span style="color:var(--text3)">Title</span>
-            <input value="{{ bk.title }}" aria-label="Meeting title" style="border-radius:6px;border:1px solid var(--line);background:var(--panel2);padding:7px 9px;font:400 13px var(--sans);color:var(--text);outline:none">
-          </div>
-          <p style="margin:10px 0 0;font:400 11.5px/1.5 var(--mono);color:var(--text3)">The title is what {{ bk.first }} sees. Keep the business unit out of it unless you mean to name it.</p>
         </div>
         <div style="flex:none;display:flex;align-items:center;gap:10px;border-top:1px solid var(--line-soft);padding:12px 20px">
-          <span style="font:400 12px var(--mono);color:var(--text3)">{{ bk.summary }}</span>
-          <button onClick="{{ sendInvite }}" style="margin-left:auto;border-radius:8px;padding:7px 16px;font:600 13px var(--sans);background:var(--amber-btn);border:1px solid var(--amber-btn);color:var(--on-amber);cursor:pointer">Send invite</button>
+          <div style="min-width:0;flex:1">
+            <div style="font:600 13px var(--sans);color:var(--text)">{{ bk.summary }}</div>
+            <div style="font:400 11.5px var(--mono);color:var(--text3)">{{ bk.summaryNote }}</div>
+          </div>
+          <button onClick="{{ closeBookCall }}" style="border-radius:6px;padding:7px 14px;font:500 13px var(--sans);background:var(--panel);border:1px solid var(--line);color:var(--text2);cursor:pointer">Cancel</button>
+          <button onClick="{{ sendInvite }}" style="border-radius:6px;padding:7px 16px;font:600 13px var(--sans);background:var(--amber-btn);border:1px solid var(--amber-btn);color:var(--on-amber);cursor:pointer">Send invite</button>
         </div>
       </div>
     </div>
@@ -719,7 +748,7 @@ class Component extends DCLogic {
       filter: "all", seqId: "s1", step: 1, previewId: "e01", reviewId: "e03", seqName: "CFO — first approach",
       bodies: STEP_BODIES.slice(), openers: { e03: PEOPLE.e03.opener, e04: PEOPLE.e04.opener }, edited: {},
       stoppedIds: {}, statusOf: {}, dark: true, toast: null,
-      bookLength: 30, bookSlot: "Mon 6 Oct|13:00"
+      bookLength: 30, bookSlot: "Mon 6 Oct|13:00", bookDay: "Mon 6 Oct"
     };
   }
 
@@ -806,16 +835,33 @@ class Component extends DCLogic {
     const id = PEOPLE[s.drawer] && !PEOPLE[s.drawer].dnc ? s.drawer : "e01";
     const pp = PEOPLE[id];
     const segStyle = (on) => `border:none;cursor:pointer;border-radius:4px;padding:5px 11px;font:500 12px var(--sans);${on ? "background:var(--amber-dim);color:var(--text)" : "background:none;color:var(--text3)"}`;
-    const days = FREE_SLOTS.map(([label, times]) => ({ label, full: times.length === 0,
-      slots: times.map((time) => { const slotId = `${label}|${time}`; const on = slotId === s.bookSlot;
-        return { id: slotId, time, style: `border-radius:6px;padding:6px 0;font:500 12px var(--mono);cursor:pointer;${on ? "background:var(--amber-btn);border:1px solid var(--amber-btn);color:var(--on-amber)" : "background:var(--panel);border:1px solid var(--line);color:var(--text)"}` }; }) }));
+    const activeLabel = s.bookDay;
+    const days = FREE_SLOTS.map(([label, times]) => {
+      const [weekday, day, month] = label.split(" ");
+      const on = label === activeLabel;
+      const full = times.length === 0;
+      return { label, weekday: weekday.toUpperCase(), day, month, on: String(on), count: full ? "Full" : `${times.length} free`,
+        style: `display:flex;flex-direction:column;align-items:center;border-radius:8px;padding:8px 4px;cursor:pointer;opacity:${full && !on ? ".6" : "1"};${on ? "border:1px solid var(--amber);background:var(--amber-dim);color:var(--text)" : "border:1px solid var(--line);background:var(--panel);color:var(--text2)"}`,
+        countStyle: `margin-top:6px;font:400 10.5px var(--mono);color:${full ? "var(--text3)" : "var(--amber)"}` };
+    });
+    const activeTimes = (FREE_SLOTS.find(([label]) => label === activeLabel) || ["", []])[1];
+    const slotOf = (time) => { const slotId = `${activeLabel}|${time}`; const on = slotId === s.bookSlot;
+      return { id: slotId, time, style: `border-radius:6px;padding:8px 0;font:500 12.5px var(--mono);cursor:pointer;${on ? "background:var(--amber-btn);border:1px solid var(--amber-btn);color:var(--on-amber)" : "background:var(--panel);border:1px solid var(--line);color:var(--text2)"}` }; };
+    const groups = [["Morning", activeTimes.filter((t) => t < "12:00")], ["Afternoon", activeTimes.filter((t) => t >= "12:00")]]
+      .filter(([, times]) => times.length > 0)
+      .map(([label, times]) => ({ label, slots: times.map(slotOf) }));
     const [day, time] = s.bookSlot.split("|");
+    const [hh, mm] = time.split(":").map(Number);
+    const endMinutes = hh * 60 + mm + s.bookLength;
+    const end = `${String(Math.floor(endMinutes / 60)).padStart(2, "0")}:${String(endMinutes % 60).padStart(2, "0")}`;
     return {
-      id, name: pp.name, first: firstOf(pp.name), days,
+      id, name: pp.name, first: firstOf(pp.name), days, groups,
+      dayFull: activeTimes.length === 0, dayLabel: activeLabel,
       lengths: [15, 30, 45].map((m) => ({ value: m, label: `${m} min`, style: segStyle(s.bookLength === m) })),
       emails: pp.emails.map((label) => ({ label })),
       title: "Confidential: Chief Financial Officer, first conversation",
-      summary: `${day} · ${time} · ${s.bookLength} min · invite from yara.haddad@alfuttaim.com`
+      summary: `${day} · ${time}–${end} · Asia/Dubai`,
+      summaryNote: `${s.bookLength} min · invite from yara.haddad@alfuttaim.com`
     };
   }
 
@@ -953,6 +999,7 @@ class Component extends DCLogic {
       openBookCall: () => set({ dialog: "bookCall" }),
       closeBookCall: () => set({ dialog: "none" }),
       setLength: (e) => set({ bookLength: Number(e.currentTarget.dataset.id) }),
+      pickDay: (e) => set({ bookDay: e.currentTarget.dataset.id }),
       pickSlot: (e) => set({ bookSlot: e.currentTarget.dataset.id }),
       sendInvite: () => {
         const [day, time] = s.bookSlot.split("|");
