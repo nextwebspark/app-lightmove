@@ -144,6 +144,11 @@ export function BookCallDialog({
           </Select>
         </label>
       </div>
+      {video === "MICROSOFT_TEAMS" && (
+        <p className="-mt-2 mb-3 text-[12px] text-u-text3">
+          Teams links need a work or school Microsoft account. Elsewhere the invite goes without one.
+        </p>
+      )}
 
       {slots.isPending ? (
         <Skeleton className="mb-4 h-40 w-full" />

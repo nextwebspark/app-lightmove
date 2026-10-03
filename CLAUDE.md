@@ -436,14 +436,14 @@ deletes its draft — a finished approach left in Drafts is one click from the s
 (a timeout leaves it: it may have gone). The poll reads `from`, `receivedDateTime`, `isDraft` and the folder, and
 drops drafts and Sent Items, so the consultant's own mail never reads as a reply whatever address it went from.
 Offered to a workspace only with an app (`isOfferedTo`, which the mailbox screen's providers read), and to the
-deployment only where some app exists. No webhook yet, no per-app revoke (the stored token goes with the row), and
-no calendar until #647 (`MAILBOX_CALENDAR_UNSUPPORTED`). Microsoft's admin-consent return lands on Settings →
+deployment only where some app exists. No webhook yet, and no per-app revoke (the stored token goes with the row).
+Microsoft's admin-consent return lands on Settings →
 Integrations, which records it (`POST /workspace/integrations/MICROSOFT/admin-consent`, `WORKSPACE_MANAGE`,
 audited) only with the `state` our link carried — an HMAC of the workspace under the shared app's secret, so a
 crafted return link records nothing — and the card says "Approved for your organisation"; it gates nothing.
 **Google (#646)** is `GoogleMailboxGateway`, over the Gmail API, offered the same way (Uncava's app, or a firm's
 Internal one). Its consent asks `access_type=offline` with `prompt=consent` — Google sends a refresh token only on
-a consent it showed — for `gmail.send`, `gmail.metadata` and the calendar scopes #647 will use. A send is one raw
+a consent it showed — for `gmail.send`, `gmail.metadata`, `calendar.events` and `calendar.freebusy`. A send is one raw
 RFC 2822 message (`RawEmail`: UTF-8 HTML, an RFC 2047 subject where it is not ASCII, a line break in any header
 refused); a follow-up names the thread and carries the last message's own `Message-ID` in `In-Reply-To` and
 `References`, read with `format=metadata`, so it threads in the executive's client whatever it is. The poll reads
@@ -452,6 +452,15 @@ refused); a follow-up names the thread and carries the last message's own `Messa
 gateway `revokesByRefreshToken`) and hands it to `revoke`. A reconnect of the **same mailbox** drops the old token
 without revoking it: Google's revoke withdraws the account's whole grant to the app, the token just issued included. Bounces: a mail daemon's `From` (`mailer-daemon`, `postmaster`, and Exchange
 Online's fixed `MicrosoftExchange329e71ec88ae4615bbc36ab6ce41109e` system mailbox) is a bounce, never a reply.
+**Calendar on both (#647)** is read and written directly, whatever `calendar_sync` says: `events.list` on `primary`
+(`singleEvents=true`) and Graph's `calendarView`, each asked only for the fields a meeting row keeps — never a
+description or a body — with Graph's times asked in UTC and only the paging of its `@odata.nextLink` taken, never the
+link itself; free/busy is `freeBusy.query` and `getSchedule`, where an error entry is a failure as on Nylas, and
+Graph's `tentative` and `oof` count as taken. A booked call is `events.insert` with `sendUpdates=all` and a Meet
+`createRequest`, or `POST /me/events` with `teamsForBusiness` — asked only where the calendar's
+`allowedOnlineMeetingProviders` lists it, so a personal Microsoft account's invite goes without a link rather than
+being refused, and Book a call says so. A video the provider cannot make (Teams from Google, Meet from Microsoft) is
+left off the same way. Recall's push of calendar changes is the next PR.
 Sequences (V100, #623) are a position's, `WORK_EXECUTE`: up to three emails (V39's owned list), and
 **Add to sequence** — from In universe / Shortlisted (the ticked companies' executives) or the executive
 drawer — chooses, reviews and starts. Choose shows who is skipped and why (no email, do not contact, out

@@ -15,8 +15,12 @@ import app.lightmove.api.core.resilience.service.VendorClientFactory;
 import app.lightmove.api.core.resilience.service.VendorRateLimiter;
 import app.lightmove.api.outreach.constant.CredentialMode;
 import app.lightmove.api.outreach.constant.IntegrationProvider;
+import app.lightmove.api.outreach.constant.MeetingVideo;
+import app.lightmove.api.outreach.model.BusyInterval;
+import app.lightmove.api.outreach.model.CalendarEvent;
 import app.lightmove.api.outreach.model.GrantedMailbox;
 import app.lightmove.api.outreach.model.MailboxGrants;
+import app.lightmove.api.outreach.model.NewCalendarEvent;
 import app.lightmove.api.outreach.model.OutgoingEmail;
 import app.lightmove.api.outreach.model.ProviderCredentials;
 import app.lightmove.api.outreach.model.ReleasedGrant;
@@ -48,7 +52,8 @@ import tools.jackson.databind.json.JsonMapper;
 
 /**
  * The Gmail gateway against recorded Google answers: the consent link, a redeemed code, a first email and a threaded
- * follow-up, who wrote into a thread, a revoke by token, and the refusals told apart.
+ * follow-up, who wrote into a thread, the calendar's events, free/busy and a booked call, a revoke by token, and the
+ * refusals told apart.
  */
 class GoogleMailboxGatewayTest {
 
@@ -172,6 +177,88 @@ class GoogleMailboxGatewayTest {
     }
 
     @Test
+    @DisplayName("calendar events are the timed, single events of every page: no series, all-day or cancelled one")
+    void calendarEventsAreTimedSingleEvents() {
+        String grantId = MailboxGrants.mintDirect("google");
+        when(mailboxTokens.accessToken(grantId)).thenReturn("access-for-yara");
+
+        List<CalendarEvent> events = gateway.calendarEvents(grantId, Instant.parse("2026-07-05T00:00:00Z"),
+                Instant.parse("2027-01-01T00:00:00Z"));
+
+        assertThat(events).extracting(CalendarEvent::id).containsExactly("evt-meet", "evt-page-2");
+        CalendarEvent meet = events.getFirst();
+        assertThat(meet.title()).isEqualTo("Confidential: first conversation");
+        assertThat(meet.startsAt()).isEqualTo(Instant.parse("2026-10-06T06:00:00Z"));
+        assertThat(meet.endsAt()).isEqualTo(Instant.parse("2026-10-06T06:30:00Z"));
+        assertThat(meet.participantAddresses()).containsExactly("priya@client.example", "yara.haddad@meridian.example");
+        assertThat(meet.joinUrl()).isEqualTo("https://meet.google.com/abc-defg-hij");
+        assertThat(meet.conferencingProvider()).isEqualTo("Google Meet");
+        assertThat(events.get(1).joinUrl()).isNull();
+        assertThat(events.get(1).conferencingProvider()).isNull();
+        String query = decoded(google.lastQueryOf("/api/calendar/v3/calendars/primary/events"));
+        assertThat(query).contains("singleEvents=true").contains("pageToken=page-2")
+                .contains("timeMin=2026-07-05T00:00:00Z").contains("fields=").doesNotContain("description");
+    }
+
+    @Test
+    @DisplayName("free/busy is the address's busy list; a calendar Google could not read is a failure, never free time")
+    void freeBusyFailsOnAnUnreadableCalendar() {
+        String grantId = MailboxGrants.mintDirect("google");
+        when(mailboxTokens.accessToken(grantId)).thenReturn("access-for-yara");
+        Instant from = Instant.parse("2026-10-05T00:00:00Z");
+        Instant to = Instant.parse("2026-10-10T00:00:00Z");
+
+        List<BusyInterval> busy = gateway.busyTimes(grantId, "yara.haddad@meridian.example", from, to);
+
+        assertThat(busy).containsExactly(new BusyInterval(Instant.parse("2026-10-06T05:00:00Z"),
+                Instant.parse("2026-10-06T06:00:00Z")));
+        google.freeBusyAnswersErrors();
+        assertThatThrownBy(() -> gateway.busyTimes(grantId, "yara.haddad@meridian.example", from, to))
+                .isInstanceOfSatisfying(VendorException.class,
+                        failed -> assertThat(failed.getKind()).isEqualTo(VendorFailureKind.UNAVAILABLE));
+    }
+
+    @Test
+    @DisplayName("a booked call mails the invite and asks Meet of the calendar, reading the join link back")
+    void aBookedCallCarriesMeet() throws Exception {
+        String grantId = MailboxGrants.mintDirect("google");
+        when(mailboxTokens.accessToken(grantId)).thenReturn("access-for-yara");
+
+        CalendarEvent created = gateway.createEvent(grantId, new NewCalendarEvent("Confidential: first conversation",
+                Instant.parse("2026-10-06T06:00:00Z"), Instant.parse("2026-10-06T06:30:00Z"), "priya@client.example",
+                MeetingVideo.GOOGLE_MEET));
+
+        assertThat(created.id()).isEqualTo("evt-meet");
+        assertThat(created.joinUrl()).isEqualTo("https://meet.google.com/abc-defg-hij");
+        assertThat(google.lastQueryOf("/api/calendar/v3/calendars/primary/events"))
+                .contains("sendUpdates=all").contains("conferenceDataVersion=1");
+        JsonNode body = JSON.readTree(google.bodyOf("POST /api/calendar/v3/calendars/primary/events"));
+        assertThat(body.path("start").path("dateTime").asString("")).isEqualTo("2026-10-06T06:00:00Z");
+        assertThat(body.path("attendees").get(0).path("email").asString("")).isEqualTo("priya@client.example");
+        assertThat(body.path("conferenceData").path("createRequest").path("conferenceSolutionKey").path("type")
+                .asString("")).isEqualTo("hangoutsMeet");
+        assertThat(body.path("conferenceData").path("createRequest").path("requestId").asString("")).isNotBlank();
+    }
+
+    @Test
+    @DisplayName("a call asking for Teams goes from Google without a video link, and a refused create is tried once")
+    void aTeamsCallFromGoogleGoesWithoutALink() throws Exception {
+        String grantId = MailboxGrants.mintDirect("google");
+        when(mailboxTokens.accessToken(grantId)).thenReturn("access-for-yara");
+        NewCalendarEvent call = new NewCalendarEvent("Call", Instant.parse("2026-10-06T06:00:00Z"),
+                Instant.parse("2026-10-06T06:30:00Z"), "priya@client.example", MeetingVideo.MICROSOFT_TEAMS);
+
+        gateway.createEvent(grantId, call);
+
+        JsonNode body = JSON.readTree(google.bodyOf("POST /api/calendar/v3/calendars/primary/events"));
+        assertThat(body.has("conferenceData")).isFalse();
+        google.createEventAnswers(503);
+        assertThatThrownBy(() -> gateway.createEvent(grantId, call)).isInstanceOf(VendorException.class);
+        assertThat(google.requested()).filteredOn("POST /api/calendar/v3/calendars/primary/events"::equals)
+                .hasSize(2);
+    }
+
+    @Test
     @DisplayName("a revoke forgets the token in memory and revokes the refresh token at Google")
     void revokeWithdrawsTheRefreshToken() {
         String grantId = MailboxGrants.mintDirect("google");
@@ -231,6 +318,18 @@ class GoogleMailboxGatewayTest {
     /** Google's answers, as its API reference records them, and every request it was sent. */
     private static final class RecordedGoogle {
 
+        private static final String MEET_EVENT = """
+                {"id":"evt-meet","status":"confirmed","summary":"Confidential: first conversation",
+                 "start":{"dateTime":"2026-10-06T10:00:00+04:00","timeZone":"Asia/Dubai"},
+                 "end":{"dateTime":"2026-10-06T10:30:00+04:00","timeZone":"Asia/Dubai"},
+                 "attendees":[{"email":"priya@client.example"}],
+                 "organizer":{"email":"yara.haddad@meridian.example","self":true},
+                 "hangoutLink":"https://meet.google.com/abc-defg-hij",
+                 "conferenceData":{"entryPoints":[
+                   {"entryPointType":"video","uri":"https://meet.google.com/abc-defg-hij"},
+                   {"entryPointType":"phone","uri":"tel:+1-555-0100"}],
+                  "conferenceSolution":{"key":{"type":"hangoutsMeet"},"name":"Google Meet"}}}""";
+
         private final List<String> requested = new CopyOnWriteArrayList<>();
         private final Map<String, String> bodies = new ConcurrentHashMap<>();
         private final Map<String, String> queries = new ConcurrentHashMap<>();
@@ -239,6 +338,8 @@ class GoogleMailboxGatewayTest {
         private volatile int refreshStatus = 200;
         private volatile String refreshBody;
         private volatile int sendStatus = 200;
+        private volatile int createEventStatus = 200;
+        private volatile boolean freeBusyErrors;
 
         void answer(HttpExchange exchange) throws IOException {
             String path = exchange.getRequestURI().getPath();
@@ -289,6 +390,34 @@ class GoogleMailboxGatewayTest {
                           {"id":"m5","labelIds":["INBOX"],
                            "payload":{"headers":[{"name":"From","value":"Undated <undated@client.example>"}]}}
                         ]}""");
+            } else if (key.equals("GET /api/calendar/v3/calendars/primary/events")) {
+                respond(exchange, 200, exchange.getRequestURI().getQuery().contains("pageToken=page-2") ? """
+                        {"items":[
+                          {"id":"evt-page-2","status":"confirmed","summary":"Debrief",
+                           "start":{"dateTime":"2026-10-08T10:00:00+04:00"},"end":{"dateTime":"2026-10-08T10:30:00+04:00"},
+                           "attendees":[{"email":"priya@client.example"}],"organizer":{"email":"yara.haddad@meridian.example"}}
+                        ]}""" : """
+                        {"nextPageToken":"page-2","items":[
+                          %s,
+                          {"id":"evt-weekly_20261007T060000Z","status":"confirmed","summary":"Weekly",
+                           "recurringEventId":"evt-weekly",
+                           "start":{"dateTime":"2026-10-07T06:00:00Z"},"end":{"dateTime":"2026-10-07T06:30:00Z"},
+                           "attendees":[{"email":"priya@client.example"}]},
+                          {"id":"evt-offsite","status":"confirmed","summary":"Offsite",
+                           "start":{"date":"2026-10-09"},"end":{"date":"2026-10-10"},
+                           "attendees":[{"email":"priya@client.example"}]},
+                          {"id":"evt-cancelled","status":"cancelled"}
+                        ]}""".formatted(MEET_EVENT));
+            } else if (key.equals("POST /api/calendar/v3/calendars/primary/events")) {
+                respond(exchange, createEventStatus,
+                        createEventStatus == 200 ? MEET_EVENT : "{\"error\":{\"code\":" + createEventStatus + "}}");
+            } else if (key.equals("POST /api/calendar/v3/freeBusy")) {
+                respond(exchange, 200, freeBusyErrors ? """
+                        {"kind":"calendar#freeBusy","calendars":{"yara.haddad@meridian.example":
+                          {"errors":[{"domain":"global","reason":"backendError"}],"busy":[]}}}""" : """
+                        {"kind":"calendar#freeBusy","timeMin":"2026-10-05T00:00:00.000Z","calendars":{
+                          "yara.haddad@meridian.example":{"busy":[
+                            {"start":"2026-10-06T09:00:00+04:00","end":"2026-10-06T10:00:00+04:00"}]}}}""");
             } else {
                 respond(exchange, 404, "{\"error\":{\"code\":404}}");
             }
@@ -301,6 +430,14 @@ class GoogleMailboxGatewayTest {
 
         void sendAnswers(int status) {
             this.sendStatus = status;
+        }
+
+        void createEventAnswers(int status) {
+            this.createEventStatus = status;
+        }
+
+        void freeBusyAnswersErrors() {
+            this.freeBusyErrors = true;
         }
 
         Map<String, String> lastForm() {

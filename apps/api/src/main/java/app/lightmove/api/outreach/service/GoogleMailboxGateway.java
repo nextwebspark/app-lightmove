@@ -6,15 +6,22 @@ import app.lightmove.api.core.resilience.service.VendorCallGuard;
 import app.lightmove.api.core.resilience.service.VendorClientFactory;
 import app.lightmove.api.core.resilience.service.VendorRateLimiter;
 import app.lightmove.api.outreach.constant.IntegrationProvider;
+import app.lightmove.api.outreach.constant.MeetingVideo;
+import app.lightmove.api.outreach.model.BusyInterval;
+import app.lightmove.api.outreach.model.CalendarEvent;
+import app.lightmove.api.outreach.model.NewCalendarEvent;
 import app.lightmove.api.outreach.model.OutgoingEmail;
 import app.lightmove.api.outreach.model.ProviderCredentials;
 import app.lightmove.api.outreach.model.ReleasedGrant;
 import app.lightmove.api.outreach.model.SentEmail;
 import java.time.Instant;
+import java.time.OffsetDateTime;
+import java.time.format.DateTimeParseException;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
 import org.springframework.http.MediaType;
 import org.springframework.web.util.UriComponentsBuilder;
 import tools.jackson.databind.JsonNode;
@@ -32,10 +39,16 @@ public class GoogleMailboxGateway extends OAuthDirectMailboxGateway {
     public static final String API = "https://www.googleapis.com";
     public static final String ACCOUNTS = "https://accounts.google.com";
 
-    /** {@code calendar.*} now, so the calendar (#647) needs no reconnect; together they cover Recall's read too. */
+    /** {@code calendar.*} for meetings, free/busy and booking; together they cover Recall's read too. */
     static final List<String> SCOPES = List.of("openid", "email", "https://www.googleapis.com/auth/gmail.send",
             "https://www.googleapis.com/auth/gmail.metadata", "https://www.googleapis.com/auth/calendar.events",
             "https://www.googleapis.com/auth/calendar.freebusy");
+
+    /** Only what a meeting row keeps: never a description, a location or an attachment. */
+    private static final String EVENT_FIELDS = "nextPageToken,items(id,status,summary,start,end,attendees/email,"
+            + "organizer/email,recurringEventId,recurrence,hangoutLink,conferenceData(entryPoints,conferenceSolution/name))";
+
+    private static final int EVENT_PAGE = 250;
 
     private final String accountsBaseUrl;
 
@@ -105,6 +118,166 @@ public class GoogleMailboxGateway extends OAuthDirectMailboxGateway {
             throw new VendorException(vendorCall("send"), VendorFailureKind.MALFORMED_RESPONSE, null);
         }
         return new SentEmail(messageId, threadId);
+    }
+
+    @Override
+    public List<CalendarEvent> calendarEvents(String grantId, Instant from, Instant to) {
+        String accessToken = accessTokenOf(grantId);
+        List<CalendarEvent> events = new ArrayList<>();
+        String pageToken = null;
+        for (int page = 0; page < MAX_EVENT_PAGES; page++) {
+            String token = pageToken;
+            JsonNode answer = apiCall("calendar-events", accessToken, client -> client.get()
+                    .uri(builder -> {
+                        builder.path("/calendar/v3/calendars/primary/events")
+                                .queryParam("timeMin", "{from}")
+                                .queryParam("timeMax", "{to}")
+                                .queryParam("singleEvents", true)
+                                .queryParam("maxResults", EVENT_PAGE)
+                                .queryParam("fields", "{fields}");
+                        if (token != null) {
+                            builder.queryParam("pageToken", "{token}");
+                        }
+                        return builder.build(Map.of("from", from.toString(), "to", to.toString(),
+                                "fields", EVENT_FIELDS, "token", token == null ? "" : token));
+                    })
+                    .accept(MediaType.APPLICATION_JSON));
+            if (answer == null) {
+                break;
+            }
+            for (JsonNode item : answer.path("items")) {
+                CalendarEvent read = eventOf(item);
+                if (read != null) {
+                    events.add(read);
+                }
+            }
+            pageToken = textOrNull(answer.get("nextPageToken"));
+            if (pageToken == null) {
+                break;
+            }
+        }
+        return events;
+    }
+
+    @Override
+    public List<BusyInterval> busyTimes(String grantId, String address, Instant from, Instant to) {
+        String accessToken = accessTokenOf(grantId);
+        JsonNode answer = apiCall("free-busy", accessToken, client -> client.post()
+                .uri("/calendar/v3/freeBusy")
+                .contentType(MediaType.APPLICATION_JSON)
+                .body(Map.of("timeMin", from.toString(), "timeMax", to.toString(),
+                        "items", List.of(Map.of("id", address)))));
+        return busyIntervalsOf(answer, address);
+    }
+
+    /**
+     * Google answers a calendar it could not read with an {@code errors} entry and no busy list. Read as "nothing
+     * busy", that offers every slot as free and books an invite into a taken one, so it is a failure.
+     */
+    List<BusyInterval> busyIntervalsOf(JsonNode answer, String address) {
+        JsonNode calendar = answer == null ? null : answer.path("calendars").get(address);
+        if (calendar == null || !calendar.path("errors").isEmpty() || !calendar.path("busy").isArray()) {
+            throw unreadableCalendar();
+        }
+        List<BusyInterval> busy = new ArrayList<>();
+        for (JsonNode interval : calendar.path("busy")) {
+            Instant start = instantOrNull(interval.get("start"));
+            Instant end = instantOrNull(interval.get("end"));
+            if (start == null || end == null) {
+                throw unreadableCalendar();
+            }
+            busy.add(new BusyInterval(start, end));
+        }
+        return busy;
+    }
+
+    /**
+     * {@code sendUpdates=all} is what mails the executive the invite. Meet is created by the calendar itself; a Teams
+     * link is not Google's to make, so that invite goes without one. Never retried — see {@link MailboxGateway}.
+     */
+    @Override
+    public CalendarEvent createEvent(String grantId, NewCalendarEvent event) {
+        String accessToken = accessTokenOf(grantId);
+        Map<String, Object> body = new LinkedHashMap<>();
+        body.put("summary", event.title());
+        body.put("start", Map.of("dateTime", event.startsAt().toString()));
+        body.put("end", Map.of("dateTime", event.endsAt().toString()));
+        body.put("attendees", List.of(Map.of("email", event.inviteeAddress())));
+        if (event.video() == MeetingVideo.GOOGLE_MEET) {
+            body.put("conferenceData", Map.of("createRequest", Map.of("requestId", UUID.randomUUID().toString(),
+                    "conferenceSolutionKey", Map.of("type", "hangoutsMeet"))));
+        }
+        JsonNode answer = apiCall("create-event", accessToken, client -> client.post()
+                .uri(builder -> builder.path("/calendar/v3/calendars/primary/events")
+                        .queryParam("sendUpdates", "all")
+                        .queryParam("conferenceDataVersion", 1)
+                        .build())
+                .contentType(MediaType.APPLICATION_JSON)
+                .body(body));
+        CalendarEvent created = answer == null ? null : eventOf(answer);
+        if (created == null) {
+            // It was created: Google answered 2xx. Never re-sent; the booking is told it has no event to record.
+            throw new VendorException(vendorCall("create-event"), VendorFailureKind.MALFORMED_RESPONSE, null);
+        }
+        return created;
+    }
+
+    /**
+     * Null for a cancelled event, one with no id, an all-day one ({@code start.date}, no call), or one of a recurring
+     * series: kept at all, a series would be kept once per occurrence and never cleanly removed.
+     */
+    static CalendarEvent eventOf(JsonNode event) {
+        String id = textOrNull(event.get("id"));
+        Instant startsAt = instantOrNull(event.path("start").get("dateTime"));
+        Instant endsAt = instantOrNull(event.path("end").get("dateTime"));
+        boolean recurring = textOrNull(event.get("recurringEventId")) != null || !event.path("recurrence").isEmpty();
+        if (id == null || startsAt == null || endsAt == null || recurring
+                || "cancelled".equalsIgnoreCase(textOrNull(event.get("status")))) {
+            return null;
+        }
+        List<String> participants = new ArrayList<>();
+        for (JsonNode attendee : event.path("attendees")) {
+            String address = textOrNull(attendee.get("email"));
+            if (address != null) {
+                participants.add(address);
+            }
+        }
+        String organizer = textOrNull(event.path("organizer").get("email"));
+        if (organizer != null) {
+            participants.add(organizer);
+        }
+        JsonNode conference = event.path("conferenceData");
+        String hangoutLink = textOrNull(event.get("hangoutLink"));
+        String joinUrl = videoEntryPointOf(conference);
+        String provider = textOrNull(conference.path("conferenceSolution").get("name"));
+        if (joinUrl == null && hangoutLink != null) {
+            joinUrl = hangoutLink;
+            provider = provider == null ? "Google Meet" : provider;
+        }
+        return new CalendarEvent(id, textOrNull(event.get("summary")), startsAt, endsAt, participants, joinUrl,
+                joinUrl == null ? null : provider);
+    }
+
+    private static String videoEntryPointOf(JsonNode conference) {
+        for (JsonNode entryPoint : conference.path("entryPoints")) {
+            if ("video".equals(textOrNull(entryPoint.get("entryPointType")))) {
+                return textOrNull(entryPoint.get("uri"));
+            }
+        }
+        return null;
+    }
+
+    /** An RFC 3339 time with any offset; null for an all-day date or anything unreadable. */
+    private static Instant instantOrNull(JsonNode node) {
+        String text = textOrNull(node);
+        if (text == null) {
+            return null;
+        }
+        try {
+            return OffsetDateTime.parse(text).toInstant();
+        } catch (DateTimeParseException unreadable) {
+            return null;
+        }
     }
 
     /** Google revokes by the refresh token, which the caller read before the row let it go; none means drop it. */

@@ -11,18 +11,14 @@ import app.lightmove.api.core.resilience.service.VendorClientFactory;
 import app.lightmove.api.core.resilience.service.VendorRateLimiter;
 import app.lightmove.api.outreach.constant.IntegrationProvider;
 import app.lightmove.api.outreach.model.BookingPageSpec;
-import app.lightmove.api.outreach.model.BusyInterval;
-import app.lightmove.api.outreach.model.CalendarEvent;
 import app.lightmove.api.outreach.model.GrantedMailbox;
 import app.lightmove.api.outreach.model.MailboxEvent;
 import app.lightmove.api.outreach.model.MailboxGrants;
-import app.lightmove.api.outreach.model.NewCalendarEvent;
 import app.lightmove.api.outreach.model.ProviderCredentials;
 import app.lightmove.api.outreach.model.ProviderTokenGrant;
 import app.lightmove.api.outreach.model.ReleasedGrant;
 import java.net.URI;
 import java.time.Duration;
-import java.time.Instant;
 import java.util.List;
 import java.util.Locale;
 import java.util.UUID;
@@ -41,6 +37,9 @@ public abstract class OAuthDirectMailboxGateway implements DirectMailboxGateway 
     /** A thread an outreach run writes into is a handful of messages. */
     static final Duration READ_TIMEOUT = Duration.ofSeconds(30);
     private static final int REQUESTS_PER_SECOND = 10;
+
+    /** A full diary either side of today; a calendar past it is read no further. */
+    static final int MAX_EVENT_PAGES = 10;
 
     private final IntegrationProvider integrationProvider;
     private final String providerName;
@@ -168,21 +167,6 @@ public abstract class OAuthDirectMailboxGateway implements DirectMailboxGateway 
     }
 
     @Override
-    public List<CalendarEvent> calendarEvents(String grantId, Instant from, Instant to) {
-        throw calendarNotYet();
-    }
-
-    @Override
-    public List<BusyInterval> busyTimes(String grantId, String address, Instant from, Instant to) {
-        throw calendarNotYet();
-    }
-
-    @Override
-    public CalendarEvent createEvent(String grantId, NewCalendarEvent event) {
-        throw calendarNotYet();
-    }
-
-    @Override
     public boolean isBookingPageOffered() {
         return false;
     }
@@ -231,9 +215,9 @@ public abstract class OAuthDirectMailboxGateway implements DirectMailboxGateway 
                 .orElseThrow(() -> ApiException.of(ErrorCode.MAILBOX_UNAVAILABLE));
     }
 
-    /** The calendar on our own gateway is #647's; until then a direct mailbox's meetings are not read. */
-    private static ApiException calendarNotYet() {
-        return ApiException.of(ErrorCode.MAILBOX_CALENDAR_UNSUPPORTED);
+    /** A free/busy answer with a calendar the provider could not read: never free time. */
+    protected VendorException unreadableCalendar() {
+        return new VendorException(vendorCall("free-busy"), VendorFailureKind.UNAVAILABLE, null);
     }
 
     protected static String textOrNull(JsonNode node) {

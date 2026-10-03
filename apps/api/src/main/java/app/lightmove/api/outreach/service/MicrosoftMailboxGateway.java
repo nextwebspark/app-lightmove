@@ -6,16 +6,28 @@ import app.lightmove.api.core.resilience.service.VendorCallGuard;
 import app.lightmove.api.core.resilience.service.VendorClientFactory;
 import app.lightmove.api.core.resilience.service.VendorRateLimiter;
 import app.lightmove.api.outreach.constant.IntegrationProvider;
+import app.lightmove.api.outreach.constant.MeetingVideo;
+import app.lightmove.api.outreach.model.BusyInterval;
+import app.lightmove.api.outreach.model.CalendarEvent;
+import app.lightmove.api.outreach.model.NewCalendarEvent;
 import app.lightmove.api.outreach.model.OutgoingEmail;
 import app.lightmove.api.outreach.model.ProviderCredentials;
 import app.lightmove.api.outreach.model.ReleasedGrant;
 import app.lightmove.api.outreach.model.SentEmail;
+import java.net.URLDecoder;
+import java.nio.charset.StandardCharsets;
+import java.time.DateTimeException;
 import java.time.Instant;
+import java.time.LocalDateTime;
+import java.time.ZoneId;
+import java.time.ZoneOffset;
+import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeParseException;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import org.springframework.http.MediaType;
 import org.springframework.web.client.RestClient;
@@ -38,12 +50,26 @@ public class MicrosoftMailboxGateway extends OAuthDirectMailboxGateway {
 
     /**
      * {@code Mail.ReadWrite} because a draft is what answers with the ids threading needs, {@code Calendars.ReadWrite}
-     * now so the calendar (#647) needs no reconnect. These also cover Recall's calendar read.
+     * for meetings, free/busy and booking. These also cover Recall's calendar read.
      */
     static final List<String> SCOPES = List.of("offline_access", "User.Read", "Mail.ReadWrite", "Mail.Send",
             "Calendars.ReadWrite");
 
     private static final String IMMUTABLE_IDS = "IdType=\"ImmutableId\"";
+
+    /** Every time Graph answers is then UTC, whatever zone the consultant's calendar is kept in. */
+    private static final String UTC_TIMES = "outlook.timezone=\"UTC\"";
+
+    /** Only what a meeting row keeps: never a body, a location or an attachment. */
+    private static final String EVENT_FIELDS = "id,subject,start,end,isAllDay,isCancelled,type,seriesMasterId,"
+            + "attendees,organizer,onlineMeeting,onlineMeetingProvider";
+
+    private static final int EVENT_PAGE = 100;
+
+    private static final String TEAMS = "teamsForBusiness";
+
+    /** What a consultant's calendar shows as taken; {@code free} and {@code workingElsewhere} are offered. */
+    private static final Set<String> BUSY_STATUSES = Set.of("busy", "tentative", "oof");
 
     /** A thread an outreach run writes into is a handful of messages; this is far past any real one. */
     private static final int THREAD_PAGE = 50;
@@ -87,10 +113,13 @@ public class MicrosoftMailboxGateway extends OAuthDirectMailboxGateway {
         return address != null ? address : textOrNull(me == null ? null : me.get("userPrincipalName"));
     }
 
-    /** Ids are asked immutable, so the ones a follow-up and the poll key on survive the move to Sent Items. */
+    /**
+     * Ids are asked immutable, so the ones a follow-up, the poll and a meeting key on survive a move between folders;
+     * times are asked in UTC.
+     */
     @Override
     protected RestClient.RequestHeadersSpec<?> withProviderHeaders(RestClient.RequestHeadersSpec<?> request) {
-        return request.header("Prefer", IMMUTABLE_IDS);
+        return request.header("Prefer", IMMUTABLE_IDS, UTC_TIMES);
     }
 
     /**
@@ -130,6 +159,219 @@ public class MicrosoftMailboxGateway extends OAuthDirectMailboxGateway {
             throw failed;
         }
         return new SentEmail(messageId, conversationId);
+    }
+
+    /** A recurring series is never kept, so {@code calendarView}'s occurrences of one are dropped by {@link #eventOf}. */
+    @Override
+    public List<CalendarEvent> calendarEvents(String grantId, Instant from, Instant to) {
+        String accessToken = accessTokenOf(grantId);
+        List<CalendarEvent> events = new ArrayList<>();
+        Map<String, String> paging = Map.of();
+        for (int page = 0; page < MAX_EVENT_PAGES; page++) {
+            Map<String, String> next = paging;
+            JsonNode answer = apiCall("calendar-events", accessToken, client -> client.get()
+                    .uri(builder -> {
+                        builder.path("/v1.0/me/calendarView")
+                                .queryParam("startDateTime", "{from}")
+                                .queryParam("endDateTime", "{to}")
+                                .queryParam("$select", "{select}")
+                                .queryParam("$top", EVENT_PAGE);
+                        Map<String, Object> values = new LinkedHashMap<>(Map.of("from", from.toString(),
+                                "to", to.toString(), "select", EVENT_FIELDS));
+                        next.forEach((name, value) -> {
+                            builder.queryParam(name, "{" + name.replace("$", "") + "}");
+                            values.put(name.replace("$", ""), value);
+                        });
+                        return builder.build(values);
+                    })
+                    .accept(MediaType.APPLICATION_JSON));
+            if (answer == null) {
+                break;
+            }
+            for (JsonNode item : answer.path("value")) {
+                CalendarEvent read = eventOf(item);
+                if (read != null) {
+                    events.add(read);
+                }
+            }
+            paging = pagingOf(textOrNull(answer.get("@odata.nextLink")));
+            if (paging.isEmpty()) {
+                break;
+            }
+        }
+        return events;
+    }
+
+    /**
+     * Only the paging parameters of Graph's {@code @odata.nextLink} are taken, and asked again at our own base:
+     * the link itself is never followed with the consultant's token.
+     */
+    static Map<String, String> pagingOf(String nextLink) {
+        if (nextLink == null) {
+            return Map.of();
+        }
+        Map<String, String> paging = new LinkedHashMap<>();
+        UriComponentsBuilder.fromUriString(nextLink).build().getQueryParams().forEach((name, values) -> {
+            String decoded = URLDecoder.decode(name, StandardCharsets.UTF_8);
+            if ((decoded.equals("$skip") || decoded.equals("$skiptoken")) && !values.isEmpty()
+                    && values.getFirst() != null) {
+                paging.put(decoded, URLDecoder.decode(values.getFirst(), StandardCharsets.UTF_8));
+            }
+        });
+        return paging;
+    }
+
+    @Override
+    public List<BusyInterval> busyTimes(String grantId, String address, Instant from, Instant to) {
+        String accessToken = accessTokenOf(grantId);
+        JsonNode answer = apiCall("free-busy", accessToken, client -> client.post()
+                .uri("/v1.0/me/calendar/getSchedule")
+                .contentType(MediaType.APPLICATION_JSON)
+                .body(Map.of("schedules", List.of(address),
+                        "startTime", graphTimeOf(from),
+                        "endTime", graphTimeOf(to))));
+        return busyIntervalsOf(answer);
+    }
+
+    /**
+     * Graph answers a calendar it could not read with an {@code error} in place of its items. Read as "nothing busy",
+     * that offers every slot as free and books an invite into a taken one, so it is a failure.
+     */
+    List<BusyInterval> busyIntervalsOf(JsonNode answer) {
+        if (answer == null || !answer.path("value").isArray() || answer.path("value").isEmpty()) {
+            throw unreadableCalendar();
+        }
+        List<BusyInterval> busy = new ArrayList<>();
+        for (JsonNode schedule : answer.path("value")) {
+            if (!schedule.path("error").isMissingNode() && !schedule.path("error").isNull()
+                    || !schedule.path("scheduleItems").isArray()) {
+                throw unreadableCalendar();
+            }
+            for (JsonNode item : schedule.path("scheduleItems")) {
+                String status = textOrNull(item.get("status"));
+                if (status != null && !BUSY_STATUSES.contains(status)) {
+                    continue;
+                }
+                Instant start = graphInstantOf(item.path("start"));
+                Instant end = graphInstantOf(item.path("end"));
+                if (start == null || end == null) {
+                    throw unreadableCalendar();
+                }
+                busy.add(new BusyInterval(start, end));
+            }
+        }
+        return busy;
+    }
+
+    /**
+     * Graph mails the invite itself. A Teams link is made only where the calendar offers Teams — a personal Microsoft
+     * account does not, and its invite goes without one, as does one asking for Meet. Never retried — see
+     * {@link MailboxGateway}.
+     */
+    @Override
+    public CalendarEvent createEvent(String grantId, NewCalendarEvent event) {
+        String accessToken = accessTokenOf(grantId);
+        Map<String, Object> body = new LinkedHashMap<>();
+        body.put("subject", event.title());
+        body.put("start", graphTimeOf(event.startsAt()));
+        body.put("end", graphTimeOf(event.endsAt()));
+        body.put("attendees", List.of(Map.of("emailAddress", Map.of("address", event.inviteeAddress()),
+                "type", "required")));
+        if (event.video() == MeetingVideo.MICROSOFT_TEAMS && offersTeams(accessToken)) {
+            body.put("isOnlineMeeting", true);
+            body.put("onlineMeetingProvider", TEAMS);
+        }
+        JsonNode answer = apiCall("create-event", accessToken, client -> client.post()
+                .uri("/v1.0/me/events")
+                .contentType(MediaType.APPLICATION_JSON)
+                .body(body));
+        CalendarEvent created = answer == null ? null : eventOf(answer);
+        if (created == null) {
+            // It was created: Graph answered 2xx. Never re-sent; the booking is told it has no event to record.
+            throw new VendorException(vendorCall("create-event"), VendorFailureKind.MALFORMED_RESPONSE, null);
+        }
+        return created;
+    }
+
+    /** Read before the create rather than after a refusal: a create that failed is never tried again. */
+    private boolean offersTeams(String accessToken) {
+        JsonNode calendar = apiCall("calendar", accessToken, client -> client.get()
+                .uri("/v1.0/me/calendar?$select=allowedOnlineMeetingProviders")
+                .accept(MediaType.APPLICATION_JSON));
+        if (calendar == null) {
+            return false;
+        }
+        for (JsonNode provider : calendar.path("allowedOnlineMeetingProviders")) {
+            if (TEAMS.equals(textOrNull(provider))) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /**
+     * Null for a cancelled event, one with no id, an all-day one (no call), or one of a recurring series: kept at all,
+     * a series would be kept once per occurrence and never cleanly removed.
+     */
+    static CalendarEvent eventOf(JsonNode event) {
+        String id = textOrNull(event.get("id"));
+        Instant startsAt = graphInstantOf(event.path("start"));
+        Instant endsAt = graphInstantOf(event.path("end"));
+        String type = textOrNull(event.get("type"));
+        boolean recurring = textOrNull(event.get("seriesMasterId")) != null
+                || (type != null && !type.equals("singleInstance"));
+        if (id == null || startsAt == null || endsAt == null || recurring
+                || event.path("isAllDay").asBoolean(false) || event.path("isCancelled").asBoolean(false)) {
+            return null;
+        }
+        List<String> participants = new ArrayList<>();
+        for (JsonNode attendee : event.path("attendees")) {
+            String address = textOrNull(attendee.path("emailAddress").get("address"));
+            if (address != null) {
+                participants.add(address);
+            }
+        }
+        String organizer = textOrNull(event.path("organizer").path("emailAddress").get("address"));
+        if (organizer != null) {
+            participants.add(organizer);
+        }
+        String joinUrl = textOrNull(event.path("onlineMeeting").get("joinUrl"));
+        String provider = joinUrl == null ? null : videoProviderOf(textOrNull(event.get("onlineMeetingProvider")));
+        return new CalendarEvent(id, textOrNull(event.get("subject")), startsAt, endsAt, participants, joinUrl,
+                provider);
+    }
+
+    private static String videoProviderOf(String onlineMeetingProvider) {
+        if (onlineMeetingProvider == null) {
+            return null;
+        }
+        return switch (onlineMeetingProvider) {
+            case TEAMS, "teamsForConsumer" -> "Microsoft Teams";
+            case "skypeForBusiness", "skypeForConsumer" -> "Skype";
+            default -> null;
+        };
+    }
+
+    private static Map<String, String> graphTimeOf(Instant instant) {
+        return Map.of("dateTime", LocalDateTime.ofInstant(instant, ZoneOffset.UTC).format(DateTimeFormatter.ISO_LOCAL_DATE_TIME), "timeZone", "UTC");
+    }
+
+    /**
+     * Graph's {@code dateTimeTimeZone}: a local time and the zone it is in, UTC as asked. A Windows zone name it
+     * answers despite that is unreadable here, and the time with it.
+     */
+    static Instant graphInstantOf(JsonNode dateTimeTimeZone) {
+        String local = textOrNull(dateTimeTimeZone.get("dateTime"));
+        String zone = textOrNull(dateTimeTimeZone.get("timeZone"));
+        if (local == null) {
+            return null;
+        }
+        try {
+            ZoneId zoneId = zone == null || zone.equalsIgnoreCase("UTC") ? ZoneOffset.UTC : ZoneId.of(zone);
+            return LocalDateTime.parse(local).atZone(zoneId).toInstant();
+        } catch (DateTimeException unreadable) {
+            return null;
+        }
     }
 
     /** Graph has no per-app revoke: the stored token goes with the row. */
