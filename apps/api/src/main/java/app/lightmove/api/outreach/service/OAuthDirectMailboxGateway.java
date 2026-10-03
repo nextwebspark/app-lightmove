@@ -24,6 +24,7 @@ import java.net.URI;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
+import java.util.Locale;
 import java.util.UUID;
 import java.util.function.Function;
 import org.springframework.web.client.RestClient;
@@ -42,20 +43,20 @@ public abstract class OAuthDirectMailboxGateway implements DirectMailboxGateway 
     private static final int REQUESTS_PER_SECOND = 10;
 
     private final IntegrationProvider integrationProvider;
-    private final String provider;
+    private final String providerName;
     private final String vendor;
     private final ProviderCredentialsResolver credentials;
-    protected final ProviderTokenClient tokenEndpoint;
-    protected final MailboxTokens mailboxTokens;
-    protected final VendorCallGuard guard;
-    protected final RestClient api;
+    private final ProviderTokenClient tokenEndpoint;
+    private final MailboxTokens mailboxTokens;
+    private final VendorCallGuard guard;
+    private final RestClient api;
 
-    protected OAuthDirectMailboxGateway(IntegrationProvider integrationProvider, String provider, String vendor,
+    protected OAuthDirectMailboxGateway(IntegrationProvider integrationProvider, String vendor,
                                         ProviderCredentialsResolver credentials, ProviderTokenClient tokenEndpoint,
                                         MailboxTokens mailboxTokens, VendorClientFactory clientFactory,
                                         VendorRateLimiter rateLimiter, VendorCallGuard guard, String apiBaseUrl) {
         this.integrationProvider = integrationProvider;
-        this.provider = provider;
+        this.providerName = integrationProvider.name().toLowerCase(Locale.ROOT);
         this.vendor = vendor;
         this.credentials = credentials;
         this.tokenEndpoint = tokenEndpoint;
@@ -68,15 +69,15 @@ public abstract class OAuthDirectMailboxGateway implements DirectMailboxGateway 
     /** The consent screen's address for {@code app}, with whatever parameters only this provider asks. */
     protected abstract UriComponentsBuilder consentEndpoint(ProviderCredentials app);
 
-    /** The scopes asked of the consent screen, and of the redemption where the provider wants them repeated. */
+    /** The scopes asked of the consent screen. */
     protected abstract List<String> scopes();
 
     /** The address of the mailbox {@code accessToken} was just issued for; null when the provider did not say. */
     protected abstract String mailboxAddressOf(String accessToken);
 
-    /** The scopes a code redemption repeats; none where the provider takes them from the consent alone. */
-    protected List<String> redemptionScopes() {
-        return List.of();
+    /** Whether a code redemption repeats {@link #scopes()}; Google takes them from the consent alone. */
+    protected boolean repeatsScopesAtRedemption() {
+        return false;
     }
 
     /** Anything the provider holds for a grant beyond the access token in memory, which {@link #revoke} drops. */
@@ -89,34 +90,35 @@ public abstract class OAuthDirectMailboxGateway implements DirectMailboxGateway 
     }
 
     @Override
-    public String provider() {
-        return provider;
+    public final String provider() {
+        return providerName;
     }
 
     /** Offered where anyone could connect: Uncava's shared app is configured, or some firm brought its own. */
     @Override
-    public boolean isOffered() {
+    public final boolean isOffered() {
         return credentials.isAnyAppAt(integrationProvider);
     }
 
     @Override
-    public boolean isOfferedTo(UUID workspaceId) {
+    public final boolean isOfferedTo(UUID workspaceId) {
         return credentials.resolve(workspaceId, integrationProvider).isPresent();
     }
 
     /** Our app is chosen per workspace, so a sign-in that names none cannot be started here. */
     @Override
-    public URI authorizationUri(String provider, String loginHint, String state, URI redirectUri) {
+    public final URI authorizationUri(String provider, String loginHint, String state, URI redirectUri) {
         throw ApiException.of(ErrorCode.MAILBOX_UNAVAILABLE);
     }
 
     @Override
-    public GrantedMailbox redeem(String code, URI redirectUri) {
+    public final GrantedMailbox redeem(String code, URI redirectUri) {
         throw ApiException.of(ErrorCode.MAILBOX_UNAVAILABLE);
     }
 
     @Override
-    public URI authorizationUri(UUID workspaceId, String provider, String loginHint, String state, URI redirectUri) {
+    public final URI authorizationUri(UUID workspaceId, String provider, String loginHint, String state,
+                                      URI redirectUri) {
         ProviderCredentials app = requireApp(workspaceId);
         UriComponentsBuilder uri = consentEndpoint(app)
                 .queryParam("client_id", app.clientId())
@@ -132,12 +134,13 @@ public abstract class OAuthDirectMailboxGateway implements DirectMailboxGateway 
 
     /** Never retried: a code is single-use. Any refusal here reads to the caller as the connect having failed. */
     @Override
-    public GrantedMailbox redeem(UUID workspaceId, String provider, String code, URI redirectUri) {
+    public final GrantedMailbox redeem(UUID workspaceId, String provider, String code, URI redirectUri) {
         ProviderCredentials app = requireApp(workspaceId);
-        VendorCall call = VendorCall.of(vendor, "redeem");
+        VendorCall call = vendorCall("redeem");
         ProviderTokenGrant token;
         try {
-            token = tokenEndpoint.redeemCode(app, code, redirectUri, redemptionScopes());
+            token = tokenEndpoint.redeemCode(app, code, redirectUri,
+                    repeatsScopesAtRedemption() ? scopes() : List.of());
         } catch (ProviderGrantRefused | ProviderAppUnavailable refused) {
             throw new VendorException(call, VendorFailureKind.BAD_REQUEST, refused);
         }
@@ -147,15 +150,13 @@ public abstract class OAuthDirectMailboxGateway implements DirectMailboxGateway 
         }
         String address = mailboxAddressOf(token.accessToken());
         if (address == null) {
-            throw new VendorException(VendorCall.of(vendor, "mailbox-address"), VendorFailureKind.MALFORMED_RESPONSE,
-                    null);
+            throw new VendorException(vendorCall("mailbox-address"), VendorFailureKind.MALFORMED_RESPONSE, null);
         }
-        return new GrantedMailbox(MailboxGrants.mintDirect(this.provider), address, this.provider,
-                token.refreshToken());
+        return new GrantedMailbox(MailboxGrants.mintDirect(providerName), address, providerName, token.refreshToken());
     }
 
     @Override
-    public void revoke(ReleasedGrant released) {
+    public final void revoke(ReleasedGrant released) {
         mailboxTokens.forget(released.grantId());
         release(released);
     }
@@ -194,14 +195,35 @@ public abstract class OAuthDirectMailboxGateway implements DirectMailboxGateway 
 
     protected JsonNode apiCall(String operation, String accessToken,
                                Function<RestClient, RestClient.RequestHeadersSpec<?>> request) {
-        return guard.call(VendorCall.of(vendor, operation), () -> withProviderHeaders(request.apply(api)
-                .header("Authorization", "Bearer " + accessToken))
+        return guard.call(vendorCall(operation), () -> authorised(request, accessToken)
                 .retrieve()
                 .body(JsonNode.class));
     }
 
+    /** {@link #apiCall} for a request the provider answers with no body. */
+    protected void apiExchange(String operation, String accessToken,
+                               Function<RestClient, RestClient.RequestHeadersSpec<?>> request) {
+        guard.call(vendorCall(operation), () -> authorised(request, accessToken)
+                .retrieve()
+                .toBodilessEntity());
+    }
+
+    protected String accessTokenOf(String grantId) {
+        return mailboxTokens.accessToken(grantId);
+    }
+
+    /** Withdraws the whole grant behind {@code refreshToken} at the provider's revocation endpoint. */
+    protected void revokeRefreshToken(String refreshToken) {
+        tokenEndpoint.revoke(integrationProvider, refreshToken);
+    }
+
     protected VendorCall vendorCall(String operation) {
         return VendorCall.of(vendor, operation);
+    }
+
+    private RestClient.RequestHeadersSpec<?> authorised(Function<RestClient, RestClient.RequestHeadersSpec<?>> request,
+                                                         String accessToken) {
+        return withProviderHeaders(request.apply(api).header("Authorization", "Bearer " + accessToken));
     }
 
     private ProviderCredentials requireApp(UUID workspaceId) {

@@ -32,7 +32,6 @@ import tools.jackson.databind.JsonNode;
  */
 public class MicrosoftMailboxGateway extends OAuthDirectMailboxGateway {
 
-    static final String PROVIDER = "microsoft";
     static final String VENDOR = "microsoft-graph";
     public static final String GRAPH = "https://graph.microsoft.com";
     public static final String LOGIN = "https://login.microsoftonline.com";
@@ -56,7 +55,7 @@ public class MicrosoftMailboxGateway extends OAuthDirectMailboxGateway {
                                    MailboxTokens mailboxTokens, VendorClientFactory clientFactory,
                                    VendorRateLimiter rateLimiter, VendorCallGuard guard, String graphBaseUrl,
                                    String loginBaseUrl) {
-        super(IntegrationProvider.MICROSOFT, PROVIDER, VENDOR, credentials, tokenEndpoint, mailboxTokens,
+        super(IntegrationProvider.MICROSOFT, VENDOR, credentials, tokenEndpoint, mailboxTokens,
                 clientFactory, rateLimiter, guard, graphBaseUrl);
         this.loginBaseUrl = loginBaseUrl;
     }
@@ -75,8 +74,8 @@ public class MicrosoftMailboxGateway extends OAuthDirectMailboxGateway {
     }
 
     @Override
-    protected List<String> redemptionScopes() {
-        return SCOPES;
+    protected boolean repeatsScopesAtRedemption() {
+        return true;
     }
 
     @Override
@@ -101,7 +100,7 @@ public class MicrosoftMailboxGateway extends OAuthDirectMailboxGateway {
      */
     @Override
     public SentEmail send(String grantId, OutgoingEmail email) {
-        String accessToken = mailboxTokens.accessToken(grantId);
+        String accessToken = accessTokenOf(grantId);
         Map<String, Object> message = messageOf(email);
         JsonNode draft = email.replyToMessageId() == null
                 ? apiCall("draft", accessToken, client -> client.post()
@@ -124,11 +123,8 @@ public class MicrosoftMailboxGateway extends OAuthDirectMailboxGateway {
                         .contentType(MediaType.APPLICATION_JSON)
                         .body(recipientsOnly(email)));
             }
-            guard.call(vendorCall("send"), () -> api.post()
-                    .uri("/v1.0/me/messages/{id}/send", messageId)
-                    .header("Authorization", "Bearer " + accessToken)
-                    .retrieve()
-                    .toBodilessEntity());
+            apiExchange("send", accessToken, client -> client.post()
+                    .uri("/v1.0/me/messages/{id}/send", messageId));
         } catch (VendorException failed) {
             discardUnsentDraft(accessToken, messageId, failed);
             throw failed;
@@ -149,7 +145,7 @@ public class MicrosoftMailboxGateway extends OAuthDirectMailboxGateway {
      */
     @Override
     public List<String> senderAddressesInThread(String grantId, String threadId, Instant since) {
-        String accessToken = mailboxTokens.accessToken(grantId);
+        String accessToken = accessTokenOf(grantId);
         String sentItems = sentItemsFolders.computeIfAbsent(grantId, grant -> sentItemsFolderId(accessToken));
         String filter = "conversationId eq '" + threadId.replace("'", "''") + "'";
         JsonNode page = apiCall("thread", accessToken, client -> client.get()
@@ -206,11 +202,8 @@ public class MicrosoftMailboxGateway extends OAuthDirectMailboxGateway {
             return;
         }
         try {
-            guard.call(vendorCall("discard-draft"), () -> api.delete()
-                    .uri("/v1.0/me/messages/{id}", messageId)
-                    .header("Authorization", "Bearer " + accessToken)
-                    .retrieve()
-                    .toBodilessEntity());
+            apiExchange("discard-draft", accessToken, client -> client.delete()
+                    .uri("/v1.0/me/messages/{id}", messageId));
         } catch (RuntimeException ignored) {
             // The send's own failure is what the caller needs; a draft left behind is the lesser problem.
         }

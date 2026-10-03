@@ -28,7 +28,6 @@ import tools.jackson.databind.JsonNode;
  */
 public class GoogleMailboxGateway extends OAuthDirectMailboxGateway {
 
-    static final String PROVIDER = "google";
     static final String VENDOR = "gmail";
     public static final String API = "https://www.googleapis.com";
     public static final String ACCOUNTS = "https://accounts.google.com";
@@ -44,7 +43,7 @@ public class GoogleMailboxGateway extends OAuthDirectMailboxGateway {
                                 MailboxTokens mailboxTokens, VendorClientFactory clientFactory,
                                 VendorRateLimiter rateLimiter, VendorCallGuard guard, String apiBaseUrl,
                                 String accountsBaseUrl) {
-        super(IntegrationProvider.GOOGLE, PROVIDER, VENDOR, credentials, tokenEndpoint, mailboxTokens, clientFactory,
+        super(IntegrationProvider.GOOGLE, VENDOR, credentials, tokenEndpoint, mailboxTokens, clientFactory,
                 rateLimiter, guard, apiBaseUrl);
         this.accountsBaseUrl = accountsBaseUrl;
     }
@@ -74,7 +73,7 @@ public class GoogleMailboxGateway extends OAuthDirectMailboxGateway {
     /** A follow-up reads the last message's own headers first, so it threads wherever the executive reads it. */
     @Override
     public SentEmail send(String grantId, OutgoingEmail email) {
-        String accessToken = mailboxTokens.accessToken(grantId);
+        String accessToken = accessTokenOf(grantId);
         Map<String, Object> message = new LinkedHashMap<>();
         if (email.replyToMessageId() == null) {
             message.put("raw", RawEmail.of(email, null, null).encoded());
@@ -112,7 +111,7 @@ public class GoogleMailboxGateway extends OAuthDirectMailboxGateway {
     @Override
     protected void release(ReleasedGrant released) {
         if (released.refreshToken() != null) {
-            tokenEndpoint.revoke(IntegrationProvider.GOOGLE, released.refreshToken());
+            revokeRefreshToken(released.refreshToken());
         }
     }
 
@@ -127,7 +126,7 @@ public class GoogleMailboxGateway extends OAuthDirectMailboxGateway {
      */
     @Override
     public List<String> senderAddressesInThread(String grantId, String threadId, Instant since) {
-        String accessToken = mailboxTokens.accessToken(grantId);
+        String accessToken = accessTokenOf(grantId);
         JsonNode thread = apiCall("thread", accessToken, client -> client.get()
                 .uri(builder -> builder.path("/gmail/v1/users/me/threads/{id}")
                         .queryParam("format", "metadata")
