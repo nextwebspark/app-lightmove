@@ -1,4 +1,10 @@
-import type { PoolFilters } from "../api/types";
+import type { PoolFilters, TagMatch } from "../api/types";
+
+export const TAG_MATCHES: { value: TagMatch; label: string }[] = [
+  { value: "any", label: "Any of" },
+  { value: "all", label: "All of" },
+  { value: "none", label: "None of" },
+];
 
 /** The Candidates page with nothing narrowed: everyone, newest activity first. */
 export const NO_POOL_FILTERS: PoolFilters = {

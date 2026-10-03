@@ -261,7 +261,7 @@ describe("CandidatesPage", () => {
       ),
     );
     expect(screen.queryByText("None of: Referral")).not.toBeInTheDocument();
-    await userEvent.click(screen.getByRole("button", { name: "Hide Filters" }));
+    await userEvent.click(screen.getByRole("button", { name: /^Hide Filters/ }));
     expect(screen.getByText("None of: Referral")).toBeInTheDocument();
   });
 

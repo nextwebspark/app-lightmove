@@ -1,6 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import type { ReactNode } from "react";
-import { Outlet, useLocation } from "react-router-dom";
+import { matchPath, Outlet, useLocation } from "react-router-dom";
 import { useAuth } from "../../features/auth/AuthProvider";
 import { isPureClient } from "../../features/auth/roles";
 import * as poolApi from "../../features/candidates/api/poolApi";
@@ -13,7 +13,7 @@ import { ICONS } from "./Icon";
 import { type SidebarGroup } from "./Sidebar";
 
 /** Screens that draw their own toolbar and rail edge to edge and scroll inside, as Strategy does. */
-const FULL_BLEED_ROUTES = ["/candidates"];
+const FULL_BLEED_ROUTES = ["/candidates/*"];
 
 /**
  * The app shell: topbar, the workspace sidebar with live counts, and the main panel the routed page
@@ -39,7 +39,7 @@ export function WorkspaceShell({ children }: { children: ReactNode }) {
   const clientOnly = isPureClient(roles);
   const vocabulary = useWorkspaceVocabulary();
   const { pathname } = useLocation();
-  const fullBleed = FULL_BLEED_ROUTES.includes(pathname);
+  const fullBleed = FULL_BLEED_ROUTES.some((route) => matchPath(route, pathname));
 
   const { data: projects } = useQuery({
     queryKey: projectsApi.PROJECTS_KEY,

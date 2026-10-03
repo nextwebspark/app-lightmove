@@ -4,13 +4,10 @@ import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { Link } from "react-router-dom";
 import { Icon, ICONS } from "../../../../components/layout/Icon";
 import { EmptyState, FullscreenButton } from "../../../../components/ui";
-import { Chip } from "../../../../components/ui/Chip";
 import { DataGrid } from "../../../../components/ui/DataGrid";
-import { FilterRailToggle } from "../../../../components/ui/FilterRail";
 import { PaginationBar } from "../../../../components/ui/PaginationBar";
 import { SelectionAction, SelectionActionBar } from "../../../../components/ui/SelectionActionBar";
 import { SelectionCheckbox } from "../../../../components/ui/SelectionCheckbox";
-import { ToolbarButton } from "../../../../components/ui/ToolbarButton";
 import { cn } from "../../../../lib/cn";
 import { messageFor } from "../../../../lib/errorCodes";
 import { useDebouncedValue } from "../../../../lib/useComboboxList";
@@ -19,21 +16,16 @@ import { FULLSCREEN_PANEL, useFullscreen } from "../../../../lib/useFullscreen";
 import { layoutColumnsOf, useGridLayout } from "../../../../lib/useGridLayout";
 import { useGridPaging } from "../../../../lib/useGridPaging";
 import * as poolApi from "../../api/poolApi";
-import type { PoolFilters, PoolRow, PoolSortField, PoolView } from "../../api/types";
+import type { PoolFilters, PoolRow, PoolSortField } from "../../api/types";
 import { POOL_COLUMN_PINNING, poolColumnsFor, poolTableFeatures } from "../../lib/poolColumns";
 import { countActiveFilters } from "../../lib/poolFilters";
 import { usePoolLookups } from "../../lib/usePoolLookups";
 import { AddToPositionDialog } from "./AddToPositionDialog";
-import { ActiveFilters, PoolFilterRail } from "./PoolFilterRail";
+import { ActiveFilters } from "./ActiveFilters";
+import { PeopleToolbar } from "./PeopleToolbar";
+import { PoolFilterRail } from "./PoolFilterRail";
 import { SetOwnerDialog } from "./SetOwnerDialog";
 import { TagPeopleDialog } from "./TagPeopleDialog";
-
-const QUICK_VIEWS: { value: PoolView; label: string }[] = [
-  { value: "all", label: "All" },
-  { value: "mine", label: "Owned by me" },
-  { value: "active", label: "In an active position" },
-  { value: "unplaced", label: "Not in a position" },
-];
 
 const POOL_LAYOUT_COLUMNS = layoutColumnsOf(poolColumnsFor(new Map(), new Map()));
 const NOTHING_SELECTED: RowSelectionState = {};
@@ -117,82 +109,42 @@ export function PeopleView({
     onRowSelectionChange: setRowSelection,
   });
 
-  const activeFilterCount = countActiveFilters(filters);
   const tickedOnPage = rows.filter((row) => rowSelection[row.personId]).length;
   const selectedPeople = selectedIds.length;
   const poolIsEmpty = page.isSuccess && page.data.poolSize === 0;
 
   return (
     <div className={cn("flex min-h-0 flex-1 flex-col", isFullscreen && FULLSCREEN_PANEL)}>
-      <div className="flex min-h-[44px] flex-none flex-wrap items-center gap-x-3.5 gap-y-2 border-b border-u-border bg-u-raised px-3 py-2 sm:px-5 sm:py-1.5">
-        {toggle}
-        <FilterRailToggle
-          open={filtersOpen}
-          onToggle={() => setFiltersOpen((open) => !open)}
-          badge={
-            activeFilterCount > 0 && (
-              <span className="rounded-[4px] bg-u-accent-tint px-[5px] py-[2px] font-sans text-[10px] font-bold text-u-accent">
-                {activeFilterCount}
-              </span>
-            )
-          }
-        />
-        <div className="flex w-full items-center gap-2 rounded-[6px] border border-u-border-strong bg-u-surface px-2.5 py-1.5 sm:w-[260px]">
-          <Icon d={ICONS.search} size={14} className="flex-none text-u-text3" />
-          <input
-            value={query}
-            onChange={(event) => setQuery(event.target.value)}
-            placeholder="Search name, title, company or email…"
-            aria-label="Search candidates"
-            className="w-full bg-transparent text-note text-u-text outline-none placeholder:text-u-text3"
-          />
-        </div>
-        <div className="flex flex-wrap gap-1.5" role="group" aria-label="Quick views">
-          {QUICK_VIEWS.map((view) => (
-            <Chip
-              key={view.value}
-              size="sm"
-              selected={filters.view === view.value}
-              aria-pressed={filters.view === view.value}
-              count={page.data?.viewCounts[view.value]}
-              onClick={() => onFiltersChange({ ...filters, view: view.value })}
-            >
-              {view.label}
-            </Chip>
-          ))}
-        </div>
-        <div className="flex items-center gap-3 sm:ms-auto">
-          {page.data && (
-            <span className="text-meta text-u-text3">
-              {page.data.totalCount.toLocaleString()} of {page.data.poolSize.toLocaleString()} people
-            </span>
-          )}
-          <ToolbarButton
-            loading={exporting && selectedPeople === 0}
-            disabled={exporting}
-            title="Download every person this view shows as a CSV — recorded in the audit trail"
-            onClick={() => onExport([])}
-          >
-            <Icon d={ICONS.exportOut} size={14} />
-            Export
-          </ToolbarButton>
-        </div>
-      </div>
+      <PeopleToolbar
+        toggle={toggle}
+        filtersOpen={filtersOpen}
+        onToggleFilters={() => setFiltersOpen((open) => !open)}
+        activeFilterCount={countActiveFilters(filters)}
+        query={query}
+        onQueryChange={setQuery}
+        view={filters.view}
+        viewCounts={page.data?.viewCounts}
+        onViewChange={(view) => onFiltersChange({ ...filters, view })}
+        shown={page.data?.totalCount ?? null}
+        pool={page.data?.poolSize ?? null}
+        canExportView={selectedPeople === 0}
+        exporting={exporting}
+        onExportView={() => onExport([])}
+      />
 
       <div className="flex min-h-0 flex-1">
-        {filtersOpen && (
-          <PoolFilterRail
-            filters={filters}
-            onChange={onFiltersChange}
-            onClose={() => setFiltersOpen(false)}
-            tags={lookups.offeredTags}
-            staff={lookups.staff}
-            positions={lookups.positions}
-            countries={page.data?.countries ?? []}
-            shown={page.data?.totalCount ?? null}
-            pool={page.data?.poolSize ?? null}
-          />
-        )}
+        <PoolFilterRail
+          open={filtersOpen}
+          filters={filters}
+          onChange={onFiltersChange}
+          onClose={() => setFiltersOpen(false)}
+          tags={lookups.offeredTags}
+          staff={lookups.staff}
+          positions={lookups.positions}
+          countries={page.data?.countries ?? []}
+          shown={page.data?.totalCount ?? null}
+          pool={page.data?.poolSize ?? null}
+        />
 
         <div className="flex min-w-0 flex-1 flex-col gap-3 p-2">
           {poolIsEmpty ? (
