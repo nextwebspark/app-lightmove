@@ -182,7 +182,7 @@ function useObjectUrl(blob: Blob | null, type: string): string | null {
       setUrl(null);
       return;
     }
-    const next = URL.createObjectURL(new Blob([blob], { type }));
+    const next = URL.createObjectURL(blob.slice(0, blob.size, type));
     setUrl(next);
     return () => URL.revokeObjectURL(next);
   }, [blob, type]);

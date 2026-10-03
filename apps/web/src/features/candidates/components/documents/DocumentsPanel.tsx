@@ -3,7 +3,7 @@ import { Icon, ICONS } from "../../../../components/layout/Icon";
 import { Button, Select, Toggle, useToast } from "../../../../components/ui";
 import { ApiRequestError } from "../../../../lib/apiClient";
 import { cn } from "../../../../lib/cn";
-import { messageFor } from "../../../../lib/errorCodes";
+import { codeOf, messageFor } from "../../../../lib/errorCodes";
 import * as documentsApi from "../../api/documentsApi";
 import type { DocumentScope } from "../../api/documentsApi";
 import type { PersonDocument, PersonDocumentCategory, PersonDocumentVersion } from "../../api/types";
@@ -63,6 +63,7 @@ export function DocumentsPanel({
   const [tray, setTray] = useState<TrayItem[]>([]);
   const [dragging, setDragging] = useState(false);
   const [sending, setSending] = useState(false);
+  const sendingNow = useRef(false);
   const list = documents.documents.data ?? [];
 
   const add = (files: FileList | File[] | null, forDocument: PersonDocument | null = null) => {
@@ -90,9 +91,13 @@ export function DocumentsPanel({
     setTray((current) => current.map((item) => (item.key === key ? { ...item, ...change } : item)));
 
   const send = async () => {
+    // A ref, not the state: a double click lands before the re-render that disables the button.
+    if (sendingNow.current) return;
+    sendingNow.current = true;
     setSending(true);
     let created = 0;
     let versions = 0;
+    // One at a time on purpose: two files of one name must become v1 and v2, not race for v1.
     for (const item of tray.filter((entry) => entry.state === "ready")) {
       try {
         const result = item.forDocumentId
@@ -105,13 +110,14 @@ export function DocumentsPanel({
         else versions += 1;
         setTray((current) => current.filter((entry) => entry.key !== item.key));
       } catch (error) {
-        if (error instanceof ApiRequestError && error.code === "PERSON_DOCUMENT_DUPLICATE") {
+        if (codeOf(error) === "PERSON_DOCUMENT_DUPLICATE" && error instanceof ApiRequestError) {
           patch(item.key, { state: "duplicate", duplicateOf: error.problem.duplicateOf ?? null });
         } else {
           patch(item.key, { state: "failed", message: messageFor(error) });
         }
       }
     }
+    sendingNow.current = false;
     setSending(false);
     documents.refresh();
     const parts = [
