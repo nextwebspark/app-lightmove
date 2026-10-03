@@ -20,6 +20,7 @@ export type StopReason =
   | "UNMAPPED"
   | "ADDRESS_REMOVED"
   | "MAILBOX_INACTIVE"
+  | "MAILBOX_MOVED"
   | "SEND_FAILED"
   | "SEND_UNCERTAIN";
 

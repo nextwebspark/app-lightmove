@@ -18,6 +18,10 @@ export interface ConnectedMailbox {
   status: MailboxStatus;
   dailyCap: number;
   connectedAt: string;
+  /** A reconnect now would move this mailbox off Nylas onto Uncava's own connection. */
+  movesOffNylas: boolean;
+  /** The running sequences that reconnect would stop. */
+  runsStoppedByMove: number;
 }
 
 export interface Mailbox {

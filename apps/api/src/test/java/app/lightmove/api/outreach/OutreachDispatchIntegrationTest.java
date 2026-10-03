@@ -6,6 +6,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import app.lightmove.api.FlowTestSupport;
@@ -17,8 +18,10 @@ import app.lightmove.api.core.resilience.model.VendorCall;
 import app.lightmove.api.core.resilience.model.VendorException;
 import app.lightmove.api.outreach.service.ProviderAppUnavailable;
 import app.lightmove.api.outreach.model.DeliveryFailure;
+import app.lightmove.api.outreach.model.GrantedMailbox;
 import app.lightmove.api.outreach.model.InboundMessage;
 import app.lightmove.api.outreach.model.MailboxAccessWithdrawn;
+import app.lightmove.api.outreach.model.MailboxGrants;
 import app.lightmove.api.outreach.service.OutreachDispatcher;
 import app.lightmove.api.outreach.service.OutreachInboxService;
 import app.lightmove.api.outreach.service.OutreachSendService;
@@ -126,6 +129,28 @@ class OutreachDispatchIntegrationTest extends FlowTestSupport {
         Integer stored = jdbc.queryForObject("select count(*) from app_lm_outreach_message where enrollment_id = ?::uuid",
                 Integer.class, afterFirst.get("id").toString());
         assertThat(stored).isEqualTo(2);
+    }
+
+    @Test
+    @DisplayName("a reconnect off Nylas stops the runs still sending in its threads; one not yet sent carries on")
+    void movingOffNylasStopsRunningThreads() throws Exception {
+        String sequenceId = createSequence("First approach");
+        String priya = executive("Priya Raman", "priya@" + domain);
+        start(sequenceId, priya, "priya@" + domain, null);
+        dispatcher.dispatchAt(monday);
+        String rajesh = executive("Rajesh Iyer", "rajesh@" + domain);
+        start(sequenceId, rajesh, "rajesh@" + domain, null);
+        as(consultant, get("/api/v1/outreach/mailbox"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.connection.movesOffNylas").value(false))
+                .andExpect(jsonPath("$.connection.runsStoppedByMove").value(0));
+
+        gateway.grant(new GrantedMailbox(MailboxGrants.mintDirect("google"), MAILBOX, "google", "refresh-token-1"));
+        connectMailbox();
+
+        assertThat(enrollmentOf(priya)).containsEntry("status", "STOPPED").containsEntry("stop_reason", "MAILBOX_MOVED");
+        assertThat(activityKinds(priya)).endsWith("OUTREACH_STOPPED");
+        assertThat(enrollmentOf(rajesh).get("status")).isEqualTo("SCHEDULED");
     }
 
     @Test

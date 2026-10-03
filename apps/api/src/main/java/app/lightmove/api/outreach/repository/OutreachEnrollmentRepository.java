@@ -53,6 +53,11 @@ public interface OutreachEnrollmentRepository extends JpaRepository<OutreachEnro
     List<OutreachEnrollment> findByWorkspaceIdAndSenderUserIdAndThreadId(UUID workspaceId, UUID senderUserId,
                                                                          String threadId);
 
+    /** One sender's runs that have sent and may send again: what a move to another gateway stops. */
+    @Query("select e from OutreachEnrollment e where e.workspaceId = :workspaceId and e.senderUserId = :senderUserId "
+            + "and e.status = app.lightmove.api.outreach.constant.EnrollmentStatus.ACTIVE and e.threadId is not null")
+    List<OutreachEnrollment> findRunningThreadsOf(UUID workspaceId, UUID senderUserId);
+
     /**
      * Claims older than a send could take, on runs still due to send. A system job's read, so across
      * workspaces by design; no request path may use it.

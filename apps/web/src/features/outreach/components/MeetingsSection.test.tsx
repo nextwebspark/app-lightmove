@@ -88,6 +88,8 @@ function renderSection({
       status: "ACTIVE",
       dailyCap: 50,
       connectedAt: "2026-09-01T00:00:00Z",
+      movesOffNylas: false,
+      runsStoppedByMove: 0,
     },
   });
   vi.mocked(poolApi.getPerson).mockResolvedValue({

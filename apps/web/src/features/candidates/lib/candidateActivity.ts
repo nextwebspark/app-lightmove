@@ -36,6 +36,7 @@ const STOP_REASONS: Record<string, string> = {
   UNMAPPED: "Removed from the position",
   ADDRESS_REMOVED: "The address was removed",
   MAILBOX_INACTIVE: "The sender's mailbox was disconnected",
+  MAILBOX_MOVED: "The sender reconnected their mailbox",
   SEND_FAILED: "The mail service refused the email",
   SEND_UNCERTAIN: "A send may not have gone through, so nothing more was sent",
   BOUNCED: "The address bounced",

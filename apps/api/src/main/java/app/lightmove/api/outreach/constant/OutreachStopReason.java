@@ -22,6 +22,12 @@ public enum OutreachStopReason {
     /** The sender's mailbox was disconnected, or the provider withdrew access to it. */
     MAILBOX_INACTIVE,
 
+    /**
+     * The sender reconnected through another gateway, which may not read the thread the run was replying in,
+     * so a reply could go unseen and a follow-up go after it.
+     */
+    MAILBOX_MOVED,
+
     /** The mail service refused the email; a send is never retried. */
     SEND_FAILED,
 

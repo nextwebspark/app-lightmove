@@ -95,6 +95,8 @@ const connected: Mailbox = {
     status: "ACTIVE",
     dailyCap: 50,
     connectedAt: "2026-10-01T09:00:00Z",
+    movesOffNylas: false,
+    runsStoppedByMove: 0,
   },
 };
 
@@ -170,6 +172,22 @@ describe("OutreachPage", () => {
 
     expect(await screen.findByRole("alert")).toHaveTextContent("Gmail disconnected.");
     expect(screen.getByRole("button", { name: "Reconnect" })).toBeInTheDocument();
+  });
+
+  it("offers a Nylas mailbox the move to Uncava's own connection, saying which runs it stops", async () => {
+    vi.mocked(mailboxApi.getMailbox).mockResolvedValue({
+      ...connected,
+      connection: { ...connected.connection!, movesOffNylas: true, runsStoppedByMove: 2 },
+    });
+    vi.mocked(mailboxApi.startMailboxConnect).mockResolvedValue({ authorizationUrl: "https://mail.example/connect?state=s" });
+    vi.stubGlobal("open", vi.fn(() => ({ location: { href: "about:blank" }, closed: false, close: vi.fn() })));
+    renderPage();
+
+    expect(await screen.findByText("Reconnect to move off Nylas.")).toBeInTheDocument();
+    expect(screen.getByText(/2 running sequences stop when you do/)).toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: "Reconnect" }));
+
+    expect(mailboxApi.startMailboxConnect).toHaveBeenCalledWith("google");
   });
 
   it("says outreach is not set up where the deployment has no mail service", async () => {

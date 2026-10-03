@@ -10,6 +10,8 @@ import app.lightmove.api.core.error.model.ApiException;
 import app.lightmove.api.core.resilience.constant.VendorFailureKind;
 import app.lightmove.api.core.resilience.model.VendorException;
 import app.lightmove.api.core.security.token.Tokens;
+import app.lightmove.api.outreach.constant.MailboxGatewayKind;
+import app.lightmove.api.outreach.constant.OutreachStopReason;
 import app.lightmove.api.outreach.dto.ConnectedMailboxResponse;
 import app.lightmove.api.outreach.dto.MailboxResponse;
 import app.lightmove.api.outreach.model.GrantedMailbox;
@@ -22,6 +24,7 @@ import app.lightmove.api.outreach.model.RecallCalendarReleased;
 import app.lightmove.api.outreach.model.ReleasedGrant;
 import app.lightmove.api.outreach.repository.MailboxAuthorizationRepository;
 import app.lightmove.api.outreach.repository.MailboxConnectionRepository;
+import app.lightmove.api.outreach.repository.OutreachEnrollmentRepository;
 import jakarta.servlet.http.HttpServletRequest;
 import java.net.URI;
 import java.nio.charset.StandardCharsets;
@@ -58,6 +61,8 @@ public class MailboxService {
     private final MailboxAuthorizationRepository authorizations;
     private final TransactionTemplate transactions;
     private final AuditService audit;
+    private final OutreachEnrollmentRepository enrollments;
+    private final OutreachOutcomes outcomes;
     private final ApplicationEventPublisher events;
     private final BookingPages bookingPages;
     private final MailboxTokens tokens;
@@ -68,10 +73,17 @@ public class MailboxService {
     @Transactional(readOnly = true)
     public MailboxResponse view(UUID userId, UUID workspaceId) {
         ConnectedMailboxResponse connection = connections.findByWorkspaceIdAndUserId(workspaceId, userId)
-                .map(mailbox -> ConnectedMailboxResponse.of(mailbox, bookingPages.linkOf(mailbox)))
+                .map(mailbox -> responseOf(mailbox, userId, workspaceId))
                 .orElse(null);
         return new MailboxResponse(gateway.isOfferedTo(workspaceId), gateway.providersFor(workspaceId), connection,
                 bookingPages.isOffered());
+    }
+
+    private ConnectedMailboxResponse responseOf(MailboxConnection mailbox, UUID userId, UUID workspaceId) {
+        boolean movesOffNylas = mailbox.getGateway() == MailboxGatewayKind.NYLAS
+                && gateway.holdsRefreshTokens(workspaceId, mailbox.getProvider()) && cipher.isAvailable();
+        int runsStopped = movesOffNylas ? enrollments.findRunningThreadsOf(workspaceId, userId).size() : 0;
+        return ConnectedMailboxResponse.of(mailbox, bookingPages.linkOf(mailbox), movesOffNylas, runsStopped);
     }
 
     /** Any attempt the caller left unfinished is dropped, so only the newest consent screen can connect. */
@@ -196,6 +208,9 @@ public class MailboxService {
                     if (movedFrom != null) {
                         events.publishEvent(new RecallCalendarReleased(movedFrom));
                     }
+                    if (existing.getGateway() != MailboxGatewayKind.ofGrant(granted.grantId())) {
+                        stopRunsMovedFrom(existing, now);
+                    }
                     existing.reconnect(granted, refreshTokenEncrypted, now);
                     events.publishEvent(new MailboxConnected(existing.getId()));
                     return previous;
@@ -207,6 +222,15 @@ public class MailboxService {
                     events.publishEvent(new MailboxConnected(connected.getId()));
                     return null;
                 });
+    }
+
+    /**
+     * A thread another gateway made may not be readable through the new one, so a reply could go unseen and a
+     * follow-up go after it: the runs still sending from it stop, and the consultant starts them again.
+     */
+    private void stopRunsMovedFrom(MailboxConnection moved, Instant now) {
+        enrollments.findRunningThreadsOf(moved.getWorkspaceId(), moved.getUserId())
+                .forEach(run -> outcomes.stop(run, OutreachStopReason.MAILBOX_MOVED, moved.getUserId(), now, null));
     }
 
     /** Our own gateway's refresh token, sealed before it reaches the row; Nylas's grants carry none. */
