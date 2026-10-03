@@ -54,4 +54,15 @@ public interface PersonMeetingRepository extends JpaRepository<PersonMeeting, UU
     @Query("delete from PersonMeeting m where m.mailboxConnectionId = :mailboxConnectionId "
             + "and m.providerEventId = :providerEventId")
     int deleteEvent(UUID mailboxConnectionId, String providerEventId);
+
+    /** The meetings a full read of this window no longer finds: moved out of it, deleted, or no longer a call. */
+    @Modifying
+    @Query("delete from PersonMeeting m where m.mailboxConnectionId = :mailboxConnectionId "
+            + "and m.startsAt >= :from and m.startsAt < :to and m.providerEventId not in :foundEventIds")
+    int deleteMissingFrom(UUID mailboxConnectionId, Instant from, Instant to, Collection<String> foundEventIds);
+
+    @Modifying
+    @Query("delete from PersonMeeting m where m.mailboxConnectionId = :mailboxConnectionId "
+            + "and m.startsAt >= :from and m.startsAt < :to")
+    int deleteAllFrom(UUID mailboxConnectionId, Instant from, Instant to);
 }

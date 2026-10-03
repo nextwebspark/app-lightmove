@@ -11,14 +11,19 @@ import app.lightmove.api.core.resilience.service.VendorCallGuard;
 import app.lightmove.api.core.resilience.service.VendorClientFactory;
 import app.lightmove.api.core.resilience.service.VendorRateLimiter;
 import app.lightmove.api.outreach.constant.RecallCalendarStatus;
+import app.lightmove.api.outreach.model.RecallCalendarEvent;
 import app.lightmove.api.outreach.model.RecallCalendarSpec;
 import app.lightmove.api.outreach.model.RecallWebhookDelivery;
+import app.lightmove.api.outreach.model.RecallWebhookNotice;
 import java.nio.charset.StandardCharsets;
 import java.security.GeneralSecurityException;
 import java.security.MessageDigest;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
+import java.time.OffsetDateTime;
+import java.time.format.DateTimeParseException;
+import java.util.ArrayList;
 import java.util.Base64;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -26,8 +31,11 @@ import java.util.Locale;
 import java.util.Map;
 import javax.crypto.Mac;
 import javax.crypto.spec.SecretKeySpec;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.MediaType;
 import org.springframework.web.client.RestClient;
+import org.springframework.web.util.UriComponentsBuilder;
+import org.springframework.web.util.UriUtils;
 import tools.jackson.core.JacksonException;
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.json.JsonMapper;
@@ -36,6 +44,7 @@ import tools.jackson.databind.json.JsonMapper;
  * Recall.ai's Calendar V2 over HTTP, {@code Authorization: Token <key>}. Its webhooks are signed the Svix way: an
  * HMAC-SHA256 of {@code id.timestamp.body} under the base64 key after {@code whsec_}, sent as {@code v1,<base64>}.
  */
+@Slf4j
 public class RecallCalendarClient implements RecallCalendarApi {
 
     static final String VENDOR = "recall";
@@ -47,6 +56,10 @@ public class RecallCalendarClient implements RecallCalendarApi {
 
     private static final String SECRET_PREFIX = "whsec_";
     private static final String CALENDAR_UPDATE = "calendar.update";
+    private static final String CALENDAR_SYNC_EVENTS = "calendar.sync_events";
+
+    /** A sync names what changed since its last one; a calendar's first sync is the whole of it. */
+    static final int MAX_EVENT_PAGES = 50;
     private static final JsonMapper JSON = JsonMapper.builder().build();
 
     private final RecallSettings config;
@@ -113,25 +126,101 @@ public class RecallCalendarClient implements RecallCalendarApi {
     }
 
     @Override
-    public List<String> updatedCalendars(RecallWebhookDelivery delivery) {
+    public List<RecallWebhookNotice> notices(RecallWebhookDelivery delivery) {
         if (!verifies(config.webhookSecret(), delivery, clock.instant())) {
             throw ApiException.of(ErrorCode.MAILBOX_WEBHOOK_REJECTED);
         }
-        return calendarsUpdatedIn(delivery.body());
+        return noticesIn(delivery.body());
     }
 
-    static List<String> calendarsUpdatedIn(byte[] body) {
+    /**
+     * Only the {@code cursor} of Recall's {@code next} link is taken, and asked again at our own base: the link itself
+     * is never followed with our key.
+     */
+    @Override
+    public List<RecallCalendarEvent> eventsUpdatedSince(String calendarId, Instant since) {
+        List<RecallCalendarEvent> events = new ArrayList<>();
+        String cursor = null;
+        for (int page = 0; page < MAX_EVENT_PAGES; page++) {
+            String pageCursor = cursor;
+            JsonNode answer = guard.call(VendorCall.of(VENDOR, "calendar-events"), () -> client.get()
+                    .uri(builder -> {
+                        builder.path("/api/v2/calendar-events/")
+                                .queryParam("calendar_id", "{calendar}")
+                                .queryParam("updated_at__gte", "{since}");
+                        if (pageCursor != null) {
+                            builder.queryParam("cursor", "{cursor}");
+                        }
+                        return builder.build(Map.of("calendar", calendarId, "since", since.toString(),
+                                "cursor", pageCursor == null ? "" : pageCursor));
+                    })
+                    .accept(MediaType.APPLICATION_JSON)
+                    .retrieve()
+                    .body(JsonNode.class));
+            if (answer == null) {
+                return events;
+            }
+            for (JsonNode event : answer.path("results")) {
+                events.add(new RecallCalendarEvent(textOrNull(event.get("platform")),
+                        textOrNull(event.get("platform_id")), textOrNull(event.get("ical_uid")), event.get("raw"),
+                        event.path("is_deleted").asBoolean(false)));
+            }
+            cursor = cursorOf(textOrNull(answer.get("next")));
+            if (cursor == null) {
+                return events;
+            }
+        }
+        log.warn("Recall calendar {} listed more than {} pages of changed events; the rest are not read",
+                calendarId, MAX_EVENT_PAGES);
+        return events;
+    }
+
+    static String cursorOf(String nextLink) {
+        if (nextLink == null) {
+            return null;
+        }
+        String cursor = UriComponentsBuilder.fromUriString(nextLink).build().getQueryParams().getFirst("cursor");
+        return cursor == null || cursor.isBlank() ? null : UriUtils.decode(cursor, StandardCharsets.UTF_8);
+    }
+
+    static List<RecallWebhookNotice> noticesIn(byte[] body) {
         JsonNode payload;
         try {
             payload = JSON.readTree(body);
         } catch (JacksonException unreadable) {
             return List.of();
         }
-        if (payload == null || !CALENDAR_UPDATE.equals(payload.path("event").asText())) {
+        if (payload == null) {
             return List.of();
         }
-        String calendarId = payload.path("data").path("calendar_id").asText();
-        return calendarId.isBlank() ? List.of() : List.of(calendarId);
+        String calendarId = textOrNull(payload.path("data").get("calendar_id"));
+        if (calendarId == null) {
+            return List.of();
+        }
+        return switch (payload.path("event").asText()) {
+            case CALENDAR_UPDATE -> List.of(new RecallWebhookNotice.CalendarStateChanged(calendarId));
+            case CALENDAR_SYNC_EVENTS -> {
+                Instant since = instantOrNull(textOrNull(payload.path("data").get("last_updated_ts")));
+                yield since == null ? List.of() : List.of(new RecallWebhookNotice.CalendarEventsChanged(calendarId,
+                        since));
+            }
+            default -> List.of();
+        };
+    }
+
+    private static Instant instantOrNull(String text) {
+        if (text == null) {
+            return null;
+        }
+        try {
+            return OffsetDateTime.parse(text).toInstant();
+        } catch (DateTimeParseException unreadable) {
+            return null;
+        }
+    }
+
+    private static String textOrNull(JsonNode node) {
+        return node == null || node.isNull() || node.asText().isBlank() ? null : node.asText();
     }
 
     static RecallCalendarStatus statusOf(JsonNode status) {

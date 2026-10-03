@@ -70,6 +70,7 @@ public class MeetingService {
     private final OutreachEnrollmentRepository enrollments;
     private final CandidateOutreachService people;
     private final MeetingSync meetingSync;
+    private final MeetingBackfill backfill;
     private final OutreachOutcomes outcomes;
     private final UserRepository users;
     private final AuditService audit;
@@ -80,6 +81,7 @@ public class MeetingService {
     @Transactional(readOnly = true)
     public PersonMeetingsResponse ofCandidate(UUID workspaceId, UUID projectId, UUID candidateId) {
         OutreachRecipient recipient = requireRecipient(workspaceId, projectId, candidateId);
+        backfill.refreshUnpushed(workspaceId);
         List<PersonMeeting> rows = distinctMeetings(
                 meetings.findByWorkspaceIdAndPersonIdOrderByStartsAtAsc(workspaceId, recipient.personId()));
         Map<UUID, String> owners = users.findAllById(rows.stream().map(PersonMeeting::getUserId).distinct().toList())

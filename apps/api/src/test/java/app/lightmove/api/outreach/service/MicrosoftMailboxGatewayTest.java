@@ -260,7 +260,8 @@ class MicrosoftMailboxGatewayTest {
         List<CalendarEvent> events = gateway.calendarEvents(grantId, Instant.parse("2026-07-05T00:00:00Z"),
                 Instant.parse("2027-01-01T00:00:00Z"));
 
-        assertThat(events).extracting(CalendarEvent::id).containsExactly("AAMkTeams", "AAMkPage2");
+        assertThat(events).extracting(CalendarEvent::id)
+                .containsExactly("040000008200E00074C5B7101A82E0080000000075A1", "AAMkPage2");
         CalendarEvent teams = events.getFirst();
         assertThat(teams.title()).isEqualTo("Confidential: first conversation");
         assertThat(teams.startsAt()).isEqualTo(Instant.parse("2026-10-06T06:00:00Z"));
@@ -273,7 +274,7 @@ class MicrosoftMailboxGatewayTest {
                 .contains("IdType=\"ImmutableId\"");
         String query = decoded(microsoft.lastQuery());
         assertThat(query).contains("startDateTime=2026-07-05T00:00:00Z").contains("$skip=250")
-                .contains("$select=").doesNotContain("body").doesNotContain("evil.example");
+                .contains("$select=").contains("iCalUId").doesNotContain("body").doesNotContain("evil.example");
     }
 
     @Test
@@ -322,7 +323,7 @@ class MicrosoftMailboxGatewayTest {
                 Instant.parse("2026-10-06T06:00:00Z"), Instant.parse("2026-10-06T06:30:00Z"), "priya@client.example",
                 MeetingVideo.MICROSOFT_TEAMS));
 
-        assertThat(created.id()).isEqualTo("AAMkTeams");
+        assertThat(created.id()).isEqualTo("040000008200E00074C5B7101A82E0080000000075A1");
         assertThat(created.joinUrl()).startsWith("https://teams.microsoft.com/");
         JsonNode body = JSON.readTree(microsoft.bodyOf("POST /graph/v1.0/me/events"));
         assertThat(body.path("subject").asString("")).isEqualTo("Confidential: first conversation");
@@ -371,7 +372,8 @@ class MicrosoftMailboxGatewayTest {
     private static final class RecordedMicrosoft {
 
         private static final String TEAMS_EVENT = """
-                {"id":"AAMkTeams","subject":"Confidential: first conversation","type":"singleInstance",
+                {"id":"AAMkTeams","iCalUId":"040000008200E00074C5B7101A82E0080000000075A1",
+                 "subject":"Confidential: first conversation","type":"singleInstance",
                  "isAllDay":false,"isCancelled":false,
                  "start":{"dateTime":"2026-10-06T06:00:00.0000000","timeZone":"UTC"},
                  "end":{"dateTime":"2026-10-06T06:30:00.0000000","timeZone":"UTC"},

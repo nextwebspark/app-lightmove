@@ -61,7 +61,7 @@ public class MicrosoftMailboxGateway extends OAuthDirectMailboxGateway {
     private static final String UTC_TIMES = "outlook.timezone=\"UTC\"";
 
     /** Only what a meeting row keeps: never a body, a location or an attachment. */
-    private static final String EVENT_FIELDS = "id,subject,start,end,isAllDay,isCancelled,type,seriesMasterId,"
+    private static final String EVENT_FIELDS = "id,iCalUId,subject,start,end,isAllDay,isCancelled,type,seriesMasterId,"
             + "attendees,organizer,onlineMeeting,onlineMeetingProvider";
 
     private static final int EVENT_PAGE = 250;
@@ -299,10 +299,14 @@ public class MicrosoftMailboxGateway extends OAuthDirectMailboxGateway {
 
     /**
      * Null for a cancelled event, one with no id, an all-day one (no call), or one of a recurring series: kept at all,
-     * a series would be kept once per occurrence and never cleanly removed.
+     * a series would be kept once per occurrence and never cleanly removed. Keyed on {@code iCalUId}, which Recall's
+     * copy of the event carries too, where Graph's own id differs between immutable and ordinary requests.
      */
     static CalendarEvent eventOf(JsonNode event) {
-        String id = textOrNull(event.get("id"));
+        String id = textOrNull(event.get("iCalUId"));
+        if (id == null) {
+            id = textOrNull(event.get("id"));
+        }
         Instant startsAt = graphInstantOf(event.path("start"));
         Instant endsAt = graphInstantOf(event.path("end"));
         String type = textOrNull(event.get("type"));

@@ -6,9 +6,12 @@ import app.lightmove.api.core.resilience.constant.VendorFailureKind;
 import app.lightmove.api.core.resilience.model.VendorCall;
 import app.lightmove.api.core.resilience.model.VendorException;
 import app.lightmove.api.outreach.constant.RecallCalendarStatus;
+import app.lightmove.api.outreach.model.RecallCalendarEvent;
 import app.lightmove.api.outreach.model.RecallCalendarSpec;
 import app.lightmove.api.outreach.model.RecallWebhookDelivery;
+import app.lightmove.api.outreach.model.RecallWebhookNotice;
 import app.lightmove.api.outreach.service.RecallCalendarApi;
+import java.time.Instant;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
@@ -24,7 +27,7 @@ import org.springframework.context.annotation.Primary;
  */
 public class RecordingRecallCalendarApi implements RecallCalendarApi {
 
-    /** The one signature {@link #updatedCalendars} accepts; anything else is refused as a forged delivery. */
+    /** The one signature {@link #notices} accepts; anything else is refused as a forged delivery. */
     public static final String VALID_SIGNATURE = "v1,signed-by-recall";
 
     private final Map<String, RecallCalendarSpec> calendars = new ConcurrentHashMap<>();
@@ -33,7 +36,8 @@ public class RecordingRecallCalendarApi implements RecallCalendarApi {
     private final List<UpdateRecord> updates = new CopyOnWriteArrayList<>();
     private final List<String> deleted = new CopyOnWriteArrayList<>();
     private final AtomicInteger sequence = new AtomicInteger();
-    private volatile List<String> nextWebhook = List.of();
+    private final Map<String, List<RecallCalendarEvent>> changedEvents = new ConcurrentHashMap<>();
+    private volatile List<RecallWebhookNotice> nextWebhook = List.of();
     private volatile boolean failCreates;
 
     @Override
@@ -75,11 +79,16 @@ public class RecordingRecallCalendarApi implements RecallCalendarApi {
     }
 
     @Override
-    public List<String> updatedCalendars(RecallWebhookDelivery delivery) {
+    public List<RecallWebhookNotice> notices(RecallWebhookDelivery delivery) {
         if (!VALID_SIGNATURE.equals(delivery.signature())) {
             throw ApiException.of(ErrorCode.MAILBOX_WEBHOOK_REJECTED);
         }
         return nextWebhook;
+    }
+
+    @Override
+    public List<RecallCalendarEvent> eventsUpdatedSince(String calendarId, Instant since) {
+        return changedEvents.getOrDefault(calendarId, List.of());
     }
 
     /** Recall's own refresh of this calendar was refused, as it reports on the next {@code calendar.update}. */
@@ -87,8 +96,18 @@ public class RecordingRecallCalendarApi implements RecallCalendarApi {
         statuses.put(calendarId, RecallCalendarStatus.DISCONNECTED);
     }
 
+    /** The next delivery is a {@code calendar.update} for each of these calendars. */
     public void deliverNext(List<String> updatedCalendarIds) {
-        this.nextWebhook = List.copyOf(updatedCalendarIds);
+        this.nextWebhook = updatedCalendarIds.stream()
+                .<RecallWebhookNotice>map(RecallWebhookNotice.CalendarStateChanged::new)
+                .toList();
+    }
+
+    /** The next delivery is a {@code calendar.sync_events} for this calendar, which then lists {@code events}. */
+    public void deliverEventsSync(String calendarId, List<RecallCalendarEvent> events) {
+        changedEvents.put(calendarId, List.copyOf(events));
+        this.nextWebhook = List.of(new RecallWebhookNotice.CalendarEventsChanged(calendarId,
+                Instant.now().minusSeconds(60)));
     }
 
     public void failCreates(boolean fail) {
@@ -117,6 +136,7 @@ public class RecordingRecallCalendarApi implements RecallCalendarApi {
         createdSpecs.clear();
         updates.clear();
         deleted.clear();
+        changedEvents.clear();
         nextWebhook = List.of();
         failCreates = false;
     }

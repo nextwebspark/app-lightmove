@@ -4,6 +4,7 @@ import app.lightmove.api.candidate.service.CandidateOutreachService;
 import app.lightmove.api.outreach.model.CalendarEvent;
 import app.lightmove.api.outreach.model.MailboxConnection;
 import app.lightmove.api.outreach.repository.PersonMeetingRepository;
+import java.time.Instant;
 import java.util.Collection;
 import java.util.HashSet;
 import java.util.List;
@@ -70,6 +71,20 @@ class MeetingSync {
         meetings.upsert(mailbox.getWorkspaceId(), personId, mailbox.getId(), mailbox.getUserId(), event.id(),
                 event.title(), event.startsAt(), event.endsAt(), event.joinUrl(), event.conferencingProvider(),
                 bookedBy, viaLink);
+    }
+
+    /**
+     * A full read of {@code from}–{@code to}: what it found is kept, and a meeting it did not find in that window is
+     * gone — the calendar's read is the only word on it, since nothing pushes a change.
+     */
+    @Transactional(propagation = Propagation.MANDATORY)
+    public void replaceWindow(MailboxConnection mailbox, Instant from, Instant to, Collection<CalendarEvent> found) {
+        applyAll(mailbox, found);
+        if (found.isEmpty()) {
+            meetings.deleteAllFrom(mailbox.getId(), from, to);
+        } else {
+            meetings.deleteMissingFrom(mailbox.getId(), from, to, found.stream().map(CalendarEvent::id).toList());
+        }
     }
 
     @Transactional(propagation = Propagation.MANDATORY)

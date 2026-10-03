@@ -1,8 +1,11 @@
 package app.lightmove.api.outreach.service;
 
 import app.lightmove.api.outreach.constant.RecallCalendarStatus;
+import app.lightmove.api.outreach.model.RecallCalendarEvent;
 import app.lightmove.api.outreach.model.RecallCalendarSpec;
 import app.lightmove.api.outreach.model.RecallWebhookDelivery;
+import app.lightmove.api.outreach.model.RecallWebhookNotice;
+import java.time.Instant;
 import java.util.List;
 
 /**
@@ -24,8 +27,11 @@ public interface RecallCalendarApi {
     RecallCalendarStatus status(String calendarId);
 
     /**
-     * The calendars a verified delivery says changed state ({@code calendar.update}); other events answer nothing.
-     * A delivery whose signature does not verify is refused with {@code MAILBOX_WEBHOOK_REJECTED}.
+     * What a verified delivery says; an event it does not act on answers nothing. A delivery whose signature does not
+     * verify is refused with {@code MAILBOX_WEBHOOK_REJECTED}.
      */
-    List<String> updatedCalendars(RecallWebhookDelivery delivery);
+    List<RecallWebhookNotice> notices(RecallWebhookDelivery delivery);
+
+    /** The calendar's events updated at or after {@code since}, deleted ones included. */
+    List<RecallCalendarEvent> eventsUpdatedSince(String calendarId, Instant since);
 }
