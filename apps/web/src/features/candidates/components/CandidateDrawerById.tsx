@@ -16,7 +16,7 @@ import { canExecuteProjectWork } from "../../projects/lib/access";
 
 /**
  * The Companies grid's executive panel, opened from somewhere that holds only the executive's id — a
- * report figure, a row of the position's Candidates page. The profile is read whole before the panel
+ * report figure, an Outreach row. The profile is read whole before the panel
  * opens; every write refreshes the mandate's rows, and `onChanged` whatever else the opener drew from them.
  */
 export function CandidateDrawerById({

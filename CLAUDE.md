@@ -86,9 +86,10 @@ Candidate tags under `WORKSPACE_MANAGE`; a person holds the tag's id, so a renam
 retired one stays where it is but is never put on anyone again). Each is a timeline line and an audit
 event, and none rides `CandidateResponse`. **Phase 4b-1**: a hand-typed add of someone the workspace holds by name alone at that employer is
 asked first (`409 CANDIDATE_POSSIBLE_DUPLICATE` with `personIds`; the drawer resends with
-`existingPersonId` or `addAsNewPerson`), never on the plugin, import or run doors; and the position's
-own **Candidates page** (`/projects/:id/candidates`) reads `…/candidates/pipeline` (`WORK_VIEW`) and its
-staff columns from `…/pipeline/staff` (`WORK_EXECUTE`), with Add from your candidates. Merge is Phase 4b-2.
+`existingPersonId` or `addAsNewPerson`), never on the plugin, import or run doors. A position has **no
+Candidates page of its own**: In universe lists its executives, Outreach works them, and the workspace
+Candidates page's Add to position files people onto it (`/projects/:id/candidates` redirects to In
+universe). Merge is Phase 4b-2.
 An executive's drawer also **finds their contacts**: two buttons in the Contact section ask ContactOut
 for an email or a phone, one channel per press because the two bill from separate pools. Every email
 and phone the mandate knows is a row of `app_lm_candidate_contact` (V54, the only store since V55

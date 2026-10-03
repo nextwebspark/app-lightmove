@@ -763,7 +763,7 @@
     <div onClick="{{ closeDialog }}" style="position:fixed;inset:0;z-index:100;display:grid;place-items:center;background:rgba(15,20,30,.4)">
       <div role="dialog" aria-modal="true" aria-label="Add to a position" data-screen-label="Add to position" onClick="{{ stop }}" style="width:540px;max-width:94vw;max-height:90vh;overflow-y:auto;border-radius:12px;border:1px solid var(--line);background:var(--panel);padding:22px;box-shadow:var(--shadow);animation:fadeUp .2s ease both">
         <div style="font:600 16px var(--sans)">Add {{ targetLabel }} to a position</div>
-        <p style="margin:4px 0 14px;font-size:13px;color:var(--text2)">They are added as Identified and appear on that position's Candidates page. Their notes, contacts and history come with them.</p>
+        <p style="margin:4px 0 14px;font-size:13px;color:var(--text2)">They are added as Identified and appear on that position's In universe page. Their notes, contacts and history come with them.</p>
         <div role="radiogroup" aria-label="Position" style="display:flex;flex-direction:column;gap:6px">
           <sc-for list="{{ positionChoices }}" as="pc" hint-placeholder-count="4">
             <button onClick="{{ pickBulkPosition }}" data-id="{{ pc.id }}" role="radio" aria-checked="{{ pc.on }}" style="display:flex;width:100%;align-items:center;gap:10px;border-radius:8px;border:1px solid {{ pc.border }};background:{{ pc.bg }};padding:10px 12px;text-align:left;cursor:pointer" style-hover="border-color:var(--text3)">
@@ -1007,10 +1007,10 @@ const MEMBERS = {
 const MEMBER_ORDER = ["yh", "yi", "sa", "ok", "da"];
 
 const POSITIONS = [
-  { id: "cfo", title: "Chief Financial Officer", short: "CFO", unit: "Group Finance", stage: "Mapping", active: true, href: "Position.dc.html?page=candidates" },
-  { id: "credit", title: "Head of Credit Risk", short: "Credit Risk", unit: "Financial Services", stage: "Shortlist delivered", active: false, href: "Position.dc.html?page=candidates&unit=Financial%20Services&pos=Head%20of%20Credit%20Risk" },
-  { id: "leasing", title: "Leasing Director, Mixed-Use Retail", short: "Leasing Director", unit: "Real Estate", stage: "Outreach live", active: true, href: "Position.dc.html?page=candidates&unit=Real%20Estate&pos=Leasing%20Director%2C%20Mixed-Use%20Retail" },
-  { id: "planning", title: "Senior Manager, Product Planning (Toyota & Lexus)", short: "Product Planning", unit: "Automotive", stage: "Mapping", active: true, href: "Position.dc.html?page=candidates&unit=Automotive&pos=Senior%20Manager%2C%20Product%20Planning%20(Toyota%20%26%20Lexus)" }
+  { id: "cfo", title: "Chief Financial Officer", short: "CFO", unit: "Group Finance", stage: "Mapping", active: true, href: "Position.dc.html?page=universe" },
+  { id: "credit", title: "Head of Credit Risk", short: "Credit Risk", unit: "Financial Services", stage: "Shortlist delivered", active: false, href: "Position.dc.html?page=universe&unit=Financial%20Services&pos=Head%20of%20Credit%20Risk" },
+  { id: "leasing", title: "Leasing Director, Mixed-Use Retail", short: "Leasing Director", unit: "Real Estate", stage: "Outreach live", active: true, href: "Position.dc.html?page=universe&unit=Real%20Estate&pos=Leasing%20Director%2C%20Mixed-Use%20Retail" },
+  { id: "planning", title: "Senior Manager, Product Planning (Toyota & Lexus)", short: "Product Planning", unit: "Automotive", stage: "Mapping", active: true, href: "Position.dc.html?page=universe&unit=Automotive&pos=Senior%20Manager%2C%20Product%20Planning%20(Toyota%20%26%20Lexus)" }
 ];
 const POS = Object.fromEntries(POSITIONS.map((p) => [p.id, p]));
 
