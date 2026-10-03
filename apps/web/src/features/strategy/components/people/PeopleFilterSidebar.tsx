@@ -1,5 +1,6 @@
 import { useState, type ReactNode } from "react";
 import { Icon, ICONS } from "../../../../components/layout/Icon";
+import { FilterRail } from "../../../../components/ui/FilterRail";
 import { FilterCheckRow } from "../../../../components/ui/FilterCheckRow";
 import { SegmentedControl } from "../../../../components/ui/SegmentedControl";
 import { TagListInput } from "../../../../components/ui/TagListInput";
@@ -15,7 +16,7 @@ import type {
 } from "../../api/types";
 import { CompanySearchCombobox } from "../CompanySearchCombobox";
 import { FacetsUnavailable } from "../FacetsUnavailable";
-import { FilterAccordion, type SelectedTag } from "../FilterAccordion";
+import { FilterAccordion, type SelectedTag } from "../../../../components/ui/FilterAccordion";
 import { LocationFilter } from "./LocationFilter";
 
 type AccordionKey =
@@ -119,27 +120,7 @@ export function PeopleFilterSidebar({
   const isEmpty = isEmptyFilter(filter);
 
   return (
-    <div
-      role="region"
-      aria-label="People filters"
-      className={cn(
-        "flex flex-col border-u-border bg-u-surface",
-        "fixed inset-y-0 start-0 z-[95] w-[min(300px,86vw)] border-e shadow-u-e3",
-        "lg:static lg:z-auto lg:w-[21%] lg:min-w-[280px] lg:max-w-[330px] lg:shrink-0 lg:shadow-none",
-      )}
-    >
-      <div className="flex items-center justify-between border-b border-u-border px-4 py-2.5 lg:hidden">
-        <span className="text-eyebrow font-semibold uppercase tracking-[0.08em] text-u-text3">People filters</span>
-        <button
-          type="button"
-          onClick={onClose}
-          aria-label="Hide filters"
-          className="flex size-8 items-center justify-center rounded-[6px] text-u-text3 transition hover:bg-u-raised hover:text-u-text"
-        >
-          <Icon d={ICONS.close} size={16} />
-        </button>
-      </div>
-
+    <FilterRail label="People filters" onClose={onClose}>
       <MatchCount count={count} pending={countPending} isEmpty={isEmpty} />
 
       <div className="min-h-0 flex-1 overflow-y-auto">
@@ -534,7 +515,7 @@ export function PeopleFilterSidebar({
           The top 25 · up to 25 search credits, none for a page already fetched
         </p>
       </div>
-    </div>
+    </FilterRail>
   );
 }
 

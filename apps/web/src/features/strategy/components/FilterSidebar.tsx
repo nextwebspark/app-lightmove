@@ -1,11 +1,10 @@
 import { useState } from "react";
-import { Icon, ICONS } from "../../../components/layout/Icon";
 import { useCountries } from "../../../lib/countries";
-import { cn } from "../../../lib/cn";
 import type { CompanyRef, FacetOption, Facets, NumericRange, StrategyFilter } from "../api/types";
 import { FacetsUnavailable } from "./FacetsUnavailable";
-import { FilterAccordion, type SelectedTag } from "./FilterAccordion";
+import { FilterAccordion, type SelectedTag } from "../../../components/ui/FilterAccordion";
 import { FilterCheckRow } from "../../../components/ui/FilterCheckRow";
+import { FilterRail } from "../../../components/ui/FilterRail";
 import { FilterChip } from "./FilterChip";
 import { IndustryFilter } from "./IndustryFilter";
 import { KeywordFilter } from "./KeywordFilter";
@@ -134,178 +133,158 @@ export function FilterSidebar({
   };
 
   return (
-    <div
-      role="region"
-      aria-label="Filters"
-      className={cn(
-        "overflow-y-auto border-u-border bg-u-surface",
-        // A 264px rail beside the table does not fit a phone, so below `lg` it overlays the results.
-        "fixed inset-y-0 start-0 z-[95] w-[min(288px,86vw)] border-e shadow-u-e3",
-        "lg:static lg:z-auto lg:w-[19%] lg:min-w-[264px] lg:max-w-[312px] lg:shrink-0 lg:shadow-none",
-      )}
-    >
-      <div className="flex items-center justify-between border-b border-u-border px-4 py-2.5 lg:hidden">
-        <span className="font-mono text-[10px] font-semibold uppercase tracking-[0.14em] text-u-text3">
-          Filters
-        </span>
-        <button
-          type="button"
-          onClick={onClose}
-          aria-label="Hide filters"
-          className="flex size-8 items-center justify-center rounded-[6px] text-u-text3 transition hover:bg-u-raised hover:text-u-text"
+    <FilterRail label="Filters" onClose={onClose} width="narrow">
+      <div className="min-h-0 flex-1 overflow-y-auto">
+        <FilterAccordion
+          label="Location"
+          selected={tagsOf("countries")}
+          onRemove={(value) => toggleValue("countries", value)}
+          open={open === "location"}
+          onToggleOpen={() => toggleOpen("location")}
+          onReset={() => onChange({ ...filter, countries: [] })}
         >
-          <Icon d={ICONS.close} size={16} />
-        </button>
-      </div>
-      <FilterAccordion
-        label="Location"
-        selected={tagsOf("countries")}
-        onRemove={(value) => toggleValue("countries", value)}
-        open={open === "location"}
-        onToggleOpen={() => toggleOpen("location")}
-        onReset={() => onChange({ ...filter, countries: [] })}
-      >
-        {marketsError ? (
-          <FacetsUnavailable />
-        ) : marketsPending ? (
-          <ChipSkeleton />
-        ) : (
-          <div className="flex flex-wrap gap-1.5">
-            {markets.map((market) => (
-              <FilterChip
-                key={market}
-                label={market}
-                selected={filter.countries.includes(market)}
-                onToggle={() => toggleValue("countries", market)}
-              />
-            ))}
-          </div>
-        )}
-      </FilterAccordion>
-
-      <FilterAccordion
-        label="# Employees"
-        selected={[...rangeTag(filter.employeeRange), ...tagsOf("employeeBands")]}
-        onRemove={(value) => removeBandOrRange("employee", value)}
-        open={open === "employees"}
-        onToggleOpen={() => toggleOpen("employees")}
-        onReset={() => onChange({ ...filter, employeeBands: [], employeeRange: null })}
-      >
-        <RangeFilter
-          options={facets?.employeeBands}
-          unavailable={facetsError}
-          selectedBands={filter.employeeBands}
-          range={filter.employeeRange}
-          onToggleBand={(value) => toggleValue("employeeBands", value)}
-          onRangeChange={(range) => setRange("employee", range)}
-        />
-      </FilterAccordion>
-
-      <FilterAccordion
-        label="Revenue"
-        selected={[...rangeTag(filter.revenueRange), ...tagsOf("revenueBands")]}
-        onRemove={(value) => removeBandOrRange("revenue", value)}
-        open={open === "revenue"}
-        onToggleOpen={() => toggleOpen("revenue")}
-        onReset={() => onChange({ ...filter, revenueBands: [], revenueRange: null })}
-      >
-        <RangeFilter
-          options={facets?.revenueBands}
-          unavailable={facetsError}
-          selectedBands={filter.revenueBands}
-          range={filter.revenueRange}
-          onToggleBand={(value) => toggleValue("revenueBands", value)}
-          onRangeChange={(range) => setRange("revenue", range)}
-          minPlaceholder="Min $"
-          maxPlaceholder="Max $"
-          footnote={
-            /* Nine companies in ten publish no revenue figure, so any band silently drops them.
-               The Unknown row is the only way to reach those, and this line is why it exists. */
-            <p className="font-sans text-[11px] leading-relaxed text-u-text3">
-              Most companies publish no revenue figure. Tick{" "}
-              <b className="text-u-text2">Unknown</b> to keep them in scope.
-            </p>
-          }
-        />
-      </FilterAccordion>
-
-      <FilterAccordion
-        label="Industry & Keywords"
-        selected={industryTags()}
-        onRemove={removeIndustryOrKeyword}
-        open={open === "industry"}
-        onToggleOpen={() => toggleOpen("industry")}
-        onReset={() => onChange({ ...filter, industries: [], keywords: [] })}
-      >
-        {facetsError ? (
-          <FacetsUnavailable />
-        ) : facets ? (
-          <IndustryFilter
-            groups={facets.sectorGroups}
-            adjacency={facets.adjacentIndustries}
-            selected={filter.industries}
-            onChange={(industries) => onChange({ ...filter, industries })}
-          >
-            <div className="border-t border-u-border pt-3">
-              <KeywordFilter
-                selected={filter.keywords}
-                onChange={(keywords) => onChange({ ...filter, keywords })}
-              />
+          {marketsError ? (
+            <FacetsUnavailable />
+          ) : marketsPending ? (
+            <ChipSkeleton />
+          ) : (
+            <div className="flex flex-wrap gap-1.5">
+              {markets.map((market) => (
+                <FilterChip
+                  key={market}
+                  label={market}
+                  selected={filter.countries.includes(market)}
+                  onToggle={() => toggleValue("countries", market)}
+                />
+              ))}
             </div>
-          </IndustryFilter>
-        ) : (
-          <ChipSkeleton />
-        )}
-      </FilterAccordion>
+          )}
+        </FilterAccordion>
 
-      <FilterAccordion
-        label="Market Segments"
-        selected={tagsOf("marketSegments")}
-        onRemove={(value) => toggleValue("marketSegments", value)}
-        open={open === "segments"}
-        onToggleOpen={() => toggleOpen("segments")}
-        onReset={() => onChange({ ...filter, marketSegments: [] })}
-      >
-        <div className="flex flex-col gap-[2px]">
+        <FilterAccordion
+          label="# Employees"
+          selected={[...rangeTag(filter.employeeRange), ...tagsOf("employeeBands")]}
+          onRemove={(value) => removeBandOrRange("employee", value)}
+          open={open === "employees"}
+          onToggleOpen={() => toggleOpen("employees")}
+          onReset={() => onChange({ ...filter, employeeBands: [], employeeRange: null })}
+        >
+          <RangeFilter
+            options={facets?.employeeBands}
+            unavailable={facetsError}
+            selectedBands={filter.employeeBands}
+            range={filter.employeeRange}
+            onToggleBand={(value) => toggleValue("employeeBands", value)}
+            onRangeChange={(range) => setRange("employee", range)}
+          />
+        </FilterAccordion>
+
+        <FilterAccordion
+          label="Revenue"
+          selected={[...rangeTag(filter.revenueRange), ...tagsOf("revenueBands")]}
+          onRemove={(value) => removeBandOrRange("revenue", value)}
+          open={open === "revenue"}
+          onToggleOpen={() => toggleOpen("revenue")}
+          onReset={() => onChange({ ...filter, revenueBands: [], revenueRange: null })}
+        >
+          <RangeFilter
+            options={facets?.revenueBands}
+            unavailable={facetsError}
+            selectedBands={filter.revenueBands}
+            range={filter.revenueRange}
+            onToggleBand={(value) => toggleValue("revenueBands", value)}
+            onRangeChange={(range) => setRange("revenue", range)}
+            minPlaceholder="Min $"
+            maxPlaceholder="Max $"
+            footnote={
+              /* Nine companies in ten publish no revenue figure, so any band silently drops them.
+                 The Unknown row is the only way to reach those, and this line is why it exists. */
+              <p className="font-sans text-[11px] leading-relaxed text-u-text3">
+                Most companies publish no revenue figure. Tick{" "}
+                <b className="text-u-text2">Unknown</b> to keep them in scope.
+              </p>
+            }
+          />
+        </FilterAccordion>
+
+        <FilterAccordion
+          label="Industry & Keywords"
+          selected={industryTags()}
+          onRemove={removeIndustryOrKeyword}
+          open={open === "industry"}
+          onToggleOpen={() => toggleOpen("industry")}
+          onReset={() => onChange({ ...filter, industries: [], keywords: [] })}
+        >
           {facetsError ? (
             <FacetsUnavailable />
           ) : facets ? (
-            facets.marketSegments.map((option) => (
-              <FilterCheckRow
-                key={option.value}
-                label={option.label}
-                count={option.count}
-                checked={filter.marketSegments.includes(option.value)}
-                onToggle={() => toggleValue("marketSegments", option.value)}
-              />
-            ))
+            <IndustryFilter
+              groups={facets.sectorGroups}
+              adjacency={facets.adjacentIndustries}
+              selected={filter.industries}
+              onChange={(industries) => onChange({ ...filter, industries })}
+            >
+              <div className="border-t border-u-border pt-3">
+                <KeywordFilter
+                  selected={filter.keywords}
+                  onChange={(keywords) => onChange({ ...filter, keywords })}
+                />
+              </div>
+            </IndustryFilter>
           ) : (
             <ChipSkeleton />
           )}
-        </div>
-      </FilterAccordion>
+        </FilterAccordion>
 
-      <FilterAccordion
-        label="Off-limits"
-        selected={offLimits.map((company) => ({
-          value: company.apolloAccountId,
-          label: company.companyName,
-        }))}
-        onRemove={(value) =>
-          onOffLimitsChange(
-            offLimits
-              .filter((company) => company.apolloAccountId !== value)
-              .map((company) => company.apolloAccountId),
-          )
-        }
-        tagTone="offlimits"
-        open={open === "offlimits"}
-        onToggleOpen={() => toggleOpen("offlimits")}
-        onReset={() => onOffLimitsChange([])}
-      >
-        <OffLimitsFilter companies={offLimits} onChange={onOffLimitsChange} />
-      </FilterAccordion>
-    </div>
+        <FilterAccordion
+          label="Market Segments"
+          selected={tagsOf("marketSegments")}
+          onRemove={(value) => toggleValue("marketSegments", value)}
+          open={open === "segments"}
+          onToggleOpen={() => toggleOpen("segments")}
+          onReset={() => onChange({ ...filter, marketSegments: [] })}
+        >
+          <div className="flex flex-col gap-[2px]">
+            {facetsError ? (
+              <FacetsUnavailable />
+            ) : facets ? (
+              facets.marketSegments.map((option) => (
+                <FilterCheckRow
+                  key={option.value}
+                  label={option.label}
+                  count={option.count}
+                  checked={filter.marketSegments.includes(option.value)}
+                  onToggle={() => toggleValue("marketSegments", option.value)}
+                />
+              ))
+            ) : (
+              <ChipSkeleton />
+            )}
+          </div>
+        </FilterAccordion>
+
+        <FilterAccordion
+          label="Off-limits"
+          selected={offLimits.map((company) => ({
+            value: company.apolloAccountId,
+            label: company.companyName,
+          }))}
+          onRemove={(value) =>
+            onOffLimitsChange(
+              offLimits
+                .filter((company) => company.apolloAccountId !== value)
+                .map((company) => company.apolloAccountId),
+            )
+          }
+          tagTone="offlimits"
+          open={open === "offlimits"}
+          onToggleOpen={() => toggleOpen("offlimits")}
+          onReset={() => onOffLimitsChange([])}
+        >
+          <OffLimitsFilter companies={offLimits} onChange={onOffLimitsChange} />
+        </FilterAccordion>
+      </div>
+    </FilterRail>
   );
 }
 
