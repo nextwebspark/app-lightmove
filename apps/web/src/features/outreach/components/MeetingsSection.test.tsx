@@ -170,4 +170,23 @@ describe("MeetingsSection", () => {
     );
     expect(await screen.findByText(/Invite sent to Priya for Mon 5 Oct, 10:30\. They moved to Engaged\./)).toBeInTheDocument();
   });
+
+  it("offers only the video link the connected calendar can make", async () => {
+    vi.mocked(meetingApi.getMeetingSlots).mockResolvedValue({
+      address: "yara@firm.example",
+      timeZone: "Asia/Dubai",
+      provider: "google",
+      minutes: 30,
+      days: [{ date: "2026-10-05", starts: ["2026-10-05T06:00:00Z"] }],
+    });
+    renderSection();
+
+    await userEvent.click(await screen.findByRole("button", { name: "Book a call" }));
+    await screen.findByRole("button", { name: "10:00" });
+    const video = screen.getByRole("combobox", { name: "Video link" });
+    expect(Array.from(video.querySelectorAll("option"), (option) => option.textContent)).toEqual([
+      "Google Meet",
+      "No video link",
+    ]);
+  });
 });

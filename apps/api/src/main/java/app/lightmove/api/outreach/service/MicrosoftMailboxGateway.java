@@ -14,7 +14,6 @@ import app.lightmove.api.outreach.model.OutgoingEmail;
 import app.lightmove.api.outreach.model.ProviderCredentials;
 import app.lightmove.api.outreach.model.ReleasedGrant;
 import app.lightmove.api.outreach.model.SentEmail;
-import java.net.URLDecoder;
 import java.nio.charset.StandardCharsets;
 import java.time.DateTimeException;
 import java.time.Instant;
@@ -32,6 +31,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import org.springframework.http.MediaType;
 import org.springframework.web.client.RestClient;
 import org.springframework.web.util.UriComponentsBuilder;
+import org.springframework.web.util.UriUtils;
 import tools.jackson.databind.JsonNode;
 
 /**
@@ -64,12 +64,15 @@ public class MicrosoftMailboxGateway extends OAuthDirectMailboxGateway {
     private static final String EVENT_FIELDS = "id,subject,start,end,isAllDay,isCancelled,type,seriesMasterId,"
             + "attendees,organizer,onlineMeeting,onlineMeetingProvider";
 
-    private static final int EVENT_PAGE = 100;
+    private static final int EVENT_PAGE = 250;
 
     private static final String TEAMS = "teamsForBusiness";
 
-    /** What a consultant's calendar shows as taken; {@code free} and {@code workingElsewhere} are offered. */
-    private static final Set<String> BUSY_STATUSES = Set.of("busy", "tentative", "oof");
+    /**
+     * The only statuses offered as free time. Everything else is taken — {@code unknown} and a missing status
+     * included, since a calendar Graph could not resolve is never free.
+     */
+    private static final Set<String> FREE_STATUSES = Set.of("free", "workingElsewhere");
 
     /** A thread an outreach run writes into is a handful of messages; this is far past any real one. */
     private static final int THREAD_PAGE = 50;
@@ -161,45 +164,31 @@ public class MicrosoftMailboxGateway extends OAuthDirectMailboxGateway {
         return new SentEmail(messageId, conversationId);
     }
 
-    /** A recurring series is never kept, so {@code calendarView}'s occurrences of one are dropped by {@link #eventOf}. */
+    /** A recurring series is never kept: {@code calendarView} answers its occurrences, which {@link #eventOf} drops. */
     @Override
     public List<CalendarEvent> calendarEvents(String grantId, Instant from, Instant to) {
         String accessToken = accessTokenOf(grantId);
-        List<CalendarEvent> events = new ArrayList<>();
-        Map<String, String> paging = Map.of();
-        for (int page = 0; page < MAX_EVENT_PAGES; page++) {
-            Map<String, String> next = paging;
-            JsonNode answer = apiCall("calendar-events", accessToken, client -> client.get()
-                    .uri(builder -> {
-                        builder.path("/v1.0/me/calendarView")
-                                .queryParam("startDateTime", "{from}")
-                                .queryParam("endDateTime", "{to}")
-                                .queryParam("$select", "{select}")
-                                .queryParam("$top", EVENT_PAGE);
-                        Map<String, Object> values = new LinkedHashMap<>(Map.of("from", from.toString(),
-                                "to", to.toString(), "select", EVENT_FIELDS));
-                        next.forEach((name, value) -> {
-                            builder.queryParam(name, "{" + name.replace("$", "") + "}");
-                            values.put(name.replace("$", ""), value);
-                        });
-                        return builder.build(values);
-                    })
-                    .accept(MediaType.APPLICATION_JSON));
-            if (answer == null) {
-                break;
-            }
-            for (JsonNode item : answer.path("value")) {
-                CalendarEvent read = eventOf(item);
-                if (read != null) {
-                    events.add(read);
-                }
-            }
-            paging = pagingOf(textOrNull(answer.get("@odata.nextLink")));
-            if (paging.isEmpty()) {
-                break;
-            }
-        }
-        return events;
+        return pagedEvents(grantId, Map.<String, String>of(), paging -> apiCall("calendar-events", accessToken,
+                client -> client.get()
+                        .uri(builder -> {
+                            builder.path("/v1.0/me/calendarView")
+                                    .queryParam("startDateTime", "{from}")
+                                    .queryParam("endDateTime", "{to}")
+                                    .queryParam("$select", "{select}")
+                                    .queryParam("$top", EVENT_PAGE);
+                            Map<String, Object> values = new LinkedHashMap<>(Map.of("from", from.toString(),
+                                    "to", to.toString(), "select", EVENT_FIELDS));
+                            paging.forEach((name, value) -> {
+                                builder.queryParam(name, "{" + name.replace("$", "") + "}");
+                                values.put(name.replace("$", ""), value);
+                            });
+                            return builder.build(values);
+                        })
+                        .accept(MediaType.APPLICATION_JSON)),
+                "value", MicrosoftMailboxGateway::eventOf, answer -> {
+                    Map<String, String> next = pagingOf(textOrNull(answer.get("@odata.nextLink")));
+                    return next.isEmpty() ? null : next;
+                });
     }
 
     /**
@@ -212,10 +201,10 @@ public class MicrosoftMailboxGateway extends OAuthDirectMailboxGateway {
         }
         Map<String, String> paging = new LinkedHashMap<>();
         UriComponentsBuilder.fromUriString(nextLink).build().getQueryParams().forEach((name, values) -> {
-            String decoded = URLDecoder.decode(name, StandardCharsets.UTF_8);
+            String decoded = UriUtils.decode(name, StandardCharsets.UTF_8);
             if ((decoded.equals("$skip") || decoded.equals("$skiptoken")) && !values.isEmpty()
                     && values.getFirst() != null) {
-                paging.put(decoded, URLDecoder.decode(values.getFirst(), StandardCharsets.UTF_8));
+                paging.put(decoded, UriUtils.decode(values.getFirst(), StandardCharsets.UTF_8));
             }
         });
         return paging;
@@ -243,13 +232,12 @@ public class MicrosoftMailboxGateway extends OAuthDirectMailboxGateway {
         }
         List<BusyInterval> busy = new ArrayList<>();
         for (JsonNode schedule : answer.path("value")) {
-            if (!schedule.path("error").isMissingNode() && !schedule.path("error").isNull()
-                    || !schedule.path("scheduleItems").isArray()) {
+            if (carriesError(schedule) || !schedule.path("scheduleItems").isArray()) {
                 throw unreadableCalendar();
             }
             for (JsonNode item : schedule.path("scheduleItems")) {
                 String status = textOrNull(item.get("status"));
-                if (status != null && !BUSY_STATUSES.contains(status)) {
+                if (status != null && FREE_STATUSES.contains(status)) {
                     continue;
                 }
                 Instant start = graphInstantOf(item.path("start"));
@@ -263,10 +251,15 @@ public class MicrosoftMailboxGateway extends OAuthDirectMailboxGateway {
         return busy;
     }
 
+    private static boolean carriesError(JsonNode schedule) {
+        JsonNode error = schedule.path("error");
+        return !error.isMissingNode() && !error.isNull();
+    }
+
     /**
-     * Graph mails the invite itself. A Teams link is made only where the calendar offers Teams — a personal Microsoft
-     * account does not, and its invite goes without one, as does one asking for Meet. Never retried — see
-     * {@link MailboxGateway}.
+     * Graph mails the invite itself. A Teams link is made only where the calendar offers Teams — an organisation
+     * without a Teams licence or with it turned off does not, and its invite goes without one, as does one asking for
+     * Meet. Never retried — see {@link MailboxGateway}.
      */
     @Override
     public CalendarEvent createEvent(String grantId, NewCalendarEvent event) {
@@ -285,12 +278,7 @@ public class MicrosoftMailboxGateway extends OAuthDirectMailboxGateway {
                 .uri("/v1.0/me/events")
                 .contentType(MediaType.APPLICATION_JSON)
                 .body(body));
-        CalendarEvent created = answer == null ? null : eventOf(answer);
-        if (created == null) {
-            // It was created: Graph answered 2xx. Never re-sent; the booking is told it has no event to record.
-            throw new VendorException(vendorCall("create-event"), VendorFailureKind.MALFORMED_RESPONSE, null);
-        }
-        return created;
+        return requireCreated(grantId, answer == null ? null : eventOf(answer));
     }
 
     /** Read before the create rather than after a refusal: a create that failed is never tried again. */
@@ -324,17 +312,9 @@ public class MicrosoftMailboxGateway extends OAuthDirectMailboxGateway {
                 || event.path("isAllDay").asBoolean(false) || event.path("isCancelled").asBoolean(false)) {
             return null;
         }
-        List<String> participants = new ArrayList<>();
-        for (JsonNode attendee : event.path("attendees")) {
-            String address = textOrNull(attendee.path("emailAddress").get("address"));
-            if (address != null) {
-                participants.add(address);
-            }
-        }
-        String organizer = textOrNull(event.path("organizer").path("emailAddress").get("address"));
-        if (organizer != null) {
-            participants.add(organizer);
-        }
+        List<String> participants = participantsOf(event.path("attendees"),
+                attendee -> attendee.path("emailAddress").get("address"),
+                textOrNull(event.path("organizer").path("emailAddress").get("address")));
         String joinUrl = textOrNull(event.path("onlineMeeting").get("joinUrl"));
         String provider = joinUrl == null ? null : videoProviderOf(textOrNull(event.get("onlineMeetingProvider")));
         return new CalendarEvent(id, textOrNull(event.get("subject")), startsAt, endsAt, participants, joinUrl,
@@ -353,7 +333,8 @@ public class MicrosoftMailboxGateway extends OAuthDirectMailboxGateway {
     }
 
     private static Map<String, String> graphTimeOf(Instant instant) {
-        return Map.of("dateTime", LocalDateTime.ofInstant(instant, ZoneOffset.UTC).format(DateTimeFormatter.ISO_LOCAL_DATE_TIME), "timeZone", "UTC");
+        String local = LocalDateTime.ofInstant(instant, ZoneOffset.UTC).format(DateTimeFormatter.ISO_LOCAL_DATE_TIME);
+        return Map.of("dateTime", local, "timeZone", "UTC");
     }
 
     /**

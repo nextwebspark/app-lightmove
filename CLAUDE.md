@@ -455,12 +455,13 @@ Online's fixed `MicrosoftExchange329e71ec88ae4615bbc36ab6ce41109e` system mailbo
 **Calendar on both (#647)** is read and written directly, whatever `calendar_sync` says: `events.list` on `primary`
 (`singleEvents=true`) and Graph's `calendarView`, each asked only for the fields a meeting row keeps — never a
 description or a body — with Graph's times asked in UTC and only the paging of its `@odata.nextLink` taken, never the
-link itself; free/busy is `freeBusy.query` and `getSchedule`, where an error entry is a failure as on Nylas, and
-Graph's `tentative` and `oof` count as taken. A booked call is `events.insert` with `sendUpdates=all` and a Meet
-`createRequest`, or `POST /me/events` with `teamsForBusiness` — asked only where the calendar's
-`allowedOnlineMeetingProviders` lists it, so a personal Microsoft account's invite goes without a link rather than
-being refused, and Book a call says so. A video the provider cannot make (Teams from Google, Meet from Microsoft) is
-left off the same way. Recall's push of calendar changes is the next PR.
+link itself, and a read stopped by the page cap is logged; free/busy is `freeBusy.query` and `getSchedule`, where an
+error entry is a failure as on Nylas, and Graph offers only `free` and `workingElsewhere` — `unknown` is taken. A
+booked call is `events.insert` with `sendUpdates=all` and a Meet `createRequest`, or `POST /me/events` with
+`teamsForBusiness` — asked only where the calendar's `allowedOnlineMeetingProviders` lists it, so in an organisation
+without Teams the invite goes without a link rather than being refused, and Book a call says so. Book a call offers
+only the link the connected calendar can make (Meet on Google, Teams on Microsoft). Recall's push of calendar changes
+is the next PR.
 Sequences (V100, #623) are a position's, `WORK_EXECUTE`: up to three emails (V39's owned list), and
 **Add to sequence** — from In universe / Shortlisted (the ticked companies' executives) or the executive
 drawer — chooses, reviews and starts. Choose shows who is skipped and why (no email, do not contact, out

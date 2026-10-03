@@ -46,7 +46,8 @@ public class GoogleMailboxGateway extends OAuthDirectMailboxGateway {
 
     /** Only what a meeting row keeps: never a description, a location or an attachment. */
     private static final String EVENT_FIELDS = "nextPageToken,items(id,status,summary,start,end,attendees/email,"
-            + "organizer/email,recurringEventId,recurrence,hangoutLink,conferenceData(entryPoints,conferenceSolution/name))";
+            + "organizer/email,recurringEventId,recurrence,hangoutLink,"
+            + "conferenceData(entryPoints,conferenceSolution/name))";
 
     private static final int EVENT_PAGE = 250;
 
@@ -123,40 +124,23 @@ public class GoogleMailboxGateway extends OAuthDirectMailboxGateway {
     @Override
     public List<CalendarEvent> calendarEvents(String grantId, Instant from, Instant to) {
         String accessToken = accessTokenOf(grantId);
-        List<CalendarEvent> events = new ArrayList<>();
-        String pageToken = null;
-        for (int page = 0; page < MAX_EVENT_PAGES; page++) {
-            String token = pageToken;
-            JsonNode answer = apiCall("calendar-events", accessToken, client -> client.get()
-                    .uri(builder -> {
-                        builder.path("/calendar/v3/calendars/primary/events")
-                                .queryParam("timeMin", "{from}")
-                                .queryParam("timeMax", "{to}")
-                                .queryParam("singleEvents", true)
-                                .queryParam("maxResults", EVENT_PAGE)
-                                .queryParam("fields", "{fields}");
-                        if (token != null) {
-                            builder.queryParam("pageToken", "{token}");
-                        }
-                        return builder.build(Map.of("from", from.toString(), "to", to.toString(),
-                                "fields", EVENT_FIELDS, "token", token == null ? "" : token));
-                    })
-                    .accept(MediaType.APPLICATION_JSON));
-            if (answer == null) {
-                break;
-            }
-            for (JsonNode item : answer.path("items")) {
-                CalendarEvent read = eventOf(item);
-                if (read != null) {
-                    events.add(read);
-                }
-            }
-            pageToken = textOrNull(answer.get("nextPageToken"));
-            if (pageToken == null) {
-                break;
-            }
-        }
-        return events;
+        return pagedEvents(grantId, (String) null, pageToken -> apiCall("calendar-events", accessToken,
+                client -> client.get()
+                        .uri(builder -> {
+                            builder.path("/calendar/v3/calendars/primary/events")
+                                    .queryParam("timeMin", "{from}")
+                                    .queryParam("timeMax", "{to}")
+                                    .queryParam("singleEvents", true)
+                                    .queryParam("maxResults", EVENT_PAGE)
+                                    .queryParam("fields", "{fields}");
+                            if (pageToken != null) {
+                                builder.queryParam("pageToken", "{token}");
+                            }
+                            return builder.build(Map.of("from", from.toString(), "to", to.toString(),
+                                    "fields", EVENT_FIELDS, "token", pageToken == null ? "" : pageToken));
+                        })
+                        .accept(MediaType.APPLICATION_JSON)),
+                "items", GoogleMailboxGateway::eventOf, answer -> textOrNull(answer.get("nextPageToken")));
     }
 
     @Override
@@ -214,12 +198,7 @@ public class GoogleMailboxGateway extends OAuthDirectMailboxGateway {
                         .build())
                 .contentType(MediaType.APPLICATION_JSON)
                 .body(body));
-        CalendarEvent created = answer == null ? null : eventOf(answer);
-        if (created == null) {
-            // It was created: Google answered 2xx. Never re-sent; the booking is told it has no event to record.
-            throw new VendorException(vendorCall("create-event"), VendorFailureKind.MALFORMED_RESPONSE, null);
-        }
-        return created;
+        return requireCreated(grantId, answer == null ? null : eventOf(answer));
     }
 
     /**
@@ -235,17 +214,8 @@ public class GoogleMailboxGateway extends OAuthDirectMailboxGateway {
                 || "cancelled".equalsIgnoreCase(textOrNull(event.get("status")))) {
             return null;
         }
-        List<String> participants = new ArrayList<>();
-        for (JsonNode attendee : event.path("attendees")) {
-            String address = textOrNull(attendee.get("email"));
-            if (address != null) {
-                participants.add(address);
-            }
-        }
-        String organizer = textOrNull(event.path("organizer").get("email"));
-        if (organizer != null) {
-            participants.add(organizer);
-        }
+        List<String> participants = participantsOf(event.path("attendees"), attendee -> attendee.get("email"),
+                textOrNull(event.path("organizer").get("email")));
         JsonNode conference = event.path("conferenceData");
         String hangoutLink = textOrNull(event.get("hangoutLink"));
         String joinUrl = videoEntryPointOf(conference);

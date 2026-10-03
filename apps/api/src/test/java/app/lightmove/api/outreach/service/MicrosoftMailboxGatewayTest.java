@@ -272,7 +272,7 @@ class MicrosoftMailboxGatewayTest {
         assertThat(microsoft.preferOf("/graph/v1.0/me/calendarView")).contains("outlook.timezone=\"UTC\"")
                 .contains("IdType=\"ImmutableId\"");
         String query = decoded(microsoft.lastQuery());
-        assertThat(query).contains("startDateTime=2026-07-05T00:00:00Z").contains("$skip=100")
+        assertThat(query).contains("startDateTime=2026-07-05T00:00:00Z").contains("$skip=250")
                 .contains("$select=").doesNotContain("body").doesNotContain("evil.example");
     }
 
@@ -282,11 +282,14 @@ class MicrosoftMailboxGatewayTest {
         assertThat(MicrosoftMailboxGateway.pagingOf(
                 "https://evil.example/v1.0/me/calendarView?startDateTime=x&%24skip=100&%24select=body"))
                 .containsExactly(Map.entry("$skip", "100"));
+        assertThat(MicrosoftMailboxGateway.pagingOf(
+                "https://graph.microsoft.com/v1.0/me/calendarView?%24skiptoken=a+b%2Fc"))
+                .containsExactly(Map.entry("$skiptoken", "a+b/c"));
         assertThat(MicrosoftMailboxGateway.pagingOf(null)).isEmpty();
     }
 
     @Test
-    @DisplayName("free/busy counts busy, tentative and away; a calendar Graph could not read is a failure, never free time")
+    @DisplayName("free/busy offers only free and elsewhere: unknown is taken, and an unreadable calendar is a failure")
     void freeBusyFailsOnAnUnreadableCalendar() throws Exception {
         String grantId = MailboxGrants.mintDirect("microsoft");
         when(mailboxTokens.accessToken(grantId)).thenReturn("access-for-yara");
@@ -297,7 +300,8 @@ class MicrosoftMailboxGatewayTest {
 
         assertThat(busy).containsExactly(
                 new BusyInterval(Instant.parse("2026-10-06T05:00:00Z"), Instant.parse("2026-10-06T06:00:00Z")),
-                new BusyInterval(Instant.parse("2026-10-07T05:00:00Z"), Instant.parse("2026-10-07T05:30:00Z")));
+                new BusyInterval(Instant.parse("2026-10-07T05:00:00Z"), Instant.parse("2026-10-07T05:30:00Z")),
+                new BusyInterval(Instant.parse("2026-10-08T05:00:00Z"), Instant.parse("2026-10-08T05:30:00Z")));
         JsonNode body = JSON.readTree(microsoft.bodyOf("POST /graph/v1.0/me/calendar/getSchedule"));
         assertThat(body.path("schedules").get(0).asString("")).isEqualTo("yara.haddad@meridian.example");
         assertThat(body.path("startTime").path("dateTime").asString("")).isEqualTo("2026-10-05T00:00:00");
@@ -412,7 +416,7 @@ class MicrosoftMailboxGatewayTest {
                          "expires_in":4632,"ext_expires_in":4632,"access_token":"eyJ0eXAi.access",
                          "refresh_token":"M.C123_refresh"}""");
             } else if (key.equals("GET /graph/v1.0/me/calendarView")) {
-                respond(exchange, 200, lastQuery.contains("skip=100") ? """
+                respond(exchange, 200, lastQuery.contains("skip=250") ? """
                         {"value":[
                           {"id":"AAMkPage2","subject":"Debrief","type":"singleInstance","isAllDay":false,
                            "isCancelled":false,
@@ -422,7 +426,7 @@ class MicrosoftMailboxGatewayTest {
                            "organizer":{"emailAddress":{"address":"yara.haddad@meridian.example"}},
                            "onlineMeeting":null,"onlineMeetingProvider":"unknown"}
                         ]}""" : """
-                        {"@odata.nextLink":"https://evil.example/v1.0/me/calendarView?startDateTime=2026-07-05T00%%3A00%%3A00Z&%%24skip=100",
+                        {"@odata.nextLink":"https://evil.example/v1.0/me/calendarView?startDateTime=2026-07-05T00%%3A00%%3A00Z&%%24skip=250",
                          "value":[
                           %s,
                           {"id":"AAMkWeeklyOccurrence","subject":"Weekly","type":"occurrence",
@@ -448,7 +452,11 @@ class MicrosoftMailboxGatewayTest {
                             {"status":"free","start":{"dateTime":"2026-10-06T07:00:00.0000000","timeZone":"UTC"},
                              "end":{"dateTime":"2026-10-06T08:00:00.0000000","timeZone":"UTC"}},
                             {"status":"tentative","start":{"dateTime":"2026-10-07T05:00:00.0000000","timeZone":"UTC"},
-                             "end":{"dateTime":"2026-10-07T05:30:00.0000000","timeZone":"UTC"}}]}]}""");
+                             "end":{"dateTime":"2026-10-07T05:30:00.0000000","timeZone":"UTC"}},
+                            {"status":"workingElsewhere","start":{"dateTime":"2026-10-07T07:00:00.0000000","timeZone":"UTC"},
+                             "end":{"dateTime":"2026-10-07T08:00:00.0000000","timeZone":"UTC"}},
+                            {"status":"unknown","start":{"dateTime":"2026-10-08T05:00:00.0000000","timeZone":"UTC"},
+                             "end":{"dateTime":"2026-10-08T05:30:00.0000000","timeZone":"UTC"}}]}]}""");
             } else if (key.equals("GET /graph/v1.0/me/calendar")) {
                 respond(exchange, 200, offersTeams
                         ? "{\"allowedOnlineMeetingProviders\":[\"teamsForBusiness\"]}"
