@@ -3,6 +3,7 @@ package app.lightmove.api.outreach.service;
 import app.lightmove.api.core.error.constant.ErrorCode;
 import app.lightmove.api.core.error.model.ApiException;
 import app.lightmove.api.outreach.constant.MailboxGatewayKind;
+import app.lightmove.api.outreach.constant.MeetingVideo;
 import app.lightmove.api.outreach.model.BookingPageSpec;
 import app.lightmove.api.outreach.model.BusyInterval;
 import app.lightmove.api.outreach.model.CalendarEvent;
@@ -136,6 +137,11 @@ public class RoutingMailboxGateway implements MailboxGateway {
     @Override
     public boolean isBookingPageOffered() {
         return nylas.isBookingPageOffered();
+    }
+
+    @Override
+    public MeetingVideo nativeVideoOf(String grantId) {
+        return holding(grantId).nativeVideoOf(grantId);
     }
 
     @Override

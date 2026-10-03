@@ -148,12 +148,12 @@ class BookingLinkIntegrationTest extends FlowTestSupport {
 
             mvc.perform(post("/api/v1/outreach/booking/" + slug).contentType(MediaType.APPLICATION_JSON)
                             .content("""
-                                    {"startsAt":"%s","name":"Priya Raman","email":"Priya@%s"}""".formatted(start, domain)))
+                                    {"startsAt":"%s","email":"Priya@%s"}""".formatted(start, domain)))
                     .andExpect(status().isNoContent());
 
             assertThat(gateway.created()).singleElement().satisfies(event -> {
                 assertThat(event.inviteeAddress()).isEqualTo("Priya@" + domain);
-                assertThat(event.title()).isEqualTo("30-minute call: Priya Raman and Yara Haddad");
+                assertThat(event.title()).isEqualTo("30-minute call with Yara Haddad");
                 assertThat(event.startsAt()).isEqualTo(Instant.parse(start));
             });
             assertThat(jdbc.queryForObject("select status from app_lm_outreach_enrollment where candidate_id = ?::uuid",
@@ -162,12 +162,14 @@ class BookingLinkIntegrationTest extends FlowTestSupport {
 
             mvc.perform(post("/api/v1/outreach/booking/" + slug).contentType(MediaType.APPLICATION_JSON)
                             .content("""
-                                    {"startsAt":"%s","name":"Priya","email":"priya@%s"}"""
+                                    {"startsAt":"%s","email":"priya@%s"}"""
                                     .formatted(Instant.parse(start).plusSeconds(60), domain)))
                     .andExpect(status().isBadRequest());
+            // The same weekday and time a year on is on the grid, but past the six months the page offers.
             mvc.perform(post("/api/v1/outreach/booking/" + slug).contentType(MediaType.APPLICATION_JSON)
                             .content("""
-                                    {"startsAt":"%s","name":"Line\\nBreak","email":"priya@%s"}""".formatted(start, domain)))
+                                    {"startsAt":"%s","email":"priya@%s"}"""
+                                    .formatted(Instant.parse(start).plus(Duration.ofDays(364)), domain)))
                     .andExpect(status().isBadRequest());
             assertThat(gateway.created()).hasSize(1);
         } finally {

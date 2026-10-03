@@ -28,7 +28,6 @@ export interface BookingSlots {
 
 export interface BookOnPage {
   startsAt: string;
-  name: string;
   email: string;
 }
 

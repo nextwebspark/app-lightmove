@@ -15,7 +15,6 @@ export function DirectBookingForm({ slug, consultantName }: { slug: string; cons
   const [from, setFrom] = useState<string | null>(null);
   const [chosenDate, setChosenDate] = useState<string | null>(null);
   const [slot, setSlot] = useState<string | null>(null);
-  const [name, setName] = useState("");
   const [email, setEmail] = useState("");
 
   const slots = useQuery({
@@ -26,7 +25,7 @@ export function DirectBookingForm({ slug, consultantName }: { slug: string; cons
   });
 
   const book = useMutation({
-    mutationFn: () => bookingApi.bookOnPage(slug, { startsAt: slot as string, name: name.trim(), email: email.trim() }),
+    mutationFn: () => bookingApi.bookOnPage(slug, { startsAt: slot as string, email: email.trim() }),
     onError: (error) => {
       if (codeOf(error) === "MEETING_SLOT_TAKEN") {
         setSlot(null);
@@ -57,7 +56,7 @@ export function DirectBookingForm({ slug, consultantName }: { slug: string; cons
   if (slots.isError) {
     return (
       <p role="alert" className="text-center text-[14px] text-u-text2">
-        The calendar couldn't be read just now. Try again in a moment.
+        {slotsErrorOf(slots.error)}
       </p>
     );
   }
@@ -67,7 +66,7 @@ export function DirectBookingForm({ slug, consultantName }: { slug: string; cons
     shownDays.find((day) => day.date === chosenDate) ?? shownDays.find((day) => day.starts.length > 0) ?? shownDays[0];
   const morning = activeDay && timeZone ? activeDay.starts.filter((start) => slotTimeOf(start, timeZone) < "12:00") : [];
   const afternoon = activeDay && timeZone ? activeDay.starts.filter((start) => slotTimeOf(start, timeZone) >= "12:00") : [];
-  const canBook = slot !== null && name.trim() !== "" && /\S+@\S+\.\S+/.test(email.trim());
+  const canBook = slot !== null && /\S+@\S+\.\S+/.test(email.trim());
 
   const handleShowFrom = (day: string) => {
     setFrom(day);
@@ -113,9 +112,6 @@ export function DirectBookingForm({ slug, consultantName }: { slug: string; cons
       </section>
 
       <section aria-label="Your details" className="border-t border-u-border pt-5 md:border-s md:border-t-0 md:ps-6 md:pt-0">
-        <Field label="Your name">
-          <Input aria-label="Your name" value={name} maxLength={120} onChange={(event) => setName(event.target.value)} />
-        </Field>
         <Field label="Your email" hint="The invite goes here.">
           <Input
             aria-label="Your email"
@@ -127,9 +123,7 @@ export function DirectBookingForm({ slug, consultantName }: { slug: string; cons
         </Field>
         {book.isError && (
           <p role="alert" className="mb-3 text-[12.5px] text-u-offlimits">
-            {codeOf(book.error) === "MEETING_SLOT_TAKEN"
-              ? "That time was just taken. Pick another."
-              : "That couldn't be booked. Check your details and try again."}
+            {bookErrorOf(book.error)}
           </p>
         )}
         <Button className="w-full" disabled={!canBook} loading={book.isPending} onClick={() => book.mutate()}>
@@ -138,4 +132,28 @@ export function DirectBookingForm({ slug, consultantName }: { slug: string; cons
       </section>
     </div>
   );
+}
+
+function slotsErrorOf(error: unknown): string {
+  switch (codeOf(error)) {
+    case "NOT_FOUND":
+      return "This booking link is no longer available.";
+    case "RATE_LIMITED":
+      return "Too many tries just now. Wait a few minutes, then reload.";
+    default:
+      return "The calendar couldn't be read just now. Try again in a moment.";
+  }
+}
+
+function bookErrorOf(error: unknown): string {
+  switch (codeOf(error)) {
+    case "MEETING_SLOT_TAKEN":
+      return "That time was just taken. Pick another.";
+    case "NOT_FOUND":
+      return "This booking link is no longer available.";
+    case "RATE_LIMITED":
+      return "Too many bookings from here just now. Try again later.";
+    default:
+      return "That couldn't be booked. Check your email address and try again.";
+  }
 }

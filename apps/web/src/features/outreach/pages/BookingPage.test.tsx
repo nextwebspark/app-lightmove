@@ -73,14 +73,12 @@ describe("BookingPage", () => {
     expect(await screen.findByRole("heading", { name: "Book a call with Yara Haddad" })).toBeInTheDocument();
     expect(screen.queryByTestId("scheduler")).not.toBeInTheDocument();
     await userEvent.click(await screen.findByRole("button", { name: "10:30" }));
-    await userEvent.type(screen.getByRole("textbox", { name: "Your name" }), "Priya Raman");
     await userEvent.type(screen.getByRole("textbox", { name: "Your email" }), "priya@target.example");
     await userEvent.click(screen.getByRole("button", { name: "Book 10:30" }));
 
     expect(await screen.findByRole("status")).toHaveTextContent("You're booked");
     expect(bookingApi.bookOnPage).toHaveBeenCalledWith("yara-haddad", {
       startsAt: "2026-10-05T06:30:00Z",
-      name: "Priya Raman",
       email: "priya@target.example",
     });
   });

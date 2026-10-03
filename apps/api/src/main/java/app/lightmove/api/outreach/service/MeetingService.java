@@ -24,6 +24,7 @@ import app.lightmove.api.outreach.model.MailboxConnection;
 import app.lightmove.api.outreach.model.NewCalendarEvent;
 import app.lightmove.api.outreach.model.PersonMeeting;
 import app.lightmove.api.outreach.model.SendingWindow;
+import app.lightmove.api.outreach.model.SlotPage;
 import app.lightmove.api.outreach.model.ZoomMeeting;
 import app.lightmove.api.outreach.repository.MailboxConnectionRepository;
 import app.lightmove.api.outreach.repository.OutreachEnrollmentRepository;
@@ -33,7 +34,6 @@ import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
 import java.time.LocalDate;
-import java.time.Period;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.LinkedHashMap;
@@ -61,12 +61,6 @@ import org.springframework.transaction.support.TransactionTemplate;
 public class MeetingService {
 
     static final Set<Integer> LENGTHS = Set.of(15, 30, 45);
-
-    /** A working week of times, as the dialog's grid shows them. */
-    static final int SLOT_DAYS = 5;
-
-    /** How far ahead the grid pages: a first conversation planned further out than this is not yet a meeting. */
-    static final Period SLOT_HORIZON = Period.ofMonths(6);
 
     /** The past is context, not a log: the newest of it is enough. */
     static final int PAST_SHOWN = 20;
@@ -111,29 +105,19 @@ public class MeetingService {
     }
 
     /**
-     * A page of free times from {@code from}: today when absent or past, refused beyond {@link #SLOT_HORIZON}.
+     * A page of free times from {@code from}: today when absent or past, refused beyond {@link FreeSlots#HORIZON}.
      */
     public MeetingSlotsResponse slots(UUID userId, UUID workspaceId, UUID projectId, UUID candidateId, int minutes,
                                       LocalDate from) {
         Duration length = requireLength(minutes);
         requireRecipient(workspaceId, projectId, candidateId);
         MailboxConnection mailbox = requireMailbox(userId, workspaceId);
-        FreeSlots free = freeSlotsOf(mailbox);
-        Instant now = clock.instant();
-        LocalDate today = free.todayAt(now);
-        LocalDate latest = today.plus(SLOT_HORIZON);
-        LocalDate firstDay = from == null ? today : from;
-        if (firstDay.isAfter(latest)) {
-            throw ApiException.of(ErrorCode.MEETING_SLOT_INVALID);
-        }
-        List<BusyInterval> busy = busyOf(mailbox, free.startOf(now, firstDay, SLOT_DAYS),
-                free.endOf(now, firstDay, SLOT_DAYS));
-        List<SlotDayResponse> days = free.offered(now, firstDay, SLOT_DAYS, length, busy).stream()
-                .map(day -> new SlotDayResponse(day.date(), day.starts()))
-                .toList();
-        LocalDate previousFrom = free.previousFrom(now, days.getFirst().date(), SLOT_DAYS);
+        SlotPage page = freeSlotsOf(mailbox)
+                .page(clock.instant(), from, length, (start, end) -> busyOf(mailbox, start, end))
+                .orElseThrow(() -> ApiException.of(ErrorCode.MEETING_SLOT_INVALID));
         return new MeetingSlotsResponse(mailbox.getAddress(), mailbox.getTimeZone(), mailbox.getProvider(), minutes,
-                today, latest, previousFrom, days, zoom.isUsableBy(userId, workspaceId));
+                page.earliestDate(), page.latestDate(), page.previousFrom(), SlotDayResponse.listOf(page.days()),
+                zoom.isUsableBy(userId, workspaceId));
     }
 
     /**
@@ -154,7 +138,7 @@ public class MeetingService {
         Instant now = clock.instant();
         Instant startsAt = request.startsAt();
         Instant endsAt = startsAt.plus(length);
-        if (!freeSlotsOf(mailbox).offers(now, startsAt, length)) {
+        if (!freeSlotsOf(mailbox).books(now, startsAt, length)) {
             throw ApiException.of(ErrorCode.MEETING_SLOT_INVALID);
         }
         if (busyOf(mailbox, startsAt, endsAt).stream().anyMatch(taken -> taken.overlaps(startsAt, endsAt))) {

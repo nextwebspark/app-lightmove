@@ -205,7 +205,7 @@ public class BookingPages {
                 Set.copyOf(settings.workingDays()));
     }
 
-    private String nameOf(MailboxConnection mailbox) {
+    String nameOf(MailboxConnection mailbox) {
         return nameOf(mailbox.getUserId());
     }
 

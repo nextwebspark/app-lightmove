@@ -491,7 +491,7 @@ first send): whichever way the sender came to another gateway — a reconnect, o
 run stops at its next send as `MAILBOX_MOVED` and the reply poll leaves its thread alone, since the new gateway may not
 read it. **A direct mailbox's booking link opens Uncava's own page** (`DirectBookingPage`, the same slug kept across
 the move): `GET /api/v1/outreach/booking/{slug}` answers `kind: DIRECT`, `…/{slug}/slots` the consultant's free
-half-hours read as Book a call reads them, and `POST …/{slug}` (name and email, nobody signed in) asks the calendar
+half-hours read as Book a call reads them, and `POST …/{slug}` (an email address alone, nobody signed in — nothing a caller types reaches the invite but where it goes) asks the calendar
 once more, invites whoever picked the time with the calendar's own video link, and hands the booking to
 `LinkBookings` — so it counts only for an address that consultant emailed. All three are public and rate-limited per
 IP and link (`booking-page-bookings-per-hour`, 5, for the write). A Nylas mailbox's link still opens Nylas's

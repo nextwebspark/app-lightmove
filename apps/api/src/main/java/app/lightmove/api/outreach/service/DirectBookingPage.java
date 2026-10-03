@@ -5,9 +5,6 @@ import app.lightmove.api.core.error.constant.ErrorCode;
 import app.lightmove.api.core.error.model.ApiException;
 import app.lightmove.api.core.ratelimit.service.RateLimitGuard;
 import app.lightmove.api.core.resilience.model.VendorException;
-import app.lightmove.api.core.security.model.User;
-import app.lightmove.api.core.security.repository.UserRepository;
-import app.lightmove.api.outreach.constant.MeetingVideo;
 import app.lightmove.api.outreach.dto.BookOnPageRequest;
 import app.lightmove.api.outreach.dto.BookingSlotsResponse;
 import app.lightmove.api.outreach.dto.SlotDayResponse;
@@ -19,6 +16,7 @@ import app.lightmove.api.outreach.model.FreeSlots;
 import app.lightmove.api.outreach.model.MailboxConnection;
 import app.lightmove.api.outreach.model.NewCalendarEvent;
 import app.lightmove.api.outreach.model.SendingWindow;
+import app.lightmove.api.outreach.model.SlotPage;
 import app.lightmove.api.outreach.repository.MailboxConnectionRepository;
 import jakarta.servlet.http.HttpServletRequest;
 import java.time.Clock;
@@ -35,7 +33,9 @@ import org.springframework.transaction.support.TransactionTemplate;
  * A direct mailbox's booking page, Uncava's own where a Nylas one is Nylas's scheduler: the consultant's free
  * half-hours, read from their calendar as Book a call reads them, and a booking that invites whoever picked one.
  * Nobody is signed in, so the link is the only credential, every call is rate-limited per IP and link, and a
- * booking counts towards a person only where that consultant emailed the address ({@link LinkBookings}).
+ * booking counts towards a person only where that consultant emailed the address ({@link LinkBookings}). Nothing
+ * the caller types reaches the invite but the address it goes to. Two bookers racing for one slot can both be
+ * invited — the calendar holds no lock to take — which the consultant sees and moves, as with any double booking.
  */
 @Service
 @RequiredArgsConstructor
@@ -46,7 +46,7 @@ public class DirectBookingPage {
 
     private final MailboxGateway gateway;
     private final MailboxConnectionRepository mailboxes;
-    private final UserRepository users;
+    private final BookingPages bookingPages;
     private final LinkBookings linkBookings;
     private final RateLimitGuard rateLimit;
     private final TransactionTemplate transactions;
@@ -56,44 +56,35 @@ public class DirectBookingPage {
     public BookingSlotsResponse slots(String slug, LocalDate from, HttpServletRequest request) {
         rateLimit.checkBookingPageOpen(slug, request);
         MailboxConnection mailbox = requireDirectPage(slug);
-        FreeSlots free = freeSlotsOf(mailbox);
-        Instant now = clock.instant();
-        LocalDate today = free.todayAt(now);
-        LocalDate latest = today.plus(MeetingService.SLOT_HORIZON);
-        LocalDate firstDay = from == null || from.isBefore(today) ? today : from;
-        if (firstDay.isAfter(latest)) {
-            throw ApiException.of(ErrorCode.MEETING_SLOT_INVALID);
-        }
-        List<BusyInterval> busy = busyOf(mailbox, free.startOf(now, firstDay, MeetingService.SLOT_DAYS),
-                free.endOf(now, firstDay, MeetingService.SLOT_DAYS));
-        List<SlotDayResponse> days = free.offered(now, firstDay, MeetingService.SLOT_DAYS, LENGTH, busy).stream()
-                .map(day -> new SlotDayResponse(day.date(), day.starts()))
-                .toList();
-        return new BookingSlotsResponse(mailbox.getTimeZone(), BookingPages.CALL_MINUTES, today, latest,
-                free.previousFrom(now, days.getFirst().date(), MeetingService.SLOT_DAYS), days);
+        SlotPage page = freeSlotsOf(mailbox)
+                .page(clock.instant(), from, LENGTH, (start, end) -> busyOf(mailbox, start, end))
+                .orElseThrow(() -> ApiException.of(ErrorCode.MEETING_SLOT_INVALID));
+        return new BookingSlotsResponse(mailbox.getTimeZone(), BookingPages.CALL_MINUTES, page.earliestDate(),
+                page.latestDate(), page.previousFrom(), SlotDayResponse.listOf(page.days()));
     }
 
     /** The calendar is asked once more for the slot before the invite goes: an invite cannot be taken back. */
     public void book(String slug, BookOnPageRequest booking, HttpServletRequest request) {
-        rateLimit.checkBookingPageBook(slug, request);
+        rateLimit.checkBookingPageOpen(slug, request);
         MailboxConnection mailbox = requireDirectPage(slug);
         Instant now = clock.instant();
         Instant startsAt = booking.startsAt();
         Instant endsAt = startsAt.plus(LENGTH);
         String bookerAddress = booking.email().trim();
-        if (!freeSlotsOf(mailbox).offers(now, startsAt, LENGTH) || bookerAddress.equalsIgnoreCase(mailbox.getAddress())) {
+        if (!freeSlotsOf(mailbox).books(now, startsAt, LENGTH) || bookerAddress.equalsIgnoreCase(mailbox.getAddress())) {
             throw ApiException.of(ErrorCode.MEETING_SLOT_INVALID);
         }
+        rateLimit.checkBookingPageBook(slug, request);
         if (busyOf(mailbox, startsAt, endsAt).stream().anyMatch(taken -> taken.overlaps(startsAt, endsAt))) {
             throw ApiException.of(ErrorCode.MEETING_SLOT_TAKEN);
         }
 
-        String title = BookingPages.CALL_MINUTES + "-minute call: " + booking.name().trim() + " and "
-                + consultantNameOf(mailbox);
+        String title = BookingPages.CALL_MINUTES + "-minute call with " + consultantNameOf(mailbox);
         CalendarEvent created;
         try {
             created = gateway.createEvent(mailbox.getGrantId(),
-                    new NewCalendarEvent(title, startsAt, endsAt, bookerAddress, videoOf(mailbox)));
+                    new NewCalendarEvent(title, startsAt, endsAt, bookerAddress,
+                            gateway.nativeVideoOf(mailbox.getGrantId())));
         } catch (VendorException failed) {
             throw failedAtProvider(mailbox, failed, ErrorCode.MEETING_BOOK_FAILED);
         }
@@ -144,15 +135,8 @@ public class DirectBookingPage {
         return new FreeSlots(SendingWindow.of(properties.outreach()), mailbox.zone());
     }
 
-    private static MeetingVideo videoOf(MailboxConnection mailbox) {
-        return switch (mailbox.getProvider()) {
-            case "google" -> MeetingVideo.GOOGLE_MEET;
-            case "microsoft" -> MeetingVideo.MICROSOFT_TEAMS;
-            default -> MeetingVideo.NONE;
-        };
-    }
-
     private String consultantNameOf(MailboxConnection mailbox) {
-        return users.findById(mailbox.getUserId()).map(User::getFullName).orElse(mailbox.getAddress());
+        String name = bookingPages.nameOf(mailbox);
+        return name == null ? mailbox.getAddress() : name;
     }
 }

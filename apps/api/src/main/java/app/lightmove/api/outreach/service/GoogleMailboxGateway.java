@@ -175,6 +175,11 @@ public class GoogleMailboxGateway extends OAuthDirectMailboxGateway {
         return busy;
     }
 
+    @Override
+    public MeetingVideo nativeVideoOf(String grantId) {
+        return MeetingVideo.GOOGLE_MEET;
+    }
+
     /**
      * {@code sendUpdates=all} is what mails the executive the invite. Meet is created by the calendar itself; a Teams
      * link is not Google's to make, so that invite goes without one. Never retried — see {@link MailboxGateway}.
