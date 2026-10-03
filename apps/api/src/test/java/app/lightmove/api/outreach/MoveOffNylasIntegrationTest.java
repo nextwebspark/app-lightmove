@@ -17,6 +17,7 @@ import java.time.LocalTime;
 import java.time.ZoneId;
 import java.time.temporal.TemporalAdjusters;
 import java.util.UUID;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -43,6 +44,7 @@ class MoveOffNylasIntegrationTest extends FlowTestSupport {
     @Autowired private JdbcTemplate jdbc;
 
     private String consultant;
+    private String consultantEmail;
     private String projectId;
 
     @BeforeEach
@@ -50,16 +52,23 @@ class MoveOffNylasIntegrationTest extends FlowTestSupport {
         gateway.clear();
         jdbc.update("update app_lm_outreach_enrollment set status = 'STOPPED', stop_reason = 'MANUAL', "
                 + "next_send_at = null, sending_since = null where status in ('SCHEDULED', 'ACTIVE')");
-        String email = "yara@" + domain;
-        createWorkspace(verifiedUser("Yara Haddad", email), "Meridian Search");
-        consultant = login(email);
+        consultantEmail = "yara@" + domain;
+        createWorkspace(verifiedUser("Yara Haddad", consultantEmail), "Meridian Search");
+        consultant = login(consultantEmail);
         jdbc.update("""
                 insert into app_lm_mailbox_connection (workspace_id, user_id, provider, address, grant_id, status,
                                                        daily_cap, connected_at, gateway)
                 select m.workspace_id, u.id, 'google', ?, ?, 'ACTIVE', 50, now(), 'NYLAS'
                 from app_lm_user u join app_lm_workspace_member m on m.user_id = u.id where u.email = ?
-                """, MAILBOX, "nylas-" + UUID.randomUUID(), email);
+                """, MAILBOX, "nylas-" + UUID.randomUUID(), consultantEmail);
         projectId = mandate();
+    }
+
+    /** The reply poll sweeps every mailbox in the shared database, and a seeded row's token is not a real seal. */
+    @AfterEach
+    void forgetSeededMailbox() {
+        jdbc.update("delete from app_lm_mailbox_connection where user_id = (select id from app_lm_user where email = ?)",
+                consultantEmail);
     }
 
     @Test
@@ -82,8 +91,8 @@ class MoveOffNylasIntegrationTest extends FlowTestSupport {
     @DisplayName("a mailbox already on our own gateway is offered nothing")
     void aDirectMailboxIsOfferedNothing() throws Exception {
         jdbc.update("update app_lm_mailbox_connection set gateway = 'DIRECT', grant_id = ?, "
-                + "refresh_token_encrypted = 'sealed' where address = ? and gateway = 'NYLAS'",
-                "direct:google:" + UUID.randomUUID(), MAILBOX);
+                + "refresh_token_encrypted = 'sealed' where user_id = (select id from app_lm_user where email = ?)",
+                "direct:google:" + UUID.randomUUID(), consultantEmail);
 
         as(consultant, get("/api/v1/outreach/mailbox"))
                 .andExpect(status().isOk())
