@@ -118,32 +118,86 @@
     </nav>
 
     <main style="flex:1;min-width:0;overflow-y:auto;border-radius:10px;border:1px solid var(--line);background:var(--panel)">
-      <div style="max-width:1440px;margin:0 auto;padding:28px 28px 96px">
+      <div style="display:flex;flex-direction:column;height:100%">
 
-        <div data-screen-label="Page header" style="margin-bottom:14px;display:flex;flex-wrap:wrap;align-items:flex-start;gap:16px">
-          <div style="min-width:0">
-            <div style="font:600 19px/1.25 var(--sans)">Candidates</div>
-            <div style="margin-top:4px;font:400 12px var(--mono);color:var(--text3)">{{ pageSub }}</div>
-          </div>
-          <sc-if value="{{ showExport }}" hint-placeholder-val="{{ true }}">
-            <div style="margin-left:auto;display:flex;gap:8px">
-              <button onClick="{{ exportView }}" title="Download every person this view shows as a CSV — recorded in the audit trail" style="display:inline-flex;align-items:center;gap:8px;border-radius:8px;padding:7px 12px;font:500 13px var(--sans);background:var(--panel);border:1px solid var(--line);color:var(--text2);cursor:pointer" style-hover="color:var(--text);border-color:var(--text3)">
+        <sc-if value="{{ isPeople }}" hint-placeholder-val="{{ true }}">
+          <div data-screen-label="Toolbar" style="display:flex;min-height:44px;flex:none;flex-wrap:wrap;align-items:center;column-gap:14px;row-gap:8px;border-bottom:1px solid var(--line);background:var(--panel2);padding:6px 20px">
+              <div role="radiogroup" aria-label="Candidates view" style="display:inline-flex;border-radius:7px;border:1px solid var(--line);background:var(--panel);padding:2px">
+                <sc-for list="{{ viewModes }}" as="vm" hint-placeholder-count="2">
+                  <a href="{{ vm.href }}" role="radio" aria-checked="{{ vm.on }}" style="{{ vm.style }};text-decoration:none">{{ vm.label }}</a>
+                </sc-for>
+              </div>
+            <button onClick="{{ toggleFilters }}" aria-expanded="{{ filtersOpen }}" style="display:inline-flex;align-items:center;gap:6px;white-space:nowrap;border-radius:6px;padding:8px;font:400 13px var(--sans);color:var(--text3);background:none;border:none;cursor:pointer" style-hover="background:var(--panel);color:var(--text)">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 4h18l-7 8v6l-4 2v-8L3 4Z"></path></svg>
+              {{ filterBtnLabel }}
+              <sc-if value="{{ hasActiveFilters }}" hint-placeholder-val="{{ false }}"><span style="border-radius:4px;background:var(--sky-dim);padding:2px 5px;font:700 10px var(--sans);color:var(--sky)">{{ activeFilterCount }}</span></sc-if>
+            </button>
+            <div style="display:flex;width:260px;max-width:100%;align-items:center;gap:8px;border-radius:6px;border:1px solid var(--line);background:var(--panel);padding:6px 10px">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color:var(--text3);flex:none"><path d="{{ ic.search }}"></path></svg>
+              <input value="{{ q }}" onChange="{{ onSearch }}" placeholder="Search name, title, company or email…" aria-label="Search candidates" style="width:100%;background:transparent;border:none;font:400 13px var(--sans);color:var(--text);outline:none">
+            </div>
+            <div style="display:flex;flex-wrap:wrap;gap:6px">
+              <sc-for list="{{ quickViews }}" as="c" hint-placeholder-count="5">
+                <button onClick="{{ setQuick }}" data-id="{{ c.key }}" style="display:inline-flex;align-items:center;gap:6px;border-radius:999px;border:1px solid {{ c.border }};padding:4px 10px;font:500 12px var(--sans);color:{{ c.color }};background:{{ c.bg }};cursor:pointer" style-hover="color:var(--text)">{{ c.label }}<span style="font:500 11px var(--sans);color:var(--text3)">{{ c.count }}</span></button>
+              </sc-for>
+            </div>
+            <div style="margin-left:auto;display:flex;align-items:center;gap:12px">
+              <span style="font:400 11.5px var(--sans);color:var(--text3)">{{ resultLine }}</span>
+              <button onClick="{{ exportView }}" title="Download every person this view shows as a CSV — recorded in the audit trail" style="display:inline-flex;align-items:center;gap:8px;border-radius:8px;padding:6px 12px;font:500 13px var(--sans);background:var(--panel);border:1px solid var(--line);color:var(--text2);cursor:pointer" style-hover="color:var(--text);border-color:var(--text3)">
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="{{ ic.importInto }}"></path></svg>
                 Export
               </button>
             </div>
-          </sc-if>
-        </div>
+          </div>
 
-        <div role="tablist" aria-label="Candidates views" style="margin-bottom:18px;display:flex;gap:4px;border-bottom:1px solid var(--line-soft)">
-          <sc-for list="{{ viewTabs }}" as="vt" hint-placeholder-count="2">
-            <a href="{{ vt.href }}" role="tab" aria-selected="{{ vt.selected }}" style="{{ vt.style }}">
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex:none"><path d="{{ vt.icon }}"></path></svg>
-              {{ vt.label }}
-            </a>
-          </sc-for>
-        </div>
+          <div style="display:flex;min-height:0;flex:1">
+            <!-- Hidden until asked for, at every width: most visits here are a search or a quick view. -->
+            <sc-if value="{{ filtersOpen }}" hint-placeholder-val="{{ true }}">
+              <div data-screen-label="Filter rail" role="region" aria-label="Filters" style="display:flex;flex-direction:column;width:21%;min-width:280px;max-width:330px;flex:none;border-right:1px solid var(--line);background:var(--panel)">
+                <div style="border-bottom:1px solid var(--line);padding:12px 16px">
+                  <div style="font:600 10px var(--mono);text-transform:uppercase;letter-spacing:.12em;color:var(--text3)">People match</div>
+                  <div style="margin-top:2px;font:600 19px var(--sans);color:var(--text)">{{ railShown }}<span style="margin-left:6px;font:500 13px var(--sans);color:var(--text3)">of {{ railPool }}</span></div>
+                </div>
+                <div style="min-height:0;flex:1;overflow-y:auto">
+                  <sc-for list="{{ railSections }}" as="rs" hint-placeholder-count="5">
+                    <div>
+                      <button onClick="{{ toggleRailSection }}" data-id="{{ rs.key }}" aria-expanded="{{ rs.open }}" style="display:flex;min-height:52px;width:100%;align-items:center;gap:8px;padding:12px 16px;text-align:left;background:none;border:none;border-bottom:1px solid var(--line-soft);cursor:pointer" style-hover="background:var(--panel2)">
+                        <span style="font:{{ rs.weight }} 13px var(--sans);color:var(--text)">{{ rs.label }}</span>
+                        <span style="margin-left:auto;display:flex;align-items:center;gap:8px">
+                          <sc-if value="{{ rs.hasSummary }}"><span style="border-radius:999px;border:1px solid var(--line);padding:2px 8px;font:600 11px var(--sans);color:var(--text2)">{{ rs.summary }}</span></sc-if>
+                          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color:var(--text3)"><path d="{{ rs.chevron }}"></path></svg>
+                        </span>
+                      </button>
+                      <sc-if value="{{ rs.open }}">
+                        <div style="border-bottom:1px solid var(--line-soft);padding:12px 16px">
+                          <sc-if value="{{ rs.isTags }}">
+                            <div role="radiogroup" aria-label="Match tags" style="margin-bottom:10px;display:inline-flex;border-radius:7px;border:1px solid var(--line);background:var(--panel2);padding:2px">
+                              <sc-for list="{{ tagModes }}" as="tm" hint-placeholder-count="3">
+                                <button onClick="{{ setTagMode }}" data-id="{{ tm.key }}" role="radio" aria-checked="{{ tm.on }}" style="{{ tm.style }}">{{ tm.label }}</button>
+                              </sc-for>
+                            </div>
+                          </sc-if>
+                          <sc-for list="{{ rs.rows }}" as="rr" hint-placeholder-count="4">
+                            <button onClick="{{ pickRailRow }}" data-id="{{ rr.id }}" role="checkbox" aria-checked="{{ rr.on }}" style="display:flex;width:100%;align-items:center;justify-content:space-between;border-radius:5px;padding:5px 4px;background:none;border:none;cursor:pointer" style-hover="background:var(--panel2)">
+                              <span style="display:flex;align-items:center;gap:10px">
+                                <span style="display:grid;place-items:center;width:16px;height:16px;flex:none;border-radius:4px;box-shadow:inset 0 0 0 1.5px {{ rr.boxColor }};background:{{ rr.boxBg }}"><svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.2" style="color:var(--on-amber);opacity:{{ rr.tick }}"><path d="{{ ic.check }}"></path></svg></span>
+                                <span style="font:500 13px var(--sans);color:var(--text)">{{ rr.label }}</span>
+                              </span>
+                              <span style="font:500 12px var(--sans);color:var(--text3)">{{ rr.count }}</span>
+                            </button>
+                          </sc-for>
+                        </div>
+                      </sc-if>
+                    </div>
+                  </sc-for>
+                </div>
+                <div style="border-top:1px solid var(--line);padding:12px">
+                  <button onClick="{{ clearAllFilters }}" style="width:100%;border-radius:7px;border:1px solid var(--line);padding:8px 16px;font:600 13px var(--sans);color:var(--text2);background:none;cursor:pointer;opacity:{{ clearAllOpacity }}" style-hover="color:var(--text)">Clear all filters</button>
+                </div>
+              </div>
+            </sc-if>
 
+            <div style="display:flex;min-width:0;flex:1;flex-direction:column;gap:12px;padding:8px">
         <sc-if value="{{ isLoading }}" hint-placeholder-val="{{ false }}">
           <div data-screen-label="Loading" role="status" aria-label="Loading" style="display:flex;flex-direction:column;gap:10px">
             <sc-for list="{{ skeletonRows }}" as="sr" hint-placeholder-count="7">
@@ -156,7 +210,6 @@
             </sc-for>
           </div>
         </sc-if>
-
         <sc-if value="{{ isEmpty }}" hint-placeholder-val="{{ false }}">
           <div data-screen-label="Empty" style="display:flex;flex-direction:column;align-items:center;justify-content:center;padding:80px 20px 70px;text-align:center;animation:fadeUp .5s ease both">
             <div style="margin-bottom:18px;width:52px;height:52px;border-radius:14px;display:grid;place-items:center;background:var(--amber-dim);color:var(--amber)">
@@ -167,59 +220,9 @@
             <a href="Workspace.dc.html" style="display:flex;align-items:center;justify-content:center;gap:8px;border-radius:8px;padding:7px 14px;font:600 13px var(--sans);background:var(--amber-btn);border:1px solid var(--amber-btn);color:var(--on-amber)" style-hover="filter:brightness(1.05)">Go to your positions</a>
           </div>
         </sc-if>
-
-        <sc-if value="{{ isPeople }}" hint-placeholder-val="{{ true }}">
-          <div data-screen-label="Toolbar" style="margin-bottom:12px;display:flex;flex-wrap:wrap;align-items:center;gap:10px">
-            <div style="display:flex;width:320px;max-width:100%;align-items:center;gap:8px;border-radius:8px;border:1px solid var(--line);background:var(--panel2);padding:7px 11px">
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color:var(--text3);flex:none"><path d="{{ ic.search }}"></path></svg>
-              <input value="{{ q }}" onChange="{{ onSearch }}" placeholder="Search name, title, company or email…" aria-label="Search candidates" style="width:100%;background:transparent;border:none;font:400 13px var(--mono);color:var(--text);outline:none">
-            </div>
-            <div style="display:flex;flex-wrap:wrap;gap:6px">
-              <sc-for list="{{ quickViews }}" as="c" hint-placeholder-count="5">
-                <button onClick="{{ setQuick }}" data-id="{{ c.key }}" style="display:inline-flex;align-items:center;gap:6px;border-radius:999px;border:1px solid {{ c.border }};padding:5px 11px;font:500 12px var(--mono);color:{{ c.color }};background:{{ c.bg }};cursor:pointer" style-hover="color:var(--text)">{{ c.label }}<span style="font:500 11px var(--mono);color:var(--text3)">{{ c.count }}</span></button>
-              </sc-for>
-            </div>
-            <button onClick="{{ toggleFilters }}" aria-expanded="{{ filtersOpen }}" style="margin-left:auto;display:inline-flex;align-items:center;gap:7px;border-radius:8px;padding:7px 12px;font:500 13px var(--sans);background:{{ filterBtnBg }};border:1px solid {{ filterBtnBorder }};color:var(--text);cursor:pointer" style-hover="border-color:var(--text3)">
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="{{ ic.filter }}"></path></svg>
-              Filters
-              <sc-if value="{{ hasActiveFilters }}" hint-placeholder-val="{{ false }}"><span style="border-radius:4px;background:var(--sky-dim);padding:1px 6px;font:700 10.5px var(--sans);color:var(--sky)">{{ activeFilterCount }}</span></sc-if>
-            </button>
-          </div>
-
-          <sc-if value="{{ filtersOpen }}" hint-placeholder-val="{{ true }}">
-            <div data-screen-label="Filter panel" style="margin-bottom:12px;border-radius:10px;border:1px solid var(--line);background:var(--panel2);padding:14px 16px;animation:fadeUp .2s ease both">
-              <div style="display:flex;flex-wrap:wrap;align-items:center;gap:10px">
-                <span style="width:72px;flex:none;font:600 10px var(--mono);text-transform:uppercase;letter-spacing:.12em;color:var(--text3)">Tags</span>
-                <div role="radiogroup" aria-label="Match tags" style="display:inline-flex;border-radius:7px;border:1px solid var(--line);background:var(--panel);padding:2px">
-                  <sc-for list="{{ tagModes }}" as="tm" hint-placeholder-count="3">
-                    <button onClick="{{ setTagMode }}" data-id="{{ tm.key }}" role="radio" aria-checked="{{ tm.on }}" style="{{ tm.style }}">{{ tm.label }}</button>
-                  </sc-for>
-                </div>
-                <div style="display:flex;flex-wrap:wrap;gap:6px">
-                  <sc-for list="{{ tagToggles }}" as="tt" hint-placeholder-count="6">
-                    <button onClick="{{ toggleTagFilter }}" data-id="{{ tt.id }}" role="checkbox" aria-checked="{{ tt.on }}" style="{{ tt.style }}">
-                      <sc-if value="{{ tt.on }}"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="{{ ic.check }}"></path></svg></sc-if>
-                      {{ tt.label }}<span style="opacity:.7">{{ tt.count }}</span>
-                    </button>
-                  </sc-for>
-                </div>
-              </div>
-              <div style="margin-top:12px;display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:10px">
-                <sc-for list="{{ selectFilters }}" as="sf" hint-placeholder-count="4">
-                  <label style="display:block;min-width:0">
-                    <span style="display:block;margin-bottom:4px;font:600 10px var(--mono);text-transform:uppercase;letter-spacing:.12em;color:var(--text3)">{{ sf.label }}</span>
-                    <select value="{{ sf.value }}" onChange="{{ setSelectFilter }}" data-id="{{ sf.key }}" aria-label="{{ sf.label }}" style="width:100%;border-radius:7px;border:1px solid var(--line);background:var(--panel);padding:7px 9px;font:400 12.5px var(--mono);color:var(--text);outline:none">
-                      <sc-for list="{{ sf.options }}" as="op"><option value="{{ op.value }}">{{ op.label }}</option></sc-for>
-                    </select>
-                  </label>
-                </sc-for>
-              </div>
-              <p style="margin:10px 0 0;font:400 11px var(--mono);color:var(--text3)">Tags are your team's own labels — set them from a person's drawer or on many people at once. Status reads from the positions a person is in.</p>
-            </div>
-          </sc-if>
-
+              <sc-if value="{{ showChips }}" hint-placeholder-val="{{ false }}">
           <sc-if value="{{ hasActiveFilters }}" hint-placeholder-val="{{ false }}">
-            <div data-screen-label="Active filters" style="margin-bottom:12px;display:flex;flex-wrap:wrap;align-items:center;gap:6px">
+            <div data-screen-label="Active filters" style="display:flex;flex-wrap:wrap;align-items:center;gap:6px">
               <sc-for list="{{ activeFilters }}" as="af" hint-placeholder-count="2">
                 <span style="display:inline-flex;align-items:center;gap:6px;border-radius:999px;border:1px solid var(--line);background:var(--panel2);padding:3px 4px 3px 10px;font:500 12px var(--mono);color:var(--text2)">
                   {{ af.label }}
@@ -227,11 +230,11 @@
                 </span>
               </sc-for>
               <button onClick="{{ clearAllFilters }}" style="font:500 12px var(--mono);color:var(--sky);background:none;border:none;cursor:pointer" style-hover="text-decoration:underline">Clear all</button>
-              <span style="margin-left:auto;font:400 12px var(--mono);color:var(--text3)">{{ resultLine }}</span>
             </div>
           </sc-if>
-
-          <div data-screen-label="Candidates grid" role="table" aria-label="Candidates" style="display:flex;flex-direction:column;overflow:hidden;border-radius:8px;border:1px solid var(--line);background:var(--panel)">
+              </sc-if>
+              <sc-if value="{{ showGrid }}" hint-placeholder-val="{{ true }}">
+          <div data-screen-label="Candidates grid" role="table" aria-label="Candidates" style="display:flex;flex:1;min-height:0;flex-direction:column;overflow:hidden;border-radius:8px;border:1px solid var(--line);background:var(--panel)">
             <div style="overflow:auto">
               <div style="position:sticky;top:0;z-index:20;border-bottom:1px solid var(--line);background:var(--panel2);min-width:{{ gridMin }}">
                 <div role="row" style="display:grid;grid-template-columns:{{ gridCols }};align-items:center;gap:12px;padding:10px 0">
@@ -297,25 +300,35 @@
               </sc-if>
             </div>
           </div>
+              </sc-if>
+            </div>
+          </div>
         </sc-if>
 
         <sc-if value="{{ isActivity }}" hint-placeholder-val="{{ false }}">
-          <div data-screen-label="Activity toolbar" style="margin-bottom:16px;display:flex;flex-wrap:wrap;align-items:center;gap:10px">
-            <sc-for list="{{ activitySelects }}" as="as" hint-placeholder-count="3">
-              <label style="display:inline-flex;align-items:center;gap:8px">
-                <span style="font:600 10px var(--mono);text-transform:uppercase;letter-spacing:.12em;color:var(--text3)">{{ as.label }}</span>
-                <select value="{{ as.value }}" onChange="{{ setActivitySelect }}" data-id="{{ as.key }}" aria-label="{{ as.label }}" style="border-radius:7px;border:1px solid var(--line);background:var(--panel2);padding:6px 9px;font:400 12.5px var(--mono);color:var(--text);outline:none">
-                  <sc-for list="{{ as.options }}" as="op"><option value="{{ op.value }}">{{ op.label }}</option></sc-for>
-                </select>
-              </label>
-            </sc-for>
+          <div data-screen-label="Activity toolbar" style="display:flex;min-height:44px;flex:none;flex-wrap:wrap;align-items:center;column-gap:14px;row-gap:8px;border-bottom:1px solid var(--line);background:var(--panel2);padding:6px 20px">
+              <div role="radiogroup" aria-label="Candidates view" style="display:inline-flex;border-radius:7px;border:1px solid var(--line);background:var(--panel);padding:2px">
+                <sc-for list="{{ viewModes }}" as="vm" hint-placeholder-count="2">
+                  <a href="{{ vm.href }}" role="radio" aria-checked="{{ vm.on }}" style="{{ vm.style }};text-decoration:none">{{ vm.label }}</a>
+                </sc-for>
+              </div>
+            <div style="display:flex;flex-wrap:wrap;gap:6px">
+              <sc-for list="{{ kindChips }}" as="kc" hint-placeholder-count="6">
+                <button onClick="{{ setActivityKind }}" data-id="{{ kc.key }}" style="border-radius:999px;border:1px solid {{ kc.border }};padding:4px 10px;font:500 12px var(--sans);color:{{ kc.color }};background:{{ kc.bg }};cursor:pointer" style-hover="color:var(--text)">{{ kc.label }}</button>
+              </sc-for>
+            </div>
+            <div style="margin-left:auto;display:flex;flex-wrap:wrap;align-items:center;gap:8px">
+              <sc-for list="{{ activitySelects }}" as="as" hint-placeholder-count="3">
+                <label style="display:inline-flex;align-items:center;gap:8px">
+                  <span style="font:600 10px var(--mono);text-transform:uppercase;letter-spacing:.12em;color:var(--text3)">{{ as.label }}</span>
+                  <select value="{{ as.value }}" onChange="{{ setActivitySelect }}" data-id="{{ as.key }}" aria-label="{{ as.label }}" style="border-radius:7px;border:1px solid var(--line);background:var(--panel);padding:5px 9px;font:400 12.5px var(--sans);color:var(--text);outline:none">
+                    <sc-for list="{{ as.options }}" as="op"><option value="{{ op.value }}">{{ op.label }}</option></sc-for>
+                  </select>
+                </label>
+              </sc-for>
+            </div>
           </div>
-          <div style="margin-bottom:16px;display:flex;flex-wrap:wrap;gap:6px">
-            <sc-for list="{{ kindChips }}" as="kc" hint-placeholder-count="6">
-              <button onClick="{{ setActivityKind }}" data-id="{{ kc.key }}" style="border-radius:999px;border:1px solid {{ kc.border }};padding:5px 11px;font:500 12px var(--mono);color:{{ kc.color }};background:{{ kc.bg }};cursor:pointer" style-hover="color:var(--text)">{{ kc.label }}</button>
-            </sc-for>
-          </div>
-
+          <div style="min-height:0;flex:1;overflow-y:auto;padding:0 20px 24px">
           <div data-screen-label="Activity feed" role="feed" aria-label="Candidate activity" style="max-width:920px">
             <sc-for list="{{ feedDays }}" as="fd" hint-placeholder-count="3">
               <section style="margin-bottom:18px">
@@ -342,6 +355,7 @@
             <sc-if value="{{ feedHasMore }}" hint-placeholder-val="{{ true }}">
               <button onClick="{{ loadMore }}" style="margin:4px 0 0 12px;font:500 12px var(--mono);color:var(--sky);background:none;border:none;cursor:pointer" style-hover="text-decoration:underline">Load older activity</button>
             </sc-if>
+          </div>
           </div>
         </sc-if>
       </div>
@@ -1254,7 +1268,7 @@ class Component extends DCLogic {
       view: pick("view", "people") === "activity" ? "activity" : "people",
       empty: flag("empty", false), loading: flag("loading", false),
       people, events, notes: NOTE_SEED.map((n) => Object.assign({}, n)), tags: TAG_SEED.map((t) => Object.assign({}, t)),
-      q: "", quick: "all", filtersOpen: flag("filtersOpen", false),
+      q: "", quick: "all", filtersOpen: flag("filtersOpen", false), railOpen: null,
       tagMode: "any", tagSel: {}, fPos: "all", fStatus: "all", fOwner: "all", fCountry: "all",
       sortField: "activity", sortDir: "desc", sel: {},
       openId: drawerOpen ? "e01" : null, drawerTab: docTabFirst ? "documents" : pick("drawerTab", "profile"),
@@ -1630,6 +1644,13 @@ class Component extends DCLogic {
       { key: "fOwner", label: "Owner", value: s.fOwner, options: [{ value: "all", label: "Anyone" }, { value: "none", label: "Nobody" }, ...MEMBER_ORDER.map((m) => ({ value: m, label: MEMBERS[m].name }))] },
       { key: "fCountry", label: "Country", value: s.fCountry, options: [{ value: "all", label: "Any country" }, ...countries.map((c) => ({ value: c, label: c }))] }
     ];
+    const tagCount = (id) => pool.filter((y) => y.tags.includes(id)).length;
+    const railSections = [
+      { key: "tags", label: "Tags", picked: tagIds.length, rows: s.tags.map((t) => Object.assign({ id: `tag:${t.id}`, label: t.label, on: !!s.tagSel[t.id], count: tagCount(t.id) }, box(!!s.tagSel[t.id]))) },
+      ...selectFilters.map((sf) => ({ key: sf.key, label: sf.label, picked: sf.value === "all" ? 0 : 1,
+        rows: sf.options.filter((o) => o.value !== "all").map((o) => Object.assign({ id: `${sf.key}:${o.value}`, label: o.label, on: sf.value === o.value, count: "" }, box(sf.value === o.value))) }))
+    ].map((r) => Object.assign(r, { open: s.railOpen === r.key, isTags: r.key === "tags", weight: s.railOpen === r.key ? 700 : 500,
+      chevron: s.railOpen === r.key ? I.chevronDown : I.chevronRight, hasSummary: s.railOpen !== r.key && r.picked > 0, summary: r.picked }));
     const QUICK = [["all", "All"], ["mine", "Owned by me"], ["active", "In an active position"], ["none", "Not in a position"], ["dups", "Possible duplicates"]];
     const quickCount = (k) => pool.filter((x) => this.matches(x, Object.assign({}, s, { quick: k }))).length;
 
@@ -1643,7 +1664,6 @@ class Component extends DCLogic {
     const pv = this.previewVals(s);
 
     const tq = s.tagQuery.trim();
-    const tagCount = (id) => pool.filter((y) => y.tags.includes(id)).length;
     const tagOptions = s.tags.filter((t) => !tq || t.label.toLowerCase().includes(tq.toLowerCase())).map((t) => {
       const on = !!x && x.tags.includes(t.id);
       return Object.assign({ id: t.id, label: t.label, on, style: tagStyle(t), count: tagCount(t.id) }, box(on));
@@ -1702,24 +1722,18 @@ class Component extends DCLogic {
       collapseTitle: s.collapsed ? "Expand sidebar" : "Collapse sidebar", collapseIcon: s.collapsed ? I.expand : I.collapse,
       wsMenuOpen: s.wsMenuOpen,
 
-      pageSub: s.loading ? "Everyone your team has mapped" : `${pool.length} ${pool.length === 1 ? "person" : "people"} · shared across every position in Al-Futtaim`,
-      showExport: isPeople,
-      viewTabs: [["people", "People", I.candidates, "Candidates.dc.html"], ["activity", "Activity", I.activity, "Candidates.dc.html?view=activity"]].map(([key, label, icon, href]) => {
-        const on = s.view === key;
-        return { key, label, icon, href, selected: on, style: `display:inline-flex;align-items:center;gap:7px;margin-bottom:-1px;padding:9px 12px;font:500 13px var(--sans);text-decoration:none;border-bottom:2px solid ${on ? "var(--amber)" : "transparent"};color:${on ? "var(--text)" : "var(--text3)"}` };
-      }),
+      viewModes: [["people", "People", "Candidates.dc.html"], ["activity", "Activity", "Candidates.dc.html?view=activity"]].map(([key, label, href]) => ({ key, label, href, on: s.view === key, style: segStyle(s.view === key) })),
       isLoading: s.loading, isEmpty: !s.loading && pool.length === 0, isPeople, isActivity,
+      showGrid: !s.loading && pool.length > 0, showChips: !s.filtersOpen && activeFilters.length > 0,
       skeletonRows: [0, 1, 2, 3, 4, 5, 6].map((i) => ({ a: ["180px", "140px", "200px"][i % 3], b: ["90px", "120px", "70px"][i % 3], c: ["150px", "110px", "130px"][i % 3] })),
 
       q: s.q,
       quickViews: QUICK.map(([key, label]) => Object.assign({ key, label, count: quickCount(key) }, chipStyle(s.quick === key))),
-      filtersOpen: s.filtersOpen, filterBtnBg: s.filtersOpen ? "var(--panel2)" : "var(--panel)", filterBtnBorder: s.filtersOpen ? "var(--text3)" : "var(--line)",
+      filtersOpen: s.filtersOpen, filterBtnLabel: s.filtersOpen ? "Hide Filters" : "Show Filters",
+      railShown: rows.length, railPool: pool.length, railSections, clearAllOpacity: activeFilters.length ? 1 : 0.4,
       hasActiveFilters: activeFilters.length > 0, activeFilterCount: activeFilters.length, activeFilters,
       resultLine: `${rows.length} of ${pool.length} people`,
       tagModes: [["any", "Any of"], ["all", "All of"], ["none", "None of"]].map(([key, label]) => ({ key, label, on: s.tagMode === key, style: segStyle(s.tagMode === key) })),
-      tagToggles: s.tags.map((t) => { const on = !!s.tagSel[t.id]; return { id: t.id, label: t.label, on, count: tagCount(t.id),
-        style: `display:inline-flex;align-items:center;gap:5px;border-radius:999px;padding:4px 10px;font:500 12px var(--sans);cursor:pointer;${on ? `border:1px solid ${t.fg};background:${t.bg};color:${t.fg}` : "border:1px solid var(--line);background:var(--panel);color:var(--text2)"}` }; }),
-      selectFilters,
 
       gridCols: `40px ${COLS.map((c) => c.track).join(" ")}`,
       gridMin: `${40 + COLS.reduce((t, c) => t + c.min, 0) + 12 * COLS.length + 16}px`,
@@ -1779,8 +1793,12 @@ class Component extends DCLogic {
       setQuick: (e) => this.setState({ quick: e.currentTarget.dataset.id }),
       toggleFilters: () => this.setState({ filtersOpen: !s.filtersOpen }),
       setTagMode: (e) => this.setState({ tagMode: e.currentTarget.dataset.id }),
-      toggleTagFilter: (e) => { const id = e.currentTarget.dataset.id; this.setState({ tagSel: Object.assign({}, s.tagSel, { [id]: !s.tagSel[id] }) }); },
-      setSelectFilter: (e) => this.setState({ [e.currentTarget.dataset.id]: e.target.value }),
+      toggleRailSection: (e) => { const k = e.currentTarget.dataset.id; this.setState({ railOpen: s.railOpen === k ? null : k }); },
+      pickRailRow: (e) => {
+        const [k, v] = e.currentTarget.dataset.id.split(/:(.*)/);
+        if (k === "tag") { this.setState({ tagSel: Object.assign({}, s.tagSel, { [v]: !s.tagSel[v] }) }); return; }
+        this.setState({ [k]: s[k] === v ? "all" : v });
+      },
       clearFilter: (e) => { const k = e.currentTarget.dataset.id; this.setState(k === "tags" ? { tagSel: {} } : { [k]: "all" }); },
       clearAllFilters: () => this.setState({ tagSel: {}, fPos: "all", fStatus: "all", fOwner: "all", fCountry: "all" }),
       sortBy: (e) => { const id = e.currentTarget.dataset.id; if (["tags", "owner"].includes(id)) return; if (s.sortField === id) this.setState({ sortDir: s.sortDir === "asc" ? "desc" : "asc" }); else this.setState({ sortField: id, sortDir: id === "activity" ? "desc" : "asc" }); },

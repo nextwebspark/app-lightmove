@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Icon, ICONS } from "../../../components/layout/Icon";
 import { cn } from "../../../lib/cn";
 import { useComboboxList } from "../../../lib/useComboboxList";
-import { SelectionPill } from "./SelectionPill";
+import { SelectionPill } from "../../../components/ui/SelectionPill";
 
 interface ComboboxOption {
   value: string;
