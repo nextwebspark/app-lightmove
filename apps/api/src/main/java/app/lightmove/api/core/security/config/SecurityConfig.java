@@ -212,7 +212,9 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.GET, API + "/outreach/mailbox/callback").permitAll()
                         .requestMatchers(HttpMethod.GET, API + "/outreach/zoom/callback").permitAll()
                         // The booking link's page: an executive opens it from an email, holding no session.
-                        .requestMatchers(HttpMethod.GET, API + "/outreach/booking/*").permitAll()
+                        .requestMatchers(HttpMethod.GET, API + "/outreach/booking/*", API + "/outreach/booking/*/slots")
+                        .permitAll()
+                        .requestMatchers(HttpMethod.POST, API + "/outreach/booking/*").permitAll()
 
                         // The mail service's webhook holds no bearer token: the delivery's HMAC signature,
                         // checked by OutreachInboxService before anything is read, is its credential.

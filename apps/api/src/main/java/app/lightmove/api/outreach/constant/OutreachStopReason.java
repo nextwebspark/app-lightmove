@@ -28,7 +28,7 @@ public enum OutreachStopReason {
      */
     MAILBOX_MOVED,
 
-    /** The email carries the booking link, and the sender's mailbox cannot make the page behind it. */
+    /** No longer written: a direct mailbox's link now opens Uncava's own page. V110's CHECK still allows it. */
     BOOKING_LINK_UNAVAILABLE,
 
     /** The mail service refused the email; a send is never retried. */

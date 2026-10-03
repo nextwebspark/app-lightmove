@@ -30,6 +30,7 @@ import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.time.Clock;
 import java.time.Instant;
+import java.util.Optional;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -70,11 +71,10 @@ public class MailboxService {
 
     @Transactional(readOnly = true)
     public MailboxResponse view(UUID userId, UUID workspaceId) {
-        ConnectedMailboxResponse connection = connections.findByWorkspaceIdAndUserId(workspaceId, userId)
-                .map(mailbox -> responseOf(mailbox, userId, workspaceId))
-                .orElse(null);
+        Optional<MailboxConnection> mailbox = connections.findByWorkspaceIdAndUserId(workspaceId, userId);
+        ConnectedMailboxResponse connection = mailbox.map(found -> responseOf(found, userId, workspaceId)).orElse(null);
         return new MailboxResponse(gateway.isOfferedTo(workspaceId), gateway.providersFor(workspaceId), connection,
-                bookingPages.isOffered());
+                mailbox.map(bookingPages::isOfferedFor).orElseGet(bookingPages::isOffered));
     }
 
     private ConnectedMailboxResponse responseOf(MailboxConnection mailbox, UUID userId, UUID workspaceId) {

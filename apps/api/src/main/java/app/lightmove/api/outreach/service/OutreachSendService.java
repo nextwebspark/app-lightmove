@@ -166,11 +166,6 @@ public class OutreachSendService {
             outcomes.stop(enrollment, OutreachStopReason.MAILBOX_MOVED, null, now, null);
             return null;
         }
-        // Booking pages are Nylas Scheduler's, so a direct mailbox's link has no page behind it.
-        if (mailbox.isDirect() && carriesBookingLink(enrollment, sequence, mailbox)) {
-            outcomes.stop(enrollment, OutreachStopReason.BOOKING_LINK_UNAVAILABLE, null, now, null);
-            return null;
-        }
 
         SendingWindow window = SendingWindow.of(settings());
         ZoneId zone = mailbox.zone();
@@ -188,16 +183,6 @@ public class OutreachSendService {
         }
         return new PreparedSend(enrollment.getId(), mailbox.getGrantId(),
                 emailOf(enrollment, sequence, recipient.orElseThrow(), mailbox), enrollment.getNextStep());
-    }
-
-    private boolean carriesBookingLink(OutreachEnrollment enrollment, OutreachSequence sequence,
-                                       MailboxConnection mailbox) {
-        int step = enrollment.getNextStep();
-        if (step > 0) {
-            return SequenceTokens.uses(sequence.getSteps().get(step).getBody(), SequenceTokens.BOOKING_LINK);
-        }
-        String link = bookingPages.linkOf(mailbox);
-        return link != null && enrollment.getFirstBody().contains(link);
     }
 
     /** Everything Add to sequence refused at Start, asked again: any of it may have changed since. */

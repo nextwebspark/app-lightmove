@@ -233,6 +233,7 @@ lightmove:
       workspace-creations-per-hour: ${AUTH_WORKSPACE_CREATIONS_PER_HOUR:5}
       workspace-creations-per-hour-per-ip: ${AUTH_WORKSPACE_CREATIONS_PER_HOUR_PER_IP:60}
       booking-page-opens-per-minute: ${AUTH_BOOKING_PAGE_OPENS_PER_MINUTE:30}
+      booking-page-bookings-per-hour: ${AUTH_BOOKING_PAGE_BOOKINGS_PER_HOUR:5}
 
   # The demo LLM endpoints (/api/v1/llm/*) call billed Vertex AI usage with only authentication as
   # a gate, so each is additionally capped per user. Same in-memory-per-instance caveat as the auth

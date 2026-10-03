@@ -1,5 +1,6 @@
 package app.lightmove.api.outreach.service;
 
+import app.lightmove.api.outreach.constant.MeetingVideo;
 import app.lightmove.api.outreach.model.BookingPageSpec;
 import app.lightmove.api.outreach.model.BusyInterval;
 import app.lightmove.api.outreach.model.CalendarEvent;
@@ -100,6 +101,16 @@ public interface MailboxGateway {
 
     /** False where the service's plan carries no booking pages; {@code {{bookingLink}}} is then not offered. */
     boolean isBookingPageOffered();
+
+    /** The video link the mailbox's own calendar makes on an invite: Meet on Google, Teams on Microsoft. */
+    default MeetingVideo nativeVideoOf(String grantId) {
+        return MeetingVideo.NONE;
+    }
+
+    /** Whether new mailboxes connect through our own gateway, whose booking page is Uncava's own. */
+    default boolean ownBookingPagesOffered() {
+        return false;
+    }
 
     /** Creates a public booking page on the mailbox's calendar and answers its id, which the page is opened by. */
     String createBookingPage(String grantId, BookingPageSpec page);
