@@ -482,6 +482,10 @@ on-behalf-of token, are set on the app, never asked on the consent screen) by th
 slots): the meeting is made first (`POST /v2/users/me/meetings`, never retried), its `join_url` goes into the
 invite's location and description through whichever calendar sends it, and an invite that fails deletes the meeting
 so no orphan link is left. A read-back event's Zoom link is found in its location (`ZoomLinks`), on every gateway.
+**Registering the shared apps (#649)** is `docs/integrations/registration.md` — every console value, the Secret
+Manager names and the `deploy.yml` switches (`GOOGLE_MAIL_ENABLED`, `MICROSOFT_MAIL_ENABLED`, `ZOOM_ENABLED`,
+`RECALL_ENABLED`, each off until its secrets exist) — and the five admin guides beside it are what the
+`*_GUIDE_URL` settings link Settings → Integrations to once published.
 Sequences (V100, #623) are a position's, `WORK_EXECUTE`: up to three emails (V39's owned list), and
 **Add to sequence** — from In universe / Shortlisted (the ticked companies' executives) or the executive
 drawer — chooses, reviews and starts. Choose shows who is skipped and why (no email, do not contact, out
