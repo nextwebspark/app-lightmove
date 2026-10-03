@@ -20,6 +20,7 @@ export const STOP_NOTES: Record<StopReason, string> = {
   ADDRESS_REMOVED: "Address removed",
   MAILBOX_INACTIVE: "Mailbox disconnected",
   MAILBOX_MOVED: "Mailbox reconnected",
+  BOOKING_LINK_UNAVAILABLE: "Booking link unavailable",
   SEND_FAILED: "The mail service refused it",
   SEND_UNCERTAIN: "A send may not have gone",
 };

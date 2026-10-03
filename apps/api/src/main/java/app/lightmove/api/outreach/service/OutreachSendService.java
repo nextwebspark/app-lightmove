@@ -9,6 +9,7 @@ import app.lightmove.api.core.config.OutreachSettings;
 import app.lightmove.api.core.resilience.constant.VendorFailureKind;
 import app.lightmove.api.core.resilience.model.VendorException;
 import app.lightmove.api.outreach.constant.EnrollmentStatus;
+import app.lightmove.api.outreach.constant.MailboxGatewayKind;
 import app.lightmove.api.outreach.constant.OutreachStopReason;
 import app.lightmove.api.outreach.model.MailboxConnection;
 import app.lightmove.api.outreach.model.OutgoingEmail;
@@ -161,6 +162,15 @@ public class OutreachSendService {
             enrollment.complete();
             return null;
         }
+        if (enrollment.getThreadGateway() != null && enrollment.getThreadGateway() != mailbox.getGateway()) {
+            outcomes.stop(enrollment, OutreachStopReason.MAILBOX_MOVED, null, now, null);
+            return null;
+        }
+        // Booking pages are Nylas Scheduler's, so a direct mailbox's link has no page behind it.
+        if (mailbox.isDirect() && carriesBookingLink(enrollment, sequence, mailbox)) {
+            outcomes.stop(enrollment, OutreachStopReason.BOOKING_LINK_UNAVAILABLE, null, now, null);
+            return null;
+        }
 
         SendingWindow window = SendingWindow.of(settings());
         ZoneId zone = mailbox.zone();
@@ -178,6 +188,16 @@ public class OutreachSendService {
         }
         return new PreparedSend(enrollment.getId(), mailbox.getGrantId(),
                 emailOf(enrollment, sequence, recipient.orElseThrow(), mailbox), enrollment.getNextStep());
+    }
+
+    private boolean carriesBookingLink(OutreachEnrollment enrollment, OutreachSequence sequence,
+                                       MailboxConnection mailbox) {
+        int step = enrollment.getNextStep();
+        if (step > 0) {
+            return SequenceTokens.uses(sequence.getSteps().get(step).getBody(), SequenceTokens.BOOKING_LINK);
+        }
+        String link = bookingPages.linkOf(mailbox);
+        return link != null && enrollment.getFirstBody().contains(link);
     }
 
     /** Everything Add to sequence refused at Start, asked again: any of it may have changed since. */
@@ -227,7 +247,7 @@ public class OutreachSendService {
                 ? SendingWindow.of(settings()).addWorkingDays(now, zoneOf(enrollment),
                         sequence.getSteps().get(following).getDelayWorkingDays())
                 : null;
-        enrollment.markSent(sent, now, followingDue);
+        enrollment.markSent(sent, MailboxGatewayKind.ofGrant(prepared.grantId()), now, followingDue);
         messages.save(OutreachMessage.sent(enrollment, prepared.step(), prepared.email(), sent, now));
         if (enrollment.getCandidateId() != null) {
             people.recordEmailSent(enrollment.getSenderUserId(), enrollment.getProjectId(), enrollment.getCandidateId(),

@@ -1,6 +1,7 @@
 package app.lightmove.api.outreach.repository;
 
 import app.lightmove.api.outreach.constant.EnrollmentStatus;
+import app.lightmove.api.outreach.constant.MailboxGatewayKind;
 import app.lightmove.api.outreach.model.OutreachEnrollment;
 import app.lightmove.api.outreach.model.OutreachRunTally;
 import app.lightmove.api.outreach.model.SequenceEnrollmentCount;
@@ -53,10 +54,11 @@ public interface OutreachEnrollmentRepository extends JpaRepository<OutreachEnro
     List<OutreachEnrollment> findByWorkspaceIdAndSenderUserIdAndThreadId(UUID workspaceId, UUID senderUserId,
                                                                          String threadId);
 
-    /** One sender's runs that have sent and may send again: what a move to another gateway stops. */
-    @Query("select e from OutreachEnrollment e where e.workspaceId = :workspaceId and e.senderUserId = :senderUserId "
-            + "and e.status = app.lightmove.api.outreach.constant.EnrollmentStatus.ACTIVE and e.threadId is not null")
-    List<OutreachEnrollment> findRunningThreadsOf(UUID workspaceId, UUID senderUserId);
+    /** One sender's runs still to send in a thread {@code gateway} made: what a move off it stops. */
+    @Query("select count(e) from OutreachEnrollment e where e.workspaceId = :workspaceId "
+            + "and e.senderUserId = :senderUserId and e.threadGateway = :gateway "
+            + "and e.status = app.lightmove.api.outreach.constant.EnrollmentStatus.ACTIVE")
+    long countRunningThreadsOf(UUID workspaceId, UUID senderUserId, MailboxGatewayKind gateway);
 
     /**
      * Claims older than a send could take, on runs still due to send. A system job's read, so across

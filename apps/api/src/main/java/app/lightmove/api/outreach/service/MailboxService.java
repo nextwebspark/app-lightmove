@@ -11,7 +11,6 @@ import app.lightmove.api.core.resilience.constant.VendorFailureKind;
 import app.lightmove.api.core.resilience.model.VendorException;
 import app.lightmove.api.core.security.token.Tokens;
 import app.lightmove.api.outreach.constant.MailboxGatewayKind;
-import app.lightmove.api.outreach.constant.OutreachStopReason;
 import app.lightmove.api.outreach.dto.ConnectedMailboxResponse;
 import app.lightmove.api.outreach.dto.MailboxResponse;
 import app.lightmove.api.outreach.model.GrantedMailbox;
@@ -62,7 +61,6 @@ public class MailboxService {
     private final TransactionTemplate transactions;
     private final AuditService audit;
     private final OutreachEnrollmentRepository enrollments;
-    private final OutreachOutcomes outcomes;
     private final ApplicationEventPublisher events;
     private final BookingPages bookingPages;
     private final MailboxTokens tokens;
@@ -82,7 +80,8 @@ public class MailboxService {
     private ConnectedMailboxResponse responseOf(MailboxConnection mailbox, UUID userId, UUID workspaceId) {
         boolean movesOffNylas = mailbox.getGateway() == MailboxGatewayKind.NYLAS
                 && gateway.holdsRefreshTokens(workspaceId, mailbox.getProvider()) && cipher.isAvailable();
-        int runsStopped = movesOffNylas ? enrollments.findRunningThreadsOf(workspaceId, userId).size() : 0;
+        int runsStopped = movesOffNylas
+                ? (int) enrollments.countRunningThreadsOf(workspaceId, userId, MailboxGatewayKind.NYLAS) : 0;
         return ConnectedMailboxResponse.of(mailbox, bookingPages.linkOf(mailbox), movesOffNylas, runsStopped);
     }
 
@@ -208,9 +207,6 @@ public class MailboxService {
                     if (movedFrom != null) {
                         events.publishEvent(new RecallCalendarReleased(movedFrom));
                     }
-                    if (existing.getGateway() != MailboxGatewayKind.ofGrant(granted.grantId())) {
-                        stopRunsMovedFrom(existing, now);
-                    }
                     existing.reconnect(granted, refreshTokenEncrypted, now);
                     events.publishEvent(new MailboxConnected(existing.getId()));
                     return previous;
@@ -222,15 +218,6 @@ public class MailboxService {
                     events.publishEvent(new MailboxConnected(connected.getId()));
                     return null;
                 });
-    }
-
-    /**
-     * A thread another gateway made may not be readable through the new one, so a reply could go unseen and a
-     * follow-up go after it: the runs still sending from it stop, and the consultant starts them again.
-     */
-    private void stopRunsMovedFrom(MailboxConnection moved, Instant now) {
-        enrollments.findRunningThreadsOf(moved.getWorkspaceId(), moved.getUserId())
-                .forEach(run -> outcomes.stop(run, OutreachStopReason.MAILBOX_MOVED, moved.getUserId(), now, null));
     }
 
     /** Our own gateway's refresh token, sealed before it reaches the row; Nylas's grants carry none. */

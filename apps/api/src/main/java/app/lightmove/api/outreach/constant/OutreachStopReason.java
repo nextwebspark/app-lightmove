@@ -28,6 +28,9 @@ public enum OutreachStopReason {
      */
     MAILBOX_MOVED,
 
+    /** The email carries the booking link, and the sender's mailbox cannot make the page behind it. */
+    BOOKING_LINK_UNAVAILABLE,
+
     /** The mail service refused the email; a send is never retried. */
     SEND_FAILED,
 

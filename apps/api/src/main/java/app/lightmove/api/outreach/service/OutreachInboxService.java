@@ -76,7 +76,10 @@ public class OutreachInboxService {
         bySender.forEach((sender, listening) -> mailboxes
                 .findByWorkspaceIdAndUserId(sender.workspaceId(), sender.userId())
                 .filter(MailboxConnection::canSend)
-                .ifPresent(mailbox -> listening.forEach(enrollment -> pollThread(mailbox, enrollment, now))));
+                .ifPresent(mailbox -> listening.stream()
+                        .filter(enrollment -> enrollment.getThreadGateway() == null
+                                || enrollment.getThreadGateway() == mailbox.getGateway())
+                        .forEach(enrollment -> pollThread(mailbox, enrollment, now))));
     }
 
     private void pollThread(MailboxConnection mailbox, OutreachEnrollment enrollment, Instant now) {

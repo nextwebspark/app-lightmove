@@ -184,7 +184,7 @@ describe("OutreachPage", () => {
     renderPage();
 
     expect(await screen.findByText("Reconnect to move off Nylas.")).toBeInTheDocument();
-    expect(screen.getByText(/2 running sequences stop when you do/)).toBeInTheDocument();
+    expect(screen.getByText(/2 running sequences stop at their next email/)).toBeInTheDocument();
     await userEvent.click(screen.getByRole("button", { name: "Reconnect" }));
 
     expect(mailboxApi.startMailboxConnect).toHaveBeenCalledWith("google");

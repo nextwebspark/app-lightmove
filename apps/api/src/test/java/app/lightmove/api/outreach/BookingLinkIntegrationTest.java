@@ -13,6 +13,7 @@ import app.lightmove.api.outreach.model.BookingMade;
 import app.lightmove.api.outreach.model.BookingPageSpec;
 import app.lightmove.api.outreach.model.GrantedMailbox;
 import app.lightmove.api.outreach.model.InboundMessage;
+import app.lightmove.api.outreach.model.MailboxGrants;
 import app.lightmove.api.outreach.service.OutreachDispatcher;
 import jakarta.servlet.http.Cookie;
 import java.net.URI;
@@ -107,6 +108,22 @@ class BookingLinkIntegrationTest extends FlowTestSupport {
         String rajesh = executive("Rajesh Menon", "rajesh@" + domain);
         startSequence(createSequence(), rajesh, "rajesh@" + domain);
         assertThat(gateway.bookingPages()).hasSize(1);
+    }
+
+    @Test
+    @DisplayName("a mailbox moved off Nylas has no page behind its link, so a run that would send it stops instead")
+    void aMovedMailboxStopsRunsCarryingTheLink() throws Exception {
+        connectMailbox();
+        String priya = executive("Priya Raman", "priya@" + domain);
+        startSequence(createSequence(), priya, "priya@" + domain);
+
+        gateway.grant(new GrantedMailbox(MailboxGrants.mintDirect("google"), MAILBOX, "google", "refresh-token-1"));
+        connectMailbox();
+        dispatcher.dispatchAt(monday);
+
+        assertThat(sentTo("priya@" + domain)).isEmpty();
+        assertThat(jdbc.queryForObject("select stop_reason from app_lm_outreach_enrollment where candidate_id = ?::uuid",
+                String.class, priya)).isEqualTo("BOOKING_LINK_UNAVAILABLE");
     }
 
     @Test

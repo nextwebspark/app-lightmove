@@ -310,10 +310,13 @@ function MoveOffNylasBanner({
           <>
             {" "}
             <span className="text-u-offlimits">
-              {runs === 1 ? "1 running sequence stops" : `${runs} running sequences stop`} when you do; start{" "}
-              {runs === 1 ? "it" : "them"} again afterwards.
+              {runs === 1 ? "1 running sequence stops" : `${runs} running sequences stop`} at {runs === 1 ? "its" : "their"}{" "}
+              next email; start {runs === 1 ? "it" : "them"} again afterwards.
             </span>
           </>
+        )}
+        {connection.bookingLink && (
+          <> Your booking link stops working, so sequences that send it stop too.</>
         )}
       </span>
       <Button
