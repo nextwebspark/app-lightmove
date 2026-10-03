@@ -599,6 +599,8 @@ lightmove:
     # Read by @Scheduled, which sees the environment and never a binding default, so spelled out here.
     dispatch-interval: ${OUTREACH_DISPATCH_INTERVAL:60s}
     reply-poll-interval: ${OUTREACH_REPLY_POLL_INTERVAL:15m}
+    # When the daily check emails admins whose own app's client secret expires within 30 days (UTC cron).
+    secret-expiry-check: ${OUTREACH_SECRET_EXPIRY_CHECK:0 13 5 * * *}
 
   # The key-encryption key for the secrets the app holds — a workspace's own OAuth client secret, and from #644
   # a mailbox's refresh token. A Tink JSON keyset of AES-256-GCM keys, mounted from the lightmove-credential-keyset

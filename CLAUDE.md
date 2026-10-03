@@ -491,6 +491,12 @@ first send): whichever way the sender came to another gateway — a reconnect, o
 run stops at its next send as `MAILBOX_MOVED` and the reply poll leaves its thread alone, since the new gateway may not
 read it. A direct mailbox has no booking page behind its link, so a send that would carry it stops as
 `BOOKING_LINK_UNAVAILABLE`.
+**An own app's secret expiry (#650, V111)**: `IntegrationSecretExpiryWarnings` runs daily
+(`lightmove.outreach.secret-expiry-check`, a UTC cron) and emails whoever holds `WORKSPACE_MANAGE` 30 and 7 days
+before an own app's `secret_expires_on` and on the day it lapses — each threshold once per expiry date
+(`secret_expiry_warned_days`, claimed by a conditional update committed before any email goes, so of two instances
+only one sends, and cleared when the date changes or the workspace returns to the shared app) — and the
+provider's card in Settings → Integrations says the same from 30 days out.
 **Registering the shared apps (#649)** is `docs/integrations/registration.md` — every console value, the Secret
 Manager names and the `deploy.yml` switches (`GOOGLE_MAIL_ENABLED`, `MICROSOFT_MAIL_ENABLED`, `ZOOM_ENABLED`,
 `RECALL_ENABLED`, each off until its secrets exist) — and the five admin guides beside it are what the
@@ -790,6 +796,8 @@ V108 gives `app_lm_workspace_mail_integration` Microsoft's admin consent — `ad
 `admin_consent_tenant_id` it was given for and who reported it — by CHECK on the Microsoft row alone.
 V110 gives `app_lm_outreach_enrollment` its `thread_gateway` (`NYLAS | DIRECT`, backfilled from the sender's
 mailbox, Nylas where it is gone) and adds `MAILBOX_MOVED` and `BOOKING_LINK_UNAVAILABLE` to its `stop_reason` CHECK.
+V111 gives `app_lm_workspace_mail_integration` `secret_expiry_warned_days` — the fewest days left an expiry warning
+was already sent for.
 V84 adds `app_lm_workspace.mode` (`AGENCY | COMPANY`, V34's CHECK idiom; every existing row `COMPANY`):
 who a workspace hires for — client companies, or its own business units. Chosen at creation with **no
 default** (`CreateWorkspaceRequest.mode` is required, the organisation step preselects nothing) and

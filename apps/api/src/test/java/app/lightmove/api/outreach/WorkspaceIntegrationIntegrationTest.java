@@ -11,12 +11,16 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 import app.lightmove.api.FlowTestSupport;
 import app.lightmove.api.IntegrationTest;
+import app.lightmove.api.RecordingEmailSender;
 import app.lightmove.api.core.crypto.service.SecretCipher;
 import app.lightmove.api.outreach.constant.CredentialMode;
 import app.lightmove.api.outreach.constant.IntegrationProvider;
 import app.lightmove.api.outreach.model.ProviderCredentials;
 import app.lightmove.api.outreach.model.WorkspaceMailIntegration;
+import app.lightmove.api.outreach.repository.WorkspaceMailIntegrationRepository;
+import app.lightmove.api.outreach.service.IntegrationSecretExpiryWarnings;
 import app.lightmove.api.outreach.service.ProviderCredentialsResolver;
+import java.time.LocalDate;
 import java.util.List;
 import java.util.UUID;
 import org.junit.jupiter.api.DisplayName;
@@ -37,6 +41,9 @@ class WorkspaceIntegrationIntegrationTest extends FlowTestSupport {
     @Autowired JdbcTemplate jdbc;
     @Autowired SecretCipher cipher;
     @Autowired ProviderCredentialsResolver resolver;
+    @Autowired IntegrationSecretExpiryWarnings expiryWarnings;
+    @Autowired RecordingEmailSender emails;
+    @Autowired WorkspaceMailIntegrationRepository integrations;
 
     @Test
     @DisplayName("every provider starts on the shared app, offered where this deployment has one")
@@ -264,6 +271,53 @@ class WorkspaceIntegrationIntegrationTest extends FlowTestSupport {
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("""
                         {"mode":"OWN","clientId":"%s","clientSecret":"%s"}""".formatted(clientId, clientSecret)));
+    }
+
+    @Test
+    @DisplayName("an own app's admins are emailed 30 and 7 days before its secret expires and on the day, once each")
+    void adminsAreWarnedAheadOfASecretExpiring() throws Exception {
+        String admin = adminOfNewWorkspace("Expiring Secret Firm");
+        String adminEmail = "alok@" + domain;
+        String memberEmail = "sara@" + domain;
+        inviteAndAccept(admin, "Sara Member", memberEmail, "MEMBER");
+        saveOwnMicrosoftApp(admin, "2031-03-15");
+
+        expiryWarnings.warnAt(LocalDate.parse("2031-02-01"));
+        assertThat(expiryWarningsTo(adminEmail)).isEmpty();
+
+        expiryWarnings.warnAt(LocalDate.parse("2031-02-20"));
+        expiryWarnings.warnAt(LocalDate.parse("2031-02-21"));
+        assertThat(expiryWarningsTo(adminEmail))
+                .containsExactly("Your Microsoft 365 app's client secret expires on 15 March 2031");
+        UUID integrationId = UUID.fromString(jdbc.queryForObject("SELECT id::text FROM app_lm_workspace_mail_integration "
+                + "WHERE workspace_id = ?::uuid AND provider = 'MICROSOFT'", String.class, workspaceOf(admin)));
+        assertThat(integrations.claimExpiryWarning(integrationId, LocalDate.parse("2031-03-15"), 30))
+                .as("a second instance finds the warning already claimed").isZero();
+
+        expiryWarnings.warnAt(LocalDate.parse("2031-03-10"));
+        expiryWarnings.warnAt(LocalDate.parse("2031-03-16"));
+        assertThat(expiryWarningsTo(adminEmail)).hasSize(3)
+                .last().isEqualTo("Your Microsoft 365 app's client secret has expired");
+        assertThat(expiryWarningsTo(memberEmail)).as("only who manages the workspace").isEmpty();
+
+        saveOwnMicrosoftApp(admin, "2032-03-15");
+        expiryWarnings.warnAt(LocalDate.parse("2032-02-20"));
+        assertThat(expiryWarningsTo(adminEmail)).as("a new expiry date warns afresh").hasSize(4);
+    }
+
+    private void saveOwnMicrosoftApp(String admin, String secretExpiresOn) throws Exception {
+        mvc.perform(put("/api/v1/workspace/integrations/MICROSOFT")
+                        .header("Authorization", "Bearer " + admin)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"mode":"OWN","clientId":"expiring-app","clientSecret":"%s",
+                                 "tenantId":"contoso.onmicrosoft.com","secretExpiresOn":"%s"}
+                                """.formatted(SECRET, secretExpiresOn)))
+                .andExpect(status().isOk());
+    }
+
+    private List<String> expiryWarningsTo(String recipient) {
+        return emails.subjectsFor(recipient).stream().filter(subject -> subject.contains("client secret")).toList();
     }
 
     private String adminOfNewWorkspace(String name) throws Exception {
