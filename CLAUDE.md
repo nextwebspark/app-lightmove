@@ -383,7 +383,7 @@ in `java-spring-development`.
 
 `outreach` is **email from a consultant's own mailbox** (epic #620). So far it connects one: Nylas's
 hosted sign-in behind `MailboxGateway` (`lightmove.outreach.nylas.*`; blank leaves it unoffered), a
-grant id per person per workspace (V99), never the provider's tokens. The callback is the one public
+grant id per person per workspace (V99). The callback is the one public
 `/api/v1` GET a navigation reaches: its single-use state counts only beside the `lm_mailbox_connect`
 cookie the starting browser holds, so a consent link handed to someone else connects nothing. The
 connect popup lands in the SPA and, like the sign-in popup, must never restore the session there
@@ -405,6 +405,26 @@ not decrypt. A deployment without a keyset boots and refuses own keys (`INTEGRAT
 `calendar_sync` (`RECALL | DIRECT`, `PUT /workspace/calendar-sync`, audited like `mode`): on Recall the app's
 keys and each consultant's calendar refresh token are handed to Recall.ai (one platform account,
 `lightmove.recall.*`), and the page says so before an admin enters their own app's keys.
+**Routing (V107, #644)**: everything injects `RoutingMailboxGateway`, which answers each connection through
+the gateway that made it — read off the grant id, since ours are minted `direct:<provider>:<uuid>`
+(`MailboxGrants`), so a revoke after the row is gone still lands — and connects a new one through
+`lightmove.outreach.gateway` (`nylas`, the default, or `direct`, our own `DirectMailboxGateway` wherever one
+covers the provider, Nylas the rest); a direct grant whose gateway the deployment lacks is refused, never
+handed to Nylas. A direct connection keeps the provider's **refresh token, encrypted** (bound to workspace
+and consultant), never logged or returned; `MailboxTokens` turns it into an access token through the
+workspace's resolved app, held in memory until two minutes before it expires, keeps a rotated one, and
+treats a refusal (`invalid_grant`, `interaction_required`) as Nylas's `grant.expired` — `ERROR`, and the
+`CREDENTIALS` failure every sender already reads as "reconnect". A refused **app** (`invalid_client`,
+`unauthorized_client`, any 401 — an own app's secret expired) is `ProviderAppUnavailable` instead: the
+mailbox stays `ACTIVE` and a send waits an hour rather than stopping the run, because one broken workspace
+app must not take every consultant's mailbox down. On `RECALL` sync each direct mailbox has
+one Recall calendar (`RecallCalendars`): made after the connect commits, handed the new token on a
+reconnect to the same mailbox — a reconnect at another host or address gets a new one, since a calendar
+keeps the platform it was made for — deleted on a disconnect, a refused refresh or a switch to `DIRECT`
+(made again on a switch back); a failed create never fails the connect — the reply poll makes it, on
+V103's backoff, giving up after five until the mailbox reconnects. Recall's webhook
+(`/api/v1/outreach/webhooks/recall`, public, its Svix signature under `lightmove.recall.webhook-secret` the
+credential; blank refuses every delivery) reporting a calendar `disconnected` marks the mailbox `ERROR`.
 Sequences (V100, #623) are a position's, `WORK_EXECUTE`: up to three emails (V39's owned list), and
 **Add to sequence** — from In universe / Shortlisted (the ticked companies' executives) or the executive
 drawer — chooses, reviews and starts. Choose shows who is skipped and why (no email, do not contact, out
@@ -692,6 +712,10 @@ V106 adds `app_lm_workspace_mail_integration` — one row per workspace per prov
 ZOOM`), `mode` `SHARED | OWN`, and on `OWN` the client id, `client_secret_encrypted`, the Entra `tenant_id`
 (Microsoft only, by CHECK) and the secret's own expiry; a `SHARED` row holds no key (CHECK), and no row means
 shared — and `app_lm_workspace.calendar_sync` (`RECALL | DIRECT`, default `RECALL`).
+V107 gives `app_lm_mailbox_connection` its `gateway` (`NYLAS | DIRECT`, existing rows `NYLAS`),
+`refresh_token_encrypted` (set exactly on a `DIRECT` row, by CHECK), `recall_calendar_id` (indexed, for
+Recall's webhook, which names nothing else) and V103's backoff pair for it, `recall_calendar_attempts` and
+`recall_calendar_retry_at`.
 V84 adds `app_lm_workspace.mode` (`AGENCY | COMPANY`, V34's CHECK idiom; every existing row `COMPANY`):
 who a workspace hires for — client companies, or its own business units. Chosen at creation with **no
 default** (`CreateWorkspaceRequest.mode` is required, the organisation step preselects nothing) and

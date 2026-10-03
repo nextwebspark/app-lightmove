@@ -15,6 +15,7 @@ import app.lightmove.api.RecordingMailboxGateway.SentRecord;
 import app.lightmove.api.core.resilience.constant.VendorFailureKind;
 import app.lightmove.api.core.resilience.model.VendorCall;
 import app.lightmove.api.core.resilience.model.VendorException;
+import app.lightmove.api.outreach.service.ProviderAppUnavailable;
 import app.lightmove.api.outreach.model.DeliveryFailure;
 import app.lightmove.api.outreach.model.InboundMessage;
 import app.lightmove.api.outreach.model.MailboxAccessWithdrawn;
@@ -386,6 +387,27 @@ class OutreachDispatchIntegrationTest extends FlowTestSupport {
         gateway.failSendsWith(new VendorException(VendorCall.of("nylas", "send"), VendorFailureKind.UNAVAILABLE, null));
         dispatcher.dispatchAt(monday.plus(Duration.ofMinutes(2)));
         assertThat(enrollmentOf(rajesh)).containsEntry("stop_reason", "SEND_UNCERTAIN");
+    }
+
+    @Test
+    @DisplayName("a workspace mail app the provider refuses holds the run without stopping it or the mailbox")
+    void aRefusedWorkspaceAppHoldsTheRun() throws Exception {
+        String priya = executive("Priya Raman", "priya@" + domain);
+        start(createSequence("First approach"), priya, "priya@" + domain, null);
+        gateway.failSendsWith(new ProviderAppUnavailable("invalid_client"));
+
+        dispatcher.dispatchAt(monday);
+
+        assertThat(enrollmentOf(priya)).containsEntry("status", "SCHEDULED").containsEntry("stop_reason", null);
+        assertThat(activityKinds(priya)).doesNotContain("OUTREACH_STOPPED");
+        assertThat(jdbc.queryForObject("select status from app_lm_mailbox_connection where workspace_id = "
+                + "(select workspace_id from app_lm_project where id = ?::uuid)", String.class, projectId))
+                .isEqualTo("ACTIVE");
+        gateway.failSendsWith(null);
+        dispatcher.dispatchAt(monday.plus(Duration.ofMinutes(1)));
+        assertThat(sentTo("priya@" + domain)).isEmpty();
+        dispatcher.dispatchAt(monday.plus(Duration.ofHours(1)));
+        assertThat(sentTo("priya@" + domain)).hasSize(1);
     }
 
     @Test

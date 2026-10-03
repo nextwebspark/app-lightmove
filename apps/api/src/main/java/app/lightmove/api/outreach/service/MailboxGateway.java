@@ -11,10 +11,11 @@ import app.lightmove.api.outreach.model.SentEmail;
 import java.net.URI;
 import java.time.Instant;
 import java.util.List;
+import java.util.UUID;
 
 /**
  * The mail service that holds consultants' mailboxes and sends as them. One implementation per
- * service, picked by configuration; nothing outside it knows which service answered.
+ * service, routed by {@link RoutingMailboxGateway}; nothing outside it knows which service answered.
  *
  * <p>{@link #send} is never retried by an implementation: a request that timed out may still have
  * been delivered, and a second copy of an approach to an executive is worse than a failure.
@@ -31,6 +32,24 @@ public interface MailboxGateway {
 
     /** Redeems the one-time code the consent screen sent back. Never retried: a code is single-use. */
     GrantedMailbox redeem(String code, URI redirectUri);
+
+    /**
+     * The consent screen for a consultant of {@code workspaceId}. A gateway whose OAuth app is chosen per
+     * workspace (Settings → Integrations) overrides this; Nylas holds one app for everyone.
+     */
+    default URI authorizationUri(UUID workspaceId, String provider, String loginHint, String state, URI redirectUri) {
+        return authorizationUri(provider, loginHint, state, redirectUri);
+    }
+
+    /** {@link #redeem(String, URI)} for a consultant of {@code workspaceId}, at the provider the sign-in began at. */
+    default GrantedMailbox redeem(UUID workspaceId, String provider, String code, URI redirectUri) {
+        return redeem(code, redirectUri);
+    }
+
+    /** True where a new connection at {@code provider} hands back a refresh token we must store encrypted. */
+    default boolean holdsRefreshTokens(String provider) {
+        return false;
+    }
 
     /** A set {@link OutgoingEmail#replyToMessageId()} sends the email as a reply in that message's thread. */
     SentEmail send(String grantId, OutgoingEmail email);

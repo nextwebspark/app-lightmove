@@ -6,6 +6,7 @@ import static org.mockito.Mockito.when;
 
 import app.lightmove.api.TestSecretCiphers;
 import app.lightmove.api.core.config.LightMoveProperties;
+import app.lightmove.api.core.config.OutreachGateway;
 import app.lightmove.api.core.config.OutreachSettings;
 import app.lightmove.api.core.config.ProviderAppSettings;
 import app.lightmove.api.core.config.ProviderAppsSettings;
@@ -99,7 +100,8 @@ class ProviderCredentialsResolverTest {
                 new ProviderAppSettings("uncava-microsoft-client", "uncava-microsoft-secret", List.of(), "", ""),
                 new ProviderAppSettings("", "", List.of(), "", ""));
         OutreachSettings outreach = new OutreachSettings(null, apps, Duration.ofMinutes(10), 50,
-                LocalTime.of(8, 0), LocalTime.of(18, 0), List.of(), 25, Duration.ofMinutes(10), Duration.ofDays(30));
+                LocalTime.of(8, 0), LocalTime.of(18, 0), List.of(), 25, Duration.ofMinutes(10), Duration.ofDays(30),
+                OutreachGateway.NYLAS);
         WebSettings web = new WebSettings("https://app.example", List.of(), "/auth/callback", 0);
         return new LightMoveProperties(null, null, web, null, null, null, null, null, null, null, null, null, null,
                 null, null, outreach, null, null, null, null);
