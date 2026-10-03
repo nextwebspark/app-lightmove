@@ -29,7 +29,7 @@ export interface Mailbox {
   offered: boolean;
   providers: string[];
   connection: ConnectedMailbox | null;
-  /** Whether sequences may use `{{bookingLink}}`: the mail service's plan carries booking pages. */
+  /** Whether sequences may use `{{bookingLink}}`: a direct mailbox always may; a Nylas one where its plan carries Scheduler. */
   bookingLinkOffered: boolean;
 }
 

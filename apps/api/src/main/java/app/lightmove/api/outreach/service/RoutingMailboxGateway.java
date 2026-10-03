@@ -139,6 +139,11 @@ public class RoutingMailboxGateway implements MailboxGateway {
     }
 
     @Override
+    public boolean ownBookingPagesOffered() {
+        return connectDirectly && !directByProvider.isEmpty();
+    }
+
+    @Override
     public String createBookingPage(String grantId, BookingPageSpec page) {
         return holding(grantId).createBookingPage(grantId, page);
     }

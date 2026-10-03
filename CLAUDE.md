@@ -489,8 +489,13 @@ would now go through our own gateway (`movesOffNylas` on the mailbox read) the O
 off Nylas", counting the runs it stops. A run keeps the gateway that made its thread (V110 `thread_gateway`, set by its
 first send): whichever way the sender came to another gateway — a reconnect, or a disconnect and a fresh connect — the
 run stops at its next send as `MAILBOX_MOVED` and the reply poll leaves its thread alone, since the new gateway may not
-read it. A direct mailbox has no booking page behind its link, so a send that would carry it stops as
-`BOOKING_LINK_UNAVAILABLE`.
+read it. **A direct mailbox's booking link opens Uncava's own page** (`DirectBookingPage`, the same slug kept across
+the move): `GET /api/v1/outreach/booking/{slug}` answers `kind: DIRECT`, `…/{slug}/slots` the consultant's free
+half-hours read as Book a call reads them, and `POST …/{slug}` (name and email, nobody signed in) asks the calendar
+once more, invites whoever picked the time with the calendar's own video link, and hands the booking to
+`LinkBookings` — so it counts only for an address that consultant emailed. All three are public and rate-limited per
+IP and link (`booking-page-bookings-per-hour`, 5, for the write). A Nylas mailbox's link still opens Nylas's
+scheduler; `BOOKING_LINK_UNAVAILABLE` is no longer written.
 **An own app's secret expiry (#650, V111)**: `IntegrationSecretExpiryWarnings` runs daily
 (`lightmove.outreach.secret-expiry-check`, a UTC cron) and emails whoever holds `WORKSPACE_MANAGE` 30 and 7 days
 before an own app's `secret_expires_on` and on the day it lapses — each threshold once per expiry date
