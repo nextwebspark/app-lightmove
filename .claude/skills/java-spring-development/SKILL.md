@@ -511,7 +511,7 @@ under the same qualifier replaces it **beneath** the router — a test double re
 displace the router, and the suite would stop exercising routing at all. Our own gateways are
 `DirectMailboxGateway` beans, collected by provider (`MicrosoftMailboxGateway` #645, `GoogleMailboxGateway` #646), both on
 `OAuthDirectMailboxGateway`, which owns the app's resolution, the consent screen's shared parameters, the code's
-redemption and the API client — a provider adds its consent endpoint, its address read and its mail. A direct gateway's app is
+redemption and the API client — a provider adds its consent endpoint, its address read, its mail and its calendar. A direct gateway's app is
 per workspace, so it answers `isOfferedTo(workspaceId)` and the router hands a workspace with no app to Nylas; its
 tests serve recorded provider answers from a JDK `HttpServer`, every client given its base URLs by its constructor
 (the token client's `PROVIDER_TOKEN_HOSTS` in production). Integration tests never reach a provider: the

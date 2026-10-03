@@ -15,8 +15,12 @@ import app.lightmove.api.core.resilience.service.VendorClientFactory;
 import app.lightmove.api.core.resilience.service.VendorRateLimiter;
 import app.lightmove.api.outreach.constant.CredentialMode;
 import app.lightmove.api.outreach.constant.IntegrationProvider;
+import app.lightmove.api.outreach.constant.MeetingVideo;
+import app.lightmove.api.outreach.model.BusyInterval;
+import app.lightmove.api.outreach.model.CalendarEvent;
 import app.lightmove.api.outreach.model.GrantedMailbox;
 import app.lightmove.api.outreach.model.MailboxGrants;
+import app.lightmove.api.outreach.model.NewCalendarEvent;
 import app.lightmove.api.outreach.model.OutgoingEmail;
 import app.lightmove.api.outreach.model.ProviderCredentials;
 import app.lightmove.api.outreach.model.ReleasedGrant;
@@ -47,7 +51,8 @@ import tools.jackson.databind.json.JsonMapper;
 
 /**
  * The Graph gateway against recorded Microsoft answers: the consent link, a redeemed code, a first email and a
- * threaded follow-up, who wrote into a conversation, and a refresh Microsoft refuses.
+ * threaded follow-up, who wrote into a conversation, the calendar's events, free/busy and a booked call, and a refresh
+ * Microsoft refuses.
  */
 class MicrosoftMailboxGatewayTest {
 
@@ -146,7 +151,7 @@ class MicrosoftMailboxGatewayTest {
                 .isEqualTo("priya@client.example");
         assertThat(microsoft.requested()).containsSubsequence("POST /graph/v1.0/me/messages",
                 "POST /graph/v1.0/me/messages/AAkALgAAAAAAHYQDEapmEc2byACqAC-EWg0A-draft/send");
-        assertThat(microsoft.preferOf("/graph/v1.0/me/messages")).isEqualTo("IdType=\"ImmutableId\"");
+        assertThat(microsoft.preferOf("/graph/v1.0/me/messages")).contains("IdType=\"ImmutableId\"");
     }
 
     @Test
@@ -247,6 +252,107 @@ class MicrosoftMailboxGatewayTest {
     }
 
     @Test
+    @DisplayName("calendar events are the timed, single events of every page, in UTC: no series, all-day or cancelled one")
+    void calendarEventsAreTimedSingleEvents() {
+        String grantId = MailboxGrants.mintDirect("microsoft");
+        when(mailboxTokens.accessToken(grantId)).thenReturn("access-for-yara");
+
+        List<CalendarEvent> events = gateway.calendarEvents(grantId, Instant.parse("2026-07-05T00:00:00Z"),
+                Instant.parse("2027-01-01T00:00:00Z"));
+
+        assertThat(events).extracting(CalendarEvent::id).containsExactly("AAMkTeams", "AAMkPage2");
+        CalendarEvent teams = events.getFirst();
+        assertThat(teams.title()).isEqualTo("Confidential: first conversation");
+        assertThat(teams.startsAt()).isEqualTo(Instant.parse("2026-10-06T06:00:00Z"));
+        assertThat(teams.endsAt()).isEqualTo(Instant.parse("2026-10-06T06:30:00Z"));
+        assertThat(teams.participantAddresses()).containsExactly("priya@client.example", "yara.haddad@meridian.example");
+        assertThat(teams.joinUrl()).startsWith("https://teams.microsoft.com/l/meetup-join/");
+        assertThat(teams.conferencingProvider()).isEqualTo("Microsoft Teams");
+        assertThat(events.get(1).joinUrl()).isNull();
+        assertThat(microsoft.preferOf("/graph/v1.0/me/calendarView")).contains("outlook.timezone=\"UTC\"")
+                .contains("IdType=\"ImmutableId\"");
+        String query = decoded(microsoft.lastQuery());
+        assertThat(query).contains("startDateTime=2026-07-05T00:00:00Z").contains("$skip=250")
+                .contains("$select=").doesNotContain("body").doesNotContain("evil.example");
+    }
+
+    @Test
+    @DisplayName("only the paging of Graph's next link is kept: the link itself is never followed")
+    void onlyTheNextLinksPagingIsKept() {
+        assertThat(MicrosoftMailboxGateway.pagingOf(
+                "https://evil.example/v1.0/me/calendarView?startDateTime=x&%24skip=100&%24select=body"))
+                .containsExactly(Map.entry("$skip", "100"));
+        assertThat(MicrosoftMailboxGateway.pagingOf(
+                "https://graph.microsoft.com/v1.0/me/calendarView?%24skiptoken=a+b%2Fc"))
+                .containsExactly(Map.entry("$skiptoken", "a+b/c"));
+        assertThat(MicrosoftMailboxGateway.pagingOf(null)).isEmpty();
+    }
+
+    @Test
+    @DisplayName("free/busy offers only free and elsewhere: unknown is taken, and an unreadable calendar is a failure")
+    void freeBusyFailsOnAnUnreadableCalendar() throws Exception {
+        String grantId = MailboxGrants.mintDirect("microsoft");
+        when(mailboxTokens.accessToken(grantId)).thenReturn("access-for-yara");
+        Instant from = Instant.parse("2026-10-05T00:00:00Z");
+        Instant to = Instant.parse("2026-10-10T00:00:00Z");
+
+        List<BusyInterval> busy = gateway.busyTimes(grantId, "yara.haddad@meridian.example", from, to);
+
+        assertThat(busy).containsExactly(
+                new BusyInterval(Instant.parse("2026-10-06T05:00:00Z"), Instant.parse("2026-10-06T06:00:00Z")),
+                new BusyInterval(Instant.parse("2026-10-07T05:00:00Z"), Instant.parse("2026-10-07T05:30:00Z")),
+                new BusyInterval(Instant.parse("2026-10-08T05:00:00Z"), Instant.parse("2026-10-08T05:30:00Z")));
+        JsonNode body = JSON.readTree(microsoft.bodyOf("POST /graph/v1.0/me/calendar/getSchedule"));
+        assertThat(body.path("schedules").get(0).asString("")).isEqualTo("yara.haddad@meridian.example");
+        assertThat(body.path("startTime").path("dateTime").asString("")).isEqualTo("2026-10-05T00:00:00");
+        assertThat(body.path("startTime").path("timeZone").asString("")).isEqualTo("UTC");
+        microsoft.scheduleAnswersError();
+        assertThatThrownBy(() -> gateway.busyTimes(grantId, "yara.haddad@meridian.example", from, to))
+                .isInstanceOfSatisfying(VendorException.class,
+                        failed -> assertThat(failed.getKind()).isEqualTo(VendorFailureKind.UNAVAILABLE));
+    }
+
+    @Test
+    @DisplayName("a booked call asks Teams where the calendar offers it, and reads the join link back")
+    void aBookedCallCarriesTeams() throws Exception {
+        String grantId = MailboxGrants.mintDirect("microsoft");
+        when(mailboxTokens.accessToken(grantId)).thenReturn("access-for-yara");
+
+        CalendarEvent created = gateway.createEvent(grantId, new NewCalendarEvent("Confidential: first conversation",
+                Instant.parse("2026-10-06T06:00:00Z"), Instant.parse("2026-10-06T06:30:00Z"), "priya@client.example",
+                MeetingVideo.MICROSOFT_TEAMS));
+
+        assertThat(created.id()).isEqualTo("AAMkTeams");
+        assertThat(created.joinUrl()).startsWith("https://teams.microsoft.com/");
+        JsonNode body = JSON.readTree(microsoft.bodyOf("POST /graph/v1.0/me/events"));
+        assertThat(body.path("subject").asString("")).isEqualTo("Confidential: first conversation");
+        assertThat(body.path("start").path("dateTime").asString("")).isEqualTo("2026-10-06T06:00:00");
+        assertThat(body.path("attendees").get(0).path("emailAddress").path("address").asString(""))
+                .isEqualTo("priya@client.example");
+        assertThat(body.path("isOnlineMeeting").asBoolean(false)).isTrue();
+        assertThat(body.path("onlineMeetingProvider").asString("")).isEqualTo("teamsForBusiness");
+    }
+
+    @Test
+    @DisplayName("a personal account offers no Teams: its invite goes without a link, and a refused create is tried once")
+    void aPersonalAccountsInviteGoesWithoutTeams() throws Exception {
+        String grantId = MailboxGrants.mintDirect("microsoft");
+        when(mailboxTokens.accessToken(grantId)).thenReturn("access-for-yara");
+        microsoft.calendarOffersTeams(false);
+        NewCalendarEvent call = new NewCalendarEvent("Call", Instant.parse("2026-10-06T06:00:00Z"),
+                Instant.parse("2026-10-06T06:30:00Z"), "priya@client.example", MeetingVideo.MICROSOFT_TEAMS);
+
+        gateway.createEvent(grantId, call);
+
+        JsonNode body = JSON.readTree(microsoft.bodyOf("POST /graph/v1.0/me/events"));
+        assertThat(body.has("isOnlineMeeting")).isFalse();
+        assertThat(body.has("onlineMeetingProvider")).isFalse();
+        microsoft.createEventAnswers(503);
+        assertThatThrownBy(() -> gateway.createEvent(grantId, call)).isInstanceOf(VendorException.class);
+        assertThat(microsoft.requested()).filteredOn("POST /graph/v1.0/me/events"::equals).hasSize(2);
+    }
+
+    @Test
     @DisplayName("a revoke forgets the token held in memory; Graph has nothing to call")
     void revokeForgetsTheToken() {
         String grantId = MailboxGrants.mintDirect("microsoft");
@@ -264,6 +370,16 @@ class MicrosoftMailboxGatewayTest {
     /** Microsoft's answers, as its documentation records them, and every request it was sent. */
     private static final class RecordedMicrosoft {
 
+        private static final String TEAMS_EVENT = """
+                {"id":"AAMkTeams","subject":"Confidential: first conversation","type":"singleInstance",
+                 "isAllDay":false,"isCancelled":false,
+                 "start":{"dateTime":"2026-10-06T06:00:00.0000000","timeZone":"UTC"},
+                 "end":{"dateTime":"2026-10-06T06:30:00.0000000","timeZone":"UTC"},
+                 "attendees":[{"type":"required","emailAddress":{"name":"Priya Raman","address":"priya@client.example"}}],
+                 "organizer":{"emailAddress":{"name":"Yara Haddad","address":"yara.haddad@meridian.example"}},
+                 "isOnlineMeeting":true,"onlineMeetingProvider":"teamsForBusiness",
+                 "onlineMeeting":{"joinUrl":"https://teams.microsoft.com/l/meetup-join/19%3ameeting_abc%40thread.v2/0"}}""";
+
         private final List<String> requested = new CopyOnWriteArrayList<>();
         private final Map<String, String> bodies = new ConcurrentHashMap<>();
         private final Map<String, String> authorizations = new ConcurrentHashMap<>();
@@ -274,6 +390,9 @@ class MicrosoftMailboxGatewayTest {
         private volatile int refreshStatus = 200;
         private volatile int sendStatus = 202;
         private volatile String refreshBody;
+        private volatile int createEventStatus = 201;
+        private volatile boolean scheduleError;
+        private volatile boolean offersTeams = true;
 
         void answer(HttpExchange exchange) throws IOException {
             String path = exchange.getRequestURI().getPath();
@@ -284,7 +403,7 @@ class MicrosoftMailboxGatewayTest {
             lastPath = path;
             lastQuery = exchange.getRequestURI().getQuery() == null ? "" : exchange.getRequestURI().getQuery();
             authorizations.put(path, String.valueOf(exchange.getRequestHeaders().getFirst("Authorization")));
-            prefers.putIfAbsent(path, String.valueOf(exchange.getRequestHeaders().getFirst("Prefer")));
+            prefers.putIfAbsent(path, String.join(", ", exchange.getRequestHeaders().getOrDefault("Prefer", List.of())));
 
             if (path.endsWith("/oauth2/v2.0/token")) {
                 lastForm = body;
@@ -296,6 +415,55 @@ class MicrosoftMailboxGatewayTest {
                         {"token_type":"Bearer","scope":"Mail.ReadWrite Mail.Send User.Read Calendars.ReadWrite",
                          "expires_in":4632,"ext_expires_in":4632,"access_token":"eyJ0eXAi.access",
                          "refresh_token":"M.C123_refresh"}""");
+            } else if (key.equals("GET /graph/v1.0/me/calendarView")) {
+                respond(exchange, 200, lastQuery.contains("skip=250") ? """
+                        {"value":[
+                          {"id":"AAMkPage2","subject":"Debrief","type":"singleInstance","isAllDay":false,
+                           "isCancelled":false,
+                           "start":{"dateTime":"2026-10-08T06:00:00.0000000","timeZone":"UTC"},
+                           "end":{"dateTime":"2026-10-08T06:30:00.0000000","timeZone":"UTC"},
+                           "attendees":[{"emailAddress":{"address":"priya@client.example"}}],
+                           "organizer":{"emailAddress":{"address":"yara.haddad@meridian.example"}},
+                           "onlineMeeting":null,"onlineMeetingProvider":"unknown"}
+                        ]}""" : """
+                        {"@odata.nextLink":"https://evil.example/v1.0/me/calendarView?startDateTime=2026-07-05T00%%3A00%%3A00Z&%%24skip=250",
+                         "value":[
+                          %s,
+                          {"id":"AAMkWeeklyOccurrence","subject":"Weekly","type":"occurrence",
+                           "seriesMasterId":"AAMkWeekly","isAllDay":false,"isCancelled":false,
+                           "start":{"dateTime":"2026-10-07T06:00:00.0000000","timeZone":"UTC"},
+                           "end":{"dateTime":"2026-10-07T06:30:00.0000000","timeZone":"UTC"},
+                           "attendees":[{"emailAddress":{"address":"priya@client.example"}}]},
+                          {"id":"AAMkOffsite","subject":"Offsite","type":"singleInstance","isAllDay":true,
+                           "start":{"dateTime":"2026-10-09T00:00:00.0000000","timeZone":"UTC"},
+                           "end":{"dateTime":"2026-10-10T00:00:00.0000000","timeZone":"UTC"}},
+                          {"id":"AAMkCancelled","subject":"Moved","type":"singleInstance","isCancelled":true,
+                           "start":{"dateTime":"2026-10-09T06:00:00.0000000","timeZone":"UTC"},
+                           "end":{"dateTime":"2026-10-09T06:30:00.0000000","timeZone":"UTC"}}
+                        ]}""".formatted(TEAMS_EVENT));
+            } else if (key.equals("POST /graph/v1.0/me/calendar/getSchedule")) {
+                respond(exchange, 200, scheduleError ? """
+                        {"value":[{"scheduleId":"yara.haddad@meridian.example",
+                          "error":{"message":"The mailbox could not be found","responseCode":"ErrorMailRecipientNotFound"}}]}""" : """
+                        {"value":[{"scheduleId":"yara.haddad@meridian.example","availabilityView":"0220",
+                          "scheduleItems":[
+                            {"status":"busy","start":{"dateTime":"2026-10-06T05:00:00.0000000","timeZone":"UTC"},
+                             "end":{"dateTime":"2026-10-06T06:00:00.0000000","timeZone":"UTC"}},
+                            {"status":"free","start":{"dateTime":"2026-10-06T07:00:00.0000000","timeZone":"UTC"},
+                             "end":{"dateTime":"2026-10-06T08:00:00.0000000","timeZone":"UTC"}},
+                            {"status":"tentative","start":{"dateTime":"2026-10-07T05:00:00.0000000","timeZone":"UTC"},
+                             "end":{"dateTime":"2026-10-07T05:30:00.0000000","timeZone":"UTC"}},
+                            {"status":"workingElsewhere","start":{"dateTime":"2026-10-07T07:00:00.0000000","timeZone":"UTC"},
+                             "end":{"dateTime":"2026-10-07T08:00:00.0000000","timeZone":"UTC"}},
+                            {"status":"unknown","start":{"dateTime":"2026-10-08T05:00:00.0000000","timeZone":"UTC"},
+                             "end":{"dateTime":"2026-10-08T05:30:00.0000000","timeZone":"UTC"}}]}]}""");
+            } else if (key.equals("GET /graph/v1.0/me/calendar")) {
+                respond(exchange, 200, offersTeams
+                        ? "{\"allowedOnlineMeetingProviders\":[\"teamsForBusiness\"]}"
+                        : "{\"allowedOnlineMeetingProviders\":[]}");
+            } else if (key.equals("POST /graph/v1.0/me/events")) {
+                respond(exchange, createEventStatus, createEventStatus == 201 ? TEAMS_EVENT
+                        : "{\"error\":{\"code\":\"ServiceUnavailable\"}}");
             } else if (path.equals("/graph/v1.0/me")) {
                 respond(exchange, 200, """
                         {"@odata.context":"https://graph.microsoft.com/v1.0/$metadata#users(mail,userPrincipalName)/$entity",
@@ -337,6 +505,18 @@ class MicrosoftMailboxGatewayTest {
 
         void sendAnswers(int status) {
             this.sendStatus = status;
+        }
+
+        void createEventAnswers(int status) {
+            this.createEventStatus = status;
+        }
+
+        void scheduleAnswersError() {
+            this.scheduleError = true;
+        }
+
+        void calendarOffersTeams(boolean offers) {
+            this.offersTeams = offers;
         }
 
         void clearRequests() {

@@ -268,9 +268,6 @@ public enum ErrorCode {
     /** No mail service is configured, so no mailbox can be connected or send. */
     MAILBOX_UNAVAILABLE(HttpStatus.CONFLICT, "Outreach email is not set up on this deployment"),
 
-    /** A mailbox connected through our own gateway, whose calendar is not read yet (#647). */
-    MAILBOX_CALENDAR_UNSUPPORTED(HttpStatus.CONFLICT, "Your mailbox's calendar can't be used from Uncava yet"),
-
     /** Only the mailbox hosts the deployment lists may be connected. */
     MAILBOX_PROVIDER_UNSUPPORTED(HttpStatus.BAD_REQUEST, "That kind of mailbox cannot be connected"),
 

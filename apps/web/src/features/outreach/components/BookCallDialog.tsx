@@ -25,6 +25,13 @@ const VIDEO_LINKS: { value: MeetingVideo; label: string }[] = [
   { value: "NONE", label: "No video link" },
 ];
 
+/** A calendar makes only its own provider's link: Meet from Google, Teams from Microsoft. */
+function videoLinksFor(provider: string | undefined) {
+  if (provider === "google") return VIDEO_LINKS.filter((option) => option.value !== "MICROSOFT_TEAMS");
+  if (provider === "microsoft") return VIDEO_LINKS.filter((option) => option.value !== "GOOGLE_MEET");
+  return VIDEO_LINKS;
+}
+
 const DEFAULT_TITLE = "Confidential: first conversation";
 
 /**
@@ -63,7 +70,13 @@ export function BookCallDialog({
     queryFn: ({ signal }) => meetingApi.getMeetingSlots(projectId, candidateId, minutes, signal),
   });
   const timeZone = slots.data?.timeZone;
-  const video: MeetingVideo = chosenVideo ?? (slots.data?.provider === "microsoft" ? "MICROSOFT_TEAMS" : "GOOGLE_MEET");
+  const videoLinks = videoLinksFor(slots.data?.provider);
+  const video: MeetingVideo =
+    chosenVideo !== null && videoLinks.some((option) => option.value === chosenVideo)
+      ? chosenVideo
+      : slots.data?.provider === "microsoft"
+        ? "MICROSOFT_TEAMS"
+        : "GOOGLE_MEET";
   const isSlotOffered = slot !== null && (slots.data?.days.some((day) => day.starts.includes(slot)) ?? false);
 
   const book = useMutation({
@@ -136,7 +149,7 @@ export function BookCallDialog({
             onChange={(event) => setChosenVideo(event.target.value as MeetingVideo)}
             className="w-auto px-2 py-1 text-[12.5px]"
           >
-            {VIDEO_LINKS.map((option) => (
+            {videoLinks.map((option) => (
               <option key={option.value} value={option.value}>
                 {option.label}
               </option>
@@ -144,6 +157,11 @@ export function BookCallDialog({
           </Select>
         </label>
       </div>
+      {video === "MICROSOFT_TEAMS" && (
+        <p className="-mt-2 mb-3 text-[12px] text-u-text3">
+          Where your organisation doesn't offer Teams, the invite goes without a link.
+        </p>
+      )}
 
       {slots.isPending ? (
         <Skeleton className="mb-4 h-40 w-full" />

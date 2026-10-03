@@ -11,22 +11,21 @@ import app.lightmove.api.core.resilience.service.VendorClientFactory;
 import app.lightmove.api.core.resilience.service.VendorRateLimiter;
 import app.lightmove.api.outreach.constant.IntegrationProvider;
 import app.lightmove.api.outreach.model.BookingPageSpec;
-import app.lightmove.api.outreach.model.BusyInterval;
 import app.lightmove.api.outreach.model.CalendarEvent;
 import app.lightmove.api.outreach.model.GrantedMailbox;
 import app.lightmove.api.outreach.model.MailboxEvent;
 import app.lightmove.api.outreach.model.MailboxGrants;
-import app.lightmove.api.outreach.model.NewCalendarEvent;
 import app.lightmove.api.outreach.model.ProviderCredentials;
 import app.lightmove.api.outreach.model.ProviderTokenGrant;
 import app.lightmove.api.outreach.model.ReleasedGrant;
 import java.net.URI;
 import java.time.Duration;
-import java.time.Instant;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 import java.util.UUID;
 import java.util.function.Function;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.web.client.RestClient;
 import org.springframework.web.util.UriComponentsBuilder;
 import tools.jackson.databind.JsonNode;
@@ -36,11 +35,15 @@ import tools.jackson.databind.JsonNode;
  * screen's shared parameters, the code's redemption and the provider API's client. A provider supplies its consent
  * endpoint, how it reads the mailbox's address, and the mail itself.
  */
+@Slf4j
 public abstract class OAuthDirectMailboxGateway implements DirectMailboxGateway {
 
     /** A thread an outreach run writes into is a handful of messages. */
     static final Duration READ_TIMEOUT = Duration.ofSeconds(30);
     private static final int REQUESTS_PER_SECOND = 10;
+
+    /** A full diary either side of today; a calendar past it is read no further, and the log says so. */
+    static final int MAX_EVENT_PAGES = 10;
 
     private final IntegrationProvider integrationProvider;
     private final String providerName;
@@ -168,21 +171,6 @@ public abstract class OAuthDirectMailboxGateway implements DirectMailboxGateway 
     }
 
     @Override
-    public List<CalendarEvent> calendarEvents(String grantId, Instant from, Instant to) {
-        throw calendarNotYet();
-    }
-
-    @Override
-    public List<BusyInterval> busyTimes(String grantId, String address, Instant from, Instant to) {
-        throw calendarNotYet();
-    }
-
-    @Override
-    public CalendarEvent createEvent(String grantId, NewCalendarEvent event) {
-        throw calendarNotYet();
-    }
-
-    @Override
     public boolean isBookingPageOffered() {
         return false;
     }
@@ -231,9 +219,68 @@ public abstract class OAuthDirectMailboxGateway implements DirectMailboxGateway 
                 .orElseThrow(() -> ApiException.of(ErrorCode.MAILBOX_UNAVAILABLE));
     }
 
-    /** The calendar on our own gateway is #647's; until then a direct mailbox's meetings are not read. */
-    private static ApiException calendarNotYet() {
-        return ApiException.of(ErrorCode.MAILBOX_CALENDAR_UNSUPPORTED);
+    /**
+     * The events of a paged read, page by page from {@code first} until {@code nextOf} answers null, each item of
+     * {@code itemsField} kept where {@code eventOf} reads one. Capped at {@link #MAX_EVENT_PAGES}.
+     */
+    protected <C> List<CalendarEvent> pagedEvents(String grantId, C first, Function<C, JsonNode> fetchPage,
+                                                  String itemsField, Function<JsonNode, CalendarEvent> eventOf,
+                                                  Function<JsonNode, C> nextOf) {
+        List<CalendarEvent> events = new ArrayList<>();
+        C cursor = first;
+        for (int page = 0; page < MAX_EVENT_PAGES; page++) {
+            JsonNode answer = fetchPage.apply(cursor);
+            if (answer == null) {
+                return events;
+            }
+            for (JsonNode item : answer.path(itemsField)) {
+                CalendarEvent read = eventOf.apply(item);
+                if (read != null) {
+                    events.add(read);
+                }
+            }
+            cursor = nextOf.apply(answer);
+            if (cursor == null) {
+                return events;
+            }
+        }
+        log.warn("The {} calendar of grant {} was read for {} pages with more to come; later events are not kept",
+                providerName, grantId, MAX_EVENT_PAGES);
+        return events;
+    }
+
+    /**
+     * An event the provider answered 2xx for but that cannot be read was still created, and its invite sent: it is
+     * never created again, and the booking is told it has no event to record.
+     */
+    protected CalendarEvent requireCreated(String grantId, CalendarEvent created) {
+        if (created == null) {
+            log.error("The {} calendar created an event for grant {} that could not be read; its invite went out",
+                    providerName, grantId);
+            throw new VendorException(vendorCall("create-event"), VendorFailureKind.MALFORMED_RESPONSE, null);
+        }
+        return created;
+    }
+
+    /** Every attendee's address the provider gave, then the organizer's. */
+    protected static List<String> participantsOf(JsonNode attendees, Function<JsonNode, JsonNode> addressOf,
+                                                  String organizer) {
+        List<String> participants = new ArrayList<>();
+        for (JsonNode attendee : attendees) {
+            String address = textOrNull(addressOf.apply(attendee));
+            if (address != null) {
+                participants.add(address);
+            }
+        }
+        if (organizer != null) {
+            participants.add(organizer);
+        }
+        return participants;
+    }
+
+    /** A free/busy answer with a calendar the provider could not read: never free time. */
+    protected VendorException unreadableCalendar() {
+        return new VendorException(vendorCall("free-busy"), VendorFailureKind.UNAVAILABLE, null);
     }
 
     protected static String textOrNull(JsonNode node) {
