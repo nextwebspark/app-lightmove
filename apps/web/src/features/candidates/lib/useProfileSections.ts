@@ -50,7 +50,7 @@ const OPEN_ON_EVERY_PROFILE: readonly ProfileSection[] = ["summary", "experience
 /**
  * Which sections of an executive's profile are unfolded, remembered per viewer and per section
  * rather than per person: a reader who folds Compensation is saying what they read first, not
- * something about one candidate. Summary and Experience are the exception and always reopen. Local, like column visibility — a fold is not worth an audit event.
+ * something about one candidate. Local, like column visibility — a fold is not worth an audit event.
  */
 export function useProfileSections() {
   const [open, setOpen] = useState<OpenState>(read);

@@ -39,7 +39,8 @@ export function PersonTagsSection({ person }: { person: PersonRecord }) {
               type="button"
               aria-label={`Remove tag ${tag.label}`}
               onClick={() => untagging.mutate(tag.id)}
-              className="-ms-1 grid size-4 place-items-center rounded-full text-u-text3 hover:text-u-text"
+              disabled={untagging.isPending}
+              className="-ms-1 grid size-4 place-items-center rounded-full text-u-text3 hover:text-u-text disabled:opacity-50"
             >
               <Icon d={ICONS.close} size={10} />
             </button>
