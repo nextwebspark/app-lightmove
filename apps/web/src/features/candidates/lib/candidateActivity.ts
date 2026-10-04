@@ -36,6 +36,8 @@ const STOP_REASONS: Record<string, string> = {
   UNMAPPED: "Removed from the position",
   ADDRESS_REMOVED: "The address was removed",
   MAILBOX_INACTIVE: "The sender's mailbox was disconnected",
+  MAILBOX_MOVED: "The sender reconnected their mailbox",
+  BOOKING_LINK_UNAVAILABLE: "The sender's booking link had no page behind it",
   SEND_FAILED: "The mail service refused the email",
   SEND_UNCERTAIN: "A send may not have gone through, so nothing more was sent",
   BOUNCED: "The address bounced",
@@ -220,7 +222,8 @@ const DOCUMENT_NOUNS: Record<string, string> = {
 
 /** The line names the category; the document's own title is the detail, and only while it exists. */
 function documentOf(category: string | undefined, article: "a" | "the"): string {
-  return `${article} ${DOCUMENT_NOUNS[category ?? "OTHER"] ?? "document"}`;
+  const noun = DOCUMENT_NOUNS[category ?? "OTHER"] ?? "document";
+  return `${article === "a" && /^[aeiou]/.test(noun) ? "an" : article} ${noun}`;
 }
 
 /**

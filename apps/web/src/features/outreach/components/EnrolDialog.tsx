@@ -283,9 +283,10 @@ export function EnrolDialog({
       onClose={onClose}
       title="Add to sequence"
       footer={footer}
+      headerAside={<Stepper current={step} />}
+      closeButton
       className={step === "review" ? "md:w-[900px]" : "md:w-[680px]"}
     >
-      <Stepper current={step} />
       {step === "choose" && (
         <ChooseStep
           projectId={projectId}
@@ -343,7 +344,7 @@ export function EnrolDialog({
 function Stepper({ current }: { current: EnrolStep }) {
   const currentIndex = STEPS.findIndex((step) => step.id === current);
   return (
-    <ol className="mb-4 flex items-center gap-2 font-mono text-[12px]">
+    <ol className="flex items-center gap-2 font-mono text-[12px] font-normal">
       {STEPS.map((step, index) => (
         <li
           key={step.id}

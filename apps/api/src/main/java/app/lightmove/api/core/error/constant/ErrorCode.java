@@ -290,6 +290,19 @@ public enum ErrorCode {
     /** Never retried on our side, so nothing went twice; trying again may still find the first one delivered. */
     MAILBOX_SEND_FAILED(HttpStatus.BAD_GATEWAY, "The email could not be sent. Try again in a moment"),
 
+    /** No Zoom app resolves for the workspace — neither Uncava's nor its own — so Zoom cannot be connected. */
+    ZOOM_UNAVAILABLE(HttpStatus.CONFLICT, "Zoom is not set up for your workspace"),
+
+    ZOOM_NOT_CONNECTED(HttpStatus.CONFLICT, "Connect Zoom first"),
+
+    /** Zoom refused the stored token; nothing was made, and only reconnecting helps. */
+    ZOOM_RECONNECT_NEEDED(HttpStatus.CONFLICT, "Your Zoom account needs reconnecting"),
+
+    /** The consultant backed out on Zoom's screen; the SPA says nothing. */
+    ZOOM_CONNECT_CANCELLED(HttpStatus.BAD_REQUEST, "Zoom was not connected"),
+
+    ZOOM_CONNECT_FAILED(HttpStatus.BAD_GATEWAY, "Zoom could not be connected. Try again"),
+
     /** A sequence people are on keeps their history: it can be edited, never deleted. */
     OUTREACH_SEQUENCE_IN_USE(HttpStatus.CONFLICT, "People are on this sequence, so it cannot be deleted"),
 
@@ -328,6 +341,13 @@ public enum ErrorCode {
 
     /** The booking page behind the link could not be made; nothing was started or sent. */
     OUTREACH_BOOKING_LINK_FAILED(HttpStatus.BAD_GATEWAY, "Your booking page couldn't be set up. Try again"),
+
+    /** No credential encryption key is configured, so a workspace's own app keys cannot be stored or read. */
+    INTEGRATION_ENCRYPTION_UNAVAILABLE(HttpStatus.CONFLICT,
+            "Your own app's keys cannot be stored on this deployment. Use the shared app"),
+
+    /** An approval for Uncava's shared app on a deployment that offers none at that provider. */
+    INTEGRATION_SHARED_APP_UNAVAILABLE(HttpStatus.CONFLICT, "Uncava's shared app is not offered on this deployment"),
 
     /** A webhook delivery whose signature did not verify, or one this deployment is not set up to read. */
     MAILBOX_WEBHOOK_REJECTED(HttpStatus.UNAUTHORIZED, "Unauthorized"),

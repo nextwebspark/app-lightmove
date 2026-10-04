@@ -61,6 +61,15 @@ public interface WorkspaceMemberRepository extends JpaRepository<WorkspaceMember
             """)
     Set<String> findActionNames(@Param("memberId") UUID memberId);
 
+    /** The users whose membership grants {@code actionName}: who a workspace-wide notice goes to. */
+    @Query("""
+            select distinct m.userId from WorkspaceMember m join m.roles r join r.actions a
+            where m.workspaceId = :workspaceId and m.status = :status and a.name = :actionName
+            """)
+    List<UUID> findUserIdsHoldingAction(@Param("workspaceId") UUID workspaceId,
+                                        @Param("actionName") String actionName,
+                                        @Param("status") MemberStatus status);
+
     /** Backs the last-admin guard. */
     @Query("""
             select count(distinct m.id) from WorkspaceMember m join m.roles r

@@ -24,6 +24,7 @@ import app.lightmove.api.outreach.model.MailboxAccessWithdrawn;
 import app.lightmove.api.outreach.model.MailboxEvent;
 import app.lightmove.api.outreach.model.NewCalendarEvent;
 import app.lightmove.api.outreach.model.OutgoingEmail;
+import app.lightmove.api.outreach.model.ReleasedGrant;
 import app.lightmove.api.outreach.model.SentEmail;
 import java.net.URI;
 import java.nio.charset.StandardCharsets;
@@ -158,9 +159,9 @@ public class NylasMailboxGateway implements MailboxGateway {
     }
 
     @Override
-    public void revoke(String grantId) {
+    public void revoke(ReleasedGrant released) {
         guard.call(VendorCall.of(VENDOR, "revoke"), () -> client.delete()
-                .uri("/v3/grants/{grantId}", grantId)
+                .uri("/v3/grants/{grantId}", released.grantId())
                 .retrieve()
                 .toBodilessEntity());
     }
@@ -285,6 +286,10 @@ public class NylasMailboxGateway implements MailboxGateway {
         body.put("when", Map.of("start_time", event.startsAt().getEpochSecond(),
                 "end_time", event.endsAt().getEpochSecond()));
         body.put("participants", List.of(Map.of("email", event.inviteeAddress())));
+        if (event.joinUrl() != null) {
+            body.put("location", event.joinUrl());
+            body.put("description", event.joinNote());
+        }
         String conferencing = conferencingProviderOf(event.video());
         if (conferencing != null) {
             body.put("conferencing", Map.of("provider", conferencing, "autocreate", Map.of()));
@@ -374,7 +379,7 @@ public class NylasMailboxGateway implements MailboxGateway {
         return switch (video) {
             case GOOGLE_MEET -> "Google Meet";
             case MICROSOFT_TEAMS -> "Microsoft Teams";
-            case NONE -> null;
+            case ZOOM, NONE -> null;
         };
     }
 
@@ -423,10 +428,16 @@ public class NylasMailboxGateway implements MailboxGateway {
             participants.add(organizer);
         }
         JsonNode conferencing = event.path("conferencing");
+        String joinUrl = textOrNull(conferencing.path("details").path("url"));
+        String provider = textOrNull(conferencing.path("provider"));
+        String zoomUrl = joinUrl == null ? ZoomLinks.joinUrlIn(textOrNull(event.path("location"))) : null;
+        if (zoomUrl != null) {
+            joinUrl = zoomUrl;
+            provider = ZoomLinks.PROVIDER;
+        }
         return new CalendarEvent(id, textOrNull(event.path("title")),
                 Instant.ofEpochSecond(when.path("start_time").asLong()),
-                Instant.ofEpochSecond(when.path("end_time").asLong()), participants,
-                textOrNull(conferencing.path("details").path("url")), textOrNull(conferencing.path("provider")));
+                Instant.ofEpochSecond(when.path("end_time").asLong()), participants, joinUrl, provider);
     }
 
     @Override

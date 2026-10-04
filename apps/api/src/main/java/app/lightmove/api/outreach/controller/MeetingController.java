@@ -9,6 +9,7 @@ import app.lightmove.api.outreach.dto.PersonMeetingsResponse;
 import app.lightmove.api.outreach.service.MeetingService;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
+import java.time.LocalDate;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
@@ -43,8 +44,10 @@ public class MeetingController {
     @GetMapping("/slots")
     @RequireProjectPermission(ProjectAction.WORK_EXECUTE)
     public MeetingSlotsResponse slots(@AuthenticationPrincipal AuthPrincipal principal, @PathVariable UUID projectId,
-                                      @PathVariable UUID candidateId, @RequestParam(defaultValue = "30") int minutes) {
-        return meetings.slots(principal.userId(), principal.requireWorkspaceId(), projectId, candidateId, minutes);
+                                      @PathVariable UUID candidateId, @RequestParam(defaultValue = "30") int minutes,
+                                      @RequestParam(required = false) LocalDate from) {
+        return meetings.slots(principal.userId(), principal.requireWorkspaceId(), projectId, candidateId, minutes,
+                from);
     }
 
     @PostMapping

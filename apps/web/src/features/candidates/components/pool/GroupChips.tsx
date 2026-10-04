@@ -1,5 +1,5 @@
+import { Chip } from "../../../../components/ui/Chip";
 import { useRadioGroupKeys } from "../../../../components/ui/useRadioGroupKeys";
-import { cn } from "../../../../lib/cn";
 import type { TimelineGroup } from "../../api/types";
 import { TIMELINE_GROUPS } from "../../lib/timelineGroups";
 
@@ -26,22 +26,16 @@ export function GroupChips({
       className="flex flex-wrap gap-1.5"
     >
       {TIMELINE_GROUPS.map((option) => (
-        <button
+        <Chip
           key={option.label}
-          type="button"
           role="radio"
           aria-checked={value === option.value}
           tabIndex={value === option.value ? 0 : -1}
+          selected={value === option.value}
           onClick={() => onChange(option.value)}
-          className={cn(
-            "rounded-full border px-2.5 py-0.5 font-mono text-[11px] transition",
-            value === option.value
-              ? "border-u-accent bg-u-accent-tint text-u-accent"
-              : "border-u-border text-u-text3 hover:text-u-text2",
-          )}
         >
           {option.label}
-        </button>
+        </Chip>
       ))}
     </div>
   );

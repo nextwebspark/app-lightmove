@@ -155,6 +155,39 @@ public class EmailTemplates {
                         new EmailAction("Open the search", projectLink)));
     }
 
+    /** To a workspace's admins, ahead of its own OAuth app's client secret lapsing and on the day it does. */
+    public EmailMessage buildIntegrationSecretExpiryEmail(String recipient, String recipientName, String workspaceName,
+                                                          String providerName, String expiresOn, long daysLeft,
+                                                          String settingsLink) {
+        boolean expired = daysLeft < 0;
+        String subject = expired
+                ? "Your %s app's client secret has expired".formatted(providerName)
+                : daysLeft == 0
+                        ? "Your %s app's client secret expires today".formatted(providerName)
+                        : "Your %s app's client secret expires on %s".formatted(providerName, expiresOn);
+        EmailParagraph lead = expired
+                ? EmailParagraph.of("Hi %s — the client secret of %s's own %s app expired on %s. Mail, calendars "
+                                + "and links that go through it stop working until a new secret is saved.",
+                        plain(firstName(recipientName)), strong(workspaceName), plain(providerName), strong(expiresOn))
+                : daysLeft == 0
+                ? EmailParagraph.of("Hi %s — the client secret of %s's own %s app expires today, %s. When it "
+                                + "does, mail, calendars and links that go through it stop working until a new "
+                                + "secret is saved.",
+                        plain(firstName(recipientName)), strong(workspaceName), plain(providerName), strong(expiresOn))
+                : EmailParagraph.of("Hi %s — the client secret of %s's own %s app expires on %s, in %s %s. "
+                                + "When it does, mail, calendars and links that go through it stop working until "
+                                + "a new secret is saved.",
+                        plain(firstName(recipientName)), strong(workspaceName), plain(providerName), strong(expiresOn),
+                        plain(String.valueOf(daysLeft)), plain(daysLeft == 1 ? "day" : "days"));
+        return renderer.render(recipient, subject, EmailContent.of(
+                expired ? "A client secret has expired" : daysLeft == 0 ? "A client secret expires today"
+                        : "A client secret expires soon",
+                lead,
+                new EmailAction("Open Integrations", settingsLink),
+                EmailNote.of("Create a new secret in the provider's console, then paste it and its new expiry "
+                        + "date into Settings → Integrations. You get this because you manage the workspace.")));
+    }
+
     private static String firstName(String fullName) {
         if (fullName == null || fullName.isBlank()) {
             return "there";

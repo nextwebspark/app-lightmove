@@ -25,12 +25,12 @@ class EmailTemplatesTest {
 
     private final EmailTemplates templates = new EmailTemplates(new LightMoveProperties(
             null, null, new WebSettings(BASE_URL, List.of(), "/auth/callback", 0),
-            null, null, null, null, null, null, null, null, null, null, null, null, null, null, null));
+            null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null));
 
     @Test
     @DisplayName("every one renders, subject and both bodies, under one brand")
     void allRender() {
-        assertThat(everyEmail()).hasSize(10).allSatisfy(message -> {
+        assertThat(everyEmail()).hasSize(13).allSatisfy(message -> {
             assertThat(message.subject()).isNotBlank();
             assertThat(message.textBody()).isNotBlank();
             assertThat(message.htmlBody())
@@ -63,6 +63,21 @@ class EmailTemplatesTest {
         assertThat(message.textBody()).contains("You are now a lead on it.");
     }
 
+    @Test
+    @DisplayName("a secret expiring is counted down, called today on its day, and expired only after it")
+    void secretExpiryNamesTheDay() {
+        assertThat(secretExpiryEmail(7).subject())
+                .isEqualTo("Your Microsoft 365 app's client secret expires on 15 March 2031");
+        assertThat(secretExpiryEmail(7).textBody()).contains("in 7 days");
+        assertThat(secretExpiryEmail(0).subject()).isEqualTo("Your Microsoft 365 app's client secret expires today");
+        assertThat(secretExpiryEmail(-1).subject()).isEqualTo("Your Microsoft 365 app's client secret has expired");
+    }
+
+    private EmailMessage secretExpiryEmail(long daysLeft) {
+        return templates.buildIntegrationSecretExpiryEmail("n@x.ae", "Nadia Rahman", "Alac Partners",
+                "Microsoft 365", "15 March 2031", daysLeft, BASE_URL + "/settings/integrations");
+    }
+
     private List<EmailMessage> everyEmail() {
         return List.of(
                 templates.buildVerificationEmail("n@x.ae", "Nadia Rahman", LINK),
@@ -79,6 +94,9 @@ class EmailTemplatesTest {
                 templates.buildAddedToProjectEmail("n@x.ae", "Nadia Rahman", "Alok Sharma", "Group CFO",
                         "Meridian Energy", "RESEARCHER", PROJECT_LINK),
                 templates.buildProjectRoleChangedEmail("n@x.ae", "Nadia Rahman", "Alok Sharma",
-                        "Group CFO", "Meridian Energy", "LEAD", PROJECT_LINK));
+                        "Group CFO", "Meridian Energy", "LEAD", PROJECT_LINK),
+                secretExpiryEmail(7),
+                secretExpiryEmail(0),
+                secretExpiryEmail(-1));
     }
 }

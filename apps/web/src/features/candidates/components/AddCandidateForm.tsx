@@ -5,7 +5,7 @@ import { useRef, useState, type ReactNode } from "react";
 import { FormProvider, useForm } from "react-hook-form";
 import { Icon, ICONS } from "../../../components/layout/Icon";
 import { Button, FormError, useToast } from "../../../components/ui";
-import { DrawerCloseButton } from "../../../components/ui/Drawer";
+import { PanelCloseButton } from "../../../components/ui/PanelCloseButton";
 import { ApiRequestError } from "../../../lib/apiClient";
 import { codeOf, messageFor } from "../../../lib/errorCodes";
 import { useSubmitShortcut } from "../../../lib/useSubmitShortcut";
@@ -132,7 +132,7 @@ export function AddCandidateForm({
   return (
     <>
       <div className="relative flex-none border-b border-u-border px-5 py-4">
-        <DrawerCloseButton onClose={onClose} />
+        <PanelCloseButton onClose={onClose} />
         <h2 className="font-sans text-base font-semibold">Add executive</h2>
         <p className="mt-1 pe-8 font-mono text-[11.5px] text-u-text3">
           {company

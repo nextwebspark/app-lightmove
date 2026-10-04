@@ -117,6 +117,7 @@ describe("timelineLines", () => {
     expect(lineOf({ kind: "DOCUMENT_REMOVED", details: { category: "REFERENCE" } }).text).toBe(
       "deleted a reference",
     );
+    expect(lineOf({ kind: "DOCUMENT_ADDED", details: { category: "ASSESSMENT" } }).text).toBe("uploaded an assessment");
   });
 
   it("names whom a line is about in the workspace feed", () => {

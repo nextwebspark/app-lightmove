@@ -9,6 +9,7 @@ import app.lightmove.api.core.config.OutreachSettings;
 import app.lightmove.api.core.resilience.constant.VendorFailureKind;
 import app.lightmove.api.core.resilience.model.VendorException;
 import app.lightmove.api.outreach.constant.EnrollmentStatus;
+import app.lightmove.api.outreach.constant.MailboxGatewayKind;
 import app.lightmove.api.outreach.constant.OutreachStopReason;
 import app.lightmove.api.outreach.model.MailboxConnection;
 import app.lightmove.api.outreach.model.OutgoingEmail;
@@ -53,6 +54,7 @@ public class OutreachSendService {
     private static final String REPLY_PREFIX = "Re: ";
 
     private static final Duration RATE_LIMITED_PAUSE = Duration.ofMinutes(1);
+    private static final Duration APP_UNAVAILABLE_PAUSE = Duration.ofHours(1);
 
     private final BookingPages bookingPages;
     private final OutreachEnrollmentClaims claims;
@@ -160,6 +162,10 @@ public class OutreachSendService {
             enrollment.complete();
             return null;
         }
+        if (enrollment.getThreadGateway() != null && enrollment.getThreadGateway() != mailbox.getGateway()) {
+            outcomes.stop(enrollment, OutreachStopReason.MAILBOX_MOVED, null, now, null);
+            return null;
+        }
 
         SendingWindow window = SendingWindow.of(settings());
         ZoneId zone = mailbox.zone();
@@ -226,7 +232,7 @@ public class OutreachSendService {
                 ? SendingWindow.of(settings()).addWorkingDays(now, zoneOf(enrollment),
                         sequence.getSteps().get(following).getDelayWorkingDays())
                 : null;
-        enrollment.markSent(sent, now, followingDue);
+        enrollment.markSent(sent, MailboxGatewayKind.ofGrant(prepared.grantId()), now, followingDue);
         messages.save(OutreachMessage.sent(enrollment, prepared.step(), prepared.email(), sent, now));
         if (enrollment.getCandidateId() != null) {
             people.recordEmailSent(enrollment.getSenderUserId(), enrollment.getProjectId(), enrollment.getCandidateId(),
@@ -244,6 +250,13 @@ public class OutreachSendService {
         OutreachEnrollment enrollment = enrollments.findById(prepared.enrollmentId()).orElseThrow();
         if (!enrollment.isLive()) {
             enrollment.releaseClaim();
+            return;
+        }
+        if (failed instanceof ProviderAppUnavailable) {
+            // The workspace's OAuth app failed before anything left; the run waits for an admin to fix it.
+            log.warn("Outreach send for enrollment {} waits: its workspace's mail app is unavailable",
+                    enrollment.getId());
+            enrollment.deferTo(now.plus(APP_UNAVAILABLE_PAUSE));
             return;
         }
         VendorFailureKind kind = failed instanceof VendorException vendor ? vendor.getKind() : null;

@@ -886,77 +886,6 @@
         </div>
       </sc-if>
 
-      <sc-if value="{{ isCandidates }}" hint-placeholder-val="{{ false }}">
-        <!-- This position's own Candidates page: one row per person mapped to it. The person belongs to the
-             workspace (Candidates.dc.html); the status, the Added line and the custom columns are this position's.
-             A client contact reads Executive, Status and Added only: never tags, the other positions, or the activity. -->
-        <div data-screen-label="Position candidates" style="max-width:1440px;margin:0 auto;padding:28px 28px 60px">
-          <div style="margin-bottom:16px;display:flex;flex-wrap:wrap;align-items:flex-start;gap:16px">
-            <div style="min-width:0">
-              <div style="font:600 19px/1.25 var(--sans)">Candidates</div>
-              <div style="margin-top:4px;font:400 12px var(--mono);color:var(--text3)">{{ pcSub }}</div>
-            </div>
-            <sc-if value="{{ canWrite }}" hint-placeholder-val="{{ true }}">
-              <div style="margin-left:auto;display:flex;flex-wrap:wrap;align-items:center;gap:8px">
-                <a href="Candidates.dc.html" style="display:inline-flex;align-items:center;gap:6px;padding:7px 10px;font:500 13px var(--sans);color:var(--text3)" style-hover="color:var(--text)">All candidates<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="{{ ic.arrowRight }}"></path></svg></a>
-                <button onClick="{{ openAddFromPool }}" style="display:flex;align-items:center;gap:8px;border-radius:8px;padding:7px 14px;font:600 13px var(--sans);background:var(--amber-btn);border:1px solid var(--amber-btn);color:var(--on-amber);cursor:pointer" style-hover="filter:brightness(1.05)"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="{{ ic.userPlus }}"></path></svg>Add from your candidates</button>
-              </div>
-            </sc-if>
-          </div>
-          <div style="margin-bottom:12px;display:flex;flex-wrap:wrap;align-items:center;gap:10px">
-            <div style="display:flex;width:300px;max-width:100%;align-items:center;gap:8px;border-radius:8px;border:1px solid var(--line);background:var(--panel2);padding:7px 11px">
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style="color:var(--text3);flex:none"><path d="{{ ic.search }}"></path></svg>
-              <input value="{{ pcQuery }}" onChange="{{ onPcQuery }}" placeholder="Search executives…" aria-label="Search executives" style="width:100%;background:transparent;border:none;font:400 13px var(--mono);color:var(--text);outline:none">
-            </div>
-            <div style="display:flex;flex-wrap:wrap;gap:6px">
-              <sc-for list="{{ pcChips }}" as="c" hint-placeholder-count="5">
-                <button onClick="{{ setPcStatus }}" data-id="{{ c.key }}" style="display:inline-flex;align-items:center;gap:6px;border-radius:999px;border:1px solid {{ c.border }};padding:5px 11px;font:500 12px var(--mono);color:{{ c.color }};background:{{ c.bg }};cursor:pointer" style-hover="color:var(--text)">{{ c.label }}<span style="color:var(--text3)">{{ c.count }}</span></button>
-              </sc-for>
-            </div>
-          </div>
-          <div role="table" aria-label="Candidates on this position" style="overflow:hidden;border-radius:8px;border:1px solid var(--line);background:var(--panel)">
-            <div style="overflow:auto">
-              <div role="row" style="display:grid;grid-template-columns:{{ pcGrid }};min-width:{{ pcMin }};align-items:center;gap:12px;border-bottom:1px solid var(--line);background:var(--panel2);padding:10px 16px">
-                <sc-for list="{{ pcHeaders }}" as="h" hint-placeholder-count="6"><span role="columnheader" style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font:600 11px var(--sans);text-transform:uppercase;letter-spacing:.04em;color:var(--text3)">{{ h }}</span></sc-for>
-              </div>
-              <sc-for list="{{ pcRows }}" as="r" hint-placeholder-count="8">
-                <div role="row" onClick="{{ openCandidate }}" data-id="{{ r.id }}" style="display:grid;grid-template-columns:{{ pcGrid }};min-width:{{ pcMin }};min-height:56px;align-items:center;gap:12px;border-bottom:1px solid var(--line-soft);padding:0 16px;cursor:pointer" style-hover="background:var(--panel2)">
-                  <div role="cell" style="min-width:0;display:flex;align-items:center;gap:10px">
-                    <span style="{{ r.avStyle }}">{{ r.initials }}</span>
-                    <span style="min-width:0">
-                      <span style="display:flex;align-items:center;gap:6px"><span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font:600 13px var(--sans);color:var(--text)">{{ r.name }}</span><sc-if value="{{ r.dnc }}"><span title="Do not contact" style="display:inline-flex;flex:none;color:var(--red)"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2"><path d="{{ ic.ban }}"></path></svg></span></sc-if></span>
-                      <span style="display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font:400 11.5px var(--mono);color:var(--text3)">{{ r.headline }}</span>
-                    </span>
-                  </div>
-                  <div role="cell" style="min-width:0">
-                    <sc-if value="{{ canWrite }}"><select value="{{ r.status }}" onChange="{{ setCandidateStatus }}" data-id="{{ r.id }}" onClick="{{ stop }}" aria-label="Status of {{ r.name }}" style="max-width:100%;border-radius:6px;border:1px solid var(--line);background:var(--panel2);padding:4px 8px;font:400 12px var(--mono);color:var(--text);outline:none"><sc-for list="{{ statusOptions }}" as="so"><option value="{{ so.value }}">{{ so.label }}</option></sc-for></select></sc-if>
-                    <sc-if value="{{ readOnly }}"><span style="{{ r.statusPill }}">{{ r.statusLabel }}</span></sc-if>
-                  </div>
-                  <sc-if value="{{ pcStaff }}">
-                    <div role="cell" style="min-width:0;display:flex;flex-wrap:wrap;gap:4px"><sc-for list="{{ r.tags }}" as="tg"><span style="{{ tg.style }}">{{ tg.label }}</span></sc-for></div>
-                    <div role="cell" style="min-width:0;display:flex;flex-wrap:wrap;gap:4px">
-                      <sc-for list="{{ r.also }}" as="al"><span title="{{ al.title }}" style="display:inline-flex;align-items:center;gap:5px;white-space:nowrap;border-radius:5px;border:1px solid var(--line-soft);background:var(--panel2);padding:2px 7px;font:500 11.5px var(--sans);color:var(--text2)"><span style="width:6px;height:6px;border-radius:50%;background:{{ al.dot }}"></span>{{ al.label }}</span></sc-for>
-                      <sc-if value="{{ r.noAlso }}"><span style="font:400 12px var(--mono);color:var(--text3)">—</span></sc-if>
-                    </div>
-                  </sc-if>
-                  <div role="cell" style="min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font:400 12px var(--mono);color:var(--text3)">{{ r.added }}</div>
-                  <sc-if value="{{ pcStaff }}">
-                    <div role="cell" style="min-width:0">
-                      <span style="display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font:400 12.5px var(--sans);color:var(--text2)">{{ r.lastWhat }}</span>
-                      <span style="display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font:400 11px var(--mono);color:var(--text3)">{{ r.lastWho }}</span>
-                    </div>
-                  </sc-if>
-                </div>
-              </sc-for>
-              <sc-if value="{{ pcNoRows }}"><div style="padding:40px 16px;text-align:center;font:400 13px var(--mono);color:var(--text3)">Nobody on this position matches. Clear the search or pick another status.</div></sc-if>
-            </div>
-          </div>
-          <sc-if value="{{ canWrite }}" hint-placeholder-val="{{ true }}">
-            <p style="margin:12px 2px 0;font:400 11.5px var(--mono);color:var(--text3)">Anyone added here — from the Companies grid, the plugin, an import or Find executives — joins your workspace candidates too. Someone already there is added to this position, never duplicated.</p>
-          </sc-if>
-        </div>
-      </sc-if>
-
       <sc-if value="{{ isPlaceholder }}" hint-placeholder-val="{{ false }}">
         <div data-screen-label="{{ placeholderTitle }}" style="max-width:1440px;margin:0 auto;padding:28px 28px 60px">
           <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;padding:90px 20px 70px;text-align:center;animation:fadeUp .5s ease both">
@@ -1062,6 +991,12 @@
                 </select>
               </sc-if>
               <sc-if value="{{ readOnly }}" hint-placeholder-val="{{ false }}"><span style="{{ cd.statusPillStyle }}">{{ cd.statusLabel }}</span></sc-if>
+              <sc-if value="{{ cd.hasCv }}">
+                <span data-screen-label="CV chip" style="display:inline-flex;align-items:stretch;border-radius:6px;border:1px solid color-mix(in srgb,var(--amber) 45%,transparent);background:var(--amber-dim);overflow:hidden">
+                  <button onClick="{{ docPreview }}" title="Preview the CV" style="display:inline-flex;align-items:center;gap:5px;padding:3px 8px;font:600 11.5px var(--mono);color:var(--amber);background:none;border:none;cursor:pointer"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="{{ ic.fileText }}"></path></svg>{{ cd.cvLabel }}</button>
+                  <button onClick="{{ docDownload }}" aria-label="Download the CV" title="Download" style="display:grid;place-items:center;padding:0 7px;color:var(--amber);background:none;border:none;border-left:1px solid color-mix(in srgb,var(--amber) 35%,transparent);cursor:pointer"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="{{ ic.importInto }}"></path></svg></button>
+                </span>
+              </sc-if>
             </div>
             <sc-if value="{{ cd.showCrm }}">
               <div style="margin-top:8px;display:flex;flex-wrap:wrap;align-items:center;gap:6px">
@@ -1340,6 +1275,62 @@
                   <sc-if value="{{ cd.noNotes }}"><p style="margin:10px 0 0;font:400 12px var(--mono);color:var(--text3)">No notes yet. A note you save here is shared with the team on every position this person is in.</p></sc-if>
                 </sc-if>
 
+                <sc-if value="{{ sx.isDocuments }}">
+                  <div style="display:flex;align-items:center;gap:10px;border-radius:8px;border:1.5px dashed var(--line);background:var(--panel2);padding:8px 10px">
+                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex:none;color:var(--text3)"><path d="{{ ic.uploadCloud }}"></path></svg>
+                    <span style="min-width:0;flex:1;font:400 11.5px var(--mono);color:var(--text3)">Drop a CV, cover letter or reference here</span>
+                    <button onClick="{{ toggleDocTray }}" style="flex:none;border-radius:6px;padding:5px 11px;font:600 12px var(--sans);background:var(--amber-btn);border:1px solid var(--amber-btn);color:var(--on-amber);cursor:pointer">Upload</button>
+                  </div>
+                  <sc-if value="{{ cd.docTray }}">
+                    <div data-screen-label="Upload tray" style="margin-top:8px;border-radius:8px;border:1px solid var(--line);background:var(--panel);padding:9px 10px">
+                      <div style="display:flex;align-items:center;gap:8px">
+                        <span style="display:grid;width:28px;height:34px;flex:none;place-items:end center;padding-bottom:4px;border-radius:5px;border:1px solid var(--line-soft);background:var(--red-dim);color:var(--red);font:700 8px var(--mono);text-transform:uppercase">pdf</span>
+                        <div style="min-width:0;flex:1"><div style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font:600 12.5px var(--sans);color:var(--text)">Fatima_Al_Mazrouei_CV.pdf</div><div style="margin-top:2px;display:flex;align-items:center;gap:5px;font:500 11.5px var(--sans);color:var(--sky)">New version of Fatima_Al_Mazrouei_CV.pdf (v3 → v4)</div></div>
+                        <span style="flex:none;border-radius:6px;border:1px solid var(--line);background:var(--panel2);padding:3px 8px;font:400 12px var(--mono);color:var(--text)">CV</span>
+                      </div>
+                      <div style="margin-top:8px;display:flex;align-items:center;justify-content:space-between;gap:8px">
+                        <span style="display:inline-flex;align-items:center;gap:7px;font:500 11.5px var(--mono);color:var(--text2)"><span style="position:relative;width:26px;height:15px;border-radius:999px;background:var(--line)"><span style="position:absolute;top:2px;left:2px;width:11px;height:11px;border-radius:50%;background:#fff"></span></span>Keep as a separate document</span>
+                        <button onClick="{{ sendDocTray }}" style="border-radius:6px;padding:5px 11px;font:600 12px var(--sans);background:var(--amber-btn);border:1px solid var(--amber-btn);color:var(--on-amber);cursor:pointer">Upload 1 file</button>
+                      </div>
+                    </div>
+                  </sc-if>
+                  <sc-for list="{{ cd.docs }}" as="dd">
+                    <div style="margin-top:8px;border-radius:8px;border:1px solid {{ dd.border }};padding:9px 11px">
+                      <div style="display:flex;align-items:flex-start;gap:9px">
+                        <span style="{{ dd.badgeStyle }}">{{ dd.ext }}</span>
+                        <div style="min-width:0;flex:1">
+                          <div style="display:flex;flex-wrap:wrap;align-items:center;gap:6px">
+                            <sc-if value="{{ dd.primary }}"><span title="Primary CV" style="display:inline-flex;color:var(--amber)"><svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="1.5"><path d="{{ ic.star }}"></path></svg></span></sc-if>
+                            <span style="min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font:600 12.5px var(--sans);color:var(--text)">{{ dd.title }}</span>
+                            <span style="{{ dd.catStyle }}">{{ dd.cat }}</span>
+                            <span style="border-radius:4px;background:var(--panel2);padding:1px 6px;font:600 10px var(--mono);color:var(--text2)">{{ dd.v }}</span>
+                          </div>
+                          <div style="margin-top:3px;font:400 11px var(--mono);color:var(--text3)">{{ dd.meta }}</div>
+                        </div>
+                        <div style="display:flex;flex:none;gap:2px">
+                          <sc-if value="{{ dd.previewable }}"><button onClick="{{ docPreview }}" title="Preview" style="border-radius:5px;padding:4px;color:var(--text3);background:none;border:none;cursor:pointer" style-hover="background:var(--panel2);color:var(--text)"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="{{ ic.eye }}"></path></svg></button></sc-if>
+                          <button onClick="{{ docDownload }}" title="Download" style="border-radius:5px;padding:4px;color:var(--text3);background:none;border:none;cursor:pointer" style-hover="background:var(--panel2);color:var(--text)"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="{{ ic.importInto }}"></path></svg></button>
+                          <button title="Upload new version · Rename · Change category · Make primary CV · Delete" style="border-radius:5px;padding:4px;color:var(--text3);background:none;border:none;cursor:pointer" style-hover="background:var(--panel2);color:var(--text)"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="{{ ic.moreH }}"></path></svg></button>
+                        </div>
+                      </div>
+                      <sc-if value="{{ dd.hasHistory }}">
+                        <button onClick="{{ toggleDocHist }}" data-id="{{ dd.key }}" style="margin:4px 0 0 31px;padding:2px 0;font:500 11px var(--mono);color:var(--text3);background:none;border:none;cursor:pointer" style-hover="color:var(--text)">{{ dd.historyLabel }}</button>
+                      </sc-if>
+                      <sc-if value="{{ dd.historyOpen }}">
+                        <sc-for list="{{ dd.versions }}" as="dvh">
+                          <div style="margin-left:37px;display:flex;align-items:center;gap:8px;border-top:1px solid var(--line-soft);padding:6px 0;font:400 11px var(--mono);color:var(--text3)">
+                            <span style="flex:none;border-radius:4px;background:var(--panel2);padding:1px 6px;font:600 10px var(--mono);color:var(--text2)">v{{ dvh.no }}</span>
+                            <span style="min-width:0;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ dvh.file }} · {{ dvh.meta }}</span>
+                            <button onClick="{{ docDownload }}" style="flex:none;font:500 11px var(--mono);color:var(--text3);background:none;border:none;cursor:pointer" style-hover="color:var(--text)">Download</button>
+                          </div>
+                        </sc-for>
+                      </sc-if>
+                    </div>
+                  </sc-for>
+                  <sc-if value="{{ cd.noDocs }}"><p style="margin:10px 0 0;font:400 12px var(--mono);color:var(--text3)">No documents yet. A CV filed here is shared with the team on every position this person is in.</p></sc-if>
+                  <a href="Candidates.dc.html?drawerOpen=1&amp;drawerTab=documents" style="display:inline-block;margin-top:8px;font:500 12px var(--mono)">All documents ›</a>
+                </sc-if>
+
                 <sc-if value="{{ sx.isTimeline }}">
                   <sc-for list="{{ cd.timeline }}" as="t">
                     <div style="display:flex;gap:10px;padding:5px 0">
@@ -1365,37 +1356,6 @@
         </div>
       </sc-if>
     </aside>
-  </sc-if>
-
-  <sc-if value="{{ showAddFromPool }}" hint-placeholder-val="{{ false }}">
-    <div onClick="{{ closeDialog }}" style="position:fixed;inset:0;z-index:100;display:grid;place-items:center;background:rgba(15,20,30,.4)">
-      <div role="dialog" aria-modal="true" aria-label="Add from your candidates" data-screen-label="Add from your candidates" onClick="{{ stop }}" style="width:620px;max-width:94vw;max-height:90vh;overflow-y:auto;border-radius:12px;border:1px solid var(--line);background:var(--panel);padding:22px;box-shadow:var(--shadow);animation:fadeUp .2s ease both">
-        <div style="font:600 16px var(--sans)">Add from your candidates</div>
-        <p style="margin:4px 0 14px;font-size:13px;color:var(--text2)">People your team already mapped on other positions. They come in as Identified, with their notes, contacts and history.</p>
-        <div style="display:flex;align-items:center;gap:8px;border-radius:8px;border:1px solid var(--line);background:var(--panel2);padding:7px 11px">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style="color:var(--text3);flex:none"><path d="{{ ic.search }}"></path></svg>
-          <input value="{{ poolQuery }}" onChange="{{ onPoolQuery }}" placeholder="Search name, title, company, tag…" aria-label="Search your candidates" style="width:100%;background:transparent;border:none;font:400 13px var(--mono);color:var(--text);outline:none">
-        </div>
-        <div style="margin-top:10px;display:flex;flex-direction:column;gap:4px">
-          <sc-for list="{{ poolRows }}" as="pr" hint-placeholder-count="5">
-            <button onClick="{{ togglePoolPick }}" data-id="{{ pr.id }}" disabled="{{ pr.here }}" style="display:flex;width:100%;align-items:center;gap:10px;border-radius:8px;border:1px solid {{ pr.border }};background:{{ pr.bg }};padding:8px 10px;text-align:left;cursor:{{ pr.cursor }};opacity:{{ pr.opacity }}">
-              <span style="display:grid;flex:none;place-items:center;width:15px;height:15px;border-radius:4px;box-shadow:inset 0 0 0 1.5px {{ pr.boxColor }};background:{{ pr.boxBg }}"><svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3.2" style="color:var(--on-amber);opacity:{{ pr.tick }}"><path d="{{ ic.check }}"></path></svg></span>
-              <span style="{{ pr.avStyle }}">{{ pr.initials }}</span>
-              <span style="min-width:0;flex:1">
-                <span style="display:block;font:600 13px var(--sans);color:var(--text)">{{ pr.name }}</span>
-                <span style="display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font:400 11.5px var(--mono);color:var(--text3)">{{ pr.meta }}</span>
-              </span>
-              <span style="display:flex;flex:none;flex-wrap:wrap;justify-content:flex-end;gap:4px;max-width:230px"><sc-for list="{{ pr.tags }}" as="tg"><span style="{{ tg.style }}">{{ tg.label }}</span></sc-for><span style="font:400 11px var(--mono);color:var(--text3)">{{ pr.where }}</span></span>
-            </button>
-          </sc-for>
-        </div>
-        <div style="margin-top:18px;display:flex;align-items:center;justify-content:flex-end;gap:8px">
-          <span style="margin-right:auto;font:400 12px var(--mono);color:var(--text3)">{{ poolPickedLabel }}</span>
-          <button onClick="{{ closeDialog }}" style="border-radius:8px;padding:10px 14px;font:500 13.5px var(--sans);background:var(--panel);border:1px solid var(--line);color:var(--text2);cursor:pointer" style-hover="color:var(--text);border-color:var(--text3)">Cancel</button>
-          <button onClick="{{ confirmAddFromPool }}" style="border-radius:8px;padding:10px 14px;font:600 13.5px var(--sans);background:var(--amber-btn);border:1px solid var(--amber-btn);color:var(--on-amber);cursor:pointer;opacity:{{ poolAddOpacity }}" style-hover="filter:brightness(1.05)">{{ poolAddLabel }}</button>
-        </div>
-      </div>
-    </div>
   </sc-if>
 
   <sc-if value="{{ showDuplicate }}" hint-placeholder-val="{{ false }}">
@@ -1782,7 +1742,7 @@
 <template id="__bundler_thumbnail"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><rect width="100" height="100" fill="#16171a"></rect><g transform="translate(50 40) scale(.42)" fill="none" stroke="#f8fafc"><path d="M-32 10 L 0 -8 L 32 10 L 0 28 Z M-32 10 V 32 L 0 50 L 32 32 V 10 M0 28 V 50" stroke-width="3" stroke-linejoin="round"></path><path d="M0 -48 L 32 -30 L 0 -12 L -32 -30 Z" fill="#f8fafc" stroke="none"></path></g><text x="50" y="86" fill="#e2b65c" font-family="Geist,Inter,sans-serif" font-size="13" font-weight="700" letter-spacing="2" text-anchor="middle">PR</text></svg></template>
 </x-dc>
 
-<script type="text/x-dc" data-dc-script data-props="{&quot;page&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;default&quot;:&quot;universe&quot;,&quot;options&quot;:[&quot;universe&quot;,&quot;shortlisted&quot;,&quot;declined&quot;,&quot;reports&quot;,&quot;team&quot;,&quot;candidates&quot;,&quot;outreach&quot;],&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;State&quot;},&quot;view&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;default&quot;:&quot;table&quot;,&quot;options&quot;:[&quot;table&quot;,&quot;map&quot;],&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;State&quot;},&quot;drawer&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;default&quot;:&quot;none&quot;,&quot;options&quot;:[&quot;none&quot;,&quot;company&quot;,&quot;candidate&quot;],&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;State&quot;},&quot;dialog&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;default&quot;:&quot;none&quot;,&quot;options&quot;:[&quot;none&quot;,&quot;import&quot;,&quot;columns&quot;,&quot;remove&quot;,&quot;addFromPool&quot;,&quot;duplicate&quot;],&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;State&quot;},&quot;importStep&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;default&quot;:&quot;map&quot;,&quot;options&quot;:[&quot;choose&quot;,&quot;map&quot;,&quot;done&quot;],&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;State&quot;},&quot;empty&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;State&quot;},&quot;clientRep&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;State&quot;},&quot;chapter&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;default&quot;:&quot;progress&quot;,&quot;options&quot;:[&quot;progress&quot;,&quot;market&quot;,&quot;remuneration&quot;,&quot;diversity&quot;],&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;State&quot;},&quot;reportDrawer&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;State&quot;},&quot;teamModal&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;default&quot;:&quot;none&quot;,&quot;options&quot;:[&quot;none&quot;,&quot;member&quot;,&quot;contact&quot;],&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;State&quot;},&quot;canManage&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:true,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;State&quot;}}">
+<script type="text/x-dc" data-dc-script data-props="{&quot;page&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;default&quot;:&quot;universe&quot;,&quot;options&quot;:[&quot;universe&quot;,&quot;shortlisted&quot;,&quot;declined&quot;,&quot;reports&quot;,&quot;team,&quot;outreach&quot;],&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;State&quot;},&quot;view&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;default&quot;:&quot;table&quot;,&quot;options&quot;:[&quot;table&quot;,&quot;map&quot;],&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;State&quot;},&quot;drawer&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;default&quot;:&quot;none&quot;,&quot;options&quot;:[&quot;none&quot;,&quot;company&quot;,&quot;candidate&quot;],&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;State&quot;},&quot;dialog&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;default&quot;:&quot;none&quot;,&quot;options&quot;:[&quot;none&quot;,&quot;import&quot;,&quot;columns&quot;,&quot;remove&quot;,&quot;duplicate&quot;],&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;State&quot;},&quot;importStep&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;default&quot;:&quot;map&quot;,&quot;options&quot;:[&quot;choose&quot;,&quot;map&quot;,&quot;done&quot;],&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;State&quot;},&quot;empty&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;State&quot;},&quot;clientRep&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;State&quot;},&quot;chapter&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;default&quot;:&quot;progress&quot;,&quot;options&quot;:[&quot;progress&quot;,&quot;market&quot;,&quot;remuneration&quot;,&quot;diversity&quot;],&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;State&quot;},&quot;reportDrawer&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;State&quot;},&quot;teamModal&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;default&quot;:&quot;none&quot;,&quot;options&quot;:[&quot;none&quot;,&quot;member&quot;,&quot;contact&quot;],&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;State&quot;},&quot;canManage&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:true,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;State&quot;}}">
 const I = {
   profile: "M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2M16 7a4 4 0 1 1-8 0 4 4 0 0 1 8 0",
   settings: "M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6ZM19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09a1.65 1.65 0 0 0-1-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09a1.65 1.65 0 0 0 1.51-1 1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33h.01a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51h.01a1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82v.01a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1Z",
@@ -1811,6 +1771,8 @@ const I = {
   table: "M3 5h18v14H3zM3 10h18M3 15h18M9 5v14",
   mapPin: "M20 10c0 6-8 12-8 12S4 16 4 10a8 8 0 0 1 16 0ZM12 13a3 3 0 1 0 0-6 3 3 0 0 0 0 6Z",
   building: "M6 22V4a1 1 0 0 1 1-1h10a1 1 0 0 1 1 1v18M2 22h20M9 7h2M13 7h2M9 11h2M13 11h2M9 15h2M13 15h2M10 22v-4h4v4",
+  fileText: "M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8l-6-6ZM14 2v6h6M8 13h8M8 17h5",
+  moreH: "M5 12h.01M12 12h.01M19 12h.01",
   eye: "M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12Zm10 3a3 3 0 1 0 0-6 3 3 0 0 0 0 6Z",
   eyeOff: "M17.9 17.9A10.5 10.5 0 0 1 12 19c-6.5 0-10-7-10-7a17 17 0 0 1 4.1-4.9M9.9 5.2A9.9 9.9 0 0 1 12 5c6.5 0 10 7 10 7a17 17 0 0 1-2 2.9M14.1 14.1a3 3 0 1 1-4.2-4.2M2 2l20 20",
   fit: "M8 3H5a2 2 0 0 0-2 2v3M16 3h3a2 2 0 0 1 2 2v3M8 21H5a2 2 0 0 1-2-2v-3M16 21h3a2 2 0 0 0 2-2v-3M9 9h6v6H9z",
@@ -1974,8 +1936,8 @@ const CRM = {
     notes: [["Sara Al-Mansour", "Call", "14 Sep", "Chief Financial Officer", "Spoke 14 Sep — open to a group CFO move if the remit includes the international portfolio. Follow up after Q3 close.", true],
       ["Dana Aboud", "Email", "Today 10:12", null, "Sent the group structure overview Fatima asked for; reply expected next week."],
       ["Yara Haddad", "Meeting", "22 Apr", "Head of Credit Risk", "Coffee at DIFC. Strong on treasury and funding, lighter on credit portfolio work."]],
-    timeline: [["Dana Aboud", "logged an email", "Today 10:12", ""], ["Yousef Iman", "ran AI deep enrich", "18 Sep 16:30", "Scored 8 of 10 against this brief"], ["Sara Al-Mansour", "marked Engaged on this position", "14 Sep 11:24", "Contacted → Engaged"],
-      ["Yousef Iman", "added to this position with the plugin", "8 Sep 14:40", "Already in your candidates, so added rather than duplicated"], ["Yara Haddad", "added to the candidates from Head of Credit Risk", "14 Apr 10:12", "Added by hand"]] },
+    timeline: [["Dana Aboud", "logged an email", "Today 10:12", ""], ["Omar Khalil", "uploaded a reference", "18 Sep 11:30", "Reference Al Rostamani Group"], ["Yousef Iman", "ran AI deep enrich", "18 Sep 16:30", "Scored 8 of 10 against this brief"], ["Sara Al-Mansour", "marked Engaged on this position", "14 Sep 11:24", "Contacted → Engaged"],
+      ["Yousef Iman", "uploaded version 3 of the CV", "12 Sep 09:40", "Fatima Al Mazrouei CV"], ["Yousef Iman", "added to this position with the plugin", "8 Sep 14:40", "Already in your candidates, so added rather than duplicated"], ["Yara Haddad", "added to the candidates from Head of Credit Risk", "14 Apr 10:12", "Added by hand"]] },
   e02: { tags: ["Passive"], owner: "Yara Haddad" },
   e03: { tags: ["Open to work"], owner: "Omar Khalil", last: ["Tagged Open to work", "Sara Al-Mansour · Today 09:05"] },
   e05: { tags: ["Interviewed before"], owner: "Omar Khalil", also: [["Head of Credit Risk", "notInterested", "Yousef Iman", "10 Apr 2026"]], dnc: "Asked not to be approached again for twelve months — set by Omar Khalil, 16 Sep 2026.", last: ["Marked do not contact", "Omar Khalil · 16 Sep"],
@@ -1988,14 +1950,18 @@ const CRM = {
     notes: [["Yara Haddad", "Call", "19 Sep", "Chief Financial Officer", "Open to a move if the role carries group scope; wants clarity on LTIP vesting.", true], ["Yara Haddad", "Note", "28 Mar", "Head of Credit Risk", "We placed Khalid as Mashreq CFO in 2023 — go through Yara before any approach."]] },
   e13: { tags: ["Open to work"], owner: "Yara Haddad", last: ["Marked Interested on this position", "Yara Haddad · 20 Sep"] }
 };
-const crmOf = (e) => Object.assign({ tags: [], owner: null, also: [], notes: [], timeline: null, last: null, dnc: null }, CRM[e.id] || {});
-const POOL = [
-  ["p16", "Layla Nasser", "Director of Leasing", "Aldar Properties", ["Open to work"], "Leasing Director · Engaged"],
-  ["p17", "Tariq Al Nuaimi", "Head of Retail Leasing", "Majid Al Futtaim", [], "Leasing Director · Contacted"],
-  ["p18", "Daniel Brooks", "Product Planning Manager", "Arabian Automobiles", ["Open to relocate"], "Product Planning · Engaged"],
-  ["p19", "Reem Al Hashimi", "Leasing Manager", "Emaar Properties", ["Passive"], "Not in a position"],
-  ["p15", "Fatima Mazrouei", "Group Finance Director", "Al Naboodah Group", [], "Credit Risk · Identified"]
-];
+const crmOf = (e) => Object.assign({ tags: [], owner: null, also: [], notes: [], timeline: null, last: null, dnc: null, docs: [] }, CRM[e.id] || {});
+// [category, title, file, size, latest upload, primary CV, versions as [no, file, size, by and when]] — Candidates.dc.html draws the full tab.
+const CRM_DOCS = {
+  e01: [
+    ["CV", "Fatima Al Mazrouei CV", "Fatima_Al_Mazrouei_CV.pdf", "412 KB", "Yousef Iman · 12 Sep", true, [[3, "Fatima_Al_Mazrouei_CV.pdf", "412 KB", "Yousef Iman · 12 Sep 2026, 09:40"], [2, "Fatima_Al_Mazrouei_CV.pdf", "398 KB", "Sara Al-Mansour · 22 Apr 2026, 10:40"], [1, "Fatima_CV_2024.docx", "86 KB", "Yara Haddad · 14 Apr 2026, 10:20"]]],
+    ["Cover letter", "Cover letter Group CFO", "Cover_letter_Group_CFO.pdf", "142 KB", "Sara Al-Mansour · 15 Sep", false, [[1]]],
+    ["Reference", "Reference Al Rostamani Group", "Reference_Al_Rostamani.docx", "54 KB", "Omar Khalil · 18 Sep", false, [[1]]],
+    ["Certificate", "ACCA membership", "ACCA_membership.jpg", "1.2 MB", "Yousef Iman · 8 Sep", false, [[1]]]
+  ],
+  e12: [["CV", "Khalid Al Harbi CV", "Khalid_Al_Harbi_CV.pdf", "380 KB", "Yara Haddad · 2 Sep", true, [[2, "Khalid_Al_Harbi_CV.pdf", "380 KB", "Yara Haddad · 2 Sep 2026, 09:00"], [1, "Khalid_Al_Harbi_CV.pdf", "361 KB", "Yara Haddad · 28 Mar 2026, 09:10"]]]]
+};
+const DOC_TONE = { CV: ["var(--u-accent)", "var(--u-accent-tint)"], "Cover letter": ["var(--u-adjacent)", "var(--u-adjacent-tint)"], Reference: ["var(--u-direct)", "var(--u-direct-tint)"], Certificate: ["var(--u-chart-5)", "color-mix(in srgb, var(--u-chart-5) 16%, transparent)"] };
 
 const initials = (n) => { const p = n.trim().split(/\s+/); return (p[0][0] + (p.length > 1 ? p[p.length - 1][0] : "")).toUpperCase(); };
 const tintOf = (id) => { let h = 0; for (const ch of id) h = (h * 31 + ch.charCodeAt(0)) >>> 0; return TINTS[h % TINTS.length]; };
@@ -2121,13 +2087,13 @@ class Component extends DCLogic {
       sort: { field: "added", dir: "desc" },
       vis: { founded: false, description: false, source: false },
       toast: null, coId: "c01", candId: "e01", removeId: "c01", contactEditing: false, compEditing: false, compForm: null,
-      sec: { positions: true, summary: true, experience: true, compensation: true, background: false, contact: true, columns: false, notes: true, timeline: false },
+      sec: { positions: true, summary: true, experience: true, compensation: true, background: false, contact: true, columns: false, notes: true, documents: true, timeline: false }, docHist: {}, docTray: false,
       mapSel: "c01", mapOpen: { "United Arab Emirates": true, "Saudi Arabia": true, Qatar: true, Oman: true, Bahrain: true, c01: true }, mapExecs: true, mapPanel: true,
       basis: "recent", momentum: "weeks", measure: "package", cpCountry: "All countries", cpNat: "All nationalities",
       dvNat: "All nationalities", dvLevel: "All levels",
       rd: reportDrawer ? (chapter === "comp" ? { kind: "disclosure", id: "e12" } : chapter === "market" ? { kind: "hub", id: "United Arab Emirates" } : null) : null,
       contactTab: "existing", stageOf: {}, removed: {}, noExecOf: {}, department, roleTitle,
-      pcQuery: "", pcStatus: "all", poolQuery: "", poolPick: {}, poolAdded: {}, statusOf: {}
+      statusOf: {}
     };
   }
 
@@ -2391,6 +2357,8 @@ class Component extends DCLogic {
     const crm = crmOf(e);
     const crmShown = cw;
     const timeline = crm.timeline || [[ADDED_BY[e.id], "added to the candidates from this position", dateGB(e.added), SOURCES[e.source].label]];
+    const docs = CRM_DOCS[e.id] || [];
+    const cvDoc = docs.find((d) => d[5]);
     const secDefs = [
       { id: "summary", title: "Summary", summary: firstLine(summary), pencil: "summary" },
       { id: "experience", title: "Experience", count: postCount, summary: `${e.title} at ${company} · ${countOf(postCount, "post")}`, pencil: "experience" },
@@ -2399,16 +2367,17 @@ class Component extends DCLogic {
       { id: "contact", title: "Contact", summary: facts([e.emails[0] && e.emails[0][0], e.phones[0] && e.phones[0][0], e.emails.some((x) => x[2]) ? "verified" : null]), pencil: "contact" },
       { id: "columns", title: "Your columns", count: 2, summary: facts([e.arabic, e.board]), pencil: "your columns" },
       { id: "notes", title: "Notes", count: crm.notes.length, summary: crm.notes.length ? firstLine(crm.notes[0][4]) : "None yet" },
+      { id: "documents", title: "Documents", count: docs.length, summary: docs.length ? [cvDoc ? `CV ${cvDoc[6].length > 1 ? `v${cvDoc[6][0][0]}` : "v1"}` : null, docs.length - (cvDoc ? 1 : 0) ? `${docs.length - (cvDoc ? 1 : 0)} more` : null].filter(Boolean).join(" · ") : "None yet" },
       { id: "timeline", title: "Timeline", summary: `${timeline.length} ${timeline.length === 1 ? "entry" : "entries"} · who did what, and when` }
     ];
     if (crmShown) secDefs.unshift({ id: "positions", title: "Positions", count: 1 + crm.also.length, summary: crm.also.length ? `Also in ${crm.also.map((a) => a[0]).join(", ")}` : "Only this position" });
-    else secDefs.splice(secDefs.length - 2, 2);
+    else secDefs.splice(secDefs.length - 3, 3);
     const cdSections = secDefs.map((d) => {
       const open = !!s.sec[d.id] || (d.id === "contact" && s.contactEditing);
       return { id: d.id, title: d.title, hasCount: d.count !== undefined, count: d.count, showSummary: !open && !!d.summary, summary: d.summary || "",
         chev: `flex:none;color:var(--text3);transition:transform .2s;transform:${open ? "none" : "rotate(-90deg)"}`, open,
         pencil: cw && !!d.pencil && !(d.id === "contact" && s.contactEditing) && !(d.id === "compensation" && s.compEditing), pencilTitle: `Edit ${d.pencil}`, saveNote: false,
-        isSummary: d.id === "summary", isExperience: d.id === "experience", isComp: d.id === "compensation", isBackground: d.id === "background", isContact: d.id === "contact", isColumns: d.id === "columns", isPositions: d.id === "positions", isNotes: d.id === "notes", isTimeline: d.id === "timeline" };
+        isSummary: d.id === "summary", isExperience: d.id === "experience", isComp: d.id === "compensation", isBackground: d.id === "background", isContact: d.id === "contact", isColumns: d.id === "columns", isPositions: d.id === "positions", isNotes: d.id === "notes", isDocuments: d.id === "documents", isTimeline: d.id === "timeline" };
     });
     const verStyle = (on) => `flex:none;cursor:pointer;border-radius:5px;padding:3px 7px;font:700 9.5px var(--mono);text-transform:uppercase;letter-spacing:.06em;${on ? "border:1px solid transparent;background:var(--green-dim);color:var(--green)" : "border:1px solid var(--line);background:none;color:var(--text3)"}`;
     const editLines = (arr, noun) => arr.map((x, i) => ({ value: x[0], kind: x[1] || "", verStyle: verStyle(!!x[2]), aria: `${noun[0].toUpperCase()}${noun.slice(1)} ${i + 1}`, removeAria: `Remove ${noun} ${i + 1}` }));
@@ -2439,6 +2408,18 @@ class Component extends DCLogic {
       notes: crm.notes.map((n) => ({ author: n[0], kind: n[1], when: n[2], hasPos: !!n[3], pos: n[3] || "", body: n[4], pinned: !!n[5], kindStyle: `${DPILL}background:var(--panel2);color:var(--text2)`,
         border: n[5] ? "color-mix(in srgb,var(--amber) 45%,transparent)" : "var(--line-soft)" })),
       noNotes: crm.notes.length === 0,
+      hasCv: crmShown && !!cvDoc, cvLabel: cvDoc ? `CV · v${cvDoc[6][0][0]} · ${cvDoc[4].split(" · ")[1]}` : "",
+      docs: docs.map((d, i) => {
+        const ext = d[2].split(".").pop();
+        const open = !!s.docHist[`${e.id}:${i}`];
+        const tone = ext === "pdf" ? ["var(--red-dim)", "var(--red)"] : ext === "docx" ? ["var(--sky-dim)", "var(--sky)"] : ["var(--u-direct-tint)", "var(--u-direct)"];
+        return { key: `${e.id}:${i}`, title: d[1], ext, primary: d[5], cat: d[0], catStyle: `${DPILL}color:${DOC_TONE[d[0]][0]};background:${DOC_TONE[d[0]][1]}`,
+          v: `v${d[6][0][0]}`, meta: `${d[3]} · ${d[4]}`, previewable: ext !== "docx", border: d[5] ? "color-mix(in srgb,var(--amber) 45%,transparent)" : "var(--line-soft)",
+          badgeStyle: `display:grid;width:28px;height:34px;flex:none;place-items:end center;padding-bottom:4px;border-radius:5px;border:1px solid var(--line-soft);background:${tone[0]};color:${tone[1]};font:700 8px var(--mono);text-transform:uppercase`,
+          hasHistory: d[6].length > 1, historyOpen: open, historyLabel: `${open ? "Hide" : "Show"} ${d[6].length} versions`,
+          versions: d[6].map((v, j) => ({ no: v[0], file: v[1], meta: `${v[2]} · ${v[3]}`, current: j === 0 })) };
+      }),
+      noDocs: docs.length === 0, docTray: !!s.docTray,
       timeline: timeline.map((t) => ({ who: t[0], what: t[1], when: t[2], detail: t[3] ? ` · ${t[3]}` : "" })),
       footer: `Added ${dateGB(e.added)}${e.source === "extension" ? ` · Researched ${dateGB(e.added)} · Captured from www.linkedin.com` : ""}`,
       cdSections
@@ -3006,51 +2987,6 @@ class Component extends DCLogic {
     };
   }
 
-  positionCandidatesVals(isCandidates, cw) {
-    const s = this.state;
-    if (!isCandidates) return { showAddFromPool: false, showDuplicate: false, pcRows: [], pcHeaders: [], pcChips: [], poolRows: [] };
-    const q = s.pcQuery.trim().toLowerCase();
-    const mapped = s.empty ? [] : E;
-    const matchesQuery = (e) => !q || [e.name, e.title, e.co ? CO[e.co].name : e.coName].filter(Boolean).join(" ").toLowerCase().includes(q);
-    const rows = mapped.filter((e) => matchesQuery(e) && (s.pcStatus === "all" || this.statusOf(e) === s.pcStatus));
-    const staff = cw;
-    const cols = staff
-      ? [["Executive", "minmax(240px,2.2fr)", 240], ["Status", "150px", 150], ["Tags", "minmax(160px,1.2fr)", 160], ["Also in", "minmax(170px,1.2fr)", 170], ["Added", "minmax(180px,1.2fr)", 180], ["Last activity", "minmax(190px,1.3fr)", 190]]
-      : [["Executive", "minmax(260px,2fr)", 260], ["Status", "150px", 150], ["Added", "minmax(140px,1fr)", 140]];
-    const pickedIds = Object.keys(s.poolPick).filter((k) => s.poolPick[k]);
-    const pq = s.poolQuery.trim().toLowerCase();
-    const poolRows = [
-      ...POOL.filter((r) => !s.poolAdded[r[0]]).map((r) => ({ r, here: false })),
-      ...E.slice(0, 3).map((e) => ({ r: [e.id, e.name, e.title, e.co ? CO[e.co].name : e.coName, crmOf(e).tags, "In this position"], here: true }))
-    ].filter(({ r }) => !pq || [r[1], r[2], r[3], ...r[4]].join(" ").toLowerCase().includes(pq)).map(({ r, here }) => {
-      const on = !!s.poolPick[r[0]];
-      return { id: r[0], name: r[1], meta: `${r[2]} · ${r[3]}`, tags: r[4].map(tagPill), where: r[5], here, initials: initials(r[1]), avStyle: avatar(r[0], 28),
-        border: on ? "var(--amber)" : "var(--line-soft)", bg: on ? "var(--amber-dim)" : "var(--panel)", cursor: here ? "default" : "pointer", opacity: here ? 0.55 : 1,
-        boxColor: on ? "var(--amber-btn)" : "var(--line)", boxBg: on ? "var(--amber-btn)" : "transparent", tick: on ? 1 : 0 };
-    });
-    const chip = (key, label, count) => { const on = s.pcStatus === key; return { key, label, count, border: on ? "transparent" : "var(--line)", bg: on ? "var(--amber-dim)" : "transparent", color: on ? "var(--amber)" : "var(--text2)" }; };
-    return {
-      pcSub: `${mapped.length} executives on this position · each one also sits in your workspace candidates, with their notes and history`,
-      pcQuery: s.pcQuery, pcStaff: staff,
-      pcChips: [chip("all", "All", mapped.length), ...STATUSES.filter((st) => mapped.some((e) => this.statusOf(e) === st.value)).map((st) => chip(st.value, st.label, mapped.filter((e) => this.statusOf(e) === st.value).length))],
-      pcGrid: cols.map((c) => c[1]).join(" "), pcMin: `${cols.reduce((t, c) => t + c[2], 0) + 12 * (cols.length - 1) + 32}px`, pcHeaders: cols.map((c) => c[0]),
-      pcRows: rows.map((e) => {
-        const crm = crmOf(e);
-        const st = STATUS[this.statusOf(e)];
-        return { id: e.id, name: e.name, initials: initials(e.name), avStyle: avatar(e.id, 30), dnc: staff && !!crm.dnc,
-          headline: [e.title, e.co ? CO[e.co].name : e.coName].filter(Boolean).join(" · "), status: this.statusOf(e), statusLabel: st.label, statusPill: `${DPILL}color:${st.fg};background:${st.bg}`,
-          tags: crm.tags.map(tagPill), also: crm.also.map((a) => ({ label: `${a[0] === "Head of Credit Risk" ? "Credit Risk" : a[0]} · ${STATUS[a[1]].label}`, title: `${a[0]} — ${STATUS[a[1]].label}`, dot: STATUS[a[1]].fg })), noAlso: crm.also.length === 0,
-          added: staff ? `${ADDED_BY[e.id]} · ${shortDate(e.added)} · ${SOURCES[e.source].label}` : dateGB(e.added),
-          lastWhat: crm.last ? crm.last[0] : "Added to this position", lastWho: crm.last ? crm.last[1] : `${ADDED_BY[e.id]} · ${shortDate(e.added)}` };
-      }),
-      pcNoRows: rows.length === 0,
-      showAddFromPool: cw && s.dialog === "addFromPool", poolQuery: s.poolQuery, poolRows,
-      poolPickedLabel: pickedIds.length ? `${pickedIds.length} selected` : "Pick one or more",
-      poolAddLabel: pickedIds.length ? `Add ${pickedIds.length === 1 ? "1 person" : `${pickedIds.length} people`}` : "Add to this position", poolAddOpacity: pickedIds.length ? 1 : 0.5,
-      showDuplicate: cw && s.dialog === "duplicate", dup: { avStyle: avatar("p16", 40), tagStyle: tagPill("Open to work").style }
-    };
-  }
-
   handlers() {
     const set = (o) => this.setState(o);
     const id = (e) => e.currentTarget.dataset.id;
@@ -3079,18 +3015,7 @@ class Component extends DCLogic {
       openImport: () => set({ dialog: "import", importStep: "choose" }),
       openColumnsDialog: () => set({ dialog: "columns" }),
       closeDialog: () => set({ dialog: "none" }),
-      onPcQuery: (e) => set({ pcQuery: e.target.value }),
       setCandidateStatus: (e) => { const k = id(e); const v = e.target.value; set({ statusOf: Object.assign({}, this.state.statusOf, { [k]: v }) }); this.showToast(`Marked ${STATUS[v].label} — recorded on the timeline`); },
-      setPcStatus: (e) => set({ pcStatus: id(e) }),
-      openAddFromPool: () => set({ dialog: "addFromPool", poolQuery: "", poolPick: {} }),
-      onPoolQuery: (e) => set({ poolQuery: e.target.value }),
-      togglePoolPick: (e) => { const k = id(e); set({ poolPick: Object.assign({}, this.state.poolPick, { [k]: !this.state.poolPick[k] }) }); },
-      confirmAddFromPool: () => {
-        const ids = Object.keys(this.state.poolPick).filter((k) => this.state.poolPick[k]);
-        if (!ids.length) return;
-        set({ dialog: "none", poolPick: {}, poolAdded: Object.assign({}, this.state.poolAdded, Object.fromEntries(ids.map((k) => [k, true]))) });
-        this.showToast(`Added ${ids.length === 1 ? POOL.find((r) => r[0] === ids[0])[1] : `${ids.length} people`} to this position as Identified`);
-      },
       addAsNew: () => { set({ dialog: "none" }); this.showToast("Added Layla Nasser as a new person — the two stay separate until someone merges them"); },
       useExisting: () => { set({ dialog: "none" }); this.showToast("Layla Nasser added to this position — their notes, contacts and history came with them"); },
       stop: (e) => e.stopPropagation(),
@@ -3104,6 +3029,11 @@ class Component extends DCLogic {
       clearMapSel: () => set({ mapSel: null }),
       openMapNode: (e) => { e.stopPropagation(); const k = id(e); if (CO[k]) set({ drawer: "company", coId: k }); else set({ drawer: "candidate", candId: k, contactEditing: false }); },
       toggleSec: (e) => { const k = id(e); set({ sec: Object.assign({}, this.state.sec, { [k]: !this.state.sec[k] }) }); },
+      toggleDocHist: (e) => { const k = id(e); set({ docHist: Object.assign({}, this.state.docHist, { [k]: !this.state.docHist[k] }) }); },
+      toggleDocTray: () => set({ docTray: !this.state.docTray }),
+      sendDocTray: () => { set({ docTray: false }); this.showToast("Uploaded as version 4 of the CV — on the timeline"); },
+      docPreview: () => this.showToast("Opens the preview sheet — see Candidates.dc.html?dialog=preview"),
+      docDownload: () => this.showToast("Downloading — recorded in the audit trail"),
       expandAll: () => set({ sec: { summary: true, experience: true, compensation: true, background: true, contact: true, columns: true, note: true } }),
       collapseAll: () => set({ sec: { summary: false, experience: false, compensation: false, background: false, contact: false, columns: false, note: false }, contactEditing: false }),
       toggleCompOverride: () => { const f = this.state.compForm; set({ compForm: Object.assign({}, f, { overridden: !f.overridden, currency: f.overridden ? BRIEF_CURRENCY : f.currency }) }); },
@@ -3161,8 +3091,6 @@ class Component extends DCLogic {
     const stageKey = SLUG_TO_STAGE[s.page];
     const isStage = !!stageKey;
     const isReports = s.page === "reports";
-    const isCandidates = s.page === "candidates";
-    const withDrawers = isStage || isCandidates;
     const collapsed = s.collapsed;
     const counts = { u: this.liveCompanies("u").length, s: this.liveCompanies("s").length, d: this.liveCompanies("d").length };
     if (s.empty && stageKey) counts[stageKey] = 0;
@@ -3172,7 +3100,7 @@ class Component extends DCLogic {
     const navGroups = [
       { label: "Position", items: [navItem("Brief", I.position, "Position.dc.html", false), navItem("Strategy", I.strategy, "Strategy.dc.html", false)] },
       { label: "Companies", items: ["u", "s", "d"].map((k) => navItem(STAGES[k].label, STAGES[k].icon, `Position.dc.html?page=${STAGES[k].slug}`, stageKey === k, counts[k])) },
-      { label: "People", items: [navItem("Candidates", I.candidates, "Position.dc.html?page=candidates", s.page === "candidates"), navItem("Outreach", I.outreach, "Outreach.dc.html", false)] },
+      { label: "People", items: [navItem("Outreach", I.outreach, "Outreach.dc.html", false)] },
       { label: "Project", items: [navItem("Reports", I.reports, "Position.dc.html?page=reports", isReports), navItem("Team & access", I.team, "Position.dc.html?page=team", s.page === "team")] }
     ];
     const view = stageKey === "u" ? s.view : "table";
@@ -3194,18 +3122,17 @@ class Component extends DCLogic {
       themeLabel: s.dark ? "Light mode" : "Dark mode", themeIcon: s.dark ? I.sun : I.moon,
       collapseTitle: collapsed ? "Expand sidebar" : "Collapse sidebar", collapseIcon: collapsed ? I.expand : I.collapse,
       navGroups,
-      isStage, isReports, isTeam: s.page === "team", isPlaceholder: s.page === "outreach", isCandidates,
+      isStage, isReports, isTeam: s.page === "team", isPlaceholder: s.page === "outreach",
       placeholderTitle: placeholder.t, placeholderIcon: placeholder.i,
       isTable: view === "table", isMap: view === "map", canWrite: cw, readOnly: !cw, colMenuOpen: s.colMenu,
       segTableStyle: segD(view === "table"), segMapStyle: segD(view === "map"),
       statusOptions: STATUSES.map((x) => ({ value: x.value, label: x.label })),
       landPaths: LAND.map((poly) => poly.map(([lo, la]) => proj(lo, la).map((v) => v.toFixed(1)).join(",")).join(" ")),
       graticule: [...[40, 45, 50, 55, 60].map((lo) => { const [x] = proj(lo, 0); return { x1: x.toFixed(1), y1: 0, x2: x.toFixed(1), y2: 600 }; }), ...[15, 20, 25, 30, 35].map((la) => { const [, y] = proj(0, la); return { x1: 0, y1: y.toFixed(1), x2: 800, y2: y.toFixed(1) }; })],
-      showCompanyDrawer: isStage && s.drawer === "company", showCandidateDrawer: withDrawers && s.drawer === "candidate",
-      askVisible: !(withDrawers && (s.drawer === "company" || s.drawer === "candidate")) && !(isCandidates && s.dialog !== "none"),
-      co: isStage && s.drawer === "company" ? this.coVals() : {}, cd: withDrawers && s.drawer === "candidate" ? this.cdVals() : { cdSections: [] },
-      cdSections: withDrawers && s.drawer === "candidate" ? this.cdVals().cdSections : [],
-      ...this.positionCandidatesVals(isCandidates, cw),
+      showCompanyDrawer: isStage && s.drawer === "company", showCandidateDrawer: isStage && s.drawer === "candidate",
+      askVisible: !(isStage && (s.drawer === "company" || s.drawer === "candidate")),
+      co: isStage && s.drawer === "company" ? this.coVals() : {}, cd: isStage && s.drawer === "candidate" ? this.cdVals() : { cdSections: [] },
+      cdSections: isStage && s.drawer === "candidate" ? this.cdVals().cdSections : [],
       compEditing: s.compEditing && cw, cf: this.compFormVals(),
       contactEditing: s.contactEditing && cw, contactReading: !(s.contactEditing && cw),
       showImport: isStage && cw && s.dialog === "import", importChoose: s.importStep === "choose", importMap: s.importStep === "map", importDone: s.importStep === "done",
@@ -3221,6 +3148,7 @@ class Component extends DCLogic {
       importPersonOpts: [["candidateName", "Name"], ["candidateFirstName", "First name"], ["candidateLastName", "Last name"], ["candidateTitle", "Title"], ["candidateSeniority", "Level"], ["candidateEmail", "Email"], ["candidatePhone", "Phone"], ["candidateLinkedin", "LinkedIn"], ["candidateCountry", "Person country"], ["candidateCity", "Person city"], ["candidateNationality", "Nationality"], ["candidateGender", "Gender"], ["candidateYearsExperience", "Experience"], ["candidateSummary", "Profile summary"], ["candidateNote", "Note"], ["candidateCurrency", "Currency"], ["candidateBaseSalary", "Base salary"], ["candidateBonus", "Bonus"], ["candidateAllowances", "Allowances"], ["candidateLongTermIncentive", "LTIP"], ["candidateNoticePeriod", "Notice period"]].map(([v, l]) => ({ value: `field:${v}`, label: l })),
       showColumns: isStage && cw && s.dialog === "columns",
       customCols: CUSTOM.map((c) => ({ label: c.label, meta: `${c.target === "company" ? "Company" : "Person"} · ${c.type}` })),
+      showDuplicate: isStage && cw && s.dialog === "duplicate", dup: { avStyle: avatar("p16", 40), tagStyle: tagPill("Open to work").style },
       showRemove: isStage && cw && s.dialog === "remove", removeTitle: `Remove ${removeCo.name}?`, removeName: removeCo.name,
       chProgress: s.chapter === "progress", chMarket: s.chapter === "market", chComp: s.chapter === "comp", chDei: s.chapter === "dei",
       rp: report.rp || { caption: "", stack: [], list: [] },

@@ -948,7 +948,7 @@ class Component extends DCLogic {
       navGroups: [
         { label: 'Position', items: [item('Brief', 'position', 'Position.dc.html', null, true), item('Strategy', 'strategy', 'Strategy.dc.html', null, false)] },
         { label: 'Companies', items: [item('In universe', 'globe', 'Position.dc.html?page=universe', 24, false), item('Shortlisted', 'star', 'Position.dc.html?page=shortlisted', 9, false), item('Declined', 'close', 'Position.dc.html?page=declined', 6, false)] },
-        { label: 'People', items: [item('Candidates', 'candidates', 'Position.dc.html?page=candidates', null, false), item('Outreach', 'outreach', 'Position.dc.html?page=outreach', null, false)] },
+        { label: 'People', items: [item('Outreach', 'outreach', 'Position.dc.html?page=outreach', null, false)] },
         { label: 'Project', items: [item('Reports', 'reports', 'Position.dc.html?page=reports', null, false), item('Team & access', 'team', 'Position.dc.html?page=team', null, false)] },
       ],
       toggleWsMenu: () => this.setState({ wsMenuOpen: !s.wsMenuOpen }),

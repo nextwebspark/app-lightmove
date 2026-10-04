@@ -66,14 +66,16 @@ same two doors (`…/candidates/{id}/documents`, `/candidates/{personId}/documen
 uploader's or a `WORKSPACE_MANAGE` holder's (`PERSON_DOCUMENT_NOT_YOURS`), every download is audited,
 and each change is a timeline line that names the document only while it exists. The bytes live in a
 private GCS bucket behind `core/storage`'s `DocumentStore` (`lightmove.storage.*`; the filesystem store
-for `npm run dev` and tests), streamed by the API, never by a signed URL; the drawer's Documents UI waits
-on its mockup.
+for `npm run dev` and tests), streamed by the API, never by a signed URL. The SPA draws them in
+`components/documents`: the Candidates drawer's Documents tab, the executive drawer's Documents section, a
+header chip for the primary CV and a preview sheet (a PDF or image fetched as a blob, never a link); the
+upload tray says what each file will become before sending, and a duplicate is the server's 409.
 `CandidateResponse.linkedinUrlLocked` is the server's own lock, which the Contact section reads rather
 than guessing from this mandate's door.
 **The workspace's Candidates page** (`/candidates`, `RequireStaff`, `Candidates.dc.html`, Phase 4) reads
 those routes: a People list the server searches (name, title, employer, an email; a plain scan per
 workspace, V33's reasoning), pages, sorts and narrows — quick views (owned by me, in an active position,
-in none), tags any/all/none, position, status, owner, country — with a selection bar that adds people to
+in none) in the toolbar, then tags any/all/none, position, status, owner and country in a Strategy-style filter rail hidden until asked for — with a selection bar that adds people to
 a position as Identified (that position's `WORK_EXECUTE` too, since filing someone is work on it), tags
 them, sets an owner or exports them (audited, `dataexport`); an Activity feed; and a drawer keyed by
 person id. V98 gives the person the team's own facts — an **owner** (a colleague; it changes nobody's
@@ -84,9 +86,10 @@ Candidate tags under `WORKSPACE_MANAGE`; a person holds the tag's id, so a renam
 retired one stays where it is but is never put on anyone again). Each is a timeline line and an audit
 event, and none rides `CandidateResponse`. **Phase 4b-1**: a hand-typed add of someone the workspace holds by name alone at that employer is
 asked first (`409 CANDIDATE_POSSIBLE_DUPLICATE` with `personIds`; the drawer resends with
-`existingPersonId` or `addAsNewPerson`), never on the plugin, import or run doors; and the position's
-own **Candidates page** (`/projects/:id/candidates`) reads `…/candidates/pipeline` (`WORK_VIEW`) and its
-staff columns from `…/pipeline/staff` (`WORK_EXECUTE`), with Add from your candidates. Merge is Phase 4b-2.
+`existingPersonId` or `addAsNewPerson`), never on the plugin, import or run doors. A position has **no
+Candidates page of its own**: In universe lists its executives, Outreach works them, and the workspace
+Candidates page's Add to position files people onto it (`/projects/:id/candidates` redirects to In
+universe). Merge is Phase 4b-2.
 An executive's drawer also **finds their contacts**: two buttons in the Contact section ask ContactOut
 for an email or a phone, one channel per press because the two bill from separate pools. Every email
 and phone the mandate knows is a row of `app_lm_candidate_contact` (V54, the only store since V55
@@ -383,12 +386,127 @@ in `java-spring-development`.
 
 `outreach` is **email from a consultant's own mailbox** (epic #620). So far it connects one: Nylas's
 hosted sign-in behind `MailboxGateway` (`lightmove.outreach.nylas.*`; blank leaves it unoffered), a
-grant id per person per workspace (V99), never the provider's tokens. The callback is the one public
+grant id per person per workspace (V99). The callback is the one public
 `/api/v1` GET a navigation reaches: its single-use state counts only beside the `lm_mailbox_connect`
 cookie the starting browser holds, so a consent link handed to someone else connects nothing. The
 connect popup lands in the SPA and, like the sign-in popup, must never restore the session there
 (`isReturningMailboxPopup`). A send is never retried — a second approach to an executive is worse than
 a failure.
+**In-house gateways (epic #642, V106)** replace Nylas behind the same seam, one PR at a time on
+`feature/inhouse-mail-gateways`; Nylas stays the active gateway until rollout (#650). Each provider (Google,
+Microsoft, Zoom) is connected through an OAuth app chosen per workspace in **Settings → Integrations**
+(`WORKSPACE_MANAGE`, audited as an `integrations` section): Uncava's **shared** app
+(`lightmove.outreach.providers.*`; blank leaves it unoffered) or the workspace's **own**, its keys pasted by
+its admin. `ProviderCredentialsResolver` is the one read: no row is shared. An own app's client secret is
+**write-only** — stored only as `core/crypto` ciphertext, never returned by any read, and discarded when the
+workspace returns to the shared app. This is the epic's deliberate reversal of "never the provider's tokens":
+what the app now holds is held **encrypted** — Tink envelope encryption (a data key per value, wrapped by a
+key-encryption keyset from Secret Manager, `lightmove.crypto.keyset`, not Cloud KMS: a KMS round trip would sit
+in front of every send), bound to its workspace and purpose as associated data so a value copied elsewhere does
+not decrypt. A deployment without a keyset boots and refuses own keys (`INTEGRATION_ENCRYPTION_UNAVAILABLE`);
+`npm run dev` and the tests share one dev-only keyset. The workspace also chooses how calendar events are read,
+`calendar_sync` (`RECALL | DIRECT`, `PUT /workspace/calendar-sync`, audited like `mode`): on Recall the app's
+keys and each consultant's calendar refresh token are handed to Recall.ai (one platform account,
+`lightmove.recall.*`), and the page says so before an admin enters their own app's keys.
+**Routing (V107, #644)**: everything injects `RoutingMailboxGateway`, which answers each connection through
+the gateway that made it — read off the grant id, since ours are minted `direct:<provider>:<uuid>`
+(`MailboxGrants`), so a revoke after the row is gone still lands — and connects a new one through
+`lightmove.outreach.gateway` (`nylas`, the default, or `direct`, our own `DirectMailboxGateway` wherever one
+covers the provider, Nylas the rest); a direct grant whose gateway the deployment lacks is refused, never
+handed to Nylas. A direct connection keeps the provider's **refresh token, encrypted** (bound to workspace
+and consultant), never logged or returned; `MailboxTokens` turns it into an access token through the
+workspace's resolved app, held in memory until two minutes before it expires, keeps a rotated one, and
+treats a refusal (`invalid_grant`, `interaction_required`) as Nylas's `grant.expired` — `ERROR`, and the
+`CREDENTIALS` failure every sender already reads as "reconnect". A refused **app** (`invalid_client`,
+`unauthorized_client`, any 401 — an own app's secret expired) is `ProviderAppUnavailable` instead: the
+mailbox stays `ACTIVE` and a send waits an hour rather than stopping the run, because one broken workspace
+app must not take every consultant's mailbox down. On `RECALL` sync each direct mailbox has
+one Recall calendar (`RecallCalendars`): made after the connect commits, handed the new token on a
+reconnect to the same mailbox — a reconnect at another host or address gets a new one, since a calendar
+keeps the platform it was made for — deleted on a disconnect, a refused refresh or a switch to `DIRECT`
+(made again on a switch back); a failed create never fails the connect — the reply poll makes it, on
+V103's backoff, giving up after five until the mailbox reconnects. Recall's webhook
+(`/api/v1/outreach/webhooks/recall`, public, its Svix signature under `lightmove.recall.webhook-secret` the
+credential; blank refuses every delivery) reporting a calendar `disconnected` marks the mailbox `ERROR`, and its
+`calendar.sync_events` is a read of the events changed since (`GET /api/v2/calendar-events/`, only the `cursor` of
+its `next` link taken) fed to `MeetingSync` as a direct read would be — a deleted, cancelled or recurring one removed.
+**Microsoft (#645)** is `MicrosoftMailboxGateway`, over Graph: it is offered to a workspace with a Microsoft app,
+shared (`/organizations`) or its own (its tenant), and Nylas answers for one without. It asks
+`offline_access User.Read Mail.ReadWrite Mail.Send Calendars.ReadWrite` — `Mail.ReadWrite` because every email is a
+**draft then a send** (a follow-up a `createReply` on the last message, addressed to the executive), the only way
+Graph answers with the message and conversation ids threading and the reply poll key on, requested immutable so they
+survive the move to Sent Items; `sendMail` answers nothing. A reply drafted on our own message would go back to the
+consultant, so its recipients are set to the executive alone before the send, and a send Graph definitely refuses
+deletes its draft — a finished approach left in Drafts is one click from the second send "never retried" forbids
+(a timeout leaves it: it may have gone). The poll reads `from`, `receivedDateTime`, `isDraft` and the folder, and
+drops drafts and Sent Items, so the consultant's own mail never reads as a reply whatever address it went from.
+Offered to a workspace only with an app (`isOfferedTo`, which the mailbox screen's providers read), and to the
+deployment only where some app exists. No webhook yet, and no per-app revoke (the stored token goes with the row).
+Microsoft's admin-consent return lands on Settings →
+Integrations, which records it (`POST /workspace/integrations/MICROSOFT/admin-consent`, `WORKSPACE_MANAGE`,
+audited) only with the `state` our link carried — an HMAC of the workspace under the shared app's secret, so a
+crafted return link records nothing — and the card says "Approved for your organisation"; it gates nothing.
+**Google (#646)** is `GoogleMailboxGateway`, over the Gmail API, offered the same way (Uncava's app, or a firm's
+Internal one). Its consent asks `access_type=offline` with `prompt=consent` — Google sends a refresh token only on
+a consent it showed — for `gmail.send`, `gmail.metadata`, `calendar.events` and `calendar.freebusy`. A send is one raw
+RFC 2822 message (`RawEmail`: UTF-8 HTML, an RFC 2047 subject where it is not ASCII, a line break in any header
+refused); a follow-up names the thread and carries the last message's own `Message-ID` in `In-Reply-To` and
+`References`, read with `format=metadata`, so it threads in the executive's client whatever it is. The poll reads
+`From` headers alone and drops `SENT` and `DRAFT` by label. Google revokes by the refresh token, so
+`MailboxService` decrypts it before a disconnect or a reconnect lets the row go (`ReleasedGrant`, only where the
+gateway `revokesByRefreshToken`) and hands it to `revoke`. A reconnect of the **same mailbox** drops the old token
+without revoking it: Google's revoke withdraws the account's whole grant to the app, the token just issued included. Bounces: a mail daemon's `From` (`mailer-daemon`, `postmaster`, and Exchange
+Online's fixed `MicrosoftExchange329e71ec88ae4615bbc36ab6ce41109e` system mailbox) is a bounce, never a reply.
+**Calendar on both (#647)** is read and written directly, whatever `calendar_sync` says: `events.list` on `primary`
+(`singleEvents=true`) and Graph's `calendarView`, each asked only for the fields a meeting row keeps — never a
+description or a body — with Graph's times asked in UTC and only the paging of its `@odata.nextLink` taken, never the
+link itself, and a read stopped by the page cap is logged; free/busy is `freeBusy.query` and `getSchedule`, where an
+error entry is a failure as on Nylas, and Graph offers only `free` and `workingElsewhere` — `unknown` is taken. A
+booked call is `events.insert` with `sendUpdates=all` and a Meet `createRequest`, or `POST /me/events` with
+`teamsForBusiness` — asked only where the calendar's `allowedOnlineMeetingProviders` lists it, so in an organisation
+without Teams the invite goes without a link rather than being refused, and Book a call says so. Book a call offers
+only the link the connected calendar can make (Meet on Google, Teams on Microsoft). A meeting is keyed on Google's
+event id and on Outlook's `iCalUId` — Recall's copy of an Outlook event carries the ordinary Graph id, never the
+immutable one our reads ask for — so a meeting read, booked or pushed by Recall is one row (`RecallEventReading`).
+The connect's 90-day read stays direct on both syncs, since Recall's first sync lags the connect. A direct calendar
+nothing pushes from (`DIRECT`, or no Recall calendar) is read again when the drawer opens: off the request thread,
+at most every five minutes, a week back and 90 days on, and a meeting that read no longer finds in its window goes
+(`MeetingBackfill.refreshUnpushed`), so a move or delete shows on the next opening.
+**Zoom (#648, V109)** is a consultant's own account, apart from the mailbox: `app_lm_zoom_connection` per person
+per workspace, Zoom's refresh token sealed as a direct mailbox's is (`ZoomConnection.refreshTokenContext`), Zoom's
+user id beside it so a reconnect elsewhere revokes the account it replaced. Connected through the workspace's Zoom
+app (`ProviderCredentialsResolver`, shared or its own; the app's scopes, `user:read:token` included for #651's
+on-behalf-of token, are set on the app, never asked on the consent screen) by the mailbox's popup flow — an
+`app_lm_mailbox_authorization` row with provider `zoom`, the `lm_zoom_connect` cookie, the public
+`/api/v1/outreach/zoom/callback` landing on the SPA's one popup page; neither flow redeems the other's state.
+`ZoomTokens` holds access tokens in memory and keeps Zoom's rotated refresh token; a refusal marks the connection
+`ERROR` (`ZOOM_RECONNECT_NEEDED`, "Reconnect Zoom" in the drawer's Meetings section and on the Outreach page).
+`MeetingVideo.ZOOM` is offered in Book a call only while the consultant's Zoom is usable (`zoomOffered` on the
+slots): the meeting is made first (`POST /v2/users/me/meetings`, never retried), its `join_url` goes into the
+invite's location and description through whichever calendar sends it, and an invite that fails deletes the meeting
+so no orphan link is left. A read-back event's Zoom link is found in its location (`ZoomLinks`), on every gateway.
+**Moving off Nylas (#650)**: a Nylas mailbox keeps working until its consultant reconnects once; where a reconnect
+would now go through our own gateway (`movesOffNylas` on the mailbox read) the Outreach page offers "Reconnect to move
+off Nylas", counting the runs it stops. A run keeps the gateway that made its thread (V110 `thread_gateway`, set by its
+first send): whichever way the sender came to another gateway — a reconnect, or a disconnect and a fresh connect — the
+run stops at its next send as `MAILBOX_MOVED` and the reply poll leaves its thread alone, since the new gateway may not
+read it. **A direct mailbox's booking link opens Uncava's own page** (`DirectBookingPage`, the same slug kept across
+the move): `GET /api/v1/outreach/booking/{slug}` answers `kind: DIRECT`, `…/{slug}/slots` the consultant's free
+half-hours read as Book a call reads them, and `POST …/{slug}` (an email address alone, nobody signed in — nothing a caller types reaches the invite but where it goes) asks the calendar
+once more, invites whoever picked the time with the calendar's own video link, and hands the booking to
+`LinkBookings` — so it counts only for an address that consultant emailed. All three are public and rate-limited per
+IP and link (`booking-page-bookings-per-hour`, 5, for the write). A Nylas mailbox's link still opens Nylas's
+scheduler; `BOOKING_LINK_UNAVAILABLE` is no longer written.
+**An own app's secret expiry (#650, V111)**: `IntegrationSecretExpiryWarnings` runs daily
+(`lightmove.outreach.secret-expiry-check`, a UTC cron) and emails whoever holds `WORKSPACE_MANAGE` 30 and 7 days
+before an own app's `secret_expires_on` and on the day it lapses — each threshold once per expiry date
+(`secret_expiry_warned_days`, claimed by a conditional update committed before any email goes, so of two instances
+only one sends, and cleared when the date changes or the workspace returns to the shared app) — and the
+provider's card in Settings → Integrations says the same from 30 days out.
+**Registering the shared apps (#649)** is `docs/integrations/registration.md` — every console value, the Secret
+Manager names and the `deploy.yml` switches (`GOOGLE_MAIL_ENABLED`, `MICROSOFT_MAIL_ENABLED`, `ZOOM_ENABLED`,
+`RECALL_ENABLED`, each off until its secrets exist) — and the five admin guides beside it are what the
+`*_GUIDE_URL` settings link Settings → Integrations to once published.
 Sequences (V100, #623) are a position's, `WORK_EXECUTE`: up to three emails (V39's owned list), and
 **Add to sequence** — from In universe / Shortlisted (the ticked companies' executives) or the executive
 drawer — chooses, reviews and starts. Choose shows who is skipped and why (no email, do not contact, out
@@ -672,6 +790,20 @@ upload is matched on — and a `primary_cv` mark held to one per person by a par
 `sha256`, the bucket's `storage_key`; `person_id` beside `document_id` so a duplicate is one lookup), and
 widens the activity kinds with `DOCUMENT_ADDED`, `DOCUMENT_VERSION_ADDED`, `DOCUMENT_REMOVED` and
 `DOCUMENT_VERSION_REMOVED`. No bytes are in the database.
+V106 adds `app_lm_workspace_mail_integration` — one row per workspace per provider (`GOOGLE | MICROSOFT |
+ZOOM`), `mode` `SHARED | OWN`, and on `OWN` the client id, `client_secret_encrypted`, the Entra `tenant_id`
+(Microsoft only, by CHECK) and the secret's own expiry; a `SHARED` row holds no key (CHECK), and no row means
+shared — and `app_lm_workspace.calendar_sync` (`RECALL | DIRECT`, default `RECALL`).
+V107 gives `app_lm_mailbox_connection` its `gateway` (`NYLAS | DIRECT`, existing rows `NYLAS`),
+`refresh_token_encrypted` (set exactly on a `DIRECT` row, by CHECK), `recall_calendar_id` (indexed, for
+Recall's webhook, which names nothing else) and V103's backoff pair for it, `recall_calendar_attempts` and
+`recall_calendar_retry_at`.
+V108 gives `app_lm_workspace_mail_integration` Microsoft's admin consent — `admin_consented_at`, the
+`admin_consent_tenant_id` it was given for and who reported it — by CHECK on the Microsoft row alone.
+V110 gives `app_lm_outreach_enrollment` its `thread_gateway` (`NYLAS | DIRECT`, backfilled from the sender's
+mailbox, Nylas where it is gone) and adds `MAILBOX_MOVED` and `BOOKING_LINK_UNAVAILABLE` to its `stop_reason` CHECK.
+V111 gives `app_lm_workspace_mail_integration` `secret_expiry_warned_days` — the fewest days left an expiry warning
+was already sent for.
 V84 adds `app_lm_workspace.mode` (`AGENCY | COMPANY`, V34's CHECK idiom; every existing row `COMPANY`):
 who a workspace hires for — client companies, or its own business units. Chosen at creation with **no
 default** (`CreateWorkspaceRequest.mode` is required, the organisation step preselects nothing) and

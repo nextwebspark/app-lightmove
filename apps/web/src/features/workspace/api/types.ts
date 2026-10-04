@@ -10,6 +10,7 @@ export interface WorkspaceDetail {
   logoMark: string | null;
   emailDomain: string;
   mode: WorkspaceMode;
+  calendarSync: CalendarSync;
   defaultRegion: string;
   defaultCurrency: string;
   plan: string;
@@ -18,6 +19,9 @@ export interface WorkspaceDetail {
   persona: HiringPersona;
   company: WorkspaceCompany | null;
 }
+
+/** How calendar events are read: pushed through Recall.ai, or read directly when a drawer opens. */
+export type CalendarSync = "RECALL" | "DIRECT";
 
 /** What a hiring company is — the firm itself, or an agency's client — for the assistant to tailor research to. */
 export interface HiringPersona {

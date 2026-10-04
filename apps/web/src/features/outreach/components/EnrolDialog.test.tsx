@@ -84,6 +84,8 @@ describe("EnrolDialog", () => {
         status: "ACTIVE",
         dailyCap: 50,
         connectedAt: "2026-10-01T09:00:00Z",
+        movesOffNylas: false,
+        runsStoppedByMove: 0,
       },
     });
     vi.mocked(sequenceApi.getSequences).mockResolvedValue([SEQUENCE]);

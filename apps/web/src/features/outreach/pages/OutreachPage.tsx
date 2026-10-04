@@ -14,6 +14,7 @@ import type { Sequence } from "../api/sequenceApi";
 import { CandidateDrawerById } from "../../candidates/components/CandidateDrawerById";
 import { PeopleInOutreach } from "../components/PeopleInOutreach";
 import { SequenceStatePill } from "../components/SequenceStatePill";
+import { ZoomConnectControl } from "../components/ZoomConnectControl";
 import { connectMailboxInPopup } from "../lib/mailboxPopup";
 import { useMailbox } from "../lib/useMailbox";
 
@@ -102,6 +103,7 @@ function StaffOutreachPage() {
             onDisconnect={() => disconnect.mutate()}
           />
         )}
+        {connection?.status === "ACTIVE" && <ZoomConnectControl />}
       </div>
 
       {mailbox.isError && (
@@ -246,6 +248,15 @@ function MailboxState({
       </div>
     );
   }
+  if (connection?.movesOffNylas) {
+    return (
+      <MoveOffNylasBanner
+        connection={connection}
+        isConnecting={connectingProvider === connection.provider}
+        onReconnect={() => onConnect(connection.provider)}
+      />
+    );
+  }
   if (connection) {
     return null;
   }
@@ -275,6 +286,47 @@ function MailboxState({
           </Button>
         ))}
       </div>
+    </div>
+  );
+}
+
+/** Nylas keeps sending until the consultant reconnects once; a reconnect then goes through Uncava's own connection. */
+function MoveOffNylasBanner({
+  connection,
+  isConnecting,
+  onReconnect,
+}: {
+  connection: ConnectedMailbox;
+  isConnecting: boolean;
+  onReconnect: () => void;
+}) {
+  const runs = connection.runsStoppedByMove;
+  return (
+    <div className="mb-[18px] flex flex-wrap items-center gap-3 rounded-[8px] border border-u-border bg-u-raised px-3.5 py-2.5 text-[13px] text-u-text">
+      <span className="min-w-[260px] flex-1">
+        <b>Reconnect to move off Nylas.</b> Uncava now connects to {providerLabel(connection.provider)} directly.
+        Reconnect {connection.address} once to keep sending from it.
+        {runs > 0 && (
+          <>
+            {" "}
+            <span className="text-u-offlimits">
+              {runs === 1 ? "1 running sequence stops" : `${runs} running sequences stop`} at {runs === 1 ? "its" : "their"}{" "}
+              next email; start {runs === 1 ? "it" : "them"} again afterwards.
+            </span>
+          </>
+        )}
+        {connection.bookingLink && (
+          <> Your booking link stops working, so sequences that send it stop too.</>
+        )}
+      </span>
+      <Button
+        variant="secondary"
+        className="ms-auto px-[11px] py-[5px] text-[12px]"
+        loading={isConnecting}
+        onClick={onReconnect}
+      >
+        Reconnect
+      </Button>
     </div>
   );
 }

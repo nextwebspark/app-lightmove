@@ -27,6 +27,23 @@ export function slotDayLabelOf(isoDate: string): string {
   return weekdayDateOf(new Date(Date.UTC(year, month - 1, day)), "UTC");
 }
 
+/** A day tile's three lines for a `YYYY-MM-DD` day: "MON", "5", "Oct". */
+export function slotDayPartsOf(isoDate: string): { weekday: string; day: string; month: string } {
+  const [year, month, day] = isoDate.split("-").map(Number);
+  const at = new Date(Date.UTC(year, month - 1, day));
+  return {
+    weekday: at.toLocaleDateString("en-GB", { weekday: "short", timeZone: "UTC" }).toUpperCase(),
+    day: String(day),
+    month: at.toLocaleDateString("en-GB", { month: "short", timeZone: "UTC" }),
+  };
+}
+
+/** A `YYYY-MM-DD` day moved by whole days, calendar arithmetic with no zone in it. */
+export function shiftDateOf(isoDate: string, days: number): string {
+  const [year, month, day] = isoDate.split("-").map(Number);
+  return new Date(Date.UTC(year, month - 1, day + days)).toISOString().slice(0, 10);
+}
+
 /** "11:00" in the consultant's zone — the grid reads their calendar, so it speaks their time. */
 export function slotTimeOf(isoInstant: string, timeZone: string): string {
   return clockOf(new Date(isoInstant), timeZone);

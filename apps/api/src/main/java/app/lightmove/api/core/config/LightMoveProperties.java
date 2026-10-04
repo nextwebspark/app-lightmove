@@ -25,5 +25,7 @@ public record LightMoveProperties(
         AssistantSettings assistant,
         OutreachSettings outreach,
         StorageSettings storage,
-        PersonDocumentSettings personDocuments
+        PersonDocumentSettings personDocuments,
+        CredentialEncryptionSettings crypto,
+        RecallSettings recall
 ) {}

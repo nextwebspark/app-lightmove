@@ -1,5 +1,6 @@
 package app.lightmove.api.outreach.repository;
 
+import app.lightmove.api.outreach.constant.MailboxGatewayKind;
 import app.lightmove.api.outreach.constant.MailboxStatus;
 import app.lightmove.api.outreach.model.MailboxConnection;
 import java.time.Instant;
@@ -22,6 +23,8 @@ public interface MailboxConnectionRepository extends JpaRepository<MailboxConnec
      */
     List<MailboxConnection> findByGrantId(String grantId);
 
+    boolean existsByGrantIdAndStatus(String grantId, MailboxStatus status);
+
     /** A public booking page's read: the slug is the link's whole identity, so this finder carries no workspace. */
     Optional<MailboxConnection> findByBookingSlug(String bookingSlug);
 
@@ -38,4 +41,21 @@ public interface MailboxConnectionRepository extends JpaRepository<MailboxConnec
             + "and m.calendarSyncAttempts < :maxAttempts "
             + "and (m.calendarSyncRetryAt is null or m.calendarSyncRetryAt <= :now) order by m.connectedAt")
     List<MailboxConnection> findCalendarsOwed(MailboxStatus status, int maxAttempts, Instant now, Pageable page);
+
+    List<MailboxConnection> findByWorkspaceIdAndGateway(UUID workspaceId, MailboxGatewayKind gateway);
+
+    /** Recall's webhook names its calendar and nothing else. A list, like {@link #findByGrantId}. */
+    List<MailboxConnection> findByRecallCalendarId(String recallCalendarId);
+
+    /**
+     * Direct mailboxes at a host Recall reads, still owed a Recall calendar and due to be tried, in workspaces
+     * syncing through Recall, oldest first. A system job's read, across workspaces by design; no request path may
+     * use it.
+     */
+    @Query(value = "select m.* from app_lm_mailbox_connection m join app_lm_workspace w on w.id = m.workspace_id "
+            + "where m.gateway = 'DIRECT' and m.status = 'ACTIVE' and m.recall_calendar_id is null "
+            + "and m.provider in ('google', 'microsoft') and m.recall_calendar_attempts < :maxAttempts "
+            + "and (m.recall_calendar_retry_at is null or m.recall_calendar_retry_at <= :now) "
+            + "and w.calendar_sync = 'RECALL' order by m.connected_at limit :limit", nativeQuery = true)
+    List<MailboxConnection> findOwedRecallCalendars(int maxAttempts, Instant now, int limit);
 }

@@ -460,24 +460,49 @@ export interface MapToPositionResult {
   alreadyIn: number;
 }
 
+/** What a person's document is; the server's `PersonDocumentCategory` tokens. */
+export type PersonDocumentCategory = "cv" | "cover_letter" | "reference" | "certificate" | "assessment" | "other";
 
-/** One page of the position's Candidates page; `statusCounts` counts the search without the status filter. */
-export interface CandidatePipelinePage {
-  candidates: Candidate[];
-  statusCounts: Partial<Record<CandidateStatus, number>>;
-  totalCount: number;
-  page: number;
-  size: number;
+/** One file of a person's document. */
+export interface PersonDocumentVersion {
+  id: string;
+  versionNo: number;
+  fileName: string;
+  contentType: string;
+  sizeBytes: number;
+  uploadedBy: string;
+  uploadedByName: string | null;
+  uploadedAt: string;
+  /** A PDF or an image, which the drawer previews; anything else is downloaded. */
+  previewable: boolean;
+  /** Whoever uploaded it, or a workspace admin. */
+  removable: boolean;
 }
 
-/** The staff columns beside one row of the position's Candidates page. Never read by a client seat. */
-export interface CandidatePipelineStaffRow {
-  candidateId: string;
-  tagIds: string[];
-  /** The person's other positions, newest first. */
-  alsoIn: PersonPosition[];
-  addedByUserId: string;
-  addedByName: string | null;
-  doNotContact: DoNotContact | null;
-  lastActivity: PersonTimelineEntry | null;
+/** A CV, cover letter or reference on a person, with its files newest first. Staff-only. */
+export interface PersonDocument {
+  id: string;
+  category: PersonDocumentCategory;
+  title: string;
+  primaryCv: boolean;
+  projectId: string | null;
+  projectTitle: string | null;
+  createdBy: string;
+  createdByName: string | null;
+  createdAt: string;
+  updatedAt: string;
+  /** Whoever filed it, or a workspace admin. */
+  removable: boolean;
+  versions: PersonDocumentVersion[];
+}
+
+export interface PersonDocumentUpload {
+  outcome: "created" | "new_version";
+  document: PersonDocument;
+}
+
+export interface UpdatePersonDocumentPayload {
+  title?: string;
+  category?: PersonDocumentCategory;
+  primaryCv?: boolean;
 }

@@ -123,7 +123,7 @@ function listenForOutcome(popup: Window, handshakeId: string, handlers: MailboxC
     settle(() => {
       if (outcome.status === "connected") {
         handlers.onConnected();
-      } else if (outcome.code === "MAILBOX_CONNECT_CANCELLED") {
+      } else if (outcome.code === "MAILBOX_CONNECT_CANCELLED" || outcome.code === "ZOOM_CONNECT_CANCELLED") {
         handlers.onCancel();
       } else {
         handlers.onError(outcome.code);

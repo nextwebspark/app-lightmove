@@ -2,6 +2,7 @@ package app.lightmove.api;
 
 import app.lightmove.api.core.error.constant.ErrorCode;
 import app.lightmove.api.core.error.model.ApiException;
+import app.lightmove.api.outreach.config.MailboxGatewayConfig;
 import app.lightmove.api.outreach.model.BookingPageSpec;
 import app.lightmove.api.outreach.model.BusyInterval;
 import app.lightmove.api.outreach.model.CalendarEvent;
@@ -9,6 +10,7 @@ import app.lightmove.api.outreach.model.GrantedMailbox;
 import app.lightmove.api.outreach.model.MailboxEvent;
 import app.lightmove.api.outreach.model.NewCalendarEvent;
 import app.lightmove.api.outreach.model.OutgoingEmail;
+import app.lightmove.api.outreach.model.ReleasedGrant;
 import app.lightmove.api.outreach.model.SentEmail;
 import app.lightmove.api.outreach.service.MailboxGateway;
 import java.net.URI;
@@ -18,9 +20,9 @@ import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.atomic.AtomicInteger;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.context.annotation.Bean;
-import org.springframework.context.annotation.Primary;
 import org.springframework.web.util.UriComponentsBuilder;
 
 /**
@@ -47,6 +49,7 @@ public class RecordingMailboxGateway implements MailboxGateway {
     private final List<NewCalendarEvent> created = new CopyOnWriteArrayList<>();
     private final AtomicInteger calendarReads = new AtomicInteger();
     private volatile RuntimeException calendarFailure;
+    private volatile RuntimeException createEventFailure;
     private volatile RuntimeException busyFailure;
     private volatile boolean bookingPagesOffered = true;
     private final List<BookingPageSpec> bookingPages = new CopyOnWriteArrayList<>();
@@ -126,10 +129,20 @@ public class RecordingMailboxGateway implements MailboxGateway {
 
     @Override
     public CalendarEvent createEvent(String grantId, NewCalendarEvent event) {
+        if (createEventFailure != null) {
+            throw createEventFailure;
+        }
         created.add(event);
+        boolean linkFromElsewhere = event.joinUrl() != null;
         return new CalendarEvent("created-" + sequence.incrementAndGet(), event.title(), event.startsAt(),
                 event.endsAt(), List.of(granted.address(), event.inviteeAddress()),
-                "https://meet.example/" + created.size(), "Google Meet");
+                linkFromElsewhere ? event.joinUrl() : "https://meet.example/" + created.size(),
+                linkFromElsewhere ? "Zoom" : "Google Meet");
+    }
+
+    /** The calendar refuses to make the next events, as a definite refusal or an outage would. */
+    public void failCreatingEvents(RuntimeException failure) {
+        this.createEventFailure = failure;
     }
 
     /** What the calendar holds when it is read whole. */
@@ -193,8 +206,8 @@ public class RecordingMailboxGateway implements MailboxGateway {
     }
 
     @Override
-    public void revoke(String grantId) {
-        revoked.add(grantId);
+    public void revoke(ReleasedGrant released) {
+        revoked.add(released.grantId());
     }
 
     public void grant(GrantedMailbox mailbox) {
@@ -236,6 +249,7 @@ public class RecordingMailboxGateway implements MailboxGateway {
         created.clear();
         calendarReads.set(0);
         calendarFailure = null;
+        createEventFailure = null;
         busyFailure = null;
         bookingPagesOffered = true;
         bookingPages.clear();
@@ -246,9 +260,12 @@ public class RecordingMailboxGateway implements MailboxGateway {
     @TestConfiguration(proxyBeanMethods = false)
     public static class Config {
 
-        /** {@code @Primary} so it wins over the unconfigured gateway a test profile without Nylas picks. */
+        /**
+         * Under the Nylas gateway's qualifier, so it takes the place of the unconfigured one a test profile
+         * without Nylas builds — beneath the routing gateway, which every test still talks through.
+         */
         @Bean
-        @Primary
+        @Qualifier(MailboxGatewayConfig.NYLAS)
         public RecordingMailboxGateway recordingMailboxGateway() {
             return new RecordingMailboxGateway();
         }
