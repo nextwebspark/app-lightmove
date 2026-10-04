@@ -6,7 +6,7 @@ import type {
   WorkspaceMode,
   WorkspaceRole,
 } from "../../auth/api/types";
-import type { HiringPersona, Invitation, Member, WorkspaceDetail } from "./types";
+import type { CalendarSync, HiringPersona, Invitation, Member, WorkspaceDetail } from "./types";
 
 /** Every call workspace management makes (roster, invitations, settings), plus shared query keys. */
 
@@ -35,6 +35,11 @@ export function updatePersona(persona: HiringPersona): Promise<WorkspaceDetail> 
 /** Changes labels, screens and whose persona the assistant reads; no stored record moves. */
 export function changeMode(mode: WorkspaceMode): Promise<WorkspaceDetail> {
   return request<WorkspaceDetail>("/workspace/mode", { method: "PUT", body: { mode } });
+}
+
+/** Recall shares the app's keys and each calendar's refresh token with Recall.ai; Direct keeps them here. */
+export function changeCalendarSync(calendarSync: CalendarSync): Promise<WorkspaceDetail> {
+  return request<WorkspaceDetail>("/workspace/calendar-sync", { method: "PUT", body: { calendarSync } });
 }
 
 export function deleteWorkspace(confirmName: string): Promise<void> {

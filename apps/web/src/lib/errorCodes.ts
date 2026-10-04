@@ -76,6 +76,13 @@ export type ApiErrorCode =
   | "PEOPLE_SEARCH_EMPTY_FILTER"
   | "PEOPLE_SEARCH_PERSON_UNKNOWN"
   | "MAILBOX_UNAVAILABLE"
+  | "ZOOM_UNAVAILABLE"
+  | "ZOOM_NOT_CONNECTED"
+  | "ZOOM_RECONNECT_NEEDED"
+  | "ZOOM_CONNECT_CANCELLED"
+  | "ZOOM_CONNECT_FAILED"
+  | "INTEGRATION_ENCRYPTION_UNAVAILABLE"
+  | "INTEGRATION_SHARED_APP_UNAVAILABLE"
   | "MAILBOX_PROVIDER_UNSUPPORTED"
   | "MAILBOX_NOT_CONNECTED"
   | "MAILBOX_RECONNECT_NEEDED"
@@ -177,6 +184,13 @@ const MESSAGES: Partial<Record<ApiErrorCode, string>> = {
   PEOPLE_SEARCH_EMPTY_FILTER: "Add at least one filter before searching.",
   PEOPLE_SEARCH_PERSON_UNKNOWN: "That person is no longer in the results. Search again and add them from there.",
   MAILBOX_UNAVAILABLE: "Outreach email is not set up on this deployment.",
+  ZOOM_UNAVAILABLE: "Zoom is not set up for your workspace.",
+  ZOOM_NOT_CONNECTED: "Connect Zoom first.",
+  ZOOM_RECONNECT_NEEDED: "Your Zoom account needs reconnecting.",
+  ZOOM_CONNECT_CANCELLED: "Zoom was not connected.",
+  ZOOM_CONNECT_FAILED: "Zoom could not be connected. Try again.",
+  INTEGRATION_ENCRYPTION_UNAVAILABLE: "Your own app's keys can't be stored on this deployment. Use the shared app.",
+  INTEGRATION_SHARED_APP_UNAVAILABLE: "Uncava's shared app isn't offered on this deployment.",
   MAILBOX_PROVIDER_UNSUPPORTED: "That kind of mailbox can't be connected.",
   MAILBOX_NOT_CONNECTED: "Connect your mailbox first.",
   MAILBOX_RECONNECT_NEEDED: "Your mailbox needs reconnecting before it can send.",

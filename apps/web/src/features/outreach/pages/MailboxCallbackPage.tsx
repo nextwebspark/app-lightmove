@@ -9,7 +9,7 @@ import {
 } from "../lib/mailboxPopup";
 
 /**
- * Where the server sends the browser once the mailbox provider has answered. The server has already
+ * Where the server sends the browser once the mailbox provider, or Zoom, has answered. The server has already
  * stored the mailbox (or refused it), so in the connect popup this page only reports the outcome and
  * closes; after a full-page connection it returns to wherever the consultant started.
  */
@@ -36,7 +36,7 @@ export function MailboxCallbackPage() {
     <div className="grid min-h-screen place-items-center bg-u-bg px-4 text-center">
       <div>
         <Logo />
-        <p className="mt-4 text-[13px] text-u-text2">Connecting your mailbox… you can close this window.</p>
+        <p className="mt-4 text-[13px] text-u-text2">Connecting… you can close this window.</p>
       </div>
     </div>
   );

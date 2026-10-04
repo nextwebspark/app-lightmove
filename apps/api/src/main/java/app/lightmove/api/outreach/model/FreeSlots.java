@@ -3,10 +3,13 @@ package app.lightmove.api.outreach.model;
 import java.time.Duration;
 import java.time.Instant;
 import java.time.LocalDate;
+import java.time.Period;
 import java.time.ZoneId;
 import java.time.ZonedDateTime;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
+import java.util.function.BiFunction;
 
 /**
  * The times a consultant can offer a call: on the half hour, inside their working day in their own
@@ -19,6 +22,34 @@ public record FreeSlots(SendingWindow window, ZoneId zone) {
 
     /** Nobody is booked into a call that starts before they could read the invite. */
     static final Duration LEAD = Duration.ofMinutes(30);
+
+    /** Working days on one page of times. */
+    public static final int PAGE_DAYS = 5;
+
+    /** How far ahead a call may be booked, from today in the consultant's zone. */
+    public static final Period HORIZON = Period.ofMonths(6);
+
+    /**
+     * The page of {@link #PAGE_DAYS} working days from {@code from} (today when absent or past), empty beyond
+     * {@link #HORIZON}. {@code busyBetween} reads the calendar once, for the span the page covers.
+     */
+    public Optional<SlotPage> page(Instant now, LocalDate from, Duration length,
+                                   BiFunction<Instant, Instant, List<BusyInterval>> busyBetween) {
+        LocalDate today = todayAt(now);
+        LocalDate latest = today.plus(HORIZON);
+        LocalDate firstDay = from == null || from.isBefore(today) ? today : from;
+        if (firstDay.isAfter(latest)) {
+            return Optional.empty();
+        }
+        List<BusyInterval> busy = busyBetween.apply(startOf(now, firstDay, PAGE_DAYS), endOf(now, firstDay, PAGE_DAYS));
+        List<SlotDay> days = offered(now, firstDay, PAGE_DAYS, length, busy);
+        return Optional.of(new SlotPage(today, latest, previousFrom(now, days.getFirst().date(), PAGE_DAYS), days));
+    }
+
+    /** Whether {@code start} may be booked: a time a page could offer, and not beyond {@link #HORIZON}. */
+    public boolean books(Instant now, Instant start, Duration length) {
+        return offers(now, start, length) && !start.atZone(zone).toLocalDate().isAfter(todayAt(now).plus(HORIZON));
+    }
 
     /**
      * {@code dayCount} working days from {@code from} — never earlier than today — each with its free starts,

@@ -22,8 +22,22 @@ const LENGTHS: { value: Length; label: string }[] = [
 const VIDEO_LINKS: { value: MeetingVideo; label: string }[] = [
   { value: "GOOGLE_MEET", label: "Google Meet" },
   { value: "MICROSOFT_TEAMS", label: "Microsoft Teams" },
+  { value: "ZOOM", label: "Zoom" },
   { value: "NONE", label: "No video link" },
 ];
+
+/**
+ * A calendar makes only its own provider's link — Meet from Google, Teams from Microsoft — and Zoom is offered only
+ * where the consultant's own Zoom account is connected.
+ */
+function videoLinksFor(provider: string | undefined, isZoomOffered: boolean) {
+  return VIDEO_LINKS.filter((option) => {
+    if (option.value === "ZOOM") return isZoomOffered;
+    if (option.value === "MICROSOFT_TEAMS") return provider !== "google";
+    if (option.value === "GOOGLE_MEET") return provider !== "microsoft";
+    return true;
+  });
+}
 
 const DEFAULT_TITLE = "Confidential: first conversation";
 
@@ -62,7 +76,13 @@ export function BookCallDialog({
     placeholderData: (previous) => previous,
   });
   const timeZone = slots.data?.timeZone;
-  const video: MeetingVideo = chosenVideo ?? (slots.data?.provider === "microsoft" ? "MICROSOFT_TEAMS" : "GOOGLE_MEET");
+  const videoLinks = videoLinksFor(slots.data?.provider, slots.data?.zoomOffered === true);
+  const video: MeetingVideo =
+    chosenVideo !== null && videoLinks.some((option) => option.value === chosenVideo)
+      ? chosenVideo
+      : slots.data?.provider === "microsoft"
+        ? "MICROSOFT_TEAMS"
+        : "GOOGLE_MEET";
   const isSlotOffered = slot !== null && (slots.data?.days.some((day) => day.starts.includes(slot)) ?? false);
 
   const book = useMutation({
@@ -220,14 +240,21 @@ export function BookCallDialog({
             </span>
             <SegmentedControl label="Length" options={LENGTHS} value={length} onChange={handleLengthChange} />
           </div>
-          <Field label="Video">
+          <Field
+            label="Video"
+            hint={
+              video === "MICROSOFT_TEAMS"
+                ? "Where your organisation doesn't offer Teams, the invite goes without a link."
+                : undefined
+            }
+          >
             <Select
               aria-label="Video link"
               value={video}
               onChange={(event) => setChosenVideo(event.target.value as MeetingVideo)}
               className="px-2.5 py-2 text-[12.5px]"
             >
-              {VIDEO_LINKS.map((option) => (
+              {videoLinks.map((option) => (
                 <option key={option.value} value={option.value}>
                   {option.label}
                 </option>
