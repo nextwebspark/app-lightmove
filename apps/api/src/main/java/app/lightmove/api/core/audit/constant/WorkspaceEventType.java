@@ -27,7 +27,10 @@ public enum WorkspaceEventType implements AuditEventType {
     POSITION_TEMPLATES_IMPORTED,
 
     MAILBOX_CONNECTED,
-    MAILBOX_DISCONNECTED;
+    MAILBOX_DISCONNECTED,
+
+    ZOOM_CONNECTED,
+    ZOOM_DISCONNECTED;
 
     @Override
     public String code() {

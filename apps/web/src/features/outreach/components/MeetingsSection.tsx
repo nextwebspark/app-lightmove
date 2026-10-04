@@ -8,6 +8,7 @@ import type { Meeting } from "../api/meetingApi";
 import { dateTileOf, meetingWhenOf, shortDateOf } from "../lib/meetingTimes";
 import { useMailbox } from "../lib/useMailbox";
 import { BookCallDialog } from "./BookCallDialog";
+import { ZoomConnectControl } from "./ZoomConnectControl";
 
 /**
  * The executive drawer's Meetings section (`Outreach.dc.html?drawer=`): calls with them on the team's
@@ -104,6 +105,8 @@ export function MeetingsSection({
           ))}
         </>
       )}
+
+      {canBook && <ZoomConnectControl className="mt-2" />}
 
       <p className="mt-2 font-mono text-[11px]/[1.5] text-u-text3">
         From your team's connected calendars. Only meetings with {firstName}'s addresses are kept, never the rest of

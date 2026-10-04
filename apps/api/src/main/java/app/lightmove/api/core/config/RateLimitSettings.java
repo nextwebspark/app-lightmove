@@ -26,5 +26,8 @@ public record RateLimitSettings(
         @DefaultValue("60") int workspaceCreationsPerHourPerIp,
 
         /** Opening a booking link: public and read-only, so generous; a brake on enumerating slugs. */
-        @DefaultValue("30") int bookingPageOpensPerMinute
+        @DefaultValue("30") int bookingPageOpensPerMinute,
+
+        /** Booking through a link: each one is an invite on a consultant's calendar, so a tight brake. */
+        @DefaultValue("5") int bookingPageBookingsPerHour
 ) {}

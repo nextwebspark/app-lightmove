@@ -11,7 +11,7 @@ export const MEETINGS_KEY = (projectId: string, candidateId: string) =>
 export const MEETING_SLOTS_KEY = (projectId: string, candidateId: string, minutes: number, from: string | null) =>
   ["outreach", projectId, "candidate", candidateId, "slots", minutes, from] as const;
 
-export type MeetingVideo = "GOOGLE_MEET" | "MICROSOFT_TEAMS" | "NONE";
+export type MeetingVideo = "GOOGLE_MEET" | "MICROSOFT_TEAMS" | "ZOOM" | "NONE";
 
 export interface Meeting {
   id: string;
@@ -53,6 +53,8 @@ export interface MeetingSlots {
   /** Where the page before this one starts, a working week back; null on the first page. */
   previousFrom: string | null;
   days: SlotDay[];
+  /** The consultant's own Zoom account can put a Zoom link on the invite. */
+  zoomOffered: boolean;
 }
 
 export interface BookMeetingRequest {
