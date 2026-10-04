@@ -565,18 +565,6 @@ export function CandidateProfile({
               </>
             )}
           </p>
-          {onRemove && (
-            <div className="border-t border-u-border py-3">
-              <Button
-                type="button"
-                variant="secondary"
-                className="text-u-offlimits"
-                onClick={() => onRemove(candidate)}
-              >
-                Remove from mandate
-              </Button>
-            </div>
-          )}
         </div>
 
         <div {...panelProps("contact")}>
@@ -659,6 +647,17 @@ export function CandidateProfile({
           </>
         )}
       </div>
+
+      <footer className="flex flex-none items-center gap-2 border-t border-u-border px-5 py-3">
+        {onRemove && (
+          <Button type="button" variant="secondary" className="text-u-offlimits" onClick={() => onRemove(candidate)}>
+            Remove from mandate
+          </Button>
+        )}
+        <Button type="button" variant="secondary" className="ms-auto" onClick={onClose}>
+          Close
+        </Button>
+      </footer>
 
       {canWrite && (
         <DocumentPreviewSheet
