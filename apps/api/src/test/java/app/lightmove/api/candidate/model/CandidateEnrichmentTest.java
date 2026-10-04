@@ -15,7 +15,7 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 /**
- * The two rules enrichment lives by: vendor data never outranks a researcher, and a drawer edit never
+ * The two rules enrichment lives by, on the person it researches: vendor data never outranks a researcher, and a drawer edit never
  * wipes the fields the drawer has never heard of.
  */
 class CandidateEnrichmentTest {
@@ -36,29 +36,28 @@ class CandidateEnrichmentTest {
     @Test
     @DisplayName("research fills in what nobody typed")
     void researchFillsWhatNobodyTyped() {
-        Candidate candidate = captured(details("Sample Person", null, null, null, null, null));
+        Person person = captured(details("Sample Person", null, null, null, null, null));
 
-        candidate.enrich(RESEARCH);
+        person.enrich(RESEARCH);
 
-        assertThat(candidate.getTitle()).isEqualTo("Group CFO");
-        assertThat(candidate.getSummary()).isEqualTo("Finance leader across GCC retail.");
-        assertThat(candidate.getLocationCity()).isEqualTo("Dubai");
-        assertThat(candidate.getLocationCountry()).isEqualTo("United Arab Emirates");
-        assertThat(candidate.getCompanyName()).isEqualTo("Al Rawabi Dairy");
-        assertThat(candidate.getProfile().career()).hasSize(1);
-        assertThat(candidate.getProfile().languages()).containsExactly("English", "Arabic");
-        assertThat(candidate.getProfile().education()).hasSize(1);
-        assertThat(candidate.getProfile().skills()).containsExactly("Financial Planning");
-        assertThat(candidate.getProfile().enrichedAt()).isNotNull();
-        assertThat(candidate.getEnrichedBy()).isEqualTo(EnrichmentVendor.BRIGHTDATA);
+        assertThat(person.getTitle()).isEqualTo("Group CFO");
+        assertThat(person.getSummary()).isEqualTo("Finance leader across GCC retail.");
+        assertThat(person.getLocationCity()).isEqualTo("Dubai");
+        assertThat(person.getLocationCountry()).isEqualTo("United Arab Emirates");
+        assertThat(person.getProfile().career()).hasSize(1);
+        assertThat(person.getProfile().languages()).containsExactly("English", "Arabic");
+        assertThat(person.getProfile().education()).hasSize(1);
+        assertThat(person.getProfile().skills()).containsExactly("Financial Planning");
+        assertThat(person.getProfile().enrichedAt()).isNotNull();
+        assertThat(person.getEnrichedBy()).isEqualTo(EnrichmentVendor.BRIGHTDATA);
     }
 
     @Test
     @DisplayName("an unresearched candidate names no provider")
     void anUnresearchedCandidateNamesNoProvider() {
-        Candidate candidate = captured(details("Sample Person", null, null, null, null, null));
+        Person person = captured(details("Sample Person", null, null, null, null, null));
 
-        assertThat(candidate.getEnrichedBy()).isNull();
+        assertThat(person.getEnrichedBy()).isNull();
     }
 
     @Test
@@ -70,102 +69,101 @@ class CandidateEnrichmentTest {
                 CandidateCompensation.unknown(),
                 new CandidateProfile(
                         List.of(new CandidateCareerEntry("The Firm They Told Us", "CFO", "2019 –", null)),
-                        List.of("French"), null, null, null),
+                        List.of("French"), null, null, null, null),
                 null);
-        Candidate candidate = captured(typed);
+        Person person = captured(typed);
 
-        candidate.enrich(RESEARCH);
+        person.enrich(RESEARCH);
 
-        assertThat(candidate.getTitle()).isEqualTo("CFO, as we met them");
-        assertThat(candidate.getSummary()).isEqualTo("Our own read of them.");
-        assertThat(candidate.getLocationCity()).isEqualTo("Abu Dhabi");
-        assertThat(candidate.getCompanyName()).isEqualTo("The Firm They Told Us");
-        assertThat(candidate.getProfile().career().getFirst().company())
+        assertThat(person.getTitle()).isEqualTo("CFO, as we met them");
+        assertThat(person.getSummary()).isEqualTo("Our own read of them.");
+        assertThat(person.getLocationCity()).isEqualTo("Abu Dhabi");
+        assertThat(person.getProfile().career().getFirst().company())
                 .isEqualTo("The Firm They Told Us");
-        assertThat(candidate.getProfile().languages()).containsExactly("French");
+        assertThat(person.getProfile().languages()).containsExactly("French");
         // The fields only research writes still land.
-        assertThat(candidate.getProfile().education()).hasSize(1);
-        assertThat(candidate.getProfile().skills()).containsExactly("Financial Planning");
+        assertThat(person.getProfile().education()).hasSize(1);
+        assertThat(person.getProfile().skills()).containsExactly("Financial Planning");
     }
 
     @Test
     @DisplayName("a proposed background fills the empty fields and flags each one")
     void aProposedBackgroundIsFilledAndFlagged() {
-        Candidate candidate = captured(details("Sample Person", null, null, null, null, null));
+        Person person = captured(details("Sample Person", null, null, null, null, null));
 
-        assertThat(candidate.proposeBackground(PROPOSED)).isTrue();
+        assertThat(person.proposeBackground(PROPOSED)).isTrue();
 
-        assertThat(candidate.getGender()).isEqualTo(Gender.FEMALE);
-        assertThat(candidate.getYearsExperience()).isEqualTo(14);
-        assertThat(candidate.getSeniorityLevel()).isEqualTo(Seniority.N_MINUS_1);
-        assertThat(candidate.getNationality()).isNull();
-        assertThat(candidate.getAiInferredFields()).containsExactlyInAnyOrder(
+        assertThat(person.getGender()).isEqualTo(Gender.FEMALE);
+        assertThat(person.getYearsExperience()).isEqualTo(14);
+        assertThat(person.getSeniorityLevel()).isEqualTo(Seniority.N_MINUS_1);
+        assertThat(person.getNationality()).isNull();
+        assertThat(person.getAiInferredFields()).containsExactlyInAnyOrder(
                 "gender", "yearsExperience", "seniority");
     }
 
     @Test
     @DisplayName("a proposal never overwrites a background already on the row, and flags nothing")
     void aProposalNeverOverwritesAnExistingBackground() {
-        Candidate candidate = captured(detailsWithBackground("Omani", Gender.MALE, 20, Seniority.C_SUITE));
+        Person person = captured(detailsWithBackground("Omani", Gender.MALE, 20, Seniority.C_SUITE));
 
-        assertThat(candidate.proposeBackground(PROPOSED)).isFalse();
-        candidate.recordNationalityReading(DECISIVE);
+        assertThat(person.proposeBackground(PROPOSED)).isFalse();
+        person.recordNationalityReading(DECISIVE);
 
-        assertThat(candidate.getNationality()).isEqualTo("Omani");
-        assertThat(candidate.getGender()).isEqualTo(Gender.MALE);
-        assertThat(candidate.getYearsExperience()).isEqualTo(20);
-        assertThat(candidate.getSeniorityLevel()).isEqualTo(Seniority.C_SUITE);
-        assertThat(candidate.getAiInferredFields()).isEmpty();
-        assertThat(candidate.getAiNationalityReading()).isEqualTo(DECISIVE);
+        assertThat(person.getNationality()).isEqualTo("Omani");
+        assertThat(person.getGender()).isEqualTo(Gender.MALE);
+        assertThat(person.getYearsExperience()).isEqualTo(20);
+        assertThat(person.getSeniorityLevel()).isEqualTo(Seniority.C_SUITE);
+        assertThat(person.getAiInferredFields()).isEmpty();
+        assertThat(person.getAiNationalityReading()).isEqualTo(DECISIVE);
     }
 
     @Test
     @DisplayName("a researcher changing an inferred value clears its flag")
     void editingAnInferredValueClearsItsFlag() {
-        Candidate candidate = captured(details("Sample Person", null, null, null, null, null));
-        candidate.proposeBackground(PROPOSED);
-        candidate.recordNationalityReading(DECISIVE);
+        Person person = captured(details("Sample Person", null, null, null, null, null));
+        person.proposeBackground(PROPOSED);
+        person.recordNationalityReading(DECISIVE);
 
-        candidate.describe(detailsWithBackground("Western expat", Gender.FEMALE, 14, Seniority.N_MINUS_2),
+        person.describe(detailsWithBackground("Western expat", Gender.FEMALE, 14, Seniority.N_MINUS_2),
                 ContactSource.MANUAL);
 
         // Nationality and seniority changed; gender and yearsExperience were resubmitted unchanged, so
         // nothing about them was actually reviewed and their flags stand.
-        assertThat(candidate.getAiInferredFields()).containsExactlyInAnyOrder("gender", "yearsExperience");
+        assertThat(person.getAiInferredFields()).containsExactlyInAnyOrder("gender", "yearsExperience");
     }
 
     @Test
     @DisplayName("resubmitting an inferred value unchanged leaves it flagged")
     void resubmittingTheSameInferredValueLeavesItFlagged() {
-        Candidate candidate = captured(details("Sample Person", null, null, null, null, null));
-        candidate.proposeBackground(PROPOSED);
-        candidate.recordNationalityReading(DECISIVE);
+        Person person = captured(details("Sample Person", null, null, null, null, null));
+        person.proposeBackground(PROPOSED);
+        person.recordNationalityReading(DECISIVE);
 
-        candidate.describe(detailsWithBackground("Emirati", Gender.FEMALE, 14, Seniority.N_MINUS_1),
+        person.describe(detailsWithBackground("Emirati", Gender.FEMALE, 14, Seniority.N_MINUS_1),
                 ContactSource.MANUAL);
 
-        assertThat(candidate.getAiInferredFields()).containsExactlyInAnyOrder(
+        assertThat(person.getAiInferredFields()).containsExactlyInAnyOrder(
                 "nationality", "gender", "yearsExperience", "seniority");
     }
 
     @Test
     @DisplayName("saving the Background section confirms every AI-proposed value in it")
     void confirmingTheBackgroundClearsEveryFlag() {
-        Candidate candidate = captured(details("Sample Person", null, null, null, null, null));
-        candidate.proposeBackground(PROPOSED);
-        candidate.recordNationalityReading(DECISIVE);
+        Person person = captured(details("Sample Person", null, null, null, null, null));
+        person.proposeBackground(PROPOSED);
+        person.recordNationalityReading(DECISIVE);
 
-        candidate.confirmBackground();
+        person.confirmBackground();
 
-        assertThat(candidate.getAiInferredFields()).isEmpty();
-        assertThat(candidate.getNationality()).isEqualTo("Emirati");
-        assertThat(candidate.getSeniorityLevel()).isEqualTo(Seniority.N_MINUS_1);
+        assertThat(person.getAiInferredFields()).isEmpty();
+        assertThat(person.getNationality()).isEqualTo("Emirati");
+        assertThat(person.getSeniorityLevel()).isEqualTo(Seniority.N_MINUS_1);
     }
 
     @Test
     @DisplayName("a successful assessment supersedes an earlier failed run")
     void anAssessmentClearsAnEarlierFailure() {
-        Candidate candidate = captured(details("Sample Person", null, null, null, null, null));
+        Candidate candidate = onMandate(null, details("Sample Person", null, null, null, null, null));
         candidate.recordAiEnrichFailure();
         assertThat(candidate.getAiEnrichFailedAt()).isNotNull();
 
@@ -177,22 +175,22 @@ class CandidateEnrichmentTest {
     @Test
     @DisplayName("only the fields still empty are named as missing")
     void missingBackgroundNamesOnlyTheEmptyFields() {
-        Candidate candidate = captured(detailsWithBackground(null, null, 20, null));
+        Person person = captured(detailsWithBackground(null, null, 20, null));
 
-        assertThat(candidate.missingBackground()).containsExactlyInAnyOrder(
+        assertThat(person.missingBackground()).containsExactlyInAnyOrder(
                 BackgroundField.NATIONALITY, BackgroundField.GENDER, BackgroundField.SENIORITY);
     }
 
     @Test
     @DisplayName("a high-confidence nationality reading fills the empty field and flags it")
     void aDecisiveReadingFillsAndFlags() {
-        Candidate candidate = captured(details("Sample Person", null, null, null, null, null));
+        Person person = captured(details("Sample Person", null, null, null, null, null));
 
-        candidate.recordNationalityReading(DECISIVE);
+        person.recordNationalityReading(DECISIVE);
 
-        assertThat(candidate.getNationality()).isEqualTo("Emirati");
-        assertThat(candidate.getAiInferredFields()).containsExactly("nationality");
-        assertThat(candidate.getAiNationalityReading()).isEqualTo(DECISIVE);
+        assertThat(person.getNationality()).isEqualTo("Emirati");
+        assertThat(person.getAiInferredFields()).containsExactly("nationality");
+        assertThat(person.getAiNationalityReading()).isEqualTo(DECISIVE);
     }
 
     @Test
@@ -200,24 +198,43 @@ class CandidateEnrichmentTest {
     void anIndecisiveReadingIsOnlyKept() {
         for (NationalityReading reading : List.of(reading("Emirati", "medium"),
                 reading("Emirati", "low"), reading(NationalityReading.UNKNOWN, "high"))) {
-            Candidate candidate = captured(details("Sample Person", null, null, null, null, null));
+            Person person = captured(details("Sample Person", null, null, null, null, null));
 
-            candidate.recordNationalityReading(reading);
+            person.recordNationalityReading(reading);
 
-            assertThat(candidate.getNationality()).isNull();
-            assertThat(candidate.getAiInferredFields()).isEmpty();
-            assertThat(candidate.getAiNationalityReading()).isEqualTo(reading);
+            assertThat(person.getNationality()).isNull();
+            assertThat(person.getAiInferredFields()).isEmpty();
+            assertThat(person.getAiNationalityReading()).isEqualTo(reading);
         }
+    }
+
+    @Test
+    @DisplayName("research names the employer for a mandate that recorded none")
+    void researchNamesAnUnrecordedEmployer() {
+        Candidate candidate = onMandate(null, details("Sample Person", null, null, null, null, null));
+
+        candidate.adoptEmployer(RESEARCH.employerName());
+
+        assertThat(candidate.getCompanyName()).isEqualTo("Al Rawabi Dairy");
+    }
+
+    @Test
+    @DisplayName("research never replaces the employer a researcher typed")
+    void researchKeepsATypedEmployer() {
+        Candidate candidate = onMandate(null, details("Sample Person", null, "The Firm They Told Us", null, null, null));
+
+        candidate.adoptEmployer(RESEARCH.employerName());
+
+        assertThat(candidate.getCompanyName()).isEqualTo("The Firm They Told Us");
     }
 
     @Test
     @DisplayName("a mapped candidate's employer is the triage snapshot, never the vendor's answer")
     void aMappedCandidateKeepsTheSnapshotEmployer() {
-        Candidate candidate = Candidate.mapped(UUID.randomUUID(), UUID.randomUUID(),
-                UUID.randomUUID(), CandidateSource.EXTENSION,
+        Candidate candidate = onMandate(UUID.randomUUID(),
                 details("Sample Person", null, "Snapshot Co", null, null, null));
 
-        candidate.enrich(RESEARCH);
+        candidate.adoptEmployer(RESEARCH.employerName());
 
         assertThat(candidate.getCompanyName()).isEqualTo("Snapshot Co");
     }
@@ -225,27 +242,29 @@ class CandidateEnrichmentTest {
     @Test
     @DisplayName("a drawer edit replaces what it renders and carries the rest of the profile along")
     void aDrawerEditKeepsEnrichment() {
-        Candidate candidate = captured(details("Sample Person", null, null, null, null, null));
-        candidate.enrich(RESEARCH);
-        String enrichedAt = candidate.getProfile().enrichedAt();
+        Person person = captured(details("Sample Person", null, null, null, null, null));
+        person.enrich(RESEARCH);
+        String enrichedAt = person.getProfile().enrichedAt();
 
-        candidate.describe(details("Sample Person", "CFO", null, null,
+        person.describe(details("Sample Person", "CFO", null, null,
                 List.of(new CandidateCareerEntry("Corrected Employer", "CFO", "2020 –", null)),
                 List.of("English")), ContactSource.MANUAL);
 
-        assertThat(candidate.getProfile().career().getFirst().company()).isEqualTo("Corrected Employer");
-        assertThat(candidate.getProfile().languages()).containsExactly("English");
+        assertThat(person.getProfile().career().getFirst().company()).isEqualTo("Corrected Employer");
+        assertThat(person.getProfile().languages()).containsExactly("English");
         // The regression this guards: the drawer resubmits only what it renders, and a wholesale
         // profile replace wiped these on the first edit after enrichment.
-        assertThat(candidate.getProfile().education()).hasSize(1);
-        assertThat(candidate.getProfile().skills()).containsExactly("Financial Planning");
-        assertThat(candidate.getProfile().enrichedAt()).isEqualTo(enrichedAt);
+        assertThat(person.getProfile().education()).hasSize(1);
+        assertThat(person.getProfile().skills()).containsExactly("Financial Planning");
+        assertThat(person.getProfile().enrichedAt()).isEqualTo(enrichedAt);
+        assertThat(person.getProfile().employer()).isEqualTo(new ResearchedEmployerMark("Al Rawabi Dairy",
+                "https://media.example.com/alrawabi.png"));
     }
 
     @Test
     @DisplayName("research resolving the employer maps the person and snapshots the name")
     void employByMapsAndSnapshots() {
-        Candidate candidate = captured(details("Sample Person", null, null, null, null, null));
+        Candidate candidate = onMandate(null, details("Sample Person", null, null, null, null, null));
         UUID companyId = UUID.randomUUID();
 
         candidate.employBy(companyId, "Al Rawabi Dairy");
@@ -254,8 +273,12 @@ class CandidateEnrichmentTest {
         assertThat(candidate.getCompanyName()).isEqualTo("Al Rawabi Dairy");
     }
 
-    private static Candidate captured(CandidateDetails details) {
-        return Candidate.mapped(UUID.randomUUID(), UUID.randomUUID(), null,
+    private static Person captured(CandidateDetails details) {
+        return Person.founded(UUID.randomUUID(), UUID.randomUUID(), CandidateSource.EXTENSION, details);
+    }
+
+    private static Candidate onMandate(UUID triageCompanyId, CandidateDetails details) {
+        return Candidate.mapped(UUID.randomUUID(), UUID.randomUUID(), triageCompanyId, captured(details),
                 CandidateSource.EXTENSION, details);
     }
 
@@ -265,7 +288,7 @@ class CandidateEnrichmentTest {
         return new CandidateDetails(fullName, title, null, CandidateStatus.IDENTIFIED, employerName,
                 null, null, "https://www.linkedin.com/in/sample-profile", null, null, null, null,
                 null, summary, null, CandidateCompensation.unknown(),
-                new CandidateProfile(career, languages, null, null, null), null);
+                new CandidateProfile(career, languages, null, null, null, null), null);
     }
 
     private static NationalityReading reading(String category, String confidence) {

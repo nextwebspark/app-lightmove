@@ -191,8 +191,21 @@ public class TriageCompanyService {
     @Transactional
     public TriageCompanyResponse captureFromResearch(UUID projectId, UUID addedBy,
                                                      CapturedCompanyDetails details) {
-        ResolvedCapture resolved = resolveCapture(projectId, addedBy, details,
-                TriageCompanySource.EXTENSION, TriageCompanyStatus.IN_UNIVERSE);
+        return captureFromResearch(projectId, addedBy, details, TriageCompanySource.EXTENSION);
+    }
+
+    /** As above, filed as having come through {@code source} when the mandate did not already hold it. */
+    @Transactional
+    public TriageCompanyResponse captureFromResearch(UUID projectId, UUID addedBy,
+                                                     CapturedCompanyDetails details, TriageCompanySource source) {
+        return captureFromResearch(projectId, addedBy, details, source, TriageCompanyStatus.IN_UNIVERSE);
+    }
+
+    /** As above, filed at {@code status}; a company the mandate already holds keeps the stage it is at. */
+    @Transactional
+    public TriageCompanyResponse captureFromResearch(UUID projectId, UUID addedBy, CapturedCompanyDetails details,
+                                                     TriageCompanySource source, TriageCompanyStatus status) {
+        ResolvedCapture resolved = resolveCapture(projectId, addedBy, details, source, status);
         resolved.company().unflagNoExecutiveFound();
         if (resolved.created()) {
             announceForResearch(resolved.company(), projectId);
@@ -292,7 +305,7 @@ public class TriageCompanyService {
      * Ordered on purpose: an unordered {@code getFirst} mapped people to whichever same-named row
      * Postgres returned, including a declined one where nobody would look for them.
      */
-    private static TriageCompany preferred(List<TriageCompany> rows) {
+    static TriageCompany preferred(List<TriageCompany> rows) {
         return rows.stream()
                 .min(Comparator
                         .comparing((TriageCompany row) -> row.getStatus() == TriageCompanyStatus.DECLINED)

@@ -10,7 +10,6 @@ import app.lightmove.api.candidate.dto.CandidateCompensationDto;
 import app.lightmove.api.candidate.dto.ContactEntryDto;
 import app.lightmove.api.candidate.dto.SaveCandidateRequest;
 import app.lightmove.api.candidate.model.AllowanceLine;
-import app.lightmove.api.candidate.model.Candidate;
 import app.lightmove.api.candidate.model.CandidateCareerEntry;
 import app.lightmove.api.candidate.model.CandidateCompensation;
 import app.lightmove.api.candidate.model.CandidateContact;
@@ -18,6 +17,7 @@ import app.lightmove.api.candidate.model.CandidateDetails;
 import app.lightmove.api.candidate.model.CandidateProfile;
 import app.lightmove.api.candidate.model.CompensationBreakdown;
 import app.lightmove.api.candidate.model.ContactEntry;
+import app.lightmove.api.candidate.model.Person;
 import app.lightmove.api.common.constant.ApiValueEnum;
 import app.lightmove.api.common.constant.Seniority;
 import app.lightmove.api.core.error.constant.ErrorCode;
@@ -113,9 +113,9 @@ class CandidateRequestReader {
     }
 
     /** A profile write adds to the ledger and removes nothing, so the cap is checked on what it holds after. */
-    void refuseOverfullChannels(Candidate candidate) {
-        if (candidate.emailContacts().size() > MAX_CONTACTS_PER_CHANNEL
-                || candidate.phoneContacts().size() > MAX_CONTACTS_PER_CHANNEL) {
+    void refuseOverfullChannels(Person person) {
+        if (person.emailContacts().size() > MAX_CONTACTS_PER_CHANNEL
+                || person.phoneContacts().size() > MAX_CONTACTS_PER_CHANNEL) {
             throw ApiException.of(ErrorCode.CONTACT_LIMIT_REACHED);
         }
     }
@@ -164,7 +164,7 @@ class CandidateRequestReader {
                         .map(entry -> new CandidateCareerEntry(entry.company(), entry.title(), entry.period(),
                                 entry.location()))
                         .toList();
-        return new CandidateProfile(career, request.languages(), null, null, null);
+        return new CandidateProfile(career, request.languages(), null, null, null, null);
     }
 
     /** Omitted means identified — where every profile starts, and the only honest default. */

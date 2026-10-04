@@ -207,6 +207,21 @@ public class SecurityConfig {
                         // Safe only because the wizard asks for the emailed link at step 2.
                         .requestMatchers(API + "/onboarding/**").access(verified)
 
+                        // A navigation back from a mailbox provider's or Zoom's consent screen, so no bearer token:
+                        // the single-use state, bound to the starting browser by a cookie, is the credential.
+                        .requestMatchers(HttpMethod.GET, API + "/outreach/mailbox/callback").permitAll()
+                        .requestMatchers(HttpMethod.GET, API + "/outreach/zoom/callback").permitAll()
+                        // The booking link's page: an executive opens it from an email, holding no session.
+                        .requestMatchers(HttpMethod.GET, API + "/outreach/booking/*", API + "/outreach/booking/*/slots")
+                        .permitAll()
+                        .requestMatchers(HttpMethod.POST, API + "/outreach/booking/*").permitAll()
+
+                        // The mail service's webhook holds no bearer token: the delivery's HMAC signature,
+                        // checked by OutreachInboxService before anything is read, is its credential.
+                        .requestMatchers(API + "/outreach/webhooks/mailbox").permitAll()
+                        // Recall's likewise: its Svix signature, checked by RecallCalendarClient, is the credential.
+                        .requestMatchers(HttpMethod.POST, API + "/outreach/webhooks/recall").permitAll()
+
                         // Tenant data: an unverified user may not read a single candidate record.
                         .requestMatchers(API + "/**").access(verified)
 

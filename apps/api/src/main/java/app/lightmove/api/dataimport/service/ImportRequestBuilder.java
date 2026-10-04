@@ -76,14 +76,15 @@ class ImportRequestBuilder {
                 overlay(RowValues.gender(fields.field(CANDIDATE_GENDER)), held, CandidateResponse::gender),
                 overlay(yearsExperienceOf(fields), held, CandidateResponse::yearsExperience),
                 overlay(RowValues.text(fields.field(CANDIDATE_SUMMARY), 4000), held, CandidateResponse::summary),
-                overlay(RowValues.text(fields.field(CANDIDATE_NOTE), 2000), held, CandidateResponse::note),
+                // Filed as a shared note, never read back: the same words are not filed twice.
+                RowValues.text(fields.field(CANDIDATE_NOTE), 4000),
                 compensationFor(held, fields),
                 storedOf(held, CandidateResponse::career),
                 storedOf(held, CandidateResponse::languages),
                 held == null ? "csv" : held.source(),
                 storedOf(held, CandidateResponse::sourceUrl),
                 fields.customValues(CustomColumnTarget.CANDIDATE),
-                null);
+                null, null, null);
     }
 
     private static CandidateCompensationDto compensationFor(CandidateResponse held, RowFields fields) {

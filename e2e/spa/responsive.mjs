@@ -36,6 +36,7 @@ const ROUTES = [
   { path: "/settings/workspaces", name: "settings-workspaces" },
   { path: "/settings/general", name: "settings-general" },
   { path: "/settings/members", name: "settings-members" },
+  { path: "/settings/integrations", name: "settings-integrations" },
   { path: "/projects/proj-1", name: "project-position" },
   // One step of the brief renders at a time, so each is its own sweep: the org chart and the
   // weighting tables live past the first.

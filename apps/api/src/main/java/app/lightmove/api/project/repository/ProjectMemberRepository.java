@@ -35,6 +35,15 @@ public interface ProjectMemberRepository extends JpaRepository<ProjectMember, UU
             """)
     Set<String> findActionNames(@Param("seatId") UUID seatId);
 
+    /** Of {@code projectIds}, the ones where this member's seat holds the action — one query for many. */
+    @Query("""
+            select distinct pm.projectId from ProjectMember pm join pm.roles r join r.actions a
+            where pm.memberId = :memberId and pm.projectId in :projectIds and a.name = :actionName
+            """)
+    Set<UUID> findProjectIdsWithAction(@Param("memberId") UUID memberId,
+                                       @Param("projectIds") Collection<UUID> projectIds,
+                                       @Param("actionName") String actionName);
+
     /** Backs the last-lead guard. */
     @Query("""
             select count(distinct pm.id) from ProjectMember pm join pm.roles r

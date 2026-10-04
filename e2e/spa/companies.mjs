@@ -324,11 +324,11 @@ try {
     check("C4.1", "the slot opens the executive drawer and saving adds a grid line at that company", true, seen);
   });
   await step("C4.2", "the executive is a row at that company with the gender and nationality group chosen", async () => {
-    nadiaId = sql(`SELECT id FROM app_lm_project_candidate WHERE project_id = '${PROJECT}' AND full_name = '${q(NADIA)}'`);
+    nadiaId = sql(`SELECT c.id FROM app_lm_project_candidate c JOIN app_lm_person p ON p.id = c.person_id WHERE c.project_id = '${PROJECT}' AND p.full_name = '${q(NADIA)}'`);
     check("C4.2", "the executive is a row at that company with the gender and nationality group chosen",
       `${BEACON_ID}|FEMALE|Emirati|MANUAL|Chief Commercial Officer`,
-      sql(`SELECT triage_company_id || '|' || gender || '|' || nationality || '|' || source || '|' || title
-           FROM app_lm_project_candidate WHERE id = '${nadiaId}'`));
+      sql(`SELECT c.triage_company_id || '|' || p.gender || '|' || p.nationality || '|' || c.source || '|' || p.title
+           FROM app_lm_project_candidate c JOIN app_lm_person p ON p.id = c.person_id WHERE c.id = '${nadiaId}'`));
   });
   await step("C4.3", "the Beacon line no longer offers the empty Add executive slot", async () => {
     check("C4.3", "the Beacon line no longer offers the empty Add executive slot", 0,
@@ -349,8 +349,9 @@ try {
     await drawer.getByRole("button", { name: "Save", exact: true }).click();
     await page.waitForTimeout(1500);
     check("C5.1", "the pencil makes the lines editable; an added, verified email saves to the ledger", "EMAIL|true|MANUAL|Verified by researcher",
-      sql(`SELECT channel || '|' || verified || '|' || source || '|' || coalesce(status, '') FROM app_lm_candidate_contact
-           WHERE candidate_id = '${nadiaId}' AND value = '${q(NADIA_EMAIL)}'`));
+      sql(`SELECT k.channel || '|' || k.verified || '|' || k.source || '|' || coalesce(k.status, '') FROM app_lm_person_contact k
+           JOIN app_lm_project_candidate c ON c.person_id = k.person_id
+           WHERE c.id = '${nadiaId}' AND k.value = '${q(NADIA_EMAIL)}'`));
     await drawer.getByRole("button", { name: "Close" }).first().click().catch(() => page.keyboard.press("Escape"));
   });
   await step("C5.2", "the grid's Email column lists the saved address on her line", async () => {

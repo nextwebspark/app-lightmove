@@ -33,8 +33,9 @@ final class ReportFixtures {
                                   String nationality, Instant addedAt) {
         CandidateResponse person = new CandidateResponse(UUID.randomUUID(), company == null ? null : company.id(),
                 company == null ? "Somewhere Untriaged" : company.companyName(), fullName, null, seniority,
-                "identified", null, country, null, nationality, null, null, Set.of(), null, null, null,
-                List.of(), List.of(), List.of(), List.of(), "manual", null, Map.of(), addedAt, null, null);
+                "identified", null, country, null, nationality, null, null, Set.of(), null, null,
+                List.of(), List.of(), List.of(), List.of(), "manual", null, Map.of(), addedAt, null, null, null,
+                false);
         return new ExecutiveRow(person, company);
     }
 

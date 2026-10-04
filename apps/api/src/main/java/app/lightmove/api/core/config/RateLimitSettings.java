@@ -23,5 +23,11 @@ public record RateLimitSettings(
 
         /** Founding a workspace: a handful per account, but a whole firm signs up from one office IP. */
         @DefaultValue("5") int workspaceCreationsPerHour,
-        @DefaultValue("60") int workspaceCreationsPerHourPerIp
+        @DefaultValue("60") int workspaceCreationsPerHourPerIp,
+
+        /** Opening a booking link: public and read-only, so generous; a brake on enumerating slugs. */
+        @DefaultValue("30") int bookingPageOpensPerMinute,
+
+        /** Booking through a link: each one is an invite on a consultant's calendar, so a tight brake. */
+        @DefaultValue("5") int bookingPageBookingsPerHour
 ) {}

@@ -197,6 +197,12 @@ core/
   stream/      ProjectStreamPublisher, PostgresStreamListener, ProjectStreamRegistry,
                ProjectStreamController, ProjectStreamKind, ProjectStreamNotification
                                                           (flat concern pkg — SSE push, see below)
+  storage/     constant/(DocumentFormat, StorageProvider)  config/(DocumentStoreConfig)
+               service/(DocumentStore, GcsDocumentStore, FilesystemDocumentStore)
+                                                          (uploaded files' bytes; the bucket, never Cloud SQL)
+  crypto/      model/(EncryptionContext)  config/(SecretCipherConfig)
+               service/(SecretCipher, TinkSecretCipher, UnconfiguredSecretCipher)
+                                                          (every secret the app stores — encrypted, never logged)
   persistence/ model/(BaseEntity)
   logging/     service/(CorrelationId, CorrelationIdFilter)
   config/      LightMoveProperties (root record) + one *Settings record per branch,
@@ -218,7 +224,10 @@ enrichment/                # the one feature split twice: by subject first, then
                        CandidateEnrichmentWorker)  config/(CandidateEnrichmentConfig)
   company/    service/(LinkedInCompanyEnricher, BrightDataCompanyEnricher, LogCompanyEnricher,
                        CompanyEnrichmentWorker)    config/(CompanyEnrichmentConfig)
-  common/     service/(BrightDataSearch)
+  common/     model/(ContactOutCount)
+              service/(BrightDataSearch, ContactOutPeopleIndex, ContactOutPeopleClient,
+                       UnconfiguredContactOutPeopleIndex, ContactOutPeopleRecords, PeopleQueryKeys,
+                       SearchHitFiling)  config/(ContactOutPeopleIndexConfig)
   sourcing/   Find executives — constant/(SourcingRunStatus, SourcingOutcome, TitleLevel)
               model/(ExecutiveSourcingRun, SourcingCompany, SearchedEmployer, SourcingSpec, SourcingBrief, CompanyOutcome,
                      SourcingRound, ExecutivePick, ExecutiveSourcingRequested)  repository/
@@ -228,6 +237,9 @@ enrichment/                # the one feature split twice: by subject first, then
                        ExecutiveSourcingWorker, SourcingRunStore, SourcingSpecProposer, SourcingSpecRefiner,
                        SourcedHitRanking)
               config/(ExecutiveSourcingConfig)  controller/  dto/
+  peoplesearch/ Strategy's People mode — model/(PeoplePage)
+              service/(StrategyPeopleService, PeopleSearchFiling, CachedContactOutPeopleQuery, PeopleFilterBody, LocationSuggestions)
+              controller/(StrategyPeopleController, LocationSuggestionController)  dto/
 
 geocoding/                 # a city+country pair becomes a point, once — global cache, no tenant data
   constant/(GeoPrecision)  model/(PlaceKey, GeoPoint, GeocodingResult, GeocodedPlace)  repository/
@@ -296,10 +308,28 @@ counts, the sort allowlist. A band is a way of asking the market a question, not
 mandate, so none of it belongs to a project. `triagecompany` is the *mapping* side and holds one
 thing: the project↔company row and its stage (`IN_UNIVERSE` / `SHORTLISTED` / `DECLINED`), stored as a
 write-time snapshot rather than a foreign key because the Apollo pipeline reloads its table wholesale.
-`candidate` is the *people* side: one row per executive a mandate has mapped, with the profile a
-consultant works from. **The project is the mapping and the company is optional** — a candidate belongs
-to the mandate they were researched for (the note, the status and the compensation reading are all
-mandate-specific), and carries a triage company only when their employer happens to be in the universe.
+`candidate` is the *people* side: a workspace `Person` per human (V91) — the profile a consultant works
+from, background, package, contact ledger and research — and one `Candidate` row per mandate that maps
+them. **The project is the mapping and the company is optional** — a candidate row belongs to the
+mandate it was filed on (its status, custom-column values and the AI assessment against its brief
+are that mandate's), and carries a triage company only when the employer happens to be in the universe.
+Notes are the person's (`PersonNote`, V96), written and read through `PersonNoteService`, and the
+timeline is `PersonTimelineService`'s read of `app_lm_person_activity`; both are staff-only, so neither
+may ever ride `CandidateResponse`, which a client seat reads.
+The Candidates page is `CandidatePoolService` over `PersonPoolQuery` (one native `WHERE` built from fixed
+fragments, every value bound; it answers ids, and the rows load through the entities) — owner, tags and
+do not contact (V98) are the person's own methods, each change a timeline line and an audit event — and
+`CandidateTagService` owns the workspace's catalog. A person holds tags as a `Set<UUID>` element
+collection: an embeddable carrying who tagged them would make Hibernate delete by every column, a nullable
+one included, so who and when are the timeline's. The pool's CSV is `dataexport`'s
+(`CandidatePoolExportService`), reading through `CandidatePoolService.exportOf`.
+Every door files through `CandidateService`'s one filing step: `PersonMatcher` finds the person the
+workspace already knows (profile slug, then email; never phone or name alone) or a new one is founded,
+and `PersonActivityRecorder` writes the timeline line in the same transaction. The slug is a stored,
+per-workspace-unique column (`Person.profileSlug`, V95) that `Person` rewrites whenever its URL changes;
+a mandate-scoped check (`refuseHeldProfile`, `mappedProfileSlugsOf`) still reads the URLs themselves,
+because V95 leaves the slug null on a person sharing a profile with an older one. `PersonRepository`'s
+finders all take the workspace id, as `CandidateRepository`'s all take the project id.
 The employer name is snapshotted beside the link so V36's `ON DELETE SET NULL` can unmap without
 deleting: removing a company from a mandate drops the mandate's decision about the company, never the
 people mapped at it.
@@ -324,7 +354,7 @@ method plus the records it returns — never another feature's internals:
   `TriagedCompanyLookup` — an interface `strategy` declares and `triagecompany` implements
   (`TriagedCompanyLookupAdapter`) — so the compile-time dependency stays one-way; only a bean
   satisfying the interface crosses back.
-- `candidate` calls `triagecompany` through exactly two public methods, both answering in
+- `candidate` calls `triagecompany` through exactly three public methods, the first two answering in
   triagecompany's own DTO: saving a candidate (`CandidateRequestReader`) calls
   `TriageCompanyService.requireCompanyOfProject` to resolve and scope-check the company an executive
   is being mapped to, and `CandidateService.applyResearch` calls `captureFromResearch` to file a
@@ -335,7 +365,9 @@ method plus the records it returns — never another feature's internals:
   **`triagecompany` never learns that people exist**, which is why the Companies grid composes the two
   sides in the SPA (one read for the page's companies, one for the people at them) rather than
   embedding candidates in the company list — and why the employer is filed by a call rather than by an
-  event triagecompany would have to know to listen for.
+  event triagecompany would have to know to listen for. The third, `TriageCompanyReadService.logoUrlsOf`,
+  answers a bare id → logo map for `PersonEmployerResolver`: the Candidates page draws a person's
+  employer with their position's company row's logo, ahead of the expiring one research sent.
 - `talentmap` reads through two seams built for it and answering in the owning feature's DTO:
   `TriageCompanyReadService.listAllOfStage` (one stage, unpaged, capped) and
   `CandidateService.listAllOfProject` (every executive, capped). It pairs people with companies
@@ -360,6 +392,13 @@ method plus the records it returns — never another feature's internals:
   Nationality is the one thing it folds: `NationalityCatalog` counts a row's free-text value under
   one of eleven groups at read time — a country it resolves but no other group claims is Other
   expat — and never rewrites what is stored.
+- `enrichment/peoplesearch` (Strategy's People mode) sits in `enrichment`, not `strategy`, though it is
+  a search: it files people, so it depends on `candidate` and `triagecompany`, which already depend on
+  `strategy` — placed in `strategy` it would close the loop. `strategy` owns what a search is expressed
+  in (`PeopleFilter` on its own row, `PeopleSearchVocabulary`, `PeopleFilterReader`, the saved search's
+  `kind`); `peoplesearch` reads the stored filter through `StrategyService.peopleFilterOf`, the declined
+  companies through `TriageCompanyReadService.listAllOfStage`, and files through
+  `CandidateService.addResearched` and `TriageCompanyService.captureFromResearch`.
 - `position`'s `PositionService` reads `project`'s repositories for the mandate a brief belongs to,
   the same way `CandidateService` does — a brief cannot be scoped, titled or dated without it — and
   `project`'s `ProjectService.create` seeds the new mandate's brief through one call taking primitives
@@ -443,6 +482,42 @@ more than one instance).
 - Comments explain *why*, not *what*. Every class carries a class-level doc; the inline comments that
   document shipped bugs (the traps below) are load-bearing and must not be stripped. If a line needs a
   comment to say what it *does*, rename something.
+
+## Secrets the app holds
+
+`core/crypto`'s `SecretCipher` is the only way a secret reaches a column: a workspace's own OAuth client secret,
+and a direct mailbox's provider refresh token (V107). Three rules hold for every caller:
+
+- **Encrypt under an `EncryptionContext` naming the owner and the column** (`WorkspaceMailIntegration
+  .clientSecretContext`, `MailboxConnection.refreshTokenContext`). It is the ciphertext's associated data, so a value copied onto another workspace's
+  row, or into another column, fails to decrypt rather than handing one tenant's key to another.
+- **Write-only over the API.** A response says a secret is held (`secretSet`), never what it is; a request
+  record carrying one overrides `toString` to redact it, and so does any model record holding it decrypted
+  (`ProviderCredentials`, `OwnAppKeys`). Never trim one — whitespace inside a secret is the secret.
+- **Decrypt for the one call that spends it.** `MailboxTokens` and `RecallCalendars` decrypt a refresh token
+  into the request body and nowhere else; an access token lives in memory only, never in a column or a log.
+  A record that carries either (`GrantedMailbox`, `RefreshedAccessToken`, `RecallCalendarSpec`) redacts it in
+  `toString`.
+- **No key is a refusal, not a crash.** Without `lightmove.crypto.keyset` the bean is
+  `UnconfiguredSecretCipher` and a write is `INTEGRATION_ENCRYPTION_UNAVAILABLE`; a keyset that does not parse
+  fails the boot. Tests build one with `TestSecretCiphers.dev()`, the keyset `application-test.yml` and
+  `ops/dev/api.sh` carry.
+
+## Outreach's gateway wiring
+
+Everything injects `MailboxGateway` and gets the `@Primary` `RoutingMailboxGateway`. The Nylas gateway beneath it
+is a bean under `@Qualifier(MailboxGatewayConfig.NYLAS)` marked `@Fallback`, so a test's `RecordingMailboxGateway`
+under the same qualifier replaces it **beneath** the router — a test double registered `@Primary` instead would
+displace the router, and the suite would stop exercising routing at all. Our own gateways are
+`DirectMailboxGateway` beans, collected by provider (`MicrosoftMailboxGateway` #645, `GoogleMailboxGateway` #646), both on
+`OAuthDirectMailboxGateway`, which owns the app's resolution, the consent screen's shared parameters, the code's
+redemption and the API client — a provider adds its consent endpoint, its address read, its mail and its calendar. A direct gateway's app is
+per workspace, so it answers `isOfferedTo(workspaceId)` and the router hands a workspace with no app to Nylas; its
+tests serve recorded provider answers from a JDK `HttpServer`, every client given its base URLs by its constructor
+(the token client's `PROVIDER_TOKEN_HOSTS` in production). Integration tests never reach a provider: the
+`RecordingProviderTokenClient` stands in for every token endpoint. Zoom is no mailbox and no gateway: `ZoomService` over
+`ZoomApi` (`ZoomClient`; `RecordingZoomApi` in tests), its tokens in `ZoomTokens`, called by `MeetingService` only for
+a call booked with `MeetingVideo.ZOOM`.
 
 ## Traps this codebase has already fallen into
 

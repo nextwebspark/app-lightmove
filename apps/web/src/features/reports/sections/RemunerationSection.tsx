@@ -1,13 +1,15 @@
+import { useQueryClient } from "@tanstack/react-query";
 import { useCallback, useState } from "react";
 import { SegmentedControl } from "../../../components/ui/SegmentedControl";
+import { CandidateDrawerById } from "../../candidates/components/CandidateDrawerById";
 import type { Project } from "../../projects/api/types";
+import * as reportApi from "../api/reportApi";
 import type { ReportRemuneration } from "../api/types";
 import { ChartEmpty } from "../components/ChartEmpty";
 import { CompensationStrip } from "../components/CompensationStrip";
 import { KpiTile, KpiTileRow } from "../components/KpiTiles";
 import { Legend } from "../components/Legend";
 import { LockedBenchmarkCard } from "../components/LockedBenchmarkCard";
-import { ReportCandidateDrawer } from "../components/ReportCandidateDrawer";
 import { ReportCard } from "../components/ReportCard";
 import { Figure, ReportSection } from "../components/ReportSection";
 import { ReportSelect } from "../components/ReportSelect";
@@ -42,6 +44,7 @@ export function RemunerationSection({ project, remuneration }: { project: Projec
   const [nationality, setNationality] = useState(ALL_NATIONALITIES);
   const [selectedCandidateId, setSelectedCandidateId] = useState<string | null>(null);
   const closeCandidate = useCallback(() => setSelectedCandidateId(null), []);
+  const queryClient = useQueryClient();
   const stats = compensationStats(remuneration, { measure, country, nationality });
   const gap = nationalityGap(remuneration);
   const currency = remuneration.currency;
@@ -212,7 +215,12 @@ export function RemunerationSection({ project, remuneration }: { project: Projec
         market. Aggregating verified packages across mandates is a later piece of work.
       </LockedBenchmarkCard>
 
-      <ReportCandidateDrawer project={project} candidateId={selectedCandidateId} onClose={closeCandidate} />
+      <CandidateDrawerById
+        project={project}
+        candidateId={selectedCandidateId}
+        onClose={closeCandidate}
+        onChanged={() => void queryClient.invalidateQueries({ queryKey: reportApi.REPORT_KEY(project.id) })}
+      />
     </ReportSection>
   );
 }

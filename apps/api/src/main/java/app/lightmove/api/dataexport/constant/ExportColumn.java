@@ -107,7 +107,7 @@ public enum ExportColumn {
      * The badges' labels, not wire tokens. A deliberate copy of {@code candidateVocabulary.ts} and
      * {@code triageVocabulary.ts} — rename one, rename both.
      */
-    private static String statusLabel(String wireToken) {
+    public static String statusLabel(String wireToken) {
         CandidateStatus status = CandidateStatus.fromValue(wireToken);
         if (status == null) {
             return text(wireToken);
@@ -134,6 +134,7 @@ public enum ExportColumn {
             case EXTENSION -> "Plugin";
             case CSV -> "Import";
             case ASSISTANT -> "Assistant";
+            case PEOPLE_SEARCH -> "People search";
         };
     }
 

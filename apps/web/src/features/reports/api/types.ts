@@ -123,7 +123,6 @@ export interface Disclosure {
   fixed: number;
   /** Fixed plus bonus and long-term incentive. */
   totalPackage: number;
-  note: string | null;
 }
 
 export interface ReportRemuneration {

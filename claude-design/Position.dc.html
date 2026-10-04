@@ -160,6 +160,10 @@
                   <button onClick="{{ openImport }}" style="display:inline-flex;align-items:center;gap:6px;white-space:nowrap;border-radius:6px;border:1px solid var(--line);background:var(--panel);padding:8px 12px;font:500 13px var(--sans);color:var(--text2);cursor:pointer" style-hover="border-color:var(--text3);color:var(--text)">
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style="flex:none"><path d="{{ ic.importInto }}"></path></svg>Import</button>
                 </sc-if>
+                <sc-if value="{{ canOutreach }}" hint-placeholder-val="{{ true }}">
+                  <a href="Outreach.dc.html?dialog=enrol" title="Add the ticked companies' executives to an outreach sequence" style="display:inline-flex;align-items:center;gap:6px;white-space:nowrap;border-radius:6px;border:1px solid var(--line);background:var(--panel);padding:8px 12px;font:500 13px var(--sans);color:var(--text2);cursor:pointer" style-hover="border-color:var(--text3);color:var(--text)">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style="flex:none"><path d="{{ ic.outreach }}"></path></svg>Add to sequence</a>
+                </sc-if>
                 <button style="display:inline-flex;align-items:center;gap:6px;white-space:nowrap;border-radius:6px;border:1px solid var(--line);background:var(--panel);padding:8px 12px;font:500 13px var(--sans);color:var(--text2);cursor:pointer" style-hover="border-color:var(--text3);color:var(--text)">
                   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style="flex:none"><path d="{{ ic.userPlus }}"></path></svg>Add executive</button>
                 <button style="display:inline-flex;align-items:center;gap:6px;white-space:nowrap;border-radius:6px;border:1px solid var(--line);background:var(--panel);padding:8px 12px;font:500 13px var(--sans);color:var(--text2);cursor:pointer" style-hover="border-color:var(--text3);color:var(--text)">
@@ -982,12 +986,26 @@
               <sc-if value="{{ cd.hasLevel }}"><span style="display:inline-flex;align-items:center;border-radius:5px;padding:2px 7px;font:700 9.5px var(--mono);text-transform:uppercase;letter-spacing:.06em;background:var(--line-soft);color:var(--text2)">{{ cd.level }}</span></sc-if>
               <span style="{{ cd.sourceStyle }}">{{ cd.sourceLabel }}</span>
               <sc-if value="{{ canWrite }}" hint-placeholder-val="{{ true }}">
-                <select defaultValue="{{ cd.status }}" aria-label="Status" style="width:auto;border-radius:6px;border:1px solid var(--line);background:var(--panel2);padding:4px 8px;font:400 12px var(--mono);color:var(--text);outline:none">
+                <select value="{{ cd.status }}" onChange="{{ setCandidateStatus }}" data-id="{{ cd.id }}" aria-label="Status" style="width:auto;border-radius:6px;border:1px solid var(--line);background:var(--panel2);padding:4px 8px;font:400 12px var(--mono);color:var(--text);outline:none">
                   <sc-for list="{{ statusOptions }}" as="so"><option value="{{ so.value }}">{{ so.label }}</option></sc-for>
                 </select>
               </sc-if>
               <sc-if value="{{ readOnly }}" hint-placeholder-val="{{ false }}"><span style="{{ cd.statusPillStyle }}">{{ cd.statusLabel }}</span></sc-if>
+              <sc-if value="{{ cd.hasCv }}">
+                <span data-screen-label="CV chip" style="display:inline-flex;align-items:stretch;border-radius:6px;border:1px solid color-mix(in srgb,var(--amber) 45%,transparent);background:var(--amber-dim);overflow:hidden">
+                  <button onClick="{{ docPreview }}" title="Preview the CV" style="display:inline-flex;align-items:center;gap:5px;padding:3px 8px;font:600 11.5px var(--mono);color:var(--amber);background:none;border:none;cursor:pointer"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="{{ ic.fileText }}"></path></svg>{{ cd.cvLabel }}</button>
+                  <button onClick="{{ docDownload }}" aria-label="Download the CV" title="Download" style="display:grid;place-items:center;padding:0 7px;color:var(--amber);background:none;border:none;border-left:1px solid color-mix(in srgb,var(--amber) 35%,transparent);cursor:pointer"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="{{ ic.importInto }}"></path></svg></button>
+                </span>
+              </sc-if>
             </div>
+            <sc-if value="{{ cd.showCrm }}">
+              <div style="margin-top:8px;display:flex;flex-wrap:wrap;align-items:center;gap:6px">
+                <sc-for list="{{ cd.tags }}" as="tg"><span style="{{ tg.style }}">{{ tg.label }}</span></sc-for>
+                <sc-if value="{{ canWrite }}"><span style="display:inline-flex;align-items:center;border-radius:999px;border:1px dashed var(--line);padding:1px 8px;font:500 11px var(--mono);color:var(--text3)">＋ Tag</span></sc-if>
+                <sc-if value="{{ cd.hasOwner }}"><span style="font:400 11px var(--mono);color:var(--text3)">Owner · {{ cd.owner }}</span></sc-if>
+              </div>
+              <sc-if value="{{ cd.dnc }}"><div role="note" style="margin-top:8px;border-radius:6px;background:var(--red-dim);padding:6px 9px;font:400 12px/1.45 var(--sans);color:var(--text2)"><b style="color:var(--red)">Do not contact.</b> {{ cd.dncReason }}</div></sc-if>
+            </sc-if>
           </div>
         </div>
       </div>
@@ -1228,9 +1246,102 @@
                   </div>
                 </sc-if>
 
-                <sc-if value="{{ sx.isNote }}">
-                  <sc-if value="{{ canWrite }}"><textarea defaultValue="{{ cd.note }}" rows="4" maxLength="2000" aria-label="Note on this executive" placeholder="Your own remark on this person, for this mandate — what they said, what to do next…" style="width:100%;resize:vertical;border-radius:6px;border:1px dashed var(--line);background:var(--panel2);padding:10px 12px;font:400 13px/1.55 var(--sans);color:var(--text);outline:none"></textarea></sc-if>
-                  <sc-if value="{{ readOnly }}"><p style="margin:0;white-space:pre-wrap;font-size:13px;line-height:1.6;color:var(--text2)">{{ cd.noteRead }}</p></sc-if>
+                <sc-if value="{{ sx.isPositions }}">
+                  <sc-for list="{{ cd.positions }}" as="ps">
+                    <div style="margin-bottom:6px;display:flex;align-items:center;gap:10px;border-radius:8px;border:1px solid {{ ps.border }};padding:8px 10px">
+                      <div style="min-width:0;flex:1">
+                        <div style="display:flex;align-items:center;gap:6px"><span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font:600 13px var(--sans);color:var(--text)">{{ ps.title }}</span><sc-if value="{{ ps.here }}"><span style="flex:none;border-radius:4px;padding:1px 5px;font:700 9px var(--mono);text-transform:uppercase;letter-spacing:.05em;background:var(--amber-dim);color:var(--amber)">This position</span></sc-if></div>
+                        <div style="font:400 11px var(--mono);color:var(--text3)">{{ ps.added }}</div>
+                      </div>
+                      <span style="{{ ps.pill }}">{{ ps.status }}</span>
+                    </div>
+                  </sc-for>
+                  <a href="Candidates.dc.html?drawerOpen=1" style="display:inline-block;margin-top:4px;font:500 12px var(--mono)">Open in your candidates ›</a>
+                </sc-if>
+
+                <sc-if value="{{ sx.isNotes }}">
+                  <div style="border-radius:8px;border:1px solid var(--line);background:var(--panel2);padding:10px">
+                    <div style="display:flex;flex-wrap:wrap;gap:4px"><sc-for list="{{ cd.noteKinds }}" as="nk"><span style="{{ nk.style }}">{{ nk.label }}</span></sc-for></div>
+                    <textarea rows="2" maxLength="4000" aria-label="Note" placeholder="What was said, and what happens next…" style="margin-top:8px;width:100%;resize:vertical;border-radius:6px;border:1px solid var(--line);background:var(--panel);padding:8px 10px;font:400 13px/1.55 var(--sans);color:var(--text);outline:none"></textarea>
+                    <div style="margin-top:6px;display:flex;align-items:center;gap:8px;font:400 11px var(--mono);color:var(--text3)">About <span style="border-radius:5px;border:1px solid var(--line);background:var(--panel);padding:2px 7px;color:var(--text)">{{ roleTitle }}</span><button style="margin-left:auto;border-radius:6px;padding:5px 11px;font:600 12px var(--sans);background:var(--amber-btn);border:1px solid var(--amber-btn);color:var(--on-amber);cursor:pointer">Save note</button></div>
+                  </div>
+                  <sc-for list="{{ cd.notes }}" as="n">
+                    <div style="margin-top:8px;border-radius:8px;border:1px solid {{ n.border }};padding:9px 11px">
+                      <div style="display:flex;flex-wrap:wrap;align-items:center;gap:6px;font:400 11px var(--mono);color:var(--text3)"><span style="font:600 12px var(--sans);color:var(--text)">{{ n.author }}</span><span style="{{ n.kindStyle }}">{{ n.kind }}</span><sc-if value="{{ n.pinned }}"><span style="color:var(--amber)">Pinned</span></sc-if><span style="margin-left:auto">{{ n.when }}</span></div>
+                      <p style="margin:6px 0 0;font:400 13px/1.55 var(--sans);color:var(--text)">{{ n.body }}</p>
+                      <sc-if value="{{ n.hasPos }}"><div style="margin-top:6px;font:400 11px var(--mono);color:var(--text3)">About {{ n.pos }}</div></sc-if>
+                    </div>
+                  </sc-for>
+                  <sc-if value="{{ cd.noNotes }}"><p style="margin:10px 0 0;font:400 12px var(--mono);color:var(--text3)">No notes yet. A note you save here is shared with the team on every position this person is in.</p></sc-if>
+                </sc-if>
+
+                <sc-if value="{{ sx.isDocuments }}">
+                  <div style="display:flex;align-items:center;gap:10px;border-radius:8px;border:1.5px dashed var(--line);background:var(--panel2);padding:8px 10px">
+                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex:none;color:var(--text3)"><path d="{{ ic.uploadCloud }}"></path></svg>
+                    <span style="min-width:0;flex:1;font:400 11.5px var(--mono);color:var(--text3)">Drop a CV, cover letter or reference here</span>
+                    <button onClick="{{ toggleDocTray }}" style="flex:none;border-radius:6px;padding:5px 11px;font:600 12px var(--sans);background:var(--amber-btn);border:1px solid var(--amber-btn);color:var(--on-amber);cursor:pointer">Upload</button>
+                  </div>
+                  <sc-if value="{{ cd.docTray }}">
+                    <div data-screen-label="Upload tray" style="margin-top:8px;border-radius:8px;border:1px solid var(--line);background:var(--panel);padding:9px 10px">
+                      <div style="display:flex;align-items:center;gap:8px">
+                        <span style="display:grid;width:28px;height:34px;flex:none;place-items:end center;padding-bottom:4px;border-radius:5px;border:1px solid var(--line-soft);background:var(--red-dim);color:var(--red);font:700 8px var(--mono);text-transform:uppercase">pdf</span>
+                        <div style="min-width:0;flex:1"><div style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font:600 12.5px var(--sans);color:var(--text)">Fatima_Al_Mazrouei_CV.pdf</div><div style="margin-top:2px;display:flex;align-items:center;gap:5px;font:500 11.5px var(--sans);color:var(--sky)">New version of Fatima_Al_Mazrouei_CV.pdf (v3 → v4)</div></div>
+                        <span style="flex:none;border-radius:6px;border:1px solid var(--line);background:var(--panel2);padding:3px 8px;font:400 12px var(--mono);color:var(--text)">CV</span>
+                      </div>
+                      <div style="margin-top:8px;display:flex;align-items:center;justify-content:space-between;gap:8px">
+                        <span style="display:inline-flex;align-items:center;gap:7px;font:500 11.5px var(--mono);color:var(--text2)"><span style="position:relative;width:26px;height:15px;border-radius:999px;background:var(--line)"><span style="position:absolute;top:2px;left:2px;width:11px;height:11px;border-radius:50%;background:#fff"></span></span>Keep as a separate document</span>
+                        <button onClick="{{ sendDocTray }}" style="border-radius:6px;padding:5px 11px;font:600 12px var(--sans);background:var(--amber-btn);border:1px solid var(--amber-btn);color:var(--on-amber);cursor:pointer">Upload 1 file</button>
+                      </div>
+                    </div>
+                  </sc-if>
+                  <sc-for list="{{ cd.docs }}" as="dd">
+                    <div style="margin-top:8px;border-radius:8px;border:1px solid {{ dd.border }};padding:9px 11px">
+                      <div style="display:flex;align-items:flex-start;gap:9px">
+                        <span style="{{ dd.badgeStyle }}">{{ dd.ext }}</span>
+                        <div style="min-width:0;flex:1">
+                          <div style="display:flex;flex-wrap:wrap;align-items:center;gap:6px">
+                            <sc-if value="{{ dd.primary }}"><span title="Primary CV" style="display:inline-flex;color:var(--amber)"><svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="1.5"><path d="{{ ic.star }}"></path></svg></span></sc-if>
+                            <span style="min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font:600 12.5px var(--sans);color:var(--text)">{{ dd.title }}</span>
+                            <span style="{{ dd.catStyle }}">{{ dd.cat }}</span>
+                            <span style="border-radius:4px;background:var(--panel2);padding:1px 6px;font:600 10px var(--mono);color:var(--text2)">{{ dd.v }}</span>
+                          </div>
+                          <div style="margin-top:3px;font:400 11px var(--mono);color:var(--text3)">{{ dd.meta }}</div>
+                        </div>
+                        <div style="display:flex;flex:none;gap:2px">
+                          <sc-if value="{{ dd.previewable }}"><button onClick="{{ docPreview }}" title="Preview" style="border-radius:5px;padding:4px;color:var(--text3);background:none;border:none;cursor:pointer" style-hover="background:var(--panel2);color:var(--text)"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="{{ ic.eye }}"></path></svg></button></sc-if>
+                          <button onClick="{{ docDownload }}" title="Download" style="border-radius:5px;padding:4px;color:var(--text3);background:none;border:none;cursor:pointer" style-hover="background:var(--panel2);color:var(--text)"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="{{ ic.importInto }}"></path></svg></button>
+                          <button title="Upload new version · Rename · Change category · Make primary CV · Delete" style="border-radius:5px;padding:4px;color:var(--text3);background:none;border:none;cursor:pointer" style-hover="background:var(--panel2);color:var(--text)"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="{{ ic.moreH }}"></path></svg></button>
+                        </div>
+                      </div>
+                      <sc-if value="{{ dd.hasHistory }}">
+                        <button onClick="{{ toggleDocHist }}" data-id="{{ dd.key }}" style="margin:4px 0 0 31px;padding:2px 0;font:500 11px var(--mono);color:var(--text3);background:none;border:none;cursor:pointer" style-hover="color:var(--text)">{{ dd.historyLabel }}</button>
+                      </sc-if>
+                      <sc-if value="{{ dd.historyOpen }}">
+                        <sc-for list="{{ dd.versions }}" as="dvh">
+                          <div style="margin-left:37px;display:flex;align-items:center;gap:8px;border-top:1px solid var(--line-soft);padding:6px 0;font:400 11px var(--mono);color:var(--text3)">
+                            <span style="flex:none;border-radius:4px;background:var(--panel2);padding:1px 6px;font:600 10px var(--mono);color:var(--text2)">v{{ dvh.no }}</span>
+                            <span style="min-width:0;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ dvh.file }} · {{ dvh.meta }}</span>
+                            <button onClick="{{ docDownload }}" style="flex:none;font:500 11px var(--mono);color:var(--text3);background:none;border:none;cursor:pointer" style-hover="color:var(--text)">Download</button>
+                          </div>
+                        </sc-for>
+                      </sc-if>
+                    </div>
+                  </sc-for>
+                  <sc-if value="{{ cd.noDocs }}"><p style="margin:10px 0 0;font:400 12px var(--mono);color:var(--text3)">No documents yet. A CV filed here is shared with the team on every position this person is in.</p></sc-if>
+                  <a href="Candidates.dc.html?drawerOpen=1&amp;drawerTab=documents" style="display:inline-block;margin-top:8px;font:500 12px var(--mono)">All documents ›</a>
+                </sc-if>
+
+                <sc-if value="{{ sx.isTimeline }}">
+                  <sc-for list="{{ cd.timeline }}" as="t">
+                    <div style="display:flex;gap:10px;padding:5px 0">
+                      <span style="margin-top:6px;width:7px;height:7px;flex:none;border-radius:50%;background:var(--line)"></span>
+                      <div style="min-width:0">
+                        <p style="margin:0;font:400 12.5px/1.5 var(--sans);color:var(--text2)"><b style="font-weight:600;color:var(--text)">{{ t.who }}</b> {{ t.what }}</p>
+                        <p style="margin:0;font:400 11px var(--mono);color:var(--text3)">{{ t.when }}{{ t.detail }}</p>
+                      </div>
+                    </div>
+                  </sc-for>
+                  <a href="Candidates.dc.html?drawerOpen=1&amp;drawerTab=timeline" style="display:inline-block;margin-top:6px;font:500 12px var(--mono)">Full timeline ›</a>
                 </sc-if>
               </div>
             </sc-if>
@@ -1245,6 +1356,32 @@
         </div>
       </sc-if>
     </aside>
+  </sc-if>
+
+  <sc-if value="{{ showDuplicate }}" hint-placeholder-val="{{ false }}">
+    <div onClick="{{ closeDialog }}" style="position:fixed;inset:0;z-index:100;display:grid;place-items:center;background:rgba(15,20,30,.4)">
+      <!-- Asked only on a name at the same employer. A LinkedIn URL, email or phone that matches is not a
+           question: that person is added to this position with a toast saying so. The plugin, an import and
+           Find executives never ask; they always carry one of those keys, or act on the name alone. -->
+      <div role="dialog" aria-modal="true" aria-label="Possible duplicate" data-screen-label="Possible duplicate" onClick="{{ stop }}" style="width:520px;max-width:94vw;border-radius:12px;border:1px solid var(--line);background:var(--panel);padding:22px;box-shadow:var(--shadow);animation:fadeUp .2s ease both">
+        <div style="font:600 16px var(--sans)">Is this someone already in your candidates?</div>
+        <p style="margin:4px 0 14px;font-size:13px;color:var(--text2)">You're adding <b style="color:var(--text)">Layla Nasser</b> at <b style="color:var(--text)">Aldar Properties</b>. Your team already has someone with that name at that employer.</p>
+        <div style="display:flex;gap:12px;border-radius:10px;border:1px solid var(--line);background:var(--panel2);padding:12px 14px">
+          <span style="{{ dup.avStyle }}">LN</span>
+          <div style="min-width:0;flex:1">
+            <div style="font:600 14px var(--sans);color:var(--text)">Layla Nasser</div>
+            <div style="font:400 12px var(--mono);color:var(--text2)">Director of Leasing · Aldar Properties · Abu Dhabi</div>
+            <div style="margin-top:8px;display:flex;flex-wrap:wrap;gap:6px"><span style="display:inline-flex;align-items:center;gap:5px;border-radius:5px;border:1px solid var(--line-soft);background:var(--panel);padding:2px 7px;font:500 11.5px var(--sans);color:var(--text2)"><span style="width:6px;height:6px;border-radius:50%;background:var(--sky)"></span>Leasing Director · Engaged</span><span style="{{ dup.tagStyle }}">Open to work</span></div>
+            <div style="margin-top:8px;font:400 11px var(--mono);color:var(--text3)">Owner Yara Haddad · 1 note · added 12 Sep 2026 by Yara Haddad · Find executives</div>
+          </div>
+        </div>
+        <p style="margin:12px 0 0;font:400 11.5px var(--mono);color:var(--text3)">A matching LinkedIn URL, email or phone is never asked about — that person is simply added here.</p>
+        <div style="margin-top:18px;display:flex;justify-content:flex-end;gap:8px">
+          <button onClick="{{ addAsNew }}" style="border-radius:8px;padding:10px 14px;font:500 13.5px var(--sans);background:var(--panel);border:1px solid var(--line);color:var(--text2);cursor:pointer" style-hover="color:var(--text);border-color:var(--text3)">No — add a different person</button>
+          <button onClick="{{ useExisting }}" style="border-radius:8px;padding:10px 14px;font:600 13.5px var(--sans);background:var(--amber-btn);border:1px solid var(--amber-btn);color:var(--on-amber);cursor:pointer" style-hover="filter:brightness(1.05)">Yes — add Layla Nasser here</button>
+        </div>
+      </div>
+    </div>
   </sc-if>
 
   <sc-if value="{{ showImport }}" hint-placeholder-val="{{ false }}">
@@ -1605,7 +1742,7 @@
 <template id="__bundler_thumbnail"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><rect width="100" height="100" fill="#16171a"></rect><g transform="translate(50 40) scale(.42)" fill="none" stroke="#f8fafc"><path d="M-32 10 L 0 -8 L 32 10 L 0 28 Z M-32 10 V 32 L 0 50 L 32 32 V 10 M0 28 V 50" stroke-width="3" stroke-linejoin="round"></path><path d="M0 -48 L 32 -30 L 0 -12 L -32 -30 Z" fill="#f8fafc" stroke="none"></path></g><text x="50" y="86" fill="#e2b65c" font-family="Geist,Inter,sans-serif" font-size="13" font-weight="700" letter-spacing="2" text-anchor="middle">PR</text></svg></template>
 </x-dc>
 
-<script type="text/x-dc" data-dc-script data-props="{&quot;page&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;default&quot;:&quot;universe&quot;,&quot;options&quot;:[&quot;universe&quot;,&quot;shortlisted&quot;,&quot;declined&quot;,&quot;reports&quot;,&quot;team&quot;,&quot;candidates&quot;,&quot;outreach&quot;],&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;State&quot;},&quot;view&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;default&quot;:&quot;table&quot;,&quot;options&quot;:[&quot;table&quot;,&quot;map&quot;],&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;State&quot;},&quot;drawer&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;default&quot;:&quot;none&quot;,&quot;options&quot;:[&quot;none&quot;,&quot;company&quot;,&quot;candidate&quot;],&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;State&quot;},&quot;dialog&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;default&quot;:&quot;none&quot;,&quot;options&quot;:[&quot;none&quot;,&quot;import&quot;,&quot;columns&quot;,&quot;remove&quot;],&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;State&quot;},&quot;importStep&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;default&quot;:&quot;map&quot;,&quot;options&quot;:[&quot;choose&quot;,&quot;map&quot;,&quot;done&quot;],&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;State&quot;},&quot;empty&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;State&quot;},&quot;clientRep&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;State&quot;},&quot;chapter&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;default&quot;:&quot;progress&quot;,&quot;options&quot;:[&quot;progress&quot;,&quot;market&quot;,&quot;remuneration&quot;,&quot;diversity&quot;],&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;State&quot;},&quot;reportDrawer&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;State&quot;},&quot;teamModal&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;default&quot;:&quot;none&quot;,&quot;options&quot;:[&quot;none&quot;,&quot;member&quot;,&quot;contact&quot;],&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;State&quot;},&quot;canManage&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:true,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;State&quot;}}">
+<script type="text/x-dc" data-dc-script data-props="{&quot;page&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;default&quot;:&quot;universe&quot;,&quot;options&quot;:[&quot;universe&quot;,&quot;shortlisted&quot;,&quot;declined&quot;,&quot;reports&quot;,&quot;team,&quot;outreach&quot;],&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;State&quot;},&quot;view&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;default&quot;:&quot;table&quot;,&quot;options&quot;:[&quot;table&quot;,&quot;map&quot;],&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;State&quot;},&quot;drawer&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;default&quot;:&quot;none&quot;,&quot;options&quot;:[&quot;none&quot;,&quot;company&quot;,&quot;candidate&quot;],&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;State&quot;},&quot;dialog&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;default&quot;:&quot;none&quot;,&quot;options&quot;:[&quot;none&quot;,&quot;import&quot;,&quot;columns&quot;,&quot;remove&quot;,&quot;duplicate&quot;],&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;State&quot;},&quot;importStep&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;default&quot;:&quot;map&quot;,&quot;options&quot;:[&quot;choose&quot;,&quot;map&quot;,&quot;done&quot;],&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;State&quot;},&quot;empty&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;State&quot;},&quot;clientRep&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;State&quot;},&quot;chapter&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;default&quot;:&quot;progress&quot;,&quot;options&quot;:[&quot;progress&quot;,&quot;market&quot;,&quot;remuneration&quot;,&quot;diversity&quot;],&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;State&quot;},&quot;reportDrawer&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;State&quot;},&quot;teamModal&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;default&quot;:&quot;none&quot;,&quot;options&quot;:[&quot;none&quot;,&quot;member&quot;,&quot;contact&quot;],&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;State&quot;},&quot;canManage&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:true,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;State&quot;}}">
 const I = {
   profile: "M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2M16 7a4 4 0 1 1-8 0 4 4 0 0 1 8 0",
   settings: "M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6ZM19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09a1.65 1.65 0 0 0-1-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09a1.65 1.65 0 0 0 1.51-1 1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33h.01a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51h.01a1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82v.01a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1Z",
@@ -1634,6 +1771,8 @@ const I = {
   table: "M3 5h18v14H3zM3 10h18M3 15h18M9 5v14",
   mapPin: "M20 10c0 6-8 12-8 12S4 16 4 10a8 8 0 0 1 16 0ZM12 13a3 3 0 1 0 0-6 3 3 0 0 0 0 6Z",
   building: "M6 22V4a1 1 0 0 1 1-1h10a1 1 0 0 1 1 1v18M2 22h20M9 7h2M13 7h2M9 11h2M13 11h2M9 15h2M13 15h2M10 22v-4h4v4",
+  fileText: "M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8l-6-6ZM14 2v6h6M8 13h8M8 17h5",
+  moreH: "M5 12h.01M12 12h.01M19 12h.01",
   eye: "M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12Zm10 3a3 3 0 1 0 0-6 3 3 0 0 0 0 6Z",
   eyeOff: "M17.9 17.9A10.5 10.5 0 0 1 12 19c-6.5 0-10-7-10-7a17 17 0 0 1 4.1-4.9M9.9 5.2A9.9 9.9 0 0 1 12 5c6.5 0 10 7 10 7a17 17 0 0 1-2 2.9M14.1 14.1a3 3 0 1 1-4.2-4.2M2 2l20 20",
   fit: "M8 3H5a2 2 0 0 0-2 2v3M16 3h3a2 2 0 0 1 2 2v3M8 21H5a2 2 0 0 1-2-2v-3M16 21h3a2 2 0 0 0 2-2v-3M9 9h6v6H9z",
@@ -1786,6 +1925,44 @@ const E = [
 ];
 E.find((e) => e.id === "e14").coName = "Mekong Advisory";
 
+const TAG_LOOK = {
+  "Open to work": ["var(--u-direct)", "var(--u-direct-tint)"], "Open to relocate": ["var(--u-accent)", "var(--u-accent-tint)"], Passive: ["var(--text2)", "var(--panel2)"],
+  Referral: ["var(--u-chart-5)", "color-mix(in srgb, var(--u-chart-5) 16%, transparent)"], "Prior placement": ["var(--u-adjacent)", "var(--u-adjacent-tint)"], "Interviewed before": ["var(--u-inferred)", "var(--u-inferred-tint)"]
+};
+const tagPill = (label) => { const [fg, bg] = TAG_LOOK[label] || ["var(--text2)", "var(--panel2)"]; return { label, style: `display:inline-flex;align-items:center;white-space:nowrap;border-radius:999px;padding:1px 8px;font:500 11px var(--sans);color:${fg};background:${bg}` }; };
+const ADDED_BY = { e01: "Yousef Iman", e02: "Yara Haddad", e03: "Dana Aboud", e04: "Dana Aboud", e05: "Omar Khalil", e06: "Yousef Iman", e07: "Yousef Iman", e08: "Sara Al-Mansour", e09: "Sara Al-Mansour", e10: "Dana Aboud", e11: "Yousef Iman", e12: "Yara Haddad", e13: "Yara Haddad", e14: "Dana Aboud" };
+const CRM = {
+  e01: { tags: ["Open to relocate", "Referral"], owner: "Yara Haddad", also: [["Head of Credit Risk", "interested", "Yara Haddad", "14 Apr 2026"]], last: ["Logged an email", "Dana Aboud · Today 10:12"],
+    notes: [["Sara Al-Mansour", "Call", "14 Sep", "Chief Financial Officer", "Spoke 14 Sep — open to a group CFO move if the remit includes the international portfolio. Follow up after Q3 close.", true],
+      ["Dana Aboud", "Email", "Today 10:12", null, "Sent the group structure overview Fatima asked for; reply expected next week."],
+      ["Yara Haddad", "Meeting", "22 Apr", "Head of Credit Risk", "Coffee at DIFC. Strong on treasury and funding, lighter on credit portfolio work."]],
+    timeline: [["Dana Aboud", "logged an email", "Today 10:12", ""], ["Omar Khalil", "uploaded a reference", "18 Sep 11:30", "Reference Al Rostamani Group"], ["Yousef Iman", "ran AI deep enrich", "18 Sep 16:30", "Scored 8 of 10 against this brief"], ["Sara Al-Mansour", "marked Engaged on this position", "14 Sep 11:24", "Contacted → Engaged"],
+      ["Yousef Iman", "uploaded version 3 of the CV", "12 Sep 09:40", "Fatima Al Mazrouei CV"], ["Yousef Iman", "added to this position with the plugin", "8 Sep 14:40", "Already in your candidates, so added rather than duplicated"], ["Yara Haddad", "added to the candidates from Head of Credit Risk", "14 Apr 10:12", "Added by hand"]] },
+  e02: { tags: ["Passive"], owner: "Yara Haddad" },
+  e03: { tags: ["Open to work"], owner: "Omar Khalil", last: ["Tagged Open to work", "Sara Al-Mansour · Today 09:05"] },
+  e05: { tags: ["Interviewed before"], owner: "Omar Khalil", also: [["Head of Credit Risk", "notInterested", "Yousef Iman", "10 Apr 2026"]], dnc: "Asked not to be approached again for twelve months — set by Omar Khalil, 16 Sep 2026.", last: ["Marked do not contact", "Omar Khalil · 16 Sep"],
+    notes: [["Omar Khalil", "Call", "16 Sep", "Chief Financial Officer", "Declined at the current band — would reconsider above AED 4.6M. Asked not to be approached again for twelve months."]] },
+  e06: { tags: ["Open to relocate"], owner: "Yousef Iman", last: ["Marked Contacted on this position", "Yousef Iman · 11 Sep"] },
+  e08: { tags: ["Open to work", "Open to relocate"], owner: "Sara Al-Mansour" },
+  e09: { tags: ["Referral"], owner: "Sara Al-Mansour", also: [["Head of Credit Risk", "identified", "Yousef Iman", "2 Apr 2026"]], last: ["Marked Engaged on this position", "Sara Al-Mansour · 5 Sep"],
+    notes: [["Sara Al-Mansour", "Call", "5 Sep", "Chief Financial Officer", "Interested in principle; one month's notice. Wants a treasury-heavy remit."]] },
+  e12: { tags: ["Prior placement", "Open to relocate"], owner: "Yara Haddad", also: [["Head of Credit Risk", "interested", "Yara Haddad", "28 Mar 2026"]], last: ["Marked Interested on this position", "Yara Haddad · 19 Sep"],
+    notes: [["Yara Haddad", "Call", "19 Sep", "Chief Financial Officer", "Open to a move if the role carries group scope; wants clarity on LTIP vesting.", true], ["Yara Haddad", "Note", "28 Mar", "Head of Credit Risk", "We placed Khalid as Mashreq CFO in 2023 — go through Yara before any approach."]] },
+  e13: { tags: ["Open to work"], owner: "Yara Haddad", last: ["Marked Interested on this position", "Yara Haddad · 20 Sep"] }
+};
+const crmOf = (e) => Object.assign({ tags: [], owner: null, also: [], notes: [], timeline: null, last: null, dnc: null, docs: [] }, CRM[e.id] || {});
+// [category, title, file, size, latest upload, primary CV, versions as [no, file, size, by and when]] — Candidates.dc.html draws the full tab.
+const CRM_DOCS = {
+  e01: [
+    ["CV", "Fatima Al Mazrouei CV", "Fatima_Al_Mazrouei_CV.pdf", "412 KB", "Yousef Iman · 12 Sep", true, [[3, "Fatima_Al_Mazrouei_CV.pdf", "412 KB", "Yousef Iman · 12 Sep 2026, 09:40"], [2, "Fatima_Al_Mazrouei_CV.pdf", "398 KB", "Sara Al-Mansour · 22 Apr 2026, 10:40"], [1, "Fatima_CV_2024.docx", "86 KB", "Yara Haddad · 14 Apr 2026, 10:20"]]],
+    ["Cover letter", "Cover letter Group CFO", "Cover_letter_Group_CFO.pdf", "142 KB", "Sara Al-Mansour · 15 Sep", false, [[1]]],
+    ["Reference", "Reference Al Rostamani Group", "Reference_Al_Rostamani.docx", "54 KB", "Omar Khalil · 18 Sep", false, [[1]]],
+    ["Certificate", "ACCA membership", "ACCA_membership.jpg", "1.2 MB", "Yousef Iman · 8 Sep", false, [[1]]]
+  ],
+  e12: [["CV", "Khalid Al Harbi CV", "Khalid_Al_Harbi_CV.pdf", "380 KB", "Yara Haddad · 2 Sep", true, [[2, "Khalid_Al_Harbi_CV.pdf", "380 KB", "Yara Haddad · 2 Sep 2026, 09:00"], [1, "Khalid_Al_Harbi_CV.pdf", "361 KB", "Yara Haddad · 28 Mar 2026, 09:10"]]]]
+};
+const DOC_TONE = { CV: ["var(--u-accent)", "var(--u-accent-tint)"], "Cover letter": ["var(--u-adjacent)", "var(--u-adjacent-tint)"], Reference: ["var(--u-direct)", "var(--u-direct-tint)"], Certificate: ["var(--u-chart-5)", "color-mix(in srgb, var(--u-chart-5) 16%, transparent)"] };
+
 const initials = (n) => { const p = n.trim().split(/\s+/); return (p[0][0] + (p.length > 1 ? p[p.length - 1][0] : "")).toUpperCase(); };
 const tintOf = (id) => { let h = 0; for (const ch of id) h = (h * 31 + ch.charCodeAt(0)) >>> 0; return TINTS[h % TINTS.length]; };
 const avatar = (id, size, extra) => { const [bg, fg] = tintOf(id); return `width:${size}px;height:${size}px;flex:none;border-radius:50%;display:grid;place-items:center;font:600 10px var(--mono);background:${bg};color:${fg};${extra || ""}`; };
@@ -1910,12 +2087,13 @@ class Component extends DCLogic {
       sort: { field: "added", dir: "desc" },
       vis: { founded: false, description: false, source: false },
       toast: null, coId: "c01", candId: "e01", removeId: "c01", contactEditing: false, compEditing: false, compForm: null,
-      sec: { summary: true, experience: true, compensation: true, background: false, contact: true, columns: false, note: false },
+      sec: { positions: true, summary: true, experience: true, compensation: true, background: false, contact: true, columns: false, notes: true, documents: true, timeline: false }, docHist: {}, docTray: false,
       mapSel: "c01", mapOpen: { "United Arab Emirates": true, "Saudi Arabia": true, Qatar: true, Oman: true, Bahrain: true, c01: true }, mapExecs: true, mapPanel: true,
       basis: "recent", momentum: "weeks", measure: "package", cpCountry: "All countries", cpNat: "All nationalities",
       dvNat: "All nationalities", dvLevel: "All levels",
       rd: reportDrawer ? (chapter === "comp" ? { kind: "disclosure", id: "e12" } : chapter === "market" ? { kind: "hub", id: "United Arab Emirates" } : null) : null,
-      contactTab: "existing", stageOf: {}, removed: {}, noExecOf: {}, department, roleTitle
+      contactTab: "existing", stageOf: {}, removed: {}, noExecOf: {}, department, roleTitle,
+      statusOf: {}
     };
   }
 
@@ -1930,6 +2108,7 @@ class Component extends DCLogic {
   stageOf(c) { return this.state.stageOf[c.id] || c.stage; }
   liveCompanies(stage) { return C.filter((c) => !this.state.removed[c.id] && this.stageOf(c) === stage); }
   canWrite() { return !this.state.clientRep; }
+  statusOf(e) { return this.state.statusOf[e.id] || e.status; }
 
   sortedCompanies(stage) {
     const { field, dir } = this.state.sort;
@@ -2041,6 +2220,7 @@ class Component extends DCLogic {
       hiddenCount, hasHidden: hiddenCount > 0,
       pickerCols: hideable.map((c) => { const on = this.visible(c.id); return { id: c.id, label: c.label, on, boxStyle: `display:grid;width:14px;height:14px;flex:none;place-items:center;border-radius:4px;border:1px solid ${on ? "var(--sky)" : "var(--line)"};background:${on ? "var(--sky)" : "transparent"};color:#fff` }; }),
       canImport: stageKey === "u" && cw,
+      canOutreach: stageKey !== "d" && cw,
       mapOffered: stageKey === "u"
     };
   }
@@ -2174,6 +2354,11 @@ class Component extends DCLogic {
     const firstLine = (t) => (t ? (t.length > 100 ? `${t.slice(0, 99).trimEnd()}…` : t) : null);
     const facts = (xs) => { const f = xs.filter(Boolean); return f.length ? f.join(" · ") : null; };
     const noticeSummary = comp ? (comp[5] === "None" ? "No notice period" : `${comp[5]} notice`) : null;
+    const crm = crmOf(e);
+    const crmShown = cw;
+    const timeline = crm.timeline || [[ADDED_BY[e.id], "added to the candidates from this position", dateGB(e.added), SOURCES[e.source].label]];
+    const docs = CRM_DOCS[e.id] || [];
+    const cvDoc = docs.find((d) => d[5]);
     const secDefs = [
       { id: "summary", title: "Summary", summary: firstLine(summary), pencil: "summary" },
       { id: "experience", title: "Experience", count: postCount, summary: `${e.title} at ${company} · ${countOf(postCount, "post")}`, pencil: "experience" },
@@ -2181,24 +2366,28 @@ class Component extends DCLogic {
       { id: "background", title: "Background", summary: facts([e.nat, `${2026 - e.since + 8} yrs`, countOf(languages.length, "language")]), pencil: "background" },
       { id: "contact", title: "Contact", summary: facts([e.emails[0] && e.emails[0][0], e.phones[0] && e.phones[0][0], e.emails.some((x) => x[2]) ? "verified" : null]), pencil: "contact" },
       { id: "columns", title: "Your columns", count: 2, summary: facts([e.arabic, e.board]), pencil: "your columns" },
-      { id: "note", title: "Note", summary: firstLine(note) }
+      { id: "notes", title: "Notes", count: crm.notes.length, summary: crm.notes.length ? firstLine(crm.notes[0][4]) : "None yet" },
+      { id: "documents", title: "Documents", count: docs.length, summary: docs.length ? [cvDoc ? `CV ${cvDoc[6].length > 1 ? `v${cvDoc[6][0][0]}` : "v1"}` : null, docs.length - (cvDoc ? 1 : 0) ? `${docs.length - (cvDoc ? 1 : 0)} more` : null].filter(Boolean).join(" · ") : "None yet" },
+      { id: "timeline", title: "Timeline", summary: `${timeline.length} ${timeline.length === 1 ? "entry" : "entries"} · who did what, and when` }
     ];
+    if (crmShown) secDefs.unshift({ id: "positions", title: "Positions", count: 1 + crm.also.length, summary: crm.also.length ? `Also in ${crm.also.map((a) => a[0]).join(", ")}` : "Only this position" });
+    else secDefs.splice(secDefs.length - 3, 3);
     const cdSections = secDefs.map((d) => {
       const open = !!s.sec[d.id] || (d.id === "contact" && s.contactEditing);
       return { id: d.id, title: d.title, hasCount: d.count !== undefined, count: d.count, showSummary: !open && !!d.summary, summary: d.summary || "",
         chev: `flex:none;color:var(--text3);transition:transform .2s;transform:${open ? "none" : "rotate(-90deg)"}`, open,
         pencil: cw && !!d.pencil && !(d.id === "contact" && s.contactEditing) && !(d.id === "compensation" && s.compEditing), pencilTitle: `Edit ${d.pencil}`, saveNote: false,
-        isSummary: d.id === "summary", isExperience: d.id === "experience", isComp: d.id === "compensation", isBackground: d.id === "background", isContact: d.id === "contact", isColumns: d.id === "columns", isNote: d.id === "note" };
+        isSummary: d.id === "summary", isExperience: d.id === "experience", isComp: d.id === "compensation", isBackground: d.id === "background", isContact: d.id === "contact", isColumns: d.id === "columns", isPositions: d.id === "positions", isNotes: d.id === "notes", isDocuments: d.id === "documents", isTimeline: d.id === "timeline" };
     });
     const verStyle = (on) => `flex:none;cursor:pointer;border-radius:5px;padding:3px 7px;font:700 9.5px var(--mono);text-transform:uppercase;letter-spacing:.06em;${on ? "border:1px solid transparent;background:var(--green-dim);color:var(--green)" : "border:1px solid var(--line);background:none;color:var(--text3)"}`;
     const editLines = (arr, noun) => arr.map((x, i) => ({ value: x[0], kind: x[1] || "", verStyle: verStyle(!!x[2]), aria: `${noun[0].toUpperCase()}${noun.slice(1)} ${i + 1}`, removeAria: `Remove ${noun} ${i + 1}` }));
-    const st = STATUS[e.status];
+    const st = STATUS[this.statusOf(e)];
     return {
-      name: e.name, initials: initials(e.name), slotId2: "exec-drawer-" + e.id, avStyle: avatar(e.id, 44, "border-radius:10px;border:1px solid var(--line);font-size:14px"),
+      id: e.id, name: e.name, initials: initials(e.name), slotId2: "exec-drawer-" + e.id, avStyle: avatar(e.id, 44, "border-radius:10px;border:1px solid var(--line);font-size:14px"),
       hasLi: !!e.li, noLi: !e.li, liHandle: e.li || "", liUrl: e.li ? `linkedin.com/in/${e.li}` : "", liLocked: e.source === "extension", liEditable: e.source !== "extension",
       title: e.title || "—", context: [company, e.city, e.country].filter(Boolean).join(" · ") || "No employer or location recorded",
       hasLevel: !!e.level, level: e.level, sourceLabel: SOURCES[e.source].label, sourceStyle: `${DPILL}color:${SOURCES[e.source].fg};background:${SOURCES[e.source].bg}`,
-      status: e.status, statusLabel: st.label, statusPillStyle: `${DPILL}color:${st.fg};background:${st.bg}`,
+      status: this.statusOf(e), statusLabel: st.label, statusPillStyle: `${DPILL}color:${st.fg};background:${st.bg}`,
       summary: summary || "No summary written yet.", career: careerOut,
       compTiles, hasTotal: total > 0, total: `${cur} ${num(total)}`, parts: parts.map((x) => ({ label: `${x[0]} ${Math.round((x[1] / total) * 100)}%`, w: `${(x[1] / total) * 100}%`, color: x[2] })),
       bgTiles: [Object.assign({ label: "Nationality" }, tile(e.nat)), Object.assign({ label: "Gender" }, tile(e.gender ? e.gender[0].toUpperCase() + e.gender.slice(1) : null)), Object.assign({ label: "Experience" }, tile(`${2026 - e.since + 8} years`))],
@@ -2212,7 +2401,26 @@ class Component extends DCLogic {
         { label: "Phone", icon: I.phone, placeholder: "+971 50 000 0000", addLabel: "Add phone", lines: editLines(e.phones, "phone") }
       ],
       colTiles: [Object.assign({ label: "Arabic speaker" }, tile(e.arabic)), Object.assign({ label: "Board seats" }, tile(e.board))],
-      note, noteRead: note || "No note on this person for this mandate.",
+      showCrm: crmShown, tags: crm.tags.map(tagPill), owner: crm.owner || "", hasOwner: !!crm.owner, dnc: !!crm.dnc, dncReason: crm.dnc || "",
+      positions: [[this.state.roleTitle, this.statusOf(e), ADDED_BY[e.id], dateGB(e.added), true], ...crm.also.map((a) => [a[0], a[1], a[2], a[3], false])].map(([title, status, by, when, here]) => ({
+        title, here, added: `Added by ${by} · ${when}`, status: STATUS[status].label, pill: `${DPILL}color:${STATUS[status].fg};background:${STATUS[status].bg}`, border: here ? "color-mix(in srgb,var(--amber) 45%,transparent)" : "var(--line-soft)" })),
+      noteKinds: ["Note", "Call", "Meeting", "Email"].map((k, i) => ({ label: k, style: `border-radius:6px;padding:3px 9px;font:500 11.5px var(--sans);${i === 1 ? "background:var(--u-accent-tint);color:var(--u-accent)" : "border:1px solid var(--line);color:var(--text3)"}` })),
+      notes: crm.notes.map((n) => ({ author: n[0], kind: n[1], when: n[2], hasPos: !!n[3], pos: n[3] || "", body: n[4], pinned: !!n[5], kindStyle: `${DPILL}background:var(--panel2);color:var(--text2)`,
+        border: n[5] ? "color-mix(in srgb,var(--amber) 45%,transparent)" : "var(--line-soft)" })),
+      noNotes: crm.notes.length === 0,
+      hasCv: crmShown && !!cvDoc, cvLabel: cvDoc ? `CV · v${cvDoc[6][0][0]} · ${cvDoc[4].split(" · ")[1]}` : "",
+      docs: docs.map((d, i) => {
+        const ext = d[2].split(".").pop();
+        const open = !!s.docHist[`${e.id}:${i}`];
+        const tone = ext === "pdf" ? ["var(--red-dim)", "var(--red)"] : ext === "docx" ? ["var(--sky-dim)", "var(--sky)"] : ["var(--u-direct-tint)", "var(--u-direct)"];
+        return { key: `${e.id}:${i}`, title: d[1], ext, primary: d[5], cat: d[0], catStyle: `${DPILL}color:${DOC_TONE[d[0]][0]};background:${DOC_TONE[d[0]][1]}`,
+          v: `v${d[6][0][0]}`, meta: `${d[3]} · ${d[4]}`, previewable: ext !== "docx", border: d[5] ? "color-mix(in srgb,var(--amber) 45%,transparent)" : "var(--line-soft)",
+          badgeStyle: `display:grid;width:28px;height:34px;flex:none;place-items:end center;padding-bottom:4px;border-radius:5px;border:1px solid var(--line-soft);background:${tone[0]};color:${tone[1]};font:700 8px var(--mono);text-transform:uppercase`,
+          hasHistory: d[6].length > 1, historyOpen: open, historyLabel: `${open ? "Hide" : "Show"} ${d[6].length} versions`,
+          versions: d[6].map((v, j) => ({ no: v[0], file: v[1], meta: `${v[2]} · ${v[3]}`, current: j === 0 })) };
+      }),
+      noDocs: docs.length === 0, docTray: !!s.docTray,
+      timeline: timeline.map((t) => ({ who: t[0], what: t[1], when: t[2], detail: t[3] ? ` · ${t[3]}` : "" })),
       footer: `Added ${dateGB(e.added)}${e.source === "extension" ? ` · Researched ${dateGB(e.added)} · Captured from www.linkedin.com` : ""}`,
       cdSections
     };
@@ -2807,6 +3015,9 @@ class Component extends DCLogic {
       openImport: () => set({ dialog: "import", importStep: "choose" }),
       openColumnsDialog: () => set({ dialog: "columns" }),
       closeDialog: () => set({ dialog: "none" }),
+      setCandidateStatus: (e) => { const k = id(e); const v = e.target.value; set({ statusOf: Object.assign({}, this.state.statusOf, { [k]: v }) }); this.showToast(`Marked ${STATUS[v].label} — recorded on the timeline`); },
+      addAsNew: () => { set({ dialog: "none" }); this.showToast("Added Layla Nasser as a new person — the two stay separate until someone merges them"); },
+      useExisting: () => { set({ dialog: "none" }); this.showToast("Layla Nasser added to this position — their notes, contacts and history came with them"); },
       stop: (e) => e.stopPropagation(),
       importToMap: () => set({ importStep: "map" }),
       importToDone: () => set({ importStep: "done" }),
@@ -2818,6 +3029,11 @@ class Component extends DCLogic {
       clearMapSel: () => set({ mapSel: null }),
       openMapNode: (e) => { e.stopPropagation(); const k = id(e); if (CO[k]) set({ drawer: "company", coId: k }); else set({ drawer: "candidate", candId: k, contactEditing: false }); },
       toggleSec: (e) => { const k = id(e); set({ sec: Object.assign({}, this.state.sec, { [k]: !this.state.sec[k] }) }); },
+      toggleDocHist: (e) => { const k = id(e); set({ docHist: Object.assign({}, this.state.docHist, { [k]: !this.state.docHist[k] }) }); },
+      toggleDocTray: () => set({ docTray: !this.state.docTray }),
+      sendDocTray: () => { set({ docTray: false }); this.showToast("Uploaded as version 4 of the CV — on the timeline"); },
+      docPreview: () => this.showToast("Opens the preview sheet — see Candidates.dc.html?dialog=preview"),
+      docDownload: () => this.showToast("Downloading — recorded in the audit trail"),
       expandAll: () => set({ sec: { summary: true, experience: true, compensation: true, background: true, contact: true, columns: true, note: true } }),
       collapseAll: () => set({ sec: { summary: false, experience: false, compensation: false, background: false, contact: false, columns: false, note: false }, contactEditing: false }),
       toggleCompOverride: () => { const f = this.state.compForm; set({ compForm: Object.assign({}, f, { overridden: !f.overridden, currency: f.overridden ? BRIEF_CURRENCY : f.currency }) }); },
@@ -2884,7 +3100,7 @@ class Component extends DCLogic {
     const navGroups = [
       { label: "Position", items: [navItem("Brief", I.position, "Position.dc.html", false), navItem("Strategy", I.strategy, "Strategy.dc.html", false)] },
       { label: "Companies", items: ["u", "s", "d"].map((k) => navItem(STAGES[k].label, STAGES[k].icon, `Position.dc.html?page=${STAGES[k].slug}`, stageKey === k, counts[k])) },
-      { label: "People", items: [navItem("Candidates", I.candidates, "Position.dc.html?page=candidates", s.page === "candidates"), navItem("Outreach", I.outreach, "Position.dc.html?page=outreach", s.page === "outreach")] },
+      { label: "People", items: [navItem("Outreach", I.outreach, "Outreach.dc.html", false)] },
       { label: "Project", items: [navItem("Reports", I.reports, "Position.dc.html?page=reports", isReports), navItem("Team & access", I.team, "Position.dc.html?page=team", s.page === "team")] }
     ];
     const view = stageKey === "u" ? s.view : "table";
@@ -2898,7 +3114,7 @@ class Component extends DCLogic {
     const rd = isReports ? this.reportDrawerVals() : { show: false };
     const team = s.page === "team" ? this.teamVals() : { showMemberModal: false, showContactModal: false };
     const removeCo = CO[s.removeId];
-    const placeholder = s.page === "candidates" ? { t: "Candidates", i: I.candidates } : { t: "Outreach", i: I.outreach };
+    const placeholder = { t: "Outreach", i: I.outreach };
     return Object.assign({
       ic: I, isAdmin: !s.clientRep, viewerInitials: s.clientRep ? "LM" : "YH", wsMenuOpen: s.wsMenu,
       department: s.department, roleTitle: s.roleTitle,
@@ -2906,7 +3122,7 @@ class Component extends DCLogic {
       themeLabel: s.dark ? "Light mode" : "Dark mode", themeIcon: s.dark ? I.sun : I.moon,
       collapseTitle: collapsed ? "Expand sidebar" : "Collapse sidebar", collapseIcon: collapsed ? I.expand : I.collapse,
       navGroups,
-      isStage, isReports, isTeam: s.page === "team", isPlaceholder: s.page === "candidates" || s.page === "outreach",
+      isStage, isReports, isTeam: s.page === "team", isPlaceholder: s.page === "outreach",
       placeholderTitle: placeholder.t, placeholderIcon: placeholder.i,
       isTable: view === "table", isMap: view === "map", canWrite: cw, readOnly: !cw, colMenuOpen: s.colMenu,
       segTableStyle: segD(view === "table"), segMapStyle: segD(view === "map"),
@@ -2932,6 +3148,7 @@ class Component extends DCLogic {
       importPersonOpts: [["candidateName", "Name"], ["candidateFirstName", "First name"], ["candidateLastName", "Last name"], ["candidateTitle", "Title"], ["candidateSeniority", "Level"], ["candidateEmail", "Email"], ["candidatePhone", "Phone"], ["candidateLinkedin", "LinkedIn"], ["candidateCountry", "Person country"], ["candidateCity", "Person city"], ["candidateNationality", "Nationality"], ["candidateGender", "Gender"], ["candidateYearsExperience", "Experience"], ["candidateSummary", "Profile summary"], ["candidateNote", "Note"], ["candidateCurrency", "Currency"], ["candidateBaseSalary", "Base salary"], ["candidateBonus", "Bonus"], ["candidateAllowances", "Allowances"], ["candidateLongTermIncentive", "LTIP"], ["candidateNoticePeriod", "Notice period"]].map(([v, l]) => ({ value: `field:${v}`, label: l })),
       showColumns: isStage && cw && s.dialog === "columns",
       customCols: CUSTOM.map((c) => ({ label: c.label, meta: `${c.target === "company" ? "Company" : "Person"} · ${c.type}` })),
+      showDuplicate: isStage && cw && s.dialog === "duplicate", dup: { avStyle: avatar("p16", 40), tagStyle: tagPill("Open to work").style },
       showRemove: isStage && cw && s.dialog === "remove", removeTitle: `Remove ${removeCo.name}?`, removeName: removeCo.name,
       chProgress: s.chapter === "progress", chMarket: s.chapter === "market", chComp: s.chapter === "comp", chDei: s.chapter === "dei",
       rp: report.rp || { caption: "", stack: [], list: [] },

@@ -161,6 +161,13 @@ public class ClientService {
         return get(workspaceId, clientId);
     }
 
+    /** The industry of the client a mandate hires for, and nothing else about it: outreach names no client. */
+    @Transactional(readOnly = true)
+    public String industryOfProjectClient(UUID workspaceId, UUID projectId) {
+        Project project = projects.requireInWorkspace(projectId, workspaceId);
+        return requireClient(workspaceId, project.getClientId()).getSector();
+    }
+
     /**
      * The client a mandate hires for, as the assistant is told about it. Its headcount is the universe's
      * live figure where the record was picked from it, never a stored copy.

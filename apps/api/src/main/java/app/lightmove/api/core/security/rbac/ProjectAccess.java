@@ -6,6 +6,8 @@ import app.lightmove.api.project.model.ProjectMember;
 import app.lightmove.api.project.repository.ProjectMemberRepository;
 import app.lightmove.api.project.repository.ProjectRepository;
 import app.lightmove.api.workspace.model.WorkspaceMember;
+import java.util.Collection;
+import java.util.Set;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -23,6 +25,23 @@ public class ProjectAccess {
     private final WorkspaceAccess workspaceAccess;
     private final ProjectRepository projects;
     private final ProjectMemberRepository seats;
+
+    /**
+     * Which of {@code projectIds} the caller holds {@code action} on — {@link #requireAction}'s ladder
+     * asked once for many projects, for a screen that offers a control only where it would work. The
+     * caller has already scoped the ids to the workspace; one outside it is simply never answered.
+     */
+    public Set<UUID> projectsWithAction(UUID userId, UUID workspaceId, Collection<UUID> projectIds,
+                                        ProjectAction action) {
+        if (projectIds.isEmpty()) {
+            return Set.of();
+        }
+        WorkspaceMember member = workspaceAccess.requireActiveMember(userId, workspaceId);
+        if (workspaceAccess.isAdmin(member)) {
+            return projects.findIdsInWorkspace(workspaceId, projectIds);
+        }
+        return seats.findProjectIdsWithAction(member.getId(), projectIds, action.name());
+    }
 
     public void requireAction(UUID userId, UUID workspaceId, UUID projectId, ProjectAction action) {
         WorkspaceMember member = workspaceAccess.requireActiveMember(userId, workspaceId);

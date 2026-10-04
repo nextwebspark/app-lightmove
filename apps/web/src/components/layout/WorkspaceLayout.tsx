@@ -1,8 +1,9 @@
 import { useQuery } from "@tanstack/react-query";
 import type { ReactNode } from "react";
-import { Outlet } from "react-router-dom";
+import { matchPath, Outlet, useLocation } from "react-router-dom";
 import { useAuth } from "../../features/auth/AuthProvider";
 import { isPureClient } from "../../features/auth/roles";
+import * as poolApi from "../../features/candidates/api/poolApi";
 import * as clientsApi from "../../features/clients/api/clientsApi";
 import * as projectsApi from "../../features/projects/api/projectsApi";
 import * as workspaceApi from "../../features/workspace/api/workspaceApi";
@@ -10,6 +11,9 @@ import { useWorkspaceVocabulary } from "../../features/workspace/lib/vocabulary"
 import { AppShell } from "./AppShell";
 import { ICONS } from "./Icon";
 import { type SidebarGroup } from "./Sidebar";
+
+/** Screens that draw their own toolbar and rail edge to edge and scroll inside, as Strategy does. */
+const FULL_BLEED_ROUTES = ["/candidates/*"];
 
 /**
  * The app shell: topbar, the workspace sidebar with live counts, and the main panel the routed page
@@ -34,6 +38,8 @@ export function WorkspaceShell({ children }: { children: ReactNode }) {
   const roles = user?.workspace?.roles ?? [];
   const clientOnly = isPureClient(roles);
   const vocabulary = useWorkspaceVocabulary();
+  const { pathname } = useLocation();
+  const fullBleed = FULL_BLEED_ROUTES.some((route) => matchPath(route, pathname));
 
   const { data: projects } = useQuery({
     queryKey: projectsApi.PROJECTS_KEY,
@@ -42,6 +48,11 @@ export function WorkspaceShell({ children }: { children: ReactNode }) {
   const { data: clients } = useQuery({
     queryKey: clientsApi.CLIENTS_KEY,
     queryFn: clientsApi.clients,
+    enabled: !clientOnly,
+  });
+  const { data: poolSize } = useQuery({
+    queryKey: poolApi.POOL_COUNT_KEY,
+    queryFn: ({ signal }) => poolApi.poolCount(signal),
     enabled: !clientOnly,
   });
   const { data: members } = useQuery({
@@ -76,6 +87,7 @@ export function WorkspaceShell({ children }: { children: ReactNode }) {
         {
           label: "Workspace",
           items: [
+            { to: "/candidates", label: "Candidates", icon: ICONS.candidates, count: poolSize },
             { to: "/clients", label: vocabulary.units, icon: ICONS.clients, count: clients?.length },
             { to: "/team", label: "Team", icon: ICONS.team, count: members?.length },
             // Every staff member's, not just an admin's: the rail lands on the section everyone can
@@ -91,7 +103,9 @@ export function WorkspaceShell({ children }: { children: ReactNode }) {
        was otherwise leaving ~280px unused. Text blocks cap themselves. */
     <AppShell
       navGroups={groups}
-      contentClassName="mx-auto max-w-[1440px] px-4 pb-[60px] pt-5 sm:px-7 sm:pt-7"
+      contentClassName={
+        fullBleed ? "flex h-full flex-col" : "mx-auto max-w-[1440px] px-4 pb-[60px] pt-5 sm:px-7 sm:pt-7"
+      }
     >
       {children}
     </AppShell>

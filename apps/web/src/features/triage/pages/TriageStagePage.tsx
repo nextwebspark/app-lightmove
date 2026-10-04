@@ -28,6 +28,8 @@ import { useChangeCandidateStatus } from "../../candidates/lib/useChangeCandidat
 import * as customColumnsApi from "../../customcolumns/api/customColumnsApi";
 import type { CustomColumn } from "../../customcolumns/api/types";
 import * as positionApi from "../../position/api/positionApi";
+import { EnrolDialog } from "../../outreach/components/EnrolDialog";
+import { useMailbox } from "../../outreach/lib/useMailbox";
 import { canExecuteProjectWork } from "../../projects/lib/access";
 import * as talentMapApi from "../../talentmap/api/talentMapApi";
 import type * as talentMapTypes from "../../talentmap/api/types";
@@ -52,6 +54,7 @@ import {
 } from "../lib/triageCompanyColumns";
 import { awaitingResearch, toTriageRows } from "../lib/triageRows";
 import { stageBySlug, TRIAGE_STAGES } from "../lib/triageStages";
+import { companiesOf } from "../lib/sourcingSummary";
 import { useCompanySelection } from "../lib/useCompanySelection";
 import { useExecutiveSourcing } from "../lib/useExecutiveSourcing";
 import { useProjectStream, type ProjectStreamKind } from "../lib/useProjectStream";
@@ -70,6 +73,9 @@ const EMPTY_CUSTOM_COLUMNS: CustomColumn[] = [];
 
 /** How hard the In-universe screen looks for research landing on a fresh plugin capture. */
 const RESEARCH_POLL_MS = 4_000;
+
+/** The server reads at most this many ticked companies' executives for one Add to sequence. */
+const ADD_TO_SEQUENCE_COMPANY_CAP = 200;
 
 /** How often the map asks again while the server is still placing rows it could not place yet. */
 const GEOCODING_POLL_MS = 3_000;
@@ -155,6 +161,7 @@ function TriageStage() {
   const [importing, setImporting] = useState(false);
   const companySelection = useCompanySelection();
   const [confirmingFindExecutives, setConfirmingFindExecutives] = useState(false);
+  const [enrollingCompanyIds, setEnrollingCompanyIds] = useState<string[] | null>(null);
   const [managingColumns, setManagingColumns] = useState(false);
   /** Set when "Edit field" is opened from a header menu, so the dialog lands already renaming it. */
   const [editColumnId, setEditColumnId] = useState<string | null>(null);
@@ -309,7 +316,22 @@ function TriageStage() {
   /** Offered on the universe's table view only, and only where the deployment has a people search. */
   const sourcing = useExecutiveSourcing(project.id, canWrite && stage.status === "inUniverse", streamIsLive);
   const findExecutivesOffered = canWrite && stage.status === "inUniverse" && view === "table" && sourcing.offered;
-  const selectionCap = sourcing.config?.maxCompaniesPerRun ?? 0;
+  const findExecutivesCap = sourcing.config?.maxCompaniesPerRun ?? 0;
+  const mailbox = useMailbox(canWrite);
+  /** Ticked companies' executives go to Add to sequence; never from Declined. */
+  const addToSequenceOffered =
+    canWrite && stage.status !== "declined" && view === "table" && mailbox.data?.offered === true;
+  const selectionOffered = findExecutivesOffered || addToSequenceOffered;
+  const selectionCap = addToSequenceOffered ? Math.max(findExecutivesCap, ADD_TO_SEQUENCE_COMPANY_CAP) : findExecutivesCap;
+  const selectionAction = addToSequenceOffered ? "Add to sequence" : "Find executives";
+
+  const handleFindExecutives = () => {
+    if (companySelection.selectedIds.size > findExecutivesCap) {
+      toast(`Find executives takes ${companiesOf(findExecutivesCap)} at a time`);
+      return;
+    }
+    setConfirmingFindExecutives(true);
+  };
 
   const handleStartFindExecutives = () =>
     sourcing.start([...companySelection.selectedIds], () => {
@@ -617,7 +639,7 @@ function TriageStage() {
         findExecutives={
           findExecutivesOffered
             ? {
-                onPress: () => setConfirmingFindExecutives(true),
+                onPress: handleFindExecutives,
                 running: sourcing.isRunning,
                 progress: sourcing.run && sourcing.isRunning
                   ? `${sourcing.run.companiesDone}/${sourcing.run.companiesTotal}`
@@ -758,30 +780,49 @@ function TriageStage() {
           busyIds={busyIds}
           canWrite={canWrite}
           selection={
-            findExecutivesOffered
+            selectionOffered
               ? {
                   selectedIds: companySelection.selectedIds,
-                  onToggle: (companyId) => companySelection.toggle(companyId, selectionCap),
-                  onToggleAll: (companyIds) => companySelection.toggleAll(companyIds, selectionCap),
+                  onToggle: (companyId) => companySelection.toggle(companyId, selectionCap, selectionAction),
+                  onToggleAll: (companyIds) =>
+                    companySelection.toggleAll(companyIds, selectionCap, selectionAction),
                 }
               : undefined
           }
         />
 
-        {findExecutivesOffered && companySelection.selectedIds.size > 0 && !confirmingFindExecutives && (
+        {selectionOffered && companySelection.selectedIds.size > 0 && !confirmingFindExecutives && (
           <SelectionActionBar
             count={companySelection.selectedIds.size}
             noun="company"
             plural="companies"
             onClear={companySelection.clear}
           >
-            <SelectionAction
-              icon={ICONS.search}
-              label="Find executives"
-              disabled={sourcing.isRunning}
-              onClick={() => setConfirmingFindExecutives(true)}
-            />
+            {addToSequenceOffered && (
+              <SelectionAction
+                icon={ICONS.mail}
+                label="Add to sequence"
+                onClick={() => setEnrollingCompanyIds([...companySelection.selectedIds])}
+              />
+            )}
+            {findExecutivesOffered && (
+              <SelectionAction
+                icon={ICONS.search}
+                label="Find executives"
+                disabled={sourcing.isRunning}
+                onClick={handleFindExecutives}
+              />
+            )}
           </SelectionActionBar>
+        )}
+
+        {enrollingCompanyIds && (
+          <EnrolDialog
+            projectId={project.id}
+            scope={{ triageCompanyIds: enrollingCompanyIds }}
+            source={`From the ${companiesOf(enrollingCompanyIds.length)} you ticked on ${stage.label}`}
+            onClose={() => setEnrollingCompanyIds(null)}
+          />
         )}
 
         {unlisted.map((line) => (

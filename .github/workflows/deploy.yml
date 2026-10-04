@@ -313,12 +313,79 @@ jobs:
             CONTACTOUT_SECRETS=",CONTACTOUT_API_KEY=lightmove-contactout-api-key:latest"
           fi
 
+          # Outreach email from each consultant's own Gmail or Outlook, through Nylas. Off unless
+          # NYLAS_ENABLED=true, for the secret-must-exist reason above. Prerequisites:
+          #   gcloud secrets create lightmove-nylas-api-key --data-file=-
+          #   the NYLAS_CLIENT_ID repo variable, and NYLAS_BASE_URL for an EU-region application
+          #   <base url>/api/v1/outreach/mailbox/callback listed as a callback URI in the Nylas application
+          # Left unset the API logs that outreach email is off and no mailbox can be connected.
+          NYLAS_SECRETS=""
+          NYLAS_ENV=""
+          if [ "${{ vars.NYLAS_ENABLED }}" = "true" ]; then
+            NYLAS_SECRETS=",NYLAS_API_KEY=lightmove-nylas-api-key:latest"
+            NYLAS_ENV="|NYLAS_CLIENT_ID=${{ vars.NYLAS_CLIENT_ID }}|NYLAS_BASE_URL=${{ vars.NYLAS_BASE_URL || 'https://api.us.nylas.com' }}"
+          fi
+
+          # The key-encryption key for the secrets the app stores (a workspace's own OAuth client secret in
+          # Settings → Integrations). Off unless CREDENTIAL_ENCRYPTION_ENABLED=true, for the secret-must-exist
+          # reason above. Prerequisite, a Tink JSON keyset of AES-256-GCM keys:
+          #   tinkey create-keyset --key-template AES256_GCM --out-format json | \
+          #     gcloud secrets create lightmove-credential-keyset --data-file=-
+          # Left unset the API logs that no workspace can store its own app's keys, and the shared apps still work.
+          CREDENTIAL_SECRETS=""
+          if [ "${{ vars.CREDENTIAL_ENCRYPTION_ENABLED }}" = "true" ]; then
+            CREDENTIAL_SECRETS=",CREDENTIAL_KEYSET=lightmove-credential-keyset:latest"
+          fi
+
+          # Our own mail gateways and Zoom (epic #642): Uncava's shared OAuth app at each provider, each off unless
+          # its switch is true, for the secret-must-exist reason above. docs/integrations/registration.md gives
+          # every console setting, and its "Secrets and switches" the secrets each switch needs
+          # (lightmove-{google-mail,microsoft-mail,zoom}-client-{id,secret}).
+          # OUTREACH_GATEWAY stays nylas until rollout (#650); the guide URLs are where Settings → Integrations
+          # links an admin, and are left blank until the guides are published.
+          PROVIDER_SECRETS=""
+          PROVIDER_ENV="|OUTREACH_GATEWAY=${{ vars.OUTREACH_GATEWAY || 'nylas' }}"
+          if [ "${{ vars.GOOGLE_MAIL_ENABLED }}" = "true" ]; then
+            PROVIDER_SECRETS="${PROVIDER_SECRETS},GOOGLE_MAIL_CLIENT_ID=lightmove-google-mail-client-id:latest"
+            PROVIDER_SECRETS="${PROVIDER_SECRETS},GOOGLE_MAIL_CLIENT_SECRET=lightmove-google-mail-client-secret:latest"
+          fi
+          if [ "${{ vars.MICROSOFT_MAIL_ENABLED }}" = "true" ]; then
+            PROVIDER_SECRETS="${PROVIDER_SECRETS},MICROSOFT_MAIL_CLIENT_ID=lightmove-microsoft-mail-client-id:latest"
+            PROVIDER_SECRETS="${PROVIDER_SECRETS},MICROSOFT_MAIL_CLIENT_SECRET=lightmove-microsoft-mail-client-secret:latest"
+          fi
+          if [ "${{ vars.ZOOM_ENABLED }}" = "true" ]; then
+            PROVIDER_SECRETS="${PROVIDER_SECRETS},ZOOM_CLIENT_ID=lightmove-zoom-client-id:latest"
+            PROVIDER_SECRETS="${PROVIDER_SECRETS},ZOOM_CLIENT_SECRET=lightmove-zoom-client-secret:latest"
+          fi
+          PROVIDER_ENV="${PROVIDER_ENV}|GOOGLE_MAIL_OWN_APP_GUIDE_URL=${{ vars.GOOGLE_MAIL_OWN_APP_GUIDE_URL }}"
+          PROVIDER_ENV="${PROVIDER_ENV}|GOOGLE_MAIL_SHARED_APP_GUIDE_URL=${{ vars.GOOGLE_MAIL_SHARED_APP_GUIDE_URL }}"
+          PROVIDER_ENV="${PROVIDER_ENV}|MICROSOFT_MAIL_OWN_APP_GUIDE_URL=${{ vars.MICROSOFT_MAIL_OWN_APP_GUIDE_URL }}"
+          PROVIDER_ENV="${PROVIDER_ENV}|MICROSOFT_MAIL_SHARED_APP_GUIDE_URL=${{ vars.MICROSOFT_MAIL_SHARED_APP_GUIDE_URL }}"
+          PROVIDER_ENV="${PROVIDER_ENV}|ZOOM_OWN_APP_GUIDE_URL=${{ vars.ZOOM_OWN_APP_GUIDE_URL }}"
+          PROVIDER_ENV="${PROVIDER_ENV}|ZOOM_SHARED_APP_GUIDE_URL=${{ vars.ZOOM_SHARED_APP_GUIDE_URL }}"
+
+          # Recall.ai's Calendar API, one platform account per region. Off unless RECALL_ENABLED=true, for the
+          # secret-must-exist reason above. Prerequisites:
+          #   gcloud secrets create lightmove-recall-api-key        --data-file=-
+          #   gcloud secrets create lightmove-recall-webhook-secret --data-file=-   (the endpoint's whsec_… secret)
+          #   the RECALL_BASE_URL repo variable for the EU region (https://eu-central-1.recall.ai)
+          # Left unset, every workspace's calendars are read directly, whatever it chose.
+          RECALL_SECRETS=""
+          RECALL_ENV=""
+          if [ "${{ vars.RECALL_ENABLED }}" = "true" ]; then
+            RECALL_SECRETS=",RECALL_API_KEY=lightmove-recall-api-key:latest,RECALL_WEBHOOK_SECRET=lightmove-recall-webhook-secret:latest"
+            RECALL_ENV="|RECALL_BASE_URL=${{ vars.RECALL_BASE_URL || 'https://us-east-1.recall.ai' }}"
+          fi
+
           # ^|^ separates on | rather than a comma, because WEB_CORS_ORIGINS and the OAuth scope are both
           # comma-lists. It must be a character no value contains — @ is wrong, because EMAIL_FROM is an email
           # address and gcloud would split it mid-way and reject the domain half as a malformed entry.
           #
           # A Cloud Run label may not contain a dot, so v1.4.0 is stored as v1-4-0. Nothing reads it —
           # it is there so the console can say what is live without anyone mapping a SHA by hand.
+          #
+          # STORAGE_PROVIDER is always gcs here: the filesystem store would keep candidates' CVs on the
+          # instance's in-memory disk and lose them with it. The bucket is ops/gcp/bootstrap.sh's.
           #
           # No --min-instances, deliberately. Minimum instances are a SERVICE-level setting owned by
           # ops/gcp/schedule-warm-hours.sh (1 during Dubai hours, 0 overnight), and a deploy leaves that
@@ -334,8 +401,8 @@ jobs:
             --cpu 1 --memory 1Gi --cpu-boost \
             --concurrency 80 \
             --timeout 60s \
-            --set-env-vars "^|^FLYWAY_ENABLED=false|MANAGEMENT_PORT=8080|DB_POOL_MAX=5|EMAIL_PROVIDER=${EMAIL_PROVIDER}|EMAIL_FROM=${{ vars.EMAIL_FROM || 'noreply@uncava.com' }}|WEB_BASE_URL=${BASE_URL}|WEB_CORS_ORIGINS=${BASE_URL},chrome-extension://${EXTENSION_ID}|LIGHTMOVE_AUTH_AUTO_VERIFY_EMAIL=${{ vars.AUTO_VERIFY_EMAIL || 'false' }}|AUTH_RATE_LIMIT_ENABLED=${{ vars.RATE_LIMIT_ENABLED || 'true' }}|AUTH_LOGIN_ATTEMPTS_PER_MINUTE=${{ vars.LOGIN_ATTEMPTS_PER_MINUTE || '10' }}|AUTH_SIGNUP_ATTEMPTS_PER_HOUR=${{ vars.SIGNUP_ATTEMPTS_PER_HOUR || '5' }}|AUTH_VERIFICATION_RESENDS_PER_HOUR=${{ vars.VERIFICATION_RESENDS_PER_HOUR || '3' }}|LIGHTMOVE_WEB_TRUSTED_PROXY_COUNT=${{ vars.TRUSTED_PROXY_COUNT || '0' }}|JWT_PRIVATE_KEY_LOCATION=file:/secrets/jwt-private/private.pem|JWT_PUBLIC_KEY_LOCATION=file:/secrets/jwt-public/public.pem${OAUTH_ENV}${ENRICHMENT_ENV}" \
-            --set-secrets "DB_PASSWORD=lightmove-db-password:latest,/secrets/jwt-private/private.pem=lightmove-jwt-private-key:latest,/secrets/jwt-public/public.pem=lightmove-jwt-public-key:latest${EMAIL_SECRETS}${OAUTH_SECRETS}${ENRICHMENT_SECRETS}${MAPBOX_SECRETS}${CONTACTOUT_SECRETS}"
+            --set-env-vars "^|^FLYWAY_ENABLED=false|MANAGEMENT_PORT=8080|DB_POOL_MAX=5|EMAIL_PROVIDER=${EMAIL_PROVIDER}|EMAIL_FROM=${{ vars.EMAIL_FROM || 'noreply@uncava.com' }}|WEB_BASE_URL=${BASE_URL}|WEB_CORS_ORIGINS=${BASE_URL},chrome-extension://${EXTENSION_ID}|LIGHTMOVE_AUTH_AUTO_VERIFY_EMAIL=${{ vars.AUTO_VERIFY_EMAIL || 'false' }}|AUTH_RATE_LIMIT_ENABLED=${{ vars.RATE_LIMIT_ENABLED || 'true' }}|AUTH_LOGIN_ATTEMPTS_PER_MINUTE=${{ vars.LOGIN_ATTEMPTS_PER_MINUTE || '10' }}|AUTH_SIGNUP_ATTEMPTS_PER_HOUR=${{ vars.SIGNUP_ATTEMPTS_PER_HOUR || '5' }}|AUTH_VERIFICATION_RESENDS_PER_HOUR=${{ vars.VERIFICATION_RESENDS_PER_HOUR || '3' }}|LIGHTMOVE_WEB_TRUSTED_PROXY_COUNT=${{ vars.TRUSTED_PROXY_COUNT || '0' }}|JWT_PRIVATE_KEY_LOCATION=file:/secrets/jwt-private/private.pem|JWT_PUBLIC_KEY_LOCATION=file:/secrets/jwt-public/public.pem|STORAGE_PROVIDER=gcs|STORAGE_BUCKET=${{ vars.DOCUMENTS_BUCKET || format('{0}-lightmove-documents', vars.GCP_PROJECT) }}${OAUTH_ENV}${ENRICHMENT_ENV}${NYLAS_ENV}${PROVIDER_ENV}${RECALL_ENV}" \
+            --set-secrets "DB_PASSWORD=lightmove-db-password:latest,/secrets/jwt-private/private.pem=lightmove-jwt-private-key:latest,/secrets/jwt-public/public.pem=lightmove-jwt-public-key:latest${EMAIL_SECRETS}${OAUTH_SECRETS}${ENRICHMENT_SECRETS}${MAPBOX_SECRETS}${CONTACTOUT_SECRETS}${NYLAS_SECRETS}${CREDENTIAL_SECRETS}${PROVIDER_SECRETS}${RECALL_SECRETS}"
 
       # First deploy only, and only without a custom domain: the service now has a URL, and it is not
       # the placeholder we booted with. Verification emails and the OAuth redirect are built from

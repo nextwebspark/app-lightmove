@@ -162,7 +162,7 @@ describe("routes — the staff guard", () => {
     vi.mocked(workspaceApi.members).mockResolvedValue([]);
   });
 
-  it.each(["/clients", "/team"])("bounces a pure client who types %s", async (path) => {
+  it.each(["/clients", "/team", "/candidates"])("bounces a pure client who types %s", async (path) => {
     vi.mocked(authApi.me).mockResolvedValue(userWith(["CLIENT"]));
 
     renderAt(path);
@@ -251,7 +251,7 @@ describe("routes — the settings gates", () => {
     ).toBeInTheDocument();
   });
 
-  it.each(["/settings/general", "/settings/members", "/settings/templates"])(
+  it.each(["/settings/general", "/settings/members", "/settings/templates", "/settings/integrations"])(
     "bounces a non-admin who types %s",
     async (path) => {
       vi.mocked(authApi.me).mockResolvedValue(userWith(["MEMBER"]));
@@ -270,6 +270,7 @@ describe("routes — the settings gates", () => {
       slug: "meridian",
       logoMark: "M",
       mode: "COMPANY" as const,
+      calendarSync: "RECALL" as const,
       emailDomain: "firm.example",
       defaultRegion: "GCC",
       defaultCurrency: "USD",

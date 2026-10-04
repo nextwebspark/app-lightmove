@@ -155,6 +155,18 @@ The project *list* rides any active membership (`@workspaceAuthorizer.member`; t
 pure client to the mandates they're seated on), and shared reference data
 (`CompanyReferenceController`) rides `PROJECT_BROWSE`: existence isn't secret, content is.
 
+**The workspace's people are staff-only, and a note is never content a client reads.** A person's notes
+and history (V96) are what the firm thinks of an executive across every mandate — another client's
+search included — so they ride `WORK_EXECUTE` under a position's own routes and workspace
+`CANDIDATE_POOL_MANAGE` (V97: ADMIN and MEMBER, never CLIENT) under `/candidates`, and never
+`CandidateResponse`, which `WORK_VIEW` serves to a client seat. A researcher seated on no mandate still
+reads the pool (decision D2); a pure client reaches none of it by any route. Changing someone else's
+note asks `WORKSPACE_MANAGE` — an action, never the ADMIN role by name. The same action carries the
+team's own facts about a person (V98: owner, tags, do not contact) and every staff member may create a
+tag; renaming, recolouring and retiring one is `WORKSPACE_MANAGE`'s. Reading the pool never confers work
+on a mandate: filing someone onto a position, or writing a note about one, also asks that position's
+`WORK_EXECUTE`.
+
 **A platform role sits above every tenant and inside none.** The role-template library (V42) is the
 first thing no workspace owns that someone still has to edit, so V57 added a third scope, `PLATFORM`,
 with one role (`SUPER_ADMIN`) granting one action (`TEMPLATE_LIBRARY_MANAGE`). Four things about it are
@@ -176,6 +188,25 @@ deliberate:
 A workspace's own template edits are a separate, ordinary workspace action (`POSITION_TEMPLATE_MANAGE`,
 ADMIN), and they write the firm's own rows only: a firm's copy shadows the library template of the same
 code for that firm alone, which is what lets the library and every firm's copy of it move independently.
+
+**A workspace's provider apps are its admin's, and their secrets are never read back.** Settings →
+Integrations (V106) chooses, per provider, Uncava's shared OAuth app or the firm's own — `WORKSPACE_MANAGE`
+for the read as well as the writes, because the page lists the firm's app registrations and a client
+seat or a researcher has no use for them. An own app's secret is write-only and encrypted (`core/crypto`), and
+returning to the shared app deletes it rather than parking it. The calendar sync choice (`RECALL | DIRECT`) is
+the same admin's, audited like the mode: on Recall the app's keys and each consultant's calendar refresh
+token go to Recall.ai, a sub-processor, so the screen says so before anyone enters their own keys, and Direct
+is always on offer for an IT department that will not let them leave.
+
+**A direct mailbox's refresh token is stored, and is the one thing that can send as that person.** Nylas held
+its own tokens; our own gateway (V107) cannot, so `app_lm_mailbox_connection.refresh_token_encrypted` holds
+the provider's — sealed under the workspace and the consultant, never logged, never returned, decrypted only
+into the token request or the Recall call that spends it. It is spent only through the OAuth app
+`ProviderCredentialsResolver` answers for the connection's own workspace, so a token can never be refreshed
+under another firm's app. A refusal is final: the mailbox goes to `ERROR`, its Recall calendar is released,
+and only the consultant reconnecting brings it back — no retry spends a dead token twice. Recall's webhook can
+take a mailbox out of service, so it is refused unless its Svix signature verifies and is under five minutes
+old; a blank secret refuses everything rather than trusting an unsigned delivery.
 
 ## An identity provider is configuration, not code
 

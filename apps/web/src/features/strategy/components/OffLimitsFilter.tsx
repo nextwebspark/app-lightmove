@@ -1,6 +1,6 @@
 import type { CompanyRef, CompanySuggestion } from "../api/types";
 import { CompanySearchCombobox } from "./CompanySearchCombobox";
-import { SelectionPill } from "./SelectionPill";
+import { SelectionPill } from "../../../components/ui/SelectionPill";
 
 /**
  * The Off-limits panel: companies this mandate may not approach, barred by name.

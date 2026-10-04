@@ -35,7 +35,7 @@ export type CandidateGender = "female" | "male" | "other";
 export type CandidateBackgroundField = "nationality" | "gender" | "yearsExperience" | "seniority";
 
 /** Which door a profile came through. Only `manual` is reachable today. */
-export type CandidateSource = "manual" | "csv" | "extension" | "ai_sourced";
+export type CandidateSource = "manual" | "csv" | "extension" | "ai_sourced" | "people_search";
 
 /** One post in a career history. Free-text period, because that is the precision sources publish. */
 export interface CandidateCareerEntry {
@@ -101,7 +101,6 @@ export interface Candidate {
   /** Which of nationality/gender/yearsExperience hold a value AI proposed, not yet reviewed. */
   aiInferredFields: CandidateBackgroundField[];
   summary: string | null;
-  note: string | null;
   compensation: CandidateCompensation;
   career: CandidateCareerEntry[];
   languages: string[];
@@ -116,6 +115,10 @@ export interface Candidate {
   /** When enrichment last filled this profile in; null while research is pending or off. */
   enrichedAt: string | null;
   contacts: CandidateContacts;
+  /** The workspace's person this row maps — one id on every mandate that holds them. */
+  personId: string;
+  /** The plugin read this person off that page, so the server refuses a retyped URL. */
+  linkedinUrlLocked: boolean;
 }
 
 /** Which door one contact value came through — the row's three doors plus the lookup provider. */
@@ -203,6 +206,7 @@ export interface SaveCandidatePayload {
   gender?: CandidateGender;
   yearsExperience?: number;
   summary?: string;
+  /** Filed as a general note on the person about this position; never read back on the row. */
   note?: string;
   compensation?: Partial<CandidateCompensation>;
   career?: CandidateCareerEntry[];
@@ -211,6 +215,10 @@ export interface SaveCandidatePayload {
   customFields?: CustomFieldValues;
   /** Sent only by the Background section's save: its AI-proposed values are now reviewed. */
   confirmBackground?: boolean;
+  /** The possible-duplicate dialog's "add a different person". Read on a hand-typed add only. */
+  addAsNewPerson?: boolean;
+  /** The same dialog's "add them here": file this workspace person. Read on a hand-typed add only. */
+  existingPersonId?: string;
 }
 
 /** One competency panel's AI reading: a 1–10 score (null when the model could not judge) and why. */
@@ -247,4 +255,254 @@ export interface CandidateAiAssessment {
   assessedAt: string | null;
   nationalityReading: NationalityReading | null;
   failedAt: string | null;
+}
+
+/** What a note records, as the composer offers it. */
+export type PersonNoteKind = "general" | "call" | "meeting" | "email";
+
+/** A note on a workspace person, shared by every position that maps them. Staff-only. */
+export interface PersonNote {
+  id: string;
+  kind: PersonNoteKind;
+  body: string;
+  pinned: boolean;
+  /** The position the note is about, or null for a note about the person. */
+  projectId: string | null;
+  projectTitle: string | null;
+  authorUserId: string;
+  authorName: string | null;
+  authorAvatarUrl: string | null;
+  createdAt: string;
+  editedAt: string | null;
+  editedByName: string | null;
+  /** Whether the viewer may change or remove it: its author, or a workspace admin. */
+  editable: boolean;
+}
+
+export interface WritePersonNotePayload {
+  kind: PersonNoteKind;
+  body: string;
+  /** Read on the workspace's routes only: the position the note is about, or none. */
+  projectId?: string | null;
+}
+
+/** One mandate a person is mapped on, with that mandate's status and who filed them there. */
+export interface PersonPosition {
+  candidateId: string;
+  projectId: string;
+  positionTitle: string | null;
+  status: CandidateStatus;
+  addedByUserId: string;
+  addedByName: string | null;
+  addedAt: string;
+  source: CandidateSource;
+  /** Whether the viewer may move this mapping's status: they hold the position's WORK_EXECUTE. */
+  workable: boolean;
+}
+
+/** The kinds of line a person's history holds; the server's `PersonActivityKind` names. */
+export type PersonActivityKind =
+  | "ADDED_TO_POOL"
+  | "MAPPED"
+  | "UNMAPPED"
+  | "STATUS_CHANGED"
+  | "PROFILE_EDITED"
+  | "CONTACTS_EDITED"
+  | "CONTACT_FOUND"
+  | "RESEARCHED"
+  | "AI_ASSESSED"
+  | "NOTE_ADDED"
+  | "NOTE_EDITED"
+  | "NOTE_REMOVED"
+  | "TAGGED"
+  | "UNTAGGED"
+  | "OWNER_CHANGED"
+  | "DO_NOT_CONTACT_SET"
+  | "DO_NOT_CONTACT_CLEARED"
+  | "OUTREACH_ENROLLED"
+  | "EMAIL_SENT"
+  | "EMAIL_REPLIED"
+  | "OUTREACH_STOPPED"
+  | "MEETING_BOOKED"
+  | "DOCUMENT_ADDED"
+  | "DOCUMENT_VERSION_ADDED"
+  | "DOCUMENT_REMOVED"
+  | "DOCUMENT_VERSION_REMOVED";
+
+/** The timeline's filter chips, as the server's `TimelineGroup` tokens. */
+export type TimelineGroup = "positions" | "notes" | "contacts" | "profile" | "tags" | "documents";
+
+export interface PersonTimelineEntry {
+  id: number;
+  kind: PersonActivityKind;
+  occurredAt: string;
+  actorUserId: string | null;
+  actorName: string | null;
+  actorAvatarUrl: string | null;
+  personId: string;
+  personName: string | null;
+  projectId: string | null;
+  projectTitle: string | null;
+  /** An allowlist: door, from/to, channel, found, vendor, noteId, kind, … — every value a string. */
+  details: Record<string, string>;
+  /** The note's opening words while it exists; null once removed. */
+  noteExcerpt: string | null;
+}
+
+export interface PersonTimelinePage {
+  entries: PersonTimelineEntry[];
+  nextCursor: number | null;
+}
+
+/** The six swatches a tag is drawn in; palette roles, so the theme decides the shade. */
+export type CandidateTagColour = "green" | "accent" | "neutral" | "violet" | "adjacent" | "inferred";
+
+/** One of the workspace's own labels on its people. */
+export interface CandidateTag {
+  id: string;
+  label: string;
+  colour: CandidateTagColour;
+  retired: boolean;
+  /** How many of the workspace's people hold it. */
+  holders: number;
+}
+
+export type PoolView = "all" | "mine" | "active" | "unplaced";
+export type TagMatch = "any" | "all" | "none";
+export type PoolSortField = "name" | "location" | "positions" | "activity";
+
+/** What the Candidates page asks of the pool; an empty value is no filter. */
+export interface PoolFilters {
+  q: string;
+  view: PoolView;
+  tagIds: string[];
+  tagMatch: TagMatch;
+  position: string;
+  status: CandidateStatus | "";
+  /** A user id, "nobody" for people nobody owns, or empty for anyone. */
+  owner: string;
+  country: string;
+  sort: PoolSortField;
+  direction: "asc" | "desc";
+}
+
+export interface PoolRow {
+  personId: string;
+  fullName: string;
+  title: string | null;
+  companyName: string | null;
+  /** The position's company row's logo, else research's; null draws an initial. */
+  companyLogoUrl: string | null;
+  locationCity: string | null;
+  locationCountry: string | null;
+  linkedinUrl: string | null;
+  /** When research last landed; null for someone never researched, who has no photo. */
+  enrichedAt: string | null;
+  doNotContact: boolean;
+  yearsExperience: number | null;
+  /** Posts in their recorded career. */
+  careerRoles: number;
+  /** Which channels the contact ledger holds; the values stay in the drawer. */
+  hasEmail: boolean;
+  hasPhone: boolean;
+  /** Most recently added first. */
+  positions: PersonPosition[];
+  tagIds: string[];
+  ownerUserId: string | null;
+  lastActivity: PersonTimelineEntry | null;
+}
+
+export interface PoolPage {
+  people: PoolRow[];
+  totalCount: number;
+  viewCounts: Record<PoolView, number>;
+  poolSize: number;
+  countries: string[];
+}
+
+export interface DoNotContact {
+  reason: string | null;
+  setByUserId: string | null;
+  setByName: string | null;
+  setAt: string | null;
+}
+
+/** A workspace person as the Candidates drawer reads them. Staff-only. */
+export interface PersonRecord {
+  personId: string;
+  fullName: string;
+  title: string | null;
+  companyName: string | null;
+  seniority: CandidateSeniority | null;
+  linkedinUrl: string | null;
+  enrichedAt: string | null;
+  locationCity: string | null;
+  locationCountry: string | null;
+  nationality: string | null;
+  gender: CandidateGender | null;
+  yearsExperience: number | null;
+  summary: string | null;
+  compensation: CandidateCompensation;
+  career: CandidateCareerEntry[];
+  contacts: CandidateContacts;
+  positions: PersonPosition[];
+  ownerUserId: string | null;
+  doNotContact: DoNotContact | null;
+  tagIds: string[];
+  source: CandidateSource;
+  addedAt: string;
+  addedByUserId: string | null;
+  addedByName: string | null;
+}
+
+export interface MapToPositionResult {
+  added: number;
+  alreadyIn: number;
+}
+
+/** What a person's document is; the server's `PersonDocumentCategory` tokens. */
+export type PersonDocumentCategory = "cv" | "cover_letter" | "reference" | "certificate" | "assessment" | "other";
+
+/** One file of a person's document. */
+export interface PersonDocumentVersion {
+  id: string;
+  versionNo: number;
+  fileName: string;
+  contentType: string;
+  sizeBytes: number;
+  uploadedBy: string;
+  uploadedByName: string | null;
+  uploadedAt: string;
+  /** A PDF or an image, which the drawer previews; anything else is downloaded. */
+  previewable: boolean;
+  /** Whoever uploaded it, or a workspace admin. */
+  removable: boolean;
+}
+
+/** A CV, cover letter or reference on a person, with its files newest first. Staff-only. */
+export interface PersonDocument {
+  id: string;
+  category: PersonDocumentCategory;
+  title: string;
+  primaryCv: boolean;
+  projectId: string | null;
+  projectTitle: string | null;
+  createdBy: string;
+  createdByName: string | null;
+  createdAt: string;
+  updatedAt: string;
+  /** Whoever filed it, or a workspace admin. */
+  removable: boolean;
+  versions: PersonDocumentVersion[];
+}
+
+export interface PersonDocumentUpload {
+  outcome: "created" | "new_version";
+  document: PersonDocument;
+}
+
+export interface UpdatePersonDocumentPayload {
+  title?: string;
+  category?: PersonDocumentCategory;
+  primaryCv?: boolean;
 }

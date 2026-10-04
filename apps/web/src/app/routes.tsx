@@ -18,13 +18,20 @@ import { SignupVerifyStepPage } from "../features/auth/pages/SignupVerifyStepPag
 import { VerifyEmailPage } from "../features/auth/pages/VerifyEmailPage";
 import { WorkspaceStepPage } from "../features/auth/pages/WorkspaceStepPage";
 import { isPureClient } from "../features/auth/roles";
+import { CandidatesPage } from "../features/candidates/pages/CandidatesPage";
 import { ClientsPage } from "../features/clients/pages/ClientsPage";
 import { ExtensionConnectPage } from "../features/extension/pages/ExtensionConnectPage";
+import { MAILBOX_CALLBACK_PATH } from "../features/outreach/lib/mailboxPopup";
+import BookingPage from "../features/outreach/pages/BookingPage";
+import { MailboxCallbackPage } from "../features/outreach/pages/MailboxCallbackPage";
+import { OutreachPage } from "../features/outreach/pages/OutreachPage";
+import { SequenceEditorPage } from "../features/outreach/pages/SequenceEditorPage";
 import { PositionPage } from "../features/position/pages/PositionPage";
-import { ProjectPlaceholderPage } from "../features/position/pages/ProjectPlaceholderPage";
 import { ProjectsPage } from "../features/projects/pages/ProjectsPage";
 import { ReportsPage } from "../features/reports/pages/ReportsPage";
 import { TeamAccessPage } from "../features/projects/pages/TeamAccessPage";
+import { SettingsCandidateTagsPage } from "../features/settings/pages/SettingsCandidateTagsPage";
+import { SettingsIntegrationsPage } from "../features/settings/pages/SettingsIntegrationsPage";
 import { SettingsGeneralPage } from "../features/settings/pages/SettingsGeneralPage";
 import { SettingsMembersPage } from "../features/settings/pages/SettingsMembersPage";
 import { SettingsProfilePage } from "../features/settings/pages/SettingsProfilePage";
@@ -59,6 +66,10 @@ export function AppRoutes() {
           link simply replaces their session with the fresh one the reset returns. */}
       <Route path="/auth/reset-password" element={<ResetPasswordPage />} />
       <Route path="/auth/callback" element={<OAuthCallbackPage />} />
+      {/* Public like /auth/callback: it runs inside the mailbox connect popup, which holds no session. */}
+      <Route path={MAILBOX_CALLBACK_PATH} element={<MailboxCallbackPage />} />
+      {/* Public and unguarded: an executive opens their consultant's booking link from an email. */}
+      <Route path="/book/:slug" element={<BookingPage />} />
 
       {/* Public, and unguarded on purpose: the invitee may have no account, an unverified one, or be
           signed in as somebody else entirely. The page reads its own state and says which. Guarding it
@@ -91,6 +102,7 @@ export function AppRoutes() {
         <Route path="/" element={<ProjectsPage view="my" />} />
         <Route path="/all" element={<ProjectsPage view="all" />} />
         <Route element={<RequireStaff><Outlet /></RequireStaff>}>
+          <Route path="/candidates" element={<CandidatesPage />} />
           <Route path="/clients" element={<ClientsPage />} />
           <Route path="/team" element={<TeamPage />} />
         </Route>
@@ -115,8 +127,19 @@ export function AppRoutes() {
           path="/projects/:projectId/triage"
           element={<Navigate to="../companies/universe" replace relative="path" />}
         />
-        <Route path="/projects/:projectId/candidates" element={<ProjectPlaceholderPage title="Candidates" icon="candidates" />} />
-        <Route path="/projects/:projectId/outreach" element={<ProjectPlaceholderPage title="Outreach" icon="outreach" />} />
+        <Route
+          path="/projects/:projectId/candidates"
+          element={<Navigate to="../companies/universe" replace relative="path" />}
+        />
+        <Route path="/projects/:projectId/outreach" element={<OutreachPage />} />
+        <Route
+          path="/projects/:projectId/outreach/sequences/:sequenceId"
+          element={
+            <RequireStaff>
+              <SequenceEditorPage />
+            </RequireStaff>
+          }
+        />
         <Route path="/projects/:projectId/reports" element={<ReportsPage />} />
         <Route path="/projects/:projectId/team" element={<TeamAccessPage />} />
       </Route>
@@ -133,6 +156,8 @@ export function AppRoutes() {
         <Route element={<RequireAdmin><Outlet /></RequireAdmin>}>
           <Route path="/settings/general" element={<SettingsGeneralPage />} />
           <Route path="/settings/members" element={<SettingsMembersPage />} />
+          <Route path="/settings/candidate-tags" element={<SettingsCandidateTagsPage />} />
+          <Route path="/settings/integrations" element={<SettingsIntegrationsPage />} />
           <Route path="/settings/templates" element={<TemplateListPage scope="workspace" />} />
           <Route path="/settings/templates/new" element={<TemplateEditorPage scope="workspace" />} />
           <Route path="/settings/templates/:code" element={<TemplateEditorPage scope="workspace" />} />

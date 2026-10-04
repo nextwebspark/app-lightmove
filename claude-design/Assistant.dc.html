@@ -686,7 +686,7 @@ class Component extends DCLogic {
             item('Shortlisted', I.star, 'Position.dc.html?page=shortlisted', { count: 9 }),
             item('Declined', I.close, 'Position.dc.html?page=declined', { count: 6 }),
           ]),
-          group('People', [item('Candidates', I.candidates, 'Position.dc.html?page=candidates'), item('Outreach', I.outreach, 'Position.dc.html?page=outreach')]),
+          group('People', [item('Outreach', I.outreach, 'Position.dc.html?page=outreach')]),
           group('Project', [item('Reports', I.reports, 'Position.dc.html?page=reports'), item('Team & access', I.team, 'Position.dc.html?page=team')]),
         ]
       : [
@@ -695,6 +695,7 @@ class Component extends DCLogic {
             item('All positions', I.allProjects, 'Workspace.dc.html?view=all', { count: 7 }),
           ]),
           group('Workspace', [
+            item('Candidates', I.candidates, 'Candidates.dc.html', { count: 19 }),
             item('Business units', I.clients, 'Clients.dc.html', { count: 4 }),
             item('Team', I.team, 'Workspace.dc.html?view=team', { count: 5 }),
             item('Settings', I.settings, 'Settings.dc.html?section=profile'),

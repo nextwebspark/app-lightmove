@@ -14,11 +14,15 @@ import app.lightmove.api.triagecompany.dto.TriageCompaniesResponse;
 import app.lightmove.api.triagecompany.dto.TriageCompanyResponse;
 import app.lightmove.api.triagecompany.dto.TriageCompanyListCriteria;
 import app.lightmove.api.triagecompany.dto.TriageCountsDto;
+import app.lightmove.api.triagecompany.model.MandateStages;
 import app.lightmove.api.triagecompany.model.TriageCompany;
 import app.lightmove.api.triagecompany.model.TriageCompanyFilters;
+import app.lightmove.api.triagecompany.model.TriageCompanyLogo;
 import app.lightmove.api.triagecompany.repository.TriageCompanyRepository;
+import java.util.Collection;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
@@ -198,6 +202,49 @@ public class TriageCompanyReadService {
                         Sort.by(Sort.Direction.ASC, "companyName").and(NEWEST_FIRST), Limit.of(limit)).stream()
                 .map(TriageCompanyResponseMapper::toDto)
                 .toList();
+    }
+
+    /**
+     * The stage each named company already holds in the mandate, for the assistant's card. A name
+     * matching several rows answers the row a capture would resolve to ({@code preferred}).
+     */
+    @Transactional(readOnly = true)
+    public MandateStages stagesOf(UUID workspaceId, UUID projectId, Collection<String> apolloAccountIds,
+                                  Collection<String> companyNames) {
+        projects.requireInWorkspace(projectId, workspaceId);
+        Set<String> accountIds = apolloAccountIds.stream().filter(Objects::nonNull).collect(Collectors.toSet());
+        Set<String> lowerCaseNames = companyNames.stream()
+                .filter(Objects::nonNull)
+                .map(name -> name.toLowerCase(Locale.ROOT))
+                .collect(Collectors.toSet());
+        Map<String, TriageCompanyStatus> byAccountId = accountIds.isEmpty() ? Map.of()
+                : triaged.findByProjectIdAndApolloAccountIdIn(projectId, accountIds).stream()
+                        .collect(Collectors.toMap(TriageCompany::getApolloAccountId, TriageCompany::getStatus,
+                                (first, second) -> first));
+        Map<String, TriageCompanyStatus> byName = lowerCaseNames.isEmpty() ? Map.of()
+                : triaged.findByProjectIdAndLowerCaseCompanyNameIn(projectId, lowerCaseNames).stream()
+                        .collect(Collectors.groupingBy(row -> row.getCompanyName().toLowerCase(Locale.ROOT)))
+                        .entrySet().stream()
+                        .collect(Collectors.toMap(Map.Entry::getKey,
+                                entry -> TriageCompanyService.preferred(entry.getValue()).getStatus()));
+        return new MandateStages(byAccountId, byName);
+    }
+
+    /** The logo each named row carries, for the Candidates page; a row without one is absent from the map. */
+    @Transactional(readOnly = true)
+    public Map<UUID, String> logoUrlsOf(UUID workspaceId, Collection<UUID> triageCompanyIds) {
+        if (triageCompanyIds.isEmpty()) {
+            return Map.of();
+        }
+        List<TriageCompanyLogo> logos = triaged.findLogosByIdIn(Set.copyOf(triageCompanyIds));
+        if (logos.isEmpty()) {
+            return Map.of();
+        }
+        Set<UUID> workspaceProjects = projects.findIdsInWorkspace(workspaceId,
+                logos.stream().map(TriageCompanyLogo::projectId).collect(Collectors.toSet()));
+        return logos.stream()
+                .filter(logo -> workspaceProjects.contains(logo.projectId()))
+                .collect(Collectors.toMap(TriageCompanyLogo::id, TriageCompanyLogo::logoUrl));
     }
 
     private TriageCountsDto countsFor(UUID projectId) {

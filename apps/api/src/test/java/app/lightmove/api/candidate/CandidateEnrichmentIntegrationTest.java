@@ -1,6 +1,7 @@
 package app.lightmove.api.candidate;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -110,6 +111,27 @@ class CandidateEnrichmentIntegrationTest extends FlowTestSupport {
     }
 
     @Test
+    @DisplayName("the Candidates page draws the position's company logo, and research's once that company is removed")
+    void theCandidatesPageDrawsTheEmployerLogo() throws Exception {
+        String projectId = mandate("Employer Logo Firm");
+        enricher.answerWith(RESEARCH);
+        capture(projectId, "Sample Person", "sample-profile");
+        String companyId = firstCandidateOf(projectId).get("triageCompanyId").asText();
+        db.update("UPDATE app_lm_project_triage_company SET logo_url = ? WHERE id = ?::uuid",
+                "https://logos.example/filed.png", companyId);
+
+        assertThat(poolRow().get("companyLogoUrl").asText()).isEqualTo("https://logos.example/filed.png");
+
+        mvc.perform(delete(triageUrl(projectId) + "/" + companyId)
+                        .header("Authorization", "Bearer " + adminToken))
+                .andExpect(status().isNoContent());
+
+        JsonNode unmapped = poolRow();
+        assertThat(unmapped.get("companyName").asText()).isEqualTo("Al Rawabi Dairy");
+        assertThat(unmapped.get("companyLogoUrl").asText()).isEqualTo("https://media.example.com/alrawabi.png");
+    }
+
+    @Test
     @DisplayName("a plugin capture comes back researched, employer filed into the universe")
     void aPluginCaptureComesBackResearched() throws Exception {
         String projectId = mandate("Enriched Capture Firm");
@@ -141,7 +163,7 @@ class CandidateEnrichmentIntegrationTest extends FlowTestSupport {
 
         // Which provider answered is recorded, so the dataset's share of the work is countable.
         assertThat(db.queryForObject(
-                "select enriched_by from app_lm_project_candidate where id = ?::uuid",
+                "select p.enriched_by from app_lm_person p join app_lm_project_candidate c on c.person_id = p.id where c.id = ?::uuid",
                 String.class, candidateId)).isEqualTo("BRIGHTDATA");
 
         // The employer went into the universe — logo and all — and the person is mapped at it.
@@ -540,6 +562,13 @@ class CandidateEnrichmentIntegrationTest extends FlowTestSupport {
                                  "linkedinUrl":"https://www.linkedin.com/in/sample-profile",%s}
                                 """.formatted(background)))
                 .andExpect(status().isCreated());
+    }
+
+    private JsonNode poolRow() throws Exception {
+        return body(mvc.perform(get("/api/v1/candidates")
+                        .header("Authorization", "Bearer " + adminToken))
+                .andExpect(status().isOk())
+                .andReturn()).get("people").get(0);
     }
 
     private JsonNode firstCandidateOf(String projectId) throws Exception {
