@@ -120,6 +120,7 @@ describe("AI assessment", () => {
 
   it("shows the summary, both panels and their reasons", async () => {
     renderDrawer();
+    await userEvent.click(screen.getByRole("button", { name: /^AI assessment/ }));
 
     expect(await screen.findByText("A proven GCC finance leader.")).toBeInTheDocument();
     expect(screen.getByText("Led a dairy IPO")).toBeInTheDocument();

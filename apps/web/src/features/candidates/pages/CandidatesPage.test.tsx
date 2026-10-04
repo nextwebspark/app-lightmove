@@ -433,6 +433,35 @@ describe("CandidatesPage", () => {
     expect(await screen.findByRole("note")).toHaveTextContent("Set by Alok Kumar");
   });
 
+  it("keeps tags, notes, documents and positions under Records, and contacts under Contact", async () => {
+    vi.mocked(poolApi.getPerson).mockResolvedValue({
+      ...record,
+      contacts: { ...record.contacts, emails: [{ address: "fatima@example.com", kind: "work", verified: true, status: null, source: "manual", foundAt: "2026-09-01T00:00:00Z" }] },
+    });
+    renderPage("/candidates?person=person-1");
+
+    expect(await screen.findByRole("heading", { name: "Fatima Al Mazrouei" })).toBeInTheDocument();
+    expect(screen.getAllByRole("tab").map((tab) => tab.textContent)).toEqual([
+      "Profile",
+      "Contact",
+      "Records",
+      "Timeline",
+    ]);
+    expect(screen.queryByRole("button", { name: "Remove tag Open to work" })).not.toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole("tab", { name: "Contact" }));
+    expect(screen.getByText("fatima@example.com")).toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole("tab", { name: "Records" }));
+    expect(await screen.findByRole("button", { name: "Remove tag Open to work" })).toBeInTheDocument();
+    for (const section of ["Tags", "Notes", "Documents", "Positions"]) {
+      expect(screen.getByRole("region", { name: section })).toBeInTheDocument();
+    }
+    expect(
+      within(screen.getByRole("region", { name: "Positions" })).getByRole("button", { name: /Add to position/ }),
+    ).toBeInTheDocument();
+  });
+
   it("asks before deleting a note", async () => {
     vi.mocked(poolApi.getPoolNotes).mockResolvedValue([
       {
@@ -479,7 +508,7 @@ describe("CandidatesPage", () => {
       editedByName: null,
       editable: true,
     });
-    renderPage("/candidates?person=person-1&tab=notes");
+    renderPage("/candidates?person=person-1&tab=records");
 
     await userEvent.type(await screen.findByLabelText("New note"), "Open to a move.");
     await userEvent.click(screen.getByRole("button", { name: "Save note" }));
