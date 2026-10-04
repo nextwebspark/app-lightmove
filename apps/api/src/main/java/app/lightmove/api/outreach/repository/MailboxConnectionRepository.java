@@ -11,6 +11,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
+import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
 /** Connected mailboxes. Every finder carries the workspace and the user: a mailbox is one person's. */
@@ -49,19 +50,20 @@ public interface MailboxConnectionRepository extends JpaRepository<MailboxConnec
     /**
      * Claims a drawer opening's read of one calendar, committed before the provider is asked: the last read moves
      * to {@code now} only while it is still older than {@code staleBefore}, so of two openings racing on one mailbox
-     * only one reads it. Left unversioned, so it never fails a concurrent write to the row.
+     * only one reads it. Unversioned, so it never fails a concurrent write to the row; such a write may put the old
+     * read time back, which costs one extra read and nothing else.
      */
     @Modifying
-    @Transactional
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
     @Query("""
             update MailboxConnection m set m.calendarSyncedAt = :now
             where m.id = :id and m.grantId = :grantId and m.calendarSyncedAt < :staleBefore
             """)
     int claimCalendarRefresh(UUID id, String grantId, Instant now, Instant staleBefore);
 
-    /** Hands a claimed read back when the provider could not answer, unless the calendar has been read since. */
+    /** Hands a claimed read back when nothing was stored, unless the calendar has been claimed or read since. */
     @Modifying
-    @Transactional
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
     @Query("""
             update MailboxConnection m set m.calendarSyncedAt = :lastRead
             where m.id = :id and m.calendarSyncedAt = :claimedAt

@@ -9,6 +9,7 @@ import app.lightmove.api.outreach.repository.MailboxConnectionRepository;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
+import java.time.temporal.ChronoUnit;
 import java.util.List;
 import java.util.UUID;
 import lombok.extern.slf4j.Slf4j;
@@ -86,42 +87,42 @@ public class MeetingBackfill {
     /**
      * The drawer's: every direct calendar of the workspace that nothing pushes changes from and that was last read
      * more than {@link #FRESH_FOR} ago is read again, off the request thread. A read that fails changes nothing; the
-     * next opening tries again.
+     * next opening tries again. The clock is cut to microseconds, Postgres's own, or the release could never match.
      */
     @Async
     public void refreshUnpushed(UUID workspaceId) {
-        Instant now = clock.instant();
+        Instant now = clock.instant().truncatedTo(ChronoUnit.MICROS);
+        Instant staleBefore = now.minus(FRESH_FOR);
         mailboxes.findByWorkspaceIdAndGateway(workspaceId, MailboxGatewayKind.DIRECT).stream()
                 .filter(mailbox -> mailbox.canSend() && mailbox.getRecallCalendarId() == null
                         && mailbox.getCalendarSyncedAt() != null
-                        && mailbox.getCalendarSyncedAt().isBefore(now.minus(FRESH_FOR)))
+                        && mailbox.getCalendarSyncedAt().isBefore(staleBefore))
                 .limit(MAX_REFRESHED_PER_OPEN)
-                .forEach(mailbox -> refresh(mailbox.getId(), mailbox.getGrantId(), mailbox.getCalendarSyncedAt(), now));
+                .forEach(mailbox -> refresh(mailbox.getId(), mailbox.getGrantId(), mailbox.getCalendarSyncedAt(), now,
+                        staleBefore));
     }
 
     /**
-     * Two drawers opening together both find a calendar stale, and both used to read it and save the mailbox row; the
-     * second save met the first's version and failed with a {@code StaleObjectStateException}. The read is claimed
-     * first, and the mailbox row is never saved through the entity here.
+     * The read is claimed before the provider is asked, so two openings racing on one calendar read it once; the
+     * mailbox is never saved through the entity here, where a concurrent version bump would fail the save.
      */
-    private void refresh(UUID mailboxConnectionId, String grantId, Instant lastRead, Instant now) {
-        if (mailboxes.claimCalendarRefresh(mailboxConnectionId, grantId, now, now.minus(FRESH_FOR)) == 0) {
+    private void refresh(UUID mailboxConnectionId, String grantId, Instant lastRead, Instant now,
+                         Instant staleBefore) {
+        if (mailboxes.claimCalendarRefresh(mailboxConnectionId, grantId, now, staleBefore) == 0) {
             return;
         }
         Instant from = now.minus(RECHECKED_PAST);
         Instant to = now.plus(REACH);
-        List<CalendarEvent> events;
         try {
-            events = gateway.calendarEvents(grantId, from, to);
+            List<CalendarEvent> events = gateway.calendarEvents(grantId, from, to);
+            transactions.executeWithoutResult(status -> mailboxes.findById(mailboxConnectionId)
+                    .filter(fresh -> grantId.equals(fresh.getGrantId()))
+                    .ifPresent(fresh -> meetings.replaceWindow(fresh, from, to, events)));
         } catch (RuntimeException failed) {
             mailboxes.releaseCalendarRefresh(mailboxConnectionId, now, lastRead);
-            log.info("Could not read the calendar of mailbox {} again; the next opening tries", mailboxConnectionId,
+            log.info("Could not refresh the calendar of mailbox {}; the next opening tries", mailboxConnectionId,
                     failed);
-            return;
         }
-        transactions.executeWithoutResult(status -> mailboxes.findById(mailboxConnectionId)
-                .filter(fresh -> grantId.equals(fresh.getGrantId()))
-                .ifPresent(fresh -> meetings.replaceWindow(fresh, from, to, events)));
     }
 
     void syncCalendar(UUID mailboxConnectionId) {

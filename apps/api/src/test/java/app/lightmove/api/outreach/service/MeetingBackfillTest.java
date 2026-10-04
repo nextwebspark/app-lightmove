@@ -106,6 +106,21 @@ class MeetingBackfillTest {
         verify(mailboxes).releaseCalendarRefresh(stale.getId(), NOW, lastRead);
     }
 
+    @Test
+    @DisplayName("a read whose meetings cannot be stored hands the claim back too")
+    void aFailedStoreReleasesTheClaim() {
+        Instant lastRead = NOW.minus(Duration.ofMinutes(10));
+        MailboxConnection stale = direct(lastRead);
+        when(mailboxes.findByWorkspaceIdAndGateway(WORKSPACE, MailboxGatewayKind.DIRECT)).thenReturn(List.of(stale));
+        when(mailboxes.claimCalendarRefresh(any(), anyString(), any(), any())).thenReturn(1);
+        when(gateway.calendarEvents(anyString(), any(), any())).thenReturn(List.of());
+        when(mailboxes.findById(stale.getId())).thenThrow(new IllegalStateException("database unavailable"));
+
+        backfill.refreshUnpushed(WORKSPACE);
+
+        verify(mailboxes).releaseCalendarRefresh(stale.getId(), NOW, lastRead);
+    }
+
     private static MailboxConnection direct(Instant calendarSyncedAt) {
         MailboxConnection mailbox = MailboxConnection.connected(WORKSPACE, UUID.randomUUID(),
                 new GrantedMailbox(MailboxGrants.mintDirect("google"), "yara@firm.example", "google", "refresh"),
