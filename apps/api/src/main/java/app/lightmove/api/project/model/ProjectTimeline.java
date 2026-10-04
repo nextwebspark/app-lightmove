@@ -9,10 +9,8 @@ import java.util.LinkedHashMap;
 import java.util.Map;
 
 /**
- * When a new mandate starts and when its work is due. A search also carries a mapping target — the
- * point by which the universe should be mapped — defaulted to {@link #MAPPING_SHARE} of the window,
- * the same share the New position modal previews. A mapping mandate's delivery is the map itself, so
- * it keeps no separate target.
+ * When a mandate starts and is due. A search also carries a mapping target, defaulted to
+ * {@link #MAPPING_SHARE} of the window (as the modal previews); a mapping mandate keeps none.
  */
 public record ProjectTimeline(LocalDate startDate, LocalDate deliveryDate, LocalDate mappingTargetDate) {
 

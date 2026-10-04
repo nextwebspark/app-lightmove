@@ -19,14 +19,8 @@ import javax.imageio.stream.ImageOutputStream;
 import lombok.extern.slf4j.Slf4j;
 
 /**
- * A downloaded photo as something an avatar needs: at most {@link #MAX_EDGE_PX} on its longest edge,
- * re-encoded as JPEG. The grid draws these in 24px circles and a page holds fifty of them, so storing
- * what a CDN happens to serve would put megabytes on the wire for a thumbnail.
- *
- * <p>Every failure answers with the bytes as they arrived rather than nothing: an image this cannot
- * decode is still an image the browser probably can. The one exception is a picture whose dimensions
- * are absurd — those are refused outright, because the buffer is bounded while the pixels it decodes
- * to are not.
+ * Shrinks a downloaded photo to at most {@link #MAX_EDGE_PX} as JPEG. Any failure keeps the bytes as
+ * they arrived, except absurd dimensions — the buffer is bounded, the decoded pixels are not.
  */
 @Slf4j
 final class ProfilePhotoThumbnail {
@@ -41,7 +35,7 @@ final class ProfilePhotoThumbnail {
 
     private ProfilePhotoThumbnail() {}
 
-    /** The photo shrunk, the photo untouched, or null where the picture is refused outright. */
+    /** Null where the picture is refused outright. */
     static EnrichedPhoto shrink(EnrichedPhoto photo) {
         try {
             if (!withinDecodableBounds(photo.content())) {
@@ -64,10 +58,7 @@ final class ProfilePhotoThumbnail {
         }
     }
 
-    /**
-     * The header alone, read without decoding a pixel. {@code ImageIO.read} would allocate the whole
-     * raster before anything here could measure it, which is the allocation being guarded against.
-     */
+    /** Reads the header only: {@code ImageIO.read} allocates the whole raster before it could be measured. */
     private static boolean withinDecodableBounds(byte[] content) throws IOException {
         try (ImageInputStream stream = ImageIO.createImageInputStream(new ByteArrayInputStream(content))) {
             if (stream == null) {

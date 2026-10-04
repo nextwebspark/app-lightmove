@@ -17,15 +17,9 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 /**
- * Settings → Active sessions: what is signed in, and ending any of it.
- *
- * <p>A session is a refresh-token <b>family</b>. Rotation revokes each token as it mints its successor,
- * so a live family has exactly one live token — which makes the list a plain query and the family id a
- * name for a session that survives the rotations happening underneath it.
- *
- * <p>Every method identifies the caller's own session from the refresh cookie they presented. Without
- * it nothing here can be answered honestly: no row could be marked as theirs, and "sign out all others"
- * would sign them out of the tab they are looking at.
+ * Settings → Active sessions. A session is a refresh-token <b>family</b>, whose id survives rotation.
+ * The caller's own session is identified by their refresh cookie, without which "sign out all others"
+ * would sign them out of the tab they are in.
  */
 @Service
 @RequiredArgsConstructor

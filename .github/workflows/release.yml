@@ -1,7 +1,8 @@
 name: Release
 
 # The one button that ships. Merging to main proves the code is releasable and stops there; this cuts
-# a version out of whatever main has reached and hands that tag to Deploy.
+# a version out of whatever the chosen branch has reached — main, or a hotfix branch cut from an older
+# tag — and hands that tag to Deploy.
 on:
   workflow_dispatch:
     inputs:
@@ -11,7 +12,7 @@ on:
         options: [patch, minor, major]
         default: patch
       force:
-        description: Release even if CI is not green on main.
+        description: Release even if CI is not green on the selected branch.
         type: boolean
         default: false
 
@@ -31,17 +32,28 @@ jobs:
       version: ${{ steps.version.outputs.version }}
 
     steps:
+      # A feature branch with an open PR has green checks on its head too, and `force` skips them
+      # anyway, so neither would stop it being released; only main and hotfix branches ship.
+      - name: Require main or a hotfix branch
+        env:
+          BRANCH: ${{ github.ref_name }}
+        run: |
+          case "$BRANCH" in
+            main|hotfix/*) ;;
+            *) echo "::error::Release runs from main or a hotfix/* branch, not '${BRANCH}'."; exit 1 ;;
+          esac
+
       - uses: actions/checkout@v7
         with:
-          ref: main
+          ref: ${{ github.ref_name }}
           # Every tag, so the version can be computed, and the whole history, so the release notes
           # have something to be generated from.
           fetch-depth: 0
 
       # CI runs on every push to main, so a green main is already established — this only refuses to
       # release a commit where it is not. A SHA CI never ran on is not releasable either, which is why
-      # a missing check fails rather than passing by absence.
-      - name: Require a green CI on main
+      # a missing check fails rather than passing by absence: a hotfix branch gets its checks from a PR.
+      - name: Require a green CI on the selected branch
         if: ${{ !inputs.force }}
         env:
           GH_TOKEN: ${{ github.token }}
@@ -60,7 +72,7 @@ jobs:
           done
 
           if [ "$FAILED" -ne 0 ]; then
-            echo "::error::main is not releasable. Wait for CI, or re-run with force to override."
+            echo "::error::${GITHUB_REF_NAME} is not releasable. Wait for CI, or re-run with force to override."
             exit 1
           fi
 

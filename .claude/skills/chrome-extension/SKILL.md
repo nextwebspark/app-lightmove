@@ -96,6 +96,12 @@ Consequences worth keeping in mind:
 - A token may only be redeemed by the client its family was opened for — a web session's refresh token
   is refused at `/auth/extension/refresh`, so a cookie-only credential cannot be laundered into a
   body-carried one.
+- The extension is paired into **the workspace the web session is in** (the principal's `wsId` at
+  `/auth/extension/tokens`), and its family keeps that workspace afterwards: a user in several
+  workspaces who switches the web app moves nothing here. Re-pairing at `/extension/connect` does.
+  Nor does a removal: unlike a web refresh, `/auth/extension/refresh` never falls through to another
+  workspace, so a session whose membership ended carries no `wsId` until it is re-paired.
+  `lastProjectId` in the extension's storage is therefore per pairing, never per web session.
 
 ## Permissions: least privilege, checked at review
 
@@ -133,7 +139,7 @@ field is an enrichment story, not an extractor.
 A person capture also carries a **status**, and that one is *chosen rather than read*, so it grows no
 extractor and breaks nothing above. `domain/candidateStatus.ts` offers four of the API's seven
 `CandidateStatus` tokens — identified, contacted, off-limits, out of scope — defaulting to identified,
-which is exactly what `CandidateService.resolveStatus` assumes of a capture that says nothing. The
+which is exactly what `CandidateRequestReader.resolveStatus` assumes of a capture that says nothing. The
 other three describe the outcome of a conversation and stay with the drawer, the same reasoning that
 keeps `declined` out of the company destinations. It needed no server change: the Add-executive drawer
 already offers the field, which is the rule a captured field has to satisfy.

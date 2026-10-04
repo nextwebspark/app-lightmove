@@ -1,5 +1,12 @@
 package app.lightmove.api.candidate.constant;
 
+import app.lightmove.api.common.constant.ApiValueEnum;
+import java.util.EnumSet;
+import java.util.Set;
+import lombok.Getter;
+import lombok.RequiredArgsConstructor;
+import lombok.experimental.Accessors;
+
 /**
  * Where an executive stands in a mandate's research, from "we know this person exists" to the three
  * ways they leave the running. Deliberately not a shortlist flag: a person ruled out is kept with the
@@ -8,7 +15,10 @@ package app.lightmove.api.candidate.constant;
  * <p>{@link #OFF_LIMITS} is about the person and is not the same thing as a mandate's off-limits
  * <i>companies</i>, which live on the strategy and bar a company from the search entirely.
  */
-public enum CandidateStatus {
+@Getter
+@Accessors(fluent = true)
+@RequiredArgsConstructor
+public enum CandidateStatus implements ApiValueEnum {
 
     IDENTIFIED("identified"),
 
@@ -25,22 +35,16 @@ public enum CandidateStatus {
 
     OUT_OF_SCOPE("outOfScope");
 
-    private final String wireToken;
+    private final String value;
 
-    CandidateStatus(String wireToken) {
-        this.wireToken = wireToken;
-    }
+    /** The three ways out of the running: nobody in one is approached again on this position. */
+    public static final Set<CandidateStatus> LEFT_THE_RUNNING = EnumSet.of(NOT_INTERESTED, OFF_LIMITS, OUT_OF_SCOPE);
 
-    public String value() {
-        return wireToken;
+    public boolean hasLeftTheRunning() {
+        return LEFT_THE_RUNNING.contains(this);
     }
 
     public static CandidateStatus fromValue(String value) {
-        for (CandidateStatus status : values()) {
-            if (status.wireToken.equals(value)) {
-                return status;
-            }
-        }
-        return null;
+        return ApiValueEnum.fromValue(CandidateStatus.class, value);
     }
 }

@@ -7,13 +7,8 @@ import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
 /**
- * Announces that a mandate's data changed. A typed front on
- * {@link PostgresNotificationPublisher}, which holds the payload limit and the reasoning for
- * {@code MANDATORY}; the kind is an enum here so a publish site cannot invent a misspelt one.
- *
- * <p>{@code MANDATORY} is repeated rather than left to the delegate so that a publish outside a
- * transaction is refused at the bean the caller actually named — which is what
- * {@code ProjectStreamIntegrationTest.aPublishOutsideATransactionIsRefused} asserts.
+ * Announces that a mandate's data changed; a typed front on {@link PostgresNotificationPublisher}.
+ * {@code MANDATORY} is repeated here so a publish outside a transaction is refused at this bean.
  */
 @Component
 @RequiredArgsConstructor

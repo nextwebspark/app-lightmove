@@ -1,16 +1,18 @@
 package app.lightmove.api.strategy.constant;
 
+import app.lightmove.api.common.constant.ApiValueEnum;
+import lombok.Getter;
+import lombok.RequiredArgsConstructor;
+import lombok.experimental.Accessors;
+
 /**
- * The revenue bands the Strategy filter selects from — numeric USD bounds rather than range strings,
- * for {@link EmployeeBand}'s reason, closed on both ends and non-overlapping.
- *
- * <p><b>{@code R_UNKNOWN} is an addition to the wireframe's ten, and the live data is why.</b> Apollo
- * carries a revenue figure on 7,132 of 71,822 rows. Ship the ten bands alone and selecting any one of
- * them silently drops nine companies in ten, with nothing on the panel saying so. It carries no
- * bounds — the query builder renders it as {@code annual_revenue IS NULL} — so any caller reading
- * bounds must check {@link #isUnknown()} first.
+ * Revenue bands in USD. {@code R_UNKNOWN} is added to the wireframe's ten because only about one row in
+ * ten carries a figure; it has no bounds, so check {@link #isUnknown()} before reading them.
  */
-public enum RevenueBand {
+@Getter
+@Accessors(fluent = true)
+@RequiredArgsConstructor
+public enum RevenueBand implements CompanySizeBand {
 
     R_UNDER_1M("under-1m", "< $1M", 0L, 999_999L),
     R_1M_10M("1m-10m", "$1M - $10M", 1_000_000L, 9_999_999L),
@@ -24,50 +26,25 @@ public enum RevenueBand {
     R_10B_PLUS("10b-plus", "$10B+", 10_000_000_000L, null),
     R_UNKNOWN("unknown", "Unknown", null, null);
 
+    /** Stable across relabelling. */
     private final String value;
+
+    /** Travels in the facets response; never stored. */
     private final String label;
+
+    /** USD, inclusive; {@code null} when {@link #isUnknown()}. */
     private final Long lowerBound;
+
+    /** Inclusive; {@code null} for the open-ended top band and for Unknown. */
     private final Long upperBound;
 
-    RevenueBand(String value, String label, Long lowerBound, Long upperBound) {
-        this.value = value;
-        this.label = label;
-        this.lowerBound = lowerBound;
-        this.upperBound = upperBound;
-    }
-
-    /** The wire token a filter stores and a request names. Stable across relabelling. */
-    public String value() {
-        return value;
-    }
-
-    /** What the row reads. Travels in the facets response; never stored. */
-    public String label() {
-        return label;
-    }
-
-    /** The band that means "no figure published", which is most of the universe. */
+    /** Most of the universe publishes no figure. */
+    @Override
     public boolean isUnknown() {
         return this == R_UNKNOWN;
     }
 
-    /** Smallest revenue in the band in USD, inclusive, or {@code null} when {@link #isUnknown()}. */
-    public Long lowerBound() {
-        return lowerBound;
-    }
-
-    /** Largest revenue in USD, inclusive; {@code null} for the open-ended top band and for Unknown. */
-    public Long upperBound() {
-        return upperBound;
-    }
-
-    /** Resolve a wire token to its band, or {@code null} if unknown. */
     public static RevenueBand fromValue(String value) {
-        for (RevenueBand band : values()) {
-            if (band.value.equals(value)) {
-                return band;
-            }
-        }
-        return null;
+        return ApiValueEnum.fromValue(RevenueBand.class, value);
     }
 }

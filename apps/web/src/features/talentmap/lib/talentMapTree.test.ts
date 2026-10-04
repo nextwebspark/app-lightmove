@@ -42,8 +42,10 @@ const person = (overrides: Partial<Candidate>): Candidate => ({
   nationality: null,
   gender: null,
   yearsExperience: null,
+  aiInferredFields: [],
   summary: null,
-  note: null,
+  personId: "person-1",
+  linkedinUrlLocked: false,
   compensation: {
     currency: null, baseSalary: null, bonus: null, allowances: null,
     longTermIncentive: null, noticePeriod: null, allowanceLines: [], longTermIncentiveTypes: [],

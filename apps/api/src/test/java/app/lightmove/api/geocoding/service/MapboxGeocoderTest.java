@@ -3,13 +3,16 @@ package app.lightmove.api.geocoding.service;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import app.lightmove.api.geocoding.constant.GeoPrecision;
+import app.lightmove.api.geocoding.constant.PlaceKind;
 import app.lightmove.api.geocoding.model.GeoPoint;
+import app.lightmove.api.geocoding.model.PlaceSuggestion;
 import app.lightmove.api.geocoding.service.MapboxGeocoder.MapboxContext;
 import app.lightmove.api.geocoding.service.MapboxGeocoder.MapboxCoordinates;
 import app.lightmove.api.geocoding.service.MapboxGeocoder.MapboxCountry;
 import app.lightmove.api.geocoding.service.MapboxGeocoder.MapboxFeature;
 import app.lightmove.api.geocoding.service.MapboxGeocoder.MapboxFeatureCollection;
 import app.lightmove.api.geocoding.service.MapboxGeocoder.MapboxFeatureProperties;
+import app.lightmove.api.geocoding.service.MapboxGeocoder.MapboxRegion;
 import java.io.InputStream;
 import java.net.URI;
 import java.util.List;
@@ -39,6 +42,24 @@ class MapboxGeocoderTest {
     }
 
     @Test
+    @DisplayName("a suggested city shows its region and sends only its country, since Mapbox's regions are not LinkedIn's")
+    void aSuggestionSendsCityAndCountry() {
+        MapboxContext ireland = new MapboxContext(new MapboxCountry("Ireland", "IE"), new MapboxRegion("Dublin"));
+
+        PlaceSuggestion dublin = MapboxGeocoder.suggestionOf(
+                new MapboxFeatureProperties("Dublin", "place", null, ireland));
+        PlaceSuggestion county = MapboxGeocoder.suggestionOf(
+                new MapboxFeatureProperties("County Dublin", "region", null, ireland));
+        PlaceSuggestion country = MapboxGeocoder.suggestionOf(
+                new MapboxFeatureProperties("Ireland", "country", null, null));
+
+        assertThat(dublin).isEqualTo(new PlaceSuggestion("Dublin, Ireland", "Dublin, Ireland", PlaceKind.CITY));
+        assertThat(county).isEqualTo(new PlaceSuggestion("County Dublin, Ireland", "County Dublin, Ireland",
+                PlaceKind.AREA));
+        assertThat(country).isEqualTo(new PlaceSuggestion("Ireland", "Ireland", PlaceKind.COUNTRY));
+    }
+
+    @Test
     @DisplayName("a hit in the wrong country is no hit: the filter was a request, the answer is the evidence")
     void aHitInAnotherCountryIsIgnored() {
         assertThat(MapboxGeocoder.firstPoint(fixture(), "OM", GeoPrecision.CITY)).isEmpty();
@@ -58,7 +79,7 @@ class MapboxGeocoderTest {
                 .isEmpty();
         MapboxFeatureCollection noCoordinates = new MapboxFeatureCollection(List.of(new MapboxFeature(
                 new MapboxFeatureProperties("Dubai", "place", null,
-                        new MapboxContext(new MapboxCountry("United Arab Emirates", "AE"))))));
+                        new MapboxContext(new MapboxCountry("United Arab Emirates", "AE"), null)))));
         assertThat(MapboxGeocoder.firstPoint(noCoordinates, "AE", GeoPrecision.CITY)).isEmpty();
     }
 

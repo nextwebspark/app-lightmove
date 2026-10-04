@@ -31,21 +31,14 @@ import tools.jackson.databind.PropertyNamingStrategies;
 import tools.jackson.databind.annotation.JsonNaming;
 
 /**
- * Looks an executive's contacts up through ContactOut — one GET per channel, so a plain
- * {@link RestClient} for the reason {@code ResendEmailSender} gives.
- *
- * <p>The two calls differ only in their query, and that difference is what keeps the bill honest: the
- * email call omits {@code include_phone} entirely and is charged one email credit, the phone call asks
- * for {@code email_type=none} and is charged one phone credit. Asking for both at once would spend
- * both on every press.
- *
- * <p>A profile the provider has nothing on answers 404, which costs nothing, so it is swallowed into
- * an empty answer rather than raised.
+ * ContactOut, one GET per channel. The email call omits {@code include_phone} and the phone call asks
+ * {@code email_type=none}, so each press bills one credit of one kind. A 404 costs nothing and is an
+ * empty answer.
  */
 @Slf4j
 public class ContactOutContactFinder implements ContactFinder {
 
-    /** An indexed lookup on their side, not a scrape — a second is already slow for it. */
+    /** An indexed lookup on their side, not a scrape. */
     public static final Duration READ_TIMEOUT = Duration.ofSeconds(10);
 
     static final String VENDOR = "contactout";
@@ -122,10 +115,7 @@ public class ContactOutContactFinder implements ContactFinder {
         }
     }
 
-    /**
-     * Work addresses first, then personal, then anything the provider listed without saying which —
-     * the order {@code FoundEmails.primary} promotes from, and one an address is never dropped by.
-     */
+    /** Work first, then personal, then untyped — the order {@code FoundEmails.primary} promotes from. */
     static List<CandidateEmail> toEmails(ContactOutProfile profile) {
         List<CandidateEmail> found = new ArrayList<>();
         Set<String> seen = new LinkedHashSet<>();
@@ -148,8 +138,7 @@ public class ContactOutContactFinder implements ContactFinder {
             if (number == null || number.isBlank()) {
                 continue;
             }
-            // Providers mix E.164, national and dashed forms, so two spellings of one number would
-            // otherwise both be kept. The digits are the identity; the spelling is what we store.
+            // Providers spell one number several ways; the digits are the identity.
             if (seen.add(CandidateContact.keyOf(ContactChannel.PHONE, number))) {
                 found.add(number.trim());
             }
@@ -157,10 +146,7 @@ public class ContactOutContactFinder implements ContactFinder {
         return List.copyOf(found);
     }
 
-    /**
-     * ContactOut sends this as an object keyed by address when it has statuses and as an empty JSON
-     * <i>array</i> when it has none, so binding it to a Map throws on the empty case.
-     */
+    /** An object keyed by address when there are statuses, an empty JSON array when not — a Map binding throws. */
     private static String verificationOf(Object statuses, String address) {
         if (!(statuses instanceof Map<?, ?> byAddress)) {
             return null;

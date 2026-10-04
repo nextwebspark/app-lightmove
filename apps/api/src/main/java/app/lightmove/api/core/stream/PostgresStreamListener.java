@@ -14,18 +14,9 @@ import org.springframework.context.SmartLifecycle;
 import org.springframework.stereotype.Component;
 
 /**
- * One background thread per instance holding one {@code LISTEN}ing connection, forwarding every
- * notification to the handler that owns its channel. The connection is borrowed from the pool and
- * held for the life of the app — {@code LISTEN} is session state, so it cannot share a pooled
- * connection with ordinary traffic — and any failure is answered by borrowing a fresh one after a
- * pause, because a dropped listener degrades a stream to its fallback poll rather than breaking
- * anything.
- *
- * <p><b>One connection, many channels.</b> A Postgres session may subscribe to any number of
- * channels and a delivered notification names the one it came from, so every feature that needs a
- * stream contributes a {@link PostgresNotificationHandler} rather than a second listener. With
- * {@code DB_POOL_MAX} at 5, a per-feature listener thread would spend a fifth of the instance's
- * connection budget on a subscription.
+ * One thread per instance holding one pooled {@code LISTEN} connection for the app's life, forwarding
+ * each notification to its channel's handler and reconnecting after a pause on failure. One connection
+ * serves every channel: with {@code DB_POOL_MAX} at 5, a listener per feature would cost a fifth of the pool.
  */
 @Component
 @Slf4j
@@ -34,11 +25,7 @@ public class PostgresStreamListener implements SmartLifecycle {
     private static final int WAIT_FOR_NOTIFICATIONS_MS = 1000;
     private static final long RECONNECT_PAUSE_MS = 3000;
 
-    /**
-     * {@code LISTEN} takes no bind parameter, so a channel name is concatenated into SQL. While the
-     * names were private constants that was safe by inspection; an injectable SPI makes it a surface,
-     * and this closes it at startup instead of trusting every future implementor.
-     */
+    /** {@code LISTEN} takes no bind parameter, so a channel name is concatenated into SQL: checked at startup. */
     private static final Pattern LEGAL_CHANNEL = Pattern.compile("^[a-z_][a-z0-9_]{0,62}$");
 
     private final DataSource dataSource;
@@ -63,8 +50,6 @@ public class PostgresStreamListener implements SmartLifecycle {
             }
             PostgresNotificationHandler clash = byChannel.put(channel, handler);
             if (clash != null) {
-                // Two handlers on one channel would each see the other's payloads and log them as
-                // malformed, which reads as a serialisation bug rather than a wiring one.
                 throw new IllegalStateException("Channel " + channel + " is claimed by both "
                         + clash.getClass().getName() + " and " + handler.getClass().getName());
             }
@@ -74,8 +59,7 @@ public class PostgresStreamListener implements SmartLifecycle {
 
     @Override
     public void start() {
-        // SmartLifecycle will not start a running bean, but a context restarted in a test can — and a
-        // second call here would leak a thread holding a second LISTEN connection out of a pool of five.
+        // A context restarted in a test can call this twice, leaking a second LISTEN connection.
         if (running) {
             return;
         }
@@ -118,8 +102,7 @@ public class PostgresStreamListener implements SmartLifecycle {
                         }
                     }
                 } finally {
-                    // LISTEN sticks to the physical connection, and close() only returns it to the
-                    // pool — without this the next borrower inherits every subscription.
+                    // LISTEN sticks to the physical connection; the next borrower would inherit it.
                     unlistenQuietly(connection);
                 }
             } catch (Exception connectionLost) {
@@ -139,10 +122,7 @@ public class PostgresStreamListener implements SmartLifecycle {
         }
     }
 
-    /**
-     * Per-notification try/catch, because this is one thread serving every stream on the instance: a
-     * handler that throws must cost its own event, not everybody's subscription.
-     */
+    /** Per-notification catch: one thread serves every stream, so a throwing handler costs only its event. */
     private void forward(String channel, String payload) {
         PostgresNotificationHandler handler = handlers.get(channel);
         if (handler == null) {
@@ -160,7 +140,6 @@ public class PostgresStreamListener implements SmartLifecycle {
         try (Statement unsubscribe = connection.createStatement()) {
             unsubscribe.execute("UNLISTEN *");
         } catch (Exception alreadyBroken) {
-            // A dead connection cannot unlisten and will not rejoin the pool either.
         }
     }
 

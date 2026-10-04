@@ -2,12 +2,14 @@ package app.lightmove.api.core.ratelimit.service;
 
 import app.lightmove.api.core.config.LlmRateLimitSettings;
 import java.util.function.ToIntFunction;
+import lombok.RequiredArgsConstructor;
 
 /**
  * One per-user, per-minute meter {@link LlmBudgetGuard} counts a billed model call against. The meter
  * name and which setting sizes it are data, not a method each — a sixth extraction step wanting its own
  * budget is a new constant here, not a new method on the guard.
  */
+@RequiredArgsConstructor
 public enum LlmBudget {
 
     /** The demo shortlist endpoint's own meter. */
@@ -33,15 +35,19 @@ public enum LlmBudget {
     REPORTING_EXTRACT("reporting-extract", LlmRateLimitSettings::defaultRequestsPerMinute),
 
     /** A question to the assistant — several model rounds, and vendor lookups behind them. */
-    ASSISTANT("assistant", LlmRateLimitSettings::defaultRequestsPerMinute);
+    ASSISTANT("assistant", LlmRateLimitSettings::defaultRequestsPerMinute),
+
+    /** A candidate's AI enrichment — background and competency assessment. */
+    CANDIDATE_AI_ENRICH("candidate-ai-enrich", LlmRateLimitSettings::defaultRequestsPerMinute),
+
+    /** One Find executives run — spent when it is requested, whatever it goes on to call. */
+    EXECUTIVE_SOURCING("executive-sourcing", LlmRateLimitSettings::defaultRequestsPerMinute),
+
+    /** One press drafting outreach openers — a batch of people or a single redraft. */
+    OUTREACH_DRAFT("outreach-draft", LlmRateLimitSettings::defaultRequestsPerMinute);
 
     private final String meter;
     private final ToIntFunction<LlmRateLimitSettings> callsPerMinute;
-
-    LlmBudget(String meter, ToIntFunction<LlmRateLimitSettings> callsPerMinute) {
-        this.meter = meter;
-        this.callsPerMinute = callsPerMinute;
-    }
 
     String meter() {
         return meter;

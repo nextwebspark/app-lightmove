@@ -6,18 +6,9 @@ import app.lightmove.api.strategy.model.Strategy;
 import app.lightmove.api.strategy.model.StrategyFilter;
 
 /**
- * Translates a mandate's saved {@link Strategy} into the universe scope it defines.
- *
- * <p>Every caller that acts on a mandate's scope resolves it here — the Strategy results table and
- * the bulk triage writes alike — because two copies of this translation would let them quietly
- * disagree about what the consultant asked for. They also read the same table, so they agree on the
- * answer and not merely on the question.
- *
- * <p>The one thing the filter cannot state about itself is the off-limits list: the filter is the
- * sidebar's selection, the strategy holds the barred companies, and only here are both in hand.
- *
- * <p>Nothing here reads a request parameter. A mandate's chosen scope is stored, team-only content;
- * the only thing a caller ever supplies is the name filter passed through to {@code nameQuery}.
+ * Translates a mandate's saved {@link Strategy}, off-limits list included, into its universe scope —
+ * the one translation both the Strategy results and the bulk triage writes use. The only
+ * caller-supplied input is the name filter.
  */
 public final class StrategyScope {
 
@@ -28,17 +19,11 @@ public final class StrategyScope {
         return of(strategy, null);
     }
 
-    /** The same scope, narrowed by a caller's name filter. */
     public static CompanyScope of(Strategy strategy, String nameQuery) {
         return of(strategy, nameQuery, CompanyExclusion.NONE);
     }
 
-    /**
-     * The same scope again, additionally excluding whatever a caller-supplied predicate rules out —
-     * the Strategy search's own use, so a company the mandate has already triaged stops reappearing in
-     * later searches. See {@link app.lightmove.api.strategy.model.CompanyScope}'s doc for why every
-     * other caller leaves this at {@link CompanyExclusion#NONE}.
-     */
+    /** The Strategy search's own use, so already-triaged companies stop reappearing; see {@link CompanyScope}. */
     public static CompanyScope of(Strategy strategy, String nameQuery, CompanyExclusion triagedExclusion) {
         StrategyFilter filter = strategy.getFilter();
         return new CompanyScope(

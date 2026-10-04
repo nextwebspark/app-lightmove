@@ -13,17 +13,8 @@ import org.springframework.data.repository.query.Param;
 public interface PositionTemplateRepository extends JpaRepository<PositionTemplate, UUID> {
 
     /**
-     * Every template one workspace can use: its own rows, plus each active library row it has neither
-     * copied nor hidden — its own first.
-     *
-     * <p>The ordering is the tenant rule made visible: a firm's own version of a role is the one its
-     * picker leads with and the one a title matches against first. A firm's copy shadows the library
-     * row by code, so the two never both reach the picker.
-     *
-     * <p>The keywords are fetched with the templates rather than left lazy — matching a title touches
-     * each candidate's keywords in turn, so a lazy collection costs one round trip per template ruled
-     * out, on the path every new project takes. Hibernate 6 de-duplicates the fetched parents itself
-     * and the index column survives the join, so no {@code distinct} is needed.
+     * The workspace's own rows first, then each active library row it has neither copied nor hidden.
+     * Keywords are fetched eagerly: title matching touches each in turn, on every project creation.
      */
     @Query("""
             select template from PositionTemplate template
@@ -41,9 +32,8 @@ public interface PositionTemplateRepository extends JpaRepository<PositionTempla
     List<PositionTemplate> findAllVisibleTo(@Param("workspaceId") UUID workspaceId);
 
     /**
-     * One template, if this workspace may use it — the same rule as {@link #findAllVisibleTo}. A
-     * template id is a request parameter: another firm's template, or a library template this firm has
-     * replaced or hidden, must 404 rather than seed a brief.
+     * The rule of {@link #findAllVisibleTo}: a template id is a request parameter, so another firm's, or
+     * a library template this firm replaced or hid, must 404.
      */
     @Query("""
             select template from PositionTemplate template

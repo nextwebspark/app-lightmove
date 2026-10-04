@@ -16,35 +16,51 @@ Panel ──POST /api/v1/projects/{projectId}/assistant/ask {question, threadId?
       thread; at 50s an unfinished answer closes the stream as ASSISTANT_STILL_ANSWERING and is
       still saved; every answered ask records ASSISTANT_ASKED with its Bright Data searches
         ├─ find my chat in this project (or start one titled from the question)
-        ├─ last N question/answer pairs → history
-        ├─ system prompt carries the firm: FirmService.firmOf → FirmContext, the workspace's company
-        │  (V68) and the persona its admins wrote in Settings → General (V69), framed as data
+        ├─ last N question/answer pairs → history; each answer carries its card as a <card> block
+        │  (CardMemory: "[new|already <stage>] key · name · country · staff", and what was filed;
+        │  the newest three cards row by row, older ones as title + count only), because the
+        │  answer text never lists the companies. Researched pages on those cards are remembered,
+        │  so a follow-up can propose them again without a second Bright Data search
+        ├─ system prompt carries the hiring company: HiringSideResolver → HiringContext. In-house,
+        │  the workspace's company (V68) and the persona its admins wrote in Settings → General (V69);
+        │  at an agency (V84), the mandate's client and the persona recorded in its drawer (V85), with
+        │  the agency named in one line. Framed as data, never instructions
         ├─ ChatClient.call() with the tools + ToolContext {workspaceId, projectId, TurnRecorder}
         │     readMandateBrief       → the position only (never compensation or internal notes)
         │     describeMarket         → exact country / industry spellings
-        │     searchCompanyUniverse  → top 25 by headcount, with the total matched
+        │     searchCompanyUniverse  → top 25 by headcount, with the total matched; up to five
+        │                              countries and five industries per search (any of), and
+        │                              each row's mandateStage where the mandate already filed it
         │     lookUpCompaniesByName  → names the model knows, local and global: a brand's local
         │                              operator first, then the universe, then LinkedIn in the
         │                              country via Bright Data, then the brand's own page anywhere
         │                              (cached per page, 30 days)
         │     adjacentIndustries     → the sectors beside one, from industry-adjacency.json
-        │     proposeCompanies(ids)  → account ids from the universe, LinkedIn slugs this answer
-        │                              researched; drops off-limits, records the card
+        │     proposeCompanies(ids)  → account ids from the universe, LinkedIn slugs this answer or
+        │                              an earlier card researched; drops off-limits, stamps each
+        │                              company the mandate already holds with its stage (shown
+        │                              last, unticked, never filed again), records the card
         │   each tool reports its steps ──▶ event: step {index, label, detail, done}
         └─ save the turn {question, answer, steps, proposal} ──▶ event: done {turn}
                                               model failed ──▶ event: failed {code}
 Panel shows the steps live; on `done` it reads the chat back (GET /api/v1/assistant/threads/{id})
 
-Card button ──POST /api/v1/assistant/turns/{turnId}/accept {apolloAccountIds, status}──▶
+Card button ──POST /api/v1/assistant/turns/{turnId}/accept {companyIds, status}──▶
    owner check + WORK_EXECUTE on the chat's project
-   → TriageCompanyService.addSelected(..., source ASSISTANT)
+   → companies the card showed with a stage are counted skipped, never refiled
+   → TriageCompanyService.addSelected(..., source ASSISTANT) / captureResearched for LinkedIn pages
    → the outcome {status, added, skipped} is saved on the turn
 ```
 
 The request itself streams its progress: no queue, no event table, no reconnect. It waits for
 Gemini (Flash, usually 5–15s) and the stream closes at 55s, inside Cloud Run's 60s request timeout.
-If the model call fails, nothing is saved and the panel shows `ASSISTANT_UNAVAILABLE`. If the tab
-closes mid-answer, the answer is still saved and shows up in History.
+If the model call fails, nothing is saved, the panel shows `ASSISTANT_UNAVAILABLE` and puts the
+question back in the composer to send again. `ASSISTANT_STILL_ANSWERING` does not — that answer is
+still being saved, and asking again would pay twice. If the tab closes mid-answer, the answer is
+still saved and shows up in History.
+
+A card's stage is the one the mandate held when the card was made (`TriageCompanyReadService.stagesOf`:
+by account id, else by name — the rule a capture uses), stored on the turn and not re-read.
 
 ## Storage (V65, simplified by V70)
 
@@ -84,6 +100,7 @@ closes mid-answer, the answer is still saved and shows up in History.
   - `controller/AssistantController` has the four endpoints.
   - `service/AssistantAskStream` streams an ask's steps and result.
   - `service/AssistantService` handles ask, the history list and reading a chat.
+  - `service/CardMemory` writes an earlier card back into the chat the model reads.
   - `service/AssistantProposalService` handles accept.
   - `tool/` holds `MandateTools`, `CompanySearchTools`, `SectorTools`, `NamedCompanyTools`, `ProposalTools`, `MarketSearch`, `MarketQuery`, `AssistantToolContext` and `TurnRecorder`.
 - Frontend `apps/web/src/features/assistant`:

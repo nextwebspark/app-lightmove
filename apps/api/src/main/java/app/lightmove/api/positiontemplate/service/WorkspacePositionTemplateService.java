@@ -36,9 +36,8 @@ import org.springframework.transaction.support.TransactionTemplate;
 import org.springframework.web.multipart.MultipartFile;
 
 /**
- * One firm's role templates: the library as the firm sees it, the copies it took of library templates,
- * the ones it wrote itself and the ones it hid. Every write lands on the firm's own rows — the library
- * is read-only from here — and the workspace is always the caller's own.
+ * One firm's role templates: its copies, its own, and the library templates it hid. Every write lands
+ * on the caller's own workspace rows; the library is read-only from here.
  */
 @Service
 @RequiredArgsConstructor
@@ -73,10 +72,7 @@ public class WorkspacePositionTemplateService {
         return detailOf(catalog.resolve(code), catalog);
     }
 
-    /**
-     * A template the firm writes itself. Its code avoids the library's too: sharing one would make it a
-     * copy of that template, which Save is for.
-     */
+    /** Its code avoids the library's too: sharing one would make it a copy of that template. */
     @Transactional
     public PositionTemplateDetail create(UUID userId, UUID workspaceId, PositionTemplateWriteRequest request,
                                          HttpServletRequest httpRequest) {
@@ -91,9 +87,8 @@ public class WorkspacePositionTemplateService {
     }
 
     /**
-     * Saves the firm's version of a template. The first save of a library template takes the firm's own
-     * copy of it; the version checked is then the library row's, so a copy is never taken from content
-     * the editor did not see.
+     * The first save of a library template takes the firm's copy, checked against the library row's
+     * version so a copy is never taken from content the editor did not see.
      */
     @Transactional
     public PositionTemplateDetail save(UUID userId, UUID workspaceId, String code,
@@ -170,10 +165,7 @@ public class WorkspacePositionTemplateService {
         return exchange.schema();
     }
 
-    /**
-     * Neither import call parses the file inside a transaction: reading it touches no row, and a pooled
-     * connection held across a megabyte of JSON is one the rest of the app is waiting for.
-     */
+    /** Neither import call parses the file inside a transaction, so no pooled connection is held across it. */
     public TemplateImportResponse previewImport(UUID workspaceId, MultipartFile file) {
         List<ImportedTemplate> imported = exchange.read(file);
         return TemplateImportResponse.of(false, plan(catalogOf(workspaceId), imported));
@@ -215,9 +207,8 @@ public class WorkspacePositionTemplateService {
     }
 
     /**
-     * A template identical to what the firm already uses is left alone — re-importing an export forks
-     * nothing. A library code is customised even when that template is archived: a CREATE under it would
-     * shadow the template untracked the day it is restored, with nothing to say the library moved on.
+     * An identical template is left alone, so re-importing an export forks nothing. A library code is
+     * customised even when archived: a CREATE would shadow it untracked the day it is restored.
      */
     private static List<PlannedTemplateImport> plan(WorkspaceCatalog catalog, List<ImportedTemplate> imported) {
         return imported.stream().map(template -> {
@@ -279,7 +270,7 @@ public class WorkspacePositionTemplateService {
         return byCode;
     }
 
-    /** The firm's rows and the whole library, each by code, and the codes it hid — read once per request. */
+    /** Read once per request. */
     private record WorkspaceCatalog(Map<String, PositionTemplate> own, Map<String, PositionTemplate> library,
                                     Set<String> hidden) {
 

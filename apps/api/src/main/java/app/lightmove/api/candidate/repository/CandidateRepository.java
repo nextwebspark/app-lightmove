@@ -2,8 +2,11 @@ package app.lightmove.api.candidate.repository;
 
 import app.lightmove.api.candidate.constant.CandidateStatus;
 import app.lightmove.api.candidate.model.Candidate;
+import app.lightmove.api.candidate.model.MappedProfile;
 import app.lightmove.api.candidate.model.CandidateAttribution;
 import app.lightmove.api.candidate.model.CandidateCount;
+import app.lightmove.api.core.error.constant.ErrorCode;
+import app.lightmove.api.core.error.model.ApiException;
 import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
@@ -17,33 +20,44 @@ import org.springframework.data.jpa.repository.Query;
 /**
  * A mandate's mapped executives. Every finder carries the project id — a candidate is mandate content,
  * and an unscoped lookup on people the firm is researching must not exist. The project itself is
- * resolved against the caller's workspace one layer up.
+ * resolved against the caller's workspace one layer up. The person a row maps is reached through it,
+ * so a name or a profile is only ever asked about within one mandate here.
  *
  * <p>The three list finders differ only in which company filter they apply, and all three take the
- * search box's text through {@code FullNameContainingIgnoreCase}. A blank search is not special-cased
- * because it does not need to be: {@code full_name} is NOT NULL, so {@code LIKE '%%'} matches every
- * row.
+ * search box's text through {@code PersonFullNameContainingIgnoreCase}. A blank search is not
+ * special-cased because it does not need to be: a person's {@code full_name} is NOT NULL, so
+ * {@code LIKE '%%'} matches every row.
  */
 public interface CandidateRepository extends JpaRepository<Candidate, UUID> {
 
-    Page<Candidate> findByProjectIdAndFullNameContainingIgnoreCase(
+    Page<Candidate> findByProjectIdAndPersonFullNameContainingIgnoreCase(
             UUID projectId, String fullName, Pageable pageable);
 
     @Query("select c.id as candidateId, c.addedBy as addedBy from Candidate c where c.projectId = :projectId")
     List<CandidateAttribution> findAttributionByProjectId(UUID projectId);
 
+    /** Named rows of one mandate. */
+    List<Candidate> findByProjectIdAndIdIn(UUID projectId, Collection<UUID> ids);
+
+    /** Everyone mapped at these of the mandate's companies, unpaged: outreach's ticked companies. */
+    List<Candidate> findByProjectIdAndTriageCompanyIdIn(UUID projectId, Collection<UUID> triageCompanyIds);
+
     /** The talent map's read: the whole mandate, with no search box above it to narrow. */
     Page<Candidate> findByProjectId(UUID projectId, Pageable pageable);
 
     /** The Companies grid's read: the people at the companies on the page being rendered. */
-    Page<Candidate> findByProjectIdAndTriageCompanyIdInAndFullNameContainingIgnoreCase(
+    Page<Candidate> findByProjectIdAndTriageCompanyIdInAndPersonFullNameContainingIgnoreCase(
             UUID projectId, Collection<UUID> triageCompanyIds, String fullName, Pageable pageable);
 
     /** The rest — executives whose employer is not one of the mandate's triaged companies. */
-    Page<Candidate> findByProjectIdAndTriageCompanyIdIsNullAndFullNameContainingIgnoreCase(
+    Page<Candidate> findByProjectIdAndTriageCompanyIdIsNullAndPersonFullNameContainingIgnoreCase(
             UUID projectId, String fullName, Pageable pageable);
 
     Optional<Candidate> findByIdAndProjectId(UUID id, UUID projectId);
+
+    default Candidate requireInProject(UUID id, UUID projectId) {
+        return findByIdAndProjectId(id, projectId).orElseThrow(() -> ApiException.of(ErrorCode.NOT_FOUND));
+    }
 
     /**
      * The projects list's "Candidates" number, for every mandate on the page at once so the list stays
@@ -83,11 +97,14 @@ public interface CandidateRepository extends JpaRepository<Candidate, UUID> {
             nativeQuery = true)
     List<CandidateCount> countMappedCompaniesByProjectIdIn(Collection<UUID> projectIds, String declinedStatus);
 
-    boolean existsByIdAndProjectId(UUID id, UUID projectId);
+    /** The person behind one of the mandate's rows, without loading either — the photo endpoint's read. */
+    @Query("select c.person.id from Candidate c where c.id = :id and c.projectId = :projectId")
+    Optional<UUID> findPersonIdByIdAndProjectId(UUID id, UUID projectId);
 
     /**
      * The duplicate guard for someone mapped at one of the mandate's companies, and its partner below
-     * for someone who is not — V36's two partial unique indexes draw the same line in the schema.
+     * for someone who is not — the two scopes V36's partial unique indexes drew until V91 moved the
+     * name onto the person.
      *
      * <p>The company-scoped one carries the project id too, though a company already belongs to
      * exactly one project. Without it the guard is scoped only by whatever proved the company first,
@@ -97,7 +114,7 @@ public interface CandidateRepository extends JpaRepository<Candidate, UUID> {
      * than {@code Optional} because nothing stops two rows sharing a name, and a single-result finder
      * would turn the 409 this guard raises into a 500.
      */
-    List<Candidate> findByProjectIdAndTriageCompanyIdAndFullNameIgnoreCase(
+    List<Candidate> findByProjectIdAndTriageCompanyIdAndPersonFullNameIgnoreCase(
             UUID projectId, UUID triageCompanyId, String fullName);
 
     /**
@@ -107,13 +124,35 @@ public interface CandidateRepository extends JpaRepository<Candidate, UUID> {
      * list rather than {@code Optional} because nothing stops two rows carrying one address.
      */
     @Query("""
-            select distinct c from Candidate c join c.contacts k
+            select distinct c from Candidate c join c.person p join p.contacts k
             where c.projectId = :projectId and k.channel = 'EMAIL' and k.valueKey = :emailKey
             """)
     List<Candidate> findByProjectIdAndEmailKey(UUID projectId, String emailKey);
 
-    List<Candidate> findByProjectIdAndTriageCompanyIdIsNullAndFullNameIgnoreCase(
+    List<Candidate> findByProjectIdAndTriageCompanyIdIsNullAndPersonFullNameIgnoreCase(
             UUID projectId, String fullName);
+
+    /** Whether this mandate already holds the person — the one row per project-person V91 enforces. */
+    boolean existsByProjectIdAndPersonId(UUID projectId, UUID personId);
+
+    /**
+     * Every mandate mapping one person: the drawer's Positions. The one finder not keyed on a project,
+     * so it is keyed on the person's workspace instead — still never a lookup across firms.
+     */
+    @Query("""
+            select c from Candidate c
+            where c.person.id = :personId and c.person.workspaceId = :workspaceId
+            order by c.createdAt
+            """)
+    List<Candidate> findPositionsOfPerson(UUID workspaceId, UUID personId);
+
+    /** {@link #findPositionsOfPerson} for a page of people at once, the person loaded with each row. */
+    @Query("""
+            select c from Candidate c join fetch c.person p
+            where p.id in :personIds and p.workspaceId = :workspaceId
+            order by c.createdAt
+            """)
+    List<Candidate> findPositionsOfPeople(UUID workspaceId, Collection<UUID> personIds);
 
     /**
      * The mandate's rows that might name one LinkedIn profile — the narrowing half of the duplicate
@@ -126,8 +165,16 @@ public interface CandidateRepository extends JpaRepository<Candidate, UUID> {
      * spelling {@code LinkedInUrls} treats as the profile's name.
      */
     @Query("select c from Candidate c where c.projectId = :projectId "
-            + "and lower(c.linkedinUrl) like concat('%/in/', :slug, '%')")
+            + "and lower(c.person.linkedinUrl) like concat('%/in/', :slug, '%')")
     List<Candidate> findByProjectIdAndProfileSlugLike(UUID projectId, String slug);
+
+    /** Every profile URL the mandate holds — a sourcing run's "already mapped" set, settled on the slug by the caller. */
+    @Query("select c.person.linkedinUrl from Candidate c where c.projectId = :projectId and c.person.linkedinUrl is not null")
+    List<String> findLinkedinUrlsByProjectId(UUID projectId);
+
+    @Query("select new app.lightmove.api.candidate.model.MappedProfile(c.id, c.person.linkedinUrl) from Candidate c "
+            + "where c.projectId = :projectId and c.person.linkedinUrl is not null")
+    List<MappedProfile> findMappedProfilesByProjectId(UUID projectId);
 
     /**
      * Ids of the mandate's triaged companies with a mapped executive whose name matches — the seam
@@ -138,9 +185,13 @@ public interface CandidateRepository extends JpaRepository<Candidate, UUID> {
      */
     @Query("select distinct c.triageCompanyId from Candidate c "
             + "where c.projectId = :projectId and c.triageCompanyId is not null "
-            + "and lower(c.fullName) like lower(concat('%', cast(:executiveName as string), '%'))")
+            + "and lower(c.person.fullName) like lower(concat('%', cast(:executiveName as string), '%'))")
     Set<UUID> findTriageCompanyIdsByProjectIdAndFullNameContainingIgnoreCase(
             UUID projectId, String executiveName);
+
+    @Query("select distinct c.triageCompanyId from Candidate c "
+            + "where c.projectId = :projectId and c.triageCompanyId is not null")
+    Set<UUID> findTriageCompanyIdsByProjectId(UUID projectId);
 
     /**
      * Ids of the mandate's triaged companies with a mapped executive in one of these statuses — the
@@ -172,7 +223,7 @@ public interface CandidateRepository extends JpaRepository<Candidate, UUID> {
      * Native rather than JPQL: {@code group by t.id} relies on Postgres's rule that grouping by a
      * primary key lets every other column of that row through ungrouped, which is a Postgres extension
      * JPQL does not model. The same literal spelling is mirrored in
-     * {@code TriageCompanyService.EXECUTIVE_STATUS_TOKENS} and
+     * {@code TriageCompanyReadService.EXECUTIVE_STATUS_TOKENS} and
      * {@code MappedExecutiveLookupAdapter#triageCompanyIdsWithExecutiveStatusIn} — {@code @Query} needs
      * a compile-time constant, so none of the three can reference the enum directly, and a rename has
      * to update all three by hand. {@code CandidateRepositoryStatusOrderTest} pins this one against the
@@ -184,8 +235,9 @@ public interface CandidateRepository extends JpaRepository<Candidate, UUID> {
                     + "where t.project_id = :projectId and t.status = :status "
                     + "and (:companyName is null or lower(t.company_name) like lower(concat('%', :companyName, '%'))) "
                     + "and (:executiveName is null or exists ("
-                    + "  select 1 from app_lm_project_candidate x where x.triage_company_id = t.id "
-                    + "  and lower(x.full_name) like lower(concat('%', :executiveName, '%'))"
+                    + "  select 1 from app_lm_project_candidate x join app_lm_person xp on xp.id = x.person_id "
+                    + "  where x.triage_company_id = t.id "
+                    + "  and lower(xp.full_name) like lower(concat('%', :executiveName, '%'))"
                     + ")) "
                     + "group by t.id "
                     + "order by (case when :ascending then 1 else -1 end) * min(case c.status "
@@ -196,8 +248,9 @@ public interface CandidateRepository extends JpaRepository<Candidate, UUID> {
                     + "where t.project_id = :projectId and t.status = :status "
                     + "and (:companyName is null or lower(t.company_name) like lower(concat('%', :companyName, '%'))) "
                     + "and (:executiveName is null or exists ("
-                    + "  select 1 from app_lm_project_candidate x where x.triage_company_id = t.id "
-                    + "  and lower(x.full_name) like lower(concat('%', :executiveName, '%'))"
+                    + "  select 1 from app_lm_project_candidate x join app_lm_person xp on xp.id = x.person_id "
+                    + "  where x.triage_company_id = t.id "
+                    + "  and lower(xp.full_name) like lower(concat('%', :executiveName, '%'))"
                     + "))",
             nativeQuery = true)
     Page<UUID> findTriageCompanyIdsRankedByExecutiveStatus(
@@ -215,8 +268,9 @@ public interface CandidateRepository extends JpaRepository<Candidate, UUID> {
                     + "where t.project_id = :projectId and t.status = :status "
                     + "and (:companyName is null or lower(t.company_name) like lower(concat('%', :companyName, '%'))) "
                     + "and (:executiveName is null or exists ("
-                    + "  select 1 from app_lm_project_candidate x where x.triage_company_id = t.id "
-                    + "  and lower(x.full_name) like lower(concat('%', :executiveName, '%'))"
+                    + "  select 1 from app_lm_project_candidate x join app_lm_person xp on xp.id = x.person_id "
+                    + "  where x.triage_company_id = t.id "
+                    + "  and lower(xp.full_name) like lower(concat('%', :executiveName, '%'))"
                     + ")) "
                     + "and exists ("
                     + "  select 1 from app_lm_project_candidate y where y.triage_company_id = t.id "
@@ -231,8 +285,9 @@ public interface CandidateRepository extends JpaRepository<Candidate, UUID> {
                     + "where t.project_id = :projectId and t.status = :status "
                     + "and (:companyName is null or lower(t.company_name) like lower(concat('%', :companyName, '%'))) "
                     + "and (:executiveName is null or exists ("
-                    + "  select 1 from app_lm_project_candidate x where x.triage_company_id = t.id "
-                    + "  and lower(x.full_name) like lower(concat('%', :executiveName, '%'))"
+                    + "  select 1 from app_lm_project_candidate x join app_lm_person xp on xp.id = x.person_id "
+                    + "  where x.triage_company_id = t.id "
+                    + "  and lower(xp.full_name) like lower(concat('%', :executiveName, '%'))"
                     + ")) "
                     + "and exists ("
                     + "  select 1 from app_lm_project_candidate y where y.triage_company_id = t.id "

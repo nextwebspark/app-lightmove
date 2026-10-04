@@ -5,11 +5,7 @@ import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
 
-/**
- * Accept an invitation by creating the invited account (the invitee has no account yet). No email
- * field: the address is the invitation's, resolved from the token server-side — a client-supplied
- * email is exactly what this flow must not trust.
- */
+/** No email field on purpose: the address is the invitation's, never a client-supplied one. */
 public record AcceptInvitationSignupRequest(
         @NotBlank(message = "Missing invitation token")
         String token,

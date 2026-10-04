@@ -1,13 +1,13 @@
 package app.lightmove.api.position.controller;
 
 import app.lightmove.api.core.security.model.AuthPrincipal;
+import app.lightmove.api.core.security.rbac.ProjectAction;
+import app.lightmove.api.core.security.rbac.RequireProjectPermission;
 import app.lightmove.api.position.dto.PositionExtractionResponse;
 import app.lightmove.api.position.service.PositionExtractionService;
 import jakarta.servlet.http.HttpServletRequest;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
-import org.springframework.http.ResponseEntity;
-import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -15,14 +15,9 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 /**
- * Reading the document already attached to a mandate's brief — "Read from document" on steps one, two,
- * three and five. Step four (compensation) is no longer read at all: most position descriptions state
- * no figure, so the product decision is to stop asking rather than propose an empty reading.
- *
- * <p>Gated {@code PROJECT_EDIT}, not {@code WORK_VIEW} like the document's own download: downloading
- * moves bytes for free, this spends a billed model call (or, degraded, a bit of CPU), and a read-only
- * client seat must not be able to run either up. It is also an explicit act and never a side effect
- * of upload or of the ordinary {@code GET} of the brief — every Replace would otherwise re-bill.
+ * "Read from document" on the brief's steps. Gated {@code PROJECT_EDIT}, not {@code WORK_VIEW}: it
+ * spends a billed model call a read-only client seat must not run up, and is never a side effect of
+ * upload or of reading the brief.
  */
 @RestController
 @RequestMapping("/api/v1/projects/{projectId}/position/document/extract")
@@ -32,38 +27,38 @@ public class PositionExtractionController {
     private final PositionExtractionService extraction;
 
     @PostMapping("/details")
-    @PreAuthorize("@projectAuthorizer.can(principal, #projectId, 'PROJECT_EDIT')")
-    public ResponseEntity<PositionExtractionResponse> extractDetails(
+    @RequireProjectPermission(ProjectAction.PROJECT_EDIT)
+    public PositionExtractionResponse extractDetails(
             @AuthenticationPrincipal AuthPrincipal principal, @PathVariable UUID projectId,
             HttpServletRequest httpRequest) {
-        return ResponseEntity.ok(extraction.extractDetails(
-                principal.userId(), principal.requireWorkspaceId(), projectId, httpRequest));
+        return extraction.extractDetails(
+                principal.userId(), principal.requireWorkspaceId(), projectId, httpRequest);
     }
 
     @PostMapping("/context")
-    @PreAuthorize("@projectAuthorizer.can(principal, #projectId, 'PROJECT_EDIT')")
-    public ResponseEntity<PositionExtractionResponse> extractContext(
+    @RequireProjectPermission(ProjectAction.PROJECT_EDIT)
+    public PositionExtractionResponse extractContext(
             @AuthenticationPrincipal AuthPrincipal principal, @PathVariable UUID projectId,
             HttpServletRequest httpRequest) {
-        return ResponseEntity.ok(extraction.extractContext(
-                principal.userId(), principal.requireWorkspaceId(), projectId, httpRequest));
+        return extraction.extractContext(
+                principal.userId(), principal.requireWorkspaceId(), projectId, httpRequest);
     }
 
     @PostMapping("/assessment")
-    @PreAuthorize("@projectAuthorizer.can(principal, #projectId, 'PROJECT_EDIT')")
-    public ResponseEntity<PositionExtractionResponse> extractAssessment(
+    @RequireProjectPermission(ProjectAction.PROJECT_EDIT)
+    public PositionExtractionResponse extractAssessment(
             @AuthenticationPrincipal AuthPrincipal principal, @PathVariable UUID projectId,
             HttpServletRequest httpRequest) {
-        return ResponseEntity.ok(extraction.extractAssessment(
-                principal.userId(), principal.requireWorkspaceId(), projectId, httpRequest));
+        return extraction.extractAssessment(
+                principal.userId(), principal.requireWorkspaceId(), projectId, httpRequest);
     }
 
     @PostMapping("/reporting")
-    @PreAuthorize("@projectAuthorizer.can(principal, #projectId, 'PROJECT_EDIT')")
-    public ResponseEntity<PositionExtractionResponse> extractReporting(
+    @RequireProjectPermission(ProjectAction.PROJECT_EDIT)
+    public PositionExtractionResponse extractReporting(
             @AuthenticationPrincipal AuthPrincipal principal, @PathVariable UUID projectId,
             HttpServletRequest httpRequest) {
-        return ResponseEntity.ok(extraction.extractReporting(
-                principal.userId(), principal.requireWorkspaceId(), projectId, httpRequest));
+        return extraction.extractReporting(
+                principal.userId(), principal.requireWorkspaceId(), projectId, httpRequest);
     }
 }

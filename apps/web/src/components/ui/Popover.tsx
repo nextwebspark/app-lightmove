@@ -101,7 +101,9 @@ export function Popover({
               width,
               maxWidth: "calc(100vw - 24px)",
             }}
-            className="fixed z-[80] max-h-[70dvh] overflow-y-auto rounded-[10px] border border-u-border-strong bg-u-surface p-2 shadow-u-e3"
+            // Above the drawers (90/95) and the modal (100), below the toast (120): the tag picker in the
+            // Candidates drawer opened at z-[80], behind the drawer's own scrim, so "+ Tag" showed nothing.
+            className="fixed z-[110] max-h-[70dvh] overflow-y-auto rounded-[10px] border border-u-border-strong bg-u-surface p-2 shadow-u-e3"
           >
             {children(() => setAnchor(null))}
           </div>,

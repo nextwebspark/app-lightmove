@@ -1,8 +1,11 @@
 import type { ColumnVisibilityState } from "@tanstack/react-table";
+import type { ReactNode } from "react";
 import { Icon, ICONS } from "../../../components/layout/Icon";
 import type { NumericRange, SavedSearch, SearchVisibility, StrategyFilter } from "../api/types";
 import { ColumnPicker, hideableColumnsOf } from "../../../components/ui/ColumnPicker";
+import { FilterRailToggle } from "../../../components/ui/FilterRail";
 import { SaveSearchMenu } from "./SaveSearchMenu";
+import { sameFilter } from "../lib/filterIdentity";
 import { companyColumns, DEFAULT_COLUMN_VISIBILITY } from "../lib/companyColumns";
 
 /** Derived once: the column definitions are a module constant, not per-render state. */
@@ -34,6 +37,7 @@ function activeAxisCount(filter: StrategyFilter): number {
 }
 
 export function StrategyToolbar({
+  leading,
   filter,
   filterPending,
   searches,
@@ -56,6 +60,8 @@ export function StrategyToolbar({
   savingSearch,
   addingAll,
 }: {
+  /** The Companies | People toggle, when the viewer may search people. */
+  leading?: ReactNode;
   filter: StrategyFilter;
   /** The stored filter has not landed yet, so the count would state a selection nobody made. */
   filterPending: boolean;
@@ -81,12 +87,13 @@ export function StrategyToolbar({
 }) {
   return (
     <div className="flex min-h-[44px] flex-none flex-wrap items-center gap-x-3.5 gap-y-2 border-b border-u-border bg-u-raised px-3 py-2 sm:px-5 sm:py-1.5">
+      {leading}
       <SaveSearchMenu
         searches={searches}
-        currentFilter={filter}
+        isActive={(search) => sameFilter(filter, search.filter)}
         viewerId={viewerId}
         onSave={onSaveSearch}
-        onLoad={onLoadSearch}
+        onLoad={(search) => onLoadSearch(search.filter)}
         onRename={onRenameSearch}
         onSetVisibility={onSetSearchVisibility}
         onOverwrite={onOverwriteSearch}
@@ -94,22 +101,19 @@ export function StrategyToolbar({
         saving={savingSearch}
       />
 
-      <button
-        type="button"
-        onClick={onToggleFilters}
-        aria-expanded={showFilters}
-        className="inline-flex items-center gap-1.5 whitespace-nowrap rounded-[6px] p-2 font-sans text-[13px] text-u-text3 transition hover:bg-u-surface hover:text-u-text"
-      >
-        <Icon d="M3 4h18l-7 8v6l-4 2v-8L3 4Z" size={14} className="flex-none" />
-        {showFilters ? "Hide Filters" : "Show Filters"}
-        {filterPending ? (
-          <span className="h-[15px] w-[15px] animate-pulse rounded-[4px] bg-u-accent-tint" />
-        ) : (
-          <span className="rounded-[4px] bg-u-accent-tint px-[5px] py-[2px] font-sans text-[10px] font-bold text-u-accent">
-            {activeAxisCount(filter)}
-          </span>
-        )}
-      </button>
+      <FilterRailToggle
+        open={showFilters}
+        onToggle={onToggleFilters}
+        badge={
+          filterPending ? (
+            <span className="h-[15px] w-[15px] animate-pulse rounded-[4px] bg-u-accent-tint" />
+          ) : (
+            <span className="rounded-[4px] bg-u-accent-tint px-[5px] py-[2px] font-sans text-[10px] font-bold text-u-accent">
+              {activeAxisCount(filter)}
+            </span>
+          )
+        }
+      />
 
       {/* The only filled CTA in the toolbar, and the mockup's gradient is the whole point of it —
           it is the affordance the screen is selling.

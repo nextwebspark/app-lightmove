@@ -17,14 +17,8 @@ import java.util.stream.IntStream;
 import org.springframework.stereotype.Component;
 
 /**
- * Chapter one. Two series off one column: when each executive was filed gives the weekly and daily
- * momentum, and the earliest filing per company gives the day that company became mapped, which the
- * cumulative coverage climbs by. A company is mapped by its first executive, not by being triaged —
- * a universe of forty companies nobody has researched is forty companies still to map.
- *
- * <p>The gap the chapter leads with is measured from the last executive filed, not from the last
- * company that gained its first: companies fill up early and then stop being news, so a mandate that
- * had researched nobody for a fortnight was reading as current.
+ * Chapter one. A company is mapped by its first executive, not by being triaged. The leading gap is
+ * measured from the last executive filed, or a stalled mandate would read as current.
  */
 @Component
 class MappingProgressReporter {

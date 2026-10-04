@@ -8,13 +8,8 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ProblemDetail;
 
 /**
- * Builds the one error body this API has.
- *
- * <p>Extracted because there are now two places an error can be produced, and they must not drift.
- * {@link GlobalExceptionHandler} handles anything thrown inside a controller. But Spring Security denies
- * a request from inside the <i>filter chain</i>, long before the DispatcherServlet — so a
- * {@code @RestControllerAdvice} never sees it, and the response is whatever the security handler writes.
- * Both routes come through here, so both produce the same shape and the frontend has one contract.
+ * Builds the API's one error body, shared by {@link GlobalExceptionHandler} and the security filter
+ * chain's handlers — which deny before the DispatcherServlet — so both keep one shape.
  */
 public final class Problems {
 

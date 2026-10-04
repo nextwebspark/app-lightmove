@@ -3,6 +3,7 @@ import { Outlet, useLocation, useParams } from "react-router-dom";
 import { NotFoundPage } from "../../app/NotFoundPage";
 import * as projectsApi from "../../features/projects/api/projectsApi";
 import type { Project } from "../../features/projects/api/types";
+import { ProjectPeopleBar } from "../../features/projects/components/ProjectPeopleBar";
 import { cn } from "../../lib/cn";
 import { Spinner } from "../ui";
 import { AppShell } from "./AppShell";
@@ -106,7 +107,6 @@ export function ProjectLayout() {
     {
       label: "People",
       items: [
-        { to: `${base}/candidates`, label: "Candidates", icon: ICONS.candidates },
         { to: `${base}/outreach`, label: "Outreach", icon: ICONS.outreach },
       ],
     },
@@ -124,6 +124,7 @@ export function ProjectLayout() {
       breadcrumb={
         <ProjectBreadcrumb clientName={project.clientName} positionTitle={project.positionTitle} />
       }
+      topbarActions={<ProjectPeopleBar project={project} />}
       navGroups={groups}
       navBackLink={{ to: "/", label: "All positions", icon: ICONS.back }}
       assistantContext={`${project.clientName} · ${project.positionTitle}`}

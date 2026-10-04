@@ -8,11 +8,7 @@ import app.lightmove.api.strategy.dto.CompanySuggestion;
 import java.util.List;
 import org.springframework.stereotype.Service;
 
-/**
- * The company pickers' name typeahead, validated once for every endpoint that offers it — the
- * workspace's {@code /companies/search} and signup's {@code /onboarding/companies} — so the two cannot
- * drift apart on what they accept.
- */
+/** The name typeahead behind both {@code /companies/search} and {@code /onboarding/companies}. */
 @Service
 public class CompanySuggestionSearch {
 
@@ -24,10 +20,7 @@ public class CompanySuggestionSearch {
         this.settings = properties.company().search();
     }
 
-    /**
-     * A query shorter than {@code minQueryLength} answers nothing rather than the head of the universe,
-     * which would suggest the rows were chosen for a reason.
-     */
+    /** A query shorter than {@code minQueryLength} answers nothing rather than the head of the universe. */
     public List<CompanySuggestion> suggest(String rawQuery, Integer limit, int minQueryLength) {
         String query = acceptedQuery(rawQuery);
         if (query.isEmpty() || query.length() < minQueryLength) {
@@ -47,10 +40,7 @@ public class CompanySuggestionSearch {
         return trimmed;
     }
 
-    /**
-     * Refused rather than clamped, matching every other list read: a silently narrowed limit is a
-     * wrong answer the caller cannot tell it got.
-     */
+    /** Refused rather than clamped: a silently narrowed limit is a wrong answer. */
     private int resolvedLimit(Integer limit) {
         if (limit == null) {
             return settings.defaultResultLimit();

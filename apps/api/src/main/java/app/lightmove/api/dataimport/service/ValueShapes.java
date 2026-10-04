@@ -7,16 +7,8 @@ import java.util.Set;
 import java.util.regex.Pattern;
 
 /**
- * Judges what a column's values look like, from the values themselves.
- *
- * <p>This is the only thing about a file's <i>contents</i> that reaches the model when a mapping is
- * proposed, and it is the reason no cell value has to. A header alone is often ambiguous — "Contact"
- * could be an email, a phone number or a person's name — and a column that is 90% email addresses
- * settles it without a single address leaving this process.
- *
- * <p>A supermajority rather than every row, because real files carry a blank, a "n/a" and a typo in
- * any column of a thousand rows, and a rule that needed all of them to agree would answer
- * {@code SHORT_TEXT} for everything.
+ * Judges what a column's values look like — the only thing about a file's contents that reaches the
+ * model, and why no cell value has to. A supermajority decides, since real columns carry typos.
  */
 final class ValueShapes {
 
@@ -28,10 +20,10 @@ final class ValueShapes {
     private static final Set<String> BOOLEANS =
             Set.of("true", "false", "yes", "no", "y", "n", "1", "0");
 
-    /** What share of a column's non-blank values must agree before the column is called that shape. */
+    /** The share of non-blank values that must agree. */
     private static final double SUPERMAJORITY = 0.7;
 
-    /** Beyond this a value is prose, not a field — the difference between a note and a job title. */
+    /** Beyond this a value is prose, not a field. */
     private static final int LONG_TEXT_LENGTH = 120;
 
     private ValueShapes() {
@@ -41,8 +33,7 @@ final class ValueShapes {
         if (values.isEmpty()) {
             return ValueShape.BLANK;
         }
-        // Ordered most specific first: an email is also short text, and a year is also a number, so
-        // the first rule that a supermajority satisfies is the most informative one that is true.
+        // Most specific first: an email is also short text, a year also a number.
         if (shareMatching(values, ValueShapes::isEmail) >= SUPERMAJORITY) {
             return ValueShape.EMAIL;
         }

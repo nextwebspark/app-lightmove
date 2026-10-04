@@ -5,17 +5,11 @@ import java.util.Map;
 import lombok.Getter;
 
 /**
- * A failure the API means to report, carrying an {@link ErrorCode} that decides both the HTTP status
- * and the message the client sees. Anything thrown that is <i>not</i> one of these is a bug, and
- * {@code GlobalExceptionHandler} answers it with an opaque 500.
+ * A failure the API means to report; anything else thrown is a bug and answers an opaque 500.
  *
- * <p><b>Two message channels.</b> The ordinary constructors take an <i>internal</i> detail that
- * reaches the log and never the response, so a rule may quote a column or a rejected value freely.
- * {@link #userFacing} and {@link #withField} opt a fixed sentence into the body.
- *
- * <p>Never interpolate <b>request input</b> into {@code userFacing} — a message that reflects what the
- * caller sent is an echo, which is what the default channel exists to suppress. A value the server
- * derived itself, such as a configured limit, is not input and may travel.
+ * <p><b>Two message channels.</b> The constructors' detail reaches the log, never the response;
+ * {@link #userFacing} and {@link #withField} opt a fixed sentence into the body. Never interpolate
+ * request input there — a server-derived value such as a configured limit may travel.
  */
 @Getter
 public class ApiException extends RuntimeException {
@@ -25,54 +19,51 @@ public class ApiException extends RuntimeException {
     /** The sentence to show the caller, or null to use {@link ErrorCode#defaultMessage()}. */
     private final String clientDetail;
 
-    /** Field → message, rendered like Bean Validation's so a form can put it under the right input. */
+    /** Field → message, in Bean Validation's shape. */
     private final Map<String, String> fieldErrors;
 
+    /** Extra members of the problem body, server-derived only — ids the caller may act on next. */
+    private final Map<String, Object> properties;
+
     public ApiException(ErrorCode code) {
-        this(code, code.defaultMessage(), null, null);
+        this(code, code.defaultMessage(), null, null, null);
     }
 
-    /**
-     * @param internalDetail context for the log and the audit trail — never returned to the client.
-     */
+    /** @param internalDetail for the log and audit trail, never returned to the client */
     public ApiException(ErrorCode code, String internalDetail) {
-        this(code, internalDetail, null, null);
+        this(code, internalDetail, null, null, null);
     }
 
     private ApiException(ErrorCode code, String internalDetail, String clientDetail,
-                         Map<String, String> fieldErrors) {
+                         Map<String, String> fieldErrors, Map<String, Object> properties) {
         super(internalDetail);
         this.code = code;
         this.clientDetail = clientDetail;
         this.fieldErrors = fieldErrors;
+        this.properties = properties;
     }
 
     public static ApiException of(ErrorCode code) {
         return new ApiException(code);
     }
 
-    /**
-     * A refusal whose reason the caller is meant to read, replacing the code's default wording.
-     *
-     * <p>For rules the API knows and the client cannot infer. The same text is logged.
-     *
-     * @param message a fixed sentence. Never request input; see the class doc.
-     */
+    /** @param message a fixed sentence, never request input; replaces the code's default wording */
     public static ApiException userFacing(ErrorCode code, String message) {
-        return new ApiException(code, message, message, null);
+        return new ApiException(code, message, message, null, null);
     }
 
-    /**
-     * The same, attributed to one input, in the {@code fieldErrors} shape Bean Validation produces —
-     * so a service-level rule reaches a form the way a {@code @Size} does.
-     */
+    /** {@link #userFacing}, attributed to one input in the {@code fieldErrors} shape. */
     public static ApiException withField(ErrorCode code, String field, String message) {
-        return new ApiException(code, message, message, Map.of(field, message));
+        return new ApiException(code, message, message, Map.of(field, message), null);
     }
 
-    /** Several inputs at once, for a rule set that reports everything wrong rather than the first. */
     public static ApiException withFields(ErrorCode code, Map<String, String> fieldErrors) {
         String summary = String.join("; ", fieldErrors.values());
-        return new ApiException(code, summary, code.defaultMessage(), Map.copyOf(fieldErrors));
+        return new ApiException(code, summary, code.defaultMessage(), Map.copyOf(fieldErrors), null);
+    }
+
+    /** The code's own sentence, plus one member the caller needs to answer it. Never request input. */
+    public static ApiException withProperty(ErrorCode code, String name, Object value) {
+        return new ApiException(code, code.defaultMessage(), null, null, Map.of(name, value));
     }
 }

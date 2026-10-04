@@ -11,17 +11,11 @@ import org.springframework.transaction.event.TransactionPhase;
 import org.springframework.transaction.event.TransactionalEventListener;
 
 /**
- * Researches a plugin-captured executive, off the capture's thread and after its commit.
- *
- * <p>{@code AFTER_COMMIT} because this worker <i>updates</i> the row the capture inserted — a plain
- * listener (or a direct {@code @Async} call from the service) races the commit and reads a row its
- * own transaction cannot see yet. {@code @Async} because a live scrape takes seconds and the capture
- * already returned 201.
- *
- * <p>Deliberately not {@code @Transactional}: the vendor call must not hold a database connection —
- * a retry's backoff would hold it for seconds — so the write crosses back into
- * {@link CandidateService#applyResearch}, which opens its own transaction. Failures are swallowed and
- * logged: enrichment lost is a re-capture; a capture broken by its own enrichment is a bug report.
+ * Researches a plugin-captured executive off the capture's thread. {@code AFTER_COMMIT} because it
+ * updates the row the capture inserted, which a plain listener would race. Not {@code @Transactional}:
+ * the vendor call must hold no connection, so the write crosses into
+ * {@link CandidateService#applyResearch}. Failures are swallowed — a capture broken by its own
+ * enrichment is a bug report.
  */
 @Component
 @RequiredArgsConstructor
@@ -39,8 +33,7 @@ class CandidateEnrichmentWorker {
                     profile -> candidates.applyResearch(event.projectId(), event.candidateId(), profile),
                     () -> log.info("No research found for candidate {}", event.candidateId()));
         } catch (ObjectOptimisticLockingFailureException raced) {
-            // Two events for one candidate — a re-capture inside the research window. @Version refuses
-            // the second write, which is the guard working, not a failure worth a stack trace.
+            // A re-capture inside the research window: @Version refusing the second write is the guard working.
             log.info("Candidate {} was enriched by a concurrent event", event.candidateId());
         } catch (RuntimeException ex) {
             log.error("Failed to enrich candidate {}", event.candidateId(), ex);

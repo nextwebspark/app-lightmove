@@ -56,6 +56,8 @@ public abstract class FlowTestSupport {
         // The vendor company cache is global by design (V64), so a slug one class's capture
         // remembered would answer the next class's — and its enricher would never be asked.
         vendorCache.update("DELETE FROM app_lm_vendor_company");
+        vendorCache.update("DELETE FROM app_lm_vendor_person");
+        vendorCache.update("DELETE FROM app_lm_vendor_people_search");
         domain = "firm%d-%s.example".formatted(RUN.incrementAndGet(),
                 getClass().getSimpleName().toLowerCase());
     }
@@ -96,13 +98,17 @@ public abstract class FlowTestSupport {
 
     /** @return the new workspace's id. The caller's token stays stale; re-login for tenant claims. */
     protected String createWorkspace(String bearerToken, String name) throws Exception {
+        return createWorkspace(bearerToken, name, "COMPANY");
+    }
+
+    protected String createWorkspace(String bearerToken, String name, String mode) throws Exception {
         MvcResult result = mvc.perform(post("/api/v1/onboarding/workspace")
                         .header("Authorization", "Bearer " + bearerToken)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
-                                {"name":"%s","companySize":"11-50 people","primaryRegion":"GCC",
+                                {"mode":"%s","name":"%s","companySize":"11-50 people","primaryRegion":"GCC",
                                  "teamFocus":"Executive search"}
-                                """.formatted(name)))
+                                """.formatted(mode, name)))
                 .andExpect(status().isCreated())
                 .andReturn();
         return body(result).at("/workspace/id").asText();
@@ -128,6 +134,36 @@ public abstract class FlowTestSupport {
                                 {"token":"%s"}
                                 """.formatted(token)))
                 .andExpect(status().isOk());
+    }
+
+    /**
+     * A pure client: a representative named on a client record, signed up from the invitation, holding the
+     * workspace {@code CLIENT} role alone. @return their bearer token
+     */
+    protected String clientRepresentative(String adminToken, String fullName, String representativeEmail)
+            throws Exception {
+        String clientId = body(mvc.perform(post("/api/v1/clients")
+                        .header("Authorization", "Bearer " + adminToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"customName":"%s Holdings"}
+                                """.formatted(fullName)))
+                .andExpect(status().isCreated())
+                .andReturn()).get("id").asText();
+        mvc.perform(post("/api/v1/clients/" + clientId + "/representatives")
+                        .header("Authorization", "Bearer " + adminToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"fullName":"%s","position":"Sponsor","email":"%s"}
+                                """.formatted(fullName, representativeEmail)))
+                .andExpect(status().isCreated());
+        return body(mvc.perform(post("/api/v1/onboarding/accept-invitation-signup")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"token":"%s","fullName":"%s","password":"%s"}
+                                """.formatted(email.latestTokenFor(representativeEmail), fullName, PASSWORD)))
+                .andExpect(status().isCreated())
+                .andReturn()).get("accessToken").asText();
     }
 
     /** The member id of the given email on the roster, read as the given caller. */

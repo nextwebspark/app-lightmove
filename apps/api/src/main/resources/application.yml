@@ -20,8 +20,10 @@ spring:
     multipart:
       # The container's own ceiling, ahead of lightmove.position.document.max-file-size-bytes: this one
       # refuses the body before it is buffered, that one is the rule the API states back to the caller.
-      max-file-size: 10MB
-      max-request-size: 12MB
+      # Raised for a person's documents (lightmove.person-documents.max-file-size-bytes, 20MB); every other
+      # upload states its own lower ceiling.
+      max-file-size: 20MB
+      max-request-size: 25MB
 
   jpa:
     hibernate:
@@ -228,11 +230,19 @@ lightmove:
       extension-pairings-per-hour: ${AUTH_EXTENSION_PAIRINGS_PER_HOUR:5}
       extension-pairings-per-hour-per-ip: ${AUTH_EXTENSION_PAIRINGS_PER_HOUR_PER_IP:60}
       onboarding-company-searches-per-minute: ${AUTH_ONBOARDING_COMPANY_SEARCHES_PER_MINUTE:60}
+      workspace-creations-per-hour: ${AUTH_WORKSPACE_CREATIONS_PER_HOUR:5}
+      workspace-creations-per-hour-per-ip: ${AUTH_WORKSPACE_CREATIONS_PER_HOUR_PER_IP:60}
+      booking-page-opens-per-minute: ${AUTH_BOOKING_PAGE_OPENS_PER_MINUTE:30}
+      booking-page-bookings-per-hour: ${AUTH_BOOKING_PAGE_BOOKINGS_PER_HOUR:5}
 
   # The demo LLM endpoints (/api/v1/llm/*) call billed Vertex AI usage with only authentication as
   # a gate, so each is additionally capped per user. Same in-memory-per-instance caveat as the auth
   # rate limiter above.
   llm:
+    # false boots with no model at all (DisabledLlmConfig): every AI feature then behaves as if Vertex
+    # were unreachable. Needs spring.ai.model.chat and .embedding.text set to none beside it, which
+    # application-e2e.yml does — the one runtime here that holds no GCP credentials.
+    enabled: ${LLM_ENABLED:true}
     # Ceiling on one model call. Applied through the provider's own HttpOptions (see
     # GoogleGenAiClientConfig) rather than a wrapper, so the SDK abandons the request rather than
     # leaving a thread waiting on a socket nobody is going to answer.
@@ -324,11 +334,20 @@ lightmove:
       api-key: ${HARVESTAPI_API_KEY:}
       read-timeout: ${HARVESTAPI_READ_TIMEOUT:60s}
 
+    # After a capture's research lands, run the AI enrichment: missing nationality,
+    # gender and years of experience, and a technical/behavioural assessment against the brief.
+    ai-enrich-on-capture: ${CANDIDATE_AI_ENRICH_ON_CAPTURE:true}
+
     # How long app_lm_vendor_company answers for a LinkedIn slug before the provider is asked again (V64).
     # A company captured in a second mandate inside this window costs nothing, and so does a slug the
     # provider does not carry — the miss is a row too. Check Bright Data's own terms on holding a
     # result before raising it; they are not Mapbox's, and this default is only the cautious one.
     company-cache-ttl: ${COMPANY_CACHE_TTL:30d}
+
+    # The same for people (V87): every record the people dataset returns — a Find executives hit or a
+    # capture's lookup — is kept, so the same person is never bought twice inside this window, and the
+    # same search asked twice costs nothing the second time.
+    people-cache-ttl: ${PEOPLE_CACHE_TTL:30d}
 
     # The candidate drawer's Find email / Find phone buttons, answered by ContactOut. Deliberately not
     # selected by `provider` above: contact lookup is a separate account with a separate bill, and
@@ -337,6 +356,26 @@ lightmove:
     # free, and a value already held is never asked for twice.
     contactout:
       api-key: ${CONTACTOUT_API_KEY:}
+
+    # Find executives on the In-universe page: one people search per company, one model call to turn
+    # the brief into title words, and the usual AI enrichment per person filed. `people-source` picks
+    # the index: `brightdata` (the dataset, sync Search API ~2s, offered only when `provider` is
+    # brightdata, $2.5 per 1,000 records returned — but its titles are a cache frozen when LinkedIn
+    # locked them on 13 Nov 2025) or `contactout` (People Search on the contactout key above, current
+    # titles, one search credit per profile returned from the plan's monthly pool; with `provider:
+    # brightdata` too, the dataset is asked wherever ContactOut finds nobody or fails). Either way
+    # max-companies-per-run × hits-per-company is the most one press returns — 50 at the defaults. The
+    # search is narrowed to the position's country plus the Gulf neighbours; nobody living elsewhere
+    # is searched for.
+    # Kept small for the trial; raise max-companies-per-run to 25 once the picks look right.
+    sourcing:
+      max-companies-per-run: ${SOURCING_MAX_COMPANIES_PER_RUN:5}
+      hits-per-company: ${SOURCING_HITS_PER_COMPANY:10}
+      picks-per-company: ${SOURCING_PICKS_PER_COMPANY:3}
+      parallelism: ${SOURCING_PARALLELISM:4}
+      max-search-rounds: ${SOURCING_MAX_SEARCH_ROUNDS:3}
+      run-deadline: ${SOURCING_RUN_DEADLINE:180s}
+      people-source: ${SOURCING_PEOPLE_SOURCE:brightdata}
 
   # How a paid third-party API is called: timeouts, retry and outbound pacing, shared by every vendor
   # adapter. These are spelled out rather than left to the record's @DefaultValue because @Retryable
@@ -501,9 +540,97 @@ lightmove:
     max-candidates: ${REPORT_MAX_CANDIDATES:5000}
     max-sectors: ${REPORT_MAX_SECTORS:6}
     max-hubs: ${REPORT_MAX_HUBS:8}
-    max-nationalities: ${REPORT_MAX_NATIONALITIES:9}
+    max-nationalities: ${REPORT_MAX_NATIONALITIES:11}
     max-employers-per-hub: ${REPORT_MAX_EMPLOYERS_PER_HUB:3}
     max-executives-per-slice: ${REPORT_MAX_EXECUTIVES_PER_SLICE:12}
+
+  # Outreach email goes from each consultant's own Gmail or Outlook, connected through Nylas's hosted
+  # sign-in. A blank key or client id leaves outreach unoffered. The Nylas application must list
+  # <web.base-url>/api/v1/outreach/mailbox/callback as a callback URI, and NYLAS_BASE_URL is
+  # https://api.eu.nylas.com for an EU-region application.
+  outreach:
+    # Which gateway a new mailbox connects through: nylas, or direct for our own (Google, Microsoft) wherever this
+    # deployment has it, Nylas still answering the rest. A connection already made stays with the gateway that made it.
+    gateway: ${OUTREACH_GATEWAY:nylas}
+    nylas:
+      api-key: ${NYLAS_API_KEY:}
+      client-id: ${NYLAS_CLIENT_ID:}
+      base-url: ${NYLAS_BASE_URL:https://api.us.nylas.com}
+      providers: ${NYLAS_PROVIDERS:google,microsoft}
+      # The signing secret of a Nylas webhook pointed at <web.base-url>/api/v1/outreach/webhooks/mailbox,
+      # subscribed to message.created, message.bounce_detected, grant.expired and event.created,
+      # event.updated, event.deleted (the drawer's Meetings). Blank, replies are found by the poll alone
+      # and meetings by the read each calendar gets when it is connected.
+      webhook-secret: ${NYLAS_WEBHOOK_SECRET:}
+      # True where the Nylas plan carries Scheduler: sequences may then use {{bookingLink}}, a page at
+      # <web.base-url>/book/<slug> where the executive picks a time. Subscribe the webhook to
+      # booking.created too, so a booking stops their sequence.
+      scheduler-enabled: ${NYLAS_SCHEDULER_ENABLED:false}
+    # Uncava's own OAuth apps, which every workspace on the shared mode connects through (epic #642). A blank
+    # client id or secret leaves that provider's shared app unoffered; a workspace may still register its own in
+    # Settings → Integrations. Each app lists <web.base-url>/api/v1/outreach/mailbox/callback as a redirect URI
+    # (Zoom: <web.base-url>/api/v1/outreach/zoom/callback), and the Microsoft app also <web.base-url>/settings/integrations,
+    # where its admin-consent link returns. The scopes are what an admin's own app must be granted.
+    providers:
+      google:
+        client-id: ${GOOGLE_MAIL_CLIENT_ID:}
+        client-secret: ${GOOGLE_MAIL_CLIENT_SECRET:}
+        scopes: ${GOOGLE_MAIL_SCOPES:openid,email,https://www.googleapis.com/auth/gmail.send,https://www.googleapis.com/auth/gmail.metadata,https://www.googleapis.com/auth/calendar.events,https://www.googleapis.com/auth/calendar.freebusy}
+        own-app-guide-url: ${GOOGLE_MAIL_OWN_APP_GUIDE_URL:}
+        shared-app-guide-url: ${GOOGLE_MAIL_SHARED_APP_GUIDE_URL:}
+      microsoft:
+        client-id: ${MICROSOFT_MAIL_CLIENT_ID:}
+        client-secret: ${MICROSOFT_MAIL_CLIENT_SECRET:}
+        scopes: ${MICROSOFT_MAIL_SCOPES:offline_access,User.Read,Mail.ReadWrite,Mail.Send,Calendars.ReadWrite}
+        own-app-guide-url: ${MICROSOFT_MAIL_OWN_APP_GUIDE_URL:}
+        shared-app-guide-url: ${MICROSOFT_MAIL_SHARED_APP_GUIDE_URL:}
+      zoom:
+        client-id: ${ZOOM_CLIENT_ID:}
+        client-secret: ${ZOOM_CLIENT_SECRET:}
+        # user:read:token is the on-behalf-of (OBF) token the note taker's bot (#651) needs to join an external
+        # meeting; asked now so nobody reconnects Zoom when it lands. Nothing mints one yet.
+        scopes: ${ZOOM_SCOPES:meeting:write:meeting,meeting:update:meeting,meeting:delete:meeting,user:read:user,user:read:token}
+        own-app-guide-url: ${ZOOM_OWN_APP_GUIDE_URL:}
+        shared-app-guide-url: ${ZOOM_SHARED_APP_GUIDE_URL:}
+    connect-window: ${OUTREACH_CONNECT_WINDOW:10m}
+    daily-cap: ${OUTREACH_DAILY_CAP:50}
+    window-start: ${OUTREACH_WINDOW_START:08:00}
+    window-end: ${OUTREACH_WINDOW_END:18:00}
+    working-days: ${OUTREACH_WORKING_DAYS:MONDAY,TUESDAY,WEDNESDAY,THURSDAY,FRIDAY}
+    # Read by @Scheduled, which sees the environment and never a binding default, so spelled out here.
+    dispatch-interval: ${OUTREACH_DISPATCH_INTERVAL:60s}
+    reply-poll-interval: ${OUTREACH_REPLY_POLL_INTERVAL:15m}
+    # When the daily check emails admins whose own app's client secret expires within 30 days (UTC cron).
+    secret-expiry-check: ${OUTREACH_SECRET_EXPIRY_CHECK:0 13 5 * * *}
+
+  # The key-encryption key for the secrets the app holds — a workspace's own OAuth client secret, and from #644
+  # a mailbox's refresh token. A Tink JSON keyset of AES-256-GCM keys, mounted from the lightmove-credential-keyset
+  # secret. Blank, the app boots and no workspace can store its own app's keys. Make one with
+  #   tinkey create-keyset --key-template AES256_GCM --out-format json
+  # and rotate by adding a key and promoting it: what was written under the old one still decrypts.
+  crypto:
+    keyset: ${CREDENTIAL_KEYSET:}
+
+  # Recall.ai's Calendar API: one platform account, never one per workspace. The region is the base URL (each
+  # region is its own account and key; EU is https://eu-central-1.recall.ai). Blank, calendars are read directly
+  # whatever a workspace chose. Nothing calls it before #644.
+  recall:
+    api-key: ${RECALL_API_KEY:}
+    webhook-secret: ${RECALL_WEBHOOK_SECRET:}
+    base-url: ${RECALL_BASE_URL:https://us-east-1.recall.ai}
+
+  # Uploaded files. gcs in every deployment (ops/gcp/deploy.sh sets both): Cloud Run's disk dies with the
+  # instance, so filesystem is for npm run dev and the tests only.
+  storage:
+    provider: ${STORAGE_PROVIDER:filesystem}
+    bucket: ${STORAGE_BUCKET:}
+    directory: ${STORAGE_DIRECTORY:.data/documents}
+
+  # A person's CV, cover letter and references, each a stack of versions.
+  person-documents:
+    max-file-size-bytes: ${PERSON_DOCUMENT_MAX_BYTES:20971520}
+    max-documents-per-person: ${PERSON_DOCUMENT_MAX_PER_PERSON:50}
+    max-versions-per-document: ${PERSON_DOCUMENT_MAX_VERSIONS:20}
 
 # What /actuator/info reports. APP_VERSION is baked into the image by the Dockerfile's build arg, so
 # this is the same release the SPA bundle was built with — one input, and nothing at runtime can move

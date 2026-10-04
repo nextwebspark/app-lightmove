@@ -8,6 +8,13 @@
 
 export type WorkspaceRole = "ADMIN" | "MEMBER" | "CLIENT";
 
+/**
+ * Mirrors the API's `WorkspaceMode`: who the workspace hires for — client companies, or its own business
+ * units. The one list of the modes; the type, the form's schema and the choice cards all derive from it.
+ */
+export const WORKSPACE_MODES = ["AGENCY", "COMPANY"] as const;
+export type WorkspaceMode = (typeof WORKSPACE_MODES)[number];
+
 /** Mirrors the API's `PlatformAction`: what a user may do outside any workspace. */
 export type PlatformAction = "TEMPLATE_LIBRARY_MANAGE";
 
@@ -16,6 +23,7 @@ export interface WorkspaceSummary {
   name: string;
   slug: string;
   logoMark: string | null;
+  mode: WorkspaceMode;
   /** Null for a pure client: it describes the firm's own people, and a portal guest is not one. */
   emailDomain: string | null;
   /** The caller's workspace roles — a set. Admin checks read `roles.includes("ADMIN")`. */
@@ -60,17 +68,22 @@ export interface User {
   locale: string;
 
   /**
-   * Null until the user has created a workspace or accepted an invitation. The router reads this to
-   * decide whether someone belongs in the app or back in the onboarding wizard.
+   * The workspace this session is in — the access token's tenant claim. Null until the user has
+   * created a workspace or accepted an invitation. The router reads this to decide whether someone
+   * belongs in the app or back in the onboarding wizard.
    */
   workspace: WorkspaceSummary | null;
 
+  /** Every workspace the user is an active member of, oldest first. What the switcher lists. */
+  workspaces: WorkspaceSummary[];
+
   /**
-   * The redeemable invitation addressed to this user, when they are not yet placed. Server-derived so
-   * an invitee is routed to "join {workspace}" from any tab — the emailed token lives in one tab's
-   * sessionStorage, but this survives everywhere the session does. Null once placed.
+   * The redeemable invitations addressed to this user, to workspaces they are not yet in. Server-derived
+   * so an invitee is routed to "join {workspace}" from any tab — the emailed token lives in one tab's
+   * sessionStorage, but this survives everywhere the session does — and so someone already placed sees
+   * an invitation to a second workspace without opening the email.
    */
-  pendingInvitation: PendingInvitation | null;
+  pendingInvitations: PendingInvitation[];
 
   /**
    * Empty for everyone but LightMove staff. Shows the Platform settings group and nothing more — the
@@ -79,10 +92,12 @@ export interface User {
   platformActions: PlatformAction[];
 }
 
-/** What the invitee is told about their outstanding invitation. Deliberately token-free. */
+/** What the invitee is told about an outstanding invitation. Deliberately token-free: the id redeems it. */
 export interface PendingInvitation {
+  id: string;
   workspaceName: string;
   role: WorkspaceRole;
+  inviterName: string | null;
 }
 
 export interface AuthResponse {
@@ -140,6 +155,7 @@ export interface ActiveSession {
 
 export interface CreateWorkspaceRequest {
   name: string;
+  mode: WorkspaceMode;
   /** The universe company picked; null for a firm typed in by hand. The server files it under its own name. */
   apolloAccountId: string | null;
   companySize: string;
@@ -183,4 +199,8 @@ export interface ApiError {
   correlationId: string;
   /** Present on a validation failure: field name → the message to show beneath it. */
   fieldErrors?: Record<string, string>;
+  /** Present on CANDIDATE_POSSIBLE_DUPLICATE: the workspace people of that name at that employer. */
+  personIds?: string[];
+  /** Present on PERSON_DOCUMENT_DUPLICATE: the file already holding the same bytes. */
+  duplicateOf?: { documentId: string; versionNo: number };
 }

@@ -4,19 +4,10 @@ import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import java.util.List;
 
 /**
- * A mandate's saved filter, stored as the {@code filter} jsonb column on {@code app_lm_strategy} and
- * again on every saved search. Each list holds wire tokens, never display labels: a stored filter
- * that stopped resolving because a row was renamed would be a silent scope change on a live mandate.
- * Sector groups expand client-side and are never stored, so re-tuning the taxonomy cannot widen a
- * search saved months ago.
- *
- * <p>Bands and ranges are the two modes of one axis: a non-null range means Custom Range and the band
- * list is ignored. The shape of the data is the mode, so the two cannot contradict each other.
- *
- * <p>{@code @JsonIgnoreProperties} is load-bearing rather than decorative. This record is read back
- * out of a jsonb column that already holds documents written by earlier versions of this type — the
- * dropped {@code includeOffLimits} flag among them — and a stored filter must never become
- * unreadable because a field was retired.
+ * A mandate's saved filter, the {@code filter} jsonb on the strategy and every saved search. Lists
+ * hold wire tokens, never labels or sector groups, so a rename or re-tuned taxonomy cannot silently
+ * change a live scope. A non-null range overrides its axis's bands. {@code ignoreUnknown} keeps
+ * documents with retired fields (e.g. {@code includeOffLimits}) readable.
  */
 @JsonIgnoreProperties(ignoreUnknown = true)
 public record StrategyFilter(List<String> industries, List<String> keywords,

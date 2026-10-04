@@ -65,7 +65,7 @@ section "N42  the wizard stops dead at the gate"
 # could fill in the whole wizard and have it honoured whenever the mail finally arrived. Now they
 # cannot start it, and what they would have typed is not captured anywhere.
 post_json /onboarding/workspace "$(jq -nc --arg n "$WS" \
-  '{name:$n, companySize:"11-50 people", primaryRegion:"GCC", teamFocus:"Executive search"}')" \
+  '{mode:"COMPANY", name:$n, companySize:"11-50 people", primaryRegion:"GCC", teamFocus:"Executive search"}')" \
   -H "$(auth_header "$TOKEN")"
 check_code N42.1 "the organisation step is refused" 403 EMAIL_NOT_VERIFIED
 

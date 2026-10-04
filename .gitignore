@@ -50,3 +50,9 @@ ops/migrations/*
 # The local Apollo universe snapshot, so `npm run dev:db:reset` can carry the 71,822 pipeline-owned
 # rows across a wipe. Data, not source — re-pull it with `npm run dev:db:apollo`.
 ops/dev/.cache/
+
+# --- Nationality eval: real profiles, never committed (ops/eval/export-golden.sh) ---
+eval-data/
+
+# Uploaded documents under npm run dev (lightmove.storage.provider: filesystem)
+.data/

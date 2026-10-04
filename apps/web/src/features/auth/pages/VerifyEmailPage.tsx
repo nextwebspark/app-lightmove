@@ -74,8 +74,8 @@ export function VerifyEmailPage() {
    * <p>The tab that was waiting on this link polls, so it advances the moment the link is clicked and
    * the user carries on there — organisation, invitations, into the app. All of that happens while this
    * card is still showing a `user` snapshot taken at redemption time, when there was no workspace.
-   * Routing on that snapshot sent someone who already has a workspace back to the create form, which
-   * then answers ALREADY_IN_WORKSPACE.
+   * Routing on that snapshot sent someone who already has a workspace back to the create form (which,
+   * before V81, answered a 409 — and now would found a second workspace they never asked for).
    */
   const handleContinue = async () => {
     setContinuing(true);

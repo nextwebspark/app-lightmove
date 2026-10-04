@@ -1,0 +1,376 @@
+package app.lightmove.api.outreach;
+
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+
+import app.lightmove.api.FlowTestSupport;
+import app.lightmove.api.IntegrationTest;
+import app.lightmove.api.RecordingMailboxGateway;
+import app.lightmove.api.RecordingProviderTokenClient;
+import app.lightmove.api.RecordingRecallCalendarApi;
+import app.lightmove.api.outreach.model.GrantedMailbox;
+import app.lightmove.api.outreach.model.MailboxGrants;
+import app.lightmove.api.outreach.model.RecallCalendarEvent;
+import app.lightmove.api.outreach.model.RecallCalendarSpec;
+import app.lightmove.api.outreach.service.OutreachDispatcher;
+import jakarta.servlet.http.Cookie;
+import java.net.URI;
+import java.time.Duration;
+import java.time.Instant;
+import java.time.temporal.ChronoUnit;
+import java.util.List;
+import java.util.Map;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.MediaType;
+import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.test.web.servlet.MvcResult;
+import org.springframework.web.util.UriComponentsBuilder;
+import tools.jackson.databind.JsonNode;
+import tools.jackson.databind.json.JsonMapper;
+
+/**
+ * A direct mailbox's Recall calendar, through every turn of its life: made on connect, handed the new token on a
+ * reconnect, deleted on a disconnect, a workspace switch to DIRECT and a Recall-reported disconnection — and the
+ * refresh token kept only as ciphertext throughout. Recall's event syncs keep meetings with mapped people current.
+ */
+@IntegrationTest
+class RecallCalendarIntegrationTest extends FlowTestSupport {
+
+    private static final String MAILBOX = "/api/v1/outreach/mailbox";
+    private static final String ADDRESS = "consultant@firm.example";
+    private static final JsonMapper JSON = JsonMapper.builder().build();
+
+    @Autowired private RecordingMailboxGateway gateway;
+    @Autowired private RecordingRecallCalendarApi recall;
+    @Autowired private RecordingProviderTokenClient tokenEndpoint;
+    @Autowired private OutreachDispatcher dispatcher;
+    @Autowired private JdbcTemplate jdbc;
+
+    private String consultant;
+    private String workspaceId;
+
+    @BeforeEach
+    void signInConsultant() throws Exception {
+        gateway.clear();
+        recall.clear();
+        tokenEndpoint.clear();
+        String email = "yara@" + domain;
+        createWorkspace(verifiedUser("Yara Haddad", email), "Meridian Search");
+        consultant = login(email);
+        workspaceId = jdbc.queryForObject("select w.id::text from app_lm_workspace w join app_lm_workspace_member m "
+                + "on m.workspace_id = w.id join app_lm_user u on u.id = m.user_id where u.email = ?", String.class,
+                email);
+    }
+
+    @Test
+    @DisplayName("a direct mailbox gets a Recall calendar with the shared app's keys, and its token is stored sealed")
+    void connectingMakesTheCalendar() throws Exception {
+        connectDirect("refresh-token-1");
+
+        assertThat(recall.createdSpecs()).hasSize(1);
+        RecallCalendarSpec spec = recall.createdSpecs().getFirst();
+        assertThat(spec.platform()).isEqualTo("google_calendar");
+        assertThat(spec.clientId()).isEqualTo("uncava-google-client");
+        assertThat(spec.clientSecret()).isEqualTo("uncava-google-secret");
+        assertThat(spec.refreshToken()).isEqualTo("refresh-token-1");
+        assertThat(spec.email()).isEqualTo(ADDRESS);
+
+        Map<String, Object> row = connectionRow();
+        assertThat(row.get("gateway")).isEqualTo("DIRECT");
+        assertThat(recall.holds((String) row.get("recall_calendar_id"))).isTrue();
+        assertThat((String) row.get("refresh_token_encrypted")).isNotBlank().doesNotContain("refresh-token-1");
+        mvc.perform(get(MAILBOX).header("Authorization", "Bearer " + consultant))
+                .andExpect(status().isOk())
+                .andExpect(result -> assertThat(result.getResponse().getContentAsString())
+                        .doesNotContain("refresh-token-1").doesNotContain("refresh_token"));
+    }
+
+    @Test
+    @DisplayName("a reconnect hands the same calendar the new token; a disconnect deletes it")
+    void reconnectUpdatesAndDisconnectDeletes() throws Exception {
+        connectDirect("refresh-token-1");
+        String calendarId = recallCalendarId();
+
+        connectDirect("refresh-token-2");
+        assertThat(recall.createdSpecs()).hasSize(1);
+        assertThat(recall.updates()).singleElement().satisfies(update -> {
+            assertThat(update.calendarId()).isEqualTo(calendarId);
+            assertThat(update.spec().refreshToken()).isEqualTo("refresh-token-2");
+        });
+        assertThat(recallCalendarId()).isEqualTo(calendarId);
+
+        mvc.perform(delete(MAILBOX).header("Authorization", "Bearer " + consultant))
+                .andExpect(status().isNoContent());
+        assertThat(recall.deleted()).containsExactly(calendarId);
+        assertThat(tokenEndpoint.revoked())
+                .as("Google's revoke would take the reconnect's new token with the old one, so only the disconnect revokes")
+                .containsExactly("GOOGLE:refresh-token-2");
+    }
+
+    @Test
+    @DisplayName("a reconnect to another Google account revokes the account it replaced")
+    void reconnectElsewhereRevokesTheOldAccount() throws Exception {
+        connectDirect("refresh-token-1");
+
+        gateway.grant(new GrantedMailbox(MailboxGrants.mintDirect("google"), "other@firm.example", "google",
+                "refresh-token-2"));
+        connect();
+
+        assertThat(tokenEndpoint.revoked()).containsExactly("GOOGLE:refresh-token-1");
+    }
+
+    @Test
+    @DisplayName("moving the workspace to DIRECT deletes its Recall calendars, and moving back makes them again")
+    void switchingCalendarSync() throws Exception {
+        connectDirect("refresh-token-1");
+        String first = recallCalendarId();
+
+        switchCalendarSync("DIRECT");
+        assertThat(recall.deleted()).containsExactly(first);
+        assertThat(recallCalendarId()).isNull();
+
+        switchCalendarSync("RECALL");
+        assertThat(recall.createdSpecs()).hasSize(2);
+        assertThat(recallCalendarId()).isNotNull().isNotEqualTo(first);
+    }
+
+    @Test
+    @DisplayName("Recall reporting the calendar disconnected marks the mailbox for reconnecting")
+    void recallDisconnectedWithdrawsAccess() throws Exception {
+        connectDirect("refresh-token-1");
+        String calendarId = recallCalendarId();
+        recall.disconnect(calendarId);
+        recall.deliverNext(List.of(calendarId));
+
+        mvc.perform(post("/api/v1/outreach/webhooks/recall").header("webhook-signature", "v1,forged")
+                        .contentType(MediaType.APPLICATION_JSON).content("{}"))
+                .andExpect(status().isUnauthorized());
+        assertThat(connectionRow().get("status")).isEqualTo("ACTIVE");
+
+        mvc.perform(post("/api/v1/outreach/webhooks/recall")
+                        .header("webhook-signature", RecordingRecallCalendarApi.VALID_SIGNATURE)
+                        .contentType(MediaType.APPLICATION_JSON).content("{}"))
+                .andExpect(status().isOk());
+        assertThat(connectionRow().get("status")).isEqualTo("ERROR");
+        assertThat(recallCalendarId()).isNull();
+        assertThat(recall.deleted()).containsExactly(calendarId);
+    }
+
+    @Test
+    @DisplayName("Recall's event sync keeps a meeting with a mapped person, follows its move, and drops it when deleted")
+    void eventSyncKeepsMeetingsWithMappedPeople() throws Exception {
+        String projectId = mandate();
+        String priya = executive(projectId, "Priya Raman", "priya@" + domain);
+        connectDirect("refresh-token-1");
+        String calendarId = recallCalendarId();
+        Instant start = Instant.now().truncatedTo(ChronoUnit.SECONDS).plus(Duration.ofDays(2));
+
+        syncEvents(calendarId, googleEvent("evt-dentist", "Dentist", start, false, "front-desk@clinic.example"),
+                googleEvent("evt-call", "First conversation", start, false, "Priya@" + domain));
+        JsonNode upcoming = meetingsOf(projectId, priya).get("upcoming");
+        assertThat(upcoming).hasSize(1);
+        assertThat(upcoming.get(0).get("title").asText()).isEqualTo("First conversation");
+        assertThat(meetingEventIds()).containsExactly("evt-call");
+
+        Instant moved = start.plus(Duration.ofHours(1));
+        syncEvents(calendarId, googleEvent("evt-call", "First conversation", moved, false, "priya@" + domain));
+        upcoming = meetingsOf(projectId, priya).get("upcoming");
+        assertThat(Instant.parse(upcoming.get(0).get("startsAt").asText())).isEqualTo(moved);
+
+        syncEvents(calendarId, googleEvent("evt-call", "First conversation", moved, true, "priya@" + domain));
+        assertThat(meetingEventIds()).isEmpty();
+    }
+
+    @Test
+    @DisplayName("an event sync for a calendar no mailbox holds writes nothing, and a forged one is refused")
+    void eventSyncForAnUnknownCalendarWritesNothing() throws Exception {
+        String projectId = mandate();
+        executive(projectId, "Priya Raman", "priya@" + domain);
+        connectDirect("refresh-token-1");
+        Instant start = Instant.now().truncatedTo(ChronoUnit.SECONDS).plus(Duration.ofDays(2));
+        recall.deliverEventsSync("recall-calendar-unknown",
+                List.of(googleEvent("evt-call", "First conversation", start, false, "priya@" + domain)));
+
+        mvc.perform(post("/api/v1/outreach/webhooks/recall").header("webhook-signature", "v1,forged")
+                        .contentType(MediaType.APPLICATION_JSON).content("{}"))
+                .andExpect(status().isUnauthorized());
+        recallWebhook();
+
+        assertThat(meetingEventIds()).isEmpty();
+    }
+
+    @Test
+    @DisplayName("a calendar Recall could not make at connect is made by the next poll; the connect still succeeds")
+    void aFailedCreateIsMadeByThePoll() throws Exception {
+        recall.failCreates(true);
+        connectDirect("refresh-token-1");
+        assertThat(connectionRow().get("status")).isEqualTo("ACTIVE");
+        assertThat(recallCalendarId()).isNull();
+
+        assertThat(connectionRow().get("recall_calendar_attempts")).isEqualTo(1);
+
+        recall.failCreates(false);
+        dispatcher.pollReplies();
+        assertThat(recallCalendarId()).as("still backing off").isNull();
+
+        jdbc.update("update app_lm_mailbox_connection set recall_calendar_retry_at = now() - interval '1 minute' "
+                + "where workspace_id = ?::uuid", workspaceId);
+        dispatcher.pollReplies();
+        assertThat(recallCalendarId()).isNotNull();
+        assertThat(connectionRow().get("recall_calendar_attempts")).isEqualTo(0);
+    }
+
+    @Test
+    @DisplayName("a calendar that keeps failing is given up after five tries, until the mailbox reconnects")
+    void aCalendarThatKeepsFailingIsGivenUp() throws Exception {
+        recall.failCreates(true);
+        connectDirect("refresh-token-1");
+        for (int attempt = 0; attempt < 6; attempt++) {
+            jdbc.update("update app_lm_mailbox_connection set recall_calendar_retry_at = now() - interval '1 minute' "
+                    + "where workspace_id = ?::uuid", workspaceId);
+            dispatcher.pollReplies();
+        }
+        assertThat(connectionRow().get("recall_calendar_attempts")).isEqualTo(5);
+
+        recall.failCreates(false);
+        connectDirect("refresh-token-2");
+        assertThat(recallCalendarId()).isNotNull();
+    }
+
+    @Test
+    @DisplayName("a reconnect at another host or address gets a new calendar; the old one is deleted, not patched")
+    void aReconnectElsewhereReplacesTheCalendar() throws Exception {
+        connectDirect("refresh-token-1");
+        String gmail = recallCalendarId();
+
+        gateway.grant(new GrantedMailbox(MailboxGrants.mintDirect("microsoft"), ADDRESS, "microsoft",
+                "refresh-token-2"));
+        connect();
+
+        assertThat(recall.updates()).isEmpty();
+        assertThat(recall.deleted()).containsExactly(gmail);
+        assertThat(recall.createdSpecs()).hasSize(2);
+        assertThat(recall.createdSpecs().get(1).platform()).isEqualTo("microsoft_outlook");
+        assertThat(recall.createdSpecs().get(1).clientId()).isEqualTo("uncava-microsoft-client");
+        String outlook = recallCalendarId();
+        assertThat(outlook).isNotNull().isNotEqualTo(gmail);
+
+        gateway.grant(new GrantedMailbox(MailboxGrants.mintDirect("microsoft"), "other@firm.example", "microsoft",
+                "refresh-token-3"));
+        connect();
+        assertThat(recall.updates()).isEmpty();
+        assertThat(recall.deleted()).containsExactly(gmail, outlook);
+    }
+
+    @Test
+    @DisplayName("a Nylas grant holds no token of ours and gets no Recall calendar")
+    void nylasGrantsAreLeftAlone() throws Exception {
+        gateway.grant(new GrantedMailbox("grant-nylas-" + domain, ADDRESS, "google"));
+        connect();
+
+        Map<String, Object> row = connectionRow();
+        assertThat(row.get("gateway")).isEqualTo("NYLAS");
+        assertThat(row.get("refresh_token_encrypted")).isNull();
+        assertThat(recall.createdSpecs()).isEmpty();
+    }
+
+    private void syncEvents(String calendarId, RecallCalendarEvent... events) throws Exception {
+        recall.deliverEventsSync(calendarId, List.of(events));
+        recallWebhook();
+    }
+
+    private void recallWebhook() throws Exception {
+        mvc.perform(post("/api/v1/outreach/webhooks/recall")
+                        .header("webhook-signature", RecordingRecallCalendarApi.VALID_SIGNATURE)
+                        .contentType(MediaType.APPLICATION_JSON).content("{}"))
+                .andExpect(status().isOk());
+    }
+
+    /** Google's event as Recall lists it: the provider's own JSON under {@code raw}. */
+    private static RecallCalendarEvent googleEvent(String id, String title, Instant start, boolean deleted,
+                                                   String attendee) {
+        JsonNode raw = JSON.readTree("""
+                {"id":"%s","status":"confirmed","summary":"%s",
+                 "start":{"dateTime":"%s"},"end":{"dateTime":"%s"},
+                 "organizer":{"email":"%s"},"attendees":[{"email":"%s"},{"email":"%s"}]}
+                """.formatted(id, title, start, start.plus(Duration.ofMinutes(30)), ADDRESS, ADDRESS, attendee));
+        return new RecallCalendarEvent("google_calendar", id, id + "@google.com", raw, deleted);
+    }
+
+    private List<String> meetingEventIds() {
+        return jdbc.queryForList("select provider_event_id from app_lm_person_meeting where workspace_id = ?::uuid",
+                String.class, workspaceId);
+    }
+
+    private JsonNode meetingsOf(String projectId, String candidateId) throws Exception {
+        return body(mvc.perform(get("/api/v1/projects/" + projectId + "/outreach/candidates/" + candidateId
+                        + "/meetings").header("Authorization", "Bearer " + consultant))
+                .andExpect(status().isOk())
+                .andReturn());
+    }
+
+    private String executive(String projectId, String fullName, String emailAddress) throws Exception {
+        String slug = fullName.toLowerCase().replace(' ', '-') + "-" + System.nanoTime();
+        return body(mvc.perform(post("/api/v1/projects/" + projectId + "/candidates")
+                        .header("Authorization", "Bearer " + consultant)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"fullName":"%s","title":"Chief Financial Officer","employerName":"Target Group",
+                                 "linkedinUrl":"https://www.linkedin.com/in/%s","email":"%s"}
+                                """.formatted(fullName, slug, emailAddress)))
+                .andExpect(status().isCreated())
+                .andReturn()).get("id").asText();
+    }
+
+    private String mandate() throws Exception {
+        String clientId = body(mvc.perform(post("/api/v1/clients").header("Authorization", "Bearer " + consultant)
+                        .contentType(MediaType.APPLICATION_JSON).content("{\"customName\":\"Acme Holdings\"}"))
+                .andExpect(status().isCreated())
+                .andReturn()).get("id").asText();
+        return body(mvc.perform(post("/api/v1/projects").header("Authorization", "Bearer " + consultant)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"clientId\":\"%s\",\"positionTitle\":\"Group CFO\"}".formatted(clientId)))
+                .andExpect(status().isCreated())
+                .andReturn()).get("id").asText();
+    }
+
+    private void connectDirect(String refreshToken) throws Exception {
+        gateway.grant(new GrantedMailbox(MailboxGrants.mintDirect("google"), ADDRESS, "google", refreshToken));
+        connect();
+    }
+
+    private void connect() throws Exception {
+        MvcResult started = mvc.perform(post(MAILBOX + "/connect").header("Authorization", "Bearer " + consultant)
+                        .contentType(MediaType.APPLICATION_JSON).content("{\"provider\":\"google\"}"))
+                .andExpect(status().isOk())
+                .andReturn();
+        URI authorization = URI.create(body(started).get("authorizationUrl").asText());
+        String state = UriComponentsBuilder.fromUri(authorization).build().getQueryParams().getFirst("state");
+        Cookie cookie = started.getResponse().getCookie("lm_mailbox_connect");
+        mvc.perform(get(MAILBOX + "/callback").param("state", state).param("code", "code-1").cookie(cookie))
+                .andExpect(status().isFound());
+    }
+
+    private void switchCalendarSync(String choice) throws Exception {
+        mvc.perform(put("/api/v1/workspace/calendar-sync").header("Authorization", "Bearer " + consultant)
+                        .contentType(MediaType.APPLICATION_JSON).content("{\"calendarSync\":\"%s\"}".formatted(choice)))
+                .andExpect(status().isOk());
+    }
+
+    private Map<String, Object> connectionRow() {
+        return jdbc.queryForMap("select gateway, status, refresh_token_encrypted, recall_calendar_id, "
+                + "recall_calendar_attempts "
+                + "from app_lm_mailbox_connection where workspace_id = ?::uuid", workspaceId);
+    }
+
+    private String recallCalendarId() {
+        return (String) connectionRow().get("recall_calendar_id");
+    }
+}

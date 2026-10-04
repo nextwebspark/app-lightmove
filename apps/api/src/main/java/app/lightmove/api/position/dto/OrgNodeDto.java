@@ -5,30 +5,22 @@ import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
 import java.util.UUID;
 
-/**
- * One seat in the org chart — the same shape reads and writes.
- *
- * <p>Ids are the client's: the chart is written whole, so the screen names its own nodes rather than
- * reconciling server-assigned ids mid-edit. Both name fields are optional, because a mandate knows
- * the seat long before the person.
- */
+/** One seat in the org chart, read and written; ids are the client's, since the chart is written whole. */
 public record OrgNodeDto(
         @NotNull(message = "Every seat needs an id")
         UUID nodeId,
 
-        /** Null for a root — the top of the chart, usually the mandate's manager. */
         UUID parentNodeId,
 
         @Size(max = 160, message = "That title is too long") String title,
         @Size(max = 160, message = "That name is too long") String name,
 
-        /** True on exactly one seat: the role this brief is for. */
         boolean mandateSeat,
 
-        /** Where the box was dragged to. Absent until it has been, and then laid out from the tree. */
+        /** Absent until the box has been dragged. */
         Float canvasX,
         Float canvasY,
 
-        /** Null on a write defaults to {@code MANUAL} — a person typed it. */
+        /** Null on a write defaults to {@code MANUAL}. */
         FieldSource source
 ) {}

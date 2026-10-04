@@ -225,7 +225,7 @@ class OAuthLoginIntegrationTest extends FlowTestSupport {
                         .header("Authorization", "Bearer " + unverified)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
-                                {"name":"Held Firm","companySize":"11-50 people",
+                                {"mode":"COMPANY","name":"Held Firm","companySize":"11-50 people",
                                  "primaryRegion":"GCC","teamFocus":"Executive search"}
                                 """))
                 .andExpect(status().isForbidden());
@@ -240,12 +240,13 @@ class OAuthLoginIntegrationTest extends FlowTestSupport {
                         .header("Authorization", "Bearer " + login(email))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
-                                {"name":"Held Firm","companySize":"11-50 people",
+                                {"mode":"COMPANY","name":"Held Firm","companySize":"11-50 people",
                                  "primaryRegion":"GCC","teamFocus":"Executive search"}
                                 """))
                 .andExpect(status().isCreated());
 
-        assertThat(members.findByUserIdAndStatus(user.getId(), MemberStatus.ACTIVE)).isPresent();
+        assertThat(members.findAllByUserIdAndStatusOrderByJoinedAtAsc(user.getId(), MemberStatus.ACTIVE))
+                .hasSize(1);
     }
 
     @Test

@@ -5,13 +5,28 @@ import type { ReactNode } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { ToastProvider } from "../../../components/ui";
 import { ApiRequestError } from "../../../lib/apiClient";
+import { aUser, aWorkspace } from "../../../test/fixtures/user";
+import type { WorkspaceMode } from "../../auth/api/types";
 import * as clientsApi from "../../clients/api/clientsApi";
 import type { Client } from "../../clients/api/types";
 import * as positionApi from "../../position/api/positionApi";
 import type { PositionTemplate } from "../../position/api/types";
+import * as companiesApi from "../../strategy/api/companiesApi";
+import type { CompanySuggestion } from "../../strategy/api/types";
 import * as projectsApi from "../api/projectsApi";
 import type { Project } from "../api/types";
 import { NewProjectModal } from "./NewProjectModal";
+
+const session = vi.hoisted(() => ({ mode: "COMPANY" as WorkspaceMode }));
+
+vi.mock("../../auth/AuthProvider", () => ({
+  useAuth: () => ({ user: aUser({ workspace: aWorkspace({ mode: session.mode }) }) }),
+}));
+
+vi.mock("../../strategy/api/companiesApi", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("../../strategy/api/companiesApi")>()),
+  searchCompanies: vi.fn(),
+}));
 
 vi.mock("../api/projectsApi", async (importOriginal) => ({
   ...(await importOriginal<typeof import("../api/projectsApi")>()),
@@ -26,10 +41,13 @@ vi.mock("../../position/api/positionApi", async (importOriginal) => ({
 vi.mock("../../clients/api/clientsApi", async (importOriginal) => ({
   ...(await importOriginal<typeof import("../../clients/api/clientsApi")>()),
   createClient: vi.fn(),
+  clients: vi.fn(),
 }));
 
 beforeEach(() => {
+  session.mode = "COMPANY";
   vi.mocked(positionApi.listTemplates).mockResolvedValue([]);
+  vi.mocked(companiesApi.searchCompanies).mockReset();
 });
 
 const client = (id: string, name: string): Client => ({
@@ -404,6 +422,17 @@ describe("NewProjectModal — where a refusal is reported", () => {
     expect(clientsApi.createClient).not.toHaveBeenCalled();
   });
 
+  // An in-house business unit is a department of the firm: the company database has no row for it.
+  it("never asks the company database for a business unit", async () => {
+    const user = userEvent.setup();
+    render(wrap(<NewProjectModal open onClose={vi.fn()} clients={CLIENTS} />));
+
+    await user.type(screen.getByRole("combobox", { name: /Business unit/ }), "Data & Analytics");
+
+    expect(screen.queryByText("From the company database")).not.toBeInTheDocument();
+    expect(companiesApi.searchCompanies).not.toHaveBeenCalled();
+  });
+
   it("routes the server's delivery-date refusal to the delivery field", async () => {
     vi.mocked(projectsApi.createProject).mockRejectedValue(
       refusal("VALIDATION_FAILED", "One or more fields are invalid", {
@@ -578,5 +607,121 @@ describe("NewProjectModal — project type and timeline", () => {
     ).toBeInTheDocument();
     expect(clientsApi.createClient).not.toHaveBeenCalled();
     expect(projectsApi.createProject).not.toHaveBeenCalled();
+  });
+});
+
+const MERIDIAN: CompanySuggestion = {
+  apolloAccountId: "apollo-1",
+  companyName: "Meridian Energy Group",
+  industry: "oil & energy",
+  companyCity: "Abu Dhabi",
+  companyCountry: "United Arab Emirates",
+  website: "https://meridian.ae",
+  logoUrl: null,
+  numEmployees: 4200,
+};
+
+/**
+ * An agency's client is a company it searches for, so the field offers the company database beside
+ * the clients already on the books, and a database pick is filed under that company's account.
+ */
+describe("NewProjectModal — an agency's client field", () => {
+  const wrap = (children: ReactNode) => (
+    <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
+      <ToastProvider>{children}</ToastProvider>
+    </QueryClientProvider>
+  );
+
+  beforeEach(() => {
+    session.mode = "AGENCY";
+    vi.mocked(clientsApi.createClient).mockReset();
+    vi.mocked(projectsApi.createProject).mockReset();
+    vi.mocked(companiesApi.searchCompanies).mockResolvedValue({
+      companies: [MERIDIAN, { ...MERIDIAN, apolloAccountId: "apollo-2", companyName: "Globex" }],
+    });
+  });
+
+  it("files a company picked from the database as the client, then the position against it", async () => {
+    vi.mocked(clientsApi.createClient).mockResolvedValue(client("new-1", "Meridian Energy Group"));
+    vi.mocked(projectsApi.createProject).mockResolvedValue(created("new-1"));
+    const user = userEvent.setup();
+    render(wrap(<NewProjectModal open onClose={vi.fn()} clients={CLIENTS} />));
+
+    const field = screen.getByRole("combobox", { name: /Client/ });
+    await user.type(field, "meri");
+    await user.click(await screen.findByRole("option", { name: /Meridian Energy Group/ }));
+    expect(field).toHaveValue("Meridian Energy Group");
+    expect(screen.getByText(/from the company database — it is created with the position/)).toBeInTheDocument();
+
+    await user.type(screen.getByRole("combobox", { name: "Position" }), "CFO");
+    await user.click(screen.getByRole("button", { name: "Create position" }));
+
+    await waitFor(() =>
+      expect(clientsApi.createClient).toHaveBeenCalledWith({
+        company: { apolloAccountId: "apollo-1" },
+        sector: "oil & energy",
+      }),
+    );
+    await waitFor(() =>
+      expect(projectsApi.createProject).toHaveBeenCalledWith(expect.objectContaining({ clientId: "new-1" })),
+    );
+  });
+
+  it("lists a database company already on the books once, as the client", async () => {
+    const user = userEvent.setup();
+    render(wrap(<NewProjectModal open onClose={vi.fn()} clients={CLIENTS} />));
+
+    await user.type(screen.getByRole("combobox", { name: /Client/ }), "glo");
+
+    expect(await screen.findByRole("option", { name: /Meridian Energy Group/ })).toBeInTheDocument();
+    expect(screen.getAllByRole("option", { name: "Globex" })).toHaveLength(1);
+  });
+
+  it("files a database pick a colleague has just made a client under that client", async () => {
+    vi.mocked(clientsApi.createClient).mockRejectedValue(
+      new ApiRequestError({ code: "CLIENT_ALREADY_EXISTS", detail: "exists", status: 409, correlationId: "c1" }),
+    );
+    vi.mocked(clientsApi.clients).mockResolvedValue([...CLIENTS, client("meridian", "Meridian Energy Group")]);
+    vi.mocked(projectsApi.createProject).mockResolvedValue(created("meridian"));
+    const user = userEvent.setup();
+    render(wrap(<NewProjectModal open onClose={vi.fn()} clients={CLIENTS} />));
+
+    await user.type(screen.getByRole("combobox", { name: /Client/ }), "meri");
+    await user.click(await screen.findByRole("option", { name: /Meridian Energy Group/ }));
+    await user.type(screen.getByRole("combobox", { name: "Position" }), "CFO");
+    await user.click(screen.getByRole("button", { name: "Create position" }));
+
+    await waitFor(() =>
+      expect(projectsApi.createProject).toHaveBeenCalledWith(expect.objectContaining({ clientId: "meridian" })),
+    );
+  });
+
+  it("keeps a long client list from pushing the company database out of view", async () => {
+    const many = Array.from({ length: 10 }, (_, index) => client(`c${index}`, `Mercury ${index}`));
+    const user = userEvent.setup();
+    render(wrap(<NewProjectModal open onClose={vi.fn()} clients={many} />));
+
+    await user.type(screen.getByRole("combobox", { name: /Client/ }), "me");
+
+    expect(await screen.findByRole("option", { name: /Meridian Energy Group/ })).toBeInTheDocument();
+    expect(screen.getAllByRole("option", { name: /^Mercury/ })).toHaveLength(6);
+  });
+
+  it("files a name typed over a database pick by that name alone", async () => {
+    vi.mocked(clientsApi.createClient).mockResolvedValue(client("new-2", "Meridian Energy Group Ltd"));
+    vi.mocked(projectsApi.createProject).mockResolvedValue(created("new-2"));
+    const user = userEvent.setup();
+    render(wrap(<NewProjectModal open onClose={vi.fn()} clients={CLIENTS} />));
+
+    const field = screen.getByRole("combobox", { name: /Client/ });
+    await user.type(field, "meri");
+    await user.click(await screen.findByRole("option", { name: /Meridian Energy Group/ }));
+    await user.type(field, " Ltd");
+    await user.type(screen.getByRole("combobox", { name: "Position" }), "CFO");
+    await user.click(screen.getByRole("button", { name: "Create position" }));
+
+    await waitFor(() =>
+      expect(clientsApi.createClient).toHaveBeenCalledWith({ customName: "Meridian Energy Group Ltd" }),
+    );
   });
 });

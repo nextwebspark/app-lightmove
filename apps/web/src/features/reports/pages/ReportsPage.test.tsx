@@ -305,8 +305,10 @@ describe("ReportsPage", () => {
       nationality: "Saudi",
       gender: null,
       yearsExperience: null,
+      aiInferredFields: [],
       summary: null,
-      note: null,
+      personId: "person-1",
+      linkedinUrlLocked: false,
       compensation: {
         currency: "AED",
         baseSalary: null,
@@ -461,6 +463,42 @@ describe("ReportsPage", () => {
     expect(areaOf(leader)).toBeCloseTo(33.3, 1);
     expect(within(leader).getByText("33.3%")).toBeInTheDocument();
     expect(areaOf(screen.getByRole("img", { name: "Other — 2 companies, 4.8% of the sectored universe" }))).toBeCloseTo(4.8, 1);
+  });
+
+  it("gives every sector tile its own hue, so a long tail does not read as one block", async () => {
+    vi.mocked(reportApi.getReport).mockResolvedValue(SAMPLE_REPORT);
+
+    renderPage("market");
+    await screen.findByText("Companies by sector");
+
+    const hues = screen
+      .getAllByRole("img", { name: /of the sectored universe$/ })
+      .map((tile) => tile.className.match(/\bbg-u-[\w-]+/)?.[0]);
+    expect(hues.length).toBeGreaterThan(1);
+    expect(hues.every(Boolean)).toBe(true);
+    expect(new Set(hues).size).toBe(hues.length);
+  });
+
+  it("draws sectors past the last hue in a neutral, never repeating a hue", async () => {
+    vi.mocked(reportApi.getReport).mockResolvedValue({
+      ...SAMPLE_REPORT,
+      market: {
+        ...SAMPLE_REPORT.market,
+        companiesBySector: Array.from({ length: 9 }, (_, i) => ({ label: `Sector ${i + 1}`, count: 20 - i })),
+      },
+    });
+
+    renderPage("market");
+    await screen.findByText("Companies by sector");
+
+    const hues = screen
+      .getAllByRole("img", { name: /of the sectored universe$/ })
+      .map((tile) => tile.className.match(/\bbg-u-[\w-]+/)?.[0]);
+    expect(hues).toHaveLength(9);
+    const coloured = hues.filter((hue) => hue !== "bg-u-text3");
+    expect(coloured).toHaveLength(7);
+    expect(new Set(coloured).size).toBe(7);
+    expect(hues.slice(7)).toEqual(["bg-u-text3", "bg-u-text3"]);
   });
 
   it("heads a chapter with its question alone, not with a screen counter", async () => {

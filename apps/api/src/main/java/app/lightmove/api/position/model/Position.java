@@ -39,14 +39,8 @@ import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.type.SqlTypes;
 
 /**
- * The position brief — the mandate's role definition, 1:1 with its project. Seeded from the template
- * library at project creation, then edited a wizard step at a time.
- *
- * <p>One apply method per step rather than one taking the whole document: the brief holds six
- * adjacent {@code Long} salary figures, two {@code Integer} counts and several same-typed strings,
- * and a single positional constructor over all of them is a transposition the compiler cannot see.
- *
- * <p>Publishing stamps who declared the brief ready. It is not a lock — V38 retired that.
+ * The position brief — the mandate's role definition, 1:1 with its project, seeded from the template
+ * library and edited a step at a time. Publishing stamps who declared it ready; it is not a lock (V38).
  */
 @Entity
 @Table(name = "app_lm_position")
@@ -56,8 +50,6 @@ public class Position extends BaseEntity {
 
     @Column(name = "project_id", nullable = false, updatable = false)
     private UUID projectId;
-
-    // Step 1 · Position details
 
     @Column(name = "department", length = 160)
     private String department;
@@ -86,16 +78,12 @@ public class Position extends BaseEntity {
     private String narrative;
 
     /**
-     * Provenance of the ten scalars a template or a document reading can claim, keyed by wire field
-     * name. An absent key means nobody has claimed the field yet — it is still fillable. The
-     * compensation figures and the role title are deliberately never in here: neither is ever
-     * auto-filled.
+     * Provenance of the scalars a template or document reading can claim, keyed by wire field name; an
+     * absent key means unclaimed and still fillable. Compensation and the role title are never in here.
      */
     @JdbcTypeCode(SqlTypes.JSON)
     @Column(name = "field_sources", nullable = false)
     private Map<String, FieldSource> fieldSources = Map.of();
-
-    // Step 2 · Mandate context
 
     @Enumerated(EnumType.STRING)
     @Column(name = "mandate_reason", nullable = false, length = 32)
@@ -116,8 +104,6 @@ public class Position extends BaseEntity {
     @Column(name = "internal_context")
     private String internalContext;
 
-    // Step 3 · Reporting structure
-
     @ElementCollection(fetch = FetchType.LAZY)
     @CollectionTable(name = "app_lm_position_org_node",
             joinColumns = @JoinColumn(name = "position_id"))
@@ -133,8 +119,6 @@ public class Position extends BaseEntity {
     @Enumerated(EnumType.STRING)
     @Column(name = "notice_unit", length = 8)
     private NoticeUnit noticeUnit;
-
-    // Step 4 · Compensation package
 
     @Column(name = "currency", nullable = false, length = 3)
     private String currency = DefaultCurrency.CODE;
@@ -172,8 +156,6 @@ public class Position extends BaseEntity {
     @OrderColumn(name = "sort_order")
     private List<PositionBenefit> benefits = new ArrayList<>();
 
-    // Step 5 · Assessment criteria
-
     @ElementCollection(fetch = FetchType.LAZY)
     @CollectionTable(name = "app_lm_position_criterion",
             joinColumns = @JoinColumn(name = "position_id"))
@@ -190,18 +172,13 @@ public class Position extends BaseEntity {
     @Column(name = "technical_share", nullable = false)
     private int technicalShare = 50;
 
-    // Step 6 · Publication
-
     @Column(name = "published_at")
     private Instant publishedAt;
 
     @Column(name = "published_by")
     private UUID publishedBy;
 
-    /**
-     * A blank brief, opened at the client's home country. The country is a constructor argument
-     * because a role template has never met the client, so applying one must leave it alone.
-     */
+    /** A blank brief at the client's home country, which applying a role template must leave alone. */
     public static Position forProject(UUID projectId, String country) {
         Position position = new Position();
         position.projectId = projectId;
@@ -238,18 +215,9 @@ public class Position extends BaseEntity {
     }
 
     /**
-     * Replaces the step's own key slice — {@code applyDetails}, {@code applyContext} and
-     * {@code applyReporting} each own a disjoint set of keys ({@code stepKeys}), so this never touches
-     * what the other two steps have claimed. Two guards a blind {@code putAll} did not have:
-     * <ul>
-     *   <li>a key of {@code stepKeys} that {@code slice} does not mention is removed rather than left
-     *       stale — a template reapply that stops claiming a scalar (the generic fallback has no
-     *       {@code department}) must not leave that key's old {@code TEMPLATE}/{@code MANUAL} tag
-     *       describing a field {@code applyDetails} just nulled;</li>
-     *   <li>an incoming {@code DOCUMENT} never moves a key off {@code MANUAL} — a person's own
-     *       correction is never quietly reclaimed by a stale or buggy client PUT. A template's own
-     *       redraft is unaffected: it claims {@code TEMPLATE}, never {@code DOCUMENT}.</li>
-     * </ul>
+     * Replaces this step's own disjoint key slice: a step key the slice omits is removed rather than
+     * left stale, and an incoming {@code DOCUMENT} never moves a key off {@code MANUAL}, so a person's
+     * correction is never reclaimed by a stale client PUT.
      */
     private void mergeFieldSources(Set<String> stepKeys, Map<String, FieldSource> slice) {
         Map<String, FieldSource> merged = new LinkedHashMap<>(this.fieldSources);
@@ -268,14 +236,9 @@ public class Position extends BaseEntity {
     }
 
     /**
-     * Pins the mandate seat to the front of the stored list, and it is not cosmetic.
-     *
-     * <p>{@code app_lm_position_org_node} carries a partial unique index allowing one flagged seat per
-     * chart, and Hibernate replaces an {@code @OrderColumn} collection by updating rows <i>in place</i>
-     * at each index rather than deleting the old set first. So a save that moves the seat from slot 1
-     * to slot 0 writes the flag onto slot 0 while slot 1 still holds it, and the index — correctly —
-     * refuses the whole write with a 409. Keeping the seat at slot 0 in the seed, in the migration and
-     * on every write means the flag never moves between rows, and the transient double never happens.
+     * Not cosmetic: Hibernate rewrites an {@code @OrderColumn} list in place row by row, so moving the
+     * flagged seat between slots would briefly flag two rows and trip the one-seat partial unique index
+     * (a 409). Keeping it at slot 0 on every write means the flag never moves.
      */
     private static List<PositionOrgNode> mandateSeatFirst(List<PositionOrgNode> chart) {
         return Stream.concat(
@@ -284,7 +247,7 @@ public class Position extends BaseEntity {
                 .toList();
     }
 
-    /** The seat this brief is for. Absent only on a chart that has somehow lost its anchor. */
+    /** Absent only on a chart that has somehow lost its anchor. */
     public Optional<PositionOrgNode> mandateSeat() {
         return orgChart.stream().filter(PositionOrgNode::isMandateSeat).findFirst();
     }
@@ -314,16 +277,12 @@ public class Position extends BaseEntity {
         }
     }
 
-    /**
-     * Records that somebody declared the brief ready, once. A repeat publish keeps the first stamp —
-     * the date can reach a client-facing document. When the brief last changed is {@code updatedAt}.
-     */
+    /** A repeat publish keeps the first stamp — the date can reach a client-facing document. */
     public void publish(UUID actorId) {
         if (publishedAt != null) {
             return;
         }
-        // Truncated to what Postgres stores: timestamptz keeps microseconds, and an untruncated
-        // Instant makes the response to this call disagree with every read of the same row afterwards.
+        // Truncated to timestamptz's microseconds, or this response disagrees with every later read.
         this.publishedAt = Instant.now().truncatedTo(ChronoUnit.MICROS);
         this.publishedBy = actorId;
     }

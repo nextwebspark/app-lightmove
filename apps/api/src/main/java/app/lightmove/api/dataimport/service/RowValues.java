@@ -11,16 +11,8 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 /**
- * Turns a spreadsheet cell into the value a typed field wants.
- *
- * <p>Every rule here exists because a real export broke without it. A headcount arrives as
- * "1,200" or "1200.0"; a salary as "AED 450,000"; a founding year as "1998.0" because Excel decided
- * the column was numeric. Refusing those would refuse most real files, so they are read rather than
- * rejected — but only where the reading is unambiguous.
- *
- * <p>An unreadable value answers {@code null} rather than throwing: one unparseable headcount is a
- * cell to leave empty, not a reason to fail the row. The fields that cannot be guessed at all — a
- * company or a person with no name — are checked by the caller.
+ * Turns a spreadsheet cell into the value a typed field wants, reading "1,200" or "AED 450,000" where
+ * unambiguous. An unreadable value is {@code null}, never a thrown row.
  */
 final class RowValues {
 
@@ -48,11 +40,7 @@ final class RowValues {
         return parsed.intValue();
     }
 
-    /**
-     * A whole number out of whatever a spreadsheet made of it — grouping separators, a currency
-     * prefix, a trailing {@code .0} from a numeric cell, all removed. A genuine fraction is rounded,
-     * because every field this feeds is a count or a whole-currency-unit figure.
-     */
+    /** A fraction is rounded: every field this feeds is a count or a whole-currency figure. */
     static Long number(String value) {
         String trimmed = text(value);
         if (trimmed == null) {
@@ -69,7 +57,7 @@ final class RowValues {
         }
     }
 
-    /** A three-letter currency code, or null. "AED 450,000" in a currency column still means AED. */
+    /** A three-letter currency code, or null; "AED 450,000" still means AED. */
     static String currency(String value) {
         String trimmed = text(value);
         if (trimmed == null) {
@@ -79,12 +67,7 @@ final class RowValues {
         return letters.length() == 3 ? letters.toUpperCase(Locale.ROOT) : null;
     }
 
-    /**
-     * A seniority as the candidate API spells it, from however the file spelled it.
-     *
-     * <p>Matched against the wire token ("N-1"), the enum name ("N_MINUS_1") and the spellings files
-     * carry: "N minus 1", "n-1" and "CSuite" are all the same rung and none is a canonical form.
-     */
+    /** Matches the wire token, the enum name and the spellings files carry ("N minus 1", "CSuite"). */
     static String seniority(String value) {
         String trimmed = text(value);
         if (trimmed == null) {
@@ -105,12 +88,7 @@ final class RowValues {
         return null;
     }
 
-    /**
-     * A gender as the candidate API spells it, from however the file spelled it.
-     *
-     * <p>A spelling nobody listed answers null rather than {@code other}: a cell the importer could
-     * not read is not somebody stating a gender, and the report counts the two apart.
-     */
+    /** An unknown spelling is null, never {@code other}: the report counts "not recorded" apart. */
     static String gender(String value) {
         String trimmed = text(value);
         if (trimmed == null) {
@@ -120,12 +98,8 @@ final class RowValues {
     }
 
     /**
-     * A notice period as the pickers spell it, from however the file stated it.
-     *
-     * <p>Only an exact equivalent folds — {@link NoticePeriod#ofPair} owns that arithmetic, so the
-     * importer and the position extractor agree on what ninety days is. A period the pickers do not
-     * offer, six weeks or "negotiable", answers null: the row keeps whatever it already held rather
-     * than gaining a figure nobody stated.
+     * Only an exact equivalent folds ({@link NoticePeriod#ofPair}); anything else, "negotiable"
+     * included, is null, so the row keeps what it held rather than a figure nobody stated.
      */
     static String noticePeriod(String value) {
         String trimmed = text(value);

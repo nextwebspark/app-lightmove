@@ -1,0 +1,11 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "category": { "type": "string" },
+    "confidence": { "type": "string", "enum": ["high", "medium", "low"] },
+    "evidence_for": { "type": "array", "items": { "type": "string" } },
+    "evidence_against": { "type": "array", "items": { "type": "string" } },
+    "rule_applied": { "type": "string", "enum": ["A", "B", "C", "D", "E", "none"] }
+  }
+}

@@ -12,6 +12,8 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import app.lightmove.api.FlowTestSupport;
 import app.lightmove.api.IntegrationTest;
 import app.lightmove.api.core.email.model.EmailMessage;
+import app.lightmove.api.core.security.model.User;
+import app.lightmove.api.core.security.repository.UserRepository;
 import app.lightmove.api.project.model.ClientRepresentative;
 import app.lightmove.api.project.repository.ClientRepresentativeRepository;
 import app.lightmove.api.project.repository.PendingRepresentativeAttachmentRepository;
@@ -41,6 +43,7 @@ class ClientAccessIntegrationTest extends FlowTestSupport {
     @Autowired ClientRepresentativeRepository representatives;
     @Autowired PendingRepresentativeAttachmentRepository pendingAttachments;
     @Autowired WorkspaceMemberRepository members;
+    @Autowired UserRepository users;
 
     @Test
     @DisplayName("an existing member named a representative gains the CLIENT role with a notice, not a new invite")
@@ -102,6 +105,9 @@ class ClientAccessIntegrationTest extends FlowTestSupport {
         String rep = acceptAsNewUser(email.latestTokenFor(repEmail), "Ext Rep");
 
         attachRepresentative(admin, attached, representative.get("id").asText());
+        User repAccount = users.findByEmail(repEmail).orElseThrow();
+        repAccount.adoptAvatarFrom("GOOGLE", "https://lh3.googleusercontent.com/a/ext-rep");
+        users.save(repAccount);
 
         // Sharing a mandate with an already-active representative is announced, not silent — a person
         // with a working login gets no accept flow, so the notice is their only signal.
@@ -119,7 +125,9 @@ class ClientAccessIntegrationTest extends FlowTestSupport {
                 .andExpect(jsonPath("$[0].id").value(attached))
                 .andExpect(jsonPath("$[0].representatives.length()").value(1))
                 .andExpect(jsonPath("$[0].representatives[0].email").value(repEmail))
-                .andExpect(jsonPath("$[0].representatives[0].status").value("ACTIVE"));
+                .andExpect(jsonPath("$[0].representatives[0].status").value("ACTIVE"))
+                .andExpect(jsonPath("$[0].representatives[0].avatarUrl")
+                        .value("https://lh3.googleusercontent.com/a/ext-rep"));
 
         // They may read the attached mandate's content...
         mvc.perform(get("/api/v1/projects/" + attached + "/position").header("Authorization", "Bearer " + rep))
@@ -250,8 +258,8 @@ class ClientAccessIntegrationTest extends FlowTestSupport {
 
         ClientRepresentative rep = representatives
                 .findByClientIdAndEmailIgnoreCase(UUID.fromString(clientId), repEmail).orElseThrow();
-        UUID repMemberId = members.findByUserIdAndStatus(rep.getUserId(), MemberStatus.ACTIVE)
-                .orElseThrow().getId();
+        UUID repMemberId = members.findAllByUserIdAndStatusOrderByJoinedAtAsc(rep.getUserId(), MemberStatus.ACTIVE)
+                .getFirst().getId();
 
         String projectId = createProject(admin, clientId, "Chief Financial Officer");
 
@@ -346,6 +354,8 @@ class ClientAccessIntegrationTest extends FlowTestSupport {
                 .andReturn());
         assertThat(attached.get("representatives").size()).isEqualTo(1);
         assertThat(attached.get("representatives").get(0).get("status").asText()).isEqualTo("INVITED");
+        assertThat(attached.get("representatives").get(0).get("avatarUrl").isNull())
+                .as("an invitee has no account picture yet").isTrue();
         assertThat(attached.get("team").size()).as("no seat exists before accept").isEqualTo(1);
 
         // Re-attaching is a no-op, not a queue.

@@ -11,15 +11,7 @@ import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 
-/**
- * The projects list's "Companies" number, answered for {@code project}, which owns
- * {@link ProjectCompanyCounter}; this only implements it — the same inversion
- * {@code TriagedCompanyLookupAdapter} uses, and for the same reason.
- *
- * <p>Declined companies are left out. The number states the universe a mandate is still working, and
- * a mandate that took forty companies to reject thirty-nine of them has one — the rejections live on
- * the Declined page, which is where a consultant goes to count them.
- */
+/** The projects list's "Companies" number for {@code project}; declined companies are not counted. */
 @Component
 @RequiredArgsConstructor
 class ProjectCompanyCounterAdapter implements ProjectCompanyCounter {

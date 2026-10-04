@@ -1,6 +1,7 @@
 import { request } from "../../../lib/apiClient";
 import type {
   Candidate,
+  CandidateAiAssessment,
   CandidatesPage,
   CandidateStatus,
   SaveCandidatePayload,
@@ -127,4 +128,26 @@ export function changeCandidateStatus(
 
 export function deleteCandidate(projectId: string, candidateId: string): Promise<void> {
   return request<void>(`/projects/${projectId}/candidates/${candidateId}`, { method: "DELETE" });
+}
+
+/** Under the list's prefix, so the stream's refresh after an enrichment re-reads it too. */
+export const AI_ASSESSMENT_KEY = (projectId: string, candidateId: string) =>
+  [...CANDIDATES_KEY_PREFIX(projectId), "ai-assessment", candidateId] as const;
+
+/** Null until a first AI enrichment has run (the server answers 204). */
+export async function getAiAssessment(
+  projectId: string,
+  candidateId: string,
+  signal?: AbortSignal,
+): Promise<CandidateAiAssessment | null> {
+  const assessment = await request<CandidateAiAssessment | undefined>(
+    `/projects/${projectId}/candidates/${candidateId}/ai-assessment`,
+    { signal },
+  );
+  return assessment ?? null;
+}
+
+/** Queues an AI deep enrichment; the result lands later, through the stream and the read above. */
+export function requestAiEnrich(projectId: string, candidateId: string): Promise<void> {
+  return request<void>(`/projects/${projectId}/candidates/${candidateId}/ai-enrich`, { method: "POST" });
 }

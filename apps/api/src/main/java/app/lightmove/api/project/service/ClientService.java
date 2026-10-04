@@ -1,5 +1,7 @@
 package app.lightmove.api.project.service;
 
+import app.lightmove.api.common.persona.model.HiringCompanyProfile;
+import app.lightmove.api.common.persona.model.HiringPersona;
 import app.lightmove.api.core.audit.constant.ProjectEventType;
 import app.lightmove.api.core.audit.service.AuditService;
 import app.lightmove.api.core.error.constant.ErrorCode;
@@ -36,12 +38,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 /**
- * The client registry: the records the Clients screen lists, creates and edits, plus the mandate views
- * the drawer renders. Gated on {@code CLIENT_RECORD_MANAGE} at the controller.
- *
- * <p>A DB-picked client's canonical name and domain are resolved from the company universe at write
- * time (never trusted from the request), the same seam Strategy uses; a custom client is typed in. The
- * case-insensitive name unique index is the belt behind the create-time 409.
+ * The client registry. A DB-picked client's name and domain are resolved from the universe, never
+ * trusted from the request; the case-insensitive unique index backs the create-time 409.
  */
 @Service
 @RequiredArgsConstructor
@@ -91,9 +89,10 @@ public class ClientService {
                         rep.getId(), rep.getFullName(), rep.getPosition(), rep.getEmail(), rep.getStatus()))
                 .toList();
 
-        return new ClientDetailResponse(client.getId(), client.getName(), client.getSector(),
-                client.getHqCountry(), client.getHqCity(), client.getLogoUrl(), client.getDomain(),
-                client.getOffLimitsNote(), client.getNotes(), active, mandates.size() - active, reps, mandates);
+        return new ClientDetailResponse(client.getId(), client.getName(), client.universeAccountId(),
+                client.getSector(), client.getHqCountry(), client.getHqCity(), client.getLogoUrl(),
+                client.getDomain(), client.getOffLimitsNote(), client.getNotes(), client.getPersona(),
+                active, mandates.size() - active, reps, mandates);
     }
 
     @Transactional
@@ -149,7 +148,44 @@ public class ClientService {
         return get(workspaceId, clientId);
     }
 
-    /** One client's mandates as the drawer renders them — lead and health resolved. */
+    @Transactional
+    public ClientDetailResponse updatePersona(UUID userId, UUID workspaceId, UUID clientId, HiringPersona persona,
+                                              HttpServletRequest httpRequest) {
+        requireClient(workspaceId, clientId).describePersona(persona);
+
+        audit.event(ProjectEventType.CLIENT_UPDATED)
+                .actor(userId).workspace(workspaceId).target("client", clientId).from(httpRequest)
+                .detail("section", "persona")
+                .record();
+
+        return get(workspaceId, clientId);
+    }
+
+    /** The industry of the client a mandate hires for, and nothing else about it: outreach names no client. */
+    @Transactional(readOnly = true)
+    public String industryOfProjectClient(UUID workspaceId, UUID projectId) {
+        Project project = projects.requireInWorkspace(projectId, workspaceId);
+        return requireClient(workspaceId, project.getClientId()).getSector();
+    }
+
+    /**
+     * The client a mandate hires for, as the assistant is told about it. Its headcount is the universe's
+     * live figure where the record was picked from it, never a stored copy.
+     */
+    @Transactional(readOnly = true)
+    public HiringCompanyProfile hiringProfileOfProject(UUID workspaceId, UUID projectId) {
+        Project project = projects.requireInWorkspace(projectId, workspaceId);
+        Client client = requireClient(workspaceId, project.getClientId());
+        String accountId = client.universeAccountId();
+        Integer employees = accountId == null ? null : companies.byAccountIds(List.of(accountId)).stream()
+                .findFirst()
+                .map(CompanyRow::numEmployees)
+                .orElse(null);
+        return new HiringCompanyProfile(client.getName(), client.getSector(), client.getHqCity(),
+                client.getHqCountry(), client.getDomain(), employees, client.getPersona());
+    }
+
+    /** The drawer's mandates, lead and health resolved. */
     private List<ClientMandateResponse> mandatesFor(UUID workspaceId, UUID clientId) {
         return projectService.listForClient(workspaceId, clientId).stream()
                 .map(ClientService::toMandate)
@@ -161,14 +197,12 @@ public class ClientService {
         CompanyRow row = companies.byAccountIds(List.of(accountId)).stream().findFirst()
                 .orElseThrow(() -> ApiException.userFacing(ErrorCode.VALIDATION_FAILED,
                         "That company is no longer in the database"));
-        // Name, domain, city and logo are the universe's, not the request's; sector/HQ country are the
-        // editable overrides. The universe publishes a website rather than a bare domain, so the domain
-        // is derived from it.
+        // Name, domain, city and logo are the universe's, not the request's; the domain is derived from
+        // the website the universe publishes.
         String hqCountry = request.hqCountry() != null ? request.hqCountry() : row.companyCountry();
         return Client.fromUniverse(workspaceId, accountId, row.companyName(), request.sector(),
                 hqCountry, row.companyCity(), WebsiteDomain.of(row.website()), row.logoUrl(), userId);
     }
-
 
     private Client fromCustom(UUID userId, UUID workspaceId, CreateClientRequest request) {
         if (request.customName() == null || request.customName().isBlank()) {

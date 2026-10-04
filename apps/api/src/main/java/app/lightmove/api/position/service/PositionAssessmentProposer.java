@@ -3,9 +3,9 @@ package app.lightmove.api.position.service;
 import app.lightmove.api.common.constant.CompetencyPanel;
 import app.lightmove.api.common.constant.CriterionMode;
 import app.lightmove.api.core.llm.model.BlockedAnswer;
-import app.lightmove.api.core.llm.model.PromptGuardSpec;
 import app.lightmove.api.core.llm.model.Pseudonyms;
-import app.lightmove.api.core.llm.service.LlmCallPolicy;
+import app.lightmove.api.core.llm.service.StructuredPrompt;
+import app.lightmove.api.core.llm.service.StructuredPromptFactory;
 import app.lightmove.api.core.llm.service.TextPseudonymiser.Redaction;
 import app.lightmove.api.core.ratelimit.service.LlmBudget;
 import app.lightmove.api.core.ratelimit.service.LlmBudgetGuard;
@@ -20,28 +20,15 @@ import app.lightmove.api.positiontemplate.model.PositionTemplateCompetency;
 import app.lightmove.api.positiontemplate.service.PositionTemplateService;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
-import java.util.function.Consumer;
 import java.util.stream.Collectors;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.ai.chat.client.ChatClient;
-import org.springframework.ai.google.genai.GoogleGenAiChatOptions;
-import org.springframework.beans.factory.annotation.Value;
-import org.springframework.core.io.Resource;
 import org.springframework.stereotype.Service;
 
 /**
- * Asks the model to read a position description into step-five proposals — no heuristic reader backs
- * this one up, because there is no key-value header for a screening criterion.
- *
- * <p>Resolves the mandate's matching role template and, when the title itself matches one (never the
- * generic fallback — see {@link #vocabularyParagraph}), sends its competency names as a controlled
- * vocabulary, so mandates converge on shared spellings. A field neither the document nor the model
- * found stays unproposed: earlier drafts backfilled it from the matched template — dead weight once a
- * mandate is already seeded from that same template, the same reasoning
- * {@link PositionDetailsProposer}'s class doc gives.
+ * Asks the model to read a position description into step-five proposals, sending the title-matched
+ * template's competency names as a vocabulary so mandates converge on shared spellings.
  */
 @Service
 @Slf4j
@@ -49,9 +36,6 @@ public class PositionAssessmentProposer {
 
     private static final String LABEL = "Assessment extraction";
     private static final String PROMPT_ID = "position-extract-assessment";
-    private static final double EXTRACTION_TEMPERATURE = 0.0;
-    private static final String ANSWER_MIME_TYPE = "application/json";
-    private static final int EXTRACTION_THINKING_BUDGET = 0;
 
     /** Binds to {@link ModelAssessmentAnswer}, whose only required field is {@code criteria}. */
     private static final String BLOCKED =
@@ -64,36 +48,24 @@ public class PositionAssessmentProposer {
     private static final int COMPETENCY_MAX_COUNT_PER_PANEL = 5;
     private static final int VOCABULARY_MAX_LENGTH = 2000;
 
-    /** A competency's two optional attributes packed positionally: {@code "<name>"},
-     *  {@code "<name> — <weight>"} or {@code "<name> — <weight> — <description>"} — the weight segment
-     *  is never skipped once either optional attribute is present, so the frontend can always trust
-     *  segment 2, when present, to be it. */
+    /** Packs {@code "<name>[ — <weight>[ — <description>]]"}; the frontend trusts segment 2 to be the weight. */
     private static final String PACK_SEPARATOR = " — ";
 
-    private final ChatClient chatClient;
     private final PositionDocumentRedactor redactor;
     private final PositionTemplateService templates;
     private final ExtractedFieldReader fieldReader;
-    private final Resource systemPrompt;
-    private final Consumer<ChatClient.AdvisorSpec> guarded;
+    private final StructuredPrompt prompt;
     private final LlmBudgetGuard llmBudget;
 
-    // Hand-written rather than @RequiredArgsConstructor: Lombok cannot annotate a constructor
-    // parameter with @Value, matching every other proposer's own exemption.
-    public PositionAssessmentProposer(ChatClient chatClient,
+    public PositionAssessmentProposer(StructuredPromptFactory prompts,
                                       PositionDocumentRedactor redactor,
                                       PositionTemplateService templates,
                                       ExtractedFieldReader fieldReader,
-                                      @Value("classpath:prompts/position-extract-assessment-system.st") Resource systemPrompt,
-                                      @Value("classpath:prompts/position-extract-assessment-schema.json") Resource answerSchema,
-                                      LlmCallPolicy llmCalls,
                                       LlmBudgetGuard llmBudget) {
-        this.chatClient = chatClient;
         this.redactor = redactor;
         this.templates = templates;
         this.fieldReader = fieldReader;
-        this.systemPrompt = systemPrompt;
-        this.guarded = llmCalls.forPrompt(PromptGuardSpec.structured(PROMPT_ID, answerSchema, BLOCKED));
+        this.prompt = prompts.create(PROMPT_ID, BLOCKED);
         this.llmBudget = llmBudget;
     }
 
@@ -120,31 +92,18 @@ public class PositionAssessmentProposer {
     }
 
     private ModelAssessmentAnswer ask(String redactedText, String vocabulary) {
-        return chatClient.prompt()
-                .advisors(guarded)
-                .options(GoogleGenAiChatOptions.builder()
-                        .temperature(EXTRACTION_TEMPERATURE)
-                        .responseMimeType(ANSWER_MIME_TYPE)
-                        .thinkingBudget(EXTRACTION_THINKING_BUDGET)
-                        .labels(Map.of("prompt", PROMPT_ID)))
-                .system(systemPrompt)
-                .user(user -> user.text("""
-                        Position description text:
-                        {text}
-                        {vocabulary}
-                        """)
-                        .param("text", redactedText)
-                        .param("vocabulary", vocabulary))
-                .call()
-                .entity(ModelAssessmentAnswer.class);
+        return prompt.ask(ModelAssessmentAnswer.class, user -> user.text("""
+                Position description text:
+                {text}
+                {vocabulary}
+                """)
+                .param("text", redactedText)
+                .param("vocabulary", vocabulary));
     }
 
     /**
-     * The matched template's own competency names, grouped by panel. Matched on the title alone, never
-     * the generic fallback {@link PositionTemplateService#matching} would offer: an unmatched title
-     * telling the model a generic brief's names are "this role's usual" would work against the
-     * convergent-spelling goal this exists for. Empty when the role title is blank, nothing matches, or
-     * the matched template names no competencies at all.
+     * Matched on the title alone, never the generic fallback {@link PositionTemplateService#matching}
+     * offers, whose names are nobody's "usual". Empty when nothing matches.
      */
     private String vocabularyParagraph(UUID workspaceId, String roleTitle) {
         if (roleTitle == null || roleTitle.isBlank()) {
@@ -167,11 +126,9 @@ public class PositionAssessmentProposer {
         if (!behaviouralNames.isEmpty()) {
             vocabulary.append("Behavioural: ").append(behaviouralNames).append('\n');
         }
-        // Bounded even though app_lm_position_template is migration-owned today: cheap insurance
-        // against the per-workspace template screen CLAUDE.md says is coming, at which point a name is
-        // workspace-writable text reaching this prompt with none of the document's own redaction or
-        // PromptGuardSpec wrapping it. A name carrying a newline or a pseudonym-shaped token is dropped
-        // outright rather than merely truncated, since either could forge a new prompt section.
+        // A template name is workspace-writable text reaching the prompt without the document's
+        // redaction or PromptGuardSpec wrapping, so it is bounded here, and a name carrying a newline or
+        // a pseudonym-shaped token is dropped outright since either could forge a new prompt section.
         return vocabulary.length() > VOCABULARY_MAX_LENGTH
                 ? vocabulary.substring(0, VOCABULARY_MAX_LENGTH)
                 : vocabulary.toString();
@@ -253,11 +210,8 @@ public class PositionAssessmentProposer {
     }
 
     /**
-     * The whole row is dropped when the model states a weight that will not parse or falls outside
-     * 0-100, or when the name itself contains {@link #PACK_SEPARATOR} — packing three typed attributes
-     * into one positional string only works when the name cannot be mistaken for a separator, and a
-     * dropped row is cheaper than a silently corrupted one. A weight the document simply never
-     * suggested is a different, expected case: the competency is still proposed, weight segment omitted.
+     * Drops the row when a stated weight will not parse or falls outside 0-100, or when the name contains
+     * {@link #PACK_SEPARATOR} and would corrupt the packing. A missing weight is simply omitted.
      */
     private Optional<ExtractedField> competencyFieldFrom(String fieldKey, ModelCompetency competency,
                                                           Pseudonyms pseudonyms, String haystack) {
@@ -302,10 +256,8 @@ public class PositionAssessmentProposer {
     }
 
     /**
-     * When a description is present but no weight was proposed, the weight segment is still emitted
-     * as {@code "0"} rather than omitted — the frontend's parser trusts the second " — " segment,
-     * when present, to be the weight, and omitting it here would silently shift the description into
-     * that slot and lose it.
+     * A description without a weight still emits weight {@code "0"}: the frontend reads segment 2 as the
+     * weight, so omitting it would shift the description into that slot and lose it.
      */
     private static String pack(String name, Integer weight, String description) {
         boolean hasDescription = description != null && !description.isBlank();
@@ -322,11 +274,8 @@ public class PositionAssessmentProposer {
     }
 
     /**
-     * Pre-truncates every value to {@code PutCriteriaRequest}'s and {@code PutCompetenciesRequest}'s
-     * own per-field ceilings, and caps how many of each this single proposal can carry to those same
-     * numbers. That bounds one proposal, not the brief it is accepted into: those DTOs' ceilings are
-     * per brief, so a brief already holding entries near its own ceiling can still 400 on accept —
-     * {@code PositionPage.tsx} caps on the brief's remaining headroom at accept time for that case.
+     * Truncates and counts to the write requests' ceilings. That bounds one proposal, not the brief:
+     * {@code PositionPage.tsx} caps on the brief's remaining headroom at accept time.
      */
     private List<ExtractedField> truncateToCeilings(List<ExtractedField> fields) {
         List<ExtractedField> truncated = new ArrayList<>();
@@ -360,10 +309,8 @@ public class PositionAssessmentProposer {
     }
 
     /**
-     * Caps a packed competency value's name and description segments independently, rather than
-     * truncating the packed string as a whole — a flat cut could sever it mid-weight or mid-separator.
-     * Split with a limit of 3 so a description that itself contains " — " is never chopped at the
-     * wrong occurrence.
+     * Caps name and description separately — a flat cut could sever the packing — splitting with a limit
+     * of 3 so a description containing the separator stays whole.
      */
     private static ExtractedField cappedCompetency(ExtractedField field) {
         String[] parts = field.value().split(PACK_SEPARATOR, 3);

@@ -6,17 +6,8 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 /**
- * LinkedIn URL anatomy, in one place.
- *
- * <p>Every caller that spends money on a URL asks the same two questions — is this really a LinkedIn
- * page, and which slug does it name — and the four hand-rolled parsers this replaced answered them
- * differently. One checked the host and one did not, so a mis-scraped {@code example.com/company/x}
- * bought a vendor lookup that the person path would have refused for free. Both answers now come
- * from here, and "worth billing" is exactly "a slug came back".
- *
- * <p>Slugs are lowercased because that is how the vendor datasets key them and their filters match
- * exactly, while LinkedIn itself treats the path case-insensitively: {@code /in/John-Smith} and
- * {@code /in/john-smith} are one profile and must be one lookup.
+ * LinkedIn URL anatomy in one place: is it really LinkedIn, and which slug — "worth billing" is
+ * exactly "a slug came back". Slugs are lowercased, as the vendor datasets key them.
  */
 public final class LinkedInUrls {
 

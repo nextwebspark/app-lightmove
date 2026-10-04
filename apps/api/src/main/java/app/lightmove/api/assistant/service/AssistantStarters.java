@@ -4,10 +4,9 @@ import app.lightmove.api.assistant.constant.StarterKind;
 import app.lightmove.api.assistant.dto.AssistantStarter;
 import app.lightmove.api.assistant.dto.AssistantStartersResponse;
 import app.lightmove.api.common.industry.service.Industries;
+import app.lightmove.api.common.persona.model.HiringCompanyProfile;
+import app.lightmove.api.common.persona.model.HiringPersona;
 import app.lightmove.api.strategy.service.IndustryAdjacency;
-import app.lightmove.api.workspace.model.FirmFacts;
-import app.lightmove.api.workspace.model.WorkspacePersona;
-import app.lightmove.api.workspace.service.FirmService;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.LinkedHashMap;
@@ -22,11 +21,9 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
 /**
- * The questions an empty chat offers, drawn from the firm the workspace is: its sector, the sectors
- * whose executives move well into it, and companies of its size. The sector an admin wrote into the
- * persona wins over the picked company's universe industry, which is often a neighbour of the firm's
- * real business (an online retailer filed under internet); a firm with neither is offered retail's.
- * The first two sectors each get a prompt of their own; neighbours and size follow the first.
+ * The questions an empty chat offers, drawn from the hiring company — the firm in-house, the mandate's
+ * client at an agency: its sectors, their neighbours, and companies of its size. The persona's sectors win
+ * over the company's universe industry, often only a neighbour.
  */
 @Service
 @RequiredArgsConstructor
@@ -37,15 +34,15 @@ public class AssistantStarters {
     private static final int OPEN_ENDED_ABOVE = 10_000;
     private static final int MAX_SECTOR_STARTERS = 2;
 
-    private final FirmService firms;
+    private final HiringSideResolver hiringSides;
     private final IndustryAdjacency adjacency;
 
-    public AssistantStartersResponse forWorkspace(UUID workspaceId) {
-        FirmFacts firm = firms.firmOf(workspaceId);
-        WorkspacePersona persona = firm.persona() == null ? WorkspacePersona.empty() : firm.persona();
-        List<String> recorded = recordedSectors(persona.sectors(), firm.industry());
+    public AssistantStartersResponse forProject(UUID workspaceId, UUID projectId) {
+        HiringCompanyProfile hiringCompany = hiringSides.resolve(workspaceId, projectId).hiringCompany();
+        HiringPersona persona = hiringCompany.persona() == null ? HiringPersona.empty() : hiringCompany.persona();
+        List<String> recorded = recordedSectors(persona.sectors(), hiringCompany.industry());
         String sector = recorded.isEmpty() ? ASSUMED_SECTOR : recorded.getFirst();
-        String place = firstPresent(firm.country(), first(persona.geographies()));
+        String place = firstPresent(hiringCompany.country(), first(persona.geographies()));
         String where = place == null ? "" : " in " + place;
         String sectorName = Industries.displayNameOf(sector);
 
@@ -61,8 +58,8 @@ public class AssistantStarters {
             starters.add(new AssistantStarter(StarterKind.ADJACENT, "Top " + Industries.displayNameOf(neighbours.getFirst())
                     + " companies" + where + " with executives who could move into " + sectorName));
         }
-        Integer employees = firm.employees();
-        String name = clean(firm.name());
+        Integer employees = hiringCompany.employees();
+        String name = clean(hiringCompany.name());
         if (!recorded.isEmpty() && employees != null && employees > 0 && name != null) {
             starters.add(new AssistantStarter(StarterKind.SIZE,
                     sectorName + " companies" + where + " with " + sizeBand(employees)
@@ -71,7 +68,6 @@ public class AssistantStarters {
         return new AssistantStartersResponse(recorded.isEmpty(), List.copyOf(starters));
     }
 
-    /** The persona's first sectors, or the company's industry when it names none; one prompt each. */
     private static List<String> recordedSectors(List<String> personaSectors, String industry) {
         Map<String, String> distinct = new LinkedHashMap<>();
         (personaSectors == null ? List.<String>of() : personaSectors).stream()
@@ -85,7 +81,6 @@ public class AssistantStarters {
         return distinct.values().stream().limit(MAX_SECTOR_STARTERS).toList();
     }
 
-    /** The firm's own sectors first, when the list puts them beside its industry; then the list's order. */
     private List<String> neighboursPreferringPersona(String sector, List<String> personaSectors) {
         List<String> neighbours = adjacency.neighboursOf(sector).stream()
                 .filter(neighbour -> !neighbour.equalsIgnoreCase(sector))

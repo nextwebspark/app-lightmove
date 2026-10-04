@@ -1,15 +1,26 @@
 import { useCallback, useEffect, useState } from "react";
 
-/** The folds on the profile panel, in the order they appear. */
+/** The folds on an executive's profile panel — the candidate drawer and the People preview — in order. */
 export const PROFILE_SECTIONS = [
+  "positions",
+  "outreach",
+  "company",
   "summary",
+  "ai",
   "experience",
   "education",
   "compensation",
+  "profile",
   "background",
+  "certifications",
+  "publications",
+  "projects",
+  "volunteering",
   "contact",
   "columns",
-  "note",
+  "notes",
+  "documents",
+  "timeline",
 ] as const;
 
 export type ProfileSection = (typeof PROFILE_SECTIONS)[number];
@@ -18,14 +29,25 @@ type OpenState = Record<ProfileSection, boolean>;
 
 /** What a first visit shows: the three things a consultant reads before deciding to call. */
 const DEFAULTS: OpenState = {
+  positions: true,
+  outreach: true,
+  company: false,
   summary: true,
+  ai: true,
   experience: true,
   education: false,
   compensation: true,
+  profile: false,
   background: false,
+  certifications: false,
+  publications: false,
+  projects: false,
+  volunteering: false,
   contact: false,
   columns: false,
-  note: false,
+  notes: true,
+  documents: true,
+  timeline: false,
 };
 
 const STORAGE_KEY = "lm.candidate-profile.sections";

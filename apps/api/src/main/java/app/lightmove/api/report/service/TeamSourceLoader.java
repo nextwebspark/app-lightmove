@@ -22,13 +22,8 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 
 /**
- * Names everyone the researcher breakdown counts: the mandate's staff seats, and anyone who filed an
- * executive without holding one. A pure client seat is left out — it files nothing and is not on the
- * team being measured.
- *
- * <p>No seat is not the same as gone: a workspace admin is a lead on every mandate without being
- * seated on it, so an active admin who filed is named {@code LEAD}, and only someone who is no longer
- * an active admin of the workspace reads as {@code FORMER}.
+ * Names everyone the researcher breakdown counts: staff seats plus anyone who filed without one. An
+ * active admin (a lead everywhere, seated or not) reads {@code LEAD}; only a departed one {@code FORMER}.
  */
 @Component
 @RequiredArgsConstructor

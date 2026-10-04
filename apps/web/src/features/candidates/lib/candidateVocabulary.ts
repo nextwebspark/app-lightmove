@@ -44,14 +44,16 @@ export const CANDIDATE_SENIORITIES: CandidateSeniority[] = SENIORITY_TOKENS;
 export { NOTICE_PERIODS as CANDIDATE_NOTICE_PERIODS } from "../../../lib/noticePeriod";
 
 /**
- * The nine groups a mandate counts nationality in, in the order the firm lists them. The label is
+ * The eleven groups a mandate counts nationality in, in the order the firm lists them. The label is
  * the stored value. A row may still hold something else — a spreadsheet states whatever it states —
  * and the report folds that into one of these when it reads it.
  */
 export const CANDIDATE_NATIONALITIES: string[] = [
   "Western expat",
   "South Asian",
+  "Asian",
   "Arab expat, non-GCC",
+  "Other expat",
   "Saudi",
   "Emirati",
   "Qatari",
@@ -79,4 +81,6 @@ export const CANDIDATE_SOURCE_STYLES: Record<CandidateSource, { label: string; c
   manual: { label: "Manual", className: "text-u-accent bg-u-accent-tint" },
   csv: { label: "Import", className: "text-u-text2 bg-u-border" },
   extension: { label: "Plugin", className: "text-u-direct bg-u-direct-tint" },
+  ai_sourced: { label: "Sourced", className: "text-u-text2 bg-u-border" },
+  people_search: { label: "People search", className: "text-u-text2 bg-u-border" },
 };

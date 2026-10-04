@@ -18,19 +18,12 @@ import org.springframework.web.util.UriComponentsBuilder;
 import org.springframework.web.util.UriUtils;
 
 /**
- * Builds the one kind of HTTP client this application points at a paid API: timeouts on both ends,
- * the key in a header (or, for a vendor that insists, a query parameter), the correlation id carried
- * across, and every non-2xx already classified before the adapter sees it. A client built here
- * cannot ship without a read timeout, and cannot leak a bare {@code HttpClientErrorException} into
- * a service.
+ * Builds every paid-API client: timeouts on both ends, the key, the correlation id, and every non-2xx
+ * classified before the adapter sees it.
  *
- * <p>The status handler is registered across <i>every</i> error status rather than an enumerated few,
- * and the breadth is a privacy control: whatever it misses falls through to Spring's own handler,
- * which puts the response body verbatim into the exception message — and a vendor's error body echoes
- * the query, so that is a researched person's name in a log.
- *
- * <p>The builder is a parameter rather than a field because {@code RestClient.Builder} mutates in
- * place: a factory holding one would carry the first vendor's base URL and key into the second's.
+ * <p>The status handler covers <i>every</i> error status as a privacy control: Spring's own handler puts
+ * the body — which echoes the query, a researched person's name — into the exception message. The
+ * builder is a parameter because it mutates in place and would carry one vendor's key into the next.
  */
 @Component
 public class VendorClientFactory {
@@ -49,12 +42,7 @@ public class VendorClientFactory {
         return configure(spec, builder.requestFactory(requestFactory), rateLimiter);
     }
 
-    /**
-     * The same client over whatever transport the builder already carries, so a test can hand in one
-     * {@code MockRestServiceServer} has bound. Package-private on purpose: the public method above is
-     * the only way in from a feature, which keeps "a vendor client always has timeouts" a guarantee
-     * the compiler enforces rather than a convention to remember.
-     */
+    /** For a test's bound transport; package-private so a feature cannot get a client without timeouts. */
     RestClient createKeepingTransport(VendorClientSpec spec, RestClient.Builder builder,
                                       VendorRateLimiter rateLimiter) {
         return configure(spec, builder, rateLimiter);
@@ -80,9 +68,8 @@ public class VendorClientFactory {
     }
 
     /**
-     * The query-parameter key, added as the request leaves rather than where the URI is built. Spring's
-     * transport failures quote the URI the adapter asked for, and that one has no key in it — so a
-     * {@code ResourceAccessException} on its way into a log carries the path and never the credential.
+     * Added as the request leaves, not where the URI is built: Spring's transport failures quote the
+     * adapter's URI, so a logged {@code ResourceAccessException} never carries the credential.
      */
     private static HttpRequest withQueryToken(VendorClientSpec spec, HttpRequest request) {
         if (!spec.authenticatesByQuery()) {

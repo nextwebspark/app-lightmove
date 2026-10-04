@@ -15,30 +15,14 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 
 /**
- * Checks that an address is real and deliverable, and extracts the domain that groups its colleagues.
- *
- * <p>Four layers, cheapest first, all free:
- *
- * <ol>
- *   <li><b>Shape</b> — one {@code @}, a domain with a dot.
- *   <li><b>Not a consumer provider</b> — configurable; see {@link PublicEmailDomains}.
- *   <li><b>Not disposable</b> — see {@link DisposableDomains}.
- *   <li><b>MX records</b> — one DNS lookup proving the domain can receive mail. Catches the common
- *       typo ({@code nextwebspark.co}) before it costs a send, a bounce, and a user who never gets
- *       their link and blames us.
- * </ol>
- *
- * <p>It deliberately does <b>not</b> prove the mailbox exists: the verification email is that proof,
- * and an unverified account reaches no workspace data.
+ * Checks an address's shape, that it is not a consumer or disposable domain, and that the domain has
+ * MX records; returns the domain. The verification email, not this, proves the mailbox exists.
  */
 @Component
 @Slf4j
 public class EmailAddressValidator {
 
-    /**
-     * Deliberately permissive: rejecting a valid-but-unusual address is a worse failure than
-     * accepting one that later bounces.
-     */
+    /** Deliberately permissive: rejecting an unusual valid address is worse than a later bounce. */
     private static final String SHAPE = "^[^@\\s]+@[^@\\s.]+(\\.[^@\\s.]+)+$";
 
     private static final String DNS_TIMEOUT_MS = "3000";
@@ -55,13 +39,7 @@ public class EmailAddressValidator {
                 new PublicEmailDomains(config.publicDomains(), config.extraPublicDomains());
     }
 
-    /**
-     * Validates the address and returns its domain.
-     *
-     * @return the lower-cased domain, e.g. {@code nextwebspark.com}.
-     * @throws ApiException if the address is malformed, undeliverable, disposable, or — when blocking
-     *                      is enabled — a consumer provider rather than a company.
-     */
+    /** @return the lower-cased domain, e.g. {@code nextwebspark.com} */
     public String validateWorkEmail(String email) {
         if (email == null || !email.matches(SHAPE)) {
             throw ApiException.of(ErrorCode.EMAIL_UNDELIVERABLE);
@@ -69,8 +47,6 @@ public class EmailAddressValidator {
 
         String domain = domainOf(email);
 
-        // Before deliverability: gmail.com has perfectly good MX records and is refused for what it
-        // means, not for whether it works.
         if (config.blockPublicDomains() && configuredPublicDomains.contains(domain)) {
             throw new ApiException(ErrorCode.EMAIL_NOT_WORK_ADDRESS, "Consumer email domain: " + domain);
         }
@@ -86,25 +62,20 @@ public class EmailAddressValidator {
         return domain;
     }
 
-    /** The domain of an address. Assumes it has already been validated. */
+    /** Assumes the address has already been validated. */
     public static String domainOf(String email) {
         return email.substring(email.lastIndexOf('@') + 1).toLowerCase(Locale.ROOT);
     }
 
-    /** Lower-cased and trimmed; {@code ""} for null. The canonical form emails are stored and matched in. */
+    /** The canonical stored and matched form; {@code ""} for null. */
     public static String normalise(String email) {
         return email == null ? "" : email.trim().toLowerCase(Locale.ROOT);
     }
 
     /**
-     * True if the domain can receive mail — or if we could not find out.
-     *
-     * <p>Failing open is deliberate, but only where the resolver told us nothing: our own outage must
-     * not read as "your email is fake".
-     *
-     * <p>An answer, though, is not an outage. Catching every {@link NamingException} together meant
-     * NXDOMAIN was filed as inconclusive and let through, so the typo'd domain this check exists to
-     * catch was exactly the case it passed.
+     * True if the domain can receive mail, or if the resolver told us nothing (fail open on an outage).
+     * An answer is not an outage: catching every {@link NamingException} together let NXDOMAIN through,
+     * the very typo this check exists to catch.
      */
     private boolean hasMailExchanger(String domain) {
         Hashtable<String, String> env = new Hashtable<>();
@@ -117,7 +88,6 @@ public class EmailAddressValidator {
             context = new InitialDirContext(env);
             return acceptsMail(context.getAttributes(domain, new String[]{"MX"}));
         } catch (NameNotFoundException ex) {
-            // The resolver answered, and the answer was "no such domain". A decision, not a failure.
             log.debug("No such domain: {}", domain);
             return false;
         } catch (NamingException ex) {
@@ -128,13 +98,7 @@ public class EmailAddressValidator {
         }
     }
 
-    /**
-     * Whether an MX answer names somewhere a message could actually go.
-     *
-     * <p>The answer needs reading rather than counting: a domain publishing the single record
-     * {@code 0 .} is declaring "no mail is accepted here" (RFC 7505). {@code example.com} does exactly
-     * that, and testing only for the attribute's presence let it through as deliverable.
-     */
+    /** Read, not counted: the single record {@code 0 .} declares no mail accepted (RFC 7505), as example.com does. */
     static boolean acceptsMail(Attributes attributes) throws NamingException {
         Attribute mailExchangers = attributes.get("MX");
         if (mailExchangers == null || mailExchangers.size() == 0) {
@@ -166,7 +130,6 @@ public class EmailAddressValidator {
         try {
             context.close();
         } catch (NamingException ignored) {
-            // Nothing useful to do, and nothing depends on it.
         }
     }
 }

@@ -1,16 +1,21 @@
 package app.lightmove.api.workspace.model;
-import app.lightmove.api.workspace.constant.WorkspaceStatus;
 
 import app.lightmove.api.common.constant.DefaultCurrency;
+import app.lightmove.api.common.persona.model.HiringPersona;
+import app.lightmove.api.common.persona.model.PersonaSeed;
 import app.lightmove.api.core.error.constant.ErrorCode;
 import app.lightmove.api.core.error.model.ApiException;
 import app.lightmove.api.core.persistence.model.BaseEntity;
+import app.lightmove.api.workspace.constant.CalendarSync;
+import app.lightmove.api.workspace.constant.WorkspaceMode;
+import app.lightmove.api.workspace.constant.WorkspaceStatus;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
 import jakarta.persistence.Table;
 import java.util.Locale;
+import java.util.Objects;
 import java.util.UUID;
 import lombok.AccessLevel;
 import lombok.Getter;
@@ -37,16 +42,11 @@ public class Workspace extends BaseEntity {
     @Column(nullable = false, unique = true)
     private String slug;
 
-    /**
-     * The domain of the address that created this workspace, e.g. {@code nextwebspark.com}.
-     *
-     * <p>Not unique: one firm may run several workspaces. It is how colleagues <i>find</i> each other
-     * at signup, not a claim on the domain.
-     */
+    /** The creator's email domain. Not unique: one firm may run several workspaces. */
     @Column(name = "email_domain", nullable = false, updatable = false)
     private String emailDomain;
 
-    /** One or two characters for the sidebar avatar, e.g. "L". */
+    /** One or two characters for the sidebar avatar. */
     @Setter
     @Column(name = "logo_mark", length = 4)
     private String logoMark;
@@ -59,6 +59,14 @@ public class Workspace extends BaseEntity {
 
     @Column(name = "team_focus", length = 32)
     private String teamFocus;
+
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false, length = 16)
+    private WorkspaceMode mode;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "calendar_sync", nullable = false, length = 16)
+    private CalendarSync calendarSync = CalendarSync.RECALL;
 
     /** The universe row this firm was picked as at signup; null for a firm typed in by hand (V68). */
     @Column(name = "apollo_account_id")
@@ -84,7 +92,7 @@ public class Workspace extends BaseEntity {
 
     @JdbcTypeCode(SqlTypes.JSON)
     @Column(name = "persona", nullable = false)
-    private WorkspacePersona persona = WorkspacePersona.empty();
+    private HiringPersona persona = HiringPersona.empty();
 
     @Setter
     @Column(name = "default_region", nullable = false, length = 32)
@@ -105,30 +113,26 @@ public class Workspace extends BaseEntity {
     private UUID createdBy;
 
     public static Workspace create(String name, String slug, String emailDomain, UUID createdBy,
-                                   WorkspaceCompany company,
+                                   WorkspaceMode mode, WorkspaceCompany company,
                                    String companySize, String primaryRegion, String teamFocus) {
         Workspace workspace = new Workspace();
         workspace.name = name;
         workspace.slug = slug;
         workspace.emailDomain = emailDomain.toLowerCase(Locale.ROOT);
         workspace.createdBy = createdBy;
+        workspace.mode = Objects.requireNonNull(mode, "mode");
         workspace.companySize = companySize;
         workspace.primaryRegion = primaryRegion;
         workspace.teamFocus = teamFocus;
         workspace.logoMark = deriveLogoMark(name);
         workspace.identifyAs(company);
-        workspace.persona = WorkspacePersona.seededFrom(company);
-        // The region they work in is the sensible default for the region their projects will be in.
+        workspace.persona = HiringPersona.seededFrom(seedOf(company));
+
         workspace.defaultRegion = primaryRegion != null ? primaryRegion : "GCC";
         return workspace;
     }
 
-    /**
-     * Corrects the details the organisation was described with.
-     *
-     * <p>Notably <b>not</b> the slug, which is in URLs and bookmarks, and not the email domain, which
-     * was never the user's to choose. A workspace can be re-described; it cannot be re-identified.
-     */
+    /** Never the slug (in URLs) or the email domain: a workspace can be re-described, not re-identified. */
     public void describe(String name, WorkspaceCompany company,
                          String companySize, String primaryRegion, String teamFocus) {
         this.name = name;
@@ -136,12 +140,22 @@ public class Workspace extends BaseEntity {
         this.primaryRegion = primaryRegion;
         this.teamFocus = teamFocus;
         this.logoMark = deriveLogoMark(name);
-        this.persona = persona.refiledFrom(getCompany(), company);
+        this.persona = persona.refiledFrom(seedOf(getCompany()), seedOf(company));
         identifyAs(company);
     }
 
-    public void describePersona(WorkspacePersona persona) {
-        this.persona = persona == null ? WorkspacePersona.empty() : persona;
+    /** The one write of the mode after creation, so every switch passes the audited path that calls it. */
+    public void changeMode(WorkspaceMode mode) {
+        this.mode = Objects.requireNonNull(mode, "mode");
+    }
+
+    /** The one write of the calendar sync, so every switch passes the audited path that calls it. */
+    public void changeCalendarSync(CalendarSync calendarSync) {
+        this.calendarSync = Objects.requireNonNull(calendarSync, "calendarSync");
+    }
+
+    public void describePersona(HiringPersona persona) {
+        this.persona = persona == null ? HiringPersona.empty() : persona;
     }
 
     /** Null when the firm was typed in by hand rather than picked from the universe. */
@@ -164,15 +178,11 @@ public class Workspace extends BaseEntity {
         this.logoUrl = company == null ? null : company.logoUrl();
     }
 
-    /**
-     * The Settings → General form. Re-derives the logo mark and re-files the company snapshot, which a
-     * null company clears; identity (slug, domain) stays put. The persona's sectors and country follow
-     * the company, and the rest of it stays the admin's own text.
-     */
+    /** Settings → General: re-files the company snapshot and the persona's sectors and country; identity stays. */
     public void applySettings(String name, WorkspaceCompany company, String defaultRegion, String defaultCurrency) {
         this.name = name;
         this.logoMark = deriveLogoMark(name);
-        this.persona = persona.refiledFrom(getCompany(), company);
+        this.persona = persona.refiledFrom(seedOf(getCompany()), seedOf(company));
         identifyAs(company);
         if (defaultRegion != null) {
             this.defaultRegion = defaultRegion;
@@ -190,7 +200,11 @@ public class Workspace extends BaseEntity {
         this.status = WorkspaceStatus.DELETED;
     }
 
-    /** First letter of the name, upper-cased — matches the "L" tile in the mockups. */
+    private static PersonaSeed seedOf(WorkspaceCompany company) {
+        return company == null ? null : company.personaSeed();
+    }
+
+    /** First letter of the name, upper-cased. */
     private static String deriveLogoMark(String name) {
         String trimmed = name == null ? "" : name.trim();
         return trimmed.isEmpty() ? "?" : trimmed.substring(0, 1).toUpperCase(Locale.ROOT);

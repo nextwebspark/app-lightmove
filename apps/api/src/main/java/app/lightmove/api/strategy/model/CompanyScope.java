@@ -3,28 +3,12 @@ package app.lightmove.api.strategy.model;
 import java.util.List;
 
 /**
- * One filtered read's criteria over the Apollo company universe, resolved server-side from the
- * mandate's saved filter. An empty list means "no constraint on this axis", never "match nothing".
+ * One filtered read's criteria over the Apollo universe. An empty list means "no constraint on this
+ * axis", never "match nothing"; a non-null range overrides its axis's band list.
  *
- * <ul>
- *   <li>{@code employeeBands} / {@code revenueBands} are slugs ({@code "1k-5k"}, {@code "unknown"}),
- *       resolved into numeric bounds — Apollo ships raw figures, not pre-bucketed strings.
- *   <li>{@code employeeRange} / {@code revenueRange} take precedence over their axis's band list when
- *       set. Non-null <i>is</i> the custom-range mode; there is no flag that could disagree with it.
- *   <li>{@code countries} are Apollo's spelled-out names ("United Arab Emirates"), not ISO codes.
- *   <li>{@code marketSegments} are segment names resolved to keyword aliases, because the universe
- *       expresses go-to-market through a free-text {@code keywords} array rather than a column.
- *   <li>{@code offLimitsAccountIds} excludes unconditionally — no toggle, no flagged-but-visible row.
- *   <li>{@code triagedExclusion} excludes unconditionally too, the same way — but is only ever
- *       populated for the Strategy search itself. {@code TriageCompanyService.addAllInScope}/
- *       {@code addSelected} leave it at {@link CompanyExclusion#NONE} and read the full filter match:
- *       they already dedupe accurately against held companies through
- *       {@code TriageCompanyWriter.insertIgnoringHeld} and report a real "already there" count, which
- *       pre-filtering here would silently zero out. It is a predicate rather than an id list — see
- *       {@link CompanyExclusion} — so a mandate's whole triage history never has to travel to Java and
- *       back as bind parameters just to be excluded.
- *   <li>{@code nameQuery} changes which companies match, so the total count applies it too.
- * </ul>
+ * <p>{@code triagedExclusion} is set only by the Strategy search. The bulk triage writes leave it
+ * {@link CompanyExclusion#NONE}: they dedupe against held companies themselves and report an "already
+ * there" count that pre-filtering here would silently zero out.
  */
 public record CompanyScope(List<String> industries, List<String> keywords,
                            List<String> marketSegments, List<String> countries,
@@ -37,7 +21,6 @@ public record CompanyScope(List<String> industries, List<String> keywords,
         nameQuery = nameQuery == null || nameQuery.isBlank() ? null : nameQuery.trim();
     }
 
-    /** The whole universe, narrowed by nothing — what an aggregate over the market as a whole reads. */
     public static CompanyScope unfiltered() {
         return new CompanyScope(List.of(), List.of(), List.of(), List.of(), List.of(), List.of(),
                 null, null, List.of(), CompanyExclusion.NONE, null);

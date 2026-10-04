@@ -1,39 +1,56 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { Button, Field, FormError, Input, Modal, useToast } from "../../../components/ui";
 import { isValidEmail } from "../../../lib/email";
 import { messageFor } from "../../../lib/errorCodes";
+import { useWorkspaceMode, useWorkspaceVocabulary } from "../../workspace/lib/vocabulary";
 import * as clientsApi from "../api/clientsApi";
+import type { Client } from "../api/types";
 import type { CompanyPick } from "../lib/companyPick";
+import { BusinessUnitCombobox } from "./BusinessUnitCombobox";
 import { CompanyPicker } from "./CompanyPicker";
 
+/** Mirrors `@Size(max = 160)` on CreateClientRequest.customName. */
+const MAX_UNIT_NAME_LENGTH = 160;
+
 /**
- * The New-client modal — company-database-first, matching Clients.dc.html.
- *
- * Stage one picks the company through the shared {@link CompanyPicker}: search the universe, or add a
- * custom record when it isn't there. Stage two adds an optional primary contact, who is invited as a
- * representative immediately.
+ * The New-client modal (Clients.dc.html). An agency picks the company from the database through
+ * {@link CompanyPicker}, or adds one it does not carry; an in-house workspace names a business unit of
+ * its own firm, which the company database has no row for. Either then adds an optional primary
+ * contact, who is invited as a representative immediately.
  */
 export function NewClientModal({
   open,
   onClose,
-  existingNames,
+  clients,
   onCreated,
 }: {
   open: boolean;
   onClose: () => void;
-  /** Lower-cased names of the current clients — a search hit already on the books shows a CLIENT badge. */
-  existingNames: Set<string>;
+  clients: Client[];
   onCreated: (client: { id: string; name: string }) => void;
 }) {
   const queryClient = useQueryClient();
   const toast = useToast();
+  const vocabulary = useWorkspaceVocabulary();
+  const isAgency = useWorkspaceMode() === "AGENCY";
+  const existingNames = useMemo(() => new Set(clients.map((client) => client.name.toLowerCase())), [clients]);
 
   const [pick, setPick] = useState<CompanyPick | null>(null);
+  const [unitName, setUnitName] = useState("");
   const [contactName, setContactName] = useState("");
   const [contactPosition, setContactPosition] = useState("");
   const [contactEmail, setContactEmail] = useState("");
   const [error, setError] = useState<string | null>(null);
+
+  const trimmedUnitName = unitName.trim();
+  const unitExists = existingNames.has(trimmedUnitName.toLowerCase());
+  const unitNameError = unitExists
+    ? `${trimmedUnitName} is already a ${vocabulary.unitLower}`
+    : trimmedUnitName.length > MAX_UNIT_NAME_LENGTH
+      ? `That name is too long — keep it to ${MAX_UNIT_NAME_LENGTH} characters or fewer`
+      : undefined;
+  const isReady = isAgency ? pick !== null : trimmedUnitName !== "" && !unitNameError;
 
   const create = useMutation({
     mutationFn: () => {
@@ -46,7 +63,7 @@ export function NewClientModal({
         : null;
 
       return clientsApi.createClient({
-        ...clientsApi.createClientPayloadFor(pick!),
+        ...(isAgency ? clientsApi.createClientPayloadFor(pick!) : { customName: trimmedUnitName }),
         primaryContact,
       });
     },
@@ -55,7 +72,7 @@ export function NewClientModal({
       toast(
         contactEmail.trim()
           ? `${client.name} added — invite sent to ${contactEmail.trim()}`
-          : `${client.name} added as a business unit`,
+          : `${client.name} added as a ${vocabulary.unitLower}`,
       );
       onCreated(client);
       onClose();
@@ -83,16 +100,16 @@ export function NewClientModal({
     create.mutate();
   };
 
-  const createLabel = contactEmail.trim() ? "Create & send invite" : "Create business unit";
+  const createLabel = contactEmail.trim() ? "Create & send invite" : `Create ${vocabulary.unitLower}`;
 
   return (
     <Modal
       open={open}
       onClose={onClose}
-      title="New business unit"
+      title={`New ${vocabulary.unitLower}`}
       footer={
         // The actions arrive with the pick: until a company is chosen there is nothing to create.
-        pick && (
+        isReady && (
           <>
             <Button variant="secondary" onClick={onClose}>
               Cancel
@@ -105,24 +122,40 @@ export function NewClientModal({
       }
     >
       <p className="-mt-2 mb-4 font-mono text-[11.5px] text-u-text3">
-        Search the company database first — or add a business unit that isn't listed.
+        {isAgency
+          ? `Search the company database first — or add a ${vocabulary.unitLower} that isn't listed.`
+          : `Name the ${vocabulary.unitLower} — it is added to your organisation.`}
       </p>
       <FormError message={error} />
 
-      <CompanyPicker
-        pick={pick}
-        onPick={handlePick}
-        existingNames={existingNames}
-        onRejectExisting={(name) => toast(`${name} is already a business unit`)}
-        autoFocus
-      />
+      {isAgency ? (
+        <CompanyPicker
+          pick={pick}
+          onPick={handlePick}
+          existingNames={existingNames}
+          onRejectExisting={(name) => toast(`${name} is already a ${vocabulary.unitLower}`)}
+          autoFocus
+        />
+      ) : (
+        <Field label={vocabulary.unit} error={trimmedUnitName ? unitNameError : undefined}>
+          <BusinessUnitCombobox
+            value={unitName}
+            clients={clients}
+            invalid={!!trimmedUnitName && !!unitNameError}
+            onChange={(name) => {
+              setUnitName(name);
+              setError(null);
+            }}
+          />
+        </Field>
+      )}
 
-      {pick && (
+      {isReady && (
         <>
           <div className="mb-3 font-mono text-[10px] font-semibold uppercase tracking-[0.12em] text-u-text3">
-            Primary hiring manager
+            Primary {vocabulary.contactLower}
             <span className="ml-1 font-normal normal-case tracking-normal text-u-text3">
-              · optional — gets an invite. Add more from the business unit panel later.
+              · optional — gets an invite. Add more from the {vocabulary.unitLower} panel later.
             </span>
           </div>
           <div className="flex gap-2.5">

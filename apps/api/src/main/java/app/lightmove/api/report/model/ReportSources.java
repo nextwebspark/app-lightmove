@@ -6,9 +6,8 @@ import app.lightmove.api.triagecompany.dto.TriageCompanyResponse;
 import java.util.List;
 
 /**
- * Everything one read of the report is computed from, gathered once so the four chapters agree with
- * each other. {@code universe} is the mandate's companies still in play — in universe or shortlisted,
- * never declined — and the two totals are the whole even where the lists were capped.
+ * Everything one report read is computed from, gathered once so the chapters agree. {@code universe}
+ * is the companies in universe or shortlisted; the totals are whole even where lists were capped.
  */
 public record ReportSources(
         Project project,

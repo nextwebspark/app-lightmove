@@ -14,19 +14,8 @@ import org.springframework.security.web.authentication.AuthenticationFailureHand
 import org.springframework.stereotype.Component;
 
 /**
- * What happens when the provider — or our exchange with it — says no.
- *
- * <p>Spring's default sends the browser to {@code /login?error} on <b>this</b> host. Deployed that is
- * the SPA and merely vague; in development the SPA is on another port, so the user lands on the API's
- * 404 JSON instead of a login screen. Both are fixed by routing failures the same way successes are
- * routed: to the configured web base URL, with a code the SPA can turn into a sentence.
- *
- * <p>The provider's own error is logged and never shown. It quotes {@code redirect_uri},
- * {@code invalid_client} and similar — useful to whoever configured the deployment, meaningless and
- * faintly alarming to the person trying to sign in.
- *
- * <p>The one thing pulled out of that error is whether the person <em>cancelled</em>, which arrives
- * here indistinguishable from a real fault and used to be reported as one.
+ * Routes a refused OAuth sign-in to the SPA like a success, not to Spring's {@code /login?error} on
+ * this host. The provider's error is logged, never shown; only a cancellation is picked out of it.
  */
 @Component
 @RequiredArgsConstructor

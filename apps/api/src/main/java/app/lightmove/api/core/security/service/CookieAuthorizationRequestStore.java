@@ -23,16 +23,9 @@ import org.springframework.web.util.WebUtils;
 import tools.jackson.databind.ObjectMapper;
 
 /**
- * Where the authorisation request waits while the browser is at the provider — a cookie, not a session,
- * so any instance can finish a callback any instance started. Rationale in the {@code lightmove-domain}
- * skill.
- *
- * <p><b>{@code SameSite=Lax}, never {@code Strict}.</b> The callback is a top-level cross-site GET the
- * provider initiates, and {@code Strict} withholds a cookie on exactly that navigation — which is the
- * bug this class exists to remove.
- *
- * <p>The value is deliberately unsigned; the binding that matters is the {@code state} check in
- * {@link #loadAuthorizationRequest}.
+ * Holds the authorisation request in a cookie while the browser is at the provider, so any instance can
+ * finish the callback. <b>{@code SameSite=Lax}, never {@code Strict}</b>: Strict withholds it on the
+ * provider's cross-site callback. Unsigned; the binding is the {@code state} check.
  */
 @Slf4j
 @Component
@@ -75,14 +68,9 @@ public class CookieAuthorizationRequestStore
             }
             return stored.toAuthorizationRequest();
         } catch (RuntimeException ex) {
-            // These handlers run inside the filter chain, where GlobalExceptionHandler does not
-            // exist, so anything thrown here reaches the user as a raw container error page. A cookie
-            // we cannot read is a request that is not there, which is what null already means. The
-            // rebuild is inside the try because well-formed JSON of the wrong shape gets past
-            // readValue and dies in the builder.
-            //
-            // Not the throwable: Jackson quotes the source it failed on, which may hold a
-            // code_verifier.
+            // Inside the filter chain, where GlobalExceptionHandler does not exist: a throw is a raw
+            // error page. Well-formed JSON of the wrong shape dies in the builder, hence inside the try.
+            // Not the throwable: Jackson quotes its source, which may hold a code_verifier.
             log.debug("Discarding an unreadable OAuth authorisation cookie ({})",
                     ex.getClass().getSimpleName());
             return null;
@@ -107,8 +95,7 @@ public class CookieAuthorizationRequestStore
         if (WebUtils.getCookie(request, COOKIE_NAME) == null) {
             return null;
         }
-        // Cleared whenever one arrived, usable or not: it is single-use, and one we refused would
-        // otherwise sit in the browser failing every retry until its Max-Age ran out.
+        // Cleared usable or not: one we refused would otherwise fail every retry until its Max-Age.
         response.addHeader(HttpHeaders.SET_COOKIE, cookie("").maxAge(0).build().toString());
         return loadAuthorizationRequest(request);
     }
@@ -116,9 +103,8 @@ public class CookieAuthorizationRequestStore
     private ResponseCookie.ResponseCookieBuilder cookie(String value) {
         ResponseCookie.ResponseCookieBuilder builder = ResponseCookie.from(COOKIE_NAME, value)
                 .httpOnly(true)
-                // Both from the refresh cookie's settings, so "is this deployment on TLS" is answered
-                // once. The consequence to know: widening lightmove.auth.cookie.domain also widens a
-                // cookie holding a code_verifier, without touching this class.
+                // From the refresh cookie's settings: widening lightmove.auth.cookie.domain also widens
+                // this cookie, which holds a code_verifier.
                 .secure(cookieSettings.secure())
                 .sameSite("Lax")
                 .path(COOKIE_PATH);
@@ -130,13 +116,8 @@ public class CookieAuthorizationRequestStore
     }
 
     /**
-     * The cookie's payload — written out field by field and versioned, rather than serialising
-     * {@link OAuth2AuthorizationRequest} itself, so the format is something this codebase decides
-     * rather than something a Spring Security upgrade can change underneath a live browser.
-     *
-     * <p>{@code parameters} and {@code attributes} are carried whole rather than as named fields,
-     * which is what makes {@link ProviderQuirkAwareRequestResolver} free: a registration with no
-     * {@code code_verifier} key round-trips without a key list here to keep in step with one there.
+     * The cookie's versioned payload, field by field, so a Spring Security upgrade cannot change the
+     * format under a live browser. Parameters and attributes are carried whole.
      */
     record StoredAuthorizationRequest(
             int version,
@@ -175,8 +156,6 @@ public class CookieAuthorizationRequestStore
         private static Map<String, String> requireTextValues(Map<String, Object> values) {
             Map<String, String> copy = new LinkedHashMap<>();
             values.forEach((key, value) -> {
-                // Breaking here, naming the key, beats round-tripping as toString() and being quietly
-                // wrong at the token exchange weeks later.
                 if (!(value instanceof String carried)) {
                     throw new IllegalStateException(
                             "OAuth authorisation request carries a non-text value for '" + key + "'");

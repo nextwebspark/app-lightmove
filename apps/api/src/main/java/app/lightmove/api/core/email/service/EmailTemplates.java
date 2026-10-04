@@ -13,13 +13,8 @@ import app.lightmove.api.core.email.render.EmailRenderer;
 import org.springframework.stereotype.Component;
 
 /**
- * What each transactional email says. How it looks is {@link EmailRenderer}'s, and nothing here knows
- * a colour or a tag: a template names a subject, a heading and its blocks, and the renderer produces
- * the HTML and the plain text from that one statement of the content.
- *
- * <p>Values a user typed travel as {@code EmailPhrase}, which is what escapes them for the HTML half
- * and leaves them intact for the text half. A workspace called {@code <script>…} is a name here and
- * text in a colleague's inbox.
+ * What each transactional email says; how it looks is {@link EmailRenderer}'s. User-typed values travel
+ * as {@code EmailPhrase}, which escapes them for the HTML half.
  */
 @Component
 public class EmailTemplates {
@@ -51,13 +46,7 @@ public class EmailTemplates {
                         + "request this, ignore this email — your password is unchanged.")));
     }
 
-    /**
-     * Tells someone their account is locked, because the login response deliberately will not.
-     *
-     * <p>Login answers the same {@code INVALID_CREDENTIALS} for a locked account as for an unknown
-     * address, which leaves the real owner with a correct password that keeps failing and no
-     * explanation. This is the explanation, sent where only they can read it. No link, no token.
-     */
+    /** The only place a lockout is explained: login deliberately will not. No link, no token. */
     public EmailMessage buildAccountLockedEmail(String recipient, String recipientName, String lockedUntil) {
         return renderer.render(recipient, "Your Uncava account is temporarily locked", EmailContent.of(
                 "Your account is temporarily locked",
@@ -70,10 +59,7 @@ public class EmailTemplates {
                         + "guessing.")));
     }
 
-    /**
-     * Confirms a password change to the mailbox, which is the one channel an attacker who changed it
-     * does not control. The reset link is the recovery route if the change was not theirs.
-     */
+    /** To the mailbox, the one channel an attacker who changed the password does not control. */
     public EmailMessage buildPasswordChangedEmail(String recipient, String recipientName, String resetLink) {
         return renderer.render(recipient, "Your Uncava password was changed", EmailContent.of(
                 "Your password was changed",
@@ -96,10 +82,7 @@ public class EmailTemplates {
                         EmailNote.of("This invitation expires in 7 days.")));
     }
 
-    /**
-     * A client representative's portal invitation. Framed around the client they will represent, not
-     * "join our workspace" — they are a guest with a read-only view of one client's mandates, not staff.
-     */
+    /** Framed around the client they represent: a read-only guest, not staff. */
     public EmailMessage buildClientInvitationEmail(String recipient, String inviterName, String workspaceName,
                                                    String clientName, String acceptLink) {
         return renderer.render(recipient,
@@ -114,10 +97,7 @@ public class EmailTemplates {
                         EmailNote.of("This invitation expires in 7 days.")));
     }
 
-    /**
-     * Told to a colleague who is <b>already</b> a member. A notice, not an invitation: an external
-     * contact with no account gets {@link #buildInvitationEmail} instead.
-     */
+    /** A notice to an existing member; an external contact gets {@link #buildInvitationEmail} instead. */
     public EmailMessage buildRepresentativeAddedEmail(String recipient, String recipientName,
                                                       String adderName, String workspaceName,
                                                       String clientName) {
@@ -132,11 +112,7 @@ public class EmailTemplates {
                                 plain(workspaceName))));
     }
 
-    /**
-     * Told to an <b>active</b> representative when a mandate is shared with them. An INVITED one gets
-     * nothing here: accepting the portal invitation already in their inbox seats them on every mandate
-     * parked for them.
-     */
+    /** Active representatives only: accepting an invitation already seats an INVITED one on every parked mandate. */
     public EmailMessage buildAttachedToMandateEmail(String recipient, String recipientName,
                                                     String adderName, String clientName,
                                                     String positionTitle) {
@@ -151,10 +127,6 @@ public class EmailTemplates {
                                 strong(clientName))));
     }
 
-    /**
-     * Told to a staff member seated on a mandate. The workspace invitation says someone may work here;
-     * this says which search is theirs, which is the thing that actually hands them work.
-     */
     public EmailMessage buildAddedToProjectEmail(String recipient, String recipientName, String adderName,
                                                  String positionTitle, String clientName, String role,
                                                  String projectLink) {
@@ -169,7 +141,6 @@ public class EmailTemplates {
                         EmailNote.of("You'll also find it under your projects next time you sign in.")));
     }
 
-    /** Told to a staff member whose seat changed hands — a lead handing over, a researcher promoted. */
     public EmailMessage buildProjectRoleChangedEmail(String recipient, String recipientName, String actorName,
                                                      String positionTitle, String clientName, String role,
                                                      String projectLink) {
@@ -182,6 +153,39 @@ public class EmailTemplates {
                                 plain(firstName(recipientName)), plain(actorName), strong(positionTitle),
                                 strong(clientName), strong(role.toLowerCase())),
                         new EmailAction("Open the search", projectLink)));
+    }
+
+    /** To a workspace's admins, ahead of its own OAuth app's client secret lapsing and on the day it does. */
+    public EmailMessage buildIntegrationSecretExpiryEmail(String recipient, String recipientName, String workspaceName,
+                                                          String providerName, String expiresOn, long daysLeft,
+                                                          String settingsLink) {
+        boolean expired = daysLeft < 0;
+        String subject = expired
+                ? "Your %s app's client secret has expired".formatted(providerName)
+                : daysLeft == 0
+                        ? "Your %s app's client secret expires today".formatted(providerName)
+                        : "Your %s app's client secret expires on %s".formatted(providerName, expiresOn);
+        EmailParagraph lead = expired
+                ? EmailParagraph.of("Hi %s — the client secret of %s's own %s app expired on %s. Mail, calendars "
+                                + "and links that go through it stop working until a new secret is saved.",
+                        plain(firstName(recipientName)), strong(workspaceName), plain(providerName), strong(expiresOn))
+                : daysLeft == 0
+                ? EmailParagraph.of("Hi %s — the client secret of %s's own %s app expires today, %s. When it "
+                                + "does, mail, calendars and links that go through it stop working until a new "
+                                + "secret is saved.",
+                        plain(firstName(recipientName)), strong(workspaceName), plain(providerName), strong(expiresOn))
+                : EmailParagraph.of("Hi %s — the client secret of %s's own %s app expires on %s, in %s %s. "
+                                + "When it does, mail, calendars and links that go through it stop working until "
+                                + "a new secret is saved.",
+                        plain(firstName(recipientName)), strong(workspaceName), plain(providerName), strong(expiresOn),
+                        plain(String.valueOf(daysLeft)), plain(daysLeft == 1 ? "day" : "days"));
+        return renderer.render(recipient, subject, EmailContent.of(
+                expired ? "A client secret has expired" : daysLeft == 0 ? "A client secret expires today"
+                        : "A client secret expires soon",
+                lead,
+                new EmailAction("Open Integrations", settingsLink),
+                EmailNote.of("Create a new secret in the provider's console, then paste it and its new expiry "
+                        + "date into Settings → Integrations. You get this because you manage the workspace.")));
     }
 
     private static String firstName(String fullName) {

@@ -7,12 +7,8 @@ import java.util.List;
 import java.util.Set;
 
 /**
- * What one commit has done so far — counters and the rows that failed, accumulated as the import
- * walks the sheet. Mutable and deliberately not a record: it is a running total held by one method on
- * one thread for one transaction.
- *
- * <p>Errors cap at {@link #MAX_REPORTED_ERRORS}. A file whose mapping is wrong fails on every row, and
- * the count keeps telling the truth after the list stops growing.
+ * One commit's running totals, mutable by design. Errors cap at {@link #MAX_REPORTED_ERRORS}; the
+ * count keeps growing past it.
  */
 public final class ImportTally {
 
@@ -41,7 +37,7 @@ public final class ImportTally {
         companiesUpdated++;
     }
 
-    /** A company whose facts were left alone because they came from the market. */
+    /** A market company whose facts were left alone. */
     public void companySkipped() {
         companiesSkipped++;
     }

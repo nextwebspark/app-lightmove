@@ -2,6 +2,7 @@ package app.lightmove.api.enrichment.candidate.config;
 
 import app.lightmove.api.core.config.EnrichmentSettings;
 import app.lightmove.api.enrichment.candidate.service.BrightDataProfileEnricher;
+import app.lightmove.api.enrichment.candidate.service.CachedPeopleStore;
 import app.lightmove.api.enrichment.candidate.service.FallbackProfileEnricher;
 import app.lightmove.api.enrichment.candidate.service.HarvestApiProfileEnricher;
 import app.lightmove.api.enrichment.candidate.service.LinkedInProfileEnricher;
@@ -18,21 +19,12 @@ import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.web.client.RestClient;
+import tools.jackson.databind.ObjectMapper;
 
 /**
- * Picks the {@link LinkedInProfileEnricher} from config — the one place that knows which provider
- * researches captures, and whether the Bright Data dataset has a live-scrape fallback behind it.
- *
- * <p><b>Each adapter is its own {@code @Bean}, absent rather than unbuilt when its provider is off.</b>
- * {@code @Retryable} is proxy-based, and an object constructed inside another bean's factory method is
- * never proxied — building the adapters inline here would leave every retry silently inert, the same
- * way a self-invoked {@code @Async} method is. Returning {@code null} registers no bean, and
- * {@code @Autowired(required = false)} resolves that absence at the injection point below.
- *
- * <p>The adapters are {@code defaultCandidate = false} because they are themselves
- * {@link LinkedInProfileEnricher}s: left as ordinary candidates, anything injecting the port would
- * find three beans and refuse to start. Qualified by name here, they stay reachable to this class and
- * invisible to everyone else, which also leaves the test double's {@code @Primary} the only primary.
+ * Picks the {@link LinkedInProfileEnricher}. Each adapter is its own {@code @Bean}, null (absent)
+ * when its provider is off: an object built inside another factory method is never proxied, so its
+ * {@code @Retryable} would be inert. {@code defaultCandidate = false} so injecting the port finds one bean.
  */
 @Configuration
 @Slf4j
@@ -43,14 +35,16 @@ public class CandidateEnrichmentConfig {
                                                         VendorClientFactory clientFactory,
                                                         VendorRateLimiter rateLimiter,
                                                         VendorCallGuard guard,
-                                                        ProfilePhotoDownloader photos) {
+                                                        ProfilePhotoDownloader photos,
+                                                        CachedPeopleStore people,
+                                                        ObjectMapper json) {
         EnrichmentSettings config = properties.enrichment();
         if (!"brightdata".equalsIgnoreCase(config.provider())) {
             return null;
         }
         requireKey(config.brightdata().apiKey(), "BRIGHTDATA_API_KEY");
         return new BrightDataProfileEnricher(config.brightdata(), clientFactory, rateLimiter, guard,
-                photos, RestClient.builder());
+                photos, people, config.peopleCacheTtl(), RestClient.builder(), json);
     }
 
     @Bean(defaultCandidate = false)
@@ -105,10 +99,7 @@ public class CandidateEnrichmentConfig {
         };
     }
 
-    /**
-     * Fail at startup rather than at the first capture, for EmailSenderConfig's reason: an instance
-     * that boots happily and then silently enriches nothing is worse than one that refuses to boot.
-     */
+    /** Fails at startup: an instance that boots and silently enriches nothing is worse. */
     private static void requireKey(String apiKey, String envVar) {
         if (!hasKey(apiKey)) {
             throw new IllegalStateException(

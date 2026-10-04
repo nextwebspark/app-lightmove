@@ -1,0 +1,49 @@
+{
+  "status_code": 200,
+  "metadata": { "page": 1, "page_size": 2, "total_results": 14 },
+  "profiles": {
+    "https://www.linkedin.com/in/Sample-CFO-12ab": {
+      "full_name": "Sample Cfo",
+      "li_vanity": "sample-cfo-12ab",
+      "title": "Chief Executive Officer, Port Division",
+      "headline": "Group CFO | Board Member",
+      "company": { "name": "Harbour Group", "url": "https://www.linkedin.com/company/harbour-group", "domain": "harbour.example",
+                   "website": "https://harbour.example", "industry": "Maritime Transportation", "size": "1001-5000",
+                   "country": "United Arab Emirates", "headquarter": "Dubai, United Arab Emirates", "founded_at": 1998,
+                   "overview": "Ports and logistics.", "specialties": "Ports, Logistics, Shipping" },
+      "industry": "Maritime Transportation",
+      "seniority": "CXO",
+      "followers": 1200,
+      "github": "samplecfo",
+      "twitter": "@samplecfo",
+      "contact_availability": { "personal_email": true, "work_email": false, "phone": true },
+      "certifications": [ { "name": "Chartered Accountant", "authority": "ICAEW", "start_date_year": 2009 } ],
+      "projects": [ { "title": "Port IPO", "description": "Led the listing." } ],
+      "location": "Dubai, United Arab Emirates",
+      "country": "United Arab Emirates",
+      "summary": "Finance leader.",
+      "experience": [
+        { "title": "Senior Advisor", "company_name": "Farro Capital", "start_date_year": 2023, "start_date_month": null,
+          "end_date_year": null, "end_date_month": null, "is_current": true,
+          "linkedin_url": "https://www.linkedin.com/company/farro-capital", "locality": null, "logo_url": null },
+        { "title": "Chief Executive Officer, Port Division", "company_name": "Harbour Group", "start_date_year": 2026,
+          "start_date_month": 2, "end_date_year": null, "end_date_month": null, "is_current": true,
+          "linkedin_url": "https://www.linkedin.com/company/harbour-group", "locality": "Dubai", "logo_url": "https://logo.example/h.png" },
+        { "title": "Chief Financial Officer", "company_name": "Harbour Group", "start_date_year": 2021,
+          "start_date_month": 5, "end_date_year": 2026, "end_date_month": 1, "is_current": false,
+          "linkedin_url": "https://www.linkedin.com/company/harbour-group", "locality": "Dubai", "logo_url": null }
+      ],
+      "education": [
+        { "school_name": "Sample University", "degree": "MBA", "field_of_study": "Finance", "start_date_year": "2005", "end_date_year": 2007 }
+      ],
+      "skills": ["Treasury", "M&A"],
+      "languages": [{ "name": "English", "proficiency": "Native" }],
+      "profile_picture_url": "https://images.example/p.jpg",
+      "updated_at": "2026-08-24 16:07:22"
+    },
+    "https://www.linkedin.com/company/not-a-person": {
+      "full_name": "Nobody",
+      "title": "Head of Finance"
+    }
+  }
+}

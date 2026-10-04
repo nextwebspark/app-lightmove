@@ -4,10 +4,8 @@ import jakarta.validation.Valid;
 import jakarta.validation.constraints.Size;
 
 /**
- * Create a client. Either {@code company} names a universe row (its canonical name/domain/hq are
- * resolved server-side rather than trusted from the request), or {@code customName} types a new
- * record in. {@code sector}/{@code hqCountry} are editable regardless. An optional
- * {@code primaryContact} gets a portal invite immediately.
+ * Either {@code company} names a universe row, resolved server-side, or {@code customName} types one
+ * in. An optional {@code primaryContact} is invited at once.
  */
 public record CreateClientRequest(
         @Valid CompanyPickDto company,

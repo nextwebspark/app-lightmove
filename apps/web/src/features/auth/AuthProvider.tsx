@@ -4,14 +4,25 @@ import {
   useCallback,
   useContext,
   useEffect,
+  useLayoutEffect,
   useMemo,
+  useRef,
   useState,
   type ReactNode,
 } from "react";
-import { onSessionExpired, restoreSession, setAccessToken } from "../../lib/apiClient";
+import {
+  onSessionExpired,
+  onWorkspaceMoved,
+  restoreSession,
+  setAccessToken,
+  switchWorkspaceSession,
+} from "../../lib/apiClient";
+import { forgetOpenAssistant } from "../assistant/assistantStorage";
+import { isReturningMailboxPopup } from "../outreach/lib/mailboxPopup";
 import * as authApi from "./api/authApi";
 import { isReturningSignInPopup } from "./oauthPopup";
 import type { User } from "./api/types";
+import { describeWorkspaceMove, rememberWorkspaceMove } from "./workspaceMoveNotice";
 
 /**
  * Who is signed in, for the whole app.
@@ -38,6 +49,16 @@ interface AuthContextValue {
 
   /** Re-reads the user from the server. Call after anything that changes their workspace or role. */
   reload: () => Promise<User | null>;
+  /**
+   * Moves the session into another of the user's workspaces. The query cache is cleared: nothing in it
+   * is keyed by workspace. Other tabs share the cookie and follow.
+   */
+  switchWorkspace: (workspaceId: string) => Promise<User>;
+  /**
+   * Accepts an invitation and moves into the workspace it joined. When the move fails the user is
+   * re-read, so the joined workspace is listed and the spent invitation is not.
+   */
+  acceptAndSwitch: (accept: () => Promise<User>) => Promise<User>;
   /** Adopts a session established elsewhere — the OAuth callback, after a full-page redirect. */
   adopt: (token: string, user: User) => void;
   /**
@@ -55,6 +76,8 @@ interface AuthContextValue {
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null);
+
+const WORKSPACE_CHANNEL = "lm-workspace";
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
@@ -81,8 +104,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
    * the server has already rotated, so the opener's own refresh presented the spent token, read as
    * reuse, and revoked the session it had just signed in. Read at render: the callback page consumes
    * the handshake in its own effect, which runs before this one.
+   *
+   * <p>The mailbox connect popup lands back in the app the same way, and is skipped for the same reason.
    */
-  const [isSignInPopup] = useState(isReturningSignInPopup);
+  const [isSignInPopup] = useState(() => isReturningSignInPopup() || isReturningMailboxPopup());
 
   useEffect(() => {
     if (isSignInPopup) {
@@ -127,6 +152,55 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setUser(null);
     });
   }, [startFreshSession]);
+
+  /**
+   * Other tabs share the refresh cookie, so a switch here moves them too — at their next refresh, up to
+   * fifteen minutes away, until which they would keep serving the old workspace's cache under the new
+   * token. Told at once instead, they reload from the top, which is what a tab in the wrong tenant
+   * should do.
+   */
+  const workspaceChannel = useRef<BroadcastChannel | null>(null);
+  useEffect(() => {
+    if (typeof BroadcastChannel === "undefined") return;
+    const channel = new BroadcastChannel(WORKSPACE_CHANNEL);
+    channel.onmessage = () => window.location.replace("/");
+    workspaceChannel.current = channel;
+    return () => {
+      channel.close();
+      workspaceChannel.current = null;
+    };
+  }, []);
+
+  /**
+   * A refresh moved the session because the membership it was in ended. Everything on screen belongs
+   * to the workspace left, so the tab starts again from the top, and says why once it has.
+   */
+  const userRef = useRef(user);
+  useLayoutEffect(() => {
+    userRef.current = user;
+  }, [user]);
+  useEffect(() => {
+    onWorkspaceMoved((moved) => {
+      rememberWorkspaceMove(describeWorkspaceMove(userRef.current?.workspace ?? null, moved));
+      forgetOpenAssistant();
+      window.location.replace("/");
+    });
+  }, []);
+
+  const switchWorkspace = useCallback(
+    async (workspaceId: string) => {
+      const session = await switchWorkspaceSession(workspaceId);
+      startFreshSession();
+      forgetOpenAssistant();
+      setUser(session.user);
+      // Through the listening channel itself: a channel never receives its own posts, but a second
+      // one of the same name in this tab does — which reloaded the switching tab too, and threw away
+      // the New workspace modal between its two stages.
+      workspaceChannel.current?.postMessage({ workspaceId });
+      return session.user;
+    },
+    [startFreshSession],
+  );
 
   const signIn = useCallback(
     async (email: string, password: string) => {
@@ -223,6 +297,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
+  const acceptAndSwitch = useCallback(
+    async (accept: () => Promise<User>) => {
+      const joined = await accept();
+      if (!joined.workspace) throw new Error("The invitation led to no workspace");
+      try {
+        return await switchWorkspace(joined.workspace.id);
+      } catch (error) {
+        await reload();
+        throw error;
+      }
+    },
+    [switchWorkspace, reload],
+  );
+
   /**
    * Takes on a session that was established somewhere other than here — currently the Google callback,
    * which is handed a token by the server rather than exchanging credentials for one.
@@ -274,6 +362,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       resetPassword,
       signOut,
       reload,
+      switchWorkspace,
+      acceptAndSwitch,
       adopt,
       adoptRestoredSession,
     }),
@@ -287,6 +377,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       resetPassword,
       signOut,
       reload,
+      switchWorkspace,
+      acceptAndSwitch,
       adopt,
       adoptRestoredSession,
     ],

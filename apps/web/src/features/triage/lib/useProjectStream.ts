@@ -18,13 +18,15 @@ export type ProjectStreamKind =
   | "candidate-captured"
   | "candidate-enriched"
   | "company-captured"
-  | "company-enriched";
+  | "company-enriched"
+  | "executive-sourcing";
 
 const EVERY_KIND: ProjectStreamKind[] = [
   "candidate-captured",
   "candidate-enriched",
   "company-captured",
   "company-enriched",
+  "executive-sourcing",
 ];
 
 /**

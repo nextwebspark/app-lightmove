@@ -163,13 +163,13 @@ public class NamedCompanyResolver {
                         : new NamedCompanyFinding(name, UNIVERSE, row.apolloAccountId(), null,
                                 row.companyName(), row.companyCountry(), row.industry(), row.companyCity(),
                                 row.numEmployees(), row.foundedYear(), shortened(row.shortDescription()),
-                                operates, global);
+                                operates, global, null);
             }
             if (details != null) {
                 return new NamedCompanyFinding(name, RESEARCHED, null, slug, details.companyName(),
                         details.companyCountry(), details.industry(), details.companyCity(),
                         details.numEmployees(), details.foundedYear(), shortened(details.shortDescription()),
-                        operates, global);
+                        operates, global, null);
             }
             return NamedCompanyFinding.unresolved(name, failure);
         }

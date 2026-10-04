@@ -5,6 +5,7 @@ import { useForm } from "react-hook-form";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { Button, Card, Field, FormError, Input, Logo, Notice } from "../../../components/ui";
 import { ApiRequestError } from "../../../lib/apiClient";
+import { messageFor } from "../../../lib/errorCodes";
 import { useAuth } from "../AuthProvider";
 import * as authApi from "../api/authApi";
 import type { InvitationPreview } from "../api/types";
@@ -41,8 +42,8 @@ export function AcceptInvitePage() {
     return <TokenArrival token={token} />;
   }
 
-  // No token in the URL: only the server-derived invitation (an already-signed-in invitee) belongs here.
-  if (user?.pendingInvitation) {
+  // No token in the URL: only the server-derived invitations (an already-signed-in invitee) belong here.
+  if (user && user.pendingInvitations.length > 0) {
     return <ServerDerivedArrival />;
   }
 
@@ -135,9 +136,7 @@ function AcceptSignupForm({ token, invitation }: { token: string; invitation: In
         setAlreadyRegistered(true);
         return;
       }
-      setFormError(
-        error instanceof ApiRequestError ? error.problem.detail : "Could not accept the invitation.",
-      );
+      setFormError(messageFor(error));
     }
   };
 
@@ -218,24 +217,24 @@ function AcceptSignupForm({ token, invitation }: { token: string; invitation: In
 // ── Arrival with no token: an already-signed-in invitee, routed here by the server ───────────────────
 
 function ServerDerivedArrival() {
-  const { user, reload } = useAuth();
+  const { user, acceptAndSwitch } = useAuth();
   const navigate = useNavigate();
 
-  const [accepting, setAccepting] = useState(false);
+  const [accepting, setAccepting] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  const invitation = user!.pendingInvitation!;
+  const invitations = user!.pendingInvitations;
+  const invitation = invitations[0];
 
-  const accept = async () => {
-    setAccepting(true);
+  const accept = async (invitationId: string) => {
+    setAccepting(invitationId);
     setError(null);
     try {
-      await authApi.acceptPendingInvitation();
-      await reload();
+      await acceptAndSwitch(() => authApi.acceptInvitationById(invitationId));
       navigate("/", { replace: true });
     } catch (err) {
-      setError(err instanceof ApiRequestError ? err.problem.detail : "Could not accept the invitation.");
-      setAccepting(false);
+      setError(messageFor(err));
+      setAccepting(null);
     }
   };
 
@@ -252,15 +251,40 @@ function ServerDerivedArrival() {
     );
   }
 
+  if (invitations.length > 1) {
+    return (
+      <Shell workspaceName="a workspace" subtitle="You have more than one invitation" error={error}>
+        <div className="flex flex-col gap-2 text-left">
+          {invitations.map((candidate) => (
+            <div key={candidate.id} className="flex items-center gap-3 rounded-lg border border-u-border p-3">
+              <div className="min-w-0 flex-1">
+                <div className="truncate text-body font-medium">{candidate.workspaceName}</div>
+                <div className="font-mono text-meta text-u-text3">as {titleCase(candidate.role)}</div>
+              </div>
+              <Button
+                className="!px-3.5 !py-[6px] !text-note"
+                loading={accepting === candidate.id}
+                disabled={accepting !== null && accepting !== candidate.id}
+                onClick={() => void accept(candidate.id)}
+              >
+                Accept
+              </Button>
+            </div>
+          ))}
+        </div>
+      </Shell>
+    );
+  }
+
   return (
     <Shell
       workspaceName={invitation.workspaceName}
-      subtitle={`You were invited as ${titleCase(invitation.role)}`}
+      subtitle={`${invitation.inviterName ? `${invitation.inviterName} invited you` : "You were invited"} as ${titleCase(invitation.role)}`}
       error={error}
     >
       <Notice>You'll be in as soon as you accept.</Notice>
 
-      <Button className="w-full" loading={accepting} onClick={() => void accept()}>
+      <Button className="w-full" loading={accepting !== null} onClick={() => void accept(invitation.id)}>
         Accept invitation
       </Button>
     </Shell>
@@ -278,7 +302,7 @@ function SignedInBody({
   invitation: { email: string; workspaceName: string };
   token: string;
 }) {
-  const { user, reload, signOut } = useAuth();
+  const { user, acceptAndSwitch, signOut } = useAuth();
   const navigate = useNavigate();
   const [accepting, setAccepting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -299,24 +323,16 @@ function SignedInBody({
     );
   }
 
-  // Already in a workspace. One person, one workspace.
-  if (user!.workspace) {
-    return (
-      <Notice>You already belong to {user!.workspace.name}. Leave it before joining another.</Notice>
-    );
-  }
-
   const accept = async () => {
     setAccepting(true);
     setError(null);
     try {
-      await authApi.acceptInvitation(token);
-      // Mints a token carrying the new workspace claim, then re-reads the user. Without the refresh the
-      // token in memory still says they belong to nothing, and the workspace they just joined refuses them.
-      await reload();
+      // The switch mints a token carrying the joined workspace's claim. Without it the token in memory
+      // still names wherever they were — or nothing — and the workspace they just joined refuses them.
+      await acceptAndSwitch(() => authApi.acceptInvitation(token));
       navigate("/", { replace: true });
     } catch (err) {
-      setError(err instanceof ApiRequestError ? err.problem.detail : "Could not accept the invitation.");
+      setError(messageFor(err));
       setAccepting(false);
     }
   };

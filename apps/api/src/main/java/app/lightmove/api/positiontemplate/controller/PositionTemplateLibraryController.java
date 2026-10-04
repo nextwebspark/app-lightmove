@@ -1,6 +1,8 @@
 package app.lightmove.api.positiontemplate.controller;
 
 import app.lightmove.api.core.security.model.AuthPrincipal;
+import app.lightmove.api.core.security.rbac.PlatformAction;
+import app.lightmove.api.core.security.rbac.RequirePlatformPermission;
 import app.lightmove.api.positiontemplate.dto.PositionTemplateActiveRequest;
 import app.lightmove.api.positiontemplate.dto.PositionTemplateDetail;
 import app.lightmove.api.positiontemplate.dto.PositionTemplateOverview;
@@ -14,7 +16,6 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
-import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
@@ -24,6 +25,7 @@ import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -36,58 +38,57 @@ import org.springframework.web.multipart.MultipartFile;
 @RequiredArgsConstructor
 public class PositionTemplateLibraryController {
 
-    private static final String LIBRARY_GATE = "@platformAuthorizer.can(principal, 'TEMPLATE_LIBRARY_MANAGE')";
 
     private final PositionTemplateLibraryService library;
 
     @GetMapping
-    @PreAuthorize(LIBRARY_GATE)
-    public ResponseEntity<List<PositionTemplateOverview>> list() {
-        return ResponseEntity.ok(library.list());
+    @RequirePlatformPermission(PlatformAction.TEMPLATE_LIBRARY_MANAGE)
+    public List<PositionTemplateOverview> list() {
+        return library.list();
     }
 
     @GetMapping("/{code}")
-    @PreAuthorize(LIBRARY_GATE)
-    public ResponseEntity<PositionTemplateDetail> get(@PathVariable String code) {
-        return ResponseEntity.ok(library.get(code));
+    @RequirePlatformPermission(PlatformAction.TEMPLATE_LIBRARY_MANAGE)
+    public PositionTemplateDetail get(@PathVariable String code) {
+        return library.get(code);
     }
 
     @PostMapping
-    @PreAuthorize(LIBRARY_GATE)
-    public ResponseEntity<PositionTemplateDetail> create(@AuthenticationPrincipal AuthPrincipal principal,
-                                                         @Valid @RequestBody PositionTemplateWriteRequest request,
-                                                         HttpServletRequest httpRequest) {
-        return ResponseEntity.status(HttpStatus.CREATED)
-                .body(library.create(principal.userId(), request, httpRequest));
+    @RequirePlatformPermission(PlatformAction.TEMPLATE_LIBRARY_MANAGE)
+    @ResponseStatus(HttpStatus.CREATED)
+    public PositionTemplateDetail create(@AuthenticationPrincipal AuthPrincipal principal,
+                                         @Valid @RequestBody PositionTemplateWriteRequest request,
+                                         HttpServletRequest httpRequest) {
+        return library.create(principal.userId(), request, httpRequest);
     }
 
     @PutMapping("/{code}")
-    @PreAuthorize(LIBRARY_GATE)
-    public ResponseEntity<PositionTemplateDetail> update(@AuthenticationPrincipal AuthPrincipal principal,
-                                                         @PathVariable String code,
-                                                         @Valid @RequestBody PositionTemplateWriteRequest request,
-                                                         HttpServletRequest httpRequest) {
-        return ResponseEntity.ok(library.update(principal.userId(), code, request, httpRequest));
+    @RequirePlatformPermission(PlatformAction.TEMPLATE_LIBRARY_MANAGE)
+    public PositionTemplateDetail update(@AuthenticationPrincipal AuthPrincipal principal,
+                                         @PathVariable String code,
+                                         @Valid @RequestBody PositionTemplateWriteRequest request,
+                                         HttpServletRequest httpRequest) {
+        return library.update(principal.userId(), code, request, httpRequest);
     }
 
     @PatchMapping("/{code}/active")
-    @PreAuthorize(LIBRARY_GATE)
-    public ResponseEntity<PositionTemplateDetail> setActive(@AuthenticationPrincipal AuthPrincipal principal,
-                                                            @PathVariable String code,
-                                                            @Valid @RequestBody PositionTemplateActiveRequest request,
-                                                            HttpServletRequest httpRequest) {
-        return ResponseEntity.ok(library.setActive(principal.userId(), code, request.active(), httpRequest));
+    @RequirePlatformPermission(PlatformAction.TEMPLATE_LIBRARY_MANAGE)
+    public PositionTemplateDetail setActive(@AuthenticationPrincipal AuthPrincipal principal,
+                                            @PathVariable String code,
+                                            @Valid @RequestBody PositionTemplateActiveRequest request,
+                                            HttpServletRequest httpRequest) {
+        return library.setActive(principal.userId(), code, request.active(), httpRequest);
     }
 
     @GetMapping("/export")
-    @PreAuthorize(LIBRARY_GATE)
+    @RequirePlatformPermission(PlatformAction.TEMPLATE_LIBRARY_MANAGE)
     public ResponseEntity<byte[]> export() {
         return PositionTemplateFileResponse.attachment(library.export(), MediaType.APPLICATION_JSON,
                 "lightmove-template-library.json");
     }
 
     @GetMapping("/schema")
-    @PreAuthorize(LIBRARY_GATE)
+    @RequirePlatformPermission(PlatformAction.TEMPLATE_LIBRARY_MANAGE)
     public ResponseEntity<byte[]> schema() {
         return PositionTemplateFileResponse.attachment(library.schema(), PositionTemplateFileResponse.SCHEMA,
                 PositionTemplateFileResponse.SCHEMA_FILE_NAME);
@@ -95,17 +96,17 @@ public class PositionTemplateLibraryController {
 
     /** Reads the file and answers with what an import would do. Writes nothing. */
     @PostMapping("/import/preview")
-    @PreAuthorize(LIBRARY_GATE)
-    public ResponseEntity<TemplateImportResponse> previewImport(@RequestParam("file") MultipartFile file) {
-        return ResponseEntity.ok(library.previewImport(file));
+    @RequirePlatformPermission(PlatformAction.TEMPLATE_LIBRARY_MANAGE)
+    public TemplateImportResponse previewImport(@RequestParam("file") MultipartFile file) {
+        return library.previewImport(file);
     }
 
     /** Re-reads the same file and writes it, all or nothing. */
     @PostMapping("/import/commit")
-    @PreAuthorize(LIBRARY_GATE)
-    public ResponseEntity<TemplateImportResponse> commitImport(@AuthenticationPrincipal AuthPrincipal principal,
-                                                               @RequestParam("file") MultipartFile file,
-                                                               HttpServletRequest httpRequest) {
-        return ResponseEntity.ok(library.commitImport(principal.userId(), file, httpRequest));
+    @RequirePlatformPermission(PlatformAction.TEMPLATE_LIBRARY_MANAGE)
+    public TemplateImportResponse commitImport(@AuthenticationPrincipal AuthPrincipal principal,
+                                               @RequestParam("file") MultipartFile file,
+                                               HttpServletRequest httpRequest) {
+        return library.commitImport(principal.userId(), file, httpRequest);
     }
 }

@@ -5,15 +5,7 @@ import java.util.Locale;
 import java.util.Set;
 import java.util.regex.Pattern;
 
-/**
- * Turns a spreadsheet header or a typed-in name into the {@code field_key} a column's values are
- * stored under.
- *
- * <p>The key exists so the label can change without orphaning data, which only works if the key is
- * derived once and then left alone. Everything here is therefore about producing a <i>stable</i>,
- * collision-free key from arbitrary text — never about producing a pretty one, which is the label's
- * job.
- */
+/** Derives a stable, collision-free {@code field_key} once from a header or name; prettiness is the label's job. */
 public final class CustomColumnKeys {
 
     private static final Pattern DIACRITICS = Pattern.compile("\\p{M}+");

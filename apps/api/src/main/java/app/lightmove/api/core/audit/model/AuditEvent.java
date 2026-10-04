@@ -19,21 +19,11 @@ import lombok.NoArgsConstructor;
 import org.hibernate.annotations.Immutable;
 
 /**
- * One immutable line in the security ledger.
+ * One immutable line in the security ledger; a database trigger makes it append-only.
  *
- * <p>There are no setters and no update path — the row is written once and never touched again. The
- * database enforces the same thing with a trigger, because an audit trail the application can edit
- * proves nothing about the application.
- *
- * <p><b>{@code @Immutable} is load-bearing, and it was missing.</b> Having no setters stops the
- * application changing a row; it does not stop Hibernate deciding one is dirty and flushing an
- * {@code UPDATE} of its own accord, which {@code metadata} makes possible — a {@code jsonb} map is
- * compared through a round trip, and what comes back is not always the object that went in. That
- * {@code UPDATE} hits the append-only trigger at commit, long after {@code AuditEventWriter} has
- * returned and outside the try/catch that exists so a lost audit row never fails the work it
- * records. The annotation removes the possibility rather than the symptom: nothing dirty-checks
- * these rows at all. {@code GeocodedPlace} carries it for the same reason;
- * inserts are unaffected, so it composes with {@code IDENTITY}.
+ * <p><b>{@code @Immutable} is load-bearing</b>: without it Hibernate can find the {@code jsonb} map
+ * dirty after a round trip and flush an {@code UPDATE} that hits the trigger at commit, outside
+ * {@code AuditEventWriter}'s try/catch, failing the work it records.
  */
 @Entity
 @Table(name = "app_lm_audit_event")
@@ -49,11 +39,7 @@ public class AuditEvent {
     @Column(name = "occurred_at", nullable = false, updatable = false)
     private Instant occurredAt = Instant.now();
 
-    /**
-     * The stored form of the event type — its {@code code()}. The column is a plain {@code String}
-     * so any of the {@link AuditEventType} feature enums can land in the one column, but the
-     * constructor only accepts an {@code AuditEventType}, so a typo can never reach this field.
-     */
+    /** The type's {@code code()}: a String so every {@link AuditEventType} enum shares the column. */
     @Column(name = "event_type", nullable = false, length = 64)
     private String eventType;
 
@@ -61,7 +47,7 @@ public class AuditEvent {
     @Column(nullable = false, length = 16)
     private AuditOutcome outcome;
 
-    /** Null on a failed login: we may not know — or may not want to assert — who was trying. */
+    /** Null on a failed login: we may not know, or want to assert, who was trying. */
     @Column(name = "actor_user_id")
     private UUID actorUserId;
 
@@ -83,13 +69,7 @@ public class AuditEvent {
     @Column(name = "correlation_id", length = 64)
     private String correlationId;
 
-    /**
-     * Context: why a login failed, which address was invited, and so on.
-     *
-     * <p>Never a credential, a token, or a password — not even a hashed one. This column is read by
-     * support staff and exported to compliance reviewers, and it is the easiest place in the system
-     * to accidentally spill a secret.
-     */
+    /** Never a credential, token or password, not even hashed: support staff and compliance read this. */
     @org.hibernate.annotations.JdbcTypeCode(org.hibernate.type.SqlTypes.JSON)
     @Column(columnDefinition = "jsonb", nullable = false)
     private Map<String, Object> metadata = Map.of();

@@ -1,10 +1,6 @@
 package app.lightmove.api.report.dto;
 
-/**
- * A mandate's talent mapping report, read whole: the head figures and the four chapters the screen
- * walks. Everything in it is aggregated live from the mandate's own rows at the moment of the read;
- * nothing is stored, so it can never go stale.
- */
+/** A mandate's talent mapping report, aggregated live at read time; nothing is stored. */
 public record ReportResponse(
         ReportHeadDto head,
         MappingProgressDto progress,

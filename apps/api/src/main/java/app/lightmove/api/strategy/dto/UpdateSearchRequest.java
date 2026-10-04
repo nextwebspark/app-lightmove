@@ -4,13 +4,8 @@ import app.lightmove.api.strategy.constant.SearchVisibility;
 import jakarta.validation.constraints.Size;
 
 /**
- * Editing a saved search's label and tier. Its filter is not here: re-capturing the mandate's current
- * filter onto a search is a separate, explicit act, so that renaming one can never silently move the
- * scope it stands for.
- *
- * <p>Both fields are optional and absent means "leave this alone". They have to agree on that: a tier
- * toggle forced to resend a name it never touched writes back whatever its client last cached, which
- * on a shared search is how one person's rename silently reverts another's.
+ * Both fields optional, absent meaning "leave alone": a tier toggle forced to resend a cached name
+ * silently reverted a teammate's rename. Re-capturing the filter is a separate act.
  */
 public record UpdateSearchRequest(
         @Size(max = 120, message = "A name must be 120 characters or fewer")

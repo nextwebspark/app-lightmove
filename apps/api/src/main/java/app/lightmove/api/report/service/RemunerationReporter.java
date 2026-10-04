@@ -98,7 +98,6 @@ class RemunerationReporter {
         CandidateCompensationDto compensation = executive.compensation();
         return new DisclosureDto(executive.id(), executive.fullName(), row.employerName(), executive.title(),
                 Countries.nameOf(executive.locationCountry()), NationalityCatalog.groupOf(executive.nationality()),
-                executive.status(), Packages.fixedOf(compensation), Packages.totalOf(compensation),
-                executive.note());
+                executive.status(), Packages.fixedOf(compensation), Packages.totalOf(compensation));
     }
 }

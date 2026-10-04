@@ -1,5 +1,5 @@
-/** Three of the nine groups are not a nationality, so "a Western expat national" is a thing nobody is. */
-const EXPAT_GROUPS = new Set(["Western expat", "South Asian", "Arab expat, non-GCC"]);
+/** Five of the eleven groups are not a nationality, so "a Western expat national" is a thing nobody is. */
+const EXPAT_GROUPS = new Set(["Western expat", "South Asian", "Asian", "Arab expat, non-GCC", "Other expat"]);
 
 const noun = (group: string) => (EXPAT_GROUPS.has(group) ? "executive" : "national");
 

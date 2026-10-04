@@ -12,10 +12,21 @@ import app.lightmove.api.ApolloUniverse;
 import app.lightmove.api.FlowTestSupport;
 import app.lightmove.api.IntegrationTest;
 import app.lightmove.api.StubChatModel;
+import app.lightmove.api.triagecompany.constant.TriageCompanyStatus;
+import app.lightmove.api.triagecompany.model.MandateStages;
+import app.lightmove.api.triagecompany.service.TriageCompanyReadService;
+import java.time.Duration;
+import java.util.List;
+import java.util.Map;
 import java.util.UUID;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
+import org.awaitility.Awaitility;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.springframework.ai.chat.messages.Message;
+import org.springframework.ai.chat.messages.MessageType;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.MediaType;
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -30,6 +41,8 @@ import tools.jackson.databind.JsonNode;
 @IntegrationTest
 class AssistantIntegrationTest extends FlowTestSupport {
 
+    private static final Pattern COMPLETE_DONE_EVENT = Pattern.compile("event:done\\ndata:(.+)\\n\\n");
+
     @Autowired
     private JdbcTemplate db;
 
@@ -37,6 +50,9 @@ class AssistantIntegrationTest extends FlowTestSupport {
 
     @Autowired
     private StubChatModel model;
+
+    @Autowired
+    private TriageCompanyReadService triageReads;
 
     @BeforeEach
     void freshUniverse() {
@@ -143,6 +159,73 @@ class AssistantIntegrationTest extends FlowTestSupport {
     }
 
     @Test
+    @DisplayName("a follow-up carries the earlier card, by key, with what was filed from it")
+    void replaysTheEarlierCardToTheModel() throws Exception {
+        Firm firm = firm("Assistant Memory Firm");
+        universe.company("a1", "ACWA Power").employees(4_000).insert();
+        universe.company("a2", "Marafiq").employees(2_400).insert();
+        String turnId = turnWithCard(firm);
+        mvc.perform(accept(firm.admin, turnId, """
+                        {"companyIds":["a1"],"status":"shortlisted"}"""))
+                .andExpect(status().isOk());
+        String threadId = db.queryForObject("SELECT thread_id FROM app_lm_assistant_turn WHERE id = ?",
+                UUID.class, UUID.fromString(turnId)).toString();
+
+        askAndAwait(firm.admin, firm.projectId, threadId, "Shortlist the other one too");
+
+        assertThat(model.lastPrompt().getInstructions())
+                .filteredOn(message -> message.getMessageType() == MessageType.ASSISTANT)
+                .singleElement()
+                .extracting(Message::getText)
+                .asString()
+                .startsWith("stubbed response")
+                .contains("<card title=\"Two utilities\">")
+                .contains("- [new] a1 · ACWA Power · Saudi Arabia")
+                .contains("- [new] a2 · Marafiq · Saudi Arabia")
+                .contains("Filed 1 as Shortlisted");
+    }
+
+    @Test
+    @DisplayName("a company the card showed as already filed keeps its stage when the card is filed")
+    void leavesAHeldCompanyWhereItStands() throws Exception {
+        Firm firm = firm("Assistant Held Firm");
+        universe.company("a1", "ACWA Power").employees(4_000).insert();
+        universe.company("a2", "Marafiq").employees(2_400).insert();
+        mvc.perform(accept(firm.admin, turnWithCard(firm), """
+                        {"companyIds":["a2"],"status":"declined"}"""))
+                .andExpect(status().isOk());
+        UUID projectId = UUID.fromString(firm.projectId);
+        UUID workspaceId = db.queryForObject("SELECT workspace_id FROM app_lm_project WHERE id = ?",
+                UUID.class, projectId);
+
+        MandateStages stages = triageReads.stagesOf(workspaceId, projectId, List.of("a1", "a2"),
+                List.of("MARAFIQ", "Unknown Co"));
+        assertThat(stages.byAccountId()).containsExactly(Map.entry("a2", TriageCompanyStatus.DECLINED));
+        assertThat(stages.stageOf(null, "marafiq")).isEqualTo(TriageCompanyStatus.DECLINED);
+
+        String turnId = askAndAwait(firm.admin, firm.projectId, null, "Top utilities again").get("id").asText();
+        db.update("UPDATE app_lm_assistant_turn SET proposal = ?::jsonb WHERE id = ?", """
+                {"title":"Two utilities","companies":[
+                  {"apolloAccountId":"a1","companyName":"ACWA Power","country":"Saudi Arabia"},
+                  {"apolloAccountId":"a2","companyName":"Marafiq","country":"Saudi Arabia","stage":"declined"}]}""",
+                UUID.fromString(turnId));
+
+        mvc.perform(get("/api/v1/assistant/threads/" + db.queryForObject(
+                        "SELECT thread_id FROM app_lm_assistant_turn WHERE id = ?", UUID.class, UUID.fromString(turnId)))
+                        .header("Authorization", "Bearer " + firm.admin))
+                .andExpect(jsonPath("$.turns[0].proposal.companies[1].stage").value("declined"));
+
+        mvc.perform(accept(firm.admin, turnId, """
+                        {"companyIds":["a1","a2"],"status":"shortlisted"}"""))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.added").value(1))
+                .andExpect(jsonPath("$.skipped").value(1));
+        assertThat(db.queryForObject("SELECT status FROM app_lm_project_triage_company"
+                + " WHERE project_id = ? AND apollo_account_id = 'a2'", String.class, projectId))
+                .isEqualTo("DECLINED");
+    }
+
+    @Test
     @DisplayName("a company the card never offered cannot be filed through it")
     void refusesACompanyTheCardDidNotOffer() throws Exception {
         Firm firm = firm("Assistant Offer Firm");
@@ -203,7 +286,48 @@ class AssistantIntegrationTest extends FlowTestSupport {
                 .contains("- Name: Assistant Persona Firm")
                 .contains("- Sectors: Retail, Real Estate")
                 .contains("- Competitors: Majid Al Futtaim")
-                .doesNotContain("{firm}");
+                .contains("departments or business units")
+                .doesNotContain("{hiring}");
+    }
+
+    @Test
+    @DisplayName("at an agency, every question carries the mandate's client and its persona, not the agency's")
+    void tellsTheModelAboutTheClient() throws Exception {
+        String alok = "alok@" + domain;
+        createWorkspace(verifiedUser("Alok Kumar", alok), "Gulf Search Partners", "AGENCY");
+        String admin = login(alok);
+        String clientId = body(mvc.perform(post("/api/v1/clients")
+                        .header("Authorization", "Bearer " + admin)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"customName":"Harbour Health","hqCountry":"Saudi Arabia"}"""))
+                .andReturn()).get("id").asText();
+        mvc.perform(put("/api/v1/clients/" + clientId + "/persona")
+                        .header("Authorization", "Bearer " + admin)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"summary":"Private hospital operator","sectors":["Hospitals"],
+                                 "competitors":["Dallah Health"]}"""))
+                .andExpect(status().isOk());
+        String projectId = body(mvc.perform(post("/api/v1/projects")
+                        .header("Authorization", "Bearer " + admin)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"clientId":"%s","positionTitle":"Chief Medical Officer"}
+                                """.formatted(clientId)))
+                .andReturn()).get("id").asText();
+
+        askAndAwait(admin, projectId, null, "Top hospital groups");
+
+        String system = model.lastPrompt().getSystemMessage().getText();
+        assertThat(system)
+                .contains("The consultant works for Gulf Search Partners, a search agency")
+                .contains("- Name: Harbour Health")
+                .contains("- Headquarters: Saudi Arabia")
+                .contains("- Sectors: Hospitals")
+                .contains("- Competitors: Dallah Health")
+                .doesNotContain("departments or business units")
+                .doesNotContain("{hiring}");
     }
 
     private String turnWithCard(Firm firm) throws Exception {
@@ -223,11 +347,14 @@ class AssistantIntegrationTest extends FlowTestSupport {
         MvcResult stream = mvc.perform(ask(token, projectId, threadId, question))
                 .andExpect(request().asyncStarted())
                 .andReturn();
-        awaitContent(stream, "event:done");
-        String content = stream.getResponse().getContentAsString();
-        String afterDone = content.substring(content.indexOf("event:done"));
-        String data = afterDone.lines().filter(line -> line.startsWith("data:")).findFirst().orElseThrow();
-        return json.readTree(data.substring("data:".length()));
+        // Shipped flake: the event is written in pieces, and reading on "event:done" alone sometimes caught
+        // its data line still empty. The blank line that ends an SSE event is what says it is all there.
+        String data = Awaitility.await()
+                .atMost(Duration.ofMillis(STREAM_WAIT_MS))
+                .pollInterval(Duration.ofMillis(50))
+                .until(() -> COMPLETE_DONE_EVENT.matcher(stream.getResponse().getContentAsString()), Matcher::find)
+                .group(1);
+        return json.readTree(data);
     }
 
     private MockHttpServletRequestBuilder ask(String token, String projectId, String threadId,

@@ -7,7 +7,8 @@ import { ToastProvider } from "../../../components/ui/Toast";
 import { ApiRequestError } from "../../../lib/apiClient";
 import * as contactLookupApi from "../../contactlookup/api/contactLookupApi";
 import * as candidatesApi from "../api/candidatesApi";
-import type { Candidate } from "../api/types";
+import * as personCrmApi from "../api/personCrmApi";
+import type { Candidate, PersonNote, PersonTimelineEntry } from "../api/types";
 import { CandidateDrawer } from "./CandidateDrawer";
 
 vi.mock("../api/candidatesApi", async (importOriginal) => ({
@@ -15,6 +16,14 @@ vi.mock("../api/candidatesApi", async (importOriginal) => ({
   createCandidate: vi.fn(),
   updateCandidate: vi.fn(),
   changeCandidateStatus: vi.fn(),
+}));
+
+vi.mock("../api/personCrmApi", async (importOriginal) => ({
+  ...(await importOriginal<typeof personCrmApi>()),
+  getPersonPositions: vi.fn(),
+  getPersonNotes: vi.fn(),
+  getPersonTimeline: vi.fn(),
+  writePersonNote: vi.fn(),
 }));
 
 vi.mock("../../contactlookup/api/contactLookupApi", async (importOriginal) => ({
@@ -39,8 +48,10 @@ const yasmin: Candidate = {
   nationality: "Egyptian",
   gender: "female",
   yearsExperience: 18,
+  aiInferredFields: [],
   summary: null,
-  note: null,
+  personId: "person-1",
+  linkedinUrlLocked: false,
   compensation: {
     currency: "AED",
     baseSalary: 420000,
@@ -142,6 +153,21 @@ describe("CandidateDrawer", () => {
     vi.resetAllMocks();
     // The folds are remembered per viewer; one test's folding must not reach the next.
     localStorage.clear();
+    vi.mocked(personCrmApi.getPersonPositions).mockResolvedValue([
+      {
+        candidateId: "c1",
+        projectId: "p1",
+        positionTitle: "Chief Financial Officer",
+        status: "identified",
+        addedByUserId: "u1",
+        addedByName: "Alok Kumar",
+        addedAt: "2026-08-02T09:00:00Z",
+        source: "manual",
+        workable: true,
+      },
+    ]);
+    vi.mocked(personCrmApi.getPersonNotes).mockResolvedValue([]);
+    vi.mocked(personCrmApi.getPersonTimeline).mockResolvedValue({ entries: [], nextCursor: null });
   });
 
   it("refuses a nameless executive without posting", async () => {
@@ -493,14 +519,16 @@ describe("CandidateDrawer", () => {
     expect(vi.mocked(candidatesApi.updateCandidate).mock.calls[0][2].gender).toBe("male");
   });
 
-  it("offers nationality as the nine groups, and saves the one picked", async () => {
+  it("offers nationality as the eleven groups, and saves the one picked", async () => {
     vi.mocked(candidatesApi.updateCandidate).mockResolvedValue({ ...yasmin, nationality: "Emirati" });
     renderDrawer({ candidate: { ...yasmin, nationality: null }, company: null });
 
     await userEvent.click(screen.getByRole("button", { name: /Edit background/i }));
     const nationality = screen.getByLabelText(/^Nationality/i);
     expect(nationality).toHaveValue("");
-    expect(within(nationality).getAllByRole("option")).toHaveLength(10);
+    expect(within(nationality).getAllByRole("option")).toHaveLength(12);
+    expect(within(nationality).getByRole("option", { name: "Asian" })).toBeInTheDocument();
+    expect(within(nationality).getByRole("option", { name: "Other expat" })).toBeInTheDocument();
 
     await userEvent.selectOptions(nationality, "Emirati");
     await userEvent.click(screen.getByRole("button", { name: /^Save$/i }));
@@ -509,7 +537,7 @@ describe("CandidateDrawer", () => {
     expect(vi.mocked(candidatesApi.updateCandidate).mock.calls[0][2].nationality).toBe("Emirati");
   });
 
-  it("keeps a stored nationality the nine do not carry", async () => {
+  it("keeps a stored nationality the eleven do not carry", async () => {
     vi.mocked(candidatesApi.updateCandidate).mockResolvedValue(yasmin);
     renderDrawer({ candidate: yasmin, company: null });
 
@@ -525,23 +553,77 @@ describe("CandidateDrawer", () => {
     expect(vi.mocked(candidatesApi.updateCandidate).mock.calls[0][2].nationality).toBe("Egyptian");
   });
 
-  it("saves the note on its own, the moment it differs from what is stored", async () => {
-    const onSaved = vi.fn();
-    vi.mocked(candidatesApi.updateCandidate).mockResolvedValue({ ...yasmin, note: "Call in May" });
-    renderDrawer({ candidate: yasmin, company: null, onSaved });
+  it("writes a note about this position, shared on the person, and lists it with its author", async () => {
+    const written: PersonNote = {
+      id: "n1",
+      kind: "call",
+      body: "Call in May",
+      pinned: false,
+      projectId: "p1",
+      projectTitle: "Chief Financial Officer",
+      authorUserId: "u1",
+      authorName: "Alok Kumar",
+      authorAvatarUrl: null,
+      createdAt: new Date().toISOString(),
+      editedAt: null,
+      editedByName: null,
+      editable: true,
+    };
+    vi.mocked(personCrmApi.writePersonNote).mockResolvedValue(written);
+    renderDrawer({ candidate: yasmin, company: null });
 
-    // No pencil: the note is always a textarea, and Save appears with the first keystroke.
-    expect(screen.queryByRole("button", { name: /Save note/i })).not.toBeInTheDocument();
-    await userEvent.type(screen.getByLabelText(/Note on this executive/i), "Call in May");
+    expect(await screen.findByText(/No notes yet/i)).toBeInTheDocument();
+    expect(await screen.findByText("About Chief Financial Officer")).toBeInTheDocument();
+    vi.mocked(personCrmApi.getPersonNotes).mockResolvedValue([written]);
+    await userEvent.click(screen.getByRole("radio", { name: "Call" }));
+    await userEvent.type(screen.getByLabelText(/New note/i), "Call in May");
     await userEvent.click(screen.getByRole("button", { name: /Save note/i }));
 
-    await waitFor(() => expect(candidatesApi.updateCandidate).toHaveBeenCalled());
-    const payload = vi.mocked(candidatesApi.updateCandidate).mock.calls[0][2];
-    expect(payload.note).toBe("Call in May");
-    expect(payload.fullName).toBe("Yasmin El-Sayed");
-    expect(onSaved).toHaveBeenCalledWith(expect.objectContaining({ note: "Call in May" }));
-    // Stored now, so there is nothing left to save.
-    expect(screen.queryByRole("button", { name: /Save note/i })).not.toBeInTheDocument();
+    await waitFor(() =>
+      expect(personCrmApi.writePersonNote).toHaveBeenCalledWith("p1", "c1", {
+        kind: "call",
+        body: "Call in May",
+      }),
+    );
+    // A note is never a field of the profile: the row's replace is not touched.
+    expect(candidatesApi.updateCandidate).not.toHaveBeenCalled();
+    expect(await screen.findByText("Call in May")).toBeInTheDocument();
+    expect(screen.getByText("Alok Kumar", { selector: "span" })).toBeInTheDocument();
+  });
+
+  it("reads the timeline a page at a time, the next from the last one's cursor", async () => {
+    const line = (id: number, kind: PersonTimelineEntry["kind"]): PersonTimelineEntry => ({
+      id,
+      kind,
+      occurredAt: "2026-09-30T10:00:00Z",
+      actorUserId: "u1",
+      actorName: "Alok Kumar",
+      actorAvatarUrl: null,
+      personId: "person-1",
+      personName: "Yasmin El-Sayed",
+      projectId: "p1",
+      projectTitle: "Chief Financial Officer",
+      details: {},
+      noteExcerpt: null,
+    });
+    vi.mocked(personCrmApi.getPersonTimeline).mockImplementation((_project, _candidate, before) =>
+      Promise.resolve(
+        before == null
+          ? { entries: [line(9, "PROFILE_EDITED")], nextCursor: 9 }
+          : { entries: [line(4, "ADDED_TO_POOL")], nextCursor: null },
+      ),
+    );
+    renderDrawer({ candidate: yasmin, company: null });
+
+    await userEvent.click(await screen.findByRole("button", { name: /^Timeline/ }));
+    expect(await screen.findByText("edited the profile")).toBeInTheDocument();
+    expect(screen.queryByText("added to this position")).not.toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole("button", { name: "Load more" }));
+
+    expect(await screen.findByText("added to this position")).toBeInTheDocument();
+    expect(personCrmApi.getPersonTimeline).toHaveBeenLastCalledWith("p1", "c1", 9, expect.anything());
+    expect(screen.queryByRole("button", { name: "Load more" })).not.toBeInTheDocument();
   });
 
   it("moves on to the profile it added rather than back to the grid", async () => {
@@ -717,8 +799,11 @@ describe("CandidateDrawer", () => {
     expect(screen.getByText("Board seats")).toBeInTheDocument();
     expect(screen.getByText("3")).toBeInTheDocument();
     expect(screen.getByText("Yes")).toBeInTheDocument();
-    // Values are edited through Edit like every other field, never in the profile.
-    expect(screen.queryByRole("textbox")).not.toBeInTheDocument();
+    // Values are edited through Edit like every other field, never in the profile. The one box open
+    // here is the note composer, which writes a note and no field.
+    expect(
+      screen.queryAllByRole("textbox").filter((box) => box.getAttribute("aria-label") !== "New note"),
+    ).toHaveLength(0);
   });
 
   it("will not render a stored profile URL a browser should not follow", async () => {
@@ -779,8 +864,14 @@ describe("CandidateDrawer", () => {
     expect(screen.getByRole("heading", { name: "Yasmin El-Sayed" })).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /^Edit / })).not.toBeInTheDocument();
     expect(screen.queryByLabelText(/^Status$/i)).not.toBeInTheDocument();
-    expect(screen.queryByLabelText(/Note on this executive/i)).not.toBeInTheDocument();
+    expect(screen.queryByLabelText(/New note/i)).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /Remove from mandate/i })).not.toBeInTheDocument();
+    // Notes, history and other positions are staff-only: a client seat's drawer never asks.
+    expect(screen.queryByText("Notes")).not.toBeInTheDocument();
+    expect(screen.queryByText("Timeline")).not.toBeInTheDocument();
+    expect(personCrmApi.getPersonNotes).not.toHaveBeenCalled();
+    expect(personCrmApi.getPersonTimeline).not.toHaveBeenCalled();
+    expect(personCrmApi.getPersonPositions).not.toHaveBeenCalled();
   });
 
   it("cancels a section on Escape and leaves the panel open", async () => {
@@ -825,7 +916,7 @@ describe("CandidateDrawer", () => {
           background: false,
           contact: true,
           columns: false,
-          note: false,
+          notes: false,
         }),
       );
       vi.mocked(contactLookupApi.getContactLookupConfig).mockResolvedValue({ enabled: true });

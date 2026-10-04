@@ -13,15 +13,9 @@ import org.springframework.core.annotation.Order;
 import org.springframework.stereotype.Component;
 
 /**
- * {@code .docx}, by the ZIP signature every OOXML format shares plus the one entry ({@code
- * word/document.xml}) that is specifically Word's. Checked rather than assumed from the raw zip
- * signature alone — an {@code .xlsx} ({@code xl/workbook.xml}) or {@code .pptx} ({@code
- * ppt/presentation.xml}) reader added beside this one shares that same signature, and would be
- * mistaken for a Word document without this check.
- *
- * <p>A zip is a zip-bomb vector on any reader — POI's own {@code ZipSecureFile} ratio and entry-count
- * limits are left at their shipped defaults deliberately, rather than relaxed for a "trusted" upload
- * that is, in fact, a stranger's file.
+ * {@code .docx}, by the ZIP signature plus the Word-specific {@code word/document.xml} entry, since
+ * every OOXML format shares the signature. POI's {@code ZipSecureFile} zip-bomb limits are left at
+ * their defaults deliberately: the upload is a stranger's file.
  */
 @Component
 @Order(300)
@@ -30,12 +24,7 @@ class DocxFormatReader implements PositionDocumentFormatReader {
     private static final byte[] ZIP_SIGNATURE = {0x50, 0x4B, 0x03, 0x04};
     private static final String WORD_DOCUMENT_ENTRY = "word/document.xml";
 
-    /**
-     * Bounds on the entry scan itself — {@code ZipInputStream#getNextEntry} inflates the current
-     * entry in full to reach the next one, before POI's {@code ZipSecureFile} limits (which only
-     * guard {@link #extractText}) ever run. A file failing either ceiling is answered {@code false}
-     * rather than read further.
-     */
+    /** Bounds the entry scan, which runs before POI's {@code ZipSecureFile} limits guard {@link #extractText}. */
     private static final int MAX_ENTRIES = 1_000;
 
     private static final long MAX_INFLATED_BYTES = 64L * 1024 * 1024;
@@ -57,11 +46,8 @@ class DocxFormatReader implements PositionDocumentFormatReader {
     }
 
     /**
-     * A cheap streaming scan of the zip's entry names — no need to fully open it as an OOXML package.
-     *
-     * <p>Bounded on its own terms: each entry's bytes are read (and counted) explicitly rather than
-     * left to {@code getNextEntry}'s implicit drain, so a zip bomb is caught mid-inflation instead of
-     * fully decompressed before either ceiling is checked.
+     * Each entry is read and counted explicitly rather than left to {@code getNextEntry}'s implicit
+     * drain, so a zip bomb is caught mid-inflation instead of fully decompressed first.
      */
     private static boolean hasEntry(byte[] content, String entryName) {
         try (ZipInputStream zip = new ZipInputStream(new ByteArrayInputStream(content))) {

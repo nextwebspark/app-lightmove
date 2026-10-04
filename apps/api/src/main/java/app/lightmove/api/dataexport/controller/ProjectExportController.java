@@ -1,6 +1,8 @@
 package app.lightmove.api.dataexport.controller;
 
 import app.lightmove.api.core.security.model.AuthPrincipal;
+import app.lightmove.api.core.security.rbac.ProjectAction;
+import app.lightmove.api.core.security.rbac.RequireProjectPermission;
 import app.lightmove.api.dataexport.service.ProjectExportService;
 import app.lightmove.api.triagecompany.model.TriageCompanyFilters;
 import jakarta.servlet.http.HttpServletRequest;
@@ -12,7 +14,6 @@ import org.springframework.http.ContentDisposition;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
-import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -21,12 +22,8 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 /**
- * Downloading a mandate's Companies grid as a file.
- *
- * <p>WORK_VIEW, not the WORK_EXECUTE the import template carries: that gate exists because an import
- * <i>writes</i>, and this is the same reading a client representative already does on the screen. It
- * is bulk egress all the same, so unlike every other read in the codebase it records an audit event —
- * which is the only reason {@code HttpServletRequest} is threaded through.
+ * Downloads a mandate's Companies grid. WORK_VIEW — the same reading a client does on screen — but,
+ * as bulk egress, audited, which is why {@code HttpServletRequest} is threaded through.
  */
 @RestController
 @RequestMapping("/api/v1/projects/{projectId}/export")
@@ -36,15 +33,11 @@ public class ProjectExportController {
     private final ProjectExportService exports;
 
     /**
-     * One stage of the grid, whole, narrowed by the screen's search box when one is in force.
-     *
-     * <p>Served as {@code text/csv} rather than the {@code application/octet-stream} the position
-     * document uses: that rule exists because the document echoes caller-supplied bytes back, and this
-     * content is generated here. The file name is a fallback — the SPA names the download itself,
-     * where the mandate's own name is in hand.
+     * {@code text/csv}, not octet-stream: the content is generated here, not echoed caller bytes. The SPA
+     * names the download; the file name here is a fallback.
      */
     @GetMapping("/companies")
-    @PreAuthorize("@projectAuthorizer.can(principal, #projectId, 'WORK_VIEW')")
+    @RequireProjectPermission(ProjectAction.WORK_VIEW)
     public ResponseEntity<byte[]> companies(@AuthenticationPrincipal AuthPrincipal principal,
                                             @PathVariable UUID projectId,
                                             @RequestParam(required = false) String status,

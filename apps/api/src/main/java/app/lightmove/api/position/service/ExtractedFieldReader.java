@@ -11,14 +11,9 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
 /**
- * The re-hydration, verification and truncation logic every extraction proposer needs to turn one raw
- * model-answered value into an {@link ExtractedField} — pulled out once {@link
- * PositionDetailsProposer}, {@link PositionContextProposer}, {@link PositionReportingProposer} and
- * {@link PositionAssessmentProposer} had each grown their own byte-identical copy.
- *
- * <p>{@code haystack} is always the caller's whole document, already {@link #haystackOf normalised and
- * lower-cased} once per extraction and passed down — never re-normalised per field, which is what made
- * {@code occursIn} expensive on the proposer answering the most fields.
+ * Turns one raw model-answered value into an {@link ExtractedField}: re-hydration, verification and
+ * truncation. {@code haystack} is the whole document, {@link #haystackOf normalised} once per reading
+ * rather than per field.
  */
 @Service
 @Slf4j
@@ -26,19 +21,13 @@ public class ExtractedFieldReader {
 
     private static final Pattern WHITESPACE = Pattern.compile("\\s+");
 
-    /** Normalises and lower-cases the whole document once, for every {@code fieldFrom} call in one reading. */
     String haystackOf(String originalText) {
         return normaliseWhitespace(originalText).toLowerCase(Locale.ROOT);
     }
 
     /**
-     * Re-hydrates a raw value and snippet, drops the field on a surviving redaction placeholder, and
-     * downgrades a snippet that does not literally occur in {@code haystack} rather than trusting it as
-     * a quote. Empty for a blank {@code rawValue} — the model saying it found nothing is the correct
-     * answer to carry forward, not a value to invent.
-     *
-     * @param extractorLabel names the caller in the dropped-field warning ("Position extraction",
-     *                       "Compensation extraction", …)
+     * Drops the field on a surviving redaction placeholder, and drops a snippet that is not a literal
+     * quote of {@code haystack} with its confidence. Empty for a blank {@code rawValue}.
      */
     Optional<ExtractedField> fieldFrom(String extractorLabel, String fieldKey, String rawValue,
                                        String rawSnippet, Pseudonyms pseudonyms, String haystack) {
@@ -59,8 +48,7 @@ public class ExtractedFieldReader {
         return Optional.of(field);
     }
 
-    /** {@link #fieldFrom}, then resolved against {@code type} by name — never {@code Enum.valueOf}, since
-     *  the model may answer a token the enum does not carry, and that answer is dropped rather than thrown. */
+    /** Never {@code Enum.valueOf}: a token the enum does not carry is dropped rather than thrown. */
     <T extends Enum<T>> Optional<ExtractedField> enumFieldFrom(String extractorLabel, String fieldKey,
                                                                 Class<T> type, String rawValue, String rawSnippet,
                                                                 Pseudonyms pseudonyms, String haystack) {
@@ -82,7 +70,6 @@ public class ExtractedFieldReader {
         return null;
     }
 
-    /** {@code haystack} is already normalised and lower-cased — only the snippet needs it here. */
     boolean occursIn(String snippet, String haystack) {
         String normalisedSnippet = normaliseWhitespace(snippet).toLowerCase(Locale.ROOT);
         return !normalisedSnippet.isEmpty() && haystack.contains(normalisedSnippet);

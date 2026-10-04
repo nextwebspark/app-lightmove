@@ -19,13 +19,16 @@ export function ChoiceCardGroup<TValue extends string>({
   value,
   onChange,
   className,
+  invalid = false,
 }: {
   /** Names the group for a screen reader. */
   label: string;
   options: readonly ChoiceCardOption<TValue>[];
-  value: TValue;
+  /** Null when the choice is deliberately left open: no card is selected and the first takes the tab stop. */
+  value: TValue | null;
   onChange: (value: TValue) => void;
   className?: string;
+  invalid?: boolean;
 }) {
   const keys = useRadioGroupKeys(
     options.map((option) => option.value),
@@ -38,22 +41,28 @@ export function ChoiceCardGroup<TValue extends string>({
       ref={keys.ref}
       role="radiogroup"
       aria-label={label}
+      aria-invalid={invalid || undefined}
       onKeyDown={keys.onKeyDown}
       className={cn("grid grid-cols-1 gap-3 sm:grid-cols-2", className)}
     >
-      {options.map((option) => {
+      {options.map((option, index) => {
         const selected = option.value === value;
+        const tabbable = value === null ? index === 0 : selected;
         return (
           <button
             key={option.value}
             type="button"
             role="radio"
             aria-checked={selected}
-            tabIndex={selected ? 0 : -1}
+            tabIndex={tabbable ? 0 : -1}
             onClick={() => onChange(option.value)}
             className={cn(
               "flex items-start justify-between gap-4 rounded-[10px] border px-4 py-3.5 text-start transition",
-              selected ? "border-u-accent bg-u-accent-tint" : "border-u-border-strong bg-u-bg hover:border-u-text3",
+              selected
+                ? "border-u-accent bg-u-accent-tint"
+                : invalid
+                  ? "border-u-offlimits bg-u-bg hover:border-u-text3"
+                  : "border-u-border-strong bg-u-bg hover:border-u-text3",
             )}
           >
             <span className="min-w-0">

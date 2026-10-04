@@ -4,10 +4,8 @@ import app.lightmove.api.core.security.rbac.ProjectRole;
 import jakarta.validation.constraints.NotNull;
 
 /**
- * PUT of a seat: the one staff role the member holds on this mandate afterwards. Singular by
- * contract, so the one-role-per-seat rule cannot be forgotten in a runtime check. CLIENT is not
- * seatable here — it comes from attaching a representative — and a seat that already holds it
- * keeps it.
+ * The one staff role the seat holds afterwards — singular by contract, so one-role-per-seat cannot be
+ * forgotten. CLIENT comes only from attaching a representative.
  */
 public record PutTeamMemberRequest(
         @NotNull(message = "Choose a role")

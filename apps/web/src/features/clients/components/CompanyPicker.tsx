@@ -3,7 +3,7 @@ import { useState } from "react";
 import { Button, Field, Input, Spinner } from "../../../components/ui";
 import { CountryField } from "../../../components/ui/CountryField";
 import { CompanyLogo } from "../../../components/ui/CompanyLogo";
-import { COMPANY_SEARCH_KEY, searchCompanies } from "../../strategy/api/companiesApi";
+import { searchCompanies } from "../../strategy/api/companiesApi";
 import type { CompanySuggestion } from "../../strategy/api/types";
 import { useDebouncedValue } from "../../../lib/useComboboxList";
 import {
@@ -22,18 +22,21 @@ export interface CompanySearchSource {
   search: (query: string, signal: AbortSignal) => Promise<CompanySuggestion[]>;
 }
 
+// Not COMPANY_SEARCH_KEY: Strategy's readers cache the `{ companies }` page there and this source caches
+// the bare list, so a shared key handed one of them the other's shape.
+export const COMPANY_PICKER_SEARCH_KEY = (query: string) => ["companySearchList", query] as const;
+
 const WORKSPACE_COMPANY_SEARCH: CompanySearchSource = {
-  key: COMPANY_SEARCH_KEY,
+  key: COMPANY_PICKER_SEARCH_KEY,
   search: (query, signal) => searchCompanies(query, undefined, signal).then((page) => page.companies),
 };
 
 /**
- * The company step of creating a client, shared by both entrances — the registry's New-client modal and
- * the New-project modal's inline client — and signup's organisation step, which passes its own
- * `source` and takes a typed name with no further details.
+ * The company step of an agency's New-client modal, also used to pick the workspace's own firm in
+ * Settings and signup's organisation step — which passes its own `source` — taking a typed name there
+ * with no further details.
  *
- * <p>It reads the Apollo universe through the same `/companies/search` call and the same query key
- * Strategy's own pickers use, so a keystroke typed here is answered from the cache they filled.
+ * <p>It reads the Apollo universe through the same `/companies/search` call Strategy's own pickers use.
  *
  * <p>A company the market does not carry is the escape hatch, not the default — it is offered under the
  * results, once the search has settled, so it never competes with the rows that are still arriving.
@@ -286,7 +289,7 @@ function NewCompanyForm({
           autoFocus
         />
       </Field>
-      <Field label="Domain · optional, helps us match the business unit">
+      <Field label="Domain · optional, helps us match the company">
         <Input
           value={domain}
           onChange={(event) => setDomain(event.target.value)}

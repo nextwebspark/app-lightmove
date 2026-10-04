@@ -2,7 +2,7 @@ import type { ReactNode } from "react";
 import { cn } from "../../lib/cn";
 import { CompanyLinks } from "./CompanyLink";
 import { CompanyLogo } from "./CompanyLogo";
-import { DrawerCloseButton } from "./Drawer";
+import { PanelCloseButton } from "./PanelCloseButton";
 
 /**
  * The top of every company panel: mark, name, its two links, a line of context, and whatever badges
@@ -36,7 +36,7 @@ export function CompanyDrawerHeader({
 }) {
   return (
     <div className="relative flex-none border-b border-u-border px-5 py-4">
-      <DrawerCloseButton onClose={onClose} />
+      <PanelCloseButton onClose={onClose} />
       {cornerActions && (
         <span className="absolute end-12 top-3.5 flex items-center gap-1">{cornerActions}</span>
       )}

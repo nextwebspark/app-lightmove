@@ -20,11 +20,7 @@ public record ClientListResponse(
         ViewerSummary viewers
 ) {
 
-    /**
-     * The one place a row is assembled. Four consecutive {@code String}s in the middle of eleven
-     * positional components is a transposition nothing would catch, and the newborn client a create
-     * answers with must be the same row a later list read returns.
-     */
+    /** The one place a row is assembled: four adjacent {@code String}s are a transposition nothing catches. */
     public static ClientListResponse of(Client client, ClientType type, long activeMandates,
                                         long deliveredMandates, List<RepAvatar> contacts,
                                         ViewerSummary viewers) {

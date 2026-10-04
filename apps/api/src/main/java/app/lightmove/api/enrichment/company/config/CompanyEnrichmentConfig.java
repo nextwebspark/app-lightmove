@@ -17,14 +17,9 @@ import org.springframework.web.client.RestClient;
 import tools.jackson.databind.ObjectMapper;
 
 /**
- * Picks the {@link LinkedInCompanyEnricher} from config. Company research rides the Bright Data key
- * the person enrichment already requires — there is no provider knob of its own, because a second
- * knob would only invite the two halves of one capture to disagree.
- *
- * <p>The adapter is its own {@code @Bean}, and {@code defaultCandidate = false}, for the two reasons
- * {@code CandidateEnrichmentConfig} explains at length: an adapter constructed inline inside another
- * factory method is never proxied and its {@code @Retryable} would be inert, and an adapter left as an
- * ordinary candidate would make injecting the port ambiguous.
+ * Picks the {@link LinkedInCompanyEnricher}. It rides the person enrichment's Bright Data key — no
+ * knob of its own, so one capture's two halves cannot disagree. Bean shape as
+ * {@code CandidateEnrichmentConfig}, for its reasons.
  */
 @Configuration
 @Slf4j

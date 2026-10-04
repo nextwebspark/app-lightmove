@@ -5,12 +5,8 @@ import java.util.Map;
 import java.util.UUID;
 
 /**
- * One company a mandate has triaged, as its Companies grids show it. Every company field is the
- * stored snapshot, not a live read of Apollo.
- *
- * <p>{@code id} is the triage row's id, not the company's — it is what a status change, a note and a
- * delete all address. {@code apolloAccountId} beside it is what a link back to the universe needs,
- * and is null for a company the mandate supplied itself.
+ * A triaged company from its stored snapshot. {@code id} is the triage row's, not the company's;
+ * {@code apolloAccountId} is null for a mandate-supplied company.
  */
 public record TriageCompanyResponse(
         UUID id,

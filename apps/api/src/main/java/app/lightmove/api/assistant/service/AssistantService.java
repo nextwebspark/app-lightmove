@@ -22,7 +22,6 @@ import app.lightmove.api.core.config.AssistantSettings;
 import app.lightmove.api.core.config.LightMoveProperties;
 import app.lightmove.api.core.error.constant.ErrorCode;
 import app.lightmove.api.core.error.model.ApiException;
-import app.lightmove.api.workspace.service.FirmService;
 import app.lightmove.api.core.llm.service.ChatCallLog;
 import java.time.Instant;
 import java.util.ArrayList;
@@ -65,7 +64,7 @@ public class AssistantService {
     private final NamedCompanyTools namedCompanyTools;
     private final TransactionTemplate transactions;
     private final AuditService audit;
-    private final FirmService firms;
+    private final HiringSideResolver hiringSides;
     private final Resource systemPrompt;
     private final AssistantSettings settings;
 
@@ -73,7 +72,7 @@ public class AssistantService {
                             ChatClient chatClient, CompanySearchTools searchTools,
                             ProposalTools proposalTools, MandateTools mandateTools, SectorTools sectorTools,
                             NamedCompanyTools namedCompanyTools,
-                            TransactionTemplate transactions, AuditService audit, FirmService firms,
+                            TransactionTemplate transactions, AuditService audit, HiringSideResolver hiringSides,
                             @Value("classpath:prompts/assistant-system.st") Resource systemPrompt,
                             LightMoveProperties properties) {
         this.threads = threads;
@@ -86,7 +85,7 @@ public class AssistantService {
         this.namedCompanyTools = namedCompanyTools;
         this.transactions = transactions;
         this.audit = audit;
-        this.firms = firms;
+        this.hiringSides = hiringSides;
         this.systemPrompt = systemPrompt;
         this.settings = properties.assistant();
     }
@@ -107,8 +106,8 @@ public class AssistantService {
     }
 
     /**
-     * The chat a question continues, or null for a new one. Called before the answer starts
-     * streaming, so someone else's chat, or one from another project, is a plain 404.
+     * Null for a new chat. Called before the answer starts streaming, so someone else's chat, or one
+     * from another project, is a plain 404.
      */
     public AssistantThread requireThread(UUID userId, UUID workspaceId, UUID projectId, UUID threadId) {
         if (threadId == null) {
@@ -124,12 +123,13 @@ public class AssistantService {
                                      AssistantThread existing, String question,
                                      Consumer<AssistantStepEvent> onStep,
                                      Consumer<AssistantProposal> onProposal) {
-        List<AssistantTurn> history = existing == null ? List.of()
-                : turns.findByThreadIdOrderByCreatedAtAsc(existing.getId());
+        List<AssistantTurn> history = recentOf(existing == null ? List.of()
+                : turns.findByThreadIdOrderByCreatedAtAsc(existing.getId()));
 
         TurnRecorder recorder = new TurnRecorder(onStep, onProposal);
+        rememberEarlierCards(history, recorder);
         AssistantToolContext context = new AssistantToolContext(workspaceId, projectId, recorder);
-        String answer = callModel(question, history, context);
+        String answer = CardMemory.stripFrom(callModel(question, history, context));
         proposalTools.proposeWhatWasFound(context);
 
         AssistantTurnResponse saved = transactions.execute(status -> {
@@ -142,7 +142,7 @@ public class AssistantService {
             return AssistantTurnResponse.of(turn);
         });
         audit.event(ProjectEventType.ASSISTANT_ASKED)
-                .actor(userId).workspace(workspaceId).target("project", projectId)
+                .actor(userId).workspace(workspaceId).target(AuditService.PROJECT_TARGET, projectId)
                 .detail("threadId", saved.threadId().toString())
                 .detail("turnId", saved.id().toString())
                 .detail("vendorSearches", String.valueOf(recorder.vendorSearches()))
@@ -153,11 +153,9 @@ public class AssistantService {
     }
 
     /**
-     * Deliberately not {@code LlmCallPolicy.forPrompt}: its SafeGuardAdvisor refuses text matching a
-     * phrase list, which is right for a spreadsheet header and wrong for conversation — "ignore the
-     * declined ones" would be refused, and a tool result quoting one of those phrases would block the
-     * turn. #429 owns what replaces it. The ChatCallLog attribution is kept, since that is what keeps
-     * prompt and answer content out of the logs.
+     * Deliberately not {@code LlmCallPolicy.forPrompt}: its SafeGuardAdvisor phrase list would refuse
+     * ordinary conversation ("ignore the declined ones"); #429 owns the replacement. The ChatCallLog
+     * attribution is kept, since that keeps prompt and answer content out of the logs.
      */
     private String callModel(String question, List<AssistantTurn> history, AssistantToolContext context) {
         try {
@@ -169,7 +167,8 @@ public class AssistantService {
                             .thinkingBudget(settings.thinkingBudget())
                             .labels(Map.of("prompt", PROMPT_ID)))
                     .system(system -> system.text(systemPrompt)
-                            .param("firm", FirmContext.render(firms.firmOf(context.workspaceId()))))
+                            .param("hiring", HiringContext.render(
+                                    hiringSides.resolve(context.workspaceId(), context.projectId()))))
                     .messages(conversation(history, question))
                     .tools(mandateTools, searchTools, namedCompanyTools, sectorTools, proposalTools)
                     .toolContext(context.asMap())
@@ -182,16 +181,47 @@ public class AssistantService {
         }
     }
 
-    private List<Message> conversation(List<AssistantTurn> history, String question) {
-        List<AssistantTurn> recent = history.subList(
-                Math.max(0, history.size() - settings.historyWindow()), history.size());
-        List<Message> messages = new ArrayList<>(recent.size() * 2 + 1);
-        for (AssistantTurn turn : recent) {
+    private List<AssistantTurn> recentOf(List<AssistantTurn> history) {
+        return history.subList(Math.max(0, history.size() - settings.historyWindow()), history.size());
+    }
+
+    /** Researched pages ride on the stored card, so an earlier company can be proposed again unbilled. */
+    private static void rememberEarlierCards(List<AssistantTurn> history, TurnRecorder recorder) {
+        for (AssistantTurn turn : history) {
+            AssistantProposal card = turn.getProposal();
+            if (card == null) {
+                continue;
+            }
+            card.researched().forEach(recorder::remember);
+            card.companies().stream()
+                    .filter(company -> company.operates() != null && company.key() != null)
+                    .forEach(company -> recorder.operates(company.key(), company.operates()));
+        }
+    }
+
+    /**
+     * Each earlier answer carries the card it showed, which the answer's own text never lists — the
+     * newest {@link CardMemory#CARDS_LISTED_IN_FULL} row by row, older ones as a title and a count.
+     */
+    private static List<Message> conversation(List<AssistantTurn> history, String question) {
+        List<Message> messages = new ArrayList<>(history.size() * 2 + 1);
+        int cardsLeft = (int) history.stream().filter(AssistantService::hasCard).count();
+        for (AssistantTurn turn : history) {
             messages.add(new UserMessage(turn.getQuestion()));
-            messages.add(new AssistantMessage(turn.getAnswer()));
+            if (!hasCard(turn)) {
+                messages.add(new AssistantMessage(turn.getAnswer()));
+                continue;
+            }
+            boolean listed = cardsLeft-- <= CardMemory.CARDS_LISTED_IN_FULL;
+            messages.add(new AssistantMessage(turn.getAnswer() + "\n\n"
+                    + CardMemory.render(turn.getProposal(), turn.getProposalAccepted(), listed)));
         }
         messages.add(new UserMessage(question));
         return messages;
+    }
+
+    private static boolean hasCard(AssistantTurn turn) {
+        return turn.getProposal() != null && !turn.getProposal().companies().isEmpty();
     }
 
     private static String titleOf(String question) {

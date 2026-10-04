@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
 import { Icon, ICONS } from "../layout/Icon";
-import { cn } from "../../lib/cn";
+import { Chip } from "./Chip";
 
 /**
  * The filter row above a workspace list: search on the left, the stage/type chips beside it, and
@@ -43,17 +43,9 @@ export function ListToolbar<TChip extends string>({
 
       <div className="flex flex-wrap gap-1.5">
         {chips.map(({ key, label }) => (
-          <button
-            key={key}
-            type="button"
-            onClick={() => onChipChange(key)}
-            className={cn(
-              "rounded-full border px-[11px] py-[5px] font-mono text-xs font-medium transition hover:text-u-text",
-              activeChip === key ? "border-u-accent bg-u-accent-tint text-u-accent" : "border-u-border-strong text-u-text2",
-            )}
-          >
+          <Chip key={key} selected={activeChip === key} onClick={() => onChipChange(key)}>
             {label}
-          </button>
+          </Chip>
         ))}
       </div>
 

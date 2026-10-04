@@ -7,9 +7,8 @@ import java.time.temporal.ChronoUnit;
 public record ReportRange(LocalDate from, LocalDate to) {
 
     /**
-     * The range asked for, clamped into {@code [kickoff, asOf]}; a missing end is the calendar's own.
-     * Answers null for a {@code from} after {@code to}, judged before clamping: clamped first, two
-     * dates both past the calendar would land on one day and a backwards request would pass.
+     * Clamped into {@code [kickoff, asOf]}; a missing end is the calendar's. Null for {@code from} after
+     * {@code to}, judged before clamping — after it, a backwards request could pass.
      */
     public static ReportRange within(ReportCalendar calendar, LocalDate requestedFrom, LocalDate requestedTo) {
         LocalDate from = requestedFrom == null ? calendar.kickoff() : requestedFrom;

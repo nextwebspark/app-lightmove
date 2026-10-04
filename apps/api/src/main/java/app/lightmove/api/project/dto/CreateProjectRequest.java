@@ -9,7 +9,7 @@ import java.util.UUID;
 
 /** The creator becomes the project's lead. {@code targetDate} is the brief's hire date, not the timeline. */
 public record CreateProjectRequest(
-        @NotNull(message = "Choose a business unit")
+        @NotNull(message = "Choose who the position is for")
         UUID clientId,
 
         @NotBlank(message = "Enter the position title")

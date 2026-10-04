@@ -10,13 +10,8 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 
 /**
- * One company on a mandate's off-limits list: its identity in the universe, plus a snapshot of how it
- * looked when it was put there.
- *
- * <p>{@code apolloAccountId} is deliberately <b>not</b> a foreign key: {@code app_lm_apollo_companies}
- * is ETL-owned and reloaded wholesale, and an exclusion list must not be something a reload can
- * cascade away. The snapshot is the other half of that — a barred company that renders as a blank row
- * is worse than a stale one, because the list is read to check what is excluded.
+ * One off-limits company: its universe id — not a foreign key, since the ETL reloads the universe
+ * wholesale — plus a write-time snapshot so a barred company never renders blank.
  */
 @Embeddable
 @Getter

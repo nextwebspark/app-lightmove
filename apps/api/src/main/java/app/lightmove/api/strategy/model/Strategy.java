@@ -19,16 +19,8 @@ import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.type.SqlTypes;
 
 /**
- * The search behind a project, 1:1 with it. Seeded empty on first read and edited by the Strategy
- * screen's autosave.
- *
- * <p>Two pieces, saved by two different PUTs. The {@link StrategyFilter} moves constantly while a
- * consultant explores; the off-limits list is a standing decision edited rarely from another panel,
- * and one shared write would make every chip click rewrite the exclusion list.
- *
- * <p>The filter is a jsonb document rather than four child tables — read whole, written whole, never
- * queried by axis (V30). The off-limits list stays an owned collection because it holds
- * <i>references</i>: "which mandates bar this company" is a query worth being able to write.
+ * The search behind a project, 1:1. The company filter (jsonb, V30), the people filter (V93) and the
+ * off-limits list are saved by three PUTs, so a chip click never rewrites another of them.
  */
 @Entity
 @Table(name = "app_lm_strategy")
@@ -42,6 +34,10 @@ public class Strategy extends BaseEntity {
     @JdbcTypeCode(SqlTypes.JSON)
     @Column(name = "filter", nullable = false)
     private StrategyFilter filter = StrategyFilter.empty();
+
+    @JdbcTypeCode(SqlTypes.JSON)
+    @Column(name = "people_filter", nullable = false)
+    private PeopleFilter peopleFilter = PeopleFilter.empty();
 
     @ElementCollection(fetch = FetchType.LAZY)
     @CollectionTable(name = "app_lm_strategy_off_limits_company",
@@ -59,12 +55,15 @@ public class Strategy extends BaseEntity {
         this.filter = newFilter;
     }
 
+    public void replacePeopleFilter(PeopleFilter newPeopleFilter) {
+        this.peopleFilter = newPeopleFilter;
+    }
+
     public void replaceOffLimitsCompanies(List<StrategyCompanyRef> newOffLimitsCompanies) {
         this.offLimitsCompanies.clear();
         this.offLimitsCompanies.addAll(newOffLimitsCompanies);
     }
 
-    /** The barred companies' ids, which is all the query side ever needs of the list. */
     public List<String> offLimitsAccountIds() {
         return offLimitsCompanies.stream().map(StrategyCompanyRef::getApolloAccountId).toList();
     }

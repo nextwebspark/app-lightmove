@@ -127,6 +127,18 @@ function phraseOf(entry: ProjectActivityEntry): Phrase | null {
       };
     case "CANDIDATE_ADDED":
       return { group: entry.type, count: 1, one: "mapped an executive", many: executives("mapped") };
+    case "EXECUTIVE_SOURCING_REQUESTED": {
+      const count = Number(details.companies) || 0;
+      return fixed(entry.type, count > 0
+        ? `ran Find executives at ${plural(count, "company", "companies")}`
+        : "ran Find executives");
+    }
+    case "EXECUTIVE_SOURCING_COMPLETED": {
+      const filed = Number(details.filed) || 0;
+      return fixed(entry.type, filed > 0
+        ? `Find executives added ${plural(filed, "executive", "executives")}`
+        : "Find executives added no one");
+    }
     case "CANDIDATE_UPDATED": {
       const label = CANDIDATE_STATUSES.find((status) => status.value === details.status)?.label;
       if (!label) return null;

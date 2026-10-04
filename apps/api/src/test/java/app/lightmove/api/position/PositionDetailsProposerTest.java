@@ -41,7 +41,6 @@ import org.springframework.ai.google.genai.GoogleGenAiChatOptions;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Import;
 import org.springframework.core.io.ClassPathResource;
-import org.springframework.core.io.Resource;
 import org.springframework.http.MediaType;
 import org.springframework.util.StreamUtils;
 
@@ -259,10 +258,8 @@ class PositionDetailsProposerTest extends FlowTestSupport {
     // ── helpers ──────────────────────────────────────────────────────────────
 
     private PositionDetailsProposer proposerWith(ChatModel model) {
-        Resource prompt = new ClassPathResource("prompts/position-extract-details-system.st");
-        Resource schema = new ClassPathResource("prompts/position-extract-details-schema.json");
-        return new PositionDetailsProposer(ChatClient.builder(model).build(), heuristics, redactor,
-                fieldReader, prompt, schema, TestLlmCallPolicy.asShipped(), budgetGuard());
+        return new PositionDetailsProposer(TestLlmCallPolicy.promptsOver(model), heuristics, redactor,
+                fieldReader, budgetGuard());
     }
 
     /** A guard whose limiter always says yes: the budget is metered in {@code LlmBudgetGuard}'s own test. */
@@ -270,7 +267,7 @@ class PositionDetailsProposerTest extends FlowTestSupport {
         return new LlmBudgetGuard((key, limit, window) -> true,
                 new LightMoveProperties(null, null, null, null, null,
                         new LlmSettings(new LlmRateLimitSettings(true, 10, 20, 10), 20_000, 1, List.of()),
-                        null, null, null, null, null, null, null, null, null));
+                        null, null, null, null, null, null, null, null, null, null, null, null, null, null));
     }
 
     private static Optional<ExtractedField> fieldNamed(ProposedPositionDetails proposed, String key) {

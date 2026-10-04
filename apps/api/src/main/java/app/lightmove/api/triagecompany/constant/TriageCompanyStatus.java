@@ -1,40 +1,30 @@
 package app.lightmove.api.triagecompany.constant;
 
-/**
- * Where a company stands in a mandate's triage. A company enters the universe from the Strategy
- * screen and moves between these as the team triages it; there is no "untriaged" state, because a
- * company nobody has taken a position on simply has no row.
- */
-public enum TriageCompanyStatus {
+import app.lightmove.api.common.constant.ApiValueEnum;
+import lombok.Getter;
+import lombok.RequiredArgsConstructor;
+import lombok.experimental.Accessors;
 
-    /** Taken into the mandate's working set. What "Add to Universe" writes. */
+/** Where a company stands in a mandate's triage; untriaged means no row at all. */
+@Getter
+@Accessors(fluent = true)
+@RequiredArgsConstructor
+public enum TriageCompanyStatus implements ApiValueEnum {
+
     IN_UNIVERSE("inUniverse"),
 
-    /** Promoted: worth mapping people at. */
     SHORTLISTED("shortlisted"),
 
-    /**
-     * Ruled out. Kept rather than deleted, so re-running "Add all to Universe" after widening the
-     * filter cannot quietly resurrect a company the team already decided against.
-     */
+    /** Kept rather than deleted, so a later "Add all to Universe" cannot resurrect it. */
     DECLINED("declined");
 
-    private final String wireToken;
-
-    TriageCompanyStatus(String wireToken) {
-        this.wireToken = wireToken;
-    }
-
-    public String value() {
-        return wireToken;
-    }
+    private final String value;
 
     public static TriageCompanyStatus fromValue(String value) {
-        for (TriageCompanyStatus status : values()) {
-            if (status.wireToken.equals(value)) {
-                return status;
-            }
-        }
-        return null;
+        return ApiValueEnum.fromValue(TriageCompanyStatus.class, value);
+    }
+
+    public static TriageCompanyStatus parseOrInUniverse(String token) {
+        return ApiValueEnum.parse(TriageCompanyStatus.class, token, IN_UNIVERSE, "status");
     }
 }

@@ -5,7 +5,6 @@ import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
-import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
@@ -15,7 +14,6 @@ import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
  * browsers connected to this JVM.
  */
 @Component
-@Slf4j
 public class ProjectStreamRegistry {
 
     private final Map<UUID, Set<SseEmitter>> streams = new ConcurrentHashMap<>();

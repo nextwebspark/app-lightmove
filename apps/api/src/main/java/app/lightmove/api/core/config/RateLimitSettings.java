@@ -19,5 +19,15 @@ public record RateLimitSettings(
          * Signup's company typeahead: an unindexable scan of the universe that needs only a verified
          * session, not a workspace. Debounced keystrokes fit well inside it.
          */
-        @DefaultValue("60") int onboardingCompanySearchesPerMinute
+        @DefaultValue("60") int onboardingCompanySearchesPerMinute,
+
+        /** Founding a workspace: a handful per account, but a whole firm signs up from one office IP. */
+        @DefaultValue("5") int workspaceCreationsPerHour,
+        @DefaultValue("60") int workspaceCreationsPerHourPerIp,
+
+        /** Opening a booking link: public and read-only, so generous; a brake on enumerating slugs. */
+        @DefaultValue("30") int bookingPageOpensPerMinute,
+
+        /** Booking through a link: each one is an invite on a consultant's calendar, so a tight brake. */
+        @DefaultValue("5") int bookingPageBookingsPerHour
 ) {}

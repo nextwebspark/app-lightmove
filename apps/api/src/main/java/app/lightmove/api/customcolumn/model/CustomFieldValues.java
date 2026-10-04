@@ -7,15 +7,9 @@ import java.util.Map;
 import java.util.Optional;
 
 /**
- * The values a row holds for its project's custom columns — the {@code custom_fields} jsonb column on
- * both {@code app_lm_project_triage_company} and {@code app_lm_project_candidate}.
- *
- * <p>Keyed by {@link ProjectCustomColumn#getFieldKey()}, and every value is the <b>string it was
- * entered as</b>. The declared type decides what is accepted on the way in, never how it is kept: a
- * mandate that corrects a column from TEXT to NUMBER must not lose the rows it already filled in.
- *
- * <p>{@link JsonValue} and {@link JsonCreator} are what keep the stored document flat —
- * {@code {"ethnicity":"Emirati"}} rather than a map nested under a wrapper key.
+ * A row's {@code custom_fields} jsonb, keyed by {@link ProjectCustomColumn#getFieldKey()}. Values
+ * are stored as entered, so a type change loses nothing; {@link JsonValue} and {@link JsonCreator}
+ * keep the document flat.
  */
 public final class CustomFieldValues {
 

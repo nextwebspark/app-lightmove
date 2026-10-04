@@ -11,10 +11,8 @@ import java.util.Set;
 import java.util.stream.Collectors;
 
 /**
- * How a company name someone remembers meets the name its LinkedIn page carries. The two rarely
- * agree: a model says "Emaar Properties PJSC" where the page says "Emaar", so a name is searched
- * without its legal form first and without its generic words after, and a hit counts only when it
- * normalises to one of those two exactly — "Aldar Education" is not ALDAR.
+ * Matches a remembered company name to its LinkedIn page's name ("Emaar Properties PJSC" vs "Emaar").
+ * A hit counts only when it normalises exactly — "Aldar Education" is not ALDAR.
  */
 final class CompanyNames {
 
@@ -30,12 +28,11 @@ final class CompanyNames {
     private CompanyNames() {
     }
 
-    /** What to search for, most specific first: the name without its legal form, then its core. */
+    /** Most specific first: without the legal form, then the core. */
     static List<String> searchTerms(String name) {
         return spellingsOf(name).stream().filter(term -> term.length() >= SHORTEST_TERM).toList();
     }
 
-    /** Every spelling a stored page name is compared against, the name as given included. */
     static List<String> matchKeys(String name) {
         Set<String> keys = new LinkedHashSet<>();
         if (name != null && !name.isBlank()) {
@@ -45,13 +42,13 @@ final class CompanyNames {
         return List.copyOf(keys);
     }
 
-    /** A page's name the way a search reads it — lower-cased, legal form dropped. What the cache is keyed on. */
+    /** Lower-cased, legal form dropped — the cache key. */
     static String key(String name) {
         String key = withoutLegalForm(name);
         return key.isEmpty() ? null : key;
     }
 
-    /** The hit whose name is the one asked for, the biggest where several are. */
+    /** The exact match, the biggest where several are. */
     static Optional<VendorCompanyRecord> best(String name, List<VendorCompanyRecord> hits) {
         Set<String> wanted = Set.copyOf(spellingsOf(name));
         return hits.stream()
@@ -59,7 +56,7 @@ final class CompanyNames {
                 .max(Comparator.comparing(hit -> hit.employeesInLinkedin() == null ? 0 : hit.employeesInLinkedin()));
     }
 
-    /** The name without its legal form, then without its generic words — what a page's key must equal. */
+    /** What a page's key must equal: the name without its legal form, then without its generic words. */
     static List<String> spellingsOf(String name) {
         String legal = withoutLegalForm(name);
         String core = without(words(legal), GENERIC_WORDS);

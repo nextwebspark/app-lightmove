@@ -16,11 +16,8 @@ import lombok.NoArgsConstructor;
 import org.hibernate.annotations.Immutable;
 
 /**
- * One cached answer: a normalised city+country pair and where the vendor put it, or that it could not.
- *
- * <p>Not a {@code BaseEntity}: nothing edits a cache row, it is replaced whole by the upsert in
- * {@code GeocodedPlaceStore}, so it carries no version and no updated-at. A null point is a stored
- * miss — the row exists so the same unplaceable city is not re-asked on every read.
+ * One cached geocode; a null point is a stored miss. Not a {@code BaseEntity}: rows are only ever
+ * replaced whole by {@code GeocodedPlaceStore}'s upsert.
  */
 @Entity
 @Table(name = "app_lm_geocoded_place")
@@ -58,7 +55,6 @@ public class GeocodedPlace {
     @Column(name = "created_at", nullable = false, updatable = false)
     private Instant createdAt;
 
-    /** Empty for a stored miss. */
     public Optional<GeoPoint> point() {
         if (latitude == null || longitude == null) {
             return Optional.empty();

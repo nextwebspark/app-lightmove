@@ -1,4 +1,4 @@
-import type { WorkspaceCompany } from "../../auth/api/types";
+import type { WorkspaceCompany, WorkspaceMode } from "../../auth/api/types";
 import type { WorkspaceRole } from "../../auth/api/types";
 
 /** The workspace-management API contract, hand-mirrored like the auth module's. */
@@ -9,17 +9,22 @@ export interface WorkspaceDetail {
   slug: string;
   logoMark: string | null;
   emailDomain: string;
+  mode: WorkspaceMode;
+  calendarSync: CalendarSync;
   defaultRegion: string;
   defaultCurrency: string;
   plan: string;
   memberCount: number;
   createdAt: string;
-  persona: WorkspacePersona;
+  persona: HiringPersona;
   company: WorkspaceCompany | null;
 }
 
-/** What the firm is, for the assistant to tailor its research to. Edited by an admin. */
-export interface WorkspacePersona {
+/** How calendar events are read: pushed through Recall.ai, or read directly when a drawer opens. */
+export type CalendarSync = "RECALL" | "DIRECT";
+
+/** What a hiring company is — the firm itself, or an agency's client — for the assistant to tailor research to. */
+export interface HiringPersona {
   summary: string | null;
   sectors: string[];
   competitors: string[];

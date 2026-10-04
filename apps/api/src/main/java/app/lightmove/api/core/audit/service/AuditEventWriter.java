@@ -10,17 +10,9 @@ import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
 /**
- * Persists audit events, off the caller's thread and outside the caller's transaction.
- *
- * <p><b>This must be a separate bean from {@link AuditService}, and that is not organisational
- * tidiness.</b> {@code @Async} and {@code @Transactional} are implemented with proxies, and a proxy
- * only intercepts calls that arrive from <i>outside</i> the bean. When these annotations lived on
- * {@code AuditService} itself, its own builder called {@code this.record(...)} internally — the call
- * never left the object, never crossed the proxy, and both annotations were silently inert. The audit
- * insert then ran inside the caller's transaction, and the first failed insert marked that transaction
- * rollback-only, destroying the signup it was supposed to be quietly recording.
- *
- * <p>Crossing a bean boundary is what makes the annotations real.
+ * Persists audit events off the caller's thread and transaction. <b>Must stay a separate bean from
+ * {@link AuditService}:</b> as a self-call the {@code @Async}/{@code @Transactional} proxies were
+ * inert, and a failed insert marked the caller's transaction rollback-only, destroying a signup.
  */
 @Component
 @RequiredArgsConstructor

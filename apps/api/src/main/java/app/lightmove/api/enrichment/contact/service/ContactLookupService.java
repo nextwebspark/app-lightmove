@@ -29,21 +29,10 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
 /**
- * One press of Find email or Find phone: decide whether anything needs asking, ask if so, and hand
- * the answer to {@code candidate} to write.
- *
- * <p><b>Deliberately not transactional.</b> The vendor call must not hold a database connection while
- * a permit wait and two retries run, so the read and the write each open their own.
- *
- * <p>The audit row's {@code asked} says whether the provider was called, not whether a credit was
- * spent: a profile they hold nothing on answers 404 and costs nothing.
- *
- * <p>The guard against paying twice for one row is the timestamp {@code candidate} stamps, checked
- * here and again inside the write. Two presses genuinely in flight at once can still both reach the
- * provider — the browser disables the button, and the per-user budget caps what that could cost — but
- * nothing short of holding a row lock across the vendor call would close it, and that is worse. The
- * loser of that race is answered with what the winner wrote, outcome included, so the two halves of
- * one response always agree.
+ * One Find email / Find phone press. Not transactional: the vendor call must hold no connection
+ * through a permit wait and retries. The guard against paying twice is the lookup timestamp, checked
+ * here and again inside the write; two presses in flight can still both reach the provider, which the
+ * per-user budget caps rather than a row lock across the call.
  */
 @Service
 @Slf4j
@@ -77,7 +66,7 @@ public class ContactLookupService {
         }
         requireBudget(ContactChannel.EMAIL, userId);
         FoundEmails found = ask(() -> finder.findEmails(state.linkedinUrl()));
-        CandidateResponse candidate = candidates.applyFoundEmails(projectId, candidateId, found);
+        CandidateResponse candidate = candidates.applyFoundEmails(userId, projectId, candidateId, found);
         boolean foundNothing = foundNothing(
                 candidate.contacts().emails().stream().map(CandidateEmailDto::source), found.source());
         return answered(outcomeOf(foundNothing), candidate,
@@ -93,7 +82,7 @@ public class ContactLookupService {
         }
         requireBudget(ContactChannel.PHONE, userId);
         FoundPhones found = ask(() -> finder.findPhones(state.linkedinUrl()));
-        CandidateResponse candidate = candidates.applyFoundPhones(projectId, candidateId, found);
+        CandidateResponse candidate = candidates.applyFoundPhones(userId, projectId, candidateId, found);
         boolean foundNothing = foundNothing(
                 candidate.contacts().phones().stream().map(CandidatePhoneDto::source), found.source());
         return answered(outcomeOf(foundNothing), candidate,
@@ -106,6 +95,9 @@ public class ContactLookupService {
             throw ApiException.of(ErrorCode.CONTACT_LOOKUP_UNAVAILABLE);
         }
         CandidateContactState state = candidates.contactStateOf(workspaceId, projectId, candidateId);
+        if (state.doNotContact()) {
+            throw ApiException.of(ErrorCode.PERSON_DO_NOT_CONTACT);
+        }
         if (LinkedInUrls.profileSlugOrNull(state.linkedinUrl()) == null) {
             throw ApiException.of(ErrorCode.CONTACT_LOOKUP_NO_PROFILE);
         }
@@ -113,13 +105,8 @@ public class ContactLookupService {
     }
 
     /**
-     * Caps how often one person may spend credits, per channel so a run on one does not starve the
-     * other. The stored guard stops one row being billed twice; this stops one caller scripting the
-     * endpoint down a whole grid.
-     *
-     * <p>Taken immediately before the vendor call, never earlier: a press refused for want of a
-     * profile, or answered off the row, costs nothing, and spending budget on those would let a grid
-     * of profile-less executives exhaust the meter without a credit being spent anywhere.
+     * Per user and channel, so one caller cannot script the endpoint down a whole grid. Taken just before
+     * the vendor call: a press answered off the row or refused for want of a profile must cost nothing.
      */
     private void requireBudget(ContactChannel channel, UUID userId) {
         boolean isWithinBudget = limiter.tryAcquire(
@@ -134,16 +121,12 @@ public class ContactLookupService {
         return foundNothing ? ContactLookupOutcome.NONE : ContactLookupOutcome.HELD;
     }
 
-    /**
-     * Read from the row the write answered with rather than from this caller's own vendor answer, so
-     * the outcome cannot contradict the candidate beside it: when two presses race, the loser's write
-     * is dropped and the row it is handed back is the winner's.
-     */
+    /** Read off the row the write answered with, so when two presses race the loser reports the winner's outcome. */
     private static ContactLookupOutcome outcomeOf(boolean foundNothing) {
         return foundNothing ? ContactLookupOutcome.NONE : ContactLookupOutcome.FOUND;
     }
 
-    /** Nothing on record means no row from this provider: what a person typed is not the provider's answer. */
+    /** What a person typed is not the provider's answer. */
     private static boolean foundNothing(Stream<String> sources, String provider) {
         return sources.noneMatch(source -> source.equalsIgnoreCase(provider));
     }
@@ -156,10 +139,7 @@ public class ContactLookupService {
         }
     }
 
-    /**
-     * A spent quota is told apart from every other failure because only it leaves the lookup worth
-     * running again: nothing was written, so a top-up makes the same press work.
-     */
+    /** A spent quota is told apart: only it leaves the press worth retrying after a top-up. */
     private ApiException refusalFor(VendorException failed) {
         return switch (failed.getKind()) {
             case QUOTA_EXHAUSTED -> ApiException.of(ErrorCode.CONTACT_LOOKUP_NO_CREDITS);
@@ -178,8 +158,7 @@ public class ContactLookupService {
                                            ContactChannel channel, boolean asked, UUID userId,
                                            UUID workspaceId, UUID projectId, UUID candidateId,
                                            HttpServletRequest httpRequest) {
-        audit.event(ProjectEventType.CANDIDATE_CONTACT_LOOKED_UP)
-                .actor(userId).workspace(workspaceId).target("project", projectId).from(httpRequest)
+        audit.projectEvent(ProjectEventType.CANDIDATE_CONTACT_LOOKED_UP, userId, workspaceId, projectId, httpRequest)
                 .detail("candidateId", candidateId.toString())
                 .detail("channel", channel.value())
                 .detail("outcome", outcome.value())

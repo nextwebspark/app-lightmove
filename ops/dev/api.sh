@@ -24,6 +24,10 @@ set -euo pipefail
 REPO_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 PG_PORT="${PG_PORT:-55433}"
 
+# A dev-only key-encryption key for the secrets the app stores (core/crypto), the same one the tests use. It
+# protects nothing real; a deployment's own comes from Secret Manager.
+DEV_CREDENTIAL_KEYSET='{"primaryKeyId":653769729,"key":[{"keyData":{"typeUrl":"type.googleapis.com/google.crypto.tink.AesGcmKey","value":"GiDdcDK+eD7jyE+NjJ55C7Ta4t9IgqMRKbdXgoG/+4KVfw==","keyMaterialType":"SYMMETRIC"},"status":"ENABLED","keyId":653769729,"outputPrefixType":"TINK"}]}'
+
 cd "$REPO_DIR/apps/api"
 exec env \
   SPRING_DATASOURCE_URL="jdbc:postgresql://localhost:$PG_PORT/lightmove" \
@@ -31,4 +35,5 @@ exec env \
   SPRING_DATASOURCE_PASSWORD=lm \
   DB_PASSWORD=lm \
   LIGHTMOVE_EMAIL_PROVIDER=log \
+  CREDENTIAL_KEYSET="${CREDENTIAL_KEYSET:-$DEV_CREDENTIAL_KEYSET}" \
   ./mvnw spring-boot:run -Dspring-boot.run.profiles=local

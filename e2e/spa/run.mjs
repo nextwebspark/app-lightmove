@@ -72,7 +72,7 @@ async function signupThroughUi(page, address, name = "Spa Tester") {
   await page.getByRole("button", { name: "Continue", exact: true }).click();
 }
 
-const browser = await chromium.launch();
+const browser = await chromium.launch(process.env.CHROMIUM_PATH ? { executablePath: process.env.CHROMIUM_PATH } : {});
 
 try {
   // ---------------------------------------------------------------- S1
@@ -140,6 +140,8 @@ try {
 
     // Finish the wizard in the original tab, so everything downstream has a workspace as before.
     if (page.url().includes("/signup/workspace")) {
+      // Who the firm hires for has no default; the rest of the run exercises today's in-house screens.
+      await page.getByRole("radio", { name: /In-house team/ }).click();
       // The name is a pick from the company universe; a test firm is not in it, so it is added as new.
       await page.getByPlaceholder("Search company database…").fill(WS);
       await page.getByRole("button", { name: /None of these/ }).click();
@@ -155,7 +157,7 @@ try {
 
       // Going BACK to the emailed link after finishing the wizard elsewhere. The card holds a `user`
       // snapshot from redemption time, when there was no workspace — routing on it sent the user to a
-      // create form that then answers ALREADY_IN_WORKSPACE. Continue must re-read and land in the app.
+      // create form for a workspace they already had. Continue must re-read and land in the app.
       await mailPage.goto(verifyUrl);
       await mailPage.waitForTimeout(4000);
       await mailPage.getByRole("button", { name: /Continue/i }).click();

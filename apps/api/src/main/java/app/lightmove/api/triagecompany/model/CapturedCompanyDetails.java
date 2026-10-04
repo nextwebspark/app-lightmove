@@ -7,15 +7,9 @@ import app.lightmove.api.common.industry.service.Industries;
 import app.lightmove.api.common.location.service.Countries;
 
 /**
- * The company fields a mandate supplies itself, when there is no universe row to snapshot from. Every
- * field but the name is optional: the plugin reads whatever a page publishes, and refusing an
- * incomplete row would push the consultant back to a spreadsheet.
- *
- * <p>The compact constructor is where "supplied but empty" becomes null and where every URL field is
- * made safe to render ({@link app.lightmove.api.core.text.service.SuppliedText}). It has to happen
- * server-side: the plugin posts here directly and never sees the form's validation.
- * {@code sourceUrl} goes through the same gate though nothing renders it yet, so the first screen to
- * show "captured from …" as a link does not inherit a stored XSS from older rows.
+ * Company fields a mandate supplies itself; only the name is required. The compact constructor makes
+ * every URL safe to render server-side — the plugin posts directly — {@code sourceUrl} included, so
+ * the first screen to link it inherits no stored XSS.
  */
 public record CapturedCompanyDetails(String companyName, String industry, String companyCountry,
                                      String companyCity, Integer numEmployees, Long annualRevenue,
@@ -25,9 +19,7 @@ public record CapturedCompanyDetails(String companyName, String industry, String
 
     public CapturedCompanyDetails {
         companyName = companyName == null ? null : companyName.trim();
-        // Every door a mandate-supplied company arrives through builds this record — the plugin, the
-        // Add-by-hand form, the Edit form, the spreadsheet and Bright Data — so one country spelling
-        // and one industry spelling are settled here rather than at five call sites.
+        // Every door builds this record, so country and industry spellings are settled once, here.
         industry = Industries.nameOf(industry);
         companyCountry = Countries.nameOf(blankToNull(companyCountry));
         companyCity = Countries.cityOf(blankToNull(companyCity));

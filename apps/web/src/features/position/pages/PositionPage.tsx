@@ -6,7 +6,9 @@ import type { ProjectOutletContext } from "../../../components/layout/ProjectLay
 import { Spinner, useToast } from "../../../components/ui";
 import { messageFor } from "../../../lib/errorCodes";
 import { useAutosave } from "../../../lib/useAutosave";
+import { useAuth } from "../../auth/AuthProvider";
 import * as projectsApi from "../../projects/api/projectsApi";
+import { canExecuteProjectWork } from "../../projects/lib/access";
 import * as positionApi from "../api/positionApi";
 import type {
   Compensation,
@@ -64,6 +66,7 @@ const SECTION_NAMES: Record<ExtractionSection, string> = {
 /** The Position tab: loads the brief, then hands the editor a snapshot to draft against. */
 export function PositionPage() {
   const { project } = useOutletContext<ProjectOutletContext>();
+  const { user } = useAuth();
   const { data: position, isPending, isError } = useQuery({
     queryKey: positionApi.POSITION_KEY(project.id),
     queryFn: ({ signal }) => positionApi.getPosition(project.id, signal),
@@ -86,6 +89,22 @@ export function PositionPage() {
           <span className="mb-1 block text-lead font-semibold text-u-text">Couldn't load this brief</span>
           You may no longer have access to this mandate, or the request failed. Reload the page, and ask the
           project lead if it keeps happening.
+        </div>
+      </div>
+    );
+  }
+
+  // A client seat reads the brief and writes none of it, so it gets the read-back and nothing that
+  // edits: it was handed the live editor, whose every keystroke and Publish answered 403.
+  if (!canExecuteProjectWork(project, user?.id, user?.workspace?.roles)) {
+    return (
+      <div className={GROUND}>
+        <div className="min-w-0 flex-1 px-4 pb-[100px] pt-[30px] sm:px-10">
+          <h1 className="type-title">Position brief</h1>
+          <p className="mb-6 mt-1.5 max-w-[620px] text-body text-u-text2">
+            The role as the search team has briefed it.
+          </p>
+          <ReviewStep position={position} readBack onWithdraw={() => undefined} />
         </div>
       </div>
     );

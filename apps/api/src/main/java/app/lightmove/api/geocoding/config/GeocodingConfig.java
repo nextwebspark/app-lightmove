@@ -17,13 +17,7 @@ import org.springframework.core.env.Environment;
 import org.springframework.core.env.Profiles;
 import org.springframework.web.client.RestClient;
 
-/**
- * Picks the {@link Geocoder} from config. The Mapbox adapter is its own {@code @Bean}, and
- * {@code defaultCandidate = false}, for the two reasons {@code CandidateEnrichmentConfig} explains: an
- * adapter constructed inline inside another factory method is never proxied and its
- * {@code @Retryable} would be inert, and an adapter left as an ordinary candidate would make injecting
- * the seam ambiguous.
- */
+/** Picks the {@link Geocoder}; bean shape as {@code CandidateEnrichmentConfig}, for its reasons. */
 @Configuration
 @Slf4j
 public class GeocodingConfig {
@@ -51,11 +45,8 @@ public class GeocodingConfig {
     }
 
     /**
-     * The public token is served to every browser by design; the geocoding one is not, and falling back
-     * to the public token makes the two the same credential. On a laptop that is the point. Deployed it
-     * means any signed-in user can lift the account's geocoding quota out of the network tab — billable
-     * outright once {@code permanent-geocoding} is on — so an operator hears about it from the logs
-     * rather than from the bill.
+     * Falling back to the browser's public token lets any signed-in user lift the geocoding quota from
+     * the network tab, so a deployment doing it is warned in the logs rather than by the bill.
      */
     private void warnIfGeocodingWithTheBrowsersToken(MapboxSettings config, Environment environment) {
         boolean isDeveloperProfile = environment.acceptsProfiles(Profiles.of("local", "test", "e2e"));

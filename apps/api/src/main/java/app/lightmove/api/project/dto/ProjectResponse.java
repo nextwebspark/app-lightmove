@@ -9,11 +9,8 @@ import java.util.List;
 import java.util.UUID;
 
 /**
- * The project as the HTTP contract returns it. {@code companies} is the mandate's live universe —
- * every triaged company it has not declined — and {@code candidates} every executive still in the
- * running, {@code mappedCandidates} every executive ever mapped. {@code mappedCompanies} is how many
- * of those companies have anyone mapped at them, the side panel's coverage bar;
- * {@code engagedCandidates} those who have answered.
+ * {@code companies} excludes declined ones and {@code candidates} those out of the running;
+ * {@code mappedCandidates} is everyone ever mapped, {@code mappedCompanies} the coverage bar's count.
  */
 public record ProjectResponse(
         UUID id,

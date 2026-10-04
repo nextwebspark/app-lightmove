@@ -1,21 +1,14 @@
 package app.lightmove.api.common.constant;
 
 import java.util.Map;
+import lombok.RequiredArgsConstructor;
 
 /**
- * How long a mandate plans to wait for somebody — one of five, on both halves of a search.
- *
- * <p>The brief states it as {@link #months()} paired with {@link NoticeUnit#MONTHS}, and an
- * executive's profile stores {@link #value()} in a free-text column. Neither column is narrowed to
- * these five: a brief written before the picker existed holds ninety days, an externally authored
- * template may carry six weeks, and a spreadsheet states whatever it states. Those are facts
- * somebody entered, and a write that refused them would clear a field nobody touched — so the
- * pickers keep an unlisted value offered as recorded, and only the choices on offer are these.
- *
- * <p>{@link #NONE} is a claim — this person can start now — and is not the blank a profile carries
- * before anybody asked. Both screens offer that blank above these five, the way every sibling
- * picker does.
+ * A notice period, one of five, on both halves of a search: the brief stores {@link #months()} with
+ * {@link NoticeUnit#MONTHS}, a profile {@link #value()}. Neither column is narrowed to these, so an
+ * unlisted value somebody entered stays offered as recorded. {@link #NONE} is a claim, not a blank.
  */
+@RequiredArgsConstructor
 public enum NoticePeriod {
 
     NONE("None", 0),
@@ -31,11 +24,6 @@ public enum NoticePeriod {
     private final String label;
 
     private final int months;
-
-    NoticePeriod(String label, int months) {
-        this.label = label;
-        this.months = months;
-    }
 
     public String value() {
         return label;

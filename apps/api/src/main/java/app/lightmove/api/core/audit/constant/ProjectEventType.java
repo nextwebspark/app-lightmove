@@ -41,6 +41,31 @@ public enum ProjectEventType implements AuditEventType {
     CANDIDATE_UPDATED,
     CANDIDATE_REMOVED,
     CANDIDATE_CONTACT_LOOKED_UP,
+    CANDIDATE_AI_ENRICH_REQUESTED,
+    PERSON_NOTE_ADDED,
+    PERSON_NOTE_EDITED,
+    PERSON_NOTE_REMOVED,
+    PERSON_NOTE_PINNED,
+    PERSON_DOCUMENT_ADDED,
+    PERSON_DOCUMENT_VERSION_ADDED,
+    PERSON_DOCUMENT_UPDATED,
+    PERSON_DOCUMENT_REMOVED,
+    PERSON_DOCUMENT_VERSION_REMOVED,
+    /** A CV leaving as a file is not the same act as reading the drawer, so every download is recorded. */
+    PERSON_DOCUMENT_DOWNLOADED,
+    PERSON_OWNER_CHANGED,
+    PERSON_TAGGED,
+    PERSON_UNTAGGED,
+    PERSON_DO_NOT_CONTACT_SET,
+    PERSON_DO_NOT_CONTACT_CLEARED,
+    PEOPLE_MAPPED_FROM_POOL,
+    CANDIDATE_TAG_CREATED,
+    CANDIDATE_TAG_UPDATED,
+    EXECUTIVE_SOURCING_REQUESTED,
+    EXECUTIVE_SOURCING_COMPLETED,
+
+    /** A page of Strategy's people search, recorded because a page not already cached is bought. */
+    PEOPLE_SEARCH_PAGE_FETCHED,
 
     CUSTOM_COLUMN_DEFINED,
     CUSTOM_COLUMN_UPDATED,
@@ -50,6 +75,30 @@ public enum ProjectEventType implements AuditEventType {
     SPREADSHEET_IMPORTED,
 
     COMPANIES_EXPORTED,
+    CANDIDATES_EXPORTED,
+
+    OUTREACH_SEQUENCE_CREATED,
+    OUTREACH_SEQUENCE_UPDATED,
+    OUTREACH_SEQUENCE_DELETED,
+
+    /** One person put on a sequence; nothing is sent by this alone. */
+    OUTREACH_ENROLLED,
+
+    /** One email of a sequence went from the sender's mailbox; the actor is the sender, the dispatcher sent it. */
+    OUTREACH_EMAIL_SENT,
+
+    /** The person answered; only that they did is recorded, never what they said. */
+    OUTREACH_REPLIED,
+    OUTREACH_BOUNCED,
+
+    /** A sequence ended short — by a consultant's Stop, or by the send-time re-check. */
+    OUTREACH_STOPPED,
+
+    /** A call booked with an executive from a consultant's own calendar. */
+    OUTREACH_MEETING_BOOKED,
+
+    /** Openers drafted by the model for a review — recorded because it spends model money. */
+    OUTREACH_OPENERS_DRAFTED,
 
     /** A question answered by the assistant — recorded because it spends model and vendor money. */
     ASSISTANT_ASKED;

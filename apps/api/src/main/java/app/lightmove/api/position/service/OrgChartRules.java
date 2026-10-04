@@ -13,13 +13,8 @@ import java.util.function.Function;
 import java.util.stream.Collectors;
 
 /**
- * What makes a submitted org chart a chart rather than a bag of boxes.
- *
- * <p>These are relationships between elements — one seat is the mandate's, every parent resolves,
- * nothing is its own ancestor — which Bean Validation on a flat list cannot express. A chart breaking
- * any of them renders as nothing at all or as an infinite loop.
- *
- * <p>Every message is a fixed sentence: nothing here interpolates what the caller sent.
+ * The cross-element rules that make a submitted org chart a tree, which Bean Validation on a flat list
+ * cannot express. Every message is a fixed sentence: nothing here interpolates what the caller sent.
  */
 final class OrgChartRules {
 
@@ -27,16 +22,8 @@ final class OrgChartRules {
     }
 
     /**
-     * Drops the seats nobody filled in — but only the ones nothing reports to.
-     *
-     * <p>A seat with neither a title nor a name clears itself, which is what makes V39's placeholders
-     * disappear once somebody works on the chart.
-     *
-     * <p><b>Only leaves.</b> Removing an unnamed seat that has children would leave every one of them
-     * pointing at a parent that is no longer in the chart — the exact state
-     * {@link #requireParentsResolve} exists to refuse, reached by the back door because filtering
-     * happens after validation. An unnamed manager with named reports under it is a chart somebody is
-     * halfway through drawing, and it keeps its box until they empty it.
+     * Drops seats with neither title nor name, but only leaves: this runs after validation, so removing
+     * an unnamed parent would orphan its children — the state {@link #requireParentsResolve} refuses.
      */
     static List<OrgNodeDto> withoutUnnamedLeaves(List<OrgNodeDto> chart) {
         Set<UUID> parents = chart.stream()
@@ -84,10 +71,6 @@ final class OrgChartRules {
         }
     }
 
-    /**
-     * Walks each seat up to a root. A cycle would make the chart undrawable and any later traversal
-     * of it — the manager, the direct reports, a layout pass — run forever.
-     */
     private static void requireNoCycles(List<OrgNodeDto> chart) {
         Map<UUID, OrgNodeDto> byId = chart.stream()
                 .collect(Collectors.toMap(OrgNodeDto::nodeId, Function.identity()));

@@ -4,8 +4,6 @@ import app.lightmove.api.candidate.dto.CandidatesResponse;
 import app.lightmove.api.candidate.service.CandidateService;
 import app.lightmove.api.core.config.LightMoveProperties;
 import app.lightmove.api.core.config.ReportSettings;
-import app.lightmove.api.core.error.constant.ErrorCode;
-import app.lightmove.api.core.error.model.ApiException;
 import app.lightmove.api.position.service.PositionService;
 import app.lightmove.api.project.model.Project;
 import app.lightmove.api.project.repository.ProjectRepository;
@@ -15,7 +13,7 @@ import app.lightmove.api.triagecompany.constant.TriageCompanyStatus;
 import app.lightmove.api.triagecompany.dto.TriageCompaniesResponse;
 import app.lightmove.api.triagecompany.model.TriageCompanyFilters;
 import app.lightmove.api.triagecompany.dto.TriageCompanyResponse;
-import app.lightmove.api.triagecompany.service.TriageCompanyService;
+import app.lightmove.api.triagecompany.service.TriageCompanyReadService;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -36,12 +34,12 @@ import org.springframework.stereotype.Component;
 class ReportSourceLoader {
 
     private final ProjectRepository projects;
-    private final TriageCompanyService triage;
+    private final TriageCompanyReadService triage;
     private final CandidateService candidates;
     private final PositionService positions;
     private final ReportSettings caps;
 
-    ReportSourceLoader(ProjectRepository projects, TriageCompanyService triage, CandidateService candidates,
+    ReportSourceLoader(ProjectRepository projects, TriageCompanyReadService triage, CandidateService candidates,
                        PositionService positions, LightMoveProperties properties) {
         this.projects = projects;
         this.triage = triage;
@@ -51,8 +49,7 @@ class ReportSourceLoader {
     }
 
     ReportSources load(UUID workspaceId, UUID projectId) {
-        Project project = projects.findByIdAndWorkspaceId(projectId, workspaceId)
-                .orElseThrow(() -> ApiException.of(ErrorCode.NOT_FOUND));
+        Project project = projects.requireInWorkspace(projectId, workspaceId);
 
         TriageCompaniesResponse shortlisted = stage(workspaceId, projectId, TriageCompanyStatus.SHORTLISTED,
                 caps.maxCompanies());

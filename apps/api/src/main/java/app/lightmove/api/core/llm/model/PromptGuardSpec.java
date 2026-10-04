@@ -5,16 +5,12 @@ import java.util.List;
 import org.springframework.core.io.Resource;
 
 /**
- * How one prompt is guarded and its answer checked — everything {@code LlmCallPolicy} needs, and
- * nothing about the prompt's own text.
+ * How one prompt is guarded and its answer checked.
  *
  * @param promptId                   names the feature in the shared client's log line
- * @param answerSchema               JSON Schema the reply must fit, or null for a prose answer. When
- *                                   set, an answer that does not fit is put back to the model once
- * @param blockedAnswer              what the guard replies with in place of the model. With a schema
- *                                   it must also <b>bind</b> to the reply type — a sentence where a
- *                                   document is expected surfaces a block as a parse error
- *                                   indistinguishable from the provider being down
+ * @param answerSchema               JSON Schema the reply must fit (re-asked once), or null for prose
+ * @param blockedAnswer              the guard's reply; with a schema it must <b>bind</b> to the reply
+ *                                   type, or a block reads as the provider being down
  * @param additionalInjectionPhrases refused on top of the configured baseline
  */
 public record PromptGuardSpec(

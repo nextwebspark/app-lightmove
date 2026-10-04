@@ -313,13 +313,6 @@
           <button type="button" onClick="{{ go }}" data-to="login" style="width:100%;display:flex;align-items:center;justify-content:center;gap:8px;border-radius:6px;padding:10px 14px;font:500 13.5px var(--sans);background:var(--panel);border:1px solid var(--line);color:var(--text2);cursor:pointer" style-hover="color:var(--text);border-color:var(--text3)">Sign out and switch account</button>
         </sc-if>
 
-        <sc-if value="{{ isInviteInWorkspace }}" hint-placeholder-val="{{ false }}">
-          <div style="margin-bottom:20px;display:flex;align-items:center;gap:8px;border-radius:6px;background:var(--sky-dim);padding:10px 12px;font:400 11.5px/1.45 var(--mono);color:var(--sky);text-align:left">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex:none" aria-hidden="true"><circle cx="12" cy="12" r="9"></circle><path d="M12 8h.01M12 11v5"></path></svg>
-            <span>You already belong to {{ currentWorkspaceName }}. Leave it before joining another.</span>
-          </div>
-        </sc-if>
-
         <sc-if value="{{ isInviteUnverified }}" hint-placeholder-val="{{ false }}">
           <div style="margin-bottom:20px;display:flex;align-items:center;gap:8px;border-radius:6px;background:var(--sky-dim);padding:10px 12px;font:400 11.5px/1.45 var(--mono);color:var(--sky);text-align:left">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex:none" aria-hidden="true"><circle cx="12" cy="12" r="9"></circle><path d="M12 8h.01M12 11v5"></path></svg>
@@ -357,11 +350,11 @@
 </div>
 <template id="__bundler_thumbnail"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><rect width="100" height="100" fill="#16171a"></rect><g transform="translate(50 40) scale(.42)" fill="none" stroke="#f8fafc"><path d="M-32 10 L 0 -8 L 32 10 L 0 28 Z M-32 10 V 32 L 0 50 L 32 32 V 10 M0 28 V 50" stroke-width="3" stroke-linejoin="round"></path><path d="M0 -48 L 32 -30 L 0 -12 L -32 -30 Z" fill="#f8fafc" stroke="none"></path></g><text x="50" y="86" fill="#e2b65c" font-family="Geist,Inter,sans-serif" font-size="13" font-weight="700" letter-spacing="2" text-anchor="middle">IN</text></svg></template>
 </x-dc>
-<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:&quot;100%&quot;,&quot;height&quot;:760},&quot;screen&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;default&quot;:&quot;login&quot;,&quot;options&quot;:[&quot;login&quot;,&quot;forgot&quot;,&quot;forgot-sent&quot;,&quot;reset&quot;,&quot;reset-invalid&quot;,&quot;verify-pending&quot;,&quot;verify-ok&quot;,&quot;verify-failed&quot;,&quot;callback&quot;,&quot;invite-signup&quot;,&quot;invite-email-taken&quot;,&quot;invite-wrong-account&quot;,&quot;invite-in-workspace&quot;,&quot;invite-unverified&quot;,&quot;invite-accept&quot;,&quot;invite-expired&quot;,&quot;invite-invalid&quot;,&quot;invite-missing&quot;],&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;State&quot;},&quot;showProviders&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:true,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;State&quot;},&quot;error&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;default&quot;:&quot;none&quot;,&quot;options&quot;:[&quot;none&quot;,&quot;EMAIL_NOT_WORK_ADDRESS&quot;,&quot;ACCOUNT_SUSPENDED&quot;,&quot;EMAIL_DISPOSABLE&quot;,&quot;EMAIL_NOT_VERIFIED&quot;,&quot;network&quot;,&quot;bad-credentials&quot;],&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;State&quot;}}">
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:&quot;100%&quot;,&quot;height&quot;:760},&quot;screen&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;default&quot;:&quot;login&quot;,&quot;options&quot;:[&quot;login&quot;,&quot;forgot&quot;,&quot;forgot-sent&quot;,&quot;reset&quot;,&quot;reset-invalid&quot;,&quot;verify-pending&quot;,&quot;verify-ok&quot;,&quot;verify-failed&quot;,&quot;callback&quot;,&quot;invite-signup&quot;,&quot;invite-email-taken&quot;,&quot;invite-wrong-account&quot;,&quot;invite-unverified&quot;,&quot;invite-accept&quot;,&quot;invite-expired&quot;,&quot;invite-invalid&quot;,&quot;invite-missing&quot;],&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;State&quot;},&quot;showProviders&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:true,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;State&quot;},&quot;error&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;default&quot;:&quot;none&quot;,&quot;options&quot;:[&quot;none&quot;,&quot;EMAIL_NOT_WORK_ADDRESS&quot;,&quot;ACCOUNT_SUSPENDED&quot;,&quot;EMAIL_DISPOSABLE&quot;,&quot;EMAIL_NOT_VERIFIED&quot;,&quot;network&quot;,&quot;bad-credentials&quot;],&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;State&quot;}}">
 class Component extends DCLogic {
   constructor(props) {
     super(props);
-    this.screens = ['login', 'forgot', 'forgot-sent', 'reset', 'reset-invalid', 'verify-pending', 'verify-ok', 'verify-failed', 'callback', 'invite-signup', 'invite-email-taken', 'invite-wrong-account', 'invite-in-workspace', 'invite-unverified', 'invite-accept', 'invite-expired', 'invite-invalid', 'invite-missing'];
+    this.screens = ['login', 'forgot', 'forgot-sent', 'reset', 'reset-invalid', 'verify-pending', 'verify-ok', 'verify-failed', 'callback', 'invite-signup', 'invite-email-taken', 'invite-wrong-account', 'invite-unverified', 'invite-accept', 'invite-expired', 'invite-invalid', 'invite-missing'];
     this.errorMessages = {
       EMAIL_NOT_WORK_ADDRESS: 'Please sign in with your work account. Uncava is for internal talent teams.',
       ACCOUNT_SUSPENDED: 'This account has been suspended.',
@@ -379,7 +372,6 @@ class Component extends DCLogic {
       'invite-signup': 'Invite · create account',
       'invite-email-taken': 'Invite · already registered',
       'invite-wrong-account': 'Invite · wrong account',
-      'invite-in-workspace': 'Invite · already in a workspace',
       'invite-unverified': 'Invite · unverified',
       'invite-accept': 'Invite · accept'
     };
@@ -431,7 +423,6 @@ class Component extends DCLogic {
       isInviteSignup: s === 'invite-signup',
       isInviteEmailTaken: s === 'invite-email-taken',
       isInviteWrongAccount: s === 'invite-wrong-account',
-      isInviteInWorkspace: s === 'invite-in-workspace',
       isInviteUnverified: s === 'invite-unverified',
       isInviteAccept: s === 'invite-accept',
       isInviteDead: !!this.deadScreens[s],
@@ -442,7 +433,6 @@ class Component extends DCLogic {
       inviteSubtitle: s === 'invite-unverified' ? 'one step left' : 'Yara Haddad invited you as Member',
       inviteEmail: 'rana@alfuttaim.com',
       signedInEmail: 'rana@northgate-search.com',
-      currentWorkspaceName: 'Northgate Search',
       hasError: !!errorMessage,
       errorMessage: errorMessage,
       showProviders: !!this.state.showProviders,

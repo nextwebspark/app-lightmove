@@ -3,6 +3,7 @@ import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { ToastProvider } from "../../components/ui/Toast";
+import { aUser } from "../../test/fixtures/user";
 import type { AssistantThread, AssistantTurn, LiveStep } from "./api/types";
 import { AssistantProvider } from "./AssistantProvider";
 import { AssistantPanel } from "./components/AssistantPanel";
@@ -12,6 +13,10 @@ const getThread = vi.hoisted(() => vi.fn());
 const listThreads = vi.hoisted(() => vi.fn());
 const acceptProposal = vi.hoisted(() => vi.fn());
 const listStarters = vi.hoisted(() => vi.fn());
+vi.mock("../auth/AuthProvider", () => ({
+  useAuth: () => ({ user: aUser() }),
+}));
+
 vi.mock("./api/assistantApi", async (importOriginal) => ({
   ...(await importOriginal<typeof import("./api/assistantApi")>()),
   ask,
@@ -247,6 +252,28 @@ describe("a chat with the assistant", () => {
     await send("Top retailers in UAE");
 
     expect(await screen.findByText(/no need to ask again/)).toBeInTheDocument();
+    expect(screen.getByRole("textbox", { name: "Ask the assistant" })).toHaveValue("");
+  });
+
+  it("puts a question the assistant could not answer back in the composer, ready to send again", async () => {
+    const { ApiRequestError } = await import("../../lib/apiClient");
+    ask.mockRejectedValueOnce(new ApiRequestError({
+      code: "ASSISTANT_UNAVAILABLE", detail: "", status: 503, correlationId: "none",
+    }));
+    ask.mockResolvedValueOnce(turn("t1", "th1", { question: "Top retailers in UAE" }));
+    getThread.mockResolvedValue(thread("th1", [turn("t1", "th1", { question: "Top retailers in UAE" })]));
+
+    mount();
+    await send("Top retailers in UAE");
+
+    const composer = screen.getByRole("textbox", { name: "Ask the assistant" });
+    await waitFor(() => expect(composer).toHaveValue("Top retailers in UAE"));
+
+    await userEvent.click(screen.getByRole("button", { name: "Send" }));
+
+    expect(await screen.findByText("Answer t1")).toBeInTheDocument();
+    expect(ask).toHaveBeenLastCalledWith("p1", "Top retailers in UAE", null, expect.any(Function), expect.any(Function));
+    expect(composer).toHaveValue("");
   });
 
   it("shows a sent question once, acknowledged at once, and follows the chat down as it grows", async () => {

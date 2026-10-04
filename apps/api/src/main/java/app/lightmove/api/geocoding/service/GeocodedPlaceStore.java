@@ -18,16 +18,8 @@ import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
 /**
- * The cache's two transactions, on a bean of their own.
- *
- * <p>Its own bean for the reason {@code AuditEventWriter} is: {@code GeocodingService} calls the
- * vendor between the read and the write, and a vendor call must not sit inside a transaction — a
- * permit wait plus retry backoff would hold a database connection for seconds. Split across a bean
- * boundary, each half is a real transaction and the call in between is in none.
- *
- * <p>The write is an upsert rather than {@code save}: two map reads racing on the same unresolved
- * city both resolve it, and the second must land on the row the first made rather than on the unique
- * index.
+ * The geocoding cache's two transactions, on their own bean so the vendor call between them holds no
+ * database connection. An upsert, so two reads racing on one city land on one row.
  */
 @Component
 @RequiredArgsConstructor
@@ -56,7 +48,7 @@ public class GeocodedPlaceStore {
                 .collect(Collectors.toMap(GeocodedPlace::getPlaceKey, Function.identity()));
     }
 
-    /** Remembers an answer — including no answer, so an unplaceable city is not asked again. */
+    /** A miss included, so an unplaceable city is not asked again. */
     @Transactional
     public void remember(PlaceKey place, Optional<GeoPoint> point) {
         GeoPrecision precision = point.map(GeoPoint::precision)

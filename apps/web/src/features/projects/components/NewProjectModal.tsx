@@ -19,8 +19,12 @@ import { fieldErrorsFrom } from "../../../lib/formErrors";
 import { formatDate } from "../../../lib/format";
 import * as clientsApi from "../../clients/api/clientsApi";
 import type { Client } from "../../clients/api/types";
+import { BusinessUnitCombobox } from "../../clients/components/BusinessUnitCombobox";
+import { ClientCombobox } from "../../clients/components/ClientCombobox";
 import * as positionApi from "../../position/api/positionApi";
 import { RoleTitleCombobox } from "../../position/components/RoleTitleCombobox";
+import type { CompanySuggestion } from "../../strategy/api/types";
+import { useWorkspaceMode, useWorkspaceVocabulary } from "../../workspace/lib/vocabulary";
 import * as projectsApi from "../api/projectsApi";
 import type { ProjectType } from "../api/types";
 import {
@@ -31,7 +35,6 @@ import {
   mappingTargetFits,
   todayIso,
 } from "../lib/timeline";
-import { BusinessUnitCombobox } from "./BusinessUnitCombobox";
 
 /** Mirrors `@Size(max = 160)` on CreateProjectRequest.positionTitle, so the cap is met at the field. */
 const MAX_POSITION_TITLE_LENGTH = 160;
@@ -78,8 +81,11 @@ export function NewProjectModal({
 }) {
   const queryClient = useQueryClient();
   const toast = useToast();
+  const vocabulary = useWorkspaceVocabulary();
+  const isAgency = useWorkspaceMode() === "AGENCY";
 
   const [businessUnitName, setBusinessUnitName] = useState("");
+  const [pickedCompany, setPickedCompany] = useState<CompanySuggestion | null>(null);
   const [positionTitle, setPositionTitle] = useState("");
   const [projectType, setProjectType] = useState<ProjectType>("MAPPING");
   const [startDate, setStartDate] = useState(todayIso);
@@ -107,6 +113,8 @@ export function NewProjectModal({
   const unitName = businessUnitName.trim();
   const knownUnit = clientsByName.get(unitName.toLowerCase());
   const creatingClient = !lockedClientId && !!unitName && !knownUnit;
+  // Only while the field still reads the company's name: typing over a pick makes it a typed name again.
+  const companyToFile = creatingClient && pickedCompany?.companyName === unitName ? pickedCompany : null;
 
   const isMapping = projectType === "MAPPING";
   const windowDays = startDate && deliveryDate ? daysBetween(startDate, deliveryDate) : null;
@@ -121,7 +129,10 @@ export function NewProjectModal({
       let resolvedClientId = lockedClientId || knownUnit?.id;
       if (!resolvedClientId) {
         try {
-          resolvedClientId = (await clientsApi.createClient({ customName: unitName })).id;
+          const payload = companyToFile
+            ? clientsApi.createClientPayloadFor({ source: "universe", company: companyToFile })
+            : { customName: unitName };
+          resolvedClientId = (await clientsApi.createClient(payload)).id;
         } catch (clientError) {
           if (codeOf(clientError) !== "CLIENT_ALREADY_EXISTS") throw clientError;
           // The user meant that unit. Re-fetch rather than trust the prop — a colleague may have
@@ -166,6 +177,12 @@ export function NewProjectModal({
   const clearFieldError = (field: ProjectField) =>
     setFieldErrors((current) => (current[field] ? { ...current, [field]: undefined } : current));
 
+  const handleBusinessUnitChange = (name: string) => {
+    setBusinessUnitName(name);
+    setPickedCompany(null);
+    clearFieldError("businessUnit");
+  };
+
   const handlePositionTitleChange = (title: string) => {
     setPositionTitle(title);
     clearFieldError("positionTitle");
@@ -197,7 +214,7 @@ export function NewProjectModal({
     const title = positionTitle.trim();
     const refused: Partial<Record<ProjectField, string>> = {};
     if (!lockedClientId && !unitName) {
-      refused.businessUnit = "Choose a business unit or name a new one";
+      refused.businessUnit = `Choose a ${vocabulary.unitLower} or name a new one`;
     } else if (creatingClient && unitName.length > MAX_BUSINESS_UNIT_NAME_LENGTH) {
       refused.businessUnit = `That name is too long — keep it to ${MAX_BUSINESS_UNIT_NAME_LENGTH} characters or fewer`;
     }
@@ -219,6 +236,48 @@ export function NewProjectModal({
     if (Object.keys(refused).length > 0 || dateOrderError) return;
     create.mutate();
   };
+
+  const unitHint = (() => {
+    if (locked) return `This position belongs to ${locked.name}.`;
+    if (companyToFile)
+      return `A new ${vocabulary.unitLower} from the company database — it is created with the position.`;
+    if (creatingClient) return `A new ${vocabulary.unitLower} — it is created with the position.`;
+    return undefined;
+  })();
+
+  const unitControl = (() => {
+    if (lockedClientId) {
+      // Disabled rather than replaced by plain text: the user still sees which unit the position
+      // is for, and the label keeps a control to name.
+      return (
+        <Select value={lockedClientId} disabled className="cursor-not-allowed opacity-60">
+          <option value={lockedClientId}>{locked?.name ?? `Selected ${vocabulary.unitLower}`}</option>
+        </Select>
+      );
+    }
+    if (isAgency) {
+      return (
+        <ClientCombobox
+          value={businessUnitName}
+          clients={clients}
+          invalid={!!fieldErrors.businessUnit}
+          onChange={handleBusinessUnitChange}
+          onPickCompany={(company) => {
+            handleBusinessUnitChange(company.companyName);
+            setPickedCompany(company);
+          }}
+        />
+      );
+    }
+    return (
+      <BusinessUnitCombobox
+        value={businessUnitName}
+        clients={clients}
+        invalid={!!fieldErrors.businessUnit}
+        onChange={handleBusinessUnitChange}
+      />
+    );
+  })();
 
   const showSummary = windowDays !== null && windowDays > 0;
   const mappingTargetDays = mappingTarget ? daysBetween(startDate, mappingTarget) : null;
@@ -245,34 +304,8 @@ export function NewProjectModal({
       {/* The hint carries the name because a disabled <select> is skipped in a screen reader's forms
           mode — Field renders the hint inside the wrapping <label>, so it reaches the accessible name
           even when the control itself never gets focus. */}
-      <Field
-        label="Business unit"
-        hint={
-          locked
-            ? `This position belongs to ${locked.name}.`
-            : creatingClient
-              ? "A new business unit — it is created with the position."
-              : undefined
-        }
-        error={fieldErrors.businessUnit}
-      >
-        {lockedClientId ? (
-          // Disabled rather than replaced by plain text: the user still sees which unit the position
-          // is for, and the label keeps a control to name.
-          <Select value={lockedClientId} disabled className="cursor-not-allowed opacity-60">
-            <option value={lockedClientId}>{locked?.name ?? "Selected business unit"}</option>
-          </Select>
-        ) : (
-          <BusinessUnitCombobox
-            value={businessUnitName}
-            clients={clients}
-            invalid={!!fieldErrors.businessUnit}
-            onChange={(name) => {
-              setBusinessUnitName(name);
-              clearFieldError("businessUnit");
-            }}
-          />
-        )}
+      <Field label={vocabulary.unit} hint={unitHint} error={fieldErrors.businessUnit}>
+        {unitControl}
       </Field>
 
       {/* Picking a template only fills the title: creation seeds the brief from the title on the
@@ -314,8 +347,8 @@ export function NewProjectModal({
         label={isMapping ? "Map delivery date" : "Shortlist delivery date"}
         hint={
           isMapping
-            ? "When does the business unit expect the completed universe map?"
-            : "When does the business unit expect the shortlist?"
+            ? `When does the ${vocabulary.unitLower} expect the completed universe map?`
+            : `When does the ${vocabulary.unitLower} expect the shortlist?`
         }
         error={dateOrderError ?? fieldErrors.deliveryDate}
       >

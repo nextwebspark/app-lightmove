@@ -180,13 +180,14 @@ check C6.2b3 "the representative row was activated by that accept, as the portal
   "$(sql "SELECT count(*) FROM app_lm_client_representative
           WHERE lower(email) = '$STAFF_ONLY_EMAIL' AND user_id IS NOT NULL")"
 
-# The token-less path is the other way in: /me carries pendingInvitation and a signed-in user redeems
-# it without a token. A portal invitation must not surface there either.
+# The token-less path is the other way in: /me carries pendingInvitations and a signed-in user redeems
+# one by id without a token. A portal invitation to a workspace they are already in is moot and must
+# not surface there either.
 get /auth/me -H "$(auth_header "$PORTAL_SELF_TOKEN")"
-check C6.2c "a portal invitation is not offered on /me as a pending staff invitation" "null" \
-  "$(json '.pendingInvitation')"
-http POST /onboarding/accept-invitation -H "$(auth_header "$PORTAL_SELF_TOKEN")"
-check C6.2d "and the token-less accept finds nothing to redeem" "true" \
+check C6.2c "a portal invitation is not offered on /me as a pending invitation" "0" \
+  "$(json '.pendingInvitations | length')"
+http POST /onboarding/invitations/00000000-0000-0000-0000-000000000000/accept -H "$(auth_header "$PORTAL_SELF_TOKEN")"
+check C6.2d "and an accept by id finds nothing to redeem" "true" \
   "$(test "$LAST_STATUS" != "200" && echo true || echo false)"
 note C6.2e "token-less accept answered $LAST_STATUS $(ecode)"
 

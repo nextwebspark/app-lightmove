@@ -17,7 +17,7 @@ import org.junit.jupiter.api.Test;
  * catch that drift: an unmatched name falls into the {@code CASE}'s {@code else null} and silently
  * sorts last instead of failing loud. This test pins the mirrored list so that drift is a red build
  * here instead. (The same literal spelling is also mirrored in
- * {@code TriageCompanyService.EXECUTIVE_STATUS_TOKENS} and
+ * {@code TriageCompanyReadService.EXECUTIVE_STATUS_TOKENS} and
  * {@code MappedExecutiveLookupAdapter#triageCompanyIdsWithExecutiveStatusIn}; a rename should grep for
  * all three.)
  */

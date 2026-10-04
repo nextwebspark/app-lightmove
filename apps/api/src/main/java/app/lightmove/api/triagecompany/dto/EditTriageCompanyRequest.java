@@ -8,15 +8,8 @@ import jakarta.validation.constraints.Size;
 import java.util.Map;
 
 /**
- * The company's own facts, replaced whole — what the Companies panel's Edit form submits for a
- * company the mandate supplied itself.
- *
- * <p>A PUT rather than more optional fields on {@link UpdateTriageCompanyRequest}: that one is a
- * triage change where a null leaves the other half be, while this is the whole form, so an omitted
- * field is a <i>cleared</i> field and a partial-merge endpoint could not express clearing a headcount.
- *
- * <p>{@code source}, {@code status} and {@code sourceUrl} are provenance and are not rewritable.
- * {@code note} stays on the PATCH, because it remains editable on the companies this endpoint refuses.
+ * A mandate-supplied company's facts, replaced whole: an omitted field is a cleared one. Provenance is
+ * not rewritable, and {@code note} stays on the PATCH, which also reaches market companies.
  */
 public record EditTriageCompanyRequest(
         @NotBlank(message = "A company name is required")
@@ -32,8 +25,7 @@ public record EditTriageCompanyRequest(
         @Size(max = 100)
         String companyCity,
 
-        // A headcount, not a population: the ceiling is a typo guard, and zero is a legitimate figure
-        // for a holding company or a newly incorporated entity.
+        // The ceiling is a typo guard; zero is legitimate for a holding company.
         @PositiveOrZero(message = "Employees cannot be negative")
         @Max(value = 10_000_000, message = "That headcount looks like a typo")
         Integer numEmployees,
@@ -54,9 +46,6 @@ public record EditTriageCompanyRequest(
         @Size(max = 2000)
         String shortDescription,
 
-        /**
-         * Values for this mandate's custom columns, keyed by each column's {@code fieldKey}.
-         * CustomColumnService.applyTo states what a row may store.
-         */
+        /** Keyed by {@code fieldKey}; {@code CustomColumnService.applyTo} decides what may be stored. */
         Map<String, String> customFields
 ) {}

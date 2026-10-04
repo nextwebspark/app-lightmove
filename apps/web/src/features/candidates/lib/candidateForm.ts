@@ -119,7 +119,8 @@ export const candidateSchema = z.object({
   gender: z.enum(["", "female", "male", "other"]),
   yearsExperience: optionalNumber("Years of experience", 70),
   summary: z.string().trim().max(4000),
-  note: z.string().trim().max(2000),
+  // The Add form's first note: filed as a note on the person, never read back onto the row.
+  note: z.string().trim().max(4000),
   // Wider than the old 400: enrichment writes this field too, and a form that refuses to save a
   // package because research listed nine languages would block the one section it was opened for.
   languages: z.string().trim().max(1200),
@@ -142,6 +143,7 @@ export const candidateSchema = z.object({
         company: z.string().trim().max(200),
         title: z.string().trim().max(200),
         period: z.string().trim().max(60),
+        location: z.string().nullable().optional(),
       }),
     )
     .max(25, "A career history holds 25 posts at most"),
@@ -300,7 +302,7 @@ export function formOf(candidate: Candidate): CandidateForm {
     gender: candidate.gender ?? "",
     yearsExperience: candidate.yearsExperience?.toString() ?? "",
     summary: candidate.summary ?? "",
-    note: candidate.note ?? "",
+    note: "",
     languages: candidate.languages.join(", "),
     currency: candidate.compensation.currency ?? "",
     ...compensationFormOf(candidate),
@@ -311,6 +313,7 @@ export function formOf(candidate: Candidate): CandidateForm {
       company: entry.company ?? "",
       title: entry.title ?? "",
       period: entry.period ?? "",
+      location: entry.location ?? null,
     })),
   };
 }
@@ -371,7 +374,6 @@ export function replayOf(candidate: Candidate): SaveCandidatePayload {
     gender: candidate.gender ?? undefined,
     yearsExperience: candidate.yearsExperience ?? undefined,
     summary: candidate.summary ?? undefined,
-    note: candidate.note ?? undefined,
     compensation: { ...candidate.compensation },
     career: candidate.career.map((entry) => ({ ...entry })),
     languages: [...candidate.languages],
@@ -408,6 +410,8 @@ const PATCHES: {
         company: entry.company || null,
         title: entry.title || null,
         period: entry.period || null,
+        // Research's own field, carried back so a save does not wipe it; a typed row has none.
+        ...(entry.location ? { location: entry.location } : {}),
       })),
   }),
   compensation: (parsed) => {
@@ -433,6 +437,7 @@ const PATCHES: {
     };
   },
   background: (parsed) => ({
+    confirmBackground: true,
     nationality: parsed.nationality || undefined,
     gender: parsed.gender || undefined,
     yearsExperience: parsed.yearsExperience,

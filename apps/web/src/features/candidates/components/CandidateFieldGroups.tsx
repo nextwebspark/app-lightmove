@@ -19,6 +19,7 @@ import { CURRENCIES, currencyOptionLabel, DEFAULT_CURRENCY } from "../../../lib/
 import { formatNumber } from "../../../lib/format";
 import { NOTICE_PERIODS } from "../../../lib/noticePeriod";
 import { toReadableUrl } from "../../../lib/url";
+import type { CandidateBackgroundField } from "../api/types";
 import {
   allowanceTotalOf,
   amountTyped,
@@ -57,8 +58,11 @@ export function IdentityFields<TTransformed>({
   employerLocked,
   autoFocus,
   statusField,
+  aiInferred,
 }: FieldGroupProps & {
   control: Control<CandidateForm, unknown, TTransformed>;
+  /** Which background fields hold a value AI proposed, not yet reviewed — seniority is drawn here. */
+  aiInferred?: ReadonlySet<CandidateBackgroundField>;
   /** True where the employer is one of the mandate's companies — the mapping and the name must not disagree. */
   employerLocked: boolean;
   autoFocus?: boolean;
@@ -79,7 +83,11 @@ export function IdentityFields<TTransformed>({
         <Field label="Title" error={errors.title?.message}>
           <Input {...register("title")} placeholder="VP Finance" />
         </Field>
-        <Field label="Seniority" error={errors.seniority?.message}>
+        <Field
+          label="Seniority"
+          error={errors.seniority?.message}
+          action={backgroundBadge(aiInferred, "seniority")}
+        >
           <Select {...register("seniority")}>
             <option value="">Not established</option>
             {CANDIDATE_SENIORITIES.map((level) => (
@@ -659,14 +667,41 @@ function AmountField({
 }
 
 /**
- * A nationality outside the nine groups — typed before the picker existed, or stated by an import —
+ * Marks a value an AI inference proposed that nobody has reviewed yet — `Candidate.aiInferredFields`.
+ * The same sparkle, size and ink the brief's {@link ProvenanceMarker} wears, so AI-filled reads alike on both screens.
+ */
+export function AiInferredBadge() {
+  return (
+    <span
+      role="img"
+      aria-label="AI-suggested"
+      title="AI-suggested — saving the Background section confirms it"
+      className="grid size-4 flex-none place-items-center text-u-inferred"
+    >
+      <Icon d={ICONS.sparkle} size={13} />
+    </span>
+  );
+}
+
+function backgroundBadge(aiInferred: ReadonlySet<CandidateBackgroundField> | undefined,
+  field: CandidateBackgroundField) {
+  return aiInferred?.has(field) ? <AiInferredBadge /> : undefined;
+}
+
+/**
+ * A nationality outside the eleven groups — typed before the picker existed, or stated by an import —
  * stays offered, for the reason a stored currency does: see {@link CompensationFields}.
  */
 export function BackgroundFields({
   register,
   errors,
   storedNationality,
-}: FieldGroupProps & { storedNationality?: string | null }) {
+  aiInferred,
+}: FieldGroupProps & {
+  storedNationality?: string | null;
+  /** Which of the three fields below hold a value AI proposed, not yet reviewed. */
+  aiInferred?: ReadonlySet<CandidateBackgroundField>;
+}) {
   const offGroup =
     storedNationality && !CANDIDATE_NATIONALITIES.includes(storedNationality) ? storedNationality : null;
   return (
@@ -676,6 +711,7 @@ export function BackgroundFields({
           label="Nationality"
           hint="Not the same fact as country — visa status and local credibility follow it."
           error={errors.nationality?.message}
+          action={backgroundBadge(aiInferred, "nationality")}
         >
           <Select {...register("nationality")}>
             <option value="">Not recorded</option>
@@ -687,15 +723,20 @@ export function BackgroundFields({
             {offGroup && <option value={offGroup}>{offGroup} (as recorded)</option>}
           </Select>
         </Field>
-        <Field label="Years of experience" error={errors.yearsExperience?.message}>
+        <Field
+          label="Years of experience"
+          error={errors.yearsExperience?.message}
+          action={backgroundBadge(aiInferred, "yearsExperience")}
+        >
           <Input {...register("yearsExperience")} inputMode="numeric" placeholder="18" />
         </Field>
       </div>
       <div className="grid gap-x-4 sm:grid-cols-2">
         <Field
           label="Gender"
-          hint="Only where it is known — the diversity report counts it and never guesses it from a name."
+          hint="A researcher's own entry, or an AI suggestion — flagged AI until you save this section."
           error={errors.gender?.message}
+          action={backgroundBadge(aiInferred, "gender")}
         >
           <Select {...register("gender")}>
             <option value="">Not recorded</option>

@@ -16,14 +16,8 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.web.client.RestClient;
 
 /**
- * Picks the {@link ContactFinder} from config, in the shape {@code GeocodingConfig} uses and for the
- * same two reasons: an adapter constructed inline inside another factory method is never proxied and
- * its {@code @Retryable} would be inert, and one left as an ordinary candidate would make injecting
- * the seam ambiguous.
- *
- * <p>A missing key does not fail the boot, unlike {@code CandidateEnrichmentConfig}'s. There is no
- * provider name to contradict here — an empty key is a deployment without a ContactOut account, and a
- * fresh clone must run with none.
+ * Picks the {@link ContactFinder}, shaped like {@code CandidateEnrichmentConfig} for its reasons. A
+ * missing key does not fail the boot: it is simply a deployment without a ContactOut account.
  */
 @Configuration
 @Slf4j

@@ -1,22 +1,30 @@
 import { useMutation, useQuery } from "@tanstack/react-query";
-import { useRef, useState, type ReactNode } from "react";
-import { Button, Select, TextArea, useToast } from "../../../components/ui";
+import { useCallback, useRef, useState, type ReactNode } from "react";
+import { Button, Select, useToast } from "../../../components/ui";
 import { CollapsibleSection } from "../../../components/ui/CollapsibleSection";
 import { DetailGrid, DetailPill, DetailTile } from "../../../components/ui/DetailList";
-import { DrawerCloseButton } from "../../../components/ui/Drawer";
-import { NetworkMark } from "../../../components/ui/NetworkMark";
+import { PanelCloseButton } from "../../../components/ui/PanelCloseButton";
 import { messageFor } from "../../../lib/errorCodes";
 import { formatInstantDate, formatNumber } from "../../../lib/format";
 import { noticeSummaryOf } from "../../../lib/noticePeriod";
 import { toBrowsableUrl } from "../../../lib/url";
-import { useSubmitShortcut } from "../../../lib/useSubmitShortcut";
 import * as contactLookupApi from "../../contactlookup/api/contactLookupApi";
 import { ContactPanel } from "../../contactlookup/components/ContactPanel";
 import type { CustomColumn, CustomFieldValues } from "../../customcolumns/api/types";
 import { CustomFieldsFieldset } from "../../customcolumns/components/CustomFieldsFieldset";
+import { AddToSequenceButton } from "../../outreach/components/AddToSequenceButton";
+import { OutreachSection } from "../../outreach/components/OutreachSection";
+import { MeetingsSection } from "../../outreach/components/MeetingsSection";
 import * as candidatesApi from "../api/candidatesApi";
-import type { Candidate, CandidateStatus, SaveCandidatePayload } from "../api/types";
-import { patchOf, replayOf, type ProfileFormSection } from "../lib/candidateForm";
+import type { DocumentScope } from "../api/documentsApi";
+import type {
+  Candidate,
+  CandidateStatus,
+  PersonDocument,
+  PersonDocumentVersion,
+  SaveCandidatePayload,
+} from "../api/types";
+import { replayOf, type ProfileFormSection } from "../lib/candidateForm";
 import {
   candidateGenderLabel,
   candidateStatusStyle,
@@ -25,10 +33,13 @@ import {
 } from "../lib/candidateVocabulary";
 import { careerSummary } from "../lib/careerTimeline";
 import { packageOf } from "../lib/compensation";
+import { useAiEnrichment } from "../lib/useAiEnrichment";
 import { useChangeCandidateStatus } from "../lib/useChangeCandidateStatus";
+import { usePersonDocuments } from "../lib/usePersonDocuments";
 import { useProfileSections, type ProfileSection } from "../lib/useProfileSections";
 import { CandidateAvatar } from "./CandidateAvatar";
 import {
+  AiInferredBadge,
   BackgroundFields,
   CareerFields,
   CompensationFields,
@@ -36,8 +47,18 @@ import {
   SummaryFields,
 } from "./CandidateFieldGroups";
 import { CareerTimeline } from "./CareerTimeline";
+import { EducationList, FoldAllButton, HeaderProfileLink, PillRow } from "./ProfileParts";
 import { CompensationSummary } from "./CompensationSummary";
+import { DocumentPreviewSheet, type PreviewTarget } from "./documents/DocumentPreviewSheet";
+import { PrimaryCvChip } from "./documents/PrimaryCvChip";
+import { DoNotContactStrip, DocumentsSection, NotesSection, PositionsSection, TimelineSection } from "./PersonSections";
 import { ProfileSectionForm, SectionEditButton, SectionEditor } from "./ProfileSectionForm";
+import {
+  AiAssessmentBody,
+  AiEnrichButton,
+  aiAssessmentSummary,
+  NationalitySuggestion,
+} from "./AiAssessmentSection";
 
 /** What a pencil opens: one of the form's sections, or the mandate's own columns. */
 type EditableSection = Exclude<ProfileFormSection, "note"> | "columns";
@@ -107,6 +128,24 @@ export function CandidateProfile({
   };
 
   const changeStatus = useChangeCandidateStatus(projectId, onSaved);
+  const documentScope: DocumentScope = { kind: "position", projectId, candidateId: candidate.id };
+  const documents = usePersonDocuments(documentScope, canWrite);
+  const [preview, setPreview] = useState<PreviewTarget | null>(null);
+  const openPreview = (document: PersonDocument, version: PersonDocumentVersion) =>
+    setPreview({ documentId: document.id, versionId: version.id });
+  const closePreview = useCallback(() => setPreview(null), []);
+  const aiEnrichment = useAiEnrichment(projectId, candidate.id, canWrite);
+  const toast = useToast();
+  // Accepting is the researcher recording the value, so it lands unflagged and confirms nothing else.
+  const acceptNationality = useMutation({
+    mutationFn: (group: string) => replace({ nationality: group }),
+    onSuccess: (saved) => {
+      toast("Nationality saved");
+      onSaved(saved);
+    },
+    onError: (error) => toast(messageFor(error)),
+  });
+  const nationalityReading = canWrite && !candidate.nationality ? aiEnrichment.nationalityReading : null;
 
   const startEditing = (section: EditableSection) => {
     setEditing(section);
@@ -138,7 +177,7 @@ export function CandidateProfile({
   return (
     <>
       <div className="relative flex-none border-b border-u-border px-5 py-4">
-        <DrawerCloseButton onClose={onClose} />
+        <PanelCloseButton onClose={onClose} />
         <div className="group flex items-start gap-3 pe-8">
           <CandidateAvatar
             projectId={projectId}
@@ -158,7 +197,12 @@ export function CandidateProfile({
                 .join(" · ") || "No employer or location recorded"}
             </p>
             <div className="mt-2 flex flex-wrap items-center gap-2">
-              {candidate.seniority && <DetailPill label={candidate.seniority} />}
+              {candidate.seniority && (
+                <span className="inline-flex items-center gap-1">
+                  <DetailPill label={candidate.seniority} />
+                  {candidate.aiInferredFields.includes("seniority") && <AiInferredBadge />}
+                </span>
+              )}
               <DetailPill
                 label={CANDIDATE_SOURCE_STYLES[candidate.source].label}
                 className={CANDIDATE_SOURCE_STYLES[candidate.source].className}
@@ -188,6 +232,11 @@ export function CandidateProfile({
                   className={candidateStatusStyle(candidate.status).className}
                 />
               )}
+              {canWrite && <PrimaryCvChip documents={documents} onPreview={openPreview} />}
+              {canWrite && <AiEnrichButton enrichment={aiEnrichment} />}
+              {canWrite && (
+                <AddToSequenceButton projectId={projectId} candidateId={candidate.id} fullName={candidate.fullName} />
+              )}
             </div>
           </div>
         </div>
@@ -211,6 +260,7 @@ export function CandidateProfile({
                   errors={form.formState.errors}
                   control={form.control}
                   employerLocked={candidate.triageCompanyId !== null}
+                  aiInferred={new Set(candidate.aiInferredFields)}
                 />
               )}
             </SectionEditor>
@@ -220,6 +270,41 @@ export function CandidateProfile({
             <FoldAllButton label="Expand all" onClick={() => sections.setAll(true)} />
             <FoldAllButton label="Collapse all" onClick={() => sections.setAll(false)} />
           </div>
+        )}
+
+        {canWrite && <DoNotContactStrip personId={candidate.personId} />}
+
+        {canWrite && (
+          <PositionsSection
+            projectId={projectId}
+            candidateId={candidate.id}
+            open={sections.isOpen("positions")}
+            onToggle={() => sections.toggle("positions")}
+          />
+        )}
+
+        {canWrite && (
+          <OutreachSection
+            projectId={projectId}
+            candidateId={candidate.id}
+            firstName={candidate.fullName.trim().split(/\s+/)[0]}
+            candidateStatus={candidate.status}
+            open={sections.isOpen("outreach")}
+            onToggle={() => sections.toggle("outreach")}
+            isSettingStatus={changeStatus.isPending}
+            onSetStatus={(status) => changeStatus.mutate({ candidateId: candidate.id, status })}
+          />
+        )}
+
+        {canWrite && (
+          <MeetingsSection
+            projectId={projectId}
+            candidateId={candidate.id}
+            personId={candidate.personId}
+            fullName={candidate.fullName}
+            candidateStatus={candidate.status}
+            emails={candidate.contacts.emails}
+          />
         )}
 
         <CollapsibleSection
@@ -247,6 +332,18 @@ export function CandidateProfile({
             </p>
           )}
         </CollapsibleSection>
+
+        {canWrite && (
+          <CollapsibleSection
+            id="ai"
+            open={sections.isOpen("ai")}
+            onToggle={() => sections.toggle("ai")}
+            title="AI assessment"
+            summary={aiAssessmentSummary(aiEnrichment)}
+          >
+            <AiAssessmentBody enrichment={aiEnrichment} />
+          </CollapsibleSection>
+        )}
 
         <CollapsibleSection
           {...foldProps("experience")}
@@ -286,21 +383,7 @@ export function CandidateProfile({
             count={candidate.education.length}
             summary={candidate.education[0].school ?? candidate.education[0].degree}
           >
-            <ul className="flex flex-col gap-2.5">
-              {candidate.education.map((school, index) => (
-                <li key={`${school.school}-${school.degree}-${index}`}>
-                  {school.school && (
-                    <div className="font-sans text-[13px] font-semibold text-u-text">{school.school}</div>
-                  )}
-                  {school.degree && (
-                    <div className="mt-0.5 font-sans text-[13px] text-u-text2">{school.degree}</div>
-                  )}
-                  {school.period && (
-                    <div className="mt-0.5 font-mono text-[11.5px] text-u-text3">{school.period}</div>
-                  )}
-                </li>
-              ))}
-            </ul>
+            <EducationList education={candidate.education} />
           </CollapsibleSection>
         )}
 
@@ -345,7 +428,10 @@ export function CandidateProfile({
           {...foldProps("background")}
           title="Background"
           summary={joinFacts([
-            candidate.nationality,
+            candidate.nationality ??
+              (nationalityReading && nationalityReading.category !== "Unknown"
+                ? `AI suggests ${nationalityReading.category}`
+                : null),
             candidate.yearsExperience ? `${candidate.yearsExperience} yrs` : null,
             candidate.languages.length > 0 ? countOf(candidate.languages.length, "language") : null,
           ])}
@@ -365,19 +451,38 @@ export function CandidateProfile({
                   register={form.register}
                   errors={form.formState.errors}
                   storedNationality={candidate.nationality}
+                  aiInferred={new Set(candidate.aiInferredFields)}
                 />
               )}
             </SectionEditor>
           ) : (
             <>
               <DetailGrid>
-                <DetailTile label="Nationality" value={candidate.nationality} />
-                <DetailTile label="Gender" value={candidateGenderLabel(candidate.gender)} />
+                <DetailTile
+                  label="Nationality"
+                  value={candidate.nationality}
+                  badge={candidate.aiInferredFields.includes("nationality") ? <AiInferredBadge /> : undefined}
+                />
+                <DetailTile
+                  label="Gender"
+                  value={candidateGenderLabel(candidate.gender)}
+                  badge={candidate.aiInferredFields.includes("gender") ? <AiInferredBadge /> : undefined}
+                />
                 <DetailTile
                   label="Experience"
                   value={candidate.yearsExperience ? `${candidate.yearsExperience} years` : null}
+                  badge={
+                    candidate.aiInferredFields.includes("yearsExperience") ? <AiInferredBadge /> : undefined
+                  }
                 />
               </DetailGrid>
+              {nationalityReading && (
+                <NationalitySuggestion
+                  reading={nationalityReading}
+                  onAccept={(group) => acceptNationality.mutate(group)}
+                  isAccepting={acceptNationality.isPending}
+                />
+              )}
               <PillRow label="Languages" values={candidate.languages} empty="No languages recorded." />
               {candidate.skills.length > 0 && <PillRow label="Skills" values={candidate.skills} />}
             </>
@@ -438,14 +543,30 @@ export function CandidateProfile({
           </CollapsibleSection>
         )}
 
-        <NoteSection
-          candidate={candidate}
-          canWrite={canWrite}
-          open={sections.isOpen("note")}
-          onToggle={() => sections.toggle("note")}
-          save={replace}
-          onSaved={onSaved}
-        />
+        {canWrite && (
+          <>
+            <NotesSection
+              projectId={projectId}
+              candidateId={candidate.id}
+              open={sections.isOpen("notes")}
+              onToggle={() => sections.toggle("notes")}
+            />
+            <DocumentsSection
+              scope={documentScope}
+              documents={documents}
+              personName={candidate.fullName.split(" ")[0]}
+              onPreview={openPreview}
+              open={sections.isOpen("documents")}
+              onToggle={() => sections.toggle("documents")}
+            />
+            <TimelineSection
+              projectId={projectId}
+              candidateId={candidate.id}
+              open={sections.isOpen("timeline")}
+              onToggle={() => sections.toggle("timeline")}
+            />
+          </>
+        )}
 
         <p className="py-4 font-mono text-[11px] text-u-text3">
           Added {formatInstantDate(candidate.addedAt)}
@@ -478,89 +599,17 @@ export function CandidateProfile({
           </Button>
         </div>
       )}
-    </>
-  );
-}
 
-/**
- * The note is not behind a pencil: it is always a textarea, and Save appears the moment it differs
- * from what is stored. It is the mandate's own remark rather than a fact about the person — the
- * thing a consultant writes after every call — and a remark that took two clicks to start would
- * not get written. Ctrl/⌘-Enter saves; the same write as every other section, note over profile.
- */
-function NoteSection({
-  candidate,
-  canWrite,
-  open,
-  onToggle,
-  save,
-  onSaved,
-}: {
-  candidate: Candidate;
-  canWrite: boolean;
-  open: boolean;
-  onToggle: () => void;
-  save: (patch: Partial<SaveCandidatePayload>) => Promise<Candidate>;
-  onSaved: (saved: Candidate) => void;
-}) {
-  const toast = useToast();
-  const [note, setNote] = useState(candidate.note ?? "");
-  // What the server holds, by its own last answer — so Save disappears the moment it lands, not
-  // once the caller has got round to re-rendering.
-  const [stored, setStored] = useState(candidate.note ?? "");
-  const dirty = note !== stored;
-
-  const saving = useMutation({
-    mutationFn: (text: string) =>
-      save(patchOf("note", { note: text.trim() }, candidate.triageCompanyId !== null)),
-    onSuccess: (saved) => {
-      setStored(saved.note ?? "");
-      setNote(saved.note ?? "");
-      onSaved(saved);
-      toast("Note saved");
-    },
-    onError: (error) => toast(messageFor(error)),
-  });
-
-  const handleKeyDown = useSubmitShortcut(() => dirty && saving.mutate(note));
-
-  return (
-    <CollapsibleSection
-      id="note"
-      open={open || dirty}
-      onToggle={onToggle}
-      title="Note"
-      summary={firstLine(candidate.note)}
-      action={
-        canWrite && dirty ? (
-          <button
-            type="button"
-            onClick={() => saving.mutate(note)}
-            disabled={saving.isPending}
-            className="font-mono text-[11px] font-semibold uppercase tracking-[0.06em] text-u-accent transition hover:underline disabled:opacity-50"
-          >
-            {saving.isPending ? "Saving…" : "Save note"}
-          </button>
-        ) : undefined
-      }
-    >
-      {canWrite ? (
-        <TextArea
-          value={note}
-          onChange={(event) => setNote(event.target.value)}
-          onKeyDown={handleKeyDown}
-          rows={4}
-          maxLength={2000}
-          aria-label="Note on this executive"
-          placeholder="Your own remark on this person, for this mandate — what they said, what to do next…"
-          className="border-dashed font-sans text-[13px]/[1.55]"
+      {canWrite && (
+        <DocumentPreviewSheet
+          scope={documentScope}
+          documents={documents}
+          target={preview}
+          onTargetChange={setPreview}
+          onClose={closePreview}
         />
-      ) : (
-        <p className="whitespace-pre-wrap text-[13px]/[1.6] text-u-text2">
-          {candidate.note ?? "No note on this person for this mandate."}
-        </p>
       )}
-    </CollapsibleSection>
+    </>
   );
 }
 
@@ -607,65 +656,11 @@ function ColumnsEditor({
   );
 }
 
-/** LinkedIn's own mark beside the name, through the same guard as the Contact row's link. */
-function HeaderProfileLink({ linkedinUrl }: { linkedinUrl: string | null }) {
-  const profileUrl = toBrowsableUrl(linkedinUrl);
-  if (!profileUrl) return null;
-  return (
-    <a
-      href={profileUrl}
-      target="_blank"
-      rel="noreferrer noopener"
-      aria-label="LinkedIn profile"
-      className="flex flex-none items-center opacity-80 transition hover:opacity-100"
-    >
-      <NetworkMark network="linkedin" size={16} />
-    </a>
-  );
-}
-
 function SectionHeading({ children }: { children: ReactNode }) {
   return (
     <h3 className="mb-3 font-mono text-[10.5px] font-semibold uppercase tracking-[0.1em] text-u-text3">
       {children}
     </h3>
-  );
-}
-
-function FoldAllButton({ label, onClick }: { label: string; onClick: () => void }) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className="font-mono text-[11px] text-u-text3 transition hover:text-u-text"
-    >
-      {label}
-    </button>
-  );
-}
-
-/** The mockup's language pills, reused for skills: a row of small rounded tags under a tiny label. */
-function PillRow({ label, values, empty }: { label: string; values: readonly string[]; empty?: string }) {
-  return (
-    <div className="mt-3">
-      <div className="mb-1.5 font-mono text-[9.5px] font-semibold uppercase tracking-[0.08em] text-u-text3">
-        {label}
-      </div>
-      {values.length === 0 ? (
-        <p className="font-mono text-[12.5px] text-u-text3">{empty}</p>
-      ) : (
-        <div className="flex flex-wrap gap-1.5">
-          {values.map((value) => (
-            <span
-              key={value}
-              className="inline-flex items-center rounded-full border border-u-border-strong bg-u-raised px-2.5 py-1 font-mono text-[12px] font-medium text-u-text2"
-            >
-              {value}
-            </span>
-          ))}
-        </div>
-      )}
-    </div>
   );
 }
 

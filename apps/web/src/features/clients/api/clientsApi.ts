@@ -1,4 +1,5 @@
 import { request } from "../../../lib/apiClient";
+import type { HiringPersona } from "../../workspace/api/types";
 import type { CompanyPick } from "../lib/companyPick";
 import type {
   Client,
@@ -46,6 +47,10 @@ export function createClient(payload: CreateClientPayload): Promise<Client> {
 
 export function updateClient(clientId: string, payload: UpdateClientPayload): Promise<ClientDetail> {
   return request<ClientDetail>(`/clients/${clientId}`, { method: "PATCH", body: payload });
+}
+
+export function updateClientPersona(clientId: string, persona: HiringPersona): Promise<ClientDetail> {
+  return request<ClientDetail>(`/clients/${clientId}/persona`, { method: "PUT", body: persona });
 }
 
 export function inviteRepresentative(

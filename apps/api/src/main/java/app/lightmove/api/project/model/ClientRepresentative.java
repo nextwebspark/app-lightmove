@@ -13,14 +13,8 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 
 /**
- * A client-side contact who represents a client record. Belongs to the client, not a mandate — a
- * representative exists before any project, and is later attached to specific mandates as a read-only
- * CLIENT project seat.
- *
- * <p>A lifecycle row. An external contact is born INVITED against an outstanding
- * {@link app.lightmove.api.workspace.model.Invitation}, then gains a {@code userId} and turns ACTIVE when
- * that invitation is accepted. A contact who is already a workspace member skips the invite entirely and
- * is born ACTIVE (see {@link #active}).
+ * A client-side contact on a client record, attached to mandates as a read-only CLIENT seat. Born
+ * INVITED against an invitation and ACTIVE on accept — or ACTIVE at once if already a member.
  */
 @Entity
 @Table(name = "app_lm_client_representative")
@@ -71,10 +65,7 @@ public class ClientRepresentative extends BaseEntity {
         return representative;
     }
 
-    /**
-     * A representative who is already a workspace member: no invitation, ACTIVE from birth, bound to
-     * their existing account. The CLIENT role is added to that membership separately.
-     */
+    /** Already a workspace member: no invitation; the CLIENT role is added to the membership separately. */
     public static ClientRepresentative active(UUID workspaceId, UUID clientId, String fullName,
                                               String position, String email, UUID userId, UUID createdBy) {
         ClientRepresentative representative = new ClientRepresentative();
@@ -98,13 +89,12 @@ public class ClientRepresentative extends BaseEntity {
         this.invitationId = invitationId;
     }
 
-    /** The registry details as last typed by staff — refreshed on a re-invite, whichever path it takes. */
+    /** Refreshed on a re-invite, whichever path it takes. */
     public void refreshDetails(String fullName, String position) {
         this.fullName = fullName.trim();
         this.position = position;
     }
 
-    /** They accepted: an account now exists, so the representative is live and can be attached to mandates. */
     public void activate(UUID userId) {
         this.userId = userId;
         this.status = ClientRepStatus.ACTIVE;

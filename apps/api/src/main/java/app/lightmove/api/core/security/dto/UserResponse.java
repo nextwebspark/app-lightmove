@@ -27,15 +27,17 @@ public record UserResponse(
         /** The language tag the user picked in Settings → Profile. Stored ahead of the app being translated. */
         String locale,
 
-        /** Null until the organisation step — the frontend routes into the app or back into the wizard on it. */
+        /** The session's workspace — the token's {@code wsId} — or null; the frontend routes on it. */
         WorkspaceSummary workspace,
 
+        /** Every active membership, oldest first — what the switcher lists. */
+        List<WorkspaceSummary> workspaces,
+
         /**
-         * The redeemable invitation addressed to this user, when they are not yet placed. Server-derived
-         * so an invitee is routed to "join {workspace}" from any tab — the emailed token lives in one
-         * tab's sessionStorage, but this survives everywhere the session does. Null once placed.
+         * Redeemable invitations to workspaces the user is not yet in. Server-derived so an invitee is
+         * routed to "join {workspace}" from any tab, not only the one holding the emailed token.
          */
-        PendingInvitationSummary pendingInvitation,
+        List<PendingInvitationSummary> pendingInvitations,
 
         /** What the user may do outside any workspace — empty for everyone but LightMove staff. */
         List<PlatformAction> platformActions

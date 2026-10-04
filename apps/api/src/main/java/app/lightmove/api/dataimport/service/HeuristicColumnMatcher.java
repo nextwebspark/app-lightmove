@@ -23,15 +23,8 @@ import java.util.regex.Pattern;
 import org.springframework.stereotype.Service;
 
 /**
- * Matches a sheet's headers to fields without asking a model anything.
- *
- * <p>Two jobs. It <b>seeds</b> the request the model answers, and it is the <b>fallback</b> when the
- * model cannot be reached at all — Vertex needs Application Default Credentials on every path
- * including a plain local run.
- *
- * <p>Three rules in order — exact normalised match, then a synonym, then token overlap — and a header
- * that matches nothing becomes a custom column rather than being dropped, because a column nobody
- * recognised is exactly the column this whole feature exists to keep.
+ * Matches headers to fields without a model — the seed for the model's request and the fallback when
+ * it is unreachable. A header matching nothing becomes a custom column, never dropped.
  */
 @Service
 public class HeuristicColumnMatcher {
@@ -39,32 +32,23 @@ public class HeuristicColumnMatcher {
     private static final Pattern DIACRITICS = Pattern.compile("\\p{M}+");
     private static final Pattern NON_ALPHANUMERIC = Pattern.compile("[^a-z0-9]+");
 
-    /** Words that carry no signal about which field a header means, and drown the ones that do. */
+    /** Carry no signal about which field a header means, and drown the words that do. */
     private static final Set<String> NOISE_WORDS =
             Set.of("the", "of", "a", "an", "s", "info", "information", "detail", "details", "field", "value");
 
     /** Below this, a token overlap is a coincidence rather than a match. */
     private static final double MINIMUM_OVERLAP = 0.6;
 
-    /** Every field's synonyms, normalised once at class-load rather than on every header. */
     private static final Map<String, ImportTargetField> BY_SYNONYM = indexSynonyms();
 
-    /**
-     * A first mapping for every column of the sheet.
-     *
-     * <p>{@code existingColumns} is consulted before a new custom column is proposed, so re-importing
-     * a file whose extra headers a mandate already has fills those columns instead of asking to make
-     * them again.
-     */
+    /** {@code existingColumns} is consulted first, so a re-import fills columns rather than re-creating them. */
     public HeuristicProposal propose(ParsedSheet sheet, List<CustomColumnDto> existingColumns) {
         Set<ImportTargetField> claimed = new LinkedHashSet<>();
         List<ColumnMapping> mappings = new ArrayList<>(sheet.columns().size());
         boolean everyColumnCertain = true;
         for (SheetColumn column : sheet.columns()) {
             Optional<HeaderMatch> matched = match(column.header());
-            // A file with "Email" and "Work Email" would otherwise map both onto the same field and
-            // let the second silently overwrite the first. The loser becomes a custom column, which
-            // keeps the data and leaves the correction to the person confirming.
+            // "Email" and "Work Email" must not both claim one field; the loser becomes a custom column.
             if (matched.isPresent() && claimed.add(matched.get().field())) {
                 mappings.add(ColumnMapping.onto(column.index(), column.header(), matched.get().field()));
                 everyColumnCertain &= matched.get().certain();
@@ -72,14 +56,12 @@ public class HeuristicColumnMatcher {
             }
             ColumnMapping custom = asCustomColumn(column, existingColumns);
             mappings.add(custom);
-            // Filling a column this project already has is as certain as hitting a known field;
-            // minting a new one is not.
+            // Filling an existing column is certain; minting a new one is not.
             everyColumnCertain &= custom.customFieldKey() != null;
         }
         return new HeuristicProposal(mappings, everyColumnCertain);
     }
 
-    /** The best built-in field for one header, or empty when nothing matches well enough. */
     public Optional<HeaderMatch> match(String header) {
         String normalised = normalise(header);
         if (normalised.isEmpty()) {
@@ -92,10 +74,6 @@ public class HeuristicColumnMatcher {
         return bestByOverlap(normalised).map(HeaderMatch::likely);
     }
 
-    /**
-     * An unrecognised header becomes a custom column: an existing one when the mandate already has a
-     * column by that name, and otherwise a new one typed from what the values look like.
-     */
     private ColumnMapping asCustomColumn(SheetColumn column, List<CustomColumnDto> existingColumns) {
         CustomColumnTarget target = guessTarget(column);
         Optional<CustomColumnDto> existing = existingColumns.stream()
@@ -111,13 +89,7 @@ public class HeuristicColumnMatcher {
                 column.header().trim(), typeFor(column.valueShape()));
     }
 
-    /**
-     * Which half of the row an unrecognised column describes.
-     *
-     * <p><b>The person.</b> A row on this screen is a person at a company, and an unlabelled extra
-     * column is far more often about the individual than their employer. Guessing wrong is cheap and
-     * visible: the mapping step shows the choice.
-     */
+    /** Defaults to the person, whom an unlabelled column is usually about; the mapping step shows the guess. */
     private static CustomColumnTarget guessTarget(SheetColumn column) {
         String normalised = normalise(column.header());
         boolean namesCompany = normalised.startsWith("company")
@@ -133,19 +105,11 @@ public class HeuristicColumnMatcher {
             case NUMBER -> CustomColumnType.NUMBER;
             case DATE -> CustomColumnType.DATE;
             case BOOLEAN -> CustomColumnType.BOOLEAN;
-            // An email, a URL and free text are all text: a type that only changes the input's
-            // keyboard is not worth a column type of its own.
             case EMAIL, URL, SHORT_TEXT, LONG_TEXT, BLANK -> CustomColumnType.TEXT;
         };
     }
 
-    /**
-     * The field sharing the most tokens with this header, when they share enough to be a match.
-     *
-     * <p>Overlap rather than edit distance: headers differ by whole words, and edit distance scores
-     * "Company" against "Company Name" as barely related while scoring "Bonus" against "Bonds" as
-     * nearly identical.
-     */
+    /** Token overlap, not edit distance, which rates "Bonus" near "Bonds" but "Company" far from "Company Name". */
     private static Optional<ImportTargetField> bestByOverlap(String normalisedHeader) {
         Set<String> headerTokens = tokensOf(normalisedHeader);
         if (headerTokens.isEmpty()) {
@@ -170,8 +134,7 @@ public class HeuristicColumnMatcher {
             return 0;
         }
         long shared = synonymTokens.stream().filter(headerTokens::contains).count();
-        // Divided by the larger side, so "Company" does not score a perfect match against
-        // "Company Registration Number" just because every token of one appears in the other.
+        // The larger side, or "Company" would perfectly match "Company Registration Number".
         return (double) shared / Math.max(headerTokens.size(), synonymTokens.size());
     }
 
@@ -181,11 +144,7 @@ public class HeuristicColumnMatcher {
                 .collect(java.util.stream.Collectors.toCollection(LinkedHashSet::new));
     }
 
-    /**
-     * A header reduced to lower-case words separated by single spaces, with accents folded.
-     *
-     * <p>"E-Mail", "e_mail" and "E Mail" all have to reach the same key as "email".
-     */
+    /** Lower-case words, single-spaced, accents folded. */
     static String normalise(String header) {
         if (header == null) {
             return "";
@@ -201,9 +160,7 @@ public class HeuristicColumnMatcher {
         Map<String, ImportTargetField> index = new HashMap<>();
         for (ImportTargetField field : ImportTargetField.values()) {
             for (String synonym : field.synonyms()) {
-                // putIfAbsent: the enum's declaration order decides a shared synonym, so a spelling
-                // listed under two fields lands on the one a reader meets first rather than on
-                // whichever the map happened to write last.
+                // putIfAbsent: declaration order decides a synonym listed under two fields.
                 index.putIfAbsent(normalise(synonym), field);
             }
         }

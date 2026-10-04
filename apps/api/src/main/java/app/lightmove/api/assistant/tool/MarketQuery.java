@@ -4,29 +4,40 @@ import app.lightmove.api.strategy.model.CompanyExclusion;
 import app.lightmove.api.strategy.model.CompanyScope;
 import app.lightmove.api.strategy.model.NumericRange;
 import java.util.List;
+import java.util.Objects;
 
 /**
- * Turns what a model asked for into the scope the market reads.
- *
- * <p><b>Headcount arrives as two numbers, not as a band.</b> {@code EmployeeBand} has eleven slugs
- * and {@code RevenueBand} its own set, and a model would have to be taught both to use either.
- * {@code CompanyScope} settles it: a {@code NumericRange} <i>takes precedence over its axis's band
- * list when set</i>, so a range is not a workaround for the bands but the other supported way of
- * saying it.
- *
- * <p>An omitted axis becomes an empty list, which {@code CompanyScope} defines as "no constraint on
- * this axis, never match nothing" — so a question that names only a country reads the whole of it.
+ * Turns what a model asked for into the scope the market reads. Headcount arrives as a
+ * {@code NumericRange} rather than a band, so the model need not learn the band slugs; an omitted axis
+ * is an empty list, meaning no constraint.
  */
 final class MarketQuery {
+
+    /** Countries or industries one search takes — enough for a region, not a tour of the universe. */
+    static final int MAX_VALUES_PER_AXIS = 5;
 
     private MarketQuery() {
     }
 
-    static CompanyScope scopeOf(String country, String industry, String keyword, String companyName,
-                                Long minEmployees, Long maxEmployees) {
-        return new CompanyScope(listOf(industry), listOf(keyword), List.of(), listOf(country),
+    static CompanyScope scopeOf(List<String> countries, List<String> industries, String keyword,
+                                String companyName, Long minEmployees, Long maxEmployees) {
+        return new CompanyScope(cleaned(industries), listOf(keyword), List.of(), cleaned(countries),
                 List.of(), List.of(), rangeOf(minEmployees, maxEmployees), null,
                 List.of(), CompanyExclusion.NONE, companyName);
+    }
+
+    /** Stripped, blanks dropped, repeats dropped, capped — what the search and its label both read. */
+    static List<String> cleaned(List<String> supplied) {
+        if (supplied == null) {
+            return List.of();
+        }
+        return supplied.stream()
+                .filter(Objects::nonNull)
+                .map(String::strip)
+                .filter(value -> !value.isEmpty())
+                .distinct()
+                .limit(MAX_VALUES_PER_AXIS)
+                .toList();
     }
 
     private static List<String> listOf(String supplied) {

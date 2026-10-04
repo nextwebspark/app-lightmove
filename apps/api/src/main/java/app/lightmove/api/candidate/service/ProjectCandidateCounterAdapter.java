@@ -30,12 +30,13 @@ import org.springframework.stereotype.Component;
 @RequiredArgsConstructor
 class ProjectCandidateCounterAdapter implements ProjectCandidateCounter {
 
-    /** The enum's own "three ways they leave the running". */
-    private static final Set<CandidateStatus> LEFT_THE_RUNNING = EnumSet.of(
-            CandidateStatus.NOT_INTERESTED, CandidateStatus.OFF_LIMITS, CandidateStatus.OUT_OF_SCOPE);
 
     private static final Set<CandidateStatus> ENGAGED = EnumSet.of(
             CandidateStatus.ENGAGED, CandidateStatus.INTERESTED);
+
+    private static final Set<CandidateStatus> REACHED_OUT = EnumSet.of(
+            CandidateStatus.CONTACTED, CandidateStatus.ENGAGED, CandidateStatus.INTERESTED,
+            CandidateStatus.NOT_INTERESTED);
 
     private final CandidateRepository candidates;
 
@@ -44,7 +45,8 @@ class ProjectCandidateCounterAdapter implements ProjectCandidateCounter {
         if (projectIds.isEmpty()) {
             return Map.of();
         }
-        return byProject(candidates.countByProjectIdInExcludingStatuses(projectIds, LEFT_THE_RUNNING));
+        return byProject(
+                candidates.countByProjectIdInExcludingStatuses(projectIds, CandidateStatus.LEFT_THE_RUNNING));
     }
 
     @Override
@@ -61,6 +63,14 @@ class ProjectCandidateCounterAdapter implements ProjectCandidateCounter {
             return Map.of();
         }
         return byProject(candidates.countByProjectIdInAndStatusIn(projectIds, ENGAGED));
+    }
+
+    @Override
+    public Map<UUID, Long> countReachedOutByProject(Collection<UUID> projectIds) {
+        if (projectIds.isEmpty()) {
+            return Map.of();
+        }
+        return byProject(candidates.countByProjectIdInAndStatusIn(projectIds, REACHED_OUT));
     }
 
     @Override

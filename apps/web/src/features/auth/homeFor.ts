@@ -10,12 +10,12 @@
 export function homeFor(user: {
   emailVerified: boolean;
   workspace: { roles: string[] } | null;
-  pendingInvitation: unknown;
+  pendingInvitations: readonly unknown[];
 } | null): string {
   if (!user) return "/login";
   // Everyone in a workspace lands on the projects list; the server scopes a pure client's to their seats.
   if (user.workspace) return "/";
   if (!user.emailVerified) return "/signup/verify-email";
-  if (user.pendingInvitation) return "/auth/accept-invite";
+  if (user.pendingInvitations.length > 0) return "/auth/accept-invite";
   return "/signup/workspace";
 }

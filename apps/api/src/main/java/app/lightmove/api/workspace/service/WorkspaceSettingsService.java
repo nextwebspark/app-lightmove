@@ -1,13 +1,16 @@
 package app.lightmove.api.workspace.service;
 
+import app.lightmove.api.common.persona.model.HiringPersona;
 import app.lightmove.api.core.audit.constant.WorkspaceEventType;
 import app.lightmove.api.core.audit.service.AuditService;
 import app.lightmove.api.core.error.constant.ErrorCode;
 import app.lightmove.api.core.error.model.ApiException;
+import app.lightmove.api.workspace.constant.CalendarSync;
 import app.lightmove.api.workspace.constant.InvitationStatus;
 import app.lightmove.api.workspace.constant.MemberStatus;
+import app.lightmove.api.workspace.constant.WorkspaceMode;
+import app.lightmove.api.workspace.model.CalendarSyncChanged;
 import app.lightmove.api.workspace.model.Workspace;
-import app.lightmove.api.workspace.model.WorkspacePersona;
 import app.lightmove.api.workspace.repository.InvitationRepository;
 import app.lightmove.api.workspace.repository.WorkspaceMemberRepository;
 import app.lightmove.api.workspace.repository.WorkspaceRepository;
@@ -15,15 +18,13 @@ import jakarta.servlet.http.HttpServletRequest;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 /**
- * Settings → General: read, rename/defaults, and soft deletion. Deletion flips statuses rather than
- * deleting rows — the audit trail keeps its referents, and freed members can join elsewhere.
- *
- * <p>Tier gating lives on {@code WorkspaceController} as {@code @PreAuthorize}; what stays here is
- * the typed-name confirmation and the release work itself.
+ * Settings → General. Deletion is soft — statuses flip, so the audit trail keeps its referents and
+ * freed members can join elsewhere.
  */
 @Service
 @RequiredArgsConstructor
@@ -35,6 +36,7 @@ public class WorkspaceSettingsService {
     private final InvitationRepository invitations;
     private final AuditService audit;
     private final WorkspaceCompanyResolver companyResolver;
+    private final ApplicationEventPublisher events;
 
     @Transactional(readOnly = true)
     public WorkspaceDetail get(UUID workspaceId) {
@@ -59,7 +61,7 @@ public class WorkspaceSettingsService {
     }
 
     @Transactional
-    public WorkspaceDetail updatePersona(UUID actorId, UUID workspaceId, WorkspacePersona persona,
+    public WorkspaceDetail updatePersona(UUID actorId, UUID workspaceId, HiringPersona persona,
                                          HttpServletRequest request) {
         Workspace workspace = requireWorkspace(workspaceId);
         workspace.describePersona(persona);
@@ -72,7 +74,51 @@ public class WorkspaceSettingsService {
         return detail(workspace);
     }
 
-    /** The typed name is verified here, not only in the browser — the server owns the guard rail. */
+    /** Nothing stored changes with the mode, so a switch migrates no row; a no-op switch records nothing. */
+    @Transactional
+    public WorkspaceDetail changeMode(UUID actorId, UUID workspaceId, WorkspaceMode mode,
+                                      HttpServletRequest request) {
+        Workspace workspace = requireWorkspace(workspaceId);
+        WorkspaceMode previous = workspace.getMode();
+        if (previous != mode) {
+            workspace.changeMode(mode);
+            audit.event(WorkspaceEventType.WORKSPACE_UPDATED)
+                    .actor(actorId).workspace(workspaceId).from(request)
+                    .detail("section", "mode")
+                    .detail("from", previous.name())
+                    .detail("to", mode.name())
+                    .record();
+        }
+        return detail(workspace);
+    }
+
+    /** Like the mode: nothing stored is migrated by a switch, and a no-op switch records nothing. */
+    @Transactional
+    public WorkspaceDetail changeCalendarSync(UUID actorId, UUID workspaceId, CalendarSync calendarSync,
+                                              HttpServletRequest request) {
+        Workspace workspace = requireWorkspace(workspaceId);
+        CalendarSync previous = workspace.getCalendarSync();
+        if (previous != calendarSync) {
+            workspace.changeCalendarSync(calendarSync);
+            audit.event(WorkspaceEventType.WORKSPACE_UPDATED)
+                    .actor(actorId).workspace(workspaceId).from(request)
+                    .detail("section", "calendarSync")
+                    .detail("from", previous.name())
+                    .detail("to", calendarSync.name())
+                    .record();
+            events.publishEvent(new CalendarSyncChanged(workspaceId, calendarSync));
+        }
+        return detail(workspace);
+    }
+
+    /** How the workspace's calendars are read; {@code outreach} asks before handing anything to Recall. */
+    @Transactional(readOnly = true)
+    public CalendarSync calendarSyncOf(UUID workspaceId) {
+        return requireWorkspace(workspaceId).getCalendarSync();
+    }
+
+
+    /** The typed name is verified here, not only in the browser. */
     @Transactional
     public void delete(UUID actorId, UUID workspaceId, String confirmName, HttpServletRequest request) {
         Workspace workspace = requireWorkspace(workspaceId);

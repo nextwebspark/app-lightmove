@@ -15,18 +15,9 @@ import org.springframework.security.oauth2.core.endpoint.PkceParameterNames;
 import org.springframework.security.oauth2.core.oidc.endpoint.OidcParameterNames;
 
 /**
- * The standard authorisation request, minus the extensions a given provider does not implement.
- *
- * <p>Spring sends PKCE and a nonce to everyone. A provider that implements neither — LinkedIn
- * implements neither — fails in ways that name the wrong thing: the {@code code_verifier} comes back
- * as {@code invalid_client}, "client authentication failed", about credentials that are perfectly
- * good; the missing nonce comes back as {@code invalid_nonce} only after the exchange has already
- * succeeded. Both cost an afternoon if you believe the message.
- *
- * <p>Which registrations those are is configuration
- * ({@code lightmove.auth.oauth.pkce-unsupported-registrations} and
- * {@code …nonce-unsupported-registrations}) rather than a branch on a provider name, because a
- * provider here is a yml block and hard-coding one is the thing that would undo that.
+ * The authorisation request minus the PKCE and nonce a provider does not implement (LinkedIn), which
+ * otherwise fail as a misleading {@code invalid_client} or {@code invalid_nonce}. Which registrations
+ * is configuration ({@code …pkce-unsupported-registrations}), never a branch on a provider name.
  */
 @Slf4j
 public class ProviderQuirkAwareRequestResolver implements OAuth2AuthorizationRequestResolver {

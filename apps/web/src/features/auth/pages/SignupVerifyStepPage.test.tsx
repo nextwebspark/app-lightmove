@@ -34,7 +34,8 @@ const userAt = (emailVerified: boolean): User => ({
   timezone: "Asia/Dubai",
   locale: "en",
   platformActions: [],
-  pendingInvitation: null,
+  pendingInvitations: [],
+  workspaces: [],
   workspace: null,
 });
 

@@ -4,13 +4,8 @@ import java.time.LocalDate;
 import java.util.List;
 
 /**
- * Chapter one: how far the mapping has got, week by week from kickoff. A company counts as mapped
- * from the day its first executive was filed, so {@code companiesCumulative} climbs towards
- * {@code targetCompanies}, the universe as it stands.
- *
- * <p>Every series is indexed from kickoff — week 0 and day 0 are the kickoff's own — up to
- * {@code asOf}, so the screen can project from them without asking when each one started.
- * {@code daysSinceLastExecutive} is null while no executive is mapped yet.
+ * Chapter one. A company counts as mapped from its first executive's filing. Every series is indexed
+ * from kickoff up to {@code asOf}; {@code daysSinceLastExecutive} is null until one is mapped.
  */
 public record MappingProgressDto(
         LocalDate kickoff,

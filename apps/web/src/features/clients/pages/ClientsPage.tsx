@@ -11,6 +11,7 @@ import { EMPTY_GRID_LAYOUT, layoutColumnsOf, useGridLayout } from "../../../lib/
 import { useGridPaging } from "../../../lib/useGridPaging";
 import { useGridSort, WORKSPACE_SCOPE } from "../../../lib/useGridSort";
 import { NewProjectModal } from "../../projects/components/NewProjectModal";
+import { useWorkspaceVocabulary } from "../../workspace/lib/vocabulary";
 import * as clientsApi from "../api/clientsApi";
 import { ClientDrawer } from "../components/ClientDrawer";
 import { ClientsList } from "../components/ClientsList";
@@ -18,13 +19,10 @@ import { NewClientModal } from "../components/NewClientModal";
 import {
   CLIENT_COLUMN_VISIBILITY,
   CLIENT_SORT_FIELDS,
-  clientColumns,
+  clientColumnsFor,
   type ClientSortField,
 } from "../lib/clientColumns";
-import { CHIPS, filterClients, type ChipKey } from "../lib/filtering";
-
-const CLIENT_LAYOUT_COLUMNS = layoutColumnsOf(clientColumns);
-const HIDEABLE_CLIENT_COLUMNS = hideableColumnsOf(clientColumns);
+import { chipsFor, filterClients, type ChipKey } from "../lib/filtering";
 
 const DEFAULT_CLIENT_SORT = { field: "name", direction: "asc" } as const;
 
@@ -33,6 +31,11 @@ const DEFAULT_CLIENT_SORT = { field: "name", direction: "asc" } as const;
  * are shared across projects — a client created here or inline from a mandate is the same row.
  */
 export function ClientsPage() {
+  const vocabulary = useWorkspaceVocabulary();
+  const columns = useMemo(() => clientColumnsFor(vocabulary), [vocabulary]);
+  const layoutColumns = useMemo(() => layoutColumnsOf(columns), [columns]);
+  const hideableColumns = useMemo(() => hideableColumnsOf(columns), [columns]);
+  const chips = useMemo(() => chipsFor(vocabulary), [vocabulary]);
   const [query, setQuery] = useState("");
   const [chip, setChip] = useState<ChipKey>("all");
   const [openClientId, setOpenClientId] = useState<string | null>(null);
@@ -49,7 +52,7 @@ export function ClientsPage() {
     WORKSPACE_SCOPE,
     CLIENT_COLUMN_VISIBILITY,
   );
-  const [layout, setLayout] = useGridLayout("clients", CLIENT_LAYOUT_COLUMNS);
+  const [layout, setLayout] = useGridLayout("clients", layoutColumns);
   const paging = useGridPaging();
 
   const { data: clients = [], isPending, isError } = useQuery({
@@ -58,10 +61,6 @@ export function ClientsPage() {
   });
 
   const rows = useMemo(() => filterClients(clients, { chip, query }), [clients, chip, query]);
-  const existingNames = useMemo(
-    () => new Set(clients.map((client) => client.name.toLowerCase())),
-    [clients],
-  );
 
   // Narrowing the registry returns to the first page — page 3 of a two-row result is a blank grid —
   // and a registry that shrank under the reader is clamped back onto its last page.
@@ -76,7 +75,7 @@ export function ClientsPage() {
   const newClientButton = (
     <Button onClick={() => setNewClientOpen(true)} className="!px-3.5 !py-[7px] !text-[13px]">
       <Icon d={ICONS.plus} size={15} />
-      New business unit
+      New {vocabulary.unitLower}
     </Button>
   );
 
@@ -85,8 +84,12 @@ export function ClientsPage() {
   if (isPending) {
     return (
       <>
-        <PageHeader title="Business units" subtitle="business units shared across reqs" action={newClientButton} />
-        <TableSkeleton columns={["Business unit", "Hiring managers", "Open positions", "Viewers"]} />
+        <PageHeader
+          title={vocabulary.units}
+          subtitle={`${vocabulary.unitsLower} shared across reqs`}
+          action={newClientButton}
+        />
+        <TableSkeleton columns={[vocabulary.unit, vocabulary.contacts, "Open positions", "Viewers"]} />
       </>
     );
   }
@@ -97,10 +100,10 @@ export function ClientsPage() {
   if (isError) {
     return (
       <>
-        <PageHeader title="Business units" subtitle="business units shared across reqs" />
+        <PageHeader title={vocabulary.units} subtitle={`${vocabulary.unitsLower} shared across reqs`} />
         <EmptyState
           icon={<Icon d={ICONS.lock} size={24} />}
-          title="Couldn't load the business units"
+          title={`Couldn't load the ${vocabulary.unitsLower}`}
           body="You may no longer have access to it, or the request failed. Reload the page, and ask an admin if it keeps happening."
         />
       </>
@@ -110,16 +113,16 @@ export function ClientsPage() {
   return (
     <>
       <PageHeader
-        title="Business units"
-        subtitle={`${clients.length} ${clients.length === 1 ? "business unit" : "business units"} · shared across reqs`}
+        title={vocabulary.units}
+        subtitle={`${clients.length} ${clients.length === 1 ? vocabulary.unitLower : vocabulary.unitsLower} · shared across reqs`}
         action={newClientButton}
       />
 
       {clients.length === 0 ? (
         <EmptyState
           icon={<Icon d={ICONS.clients} size={24} />}
-          title="Add your first business unit"
-          body="A business unit groups the hiring managers and open positions for one part of the org — Engineering, Sales, and so on."
+          title={`Add your first ${vocabulary.unitLower}`}
+          body={vocabulary.unitExplainer}
         >
           {newClientButton}
         </EmptyState>
@@ -128,13 +131,13 @@ export function ClientsPage() {
           <ListToolbar
             query={query}
             onQueryChange={setQuery}
-            placeholder="Search business units…"
-            chips={CHIPS}
+            placeholder={`Search ${vocabulary.unitsLower}…`}
+            chips={chips}
             activeChip={chip}
             onChipChange={setChip}
             trailing={
               <ColumnPicker
-                columns={HIDEABLE_CLIENT_COLUMNS}
+                columns={hideableColumns}
                 visibility={columnVisibility}
                 defaults={CLIENT_COLUMN_VISIBILITY}
                 onChange={setColumnVisibility}
@@ -178,7 +181,7 @@ export function ClientsPage() {
         <NewClientModal
           open
           onClose={() => setNewClientOpen(false)}
-          existingNames={existingNames}
+          clients={clients}
           onCreated={(client) => setOpenClientId(client.id)}
         />
       )}

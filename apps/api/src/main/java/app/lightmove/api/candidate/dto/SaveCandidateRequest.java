@@ -1,6 +1,7 @@
 package app.lightmove.api.candidate.dto;
 
 import app.lightmove.api.core.email.service.EmailAddressNormaliser;
+import app.lightmove.api.candidate.model.PersonNote;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.Max;
@@ -85,7 +86,8 @@ public record SaveCandidateRequest(
         @Size(max = 4000)
         String summary,
 
-        @Size(max = 2000)
+        /** Not stored on the row: filed as a general note on the person, about this mandate (V96). */
+        @Size(max = PersonNote.MAX_BODY)
         String note,
 
         @Valid
@@ -109,5 +111,30 @@ public record SaveCandidateRequest(
          * Values for this mandate's custom columns, keyed by each column's {@code fieldKey}.
          * CustomColumnService.applyTo states what a row may store.
          */
-        Map<String, String> customFields
-) {}
+        Map<String, String> customFields,
+
+        /** True from the drawer's Background save: the reader has reviewed its AI-proposed values. */
+        Boolean confirmBackground,
+
+        /**
+         * The possible-duplicate dialog's "add a different person": file a new person even though the
+         * workspace holds someone of that name at that employer. Read on a hand-typed add only.
+         */
+        Boolean addAsNewPerson,
+
+        /**
+         * The same dialog's "add them here": file this workspace person rather than whoever the keys
+         * would find. Read on a hand-typed add only.
+         */
+        UUID existingPersonId
+) {
+
+    /** An executive found by a people search: who and where they are, everything else left to research. */
+    public static SaveCandidateRequest ofFoundExecutive(UUID triageCompanyId, String fullName, String title,
+                                                        String linkedinUrl, String locationCountry,
+                                                        String locationCity) {
+        return new SaveCandidateRequest(triageCompanyId, fullName, title, null, null, null, null, null, null, null,
+                linkedinUrl, locationCountry, locationCity, null, null, null, null, null, null, null, null, null,
+                null, null, null, null, null);
+    }
+}

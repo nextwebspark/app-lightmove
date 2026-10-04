@@ -24,7 +24,12 @@ are both refused, while a resolver that times out fails open — our outage must
 
 **A domain does not own a workspace.** One firm may run several — so `email_domain` is *not* unique.
 
-**Membership is invitation-only.** Signup always creates a workspace (the creator is its `ADMIN`); the
+**Membership is invitation-only.** Signup always creates a workspace (the creator is its `ADMIN`), and a
+staff member founds a further one from Settings → Workspaces (`POST /workspaces`, the same creation gated
+`staff` of the current workspace so a client representative cannot found a firm from a portal seat). Signup's
+own door, `POST /onboarding/workspace`, is gated on verification alone, so it founds a *first* workspace
+only and refuses anyone already in one (`ALREADY_IN_WORKSPACE`) — left open, it was a way around that
+staff gate. Both doors share one creation budget per account (`workspace-creations-per-hour`); the
 only way into an existing one is an admin's invitation, and accepting lands `ACTIVE` immediately — an
 admin naming someone *is* the decision. **One second door, deliberately:** any staff member may name a
 client representative (`CLIENT_RECORD_MANAGE` is granted to `MEMBER` as well as `ADMIN`), and that
@@ -38,12 +43,60 @@ step**. The invite token, mailed only to the invited address, is the mailbox pro
 otherwise collect; the account's email is taken from the invitation, **never the request body**, so the
 token can only ever mint the identity it was addressed to (that binding, plus the `existsByEmail` guard
 that sends an already-registered address to log in, is the security of this path). An invitee who
-*already* has an account is routed server-side instead: `/me` carries `pendingInvitation` and the
-signed-in `POST /onboarding/accept-invitation` redeems it token-lessly.
+*already* has an account is routed server-side instead: `/me` carries `pendingInvitations` (every
+redeemable one, to workspaces they are not yet in) and the signed-in
+`POST /onboarding/invitations/{id}/accept` redeems one token-lessly — an id not addressed to the caller is
+`INVITATION_INVALID`, indistinguishable from one that does not exist.
 
-**A user belongs to at most one workspace.** Enforced by a partial unique index on
-`app_lm_workspace_member (user_id) WHERE status = 'ACTIVE'`. Note it constrains `user_id`, *not*
-`workspace_id` — a workspace holds as many members as it likes.
+**A user may belong to several workspaces; a session is in exactly one.** V1 enforced one active
+membership per user with a partial unique index on `user_id`; V81 dropped it, because a consultant works
+for two boutiques and a client representative is staff somewhere else. What did not change is that every
+workspace-scoped request takes its tenant from the token's `wsId` and nothing else, so which workspace a
+session is in has to be decided somewhere. `WorkspaceSelection` is that somewhere, and the rule is: the
+workspace the caller prefers if they are an active member there, else the one they last chose
+(`app_lm_user.last_workspace_id`), else the one they joined first, else none. Sign-in, the OAuth callback,
+a verification link and a password reset all prefer the last chosen; a refresh prefers the refresh
+token's own (`app_lm_refresh_token.workspace_id`), so the family remembers where it is. `last_workspace_id`
+is written on every explicit choice — sign-in, switch, create, accept — and **never by a refresh**, or two
+browsers open in two workspaces would overwrite each other's choice every fifteen minutes.
+
+**`wsId` moves two ways, and only two.** A caller asks with `POST /auth/switch-workspace`; or a *web*
+refresh finds the membership its family was in has ended (the member was removed, or the workspace
+deleted) and falls through `WorkspaceSelection` to another. That second move is nobody's request, so it is
+never silent: it is audited as `WORKSPACE_SWITCHED` with reason `MEMBERSHIP_ENDED` and the workspace left
+as the target, and the SPA's `apiClient` compares the refresh's `wsId` with the one it held and, on a
+change, restarts the tab from `/` with a notice ("You no longer have access to A — you're now in B"),
+because its cache and route params belong to the workspace left. `/me` never falls through: it answers
+for the token's exact workspace, or none, so it can never name a workspace the token does not carry. An
+**extension** refresh never falls through either — a capture filed after a removal must not land in
+another firm — so its session drops to no workspace until it is re-paired.
+
+The switch answers `NOT_A_MEMBER` (404, the
+same a stranger gets) unless the caller holds an active membership in the target, and it checks that
+**before** rotating: `TokenService.rotate` is `noRollbackFor ApiException`, so a refusal thrown after the
+rotation would commit it while the browser kept the burned cookie — and its next refresh would read as
+theft and revoke the family. For the same reason the controller never expires the cookie on a refused
+switch, and a cookie that is not the bearer's is refused (`TokenService.ownerOf`) before anything rotates.
+The bearer is also the cross-site defence: another origin can make the browser attach the cookie but
+cannot supply a token held in this app's memory, which is why the resource-server chain exempts bearer
+requests from the double-submit check the cookie-only `/refresh` needs. Every tab shares the cookie, so a
+switch in one moves them all; the SPA broadcasts it so the others reload at once rather than serving the
+old workspace's cache under the new token until their next refresh. The extension's family is separate:
+it is paired into the web session's workspace and stays there when the web app switches — re-pairing
+moves it.
+
+`(workspace_id, user_id)` stays unique whatever the row's status, so a member who left and is invited
+back **rejoins** that row (`WorkspaceMember.rejoin`, roles replaced) — the insert the old code attempted
+tripped the constraint. An invitation to a workspace the user is already active in is moot, accepted and
+hidden from `/me`, never an error.
+
+**A workspace's mode is presentation, never permission.** `AGENCY` (clients are separate hiring
+companies) and `COMPANY` (clients are the firm's own business units) share one data model, one set of
+routes and one RBAC catalog: nothing may branch an authorisation decision on the mode, and no row is
+rewritten when it changes. That is what makes the admin's switch (`PUT /workspace/mode`,
+`WORKSPACE_MANAGE`) safe to offer at all. It has no default at creation because the two modes draw
+different screens, and a firm left in the wrong one by not noticing the question is worse than one
+more required field.
 
 **Verification is not cosmetic.** An unverified address is an unproven claim, so `require-verified-email`
 is on and an unverified user reaches no workspace data. It gates the *creator* path — someone who typed
@@ -56,10 +109,6 @@ purpose, because a reset link proves the same mailbox the verification link woul
 who resets a password comes out verified, with their workspace built. What is gated is the *proof*, not
 which email carried it.
 
-A **held wizard is redeemed whenever its owner proves the mailbox**, however late. `PendingOnboarding`
-carries an `expires_at`, but `materialise` does not consult it: the row holds the workspace name, size,
-region and invitees the user typed, and refusing to honour it protects nothing while losing all of it.
-The column is for a future cleanup job.
 
 ## Tenant isolation
 
@@ -78,7 +127,7 @@ database** on every check and enforce by throwing `ApiException`, so denials kee
 the 404 masking. The JWT's `roles` claim is coarse material only — up to 15 minutes stale, never trusted
 for a role-sensitive decision.
 Annotations live on **controllers only**: services reachable outside a request's SecurityContext
-(everything `PendingOnboardingMaterialiser` calls with its synthetic principal) keep imperative checks.
+(everything `InvitationAcceptService` does for the anonymous accept-invitation-signup endpoint) keep imperative checks.
 Invariants that need loaded state stay imperative too — a workspace keeps ≥1 holder of the workspace
 `ADMIN` role (`LAST_ADMIN`) and every project ≥1 holder of `LEAD` (`PROJECT_LAST_LEAD`), and a project
 seat holds no more than one staff role.
@@ -106,6 +155,18 @@ The project *list* rides any active membership (`@workspaceAuthorizer.member`; t
 pure client to the mandates they're seated on), and shared reference data
 (`CompanyReferenceController`) rides `PROJECT_BROWSE`: existence isn't secret, content is.
 
+**The workspace's people are staff-only, and a note is never content a client reads.** A person's notes
+and history (V96) are what the firm thinks of an executive across every mandate — another client's
+search included — so they ride `WORK_EXECUTE` under a position's own routes and workspace
+`CANDIDATE_POOL_MANAGE` (V97: ADMIN and MEMBER, never CLIENT) under `/candidates`, and never
+`CandidateResponse`, which `WORK_VIEW` serves to a client seat. A researcher seated on no mandate still
+reads the pool (decision D2); a pure client reaches none of it by any route. Changing someone else's
+note asks `WORKSPACE_MANAGE` — an action, never the ADMIN role by name. The same action carries the
+team's own facts about a person (V98: owner, tags, do not contact) and every staff member may create a
+tag; renaming, recolouring and retiring one is `WORKSPACE_MANAGE`'s. Reading the pool never confers work
+on a mandate: filing someone onto a position, or writing a note about one, also asks that position's
+`WORK_EXECUTE`.
+
 **A platform role sits above every tenant and inside none.** The role-template library (V42) is the
 first thing no workspace owns that someone still has to edit, so V57 added a third scope, `PLATFORM`,
 with one role (`SUPER_ADMIN`) granting one action (`TEMPLATE_LIBRARY_MANAGE`). Four things about it are
@@ -127,6 +188,25 @@ deliberate:
 A workspace's own template edits are a separate, ordinary workspace action (`POSITION_TEMPLATE_MANAGE`,
 ADMIN), and they write the firm's own rows only: a firm's copy shadows the library template of the same
 code for that firm alone, which is what lets the library and every firm's copy of it move independently.
+
+**A workspace's provider apps are its admin's, and their secrets are never read back.** Settings →
+Integrations (V106) chooses, per provider, Uncava's shared OAuth app or the firm's own — `WORKSPACE_MANAGE`
+for the read as well as the writes, because the page lists the firm's app registrations and a client
+seat or a researcher has no use for them. An own app's secret is write-only and encrypted (`core/crypto`), and
+returning to the shared app deletes it rather than parking it. The calendar sync choice (`RECALL | DIRECT`) is
+the same admin's, audited like the mode: on Recall the app's keys and each consultant's calendar refresh
+token go to Recall.ai, a sub-processor, so the screen says so before anyone enters their own keys, and Direct
+is always on offer for an IT department that will not let them leave.
+
+**A direct mailbox's refresh token is stored, and is the one thing that can send as that person.** Nylas held
+its own tokens; our own gateway (V107) cannot, so `app_lm_mailbox_connection.refresh_token_encrypted` holds
+the provider's — sealed under the workspace and the consultant, never logged, never returned, decrypted only
+into the token request or the Recall call that spends it. It is spent only through the OAuth app
+`ProviderCredentialsResolver` answers for the connection's own workspace, so a token can never be refreshed
+under another firm's app. A refusal is final: the mailbox goes to `ERROR`, its Recall calendar is released,
+and only the consultant reconnecting brings it back — no retry spends a dead token twice. Recall's webhook can
+take a mailbox out of service, so it is refused unless its Svix signature verifies and is under five minutes
+old; a blank secret refuses everything rather than trusting an unsigned delivery.
 
 ## An identity provider is configuration, not code
 

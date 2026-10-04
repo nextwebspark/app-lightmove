@@ -4,6 +4,9 @@ import java.io.IOException;
 import java.net.SocketTimeoutException;
 import java.net.http.HttpConnectTimeoutException;
 import java.net.http.HttpTimeoutException;
+import lombok.Getter;
+import lombok.RequiredArgsConstructor;
+import lombok.experimental.Accessors;
 import org.springframework.http.HttpStatusCode;
 import org.springframework.web.client.ResourceAccessException;
 import org.springframework.web.client.RestClientException;
@@ -16,6 +19,9 @@ import org.springframework.web.client.UnknownContentTypeException;
  * failure — whether to pay to try again. {@code if (status == 429)} repeated across every adapter is
  * one chance per adapter to get that wrong, and getting it wrong spends money.
  */
+@Getter
+@Accessors(fluent = true)
+@RequiredArgsConstructor
 public enum VendorFailureKind {
 
     /** 401/403. The key is wrong, expired, or lacks the plan. Every endpoint fails identically. */
@@ -42,16 +48,8 @@ public enum VendorFailureKind {
     /** A 2xx body that would not deserialise. Re-reading gets the same broken body. */
     MALFORMED_RESPONSE(false);
 
-    private final boolean retryable;
-
-    VendorFailureKind(boolean retryable) {
-        this.retryable = retryable;
-    }
-
     /** Whether repeating the identical call could plausibly succeed. */
-    public boolean retryable() {
-        return retryable;
-    }
+    private final boolean retryable;
 
     /** The vendor answered, and the status says what it thought of the request. */
     public static VendorFailureKind of(HttpStatusCode status) {

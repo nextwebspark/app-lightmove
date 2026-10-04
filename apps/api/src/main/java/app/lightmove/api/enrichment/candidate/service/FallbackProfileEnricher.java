@@ -6,16 +6,9 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
 /**
- * The dataset first, the live scrape only when it has to be: a primary answer whose career carries
- * not one position title is treated as a miss too — masked records and the dataset's skeleton rows
- * (companies and year ranges with every title null, seen live) both answer the lookup without
- * answering the question. When the fallback also comes back empty, a thin primary answer still
- * beats nothing.
- *
- * <p><b>A provider that throws has missed, not exploded.</b> An outage is precisely the case a
- * fallback exists for, so a 429 or a timeout from the dataset must reach the live scrape rather than
- * sail past it — and an exception from the scrape must not destroy the thin answer the dataset did
- * give us. Both delegates are therefore called defensively.
+ * The dataset first, the live scrape when it misses — and an answer with no position title counts as
+ * a miss (masked and skeleton rows). A thin primary answer still beats an empty fallback. A delegate
+ * that throws has missed: an outage is what the fallback is for.
  */
 @RequiredArgsConstructor
 @Slf4j
@@ -30,8 +23,7 @@ public class FallbackProfileEnricher implements LinkedInProfileEnricher {
         if (answer.isPresent() && answersTheQuestion(answer.get())) {
             return answer;
         }
-        // Debug, not info: a LinkedIn URL is the person. VendorException goes to real trouble to keep
-        // a researched name out of a message, and logging the slug beside it would hand it back.
+        // Debug: a LinkedIn URL identifies the person, which VendorException keeps out of its message.
         log.debug("Primary research {} for {} — falling back to the live scrape",
                 answer.isPresent() ? "was thin" : "missed", linkedinUrl);
         Optional<EnrichedProfile> live = attempt(secondary, linkedinUrl, "live scrape");

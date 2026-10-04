@@ -108,7 +108,7 @@ post_json /auth/verify "$(jq -nc --arg t "$(token_for "$DOOMED_ADMIN" verify)" '
 post_json /auth/login "$(jq -nc --arg e "$DOOMED_ADMIN" --arg p "$PASSWORD" '{email:$e, password:$p}')" >/dev/null
 DOOMED_ADMIN_TOKEN=$(json '.accessToken')
 post_json /onboarding/workspace "$(jq -nc --arg n "$DOOMED_NAME" \
-  '{name:$n, companySize:"1-10 people", primaryRegion:"GCC", teamFocus:"Executive search"}')" \
+  '{mode:"COMPANY", name:$n, companySize:"1-10 people", primaryRegion:"GCC", teamFocus:"Executive search"}')" \
   -H "$(auth_header "$DOOMED_ADMIN_TOKEN")" >/dev/null
 post_json /auth/login "$(jq -nc --arg e "$DOOMED_ADMIN" --arg p "$PASSWORD" '{email:$e, password:$p}')" >/dev/null
 DOOMED_ADMIN_TOKEN=$(json '.accessToken')
@@ -155,6 +155,13 @@ get /workspace -H "$(auth_header "$DOOMED_ADMIN_TOKEN")"
 check_code T4.9 "nor the admin's" 404 NOT_A_MEMBER
 get /auth/me -H "$(auth_header "$DOOMED_ADMIN_TOKEN")"
 check T4.10 "and /me shows them workspace-less, free to start again" "null" "$(json '.workspace')"
+
+# A deleted workspace cannot be switched back into either: the membership was removed with it.
+post_json /auth/login "$(jq -nc --arg e "$DOOMED_ADMIN" --arg p "$PASSWORD" '{email:$e, password:$p}')" -c "$(jar doomed)" >/dev/null
+DOOMED_WS_ID=$(sql "SELECT id FROM app_lm_workspace WHERE name = '$DOOMED_NAME'")
+http POST /auth/switch-workspace -H 'Content-Type: application/json' -H "$(auth_header "$(json '.accessToken')")" \
+  -b "$(jar doomed)" -c "$(jar doomed)" -H "$(csrf_header doomed)" -d "$(jq -nc --arg w "$DOOMED_WS_ID" '{workspaceId:$w}')"
+check_code T4.11 "switching into the deleted workspace" 404 NOT_A_MEMBER
 
 section "T5  the surviving workspace is untouched"
 

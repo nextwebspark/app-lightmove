@@ -10,15 +10,8 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * Snapshot PUT of step three, the org chart included.
- *
- * <p>The chart's own rules — exactly one mandate seat, every parent resolving inside the chart, no
- * cycles — are checked in the service rather than here: they are relationships between elements,
- * which Bean Validation on a flat list cannot express.
- *
- * <p><b>The target date is not here.</b> It belongs to the mandate, and this screen only shows it —
- * the one place it is set is the project itself, so a brief cannot quietly move a date the rest of
- * the workspace is planning around.
+ * Snapshot PUT of step three; the chart's cross-element rules are {@code OrgChartRules}'. The target
+ * date is deliberately absent: only the project sets it.
  */
 public record PutReportingStructureRequest(
         @NotEmpty(message = "The org chart needs at least the role's own seat")

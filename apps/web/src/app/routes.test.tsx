@@ -43,7 +43,7 @@ vi.mock("../lib/apiClient", async (importOriginal) => ({
 
 const { restoreSession } = await import("../lib/apiClient");
 
-const userWith = (roles: ("ADMIN" | "MEMBER" | "CLIENT")[]) => ({
+const userWith = (roles: ("ADMIN" | "MEMBER" | "CLIENT")[], mode: "AGENCY" | "COMPANY" = "COMPANY") => ({
   id: "u1",
   email: "someone@firm.example",
   fullName: "Someone",
@@ -54,12 +54,14 @@ const userWith = (roles: ("ADMIN" | "MEMBER" | "CLIENT")[]) => ({
   timezone: "Asia/Dubai",
   locale: "en",
   platformActions: [],
-  pendingInvitation: null,
+  pendingInvitations: [],
+  workspaces: [],
   workspace: {
     id: "w1",
     name: "Meridian",
     slug: "meridian",
     logoMark: "M",
+    mode,
     emailDomain: "firm.example",
     joinedAt: null,
     company: null,
@@ -81,7 +83,8 @@ const unverifiedUser = () => ({
   timezone: "Asia/Dubai",
   locale: "en",
   platformActions: [],
-  pendingInvitation: null,
+  pendingInvitations: [],
+  workspaces: [],
   workspace: null,
 });
 
@@ -159,7 +162,7 @@ describe("routes — the staff guard", () => {
     vi.mocked(workspaceApi.members).mockResolvedValue([]);
   });
 
-  it.each(["/clients", "/team"])("bounces a pure client who types %s", async (path) => {
+  it.each(["/clients", "/team", "/candidates"])("bounces a pure client who types %s", async (path) => {
     vi.mocked(authApi.me).mockResolvedValue(userWith(["CLIENT"]));
 
     renderAt(path);
@@ -188,6 +191,27 @@ describe("routes — the staff guard", () => {
     renderAt("/team");
 
     expect(await screen.findByText(/0 members/)).toBeInTheDocument();
+  });
+});
+
+describe("routes — the nav names the registry by the workspace's mode", () => {
+  beforeEach(() => {
+    vi.resetAllMocks();
+    vi.mocked(restoreSession).mockResolvedValue("token");
+    vi.mocked(projectsApi.projects).mockResolvedValue([]);
+    vi.mocked(clientsApi.clients).mockResolvedValue([]);
+    vi.mocked(workspaceApi.members).mockResolvedValue([]);
+  });
+
+  it.each([
+    ["COMPANY", "Business units"],
+    ["AGENCY", "Clients"],
+  ] as const)("a %s workspace's nav offers %s", async (mode, label) => {
+    vi.mocked(authApi.me).mockResolvedValue(userWith(["ADMIN"], mode));
+
+    renderAt("/");
+
+    expect(await screen.findByRole("link", { name: new RegExp(`^${label}`) })).toHaveAttribute("href", "/clients");
   });
 });
 
@@ -227,7 +251,7 @@ describe("routes — the settings gates", () => {
     ).toBeInTheDocument();
   });
 
-  it.each(["/settings/general", "/settings/members", "/settings/templates"])(
+  it.each(["/settings/general", "/settings/members", "/settings/templates", "/settings/integrations"])(
     "bounces a non-admin who types %s",
     async (path) => {
       vi.mocked(authApi.me).mockResolvedValue(userWith(["MEMBER"]));
@@ -245,6 +269,8 @@ describe("routes — the settings gates", () => {
       name: "Meridian",
       slug: "meridian",
       logoMark: "M",
+      mode: "COMPANY" as const,
+      calendarSync: "RECALL" as const,
       emailDomain: "firm.example",
       defaultRegion: "GCC",
       defaultCurrency: "USD",

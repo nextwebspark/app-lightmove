@@ -22,18 +22,13 @@ import java.util.UUID;
 import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
+import lombok.Setter;
 import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.type.SqlTypes;
 
 /**
- * One role template: the brief a mandate for this kind of role starts from.
- *
- * <p><b>Two owners, one table.</b> A null {@link #workspaceId} is a LightMove library template, edited
- * by a platform super admin; a non-null one belongs to that workspace alone. A workspace row sharing a
- * library row's {@link #code} is the firm's copy of it and shadows it in every read (V58).
- *
- * <p>The content is a jsonb document ({@link PositionTemplateBody}) read whole and never queried,
- * while the match keywords are a child table because they are the catalog's lookup key.
+ * One role template: the brief a mandate for this kind of role starts from. A workspace row sharing a
+ * library row's {@link #code} is the firm's copy and shadows it in every read (V58).
  */
 @Entity
 @Table(name = "app_lm_position_template")
@@ -41,7 +36,7 @@ import org.hibernate.type.SqlTypes;
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class PositionTemplate extends BaseEntity {
 
-    /** Null for a shared library template; a workspace's id for one that firm owns. */
+    /** Null for a shared library template. */
     @Column(name = "workspace_id", updatable = false)
     private UUID workspaceId;
 
@@ -66,6 +61,7 @@ public class PositionTemplate extends BaseEntity {
     @Column(name = "sort_order", nullable = false)
     private int sortOrder;
 
+    @Setter
     @Column(name = "active", nullable = false)
     private boolean active = true;
 
@@ -132,37 +128,26 @@ public class PositionTemplate extends BaseEntity {
         revisedBy = editorId;
     }
 
-    public void setActive(boolean active) {
-        this.active = active;
-    }
-
     public PositionTemplateDraft toDraft() {
         return new PositionTemplateDraft(title, discipline, seniority, summary, List.copyOf(keywords), body)
                 .normalised();
     }
 
-    /** True for a LightMove library template — readable by every workspace, owned by none. */
     public boolean isSharedLibrary() {
         return workspaceId == null;
     }
 
-    /** A firm's copy of a library template, as opposed to one the firm wrote itself. */
     public boolean isCustomisation() {
         return workspaceId != null && customisedFrom != null;
     }
 
-    /** Whether the library template this copy was taken from has been revised since. */
     public boolean isBehind(PositionTemplate library) {
         return customisedFrom != null && library.revisedAt.isAfter(customisedFrom);
     }
 
     /**
-     * Whether a mandate's role title lands on this template: a case-insensitive substring match on
-     * any keyword. A template with no keywords never matches — the generic fallback is reached by
-     * code.
-     *
-     * <p>Both sides are lower-cased, not just the title: a row written before the editor normalised
-     * keywords, or straight into the table, would otherwise stop matching silently.
+     * A case-insensitive substring match on any keyword. Both sides are lower-cased: a keyword written
+     * before the editor normalised them, or straight into the table, would otherwise silently stop matching.
      */
     public boolean matchesTitle(String roleTitle) {
         if (roleTitle == null) {

@@ -56,12 +56,14 @@ describe("TeamAccessPage", () => {
     timezone: "Asia/Dubai",
     locale: "en",
     platformActions: [],
-    pendingInvitation: null,
+    pendingInvitations: [],
+  workspaces: [],
     workspace: {
       id: "w1",
       name: "Firm",
       slug: "firm",
       logoMark: "F",
+      mode: "COMPANY" as const,
       emailDomain: "firm.example",
       joinedAt: null,
       company: null,
@@ -134,6 +136,7 @@ describe("TeamAccessPage", () => {
         fullName: "Seated Rep",
         position: "Chair",
         email: "seated@beta-client.example",
+        avatarUrl: null,
         status: "ACTIVE",
       },
       {
@@ -141,6 +144,7 @@ describe("TeamAccessPage", () => {
         fullName: "Pending Rep",
         position: "CHRO",
         email: "pending@beta-client.example",
+        avatarUrl: null,
         status: "INVITED",
       },
     ],
@@ -189,6 +193,8 @@ describe("TeamAccessPage", () => {
     notes: null,
     activeMandates: 1,
     deliveredMandates: 0,
+    apolloAccountId: null,
+    persona: { summary: null, sectors: [], competitors: [], geographies: [], notes: null },
     representatives: [],
     mandates: [],
   };
@@ -330,6 +336,8 @@ describe("TeamAccessPage", () => {
       notes: null,
       activeMandates: 1,
       deliveredMandates: 0,
+      apolloAccountId: null,
+      persona: { summary: null, sectors: [], competitors: [], geographies: [], notes: null },
       representatives: [],
       mandates: [],
     });
@@ -357,6 +365,8 @@ describe("TeamAccessPage", () => {
       notes: null,
       activeMandates: 1,
       deliveredMandates: 0,
+      apolloAccountId: null,
+      persona: { summary: null, sectors: [], competitors: [], geographies: [], notes: null },
       representatives: [],
       mandates: [],
     });
@@ -382,6 +392,8 @@ describe("TeamAccessPage", () => {
       notes: null,
       activeMandates: 1,
       deliveredMandates: 0,
+      apolloAccountId: null,
+      persona: { summary: null, sectors: [], competitors: [], geographies: [], notes: null },
       representatives: [
         { id: "r1", fullName: "Seated Rep", position: "Chair", email: "seated@beta-client.example", status: "ACTIVE" },
         { id: "r3", fullName: "Fresh Rep", position: null, email: "fresh@beta-client.example", status: "INVITED" },
@@ -413,6 +425,8 @@ describe("TeamAccessPage", () => {
       notes: null,
       activeMandates: 1,
       deliveredMandates: 0,
+      apolloAccountId: null,
+      persona: { summary: null, sectors: [], competitors: [], geographies: [], notes: null },
       representatives: [],
       mandates: [],
     });

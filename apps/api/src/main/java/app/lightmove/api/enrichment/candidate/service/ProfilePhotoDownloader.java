@@ -20,23 +20,10 @@ import org.springframework.web.client.ResourceAccessException;
 import org.springframework.web.client.RestClient;
 
 /**
- * Fetches a provider's photo URL into bytes, or nothing. Losing a photo never fails an enrichment, so
- * every path out of here is a value or a logged null.
- *
- * <p><b>The URL is a third party's, so it is treated as one.</b> It arrives inside a vendor payload
- * describing a page we did not author, which makes this a server-side request to an address someone
- * else chose: https only, no private or loopback address, and the body is refused on its declared
- * length and then read through a bounded stream, so an oversized image costs a buffer rather than
- * however many megabytes it actually is. Raster formats only — an SVG is a script the workspace would
- * later be served from our own origin.
- *
- * <p>The cap is what a CDN sends, not what is stored: an ordinary LinkedIn PNG runs past half a
- * megabyte, and a tighter cap here refused real photos on their declared length before a byte was
- * read. {@link ProfilePhotoThumbnail} shrinks what arrives to the size an avatar actually draws.
- *
- * <p>Deliberately its own bare {@link RestClient}: the adapters' clients carry vendor credentials as
- * default headers, and a CDN must never see those keys. Nothing here is metered, so it bypasses the
- * vendor layer too. Only a transport failure is retried; a CDN's 404 means the photo is gone.
+ * Fetches a provider's photo URL into bytes, or a logged null — losing a photo never fails an
+ * enrichment. The URL is a third party's (SSRF): https only, no private or loopback host, no
+ * redirects, raster types only (an SVG is script served from our origin), and a bounded read. Its own
+ * bare {@link RestClient} so a CDN never sees vendor credentials.
  */
 @Slf4j
 @Component
@@ -65,10 +52,8 @@ public class ProfilePhotoDownloader {
     }
 
     /**
-     * The transfer itself, on its own bean so the retry is not swallowed before it happens.
-     * {@code @Retryable} is proxy-based, so a transport failure has to escape the retried method to be
-     * seen — and {@link ProfilePhotoDownloader#fetchOrNull} exists precisely to let nothing escape.
-     * Calling it on {@code this} would bypass the proxy.
+     * Its own bean because {@code @Retryable} is proxy-based and cannot see an exception that
+     * {@link ProfilePhotoDownloader#fetchOrNull} swallows.
      */
     @Component
     static class ProfilePhotoTransfer {
@@ -90,7 +75,6 @@ public class ProfilePhotoDownloader {
         }
     }
 
-    /** Reads at most the cap; a body that keeps going past it is refused rather than buffered whole. */
     private static byte[] readBounded(InputStream body) throws IOException {
         byte[] content = body.readNBytes(MAX_DOWNLOAD_BYTES);
         if (content.length == 0 || body.read() != -1) {
@@ -101,11 +85,7 @@ public class ProfilePhotoDownloader {
         return content;
     }
 
-    /**
-     * The URL as something safe to fetch, or null. A vendor record naming {@code http://10.0.0.1/} or
-     * the metadata service must not turn this server into its errand runner, and the type check above
-     * gates only what we would store — not the request we would already have made.
-     */
+    /** Null for anything but a public https URL: a vendor record may name the metadata service. */
     private static URI publicHttpsUri(String photoUrl) {
         if (photoUrl == null || photoUrl.isBlank()) {
             return null;
@@ -140,8 +120,7 @@ public class ProfilePhotoDownloader {
     private static RestClient bareClient() {
         HttpClient httpClient = HttpClient.newBuilder()
                 .connectTimeout(Duration.ofSeconds(5))
-                // NEVER: a redirect is a second address the vendor chose, and following it would step
-                // around the https-and-public check made above.
+                // A redirect would step around the https-and-public check.
                 .followRedirects(HttpClient.Redirect.NEVER)
                 .build();
         JdkClientHttpRequestFactory factory = new JdkClientHttpRequestFactory(httpClient);

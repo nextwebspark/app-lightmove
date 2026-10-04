@@ -1,38 +1,25 @@
 package app.lightmove.api.strategy.constant;
 
-/**
- * Which way a chosen sort column runs. Kept separate from {@link CompanySortField} so the client asks
- * for a column and a direction independently — the company table's headers cycle direction without
- * changing which column is active.
- */
-public enum SortDirection {
+import app.lightmove.api.common.constant.ApiValueEnum;
+import lombok.Getter;
+import lombok.RequiredArgsConstructor;
+import lombok.experimental.Accessors;
+
+/** Kept apart from {@link CompanySortField} so a header can cycle direction without changing column. */
+@Getter
+@Accessors(fluent = true)
+@RequiredArgsConstructor
+public enum SortDirection implements ApiValueEnum {
 
     ASC("asc", "ASC"),
     DESC("desc", "DESC");
 
-    private final String wireToken;
-    private final String sqlKeyword;
-
-    SortDirection(String wireToken, String sqlKeyword) {
-        this.wireToken = wireToken;
-        this.sqlKeyword = sqlKeyword;
-    }
-
-    public String value() {
-        return wireToken;
-    }
+    private final String value;
 
     /** The SQL keyword this direction emits — never the caller's string. */
-    public String sqlKeyword() {
-        return sqlKeyword;
-    }
+    private final String sqlKeyword;
 
     public static SortDirection fromValue(String value) {
-        for (SortDirection direction : values()) {
-            if (direction.wireToken.equals(value)) {
-                return direction;
-            }
-        }
-        return null;
+        return ApiValueEnum.fromValue(SortDirection.class, value);
     }
 }

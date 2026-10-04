@@ -1,5 +1,13 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { ApiRequestError, request, restoreSession, setAccessToken } from "./apiClient";
+import {
+  ApiRequestError,
+  onSessionExpired,
+  onWorkspaceMoved,
+  request,
+  restoreSession,
+  setAccessToken,
+  switchWorkspaceSession,
+} from "./apiClient";
 
 /**
  * The client's job is not "call fetch". It is to hold the session together — and the two behaviours
@@ -226,5 +234,91 @@ describe("apiClient", () => {
     fetchMock.mockResolvedValue(json(401, { code: "REFRESH_TOKEN_INVALID", detail: "none" }));
 
     await expect(restoreSession()).resolves.toBeNull();
+  });
+
+  describe("switchWorkspaceSession", () => {
+    const session = (accessToken: string) => ({ accessToken, expiresIn: 900, user: { id: "u1" } });
+
+    it("sends the bearer under the cross-tab lock", async () => {
+      const locks = { request: vi.fn(async (_name: string, work: () => Promise<unknown>) => work()) };
+      vi.stubGlobal("navigator", { ...navigator, locks });
+      setAccessToken("current");
+      fetchMock.mockResolvedValueOnce(json(200, session("in-w2")));
+
+      await switchWorkspaceSession("w2");
+
+      expect(locks.request).toHaveBeenCalledWith("lm-refresh", expect.any(Function));
+      const [url, init] = fetchMock.mock.calls[0];
+      expect(url).toBe("/api/v1/auth/switch-workspace");
+      expect(init.headers.Authorization).toBe("Bearer current");
+      expect(JSON.parse(init.body)).toEqual({ workspaceId: "w2" });
+    });
+
+    it("renews an expired token inside the lock and switches once more", async () => {
+      const locks = { request: vi.fn(async (_name: string, work: () => Promise<unknown>) => work()) };
+      vi.stubGlobal("navigator", { ...navigator, locks });
+      setAccessToken("expired");
+      fetchMock
+        .mockResolvedValueOnce(json(401, { code: "UNAUTHORIZED", detail: "expired" }))
+        .mockResolvedValueOnce(json(200, { accessToken: "fresh" }))
+        .mockResolvedValueOnce(json(200, session("in-w2")));
+
+      await expect(switchWorkspaceSession("w2")).resolves.toMatchObject({ accessToken: "in-w2" });
+
+      // One lock, not two: taking it again from inside would wait on itself.
+      expect(locks.request).toHaveBeenCalledOnce();
+      expect(fetchMock.mock.calls[1][0]).toBe("/api/v1/auth/refresh");
+      expect(fetchMock.mock.calls[2][1].headers.Authorization).toBe("Bearer fresh");
+    });
+
+    it("leaves the session alone when the switch is refused", async () => {
+      const lost = vi.fn();
+      onSessionExpired(lost);
+      setAccessToken("current");
+      fetchMock
+        .mockResolvedValueOnce(json(404, { code: "NOT_A_MEMBER", detail: "Workspace not found" }))
+        .mockResolvedValueOnce(json(200, { ok: true }));
+
+      await expect(switchWorkspaceSession("w9")).rejects.toSatisfy(
+        (error: unknown) => error instanceof ApiRequestError && error.code === "NOT_A_MEMBER",
+      );
+      expect(lost).not.toHaveBeenCalled();
+
+      await request("/after");
+      expect(fetchMock.mock.calls[1][1].headers.Authorization).toBe("Bearer current");
+    });
+  });
+
+  describe("a refresh that lands in another workspace", () => {
+    const tokenIn = (workspaceId: string) =>
+      `h.${btoa(JSON.stringify({ sub: "u1", wsId: workspaceId })).replace(/=+$/, "")}.s`;
+
+    it("is reported, with the user it now belongs to", async () => {
+      const moved = vi.fn();
+      onWorkspaceMoved(moved);
+      setAccessToken(tokenIn("w1"));
+      fetchMock
+        .mockResolvedValueOnce(json(401, { code: "UNAUTHORIZED", detail: "expired" }))
+        .mockResolvedValueOnce(json(200, { accessToken: tokenIn("w2"), user: { id: "u1", workspace: { id: "w2" } } }))
+        .mockResolvedValueOnce(json(200, { ok: true }));
+
+      await request("/a");
+
+      expect(moved).toHaveBeenCalledWith({ id: "u1", workspace: { id: "w2" } });
+    });
+
+    it("is not reported when the session stays put, or had no workspace to leave", async () => {
+      const moved = vi.fn();
+      onWorkspaceMoved(moved);
+      setAccessToken(tokenIn("w1"));
+      fetchMock.mockResolvedValueOnce(json(200, { accessToken: tokenIn("w1"), user: { id: "u1" } }));
+      await restoreSession();
+
+      setAccessToken(null);
+      fetchMock.mockResolvedValueOnce(json(200, { accessToken: tokenIn("w2"), user: { id: "u1" } }));
+      await restoreSession();
+
+      expect(moved).not.toHaveBeenCalled();
+    });
   });
 });

@@ -1,0 +1,65 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Nationality golden row",
+  "description": "One line of the nationality/seniority golden set (JSONL). The real set holds real people's profiles and never enters the repository; only the synthetic fixtures beside this file do. The profile is limited to what CandidateDossier allows — no contact, compensation, note or custom field.",
+  "type": "object",
+  "required": ["id", "labelSource", "profile", "expected"],
+  "properties": {
+    "id": { "type": "string" },
+    "labelSource": {
+      "enum": ["model_draft", "human_confirmed", "known"],
+      "description": "model_draft: drafted by a model, not yet confirmed. human_confirmed: a person checked the row. known: the person's nationality is actually known — the ground truth."
+    },
+    "note": { "type": "string", "description": "The edge case the row exercises. Never a name or a profile fact." },
+    "profile": {
+      "type": "object",
+      "required": ["fullName"],
+      "properties": {
+        "fullName": { "type": "string" },
+        "title": { "type": ["string", "null"] },
+        "companyName": { "type": ["string", "null"] },
+        "locationCity": { "type": ["string", "null"] },
+        "locationCountry": { "type": ["string", "null"] },
+        "summary": { "type": ["string", "null"] },
+        "career": {
+          "type": "array",
+          "description": "Newest first, as the application stores it.",
+          "items": {
+            "type": "object",
+            "properties": {
+              "company": { "type": ["string", "null"] },
+              "title": { "type": ["string", "null"] },
+              "period": { "type": ["string", "null"] },
+              "location": { "type": ["string", "null"] }
+            }
+          }
+        },
+        "education": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "school": { "type": ["string", "null"] },
+              "degree": { "type": ["string", "null"] },
+              "period": { "type": ["string", "null"] }
+            }
+          }
+        },
+        "skills": { "type": "array", "items": { "type": "string" } },
+        "languages": { "type": "array", "items": { "type": "string" } }
+      },
+      "additionalProperties": false
+    },
+    "expected": {
+      "type": "object",
+      "required": ["nationality"],
+      "properties": {
+        "nationality": {
+          "enum": ["Saudi", "Emirati", "Qatari", "Kuwaiti", "Omani", "Bahraini", "Western expat", "South Asian",
+                   "Asian", "Arab expat, non-GCC", "Other expat", "Unknown"]
+        },
+        "seniority": { "enum": ["Board", "C-Suite", "N-1", "N-2", "N-3", null] }
+      }
+    }
+  }
+}

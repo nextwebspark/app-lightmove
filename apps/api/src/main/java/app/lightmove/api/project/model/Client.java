@@ -1,6 +1,8 @@
 package app.lightmove.api.project.model;
 
 import app.lightmove.api.common.location.service.Countries;
+import app.lightmove.api.common.persona.model.HiringPersona;
+import app.lightmove.api.common.persona.model.PersonaSeed;
 import app.lightmove.api.core.persistence.model.BaseEntity;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -10,20 +12,13 @@ import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
 
 /**
- * The hiring entity a mandate is run for, and the record the Clients screen edits.
- *
- * <p>Its provenance in the company universe is the {@code (companySource, companySourceId)} pair, or
- * both null for a custom record. The universe is ETL-owned and unwritable from here, so the display
- * columns are a write-time snapshot, seeded from the universe on a DB pick and owned by the client
- * thereafter.
- *
- * <p>The pair is <b>deliberately two loose columns</b> rather than a typed key, and holds two
- * vintages: {@code ('apollo', apollo_account_id)} today, and the brightdata warehouse's
- * {@code (source, source_id)} on older rows, which nothing can resolve any more. They are kept rather
- * than migrated because the pair is provenance and is never re-resolved for display, while a
- * best-effort re-match on company name would silently repoint a client at a different company.
+ * The hiring entity a mandate is run for, with a write-time company snapshot. The
+ * {@code (companySource, companySourceId)} pair is provenance, never re-resolved: older rows hold
+ * brightdata ids nothing can resolve, and re-matching by name would repoint a client silently.
  */
 @Entity
 @Table(name = "app_lm_client")
@@ -31,7 +26,7 @@ import lombok.Setter;
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class Client extends BaseEntity {
 
-    /** The only universe there is. Recorded per row so an older vintage stays recognisable as one. */
+    /** Recorded per row so an older vintage stays recognisable as one. */
     public static final String UNIVERSE_SOURCE = "apollo";
 
     @Column(name = "workspace_id", nullable = false)
@@ -49,10 +44,7 @@ public class Client extends BaseEntity {
     @Column(name = "hq_country", length = 64)
     private String hqCountry;
 
-    /**
-     * The city and the company's mark, snapshotted on a DB pick like the four fields above and left
-     * alone by the drawer's edit. Null for a custom record, where the initials tile is the fallback.
-     */
+    /** Snapshotted on a DB pick and left alone by the drawer's edit; null for a custom record. */
     @Column(name = "hq_city")
     private String hqCity;
 
@@ -63,7 +55,7 @@ public class Client extends BaseEntity {
     @Column(length = 160)
     private String domain;
 
-    /** A free-text protection note the registry keeps — distinct from Strategy's off-limits company list. */
+    /** Free text — distinct from Strategy's off-limits company list. */
     @Setter
     @Column(name = "off_limits_note")
     private String offLimitsNote;
@@ -71,20 +63,22 @@ public class Client extends BaseEntity {
     @Column(name = "notes")
     private String notes;
 
-    /** Which universe the record came from ('apollo' today). Null for a custom record. */
+    /** Null for a custom record. */
     @Column(name = "company_source")
     private String companySource;
 
     @Column(name = "company_source_id")
     private String companySourceId;
 
+    /** An agency client's persona, for the assistant to tailor research to (V85). */
+    @JdbcTypeCode(SqlTypes.JSON)
+    @Column(name = "persona", nullable = false)
+    private HiringPersona persona = HiringPersona.empty();
+
     @Column(name = "created_by", nullable = false)
     private UUID createdBy;
 
-    /**
-     * A universe-backed client: the display fields are seeded from the resolved snapshot, and the
-     * source pair is recorded so the provenance survives an editable rename.
-     */
+    /** The source pair is recorded so provenance survives an editable rename. */
     public static Client fromUniverse(UUID workspaceId, String apolloAccountId, String name,
                                       String sector, String hqCountry, String hqCity, String domain,
                                       String logoUrl, UUID createdBy) {
@@ -93,10 +87,10 @@ public class Client extends BaseEntity {
         client.companySourceId = apolloAccountId;
         client.hqCity = Countries.cityOf(hqCity);
         client.logoUrl = logoUrl;
+        client.persona = HiringPersona.seededFrom(new PersonaSeed(apolloAccountId, sector, client.hqCountry));
         return client;
     }
 
-    /** A custom client typed into the registry: no universe provenance. */
     public static Client custom(UUID workspaceId, String name, String sector, String hqCountry,
                                 String domain, UUID createdBy) {
         return base(workspaceId, name, sector, hqCountry, domain, createdBy);
@@ -114,10 +108,7 @@ public class Client extends BaseEntity {
         return client;
     }
 
-    /**
-     * Registry edit from the client drawer, as a partial update: a null field is left as it is and a
-     * blank one is cleared. The provenance key is deliberately untouched.
-     */
+    /** A null field is left as it is and a blank one cleared; provenance is untouched. */
     public void applyDetails(String name, String sector, String hqCountry, String domain,
                              String offLimitsNote, String notes) {
         this.name = name.trim();
@@ -126,6 +117,15 @@ public class Client extends BaseEntity {
         this.domain = patched(domain, this.domain);
         this.offLimitsNote = patched(offLimitsNote, this.offLimitsNote);
         this.notes = patched(notes, this.notes);
+    }
+
+    public void describePersona(HiringPersona persona) {
+        this.persona = persona == null ? HiringPersona.empty() : persona;
+    }
+
+    /** The source id when the record was picked from the universe; null for one typed in by hand. */
+    public String universeAccountId() {
+        return UNIVERSE_SOURCE.equals(companySource) ? companySourceId : null;
     }
 
     private static String patched(String incoming, String current) {

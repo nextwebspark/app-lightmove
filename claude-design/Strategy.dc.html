@@ -52,8 +52,33 @@
             <div data-screen-label="Workspace menu" style="position:absolute;left:0;top:40px;z-index:80;width:268px;border-radius:10px;border:1px solid var(--line);background:var(--panel);padding:6px;box-shadow:var(--shadow)">
               <div style="display:flex;align-items:center;gap:10px;padding:10px;border-bottom:1px solid var(--line-soft);margin-bottom:6px">
                 <span style="width:30px;height:30px;background:var(--amber-btn);color:var(--on-amber);font:700 11px var(--mono);border-radius:6px;display:grid;place-items:center">A</span>
-                <div style="font:600 13px var(--mono);color:var(--text)">Al-Futtaim</div>
+                <div style="min-width:0">
+                  <div style="font:600 13px var(--mono);color:var(--text)">Al-Futtaim</div>
+                  <sc-if value="{{ hasWorkspaceList }}" hint-placeholder-val="{{ false }}"><div style="font:400 10px var(--mono);color:var(--text3)">Current workspace</div></sc-if>
+                </div>
               </div>
+            <sc-if value="{{ hasWorkspaceList }}" hint-placeholder-val="{{ false }}">
+                <div style="padding:6px 10px 4px;font:600 10px var(--mono);letter-spacing:.14em;text-transform:uppercase;color:var(--text3)">Workspaces</div>
+                <sc-for list="{{ otherWorkspaces }}" as="w" hint-placeholder-count="1">
+                  <button data-id="{{ w.id }}" onClick="{{ switchWorkspace }}" style="display:flex;width:100%;align-items:center;gap:10px;border-radius:6px;padding:8px 10px;text-align:left;font:400 13px var(--sans);color:var(--text2);background:none;border:none;cursor:pointer" style-hover="background:var(--panel2);color:var(--text)">
+                    <span style="width:20px;height:20px;flex:none;border-radius:5px;background:var(--amber-btn);color:var(--on-amber);font:700 10px var(--mono);display:grid;place-items:center">{{ w.mark }}</span>
+                    <span style="min-width:0;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ w.name }}</span>
+                  </button>
+                </sc-for>
+                <sc-for list="{{ workspaceInvitations }}" as="inv" hint-placeholder-count="1">
+                  <button data-id="{{ inv.id }}" onClick="{{ acceptInvitation }}" style="display:flex;width:100%;align-items:center;gap:10px;border-radius:6px;padding:8px 10px;text-align:left;font:400 13px var(--sans);color:var(--text2);background:none;border:none;cursor:pointer" style-hover="background:var(--panel2);color:var(--text)">
+                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex:none"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8ZM19 8v6M22 11h-6"></path></svg>
+                    <span style="min-width:0;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">Invited to {{ inv.name }}</span>
+                    <span style="flex:none;font:500 11px var(--sans);color:var(--amber)">Accept</span>
+                  </button>
+                </sc-for>
+                <div style="margin:6px 4px;height:1px;background:var(--line-soft)"></div>
+              </sc-if>
+              <a href="Settings.dc.html?section=workspaces" style="display:flex;align-items:center;gap:10px;width:100%;padding:8px 10px;border-radius:6px;font:400 13px var(--sans);color:var(--text2);text-decoration:none" style-hover="background:var(--panel2);color:var(--text)">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex:none"><path d="M3 3h7v7H3zM14 3h7v7h-7zM3 14h7v7H3zM14 14h7v7h-7z"></path></svg>
+                Manage workspaces
+              </a>
+              <div style="margin:6px 4px;height:1px;background:var(--line-soft)"></div>
               <a href="Settings.dc.html?section=profile" style="display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:6px;font:400 13px var(--sans);color:var(--text2)" style-hover="background:var(--panel2);color:var(--text)">
                 <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex:none"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2M16 7a4 4 0 1 1-8 0 4 4 0 0 1 8 0"></path></svg>Your profile</a>
               <div style="margin:6px 4px;height:1px;background:var(--line-soft)"></div>
@@ -74,7 +99,10 @@
         <span style="min-width:0;max-width:280px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font:600 14px var(--sans);color:var(--text)">{{ roleTitle }}</span>
       </div>
     </div>
-    <span title="Yara Haddad" style="width:26px;height:26px;border-radius:50%;display:grid;place-items:center;background:var(--sky-dim);color:var(--sky);font:600 10px var(--mono);flex:none">YH</span>
+    <div style="display:flex;flex:none;align-items:center;gap:10px">
+      <span data-screen-label="Current workspace" title="Current workspace: Al-Futtaim" style="display:flex;align-items:center;gap:8px;min-width:0;border:1px solid var(--line-soft);border-radius:7px;padding:4px 10px 4px 6px"><img src="assets/al-futtaim-logo.png" alt="" style="width:18px;height:18px;object-fit:contain;flex:none"><span style="max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font:500 12px var(--mono);color:var(--text2)">Al-Futtaim</span></span>
+      <span title="Yara Haddad" style="width:26px;height:26px;border-radius:50%;display:grid;place-items:center;background:var(--sky-dim);color:var(--sky);font:600 10px var(--mono);flex:none">YH</span>
+    </div>
   </header>
 
   <div style="flex:1;min-height:0;display:flex;padding:0 14px 14px">
@@ -114,6 +142,10 @@
         <div data-screen-label="Strategy tab" style="{{ pageStyle }}">
 
           <div data-screen-label="Strategy toolbar" style="display:flex;min-height:44px;flex:none;flex-wrap:wrap;align-items:center;column-gap:14px;row-gap:8px;border-bottom:1px solid var(--line-soft);background:var(--panel2);padding:6px 20px">
+            <div role="radiogroup" aria-label="Search for" style="display:inline-flex;border-radius:6px;border:1px solid var(--line);background:var(--panel);padding:2px">
+              <button role="radio" aria-checked="true" onClick="{{ showCompanies }}" style="{{ modeCompaniesStyle }}">Companies</button>
+              <button role="radio" aria-checked="false" onClick="{{ showPeople }}" style="{{ modePeopleStyle }}">People</button>
+            </div>
             <div style="position:relative">
               <button onClick="{{ toggleSaveMenu }}" aria-expanded="{{ saveMenuOpen }}" style="display:inline-flex;align-items:center;gap:6px;white-space:nowrap;padding:4px 0;font:400 13px var(--sans);color:var(--text3);background:none;border:none;cursor:pointer" style-hover="color:var(--text)">
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex:none;color:var(--amber)"><path d="{{ I.pin }}"></path></svg>
@@ -603,6 +635,150 @@
             </div>
           </div>
         </div>
+        <!-- People mode: a people-first search over ContactOut's index, the Companies page's shape. The count is
+             free and follows the filter; Search is a deliberate press, because every page not already fetched
+             spends a search credit per person on it. -->
+        <div data-screen-label="Strategy tab — People" style="{{ peoplePageStyle }}">
+          <div data-screen-label="People toolbar" style="display:flex;min-height:44px;flex:none;flex-wrap:wrap;align-items:center;column-gap:14px;row-gap:8px;border-bottom:1px solid var(--line-soft);background:var(--panel2);padding:6px 20px">
+            <div role="radiogroup" aria-label="Search for" style="display:inline-flex;border-radius:6px;border:1px solid var(--line);background:var(--panel);padding:2px">
+              <button role="radio" aria-checked="false" onClick="{{ showCompanies }}" style="{{ modeCompaniesStyle }}">Companies</button>
+              <button role="radio" aria-checked="true" onClick="{{ showPeople }}" style="{{ modePeopleStyle }}">People</button>
+            </div>
+            <button style="display:inline-flex;align-items:center;gap:6px;white-space:nowrap;padding:4px 0;font:400 13px var(--sans);color:var(--text3);background:none;border:none;cursor:pointer" style-hover="color:var(--text)">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex:none;color:var(--amber)"><path d="{{ I.pin }}"></path></svg>
+              Save Search
+            </button>
+            <button style="display:inline-flex;align-items:center;gap:6px;white-space:nowrap;border-radius:6px;padding:8px;font:400 13px var(--sans);color:var(--text3);background:none;border:none;cursor:pointer" style-hover="background:var(--panel);color:var(--text)">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex:none"><path d="M3 4h18l-7 8v6l-4 2v-8L3 4Z"></path></svg>
+              Hide Filters
+            </button>
+            <div role="radiogroup" aria-label="View" style="display:inline-flex;border-radius:6px;border:1px solid var(--line);background:var(--panel);padding:2px">
+              <button role="radio" aria-checked="{{ peopleTableOn }}" onClick="{{ showPeopleTable }}" style="{{ viewTableStyle }}">Table</button>
+              <button role="radio" aria-checked="{{ peopleCardsOn }}" onClick="{{ showPeopleCards }}" style="{{ viewCardsStyle }}">Cards</button>
+            </div>
+            <span style="margin-left:auto;font:400 11px var(--sans);color:var(--text3)">25 search credits spent on this search</span>
+          </div>
+
+          <div style="display:flex;min-height:0;flex:1">
+            <div role="region" aria-label="People filters" data-screen-label="People filter rail" style="display:flex;flex-direction:column;border-right:1px solid var(--line-soft);background:var(--panel);width:21%;min-width:280px;max-width:330px;flex-shrink:0">
+              <div aria-live="polite" style="border-bottom:1px solid var(--line-soft);padding:12px 16px">
+                <div style="font:600 10px var(--sans);letter-spacing:.08em;text-transform:uppercase;color:var(--text3)">People match</div>
+                <div style="margin-top:2px;font:600 19px var(--sans);font-variant-numeric:tabular-nums;letter-spacing:-.01em;color:var(--text)">18,686</div>
+                <dl title="ContactOut's estimate of how many of them it holds each contact for" style="margin:10px 0 0;display:grid;grid-template-columns:repeat(3,1fr);gap:6px">
+                  <div style="border-radius:6px;border:1px solid var(--line-soft);background:var(--panel2);padding:6px 8px"><dt style="font:400 10px var(--sans);color:var(--text3)">✉ Work email</dt><dd style="margin:2px 0 0;font:600 12px var(--sans);color:var(--text2)">~16.7K</dd></div>
+                  <div style="border-radius:6px;border:1px solid var(--line-soft);background:var(--panel2);padding:6px 8px"><dt style="font:400 10px var(--sans);color:var(--text3)">✉ Personal</dt><dd style="margin:2px 0 0;font:600 12px var(--sans);color:var(--text2)">~9.4K</dd></div>
+                  <div style="border-radius:6px;border:1px solid var(--line-soft);background:var(--panel2);padding:6px 8px"><dt style="font:400 10px var(--sans);color:var(--text3)">☎ Phone</dt><dd style="margin:2px 0 0;font:600 12px var(--sans);color:var(--text2)">~6.2K</dd></div>
+                </dl>
+              </div>
+              <div style="min-height:0;flex:1;overflow-y:auto">
+                <div style="border-bottom:1px solid var(--line-soft);padding:14px 16px">
+                  <div style="display:flex;align-items:center;justify-content:space-between"><span style="font:700 13px var(--sans);color:var(--text)">Job title</span><span style="font:600 11px var(--sans);color:var(--text3)">Reset</span></div>
+                  <div style="margin-top:10px;display:flex;flex-wrap:wrap;gap:5px;border-radius:6px;border:1px solid var(--line);background:var(--panel2);padding:8px">
+                    <span style="border-radius:999px;background:var(--sky-dim);padding:3px 8px;font:600 11px var(--sans);color:var(--sky)">CFO ×</span>
+                    <span style="border-radius:999px;background:var(--sky-dim);padding:3px 8px;font:600 11px var(--sans);color:var(--sky)">Chief Financial Officer ×</span>
+                    <span style="font:400 12px var(--sans);color:var(--text3)">Add a title…</span>
+                  </div>
+                  <div style="margin-top:6px;font:400 11px var(--sans);color:var(--text3)">AND, OR and NOT in capitals combine terms</div>
+                  <div style="margin-top:10px;display:inline-flex;border-radius:6px;border:1px solid var(--line);padding:2px">
+                    <span style="border-radius:4px;background:var(--sky-dim);padding:5px 10px;font:500 12px var(--sans);color:var(--text)">Current</span>
+                    <span style="padding:5px 10px;font:500 12px var(--sans);color:var(--text3)">Past</span>
+                    <span style="padding:5px 10px;font:500 12px var(--sans);color:var(--text3)">Either</span>
+                  </div>
+                  <div style="margin-top:8px;font:400 13px var(--sans);color:var(--text2)">☐ Include related titles</div>
+                  <div style="margin-top:4px;font:400 13px var(--sans);color:var(--text2)">☐ Changed jobs in the last 3 months</div>
+                  <div style="margin-top:10px;font:600 10px var(--sans);letter-spacing:.08em;text-transform:uppercase;color:var(--text3)">Exclude titles</div>
+                  <div style="margin-top:6px;border-radius:6px;border:1px solid var(--line);background:var(--panel2);padding:8px;font:400 12px var(--sans);color:var(--text3)">Assistant, Intern…</div>
+                </div>
+                <div style="display:flex;min-height:52px;align-items:center;justify-content:space-between;border-bottom:1px solid var(--line-soft);padding:0 16px"><span style="font:500 13px var(--sans);color:var(--text)">Seniority</span><span style="border-radius:999px;border:1px solid var(--line);padding:2px 8px;font:600 11px var(--sans);color:var(--text2)">× 1</span></div>
+                <div style="display:flex;min-height:52px;align-items:center;border-bottom:1px solid var(--line-soft);padding:0 16px;font:500 13px var(--sans);color:var(--text)">Job function</div>
+                <div style="border-bottom:1px solid var(--line-soft);padding:14px 16px">
+                  <div style="font:500 13px var(--sans);color:var(--text)">Location</div>
+                  <div style="margin-top:8px;display:flex;flex-wrap:wrap;gap:5px"><span style="border-radius:999px;background:var(--sky-dim);padding:3px 8px;font:600 11px var(--sans);color:var(--sky)">Dubai, United Arab Emirates ×</span></div>
+                </div>
+                <div style="display:flex;min-height:52px;align-items:center;border-bottom:1px solid var(--line-soft);padding:0 16px;font:500 13px var(--sans);color:var(--text)">Company</div>
+                <div style="display:flex;min-height:52px;align-items:center;border-bottom:1px solid var(--line-soft);padding:0 16px;font:500 13px var(--sans);color:var(--text)">Industry</div>
+                <div style="display:flex;min-height:52px;align-items:center;border-bottom:1px solid var(--line-soft);padding:0 16px;font:500 13px var(--sans);color:var(--text)">Experience</div>
+                <div style="display:flex;min-height:52px;align-items:center;border-bottom:1px solid var(--line-soft);padding:0 16px;font:500 13px var(--sans);color:var(--text)">Skills &amp; keyword</div>
+                <div style="display:flex;min-height:52px;align-items:center;border-bottom:1px solid var(--line-soft);padding:0 16px;font:500 13px var(--sans);color:var(--text)">Languages &amp; education</div>
+                <div style="display:flex;min-height:52px;align-items:center;border-bottom:1px solid var(--line-soft);padding:0 16px;font:500 13px var(--sans);color:var(--text)">Contact on file</div>
+              </div>
+              <div style="border-top:1px solid var(--line-soft);padding:12px">
+                <button style="width:100%;border-radius:7px;border:none;background:var(--sky);padding:10px 16px;font:600 13px var(--sans);color:#fff;cursor:pointer">Search</button>
+                <div style="margin-top:6px;text-align:center;font:400 11px var(--sans);color:var(--text3)">The top 25 · up to 25 search credits, none for a page already fetched</div>
+              </div>
+            </div>
+
+            <div style="display:flex;min-width:0;flex:1;flex-direction:column;gap:12px;padding:8px">
+              <div data-screen-label="People results" style="{{ peopleTableStyle }}">
+                <table style="width:100%;border-collapse:collapse;text-align:left">
+                  <thead style="position:sticky;top:0;background:var(--panel2)">
+                    <tr style="border-bottom:1px solid var(--line-soft);font:600 11px var(--sans);letter-spacing:.06em;text-transform:uppercase;color:var(--text3)">
+                      <th style="width:40px;padding:10px 12px">☐</th><th style="padding:10px 12px">Person</th><th style="padding:10px 12px">Company</th><th style="padding:10px 12px">Location</th><th style="width:120px;padding:10px 12px"></th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr style="border-bottom:1px solid var(--line-soft)"><td style="padding:10px 12px">☐</td><td style="padding:10px 12px"><div style="font:600 13px var(--sans);color:var(--text)">Layla Haddad ↗</div><div style="font:400 11px var(--sans);color:var(--text2)">Group Chief Financial Officer</div></td><td style="padding:10px 12px;font:400 13px var(--sans);color:var(--text2)">Harbour Group</td><td style="padding:10px 12px;font:400 13px var(--sans);color:var(--text2)">Dubai, United Arab Emirates</td><td></td></tr>
+                    <tr style="border-bottom:1px solid var(--line-soft)"><td style="padding:10px 12px">☐</td><td style="padding:10px 12px"><div style="font:600 13px var(--sans);color:var(--text)">Omar Farouk ↗</div><div style="font:400 11px var(--sans);color:var(--text2)">CFO</div></td><td style="padding:10px 12px;font:400 13px var(--sans);color:var(--text2)">Gulf Ports Co</td><td style="padding:10px 12px;font:400 13px var(--sans);color:var(--text2)">Dubai, United Arab Emirates</td><td></td></tr>
+                    <tr style="border-bottom:1px solid var(--line-soft)"><td style="padding:10px 12px"></td><td style="padding:10px 12px"><div style="font:600 13px var(--sans);color:var(--text)">Priya Menon ↗</div><div style="font:400 11px var(--sans);color:var(--text2)">Chief Financial Officer</div></td><td style="padding:10px 12px;font:400 13px var(--sans);color:var(--text2)">Emirates Logistics</td><td style="padding:10px 12px;font:400 13px var(--sans);color:var(--text2)">Dubai Metropolitan Area</td><td style="padding:10px 12px;text-align:right"><span style="border-radius:4px;background:var(--sky-dim);padding:2px 6px;font:600 11px var(--sans);color:var(--sky)">In universe</span></td></tr>
+                  </tbody>
+                </table>
+              </div>
+              <!-- Cards: the same page, ticks and drawer as the table, read one person at a time — a face large
+                   enough to recognise, the seat held now and for how long, where they came from, and whether
+                   ContactOut holds a contact. A card with nothing to say in a row simply leaves the row out. -->
+              <div data-screen-label="People cards" style="{{ peopleCardsStyle }}">
+                <div style="display:flex;align-items:center;gap:10px;padding:0 4px 8px;font:400 11px var(--sans);color:var(--text3)">☐ <span>25 of 1,240 people</span></div>
+                <div role="list" aria-label="People" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:12px;padding:0 4px 12px">
+                  <sc-for list="{{ peopleCards }}" as="p" hint-placeholder-count="6">
+                    <article role="listitem" style="{{ p.cardStyle }}">
+                      <div style="display:flex;min-height:20px;align-items:center;justify-content:space-between;gap:8px">
+                        <span style="font:400 14px var(--sans);color:{{ p.tickColor }}">{{ p.tick }}</span>
+                        <span style="display:flex;align-items:center;gap:8px;font:400 11px var(--mono);color:var(--text2)">
+                          {{ p.contact }}
+                          <sc-if value="{{ p.held }}" hint-placeholder-val="{{ false }}"><span style="border-radius:4px;background:var(--sky-dim);padding:2px 6px;font:600 11px var(--sans);color:var(--sky)">In mandate</span></sc-if>
+                        </span>
+                      </div>
+                      <div style="margin-top:8px;display:flex;align-items:flex-start;gap:14px">
+                        <span aria-hidden="true" style="width:72px;height:72px;flex:none;display:grid;place-items:center;border-radius:14px;border:1px solid var(--line);background:{{ p.avatarBg }};font:600 20px var(--sans);color:var(--text)">{{ p.initials }}</span>
+                        <div style="min-width:0;flex:1">
+                          <div style="font:600 15px var(--sans);color:var(--text)">{{ p.name }}</div>
+                          <div style="margin-top:2px;font:400 12.5px var(--mono);color:var(--text2)">{{ p.title }}</div>
+                          <sc-if value="{{ p.hasHeadline }}" hint-placeholder-val="{{ true }}"><div style="margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font:400 12px var(--sans);color:var(--text3)">{{ p.headline }}</div></sc-if>
+                        </div>
+                      </div>
+                      <sc-if value="{{ p.hasCompany }}" hint-placeholder-val="{{ true }}">
+                        <div style="margin-top:12px;border-radius:8px;border:1px solid var(--line-soft);background:var(--panel2);padding:8px 10px">
+                          <div style="display:flex;align-items:center;gap:8px"><span style="width:20px;height:20px;border-radius:4px;background:var(--line)"></span><span style="flex:1;font:500 13px var(--sans);color:var(--text)">{{ p.company }}</span><span style="font:400 12px var(--sans);color:var(--text3)">🌐 in</span></div>
+                          <div style="margin-top:4px;font:400 11px var(--mono);color:var(--text3)">{{ p.tenure }}</div>
+                        </div>
+                      </sc-if>
+                      <div style="margin-top:12px;display:flex;flex-direction:column;gap:4px;font:400 12.5px var(--sans);color:var(--text2)">
+                        <sc-for list="{{ p.facts }}" as="f" hint-placeholder-count="2"><span>{{ f }}</span></sc-for>
+                      </div>
+                      <sc-if value="{{ p.hasPrevious }}" hint-placeholder-val="{{ true }}">
+                        <div style="margin-top:12px">
+                          <div style="margin-bottom:4px;font:600 9.5px var(--mono);letter-spacing:.08em;text-transform:uppercase;color:var(--text3)">Previously</div>
+                          <sc-for list="{{ p.previous }}" as="r" hint-placeholder-count="2"><div style="font:400 12.5px var(--sans);color:var(--text2)">{{ r }}</div></sc-for>
+                        </div>
+                      </sc-if>
+                      <div style="margin-top:12px;display:flex;flex-wrap:wrap;gap:6px">
+                        <sc-for list="{{ p.chips }}" as="c" hint-placeholder-count="3"><span style="border-radius:999px;border:1px solid var(--line);background:var(--panel2);padding:2px 8px;font:400 11px var(--mono);color:var(--text2)">{{ c }}</span></sc-for>
+                      </div>
+                      <div style="margin-top:auto;display:flex;align-items:center;justify-content:space-between;padding-top:12px">
+                        <span style="font:700 12px var(--sans);color:var(--text2)">{{ p.links }}</span>
+                        <span style="font:500 12px var(--sans);color:var(--sky)">View profile ›</span>
+                      </div>
+                    </article>
+                  </sc-for>
+                </div>
+              </div>
+              <div style="display:flex;align-items:center;justify-content:space-between;padding:0 4px">
+                <span style="font:400 11px var(--sans);color:var(--text3)">Showing 25 of 1,240</span>
+                <button style="border-radius:6px;border:1px solid var(--line);background:none;padding:6px 12px;font:500 13px var(--sans);color:var(--text2);cursor:pointer" style-hover="color:var(--text)">Load 25 more · up to 25 credits</button>
+              </div>
+            </div>
+          </div>
+        </div>
       </div>
     </main>
   </div>
@@ -695,7 +871,7 @@
 </div>
 <template id="__bundler_thumbnail"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><rect width="100" height="100" fill="#16171a"></rect><g transform="translate(50 40) scale(.42)" fill="none" stroke="#f8fafc"><path d="M-32 10 L 0 -8 L 32 10 L 0 28 Z M-32 10 V 32 L 0 50 L 32 32 V 10 M0 28 V 50" stroke-width="3" stroke-linejoin="round"></path><path d="M0 -48 L 32 -30 L 0 -12 L -32 -30 Z" fill="#f8fafc" stroke="none"></path></g><text x="50" y="86" fill="#e2b65c" font-family="Geist,Inter,sans-serif" font-size="13" font-weight="700" letter-spacing="2" text-anchor="middle">ST</text></svg></template>
 </x-dc>
-<script type="text/x-dc" data-dc-script data-props="{&quot;filtersOpen&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:true,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;State&quot;},&quot;openFilter&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;default&quot;:&quot;loc&quot;,&quot;options&quot;:[&quot;loc&quot;,&quot;emp&quot;,&quot;rev&quot;,&quot;ind&quot;,&quot;seg&quot;,&quot;off&quot;,&quot;none&quot;],&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;State&quot;},&quot;selectedCount&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;default&quot;:&quot;0&quot;,&quot;options&quot;:[&quot;0&quot;,&quot;3&quot;,&quot;12&quot;],&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;State&quot;},&quot;saveMenuOpen&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;State&quot;},&quot;drawerOpen&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;State&quot;},&quot;columnsOpen&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;State&quot;}}">
+<script type="text/x-dc" data-dc-script data-props="{&quot;workspaces&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;default&quot;:&quot;one&quot;,&quot;options&quot;:[&quot;one&quot;,&quot;several&quot;,&quot;several-with-invite&quot;],&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;State&quot;},&quot;filtersOpen&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:true,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;State&quot;},&quot;openFilter&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;default&quot;:&quot;loc&quot;,&quot;options&quot;:[&quot;loc&quot;,&quot;emp&quot;,&quot;rev&quot;,&quot;ind&quot;,&quot;seg&quot;,&quot;off&quot;,&quot;none&quot;],&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;State&quot;},&quot;selectedCount&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;default&quot;:&quot;0&quot;,&quot;options&quot;:[&quot;0&quot;,&quot;3&quot;,&quot;12&quot;],&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;State&quot;},&quot;saveMenuOpen&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;State&quot;},&quot;drawerOpen&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;State&quot;},&quot;columnsOpen&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;State&quot;},&quot;mode&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;default&quot;:&quot;companies&quot;,&quot;options&quot;:[&quot;companies&quot;,&quot;people&quot;],&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;State&quot;},&quot;peopleView&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;default&quot;:&quot;table&quot;,&quot;options&quot;:[&quot;table&quot;,&quot;cards&quot;],&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;State&quot;}}">
 class Component extends DCLogic {
   constructor(props) {
     super(props);
@@ -708,6 +884,17 @@ class Component extends DCLogic {
     const text = (key, fallback) => params.get(key) ?? fallback;
     const department = text('unit', 'Group Finance');
     const roleTitle = text('pos', 'Chief Financial Officer');
+
+    // The Cards view's six states: plain, ticked, held, contact marks, a sparse profile (no photo, no
+    // company, no history), and one with every chip.
+    this.PEOPLE_CARDS = [
+      { name: 'Layla Haddad', title: 'Group Chief Financial Officer', headline: 'CFO | Board Member | Ports & Logistics', company: 'Harbour Group', tenure: 'In role since 2021 · 5 yrs', facts: ['📍 Dubai, United Arab Emirates', '💼 18 yrs experience', '↗ CXO'], previous: ['Finance Director · Farro Capital', 'Senior Manager · Big Four'], chips: ['INSEAD', 'Arabic', '2 certifications'], contact: '✉ ✓  ☎ ✓', links: 'in · X', avatarBg: 'var(--sky-dim)', ticked: false, held: false },
+      { name: 'Omar Farouk', title: 'CFO', headline: '', company: 'Gulf Ports Co', tenure: 'In role since 2019 · 7 yrs', facts: ['📍 Abu Dhabi, United Arab Emirates', '💼 22 yrs experience'], previous: ['VP Finance · Emirates Logistics'], chips: ['London Business School', 'Arabic', 'English'], contact: '✉ ✓', links: 'in', avatarBg: 'var(--amber-dim)', ticked: true, held: false },
+      { name: 'Priya Menon', title: 'Chief Financial Officer', headline: '', company: 'Emirates Logistics', tenure: 'In role since 2022 · 4 yrs', facts: ['📍 Dubai Metropolitan Area', '💼 16 yrs experience'], previous: ['Head of FP&A · Noon'], chips: ['IIM Ahmedabad', 'English'], contact: '☎ ✓', links: 'in', avatarBg: 'var(--panel2)', ticked: false, held: true },
+      { name: 'Karim Nassar', title: 'Finance Director, GCC', headline: 'Turning finance into strategy', company: 'Alpha Retail', tenure: 'In role since 2020 · 6 yrs', facts: ['📍 Riyadh, Saudi Arabia', '💼 14 yrs experience', '↗ Director'], previous: ['Group Controller · Alpha Retail', 'Audit Manager · Big Four'], chips: ['AUB', 'Arabic', 'French', '+1'], contact: '✉ ✓  ☎ ✓', links: 'in · GitHub', avatarBg: 'var(--sky-dim)', ticked: false, held: false },
+      { name: 'S. Rahman', title: 'Chief Financial Officer', headline: '', company: '', tenure: '', facts: ['📍 Doha, Qatar'], previous: [], chips: [], contact: '', links: 'in', avatarBg: 'var(--panel2)', ticked: false, held: false },
+      { name: 'Hana Al Mansoori', title: 'CFO & Company Secretary', headline: '', company: 'Mubadala Energy', tenure: 'In role since 2023 · 3 yrs', facts: ['📍 Abu Dhabi, United Arab Emirates', '💼 20 yrs experience', '↗ CXO'], previous: ['Treasurer · ADNOC'], chips: ['Wharton', 'Arabic', '3 certifications'], contact: '✉ ✓', links: 'in', avatarBg: 'var(--amber-dim)', ticked: true, held: false },
+    ];
 
     this.I = {
       back: 'M19 12H5M12 19l-7-7 7-7',
@@ -864,6 +1051,8 @@ class Component extends DCLogic {
       collapsed: (() => { try { return localStorage.getItem('lm-side-collapsed') === '1'; } catch (e) { return false; } })(),
       counts: { universe: 24, shortlisted: 9, declined: 6 },
       showFilters: flag('filtersOpen', props.filtersOpen ?? true),
+      mode: text('mode', props.mode ?? 'companies'),
+      peopleView: text('peopleView', props.peopleView ?? 'table'),
       open: openFilter === 'none' ? null : openFilter,
       filter: clone(this.INITIAL_FILTER),
       offLimits: ['Emirates Group', 'DP World'],
@@ -1021,7 +1210,7 @@ class Component extends DCLogic {
         navItem('Shortlisted', I.star, 'Position.dc.html?page=shortlisted', false, st.counts.shortlisted),
         navItem('Declined', I.close, 'Position.dc.html?page=declined', false, st.counts.declined),
       ] },
-      { label: 'People', items: [navItem('Candidates', I.candidates, 'Position.dc.html?page=candidates', false), navItem('Outreach', I.outreach, 'Position.dc.html?page=outreach', false)] },
+      { label: 'People', items: [navItem('Outreach', I.outreach, 'Position.dc.html?page=outreach', false)] },
       { label: 'Project', items: [navItem('Reports', I.reports, 'Position.dc.html?page=reports', false), navItem('Team & access', I.team, 'Position.dc.html?page=team', false)] },
     ];
 
@@ -1217,14 +1406,22 @@ class Component extends DCLogic {
       hover: s.status === 'declined' ? 'border-color:var(--text3)' : 'color:var(--text);border-color:var(--text3)',
     }));
 
-    const pageStyle = st.fullscreen
-      ? 'position:fixed;inset:0;z-index:96;background:var(--panel);display:flex;flex-direction:column;min-height:0'
-      : 'display:flex;min-height:0;flex:1;flex-direction:column';
+    const pageStyle = st.mode === 'people'
+      ? 'display:none'
+      : st.fullscreen
+        ? 'position:fixed;inset:0;z-index:96;background:var(--panel);display:flex;flex-direction:column;min-height:0'
+        : 'display:flex;min-height:0;flex:1;flex-direction:column';
+    const peoplePageStyle = st.mode === 'people' ? 'display:flex;min-height:0;flex:1;flex-direction:column' : 'display:none';
+    const modeChip = (on) => `border-radius:4px;border:none;padding:6px 10px;font:500 12.5px var(--sans);cursor:pointer;background:${on ? 'var(--sky-dim)' : 'none'};color:${on ? 'var(--text)' : 'var(--text3)'}`;
 
     const selectedIds = () => Object.keys(this.state.selected);
     const stageLabel = (status) => this.STAGES.find((s) => s.status === status).label;
     const countKey = (status) => this.STAGES.find((s) => s.status === status).count;
 
+    const wsMode = (() => { try { return new URLSearchParams(location.search).get('workspaces'); } catch (e) { return null; } })()
+      || (this.props || {}).workspaces || 'one';
+    const otherWorkspaces = wsMode === 'one' ? [] : [{ id: 'meridian', name: 'Meridian Search Partners', mark: 'M' }];
+    const workspaceInvitations = wsMode === 'several-with-invite' ? [{ id: 'inv-northgate', name: 'Northgate Search' }] : [];
     return {
       I,
       department: st.department, roleTitle: st.roleTitle,
@@ -1238,6 +1435,33 @@ class Component extends DCLogic {
       collapseTitle: collapsed ? 'Expand sidebar' : 'Collapse sidebar',
       wsMenuOpen: st.wsMenuOpen,
       pageStyle,
+      peoplePageStyle,
+      modeCompaniesStyle: modeChip(st.mode !== 'people'),
+      modePeopleStyle: modeChip(st.mode === 'people'),
+      showCompanies: () => this.setState({ mode: 'companies' }),
+      showPeople: () => this.setState({ mode: 'people' }),
+      peopleTableOn: String(st.peopleView !== 'cards'),
+      peopleCardsOn: String(st.peopleView === 'cards'),
+      viewTableStyle: modeChip(st.peopleView !== 'cards'),
+      viewCardsStyle: modeChip(st.peopleView === 'cards'),
+      showPeopleTable: () => this.setState({ peopleView: 'table' }),
+      showPeopleCards: () => this.setState({ peopleView: 'cards' }),
+      peopleTableStyle: st.peopleView === 'cards' ? 'display:none' : 'min-height:0;flex:1;overflow:auto;border-radius:8px;border:1px solid var(--line-soft);background:var(--panel)',
+      peopleCardsStyle: st.peopleView === 'cards' ? 'min-height:0;flex:1;overflow:auto' : 'display:none',
+      peopleCards: this.PEOPLE_CARDS.map((p) => ({
+        ...p,
+        tick: p.held ? '' : p.ticked ? '☑' : '☐',
+        tickColor: p.ticked ? 'var(--sky)' : 'var(--text3)',
+        cardStyle: `position:relative;display:flex;flex-direction:column;border-radius:12px;padding:16px;border:1px solid ${p.ticked ? 'var(--sky)' : 'var(--line)'};background:${p.ticked ? 'var(--sky-dim)' : 'var(--panel)'};${p.held ? 'opacity:.8' : ''}`,
+        initials: p.name.split(' ').map((w) => w[0]).join('').slice(0, 2),
+        hasHeadline: Boolean(p.headline),
+        hasCompany: Boolean(p.company),
+        hasPrevious: p.previous.length > 0,
+      })),
+      hasWorkspaceList: otherWorkspaces.length > 0 || workspaceInvitations.length > 0,
+      otherWorkspaces, workspaceInvitations,
+      switchWorkspace: () => this.setState({ wsMenuOpen: false, toast: 'Switched to Meridian Search Partners' }),
+      acceptInvitation: () => this.setState({ wsMenuOpen: false, toast: 'Joined Northgate Search' }),
 
       hasSearches: st.searches.length > 0, searchCount: st.searches.length,
       saveMenuOpen: st.saveMenuOpen, saveName: st.saveName, saveBtnOpacity: st.saveName.trim() ? 1 : 0.4,

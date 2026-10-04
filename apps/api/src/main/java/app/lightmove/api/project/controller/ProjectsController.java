@@ -1,9 +1,13 @@
 package app.lightmove.api.project.controller;
 
 import app.lightmove.api.core.security.model.AuthPrincipal;
-import app.lightmove.api.project.dto.InviteRepresentativeRequest;
+import app.lightmove.api.core.security.rbac.ProjectAction;
+import app.lightmove.api.core.security.rbac.RequireProjectPermission;
+import app.lightmove.api.core.security.rbac.RequireWorkspacePermission;
+import app.lightmove.api.core.security.rbac.WorkspaceAction;
 import app.lightmove.api.project.dto.AttachRepresentativeRequest;
 import app.lightmove.api.project.dto.CreateProjectRequest;
+import app.lightmove.api.project.dto.InviteRepresentativeRequest;
 import app.lightmove.api.project.dto.ProjectActivityResponse;
 import app.lightmove.api.project.dto.ProjectResponse;
 import app.lightmove.api.project.dto.PutTeamMemberRequest;
@@ -11,13 +15,13 @@ import app.lightmove.api.project.dto.UpdateProjectRequest;
 import app.lightmove.api.project.service.ClientRepresentativeService;
 import app.lightmove.api.project.service.ProjectActivityService;
 import app.lightmove.api.project.service.ProjectService;
+import app.lightmove.api.project.service.ProjectTeamService;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import java.util.List;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
-import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.DeleteMapping;
@@ -29,15 +33,12 @@ import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
 /**
- * Mandates of the caller's workspace. The workspace comes from the principal, never the path.
- *
- * <p>Authorisation is declared here, per <b>action</b>: browsing and creating are workspace actions;
- * editing and team changes are project actions, resolved from the caller's seat (with the
- * workspace-admin bypass). The guard beans re-read the database on every check — the JWT's roles
- * claim can be 15 minutes stale.
+ * Mandates of the caller's workspace, which comes from the principal, never the path. Gated per
+ * action; the guard beans re-read the database, since the JWT's roles can be 15 minutes stale.
  */
 @RestController
 @RequestMapping("/api/v1/projects")
@@ -45,113 +46,108 @@ import org.springframework.web.bind.annotation.RestController;
 public class ProjectsController {
 
     private final ProjectService projects;
+    private final ProjectTeamService team;
     private final ClientRepresentativeService representatives;
     private final ProjectActivityService activity;
 
     @GetMapping
     @PreAuthorize("@workspaceAuthorizer.member(principal)")
-    public ResponseEntity<List<ProjectResponse>> list(@AuthenticationPrincipal AuthPrincipal principal) {
-        return ResponseEntity.ok(projects.list(principal.userId(), principal.requireWorkspaceId()));
+    public List<ProjectResponse> list(@AuthenticationPrincipal AuthPrincipal principal) {
+        return projects.list(principal.userId(), principal.requireWorkspaceId());
     }
 
     @PostMapping
-    @PreAuthorize("@workspaceAuthorizer.can(principal, 'PROJECT_CREATE')")
-    public ResponseEntity<ProjectResponse> create(@AuthenticationPrincipal AuthPrincipal principal,
-                                                  @Valid @RequestBody CreateProjectRequest request,
-                                                  HttpServletRequest httpRequest) {
+    @RequireWorkspacePermission(WorkspaceAction.PROJECT_CREATE)
+    @ResponseStatus(HttpStatus.CREATED)
+    public ProjectResponse create(@AuthenticationPrincipal AuthPrincipal principal,
+                                  @Valid @RequestBody CreateProjectRequest request,
+                                  HttpServletRequest httpRequest) {
         ProjectResponse created = projects.create(
                 principal.userId(), principal.requireWorkspaceId(), request, httpRequest);
-        return ResponseEntity.status(HttpStatus.CREATED).body(created);
+        return created;
     }
 
-    /**
-     * The side panel's recent activity. Staff only ({@code WORK_EXECUTE}): the lines name the firm's
-     * own people and what they did, which a client representative's read-only seat does not cover.
-     */
+    /** Staff only: the lines name the firm's own people, which a client seat must not see. */
     @GetMapping("/{projectId}/activity")
-    @PreAuthorize("@projectAuthorizer.can(principal, #projectId, 'WORK_EXECUTE')")
-    public ResponseEntity<ProjectActivityResponse> activity(
+    @RequireProjectPermission(ProjectAction.WORK_EXECUTE)
+    public ProjectActivityResponse activity(
             @AuthenticationPrincipal AuthPrincipal principal,
             @PathVariable UUID projectId,
             @RequestParam(required = false) Long before,
             @RequestParam(defaultValue = "" + ProjectActivityService.DEFAULT_PAGE_SIZE) int limit) {
-        return ResponseEntity.ok(activity.list(principal.requireWorkspaceId(), projectId, before, limit));
+        return activity.list(principal.requireWorkspaceId(), projectId, before, limit);
     }
 
     @PatchMapping("/{projectId}")
-    @PreAuthorize("@projectAuthorizer.can(principal, #projectId, 'PROJECT_EDIT')")
-    public ResponseEntity<ProjectResponse> update(@AuthenticationPrincipal AuthPrincipal principal,
-                                                  @PathVariable UUID projectId,
-                                                  @Valid @RequestBody UpdateProjectRequest request,
-                                                  HttpServletRequest httpRequest) {
-        return ResponseEntity.ok(projects.update(
-                principal.userId(), principal.requireWorkspaceId(), projectId, request, httpRequest));
+    @RequireProjectPermission(ProjectAction.PROJECT_EDIT)
+    public ProjectResponse update(@AuthenticationPrincipal AuthPrincipal principal,
+                                  @PathVariable UUID projectId,
+                                  @Valid @RequestBody UpdateProjectRequest request,
+                                  HttpServletRequest httpRequest) {
+        return projects.update(
+                principal.userId(), principal.requireWorkspaceId(), projectId, request, httpRequest);
     }
 
-    /** Seats the member with this staff role, or moves an existing seat to it. Idempotent. */
     @PutMapping("/{projectId}/members/{memberId}")
-    @PreAuthorize("@projectAuthorizer.can(principal, #projectId, 'TEAM_MANAGE')")
-    public ResponseEntity<ProjectResponse> putMember(@AuthenticationPrincipal AuthPrincipal principal,
-                                                     @PathVariable UUID projectId,
-                                                     @PathVariable UUID memberId,
-                                                     @Valid @RequestBody PutTeamMemberRequest request,
-                                                     HttpServletRequest httpRequest) {
-        return ResponseEntity.ok(projects.putMember(
+    @RequireProjectPermission(ProjectAction.TEAM_MANAGE)
+    public ProjectResponse putMember(@AuthenticationPrincipal AuthPrincipal principal,
+                                     @PathVariable UUID projectId,
+                                     @PathVariable UUID memberId,
+                                     @Valid @RequestBody PutTeamMemberRequest request,
+                                     HttpServletRequest httpRequest) {
+        return team.putMember(
                 principal.userId(), principal.requireWorkspaceId(), projectId, memberId,
-                request.role(), httpRequest));
+                request.role(), httpRequest);
     }
 
     @DeleteMapping("/{projectId}/members/{memberId}")
-    @PreAuthorize("@projectAuthorizer.can(principal, #projectId, 'TEAM_MANAGE')")
-    public ResponseEntity<ProjectResponse> removeMember(@AuthenticationPrincipal AuthPrincipal principal,
-                                                        @PathVariable UUID projectId,
-                                                        @PathVariable UUID memberId,
-                                                        HttpServletRequest httpRequest) {
-        return ResponseEntity.ok(projects.removeMember(
-                principal.userId(), principal.requireWorkspaceId(), projectId, memberId, httpRequest));
+    @RequireProjectPermission(ProjectAction.TEAM_MANAGE)
+    public ProjectResponse removeMember(@AuthenticationPrincipal AuthPrincipal principal,
+                                        @PathVariable UUID projectId,
+                                        @PathVariable UUID memberId,
+                                        HttpServletRequest httpRequest) {
+        return team.removeMember(
+                principal.userId(), principal.requireWorkspaceId(), projectId, memberId, httpRequest);
     }
 
     /** Map a representative the registry already holds onto this mandate — the lead's decision. */
     @PostMapping("/{projectId}/representatives")
-    @PreAuthorize("@projectAuthorizer.can(principal, #projectId, 'CLIENT_ACCESS_MANAGE')")
-    public ResponseEntity<ProjectResponse> attachRepresentative(
+    @RequireProjectPermission(ProjectAction.CLIENT_ACCESS_MANAGE)
+    public ProjectResponse attachRepresentative(
             @AuthenticationPrincipal AuthPrincipal principal,
             @PathVariable UUID projectId,
             @Valid @RequestBody AttachRepresentativeRequest request,
             HttpServletRequest httpRequest) {
-        return ResponseEntity.ok(projects.attachRepresentative(
+        return team.attachRepresentative(
                 principal.userId(), principal.requireWorkspaceId(), projectId,
-                request.representativeId(), httpRequest));
+                request.representativeId(), httpRequest);
     }
 
     /**
-     * Create a client contact and give them this mandate in one decision — the modal's "Invite by
-     * email" tab. Gated on <b>both</b> tiers, because it does one thing from each: minting a
-     * representative writes the registry ({@code CLIENT_RECORD_MANAGE}, any staff member), and giving
-     * them sight of this search is the lead's ({@code CLIENT_ACCESS_MANAGE}). A member who is not this
-     * mandate's lead can still do the first, through the registry — just not both at once, here.
+     * Gated on both tiers, doing one thing from each: minting a representative is the registry's
+     * ({@code CLIENT_RECORD_MANAGE}), giving them this mandate is the lead's ({@code CLIENT_ACCESS_MANAGE}).
      */
     @PostMapping("/{projectId}/representatives/invitations")
     @PreAuthorize("@projectAuthorizer.can(principal, #projectId, 'CLIENT_ACCESS_MANAGE') "
             + "and @workspaceAuthorizer.can(principal, 'CLIENT_RECORD_MANAGE')")
-    public ResponseEntity<ProjectResponse> inviteRepresentative(
+    public ProjectResponse inviteRepresentative(
             @AuthenticationPrincipal AuthPrincipal principal,
             @PathVariable UUID projectId,
             @Valid @RequestBody InviteRepresentativeRequest request,
             HttpServletRequest httpRequest) {
-        return ResponseEntity.ok(representatives.inviteToMandate(
+        return representatives.inviteToMandate(
                 principal.userId(), principal.requireWorkspaceId(), projectId,
-                request.fullName(), request.position(), request.email(), httpRequest));
+                request.fullName(), request.position(), request.email(), httpRequest);
     }
 
     @DeleteMapping("/{projectId}/representatives/{representativeId}")
-    @PreAuthorize("@projectAuthorizer.can(principal, #projectId, 'CLIENT_ACCESS_MANAGE')")
-    public ResponseEntity<ProjectResponse> detachRepresentative(@AuthenticationPrincipal AuthPrincipal principal,
-                                                                @PathVariable UUID projectId,
-                                                                @PathVariable UUID representativeId,
-                                                                HttpServletRequest httpRequest) {
-        return ResponseEntity.ok(projects.detachRepresentative(
+    @RequireProjectPermission(ProjectAction.CLIENT_ACCESS_MANAGE)
+    public ProjectResponse detachRepresentative(@AuthenticationPrincipal AuthPrincipal principal,
+                                                @PathVariable UUID projectId,
+                                                @PathVariable UUID representativeId,
+                                                HttpServletRequest httpRequest) {
+        return team.detachRepresentative(
                 principal.userId(), principal.requireWorkspaceId(), projectId,
-                representativeId, httpRequest));
+                representativeId, httpRequest);
     }
 }

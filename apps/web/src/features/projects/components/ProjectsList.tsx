@@ -1,10 +1,12 @@
 import type { ColumnVisibilityState, OnChangeFn, PaginationState } from "@tanstack/react-table";
-import { CompanyLogo, HealthDot, StagePill } from "../../../components/ui";
+import { useMemo } from "react";
+import { CompanyLogo, HealthInline, StagePill } from "../../../components/ui";
 import { DataGrid } from "../../../components/ui/DataGrid";
 import { useDataGridTable } from "../../../lib/useDataGridTable";
 import type { GridLayout } from "../../../lib/useGridLayout";
 import type { GridSort } from "../../../lib/useGridSort";
 import { formatDate } from "../../../lib/format";
+import { useWorkspaceVocabulary } from "../../workspace/lib/vocabulary";
 import type { Project } from "../api/types";
 import {
   leadOf,
@@ -15,7 +17,7 @@ import {
   TeamStack,
   type ProjectSortField,
 } from "../lib/projectColumns";
-import { PROJECT_GROUPING } from "../lib/grouping";
+import { projectGroupingFor } from "../lib/grouping";
 import { deadlineOf } from "../lib/timeline";
 
 /** The mandate list: the shared grid on a wide screen, a stack of cards below `md`. */
@@ -44,6 +46,8 @@ export function ProjectsList({
   emptyMessage: string;
   onOpen: (projectId: string) => void;
 }) {
+  const vocabulary = useWorkspaceVocabulary();
+  const grouping = useMemo(() => projectGroupingFor(`No ${vocabulary.unitLower}`), [vocabulary]);
   const table = useDataGridTable<typeof projectTableFeatures, Project, ProjectSortField>({
     features: projectTableFeatures,
     columns: projectColumns,
@@ -73,7 +77,7 @@ export function ProjectsList({
       errorMessage="That list could not be loaded. Refresh, or check you still have access."
       emptyMessage={emptyMessage}
       onRowClick={(project) => onOpen(project.id)}
-      groupBy={PROJECT_GROUPING}
+      groupBy={grouping}
       renderCard={(project) => <ProjectCard project={project} onOpen={() => onOpen(project.id)} />}
     />
   );
@@ -97,7 +101,7 @@ function ProjectCard({ project, onOpen }: { project: Project; onOpen: () => void
             </div>
             <div className="mt-0.5 text-[13.5px] font-semibold text-u-text">{project.positionTitle}</div>
           </div>
-          <HealthDot health={project.health} />
+          <HealthInline health={project.health} />
         </div>
 
         <div className="flex flex-wrap items-center gap-2">

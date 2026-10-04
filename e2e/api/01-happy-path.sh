@@ -39,7 +39,7 @@ section "P2  step 2 — the organisation and invite steps are shut until the mai
 
 post_json /onboarding/workspace \
   "$(jq -nc --arg n "$WORKSPACE_NAME" \
-     '{name:$n, companySize:"11-50 people", primaryRegion:"GCC", teamFocus:"Executive search"}')" \
+     '{mode:"COMPANY", name:$n, companySize:"11-50 people", primaryRegion:"GCC", teamFocus:"Executive search"}')" \
   -H "$(auth_header "$ADMIN_TOKEN")"
 check_status P2.1 "POST /onboarding/workspace while unverified" 403
 check P2.2 "and says why, so the SPA can send them back a step" "EMAIL_NOT_VERIFIED" "$(json '.code')"
@@ -78,7 +78,7 @@ section "P4  steps 3 and 4 — the workspace and the invitations, created outrig
 
 post_json /onboarding/workspace \
   "$(jq -nc --arg n "$WORKSPACE_NAME" \
-     '{name:$n, companySize:"11-50 people", primaryRegion:"GCC", teamFocus:"Executive search"}')" \
+     '{mode:"COMPANY", name:$n, companySize:"11-50 people", primaryRegion:"GCC", teamFocus:"Executive search"}')" \
   -H "$(auth_header "$ADMIN_TOKEN")"
 check_status P4.1 "POST /onboarding/workspace on the session verifying minted" 201
 check P4.2 "workspace now exists" "1" "$(sql "SELECT count(*) FROM app_lm_workspace WHERE name = '$WORKSPACE_NAME'")"
@@ -123,7 +123,8 @@ check P5.5 "access token carries the roles claim" "ADMIN" "$(printf '%s' "$CLAIM
 get /auth/me -H "$(auth_header "$ADMIN_TOKEN")"
 check_status P5.6 "GET /auth/me" 200
 check P5.7 "/me agrees about the workspace" "$WORKSPACE_NAME" "$(json '.workspace.name')"
-check P5.8 "/me reports no pending invitation for the creator" "null" "$(json '.pendingInvitation')"
+check P5.8 "/me reports no pending invitations for the creator" "0" "$(json '.pendingInvitations | length')"
+check P5.9 "/me lists the one workspace the creator is in" "$WORKSPACE_NAME" "$(json '.workspaces[0].name')"
 
 section "P6  refresh rotates the cookie under CSRF"
 
@@ -190,10 +191,11 @@ post_json /auth/signup "$(jq -nc --arg e "$EXISTING_EMAIL" --arg p "$PASSWORD" \
   '{fullName:"Eve Existing", email:$e, password:$p, termsAccepted:true}')" -c "$(jar existing)"
 check_status P9.1 "the invited address can still sign up directly" 201
 EXISTING_TOKEN=$(json '.accessToken')
-check P9.2 "/signup surfaces the pending invitation" "$WORKSPACE_NAME" "$(json '.user.pendingInvitation.workspaceName')"
+check P9.2 "/signup surfaces the pending invitation" "$WORKSPACE_NAME" "$(json '.user.pendingInvitations[0].workspaceName')"
+EXISTING_INVITATION=$(json '.user.pendingInvitations[0].id')
 
 # Verified email is required before the token-less accept.
-http POST /onboarding/accept-invitation -H "$(auth_header "$EXISTING_TOKEN")"
+http POST "/onboarding/invitations/$EXISTING_INVITATION/accept" -H "$(auth_header "$EXISTING_TOKEN")"
 check_code P9.3 "token-less accept is refused while unverified" 403 EMAIL_NOT_VERIFIED
 
 post_json /auth/verify "$(jq -nc --arg t "$(token_for "$EXISTING_EMAIL" verify)" '{token:$t}')"
@@ -201,13 +203,13 @@ check_status P9.4 "verify the second account" 200
 post_json /auth/login "$(jq -nc --arg e "$EXISTING_EMAIL" --arg p "$PASSWORD" '{email:$e, password:$p}')" -c "$(jar existing)"
 EXISTING_TOKEN=$(json '.accessToken')
 
-http POST /onboarding/accept-invitation -H "$(auth_header "$EXISTING_TOKEN")"
-check_status P9.5 "token-less accept once verified" 200
+http POST "/onboarding/invitations/$EXISTING_INVITATION/accept" -H "$(auth_header "$EXISTING_TOKEN")"
+check_status P9.5 "token-less accept by id once verified" 200
 check P9.6 "accepted into the inviting workspace" "$WORKSPACE_NAME" "$(json '.workspace.name')"
 check P9.7 "with the invited ADMIN role" "ADMIN" "$(json '.workspace.roles[0]')"
 
-http POST /onboarding/accept-invitation -H "$(auth_header "$EXISTING_TOKEN")"
-check P9.8 "a second token-less accept is refused" "true" \
+http POST "/onboarding/invitations/$EXISTING_INVITATION/accept" -H "$(auth_header "$EXISTING_TOKEN")"
+check P9.8 "a second accept of the same invitation is refused" "true" \
   "$(test "$LAST_STATUS" != "200" && echo true || echo false)"
 note P9.9 "second accept returned $LAST_STATUS $(ecode)"
 
