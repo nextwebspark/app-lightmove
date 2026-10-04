@@ -96,26 +96,32 @@ public class MeetingBackfill {
                         && mailbox.getCalendarSyncedAt() != null
                         && mailbox.getCalendarSyncedAt().isBefore(now.minus(FRESH_FOR)))
                 .limit(MAX_REFRESHED_PER_OPEN)
-                .forEach(mailbox -> refresh(mailbox.getId(), mailbox.getGrantId(), now));
+                .forEach(mailbox -> refresh(mailbox.getId(), mailbox.getGrantId(), mailbox.getCalendarSyncedAt(), now));
     }
 
-    private void refresh(UUID mailboxConnectionId, String grantId, Instant now) {
+    /**
+     * Two drawers opening together both find a calendar stale, and both used to read it and save the mailbox row; the
+     * second save met the first's version and failed with a {@code StaleObjectStateException}. The read is claimed
+     * first, and the mailbox row is never saved through the entity here.
+     */
+    private void refresh(UUID mailboxConnectionId, String grantId, Instant lastRead, Instant now) {
+        if (mailboxes.claimCalendarRefresh(mailboxConnectionId, grantId, now, now.minus(FRESH_FOR)) == 0) {
+            return;
+        }
         Instant from = now.minus(RECHECKED_PAST);
         Instant to = now.plus(REACH);
         List<CalendarEvent> events;
         try {
             events = gateway.calendarEvents(grantId, from, to);
         } catch (RuntimeException failed) {
+            mailboxes.releaseCalendarRefresh(mailboxConnectionId, now, lastRead);
             log.info("Could not read the calendar of mailbox {} again; the next opening tries", mailboxConnectionId,
                     failed);
             return;
         }
         transactions.executeWithoutResult(status -> mailboxes.findById(mailboxConnectionId)
                 .filter(fresh -> grantId.equals(fresh.getGrantId()))
-                .ifPresent(fresh -> {
-                    meetings.replaceWindow(fresh, from, to, events);
-                    fresh.markCalendarSynced(now);
-                }));
+                .ifPresent(fresh -> meetings.replaceWindow(fresh, from, to, events)));
     }
 
     void syncCalendar(UUID mailboxConnectionId) {
