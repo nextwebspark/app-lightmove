@@ -12,7 +12,8 @@ import { PeopleView } from "../components/pool/PeopleView";
 import { NO_POOL_FILTERS } from "../lib/poolFilters";
 import { PersonDrawer, type PersonDrawerTab } from "../components/pool/PersonDrawer";
 
-const DRAWER_TABS: readonly PersonDrawerTab[] = ["profile", "notes", "documents", "timeline"];
+const DRAWER_TABS: readonly PersonDrawerTab[] = ["profile", "contact", "records", "timeline"];
+const RETIRED_TABS: Readonly<Record<string, PersonDrawerTab>> = { notes: "records", documents: "records" };
 
 const VIEWS = [
   { value: "people", label: "People" },
@@ -37,7 +38,7 @@ export function CandidatesPage() {
   const tabParam = params.get("tab");
   const tab: PersonDrawerTab = DRAWER_TABS.includes(tabParam as PersonDrawerTab)
     ? (tabParam as PersonDrawerTab)
-    : "profile";
+    : (RETIRED_TABS[tabParam ?? ""] ?? "profile");
 
   const navigate = useCallback(
     (change: Record<string, string | null>) =>

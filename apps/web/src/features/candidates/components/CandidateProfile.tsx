@@ -1,9 +1,11 @@
-import { useMutation, useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useCallback, useRef, useState, type ReactNode } from "react";
 import { Button, Select, useToast } from "../../../components/ui";
 import { CollapsibleSection } from "../../../components/ui/CollapsibleSection";
 import { DetailGrid, DetailPill, DetailTile } from "../../../components/ui/DetailList";
 import { PanelCloseButton } from "../../../components/ui/PanelCloseButton";
+import { TabList } from "../../../components/ui/TabList";
+import { tabPanelProps } from "../../../components/ui/tabPanelProps";
 import { messageFor } from "../../../lib/errorCodes";
 import { formatInstantDate, formatNumber } from "../../../lib/format";
 import { noticeSummaryOf } from "../../../lib/noticePeriod";
@@ -16,6 +18,8 @@ import { AddToSequenceButton } from "../../outreach/components/AddToSequenceButt
 import { OutreachSection } from "../../outreach/components/OutreachSection";
 import { MeetingsSection } from "../../outreach/components/MeetingsSection";
 import * as candidatesApi from "../api/candidatesApi";
+import * as personCrmApi from "../api/personCrmApi";
+import * as poolApi from "../api/poolApi";
 import type { DocumentScope } from "../api/documentsApi";
 import type {
   Candidate,
@@ -47,11 +51,19 @@ import {
   SummaryFields,
 } from "./CandidateFieldGroups";
 import { CareerTimeline } from "./CareerTimeline";
-import { EducationList, FoldAllButton, HeaderProfileLink, PillRow } from "./ProfileParts";
+import { ClampedText, EducationList, FoldAllButton, HeaderProfileLink, PillRow } from "./ProfileParts";
 import { CompensationSummary } from "./CompensationSummary";
 import { DocumentPreviewSheet, type PreviewTarget } from "./documents/DocumentPreviewSheet";
 import { PrimaryCvChip } from "./documents/PrimaryCvChip";
-import { DoNotContactStrip, DocumentsSection, NotesSection, PositionsSection, TimelineSection } from "./PersonSections";
+import {
+  DoNotContactStrip,
+  DocumentsSection,
+  NotesSection,
+  TimelineFeed,
+  usePositions,
+} from "./PersonSections";
+import { PositionsSection } from "./PersonPositions";
+import { PersonTagsSection } from "./PersonTagsSection";
 import { ProfileSectionForm, SectionEditButton, SectionEditor } from "./ProfileSectionForm";
 import {
   AiAssessmentBody,
@@ -62,6 +74,32 @@ import {
 
 /** What a pencil opens: one of the form's sections, or the mandate's own columns. */
 type EditableSection = Exclude<ProfileFormSection, "note"> | "columns";
+
+type ProfileTab = "profile" | "contact" | "records" | "timeline";
+
+const STAFF_TABS: readonly { value: ProfileTab; label: string }[] = [
+  { value: "profile", label: "Profile" },
+  { value: "contact", label: "Contact & outreach" },
+  { value: "records", label: "Records" },
+  { value: "timeline", label: "Timeline" },
+];
+
+const CLIENT_TABS: readonly { value: ProfileTab; label: string }[] = [
+  { value: "profile", label: "Profile" },
+  { value: "contact", label: "Contact" },
+];
+
+const PROFILE_TAB_FOLDS: readonly ProfileSection[] = [
+  "summary",
+  "ai",
+  "experience",
+  "education",
+  "compensation",
+  "background",
+  "columns",
+];
+
+const TAB_ID_PREFIX = "executive-drawer";
 
 /**
  * One executive, read first and corrected a section at a time.
@@ -80,8 +118,12 @@ type EditableSection = Exclude<ProfileFormSection, "note"> | "columns";
  * <p><b>Status stays live in the header</b>, with a write of its own — it is the field that changes
  * most often and the one a researcher came to flick while reading.
  *
- * <p>Keyed by the caller on the candidate's id: which section is open is state about this person,
- * and moving to the next profile must start it fresh.
+ * <p>Tabs split reading the person from working them — Profile, Contact &amp; outreach, Records (tags,
+ * notes, documents, other positions) and Timeline; a client seat gets Profile and Contact alone.
+ * Every panel stays mounted while hidden, so a half-typed note survives a look at another tab.
+ *
+ * <p>Keyed by the caller on the candidate's id: the open tab and section are state about this person,
+ * and moving to the next profile must start it fresh, on Profile.
  */
 export function CandidateProfile({
   projectId,
@@ -118,6 +160,15 @@ export function CandidateProfile({
   });
   const body = useRef<HTMLDivElement>(null);
   const [editing, setEditing] = useState<EditableSection | null>(null);
+  const [tab, setTab] = useState<ProfileTab>("profile");
+  const queryClient = useQueryClient();
+  const positions = usePositions(projectId, candidate.id, canWrite);
+  const otherPositions = (positions.data ?? []).filter((position) => position.projectId !== projectId);
+  const personRecord = useQuery({
+    queryKey: poolApi.PERSON_RECORD_KEY(candidate.personId),
+    queryFn: ({ signal }) => poolApi.getPerson(candidate.personId, signal),
+    enabled: canWrite,
+  });
 
   const replace = (patch: Partial<SaveCandidatePayload>) =>
     candidatesApi.updateCandidate(projectId, candidate.id, { ...replayOf(candidate), ...patch });
@@ -149,7 +200,9 @@ export function CandidateProfile({
 
   const startEditing = (section: EditableSection) => {
     setEditing(section);
-    if (section === "identity" && body.current) body.current.scrollTop = 0;
+    if (section !== "identity") return;
+    setTab("profile");
+    if (body.current) body.current.scrollTop = 0;
   };
 
   const pencil = (section: EditableSection, label: string) =>
@@ -173,6 +226,7 @@ export function CandidateProfile({
   const capturedFrom = toBrowsableUrl(candidate.sourceUrl);
   const visibleColumns = customColumns.filter((column) => !column.hidden);
   const employerLabel = candidate.companyName ?? undefined;
+  const panelProps = (value: ProfileTab) => ({ ...tabPanelProps(TAB_ID_PREFIX, value), hidden: tab !== value });
 
   return (
     <>
@@ -234,371 +288,377 @@ export function CandidateProfile({
               )}
               {canWrite && <PrimaryCvChip documents={documents} onPreview={openPreview} />}
               {canWrite && <AiEnrichButton enrichment={aiEnrichment} />}
-              {canWrite && (
-                <AddToSequenceButton projectId={projectId} candidateId={candidate.id} fullName={candidate.fullName} />
-              )}
             </div>
           </div>
         </div>
+        {canWrite && <DoNotContactStrip personId={candidate.personId} />}
+        <TabList
+          label="Executive sections"
+          idPrefix={TAB_ID_PREFIX}
+          className="-mb-4 mt-4 flex-wrap gap-y-2"
+          value={tab}
+          onChange={setTab}
+          tabs={canWrite ? STAFF_TABS : CLIENT_TABS}
+        />
       </div>
 
       <div ref={body} className="min-h-0 flex-1 overflow-y-auto px-5">
-        {editing === "identity" ? (
-          <section className="border-b border-u-border py-4">
-            <SectionHeading>Details</SectionHeading>
-            <SectionEditor
-              section="identity"
-              candidate={candidate}
-              save={replace}
-              doneMessage="Details saved"
-              onDone={finish}
-              onCancel={() => setEditing(null)}
-            >
-              {(form) => (
-                <IdentityFields
-                  register={form.register}
-                  errors={form.formState.errors}
-                  control={form.control}
-                  employerLocked={candidate.triageCompanyId !== null}
-                  aiInferred={new Set(candidate.aiInferredFields)}
-                />
-              )}
-            </SectionEditor>
-          </section>
-        ) : (
-          <div className="-mb-1 flex justify-end gap-3 pt-2.5">
-            <FoldAllButton label="Expand all" onClick={() => sections.setAll(true)} />
-            <FoldAllButton label="Collapse all" onClick={() => sections.setAll(false)} />
-          </div>
-        )}
-
-        {canWrite && <DoNotContactStrip personId={candidate.personId} />}
-
-        {canWrite && (
-          <PositionsSection
-            projectId={projectId}
-            candidateId={candidate.id}
-            open={sections.isOpen("positions")}
-            onToggle={() => sections.toggle("positions")}
-          />
-        )}
-
-        {canWrite && (
-          <OutreachSection
-            projectId={projectId}
-            candidateId={candidate.id}
-            firstName={candidate.fullName.trim().split(/\s+/)[0]}
-            candidateStatus={candidate.status}
-            open={sections.isOpen("outreach")}
-            onToggle={() => sections.toggle("outreach")}
-            isSettingStatus={changeStatus.isPending}
-            onSetStatus={(status) => changeStatus.mutate({ candidateId: candidate.id, status })}
-          />
-        )}
-
-        {canWrite && (
-          <MeetingsSection
-            projectId={projectId}
-            candidateId={candidate.id}
-            personId={candidate.personId}
-            fullName={candidate.fullName}
-            candidateStatus={candidate.status}
-            emails={candidate.contacts.emails}
-          />
-        )}
-
-        <CollapsibleSection
-          {...foldProps("summary")}
-          title="Summary"
-          summary={firstLine(candidate.summary)}
-          action={pencil("summary", "summary")}
-        >
-          {editing === "summary" ? (
-            <SectionEditor
-              section="summary"
-              candidate={candidate}
-              save={replace}
-              doneMessage="Summary saved"
-              onDone={finish}
-              onCancel={() => setEditing(null)}
-            >
-              {(form) => (
-                <SummaryFields register={form.register} errors={form.formState.errors} />
-              )}
-            </SectionEditor>
-          ) : (
-            <p className="text-[13px]/[1.6] text-u-text2">
-              {candidate.summary ?? "No summary written yet."}
-            </p>
-          )}
-        </CollapsibleSection>
-
-        {canWrite && (
-          <CollapsibleSection
-            id="ai"
-            open={sections.isOpen("ai")}
-            onToggle={() => sections.toggle("ai")}
-            title="AI assessment"
-            summary={aiAssessmentSummary(aiEnrichment)}
-          >
-            <AiAssessmentBody enrichment={aiEnrichment} />
-          </CollapsibleSection>
-        )}
-
-        <CollapsibleSection
-          {...foldProps("experience")}
-          title="Experience"
-          count={candidate.career.length > 0 ? candidate.career.length : undefined}
-          summary={careerSummary(candidate.career)}
-          action={pencil("experience", "experience")}
-        >
-          {editing === "experience" ? (
-            <SectionEditor
-              section="experience"
-              candidate={candidate}
-              save={replace}
-              doneMessage="Experience saved"
-              onDone={finish}
-              onCancel={() => setEditing(null)}
-            >
-              {(form) => (
-                <CareerFields
-                  control={form.control}
-                  register={form.register}
-                  errors={form.formState.errors}
-                />
-              )}
-            </SectionEditor>
-          ) : (
-            <CareerTimeline career={candidate.career} />
-          )}
-        </CollapsibleSection>
-
-        {candidate.education.length > 0 && (
-          <CollapsibleSection
-            id="education"
-            open={sections.isOpen("education")}
-            onToggle={() => sections.toggle("education")}
-            title="Education"
-            count={candidate.education.length}
-            summary={candidate.education[0].school ?? candidate.education[0].degree}
-          >
-            <EducationList education={candidate.education} />
-          </CollapsibleSection>
-        )}
-
-        <CollapsibleSection
-          {...foldProps("compensation")}
-          title="Compensation"
-          summary={joinFacts([
-            total > 0 ? `${currency} ${formatNumber(total)}`.trim() : null,
-            noticeSummaryOf(compensation.noticePeriod),
-          ])}
-          action={pencil("compensation", "compensation")}
-        >
-          {editing === "compensation" ? (
-            <SectionEditor
-              section="compensation"
-              candidate={candidate}
-              save={replace}
-              doneMessage="Compensation updated"
-              onDone={finish}
-              onCancel={() => setEditing(null)}
-              footer="plain"
-            >
-              {(form) => (
-                <CompensationFields
-                  register={form.register}
-                  errors={form.formState.errors}
-                  control={form.control}
-                  watch={form.watch}
-                  setValue={form.setValue}
-                  briefCurrency={briefCurrency}
-                  storedCurrency={compensation.currency}
-                  storedNoticePeriod={compensation.noticePeriod}
-                />
-              )}
-            </SectionEditor>
-          ) : (
-            <CompensationSummary compensation={compensation} />
-          )}
-        </CollapsibleSection>
-
-        <CollapsibleSection
-          {...foldProps("background")}
-          title="Background"
-          summary={joinFacts([
-            candidate.nationality ??
-              (nationalityReading && nationalityReading.category !== "Unknown"
-                ? `AI suggests ${nationalityReading.category}`
-                : null),
-            candidate.yearsExperience ? `${candidate.yearsExperience} yrs` : null,
-            candidate.languages.length > 0 ? countOf(candidate.languages.length, "language") : null,
-          ])}
-          action={pencil("background", "background")}
-        >
-          {editing === "background" ? (
-            <SectionEditor
-              section="background"
-              candidate={candidate}
-              save={replace}
-              doneMessage="Background saved"
-              onDone={finish}
-              onCancel={() => setEditing(null)}
-            >
-              {(form) => (
-                <BackgroundFields
-                  register={form.register}
-                  errors={form.formState.errors}
-                  storedNationality={candidate.nationality}
-                  aiInferred={new Set(candidate.aiInferredFields)}
-                />
-              )}
-            </SectionEditor>
-          ) : (
-            <>
-              <DetailGrid>
-                <DetailTile
-                  label="Nationality"
-                  value={candidate.nationality}
-                  badge={candidate.aiInferredFields.includes("nationality") ? <AiInferredBadge /> : undefined}
-                />
-                <DetailTile
-                  label="Gender"
-                  value={candidateGenderLabel(candidate.gender)}
-                  badge={candidate.aiInferredFields.includes("gender") ? <AiInferredBadge /> : undefined}
-                />
-                <DetailTile
-                  label="Experience"
-                  value={candidate.yearsExperience ? `${candidate.yearsExperience} years` : null}
-                  badge={
-                    candidate.aiInferredFields.includes("yearsExperience") ? <AiInferredBadge /> : undefined
-                  }
-                />
-              </DetailGrid>
-              {nationalityReading && (
-                <NationalitySuggestion
-                  reading={nationalityReading}
-                  onAccept={(group) => acceptNationality.mutate(group)}
-                  isAccepting={acceptNationality.isPending}
-                />
-              )}
-              <PillRow label="Languages" values={candidate.languages} empty="No languages recorded." />
-              {candidate.skills.length > 0 && <PillRow label="Skills" values={candidate.skills} />}
-            </>
-          )}
-        </CollapsibleSection>
-
-        <CollapsibleSection
-          {...foldProps("contact")}
-          title="Contact"
-          summary={joinFacts([
-            candidate.contacts.emails[0]?.address,
-            candidate.contacts.phones[0]?.number,
-            candidate.contacts.emails.some((entry) => entry.verified) ? "verified" : null,
-          ])}
-          action={pencil("contact", "contact")}
-        >
-          <ContactPanel
-            projectId={projectId}
-            candidate={candidate}
-            canWrite={canWrite}
-            lookupOffered={lookupConfig.data?.enabled === true}
-            onSaved={onSaved}
-            editing={editing === "contact"}
-            onDone={finish}
-            onCancel={() => setEditing(null)}
-          />
-        </CollapsibleSection>
-
-        {visibleColumns.length > 0 && (
-          <CollapsibleSection
-            {...foldProps("columns")}
-            title="Your columns"
-            count={visibleColumns.length}
-            summary={joinFacts(
-              visibleColumns.map((column) => customValueOf(column, candidate.customFields)),
-            )}
-            action={pencil("columns", "your columns")}
-          >
-            {editing === "columns" ? (
-              <ColumnsEditor
-                columns={visibleColumns}
+        <div {...panelProps("profile")}>
+          {editing === "identity" ? (
+            <section className="border-b border-u-border py-4">
+              <SectionHeading>Details</SectionHeading>
+              <SectionEditor
+                section="identity"
                 candidate={candidate}
                 save={replace}
+                doneMessage="Details saved"
                 onDone={finish}
                 onCancel={() => setEditing(null)}
-              />
-            ) : (
-              <DetailGrid>
-                {visibleColumns.map((column) => (
-                  <DetailTile
-                    key={column.id}
-                    label={column.label}
-                    value={customValueOf(column, candidate.customFields)}
+              >
+                {(form) => (
+                  <IdentityFields
+                    register={form.register}
+                    errors={form.formState.errors}
+                    control={form.control}
+                    employerLocked={candidate.triageCompanyId !== null}
+                    aiInferred={new Set(candidate.aiInferredFields)}
                   />
-                ))}
-              </DetailGrid>
+                )}
+              </SectionEditor>
+            </section>
+          ) : (
+            <div className="-mb-1 flex justify-end gap-3 pt-2.5">
+              <FoldAllButton label="Expand all" onClick={() => sections.setAll(true, PROFILE_TAB_FOLDS)} />
+              <FoldAllButton label="Collapse all" onClick={() => sections.setAll(false, PROFILE_TAB_FOLDS)} />
+            </div>
+          )}
+
+          <CollapsibleSection
+            {...foldProps("summary")}
+            title="Summary"
+            summary={firstLine(candidate.summary)}
+            action={pencil("summary", "summary")}
+          >
+            {editing === "summary" ? (
+              <SectionEditor
+                section="summary"
+                candidate={candidate}
+                save={replace}
+                doneMessage="Summary saved"
+                onDone={finish}
+                onCancel={() => setEditing(null)}
+              >
+                {(form) => (
+                  <SummaryFields register={form.register} errors={form.formState.errors} />
+                )}
+              </SectionEditor>
+            ) : (
+              <ClampedText
+                text={candidate.summary ?? "No summary written yet."}
+                className="text-[13px]/[1.6] text-u-text2"
+              />
             )}
           </CollapsibleSection>
-        )}
+
+          <CollapsibleSection
+            {...foldProps("experience")}
+            title="Experience"
+            count={candidate.career.length > 0 ? candidate.career.length : undefined}
+            summary={careerSummary(candidate.career)}
+            action={pencil("experience", "experience")}
+          >
+            {editing === "experience" ? (
+              <SectionEditor
+                section="experience"
+                candidate={candidate}
+                save={replace}
+                doneMessage="Experience saved"
+                onDone={finish}
+                onCancel={() => setEditing(null)}
+              >
+                {(form) => (
+                  <CareerFields
+                    control={form.control}
+                    register={form.register}
+                    errors={form.formState.errors}
+                  />
+                )}
+              </SectionEditor>
+            ) : (
+              <CareerTimeline career={candidate.career} />
+            )}
+          </CollapsibleSection>
+
+          {candidate.education.length > 0 && (
+            <CollapsibleSection
+              id="education"
+              open={sections.isOpen("education")}
+              onToggle={() => sections.toggle("education")}
+              title="Education"
+              count={candidate.education.length}
+              summary={candidate.education[0].school ?? candidate.education[0].degree}
+            >
+              <EducationList education={candidate.education} />
+            </CollapsibleSection>
+          )}
+
+          <CollapsibleSection
+            {...foldProps("compensation")}
+            title="Compensation"
+            summary={joinFacts([
+              total > 0 ? `${currency} ${formatNumber(total)}`.trim() : null,
+              noticeSummaryOf(compensation.noticePeriod),
+            ])}
+            action={pencil("compensation", "compensation")}
+          >
+            {editing === "compensation" ? (
+              <SectionEditor
+                section="compensation"
+                candidate={candidate}
+                save={replace}
+                doneMessage="Compensation updated"
+                onDone={finish}
+                onCancel={() => setEditing(null)}
+                footer="plain"
+              >
+                {(form) => (
+                  <CompensationFields
+                    register={form.register}
+                    errors={form.formState.errors}
+                    control={form.control}
+                    watch={form.watch}
+                    setValue={form.setValue}
+                    briefCurrency={briefCurrency}
+                    storedCurrency={compensation.currency}
+                    storedNoticePeriod={compensation.noticePeriod}
+                  />
+                )}
+              </SectionEditor>
+            ) : (
+              <CompensationSummary compensation={compensation} />
+            )}
+          </CollapsibleSection>
+
+          <CollapsibleSection
+            {...foldProps("background")}
+            title="Background"
+            summary={joinFacts([
+              candidate.nationality ??
+                (nationalityReading && nationalityReading.category !== "Unknown"
+                  ? `AI suggests ${nationalityReading.category}`
+                  : null),
+              candidate.yearsExperience ? `${candidate.yearsExperience} yrs` : null,
+              candidate.languages.length > 0 ? countOf(candidate.languages.length, "language") : null,
+            ])}
+            action={pencil("background", "background")}
+          >
+            {editing === "background" ? (
+              <SectionEditor
+                section="background"
+                candidate={candidate}
+                save={replace}
+                doneMessage="Background saved"
+                onDone={finish}
+                onCancel={() => setEditing(null)}
+              >
+                {(form) => (
+                  <BackgroundFields
+                    register={form.register}
+                    errors={form.formState.errors}
+                    storedNationality={candidate.nationality}
+                    aiInferred={new Set(candidate.aiInferredFields)}
+                  />
+                )}
+              </SectionEditor>
+            ) : (
+              <>
+                <DetailGrid>
+                  <DetailTile
+                    label="Nationality"
+                    value={candidate.nationality}
+                    badge={candidate.aiInferredFields.includes("nationality") ? <AiInferredBadge /> : undefined}
+                  />
+                  <DetailTile
+                    label="Gender"
+                    value={candidateGenderLabel(candidate.gender)}
+                    badge={candidate.aiInferredFields.includes("gender") ? <AiInferredBadge /> : undefined}
+                  />
+                  <DetailTile
+                    label="Experience"
+                    value={candidate.yearsExperience ? `${candidate.yearsExperience} years` : null}
+                    badge={
+                      candidate.aiInferredFields.includes("yearsExperience") ? <AiInferredBadge /> : undefined
+                    }
+                  />
+                </DetailGrid>
+                {nationalityReading && (
+                  <NationalitySuggestion
+                    reading={nationalityReading}
+                    onAccept={(group) => acceptNationality.mutate(group)}
+                    isAccepting={acceptNationality.isPending}
+                  />
+                )}
+                <PillRow label="Languages" values={candidate.languages} empty="No languages recorded." />
+                {candidate.skills.length > 0 && <PillRow label="Skills" values={candidate.skills} />}
+              </>
+            )}
+          </CollapsibleSection>
+
+          {canWrite && (
+            <CollapsibleSection
+              id="ai"
+              open={sections.isOpen("ai")}
+              onToggle={() => sections.toggle("ai")}
+              title="AI assessment"
+              summary={aiAssessmentSummary(aiEnrichment)}
+            >
+              <AiAssessmentBody enrichment={aiEnrichment} />
+            </CollapsibleSection>
+          )}
+
+          {visibleColumns.length > 0 && (
+            <CollapsibleSection
+              {...foldProps("columns")}
+              title="Your columns"
+              count={visibleColumns.length}
+              summary={joinFacts(
+                visibleColumns.map((column) => customValueOf(column, candidate.customFields)),
+              )}
+              action={pencil("columns", "your columns")}
+            >
+              {editing === "columns" ? (
+                <ColumnsEditor
+                  columns={visibleColumns}
+                  candidate={candidate}
+                  save={replace}
+                  onDone={finish}
+                  onCancel={() => setEditing(null)}
+                />
+              ) : (
+                <DetailGrid>
+                  {visibleColumns.map((column) => (
+                    <DetailTile
+                      key={column.id}
+                      label={column.label}
+                      value={customValueOf(column, candidate.customFields)}
+                    />
+                  ))}
+                </DetailGrid>
+              )}
+            </CollapsibleSection>
+          )}
+
+          <p className="py-4 font-mono text-[11px] text-u-text3">
+            Added {formatInstantDate(candidate.addedAt)}
+            {candidate.enrichedAt && ` · Researched ${formatInstantDate(candidate.enrichedAt)}`}
+            {capturedFrom && (
+              <>
+                {" · "}
+                <a
+                  href={capturedFrom}
+                  target="_blank"
+                  rel="noreferrer noopener"
+                  className="hover:text-u-text hover:underline"
+                >
+                  Captured from {new URL(capturedFrom).hostname}
+                </a>
+              </>
+            )}
+          </p>
+          {onRemove && (
+            <div className="border-t border-u-border py-3">
+              <Button
+                type="button"
+                variant="secondary"
+                className="text-u-offlimits"
+                onClick={() => onRemove(candidate)}
+              >
+                Remove from mandate
+              </Button>
+            </div>
+          )}
+        </div>
+
+        <div {...panelProps("contact")}>
+          {canWrite && (
+            <div className="flex justify-end pt-3 empty:hidden">
+              <AddToSequenceButton projectId={projectId} candidateId={candidate.id} fullName={candidate.fullName} />
+            </div>
+          )}
+          <CollapsibleSection
+            {...foldProps("contact")}
+            title="Contact"
+            summary={joinFacts([
+              candidate.contacts.emails[0]?.address,
+              candidate.contacts.phones[0]?.number,
+              candidate.contacts.emails.some((entry) => entry.verified) ? "verified" : null,
+            ])}
+            action={pencil("contact", "contact")}
+          >
+            <ContactPanel
+              projectId={projectId}
+              candidate={candidate}
+              canWrite={canWrite}
+              lookupOffered={lookupConfig.data?.enabled === true}
+              onSaved={onSaved}
+              editing={editing === "contact"}
+              onDone={finish}
+              onCancel={() => setEditing(null)}
+            />
+          </CollapsibleSection>
+          {canWrite && (
+            <OutreachSection
+              projectId={projectId}
+              candidateId={candidate.id}
+              firstName={candidate.fullName.trim().split(/\s+/)[0]}
+              candidateStatus={candidate.status}
+              open={sections.isOpen("outreach")}
+              onToggle={() => sections.toggle("outreach")}
+              isSettingStatus={changeStatus.isPending}
+              onSetStatus={(status) => changeStatus.mutate({ candidateId: candidate.id, status })}
+            />
+          )}
+          {canWrite && (
+            <MeetingsSection
+              projectId={projectId}
+              candidateId={candidate.id}
+              personId={candidate.personId}
+              fullName={candidate.fullName}
+              candidateStatus={candidate.status}
+              emails={candidate.contacts.emails}
+            />
+          )}
+        </div>
 
         {canWrite && (
           <>
-            <NotesSection
-              projectId={projectId}
-              candidateId={candidate.id}
-              open={sections.isOpen("notes")}
-              onToggle={() => sections.toggle("notes")}
-            />
-            <DocumentsSection
-              scope={documentScope}
-              documents={documents}
-              personName={candidate.fullName.split(" ")[0]}
-              onPreview={openPreview}
-              open={sections.isOpen("documents")}
-              onToggle={() => sections.toggle("documents")}
-            />
-            <TimelineSection
-              projectId={projectId}
-              candidateId={candidate.id}
-              open={sections.isOpen("timeline")}
-              onToggle={() => sections.toggle("timeline")}
-            />
+            <div {...panelProps("records")} className="pt-4">
+              {personRecord.data && <PersonTagsSection person={personRecord.data} />}
+              <NotesSection projectId={projectId} candidateId={candidate.id} />
+              <DocumentsSection
+                scope={documentScope}
+                documents={documents}
+                personName={candidate.fullName.split(" ")[0]}
+                onPreview={openPreview}
+              />
+              {otherPositions.length > 0 && (
+                <PositionsSection
+                  title="Other positions"
+                  positions={otherPositions}
+                  onStatusChanged={() =>
+                    void queryClient.invalidateQueries({
+                      queryKey: personCrmApi.PERSON_POSITIONS_KEY(projectId, candidate.id),
+                    })
+                  }
+                />
+              )}
+            </div>
+            <div {...panelProps("timeline")} className="py-4">
+              <TimelineFeed projectId={projectId} candidateId={candidate.id} />
+            </div>
           </>
         )}
-
-        <p className="py-4 font-mono text-[11px] text-u-text3">
-          Added {formatInstantDate(candidate.addedAt)}
-          {candidate.enrichedAt && ` · Researched ${formatInstantDate(candidate.enrichedAt)}`}
-          {capturedFrom && (
-            <>
-              {" · "}
-              <a
-                href={capturedFrom}
-                target="_blank"
-                rel="noreferrer noopener"
-                className="hover:text-u-text hover:underline"
-              >
-                Captured from {new URL(capturedFrom).hostname}
-              </a>
-            </>
-          )}
-        </p>
       </div>
-
-      {onRemove && (
-        <div className="flex flex-none border-t border-u-border px-5 py-3">
-          <Button
-            type="button"
-            variant="secondary"
-            className="text-u-offlimits"
-            onClick={() => onRemove(candidate)}
-          >
-            Remove from mandate
-          </Button>
-        </div>
-      )}
 
       {canWrite && (
         <DocumentPreviewSheet
