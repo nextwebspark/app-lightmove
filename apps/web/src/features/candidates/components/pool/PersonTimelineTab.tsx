@@ -5,6 +5,7 @@ import * as poolApi from "../../api/poolApi";
 import type { TimelineGroup } from "../../api/types";
 import { timelineLines } from "../../lib/candidateActivity";
 import { groupByDay } from "../../lib/timelineGroups";
+import { useTimelineCut } from "../PersonSections";
 import { GroupChips } from "./GroupChips";
 
 /** The Timeline tab: everything done to the person, by whom and when, on every position, by day. */
@@ -17,6 +18,7 @@ export function PersonTimelineTab({ personId }: { personId: string }) {
     getNextPageParam: (last) => last.nextCursor,
   });
   const entries = timeline.data?.pages.flatMap((page) => page.entries) ?? [];
+  const cut = useTimelineCut(entries);
 
   return (
     <div className="flex flex-col gap-3">
@@ -32,7 +34,7 @@ export function PersonTimelineTab({ personId }: { personId: string }) {
         <p className="text-[13px] text-u-text3">Nothing of this kind recorded yet.</p>
       ) : (
         <div aria-label="Timeline">
-          {groupByDay(entries).map(([day, lines]) => (
+          {groupByDay(cut.visible).map(([day, lines]) => (
             <section key={day} aria-label={day} className="mb-3">
               <h3 className="type-label mb-1.5 text-u-text3">{day}</h3>
               <ol className="flex flex-col gap-3 border-s border-dotted border-u-border-strong ps-3.5">
@@ -55,7 +57,8 @@ export function PersonTimelineTab({ personId }: { personId: string }) {
               </ol>
             </section>
           ))}
-          {timeline.hasNextPage && (
+          {cut.seeMore}
+          {!cut.isClipped && timeline.hasNextPage && (
             <button
               type="button"
               onClick={() => void timeline.fetchNextPage()}

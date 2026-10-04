@@ -2,7 +2,6 @@ import { useCallback, useEffect, useState } from "react";
 
 /** The folds on an executive's profile panel — the candidate drawer and the People preview — in order. */
 export const PROFILE_SECTIONS = [
-  "positions",
   "outreach",
   "company",
   "summary",
@@ -18,39 +17,35 @@ export const PROFILE_SECTIONS = [
   "volunteering",
   "contact",
   "columns",
-  "notes",
-  "documents",
-  "timeline",
 ] as const;
 
 export type ProfileSection = (typeof PROFILE_SECTIONS)[number];
 
 type OpenState = Record<ProfileSection, boolean>;
 
-/** What a first visit shows: the three things a consultant reads before deciding to call. */
+/** What a first visit shows: who they are and where they have been, then how to reach them. */
 const DEFAULTS: OpenState = {
-  positions: true,
   outreach: true,
   company: false,
   summary: true,
-  ai: true,
+  ai: false,
   experience: true,
   education: false,
-  compensation: true,
+  compensation: false,
   profile: false,
   background: false,
   certifications: false,
   publications: false,
   projects: false,
   volunteering: false,
-  contact: false,
+  contact: true,
   columns: false,
-  notes: true,
-  documents: true,
-  timeline: false,
 };
 
-const STORAGE_KEY = "lm.candidate-profile.sections";
+const STORAGE_KEY = "lm.candidate-profile.sections.v2";
+
+/** Who they are and where they have been: open on every profile, whatever was folded on the last one. */
+const OPEN_ON_EVERY_PROFILE: readonly ProfileSection[] = ["summary", "experience"];
 
 /**
  * Which sections of an executive's profile are unfolded, remembered per viewer and per section
@@ -75,8 +70,11 @@ export function useProfileSections() {
     [],
   );
   const setAll = useCallback(
-    (value: boolean) =>
-      setOpen(Object.fromEntries(PROFILE_SECTIONS.map((id) => [id, value])) as OpenState),
+    (value: boolean, only: readonly ProfileSection[] = PROFILE_SECTIONS) =>
+      setOpen((current) => ({
+        ...current,
+        ...Object.fromEntries(only.map((id) => [id, value])),
+      })),
     [],
   );
 
@@ -95,7 +93,7 @@ function read(): OpenState {
     return Object.fromEntries(
       PROFILE_SECTIONS.map((id) => [
         id,
-        typeof record[id] === "boolean" ? record[id] : DEFAULTS[id],
+        OPEN_ON_EVERY_PROFILE.includes(id) || typeof record[id] !== "boolean" ? DEFAULTS[id] : record[id],
       ]),
     ) as OpenState;
   } catch {
