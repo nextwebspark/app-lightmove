@@ -19,6 +19,7 @@ export const PROFILE_SECTIONS = [
   "contact",
   "columns",
   "notes",
+  "documents",
   "timeline",
 ] as const;
 
@@ -45,6 +46,7 @@ const DEFAULTS: OpenState = {
   contact: false,
   columns: false,
   notes: true,
+  documents: true,
   timeline: false,
 };
 

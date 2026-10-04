@@ -204,6 +204,15 @@
   letter-spacing: var(--tracking-label);
 }
 
+/* The 10px caption the mockups put above or beside a control: `font:600 10px; letter-spacing:.12em`. */
+@utility type-micro-label {
+  font-size: 10px;
+  line-height: 1.4;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+}
+
 @utility type-summary-label {
   font-size: var(--text-eyebrow);
   line-height: var(--text-eyebrow--line-height);

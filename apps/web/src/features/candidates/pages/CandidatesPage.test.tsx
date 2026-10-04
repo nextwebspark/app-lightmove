@@ -230,7 +230,7 @@ describe("CandidatesPage", () => {
     expect(screen.getAllByText("Marked Engaged on Chief Financial Officer").length).toBeGreaterThan(0);
     expect(screen.getAllByText("Do not contact").length).toBeGreaterThan(0);
     expect(screen.getByRole("button", { name: /Not in a position\s*1/ })).toBeInTheDocument();
-    expect(await screen.findByText("2 people · shared across every position in NextWebSpark Search")).toBeInTheDocument();
+    expect(screen.getByText("2 of 2 people")).toBeInTheDocument();
   });
 
   it("asks the server again for a quick view, a tag filter or a sort, never filtering what it already has", async () => {
@@ -247,9 +247,11 @@ describe("CandidatesPage", () => {
       ),
     );
 
-    await userEvent.click(screen.getByRole("button", { name: /^Filters/ }));
-    await userEvent.click(within(screen.getByRole("region", { name: "Filters" })).getByRole("checkbox", { name: /Referral/ }));
-    await userEvent.click(screen.getByRole("radio", { name: "None of" }));
+    await userEvent.click(screen.getByRole("button", { name: "Show Filters" }));
+    const rail = screen.getByRole("region", { name: "Filters" });
+    await userEvent.click(within(rail).getByRole("button", { name: "Tags" }));
+    await userEvent.click(within(rail).getByRole("checkbox", { name: /Referral/ }));
+    await userEvent.click(within(rail).getByRole("radio", { name: "None of" }));
     await waitFor(() =>
       expect(poolApi.listPool).toHaveBeenLastCalledWith(
         expect.objectContaining({ tagIds: ["t2"], tagMatch: "none" }),
@@ -258,7 +260,62 @@ describe("CandidatesPage", () => {
         expect.anything(),
       ),
     );
+    expect(screen.queryByText("None of: Referral")).not.toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: /^Hide Filters/ }));
     expect(screen.getByText("None of: Referral")).toBeInTheDocument();
+  });
+
+  it("keeps the filter rail hidden until asked for, and takes one value per axis", async () => {
+    renderPage();
+    await screen.findAllByText("Fatima Al Mazrouei");
+    expect(screen.queryByRole("region", { name: "Filters" })).not.toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole("button", { name: "Show Filters" }));
+    const rail = screen.getByRole("region", { name: "Filters" });
+    await userEvent.click(within(rail).getByRole("button", { name: "Status" }));
+    await userEvent.click(within(rail).getByRole("checkbox", { name: "Engaged" }));
+    await waitFor(() =>
+      expect(poolApi.listPool).toHaveBeenLastCalledWith(
+        expect.objectContaining({ status: "engaged" }),
+        0,
+        50,
+        expect.anything(),
+      ),
+    );
+
+    await userEvent.click(within(rail).getByRole("checkbox", { name: "Interested" }));
+    await waitFor(() =>
+      expect(poolApi.listPool).toHaveBeenLastCalledWith(
+        expect.objectContaining({ status: "interested" }),
+        0,
+        50,
+        expect.anything(),
+      ),
+    );
+    expect(within(rail).getByRole("checkbox", { name: "Engaged" })).not.toBeChecked();
+
+    await userEvent.click(within(rail).getByRole("button", { name: "Country" }));
+    await userEvent.click(within(rail).getByRole("checkbox", { name: "United Arab Emirates" }));
+    expect(screen.getByRole("button", { name: /Hide Filters\s*2/ })).toBeInTheDocument();
+
+    await userEvent.click(within(rail).getByRole("button", { name: "Clear all filters" }));
+    await waitFor(() =>
+      expect(poolApi.listPool).toHaveBeenLastCalledWith(
+        expect.objectContaining({ status: "", country: "" }),
+        0,
+        50,
+        expect.anything(),
+      ),
+    );
+  });
+
+  it("switches between People and Activity from the toolbar", async () => {
+    renderPage();
+    await screen.findAllByText("Fatima Al Mazrouei");
+
+    await userEvent.click(screen.getByRole("radio", { name: "Activity" }));
+    expect(await screen.findByText(/Nothing recorded for this filter/)).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Show Filters" })).not.toBeInTheDocument();
   });
 
   it("tags the people ticked through the selection bar", async () => {

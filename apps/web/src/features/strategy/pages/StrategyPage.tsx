@@ -425,21 +425,15 @@ function StrategyEditor({ toggle }: { toggle: ReactNode }) {
       <div className="flex min-h-0 flex-1">
         {showFilters &&
           (data ? (
-            <>
-              <div
-                className="fixed inset-0 z-[90] bg-u-scrim lg:hidden"
-                onClick={() => setShowFilters(false)}
-              />
-              <FilterSidebar
-                facets={facets.data}
-                facetsError={facets.isError}
-                filter={filter}
-                offLimits={data.offLimits}
-                onChange={applyFilter}
-                onOffLimitsChange={(ids) => offLimitsWrite.mutate(ids)}
-                onClose={() => setShowFilters(false)}
-              />
-            </>
+            <FilterSidebar
+              facets={facets.data}
+              facetsError={facets.isError}
+              filter={filter}
+              offLimits={data.offLimits}
+              onChange={applyFilter}
+              onOffLimitsChange={(ids) => offLimitsWrite.mutate(ids)}
+              onClose={() => setShowFilters(false)}
+            />
           ) : (
             <FilterRailPlaceholder />
           ))}

@@ -66,14 +66,16 @@ same two doors (`…/candidates/{id}/documents`, `/candidates/{personId}/documen
 uploader's or a `WORKSPACE_MANAGE` holder's (`PERSON_DOCUMENT_NOT_YOURS`), every download is audited,
 and each change is a timeline line that names the document only while it exists. The bytes live in a
 private GCS bucket behind `core/storage`'s `DocumentStore` (`lightmove.storage.*`; the filesystem store
-for `npm run dev` and tests), streamed by the API, never by a signed URL; the drawer's Documents UI waits
-on its mockup.
+for `npm run dev` and tests), streamed by the API, never by a signed URL. The SPA draws them in
+`components/documents`: the Candidates drawer's Documents tab, the executive drawer's Documents section, a
+header chip for the primary CV and a preview sheet (a PDF or image fetched as a blob, never a link); the
+upload tray says what each file will become before sending, and a duplicate is the server's 409.
 `CandidateResponse.linkedinUrlLocked` is the server's own lock, which the Contact section reads rather
 than guessing from this mandate's door.
 **The workspace's Candidates page** (`/candidates`, `RequireStaff`, `Candidates.dc.html`, Phase 4) reads
 those routes: a People list the server searches (name, title, employer, an email; a plain scan per
 workspace, V33's reasoning), pages, sorts and narrows — quick views (owned by me, in an active position,
-in none), tags any/all/none, position, status, owner, country — with a selection bar that adds people to
+in none) in the toolbar, then tags any/all/none, position, status, owner and country in a Strategy-style filter rail hidden until asked for — with a selection bar that adds people to
 a position as Identified (that position's `WORK_EXECUTE` too, since filing someone is work on it), tags
 them, sets an owner or exports them (audited, `dataexport`); an Activity feed; and a drawer keyed by
 person id. V98 gives the person the team's own facts — an **owner** (a colleague; it changes nobody's
@@ -84,9 +86,10 @@ Candidate tags under `WORKSPACE_MANAGE`; a person holds the tag's id, so a renam
 retired one stays where it is but is never put on anyone again). Each is a timeline line and an audit
 event, and none rides `CandidateResponse`. **Phase 4b-1**: a hand-typed add of someone the workspace holds by name alone at that employer is
 asked first (`409 CANDIDATE_POSSIBLE_DUPLICATE` with `personIds`; the drawer resends with
-`existingPersonId` or `addAsNewPerson`), never on the plugin, import or run doors; and the position's
-own **Candidates page** (`/projects/:id/candidates`) reads `…/candidates/pipeline` (`WORK_VIEW`) and its
-staff columns from `…/pipeline/staff` (`WORK_EXECUTE`), with Add from your candidates. Merge is Phase 4b-2.
+`existingPersonId` or `addAsNewPerson`), never on the plugin, import or run doors. A position has **no
+Candidates page of its own**: In universe lists its executives, Outreach works them, and the workspace
+Candidates page's Add to position files people onto it (`/projects/:id/candidates` redirects to In
+universe). Merge is Phase 4b-2.
 An executive's drawer also **finds their contacts**: two buttons in the Contact section ask ContactOut
 for an email or a phone, one channel per press because the two bill from separate pools. Every email
 and phone the mandate knows is a row of `app_lm_candidate_contact` (V54, the only store since V55

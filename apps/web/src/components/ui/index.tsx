@@ -118,9 +118,7 @@ export function Field({
   return (
     <label className="mb-4 block">
       <span className="mb-1.5 flex items-baseline justify-between">
-        <span className="font-mono text-[10px] font-semibold uppercase tracking-[0.12em] text-u-text3">
-          {label}
-        </span>
+        <span className="type-micro-label font-mono text-u-text3">{label}</span>
         {action}
       </span>
 
@@ -174,17 +172,31 @@ export function TextArea({
   );
 }
 
+/** `compact` is the toolbar and filter-panel select of the mockups (`7px 9px`, 12.5px), a size shorter than a form's. */
+type SelectDensity = "default" | "compact";
+
+const SELECT_DENSITY: Record<SelectDensity, string> = {
+  default: "",
+  compact: "rounded-[7px] px-2.5 py-[6px] text-[12.5px]",
+};
+
 export function Select({
   invalid,
+  density = "default",
   className,
   children,
   ...rest
-}: SelectHTMLAttributes<HTMLSelectElement> & { invalid?: boolean }) {
+}: SelectHTMLAttributes<HTMLSelectElement> & { invalid?: boolean; density?: SelectDensity }) {
   return (
     <select
       {...rest}
       aria-invalid={invalid}
-      className={cn(CONTROL, invalid ? "border-u-offlimits" : "border-u-border-strong", className)}
+      className={cn(
+        CONTROL,
+        SELECT_DENSITY[density],
+        invalid ? "border-u-offlimits" : "border-u-border-strong",
+        className,
+      )}
     >
       {children}
     </select>

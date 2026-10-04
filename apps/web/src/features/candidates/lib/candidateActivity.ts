@@ -220,7 +220,8 @@ const DOCUMENT_NOUNS: Record<string, string> = {
 
 /** The line names the category; the document's own title is the detail, and only while it exists. */
 function documentOf(category: string | undefined, article: "a" | "the"): string {
-  return `${article} ${DOCUMENT_NOUNS[category ?? "OTHER"] ?? "document"}`;
+  const noun = DOCUMENT_NOUNS[category ?? "OTHER"] ?? "document";
+  return `${article === "a" && /^[aeiou]/.test(noun) ? "an" : article} ${noun}`;
 }
 
 /**

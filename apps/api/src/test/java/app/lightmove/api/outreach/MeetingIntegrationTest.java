@@ -230,6 +230,32 @@ class MeetingIntegrationTest extends FlowTestSupport {
     }
 
     @Test
+    @DisplayName("the grid pages ahead to a later week, up to its horizon, and a time there can be booked")
+    void theSlotsPageAhead() throws Exception {
+        String priya = executive("Priya Raman", "priya@" + domain);
+        connectMailbox();
+
+        JsonNode thisWeek = body(as(consultant, get(meetings(priya) + "/slots")).andExpect(status().isOk())
+                .andReturn());
+        LocalDate today = LocalDate.parse(thisWeek.get("earliestDate").asText());
+        LocalDate latest = LocalDate.parse(thisWeek.get("latestDate").asText());
+        assertThat(latest).isAfter(today.plusMonths(5));
+        assertThat(thisWeek.get("previousFrom").isNull()).isTrue();
+
+        LocalDate asked = today.plusWeeks(8);
+        JsonNode later = body(as(consultant, get(meetings(priya) + "/slots").param("from", asked.toString()))
+                .andExpect(status().isOk()).andReturn());
+        assertThat(later.get("days")).hasSize(5);
+        assertThat(LocalDate.parse(later.get("days").get(0).get("date").asText())).isBetween(asked, asked.plusDays(7));
+        assertThat(LocalDate.parse(later.get("previousFrom").asText())).isBetween(asked.minusDays(9), asked);
+        Instant farOff = Instant.parse(later.get("days").get(0).get("starts").get(0).asText());
+        book(priya, farOff, 30, "priya@" + domain).andExpect(status().isNoContent());
+
+        assertThat(codeOf(as(consultant, get(meetings(priya) + "/slots").param("from", latest.plusDays(1).toString()))
+                .andExpect(status().isBadRequest()).andReturn())).isEqualTo("MEETING_SLOT_INVALID");
+    }
+
+    @Test
     @DisplayName("a calendar that cannot be read is said so, never offered as free, and nothing is booked")
     void anUnreadableCalendarIsNotFree() throws Exception {
         String priya = executive("Priya Raman", "priya@" + domain);
