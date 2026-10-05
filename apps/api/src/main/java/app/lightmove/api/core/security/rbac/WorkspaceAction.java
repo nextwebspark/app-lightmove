@@ -32,5 +32,8 @@ public enum WorkspaceAction {
     POSITION_TEMPLATE_MANAGE,
 
     /** The workspace's people outside any one mandate: their record, notes and timeline. Never a client. */
-    CANDIDATE_POOL_MANAGE
+    CANDIDATE_POOL_MANAGE,
+
+    /** Settings → API keys: one's own personal keys. A workspace key, or a colleague's, also asks {@link #WORKSPACE_MANAGE}. */
+    API_KEY_MANAGE
 }

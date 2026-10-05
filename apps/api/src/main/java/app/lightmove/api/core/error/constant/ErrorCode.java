@@ -352,6 +352,12 @@ public enum ErrorCode {
     /** A webhook delivery whose signature did not verify, or one this deployment is not set up to read. */
     MAILBOX_WEBHOOK_REJECTED(HttpStatus.UNAUTHORIZED, "Unauthorized"),
 
+    /** A key id that is not in the caller's workspace, or not one the caller may see. */
+    API_KEY_NOT_FOUND(HttpStatus.NOT_FOUND, "That API key does not exist"),
+
+    /** The caller already holds {@code lightmove.public-api.max-active-keys-per-user} live personal keys. */
+    API_KEY_LIMIT_REACHED(HttpStatus.CONFLICT, "You have the most API keys allowed. Revoke one you no longer use"),
+
     INTERNAL_ERROR(HttpStatus.INTERNAL_SERVER_ERROR, "Something went wrong on our end");
 
     private final HttpStatus status;

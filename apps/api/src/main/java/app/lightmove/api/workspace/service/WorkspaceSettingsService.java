@@ -5,6 +5,7 @@ import app.lightmove.api.core.audit.constant.WorkspaceEventType;
 import app.lightmove.api.core.audit.service.AuditService;
 import app.lightmove.api.core.error.constant.ErrorCode;
 import app.lightmove.api.core.error.model.ApiException;
+import app.lightmove.api.core.security.apikey.ApiKeyService;
 import app.lightmove.api.workspace.constant.CalendarSync;
 import app.lightmove.api.workspace.constant.InvitationStatus;
 import app.lightmove.api.workspace.constant.MemberStatus;
@@ -37,6 +38,7 @@ public class WorkspaceSettingsService {
     private final AuditService audit;
     private final WorkspaceCompanyResolver companyResolver;
     private final ApplicationEventPublisher events;
+    private final ApiKeyService apiKeys;
 
     @Transactional(readOnly = true)
     public WorkspaceDetail get(UUID workspaceId) {
@@ -132,6 +134,7 @@ public class WorkspaceSettingsService {
                 .forEach(member -> member.remove());
         invitations.findByWorkspaceIdAndStatus(workspaceId, InvitationStatus.PENDING)
                 .forEach(invitation -> invitation.revoke());
+        apiKeys.revokeOnWorkspaceDeletion(actorId, workspaceId, request);
 
         log.info("User {} deleted workspace {}", actorId, workspaceId);
         audit.event(WorkspaceEventType.WORKSPACE_DELETED)
