@@ -21,16 +21,20 @@ import tools.jackson.databind.ObjectMapper;
 /**
  * The public contract, held still. The spec is committed at {@code docs/public-api/openapi.json} and any
  * difference fails here, so a change to what integrations see is reviewed in the PR that makes it.
- * After a deliberate change, rerun with {@code UPDATE_OPENAPI_SNAPSHOT=true} and commit the file. The
- * rate limit and server are production's rather than the test profile's, so the committed file reads true.
+ * After a deliberate change, rerun with {@code UPDATE_OPENAPI_SNAPSHOT=true} and commit the file; under
+ * {@code CI} that variable fails the test instead, since a rewrite there would make it always pass. Every
+ * figure the description states, and the server, is pinned to production's, so the committed file reads true.
  */
 @IntegrationTest
 @TestPropertySource(properties = {
         "lightmove.public-api.requests-per-minute=60",
+        "lightmove.public-api.requests-per-minute-per-ip=300",
+        "lightmove.company.list.default-page-size=25",
+        "lightmove.company.list.max-page-size=100",
         "lightmove.web.base-url=https://beta.uncava.com"})
 class PublicApiContractTest {
 
-    private static final Path SNAPSHOT = Path.of("..", "..", "docs", "public-api", "openapi.json");
+    private static final Path SNAPSHOT = repositoryRoot().resolve(Path.of("docs", "public-api", "openapi.json"));
 
     @Autowired MockMvc mvc;
     @Autowired ObjectMapper json;
@@ -41,6 +45,7 @@ class PublicApiContractTest {
         String generated = json.writerWithDefaultPrettyPrinter().writeValueAsString(spec()) + "\n";
 
         if ("true".equals(System.getenv("UPDATE_OPENAPI_SNAPSHOT"))) {
+            assertThat(System.getenv("CI")).as("UPDATE_OPENAPI_SNAPSHOT is refused under CI").isNull();
             Files.createDirectories(SNAPSHOT.getParent());
             Files.writeString(SNAPSHOT, generated, StandardCharsets.UTF_8);
         }
@@ -82,6 +87,15 @@ class PublicApiContractTest {
     private JsonNode spec() throws Exception {
         return json.readTree(mvc.perform(get("/api/v1/public/openapi.json"))
                 .andExpect(status().isOk()).andReturn().getResponse().getContentAsString());
+    }
+
+    private static Path repositoryRoot() {
+        for (Path dir = Path.of("").toAbsolutePath(); dir != null; dir = dir.getParent()) {
+            if (Files.isDirectory(dir.resolve(Path.of("apps", "api")))) {
+                return dir;
+            }
+        }
+        throw new IllegalStateException("No apps/api above " + Path.of("").toAbsolutePath());
     }
 
     private static void collectRefs(JsonNode node, List<String> refs) {

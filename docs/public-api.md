@@ -157,7 +157,8 @@ npx @openapitools/openapi-generator-cli generate \
 - **The contract is a snapshot.** `PublicApiContractTest` regenerates the spec and fails on any difference from
   `docs/public-api/openapi.json`. After a deliberate change, run
   `UPDATE_OPENAPI_SNAPSHOT=true ./mvnw test -Dtest=PublicApiContractTest` in `apps/api` and commit the file with
-  the change, so the PR shows what integrations will see.
+  the change, so the PR shows what integrations will see. The variable fails the test where `CI` is set, so a
+  pipeline can never rewrite the file it checks.
 - **Kill switch:** the repository variable `PUBLIC_API_ENABLED=false` (`deploy.yml`) makes every public route
   answer 404, its docs included. Existing keys are kept and work again once it is turned back on.
 - **Limits:** set by `lightmove.public-api.*`: the default and maximum key lifetime, the per-user key ceiling,
