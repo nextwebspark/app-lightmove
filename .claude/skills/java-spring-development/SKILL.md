@@ -200,6 +200,9 @@ core/
   storage/     constant/(DocumentFormat, StorageProvider)  config/(DocumentStoreConfig)
                service/(DocumentStore, GcsDocumentStore, FilesystemDocumentStore)
                                                           (uploaded files' bytes; the bucket, never Cloud SQL)
+  crypto/      model/(EncryptionContext)  config/(SecretCipherConfig)
+               service/(SecretCipher, TinkSecretCipher, UnconfiguredSecretCipher)
+                                                          (every secret the app stores — encrypted, never logged)
   persistence/ model/(BaseEntity)
   logging/     service/(CorrelationId, CorrelationIdFilter)
   config/      LightMoveProperties (root record) + one *Settings record per branch,
@@ -479,6 +482,42 @@ more than one instance).
 - Comments explain *why*, not *what*. Every class carries a class-level doc; the inline comments that
   document shipped bugs (the traps below) are load-bearing and must not be stripped. If a line needs a
   comment to say what it *does*, rename something.
+
+## Secrets the app holds
+
+`core/crypto`'s `SecretCipher` is the only way a secret reaches a column: a workspace's own OAuth client secret,
+and a direct mailbox's provider refresh token (V107). Three rules hold for every caller:
+
+- **Encrypt under an `EncryptionContext` naming the owner and the column** (`WorkspaceMailIntegration
+  .clientSecretContext`, `MailboxConnection.refreshTokenContext`). It is the ciphertext's associated data, so a value copied onto another workspace's
+  row, or into another column, fails to decrypt rather than handing one tenant's key to another.
+- **Write-only over the API.** A response says a secret is held (`secretSet`), never what it is; a request
+  record carrying one overrides `toString` to redact it, and so does any model record holding it decrypted
+  (`ProviderCredentials`, `OwnAppKeys`). Never trim one — whitespace inside a secret is the secret.
+- **Decrypt for the one call that spends it.** `MailboxTokens` and `RecallCalendars` decrypt a refresh token
+  into the request body and nowhere else; an access token lives in memory only, never in a column or a log.
+  A record that carries either (`GrantedMailbox`, `RefreshedAccessToken`, `RecallCalendarSpec`) redacts it in
+  `toString`.
+- **No key is a refusal, not a crash.** Without `lightmove.crypto.keyset` the bean is
+  `UnconfiguredSecretCipher` and a write is `INTEGRATION_ENCRYPTION_UNAVAILABLE`; a keyset that does not parse
+  fails the boot. Tests build one with `TestSecretCiphers.dev()`, the keyset `application-test.yml` and
+  `ops/dev/api.sh` carry.
+
+## Outreach's gateway wiring
+
+Everything injects `MailboxGateway` and gets the `@Primary` `RoutingMailboxGateway`. The Nylas gateway beneath it
+is a bean under `@Qualifier(MailboxGatewayConfig.NYLAS)` marked `@Fallback`, so a test's `RecordingMailboxGateway`
+under the same qualifier replaces it **beneath** the router — a test double registered `@Primary` instead would
+displace the router, and the suite would stop exercising routing at all. Our own gateways are
+`DirectMailboxGateway` beans, collected by provider (`MicrosoftMailboxGateway` #645, `GoogleMailboxGateway` #646), both on
+`OAuthDirectMailboxGateway`, which owns the app's resolution, the consent screen's shared parameters, the code's
+redemption and the API client — a provider adds its consent endpoint, its address read, its mail and its calendar. A direct gateway's app is
+per workspace, so it answers `isOfferedTo(workspaceId)` and the router hands a workspace with no app to Nylas; its
+tests serve recorded provider answers from a JDK `HttpServer`, every client given its base URLs by its constructor
+(the token client's `PROVIDER_TOKEN_HOSTS` in production). Integration tests never reach a provider: the
+`RecordingProviderTokenClient` stands in for every token endpoint. Zoom is no mailbox and no gateway: `ZoomService` over
+`ZoomApi` (`ZoomClient`; `RecordingZoomApi` in tests), its tokens in `ZoomTokens`, called by `MeetingService` only for
+a call booked with `MeetingVideo.ZOOM`.
 
 ## Traps this codebase has already fallen into
 

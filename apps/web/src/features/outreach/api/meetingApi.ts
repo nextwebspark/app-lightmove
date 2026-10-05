@@ -8,10 +8,10 @@ import { request } from "../../../lib/apiClient";
 export const MEETINGS_KEY = (projectId: string, candidateId: string) =>
   ["outreach", projectId, "candidate", candidateId, "meetings"] as const;
 
-export const MEETING_SLOTS_KEY = (projectId: string, candidateId: string, minutes: number) =>
-  ["outreach", projectId, "candidate", candidateId, "slots", minutes] as const;
+export const MEETING_SLOTS_KEY = (projectId: string, candidateId: string, minutes: number, from: string | null) =>
+  ["outreach", projectId, "candidate", candidateId, "slots", minutes, from] as const;
 
-export type MeetingVideo = "GOOGLE_MEET" | "MICROSOFT_TEAMS" | "NONE";
+export type MeetingVideo = "GOOGLE_MEET" | "MICROSOFT_TEAMS" | "ZOOM" | "NONE";
 
 export interface Meeting {
   id: string;
@@ -46,7 +46,15 @@ export interface MeetingSlots {
   /** The mailbox's host, which decides the video link offered first. */
   provider: string;
   minutes: number;
+  /** Today in the consultant's zone, `YYYY-MM-DD`: the grid pages no earlier. */
+  earliestDate: string;
+  /** The furthest day the grid pages to, `YYYY-MM-DD`. */
+  latestDate: string;
+  /** Where the page before this one starts, a working week back; null on the first page. */
+  previousFrom: string | null;
   days: SlotDay[];
+  /** The consultant's own Zoom account can put a Zoom link on the invite. */
+  zoomOffered: boolean;
 }
 
 export interface BookMeetingRequest {
@@ -69,9 +77,12 @@ export function getMeetingSlots(
   projectId: string,
   candidateId: string,
   minutes: number,
+  from: string | null,
   signal?: AbortSignal,
 ): Promise<MeetingSlots> {
-  return request<MeetingSlots>(`${meetingsPath(projectId, candidateId)}/slots?minutes=${minutes}`, { signal });
+  const query = new URLSearchParams({ minutes: String(minutes) });
+  if (from) query.set("from", from);
+  return request<MeetingSlots>(`${meetingsPath(projectId, candidateId)}/slots?${query}`, { signal });
 }
 
 export function bookMeeting(projectId: string, candidateId: string, body: BookMeetingRequest): Promise<void> {

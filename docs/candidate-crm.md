@@ -12,7 +12,7 @@ Decided and approved 2026-09-30; phases carry a `> **Built**` callout as they la
 | 2 — Stored profile slug (V95) + golden reads | **Built**, merged (#604) |
 | 3 — Notes, timeline reads, `CANDIDATE_POOL_MANAGE` (V96, V97) | **Built**, merged (#609) |
 | 4a — The Candidates page, owner/tags/do-not-contact, tag settings (V98) | **Built**, merged (#612) |
-| 4b — Possible duplicate + map, the position's Candidates page (4b-1); merge (4b-2, V99) | 4b-1 **Built** (#614); 4b-2 **Next** |
+| 4b — Possible duplicate + map, the position's Candidates page (4b-1); merge (4b-2, V99) | 4b-1 **Built** (#614), its position page since removed; 4b-2 **Next** |
 | 5a — Documents on the person: CV, cover letter, references, versioned (V105) | Backend **built** — `docs/candidate-documents.md`; UI waits on its mockup |
 | Final — Cleanup migration | Last, tracked in #606. Drops V91's frozen copies and the mapping's `note` once 3–4 are deployed |
 
@@ -615,7 +615,11 @@ maps the person. Phone is still not a key.
 >
 >   A separate map-by-id route would have dropped everything the form held: the employer row, the note,
 >   the contacts and the custom columns.
-> - **The position's Candidates page** (`/projects/:id/candidates`, `ProjectCandidatesPage`) makes two
+> - **Removed since: the position's Candidates page.** In universe already lists every executive the
+>   mandate maps (those at no company included), Outreach works them, and the workspace Candidates page's
+>   Add to position files people onto a position. So the page, Add from your candidates and both reads
+>   below were deleted; `/projects/:id/candidates` redirects to In universe. What it was:
+> - **The position's Candidates page** (`/projects/:id/candidates`, `ProjectCandidatesPage`) made two
 >   reads in `CandidatePipelineController`. The grid's own list is left alone.
 >   - `GET …/candidates/pipeline?q=&status=&page=&size=` (`WORK_VIEW`): a client seat reads it too.
 >     `q` searches name, title and employer, with `%` and `_` escaped by `core/text`'s `LikePatterns`.
@@ -635,14 +639,14 @@ maps the person. Phone is still not a key.
 >     not be dropped with the frozen columns.
 > - **Add from your candidates** (`AddFromPoolPicker`) searches the pool, disables anyone already on the
 >   position, and files through `POST /candidates/bulk/position` as Identified. There is no new route.
-> - **Do not contact** shows in two places, staff only:
->   - the drawer's strip (`DoNotContactStrip`, read off the pool record);
->   - the page's ban icon.
+> - **Do not contact** shows on the drawer's strip, staff only (`DoNotContactStrip`, read off the pool
+>   record); the removed page's ban icon went with it.
 > - **Tests.**
->   - Backend: `CandidatePipelineIntegrationTest`.
+>   - Backend: `CandidatePossibleDuplicateIntegrationTest` (named `CandidatePipelineIntegrationTest`
+>     while it also covered the removed page's reads).
 >   - Phase 1's `aNameAloneIsNotAMatch` now proves the same rule through the dialog's answer: added as
 >     new, a namesake stays a second person.
->   - SPA: `ProjectCandidatesPage.test.tsx` and `PossibleDuplicateDialog.test.tsx`.
+>   - SPA: `PossibleDuplicateDialog.test.tsx`.
 
 **4b-2 — merge (V99)**
 - **V99** adds `MERGED` to `app_lm_person_activity_kind_chk`, using V98's idiom. There is no new table.

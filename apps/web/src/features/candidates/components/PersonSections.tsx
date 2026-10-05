@@ -1,36 +1,36 @@
 import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 import { Button, TextArea, useToast } from "../../../components/ui";
-import { CollapsibleSection } from "../../../components/ui/CollapsibleSection";
-import { cn } from "../../../lib/cn";
 import { messageFor } from "../../../lib/errorCodes";
-import { formatInstantDate } from "../../../lib/format";
 import { useSubmitShortcut } from "../../../lib/useSubmitShortcut";
 import { formatActivityTime } from "../../projects/lib/activity";
+import type { DocumentScope } from "../api/documentsApi";
 import * as personCrmApi from "../api/personCrmApi";
 import * as poolApi from "../api/poolApi";
-import type { PersonNoteKind, PersonPosition } from "../api/types";
+import type { PersonDocument, PersonDocumentVersion, PersonNoteKind } from "../api/types";
 import { timelineLines } from "../lib/candidateActivity";
-import { candidateStatusStyle } from "../lib/candidateVocabulary";
+import type { PersonDocuments } from "../lib/usePersonDocuments";
+import { DocumentsPanel } from "./documents/DocumentsPanel";
 import { NoteCard, NoteKindPicker } from "./NoteParts";
 
 /**
  * The shared person in a position's drawer — where else they are mapped, the notes on them, and what
- * has been done to them — as drawn in `Position.dc.html`. Staff-only: the drawer renders none of these
- * for a client seat, and none of them asks the server for anything until it is rendered.
+ * has been done to them — each the body of one of the drawer's tabs. Staff-only: the drawer renders
+ * none of these for a client seat, and none of them asks the server for anything until it is rendered.
  */
 
 interface PersonSectionProps {
   projectId: string;
   candidateId: string;
-  open: boolean;
-  onToggle: () => void;
 }
 
-function usePositions(projectId: string, candidateId: string) {
+const TIMELINE_PREVIEW = 5;
+
+export function usePositions(projectId: string, candidateId: string, enabled = true) {
   return useQuery({
     queryKey: personCrmApi.PERSON_POSITIONS_KEY(projectId, candidateId),
     queryFn: ({ signal }) => personCrmApi.getPersonPositions(projectId, candidateId, signal),
+    enabled,
   });
 }
 
@@ -56,78 +56,7 @@ export function DoNotContactStrip({ personId }: { personId: string }) {
   );
 }
 
-export function PositionsSection({ projectId, candidateId, open, onToggle }: PersonSectionProps) {
-  const positions = usePositions(projectId, candidateId);
-  const rows = positions.data ?? [];
-  const others = rows.filter((row) => row.projectId !== projectId);
-
-  return (
-    <CollapsibleSection
-      id="positions"
-      open={open}
-      onToggle={onToggle}
-      title="Positions"
-      count={rows.length > 0 ? rows.length : undefined}
-      summary={
-        positions.isSuccess
-          ? others.length > 0
-            ? `Also in ${others.map((row) => row.positionTitle ?? "a position").join(", ")}`
-            : "Only this position"
-          : null
-      }
-    >
-      {positions.isError ? (
-        <p className="text-[13px] text-u-text3">{messageFor(positions.error)}</p>
-      ) : positions.isPending ? (
-        <p className="text-[13px] text-u-text3">Loading…</p>
-      ) : (
-        <ul className="flex flex-col gap-2 pb-3">
-          {rows.map((row) => (
-            <PositionCard key={row.candidateId} position={row} current={row.projectId === projectId} />
-          ))}
-        </ul>
-      )}
-    </CollapsibleSection>
-  );
-}
-
-function PositionCard({ position, current }: { position: PersonPosition; current: boolean }) {
-  const status = candidateStatusStyle(position.status);
-  return (
-    <li
-      className={cn(
-        "rounded-[8px] border px-3 py-2.5",
-        current ? "border-u-accent bg-u-accent-tint/40" : "border-u-border",
-      )}
-    >
-      <div className="flex items-center gap-2">
-        <span className="min-w-0 flex-1 truncate text-[13px] font-semibold">
-          {position.positionTitle ?? "Untitled position"}
-        </span>
-        {current && (
-          <span className="flex-none rounded-[4px] bg-u-accent-tint px-1.5 py-px font-mono text-[9.5px] font-semibold uppercase tracking-[0.06em] text-u-accent">
-            This position
-          </span>
-        )}
-      </div>
-      <div className="mt-1 flex items-center gap-2">
-        <span className="min-w-0 flex-1 truncate font-mono text-[11px] text-u-text3">
-          Added by {position.addedByName ?? "someone"} · {formatInstantDate(position.addedAt)}
-        </span>
-        <span
-          className={cn(
-            "flex-none rounded-full px-2 py-px font-mono text-[10px] font-semibold",
-            status.className,
-          )}
-        >
-          {status.label}
-        </span>
-      </div>
-    </li>
-  );
-}
-
-export function NotesSection({ projectId, candidateId, open, onToggle }: PersonSectionProps) {
+export function NotesSection({ projectId, candidateId }: PersonSectionProps) {
   const queryClient = useQueryClient();
   const toast = useToast();
   const notes = useQuery({
@@ -158,15 +87,9 @@ export function NotesSection({ projectId, candidateId, open, onToggle }: PersonS
   const list = notes.data ?? [];
 
   return (
-    <CollapsibleSection
-      id="notes"
-      open={open || text.length > 0}
-      onToggle={onToggle}
-      title="Notes"
-      count={list.length > 0 ? list.length : undefined}
-      summary={notes.isSuccess ? (firstLineOf(list[0]?.body) ?? "None yet") : null}
-    >
-      <div className="flex flex-col gap-3 pb-3">
+    <section aria-label="Notes" className="border-t border-u-border py-4">
+      <TabSectionHeading title="Notes" />
+      <div className="flex flex-col gap-3">
         <div className="rounded-[8px] border border-u-border p-2.5">
           <NoteKindPicker value={kind} onChange={setKind} />
           <TextArea
@@ -212,11 +135,58 @@ export function NotesSection({ projectId, candidateId, open, onToggle }: PersonS
           </ul>
         )}
       </div>
-    </CollapsibleSection>
+    </section>
   );
 }
 
-export function TimelineSection({ projectId, candidateId, open, onToggle }: PersonSectionProps) {
+export function DocumentsSection({
+  scope,
+  documents,
+  personName,
+  onPreview,
+}: {
+  scope: DocumentScope;
+  documents: PersonDocuments;
+  personName: string;
+  onPreview: (document: PersonDocument, version: PersonDocumentVersion) => void;
+}) {
+  return (
+    <section aria-label="Documents" className="border-t border-u-border py-4">
+      <TabSectionHeading title="Documents" />
+      <DocumentsPanel scope={scope} documents={documents} personName={personName} compact onPreview={onPreview} />
+    </section>
+  );
+}
+
+export function TabSectionHeading({ title, action }: { title: string; action?: ReactNode }) {
+  return (
+    <div className="mb-2.5 flex items-center gap-2">
+      <h3 className="text-[13px] font-semibold">{title}</h3>
+      {action && <span className="ms-auto">{action}</span>}
+    </div>
+  );
+}
+
+/** A long history cut to its first lines, and the button that shows the rest of what is loaded. */
+export function useTimelineCut<T>(lines: readonly T[], shown = TIMELINE_PREVIEW) {
+  const [isExpanded, setIsExpanded] = useState(false);
+  const isClipped = !isExpanded && lines.length > shown;
+  return {
+    visible: isClipped ? lines.slice(0, shown) : lines,
+    isClipped,
+    seeMore: isClipped ? (
+      <button
+        type="button"
+        onClick={() => setIsExpanded(true)}
+        className="mt-3 text-note font-medium text-u-accent hover:underline"
+      >
+        See more
+      </button>
+    ) : null,
+  };
+}
+
+export function TimelineFeed({ projectId, candidateId }: PersonSectionProps) {
   const timeline = useInfiniteQuery({
     queryKey: personCrmApi.PERSON_TIMELINE_KEY(projectId, candidateId),
     queryFn: ({ pageParam, signal }) =>
@@ -229,60 +199,40 @@ export function TimelineSection({ projectId, candidateId, open, onToggle }: Pers
     projectId,
   );
   const { hasNextPage, isFetchingNextPage, fetchNextPage } = timeline;
-  const more = hasNextPage ? "+" : "";
+  const cut = useTimelineCut(lines);
 
+  if (timeline.isError) return <p className="text-[13px] text-u-text3">{messageFor(timeline.error)}</p>;
+  if (timeline.isPending) return <p className="text-[13px] text-u-text3">Loading…</p>;
+  if (lines.length === 0) return <p className="text-[13px] text-u-text3">Nothing recorded yet.</p>;
   return (
-    <CollapsibleSection
-      id="timeline"
-      open={open}
-      onToggle={onToggle}
-      title="Timeline"
-      count={lines.length > 0 ? `${lines.length}${more}` : undefined}
-      summary={
-        timeline.isSuccess
-          ? `${lines.length}${more} ${lines.length === 1 ? "entry" : "entries"} · who did what, and when`
-          : null
-      }
-    >
-      {timeline.isError ? (
-        <p className="pb-3 text-[13px] text-u-text3">{messageFor(timeline.error)}</p>
-      ) : timeline.isPending ? (
-        <p className="pb-3 text-[13px] text-u-text3">Loading…</p>
-      ) : lines.length === 0 ? (
-        <p className="pb-3 text-[13px] text-u-text3">Nothing recorded yet.</p>
+    <div>
+      <ol aria-label="Timeline" className="flex flex-col gap-3 border-s border-dotted border-u-border-strong ps-3.5">
+        {cut.visible.map((line) => (
+          <li key={line.key}>
+            <p className="text-[13px]/[1.5] text-u-text2">
+              <span className="font-semibold text-u-text">{line.actorName}</span> {line.text}
+            </p>
+            <p className="mt-0.5 font-mono text-[11px] text-u-text3">
+              <time dateTime={line.occurredAt}>{formatActivityTime(line.occurredAt)}</time>
+              {line.detail && ` · ${line.detail}`}
+            </p>
+          </li>
+        ))}
+      </ol>
+      {cut.isClipped ? (
+        cut.seeMore
       ) : (
-        <div className="pb-3">
-          <ol className="flex flex-col gap-3 border-s border-dotted border-u-border-strong ps-3.5">
-            {lines.map((line) => (
-              <li key={line.key}>
-                <p className="text-[13px]/[1.5] text-u-text2">
-                  <span className="font-semibold text-u-text">{line.actorName}</span> {line.text}
-                </p>
-                <p className="mt-0.5 font-mono text-[11px] text-u-text3">
-                  <time dateTime={line.occurredAt}>{formatActivityTime(line.occurredAt)}</time>
-                  {line.detail && ` · ${line.detail}`}
-                </p>
-              </li>
-            ))}
-          </ol>
-          {hasNextPage && (
-            <button
-              type="button"
-              onClick={() => void fetchNextPage()}
-              disabled={isFetchingNextPage}
-              className="mt-3 text-note font-medium text-u-accent hover:underline disabled:opacity-60"
-            >
-              {isFetchingNextPage ? "Loading…" : "Load more"}
-            </button>
-          )}
-        </div>
+        hasNextPage && (
+          <button
+            type="button"
+            onClick={() => void fetchNextPage()}
+            disabled={isFetchingNextPage}
+            className="mt-3 text-note font-medium text-u-accent hover:underline disabled:opacity-60"
+          >
+            {isFetchingNextPage ? "Loading…" : "Load more"}
+          </button>
+        )
       )}
-    </CollapsibleSection>
+    </div>
   );
-}
-
-function firstLineOf(text: string | undefined, max = 100): string | null {
-  if (!text) return null;
-  const line = text.split("\n", 1)[0].trim();
-  return line.length > max ? `${line.slice(0, max - 1).trimEnd()}…` : line || null;
 }

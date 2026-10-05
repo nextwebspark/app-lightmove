@@ -5,9 +5,11 @@ import app.lightmove.api.core.audit.constant.WorkspaceEventType;
 import app.lightmove.api.core.audit.service.AuditService;
 import app.lightmove.api.core.error.constant.ErrorCode;
 import app.lightmove.api.core.error.model.ApiException;
+import app.lightmove.api.workspace.constant.CalendarSync;
 import app.lightmove.api.workspace.constant.InvitationStatus;
 import app.lightmove.api.workspace.constant.MemberStatus;
 import app.lightmove.api.workspace.constant.WorkspaceMode;
+import app.lightmove.api.workspace.model.CalendarSyncChanged;
 import app.lightmove.api.workspace.model.Workspace;
 import app.lightmove.api.workspace.repository.InvitationRepository;
 import app.lightmove.api.workspace.repository.WorkspaceMemberRepository;
@@ -16,6 +18,7 @@ import jakarta.servlet.http.HttpServletRequest;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -33,6 +36,7 @@ public class WorkspaceSettingsService {
     private final InvitationRepository invitations;
     private final AuditService audit;
     private final WorkspaceCompanyResolver companyResolver;
+    private final ApplicationEventPublisher events;
 
     @Transactional(readOnly = true)
     public WorkspaceDetail get(UUID workspaceId) {
@@ -87,6 +91,32 @@ public class WorkspaceSettingsService {
         }
         return detail(workspace);
     }
+
+    /** Like the mode: nothing stored is migrated by a switch, and a no-op switch records nothing. */
+    @Transactional
+    public WorkspaceDetail changeCalendarSync(UUID actorId, UUID workspaceId, CalendarSync calendarSync,
+                                              HttpServletRequest request) {
+        Workspace workspace = requireWorkspace(workspaceId);
+        CalendarSync previous = workspace.getCalendarSync();
+        if (previous != calendarSync) {
+            workspace.changeCalendarSync(calendarSync);
+            audit.event(WorkspaceEventType.WORKSPACE_UPDATED)
+                    .actor(actorId).workspace(workspaceId).from(request)
+                    .detail("section", "calendarSync")
+                    .detail("from", previous.name())
+                    .detail("to", calendarSync.name())
+                    .record();
+            events.publishEvent(new CalendarSyncChanged(workspaceId, calendarSync));
+        }
+        return detail(workspace);
+    }
+
+    /** How the workspace's calendars are read; {@code outreach} asks before handing anything to Recall. */
+    @Transactional(readOnly = true)
+    public CalendarSync calendarSyncOf(UUID workspaceId) {
+        return requireWorkspace(workspaceId).getCalendarSync();
+    }
+
 
     /** The typed name is verified here, not only in the browser. */
     @Transactional

@@ -1,5 +1,7 @@
+import { useLayoutEffect, useRef, useState } from "react";
 import type { CandidateEducationEntry } from "../api/types";
 import { NetworkMark } from "../../../components/ui/NetworkMark";
+import { cn } from "../../../lib/cn";
 import { toBrowsableUrl } from "../../../lib/url";
 
 /**
@@ -110,5 +112,41 @@ export function ProfileItemList({ items }: { items: readonly ProfileListItem[] }
         );
       })}
     </ul>
+  );
+}
+
+/** A paragraph cut to three lines, with See more only when the text runs past them. */
+export function ClampedText({ text, className }: { text: string; className?: string }) {
+  const paragraph = useRef<HTMLParagraphElement>(null);
+  const [isExpanded, setIsExpanded] = useState(false);
+  const [overflows, setOverflows] = useState(false);
+
+  useLayoutEffect(() => {
+    const element = paragraph.current;
+    if (!element || isExpanded) return;
+    const measure = () => setOverflows(element.scrollHeight > element.clientHeight + 1);
+    measure();
+    if (typeof ResizeObserver === "undefined") return;
+    const observer = new ResizeObserver(measure);
+    observer.observe(element);
+    return () => observer.disconnect();
+  }, [text, isExpanded]);
+
+  return (
+    <div>
+      <p ref={paragraph} className={cn("whitespace-pre-line", !isExpanded && "line-clamp-3", className)}>
+        {text}
+      </p>
+      {(overflows || isExpanded) && (
+        <button
+          type="button"
+          aria-expanded={isExpanded}
+          onClick={() => setIsExpanded((current) => !current)}
+          className="mt-1 text-note font-medium text-u-accent hover:underline"
+        >
+          {isExpanded ? "See less" : "See more"}
+        </button>
+      )}
+    </div>
   );
 }

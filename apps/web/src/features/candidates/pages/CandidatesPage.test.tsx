@@ -230,7 +230,7 @@ describe("CandidatesPage", () => {
     expect(screen.getAllByText("Marked Engaged on Chief Financial Officer").length).toBeGreaterThan(0);
     expect(screen.getAllByText("Do not contact").length).toBeGreaterThan(0);
     expect(screen.getByRole("button", { name: /Not in a position\s*1/ })).toBeInTheDocument();
-    expect(await screen.findByText("2 people · shared across every position in NextWebSpark Search")).toBeInTheDocument();
+    expect(screen.getByText("2 of 2 people")).toBeInTheDocument();
   });
 
   it("asks the server again for a quick view, a tag filter or a sort, never filtering what it already has", async () => {
@@ -247,9 +247,11 @@ describe("CandidatesPage", () => {
       ),
     );
 
-    await userEvent.click(screen.getByRole("button", { name: /^Filters/ }));
-    await userEvent.click(within(screen.getByRole("region", { name: "Filters" })).getByRole("checkbox", { name: /Referral/ }));
-    await userEvent.click(screen.getByRole("radio", { name: "None of" }));
+    await userEvent.click(screen.getByRole("button", { name: "Show Filters" }));
+    const rail = screen.getByRole("region", { name: "Filters" });
+    await userEvent.click(within(rail).getByRole("button", { name: "Tags" }));
+    await userEvent.click(within(rail).getByRole("checkbox", { name: /Referral/ }));
+    await userEvent.click(within(rail).getByRole("radio", { name: "None of" }));
     await waitFor(() =>
       expect(poolApi.listPool).toHaveBeenLastCalledWith(
         expect.objectContaining({ tagIds: ["t2"], tagMatch: "none" }),
@@ -258,7 +260,62 @@ describe("CandidatesPage", () => {
         expect.anything(),
       ),
     );
+    expect(screen.queryByText("None of: Referral")).not.toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: /^Hide Filters/ }));
     expect(screen.getByText("None of: Referral")).toBeInTheDocument();
+  });
+
+  it("keeps the filter rail hidden until asked for, and takes one value per axis", async () => {
+    renderPage();
+    await screen.findAllByText("Fatima Al Mazrouei");
+    expect(screen.queryByRole("region", { name: "Filters" })).not.toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole("button", { name: "Show Filters" }));
+    const rail = screen.getByRole("region", { name: "Filters" });
+    await userEvent.click(within(rail).getByRole("button", { name: "Status" }));
+    await userEvent.click(within(rail).getByRole("checkbox", { name: "Engaged" }));
+    await waitFor(() =>
+      expect(poolApi.listPool).toHaveBeenLastCalledWith(
+        expect.objectContaining({ status: "engaged" }),
+        0,
+        50,
+        expect.anything(),
+      ),
+    );
+
+    await userEvent.click(within(rail).getByRole("checkbox", { name: "Interested" }));
+    await waitFor(() =>
+      expect(poolApi.listPool).toHaveBeenLastCalledWith(
+        expect.objectContaining({ status: "interested" }),
+        0,
+        50,
+        expect.anything(),
+      ),
+    );
+    expect(within(rail).getByRole("checkbox", { name: "Engaged" })).not.toBeChecked();
+
+    await userEvent.click(within(rail).getByRole("button", { name: "Country" }));
+    await userEvent.click(within(rail).getByRole("checkbox", { name: "United Arab Emirates" }));
+    expect(screen.getByRole("button", { name: /Hide Filters\s*2/ })).toBeInTheDocument();
+
+    await userEvent.click(within(rail).getByRole("button", { name: "Clear all filters" }));
+    await waitFor(() =>
+      expect(poolApi.listPool).toHaveBeenLastCalledWith(
+        expect.objectContaining({ status: "", country: "" }),
+        0,
+        50,
+        expect.anything(),
+      ),
+    );
+  });
+
+  it("switches between People and Activity from the toolbar", async () => {
+    renderPage();
+    await screen.findAllByText("Fatima Al Mazrouei");
+
+    await userEvent.click(screen.getByRole("radio", { name: "Activity" }));
+    expect(await screen.findByText(/Nothing recorded for this filter/)).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Show Filters" })).not.toBeInTheDocument();
   });
 
   it("tags the people ticked through the selection bar", async () => {
@@ -376,6 +433,35 @@ describe("CandidatesPage", () => {
     expect(await screen.findByRole("note")).toHaveTextContent("Set by Alok Kumar");
   });
 
+  it("keeps tags, notes, documents and positions under Records, and contacts under Contact", async () => {
+    vi.mocked(poolApi.getPerson).mockResolvedValue({
+      ...record,
+      contacts: { ...record.contacts, emails: [{ address: "fatima@example.com", kind: "work", verified: true, status: null, source: "manual", foundAt: "2026-09-01T00:00:00Z" }] },
+    });
+    renderPage("/candidates?person=person-1");
+
+    expect(await screen.findByRole("heading", { name: "Fatima Al Mazrouei" })).toBeInTheDocument();
+    expect(screen.getAllByRole("tab").map((tab) => tab.textContent)).toEqual([
+      "Profile",
+      "Contact",
+      "Records",
+      "Timeline",
+    ]);
+    expect(screen.queryByRole("button", { name: "Remove tag Open to work" })).not.toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole("tab", { name: "Contact" }));
+    expect(screen.getByText("fatima@example.com")).toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole("tab", { name: "Records" }));
+    expect(await screen.findByRole("button", { name: "Remove tag Open to work" })).toBeInTheDocument();
+    for (const section of ["Tags", "Notes", "Documents", "Positions"]) {
+      expect(screen.getByRole("region", { name: section })).toBeInTheDocument();
+    }
+    expect(
+      within(screen.getByRole("region", { name: "Positions" })).getByRole("button", { name: /Add to position/ }),
+    ).toBeInTheDocument();
+  });
+
   it("asks before deleting a note", async () => {
     vi.mocked(poolApi.getPoolNotes).mockResolvedValue([
       {
@@ -422,7 +508,7 @@ describe("CandidatesPage", () => {
       editedByName: null,
       editable: true,
     });
-    renderPage("/candidates?person=person-1&tab=notes");
+    renderPage("/candidates?person=person-1&tab=records");
 
     await userEvent.type(await screen.findByLabelText("New note"), "Open to a move.");
     await userEvent.click(screen.getByRole("button", { name: "Save note" }));

@@ -2,8 +2,6 @@ import { request } from "../../../lib/apiClient";
 import type {
   Candidate,
   CandidateAiAssessment,
-  CandidatePipelinePage,
-  CandidatePipelineStaffRow,
   CandidatesPage,
   CandidateStatus,
   SaveCandidatePayload,
@@ -152,40 +150,4 @@ export async function getAiAssessment(
 /** Queues an AI deep enrichment; the result lands later, through the stream and the read above. */
 export function requestAiEnrich(projectId: string, candidateId: string): Promise<void> {
   return request<void>(`/projects/${projectId}/candidates/${candidateId}/ai-enrich`, { method: "POST" });
-}
-
-/** Under the list's prefix, so every write that refreshes the grid refreshes the position's page too. */
-export const PIPELINE_KEY = (projectId: string, query: string, status: CandidateStatus | null, page: number) =>
-  [...CANDIDATES_KEY_PREFIX(projectId), "pipeline", query, status, page] as const;
-
-export const PIPELINE_STAFF_KEY = (projectId: string, candidateIds: readonly string[]) =>
-  [...CANDIDATES_KEY_PREFIX(projectId), "pipeline-staff", candidateIds] as const;
-
-export function getPipeline(
-  projectId: string,
-  query: string,
-  status: CandidateStatus | null,
-  page: number,
-  size: number,
-  signal?: AbortSignal,
-): Promise<CandidatePipelinePage> {
-  const params = new URLSearchParams({ page: String(page), size: String(size) });
-  if (query) params.set("q", query);
-  if (status) params.set("status", status);
-  return request<CandidatePipelinePage>(`/projects/${projectId}/candidates/pipeline?${params}`, { signal });
-}
-
-/** The staff columns for the rows on screen. A client seat is refused it, and never asks. */
-export async function getPipelineStaff(
-  projectId: string,
-  candidateIds: readonly string[],
-  signal?: AbortSignal,
-): Promise<CandidatePipelineStaffRow[]> {
-  const params = new URLSearchParams();
-  candidateIds.forEach((id) => params.append("candidateId", id));
-  const answer = await request<{ rows: CandidatePipelineStaffRow[] }>(
-    `/projects/${projectId}/candidates/pipeline/staff?${params}`,
-    { signal },
-  );
-  return answer.rows;
 }

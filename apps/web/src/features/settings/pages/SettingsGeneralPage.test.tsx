@@ -44,6 +44,7 @@ const typedWorkspace = {
   slug: "typed-firm",
   logoMark: "T",
   mode: "COMPANY",
+  calendarSync: "RECALL",
   emailDomain: "typed.example",
   defaultRegion: "GCC",
   defaultCurrency: "USD",

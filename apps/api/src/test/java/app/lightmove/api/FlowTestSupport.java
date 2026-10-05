@@ -136,6 +136,36 @@ public abstract class FlowTestSupport {
                 .andExpect(status().isOk());
     }
 
+    /**
+     * A pure client: a representative named on a client record, signed up from the invitation, holding the
+     * workspace {@code CLIENT} role alone. @return their bearer token
+     */
+    protected String clientRepresentative(String adminToken, String fullName, String representativeEmail)
+            throws Exception {
+        String clientId = body(mvc.perform(post("/api/v1/clients")
+                        .header("Authorization", "Bearer " + adminToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"customName":"%s Holdings"}
+                                """.formatted(fullName)))
+                .andExpect(status().isCreated())
+                .andReturn()).get("id").asText();
+        mvc.perform(post("/api/v1/clients/" + clientId + "/representatives")
+                        .header("Authorization", "Bearer " + adminToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"fullName":"%s","position":"Sponsor","email":"%s"}
+                                """.formatted(fullName, representativeEmail)))
+                .andExpect(status().isCreated());
+        return body(mvc.perform(post("/api/v1/onboarding/accept-invitation-signup")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"token":"%s","fullName":"%s","password":"%s"}
+                                """.formatted(email.latestTokenFor(representativeEmail), fullName, PASSWORD)))
+                .andExpect(status().isCreated())
+                .andReturn()).get("accessToken").asText();
+    }
+
     /** The member id of the given email on the roster, read as the given caller. */
     protected String memberIdOf(String callerToken, String memberEmail) throws Exception {
         JsonNode roster = body(mvc.perform(get("/api/v1/members")

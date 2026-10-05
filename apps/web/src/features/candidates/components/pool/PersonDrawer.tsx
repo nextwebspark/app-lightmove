@@ -1,27 +1,39 @@
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery } from "@tanstack/react-query";
+import { useCallback, useState } from "react";
 import { Icon, ICONS } from "../../../../components/layout/Icon";
-import { Drawer, DrawerCloseButton } from "../../../../components/ui/Drawer";
+import { Drawer } from "../../../../components/ui/Drawer";
+import { PanelCloseButton } from "../../../../components/ui/PanelCloseButton";
 import { Button, Select, useToast } from "../../../../components/ui";
 import { TabList } from "../../../../components/ui/TabList";
 import { tabPanelProps } from "../../../../components/ui/tabPanelProps";
 import { cn } from "../../../../lib/cn";
 import { messageFor } from "../../../../lib/errorCodes";
 import * as poolApi from "../../api/poolApi";
-import type { PersonRecord } from "../../api/types";
+import type { DocumentScope } from "../../api/documentsApi";
+import type { PersonDocument, PersonDocumentVersion, PersonRecord } from "../../api/types";
+import { usePersonDocuments } from "../../lib/usePersonDocuments";
+import { usePersonRecordUpdate } from "../../lib/usePersonRecordUpdate";
 import { usePoolLookups } from "../../lib/usePoolLookups";
+import { DocumentPreviewSheet, type PreviewTarget } from "../documents/DocumentPreviewSheet";
+import { DocumentsPanel } from "../documents/DocumentsPanel";
+import { PrimaryCvChip } from "../documents/PrimaryCvChip";
+import { PositionsSection } from "../PersonPositions";
+import { TabSectionHeading } from "../PersonSections";
+import { PersonTagsSection } from "../PersonTagsSection";
 import { HeaderProfileLink } from "../ProfileParts";
 import { PersonAvatar } from "./PersonAvatar";
 import { PersonNotesTab } from "./PersonNotesTab";
 import { PersonProfileTab } from "./PersonProfileTab";
 import { PersonTimelineTab } from "./PersonTimelineTab";
-import { TagPicker } from "./TagPicker";
-import { TagPill } from "./TagPill";
+import { PersonContactTab } from "./PersonContactTab";
+import { AddToPositionDialog } from "./AddToPositionDialog";
 
-export type PersonDrawerTab = "profile" | "notes" | "timeline";
+export type PersonDrawerTab = "profile" | "contact" | "records" | "timeline";
 
 const TABS: { value: PersonDrawerTab; label: string }[] = [
   { value: "profile", label: "Profile" },
-  { value: "notes", label: "Notes" },
+  { value: "contact", label: "Contact" },
+  { value: "records", label: "Records" },
   { value: "timeline", label: "Timeline" },
 ];
 
@@ -29,7 +41,8 @@ const DEFAULT_REASON = "Marked from the candidate drawer.";
 
 /**
  * A workspace person on the Candidates page, as `Candidates.dc.html` draws them: who they are and the
- * team's own facts about them — owner, do not contact, tags — over three tabs. Staff-only, like the
+ * team's own facts about them — owner and do not contact in the header; tags, notes, documents and
+ * positions under Records — laid out as a position's executive drawer is. Staff-only, like the
  * page it opens from.
  */
 export function PersonDrawer({
@@ -54,12 +67,12 @@ export function PersonDrawer({
       <div className="flex h-full flex-col">
         {record.isError ? (
           <div className="relative p-5">
-            <DrawerCloseButton onClose={onClose} />
+            <PanelCloseButton onClose={onClose} />
             <p className="mt-6 text-[13px] text-u-text3">{messageFor(record.error)}</p>
           </div>
         ) : !record.data ? (
           <div className="relative p-5">
-            <DrawerCloseButton onClose={onClose} />
+            <PanelCloseButton onClose={onClose} />
             <p className="mt-6 text-[13px] text-u-text3">Loading…</p>
           </div>
         ) : (
@@ -81,20 +94,20 @@ function PersonDrawerBody({
   onTabChange: (tab: PersonDrawerTab) => void;
   onClose: () => void;
 }) {
-  const queryClient = useQueryClient();
   const toast = useToast();
   const lookups = usePoolLookups();
   const notes = useQuery({
     queryKey: poolApi.POOL_NOTES_KEY(person.personId),
     queryFn: ({ signal }) => poolApi.getPoolNotes(person.personId, signal),
   });
-
-  const changed = (updated: PersonRecord) => {
-    queryClient.setQueryData(poolApi.PERSON_RECORD_KEY(updated.personId), updated);
-    for (const queryKey of poolApi.personChangedKeys(updated.personId).slice(1)) {
-      void queryClient.invalidateQueries({ queryKey });
-    }
-  };
+  const documentScope: DocumentScope = { kind: "person", personId: person.personId };
+  const documents = usePersonDocuments(documentScope);
+  const [preview, setPreview] = useState<PreviewTarget | null>(null);
+  const openPreview = (document: PersonDocument, version: PersonDocumentVersion) =>
+    setPreview({ documentId: document.id, versionId: version.id });
+  const closePreview = useCallback(() => setPreview(null), []);
+  const changed = usePersonRecordUpdate();
+  const [adding, setAdding] = useState(false);
 
   const owning = useMutation({
     mutationFn: (ownerUserId: string | null) => poolApi.setOwner(person.personId, ownerUserId),
@@ -107,17 +120,8 @@ function PersonDrawerBody({
     onSuccess: changed,
     onError: (error) => toast(messageFor(error)),
   });
-  const untagging = useMutation({
-    mutationFn: (tagId: string) => poolApi.untagPerson(person.personId, tagId),
-    onSuccess: (updated) => {
-      changed(updated);
-      void queryClient.invalidateQueries({ queryKey: poolApi.TAGS_KEY });
-    },
-    onError: (error) => toast(messageFor(error)),
-  });
 
   const context = [person.companyName, person.locationCity, person.locationCountry].filter(Boolean).join(" · ");
-  const held = person.tagIds.map((id) => lookups.tagsById.get(id)).filter((tag) => tag !== undefined);
   const doNotContact = person.doNotContact;
 
   return (
@@ -134,7 +138,7 @@ function PersonDrawerBody({
             <p className="truncate font-mono text-[11.5px] text-u-text3">{context || "No employer or location recorded"}</p>
           </div>
         </div>
-        <DrawerCloseButton onClose={onClose} />
+        <PanelCloseButton onClose={onClose} />
 
         <div className="mt-3 flex flex-wrap items-center gap-2">
           {person.seniority && (
@@ -179,6 +183,7 @@ function PersonDrawerBody({
             <Icon d={ICONS.ban} size={12} />
             Do not contact
           </button>
+          <PrimaryCvChip documents={documents} onPreview={openPreview} />
         </div>
 
         {doNotContact && (
@@ -192,22 +197,6 @@ function PersonDrawerBody({
           </div>
         )}
 
-        <div className="mt-3 flex flex-wrap items-center gap-1.5">
-          {held.map((tag) => (
-            <span key={tag.id} className="flex items-center">
-              <TagPill tag={tag} className="pe-1" />
-              <button
-                type="button"
-                aria-label={`Remove tag ${tag.label}`}
-                onClick={() => untagging.mutate(tag.id)}
-                className="-ms-1 grid size-4 place-items-center rounded-full text-u-text3 hover:text-u-text"
-              >
-                <Icon d={ICONS.close} size={10} />
-              </button>
-            </span>
-          ))}
-          <TagPicker person={person} tags={lookups.tags} onChanged={changed} />
-        </div>
 
         <TabList
           label="Candidate sections"
@@ -215,16 +204,50 @@ function PersonDrawerBody({
           className="-mb-3 mt-3"
           value={tab}
           onChange={onTabChange}
-          tabs={TABS.map((option) => ({
-            ...option,
-            count: option.value === "notes" ? (notes.data?.length ?? 0) : undefined,
-          }))}
+          tabs={TABS}
         />
       </header>
 
       <div className="min-h-0 flex-1 overflow-y-auto px-5 py-4" {...tabPanelProps("person-drawer", tab)}>
         {tab === "profile" && <PersonProfileTab person={person} />}
-        {tab === "notes" && <PersonNotesTab person={person} notes={notes} />}
+        {tab === "contact" && <PersonContactTab person={person} />}
+        {tab === "records" && (
+          <>
+            <PersonTagsSection person={person} />
+            <section aria-label="Notes" className="border-t border-u-border py-4">
+              <TabSectionHeading title="Notes" />
+              <PersonNotesTab person={person} notes={notes} />
+            </section>
+            <section aria-label="Documents" className="border-t border-u-border py-4">
+              <TabSectionHeading title="Documents" />
+              <DocumentsPanel
+                scope={documentScope}
+                documents={documents}
+                personName={person.fullName.split(" ")[0]}
+                onPreview={openPreview}
+              />
+            </section>
+            <PositionsSection
+              title="Positions"
+              positions={person.positions}
+              action={
+                <button
+                  type="button"
+                  onClick={() => setAdding(true)}
+                  className="flex items-center gap-1 font-mono text-[11.5px] font-semibold text-u-accent hover:underline"
+                >
+                  <Icon d={ICONS.plus} size={11} />
+                  Add to position
+                </button>
+              }
+              empty={
+                <p className="text-[13px] text-u-text3">
+                  Not in any position right now. Everything on file stays for the next search.
+                </p>
+              }
+            />
+          </>
+        )}
         {tab === "timeline" && <PersonTimelineTab personId={person.personId} />}
       </div>
 
@@ -233,6 +256,25 @@ function PersonDrawerBody({
           Close
         </Button>
       </footer>
+
+      <DocumentPreviewSheet
+        scope={documentScope}
+        documents={documents}
+        target={preview}
+        onTargetChange={setPreview}
+        onClose={closePreview}
+      />
+
+      {adding && (
+        <AddToPositionDialog
+          open
+          onClose={() => setAdding(false)}
+          personIds={[person.personId]}
+          targetName={person.fullName}
+          alreadyInByPosition={new Map(person.positions.map((position) => [position.projectId, 1]))}
+          positions={lookups.workablePositions}
+        />
+      )}
     </>
   );
 }

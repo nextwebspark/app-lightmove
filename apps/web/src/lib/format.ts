@@ -29,6 +29,16 @@ export function formatDate(isoDate: string | null | undefined): string {
 }
 
 /**
+ * Whole days from today to an ISO date, in the viewer's own zone: negative once it has passed. The server counts
+ * in UTC, so near midnight the two can disagree by a day.
+ */
+export function daysUntil(isoDate: string): number {
+  const today = new Date();
+  const startOfToday = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+  return Math.round((new Date(`${isoDate}T00:00:00`).getTime() - startOfToday.getTime()) / 86_400_000);
+}
+
+/**
  * An instant → "Mar 2026", the shape a "joined" line wants. Null when there is no instant, so the
  * caller can drop the clause rather than print a dash in the middle of a sentence.
  */

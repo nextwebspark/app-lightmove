@@ -8,6 +8,7 @@ import app.lightmove.api.core.ratelimit.service.RateLimitGuard;
 import app.lightmove.api.core.resilience.model.VendorException;
 import app.lightmove.api.core.security.model.User;
 import app.lightmove.api.core.security.repository.UserRepository;
+import app.lightmove.api.outreach.constant.BookingPageKind;
 import app.lightmove.api.outreach.dto.BookingPageResponse;
 import app.lightmove.api.outreach.model.BookingPageSpec;
 import app.lightmove.api.outreach.model.BookingSlug;
@@ -63,8 +64,14 @@ public class BookingPages {
         this.properties = properties;
     }
 
+    /** A direct mailbox's page is always Uncava's own; a Nylas one needs the plan to carry Scheduler. */
     public boolean isOffered() {
-        return gateway.isOffered() && gateway.isBookingPageOffered();
+        return gateway.isOffered() && (gateway.isBookingPageOffered() || gateway.ownBookingPagesOffered());
+    }
+
+    /** Whether this consultant's link can be sent from this mailbox. */
+    public boolean isOfferedFor(MailboxConnection mailbox) {
+        return gateway.isOffered() && (mailbox.isDirect() || gateway.isBookingPageOffered());
     }
 
     /** The link, or null while the consultant has none yet. */
@@ -95,7 +102,13 @@ public class BookingPages {
             // Two first Starts drew the same slug in the same instant; the second draws again.
             mailbox = claimedLinkOf(userId, workspaceId, consultantName);
         }
-        if (mailbox != null && mailbox.getBookingConfigurationId() == null) {
+        if (mailbox == null || mailbox.isDirect()) {
+            return;
+        }
+        if (!gateway.isBookingPageOffered()) {
+            throw ApiException.of(ErrorCode.OUTREACH_BOOKING_LINK_UNAVAILABLE);
+        }
+        if (mailbox.getBookingConfigurationId() == null) {
             createPage(mailbox, consultantName);
         }
     }
@@ -107,11 +120,12 @@ public class BookingPages {
     @Async
     @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
     void onConnected(MailboxConnected connected) {
-        if (!isOffered()) {
+        if (!gateway.isBookingPageOffered()) {
             return;
         }
         mailboxes.findById(connected.mailboxConnectionId())
                 .filter(MailboxConnection::canSend)
+                .filter(mailbox -> !mailbox.isDirect())
                 .filter(mailbox -> mailbox.getBookingSlug() != null && mailbox.getBookingConfigurationId() == null)
                 .ifPresent(mailbox -> {
                     try {
@@ -130,15 +144,19 @@ public class BookingPages {
     @Transactional(readOnly = true)
     public BookingPageResponse open(String slug, HttpServletRequest request) {
         rateLimit.checkBookingPageOpen(slug, request);
-        if (!isOffered() || slug == null || !BookingSlug.SHAPE.matcher(slug).matches()) {
+        if (!gateway.isOffered() || slug == null || !BookingSlug.SHAPE.matcher(slug).matches()) {
             throw ApiException.of(ErrorCode.NOT_FOUND);
         }
         MailboxConnection mailbox = mailboxes.findByBookingSlug(slug)
                 .filter(MailboxConnection::canSend)
-                .filter(found -> found.getBookingConfigurationId() != null)
+                .filter(found -> found.isDirect()
+                        || (gateway.isBookingPageOffered() && found.getBookingConfigurationId() != null))
                 .orElseThrow(() -> ApiException.of(ErrorCode.NOT_FOUND));
-        return new BookingPageResponse(mailbox.getBookingConfigurationId(), properties.outreach().nylas().baseUrl(),
-                nameOf(mailbox));
+        if (mailbox.isDirect()) {
+            return new BookingPageResponse(BookingPageKind.DIRECT, null, null, nameOf(mailbox), CALL_MINUTES);
+        }
+        return new BookingPageResponse(BookingPageKind.NYLAS, mailbox.getBookingConfigurationId(),
+                properties.outreach().nylas().baseUrl(), nameOf(mailbox), CALL_MINUTES);
     }
 
     private MailboxConnection claimedLinkOf(UUID userId, UUID workspaceId, String consultantName) {
@@ -187,7 +205,7 @@ public class BookingPages {
                 Set.copyOf(settings.workingDays()));
     }
 
-    private String nameOf(MailboxConnection mailbox) {
+    String nameOf(MailboxConnection mailbox) {
         return nameOf(mailbox.getUserId());
     }
 

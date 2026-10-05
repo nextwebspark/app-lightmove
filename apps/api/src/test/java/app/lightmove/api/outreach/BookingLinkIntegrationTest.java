@@ -13,6 +13,7 @@ import app.lightmove.api.outreach.model.BookingMade;
 import app.lightmove.api.outreach.model.BookingPageSpec;
 import app.lightmove.api.outreach.model.GrantedMailbox;
 import app.lightmove.api.outreach.model.InboundMessage;
+import app.lightmove.api.outreach.model.MailboxGrants;
 import app.lightmove.api.outreach.service.OutreachDispatcher;
 import jakarta.servlet.http.Cookie;
 import java.net.URI;
@@ -107,6 +108,84 @@ class BookingLinkIntegrationTest extends FlowTestSupport {
         String rajesh = executive("Rajesh Menon", "rajesh@" + domain);
         startSequence(createSequence(), rajesh, "rajesh@" + domain);
         assertThat(gateway.bookingPages()).hasSize(1);
+    }
+
+    @Test
+    @DisplayName("a mailbox moved off Nylas keeps its link, which now opens Uncava's own page")
+    void aMovedMailboxKeepsItsLink() throws Exception {
+        connectMailbox();
+        String priya = executive("Priya Raman", "priya@" + domain);
+        startSequence(createSequence(), priya, "priya@" + domain);
+        String slug = (String) mailboxRow().get("booking_slug");
+
+        gateway.grant(new GrantedMailbox(MailboxGrants.mintDirect("google"), MAILBOX, "google", "refresh-token-1"));
+        connectMailbox();
+
+        assertThat(mailboxRow().get("booking_slug")).isEqualTo(slug);
+        JsonNode page = body(mvc.perform(get("/api/v1/outreach/booking/" + slug)).andExpect(status().isOk()).andReturn());
+        assertThat(page.get("kind").asText()).isEqualTo("DIRECT");
+        assertThat(page.get("configurationId").isNull()).isTrue();
+        assertThat(page.get("consultantName").asText()).isEqualTo("Yara Haddad");
+    }
+
+    @Test
+    @DisplayName("a direct page offers free half-hours with no session, and a booking invites the executive and counts")
+    void aDirectPageBooksTheExecutive() throws Exception {
+        connectMailbox();
+        String priya = executive("Priya Raman", "priya@" + domain);
+        startSequence(createSequence(), priya, "priya@" + domain);
+        dispatcher.dispatchAt(monday);
+        String slug = (String) mailboxRow().get("booking_slug");
+        // The recording gateway answers the calendar; the row says direct, which is all the page reads.
+        jdbc.update("update app_lm_mailbox_connection set gateway = 'DIRECT', refresh_token_encrypted = 'not-a-seal', "
+                + "recall_calendar_attempts = 5 where workspace_id = ?::uuid", workspaceId);
+        try {
+            JsonNode slots = body(mvc.perform(get("/api/v1/outreach/booking/" + slug + "/slots"))
+                    .andExpect(status().isOk()).andReturn());
+            assertThat(slots.get("minutes").asInt()).isEqualTo(30);
+            assertThat(slots.get("timeZone").asText()).isEqualTo("Asia/Dubai");
+            String start = firstStart(slots);
+
+            mvc.perform(post("/api/v1/outreach/booking/" + slug).contentType(MediaType.APPLICATION_JSON)
+                            .content("""
+                                    {"startsAt":"%s","email":"Priya@%s"}""".formatted(start, domain)))
+                    .andExpect(status().isNoContent());
+
+            assertThat(gateway.created()).singleElement().satisfies(event -> {
+                assertThat(event.inviteeAddress()).isEqualTo("Priya@" + domain);
+                assertThat(event.title()).isEqualTo("30-minute call with Yara Haddad");
+                assertThat(event.startsAt()).isEqualTo(Instant.parse(start));
+            });
+            assertThat(jdbc.queryForObject("select status from app_lm_outreach_enrollment where candidate_id = ?::uuid",
+                    String.class, priya)).isEqualTo("BOOKED");
+            assertThat(candidateStatus(priya)).isEqualTo("engaged");
+
+            mvc.perform(post("/api/v1/outreach/booking/" + slug).contentType(MediaType.APPLICATION_JSON)
+                            .content("""
+                                    {"startsAt":"%s","email":"priya@%s"}"""
+                                    .formatted(Instant.parse(start).plusSeconds(60), domain)))
+                    .andExpect(status().isBadRequest());
+            // The same weekday and time a year on is on the grid, but past the six months the page offers.
+            mvc.perform(post("/api/v1/outreach/booking/" + slug).contentType(MediaType.APPLICATION_JSON)
+                            .content("""
+                                    {"startsAt":"%s","email":"priya@%s"}"""
+                                    .formatted(Instant.parse(start).plus(Duration.ofDays(364)), domain)))
+                    .andExpect(status().isBadRequest());
+            assertThat(gateway.created()).hasSize(1);
+        } finally {
+            jdbc.update("update app_lm_mailbox_connection set gateway = 'NYLAS', refresh_token_encrypted = null "
+                    + "where workspace_id = ?::uuid", workspaceId);
+        }
+        mvc.perform(get("/api/v1/outreach/booking/" + slug + "/slots")).andExpect(status().isNotFound());
+    }
+
+    private static String firstStart(JsonNode slots) {
+        for (JsonNode day : slots.get("days")) {
+            if (!day.get("starts").isEmpty()) {
+                return day.get("starts").get(0).asText();
+            }
+        }
+        throw new AssertionError("no free time offered");
     }
 
     @Test

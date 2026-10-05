@@ -49,6 +49,20 @@ lightmove:
     provider: filesystem
     directory: target/test-documents
 
+  # A dev-only key-encryption key, the same one ops/dev/api.sh gives npm run dev. It protects nothing real.
+  crypto:
+    keyset: '{"primaryKeyId":653769729,"key":[{"keyData":{"typeUrl":"type.googleapis.com/google.crypto.tink.AesGcmKey","value":"GiDdcDK+eD7jyE+NjJ55C7Ta4t9IgqMRKbdXgoG/+4KVfw==","keyMaterialType":"SYMMETRIC"},"status":"ENABLED","keyId":653769729,"outputPrefixType":"TINK"}]}'
+
+  # Uncava's shared apps at Google and Microsoft; none at Zoom, so "not offered" is reachable too.
+  outreach:
+    providers:
+      google:
+        client-id: uncava-google-client
+        client-secret: uncava-google-secret
+      microsoft:
+        client-id: uncava-microsoft-client
+        client-secret: uncava-microsoft-secret
+
   # Small, so the size refusal is reachable with a fixture of a few kilobytes.
   person-documents:
     max-file-size-bytes: 4096

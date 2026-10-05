@@ -1,25 +1,6 @@
 import type { ReactNode } from "react";
-import { Icon, ICONS } from "../layout/Icon";
 import { cn } from "../../lib/cn";
 import { useEscapeKey } from "../../lib/useEscapeKey";
-
-/**
- * The dismiss control every panel puts in the same corner. Positioned absolutely, so the header it
- * sits in is the `relative` one — written once because three panels drew it and a fourth would have
- * drawn it slightly differently.
- */
-export function DrawerCloseButton({ onClose }: { onClose: () => void }) {
-  return (
-    <button
-      type="button"
-      onClick={onClose}
-      aria-label="Close"
-      className="absolute end-3.5 top-3.5 rounded-md p-1.5 text-u-text3 transition hover:bg-u-raised hover:text-u-text"
-    >
-      <Icon d={ICONS.close} size={16} />
-    </button>
-  );
-}
 
 /** The mockups' right slide-over: floating rounded panel, overlay and Escape to dismiss. */
 export function Drawer({

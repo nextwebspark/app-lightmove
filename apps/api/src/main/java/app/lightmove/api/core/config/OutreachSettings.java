@@ -10,6 +10,9 @@ import org.springframework.boot.context.properties.bind.DefaultValue;
 public record OutreachSettings(
         NylasSettings nylas,
 
+        /** Uncava's own OAuth apps, which a workspace on the shared mode connects through. */
+        ProviderAppsSettings providers,
+
         /** How long a started mailbox connection may take to come back from the provider's consent screen. */
         @DefaultValue("10m") Duration connectWindow,
 
@@ -30,5 +33,11 @@ public record OutreachSettings(
         @DefaultValue("10m") Duration claimTimeout,
 
         /** How far back the reply poll looks for threads it still listens to. */
-        @DefaultValue("30d") Duration replyListenWindow
+        @DefaultValue("30d") Duration replyListenWindow,
+
+        /**
+         * Which gateway a new mailbox connects through: {@code nylas}, or {@code direct} for our own wherever it
+         * covers the provider. A connection already made stays with the gateway that made it.
+         */
+        @DefaultValue("nylas") OutreachGateway gateway
 ) {}
