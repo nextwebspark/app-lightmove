@@ -188,6 +188,11 @@ project route's `projectId` (#243) — ids only, never an email or a name. Each 
 (#244). Where Cloud Run passed a trace, every line carries `logging.googleapis.com/trace`, `spanId` and
 `trace_sampled`, so it nests under Cloud Run's own request entry (#245).
 
+The trace is read from `traceparent` / `X-Cloud-Trace-Context`, which Cloud Run's front end sets — but
+both are request headers, so a caller reaching the container any other way chooses its own. The parser
+accepts only the documented shapes, which bounds the damage to that caller's lines nesting under a trace
+id of their choosing; never treat a line's trace as proof of which request it belongs to.
+
 | Question | Logs Explorer filter |
 |---|---|
 | The id a user read out | `jsonPayload.correlationId="<id>"` |

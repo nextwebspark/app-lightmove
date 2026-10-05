@@ -14,6 +14,10 @@ public final class CorrelationId {
     public static final String MDC_KEY = "correlationId";
     public static final String HEADER = "X-Correlation-Id";
 
+    /** The trace headers Cloud Run's front end sets — caller-suppliable, so {@link CloudTraceContext} parses them strictly. */
+    public static final String TRACEPARENT_HEADER = "traceparent";
+    public static final String CLOUD_TRACE_CONTEXT_HEADER = "X-Cloud-Trace-Context";
+
     /** MDC keys the deployed encoder renames to Cloud Logging's {@code logging.googleapis.com/*} trace fields. */
     public static final String TRACE_KEY = "gcpTrace";
     public static final String SPAN_ID_KEY = "gcpSpanId";

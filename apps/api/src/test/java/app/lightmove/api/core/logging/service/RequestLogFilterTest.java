@@ -4,6 +4,8 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import app.lightmove.api.core.error.service.ClientDisconnects;
@@ -14,6 +16,7 @@ import ch.qos.logback.core.read.ListAppender;
 import com.fasterxml.jackson.core.JsonFactory;
 import com.fasterxml.jackson.core.JsonGenerator;
 import jakarta.servlet.FilterChain;
+import jakarta.servlet.http.HttpServletRequest;
 import java.io.IOException;
 import java.io.StringWriter;
 import java.util.List;
@@ -30,6 +33,7 @@ import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.mock.web.MockAsyncContext;
 import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.web.MockHttpServletResponse;
+import org.springframework.web.HttpRequestMethodNotSupportedException;
 import org.springframework.web.method.HandlerMethod;
 import org.springframework.web.servlet.HandlerExecutionChain;
 import org.springframework.web.servlet.HandlerMapping;
@@ -120,9 +124,10 @@ class RequestLogFilterTest {
     }
 
     @Test
-    @DisplayName("a path no controller answers collapses to its first segment, so bots mint no series")
+    @DisplayName("a path no controller answers collapses to its root, so bots mint no series")
     void unmatchedIsCollapsed() throws Exception {
         MockHttpServletRequest request = new MockHttpServletRequest("GET", "/api/v1/wp-admin/../.env");
+        request.setAttribute(HandlerMapping.BEST_MATCHING_HANDLER_ATTRIBUTE, new Object());
         request.setAttribute(HandlerMapping.BEST_MATCHING_PATTERN_ATTRIBUTE, "/**");
 
         filter(null).doFilter(request, response, (req, res) -> ((MockHttpServletResponse) res).setStatus(404));
@@ -131,17 +136,58 @@ class RequestLogFilterTest {
     }
 
     @Test
-    @DisplayName("a request refused before dispatch is still attributed to its route")
+    @DisplayName("an unmatched root is never copied from the path, however long or random")
+    void unknownRootIsNeverEchoed() throws Exception {
+        String randomRoot = "x".repeat(8192);
+        MockHttpServletRequest request = new MockHttpServletRequest("GET", "/oauth2x/" + randomRoot);
+
+        RouteResolver resolver = new RouteResolver(providerOf(null));
+
+        assertThat(resolver.resolve(request)).isEqualTo("/<other>/<unmatched>");
+        assertThat(resolver.resolve(new MockHttpServletRequest("GET", "/login/oauth2/code/x")))
+                .isEqualTo("/login/<unmatched>");
+    }
+
+    @Test
+    @DisplayName("a request the dispatcher already missed is not looked up a second time")
+    void dispatchedMissIsNotLookedUpAgain() throws Exception {
+        RequestMappingHandlerMapping mapping = mock(RequestMappingHandlerMapping.class);
+        MockHttpServletRequest request = apiRequest();
+        request.setAttribute(HandlerMapping.BEST_MATCHING_HANDLER_ATTRIBUTE, new Object());
+
+        filter(mapping).doFilter(request, response, (req, res) -> ((MockHttpServletResponse) res).setStatus(404));
+
+        verify(mapping, never()).getHandler(any());
+    }
+
+    @Test
+    @DisplayName("a request refused before dispatch keeps its route, and the lookup leaves the request untouched")
     void refusalBeforeDispatchKeepsItsRoute() throws Exception {
         RequestMappingHandlerMapping mapping = mock(RequestMappingHandlerMapping.class);
         when(mapping.getHandler(any())).thenAnswer(call -> {
-            markMatched(call.getArgument(0), PROJECT_ROUTE);
+            HttpServletRequest probe = call.getArgument(0);
+            probe.setAttribute(HandlerMapping.BEST_MATCHING_HANDLER_ATTRIBUTE, CONTROLLER_METHOD);
+            probe.setAttribute(HandlerMapping.BEST_MATCHING_PATTERN_ATTRIBUTE, PROJECT_ROUTE);
             return new HandlerExecutionChain(new Object());
         });
+        MockHttpServletRequest request = apiRequest();
+
+        filter(mapping).doFilter(request, response, (req, res) -> ((MockHttpServletResponse) res).setStatus(401));
+
+        assertThat(fieldsOf(theOnlyLine())).contains("\"route\":\"" + PROJECT_ROUTE + "\"", "\"status\":401");
+        assertThat(request.getAttribute(HandlerMapping.BEST_MATCHING_PATTERN_ATTRIBUTE)).isNull();
+        assertThat(request.getAttribute(HandlerMapping.BEST_MATCHING_HANDLER_ATTRIBUTE)).isNull();
+    }
+
+    @Test
+    @DisplayName("a lookup the mapping refuses (wrong method) reports no template")
+    void refusedLookupIsUnmatched() throws Exception {
+        RequestMappingHandlerMapping mapping = mock(RequestMappingHandlerMapping.class);
+        when(mapping.getHandler(any())).thenThrow(new HttpRequestMethodNotSupportedException("PATCH"));
 
         filter(mapping).doFilter(apiRequest(), response, (req, res) -> ((MockHttpServletResponse) res).setStatus(401));
 
-        assertThat(fieldsOf(theOnlyLine())).contains("\"route\":\"" + PROJECT_ROUTE + "\"", "\"status\":401");
+        assertThat(fieldsOf(theOnlyLine())).contains("\"route\":\"/api/<unmatched>\"");
     }
 
     @Test
@@ -167,10 +213,14 @@ class RequestLogFilterTest {
     }
 
     private static RequestLogFilter filter(RequestMappingHandlerMapping mapping) {
+        return new RequestLogFilter(new RouteResolver(providerOf(mapping)));
+    }
+
+    private static ObjectProvider<RequestMappingHandlerMapping> providerOf(RequestMappingHandlerMapping mapping) {
         @SuppressWarnings("unchecked")
         ObjectProvider<RequestMappingHandlerMapping> provider = mock(ObjectProvider.class);
         when(provider.getIfAvailable()).thenReturn(mapping);
-        return new RequestLogFilter(provider);
+        return provider;
     }
 
     private static MockHttpServletRequest apiRequest() {

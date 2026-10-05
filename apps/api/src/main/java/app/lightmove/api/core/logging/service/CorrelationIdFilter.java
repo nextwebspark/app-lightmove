@@ -15,13 +15,8 @@ import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
 
 /**
- * Stamps every request with a correlation id — reusing the caller's {@code X-Correlation-Id} if it
- * is well-formed, so a trace survives across service boundaries — and echoes it back on the response.
- * Where Cloud Run passed a trace, puts it in the MDC too, so every line nests under Cloud Run's request
- * entry in Logs Explorer.
- *
- * <p>Ordered first: a request that fails inside a later filter still needs to be findable in the logs.
- * Being first also makes this filter the owner of the request's MDC — see the {@code finally}.
+ * Stamps every request with a correlation id (the caller's, when well-formed) and Cloud Run's trace.
+ * Ordered first, so a request failing in a later filter is still findable, which makes it the MDC's owner.
  */
 @Component
 @Order(Ordered.HIGHEST_PRECEDENCE)
@@ -71,7 +66,8 @@ public class CorrelationIdFilter extends OncePerRequestFilter {
         if (gcpProjectId == null || gcpProjectId.isBlank()) {
             return;
         }
-        CloudTraceContext.parse(request.getHeader("traceparent"), request.getHeader("X-Cloud-Trace-Context"))
+        CloudTraceContext.parse(request.getHeader(CorrelationId.TRACEPARENT_HEADER),
+                        request.getHeader(CorrelationId.CLOUD_TRACE_CONTEXT_HEADER))
                 .ifPresent(trace -> {
                     MDC.put(CorrelationId.TRACE_KEY, "projects/" + gcpProjectId + "/traces/" + trace.traceId());
                     MDC.put(CorrelationId.SPAN_ID_KEY, trace.spanIdHex());

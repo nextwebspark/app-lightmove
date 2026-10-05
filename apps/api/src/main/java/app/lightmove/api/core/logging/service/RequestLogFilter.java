@@ -12,43 +12,29 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
 import java.util.concurrent.TimeUnit;
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.ObjectProvider;
-import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.core.Ordered;
 import org.springframework.core.annotation.Order;
 import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
-import org.springframework.web.method.HandlerMethod;
-import org.springframework.web.servlet.HandlerMapping;
-import org.springframework.web.servlet.mvc.method.annotation.RequestMappingHandlerMapping;
 
 /**
- * One line per request — {@code method}, {@code route}, {@code status}, {@code durationMs} as top-level
- * JSON fields — the only per-route latency signal production has, and the line per-tenant Log Analytics
- * queries read.
- *
- * <p>INFO whatever the status: a 500's ERROR is {@code GlobalExceptionHandler}'s, and a second one here
- * would count every failure twice. No field is named {@code httpRequest} — Cloud Logging would promote
- * it, and this line would become a second request entry beside Cloud Run's instead of a child of it.
- *
- * <p>Inside {@link CorrelationIdFilter}, so the line carries the correlation id, the trace and the
- * tenant keys the security chain added — that filter clears them only after this one has written.
+ * One INFO line per request, whatever its status (a 500's ERROR is {@code GlobalExceptionHandler}'s):
+ * {@code method}, {@code route}, {@code status}, {@code durationMs}.
+ * No field is named {@code httpRequest} — Cloud Logging would promote it into a second request entry
+ * beside Cloud Run's. Runs inside {@link CorrelationIdFilter}, which clears the MDC only after this writes.
  */
 @Component
 @Order(Ordered.HIGHEST_PRECEDENCE + 2)
 @Slf4j
+@RequiredArgsConstructor
 public class RequestLogFilter extends OncePerRequestFilter {
 
     /** nginx's convention for a client that closed the connection before the response. */
     static final int CLIENT_CLOSED_REQUEST = 499;
 
-    private final ObjectProvider<RequestMappingHandlerMapping> handlerMapping;
-
-    public RequestLogFilter(
-            @Qualifier("requestMappingHandlerMapping") ObjectProvider<RequestMappingHandlerMapping> handlerMapping) {
-        this.handlerMapping = handlerMapping;
-    }
+    private final RouteResolver routeResolver;
 
     /** Health probes and the SPA's assets would otherwise be most of the log volume, and of the bill. */
     @Override
@@ -68,7 +54,7 @@ public class RequestLogFilter extends OncePerRequestFilter {
             escaped = ex;
             throw ex;
         } finally {
-            String route = routeOf(request);
+            String route = routeResolver.resolve(request);
             Throwable failure = escaped;
             if (request.isAsyncStarted()) {
                 // A stream returns here as soon as it starts; its line is written when it ends, with its
@@ -95,45 +81,6 @@ public class RequestLogFilter extends OncePerRequestFilter {
                 kv("route", route),
                 kv("status", recorded),
                 kv("durationMs", TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - started)));
-    }
-
-    /**
-     * The route template, never the raw path: a path carries UUIDs, and every distinct value would be its
-     * own metric series. A request refused before dispatch (a 401, a 403) is matched here so it is still
-     * attributed to its route; only one no controller answers collapses to {@code /<segment>/<unmatched>}.
-     */
-    private String routeOf(HttpServletRequest request) {
-        String matched = controllerPatternOf(request);
-        if (matched != null) {
-            return matched;
-        }
-        RequestMappingHandlerMapping mapping = handlerMapping.getIfAvailable();
-        if (mapping != null) {
-            try {
-                if (mapping.getHandler(request) != null) {
-                    matched = controllerPatternOf(request);
-                }
-            } catch (Exception noMatch) {
-                // A wrong method or media type: there is no template to report.
-            }
-        }
-        return matched != null ? matched : unmatched(request.getRequestURI());
-    }
-
-    /** Only a controller's pattern counts: the static-resource handler answers anything as {@code /**}. */
-    private static String controllerPatternOf(HttpServletRequest request) {
-        if (request.getAttribute(HandlerMapping.BEST_MATCHING_HANDLER_ATTRIBUTE) instanceof HandlerMethod
-                && request.getAttribute(HandlerMapping.BEST_MATCHING_PATTERN_ATTRIBUTE) instanceof String pattern) {
-            return pattern;
-        }
-        return null;
-    }
-
-    private static String unmatched(String uri) {
-        String path = uri.startsWith("/") ? uri.substring(1) : uri;
-        int slash = path.indexOf('/');
-        String firstSegment = slash < 0 ? path : path.substring(0, slash);
-        return "/" + firstSegment + "/<unmatched>";
     }
 
     private record StreamCompletion(HttpServletRequest request, Runnable writeLine) implements AsyncListener {

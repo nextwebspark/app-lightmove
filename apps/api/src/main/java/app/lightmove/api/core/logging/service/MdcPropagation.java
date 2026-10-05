@@ -6,13 +6,8 @@ import java.util.concurrent.Executor;
 import org.slf4j.MDC;
 
 /**
- * Carries the submitting thread's MDC into a task run on another thread. The MDC is a
- * {@code ThreadLocal}, so without this an audit write or a sourcing run logs with no correlation id,
- * no tenant and no trace, and belongs to nobody.
- *
- * <p>The whole map is copied, trace keys included, so a line written after the response was sent
- * still nests under the request that caused it. {@link MdcTaskDecorator} applies it to Spring's
- * executor; a pool built by hand must wrap its own tasks.
+ * Carries the submitting thread's whole MDC into a task run on another thread. {@link MdcTaskDecorator}
+ * applies it to Spring's executor; a pool built by hand must wrap its own tasks.
  */
 public final class MdcPropagation {
 
@@ -21,31 +16,29 @@ public final class MdcPropagation {
 
     public static Runnable wrap(Runnable task) {
         Map<String, String> submitted = MDC.getCopyOfContextMap();
-        return () -> {
-            Map<String, String> previous = install(submitted);
-            try {
-                task.run();
-            } finally {
-                install(previous);
-            }
-        };
+        return () -> runWith(submitted, () -> {
+            task.run();
+            return null;
+        });
     }
 
     public static <T> Callable<T> wrap(Callable<T> task) {
         Map<String, String> submitted = MDC.getCopyOfContextMap();
-        return () -> {
-            Map<String, String> previous = install(submitted);
-            try {
-                return task.call();
-            } finally {
-                install(previous);
-            }
-        };
+        return () -> runWith(submitted, task::call);
     }
 
     /** An executor whose every task runs with the MDC of the thread that handed it over. */
     public static Executor propagating(Executor executor) {
         return task -> executor.execute(wrap(task));
+    }
+
+    private static <T, E extends Exception> T runWith(Map<String, String> context, MdcScopedTask<T, E> task) throws E {
+        Map<String, String> previous = install(context);
+        try {
+            return task.run();
+        } finally {
+            install(previous);
+        }
     }
 
     /**
@@ -60,5 +53,11 @@ public final class MdcPropagation {
             MDC.setContextMap(context);
         }
         return previous;
+    }
+
+    /** A {@code Runnable} declares no checked exception and a {@code Callable} declares any; this carries both. */
+    @FunctionalInterface
+    private interface MdcScopedTask<T, E extends Exception> {
+        T run() throws E;
     }
 }
