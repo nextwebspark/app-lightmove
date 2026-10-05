@@ -54,7 +54,8 @@ class PublicApiDocsIntegrationTest {
                 "/api/v1/public/projects", "projects:read",
                 "/api/v1/public/projects/{projectId}", "projects:read",
                 "/api/v1/public/projects/{projectId}/companies", "companies:read",
-                "/api/v1/public/projects/{projectId}/candidates", "candidates:read");
+                "/api/v1/public/projects/{projectId}/candidates", "candidates:read",
+                "/api/v1/public/projects/{projectId}/universe", "candidates:read");
 
         scopeByRoute.forEach((route, scope) -> {
             JsonNode operation = paths.at("/" + route.replace("/", "~1") + "/get");
@@ -67,6 +68,8 @@ class PublicApiDocsIntegrationTest {
         JsonNode companies = paths.at("/~1api~1v1~1public~1projects~1{projectId}~1companies/get");
         JsonNode candidates = paths.at("/~1api~1v1~1public~1projects~1{projectId}~1candidates/get");
         assertThat(companies.get("responses").has("404")).isTrue();
+        assertThat(paths.at("/~1api~1v1~1public~1projects~1{projectId}~1universe/get/description").asText())
+                .contains("`companies:read`").contains("PUBLIC_API_UNIVERSE_TOO_LARGE");
         assertThat(enumOf(companies, "stage")).containsExactlyElementsOf(
                 Arrays.stream(TriageCompanyStatus.values()).map(TriageCompanyStatus::value).toList());
         assertThat(enumOf(candidates, "status")).containsExactlyElementsOf(

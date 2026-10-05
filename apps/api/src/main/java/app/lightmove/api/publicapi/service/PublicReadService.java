@@ -1,31 +1,42 @@
 package app.lightmove.api.publicapi.service;
 
 import app.lightmove.api.candidate.dto.CandidateListCriteria;
+import app.lightmove.api.candidate.dto.CandidateResponse;
 import app.lightmove.api.candidate.dto.CandidatesResponse;
 import app.lightmove.api.candidate.service.CandidateService;
 import app.lightmove.api.core.audit.constant.ProjectEventType;
 import app.lightmove.api.core.audit.service.AuditService;
 import app.lightmove.api.core.config.CompanyListSettings;
+import app.lightmove.api.core.config.ExportSettings;
 import app.lightmove.api.core.config.LightMoveProperties;
+import app.lightmove.api.core.error.constant.ErrorCode;
+import app.lightmove.api.core.error.model.ApiException;
 import app.lightmove.api.core.security.apikey.ApiKeyKind;
 import app.lightmove.api.core.security.apikey.ApiKeyPrincipal;
 import app.lightmove.api.core.security.apikey.ApiKeyScope;
 import app.lightmove.api.core.security.rbac.ProjectAccess;
 import app.lightmove.api.core.security.rbac.ProjectAction;
+import app.lightmove.api.pairing.model.PairedStage;
+import app.lightmove.api.pairing.service.StagePairingService;
 import app.lightmove.api.project.dto.ProjectResponse;
 import app.lightmove.api.project.service.ProjectService;
 import app.lightmove.api.publicapi.dto.PublicCandidate;
 import app.lightmove.api.publicapi.dto.PublicCompany;
 import app.lightmove.api.publicapi.dto.PublicPage;
 import app.lightmove.api.publicapi.dto.PublicProject;
+import app.lightmove.api.publicapi.dto.PublicUniverse;
+import app.lightmove.api.publicapi.dto.PublicUniverseCompany;
+import app.lightmove.api.triagecompany.constant.TriageCompanyStatus;
 import app.lightmove.api.triagecompany.dto.TriageCompaniesResponse;
 import app.lightmove.api.triagecompany.dto.TriageCompanyListCriteria;
+import app.lightmove.api.triagecompany.model.TriageCompanyFilters;
 import app.lightmove.api.triagecompany.service.TriageCompanyReadService;
 import jakarta.servlet.http.HttpServletRequest;
 import java.util.List;
 import java.util.Locale;
 import java.util.Set;
 import java.util.UUID;
+import java.util.function.Function;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
@@ -43,6 +54,7 @@ public class PublicReadService {
     private final TriageCompanyReadService companies;
     private final CandidateService candidates;
     private final AuditService audit;
+    private final StagePairingService pairing;
     private final LightMoveProperties properties;
 
     /**
@@ -99,6 +111,35 @@ public class PublicReadService {
                 .toList();
         record(key, projectId, request, rows.size());
         return new PublicPage<>(rows, found.page(), found.size(), found.totalCount());
+    }
+
+    /** Refused past the export caps rather than truncated: a partial universe reads as a whole one. */
+    public PublicUniverse universe(ApiKeyPrincipal key, UUID projectId, String stage, HttpServletRequest request) {
+        TriageCompanyStatus status = TriageCompanyStatus.parseOrInUniverse(stage);
+        ExportSettings caps = properties.export();
+        PairedStage paired = pairing.pair(key.workspaceId(), projectId, status, TriageCompanyFilters.none(),
+                caps.maxCompanies(), caps.maxCandidates());
+        refuseIfPast("companies", paired.companies().totalCount(), caps.maxCompanies());
+        refuseIfPast("executives", paired.totalCandidates(), caps.maxCandidates());
+
+        boolean withContacts = key.holds(ApiKeyScope.CANDIDATE_CONTACTS_READ);
+        boolean withCompensation = key.holds(ApiKeyScope.CANDIDATE_COMPENSATION_READ);
+        Function<CandidateResponse, PublicCandidate> toPublic =
+                candidate -> PublicCandidate.of(candidate, withContacts, withCompensation);
+        List<PublicUniverseCompany> rows = paired.companies().companies().stream()
+                .map(company -> new PublicUniverseCompany(PublicCompany.of(company),
+                        paired.peopleAt(company.id()).stream().map(toPublic).toList()))
+                .toList();
+        record(key, projectId, request, rows.size() + paired.people().size());
+        return new PublicUniverse(status.value(), rows, paired.unassigned().stream().map(toPublic).toList());
+    }
+
+    private static void refuseIfPast(String what, long total, int cap) {
+        if (total > cap) {
+            throw ApiException.userFacing(ErrorCode.PUBLIC_API_UNIVERSE_TOO_LARGE,
+                    "This position has " + total + " " + what + ", past the limit of " + cap
+                            + " for one call. Page through the companies and candidates routes instead.");
+        }
     }
 
     private List<ProjectResponse> readableByOwner(ApiKeyPrincipal key, List<ProjectResponse> listed) {

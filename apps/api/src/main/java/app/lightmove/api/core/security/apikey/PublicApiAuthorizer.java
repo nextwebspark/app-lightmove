@@ -28,8 +28,11 @@ public class PublicApiAuthorizer {
         return true;
     }
 
-    public boolean canReadProject(ApiKeyPrincipal key, UUID projectId, String scope) {
-        requireScope(key, ApiKeyScope.valueOf(scope));
+    /** Every one of {@code scopes}, then the position. */
+    public boolean canReadProject(ApiKeyPrincipal key, UUID projectId, String... scopes) {
+        for (String scope : scopes) {
+            requireScope(key, ApiKeyScope.valueOf(scope));
+        }
         if (key.kind() == ApiKeyKind.SERVICE) {
             projects.requireInWorkspace(projectId, key.workspaceId());
         } else {
