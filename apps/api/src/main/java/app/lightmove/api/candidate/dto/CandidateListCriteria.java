@@ -8,7 +8,8 @@ import java.util.UUID;
  *
  * <p>{@code triageCompanyIds} fetches the people at the companies on the page being rendered — the
  * grid is paged by company — and {@code unmapped} asks for the executives whose employer is not in
- * the universe at all. Both null means every candidate in the mandate.
+ * the universe at all. Both null means every candidate in the mandate. {@code status} is a
+ * {@code CandidateStatus} wire token; null is every status.
  */
 public record CandidateListCriteria(List<UUID> triageCompanyIds, Boolean unmapped, String nameQuery,
-                                    Integer page, Integer size) {}
+                                    String status, Integer page, Integer size) {}

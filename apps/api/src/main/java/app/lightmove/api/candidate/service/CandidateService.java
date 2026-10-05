@@ -39,6 +39,7 @@ import app.lightmove.api.candidate.model.StoredPhoto;
 import app.lightmove.api.candidate.repository.CandidateRepository;
 import app.lightmove.api.candidate.repository.PersonPhotoRepository;
 import app.lightmove.api.candidate.repository.PersonRepository;
+import app.lightmove.api.common.constant.ApiValueEnum;
 import app.lightmove.api.core.audit.constant.ProjectEventType;
 import app.lightmove.api.core.audit.service.AuditService;
 import app.lightmove.api.core.config.CompanyListSettings;
@@ -167,7 +168,10 @@ public class CandidateService {
 
         PageRequest pageRequest = PageRequest.of(page, size, FIRST_MAPPED_FIRST);
         String nameQuery = criteria.nameQuery() == null ? "" : criteria.nameQuery().trim();
-        Page<Candidate> found = findPage(projectId, criteria, companyIds, nameQuery, pageRequest);
+        CandidateStatus status = ApiValueEnum.parse(CandidateStatus.class, criteria.status(), null, "status");
+        Page<Candidate> found = status == null
+                ? findPage(projectId, criteria, companyIds, nameQuery, pageRequest)
+                : findPageOfStatus(projectId, status, criteria, companyIds, nameQuery, pageRequest);
 
         return new CandidatesResponse(
                 found.getContent().stream().map(responses::toDto).toList(),
@@ -746,6 +750,20 @@ public class CandidateService {
         }
         return candidates.findByProjectIdAndPersonFullNameContainingIgnoreCase(
                 projectId, nameQuery, pageRequest);
+    }
+
+    private Page<Candidate> findPageOfStatus(UUID projectId, CandidateStatus status, CandidateListCriteria criteria,
+                                             List<UUID> companyIds, String nameQuery, PageRequest pageRequest) {
+        if (companyIds != null) {
+            return candidates.findByProjectIdAndStatusAndTriageCompanyIdInAndPersonFullNameContainingIgnoreCase(
+                    projectId, status, companyIds, nameQuery, pageRequest);
+        }
+        if (Boolean.TRUE.equals(criteria.unmapped())) {
+            return candidates.findByProjectIdAndStatusAndTriageCompanyIdIsNullAndPersonFullNameContainingIgnoreCase(
+                    projectId, status, nameQuery, pageRequest);
+        }
+        return candidates.findByProjectIdAndStatusAndPersonFullNameContainingIgnoreCase(
+                projectId, status, nameQuery, pageRequest);
     }
 
     /**

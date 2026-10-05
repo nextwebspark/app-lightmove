@@ -8,6 +8,11 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import app.lightmove.api.IntegrationTest;
+import app.lightmove.api.candidate.constant.CandidateStatus;
+import app.lightmove.api.triagecompany.constant.TriageCompanyStatus;
+import java.util.Arrays;
+import java.util.List;
+import java.util.Map;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -38,6 +43,41 @@ class PublicApiDocsIntegrationTest {
         assertThat(spec.at("/components/schemas/CallingKey/properties/scopes/items/enum").toString())
                 .isEqualTo("[\"projects:read\",\"companies:read\",\"candidates:read\","
                         + "\"candidates.contacts:read\",\"candidates.compensation:read\"]");
+    }
+
+    @Test
+    @DisplayName("each read route names its scope, answers JSON, lists its errors as problems, and offers the wire values a filter takes")
+    void readRoutes() throws Exception {
+        JsonNode paths = json.readTree(mvc.perform(get("/api/v1/public/openapi.json"))
+                .andExpect(status().isOk()).andReturn().getResponse().getContentAsString()).get("paths");
+        Map<String, String> scopeByRoute = Map.of(
+                "/api/v1/public/projects", "projects:read",
+                "/api/v1/public/projects/{projectId}", "projects:read",
+                "/api/v1/public/projects/{projectId}/companies", "companies:read",
+                "/api/v1/public/projects/{projectId}/candidates", "candidates:read");
+
+        scopeByRoute.forEach((route, scope) -> {
+            JsonNode operation = paths.at("/" + route.replace("/", "~1") + "/get");
+            assertThat(operation.get("description").asText()).contains("`" + scope + "`");
+            assertThat(operation.get("responses").propertyNames()).contains("200", "400", "401", "403", "429");
+            assertThat(operation.at("/responses/200/content").propertyNames()).containsExactly("application/json");
+            assertThat(operation.at("/responses/403/content/application~1problem+json/schema/$ref").asText())
+                    .endsWith("/Problem");
+        });
+        JsonNode companies = paths.at("/~1api~1v1~1public~1projects~1{projectId}~1companies/get");
+        JsonNode candidates = paths.at("/~1api~1v1~1public~1projects~1{projectId}~1candidates/get");
+        assertThat(companies.get("responses").has("404")).isTrue();
+        assertThat(enumOf(companies, "stage")).containsExactlyElementsOf(
+                Arrays.stream(TriageCompanyStatus.values()).map(TriageCompanyStatus::value).toList());
+        assertThat(enumOf(candidates, "status")).containsExactlyElementsOf(
+                Arrays.stream(CandidateStatus.values()).map(CandidateStatus::value).toList());
+    }
+
+    private static List<String> enumOf(JsonNode operation, String parameter) {
+        return operation.get("parameters").valueStream()
+                .filter(candidate -> parameter.equals(candidate.get("name").asText()))
+                .findFirst().orElseThrow()
+                .at("/schema/enum").valueStream().map(JsonNode::asText).toList();
     }
 
     @Test

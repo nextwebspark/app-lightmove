@@ -53,6 +53,17 @@ public interface CandidateRepository extends JpaRepository<Candidate, UUID> {
     Page<Candidate> findByProjectIdAndTriageCompanyIdIsNullAndPersonFullNameContainingIgnoreCase(
             UUID projectId, String fullName, Pageable pageable);
 
+    /** The three list finders above, narrowed to one status: the public API's {@code status} filter. */
+    Page<Candidate> findByProjectIdAndStatusAndPersonFullNameContainingIgnoreCase(
+            UUID projectId, CandidateStatus status, String fullName, Pageable pageable);
+
+    Page<Candidate> findByProjectIdAndStatusAndTriageCompanyIdInAndPersonFullNameContainingIgnoreCase(
+            UUID projectId, CandidateStatus status, Collection<UUID> triageCompanyIds, String fullName,
+            Pageable pageable);
+
+    Page<Candidate> findByProjectIdAndStatusAndTriageCompanyIdIsNullAndPersonFullNameContainingIgnoreCase(
+            UUID projectId, CandidateStatus status, String fullName, Pageable pageable);
+
     Optional<Candidate> findByIdAndProjectId(UUID id, UUID projectId);
 
     default Candidate requireInProject(UUID id, UUID projectId) {
