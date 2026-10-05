@@ -532,6 +532,13 @@ lightmove:
     max-companies: ${EXPORT_MAX_COMPANIES:5000}
     max-candidates: ${EXPORT_MAX_CANDIDATES:10000}
 
+  # Keys for the public API (/api/v1/public/**). Every key expires: 90 days unless its maker picks another
+  # term, never past max-key-ttl. The per-user ceiling counts live personal keys only.
+  public-api:
+    default-key-ttl: ${PUBLIC_API_DEFAULT_KEY_TTL:90d}
+    max-key-ttl: ${PUBLIC_API_MAX_KEY_TTL:365d}
+    max-active-keys-per-user: ${PUBLIC_API_MAX_ACTIVE_KEYS_PER_USER:10}
+
   # The talent mapping report reads every company and executive of a mandate in one pass, so the two
   # row caps play the pager's part and the response says when it hit one. The category caps bound how
   # many sectors, hubs and nationalities a chapter names before the tail folds into "Other".
