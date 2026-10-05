@@ -172,6 +172,19 @@ gcloud projects add-iam-policy-binding "$PROJECT" \
     --member="serviceAccount:${DEPLOY_SA_EMAIL}" --role=roles/cloudsql.client --condition=None --quiet >/dev/null
 echo "  ✓ deployer has cloudsql.client (for the migration step)"
 
+# ── Log Analytics ─────────────────────────────────────────────────────────────
+# Per-workspace questions ("whose requests failed this week") are SQL over the request line, and no
+# metric can hold them — every tenant would be its own series. Querying in the Log Analytics page costs
+# nothing beyond ingestion; only a linked BigQuery dataset bills, and none is created.
+# ONE-WAY: a bucket upgraded to Log Analytics cannot be downgraded.
+say "Enabling Log Analytics on the _Default log bucket"
+if [ "$(gcloud logging buckets describe _Default --location=global --project "$PROJECT"         --format='value(analyticsEnabled)')" = "True" ]; then
+    echo "  ✓ already enabled"
+else
+    gcloud logging buckets update _Default --location=global --enable-analytics --project "$PROJECT" --quiet >/dev/null
+    echo "  ✓ enabled"
+fi
+
 # ── Workload Identity Federation ──────────────────────────────────────────────
 # Keyless GitHub → GCP. No JSON service-account key is ever created, so there is none to leak, rotate,
 # or find in a GitHub secret three years from now.

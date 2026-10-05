@@ -17,7 +17,7 @@ question at 2am".
 
 | Piece | Where | State |
 |---|---|---|
-| Correlation id per request | `core/logging/service/CorrelationIdFilter` | **Done.** Reuses an inbound `X-Correlation-Id`, echoes it on the response, clears it in a `finally` so a pooled thread cannot inherit it. |
+| Correlation id per request | `core/logging/service/CorrelationIdFilter` | **Done.** Reuses an inbound `X-Correlation-Id` only when it matches `^[A-Za-z0-9_-]{1,64}$` (an unbounded one once let any caller suppress their own audit rows, #245), echoes it on the response, clears the whole MDC in a `finally` so a pooled thread cannot inherit it. |
 | Structured JSON logs when deployed | `logback-spring.xml` | **Done.** Cloud Logging's own field names (`severity`, `time`, `message`), `WARN`→`WARNING` translated, `correlationId` promoted to a top-level field. Human-readable console under `local`/`test`/`e2e`. |
 | A disciplined level policy | `core/error/handler/GlobalExceptionHandler` | **Done, and better than most.** 5xx gets ERROR plus a stack trace; 4xx gets one INFO line naming the rule that fired; the eight "this is a client mistake, not our bug" handlers exist specifically so bot traffic and typo'd URLs do not drown the one real 500. |
 | Correlation id on every error response | `Problems` / `GlobalExceptionHandler` | **Done.** A user can read the id off the screen and we can find the request. |
@@ -179,9 +179,57 @@ Never log:
 application logs, 30 days for traces, 400 days for the audit ledger — the ledger is the compliance
 artefact and it lives in Postgres, not in the log platform, which is already the right call.
 
+### Reading production logs
+
+The canonical Logs Explorer filters, so nobody reinvents them mid-incident. Every application line
+carries `correlationId`; an authenticated request's lines also carry `userId` and `workspaceId`, and a
+project route's `projectId` (#243) — ids only, never an email or a name. Each request ends in one
+`"request"` line with `method`, `route` (the template, never the raw path), `status` and `durationMs`
+(#244). Where Cloud Run passed a trace, every line carries `logging.googleapis.com/trace`, `spanId` and
+`trace_sampled`, so it nests under Cloud Run's own request entry (#245).
+
+The trace is read from `traceparent` / `X-Cloud-Trace-Context`, which Cloud Run's front end sets — but
+both are request headers, so a caller reaching the container any other way chooses its own. The parser
+accepts only the documented shapes, which bounds the damage to that caller's lines nesting under a trace
+id of their choosing; never treat a line's trace as proof of which request it belongs to.
+
+| Question | Logs Explorer filter |
+|---|---|
+| The id a user read out | `jsonPayload.correlationId="<id>"` |
+| Everything one request did | expand its Cloud Run request entry, or `trace="projects/<PROJECT_ID>/traces/<id>"` |
+| One workspace / user / mandate | `jsonPayload.workspaceId="<uuid>"` · `jsonPayload.userId="<uuid>"` · `jsonPayload.projectId="<uuid>"` |
+| What went wrong for one person | `jsonPayload.userId="<uuid>" AND severity>=WARNING` |
+| One user's session, in order | `jsonPayload.message="request" AND jsonPayload.userId="<uuid>"` |
+| Slow calls on a route | `jsonPayload.message="request" AND jsonPayload.route="/api/v1/projects/{projectId}/strategy/companies" AND jsonPayload.durationMs>1000` |
+| Lost audit rows | `jsonPayload.message=~"^Failed to write audit event"` |
+
+Add `workspaceId` and `userId` as **summary fields** (a per-viewer Logs Explorer setting) so they show on
+the collapsed line. None of these ids may ever be a log-based-metric label: every distinct value is its
+own time series. Per-tenant questions are Logs Explorer or Log Analytics questions.
+
+Per-workspace aggregates are SQL in **Log Analytics** (enabled on `_Default` by `ops/gcp/bootstrap.sh`;
+querying costs nothing beyond ingestion while no BigQuery dataset is linked):
+
+```sql
+SELECT JSON_VALUE(json_payload.workspaceId) AS workspace,
+       COUNT(*) AS requests,
+       COUNTIF(CAST(JSON_VALUE(json_payload.status) AS INT64) >= 500) AS errors,
+       APPROX_QUANTILES(CAST(JSON_VALUE(json_payload.durationMs) AS INT64), 100)[OFFSET(95)] AS p95_ms
+FROM `hak-talent-mapping.global._Default._AllLogs`
+WHERE JSON_VALUE(json_payload.message) = 'request'
+  AND timestamp > TIMESTAMP_SUB(CURRENT_TIMESTAMP(), INTERVAL 7 DAY)
+GROUP BY workspace
+ORDER BY p95_ms DESC
+```
+
 ---
 
 ## 4. Recommendation — the platform
+
+> **Superseded (2026-10-01).** #246 settled on GCP-native — Cloud Logging, Cloud Trace and Cloud Run's
+> built-in metrics, with no OpenTelemetry agent and no metrics pipeline. The trace join is done by hand in
+> `CorrelationIdFilter` (#245) and per-route latency is a log line (#244). The OTLP → Grafana LGTM
+> recommendation below is kept as the research it was, not as the plan.
 
 ### The shape: instrument once with OTLP, decide the backend separately
 
