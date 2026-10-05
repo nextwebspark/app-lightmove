@@ -11,7 +11,7 @@ import { copyText } from "../../../lib/clipboard";
 import { codeOf, messageFor } from "../../../lib/errorCodes";
 import { toBrowsableUrl, toReadableUrl } from "../../../lib/url";
 import * as candidatesApi from "../../candidates/api/candidatesApi";
-import type { Candidate, CandidateEmail, CandidatePhone } from "../../candidates/api/types";
+import type { Candidate, CandidateContacts, CandidateEmail, CandidatePhone } from "../../candidates/api/types";
 import { ContactEntriesFields, ContactFields } from "../../candidates/components/CandidateFieldGroups";
 import { ProfileSectionForm } from "../../candidates/components/ProfileSectionForm";
 import {
@@ -95,7 +95,6 @@ function ContactReadView({
 }) {
   const toast = useToast();
   const contacts = candidate.contacts;
-  const profileUrl = toBrowsableUrl(candidate.linkedinUrl);
   const hasProfile = Boolean(candidate.linkedinUrl);
   const mayLookUp = lookupOffered && canWrite;
 
@@ -103,23 +102,68 @@ function ContactReadView({
   const phone = useContactLookup("phone", projectId, candidate.id, onSaved, toast);
 
   return (
+    <ContactChannels
+      contacts={contacts}
+      linkedinUrl={candidate.linkedinUrl}
+      emailAction={
+        mayLookUp && !contacts.emailsLookedUpAt ? (
+          <FindButton
+            channel="email"
+            held={contacts.emails.length > 0}
+            hasProfile={hasProfile}
+            pending={email.isPending}
+            disabled={phone.isPending}
+            onFind={email.find}
+          />
+        ) : null
+      }
+      emailError={email.inlineError}
+      phoneAction={
+        mayLookUp && !contacts.phonesLookedUpAt ? (
+          <FindButton
+            channel="phone"
+            held={contacts.phones.length > 0}
+            hasProfile={hasProfile}
+            pending={phone.isPending}
+            disabled={email.isPending}
+            onFind={phone.find}
+          />
+        ) : null
+      }
+      phoneError={phone.inlineError}
+    />
+  );
+}
+
+/**
+ * Email, phone and LinkedIn as read: every value on the ledger with its pills and a copy button. The position
+ * drawer hangs its Find buttons on the rows; the workspace drawer reads them bare.
+ */
+export function ContactChannels({
+  contacts,
+  linkedinUrl,
+  emailAction,
+  emailError,
+  phoneAction,
+  phoneError,
+}: {
+  contacts: CandidateContacts;
+  linkedinUrl: string | null;
+  emailAction?: ReactNode;
+  emailError?: string | null;
+  phoneAction?: ReactNode;
+  phoneError?: string | null;
+}) {
+  const toast = useToast();
+  const profileUrl = toBrowsableUrl(linkedinUrl);
+
+  return (
     <div className="divide-y divide-u-border">
       <ContactChannel
         icon={<Icon d={ICONS.mail} size={14} />}
         label="Email"
-        action={
-          mayLookUp && !contacts.emailsLookedUpAt ? (
-            <FindButton
-              channel="email"
-              held={contacts.emails.length > 0}
-              hasProfile={hasProfile}
-              pending={email.isPending}
-              disabled={phone.isPending}
-              onFind={email.find}
-            />
-          ) : null
-        }
-        error={email.inlineError}
+        action={emailAction}
+        error={emailError}
       >
         {contacts.emails.length === 0 ? (
           <EmptyLine asked={Boolean(contacts.emailsLookedUpAt)} label="No email on record" />
@@ -133,19 +177,8 @@ function ContactReadView({
       <ContactChannel
         icon={<Icon d={ICONS.phone} size={14} />}
         label="Phone"
-        action={
-          mayLookUp && !contacts.phonesLookedUpAt ? (
-            <FindButton
-              channel="phone"
-              held={contacts.phones.length > 0}
-              hasProfile={hasProfile}
-              pending={phone.isPending}
-              disabled={email.isPending}
-              onFind={phone.find}
-            />
-          ) : null
-        }
-        error={phone.inlineError}
+        action={phoneAction}
+        error={phoneError}
       >
         {contacts.phones.length === 0 ? (
           <EmptyLine asked={Boolean(contacts.phonesLookedUpAt)} label="No phone on record" />
