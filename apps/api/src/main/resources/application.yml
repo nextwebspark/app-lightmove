@@ -547,6 +547,23 @@ lightmove:
     max-key-ttl: ${PUBLIC_API_MAX_KEY_TTL:365d}
     max-active-keys-per-user: ${PUBLIC_API_MAX_ACTIVE_KEYS_PER_USER:10}
 
+  # The MCP server's OAuth 2.1 authorization server (/api/v1/oauth/**, /.well-known/oauth-authorization-server).
+  # Off until rolled out (#708): switched off, every one of those paths is a 404. Its signing key is its own, never
+  # the session's — production must supply both locations, as the session key's are supplied.
+  mcp:
+    enabled: ${MCP_ENABLED:false}
+    resource-url: ${MCP_RESOURCE_URL:}
+    private-key-location: ${MCP_JWT_PRIVATE_KEY_LOCATION:file:.keys/mcp-private.pem}
+    public-key-location: ${MCP_JWT_PUBLIC_KEY_LOCATION:file:.keys/mcp-public.pem}
+    access-token-ttl: ${MCP_ACCESS_TOKEN_TTL:1h}
+    refresh-token-ttl: ${MCP_REFRESH_TOKEN_TTL:30d}
+    authorization-code-ttl: ${MCP_AUTHORIZATION_CODE_TTL:5m}
+    authorize-per-minute-per-ip: ${MCP_AUTHORIZE_PER_MINUTE_PER_IP:30}
+    token-per-minute-per-ip: ${MCP_TOKEN_PER_MINUTE_PER_IP:60}
+    token-per-minute-per-client: ${MCP_TOKEN_PER_MINUTE_PER_CLIENT:30}
+    # Read by @Scheduled, which never sees a binding default, so it is spelled out here.
+    purge-interval: ${MCP_PURGE_INTERVAL:PT1H}
+
   # The talent mapping report reads every company and executive of a mandate in one pass, so the two
   # row caps play the pager's part and the response says when it hit one. The category caps bound how
   # many sectors, hubs and nationalities a chapter names before the tail folds into "Other".

@@ -75,6 +75,11 @@
 			<groupId>org.springframework.boot</groupId>
 			<artifactId>spring-boot-starter-security-oauth2-client</artifactId>
 		</dependency>
+		<!-- The MCP server's OAuth 2.1 authorization server (/api/v1/oauth/**). -->
+		<dependency>
+			<groupId>org.springframework.boot</groupId>
+			<artifactId>spring-boot-starter-security-oauth2-authorization-server</artifactId>
+		</dependency>
 
 		<!-- Persistence -->
 		<dependency>

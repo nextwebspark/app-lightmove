@@ -236,6 +236,38 @@ audit line (`PUBLIC_API_READ`) naming the key — data leaving through a key is 
 suffix; only SHA-256 is persisted, and the SPA holds the secret in component state while its dialog is open —
 never a query or mutation cache, never storage.
 
+## An AI app connects through OAuth, for one user in one workspace
+
+**The MCP authorization server is Spring's, extended only where the standards need it** (`core/security/oauth`).
+Three gaps were closed by hand, each for a reason: Spring 7.1 issues a public client no refresh token unless it
+proves possession with DPoP, which no MCP client does (`RotatingRefreshTokenGenerator`,
+`PublicClientRefreshAuthentication`); it neither requires RFC 8707's `resource` nor sends RFC 9207's `iss`
+(`McpAuthorizationRules`, `ResourceBoundTokenRequests`, `AuthorizationEndpointReplies`); and its JDBC services keep
+every token raw under fixed `oauth2_*` names (`HashingAuthorizationService`, our tables, hashes only).
+
+**A grant is per workspace, so consent is per grant.** The workspace is chosen on the consent screen and travels
+as the stored request's `workspace_id`; the token carries it as `wsId` and the MCP server takes the tenant from
+there and nowhere else. The framework's consent store adds back every scope an earlier consent of the same user to
+the same client held — it would re-grant contacts the user had just unticked — so `PerGrantConsentService`
+remembers nothing and every connection asks again. Eligibility is staff, read as `API_KEY_MANAGE` like a personal
+key's, checked when the request is stored and again at consent: a membership can end in between.
+
+**The session's token is read early on that chain, and as a bare user id.** The framework validates an authorize
+request before the resource server's filter would run and keeps whatever principal it found, so the session bearer
+is read by a filter placed ahead of it. The principal is then stored inside the grant through Spring's Jackson
+allowlist, which is why it is a plain `UsernamePasswordAuthenticationToken` of the user id — and why anything put in
+a token's claims must be an allowlisted type (`ArrayList`, never `List.of`): the claims are stored too, and a refusal
+to read them back fails every refresh.
+
+**A refresh token rotates, and a replayed one is theft.** As with the session's family, a rotated-away refresh
+token presented again deletes the grant, so the thief's copy and the client's newer token stop together; the
+deletion commits before the refusal is thrown. Removing a member or deleting a workspace deletes its grants in the
+same transaction, beside the API keys.
+
+**The two tokens never cross.** An MCP token is signed by its own key, has the MCP endpoint as `aud` and the
+deployment origin as `iss`; the session decoder checks `iss=lightmove` and refuses any `aud`. Either check alone
+would do; both are there so that a key ever shared by mistake still opens nothing.
+
 ## An identity provider is configuration, not code
 
 Adding Google, LinkedIn, or anything else that speaks OIDC is a `spring.security.oauth2.client`

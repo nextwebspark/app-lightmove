@@ -368,6 +368,15 @@ public enum ErrorCode {
     PUBLIC_API_UNIVERSE_TOO_LARGE(HttpStatus.BAD_REQUEST,
             "This stage is too large to read in one call. Page through the companies and candidates routes instead"),
 
+    /** A grant id that is not in the caller's workspace, or not one the caller may see. */
+    OAUTH_GRANT_NOT_FOUND(HttpStatus.NOT_FOUND, "That connection does not exist"),
+
+    /** A client id or redirect the authorization server does not know, asked for on the consent screen. */
+    OAUTH_CLIENT_NOT_FOUND(HttpStatus.NOT_FOUND, "That app is not registered with Uncava"),
+
+    /** A consent read for an authorization request that is not the caller's, has ended, or never existed. */
+    OAUTH_REQUEST_NOT_FOUND(HttpStatus.NOT_FOUND, "That connection request has expired. Start again from the app"),
+
     INTERNAL_ERROR(HttpStatus.INTERNAL_SERVER_ERROR, "Something went wrong on our end");
 
     private final HttpStatus status;

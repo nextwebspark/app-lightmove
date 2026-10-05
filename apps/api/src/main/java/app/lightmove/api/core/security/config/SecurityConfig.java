@@ -7,6 +7,7 @@ import app.lightmove.api.core.security.apikey.ApiKeyIntrospector;
 import app.lightmove.api.core.security.apikey.ApiKeyThrottledException;
 import app.lightmove.api.core.security.apikey.PublicApiProblemWriter;
 import app.lightmove.api.core.security.jwt.JwtPrincipalConverter;
+import app.lightmove.api.core.security.oauth.OAuthAuthorizationServerConfig;
 import app.lightmove.api.core.security.service.CookieAuthorizationRequestStore;
 import app.lightmove.api.core.security.service.OAuth2LoginFailureHandler;
 import app.lightmove.api.core.security.service.OAuth2LoginSuccessHandler;
@@ -192,6 +193,26 @@ public class SecurityConfig {
     @ConditionalOnBooleanProperty(name = PUBLIC_API_SWITCH, havingValue = false)
     SecurityFilterChain publicApiOffChain(HttpSecurity http, PublicApiProblemWriter problems) throws Exception {
         return publicApi(http)
+                .authorizeHttpRequests(auth -> auth.anyRequest().denyAll())
+                .exceptionHandling(e -> e
+                        .authenticationEntryPoint((request, response, failure) ->
+                                problems.write(request, response, ErrorCode.NOT_FOUND))
+                        .accessDeniedHandler((request, response, denial) ->
+                                problems.write(request, response, ErrorCode.NOT_FOUND)))
+                .build();
+    }
+
+    /** The MCP authorization server switched off ({@code OAuthAuthorizationServerConfig} is absent): all of it a 404. */
+    @Bean
+    @Order(1)
+    @ConditionalOnBooleanProperty(name = OAuthAuthorizationServerConfig.MCP_SWITCH, havingValue = false,
+            matchIfMissing = true)
+    SecurityFilterChain mcpAuthorizationServerOffChain(HttpSecurity http, PublicApiProblemWriter problems)
+            throws Exception {
+        return http
+                .securityMatcher(OAuthAuthorizationServerConfig.OAUTH_BASE + "/**", OAuthAuthorizationServerConfig.METADATA)
+                .csrf(csrf -> csrf.disable())
+                .sessionManagement(s -> s.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth.anyRequest().denyAll())
                 .exceptionHandling(e -> e
                         .authenticationEntryPoint((request, response, failure) ->
