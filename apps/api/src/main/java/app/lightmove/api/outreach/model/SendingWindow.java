@@ -2,6 +2,7 @@ package app.lightmove.api.outreach.model;
 
 import app.lightmove.api.core.config.OutreachSettings;
 import java.time.DayOfWeek;
+import java.time.Duration;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalTime;
@@ -73,6 +74,15 @@ public record SendingWindow(LocalTime start, LocalTime end, Set<DayOfWeek> worki
     public Instant followUpDue(Instant from, ZoneId zone, int days, LocalTime sendTime) {
         Instant due = addWorkingDays(from, zone, days);
         return sendTime == null ? due : due.atZone(zone).with(sendTime).toInstant();
+    }
+
+    /**
+     * {@code offset} past {@code opening}, folded into the window's length: spacing longer than the window
+     * would otherwise land every late send after it closes, and that send would never go.
+     */
+    public Instant spread(Instant opening, Duration offset) {
+        long windowSeconds = Duration.between(start, end).toSeconds();
+        return opening.plusSeconds(offset.toSeconds() % windowSeconds);
     }
 
     public Instant startOfDay(Instant now, ZoneId zone) {

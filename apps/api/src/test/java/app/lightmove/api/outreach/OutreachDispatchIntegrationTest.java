@@ -260,7 +260,32 @@ class OutreachDispatchIntegrationTest extends FlowTestSupport {
 
         assertThat(sentTo("priya@" + domain)).hasSize(1);
         assertThat(sentTo("rajesh@" + domain)).isEmpty();
-        assertThat(nextSendAt(rajesh)).isEqualTo(monday.minus(Duration.ofHours(2)));
+        Instant mondaysOpening = monday.minus(Duration.ofHours(2));
+        assertThat(nextSendAt(rajesh)).isBetween(mondaysOpening.plus(Duration.ofMinutes(1)),
+                mondaysOpening.plus(Duration.ofMinutes(3)));
+    }
+
+    @Test
+    @DisplayName("people held for the window together keep their spacing when it opens, never all at once")
+    void aDeferredBatchKeepsItsSpacing() throws Exception {
+        String priya = executive("Priya Raman", "priya@" + domain);
+        String rajesh = executive("Rajesh Menon", "rajesh@" + domain);
+        String omar = executive("Omar Said", "omar@" + domain);
+        start(createSequence("First approach"), List.of(person(priya, "priya@" + domain, null),
+                person(rajesh, "rajesh@" + domain, null), person(omar, "omar@" + domain, null)));
+
+        dispatcher.dispatchAt(monday.minus(Duration.ofDays(2)));
+
+        Instant mondaysOpening = monday.minus(Duration.ofHours(2));
+        assertThat(nextSendAt(priya)).isEqualTo(mondaysOpening);
+        assertThat(Duration.between(nextSendAt(priya), nextSendAt(rajesh)))
+                .isBetween(Duration.ofSeconds(60), Duration.ofSeconds(180));
+        assertThat(Duration.between(nextSendAt(rajesh), nextSendAt(omar)))
+                .isBetween(Duration.ofSeconds(60), Duration.ofSeconds(180));
+
+        dispatcher.dispatchAt(mondaysOpening);
+        assertThat(gateway.sent()).hasSize(1);
+        assertThat(sentTo("priya@" + domain)).hasSize(1);
     }
 
     @Test
@@ -291,16 +316,22 @@ class OutreachDispatchIntegrationTest extends FlowTestSupport {
     }
 
     @Test
-    @DisplayName("the window is read in the consultant's own zone, which only a zone on the list can be")
+    @DisplayName("the window is read in the consultant's own zone, which only a region's zone can be, and is audited")
     void theWindowIsReadInTheSendersZone() throws Exception {
-        as(consultant, put("/api/v1/outreach/mailbox/time-zone").contentType(MediaType.APPLICATION_JSON)
-                .content("{\"timeZone\":\"Mars/Olympus\"}"))
-                .andExpect(status().isBadRequest());
+        for (String refused : List.of("Mars/Olympus", "EST", "SystemV/AST4")) {
+            as(consultant, put("/api/v1/outreach/mailbox/time-zone").contentType(MediaType.APPLICATION_JSON)
+                    .content("{\"timeZone\":\"%s\"}".formatted(refused)))
+                    .andExpect(status().isBadRequest());
+        }
         JsonNode mailbox = body(as(consultant, put("/api/v1/outreach/mailbox/time-zone")
                 .contentType(MediaType.APPLICATION_JSON).content("{\"timeZone\":\"Europe/London\"}"))
                 .andExpect(status().isOk())
                 .andReturn());
         assertThat(mailbox.get("connection").get("timeZone").asText()).isEqualTo("Europe/London");
+        assertThat(jdbc.queryForObject("select count(*) from app_lm_audit_event where event_type = "
+                + "'MAILBOX_TIME_ZONE_CHANGED' and metadata ->> 'from' = 'Asia/Dubai' and metadata ->> 'to' = "
+                + "'Europe/London' and workspace_id = (select workspace_id from app_lm_project where id = ?::uuid)",
+                Integer.class, projectId)).isEqualTo(1);
 
         String priya = executive("Priya Raman", "priya@" + domain);
         start(createSequence("First approach"), priya, "priya@" + domain, null);
@@ -326,8 +357,8 @@ class OutreachDispatchIntegrationTest extends FlowTestSupport {
 
         assertThat(sentTo("priya@" + domain).size() + sentTo("rajesh@" + domain).size()).isEqualTo(1);
         String waiting = sentTo("priya@" + domain).isEmpty() ? priya : rajesh;
-        assertThat(((java.sql.Timestamp) enrollmentOf(waiting).get("next_send_at")).toInstant())
-                .isEqualTo(monday.plus(Duration.ofDays(1)).minus(Duration.ofHours(2)));
+        Instant tomorrowsOpening = monday.plus(Duration.ofDays(1)).minus(Duration.ofHours(2));
+        assertThat(nextSendAt(waiting)).isBetween(tomorrowsOpening, tomorrowsOpening.plus(Duration.ofMinutes(3)));
     }
 
     @Test
@@ -739,6 +770,20 @@ class OutreachDispatchIntegrationTest extends FlowTestSupport {
         return as(consultant, post(outreach("/sequences/" + sequenceId + "/enrollments"))
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("{\"people\":[" + String.join(",", people) + "]" + timingJson + "}"));
+    }
+
+    @Test
+    @DisplayName("a time zone needs a connected mailbox, and a client seat may not set one")
+    void theTimeZoneNeedsAConnectedMailboxAndStaff() throws Exception {
+        String rep = clientSeat();
+        as(rep, put("/api/v1/outreach/mailbox/time-zone").contentType(MediaType.APPLICATION_JSON)
+                .content("{\"timeZone\":\"Europe/London\"}"))
+                .andExpect(status().isForbidden());
+
+        as(consultant, delete("/api/v1/outreach/mailbox")).andExpect(status().isNoContent());
+        as(consultant, put("/api/v1/outreach/mailbox/time-zone").contentType(MediaType.APPLICATION_JSON)
+                .content("{\"timeZone\":\"Europe/London\"}"))
+                .andExpect(status().isConflict());
     }
 
     private Instant nextSendAt(String candidateId) {

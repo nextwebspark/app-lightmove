@@ -9,6 +9,7 @@ import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
 import jakarta.persistence.Table;
+import java.time.Duration;
 import java.time.Instant;
 import java.util.UUID;
 import lombok.AccessLevel;
@@ -110,17 +111,24 @@ public class OutreachEnrollment extends BaseEntity {
     @Column(name = "first_send_pinned", nullable = false)
     private boolean firstSendPinned;
 
+    /**
+     * How far behind the first person of its Start this one was due (V113). A send held for the window or
+     * the cap waits this much past the opening, so a deferred batch keeps its spacing.
+     */
+    @Column(name = "send_offset_seconds", nullable = false)
+    private int sendOffsetSeconds;
+
     /** The executive booked through the consultant's link (V104), rather than a consultant booking for them. */
     @Column(name = "booked_via_link", nullable = false)
     private boolean bookedViaLink;
 
     /**
-     * The first email is due at {@code firstDue}; the dispatcher holds it to the sender's daily cap, and to
-     * the sequence's window unless {@code pinned}.
+     * The first email is due {@code offset} after {@code firstDue}; the dispatcher holds it to the sender's
+     * daily cap, and to the sequence's window unless {@code pinned}.
      */
     public static OutreachEnrollment scheduled(OutreachSequence sequence, UUID candidateId, UUID personId,
                                                UUID sender, String toAddress, ReviewedFirstEmail email,
-                                               Instant now, Instant firstDue, boolean pinned) {
+                                               Instant now, Instant firstDue, Duration offset, boolean pinned) {
         OutreachEnrollment enrollment = new OutreachEnrollment();
         enrollment.workspaceId = sequence.getWorkspaceId();
         enrollment.projectId = sequence.getProjectId();
@@ -131,7 +139,8 @@ public class OutreachEnrollment extends BaseEntity {
         enrollment.toAddress = toAddress;
         enrollment.status = EnrollmentStatus.SCHEDULED;
         enrollment.nextStep = 0;
-        enrollment.nextSendAt = firstDue;
+        enrollment.nextSendAt = firstDue.plus(offset);
+        enrollment.sendOffsetSeconds = Math.toIntExact(offset.toSeconds());
         enrollment.firstSendPinned = pinned;
         enrollment.opener = email.opener();
         enrollment.openerEdited = email.openerEdited();
@@ -180,6 +189,11 @@ public class OutreachEnrollment extends BaseEntity {
     public void deferTo(Instant due) {
         this.nextSendAt = due;
         this.sendingSince = null;
+    }
+
+    /** Held for the window or the cap: due at {@code opening}, plus this person's place in their Start's spacing. */
+    public void deferToOpening(SendingWindow window, Instant opening) {
+        deferTo(window.spread(opening, Duration.ofSeconds(sendOffsetSeconds)));
     }
 
     /** Lets the next dispatch look at this row again; nothing was sent under the claim. */

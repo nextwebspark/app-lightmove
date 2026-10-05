@@ -18,6 +18,7 @@ import app.lightmove.api.outreach.dto.RecipientEmailResponse;
 import app.lightmove.api.outreach.dto.SequenceTokensResponse;
 import app.lightmove.api.outreach.dto.StartSequenceRequest;
 import app.lightmove.api.outreach.dto.StartSequenceResponse;
+import app.lightmove.api.outreach.model.FirstSendSpacing;
 import app.lightmove.api.outreach.model.MailboxConnection;
 import app.lightmove.api.outreach.model.OutreachEnrollment;
 import app.lightmove.api.outreach.model.OutreachSequence;
@@ -33,7 +34,6 @@ import jakarta.servlet.http.HttpServletRequest;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
-import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -51,16 +51,13 @@ import org.springframework.transaction.support.TransactionTemplate;
  * Add to sequence: who may be approached, and putting the reviewed people on a sequence as
  * {@code SCHEDULED}. Nothing here sends. Every rule the Choose step shows is decided again at Start, so
  * a person the dialog listed as skippable — or who became so while it was open — is never enrolled.
- * First emails are spaced a minute to three apart, in the order the people were sent: a mailbox that
- * sends fifty at once is a mailbox flagged.
+ * First emails are spaced by {@link FirstSendSpacing}, in the order the people were sent.
  */
 @Service
 @RequiredArgsConstructor
 public class OutreachEnrollmentService {
 
     static final Duration START_HORIZON = Duration.ofDays(60);
-    static final Duration MIN_FIRST_SEND_GAP = Duration.ofSeconds(60);
-    static final Duration MAX_FIRST_SEND_GAP = Duration.ofSeconds(180);
 
     private final CandidateOutreachService people;
     private final OutreachSequenceRepository sequences;
@@ -172,11 +169,12 @@ public class OutreachEnrollmentService {
         Instant now = clock.instant();
         SequenceStartMode mode = request.startModeOrDefault();
         boolean pinned = mode != SequenceStartMode.NEXT_WINDOW;
-        List<Instant> firstSends = spacedFrom(switch (mode) {
+        Instant firstDue = switch (mode) {
             case NOW -> now;
             case AT -> request.startAt();
             case NEXT_WINDOW -> sequence.sendingWindow().nextOpening(now, mailbox.zone());
-        }, request.people().size());
+        };
+        List<Duration> offsets = FirstSendSpacing.offsetsOf(request.people().size(), ThreadLocalRandom.current());
         List<OutreachEnrollment> created = IntStream.range(0, request.people().size())
                 .mapToObj(index -> {
                     EnrollPersonRequest person = request.people().get(index);
@@ -190,7 +188,7 @@ public class OutreachEnrollmentService {
                             tokens.render(first.getBody()), opener, person.openerEdited());
                     return OutreachEnrollment.scheduled(sequence, recipient.candidateId(), recipient.personId(),
                             userId, ledgerSpellingOf(recipient, person.toAddress()), email, now,
-                            firstSends.get(index), pinned);
+                            firstDue, offsets.get(index), pinned);
                 })
                 .toList();
         List<OutreachEnrollment> saved = enrollments.saveAllAndFlush(created);
@@ -206,17 +204,6 @@ public class OutreachEnrollmentService {
             throw ApiException.of(ErrorCode.MAILBOX_RECONNECT_NEEDED);
         }
         return mailbox;
-    }
-
-    private static List<Instant> spacedFrom(Instant first, int count) {
-        List<Instant> due = new ArrayList<>(count);
-        Instant next = first;
-        for (int index = 0; index < count; index++) {
-            due.add(next);
-            next = next.plusSeconds(ThreadLocalRandom.current().nextLong(MIN_FIRST_SEND_GAP.toSeconds(),
-                    MAX_FIRST_SEND_GAP.toSeconds() + 1));
-        }
-        return due;
     }
 
     private static String ledgerSpellingOf(OutreachRecipient recipient, String requested) {

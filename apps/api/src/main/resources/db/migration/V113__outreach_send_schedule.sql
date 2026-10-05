@@ -14,5 +14,10 @@ ALTER TABLE app_lm_outreach_sequence_step
 
 -- The consultant chose when the first email goes (Now, or a date and time), so the sending window does
 -- not move it. The daily cap still does, and every follow-up keeps to the window.
+--
+-- send_offset_seconds is how far behind the first person of its Start this one was due. A send held for
+-- the window or the cap waits that much past the opening, so a batch deferred together stays spaced.
 ALTER TABLE app_lm_outreach_enrollment
-    ADD COLUMN first_send_pinned boolean NOT NULL DEFAULT false;
+    ADD COLUMN first_send_pinned   boolean NOT NULL DEFAULT false,
+    ADD COLUMN send_offset_seconds integer NOT NULL DEFAULT 0
+        CONSTRAINT app_lm_outreach_enrollment_send_offset_chk CHECK (send_offset_seconds >= 0);

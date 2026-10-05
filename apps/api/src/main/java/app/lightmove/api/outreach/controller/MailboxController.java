@@ -89,8 +89,8 @@ public class MailboxController {
     @PutMapping("/api/v1/outreach/mailbox/time-zone")
     @PreAuthorize("@workspaceAuthorizer.staff(principal)")
     public MailboxResponse changeTimeZone(@AuthenticationPrincipal AuthPrincipal principal,
-                                          @Valid @RequestBody MailboxTimeZoneRequest body) {
-        return mailboxes.changeTimeZone(principal.userId(), principal.requireWorkspaceId(), body.timeZone());
+                                          @Valid @RequestBody MailboxTimeZoneRequest body, HttpServletRequest request) {
+        return mailboxes.changeTimeZone(principal.userId(), principal.requireWorkspaceId(), body.timeZone(), request);
     }
 
     @DeleteMapping("/api/v1/outreach/mailbox")

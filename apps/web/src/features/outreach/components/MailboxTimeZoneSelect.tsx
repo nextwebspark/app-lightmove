@@ -8,11 +8,14 @@ import * as mailboxApi from "../api/mailboxApi";
  * The zone a consultant's sending hours and daily cap are read in. Defaults to Dubai on the server, so a
  * consultant elsewhere changes it once; sends already due keep their time.
  */
+/** The zones the server takes: a region's own, or UTC — never a legacy alias. */
+const REGION_ZONE = /^(UTC|(Africa|America|Antarctica|Arctic|Asia|Atlantic|Australia|Europe|Indian|Pacific)\/.+)$/;
+
 export function MailboxTimeZoneSelect({ timeZone }: { timeZone: string }) {
   const toast = useToast();
   const queryClient = useQueryClient();
   const zones = useMemo(() => {
-    const listed = Intl.supportedValuesOf("timeZone");
+    const listed = Intl.supportedValuesOf("timeZone").filter((zone) => REGION_ZONE.test(zone));
     return listed.includes(timeZone) ? listed : [...listed, timeZone].sort();
   }, [timeZone]);
   const change = useMutation({

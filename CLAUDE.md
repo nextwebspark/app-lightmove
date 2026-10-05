@@ -529,7 +529,9 @@ by default) in the mailbox's `time_zone` — which the consultant sets on the Ou
 goes at its step's `send_time`, or the time of day the step before went. Start chooses when the first emails
 go (`startMode`): `NOW` or `AT` a chosen instant (≤ 60 days) pins it (`first_send_pinned`), so the window
 never moves it though the cap still does, and `NEXT_WINDOW` waits for the window; each person after the
-first is due 1–3 minutes after the one before. Step 1 is the
+first is due 1–3 minutes after the one before (`FirstSendSpacing`), and keeps that offset past any opening the
+window or the cap holds it for (`send_offset_seconds`), so a deferred batch never goes at once. A time-zone change
+is audited (`MAILBOX_TIME_ZONE_CHANGED`) and takes a region's zone or UTC only. Step 1 is the
 frozen email; a follow-up is rendered from the sequence as it stands and replies to the last message, which
 threads it. The first send moves Identified to Contacted, forward only. A reply or bounce arrives on the
 public `/api/v1/outreach/webhooks/mailbox`, whose HMAC signature is its credential

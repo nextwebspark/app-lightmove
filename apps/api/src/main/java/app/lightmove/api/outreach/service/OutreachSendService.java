@@ -171,7 +171,7 @@ public class OutreachSendService {
         SendingWindow window = sequence.sendingWindow();
         ZoneId zone = mailbox.zone();
         if (!enrollment.isPinnedFirstSend() && !window.isOpen(now, zone)) {
-            enrollment.deferTo(window.nextOpening(now, zone));
+            enrollment.deferToOpening(window, window.nextOpening(now, zone));
             return null;
         }
         // A soft cap: one instance counts every send it made, since each commits before the next prepare,
@@ -179,7 +179,7 @@ public class OutreachSendService {
         long sentToday = messages.countByWorkspaceIdAndSenderUserIdAndSentAtGreaterThanEqual(
                 enrollment.getWorkspaceId(), enrollment.getSenderUserId(), window.startOfDay(now, zone));
         if (sentToday >= mailbox.getDailyCap()) {
-            enrollment.deferTo(window.openingAfterToday(now, zone));
+            enrollment.deferToOpening(window, window.openingAfterToday(now, zone));
             return null;
         }
         return new PreparedSend(enrollment.getId(), mailbox.getGrantId(),
