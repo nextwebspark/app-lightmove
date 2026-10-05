@@ -49,7 +49,7 @@ class ExtensionPairingIntegrationTest extends FlowTestSupport {
         // Nobody may mint a credential for an account they have not proved they hold. Asserted as "no
         // token came back" rather than as a status code: chain 1 sets an accessDeniedHandler but no
         // authenticationEntryPoint, so Spring's default answers an anonymous denial with 403 where
-        // chain 3, which installs the bearer entry point, answers 401. Which of the two it is, is
+        // chain 4, which installs the bearer entry point, answers 401. Which of the two it is, is
         // incidental to this test — that nothing was minted is not.
         MvcResult anonymous = mvc.perform(post("/api/v1/auth/extension/tokens"))
                 .andExpect(status().is4xxClientError())

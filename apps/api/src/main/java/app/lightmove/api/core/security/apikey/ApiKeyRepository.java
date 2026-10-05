@@ -5,10 +5,11 @@ import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
-/** Every finder takes the workspace: a key is tenant data. */
+/** Every finder takes the workspace, a key being tenant data, but the hash lookup that tells which workspace a key is. */
 public interface ApiKeyRepository extends JpaRepository<ApiKey, UUID> {
 
     Optional<ApiKey> findByIdAndWorkspaceId(UUID id, UUID workspaceId);
@@ -28,4 +29,15 @@ public interface ApiKeyRepository extends JpaRepository<ApiKey, UUID> {
             """)
     long countLivePersonal(@Param("workspaceId") UUID workspaceId, @Param("ownerUserId") UUID ownerUserId,
                            @Param("now") Instant now);
+
+    Optional<ApiKey> findByTokenHash(String tokenHash);
+
+    /** A bulk write, so authenticating a request bumps no entity version; at most once per {@code staleBefore} window. */
+    @Modifying
+    @Query("""
+            UPDATE ApiKey k SET k.lastUsedAt = :now, k.lastUsedIp = :ip
+            WHERE k.id = :id AND (k.lastUsedAt IS NULL OR k.lastUsedAt < :staleBefore)
+            """)
+    int stampUse(@Param("id") UUID id, @Param("now") Instant now, @Param("ip") String ip,
+                 @Param("staleBefore") Instant staleBefore);
 }

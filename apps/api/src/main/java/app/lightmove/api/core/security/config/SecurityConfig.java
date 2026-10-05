@@ -1,7 +1,13 @@
 package app.lightmove.api.core.security.config;
 import app.lightmove.api.core.config.LightMoveProperties;
+import app.lightmove.api.core.config.PublicApiSettings;
 import app.lightmove.api.core.config.SpaRequestPaths;
+import app.lightmove.api.core.error.constant.ErrorCode;
 import app.lightmove.api.core.error.handler.ProblemAccessDeniedHandler;
+import app.lightmove.api.core.ratelimit.service.RateLimiter;
+import app.lightmove.api.core.security.apikey.ApiKeyIntrospector;
+import app.lightmove.api.core.security.apikey.PublicApiProblemWriter;
+import app.lightmove.api.core.security.apikey.PublicApiRateLimitFilter;
 import app.lightmove.api.core.security.jwt.JwtPrincipalConverter;
 import app.lightmove.api.core.security.service.CookieAuthorizationRequestStore;
 import app.lightmove.api.core.security.service.OAuth2LoginFailureHandler;
@@ -24,6 +30,8 @@ import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.core.annotation.AnnotationTemplateExpressionDefaults;
 import org.springframework.security.oauth2.client.registration.ClientRegistrationRepository;
 import org.springframework.security.oauth2.server.resource.web.BearerTokenAuthenticationEntryPoint;
+import org.springframework.security.oauth2.server.resource.web.authentication.BearerTokenAuthenticationFilter;
+import org.springframework.security.web.AuthenticationEntryPoint;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.access.intercept.RequestAuthorizationContext;
 import org.springframework.security.web.csrf.CookieCsrfTokenRepository;
@@ -42,6 +50,7 @@ import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 public class SecurityConfig {
 
     private static final String API = "/api/v1";
+    private static final String PUBLIC_API = API + "/public";
 
     /** Resolves {@code '{value}'} in {@code @RequireProjectPermission}; static, as method security reads it while being built. */
     @Bean
@@ -52,7 +61,7 @@ public class SecurityConfig {
     /**
      * Chain 0: Actuator, matched on the port the request arrived on — a path match alone would open
      * {@code /actuator/prometheus} on the app port too. On Cloud Run the ports are equal and this chain
-     * deliberately matches nothing; chain 3 then permits only health and info.
+     * deliberately matches nothing; chain 4 then permits only health and info.
      */
     @Bean
     @Order(0)
@@ -138,14 +147,62 @@ public class SecurityConfig {
     }
 
     /**
-     * Chain 2: the SPA's assets and history fallback, matched by exclusion — so any endpoint outside
+     * Chain 2: the public API, where an API key is the only credential — a session's token is refused here
+     * as a key is everywhere else. The spec and Swagger UI need none. Switched off, everything here is a 404.
+     */
+    @Bean
+    @Order(2)
+    SecurityFilterChain publicApiChain(HttpSecurity http, ApiKeyIntrospector introspector,
+                                       PublicApiProblemWriter problems, RateLimiter limiter,
+                                       LightMoveProperties properties) throws Exception {
+        PublicApiSettings settings = properties.publicApi();
+        http
+                .securityMatcher(PUBLIC_API + "/**")
+                .csrf(csrf -> csrf.disable())
+                .sessionManagement(s -> s.sessionCreationPolicy(SessionCreationPolicy.STATELESS));
+
+        if (!settings.enabled()) {
+            return http
+                    .authorizeHttpRequests(auth -> auth.anyRequest().denyAll())
+                    .exceptionHandling(e -> e
+                            .authenticationEntryPoint((request, response, failure) ->
+                                    problems.write(request, response, ErrorCode.NOT_FOUND))
+                            .accessDeniedHandler((request, response, denial) ->
+                                    problems.write(request, response, ErrorCode.NOT_FOUND)))
+                    .build();
+        }
+
+        BearerTokenAuthenticationEntryPoint bearerChallenge = new BearerTokenAuthenticationEntryPoint();
+        AuthenticationEntryPoint keyRefused = (request, response, failure) -> {
+            bearerChallenge.commence(request, response, failure);
+            problems.write(request, response, ErrorCode.API_KEY_INVALID);
+        };
+
+        return http
+                .authorizeHttpRequests(auth -> auth
+                        .requestMatchers(HttpMethod.GET,
+                                PUBLIC_API + "/openapi.json", PUBLIC_API + "/openapi.json/**",
+                                PUBLIC_API + "/docs", PUBLIC_API + "/docs/**")
+                        .permitAll()
+                        .anyRequest().authenticated())
+                .exceptionHandling(e -> e.authenticationEntryPoint(keyRefused))
+                .oauth2ResourceServer(oauth -> oauth
+                        .authenticationEntryPoint(keyRefused)
+                        .opaqueToken(opaque -> opaque.introspector(introspector)))
+                .addFilterAfter(new PublicApiRateLimitFilter(limiter, problems, settings.requestsPerMinute()),
+                        BearerTokenAuthenticationFilter.class)
+                .build();
+    }
+
+    /**
+     * Chain 3: the SPA's assets and history fallback, matched by exclusion — so any endpoint outside
      * {@code /api/v1} is public; keep every endpoint under it ({@code SpaSecurityTest}).
      *
      * <p><b>Never {@code Cross-Origin-Opener-Policy: same-origin}</b>: it severs {@code window.opener}
      * and the OAuth popup silently hangs on "Connecting…"; {@code same-origin-allow-popups} is safe.
      */
     @Bean
-    @Order(2)
+    @Order(3)
     SecurityFilterChain spaChain(HttpSecurity http) throws Exception {
         return http
                 .securityMatcher(request -> SpaRequestPaths.isSpaPath(request.getRequestURI()))
@@ -155,9 +212,9 @@ public class SecurityConfig {
                 .build();
     }
 
-    /** Chain 3: everything else. Stateless bearer tokens, CSRF off (see the class note). */
+    /** Chain 4: everything else. Stateless bearer tokens, CSRF off (see the class note). */
     @Bean
-    @Order(3)
+    @Order(4)
     SecurityFilterChain apiChain(HttpSecurity http,
                                  // HandlerMappingIntrospector is also a CorsConfigurationSource.
                                  @Qualifier("corsConfigurationSource") CorsConfigurationSource cors,

@@ -103,7 +103,7 @@ This is the finding worth acting on first, because right now the application com
 production:
 
 - Cloud Run routes one port, so Actuator shares 8080 and `SecurityConfig` chain 0 stands itself down
-- chain 3 then permits only `health` and `info` and applies `denyAll` to the rest
+- chain 4 then permits only `health` and `info` and applies `denyAll` to the rest
 - the deploy workflow's own smoke test **asserts** `/actuator/prometheus` returns 401
 - `--min-instances 0` means there is usually no instance to scrape at all, and `--max-instances 2`
   means the two that exist are anonymous and short-lived

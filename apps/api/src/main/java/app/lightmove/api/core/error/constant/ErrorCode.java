@@ -358,6 +358,9 @@ public enum ErrorCode {
     /** The caller already holds {@code lightmove.public-api.max-active-keys-per-user} live personal keys. */
     API_KEY_LIMIT_REACHED(HttpStatus.CONFLICT, "You have the most API keys allowed. Revoke one you no longer use"),
 
+    /** Every refusal of a public API key — missing, malformed, unknown, revoked, expired or its owner's access gone — alike. */
+    API_KEY_INVALID(HttpStatus.UNAUTHORIZED, "The API key is missing, invalid or no longer active"),
+
     INTERNAL_ERROR(HttpStatus.INTERNAL_SERVER_ERROR, "Something went wrong on our end");
 
     private final HttpStatus status;
