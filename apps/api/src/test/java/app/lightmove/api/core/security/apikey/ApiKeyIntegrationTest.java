@@ -122,17 +122,23 @@ class ApiKeyIntegrationTest extends FlowTestSupport {
     }
 
     @Test
-    @DisplayName("an expiry past a year, an unknown scope or no scope is refused, and so is an eleventh live key")
+    @DisplayName("an expiry past the ceiling, an unknown scope or kind, or no scope is refused, and so is an eleventh live key")
     void limits() throws Exception {
         String admin = adminOfNewWorkspace();
 
-        assertThat(create(admin, """
-                {"name":"Too long","scopes":["projects:read"],"expiresInDays":366}""").getResponse().getStatus())
-                .isEqualTo(400);
+        MvcResult tooLong = create(admin, """
+                {"name":"Too long","scopes":["projects:read"],"expiresInDays":366}""");
+        assertThat(tooLong.getResponse().getStatus()).isEqualTo(400);
+        assertThat(body(tooLong).get("detail").asText()).contains("365 days");
         assertThat(create(admin, """
                 {"name":"Writes","scopes":["projects:write"]}""").getResponse().getStatus()).isEqualTo(400);
         assertThat(create(admin, """
                 {"name":"Nothing","scopes":[]}""").getResponse().getStatus()).isEqualTo(400);
+        assertThat(create(admin, """
+                {"name":"Null","scopes":[null]}""").getResponse().getStatus()).isEqualTo(400);
+        assertThat(create(admin, """
+                {"name":"Odd kind","kind":"ROBOT","scopes":["projects:read"]}""").getResponse().getStatus())
+                .isEqualTo(400);
 
         for (int i = 0; i < 10; i++) {
             assertThat(create(admin, personalKey()).getResponse().getStatus()).isEqualTo(201);

@@ -6,10 +6,8 @@ import java.security.SecureRandom;
 import java.util.zip.CRC32;
 
 /**
- * The key format: a kind's prefix, 43 base62 characters from a CSPRNG (256 bits), and a 6-character
- * base62 CRC32 of everything before it. Base62 so a double-click selects the whole key; the checksum lets
- * a typo or a truncated paste be refused without a database read, and lets secret scanners tell a real
- * key from a lookalike. Stored only as {@link Tokens#hash}.
+ * A kind's prefix, 256 random bits in base62, then a base62 CRC32 of the rest: the checksum refuses a typo
+ * without a database read and lets secret scanners tell a real key from a lookalike.
  */
 public final class ApiKeySecrets {
 
@@ -29,9 +27,12 @@ public final class ApiKeySecrets {
         }
         String unchecked = kind.secretPrefix() + body;
         String secret = unchecked + checksumOf(unchecked);
-        String hint = kind.secretPrefix() + body.substring(0, HINT_LENGTH) + "…"
-                + secret.substring(secret.length() - HINT_LENGTH);
-        return new MintedApiKey(secret, Tokens.hash(secret), hint);
+        return new MintedApiKey(secret, Tokens.hash(secret), hintOf(kind, secret));
+    }
+
+    /** The prefix and the checksum's tail: enough to recognise a key, none of its random part. */
+    private static String hintOf(ApiKeyKind kind, String secret) {
+        return kind.secretPrefix() + "…" + secret.substring(secret.length() - HINT_LENGTH);
     }
 
     /** A known prefix, the right length, base62 throughout and a checksum that agrees. */

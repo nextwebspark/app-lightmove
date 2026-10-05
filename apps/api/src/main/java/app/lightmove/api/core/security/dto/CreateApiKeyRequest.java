@@ -14,6 +14,6 @@ import java.util.List;
 public record CreateApiKeyRequest(
         @NotBlank(message = "Name the key after what will use it") @Size(max = ApiKey.MAX_NAME) String name,
         String kind,
-        @NotEmpty(message = "Choose at least one thing the key can read") List<String> scopes,
+        @NotEmpty(message = "Choose at least one thing the key can read") List<@NotBlank String> scopes,
         @Positive Integer expiresInDays
 ) {}

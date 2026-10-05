@@ -60,16 +60,18 @@ public class ApiKeyService {
     @Transactional
     public CreatedApiKeyResponse create(UUID actorId, UUID workspaceId, CreateApiKeyRequest request,
                                         HttpServletRequest httpRequest) {
-        ApiKeyKind kind = kindOf(request.kind());
+        ApiKeyKind kind = ApiValueEnum.parse(ApiKeyKind.class, request.kind(), ApiKeyKind.PERSONAL, "key kind");
         if (kind == ApiKeyKind.SERVICE) {
             access.requireAction(actorId, workspaceId, WorkspaceAction.WORKSPACE_MANAGE);
         }
         List<ApiKeyScope> scopes = scopesOf(request.scopes());
         Instant now = clock.instant();
         Instant expiresAt = now.plus(termOf(request.expiresInDays()));
-        if (kind == ApiKeyKind.PERSONAL
-                && keys.countLivePersonal(workspaceId, actorId, now) >= settings.maxActiveKeysPerUser()) {
-            throw ApiException.of(ErrorCode.API_KEY_LIMIT_REACHED);
+        if (kind == ApiKeyKind.PERSONAL) {
+            access.lockActiveMember(actorId, workspaceId);
+            if (keys.countLivePersonal(workspaceId, actorId, now) >= settings.maxActiveKeysPerUser()) {
+                throw ApiException.of(ErrorCode.API_KEY_LIMIT_REACHED);
+            }
         }
 
         MintedApiKey minted = ApiKeySecrets.mint(kind);
@@ -142,16 +144,6 @@ public class ApiKeyService {
                 .record();
     }
 
-    private static ApiKeyKind kindOf(String token) {
-        if (token == null || token.isBlank()) {
-            return ApiKeyKind.PERSONAL;
-        }
-        return Arrays.stream(ApiKeyKind.values())
-                .filter(kind -> kind.name().equals(token))
-                .findFirst()
-                .orElseThrow(() -> new ApiException(ErrorCode.VALIDATION_FAILED, "Unknown key kind: " + token));
-    }
-
     /** Deduplicated, in the enum's order, so two keys asking the same thing store the same list. */
     private static List<ApiKeyScope> scopesOf(Collection<String> tokens) {
         Set<ApiKeyScope> asked = tokens.stream()
@@ -167,7 +159,7 @@ public class ApiKeyService {
         Duration term = Duration.ofDays(expiresInDays);
         if (term.compareTo(settings.maxKeyTtl()) > 0) {
             throw ApiException.userFacing(ErrorCode.VALIDATION_FAILED,
-                    "Choose an expiry of a year or less");
+                    "Choose an expiry of " + settings.maxKeyTtl().toDays() + " days or less");
         }
         return term;
     }
