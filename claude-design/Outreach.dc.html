@@ -252,7 +252,11 @@
                       <select value="{{ st.delay }}" aria-label="Days to wait" style="border-radius:6px;border:1px solid var(--line);background:var(--panel2);padding:4px 6px;font:400 12px var(--mono);color:var(--text)">
                         <option value="2">2</option><option value="3">3</option><option value="4">4</option><option value="5">5</option><option value="7">7</option>
                       </select>
-                      working days after the last step, if they haven't replied, as a reply in the same thread
+                      working days after the last step, at
+                      <select aria-label="Time of day" style="border-radius:6px;border:1px solid var(--line);background:var(--panel2);padding:4px 6px;font:400 12px var(--mono);color:var(--text)">
+                        <option value="">the same time</option><option value="09:00">09:00</option><option value="09:30" selected>09:30</option><option value="10:00">10:00</option>
+                      </select>
+                      if they haven't replied, as a reply in the same thread
                     </div>
                   </sc-if>
                   <sc-if value="{{ st.hasSubject }}" hint-placeholder-val="{{ false }}">
@@ -266,10 +270,30 @@
                 Three emails catch nearly every reply a sequence will get.
               </div>
 
-              <div data-screen-label="Sequence rules" style="border-radius:10px;border:1px solid var(--line-soft);padding:14px 16px">
-                <div style="font:600 13px var(--sans);margin-bottom:8px">When it sends and when it stops</div>
+              <div data-screen-label="Sending schedule" style="border-radius:10px;border:1px solid var(--line-soft);padding:14px 16px">
+                <div style="font:600 13px var(--sans);margin-bottom:4px">Sending schedule</div>
+                <div style="font:400 12px var(--sans);color:var(--text3);margin-bottom:10px">Follow-ups go only on these days and between these hours, in your mailbox's time zone (Asia/Dubai). Working days in the delays are these days.</div>
+                <div role="group" aria-label="Sending days" style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px">
+                  <button aria-pressed="true" style="border-radius:999px;padding:4px 10px;font:500 12px var(--mono);background:var(--amber-dim);border:1px solid var(--amber);color:var(--text)">Mon</button>
+                  <button aria-pressed="true" style="border-radius:999px;padding:4px 10px;font:500 12px var(--mono);background:var(--amber-dim);border:1px solid var(--amber);color:var(--text)">Tue</button>
+                  <button aria-pressed="true" style="border-radius:999px;padding:4px 10px;font:500 12px var(--mono);background:var(--amber-dim);border:1px solid var(--amber);color:var(--text)">Wed</button>
+                  <button aria-pressed="true" style="border-radius:999px;padding:4px 10px;font:500 12px var(--mono);background:var(--amber-dim);border:1px solid var(--amber);color:var(--text)">Thu</button>
+                  <button aria-pressed="true" style="border-radius:999px;padding:4px 10px;font:500 12px var(--mono);background:var(--amber-dim);border:1px solid var(--amber);color:var(--text)">Fri</button>
+                  <button aria-pressed="false" style="border-radius:999px;padding:4px 10px;font:500 12px var(--mono);background:none;border:1px solid var(--line);color:var(--text3)">Sat</button>
+                  <button aria-pressed="false" style="border-radius:999px;padding:4px 10px;font:500 12px var(--mono);background:none;border:1px solid var(--line);color:var(--text3)">Sun</button>
+                  <span style="margin-left:6px;display:flex;gap:6px;font:400 11.5px var(--mono);color:var(--text3);align-items:center">
+                    <button style="background:none;border:none;color:var(--amber);font:500 11.5px var(--mono);cursor:pointer">Mon–Fri</button>·
+                    <button style="background:none;border:none;color:var(--amber);font:500 11.5px var(--mono);cursor:pointer">Sun–Thu</button>
+                  </span>
+                </div>
+                <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;font:400 12px var(--mono);color:var(--text2)">
+                  Between
+                  <select aria-label="Sending starts" style="border-radius:6px;border:1px solid var(--line);background:var(--panel2);padding:4px 6px;font:400 12px var(--mono);color:var(--text)"><option>08:00</option></select>
+                  and
+                  <select aria-label="Sending stops" style="border-radius:6px;border:1px solid var(--line);background:var(--panel2);padding:4px 6px;font:400 12px var(--mono);color:var(--text)"><option>18:00</option></select>
+                </div>
+                <div style="font:600 13px var(--sans);margin-bottom:8px">When it stops</div>
                 <div style="display:grid;grid-template-columns:120px 1fr;gap:6px 12px;font:400 12.5px/1.5 var(--sans);color:var(--text2)">
-                  <span style="color:var(--text3)">Window</span><span>Mon–Fri, 08:00–18:00 in the sender's time zone (Asia/Dubai)</span>
                   <span style="color:var(--text3)">Daily cap</span><span>50 emails per mailbox. Anything over waits for the next window.</span>
                   <span style="color:var(--text3)">Stops when</span><span>They reply, they book a call through your booking link (they also move to Engaged), an email bounces, they are marked do not contact, they leave this position, or their status becomes Not interested, Off-limits or Out of scope.</span>
                 </div>
@@ -401,9 +425,23 @@
                 <div style="font:400 12.5px var(--mono);color:var(--text3)">2 people · from yara.haddad@alfuttaim.com</div>
               </div>
             </div>
+            <div data-screen-label="When" style="margin-bottom:16px">
+              <div style="font:600 13px var(--sans);margin-bottom:8px">When should the first emails go?</div>
+              <div role="radiogroup" aria-label="When to send" style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px">
+                <button role="radio" aria-checked="true" style="text-align:left;border-radius:10px;padding:12px 14px;background:var(--amber-dim);border:1px solid var(--amber);color:var(--text)"><div style="font:600 13px var(--sans)">Now</div><div style="font:400 12px var(--sans);color:var(--text3);margin-top:4px">The first goes at once, the rest a few minutes apart, whatever the hour</div></button>
+                <button role="radio" aria-checked="false" style="text-align:left;border-radius:10px;padding:12px 14px;background:none;border:1px solid var(--line);color:var(--text2)"><div style="font:600 13px var(--sans)">Next sending window</div><div style="font:400 12px var(--sans);color:var(--text3);margin-top:4px">Mon–Fri, 08:00–18:00 Dubai time</div></button>
+                <button role="radio" aria-checked="false" style="text-align:left;border-radius:10px;padding:12px 14px;background:none;border:1px solid var(--line);color:var(--text2)"><div style="font:600 13px var(--sans)">Pick a date and time</div><div style="font:400 12px var(--sans);color:var(--text3);margin-top:4px">Up to 60 days ahead, Dubai time</div></button>
+              </div>
+              <div style="margin-top:10px;display:flex;align-items:center;gap:8px;font:400 12px var(--mono);color:var(--text2)">
+                <span style="border-radius:6px;border:1px solid var(--line);background:var(--panel2);padding:6px 10px">Thu 2 Oct 2026</span>
+                at
+                <select aria-label="Start time" style="border-radius:6px;border:1px solid var(--line);background:var(--panel2);padding:5px 6px;font:400 12px var(--mono);color:var(--text)"><option>09:00</option></select>
+                Dubai time
+              </div>
+            </div>
             <div style="display:grid;grid-template-columns:140px 1fr;gap:8px 14px;font:400 13px/1.5 var(--sans);color:var(--text2)">
-              <span style="color:var(--text3)">First emails</span><span>Thu 2 Oct, from 09:00 Dubai time, a few minutes apart</span>
-              <span style="color:var(--text3)">Follow-ups</span><span>Step 2 on Tue 7 Oct, step 3 on Tue 14 Oct, for anyone who hasn't replied</span>
+              <span style="color:var(--text3)">First emails</span><span>Now, Thu 2 Oct 14:20 Dubai time, the last at about 14:23</span>
+              <span style="color:var(--text3)">Follow-ups</span><span>Step 2 on Tue 7 Oct at 09:30, step 3 on Tue 14 Oct, for anyone who hasn't replied</span>
               <span style="color:var(--text3)">Status</span><span>Priya Raman and Rajesh Menon move from Identified to Contacted when their first email goes</span>
               <span style="color:var(--text3)">Skipped</span><span>4 people: already in a sequence, no email, do not contact</span>
             </div>

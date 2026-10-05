@@ -17,6 +17,8 @@ export interface ConnectedMailbox {
   provider: string;
   status: MailboxStatus;
   dailyCap: number;
+  /** The IANA zone the sending hours and the daily cap are read in. */
+  timeZone: string;
   connectedAt: string;
   /** A reconnect now would move this mailbox off Nylas onto Uncava's own connection. */
   movesOffNylas: boolean;
@@ -44,6 +46,11 @@ export function getMailbox(signal?: AbortSignal): Promise<Mailbox> {
 /** Also sets the cookie that ties the consent screen's answer to this browser. */
 export function startMailboxConnect(provider: string): Promise<MailboxConnectStart> {
   return request<MailboxConnectStart>("/outreach/mailbox/connect", { method: "POST", body: { provider } });
+}
+
+/** Answers the mailbox as it now reads. */
+export function changeMailboxTimeZone(timeZone: string): Promise<Mailbox> {
+  return request<Mailbox>("/outreach/mailbox/time-zone", { method: "PUT", body: { timeZone } });
 }
 
 export function disconnectMailbox(): Promise<void> {

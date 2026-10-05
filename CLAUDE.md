@@ -523,7 +523,15 @@ off in tests, which call `dispatchAt(instant)`): every minute it claims due rows
 instances never share a row, and a claim nobody released is stopped `SEND_UNCERTAIN`, never resent. Each
 send re-checks what Start checked (do not contact, still mapped, still in the running, address still on the
 ledger, mailbox active) and stops the run with that reason rather than hooking `candidate`; it waits for
-the sender's weekday 08:00–18:00 in their mailbox's `time_zone` and under its daily cap. Step 1 is the
+the sequence's own sending days and hours (V113, `send_days`/`window_start`/`window_end`, Mon–Fri 08:00–18:00
+by default) in the mailbox's `time_zone` — which the consultant sets on the Outreach page
+(`PUT /outreach/mailbox/time-zone`) — and under its daily cap. A follow-up waits its delay in those days and
+goes at its step's `send_time`, or the time of day the step before went. Start chooses when the first emails
+go (`startMode`): `NOW` or `AT` a chosen instant (≤ 60 days) pins it (`first_send_pinned`), so the window
+never moves it though the cap still does, and `NEXT_WINDOW` waits for the window; each person after the
+first is due 1–3 minutes after the one before (`FirstSendSpacing`), and keeps that offset past any opening the
+window or the cap holds it for (`send_offset_seconds`), so a deferred batch never goes at once. A time-zone change
+is audited (`MAILBOX_TIME_ZONE_CHANGED`) and takes a region's zone or UTC only. Step 1 is the
 frozen email; a follow-up is rendered from the sequence as it stands and replies to the last message, which
 threads it. The first send moves Identified to Contacted, forward only. A reply or bounce arrives on the
 public `/api/v1/outreach/webhooks/mailbox`, whose HMAC signature is its credential

@@ -94,6 +94,7 @@ const connected: Mailbox = {
     provider: "google",
     status: "ACTIVE",
     dailyCap: 50,
+    timeZone: "Asia/Dubai",
     connectedAt: "2026-10-01T09:00:00Z",
     movesOffNylas: false,
     runsStoppedByMove: 0,
