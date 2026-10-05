@@ -187,6 +187,131 @@ class OutreachDispatchIntegrationTest extends FlowTestSupport {
     }
 
     @Test
+    @DisplayName("Start now sends the first email at once, even outside the window, the rest minutes apart")
+    void startNowSendsAtOnce() throws Exception {
+        String sequenceId = createSequence("First approach");
+        String priya = executive("Priya Raman", "priya@" + domain);
+        String rajesh = executive("Rajesh Menon", "rajesh@" + domain);
+        startTimed(sequenceId, List.of(person(priya, "priya@" + domain, null), person(rajesh, "rajesh@" + domain, null)),
+                ",\"startMode\":\"NOW\"")
+                .andExpect(status().isCreated());
+
+        Duration gap = Duration.between(nextSendAt(priya), nextSendAt(rajesh));
+        assertThat(gap).isBetween(Duration.ofSeconds(60), Duration.ofSeconds(180));
+
+        Instant saturday = monday.minus(Duration.ofDays(2));
+        dispatcher.dispatchAt(saturday);
+
+        assertThat(sentTo("priya@" + domain)).hasSize(1);
+        assertThat(sentTo("rajesh@" + domain)).hasSize(1);
+        assertThat(nextSendAt(priya)).isEqualTo(monday.plus(Duration.ofDays(2)));
+    }
+
+    @Test
+    @DisplayName("a chosen start time holds the first email until then, and goes then even outside the window")
+    void aChosenStartTimeHolds() throws Exception {
+        String priya = executive("Priya Raman", "priya@" + domain);
+        Instant mondayEvening = monday.plus(Duration.ofHours(9));
+        startTimed(createSequence("First approach"), List.of(person(priya, "priya@" + domain, null)),
+                ",\"startMode\":\"AT\",\"startAt\":\"%s\"".formatted(mondayEvening))
+                .andExpect(status().isCreated());
+
+        dispatcher.dispatchAt(monday);
+        assertThat(sentTo("priya@" + domain)).isEmpty();
+
+        dispatcher.dispatchAt(mondayEvening);
+        assertThat(sentTo("priya@" + domain)).hasSize(1);
+    }
+
+    @Test
+    @DisplayName("a chosen start time must be ahead and within 60 days")
+    void aChosenStartTimeIsChecked() throws Exception {
+        String sequenceId = createSequence("First approach");
+        String priya = executive("Priya Raman", "priya@" + domain);
+        List<String> people = List.of(person(priya, "priya@" + domain, null));
+
+        startTimed(sequenceId, people, ",\"startMode\":\"AT\",\"startAt\":\"%s\""
+                .formatted(Instant.now().minus(Duration.ofHours(1))))
+                .andExpect(status().isBadRequest());
+        startTimed(sequenceId, people, ",\"startMode\":\"AT\",\"startAt\":\"%s\""
+                .formatted(Instant.now().plus(Duration.ofDays(61))))
+                .andExpect(status().isBadRequest());
+        startTimed(sequenceId, people, ",\"startMode\":\"AT\"").andExpect(status().isBadRequest());
+
+        assertThat(jdbc.queryForObject("select count(*) from app_lm_outreach_enrollment where candidate_id = ?::uuid",
+                Integer.class, priya)).isZero();
+    }
+
+    @Test
+    @DisplayName("Start now still keeps the mailbox's daily cap")
+    void startNowKeepsTheCap() throws Exception {
+        jdbc.update("update app_lm_mailbox_connection set daily_cap = 1 where address = ? and workspace_id = "
+                + "(select workspace_id from app_lm_project where id = ?::uuid)", MAILBOX, projectId);
+        String priya = executive("Priya Raman", "priya@" + domain);
+        String rajesh = executive("Rajesh Menon", "rajesh@" + domain);
+        startTimed(createSequence("First approach"),
+                List.of(person(priya, "priya@" + domain, null), person(rajesh, "rajesh@" + domain, null)),
+                ",\"startMode\":\"NOW\"")
+                .andExpect(status().isCreated());
+
+        Instant saturday = monday.minus(Duration.ofDays(2));
+        dispatcher.dispatchAt(saturday);
+        dispatcher.dispatchAt(saturday.plus(Duration.ofHours(1)));
+
+        assertThat(sentTo("priya@" + domain)).hasSize(1);
+        assertThat(sentTo("rajesh@" + domain)).isEmpty();
+        assertThat(nextSendAt(rajesh)).isEqualTo(monday.minus(Duration.ofHours(2)));
+    }
+
+    @Test
+    @DisplayName("a sequence's own days and a follow-up's send time decide when it goes")
+    void aSequencesOwnScheduleDecides() throws Exception {
+        String steps = """
+                [{"delayWorkingDays":0,"subject":"Confidential","body":"Hi {{firstName}}"},
+                 {"delayWorkingDays":1,"body":"Following up.","sendTime":"09:30"}]""";
+        String sequenceId = body(as(consultant, post(outreach("/sequences")).contentType(MediaType.APPLICATION_JSON)
+                .content("""
+                        {"name":"Gulf week","steps":%s,"schedule":{"days":["SUNDAY","MONDAY","TUESDAY","WEDNESDAY",
+                         "THURSDAY"],"windowStart":"09:00","windowEnd":"17:00"}}""".formatted(steps)))
+                .andExpect(status().isCreated())
+                .andReturn()).get("id").asText();
+        String priya = executive("Priya Raman", "priya@" + domain);
+        String rajesh = executive("Rajesh Menon", "rajesh@" + domain);
+        start(sequenceId, priya, "priya@" + domain, null);
+
+        dispatcher.dispatchAt(monday);
+        assertThat(sentTo("priya@" + domain)).hasSize(1);
+        assertThat(nextSendAt(priya)).isEqualTo(monday.plus(Duration.ofDays(1)).minus(Duration.ofMinutes(30)));
+
+        start(sequenceId, rajesh, "rajesh@" + domain, null);
+        Instant friday = monday.plus(Duration.ofDays(4));
+        dispatcher.dispatchAt(friday);
+        assertThat(sentTo("rajesh@" + domain)).isEmpty();
+        assertThat(nextSendAt(rajesh)).isEqualTo(monday.plus(Duration.ofDays(6)).minus(Duration.ofHours(1)));
+    }
+
+    @Test
+    @DisplayName("the window is read in the consultant's own zone, which only a zone on the list can be")
+    void theWindowIsReadInTheSendersZone() throws Exception {
+        as(consultant, put("/api/v1/outreach/mailbox/time-zone").contentType(MediaType.APPLICATION_JSON)
+                .content("{\"timeZone\":\"Mars/Olympus\"}"))
+                .andExpect(status().isBadRequest());
+        JsonNode mailbox = body(as(consultant, put("/api/v1/outreach/mailbox/time-zone")
+                .contentType(MediaType.APPLICATION_JSON).content("{\"timeZone\":\"Europe/London\"}"))
+                .andExpect(status().isOk())
+                .andReturn());
+        assertThat(mailbox.get("connection").get("timeZone").asText()).isEqualTo("Europe/London");
+
+        String priya = executive("Priya Raman", "priya@" + domain);
+        start(createSequence("First approach"), priya, "priya@" + domain, null);
+        dispatcher.dispatchAt(monday);
+
+        assertThat(sentTo("priya@" + domain)).isEmpty();
+        assertThat(nextSendAt(priya)).isEqualTo(LocalDate.ofInstant(monday, DUBAI).atTime(LocalTime.of(8, 0))
+                .atZone(ZoneId.of("Europe/London")).toInstant());
+    }
+
+    @Test
     @DisplayName("a mailbox's daily cap holds: the rest wait for the next working day's window")
     void theDailyCapHolds() throws Exception {
         jdbc.update("update app_lm_mailbox_connection set daily_cap = 1 where address = ? and workspace_id = "
@@ -607,10 +732,17 @@ class OutreachDispatchIntegrationTest extends FlowTestSupport {
     }
 
     private void start(String sequenceId, List<String> people) throws Exception {
-        as(consultant, post(outreach("/sequences/" + sequenceId + "/enrollments"))
+        startTimed(sequenceId, people, "").andExpect(status().isCreated());
+    }
+
+    private ResultActions startTimed(String sequenceId, List<String> people, String timingJson) throws Exception {
+        return as(consultant, post(outreach("/sequences/" + sequenceId + "/enrollments"))
                 .contentType(MediaType.APPLICATION_JSON)
-                .content("{\"people\":[" + String.join(",", people) + "]}"))
-                .andExpect(status().isCreated());
+                .content("{\"people\":[" + String.join(",", people) + "]" + timingJson + "}"));
+    }
+
+    private Instant nextSendAt(String candidateId) {
+        return ((java.sql.Timestamp) enrollmentOf(candidateId).get("next_send_at")).toInstant();
     }
 
     private static String person(String candidateId, String toAddress, String opener) {

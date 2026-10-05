@@ -7,6 +7,7 @@ import app.lightmove.api.core.security.model.AuthPrincipal;
 import app.lightmove.api.outreach.dto.MailboxConnectRequest;
 import app.lightmove.api.outreach.dto.MailboxConnectResponse;
 import app.lightmove.api.outreach.dto.MailboxResponse;
+import app.lightmove.api.outreach.dto.MailboxTimeZoneRequest;
 import app.lightmove.api.outreach.model.MailboxConnectStart;
 import app.lightmove.api.outreach.service.MailboxService;
 import jakarta.servlet.http.HttpServletRequest;
@@ -24,6 +25,7 @@ import org.springframework.web.bind.annotation.CookieValue;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseStatus;
@@ -82,6 +84,13 @@ public class MailboxController {
                 .location(landing)
                 .header(HttpHeaders.SET_COOKIE, connectCookie("", 0).toString())
                 .build();
+    }
+
+    @PutMapping("/api/v1/outreach/mailbox/time-zone")
+    @PreAuthorize("@workspaceAuthorizer.staff(principal)")
+    public MailboxResponse changeTimeZone(@AuthenticationPrincipal AuthPrincipal principal,
+                                          @Valid @RequestBody MailboxTimeZoneRequest body) {
+        return mailboxes.changeTimeZone(principal.userId(), principal.requireWorkspaceId(), body.timeZone());
     }
 
     @DeleteMapping("/api/v1/outreach/mailbox")

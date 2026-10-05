@@ -42,7 +42,8 @@ import org.springframework.transaction.support.TransactionTemplate;
 
 /**
  * Sends one claimed enrollment's next email: re-checks the person and the mailbox, holds the email to
- * the sender's window and daily cap, sends it, and records it. Three short transactions with the mail
+ * the sequence's window (unless the consultant pinned the first one's time) and the sender's daily cap,
+ * sends it, and records it. Three short transactions with the mail
  * service called between them, never inside one — and never twice: a send that failed, or whose outcome
  * is unknown, stops the run rather than trying again.
  */
@@ -167,9 +168,9 @@ public class OutreachSendService {
             return null;
         }
 
-        SendingWindow window = SendingWindow.of(settings());
+        SendingWindow window = sequence.sendingWindow();
         ZoneId zone = mailbox.zone();
-        if (!window.isOpen(now, zone)) {
+        if (!enrollment.isPinnedFirstSend() && !window.isOpen(now, zone)) {
             enrollment.deferTo(window.nextOpening(now, zone));
             return null;
         }
@@ -228,10 +229,12 @@ public class OutreachSendService {
         OutreachEnrollment enrollment = enrollments.findById(prepared.enrollmentId()).orElseThrow();
         OutreachSequence sequence = sequences.findById(enrollment.getSequenceId()).orElseThrow();
         int following = prepared.step() + 1;
-        Instant followingDue = following < sequence.getSteps().size()
-                ? SendingWindow.of(settings()).addWorkingDays(now, zoneOf(enrollment),
-                        sequence.getSteps().get(following).getDelayWorkingDays())
-                : null;
+        Instant followingDue = null;
+        if (following < sequence.getSteps().size()) {
+            SequenceStep next = sequence.getSteps().get(following);
+            followingDue = sequence.sendingWindow().followUpDue(now, zoneOf(enrollment), next.getDelayWorkingDays(),
+                    next.getSendTime());
+        }
         enrollment.markSent(sent, MailboxGatewayKind.ofGrant(prepared.grantId()), now, followingDue);
         messages.save(OutreachMessage.sent(enrollment, prepared.step(), prepared.email(), sent, now));
         if (enrollment.getCandidateId() != null) {

@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
@@ -27,8 +27,9 @@ const SEQUENCE: Sequence = {
   name: "CFO — first approach",
   steps: [
     { delayWorkingDays: 0, subject: "Confidential: {{positionTitle}}", body: "Hi {{firstName}},\n\n{{opener}}\n\nBye" },
-    { delayWorkingDays: 3, subject: null, body: "Following up" },
+    { delayWorkingDays: 3, subject: null, body: "Following up", sendTime: "09:30:00" },
   ],
+  schedule: { days: ["MONDAY", "TUESDAY", "WEDNESDAY", "THURSDAY", "FRIDAY"], windowStart: "08:00:00", windowEnd: "18:00:00" },
   createdByName: "Yara Haddad",
   enrolledCount: 0,
   sentCount: 0,
@@ -83,6 +84,7 @@ describe("EnrolDialog", () => {
         provider: "google",
         status: "ACTIVE",
         dailyCap: 50,
+        timeZone: "Asia/Dubai",
         connectedAt: "2026-10-01T09:00:00Z",
         movesOffNylas: false,
         runsStoppedByMove: 0,
@@ -92,7 +94,11 @@ describe("EnrolDialog", () => {
     vi.mocked(sequenceApi.draftOpeners).mockImplementation(async (_projectId, candidateIds) =>
       candidateIds.map((candidateId) => ({ candidateId, opener: `Drafted for ${candidateId}.` })),
     );
-    vi.mocked(sequenceApi.startSequence).mockResolvedValue({ enrolled: 2 });
+    vi.mocked(sequenceApi.startSequence).mockResolvedValue({
+      enrolled: 2,
+      firstSendAt: "2026-10-05T06:00:00Z",
+      lastFirstSendAt: "2026-10-05T06:02:00Z",
+    });
   });
 
   it("shows each skipped person with their reason and never ticks them", async () => {
@@ -140,10 +146,47 @@ describe("EnrolDialog", () => {
       expect(sequenceApi.startSequence).toHaveBeenCalledWith("p1", "s1", [
         { candidateId: "a", toAddress: "a@target.example", opener: "Your move into treasury stood out.", openerEdited: true },
         { candidateId: "b", toAddress: "b@target.example", opener: "Drafted for b.", openerEdited: false },
-      ]),
+      ], { startMode: "NOW", startAt: null }),
     );
     expect(sequenceApi.draftOpeners).toHaveBeenCalledTimes(1);
     expect(sequenceApi.draftOpeners).toHaveBeenCalledWith("p1", ["a", "b"]);
+  });
+
+  it("starts at a chosen day and time, read in the sender's own zone", async () => {
+    vi.mocked(sequenceApi.getEnrollmentCandidates).mockResolvedValue([person("a", "Priya Raman")]);
+    renderDialog();
+    await userEvent.click(await screen.findByRole("button", { name: "Review 1 email" }));
+    await waitFor(() => expect(screen.getByRole("textbox", { name: "Opener" })).toHaveValue("Drafted for a."));
+    await userEvent.click(screen.getByRole("button", { name: "Next" }));
+
+    expect(await screen.findByRole("radio", { name: /^Now/ })).toBeChecked();
+    expect(screen.getByRole("radio", { name: /Next sending window.*Mon–Fri, 08:00–18:00 Dubai time/ })).toBeInTheDocument();
+    await userEvent.click(screen.getByRole("radio", { name: /Pick a date and time/ }));
+    const day = new Date(Date.now() + 10 * 86_400_000).toLocaleDateString("en-CA", { timeZone: "Asia/Dubai" });
+    fireEvent.change(screen.getByLabelText("Start date"), { target: { value: day } });
+    await userEvent.selectOptions(screen.getByRole("combobox", { name: "Start time" }), "19:30");
+    expect(screen.getByText(/outside this sequence's sending schedule/)).toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: "Start sequence" }));
+
+    await waitFor(() =>
+      expect(sequenceApi.startSequence).toHaveBeenCalledWith("p1", "s1", expect.any(Array), {
+        startMode: "AT",
+        startAt: new Date(`${day}T19:30:00+04:00`).toISOString(),
+      }),
+    );
+  });
+
+  it("will not start at a time already past", async () => {
+    vi.mocked(sequenceApi.getEnrollmentCandidates).mockResolvedValue([person("a", "Priya Raman")]);
+    renderDialog();
+    await userEvent.click(await screen.findByRole("button", { name: "Review 1 email" }));
+    await waitFor(() => expect(screen.getByRole("textbox", { name: "Opener" })).toHaveValue("Drafted for a."));
+    await userEvent.click(screen.getByRole("button", { name: "Next" }));
+    await userEvent.click(await screen.findByRole("radio", { name: /Pick a date and time/ }));
+    fireEvent.change(screen.getByLabelText("Start date"), { target: { value: "2020-01-06" } });
+
+    expect(screen.getByText("Choose a time that is still ahead.")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Start sequence" })).toBeDisabled();
   });
 
   it("drafts nothing while more people are ticked than one Start may enroll", async () => {

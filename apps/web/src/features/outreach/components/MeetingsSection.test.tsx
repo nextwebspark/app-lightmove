@@ -87,6 +87,7 @@ function renderSection({
       provider: "google",
       status: "ACTIVE",
       dailyCap: 50,
+      timeZone: "Asia/Dubai",
       connectedAt: "2026-09-01T00:00:00Z",
       movesOffNylas: false,
       runsStoppedByMove: 0,

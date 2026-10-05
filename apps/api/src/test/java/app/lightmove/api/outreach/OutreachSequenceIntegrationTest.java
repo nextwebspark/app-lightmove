@@ -89,6 +89,45 @@ class OutreachSequenceIntegrationTest extends FlowTestSupport {
     }
 
     @Test
+    @DisplayName("a sequence keeps its own sending days and hours, and a follow-up's time must fall inside them")
+    void aSequenceKeepsItsOwnSchedule() throws Exception {
+        String sequenceId = createSequence("Default week");
+        JsonNode defaults = body(as(consultant, get(outreach("/sequences/" + sequenceId))).andReturn()).get("schedule");
+        assertThat(defaults.get("days").toString())
+                .isEqualTo("[\"MONDAY\",\"TUESDAY\",\"WEDNESDAY\",\"THURSDAY\",\"FRIDAY\"]");
+        assertThat(defaults.get("windowStart").asText()).startsWith("08:00");
+
+        JsonNode saved = body(as(consultant, put(outreach("/sequences/" + sequenceId))
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(scheduledSequenceJson("Gulf week", "09:00", "17:00", "\"09:30\"")))
+                .andExpect(status().isOk())
+                .andReturn());
+        assertThat(saved.get("schedule").get("days").toString())
+                .isEqualTo("[\"MONDAY\",\"TUESDAY\",\"WEDNESDAY\",\"THURSDAY\",\"SUNDAY\"]");
+        assertThat(saved.get("schedule").get("windowEnd").asText()).startsWith("17:00");
+        assertThat(saved.get("steps").get(1).get("sendTime").asText()).startsWith("09:30");
+        assertThat(saved.get("steps").get(0).get("sendTime").isNull()).isTrue();
+
+        JsonNode kept = body(as(consultant, put(outreach("/sequences/" + sequenceId))
+                .contentType(MediaType.APPLICATION_JSON).content(sequenceJson("Renamed", 2)))
+                .andExpect(status().isOk())
+                .andReturn());
+        assertThat(kept.get("schedule").get("windowStart").asText()).startsWith("09:00");
+
+        as(consultant, put(outreach("/sequences/" + sequenceId)).contentType(MediaType.APPLICATION_JSON)
+                .content(scheduledSequenceJson("Late", "09:00", "17:00", "\"18:30\"")))
+                .andExpect(status().isBadRequest());
+        as(consultant, put(outreach("/sequences/" + sequenceId)).contentType(MediaType.APPLICATION_JSON)
+                .content(scheduledSequenceJson("Backwards", "17:00", "09:00", "null")))
+                .andExpect(status().isBadRequest());
+        as(consultant, put(outreach("/sequences/" + sequenceId)).contentType(MediaType.APPLICATION_JSON)
+                .content("""
+                        {"name":"No days","steps":[{"delayWorkingDays":0,"subject":"Hi","body":"Hi"}],
+                         "schedule":{"days":[],"windowStart":"09:00","windowEnd":"17:00"}}"""))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
     @DisplayName("Choose lists everyone at the ticked companies and gives each skipped person their reason")
     void skippedPeopleCarryTheirReason() throws Exception {
         String sequenceId = createSequence("First approach");
@@ -318,6 +357,17 @@ class OutreachSequenceIntegrationTest extends FlowTestSupport {
                     {"delayWorkingDays":3,"subject":"ignored","body":"Following up, {{firstName}}."}""");
         }
         return "{\"name\":\"%s\",\"steps\":[%s]}".formatted(name, String.join(",", written));
+    }
+
+    private static String scheduledSequenceJson(String name, String windowStart, String windowEnd,
+                                                String followUpSendTime) {
+        return """
+                {"name":"%s","steps":[
+                  {"delayWorkingDays":0,"subject":"Confidential","body":"Hi {{firstName}}"},
+                  {"delayWorkingDays":2,"body":"Following up.","sendTime":%s}],
+                 "schedule":{"days":["SUNDAY","MONDAY","TUESDAY","WEDNESDAY","THURSDAY"],
+                             "windowStart":"%s","windowEnd":"%s"}}"""
+                .formatted(name, followUpSendTime, windowStart, windowEnd);
     }
 
     private String executive(String fullName, String emailAddress, String extraJson) throws Exception {

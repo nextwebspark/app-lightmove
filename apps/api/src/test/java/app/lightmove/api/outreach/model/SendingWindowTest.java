@@ -48,6 +48,25 @@ class SendingWindowTest {
         assertThat(WINDOW.addWorkingDays(at(2026, 10, 1, 10, 0), DUBAI, 0)).isEqualTo(at(2026, 10, 1, 10, 0));
     }
 
+    @Test
+    @DisplayName("a follow-up lands on its own time of day, on the working day its delay reaches")
+    void followUpDueAtItsSendTime() {
+        assertThat(WINDOW.followUpDue(at(2026, 10, 1, 16, 45), DUBAI, 2, LocalTime.of(9, 30)))
+                .isEqualTo(at(2026, 10, 5, 9, 30));
+        assertThat(WINDOW.followUpDue(at(2026, 10, 1, 16, 45), DUBAI, 2, null)).isEqualTo(at(2026, 10, 5, 16, 45));
+    }
+
+    @Test
+    @DisplayName("a Sunday-to-Thursday week counts Sunday and skips Friday and Saturday")
+    void aGulfWeek() {
+        SendingWindow gulf = new SendingWindow(LocalTime.of(9, 0), LocalTime.of(17, 0), Set.of(DayOfWeek.SUNDAY,
+                DayOfWeek.MONDAY, DayOfWeek.TUESDAY, DayOfWeek.WEDNESDAY, DayOfWeek.THURSDAY));
+        assertThat(gulf.isOpen(at(2026, 10, 4, 10, 0), DUBAI)).isTrue();
+        assertThat(gulf.nextOpening(at(2026, 10, 1, 17, 0), DUBAI)).isEqualTo(at(2026, 10, 4, 9, 0));
+        assertThat(gulf.addWorkingDays(at(2026, 10, 1, 10, 0), DUBAI, 1)).isEqualTo(at(2026, 10, 4, 10, 0));
+        assertThat(gulf.admits(LocalTime.of(17, 0))).isFalse();
+    }
+
     private static Instant at(int year, int month, int day, int hour, int minute) {
         return ZonedDateTime.of(year, month, day, hour, minute, 0, 0, DUBAI).toInstant();
     }

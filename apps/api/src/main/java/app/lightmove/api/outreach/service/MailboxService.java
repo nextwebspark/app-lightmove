@@ -30,6 +30,7 @@ import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.time.Clock;
 import java.time.Instant;
+import java.time.ZoneId;
 import java.util.Optional;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
@@ -83,6 +84,18 @@ public class MailboxService {
         int runsStopped = movesOffNylas
                 ? (int) enrollments.countRunningThreadsOf(workspaceId, userId, MailboxGatewayKind.NYLAS) : 0;
         return ConnectedMailboxResponse.of(mailbox, bookingPages.linkOf(mailbox), movesOffNylas, runsStopped);
+    }
+
+    /** Sends already due keep their time; the window and the cap read the new zone from the next one. */
+    @Transactional
+    public MailboxResponse changeTimeZone(UUID userId, UUID workspaceId, String timeZone) {
+        if (!ZoneId.getAvailableZoneIds().contains(timeZone)) {
+            throw ApiException.withField(ErrorCode.VALIDATION_FAILED, "timeZone", "Choose a time zone from the list");
+        }
+        connections.findByWorkspaceIdAndUserId(workspaceId, userId)
+                .orElseThrow(() -> ApiException.of(ErrorCode.MAILBOX_NOT_CONNECTED))
+                .changeTimeZone(ZoneId.of(timeZone));
+        return view(userId, workspaceId);
     }
 
     /** Any attempt the caller left unfinished is dropped, so only the newest consent screen can connect. */

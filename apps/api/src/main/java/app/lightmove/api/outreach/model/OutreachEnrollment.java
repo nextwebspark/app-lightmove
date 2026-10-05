@@ -106,14 +106,21 @@ public class OutreachEnrollment extends BaseEntity {
     @Column(name = "sending_since")
     private Instant sendingSince;
 
+    /** The consultant chose when the first email goes (V113): the sending window does not move it, the cap still does. */
+    @Column(name = "first_send_pinned", nullable = false)
+    private boolean firstSendPinned;
+
     /** The executive booked through the consultant's link (V104), rather than a consultant booking for them. */
     @Column(name = "booked_via_link", nullable = false)
     private boolean bookedViaLink;
 
-    /** Due at once: the dispatcher holds it to the sender's sending window and daily cap. */
+    /**
+     * The first email is due at {@code firstDue}; the dispatcher holds it to the sender's daily cap, and to
+     * the sequence's window unless {@code pinned}.
+     */
     public static OutreachEnrollment scheduled(OutreachSequence sequence, UUID candidateId, UUID personId,
                                                UUID sender, String toAddress, ReviewedFirstEmail email,
-                                               Instant now) {
+                                               Instant now, Instant firstDue, boolean pinned) {
         OutreachEnrollment enrollment = new OutreachEnrollment();
         enrollment.workspaceId = sequence.getWorkspaceId();
         enrollment.projectId = sequence.getProjectId();
@@ -124,7 +131,8 @@ public class OutreachEnrollment extends BaseEntity {
         enrollment.toAddress = toAddress;
         enrollment.status = EnrollmentStatus.SCHEDULED;
         enrollment.nextStep = 0;
-        enrollment.nextSendAt = now;
+        enrollment.nextSendAt = firstDue;
+        enrollment.firstSendPinned = pinned;
         enrollment.opener = email.opener();
         enrollment.openerEdited = email.openerEdited();
         enrollment.firstSubject = email.subject();
@@ -132,6 +140,11 @@ public class OutreachEnrollment extends BaseEntity {
         enrollment.enrolledBy = sender;
         enrollment.enrolledAt = now;
         return enrollment;
+    }
+
+    /** Whether the email due next is a pinned first one, which the sending window lets through. */
+    public boolean isPinnedFirstSend() {
+        return firstSendPinned && nextStep == 0;
     }
 
     public boolean isLive() {
