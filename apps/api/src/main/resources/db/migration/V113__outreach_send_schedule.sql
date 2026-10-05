@@ -2,7 +2,7 @@
 -- send_days is an ISO weekday bitmask (Monday bit 0 … Sunday bit 6); every existing sequence keeps the
 -- working week every deployment ships with, Monday to Friday, 08:00 to 18:00.
 ALTER TABLE app_lm_outreach_sequence
-    ADD COLUMN send_days    smallint NOT NULL DEFAULT 31
+    ADD COLUMN send_days    integer  NOT NULL DEFAULT 31
         CONSTRAINT app_lm_outreach_sequence_send_days_chk CHECK (send_days BETWEEN 1 AND 127),
     ADD COLUMN window_start time     NOT NULL DEFAULT '08:00',
     ADD COLUMN window_end   time     NOT NULL DEFAULT '18:00',
