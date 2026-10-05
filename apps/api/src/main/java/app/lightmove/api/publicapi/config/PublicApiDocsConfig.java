@@ -7,13 +7,18 @@ import io.swagger.v3.oas.models.Components;
 import io.swagger.v3.oas.models.OpenAPI;
 import io.swagger.v3.oas.models.info.Contact;
 import io.swagger.v3.oas.models.info.Info;
+import io.swagger.v3.oas.models.media.Content;
 import io.swagger.v3.oas.models.media.Schema;
 import io.swagger.v3.oas.models.security.SecurityRequirement;
 import io.swagger.v3.oas.models.security.SecurityScheme;
 import io.swagger.v3.oas.models.servers.Server;
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.IdentityHashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import org.springdoc.core.customizers.OpenApiCustomizer;
@@ -52,6 +57,7 @@ public class PublicApiDocsConfig implements WebMvcConfigurer {
                 .addSecurityItem(new SecurityRequirement().addList(KEY_SCHEME));
     }
 
+    /** Renames every {@code PublicPage*} schema and rewrites each {@code $ref} to it, wherever it sits. */
     @Bean
     OpenApiCustomizer publicSchemaNames() {
         return openApi -> {
@@ -64,23 +70,53 @@ public class PublicApiDocsConfig implements WebMvcConfigurer {
             schemas.forEach((name, schema) -> {
                 Matcher page = GENERIC_PAGE.matcher(name);
                 String publicName = page.matches() ? page.group(1) + "Page" : name;
+                if (named.putIfAbsent(publicName, schema) != null) {
+                    throw new IllegalStateException("Two schemas take the public name " + publicName);
+                }
                 renamed.put(name, publicName);
-                named.put(publicName, schema);
             });
             openApi.getComponents().setSchemas(named);
-            openApi.getPaths().values().forEach(path -> path.readOperations().forEach(operation ->
-                    operation.getResponses().values().forEach(response -> {
-                        if (response.getContent() != null) {
-                            response.getContent().values().forEach(media -> {
-                                Schema<?> schema = media.getSchema();
-                                if (schema != null && schema.get$ref() != null) {
-                                    String old = schema.get$ref().substring(SCHEMA_REF.length());
-                                    schema.set$ref(SCHEMA_REF + renamed.getOrDefault(old, old));
-                                }
-                            });
-                        }
-                    })));
+            Set<Schema<?>> seen = Collections.newSetFromMap(new IdentityHashMap<>());
+            named.values().forEach(schema -> rewriteRefs(schema, renamed, seen));
+            openApi.getPaths().values().forEach(path -> path.readOperations().forEach(operation -> {
+                if (operation.getParameters() != null) {
+                    operation.getParameters().forEach(parameter -> rewriteRefs(parameter.getSchema(), renamed, seen));
+                }
+                if (operation.getRequestBody() != null) {
+                    rewriteRefs(operation.getRequestBody().getContent(), renamed, seen);
+                }
+                operation.getResponses().values().forEach(response -> rewriteRefs(response.getContent(), renamed, seen));
+            }));
         };
+    }
+
+    private static void rewriteRefs(Content content, Map<String, String> renamed, Set<Schema<?>> seen) {
+        if (content != null) {
+            content.values().forEach(media -> rewriteRefs(media.getSchema(), renamed, seen));
+        }
+    }
+
+    private static void rewriteRefs(Schema<?> schema, Map<String, String> renamed, Set<Schema<?>> seen) {
+        if (schema == null || !seen.add(schema)) {
+            return;
+        }
+        if (schema.get$ref() != null && schema.get$ref().startsWith(SCHEMA_REF)) {
+            String old = schema.get$ref().substring(SCHEMA_REF.length());
+            schema.set$ref(SCHEMA_REF + renamed.getOrDefault(old, old));
+        }
+        if (schema.getProperties() != null) {
+            schema.getProperties().values().forEach(property -> rewriteRefs(property, renamed, seen));
+        }
+        rewriteRefs(schema.getItems(), renamed, seen);
+        if (schema.getAdditionalProperties() instanceof Schema<?> additional) {
+            rewriteRefs(additional, renamed, seen);
+        }
+        for (List<Schema> composed : Arrays.asList(schema.getAllOf(), schema.getAnyOf(), schema.getOneOf())) {
+            if (composed != null) {
+                composed.forEach(part -> rewriteRefs(part, renamed, seen));
+            }
+        }
+        rewriteRefs(schema.getNot(), renamed, seen);
     }
 
     @Override
