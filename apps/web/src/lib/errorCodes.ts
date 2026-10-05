@@ -112,6 +112,8 @@ export type ApiErrorCode =
   | "METHOD_NOT_ALLOWED"
   | "UNSUPPORTED_MEDIA_TYPE"
   | "NOT_ACCEPTABLE"
+  | "API_KEY_NOT_FOUND"
+  | "API_KEY_LIMIT_REACHED"
   | "INTERNAL_ERROR";
 
 // BULK_ADD_SCOPE_TOO_LARGE is deliberately absent: its server detail names how many companies matched
@@ -135,6 +137,8 @@ const MESSAGES: Partial<Record<ApiErrorCode, string>> = {
   PROJECT_LAST_LEAD: "A position must keep at least one lead.",
   WORKSPACE_NAME_MISMATCH: "Type the workspace name exactly to confirm.",
   FORBIDDEN: "You don't have permission to do this.",
+  API_KEY_NOT_FOUND: "That key no longer exists. Reload to see the current list.",
+  API_KEY_LIMIT_REACHED: "You have the most API keys allowed. Revoke one you no longer use.",
   RATE_LIMITED: "Too many requests — slow down a little.",
   ALREADY_IN_WORKSPACE: "You already belong to a workspace. Found another from Settings → Workspaces.",
   EMAIL_NOT_VERIFIED: "Verify your email address to continue.",
