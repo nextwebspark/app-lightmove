@@ -1,15 +1,24 @@
 package app.lightmove.api.publicapi.dto;
 
+import app.lightmove.api.candidate.constant.BackgroundField;
 import app.lightmove.api.candidate.dto.CandidateResponse;
 import io.swagger.v3.oas.annotations.media.Schema;
 import java.time.Instant;
 import java.util.List;
+import java.util.Set;
 import java.util.UUID;
 
-@Schema(name = "Candidate", description = "An executive a position has mapped")
+/**
+ * An executive as a key reads them. A background value a model proposed and no researcher has since
+ * confirmed (seniority, nationality, gender, years of experience) is sent as null: outside the product
+ * there is no badge to say it is a guess.
+ */
+@Schema(name = "Candidate", description = "An executive a position has mapped. Seniority, nationality, gender and "
+        + "years of experience are null until a person has recorded or confirmed them")
 public record PublicCandidate(
         @Schema(description = "This executive's id within the position") UUID id,
-        @Schema(description = "The person's id, the same on every position that maps them") UUID personId,
+        @Schema(description = "The person's id, the same on every position that maps them, so one person can be followed across positions")
+        UUID personId,
         @Schema(description = "The position's company they are mapped at; null where their employer is not in its universe",
                 nullable = true)
         UUID companyId,
@@ -49,10 +58,15 @@ public record PublicCandidate(
 ) {
 
     public static PublicCandidate of(CandidateResponse candidate, boolean withContacts, boolean withCompensation) {
+        Set<String> proposed = candidate.aiInferredFields() == null ? Set.of() : candidate.aiInferredFields();
         return new PublicCandidate(candidate.id(), candidate.personId(), candidate.triageCompanyId(),
-                candidate.companyName(), candidate.fullName(), candidate.title(), candidate.seniority(),
+                candidate.companyName(), candidate.fullName(), candidate.title(),
+                recorded(proposed, BackgroundField.SENIORITY, candidate.seniority()),
                 candidate.status(), candidate.linkedinUrl(), candidate.locationCity(), candidate.locationCountry(),
-                candidate.nationality(), candidate.gender(), candidate.yearsExperience(), candidate.summary(),
+                recorded(proposed, BackgroundField.NATIONALITY, candidate.nationality()),
+                recorded(proposed, BackgroundField.GENDER, candidate.gender()),
+                recorded(proposed, BackgroundField.YEARS_EXPERIENCE, candidate.yearsExperience()),
+                candidate.summary(),
                 candidate.career().stream()
                         .map(entry -> new PublicCareerEntry(entry.company(), entry.title(), entry.period(),
                                 entry.location()))
@@ -63,5 +77,9 @@ public record PublicCandidate(
                 candidate.languages(), candidate.skills(), candidate.addedAt(),
                 withContacts ? PublicContacts.of(candidate.contacts()) : null,
                 withCompensation ? PublicCompensation.of(candidate.compensation()) : null);
+    }
+
+    private static <T> T recorded(Set<String> proposed, BackgroundField field, T value) {
+        return proposed.contains(field.key()) ? null : value;
     }
 }

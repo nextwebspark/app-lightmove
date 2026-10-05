@@ -5,6 +5,8 @@ import app.lightmove.api.candidate.dto.CandidatesResponse;
 import app.lightmove.api.candidate.service.CandidateService;
 import app.lightmove.api.core.audit.constant.ProjectEventType;
 import app.lightmove.api.core.audit.service.AuditService;
+import app.lightmove.api.core.config.CompanyListSettings;
+import app.lightmove.api.core.config.LightMoveProperties;
 import app.lightmove.api.core.security.apikey.ApiKeyKind;
 import app.lightmove.api.core.security.apikey.ApiKeyPrincipal;
 import app.lightmove.api.core.security.apikey.ApiKeyScope;
@@ -14,7 +16,6 @@ import app.lightmove.api.project.dto.ProjectResponse;
 import app.lightmove.api.project.service.ProjectService;
 import app.lightmove.api.publicapi.dto.PublicCandidate;
 import app.lightmove.api.publicapi.dto.PublicCompany;
-import app.lightmove.api.publicapi.dto.PublicList;
 import app.lightmove.api.publicapi.dto.PublicPage;
 import app.lightmove.api.publicapi.dto.PublicProject;
 import app.lightmove.api.triagecompany.dto.TriageCompaniesResponse;
@@ -42,19 +43,32 @@ public class PublicReadService {
     private final TriageCompanyReadService companies;
     private final CandidateService candidates;
     private final AuditService audit;
+    private final LightMoveProperties properties;
 
-    /** A personal key lists only the positions its owner may open; a workspace key lists every one. */
-    public PublicList<PublicProject> projects(ApiKeyPrincipal key, String title, HttpServletRequest request) {
+    /**
+     * A personal key lists only the positions its owner may open; a workspace key lists every one. Paged
+     * after assembly, which is a fixed number of batched queries however many positions there are.
+     */
+    public PublicPage<PublicProject> projects(ApiKeyPrincipal key, String title, Integer page, Integer size,
+                                              HttpServletRequest request) {
+        CompanyListSettings paging = properties.company().list();
+        int pageNumber = page == null ? 0 : page;
+        int pageSize = size == null ? paging.defaultPageSize() : size;
+        paging.requireValidPage(pageNumber, pageSize);
         List<ProjectResponse> visible = key.kind() == ApiKeyKind.SERVICE
                 ? projects.listInWorkspace(key.workspaceId())
                 : readableByOwner(key, projects.list(key.ownerUserId(), key.workspaceId()));
         String wanted = title == null ? "" : title.strip().toLowerCase(Locale.ROOT);
-        List<PublicProject> rows = visible.stream()
+        List<ProjectResponse> matching = visible.stream()
                 .filter(project -> project.positionTitle().toLowerCase(Locale.ROOT).contains(wanted))
+                .toList();
+        List<PublicProject> rows = matching.stream()
+                .skip((long) pageNumber * pageSize)
+                .limit(pageSize)
                 .map(PublicProject::of)
                 .toList();
         record(key, null, request, rows.size());
-        return new PublicList<>(rows);
+        return new PublicPage<>(rows, pageNumber, pageSize, matching.size());
     }
 
     public PublicProject project(ApiKeyPrincipal key, UUID projectId, HttpServletRequest request) {
@@ -75,8 +89,9 @@ public class PublicReadService {
     public PublicPage<PublicCandidate> candidates(ApiKeyPrincipal key, UUID projectId, String status,
                                                   UUID companyId, Integer page, Integer size,
                                                   HttpServletRequest request) {
+        int pageSize = size == null ? properties.company().list().defaultPageSize() : size;
         CandidatesResponse found = candidates.list(key.workspaceId(), projectId, new CandidateListCriteria(
-                companyId == null ? null : List.of(companyId), null, null, status, page, size));
+                companyId == null ? null : List.of(companyId), null, null, status, page, pageSize));
         boolean withContacts = key.holds(ApiKeyScope.CANDIDATE_CONTACTS_READ);
         boolean withCompensation = key.holds(ApiKeyScope.CANDIDATE_COMPENSATION_READ);
         List<PublicCandidate> rows = found.candidates().stream()

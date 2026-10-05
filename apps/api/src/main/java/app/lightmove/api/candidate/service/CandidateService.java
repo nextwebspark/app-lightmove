@@ -36,6 +36,7 @@ import app.lightmove.api.candidate.model.NationalityReading;
 import app.lightmove.api.candidate.model.Person;
 import app.lightmove.api.candidate.model.PersonPhoto;
 import app.lightmove.api.candidate.model.StoredPhoto;
+import app.lightmove.api.candidate.repository.CandidateListFilter;
 import app.lightmove.api.candidate.repository.CandidateRepository;
 import app.lightmove.api.candidate.repository.PersonPhotoRepository;
 import app.lightmove.api.candidate.repository.PersonRepository;
@@ -169,9 +170,8 @@ public class CandidateService {
         PageRequest pageRequest = PageRequest.of(page, size, FIRST_MAPPED_FIRST);
         String nameQuery = criteria.nameQuery() == null ? "" : criteria.nameQuery().trim();
         CandidateStatus status = ApiValueEnum.parse(CandidateStatus.class, criteria.status(), null, "status");
-        Page<Candidate> found = status == null
-                ? findPage(projectId, criteria, companyIds, nameQuery, pageRequest)
-                : findPageOfStatus(projectId, status, criteria, companyIds, nameQuery, pageRequest);
+        Page<Candidate> found = candidates.findAll(CandidateListFilter.of(projectId, status, companyIds,
+                Boolean.TRUE.equals(criteria.unmapped()), nameQuery), pageRequest);
 
         return new CandidatesResponse(
                 found.getContent().stream().map(responses::toDto).toList(),
@@ -736,34 +736,6 @@ public class CandidateService {
         boolean filteredByCompany =
                 criteria.triageCompanyIds() != null || Boolean.TRUE.equals(criteria.unmapped());
         return filteredByCompany ? listConfig.maxPageSize() : listConfig.defaultPageSize();
-    }
-
-    private Page<Candidate> findPage(UUID projectId, CandidateListCriteria criteria,
-                                     List<UUID> companyIds, String nameQuery, PageRequest pageRequest) {
-        if (companyIds != null) {
-            return candidates.findByProjectIdAndTriageCompanyIdInAndPersonFullNameContainingIgnoreCase(
-                    projectId, companyIds, nameQuery, pageRequest);
-        }
-        if (Boolean.TRUE.equals(criteria.unmapped())) {
-            return candidates.findByProjectIdAndTriageCompanyIdIsNullAndPersonFullNameContainingIgnoreCase(
-                    projectId, nameQuery, pageRequest);
-        }
-        return candidates.findByProjectIdAndPersonFullNameContainingIgnoreCase(
-                projectId, nameQuery, pageRequest);
-    }
-
-    private Page<Candidate> findPageOfStatus(UUID projectId, CandidateStatus status, CandidateListCriteria criteria,
-                                             List<UUID> companyIds, String nameQuery, PageRequest pageRequest) {
-        if (companyIds != null) {
-            return candidates.findByProjectIdAndStatusAndTriageCompanyIdInAndPersonFullNameContainingIgnoreCase(
-                    projectId, status, companyIds, nameQuery, pageRequest);
-        }
-        if (Boolean.TRUE.equals(criteria.unmapped())) {
-            return candidates.findByProjectIdAndStatusAndTriageCompanyIdIsNullAndPersonFullNameContainingIgnoreCase(
-                    projectId, status, nameQuery, pageRequest);
-        }
-        return candidates.findByProjectIdAndStatusAndPersonFullNameContainingIgnoreCase(
-                projectId, status, nameQuery, pageRequest);
     }
 
     /**

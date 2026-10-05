@@ -6,7 +6,6 @@ import app.lightmove.api.core.security.apikey.RequirePublicProjectRead;
 import app.lightmove.api.core.security.apikey.RequirePublicScope;
 import app.lightmove.api.publicapi.dto.PublicCandidate;
 import app.lightmove.api.publicapi.dto.PublicCompany;
-import app.lightmove.api.publicapi.dto.PublicList;
 import app.lightmove.api.publicapi.dto.PublicPage;
 import app.lightmove.api.publicapi.dto.PublicProblem;
 import app.lightmove.api.publicapi.dto.PublicProject;
@@ -53,13 +52,17 @@ public class PublicProjectsController {
     @Operation(operationId = "listProjects", summary = "List positions",
             description = "Needs `projects:read`. A personal key lists the positions its owner can open; "
                     + "a workspace key lists every position. Newest first.")
-    @ApiResponse(responseCode = "200", description = "The positions")
-    public PublicList<PublicProject> list(
+    @ApiResponse(responseCode = "200", description = "One page of positions")
+    public PublicPage<PublicProject> list(
             @Parameter(hidden = true) @AuthenticationPrincipal ApiKeyPrincipal key,
             @Parameter(description = "Only positions whose title contains this, ignoring case", example = "Finance")
             @RequestParam(required = false) String title,
+            @Parameter(description = "Page number, from 0", schema = @Schema(type = "integer", minimum = "0", defaultValue = "0"))
+            @RequestParam(required = false) Integer page,
+            @Parameter(description = "Rows per page", schema = @Schema(type = "integer", minimum = "1", maximum = "100", defaultValue = "25"))
+            @RequestParam(required = false) Integer size,
             HttpServletRequest request) {
-        return reads.projects(key, title, request);
+        return reads.projects(key, title, page, size, request);
     }
 
     @GetMapping("/{projectId}")

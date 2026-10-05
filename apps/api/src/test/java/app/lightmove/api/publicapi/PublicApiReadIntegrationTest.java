@@ -52,6 +52,9 @@ class PublicApiReadIntegrationTest extends FlowTestSupport {
         assertThat(titles(read(serviceKey, PROJECTS, 200)))
                 .containsExactlyInAnyOrder("Chief Financial Officer", "Head of Retail");
         assertThat(titles(read(serviceKey, PROJECTS + "?title=retail", 200))).containsExactly("Head of Retail");
+        JsonNode firstPage = read(serviceKey, PROJECTS + "?size=1", 200);
+        assertThat(firstPage.get("data")).hasSize(1);
+        assertThat(firstPage.get("totalCount").asLong()).isEqualTo(2);
         assertThat(read(serviceKey, PROJECTS + "/" + retail, 200).get("clientName").asText()).startsWith("Client ");
 
         String outsider = secret(adminOf("other-" + domain), """
@@ -80,7 +83,7 @@ class PublicApiReadIntegrationTest extends FlowTestSupport {
     }
 
     @Test
-    @DisplayName("contacts and compensation are null without their own scopes, and notes are never sent")
+    @DisplayName("contacts and compensation are null without their own scopes, a model's unconfirmed guess is null, and notes are never sent")
     void personalDataNeedsItsOwnScope() throws Exception {
         String admin = adminOf(domain);
         String projectId = project(admin, "Chief Financial Officer");
@@ -95,6 +98,9 @@ class PublicApiReadIntegrationTest extends FlowTestSupport {
                                  "compensation":{"currency":"AED","baseSalary":1200000},
                                  "note":"Prefers a call after six"}""".formatted(companyId)))
                 .andExpect(status().isCreated());
+        db.update("""
+                update app_lm_person set gender = 'FEMALE', nationality = 'Emirati', ai_inferred_fields = '["nationality"]'
+                where workspace_id = (select workspace_id from app_lm_project where id = ?::uuid)""", projectId);
         String url = PROJECTS + "/" + projectId + "/candidates";
 
         MvcResult plainResult = mvc.perform(get(url).header("Authorization", "Bearer " + secret(admin, """
@@ -105,6 +111,8 @@ class PublicApiReadIntegrationTest extends FlowTestSupport {
         assertThat(plain.get("companyId").asText()).isEqualTo(companyId);
         assertThat(plain.get("contacts").isNull()).isTrue();
         assertThat(plain.get("compensation").isNull()).isTrue();
+        assertThat(plain.get("gender").asText()).isEqualTo("female");
+        assertThat(plain.get("nationality").isNull()).isTrue();
         assertThat(plain.has("customFields") || plain.has("aiInferredFields") || plain.has("note")).isFalse();
         assertThat(plainResult.getResponse().getContentAsString()).doesNotContain("Prefers a call");
 
@@ -146,7 +154,9 @@ class PublicApiReadIntegrationTest extends FlowTestSupport {
         assertThat(shortlisted.at("/data/0/stage").asText()).isEqualTo("shortlisted");
         assertThat(read(first, companies + "?stage=archived", 400).get("code").asText()).isEqualTo("VALIDATION_FAILED");
         assertThat(names(read(first, candidates + "?status=contacted", 200))).containsExactly("Layla Haddad");
-        assertThat(names(read(first, candidates + "?companyId=" + masdar, 200))).containsExactly("Yasmin Farouk");
+        JsonNode atMasdar = read(first, candidates + "?companyId=" + masdar, 200);
+        assertThat(names(atMasdar)).containsExactly("Yasmin Farouk");
+        assertThat(atMasdar.get("size").asInt()).isEqualTo(25);
 
         String second = secret(admin, scopes);
         JsonNode paged = read(second, candidates + "?size=2&page=1", 200);

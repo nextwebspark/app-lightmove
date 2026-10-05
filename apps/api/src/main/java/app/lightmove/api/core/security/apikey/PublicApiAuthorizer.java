@@ -13,7 +13,8 @@ import org.springframework.stereotype.Component;
  * The public API's guard bean behind {@link RequirePublicScope} and {@link RequirePublicProjectRead}:
  * the scope first, then the position. A personal key reads a position only where its owner holds
  * {@code WORK_VIEW}, re-read every call as {@code ProjectAccess} does; a workspace key reads every
- * position of its own workspace and none of another's.
+ * position of its own workspace and none of another's. Each check answers true or throws, so a refusal
+ * keeps its own code rather than becoming Spring's bare 403.
  */
 @Component("publicApiAuthorizer")
 @RequiredArgsConstructor
