@@ -6,6 +6,7 @@ import java.util.Collection;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.UUID;
 import org.jspecify.annotations.Nullable;
 import org.springframework.security.core.GrantedAuthority;
@@ -24,16 +25,16 @@ public record ApiKeyPrincipal(
         Instant expiresAt
 ) implements OAuth2AuthenticatedPrincipal {
 
-    static ApiKeyPrincipal of(ApiKey key) {
+    /** Empty for a key carrying a scope this build no longer knows, which is refused like any other bad key. */
+    static Optional<ApiKeyPrincipal> of(ApiKey key) {
         List<ApiKeyScope> scopes = key.getScopes().stream()
-                .map(token -> ApiValueEnum.require(ApiKeyScope.class, token, "scope"))
+                .map(token -> ApiValueEnum.fromValue(ApiKeyScope.class, token))
                 .toList();
-        return new ApiKeyPrincipal(key.getId(), key.getName(), key.getKind(), key.getWorkspaceId(),
-                key.getOwnerUserId(), scopes, key.getExpiresAt());
-    }
-
-    public boolean holds(ApiKeyScope scope) {
-        return scopes.contains(scope);
+        if (scopes.contains(null)) {
+            return Optional.empty();
+        }
+        return Optional.of(new ApiKeyPrincipal(key.getId(), key.getName(), key.getKind(), key.getWorkspaceId(),
+                key.getOwnerUserId(), scopes, key.getExpiresAt()));
     }
 
     @Override

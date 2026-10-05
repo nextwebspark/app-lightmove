@@ -1,5 +1,6 @@
 package app.lightmove.api.publicapi.dto;
 
+import app.lightmove.api.core.security.apikey.ApiKeyKind;
 import app.lightmove.api.core.security.apikey.ApiKeyPrincipal;
 import app.lightmove.api.core.security.apikey.ApiKeyScope;
 import io.swagger.v3.oas.annotations.media.ArraySchema;
@@ -12,17 +13,15 @@ import java.util.UUID;
 public record CallingKeyResponse(
         @Schema(description = "The key's id") UUID id,
         @Schema(description = "The name its maker gave it", example = "Power BI") String name,
-        @Schema(description = "PERSONAL reads only what its owner can open; SERVICE reads every position",
-                allowableValues = {"PERSONAL", "SERVICE"}) String kind,
+        @Schema(description = "PERSONAL reads only what its owner can open; SERVICE reads every position")
+        ApiKeyKind kind,
         @Schema(description = "The workspace every read is scoped to") UUID workspaceId,
-        @ArraySchema(arraySchema = @Schema(description = "What the key may read"),
-                schema = @Schema(allowableValues = {"projects:read", "companies:read", "candidates:read",
-                        "candidates.contacts:read", "candidates.compensation:read"})) List<String> scopes,
+        @ArraySchema(arraySchema = @Schema(description = "What the key may read")) List<ApiKeyScope> scopes,
         @Schema(description = "When the key stops working") Instant expiresAt
 ) {
 
     public static CallingKeyResponse of(ApiKeyPrincipal key) {
-        return new CallingKeyResponse(key.keyId(), key.keyName(), key.kind().name(), key.workspaceId(),
-                key.scopes().stream().map(ApiKeyScope::value).toList(), key.expiresAt());
+        return new CallingKeyResponse(key.keyId(), key.keyName(), key.kind(), key.workspaceId(), key.scopes(),
+                key.expiresAt());
     }
 }

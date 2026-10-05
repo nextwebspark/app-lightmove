@@ -1,6 +1,11 @@
 spring:
   application:
     name: lightmove-api
+  # SpaResourceConfig serves the SPA itself. Boot's own mappings would also serve every webjar at /webjars/**,
+  # Swagger UI's among them: unauthenticated, on the SPA's origin, outside the public chain's CSP.
+  web:
+    resources:
+      add-mappings: false
 
   datasource:
     # Cloud SQL Java connector: no host in the URL, no IP allowlist, no proxy process to babysit.
@@ -537,6 +542,7 @@ lightmove:
   public-api:
     enabled: ${PUBLIC_API_ENABLED:true}
     requests-per-minute: ${PUBLIC_API_REQUESTS_PER_MINUTE:60}
+    requests-per-minute-per-ip: ${PUBLIC_API_REQUESTS_PER_MINUTE_PER_IP:300}
     default-key-ttl: ${PUBLIC_API_DEFAULT_KEY_TTL:90d}
     max-key-ttl: ${PUBLIC_API_MAX_KEY_TTL:365d}
     max-active-keys-per-user: ${PUBLIC_API_MAX_ACTIVE_KEYS_PER_USER:10}
@@ -692,17 +698,16 @@ management:
     tags:
       application: lightmove-api
 
-# The public API's OpenAPI 3.1 document and Swagger UI, and nothing else: only the publicapi package under
-# /api/v1/public is scanned, so no internal route reaches any spec, and springdoc's default /v3/api-docs
-# and /swagger-ui are moved off. The UI's assets live under /api/v1/public/docs, the one prefix
-# SecurityConfig's public chain opens besides the spec. The UI never keeps a pasted key in localStorage.
+# The public API's spec and Swagger UI only: no internal route is scanned, and both sit under /api/v1/public.
 springdoc:
   packages-to-scan: app.lightmove.api.publicapi
   paths-to-match: /api/v1/public/**
   api-docs:
+    enabled: ${PUBLIC_API_ENABLED:true}
     path: /api/v1/public/openapi.json
     version: openapi_3_1
   swagger-ui:
+    enabled: ${PUBLIC_API_ENABLED:true}
     path: /api/v1/public/docs/index.html
     persist-authorization: false
     try-it-out-enabled: true

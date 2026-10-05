@@ -1,13 +1,11 @@
 package app.lightmove.api.core.security.config;
 import app.lightmove.api.core.config.LightMoveProperties;
-import app.lightmove.api.core.config.PublicApiSettings;
 import app.lightmove.api.core.config.SpaRequestPaths;
 import app.lightmove.api.core.error.constant.ErrorCode;
 import app.lightmove.api.core.error.handler.ProblemAccessDeniedHandler;
-import app.lightmove.api.core.ratelimit.service.RateLimiter;
 import app.lightmove.api.core.security.apikey.ApiKeyIntrospector;
+import app.lightmove.api.core.security.apikey.ApiKeyThrottledException;
 import app.lightmove.api.core.security.apikey.PublicApiProblemWriter;
-import app.lightmove.api.core.security.apikey.PublicApiRateLimitFilter;
 import app.lightmove.api.core.security.jwt.JwtPrincipalConverter;
 import app.lightmove.api.core.security.service.CookieAuthorizationRequestStore;
 import app.lightmove.api.core.security.service.OAuth2LoginFailureHandler;
@@ -17,10 +15,12 @@ import java.util.List;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.boot.actuate.autoconfigure.web.server.ManagementServerProperties;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnBooleanProperty;
 import org.springframework.boot.web.server.autoconfigure.ServerProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.core.annotation.Order;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpMethod;
 import org.springframework.security.authorization.AuthorizationDecision;
 import org.springframework.security.authorization.AuthorizationManager;
@@ -30,7 +30,6 @@ import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.core.annotation.AnnotationTemplateExpressionDefaults;
 import org.springframework.security.oauth2.client.registration.ClientRegistrationRepository;
 import org.springframework.security.oauth2.server.resource.web.BearerTokenAuthenticationEntryPoint;
-import org.springframework.security.oauth2.server.resource.web.authentication.BearerTokenAuthenticationFilter;
 import org.springframework.security.web.AuthenticationEntryPoint;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.access.intercept.RequestAuthorizationContext;
@@ -51,6 +50,12 @@ public class SecurityConfig {
 
     private static final String API = "/api/v1";
     private static final String PUBLIC_API = API + "/public";
+    private static final String PUBLIC_API_SWITCH = "lightmove.public-api.enabled";
+
+    /** Swagger UI is served unauthenticated on the SPA's origin, so it may load and call nothing but this origin. */
+    private static final String PUBLIC_API_CSP = "default-src 'self'; script-src 'self'; "
+            + "style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self'; "
+            + "object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'";
 
     /** Resolves {@code '{value}'} in {@code @RequireProjectPermission}; static, as method security reads it while being built. */
     @Bean
@@ -148,37 +153,26 @@ public class SecurityConfig {
 
     /**
      * Chain 2: the public API, where an API key is the only credential — a session's token is refused here
-     * as a key is everywhere else. The spec and Swagger UI need none. Switched off, everything here is a 404.
+     * as a key is everywhere else. The spec and Swagger UI need none.
      */
     @Bean
     @Order(2)
+    @ConditionalOnBooleanProperty(name = PUBLIC_API_SWITCH, matchIfMissing = true)
     SecurityFilterChain publicApiChain(HttpSecurity http, ApiKeyIntrospector introspector,
-                                       PublicApiProblemWriter problems, RateLimiter limiter,
-                                       LightMoveProperties properties) throws Exception {
-        PublicApiSettings settings = properties.publicApi();
-        http
-                .securityMatcher(PUBLIC_API + "/**")
-                .csrf(csrf -> csrf.disable())
-                .sessionManagement(s -> s.sessionCreationPolicy(SessionCreationPolicy.STATELESS));
-
-        if (!settings.enabled()) {
-            return http
-                    .authorizeHttpRequests(auth -> auth.anyRequest().denyAll())
-                    .exceptionHandling(e -> e
-                            .authenticationEntryPoint((request, response, failure) ->
-                                    problems.write(request, response, ErrorCode.NOT_FOUND))
-                            .accessDeniedHandler((request, response, denial) ->
-                                    problems.write(request, response, ErrorCode.NOT_FOUND)))
-                    .build();
-        }
-
+                                       PublicApiProblemWriter problems) throws Exception {
         BearerTokenAuthenticationEntryPoint bearerChallenge = new BearerTokenAuthenticationEntryPoint();
         AuthenticationEntryPoint keyRefused = (request, response, failure) -> {
+            if (failure instanceof ApiKeyThrottledException throttled) {
+                response.setHeader(HttpHeaders.RETRY_AFTER, Long.toString(throttled.retryAfterSeconds()));
+                problems.write(request, response, ErrorCode.RATE_LIMITED);
+                return;
+            }
             bearerChallenge.commence(request, response, failure);
             problems.write(request, response, ErrorCode.API_KEY_INVALID);
         };
 
-        return http
+        return publicApi(http)
+                .headers(headers -> headers.contentSecurityPolicy(csp -> csp.policyDirectives(PUBLIC_API_CSP)))
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers(HttpMethod.GET,
                                 PUBLIC_API + "/openapi.json", PUBLIC_API + "/openapi.json/**",
@@ -189,9 +183,29 @@ public class SecurityConfig {
                 .oauth2ResourceServer(oauth -> oauth
                         .authenticationEntryPoint(keyRefused)
                         .opaqueToken(opaque -> opaque.introspector(introspector)))
-                .addFilterAfter(new PublicApiRateLimitFilter(limiter, problems, settings.requestsPerMinute()),
-                        BearerTokenAuthenticationFilter.class)
                 .build();
+    }
+
+    /** Chain 2 with the public API switched off: everything under it, the docs included, is a 404. */
+    @Bean
+    @Order(2)
+    @ConditionalOnBooleanProperty(name = PUBLIC_API_SWITCH, havingValue = false)
+    SecurityFilterChain publicApiOffChain(HttpSecurity http, PublicApiProblemWriter problems) throws Exception {
+        return publicApi(http)
+                .authorizeHttpRequests(auth -> auth.anyRequest().denyAll())
+                .exceptionHandling(e -> e
+                        .authenticationEntryPoint((request, response, failure) ->
+                                problems.write(request, response, ErrorCode.NOT_FOUND))
+                        .accessDeniedHandler((request, response, denial) ->
+                                problems.write(request, response, ErrorCode.NOT_FOUND)))
+                .build();
+    }
+
+    private static HttpSecurity publicApi(HttpSecurity http) throws Exception {
+        return http
+                .securityMatcher(PUBLIC_API + "/**")
+                .csrf(csrf -> csrf.disable())
+                .sessionManagement(s -> s.sessionCreationPolicy(SessionCreationPolicy.STATELESS));
     }
 
     /**

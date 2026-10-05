@@ -2,6 +2,8 @@ package app.lightmove.api.publicapi;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.hamcrest.Matchers.containsString;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.redirectedUrl;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -33,22 +35,29 @@ class PublicApiDocsIntegrationTest {
         assertThat(spec.at("/security/0").has("apiKey")).isTrue();
         assertThat(spec.at("/paths/~1api~1v1~1public~1me/get/responses").propertyNames())
                 .contains("200", "401", "429");
+        assertThat(spec.at("/components/schemas/CallingKey/properties/scopes/items/enum").toString())
+                .isEqualTo("[\"projects:read\",\"companies:read\",\"candidates:read\","
+                        + "\"candidates.contacts:read\",\"candidates.compensation:read\"]");
     }
 
     @Test
-    @DisplayName("Swagger UI opens at /docs, its assets are served under it, and springdoc's default addresses serve no spec")
+    @DisplayName("Swagger UI opens at /docs, its assets are served under it, and no other address serves the spec or the UI")
     void ui() throws Exception {
         mvc.perform(get("/api/v1/public/docs"))
                 .andExpect(status().is3xxRedirection())
                 .andExpect(redirectedUrl("/api/v1/public/docs/swagger-ui/index.html"));
-        mvc.perform(get("/api/v1/public/docs/swagger-ui/index.html")).andExpect(status().isOk());
+        mvc.perform(get("/api/v1/public/docs/swagger-ui/index.html"))
+                .andExpect(status().isOk())
+                .andExpect(header().string("Content-Security-Policy", containsString("script-src 'self'")));
         assertThat(mvc.perform(get("/api/v1/public/docs/swagger-ui/swagger-initializer.js"))
                 .andExpect(status().isOk()).andReturn().getResponse().getContentAsString())
                 .contains("/api/v1/public/openapi.json");
 
         assertThat(mvc.perform(get("/v3/api-docs")).andReturn().getResponse().getContentAsString())
                 .doesNotContain("\"openapi\"");
-        assertThat(mvc.perform(get("/swagger-ui/index.html")).andReturn().getResponse().getContentAsString())
-                .doesNotContain("swagger-ui");
+        for (String elsewhere : new String[] {"/swagger-ui/index.html", "/webjars/swagger-ui/index.html"}) {
+            assertThat(mvc.perform(get(elsewhere)).andReturn().getResponse().getContentAsString())
+                    .doesNotContain("swagger-ui");
+        }
     }
 }

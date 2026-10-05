@@ -7,21 +7,18 @@ import app.lightmove.api.core.security.token.Tokens;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
-import java.util.Optional;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.oauth2.core.OAuth2AuthenticatedPrincipal;
 import org.springframework.security.oauth2.server.resource.introspection.BadOpaqueTokenException;
 import org.springframework.security.oauth2.server.resource.introspection.OpaqueTokenIntrospector;
 import org.springframework.stereotype.Component;
-import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.context.request.RequestContextHolder;
 import org.springframework.web.context.request.ServletRequestAttributes;
 
 /**
- * Turns a public API bearer key into its principal, re-reading everything on every request. A personal
- * key lasts only while its owner is an active member holding {@code API_KEY_MANAGE}, so a removed or
- * demoted owner's key stops at once. Every refusal is the same exception, so a caller learns nothing
- * about why.
+ * Turns a public API key into its principal, re-reading the key and, for a personal key, its owner's
+ * {@code API_KEY_MANAGE} on every request, so a removed or demoted owner's key stops at once. Every
+ * refusal is the same exception; only a spent budget answers differently.
  */
 @Component
 @RequiredArgsConstructor
@@ -31,21 +28,34 @@ public class ApiKeyIntrospector implements OpaqueTokenIntrospector {
 
     private final ApiKeyRepository keys;
     private final WorkspaceAccess access;
+    private final PublicApiBudget budget;
     private final ClientIpResolver clientIps;
     private final Clock clock;
 
     @Override
-    @Transactional
     public OAuth2AuthenticatedPrincipal introspect(String token) {
+        String ip = currentIp();
+        if (ip != null) {
+            budget.spendForIp(ip);
+        }
+        if (!ApiKeySecrets.isWellFormed(token)) {
+            throw refused();
+        }
+        String tokenHash = Tokens.hash(token);
+        budget.spendForKey(tokenHash);
+
         Instant now = clock.instant();
-        ApiKey key = Optional.of(token)
-                .filter(ApiKeySecrets::isWellFormed)
-                .flatMap(secret -> keys.findByTokenHash(Tokens.hash(secret)))
+        ApiKey key = keys.findByTokenHash(tokenHash)
                 .filter(found -> found.statusAt(now) == ApiKeyStatus.ACTIVE)
                 .filter(this::ownerStillEntitled)
-                .orElseThrow(() -> new BadOpaqueTokenException("Invalid API key"));
-        keys.stampUse(key.getId(), now, currentIp(), now.minus(USE_STAMP_INTERVAL));
-        return ApiKeyPrincipal.of(key);
+                .orElseThrow(ApiKeyIntrospector::refused);
+        ApiKeyPrincipal principal = ApiKeyPrincipal.of(key).orElseThrow(ApiKeyIntrospector::refused);
+
+        Instant staleBefore = now.minus(USE_STAMP_INTERVAL);
+        if (key.getLastUsedAt() == null || key.getLastUsedAt().isBefore(staleBefore)) {
+            keys.stampUse(key.getId(), now, ip, staleBefore);
+        }
+        return principal;
     }
 
     private boolean ownerStillEntitled(ApiKey key) {
@@ -57,5 +67,9 @@ public class ApiKeyIntrospector implements OpaqueTokenIntrospector {
         return RequestContextHolder.getRequestAttributes() instanceof ServletRequestAttributes attributes
                 ? clientIps.resolve(attributes.getRequest())
                 : null;
+    }
+
+    private static BadOpaqueTokenException refused() {
+        return new BadOpaqueTokenException("Invalid API key");
     }
 }

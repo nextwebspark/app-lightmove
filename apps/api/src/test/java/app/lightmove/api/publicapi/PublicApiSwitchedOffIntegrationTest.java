@@ -19,12 +19,15 @@ class PublicApiSwitchedOffIntegrationTest {
     @Autowired MockMvc mvc;
 
     @Test
-    @DisplayName("every public route, the spec and Swagger UI answer 404")
+    @DisplayName("every public route, the spec and Swagger UI answer 404, and springdoc serves the UI nowhere else")
     void everythingIsNotFound() throws Exception {
-        for (String path : new String[] {"/api/v1/public/me", "/api/v1/public/openapi.json", "/api/v1/public/docs"}) {
+        for (String path : new String[] {"/api/v1/public/me", "/api/v1/public/openapi.json", "/api/v1/public/docs",
+                "/api/v1/public/docs/swagger-ui/index.html"}) {
             assertThat(mvc.perform(get(path).header("Authorization", "Bearer uncava_pat_whatever"))
                     .andExpect(status().isNotFound()).andReturn().getResponse().getContentAsString())
                     .contains("\"code\":\"NOT_FOUND\"");
         }
+        assertThat(mvc.perform(get("/webjars/swagger-ui/index.html")).andReturn().getResponse().getContentAsString())
+                .doesNotContain("swagger-ui");
     }
 }

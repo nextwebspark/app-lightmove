@@ -8,6 +8,7 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
+import org.springframework.transaction.annotation.Transactional;
 
 /** Every finder takes the workspace, a key being tenant data, but the hash lookup that tells which workspace a key is. */
 public interface ApiKeyRepository extends JpaRepository<ApiKey, UUID> {
@@ -32,7 +33,8 @@ public interface ApiKeyRepository extends JpaRepository<ApiKey, UUID> {
 
     Optional<ApiKey> findByTokenHash(String tokenHash);
 
-    /** A bulk write, so authenticating a request bumps no entity version; at most once per {@code staleBefore} window. */
+    /** A bulk write, so authenticating a request bumps no entity version; the guard keeps two racing stamps to one. */
+    @Transactional
     @Modifying
     @Query("""
             UPDATE ApiKey k SET k.lastUsedAt = :now, k.lastUsedIp = :ip
