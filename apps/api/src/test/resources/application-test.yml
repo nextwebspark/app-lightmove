@@ -93,6 +93,11 @@ lightmove:
     # Every test seeds its own universe, so a count cached by the test before it would be wrong.
     facet-cache-ttl: 0s
 
+  # Small, because the bucket refills one request every 60/limit seconds: at 60 a test sending 61 would
+  # get a token back while it ran and the 61st would pass.
+  public-api:
+    requests-per-minute: 5
+
   # A configured account, so the map view is offered and the config endpoint has something to say.
   # The geocoder itself is StubGeocoder (a @Primary test double); no request reaches Mapbox.
   mapbox:
