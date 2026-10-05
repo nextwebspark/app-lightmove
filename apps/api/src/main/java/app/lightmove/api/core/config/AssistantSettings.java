@@ -31,8 +31,11 @@ public record AssistantSettings(
         /** Names one lookup checks. */
         @DefaultValue("10") int maxNamesPerLookup,
 
-        /** Names checked at once — each holds database connections, and the pool is small. */
-        @DefaultValue("3") int nameLookupParallelism,
+        /**
+         * Names checked at once. A lookup holds a connection only for each indexed name query, never across
+         * a vendor call, so a deployed pool of five queues briefly rather than running dry.
+         */
+        @DefaultValue("5") int nameLookupParallelism,
 
         /** How long a lookup waits for its names before reporting the rest as not checked. */
         @DefaultValue("25s") Duration nameLookupDeadline,

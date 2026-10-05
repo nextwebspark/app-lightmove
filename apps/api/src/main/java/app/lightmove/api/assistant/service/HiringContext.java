@@ -18,7 +18,7 @@ import java.util.stream.Collectors;
  */
 final class HiringContext {
 
-    private static final int MAX_ITEMS = 10;
+    static final int MAX_ITEMS = 10;
     private static final int MAX_TEXT = 600;
 
     private static final String IN_HOUSE_FRAMING = """
@@ -70,21 +70,21 @@ final class HiringContext {
                 : String.join("\n", lines);
     }
 
-    private static void line(List<String> lines, String label, String value) {
+    static void line(List<String> lines, String label, String value) {
         String clean = flattened(value);
         if (clean != null) {
             lines.add("- " + label + ": " + clean);
         }
     }
 
-    private static String listed(List<String> values) {
+    static String listed(List<String> values) {
         if (values == null || values.isEmpty()) {
             return null;
         }
         return values.stream().limit(MAX_ITEMS).collect(Collectors.joining(", "));
     }
 
-    private static String joined(String separator, String... parts) {
+    static String joined(String separator, String... parts) {
         String joined = Arrays.stream(parts)
                 .filter(part -> part != null && !part.isBlank())
                 .collect(Collectors.joining(separator));

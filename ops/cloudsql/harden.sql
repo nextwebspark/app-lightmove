@@ -63,6 +63,15 @@ BEGIN
 
         EXECUTE 'REVOKE ALL    ON app_lm_apollo_companies FROM lm_app';
         EXECUTE 'GRANT  SELECT ON app_lm_apollo_companies TO   lm_app';
+
+        -- Only an owner can index it, so V112 skips this here: the assistant's exact-name lookups.
+        IF pg_get_userbyid((SELECT relowner FROM pg_class
+                            WHERE oid = 'public.app_lm_apollo_companies'::regclass)) = current_user THEN
+            EXECUTE 'CREATE INDEX IF NOT EXISTS app_lm_apollo_companies_name_lower_idx
+                         ON app_lm_apollo_companies (lower(company_name))';
+        ELSE
+            RAISE NOTICE 'app_lm_apollo_companies_name_lower_idx was not created: this role does not own the universe.';
+        END IF;
     END IF;
 END $$;
 

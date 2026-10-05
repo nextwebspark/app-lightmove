@@ -26,17 +26,19 @@ public class CompanySearchTools {
             Every argument is optional and an omitted one places no constraint, so give only what \
             the question asks for. Several countries or several industries may be given in one \
             search — a company matches any of them — so ask once for "retail and hospitality in the \
-            UAE and Saudi Arabia" rather than once per pair. Country and industry must be spelled \
-            exactly as describeMarket reports them. The answer says how many companies matched in \
+            UAE and Saudi Arabia" rather than once per pair. Common spellings of a country or an \
+            industry are understood ("UAE", "KSA", "Retail"); any the universe does not know come \
+            back as unrecognisedSpellings — check those with describeMarket. The answer says how \
+            many companies matched in \
             total and how many are shown — when those differ you are seeing the largest, not all of \
             them, so narrow the search rather than reporting the list as the whole market. Each \
             company comes with an Apollo account id, which is what identifies it everywhere else, \
             and a mandateStage when this mandate has already filed it (inUniverse, shortlisted or \
             declined). When an industry is given, the answer also lists the industries adjacent to it.""")
     public CompanyMatches searchCompanyUniverse(
-            @ToolParam(required = false, description = "Countries, each spelled as describeMarket reports it; at most five")
+            @ToolParam(required = false, description = "Countries; at most five")
             List<String> countries,
-            @ToolParam(required = false, description = "Industries, each spelled as describeMarket reports it; at most five")
+            @ToolParam(required = false, description = "Industries; at most five")
             List<String> industries,
             @ToolParam(required = false, description = "A word the company describes itself with")
             String keyword,
@@ -46,8 +48,8 @@ public class CompanySearchTools {
             ToolContext toolContext) {
         AssistantToolContext context = AssistantToolContext.from(toolContext);
         TurnRecorder recorder = context.recorder();
-        List<String> askedCountries = MarketQuery.cleaned(countries);
-        List<String> askedIndustries = MarketQuery.cleaned(industries);
+        List<String> askedCountries = MarketQuery.countriesOf(countries);
+        List<String> askedIndustries = MarketQuery.industriesOf(industries);
         int step = recorder.startStep(describeSearch(askedCountries, askedIndustries, keyword, companyName,
                 minEmployees, maxEmployees));
         CompanyMatches found = market.matching(MarketQuery.scopeOf(askedCountries, askedIndustries, keyword,
@@ -56,7 +58,8 @@ public class CompanySearchTools {
                 .withMandateStages(triaged.stagesOf(context.workspaceId(), context.projectId(),
                         found.companies().stream().map(MarketCompanySummary::apolloAccountId).toList(),
                         found.companies().stream().map(MarketCompanySummary::companyName).toList()))
-                .withAdjacentIndustries(adjacentTo(askedIndustries));
+                .withAdjacentIndustries(adjacentTo(askedIndustries))
+                .withUnrecognisedSpellings(MarketQuery.unrecognised(askedCountries, askedIndustries));
         recorder.found(matches.companies().stream().map(MarketCompanySummary::apolloAccountId).toList());
         recorder.finishStep(step, describeMatches(matches));
         return matches;

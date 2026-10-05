@@ -123,6 +123,7 @@ public class AssistantService {
                                      AssistantThread existing, String question,
                                      Consumer<AssistantStepEvent> onStep,
                                      Consumer<AssistantProposal> onProposal) {
+        long startedAt = System.nanoTime();
         List<AssistantTurn> history = recentOf(existing == null ? List.of()
                 : turns.findByThreadIdOrderByCreatedAtAsc(existing.getId()));
 
@@ -141,11 +142,15 @@ public class AssistantService {
             threads.touch(thread.getId(), Instant.now());
             return AssistantTurnResponse.of(turn);
         });
+        long answerMs = (System.nanoTime() - startedAt) / 1_000_000;
+        log.info("Assistant answered in {}ms with {} tool steps", answerMs, recorder.steps().size());
         audit.event(ProjectEventType.ASSISTANT_ASKED)
                 .actor(userId).workspace(workspaceId).target(AuditService.PROJECT_TARGET, projectId)
                 .detail("threadId", saved.threadId().toString())
                 .detail("turnId", saved.id().toString())
                 .detail("vendorSearches", String.valueOf(recorder.vendorSearches()))
+                .detail("answerMs", String.valueOf(answerMs))
+                .detail("toolSteps", String.valueOf(recorder.steps().size()))
                 .detail("companiesOnCard", String.valueOf(
                         recorder.proposal() == null ? 0 : recorder.proposal().companies().size()))
                 .record();
@@ -168,7 +173,9 @@ public class AssistantService {
                             .labels(Map.of("prompt", PROMPT_ID)))
                     .system(system -> system.text(systemPrompt)
                             .param("hiring", HiringContext.render(
-                                    hiringSides.resolve(context.workspaceId(), context.projectId()))))
+                                    hiringSides.resolve(context.workspaceId(), context.projectId())))
+                            .param("brief", BriefContext.render(
+                                    mandateTools.briefOf(context.workspaceId(), context.projectId()))))
                     .messages(conversation(history, question))
                     .tools(mandateTools, searchTools, namedCompanyTools, sectorTools, proposalTools)
                     .toolContext(context.asMap())
