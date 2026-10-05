@@ -15,6 +15,7 @@ import java.util.UUID;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
 import org.springframework.data.jpa.repository.Query;
 
 /**
@@ -23,15 +24,10 @@ import org.springframework.data.jpa.repository.Query;
  * resolved against the caller's workspace one layer up. The person a row maps is reached through it,
  * so a name or a profile is only ever asked about within one mandate here.
  *
- * <p>The three list finders differ only in which company filter they apply, and all three take the
- * search box's text through {@code PersonFullNameContainingIgnoreCase}. A blank search is not
- * special-cased because it does not need to be: a person's {@code full_name} is NOT NULL, so
- * {@code LIKE '%%'} matches every row.
+ * <p>The candidates list is {@link CandidateListFilter} through {@link JpaSpecificationExecutor}: its
+ * filters are each optional, and a finder per combination would multiply with every one added.
  */
-public interface CandidateRepository extends JpaRepository<Candidate, UUID> {
-
-    Page<Candidate> findByProjectIdAndPersonFullNameContainingIgnoreCase(
-            UUID projectId, String fullName, Pageable pageable);
+public interface CandidateRepository extends JpaRepository<Candidate, UUID>, JpaSpecificationExecutor<Candidate> {
 
     @Query("select c.id as candidateId, c.addedBy as addedBy from Candidate c where c.projectId = :projectId")
     List<CandidateAttribution> findAttributionByProjectId(UUID projectId);
@@ -44,14 +40,6 @@ public interface CandidateRepository extends JpaRepository<Candidate, UUID> {
 
     /** The talent map's read: the whole mandate, with no search box above it to narrow. */
     Page<Candidate> findByProjectId(UUID projectId, Pageable pageable);
-
-    /** The Companies grid's read: the people at the companies on the page being rendered. */
-    Page<Candidate> findByProjectIdAndTriageCompanyIdInAndPersonFullNameContainingIgnoreCase(
-            UUID projectId, Collection<UUID> triageCompanyIds, String fullName, Pageable pageable);
-
-    /** The rest — executives whose employer is not one of the mandate's triaged companies. */
-    Page<Candidate> findByProjectIdAndTriageCompanyIdIsNullAndPersonFullNameContainingIgnoreCase(
-            UUID projectId, String fullName, Pageable pageable);
 
     Optional<Candidate> findByIdAndProjectId(UUID id, UUID projectId);
 

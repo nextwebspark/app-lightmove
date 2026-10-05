@@ -37,6 +37,10 @@ public record ApiKeyPrincipal(
                 key.getOwnerUserId(), scopes, key.getExpiresAt()));
     }
 
+    public boolean holds(ApiKeyScope scope) {
+        return scopes.contains(scope);
+    }
+
     @Override
     public String getName() {
         return keyId.toString();

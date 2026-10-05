@@ -361,6 +361,9 @@ public enum ErrorCode {
     /** Every refusal of a public API key — missing, malformed, unknown, revoked, expired or its owner's access gone — alike. */
     API_KEY_INVALID(HttpStatus.UNAUTHORIZED, "The API key is missing, invalid or no longer active"),
 
+    /** A live key asking a route outside its scopes; the body names the scope as {@code requiredScope}. */
+    API_KEY_SCOPE_MISSING(HttpStatus.FORBIDDEN, "This API key does not carry the scope this request needs"),
+
     INTERNAL_ERROR(HttpStatus.INTERNAL_SERVER_ERROR, "Something went wrong on our end");
 
     private final HttpStatus status;
