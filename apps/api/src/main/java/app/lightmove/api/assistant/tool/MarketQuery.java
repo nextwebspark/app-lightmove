@@ -57,11 +57,14 @@ final class MarketQuery {
         return canonical(supplied, Industries::nameOf);
     }
 
-    /** What neither catalog knows, so the model can check those spellings with describeMarket. */
-    static List<String> unrecognised(List<String> countries, List<String> industries) {
+    /**
+     * What neither catalog knows, read off {@link #countriesOf}/{@link #industriesOf}'s answers — a known
+     * spelling is already canonical there, so only an unknown one fails to resolve.
+     */
+    static List<String> unrecognised(List<String> askedCountries, List<String> askedIndustries) {
         return Stream.concat(
-                        cleaned(countries).stream().filter(country -> Countries.resolve(country).isEmpty()),
-                        cleaned(industries).stream().filter(industry -> !Industries.isKnown(industry)))
+                        askedCountries.stream().filter(country -> Countries.resolve(country).isEmpty()),
+                        askedIndustries.stream().filter(industry -> !Industries.isKnown(industry)))
                 .toList();
     }
 

@@ -7,6 +7,7 @@ import app.lightmove.api.triagecompany.model.CapturedCompanyDetails;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Collection;
+import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -25,7 +26,7 @@ import lombok.extern.slf4j.Slf4j;
 public class TurnRecorder {
 
     private final List<AssistantStep> steps = new ArrayList<>();
-    private final List<Long> stepStartedAt = new ArrayList<>();
+    private final Map<Integer, Long> openStepStartedAt = new HashMap<>();
     private final Consumer<AssistantStepEvent> onStep;
     private final Consumer<AssistantProposal> onProposal;
     private final Set<String> foundAccountIds = new LinkedHashSet<>();
@@ -48,8 +49,8 @@ public class TurnRecorder {
 
     public int startStep(String label) {
         steps.add(new AssistantStep(label, null));
-        stepStartedAt.add(System.nanoTime());
         int index = steps.size() - 1;
+        openStepStartedAt.put(index, System.nanoTime());
         onStep.accept(new AssistantStepEvent(index, label, null, false));
         return index;
     }
@@ -57,7 +58,10 @@ public class TurnRecorder {
     public void finishStep(int index, String detail) {
         String label = steps.get(index).label();
         steps.set(index, new AssistantStep(label, detail));
-        log.debug("Assistant step '{}' took {}ms", label, (System.nanoTime() - stepStartedAt.get(index)) / 1_000_000);
+        Long startedAt = openStepStartedAt.remove(index);
+        if (startedAt != null) {
+            log.debug("Assistant step '{}' took {}ms", label, (System.nanoTime() - startedAt) / 1_000_000);
+        }
         onStep.accept(new AssistantStepEvent(index, label, detail, true));
     }
 

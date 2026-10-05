@@ -59,7 +59,7 @@ public class CompanySearchTools {
                         found.companies().stream().map(MarketCompanySummary::apolloAccountId).toList(),
                         found.companies().stream().map(MarketCompanySummary::companyName).toList()))
                 .withAdjacentIndustries(adjacentTo(askedIndustries))
-                .withUnrecognisedSpellings(MarketQuery.unrecognised(countries, industries));
+                .withUnrecognisedSpellings(MarketQuery.unrecognised(askedCountries, askedIndustries));
         recorder.found(matches.companies().stream().map(MarketCompanySummary::apolloAccountId).toList());
         recorder.finishStep(step, describeMatches(matches));
         return matches;

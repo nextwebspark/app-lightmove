@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import app.lightmove.api.assistant.tool.MandateBrief;
 import java.util.List;
+import java.util.stream.IntStream;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
@@ -37,5 +38,18 @@ class BriefContextTest {
                 List.of(), null, null, null, List.of()));
 
         assertThat(block).endsWith("- Role: Chief Medical Officer\nNo brief has been written for this position yet.");
+    }
+
+    @Test
+    @DisplayName("a long brief is cut to ten responsibilities and each text to the hiring block's length")
+    void capsALongBrief() {
+        List<String> responsibilities = IntStream.rangeClosed(1, 14).mapToObj(n -> "Duty " + n).toList();
+
+        String block = BriefContext.render(new MandateBrief("Chief Executive Officer", null, null, null, null,
+                responsibilities, "x".repeat(5_000), null, null, List.of()));
+
+        assertThat(block.lines().filter(line -> line.startsWith("- Responsibility:"))).hasSize(10);
+        assertThat(block.lines().filter(line -> line.startsWith("- About the role:")))
+                .singleElement().satisfies(line -> assertThat(line).hasSizeLessThan(700).endsWith("…"));
     }
 }
