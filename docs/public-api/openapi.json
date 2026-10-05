@@ -1,0 +1,1234 @@
+{
+  "openapi" : "3.1.0",
+  "info" : {
+    "contact" : {
+      "name" : "Uncava",
+      "url" : "https://beta.uncava.com"
+    },
+    "description" : "Read-only access to a workspace's positions, their companies and their executives, as JSON.\n\n## Authentication\nMake a key in **Settings → API keys** and send it on every request as `Authorization: Bearer <key>`. The key is shown once, when it is made; Uncava keeps only a fingerprint of it.\n\n| Key | Prefix | Reads |\n|---|---|---|\n| Personal | `uncava_pat_` | Only the positions its owner can open in Uncava, re-checked on every request. It stops working when its owner leaves the workspace. |\n| Workspace | `uncava_svc_` | Every position in the workspace. Only an admin makes one. |\n\nEvery key expires; a revoked, expired or unknown key answers `401 API_KEY_INVALID`. No key writes anything.\n\n## Scopes\nA key carries the scopes chosen when it was made. A route outside them answers `403 API_KEY_SCOPE_MISSING`, naming the scope in `requiredScope`.\n\n| Scope | Reads |\n|---|---|\n| `projects:read` | Positions: title, client, stage, type, dates and counts |\n| `companies:read` | Each position's companies, a stage at a time |\n| `candidates:read` | Each position's executives: profile, company and status |\n| `candidates.contacts:read` | Fills an executive's `contacts`; null without it |\n| `candidates.compensation:read` | Fills an executive's `compensation`; null without it |\n\nAn executive's seniority, nationality, gender and years of experience are null until a person has recorded or confirmed them. Notes and AI assessments are never sent.\n\n## Paging\nList routes take `page` (from 0) and `size` (default 25, at most 100) and answer `{ data, page, size, totalCount }`. The universe route answers a whole stage in one call, or refuses one too large for it.\n\n## Rate limits\n60 requests a minute per key, and 300 per IP address. Past either, the answer is `429 RATE_LIMITED` with a `Retry-After` header in seconds.\n\n## Errors\nEvery error is an RFC 9457 problem document (`application/problem+json`). Switch on `code`, never on `detail`; quote `correlationId` when asking for support.\n\n| Status | Code | When |\n|---|---|---|\n| 400 | `VALIDATION_FAILED` | A parameter is out of range or not one of its values |\n| 400 | `PUBLIC_API_UNIVERSE_TOO_LARGE` | A universe too large for one call; page instead |\n| 401 | `API_KEY_INVALID` | The key is missing, malformed, unknown, revoked or expired |\n| 403 | `API_KEY_SCOPE_MISSING` | The key lacks the scope the route needs |\n| 403 | `FORBIDDEN` | A personal key's owner is not on the position |\n| 404 | `NOT_FOUND` | No such position in the key's workspace |\n| 429 | `RATE_LIMITED` | Too many requests; wait for `Retry-After` |\n",
+    "title" : "Uncava Public API",
+    "version" : "v1"
+  },
+  "servers" : [ {
+    "url" : "https://beta.uncava.com"
+  } ],
+  "security" : [ {
+    "apiKey" : [ ]
+  } ],
+  "tags" : [ {
+    "description" : "The companies a position has filed, a stage at a time",
+    "name" : "Companies"
+  }, {
+    "description" : "The API key a request is made with",
+    "name" : "Key"
+  }, {
+    "description" : "A stage's companies with their executives nested, in one call",
+    "name" : "Universe"
+  }, {
+    "description" : "The executives a position has mapped",
+    "name" : "Candidates"
+  }, {
+    "description" : "Positions: the search and mapping mandates",
+    "name" : "Projects"
+  } ],
+  "paths" : {
+    "/api/v1/public/me" : {
+      "get" : {
+        "description" : "Needs no scope. Useful to check a key works before reading anything with it.",
+        "operationId" : "getCallingKey",
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/CallingKey"
+                }
+              }
+            },
+            "description" : "The key, its workspace and its scopes"
+          },
+          "401" : {
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description" : "The key is missing, invalid, revoked or expired"
+          },
+          "429" : {
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description" : "Too many requests on this key; wait for Retry-After seconds"
+          }
+        },
+        "summary" : "Describe the calling key",
+        "tags" : [ "Key" ]
+      }
+    },
+    "/api/v1/public/projects" : {
+      "get" : {
+        "description" : "Needs `projects:read`. A personal key lists the positions its owner can open; a workspace key lists every position. Newest first.",
+        "operationId" : "listProjects",
+        "parameters" : [ {
+          "description" : "Only positions whose title contains this, ignoring case",
+          "example" : "Finance",
+          "in" : "query",
+          "name" : "title",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "description" : "Page number, from 0",
+          "in" : "query",
+          "name" : "page",
+          "required" : false,
+          "schema" : {
+            "type" : "integer",
+            "default" : 0,
+            "minimum" : 0
+          }
+        }, {
+          "description" : "Rows per page",
+          "in" : "query",
+          "name" : "size",
+          "required" : false,
+          "schema" : {
+            "type" : "integer",
+            "default" : 25,
+            "maximum" : 100,
+            "minimum" : 1
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProjectPage"
+                }
+              }
+            },
+            "description" : "One page of positions"
+          },
+          "400" : {
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description" : "A parameter is out of range or not one of its values (VALIDATION_FAILED), or a universe too large for one call (PUBLIC_API_UNIVERSE_TOO_LARGE)"
+          },
+          "401" : {
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description" : "The key is missing, invalid, revoked or expired (API_KEY_INVALID)"
+          },
+          "403" : {
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description" : "The key lacks the scope (API_KEY_SCOPE_MISSING), or its owner has no seat on the position (FORBIDDEN)"
+          },
+          "429" : {
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description" : "Too many requests (RATE_LIMITED); wait for Retry-After seconds"
+          }
+        },
+        "summary" : "List positions",
+        "tags" : [ "Projects" ]
+      }
+    },
+    "/api/v1/public/projects/{projectId}" : {
+      "get" : {
+        "description" : "Needs `projects:read`.",
+        "operationId" : "getProject",
+        "parameters" : [ {
+          "description" : "The position's id",
+          "in" : "path",
+          "name" : "projectId",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/Project"
+                }
+              }
+            },
+            "description" : "The position"
+          },
+          "400" : {
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description" : "A parameter is out of range or not one of its values (VALIDATION_FAILED), or a universe too large for one call (PUBLIC_API_UNIVERSE_TOO_LARGE)"
+          },
+          "401" : {
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description" : "The key is missing, invalid, revoked or expired (API_KEY_INVALID)"
+          },
+          "403" : {
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description" : "The key lacks the scope (API_KEY_SCOPE_MISSING), or its owner has no seat on the position (FORBIDDEN)"
+          },
+          "404" : {
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description" : "No such position in the key's workspace (NOT_FOUND)"
+          },
+          "429" : {
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description" : "Too many requests (RATE_LIMITED); wait for Retry-After seconds"
+          }
+        },
+        "summary" : "Get one position",
+        "tags" : [ "Projects" ]
+      }
+    },
+    "/api/v1/public/projects/{projectId}/candidates" : {
+      "get" : {
+        "description" : "Needs `candidates:read`. `contacts` is filled only with `candidates.contacts:read`, and `compensation` only with `candidates.compensation:read`; otherwise both are null. First mapped first.",
+        "operationId" : "listCandidates",
+        "parameters" : [ {
+          "description" : "The position's id",
+          "in" : "path",
+          "name" : "projectId",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "description" : "Only executives at this status",
+          "in" : "query",
+          "name" : "status",
+          "required" : false,
+          "schema" : {
+            "type" : "string",
+            "enum" : [ "identified", "contacted", "engaged", "interested", "notInterested", "offLimits", "outOfScope" ]
+          }
+        }, {
+          "description" : "Only executives mapped at this company: a Company's id from the companies route",
+          "in" : "query",
+          "name" : "companyId",
+          "required" : false,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "description" : "Page number, from 0",
+          "in" : "query",
+          "name" : "page",
+          "required" : false,
+          "schema" : {
+            "type" : "integer",
+            "default" : 0,
+            "minimum" : 0
+          }
+        }, {
+          "description" : "Rows per page",
+          "in" : "query",
+          "name" : "size",
+          "required" : false,
+          "schema" : {
+            "type" : "integer",
+            "default" : 25,
+            "maximum" : 100,
+            "minimum" : 1
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/CandidatePage"
+                }
+              }
+            },
+            "description" : "One page of executives"
+          },
+          "400" : {
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description" : "A parameter is out of range or not one of its values (VALIDATION_FAILED), or a universe too large for one call (PUBLIC_API_UNIVERSE_TOO_LARGE)"
+          },
+          "401" : {
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description" : "The key is missing, invalid, revoked or expired (API_KEY_INVALID)"
+          },
+          "403" : {
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description" : "The key lacks the scope (API_KEY_SCOPE_MISSING), or its owner has no seat on the position (FORBIDDEN)"
+          },
+          "404" : {
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description" : "No such position in the key's workspace (NOT_FOUND)"
+          },
+          "429" : {
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description" : "Too many requests (RATE_LIMITED); wait for Retry-After seconds"
+          }
+        },
+        "summary" : "List a position's executives",
+        "tags" : [ "Candidates" ]
+      }
+    },
+    "/api/v1/public/projects/{projectId}/companies" : {
+      "get" : {
+        "description" : "Needs `companies:read`. One stage at a time, newest first.",
+        "operationId" : "listCompanies",
+        "parameters" : [ {
+          "description" : "The position's id",
+          "in" : "path",
+          "name" : "projectId",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "description" : "The stage to read",
+          "in" : "query",
+          "name" : "stage",
+          "required" : false,
+          "schema" : {
+            "type" : "string",
+            "default" : "inUniverse",
+            "enum" : [ "inUniverse", "shortlisted", "declined" ]
+          }
+        }, {
+          "description" : "Page number, from 0",
+          "in" : "query",
+          "name" : "page",
+          "required" : false,
+          "schema" : {
+            "type" : "integer",
+            "default" : 0,
+            "minimum" : 0
+          }
+        }, {
+          "description" : "Rows per page",
+          "in" : "query",
+          "name" : "size",
+          "required" : false,
+          "schema" : {
+            "type" : "integer",
+            "default" : 25,
+            "maximum" : 100,
+            "minimum" : 1
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/CompanyPage"
+                }
+              }
+            },
+            "description" : "One page of the stage"
+          },
+          "400" : {
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description" : "A parameter is out of range or not one of its values (VALIDATION_FAILED), or a universe too large for one call (PUBLIC_API_UNIVERSE_TOO_LARGE)"
+          },
+          "401" : {
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description" : "The key is missing, invalid, revoked or expired (API_KEY_INVALID)"
+          },
+          "403" : {
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description" : "The key lacks the scope (API_KEY_SCOPE_MISSING), or its owner has no seat on the position (FORBIDDEN)"
+          },
+          "404" : {
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description" : "No such position in the key's workspace (NOT_FOUND)"
+          },
+          "429" : {
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description" : "Too many requests (RATE_LIMITED); wait for Retry-After seconds"
+          }
+        },
+        "summary" : "List a position's companies",
+        "tags" : [ "Companies" ]
+      }
+    },
+    "/api/v1/public/projects/{projectId}/universe" : {
+      "get" : {
+        "description" : "Needs `companies:read` and `candidates:read`. Every company of the stage, each with the executives mapped at it, unpaged; on inUniverse, executives at no company come back in `unassigned`. `contacts` and `compensation` follow the same scopes as on the candidates route. A stage too large for one call is refused with PUBLIC_API_UNIVERSE_TOO_LARGE, never cut short; page through the companies and candidates routes instead.",
+        "operationId" : "getUniverse",
+        "parameters" : [ {
+          "description" : "The position's id",
+          "in" : "path",
+          "name" : "projectId",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "description" : "The stage to read",
+          "in" : "query",
+          "name" : "stage",
+          "required" : false,
+          "schema" : {
+            "type" : "string",
+            "default" : "inUniverse",
+            "enum" : [ "inUniverse", "shortlisted", "declined" ]
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/Universe"
+                }
+              }
+            },
+            "description" : "The whole stage"
+          },
+          "400" : {
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description" : "A parameter is out of range or not one of its values (VALIDATION_FAILED), or a universe too large for one call (PUBLIC_API_UNIVERSE_TOO_LARGE)"
+          },
+          "401" : {
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description" : "The key is missing, invalid, revoked or expired (API_KEY_INVALID)"
+          },
+          "403" : {
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description" : "The key lacks the scope (API_KEY_SCOPE_MISSING), or its owner has no seat on the position (FORBIDDEN)"
+          },
+          "404" : {
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description" : "No such position in the key's workspace (NOT_FOUND)"
+          },
+          "429" : {
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description" : "Too many requests (RATE_LIMITED); wait for Retry-After seconds"
+          }
+        },
+        "summary" : "Read a stage with its executives",
+        "tags" : [ "Universe" ]
+      }
+    }
+  },
+  "components" : {
+    "schemas" : {
+      "CallingKey" : {
+        "type" : "object",
+        "description" : "The API key a request was made with",
+        "properties" : {
+          "expiresAt" : {
+            "type" : "string",
+            "format" : "date-time",
+            "description" : "When the key stops working"
+          },
+          "id" : {
+            "type" : "string",
+            "format" : "uuid",
+            "description" : "The key's id"
+          },
+          "kind" : {
+            "type" : "string",
+            "description" : "PERSONAL reads only what its owner can open; SERVICE reads every position",
+            "enum" : [ "PERSONAL", "SERVICE" ]
+          },
+          "name" : {
+            "type" : "string",
+            "description" : "The name its maker gave it",
+            "example" : "Power BI"
+          },
+          "scopes" : {
+            "type" : "array",
+            "description" : "What the key may read",
+            "items" : {
+              "type" : "string",
+              "enum" : [ "projects:read", "companies:read", "candidates:read", "candidates.contacts:read", "candidates.compensation:read" ]
+            }
+          },
+          "workspaceId" : {
+            "type" : "string",
+            "format" : "uuid",
+            "description" : "The workspace every read is scoped to"
+          }
+        }
+      },
+      "Candidate" : {
+        "type" : "object",
+        "description" : "An executive a position has mapped. Seniority, nationality, gender and years of experience are null until a person has recorded or confirmed them",
+        "properties" : {
+          "addedAt" : {
+            "type" : "string",
+            "format" : "date-time",
+            "description" : "When the position mapped them"
+          },
+          "career" : {
+            "type" : "array",
+            "description" : "Their career, latest first",
+            "items" : {
+              "$ref" : "#/components/schemas/CareerEntry"
+            }
+          },
+          "city" : {
+            "type" : [ "string", "null" ],
+            "description" : "The city they live in",
+            "example" : "Dubai"
+          },
+          "companyId" : {
+            "type" : [ "string", "null" ],
+            "format" : "uuid",
+            "description" : "The position's company they are mapped at; null where their employer is not in its universe"
+          },
+          "companyName" : {
+            "type" : [ "string", "null" ],
+            "description" : "Their employer's name",
+            "example" : "ACWA Power"
+          },
+          "compensation" : {
+            "type" : "null",
+            "$ref" : "#/components/schemas/Compensation",
+            "description" : "Their current package. Null unless the key holds candidates.compensation:read"
+          },
+          "contacts" : {
+            "type" : "null",
+            "$ref" : "#/components/schemas/Contacts",
+            "description" : "Every email and phone known for them. Null unless the key holds candidates.contacts:read"
+          },
+          "country" : {
+            "type" : [ "string", "null" ],
+            "description" : "The country they live in",
+            "example" : "United Arab Emirates"
+          },
+          "education" : {
+            "type" : "array",
+            "description" : "Their education",
+            "items" : {
+              "$ref" : "#/components/schemas/EducationEntry"
+            }
+          },
+          "fullName" : {
+            "type" : "string",
+            "description" : "Their full name",
+            "example" : "Layla Haddad"
+          },
+          "gender" : {
+            "type" : [ "string", "null" ],
+            "description" : "Their gender, where recorded",
+            "enum" : [ "female", "male", "other" ]
+          },
+          "id" : {
+            "type" : "string",
+            "format" : "uuid",
+            "description" : "This executive's id within the position"
+          },
+          "languages" : {
+            "type" : "array",
+            "description" : "Languages they speak",
+            "example" : [ "Arabic", "English" ],
+            "items" : {
+              "type" : "string"
+            }
+          },
+          "linkedinUrl" : {
+            "type" : [ "string", "null" ],
+            "description" : "Their LinkedIn profile",
+            "example" : "https://www.linkedin.com/in/layla-haddad"
+          },
+          "nationality" : {
+            "type" : [ "string", "null" ],
+            "description" : "Their nationality group",
+            "example" : "Emirati"
+          },
+          "personId" : {
+            "type" : "string",
+            "format" : "uuid",
+            "description" : "The person's id, the same on every position that maps them, so one person can be followed across positions"
+          },
+          "seniority" : {
+            "type" : [ "string", "null" ],
+            "description" : "Their level against the role",
+            "enum" : [ "Board", "C-Suite", "N-1", "N-2", "N-3" ],
+            "example" : "C-Suite"
+          },
+          "skills" : {
+            "type" : "array",
+            "description" : "Skills from their profile",
+            "items" : {
+              "type" : "string"
+            }
+          },
+          "status" : {
+            "type" : "string",
+            "description" : "Where they stand on this position",
+            "enum" : [ "identified", "contacted", "engaged", "interested", "notInterested", "offLimits", "outOfScope" ],
+            "example" : "contacted"
+          },
+          "summary" : {
+            "type" : [ "string", "null" ],
+            "description" : "A short profile summary"
+          },
+          "title" : {
+            "type" : [ "string", "null" ],
+            "description" : "Their current title",
+            "example" : "Chief Financial Officer"
+          },
+          "yearsExperience" : {
+            "type" : [ "integer", "null" ],
+            "format" : "int32",
+            "description" : "Years of experience",
+            "example" : 18
+          }
+        }
+      },
+      "CandidatePage" : {
+        "type" : "object",
+        "description" : "One page of rows, and how many there are in all",
+        "properties" : {
+          "data" : {
+            "type" : "array",
+            "description" : "The rows of this page",
+            "items" : {
+              "$ref" : "#/components/schemas/Candidate"
+            }
+          },
+          "page" : {
+            "type" : "integer",
+            "format" : "int32",
+            "description" : "This page's number, from 0",
+            "example" : 0
+          },
+          "size" : {
+            "type" : "integer",
+            "format" : "int32",
+            "description" : "Rows per page",
+            "example" : 25
+          },
+          "totalCount" : {
+            "type" : "integer",
+            "format" : "int64",
+            "description" : "Rows across every page",
+            "example" : 142
+          }
+        }
+      },
+      "CareerEntry" : {
+        "type" : "object",
+        "description" : "One post in an executive's career",
+        "properties" : {
+          "company" : {
+            "type" : [ "string", "null" ],
+            "description" : "The employer",
+            "example" : "Saudi Aramco"
+          },
+          "location" : {
+            "type" : [ "string", "null" ],
+            "description" : "Where the post was held",
+            "example" : "Dhahran"
+          },
+          "period" : {
+            "type" : [ "string", "null" ],
+            "description" : "When, as the source wrote it",
+            "example" : "2019–Present"
+          },
+          "title" : {
+            "type" : [ "string", "null" ],
+            "description" : "The title held",
+            "example" : "VP Finance"
+          }
+        }
+      },
+      "Company" : {
+        "type" : "object",
+        "description" : "A company a position has taken into its universe, as it was filed",
+        "properties" : {
+          "addedAt" : {
+            "type" : "string",
+            "format" : "date-time",
+            "description" : "When the position took it in"
+          },
+          "annualRevenue" : {
+            "type" : [ "integer", "null" ],
+            "format" : "int64",
+            "description" : "Annual revenue in USD",
+            "example" : 1600000000
+          },
+          "city" : {
+            "type" : [ "string", "null" ],
+            "description" : "Its headquarters city",
+            "example" : "Riyadh"
+          },
+          "country" : {
+            "type" : [ "string", "null" ],
+            "description" : "Its headquarters country",
+            "example" : "Saudi Arabia"
+          },
+          "description" : {
+            "type" : [ "string", "null" ],
+            "description" : "A short description"
+          },
+          "employees" : {
+            "type" : [ "integer", "null" ],
+            "format" : "int32",
+            "description" : "Headcount",
+            "example" : 4200
+          },
+          "foundedYear" : {
+            "type" : [ "integer", "null" ],
+            "format" : "int32",
+            "description" : "The year it was founded",
+            "example" : 2004
+          },
+          "id" : {
+            "type" : "string",
+            "format" : "uuid",
+            "description" : "This company's id within the position; an executive's companyId names it"
+          },
+          "industry" : {
+            "type" : [ "string", "null" ],
+            "description" : "Its industry",
+            "example" : "utilities"
+          },
+          "linkedinUrl" : {
+            "type" : [ "string", "null" ],
+            "description" : "Its LinkedIn page",
+            "example" : "https://www.linkedin.com/company/acwa-power"
+          },
+          "logoUrl" : {
+            "type" : [ "string", "null" ],
+            "description" : "Its logo"
+          },
+          "name" : {
+            "type" : "string",
+            "description" : "The company's name",
+            "example" : "ACWA Power"
+          },
+          "noExecutiveFound" : {
+            "type" : "boolean",
+            "description" : "The team searched it and found no executive to map",
+            "example" : false
+          },
+          "stage" : {
+            "type" : "string",
+            "description" : "Where the position has filed it",
+            "enum" : [ "inUniverse", "shortlisted", "declined" ],
+            "example" : "shortlisted"
+          },
+          "website" : {
+            "type" : [ "string", "null" ],
+            "description" : "Its website",
+            "example" : "https://www.acwapower.com"
+          }
+        }
+      },
+      "CompanyPage" : {
+        "type" : "object",
+        "description" : "One page of rows, and how many there are in all",
+        "properties" : {
+          "data" : {
+            "type" : "array",
+            "description" : "The rows of this page",
+            "items" : {
+              "$ref" : "#/components/schemas/Company"
+            }
+          },
+          "page" : {
+            "type" : "integer",
+            "format" : "int32",
+            "description" : "This page's number, from 0",
+            "example" : 0
+          },
+          "size" : {
+            "type" : "integer",
+            "format" : "int32",
+            "description" : "Rows per page",
+            "example" : 25
+          },
+          "totalCount" : {
+            "type" : "integer",
+            "format" : "int64",
+            "description" : "Rows across every page",
+            "example" : 142
+          }
+        }
+      },
+      "Compensation" : {
+        "type" : "object",
+        "description" : "An executive's current package, as recorded; each figure annual",
+        "properties" : {
+          "allowances" : {
+            "type" : [ "integer", "null" ],
+            "format" : "int64",
+            "description" : "Allowances, summed",
+            "example" : 240000
+          },
+          "baseSalary" : {
+            "type" : [ "integer", "null" ],
+            "format" : "int64",
+            "description" : "Base salary",
+            "example" : 1200000
+          },
+          "bonus" : {
+            "type" : [ "integer", "null" ],
+            "format" : "int64",
+            "description" : "Bonus",
+            "example" : 300000
+          },
+          "currency" : {
+            "type" : [ "string", "null" ],
+            "description" : "ISO 4217 currency of every figure",
+            "example" : "AED"
+          },
+          "longTermIncentive" : {
+            "type" : [ "integer", "null" ],
+            "format" : "int64",
+            "description" : "Long-term incentive",
+            "example" : 500000
+          },
+          "noticePeriod" : {
+            "type" : [ "string", "null" ],
+            "description" : "Notice period",
+            "example" : "3 months"
+          }
+        }
+      },
+      "Contacts" : {
+        "type" : "object",
+        "description" : "Every email and phone known for an executive",
+        "properties" : {
+          "emails" : {
+            "type" : "array",
+            "description" : "Email addresses",
+            "items" : {
+              "$ref" : "#/components/schemas/Email"
+            }
+          },
+          "phones" : {
+            "type" : "array",
+            "description" : "Phone numbers",
+            "items" : {
+              "$ref" : "#/components/schemas/Phone"
+            }
+          }
+        }
+      },
+      "EducationEntry" : {
+        "type" : "object",
+        "description" : "One school in an executive's education",
+        "properties" : {
+          "degree" : {
+            "type" : [ "string", "null" ],
+            "description" : "The degree",
+            "example" : "MBA"
+          },
+          "period" : {
+            "type" : [ "string", "null" ],
+            "description" : "When, as the source wrote it",
+            "example" : "2010–2011"
+          },
+          "school" : {
+            "type" : [ "string", "null" ],
+            "description" : "The school",
+            "example" : "INSEAD"
+          }
+        }
+      },
+      "Email" : {
+        "type" : "object",
+        "description" : "One email address known for an executive",
+        "properties" : {
+          "address" : {
+            "type" : "string",
+            "description" : "The address",
+            "example" : "l.haddad@example.com"
+          },
+          "kind" : {
+            "type" : [ "string", "null" ],
+            "description" : "work or personal, where known",
+            "enum" : [ "work", "personal" ]
+          },
+          "verified" : {
+            "type" : "boolean",
+            "description" : "A provider or a researcher verified it",
+            "example" : true
+          }
+        }
+      },
+      "Phone" : {
+        "type" : "object",
+        "description" : "One phone number known for an executive",
+        "properties" : {
+          "kind" : {
+            "type" : [ "string", "null" ],
+            "description" : "work or personal, where a researcher tagged it",
+            "enum" : [ "work", "personal" ]
+          },
+          "number" : {
+            "type" : "string",
+            "description" : "The number, as it arrived",
+            "example" : "+971 50 123 4567"
+          },
+          "verified" : {
+            "type" : "boolean",
+            "description" : "A provider or a researcher verified it",
+            "example" : false
+          }
+        }
+      },
+      "Problem" : {
+        "type" : "object",
+        "description" : "An RFC 9457 problem document; switch on code, never on detail",
+        "properties" : {
+          "code" : {
+            "type" : "string",
+            "description" : "The stable error code",
+            "example" : "API_KEY_SCOPE_MISSING"
+          },
+          "correlationId" : {
+            "type" : "string",
+            "description" : "Quote this when asking for support"
+          },
+          "detail" : {
+            "type" : "string",
+            "description" : "A sentence for a person",
+            "example" : "This API key does not carry the scope this request needs"
+          },
+          "instance" : {
+            "type" : "string",
+            "description" : "The path that was asked",
+            "example" : "/api/v1/public/projects"
+          },
+          "requiredScope" : {
+            "type" : [ "string", "null" ],
+            "description" : "On API_KEY_SCOPE_MISSING, the scope the request needs",
+            "example" : "companies:read"
+          },
+          "status" : {
+            "type" : "integer",
+            "format" : "int32",
+            "description" : "The HTTP status",
+            "example" : 403
+          },
+          "timestamp" : {
+            "type" : "string",
+            "description" : "When it happened"
+          },
+          "title" : {
+            "type" : "string",
+            "description" : "A short summary",
+            "example" : "Forbidden"
+          },
+          "type" : {
+            "type" : "string",
+            "description" : "A URI naming the kind of problem",
+            "example" : "https://lightmove.app/errors/api-key-scope-missing"
+          }
+        }
+      },
+      "Project" : {
+        "type" : "object",
+        "description" : "A position: one search or mapping mandate",
+        "properties" : {
+          "candidates" : {
+            "type" : "integer",
+            "format" : "int64",
+            "description" : "Executives still in the running",
+            "example" : 112
+          },
+          "clientId" : {
+            "type" : "string",
+            "format" : "uuid",
+            "description" : "The client or business unit's id"
+          },
+          "clientName" : {
+            "type" : "string",
+            "description" : "The client or business unit hiring",
+            "example" : "Group Finance"
+          },
+          "companies" : {
+            "type" : "integer",
+            "format" : "int64",
+            "description" : "Companies in the universe or shortlisted, declined ones left out",
+            "example" : 48
+          },
+          "createdAt" : {
+            "type" : "string",
+            "format" : "date-time",
+            "description" : "When the position was created"
+          },
+          "deliveryDate" : {
+            "type" : [ "string", "null" ],
+            "format" : "date",
+            "description" : "When the map or shortlist is due",
+            "example" : "2026-11-30"
+          },
+          "id" : {
+            "type" : "string",
+            "format" : "uuid",
+            "description" : "The position's id"
+          },
+          "stage" : {
+            "type" : "string",
+            "description" : "The furthest stage the position has reached",
+            "enum" : [ "BRIEF", "UNIVERSE", "LOCKED", "MAPPING", "OUTREACH", "DELIVERED", "CLOSED" ]
+          },
+          "startDate" : {
+            "type" : [ "string", "null" ],
+            "format" : "date",
+            "description" : "When the work started",
+            "example" : "2026-09-01"
+          },
+          "targetDate" : {
+            "type" : [ "string", "null" ],
+            "format" : "date",
+            "description" : "When the hire is wanted",
+            "example" : "2027-01-15"
+          },
+          "title" : {
+            "type" : "string",
+            "description" : "The role being filled",
+            "example" : "Chief Financial Officer"
+          },
+          "type" : {
+            "type" : "string",
+            "description" : "MAPPING delivers a mapped universe; SEARCH runs through to a shortlist",
+            "enum" : [ "MAPPING", "SEARCH" ]
+          }
+        }
+      },
+      "ProjectPage" : {
+        "type" : "object",
+        "description" : "One page of rows, and how many there are in all",
+        "properties" : {
+          "data" : {
+            "type" : "array",
+            "description" : "The rows of this page",
+            "items" : {
+              "$ref" : "#/components/schemas/Project"
+            }
+          },
+          "page" : {
+            "type" : "integer",
+            "format" : "int32",
+            "description" : "This page's number, from 0",
+            "example" : 0
+          },
+          "size" : {
+            "type" : "integer",
+            "format" : "int32",
+            "description" : "Rows per page",
+            "example" : 25
+          },
+          "totalCount" : {
+            "type" : "integer",
+            "format" : "int64",
+            "description" : "Rows across every page",
+            "example" : 142
+          }
+        }
+      },
+      "Universe" : {
+        "type" : "object",
+        "description" : "One stage of a position: every company, each with its executives",
+        "properties" : {
+          "companies" : {
+            "type" : "array",
+            "description" : "Every company of the stage, by name",
+            "items" : {
+              "$ref" : "#/components/schemas/UniverseCompany"
+            }
+          },
+          "stage" : {
+            "type" : "string",
+            "description" : "The stage read",
+            "enum" : [ "inUniverse", "shortlisted", "declined" ],
+            "example" : "inUniverse"
+          },
+          "unassigned" : {
+            "type" : "array",
+            "description" : "Executives at no company of the position. Filled on inUniverse only; empty on the other stages",
+            "items" : {
+              "$ref" : "#/components/schemas/Candidate"
+            }
+          }
+        }
+      },
+      "UniverseCompany" : {
+        "type" : "object",
+        "description" : "A company of the stage, with the executives mapped at it",
+        "properties" : {
+          "company" : {
+            "$ref" : "#/components/schemas/Company",
+            "description" : "The company"
+          },
+          "executives" : {
+            "type" : "array",
+            "description" : "Its executives, first mapped first; empty where none is mapped",
+            "items" : {
+              "$ref" : "#/components/schemas/Candidate"
+            }
+          }
+        }
+      }
+    },
+    "securitySchemes" : {
+      "apiKey" : {
+        "bearerFormat" : "uncava_pat_… or uncava_svc_…",
+        "description" : "An API key from Settings → API keys",
+        "scheme" : "bearer",
+        "type" : "http"
+      }
+    }
+  }
+}
