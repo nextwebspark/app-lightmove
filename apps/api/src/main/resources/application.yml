@@ -702,6 +702,7 @@ management:
 springdoc:
   packages-to-scan: app.lightmove.api.publicapi
   paths-to-match: /api/v1/public/**
+  writer-with-order-by-keys: true
   api-docs:
     enabled: ${PUBLIC_API_ENABLED:true}
     path: /api/v1/public/openapi.json
