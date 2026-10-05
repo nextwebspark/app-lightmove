@@ -9,6 +9,7 @@ import app.lightmove.api.publicapi.dto.PublicCompany;
 import app.lightmove.api.publicapi.dto.PublicPage;
 import app.lightmove.api.publicapi.dto.PublicProblem;
 import app.lightmove.api.publicapi.dto.PublicProject;
+import app.lightmove.api.publicapi.dto.PublicUniverse;
 import app.lightmove.api.publicapi.service.PublicReadService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
@@ -20,6 +21,7 @@ import jakarta.servlet.http.HttpServletRequest;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.MediaType;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -31,7 +33,9 @@ import org.springframework.web.bind.annotation.RestController;
 @RestController
 @RequestMapping(path = "/api/v1/public/projects", produces = MediaType.APPLICATION_JSON_VALUE)
 @RequiredArgsConstructor
-@ApiResponse(responseCode = "400", description = "A parameter is out of range or not one of its values",
+@ApiResponse(responseCode = "400",
+        description = "A parameter is out of range or not one of its values (VALIDATION_FAILED), or a universe too large "
+                + "for one call (PUBLIC_API_UNIVERSE_TOO_LARGE)",
         content = @Content(mediaType = "application/problem+json", schema = @Schema(implementation = PublicProblem.class)))
 @ApiResponse(responseCode = "401", description = "The key is missing, invalid, revoked or expired (API_KEY_INVALID)",
         content = @Content(mediaType = "application/problem+json", schema = @Schema(implementation = PublicProblem.class)))
@@ -126,5 +130,29 @@ public class PublicProjectsController {
             @RequestParam(required = false) Integer size,
             HttpServletRequest request) {
         return reads.candidates(key, projectId, status, companyId, page, size, request);
+    }
+
+    @GetMapping("/{projectId}/universe")
+    @PreAuthorize("@publicApiAuthorizer.canReadProject(principal, #projectId, 'COMPANIES_READ', 'CANDIDATES_READ')")
+    @Tag(name = "Universe", description = "A stage's companies with their executives nested, in one call")
+    @Operation(operationId = "getUniverse", summary = "Read a stage with its executives",
+            description = "Needs `companies:read` and `candidates:read`. Every company of the stage, each with "
+                    + "the executives mapped at it, unpaged; on inUniverse, executives at no company come back "
+                    + "in `unassigned`. `contacts` and `compensation` follow the same scopes as on the "
+                    + "candidates route. A stage too large for one call is refused with "
+                    + "PUBLIC_API_UNIVERSE_TOO_LARGE, never cut short; page through the companies and "
+                    + "candidates routes instead.")
+    @ApiResponse(responseCode = "200", description = "The whole stage")
+    @ApiResponse(responseCode = "404", description = NOT_FOUND,
+            content = @Content(mediaType = "application/problem+json", schema = @Schema(implementation = PublicProblem.class)))
+    public PublicUniverse universe(
+            @Parameter(hidden = true) @AuthenticationPrincipal ApiKeyPrincipal key,
+            @Parameter(description = "The position's id") @PathVariable UUID projectId,
+            @Parameter(description = "The stage to read",
+                    schema = @Schema(type = "string", allowableValues = {"inUniverse", "shortlisted", "declined"},
+                            defaultValue = "inUniverse"))
+            @RequestParam(required = false) String stage,
+            HttpServletRequest request) {
+        return reads.universe(key, projectId, stage, request);
     }
 }

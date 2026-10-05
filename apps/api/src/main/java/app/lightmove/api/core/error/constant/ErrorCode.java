@@ -364,6 +364,10 @@ public enum ErrorCode {
     /** A live key asking a route outside its scopes; the body names the scope as {@code requiredScope}. */
     API_KEY_SCOPE_MISSING(HttpStatus.FORBIDDEN, "This API key does not carry the scope this request needs"),
 
+    /** A universe read past {@code lightmove.export.*}: refused, never truncated, as the export is. */
+    PUBLIC_API_UNIVERSE_TOO_LARGE(HttpStatus.BAD_REQUEST,
+            "This stage is too large to read in one call. Page through the companies and candidates routes instead"),
+
     INTERNAL_ERROR(HttpStatus.INTERNAL_SERVER_ERROR, "Something went wrong on our end");
 
     private final HttpStatus status;

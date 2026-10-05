@@ -1,8 +1,6 @@
 package app.lightmove.api.talentmap.service;
 
 import app.lightmove.api.candidate.dto.CandidateResponse;
-import app.lightmove.api.candidate.dto.CandidatesResponse;
-import app.lightmove.api.candidate.service.CandidateService;
 import app.lightmove.api.common.location.service.Countries;
 import app.lightmove.api.core.config.LightMoveProperties;
 import app.lightmove.api.core.config.MapboxSettings;
@@ -11,6 +9,8 @@ import app.lightmove.api.geocoding.model.GeoPoint;
 import app.lightmove.api.geocoding.model.GeocodingResult;
 import app.lightmove.api.geocoding.model.PlaceKey;
 import app.lightmove.api.geocoding.service.GeocodingService;
+import app.lightmove.api.pairing.model.PairedStage;
+import app.lightmove.api.pairing.service.StagePairingService;
 import app.lightmove.api.talentmap.dto.MapLocationDto;
 import app.lightmove.api.talentmap.dto.TalentMapConfigResponse;
 import app.lightmove.api.talentmap.dto.TalentMapLocationsResponse;
@@ -19,13 +19,11 @@ import app.lightmove.api.triagecompany.constant.TriageCompanyStatus;
 import app.lightmove.api.triagecompany.dto.TriageCompaniesResponse;
 import app.lightmove.api.triagecompany.model.TriageCompanyFilters;
 import app.lightmove.api.triagecompany.dto.TriageCompanyResponse;
-import app.lightmove.api.triagecompany.service.TriageCompanyReadService;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.Set;
 import java.util.UUID;
 import org.springframework.stereotype.Service;
 
@@ -36,16 +34,14 @@ import org.springframework.stereotype.Service;
 @Service
 public class TalentMapService {
 
-    private final TriageCompanyReadService triage;
-    private final CandidateService candidates;
+    private final StagePairingService pairing;
     private final GeocodingService geocoding;
     private final MapboxSettings mapbox;
     private final TalentMapSettings caps;
 
-    public TalentMapService(TriageCompanyReadService triage, CandidateService candidates,
-                            GeocodingService geocoding, LightMoveProperties properties) {
-        this.triage = triage;
-        this.candidates = candidates;
+    public TalentMapService(StagePairingService pairing, GeocodingService geocoding,
+                            LightMoveProperties properties) {
+        this.pairing = pairing;
         this.geocoding = geocoding;
         this.mapbox = properties.mapbox();
         this.caps = properties.talentMap();
@@ -71,19 +67,10 @@ public class TalentMapService {
 
     private Placement place(UUID workspaceId, UUID projectId, String statusToken) {
         TriageCompanyStatus status = TriageCompanyStatus.parseOrInUniverse(statusToken);
-        TriageCompaniesResponse companies =
-                triage.listAllOfStage(workspaceId, projectId, status, TriageCompanyFilters.none(),
-                        caps.maxCompanies());
-        CandidatesResponse everyone = candidates.listAllOfProject(workspaceId, projectId, caps.maxCandidates());
-
-        // This stage's people, plus — on the universe stage alone, as the grid does — those at no company.
-        Set<UUID> companyIds = new HashSet<>();
-        companies.companies().forEach(company -> companyIds.add(company.id()));
-        List<CandidateResponse> people = everyone.candidates().stream()
-                .filter(person -> person.triageCompanyId() != null
-                        ? companyIds.contains(person.triageCompanyId())
-                        : status == TriageCompanyStatus.IN_UNIVERSE)
-                .toList();
+        PairedStage paired = pairing.pair(workspaceId, projectId, status, TriageCompanyFilters.none(),
+                caps.maxCompanies(), caps.maxCandidates());
+        TriageCompaniesResponse companies = paired.companies();
+        List<CandidateResponse> people = paired.people();
 
         // A company is drawn where its people are; HQ is the fallback, and first mapped wins.
         Map<UUID, PlaceKey> placeOfCompanyPeople = new HashMap<>();
@@ -109,7 +96,7 @@ public class TalentMapService {
             PlaceKey.of(person.locationCity(), person.locationCountry())
                     .ifPresent(place -> placeOfRow.put(person.id(), place));
         }
-        return new Placement(companies, people, everyone.totalCount(), placeOfRow);
+        return new Placement(companies, people, paired.totalCandidates(), placeOfRow);
     }
 
     private Locations locate(Placement placed) {

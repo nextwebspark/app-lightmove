@@ -196,6 +196,45 @@ class PublicApiReadIntegrationTest extends FlowTestSupport {
                 .isEqualTo(2L);
     }
 
+    @Test
+    @DisplayName("the universe nests each company's executives, keeps an empty company, and lists the unassigned on inUniverse only")
+    void universe() throws Exception {
+        String admin = adminOf(domain);
+        String projectId = project(admin, "Chief Financial Officer");
+        String acwa = capture(admin, projectId, "ACWA Power");
+        capture(admin, projectId, "Gulf Industrial");
+        map(admin, projectId, acwa, "Layla Haddad", "contacted");
+        map(admin, projectId, acwa, "Omar Said", "identified");
+        mvc.perform(post("/api/v1/projects/" + projectId + "/candidates")
+                        .header("Authorization", "Bearer " + admin)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"fullName":"Yasmin Farouk","employerName":"Masdar"}"""))
+                .andExpect(status().isCreated());
+        String url = PROJECTS + "/" + projectId + "/universe";
+
+        String companiesOnly = secret(admin, """
+                {"name":"Companies only","scopes":["companies:read"]}""");
+        JsonNode refused = read(companiesOnly, url, 403);
+        assertThat(refused.get("code").asText()).isEqualTo("API_KEY_SCOPE_MISSING");
+        assertThat(refused.get("requiredScope").asText()).isEqualTo("candidates:read");
+
+        String reader = secret(admin, """
+                {"name":"Universe","scopes":["companies:read","candidates:read"]}""");
+        JsonNode universe = read(reader, url, 200);
+        assertThat(universe.get("stage").asText()).isEqualTo("inUniverse");
+        assertThat(universe.get("companies").valueStream().map(row -> row.at("/company/name").asText()))
+                .containsExactly("ACWA Power", "Gulf Industrial");
+        assertThat(names(universe.at("/companies/0"), "executives")).containsExactly("Layla Haddad", "Omar Said");
+        assertThat(universe.at("/companies/0/executives/0/contacts").isNull()).isTrue();
+        assertThat(universe.at("/companies/1/executives")).isEmpty();
+        assertThat(names(universe, "unassigned")).containsExactly("Yasmin Farouk");
+
+        JsonNode shortlisted = read(reader, url + "?stage=shortlisted", 200);
+        assertThat(shortlisted.get("companies")).isEmpty();
+        assertThat(shortlisted.get("unassigned")).isEmpty();
+    }
+
     private JsonNode read(String secret, String url, int expectedStatus) throws Exception {
         return body(mvc.perform(get(url).header("Authorization", "Bearer " + secret))
                 .andExpect(status().is(expectedStatus)).andReturn());
@@ -206,7 +245,11 @@ class PublicApiReadIntegrationTest extends FlowTestSupport {
     }
 
     private static List<String> names(JsonNode page) {
-        return page.get("data").valueStream().map(candidate -> candidate.get("fullName").asText()).toList();
+        return names(page, "data");
+    }
+
+    private static List<String> names(JsonNode parent, String field) {
+        return parent.get(field).valueStream().map(candidate -> candidate.get("fullName").asText()).toList();
     }
 
     private String adminOf(String emailDomain) throws Exception {
