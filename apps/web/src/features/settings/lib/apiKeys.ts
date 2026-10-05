@@ -1,5 +1,5 @@
 import { formatInstantDate } from "../../../lib/format";
-import type { ApiKey, ApiKeyScope } from "../api/types";
+import type { ApiKey, ApiKeyKind, ApiKeyScope } from "../api/types";
 
 /** What each scope reads, in the API's own order; the last two are personal data and say so. */
 export const API_KEY_SCOPES: readonly { scope: ApiKeyScope; note: string; personalData: boolean }[] = [
@@ -9,6 +9,9 @@ export const API_KEY_SCOPES: readonly { scope: ApiKeyScope; note: string; person
   { scope: "candidates.contacts:read", note: "Their emails and phone numbers.", personalData: true },
   { scope: "candidates.compensation:read", note: "Their salary, bonus, allowances and incentives.", personalData: true },
 ];
+
+/** The wire's `SERVICE` is a "Workspace" key on screen. */
+export const KIND_LABEL: Record<ApiKeyKind, string> = { PERSONAL: "Personal", SERVICE: "Workspace" };
 
 export const DEFAULT_SCOPES: readonly ApiKeyScope[] = ["projects:read", "companies:read", "candidates:read"];
 
@@ -32,6 +35,7 @@ export function statusOf(key: ApiKey, now: Date = new Date()): { label: string; 
   if (key.status === "REVOKED") return { label: "Revoked", tone: "revoked" };
   if (key.status === "EXPIRED") return { label: "Expired", tone: "expired" };
   const days = Math.ceil((new Date(key.expiresAt).getTime() - now.getTime()) / 86_400_000);
+  if (days <= 0) return { label: "Expired", tone: "expired" };
   if (days <= EXPIRING_SOON_DAYS) {
     return { label: `Expires in ${days} ${days === 1 ? "day" : "days"}`, tone: "soon" };
   }

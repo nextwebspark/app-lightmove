@@ -1,16 +1,16 @@
 import { useState } from "react";
 import { Button, ChoiceCardGroup, Field, FormError, Input, Modal, Select } from "../../../components/ui";
-import { cn } from "../../../lib/cn";
+import { CheckBox } from "../../../components/ui/FilterCheckRow";
 import { messageFor } from "../../../lib/errorCodes";
 import type { ApiKeyKind, ApiKeyScope, CreateApiKeyRequest } from "../api/types";
-import { API_KEY_SCOPES, DEFAULT_SCOPES, EXPIRY_CHOICES, expiryDateAfter } from "../lib/apiKeys";
+import { API_KEY_SCOPES, DEFAULT_SCOPES, EXPIRY_CHOICES, expiryDateAfter, KIND_LABEL } from "../lib/apiKeys";
 
 const KIND_OPTIONS = [
-  { value: "PERSONAL", title: "Personal", body: "Yours. Reads only the positions you can open, and stops if you leave." },
-  { value: "SERVICE", title: "Workspace", body: "The workspace's. Reads every position and outlives whoever made it." },
+  { value: "PERSONAL", title: KIND_LABEL.PERSONAL, body: "Yours. Reads only the positions you can open, and stops if you leave." },
+  { value: "SERVICE", title: KIND_LABEL.SERVICE, body: "The workspace's. Reads every position and outlives whoever made it." },
 ] as const;
 
-/** Name, kind (an admin's choice alone), scopes and expiry. The kind is never offered to anyone else. */
+/** Name, kind (offered to an admin alone), scopes and expiry. */
 export function CreateApiKeyModal({
   canMakeWorkspaceKeys,
   workspaceName,
@@ -88,43 +88,14 @@ export function CreateApiKeyModal({
         <div className="mb-4">
           <span className="type-micro-label mb-1.5 block font-mono text-u-text3">What it can read</span>
           <div className="divide-y divide-u-border rounded-lg border border-u-border bg-u-raised">
-            {API_KEY_SCOPES.map(({ scope, note, personalData }) => {
-              const held = scopes.includes(scope);
-              return (
-                <button
-                  key={scope}
-                  type="button"
-                  role="checkbox"
-                  aria-checked={held}
-                  onClick={() => handleToggleScope(scope)}
-                  className="flex w-full items-start gap-2.5 px-3 py-2.5 text-start hover:bg-u-surface"
-                >
-                  <span
-                    className={cn(
-                      "mt-px grid size-4 flex-none place-items-center rounded-[4px] border text-white",
-                      held ? "border-u-accent-solid bg-u-accent-solid" : "border-u-border-strong bg-u-surface",
-                    )}
-                  >
-                    {held && (
-                      <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" aria-hidden="true">
-                        <path d="M20 6 9 17l-5-5" />
-                      </svg>
-                    )}
-                  </span>
-                  <span className="min-w-0 flex-1">
-                    <span className="flex flex-wrap items-center gap-1.5">
-                      <code className="font-mono text-[12px] font-medium text-u-text">{scope}</code>
-                      {personalData && (
-                        <span className="rounded-full bg-u-offlimits-tint px-[7px] py-px font-mono text-[9px] font-semibold uppercase tracking-[0.06em] text-u-offlimits">
-                          Personal data
-                        </span>
-                      )}
-                    </span>
-                    <span className="mt-0.5 block font-mono text-[11px]/[1.5] text-u-text3">{note}</span>
-                  </span>
-                </button>
-              );
-            })}
+            {API_KEY_SCOPES.map((choice) => (
+              <ScopeCheckRow
+                key={choice.scope}
+                {...choice}
+                checked={scopes.includes(choice.scope)}
+                onToggle={() => handleToggleScope(choice.scope)}
+              />
+            ))}
           </div>
         </div>
 
@@ -154,5 +125,44 @@ export function CreateApiKeyModal({
         <button type="submit" hidden />
       </form>
     </Modal>
+  );
+}
+
+function ScopeCheckRow({
+  scope,
+  note,
+  personalData,
+  checked,
+  onToggle,
+}: {
+  scope: ApiKeyScope;
+  note: string;
+  personalData: boolean;
+  checked: boolean;
+  onToggle: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      role="checkbox"
+      aria-checked={checked}
+      onClick={onToggle}
+      className="flex w-full items-start gap-2.5 px-3 py-2.5 text-start hover:bg-u-surface focus-visible:outline focus-visible:-outline-offset-2 focus-visible:outline-u-accent"
+    >
+      <span className="mt-px">
+        <CheckBox checked={checked} />
+      </span>
+      <span className="min-w-0 flex-1">
+        <span className="flex flex-wrap items-center gap-1.5">
+          <code className="font-mono text-[12px] font-medium text-u-text">{scope}</code>
+          {personalData && (
+            <span className="rounded-full bg-u-offlimits-tint px-[7px] py-px font-mono text-[9px] font-semibold uppercase tracking-[0.06em] text-u-offlimits">
+              Personal data
+            </span>
+          )}
+        </span>
+        <span className="mt-0.5 block font-mono text-[11px]/[1.5] text-u-text3">{note}</span>
+      </span>
+    </button>
   );
 }

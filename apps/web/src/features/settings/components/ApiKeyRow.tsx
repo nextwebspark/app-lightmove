@@ -1,6 +1,6 @@
 import { cn } from "../../../lib/cn";
 import type { ApiKey } from "../api/types";
-import { isPersonalData, metaLineOf, statusOf, usageLineOf, type ApiKeyTone } from "../lib/apiKeys";
+import { isPersonalData, KIND_LABEL, metaLineOf, statusOf, usageLineOf, type ApiKeyTone } from "../lib/apiKeys";
 
 const PILL = "inline-flex rounded-full px-2 py-0.5 font-mono text-[9.5px] font-semibold uppercase tracking-[0.05em]";
 
@@ -11,7 +11,6 @@ const TONE: Record<ApiKeyTone, string> = {
   revoked: "bg-u-surface text-u-text3",
 };
 
-/** One key: name, kind and status, its hint and dates, when it was last used, and what it reads. */
 export function ApiKeyRow({
   apiKey,
   showOwner,
@@ -39,7 +38,7 @@ export function ApiKeyRow({
               : "border border-u-border bg-u-surface text-u-text2",
           )}
         >
-          {apiKey.kind === "SERVICE" ? "Workspace" : "Personal"}
+          {KIND_LABEL[apiKey.kind]}
         </span>
         <span className={cn(PILL, TONE[status.tone])}>{status.label}</span>
         {canRevoke && !dead && (

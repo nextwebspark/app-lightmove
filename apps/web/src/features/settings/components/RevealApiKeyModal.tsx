@@ -2,10 +2,7 @@ import { Icon, ICONS } from "../../../components/layout/Icon";
 import { Button, Modal, useToast } from "../../../components/ui";
 import { copyText } from "../../../lib/clipboard";
 
-/**
- * The one time a key's secret is shown. The caller holds it in component state and drops it on Done;
- * the overlay and Escape do not close this dialog, so a stray click cannot lose a key unseen.
- */
+/** The one time a key's secret is shown; only its own button closes it, so a stray click cannot lose a key unseen. */
 export function RevealApiKeyModal({ name, secret, onDone }: { name: string; secret: string; onDone: () => void }) {
   const toast = useToast();
 
@@ -16,7 +13,8 @@ export function RevealApiKeyModal({ name, secret, onDone }: { name: string; secr
   return (
     <Modal
       open
-      onClose={() => {}}
+      onClose={onDone}
+      dismissible={false}
       title="Copy your API key"
       className="md:w-[520px]"
       footer={<Button onClick={onDone}>I've copied it</Button>}
@@ -47,7 +45,7 @@ export function RevealApiKeyModal({ name, secret, onDone }: { name: string; secr
       </div>
       <span className="type-micro-label mb-1.5 mt-4 block font-mono text-u-text3">Try it</span>
       <pre className="overflow-x-auto rounded-[6px] border border-u-border bg-u-raised px-3 py-2.5 font-mono text-[11.5px]/[1.6] text-u-text2">
-        {`curl ${window.location.origin}/api/v1/public/projects \\\n  -H "Authorization: Bearer ${secret.slice(0, 15)}…"`}
+        {`curl ${window.location.origin}/api/v1/public/projects \\\n  -H "Authorization: Bearer $UNCAVA_API_KEY"`}
       </pre>
     </Modal>
   );

@@ -85,6 +85,11 @@ describe("SettingsApiKeysPage", () => {
       expiresInDays: 90,
     });
 
+    await userEvent.keyboard("{Escape}");
+    expect(screen.getByRole("dialog", { name: "Copy your API key" })).toBeInTheDocument();
+    expect(within(reveal).getByText(/\$UNCAVA_API_KEY/)).toBeInTheDocument();
+    expect(within(reveal).queryByText(/Bearer uncava_/)).not.toBeInTheDocument();
+
     await userEvent.click(within(reveal).getByRole("button", { name: "I've copied it" }));
 
     await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());

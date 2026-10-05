@@ -24,6 +24,21 @@ describe("Modal", () => {
     await user.click(screen.getByRole("dialog").parentElement!);
     expect(onClose).toHaveBeenCalledTimes(2);
   });
+
+  it("ignores Escape and the overlay when not dismissible", async () => {
+    const user = userEvent.setup();
+    const onClose = vi.fn();
+    render(
+      <Modal open onClose={onClose} dismissible={false} title="Copy your key">
+        <button>inside</button>
+      </Modal>,
+    );
+
+    await user.keyboard("{Escape}");
+    await user.click(screen.getByRole("dialog").parentElement!);
+
+    expect(onClose).not.toHaveBeenCalled();
+  });
 });
 
 /** The actions are pinned beneath the body, so a short screen scrolls the form and never the buttons. */

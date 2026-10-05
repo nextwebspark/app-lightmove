@@ -16,16 +16,12 @@ const DOCS_URL = "/api/v1/public/docs";
 
 type KeysView = "mine" | "all";
 
-/** A secret shown once: held here only while its dialog is open, never in the query cache or storage. */
 interface RevealedKey {
   name: string;
   secret: string;
 }
 
-/**
- * Settings → API keys: the keys that let an ATS, a BI tool or a script read the public API. Everyone on
- * staff makes their own; an admin also makes workspace keys and sees and revokes every key.
- */
+/** Settings → API keys. The secret is held in state only while its dialog is open, never in a cache or storage. */
 export function SettingsApiKeysPage() {
   const { user } = useAuth();
   const queryClient = useQueryClient();
@@ -43,8 +39,7 @@ export function SettingsApiKeysPage() {
   });
   const refresh = () => void queryClient.invalidateQueries({ queryKey: apiKeysApi.API_KEYS_KEY });
 
-  // The secret goes straight to component state and the mutation keeps only the key, so the
-  // mutation cache never holds it either.
+  // Set here, not in onSuccess: the mutation returns only the key, so its cache never holds the secret.
   const create = useMutation({
     mutationFn: async (request: CreateApiKeyRequest) => {
       const created = await apiKeysApi.createApiKey(request);
