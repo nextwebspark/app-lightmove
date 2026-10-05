@@ -1,13 +1,12 @@
 package app.lightmove.api.core.error.handler;
 import app.lightmove.api.core.error.constant.ErrorCode;
 import app.lightmove.api.core.error.model.ApiException;
+import app.lightmove.api.core.error.service.ClientDisconnects;
 import app.lightmove.api.core.error.service.Problems;
 
 import jakarta.servlet.http.HttpServletRequest;
-import java.io.IOException;
 import java.util.LinkedHashMap;
 import java.util.Map;
-import java.util.regex.Pattern;
 import lombok.extern.slf4j.Slf4j;
 import org.jspecify.annotations.Nullable;
 import org.springframework.dao.DataIntegrityViolationException;
@@ -26,7 +25,6 @@ import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.method.annotation.HandlerMethodValidationException;
 import org.springframework.web.bind.ServletRequestBindingException;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
-import org.springframework.web.context.request.async.AsyncRequestNotUsableException;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 import org.springframework.web.multipart.MaxUploadSizeExceededException;
 import org.springframework.web.servlet.resource.NoResourceFoundException;
@@ -38,10 +36,6 @@ import org.springframework.web.servlet.resource.NoResourceFoundException;
 @RestControllerAdvice
 @Slf4j
 public class GlobalExceptionHandler {
-
-    private static final Pattern DISCONNECT_MESSAGE =
-            Pattern.compile("Broken pipe|Connection reset|An established connection was aborted",
-                    Pattern.CASE_INSENSITIVE);
 
     @ExceptionHandler(ApiException.class)
     public ProblemDetail handleApiException(ApiException ex, HttpServletRequest request) {
@@ -228,30 +222,14 @@ public class GlobalExceptionHandler {
      */
     @ExceptionHandler(Exception.class)
     public @Nullable ProblemDetail handleUnexpected(Exception ex, HttpServletRequest request) {
-        if (isClientDisconnect(ex)) {
+        if (ClientDisconnects.isDisconnect(ex)) {
+            ClientDisconnects.markGone(request);
             log.debug("Client hung up during {} {}", request.getMethod(), request.getRequestURI());
             // A body here threw again, once per closed tab: no converter writes ProblemDetail as text/event-stream.
             return null;
         }
         log.error("Unhandled exception at {} {}", request.getMethod(), request.getRequestURI(), ex);
         return problem(ErrorCode.INTERNAL_ERROR, ErrorCode.INTERNAL_ERROR.defaultMessage());
-    }
-
-    /** Walks the cause chain: the socket's {@code IOException} arrives wrapped in {@code ClientAbortException} and more. */
-    private boolean isClientDisconnect(Throwable ex) {
-        for (Throwable cause = ex; cause != null; cause = cause.getCause()) {
-            if (cause instanceof AsyncRequestNotUsableException
-                    || cause.getClass().getSimpleName().equals("ClientAbortException")) {
-                return true;
-            }
-            if (cause instanceof IOException && DISCONNECT_MESSAGE.matcher(String.valueOf(cause.getMessage())).find()) {
-                return true;
-            }
-            if (cause.getCause() == cause) {
-                return false;
-            }
-        }
-        return false;
     }
 
     private ProblemDetail problem(ErrorCode code, String detail) {
