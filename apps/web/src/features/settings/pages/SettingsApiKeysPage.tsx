@@ -75,7 +75,7 @@ export function SettingsApiKeysPage() {
 
   const rows = keys.data ?? [];
   const createButton = (
-    <Button onClick={handleOpenCreate} className="px-3.5 py-[7px] text-[13px]">
+    <Button onClick={handleOpenCreate} className="whitespace-nowrap px-3.5 py-[7px] text-[13px]">
       <Icon d={ICONS.plus} size={15} />
       Create key
     </Button>
