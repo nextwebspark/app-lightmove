@@ -1,0 +1,68 @@
+[
+  {
+    "id": "connection-check",
+    "prompt": "Is my Uncava connection working, and which workspace does it read?",
+    "first": "uncava_whoami",
+    "uses": [
+      "uncava_whoami"
+    ],
+    "maxCalls": 1
+  },
+  {
+    "id": "open-positions",
+    "prompt": "Which positions can you see in Uncava? Just list their titles.",
+    "first": "uncava_search_positions",
+    "uses": [
+      "uncava_search_positions"
+    ],
+    "maxCalls": 2
+  },
+  {
+    "id": "where-it-stands",
+    "prompt": "Where does the {position} position stand in Uncava?",
+    "first": "uncava_search_positions",
+    "uses": [
+      "uncava_get_position_summary"
+    ],
+    "maxCalls": 3
+  },
+  {
+    "id": "shortlist",
+    "prompt": "List the shortlisted companies on the {position} position.",
+    "first": "uncava_search_positions",
+    "usesAny": [
+      "uncava_list_companies",
+      "uncava_get_universe"
+    ],
+    "maxCalls": 4
+  },
+  {
+    "id": "finance-people",
+    "prompt": "On the {position} position, who are the finance executives (CFOs or finance directors) at the shortlisted companies?",
+    "first": "uncava_search_positions",
+    "maxCalls": 5,
+    "usesAny": [
+      "uncava_search_candidates",
+      "uncava_get_universe"
+    ]
+  },
+  {
+    "id": "shortlist-briefing",
+    "prompt": "Write me a short briefing on the {position} shortlist: each shortlisted company with the executives mapped there.",
+    "first": "uncava_search_positions",
+    "uses": [
+      "uncava_get_universe"
+    ],
+    "maxCalls": 4
+  },
+  {
+    "id": "interested",
+    "prompt": "Which executives on the {position} position have said they are interested?",
+    "first": "uncava_search_positions",
+    "usesAny": [
+      "uncava_list_candidates",
+      "uncava_search_candidates"
+    ],
+    "maxCalls": 5
+  }
+]

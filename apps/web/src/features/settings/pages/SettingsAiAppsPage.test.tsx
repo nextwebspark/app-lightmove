@@ -139,4 +139,13 @@ describe("SettingsAiAppsPage", () => {
     expect(screen.queryByRole("radio", { name: /All in/ })).not.toBeInTheDocument();
     expect(oauthGrantsApi.oauthGrants).toHaveBeenCalledWith(false, expect.anything());
   });
+
+  it("points an empty page at the connection guide, opened beside Settings", async () => {
+    renderPage();
+
+    await screen.findByText("You haven't connected an AI app");
+    const guide = screen.getByRole("link", { name: "Read the connection guide" });
+    expect(guide).toHaveAttribute("href", "/docs/mcp");
+    expect(guide).toHaveAttribute("target", "_blank");
+  });
 });
