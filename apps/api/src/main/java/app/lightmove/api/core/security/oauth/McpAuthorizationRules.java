@@ -1,5 +1,6 @@
 package app.lightmove.api.core.security.oauth;
 
+import app.lightmove.api.core.config.McpSettings;
 import app.lightmove.api.core.security.rbac.WorkspaceAccess;
 import app.lightmove.api.core.security.rbac.WorkspaceAction;
 import java.util.Map;
@@ -12,6 +13,7 @@ import org.springframework.security.oauth2.core.OAuth2ErrorCodes;
 import org.springframework.security.oauth2.core.endpoint.OAuth2AuthorizationRequest;
 import org.springframework.security.oauth2.core.endpoint.PkceParameterNames;
 import org.springframework.security.oauth2.server.authorization.OAuth2Authorization;
+import org.springframework.security.oauth2.server.authorization.OAuth2AuthorizationService;
 import org.springframework.security.oauth2.server.authorization.authentication.OAuth2AuthorizationCodeRequestAuthenticationContext;
 import org.springframework.security.oauth2.server.authorization.authentication.OAuth2AuthorizationCodeRequestAuthenticationException;
 import org.springframework.security.oauth2.server.authorization.authentication.OAuth2AuthorizationCodeRequestAuthenticationToken;
@@ -35,10 +37,13 @@ public class McpAuthorizationRules {
 
     private final McpServerIdentity identity;
     private final WorkspaceAccess access;
+    private final OAuth2AuthorizationService authorizations;
 
-    public McpAuthorizationRules(McpServerIdentity identity, WorkspaceAccess access) {
+    public McpAuthorizationRules(McpServerIdentity identity, WorkspaceAccess access,
+                                 OAuth2AuthorizationService authorizations) {
         this.identity = identity;
         this.access = access;
+        this.authorizations = authorizations;
     }
 
     /** Runs after the framework's own validator, so the redirect URI an error is sent back to is already proven. */
@@ -46,7 +51,7 @@ public class McpAuthorizationRules {
         OAuth2AuthorizationCodeRequestAuthenticationToken request = context.getAuthentication();
         Map<String, Object> parameters = request.getAdditionalParameters();
 
-        if (!identity.resourceUrl().equals(single(parameters.get(RESOURCE_PARAMETER)))) {
+        if (!namesResource(identity, single(parameters.get(RESOURCE_PARAMETER)))) {
             throw refusal(INVALID_TARGET, "resource must name the Uncava MCP server", request);
         }
         if (single(parameters.get(PkceParameterNames.CODE_CHALLENGE)) == null) {
@@ -71,11 +76,19 @@ public class McpAuthorizationRules {
         if (isEligible(principal.getName(), HashingAuthorizationService.workspaceOf(authorization))) {
             return;
         }
+        // The request is spent either way: left behind, it would sit until the purge with nothing able to use it.
+        authorizations.remove(authorization);
         OAuth2AuthorizationRequest request = authorization.getAttribute(OAuth2AuthorizationRequest.class.getName());
         OAuth2AuthorizationCodeRequestAuthenticationToken original = new OAuth2AuthorizationCodeRequestAuthenticationToken(
                 request.getAuthorizationUri(), request.getClientId(), principal, request.getRedirectUri(),
                 request.getState(), request.getScopes(), request.getAdditionalParameters());
         throw refusal(OAuth2ErrorCodes.ACCESS_DENIED, "Not a workspace this account can connect", original);
+    }
+
+    /** RFC 8707 compares URIs; one trailing slash more or less names the same resource. */
+    static boolean namesResource(McpServerIdentity identity, String resource) {
+        return resource != null && McpSettings.stripTrailingSlash(identity.resourceUrl())
+                .equals(McpSettings.stripTrailingSlash(resource));
     }
 
     private boolean isEligible(String principalName, Optional<UUID> workspaceId) {

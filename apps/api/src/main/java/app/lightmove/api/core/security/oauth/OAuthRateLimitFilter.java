@@ -6,6 +6,7 @@ import app.lightmove.api.core.config.McpSettings;
 import app.lightmove.api.core.config.RateLimitSettings;
 import app.lightmove.api.core.ratelimit.service.RateLimiter;
 import app.lightmove.api.core.security.service.ClientIpResolver;
+import app.lightmove.api.core.security.token.Tokens;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -85,7 +86,7 @@ public class OAuthRateLimitFilter extends OncePerRequestFilter {
         boolean withinIp = limiter.tryAcquire("oauth-token:ip:" + ip, budgets.tokenPerMinutePerIp(), WINDOW);
         String clientId = request.getParameter(OAuth2ParameterNames.CLIENT_ID);
         boolean withinClient = clientId == null || limiter.tryAcquire(
-                "oauth-token:client:" + clientId + ":ip:" + ip, budgets.tokenPerMinutePerClient(), WINDOW);
+                "oauth-token:client:" + Tokens.hash(clientId) + ":ip:" + ip, budgets.tokenPerMinutePerClient(), WINDOW);
         return withinIp && withinClient;
     }
 }

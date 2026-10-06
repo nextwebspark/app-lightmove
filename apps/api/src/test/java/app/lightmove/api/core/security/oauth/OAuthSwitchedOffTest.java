@@ -19,6 +19,8 @@ class OAuthSwitchedOffTest extends FlowTestSupport {
     @DisplayName("metadata, authorize, token and the consent reads all answer 404")
     void everythingIsNotFound() throws Exception {
         mvc.perform(get("/.well-known/oauth-authorization-server")).andExpect(status().isNotFound());
+        mvc.perform(get("/.well-known/oauth-protected-resource")).andExpect(status().isNotFound());
+        mvc.perform(get("/.well-known/oauth-authorization-server/tenant")).andExpect(status().isNotFound());
         mvc.perform(get("/api/v1/oauth/authorize").param("client_id", "anyone")).andExpect(status().isNotFound());
         mvc.perform(post("/api/v1/oauth/token").param("grant_type", "refresh_token"))
                 .andExpect(status().isNotFound());

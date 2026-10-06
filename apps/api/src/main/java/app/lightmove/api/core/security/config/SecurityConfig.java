@@ -210,7 +210,8 @@ public class SecurityConfig {
     SecurityFilterChain mcpAuthorizationServerOffChain(HttpSecurity http, PublicApiProblemWriter problems)
             throws Exception {
         return http
-                .securityMatcher(OAuthAuthorizationServerConfig.OAUTH_BASE + "/**", OAuthAuthorizationServerConfig.METADATA)
+                .securityMatcher(OAuthAuthorizationServerConfig.OAUTH_BASE + "/**",
+                        "/.well-known/oauth-*", "/.well-known/oauth-*/**")
                 .csrf(csrf -> csrf.disable())
                 .sessionManagement(s -> s.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth.anyRequest().denyAll())

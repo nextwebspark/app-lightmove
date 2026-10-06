@@ -39,7 +39,7 @@ public class OAuthGrantService {
     /** A grant that has been consented and can still be used or refreshed. */
     private static final String LIVE = """
             g.workspace_id = :workspaceId AND g.consented_at IS NOT NULL
-            AND GREATEST(g.access_token_expires_at, g.refresh_token_expires_at) > :now
+            AND GREATEST(g.code_expires_at, g.access_token_expires_at, g.refresh_token_expires_at) > :now
             """;
 
     private final NamedParameterJdbcTemplate jdbc;
@@ -61,7 +61,7 @@ public class OAuthGrantService {
         }
         return jdbc.query("""
                 SELECT g.id, g.user_id, g.authorized_scopes::text AS scopes, g.consented_at, g.last_used_at,
-                       GREATEST(g.access_token_expires_at, g.refresh_token_expires_at) AS expires_at,
+                       GREATEST(g.code_expires_at, g.access_token_expires_at, g.refresh_token_expires_at) AS expires_at,
                        c.client_id, c.client_name, c.logo_uri, c.redirect_uris::text AS redirect_uris,
                        COALESCE(u.full_name, u.email) AS owner_name
                 FROM app_lm_oauth_authorization g
@@ -84,7 +84,7 @@ public class OAuthGrantService {
                 .filter(found -> found.equals(actorId)
                         || access.holdsAction(actorId, workspaceId, WorkspaceAction.WORKSPACE_MANAGE))
                 .orElseThrow(() -> ApiException.of(ErrorCode.OAUTH_GRANT_NOT_FOUND));
-        delete(actorId, workspaceId, List.of(new GrantRef(grantId, owner)), OAuthGrantRevokeReason.REVOKED,
+        delete(actorId, List.of(new GrantRef(grantId, owner, workspaceId)), OAuthGrantRevokeReason.REVOKED,
                 httpRequest);
     }
 
@@ -92,14 +92,24 @@ public class OAuthGrantService {
     @Transactional
     public void revokeOnMembershipEnd(UUID actorId, UUID workspaceId, UUID memberUserId,
                                       HttpServletRequest httpRequest) {
-        delete(actorId, workspaceId, grantsOf(workspaceId, memberUserId), OAuthGrantRevokeReason.MEMBER_REMOVED,
+        delete(actorId, grantsOf(workspaceId, memberUserId), OAuthGrantRevokeReason.MEMBER_REMOVED,
                 httpRequest);
     }
 
     @Transactional
     public void revokeOnWorkspaceDeletion(UUID actorId, UUID workspaceId, HttpServletRequest httpRequest) {
-        delete(actorId, workspaceId, grantsOf(workspaceId, null), OAuthGrantRevokeReason.WORKSPACE_DELETED,
-                httpRequest);
+        delete(actorId, grantsOf(workspaceId, null), OAuthGrantRevokeReason.WORKSPACE_DELETED, httpRequest);
+    }
+
+    /**
+     * A changed or reset password ends every grant the account holds, in every workspace, as it ends every session:
+     * a client connected during a takeover must not keep a month of refresh past the owner taking the account back.
+     */
+    @Transactional
+    public void revokeAllOfUser(UUID actorId, UUID userId, HttpServletRequest httpRequest) {
+        delete(actorId, jdbc.query("SELECT id, user_id, workspace_id FROM app_lm_oauth_authorization WHERE user_id = :userId",
+                new MapSqlParameterSource("userId", userId), (rs, rowNum) -> GrantRef.of(rs)),
+                OAuthGrantRevokeReason.PASSWORD_CHANGED, httpRequest);
     }
 
     /** Every grant, consented or still waiting for it: a request mid-consent must not survive its membership either. */
@@ -110,13 +120,12 @@ public class OAuthGrantService {
             userFilter = " AND user_id = :userId";
             parameters.addValue("userId", userId);
         }
-        return jdbc.query("SELECT id, user_id FROM app_lm_oauth_authorization WHERE workspace_id = :workspaceId"
-                        + userFilter,
-                parameters, (rs, rowNum) -> new GrantRef(rs.getObject("id", UUID.class),
-                        rs.getObject("user_id", UUID.class)));
+        return jdbc.query("SELECT id, user_id, workspace_id FROM app_lm_oauth_authorization"
+                        + " WHERE workspace_id = :workspaceId" + userFilter,
+                parameters, (rs, rowNum) -> GrantRef.of(rs));
     }
 
-    private void delete(UUID actorId, UUID workspaceId, List<GrantRef> grants, OAuthGrantRevokeReason reason,
+    private void delete(UUID actorId, List<GrantRef> grants, OAuthGrantRevokeReason reason,
                         HttpServletRequest httpRequest) {
         for (GrantRef grant : grants) {
             int deleted = jdbc.update("DELETE FROM app_lm_oauth_authorization WHERE id = :id",
@@ -124,7 +133,7 @@ public class OAuthGrantService {
             if (deleted == 0) {
                 continue;
             }
-            audit.event(WorkspaceEventType.OAUTH_GRANT_REVOKED).actor(actorId).workspace(workspaceId)
+            audit.event(WorkspaceEventType.OAUTH_GRANT_REVOKED).actor(actorId).workspace(grant.workspaceId())
                     .target(HashingAuthorizationService.GRANT_TARGET, grant.id())
                     .detail("ownerUserId", grant.userId().toString())
                     .reason(reason.name())
@@ -162,5 +171,11 @@ public class OAuthGrantService {
         return value == null ? null : value.toInstant();
     }
 
-    private record GrantRef(UUID id, UUID userId) {}
+    private record GrantRef(UUID id, UUID userId, UUID workspaceId) {
+
+        static GrantRef of(ResultSet rs) throws SQLException {
+            return new GrantRef(rs.getObject("id", UUID.class), rs.getObject("user_id", UUID.class),
+                    rs.getObject("workspace_id", UUID.class));
+        }
+    }
 }

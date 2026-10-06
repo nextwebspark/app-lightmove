@@ -73,8 +73,9 @@ COMMENT ON TABLE app_lm_oauth_authorization IS
     'OAuth grants to MCP clients, tokens as SHA-256 only. Tenant data: every read filters by workspace_id.';
 
 CREATE INDEX app_lm_oauth_authorization_member_idx ON app_lm_oauth_authorization (workspace_id, user_id);
-CREATE INDEX app_lm_oauth_authorization_expiry_idx
-    ON app_lm_oauth_authorization (GREATEST(code_expires_at, access_token_expires_at, refresh_token_expires_at));
+-- The cascades' own lookups, and a password change ending every grant of one user.
+CREATE INDEX app_lm_oauth_authorization_user_idx ON app_lm_oauth_authorization (user_id);
+CREATE INDEX app_lm_oauth_authorization_client_idx ON app_lm_oauth_authorization (client_id);
 
 CREATE TRIGGER app_lm_oauth_authorization_touch BEFORE UPDATE ON app_lm_oauth_authorization
     FOR EACH ROW EXECUTE FUNCTION app_lm_touch_updated_at();

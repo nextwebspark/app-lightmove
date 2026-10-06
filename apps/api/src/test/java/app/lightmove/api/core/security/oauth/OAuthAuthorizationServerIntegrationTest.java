@@ -3,6 +3,7 @@ package app.lightmove.api.core.security.oauth;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import app.lightmove.api.IntegrationTest;
@@ -13,6 +14,7 @@ import java.util.Map;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.MediaType;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.security.oauth2.jwt.JwtClaimsSet;
@@ -125,6 +127,70 @@ class OAuthAuthorizationServerIntegrationTest extends OAuthFlowSupport {
         MvcResult stranger = mvc.perform(request(clientId, Tokens.generate(), "projects:read")
                 .with("workspace_id", workspaceOf(admin)).asPost(outsider)).andReturn();
         assertThat(queryParam(body(stranger).get("redirectUri").asText(), "error")).isEqualTo("access_denied");
+    }
+
+    @Test
+    @DisplayName("a membership ended between request and consent is refused at consent, and the request is cleared")
+    void consentRechecksStaffMembership() throws Exception {
+        String admin = adminOf(domain);
+        String sara = "sara@" + domain;
+        inviteAndAccept(admin, "Sara Al-Mansour", sara, "MEMBER");
+        String member = login(sara);
+        String clientId = registerClient();
+        String state = storeRequest(request(clientId, Tokens.generate(), "projects:read"), member,
+                workspaceOf(member));
+
+        // Suspended outright, past every service: the removal path would delete the pending request itself, and this
+        // is about the consent reading the membership again rather than trusting the request it stored.
+        db.update("update app_lm_workspace_member set status = 'SUSPENDED' where id = ?::uuid",
+                memberIdOf(admin, sara));
+
+        MvcResult refused = consent(clientId, state, member, "projects:read");
+        assertThat(queryParam(body(refused).get("redirectUri").asText(), "error")).isEqualTo("access_denied");
+        mvc.perform(get("/api/v1/oauth/consent").param("client_id", clientId).param("state", state)
+                        .header("Authorization", "Bearer " + member))
+                .andExpect(status().isNotFound());
+    }
+
+    @Test
+    @DisplayName("an unverified session, or an MCP token, is no signed-in user at the authorize endpoint")
+    void authorizeNeedsVerifiedSession() throws Exception {
+        String user = adminOf(domain);
+        String clientId = registerClient();
+        String unverified = mint(sessionTokens.decode(user), "lightmove", null, false);
+        String mcpToken = connect(clientId, user, "projects:read").get("access_token").asText();
+
+        assertThat(mvc.perform(request(clientId, Tokens.generate(), "projects:read")
+                .with("workspace_id", workspaceOf(user)).asPost(unverified)).andReturn().getResponse().getStatus())
+                .isEqualTo(401);
+        assertThat(mvc.perform(request(clientId, Tokens.generate(), "projects:read")
+                .with("workspace_id", workspaceOf(user)).asPost(mcpToken)).andReturn().getResponse().getStatus())
+                .isEqualTo(401);
+    }
+
+    @Test
+    @DisplayName("a public client cannot authenticate at revocation or introspection: a 401, never a 500")
+    void revokeAndIntrospectRefusePublicClients() throws Exception {
+        String clientId = registerClient();
+        String refreshToken = connect(clientId, adminOf(domain), "projects:read").get("refresh_token").asText();
+
+        for (String endpoint : List.of("/api/v1/oauth/revoke", "/api/v1/oauth/introspect")) {
+            mvc.perform(post(endpoint).contentType(MediaType.APPLICATION_FORM_URLENCODED)
+                            .param("client_id", clientId)
+                            .param("grant_type", "refresh_token")
+                            .param("token", refreshToken))
+                    .andExpect(status().isUnauthorized());
+        }
+        assertThat(refresh(clientId, refreshToken).getResponse().getStatus()).isEqualTo(200);
+    }
+
+    @Test
+    @DisplayName("the MCP resource named with a trailing slash is the same resource")
+    void resourceTrailingSlash() throws Exception {
+        String clientId = registerClient();
+        MvcResult landed = mvc.perform(request(clientId, Tokens.generate(), "projects:read")
+                .with("resource", identity.resourceUrl() + "/").asGet()).andReturn();
+        assertThat(landed.getResponse().getRedirectedUrl()).startsWith(identity.issuer() + "/oauth/consent?");
     }
 
     @Test
@@ -277,6 +343,10 @@ class OAuthAuthorizationServerIntegrationTest extends OAuthFlowSupport {
     }
 
     private String mint(Jwt session, String issuer, List<String> audience) {
+        return mint(session, issuer, audience, true);
+    }
+
+    private String mint(Jwt session, String issuer, List<String> audience, boolean emailVerified) {
         JwtClaimsSet.Builder claims = JwtClaimsSet.builder()
                 .issuer(issuer)
                 .subject(session.getSubject())
@@ -284,7 +354,7 @@ class OAuthAuthorizationServerIntegrationTest extends OAuthFlowSupport {
                 .expiresAt(Instant.now().plusSeconds(300))
                 .claims(existing -> existing.putAll(Map.of(
                         "email", session.getClaimAsString("email"),
-                        "emailVerified", true,
+                        "emailVerified", emailVerified,
                         "wsId", session.getClaimAsString("wsId"))));
         if (audience != null) {
             claims.audience(audience);

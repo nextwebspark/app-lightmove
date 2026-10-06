@@ -266,7 +266,9 @@ caught too: every grant read carries the hashes it held, and `save()` refuses (`
 when the row has moved on or gone, so one token is never redeemed twice and a revoked grant is never written back.
 Budgets on the token endpoint are per address, the client's included: a public client's id is shared and secretless,
 and a budget on the id alone let any stranger refuse every user of that app. Removing a member or deleting a workspace deletes its grants in the
-same transaction, beside the API keys.
+same transaction, beside the API keys. A changed or reset password ends every grant the account holds, in every workspace,
+as it ends every session — unlike an API key, which a person makes deliberately and can see in a list, a grant
+can be made in one click by whoever held the session, so a takeover's grant must not outlive the takeover.
 
 **The two tokens never cross.** An MCP token is signed by its own key, has the MCP endpoint as `aud` and the
 deployment origin as `iss`; the session decoder checks `iss=lightmove` and refuses any `aud`. Either check alone

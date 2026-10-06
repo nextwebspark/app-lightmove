@@ -1,11 +1,14 @@
 package app.lightmove.api.core.security.oauth;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import app.lightmove.api.IntegrationTest;
+import app.lightmove.api.core.security.token.Tokens;
 import java.time.Instant;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -89,6 +92,42 @@ class OAuthGrantIntegrationTest extends OAuthFlowSupport {
                 select metadata ->> 'reason' from app_lm_audit_event
                 where event_type = 'OAUTH_GRANT_REVOKED' and target_id = ?""", String.class, memberGrant))
                 .isEqualTo("MEMBER_REMOVED");
+    }
+
+    @Test
+    @DisplayName("a grant whose code is not yet exchanged is listed and can be disconnected, and its code then fails")
+    void unexchangedGrantDisconnects() throws Exception {
+        String admin = adminOf(domain);
+        String clientId = registerClient();
+        String verifier = Tokens.generate();
+        String code = authorize(clientId, verifier, admin, "projects:read");
+
+        JsonNode listed = list(admin, false);
+        assertThat(listed).hasSize(1);
+        mvc.perform(delete(GRANTS + "/" + listed.get(0).get("id").asText()).header("Authorization", "Bearer " + admin))
+                .andExpect(status().isNoContent());
+        assertThat(body(exchange(clientId, code, verifier, identity.resourceUrl())).get("error").asText())
+                .isEqualTo("invalid_grant");
+    }
+
+    @Test
+    @DisplayName("changing the password ends every grant the account holds")
+    void passwordChangeEndsGrants() throws Exception {
+        String admin = adminOf(domain);
+        String grant = grantOf(connect(registerClient(), admin, "projects:read"));
+
+        mvc.perform(post("/api/v1/auth/password/change").header("Authorization", "Bearer " + admin)
+                        .with(csrf())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"currentPassword":"%s","newPassword":"An0ther-Secret-Pass"}""".formatted(PASSWORD)))
+                .andExpect(status().isOk());
+
+        assertThat(exists(grant)).isFalse();
+        assertThat(db.queryForObject("""
+                select metadata ->> 'reason' from app_lm_audit_event
+                where event_type = 'OAUTH_GRANT_REVOKED' and target_id = ?""", String.class, grant))
+                .isEqualTo("PASSWORD_CHANGED");
     }
 
     @Test

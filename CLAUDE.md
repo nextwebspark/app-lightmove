@@ -588,7 +588,7 @@ token in it stored as SHA-256 only (`HashingAuthorizationService`), consent aske
 `sub`, `wsId`, `scope`, `client_id` and `grant_id` and no roles, and the refresh token rotated on every use — a
 rotated one replayed deletes the grant. Settings → Connected AI apps reads `/api/v1/workspace/oauth-grants`
 (`API_KEY_MANAGE`, `?all=true` under `WORKSPACE_MANAGE`, as API keys), and a grant ends with its membership or
-workspace, as a personal key does.
+workspace, as a personal key does, and every grant of an account ends with a password change or reset.
 
 ## Commands
 

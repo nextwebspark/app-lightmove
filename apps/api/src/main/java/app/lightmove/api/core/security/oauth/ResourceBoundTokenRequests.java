@@ -1,5 +1,6 @@
 package app.lightmove.api.core.security.oauth;
 
+import app.lightmove.api.core.config.McpSettings;
 import jakarta.servlet.http.HttpServletRequest;
 import java.util.List;
 import org.springframework.security.core.Authentication;
@@ -29,6 +30,7 @@ public final class ResourceBoundTokenRequests {
 
     private static boolean namesResource(HttpServletRequest request, String resourceUrl) {
         String[] values = request.getParameterValues(McpAuthorizationRules.RESOURCE_PARAMETER);
-        return values != null && values.length == 1 && resourceUrl.equals(values[0]);
+        return values != null && values.length == 1
+                && McpSettings.stripTrailingSlash(resourceUrl).equals(McpSettings.stripTrailingSlash(values[0]));
     }
 }

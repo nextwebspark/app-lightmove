@@ -105,7 +105,7 @@ public class OAuthAuthorizationServerConfig {
                                                  ClientIpResolver clientIps,
                                                  LightMoveProperties properties,
                                                  Clock clock) throws Exception {
-        McpAuthorizationRules rules = new McpAuthorizationRules(identity, access);
+        McpAuthorizationRules rules = new McpAuthorizationRules(identity, access, authorizations);
         AuthorizationEndpointReplies replies = new AuthorizationEndpointReplies(identity, json);
 
         JwtGenerator accessTokens = new JwtGenerator(new NimbusJwtEncoder(mcpJwkSource));
@@ -120,7 +120,7 @@ public class OAuthAuthorizationServerConfig {
                         .tokenGenerator(new DelegatingOAuth2TokenGenerator(
                                 accessTokens, new RotatingRefreshTokenGenerator(clock)))
                         .clientAuthentication(clientAuthentication -> clientAuthentication
-                                .authenticationConverter(new PublicClientRefreshAuthentication.Converter())
+                                .authenticationConverter(new PublicClientRefreshAuthentication.Converter(TOKEN))
                                 .authenticationProvider(new PublicClientRefreshAuthentication.Provider(clients)))
                         .authorizationEndpoint(authorize -> authorize
                                 .consentPage(CONSENT)

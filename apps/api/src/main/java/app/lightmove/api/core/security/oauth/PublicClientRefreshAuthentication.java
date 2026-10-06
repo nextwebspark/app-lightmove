@@ -29,9 +29,21 @@ public final class PublicClientRefreshAuthentication {
 
     public static final class Converter implements AuthenticationConverter {
 
+        private final String tokenEndpoint;
+
+        /**
+         * The client authentication filter serves revocation and introspection too; there the framework looks a token up
+         * by its raw value, which a hashed store cannot answer, so a public client is authenticated on the token endpoint
+         * and nowhere else.
+         */
+        public Converter(String tokenEndpoint) {
+            this.tokenEndpoint = tokenEndpoint;
+        }
+
         @Override
         public Authentication convert(HttpServletRequest request) {
             if (!HttpMethod.POST.matches(request.getMethod())
+                    || !tokenEndpoint.equals(request.getRequestURI())
                     || !AuthorizationGrantType.REFRESH_TOKEN.getValue()
                     .equals(request.getParameter(OAuth2ParameterNames.GRANT_TYPE))
                     || request.getHeader(HttpHeaders.AUTHORIZATION) != null

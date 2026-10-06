@@ -265,6 +265,8 @@ public class HashingAuthorizationService implements OAuth2AuthorizationService {
      * the first revoked it) and is refused, so one token is never redeemed twice and a revoked grant never returns.
      */
     private static void refuseIfChangedSinceRead(OAuth2Authorization authorization, Optional<StoredHashes> before) {
+        // A replayed code invalidates the grant's tokens through this same save; if a refresh rotates the row first,
+        // that invalidation is refused too. The replay itself is still refused, so the narrow loss is tolerated.
         String loaded = authorization.getAttribute(LOADED_HASHES);
         if (loaded == null) {
             return;
